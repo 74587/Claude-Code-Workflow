@@ -1,16 +1,16 @@
 ---
-name: update_dms
+name: update-memory
 description: Distributed Memory System management with intelligent classification
-usage: /update_dms [mode] [target]
+usage: /update-memory [mode] [target]
 argument-hint: [full|fast|deep] [path or scope]
 examples:
-  - /update_dms                    # Fast mode on current directory
-  - /update_dms full               # Complete initialization
-  - /update_dms fast src/api/      # Quick update on specific path
-  - /update_dms deep auth-system   # Deep analysis on scope
+  - /update-memory                    # Fast mode on current directory
+  - /update-memory full               # Complete initialization
+  - /update-memory fast src/api/      # Quick update on specific path
+  - /update-memory deep auth-system   # Deep analysis on scope
 ---
 
-### 🚀 **Command Overview: `/update_dms`**
+### 🚀 **Command Overview: `/update-memory`**
 
 -   **Type**: Distributed Memory System (DMS) Management.
 -   **Purpose**: Manages a hierarchical `CLAUDE.md` documentation system using intelligent project classification and agent-based task integration.
@@ -47,7 +47,7 @@ examples:
 
 ### 🧠 **Parallel Execution Logic**
 
-This describes the command's internal logic for selecting an execution strategy. It is handled automatically by `/update_dms`.
+This describes the command's internal logic for selecting an execution strategy. It is handled automatically by `/update-memory`.
 
 ```pseudo
 FUNCTION select_execution_strategy(project_structure):
@@ -152,7 +152,7 @@ In `full` mode, the orchestrator generates tasks for agents in this JSON format.
 
 ### 🤖 **Agent Integration Examples**
 
-The `/update_dms` command orchestrates `memory-gemini-bridge` agents using tasks formatted like this.
+The `/update-memory` command orchestrates `memory-gemini-bridge` agents using tasks formatted like this.
 
 #### **Single Agent (Fast/Deep Mode)**
 ```yaml
@@ -263,4 +263,3 @@ The command auto-selects the optimal strategy. Below are the patterns it uses.
 -   **🔬 Deep Mode**: ~10-30 minutes with parallel execution.
 -   **🚀 Full Mode**: ~30-45 minutes with parallel execution.
 -   **Benefit**: Parallel execution provides a massive speedup, offsetting a small coordination overhead.
-

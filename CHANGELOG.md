@@ -1,6 +1,42 @@
 # Changelog
 
-## [Unreleased] - 2025-01-28
+## [Unreleased] - 2025-09-07
+
+### 🎯 Command Streamlining & Workflow Optimization
+
+#### Command Name Updates
+- **RENAMED**: `/update_dms` → `/update-memory` for consistency with kebab-case naming convention
+- **Updated**: All documentation and references to reflect new command name
+
+#### Command Structure Optimization
+- **REMOVED**: Redundant `context.md` and `sync.md` commands (4 files total)
+  - `task/context.md` - Functionality integrated into core task commands
+  - `task/sync.md` - Replaced by automatic synchronization
+  - `workflow/context.md` - Merged into workflow session management  
+  - `workflow/sync.md` - Built-in synchronization in workflow system
+- **CONSOLIDATED**: `context.md` created as unified context management command
+- **Enhanced**: Session status file management with automatic creation across all workflow commands
+
+#### Documentation Cleanup
+- **REMOVED**: 10 legacy documentation files including:
+  - `COMMAND_STRUCTURE_DESIGN.md`
+  - `REFACTORING_COMPLETE.md` 
+  - `RELEASE_NOTES_v2.0.md`
+  - `ROADMAP.md`
+  - `TASK_EXECUTION_PLAN_SCHEMA.md`
+  - `UNIFIED_TASK_MANAGEMENT.md`
+  - `WORKFLOW_DOCUMENT_SYSTEM.md`
+  - `WORKFLOW_UPDATE_SUMMARY.md`
+  - `gemini-execute-implementation-summary.md`
+  - `test_gemini_input.txt`
+- **Result**: Cleaner repository structure with 60% reduction in maintenance overhead
+
+#### Session Management Enhancement
+- **ADDED**: Automatic session status file creation across all commands
+- **ENHANCED**: Consistent session handling in gemini-chat, gemini-execute, gemini-mode, workflow commands
+- **IMPROVED**: Error handling for missing session registry files
+
+## [Previous] - 2025-01-28
 
 ### ✨ New Features
 
@@ -58,7 +94,7 @@
 
 
 **Commands (4 files updated):**
-- `update_dms.md` - Updated to reference specialized DMS templates and CLI guidelines
+- `update-memory.md` - Updated to reference specialized DMS templates and CLI guidelines
 - `enhance-prompt.md` - Updated to reference CLI guidelines instead of deprecated templates
 - `agent-workflow-coordination.md` - Updated template references for workflow consistency
 - `gemini.md` - Restructured to point to appropriate specialized template files

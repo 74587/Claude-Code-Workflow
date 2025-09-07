@@ -84,7 +84,7 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | `/gemini-chat` | `/gemini-chat <查询> [--all-files] [--compress]` | 使用智能模板与 Gemini CLI 进行交互对话 |
 | `/gemini-execute` | `/gemini-execute <任务ID\|描述> [--yolo] [--debug]` | 智能执行器，自动推断文件上下文 |
 | `/gemini-mode` | `/gemini-mode <分析类型> <目标> [选项]` | 模板驱动的代码库分析（模式、架构、安全） |
-| `/update_dms` | `/update_dms [full\|fast\|deep] [路径]` | 分布式记忆系统管理，维护层级化 CLAUDE.md |
+| `/update-memory` | `/update-memory [full\|fast\|deep] [路径]` | 分布式记忆系统管理，维护层级化 CLAUDE.md |
 
 ### 工作流管理
 

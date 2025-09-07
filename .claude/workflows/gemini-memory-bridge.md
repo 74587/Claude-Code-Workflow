@@ -45,7 +45,7 @@ Target: [project-name or specific scope]
 - **Hierarchy Recommendation**: Specific CLAUDE.md file structure with rationale
 - **Content Strategy**: Level-specific focus areas and content differentiation
 - **Template Selection**: Appropriate DMS and core templates for analysis
-- **Integration Plan**: Workflow coordination with update_dms and agent systems
+- **Integration Plan**: Workflow coordination with update-memory and agent systems
 - **Quality Standards**: Cross-system compatibility and maintenance guidelines
 
 Focus on architectural understanding for documentation strategy rather than implementation details."

@@ -544,7 +544,7 @@ function Show-Summary {
     Write-Host "2. Configure settings - Edit .claude/settings.local.json as needed"
     Write-Host "3. Start using Claude Code with Agent workflow coordination!"
     Write-Host "4. Use /workflow commands for task execution"
-    Write-Host "5. Use /update_dms commands for memory system management"
+    Write-Host "5. Use /update-memory commands for memory system management"
     
     Write-Host ""
     Write-ColorOutput "Documentation: https://github.com/catlog22/Claude-CCW" $ColorInfo

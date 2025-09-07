@@ -294,7 +294,7 @@ function Main {
     Write-ColorOutput "Next steps:" $ColorInfo
     Write-Host "1. Review CLAUDE.md for project-specific guidelines"
     Write-Host "2. Try /workflow commands for Agent coordination"
-    Write-Host "3. Use /update_dms to manage distributed documentation"
+    Write-Host "3. Use /update-memory to manage distributed documentation"
     
     Wait-ForUserConfirmation "Remote installation done! Press any key to exit..." -ExitAfter
 }
