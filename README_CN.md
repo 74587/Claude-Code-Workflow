@@ -96,8 +96,7 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | `/workflow:implement` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | 进入实施阶段，基于复杂度组织流程 |
 | `/workflow:review` | `[--auto-fix]` | 最终质量保证，自动化测试和验证 |
 | `/workflow:issue` | `create\|list\|update\|integrate\|close [选项]` | 动态问题和变更请求管理 |
-| `/workflow:context` | `[--detailed] [--health-check] [--export]` | 统一的工作流状态和进度概览 |
-| `/workflow:sync` | `[--check] [--fix] [--force]` | 在所有文件间同步工作流状态 |
+| `/context` | `[任务ID\|--filter] [--analyze] [--format=tree\|list\|json]` | 统一的任务和工作流上下文，自动数据一致性 |
 
 ### 任务执行
 
@@ -107,8 +106,6 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | `/task:breakdown` | `<任务ID> [--strategy=auto\|interactive] [--depth=1-3]` | 智能任务分解为可管理的子任务 |
 | `/task:execute` | `<任务ID> [--mode=auto\|guided] [--agent=类型]` | 执行任务，自动选择智能体 |
 | `/task:replan` | `[任务ID\|--all] [--reason] [--strategy=adjust\|rebuild]` | 动态任务重新规划，适应需求变更 |
-| `/task:context` | `[任务ID\|--filter] [--analyze] [--update]` | 单任务上下文分析和依赖跟踪 |
-| `/task:sync` | `[--force] [--dry-run]` | 保持任务文件和跟踪文档的一致性 |
 
 ## 🎯 使用工作流
 

@@ -96,8 +96,7 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | `/workflow:implement` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | Enter implementation phase with complexity-based organization |
 | `/workflow:review` | `[--auto-fix]` | Final quality assurance with automated testing and validation |
 | `/workflow:issue` | `create\|list\|update\|integrate\|close [options]` | Dynamic issue and change request management |
-| `/workflow:context` | `[--detailed] [--health-check] [--export]` | Unified workflow state and progress overview |
-| `/workflow:sync` | `[--check] [--fix] [--force]` | Synchronize workflow state across all files |
+| `/context` | `[task-id\|--filter] [--analyze] [--format=tree\|list\|json]` | Unified task and workflow context with automatic data consistency |
 
 ### Task Execution
 
@@ -107,8 +106,6 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | `/task:breakdown` | `<task-id> [--strategy=auto\|interactive] [--depth=1-3]` | Intelligent task decomposition into manageable sub-tasks |
 | `/task:execute` | `<task-id> [--mode=auto\|guided] [--agent=type]` | Execute tasks with automatic agent selection |
 | `/task:replan` | `[task-id\|--all] [--reason] [--strategy=adjust\|rebuild]` | Dynamic task re-planning for changing requirements |
-| `/task:context` | `[task-id\|--filter] [--analyze] [--update]` | Single-task context analysis and dependency tracking |
-| `/task:sync` | `[--force] [--dry-run]` | Maintain consistency between task files and tracking documents |
 
 ## 🎯 Usage Workflows
 
