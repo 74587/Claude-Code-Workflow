@@ -1,12 +1,12 @@
 ---
 name: gemini-execute
 description: Intelligent context inference executor with auto-approval capabilities, supporting user descriptions and task ID execution modes
-usage: /gemini-execute <description|task-id> [--yolo] [--debug] [--save-session]
-argument-hint: "implementation description or task-id" [auto-approve, debug, session saving]
+usage: /gemini-execute <description|task-id> [--debug] [--save-session]
+argument-hint: "implementation description or task-id" [debug, session saving]
 examples:
-  - /gemini-execute "implement user authentication system" --yolo
-  - /gemini-execute "optimize React component performance @{custom/path}" --yolo
-  - /gemini-execute IMPL-001 --yolo
+  - /gemini-execute "implement user authentication system" 
+  - /gemini-execute "optimize React component performance @{custom/path}" 
+  - /gemini-execute IMPL-001 
   - /gemini-execute "fix API performance issues" --debug --save-session
 allowed-tools: Bash(gemini:*)
 model: sonnet
@@ -17,7 +17,7 @@ model: sonnet
 
 -   **Type**: Intelligent Context Inference Executor.
 -   **Purpose**: Infers context files to automatically execute implementation tasks using the Gemini CLI.
--   **Key Feature**: `--yolo` flag for non-interactive, auto-approved execution within workflows.
+-   **Key Feature**: Non-interactive, auto-approved execution by default for streamlined workflows.
 -   **Core Tool**: `Bash(gemini:*)`.
 
 ### ⚙️ Execution Modes
@@ -31,9 +31,10 @@ model: sonnet
 
 ### 📥 Command Parameters
 
--   `--yolo`: Enables non-interactive auto-approval mode. Automatically accepts all inferred operations.
 -   `--debug`: Outputs detailed logs of the inference process and execution steps.
 -   `--save-session`: Saves the entire execution session to the `.workflow/WFS-[topic-slug]/.chat/` directory.
+
+**Note**: All executions run in auto-approval mode by default (equivalent to previous --yolo behavior).
 
 ### 🔄 High-Level Execution Flow
 
@@ -97,7 +98,7 @@ The following templates are used to call the `gemini` command via the `Bash` too
 
 ```bash
 # User Description Mode
-gemini --all-files -p "@{intelligently_inferred_file_patterns} @{CLAUDE.md,**/*CLAUDE.md}
+gemini --all-files --yolo -p "@{intelligently_inferred_file_patterns} @{CLAUDE.md,**/*CLAUDE.md}
 
 Implementation Task: [user_description]
 
@@ -108,7 +109,7 @@ Based on intelligently inferred context, please provide:
 - Integration guidance"
 
 # Task ID Mode
-gemini --all-files -p "@{task_related_files} @{brainstorming_refs} @{CLAUDE.md,**/*CLAUDE.md}
+gemini --all-files --yolo -p "@{task_related_files} @{brainstorming_refs} @{CLAUDE.md,**/*CLAUDE.md}
 
 Task Execution: [task_title] (ID: [task-id])
 Task Description: [extracted_from_json]
@@ -122,25 +123,20 @@ Please execute implementation based on task definition:
 
 ### 🔗 Workflow System Integration Logic
 
-The command integrates deeply with the workflow system, especially with `--yolo`.
+The command integrates deeply with the workflow system with auto-approval by default.
 
 ```pseudo
 FUNCTION execute_with_workflow(task, flags):
-  IF "--yolo" in flags:
-    // With --yolo, all confirmation steps are automatically approved.
-    confirm_inferred_files = TRUE
-    confirm_gemini_execution = TRUE
-    confirm_file_modifications = TRUE
-  ELSE:
-    // Standard mode requires user confirmation at each critical step.
-    confirm_inferred_files = request_user_confirmation("Approve inferred files?")
-    // ... and so on for other steps.
+  // All confirmation steps are automatically approved by default
+  confirm_inferred_files = TRUE
+  confirm_gemini_execution = TRUE
+  confirm_file_modifications = TRUE
 
-  IF all_confirmations_are_true:
-    execute_gemini_task(task)
-    // Actions performed after successful execution
-    generate_task_summary_doc()
-    update_workflow_status_files() // Updates WFS & workflow-session.json
+  // Execute the task with auto-approval
+  execute_gemini_task(task)
+  // Actions performed after successful execution
+  generate_task_summary_doc()
+  update_workflow_status_files() // Updates WFS & workflow-session.json
 END FUNCTION
 ```
 
@@ -187,7 +183,7 @@ This template is automatically filled and generated after execution.
     1.  `workflow:session "..."`
     2.  `workflow:brainstorm`
     3.  `workflow:plan`
-    4.  `/gemini-execute IMPL-001 --yolo`
+    4.  `/gemini-execute IMPL-001`
     5.  `workflow:review`
 
 ### 💾 Session Persistence
