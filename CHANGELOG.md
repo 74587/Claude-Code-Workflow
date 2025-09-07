@@ -36,6 +36,14 @@
 - **ENHANCED**: Consistent session handling in gemini-chat, gemini-execute, gemini-mode, workflow commands
 - **IMPROVED**: Error handling for missing session registry files
 
+#### Documentation Modernization & Architecture Alignment
+- **UPDATED**: All command references to use unified `/context` command instead of deprecated `/task:context` and `/workflow:context`
+- **REMOVED**: All references to deprecated `/task:sync` and `/workflow:sync` commands
+- **ALIGNED**: Task and workflow documentation with Single Source of Truth (SSoT) architecture
+- **CLARIFIED**: JSON-first data model where `.task/*.json` files are authoritative and markdown files are generated views
+- **STANDARDIZED**: File naming consistency (TODO_CHECKLIST.md → TODO_LIST.md)
+- **ENHANCED**: Command integration descriptions to reflect automatic data consistency instead of manual synchronization
+
 ## [Previous] - 2025-01-28
 
 ### ✨ New Features

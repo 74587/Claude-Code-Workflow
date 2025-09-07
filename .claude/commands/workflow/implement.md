@@ -322,7 +322,7 @@ Always generates complete document suite:
 - Generates decomposition documents based on complexity triggers
 - Links documents to workflow-session.json with paths and status
 - Enables task commands (/task:*) with document integration
-- Starts progress tracking in both JSON and TODO_CHECKLIST.md
+- Initializes tasks in 'pending' state within their JSON files
 - Synchronizes task creation between documents and JSON states
 
 ### Next Actions

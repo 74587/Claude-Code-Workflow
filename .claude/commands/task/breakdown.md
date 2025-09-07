@@ -436,7 +436,7 @@ Post-breakdown validation:
 After breakdown:
 - `/task:execute` - Run subtasks using JSON task context
 - `/task:status` - View hierarchy from JSON files and TODO_LIST.md
-- `/task:context` - Analyze task relationships and JSON structure
+- `/context` - Analyze task relationships and JSON structure
 - `/task:replan` - Adjust breakdown and update task structure
 
 ## Examples

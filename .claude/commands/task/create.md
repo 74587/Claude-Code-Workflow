@@ -397,8 +397,7 @@ Created 3 tasks:
 After creation, use:
 - `/task:breakdown` - Split into hierarchical subtasks with JSON files
 - `/task:execute` - Run the task with summary generation
-- `/task:context` - View task details and file references
-- `/task:sync` - Validate file consistency across system
+- `/context` - View task details, status and relationships
 
 ## Examples
 

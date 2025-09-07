@@ -460,7 +460,7 @@ Apply? (y/n): y
 ## Related Commands
 
 - `/task:breakdown` - Initial task breakdown with JSON file creation
-- `/task:context` - Analyze current state from file system
+- `/context` - Analyze current state from file system
 - `/task:execute` - Execute replanned tasks with new structure
-- `/task:sync` - Validate file consistency after replanning
+- `/context` - View updated task structure and relationships
 - `/workflow:replan` - Replan entire workflow with session updates

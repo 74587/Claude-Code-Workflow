@@ -100,7 +100,7 @@ Integrates a specified issue into the current workflow plan.
         log("Executing integration...")
         // These steps correspond to the "集成步骤" in the example output.
         update_document("IMPL_PLAN.md")
-        update_document("TODO_CHECKLIST.md")
+        create_task_json_files("issue integration")
         update_tool_state("TodoWrite")
         update_session_file("workflow-session.json")
         log("Integration complete!")
@@ -134,9 +134,9 @@ Closes an issue that is completed or no longer relevant.
 ### 🤝 Command Integrations
 
 -   **Automatic Triggers**:
-    -   `/workflow:context`: Automatically displays the status of relevant issues.
+    -   `/context`: Displays the status of relevant issues and their integration with tasks.
     -   `/workflow:replan`: Can be automatically called by `integrate` to update the plan.
-    -   `/workflow:sync`: Ensures issue status is synchronized with project documents.
+    -   Issues are automatically integrated with the JSON-based workflow state.
 -   **Shared Data**:
     -   `workflow-session.json`: Stores core issue data and statistics.
     -   `WORKFLOW_ISSUES.md`: Provides a human-readable tracking document.
