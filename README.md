@@ -1,375 +1,228 @@
-# Claude Code Workflow (CCW) - Intelligent Development Workflow System
+# Claude Code Workflow (CCW)
 
-[中文](README_CN.md) | **English**
+A sophisticated multi-agent automation workflow framework that transforms complex software development tasks from conceptualization to implementation review into manageable, trackable, AI-orchestrated processes.
 
-**An innovative AI-powered development workflow orchestration system featuring progressive complexity management, document-state separation architecture, and intelligent multi-agent coordination.**
+## 🏗️ Architecture Overview
 
-> 🚀 **Version 2.0+** - Next-generation development automation with advanced architectural patterns and intelligent workflow orchestration.
+Claude Code Workflow (CCW) is built on two foundational pillars:
 
-## 🏗️ System Architecture
+### **Document-State Separation**
+- **Documents (*.md)**: Store human-readable plans, strategies, analysis reports, and summaries
+- **State (*.json)**: Manage machine-readable, dynamic workflow states and task definitions
+- This separation ensures robustness, recoverability, and automated processing capabilities
 
-Claude Code Workflow implements a **4-layer intelligent development architecture**:
-
-### 🧠 Core Innovation: Document-State Separation Pattern
-- **Markdown Files** → Planning, requirements, task structure, implementation strategy
-- **JSON Files** → Execution state, progress tracking, session metadata, dynamic changes
-- **Auto-Sync Engine** → Bidirectional coordination with clear ownership rules
-
-### ⚡ Progressive Complexity Management
-- **Level 0** (Simple): <5 tasks, minimal structure, direct execution
-- **Level 1** (Medium): 5-15 tasks, enhanced planning, agent coordination
-- **Level 2** (Complex): >15 tasks, full orchestration, iterative refinement
-
-### 🤖 Intelligent Agent Orchestration
-- **5 Specialized Agents**: Planning → Development → Review → Quality → Memory
-- **Context Preservation**: Original task context maintained throughout agent chain
-- **Quality Gates**: Each agent validates input and ensures output standards
-- **Adaptive Workflows**: Workflow depth matches task complexity requirements
-
-### 🔄 Advanced Features
-- **Session-First Architecture**: All commands auto-discover and inherit active session context
-- **Embedded Workflow Logic**: Commands contain built-in document generation
-- **Gemini CLI Integration**: 12+ specialized templates for intelligent context management
-- **Real-time Synchronization**: Reliable document-state coordination with conflict resolution
-
-## 🔥 Revolutionary Features
-
-### 🎯 Intelligent Workflow Orchestration
-**Three Execution Patterns**:
-- **Simple**: `TodoWrite → Context → Implementation → Review`
-- **Medium**: `TodoWrite → Planning → Implementation → Review`  
-- **Complex**: `TodoWrite → Planning → Implementation → Review → Iteration (max 2 cycles)`
-
-### 🏗️ Advanced Architecture Components
-
-#### 1. **5-Agent Specialized System**
-- **Action Planning Agent** (27KB) - PRD processing & implementation plans
-- **Code Developer** (13KB) - Test-driven development expert  
-- **Code Review Agent** (12KB) - Quality assurance & security validation
-- **Conceptual Planning Agent** (9KB) - High-level concept design
-- **Memory Gemini Bridge** (8KB) - Distributed memory synchronization
-
-#### 2. **Dynamic Template Ecosystem**
-- **10 Role-Based Planning Templates**: Multi-perspective brainstorming
-- **6 Tech-Stack Templates**: Language-specific development guidelines
-- **Script-Based Discovery**: YAML frontmatter parsing with semantic loading
-- **Conditional Content Filtering**: Version-aware template management
-
-#### 3. **JSON Document Coordination System**
-**Hierarchical File Structure**:
-```
-.workflow/WFS-[topic-slug]/
-├── workflow-session.json (master state)
-├── IMPL_PLAN.md (planning document)
-├── TODO_LIST.md (progress tracking)
-└── .task/
-    ├── impl-*.json (main tasks)
-    ├── impl-*.*.json (subtasks)
-    └── impl-*.*.*.json (detailed subtasks, max 3 levels)
-```
-
-**Data Ownership Rules**:
-- **Documents Own**: Implementation strategy, requirements, context
-- **JSON Owns**: Task definitions, status, progress, dependencies  
-- **Shared Responsibility**: Task status, progress calculation, cross-references
-
-#### 4. **Real-time Synchronization Engine**
-```
-File System Monitor → Change Parser → Conflict Detector → Sync Engine → Validator → Audit Log
-```
-**Conflict Resolution Priority**: Data ownership rules → Recent timestamp → User intent → System consistency
-
-## 📁 Project Structure
-
-```
-Claude-CCW/
-├── .claude/
-│   ├── agents/                    # Specialized development agents
-│   │   ├── conceptual-planning-agent.md
-│   │   ├── action-planning-agent.md
-│   │   ├── code-developer.md
-│   │   ├── code-review-agent.md
-│   │   └── [4 more agents]
-│   ├── commands/                  # Command implementations with file output
-│   │   ├── workflow/              # 8 core workflow commands (all with file generation)
-│   │   ├── task/                  # 6 task management commands (JSON + summary files)
-│   │   ├── docs/                  # Documentation management commands  
-│   │   └── [utility commands]
-│   ├── planning-templates/        # 10 role-based planning templates
-│   │   ├── system-architect.md
-│   │   ├── ui-designer.md
-│   │   └── [8 more roles]
-│   ├── tech-stack-templates/      # 6 language-specific guidelines
-│   │   ├── javascript-dev.md
-│   │   ├── python-dev.md
-│   │   ├── react-dev.md
-│   │   └── [3 more languages]
-│   ├── scripts/                   # Dynamic template loaders & executors
-│   │   ├── plan-executor.sh
-│   │   ├── tech-stack-loader.sh
-│   │   └── gemini-chat-executor.sh
-│   ├── schemas/                   # JSON schemas for state management
-│   │   ├── workflow-session.json
-│   │   ├── task.json
-│   │   └── issue.json
-│   ├── output-styles/             # Document generation templates
-│   │   └── agent-workflow-coordination.md
-│   └── workflows/                 # Unified workflow system principles
-│       ├── unified-workflow-system-principles.md
-│       ├── session-management-principles.md
-│       ├── file-structure-standards.md
-│       └── [18+ workflow guidelines]
-├── .workflow/                     # Generated workflow sessions
-│   ├── WFS-[topic-slug]/          # Individual session directories
-│   │   ├── workflow-session.json # Session state
-│   │   ├── IMPL_PLAN.md          # Planning document
-│   │   ├── TODO_LIST.md          # Task tracking
-│   │   ├── WORKFLOW_ISSUES.md    # Issue tracking
-│   │   ├── .task/                # JSON task files
-│   │   ├── .summaries/           # Completion summaries
-│   │   └── reports/              # Status reports
-│   └── session_status.jsonl     # Multi-session registry
-├── CLAUDE.md                     # Project-specific guidelines
-└── [Project documentation files]
-```
+### **Progressive Complexity**
+CCW intelligently adapts its file structure and workflow processes based on task complexity:
+- **Simple workflows**: Lightweight structure for single-file bug fixes
+- **Medium workflows**: Enhanced documentation with progress visualization
+- **Complex workflows**: Complete document suite with detailed implementation plans and multi-round iteration
 
 ## 🚀 Core Features
 
-### 1. Unified File Output System
+### Multi-Agent System
+- **Conceptual Planning Agent**: Multi-perspective brainstorming and concept planning
+- **Action Planning Agent**: Converts high-level concepts into executable implementation plans
+- **Code Developer**: Implements code based on plans
+- **Code Review Agent**: Reviews code quality and compliance
+- **Memory Gemini Bridge**: Synchronizes Claude and Gemini memory, maintains CLAUDE.md files
 
-**All Workflow Commands Generate Files**:
+### Workflow Session Management
+- Create, pause, resume, list, and switch workflow sessions
+- Automatic initialization of required file and directory structures
+- Hierarchical workflow filesystem (`.workflow/WFS-[topic-slug]/`)
+
+### Intelligent Context Generation
+- Dynamic context construction based on technology stack detection
+- Project structure analysis and domain keyword extraction
+- Optimized file targeting for Gemini CLI integration
+
+### Dynamic Change Management
+- Issue tracking and integration (`/workflow:issue`)
+- Automatic re-planning capabilities (`/task:replan`)
+- Seamless adaptation to changing requirements
+
+## 📁 Directory Structure
+
+```
+.claude/
+├── agents/                 # AI agent definitions and behaviors
+├── commands/              # CLI command implementations
+├── output-styles/         # Output formatting templates
+├── planning-templates/    # Role-specific planning approaches
+├── prompt-templates/      # AI interaction templates
+├── scripts/              # Automation scripts
+├── tech-stack-templates/ # Technology-specific templates
+├── workflows/            # Workflow definitions and guides
+└── settings.local.json   # Local configuration
+```
+
+## 🛠️ Installation
+
+### Quick Install (Recommended)
+
+**One-liner remote installation:**
+
+```powershell
+# PowerShell (Windows/Linux/macOS)
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content
+```
+
+**With parameters:**
+```powershell
+# Global installation
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Global" }
+
+# Custom directory installation  
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Directory 'C:\MyCustomPath'" }
+
+# Force installation (overwrites existing)
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Force" }
+```
+
+### Manual Installation
+
+1. Clone this repository:
 ```bash
-# Context analysis with exportable reports  
-/workflow:context --export --health-check
-# → Generates reports/STATUS_REPORT.md and reports/HEALTH_CHECK.md
-
-# Implementation with comprehensive logging
-/workflow:implement --type=medium
-# → Generates TODO_LIST.md and IMPLEMENTATION_LOG.md
-
-# Issue tracking with structured files
-/workflow:issue create --type=feature "OAuth2 support"
-# → Generates WORKFLOW_ISSUES.md and issues/ISS-001.json
-```
-
-**Dynamic Template System**:
-```bash
-# Discover available planning roles
-~/.claude/scripts/plan-executor.sh --list
-
-# Load specific role semantically  
-~/.claude/scripts/plan-executor.sh --load system-architect
-```
-
-### 2. Multi-Agent Workflow Orchestration
-
-**Simple Tasks** (Bug fixes, single-file changes):
-```bash
-/workflow:session start simple "Fix login button styling"
-/workflow:implement --type=simple
-# Auto-completes with minimal overhead
-```
-
-**Medium Tasks** (Multi-component features):
-```bash  
-/workflow:session start medium "Add user profile editing"
-/workflow:plan                      # Lightweight planning
-/workflow:implement --type=medium   # Multi-agent execution
-/workflow:review                    # Quality validation
-```
-
-**Complex Tasks** (System-level changes):
-```bash
-/workflow:session start complex "Implement OAuth2 authentication"
-/workflow:plan                      # Detailed planning with PRD
-/workflow:implement --type=complex  # Full agent orchestration
-/task:create "Design OAuth2 architecture"
-/task:breakdown IMPL-001
-/workflow:status                    # Progress monitoring
-/workflow:review                    # Comprehensive review
-```
-
-### 3. Session Management with State Persistence
-
-**Complete Session Control**:
-- **JSON State Management**: All workflow state persisted in `workflow-session.json`
-- **Task-Level Tracking**: Detailed task management in `tasks.json`
-- **Pause/Resume**: Safe interruption and recovery
-- **Progress Monitoring**: Real-time TodoWrite integration
-
-**Session Example**:
-```json
-{
-  "session_id": "WFS-2025-001",
-  "type": "complex",
-  "current_phase": "IMPLEMENT", 
-  "phases": {
-    "PLAN": {"status": "completed"},
-    "IMPLEMENT": {"status": "active", "progress": 60},
-    "REVIEW": {"status": "pending"}
-  }
-}
-```
-
-### 4. Intelligent Context Analysis
-
-**Gemini CLI Integration** with 12+ specialized templates:
-- **Architecture Analysis**: System structure and component relationships
-- **Security Review**: Vulnerability assessment and compliance
-- **Performance Analysis**: Optimization opportunities and bottlenecks
-- **Pattern Detection**: Code patterns and best practices
-- **Dependency Analysis**: Module relationships and impacts
-
-### 5. Unified Task Management  
-
-**Dual-Layer Architecture**:
-- **Workflow Layer**: Macro-level session and phase management
-- **Task Layer**: Micro-level task execution and tracking
-- **Automatic Synchronization**: Bi-directional data consistency
-- **Unified Status**: Single command for complete project overview
-
-## 🎯 Usage Examples
-
-### Multi-Perspective Feature Planning
-```bash
-# Use conceptual planning agent for brainstorming
-# System loads multiple planning roles dynamically:
-# - system-architect (technical feasibility)
-# - ui-designer (user experience)  
-# - security-expert (security implications)
-# - data-architect (data requirements)
-
-/workflow:session start complex "Real-time chat feature"
-/workflow:plan
-# → Generates comprehensive PRD with multi-role analysis
-# → Creates IMPLEMENTATION_PLAN.md and TASK_DECOMPOSITION.md
-```
-
-### Tech Stack Specific Development
-```bash  
-# Code developer agent loads appropriate tech guidelines
-/workflow:implement --type=medium
-# → Automatically detects JavaScript/React codebase
-# → Loads javascript-dev.md and react-dev.md guidelines  
-# → Applies language-specific best practices
-```
-
-### Advanced Session Management
-```bash
-# Complex project with interruption handling
-/workflow:session start complex "Microservices migration"
-/workflow:plan                       # Detailed planning
-/workflow:implement --type=complex   # Begin implementation
-
-# Work gets interrupted
-/workflow:session pause              # Safe state preservation
-
-# Later resume
-/workflow:session resume             # Continues from exact point
-/workflow:status                     # Shows current progress
-/task:execute IMPL-003.2             # Continue specific task
-```
-
-## 🛠️ Installation & Setup
-
-### Prerequisites
-- **Claude Code CLI** environment
-- **Bash/PowerShell** for script execution  
-- **Git** for version control
-- **Gemini CLI** (optional, for enhanced analysis)
-
-### Installation
-```bash
-# Clone the repository
 git clone https://github.com/catlog22/Claude-CCW.git
 cd Claude-CCW
-
-# Copy to Claude Code directory
-cp -r .claude ~/.claude/
-cp CLAUDE.md ~/.claude/
-
-# Make scripts executable
-chmod +x ~/.claude/scripts/*.sh
 ```
 
-### Quick Start
-```bash
-# Start with a simple task
-/workflow:session start simple "Fix responsive layout bug"
-/workflow:implement --type=simple
+2. Run the local installer:
+```powershell
+# Windows PowerShell
+.\Install-Claude.ps1
 
-# Or try a medium complexity task
-/workflow:session start medium "Add user notification system"  
-/workflow:plan
-/workflow:implement --type=medium
+# With parameters
+.\Install-Claude.ps1 -InstallMode Global -Force
+```
+
+3. Or manually set up the environment:
+```bash
+# Copy to your Claude Code configuration directory
+cp -r .claude ~/.claude/
+# Or on Windows
+xcopy .claude %USERPROFILE%\.claude /E /I
+```
+
+4. Verify installation:
+```bash
+/workflow:session list
+```
+
+### Installation Options
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `-Global` | Install system-wide | `-Global` |
+| `-Directory` | Custom installation path | `-Directory "C:\CCW"` |
+| `-Force` | Overwrite existing installation | `-Force` |
+| `-NoBackup` | Skip backup of existing files | `-NoBackup` |
+| `-NonInteractive` | Silent installation | `-NonInteractive` |
+| `-Branch` | Install from specific branch | `-Branch "develop"` |
+
+## 📖 Usage Guide
+
+### Starting a Complex Workflow
+
+1. **Initialize Session**:
+```bash
+/workflow:session start complex "Implement OAuth2 user authentication system"
+```
+
+2. **Conceptual Planning** (Optional but recommended):
+```bash
+/brainstorm "Design OAuth2 authentication system architecture" --perspectives=system-architect,security-expert,data-architect
+```
+
+3. **Create Action Plan**:
+```bash
+/workflow:action-plan --from-brainstorming
+```
+
+4. **Task Creation & Breakdown**:
+```bash
+/task:create "Backend API development"
+/task:breakdown IMPL-1
+```
+
+5. **Execute Tasks**:
+```bash
+/task:execute IMPL-1.1
+```
+
+6. **Handle Changes**:
+```bash
+/workflow:issue create --type=bug "JWT token refresh logic vulnerability"
+/workflow:issue integrate ISS-001 --position=immediate
+```
+
+7. **Monitor Progress**:
+```bash
+/workflow:context --detailed
+/task:context IMPL-1.2
+```
+
+8. **Review & Complete**:
+```bash
 /workflow:review
 ```
 
-## 📊 System Capabilities
+## 🎯 Key Commands
 
-### Planning & Analysis
-- **Multi-Role Brainstorming**: 10 specialized planning perspectives
-- **PRD Generation**: Comprehensive requirement documentation
-- **Risk Assessment**: Automated risk identification and mitigation
-- **Dependency Analysis**: Smart module relationship detection
+| Command | Purpose |
+|---------|---------|
+| `/workflow:session` | Manage workflow sessions |
+| `/brainstorm` | Multi-perspective conceptual planning |
+| `/workflow:action-plan` | Convert concepts to implementation plans |
+| `/task:breakdown` | Decompose tasks into executable units |
+| `/task:execute` | Execute specific tasks |
+| `/workflow:issue` | Manage issues and changes |
+| `/gemini-execute` | Enhanced Gemini CLI integration |
+| `/update_dms` | Maintain distributed memory system |
 
-### Development & Implementation  
-- **Tech Stack Awareness**: 6 language-specific development guidelines
-- **Test-Driven Development**: Automated test generation and execution
-- **Code Quality Enforcement**: Real-time quality validation
-- **Pattern Recognition**: Existing codebase pattern analysis
+## 🔧 Technical Highlights
 
-### Project Management
-- **Session Persistence**: Complete workflow state management
-- **Progress Tracking**: Real-time TodoWrite integration
-- **Task Decomposition**: Hierarchical task breakdown
-- **Status Monitoring**: Unified progress dashboard
+- **Intelligent Context Processing**: Dynamic context construction with technology stack detection
+- **Template-Driven Architecture**: Highly customizable and extensible through templates
+- **Quality Assurance Integration**: Built-in code review and testing strategy phases
+- **Distributed Memory System (DMS)**: Maintains project-level shared memory through CLAUDE.md files
+- **CLI-First Design**: Powerful, orthogonal command-line interface for automation
 
-### Quality Assurance
-- **Multi-Phase Review**: Planning → Implementation → Review validation
-- **Security Analysis**: Automated security assessment
-- **Performance Monitoring**: Performance impact analysis
-- **Documentation Updates**: Automatic documentation synchronization
+## 🎨 Design Philosophy
 
-## 🔧 Advanced Configuration
+- **Structure over Freeform**: Guided workflows prevent chaos and oversights
+- **Traceability & Auditing**: Complete audit trail for all decisions and changes
+- **Automation with Human Oversight**: High automation with human confirmation at key decision points
+- **Separation of Concerns**: Clean architecture with distinct responsibilities
+- **Extensibility**: Easy to extend with new agents, commands, and templates
 
-### Template Customization
-Add custom planning roles or tech stack guidelines by:
-1. Creating new `.md` files with YAML frontmatter
-2. Following the template structure pattern
-3. Templates auto-discovered by script loaders
+## 📚 Documentation
 
-### Session Configuration
-Modify session behavior in:
-- `.claude/workflows/session-management-principles.md`
-- `.claude/schemas/workflow-session.json`
-
-### Agent Coordination
-Customize agent workflows in:
-- `.claude/workflows/agent-orchestration-patterns.md`
-- Individual agent configuration files
-
-## 📈 Performance & Scalability
-
-- **JSON-Based State**: Efficient session persistence
-- **Modular Architecture**: Independent component operation
-- **Dynamic Loading**: On-demand template activation  
-- **Scalable Task Management**: Handles simple to enterprise-level complexity
-- **Memory Efficient**: Smart context management with Gemini integration
+- **Workflow Guidelines**: See `workflows/` directory for detailed process documentation
+- **Agent Definitions**: Check `agents/` for AI agent specifications
+- **Template Library**: Explore `planning-templates/` and `prompt-templates/`
+- **Integration Guides**: Review Gemini CLI integration in `workflows/gemini-*.md`
 
 ## 🤝 Contributing
 
-This is an active development project. Key areas for contribution:
-- Additional planning role templates
-- New tech stack development guidelines  
-- Enhanced agent coordination patterns
-- Performance optimizations
-- Documentation improvements
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
 
 ## 📄 License
 
-[Specify license - typically MIT or Apache 2.0]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔮 Future Roadmap
+
+- Enhanced multi-language support
+- Integration with additional AI models
+- Advanced project analytics and insights
+- Real-time collaboration features
+- Extended CI/CD pipeline integration
 
 ---
 
-**Claude Code Workflow (CCW)** - Elevating Claude Code development through intelligent workflow orchestration and comprehensive project management.
+**Claude Code Workflow (CCW)** - Transforming software development through intelligent automation and structured workflows.
