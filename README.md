@@ -56,129 +56,122 @@ CCW intelligently adapts its file structure and workflow processes based on task
 └── settings.local.json   # Local configuration
 ```
 
-## 🛠️ Installation
+## 🚀 Quick Start
 
-### Quick Install (Recommended)
-
-**One-liner remote installation:**
-
+**One-liner installation:**
 ```powershell
-# PowerShell (Windows/Linux/macOS)
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
 ```
 
-**With parameters:**
-```powershell
-# Global installation
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Global" }
-
-# Custom directory installation  
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Directory 'C:\MyCustomPath'" }
-
-# Force installation (overwrites existing)
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Force" }
-```
-
-### Manual Installation
-
-1. Clone this repository:
-```bash
-git clone https://github.com/catlog22/Claude-Code-Workflow.git
-cd Claude-Code-Workflow
-```
-
-2. Run the local installer:
-```powershell
-# Windows PowerShell
-.\Install-Claude.ps1
-
-# With parameters
-.\Install-Claude.ps1 -InstallMode Global -Force
-```
-
-3. Or manually set up the environment:
-```bash
-# Copy to your Claude Code configuration directory
-cp -r .claude ~/.claude/
-# Or on Windows
-xcopy .claude %USERPROFILE%\.claude /E /I
-```
-
-4. Verify installation:
+**Verify installation:**
 ```bash
 /workflow:session list
 ```
 
-### Installation Options
+## 📚 Complete Command Reference
 
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `-Global` | Install system-wide | `-Global` |
-| `-Directory` | Custom installation path | `-Directory "C:\CCW"` |
-| `-Force` | Overwrite existing installation | `-Force` |
-| `-NoBackup` | Skip backup of existing files | `-NoBackup` |
-| `-NonInteractive` | Silent installation | `-NonInteractive` |
-| `-Branch` | Install from specific branch | `-Branch "develop"` |
+### Core Commands
 
-## 📖 Usage Guide
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| `/enhance-prompt` | `/enhance-prompt <input>` | Enhance and structure user inputs with technical context |
+| `/gemini-chat` | `/gemini-chat <inquiry> [--all-files] [--compress]` | Interactive dialogue with Gemini CLI using smart templates |
+| `/gemini-execute` | `/gemini-execute <task-id\|description> [--yolo] [--debug]` | Intelligent executor with automatic file context inference |
+| `/gemini-mode` | `/gemini-mode <analysis-type> <target> [options]` | Template-driven codebase analysis (pattern, architecture, security) |
+| `/update_dms` | `/update_dms [full\|fast\|deep] [path]` | Distributed Memory System management with hierarchical CLAUDE.md |
 
-### Starting a Complex Workflow
+### Workflow Management
 
-1. **Initialize Session**:
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| `/workflow:session` | `start\|pause\|resume\|list\|switch\|status [complexity] ["task"]` | Session lifecycle management with complexity adaptation |
+| `/workflow:brainstorm` | `/brainstorm <topic> [--perspectives=role1,role2]` | Multi-agent conceptual planning from different expert perspectives |
+| `/workflow:action-plan` | `[--from-brainstorming] [--skip-brainstorming] [--replan]` | Convert concepts to executable implementation plans |
+| `/workflow:implement` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | Enter implementation phase with complexity-based organization |
+| `/workflow:review` | `[--auto-fix]` | Final quality assurance with automated testing and validation |
+| `/workflow:issue` | `create\|list\|update\|integrate\|close [options]` | Dynamic issue and change request management |
+| `/workflow:context` | `[--detailed] [--health-check] [--export]` | Unified workflow state and progress overview |
+| `/workflow:sync` | `[--check] [--fix] [--force]` | Synchronize workflow state across all files |
+
+### Task Execution
+
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| `/task:create` | `"<title>" [--type=type] [--priority=level]` | Create hierarchical implementation tasks with auto-generated IDs |
+| `/task:breakdown` | `<task-id> [--strategy=auto\|interactive] [--depth=1-3]` | Intelligent task decomposition into manageable sub-tasks |
+| `/task:execute` | `<task-id> [--mode=auto\|guided] [--agent=type]` | Execute tasks with automatic agent selection |
+| `/task:replan` | `[task-id\|--all] [--reason] [--strategy=adjust\|rebuild]` | Dynamic task re-planning for changing requirements |
+| `/task:context` | `[task-id\|--filter] [--analyze] [--update]` | Single-task context analysis and dependency tracking |
+| `/task:sync` | `[--force] [--dry-run]` | Maintain consistency between task files and tracking documents |
+
+## 🎯 Usage Workflows
+
+### Complex Feature Development
 ```bash
-/workflow:session start complex "Implement OAuth2 user authentication system"
-```
+# 1. Start sophisticated workflow with full documentation
+/workflow:session start complex "Implement OAuth2 authentication system"
 
-2. **Conceptual Planning** (Optional but recommended):
-```bash
-/brainstorm "Design OAuth2 authentication system architecture" --perspectives=system-architect,security-expert,data-architect
-```
+# 2. Multi-perspective brainstorming
+/brainstorm "OAuth2 architecture design" --perspectives=system-architect,security-expert,data-architect
 
-3. **Create Action Plan**:
-```bash
+# 3. Create detailed implementation plan
 /workflow:action-plan --from-brainstorming
-```
 
-4. **Task Creation & Breakdown**:
-```bash
+# 4. Break down into manageable tasks
 /task:create "Backend API development"
-/task:breakdown IMPL-1
-```
+/task:breakdown IMPL-1 --strategy=auto
 
-5. **Execute Tasks**:
-```bash
-/task:execute IMPL-1.1
-```
+# 5. Execute with intelligent automation
+/gemini-execute IMPL-1.1 --yolo
+/gemini-execute IMPL-1.2 --yolo
 
-6. **Handle Changes**:
-```bash
-/workflow:issue create --type=bug "JWT token refresh logic vulnerability"
-/workflow:issue integrate ISS-001 --position=immediate
-```
+# 6. Handle dynamic changes
+/workflow:issue create --type=enhancement "Add social login support"
+/workflow:issue integrate ISS-001 --position=next
 
-7. **Monitor Progress**:
-```bash
+# 7. Monitor and review
 /workflow:context --detailed
-/task:context IMPL-1.2
+/workflow:review --auto-fix
 ```
 
-8. **Review & Complete**:
+### Quick Bug Fix
 ```bash
+# 1. Lightweight session for simple tasks
+/workflow:session start simple "Fix login button alignment"
+
+# 2. Direct analysis and implementation
+/gemini-chat "Analyze login button CSS issues in @{src/components/Login.js}"
+
+# 3. Create and execute single task
+/task:create "Apply CSS fix to login button"
+/task:execute IMPL-1 --mode=auto
+
+# 4. Quick review
 /workflow:review
 ```
 
-## 🎯 Key Commands
+### Advanced Code Analysis
+```bash
+# 1. Security audit
+/gemini-mode security "Scan authentication modules for vulnerabilities"
 
-| Command | Purpose |
-|---------|---------|
-| `/workflow:session` | Manage workflow sessions |
-| `/brainstorm` | Multi-perspective conceptual planning |
-| `/workflow:action-plan` | Convert concepts to implementation plans |
-| `/task:breakdown` | Decompose tasks into executable units |
-| `/task:execute` | Execute specific tasks |
-| `/workflow:issue` | Manage issues and changes |
-| `/gemini-execute` | Enhanced Gemini CLI integration |
-| `/update_dms` | Maintain distributed memory system |
+# 2. Architecture analysis
+/gemini-mode architecture "Analyze component dependencies and data flow"
+
+# 3. Performance optimization
+/gemini-mode performance "Identify bottlenecks in React rendering"
+
+# 4. Pattern recognition
+/gemini-mode pattern "Extract reusable component patterns"
+```
+
+## 📊 Complexity-Based Strategies
+
+| Complexity | Use Cases | Command Strategy | Documentation Level |
+|------------|-----------|------------------|-------------------|
+| **Simple** | Bug fixes, text changes, single-file updates | Skip brainstorming → Direct implementation → Minimal tasks | Light (session + log) |
+| **Medium** | Multi-file features, refactoring, API changes | Optional brainstorming → Action plan → 2-level tasks → Progress tracking | Moderate (+ TODO_LIST.md) |
+| **Complex** | Architecture changes, security modules, system-wide updates | Required brainstorming → Detailed planning → 3-level tasks → Risk assessment | Complete (full document suite) |
 
 ## 🔧 Technical Highlights
 

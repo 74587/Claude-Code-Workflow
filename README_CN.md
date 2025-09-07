@@ -56,129 +56,122 @@ CCW 根据任务复杂度智能调整其文件结构和工作流程：
 └── settings.local.json   # 本地配置
 ```
 
-## 🛠️ 安装
+## 🚀 快速开始
 
-### 快速安装（推荐）
-
-**一键远程安装：**
-
+**一键安装：**
 ```powershell
-# PowerShell (Windows/Linux/macOS)
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
 ```
 
-**带参数安装：**
-```powershell
-# 全局安装
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Global" }
-
-# 自定义目录安装
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Directory 'C:\MyCustomPath'" }
-
-# 强制安装（覆盖现有文件）
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Force" }
-```
-
-### 手动安装
-
-1. 克隆此仓库：
-```bash
-git clone https://github.com/catlog22/Claude-Code-Workflow.git
-cd Claude-Code-Workflow
-```
-
-2. 运行本地安装脚本：
-```powershell
-# Windows PowerShell
-.\Install-Claude.ps1
-
-# 带参数
-.\Install-Claude.ps1 -InstallMode Global -Force
-```
-
-3. 或手动设置环境：
-```bash
-# 复制到您的 Claude Code 配置目录
-cp -r .claude ~/.claude/
-# 或在 Windows 上
-xcopy .claude %USERPROFILE%\.claude /E /I
-```
-
-4. 验证安装：
+**验证安装：**
 ```bash
 /workflow:session list
 ```
 
-### 安装选项
+## 📚 完整命令参考
 
-| 参数 | 说明 | 示例 |
-|-----------|-------------|---------|
-| `-Global` | 系统级安装 | `-Global` |
-| `-Directory` | 自定义安装路径 | `-Directory "C:\CCW"` |
-| `-Force` | 覆盖现有安装 | `-Force` |
-| `-NoBackup` | 跳过现有文件备份 | `-NoBackup` |
-| `-NonInteractive` | 静默安装 | `-NonInteractive` |
-| `-Branch` | 从特定分支安装 | `-Branch "develop"` |
+### 核心命令
 
-## 📖 使用指南
+| 命令 | 语法 | 描述 |
+|---------|--------|-------------|
+| `/enhance-prompt` | `/enhance-prompt <输入>` | 增强和构造用户输入，添加技术上下文 |
+| `/gemini-chat` | `/gemini-chat <查询> [--all-files] [--compress]` | 使用智能模板与 Gemini CLI 进行交互对话 |
+| `/gemini-execute` | `/gemini-execute <任务ID\|描述> [--yolo] [--debug]` | 智能执行器，自动推断文件上下文 |
+| `/gemini-mode` | `/gemini-mode <分析类型> <目标> [选项]` | 模板驱动的代码库分析（模式、架构、安全） |
+| `/update_dms` | `/update_dms [full\|fast\|deep] [路径]` | 分布式记忆系统管理，维护层级化 CLAUDE.md |
 
-### 启动复杂工作流
+### 工作流管理
 
-1. **初始化会话**：
+| 命令 | 语法 | 描述 |
+|---------|--------|-------------|
+| `/workflow:session` | `start\|pause\|resume\|list\|switch\|status [复杂度] ["任务"]` | 会话生命周期管理，支持复杂度自适应 |
+| `/workflow:brainstorm` | `/brainstorm <主题> [--perspectives=角色1,角色2]` | 多智能体概念规划，提供不同专家视角 |
+| `/workflow:action-plan` | `[--from-brainstorming] [--skip-brainstorming] [--replan]` | 将概念转化为可执行的实施计划 |
+| `/workflow:implement` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | 进入实施阶段，基于复杂度组织流程 |
+| `/workflow:review` | `[--auto-fix]` | 最终质量保证，自动化测试和验证 |
+| `/workflow:issue` | `create\|list\|update\|integrate\|close [选项]` | 动态问题和变更请求管理 |
+| `/workflow:context` | `[--detailed] [--health-check] [--export]` | 统一的工作流状态和进度概览 |
+| `/workflow:sync` | `[--check] [--fix] [--force]` | 在所有文件间同步工作流状态 |
+
+### 任务执行
+
+| 命令 | 语法 | 描述 |
+|---------|--------|-------------|
+| `/task:create` | `"<标题>" [--type=类型] [--priority=级别]` | 创建层级化实施任务，自动生成 ID |
+| `/task:breakdown` | `<任务ID> [--strategy=auto\|interactive] [--depth=1-3]` | 智能任务分解为可管理的子任务 |
+| `/task:execute` | `<任务ID> [--mode=auto\|guided] [--agent=类型]` | 执行任务，自动选择智能体 |
+| `/task:replan` | `[任务ID\|--all] [--reason] [--strategy=adjust\|rebuild]` | 动态任务重新规划，适应需求变更 |
+| `/task:context` | `[任务ID\|--filter] [--analyze] [--update]` | 单任务上下文分析和依赖跟踪 |
+| `/task:sync` | `[--force] [--dry-run]` | 保持任务文件和跟踪文档的一致性 |
+
+## 🎯 使用工作流
+
+### 复杂功能开发
 ```bash
-/workflow:session start complex "实现 OAuth2 用户认证系统"
-```
+# 1. 启动完整文档的复杂工作流
+/workflow:session start complex "实现 OAuth2 认证系统"
 
-2. **概念规划**（可选但推荐）：
-```bash
-/brainstorm "设计 OAuth2 认证系统架构" --perspectives=system-architect,security-expert,data-architect
-```
+# 2. 多视角头脑风暴
+/brainstorm "OAuth2 架构设计" --perspectives=system-architect,security-expert,data-architect
 
-3. **创建行动计划**：
-```bash
+# 3. 创建详细实施计划
 /workflow:action-plan --from-brainstorming
-```
 
-4. **任务创建与分解**：
-```bash
+# 4. 分解为可管理的任务
 /task:create "后端 API 开发"
-/task:breakdown IMPL-1
-```
+/task:breakdown IMPL-1 --strategy=auto
 
-5. **执行任务**：
-```bash
-/task:execute IMPL-1.1
-```
+# 5. 智能自动化执行
+/gemini-execute IMPL-1.1 --yolo
+/gemini-execute IMPL-1.2 --yolo
 
-6. **处理变更**：
-```bash
-/workflow:issue create --type=bug "JWT 令牌刷新逻辑漏洞"
-/workflow:issue integrate ISS-001 --position=immediate
-```
+# 6. 处理动态变更
+/workflow:issue create --type=enhancement "添加社交登录支持"
+/workflow:issue integrate ISS-001 --position=next
 
-7. **监控进度**：
-```bash
+# 7. 监控和审查
 /workflow:context --detailed
-/task:context IMPL-1.2
+/workflow:review --auto-fix
 ```
 
-8. **审查与完成**：
+### 快速Bug修复
 ```bash
+# 1. 简单任务的轻量级会话
+/workflow:session start simple "修复登录按钮对齐问题"
+
+# 2. 直接分析和实施
+/gemini-chat "分析 @{src/components/Login.js} 中登录按钮的 CSS 问题"
+
+# 3. 创建并执行单一任务
+/task:create "应用登录按钮的 CSS 修复"
+/task:execute IMPL-1 --mode=auto
+
+# 4. 快速审查
 /workflow:review
 ```
 
-## 🎯 关键命令
+### 高级代码分析
+```bash
+# 1. 安全审计
+/gemini-mode security "扫描认证模块的安全漏洞"
 
-| 命令 | 用途 |
-|---------|---------|
-| `/workflow:session` | 管理工作流会话 |
-| `/brainstorm` | 多视角概念规划 |
-| `/workflow:action-plan` | 将概念转化为实施计划 |
-| `/task:breakdown` | 将任务分解为可执行单元 |
-| `/task:execute` | 执行特定任务 |
-| `/workflow:issue` | 管理问题和变更 |
-| `/gemini-execute` | 增强的 Gemini CLI 集成 |
-| `/update_dms` | 维护分布式记忆系统 |
+# 2. 架构分析
+/gemini-mode architecture "分析组件依赖和数据流"
+
+# 3. 性能优化
+/gemini-mode performance "识别 React 渲染的瓶颈"
+
+# 4. 模式识别
+/gemini-mode pattern "提取可重用的组件模式"
+```
+
+## 📊 基于复杂度的策略
+
+| 复杂度 | 使用场景 | 命令策略 | 文档级别 |
+|------------|-----------|------------------|-------------------|
+| **简单** | Bug修复、文本更改、单文件更新 | 跳过头脑风暴 → 直接实施 → 最小任务 | 轻量（会话+日志） |
+| **中等** | 多文件功能、重构、API更改 | 可选头脑风暴 → 行动计划 → 2级任务 → 进度跟踪 | 中等（+ TODO_LIST.md） |
+| **复杂** | 架构更改、安全模块、系统级更新 | 必需头脑风暴 → 详细规划 → 3级任务 → 风险评估 | 完整（全套文档） |
 
 ## 🔧 技术亮点
 
