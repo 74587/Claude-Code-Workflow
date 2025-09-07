@@ -1,8 +1,10 @@
-# JSON-Document Coordination System
+# JSON-Document Coordination System (Single Source of Truth)
 
 ## Overview
 
-This document provides technical implementation details for JSON file structures, synchronization mechanisms, conflict resolution, and performance optimization.
+This document defines the **Single Source of Truth** architecture where JSON files are the authoritative state source and all markdown documents are read-only, generated views. This eliminates bidirectional synchronization complexity and data conflicts.
+
+**Key Principle**: `.task/*.json` files are the **only** authoritative source of task state. All markdown documents (`TODO_LIST.md`, progress displays, etc.) are generated on-demand from JSON data.
 
 ### JSON File Hierarchy
 ```
@@ -184,23 +186,13 @@ TODO_LIST.md serves as both the task registry and progress display:
 }
 ```
 
-## Coordination Mechanisms
+## Single Source of Truth Architecture
 
-### 1. Data Ownership Rules
+### 1. Data Authority (Simplified)
 
-#### Documents Own (Authoritative)
-**IMPL_PLAN.md:**
-- **Implementation Strategy**: Overall approach, phases, risk assessment
-- **Requirements**: High-level functional requirements
-- **Context**: Global project context, constraints
-
-**TODO_LIST.md:**
-- **Progress Visualization**: Task status display, completion tracking
-- **Checklist Format**: Checkbox representation of task hierarchy
-
-#### JSON Files Own (Authoritative)  
-- **Complete Task Definitions**: Full task context, requirements, acceptance criteria
-- **Hierarchical Relationships**: Parent-child links, depth management
+#### JSON Files Own (ONLY Authoritative Source)
+- **ALL Task State**: Complete task definitions, status, progress, metadata
+- **Hierarchical Relationships**: Parent-child links, depth management  
 - **Execution State**: pending/active/completed/blocked/failed
 - **Progress Data**: Percentages, timing, checkpoints
 - **Agent Assignment**: Current agent, execution history
@@ -208,154 +200,95 @@ TODO_LIST.md serves as both the task registry and progress display:
 - **Session Metadata**: Timestamps, versions, attempt counts
 - **Runtime State**: Current attempt, active processes
 
-#### Shared Responsibility (Synchronized)
-- **Task Status**: JSON authoritative, TODO_LIST.md displays current state
-- **Progress Calculations**: Derived from JSON hierarchy, shown in TODO_LIST.md
-- **Cross-References**: JSON contains document refs, documents link to relevant tasks
-- **Task Hierarchy**: JSON defines structure, TODO_LIST.md visualizes it
+#### Documents Are Read-Only Views (Generated Only)
+- **IMPL_PLAN.md**: Static planning document (manually created, rarely changes)
+- **TODO_LIST.md**: **Generated view** from JSON files (never manually edited)
+- **Progress Reports**: **Generated views** from JSON data
+- **Status Displays**: **Generated views** from JSON state
 
-### 2. Synchronization Events
+#### No Shared Responsibility (Eliminates Conflicts)
+- **Single Direction Flow**: JSON → Markdown (never Markdown → JSON)
+- **No Synchronization**: Documents are generated, not synchronized
+- **No Conflicts**: Only one source of truth eliminates data conflicts
 
-#### Document → JSON Synchronization
+### 2. View Generation (Replaces Synchronization)
+
+#### No Document → JSON Flow (Eliminated)
+**Documents are read-only**: No parsing, no status updates from documents
+**No bidirectional sync**: Documents cannot modify JSON state
+**No conflict resolution needed**: Single direction eliminates conflicts
+
+#### JSON → View Generation (On Demand)
 **Trigger Events**:
-- IMPL_PLAN.md modified (strategy/context changes)
-- TODO_LIST.md checkboxes changed (manual status updates)
-- Document structure changes affecting task references
+- User requests context view (`/context`)
+- Task status changed in JSON files  
+- View generation requested by commands
 
 **Actions**:
 ```javascript
-// Pseudo-code for document sync process
-on_document_change(document_path) {
-  if (document_path.includes('IMPL_PLAN.md')) {
-    const context_changes = parse_context_updates(document_path);
-    propagate_context_to_tasks(context_changes);
-    log_sync_event('impl_plan_to_json', document_path);
+// Pseudo-code for view generation process  
+on_view_request(view_type, options) {
+  const task_data = load_all_task_json_files();
+  const session_data = load_workflow_session();
+  
+  if (view_type === 'todo_list') {
+    const todo_view = generate_todo_list_view(task_data);
+    return render_markdown_view(todo_view);
   }
   
-  if (document_path.includes('TODO_LIST.md')) {
-    const status_changes = parse_checkbox_updates(document_path);
-    update_task_status_from_todos(status_changes);
-    recalculate_hierarchy_progress(status_changes);
-    update_session_progress();
-    log_sync_event('todo_list_to_json', document_path);
+  if (view_type === 'progress') {
+    const progress = calculate_progress_from_json(task_data);
+    return render_progress_view(progress, session_data);
+  }
+  
+  if (view_type === 'status') {
+    const status = compile_status_from_json(task_data, session_data);
+    return render_status_view(status);
   }
 }
 ```
 
-#### JSON → Document Synchronization
-**Trigger Events**:
-- Task status changed in JSON files
-- New task created via decomposition
-- Task hierarchy modified (parent-child relationships)
-- Progress checkpoint reached
-- Task completion cascading up hierarchy
+### 3. View Generation Process (Replaces Real-Time Sync)
 
-**Actions**:
-```javascript
-// Pseudo-code for JSON sync process  
-on_task_change(task_id, change_type, data) {
-  // Update TODO_LIST.md with current task status
-  update_todo_list_display(task_id, data.status);
-  
-  if (change_type === 'status_change' && data.new_status === 'completed') {
-    // Recalculate parent task progress
-    update_parent_progress(task_id);
-    check_dependency_unblocking(task_id);
-  }
-  
-  if (change_type === 'task_decomposition') {
-    // Add new subtasks to TODO_LIST.md
-    add_subtasks_to_todo_list(data.subtasks);
-    update_todo_list_hierarchy(task_id, data.subtasks);
-  }
-  
-  update_session_coordination_metadata();
-  log_sync_event('json_to_todo_list', task_id);
-}
+#### On-Demand View Process
+```
+1. Command Request → User requests view (`/context`)
+2. JSON Loader → Reads all task JSON files  
+3. Data Processor → Calculates progress, status, hierarchy
+4. View Generator → Creates markdown representation
+5. Display → Returns formatted view to user
 ```
 
-### 3. Real-Time Coordination Process
-
-#### Automatic Sync Process
-```
-1. File System Watcher → Detects document changes
-2. Change Parser → Extracts structured data from documents  
-3. Conflict Detector → Identifies synchronization conflicts
-4. Sync Engine → Applies changes based on ownership rules
-5. Validation → Verifies consistency across all files
-6. Audit Logger → Records all sync events
-```
-
-#### Manual Sync Triggers
+#### Context Command (Replaces Sync Commands)
 ```bash
-# Force complete synchronization
-/task:sync --all
+# Generate todo list view
+/context
 
-# Sync specific task
-/task:sync IMPL-001
+# Generate task-specific view  
+/context IMPL-001
 
-# Validate and repair sync issues  
-/task:sync --validate --repair
+# Generate progress view
+/context --format=progress
 
-# View sync status
-/task:sync --status
+# Generate status view with health check
+/context --health-check
 ```
 
-## Conflict Resolution
+## No Conflict Resolution Needed (Architecture Benefit)
 
-### Conflict Types and Resolution
+### Eliminated Conflict Types
 
-#### 1. Timestamp Conflicts
-**Scenario**: Both document and JSON modified simultaneously
-**Resolution**: Most recent timestamp wins, with manual review option
+#### Conflicts That No Longer Exist
+- **Timestamp Conflicts**: No bidirectional updates means no timestamp conflicts
+- **Data Authority Conflicts**: Only JSON has authority, documents are read-only
+- **Hierarchy Conflicts**: JSON defines structure, documents display it (no conflicts)
+- **Sync State Conflicts**: No synchronization means no sync state issues
 
-```json
-{
-  "conflict_type": "timestamp",
-  "document_timestamp": "2025-09-05T11:20:00Z",
-  "json_timestamp": "2025-09-05T11:19:30Z", 
-  "resolution": "document_wins",
-  "manual_review_required": false
-}
-```
-
-#### 2. Data Authority Conflicts
-**Scenario**: Task status changed directly in TODO_LIST.md vs JSON file
-**Resolution**: Determine if change is authorized checkbox update or unauthorized edit
-
-```json
-{
-  "conflict_type": "data_authority",
-  "field": "task_status",
-  "document_value": "completed", 
-  "json_value": "active",
-  "change_source": "checkbox|direct_edit",
-  "resolution": "checkbox_authorized|json_authority",
-  "action": "accept_checkbox_change|revert_document_change"
-}
-```
-
-#### 3. Hierarchy Conflicts
-**Scenario**: Task decomposition modified in JSON but TODO_LIST.md structure differs
-**Resolution**: JSON hierarchy is authoritative, TODO_LIST.md updated
-
-```json
-{
-  "conflict_type": "hierarchy",
-  "conflict_description": "Task impl-1 subtasks differ between JSON and TODO display",
-  "json_subtasks": ["impl-1.1", "impl-1.2", "impl-1.3"],
-  "todo_display": ["impl-1.1", "impl-1.2"],
-  "resolution": "json_authority",
-  "action": "update_todo_list_structure",
-  "manual_validation_required": false
-}
-```
-
-### Conflict Resolution Priority
-1. **Data Ownership Rules**: Respect authoritative source
-2. **Recent Timestamp**: When ownership is shared  
-3. **User Intent**: Manual resolution for complex conflicts
-4. **System Consistency**: Maintain cross-file integrity
+### Simplified Data Model Benefits
+- **Zero Conflicts**: Single source of truth eliminates all data conflicts  
+- **No Resolution Logic**: No complex conflict detection or resolution needed
+- **Reduced Complexity**: Eliminates entire conflict resolution subsystem
+- **Improved Reliability**: Cannot have data drift or inconsistency issues
 
 ## Validation and Integrity
 

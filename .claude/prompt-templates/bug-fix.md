@@ -61,8 +61,8 @@ Your response **MUST** be in Chinese and structured in Markdown as follows:
     *   **观察到的行为 (Observed Behavior):** [清晰、客观地转述用户报告的异常现象或日志中的错误信息。]
     *   **预期的行为 (Expected Behavior):** [描述在正常情况下，系统或功能应有的表现。]
 *   **1.2 诊断分析过程 (Diagnostic Analysis Process):**
-    *   **初步假设 (Initial Hypothesis):** [陈述您根据初步信息得出的第一个猜测。例如：“初步判断，问题可能出在数据解析环节，因为错误日志显示了‘格式不匹配’。”]
-    *   **根本原因分析 (Root Cause Analysis - RCA):** [**这是报告的核心。** 详细阐述您的逻辑推理过程，说明您是如何从表象追踪到根源的。例如：“通过检查 `data_parser.py` 的 `parse_record` 函数，发现当输入记录的某个可选字段缺失时，代码并未处理该 `None` 值，而是直接对其调用了 `strip()` 方法，从而导致了 `AttributeError`。因此，**根本原因**是：**对可能为 None 的变量在未进行空值检查的情况下直接调用了方法**。”]
+    *   **初步假设 (Initial Hypothesis):** [陈述您根据初步信息得出的第一个猜测。例如：初步判断，问题可能出在数据解析环节，因为错误日志显示了格式不匹配。]
+    *   **根本原因分析 (Root Cause Analysis - RCA):** [**这是报告的核心。** 详细阐述您的逻辑推理过程，说明您是如何从表象追踪到根源的。例如：通过检查 `data_parser.py` 的 `parse_record` 函数，发现当输入记录的某个可选字段缺失时，代码并未处理该 `None` 值，而是直接对其调用了 `strip()` 方法，从而导致了 `AttributeError`。因此，**根本原因**是：**对可能为 None 的变量在未进行空值检查的情况下直接调用了方法**。]
 *   **1.3 根本原因摘要 (Root Cause Summary):** [用一句话高度概括 bug 的根本原因。]
 
 ### **第二部分：涉及文件概览 (Part 2: Involved Files Overview)**
@@ -86,7 +86,7 @@ Your response **MUST** be in Chinese and structured in Markdown as follows:
 
 *   **3. 修复描述与预期逻辑 (Correction Description & Intended Logic):**
     *   **建议修复措施 (Proposed Correction):**
-        *   [用清晰的中文自然语言，描述需要进行的具体修改。例如：“在调用 `.strip()` 方法之前，增加一个条件判断，检查 `value` 变量是否不为 `None`。”]
+        *   [用清晰的中文自然语言，描述需要进行的具体修改。例如：在调用 `.strip()` 方法之前，增加一个条件判断，检查 `value` 变量是否不为 `None`。]
     *   **修复后逻辑示意 (Corrected Logic Sketch):**
         *   [使用简洁的 `diff` 风格或伪代码来直观展示修改。]
         *   **示例:**
@@ -104,11 +104,11 @@ Your response **MUST** be in Chinese and structured in Markdown as follows:
             END IF
             ... (后续逻辑使用 processed_value) ...
             ```
-    *   **修复理由 (Reason for Correction):** [解释为什么这个修改能解决之前分析出的**根本原因**。例如：“此修改确保了只在变量 `value` 存在时才对其进行操作，从而避免了 `AttributeError`，解决了对 None 值的非法调用问题。”]
+    *   **修复理由 (Reason for Correction):** [解释为什么这个修改能解决之前分析出的**根本原因**。例如：此修改确保了只在变量 `value` 存在时才对其进行操作，从而避免了 `AttributeError`，解决了对 None 值的非法调用问题。]
 
 *   **4. 验证建议与风险提示 (Verification Suggestions & Risk Advisory):**
-    *   **验证步骤 (Verification Steps):** [提供具体的测试建议来验证修复是否成功，以及是否引入新问题。例如：“1. 构造一个‘optional_field’字段存在的测试用例，确认其能被正常处理。2. **构造一个‘optional_field’字段缺失的测试用例，确认程序不再崩溃，且 `processed_value` 为 `None` 或默认值。**”]
-    *   **潜在风险与注意事项 (Potential Risks & Considerations):** [指出此修改可能带来的任何潜在副作用或需要开发者注意的地方。例如：“请注意，下游消费 `processed_value` 的代码现在必须能够正确处理 `None` 值。请检查相关调用方是否已做相应处理。”]
+    *   **验证步骤 (Verification Steps):** [提供具体的测试建议来验证修复是否成功，以及是否引入新问题。例如：1. 构造一个optional_field字段存在的测试用例，确认其能被正常处理。2. **构造一个optional_field字段缺失的测试用例，确认程序不再崩溃，且 `processed_value` 为 `None` 或默认值。**]
+    *   **潜在风险与注意事项 (Potential Risks & Considerations):** [指出此修改可能带来的任何潜在副作用或需要开发者注意的地方。例如：请注意，下游消费 `processed_value` 的代码现在必须能够正确处理 `None` 值。请检查相关调用方是否已做相应处理。]
 
 ---
 *(对每个需要修改的文件重复上述格式)*

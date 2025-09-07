@@ -30,6 +30,7 @@ Creates new implementation tasks during IMPLEMENT phase with automatic context a
 - **Agent Assignment**: Suggests agent based on task type
 - **Hierarchy Support**: Creates parent-child relationships up to 3 levels
 - **Progressive Structure**: Auto-triggers enhanced structure at complexity thresholds
+- **Dynamic Complexity Escalation**: Automatically upgrades workflow complexity when thresholds are exceeded
 
 ### Context Awareness
 - Detects current workflow phase (must be IMPLEMENT)
@@ -164,6 +165,127 @@ TODO_LIST.md auto-generation conditions:
 - TODO_LIST.md links to individual JSON task files
 - workflow-session.json maintains task list with hierarchy depth
 - Automatic validation of cross-file references
+
+## Dynamic Complexity Escalation (NEW FEATURE)
+
+### Automatic Workflow Upgrade System
+After each task creation, the system automatically evaluates current workflow complexity and upgrades structure when thresholds are exceeded.
+
+### Escalation Process
+```
+1. Create New Task → Generate JSON file
+2. Count All Tasks → Read all .task/*.json files  
+3. Calculate Metrics → Tasks, modules, dependencies, effort
+4. Check Thresholds → Compare against complexity criteria
+5. Trigger Upgrade → If threshold exceeded, escalate complexity
+6. Generate Documents → Auto-create missing structure documents
+7. Update Session → Record complexity change in workflow-session.json
+8. Notify User → Inform about automatic upgrade
+```
+
+### Escalation Triggers
+
+#### Simple → Medium Escalation
+**Triggered when ANY condition met:**
+- Task count reaches 5 (primary trigger)
+- Module count exceeds 3 
+- Total estimated effort > 4 hours
+- Complex dependencies detected
+- Cross-component changes required
+
+**Actions taken:**
+```bash
+✅ Task created: impl-5
+⚠️ Complexity threshold reached: 5 tasks (exceeds Simple limit)
+🔄 Escalating workflow: Simple → Medium
+
+Auto-generating enhanced structure:
+✅ Created TODO_LIST.md with hierarchical task display
+✅ Created .summaries/ directory for task completion tracking  
+✅ Updated workflow-session.json complexity level
+✅ Enabled 2-level task hierarchy (impl-N.M)
+
+Workflow now supports:
+- Progress tracking via TODO_LIST.md
+- Task decomposition up to 2 levels
+- Summary generation for completed tasks
+```
+
+#### Medium → Complex Escalation  
+**Triggered when ANY condition met:**
+- Task count reaches 15 (primary trigger)
+- Module count exceeds 5
+- Total estimated effort > 2 days
+- Multi-repository impacts detected
+- Architecture pattern changes required
+
+**Actions taken:**
+```bash
+✅ Task created: impl-15
+⚠️ Complexity threshold reached: 15 tasks (exceeds Medium limit)  
+🔄 Escalating workflow: Medium → Complex
+
+Auto-generating comprehensive structure:
+✅ Enhanced IMPL_PLAN.md with detailed phases and risk assessment
+✅ Expanded TODO_LIST.md with progress monitoring
+✅ Created comprehensive .summaries/ structure
+✅ Updated workflow-session.json complexity level
+✅ Enabled 3-level task hierarchy (impl-N.M.P maximum)
+
+Workflow now supports:
+- Comprehensive progress tracking and monitoring
+- Full 3-level task decomposition
+- Enhanced documentation and audit trails
+- Advanced dependency management
+```
+
+### Complexity Calculation Algorithm
+```javascript
+function calculateComplexity(tasks, modules, effort, dependencies) {
+  // Primary thresholds (hard limits)
+  if (tasks >= 15 || modules > 5 || effort > 48) return 'complex';
+  if (tasks >= 5 || modules > 3 || effort > 4) return 'medium';
+  
+  // Override factors (can force higher complexity)
+  if (dependencies.includes('multi-repo') || 
+      dependencies.includes('architecture-change')) return 'complex';
+  if (dependencies.includes('cross-component') ||
+      dependencies.includes('complex-integration')) return 'medium';
+      
+  return 'simple';
+}
+```
+
+### Session State Updates During Escalation
+```json
+{
+  "complexity": "medium",
+  "escalation_history": [
+    {
+      "from": "simple",
+      "to": "medium", 
+      "triggered_at": "2025-09-07T16:45:00Z",
+      "trigger_reason": "task_count_threshold",
+      "task_count_at_escalation": 5,
+      "auto_generated_documents": ["TODO_LIST.md", ".summaries/"],
+      "task_hierarchy_enabled": 2
+    }
+  ],
+  "task_system": {
+    "max_depth": 2,
+    "structure_level": "enhanced",
+    "documents_generated": ["TODO_LIST.md"],
+    "auto_escalation_enabled": true
+  }
+}
+```
+
+### Benefits of Dynamic Escalation
+- **Seamless Growth**: Workflows grow naturally without user intervention
+- **No Overhead for Simple Tasks**: Simple workflows remain minimal
+- **Automatic Structure**: Enhanced documentation appears when needed
+- **Progressive Enhancement**: Users get appropriate tooling for current complexity
+- **Transparent Process**: All escalations logged and reversible
 
 ## Context Inheritance
 

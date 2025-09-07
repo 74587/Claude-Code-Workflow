@@ -40,7 +40,7 @@ Creates actionable implementation plans based on brainstorming insights or direc
 ⚠️ **CRITICAL**: Before planning, MUST check for existing active session to avoid creating duplicate sessions.
 
 **Session Check Process:**
-1. **Query Session Registry**: Check `.workflow/session_status.jsonl` for active sessions
+1. **Query Session Registry**: Check `.workflow/session_status.jsonl` for active sessions. If the file doesn't exist, create it.
 2. **Session Selection**: Use existing active session or create new one only if none exists  
 3. **Context Integration**: Load existing session state and brainstorming outputs
 
@@ -67,7 +67,7 @@ Creates actionable implementation plans based on brainstorming insights or direc
 
 ### Phase 1: Context Understanding & Structure Establishment
 1. **Session Detection & Selection**: 
-   - **Check Active Sessions**: Query `.workflow/session_status.jsonl` for existing active sessions
+   - **Check Active Sessions**: Query `.workflow/session_status.jsonl` for existing active sessions. If the file doesn't exist, create it.
    - **Session Priority**: Use existing active session if available, otherwise create new session
    - **Session Analysis**: Read and understand workflow-session.json from selected session
    - Detect existing brainstorming outputs
@@ -104,9 +104,70 @@ Creates actionable implementation plans based on brainstorming insights or direc
    - **Medium**: Generate IMPL_PLAN.md with task breakdown
    - **Complex**: Generate comprehensive IMPL_PLAN.md with staged approach and risk assessment
 
-8. **Update Session**: Mark PLAN phase complete with document references
+8. **Auto-Generate Tasks (NEW)**: Parse IMPL_PLAN.md and automatically create corresponding task JSON files
+   - **Extract Tasks**: Parse task identifiers (IMPL-001, IMPL-002, etc.) from plan
+   - **Create Task Files**: Generate `.task/impl-*.json` files with plan context
+   - **Link to Plan**: Include `source_plan_ref` field linking tasks back to plan sections
+   - **Set Dependencies**: Establish task dependencies based on plan structure
 
-9. **Link Documents**: Update JSON state with generated document paths
+9. **Update Session**: Mark PLAN phase complete with document references and generated task list
+
+10. **Link Documents**: Update JSON state with generated document paths and task file references
+
+## Automated Task Generation (Single Source of Truth Integration)
+
+### Planning-to-Execution Automation
+**NEW FEATURE**: Eliminates the gap between planning and execution by automatically creating executable task files from planning documents.
+
+### Task Extraction Process
+1. **Parse IMPL_PLAN.md**: Scan for task identifiers in standardized format:
+   - `IMPL-001`, `IMPL-002`, etc. (main tasks)
+   - `IMPL-1.1`, `IMPL-1.2`, etc. (subtasks)
+   - Task titles and descriptions from plan sections
+
+2. **Generate Task JSON Files**: For each identified task, create structured JSON:
+```json
+{
+  "id": "IMPL-001",
+  "title": "Foundation/Infrastructure setup",
+  "status": "pending", 
+  "type": "infrastructure",
+  "agent": "code-developer",
+  "effort": "2h",
+  
+  "context": {
+    "inherited_from": "WFS-[topic-slug]",
+    "source_plan_ref": "IMPL_PLAN.md#phase-1-foundation",
+    "requirements": ["Extracted from plan description"],
+    "scope": ["Derived from plan context"],
+    "acceptance": ["Extracted from success criteria"]
+  },
+  
+  "dependencies": {
+    "upstream": [],
+    "downstream": ["IMPL-002"],
+    "phase_group": "Phase 1: Foundation"
+  },
+  
+  "metadata": {
+    "created_at": "2025-09-07T15:00:00Z",
+    "created_by": "workflow:action-plan",
+    "auto_generated": true,
+    "plan_version": "1.0"
+  }
+}
+```
+
+3. **Link Bidirectionally**: 
+   - Task files reference plan sections
+   - Session state includes all generated task IDs
+   - Ready for immediate execution via `/task:execute`
+
+### Benefits of Automation
+- **Zero Manual Task Creation**: Plans immediately become executable
+- **Consistency**: All tasks derive from same authoritative plan
+- **Traceability**: Clear linkage from requirements through plan to tasks
+- **Immediate Execution**: Can run `/task:execute IMPL-001` immediately after planning
 
 ## Session State Analysis & Document Understanding
 
@@ -269,26 +330,41 @@ Generated documents are stored in session directory:
 └── workflow-session.json      # Updated with document references
 ```
 
-## Session Updates
+## Session Updates (Enhanced with Task Generation)
 ```json
 {
   "phases": {
     "PLAN": {
       "status": "completed",
       "output": {
-        "primary": "IMPL_PLAN.md"
+        "primary": "IMPL_PLAN.md",
+        "tasks_generated": [".task/impl-001.json", ".task/impl-002.json", ".task/impl-003.json"]
       },
       "documents_generated": ["IMPL_PLAN.md"],
+      "tasks_auto_created": 3,
       "completed_at": "2025-09-05T11:00:00Z",
-      "tasks_identified": ["IMPL-001", "IMPL-002", "IMPL-003"]
+      "tasks_identified": ["IMPL-001", "IMPL-002", "IMPL-003"],
+      "ready_for_implementation": true
     }
   },
   "documents": {
     "planning": {
       "IMPL_PLAN.md": {
         "status": "generated",
-        "path": ".workflow/WFS-[topic-slug]/IMPL_PLAN.md"
+        "path": ".workflow/WFS-[topic-slug]/IMPL_PLAN.md",
+        "tasks_extracted": 3,
+        "auto_generation": "completed"
       }
+    }
+  },
+  "task_system": {
+    "enabled": true,
+    "auto_generated": true,
+    "directory": ".workflow/WFS-[topic-slug]/.task/",
+    "task_count": {
+      "total": 3,
+      "pending": 3,
+      "from_planning": 3
     }
   }
 }

@@ -128,7 +128,7 @@ END FUNCTION
 ⚠️ **CRITICAL**: Before analysis, MUST check for existing active session to ensure proper workflow context and documentation storage.
 
 **Session Check Process:**
-1. **Query Session Registry**: Check `.workflow/session_status.jsonl` for active sessions
+1. **Query Session Registry**: Check `.workflow/session_status.jsonl` for active sessions. If the file doesn't exist, create it.
 2. **Context Integration**: Use existing active session for proper analysis context
 3. **Documentation Strategy**: Store analysis results in appropriate session directory structure
 

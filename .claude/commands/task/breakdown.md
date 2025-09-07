@@ -23,7 +23,7 @@ Intelligently breaks down complex tasks into manageable subtasks with automatic 
 ⚠️ **CRITICAL**: Before breakdown, MUST check for existing active session to avoid creating duplicate sessions.
 
 ### Session Check Process
-1. **Query Session Registry**: Check `.workflow/session_status.jsonl` for active sessions
+1. **Query Session Registry**: Check `.workflow/session_status.jsonl` for active sessions. If the file doesn't exist, create it.
 2. **Session Validation**: Use existing active session containing the parent task
 3. **Context Integration**: Load existing session state and task hierarchy
 

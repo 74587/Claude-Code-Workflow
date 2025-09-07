@@ -179,24 +179,6 @@ When starting a new session, the following files are automatically generated:
 *Use /workflow:plan to populate this document*
 ```
 
-### Backup and Recovery System
-
-#### Automatic Backup Creation
-- **Trigger Events**: Session pause, critical state changes, error recovery
-- **Backup Location**: `.workflow/WFS-[topic-slug]/.backups/`
-- **Retention**: Last 5 backups per session
-- **Format**: Timestamped JSON and markdown backups
-
-#### Backup Structure
-```
-.workflow/WFS-[topic-slug]/.backups/
-├── session-2025-09-07-14-00.json    # Session state backup
-├── session-2025-09-07-15-30.json
-├── session-2025-09-07-16-45.json
-├── IMPL_PLAN-2025-09-07-14-00.md    # Document backups  
-└── TODO_LIST-2025-09-07-15-30.md
-```
-
 #### Recovery Operations
 - **Auto-recovery**: On session corruption or inconsistency
 - **Manual recovery**: Via `/workflow:session recover --from-backup`

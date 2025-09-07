@@ -192,7 +192,7 @@ This template is automatically filled and generated after execution.
 
 -   **Trigger**: Activated by the `--save-session` flag.
 -   **Action**: Saves the complete execution session, including inferred context, Gemini analysis, and implementation results.
--   **Session Check**: Query `.workflow/session_status.jsonl` to identify current active session.
+-   **Session Check**: Query `.workflow/session_status.jsonl` to identify current active session. If the file doesn't exist, create it.
 -   **Location Strategy**: 
     - **IF active session exists**: Save to existing `.workflow/WFS-[topic-slug]/.chat/` directory
     - **IF no active session**: Create new session directory following WFS naming convention
