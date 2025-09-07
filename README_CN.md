@@ -64,27 +64,27 @@ CCW 根据任务复杂度智能调整其文件结构和工作流程：
 
 ```powershell
 # PowerShell (Windows/Linux/macOS)
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
 ```
 
 **带参数安装：**
 ```powershell
 # 全局安装
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Global" }
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Global" }
 
 # 自定义目录安装
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Directory 'C:\MyCustomPath'" }
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Directory 'C:\MyCustomPath'" }
 
 # 强制安装（覆盖现有文件）
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Force" }
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Force" }
 ```
 
 ### 手动安装
 
 1. 克隆此仓库：
 ```bash
-git clone https://github.com/catlog22/Claude-CCW.git
-cd Claude-CCW
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
+cd Claude-Code-Workflow
 ```
 
 2. 运行本地安装脚本：

@@ -64,27 +64,27 @@ CCW intelligently adapts its file structure and workflow processes based on task
 
 ```powershell
 # PowerShell (Windows/Linux/macOS)
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
 ```
 
 **With parameters:**
 ```powershell
 # Global installation
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Global" }
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Global" }
 
 # Custom directory installation  
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Directory 'C:\MyCustomPath'" }
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Directory 'C:\MyCustomPath'" }
 
 # Force installation (overwrites existing)
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-CCW/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Force" }
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content | ForEach-Object { iex "$_ -Force" }
 ```
 
 ### Manual Installation
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/catlog22/Claude-CCW.git
-cd Claude-CCW
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
+cd Claude-Code-Workflow
 ```
 
 2. Run the local installer:

@@ -84,7 +84,7 @@ function Download-Repository {
         [string]$Branch = "main"
     )
     
-    $repoUrl = "https://github.com/catlog22/Claude-CCW"
+    $repoUrl = "https://github.com/catlog22/Claude-Code-Workflow"
     $zipUrl = "$repoUrl/archive/refs/heads/$Branch.zip"
     $zipPath = Join-Path $TempDir "repo.zip"
     
@@ -129,7 +129,7 @@ function Extract-Repository {
         
         # Find the extracted directory (usually repo-name-branch)
         $extractedDirs = Get-ChildItem -Path $TempDir -Directory
-        $repoDir = $extractedDirs | Where-Object { $_.Name -like "Claude-CCW-*" } | Select-Object -First 1
+        $repoDir = $extractedDirs | Where-Object { $_.Name -like "Claude-Code-Workflow-*" } | Select-Object -First 1
         
         if ($repoDir) {
             Write-ColorOutput "Extraction complete: $($repoDir.FullName)" $ColorSuccess
@@ -242,7 +242,7 @@ function Main {
         Write-Host ""
         Write-ColorOutput "SECURITY NOTE:" $ColorWarning
         Write-Host "- This script will download and execute Claude Code Workflow from GitHub"
-        Write-Host "- Repository: https://github.com/catlog22/Claude-CCW"  
+        Write-Host "- Repository: https://github.com/catlog22/Claude-Code-Workflow"  
         Write-Host "- Branch: $Branch (latest stable version)"
         Write-Host "- Features: Intelligent workflow orchestration with multi-agent coordination"
         Write-Host "- Please ensure you trust this source"
