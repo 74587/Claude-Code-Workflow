@@ -1,5 +1,11 @@
 # Claude Code Workflow (CCW)
 
+<div align="right">
+
+**Languages:** [English](README.md) | [中文](README_CN.md)
+
+</div>
+
 A sophisticated multi-agent automation workflow framework that transforms complex software development tasks from conceptualization to implementation review into manageable, trackable, AI-orchestrated processes.
 
 ## 🏗️ Architecture Overview

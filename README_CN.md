@@ -1,5 +1,11 @@
 # Claude Code Workflow (CCW)
 
+<div align="right">
+
+**语言:** [English](README.md) | [中文](README_CN.md)
+
+</div>
+
 一个精密的多智能体自动化工作流框架，将复杂的软件开发任务从概念构思到实现审查转化为可管理、可追踪、AI协调的流程。
 
 ## 🏗️ 架构概览
