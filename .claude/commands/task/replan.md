@@ -1,17 +1,15 @@
 ---
 name: task-replan
 description: Replan individual tasks with detailed user input and change tracking
-usage: /task:replan <task-id> [input-source]
-argument-hint: task-id [text|--from-file|--from-issue|--detailed|--interactive]
+usage: /task/replan <task-id> [input]
+argument-hint: task-id ["text"|file.md|ISS-001]
 examples:
-  - /task:replan impl-1 "Add OAuth2 authentication support"
-  - /task:replan impl-1 --from-file updated-specs.md
-  - /task:replan impl-1 --from-issue ISS-001
-  - /task:replan impl-1 --detailed
-  - /task:replan impl-1 --interactive
+  - /task/replan impl-1 "Add OAuth2 authentication support"
+  - /task/replan impl-1 updated-specs.md
+  - /task/replan impl-1 ISS-001
 ---
 
-# Task Replan Command (/task:replan)
+# Task Replan Command (/task/replan)
 
 ## Overview
 Replans individual tasks based on detailed user input with comprehensive change tracking, version management, and document synchronization. Focuses exclusively on single-task modifications with rich input options.

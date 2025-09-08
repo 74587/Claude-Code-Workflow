@@ -1,19 +1,20 @@
 ---
-name: gemini-mode
+name: gemini-analyze
+parent: /gemini
 description: Advanced Gemini CLI analysis with template-driven pattern detection and comprehensive codebase insights
-usage: /gemini-mode <analysis-type> <target> [options]
-argument-hint: pattern|architecture|security|performance|feature|quality|dependencies|migration|custom "analysis target" [--yolo|--debug|--interactive]
+usage: /gemini/analyze <target>
+argument-hint: "analysis target or description"
 examples:
-  - /gemini-mode pattern "Find all React hooks usage patterns"
-  - /gemini-mode architecture "Analyze component hierarchy and structure"
-  - /gemini-mode security "Scan for authentication vulnerabilities"
-  - /gemini-mode feature "Trace user login implementation"
-  - /gemini-mode performance "Identify potential bottlenecks"
-  - /gemini-mode custom "Find all API endpoints" --yolo
+  - /gemini/analyze "Find all React hooks usage patterns"
+  - /gemini/analyze "Analyze component hierarchy and structure"
+  - /gemini/analyze "Scan for authentication vulnerabilities"
+  - /gemini/analyze "Trace user login implementation"
+  - /gemini/analyze "Identify potential bottlenecks"
+  - /gemini/analyze "Find all API endpoints"
 model: haiku
 ---
 
-### 🚀 Command Overview: `/gemini-mode`
+### 🚀 Command Overview: `/gemini/analyze`
 
 
 -   **Purpose**: To perform advanced, template-driven analysis on a codebase for various insights like patterns, architecture, and security.

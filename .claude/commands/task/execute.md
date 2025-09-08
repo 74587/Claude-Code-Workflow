@@ -1,15 +1,15 @@
 ---
 name: task-execute
 description: Execute tasks with appropriate agents and context-aware orchestration
-usage: /task:execute <task-id> [--mode=<auto|guided|review>] [--agent=<agent-type>]
-argument-hint: task-id [optional: mode and agent override]
+usage: /task/execute <task-id>
+argument-hint: task-id
 examples:
-  - /task:execute impl-1
-  - /task:execute impl-1 --mode=guided
-  - /task:execute impl-1.2 --agent=code-developer --mode=review
+  - /task/execute impl-1
+  - /task/execute impl-1.2
+  - /task/execute impl-3
 ---
 
-### 🚀 **Command Overview: `/task:execute`**
+### 🚀 **Command Overview: `/task/execute`**
 
 -   **Purpose**: Executes tasks using intelligent agent selection, context preparation, and progress tracking.
 -   **Core Principles**:

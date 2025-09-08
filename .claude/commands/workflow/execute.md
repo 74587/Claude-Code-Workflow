@@ -1,14 +1,13 @@
 ---
-name: workflow-vibe
+name: workflow-execute
 description: Coordinate agents for existing workflow tasks with automatic discovery
-usage: /workflow:vibe [workflow-folder]
-argument-hint: [optional: workflow folder path]
+usage: /workflow/execute
+argument-hint: none
 examples:
-  - /workflow:vibe
-  - /workflow:vibe .workflow/WFS-user-auth
+  - /workflow/execute
 ---
 
-# Workflow Vibe Command (/workflow:vibe)
+# Workflow Execute Command (/workflow/execute)
 
 ## Overview
 Coordinates multiple agents for executing existing workflow tasks through automatic discovery and intelligent task orchestration. Analyzes workflow folders, checks task statuses, and coordinates agent execution based on discovered plans.

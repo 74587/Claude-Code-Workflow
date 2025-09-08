@@ -1,18 +1,19 @@
 ---
 name: gemini-chat
+parent: /gemini
 description: Single-execution Gemini CLI interaction command with dynamic template selection for codebase analysis
-usage: /gemini-chat <inquiry> [--all-files] [--compress] [--save-session]
-argument-hint: "your question or analysis request" [optional: all-files, compression, session saving]
+usage: /gemini/chat "inquiry"
+argument-hint: "your question or analysis request"
 examples:
-  - /gemini-chat "analyze the authentication flow"
-  - /gemini-chat "how can I optimize this React component performance?" --all-files
-  - /gemini-chat "review security vulnerabilities in @{src/auth/*.js}" --compress
-  - /gemini-chat "comprehensive code quality assessment" --all-files --save-session
+  - /gemini/chat "analyze the authentication flow"
+  - /gemini/chat "how can I optimize this React component performance?"
+  - /gemini/chat "review security vulnerabilities in src/auth/"
+  - /gemini/chat "comprehensive code quality assessment"
 allowed-tools: Bash(gemini:*), Bash(~/.claude/scripts/chat-template-load.sh:*)
 model: sonnet
 ---
 
-### 🚀 **Command Overview: `/gemini-chat`**
+### 🚀 **Command Overview: `/gemini/chat`**
 
 
 -   **Type**: Gemini CLI Execution Wrapper

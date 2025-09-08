@@ -1,14 +1,13 @@
 ---
 name: workflow-review
 description: Execute review phase for quality validation
-usage: /workflow:review [--auto-fix]
-argument-hint: [optional: auto-fix identified issues]
+usage: /workflow/review
+argument-hint: none
 examples:
-  - /workflow:review
-  - /workflow:review --auto-fix
+  - /workflow/review
 ---
 
-# Workflow Review Command (/workflow:review)
+# Workflow Review Command (/workflow/review)
 
 ## Overview
 Final phase for quality validation, testing, and completion.
@@ -62,10 +61,8 @@ Final phase for quality validation, testing, and completion.
    }
    ```
 
-## Auto-fix Option
-```bash
-/workflow:review --auto-fix
-```
+## Auto-fix (Default)
+Auto-fix is enabled by default:
 - Automatically fixes minor issues
 - Runs formatters and linters
 - Updates documentation

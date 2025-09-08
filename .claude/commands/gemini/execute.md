@@ -1,18 +1,19 @@
 ---
 name: gemini-execute
+parent: /gemini
 description: Intelligent context inference executor with auto-approval capabilities, supporting user descriptions and task ID execution modes
-usage: /gemini-execute <description|task-id> [--debug] [--save-session]
-argument-hint: "implementation description or task-id" [debug, session saving]
+usage: /gemini/execute <description|task-id>
+argument-hint: "implementation description or task-id"
 examples:
-  - /gemini-execute "implement user authentication system" 
-  - /gemini-execute "optimize React component performance @{custom/path}" 
-  - /gemini-execute IMPL-001 
-  - /gemini-execute "fix API performance issues" --debug --save-session
+  - /gemini/execute "implement user authentication system" 
+  - /gemini/execute "optimize React component performance"
+  - /gemini/execute IMPL-001 
+  - /gemini/execute "fix API performance issues"
 allowed-tools: Bash(gemini:*)
 model: sonnet
 ---
 
-### 🚀 Command Overview: /gemini-execute
+### 🚀 Command Overview: /gemini/execute
 
 
 -   **Type**: Intelligent Context Inference Executor.
