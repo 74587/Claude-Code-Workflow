@@ -104,7 +104,9 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | Command | Syntax | Description |
 |---------|--------|-------------|
 | `/enhance-prompt` | `/enhance-prompt <input>` | Enhance and structure user inputs with technical context |
-| `/gemini-chat` | `/gemini-chat <inquiry> [--all-files] [--compress]` | Interactive dialogue with Gemini CLI using smart templates |
+| `/gemini:chat` | `/gemini:chat <inquiry> [--all-files] [--save-session]` | Simple direct interaction with Gemini CLI without templates |
+| `/gemini:chat:bug-fix` | `/gemini:chat:bug-fix <bug-description> [--all-files] [--save-session]` | Bug analysis using specialized diagnostic template |
+| `/gemini:chat:plan` | `/gemini:chat:plan <planning-topic> [--all-files] [--save-session]` | Project planning using specialized architecture template |
 | `/gemini-execute` | `/gemini-execute <task-id\|description> [--yolo] [--debug]` | Intelligent executor with automatic file context inference |
 | `/gemini-mode` | `/gemini-mode <analysis-type> <target> [options]` | Template-driven codebase analysis (pattern, architecture, security) |
 | `/update-memory` | `/update-memory [related\|full]` | Intelligent CLAUDE.md documentation system with context-aware updates and strict hierarchy preservation |

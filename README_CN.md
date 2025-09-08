@@ -104,7 +104,9 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | 命令 | 语法 | 描述 |
 |---------|--------|-------------|
 | `/enhance-prompt` | `/enhance-prompt <输入>` | 增强和构造用户输入，添加技术上下文 |
-| `/gemini-chat` | `/gemini-chat <查询> [--all-files] [--compress]` | 使用智能模板与 Gemini CLI 进行交互对话 |
+| `/gemini:chat` | `/gemini:chat <查询> [--all-files] [--save-session]` | 与 Gemini CLI 的简单直接交互，不使用模板 |
+| `/gemini:chat:bug-fix` | `/gemini:chat:bug-fix <错误描述> [--all-files] [--save-session]` | 使用专门的诊断模板进行错误分析 |
+| `/gemini:chat:plan` | `/gemini:chat:plan <规划主题> [--all-files] [--save-session]` | 使用专门的架构模板进行项目规划 |
 | `/gemini-execute` | `/gemini-execute <任务ID\|描述> [--yolo] [--debug]` | 智能执行器，自动推断文件上下文 |
 | `/gemini-mode` | `/gemini-mode <分析类型> <目标> [选项]` | 模板驱动的代码库分析（模式、架构、安全） |
 | `/update-memory` | `/update-memory [full\|fast\|deep] [路径]` | 分布式记忆系统管理，维护层级化 CLAUDE.md |
