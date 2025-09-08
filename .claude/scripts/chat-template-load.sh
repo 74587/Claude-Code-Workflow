@@ -1,6 +1,6 @@
 #!/bin/bash
 # Gemini Chat Template Accessor - Template content access utility
-# Usage: ./gemini-chat-executor.sh list|load <template-name>
+# Usage: ./chat-template-load.sh list|load <template-name>
 
 set -e
 

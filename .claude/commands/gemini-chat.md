@@ -8,7 +8,7 @@ examples:
   - /gemini-chat "how can I optimize this React component performance?" --all-files
   - /gemini-chat "review security vulnerabilities in @{src/auth/*.js}" --compress
   - /gemini-chat "comprehensive code quality assessment" --all-files --save-session
-allowed-tools: Bash(gemini:*), Bash(~/.claude/scripts/gemini-chat-executor.sh:*)
+allowed-tools: Bash(gemini:*), Bash(~/.claude/scripts/chat-template-load.sh:*)
 model: sonnet
 ---
 
@@ -19,7 +19,7 @@ model: sonnet
 -   **Purpose**: To provide direct interaction with the `gemini` CLI, enhanced with intelligent, dynamic prompt template selection for codebase analysis.
 -   **Core Tools**:
     -   `Bash(gemini:*)`: Executes the external Gemini CLI tool.
-    -   `Bash(~/.claude/scripts/gemini-chat-executor.sh:*)`: Manages all template discovery and selection logic.
+    -   `Bash(~/.claude/scripts/chat-template-load.sh:*)`: Manages all template discovery and selection logic.
 
 ### 📥 **Parameters & Usage**
 
@@ -40,8 +40,8 @@ model: sonnet
 ⚠️ **CRITICAL**: Templates are selected **AUTOMATICALLY** by analyzing user input. The command execution calls script methods to discover and select the best template.
 
 **Script Methods Available:**
-- `~/.claude/scripts/gemini-chat-executor.sh list` - Lists all available templates
-- `~/.claude/scripts/gemini-chat-executor.sh load "template_name"` - Loads a specific template
+- `~/.claude/scripts/chat-template-load.sh list` - Lists all available templates
+- `~/.claude/scripts/chat-template-load.sh load "template_name"` - Loads a specific template
 
 ```pseudo
 FUNCTION automatic_template_selection(user_inquiry):
