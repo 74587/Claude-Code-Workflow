@@ -16,10 +16,7 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 -   **Type**: Coordination Command
 -   **Purpose**: To orchestrate multiple specialized agents for comprehensive multi-perspective brainstorming on challenges and opportunities.
 -   **Core Tools**: `Task(conceptual-planning-agent)`, `TodoWrite(*)`
--   **Core Principles**: @~/.claude/workflows/core-principles.md
--   **Integration Rules**:
-    -   @~/.claude/workflows/brainstorming-principles.md
-    -   @~/.claude/workflows/todowrite-coordination-rules.md
+-   **Integration Rules**: @~/.claude/workflows/brainstorming-principles.md
 
 ### 🔄 **Overall Brainstorming Protocol**
 

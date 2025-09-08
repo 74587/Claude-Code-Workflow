@@ -15,8 +15,7 @@ examples:
 Intelligently breaks down complex tasks into manageable subtasks with automatic context distribution and agent assignment.
 
 ## Core Principles
-**System:** @~/.claude/workflows/unified-workflow-system-principles.md  
-**Task Schema:** @~/.claude/workflows/task-management-principles.md
+**Task Schema:** @~/.claude/workflows/data-model.md
 
 ## Features
 

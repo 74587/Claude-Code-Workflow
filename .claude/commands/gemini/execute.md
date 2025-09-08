@@ -198,8 +198,7 @@ This template is automatically filled and generated after execution.
     - **IF active session exists**: Save to existing `.workflow/WFS-[topic-slug]/.chat/` directory
     - **IF no active session**: Create new session directory following WFS naming convention
 
-**Core Principles**: @~/.claude/workflows/core-principles.md  
-**File Structure**: @~/.claude/workflows/file-structure-standards.md
+**Session Management**: @~/.claude/workflows/session-management-principles.md
 -   **File Format**: `execute-YYYYMMDD-HHMMSS.md` with timestamp for unique identification.
 -   **Structure**: Integrates with session management system using WFS-[topic-slug] format for consistency.
 -   **Coordination**: Session files coordinate with workflow-session.json and maintain document-state separation.

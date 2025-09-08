@@ -12,10 +12,7 @@ examples:
 ### 🚀 **Command Overview: `/task:execute`**
 
 -   **Purpose**: Executes tasks using intelligent agent selection, context preparation, and progress tracking.
--   **Core Principles**:
-    -   **Task Management**: @~/.claude/workflows/task-management-principles.md
-    -   **File Structure**: @~/.claude/workflows/file-structure-standards.md
-    -   **Session Management**: @~/.claude/workflows/session-management-principles.md
+-   **Core Principles**: @~/.claude/workflows/data-model.md
 
 ### ⚙️ **Execution Modes**
 

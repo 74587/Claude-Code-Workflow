@@ -105,7 +105,7 @@ The `/enhance-prompt` command is designed to run automatically when the system d
 
 ### 🛠️ **Gemini Integration Protocol (Internal)**
 
-**Core Principles**: @~/.claude/workflows/core-principles.md
+**Gemini Integration**: @~/.claude/workflows/gemini-cli-guidelines.md
 
 This section details how the system programmatically interacts with the Gemini CLI.
 -   **Primary Tool**: All Gemini analysis is performed via direct calls to the `gemini` command-line tool (e.g., `gemini --all-files -p "..."`).
