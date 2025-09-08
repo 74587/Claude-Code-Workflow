@@ -1,18 +1,18 @@
 ---
 name: workflow-session-status
 description: Show detailed status of active workflow session
-usage: /workflow/session/status
-parent: /workflow/session
+usage: /workflow:session:status
+parent: /workflow:session
 ---
 
-# Workflow Session Status (/workflow/session/status)
+# Workflow Session Status (/workflow:session:status)
 
 ## Purpose
 Display comprehensive status information for the currently active workflow session.
 
 ## Usage
 ```bash
-/workflow/session/status
+/workflow:session:status
 ```
 
 ## Status Display
@@ -77,7 +77,7 @@ Available Sessions:
 - WFS-bug-fix-123 (COMPLETED) - Use: /context WFS-bug-fix-123
 
 Create New Session:
-/workflow/session/start "your task description"
+/workflow:session:start "your task description"
 ```
 
 ## Quick Actions

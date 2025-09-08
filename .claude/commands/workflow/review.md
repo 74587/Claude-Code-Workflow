@@ -1,13 +1,13 @@
 ---
 name: workflow-review
 description: Execute review phase for quality validation
-usage: /workflow/review
+usage: /workflow:review
 argument-hint: none
 examples:
-  - /workflow/review
+  - /workflow:review
 ---
 
-# Workflow Review Command (/workflow/review)
+# Workflow Review Command (/workflow:review)
 
 ## Overview
 Final phase for quality validation, testing, and completion.
@@ -80,6 +80,6 @@ Auto-fix is enabled by default:
 - `test-results.json` - Detailed test output
 
 ## Related Commands
-- `/workflow:implement` - Must complete first
+- `/workflow:execute` - Must complete first
 - `/task:status` - Check task completion
 - `/workflow:status` - View overall status

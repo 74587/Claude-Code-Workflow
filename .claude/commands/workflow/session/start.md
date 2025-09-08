@@ -1,14 +1,14 @@
 ---
 name: workflow-session-start
 description: Start a new workflow session
-usage: /workflow/session/start "task description"
-parent: /workflow/session
+usage: /workflow:session:start "task description"
+parent: /workflow:session
 examples:
-  - /workflow/session/start "implement OAuth2 authentication"
-  - /workflow/session/start "fix login bug"
+  - /workflow:session:start "implement OAuth2 authentication"
+  - /workflow:session:start "fix login bug"
 ---
 
-# Start Workflow Session (/workflow/session/start)
+# Start Workflow Session (/workflow:session:start)
 
 ## Purpose
 Initialize a new workflow session for the given task description.

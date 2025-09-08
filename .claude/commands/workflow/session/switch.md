@@ -1,21 +1,21 @@
 ---
 name: workflow-session-switch
 description: Switch to a different workflow session
-usage: /workflow/session/switch <session-id>
-parent: /workflow/session
+usage: /workflow:session:switch <session-id>
+parent: /workflow:session
 examples:
-  - /workflow/session/switch WFS-oauth-integration
-  - /workflow/session/switch WFS-user-profile
+  - /workflow:session:switch WFS-oauth-integration
+  - /workflow:session:switch WFS-user-profile
 ---
 
-# Switch Workflow Session (/workflow/session/switch)
+# Switch Workflow Session (/workflow:session:switch)
 
 ## Purpose
 Switch the active session to a different workflow session.
 
 ## Usage
 ```bash
-/workflow/session/switch <session-id>
+/workflow:session:switch <session-id>
 ```
 
 ## Session Switching Process

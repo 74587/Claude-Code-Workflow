@@ -1,15 +1,15 @@
 ---
 name: task-execute
 description: Execute tasks with appropriate agents and context-aware orchestration
-usage: /task/execute <task-id>
+usage: /task:execute <task-id>
 argument-hint: task-id
 examples:
-  - /task/execute impl-1
-  - /task/execute impl-1.2
-  - /task/execute impl-3
+  - /task:execute impl-1
+  - /task:execute impl-1.2
+  - /task:execute impl-3
 ---
 
-### 🚀 **Command Overview: `/task/execute`**
+### 🚀 **Command Overview: `/task:execute`**
 
 -   **Purpose**: Executes tasks using intelligent agent selection, context preparation, and progress tracking.
 -   **Core Principles**:

@@ -1,15 +1,15 @@
 ---
 name: task-breakdown
 description: Intelligent task decomposition with context-aware subtask generation
-usage: /task/breakdown <task-id>
+usage: /task:breakdown <task-id>
 argument-hint: task-id
 examples:
-  - /task/breakdown IMPL-1
-  - /task/breakdown IMPL-1.1
-  - /task/breakdown impl-3
+  - /task:breakdown IMPL-1
+  - /task:breakdown IMPL-1.1
+  - /task:breakdown impl-3
 ---
 
-# Task Breakdown Command (/task/breakdown)
+# Task Breakdown Command (/task:breakdown)
 
 ## Overview
 Intelligently breaks down complex tasks into manageable subtasks with automatic context distribution and agent assignment.

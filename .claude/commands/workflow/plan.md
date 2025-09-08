@@ -1,16 +1,16 @@
 ---
 name: workflow-plan
 description: Create implementation plans with intelligent input detection
-usage: /workflow/plan <input>
+usage: /workflow:plan <input>
 argument-hint: "text description"|file.md|ISS-001|template-name
 examples:
-  - /workflow/plan "Build authentication system"
-  - /workflow/plan requirements.md
-  - /workflow/plan ISS-001
-  - /workflow/plan web-api
+  - /workflow:plan "Build authentication system"
+  - /workflow:plan requirements.md
+  - /workflow:plan ISS-001
+  - /workflow:plan web-api
 ---
 
-# Workflow Plan Command (/workflow/plan)
+# Workflow Plan Command (/workflow:plan)
 
 ## Overview
 Creates actionable implementation plans with intelligent input source detection. Supports text, files, issues, and templates through automatic recognition.
@@ -28,37 +28,37 @@ The command automatically detects input type:
 
 ### File Input (Auto-detected)
 ```bash
-/workflow/plan requirements.md
-/workflow/plan PROJECT_SPEC.txt
-/workflow/plan config.json
-/workflow/plan spec.yaml
+/workflow:plan requirements.md
+/workflow:plan PROJECT_SPEC.txt
+/workflow:plan config.json
+/workflow:plan spec.yaml
 ```
 **Triggers**: Extensions: .md, .txt, .json, .yaml, .yml
 **Processing**: Reads file contents and extracts requirements
 
 ### Issue Input (Auto-detected)
 ```bash
-/workflow/plan ISS-001
-/workflow/plan ISSUE-123
-/workflow/plan feature-request-45
+/workflow:plan ISS-001
+/workflow:plan ISSUE-123
+/workflow:plan feature-request-45
 ```
 **Triggers**: Patterns: ISS-*, ISSUE-*, *-request-*
 **Processing**: Loads issue data and acceptance criteria
 
 ### Template Input (Auto-detected)
 ```bash
-/workflow/plan web-api
-/workflow/plan mobile-app
-/workflow/plan database-migration
-/workflow/plan security-feature
+/workflow:plan web-api
+/workflow:plan mobile-app
+/workflow:plan database-migration
+/workflow:plan security-feature
 ```
 **Triggers**: Known template names
 **Processing**: Loads template and prompts for customization
 
 ### Text Input (Default)
 ```bash
-/workflow/plan "Build user authentication with JWT and OAuth2"
-/workflow/plan "Fix performance issues in dashboard"
+/workflow:plan "Build user authentication with JWT and OAuth2"
+/workflow:plan "Fix performance issues in dashboard"
 ```
 **Triggers**: Everything else
 **Processing**: Parse natural language requirements
@@ -122,10 +122,10 @@ Generated in .task/ directory when decomposition enabled
 ## Integration Points
 
 ### Related Commands
-- `/workflow/session/start` - Create new session first
+- `/workflow:session:start` - Create new session first
 - `/context` - View generated plan
 - `/task/execute` - Execute decomposed tasks
-- `/workflow/execute` - Run implementation phase
+- `/workflow:execute` - Run implementation phase
 
 ### Template System
 Available templates:

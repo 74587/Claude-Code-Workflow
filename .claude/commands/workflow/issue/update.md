@@ -1,31 +1,31 @@
 ---
 name: workflow-issue-update
 description: Update an existing workflow issue
-usage: /workflow/issue/update <issue-id> [changes]
-parent: /workflow/issue
+usage: /workflow:issue:update <issue-id> [changes]
+parent: /workflow:issue
 examples:
-  - /workflow/issue/update ISS-001
-  - /workflow/issue/update ISS-001 --priority=critical
-  - /workflow/issue/update ISS-001 --status=closed
+  - /workflow:issue:update ISS-001
+  - /workflow:issue:update ISS-001 --priority=critical
+  - /workflow:issue:update ISS-001 --status=closed
 ---
 
-# Update Workflow Issue (/workflow/issue/update)
+# Update Workflow Issue (/workflow:issue:update)
 
 ## Purpose
 Modify attributes and status of an existing workflow issue.
 
 ## Usage
 ```bash
-/workflow/issue/update <issue-id> [options]
+/workflow:issue:update <issue-id> [options]
 ```
 
 ## Quick Updates
 Simple attribute changes:
 ```bash
-/workflow/issue/update ISS-001 --priority=critical
-/workflow/issue/update ISS-001 --status=closed
-/workflow/issue/update ISS-001 --blocking
-/workflow/issue/update ISS-001 --type=bug
+/workflow:issue:update ISS-001 --priority=critical
+/workflow:issue:update ISS-001 --status=closed
+/workflow:issue:update ISS-001 --blocking
+/workflow:issue:update ISS-001 --type=bug
 ```
 
 ## Interactive Mode (Default)

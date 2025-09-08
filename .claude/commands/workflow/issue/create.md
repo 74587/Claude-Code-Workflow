@@ -1,21 +1,21 @@
 ---
 name: workflow-issue-create
 description: Create a new issue or change request
-usage: /workflow/issue/create "issue description"
-parent: /workflow/issue
+usage: /workflow:issue:create "issue description"
+parent: /workflow:issue
 examples:
-  - /workflow/issue/create "Add OAuth2 social login support"
-  - /workflow/issue/create "Fix user avatar security vulnerability"
+  - /workflow:issue:create "Add OAuth2 social login support"
+  - /workflow:issue:create "Fix user avatar security vulnerability"
 ---
 
-# Create Workflow Issue (/workflow/issue/create)
+# Create Workflow Issue (/workflow:issue:create)
 
 ## Purpose
 Create a new issue or change request within the current workflow session.
 
 ## Usage
 ```bash
-/workflow/issue/create "issue description"
+/workflow:issue:create "issue description"
 ```
 
 ## Automatic Behavior
@@ -90,10 +90,10 @@ Displays:
 
 ## Quick Actions
 After creation:
-- **View**: `/workflow/issue/list`
-- **Update**: `/workflow/issue/update ISS-001`
+- **View**: `/workflow:issue:list`
+- **Update**: `/workflow:issue:update ISS-001`
 - **Integrate**: Link to workflow tasks
-- **Close**: `/workflow/issue/close ISS-001`
+- **Close**: `/workflow:issue:close ISS-001`
 
 ## Error Handling
 - **No active session**: Prompts to start session first

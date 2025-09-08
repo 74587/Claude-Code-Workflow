@@ -1,18 +1,18 @@
 ---
 name: workflow-session-pause
 description: Pause the active workflow session
-usage: /workflow/session/pause
-parent: /workflow/session
+usage: /workflow:session:pause
+parent: /workflow:session
 ---
 
-# Pause Workflow Session (/workflow/session/pause)
+# Pause Workflow Session (/workflow:session:pause)
 
 ## Purpose
 Pause the currently active workflow session, saving all state for later resumption.
 
 ## Usage
 ```bash
-/workflow/session/pause
+/workflow:session:pause
 ```
 
 ## Behavior
@@ -50,9 +50,9 @@ Displays:
 ## Resume Instructions
 Shows how to resume:
 ```bash
-/workflow/session/resume        # Resume this session
-/workflow/session/list          # View all sessions
-/workflow/session/switch <id>   # Switch to different session
+/workflow:session:resume        # Resume this session
+/workflow:session:list          # View all sessions
+/workflow:session:switch <id>   # Switch to different session
 ```
 
 ## Error Handling

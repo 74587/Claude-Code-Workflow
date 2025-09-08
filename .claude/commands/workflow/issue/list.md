@@ -1,34 +1,34 @@
 ---
 name: workflow-issue-list
 description: List and filter workflow issues
-usage: /workflow/issue/list
-parent: /workflow/issue
+usage: /workflow:issue:list
+parent: /workflow:issue
 examples:
-  - /workflow/issue/list
-  - /workflow/issue/list --open
-  - /workflow/issue/list --priority=high
+  - /workflow:issue:list
+  - /workflow:issue:list --open
+  - /workflow:issue:list --priority=high
 ---
 
-# List Workflow Issues (/workflow/issue/list)
+# List Workflow Issues (/workflow:issue:list)
 
 ## Purpose
 Display all issues and change requests within the current workflow session.
 
 ## Usage
 ```bash
-/workflow/issue/list [filter]
+/workflow:issue:list [filter]
 ```
 
 ## Optional Filters
 Simple keyword-based filtering:
 ```bash
-/workflow/issue/list --open           # Only open issues
-/workflow/issue/list --closed         # Only closed issues
-/workflow/issue/list --critical       # Critical priority
-/workflow/issue/list --high           # High priority
-/workflow/issue/list --bug            # Bug type issues
-/workflow/issue/list --feature        # Feature type issues
-/workflow/issue/list --blocking       # Blocking issues only
+/workflow:issue:list --open           # Only open issues
+/workflow:issue:list --closed         # Only closed issues
+/workflow:issue:list --critical       # Critical priority
+/workflow:issue:list --high           # High priority
+/workflow:issue:list --bug            # Bug type issues
+/workflow:issue:list --feature        # Feature type issues
+/workflow:issue:list --blocking       # Blocking issues only
 ```
 
 ## Display Format
@@ -74,14 +74,14 @@ If no issues exist:
 No issues found for current session.
 
 Create your first issue:
-/workflow/issue/create "describe the issue or request"
+/workflow:issue:create "describe the issue or request"
 ```
 
 ## Quick Actions
 For each issue, shows available actions:
-- **Update**: `/workflow/issue/update ISS-001`
+- **Update**: `/workflow:issue:update ISS-001`
 - **Integrate**: Link to workflow tasks  
-- **Close**: `/workflow/issue/close ISS-001`
+- **Close**: `/workflow:issue:close ISS-001`
 - **View Details**: Full issue information
 
 ## Session Context

@@ -1,18 +1,18 @@
 ---
 name: workflow-session-resume
 description: Resume the most recently paused workflow session
-usage: /workflow/session/resume
-parent: /workflow/session
+usage: /workflow:session:resume
+parent: /workflow:session
 ---
 
-# Resume Workflow Session (/workflow/session/resume)
+# Resume Workflow Session (/workflow:session:resume)
 
 ## Purpose
 Resume the most recently paused workflow session, restoring all context and state.
 
 ## Usage
 ```bash
-/workflow/session/resume
+/workflow:session:resume
 ```
 
 ## Resume Logic

@@ -1,15 +1,15 @@
 ---
 name: task-create
 description: Create implementation tasks with automatic context awareness
-usage: /task/create "title"
+usage: /task:create "title"
 argument-hint: "task title"
 examples:
-  - /task/create "Implement user authentication"
-  - /task/create "Build REST API endpoints"
-  - /task/create "Fix login validation bug"
+  - /task:create "Implement user authentication"
+  - /task:create "Build REST API endpoints"
+  - /task:create "Fix login validation bug"
 ---
 
-# Task Create Command (/task/create)
+# Task Create Command (/task:create)
 
 ## Overview
 Creates new implementation tasks during IMPLEMENT phase with automatic context awareness and ID generation.

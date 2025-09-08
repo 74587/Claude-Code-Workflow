@@ -1,13 +1,13 @@
 ---
 name: workflow-execute
 description: Coordinate agents for existing workflow tasks with automatic discovery
-usage: /workflow/execute
+usage: /workflow:execute
 argument-hint: none
 examples:
-  - /workflow/execute
+  - /workflow:execute
 ---
 
-# Workflow Execute Command (/workflow/execute)
+# Workflow Execute Command (/workflow:execute)
 
 ## Overview
 Coordinates multiple agents for executing existing workflow tasks through automatic discovery and intelligent task orchestration. Analyzes workflow folders, checks task statuses, and coordinates agent execution based on discovered plans.
@@ -222,7 +222,7 @@ mark_dependent_tasks_ready(task_dependencies)
 ```bash
 # No active session found
 ❌ No active workflow session found
-→ Use: /workflow/session/start "project name" first
+→ Use: /workflow:session:start "project name" first
 
 # No executable tasks  
 ⚠️ All tasks completed or blocked
@@ -248,18 +248,18 @@ mark_dependent_tasks_ready(task_dependencies)
 
 ### Next Actions
 ```bash  
-# After /workflow/execute completion
+# After /workflow:execute completion
 /context                  # View updated task status
-/task/execute impl-X      # Execute specific remaining tasks  
-/workflow/review          # Move to review phase when complete
+/task:execute impl-X      # Execute specific remaining tasks  
+/workflow:review          # Move to review phase when complete
 ```
 
 ## Related Commands
 
 - `/context` - View discovered tasks and current status
-- `/task/execute` - Execute individual tasks (user-controlled)
-- `/workflow/session/status` - Check session progress and dependencies
-- `/workflow/review` - Move to review phase after completion
+- `/task:execute` - Execute individual tasks (user-controlled)
+- `/workflow:session:status` - Check session progress and dependencies
+- `/workflow:review` - Move to review phase after completion
 
 ---
 

@@ -1,8 +1,8 @@
 ---
 name: workflow-session-list
 description: List all workflow sessions with status
-usage: /workflow/session/list
-parent: /workflow/session
+usage: /workflow:session:list
+parent: /workflow:session
 ---
 
 # List Workflow Sessions (/workflow/session/list)

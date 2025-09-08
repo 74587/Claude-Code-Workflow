@@ -1,22 +1,22 @@
 ---
 name: workflow-issue-close
 description: Close a completed or obsolete workflow issue
-usage: /workflow/issue/close <issue-id> [reason]
-parent: /workflow/issue
+usage: /workflow:issue:close <issue-id> [reason]
+parent: /workflow:issue
 examples:
-  - /workflow/issue/close ISS-001
-  - /workflow/issue/close ISS-001 "Feature implemented in PR #42"
-  - /workflow/issue/close ISS-002 "Duplicate of ISS-001"
+  - /workflow:issue:close ISS-001
+  - /workflow:issue:close ISS-001 "Feature implemented in PR #42"
+  - /workflow:issue:close ISS-002 "Duplicate of ISS-001"
 ---
 
-# Close Workflow Issue (/workflow/issue/close)
+# Close Workflow Issue (/workflow:issue:close)
 
 ## Purpose
 Mark an issue as closed/resolved with optional reason documentation.
 
 ## Usage
 ```bash
-/workflow/issue/close <issue-id> ["reason"]
+/workflow:issue:close <issue-id> ["reason"]
 ```
 
 ## Closing Process
@@ -24,13 +24,13 @@ Mark an issue as closed/resolved with optional reason documentation.
 ### Quick Close
 Simple closure without reason:
 ```bash
-/workflow/issue/close ISS-001
+/workflow:issue:close ISS-001
 ```
 
 ### Close with Reason
 Include closure reason:
 ```bash
-/workflow/issue/close ISS-001 "Feature implemented in PR #42"
+/workflow:issue:close ISS-001 "Feature implemented in PR #42"
 /workflow/issue/close ISS-002 "Duplicate of ISS-001"  
 /workflow/issue/close ISS-003 "No longer relevant"
 ```
