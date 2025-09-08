@@ -94,16 +94,6 @@ Creates actionable implementation plans from multiple input sources including di
 - Integrate diverse perspectives into unified plan
 - Preserve brainstorming context and decisions
 
-### Web-based Input
-```bash
-/workflow:action-plan --from-url "https://github.com/project/issues/45"
-/workflow:action-plan --from-url "https://docs.example.com/spec"
-```
-**Processing**:
-- Fetch content from web URLs
-- Parse structured requirements from web pages
-- Extract technical specifications
-- Handle GitHub issues, documentation sites, specs
 
 ## Complexity Levels
 

@@ -35,7 +35,7 @@ description: Core coordination principles for multi-agent development workflows
 ### Gemini Context Protocol
 **Context Integration**: Agents use Gemini CLI for context gathering when needed, with memory-gemini-bridge agent handling complex analysis.
 
-**CLI Guidelines Reference**: Follow @~/.cluade/workflows/gemini-cli-guidelines.md for consistency and `memory-gemini-bridge` agent for comprehensive analysis.
+**CLI Guidelines Reference**: Follow @~/.cluade/workflows/gemini-cli-guidelines.md for consistency.
 
 ### 🎯 Gemini CLI Requirements by Task Complexity
 
