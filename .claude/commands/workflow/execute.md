@@ -17,9 +17,9 @@ Coordinates multiple agents for executing existing workflow tasks through automa
 **Session Management:** @~/.claude/workflows/session-management-principles.md
 **Agent Orchestration:** @~/.claude/workflows/agent-orchestration-patterns.md
 
-## Vibe Philosophy
+## Execution Philosophy
 
-The "vibe" approach focuses on:
+The intelligent execution approach focuses on:
 - **Discovery-first execution** - Automatically discover existing plans and tasks
 - **Status-aware coordination** - Execute only tasks that are ready
 - **Context-rich agent assignment** - Use complete task JSON data for agent context  
@@ -52,7 +52,7 @@ Workflow Discovery:
 **Always First**: Create comprehensive TodoWrite based on discovered tasks
 
 ```markdown
-# Workflow Vibe Coordination
+# Workflow Execute Coordination
 *Session: WFS-[topic-slug]*
 
 ## Execution Plan
@@ -211,8 +211,8 @@ mark_dependent_tasks_ready(task_dependencies)
 ### Session State Updates
 ```json
 {
-  "current_phase": "VIBE",
-  "last_vibe_execution": "2025-09-08T14:30:00Z"
+  "current_phase": "EXECUTE",
+  "last_execute_run": "2025-09-08T14:30:00Z"
 }
 ```
 
@@ -220,9 +220,9 @@ mark_dependent_tasks_ready(task_dependencies)
 
 ### Discovery Issues
 ```bash
-# No workflow found
-❌ No workflow folder found
-→ Use: /workflow init "project name" first
+# No active session found
+❌ No active workflow session found
+→ Use: /workflow/session/start "project name" first
 
 # No executable tasks  
 ⚠️ All tasks completed or blocked
@@ -230,7 +230,7 @@ mark_dependent_tasks_ready(task_dependencies)
 
 # Missing task files
 ❌ Task impl-1.2 referenced but JSON file missing
-→ Fix: Recreate task or repair references
+→ Fix: /task/create or repair task references
 ```
 
 ### Execution Recovery
@@ -248,18 +248,18 @@ mark_dependent_tasks_ready(task_dependencies)
 
 ### Next Actions
 ```bash  
-# After /workflow:vibe execution
+# After /workflow/execute completion
 /context                  # View updated task status
-/task:execute impl-X      # Execute specific remaining tasks  
-/workflow:review          # Move to review phase when complete
+/task/execute impl-X      # Execute specific remaining tasks  
+/workflow/review          # Move to review phase when complete
 ```
 
 ## Related Commands
 
 - `/context` - View discovered tasks and current status
-- `/task:execute` - Execute individual tasks (user-controlled)
-- `/task:status` - Check task progress and dependencies
-- `/workflow:review` - Move to review phase after completion
+- `/task/execute` - Execute individual tasks (user-controlled)
+- `/workflow/session/status` - Check session progress and dependencies
+- `/workflow/review` - Move to review phase after completion
 
 ---
 
