@@ -68,234 +68,94 @@ Context inherited from workflow
 - `test` - Test implementation
 - `docs` - Documentation
 
-### Priority Levels
-- `low` - Can be deferred
+### Priority Levels (Optional - moved to context)
+- `low` - Can be deferred  
 - `normal` - Standard priority (default)
 - `high` - Should be done soon
 - `critical` - Must be done immediately
 
-## Task Structure
+**Note**: Priority is now stored in `context.priority` if needed, removed from top level for simplification.
+
+## Simplified Task Structure
 
 ```json
 {
   "id": "impl-1",
-  "parent_id": null,
   "title": "Build authentication module",
-  "type": "feature",
-  "priority": "normal",
   "status": "pending",
-  "depth": 1,
+  "type": "feature",
   "agent": "code-developer",
-  "effort": "4h",
   
   "context": {
-    "inherited_from": "WFS-user-auth-system",
     "requirements": ["JWT authentication", "OAuth2 support"],
     "scope": ["src/auth/*", "tests/auth/*"],
-    "acceptance": ["Module handles JWT tokens", "OAuth2 flow implemented"]
+    "acceptance": ["Module handles JWT tokens", "OAuth2 flow implemented"],
+    "inherited_from": "WFS-user-auth"
   },
   
-  "dependencies": {
-    "upstream": [],
-    "downstream": [],
-    "parent_dependencies": []
+  "relations": {
+    "parent": null,
+    "subtasks": [],
+    "dependencies": []
   },
-  
-  "subtasks": [],
   
   "execution": {
     "attempts": 0,
-    "current_attempt": null,
-    "history": []
+    "last_attempt": null
   },
   
-  "metadata": {
-    "created_at": "2025-09-05T10:30:00Z",
-    "started_at": null,
-    "completed_at": null,
-    "last_updated": "2025-09-05T10:30:00Z",
-    "version": "1.0"
+  "meta": {
+    "created": "2025-09-05T10:30:00Z",
+    "updated": "2025-09-05T10:30:00Z"
   }
 }
 ```
 
-## Document Integration Features
+## Simplified File Generation
 
-### JSON Task File Generation
-**File Location**: `.workflow/WFS-[topic-slug]/.task/impl-[N].json`
-**Hierarchical Naming**: Follows impl-N.M.P format for nested tasks
-**Schema Compliance**: All JSON files follow unified task schema from task-management-principles.md
+### JSON Task File Only
+**File Location**: `.task/impl-[N].json`
+**Naming**: Follows impl-N.M.P format for nested tasks  
+**Content**: Contains all task data (no document coordination needed)
 
-### Import from IMPL_PLAN.md
-```bash
-/task:create --from-plan
+### No Document Synchronization
+- Creates JSON task file only
+- Updates workflow-session.json stats only  
+- No automatic TODO_LIST.md generation
+- No complex cross-referencing needed
+
+### View Generation On-Demand
+- Use `/context` to generate views when needed
+- No persistent markdown files created
+- All data stored in JSON only
+
+## Simplified Task Management
+
+### Basic Task Statistics
+- Task count tracked in workflow-session.json
+- No automatic complexity escalation
+- Manual workflow type selection during init
+
+### Simple Creation Process
 ```
-- Reads existing IMPL_PLAN.md implementation strategy
-- Creates JSON task files based on planned structure
-- Maintains hierarchical relationships in JSON format
-- Preserves acceptance criteria from plan in task context
-
-### Progressive Document Creation
-Based on complexity analysis triggers:
-
-#### Level 0 Structure (<5 tasks)
-- Creates individual JSON task files in `.task/`
-- No TODO_LIST.md generation (minimal overhead)
-- Updates workflow-session.json with task references
-
-#### Level 1 Structure (5-15 tasks)
-- Creates hierarchical JSON task files (impl-N.M format)
-- **Auto-generates TODO_LIST.md** when complexity threshold reached
-- Creates `.summaries/` directory structure
-- Enhanced cross-referencing between files
-
-#### Level 2 Structure (>15 tasks)
-- Creates complete hierarchical JSON files (impl-N.M.P format)
-- Always maintains TODO_LIST.md with progress tracking
-- Full `.summaries/` directory with detailed task documentation
-- Comprehensive cross-references and validation
-
-### Document Creation Triggers
-TODO_LIST.md auto-generation conditions:
-- **Task count > 5** OR **modules > 3** OR **estimated effort > 4h** OR **complex dependencies detected**
-- **Always** for workflows with >15 tasks (Level 2 structure)
-
-### Cross-Reference Management
-- All JSON files contain proper parent_id relationships
-- TODO_LIST.md links to individual JSON task files
-- workflow-session.json maintains task list with hierarchy depth
-- Automatic validation of cross-file references
-
-## Dynamic Complexity Escalation (NEW FEATURE)
-
-### Automatic Workflow Upgrade System
-After each task creation, the system automatically evaluates current workflow complexity and upgrades structure when thresholds are exceeded.
-
-### Escalation Process
-```
-1. Create New Task → Generate JSON file
-2. Count All Tasks → Read all .task/*.json files  
-3. Calculate Metrics → Tasks, modules, dependencies, effort
-4. Check Thresholds → Compare against complexity criteria
-5. Trigger Upgrade → If threshold exceeded, escalate complexity
-6. Generate Documents → Auto-create missing structure documents
-7. Update Session → Record complexity change in workflow-session.json
-8. Notify User → Inform about automatic upgrade
+1. Create New Task → Generate JSON file only
+2. Update Session Stats → Increment task count  
+3. Notify User → Confirm task created
 ```
 
-### Escalation Triggers
-
-#### Simple → Medium Escalation
-**Triggered when ANY condition met:**
-- Task count reaches 5 (primary trigger)
-- Module count exceeds 3 
-- Total estimated effort > 4 hours
-- Complex dependencies detected
-- Cross-component changes required
-
-**Actions taken:**
-```bash
-✅ Task created: impl-5
-⚠️ Complexity threshold reached: 5 tasks (exceeds Simple limit)
-🔄 Escalating workflow: Simple → Medium
-
-Auto-generating enhanced structure:
-✅ Created TODO_LIST.md with hierarchical task display
-✅ Created .summaries/ directory for task completion tracking  
-✅ Updated workflow-session.json complexity level
-✅ Enabled 2-level task hierarchy (impl-N.M)
-
-Workflow now supports:
-- Progress tracking via TODO_LIST.md
-- Task decomposition up to 2 levels
-- Summary generation for completed tasks
-```
-
-#### Medium → Complex Escalation  
-**Triggered when ANY condition met:**
-- Task count reaches 15 (primary trigger)
-- Module count exceeds 5
-- Total estimated effort > 2 days
-- Multi-repository impacts detected
-- Architecture pattern changes required
-
-**Actions taken:**
-```bash
-✅ Task created: impl-15
-⚠️ Complexity threshold reached: 15 tasks (exceeds Medium limit)  
-🔄 Escalating workflow: Medium → Complex
-
-Auto-generating comprehensive structure:
-✅ Enhanced IMPL_PLAN.md with detailed phases and risk assessment
-✅ Expanded TODO_LIST.md with progress monitoring
-✅ Created comprehensive .summaries/ structure
-✅ Updated workflow-session.json complexity level
-✅ Enabled 3-level task hierarchy (impl-N.M.P maximum)
-
-Workflow now supports:
-- Comprehensive progress tracking and monitoring
-- Full 3-level task decomposition
-- Enhanced documentation and audit trails
-- Advanced dependency management
-```
-
-### Complexity Calculation Algorithm
-```javascript
-function calculateComplexity(tasks, modules, effort, dependencies) {
-  // Primary thresholds (hard limits)
-  if (tasks >= 15 || modules > 5 || effort > 48) return 'complex';
-  if (tasks >= 5 || modules > 3 || effort > 4) return 'medium';
-  
-  // Override factors (can force higher complexity)
-  if (dependencies.includes('multi-repo') || 
-      dependencies.includes('architecture-change')) return 'complex';
-  if (dependencies.includes('cross-component') ||
-      dependencies.includes('complex-integration')) return 'medium';
-      
-  return 'simple';
-}
-```
-
-### Session State Updates During Escalation
-```json
-{
-  "complexity": "medium",
-  "escalation_history": [
-    {
-      "from": "simple",
-      "to": "medium", 
-      "triggered_at": "2025-09-07T16:45:00Z",
-      "trigger_reason": "task_count_threshold",
-      "task_count_at_escalation": 5,
-      "auto_generated_documents": ["TODO_LIST.md", ".summaries/"],
-      "task_hierarchy_enabled": 2
-    }
-  ],
-  "task_system": {
-    "max_depth": 2,
-    "structure_level": "enhanced",
-    "documents_generated": ["TODO_LIST.md"],
-    "auto_escalation_enabled": true
-  }
-}
-```
-
-### Benefits of Dynamic Escalation
-- **Seamless Growth**: Workflows grow naturally without user intervention
-- **No Overhead for Simple Tasks**: Simple workflows remain minimal
-- **Automatic Structure**: Enhanced documentation appears when needed
-- **Progressive Enhancement**: Users get appropriate tooling for current complexity
-- **Transparent Process**: All escalations logged and reversible
+### Benefits of Simplification
+- **No Overhead**: Just create tasks, no complex logic
+- **Predictable**: Same process every time
+- **Fast**: Minimal processing needed
+- **Clear**: User controls complexity level
 
 ## Context Inheritance
 
 Tasks automatically inherit:
-1. **Requirements** - From workflow-session.json context and IMPL_PLAN.md
-2. **Scope** - File patterns from workflow and IMPL_PLAN.md strategy
-3. **Standards** - Quality standards from workflow session
-4. **Dependencies** - Related tasks from existing JSON task hierarchy in `.task/`
-5. **Parent Context** - When created as subtasks, inherit from parent JSON file
-6. **Session Context** - Global workflow context from active session
+1. **Requirements** - From workflow-session.json and IMPL_PLAN.md
+2. **Scope** - File patterns from workflow context  
+3. **Parent Context** - When created as subtasks, inherit from parent
+4. **Session Context** - Global workflow context from active session
 
 ## Smart Suggestions
 
@@ -358,46 +218,29 @@ Created 3 tasks:
 - impl-3: Write authentication tests
 ```
 
-## File Output Management
+## File Output
 
-### JSON Task Files
-**Output Location**: `.workflow/WFS-[topic-slug]/.task/impl-[id].json`
-**Schema**: Follows unified task JSON schema with hierarchical support
-**Contents**: Complete task definition including context, dependencies, and metadata
+### JSON Task File
+**Location**: `.task/impl-[id].json`
+**Schema**: Simplified task JSON schema  
+**Contents**: Complete task definition with context
 
-### TODO_LIST.md Generation
-**Trigger Logic**: Auto-created based on complexity thresholds
-**Location**: `.workflow/WFS-[topic-slug]/TODO_LIST.md`
-**Format**: Hierarchical task display with checkboxes and progress tracking
-
-### Summary Directory Structure
-**Location**: `.workflow/WFS-[topic-slug]/.summaries/`
-**Purpose**: Ready for task completion summaries
-**Structure**: Created when Level 1+ complexity detected
-
-### Workflow Session Updates
-**File**: `.workflow/WFS-[topic-slug]/workflow-session.json`
-**Updates**: Task list, counters, progress calculations, hierarchy depth
+### Session Updates
+**File**: `workflow-session.json`
+**Updates**: Basic task count and active task list only
 
 ## Integration
 
-### Workflow Integration
-- Updates workflow-session.json with new task references
-- Increments task counter and updates complexity assessment
-- Updates IMPLEMENT phase progress and task hierarchy depth
-- Maintains bidirectional sync with TodoWrite tool
-
-### File System Coordination
-- Validates and creates required directory structure
-- Maintains cross-references between all generated files
-- Ensures proper naming conventions and hierarchy limits
-- Provides rollback capability for failed operations
+### Simple Integration
+- Updates workflow-session.json stats
+- Creates JSON task file
+- No complex file coordination needed
 
 ### Next Steps
 After creation, use:
-- `/task:breakdown` - Split into hierarchical subtasks with JSON files
-- `/task:execute` - Run the task with summary generation
-- `/context` - View task details, status and relationships
+- `/task:breakdown` - Split into subtasks  
+- `/task:execute` - Run the task
+- `/context` - View task details and status
 
 ## Examples
 

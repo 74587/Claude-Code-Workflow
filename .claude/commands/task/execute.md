@@ -135,39 +135,38 @@ END FUNCTION
 -   **Conditional Execution (`--if="..."`)**: Proceeds with execution only if a specified condition (e.g., `"tests-pass"`) is met.
 -   **Rollback (`--rollback`)**: Reverts file modifications and restores the previous task state.
 
-### 📄 **Standard Context Structure (JSON)**
+### 📄 **Simplified Context Structure (JSON)**
 
-This is the standard data structure loaded to provide context for task execution.
+This is the simplified data structure loaded to provide context for task execution.
 
 ```json
 {
   "task": {
-    "id": "IMPL-001",
+    "id": "impl-1",
     "title": "Build authentication module",
     "type": "feature",
     "status": "active",
     "agent": "code-developer",
     "context": {
-      "inherited_from": "WFS-[topic-slug]",
       "requirements": ["JWT authentication", "OAuth2 support"],
       "scope": ["src/auth/*", "tests/auth/*"],
-      "acceptance": ["Module handles JWT tokens", "OAuth2 flow implemented"]
+      "acceptance": ["Module handles JWT tokens", "OAuth2 flow implemented"],
+      "inherited_from": "WFS-user-auth"
+    },
+    "relations": {
+      "parent": null,
+      "subtasks": ["impl-1.1", "impl-1.2"],
+      "dependencies": ["impl-0"]
     }
   },
   "workflow": {
-    "session": "WFS-[topic-slug]",
-    "phase": "IMPLEMENT",
-    "global_context": ["Security first", "Backward compatible"]
+    "session": "WFS-user-auth",
+    "phase": "IMPLEMENT"
   },
   "execution": {
     "agent": "code-developer",
     "mode": "auto",
-    "checkpoints": ["setup", "implement", "test", "validate"],
-    "attempts": 1,
-    "current_attempt": {
-      "started_at": "2025-09-05T10:35:00Z",
-      "completed_checkpoints": ["setup"]
-    }
+    "attempts": 0
   }
 }
 ```
@@ -180,37 +179,28 @@ Different agents receive context tailored to their function:
 -   **`test-agent`**: Test requirements, code to be tested, coverage goals.
 -   **`review-agent`**: Quality standards, style guides, review criteria.
 
-### 🗃️ **File Output & System Integration**
+### 🗃️ **Simplified File Output**
 
--   **Task JSON File (`.task/<task-id>.json`)**: The authoritative source. Updated with status, execution history, and metadata.
--   **TODO List (`TODO_LIST.md`)**: The task's checkbox is updated, progress is recalculated, and links to the summary file are added.
--   **Session File (`workflow-session.json`)**: Task completion status and overall phase progress are updated.
--   **Summary File**: Generated in `.workflow/WFS-[...]/summaries/` upon successful completion.
+-   **Task JSON File (`.task/<task-id>.json`)**: Updated with status and last attempt time only.
+-   **Session File (`workflow-session.json`)**: Updated task stats (completed count).
+-   **Summary File**: Generated in `.summaries/` upon completion (optional).
 
-### 📝 **Summary File Template**
+### 📝 **Simplified Summary Template**
 
-A summary file is generated at `.workflow/WFS-[topic-slug]/.summaries/IMPL-[task-id]-summary.md`.
+Optional summary file generated at `.summaries/impl-[task-id]-summary.md`.
 
 ```markdown
-# Task Summary: IMPL-001 Build Authentication Module
+# Task Summary: impl-1 Build Authentication Module
 
 ## What Was Done
 - Created src/auth/login.ts with JWT validation
-- Modified src/auth/validate.ts for enhanced security
-- Added comprehensive tests in tests/auth.test.ts
+- Added tests in tests/auth.test.ts
 
 ## Execution Results
-- **Duration**: 23 minutes
 - **Agent**: code-developer
-- **Tests Passed**: 12/12 (100%)
-- **Coverage**: 87%
+- **Status**: completed
 
 ## Files Modified
 - `src/auth/login.ts` (created)
-- `src/auth/validate.ts` (modified) 
 - `tests/auth.test.ts` (created)
-
-## Links
-- [🔙 Back to Task List](../TODO_LIST.md#impl-001)
-- [📌 Task Details](../.task/impl-001.json)
 ```

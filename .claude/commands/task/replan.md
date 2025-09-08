@@ -1,466 +1,518 @@
 ---
 name: task-replan
-description: Dynamically replan tasks based on changes, blockers, or new requirements
-usage: /task:replan [task-id|--all] [--reason=<reason>] [--strategy=<adjust|rebuild>]
-argument-hint: [task-id or --all] [optional: reason and strategy]
+description: Replan individual tasks with detailed user input and change tracking
+usage: /task:replan <task-id> [input-source]
+argument-hint: task-id [text|--from-file|--from-issue|--detailed|--interactive]
 examples:
-  - /task:replan IMPL-001 --reason="requirements changed"
-  - /task:replan --all --reason="new security requirements"
-  - /task:replan IMPL-003 --strategy=rebuild
+  - /task:replan impl-1 "Add OAuth2 authentication support"
+  - /task:replan impl-1 --from-file updated-specs.md
+  - /task:replan impl-1 --from-issue ISS-001
+  - /task:replan impl-1 --detailed
+  - /task:replan impl-1 --interactive
 ---
 
 # Task Replan Command (/task:replan)
 
 ## Overview
-Dynamically adjusts task planning based on changes, new requirements, blockers, or execution results.
+Replans individual tasks based on detailed user input with comprehensive change tracking, version management, and document synchronization. Focuses exclusively on single-task modifications with rich input options.
 
 ## Core Principles
-**System Architecture:** @~/.claude/workflows/unified-workflow-system-principles.md  
+**System:** @~/.claude/workflows/unified-workflow-system-principles.md
+**Task Management:** @~/.claude/workflows/task-management-principles.md
 
+## Single-Task Focus
+This command operates on **individual tasks only**. For workflow-wide changes, use `/workflow:action-plan` instead.
 
-## Replan Triggers
+⚠️ **CRITICAL**: Before replanning, checks for existing active session to avoid conflicts.
 
-⚠️ **CRITICAL**: Before replanning, MUST check for existing active session to avoid creating duplicate sessions.
+## Input Sources for Replanning
 
-### Session Check Process
-1. **Query Session Registry**: Check `.workflow/session_status.jsonl` for active sessions. If the file doesn't exist, create it.
-2. **Session Validation**: Use existing active session containing the task to be replanned
-3. **Context Integration**: Load existing session state and task hierarchy
-
-### Automatic Detection
-System detects replanning needs from file monitoring:
-- Requirements changed in workflow-session.json
-- Dependencies blocked in JSON task hierarchy  
-- Task failed execution (logged in JSON execution history)
-- New issues discovered and associated with tasks
-- Scope modified in task context or IMPL_PLAN.md
-- File structure complexity changes requiring reorganization
-
-### Manual Triggers
+### Direct Text Input (Default)
 ```bash
-/task:replan IMPL-001 --reason="API spec updated"
+/task:replan impl-1 "Add OAuth2 authentication support"
+```
+**Processing**:
+- Parse specific changes and requirements
+- Extract new features or modifications needed
+- Apply directly to target task structure
+
+### File-based Requirements
+```bash
+/task:replan impl-1 --from-file updated-specs.md
+/task:replan impl-1 --from-file requirements-change.txt
+```
+**Supported formats**: .md, .txt, .json, .yaml
+**Processing**:
+- Read detailed requirement changes from file
+- Parse structured specifications and updates
+- Apply file content to task replanning
+
+### Issue-based Replanning
+```bash
+/task:replan impl-1 --from-issue ISS-001
+/task:replan impl-1 --from-issue "bug-report"
+```
+**Processing**:
+- Load issue description and requirements
+- Extract necessary changes for task
+- Apply issue resolution to task structure
+
+### Detailed Mode
+```bash
+/task:replan impl-1 --detailed
+```
+**Guided Input**:
+1. **New Requirements**: What needs to be added/changed?
+2. **Scope Changes**: Expand/reduce task scope?
+3. **Subtask Modifications**: Add/remove/modify subtasks?
+4. **Dependencies**: Update task relationships?
+5. **Success Criteria**: Modify completion conditions?
+6. **Agent Assignment**: Change assigned agent?
+
+### Interactive Mode
+```bash
+/task:replan impl-1 --interactive
+```
+**Step-by-Step Process**:
+1. **Current Analysis**: Review existing task structure
+2. **Change Identification**: What needs modification?
+3. **Impact Assessment**: How changes affect task?
+4. **Structure Updates**: Add/modify subtasks
+5. **Validation**: Confirm changes before applying
+
+## Replanning Flow with Change Tracking
+
+### 1. Task Loading & Validation
+```
+Load Task → Read current task JSON file
+Validate → Check task exists and can be modified
+Session Check → Verify active workflow session
 ```
 
-## Replan Strategies
-
-### 1. Adjust Strategy (Default)
-Minimal changes to existing plan:
-```bash
-/task:replan IMPL-001 --strategy=adjust
-
-Adjustments for IMPL-001:
-- Updated requirements
-- Modified subtask IMPL-001.2
-- Added validation step
-- Kept 80% of original plan
+### 2. Input Processing
+```
+Detect Input Type → Identify source type
+Extract Requirements → Parse change requirements
+Analyze Impact → Determine modifications needed
 ```
 
-### 2. Rebuild Strategy
-Complete replanning from scratch:
-```bash
-/task:replan IMPL-001 --strategy=rebuild
-
-Rebuilding IMPL-001:
-- Analyzing new requirements
-- Generating new breakdown
-- Reassigning agents
-- New execution plan created
+### 3. Version Management
+```
+Create Version → Backup current task state
+Update Version → Increment task version number
+Archive → Store previous version in versions/
 ```
 
-## Usage Scenarios
-
-### Scenario 1: Requirements Change
-```bash
-/task:replan IMPL-001 --reason="Added OAuth2 requirement"
-
-Analyzing impact...
-Current plan:
-- IMPL-001.1: Basic login ✅ Complete
-- IMPL-001.2: Session management (in progress)
-- IMPL-001.3: Tests
-
-Recommended changes:
-+ Add IMPL-001.4: OAuth2 integration
-~ Modify IMPL-001.2: Include OAuth session
-~ Update IMPL-001.3: Add OAuth tests
-
-Apply changes? (y/n): y
-✅ Task replanned successfully
+### 4. Task Structure Updates
+```
+Modify Task → Update task JSON structure
+Update Subtasks → Add/remove/modify as needed
+Update Relations → Fix dependencies and hierarchy
+Update Context → Modify requirements and scope
 ```
 
-### Scenario 2: Blocked Task
-```bash
-/task:replan IMPL-003 --reason="API not ready"
-
-Task blocked analysis:
-- IMPL-003 depends on external API
-- API delayed by 2 days
-- 3 tasks depend on IMPL-003
-
-Replan options:
-1. Defer IMPL-003 and dependents
-2. Create mock API for development
-3. Reorder to work on independent tasks
-
-Select option: 2
-
-Creating new plan:
-+ IMPL-003.0: Create API mock
-~ IMPL-003.1: Use mock for development
-~ Add note: Replace mock when API ready
+### 5. Document Synchronization
+```
+Update IMPL_PLAN → Regenerate task section
+Update TODO_LIST → Sync task hierarchy (if exists)
+Update Session → Reflect changes in workflow state
 ```
 
-### Scenario 3: Failed Execution
-```bash
-/task:replan IMPL-002 --reason="execution failed"
-
-Failure analysis:
-- Failed at: Testing phase
-- Reason: Performance issues
-- Impact: Blocks 2 downstream tasks
-
-Replan approach:
-1. Break down into smaller tasks
-2. Add performance optimization task
-3. Adjust testing approach
-
-New structure:
-IMPL-002 (failed) → 
-├── IMPL-002.1: Core functionality (smaller scope)
-├── IMPL-002.2: Performance optimization
-├── IMPL-002.3: Load testing
-└── IMPL-002.4: Integration
-
-✅ Replanned with focus on incremental delivery
+### 6. Change Documentation
+```
+Create Change Log → Document all modifications
+Generate Summary → Create replan report
+Update History → Add to task replan history
 ```
 
-## Global Replanning
+## Version Management (Simplified)
 
-### Replan All Tasks
-```bash
-/task:replan --all --reason="Architecture change"
-
-Global replan analysis:
-- Total tasks: 8
-- Completed: 3 (keep as-is)
-- In progress: 2 (need adjustment)
-- Pending: 3 (full replan)
-
-Changes summary:
-- 2 tasks modified
-- 1 task removed (no longer needed)
-- 2 new tasks added
-- Dependencies reordered
-
-Preview changes? (y/n): y
-[Detailed change list]
-
-Apply all changes? (y/n): y
-✅ All tasks replanned
-```
-
-## Impact Analysis
-
-### Before Replanning
-```bash
-/task:replan IMPL-001 --preview
-
-Impact Preview:
-If IMPL-001 is replanned:
-- Affected tasks: 4
-- Timeline impact: +1 day
-- Resource changes: Need planning-agent
-- Risk level: Medium
-
-Dependencies affected:
-- IMPL-003: Will need adjustment
-- IMPL-004: Delay expected
-- IMPL-005: No impact
-
-Continue? (y/n):
-```
-
-## Replan Operations
-
-### Add Subtasks
-```bash
-/task:replan IMPL-001 --add-subtask
-
-Current subtasks:
-1. IMPL-001.1: Design
-2. IMPL-001.2: Implement
-
-Add new subtask:
-Title: Add security layer
-Position: After IMPL-001.2
-Agent: code-developer
-
-✅ Added IMPL-001.3: Add security layer
-```
-
-### Remove Subtasks
-```bash
-/task:replan IMPL-001 --remove-subtask=IMPL-001.3
-
-⚠️ Remove IMPL-001.3?
-This will:
-- Delete subtask and its context
-- Update parent progress
-- Adjust dependencies
-
-Confirm? (y/n): y
-✅ Subtask removed
-```
-
-### Reorder Tasks
-```bash
-/task:replan --reorder
-
-Current order:
-1. IMPL-001: Auth
-2. IMPL-002: Database
-3. IMPL-003: API
-
-Suggested reorder (based on dependencies):
-1. IMPL-002: Database
-2. IMPL-001: Auth  
-3. IMPL-003: API
-
-Apply reorder? (y/n): y
-✅ Tasks reordered
-```
-
-## Smart Recommendations
-
-### AI-Powered Suggestions
-```bash
-/task:replan IMPL-001 --suggest
-
-Analysis complete. Suggestions:
-1. 🔄 Split IMPL-001.2 (too complex)
-2. ⏱️ Reduce scope to meet deadline
-3. 🤝 Parallelize IMPL-001.1 and IMPL-001.3
-4. 📝 Add documentation task
-5. 🧪 Increase test coverage requirement
-
-Apply suggestion: 1
-
-Splitting IMPL-001.2:
-→ IMPL-001.2.1: Core implementation
-→ IMPL-001.2.2: Error handling
-→ IMPL-001.2.3: Optimization
-✅ Applied successfully
-```
-
-## Version Control & File Management
-
-### JSON Task Version History
-**File-Based Versioning**: Each replan creates version history in JSON metadata
-
-```bash
-/task:replan impl-001 --history
-
-Plan versions for impl-001 (from JSON file):
-v3 (current): 4 subtasks, 2 complete - JSON files: impl-001.1.json to impl-001.4.json
-v2: 3 subtasks (archived) - Backup: .task/archive/impl-001-v2-backup.json
-v1: 2 subtasks (initial) - Backup: .task/archive/impl-001-v1-backup.json
-
-Version files available:
-- Current: .task/impl-001.json
-- Backups: .task/archive/impl-001-v[N]-backup.json
-- Change log: .summaries/replan-history-impl-001.md
-
-Rollback to version: 2
-⚠️ This will:
-- Restore JSON files from backup
-- Regenerate TODO_LIST.md structure
-- Update workflow-session.json
-- Archive current version
-
-Continue? (y/n):
-```
-
-### Replan Documentation Generation
-**Change Tracking Files**: Auto-generated documentation of all changes
-
-```bash
-# Generates: .summaries/replan-[task-id]-[timestamp].md
-/task:replan impl-001 --reason="API changes" --document
-
-Creating replan documentation...
-
-📝 Replan Report: impl-001
-Generated: 2025-09-07 16:00:00
-Reason: API changes
-Version: v2 → v3
-
-## Changes Made
-- Added subtask impl-001.4: Handle new API endpoints
-- Modified impl-001.2: Updated authentication flow
-- Removed impl-001.3: No longer needed due to API changes
-
-## File Changes
-- Created: .task/impl-001.4.json
-- Modified: .task/impl-001.2.json
-- Archived: .task/impl-001.3.json → .task/archive/
-- Updated: TODO_LIST.md hierarchy
-- Updated: workflow-session.json task count
-
-## Impact Analysis
-- Timeline: +2 days (new subtask)
-- Dependencies: impl-002 now depends on impl-001.4
-- Resources: Need API specialist for impl-001.4
-
-Report saved: .summaries/replan-impl-001-20250907-160000.md
-```
-
-### Enhanced JSON Change Tracking
-**Complete Replan History**: All changes documented in JSON files and reports
+### Version Tracking
+Each replan creates a new version with complete history:
 
 ```json
 {
-  "task_id": "impl-001",
+  "id": "impl-1",
   "title": "Build authentication module",
-  "status": "active",
   "version": "1.2",
-  
   "replan_history": [
     {
-      "version": "1.2",
-      "timestamp": "2025-09-07T16:00:00Z",
-      "reason": "API changes",
-      "changes_summary": "Added API endpoint handling, removed deprecated auth flow",
-      "backup_location": ".task/archive/impl-001-v1.1-backup.json",
-      "documentation": ".summaries/replan-impl-001-20250907-160000.md",
-      "files_affected": [
-        {
-          "action": "created",
-          "file": ".task/impl-001.4.json",
-          "description": "New API endpoint handling subtask"
-        },
-        {
-          "action": "modified", 
-          "file": ".task/impl-001.2.json",
-          "description": "Updated authentication flow"
-        },
-        {
-          "action": "archived",
-          "file": ".task/impl-001.3.json",
-          "location": ".task/archive/impl-001.3-deprecated.json"
-        }
+      "version": "1.1",
+      "date": "2025-09-08T10:00:00Z",
+      "reason": "Original plan",
+      "input_source": "initial_creation"
+    },
+    {
+      "version": "1.2", 
+      "date": "2025-09-08T14:00:00Z",
+      "reason": "Add OAuth2 authentication support",
+      "input_source": "direct_text",
+      "changes": [
+        "Added subtask impl-1.3: OAuth2 integration",
+        "Added subtask impl-1.4: Token management",
+        "Modified scope to include external auth"
       ],
-      "todo_list_regenerated": true,
-      "session_updated": true
+      "backup_location": ".task/versions/impl-1-v1.1.json"
     }
   ],
-  
-  "subtasks": ["impl-001.1", "impl-001.2", "impl-001.4"],
-  
-  "metadata": {
-    "version": "1.2",
-    "last_updated": "2025-09-07T16:00:00Z",
-    "last_replan": "2025-09-07T16:00:00Z",
-    "replan_count": 2
+  "context": {
+    "requirements": ["Basic auth", "Session mgmt", "OAuth2 support"],
+    "scope": ["src/auth/*", "tests/auth/*"],
+    "acceptance": ["All auth methods work"]
   }
 }
 ```
 
-## File System Integration
-
-### Comprehensive File Updates
-**Multi-File Synchronization**: Ensures consistency across all workflow files
-
-#### JSON Task File Management
-- **Version Backups**: Automatic backup before major changes
-- **Hierarchical Updates**: Cascading changes through parent-child relationships
-- **Archive Management**: Deprecated task files moved to `.task/archive/`
-- **Metadata Tracking**: Complete change history in JSON metadata
-
-#### TODO_LIST.md Regeneration
-**Smart Regeneration**: Updates based on structural changes
-
-```bash
-/task:replan impl-001 --regenerate-todo
-
-Analyzing structural changes from replan...
-Current TODO_LIST.md: 8 tasks displayed
-New task structure: 9 tasks (1 added, 1 removed, 2 modified)
-
-Regenerating TODO_LIST.md...
-✅ Updated task hierarchy display
-✅ Recalculated progress percentages
-✅ Updated cross-references to JSON files
-✅ Added links to new summary files
-
-TODO_LIST.md updated with new structure
+### File Structure After Replan
+```
+.task/
+├── impl-1.json                    # Current version (1.2)
+├── impl-1.3.json                  # New subtask
+├── impl-1.4.json                  # New subtask  
+├── versions/
+│   └── impl-1-v1.1.json          # Previous version backup
+└── summaries/
+    └── replan-impl-1-20250908.md  # Change log
 ```
 
-#### Workflow Session Updates
-- **Task Count Updates**: Reflect additions/removals in session
-- **Progress Recalculation**: Update completion percentages
-- **Complexity Assessment**: Re-evaluate structure level if needed
-- **Dependency Validation**: Check all task dependencies remain valid
+## IMPL_PLAN.md Updates
 
-### Documentation Generation
-**Automatic Report Creation**: Every replan generates documentation
+### Automatic Plan Regeneration
+When task is replanned, the corresponding section in IMPL_PLAN.md is updated:
 
-- **Replan Report**: `.summaries/replan-[task-id]-[timestamp].md`
-- **Change Summary**: Detailed before/after comparison
-- **Impact Analysis**: Effects on timeline, dependencies, resources
-- **File Change Log**: Complete list of affected files
-- **Rollback Instructions**: How to revert changes if needed
+**Before Replan**:
+```markdown
+## Task Breakdown
+- **IMPL-001**: Build authentication module
+  - Basic login functionality
+  - Session management
+  - Password reset
+```
 
-### Issue Integration
+**After Replan**:
+```markdown
+## Task Breakdown
+- **IMPL-001**: Build authentication module (v1.2)
+  - Basic login functionality
+  - Session management  
+  - OAuth2 integration (added)
+  - Token management (added)
+  - Password reset
+
+*Last updated: 2025-09-08 14:00 via task:replan*
+```
+
+### Plan Update Process
+1. **Locate Task Section**: Find task in IMPL_PLAN.md by ID
+2. **Update Description**: Modify task title if changed
+3. **Update Subtasks**: Add/remove bullet points for subtasks
+4. **Add Version Info**: Include version number and update timestamp
+5. **Preserve Context**: Keep surrounding plan structure intact
+
+## TODO_LIST.md Synchronization
+
+### Automatic TODO List Updates
+If TODO_LIST.md exists in workflow, synchronize task changes:
+
+**Before Replan**:
+```markdown
+## Implementation Tasks
+- [ ] impl-1: Build authentication module
+  - [x] impl-1.1: Design schema
+  - [ ] impl-1.2: Implement logic
+```
+
+**After Replan**:
+```markdown
+## Implementation Tasks
+- [ ] impl-1: Build authentication module (updated v1.2)
+  - [x] impl-1.1: Design schema
+  - [ ] impl-1.2: Implement logic  
+  - [ ] impl-1.3: OAuth2 integration (new)
+  - [ ] impl-1.4: Token management (new)
+```
+
+### TODO Update Rules
+- **Preserve Status**: Keep existing checkbox states [x] or [ ]
+- **Add New Items**: New subtasks get [ ] checkbox
+- **Mark Changes**: Add (updated), (new), (modified) indicators
+- **Remove Items**: Delete subtasks that were removed
+- **Update Hierarchy**: Maintain proper indentation structure
+
+## Change Documentation
+
+### Comprehensive Change Log
+Every replan generates detailed documentation:
+
+```markdown
+# Task Replan Log: impl-1
+*Date: 2025-09-08T14:00:00Z*
+*Version: 1.1 → 1.2*
+*Input: Direct text - "Add OAuth2 authentication support"*
+
+## Changes Applied
+
+### Task Structure Updates
+- **Added Subtasks**:
+  - impl-1.3: OAuth2 provider integration
+  - impl-1.4: Token management system
+- **Modified Subtasks**:
+  - impl-1.2: Updated to include OAuth flow integration
+- **Removed Subtasks**: None
+
+### Context Modifications
+- **Requirements**: Added OAuth2 external authentication
+- **Scope**: Expanded to include third-party auth integration
+- **Acceptance**: Include OAuth2 token validation
+- **Dependencies**: No changes
+
+### File System Updates
+- **Updated**: .task/impl-1.json (version 1.2)
+- **Created**: .task/impl-1.3.json, .task/impl-1.4.json
+- **Backed Up**: .task/versions/impl-1-v1.1.json
+- **Updated**: IMPL_PLAN.md (task section regenerated)
+- **Updated**: TODO_LIST.md (2 new items added)
+
+## Impact Analysis
+- **Timeline**: +2 days for OAuth implementation
+- **Complexity**: Increased (simple → medium)
+- **Agent**: Remains code-developer, may need OAuth expertise
+- **Dependencies**: Task impl-2 may need OAuth context
+
+## Related Tasks Affected
+- impl-2: May need OAuth integration context
+- impl-5: Authentication dependency updated
+
+## Rollback Information
+- **Previous Version**: 1.1
+- **Backup Location**: .task/versions/impl-1-v1.1.json
+- **Rollback Command**: `/task:replan impl-1 --rollback v1.1`
+```
+
+## Session State Updates
+
+### Workflow Integration
+After task replanning, update session information:
+
+```json
+{
+  "phases": {
+    "IMPLEMENT": {
+      "tasks": ["impl-1", "impl-2", "impl-3"],
+      "completed_tasks": [],
+      "modified_tasks": {
+        "impl-1": {
+          "version": "1.2", 
+          "last_replan": "2025-09-08T14:00:00Z",
+          "reason": "OAuth2 integration added"
+        }
+      },
+      "task_count": {
+        "total": 6,
+        "added_today": 2
+      }
+    }
+  },
+  "documents": {
+    "IMPL_PLAN.md": {
+      "last_updated": "2025-09-08T14:00:00Z",
+      "updated_sections": ["IMPL-001"]
+    },
+    "TODO_LIST.md": {
+      "last_updated": "2025-09-08T14:00:00Z", 
+      "items_added": 2
+    }
+  }
+}
+```
+
+## Rollback Support (Simple)
+
+### Basic Version Rollback
 ```bash
-/task:replan IMPL-001 --from-issue=ISS-001
+/task:replan impl-1 --rollback v1.1
+
+Rollback Analysis:
+Current Version: 1.2
+Target Version: 1.1
+Changes to Revert:
+- Remove subtasks: impl-1.3, impl-1.4
+- Restore previous context
+- Update IMPL_PLAN.md section
+- Update TODO_LIST.md structure
+
+Files Affected:
+- Restore: .task/impl-1.json from backup
+- Remove: .task/impl-1.3.json, .task/impl-1.4.json
+- Update: IMPL_PLAN.md, TODO_LIST.md
+
+Confirm rollback? (y/n): y
+
+Rolling back...
+✅ Task impl-1 rolled back to version 1.1
+✅ Documents updated
+✅ Change log created
+```
+
+## Practical Examples
+
+### Example 1: Add Feature with Full Tracking
+```bash
+/task:replan impl-1 "Add two-factor authentication"
+
+Loading task impl-1 (current version: 1.2)...
+
+Processing request: "Add two-factor authentication"
+Analyzing required changes...
+
+Proposed Changes:
++ Add impl-1.5: Two-factor setup
++ Add impl-1.6: 2FA validation
+~ Modify impl-1.2: Include 2FA in auth flow
+
+Apply changes? (y/n): y
+
+Executing replan...
+✓ Version 1.3 created
+✓ Added 2 new subtasks
+✓ Modified 1 existing subtask
+✓ IMPL_PLAN.md updated
+✓ TODO_LIST.md synchronized
+✓ Change log saved
+
+Result:
+- Task version: 1.2 → 1.3
+- Subtasks: 4 → 6
+- Documents updated: 2
+- Backup: .task/versions/impl-1-v1.2.json
+```
+
+### Example 2: Issue-based Replanning
+```bash
+/task:replan impl-2 --from-issue ISS-001
 
 Loading issue ISS-001...
-Issue: "Login timeout too short"
-Type: Bug
+Issue: "Database queries too slow - need caching"
 Priority: High
 
-Suggested replan:
-+ Add IMPL-001.4: Fix login timeout
-~ Adjust IMPL-001.3: Include timeout tests
+Applying to task impl-2...
 
-Apply? (y/n): y
+Required changes for performance fix:
++ Add impl-2.4: Implement Redis caching
++ Add impl-2.5: Query optimization
+~ Modify impl-2.1: Add cache checks
+
+Documents updating:
+✓ Task JSON updated (v1.0 → v1.1)  
+✓ IMPL_PLAN.md section regenerated
+✓ TODO_LIST.md: 2 new items added
+✓ Issue ISS-001 linked to task
+
+Summary:
+Performance improvements added to impl-2
+Timeline impact: +1 day for caching setup
+```
+
+### Example 3: Interactive Replanning
+```bash
+/task:replan impl-3 --interactive
+
+Interactive Replan for impl-3: API integration
+Current version: 1.0
+
+1. What needs to change? "API spec updated, need webhook support"
+2. Add new requirements? "Webhook handling, signature validation"  
+3. Add subtasks? "y"
+   - New subtask 1: "Webhook receiver endpoint"
+   - New subtask 2: "Signature validation"
+   - Add more? "n"
+4. Modify existing subtasks? "n"
+5. Update dependencies? "Now depends on impl-1 (auth for webhooks)"
+6. Change agent assignment? "n"
+
+Applying interactive changes...
+✓ Added 2 subtasks for webhook functionality
+✓ Updated dependencies  
+✓ Context expanded for webhook requirements
+✓ Version 1.1 created
+✓ All documents synchronized
+
+Interactive replan complete!
 ```
 
 ## Error Handling
 
+### Input Validation Errors
 ```bash
-# Cannot replan completed task
-❌ Task IMPL-001 is completed
-→ Create new task instead
+# Task not found
+❌ Task impl-5 not found in current session
+→ Check task ID with /context
 
-# No reason provided
-⚠️ Please provide reason for replanning
-→ Use --reason="explanation"
+# No input provided
+❌ Please specify changes needed for replanning
+→ Use descriptive text or --detailed/--interactive
 
-# Conflicts detected
-⚠️ Replan conflicts with IMPL-002
-→ Resolve with --force or adjust plan
+# Task completed
+⚠️ Task impl-1 is completed (cannot replan)
+→ Create new task for additional work
+
+# File not found
+❌ File updated-specs.md not found
+→ Check file path and try again
 ```
 
-## File Output Summary
+### Document Update Issues
+```bash
+# Missing IMPL_PLAN.md
+⚠️ IMPL_PLAN.md not found in workflow
+→ Task update proceeding, plan regeneration skipped
 
-### Generated Files
-- **Backup Files**: `.task/archive/[task-id]-v[N]-backup.json`
-- **Replan Reports**: `.summaries/replan-[task-id]-[timestamp].md`
-- **Change Logs**: Embedded in JSON task file metadata
-- **Updated TODO_LIST.md**: Reflects new task structure
-- **Archive Directory**: `.task/archive/` for deprecated files
+# TODO_LIST.md not writable
+⚠️ Cannot update TODO_LIST.md (permissions)
+→ Task updated, manual TODO sync needed
 
-### File System Maintenance
-- **Automatic Cleanup**: Archive old versions after 30 days
-- **Integrity Validation**: Ensure all references remain valid after changes
-- **Rollback Support**: Complete restoration capability from backups
-- **Cross-Reference Updates**: Maintain links between all workflow files
+# Session conflict
+⚠️ Task impl-1 being modified in another session
+→ Complete other operation first
+```
+
+## Integration Points
+
+### Command Workflow
+```bash
+# 1. Replan task with new requirements
+/task:replan impl-1 "Add advanced security features"
+
+# 2. View updated task structure  
+/context impl-1
+→ Shows new version with changes
+
+# 3. Check updated planning documents
+cat IMPL_PLAN.md
+→ Task section shows v1.3 with new features
+
+# 4. Verify TODO list synchronization
+cat TODO_LIST.md
+→ New subtasks appear with [ ] checkboxes
+
+# 5. Execute replanned task
+/task:execute impl-1
+→ Works with updated task structure
+```
+
+### Session Integration
+- **Task Count Updates**: Reflect additions/removals in session stats
+- **Document Sync**: Keep IMPL_PLAN.md and TODO_LIST.md current
+- **Version Tracking**: Complete audit trail in task JSON
+- **Change Traceability**: Link replans to input sources
 
 ## Related Commands
 
-- `/task:breakdown` - Initial task breakdown with JSON file creation
-- `/context` - Analyze current state from file system
-- `/task:execute` - Execute replanned tasks with new structure
-- `/context` - View updated task structure and relationships
-- `/workflow:replan` - Replan entire workflow with session updates
+- `/context` - View task structure and version history
+- `/task:execute` - Execute replanned tasks with new structure  
+- `/workflow:action-plan` - For workflow-wide replanning
+- `/task:create` - Create new tasks for additional work
+
+---
+
+**System ensures**: Focused single-task replanning with comprehensive change tracking, document synchronization, and complete audit trail

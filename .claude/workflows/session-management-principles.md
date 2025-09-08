@@ -2,8 +2,7 @@
 
 ## Overview
 
-
-This document provides complete technical implementation details for session state management, multi-session registry, command pre-execution protocol, and recovery mechanisms.
+This document provides simplified session state management with minimal overhead, phase-level tracking, and streamlined coordination.
 
 ## Multi-Session Architecture
 
@@ -57,237 +56,133 @@ All workflow state for each session managed through `workflow-session.json` with
 ```json
 {
   "session_id": "WFS-[topic-slug]",
-  "session_version": "2.0",
   "project": "feature description",
   "type": "simple|medium|complex",
   "current_phase": "PLAN|IMPLEMENT|REVIEW",
   "status": "active|paused|completed",
-  "created_at": "timestamp",
-  "updated_at": "timestamp",
   
-  "checkpoints": {
-    "plan": {
-      "status": "completed|in_progress|pending",
-      "documents": ["IMPL_PLAN.md", "TASK_BREAKDOWN.md"],
-      "timestamp": "timestamp"
-    },
-    "implement": {
-      "status": "completed|in_progress|pending",
-      "agents_completed": ["code-developer"],
-      "current_agent": "code-review-agent",
-      "todos": {
-        "total": 12,
-        "completed": 8,
-        "in_progress": 1
-      },
-      "timestamp": "timestamp"
-    },
-    "review": {
-      "status": "completed|in_progress|pending",
-      "quality_checks": {
-        "code_quality": "passed",
-        "test_coverage": "pending"
-      }
-    }
+  "progress": {
+    "completed_phases": ["PLAN"],
+    "current_tasks": ["impl-1", "impl-2"],
+    "last_checkpoint": "2025-09-07T10:00:00Z"
   },
   
-  "context_chain": [],
-  "state_transitions": []
-}
-```
-
-## Phase-Aware Session Management
-
-### Conceptual/Planning Phase
-- Tracks planning document generation
-- Monitors task decomposition progress
-- Preserves planning context and decisions
-- Safe interruption at document boundaries
-
-### Implementation Phase
-- Integrates with existing TodoWrite system
-- Tracks agent progression and outputs
-- Maintains file modification history
-- Supports multi-agent coordination
-
-### Review Phase
-- Tracks validation and quality gates
-- Preserves review comments and decisions
-- Maintains compliance check status
-
-## Automatic Checkpoints
-
-### Checkpoint Triggers
-- **Planning Phase**:
-  - After planning document completion
-  - After task breakdown generation
-  - On user interrupt request
-
-- **Implementation Phase**:
-  - After agent completion
-  - At TodoWrite milestones
-  - After significant file changes
-  - On phase transitions
-
-- **Review Phase**:
-  - After quality check completion
-  - On validation milestones
-  - At review agent boundaries
-
-### Checkpoint Strategy
-```json
-{
-  "save_triggers": ["agent_complete", "todo_milestone", "user_interrupt"],
-  "save_data": ["agent_outputs", "file_changes", "todo_state"],
-  "resume_logic": "skip_completed_continue_sequence"
-}
-```
-
-## Cross-Phase Context Preservation
-
-### Context Chain Maintenance
-- All phase outputs preserved in session
-- Context automatically transferred between phases
-- Planning documents bridge PLAN → IMPLEMENT phases
-- Implementation artifacts bridge IMPLEMENT → REVIEW
-- Full audit trail maintained for decisions
-
-### State Transitions
-```json
-{
-  "from": "PLAN",
-  "to": "IMPLEMENT",
-  "timestamp": "timestamp",
-  "trigger": "planning completion",
-  "handoff_data": {
-    "plan_path": ".workflow/WFS-[topic-slug]/IMPL_PLAN.md",
-    "tasks": ["task1", "task2"],
-    "complexity": "medium"
+  "meta": {
+    "created": "2025-09-05T10:00:00Z",
+    "updated": "2025-09-07T10:00:00Z"
   }
 }
 ```
 
-## Recovery Mechanisms
+## Simplified Phase Management
 
-### Automatic Recovery Logic
+### Phase-Level Tracking Only
+- **Planning Phase**: Track completion status only
+- **Implementation Phase**: Track active tasks, not detailed progress
+- **Review Phase**: Track completion status only
+
+### Minimal Checkpoint Strategy
+- **Phase Transitions**: Save state when moving between phases
+- **User Request**: Manual checkpoint on explicit user action
+- **Session End**: Final state save before closing
+
+### Checkpoint Data (Minimal)
+```json
+{
+  "save_triggers": ["phase_complete", "user_request", "session_end"],
+  "save_data": ["phase_status", "active_tasks", "session_meta"],
+  "resume_logic": "resume_from_last_phase_checkpoint"
+}
+```
+
+## Simplified Context Preservation
+
+### Essential Context Only
+- Planning documents available to implementation phase
+- Implementation results available to review phase
+- Minimal handoff data between phases
+
+### Simple State Transitions
+```json
+{
+  "phase_completed": "PLAN",
+  "next_phase": "IMPLEMENT",
+  "completed_at": "2025-09-07T10:00:00Z",
+  "artifacts": {
+    "plan_document": "IMPL_PLAN.md"
+  }
+}
+```
+
+## Simplified Recovery
+
+### Basic Recovery Logic
 ```python
 def resume_workflow():
     session = load_session()
     
     if session.current_phase == "PLAN":
-        resume_planning(session.checkpoints.plan)
+        check_plan_document_exists()
     elif session.current_phase == "IMPLEMENT":
-        resume_implementation(session.checkpoints.implement)
+        load_active_tasks()
     elif session.current_phase == "REVIEW":
-        resume_review(session.checkpoints.review)
+        check_implementation_complete()
 ```
 
-### State Validation
-- Verify required artifacts exist for resumption
-- Check file system consistency with session state
-- Validate TodoWrite synchronization
-- Ensure agent context completeness
-- Confirm phase prerequisites met
+### Minimal State Validation
+- Check current phase is valid
+- Verify session directory exists
+- Confirm basic file structure
 
-### Recovery Strategies
-- **Complete Recovery**: Full state restoration when possible
-- **Partial Recovery**: Resume with warning when some data missing
-- **Graceful Degradation**: Restart phase with maximum retained context
-- **Manual Intervention**: Request user guidance for complex conflicts
+### Simple Recovery Strategy
+- **Phase Restart**: If unclear state, restart current phase
+- **User Confirmation**: Ask user to confirm resume point
+- **Minimal Recovery**: Restore basic session info only
 
-## Agent Integration Protocol
+## Simplified Agent Integration
 
-### Required Agent Capabilities
-All agents must support:
-- Checkpoint save/load functionality
-- State validation for resumption
-- Context preservation across interrupts
-- Progress reporting to session manager
+### Minimal Agent Requirements
+- Report task completion status
+- Update task JSON files
+- No complex checkpoint management needed
 
-### Phase-Specific Integration
-- **Planning Agents**: Auto-save planning outputs
-- **Implementation Agents**: Track code changes and test results
-- **Review Agents**: Preserve validation outcomes
+### Phase Integration
+- **Planning Agents**: Create planning documents
+- **Implementation Agents**: Update task status to completed
+- **Review Agents**: Mark review as complete
 
 ## Error Handling
 
 ### Common Scenarios
-1. **Session File Corruption**:
-   - Automatic backup before each save
-   - Rollback to last known good state
-   - Recovery from planning documents
+1. **Session File Missing**: Create new session file with defaults
+2. **Invalid Phase State**: Reset to last known valid phase  
+3. **Multi-Session Conflicts**: Auto-resolve by latest timestamp
 
-2. **Version Incompatibility**:
-   - Automatic migration for minor versions
-   - Manual intervention for major changes
-   - Backward compatibility for essential fields
+## Session Lifecycle
 
-3. **Missing Dependencies**:
-   - Graceful handling of missing files
-   - Regeneration of recoverable artifacts
-   - Clear error messages for resolution
+### Simple Lifecycle
+1. **Create**: Generate session ID and directory
+2. **Activate**: Set as current active session
+3. **Execute**: Track phase completion only  
+4. **Complete**: Mark as finished
 
-4. **Multi-Session Conflicts**:
-   - Registry integrity validation
-   - Active session collision detection
-   - Automatic session status correction
-
-## Session Lifecycle Management
-
-### Complete Session Lifecycle
-**1. Registration Phase**
-- Add session to global registry (`.workflow/session_status.jsonl`)
-- Generate unique session ID in WFS-[topic-slug] format
-- Create session directory structure
-
-**2. Activation Phase**  
-- Set session as active (deactivates any other active session)
-- Initialize session state file (`workflow-session.json`)
-- Create base directory structure based on complexity level
-
-**3. Execution Phase**
-- Track progress through workflow phases (PLAN → IMPLEMENT → REVIEW)
-- Maintain checkpoints at natural boundaries
-- Update session state with phase transitions and progress
-
-**4. State Management Phase**
-- **Active**: Session is currently being worked on
-- **Paused**: Session temporarily suspended, can be resumed
-- **Completed**: Session finished successfully
-
-**5. Session Operations**
-- **Switching**: Change active session (preserves state of previous)
-- **Resumption**: Intelligent recovery from saved state and checkpoints
-- **Interruption**: Graceful pause with complete state preservation
-
-### Session State Transitions
+### State Transitions
 ```
-INACTIVE → ACTIVE → PAUSED → ACTIVE → COMPLETED
-    ↑         ↓         ↓         ↑         ↓
-  CREATE    PAUSE    SWITCH    RESUME   ARCHIVE
+INACTIVE → ACTIVE → COMPLETED
+    ↑         ↓         ↓
+  CREATE    WORK    FINISH
 ```
 
 ## Implementation Guidelines
 
-### Session Management Operations
-
-### Testing Requirements
-- Single-phase interruption/resumption
-- Multi-phase workflow continuity
-- Context preservation validation
-- Error recovery scenarios
-- Multi-session registry operations
-- Session switching without data loss
-- Active session inheritance in commands
-- Registry integrity validation
-- Version migration testing
+### Key Principles
+- **Minimal State**: Only track essential information
+- **Phase-Level Updates**: Avoid frequent micro-updates
+- **Simple Recovery**: Basic session restoration only
+- **User Control**: Manual checkpoint requests
 
 ### Success Metrics
-- Zero data loss on resume or session switch
-- Context continuity maintained across sessions
-- No duplicate work performed
-- Full workflow completion capability
-- Seamless multi-session management
-- Registry integrity maintained
-- Commands automatically inherit active session context
-- Minimal performance overhead
+- Fast session resume (< 1 second)
+- Minimal file I/O operations
+- Clear session state understanding
+- No complex synchronization needed

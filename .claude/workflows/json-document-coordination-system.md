@@ -1,410 +1,271 @@
-# JSON-Document Coordination System (Single Source of Truth)
+# JSON-Only Data System (Single Source of Truth)
 
 ## Overview
 
-This document defines the **Single Source of Truth** architecture where JSON files are the authoritative state source and all markdown documents are read-only, generated views. This eliminates bidirectional synchronization complexity and data conflicts.
+This document defines a **pure JSON data model** where JSON files are the only data source and all markdown documents are generated on-demand views. This eliminates all synchronization complexity and ensures data consistency.
 
-**Key Principle**: `.task/*.json` files are the **only** authoritative source of task state. All markdown documents (`TODO_LIST.md`, progress displays, etc.) are generated on-demand from JSON data.
+**Key Principle**: `.task/*.json` files are the **only** authoritative source of task state. All markdown documents are **read-only generated views** that never persist state.
 
-### JSON File Hierarchy
+## File Structure
+
 ```
 .workflow/WFS-[topic-slug]/
-├── workflow-session.json          # Master session state
-├── IMPL_PLAN.md                   # Combined planning document
-├── TODO_LIST.md                   # Progress tracking document
+├── workflow-session.json          # Session state (simplified)
+├── IMPL_PLAN.md                   # Static planning document
 └── .task/
-    ├── impl-1.json                # Main task
-    ├── impl-1.1.json              # Level 2 subtask
-    ├── impl-1.1.1.json            # Level 3 detailed subtask
-    ├── impl-1.2.json              # Another level 2 subtask
-    └── impl-2.json                # Another main task
+    ├── impl-1.json                # Task data (only data source)
+    ├── impl-1.1.json              # Subtask data
+    └── impl-2.json                # Another task
 ```
 
-## JSON File Structures
+## JSON Data Structures
 
-### 1. workflow-session.json (Master State)
+### 1. Simplified workflow-session.json
+
 ```json
 {
-  "session_id": "WFS-user-auth-system",
+  "session_id": "WFS-user-auth",
   "project": "OAuth2 authentication system", 
-  "type": "complex",
   "status": "active",
-  "current_phase": "IMPLEMENT",
-  "directory": ".workflow/WFS-user-auth-system",
+  "phase": "IMPLEMENT",
   
-  "documents": {
-    "IMPL_PLAN.md": {
-      "status": "generated",
-      "path": ".workflow/WFS-user-auth-system/IMPL_PLAN.md",
-      "last_updated": "2025-09-05T10:30:00Z",
-      "sync_status": "synced"
-    },
-    "TODO_LIST.md": {
-      "status": "generated",
-      "path": ".workflow/WFS-user-auth-system/TODO_LIST.md", 
-      "last_updated": "2025-09-05T11:20:00Z",
-      "sync_status": "synced"
-    }
+  "progress": {
+    "completed_phases": ["PLAN"],
+    "current_tasks": ["impl-1", "impl-2"],
+    "last_checkpoint": "2025-09-07T10:00:00Z"
   },
   
-  "task_system": {
-    "enabled": true,
-    "directory": ".workflow/WFS-user-auth-system/.task",
-    "next_main_task_id": 3,
-    "max_depth": 3,
-    "task_count": {
-      "total": 8,
-      "main_tasks": 2,
-      "subtasks": 6,
-      "pending": 3,
-      "active": 2, 
-      "completed": 2,
-      "blocked": 1
-    }
+  "stats": {
+    "total_tasks": 8,
+    "completed": 3,
+    "active": 2
   },
   
-  "coordination": {
-    "last_sync": "2025-09-05T11:20:00Z",
-    "sync_conflicts": 0,
-    "auto_sync_enabled": true,
-    "manual_sync_required": false
-  },
-  
-  "metadata": {
-    "created_at": "2025-09-05T10:00:00Z",
-    "last_updated": "2025-09-05T11:20:00Z",
-    "version": "2.1"
+  "meta": {
+    "created": "2025-09-05T10:00:00Z",
+    "updated": "2025-09-07T10:00:00Z"
   }
 }
 ```
 
-### 2. TODO_LIST.md (Task Registry & Display)
-TODO_LIST.md serves as both the task registry and progress display:
+### 2. Simplified Task JSON (impl-*.json)
 
-```markdown
-# Implementation Progress
-
-## Task Status Summary
-- **Total Tasks**: 5
-- **Completed**: 2 (40%)
-- **Active**: 2
-- **Pending**: 1
-
-## Task Hierarchy
-
-### ☐ impl-1: Build authentication module (75% complete)
-- ☑ impl-1.1: Design authentication schema (100%)
-  - ☑ impl-1.1.1: Create user model
-  - ☑ impl-1.1.2: Design JWT structure
-- ☐ impl-1.2: Implement OAuth2 flow (50%)
-
-### ☐ impl-2: Setup user management (0%)
-```
-
-**Task Registry Data Extracted from TODO_LIST.md:**
-  
-  
-  
-  "last_updated": "2025-09-05T11:20:00Z"
-}
-```
-
-### 3. Individual Task JSON (impl-*.json)
 ```json
 {
-  "id": "impl-1.1",
-  "title": "Design authentication schema",
-  "parent_id": "impl-1",
-  "depth": 2,
-  "status": "completed",
-  "type": "design",
-  "priority": "normal",
-  "agent": "planning-agent",
-  "effort": "1h",
-  "subtasks": ["impl-1.1.1", "impl-1.1.2"],
+  "id": "impl-1",
+  "title": "Build authentication module",
+  "status": "active",
+  "type": "feature",
+  "agent": "code-developer",
   
   "context": {
-    "inherited_from": "impl-1",
-    "requirements": ["User model schema", "JWT token design", "OAuth2 integration points"],
-    "scope": ["src/auth/models/*", "docs/auth-schema.md"],
-    "acceptance": ["Schema validates JWT tokens", "User model complete", "OAuth2 flow documented"]
+    "requirements": ["JWT authentication", "OAuth2 support"],
+    "scope": ["src/auth/*", "tests/auth/*"],
+    "acceptance": ["Module handles JWT tokens", "OAuth2 flow implemented"],
+    "inherited_from": "WFS-user-auth"
   },
   
-  "document_refs": {
-    "todo_section": "TODO_LIST.md#impl-1.1",
-    "todo_items": [
-      "TODO_LIST.md#impl-1.1",
-      "TODO_LIST.md#impl-1.1.1",
-      "TODO_LIST.md#impl-1.1.2"
-    ],
-    "impl_plan_ref": "IMPL_PLAN.md#authentication-schema-design"
-  },
-  
-  "dependencies": {
-    "upstream": [],
-    "downstream": ["impl-1.2"],
-    "blocking": [],
-    "blocked_by": [],
-    "parent_dependencies": ["impl-1"]
+  "relations": {
+    "parent": null,
+    "subtasks": ["impl-1.1", "impl-1.2"],
+    "dependencies": ["impl-0"]
   },
   
   "execution": {
-    "attempts": 1,
-    "current_attempt": {
-      "started_at": "2025-09-05T10:35:00Z",
-      "completed_at": "2025-09-05T11:20:00Z",
-      "duration": "45m",
-      "checkpoints": ["setup", "design", "validate", "document"],
-      "completed_checkpoints": ["setup", "design", "validate", "document"]
-    },
-    "history": [
-      {
-        "attempt": 1,
-        "started_at": "2025-09-05T10:35:00Z",
-        "completed_at": "2025-09-05T11:20:00Z",
-        "result": "success",
-        "outputs": ["src/auth/models/User.ts", "docs/auth-schema.md"]
-      }
-    ]
+    "attempts": 0,
+    "last_attempt": "2025-09-05T10:35:00Z"
   },
   
-  "sync_metadata": {
-    "last_document_sync": "2025-09-05T11:20:00Z",
-    "document_version": "1.2",
-    "sync_conflicts": [],
-    "pending_document_updates": []
-  },
-  
-  "metadata": {
-    "created_at": "2025-09-05T10:30:00Z",
-    "started_at": "2025-09-05T10:35:00Z",
-    "completed_at": "2025-09-05T11:20:00Z",
-    "last_updated": "2025-09-05T11:20:00Z",
-    "created_by": "task:breakdown IMPL-001",
-    "version": "1.0"
+  "meta": {
+    "created": "2025-09-05T10:30:00Z",
+    "updated": "2025-09-05T10:35:00Z"
   }
 }
 ```
 
-## Single Source of Truth Architecture
+## Pure Generation Architecture
 
-### 1. Data Authority (Simplified)
+### JSON as Single Source of Truth
 
-#### JSON Files Own (ONLY Authoritative Source)
-- **ALL Task State**: Complete task definitions, status, progress, metadata
-- **Hierarchical Relationships**: Parent-child links, depth management  
-- **Execution State**: pending/active/completed/blocked/failed
-- **Progress Data**: Percentages, timing, checkpoints
-- **Agent Assignment**: Current agent, execution history
-- **Dependencies**: Task relationships across all hierarchy levels
-- **Session Metadata**: Timestamps, versions, attempt counts
-- **Runtime State**: Current attempt, active processes
+**JSON Files Own Everything:**
+- All task state and metadata
+- All relationships and dependencies  
+- All execution history
+- All progress information
 
-#### Documents Are Read-Only Views (Generated Only)
-- **IMPL_PLAN.md**: Static planning document (manually created, rarely changes)
-- **TODO_LIST.md**: **Generated view** from JSON files (never manually edited)
-- **Progress Reports**: **Generated views** from JSON data
-- **Status Displays**: **Generated views** from JSON state
+**Documents Are Temporary Views:**
+- Generated only when requested
+- Never stored permanently
+- Never parsed back to JSON
+- No state persistence in markdown
 
-#### No Shared Responsibility (Eliminates Conflicts)
-- **Single Direction Flow**: JSON → Markdown (never Markdown → JSON)
-- **No Synchronization**: Documents are generated, not synchronized
-- **No Conflicts**: Only one source of truth eliminates data conflicts
+### No Synchronization Needed
 
-### 2. View Generation (Replaces Synchronization)
+**Eliminated Concepts:**
+- Bidirectional sync
+- Document parsing
+- Conflict resolution
+- Sync state tracking
+- Update coordination
 
-#### No Document → JSON Flow (Eliminated)
-**Documents are read-only**: No parsing, no status updates from documents
-**No bidirectional sync**: Documents cannot modify JSON state
-**No conflict resolution needed**: Single direction eliminates conflicts
+**Single Flow Only:**
+```
+JSON Files → On-Demand Generation → Temporary Views → Display
+```
 
-#### JSON → View Generation (On Demand)
-**Trigger Events**:
-- User requests context view (`/context`)
-- Task status changed in JSON files  
-- View generation requested by commands
 
-**Actions**:
+### Generation Process
+
+```pseudo
+function generate_view(format, filters):
+  // Load all JSON data
+  tasks = load_all_task_json_files()
+  session = load_workflow_session()
+  
+  // Generate requested view
+  switch format:
+    case 'tasks':
+      return generate_task_list_view(tasks)
+    case 'progress':
+      return generate_progress_view(tasks, session)
+    case 'hierarchy':
+      return generate_hierarchy_view(tasks)
+    default:
+      return generate_overview(tasks, session)
+```
+
+### View Examples
+
+#### Task List View (Generated)
+```markdown
+# Current Tasks
+
+## Active Tasks
+- [⚠️] impl-1: Build authentication module (code-developer)
+- [⚠️] impl-2: Setup user management (code-developer)
+
+## Completed Tasks  
+- [✅] impl-0: Project setup
+
+## Task Dependencies
+- impl-2 → depends on → impl-1
+```
+
+
+## Data Operations
+
+### Task Updates (JSON Only)
+
 ```javascript
-// Pseudo-code for view generation process  
-on_view_request(view_type, options) {
-  const task_data = load_all_task_json_files();
-  const session_data = load_workflow_session();
-  
-  if (view_type === 'todo_list') {
-    const todo_view = generate_todo_list_view(task_data);
-    return render_markdown_view(todo_view);
-  }
-  
-  if (view_type === 'progress') {
-    const progress = calculate_progress_from_json(task_data);
-    return render_progress_view(progress, session_data);
-  }
-  
-  if (view_type === 'status') {
-    const status = compile_status_from_json(task_data, session_data);
-    return render_status_view(status);
-  }
+// Update task status
+function update_task_status(task_id, new_status) {
+  const task_file = `.task/${task_id}.json`
+  const task = load_json(task_file)
+  task.status = new_status
+  task.meta.updated = current_timestamp()
+  save_json(task_file, task)
+  // No document updates needed - views generated on demand
 }
 ```
 
-### 3. View Generation Process (Replaces Real-Time Sync)
+### Session Updates (Minimal)
 
-#### On-Demand View Process
-```
-1. Command Request → User requests view (`/context`)
-2. JSON Loader → Reads all task JSON files  
-3. Data Processor → Calculates progress, status, hierarchy
-4. View Generator → Creates markdown representation
-5. Display → Returns formatted view to user
-```
-
-#### Context Command (Replaces Sync Commands)
-```bash
-# Generate todo list view
-/context
-
-# Generate task-specific view  
-/context IMPL-001
-
-# Generate progress view
-/context --format=progress
-
-# Generate status view with health check
-/context --health-check
-```
-
-## No Conflict Resolution Needed (Architecture Benefit)
-
-### Eliminated Conflict Types
-
-#### Conflicts That No Longer Exist
-- **Timestamp Conflicts**: No bidirectional updates means no timestamp conflicts
-- **Data Authority Conflicts**: Only JSON has authority, documents are read-only
-- **Hierarchy Conflicts**: JSON defines structure, documents display it (no conflicts)
-- **Sync State Conflicts**: No synchronization means no sync state issues
-
-### Simplified Data Model Benefits
-- **Zero Conflicts**: Single source of truth eliminates all data conflicts  
-- **No Resolution Logic**: No complex conflict detection or resolution needed
-- **Reduced Complexity**: Eliminates entire conflict resolution subsystem
-- **Improved Reliability**: Cannot have data drift or inconsistency issues
-
-## Validation and Integrity
-
-### Consistency Checks
-```bash
-/task:validate --consistency
-
-Running consistency checks:
-✅ Task IDs consistent across JSON files and TODO_LIST.md
-✅ Hierarchical relationships valid (parent-child links)
-✅ Task depth within limits (max 3 levels)
-✅ Progress calculations accurate across hierarchy
-⚠️ impl-2.1 missing from TODO_LIST.md display
-❌ impl-1.1 status mismatch (JSON: completed, TODO: pending)
-❌ Orphaned task: impl-3.2.1 has non-existent parent
-
-Issues found: 3
-Auto-fix available: 2 
-Manual review required: 1
-```
-
-### Cross-Reference Validation
-- Task IDs exist in all referenced documents
-- Document sections referenced in JSON exist
-- Progress percentages mathematically consistent
-- Dependency relationships bidirectional
-
-### Data Integrity Checks
-- JSON schema validation
-- Document structure validation  
-- Cross-file referential integrity
-- Timeline consistency validation
-
-## Performance and Scalability
-
-### Optimization Strategies
-- **Incremental Sync**: Only sync changed sections
-- **Batch Updates**: Group related changes
-- **Async Processing**: Non-blocking synchronization
-- **Caching**: Cache parsed document structures
-
-### Scalability Considerations
-- **File Size Limits**: Split large task sets across multiple files
-- **Memory Usage**: Stream processing for large document parsing
-- **I/O Optimization**: Minimize file reads/writes through batching
-
-## Error Handling and Recovery
-
-### Common Error Scenarios
-```bash
-# Document parsing error
-❌ Failed to parse TODO_LIST.md
-→ Syntax error in checkbox format at line 23
-→ Restore from JSON task data? (y/n)
-
-# JSON corruption
-❌ Invalid JSON in impl-1.2.json  
-→ Reconstruct from parent task and TODO_LIST.md? (y/n)
-
-# Hierarchy errors
-❌ Circular parent-child relationship detected: impl-1.1 → impl-1.1.1 → impl-1.1
-→ Break circular dependency? (y/n)
-
-# Missing files
-❌ TODO_LIST.md not found
-→ Regenerate from JSON task hierarchy? (y/n)
-
-# Depth violations  
-⚠️ Task impl-1.2.3.1 exceeds maximum depth (3 levels)
-→ Flatten hierarchy or promote task? (flatten/promote)
-```
-
-### Recovery Mechanisms
-- **Automatic Backup**: Git-based document versioning
-- **Rollback Options**: Restore from previous sync point
-- **Reconstruction**: Rebuild JSON from documents or vice versa
-- **Partial Recovery**: Fix individual files without full reset
-
-## Monitoring and Auditing
-
-### Sync Event Logging
-```json
-{
-  "timestamp": "2025-09-05T11:20:00Z",
-  "event_type": "json_to_todo_list_sync",
-  "source": "impl-1.1.json",
-  "target": ["TODO_LIST.md"],
-  "changes": [
-    {
-      "type": "hierarchical_status_update",
-      "task_id": "impl-1.1", 
-      "old_value": "active",
-      "new_value": "completed",
-      "propagation": {
-        "parent_progress": {
-          "task_id": "impl-1",
-          "old_progress": 45,
-          "new_progress": 67
-        }
-      }
-    }
-  ],
-  "hierarchy_effects": [
-    "impl-1 progress recalculated",
-    "impl-1.2 unblocked due to impl-1.1 completion"
-  ],
-  "conflicts": 0,
-  "duration_ms": 89,
-  "status": "success"
+```javascript
+// Update session stats
+function update_session_stats() {
+  const session = load_workflow_session()
+  const tasks = load_all_tasks()
+  
+  session.stats.completed = count_completed_tasks(tasks)
+  session.stats.active = count_active_tasks(tasks)
+  session.meta.updated = current_timestamp()
+  
+  save_json('workflow-session.json', session)
+  // No document coordination needed
 }
 ```
 
-### Performance Metrics
-- Sync frequency and duration
-- Conflict rate and resolution time  
-- File size growth over time
-- Error rate and recovery success
+## Benefits of Pure Generation
 
-This JSON-document coordination system ensures reliable, consistent, and performant integration between state management and planning documentation while maintaining clear data ownership and providing robust error handling.
+### Performance Benefits
+- **No Sync Overhead**: Zero synchronization operations
+- **Faster Updates**: Direct JSON updates only
+- **Reduced I/O**: No document file writes
+- **Instant Views**: Generate views only when needed
+
+### Reliability Benefits
+- **No Data Conflicts**: Single source of truth
+- **No Sync Failures**: No synchronization to fail
+- **Consistent State**: JSON always authoritative
+- **Simple Recovery**: Restore from JSON only
+
+### Maintenance Benefits
+- **Simpler Code**: No sync logic needed
+- **Easier Debugging**: Check JSON files only
+- **Clear Data Flow**: Always JSON → View
+- **No Edge Cases**: No sync conflict scenarios
+
+## Validation (Simplified)
+
+### JSON Schema Validation
+```bash
+/context --validate
+
+Validation Results:
+✅ All task JSON files valid
+✅ Task relationships consistent
+✅ No circular dependencies
+⚠️ impl-3 has no subtasks (expected for leaf task)
+
+Status: All systems operational
+```
+
+### Basic Integrity Checks
+- Task IDs are unique
+- Parent-child relationships valid
+- Dependencies exist
+- Required fields present
+
+## Error Handling
+
+### Simple Error Scenarios
+```bash
+# Missing task file
+❌ Task impl-5 not found
+→ Check .task/impl-5.json exists
+
+# Invalid JSON
+❌ Parse error in impl-2.json
+→ Restore from backup or recreate task
+
+# Circular dependency  
+❌ Circular dependency: impl-1 → impl-2 → impl-1
+→ Fix dependency chain manually
+```
+
+### Recovery Strategy
+- **JSON First**: Always repair JSON files
+- **Regenerate Views**: Views are disposable, regenerate as needed
+- **Simple Rollback**: Use git to restore JSON files
+- **Manual Repair**: Direct JSON editing for complex issues
+
+## Migration from Complex System
+
+### Removed Features
+- All document parsing
+- Bidirectional synchronization  
+- Conflict resolution
+- Real-time document updates
+- Sync state tracking
+- Document metadata
+- Cross-file reference validation
+- Automated document repairs
+
+### Simplified Workflows
+1. **Task Creation**: Create JSON file only
+2. **Status Updates**: Update JSON file only  
+3. **View Request**: Generate from JSON on demand
+4. **Progress Check**: Calculate from JSON data
+5. **Completion**: Mark JSON as completed
+
+This pure generation system provides all the functionality of the previous complex system while eliminating synchronization overhead, conflicts, and maintenance complexity.

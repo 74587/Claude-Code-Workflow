@@ -2,133 +2,103 @@
 
 ## Overview
 
+This document defines simplified complexity classification and task hierarchy rules for the JSON-only workflow system.
 
-This document defines authoritative complexity thresholds, decomposition triggers, and decision trees for workflow complexity classification.
+## Simplified Complexity Classification
 
-## Standardized Complexity Thresholds
+### Simple Workflows
+**Criteria**: Direct implementation tasks with clear scope
+**Structure**: Single-level tasks (impl-N format)
+**Task Files**: impl-*.json only
+**Max Depth**: 1 level
 
-### Simple Workflows (<5 tasks)
-**Criteria**: Tasks < 5 AND modules ≤ 3 AND effort ≤ 4h
-**Structure**: Minimal structure with basic task tracking
-**Documents**: IMPL_PLAN.md only, no TODO_LIST.md
-**Task Files**: impl-*.json (single level)
+### Medium Workflows  
+**Criteria**: Feature implementation requiring task breakdown
+**Structure**: Two-level hierarchy (impl-N.M format)
+**Task Files**: Parent and child JSON files
+**Max Depth**: 2 levels
 
-### Medium Workflows (5-15 tasks)  
-**Criteria**: Tasks 5-15 OR modules > 3 OR effort > 4h OR complex dependencies
-**Structure**: Enhanced structure with progress tracking
-**Documents**: IMPL_PLAN.md + TODO_LIST.md (auto-triggered)
-**Task Files**: impl-*.*.json (up to 2 levels)
+### Complex Workflows
+**Criteria**: System-wide changes requiring detailed decomposition
+**Structure**: Three-level hierarchy (impl-N.M.P format)
+**Task Files**: Multi-level JSON hierarchy
+**Max Depth**: 3 levels (maximum allowed)
 
-### Complex Workflows (>15 tasks)
-**Criteria**: Tasks > 15 OR modules > 5 OR effort > 2 days OR multi-repository
-**Structure**: Complete structure with comprehensive documentation
-**Documents**: IMPL_PLAN.md + TODO_LIST.md + expanded documentation
-**Task Files**: impl-*.*.*.json (up to 3 levels maximum)
+## Task Hierarchy Rules
 
-## Complexity Decision Tree
+### Hierarchical ID Format
+- **Level 1**: impl-N (main tasks)
+- **Level 2**: impl-N.M (subtasks)  
+- **Level 3**: impl-N.M.P (detailed subtasks)
+- **Maximum**: 3 levels deep
 
-### Classification Algorithm
+### Parent-Child Relationships
+```json
+// Parent task
+{
+  "id": "impl-1",
+  "title": "Build authentication module",
+  "status": "pending",
+  "relations": {
+    "parent": null,
+    "subtasks": ["impl-1.1", "impl-1.2"],
+    "dependencies": []
+  }
+}
+
+// Child task
+{
+  "id": "impl-1.1",
+  "title": "Design auth schema", 
+  "status": "pending",
+  "relations": {
+    "parent": "impl-1",
+    "subtasks": [],
+    "dependencies": []
+  }
+}
 ```
-START: Analyze Workflow Requirements
-    ↓
-Count Tasks → Is Task Count < 5?
-    ↓ YES              ↓ NO
-Count Modules    Count Modules → > 5?
-    ↓                    ↓ YES
-≤ 3 Modules?        COMPLEX
-    ↓ YES              ↓ NO
-Estimate Effort   Estimate Effort → > 2 days?
-    ↓                    ↓ YES
-≤ 4 hours?         COMPLEX
-    ↓ YES              ↓ NO
-SIMPLE           Check Dependencies → Multi-repo?
-                       ↓ YES              ↓ NO
-                    COMPLEX           MEDIUM
-```
 
-### Decision Matrix
+## Decomposition Triggers
 
-| **Factor** | **Simple** | **Medium** | **Complex** |
-|------------|------------|------------|-------------|
-| Task Count | < 5 | 5-15 | > 15 |
-| Module Count | ≤ 3 | 4-5 | > 5 |
-| Effort Estimate | ≤ 4h | 4h-2d | > 2d |
-| Dependencies | Simple | Complex | Multi-repo |
-| Repository Scope | Single | Single | Multiple |
+### Automatic Decomposition When:
+- Task title indicates multiple distinct activities
+- Implementation scope spans multiple modules
+- Clear sub-components can be identified
+- Task complexity exceeds single-agent execution
 
-### Threshold Priority
-1. **Task Count**: Primary factor (most reliable predictor)
-2. **Module Count**: Secondary factor (scope indicator)
-3. **Effort Estimate**: Tertiary factor (complexity indicator)
-4. **Dependencies**: Override factor (can force higher complexity)
+### Skip Decomposition For:
+- Single file modifications
+- Simple bug fixes
+- Clear, atomic tasks
+- Documentation updates
 
-## Automatic Document Generation Rules
+## Task Status Rules
 
-### Generation Matrix
-| **Complexity** | **IMPL_PLAN.md** | **TODO_LIST.md** | **Task Hierarchy** | **Structure** |
-|----------------|------------------|------------------|-------------------|---------------|
-| Simple | Always | No | 1 level | Minimal |
-| Medium | Always | Auto-trigger | 2 levels | Enhanced |
-| Complex | Always | Always | 3 levels | Complete |
+### Container Task Rules
+- Parent tasks become "container" status when broken down
+- Cannot be directly executed (must execute subtasks)
+- Status derived from subtask completion
 
-### Auto-trigger Conditions
-**TODO_LIST.md Generation** (Medium workflows):
-- Tasks ≥ 5 OR modules > 3 OR effort > 4h OR dependencies complex
-
-**Enhanced Structure** (Medium workflows):
-- Progress tracking with hierarchical task breakdown
-- Cross-references between planning and implementation
-- Summary generation for major tasks
-
-**Complete Structure** (Complex workflows):
-- Comprehensive documentation suite
-- Multi-level task decomposition
-- Full progress monitoring and audit trail
-
-## Task System Integration
-
-### Hierarchical Task Schema
-**Maximum Depth**: 3 levels (impl-N.M.P)
-**Task File Structure**: Complexity determines maximum hierarchy depth
-
-### Progress Calculation Rules
-**Simple**: Linear progress through main tasks
-**Medium**: Weighted progress with subtask consideration  
-**Complex**: Hierarchical progress with multi-level rollup
-
-## Implementation Integration Rules
-
-### Decomposition Triggers
-**Automatic Decomposition Required When**:
-- Task count exceeds complexity threshold (5+ for medium, 15+ for complex)
-- Cross-module changes affect >3 modules
-- Architecture pattern changes required
-- Multi-repository impacts detected
-- Complex interdependencies identified
-
-### Direct Execution Conditions
-**Skip Decomposition For**:
-- Single module updates with clear boundaries
-- Simple documentation changes  
-- Isolated bug fixes affecting <3 files
-- Clear, well-defined maintenance tasks
-
-
+### Leaf Task Rules
+- Only leaf tasks can be executed directly
+- Status reflects actual execution state
+- Progress tracked at leaf level only
 
 ## Validation Rules
 
-### Complexity Classification Validation
-1. **Threshold Verification**: Ensure task count, module count, and effort estimates align
-2. **Override Checks**: Verify dependency complexity doesn't require higher classification  
-3. **Consistency Validation**: Confirm file structure matches complexity level
-4. **Progress Calculation**: Validate progress tracking matches hierarchy depth
+### Hierarchy Validation
+1. **Depth Limit**: Maximum 3 levels (impl-N.M.P)
+2. **ID Format**: Must follow hierarchical naming
+3. **Parent References**: All parent IDs must exist
+4. **Circular Dependencies**: Not allowed in hierarchy
 
-### Quality Assurance
-- Decomposition depth must not exceed 3 levels (impl-N.M.P maximum)
-- Task hierarchy must be consistent across JSON files and TODO_LIST.md
-- Complexity classification must align with document generation rules
-- Auto-trigger conditions must be properly evaluated and documented
+### Task Integrity
+- All referenced tasks must exist as JSON files
+- Parent-child relationships must be bidirectional
+- Container tasks cannot have "completed" status until all children complete
+- Leaf tasks must have valid execution status
 
 ---
 
-**System ensures**: Consistent complexity classification with appropriate decomposition and structure scaling
+**System ensures**: Consistent hierarchical decomposition within depth limits using JSON-only data model

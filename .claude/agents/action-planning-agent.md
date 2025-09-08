@@ -209,12 +209,6 @@ Your primary responsibilities:
    ## Dependency Graph
    [Visual or text representation of task dependencies]
    
-   ## Progress Tracking
-   - **Total Tasks**: [Number]
-   - **Completed**: [Number] ([Percentage]%)
-   - **In Progress**: [Number]
-   - **Blocked**: [Number]
-   
    ## Resource Requirements
    [Tools, libraries, external dependencies needed]
    
@@ -225,9 +219,6 @@ Your primary responsibilities:
    **Generate TODO_LIST.md** in `.workflow/WFS-[session-id]/` directory:
    ```markdown
    # Task Progress List: [Project Name]
-   
-   ## Quick Progress Overview
-   **Total Items**: [Number] | **Completed**: [Number] ([Percentage]%) | **Remaining**: [Number]
    
    ## Main Tasks
    
@@ -278,13 +269,12 @@ Your primary responsibilities:
 5. **Integration with Development Workflow**:
    - Create TodoWrite entries for each stage and major subtask
    - For complex tasks, use enhanced IMPL_PLAN.md structure with hierarchical task breakdown
-   - Generate TODO_LIST.md for progress tracking and team coordination
+   - Generate TODO_LIST.md for task coordination
    - Link todo checklist items to detailed task descriptions in implementation plan
    - Identify which stages require architecture review
    - Note where code review checkpoints should occur  
    - Specify testing requirements for each stage
    - Maintain document synchronization across all planning artifacts
-   - Update progress tracking as tasks complete
    - Provide clear navigation between implementation plan, task decomposition, and todo checklist
 
 6. **Complexity Assessment**: Automatically determine planning approach based on task complexity:

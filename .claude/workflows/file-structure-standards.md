@@ -151,12 +151,6 @@ impl-2              # Another main task
 ```markdown
 # Task Progress List: [Session Topic]
 
-## Progress Overview
-- **Total Tasks**: X
-- **Completed**: Y (Z%)
-- **In Progress**: N
-- **Pending**: M
-
 ## Implementation Tasks
 
 ### Main Tasks
