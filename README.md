@@ -39,7 +39,7 @@ CCW intelligently adapts its file structure and workflow processes based on unif
 - **Action Planning Agent**: Converts high-level concepts into executable implementation plans
 - **Code Developer**: Implements code based on plans
 - **Code Review Agent**: Reviews code quality and compliance
-- **Memory Gemini Bridge**: Synchronizes Claude and Gemini memory, maintains CLAUDE.md files
+- **Memory Gemini Bridge**: Intelligent CLAUDE.md documentation system with 4-layer hierarchy, context-aware updates, and automatic scaling based on project complexity
 
 ### Workflow Session Management
 - Create, pause, resume, list, and switch workflow sessions
@@ -107,7 +107,7 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | `/gemini-chat` | `/gemini-chat <inquiry> [--all-files] [--compress]` | Interactive dialogue with Gemini CLI using smart templates |
 | `/gemini-execute` | `/gemini-execute <task-id\|description> [--yolo] [--debug]` | Intelligent executor with automatic file context inference |
 | `/gemini-mode` | `/gemini-mode <analysis-type> <target> [options]` | Template-driven codebase analysis (pattern, architecture, security) |
-| `/update-memory` | `/update-memory [full\|fast\|deep] [path]` | Distributed Memory System management with hierarchical CLAUDE.md |
+| `/update-memory` | `/update-memory [related\|full]` | Intelligent CLAUDE.md documentation system with context-aware updates and strict hierarchy preservation |
 
 ### Workflow Management
 
@@ -191,6 +191,22 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 /gemini-mode pattern "Extract reusable component patterns"
 ```
 
+### Intelligent Documentation Management
+```bash
+# 1. Daily development - context-aware updates
+/update-memory                    # Automatically detects and updates only affected modules
+
+# 2. After working in specific module
+cd src/api && /update-memory related  # Updates API module and parent hierarchy
+
+# 3. Periodic full refresh
+/update-memory full               # Complete project-wide documentation update
+
+# 4. Post-refactoring documentation sync
+git commit -m "Major refactoring"
+/update-memory related            # Intelligently updates all affected areas
+```
+
 ## 📊 Complexity-Based Strategies
 
 | Complexity | Task Count | Hierarchy Depth | File Structure | Command Strategy |
@@ -211,7 +227,7 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 - **Intelligent Context Processing**: Dynamic context construction with technology stack detection
 - **Template-Driven Architecture**: Highly customizable and extensible through templates
 - **Quality Assurance Integration**: Built-in code review and testing strategy phases
-- **Distributed Memory System (DMS)**: Maintains project-level shared memory through CLAUDE.md files
+- **Intelligent Documentation System**: 4-layer hierarchical CLAUDE.md system with strict content boundaries, context-aware updates (related/full modes), and automatic complexity-based execution scaling
 - **CLI-First Design**: Powerful, orthogonal command-line interface for automation
 
 ## 🎨 Design Philosophy

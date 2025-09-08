@@ -9,76 +9,69 @@ examples:
   - /update-memory full               # Full project documentation update
 ---
 
-### 🚀 **Command Overview: `/update-memory`**
+### 🚀 Command Overview: `/update-memory`
 
 -   **Type**: Hierarchical Documentation Management System
--   **Purpose**: Maintain CLAUDE.md documentation with intelligent context detection and automatic task partitioning
--   **Features**: Context-aware updates, hierarchical content management, automatic complexity detection, Gemini CLI with --yolo
+-   **Purpose**: To maintain `CLAUDE.md` documentation using intelligent context detection and automatic task partitioning.
+-   **Key Features**: Context-aware updates, strict hierarchy preservation, automatic scaling of execution strategy, and direct file modification via `Gemini --yolo`.
 
-### ⚙️ **Processing Modes**
+### ⚙️ Processing Modes
 
-#### **📍 Related Mode (Default)**
--   **Scope**: Updates only context-related modules based on recent changes
--   **Detection**: Analyzes git diff, recent edits, and current working context
--   **Updates**: Affected module CLAUDE.md files + parent hierarchy + root CLAUDE.md
--   **Use Case**: Daily development, feature updates, bug fixes
+-   **related (Default)**
+    -   **Scope**: Updates only context-related modules based on recent changes (git diff, recent edits).
+    -   **Action**: Updates affected module `CLAUDE.md` files, their parent hierarchy, and the root `CLAUDE.md`.
+    -   **Use Case**: Ideal for daily development, feature updates, and bug fixes.
+-   **full**
+    -   **Scope**: Executes a complete, project-wide documentation update.
+    -   **Action**: Analyzes the entire project and updates all `CLAUDE.md` files at every hierarchy level.
+    -   **Use Case**: Best for major refactoring, project initialization, or periodic maintenance.
 
-#### **🌐 Full Mode**
--   **Scope**: Complete project-wide documentation update
--   **Detection**: Analyzes entire project structure
--   **Updates**: All CLAUDE.md files at every hierarchy level
--   **Use Case**: Major refactoring, project initialization, periodic maintenance
+### 🧠 Core Execution Logic: Automatic Strategy Selection
 
-### 📊 **Automatic Complexity Detection & Task Partitioning**
+The command automatically selects an execution strategy based on project complexity. This logic applies to both `related` and `full` modes.
 
-Both modes automatically execute this logic:
+```pseudo
+FUNCTION select_execution_strategy(mode):
+  // Step 1: Analyze project scale
+  file_count = count_source_code_files()
 
-```bash
-# Internal complexity detection (executed by command)
-detect_and_partition() {
-    local mode=$1
-    
-    # Step 1: Analyze project scale
-    local file_count=$(find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.py" -o -name "*.java" -o -name "*.go" \) | wc -l)
-    local module_count=$(find . -type d -name src -o -name lib -o -name app | wc -l)
-    
-    # Step 2: Determine execution strategy
-    if [ $file_count -lt 50 ]; then
-        echo "Small project: Single Gemini execution"
-        execute_single_gemini $mode
-    elif [ $file_count -lt 200 ]; then
-        echo "Medium project: Parallel shell execution"
-        execute_parallel_shell $mode
-    else
-        echo "Large project: Multi-agent coordination"
-        execute_multi_agent $mode
-    fi
-}
+  // Step 2: Determine execution strategy based on file count
+  IF file_count < 50:
+    // This action corresponds to the "Small Project" templates.
+    EXECUTE_STRATEGY("Single Gemini Execution")
+  ELSE IF file_count < 200:
+    // This action corresponds to the "Medium Project" templates.
+    EXECUTE_STRATEGY("Parallel Shell Execution")
+  ELSE:
+    // This action corresponds to the "Large Project" template.
+    EXECUTE_STRATEGY("Multi-Agent Coordination")
+END FUNCTION
 ```
 
-### 🔄 **Related Mode: Context-Aware Updates**
+### 🔍 Context Detection Logic (`related` Mode)
 
-#### **Step 1: Context Detection**
-```bash
-# Automatic context analysis
-detect_changes() {
-    # Priority 1: Git diff analysis
-    changed_files=$(git diff --name-only HEAD~1 2>/dev/null || git status --porcelain | awk '{print $2}')
-    
-    # Priority 2: Current working directory
-    if [ -z "$changed_files" ]; then
-        changed_files=$(find . -maxdepth 3 -name "*.js" -o -name "*.ts" -o -name "*.py" | head -10)
-    fi
-    
-    # Extract affected modules
-    affected_modules=$(echo "$changed_files" | xargs dirname | sort -u)
-    echo "Detected changes in: $affected_modules"
-}
+This describes how the command identifies which files need updating in `related` mode.
+
+```pseudo
+FUNCTION detect_affected_modules():
+  // Priority 1: Check for staged or recent git changes.
+  changed_files = get_git_diff_or_status()
+
+  // Priority 2: If no git changes, find recently edited files as a fallback.
+  IF changed_files is empty:
+    changed_files = find_recently_modified_source_files(limit=10)
+  
+  // Convert file paths into a unique list of parent directories.
+  affected_modules = extract_unique_directories_from(changed_files)
+
+  RETURN affected_modules
+END FUNCTION
 ```
 
-#### **Step 2: Layered Updates (Automatic Execution)**
+### 📝 Template: Small Project (`related` Mode Update)
 
-##### **Small Project Related Update**
+This template is executed when the project is small and the mode is `related`.
+
 ```bash
 # Single comprehensive analysis
 gemini --all-files --yolo -p "@{changed_files} @{affected_module/CLAUDE.md} @{CLAUDE.md}
@@ -93,11 +86,14 @@ Analyze recent changes and update only affected CLAUDE.md files:
    - Reflect only significant architectural changes
    - Maintain high-level project perspective
    - Reference but don't duplicate module details
-   
+ 
 Only update files that are actually affected by the changes."
 ```
 
-##### **Medium/Large Project Related Update**
+### 📝 Template: Medium/Large Project (`related` Mode Update)
+
+This template is executed for medium or large projects in `related` mode.
+
 ```bash
 # Step-by-step layered update
 
@@ -106,7 +102,7 @@ for module in $affected_modules; do
     echo "Updating module: $module"
     gemini --all-files --yolo -p "@{$module/**/*} @{$module/CLAUDE.md}
     Update $module/CLAUDE.md based on recent changes:
-    - Analyze what specifically changed in this module  
+    - Analyze what specifically changed in this module
     - Update implementation patterns that were modified
     - Follow Layer 3 hierarchy rules (module-specific focus)
     - Do not include project overview or domain-wide patterns
@@ -142,9 +138,10 @@ Follow Layer 1 hierarchy rules:
 - Do not duplicate domain or module content"
 ```
 
-### 🌐 **Full Mode: Complete Project Update**
+### 📝 Template: Small Project (`full` Mode Update)
 
-#### **Small Project Full Update**
+This template is executed when the project is small and the mode is `full`.
+
 ```bash
 # Single comprehensive analysis with hierarchy awareness
 gemini --all-files --yolo -p "@{**/*} @{**/*CLAUDE.md}
@@ -156,7 +153,7 @@ Perform complete project analysis and update all CLAUDE.md files with strict hie
    - Do NOT include implementation details
 
 2. Domain CLAUDE.md (Layer 2):
-   - Domain architecture and module organization  
+   - Domain architecture and module organization
    - Inter-module communication patterns
    - Do NOT duplicate project overview or module internals
 
@@ -173,7 +170,10 @@ Perform complete project analysis and update all CLAUDE.md files with strict hie
 Ensure each layer maintains its proper abstraction level without content duplication."
 ```
 
-#### **Medium Project Full Update**
+### 📝 Template: Medium Project (`full` Mode Update)
+
+This template is executed when the project is medium-sized and the mode is `full`.
+
 ```bash
 # Dependency-aware parallel execution
 
@@ -184,13 +184,13 @@ echo "🏗️ Layer 1: Foundation modules (parallel)"
   - Utility patterns and helper functions
   - Module internal organization
   - Avoid project/domain overview" &
-  
+
   gemini --all-files --yolo -p "@{src/types/**/*} @{src/types/CLAUDE.md}
   Update types documentation (Layer 3 focus):
   - Type definitions and interface patterns
   - Type architecture within module
   - Avoid project/domain overview" &
-  
+
   gemini --all-files --yolo -p "@{src/core/**/*} @{src/core/CLAUDE.md}
   Update core documentation (Layer 3 focus):
   - Core module patterns and initialization
@@ -207,7 +207,7 @@ echo "🏭 Layer 2: Business modules (parallel, with foundation context)"
   - Integration with core and types modules
   - Module-specific implementation details
   - Avoid duplicating foundation or project content" &
-  
+
   gemini --all-files --yolo -p "@{src/services/**/*} @{src/utils/CLAUDE.md} @{src/services/CLAUDE.md}
   Update services documentation with utils context (Layer 3 focus):
   - Service layer patterns and business logic
@@ -225,7 +225,7 @@ echo "🎨 Layer 3: Application modules (parallel, with business context)"
   - API integration approaches
   - Module-specific UI patterns
   - Avoid duplicating API or project content" &
-  
+
   gemini --all-files --yolo -p "@{src/pages/**/*} @{src/services/CLAUDE.md} @{src/pages/CLAUDE.md}
   Update pages documentation with services context (Layer 3 focus):
   - Page structure and routing patterns
@@ -254,7 +254,10 @@ Update root documentation (Layer 1 focus):
 - Do NOT include implementation details"
 ```
 
-#### **Large Project Full Update**
+### 📝 Template: Large Project (`full` Mode Update)
+
+This YAML-based plan is used for large projects in `full` mode, coordinating multiple agents.
+
 ```yaml
 # Multi-agent coordination for complex projects
 Main Coordinator Agent:
@@ -262,15 +265,15 @@ Main Coordinator Agent:
   subagent_type: "memory-gemini-bridge"
   prompt: |
     Execute large project full documentation update:
-    
+  
     1. Analyze project structure:
        gemini --all-files -p "@{**/*} Identify major domains, complexity, and module relationships"
-    
+  
     2. Launch parallel domain agents:
        - Each agent handles one domain (frontend, backend, infrastructure)
        - Each agent follows hierarchy rules strictly
        - Each agent avoids content duplication
-    
+  
     3. Final integration:
        gemini --all-files --yolo -p "@{*/CLAUDE.md} @{CLAUDE.md}
        Update root with Layer 1 focus only:
@@ -282,14 +285,14 @@ Main Coordinator Agent:
 Frontend Domain Agent:
   prompt: |
     Update frontend domain with hierarchy awareness:
-    
+  
     1. Module updates (Layer 3):
        gemini --all-files --yolo -p "@{src/components/**/*} @{src/components/CLAUDE.md}
        Component-specific patterns and architecture"
-       
+     
        gemini --all-files --yolo -p "@{src/pages/**/*} @{src/pages/CLAUDE.md}
        Page-specific patterns and routing"
-    
+  
     2. Domain integration (Layer 2):
        gemini --all-files --yolo -p "@{src/frontend/*/CLAUDE.md} @{src/frontend/CLAUDE.md}
        Frontend domain architecture, module relationships
@@ -298,60 +301,54 @@ Frontend Domain Agent:
 Backend Domain Agent:
   prompt: |
     Update backend domain with hierarchy awareness:
-    
+  
     1. Module updates (Layer 3):
        gemini --all-files --yolo -p "@{src/api/**/*} @{src/api/CLAUDE.md}
        API-specific patterns and endpoints"
-       
+     
        gemini --all-files --yolo -p "@{src/services/**/*} @{src/services/CLAUDE.md}
        Service-specific business logic and patterns"
-    
+  
     2. Domain integration (Layer 2):
        gemini --all-files --yolo -p "@{src/backend/*/CLAUDE.md} @{src/backend/CLAUDE.md}
        Backend domain architecture, service relationships
        Do NOT duplicate service details or project overview"
 ```
 
-### 📈 **Performance Characteristics**
+### 📈 Performance Characteristics
 
-| Mode | Small Project (<10 files) | Medium Project (10-100 files) | Large Project (>100 files) |
-|------|----------------------------|--------------------------------|----------------------------|
-| **Related** | <1 minute | 1-3 minutes | 3-5 minutes |
-| **Full** | 1-2 minutes | 3-5 minutes | 10-15 minutes |
+| Mode      | Small Project (<50 files) | Medium Project (50-200 files) | Large Project (>200 files) |
+| :-------- | :------------------------ | :---------------------------- | :------------------------- |
+| **related** | <1 minute                 | 1-3 minutes                   | 3-5 minutes                |
+| **full**    | 1-2 minutes               | 3-5 minutes                   | 10-15 minutes              |
 
-### 🚀 **Usage Examples**
+### 📚 Usage Examples
 
 ```bash
 # Daily development (automatically detects what you've been working on)
 /update-memory
-# Updates only affected modules + parent hierarchy + root
 
-# After working in specific module
+# After working in a specific module, explicitly run related mode
 cd src/api && /update-memory related
-# Updates API module documentation and propagates changes up
 
-# Weekly full refresh
+# Weekly full refresh for project-wide consistency
 /update-memory full
-# Complete hierarchy update with automatic complexity detection
 
-# After major refactoring
+# Intelligently update based on a large refactoring commit
 git add -A && git commit -m "Major refactoring"
 /update-memory related
-# Intelligently updates all affected areas based on git changes
 ```
 
-### ✨ **Key Features**
+### ✨ Key Features
 
-1. **Context Intelligence**: Automatically detects what needs updating based on changes
-2. **Hierarchy Preservation**: Strict content boundaries prevent duplication
-3. **Smart Partitioning**: Automatically scales strategy based on project complexity
-4. **Gemini --yolo**: Direct file modification for maximum efficiency
-5. **Zero Configuration**: Works out of the box with intelligent defaults
+-   **Context Intelligence**: Automatically detects which modules need updating based on recent changes.
+-   **Hierarchy Preservation**: Enforces strict content boundaries between documentation layers to prevent duplication.
+-   **Smart Partitioning**: Dynamically scales its execution strategy (single, parallel, multi-agent) based on project size.
+-   **Zero Configuration**: Works out-of-the-box with intelligent defaults for context detection and execution.
 
-### 📝 **Best Practices**
+### 📝 Best Practices
 
-- **Use related mode** for daily development - fast and focused
-- **Run full mode** weekly or after major changes for consistency
-- **Trust the hierarchy** - each layer has its specific purpose
-- **Let context detection work** - the command knows what changed
-- **Review root CLAUDE.md** periodically as your project's overview
+-   Use `related` mode for daily development; it's fast and focused.
+-   Run `full` mode weekly or after major architectural changes to ensure consistency.
+-   Trust the hierarchy; let each `CLAUDE.md` file serve its specific layer of abstraction.
+-   Allow the automatic context detection to guide updates rather than manually specifying files.

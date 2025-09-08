@@ -89,33 +89,70 @@ For all Gemini CLI usage, command syntax, and integration guidelines:
 @~/.claude/workflows/gemini-cli-guidelines.md
 @~/.claude/workflows/gemini-intelligent-context.md
 
-## CLAUDE.md Documentation System
+### 📂 **CLAUDE.md Hierarchy Rules - Avoiding Content Duplication**
 
-### Core Construction Principles
+#### **Layer 1: Root Level (`./CLAUDE.md`)**
+```markdown
+Content Focus:
+  - Project overview and purpose (high-level only)
+  - Technology stack summary
+  - Architecture decisions and principles
+  - Development workflow overview
+  - Quick start guide
+  
+Strictly Avoid:
+  - Implementation details
+  - Module-specific patterns
+  - Code examples from specific modules
+  - Domain internal architecture
+```
 
-**FUNDAMENTAL RULE**: Strict hierarchical content boundaries to eliminate duplication
+#### **Layer 2: Domain Level (`./src/CLAUDE.md`, `./tests/CLAUDE.md`)**
+```yaml
+Content Focus:
+  - Domain architecture and responsibilities
+  - Module organization within domain
+  - Inter-module communication patterns
+  - Domain-specific conventions
+  - Integration points with other domains
+  
+Strictly Avoid:
+  - Duplicating root project overview
+  - Component/function-level details
+  - Specific implementation code
+  - Module internal patterns
+```
 
-#### **Layer Definitions**
+#### **Layer 3: Module Level (`./src/api/CLAUDE.md`, `./src/components/CLAUDE.md`)**
+```yaml
+Content Focus:
+  - Module-specific implementation patterns
+  - Internal architecture and design decisions
+  - API contracts and interfaces
+  - Module dependencies and relationships
+  - Testing strategies for this module
+  
+Strictly Avoid:
+  - Project overview content
+  - Domain-wide architectural patterns
+  - Detailed function documentation
+  - Configuration specifics
+```
 
-1. **Root Level (`./CLAUDE.md`)** - Project North Star
-   - **Purpose**: High-level project overview and architectural decisions
-   - **Content**: Technology stack, development workflow, architecture principles
-   - **NEVER Include**: Implementation details, module patterns, domain specifics
-
-2. **Domain Level (`./src/CLAUDE.md`)** - Domain Architecture
-   - **Purpose**: Domain organization and inter-module relationships  
-   - **Content**: Module organization, domain patterns, integration points
-   - **NEVER Include**: Project overview, implementation specifics, function details
-
-3. **Module Level (`./src/api/CLAUDE.md`)** - Implementation Patterns
-   - **Purpose**: Module-specific architecture and patterns
-   - **Content**: Internal design, API contracts, module dependencies
-   - **NEVER Include**: Project overview, domain patterns, detailed implementations
-
-4. **Sub-Module Level (`./src/api/auth/CLAUDE.md`)** - Implementation Details
-   - **Purpose**: Specific implementation and configuration
-   - **Content**: Usage examples, configuration, performance notes
-   - **NEVER Include**: Architecture decisions, higher-level patterns
+#### **Layer 4: Sub-Module Level (`./src/api/auth/CLAUDE.md`)**
+```yaml
+Content Focus:
+  - Detailed implementation specifics
+  - Component/function documentation
+  - Configuration details and examples
+  - Usage examples and patterns
+  - Performance considerations
+  
+Strictly Avoid:
+  - Architecture decisions (belong in higher levels)
+  - Module-level organizational patterns
+  - Domain or project overview content
+```
 
 #### **Content Uniqueness Rules**
 
