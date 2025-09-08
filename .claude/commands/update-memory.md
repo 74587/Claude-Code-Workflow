@@ -29,71 +29,6 @@ examples:
 -   **Updates**: All CLAUDE.md files at every hierarchy level
 -   **Use Case**: Major refactoring, project initialization, periodic maintenance
 
-### 📂 **CLAUDE.md Hierarchy Rules - Avoiding Content Duplication**
-
-#### **Layer 1: Root Level (`./CLAUDE.md`)**
-```yaml
-Content Focus:
-  - Project overview and purpose (high-level only)
-  - Technology stack summary
-  - Architecture decisions and principles
-  - Development workflow overview
-  - Quick start guide
-  
-Strictly Avoid:
-  - Implementation details
-  - Module-specific patterns
-  - Code examples from specific modules
-  - Domain internal architecture
-```
-
-#### **Layer 2: Domain Level (`./src/CLAUDE.md`, `./tests/CLAUDE.md`)**
-```yaml
-Content Focus:
-  - Domain architecture and responsibilities
-  - Module organization within domain
-  - Inter-module communication patterns
-  - Domain-specific conventions
-  - Integration points with other domains
-  
-Strictly Avoid:
-  - Duplicating root project overview
-  - Component/function-level details
-  - Specific implementation code
-  - Module internal patterns
-```
-
-#### **Layer 3: Module Level (`./src/api/CLAUDE.md`, `./src/components/CLAUDE.md`)**
-```yaml
-Content Focus:
-  - Module-specific implementation patterns
-  - Internal architecture and design decisions
-  - API contracts and interfaces
-  - Module dependencies and relationships
-  - Testing strategies for this module
-  
-Strictly Avoid:
-  - Project overview content
-  - Domain-wide architectural patterns
-  - Detailed function documentation
-  - Configuration specifics
-```
-
-#### **Layer 4: Sub-Module Level (`./src/api/auth/CLAUDE.md`)**
-```yaml
-Content Focus:
-  - Detailed implementation specifics
-  - Component/function documentation
-  - Configuration details and examples
-  - Usage examples and patterns
-  - Performance considerations
-  
-Strictly Avoid:
-  - Architecture decisions (belong in higher levels)
-  - Module-level organizational patterns
-  - Domain or project overview content
-```
-
 ### 📊 **Automatic Complexity Detection & Task Partitioning**
 
 Both modes automatically execute this logic:
@@ -329,7 +264,7 @@ Main Coordinator Agent:
     Execute large project full documentation update:
     
     1. Analyze project structure:
-       gemini -p "@{**/*} Identify major domains, complexity, and module relationships"
+       gemini --all-files -p "@{**/*} Identify major domains, complexity, and module relationships"
     
     2. Launch parallel domain agents:
        - Each agent handles one domain (frontend, backend, infrastructure)
@@ -349,14 +284,14 @@ Frontend Domain Agent:
     Update frontend domain with hierarchy awareness:
     
     1. Module updates (Layer 3):
-       gemini -yolo -p "@{src/components/**/*} @{src/components/CLAUDE.md}
+       gemini --all-files --yolo -p "@{src/components/**/*} @{src/components/CLAUDE.md}
        Component-specific patterns and architecture"
        
-       gemini -yolo -p "@{src/pages/**/*} @{src/pages/CLAUDE.md}
+       gemini --all-files --yolo -p "@{src/pages/**/*} @{src/pages/CLAUDE.md}
        Page-specific patterns and routing"
     
     2. Domain integration (Layer 2):
-       gemini -yolo -p "@{src/frontend/*/CLAUDE.md} @{src/frontend/CLAUDE.md}
+       gemini --all-files --yolo -p "@{src/frontend/*/CLAUDE.md} @{src/frontend/CLAUDE.md}
        Frontend domain architecture, module relationships
        Do NOT duplicate component details or project overview"
 
@@ -365,14 +300,14 @@ Backend Domain Agent:
     Update backend domain with hierarchy awareness:
     
     1. Module updates (Layer 3):
-       gemini -yolo -p "@{src/api/**/*} @{src/api/CLAUDE.md}
+       gemini --all-files --yolo -p "@{src/api/**/*} @{src/api/CLAUDE.md}
        API-specific patterns and endpoints"
        
-       gemini -yolo -p "@{src/services/**/*} @{src/services/CLAUDE.md}
+       gemini --all-files --yolo -p "@{src/services/**/*} @{src/services/CLAUDE.md}
        Service-specific business logic and patterns"
     
     2. Domain integration (Layer 2):
-       gemini -yolo -p "@{src/backend/*/CLAUDE.md} @{src/backend/CLAUDE.md}
+       gemini --all-files --yolo -p "@{src/backend/*/CLAUDE.md} @{src/backend/CLAUDE.md}
        Backend domain architecture, service relationships
        Do NOT duplicate service details or project overview"
 ```
@@ -410,7 +345,7 @@ git add -A && git commit -m "Major refactoring"
 1. **Context Intelligence**: Automatically detects what needs updating based on changes
 2. **Hierarchy Preservation**: Strict content boundaries prevent duplication
 3. **Smart Partitioning**: Automatically scales strategy based on project complexity
-4. **Gemini -yolo**: Direct file modification for maximum efficiency
+4. **Gemini --yolo**: Direct file modification for maximum efficiency
 5. **Zero Configuration**: Works out of the box with intelligent defaults
 
 ### 📝 **Best Practices**
