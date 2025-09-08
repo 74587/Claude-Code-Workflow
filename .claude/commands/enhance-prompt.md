@@ -50,7 +50,7 @@ FUNCTION decide_enhancement_path(user_prompt, options):
   IF use_gemini is TRUE:
     // This action corresponds to calling the Gemini CLI tool programmatically.
     // e.g., `gemini --all-files -p "..."` based on the derived context.
-    gemini_insights = execute_tool("gemini", enhanced_prompt) // Calls the Gemini CLI
+    gemini_insights = execute_tool("gemini","-P" enhanced_prompt) // Calls the Gemini CLI
     enhanced_prompt.append(gemini_insights)
 
   RETURN enhanced_prompt

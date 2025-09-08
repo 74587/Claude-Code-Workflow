@@ -1,265 +1,422 @@
 ---
 name: update-memory
-description: Distributed Memory System management with intelligent classification
-usage: /update-memory [mode] [target]
-argument-hint: [full|fast|deep] [path or scope]
+description: Intelligent CLAUDE.md documentation system with context-aware updates
+usage: /update-memory [mode]
+argument-hint: [related|full]
 examples:
-  - /update-memory                    # Fast mode on current directory
-  - /update-memory full               # Complete initialization
-  - /update-memory fast src/api/      # Quick update on specific path
-  - /update-memory deep auth-system   # Deep analysis on scope
+  - /update-memory                    # Default: related mode (context-based)
+  - /update-memory related            # Update only context-related modules
+  - /update-memory full               # Full project documentation update
 ---
 
 ### 🚀 **Command Overview: `/update-memory`**
 
--   **Type**: Distributed Memory System (DMS) Management.
--   **Purpose**: Manages a hierarchical `CLAUDE.md` documentation system using intelligent project classification and agent-based task integration.
--   **Features**: Supports multiple operation modes, automatic complexity detection, and parallel execution for high performance.
+-   **Type**: Hierarchical Documentation Management System
+-   **Purpose**: Maintain CLAUDE.md documentation with intelligent context detection and automatic task partitioning
+-   **Features**: Context-aware updates, hierarchical content management, automatic complexity detection, Gemini CLI with --yolo
 
 ### ⚙️ **Processing Modes**
 
--   **`fast` (Default)**
-    -   **Purpose**: Targeted content updates based on current context or a specific path.
-    -   **Scope**: Single module or file, no cross-module analysis.
--   **`deep`**
-    -   **Purpose**: Analyze relational impacts and update all associated files across modules.
-    -   **Scope**: A specific feature or scope that touches multiple modules (e.g., `auth-system`).
--   **`full`**
-    -   **Purpose**: Complete, project-wide documentation reconstruction and overhaul.
-    -   **Scope**: The entire project, executed via modular, bottom-up task orchestration.
+#### **📍 Related Mode (Default)**
+-   **Scope**: Updates only context-related modules based on recent changes
+-   **Detection**: Analyzes git diff, recent edits, and current working context
+-   **Updates**: Affected module CLAUDE.md files + parent hierarchy + root CLAUDE.md
+-   **Use Case**: Daily development, feature updates, bug fixes
 
-### 🤔 **When to Use Each Mode**
+#### **🌐 Full Mode**
+-   **Scope**: Complete project-wide documentation update
+-   **Detection**: Analyzes entire project structure
+-   **Updates**: All CLAUDE.md files at every hierarchy level
+-   **Use Case**: Major refactoring, project initialization, periodic maintenance
 
--   **⚡ Fast Mode**: Use for daily development, quick updates, and single-module changes or bug fixes.
--   **🔬 Deep Mode**: Use for multi-module features, integration work, or complex refactoring with cross-module impacts.
--   **🚀 Full Mode**: Use for new project setup, major architectural changes, or a comprehensive documentation overhaul.
+### 📂 **CLAUDE.md Hierarchy Rules - Avoiding Content Duplication**
 
-### 🔄 **Mode-Specific Workflows**
-
--   **⚡ Fast Mode Flow**
-    `Execute 3-step scan` -> `Identify target scope` -> `Invoke single agent` -> `Update specific CLAUDE.md` -> `Validate & cleanup`
-
--   **🔬 Deep Mode Flow**
-    `Project structure scan` -> `Impact analysis` -> `Multi-module detection` -> `Decide on parallel execution` -> `Orchestrate agent(s)` -> `Synchronize updates` -> `Cross-module validation`
-
--   **🚀 Full Mode Flow**
-    `Project analysis` -> `Module discovery` -> `Task decomposition & dependency sorting` -> `Create parallel batches` -> `Execute Batch 1 (Base modules)` -> `...` -> `Execute Batch N (Top-level)` -> `Invoke global summary agent` -> `Generate root CLAUDE.md`
-
-### 🧠 **Parallel Execution Logic**
-
-This describes the command's internal logic for selecting an execution strategy. It is handled automatically by `/update-memory`.
-
-```pseudo
-FUNCTION select_execution_strategy(project_structure):
-  file_count = analyze_file_count(project_structure)
-  module_count = analyze_module_count(project_structure)
-
-  // Based on the 'Parallel Execution Decision Matrix'
-  IF file_count < 20:
-    RETURN "single_agent_fast_mode"
-  ELSE IF file_count >= 20 AND file_count <= 100:
-    RETURN "directory_based_parallel" // Use 2-3 agents
-  ELSE IF file_count > 100 AND file_count <= 500:
-    RETURN "hybrid_parallel" // Use 3-5 agents
-  ELSE IF file_count > 500:
-    RETURN "dependency_aware_batching" // Use 5+ agents
-  END IF
-END FUNCTION
-
-FUNCTION orchestrate_full_mode(project_structure):
-  // 1. Decompose project into modules and dependencies
-  tasks = create_task_list(project_structure) // Corresponds to JSON Task Instructions
-
-  // 2. Group tasks into batches for parallel execution
-  batches = create_dependency_batches(tasks)
-
-  // 3. Execute batches sequentially, with parallel agents within each batch
-  FOR each batch in batches:
-    // This action corresponds to the orchestration script example.
-    // e.g., Task(memory-gemini-bridge, "task for module A") &
-    execute_batch_in_parallel(batch) 
-    wait_for_batch_completion() // Barrier synchronization
-
-  // 4. Final summary step
-  // e.g., Task(memory-gemini-bridge, "global_summary task")
-  execute_global_summary_task()
-END FUNCTION
+#### **Layer 1: Root Level (`./CLAUDE.md`)**
+```yaml
+Content Focus:
+  - Project overview and purpose (high-level only)
+  - Technology stack summary
+  - Architecture decisions and principles
+  - Development workflow overview
+  - Quick start guide
+  
+Strictly Avoid:
+  - Implementation details
+  - Module-specific patterns
+  - Code examples from specific modules
+  - Domain internal architecture
 ```
 
-### 📂 **Distributed Memory System (DMS) Structure**
-
-The command assumes and manages a hierarchical `CLAUDE.md` file structure.
-
-```
-project/
-├── CLAUDE.md                   # Project overview and architecture
-├── src/                  
-│   ├── CLAUDE.md              # Core implementation guidelines
-│   ├── components/
-│   │   └── CLAUDE.md          # Component-specific patterns
-│   └── api/
-│       └── CLAUDE.md          # API implementation details
-├── tests/
-│   └── CLAUDE.md              # Testing guidelines (if needed)
-└── docs/
-    └── CLAUDE.md              # Documentation standards (if needed)
+#### **Layer 2: Domain Level (`./src/CLAUDE.md`, `./tests/CLAUDE.md`)**
+```yaml
+Content Focus:
+  - Domain architecture and responsibilities
+  - Module organization within domain
+  - Inter-module communication patterns
+  - Domain-specific conventions
+  - Integration points with other domains
+  
+Strictly Avoid:
+  - Duplicating root project overview
+  - Component/function-level details
+  - Specific implementation code
+  - Module internal patterns
 ```
 
-### 📜 **Documentation Hierarchy Rules**
+#### **Layer 3: Module Level (`./src/api/CLAUDE.md`, `./src/components/CLAUDE.md`)**
+```yaml
+Content Focus:
+  - Module-specific implementation patterns
+  - Internal architecture and design decisions
+  - API contracts and interfaces
+  - Module dependencies and relationships
+  - Testing strategies for this module
+  
+Strictly Avoid:
+  - Project overview content
+  - Domain-wide architectural patterns
+  - Detailed function documentation
+  - Configuration specifics
+```
 
--   **Root Level (`./CLAUDE.md`):** Focus on project architecture, technology stack, and global standards.
--   **Module Level (`./src/CLAUDE.md`):** Focus on core implementation guidelines, module responsibilities, and patterns.
--   **Sub-Module Level (`./src/api/CLAUDE.md`):** Focus on detailed technical specifications and component-specific patterns.
+#### **Layer 4: Sub-Module Level (`./src/api/auth/CLAUDE.md`)**
+```yaml
+Content Focus:
+  - Detailed implementation specifics
+  - Component/function documentation
+  - Configuration details and examples
+  - Usage examples and patterns
+  - Performance considerations
+  
+Strictly Avoid:
+  - Architecture decisions (belong in higher levels)
+  - Module-level organizational patterns
+  - Domain or project overview content
+```
 
-### 🛠️ **Pre-defined Analysis Commands**
+### 📊 **Automatic Complexity Detection & Task Partitioning**
 
-This 3-step script is used for initial project structure analysis.
+Both modes automatically execute this logic:
 
 ```bash
-# Step 1: Get project directory structure
-tree -L 3 -d 2>/dev/null || find . -type d -maxdepth 3
-
-# Step 2: Find existing CLAUDE.md files
-find . -name "CLAUDE.md" -o -name "*CLAUDE.md" | sort
-
-# Step 3: Generate context-aware file list (adapts to target scope)
-# If target specified: focus on target-related files
-# If no target: analyze current context and recent changes
-find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.py" -o -name "*.md" \) | head -50
-```
-
-### 📝 **Task Instructions Format (Full Mode)**
-
-In `full` mode, the orchestrator generates tasks for agents in this JSON format.
-
-```json
-{
-  "task_type": "module_update" | "global_summary",
-  "target_module": "src/api" | "tests" | "root",
-  "analysis_commands": [
-    "find ./src/api -type f \\( -name '*.js' -o -name '*.ts' \\) | head -30",
-    "find ./src/api -name 'CLAUDE.md'"
-  ],
-  "dependencies": ["src/utils", "src/core"],
-  "priority": 1,
-  "context": {
-    "module_purpose": "API endpoint implementations",
-    "existing_files": ["./src/api/CLAUDE.md"],
-    "focus_areas": ["implementation patterns", "error handling", "integration points"]
-  }
+# Internal complexity detection (executed by command)
+detect_and_partition() {
+    local mode=$1
+    
+    # Step 1: Analyze project scale
+    local file_count=$(find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.py" -o -name "*.java" -o -name "*.go" \) | wc -l)
+    local module_count=$(find . -type d -name src -o -name lib -o -name app | wc -l)
+    
+    # Step 2: Determine execution strategy
+    if [ $file_count -lt 50 ]; then
+        echo "Small project: Single Gemini execution"
+        execute_single_gemini $mode
+    elif [ $file_count -lt 200 ]; then
+        echo "Medium project: Parallel shell execution"
+        execute_parallel_shell $mode
+    else
+        echo "Large project: Multi-agent coordination"
+        execute_multi_agent $mode
+    fi
 }
 ```
 
-### 🤖 **Agent Integration Examples**
+### 🔄 **Related Mode: Context-Aware Updates**
 
-The `/update-memory` command orchestrates `memory-gemini-bridge` agents using tasks formatted like this.
-
-#### **Single Agent (Fast/Deep Mode)**
-```yaml
-Task:
-  description: "Module analysis with Gemini CLI"
-  subagent_type: "memory-gemini-bridge"
-  prompt: |
-    Task Type: module_update
-    Target Module: src/api/auth
-  
-    Analysis Commands:
-    1. find ./src/api/auth -type f \( -name "*.js" -o -name "*.ts" \) | head -30
-    2. cd src/api/auth && gemini --all-files -p "analyze authentication patterns"
-    3. Generate module-level CLAUDE.md for auth subsystem
-  
-    Context:
-    - Module Purpose: Authentication service implementation
-    - Focus Areas: ["security patterns", "JWT handling", "middleware integration"]
-    - Dependencies: ["src/utils", "src/core"]
-  
-    Success Criteria: Generate complete module CLAUDE.md with security patterns
+#### **Step 1: Context Detection**
+```bash
+# Automatic context analysis
+detect_changes() {
+    # Priority 1: Git diff analysis
+    changed_files=$(git diff --name-only HEAD~1 2>/dev/null || git status --porcelain | awk '{print $2}')
+    
+    # Priority 2: Current working directory
+    if [ -z "$changed_files" ]; then
+        changed_files=$(find . -maxdepth 3 -name "*.js" -o -name "*.ts" -o -name "*.py" | head -10)
+    fi
+    
+    # Extract affected modules
+    affected_modules=$(echo "$changed_files" | xargs dirname | sort -u)
+    echo "Detected changes in: $affected_modules"
+}
 ```
 
-#### **Multiple Parallel Agents (Full Mode)**
-```yaml
-# Agent 1: API Module
-Task:
-  description: "API Module Analysis"
-  subagent_type: "memory-gemini-bridge"
-  prompt: |
-    Task Type: module_update
-    Target Module: src/api
-    Parallel Config: { batch_id: 1, partition_id: 1, max_concurrent: 3 }
-    Generate: ./src/api/CLAUDE.md
-    Sync Point: batch_complete
+#### **Step 2: Layered Updates (Automatic Execution)**
 
-# Agent 2: Components Module (Parallel)
-Task:
-  description: "Components Module Analysis"
-  subagent_type: "memory-gemini-bridge"
-  prompt: |
-    Task Type: module_update
-    Target Module: src/components
-    Parallel Config: { batch_id: 1, partition_id: 2, max_concurrent: 3 }
-    Generate: ./src/components/CLAUDE.md
-    Sync Point: batch_complete
+##### **Small Project Related Update**
+```bash
+# Single comprehensive analysis
+gemini --all-files --yolo -p "@{changed_files} @{affected_module/CLAUDE.md} @{CLAUDE.md}
+Analyze recent changes and update only affected CLAUDE.md files:
+
+1. Module-level update:
+   - Focus on changed patterns and implementations
+   - Follow Layer 3/4 hierarchy rules
+   - Avoid duplicating parent content
+
+2. Root-level update:
+   - Reflect only significant architectural changes
+   - Maintain high-level project perspective
+   - Reference but don't duplicate module details
+   
+Only update files that are actually affected by the changes."
 ```
 
-#### **Global Summary Agent (Full Mode - Final Step)**
-```yaml
-Task:
-  description: "Project Global Summary"
-  subagent_type: "memory-gemini-bridge" 
-  prompt: |
-    Task Type: global_summary
-    Wait For: All module updates complete (batch_complete barrier)
-  
-    Analysis Commands:
-    1. find . -name "CLAUDE.md" | grep -E "(src|lib)/" | sort
-    2. Read all module CLAUDE.md files
-    3. gemini -p "@./src/*/CLAUDE.md synthesize project architecture"
-  
-    Generate: Root ./CLAUDE.md
+##### **Medium/Large Project Related Update**
+```bash
+# Step-by-step layered update
+
+# Update affected modules first
+for module in $affected_modules; do
+    echo "Updating module: $module"
+    gemini --all-files --yolo -p "@{$module/**/*} @{$module/CLAUDE.md}
+    Update $module/CLAUDE.md based on recent changes:
+    - Analyze what specifically changed in this module  
+    - Update implementation patterns that were modified
+    - Follow Layer 3 hierarchy rules (module-specific focus)
+    - Do not include project overview or domain-wide patterns
+    - Only document what changed or was impacted"
+done
+
+# Update parent domain if structure changed
+parent_domains=$(echo "$affected_modules" | xargs dirname | sort -u)
+for domain in $parent_domains; do
+    if [ -f "$domain/CLAUDE.md" ]; then
+        echo "Checking domain impact: $domain"
+        gemini --all-files --yolo -p "@{$domain/*/CLAUDE.md} @{$domain/CLAUDE.md}
+        Review if domain-level documentation needs updates:
+        - Check if module organization changed
+        - Update integration patterns if affected
+        - Follow Layer 2 hierarchy rules (domain focus)
+        - Only update if there are actual structural changes
+        - Do not duplicate module details"
+    fi
+done
+
+# Finally, update root if significant changes
+echo "Updating root documentation"
+gemini --all-files --yolo -p "@{changed_files} @{*/CLAUDE.md} @{CLAUDE.md}
+Review and update root CLAUDE.md only if changes affect:
+- Project architecture or technology stack
+- Major feature additions
+- Development workflow changes
+
+Follow Layer 1 hierarchy rules:
+- Maintain high-level project perspective
+- Only reference architectural impacts
+- Do not duplicate domain or module content"
 ```
 
-### 🌐 **Advanced Parallel Execution Strategies**
+### 🌐 **Full Mode: Complete Project Update**
 
-The command auto-selects the optimal strategy. Below are the patterns it uses.
+#### **Small Project Full Update**
+```bash
+# Single comprehensive analysis with hierarchy awareness
+gemini --all-files --yolo -p "@{**/*} @{**/*CLAUDE.md}
+Perform complete project analysis and update all CLAUDE.md files with strict hierarchy:
 
-#### **Strategy 1: Directory-Based Partitioning**
--   **Best For**: Well-organized projects with clear module boundaries.
--   **Example Command**: `Agent-1: cd src/components && gemini --all-files -p "analyze React components"`
+1. Root CLAUDE.md (Layer 1):
+   - Project overview, architecture, technology stack
+   - Development guidelines and workflow
+   - Do NOT include implementation details
 
-#### **Strategy 2: File Reference Partitioning**
--   **Best For**: Feature-based or cross-cutting concerns (e.g., authentication).
--   **Example Command**: `Agent-1: gemini -p "@src/**/*auth* analyze authentication patterns"`
+2. Domain CLAUDE.md (Layer 2):
+   - Domain architecture and module organization  
+   - Inter-module communication patterns
+   - Do NOT duplicate project overview or module internals
 
-#### **Strategy 3: Hybrid Approach**
--   **Best For**: Complex projects with mixed organization patterns.
--   **Example Command**: Mixes directory-based (`cd src/components`) and pattern-based (`@src/**/*{auth,security}*`) analysis.
+3. Module CLAUDE.md (Layer 3):
+   - Module-specific patterns and internal architecture
+   - API contracts and dependencies
+   - Do NOT duplicate domain patterns or project overview
 
-#### **Strategy 4: Dependency-Aware Batching**
--   **Best For**: Large enterprise projects with complex interdependencies.
--   **Example Flow**:
-    1.  **Batch 1**: Analyze foundation modules (e.g., `types`, `utils`). `wait`
-    2.  **Batch 2**: Analyze service modules that depend on Batch 1 (e.g., `api`, `database`). `wait`
-    3.  **Batch 3**: Analyze application modules that depend on Batch 2 (e.g., `components`).
+4. Sub-module CLAUDE.md (Layer 4):
+   - Implementation specifics and configuration
+   - Usage examples and performance notes
+   - Do NOT duplicate higher-level architecture
 
-| Strategy | Best For | Scaling | Complexity | Performance |
-|---|---|---|---|---|
-| Directory-Based | Modular projects | Excellent | Low | High |
-| File Pattern | Feature-focused | Good | Medium | Medium |
-| Hybrid | Mixed structures | Very Good | High | High |
-| Dependency-Aware | Large enterprise | Excellent | Very High | Maximum |
+Ensure each layer maintains its proper abstraction level without content duplication."
+```
 
-### 🧹 **Automatic Content Management**
+#### **Medium Project Full Update**
+```bash
+# Dependency-aware parallel execution
 
--   **Cleanup**: Removes duplicate content, outdated references, and deprecated patterns across the hierarchy.
--   **Validation**: Ensures content is relevant to the current state of the project.
--   **Focus**:
-    -   **Fast Mode**: Quick relevance validation and dead reference removal.
-    -   **Deep Mode**: Comprehensive redundancy elimination across affected modules.
-    -   **Full Mode**: Complete project-wide cleanup and hierarchy optimization.
+echo "🏗️ Layer 1: Foundation modules (parallel)"
+(
+  gemini --all-files --yolo -p "@{src/utils/**/*} @{src/utils/CLAUDE.md}
+  Update utilities documentation (Layer 3 focus):
+  - Utility patterns and helper functions
+  - Module internal organization
+  - Avoid project/domain overview" &
+  
+  gemini --all-files --yolo -p "@{src/types/**/*} @{src/types/CLAUDE.md}
+  Update types documentation (Layer 3 focus):
+  - Type definitions and interface patterns
+  - Type architecture within module
+  - Avoid project/domain overview" &
+  
+  gemini --all-files --yolo -p "@{src/core/**/*} @{src/core/CLAUDE.md}
+  Update core documentation (Layer 3 focus):
+  - Core module patterns and initialization
+  - Internal system architecture
+  - Avoid project/domain overview" &
+  wait
+)
 
-### ⏱️ **Performance & Time Investment**
+echo "🏭 Layer 2: Business modules (parallel, with foundation context)"
+(
+  gemini --all-files --yolo -p "@{src/api/**/*} @{src/core/CLAUDE.md,src/types/CLAUDE.md} @{src/api/CLAUDE.md}
+  Update API documentation with foundation context (Layer 3 focus):
+  - API architecture and endpoint patterns
+  - Integration with core and types modules
+  - Module-specific implementation details
+  - Avoid duplicating foundation or project content" &
+  
+  gemini --all-files --yolo -p "@{src/services/**/*} @{src/utils/CLAUDE.md} @{src/services/CLAUDE.md}
+  Update services documentation with utils context (Layer 3 focus):
+  - Service layer patterns and business logic
+  - Integration with utility modules
+  - Module internal architecture
+  - Avoid duplicating utils or project content" &
+  wait
+)
 
--   **⚡ Fast Mode**: Minutes (Ideal for daily use).
--   **🔬 Deep Mode**: ~10-30 minutes with parallel execution.
--   **🚀 Full Mode**: ~30-45 minutes with parallel execution.
--   **Benefit**: Parallel execution provides a massive speedup, offsetting a small coordination overhead.
+echo "🎨 Layer 3: Application modules (parallel, with business context)"
+(
+  gemini --all-files --yolo -p "@{src/components/**/*} @{src/api/CLAUDE.md} @{src/components/CLAUDE.md}
+  Update components documentation with API context (Layer 3 focus):
+  - Component architecture and patterns
+  - API integration approaches
+  - Module-specific UI patterns
+  - Avoid duplicating API or project content" &
+  
+  gemini --all-files --yolo -p "@{src/pages/**/*} @{src/services/CLAUDE.md} @{src/pages/CLAUDE.md}
+  Update pages documentation with services context (Layer 3 focus):
+  - Page structure and routing patterns
+  - Service utilization approaches
+  - Module-specific page architecture
+  - Avoid duplicating services or project content" &
+  wait
+)
+
+echo "📋 Layer 4: Domain integration"
+gemini --all-files --yolo -p "@{src/*/CLAUDE.md} @{src/CLAUDE.md}
+Update src domain documentation (Layer 2 focus):
+- Synthesize module organization and relationships
+- Domain-wide architecture patterns
+- Inter-module communication strategies
+- Do NOT duplicate module implementation details
+- Do NOT duplicate project overview content"
+
+echo "🎯 Layer 5: Root integration"
+gemini --all-files --yolo -p "@{*/CLAUDE.md} @{CLAUDE.md}
+Update root documentation (Layer 1 focus):
+- High-level project architecture and overview
+- Technology stack summary and decisions
+- Development workflow and guidelines
+- Do NOT duplicate domain-specific content
+- Do NOT include implementation details"
+```
+
+#### **Large Project Full Update**
+```yaml
+# Multi-agent coordination for complex projects
+Main Coordinator Agent:
+  description: "Coordinate full documentation update"
+  subagent_type: "memory-gemini-bridge"
+  prompt: |
+    Execute large project full documentation update:
+    
+    1. Analyze project structure:
+       gemini -p "@{**/*} Identify major domains, complexity, and module relationships"
+    
+    2. Launch parallel domain agents:
+       - Each agent handles one domain (frontend, backend, infrastructure)
+       - Each agent follows hierarchy rules strictly
+       - Each agent avoids content duplication
+    
+    3. Final integration:
+       gemini --all-files --yolo -p "@{*/CLAUDE.md} @{CLAUDE.md}
+       Update root with Layer 1 focus only:
+       - Project overview and architecture
+       - Technology stack decisions
+       - Development workflow
+       - Do NOT duplicate domain details"
+
+Frontend Domain Agent:
+  prompt: |
+    Update frontend domain with hierarchy awareness:
+    
+    1. Module updates (Layer 3):
+       gemini -yolo -p "@{src/components/**/*} @{src/components/CLAUDE.md}
+       Component-specific patterns and architecture"
+       
+       gemini -yolo -p "@{src/pages/**/*} @{src/pages/CLAUDE.md}
+       Page-specific patterns and routing"
+    
+    2. Domain integration (Layer 2):
+       gemini -yolo -p "@{src/frontend/*/CLAUDE.md} @{src/frontend/CLAUDE.md}
+       Frontend domain architecture, module relationships
+       Do NOT duplicate component details or project overview"
+
+Backend Domain Agent:
+  prompt: |
+    Update backend domain with hierarchy awareness:
+    
+    1. Module updates (Layer 3):
+       gemini -yolo -p "@{src/api/**/*} @{src/api/CLAUDE.md}
+       API-specific patterns and endpoints"
+       
+       gemini -yolo -p "@{src/services/**/*} @{src/services/CLAUDE.md}
+       Service-specific business logic and patterns"
+    
+    2. Domain integration (Layer 2):
+       gemini -yolo -p "@{src/backend/*/CLAUDE.md} @{src/backend/CLAUDE.md}
+       Backend domain architecture, service relationships
+       Do NOT duplicate service details or project overview"
+```
+
+### 📈 **Performance Characteristics**
+
+| Mode | Small Project (<10 files) | Medium Project (10-100 files) | Large Project (>100 files) |
+|------|----------------------------|--------------------------------|----------------------------|
+| **Related** | <1 minute | 1-3 minutes | 3-5 minutes |
+| **Full** | 1-2 minutes | 3-5 minutes | 10-15 minutes |
+
+### 🚀 **Usage Examples**
+
+```bash
+# Daily development (automatically detects what you've been working on)
+/update-memory
+# Updates only affected modules + parent hierarchy + root
+
+# After working in specific module
+cd src/api && /update-memory related
+# Updates API module documentation and propagates changes up
+
+# Weekly full refresh
+/update-memory full
+# Complete hierarchy update with automatic complexity detection
+
+# After major refactoring
+git add -A && git commit -m "Major refactoring"
+/update-memory related
+# Intelligently updates all affected areas based on git changes
+```
+
+### ✨ **Key Features**
+
+1. **Context Intelligence**: Automatically detects what needs updating based on changes
+2. **Hierarchy Preservation**: Strict content boundaries prevent duplication
+3. **Smart Partitioning**: Automatically scales strategy based on project complexity
+4. **Gemini -yolo**: Direct file modification for maximum efficiency
+5. **Zero Configuration**: Works out of the box with intelligent defaults
+
+### 📝 **Best Practices**
+
+- **Use related mode** for daily development - fast and focused
+- **Run full mode** weekly or after major changes for consistency
+- **Trust the hierarchy** - each layer has its specific purpose
+- **Let context detection work** - the command knows what changed
+- **Review root CLAUDE.md** periodically as your project's overview
