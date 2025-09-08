@@ -16,7 +16,7 @@ examples:
 # Workflow Session Management Commands
 
 ## Overview
-Enhanced session management with multi-session registry support. Provides unified state tracking through `workflow-session.json` (individual sessions) and `session_status.jsonl` (lightweight registry).
+Enhanced session management with marker file-based active session tracking. Provides unified state tracking through `workflow-session.json` (individual sessions) and `.active-[session-name]` marker files (active status).
 
 ## Core Principles
 
@@ -25,11 +25,13 @@ Enhanced session management with multi-session registry support. Provides unifie
 ## Session Registry System
 
 ### Multi-Session Management
-The system maintains a lightweight registry (`.workflow/session_status.jsonl`) tracking all sessions:
-```jsonl
-{"id":"WFS-oauth-integration","status":"paused","description":"OAuth2 authentication implementation","created":"2025-09-07T10:00:00Z","directory":".workflow/WFS-oauth-integration"}
-{"id":"WFS-user-profile","status":"active","description":"User profile feature","created":"2025-09-07T11:00:00Z","directory":".workflow/WFS-user-profile"}
-{"id":"WFS-bug-fix-123","status":"completed","description":"Fix login timeout issue","created":"2025-09-06T14:00:00Z","directory":".workflow/WFS-bug-fix-123"}
+The system uses marker files to track active sessions:
+```bash
+.workflow/
+├── WFS-oauth-integration/         # Session directory (paused)
+├── WFS-user-profile/             # Session directory (paused)
+├── WFS-bug-fix-123/              # Session directory (completed)
+└── .active-WFS-user-profile      # Marker file (indicates active session)
 ```
 
 ### Registry Rules
@@ -47,7 +49,7 @@ The system maintains a lightweight registry (`.workflow/session_status.jsonl`) t
 **Session Initialization Process:**
 - **Replaces /workflow:init** - Initializes new workflow session
 - Generates unique session ID (WFS-[topic-slug] format)
-- **Registers in session registry** - Adds entry to `.workflow/session_status.jsonl`
+- **Sets active marker** - Creates `.workflow/.active-[session-name]` marker file
 - **Sets as active session** - Deactivates other sessions automatically
 - Creates comprehensive directory structure
 - Determines complexity (auto-detect if not specified)
@@ -145,7 +147,7 @@ When starting a new session, the following files are automatically generated:
     "directory": ".task"
   },
   "registry": {
-    "registered_in": ".workflow/session_status.jsonl",
+    "active_marker": ".workflow/.active-[session-name]",
     "active_session": true
   }
 }
@@ -186,9 +188,11 @@ When starting a new session, the following files are automatically generated:
 
 ### Session Registry Management
 
-#### Session Status Registry (.workflow/session_status.jsonl)
-```jsonl
-{"id":"WFS-oauth-integration","status":"active","description":"OAuth2 authentication implementation","created":"2025-09-07T14:00:00Z","directory":".workflow/WFS-oauth-integration","complexity":"complex"}
+#### Active Session Marker (.workflow/.active-[session-name])
+```bash
+# Active session is indicated by presence of marker file
+ls .workflow/.active-* 2>/dev/null
+# Output: .workflow/.active-WFS-oauth-integration
 ```
 
 #### Registry Operations
@@ -248,10 +252,16 @@ When starting a new session, the following files are automatically generated:
 ### Session State
 Session state is tracked through two complementary systems:
 
-#### Registry State (`.workflow/session_status.jsonl`)
-Lightweight multi-session tracking:
-```jsonl
-{"id":"WFS-user-auth-system","status":"active","description":"OAuth2 authentication","created":"2025-09-07T10:30:00Z","directory":".workflow/WFS-user-auth-system"}
+#### Active Session Marker (`.workflow/.active-[session-name]`)
+Lightweight active session tracking:
+```bash
+# Check for active session
+if ls .workflow/.active-* >/dev/null 2>&1; then
+  active_session=$(ls .workflow/.active-* | sed 's|.workflow/.active-||')
+  echo "Active session: $active_session"
+else
+  echo "No active session"
+fi
 ```
 
 #### Individual Session State (`workflow-session.json`)

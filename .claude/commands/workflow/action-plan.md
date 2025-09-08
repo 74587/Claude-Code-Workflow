@@ -179,7 +179,7 @@ function detect_input_type(args):
 ### Session Check Process
 ⚠️ **CRITICAL**: Check for existing active session before planning
 
-1. **Query Session Registry**: Check `.workflow/session_status.jsonl`
+1. **Check Active Session**: Check for `.workflow/.active-*` marker file
 2. **Session Selection**: Use existing active session or create new
 3. **Context Integration**: Load session state and existing context
 

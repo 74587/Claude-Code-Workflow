@@ -109,7 +109,7 @@ END FUNCTION
 ⚠️ **CRITICAL**: Before brainstorming, MUST check for existing active session to avoid creating duplicate sessions.
 
 **Session Check Process:**
-1. **Query Session Registry**: Check `.workflow/session_status.jsonl` for active sessions. If the file doesn't exist, create it.
+1. **Check Active Session**: Check for `.workflow/.active-*` marker file to identify active session. No file creation needed.
 2. **Session Selection**: Use existing active session or create new one only if none exists
 3. **Context Integration**: Load existing session state and continue brainstorming phase
 

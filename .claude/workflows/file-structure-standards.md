@@ -105,7 +105,7 @@ impl-2              # Another main task
 
 ### Directory Permissions and Access
 - All workflow directories are project-local
-- Session registry at `.workflow/session_status.jsonl` (global)
+- Active session marked by `.workflow/.active-[session-name]` marker file (global)
 - Individual sessions in `.workflow/WFS-[topic-slug]/` (session-specific)
 
 ## Document Generation Triggers

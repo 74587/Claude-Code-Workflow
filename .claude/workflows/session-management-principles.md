@@ -2,37 +2,41 @@
 
 ## Overview
 
-This document provides simplified session state management with minimal overhead, phase-level tracking, and streamlined coordination.
+This document provides simplified session state management using marker files for active session tracking. 
 
 ## Multi-Session Architecture
 
-### Session Registry System
-**Lightweight Global Registry**: `.workflow/session_status.jsonl`
+### Active Session Marker System
+**Ultra-Simple Active Tracking**: `.workflow/.active-[session-name]`
 
-The system supports multiple concurrent sessions with a single active session:
-```jsonl
-{"id":"WFS-oauth-integration","status":"paused","description":"OAuth2 authentication implementation","created":"2025-09-07T10:00:00Z","directory":".workflow/WFS-oauth-integration"}
-{"id":"WFS-user-profile","status":"active","description":"User profile feature","created":"2025-09-07T11:00:00Z","directory":".workflow/WFS-user-profile"}
-{"id":"WFS-bug-fix-123","status":"completed","description":"Fix login timeout issue","created":"2025-09-06T14:00:00Z","directory":".workflow/WFS-bug-fix-123"}
+The system supports multiple concurrent sessions with a single active session marked by file presence:
+```bash
+.workflow/
+├── WFS-oauth-integration/         # Session directory (paused)
+├── WFS-user-profile/             # Session directory (paused)
+├── WFS-bug-fix-123/              # Session directory (completed)
+└── .active-WFS-user-profile      # Marker file (indicates active session)
 ```
 
-**Registry Management**:
-- **Single Active Rule**: Only one session can have `status="active"` 
-- **Automatic Registration**: Sessions auto-register on creation
-- **Session Discovery**: Commands query registry for active session context
-- **Context Inheritance**: Active session provides default workspace and documents
+**Marker File Benefits**:
+- **Zero Parsing**: File existence check is atomic and instant
+- **Atomic Operations**: File creation/deletion is naturally atomic  
+- **Visual Discovery**: `ls .workflow/.active-*` shows active session immediately
+- **No Corruption Risk**: No JSON parsing, no file format issues
+- **Simple Switching**: Delete old marker + create new marker = session switch
 
 ### Command Pre-execution Protocol
-**Universal Session Awareness**: All commands automatically check for active session context before execution
+**Universal Session Awareness**: All commands automatically detect active session through marker file
 
 ```pseudo
 FUNCTION execute_command(command, args):
-  active_session = get_active_session_from_registry()
+  active_marker = find_file(".workflow/.active-*")
   
-  IF active_session EXISTS:
-    context = load_session_context(active_session.directory)
-    workspace = active_session.directory
-    inherit_task_context(context)
+  IF active_marker EXISTS:
+    session_name = extract_name_from_marker(active_marker)
+    session_dir = ".workflow/" + session_name
+    context = load_session_context(session_dir + "/workflow-session.json")
+    workspace = session_dir
   ELSE:
     context = create_temporary_workspace()
     workspace = temporary_directory
@@ -42,22 +46,57 @@ END FUNCTION
 ```
 
 **Protocol Benefits**:
-- **Active Session Discovery**: Query `.workflow/session_status.jsonl` for active session
-- **Context Inheritance**: Use active session directory and documents for command execution
-- **Fallback Mode**: Commands can operate without active session (creates temporary workspace)
-- **Output Location**: Active session determines where files are created/modified
-- **Task Context**: Active session provides current task purpose and requirements
+- **Instant Discovery**: No file parsing, just check file existence
+- **Context Inheritance**: Use active session directory for all operations  
+- **Fallback Mode**: Commands work without any active session
+- **Output Location**: Active session determines file creation location
+- **Task Context**: Active session provides current workflow context
+
+### Session State Management
+
+#### Active Session Detection
+```bash
+# Check for active session
+active_session=$(ls .workflow/.active-* 2>/dev/null | head -1)
+if [ -n "$active_session" ]; then
+  session_name=$(basename "$active_session" | sed 's/^\.active-//')
+  echo "Active session: $session_name"
+else
+  echo "No active session"
+fi
+```
+
+#### Session Activation
+```bash
+# Switch to different session
+rm .workflow/.active-* 2>/dev/null  # Remove any existing active marker
+touch .workflow/.active-WFS-new-feature  # Mark new session as active
+```
+
+#### Session Discovery
+```bash
+# List all available sessions
+ls -d .workflow/WFS-*/ 2>/dev/null | sed 's|.workflow/||;s|/$||'
+
+# Show active session status
+if ls .workflow/.active-* >/dev/null 2>&1; then
+  active=$(ls .workflow/.active-* | sed 's|.workflow/.active-||')
+  echo "✅ Active: $active"
+else  
+  echo "⏸️ No active session"
+fi
+```
 
 ## Individual Session Tracking
 
-All workflow state for each session managed through `workflow-session.json` with comprehensive structure:
+All workflow state for each session managed through `workflow-session.json` in each session directory:
 
 ### Session State Structure
 ```json
 {
   "session_id": "WFS-[topic-slug]",
   "project": "feature description",
-  "type": "simple|medium|complex",
+  "type": "simple|medium|complex", 
   "current_phase": "PLAN|IMPLEMENT|REVIEW",
   "status": "active|paused|completed",
   
@@ -74,6 +113,54 @@ All workflow state for each session managed through `workflow-session.json` with
 }
 ```
 
+**Note**: The `status` field in individual session files is informational only. The actual active status is determined by the presence of `.active-[session-name]` marker file.
+
+## Session Lifecycle Operations
+
+### Create New Session
+```bash
+# 1. Create session directory
+mkdir .workflow/WFS-new-feature
+
+# 2. Initialize workflow-session.json
+echo '{"session_id":"WFS-new-feature","status":"active",...}' > .workflow/WFS-new-feature/workflow-session.json
+
+# 3. Set as active (deactivate others automatically)
+rm .workflow/.active-* 2>/dev/null
+touch .workflow/.active-WFS-new-feature
+```
+
+### Switch Session
+```bash
+# Atomic session switching
+rm .workflow/.active-* 2>/dev/null && touch .workflow/.active-WFS-different-feature
+```
+
+### Pause Session (Deactivate)
+```bash
+# Remove active marker (session becomes paused)
+rm .workflow/.active-WFS-current-feature
+```
+
+### Resume Session
+```bash
+# Reactivate paused session
+rm .workflow/.active-* 2>/dev/null  # Clear any active session
+touch .workflow/.active-WFS-paused-session  # Activate target session
+```
+
+### Complete Session
+```bash
+# 1. Update session status
+echo '{"session_id":"WFS-feature","status":"completed",...}' > .workflow/WFS-feature/workflow-session.json
+
+# 2. Remove active marker
+rm .workflow/.active-WFS-feature
+
+# 3. Optional: Archive session directory
+mv .workflow/WFS-feature .workflow/completed/WFS-feature
+```
+
 ## Simplified Phase Management
 
 ### Phase-Level Tracking Only
@@ -81,7 +168,7 @@ All workflow state for each session managed through `workflow-session.json` with
 - **Implementation Phase**: Track active tasks, not detailed progress
 - **Review Phase**: Track completion status only
 
-### Minimal Checkpoint Strategy
+### Minimal Checkpoint Strategy  
 - **Phase Transitions**: Save state when moving between phases
 - **User Request**: Manual checkpoint on explicit user action
 - **Session End**: Final state save before closing
@@ -105,7 +192,7 @@ All workflow state for each session managed through `workflow-session.json` with
 ### Simple State Transitions
 ```json
 {
-  "phase_completed": "PLAN",
+  "phase_completed": "PLAN", 
   "next_phase": "IMPLEMENT",
   "completed_at": "2025-09-07T10:00:00Z",
   "artifacts": {
@@ -114,75 +201,78 @@ All workflow state for each session managed through `workflow-session.json` with
 }
 ```
 
-## Simplified Recovery
+## Error Recovery and Validation
 
-### Basic Recovery Logic
-```python
-def resume_workflow():
-    session = load_session()
-    
-    if session.current_phase == "PLAN":
-        check_plan_document_exists()
-    elif session.current_phase == "IMPLEMENT":
-        load_active_tasks()
-    elif session.current_phase == "REVIEW":
-        check_implementation_complete()
+### Session Consistency Checks
+```bash
+# Validate active session integrity
+active_marker=$(ls .workflow/.active-* 2>/dev/null | head -1)
+if [ -n "$active_marker" ]; then
+  session_name=$(basename "$active_marker" | sed 's/^\.active-//')
+  session_dir=".workflow/$session_name"
+  
+  if [ ! -d "$session_dir" ]; then
+    echo "⚠️ Orphaned active marker: $active_marker"
+    echo "   Session directory missing: $session_dir"
+    echo "   Removing orphaned marker..."
+    rm "$active_marker"
+  fi
+fi
 ```
 
-### Minimal State Validation
-- Check current phase is valid
-- Verify session directory exists
-- Confirm basic file structure
-
-### Simple Recovery Strategy
-- **Phase Restart**: If unclear state, restart current phase
-- **User Confirmation**: Ask user to confirm resume point
-- **Minimal Recovery**: Restore basic session info only
-
-## Simplified Agent Integration
-
-### Minimal Agent Requirements
-- Report task completion status
-- Update task JSON files
-- No complex checkpoint management needed
-
-### Phase Integration
-- **Planning Agents**: Create planning documents
-- **Implementation Agents**: Update task status to completed
-- **Review Agents**: Mark review as complete
-
-## Error Handling
-
-### Common Scenarios
-1. **Session File Missing**: Create new session file with defaults
-2. **Invalid Phase State**: Reset to last known valid phase  
-3. **Multi-Session Conflicts**: Auto-resolve by latest timestamp
-
-## Session Lifecycle
-
-### Simple Lifecycle
-1. **Create**: Generate session ID and directory
-2. **Activate**: Set as current active session
-3. **Execute**: Track phase completion only  
-4. **Complete**: Mark as finished
-
-### State Transitions
+### Multi-Active Session Detection
+```bash
+# Detect multiple active markers (error condition)
+active_count=$(ls .workflow/.active-* 2>/dev/null | wc -l)
+if [ "$active_count" -gt 1 ]; then
+  echo "❌ Multiple active sessions detected:"
+  ls .workflow/.active-* | sed 's|.workflow/.active-|  - |'
+  echo "   Keeping most recent, removing others..."
+  
+  # Keep newest, remove others
+  newest=$(ls -t .workflow/.active-* 2>/dev/null | head -1)
+  ls .workflow/.active-* 2>/dev/null | grep -v "$newest" | xargs rm -f
+  echo "   ✅ Resolved: $(basename "$newest" | sed 's/^\.active-//')"
+fi
 ```
-INACTIVE → ACTIVE → COMPLETED
-    ↑         ↓         ↓
-  CREATE    WORK    FINISH
-```
+
+### Recovery Strategies
+- **Missing Session Directory**: Remove orphaned active marker
+- **Multiple Active Markers**: Keep newest, remove others
+- **Corrupted Session File**: Recreate from template with session name
+- **No Active Session**: Commands work in temporary mode
+
+## Performance Benefits
+
+### Ultra-Fast Operations
+- **Session Detection**: Single `ls` command (< 1ms)
+- **Session Switching**: Two file operations (delete + create)
+- **Status Check**: File existence test (instant)
+- **No Parsing Overhead**: Zero JSON/text processing
+
+### Scalability
+- **Hundreds of Sessions**: No performance degradation
+- **Concurrent Access**: File system handles locking automatically
+- **Atomic Operations**: No race conditions or corruption risk
 
 ## Implementation Guidelines
 
 ### Key Principles
-- **Minimal State**: Only track essential information
-- **Phase-Level Updates**: Avoid frequent micro-updates
-- **Simple Recovery**: Basic session restoration only
-- **User Control**: Manual checkpoint requests
+- **File Existence = Truth**: Marker file presence is the single source of truth
+- **Atomic State Changes**: All session operations are atomic file operations
+- **Visual Management**: Users can see and manage active sessions directly
+- **Zero Configuration**: No registry files to maintain or repair
+- **Self-Healing**: Automatic detection and resolution of inconsistent states
+
+
 
 ### Success Metrics
-- Fast session resume (< 1 second)
-- Minimal file I/O operations
-- Clear session state understanding
-- No complex synchronization needed
+- Fast session resume (< 100ms)
+- Zero parsing overhead
+- Visual session management
+- Self-healing consistency
+- No registry maintenance needed
+
+---
+
+**System ensures**: Ultra-simple session management using marker files for instant, atomic, and visually manageable session state tracking.

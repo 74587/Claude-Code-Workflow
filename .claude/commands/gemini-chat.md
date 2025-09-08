@@ -131,7 +131,7 @@ END FUNCTION
 
 -   **Trigger**: Activated by the `--save-session` flag.
 -   **Action**: Saves the complete interaction, including the template used, context, and Gemini's output.
--   **Session Check**: Query `.workflow/session_status.jsonl` to identify current active session. If the file doesn't exist, create it.
+-   **Session Check**: Check for `.workflow/.active-*` marker file to identify current active session. No file creation needed.
 -   **Location Strategy**: 
     - **IF active session exists**: Save to existing `.workflow/WFS-[topic-slug]/.chat/` directory
     - **IF no active session**: Create new session directory following WFS naming convention
@@ -146,12 +146,11 @@ END FUNCTION
 **Session Detection Workflow:**
 ```pseudo
 FUNCTION determine_save_location():
-  // STEP 1: Ensure session status file exists
-  IF NOT file_exists(".workflow/session_status.jsonl"):
-    create_empty_session_registry(".workflow/session_status.jsonl")
+  // STEP 1: Check for active session marker
+  active_marker = find_file(".workflow/.active-*")
   
-  // STEP 2: Check for existing active session
-  active_sessions = query_session_registry(".workflow/session_status.jsonl")
+  // STEP 2: Extract session name if marker exists
+  active_session_name = extract_session_name(active_marker)
   
   IF active_sessions.count > 0:
     // Use existing active session directory
