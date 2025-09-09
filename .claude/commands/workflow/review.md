@@ -1,5 +1,5 @@
 ---
-name: workflow-review
+name: review
 description: Execute review phase for quality validation
 usage: /workflow:review
 argument-hint: none

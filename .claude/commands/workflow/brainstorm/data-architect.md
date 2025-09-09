@@ -1,12 +1,12 @@
 ---
-name: brainstorm:data-architect
+name: data-architect
 description: Data architect perspective brainstorming for data modeling, flow, and analytics analysis
-usage: /brainstorm:data-architect <topic>
+usage: /workflow:brainstorm:data-architect <topic>
 argument-hint: "topic or challenge to analyze from data architecture perspective"
 examples:
-  - /brainstorm:data-architect "user analytics data pipeline"
-  - /brainstorm:data-architect "real-time data processing system"
-  - /brainstorm:data-architect "data warehouse modernization"
+  - /workflow:brainstorm:data-architect "user analytics data pipeline"
+  - /workflow:brainstorm:data-architect "real-time data processing system"
+  - /workflow:brainstorm:data-architect "data warehouse modernization"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 

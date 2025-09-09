@@ -1,12 +1,12 @@
 ---
-name: brainstorm:business-analyst
+name: business-analyst
 description: Business analyst perspective brainstorming for process optimization and business efficiency analysis
-usage: /brainstorm:business-analyst <topic>
+usage: /workflow:brainstorm:business-analyst <topic>
 argument-hint: "topic or challenge to analyze from business analysis perspective"
 examples:
-  - /brainstorm:business-analyst "workflow automation opportunities"
-  - /brainstorm:business-analyst "business process optimization"
-  - /brainstorm:business-analyst "cost reduction initiatives"
+  - /workflow:brainstorm:business-analyst "workflow automation opportunities"
+  - /workflow:brainstorm:business-analyst "business process optimization"
+  - /workflow:brainstorm:business-analyst "cost reduction initiatives"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 

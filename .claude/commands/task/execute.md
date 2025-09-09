@@ -1,5 +1,5 @@
 ---
-name: task-execute
+name: execute
 description: Execute tasks with appropriate agents and context-aware orchestration
 usage: /task:execute <task-id>
 argument-hint: task-id

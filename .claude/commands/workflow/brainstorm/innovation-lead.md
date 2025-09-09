@@ -1,12 +1,12 @@
 ---
-name: brainstorm:innovation-lead
+name: innovation-lead
 description: Innovation lead perspective brainstorming for emerging technologies and future opportunities analysis
-usage: /brainstorm:innovation-lead <topic>
+usage: /workflow:brainstorm:innovation-lead <topic>
 argument-hint: "topic or challenge to analyze from innovation and emerging technology perspective"
 examples:
-  - /brainstorm:innovation-lead "AI integration opportunities"
-  - /brainstorm:innovation-lead "future technology trends"
-  - /brainstorm:innovation-lead "disruptive innovation strategy"
+  - /workflow:brainstorm:innovation-lead "AI integration opportunities"
+  - /workflow:brainstorm:innovation-lead "future technology trends"
+  - /workflow:brainstorm:innovation-lead "disruptive innovation strategy"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: workflow-plan
+name: plan
 description: Create implementation plans with intelligent input detection
 usage: /workflow:plan <input>
 argument-hint: "text description"|file.md|ISS-001|template-name

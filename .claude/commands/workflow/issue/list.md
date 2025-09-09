@@ -1,8 +1,7 @@
 ---
-name: workflow-issue-list
+name: list
 description: List and filter workflow issues
 usage: /workflow:issue:list
-parent: /workflow:issue
 examples:
   - /workflow:issue:list
   - /workflow:issue:list --open

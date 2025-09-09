@@ -1,6 +1,6 @@
 ---
 name: bug-fix
-parent: /gemini/chat
+
 description: Bug analysis and fix suggestions using specialized template
 usage: /gemini:chat:bug-fix "bug description"
 argument-hint: "description of the bug or error you're experiencing"

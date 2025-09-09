@@ -1,12 +1,12 @@
 ---
-name: brainstorm:product-manager
+name: product-manager
 description: Product manager perspective brainstorming for user needs and business value analysis
-usage: /brainstorm:product-manager <topic>
+usage: /workflow:brainstorm:product-manager <topic>
 argument-hint: "topic or challenge to analyze from product management perspective"
 examples:
-  - /brainstorm:product-manager "user authentication redesign"
-  - /brainstorm:product-manager "mobile app performance optimization"
-  - /brainstorm:product-manager "feature prioritization strategy"
+  - /workflow:brainstorm:product-manager "user authentication redesign"
+  - /workflow:brainstorm:product-manager "mobile app performance optimization"
+  - /workflow:brainstorm:product-manager "feature prioritization strategy"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 

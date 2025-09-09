@@ -1,6 +1,6 @@
 ---
-name: gemini-chat
-parent: /gemini
+name: chat
+
 description: Simple Gemini CLI interaction command for direct codebase analysis
 usage: /gemini:chat "inquiry"
 argument-hint: "your question or analysis request"

@@ -1,8 +1,8 @@
 ---
-name: workflow-issue-create
+name: create
 description: Create a new issue or change request
 usage: /workflow:issue:create "issue description"
-parent: /workflow:issue
+
 examples:
   - /workflow:issue:create "Add OAuth2 social login support"
   - /workflow:issue:create "Fix user avatar security vulnerability"

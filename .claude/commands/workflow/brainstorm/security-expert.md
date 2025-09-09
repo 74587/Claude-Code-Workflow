@@ -1,12 +1,12 @@
 ---
-name: brainstorm:security-expert
+name: security-expert
 description: Security expert perspective brainstorming for threat modeling and security architecture analysis
-usage: /brainstorm:security-expert <topic>
+usage: /workflow:brainstorm:security-expert <topic>
 argument-hint: "topic or challenge to analyze from cybersecurity perspective"
 examples:
-  - /brainstorm:security-expert "user authentication security review"
-  - /brainstorm:security-expert "API security architecture"
-  - /brainstorm:security-expert "data protection compliance strategy"
+  - /workflow:brainstorm:security-expert "user authentication security review"
+  - /workflow:brainstorm:security-expert "API security architecture"
+  - /workflow:brainstorm:security-expert "data protection compliance strategy"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 

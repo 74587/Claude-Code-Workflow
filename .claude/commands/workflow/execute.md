@@ -1,5 +1,5 @@
 ---
-name: workflow-execute
+name: execute
 description: Coordinate agents for existing workflow tasks with automatic discovery
 usage: /workflow:execute
 argument-hint: none

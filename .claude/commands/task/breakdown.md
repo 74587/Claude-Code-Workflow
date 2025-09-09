@@ -1,5 +1,5 @@
 ---
-name: task-breakdown
+name: breakdown
 description: Intelligent task decomposition with context-aware subtask generation
 usage: /task:breakdown <task-id>
 argument-hint: task-id

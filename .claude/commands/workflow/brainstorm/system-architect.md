@@ -1,12 +1,12 @@
 ---
-name: brainstorm:system-architect
+name: system-architect
 description: System architect perspective brainstorming for technical architecture and scalability analysis
-usage: /brainstorm:system-architect <topic>
+usage: /workflow:brainstorm:system-architect <topic>
 argument-hint: "topic or challenge to analyze from system architecture perspective"
 examples:
-  - /brainstorm:system-architect "user authentication redesign"
-  - /brainstorm:system-architect "microservices migration strategy"
-  - /brainstorm:system-architect "system performance optimization"
+  - /workflow:brainstorm:system-architect "user authentication redesign"
+  - /workflow:brainstorm:system-architect "microservices migration strategy"
+  - /workflow:brainstorm:system-architect "system performance optimization"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 

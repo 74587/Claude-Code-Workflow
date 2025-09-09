@@ -1,8 +1,8 @@
 ---
-name: workflow-issue-update
+name: update
 description: Update an existing workflow issue
 usage: /workflow:issue:update <issue-id> [changes]
-parent: /workflow:issue
+
 examples:
   - /workflow:issue:update ISS-001
   - /workflow:issue:update ISS-001 --priority=critical

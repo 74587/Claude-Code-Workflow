@@ -1,8 +1,8 @@
 ---
-name: workflow-session-pause
+name: pause
 description: Pause the active workflow session
 usage: /workflow:session:pause
-parent: /workflow:session
+
 ---
 
 # Pause Workflow Session (/workflow:session:pause)

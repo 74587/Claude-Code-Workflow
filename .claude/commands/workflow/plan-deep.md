@@ -1,15 +1,15 @@
 ---
-name: workflow-plan-deep
+name: plan-deep
 description: Deep technical planning with Gemini CLI analysis and action-planning-agent
-usage: /workflow:plan:deep <task_description>
+usage: /workflow:plan-deep <task_description>
 argument-hint: "task description" | requirements.md
 examples:
-  - /workflow:plan:deep "Refactor authentication system to use JWT"
-  - /workflow:plan:deep "Implement real-time notifications across modules"
-  - /workflow:plan:deep requirements.md
+  - /workflow:plan-deep "Refactor authentication system to use JWT"
+  - /workflow:plan-deep "Implement real-time notifications across modules"
+  - /workflow:plan-deep requirements.md
 ---
 
-# Workflow Plan Deep Command (/workflow:plan:deep)
+# Workflow Plan Deep Command (/workflow:plan-deep)
 
 ## Overview
 Creates comprehensive implementation plans through deep codebase analysis using Gemini CLI and the action-planning-agent. This command enforces multi-dimensional context gathering before planning, ensuring technical decisions are grounded in actual codebase understanding.
@@ -17,7 +17,7 @@ Creates comprehensive implementation plans through deep codebase analysis using 
 ## Key Differentiators
 
 ### vs /workflow:plan
-| Feature | /workflow:plan | /workflow:plan:deep |
+| Feature | /workflow:plan | /workflow:plan-deep |
 |---------|---------------|-------------------|
 | **Analysis Depth** | Basic requirements extraction | Deep codebase analysis |
 | **Gemini CLI** | Optional | **Mandatory (via agent)** |
@@ -175,7 +175,7 @@ def process_plan_deep_command(input):
 
 ### Example 1: Cross-Module Refactoring
 ```bash
-/workflow:plan:deep "Refactor user authentication to use JWT tokens across all services"
+/workflow:plan-deep "Refactor user authentication to use JWT tokens across all services"
 ```
 Generates comprehensive plan analyzing:
 - Current auth implementation
@@ -185,7 +185,7 @@ Generates comprehensive plan analyzing:
 
 ### Example 2: Performance Optimization
 ```bash
-/workflow:plan:deep "Optimize database query performance in reporting module"
+/workflow:plan-deep "Optimize database query performance in reporting module"
 ```
 Creates detailed plan including:
 - Current query patterns analysis
@@ -195,7 +195,7 @@ Creates detailed plan including:
 
 ### Example 3: Architecture Enhancement
 ```bash
-/workflow:plan:deep "Implement event-driven architecture for order processing"
+/workflow:plan-deep "Implement event-driven architecture for order processing"
 ```
 Produces hierarchical plan with:
 - Current architecture assessment

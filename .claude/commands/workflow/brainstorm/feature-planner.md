@@ -1,12 +1,12 @@
 ---
-name: brainstorm:feature-planner
+name: planner
 description: Feature planner perspective brainstorming for feature development and planning analysis
-usage: /brainstorm:feature-planner <topic>
+usage: /workflow:brainstorm:feature-planner <topic>
 argument-hint: "topic or challenge to analyze from feature planning perspective"
 examples:
-  - /brainstorm:feature-planner "user dashboard enhancement"
-  - /brainstorm:feature-planner "mobile app feature roadmap"
-  - /brainstorm:feature-planner "integration capabilities planning"
+  - /workflow:brainstorm:feature-planner "user dashboard enhancement"
+  - /workflow:brainstorm:feature-planner "mobile app feature roadmap"
+  - /workflow:brainstorm:feature-planner "integration capabilities planning"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 

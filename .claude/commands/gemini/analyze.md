@@ -1,6 +1,6 @@
 ---
-name: gemini-analyze
-parent: /gemini
+name: analyze
+
 description: Advanced Gemini CLI analysis with template-driven pattern detection and comprehensive codebase insights
 usage: /gemini:analyze <target>
 argument-hint: "analysis target or description"

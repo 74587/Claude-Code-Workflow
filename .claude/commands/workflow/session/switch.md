@@ -1,8 +1,8 @@
 ---
-name: workflow-session-switch
+name: switch
 description: Switch to a different workflow session
 usage: /workflow:session:switch <session-id>
-parent: /workflow:session
+
 examples:
   - /workflow:session:switch WFS-oauth-integration
   - /workflow:session:switch WFS-user-profile

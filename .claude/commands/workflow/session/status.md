@@ -1,8 +1,8 @@
 ---
-name: workflow-session-status
+name: status
 description: Show detailed status of active workflow session
 usage: /workflow:session:status
-parent: /workflow:session
+
 ---
 
 # Workflow Session Status (/workflow:session:status)

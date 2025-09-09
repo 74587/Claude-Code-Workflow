@@ -1,6 +1,6 @@
 ---
-name: gemini-execute
-parent: /gemini
+name: execute
+
 description: Intelligent context inference executor with auto-approval capabilities, supporting user descriptions and task ID execution modes
 usage: /gemini:execute <description|task-id>
 argument-hint: "implementation description or task-id"

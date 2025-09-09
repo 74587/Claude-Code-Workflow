@@ -1,8 +1,8 @@
 ---
-name: workflow-session-resume
+name: resume
 description: Resume the most recently paused workflow session
 usage: /workflow:session:resume
-parent: /workflow:session
+
 ---
 
 # Resume Workflow Session (/workflow:session:resume)

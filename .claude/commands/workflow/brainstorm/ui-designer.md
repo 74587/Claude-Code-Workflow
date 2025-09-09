@@ -1,12 +1,12 @@
 ---
-name: brainstorm:ui-designer
+name: ui-designer
 description: UI designer perspective brainstorming for user experience and interface design analysis
-usage: /brainstorm:ui-designer <topic>
+usage: /workflow:brainstorm:ui-designer <topic>
 argument-hint: "topic or challenge to analyze from UI/UX design perspective"
 examples:
-  - /brainstorm:ui-designer "user authentication redesign"
-  - /brainstorm:ui-designer "mobile app navigation improvement"
-  - /brainstorm:ui-designer "accessibility enhancement strategy"
+  - /workflow:brainstorm:ui-designer "user authentication redesign"
+  - /workflow:brainstorm:ui-designer "mobile app navigation improvement"
+  - /workflow:brainstorm:ui-designer "accessibility enhancement strategy"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 

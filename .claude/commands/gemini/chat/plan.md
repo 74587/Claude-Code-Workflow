@@ -1,6 +1,5 @@
 ---
 name: plan
-parent: /gemini/chat
 description: Project planning and architecture analysis using specialized template
 usage: /gemini:chat:plan "planning topic"
 argument-hint: "planning topic or architectural challenge to analyze"

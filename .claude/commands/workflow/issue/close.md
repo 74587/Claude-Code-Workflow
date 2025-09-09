@@ -1,8 +1,8 @@
 ---
-name: workflow-issue-close
+name: close
 description: Close a completed or obsolete workflow issue
 usage: /workflow:issue:close <issue-id> [reason]
-parent: /workflow:issue
+
 examples:
   - /workflow:issue:close ISS-001
   - /workflow:issue:close ISS-001 "Feature implemented in PR #42"

@@ -1,10 +1,10 @@
 ---
-name: brainstorm:synthesis
+name: synthesis
 description: Synthesize all brainstorming role perspectives into comprehensive analysis and recommendations
-usage: /brainstorm:synthesis
+usage: /workflow:brainstorm:synthesis
 argument-hint: "no arguments required - analyzes existing brainstorming session outputs"
 examples:
-  - /brainstorm:synthesis
+  - /workflow:brainstorm:synthesis
 allowed-tools: Read(*), Write(*), TodoWrite(*), Glob(*)
 ---
 

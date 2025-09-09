@@ -1,12 +1,12 @@
 ---
-name: brainstorm:user-researcher
+name: user-researcher
 description: User researcher perspective brainstorming for user behavior analysis and research insights
-usage: /brainstorm:user-researcher <topic>
+usage: /workflow:brainstorm:user-researcher <topic>
 argument-hint: "topic or challenge to analyze from user research perspective"
 examples:
-  - /brainstorm:user-researcher "user onboarding experience"
-  - /brainstorm:user-researcher "mobile app usability issues"
-  - /brainstorm:user-researcher "feature adoption analysis"
+  - /workflow:brainstorm:user-researcher "user onboarding experience"
+  - /workflow:brainstorm:user-researcher "mobile app usability issues"
+  - /workflow:brainstorm:user-researcher "feature adoption analysis"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 
