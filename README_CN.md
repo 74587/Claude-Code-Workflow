@@ -87,6 +87,10 @@ CCW 根据统一的任务数量阈值智能调整其文件结构和工作流程�
 
 ## 🚀 快速开始
 
+### 前置条件
+安装并配置 [Gemini CLI](https://github.com/google-gemini/gemini-cli) 以实现最佳工作流集成。
+
+### 安装
 **一键安装：**
 ```powershell
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
@@ -96,6 +100,17 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 ```bash
 /workflow:session list
 ```
+
+### 重要配置
+为了实现 Gemini CLI 集成，请配置您的 `settings.json` 文件：
+
+```json
+{
+  "contextFileName": "CLAUDE.md"
+}
+```
+
+> **⚠️ 重要提示**：在您的 Gemini CLI `settings.json` 中设置 `"contextFileName": "CLAUDE.md"` 以确保与 CCW 的智能文档系统正确集成。这可以在用户设置 (`~/.gemini/settings.json`) 或项目设置 (`.gemini/settings.json`) 中设置。
 
 ## 📚 完整命令参考
 

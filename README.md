@@ -87,6 +87,10 @@ CCW intelligently adapts its file structure and workflow processes based on unif
 
 ## 🚀 Quick Start
 
+### Prerequisites
+Install and configure [Gemini CLI](https://github.com/google-gemini/gemini-cli) for optimal workflow integration.
+
+### Installation
 **One-liner installation:**
 ```powershell
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
@@ -96,6 +100,17 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 ```bash
 /workflow:session list
 ```
+
+### Essential Configuration
+For Gemini CLI integration, configure your `settings.json` file:
+
+```json
+{
+  "contextFileName": "CLAUDE.md"
+}
+```
+
+> **⚠️ Important**: Set `"contextFileName": "CLAUDE.md"` in your Gemini CLI `settings.json` to ensure proper integration with CCW's intelligent documentation system. This can be set in your user settings (`~/.gemini/settings.json`) or project settings (`.gemini/settings.json`).
 
 ## 📚 Complete Command Reference
 

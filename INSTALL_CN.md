@@ -97,7 +97,7 @@ iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-r
 ├── commands/
 ├── output-styles/
 ├── settings.local.json
-└── Claude.md
+└── CLAUDE.md
 ```
 
 **注意**：从 v1.2.0 开始，仅支持全局安装。移除了本地目录和自定义路径安装，以简化安装流程并确保所有平台的一致行为。

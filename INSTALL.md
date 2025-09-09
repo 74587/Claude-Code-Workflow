@@ -100,7 +100,7 @@ Install to user home directory (`~/.claude`):
 ├── commands/
 ├── output-styles/
 ├── settings.local.json
-└── Claude.md
+└── CLAUDE.md
 ```
 
 **Note**: Starting from v1.2.0, only global installation is supported. Local directory and custom path installations have been removed to simplify the installation process and ensure consistent behavior across all platforms.
