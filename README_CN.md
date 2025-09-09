@@ -127,20 +127,22 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 |---------|--------|-------------|
 | `/enhance-prompt` | `/enhance-prompt <输入>` | 增强和构造用户输入，添加技术上下文 |
 | `/gemini:chat` | `/gemini:chat <查询> [--all-files] [--save-session]` | 与 Gemini CLI 的简单直接交互，不使用模板 |
-| `/gemini:chat:bug-fix` | `/gemini:chat:bug-fix <错误描述> [--all-files] [--save-session]` | 使用专门的诊断模板进行错误分析 |
-| `/gemini:chat:plan` | `/gemini:chat:plan <规划主题> [--all-files] [--save-session]` | 使用专门的架构模板进行项目规划 |
-| `/gemini-execute` | `/gemini-execute <任务ID\|描述> [--yolo] [--debug]` | 智能执行器，自动推断文件上下文 |
-| `/gemini-mode` | `/gemini-mode <分析类型> <目标> [选项]` | 模板驱动的代码库分析（模式、架构、安全） |
-| `/update-memory` | `/update-memory [full\|fast\|deep] [路径]` | 分布式记忆系统管理，维护层级化 CLAUDE.md |
+| `/gemini:analyze` | `/gemini:analyze <查询> [--all-files] [--save-session]` | 直接代码库分析和调查 |
+| `/gemini:execute` | `/gemini:execute <任务ID\|描述> [--yolo] [--debug]` | 智能执行器，自动推断文件上下文 |
+| `/gemini:mode:auto` | `/gemini:mode:auto "<描述>"` | 🆕 基于用户输入分析自动选择和执行合适的模板 |
+| `/gemini:mode:bug-index` | `/gemini:mode:bug-index <错误描述>` | 使用专门的诊断模板进行错误分析 |
+| `/gemini:mode:plan` | `/gemini:mode:plan <规划主题>` | 使用专门的架构模板进行项目规划 |
+| `/update-memory` | `/update-memory [related\|full]` | 智能 CLAUDE.md 文档系统，提供上下文感知更新 |
 
 ### 工作流管理
 
 | 命令 | 语法 | 描述 |
 |---------|--------|-------------|
-| `/workflow:session` | `start\|pause\|resume\|list\|switch\|status [复杂度] ["任务"]` | 会话生命周期管理，支持复杂度自适应 |
-| `/workflow:brainstorm` | `/brainstorm <主题> [--perspectives=角色1,角色2]` | 多智能体概念规划，提供不同专家视角 |
-| `/workflow:action-plan` | `[--from-brainstorming] [--skip-brainstorming] [--replan]` | 将概念转化为可执行的实施计划 |
-| `/workflow:implement` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | 进入实施阶段，基于复杂度组织流程 |
+| `/workflow:session:*` | `/workflow:session:start\|pause\|resume\|list\|switch\|status "任务"` | 会话生命周期管理，支持复杂度自适应 |
+| `/workflow:brainstorm` | `/workflow:brainstorm <主题> [--perspectives=角色1,角色2]` | 多智能体概念规划，提供不同专家视角 |
+| `/workflow:plan` | `[--from-brainstorming] [--skip-brainstorming]` | 将概念转化为可执行的实施计划 |
+| `/workflow:plan-deep` | `<主题> [--complexity=high] [--depth=3]` | 深度架构规划与全面分析 |
+| `/workflow:execute` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | 进入实施阶段，基于复杂度组织流程 |
 | `/workflow:review` | `[--auto-fix]` | 最终质量保证，自动化测试和验证 |
 | `/workflow:issue` | `create\|list\|update\|integrate\|close [选项]` | 动态问题和变更请求管理 |
 | `/context` | `[任务ID\|--filter] [--analyze] [--format=tree\|list\|json]` | 统一的任务和工作流上下文，自动数据一致性 |
@@ -159,38 +161,38 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 ### 复杂功能开发
 ```bash
 # 1. 启动完整文档的复杂工作流
-/workflow:session start complex "实现 OAuth2 认证系统"
+/workflow:session:start "实现 OAuth2 认证系统"
 
 # 2. 多视角头脑风暴
-/brainstorm "OAuth2 架构设计" --perspectives=system-architect,security-expert,data-architect
+/workflow:brainstorm "OAuth2 架构设计" --perspectives=system-architect,security-expert,data-architect
 
 # 3. 创建详细实施计划
-/workflow:action-plan --from-brainstorming
+/workflow:plan --from-brainstorming
 
 # 4. 分解为可管理的任务
 /task:create "后端 API 开发"
 /task:breakdown IMPL-1 --strategy=auto
 
 # 5. 智能自动化执行
-/gemini-execute IMPL-1.1 --yolo
-/gemini-execute IMPL-1.2 --yolo
+/gemini:execute IMPL-1.1 --yolo
+/gemini:execute IMPL-1.2 --yolo
 
 # 6. 处理动态变更
-/workflow:issue create --type=enhancement "添加社交登录支持"
-/workflow:issue integrate ISS-001 --position=next
+/workflow:issue:create "添加社交登录支持"
+/workflow:issue:list
 
 # 7. 监控和审查
-/workflow:context --detailed
+/context --format=hierarchy
 /workflow:review --auto-fix
 ```
 
 ### 快速Bug修复
 ```bash
 # 1. 简单任务的轻量级会话
-/workflow:session start simple "修复登录按钮对齐问题"
+/workflow:session:start "修复登录按钮对齐问题"
 
 # 2. 直接分析和实施
-/gemini-chat "分析 @{src/components/Login.js} 中登录按钮的 CSS 问题"
+/gemini:analyze "分析 @{src/components/Login.js} 中登录按钮的 CSS 问题"
 
 # 3. 创建并执行单一任务
 /task:create "应用登录按钮的 CSS 修复"

@@ -137,8 +137,8 @@ For Gemini CLI integration, configure your `settings.json` file:
 
 | Command | Syntax | Description |
 |---------|--------|-------------|
-| `/workflow:session` | `start\|pause\|resume\|list\|switch\|status [complexity] ["task"]` | Session lifecycle management with complexity adaptation |
-| `/workflow:brainstorm` | `/brainstorm <topic> [--perspectives=role1,role2]` | Multi-agent conceptual planning from different expert perspectives |
+| `/workflow:session:*` | `/workflow:session:start\|pause\|resume\|list\|switch\|status "task"` | Session lifecycle management with complexity adaptation |
+| `/workflow:brainstorm` | `/workflow:brainstorm <topic> [--perspectives=role1,role2]` | Multi-agent conceptual planning from different expert perspectives |
 | `/workflow:plan` | `[--from-brainstorming] [--skip-brainstorming]` | Convert concepts to executable implementation plans |
 | `/workflow:plan-deep` | `<topic> [--complexity=high] [--depth=3]` | Deep architectural planning with comprehensive analysis |
 | `/workflow:execute` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | Enter implementation phase with complexity-based organization |
@@ -159,10 +159,10 @@ For Gemini CLI integration, configure your `settings.json` file:
 ### Complex Feature Development
 ```bash
 # 1. Start sophisticated workflow with full documentation
-/workflow:session start complex "Implement OAuth2 authentication system"
+/workflow:session:start "Implement OAuth2 authentication system"
 
 # 2. Multi-perspective brainstorming
-/brainstorm "OAuth2 architecture design" --perspectives=system-architect,security-expert,data-architect
+/workflow:brainstorm "OAuth2 architecture design" --perspectives=system-architect,security-expert,data-architect
 
 # 3. Create detailed implementation plan
 /workflow:plan --from-brainstorming
@@ -176,18 +176,18 @@ For Gemini CLI integration, configure your `settings.json` file:
 /gemini:execute IMPL-1.2 --yolo
 
 # 6. Handle dynamic changes
-/workflow:issue create --type=enhancement "Add social login support"
-/workflow:issue integrate ISS-001 --position=next
+/workflow:issue:create "Add social login support"
+/workflow:issue:list
 
 # 7. Monitor and review
-/workflow:context --detailed
+/context --format=hierarchy
 /workflow:review --auto-fix
 ```
 
 ### Quick Bug Fix
 ```bash
 # 1. Lightweight session for simple tasks
-/workflow:session start simple "Fix login button alignment"
+/workflow:session:start "Fix login button alignment"
 
 # 2. Direct analysis and implementation
 /gemini:analyze "Analyze login button CSS issues in @{src/components/Login.js}"
