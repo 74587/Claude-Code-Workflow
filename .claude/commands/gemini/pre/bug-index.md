@@ -1,18 +1,18 @@
 ---
-name: bug-fix
+name: bug-index
 
 description: Bug analysis and fix suggestions using specialized template
-usage: /gemini:chat:bug-fix "bug description"
+usage: /gemini:pre:bug-index "bug description"
 argument-hint: "description of the bug or error you're experiencing"
 examples:
-  - /gemini:chat:bug-fix "authentication null pointer error in login flow"
-  - /gemini:chat:bug-fix "React component not re-rendering after state change"
-  - /gemini:chat:bug-fix "database connection timeout in production"
+  - /gemini:pre:bug-index "authentication null pointer error in login flow"
+  - /gemini:pre:bug-index "React component not re-rendering after state change"
+  - /gemini:pre:bug-index "database connection timeout in production"
 allowed-tools: Bash(gemini:*)
 model: sonnet
 ---
 
-### 🐛 **Command Overview: `/gemini:chat:bug-fix`**
+### 🐛 **Command Overview: `/gemini:pre:bug-index`**
 
 -   **Type**: Template-based Gemini CLI Wrapper
 -   **Purpose**: Specialized bug analysis and fix suggestions using expert diagnostic template
@@ -90,7 +90,7 @@ END FUNCTION
 
 When `--save-session` is used:
 - Saves to `.workflow/WFS-[topic]/.chat/` directory
-- File named: `bug-fix-YYYYMMDD-HHMMSS.md`
+- File named: `bug-index-YYYYMMDD-HHMMSS.md`
 - Includes template used, bug description, analysis, and recommendations
 
 **Session Template:**
