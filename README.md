@@ -8,7 +8,7 @@
 
 A sophisticated multi-agent automation workflow framework that transforms complex software development tasks from conceptualization to implementation review into manageable, trackable, AI-orchestrated processes.
 
-> **🎉 Major Architecture Upgrade (v2.0)**: Recently underwent comprehensive refactoring with **JSON-only data model**, **marker file session management**, and **unified complexity standards**. See [WORKFLOW_SYSTEM_UPGRADE.md](WORKFLOW_SYSTEM_UPGRADE.md) for details.
+> **🎉 v1.0 Release**: Complete Gemini CLI integration with template system, dynamic template discovery, streamlined documentation, and intelligent auto-selection capabilities. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## 🏗️ Architecture Overview
 
@@ -39,7 +39,13 @@ CCW intelligently adapts its file structure and workflow processes based on unif
 - **Action Planning Agent**: Converts high-level concepts into executable implementation plans
 - **Code Developer**: Implements code based on plans
 - **Code Review Agent**: Reviews code quality and compliance
-- **Memory Gemini Bridge**: Intelligent CLAUDE.md documentation system with 4-layer hierarchy, context-aware updates, and automatic scaling based on project complexity
+- **Memory Gemini Bridge**: Intelligent CLAUDE.md documentation system with context-aware updates
+
+### Gemini CLI Integration (v1.0)
+- **Dynamic Template Discovery**: Automatically detects and loads templates from `~/.claude/prompt-templates/`
+- **Intelligent Auto-Selection**: Matches user input against template keywords and descriptions
+- **Template System**: Bug-fix, planning, and custom analysis templates
+- **Streamlined Commands**: Consolidated documentation with 500+ lines reduced
 
 ### Workflow Session Management
 - Create, pause, resume, list, and switch workflow sessions
@@ -124,7 +130,8 @@ For Gemini CLI integration, configure your `settings.json` file:
 | `/gemini:chat:plan` | `/gemini:chat:plan <planning-topic> [--all-files] [--save-session]` | Project planning using specialized architecture template |
 | `/gemini-execute` | `/gemini-execute <task-id\|description> [--yolo] [--debug]` | Intelligent executor with automatic file context inference |
 | `/gemini-mode` | `/gemini-mode <analysis-type> <target> [options]` | Template-driven codebase analysis (pattern, architecture, security) |
-| `/update-memory` | `/update-memory [related\|full]` | Intelligent CLAUDE.md documentation system with context-aware updates and strict hierarchy preservation |
+| `/gemini:mode:auto` | `/gemini:mode:auto "<description>"` | 🆕 Auto-select and execute appropriate template based on user input analysis |
+| `/update-memory` | `/update-memory [related\|full]` | Intelligent CLAUDE.md documentation system with context-aware updates |
 
 ### Workflow Management
 
@@ -193,19 +200,21 @@ For Gemini CLI integration, configure your `settings.json` file:
 /workflow:review
 ```
 
-### Advanced Code Analysis
+### Smart Template Auto-Selection (v1.0)
 ```bash
-# 1. Security audit
-/gemini-mode security "Scan authentication modules for vulnerabilities"
+# 1. Automatic template selection based on keywords
+/gemini:mode:auto "React component not rendering after state update"
+# → Auto-selects bug-fix template
 
-# 2. Architecture analysis
-/gemini-mode architecture "Analyze component dependencies and data flow"
+# 2. Planning template for architecture work
+/gemini:mode:auto "design microservices architecture for user management"
+# → Auto-selects planning template
 
-# 3. Performance optimization
-/gemini-mode performance "Identify bottlenecks in React rendering"
+# 3. Manual template override when needed
+/gemini:mode:auto "authentication issues" --template plan.md
 
-# 4. Pattern recognition
-/gemini-mode pattern "Extract reusable component patterns"
+# 4. List available templates
+/gemini:mode:auto --list-templates
 ```
 
 ### Intelligent Documentation Management
@@ -232,12 +241,12 @@ git commit -m "Major refactoring"
 | **Medium** | 5-15 tasks | 2 levels (impl-N.M) | Enhanced + auto-generated TODO_LIST.md | Optional brainstorming → Action plan → Progress tracking |
 | **Complex** | >15 tasks | 3 levels (impl-N.M.P) | Complete document suite | Required brainstorming → Multi-agent orchestration → Deep context analysis |
 
-### 🚀 Architecture v2.0 Benefits
-- **Performance**: 95% faster session operations with marker file system
-- **Consistency**: 100% data consistency with JSON-only model  
-- **Efficiency**: 40-50% reduction in maintenance overhead
-- **Scalability**: Support for hundreds of concurrent sessions
-- **Onboarding**: 50% faster learning curve with progressive complexity
+### 🚀 v1.0 Release Benefits
+- **Smart Automation**: Intelligent template selection reduces manual template discovery
+- **Documentation**: 500+ lines streamlined while maintaining functionality  
+- **Template System**: Dynamic discovery and YAML-based metadata parsing
+- **Cross-Platform**: Unified path handling for Windows/Linux compatibility
+- **Developer Experience**: Simplified commands with powerful auto-selection
 
 ## 🔧 Technical Highlights
 

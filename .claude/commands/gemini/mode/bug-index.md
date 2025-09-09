@@ -1,17 +1,17 @@
 ---
 name: bug-index
 description: Bug analysis and fix suggestions using specialized template
-usage: /gemini:pre:bug-index "bug description"
+usage: /gemini:mode:bug-index "bug description"
 argument-hint: "description of the bug or error you're experiencing"
 examples:
-  - /gemini:pre:bug-index "authentication null pointer error in login flow"
-  - /gemini:pre:bug-index "React component not re-rendering after state change"
-  - /gemini:pre:bug-index "database connection timeout in production"
+  - /gemini:mode:bug-index "authentication null pointer error in login flow"
+  - /gemini:mode:bug-index "React component not re-rendering after state change"
+  - /gemini:mode:bug-index "database connection timeout in production"
 allowed-tools: Bash(gemini:*)
 model: sonnet
 ---
 
-# Bug Analysis Command (/gemini:pre:bug-index)
+# Bug Analysis Command (/gemini:mode:bug-index)
 
 ## Overview
 Systematic bug analysis and fix suggestions using expert diagnostic template.
@@ -20,17 +20,17 @@ Systematic bug analysis and fix suggestions using expert diagnostic template.
 
 ### Basic Bug Analysis
 ```bash
-/gemini:pre:bug-index "authentication error during login"
+/gemini:mode:bug-index "authentication error during login"
 ```
 
 ### With All Files Context
 ```bash
-/gemini:pre:bug-index "React state not updating" --all-files
+/gemini:mode:bug-index "React state not updating" --all-files
 ```
 
 ### Save to Workflow Session
 ```bash
-/gemini:pre:bug-index "API timeout issues" --save-session
+/gemini:mode:bug-index "API timeout issues" --save-session
 ```
 
 ## Command Execution

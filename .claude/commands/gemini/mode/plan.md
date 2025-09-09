@@ -1,17 +1,17 @@
 ---
 name: plan
 description: Project planning and architecture analysis using specialized template
-usage: /gemini:pre:plan "planning topic"
+usage: /gemini:mode:plan "planning topic"
 argument-hint: "planning topic or architectural challenge to analyze"
 examples:
-  - /gemini:pre:plan "design user dashboard feature architecture"
-  - /gemini:pre:plan "plan microservices migration strategy"
-  - /gemini:pre:plan "implement real-time notification system"
+  - /gemini:mode:plan "design user dashboard feature architecture"
+  - /gemini:mode:plan "plan microservices migration strategy"
+  - /gemini:mode:plan "implement real-time notification system"
 allowed-tools: Bash(gemini:*)
 model: sonnet
 ---
 
-# Planning Analysis Command (/gemini:pre:plan)
+# Planning Analysis Command (/gemini:mode:plan)
 
 ## Overview
 Comprehensive project planning and architecture analysis using expert planning template.
@@ -20,17 +20,17 @@ Comprehensive project planning and architecture analysis using expert planning t
 
 ### Basic Planning Analysis
 ```bash
-/gemini:pre:plan "design authentication system"
+/gemini:mode:plan "design authentication system"
 ```
 
 ### With All Files Context
 ```bash
-/gemini:pre:plan "microservices migration" --all-files
+/gemini:mode:plan "microservices migration" --all-files
 ```
 
 ### Save to Workflow Session
 ```bash
-/gemini:pre:plan "real-time notifications" --save-session
+/gemini:mode:plan "real-time notifications" --save-session
 ```
 
 ## Command Execution

@@ -113,7 +113,7 @@ FUNCTION analyze_and_run_gemini(analysis_type):
 
   // Step 3: Construct and execute the gemini command.
   // Always include project standards from CLAUDE.md.
-  // Uses a pre-defined analysis template for consistency.
+  // Uses a mode-defined analysis template for consistency.
   command = "gemini -p \"" + patterns + " @{CLAUDE.md} $(cat ~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt)\""
   execute_shell(command)
 

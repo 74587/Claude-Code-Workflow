@@ -1,18 +1,18 @@
 ---
 name: auto
 description: Auto-select and execute appropriate template based on user input analysis
-usage: /gemini:pre:auto "description of task or problem"
+usage: /gemini:mode:auto "description of task or problem"
 argument-hint: "description of what you want to analyze or plan"
 examples:
-  - /gemini:pre:auto "authentication system keeps crashing during login"
-  - /gemini:pre:auto "design a real-time notification architecture"
-  - /gemini:pre:auto "database connection errors in production"
-  - /gemini:pre:auto "plan user dashboard with analytics features"
+  - /gemini:mode:auto "authentication system keeps crashing during login"
+  - /gemini:mode:auto "design a real-time notification architecture"
+  - /gemini:mode:auto "database connection errors in production"
+  - /gemini:mode:auto "plan user dashboard with analytics features"
 allowed-tools: Bash(ls:*), Bash(gemini:*)
 model: sonnet
 ---
 
-# Auto Template Selection (/gemini:pre:auto)
+# Auto Template Selection (/gemini:mode:auto)
 
 ## Overview
 Automatically analyzes user input to select the most appropriate template and execute Gemini CLI with optimal context.
@@ -24,16 +24,16 @@ Automatically analyzes user input to select the most appropriate template and ex
 ### Auto-Detection Examples
 ```bash
 # Bug-related keywords → selects bug-fix.md
-/gemini:pre:auto "React component not rendering after state update"
+/gemini:mode:auto "React component not rendering after state update"
 
 # Planning keywords → selects plan.md  
-/gemini:pre:auto "design microservices architecture for user management"
+/gemini:mode:auto "design microservices architecture for user management"
 
 # Error/crash keywords → selects bug-fix.md
-/gemini:pre:auto "API timeout errors in production environment"
+/gemini:mode:auto "API timeout errors in production environment"
 
 # Architecture/design keywords → selects plan.md
-/gemini:pre:auto "implement real-time chat system architecture"
+/gemini:mode:auto "implement real-time chat system architecture"
 ```
 
 ## Template Selection Logic
@@ -140,14 +140,14 @@ User Input: [user_input]"
 ### Manual Template Override
 ```bash
 # Force specific template
-/gemini:pre:auto "user authentication" --template bug-fix.md
-/gemini:pre:auto "fix login issues" --template plan.md
+/gemini:mode:auto "user authentication" --template bug-fix.md
+/gemini:mode:auto "fix login issues" --template plan.md
 ```
 
 ### Dynamic Template Listing
 ```bash
 # List all dynamically discovered templates
-/gemini:pre:auto --list-templates
+/gemini:mode:auto --list-templates
 # Output:
 # Dynamically discovered templates in ~/.claude/prompt-templates/:
 # - bug-fix.md (用于定位bug并提供修改建议) [Keywords: 规划, bug, 修改方案]
