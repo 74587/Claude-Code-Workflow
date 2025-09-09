@@ -1,176 +1,98 @@
 ---
 name: analyze
-description: Advanced Gemini CLI analysis with template-driven pattern detection and comprehensive codebase insights
-usage: /gemini:analyze <target>
-argument-hint: "analysis target or description"
+description: Quick analysis of codebase patterns, architecture, and code quality using Gemini CLI
+usage: /gemini:analyze <analysis-type>
+argument-hint: "analysis target or type"
 examples:
-  - /gemini:analyze "Find all React hooks usage patterns"
-  - /gemini:analyze "Analyze component hierarchy and structure"
-  - /gemini:analyze "Scan for authentication vulnerabilities"
-  - /gemini:analyze "Trace user login implementation"
-  - /gemini:analyze "Identify potential bottlenecks"
-  - /gemini:analyze "Find all API endpoints"
+  - /gemini:analyze "React hooks patterns"
+  - /gemini:analyze "authentication security"
+  - /gemini:analyze "performance bottlenecks"
+  - /gemini:analyze "API design patterns"
 model: haiku
 ---
 
-### 🚀 Command Overview: `/gemini:analyze`
+# Gemini Analysis Command (/gemini:analyze)
 
+## Overview
+Quick analysis tool for codebase insights using intelligent pattern detection and template-driven analysis.
 
--   **Purpose**: To perform advanced, template-driven analysis on a codebase for various insights like patterns, architecture, and security.
--   **Core Principle**: Leverages intelligent context detection to apply optimized analysis templates.
+**Core Guidelines**: @~/.claude/workflows/gemini-unified.md
 
-### 🔄 High-Level Execution Flow
+## Analysis Types
 
-`User Input` **->** `Intelligent Context Detection` **->** `Template-Based Analysis`
+| Type | Purpose | Example |
+|------|---------|---------|
+| **pattern** | Code pattern detection | "React hooks usage patterns" |
+| **architecture** | System structure analysis | "component hierarchy structure" |
+| **security** | Security vulnerabilities | "authentication vulnerabilities" |
+| **performance** | Performance bottlenecks | "rendering performance issues" |
+| **quality** | Code quality assessment | "testing coverage analysis" |
+| **dependencies** | Third-party analysis | "outdated package dependencies" |
 
-### 🎯 Analysis Types
+## Quick Usage
 
-| Type           | Purpose                          | Example Usage                               |
-| :------------- | :------------------------------- | :------------------------------------------ |
-| **pattern**      | Code pattern detection           | `/gemini-mode pattern "React hooks usage"`  |
-| **architecture** | System structure analysis        | `/gemini-mode architecture "component hierarchy"` |
-| **security**     | Security vulnerabilities         | `/gemini-mode security "auth vulnerabilities"` |
-| **performance**  | Performance bottlenecks          | `/gemini-mode performance "rendering issues"` |
-| **feature**      | Feature implementation tracing   | `/gemini-mode feature "user authentication"`|
-| **quality**      | Code quality assessment          | `/gemini-mode quality "testing coverage"`   |
-| **dependencies** | Third-party dependencies         | `/gemini-mode dependencies "outdated packages"` |
-| **migration**    | Legacy modernization             | `/gemini-mode migration "React class to hooks"` |
-| **custom**       | Custom analysis                  | `/gemini-mode custom "find user data processing"` |
+### Basic Analysis
+```bash
+/gemini:analyze "authentication patterns"
+```
+**Executes**: `gemini -p -a "@{**/*auth*} @{CLAUDE.md} $(template:analysis/pattern.txt)"`
 
-### ⚙️ Command Options
+### Targeted Analysis
+```bash
+/gemini:analyze "React component architecture"
+```
+**Executes**: `gemini -p -a "@{src/components/**/*} @{CLAUDE.md} $(template:analysis/architecture.txt)"`
 
-| Option           | Purpose                               |
-| :--------------- | :------------------------------------ |
-| `--yolo`         | Auto-approve analysis (non-interactive mode). |
-| `--debug`        | Enable debug mode for verbose logging. |
-| `--interactive`  | Start an interactive session for follow-up questions. |
-| `--model <name>` | Specify which Gemini model to use.    |
-| `--sandbox`      | Run the analysis in a secure sandbox environment. |
+### Security Focus
+```bash
+/gemini:analyze "API security vulnerabilities"
+```
+**Executes**: `gemini -p -a "@{**/api/**/*} @{CLAUDE.md} $(template:analysis/security.txt)"`
 
-### 📚 Template System
+## Templates Used
 
-The command's intelligence is powered by a set of predefined templates for different analysis categories.
+Templates are automatically selected based on analysis type:
+- **Pattern Analysis**: `~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt`
+- **Architecture Analysis**: `~/.claude/workflows/gemini-templates/prompts/analysis/architecture.txt`
+- **Security Analysis**: `~/.claude/workflows/gemini-templates/prompts/analysis/security.txt`
+- **Performance Analysis**: `~/.claude/workflows/gemini-templates/prompts/analysis/performance.txt`
 
-| Template Category     | Purpose                             | Source Reference                                  |
-| :-------------------- | :---------------------------------- | :------------------------------------------------ |
-| **Unified Guidelines** | All Gemini usage rules and templates | @~/.claude/workflows/gemini-unified.md |
-| **Template Library**  | Actual prompt and command templates  | @~/.claude/workflows/gemini-templates/ |
+## Workflow Integration
 
-### 🧠 Smart File Targeting Logic
+⚠️ **Session Check**: Automatically detects active workflow session via `.workflow/.active-*` marker file.
 
-The command automatically determines which files to analyze based on context.
+**Analysis results saved to:**
+- Active session: `.workflow/WFS-[topic]/.chat/analysis-[timestamp].md`
+- No session: Temporary analysis output
 
-```pseudo
-FUNCTION determine_target_files(analysis_type, keywords):
-  // 1. Detect technology stack (e.g., React, Python)
-  tech_stack = detect_project_tech()
-  file_extensions = get_extensions_for(tech_stack) // e.g., {js,ts,jsx} for React
+## Common Patterns
 
-  // 2. Generate patterns based on keywords
-  // Corresponds to: Keywords: "auth" -> auth files, "api" -> API files
-  IF "auth" in keywords:
-    add_pattern("@{**/auth/**/*,**/user/**/*}")
-  ELSE IF "api" in keywords:
-    add_pattern("@{api/**/*,routes/**/*,controllers/**/*}")
-
-  // 3. Generate patterns based on analysis type
-  // Corresponds to: Analysis type: Security -> auth/security files
-  CASE analysis_type:
-    WHEN "security":
-      add_pattern("@{**/auth/**/*,**/security/**/*}")
-    WHEN "architecture":
-      add_pattern("@{src/**/*,app/**/*,lib/**/*}")
-
-  // 4. Inject standard relevant context
-  add_pattern("@{CLAUDE.md,**/*CLAUDE.md}")
-
-  RETURN combined_patterns
-END FUNCTION
+### Technology Stack Analysis
+```bash
+/gemini:analyze "project technology stack"
+# Auto-detects: package.json, config files, dependencies
 ```
 
-### 📂 File Reference Syntax Guide
-
-```
-# Basic @ Syntax
-@{file}                # Single file
-@{dir/*}               # All files in directory
-@{dir/**/*}            # All files recursively
-@{*.ext}               # Files by extension
-@{**/*.ext}            # Files by extension recursively
-
-# Advanced Patterns
-@{file1,file2,file3}            # Multiple specific files
-@{dir1/**/*,dir2/**/*}            # Multiple directories
-@{**/*.{js,ts,jsx,tsx}}        # Multiple extensions
-@{**/[module]/**/*}               # Pattern matching
-
-# Context-Specific Targeting
-# Frontend components
-@{src/components/**/*,src/ui/**/*,src/views/**/*}
-
-# Backend APIs
-@{api/**/*,routes/**/*,controllers/**/*,middleware/**/*}
-
-# Configuration files
-@{*.config.js,*.json,.env*,config/**/*}
-
-# Test files
-@{**/*.test.*,**/*.spec.*,test/**/*,spec/**/*}
-
-# Documentation and guidelines
-@{*.md,docs/**/*,CLAUDE.md,**/*CLAUDE.md}
+### Code Quality Review
+```bash
+/gemini:analyze "code quality and standards"
+# Auto-targets: source files, test files, CLAUDE.md
 ```
 
-### 🔗 Workflow Integration Patterns
-
-⚠️ **CRITICAL**: Before analysis, MUST check for existing active session to ensure proper workflow context and documentation storage.
-
-**Session Check Process:**
-1. **Check Active Session**: Check for `.workflow/.active-*` marker file to identify active session. No file creation needed.
-2. **Context Integration**: Use existing active session for proper analysis context
-3. **Documentation Strategy**: Store analysis results in appropriate session directory structure
-
--   **Planning Phase**:
-    `Check Active Session` **->** `Run /gemini-mode architecture` **->** `Run /gemini-mode pattern` **->** `Feed results into Task(planning-agent, ...)`
--   **Code Review**:
-    `Check Active Session` **->** `Run /gemini-mode security "auth"` **->** `Run /gemini-mode performance "rendering"` **->** `Summarize findings for PR comments`
--   **Research & Discovery**:
-    `Check Active Session` **->** `Run /gemini-mode architecture "overview"` **->** `Run /gemini-mode dependencies "key libraries"` **->** `Document for new team members`
-
-### 🛠️ Task Tool Integration Example
-
-Integrate `/gemini-mode` directly into automated tasks for analysis-driven actions.
-
-```python
-Task(subagent_type="general-purpose", prompt="""
-Use /gemini-mode pattern "auth patterns" to analyze authentication.
-Summarize findings for implementation planning.
-""")
+### Migration Planning
+```bash
+/gemini:analyze "legacy code modernization"
+# Focuses: older patterns, deprecated APIs, upgrade paths
 ```
 
-### 👍 Best Practices
+## Output Format
 
--   **Scope**: Use specific, focused targets for faster, more accurate results.
--   **Chaining**: Combine analysis types (`architecture` then `pattern`) for a comprehensive view.
--   **Interpretation**: Use Gemini's raw output as input for Claude to interpret, summarize, and act upon.
--   **Performance**: Use `--yolo` for non-destructive analysis to skip confirmations. Be mindful that analyzing all files may be slow on large projects.
+Analysis results include:
+- **File References**: Specific file:line locations
+- **Code Examples**: Relevant code snippets
+- **Patterns Found**: Common patterns and anti-patterns
+- **Recommendations**: Actionable improvements
+- **Integration Points**: How components connect
 
-### 📋 Common Use Cases
-
-| Use Case               | Recommended Commands                                                                  |
-| :--------------------- | :------------------------------------------------------------------------------------ |
-| **Project Onboarding**   | `/gemini-mode architecture "overview"`, `/gemini-mode dependencies "key tech"`          |
-| **Security Audit**       | `/gemini-mode security "auth vulnerabilities"`, `/gemini-mode security "XSS"`       |
-| **Performance Review**   | `/gemini-mode performance "bottlenecks"`, `/gemini-mode performance "optimization"` |
-| **Migration Planning**   | `/gemini-mode migration "legacy patterns"`, `/gemini-mode migration "modernization"`|
-| **Feature Research**     | `/gemini-mode feature "existing system"`, `/gemini-mode pattern "approaches"`         |
-
-### 🆘 Troubleshooting
-
-| Issue                  | Solution                                            |
-| :--------------------- | :-------------------------------------------------- |
-| **Analysis timeout**     | Use `--debug` to monitor progress and identify slow steps. |
-| **Context limits**     | Break the analysis into smaller, more focused scopes. |
-| **Permission errors**  | Ensure the CLI has read access to the target files.   |
-| **Complex analysis**   | Use `--interactive` mode to ask follow-up questions. |
-
+For detailed syntax, patterns, and advanced usage see:
+**@~/.claude/workflows/gemini-unified.md**

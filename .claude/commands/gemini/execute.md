@@ -1,7 +1,6 @@
 ---
 name: execute
-
-description: Intelligent context inference executor with auto-approval capabilities, supporting user descriptions and task ID execution modes
+description: Auto-execution of implementation tasks with YOLO permissions and intelligent context inference
 usage: /gemini:execute <description|task-id>
 argument-hint: "implementation description or task-id"
 examples:
@@ -13,241 +12,159 @@ allowed-tools: Bash(gemini:*)
 model: sonnet
 ---
 
-### 🚀 Command Overview: /gemini:execute
+# Gemini Execute Command (/gemini:execute)
 
+## Overview
 
--   **Type**: Intelligent Context Inference Executor.
--   **Purpose**: Infers context files to automatically execute implementation tasks using the Gemini CLI.
--   **Key Feature**: Non-interactive, auto-approved execution by default for streamlined workflows.
--   **Core Tool**: `Bash(gemini:*)`.
+**⚡ YOLO-enabled execution**: Auto-approves all confirmations for streamlined implementation workflow.
 
-### ⚙️ Execution Modes
+**Purpose**: Execute implementation tasks using intelligent context inference and Gemini CLI with full permissions.
 
--   **Direct User Description Mode**:
-    -   **Input**: A natural language description of the task (e.g., `"implement user authentication system"`).
-    -   **Process**: Analyzes keywords in the description to intelligently infer and collect relevant context files before execution.
--   **Task ID Mode**:
-    -   **Input**: A specific task identifier (e.g., `IMPL-001`).
-    -   **Process**: Parses the corresponding `.task/impl-*.json` file to determine scope, type, and related files for execution.
+**Core Guidelines**: @~/.claude/workflows/gemini-unified.md
 
-### 📥 Command Parameters
+## 🚨 YOLO Permissions
 
--   `--debug`: Outputs detailed logs of the inference process and execution steps.
--   `--save-session`: Saves the entire execution session to the `.workflow/WFS-[topic-slug]/.chat/` directory.
+**All confirmations auto-approved by default:**
+- ✅ File pattern inference confirmation
+- ✅ Gemini execution confirmation  
+- ✅ File modification confirmation
+- ✅ Implementation summary generation
 
-**Note**: All executions run in auto-approval mode by default (equivalent to previous --yolo behavior).
+## Execution Modes
 
-### 🔄 High-Level Execution Flow
-
--   **Description Input**: `Keyword Extraction` -> `Pattern Mapping` -> `Context Collection` -> `Gemini Execution`
--   **Task ID Input**: `Task Parsing` -> `Type & Scope Analysis` -> `Reference Integration` -> `Gemini Execution`
-
-### 🧠 Intelligent Inference Logic
-
-This logic determines which files are collected as context before calling the Gemini CLI.
-
-```pseudo
-FUNCTION infer_context(input, user_description):
-  collected_files = ["@{CLAUDE.md,**/*CLAUDE.md}"] // Base context
-
-  // Check for and process user-specified file overrides first
-  IF user_description contains "@{...}":
-    user_patterns = extract_patterns_from_string(user_description)
-    collected_files += user_patterns
-
-  // Determine execution mode based on input format
-  IF input matches pattern 'IMPL-*': // Task ID Mode
-    task_data = read_json_file(".task/" + input + ".json")
-    IF task_data is not found:
-      RAISE_ERROR("Task ID not found")
-      RETURN
-
-    // Infer patterns based on task type (e.g., "feature", "bugfix")
-    type_patterns = get_patterns_for_task_type(task_data.type)
-    collected_files += type_patterns
-    collected_files += task_data.brainstorming_refs
-  ELSE: // User Description Mode
-    keywords = extract_tech_keywords(user_description)
-    // Map keywords to file patterns (e.g., "React" -> "src/components/**/*.{jsx,tsx}")
-    inferred_patterns = map_keywords_to_file_patterns(keywords)
-    collected_files += inferred_patterns
-
-  // The final collected files are used to construct the Gemini command
-  // This corresponds to calling the allowed tool `Bash(gemini:*)`
-  run_gemini_cli(collected_files, user_description)
-END FUNCTION
-```
-
-### 🖐️ User Override Logic
-
-Users can override or supplement the automatic inference.
-
-```pseudo
-FUNCTION calculate_final_patterns(description):
-  inferred_patterns = get_inferred_patterns(description) // e.g., **/*auth*
-  user_patterns = extract_user_patterns(description)     // e.g., @{custom/auth/helpers.js}
-
-  // The final context is the union of inferred and user-specified patterns
-  final_patterns = inferred_patterns + user_patterns
-  RETURN final_patterns
-END FUNCTION
-```
-
-### 🛠️ Gemini CLI Integration (Templated)
-
-The following templates are used to call the `gemini` command via the `Bash` tool.
-
+### 1. Description Mode
+**Input**: Natural language description
 ```bash
-# User Description Mode
-gemini --all-files --yolo -p "@{intelligently_inferred_file_patterns} @{CLAUDE.md,**/*CLAUDE.md}
+/gemini:execute "implement JWT authentication with middleware"
+```
+**Process**: Keyword analysis → Pattern inference → Context collection → Execution
+
+### 2. Task ID Mode  
+**Input**: Workflow task identifier
+```bash
+/gemini:execute IMPL-001
+```
+**Process**: Task JSON parsing → Scope analysis → Context integration → Execution
+
+## Context Inference Logic
+
+**Auto-selects relevant files based on:**
+- **Keywords**: "auth" → `@{**/*auth*,**/*user*}`
+- **Technology**: "React" → `@{src/**/*.{jsx,tsx}}`
+- **Task Type**: "api" → `@{**/api/**/*,**/routes/**/*}`
+- **Always includes**: `@{CLAUDE.md,**/*CLAUDE.md}`
+
+## Command Options
+
+| Option | Purpose |
+|--------|---------|
+| `--debug` | Verbose execution logging |
+| `--save-session` | Save complete execution session to workflow |
+
+## Workflow Integration
+
+### Session Management
+⚠️ **Auto-detects active session**: Checks `.workflow/.active-*` marker file
+
+**Session storage:**
+- **Active session exists**: Saves to `.workflow/WFS-[topic]/.chat/execute-[timestamp].md`
+- **No active session**: Creates new session directory
+
+### Task Integration
+```bash
+# Execute specific workflow task
+/gemini:execute IMPL-001
+
+# Loads from: .task/impl-001.json
+# Uses: task context, brainstorming refs, scope definitions
+# Updates: workflow status, generates summary
+```
+
+## Execution Templates
+
+### User Description Template
+```bash
+gemini --all-files -p "@{inferred_patterns} @{CLAUDE.md,**/*CLAUDE.md}
 
 Implementation Task: [user_description]
 
-Based on intelligently inferred context, please provide:
+Provide:
 - Specific implementation code
 - File modification locations (file:line)
 - Test cases
 - Integration guidance"
-
-# Task ID Mode
-gemini --all-files --yolo -p "@{task_related_files} @{brainstorming_refs} @{CLAUDE.md,**/*CLAUDE.md}
-
-Task Execution: [task_title] (ID: [task-id])
-Task Description: [extracted_from_json]
-Task Type: [feature/bugfix/refactor/etc]
-
-Please execute implementation based on task definition:
-- Follow task acceptance criteria
-- Based on brainstorming analysis results
-- Provide specific code and tests"
 ```
 
-### 🔗 Workflow System Integration Logic
+### Task ID Template
+```bash
+gemini --all-files -p "@{task_files} @{brainstorming_refs} @{CLAUDE.md,**/*CLAUDE.md}
 
-The command integrates deeply with the workflow system with auto-approval by default.
+Task: [task_title] (ID: [task-id])
+Type: [task_type]
+Scope: [task_scope]
 
-```pseudo
-FUNCTION execute_with_workflow(task, flags):
-  // All confirmation steps are automatically approved by default
-  confirm_inferred_files = TRUE
-  confirm_gemini_execution = TRUE
-  confirm_file_modifications = TRUE
-
-  // Execute the task with auto-approval
-  execute_gemini_task(task)
-  // Actions performed after successful execution
-  generate_task_summary_doc()
-  update_workflow_status_files() // Updates WFS & workflow-session.json
-END FUNCTION
+Execute implementation following task acceptance criteria."
 ```
 
-### 📄 Task Summary Template (Templated)
+## Auto-Generated Outputs
 
-This template is automatically filled and generated after execution.
+### 1. Implementation Summary
+**Location**: `.summaries/[TASK-ID]-summary.md` or auto-generated ID
 
 ```markdown
-# Task Summary: [Task-ID/Generated-ID] [Task Name/Description]
+# Task Summary: [Task-ID] [Description]
 
-## Execution Content
-- **Intelligently Inferred Files**: [inferred_file_patterns]
-- **Gemini Analysis Results**: [key_findings]
-- **Implemented Features**: [specific_implementation_content]
-- **Modified Files**: [file:line references]
+## Implementation
+- **Files Modified**: [file:line references]
+- **Features Added**: [specific functionality]
+- **Context Used**: [inferred patterns]
 
-## Issues Resolved
-- [list_of_resolved_problems]
-
-## Links
-- [🔙 Back to Task List](../TODO_LIST.md#[Task-ID])
-- [📋 Implementation Plan](../IMPL_PLAN.md#[Task-ID])
+## Integration
+- [Links to workflow documents]
 ```
 
-### 🛡️ Error Handling Protocols
+### 2. Execution Session
+**Location**: `.chat/execute-[timestamp].md`
 
--   **Keyword Inference Failure**: `Use generic pattern 'src/**/*'` -> `Prompt user for manual specification`.
--   **Task ID Not Found**: `Display error message` -> `List available tasks`.
--   **File Pattern No Matches**: `Expand search scope` -> `Log debug info`.
--   **Gemini CLI Failure**: `Attempt fallback mode (e.g., --all-files -> @{patterns})` -> `Simplify context & retry`.
-
-### ⚡ Performance Optimizations
-
--   **Caching**: Caches frequently used keyword-to-pattern mapping results.
--   **Pattern Optimization**: Avoids overly broad file patterns like `**/*` where possible.
--   **Progressive Inference**: Tries precise patterns (`src/api/auth`) before broader ones (`**/*auth*`).
--   **Path Navigation**: Switches to the optimal execution directory based on inference to shorten paths.
-
-### 🤝 Integration & Coordination
-
--   **vs. `gemini-chat`**: `gemini-chat` is for pure analysis; `/gemini-execute` performs analysis **and** execution.
--   **vs. `code-developer`**: `code-developer` requires manual context provision; `/gemini-execute` infers context automatically.
--   **Typical Workflow Sequence**:
-    1.  `workflow:session "..."`
-    2.  `workflow:brainstorm`
-    3.  `workflow:plan`
-    4.  `/gemini-execute IMPL-001`
-    5.  `workflow:review`
-
-### 💾 Session Persistence
-
-⚠️ **CRITICAL**: Before saving, MUST check for existing active session to avoid creating duplicate sessions.
-
--   **Trigger**: Activated by the `--save-session` flag.
--   **Action**: Saves the complete execution session, including inferred context, Gemini analysis, and implementation results.
--   **Session Check**: Check for `.workflow/.active-*` marker file to identify current active session. No file creation needed.
--   **Location Strategy**: 
-    - **IF active session exists**: Save to existing `.workflow/WFS-[topic-slug]/.chat/` directory
-    - **IF no active session**: Create new session directory following WFS naming convention
-
-**Session Management**: @~/.claude/workflows/workflow-architecture.md
--   **File Format**: `execute-YYYYMMDD-HHMMSS.md` with timestamp for unique identification.
--   **Structure**: Integrates with session management system using WFS-[topic-slug] format for consistency.
--   **Coordination**: Session files coordinate with workflow-session.json and maintain document-state separation.
-
-### 🔗 Execution Session Integration
-
-**Storage Structure:**
-```
-.workflow/WFS-[topic-slug]/.chat/
-├── execute-20240307-143022.md   # Execution sessions with timestamps
-├── execute-20240307-151445.md   # Chronologically ordered
-└── analysis-[topic].md          # Referenced analysis sessions
-```
-
-**Execution Session Template:**
 ```markdown
-# Execution Session: [Timestamp] - [Task/Description]
+# Execution Session: [Timestamp]
 
 ## Input
-[Original user description or Task ID]
+[User description or Task ID]
 
 ## Context Inference
-[Intelligently inferred file patterns and rationale]
-
-## Task Details (if Task ID mode)
-[Extracted task data from .task/*.json]
-
-## Gemini Execution
-[Complete Gemini CLI command and parameters]
+[File patterns used with rationale]
 
 ## Implementation Results
-[Code generated, files modified, test cases]
+[Generated code and modifications]
 
-## Key Outcomes
-- [Files modified/created]
-- [Features implemented]
-- [Issues resolved]
-
-## Integration Links
-- [🔙 Workflow Session](../workflow-session.json)
-- [📋 Implementation Plan](../IMPL_PLAN.md)
-- [📝 Task Definitions](../.task/)
-- [📑 Summary](../.summaries/)
+## Status Updates
+[Workflow integration updates]
 ```
 
-### ✅ Quality Assurance Principles
+## Error Handling
 
--   **Inference Accuracy**: Keyword mapping tables are regularly updated based on project patterns and user feedback.
--   **Execution Reliability**: Implements robust error handling and leverages debug mode for detailed tracing.
--   **Documentation Completeness**: Ensures auto-generated summaries are structured and workflow statuses are synced in real-time.
-### 📚 Related Documentation
+- **Task ID not found**: Lists available tasks
+- **Pattern inference failure**: Uses generic `src/**/*` pattern
+- **Execution failure**: Attempts fallback with simplified context
+- **File modification errors**: Reports specific file/permission issues
 
+## Performance Features
+
+- **Smart caching**: Frequently used pattern mappings
+- **Progressive inference**: Precise → broad pattern fallback
+- **Parallel execution**: When multiple contexts needed
+- **Directory optimization**: Switches to optimal execution path
+
+## Integration Workflow
+
+**Typical sequence:**
+1. `workflow:plan` → Creates tasks
+2. `/gemini:execute IMPL-001` → Executes with YOLO permissions
+3. Auto-updates workflow status and generates summaries
+4. `workflow:review` → Final validation
+
+**vs. `/gemini:analyze`**: Execute performs analysis **and implementation**, analyze is read-only.
+
+For detailed patterns, syntax, and templates see:
+**@~/.claude/workflows/gemini-unified.md**
