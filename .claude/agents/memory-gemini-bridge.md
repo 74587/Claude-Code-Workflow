@@ -82,11 +82,10 @@ ELSE:
 
 ## Templates and Guidelines
 
-**Primary Template**: @~/.claude/workflows/gemini-agent-overview.md
-@~/.claude/workflows/gemini-memory-bridge.md
+**Primary Template**: @~/.claude/workflows/gemini-unified.md
 
 **Supplementary Resources**:
-- @~/.claude/workflows/gemini-dms-templates.md - Documentation hierarchy analysis
+- See template selection guide for DMS-specific templates in prompts/dms/ folder
 
 
 ## Task-Driven Execution Protocol

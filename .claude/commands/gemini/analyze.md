@@ -1,6 +1,5 @@
 ---
 name: analyze
-
 description: Advanced Gemini CLI analysis with template-driven pattern detection and comprehensive codebase insights
 usage: /gemini:analyze <target>
 argument-hint: "analysis target or description"
@@ -54,10 +53,8 @@ The command's intelligence is powered by a set of predefined templates for diffe
 
 | Template Category     | Purpose                             | Source Reference                                  |
 | :-------------------- | :---------------------------------- | :------------------------------------------------ |
-| **Core Analysis**     | Pattern, architecture, security, etc. | `@~/.claude/workflows/gemini-core-templates.md`     |
-| **DMS Operations**    | Documentation management            | `@~/.claude/workflows/gemini-dms-templates.md`    |
-| **Agent Workflows**   | Agent-specific templates            | `@~/.claude/workflows/gemini-agent-templates.md`  |
-| **Intelligent Context** | Smart targeting & detection logic   | `@~/.claude/workflows/gemini-intelligent-context.md` |
+| **Unified Guidelines** | All Gemini usage rules and templates | @~/.claude/workflows/gemini-unified.md |
+| **Template Library**  | Actual prompt and command templates  | @~/.claude/workflows/gemini-templates/ |
 
 ### 🧠 Smart File Targeting Logic
 

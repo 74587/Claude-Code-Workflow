@@ -95,8 +95,7 @@ ELSE:
 When GEMINI_CLI_REQUIRED flag is present or complexity triggers apply, gather precise, implementation-focused context:
 
 Use the targeted development context template:
-@~/.claude/workflows/gemini-agent-overview.md
-@~/.claude/workflows/gemini-code-developer.md
+@~/.claude/workflows/gemini-unified.md
 
 This executes a task-specific Gemini CLI command that identifies:
 - **Exact modification points**: Precise file:line locations where code should be added

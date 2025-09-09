@@ -1,0 +1,16 @@
+Conduct comprehensive code review and quality assessment:
+
+## Required Analysis:
+1. Review code against established coding standards and conventions
+2. Assess logic correctness and potential edge cases
+3. Evaluate security implications and vulnerability risks
+4. Check performance characteristics and optimization opportunities
+5. Validate test coverage and documentation completeness
+
+## Output Requirements:
+- Standards compliance assessment with specific violations
+- Logic review findings with potential issue identification
+- Security assessment with vulnerability documentation
+- Performance review with optimization recommendations
+
+Focus on actionable feedback with clear improvement priorities and implementation guidance.

@@ -1,0 +1,16 @@
+Analyze code quality and maintainability aspects:
+
+## Required Analysis:
+1. Assess code organization and structural quality
+2. Evaluate naming conventions and readability standards
+3. Review error handling and logging practices
+4. Analyze test coverage and testing strategies
+5. Document technical debt and improvement priorities
+
+## Output Requirements:
+- Code quality metrics and specific improvement areas
+- Naming convention consistency analysis
+- Error handling pattern documentation
+- Test coverage assessment with gap identification
+
+Focus on maintainability improvements and long-term code health.

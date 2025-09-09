@@ -115,8 +115,7 @@ cat arch_analysis.txt pattern_analysis.txt impact_analysis.txt test_analysis.txt
 **Precise Task Analysis** - Execute when GEMINI_CLI_REQUIRED flag is present or complexity triggers apply:
 
 **Standard Mode**: Use the focused planning context template:
-@~/.claude/workflows/gemini-agent-overview.md
-@~/.claude/workflows/gemini-planning-agent.md
+@~/.claude/workflows/gemini-unified.md
 
 **Deep Analysis Mode (DEEP_ANALYSIS_REQUIRED)**: Execute comprehensive parallel analysis as specified above
 

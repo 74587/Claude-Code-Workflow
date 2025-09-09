@@ -33,24 +33,5 @@ description: Core coordination principles for multi-agent development workflows
 ## Context Management
 
 ### Gemini Context Protocol
-**Context Integration**: Agents use Gemini CLI for context gathering when needed, with memory-gemini-bridge agent handling complex analysis.
-
-**CLI Guidelines Reference**: Follow @~/.cluade/workflows/gemini-cli-guidelines.md for consistency.
-
-### 🎯 Gemini CLI Requirements by Task Complexity
-
-#### 🚀 Simple Tasks (CLI Optional)
-**Task Examples**: Single file modifications, documentation updates, text changes, simple bug fixes
-**CLI Decision**: Optional - only when unfamiliar patterns encountered
-**Context Scope**: Basic guidelines and patterns
-
-#### 🎯 Medium Tasks (CLI Recommended)  
-**Task Examples**: Multi-file features, component modifications, API endpoint additions
-**CLI Decision**: Recommended for consistency and quality
-**Context Scope**: Guidelines + architecture + feature patterns
-**Standard Context Collection**:
-```bash
-gemini --all-files -p "@{**/*CLAUDE.md} Guidelines for: [task]"
-gemini --all-files -p "@[modules] Architecture for: [task]"
-gemini --all-files -p "@[files] Patterns for: [task]"
-```
+For all Gemini CLI usage, command syntax, and integration guidelines:
+@~/.claude/workflows/gemini-unified.md

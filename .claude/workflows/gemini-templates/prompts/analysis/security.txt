@@ -1,0 +1,16 @@
+Analyze security implementation and potential vulnerabilities:
+
+## Required Analysis:
+1. Identify authentication and authorization mechanisms
+2. Assess input validation and sanitization practices
+3. Review data encryption and secure storage methods
+4. Evaluate API security and access control patterns
+5. Document security risks and compliance considerations
+
+## Output Requirements:
+- Security vulnerability findings with file:line references
+- Authentication/authorization pattern documentation
+- Input validation examples and gaps
+- Encryption usage patterns and recommendations
+
+Focus on identifying security gaps and providing actionable remediation steps.

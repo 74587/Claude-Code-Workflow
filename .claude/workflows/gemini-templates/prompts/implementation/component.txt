@@ -1,0 +1,16 @@
+Guide component implementation and development patterns:
+
+## Required Analysis:
+1. Define component interface and API requirements
+2. Identify reusable patterns and composition strategies
+3. Plan state management and data flow implementation
+4. Design component testing and validation approach
+5. Document integration points and usage examples
+
+## Output Requirements:
+- Component specification with clear interface definition
+- Implementation patterns and best practices
+- State management strategy and data flow design
+- Testing approach and validation criteria
+
+Focus on reusable, maintainable component design with clear usage patterns.

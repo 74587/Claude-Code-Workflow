@@ -105,15 +105,14 @@ The `/enhance-prompt` command is designed to run automatically when the system d
 
 ### 🛠️ **Gemini Integration Protocol (Internal)**
 
-**Gemini Integration**: @~/.claude/workflows/gemini-cli-guidelines.md
+**Gemini Integration**: @~/.claude/workflows/gemini-unified.md
 
 This section details how the system programmatically interacts with the Gemini CLI.
 -   **Primary Tool**: All Gemini analysis is performed via direct calls to the `gemini` command-line tool (e.g., `gemini --all-files -p "..."`).
 -   **Central Guidelines**: All CLI usage patterns, syntax, and context detection rules are defined in the central guidelines document:
--   **Specialized Templates**: For specific analysis types, the system references dedicated templates:
-    -   **Pattern/Architecture**: `gemini-core-templates.md`
-    -   **Security**: `gemini-core-templates.md` (for vulnerability scanning)
-    -   **Documentation**: `gemini-dms-templates.md`
+-   **Template Selection**: For specific analysis types, the system references the template selection guide:
+    -   **All Templates**: `gemini-template-rules.md` - provides guidance on selecting appropriate templates
+    -   **Template Library**: `gemini-templates/` - contains actual prompt and command templates
 
 ### 📝 **Enhancement Examples**
 

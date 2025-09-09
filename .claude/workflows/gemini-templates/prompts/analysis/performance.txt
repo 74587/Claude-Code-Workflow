@@ -1,0 +1,16 @@
+Analyze performance characteristics and optimization opportunities:
+
+## Required Analysis:
+1. Identify performance bottlenecks and resource usage patterns
+2. Assess algorithm efficiency and data structure choices
+3. Evaluate caching strategies and optimization techniques
+4. Review memory management and resource cleanup
+5. Document performance metrics and improvement opportunities
+
+## Output Requirements:
+- Performance bottleneck identification with specific locations
+- Algorithm complexity analysis and optimization suggestions
+- Caching pattern documentation and recommendations
+- Memory usage patterns and optimization opportunities
+
+Focus on measurable performance improvements and concrete optimization strategies.

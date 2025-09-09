@@ -57,8 +57,7 @@ ELSE:
 When GEMINI_CLI_REQUIRED flag is present or complexity triggers apply, gather precise, change-focused context:
 
 Use the targeted review context template:
-@~/.claude/workflows/gemini-agent-overview.md
-@~/.claude/workflows/gemini-code-review.md
+@~/.claude/workflows/gemini-unified.md
 
 This executes a change-specific Gemini CLI command that identifies:
 - **Change understanding**: What specific task was being implemented

@@ -1,0 +1,16 @@
+Analyze system architecture and design decisions:
+
+## Required Analysis:
+1. Identify main architectural patterns and design principles
+2. Map module dependencies and component relationships
+3. Assess integration points and data flow patterns
+4. Evaluate scalability and maintainability aspects
+5. Document architectural trade-offs and design decisions
+
+## Output Requirements:
+- Architectural diagrams or textual descriptions
+- Dependency mapping with specific file references
+- Integration point documentation with examples
+- Scalability assessment and bottleneck identification
+
+Focus on high-level design patterns and system-wide architectural concerns.

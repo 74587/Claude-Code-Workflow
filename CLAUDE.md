@@ -69,25 +69,10 @@ This document defines project-specific coding standards and development principl
 - Learn from existing implementations
 - Stop after 3 failed attempts and reassess
 
-## Gemini CLI Guidelines
 
-### Triggering Mechanism
-**IMPORTANT**: Actively recognize and respond to Gemini invocation needs:
-
-- **Semantic Intent Recognition**: When user input contains semantic meaning indicating the need to call Gemini (e.g., "analyze this with Gemini", "get context for this", "understand the codebase"), immediately follow the guidelines to invoke Gemini
-- **Context Requirements**: When dealing with tasks that require broader context understanding or cross-file analysis, proactively call Gemini to obtain comprehensive context
-- **Complex Problem Analysis**: When encountering complex problems that require deep analysis or multi-faceted understanding, utilize Gemini for intelligent problem decomposition and analysis
-
-### When to Trigger Gemini
-1. User explicitly or implicitly requests Gemini assistance
-2. Task requires understanding of multiple interconnected files
-3. Problem complexity exceeds single-file scope
-4. Need for intelligent context inference
-5. Require comprehensive codebase analysis
-
+### Gemini Context Protocol
 For all Gemini CLI usage, command syntax, and integration guidelines:
-@~/.claude/workflows/gemini-cli-guidelines.md
-@~/.claude/workflows/gemini-intelligent-context.md
+@~/.claude/workflows/gemini-unified.md
 
 ### 📂 **CLAUDE.md Hierarchy Rules - Avoiding Content Duplication**
 

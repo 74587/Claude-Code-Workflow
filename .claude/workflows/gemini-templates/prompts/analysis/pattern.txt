@@ -1,0 +1,16 @@
+Analyze implementation patterns and code structure:
+
+## Required Analysis:
+1. Identify common code patterns and architectural decisions
+2. Extract reusable utilities and shared components
+3. Document existing conventions and coding standards
+4. Assess pattern consistency and identify anti-patterns
+5. Suggest improvements and optimization opportunities
+
+## Output Requirements:
+- Specific file:line references for all findings
+- Code snippets demonstrating identified patterns
+- Clear recommendations for pattern improvements
+- Standards compliance assessment
+
+Focus on actionable insights and concrete implementation guidance.

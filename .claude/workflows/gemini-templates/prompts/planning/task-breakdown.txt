@@ -1,0 +1,16 @@
+Create detailed task breakdown and implementation planning:
+
+## Required Analysis:
+1. Break down complex tasks into manageable subtasks
+2. Identify dependencies and execution sequence requirements
+3. Estimate effort and resource requirements for each task
+4. Map task relationships and critical path analysis
+5. Document risks and mitigation strategies
+
+## Output Requirements:
+- Hierarchical task breakdown with specific deliverables
+- Dependency mapping and execution sequence
+- Effort estimation and resource allocation
+- Risk assessment and mitigation plans
+
+Focus on actionable task planning with clear deliverables and timelines.

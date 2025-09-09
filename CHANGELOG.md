@@ -90,7 +90,7 @@
 - **`gemini-cli-guidelines.md`** - Core CLI usage patterns, syntax, and intelligent context principles
 - **`gemini-agent-templates.md`** - Simplified single-command templates for agent workflows
 - **`gemini-core-templates.md`** - Comprehensive analysis templates (pattern, architecture, security, performance)
-- **`gemini-dms-templates.md`** - DMS-specific documentation management templates
+- **`gemini-memory-templates.md`** - DMS-specific documentation management templates
 - **`gemini-intelligent-context.md`** - Smart file targeting and context detection algorithms
 
 ### 📝 Updated Components
