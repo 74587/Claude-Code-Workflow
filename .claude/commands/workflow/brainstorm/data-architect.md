@@ -10,51 +10,61 @@ examples:
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 
-## 📊 **角色定义: Data Architect**
+## 📊 **Role Overview: Data Architect**
 
-### 核心职责
-- **数据模型设计**: 设计高效、可扩展的数据模型
-- **数据流程设计**: 规划数据采集、处理、存储流程
-- **数据质量管理**: 确保数据准确性、完整性、一致性
-- **分析和洞察**: 设计数据分析和商业智能解决方案
+### Role Definition
+Strategic data professional responsible for designing scalable, efficient data architectures that enable data-driven decision making through robust data models, processing pipelines, and analytics platforms.
 
-### 关注领域
-- **数据建模**: 关系模型、NoSQL、数据仓库、湖仓一体
-- **数据管道**: ETL/ELT流程、实时处理、批处理
-- **数据治理**: 数据质量、安全、隐私、合规
-- **分析平台**: BI工具、机器学习、报表系统
+### Core Responsibilities
+- **Data Model Design**: Create efficient and scalable data models and schemas
+- **Data Flow Design**: Plan data collection, processing, and storage workflows
+- **Data Quality Management**: Ensure data accuracy, completeness, and consistency
+- **Analytics and Insights**: Design data analysis and business intelligence solutions
 
-## 🧠 **分析框架**
+### Focus Areas
+- **Data Modeling**: Relational models, NoSQL, data warehouses, lakehouse architectures
+- **Data Pipelines**: ETL/ELT processes, real-time processing, batch processing
+- **Data Governance**: Data quality, security, privacy, compliance frameworks
+- **Analytics Platforms**: BI tools, machine learning infrastructure, reporting systems
+
+### Success Metrics
+- Data quality and consistency metrics
+- Processing performance and throughput
+- Analytics accuracy and business impact
+- Data governance and compliance adherence
+
+## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
 @~/.claude/workflows/conceptual-planning-agent.md
 
-### 核心分析问题
-1. **数据需求和来源**:
-   - 需要哪些数据来支持业务决策？
-   - 数据来源的可靠性和质量如何？
-   - 实时数据vs历史数据的需求平衡？
+### Key Analysis Questions
 
-2. **数据架构和存储**:
-   - 最适合的数据存储方案是什么？
-   - 如何设计可扩展的数据模型？
-   - 数据分区和索引策略？
+**1. Data Requirements and Sources**
+- What data is needed to support business decisions and analytics?
+- How reliable and high-quality are the available data sources?
+- What is the balance between real-time and historical data needs?
 
-3. **数据处理和流程**:
-   - 数据处理的性能要求？
-   - 如何设计容错的数据管道？
-   - 数据变更和版本控制策略？
+**2. Data Architecture and Storage**
+- What is the most appropriate data storage solution for requirements?
+- How should we design scalable and maintainable data models?
+- What are the optimal data partitioning and indexing strategies?
 
-4. **分析和报告**:
-   - 如何支持不同的分析需求？
-   - 实时仪表板vs定期报告？
-   - 数据可视化和自助分析能力？
+**3. Data Processing and Workflows**
+- What are the performance requirements for data processing?
+- How should we design fault-tolerant and resilient data pipelines?
+- What data versioning and change management strategies are needed?
 
-## ⚙️ **执行协议**
+**4. Analytics and Reporting**
+- How can we support diverse analytical requirements and use cases?
+- What balance between real-time dashboards and periodic reports is optimal?
+- What self-service analytics and data visualization capabilities are needed?
 
-### Phase 1: 会话检测与初始化
+## ⚙️ **Execution Protocol**
+
+### Phase 1: Session Detection & Initialization
 ```bash
-# 自动检测活动会话
+# Detect active workflow session
 CHECK: .workflow/.active-* marker files
 IF active_session EXISTS:
     session_id = get_active_session()
@@ -63,14 +73,14 @@ ELSE:
     request_user_for_session_creation()
 ```
 
-### Phase 2: 目录结构创建
+### Phase 2: Directory Structure Creation
 ```bash
-# 创建数据架构师分析目录
+# Create data architect analysis directory
 mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/data-architect/
 ```
 
-### Phase 3: TodoWrite 初始化
-设置数据架构师视角分析的任务跟踪：
+### Phase 3: Task Tracking Initialization
+Initialize data architect perspective analysis tracking:
 ```json
 [
   {"content": "Initialize data architect brainstorming session", "status": "completed", "activeForm": "Initializing session"},
@@ -83,7 +93,7 @@ mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/data-architect/
 ]
 ```
 
-### Phase 4: 概念规划代理协调
+### Phase 4: Conceptual Planning Agent Coordination
 ```bash
 Task(conceptual-planning-agent): "
 Conduct data architect perspective brainstorming for: {topic}
@@ -98,114 +108,112 @@ USER CONTEXT: {captured_user_requirements_from_session}
 ANALYSIS REQUIREMENTS:
 1. Data Requirements Analysis
    - Identify all data sources (internal, external, third-party)
-   - Analyze data types, volumes, and velocity requirements
-   - Define data freshness and latency requirements
-   - Assess data quality and completeness standards
+   - Define data collection requirements and constraints
+   - Analyze data volume, velocity, and variety characteristics
+   - Map data lineage and dependencies across systems
 
-2. Data Architecture Design
-   - Design logical and physical data models
-   - Plan data storage strategy (relational, NoSQL, data lake, warehouse)
-   - Design data partitioning and sharding strategies
-   - Plan for data archival and retention policies
+2. Data Model and Schema Design
+   - Design logical and physical data models for optimal performance
+   - Plan database schemas, indexes, and partitioning strategies
+   - Design data relationships and referential integrity constraints
+   - Plan for data archival, retention, and lifecycle management
 
-3. Data Pipeline and Processing
-   - Design ETL/ELT processes and data transformation workflows
-   - Plan real-time vs batch processing requirements
-   - Design error handling and data recovery mechanisms
-   - Plan for data lineage and audit trails
+3. Data Pipeline Architecture
+   - Design ETL/ELT processes for data ingestion and transformation
+   - Plan real-time and batch processing workflows
+   - Design error handling, monitoring, and alerting mechanisms
+   - Plan for data pipeline scalability and performance optimization
 
 4. Data Quality and Governance
-   - Design data validation and quality monitoring
-   - Plan data governance framework and policies
-   - Assess privacy and compliance requirements (GDPR, CCPA, etc.)
-   - Design data access controls and security measures
+   - Establish data quality metrics and validation rules
+   - Design data governance policies and procedures
+   - Plan data security, privacy, and compliance frameworks
+   - Create data cataloging and metadata management strategies
 
-5. Analytics and Reporting Infrastructure
-   - Design data warehouse/data mart architecture
-   - Plan business intelligence and reporting solutions
-   - Design self-service analytics capabilities
+5. Analytics and Business Intelligence
+   - Design data warehouse and data mart architectures
+   - Plan for OLAP cubes, reporting, and dashboard requirements
+   - Design self-service analytics and data exploration capabilities
    - Plan for machine learning and advanced analytics integration
 
-6. Performance and Scalability
-   - Analyze current and projected data volumes
-   - Design indexing and query optimization strategies
-   - Plan horizontal and vertical scaling approaches
-   - Design monitoring and alerting for data systems
+6. Performance and Scalability Planning
+   - Analyze current and projected data volumes and growth
+   - Design horizontal and vertical scaling strategies
+   - Plan for high availability and disaster recovery
+   - Optimize query performance and resource utilization
 
 OUTPUT REQUIREMENTS: Save comprehensive analysis to:
 .workflow/WFS-{topic-slug}/.brainstorming/data-architect/
 - analysis.md (main data architecture analysis)
-- data-model.md (detailed data models and schemas)
-- pipeline-design.md (data processing workflows and ETL design)
-- governance-plan.md (data quality, security, and compliance framework)
+- data-model.md (data models, schemas, and relationships)
+- pipeline-design.md (data processing and ETL/ELT workflows)
+- governance-plan.md (data quality, security, and governance)
 
 Apply data architecture expertise to create scalable, reliable, and insightful data solutions."
 ```
 
-## 📊 **输出结构**
+## 📊 **Output Specification**
 
-### 保存位置
+### Output Location
 ```
 .workflow/WFS-{topic-slug}/.brainstorming/data-architect/
-├── analysis.md                 # 主要数据架构分析
-├── data-model.md               # 详细数据模型和架构
-├── pipeline-design.md          # 数据处理工作流和ETL设计
-└── governance-plan.md          # 数据质量、安全和合规框架
+├── analysis.md                 # Primary data architecture analysis
+├── data-model.md               # Data models, schemas, and relationships
+├── pipeline-design.md          # Data processing and ETL/ELT workflows
+└── governance-plan.md          # Data quality, security, and governance
 ```
 
-### 文档模板
+### Document Templates
 
-#### analysis.md 结构
+#### analysis.md Structure
 ```markdown
 # Data Architect Analysis: {Topic}
 *Generated: {timestamp}*
 
 ## Executive Summary
-[核心数据架构发现和建议概述]
+[Key data architecture findings and recommendations overview]
 
-## Current Data Landscape Assessment
+## Current Data Landscape
 ### Existing Data Sources
-### Data Quality Issues
+### Current Data Architecture
+### Data Quality Assessment
 ### Performance Bottlenecks
-### Integration Challenges
 
 ## Data Requirements Analysis
-### Business Data Requirements
+### Business Data Needs
 ### Technical Data Requirements
-- Volume: [预期数据量和增长]
-- Velocity: [数据更新频率]
-- Variety: [数据类型和格式]
-- Veracity: [数据质量要求]
+### Data Volume and Growth Projections
+### Real-time vs Batch Processing Needs
 
 ## Proposed Data Architecture
-### Data Storage Strategy
 ### Data Model Design
-### Integration Architecture
-### Analytics Infrastructure
+### Storage Architecture
+### Processing Pipeline Design
+### Integration Patterns
 
-## Data Pipeline Design
-### Data Ingestion Strategy
-### Processing Workflows
-### Transformation Rules
-### Quality Assurance
-
-## Governance and Compliance
+## Data Quality and Governance
 ### Data Quality Framework
-### Security and Privacy
-### Audit and Lineage
+### Governance Policies
+### Security and Privacy Controls
 ### Compliance Requirements
 
-## Performance and Scalability
-### Optimization Strategies
-### Scaling Plans
-### Monitoring and Alerting
-### Disaster Recovery
+## Analytics and Reporting Strategy
+### Business Intelligence Architecture
+### Self-Service Analytics Design
+### Performance Monitoring
+### Scalability Planning
+
+## Implementation Roadmap
+### Migration Strategy
+### Technology Stack Recommendations
+### Resource Requirements
+### Risk Mitigation Plan
 ```
 
-## 🔄 **会话集成**
+## 🔄 **Session Integration**
 
-### 状态同步
-分析完成后，更新 `workflow-session.json`:
+### Status Synchronization
+Upon completion, update `workflow-session.json`:
 ```json
 {
   "phases": {
@@ -214,40 +222,47 @@ Apply data architecture expertise to create scalable, reliable, and insightful d
         "status": "completed",
         "completed_at": "timestamp",
         "output_directory": ".workflow/WFS-{topic}/.brainstorming/data-architect/",
-        "key_insights": ["data_model_optimization", "pipeline_efficiency", "governance_requirement"]
+        "key_insights": ["data_model_optimization", "pipeline_architecture", "analytics_strategy"]
       }
     }
   }
 }
 ```
 
-### 与其他角色的协作
-数据架构师视角为其他角色提供：
-- **数据能力和限制** → Product Manager
-- **数据存储要求** → System Architect
-- **数据展示能力** → UI Designer
-- **数据安全要求** → Security Expert
-- **功能数据支持** → Feature Planner
+### Cross-Role Collaboration
+Data architect perspective provides:
+- **Data Storage Requirements** → System Architect
+- **Analytics Data Requirements** → Product Manager
+- **Data Visualization Specifications** → UI Designer
+- **Data Security Framework** → Security Expert
+- **Feature Data Requirements** → Feature Planner
 
-## ✅ **质量标准**
+## ✅ **Quality Assurance**
 
-### 必须包含的架构元素
-- [ ] 完整的数据模型设计
-- [ ] 详细的数据流程图
-- [ ] 数据质量保证方案
-- [ ] 可扩展性和性能优化
-- [ ] 合规和安全控制
+### Required Architecture Elements
+- [ ] Comprehensive data model with clear relationships and constraints
+- [ ] Scalable data pipeline design with error handling and monitoring
+- [ ] Data quality framework with validation rules and metrics
+- [ ] Governance plan addressing security, privacy, and compliance
+- [ ] Analytics architecture supporting business intelligence needs
 
-### 数据架构原则检查
-- [ ] 可扩展性：支持数据量和用户增长
-- [ ] 可靠性：具有容错和恢复机制
-- [ ] 可维护性：清晰的数据模型和流程
-- [ ] 安全性：数据保护和访问控制
-- [ ] 高效性：优化的查询和处理性能
+### Data Architecture Principles
+- [ ] **Scalability**: Architecture can handle data volume and velocity growth
+- [ ] **Quality**: Built-in data validation, cleansing, and quality monitoring
+- [ ] **Security**: Data protection, access controls, and privacy compliance
+- [ ] **Performance**: Optimized for query performance and processing efficiency
+- [ ] **Maintainability**: Clear data lineage, documentation, and change management
 
-### 数据质量指标
-- [ ] 数据准确性和完整性标准
-- [ ] 数据一致性检查机制
-- [ ] 数据时效性和新鲜度要求
-- [ ] 数据可追溯性和审计能力
-- [ ] 合规性检查和报告机制
+### Implementation Validation
+- [ ] **Technical Feasibility**: All proposed solutions are technically achievable
+- [ ] **Performance Requirements**: Architecture meets processing and query performance needs
+- [ ] **Cost Effectiveness**: Storage and processing costs are optimized and sustainable
+- [ ] **Governance Compliance**: Meets regulatory and organizational data requirements
+- [ ] **Future Readiness**: Design accommodates anticipated growth and changing needs
+
+### Data Quality Standards
+- [ ] **Accuracy**: Data validation rules ensure correctness and consistency
+- [ ] **Completeness**: Strategies for handling missing data and ensuring coverage
+- [ ] **Timeliness**: Data freshness requirements met through appropriate processing
+- [ ] **Consistency**: Data definitions and formats standardized across systems
+- [ ] **Lineage**: Complete data lineage tracking from source to consumption

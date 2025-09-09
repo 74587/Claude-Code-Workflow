@@ -41,15 +41,15 @@ The bug-fix template provides structured analysis covering:
 ### 📚 **Context Assembly**
 
 Context includes:
-1. **Bug-Fix Template**: `@D:\Claude_dms3\.claude\prompt-templates\bug-fix.md`
-2. **Project Guidelines**: `@{CLAUDE.md,**/*CLAUDE.md}`
+1. **Bug-Fix Template**: @~/.claude/prompt-templates/bug-fix.md
+2. **Project Guidelines**: @{CLAUDE.md,**/*CLAUDE.md}
 3. **Relevant Files**: User-specified files or all files if `--all-files` used
 
 ### 📝 **Prompt Structure**
 
 ```
 === SYSTEM PROMPT ===
-@D:\Claude_dms3\.claude\prompt-templates\bug-fix.md
+@~/.claude/prompt-templates/bug-fix.md
 
 === CONTEXT ===
 @{CLAUDE.md,**/*CLAUDE.md}
@@ -64,7 +64,7 @@ Context includes:
 ```pseudo
 FUNCTION execute_bug_fix_analysis(bug_description, flags):
   // Load bug-fix template
-  template = load_file("D:\Claude_dms3\.claude\prompt-templates\bug-fix.md")
+  template = load_file(@~/.claude/prompt-templates/bug-fix.md)
   
   // Construct prompt with template
   prompt = "=== SYSTEM PROMPT ===\n" + template + "\n\n"

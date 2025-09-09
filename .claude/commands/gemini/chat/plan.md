@@ -41,15 +41,15 @@ The planning template provides structured analysis covering:
 ### 📚 **Context Assembly**
 
 Context includes:
-1. **Planning Template**: `@D:\Claude_dms3\.claude\prompt-templates\plan.md`
-2. **Project Guidelines**: `@{CLAUDE.md,**/*CLAUDE.md}`
+1. **Planning Template**: @~/.claude/prompt-templates/plan.md
+2. **Project Guidelines**: @{CLAUDE.md,**/*CLAUDE.md}
 3. **Relevant Files**: User-specified files or all files if `--all-files` used
 
 ### 📝 **Prompt Structure**
 
 ```
 === SYSTEM PROMPT ===
-@D:\Claude_dms3\.claude\prompt-templates\plan.md
+@~/.claude/prompt-templates/plan.md
 
 === CONTEXT ===
 @{CLAUDE.md,**/*CLAUDE.md}
@@ -64,7 +64,7 @@ Context includes:
 ```pseudo
 FUNCTION execute_planning_analysis(planning_topic, flags):
   // Load planning template
-  template = load_file("D:\Claude_dms3\.claude\prompt-templates\plan.md")
+  template = load_file(@~/.claude/prompt-templates/plan.md)
   
   // Construct prompt with template
   prompt = "=== SYSTEM PROMPT ===\n" + template + "\n\n"

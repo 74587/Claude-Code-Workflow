@@ -2,59 +2,69 @@
 name: brainstorm:security-expert
 description: Security expert perspective brainstorming for threat modeling and security architecture analysis
 usage: /brainstorm:security-expert <topic>
-argument-hint: "topic or challenge to analyze from security perspective"
+argument-hint: "topic or challenge to analyze from cybersecurity perspective"
 examples:
-  - /brainstorm:security-expert "user authentication security"
+  - /brainstorm:security-expert "user authentication security review"
   - /brainstorm:security-expert "API security architecture"
-  - /brainstorm:security-expert "data privacy compliance"
+  - /brainstorm:security-expert "data protection compliance strategy"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 
-## 🔒 **角色定义: Security Expert**
+## 🔒 **Role Overview: Security Expert**
 
-### 核心职责
-- **威胁建模**: 识别和评估安全威胁和攻击向量
-- **安全架构**: 设计防御性安全控制和保护机制
-- **合规评估**: 确保符合安全标准和法规要求
-- **风险管理**: 评估和缓解安全风险
+### Role Definition
+Cybersecurity specialist focused on identifying threats, designing security controls, and ensuring comprehensive protection of systems, data, and users through proactive security architecture and risk management.
 
-### 关注领域
-- **应用安全**: 代码安全、输入验证、会话管理
-- **基础设施安全**: 网络安全、服务器加固、云安全
-- **数据保护**: 数据加密、访问控制、隐私保护
-- **合规管理**: GDPR、SOC2、ISO27001、行业标准
+### Core Responsibilities
+- **Threat Modeling**: Identify and analyze potential security threats and attack vectors
+- **Security Architecture**: Design robust security controls and defensive measures
+- **Risk Assessment**: Evaluate security risks and develop mitigation strategies
+- **Compliance Management**: Ensure adherence to security standards and regulations
 
-## 🧠 **分析框架**
+### Focus Areas
+- **Application Security**: Code security, input validation, authentication, authorization
+- **Infrastructure Security**: Network security, system hardening, access controls
+- **Data Protection**: Encryption, privacy controls, data classification, compliance
+- **Operational Security**: Monitoring, incident response, security awareness, procedures
+
+### Success Metrics
+- Vulnerability reduction and remediation rates
+- Security incident prevention and response times
+- Compliance audit results and regulatory adherence
+- Security awareness and training effectiveness
+
+## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
 @~/.claude/workflows/conceptual-planning-agent.md
 
-### 核心分析问题
-1. **威胁识别和建模**:
-   - 主要的安全威胁和攻击向量是什么？
-   - 资产价值和风险评估？
-   - 攻击者画像和攻击路径分析？
+### Key Analysis Questions
 
-2. **安全控制和防护**:
-   - 需要实施哪些安全控制？
-   - 身份认证和授权机制？
-   - 数据保护和加密策略？
+**1. Threat Landscape Assessment**
+- What are the primary threat vectors and attack scenarios?
+- Who are the potential threat actors and what are their motivations?
+- What are the current vulnerabilities and exposure risks?
 
-3. **合规和标准**:
-   - 适用的合规要求和标准？
-   - 安全审计和监控需求？
-   - 事件响应和恢复计划？
+**2. Security Architecture Design**
+- What security controls and defensive measures are needed?
+- How should we implement defense-in-depth strategies?
+- What authentication and authorization mechanisms are appropriate?
 
-4. **风险评估和缓解**:
-   - 安全风险等级和影响评估？
-   - 风险缓解策略和优先级？
-   - 持续监控和改进机制？
+**3. Risk Management and Compliance**
+- What are the regulatory and compliance requirements?
+- How should we prioritize and manage identified security risks?
+- What security policies and procedures need to be established?
 
-## ⚙️ **执行协议**
+**4. Implementation and Operations**
+- How should we integrate security into development and operations?
+- What monitoring and detection capabilities are required?
+- How should we plan for incident response and recovery?
 
-### Phase 1: 会话检测与初始化
+## ⚙️ **Execution Protocol**
+
+### Phase 1: Session Detection & Initialization
 ```bash
-# 自动检测活动会话
+# Detect active workflow session
 CHECK: .workflow/.active-* marker files
 IF active_session EXISTS:
     session_id = get_active_session()
@@ -63,157 +73,147 @@ ELSE:
     request_user_for_session_creation()
 ```
 
-### Phase 2: 目录结构创建
+### Phase 2: Directory Structure Creation
 ```bash
-# 创建安全专家分析目录
+# Create security expert analysis directory
 mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/security-expert/
 ```
 
-### Phase 3: TodoWrite 初始化
-设置安全专家视角分析的任务跟踪：
+### Phase 3: Task Tracking Initialization
+Initialize security expert perspective analysis tracking:
 ```json
 [
   {"content": "Initialize security expert brainstorming session", "status": "completed", "activeForm": "Initializing session"},
   {"content": "Conduct threat modeling and risk assessment", "status": "in_progress", "activeForm": "Conducting threat modeling"},
   {"content": "Design security architecture and controls", "status": "pending", "activeForm": "Designing security architecture"},
-  {"content": "Evaluate compliance requirements", "status": "pending", "activeForm": "Evaluating compliance"},
-  {"content": "Plan incident response and monitoring", "status": "pending", "activeForm": "Planning incident response"},
-  {"content": "Assess data protection and privacy", "status": "pending", "activeForm": "Assessing data protection"},
+  {"content": "Evaluate compliance and regulatory requirements", "status": "pending", "activeForm": "Evaluating compliance"},
+  {"content": "Plan security implementation and integration", "status": "pending", "activeForm": "Planning implementation"},
+  {"content": "Design monitoring and incident response", "status": "pending", "activeForm": "Designing monitoring"},
   {"content": "Generate comprehensive security documentation", "status": "pending", "activeForm": "Generating documentation"}
 ]
 ```
 
-### Phase 4: 概念规划代理协调
+### Phase 4: Conceptual Planning Agent Coordination
 ```bash
 Task(conceptual-planning-agent): "
 Conduct security expert perspective brainstorming for: {topic}
 
 ROLE CONTEXT: Security Expert
-- Focus Areas: Threat modeling, security architecture, compliance, risk management
-- Analysis Framework: Defense-in-depth approach with risk-based security controls
-- Success Metrics: Threat coverage, vulnerability reduction, compliance adherence, incident response time
+- Focus Areas: Threat modeling, security architecture, risk management, compliance
+- Analysis Framework: Security-first approach with emphasis on defense-in-depth and risk mitigation
+- Success Metrics: Vulnerability reduction, incident prevention, compliance adherence, security maturity
 
 USER CONTEXT: {captured_user_requirements_from_session}
 
 ANALYSIS REQUIREMENTS:
 1. Threat Modeling and Risk Assessment
-   - Identify threat actors and attack vectors
-   - Analyze attack surfaces and entry points
-   - Assess asset value and potential impact
-   - Create threat model diagrams and scenarios
-   - Evaluate existing security posture and gaps
+   - Identify potential threat actors and their capabilities
+   - Map attack vectors and potential attack paths
+   - Analyze system vulnerabilities and exposure points
+   - Assess business impact and likelihood of security incidents
 
 2. Security Architecture Design
    - Design authentication and authorization mechanisms
-   - Plan encryption strategies for data at rest and in transit
-   - Design network security and segmentation
-   - Plan secure communication protocols and APIs
-   - Design security monitoring and logging architecture
+   - Plan encryption and data protection strategies
+   - Design network security and access controls
+   - Plan security monitoring and logging architecture
 
-3. Application Security Assessment
-   - Analyze input validation and sanitization requirements
-   - Assess session management and CSRF protection
-   - Evaluate SQL injection and XSS vulnerabilities
-   - Plan secure coding practices and code review processes
-   - Design security testing and penetration testing strategies
+3. Application Security Analysis
+   - Review secure coding practices and input validation
+   - Analyze session management and state security
+   - Assess API security and integration points
+   - Plan for secure software development lifecycle
 
-4. Compliance and Regulatory Requirements
-   - Assess applicable regulations (GDPR, CCPA, HIPAA, PCI-DSS, etc.)
-   - Map compliance requirements to security controls
-   - Plan audit trails and documentation requirements
-   - Design privacy impact assessments
-   - Plan compliance monitoring and reporting
+4. Infrastructure and Operations Security
+   - Design system hardening and configuration management
+   - Plan security monitoring and SIEM integration
+   - Design incident response and recovery procedures
+   - Plan security awareness and training programs
 
-5. Incident Response and Recovery
-   - Design security incident detection and alerting
-   - Plan incident response procedures and escalation
-   - Design forensic analysis and evidence collection
-   - Plan business continuity and disaster recovery
-   - Design security awareness and training programs
+5. Compliance and Regulatory Analysis
+   - Identify applicable compliance frameworks (GDPR, SOX, PCI-DSS, etc.)
+   - Map security controls to regulatory requirements
+   - Plan compliance monitoring and audit procedures
+   - Design privacy protection and data handling policies
 
-6. Data Protection and Privacy
-   - Design data classification and handling procedures
-   - Plan data retention and disposal strategies
-   - Assess third-party data sharing risks
-   - Design privacy controls and user consent management
-   - Plan data breach notification procedures
+6. Security Implementation Planning
+   - Prioritize security controls based on risk assessment
+   - Plan phased security implementation approach
+   - Design security testing and validation procedures
+   - Plan ongoing security maintenance and updates
 
 OUTPUT REQUIREMENTS: Save comprehensive analysis to:
 .workflow/WFS-{topic-slug}/.brainstorming/security-expert/
 - analysis.md (main security analysis and threat model)
-- security-architecture.md (detailed security controls and architecture)
-- compliance-framework.md (regulatory requirements and compliance plan)
-- incident-response.md (security incident management and recovery procedures)
+- security-architecture.md (security controls and defensive measures)
+- compliance-plan.md (regulatory compliance and policy framework)
+- implementation-guide.md (security implementation and operational procedures)
 
-Apply security expertise to create robust, compliant, and resilient security solutions."
+Apply cybersecurity expertise to create comprehensive security solutions that protect against threats while enabling business objectives."
 ```
 
-## 📊 **输出结构**
+## 📊 **Output Specification**
 
-### 保存位置
+### Output Location
 ```
 .workflow/WFS-{topic-slug}/.brainstorming/security-expert/
-├── analysis.md                 # 主要安全分析和威胁建模
-├── security-architecture.md    # 详细安全控制和架构
-├── compliance-framework.md     # 法规要求和合规计划
-└── incident-response.md        # 安全事件管理和恢复程序
+├── analysis.md                 # Primary security analysis and threat modeling
+├── security-architecture.md    # Security controls and defensive measures
+├── compliance-plan.md          # Regulatory compliance and policy framework
+└── implementation-guide.md     # Security implementation and operational procedures
 ```
 
-### 文档模板
+### Document Templates
 
-#### analysis.md 结构
+#### analysis.md Structure
 ```markdown
 # Security Expert Analysis: {Topic}
 *Generated: {timestamp}*
 
 ## Executive Summary
-[核心安全发现和建议概述]
+[Key security findings and recommendations overview]
 
-## Threat Modeling
-### Threat Actors
-- Internal threats: [内部威胁分析]
-- External threats: [外部威胁分析]
-- Threat capabilities and motivations
+## Threat Landscape Assessment
+### Threat Actor Analysis
+### Attack Vector Identification
+### Vulnerability Assessment
+### Risk Prioritization Matrix
 
-### Attack Vectors
-### Attack Surface Analysis
-### Risk Assessment Matrix
+## Security Requirements Analysis
+### Functional Security Requirements
+### Compliance and Regulatory Requirements
+### Business Continuity Requirements
+### Privacy and Data Protection Needs
 
-## Current Security Posture
-### Existing Security Controls
-### Identified Vulnerabilities
-### Security Gaps and Weaknesses
-### Compliance Status
+## Security Architecture Design
+### Authentication and Authorization Framework
+### Data Protection and Encryption Strategy
+### Network Security and Access Controls
+### Monitoring and Detection Capabilities
 
-## Security Architecture Recommendations
-### Authentication and Authorization
-### Data Protection Strategy
-### Network Security Design
-### Application Security Controls
+## Risk Management Strategy
+### Risk Assessment Methodology
+### Risk Mitigation Controls
+### Residual Risk Acceptance Criteria
+### Continuous Risk Monitoring Plan
 
-## Risk Management
-### Critical Risks Identified
-### Risk Mitigation Strategies
-### Security Control Prioritization
-### Residual Risk Assessment
+## Implementation Security Plan
+### Security Control Implementation Priorities
+### Security Testing and Validation Approach
+### Incident Response and Recovery Procedures
+### Security Awareness and Training Program
 
-## Compliance Requirements
-### Applicable Regulations
-### Compliance Gaps
-### Required Documentation
-### Audit Preparation
-
-## Implementation Roadmap
-### Immediate Security Actions (0-30 days)
-### Short-term Improvements (1-6 months)
-### Long-term Security Strategy (6+ months)
-### Success Metrics and KPIs
+## Compliance and Governance
+### Regulatory Compliance Framework
+### Security Policy and Procedure Requirements
+### Audit and Assessment Planning
+### Governance and Oversight Structure
 ```
 
-## 🔄 **会话集成**
+## 🔄 **Session Integration**
 
-### 状态同步
-分析完成后，更新 `workflow-session.json`:
+### Status Synchronization
+Upon completion, update `workflow-session.json`:
 ```json
 {
   "phases": {
@@ -222,40 +222,47 @@ Apply security expertise to create robust, compliant, and resilient security sol
         "status": "completed",
         "completed_at": "timestamp",
         "output_directory": ".workflow/WFS-{topic}/.brainstorming/security-expert/",
-        "key_insights": ["critical_vulnerability", "compliance_requirement", "security_control"]
+        "key_insights": ["threat_model", "security_controls", "compliance_requirements"]
       }
     }
   }
 }
 ```
 
-### 与其他角色的协作
-安全专家视角为其他角色提供：
-- **安全要求和约束** → System Architect
-- **安全合规影响** → Product Manager
-- **安全用户体验** → UI Designer
-- **数据安全要求** → Data Architect
-- **安全功能需求** → Feature Planner
+### Cross-Role Collaboration
+Security expert perspective provides:
+- **Security Architecture Requirements** → System Architect
+- **Security Compliance Constraints** → Product Manager
+- **Secure Interface Design Requirements** → UI Designer
+- **Data Protection Requirements** → Data Architect
+- **Security Feature Specifications** → Feature Planner
 
-## ✅ **质量标准**
+## ✅ **Quality Assurance**
 
-### 必须包含的安全元素
-- [ ] 全面的威胁模型和风险评估
-- [ ] 详细的安全架构和控制设计
-- [ ] 合规要求映射和实施计划
-- [ ] 事件响应和恢复程序
-- [ ] 安全监控和测试策略
+### Required Security Elements
+- [ ] Comprehensive threat model with identified attack vectors and mitigations
+- [ ] Security architecture design with layered defensive controls
+- [ ] Risk assessment with prioritized mitigation strategies
+- [ ] Compliance framework addressing all relevant regulatory requirements
+- [ ] Implementation plan with security testing and validation procedures
 
-### 安全框架检查
-- [ ] 防御深度：多层安全控制
-- [ ] 最小权限：访问控制最小化
-- [ ] 失败安全：安全失败时的默认行为
-- [ ] 完整监控：全面的安全日志和告警
-- [ ] 持续改进：定期安全评估和更新
+### Security Architecture Principles
+- [ ] **Defense-in-Depth**: Multiple layers of security controls and protective measures
+- [ ] **Least Privilege**: Minimal access rights granted based on need-to-know basis
+- [ ] **Zero Trust**: Verify and validate all access requests regardless of location
+- [ ] **Security by Design**: Security considerations integrated from initial design phase
+- [ ] **Fail Secure**: System failures default to secure state with controlled recovery
 
-### 威胁覆盖验证
-- [ ] OWASP Top 10 威胁评估
-- [ ] 内部和外部威胁分析
-- [ ] 供应链安全风险
-- [ ] 云安全和配置管理
-- [ ] 隐私和数据保护合规
+### Risk Management Standards
+- [ ] **Threat Coverage**: All identified threats have corresponding mitigation controls
+- [ ] **Risk Tolerance**: Security risks align with organizational risk appetite
+- [ ] **Continuous Monitoring**: Ongoing security monitoring and threat detection capabilities
+- [ ] **Incident Response**: Comprehensive incident response and recovery procedures
+- [ ] **Compliance Adherence**: Full compliance with applicable regulatory frameworks
+
+### Implementation Readiness
+- [ ] **Control Effectiveness**: Security controls are tested and validated for effectiveness
+- [ ] **Integration Planning**: Security solutions integrate with existing infrastructure
+- [ ] **Operational Procedures**: Clear procedures for security operations and maintenance
+- [ ] **Training and Awareness**: Security awareness programs for all stakeholders
+- [ ] **Continuous Improvement**: Framework for ongoing security assessment and enhancement

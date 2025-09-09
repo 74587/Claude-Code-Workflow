@@ -8,30 +8,33 @@ examples:
 allowed-tools: Read(*), Write(*), TodoWrite(*), Glob(*)
 ---
 
-## 🧩 **命令定义: Brainstorm Synthesis**
+## 🧩 **Command Overview: Brainstorm Synthesis**
 
-### 核心功能
-- **跨角色综合**: 整合所有角色的头脑风暴分析结果
-- **洞察提炼**: 识别共识点、分歧点和创新机会
-- **决策支持**: 生成优先级建议和行动计划
-- **报告生成**: 创建综合性的头脑风暴总结报告
+### Core Function
+Cross-role integration command that synthesizes all brainstorming role perspectives into comprehensive strategic analysis, actionable recommendations, and prioritized implementation roadmaps.
 
-### 分析范围
-- **产品管理**: 用户需求、商业价值、市场机会
-- **技术架构**: 系统设计、技术选型、实施可行性
-- **用户体验**: 界面设计、可用性、可访问性
-- **数据架构**: 数据模型、处理流程、分析能力
-- **安全专家**: 威胁评估、安全控制、合规要求
-- **用户研究**: 行为洞察、需求验证、体验优化
-- **业务分析**: 流程优化、成本效益、变更管理
-- **创新领导**: 技术趋势、创新机会、未来规划
-- **功能规划**: 开发计划、质量保证、交付管理
+### Primary Capabilities
+- **Cross-Role Integration**: Consolidate analysis results from all brainstorming role perspectives
+- **Insight Synthesis**: Identify consensus areas, disagreement points, and breakthrough opportunities
+- **Decision Support**: Generate prioritized recommendations and strategic action plans
+- **Comprehensive Reporting**: Create integrated brainstorming summary reports with implementation guidance
 
-## ⚙️ **执行协议**
+### Analysis Scope Coverage
+- **Product Management**: User needs, business value, market opportunities
+- **System Architecture**: Technical design, technology selection, implementation feasibility
+- **User Experience**: Interface design, usability, accessibility standards
+- **Data Architecture**: Data models, processing workflows, analytics capabilities
+- **Security Expert**: Threat assessment, security controls, compliance requirements
+- **User Research**: Behavioral insights, needs validation, experience optimization
+- **Business Analysis**: Process optimization, cost-benefit analysis, change management
+- **Innovation Leadership**: Technology trends, innovation opportunities, future planning
+- **Feature Planning**: Development planning, quality assurance, delivery management
 
-### Phase 1: 会话检测与数据收集
+## ⚙️ **Execution Protocol**
+
+### Phase 1: Session Detection & Data Collection
 ```bash
-# 自动检测活动会话
+# Detect active brainstorming session
 CHECK: .workflow/.active-* marker files
 IF active_session EXISTS:
     session_id = get_active_session()
@@ -41,9 +44,9 @@ ELSE:
     EXIT
 ```
 
-### Phase 2: 角色输出扫描
+### Phase 2: Role Output Scanning
 ```bash
-# 扫描所有角色的头脑风暴输出
+# Scan all role brainstorming outputs
 SCAN_DIRECTORY: .workflow/WFS-{session}/.brainstorming/
 COLLECT_OUTPUTS: [
     product-manager/analysis.md,
@@ -58,11 +61,11 @@ COLLECT_OUTPUTS: [
 ]
 ```
 
-### Phase 3: TodoWrite 初始化
-设置综合分析任务跟踪：
+### Phase 3: Task Tracking Initialization
+Initialize synthesis analysis task tracking:
 ```json
 [
-  {"content": "Initialize synthesis brainstorming session", "status": "completed", "activeForm": "Initializing synthesis"},
+  {"content": "Initialize brainstorming synthesis session", "status": "completed", "activeForm": "Initializing synthesis"},
   {"content": "Collect and analyze all role perspectives", "status": "in_progress", "activeForm": "Collecting role analyses"},
   {"content": "Identify cross-role insights and patterns", "status": "pending", "activeForm": "Identifying insights"},
   {"content": "Generate consensus and disagreement analysis", "status": "pending", "activeForm": "Analyzing consensus"},
@@ -72,9 +75,9 @@ COLLECT_OUTPUTS: [
 ]
 ```
 
-### Phase 4: 综合分析执行
+### Phase 4: Cross-Role Analysis Execution
 
-#### 4.1 数据收集和预处理
+#### 4.1 Data Collection and Preprocessing
 ```pseudo
 FOR each role_directory in brainstorming_roles:
     IF role_directory exists:
@@ -87,27 +90,27 @@ FOR each role_directory in brainstorming_roles:
 END FOR
 ```
 
-#### 4.2 跨角色洞察分析
+#### 4.2 Cross-Role Insight Analysis
 ```pseudo
-# 共识点识别
+# Consensus identification
 consensus_areas = identify_common_themes(role_insights)
 agreement_matrix = create_agreement_matrix(role_recommendations)
 
-# 分歧点分析  
+# Disagreement analysis
 disagreement_areas = identify_conflicting_views(role_insights)
 tension_points = analyze_role_conflicts(role_recommendations)
 
-# 创新机会提取
+# Innovation opportunity extraction
 innovation_opportunities = extract_breakthrough_ideas(role_insights)
 synergy_opportunities = identify_cross_role_synergies(role_insights)
 ```
 
-#### 4.3 优先级和决策矩阵生成
+#### 4.3 Priority and Decision Matrix Generation
 ```pseudo
-# 创建综合评估矩阵
+# Create comprehensive evaluation matrix
 FOR each recommendation:
     impact_score = calculate_business_impact(recommendation, role_insights)
-    feasibility_score = calculate_technical_feasibility(recommendation, role_insights)  
+    feasibility_score = calculate_technical_feasibility(recommendation, role_insights)
     effort_score = calculate_implementation_effort(recommendation, role_insights)
     risk_score = calculate_associated_risks(recommendation, role_insights)
     
@@ -117,21 +120,21 @@ END FOR
 SORT recommendations BY priority_score DESC
 ```
 
-## 📊 **输出结构**
+## 📊 **Output Specification**
 
-### 保存位置
+### Output Location
 ```
 .workflow/WFS-{topic-slug}/.brainstorming/
-├── synthesis-report.md          # 综合分析报告
-├── recommendations-matrix.md    # 优先级推荐矩阵
-├── action-plan.md              # 实施行动计划
-├── consensus-analysis.md       # 共识和分歧分析
-└── brainstorm-summary.json     # 机器可读的综合数据
+├── synthesis-report.md          # Comprehensive synthesis analysis report
+├── recommendations-matrix.md    # Priority recommendation matrix
+├── action-plan.md              # Implementation action plan
+├── consensus-analysis.md       # Consensus and disagreement analysis
+└── brainstorm-summary.json     # Machine-readable synthesis data
 ```
 
-### 核心输出文档
+### Core Output Documents
 
-#### synthesis-report.md 结构
+#### synthesis-report.md Structure
 ```markdown
 # Brainstorming Synthesis Report: {Topic}
 *Generated: {timestamp} | Session: WFS-{topic-slug}*
@@ -169,7 +172,7 @@ SORT recommendations BY priority_score DESC
    - Innovation potential: {potential_assessment}
 
 2. **{breakthrough_idea_2}**
-   - Origin: {source_role}  
+   - Origin: {source_role}
    - Cross-role support: {supporting_roles}
    - Innovation potential: {potential_assessment}
 
@@ -238,7 +241,7 @@ SORT recommendations BY priority_score DESC
 
 ## Next Steps and Follow-up
 ### Immediate Actions Required
-### Decision Points Needing Resolution  
+### Decision Points Needing Resolution
 ### Continuous Monitoring Requirements
 ### Future Brainstorming Sessions Recommended
 
@@ -246,10 +249,10 @@ SORT recommendations BY priority_score DESC
 *This synthesis integrates insights from {role_count} perspectives to provide comprehensive strategic guidance.*
 ```
 
-## 🔄 **会话集成**
+## 🔄 **Session Integration**
 
-### 状态同步
-综合分析完成后，更新 `workflow-session.json`:
+### Status Synchronization
+Upon completion, update `workflow-session.json`:
 ```json
 {
   "phases": {
@@ -275,25 +278,32 @@ SORT recommendations BY priority_score DESC
 }
 ```
 
-## ✅ **质量标准**
+## ✅ **Quality Assurance**
 
-### 必须包含的综合元素
-- [ ] 所有可用角色分析的整合
-- [ ] 明确的共识和分歧识别
-- [ ] 量化的优先级推荐矩阵
-- [ ] 可执行的实施计划
-- [ ] 全面的风险评估和缓解
+### Required Synthesis Elements
+- [ ] Integration of all available role analyses with comprehensive coverage
+- [ ] Clear identification of consensus areas and disagreement points
+- [ ] Quantified priority recommendation matrix with evaluation criteria
+- [ ] Actionable implementation plan with phased approach
+- [ ] Comprehensive risk assessment with mitigation strategies
 
-### 综合分析质量检查
-- [ ] **完整性**: 整合所有可用的角色分析
-- [ ] **洞察力**: 识别跨角色的深层次模式
-- [ ] **可操作性**: 提供具体可执行的建议
-- [ ] **平衡性**: 考虑所有角色的观点和关切
-- [ ] **前瞻性**: 包含长期战略和创新考量
+### Synthesis Analysis Quality Standards
+- [ ] **Completeness**: Integrates all available role analyses without gaps
+- [ ] **Insight Generation**: Identifies cross-role patterns and deep insights
+- [ ] **Actionability**: Provides specific, executable recommendations and next steps
+- [ ] **Balance**: Considers all role perspectives and addresses concerns
+- [ ] **Forward-Looking**: Includes long-term strategic and innovation considerations
 
-### 输出验证标准
-- [ ] 推荐优先级基于多维度评估
-- [ ] 实施计划考虑资源和时间约束  
-- [ ] 风险评估全面且有缓解策略
-- [ ] 成功指标明确可测量
-- [ ] 后续行动清晰具体
+### Output Validation Criteria
+- [ ] **Priority-Based**: Recommendations prioritized using multi-dimensional evaluation
+- [ ] **Resource-Aware**: Implementation plans consider resource and time constraints
+- [ ] **Risk-Managed**: Comprehensive risk assessment with mitigation strategies
+- [ ] **Measurable Success**: Clear success metrics and monitoring frameworks
+- [ ] **Clear Actions**: Specific next steps with assigned responsibilities and timelines
+
+### Integration Excellence Standards
+- [ ] **Cross-Role Synthesis**: Successfully identifies and resolves role perspective conflicts
+- [ ] **Strategic Coherence**: Recommendations form coherent strategic direction
+- [ ] **Implementation Readiness**: Plans are detailed enough for immediate execution
+- [ ] **Stakeholder Alignment**: Addresses needs and concerns of all key stakeholders
+- [ ] **Continuous Improvement**: Establishes framework for ongoing optimization and learning
