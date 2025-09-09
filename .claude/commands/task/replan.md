@@ -15,7 +15,7 @@ examples:
 Replans individual tasks based on detailed user input with comprehensive change tracking, version management, and document synchronization. Focuses exclusively on single-task modifications with rich input options.
 
 ## Core Principles
-**Task Management:** @~/.claude/workflows/data-model.md
+**Task Management:** @~/.claude/workflows/workflow-architecture.md
 
 ## Single-Task Focus
 This command operates on **individual tasks only**. For workflow-wide changes, use `/workflow:action-plan` instead.

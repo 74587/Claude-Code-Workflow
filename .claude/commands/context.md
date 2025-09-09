@@ -16,7 +16,7 @@ examples:
 Generates on-demand views from JSON task data. No synchronization needed - all views are calculated from the current state of JSON files.
 
 ## Core Principles
-**Data Source:** @~/.claude/workflows/data-model.md
+**Data Source:** @~/.claude/workflows/workflow-architecture.md
 
 ## Key Features
 

@@ -15,7 +15,7 @@ examples:
 Creates new implementation tasks during IMPLEMENT phase with automatic context awareness and ID generation.
 
 ## Core Principles
-**Task Management:** @~/.claude/workflows/data-model.md
+**Task Management:** @~/.claude/workflows/workflow-architecture.md
 
 ## Features
 

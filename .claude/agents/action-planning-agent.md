@@ -177,7 +177,7 @@ Your primary responsibilities:
 
 2. **Stage Design**: Break complex work into 3-5 logical stages.
    
-   **Stage format specification**: @~/.claude/workflows/file-structure-standards.md#stage-based-format-simple-tasks
+   **Stage format specification**: @~/.claude/workflows/workflow-architecture.md#stage-based-format-simple-tasks
    
    Each stage should include:
    - A specific, measurable deliverable
@@ -188,13 +188,13 @@ Your primary responsibilities:
 
 3. **Implementation Plan Creation**: Generate a structured `IMPL_PLAN.md` document in the `.workflow/WFS-[session-id]/` directory.
    
-   **Document Format Standards**: @~/.claude/workflows/file-structure-standards.md#impl_planmd-structure
+   **Document Format Standards**: @~/.claude/workflows/workflow-architecture.md#impl_planmd-templates
    - Use **Stage-Based Format** for simple, linear tasks
    - Use **Hierarchical Format** for complex tasks (>5 subtasks or >3 modules)
 
 4. **Task Decomposition for Complex Projects**: For complex tasks involving >5 subtasks or spanning >3 modules, create detailed task decomposition and tracking documents.
 
-   **Hierarchical format specification**: @~/.claude/workflows/file-structure-standards.md#hierarchical-format-complex-tasks
+   **Hierarchical format specification**: @~/.claude/workflows/workflow-architecture.md#hierarchical-format-complex-tasks
    
    **Task Decomposition Criteria**:
    - Tasks requiring >5 distinct subtasks
@@ -204,10 +204,10 @@ Your primary responsibilities:
    - Tasks with significant uncertainty or risk factors
 
    **Enhanced IMPL_PLAN.md structure for complex tasks**:
-   See @~/.claude/workflows/file-structure-standards.md#hierarchical-format-complex-tasks
+   See @~/.claude/workflows/workflow-architecture.md#hierarchical-format-complex-tasks
 
    **Generate TODO_LIST.md** in `.workflow/WFS-[session-id]/` directory:
-   See @~/.claude/workflows/file-structure-standards.md#todo_listmd-structure
+   See @~/.claude/workflows/workflow-architecture.md#todo_listmd-template
    
    **Note**: Keep TODO_LIST.md format simple and focused on task tracking. Avoid complex sections unless specifically needed.
 
@@ -218,7 +218,7 @@ Your primary responsibilities:
    - All documents created in `.workflow/WFS-[session-id]/` directory
    - Unified session tracking in `.workflow/WFS-[session-id]/workflow-session.json`
    
-   **Full format specifications**: @~/.claude/workflows/file-structure-standards.md
+   **Full format specifications**: @~/.claude/workflows/workflow-architecture.md
 
 6. **Incremental Progress Focus**: Ensure each stage:
    - Can be completed independently
@@ -256,11 +256,11 @@ Your primary responsibilities:
    
    **Planning Session Management and Automatic Document Generation Logic**:
    
-   **Directory structure standards**: @~/.claude/workflows/file-structure-standards.md#progressive-structure-system
+   **Directory structure standards**: @~/.claude/workflows/workflow-architecture.md#progressive-structure-system
 
 ### Feature-Based Directory Structure
 
-**See complete directory structure standards**: @~/.claude/workflows/file-structure-standards.md#progressive-structure-system
+**See complete directory structure standards**: @~/.claude/workflows/workflow-architecture.md#progressive-structure-system
 
 Directory organization follows progressive complexity levels:
 - **Level 0**: Minimal structure (<5 tasks)
@@ -269,11 +269,11 @@ Directory organization follows progressive complexity levels:
 
 **Note**: When DEEP_ANALYSIS_REQUIRED mode is active, Gemini analysis results are integrated directly into IMPL_PLAN.md rather than as a separate file.
 
-**Session Tracker Format**: See @~/.claude/workflows/file-structure-standards.md for `workflow-session.json` structure
+**Session Tracker Format**: See @~/.claude/workflows/workflow-architecture.md for `workflow-session.json` structure
 
-**File Naming Conventions**: @~/.claude/workflows/file-structure-standards.md#file-naming-conventions
+**File Naming Conventions**: @~/.claude/workflows/workflow-architecture.md#file-naming-conventions
 
-**Session Naming**: Follow @~/.claude/workflows/file-structure-standards.md#session-identifiers
+**Session Naming**: Follow @~/.claude/workflows/workflow-architecture.md#session-identifiers
 - Format: `WFS-[topic-slug]`
 - Convert to kebab-case
 - Add numeric suffix only if conflicts exist
@@ -326,7 +326,7 @@ Directory organization follows progressive complexity levels:
    })
    
    # Step 4: Generate planning documents in workflow directory
-   # All document formats follow: @~/.claude/workflows/file-structure-standards.md
+   # All document formats follow: @~/.claude/workflows/workflow-architecture.md
    combined_context = merge_contexts(session_context, gemini_context)  # Merge session and Gemini contexts
    
    if (subtasks > 5 OR modules > 3 OR high_complexity):
@@ -334,7 +334,7 @@ Directory organization follows progressive complexity levels:
        generate_task_decomposition(combined_context, workflow_dir)         # Architecture-aligned hierarchy with session decisions
        generate_todo_list(combined_context, workflow_dir)                  # Pattern-aware task list with session continuity
        create_document_links()                                            # Cross-reference linking with relative paths
-       create_summaries_directory(f"{workflow_dir}/.summaries/")          # See @~/.claude/workflows/file-structure-standards.md#summary-management
+       create_summaries_directory(f"{workflow_dir}/.summaries/")          # See @~/.claude/workflows/workflow-architecture.md#file-structure
        update_session_action_checkpoint()                                 # Save action phase progress
    elif (components > 3 OR estimated_loc > 100):
        generate_implementation_plan(combined_context, workflow_dir)        # Session + context-aware staged plan

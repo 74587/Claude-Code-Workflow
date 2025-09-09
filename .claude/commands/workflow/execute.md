@@ -14,7 +14,7 @@ Coordinates multiple agents for executing existing workflow tasks through automa
 
 ## Core Principles
   
-**Session Management:** @~/.claude/workflows/session-management-principles.md
+**Session Management:** @~/.claude/workflows/workflow-architecture.md
 **Agent Orchestration:** @~/.claude/workflows/agent-orchestration-patterns.md
 
 ## Execution Philosophy

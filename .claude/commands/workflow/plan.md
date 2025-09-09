@@ -16,7 +16,7 @@ examples:
 Creates actionable implementation plans with intelligent input source detection. Supports text, files, issues, and templates through automatic recognition.
 
 ## Core Principles
-**File Structure:** @~/.claude/workflows/file-structure-standards.md
+**File Structure:** @~/.claude/workflows/workflow-architecture.md
 
 ## Usage
 ```bash

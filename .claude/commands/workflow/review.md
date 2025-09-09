@@ -13,7 +13,7 @@ examples:
 Final phase for quality validation, testing, and completion.
 
 ## Core Principles
-**Session Management:** @~/.claude/workflows/session-management-principles.md
+**Session Management:** @~/.claude/workflows/workflow-architecture.md
 
 ## Review Process
 
