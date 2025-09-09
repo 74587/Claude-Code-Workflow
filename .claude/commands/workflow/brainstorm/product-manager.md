@@ -36,7 +36,7 @@ Strategic product leader focused on maximizing user value and business impact th
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/conceptual-planning-agent.md
+@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 

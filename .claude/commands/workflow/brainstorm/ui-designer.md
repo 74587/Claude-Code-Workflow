@@ -36,7 +36,7 @@ Creative professional responsible for designing intuitive, accessible, and visua
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/conceptual-planning-agent.md
+@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 

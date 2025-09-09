@@ -24,10 +24,10 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 - **创新机会**: 破坏性创新、蓝海市场、技术融合机会
 - **未来愿景**: 长期技术路线图、概念验证、原型开发
 
-## 🧠 **分析框架**
+## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/conceptual-planning-agent.md
+@~/.claude/workflows/brainstorming-framework.md
 
 ### 核心分析问题
 1. **技术趋势和机会**:

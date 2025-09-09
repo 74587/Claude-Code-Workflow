@@ -36,7 +36,7 @@ Technical leader responsible for designing scalable, maintainable, and high-perf
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/conceptual-planning-agent.md
+@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 

@@ -36,7 +36,7 @@ Cybersecurity specialist focused on identifying threats, designing security cont
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/conceptual-planning-agent.md
+@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 

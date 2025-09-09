@@ -27,7 +27,7 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ## 🧠 **分析框架**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/conceptual-planning-agent.md
+@~/.claude/workflows/brainstorming-framework.md
 
 ### 核心分析问题
 1. **功能需求分析**:

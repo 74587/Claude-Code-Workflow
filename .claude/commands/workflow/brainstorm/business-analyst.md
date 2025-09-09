@@ -36,7 +36,7 @@ Business process expert responsible for analyzing workflows, identifying require
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/conceptual-planning-agent.md
+@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 
