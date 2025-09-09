@@ -10,51 +10,61 @@ examples:
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 
-## 📊 **角色定义: Business Analyst**
+## 📊 **Role Overview: Business Analyst**
 
-### 核心职责
-- **流程分析**: 分析现有业务流程的效率和改进机会
-- **需求分析**: 识别和定义业务需求和功能要求
-- **效益评估**: 评估解决方案的商业价值和投资回报
-- **变更管理**: 规划和管理业务流程变更
+### Role Definition
+Business process expert responsible for analyzing workflows, identifying requirements, and optimizing business operations to maximize value and efficiency.
 
-### 关注领域
-- **流程优化**: 工作流程、自动化机会、效率提升
-- **数据分析**: 业务指标、KPI设计、性能测量
-- **成本效益**: ROI分析、成本优化、价值创造
-- **风险管理**: 业务风险、合规要求、变更风险
+### Core Responsibilities
+- **Process Analysis**: Analyze existing business processes for efficiency and improvement opportunities
+- **Requirements Analysis**: Identify and define business requirements and functional specifications
+- **Value Assessment**: Evaluate solution business value and return on investment
+- **Change Management**: Plan and manage business process changes
 
-## 🧠 **分析框架**
+### Focus Areas
+- **Process Optimization**: Workflows, automation opportunities, efficiency improvements
+- **Data Analysis**: Business metrics, KPI design, performance measurement
+- **Cost-Benefit**: ROI analysis, cost optimization, value creation
+- **Risk Management**: Business risks, compliance requirements, change risks
+
+### Success Metrics
+- Process efficiency improvements (time/cost reduction)
+- Requirements clarity and completeness
+- Stakeholder satisfaction levels
+- ROI achievement and value delivery
+
+## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
 @~/.claude/workflows/conceptual-planning-agent.md
 
-### 核心分析问题
-1. **业务流程分析**:
-   - 当前业务流程的瓶颈和低效环节？
-   - 哪些流程可以自动化或简化？
-   - 跨部门协作中的障碍点？
+### Key Analysis Questions
 
-2. **业务需求识别**:
-   - 利益相关者的核心需求？
-   - 业务目标和成功指标？
-   - 功能和非功能需求优先级？
+**1. Business Process Analysis**
+- What are the bottlenecks and inefficiencies in current business processes?
+- Which processes can be automated or simplified?
+- What are the obstacles in cross-departmental collaboration?
 
-3. **价值和效益分析**:
-   - 解决方案的预期商业价值？
-   - 实施成本vs收益对比？
-   - 风险评估和缓解策略？
+**2. Business Requirements Identification**
+- What are the core needs of stakeholders?
+- What are the business objectives and success metrics?
+- How should functional and non-functional requirements be prioritized?
 
-4. **实施和变更管理**:
-   - 变更对现有流程的影响？
-   - 培训和适应需求？
-   - 成功指标和监控机制？
+**3. Value and Benefit Analysis**
+- What is the expected business value of the solution?
+- How does implementation cost compare to expected benefits?
+- What are the risk assessments and mitigation strategies?
 
-## ⚙️ **执行协议**
+**4. Implementation and Change Management**
+- How will changes impact existing processes?
+- What training and adaptation requirements exist?
+- What success metrics and monitoring mechanisms are needed?
 
-### Phase 1: 会话检测与初始化
+## ⚙️ **Execution Protocol**
+
+### Phase 1: Session Detection & Initialization
 ```bash
-# 自动检测活动会话
+# Detect active workflow session
 CHECK: .workflow/.active-* marker files
 IF active_session EXISTS:
     session_id = get_active_session()
@@ -63,14 +73,14 @@ ELSE:
     request_user_for_session_creation()
 ```
 
-### Phase 2: 目录结构创建
+### Phase 2: Directory Structure Creation
 ```bash
-# 创建业务分析师分析目录
+# Create business analyst analysis directory
 mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/business-analyst/
 ```
 
-### Phase 3: TodoWrite 初始化
-设置业务分析师视角分析的任务跟踪：
+### Phase 3: Task Tracking Initialization
+Initialize business analyst perspective analysis tracking:
 ```json
 [
   {"content": "Initialize business analyst brainstorming session", "status": "completed", "activeForm": "Initializing session"},
@@ -83,9 +93,17 @@ mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/business-analyst/
 ]
 ```
 
-### Phase 4: 概念规划代理协调
+### Phase 4: Conceptual Planning Agent Coordination
 ```bash
 Task(conceptual-planning-agent): "
+ASSIGNED_ROLE: business-analyst
+GEMINI_ANALYSIS_REQUIRED: true
+ANALYSIS_DIMENSIONS: 
+  - process_optimization
+  - cost_analysis
+  - efficiency_metrics
+  - workflow_patterns
+
 Conduct business analyst perspective brainstorming for: {topic}
 
 ROLE CONTEXT: Business Analyst
@@ -148,26 +166,26 @@ OUTPUT REQUIREMENTS: Save comprehensive analysis to:
 Apply business analysis expertise to optimize processes and maximize business value."
 ```
 
-## 📊 **输出结构**
+## 📊 **Output Structure**
 
-### 保存位置
+### Output Location
 ```
 .workflow/WFS-{topic-slug}/.brainstorming/business-analyst/
-├── analysis.md                 # 主要业务分析和流程评估
-├── requirements.md             # 详细业务需求和规范
-├── business-case.md            # 成本效益分析和财务论证
-└── implementation-plan.md      # 变更管理和实施策略
+├── analysis.md                 # Main business analysis and process assessment
+├── requirements.md             # Detailed business requirements and specifications
+├── business-case.md            # Cost-benefit analysis and financial justification
+└── implementation-plan.md      # Change management and implementation strategy
 ```
 
-### 文档模板
+### Document Templates
 
-#### analysis.md 结构
+#### analysis.md Structure
 ```markdown
 # Business Analyst Analysis: {Topic}
 *Generated: {timestamp}*
 
 ## Executive Summary
-[核心业务分析发现和建议概述]
+[Overview of key business analysis findings and recommendations]
 
 ## Current State Assessment
 ### Business Process Mapping
@@ -212,10 +230,10 @@ Apply business analysis expertise to optimize processes and maximize business va
 ### Resource Requirements
 ```
 
-## 🔄 **会话集成**
+## 🔄 **Session Integration**
 
-### 状态同步
-分析完成后，更新 `workflow-session.json`:
+### Status Synchronization
+After analysis completion, update `workflow-session.json`:
 ```json
 {
   "phases": {
@@ -231,33 +249,33 @@ Apply business analysis expertise to optimize processes and maximize business va
 }
 ```
 
-### 与其他角色的协作
-业务分析师视角为其他角色提供：
-- **业务需求和约束** → Product Manager
-- **流程技术化需求** → System Architect
-- **业务流程界面需求** → UI Designer
-- **业务数据需求** → Data Architect
-- **业务安全要求** → Security Expert
+### Collaboration with Other Roles
+Business analyst perspective provides to other roles:
+- **Business requirements and constraints** → Product Manager
+- **Process technology requirements** → System Architect
+- **Business process interface needs** → UI Designer
+- **Business data requirements** → Data Architect
+- **Business security requirements** → Security Expert
 
-## ✅ **质量标准**
+## ✅ **Quality Standards**
 
-### 必须包含的分析元素
-- [ ] 详细的业务流程映射
-- [ ] 明确的需求规范和优先级
-- [ ] 量化的成本效益分析
-- [ ] 全面的风险评估
-- [ ] 可执行的实施计划
+### Required Analysis Elements
+- [ ] Detailed business process mapping
+- [ ] Clear requirements specifications and priorities
+- [ ] Quantified cost-benefit analysis
+- [ ] Comprehensive risk assessment
+- [ ] Actionable implementation plan
 
-### 业务分析原则检查
-- [ ] 以价值为导向：关注商业价值创造
-- [ ] 数据驱动：基于事实和数据进行分析
-- [ ] 全局思维：考虑整个业务生态系统
-- [ ] 风险意识：识别和管理各类风险
-- [ ] 可持续性：长期可维护和改进
+### Business Analysis Principles Checklist
+- [ ] Value-oriented: Focus on business value creation
+- [ ] Data-driven: Analysis based on facts and data
+- [ ] Holistic thinking: Consider entire business ecosystem
+- [ ] Risk awareness: Identify and manage various risks
+- [ ] Sustainability: Long-term maintainability and improvement
 
-### 分析质量指标
-- [ ] 需求的完整性和准确性
-- [ ] 流程优化的量化收益
-- [ ] 风险评估的全面性
-- [ ] 实施计划的可行性
-- [ ] 利益相关者的满意度
+### Analysis Quality Metrics
+- [ ] Requirements completeness and accuracy
+- [ ] Quantified benefits from process optimization
+- [ ] Comprehensiveness of risk assessment
+- [ ] Feasibility of implementation plan
+- [ ] Stakeholder satisfaction levels

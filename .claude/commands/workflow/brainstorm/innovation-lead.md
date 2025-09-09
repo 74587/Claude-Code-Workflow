@@ -50,11 +50,11 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
    - 投资需求和预期回报？
    - 组织创新能力和适应性？
 
-## ⚙️ **执行协议**
+## ⚙️ **Execution Protocol**
 
-### Phase 1: 会话检测与初始化
+### Phase 1: Session Detection & Initialization
 ```bash
-# 自动检测活动会话
+# Detect active workflow session
 CHECK: .workflow/.active-* marker files
 IF active_session EXISTS:
     session_id = get_active_session()
@@ -63,14 +63,14 @@ ELSE:
     request_user_for_session_creation()
 ```
 
-### Phase 2: 目录结构创建
+### Phase 2: Directory Structure Creation
 ```bash
-# 创建创新领导分析目录
+# Create innovation lead analysis directory
 mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/innovation-lead/
 ```
 
-### Phase 3: TodoWrite 初始化
-设置创新领导视角分析的任务跟踪：
+### Phase 3: Task Tracking Initialization
+Initialize innovation lead perspective analysis tracking:
 ```json
 [
   {"content": "Initialize innovation lead brainstorming session", "status": "completed", "activeForm": "Initializing session"},
@@ -83,9 +83,17 @@ mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/innovation-lead/
 ]
 ```
 
-### Phase 4: 概念规划代理协调
+### Phase 4: Conceptual Planning Agent Coordination
 ```bash
 Task(conceptual-planning-agent): "
+ASSIGNED_ROLE: innovation-lead
+GEMINI_ANALYSIS_REQUIRED: true
+ANALYSIS_DIMENSIONS: 
+  - emerging_patterns
+  - technology_trends
+  - disruption_potential
+  - innovation_opportunities
+
 Conduct innovation lead perspective brainstorming for: {topic}
 
 ROLE CONTEXT: Innovation Lead

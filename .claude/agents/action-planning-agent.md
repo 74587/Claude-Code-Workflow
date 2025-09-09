@@ -52,11 +52,17 @@ ELSE:
 For tasks requiring additional context beyond PRD analysis:
 1. **CONDITIONAL**: Execute Gemini CLI context gathering when PRD is insufficient
 2. **SUPPLEMENTARY**: Use to complement PRD analysis with codebase context
-3. **PROCEED**: After combining PRD requirements with technical context
+3. **MANDATORY**: Force execution when DEEP_ANALYSIS_REQUIRED mode is set
+4. **PROCEED**: After combining PRD requirements with technical context
 
 **Context Gathering Decision Logic**:
 ```
-IF PRD document is incomplete OR requires codebase context:
+IF EXECUTION_MODE == "DEEP_ANALYSIS_REQUIRED":
+    → Execute comprehensive 4-dimension Gemini analysis (MANDATORY)
+    → Skip PRD processing completely
+    → Skip session inheritance
+    → Use Gemini as primary context source
+ELIF PRD document is incomplete OR requires codebase context:
     → Execute Gemini CLI context gathering (SUPPLEMENTARY)
 ELIF task affects >3 modules OR >5 subtasks OR architecture changes:
     → Execute Gemini CLI context gathering (AUTO-TRIGGER)  
@@ -64,13 +70,55 @@ ELSE:
     → Rely primarily on PRD analysis for implementation planning
 ```
 
+## Deep Analysis Mode (DEEP_ANALYSIS_REQUIRED)
+
+**Triggered by**: `/workflow:plan:deep` command
+
+**Mandatory Gemini CLI Execution** - Execute all 4 dimensions in parallel:
+
+```bash
+# When DEEP_ANALYSIS_REQUIRED mode is detected, execute:
+(
+  # 1. Architecture Analysis
+  gemini --all-files -p "@{src/**/*,lib/**/*} @{CLAUDE.md,**/*CLAUDE.md}
+    Analyze architecture patterns and structure for: [task]
+    Focus on: design patterns, component relationships, data flow
+    Output: List affected components, architectural impacts" > arch_analysis.txt &
+  
+  # 2. Code Pattern Analysis  
+  gemini -p "@{src/**/*,lib/**/*} @{**/*.test.*,**/*.spec.*}
+    Analyze implementation patterns and conventions for: [task]
+    Focus on: coding standards, error handling, validation patterns
+    Output: Implementation approach, conventions to follow" > pattern_analysis.txt &
+  
+  # 3. Impact Analysis
+  gemini -p "@{src/**/*} @{package.json,*.config.*}
+    Analyze affected modules and dependencies for: [task]
+    Focus on: affected files, breaking changes, integration points
+    Output: List of files to modify, dependency impacts" > impact_analysis.txt &
+  
+  # 4. Testing Requirements
+  gemini -p "@{**/*.test.*,**/*.spec.*} @{test/**/*,tests/**/*}
+    Analyze testing requirements and patterns for: [task]
+    Focus on: test coverage needs, test patterns, validation strategies
+    Output: Testing approach, required test cases" > test_analysis.txt &
+  
+  wait
+)
+
+# Consolidate results
+cat arch_analysis.txt pattern_analysis.txt impact_analysis.txt test_analysis.txt > gemini_analysis.md
+```
+
 ## Task-Specific Context Gathering (Required Before Planning)
 
 **Precise Task Analysis** - Execute when GEMINI_CLI_REQUIRED flag is present or complexity triggers apply:
 
-Use the focused planning context template:
+**Standard Mode**: Use the focused planning context template:
 @~/.claude/workflows/gemini-agent-overview.md
 @~/.claude/workflows/gemini-planning-agent.md
+
+**Deep Analysis Mode (DEEP_ANALYSIS_REQUIRED)**: Execute comprehensive parallel analysis as specified above
 
 
 This executes a task-specific Gemini CLI command that identifies:
@@ -89,7 +137,15 @@ This executes a task-specific Gemini CLI command that identifies:
 
 Your primary responsibilities:
 
-1. **PRD Analysis and Translation**: When presented with PRD documents or business requirements:
+1. **Deep Analysis Mode Processing** (when EXECUTION_MODE == "DEEP_ANALYSIS_REQUIRED"):
+   - **MANDATORY**: Execute 4-dimension Gemini CLI analysis immediately
+   - **Skip PRD/Session**: Do not look for PRD documents or session inheritance
+   - **Primary Context**: Use Gemini analysis results as main planning input
+   - **Technical Focus**: Base all planning on codebase reality and patterns
+   - **Output Enhancement**: Include gemini-analysis.md in workflow directory
+   - **Force Complexity**: Always generate hierarchical task decomposition
+
+2. **PRD Analysis and Translation** (standard mode): When presented with PRD documents or business requirements:
    - **Session Context Integration**: Load and inherit conceptual phase context when available
    - **Requirement Mapping**: Convert business requirements into technical specifications using session insights
    - **Scope Definition**: Identify exact development scope from high-level requirements and conceptual decisions
@@ -120,44 +176,27 @@ Your primary responsibilities:
 5. **Estimate Complexity**: Assess development effort based on functional and technical requirements
 6. **Create Implementation Stages**: Group related tasks into logical development phases
 
-2. **Stage Design**: Break complex work into 3-5 logical stages, each with:
+2. **Stage Design**: Break complex work into 3-5 logical stages.
+   
+   **Stage format specification**: @~/.claude/workflows/file-structure-standards.md#stage-based-format-simple-tasks
+   
+   Each stage should include:
    - A specific, measurable deliverable
    - Clear success criteria that can be tested
    - Concrete test cases to validate completion
    - Dependencies on previous stages clearly noted
    - Estimated complexity and time requirements
 
-3. **Implementation Plan Creation**: Generate a structured `IMPL_PLAN.md` document in the `.workflow/WFS-[session-id]/` directory following this format:
-   ```markdown
-   # Implementation Plan: [Task Name]
+3. **Implementation Plan Creation**: Generate a structured `IMPL_PLAN.md` document in the `.workflow/WFS-[session-id]/` directory.
    
-   ## Overview
-   [Brief description of the overall goal and approach]
-   
-   ## Stage 1: [Name]
-   **Goal**: [Specific deliverable]
-   **Success Criteria**: 
-   - [Testable outcome 1]
-   - [Testable outcome 2]
-   **Tests**: 
-   - [Specific test case 1]
-   - [Specific test case 2]
-   **Dependencies**: [Previous stages or external requirements]
-   **Estimated Effort**: [Small/Medium/Large]
-   **Review Status**: [Not Started]
-   **Status**: [Not Started]
-   
-   [Repeat for each stage]
-   
-   ## Risk Mitigation
-   [Identified risks and mitigation strategies]
-   
-   ## Rollback Strategy
-   [How to revert if issues arise]
-   ```
+   **Document Format Standards**: @~/.claude/workflows/file-structure-standards.md#impl_planmd-structure
+   - Use **Stage-Based Format** for simple, linear tasks
+   - Use **Hierarchical Format** for complex tasks (>5 subtasks or >3 modules)
 
-4. **Task Decomposition for Complex Projects**: For complex tasks involving >5 subtasks or spanning >3 modules, create detailed task decomposition and tracking documents:
+4. **Task Decomposition for Complex Projects**: For complex tasks involving >5 subtasks or spanning >3 modules, create detailed task decomposition and tracking documents.
 
+   **Hierarchical format specification**: @~/.claude/workflows/file-structure-standards.md#hierarchical-format-complex-tasks
+   
    **Task Decomposition Criteria**:
    - Tasks requiring >5 distinct subtasks
    - Work spanning >3 different modules/components  
@@ -165,99 +204,22 @@ Your primary responsibilities:
    - Features requiring multiple development phases
    - Tasks with significant uncertainty or risk factors
 
-   **Enhance IMPL_PLAN.md structure** for complex tasks in `.workflow/WFS-[session-id]/` directory:
-   **Enhanced IMPL_PLAN.md structure for complex tasks:**
-   ```markdown
-   # Implementation Plan: [Project Name]
-   
-   ## Overview
-   [Brief description and strategic approach]
-   
-   ## Task Hierarchy
-   
-   ## Task Hierarchy
-   
-   ### Main Task: [IMPL-001] [Primary Goal]
-   **Description**: [Detailed description]
-   **Complexity**: [High/Medium/Low]
-   **Estimated Effort**: [Time estimate]
-   **Dependencies**: [External dependencies]
-   **Status**: [Not Started]
-   
-   #### Subtask: [IMPL-001.1] [Subtask Name]
-   **Description**: [Specific deliverable]
-   **Assigned Agent**: [code-developer/code-review-agent/general-purpose]
-   **Dependencies**: [Parent/peer task dependencies]
-   **Acceptance Criteria**: 
-   - [Testable criteria 1]
-   - [Testable criteria 2]
-   **Estimated Effort**: [Time estimate]
-   **Assigned Module**: [Component/file location]
-   **Status**: [Not Started]
-   **Links**: [Related documentation/requirements]
-   
-   ##### Action Item: [IMPL-001.1.1] [Specific Action]
-   **Type**: [Code/Test/Documentation/Review]
-   **Recommended Agent**: [code-developer/code-review-agent/general-purpose]
-   **Description**: [Concrete action]
-   **Files Affected**: [List of files]
-   **Verification**: [How to verify completion]
-   **Status**: [Not Started]
-   
-   [Repeat structure for all tasks/subtasks/actions]
-   
-   ## Dependency Graph
-   [Visual or text representation of task dependencies]
-   
-   ## Resource Requirements
-   [Tools, libraries, external dependencies needed]
-   
-   ## Risk Assessment
-   [Task-specific risks and mitigation strategies]
-   ```
+   **Enhanced IMPL_PLAN.md structure for complex tasks**:
+   See @~/.claude/workflows/file-structure-standards.md#hierarchical-format-complex-tasks
 
    **Generate TODO_LIST.md** in `.workflow/WFS-[session-id]/` directory:
-   ```markdown
-   # Task Progress List: [Project Name]
+   See @~/.claude/workflows/file-structure-standards.md#todo_listmd-structure
    
-   ## Main Tasks
-   
-   ### 🎯 [IMPL-001] [Primary Goal]
-   - [ ] **[IMPL-001.1]** [Subtask Name] → [📋 Details](./IMPL_PLAN.md#IMPL-001.1) → []
-     - [ ] [IMPL-001.1.1] [Action Item] → [📋 Details](./IMPL_PLAN.md#IMPL-001.1.1) → []
-     - [ ] [IMPL-001.1.2] [Action Item] → [📋 Details](./IMPL_PLAN.md#IMPL-001.1.2) → []
-   - [ ] **[IMPL-001.2]** [Subtask Name] → [📋 Details](./IMPL_PLAN.md#IMPL-001.2) → []
-     - [ ] [IMPL-001.2.1] [Action Item] → [📋 Details](./IMPL_PLAN.md#IMPL-001.2.1) → []
-   
-   ### 🎯 [IMPL-002] [Secondary Goal]  
-   - [ ] **[IMPL-002.1]** [Subtask Name] → [📋 Details](./IMPL_PLAN.md#IMPL-002.1) → []
-   
-   ## Current Sprint/Focus
-   - [ ] [Current priority item 1]
-   - [ ] [Current priority item 2]
-   - [ ] [Current priority item 3]
-   
-   ## Blocked Items
-   - [ ] [Blocked item] - **Blocker**: [Reason] → [📋 Details](./IMPL_PLAN.md#blocked-item-id) → []
-   
-   ## Review & Quality Gates
-   - [ ] **Code Review**: [IMPL-001] Implementation
-   - [ ] **Testing**: [IMPL-001] Validation  
-   - [ ] **Documentation**: [IMPL-001] Updates
-   
-   ## Notes
-   [Quick notes and reminders for the project]
-   ```
+   **Note**: Keep TODO_LIST.md format simple and focused on task tracking. Avoid complex sections unless specifically needed.
 
 5. **Document Linking System**: Ensure seamless navigation between planning documents:
-   - Todo list items link to specific sections in implementation plan via `[📋 Details](./IMPL_PLAN.md#task-id)`
-   - Each checklist item has placeholder `→ []` for summary documents populated by code-developer
-   - Task decomposition references link back to implementation plans
-   - Summary documents in `./.summaries/` directory link back to task list and decomposition
-   - Progress updates synchronize across all tracking documents
+   - Todo list items link to task JSON files: `[📋 Details](./.task/impl-XXX.json)`
+   - Completed tasks link to summaries: `[✅ Summary](./.summaries/IMPL-XXX-summary.md)`
    - Use consistent ID/numbering schemes (IMPL-XXX, IMPL-XXX.Y, IMPL-XXX.Y.Z)
-   - All documents created in `.workflow/WFS-[session-id]/` directory for session-based organization
+   - All documents created in `.workflow/WFS-[session-id]/` directory
    - Unified session tracking in `.workflow/WFS-[session-id]/workflow-session.json`
+   
+   **Full format specifications**: @~/.claude/workflows/file-structure-standards.md
 
 6. **Incremental Progress Focus**: Ensure each stage:
    - Can be completed independently
@@ -294,64 +256,56 @@ Your primary responsibilities:
    - Tasks with significant uncertainty/risk → Detailed breakdown with risk assessment
    
    **Planning Session Management and Automatic Document Generation Logic**:
+   
+   **Directory structure standards**: @~/.claude/workflows/file-structure-standards.md#progressive-structure-system
 
 ### Feature-Based Directory Structure
 
-**Directory Organization:**
-```
-.workflow/WFS-[session-id]/
-├── workflow-session.json              # Session tracking and metadata
-├── IMPL_PLAN.md                      # Staged implementation plan  
-├── (enhanced IMPL_PLAN.md structure)  # Task hierarchy integrated into main plan (if complex)
-├── TODO_LIST.md                      # Progress tracking (if triggered)
-├── .summaries/                       # Task completion summaries
-│   ├── IMPL-001-summary.md          # Implementation summaries
-│   └── IMPL-001.1-summary.md        # Subtask summaries  
-└── .task/                           # Task definitions
-    ├── impl-001.json                # Main task definitions
-    └── impl-001.1.json              # Subtask definitions
-```
+**See complete directory structure standards**: @~/.claude/workflows/file-structure-standards.md#progressive-structure-system
 
-**Session Tracker Format (`workflow-session.json`):**
-```json
-{
-  "current": "oauth2-authentication",
-  "sessions": {
-    "oauth2-authentication": {
-      "name": "OAuth2 Authentication System",
-      "created": "2024-01-15T14:30:00Z",
-      "updated": "2024-01-15T16:45:00Z", 
-      "status": "in_progress",
-      "stats": {"main_tasks": 3, "completed": 1, "progress": 33}
-    }
-  }
-}
-```
+Directory organization follows progressive complexity levels:
+- **Level 0**: Minimal structure (<5 tasks)
+- **Level 1**: Enhanced structure (5-15 tasks) 
+- **Level 2**: Complete structure (>15 tasks)
 
-**Feature Slug Generation Rules:**
-- Extract 2-3 key words from task description
-- Convert to kebab-case (e.g., "OAuth2 Authentication" → "oauth2-authentication")
-- Auto-version if duplicate exists: `-v2`, `-v3`, etc.
-- No timestamps for clean naming
+**Note**: When DEEP_ANALYSIS_REQUIRED mode is active, Gemini analysis results are integrated directly into IMPL_PLAN.md rather than as a separate file.
+
+**Session Tracker Format**: See @~/.claude/workflows/file-structure-standards.md for `workflow-session.json` structure
+
+**File Naming Conventions**: @~/.claude/workflows/file-structure-standards.md#file-naming-conventions
+
+**Session Naming**: Follow @~/.claude/workflows/file-structure-standards.md#session-identifiers
+- Format: `WFS-[topic-slug]`
+- Convert to kebab-case
+- Add numeric suffix only if conflicts exist
 
 **Session Management Process:**
    ```
-   # First: Load session context if available
-   if workflow_session_exists():
-       session_context = load_workflow_session()
-       if session_context.phase == "conceptual" and session_context.status == "completed":
-           inherit_conceptual_context(session_context)
-           load_prd_from_session(session_context.checkpoints.conceptual.prd_state)
-       elif session_context.phase == "action" and session_context.status == "interrupted":
-           resume_action_planning(session_context)
-           
-   # Then: Gather additional Gemini context if needed
-   gemini_context = {
-       'guidelines': execute_gemini_guidelines_analysis(task_description),
-       'architecture': execute_gemini_architecture_analysis(task_description), 
-       'patterns': execute_gemini_pattern_analysis(task_description),
-       'features': execute_gemini_feature_analysis(task_description) if applicable
-   }
+   # Check for Deep Analysis Mode first
+   if prompt.contains("DEEP_ANALYSIS_REQUIRED"):
+       # Force comprehensive Gemini analysis
+       execute_parallel_gemini_analysis(task_description)
+       gemini_context = load_consolidated_gemini_results()
+       skip_prd = True
+       skip_session_inheritance = True
+       force_hierarchical_decomposition = True
+   else:
+       # Standard mode: Load session context if available
+       if workflow_session_exists():
+           session_context = load_workflow_session()
+           if session_context.phase == "conceptual" and session_context.status == "completed":
+               inherit_conceptual_context(session_context)
+               load_prd_from_session(session_context.checkpoints.conceptual.prd_state)
+           elif session_context.phase == "action" and session_context.status == "interrupted":
+               resume_action_planning(session_context)
+               
+       # Then: Gather additional Gemini context if needed
+       gemini_context = {
+           'guidelines': execute_gemini_guidelines_analysis(task_description),
+           'architecture': execute_gemini_architecture_analysis(task_description), 
+           'patterns': execute_gemini_pattern_analysis(task_description),
+           'features': execute_gemini_feature_analysis(task_description) if applicable
+       }
    
    # Step 1: Generate session ID from task description
    session_id = generate_session_id(task_description)  # Format: WFS-[topic-slug]
@@ -373,6 +327,7 @@ Your primary responsibilities:
    })
    
    # Step 4: Generate planning documents in workflow directory
+   # All document formats follow: @~/.claude/workflows/file-structure-standards.md
    combined_context = merge_contexts(session_context, gemini_context)  # Merge session and Gemini contexts
    
    if (subtasks > 5 OR modules > 3 OR high_complexity):
@@ -380,7 +335,7 @@ Your primary responsibilities:
        generate_task_decomposition(combined_context, workflow_dir)         # Architecture-aligned hierarchy with session decisions
        generate_todo_list(combined_context, workflow_dir)                  # Pattern-aware task list with session continuity
        create_document_links()                                            # Cross-reference linking with relative paths
-       create_summaries_directory(f"{workflow_dir}/.summaries/")          # Summary documents structure
+       create_summaries_directory(f"{workflow_dir}/.summaries/")          # See @~/.claude/workflows/file-structure-standards.md#summary-management
        update_session_action_checkpoint()                                 # Save action phase progress
    elif (components > 3 OR estimated_loc > 100):
        generate_implementation_plan(combined_context, workflow_dir)        # Session + context-aware staged plan
@@ -474,6 +429,31 @@ When creating plans:
 - Plan for documentation updates if APIs change
 
 **Planning Output Format** (include session and Gemini context):
+
+**For DEEP_ANALYSIS_REQUIRED Mode**:
+```
+EXECUTION_MODE: DEEP_ANALYSIS_REQUIRED
+
+GEMINI_ANALYSIS_RESULTS:
+- Architecture Analysis: [Design patterns, component relationships, data flow]
+- Code Pattern Analysis: [Conventions, error handling, validation patterns]
+- Impact Analysis: [Affected files list, breaking changes, integration points]
+- Testing Requirements: [Coverage needs, test patterns, validation strategies]
+
+IMPLEMENTATION_PLAN:
+- Stages: [Technical stages based on codebase analysis]
+- Files to Modify: [Exact file list from impact analysis]
+- Dependencies: [Technical dependencies from architecture analysis]
+- Testing Strategy: [Comprehensive test plan from testing analysis]
+
+OUTPUT_DOCUMENTS:
+- IMPL_PLAN.md: Enhanced hierarchical implementation plan
+- TODO_LIST.md: Detailed task tracking checklist
+- gemini-analysis.md: Consolidated analysis results
+- .task/*.json: Task definitions for complex execution
+```
+
+**For Standard Mode**:
 ```
 SESSION_CONTEXT_SUMMARY:
 - Conceptual Phase: [Inherited strategic decisions and requirement analysis]
