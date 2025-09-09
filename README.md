@@ -125,12 +125,12 @@ For Gemini CLI integration, configure your `settings.json` file:
 | Command | Syntax | Description |
 |---------|--------|-------------|
 | `/enhance-prompt` | `/enhance-prompt <input>` | Enhance and structure user inputs with technical context |
+| `/gemini:analyze` | `/gemini:analyze <inquiry> [--all-files] [--save-session]` | Direct codebase analysis and investigation |
 | `/gemini:chat` | `/gemini:chat <inquiry> [--all-files] [--save-session]` | Simple direct interaction with Gemini CLI without templates |
-| `/gemini:chat:bug-fix` | `/gemini:chat:bug-fix <bug-description> [--all-files] [--save-session]` | Bug analysis using specialized diagnostic template |
-| `/gemini:chat:plan` | `/gemini:chat:plan <planning-topic> [--all-files] [--save-session]` | Project planning using specialized architecture template |
-| `/gemini-execute` | `/gemini-execute <task-id\|description> [--yolo] [--debug]` | Intelligent executor with automatic file context inference |
-| `/gemini-mode` | `/gemini-mode <analysis-type> <target> [options]` | Template-driven codebase analysis (pattern, architecture, security) |
+| `/gemini:execute` | `/gemini:execute <task-id\|description> [--yolo] [--debug]` | Intelligent executor with automatic file context inference |
 | `/gemini:mode:auto` | `/gemini:mode:auto "<description>"` | 🆕 Auto-select and execute appropriate template based on user input analysis |
+| `/gemini:mode:bug-index` | `/gemini:mode:bug-index <bug-description>` | Bug analysis using specialized diagnostic template |
+| `/gemini:mode:plan` | `/gemini:mode:plan <planning-topic>` | Project planning using specialized architecture template |
 | `/update-memory` | `/update-memory [related\|full]` | Intelligent CLAUDE.md documentation system with context-aware updates |
 
 ### Workflow Management
@@ -139,10 +139,10 @@ For Gemini CLI integration, configure your `settings.json` file:
 |---------|--------|-------------|
 | `/workflow:session` | `start\|pause\|resume\|list\|switch\|status [complexity] ["task"]` | Session lifecycle management with complexity adaptation |
 | `/workflow:brainstorm` | `/brainstorm <topic> [--perspectives=role1,role2]` | Multi-agent conceptual planning from different expert perspectives |
-| `/workflow:action-plan` | `[--from-brainstorming] [--skip-brainstorming] [--replan]` | Convert concepts to executable implementation plans |
-| `/workflow:implement` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | Enter implementation phase with complexity-based organization |
+| `/workflow:plan` | `[--from-brainstorming] [--skip-brainstorming]` | Convert concepts to executable implementation plans |
+| `/workflow:plan-deep` | `<topic> [--complexity=high] [--depth=3]` | Deep architectural planning with comprehensive analysis |
+| `/workflow:execute` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | Enter implementation phase with complexity-based organization |
 | `/workflow:review` | `[--auto-fix]` | Final quality assurance with automated testing and validation |
-| `/workflow:issue` | `create\|list\|update\|integrate\|close [options]` | Dynamic issue and change request management |
 | `/context` | `[task-id\|--filter] [--analyze] [--format=tree\|list\|json]` | Unified task and workflow context with automatic data consistency |
 
 ### Task Execution
@@ -165,15 +165,15 @@ For Gemini CLI integration, configure your `settings.json` file:
 /brainstorm "OAuth2 architecture design" --perspectives=system-architect,security-expert,data-architect
 
 # 3. Create detailed implementation plan
-/workflow:action-plan --from-brainstorming
+/workflow:plan --from-brainstorming
 
 # 4. Break down into manageable tasks
 /task:create "Backend API development"
 /task:breakdown IMPL-1 --strategy=auto
 
 # 5. Execute with intelligent automation
-/gemini-execute IMPL-1.1 --yolo
-/gemini-execute IMPL-1.2 --yolo
+/gemini:execute IMPL-1.1 --yolo
+/gemini:execute IMPL-1.2 --yolo
 
 # 6. Handle dynamic changes
 /workflow:issue create --type=enhancement "Add social login support"
@@ -190,7 +190,7 @@ For Gemini CLI integration, configure your `settings.json` file:
 /workflow:session start simple "Fix login button alignment"
 
 # 2. Direct analysis and implementation
-/gemini-chat "Analyze login button CSS issues in @{src/components/Login.js}"
+/gemini:analyze "Analyze login button CSS issues in @{src/components/Login.js}"
 
 # 3. Create and execute single task
 /task:create "Apply CSS fix to login button"
