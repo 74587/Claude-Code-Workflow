@@ -70,24 +70,6 @@ type: technical-guideline
 
 > **📋 Complete Template Reference**: See [Shared Template System](./shared-template-system.md) for comprehensive template directory structure, selection guide, and cross-tool compatibility details.
 
-#### 🗂️ Template System Overview
-Gemini uses a shared template system with Codex, located at `~/.claude/workflows/cli-templates/`. Templates are organized by primary use case:
-
-- **`analysis/`** - Code analysis templates (Gemini primary)
-- **`development/`** - Development templates (Codex primary, Gemini compatible) 
-- **`planning/`** - Planning templates (Cross-tool)
-- **`review/`** - Review templates (Cross-tool)
-
-#### 🧭 Quick Template Selection (Gemini Focus)
-| Task Type | Primary Template | Usage Pattern |
-|---|---|---|
-| Understand Existing Code | `analysis/pattern.txt` | Analysis & onboarding |
-| Security Review | `analysis/security.txt` | Vulnerability assessment |
-| Performance Analysis | `analysis/performance.txt` | Bottleneck investigation |
-| Code Quality Assessment | `analysis/quality.txt` | Technical debt review |
-| Architecture Review | `analysis/architecture.txt` | System design analysis |
-| Plan New Features | `planning/task-breakdown.txt` | Development planning |
-
 > **💡 Template Usage**: All templates work with both `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)` syntax and multi-template composition patterns.
 
 

@@ -4,12 +4,6 @@ description: Unified template directory structure and organization for Gemini an
 type: system-architecture
 ---
 
-# 🗂️ Shared Template System
-
-## Overview
-
-This document defines the unified template system shared between Gemini (analysis) and Codex (development) CLI tools. The template system provides standardized, reusable prompts for common software development and analysis tasks.
-
 ## 📁 Template Directory Structure
 
 Templates are shared between gemini and codex. This structure can be located at either `~/.claude/workflows/cli-templates/` (global) or `./.claude/workflows/cli-templates/` (project-specific).
@@ -118,70 +112,3 @@ Templates are shared between gemini and codex. This structure can be located at 
 | Automate Migration | `automation/migration.txt` | Automated system upgrades | Codex |
 | Setup Deployment | `automation/deployment.txt` | CI/CD pipeline automation | Codex |
 
-## 🔄 Template Usage Patterns
-
-### Gemini Template Usage
-```bash
-# Analysis template usage
-gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
-
-# Multi-template composition
-gemini -p "@{src/**/*} @{CLAUDE.md} 
-$(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt)
-
-Additional Performance Focus:
-$(cat ~/.claude/workflows/cli-templates/prompts/analysis/performance.txt)"
-```
-
-### Codex Template Usage
-```bash
-# Development template usage
-codex exec "@{src/**/*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)"
-
-# Multi-template composition
-codex exec "@{**/*,CLAUDE.md} 
-$(cat ~/.claude/workflows/cli-templates/prompts/development/component.txt)
-
-Security Integration:
-$(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt)"
-```
-
-## 📝 Template Maintenance Guidelines
-
-### Template Creation
-1. **Single Responsibility**: Each template should focus on one specific task type
-2. **Tool Compatibility**: Consider both Gemini and Codex usage patterns
-3. **Clear Instructions**: Include specific output requirements and format expectations
-4. **Reusability**: Write templates that work across different project types
-
-### Template Organization
-1. **Consistent Naming**: Use descriptive, consistent file naming conventions
-2. **Category Separation**: Keep templates in appropriate category directories
-3. **Documentation**: Include inline comments explaining template purpose and usage
-4. **Version Control**: Track template changes and maintain backwards compatibility
-
-### Cross-Tool Compatibility
-1. **Analysis Templates**: Should work with both Gemini's `--all-files` and Codex's `@{}` patterns
-2. **Development Templates**: Should provide clear implementation guidance for Codex while remaining analyzable by Gemini
-3. **Shared Context**: Ensure templates reference `CLAUDE.md` and common project structures
-
-## 🎯 Best Practices
-
-### Template Selection
-- **Start with Primary Tool**: Use the tool most suited for the template's primary purpose
-- **Complement with Secondary**: Use the other tool for validation and cross-verification
-- **Combine When Needed**: Use multi-template composition for complex tasks
-
-### Template Customization
-- **Project-Specific Templates**: Create in `./.claude/workflows/cli-templates/` for project-specific needs
-- **Global Templates**: Maintain in `~/.claude/workflows/cli-templates/` for reusable patterns
-- **Template Inheritance**: Build on existing templates rather than creating from scratch
-
-### Quality Assurance
-- **Test Both Tools**: Verify templates work effectively with both Gemini and Codex
-- **Validate Output**: Ensure templates produce consistent, high-quality results
-- **Regular Updates**: Keep templates current with evolving development practices
-
----
-
-This shared template system enables consistent, high-quality interactions with both Gemini (analysis) and Codex (development) CLI tools while maintaining clear separation of concerns and optimal tool utilization.

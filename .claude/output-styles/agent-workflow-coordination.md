@@ -23,3 +23,6 @@ description: Core coordination principles for multi-agent development workflows
 ### Gemini Context Protocol
 For all Gemini CLI usage, command syntax, and integration guidelines:
 @~/.claude/workflows/gemini-unified.md
+
+For all Codex CLI usage, command syntax, and integration guidelines:
+@~/.claude/workflows/codex-unified.md
