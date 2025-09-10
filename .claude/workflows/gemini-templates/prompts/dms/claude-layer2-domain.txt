@@ -1,0 +1,63 @@
+Create or update domain-level CLAUDE.md documentation:
+
+## Layer 2: Domain Level Documentation Requirements
+
+### Content Focus (MUST INCLUDE):
+1. **Domain Architecture and Responsibilities**
+   - Domain's role within the larger system
+   - Core responsibilities and boundaries
+   - Key abstractions and concepts
+
+2. **Module Organization Within Domain**
+   - How modules are structured within this domain
+   - Module relationships and hierarchies
+   - Organizational patterns used
+
+3. **Inter-Module Communication Patterns**
+   - How modules within this domain communicate
+   - Data flow patterns and interfaces
+   - Shared resources and dependencies
+
+4. **Domain-Specific Conventions**
+   - Coding standards specific to this domain
+   - Naming conventions and patterns
+   - Testing approaches for this domain
+
+5. **Integration Points with Other Domains**
+   - External dependencies and interfaces
+   - Cross-domain communication protocols
+   - Shared contracts and data formats
+
+### Content Restrictions (STRICTLY AVOID):
+- Duplicating root project overview (belongs in root-level docs)
+- Component/function-level details (belongs in module-level docs)
+- Specific implementation code (belongs in module-level docs)
+- Module internal patterns (belongs in module-level docs)
+
+### Documentation Style:
+- Focus on domain-wide patterns and organization
+- Explain relationships between modules within the domain
+- Describe domain boundaries and responsibilities
+- Reference module-level docs for implementation details
+
+### Template Structure:
+```markdown
+# [Domain Name] - Domain Architecture
+
+## 1. Domain Overview
+[Domain's role and core responsibilities]
+
+## 2. Module Organization
+[How modules are structured within this domain]
+
+## 3. Inter-Module Communication
+[Communication patterns and data flow]
+
+## 4. Domain Conventions
+[Domain-specific standards and patterns]
+
+## 5. External Integration
+[Integration with other domains and systems]
+```
+
+Remember: This is Layer 2 - focus on domain-wide organization and avoid both high-level project details and low-level implementation specifics.

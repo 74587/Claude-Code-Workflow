@@ -1,4 +1,3 @@
-```markdown
 ---
 name: gemini-unified
 description: Consolidated Gemini CLI guidelines - core rules, syntax, patterns, templates, and best practices
@@ -47,28 +46,6 @@ type: technical-guideline
     )"
     ```
 
-### 🔄 Execution Modes
-
--   **1. Directory-Scoped**: Navigate to a directory first, then run `gemini`.
-    ```bash
-    cd src/components && gemini --all-files -p "@{CLAUDE.md} Analyze component patterns"
-    ```
--   **2. Pattern-Based**: Target files directly from any location using patterns.
-    ```bash
-    gemini -p "@{src/components/**/*} @{CLAUDE.md} Analyze component patterns"
-    ```
--   **3. Template-Injected**: Use `$(cat)` to inject a predefined prompt template.
-    ```bash
-    gemini -p "@{src/**/*} $(cat ~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt)"
-    ```
--   **4. Parallel Execution**: Run multiple analyses concurrently for efficiency.
-    ```bash
-    (
-      gemini -p "@{**/*auth*} @{CLAUDE.md} Auth patterns" &
-      gemini -p "@{**/api/**/*} @{CLAUDE.md} API patterns" &
-      wait
-    )
-    ```
 
 ### 📂 File Pattern Rules
 
@@ -88,109 +65,12 @@ type: technical-guideline
     -   Enclose paths with spaces in quotes: `@{"My Project/src/**/*"}`.
     -   Escape special characters like brackets: `@{src/**/*\[bracket\]*}`.
 
-### 🧠 Smart Pattern Discovery - Logic Flow
-
-This feature automates the process of finding relevant files for analysis.
-
-`Step 1: Analyze File Extensions` -> `Step 2: Generate Patterns` -> `Step 3: Execute Gemini`
-
-```pseudo
-FUNCTION analyze_and_run_gemini(analysis_type):
-  // Step 1: Analyze the project's file types.
-  // Corresponds to the `discover_extensions` shell function.
-  discovered_extensions = analyze_project_extensions()
-  log("Discovered extensions:", discovered_extensions)
-
-  // Also identify the likely primary programming language.
-  // Corresponds to the `detect_primary_language` shell function.
-  primary_language = detect_main_language(discovered_extensions)
-  log("Primary language:", primary_language)
-
-  // Step 2: Generate file patterns based on the analysis type (e.g., "code", "config").
-  // Corresponds to the `generate_patterns_by_extension` shell function.
-  patterns = generate_patterns(analysis_type, discovered_extensions)
-  log("Generated patterns:", patterns)
-
-  // Step 3: Construct and execute the gemini command.
-  // Always include project standards from CLAUDE.md.
-  // Uses a mode-defined analysis template for consistency.
-  command = "gemini -p \"" + patterns + " @{CLAUDE.md} $(cat ~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt)\""
-  execute_shell(command)
-
-END FUNCTION
-```
-
-### 📜 Smart Discovery - Shell Implementation
-
-These functions provide the concrete implementation for the smart discovery logic.
-
--   **Step 1: Analyze File Extensions & Language**
-    ```bash
-    # Discover actual file types in project
-    discover_extensions() {
-        echo "=== File Extension Analysis ==="
-        find . -type f -name "*.*" 2>/dev/null | \
-            sed 's/.*\.//' | \
-            sort | uniq -c | sort -rn | \
-            head -10
-    }
-
-    # Identify primary language
-    detect_primary_language() {
-        local extensions=$(find . -type f -name "*.*" 2>/dev/null | sed 's/.*\.//' | sort | uniq -c | sort -rn)
-        if echo "$extensions" | grep -q "js\|jsx\|ts\|tsx"; then
-            echo "JavaScript/TypeScript"
-        elif echo "$extensions" | grep -q "py\|pyw"; then
-            echo "Python"
-        # ... other language checks ...
-        else
-            echo "Unknown/Mixed"
-        fi
-    }
-    ```
--   **Step 2: Generate Patterns**
-    ```bash
-    # Generate patterns from discovered extensions
-    generate_patterns_by_extension() {
-        local analysis_type="$1"
-        local top_exts=$(find . -type f -name "*.*" 2>/dev/null | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -5 | awk '{print $2}')
-        local pattern=""
-        case "$analysis_type" in
-            "code")
-                for ext in $top_exts; do
-                    case $ext in
-                        js|ts|jsx|tsx|py|java|go|rs|cpp|c|h)
-                            pattern="${pattern}**/*.${ext},"
-                            ;;
-                    esac
-                done
-                echo "@{${pattern%,}}"
-                ;;
-            "config") echo "@{*.json,*.yml,*.yaml,*.toml,*.ini,*.env}" ;;
-            "docs") echo "@{**/*.md,**/*.txt,**/README*}" ;;
-            "all")
-                for ext in $top_exts; do pattern="${pattern}**/*.${ext},"; done
-                echo "@{${pattern%,}}"
-                ;;
-        esac
-    }
-    ```
-
-### ⚡ Smart Discovery - Quick Commands
-
-| Need | Command | Description |
-|------|---------|-------------|
-| Analyze Extensions | `discover_extensions` | View project file type distribution. |
-| Code Files | `generate_patterns_by_extension "code"` | Generate patterns for source code files only. |
-| Config Files | `generate_patterns_by_extension "config"` | Generate patterns for configuration files. |
-| Docs | `generate_patterns_by_extension "docs"` | Generate patterns for documentation. |
-| All Top Types | `generate_patterns_by_extension "all"` | Generate patterns for all discovered file types. |
 
 ###  TPL (Templates)
 
 #### 🗂️ Template Directory Structure
 This structure must be located at `~/.claude/workflows/gemini-templates/`.
-```
+
 ~/.claude/workflows/gemini-templates/
 ├── prompts/
 │   ├── analysis/       # Code analysis templates
@@ -209,7 +89,7 @@ This structure must be located at `~/.claude/workflows/gemini-templates/`.
 │   └── dms/           # DMS-specific
 │       └── hierarchy-analysis.txt # 📚 Documentation structure optimization
 └── commands/          # Command examples
-```
+
 
 #### 🧭 Template Selection Guide
 | Task Type | Primary Template | Purpose |
@@ -279,16 +159,22 @@ These are recommended command templates for common scenarios.
 
 ### ⭐ Best Practices & Rules
 
--   **Mandatory Context**: Always include `@{CLAUDE.md,**/*CLAUDE.md}` to ground the analysis in project-specific standards.
--   **Specificity**: Use precise file patterns to reduce scope, improve performance, and increase accuracy.
--   **Performance**: Avoid overly broad patterns (`@{**/*}`) on large projects. Prefer directory-scoped execution or parallel chunks.
--   **Agent Integration**: All agent workflows **must** begin with a context analysis step using `gemini`.
-    ```bash
-    # Mandatory first step for any agent task
-    gemini --all-files -p "@{relevant_patterns} @{CLAUDE.md} Context for: [task_description]"
-    ```
--   **Error Handling**:
-    -   Validate patterns match existing files before executing a long analysis.
-    -   Quote paths that contain spaces or special characters.
-    -   Test complex patterns on a small subset of files first.
+
+**When to Use @ Patterns:**
+1. **User explicitly provides @ patterns** - ALWAYS preserve them exactly
+2. **Cross-directory analysis** - When analyzing relationships between modules
+3. **Configuration files** - When analyzing scattered config files
+4. **Selective inclusion** - When you only need specific file types
+
+**CLAUDE.md Loading Rules:**
+- **With --all-files**: CLAUDE.md files automatically included (no @ needed)
+- **Without --all-files**: Must use `@{CLAUDE.md}` or `@{**/CLAUDE.md}`
+
+
+#### ⚠️ Error Prevention
+
+-   **Quote paths with spaces**: Use proper shell quoting
+-   **Test patterns first**: Validate @ patterns match existing files  
+-   **Prefer directory navigation**: Reduces complexity and improves performance
+-   **Preserve user patterns**: When user provides @, always keep them
 

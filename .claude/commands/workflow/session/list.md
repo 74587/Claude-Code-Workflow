@@ -2,7 +2,6 @@
 name: list
 description: List all workflow sessions with status
 usage: /workflow:session:list
-
 ---
 
 # List Workflow Sessions (/workflow/session/list)

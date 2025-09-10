@@ -132,6 +132,8 @@ For Gemini CLI integration, configure your `settings.json` file:
 | `/gemini:mode:bug-index` | `/gemini:mode:bug-index <bug-description>` | Bug analysis using specialized diagnostic template |
 | `/gemini:mode:plan` | `/gemini:mode:plan <planning-topic>` | Project planning using specialized architecture template |
 | `/update-memory` | `/update-memory [related\|full]` | Intelligent CLAUDE.md documentation system with context-aware updates |
+| `/update-memory-full` | `/update-memory-full` | 🆕 Complete project-wide CLAUDE.md documentation update with depth-parallel execution |
+| `/update-memory-related` | `/update-memory-related` | 🆕 Context-aware documentation updates for modules affected by recent changes |
 
 ### Workflow Management
 
@@ -143,6 +145,7 @@ For Gemini CLI integration, configure your `settings.json` file:
 | `/workflow:plan-deep` | `<topic> [--complexity=high] [--depth=3]` | Deep architectural planning with comprehensive analysis |
 | `/workflow:execute` | `[--type=simple\|medium\|complex] [--auto-create-tasks]` | Enter implementation phase with complexity-based organization |
 | `/workflow:review` | `[--auto-fix]` | Final quality assurance with automated testing and validation |
+| `/workflow:issue:*` | `create\|list\|update\|close [options]` | 🆕 Dynamic issue and change request management |
 | `/context` | `[task-id\|--filter] [--analyze] [--format=tree\|list\|json]` | Unified task and workflow context with automatic data consistency |
 
 ### Task Execution
@@ -175,9 +178,10 @@ For Gemini CLI integration, configure your `settings.json` file:
 /gemini:execute IMPL-1.1 --yolo
 /gemini:execute IMPL-1.2 --yolo
 
-# 6. Handle dynamic changes
+# 6. Handle dynamic changes and issues
 /workflow:issue:create "Add social login support"
 /workflow:issue:list
+/workflow:issue:update 1 --status=in-progress
 
 # 7. Monitor and review
 /context --format=hierarchy
@@ -220,18 +224,31 @@ For Gemini CLI integration, configure your `settings.json` file:
 ### Intelligent Documentation Management
 ```bash
 # 1. Daily development - context-aware updates
-/update-memory                    # Automatically detects and updates only affected modules
+/update-memory                    # Default: related mode - detects and updates affected modules
+/update-memory-related            # Explicit: context-aware updates based on recent changes
 
 # 2. After working in specific module
 cd src/api && /update-memory related  # Updates API module and parent hierarchy
+/update-memory-related            # Same as above, with intelligent change detection
 
 # 3. Periodic full refresh
 /update-memory full               # Complete project-wide documentation update
+/update-memory-full               # Explicit: full project scan with depth-parallel execution
 
 # 4. Post-refactoring documentation sync
 git commit -m "Major refactoring"
-/update-memory related            # Intelligently updates all affected areas
+/update-memory-related            # Intelligently updates all affected areas with git-aware detection
+
+# 5. Project initialization or major architectural changes
+/update-memory-full               # Complete baseline documentation creation
 ```
+
+#### Update Mode Comparison
+
+| Mode | Trigger | Complexity Threshold | Best Use Case |
+|------|---------|---------------------|---------------|
+| `related` (default) | Git changes + recent files | >15 modules | Daily development, feature work |
+| `full` | Complete project scan | >20 modules | Initial setup, major refactoring |
 
 ## 📊 Complexity-Based Strategies
 
@@ -253,7 +270,11 @@ git commit -m "Major refactoring"
 - **Intelligent Context Processing**: Dynamic context construction with technology stack detection
 - **Template-Driven Architecture**: Highly customizable and extensible through templates
 - **Quality Assurance Integration**: Built-in code review and testing strategy phases
-- **Intelligent Documentation System**: 4-layer hierarchical CLAUDE.md system with strict content boundaries, context-aware updates (related/full modes), and automatic complexity-based execution scaling
+- **Intelligent Documentation System**: 4-layer hierarchical CLAUDE.md system with:
+  - **Dual-mode Operations**: `related` (git-aware change detection) and `full` (complete project scan)  
+  - **Complexity-adaptive Execution**: Auto-delegation to memory-gemini-bridge for complex projects (>15/20 modules)
+  - **Depth-parallel Processing**: Bottom-up execution ensuring child context availability for parent updates
+  - **Git Integration**: Smart change detection with fallback strategies and comprehensive status reporting
 - **CLI-First Design**: Powerful, orthogonal command-line interface for automation
 
 ## 🎨 Design Philosophy
