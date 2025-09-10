@@ -20,7 +20,7 @@ description: |
     user: "Analyze the authentication flow from a user perspective"
     assistant: "I'll use the conceptual-planning-agent to analyze authentication flow requirements. Given the user-focused nature, it will likely select ui-designer or user-researcher role to analyze user experience, interface design, and usability aspects."
 
-model: opus
+model: sonnet
 color: purple
 ---
 

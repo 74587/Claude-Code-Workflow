@@ -8,18 +8,6 @@ description: Core coordination principles for multi-agent development workflows
 
 **Purpose**: Thorough upfront planning reduces risk, improves quality, and prevents costly rework.
 
-**Mandatory Triggers**: Planning is required for tasks spanning:
-- >3 modules or components
-- >1000 lines of code 
-- Architectural changes
-- High-risk dependencies
-
-**Key Deliverables**:
-- `IMPL_PLAN.md`: Central planning document for all complexity levels
-- Progressive file structure based on task complexity
-- `.summaries/`: Automated task completion documentation
-- `.chat/`: Context analysis sessions from planning phase
-
 ### TodoWrite Coordination Rules
 
 1.  **TodoWrite FIRST**: Always create TodoWrite entries *before* agent execution begins.

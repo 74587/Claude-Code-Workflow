@@ -65,7 +65,7 @@ Context inherited from workflow
 - `bugfix` - Bug fixes
 - `refactor` - Code improvements
 - `test` - Test implementation
-- `docs` - Documentation
+- `docs` - Documentation (handled by code-developer)
 
 ### Priority Levels (Optional - moved to context)
 - `low` - Can be deferred  
@@ -103,26 +103,90 @@ Context inherited from workflow
     "last_attempt": null
   },
   
+  "implementation": {
+    "files": [
+      {
+        "path": "src/auth/login.ts",
+        "location": {
+          "function": "handleLogin",
+          "lines": "auto-detect",
+          "description": "Login handler function"
+        },
+        "original_code": "// Requires gemini analysis for code extraction",
+        "modifications": {
+          "current_state": "Basic password authentication",
+          "proposed_changes": [
+            "Add JWT token generation",
+            "Integrate OAuth2 flow"
+          ],
+          "logic_flow": [
+            "validateInput() ───► checkCredentials()",
+            "◊─── if valid ───► generateJWT() ───► return token"
+          ],
+          "reason": "Implement modern authentication standards",
+          "expected_outcome": "Secure, flexible authentication system"
+        }
+      }
+    ],
+    "context_notes": {
+      "dependencies": ["jsonwebtoken", "passport"],
+      "affected_modules": ["user-management", "session-handler"],
+      "risks": [
+        "Breaking changes to existing auth middleware",
+        "Database schema changes required"
+      ],
+      "performance_considerations": "JWT validation adds ~5ms per request",
+      "error_handling": "Ensure no sensitive data in error responses"
+    },
+    "analysis_source": "auto-detected"
+  }
 }
 ```
 
-## Simplified File Generation
+## Implementation Field Generation
 
-### JSON Task File Only
+### Auto-Population Strategy
+**Sufficient Information**: When task description contains specific details
+- Extract file paths from scope or task description
+- Identify functions/classes mentioned in requirements
+- Generate basic implementation structure automatically
+
+**Insufficient Information**: When details are vague or missing
+- Mark `analysis_source` as "gemini" 
+- Set `original_code` to "// Requires gemini analysis for code extraction"
+- Prompt user for gemini analysis:
+```bash
+⚠️ Implementation details incomplete for task: [task-title]
+Recommend running: 
+gemini --all-files -p "@{scope-patterns} @{CLAUDE.md} 
+Analyze task: [task-description]
+Extract: 1) File locations and functions 2) Current code state 3) Risks and dependencies"
+```
+
+### Implementation Quality Standards
+- **File paths**: Must be specific (not wildcards like "src/*")
+- **Location details**: Include function name or line range, not just file name
+- **Logic flow**: Use standard symbols (───►, ◊───, ◄───)
+- **Risk assessment**: At least 1 specific, actionable risk
+- **Dependencies**: Actual package names, not generic descriptions
+
+### Simplified File Generation
+
+### JSON Task File Only  
 **File Location**: `.task/impl-[N].json`
-**Naming**: Follows impl-N.M.P format for nested tasks  
-**Content**: Contains all task data (no document coordination needed)
+**Naming**: Follows impl-N.M.P format for nested tasks
+**Content**: Contains all task data including implementation details
 
 ### No Document Synchronization
-- Creates JSON task file only
-- Updates workflow-session.json stats only  
-- No automatic TODO_LIST.md generation
+- Creates JSON task file only with complete implementation field
+- Updates workflow-session.json stats only
+- No automatic TODO_LIST.md generation  
 - No complex cross-referencing needed
 
 ### View Generation On-Demand
 - Use `/context` to generate views when needed
 - No persistent markdown files created
-- All data stored in JSON only
+- All data including implementation stored in JSON only
 
 ## Simplified Task Management
 
@@ -160,7 +224,7 @@ Based on title analysis:
 
 Suggestions:
 - Related task: impl-1 (Build authentication module)
-- Suggested agent: test-agent
+- Suggested agent: code-review-test-agent
 - Estimated effort: 2h
 - Dependencies: [impl-1]
 - Suggested hierarchy: impl-1.3 (as subtask of impl-1)

@@ -74,6 +74,43 @@ For each executable task:
       "requirements": ["JWT authentication", "User model design"],
       "scope": ["src/auth/models/*"],
       "acceptance": ["Schema validates JWT tokens"]
+    },
+    "implementation": {
+      "files": [
+        {
+          "path": "src/auth/models/User.ts",
+          "location": {
+            "function": "UserSchema",
+            "lines": "10-50",
+            "description": "User model definition"
+          },
+          "original_code": "// Requires gemini analysis for current schema",
+          "modifications": {
+            "current_state": "Basic user model without auth fields",
+            "proposed_changes": [
+              "Add JWT token fields to schema",
+              "Include OAuth provider fields"
+            ],
+            "logic_flow": [
+              "createUser() ───► validateSchema() ───► generateJWT()",
+              "◊─── if OAuth ───► linkProvider() ───► storeTokens()"
+            ],
+            "reason": "Support modern authentication patterns",
+            "expected_outcome": "Flexible user schema supporting multiple auth methods"
+          }
+        }
+      ],
+      "context_notes": {
+        "dependencies": ["mongoose", "jsonwebtoken"],
+        "affected_modules": ["auth-middleware", "user-service"],
+        "risks": [
+          "Schema changes require database migration",
+          "Existing user data compatibility"
+        ],
+        "performance_considerations": "Index JWT fields for faster lookups",
+        "error_handling": "Graceful schema validation errors"
+      },
+      "analysis_source": "auto-detected"
     }
   },
   "workflow": {
@@ -87,17 +124,33 @@ For each executable task:
 ```
 
 **Context Assignment Rules:**
-- **Complete Context**: Use full task JSON context for agent execution
+- **Complete Context**: Use full task JSON context including implementation field for agent execution
+- **Implementation Details**: Pass complete implementation.files array to agents for precise execution
+- **Code Context**: Include original_code snippets and logic_flow diagrams in agent prompts
+- **Risk Awareness**: Alert agents to implementation.context_notes.risks before execution
 - **Workflow Integration**: Include session state and IMPL_PLAN.md context
-- **Scope Focus**: Direct agents to specific files from task.context.scope
-- **Gemini Flags**: Automatically add [GEMINI_CLI_REQUIRED] for multi-file tasks
+- **Scope Focus**: Direct agents to specific files from implementation.files[].path
+- **Gemini Flags**: Auto-add [GEMINI_CLI_REQUIRED] when analysis_source is "gemini"
 
 ### 4. Agent Execution & Progress Tracking
 
 ```bash
 Task(subagent_type="code-developer",
-     prompt="[GEMINI_CLI_REQUIRED] Implement authentication logic based on schema",
-     description="Execute impl-1.2 with full workflow context and status tracking")
+     prompt="[GEMINI_CLI_REQUIRED] Implement authentication logic based on schema
+     
+     Task Context: impl-1.2 - Implement auth logic
+     Implementation Details:
+     - Target File: src/auth/models/User.ts
+     - Function: UserSchema (lines 10-50)
+     - Current State: Basic user model without auth fields
+     - Required Changes: Add JWT token fields, Include OAuth provider fields
+     - Logic Flow: createUser() ───► validateSchema() ───► generateJWT()
+     - Dependencies: mongoose, jsonwebtoken
+     - Risks: Schema changes require database migration, Existing user data compatibility
+     - Performance: Index JWT fields for faster lookups
+     
+     Use implementation details above for precise, targeted development.",
+     description="Execute impl-1.2 with full workflow context and implementation details")
 ```
 
 **Execution Protocol:**
@@ -141,8 +194,8 @@ Based on discovered task data:
 - **task.agent field**: Use specified agent from task JSON
 - **task.type analysis**: 
   - "feature" → code-developer
-  - "test" → test-agent  
-  - "docs" → docs-agent
+  - "test" → code-review-test-agent  
+  - "docs" → code-developer
   - "review" → code-review-agent
 - **Gemini context**: Auto-assign based on task.context.scope and requirements
 

@@ -80,6 +80,29 @@ The command automatically detects input type:
 - Generates hierarchical task structure (max 3 levels)
 - Updates session state with task references
 
+### Implementation Field Requirements
+⚠️ **CRITICAL**: All generated tasks must include detailed implementation guidance
+
+**Auto-fill Strategy**:
+1. **Sufficient Information**: Auto-fill implementation field based on user input and project context
+2. **Insufficient Information**: Mark analysis_source as "gemini" and prompt:
+   ```
+   ⚠️ Implementation details incomplete, recommend using gemini analysis:
+   gemini --all-files -p "@{relevant-file-patterns} @{CLAUDE.md} 
+   Analyze task: [task description]
+   Extract: 1) File locations and code snippets 2) Modification logic and data flow 3) Risks and dependencies"
+   ```
+
+**Required Implementation Sub-fields**:
+- **files**: Must contain at least 1 file with detailed info (path, location, original_code, modifications)
+- **context_notes**: Dependencies, risks, performance considerations
+- **analysis_source**: manual|gemini|auto-detected
+
+**Quality Standards**:
+- logic_flow must use specified symbols (───►, ◊───, ◄───)
+- Each file must have specific location (function name or line range)
+- risks array cannot be empty, must contain at least 1 risk assessment
+
 ## Session Check Process
 ⚠️ **CRITICAL**: Check for existing active session before planning
 

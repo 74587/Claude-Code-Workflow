@@ -65,6 +65,7 @@ This command operates on **individual tasks only**. For workflow-wide changes, u
 4. **Dependencies**: Update task relationships?
 5. **Success Criteria**: Modify completion conditions?
 6. **Agent Assignment**: Change assigned agent?
+7. **Implementation Details**: Update file paths, code locations, and logic flows?
 
 ### Interactive Mode
 ```bash
@@ -154,6 +155,44 @@ Each replan creates a new version with complete history:
     "requirements": ["Basic auth", "Session mgmt", "OAuth2 support"],
     "scope": ["src/auth/*", "tests/auth/*"],
     "acceptance": ["All auth methods work"]
+  },
+  "implementation": {
+    "files": [
+      {
+        "path": "src/auth/oauth.ts",
+        "location": {
+          "function": "handleOAuthCallback",
+          "lines": "45-80",
+          "description": "OAuth callback handler (added in replan)"
+        },
+        "original_code": "// New file - requires creation",
+        "modifications": {
+          "current_state": "File does not exist",
+          "proposed_changes": [
+            "Create OAuth2 callback handler",
+            "Integrate with existing auth system"
+          ],
+          "logic_flow": [
+            "receiveCallback() ───► validateAuthCode()",
+            "◊─── if valid ───► exchangeForToken() ───► storeUserSession()",
+            "◊─── if invalid ───► logError() ───► redirectToLogin()"
+          ],
+          "reason": "Support external authentication providers",
+          "expected_outcome": "Seamless OAuth2 integration"
+        }
+      }
+    ],
+    "context_notes": {
+      "dependencies": ["passport-oauth2", "express-session"],
+      "affected_modules": ["auth-middleware", "user-session"],
+      "risks": [
+        "OAuth provider configuration complexity",
+        "Session management conflicts with existing auth"
+      ],
+      "performance_considerations": "External API calls may add 200-500ms latency",
+      "error_handling": "Graceful fallback to standard login on OAuth failure"
+    },
+    "analysis_source": "manual"
   }
 }
 ```
@@ -168,6 +207,48 @@ Each replan creates a new version with complete history:
 │   └── impl-1-v1.1.json          # Previous version backup
 └── summaries/
     └── replan-impl-1-20250908.md  # Change log
+```
+
+## Implementation Field Updates
+
+### Implementation Change Detection
+When replanning, the system analyzes changes to the implementation field:
+
+**Implementation Changes Tracked**:
+- New files added to implementation.files array
+- Modified file paths or locations
+- Updated original_code snippets (via gemini re-analysis if needed)
+- Changed logic flows and data flow diagrams
+- Modified dependencies and risk assessments
+- Updated performance considerations and error handling
+
+**Gemini Re-analysis Triggers**:
+- New file paths that need code extraction
+- Changed function locations requiring updated code snippets
+- Modified scope requiring dependency re-evaluation
+- When analysis_source was "gemini" and major changes occur
+
+**Example Implementation Update**:
+```json
+"implementation": {
+  "files": [
+    {
+      "path": "src/auth/oauth.ts", // NEW FILE ADDED
+      "original_code": "// New file - requires creation",
+      "modifications": {
+        "logic_flow": [
+          "// NEW FLOW ADDED FOR OAUTH"
+        ]
+      }
+    }
+  ],
+  "context_notes": {
+    "dependencies": ["passport-oauth2"], // NEW DEPENDENCY
+    "risks": [
+      "OAuth provider configuration complexity" // NEW RISK
+    ]
+  }
+}
 ```
 
 ## IMPL_PLAN.md Updates

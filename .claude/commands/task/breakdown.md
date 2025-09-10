@@ -82,7 +82,7 @@ Agents assigned:
 - impl-1.1 → planning-agent
 - impl-1.2 → code-developer
 - impl-1.3 → code-developer
-- impl-1.4 → test-agent
+- impl-1.4 → code-review-test-agent
 
 JSON files created:
 - .task/impl-1.1.json
@@ -152,20 +152,81 @@ Parent context is intelligently distributed:
         "parent": "impl-1",
         "subtasks": [],
         "dependencies": []
+      },
+      "implementation": {
+        "files": [
+          {
+            "path": "src/auth/models/User.ts",
+            "location": {
+              "function": "UserSchema",
+              "lines": "auto-detect",
+              "description": "User schema definition for authentication"
+            },
+            "original_code": "// Requires gemini analysis for current schema structure",
+            "modifications": {
+              "current_state": "Basic user model without auth fields",
+              "proposed_changes": [
+                "Add JWT token storage fields",
+                "Include authentication provider fields",
+                "Add timestamp tracking for security"
+              ],
+              "logic_flow": [
+                "defineSchema() ───► addAuthFields() ───► validateStructure()",
+                "◊─── if JWT ───► addTokenFields() ───► addExpirationLogic()",
+                "◊─── if OAuth ───► addProviderFields() ───► linkExternalAccounts()"
+              ],
+              "reason": "Support comprehensive authentication system requirements",
+              "expected_outcome": "Robust user schema supporting multiple authentication methods"
+            }
+          }
+        ],
+        "context_notes": {
+          "dependencies": ["mongoose", "jsonwebtoken"],
+          "affected_modules": ["auth-service", "user-controller"],
+          "risks": [
+            "Database migration required for existing users",
+            "Schema validation complexity with multiple auth types"
+          ],
+          "performance_considerations": "Index auth fields for fast lookups",
+          "error_handling": "Graceful validation errors for schema changes"
+        },
+        "analysis_source": "auto-detected"
       }
     }
   ]
 }
 ```
 
+## Implementation Field Inheritance
+
+### Parent to Subtask Context Flow
+When breaking down tasks, implementation details are inherited and refined:
+
+**Parent Implementation Context**:
+- High-level file scope (e.g., "src/auth/*")
+- General requirements and dependencies
+- Architecture-level risks and considerations
+
+**Subtask Implementation Refinement**:
+- Specific file paths (e.g., "src/auth/models/User.ts")
+- Precise function locations and line ranges
+- Detailed modification steps and logic flows
+- Subtask-specific risks and dependencies
+
+**Auto-Population Strategy for Subtasks**:
+1. **Inherit from Parent**: Copy relevant files from parent.implementation.files
+2. **Refine Scope**: Narrow down to subtask-specific files and functions
+3. **Generate Details**: Create subtask-specific modifications and logic flows
+4. **Risk Analysis**: Identify subtask-level risks from parent context
+5. **Gemini Trigger**: Mark analysis_source as "gemini" when details need extraction
+
 ## Agent Assignment Logic
 
-Based on subtask type:
-- **Design/Planning** → `planning-agent`
-- **Implementation** → `code-developer`
-- **Testing** → `test-agent`
-- **Documentation** → `docs-agent`
-- **Review** → `review-agent`
+Based on subtask type and implementation complexity:
+- **Design/Planning** → `planning-agent` (architectural implementation planning)
+- **Implementation** → `code-developer` (file-level code changes)
+- **Testing** → `code-review-test-agent` (test implementation for specific functions)
+- **Review** → `review-agent` (code review with implementation context)
 
 ## Validation
 

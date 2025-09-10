@@ -46,7 +46,7 @@ FUNCTION select_agent(task, agent_override):
             WHEN CONTAINS "Design schema", "Plan":
                 RETURN "planning-agent"
             WHEN CONTAINS "Write tests":
-                RETURN "test-agent"
+                RETURN "code-review-test-agent"
             WHEN CONTAINS "Review code":
                 RETURN "review-agent"
             DEFAULT:
@@ -154,6 +154,47 @@ This is the simplified data structure loaded to provide context for task executi
       "parent": null,
       "subtasks": ["impl-1.1", "impl-1.2"],
       "dependencies": ["impl-0"]
+    },
+    "implementation": {
+      "files": [
+        {
+          "path": "src/auth/login.ts",
+          "location": {
+            "function": "authenticateUser",
+            "lines": "25-65",
+            "description": "Main authentication logic"
+          },
+          "original_code": "// Code snippet extracted via gemini analysis",
+          "modifications": {
+            "current_state": "Basic password authentication only",
+            "proposed_changes": [
+              "Add JWT token generation",
+              "Implement OAuth2 callback handling",
+              "Add multi-factor authentication support"
+            ],
+            "logic_flow": [
+              "validateCredentials() ───► checkUserExists()",
+              "◊─── if password ───► generateJWT() ───► return token",
+              "◊─── if OAuth ───► validateOAuthCode() ───► exchangeForToken()",
+              "◊─── if MFA ───► sendMFACode() ───► awaitVerification()"
+            ],
+            "reason": "Support modern authentication standards and security requirements",
+            "expected_outcome": "Comprehensive authentication system supporting multiple methods"
+          }
+        }
+      ],
+      "context_notes": {
+        "dependencies": ["jsonwebtoken", "passport", "speakeasy"],
+        "affected_modules": ["user-session", "auth-middleware", "api-routes"],
+        "risks": [
+          "Breaking changes to existing login endpoints",
+          "Token storage and rotation complexity",
+          "OAuth provider configuration dependencies"
+        ],
+        "performance_considerations": "JWT validation adds ~10ms per request, OAuth callbacks may timeout",
+        "error_handling": "Ensure sensitive authentication errors don't leak user enumeration data"
+      },
+      "analysis_source": "gemini"
     }
   },
   "workflow": {
@@ -170,11 +211,31 @@ This is the simplified data structure loaded to provide context for task executi
 
 ### 🎯 **Agent-Specific Context**
 
-Different agents receive context tailored to their function:
--   **`code-developer`**: Code patterns, dependencies, file scopes.
--   **`planning-agent`**: High-level requirements, constraints, success criteria.
--   **`test-agent`**: Test requirements, code to be tested, coverage goals.
--   **`review-agent`**: Quality standards, style guides, review criteria.
+Different agents receive context tailored to their function, including implementation details:
+
+**`code-developer`**: 
+- Complete implementation.files array with file paths and locations
+- original_code snippets and proposed_changes for precise modifications
+- logic_flow diagrams for understanding data flow
+- Dependencies and affected modules for integration planning
+- Performance and error handling considerations
+
+**`planning-agent`**: 
+- High-level requirements, constraints, success criteria
+- Implementation risks and mitigation strategies
+- Architecture implications from implementation.context_notes
+
+**`code-review-test-agent`**: 
+- Files to test from implementation.files[].path
+- Logic flows to validate from implementation.modifications.logic_flow
+- Error conditions to test from implementation.context_notes.error_handling
+- Performance benchmarks from implementation.context_notes.performance_considerations
+
+**`review-agent`**: 
+- Code quality standards and implementation patterns
+- Security considerations from implementation.context_notes.risks
+- Dependency validation from implementation.context_notes.dependencies
+- Architecture compliance checks
 
 ### 🗃️ **Simplified File Output**
 

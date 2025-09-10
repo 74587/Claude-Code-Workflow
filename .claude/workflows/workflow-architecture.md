@@ -75,7 +75,7 @@ Each session directory contains `workflow-session.json`:
 - **Performance**: Direct JSON access without parsing overhead
 
 ### Task JSON Schema
-All task files use this 8-field schema:
+All task files use this 9-field schema:
 
 ```json
 {
@@ -83,7 +83,7 @@ All task files use this 8-field schema:
   "title": "Build authentication module",
   "status": "pending|active|completed|blocked|container",
   "type": "feature|bugfix|refactor|test|docs", 
-  "agent": "code-developer|planning-agent|test-agent|docs-agent",
+  "agent": "code-developer|planning-agent|code-review-test-agent",
   
   "context": {
     "requirements": ["JWT authentication", "OAuth2 support"],
@@ -101,9 +101,78 @@ All task files use this 8-field schema:
   "execution": {
     "attempts": 0,
     "last_attempt": null
+  },
+  
+  "implementation": {
+    "files": [
+      {
+        "path": "src/auth/login.ts",
+        "location": {
+          "function": "handleLogin",
+          "lines": "75-120",
+          "description": "Core logic of login handler function"
+        },
+        "original_code": "// Related code not provided, requires gemini analysis",
+        "modifications": {
+          "current_state": "Currently using simple password validation",
+          "proposed_changes": [
+            "Add JWT token generation logic",
+            "Integrate OAuth2 authentication flow", 
+            "Enhance error handling mechanisms"
+          ],
+          "logic_flow": [
+            "validateInput() ───► checkCredentials()",
+            "◊─── if valid ───► generateJWT() ───► return token",
+            "◊─── if OAuth ───► redirectToProvider() ───► handleCallback()",
+            "◊─── if error ───► logError() ───► return errorResponse"
+          ],
+          "reason": "Meet JWT and OAuth2 authentication requirements, enhance security",
+          "expected_outcome": "Flexible login system supporting multiple authentication methods"
+        }
+      }
+    ],
+    "context_notes": {
+      "dependencies": ["jsonwebtoken", "passport-oauth2"],
+      "affected_modules": ["user-profile", "session-manager"],
+      "risks": [
+        "Need to update authentication middleware for all API endpoints",
+        "May affect existing user sessions",
+        "Require database migration to add token storage table"
+      ],
+      "performance_considerations": "JWT validation will add approximately 5ms latency",
+      "error_handling": "Ensure sensitive information is not leaked in error responses"
+    },
+    "analysis_source": "manual|gemini|auto-detected"
   }
 }
 ```
+
+### Implementation Field Details
+
+The **implementation** field provides detailed code implementation guidance with 4 core components:
+
+#### files Array - Detailed File Information
+- **path**: File path or filename
+- **location**: Specific code location (function name, class name, line range)
+- **original_code**: Original code snippet to be modified (mark as "requires gemini analysis" if not obtained)
+- **modifications**: Modification details
+  - **current_state**: Brief description of current code state
+  - **proposed_changes**: Step-by-step list of modification points
+  - **logic_flow**: Data flow and call relationship diagram
+  - **reason**: Modification rationale and objectives
+  - **expected_outcome**: Expected results
+
+#### context_notes - Implementation Context Information
+- **dependencies**: Required dependency packages or modules
+- **affected_modules**: Other modules that will be affected
+- **risks**: Potential risk points and cascading effects
+- **performance_considerations**: Performance impact assessment
+- **error_handling**: Error handling requirements
+
+#### analysis_source - Information Source Identifier
+- **manual**: Detailed information manually provided by user
+- **gemini**: Automatically obtained through Gemini CLI analysis
+- **auto-detected**: Auto-detected based on task type and context
 
 ### Hierarchical Task System
 **Maximum Depth**: 3 levels (impl-N.M.P format)
@@ -283,16 +352,19 @@ File structure scales with task complexity to minimize overhead for simple tasks
 
 ### TODO_LIST.md Template
 ```markdown
-# Task Progress List: [Session Topic]
+# Tasks: [Session Topic]
 
-## Implementation Tasks
+## Main Tasks
+- [ ] **IMPL-001**: [Task Description] → [📋](./.task/impl-001.json)
+- [x] **IMPL-002**: [Completed Task] → [📋](./.task/impl-002.json) | [✅](./.summaries/IMPL-002.md)
+- [ ] **IMPL-003**: [Task Description] → [📋](./.task/impl-003.json)
 
-### Main Tasks
-- [ ] **IMPL-001**: [Task Description] → [📋 Details](./.task/impl-001.json)
-- [x] **IMPL-002**: [Completed Task] → [📋 Details](./.task/impl-002.json) | [✅ Summary](./.summaries/IMPL-002-summary.md)
+## Subtasks  
+- [ ] **IMPL-001.1**: [Subtask] → [📋](./.task/impl-001.1.json)
+- [ ] **IMPL-001.2**: [Subtask] → [📋](./.task/impl-001.2.json)
 
-### Subtasks (Auto-expanded when active)
-- [ ] **IMPL-001.1**: [Subtask Description] → [📋 Details](./.task/impl-001.1.json)
+## Notes
+[可选备注]
 ```
 
 ## Agent Integration
@@ -301,8 +373,7 @@ File structure scales with task complexity to minimize overhead for simple tasks
 Based on task type and title keywords:
 - **Planning tasks** → planning-agent
 - **Implementation** → code-developer  
-- **Testing** → test-agent
-- **Documentation** → docs-agent
+- **Testing** → code-review-test-agent
 - **Review** → review-agent
 
 ### Execution Context
@@ -316,6 +387,66 @@ Agents receive complete task JSON plus workflow context:
   }
 }
 ```
+
+## Gemini Analysis Integration
+
+### Implementation Field Population Strategy
+
+When task creation encounters insufficient implementation details, the system integrates with Gemini CLI for automated code analysis:
+
+#### Trigger Conditions
+- **Missing File Paths**: No specific files identified in task scope
+- **Vague Code Locations**: Generic descriptions without function/class names
+- **Empty Risk Assessment**: No specific risks or dependencies identified
+- **analysis_source**: Marked as "gemini" during task creation
+
+#### Gemini Analysis Command Template
+```bash
+gemini --all-files -p "@{scope-patterns} @{CLAUDE.md} 
+$(cat ~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt)
+
+## Task-Specific Analysis:
+Task: [task title and description]
+Target Files: [scope patterns or 'auto-detect']
+
+## Required Extraction:
+1. **File Locations**: Identify specific files, functions, classes, line ranges
+2. **Original Code**: Extract relevant code snippets that need modification  
+3. **Data Flow**: Map current logic flow and identify integration points
+4. **Risk Assessment**: Analyze dependencies, performance impact, error scenarios
+5. **Implementation Context**: Document required libraries, affected modules
+
+## Output Format:
+- File references with :line format
+- Code snippets in markdown blocks
+- Flow diagrams using ───►, ◊───, ◄─── symbols
+- Risk list with specific impact descriptions"
+```
+
+#### Analysis Result Processing
+1. **Parse Gemini Output**: Extract file paths, code snippets, and analysis insights
+2. **Structure Mapping**: Convert analysis results into implementation JSON structure
+3. **Validation**: Ensure all required fields are populated with meaningful content
+4. **Quality Check**: Verify logic_flow uses proper symbols and risks are specific
+
+#### Integration Points
+- **Task Creation**: `/workflow:plan` and `/task:create` commands
+- **Task Refinement**: `/task:replan` for updating incomplete implementation details
+- **Manual Trigger**: Direct gemini analysis when implementation details are missing
+
+### Implementation Field Validation
+
+**Required Quality Standards**:
+- Each file must have specific `location.function` or `location.lines`
+- `original_code` cannot be empty placeholder text
+- `logic_flow` must use standard symbols: `───►` (flow), `◊───` (condition), `◄───` (return)
+- `risks` array must contain at least one specific, actionable risk
+- `dependencies` must list actual package names, not generic terms
+
+**Auto-Correction**:
+- Missing line numbers → Trigger gemini re-analysis with specific file focus
+- Generic risk descriptions → Request detailed impact analysis
+- Empty original_code → Flag for manual code review or gemini extraction
 
 ## Data Operations
 
@@ -343,7 +474,9 @@ generate_todo_list_from_json .task/
 3. **Parent References**: All parent IDs must exist as JSON files
 4. **Depth Limits**: Maximum 3 levels deep
 5. **Status Consistency**: Status values from defined enumeration
-6. **Required Fields**: All 8 core fields must be present
+6. **Required Fields**: All 9 core fields must be present
+7. **Implementation Structure**: implementation.files array must contain valid file paths
+8. **Analysis Source**: analysis_source must be one of: manual|gemini|auto-detected
 
 ### Session Consistency Checks
 ```bash
