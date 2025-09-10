@@ -108,6 +108,18 @@ Templates are shared between gemini and codex. This structure can be located at 
 
 These are recommended command templates for common scenarios.
 
+-   **Module-Specific Analysis (Quick Module Analysis)**
+    ```bash
+    # Navigate to module directory for focused analysis
+    cd src/auth && gemini --all-files -p "Analyze authentication module patterns and implementation"
+    
+    # Or specify module from root directory
+    cd backend/services && gemini --all-files -p "Review service architecture and dependencies"
+    
+    # Template-enhanced module analysis
+    cd frontend/components && gemini --all-files -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
+    ```
+
 -   **Basic Structure (Manual Prompt)**
     ```bash
     gemini --all-files -p "@{target_patterns} @{CLAUDE.md,**/*CLAUDE.md}

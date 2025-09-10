@@ -113,6 +113,18 @@ Templates are shared between gemini and codex. This structure must be located at
 
 ### 📦 Standard Command Structures
 
+-   **Module-Specific Development (Folder Analysis Required)**
+    ```bash
+    # MUST use @{folder/**/*} pattern since codex has no --all-files
+    codex exec "@{src/auth/**/*,CLAUDE.md} Refactor authentication module using latest patterns"
+    
+    # Alternative: use --cd flag to navigate + include folder
+    codex --cd src/auth exec "@{**/*,../../CLAUDE.md} Implement JWT refresh token functionality"
+    
+    # For comprehensive module analysis
+    codex exec "@{backend/services/**/*,package.json,CLAUDE.md} Optimize service layer performance"
+    ```
+
 -   **Basic Development Task**
     ```bash
     codex exec "@{src/**/*,*.json,CLAUDE.md} Implement user authentication with JWT"

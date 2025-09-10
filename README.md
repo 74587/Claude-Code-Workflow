@@ -8,7 +8,7 @@
 
 A sophisticated multi-agent automation workflow framework that transforms complex software development tasks from conceptualization to implementation review into manageable, trackable, AI-orchestrated processes.
 
-> **🎉 v1.0 Release**: Complete Gemini CLI integration with template system, dynamic template discovery, streamlined documentation, and intelligent auto-selection capabilities. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 v1.1 Release**: Unified CLI architecture with both Gemini (analysis) and Codex (development) integration, shared template system, comprehensive workflow documentation, and autonomous development capabilities. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## 🏗️ Architecture Overview
 
@@ -41,11 +41,12 @@ CCW intelligently adapts its file structure and workflow processes based on unif
 - **Code Review Agent**: Reviews code quality and compliance
 - **Memory Gemini Bridge**: Intelligent CLAUDE.md documentation system with context-aware updates
 
-### Gemini CLI Integration (v1.0)
-- **Dynamic Template Discovery**: Automatically detects and loads templates from `~/.claude/prompt-templates/`
+### Unified CLI Integration (v1.1)
+- **Gemini & Codex Unified**: Comprehensive CLI integration with both analysis (`gemini`) and development (`codex`) workflows
+- **Dynamic Template Discovery**: Automatically detects and loads templates from `~/.claude/workflows/cli-templates/`
 - **Intelligent Auto-Selection**: Matches user input against template keywords and descriptions
-- **Template System**: Bug-fix, planning, and custom analysis templates
-- **Streamlined Commands**: Consolidated documentation with 500+ lines reduced
+- **Template System**: Analysis, development, planning, and specialized templates
+- **Streamlined Commands**: Unified documentation architecture with shared templates
 
 ### Workflow Session Management
 - Create, pause, resume, list, and switch workflow sessions
@@ -120,6 +121,11 @@ For Gemini CLI integration, configure your `settings.json` file:
 
 ## 📚 Complete Command Reference
 
+### CLI Tool Guidelines
+- **Gemini Commands**: For analysis, investigation, and understanding codebase patterns
+- **Codex Commands**: For autonomous development, code generation, and implementation
+- **Unified Templates**: Shared template system at `~/.claude/workflows/cli-templates/`
+
 ### Core Commands
 
 | Command | Syntax | Description |
@@ -128,9 +134,11 @@ For Gemini CLI integration, configure your `settings.json` file:
 | `/gemini:analyze` | `/gemini:analyze <inquiry> [--all-files] [--save-session]` | Direct codebase analysis and investigation |
 | `/gemini:chat` | `/gemini:chat <inquiry> [--all-files] [--save-session]` | Simple direct interaction with Gemini CLI without templates |
 | `/gemini:execute` | `/gemini:execute <task-id\|description> [--yolo] [--debug]` | Intelligent executor with automatic file context inference |
-| `/gemini:mode:auto` | `/gemini:mode:auto "<description>"` | 🆕 Auto-select and execute appropriate template based on user input analysis |
+| `/gemini:mode:auto` | `/gemini:mode:auto "<description>"` | Auto-select and execute appropriate template based on user input analysis |
 | `/gemini:mode:bug-index` | `/gemini:mode:bug-index <bug-description>` | Bug analysis using specialized diagnostic template |
 | `/gemini:mode:plan` | `/gemini:mode:plan <planning-topic>` | Project planning using specialized architecture template |
+| `/codex:exec` | `/codex:exec "@{patterns} prompt"` | 🆕 Autonomous development with explicit file pattern references |
+| `/codex:--full-auto` | `/codex --full-auto "task description"` | 🆕 Full automation mode for complex development workflows |
 | `/update-memory` | `/update-memory [related\|full]` | Intelligent CLAUDE.md documentation system with context-aware updates |
 | `/update-memory-full` | `/update-memory-full` | 🆕 Complete project-wide CLAUDE.md documentation update with depth-parallel execution |
 | `/update-memory-related` | `/update-memory-related` | 🆕 Context-aware documentation updates for modules affected by recent changes |
@@ -258,24 +266,26 @@ git commit -m "Major refactoring"
 | **Medium** | 5-15 tasks | 2 levels (impl-N.M) | Enhanced + auto-generated TODO_LIST.md | Optional brainstorming → Action plan → Progress tracking |
 | **Complex** | >15 tasks | 3 levels (impl-N.M.P) | Complete document suite | Required brainstorming → Multi-agent orchestration → Deep context analysis |
 
-### 🚀 v1.0 Release Benefits
-- **Smart Automation**: Intelligent template selection reduces manual template discovery
-- **Documentation**: 500+ lines streamlined while maintaining functionality  
-- **Template System**: Dynamic discovery and YAML-based metadata parsing
+### 🚀 v1.1 Release Benefits
+- **Unified CLI Architecture**: Seamless integration of analysis (`gemini`) and development (`codex`) workflows
+- **Smart Automation**: Intelligent template selection with autonomous development capabilities
+- **Shared Template System**: Unified template library with cross-tool compatibility
+- **Enhanced Documentation**: Comprehensive workflow guides with best practices
 - **Cross-Platform**: Unified path handling for Windows/Linux compatibility
-- **Developer Experience**: Simplified commands with powerful auto-selection
+- **Developer Experience**: Powerful automation with human oversight control
 
 ## 🔧 Technical Highlights
 
+- **Dual CLI Integration**: Seamless `gemini` (analysis) and `codex` (development) workflow coordination
 - **Intelligent Context Processing**: Dynamic context construction with technology stack detection
-- **Template-Driven Architecture**: Highly customizable and extensible through templates
+- **Template-Driven Architecture**: Highly customizable and extensible through unified shared templates
 - **Quality Assurance Integration**: Built-in code review and testing strategy phases
 - **Intelligent Documentation System**: 4-layer hierarchical CLAUDE.md system with:
   - **Dual-mode Operations**: `related` (git-aware change detection) and `full` (complete project scan)  
   - **Complexity-adaptive Execution**: Auto-delegation to memory-gemini-bridge for complex projects (>15/20 modules)
   - **Depth-parallel Processing**: Bottom-up execution ensuring child context availability for parent updates
   - **Git Integration**: Smart change detection with fallback strategies and comprehensive status reporting
-- **CLI-First Design**: Powerful, orthogonal command-line interface for automation
+- **CLI-First Design**: Powerful, orthogonal command-line interface for automation and autonomous development
 
 ## 🎨 Design Philosophy
 

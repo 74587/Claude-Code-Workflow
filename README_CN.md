@@ -8,7 +8,7 @@
 
 一个精密的多智能体自动化工作流框架，将复杂的软件开发任务从概念构思到实现审查转化为可管理、可追踪、AI协调的流程。
 
-> **🎉 v1.0 版本发布**：完整的 Gemini CLI 集成，包含模板系统、动态模板发现、精简文档和智能自动选择功能。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 v1.1 版本发布**：统一的 CLI 架构，集成 Gemini（分析）和 Codex（开发），共享模板系统，全面的工作流文档和自主开发能力。详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 🏗️ 架构概览
 
@@ -41,12 +41,12 @@ CCW 根据统一的任务数量阈值智能调整其文件结构和工作流程�
 - **代码审查智能体**：审查代码质量和合规性
 - **记忆桥接智能体**：智能 CLAUDE.md 文档系统，提供上下文感知更新
 
-### Gemini CLI 集成 (v1.0)
-- **动态模板发现**：自动检测和加载来自 `~/.claude/prompt-templates/` 的模板
+### 统一 CLI 集成 (v1.1)
+- **Gemini & Codex 统一**：全面的 CLI 集成，支持分析（`gemini`）和开发（`codex`）工作流
+- **动态模板发现**：自动检测和加载来自 `~/.claude/workflows/cli-templates/` 的模板
 - **智能自动选择**：根据模板关键词和描述匹配用户输入
-- **模板系统**：Bug修复、规划和自定义分析模板
-- **精简命令**：整合文档，减少500+行代码
-- **准确命令结构**：统一的 `/gemini:mode:*` 和 `/workflow:*` 命令模式
+- **模板系统**：分析、开发、规划和专用模板
+- **统一命令架构**：统一的文档架构，共享模板系统
 
 ### 工作流会话管理
 - 创建、暂停、恢复、列出和切换工作流会话
@@ -121,6 +121,11 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 
 ## 📚 完整命令参考
 
+### CLI 工具指南
+- **Gemini 命令**：用于分析、调查和理解代码库模式
+- **Codex 命令**：用于自主开发、代码生成和实现
+- **统一模板**：共享模板系统位于 `~/.claude/workflows/cli-templates/`
+
 ### 核心命令
 
 | 命令 | 语法 | 描述 |
@@ -129,9 +134,11 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | `/gemini:chat` | `/gemini:chat <查询> [--all-files] [--save-session]` | 与 Gemini CLI 的简单直接交互，不使用模板 |
 | `/gemini:analyze` | `/gemini:analyze <查询> [--all-files] [--save-session]` | 直接代码库分析和调查 |
 | `/gemini:execute` | `/gemini:execute <任务ID\|描述> [--yolo] [--debug]` | 智能执行器，自动推断文件上下文 |
-| `/gemini:mode:auto` | `/gemini:mode:auto "<描述>"` | 🆕 基于用户输入分析自动选择和执行合适的模板 |
+| `/gemini:mode:auto` | `/gemini:mode:auto "<描述>"` | 基于用户输入分析自动选择和执行合适的模板 |
 | `/gemini:mode:bug-index` | `/gemini:mode:bug-index <错误描述>` | 使用专门的诊断模板进行错误分析 |
 | `/gemini:mode:plan` | `/gemini:mode:plan <规划主题>` | 使用专门的架构模板进行项目规划 |
+| `/codex:exec` | `/codex:exec "@{patterns} prompt"` | 🆕 带显式文件模式引用的自主开发 |
+| `/codex:--full-auto` | `/codex --full-auto "任务描述"` | 🆕 复杂开发工作流的全自动化模式 |
 | `/update-memory` | `/update-memory [related\|full]` | 智能 CLAUDE.md 文档系统，提供上下文感知更新 |
 | `/update-memory-full` | `/update-memory-full` | 🆕 完整的项目级 CLAUDE.md 文档更新，采用深度并行执行 |
 | `/update-memory-related` | `/update-memory-related` | 🆕 基于近期变更的上下文感知文档更新 |
@@ -257,24 +264,26 @@ git commit -m "重大重构"
 | **中等** | 5-15个任务 | 2级 (impl-N.M) | 增强 + 自动生成TODO_LIST.md | 可选头脑风暴 → 行动计划 → 进度跟踪 |
 | **复杂** | >15个任务 | 3级 (impl-N.M.P) | 完整文档套件 | 必需头脑风暴 → 多智能体编排 → 深度上下文分析 |
 
-### 🚀 架构 v2.0 优势
-- **性能提升**：标记文件系统带来95%更快的会话操作
-- **一致性保证**：JSON纯模型提供100%数据一致性
-- **效率提升**：维护开销减少40-50%
-- **可扩展性**：支持数百个并发会话
-- **学习曲线**：渐进式复杂度使学习时间缩短50%
+### 🚀 v1.1 版本优势
+- **统一 CLI 架构**：分析（`gemini`）和开发（`codex`）工作流的无缝集成
+- **智能自动化**：具备自主开发能力的智能模板选择
+- **共享模板系统**：统一的模板库，支持跨工具兼容性
+- **增强文档**：包含最佳实践的全面工作流指南
+- **跨平台支持**：统一的 Windows/Linux 路径处理
+- **开发体验**：强大的自动化与人工监督控制
 
 ## 🔧 技术亮点
 
+- **双 CLI 集成**：无缝的 `gemini`（分析）和 `codex`（开发）工作流协调
 - **智能上下文处理**：基于技术栈检测的动态上下文构建
-- **模板驱动架构**：通过模板实现高度可定制和可扩展性
+- **模板驱动架构**：通过统一共享模板实现高度可定制和可扩展性
 - **质量保证集成**：内置代码审查和测试策略阶段
 - **智能文档系统**：4层分层 CLAUDE.md 系统，具有：
   - **双模式操作**：`related`（git感知变更检测）和 `full`（完整项目扫描）
   - **复杂度自适应执行**：复杂项目（>15/20个模块）自动委托给 memory-gemini-bridge
   - **深度并行处理**：自下而上执行，确保子上下文可用于父级更新
   - **Git集成**：智能变更检测，带回退策略和综合状态报告
-- **CLI 优先设计**：强大、正交的命令行界面，便于自动化
+- **CLI 优先设计**：强大、正交的命令行界面，支持自动化和自主开发
 
 ## 🎨 设计理念
 
