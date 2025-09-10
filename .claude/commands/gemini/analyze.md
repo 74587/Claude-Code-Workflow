@@ -52,10 +52,10 @@ Quick analysis tool for codebase insights using intelligent pattern detection an
 ## Templates Used
 
 Templates are automatically selected based on analysis type:
-- **Pattern Analysis**: `~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt`
-- **Architecture Analysis**: `~/.claude/workflows/gemini-templates/prompts/analysis/architecture.txt`
-- **Security Analysis**: `~/.claude/workflows/gemini-templates/prompts/analysis/security.txt`
-- **Performance Analysis**: `~/.claude/workflows/gemini-templates/prompts/analysis/performance.txt`
+- **Pattern Analysis**: `~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt`
+- **Architecture Analysis**: `~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt`
+- **Security Analysis**: `~/.claude/workflows/cli-templates/prompts/analysis/security.txt`
+- **Performance Analysis**: `~/.claude/workflows/cli-templates/prompts/analysis/performance.txt`
 
 ## Workflow Integration
 

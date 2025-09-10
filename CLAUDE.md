@@ -70,9 +70,10 @@ This document defines project-specific coding standards and development principl
 - Stop after 3 failed attempts and reassess
 
 
-### Gemini Context Protocol
-For all Gemini CLI usage, command syntax, and integration guidelines:
-@~/.claude/workflows/gemini-unified.md
+### CLI Tool Context Protocols
+For all CLI tool usage, command syntax, and integration guidelines:
+- **Gemini (Analysis)**: @~/.claude/workflows/gemini-unified.md
+- **Codex (Development)**: @~/.claude/workflows/codex-unified.md
 
 
 #### **Content Uniqueness Rules**

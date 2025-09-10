@@ -112,7 +112,7 @@ This section details how the system programmatically interacts with the Gemini C
 -   **Central Guidelines**: All CLI usage patterns, syntax, and context detection rules are defined in the central guidelines document:
 -   **Template Selection**: For specific analysis types, the system references the template selection guide:
     -   **All Templates**: `gemini-template-rules.md` - provides guidance on selecting appropriate templates
-    -   **Template Library**: `gemini-templates/` - contains actual prompt and command templates
+    -   **Template Library**: `cli-templates/` - contains actual prompt and command templates
 
 ### 📝 **Enhancement Examples**
 

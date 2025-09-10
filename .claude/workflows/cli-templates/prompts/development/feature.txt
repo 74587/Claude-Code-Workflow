@@ -1,0 +1,31 @@
+You are tasked with implementing a new feature in this codebase. Follow these guidelines:
+
+## Analysis Phase:
+1. Study existing code patterns and conventions
+2. Identify similar features and their implementation approaches
+3. Review project architecture and design principles
+4. Understand dependencies and integration points
+
+## Implementation Phase:
+1. Create feature following established patterns
+2. Implement with proper error handling and validation
+3. Add comprehensive logging for debugging
+4. Follow security best practices
+
+## Integration Phase:
+1. Ensure seamless integration with existing systems
+2. Update configuration files as needed
+3. Add proper TypeScript types and interfaces
+4. Update documentation and comments
+
+## Testing Phase:
+1. Write unit tests covering edge cases
+2. Add integration tests for feature workflows
+3. Verify error scenarios are properly handled
+4. Test performance and security implications
+
+## Output Requirements:
+- Provide file:line references for all changes
+- Include code examples demonstrating key patterns
+- Explain architectural decisions made
+- Document any new dependencies or configurations

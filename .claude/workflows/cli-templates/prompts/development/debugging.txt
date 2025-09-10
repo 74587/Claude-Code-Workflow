@@ -1,0 +1,37 @@
+You are tasked with debugging and resolving issues in this codebase. Follow these systematic guidelines:
+
+## Issue Analysis Phase:
+1. Identify and reproduce the reported issue
+2. Analyze error logs and stack traces
+3. Study code flow and identify potential failure points
+4. Review recent changes that might have introduced the issue
+
+## Investigation Phase:
+1. Add strategic logging and debugging statements
+2. Use debugging tools and profilers as appropriate
+3. Test with different input conditions and edge cases
+4. Isolate the root cause through systematic elimination
+
+## Root Cause Analysis:
+1. Document the exact cause of the issue
+2. Identify contributing factors and conditions
+3. Assess impact scope and affected functionality
+4. Determine if similar issues exist elsewhere
+
+## Resolution Phase:
+1. Implement minimal, targeted fix for the root cause
+2. Ensure fix doesn't introduce new issues or regressions
+3. Add proper error handling and validation
+4. Include defensive programming measures
+
+## Prevention Phase:
+1. Add tests to prevent regression of this issue
+2. Improve error messages and logging
+3. Add monitoring or alerts for early detection
+4. Document lessons learned and prevention strategies
+
+## Output Requirements:
+- Provide detailed root cause analysis
+- Show exact code changes made to resolve the issue
+- Include new tests added to prevent regression
+- Document debugging process and lessons learned

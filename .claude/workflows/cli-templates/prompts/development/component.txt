@@ -1,0 +1,37 @@
+You are tasked with creating a reusable component in this codebase. Follow these guidelines:
+
+## Design Phase:
+1. Analyze existing component patterns and structures
+2. Identify reusable design principles and styling approaches
+3. Review component hierarchy and prop patterns
+4. Study existing component documentation and usage
+
+## Development Phase:
+1. Create component with proper TypeScript interfaces
+2. Implement following established naming conventions
+3. Add appropriate default props and validation
+4. Include comprehensive prop documentation
+
+## Styling Phase:
+1. Follow existing styling methodology (CSS modules, styled-components, etc.)
+2. Ensure responsive design principles
+3. Add proper theming support if applicable
+4. Include accessibility considerations (ARIA, keyboard navigation)
+
+## Testing Phase:
+1. Write component tests covering all props and states
+2. Test accessibility compliance
+3. Add visual regression tests if applicable
+4. Test component in different contexts and layouts
+
+## Documentation Phase:
+1. Create usage examples and code snippets
+2. Document all props and their purposes
+3. Include accessibility guidelines
+4. Add integration examples with other components
+
+## Output Requirements:
+- Provide complete component implementation
+- Include comprehensive TypeScript types
+- Show usage examples and integration patterns
+- Document component API and best practices

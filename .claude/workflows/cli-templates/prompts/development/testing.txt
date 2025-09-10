@@ -1,0 +1,43 @@
+You are tasked with creating comprehensive tests for this codebase. Follow these guidelines:
+
+## Test Strategy Phase:
+1. Analyze existing test coverage and identify gaps
+2. Study codebase architecture and critical paths
+3. Identify edge cases and error scenarios
+4. Review testing frameworks and conventions used
+
+## Unit Testing Phase:
+1. Write tests for individual functions and methods
+2. Test all branches and conditional logic
+3. Cover edge cases and boundary conditions
+4. Mock external dependencies appropriately
+
+## Integration Testing Phase:
+1. Test interactions between components and modules
+2. Verify API endpoints and data flow
+3. Test database operations and transactions
+4. Validate external service integrations
+
+## End-to-End Testing Phase:
+1. Test complete user workflows and scenarios
+2. Verify critical business logic and processes
+3. Test error handling and recovery mechanisms
+4. Validate performance under load
+
+## Quality Assurance:
+1. Ensure tests are reliable and deterministic
+2. Make tests readable and maintainable
+3. Add proper test documentation and comments
+4. Follow testing best practices and conventions
+
+## Test Data Management:
+1. Create realistic test data and fixtures
+2. Ensure test isolation and cleanup
+3. Use factories or builders for complex objects
+4. Handle sensitive data appropriately in tests
+
+## Output Requirements:
+- Provide comprehensive test suite with high coverage
+- Include performance benchmarks where relevant
+- Document testing strategy and conventions used
+- Show test coverage metrics and quality improvements

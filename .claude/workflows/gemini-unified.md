@@ -25,7 +25,7 @@ type: technical-guideline
 -   **Key Arguments**:
     -   `--all-files`: Includes all files in the current working directory.
     -   `-p`: The prompt string, which must contain file reference patterns and the analysis query.
-    -   `{template}`: Template injection using `$(cat ~/.claude/workflows/gemini-templates/prompts/[category]/[template].txt)` for standardized analysis
+    -   `{template}`: Template injection using `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)` for standardized analysis
     -   `@{pattern}`: A special syntax for referencing files and directories.
 
 -   **Template Usage**:
@@ -34,14 +34,14 @@ type: technical-guideline
     gemini -p "@{src/**/*} @{CLAUDE.md} Analyze code patterns and conventions"
     
     # With template (recommended)
-    gemini -p "@{src/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt)"
+    gemini -p "@{src/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
     
     # Multi-template composition
     gemini -p "@{src/**/*} @{CLAUDE.md} $(cat <<'EOF'
-    $(cat ~/.claude/workflows/gemini-templates/prompts/analysis/architecture.txt)
+    $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt)
     
     Additional Security Focus:
-    $(cat ~/.claude/workflows/gemini-templates/prompts/analysis/security.txt)
+    $(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt)
     EOF
     )"
     ```
@@ -68,10 +68,10 @@ type: technical-guideline
 
 ###  TPL (Templates)
 
-#### 🗂️ Template Directory Structure
-This structure must be located at `~/.claude/workflows/gemini-templates/`.
+#### 🗂️ Shared Template Directory Structure
+Templates are shared between gemini and codex. This structure can be located at either `~/.claude/workflows/cli-templates/` (global) or `./.claude/workflows/cli-templates/` (project-specific).
 
-~/.claude/workflows/gemini-templates/
+~/.claude/workflows/cli-templates/
 ├── prompts/
 │   ├── analysis/       # Code analysis templates
 │   │   ├── pattern.txt      # ✨ Implementation patterns & conventions
@@ -127,7 +127,7 @@ These are recommended command templates for common scenarios.
 -   **Template-Enhanced (Recommended)**
     ```bash
     # Using a predefined template for consistent, high-quality analysis
-    gemini --all-files -p "@{target_patterns} @{CLAUDE.md,**/*CLAUDE.md} $(cat ~/.claude/workflows/gemini-templates/prompts/[category]/[template].txt)
+    gemini --all-files -p "@{target_patterns} @{CLAUDE.md,**/*CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)
 
     ## Analysis:
     1. [Point 1]
@@ -142,10 +142,10 @@ These are recommended command templates for common scenarios.
 -   **Multi-Template Composition**
     ```bash
     gemini -p "@{src/**/*} @{CLAUDE.md} 
-    $(cat ~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt)
+    $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
     Additional Security Focus:
-    $(cat ~/.claude/workflows/gemini-templates/prompts/analysis/security.txt)
+    $(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt)
 
     ## Analysis:
     1. [Point 1]

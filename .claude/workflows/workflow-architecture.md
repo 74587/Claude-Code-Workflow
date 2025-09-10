@@ -403,7 +403,7 @@ When task creation encounters insufficient implementation details, the system in
 #### Gemini Analysis Command Template
 ```bash
 gemini --all-files -p "@{scope-patterns} @{CLAUDE.md} 
-$(cat ~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt)
+$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
 ## Task-Specific Analysis:
 Task: [task title and description]

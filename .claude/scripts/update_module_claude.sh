@@ -40,22 +40,22 @@ update_module_claude() {
     if [ "$module_path" = "." ]; then
         # Root directory
         layer="Layer 1 (Root)"
-        template_path="~/.claude/workflows/gemini-templates/prompts/dms/claude-layer1-root.txt"
+        template_path="~/.claude/workflows/cli-templates/prompts/dms/claude-layer1-root.txt"
         analysis_strategy="--all-files"
     elif [[ "$clean_path" =~ ^[^/]+$ ]]; then
         # Top-level directories (e.g., .claude, src, tests)
         layer="Layer 2 (Domain)"
-        template_path="~/.claude/workflows/gemini-templates/prompts/dms/claude-layer2-domain.txt"
+        template_path="~/.claude/workflows/cli-templates/prompts/dms/claude-layer2-domain.txt"
         analysis_strategy="@{*/CLAUDE.md}"
     elif [[ "$clean_path" =~ ^[^/]+/[^/]+$ ]]; then
         # Second-level directories (e.g., .claude/scripts, src/components)
         layer="Layer 3 (Module)"
-        template_path="~/.claude/workflows/gemini-templates/prompts/dms/claude-layer3-module.txt"
+        template_path="~/.claude/workflows/cli-templates/prompts/dms/claude-layer3-module.txt"
         analysis_strategy="@{*/CLAUDE.md}"
     else
-        # Deeper directories (e.g., .claude/workflows/gemini-templates/prompts)
+        # Deeper directories (e.g., .claude/workflows/cli-templates/prompts)
         layer="Layer 4 (Sub-Module)"
-        template_path="~/.claude/workflows/gemini-templates/prompts/dms/claude-layer4-submodule.txt"
+        template_path="~/.claude/workflows/cli-templates/prompts/dms/claude-layer4-submodule.txt"
         analysis_strategy="--all-files"
     fi
     

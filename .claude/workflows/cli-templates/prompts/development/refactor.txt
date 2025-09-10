@@ -1,0 +1,37 @@
+You are tasked with refactoring existing code to improve quality, performance, or maintainability. Follow these guidelines:
+
+## Analysis Phase:
+1. Identify code smells and technical debt
+2. Analyze performance bottlenecks and inefficiencies
+3. Review code complexity and maintainability metrics
+4. Study existing test coverage and identify gaps
+
+## Planning Phase:
+1. Create refactoring strategy preserving existing functionality
+2. Identify breaking changes and migration paths
+3. Plan incremental refactoring steps
+4. Consider backward compatibility requirements
+
+## Refactoring Phase:
+1. Apply SOLID principles and design patterns
+2. Improve code readability and documentation
+3. Optimize performance while maintaining functionality
+4. Reduce code duplication and improve reusability
+
+## Validation Phase:
+1. Ensure all existing tests continue to pass
+2. Add new tests for improved code coverage
+3. Verify performance improvements with benchmarks
+4. Test edge cases and error scenarios
+
+## Migration Phase:
+1. Update dependent code to use refactored interfaces
+2. Update documentation and usage examples
+3. Provide migration guides for breaking changes
+4. Add deprecation warnings for old interfaces
+
+## Output Requirements:
+- Provide before/after code comparisons
+- Document performance improvements achieved
+- Include migration instructions for breaking changes
+- Show updated test coverage and quality metrics

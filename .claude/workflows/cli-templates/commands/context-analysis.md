@@ -108,14 +108,14 @@ Output: Data layer context with implementation patterns"
 ### 使用提示词模板
 ```bash
 # 基础模板引入
-gemini -p "@{src/**/*} $(cat ~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt)"
+gemini -p "@{src/**/*} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
 
 # 组合多个模板
 gemini -p "@{src/**/*} $(cat <<'EOF'
-$(cat ~/.claude/workflows/gemini-templates/prompts/analysis/architecture.txt)
+$(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt)
 
 Additional focus:
-$(cat ~/.claude/workflows/gemini-templates/prompts/analysis/quality.txt)
+$(cat ~/.claude/workflows/cli-templates/prompts/analysis/quality.txt)
 EOF
 )"
 ```
@@ -124,11 +124,11 @@ EOF
 ```bash
 # 基于项目特征动态选择模板
 if [ -f "package.json" ] && grep -q "react" package.json; then
-    TEMPLATE="~/.claude/workflows/gemini-templates/prompts/tech/react-component.txt"
+    TEMPLATE="~/.claude/workflows/cli-templates/prompts/tech/react-component.txt"
 elif [ -f "requirements.txt" ]; then
-    TEMPLATE="~/.claude/workflows/gemini-templates/prompts/tech/python-api.txt"
+    TEMPLATE="~/.claude/workflows/cli-templates/prompts/tech/python-api.txt"
 else
-    TEMPLATE="~/.claude/workflows/gemini-templates/prompts/analysis/pattern.txt"
+    TEMPLATE="~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt"
 fi
 
 gemini -p "@{src/**/*} @{CLAUDE.md} $(cat $TEMPLATE)"
