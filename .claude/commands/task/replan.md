@@ -135,13 +135,11 @@ Each replan creates a new version with complete history:
   "replan_history": [
     {
       "version": "1.1",
-      "date": "2025-09-08T10:00:00Z",
       "reason": "Original plan",
       "input_source": "initial_creation"
     },
     {
       "version": "1.2", 
-      "date": "2025-09-08T14:00:00Z",
       "reason": "Add OAuth2 authentication support",
       "input_source": "direct_text",
       "changes": [
@@ -196,7 +194,7 @@ When task is replanned, the corresponding section in IMPL_PLAN.md is updated:
   - Token management (added)
   - Password reset
 
-*Last updated: 2025-09-08 14:00 via task:replan*
+*Last updated via task:replan*
 ```
 
 ### Plan Update Process

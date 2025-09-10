@@ -103,10 +103,6 @@ Context inherited from workflow
     "last_attempt": null
   },
   
-  "meta": {
-    "created": "2025-09-05T10:30:00Z",
-    "updated": "2025-09-05T10:30:00Z"
-  }
 }
 ```
 

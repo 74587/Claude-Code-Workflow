@@ -85,7 +85,7 @@ Choice: _
 
 ### Status Update
 - Changes status from "open" to "closed"
-- Records closure timestamp
+- Records closure details
 - Saves closure reason and category
 
 ### Integration Cleanup

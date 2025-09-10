@@ -80,7 +80,7 @@ Choice: _
 - Validates priority and type values
 
 ### Change Tracking
-- Records update timestamp
+- Records update details
 - Tracks who made changes
 - Maintains change history
 
@@ -95,7 +95,6 @@ Maintains audit trail:
 {
   "changes": [
     {
-      "timestamp": "2025-09-08T10:30:00Z",
       "field": "priority",
       "old_value": "high",
       "new_value": "critical",

@@ -59,12 +59,7 @@ Each session directory contains `workflow-session.json`:
   "status": "active|paused|completed",
   "progress": {
     "completed_phases": ["PLAN"],
-    "current_tasks": ["impl-1", "impl-2"],
-    "last_checkpoint": "2025-09-07T10:00:00Z"
-  },
-  "meta": {
-    "created": "2025-09-05T10:00:00Z",
-    "updated": "2025-09-07T10:00:00Z"
+    "current_tasks": ["impl-1", "impl-2"]
   }
 }
 ```
@@ -106,11 +101,6 @@ All task files use this 8-field schema:
   "execution": {
     "attempts": 0,
     "last_attempt": null
-  },
-  
-  "meta": {
-    "created": "2025-09-05T10:30:00Z",
-    "updated": "2025-09-05T10:30:00Z"
   }
 }
 ```
@@ -171,7 +161,7 @@ File structure scales with task complexity to minimize overhead for simple tasks
 ├── workflow-session.json        # Session metadata and state
 ├── [.brainstorming/]          # Optional brainstorming phase  
 ├── [.chat/]                   # Gemini CLI interaction sessions
-│   ├── chat-*.md             # Saved chat sessions with timestamps
+│   ├── chat-*.md             # Saved chat sessions
 │   └── analysis-*.md         # Comprehensive analysis results
 ├── IMPL_PLAN.md               # Comprehensive planning document
 ├── TODO_LIST.md               # Progress tracking and monitoring
@@ -196,7 +186,7 @@ File structure scales with task complexity to minimize overhead for simple tasks
 - `workflow-session.json` - Session state (required)
 - `IMPL_PLAN.md` - Planning document (required)
 - `TODO_LIST.md` - Progress tracking (auto-generated when needed)
-- Chat sessions: `chat-YYYYMMDD-HHMMSS.md`
+- Chat sessions: `chat-analysis-*.md`
 - Task summaries: `IMPL-[task-id]-summary.md`
 
 ## Complexity Classification
