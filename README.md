@@ -280,46 +280,17 @@ cd src/api && /update-memory-related
 
 ## Configuration
 
-### Gemini CLI Integration
+### Required Configuration
+For optimal CCW integration, configure Gemini CLI settings:
+
 ```json
 // ~/.gemini/settings.json or .gemini/settings.json
 {
-  "contextFileName": "CLAUDE.md",
-  "outputFormat": "markdown",
-  "templateDirectory": "~/.claude/workflows/cli-templates"
+  "contextFileName": "CLAUDE.md"
 }
 ```
 
-### Codex CLI Integration  
-```json
-// ~/.codex/settings.json or .codex/settings.json
-{
-  "defaultMode": "full-auto",
-  "contextFiles": ["CLAUDE.md", "**/*CLAUDE.md"],
-  "templateDirectory": "~/.claude/workflows/cli-templates"
-}
-```
-
-### Local Settings
-```json
-// .claude/settings.local.json
-{
-  "projectType": "web-application",
-  "techStack": ["react", "typescript", "node"],
-  "agents": {
-    "defaultReviewer": "code-review-agent",
-    "defaultDeveloper": "code-developer"
-  },
-  "complexity": {
-    "autoDetection": true,
-    "thresholds": {
-      "simple": 5,
-      "medium": 15,
-      "complex": 25
-    }
-  }
-}
-```
+This setting ensures that CCW's intelligent documentation system integrates properly with Gemini CLI workflows.
 
 ## Contributing
 

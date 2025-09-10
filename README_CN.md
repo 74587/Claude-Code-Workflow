@@ -280,46 +280,17 @@ cd src/api && /update-memory-related
 
 ## 配置
 
-### Gemini CLI集成
+### 必需配置
+为了实现最佳的CCW集成效果，请配置Gemini CLI设置：
+
 ```json
 // ~/.gemini/settings.json 或 .gemini/settings.json
 {
-  "contextFileName": "CLAUDE.md",
-  "outputFormat": "markdown",
-  "templateDirectory": "~/.claude/workflows/cli-templates"
+  "contextFileName": "CLAUDE.md"
 }
 ```
 
-### Codex CLI集成
-```json
-// ~/.codex/settings.json 或 .codex/settings.json
-{
-  "defaultMode": "full-auto",
-  "contextFiles": ["CLAUDE.md", "**/*CLAUDE.md"],
-  "templateDirectory": "~/.claude/workflows/cli-templates"
-}
-```
-
-### 本地设置
-```json
-// .claude/settings.local.json
-{
-  "projectType": "web-application",
-  "techStack": ["react", "typescript", "node"],
-  "agents": {
-    "defaultReviewer": "code-review-agent",
-    "defaultDeveloper": "code-developer"
-  },
-  "complexity": {
-    "autoDetection": true,
-    "thresholds": {
-      "simple": 5,
-      "medium": 15,
-      "complex": 25
-    }
-  }
-}
-```
+此设置确保CCW的智能文档系统能够与Gemini CLI工作流正确集成。
 
 ## 贡献
 
