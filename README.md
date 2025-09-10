@@ -138,10 +138,9 @@ For Gemini CLI integration, configure your `settings.json` file:
 | `/gemini:mode:bug-index` | `/gemini:mode:bug-index <bug-description>` | Bug analysis using specialized diagnostic template |
 | `/gemini:mode:plan` | `/gemini:mode:plan <planning-topic>` | Project planning using specialized architecture template |
 | `/codex:exec` | `/codex:exec "@{patterns} prompt"` | 🆕 Autonomous development with explicit file pattern references |
-| `/codex:--full-auto` | `/codex --full-auto "task description"` | 🆕 Full automation mode for complex development workflows |
-| `/update-memory` | `/update-memory [related\|full]` | Intelligent CLAUDE.md documentation system with context-aware updates |
-| `/update-memory-full` | `/update-memory-full` | 🆕 Complete project-wide CLAUDE.md documentation update with depth-parallel execution |
-| `/update-memory-related` | `/update-memory-related` | 🆕 Context-aware documentation updates for modules affected by recent changes |
+| `/codex:mode:auto` | `/codex:mode:auto "task description"` | Full automation mode for complex development workflows |
+| `/update-memory-full` | `/update-memory-full` | Complete project-wide CLAUDE.md documentation update with depth-parallel execution |
+| `/update-memory-related` | `/update-memory-related` | Context-aware documentation updates for modules affected by recent changes |
 
 ### Workflow Management
 
@@ -183,8 +182,8 @@ For Gemini CLI integration, configure your `settings.json` file:
 /task:breakdown IMPL-1 --strategy=auto
 
 # 5. Execute with intelligent automation
-/gemini:execute IMPL-1.1 --yolo
-/gemini:execute IMPL-1.2 --yolo
+/gemini:execute IMPL-1.1
+/gemini:execute IMPL-1.2
 
 # 6. Handle dynamic changes and issues
 /workflow:issue:create "Add social login support"
@@ -232,16 +231,13 @@ For Gemini CLI integration, configure your `settings.json` file:
 ### Intelligent Documentation Management
 ```bash
 # 1. Daily development - context-aware updates
-/update-memory                    # Default: related mode - detects and updates affected modules
-/update-memory-related            # Explicit: context-aware updates based on recent changes
+/update-memory-related            # Context-aware updates based on recent changes
 
 # 2. After working in specific module
-cd src/api && /update-memory related  # Updates API module and parent hierarchy
-/update-memory-related            # Same as above, with intelligent change detection
+cd src/api && /update-memory-related  # Updates API module and parent hierarchy
 
 # 3. Periodic full refresh
-/update-memory full               # Complete project-wide documentation update
-/update-memory-full               # Explicit: full project scan with depth-parallel execution
+/update-memory-full               # Complete project-wide documentation update
 
 # 4. Post-refactoring documentation sync
 git commit -m "Major refactoring"
@@ -253,10 +249,10 @@ git commit -m "Major refactoring"
 
 #### Update Mode Comparison
 
-| Mode | Trigger | Complexity Threshold | Best Use Case |
-|------|---------|---------------------|---------------|
-| `related` (default) | Git changes + recent files | >15 modules | Daily development, feature work |
-| `full` | Complete project scan | >20 modules | Initial setup, major refactoring |
+| Command | Trigger | Complexity Threshold | Best Use Case |
+|---------|---------|---------------------|---------------|
+| `/update-memory-related` | Git changes + recent files | >15 modules | Daily development, feature work |
+| `/update-memory-full` | Complete project scan | >20 modules | Initial setup, major refactoring |
 
 ## 📊 Complexity-Based Strategies
 

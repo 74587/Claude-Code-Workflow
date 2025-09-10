@@ -138,10 +138,9 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | `/gemini:mode:bug-index` | `/gemini:mode:bug-index <错误描述>` | 使用专门的诊断模板进行错误分析 |
 | `/gemini:mode:plan` | `/gemini:mode:plan <规划主题>` | 使用专门的架构模板进行项目规划 |
 | `/codex:exec` | `/codex:exec "@{patterns} prompt"` | 🆕 带显式文件模式引用的自主开发 |
-| `/codex:--full-auto` | `/codex --full-auto "任务描述"` | 🆕 复杂开发工作流的全自动化模式 |
-| `/update-memory` | `/update-memory [related\|full]` | 智能 CLAUDE.md 文档系统，提供上下文感知更新 |
-| `/update-memory-full` | `/update-memory-full` | 🆕 完整的项目级 CLAUDE.md 文档更新，采用深度并行执行 |
-| `/update-memory-related` | `/update-memory-related` | 🆕 基于近期变更的上下文感知文档更新 |
+| `/codex:mode:auto` | `/codex:mode:auto "任务描述"` | 复杂开发工作流的全自动化模式 |
+| `/update-memory-full` | `/update-memory-full` | 完整的项目级 CLAUDE.md 文档更新，采用深度并行执行 |
+| `/update-memory-related` | `/update-memory-related` | 基于近期变更的上下文感知文档更新 |
 
 ### 工作流管理
 
@@ -183,8 +182,8 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 /task:breakdown IMPL-1 --strategy=auto
 
 # 5. 智能自动化执行
-/gemini:execute IMPL-1.1 --yolo
-/gemini:execute IMPL-1.2 --yolo
+/gemini:execute IMPL-1.1
+/gemini:execute IMPL-1.2
 
 # 6. 处理动态变更和问题
 /workflow:issue:create "添加社交登录支持"
@@ -230,16 +229,13 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 ### 智能文档管理
 ```bash
 # 1. 日常开发 - 上下文感知更新
-/update-memory                    # 默认：related 模式 - 检测并更新受影响的模块
-/update-memory-related            # 显式：基于近期变更的上下文感知更新
+/update-memory-related            # 基于近期变更的上下文感知更新
 
 # 2. 在特定模块中工作后
-cd src/api && /update-memory related  # 更新 API 模块和父级层次结构
-/update-memory-related            # 同上，具有智能变更检测
+cd src/api && /update-memory-related  # 更新 API 模块和父级层次结构
 
 # 3. 定期完整刷新
-/update-memory full               # 完整的项目级文档更新
-/update-memory-full               # 显式：使用深度并行执行的完整项目扫描
+/update-memory-full               # 完整的项目级文档更新
 
 # 4. 重构后的文档同步
 git commit -m "重大重构"
@@ -251,10 +247,10 @@ git commit -m "重大重构"
 
 #### 更新模式比较
 
-| 模式 | 触发器 | 复杂度阈值 | 最佳使用场景 |
-|------|---------|-----------|--------------|
-| `related` (默认) | Git 变更 + 近期文件 | >15个模块 | 日常开发、功能开发 |
-| `full` | 完整项目扫描 | >20个模块 | 初始设置、重大重构 |
+| 命令 | 触发器 | 复杂度阈值 | 最佳使用场景 |
+|---------|---------|-----------|--------------|
+| `/update-memory-related` | Git 变更 + 近期文件 | >15个模块 | 日常开发、功能开发 |
+| `/update-memory-full` | 完整项目扫描 | >20个模块 | 初始设置、重大重构 |
 
 ## 📊 基于复杂度的策略
 
