@@ -17,17 +17,19 @@ Context-aware documentation update for modules affected by recent changes.
 #!/bin/bash
 # Context-aware CLAUDE.md documentation update
 
-# Step 1: Cache git changes
+# Step 1: Detect changed modules (before staging)
+changed=$(Bash(~/.claude/scripts/detect_changed_modules.sh list))
+
+# Step 2: Cache git changes (protect current state)
 Bash(git add -A 2>/dev/null || true)
 
-# Step 2: Detect changed modules  
-changed=$(Bash(~/.claude/scripts/detect_changed_modules.sh list))
+# Step 3: Use detected changes or fallback
 if [ -z "$changed" ]; then
     changed=$(Bash(~/.claude/scripts/get_modules_by_depth.sh list | head -10))
 fi
 count=$(echo "$changed" | wc -l)
 
-# Step 3: Analysis handover → Model takes control  
+# Step 4: Analysis handover → Model takes control  
 # BASH_EXECUTION_STOPS → MODEL_ANALYSIS_BEGINS
 
 # Pseudocode flow:
@@ -88,7 +90,17 @@ FOR depth FROM max_depth DOWN TO 0:
         Bash(~/.claude/scripts/update_module_claude.sh "$module" "related" &)
     wait_all_jobs()
 
-# Step 6: Display changes → Final status
+# Step 6: Safety check and restore staging state
+non_claude=$(Bash(git diff --cached --name-only | grep -v "CLAUDE.md" || true))
+if [ -n "$non_claude" ]; then
+    Bash(git restore --staged .)
+    echo "⚠️ Warning: Non-CLAUDE.md files were modified, staging reverted"
+    echo "Modified files: $non_claude"
+else
+    echo "✅ Only CLAUDE.md files modified, staging preserved"
+fi
+
+# Step 7: Display changes → Final status
 Bash(git diff --stat)
 ```
 

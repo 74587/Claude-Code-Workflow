@@ -83,7 +83,17 @@ FOR depth FROM max_depth DOWN TO 0:
         Bash(~/.claude/scripts/update_module_claude.sh "$module" "full" &)
     wait_all_jobs()
 
-# Step 6: Display changes → Final status
+# Step 6: Safety check and restore staging state
+non_claude=$(Bash(git diff --cached --name-only | grep -v "CLAUDE.md" || true))
+if [ -n "$non_claude" ]; then
+    Bash(git restore --staged .)
+    echo "⚠️ Warning: Non-CLAUDE.md files were modified, staging reverted"
+    echo "Modified files: $non_claude"
+else
+    echo "✅ Only CLAUDE.md files modified, staging preserved"
+fi
+
+# Step 7: Display changes → Final status
 Bash(git status --short)
 ```
 
@@ -111,7 +121,8 @@ subagent_type: "memory-gemini-bridge"
 - **Separated Commands**: Each bash operation is a discrete, trackable step
 - **Intelligent Complexity Detection**: Model analyzes project context for optimal strategy
 - **Depth-Parallel Execution**: Same depth modules run in parallel, depths run sequentially
-- **Git Integration**: Auto-cache changes before, show status after
+- **Git Integration**: Auto-cache changes before, safety check and show status after
+- **Safety Protection**: Automatic detection and revert of unintended source code modifications
 - **Module Detection**: Uses get_modules_by_depth.sh for structure discovery
 - **User Confirmation**: Clear plan presentation with approval step
 - **CLAUDE.md Only**: Only updates documentation, never source code
