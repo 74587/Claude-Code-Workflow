@@ -1,5 +1,4 @@
-# 🚀 Claude Code Workflow (CCW)
-*软件开发的神经网络*
+# Claude Code Workflow (CCW)
 
 <div align="right">
 
@@ -7,346 +6,349 @@
 
 </div>
 
-<div align="center">
+一个全面的多智能体自动化开发框架，通过智能工作流管理和自主执行协调复杂的软件开发任务。
 
-**将你的开发混乱转化为精心编排的辉煌**
+> **📦 最新版本 v1.1**: 统一的CLI架构，集成Gemini（分析）和Codex（开发）工作流，共享模板系统和自主开发能力。详见[CHANGELOG.md](CHANGELOG.md)。
 
-*在这里，AI智能体协作共事，复杂性变为清晰，你的代码库进化为活文档*
+## 架构概览
 
-</div>
+Claude Code Workflow (CCW) 建立在三个核心架构原则之上：
 
----
+### **JSON优先数据模型**
+- **单一数据源**: 所有工作流状态和任务定义存储在结构化的 `.task/impl-*.json` 文件中
+- **生成视图**: 从JSON数据源按需创建Markdown文档
+- **数据一致性**: 通过集中式数据管理消除同步问题
+- **性能**: 直接JSON操作，亚毫秒级查询响应时间
 
-## 🌟 是什么让CCW如此革命性？
+### **原子化会话管理**
+- **标记文件系统**: 通过原子化的 `.workflow/.active-[session]` 文件管理会话状态
+- **即时上下文切换**: 零开销的会话管理和切换
+- **冲突解决**: 自动检测和解决会话状态冲突
+- **可扩展性**: 支持并发会话而无性能下降
 
-想象一下，有一个**专业AI开发团队**24/7与你并肩作战。CCW不仅仅是另一个工作流工具——它是一个**活生生的、会呼吸的开发生态系统**，能够思考、学习并适应你项目的DNA。
+### **自适应复杂度管理**
+CCW根据项目复杂度自动调整工作流结构：
 
-### 🎭 认识你的AI梦之队
-- **🧠 概念规划智能体**: 看得见大局的远见架构师
-- **⚡ 行动规划智能体**: 将梦想转化为路线图的战略执行者
-- **💻 代码开发智能体**: 精准实现的不知疲倦编程伙伴
-- **🔍 代码审查智能体**: 确保质量永不下滑的完美主义者
-- **📚 记忆桥接智能体**: 保持一切文档化的项目史学家
+| 复杂度级别 | 任务数量 | 结构 | 功能 |
+|------------|----------|------|------|
+| **简单** | <5个任务 | 单级层次结构 | 最小开销，直接执行 |
+| **中等** | 5-15个任务 | 两级任务分解 | 进度跟踪，自动文档 |
+| **复杂** | >15个任务 | 三级深度层次结构 | 完全编排，多智能体协调 |
 
-### 🎯 魔法在三个层面发生
+## 核心组件
 
-#### **🗂️ JSON纯数据模型：你项目的大脑**
-把它想象为你项目的**神经记忆**——每个决策、每个任务、每个计划都存活在纯粹、闪电般快速的JSON中。不再有不同步的文档噩梦！
+### 多智能体系统
+- **概念规划智能体**: 战略规划和架构设计
+- **行动规划智能体**: 将高层概念转换为可执行的实现计划
+- **代码开发智能体**: 自主代码实现和重构
+- **代码审查智能体**: 质量保证和合规性验证
+- **记忆桥接智能体**: 智能文档管理和更新
 
-- ⚡ **亚毫秒查询**: 你的项目响应比你思考还快
-- 🔄 **零同步问题**: 单一真相来源，永远如此
-- 🎯 **纯数据架构**: 干净、快速、可靠
+### 双CLI集成
+- **Gemini CLI**: 深度代码库分析，模式识别和调查工作流
+- **Codex CLI**: 自主开发，代码生成和实现自动化
+- **模板系统**: 统一模板库确保一致的工作流执行
+- **跨平台支持**: Windows和Linux兼容性，统一路径处理
 
-#### **🎪 标记文件会话管理：瞬间上下文切换**
-就像拥有**多重开发人格**，你可以即刻切换：
+### 工作流会话管理
+- **会话生命周期**: 创建，暂停，恢复，切换和管理开发会话
+- **上下文保持**: 在会话转换过程中维持完整的工作流状态
+- **层次化组织**: 结构化工作流文件系统，自动初始化
 
-```bash
-ls .workflow/.active-*  # 一目了然地查看你的活跃会话
-```
+### 智能文档系统
+- **活文档**: 四层级分层CLAUDE.md系统，自动更新
+- **Git集成**: 基于仓库变更的上下文感知更新
+- **双更新模式**: 
+  - `related`: 仅更新受近期变更影响的模块
+  - `full`: 完整的项目级文档刷新
 
-- 🏃‍♂️ **原子操作**: 微秒级会话切换
-- 🔧 **自愈能力**: 自动冲突解决
-- 📈 **无限可扩展性**: 数百个并发会话，零性能影响
+## 安装
 
-#### **🧬 渐进式复杂度：与你的雄心共同成长**
-
-CCW **读懂你项目的心思**并调整其精密程度：
-
-| 你的项目 | CCW的回应 | 你得到的 |
-|-------------|----------------|--------------|
-| **快速修复** (<5个任务) | 🎯 极简模式 | 简化、直接的工作流 |
-| **功能开发** (5-15个任务) | ⚙️ 增强模式 | 智能跟踪 + 自动文档 |
-| **主要项目** (>15个任务) | 🏰 完整套件 | 完全编排 + 多级规划 |
-
----
-
-## 🎨 开发者体验革命
-
-### 🌊 从混乱到心流状态
-
-**使用CCW之前:**
-```
-😰 "我上次做到哪里了？"
-📝 "我的文档是最新的吗？"
-🤔 "架构又是怎样的？"
-⏰ "我已经被困在这里几小时了..."
-```
-
-**使用CCW之后:**
-```bash
-/workflow:session:resume "oauth-implementation"  # 瞬间上下文恢复
-/context --format=hierarchy                      # 美观地看到一切
-/gemini:analyze "authentication flow patterns"   # AI驱动的洞察
-/codex:exec "@{src/auth/**/*} implement JWT refresh tokens"  # 自主执行
-```
-
-### 🎭 你的工作流成为故事
-
-#### 🎪 **第一幕：头脑风暴交响曲**
-```bash
-/workflow:brainstorm "支付网关集成" \
-  --perspectives=system-architect,security-expert,data-architect
-```
-观看**多个AI专家**实时协作，每个都带来专业知识，创建一个全面的基础。
-
-#### 🎯 **第二幕：战略阶段**
-```bash
-/workflow:plan --from-brainstorming
-```
-你的头脑风暴洞察转化为**清晰明确的实现路线图**，带有依赖跟踪和风险分析。
-
-#### ⚡ **第三幕：执行芭蕾**
-```bash
-/task:execute IMPL-1 --mode=auto
-/gemini:execute IMPL-2.1  # 分析导向任务
-/codex:exec "@{src/api/**/*} implement payment validation"  # 开发任务
-```
-观看你的代码**自我编写**，同时保持最高质量标准。
-
----
-
-## 🛠️ 双CLI超能力
-
-### 🔍 **Gemini：你的项目侦探**
-*"告诉我这个代码库的一切"*
-
-```bash
-gemini --all-files -p "@{src/**/*} @{CLAUDE.md} 
-分析认证模式和安全影响"
-```
-
-**Gemini看见你从未注意到的模式**，理解架构决策，并提供需要数小时才能手工发现的洞察。
-
-### 🤖 **Codex：你的自主开发者**
-*"趁我去喝咖啡时构建这个功能"*
-
-```bash
-codex --full-auto "@{**/*} 创建一个完整的用户仪表板，
-具有实时通知和响应式设计"
-```
-
-**Codex不仅仅建议——它实现**，测试、文档化，甚至处理你忘记提及的边缘情况。
-
----
-
-## 🏗️ 与你梦想共同扩展的架构
-
-### 🌳 活文档系统
-
-忘记静态README文件。CCW创建一个**活生生的、会呼吸的文档生态系统**：
-
-```
-📁 你的项目/
-├── CLAUDE.md                    # 🌍 项目宇宙视图
-├── src/
-│   ├── CLAUDE.md               # 🏢 领域架构
-│   ├── components/
-│   │   ├── CLAUDE.md           # 🧩 组件模式
-│   │   └── auth/
-│   │       └── CLAUDE.md       # 🔐 实现细节
-```
-
-**每一层都确切知道它应该包含什么**——不多不少。你的文档随着代码的发展**自我更新**。
-
-### 🧠 永不休眠的智能
-
-#### 🎯 **上下文感知更新**
-```bash
-/update-memory-related  # "什么改变了？让我智能地更新文档"
-```
-
-CCW使用**git感知变更检测**来只更新重要的内容，保持你的文档**新鲜和相关**。
-
-#### 🌊 **完整项目同步**
-```bash
-/update-memory-full     # "让我从头开始刷新一切"
-```
-
-完美适用于新团队成员入职或重大架构更改后。
-
----
-
-## ⚡ 快速开始：从零到英雄
-
-### 🚀 一行安装
+### 快速安装
 ```powershell
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
 ```
 
-### 🎯 关键设置
-配置Gemini CLI集成：
+### 验证安装
+```bash
+/workflow:session list
+```
+
+### 必需配置
+对于Gemini CLI集成，配置您的设置：
 ```json
 {
-  "contextFileName": "CLAUDE.md"  // 神奇的连接
+  "contextFileName": "CLAUDE.md"
 }
 ```
 
-### 🎪 你的第一个工作流
+## 完整命令参考
+
+### 核心系统命令
+
+| 命令 | 语法 | 描述 |
+|------|------|------|
+| `/enhance-prompt` | `/enhance-prompt <输入>` | 用技术上下文和结构增强用户输入 |
+| `/context` | `/context [任务ID\|--filter] [--analyze] [--format=tree\|list\|json]` | 统一上下文管理，自动数据一致性 |
+| `/update-memory-full` | `/update-memory-full` | 完整的项目级CLAUDE.md文档更新 |
+| `/update-memory-related` | `/update-memory-related` | 针对变更模块的上下文感知文档更新 |
+
+### Gemini CLI命令（分析与调查）
+
+| 命令 | 语法 | 描述 |
+|------|------|------|
+| `/gemini:analyze` | `/gemini:analyze <查询> [--all-files] [--save-session]` | 深度代码库分析和模式调查 |
+| `/gemini:chat` | `/gemini:chat <查询> [--all-files] [--save-session]` | 无模板的直接Gemini CLI交互 |
+| `/gemini:execute` | `/gemini:execute <任务ID\|描述> [--yolo] [--debug]` | 智能执行，自动上下文推断 |
+| `/gemini:mode:auto` | `/gemini:mode:auto "<描述>"` | 基于输入分析的自动模板选择 |
+| `/gemini:mode:bug-index` | `/gemini:mode:bug-index <错误描述>` | 专门的错误分析和诊断工作流 |
+| `/gemini:mode:plan` | `/gemini:mode:plan <规划主题>` | 架构和规划模板执行 |
+
+### Codex CLI命令（开发与实现）
+
+| 命令 | 语法 | 描述 |
+|------|------|------|
+| `/codex:analyze` | `/codex:analyze <查询> [模式]` | 开发导向的代码库分析 |
+| `/codex:chat` | `/codex:chat <查询> [模式]` | 直接Codex CLI交互 |
+| `/codex:execute` | `/codex:execute <任务描述> [模式]` | 受控的自主开发 |
+| `/codex:mode:auto` | `/codex:mode:auto "<任务描述>"` | **主要模式**: 完全自主开发 |
+| `/codex:mode:bug-index` | `/codex:mode:bug-index <错误描述>` | 自主错误修复和解决 |
+| `/codex:mode:plan` | `/codex:mode:plan <规划主题>` | 开发规划和架构 |
+
+### 工作流管理命令
+
+#### 会话管理
+| 命令 | 语法 | 描述 |
+|------|------|------|
+| `/workflow:session:start` | `/workflow:session:start "<会话名称>"` | 创建并激活新的工作流会话 |
+| `/workflow:session:pause` | `/workflow:session:pause` | 暂停当前活跃会话 |
+| `/workflow:session:resume` | `/workflow:session:resume "<会话名称>"` | 恢复暂停的工作流会话 |
+| `/workflow:session:list` | `/workflow:session:list [--active\|--all]` | 列出工作流会话及状态 |
+| `/workflow:session:switch` | `/workflow:session:switch "<会话名称>"` | 切换到不同的工作流会话 |
+| `/workflow:session:status` | `/workflow:session:status` | 显示当前会话信息 |
+
+#### 工作流操作
+| 命令 | 语法 | 描述 |
+|------|------|------|
+| `/workflow:brainstorm` | `/workflow:brainstorm <主题> [--perspectives=角色1,角色2,...]` | 多智能体概念规划 |
+| `/workflow:plan` | `/workflow:plan [--from-brainstorming] [--skip-brainstorming]` | 将概念转换为可执行计划 |
+| `/workflow:plan-deep` | `/workflow:plan-deep <主题> [--complexity=high] [--depth=3]` | 深度架构规划与综合分析 |
+| `/workflow:execute` | `/workflow:execute [--type=simple\|medium\|complex] [--auto-create-tasks]` | 进入实现阶段 |
+| `/workflow:review` | `/workflow:review [--auto-fix]` | 质量保证和验证 |
+
+#### 问题管理
+| 命令 | 语法 | 描述 |
+|------|------|------|
+| `/workflow:issue:create` | `/workflow:issue:create "<标题>" [--priority=级别] [--type=类型]` | 创建新项目问题 |
+| `/workflow:issue:list` | `/workflow:issue:list [--status=状态] [--assigned=智能体]` | 列出项目问题并过滤 |
+| `/workflow:issue:update` | `/workflow:issue:update <问题ID> [--status=状态] [--assign=智能体]` | 更新现有问题 |
+| `/workflow:issue:close` | `/workflow:issue:close <问题ID> [--reason=原因]` | 关闭已解决的问题 |
+
+### 任务管理命令
+
+| 命令 | 语法 | 描述 |
+|------|------|------|
+| `/task:create` | `/task:create "<标题>" [--type=类型] [--priority=级别] [--parent=父ID]` | 创建带层次结构的实现任务 |
+| `/task:breakdown` | `/task:breakdown <任务ID> [--strategy=auto\|interactive] [--depth=1-3]` | 将任务分解为可管理的子任务 |
+| `/task:execute` | `/task:execute <任务ID> [--mode=auto\|guided] [--agent=类型]` | 执行任务并选择智能体 |
+| `/task:replan` | `/task:replan [任务ID\|--all] [--reason] [--strategy=adjust\|rebuild]` | 使任务适应变更需求 |
+
+### 头脑风暴角色命令
+
+| 命令 | 描述 |
+|------|------|
+| `/workflow:brainstorm:business-analyst` | 业务需求和市场分析 |
+| `/workflow:brainstorm:data-architect` | 数据建模和架构规划 |
+| `/workflow:brainstorm:feature-planner` | 功能规范和用户故事 |
+| `/workflow:brainstorm:innovation-lead` | 技术创新和新兴解决方案 |
+| `/workflow:brainstorm:product-manager` | 产品策略和路线图规划 |
+| `/workflow:brainstorm:security-expert` | 安全分析和威胁建模 |
+| `/workflow:brainstorm:system-architect` | 系统设计和技术架构 |
+| `/workflow:brainstorm:ui-designer` | 用户界面和体验设计 |
+| `/workflow:brainstorm:user-researcher` | 用户需求分析和研究洞察 |
+| `/workflow:brainstorm:synthesis` | 整合和综合多个视角 |
+
+## 使用工作流
+
+### 复杂功能开发
 ```bash
-# 1. 🎭 从愿景开始
-/workflow:session:start "构建一个AI驱动的待办事项应用"
+# 1. 初始化工作流会话
+/workflow:session:start "OAuth2认证系统"
 
-# 2. 🧠 收集观点  
-/workflow:brainstorm "待办应用架构" \
-  --perspectives=ui-designer,system-architect,data-architect
+# 2. 多视角分析
+/workflow:brainstorm "OAuth2实现策略" \
+  --perspectives=system-architect,security-expert,data-architect
 
-# 3. 📋 创建主计划
+# 3. 生成实现计划
 /workflow:plan --from-brainstorming
 
-# 4. ⚡ 精准执行
-/workflow:execute --type=complex --auto-create-tasks
+# 4. 创建任务层次结构
+/task:create "后端认证API"
+/task:breakdown IMPL-1 --strategy=auto --depth=2
 
-# 5. 🎯 观看魔法发生
-/context --format=hierarchy
-```
+# 5. 执行开发任务
+/codex:mode:auto "实现JWT令牌管理系统"
+/codex:mode:auto "创建OAuth2提供商集成"
 
----
-
-## 🎭 命令武器库
-
-### 🧠 **智能命令**
-| 命令 | 超能力 | 示例 |
-|---------|------------|---------|
-| `/gemini:mode:auto` | 🎯 **智能模板选择** | 自动检测错误报告、功能请求、架构问题 |
-| `/codex:mode:auto` | 🤖 **自主开发** | 全栈功能实现，你专注于策略 |
-| `/enhance-prompt` | 💡 **上下文放大** | 将模糊请求转化为精确技术规范 |
-
-### 🎪 **工作流编排**
-| 命令 | 魔法 | 结果 |
-|---------|-------|---------|
-| `/workflow:brainstorm` | 🎭 **多专家协作** | 5个AI专家在你的挑战上协作 |
-| `/workflow:plan-deep` | 🏗️ **架构精通** | 3级深度规划与依赖映射 |
-| `/workflow:execute` | ⚡ **智能自动化** | 复杂度感知任务编排 |
-
-### 🔧 **任务掌控**
-| 命令 | 力量 | 影响 |
-|---------|-------|---------|
-| `/task:breakdown` | 🧩 **智能分解** | 复杂任务 → 可管理块 |
-| `/task:replan` | 🔄 **适应性智能** | 需求改变？没问题。 |
-| `/context` | 🎯 **全知觉察** | 看见一切，理解一切 |
-
----
-
-## 🌟 真实世界场景
-
-### 🚀 **场景：构建SaaS平台**
-```bash
-# 第1天：愿景
-/workflow:session:start "具有实时协作的多租户SaaS平台"
-/workflow:brainstorm "SaaS架构设计" --perspectives=business-analyst,system-architect,security-expert
-
-# 第2天：基础  
-/workflow:plan-deep --complexity=high --depth=3
-/task:create "认证与授权系统"
-/task:create "多租户数据库架构"
-/task:create "实时通信层"
-
-# 第1-4周：实现
-/codex:mode:auto "实现基于JWT的身份验证与角色管理"
-/codex:mode:auto "创建租户隔离中间件"
-/codex:mode:auto "构建基于WebSocket的协作功能"
-
-# 持续：维护
-/update-memory-related  # 每个功能后
-/workflow:issue:create "添加OAuth2集成"
+# 6. 审查和验证
 /workflow:review --auto-fix
-```
 
-### 🐛 **场景：紧急Bug修复**
-```bash
-# 危机
-/workflow:session:start "生产环境中的关键支付处理错误"
-
-# 调查
-/gemini:analyze "@{src/payments/**/*}中的支付流程失败 - 分析错误模式"
-
-# 解决方案
-/codex:exec "@{src/payments/**/*} 修复支付验证竞态条件"
-
-# 恢复
-/workflow:review --auto-fix
+# 7. 更新文档
 /update-memory-related
 ```
 
-### 🔒 **场景：安全审计**
+### 错误分析和解决
 ```bash
-# 审计
-/workflow:brainstorm "安全漏洞评估" --perspectives=security-expert,penetration-tester
+# 1. 创建专注会话
+/workflow:session:start "支付处理错误修复"
 
-# 分析
-/gemini:mode:auto "认证系统的全面安全分析"
+# 2. 分析问题
+/gemini:mode:bug-index "并发请求时支付验证失败"
 
-# 补救
-/codex:mode:auto "实现已识别漏洞的安全修复"
+# 3. 实现解决方案
+/codex:mode:auto "修复支付验证逻辑中的竞态条件"
 
-# 文档
-/update-memory-full  # 完整安全文档更新
+# 4. 验证解决方案
+/workflow:review --auto-fix
 ```
 
----
-
-## 🎯 为什么开发者为之疯狂
-
-### 🧠 **认知超能力**
-- **🔮 完美记忆**: 再也不会丢失上下文
-- **⚡ 即时专业知识**: AI专家触手可及
-- **🎯 激光聚焦**: 复杂项目变成可管理的步骤
-- **📚 活知识**: 与代码共同成长的文档
-
-### 💪 **生产力放大**
-- **10倍更快规划**: 分钟内多智能体头脑风暴
-- **5倍更好代码质量**: 内置审查和测试集成
-- **零文档债务**: 自更新的项目知识
-- **无限可扩展性**: 处理任何复杂度的项目
-
-### 🎨 **开发者之乐**
-- **心流状态保持**: 永不失去思路
-- **复杂度掌控**: 大问题变成小胜利
-- **自主协助**: 真正帮助而非阻碍的AI
-- **专业成长**: 实时向AI专家学习
-
----
-
-## 🚀 未来就在现在
-
-CCW代表了**软件开发的进化**——从手工、易错的过程转向**智能、适应性工作流**，与你的雄心共同扩展。
-
-### 🌟 **接下来是什么？**
-- 🤝 **增强多AI协作**: 更多专业化智能体
-- 🌍 **实时团队同步**: 分布式团队，统一流程
-- 📊 **预测项目分析**: 预测和预防问题的AI
-- 🔧 **定制智能体训练**: 教CCW你的独特模式
-
----
-
-## 🤝 加入革命
-
+### 项目文档管理
 ```bash
-# Fork未来
-git clone https://github.com/catlog22/Claude-Code-Workflow.git
-cd Claude-Code-Workflow
+# 日常开发工作流
+/update-memory-related
 
-# 让它成为你的
-git checkout -b feature/my-amazing-contribution
+# 重大变更后
+git commit -m "功能实现完成"
+/update-memory-related
 
-# 分享魔法
-git push origin feature/my-amazing-contribution
+# 项目级刷新
+/update-memory-full
+
+# 模块特定更新
+cd src/api && /update-memory-related
 ```
 
+## 目录结构
+
+```
+.claude/
+├── agents/                 # AI智能体定义和行为
+├── commands/              # CLI命令实现
+├── output-styles/         # 输出格式模板
+├── planning-templates/    # 角色特定的规划方法
+├── prompt-templates/      # AI交互模板
+├── scripts/              # 自动化和实用脚本
+├── tech-stack-templates/ # 技术栈特定配置
+├── workflows/            # 核心工作流文档
+│   ├── system-architecture.md         # 架构规范
+│   ├── data-model.md                 # JSON数据模型标准
+│   ├── complexity-rules.md           # 复杂度管理规则
+│   ├── session-management-principles.md # 会话系统设计
+│   ├── file-structure-standards.md   # 目录组织
+│   ├── gemini-unified.md             # Gemini CLI集成
+│   └── codex-unified.md              # Codex CLI集成
+└── settings.local.json   # 本地环境配置
+
+.workflow/                 # 会话工作空间（自动生成）
+├── .active-[session-name] # 活跃会话标记文件
+└── WFS-[topic-slug]/      # 个别会话目录
+    ├── workflow-session.json      # 会话元数据
+    ├── .task/impl-*.json          # JSON任务定义
+    ├── IMPL_PLAN.md               # 生成的规划文档
+    └── .summaries/                # 完成摘要
+```
+
+## 技术规范
+
+### 性能指标
+- **会话切换**: 平均<10ms
+- **JSON查询响应**: 平均<1ms
+- **文档更新**: 中型项目<30s
+- **上下文加载**: 复杂代码库<5s
+
+### 系统要求
+- **操作系统**: Windows 10+, Ubuntu 18.04+, macOS 10.15+
+- **依赖项**: Git, Node.js（用于Gemini CLI）, Python 3.8+（用于Codex CLI）
+- **存储**: 核心安装约50MB，项目数据可变
+- **内存**: 最低512MB，复杂工作流推荐2GB
+
+### 集成要求
+- **Gemini CLI**: 分析工作流必需
+- **Codex CLI**: 自主开发必需
+- **Git仓库**: 变更跟踪和文档更新必需
+- **Claude Code IDE**: 推荐用于最佳命令集成
+
+## 配置
+
+### Gemini CLI集成
+```json
+// ~/.gemini/settings.json 或 .gemini/settings.json
+{
+  "contextFileName": "CLAUDE.md",
+  "outputFormat": "markdown",
+  "templateDirectory": "~/.claude/workflows/cli-templates"
+}
+```
+
+### Codex CLI集成
+```json
+// ~/.codex/settings.json 或 .codex/settings.json
+{
+  "defaultMode": "full-auto",
+  "contextFiles": ["CLAUDE.md", "**/*CLAUDE.md"],
+  "templateDirectory": "~/.claude/workflows/cli-templates"
+}
+```
+
+### 本地设置
+```json
+// .claude/settings.local.json
+{
+  "projectType": "web-application",
+  "techStack": ["react", "typescript", "node"],
+  "agents": {
+    "defaultReviewer": "code-review-agent",
+    "defaultDeveloper": "code-developer"
+  },
+  "complexity": {
+    "autoDetection": true,
+    "thresholds": {
+      "simple": 5,
+      "medium": 15,
+      "complex": 25
+    }
+  }
+}
+```
+
+## 贡献
+
+### 开发设置
+1. Fork仓库
+2. 创建功能分支: `git checkout -b feature/enhancement-name`
+3. 安装依赖: `npm install` 或适合您环境的等效命令
+4. 按照现有模式进行更改
+5. 使用示例项目测试
+6. 提交详细描述的拉取请求
+
+### 代码标准
+- 遵循现有的命令结构模式
+- 维护公共API的向后兼容性
+- 为新功能添加测试
+- 更新面向用户的变更文档
+- 使用语义版本控制进行发布
+
+## 支持和资源
+
+- **文档**: [项目Wiki](https://github.com/catlog22/Claude-Code-Workflow/wiki)
+- **问题**: [GitHub Issues](https://github.com/catlog22/Claude-Code-Workflow/issues)
+- **讨论**: [社区论坛](https://github.com/catlog22/Claude-Code-Workflow/discussions)
+- **变更日志**: [发布历史](CHANGELOG.md)
+
+## 许可证
+
+此项目根据MIT许可证授权 - 详见[LICENSE](LICENSE)文件。
+
 ---
 
-<div align="center">
-
-**🎭 Claude Code Workflow (CCW)**
-
-*软件开发变成艺术形式的地方*
-
-**转化 • 编排 • 提升**
-
----
-
-*MIT许可 • 由社区用❤️构建 • AI驱动*
-
-[⭐ 在GitHub上给我们星标](https://github.com/catlog22/Claude-Code-Workflow) • [📖 完整文档](https://github.com/catlog22/Claude-Code-Workflow/wiki) • [💬 加入我们的社区](https://github.com/catlog22/Claude-Code-Workflow/discussions)
-
-</div>
+**Claude Code Workflow (CCW)** - 通过智能体协调和自主执行能力实现专业的软件开发工作流自动化。
