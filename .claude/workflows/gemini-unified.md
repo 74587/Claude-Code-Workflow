@@ -68,40 +68,27 @@ type: technical-guideline
 
 ###  TPL (Templates)
 
-#### 🗂️ Shared Template Directory Structure
-Templates are shared between gemini and codex. This structure can be located at either `~/.claude/workflows/cli-templates/` (global) or `./.claude/workflows/cli-templates/` (project-specific).
+> **📋 Complete Template Reference**: See [Shared Template System](./shared-template-system.md) for comprehensive template directory structure, selection guide, and cross-tool compatibility details.
 
-~/.claude/workflows/cli-templates/
-├── prompts/
-│   ├── analysis/       # Code analysis templates
-│   │   ├── pattern.txt      # ✨ Implementation patterns & conventions
-│   │   ├── architecture.txt # 🏗️ System architecture & dependencies
-│   │   ├── security.txt     # 🔒 Security vulnerabilities & protection
-│   │   ├── performance.txt  # ⚡ Performance bottlenecks & optimization
-│   │   └── quality.txt      # 📊 Code quality & maintainability
-│   ├── planning/       # Planning templates
-│   │   ├── task-breakdown.txt # 📋 Task decomposition & dependencies
-│   │   └── migration.txt      # 🚀 System migration & modernization
-│   ├── implementation/ # Development templates
-│   │   └── component.txt      # 🧩 Component design & implementation
-│   ├── review/         # Review templates
-│   │   └── code-review.txt    # ✅ Comprehensive review checklist
-│   └── dms/           # DMS-specific
-│       └── hierarchy-analysis.txt # 📚 Documentation structure optimization
-└── commands/          # Command examples
+#### 🗂️ Template System Overview
+Gemini uses a shared template system with Codex, located at `~/.claude/workflows/cli-templates/`. Templates are organized by primary use case:
 
+- **`analysis/`** - Code analysis templates (Gemini primary)
+- **`development/`** - Development templates (Codex primary, Gemini compatible) 
+- **`planning/`** - Planning templates (Cross-tool)
+- **`review/`** - Review templates (Cross-tool)
 
-#### 🧭 Template Selection Guide
-| Task Type | Primary Template | Purpose |
+#### 🧭 Quick Template Selection (Gemini Focus)
+| Task Type | Primary Template | Usage Pattern |
 |---|---|---|
-| Understand Existing Code | `pattern.txt` | Codebase learning, onboarding. |
-| Plan New Features | `task-breakdown.txt`| Feature development planning. |
-| Security Review | `security.txt` | Security audits, vulnerability assessment. |
-| Performance Tuning | `performance.txt` | Bottleneck investigation. |
-| Code Quality Improvement | `quality.txt` | Refactoring, technical debt reduction. |
-| System Modernization | `migration.txt` | Tech upgrades, architectural changes. |
-| Component Development | `component.txt` | Building reusable components. |
-| Pre-Release Review | `code-review.txt` | Release readiness checks. |
+| Understand Existing Code | `analysis/pattern.txt` | Analysis & onboarding |
+| Security Review | `analysis/security.txt` | Vulnerability assessment |
+| Performance Analysis | `analysis/performance.txt` | Bottleneck investigation |
+| Code Quality Assessment | `analysis/quality.txt` | Technical debt review |
+| Architecture Review | `analysis/architecture.txt` | System design analysis |
+| Plan New Features | `planning/task-breakdown.txt` | Development planning |
+
+> **💡 Template Usage**: All templates work with both `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)` syntax and multi-template composition patterns.
 
 
 ### 📦 Standard Command Structures
@@ -116,7 +103,7 @@ These are recommended command templates for common scenarios.
     # Or specify module from root directory
     cd backend/services && gemini --all-files -p "Review service architecture and dependencies"
     
-    # Template-enhanced module analysis
+    # Template-enhanced module analysis (see shared-template-system.md for all available templates)
     cd frontend/components && gemini --all-files -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
     ```
 

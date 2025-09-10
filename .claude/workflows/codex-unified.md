@@ -71,45 +71,32 @@ type: technical-guideline
 
 ### 📁 Shared Template Directory Structure
 
-Templates are shared between gemini and codex. This structure must be located at `~/.claude/workflows/cli-templates/`.
+> **📋 Complete Template Reference**: See [Shared Template System](./shared-template-system.md) for comprehensive template directory structure, cross-tool compatibility, and detailed usage patterns.
 
-```
-~/.claude/workflows/cli-templates/
-├── prompts/
-│   ├── development/    # Automated development templates
-│   │   ├── feature.txt      # 🔧 Feature implementation & integration
-│   │   ├── component.txt    # 🧩 Component design & development
-│   │   ├── refactor.txt     # 🔄 Code refactoring & optimization
-│   │   ├── testing.txt      # 🧪 Test generation & validation
-│   │   └── debugging.txt    # 🐛 Bug analysis & resolution
-│   ├── automation/     # Autonomous workflow templates
-│   │   ├── scaffold.txt     # 🏗️ Project scaffolding & setup
-│   │   ├── migration.txt    # 🚀 Automated migration & upgrades
-│   │   └── deployment.txt   # 🚢 CI/CD & deployment automation
-│   ├── analysis/       # Inherited from gemini templates
-│   │   ├── pattern.txt      # ✨ Implementation patterns & conventions
-│   │   ├── architecture.txt # 🏗️ System architecture & dependencies
-│   │   ├── security.txt     # 🔒 Security vulnerabilities & protection
-│   │   ├── performance.txt  # ⚡ Performance bottlenecks & optimization
-│   │   └── quality.txt      # 📊 Code quality & maintainability
-│   └── integration/    # Cross-system templates
-│       ├── api-design.txt   # 🌐 API design & implementation
-│       └── database.txt     # 🗄️ Database schema & operations
-└── commands/          # Command examples and patterns
-```
+#### Template System Overview
+Codex uses a shared template system with Gemini, located at `~/.claude/workflows/cli-templates/`. Templates are organized by primary use case:
 
-### 🧭 Template Selection Guide
+- **`development/`** - Development templates (Codex primary)
+- **`automation/`** - Autonomous workflow templates (Codex specialized)
+- **`analysis/`** - Analysis templates (Gemini primary, Codex compatible)
+- **`integration/`** - Cross-system templates (Codex primary)
+- **`planning/`** - Planning templates (Cross-tool)
+- **`review/`** - Review templates (Cross-tool)
+
+### 🧭 Template Selection Guide (Codex Focus)
 
 | Task Type | Primary Template | Purpose | Codex Advantage |
 |---|---|---|---|
-| Build New Feature | `feature.txt` | End-to-end feature development | Autonomous implementation |
-| Create Component | `component.txt` | Reusable component development | Pattern-aware generation |
-| Refactor Code | `refactor.txt` | Code improvement & optimization | Context-aware refactoring |
-| Generate Tests | `testing.txt` | Comprehensive test coverage | Intelligent test generation |
-| Debug Issues | `debugging.txt` | Problem analysis & resolution | Root cause identification |
-| Scaffold Project | `scaffold.txt` | Project structure creation | Best practice templates |
-| Migrate Systems | `migration.txt` | Technology upgrades | Automated migration paths |
-| API Development | `api-design.txt` | API design & implementation | RESTful pattern adherence |
+| Build New Feature | `development/feature.txt` | End-to-end feature development | Autonomous implementation |
+| Create Component | `development/component.txt` | Reusable component development | Pattern-aware generation |
+| Refactor Code | `development/refactor.txt` | Code improvement & optimization | Context-aware refactoring |
+| Generate Tests | `development/testing.txt` | Comprehensive test coverage | Intelligent test generation |
+| Debug Issues | `development/debugging.txt` | Problem analysis & resolution | Root cause identification |
+| Scaffold Project | `automation/scaffold.txt` | Project structure creation | Best practice templates |
+| Automate Migration | `automation/migration.txt` | Technology upgrades | Automated migration paths |
+| API Development | `integration/api-design.txt` | API design & implementation | RESTful pattern adherence |
+
+> **💡 Cross-Tool Usage**: Analysis templates (`analysis/`) work with Codex for understanding existing code before development. See shared template system for complete compatibility matrix.
 
 ### 📦 Standard Command Structures
 
@@ -121,8 +108,8 @@ Templates are shared between gemini and codex. This structure must be located at
     # Alternative: use --cd flag to navigate + include folder
     codex --cd src/auth exec "@{**/*,../../CLAUDE.md} Implement JWT refresh token functionality"
     
-    # For comprehensive module analysis
-    codex exec "@{backend/services/**/*,package.json,CLAUDE.md} Optimize service layer performance"
+    # Template-enhanced development (see shared-template-system.md for all available templates)
+    codex exec "@{backend/services/**/*,package.json,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/refactor.txt)"
     ```
 
 -   **Basic Development Task**
