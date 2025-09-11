@@ -74,7 +74,7 @@ type: technical-guideline
 
 ###  TPL (Templates)
 
-> **📋 Complete Template Reference**: See [Shared Template System](./shared-template-system.md) for comprehensive template directory structure, selection guide, and cross-tool compatibility details.
+> **📋 Complete Template Reference**: See [Shared Template System] @~/.claude/workflows/shared-template-system.md for comprehensive template directory structure, selection guide, and cross-tool compatibility details.
 
 > **💡 Template Usage**: All templates work with both `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)` syntax and multi-template composition patterns.
 
