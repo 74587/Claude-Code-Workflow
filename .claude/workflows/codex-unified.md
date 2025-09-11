@@ -86,6 +86,11 @@ type: technical-guideline
     -   Enclose paths with spaces in quotes: `@{"My Project/src/**/*"}`.
     -   Escape special characters like brackets: `@{src/**/*\[bracket\]*}`.
 
+### ⏱️ Execution Settings
+
+-   **Default Timeout**: Bash command execution extended to **5 minutes** to handle complex autonomous development workflows.
+-   **Autonomous Intelligence**: Codex automatically manages file discovery and context gathering in `--full-auto` mode.
+
 ### 📁 Shared Template Directory Structure
 
 > **📋 Complete Template Reference**: See [Shared Template System](./shared-template-system.md) for comprehensive template directory structure, cross-tool compatibility, and detailed usage patterns.

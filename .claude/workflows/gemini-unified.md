@@ -24,21 +24,21 @@ type: technical-guideline
     gemini [flags] -p "@{patterns} {template} prompt"
     ```
 -   **Key Arguments**:
-    -   `--all-files`: Includes all files in the current working directory.
+    -   `--all-files`: Includes all files in the current working directory. **Default behavior unless content limit exceeded**.
     -   `-p`: The prompt string, which must contain file reference patterns and the analysis query.
     -   `{template}`: Template injection using `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)` for standardized analysis
     -   `@{pattern}`: A special syntax for referencing files and directories.
 
 -   **Template Usage**:
     ```bash
-    # Without template (manual prompt)
-    gemini -p "@{src/**/*} @{CLAUDE.md} Analyze code patterns and conventions"
+    # Without template (manual prompt) - --all-files is default
+    gemini --all-files -p "@{src/**/*} @{CLAUDE.md} Analyze code patterns and conventions"
     
-    # With template (recommended)
-    gemini -p "@{src/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
+    # With template (recommended) - --all-files is default
+    gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
     
-    # Multi-template composition
-    gemini -p "@{src/**/*} @{CLAUDE.md} $(cat <<'EOF'
+    # Multi-template composition - --all-files is default
+    gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat <<'EOF'
     $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt)
     
     Additional Security Focus:
@@ -65,6 +65,11 @@ type: technical-guideline
     -   Always use forward slashes (`/`) for paths.
     -   Enclose paths with spaces in quotes: `@{"My Project/src/**/*"}`.
     -   Escape special characters like brackets: `@{src/**/*\[bracket\]*}`.
+
+### ⏱️ Execution Settings
+
+-   **Default Timeout**: Bash command execution extended to **5 minutes** to handle large codebase analysis.
+-   **Content Limits**: When `--all-files` exceeds token limits, automatically fall back to selective `@` patterns.
 
 
 ###  TPL (Templates)
@@ -123,7 +128,7 @@ These are recommended command templates for common scenarios.
 
 -   **Multi-Template Composition**
     ```bash
-    gemini -p "@{src/**/*} @{CLAUDE.md} 
+    gemini --all-files -p "@{src/**/*} @{CLAUDE.md} 
     $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
     Additional Security Focus:
