@@ -89,7 +89,7 @@ type: technical-guideline
 
 ### ⏱️ Execution Settings
 
--   **Default Timeout**: Bash command execution extended to **5 minutes** to handle complex autonomous development workflows.
+-   **Default Timeout**: Bash command execution extended to **10 minutes** to handle complex autonomous development workflows.
 -   **Autonomous Intelligence**: Codex automatically manages file discovery and context gathering in `--full-auto` mode.
 
 ### 📁 Shared Template Directory Structure

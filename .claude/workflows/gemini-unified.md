@@ -68,7 +68,7 @@ type: technical-guideline
 
 ### ⏱️ Execution Settings
 
--   **Default Timeout**: Bash command execution extended to **5 minutes** to handle large codebase analysis.
+-   **Default Timeout**: Bash command execution extended to **10 minutes** to handle large codebase analysis.
 -   **Content Limits**: When `--all-files` exceeds token limits, automatically fall back to selective `@` patterns.
 
 
