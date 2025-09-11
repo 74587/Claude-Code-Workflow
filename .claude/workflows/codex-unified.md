@@ -8,6 +8,7 @@ type: technical-guideline
 
 -   **Purpose**: An AI-powered CLI tool for automated codebase analysis, intelligent code generation, and autonomous development workflows.
 -   **Key Characteristic**: **No `--all-files` flag** - requires explicit `@` pattern references for file inclusion.
+-   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), use: `codex --cd XXX exec "@{**/*} prompt"` or `cd XXX && codex exec "@{**/*} prompt"`
 -   **Default Mode**: `--full-auto` autonomous development mode (RECOMMENDED for all tasks).
 -   **Primary Triggers**:
     -   When user needs automated code generation or refactoring.

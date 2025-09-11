@@ -7,6 +7,7 @@ type: technical-guideline
 ### 🚀 Command Overview: `gemini`
 
 -   **Purpose**: A CLI tool for comprehensive codebase analysis, context gathering, and pattern detection across multiple files.
+-   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), always navigate first: `cd XXX && gemini --all-files -p "prompt"`
 -   **Primary Triggers**:
     -   When user intent is to "analyze", "get context", or "understand the codebase".
     -   When a task requires understanding relationships between multiple files.
