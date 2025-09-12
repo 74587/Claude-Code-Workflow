@@ -65,6 +65,7 @@ END FUNCTION
 
 -   **Validation**: Checks for the task's JSON file in `.task/` and resolves its dependencies.
 -   **Context Preparation**: Loads task and workflow context, preparing it for the selected agent.
+-   **Session Context Injection**: Provides workflow directory paths to agents for TODO_LIST.md and summary management.
 -   **TodoWrite Coordination**: Generates execution Todos and checkpoints, syncing with `TODO_LIST.md`.
 
 ### 🏁 **Post-Execution Protocol**
@@ -199,7 +200,13 @@ This is the simplified data structure loaded to provide context for task executi
   },
   "workflow": {
     "session": "WFS-user-auth",
-    "phase": "IMPLEMENT"
+    "phase": "IMPLEMENT",
+    "session_context": {
+      "workflow_directory": ".workflow/WFS-user-auth/",
+      "todo_list_location": ".workflow/WFS-user-auth/TODO_LIST.md",
+      "summaries_directory": ".workflow/WFS-user-auth/.summaries/",
+      "task_json_location": ".workflow/WFS-user-auth/.task/"
+    }
   },
   "execution": {
     "agent": "code-developer",

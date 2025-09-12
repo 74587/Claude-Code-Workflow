@@ -90,13 +90,20 @@ Follow unified Gemini CLI guidelines: @~/.claude/workflows/gemini-unified.md
    - Functionality works as specified
 
 2. **Update TODO List**: 
-   - Update TODO_LIST.md in workflow directory (.workflow/WFS-[session-id]/)
+   - Update TODO_LIST.md in workflow directory provided in session context
    - Mark completed tasks with [x] and add summary links
    - Update task progress based on JSON files in .task/ directory
+   - **CRITICAL**: Use session context paths provided by workflow:execute
+   
+   **Session Context Usage**:
+   - Always receive workflow directory path from agent prompt
+   - Use provided TODO_LIST Location for updates
+   - Create summaries in provided Summaries Directory
+   - Update task JSON in provided Task JSON Location
    
    **Project Structure Understanding**:
    ```
-   .workflow/WFS-[session-id]/
+   .workflow/WFS-[session-id]/     # (Path provided in session context)
    ├── TODO_LIST.md              # Progress tracking document  
    ├── .task/impl-*.json         # Task definitions (source of truth)
    └── .summaries/IMPL-*.md      # Task completion summaries
@@ -116,7 +123,12 @@ Follow unified Gemini CLI guidelines: @~/.claude/workflows/gemini-unified.md
    - [ ] **IMPL-001.2**: API endpoints → [📋](./.task/impl-001.2.json)
    ```
 
-3. **Generate Summary** (if .workflow directory exists):
+3. **Generate Summary** (using session context paths):
+   - **MANDATORY**: Create summary in provided Summaries Directory
+   - Use exact paths from session context (e.g., `.workflow/WFS-[session-id]/.summaries/`)
+   - Link summary in TODO_LIST.md using relative path
+   
+   **Summary Template**:
    ```markdown
    # Task: [Task-ID] [Name]
    
@@ -127,6 +139,11 @@ Follow unified Gemini CLI guidelines: @~/.claude/workflows/gemini-unified.md
    
    ## Status: ✅ Complete
    ```
+   
+   **Auto-Check Workflow Context**:
+   - Verify session context paths are provided in agent prompt
+   - If missing, request session context from workflow:execute
+   - Never assume default paths without explicit session context
 
 ### 5. Problem-Solving
 

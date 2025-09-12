@@ -146,6 +146,12 @@ Task(subagent_type="code-developer",
      prompt="[GEMINI_CLI_REQUIRED] Implement authentication logic based on schema
      
      Task Context: impl-1.2 - Implement auth logic
+     Session Context:
+     - Workflow Directory: .workflow/WFS-user-auth/
+     - TODO_LIST Location: .workflow/WFS-user-auth/TODO_LIST.md
+     - Summaries Directory: .workflow/WFS-user-auth/.summaries/
+     - Task JSON Location: .workflow/WFS-user-auth/.task/impl-1.2.json
+     
      Implementation Details:
      - Target File: src/auth/models/User.ts
      - Function: UserSchema (lines 10-50)
@@ -156,6 +162,7 @@ Task(subagent_type="code-developer",
      - Risks: Schema changes require database migration, Existing user data compatibility
      - Performance: Index JWT fields for faster lookups
      
+     IMPORTANT: Update TODO_LIST.md and create summary in provided directories upon completion.
      Use implementation details above for precise, targeted development.",
      description="Execute impl-1.2 with full workflow context and implementation details")
 ```
@@ -218,7 +225,14 @@ Task(subagent_type="code-developer",
      - Requirements: JWT authentication, OAuth2 support
      - Scope: src/auth/*, tests/auth/*
      - Dependencies: impl-1.1 (completed)
-     - Workflow: WFS-user-auth authentication system",
+     - Workflow: WFS-user-auth authentication system
+     
+     Session Context:
+     - Workflow Directory: .workflow/WFS-user-auth/
+     - TODO_LIST Location: .workflow/WFS-user-auth/TODO_LIST.md
+     - Summaries Directory: .workflow/WFS-user-auth/.summaries/
+     
+     CRITICAL: Update TODO_LIST.md and create completion summary using provided paths.",
      
      description="Agent executes with full discovered context")
 ```

@@ -62,14 +62,16 @@ Break work into 3-5 logical implementation stages with:
 - Estimated complexity and time requirements
 
 ### 2. Implementation Plan Creation
-Generate `IMPL_PLAN.md` in `.workflow/WFS-[session-id]/` directory:
+Generate `IMPL_PLAN.md` using session context directory paths:
+- **Session Context**: Use workflow directory path provided by workflow:execute
 - **Stage-Based Format**: Simple, linear tasks
 - **Hierarchical Format**: Complex tasks (>5 subtasks or >3 modules)
+- **CRITICAL**: Always use session context paths, never assume default locations
 
 ### 3. Task Decomposition (Complex Projects)
 For tasks requiring >5 subtasks or spanning >3 modules:
 - Create detailed task breakdown and tracking
-- Generate TODO_LIST.md for progress monitoring
+- Generate TODO_LIST.md for progress monitoring using provided session context paths
 - Use hierarchical structure (max 3 levels)
 
 ### 4. Document Generation

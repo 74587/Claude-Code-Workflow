@@ -166,7 +166,7 @@ if [FAST_MODE]: apply targeted review process
 
 **When completing code review:**
 
-1. **Generate Review Summary Document**: Create comprehensive review summary in current workflow directory `.workflow/WFS-[session-id]/.summaries/` directory:
+1. **Generate Review Summary Document**: Create comprehensive review summary using session context paths (provided summaries directory):
    ```markdown
    # Review Summary: [Task-ID] [Review Name]
    
@@ -213,13 +213,13 @@ if [FAST_MODE]: apply targeted review process
    - [📋 Implementation Plan](../IMPL_PLAN.md#[Task-ID])
    ```
 
-2. **Update TODO_LIST.md**: After generating review summary, update the corresponding task item in current workflow directory:
+2. **Update TODO_LIST.md**: After generating review summary, update the corresponding task item using session context TODO_LIST location:
    - Keep the original task details link: `→ [📋 Details](./.task/[Task-ID].json)`
    - Add review summary link after pipe separator: `| [✅ Review](./.summaries/[Task-ID]-review.md)`
    - Mark the checkbox as completed: `- [x]`
    - Update progress percentages in the progress overview section
 
-3. **Update Session Tracker**: Update `.workflow/WFS-[session-id]/workflow-session.json` with review completion:
+3. **Update Session Tracker**: Update workflow-session.json using session context workflow directory:
    - Mark review task as completed in task_system section
    - Update overall progress statistics in coordination section
    - Update last modified timestamp
@@ -268,8 +268,8 @@ Structure your review as:
 - [ ] Rejected (critical issues)
 
 ### Next Steps
-1. Generate review summary document in `.workflow/WFS-[session-id]/.summaries/`
-2. Update TODO_LIST.md with review completion and summary link
+1. Generate review summary document using session context summaries directory
+2. Update TODO_LIST.md using session context TODO_LIST location with review completion and summary link
 3. Mark task as completed in progress tracking
 ```
 
@@ -321,9 +321,9 @@ When escalating, provide:
 ## Important Reminders
 
 **ALWAYS:**
-- Complete review summary documentation after each review
-- Update TODO_LIST.md with progress and summary links
-- Generate review summaries in `.workflow/WFS-[session-id]/.summaries/`
+- Complete review summary documentation after each review using session context paths
+- Update TODO_LIST.md using session context location with progress and summary links
+- Generate review summaries in session context summaries directory
 - Balance thoroughness with pragmatism
 - Provide constructive, actionable feedback
 - Implement or recommend tests for all code changes
