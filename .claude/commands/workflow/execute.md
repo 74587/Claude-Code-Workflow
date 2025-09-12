@@ -13,9 +13,6 @@ examples:
 Coordinates multiple agents for executing existing workflow tasks through automatic discovery and intelligent task orchestration. Analyzes workflow folders, checks task statuses, and coordinates agent execution based on discovered plans.
 
 ## Core Principles
-  
-**Session Management:** @~/.claude/workflows/workflow-architecture.md
-**Agent Orchestration:** @~/.claude/workflows/agent-orchestration-patterns.md
 
 ## Execution Philosophy
 
@@ -26,7 +23,15 @@ The intelligent execution approach focuses on:
 - **Dynamic task orchestration** - Coordinate based on discovered task relationships
 - **Progress tracking** - Update task status after agent completion
 
-**IMPORTANT**: Gemini context analysis is automatically applied based on discovered task scope and requirements.
+**GEMINI_CLI_REQUIRED Marker**:
+- **Purpose**: Forces agent to analyze existing codebase before implementation
+- **Auto-trigger**: When task.analysis_source = "gemini" OR scope > 3 files
+- **Agent Action**: MUST execute Gemini CLI as first step
+
+**analysis_source 到标记的映射**:
+- **"gemini"** → 添加 [GEMINI_CLI_REQUIRED]
+- **"auto-detected"** + scope > 3 files → 添加 [GEMINI_CLI_REQUIRED]
+- **"manual"** → 不添加标记
 
 ## Execution Flow
 
@@ -60,6 +65,8 @@ Workflow Discovery:
 - [ ] **TASK-002**: [Agent: code-developer] [GEMINI_CLI_REQUIRED] Implement auth logic (impl-1.2)  
 - [ ] **TASK-003**: [Agent: code-review-agent] Review implementations
 - [ ] **TASK-004**: Update task statuses and session state
+
+**Marker Legend**: [GEMINI_CLI_REQUIRED] = Agent must analyze codebase context first
 ```
 
 ### 3. Agent Context Assignment
@@ -130,7 +137,7 @@ For each executable task:
 - **Risk Awareness**: Alert agents to implementation.context_notes.risks before execution
 - **Workflow Integration**: Include session state and IMPL_PLAN.md context
 - **Scope Focus**: Direct agents to specific files from implementation.files[].path
-- **Gemini Flags**: Auto-add [GEMINI_CLI_REQUIRED] when analysis_source is "gemini"
+- **Gemini Marker**: Auto-add [GEMINI_CLI_REQUIRED] when analysis_source = "gemini"
 
 ### 4. Agent Execution & Progress Tracking
 

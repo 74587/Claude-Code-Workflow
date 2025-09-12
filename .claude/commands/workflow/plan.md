@@ -83,6 +83,16 @@ The command automatically detects input type:
 ### Implementation Field Requirements
 ⚠️ **CRITICAL**: All generated tasks must include detailed implementation guidance
 
+**analysis_source 赋值规则**:
+- **"manual"**: 用户提供完整实现细节（包含具体文件、代码片段）
+- **"gemini"**: 信息不足，需要 Gemini 分析（缺少文件路径或代码上下文）  
+- **"auto-detected"**: 系统自动推断实现细节（基于模式识别）
+
+**判断流程**:
+1. **IF** 用户提供文件路径 + 代码片段 → "manual"
+2. **ELIF** 系统能推断实现位置 → "auto-detected"
+3. **ELSE** → "gemini" (需要深度分析)
+
 **Auto-fill Strategy**:
 1. **Sufficient Information**: Auto-fill implementation field based on user input and project context
 2. **Insufficient Information**: Mark analysis_source as "gemini" and prompt:

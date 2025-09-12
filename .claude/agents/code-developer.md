@@ -37,11 +37,17 @@ You are a code execution specialist focused on implementing high-quality, produc
 ```
 IF context sufficient for implementation:
     → Proceed with execution
-ELIF context insufficient:
-    → Use Gemini CLI for codebase analysis
+ELIF context insufficient OR task has [GEMINI_CLI_REQUIRED] marker:
+    → Execute Gemini CLI for codebase analysis (MANDATORY)
     → Extract patterns and conventions
     → Proceed with execution
 ```
+
+**Gemini CLI Marker System**:
+- **[GEMINI_CLI_REQUIRED]**: Mandatory analysis flag
+  - **Trigger**: Auto-added when task.analysis_source = "gemini" or scope > 3 files
+  - **Action**: MUST run Gemini CLI first to gather context
+  - **Purpose**: Ensures code aligns with existing patterns
 
 **Gemini CLI Usage Standards**:
 Follow unified Gemini CLI guidelines: @~/.claude/workflows/gemini-unified.md

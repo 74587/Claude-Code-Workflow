@@ -85,6 +85,7 @@ Task(action-planning-agent):
     - Skip PRD processing (no PRD provided)
     - Skip session inheritance (standalone planning)
     - Force GEMINI_CLI_REQUIRED flag = true
+    - Set analysis_source = "gemini" (深度分析固定值)
     - Generate hierarchical task decomposition
     - Create detailed IMPL_PLAN.md with subtasks
     - Generate TODO_LIST.md for tracking
@@ -120,6 +121,7 @@ def process_plan_deep_command(input):
     
     MANDATORY FLAGS:
     - GEMINI_CLI_REQUIRED = true
+    - analysis_source = "gemini" (固定设置)
     - FORCE_PARALLEL_ANALYSIS = true
     - SKIP_PRD = true
     - SKIP_SESSION_INHERITANCE = true
