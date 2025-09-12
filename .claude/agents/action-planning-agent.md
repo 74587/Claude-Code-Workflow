@@ -31,7 +31,9 @@ You are a pure execution agent specialized in creating actionable implementation
 ```
 1. Parse input requirements and extract control flags
 2. IF DEEP_ANALYSIS_REQUIRED flag present:
-     → Execute comprehensive Gemini CLI analysis
+     → Check for analysis method markers:
+       - [GEMINI_CLI_REQUIRED] → Execute comprehensive Gemini CLI analysis
+       - [CODEX_CLI_REQUIRED] → Execute autonomous Codex CLI analysis
      → Use analysis results for planning context
 3. Assess task complexity (simple/medium/complex)  
 4. Create staged implementation plan
@@ -39,11 +41,15 @@ You are a pure execution agent specialized in creating actionable implementation
 6. Update workflow structure
 ```
 
-**Gemini CLI Usage Standards**:
-Follow unified Gemini CLI guidelines: `@~/.claude/workflows/gemini-unified.md`
+**Analysis CLI Usage Standards**:
+- **Gemini CLI**: Follow unified guidelines: `@~/.claude/workflows/gemini-unified.md`
+- **Codex CLI**: Follow unified guidelines: `@~/.claude/workflows/codex-unified.md`
 
 ### Deep Analysis Execution
 **When DEEP_ANALYSIS_REQUIRED flag is present:**
+
+#### Gemini CLI Analysis (Pattern-Based)
+**When [GEMINI_CLI_REQUIRED] marker present:**
 1. Execute comprehensive Gemini CLI analysis across 4 dimensions:
    - Architecture patterns and component relationships
    - Implementation conventions and coding standards  
@@ -51,6 +57,16 @@ Follow unified Gemini CLI guidelines: `@~/.claude/workflows/gemini-unified.md`
    - Testing requirements and coverage patterns
 2. Consolidate analysis results for planning context
 3. Use analysis to inform implementation stages and task breakdown
+
+#### Codex CLI Analysis (Autonomous Development)
+**When [CODEX_CLI_REQUIRED] marker present:**
+1. Execute autonomous Codex CLI analysis:
+   - Intelligent file discovery and code pattern recognition
+   - Autonomous implementation strategy development
+   - System-wide impact assessment and integration planning
+   - Automated testing and validation approach recommendations
+2. Integrate autonomous analysis results into planning framework
+3. Use Codex insights to create self-guided implementation stages
 
 ## Core Functions
 

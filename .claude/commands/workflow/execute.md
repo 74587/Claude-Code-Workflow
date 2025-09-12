@@ -23,15 +23,19 @@ The intelligent execution approach focuses on:
 - **Dynamic task orchestration** - Coordinate based on discovered task relationships
 - **Progress tracking** - Update task status after agent completion
 
-**GEMINI_CLI_REQUIRED Marker**:
-- **Purpose**: Forces agent to analyze existing codebase before implementation
-- **Auto-trigger**: When task.analysis_source = "gemini" OR scope > 3 files
-- **Agent Action**: MUST execute Gemini CLI as first step
+**Analysis Markers**:
+- **[GEMINI_CLI_REQUIRED]**: Forces agent to use Gemini CLI for pattern-based codebase analysis
+  - **Auto-trigger**: When task.analysis_source = "gemini" OR scope > 3 files (default)
+  - **Agent Action**: MUST execute Gemini CLI as first step
+- **[CODEX_CLI_REQUIRED]**: Forces agent to use Codex CLI for autonomous development analysis
+  - **Auto-trigger**: When task.analysis_source = "codex"
+  - **Agent Action**: MUST execute Codex CLI in autonomous mode as first step
 
-**analysis_source 到标记的映射**:
-- **"gemini"** → 添加 [GEMINI_CLI_REQUIRED]
-- **"auto-detected"** + scope > 3 files → 添加 [GEMINI_CLI_REQUIRED]
-- **"manual"** → 不添加标记
+**analysis_source to Marker Mapping**:
+- **"gemini"** → Add [GEMINI_CLI_REQUIRED]
+- **"codex"** → Add [CODEX_CLI_REQUIRED]
+- **"auto-detected"** + scope > 3 files → Add [GEMINI_CLI_REQUIRED] (default)
+- **"manual"** → No marker added
 
 ## Execution Flow
 
@@ -62,11 +66,13 @@ Workflow Discovery:
 
 ## Execution Plan
 - [ ] **TASK-001**: [Agent: planning-agent] [GEMINI_CLI_REQUIRED] Design auth schema (impl-1.1)
-- [ ] **TASK-002**: [Agent: code-developer] [GEMINI_CLI_REQUIRED] Implement auth logic (impl-1.2)  
+- [ ] **TASK-002**: [Agent: code-developer] [CODEX_CLI_REQUIRED] Implement auth logic (impl-1.2)  
 - [ ] **TASK-003**: [Agent: code-review-agent] Review implementations
 - [ ] **TASK-004**: Update task statuses and session state
 
-**Marker Legend**: [GEMINI_CLI_REQUIRED] = Agent must analyze codebase context first
+**Marker Legend**: 
+- [GEMINI_CLI_REQUIRED] = Agent must use Gemini CLI for pattern analysis
+- [CODEX_CLI_REQUIRED] = Agent must use Codex CLI for autonomous analysis
 ```
 
 ### 3. Agent Context Assignment

@@ -142,7 +142,7 @@ All task files use this 9-field schema:
       "performance_considerations": "JWT validation will add approximately 5ms latency",
       "error_handling": "Ensure sensitive information is not leaked in error responses"
     },
-    "analysis_source": "manual|gemini|auto-detected"
+    "analysis_source": "manual|gemini|codex|auto-detected"
   }
 }
 ```
@@ -172,6 +172,7 @@ The **implementation** field provides detailed code implementation guidance with
 #### analysis_source - Information Source Identifier
 - **manual**: Detailed information manually provided by user
 - **gemini**: Automatically obtained through Gemini CLI analysis
+- **codex**: Automatically obtained through Codex CLI analysis
 - **auto-detected**: Auto-detected based on task type and context
 
 ### Hierarchical Task System
@@ -388,6 +389,35 @@ Agents receive complete task JSON plus workflow context:
 }
 ```
 
+## Analysis Method Integration
+
+### Supported Analysis Tools
+
+The workflow system supports multiple analysis methods for context gathering and code analysis:
+
+#### Analysis Method Selection
+- **Gemini CLI**: Pattern-based codebase analysis and architectural understanding (default)
+- **Codex CLI**: Autonomous development context gathering with intelligent file discovery
+
+#### Selection Criteria
+- **Use Gemini when**: 
+  - Need comprehensive pattern analysis and architectural understanding
+  - Analyzing existing code conventions and relationships
+  - Understanding complex module dependencies
+- **Use Codex when**: 
+  - Need autonomous file discovery and context gathering
+  - Working with complex refactoring scenarios
+  - Requiring intelligent code generation and autonomous development
+
+#### Analysis Method Mapping
+```markdown
+analysis_source → CLI Tool → Agent Marker
+"gemini"        → Gemini CLI → [GEMINI_CLI_REQUIRED]
+"codex"         → Codex CLI  → [CODEX_CLI_REQUIRED]  
+"manual"        → N/A       → No marker
+"auto-detected" → Context-based → [GEMINI_CLI_REQUIRED] (default)
+```
+
 ## Gemini Analysis Integration
 
 ### Implementation Field Population Strategy
@@ -434,6 +464,48 @@ Target Files: [scope patterns or 'auto-detect']
 - **Task Refinement**: `/task:replan` for updating incomplete implementation details
 - **Manual Trigger**: Direct gemini analysis when implementation details are missing
 
+## Codex Analysis Integration
+
+### Autonomous Context Gathering Strategy
+
+When task creation specifies Codex analysis, the system integrates with Codex CLI for autonomous development context gathering:
+
+#### Trigger Conditions
+- **analysis_source**: Marked as "codex" during task creation
+- **Complex Refactoring**: Tasks involving system-wide changes or architectural modifications
+- **Autonomous Development**: When intelligent file discovery and code generation is preferred
+
+#### Codex Analysis Command Template
+```bash
+codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
+
+## Task-Specific Analysis:
+Task: [task title and description]
+Context: Autonomous analysis and implementation context gathering
+
+## Required Extraction:
+1. **Intelligent File Discovery**: Auto-discover relevant files and code patterns
+2. **Context Gathering**: Understand existing code architecture and dependencies
+3. **Implementation Strategy**: Propose autonomous implementation approach
+4. **Risk Assessment**: Identify potential issues and mitigation strategies
+
+## Autonomous Execution:
+- Let Codex handle file discovery and pattern analysis
+- Generate context-aware implementation guidance
+- Provide autonomous development recommendations"
+```
+
+#### Analysis Result Processing  
+1. **Parse Codex Output**: Extract autonomous analysis and implementation recommendations
+2. **Context Integration**: Incorporate Codex insights into task implementation field
+3. **Autonomous Guidance**: Update task JSON with Codex-generated context and strategy
+4. **Quality Validation**: Ensure autonomous recommendations meet project standards
+
+#### Integration Points
+- **Task Creation**: `/workflow:plan --AM codex` command
+- **Autonomous Development**: Tasks requiring intelligent code generation
+- **Complex Refactoring**: System-wide changes with autonomous discovery needs
+
 ### Implementation Field Validation
 
 **Required Quality Standards**:
@@ -476,7 +548,7 @@ generate_todo_list_from_json .task/
 5. **Status Consistency**: Status values from defined enumeration
 6. **Required Fields**: All 9 core fields must be present
 7. **Implementation Structure**: implementation.files array must contain valid file paths
-8. **Analysis Source**: analysis_source must be one of: manual|gemini|auto-detected
+8. **Analysis Source**: analysis_source must be one of: manual|gemini|codex|auto-detected
 
 ### Session Consistency Checks
 ```bash

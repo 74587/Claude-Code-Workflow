@@ -20,7 +20,19 @@ Creates actionable implementation plans with intelligent input source detection.
 
 ## Usage
 ```bash
-/workflow/plan <input>
+/workflow:plan [--AM gemini|codex] <input>
+```
+
+### Analysis Method Flag (--AM)
+Optional flag to specify which CLI tool to use for context analysis:
+- **gemini** (default): Uses Gemini CLI for pattern-based analysis and architectural understanding
+- **codex**: Uses Codex CLI for autonomous development context gathering with intelligent file discovery
+
+**Examples**:
+```bash
+/workflow:plan --AM codex "Build authentication system"
+/workflow:plan --AM gemini requirements.md
+/workflow:plan ISS-001  # Uses default (gemini)
 ```
 
 ## Input Detection Logic
@@ -83,30 +95,42 @@ The command automatically detects input type:
 ### Implementation Field Requirements
 ⚠️ **CRITICAL**: All generated tasks must include detailed implementation guidance
 
-**analysis_source 赋值规则**:
-- **"manual"**: 用户提供完整实现细节（包含具体文件、代码片段）
-- **"gemini"**: 信息不足，需要 Gemini 分析（缺少文件路径或代码上下文）  
-- **"auto-detected"**: 系统自动推断实现细节（基于模式识别）
+**analysis_source Assignment Rules**:
+- **"manual"**: User provides complete implementation details (including specific files and code snippets)
+- **"gemini"**: Insufficient information, requires Gemini analysis (missing file paths or code context)  
+- **"codex"**: Insufficient information, requires Codex autonomous development analysis (complex refactoring or intelligent file discovery)
+- **"auto-detected"**: System automatically infers implementation details (based on pattern recognition)
 
-**判断流程**:
-1. **IF** 用户提供文件路径 + 代码片段 → "manual"
-2. **ELIF** 系统能推断实现位置 → "auto-detected"
-3. **ELSE** → "gemini" (需要深度分析)
+**Decision Flow**:
+1. **IF** user provides file paths + code snippets → "manual"
+2. **ELIF** system can infer implementation location → "auto-detected"
+3. **ELIF** --AM codex specified → "codex" (requires autonomous development analysis)
+4. **ELSE** → "gemini" (requires deep analysis, default method)
 
 **Auto-fill Strategy**:
 1. **Sufficient Information**: Auto-fill implementation field based on user input and project context
-2. **Insufficient Information**: Mark analysis_source as "gemini" and prompt:
+2. **Insufficient Information**: Mark analysis_source appropriately and prompt:
+   
+   **For Gemini Analysis (default)**:
    ```
    ⚠️ Implementation details incomplete, recommend using gemini analysis:
    gemini --all-files -p "@{relevant-file-patterns} @{CLAUDE.md} 
    Analyze task: [task description]
    Extract: 1) File locations and code snippets 2) Modification logic and data flow 3) Risks and dependencies"
    ```
+   
+   **For Codex Analysis (when --AM codex specified)**:
+   ```
+   ⚠️ Implementation details incomplete, recommend using codex analysis:
+   codex --full-auto exec "Analyze and implement: [task description]
+   Context: Autonomous analysis and implementation guidance needed
+   Extract: 1) Intelligent file discovery 2) Implementation strategy 3) Autonomous development approach"
+   ```
 
 **Required Implementation Sub-fields**:
 - **files**: Must contain at least 1 file with detailed info (path, location, original_code, modifications)
 - **context_notes**: Dependencies, risks, performance considerations
-- **analysis_source**: manual|gemini|auto-detected
+- **analysis_source**: manual|gemini|codex|auto-detected
 
 **Quality Standards**:
 - logic_flow must use specified symbols (───►, ◊───, ◄───)

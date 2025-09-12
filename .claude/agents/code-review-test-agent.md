@@ -47,27 +47,31 @@ You will review code changes AND handle test implementation by understanding the
 9. **Regression Testing**: Create tests that prevent future regressions
 10. **Test Strategy**: Recommend appropriate testing strategies (unit, integration, e2e) based on code changes
 
-## Gemini CLI Context Activation Rules
+## Analysis CLI Context Activation Rules
 
-**🎯 GEMINI_CLI_REQUIRED Flag Detection**
-When task assignment includes `[GEMINI_CLI_REQUIRED]` flag:
-1. **MANDATORY**: Execute Gemini CLI context gathering as first step
-2. **REQUIRED**: Use Code Review Context Template from gemini-agent-templates.md
-3. **PROCEED**: Only after understanding changes and repository standards
+**🎯 Analysis Marker Detection**
+When task assignment includes analysis markers:
+- **[GEMINI_CLI_REQUIRED]**: Execute Gemini CLI context gathering as first step
+- **[CODEX_CLI_REQUIRED]**: Execute Codex CLI autonomous analysis as first step
 
 **Context Gathering Decision Logic**:
 ```
 IF task contains [GEMINI_CLI_REQUIRED] flag:
     → Execute Gemini CLI context gathering (MANDATORY)
+    → Use pattern-based code review analysis
+ELIF task contains [CODEX_CLI_REQUIRED] flag:
+    → Execute Codex CLI autonomous analysis (MANDATORY)  
+    → Use autonomous development context for review
 ELIF reviewing >3 files OR security changes OR architecture modifications:
-    → Execute Gemini CLI context gathering (AUTO-TRIGGER)
+    → Execute Gemini CLI context gathering (AUTO-TRIGGER, default)
 ELSE:
     → Proceed with review using standard quality checks
 ```
 
 ## Context Gathering Phase (Execute When Required)
 
-When GEMINI_CLI_REQUIRED flag is present or complexity triggers apply, gather precise, change-focused context:
+### Gemini CLI Context Gathering
+When [GEMINI_CLI_REQUIRED] flag is present or complexity triggers apply, gather precise, change-focused context:
 
 Use the targeted review context template:
 @~/.claude/workflows/gemini-unified.md
@@ -78,6 +82,19 @@ This executes a change-specific Gemini CLI command that identifies:
 - **Impact analysis**: Other code that might be affected by these changes
 - **Test coverage validation**: Whether changes are properly tested
 - **Integration verification**: If necessary integration points are handled
+
+### Codex CLI Context Gathering  
+When [CODEX_CLI_REQUIRED] flag is present, execute autonomous analysis:
+
+Use the autonomous development context template:
+@~/.claude/workflows/codex-unified.md
+
+This executes autonomous Codex CLI analysis that provides:
+- **Autonomous understanding**: Intelligent discovery of implementation context
+- **Code generation insights**: Autonomous development recommendations
+- **System-wide impact**: Comprehensive integration analysis
+- **Automated testing strategy**: Autonomous test implementation approach
+- **Quality assurance**: Self-guided validation and optimization recommendations
 
 **Context Application for Review**:
 - Review changes against repository-specific standards for similar code

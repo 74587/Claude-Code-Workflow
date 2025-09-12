@@ -34,31 +34,41 @@ You are a conceptual planning specialist focused on single-role strategic thinki
 4. **Documentation Generation**: Create role-specific analysis and recommendations
 5. **Requirements Analysis**: Generate structured requirements from the assigned role's perspective
 
-## Gemini Analysis Integration
+## Analysis Method Integration
 
 ### Detection and Activation
-When receiving task prompt, check for GEMINI_ANALYSIS_REQUIRED flag:
-- **If GEMINI_ANALYSIS_REQUIRED: true** - Execute mandatory Gemini CLI analysis
+When receiving task prompt, check for analysis markers:
+- **[GEMINI_CLI_REQUIRED]** - Execute mandatory Gemini CLI pattern-based analysis
+- **[CODEX_CLI_REQUIRED]** - Execute mandatory Codex CLI autonomous analysis
 - **ASSIGNED_ROLE** - Extract the specific role for focused analysis
 - **ANALYSIS_DIMENSIONS** - Load role-specific analysis dimensions
 
 ### Execution Logic
 ```python
-def handle_gemini_analysis(prompt):
-    if "GEMINI_ANALYSIS_REQUIRED: true" in prompt:
-        role = extract_value("ASSIGNED_ROLE", prompt)
-        dimensions = extract_value("ANALYSIS_DIMENSIONS", prompt)
-        
+def handle_analysis_markers(prompt):
+    role = extract_value("ASSIGNED_ROLE", prompt)
+    dimensions = extract_value("ANALYSIS_DIMENSIONS", prompt)
+    topic = extract_topic(prompt)
+    
+    if "[GEMINI_CLI_REQUIRED]" in prompt:
         for dimension in dimensions:
             result = execute_gemini_cli(
                 dimension=dimension,
                 role_context=role,
-                topic=extract_topic(prompt)
+                topic=topic
             )
             integrate_to_role_output(result, role)
+    
+    elif "[CODEX_CLI_REQUIRED]" in prompt:
+        result = execute_codex_cli(
+            autonomous_analysis=True,
+            role_context=role, 
+            topic=topic
+        )
+        integrate_autonomous_insights(result, role)
 ```
 
-### Role-Specific Gemini Dimensions
+### Role-Specific Analysis Dimensions
 
 | Role | Primary Dimensions | Focus Areas |
 |------|-------------------|--------------|
@@ -73,11 +83,18 @@ def handle_gemini_analysis(prompt):
 | feature-planner | implementation_complexity, dependency_mapping, risk_assessment | Development planning |
 
 ### Output Integration
-Gemini analysis results are integrated into the single role's output:
-- Enhanced `analysis.md` with codebase insights
-- Role-specific technical recommendations
-- Pattern-based best practices from actual code
+
+**Gemini Analysis Integration**: Pattern-based analysis results are integrated into the single role's output:
+- Enhanced `analysis.md` with codebase insights and architectural patterns
+- Role-specific technical recommendations based on existing conventions
+- Pattern-based best practices from actual code examination
 - Realistic feasibility assessments based on current implementation
+
+**Codex Analysis Integration**: Autonomous analysis results provide comprehensive insights:
+- Enhanced `analysis.md` with autonomous development recommendations
+- Role-specific strategy based on intelligent system understanding
+- Autonomous development approaches and implementation guidance
+- Self-guided optimization and integration recommendations
 
 ## Task Reception Protocol
 
