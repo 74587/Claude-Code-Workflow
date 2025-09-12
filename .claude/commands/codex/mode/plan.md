@@ -15,8 +15,9 @@ model: sonnet
 
 ## Overview
 Comprehensive development planning and implementation strategy using expert planning templates with Codex CLI.
+-   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), use: `codex --cd XXX --full-auto exec "prompt"` or `cd XXX && codex --full-auto exec "@{**/*} prompt"`
+-   **Default Mode**: `--full-auto exec` autonomous development mode (RECOMMENDED for all tasks).
 
-**Core Guidelines**: @~/.claude/workflows/codex-unified.md
 
 ⚠️ **Critical Difference**: Codex has **NO `--all-files` flag** - you MUST use `@` patterns to reference files.
 
@@ -26,22 +27,20 @@ Comprehensive development planning and implementation strategy using expert plan
 ```bash
 /codex:mode:plan "design authentication system with implementation"
 ```
-**Executes**: `codex exec "@{**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/planning/task-breakdown.txt)"`
+**Executes**: `codex --full-auto exec "@{**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/planning/task-breakdown.txt) design authentication system with implementation"`
 
 ### Architecture Planning with Context
 ```bash
 /codex:mode:plan "microservices migration strategy"
 ```
-**Executes**: `codex exec "@{src/**/*,*.config.*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/planning/migration.txt)"`
+**Executes**: `codex  --full-auto exec "@{src/**/*,*.config.*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/planning/migration.txt) microservices migration strategy"`
 
 ### Feature Implementation Planning
 ```bash
 /codex:mode:plan "real-time notifications with WebSocket integration"
 ```
-**Executes**: `codex exec "@{**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
 
-Additional Planning Context:
-$(cat ~/.claude/workflows/cli-templates/prompts/planning/task-breakdown.txt)"`
+**Executes**: `codex --full-auto exec "@{**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) Additional Planning Context:$(cat ~/.claude/workflows/cli-templates/prompts/planning/task-breakdown.txt) real-time notifications with WebSocket integration"`
 
 ## Codex-Specific Planning Patterns
 

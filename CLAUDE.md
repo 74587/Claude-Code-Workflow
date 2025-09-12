@@ -20,24 +20,6 @@ This document defines project-specific coding standards and development principl
 - No clever tricks - choose the boring solution
 - If you need to explain it, it's too complex
 
-
-## Code Quality Standards
-
-### Code Style
-
-- **Consistent formatting** - Follow project's established formatting rules
-- **Meaningful names** - Variables and functions should be self-documenting
-- **Small functions** - Each function should do one thing well
-- **Clear structure** - Logical organization of code modules
-
-### Testing Standards
-
-- **Test coverage** - Aim for high test coverage on critical paths
-- **Test readability** - Tests should serve as documentation
-- **Edge cases** - Consider boundary conditions and error states
-- **Test isolation** - Tests should be independent and repeatable
-
-
 ## Project Integration
 
 ### Learning the Codebase
@@ -70,30 +52,10 @@ This document defines project-specific coding standards and development principl
 - Stop after 3 failed attempts and reassess
 
 
-### CLI Tool Context Protocols
-For all CLI tool usage, command syntax, and integration guidelines:
-- **Gemini (Analysis)**: @~/.claude/workflows/gemini-unified.md
-- **Codex (Analysis)**: @~/.claude/workflows/codex-unified.md
-
-
 #### **Content Uniqueness Rules**
 
 - **Each layer owns its abstraction level** - no content sharing between layers
 - **Reference, don't duplicate** - point to other layers, never copy content
 - **Maintain perspective** - each layer sees the system at its appropriate scale
 - **Avoid implementation creep** - higher layers stay architectural
-
-#### **Update Strategy**
-
-- **Related Mode**: Update only affected modules + parent hierarchy propagation
-- **Full Mode**: Complete hierarchy refresh with strict layer boundaries
-- **Context Intelligence**: Automatic detection of what needs updating
-
-
-#### **Quality Assurance**
-
-- **Layer Validation**: Each CLAUDE.md must stay within its layer's purpose
-- **Duplication Detection**: Cross-reference content to prevent overlap
-- **Hierarchy Consistency**: Parent layers reflect child changes appropriately
-- **Content Relevance**: Regular cleanup of outdated or irrelevant content
 

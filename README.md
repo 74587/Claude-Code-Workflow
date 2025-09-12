@@ -292,6 +292,56 @@ For optimal CCW integration, configure Gemini CLI settings:
 
 This setting ensures that CCW's intelligent documentation system integrates properly with Gemini CLI workflows.
 
+### .geminiignore Configuration
+
+To optimize Gemini CLI performance and reduce context noise, configure a `.geminiignore` file in your project root. This file excludes irrelevant files from analysis, providing cleaner context and faster processing.
+
+#### Creating .geminiignore
+Create `.geminiignore` in your project root:
+
+```bash
+# Exclude build outputs and dependencies
+/dist/
+/build/
+/node_modules/
+/.next/
+
+# Exclude temporary files
+*.tmp
+*.log
+/temp/
+
+# Exclude sensitive files
+/.env
+/config/secrets.*
+apikeys.txt
+
+# Exclude large data files
+*.csv
+*.json
+*.sql
+
+# Include important documentation (negation)
+!README.md
+!CHANGELOG.md
+!**/CLAUDE.md
+```
+
+#### Configuration Benefits
+- **Improved Performance**: Faster analysis by excluding irrelevant files
+- **Better Context**: Cleaner analysis results without build artifacts
+- **Reduced Token Usage**: Lower costs by filtering out unnecessary content
+- **Enhanced Focus**: Better AI understanding through relevant context only
+
+#### Best Practices
+- Always exclude `node_modules/`, `dist/`, `build/` directories
+- Filter out log files, temporary files, and build artifacts
+- Keep documentation files (use `!` to include specific patterns)
+- Update `.geminiignore` when project structure changes
+- Restart Gemini CLI session after modifying `.geminiignore`
+
+**Note**: Unlike `.gitignore`, `.geminiignore` only affects Gemini CLI operations and does not impact Git versioning.
+
 ## Contributing
 
 ### Development Setup

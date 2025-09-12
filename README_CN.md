@@ -292,6 +292,56 @@ cd src/api && /update-memory-related
 
 此设置确保CCW的智能文档系统能够与Gemini CLI工作流正确集成。
 
+### .geminiignore 配置
+
+为了优化Gemini CLI性能并减少上下文噪声，请在项目根目录配置 `.geminiignore` 文件。此文件可以排除无关文件的分析，提供更清洁的上下文和更快的处理速度。
+
+#### 创建 .geminiignore
+在项目根目录创建 `.geminiignore` 文件：
+
+```bash
+# 排除构建输出和依赖项
+/dist/
+/build/
+/node_modules/
+/.next/
+
+# 排除临时文件
+*.tmp
+*.log
+/temp/
+
+# 排除敏感文件
+/.env
+/config/secrets.*
+apikeys.txt
+
+# 排除大型数据文件
+*.csv
+*.json
+*.sql
+
+# 包含重要文档（取反模式）
+!README.md
+!CHANGELOG.md
+!**/CLAUDE.md
+```
+
+#### 配置优势
+- **提升性能**: 通过排除无关文件实现更快的分析速度
+- **更好的上下文**: 没有构建产物的更清洁分析结果
+- **减少令牌使用**: 通过过滤不必要内容降低成本
+- **增强专注度**: 通过相关上下文获得更好的AI理解
+
+#### 最佳实践
+- 始终排除 `node_modules/`、`dist/`、`build/` 目录
+- 过滤日志文件、临时文件和构建产物
+- 保留文档文件（使用 `!` 包含特定模式）
+- 项目结构变更时更新 `.geminiignore`
+- 修改 `.geminiignore` 后重启Gemini CLI会话
+
+**注意**: 与 `.gitignore` 不同，`.geminiignore` 仅影响Gemini CLI操作，不会影响Git版本控制。
+
 ## 贡献
 
 ### 开发设置

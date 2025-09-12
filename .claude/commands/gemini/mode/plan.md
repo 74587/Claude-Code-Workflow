@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Project planning and architecture analysis using specialized template
+description: Project planning and architecture analysis using Gemini CLI with specialized template
 usage: /gemini:mode:plan "planning topic"
 argument-hint: "planning topic or architectural challenge to analyze"
 examples:
@@ -14,57 +14,44 @@ model: sonnet
 # Planning Analysis Command (/gemini:mode:plan)
 
 ## Overview
-Comprehensive project planning and architecture analysis using expert planning template.
+**This command uses Gemini CLI for comprehensive project planning and architecture analysis.** It leverages Gemini CLI's powerful codebase analysis capabilities combined with expert planning templates to provide strategic insights and implementation roadmaps.
+
+### Key Features
+- **Gemini CLI Integration**: Utilizes Gemini CLI's deep codebase analysis for informed planning decisions
+
+**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd [path] && gemini --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
 
 ## Usage
 
-### Basic Planning Analysis
+### Basic Usage
 ```bash
 /gemini:mode:plan "design authentication system"
 ```
 
-### With All Files Context
+### Directory-Specific Analysis
 ```bash
-/gemini:mode:plan "microservices migration" --all-files
-```
-
-### Save to Workflow Session
-```bash
-/gemini:mode:plan "real-time notifications" --save-session
+/gemini:mode:plan "design authentication system" --cd "src/auth"
 ```
 
 ## Command Execution
 
-**Template Used**: `~/.claude/prompt-templates/plan.md`
+**Smart Directory Detection**: Auto-detects relevant directories based on topic keywords 
 
 **Executes**:
 ```bash
+# Project-wide analysis
 gemini --all-files -p "$(cat ~/.claude/prompt-templates/plan.md)
+Planning Topic: [user_description]"
 
-Context: @{CLAUDE.md,**/*CLAUDE.md}
-
+# Directory-specific analysis  
+cd [directory] && gemini --all-files -p "$(cat ~/.claude/prompt-templates/plan.md)
 Planning Topic: [user_description]"
 ```
 
-## Planning Focus
-
-The planning template provides:
-- **Requirements Analysis**: Functional and non-functional requirements
-- **Architecture Design**: System structure and interactions
-- **Implementation Strategy**: Step-by-step development approach  
-- **Risk Assessment**: Challenges and mitigation strategies
-- **Resource Planning**: Time, effort, and technology needs
-
-## Options
-
-| Option | Purpose |
-|--------|---------|
-| `--all-files` | Include entire codebase for context |
-| `--save-session` | Save analysis to workflow session |
 
 ## Session Output
 
-When `--save-session` used, saves to:
+saves to:
 `.workflow/WFS-[topic]/.chat/plan-[timestamp].md`
 
 **Includes:**

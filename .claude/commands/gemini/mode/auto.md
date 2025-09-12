@@ -17,6 +17,10 @@ model: sonnet
 ## Overview
 Automatically analyzes user input to select the most appropriate template and execute Gemini CLI with optimal context.
 
+**Directory Analysis Rule**: Intelligent detection of directory context intent - automatically navigate to target directory when analysis scope is directory-specific.
+
+**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd [path] && gemini --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
+
 **Process**: List Templates → Analyze Input → Select Template → Execute with Context
 
 ## Usage
@@ -34,6 +38,9 @@ Automatically analyzes user input to select the most appropriate template and ex
 
 # Architecture/design keywords → selects plan.md
 /gemini:mode:auto "implement real-time chat system architecture"
+
+# With directory context
+/gemini:mode:auto "authentication issues" --cd "src/auth"
 ```
 
 ## Template Selection Logic
@@ -118,24 +125,19 @@ END FUNCTION
 
 ### Step 3: Execute with Dynamically Selected Template
 ```bash
-# Dynamic execution with selected template
+# Basic execution with selected template
 gemini --all-files -p "$(cat ~/.claude/prompt-templates/[selected_template])
 
-Context: @{CLAUDE.md,**/*CLAUDE.md}
+User Input: [user_input]"
+
+# With --cd parameter
+cd [specified_directory] && gemini --all-files -p "$(cat ~/.claude/prompt-templates/[selected_template])
 
 User Input: [user_input]"
 ```
 
 **Template selection is completely dynamic** - any new templates added to the directory will be automatically discovered and available for selection based on their YAML frontmatter.
 
-## Options
-
-| Option | Purpose |
-|--------|---------|
-| `--list-templates` | Show available templates and exit |
-| `--template <name>` | Force specific template (overrides auto-selection) |
-| `--debug` | Show template selection reasoning |
-| `--save-session` | Save results to workflow session |
 
 ### Manual Template Override
 ```bash
@@ -174,7 +176,7 @@ User Input: [user_input]"
 
 ## Session Integration
 
-When `--save-session` used, saves to:
+saves to:
 `.workflow/WFS-[topic]/.chat/auto-[template]-[timestamp].md`
 
 **Session includes:**

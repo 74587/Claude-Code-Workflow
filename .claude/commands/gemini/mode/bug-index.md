@@ -16,17 +16,22 @@ model: sonnet
 ## Overview
 Systematic bug analysis and fix suggestions using expert diagnostic template.
 
+**Directory Analysis Rule**: Intelligent detection of directory context intent - automatically navigate to target directory when analysis scope is directory-specific.
+
+**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd [path] && gemini --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
+
 ## Usage
 
 ### Basic Bug Analysis
 ```bash
-/gemini:mode:bug-index "authentication error during login"
+/gemini:mode:bug-index "authentication null pointer error"
 ```
 
-### With All Files Context
+### Bug Analysis with Directory Context
 ```bash
-/gemini:mode:bug-index "React state not updating" --all-files
+/gemini:mode:bug-index "authentication error" --cd "src/auth"
 ```
+
 
 ### Save to Workflow Session
 ```bash
@@ -39,9 +44,13 @@ Systematic bug analysis and fix suggestions using expert diagnostic template.
 
 **Executes**:
 ```bash
+# Basic usage
 gemini --all-files -p "$(cat ~/.claude/prompt-templates/bug-fix.md)
 
-Context: @{CLAUDE.md,**/*CLAUDE.md}
+Bug Description: [user_description]"
+
+# With --cd parameter
+cd [specified_directory] && gemini --all-files -p "$(cat ~/.claude/prompt-templates/bug-fix.md)
 
 Bug Description: [user_description]"
 ```
@@ -54,16 +63,10 @@ The bug-fix template provides:
 - **Targeted Solutions**: Specific, minimal fixes
 - **Impact Assessment**: Understanding side effects
 
-## Options
-
-| Option | Purpose |
-|--------|---------|
-| `--all-files` | Include entire codebase for analysis |
-| `--save-session` | Save analysis to workflow session |
 
 ## Session Output
 
-When `--save-session` used, saves to:
+saves to:
 `.workflow/WFS-[topic]/.chat/bug-index-[timestamp].md`
 
 **Includes:**
