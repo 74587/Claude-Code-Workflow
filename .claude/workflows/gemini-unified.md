@@ -72,11 +72,17 @@ type: technical-guideline
 -   **Content Limits**: When `--all-files` exceeds token limits, automatically fall back to selective `@` patterns.
 
 
-###  TPL (Templates)
+###  📁 Templates
 
-> **📋 Complete Template Reference**: See [Shared Template System] @~/.claude/workflows/shared-template-system.md for comprehensive template directory structure, selection guide, and cross-tool compatibility details.
+**Structure**: `~/.claude/workflows/cli-templates/prompts/`
 
-> **💡 Template Usage**: All templates work with both `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)` syntax and multi-template composition patterns.
+**Categories**:
+- `analysis/` - pattern.txt, architecture.txt, security.txt, performance.txt, quality.txt (Gemini primary)
+- `development/` - feature.txt, component.txt, refactor.txt, testing.txt, debugging.txt (Codex primary)
+- `planning/` - task-breakdown.txt, migration.txt (Cross-tool)
+- `review/` - code-review.txt (Cross-tool)
+
+**Usage**: `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)`
 
 
 ### 📦 Standard Command Structures
@@ -91,7 +97,7 @@ These are recommended command templates for common scenarios.
     # Or specify module from root directory
     cd backend/services && gemini --all-files -p "Review service architecture and dependencies"
     
-    # Template-enhanced module analysis (see shared-template-system.md for all available templates)
+    # Template-enhanced module analysis
     cd frontend/components && gemini --all-files -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
     ```
 

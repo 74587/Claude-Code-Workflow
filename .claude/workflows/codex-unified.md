@@ -92,11 +92,19 @@ type: technical-guideline
 -   **Default Timeout**: Bash command execution extended to **10 minutes** to handle complex autonomous development workflows.
 -   **Autonomous Intelligence**: Codex automatically manages file discovery and context gathering in `--full-auto` mode.
 
-### 📁 Shared Template Directory Structure
+### 📁 Templates
 
-> **📋 Complete Template Reference**: See [Shared Template System] @~/.claude/workflows/shared-template-system.md for comprehensive template directory structure, cross-tool compatibility, and detailed usage patterns.
+**Structure**: `~/.claude/workflows/cli-templates/prompts/`
 
-> **💡 Cross-Tool Usage**: Analysis templates (`analysis/`) work with Codex for understanding existing code before development. See shared template system for complete compatibility matrix.
+**Categories**:
+- `analysis/` - pattern.txt, architecture.txt, security.txt, performance.txt, quality.txt (Gemini primary, Codex compatible)
+- `development/` - feature.txt, component.txt, refactor.txt, testing.txt, debugging.txt (Codex primary)
+- `planning/` - task-breakdown.txt, migration.txt (Cross-tool)
+- `automation/` - scaffold.txt, migration.txt, deployment.txt (Codex specialized)
+- `review/` - code-review.txt (Cross-tool)
+- `integration/` - api-design.txt, database.txt (Codex primary)
+
+**Usage**: `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)`
 
 ### 📦 Standard Command Structures
 
