@@ -9,8 +9,9 @@ This document defines the complete workflow system architecture using a **JSON-o
 ### Key Design Decisions
 - **JSON files are the single source of truth** - All markdown documents are read-only generated views
 - **Marker files for session tracking** - Ultra-simple active session management
-- **Unified file structure** - Same structure for all workflows regardless of complexity
+- **Unified file structure definition** - Same structure template for all workflows, created on-demand
 - **Dynamic task decomposition** - Subtasks created as needed during execution
+- **On-demand file creation** - Directories and files created only when required
 - **Agent-agnostic task definitions** - Complete context preserved for autonomous execution
 
 ## Session Management
@@ -224,24 +225,33 @@ impl-2.1            # Subtask of impl-2 (dynamically created)
 ## File Structure
 
 ### Unified File Structure
-All workflows use the same file structure regardless of complexity. Task complexity is expressed through dynamic task decomposition, not file structure variations.
+All workflows use the same file structure definition regardless of complexity. **Directories and files are created on-demand as needed**, not all at once during initialization.
 
+#### Complete Structure Reference
 ```
 .workflow/WFS-[topic-slug]/
-├── workflow-session.json        # Session metadata and state
-├── [.brainstorming/]           # Optional brainstorming phase  
-├── .chat/                      # CLI interaction sessions
+├── workflow-session.json        # Session metadata and state (REQUIRED)
+├── [.brainstorming/]           # Optional brainstorming phase (created when needed)
+├── [.chat/]                    # CLI interaction sessions (created when analysis is run)
 │   ├── chat-*.md              # Saved chat sessions
 │   └── analysis-*.md          # Analysis results
-├── IMPL_PLAN.md                # Planning document
-├── TODO_LIST.md                # Progress tracking
-├── .summaries/                 # Task completion summaries
+├── IMPL_PLAN.md                # Planning document (REQUIRED)
+├── TODO_LIST.md                # Progress tracking (REQUIRED)
+├── [.summaries/]               # Task completion summaries (created when tasks complete)
 │   ├── IMPL-*.md              # Main task summaries
 │   └── IMPL-*.*.md            # Subtask summaries
-└── .task/
+└── .task/                      # Task definitions (REQUIRED)
     ├── impl-*.json             # Main task definitions
-    └── impl-*.*.json           # Subtask definitions (dynamic)
+    └── impl-*.*.json           # Subtask definitions (created dynamically)
 ```
+
+#### Creation Strategy
+- **Initial Setup**: Create only `workflow-session.json`, `IMPL_PLAN.md`, `TODO_LIST.md`, and `.task/` directory
+- **On-Demand Creation**: Other directories created when first needed:
+  - `.brainstorming/` → When brainstorming phase is initiated
+  - `.chat/` → When CLI analysis commands are executed
+  - `.summaries/` → When first task is completed
+- **Dynamic Files**: Subtask JSON files created during task decomposition
 
 ### File Naming Conventions
 
@@ -345,9 +355,26 @@ Agents receive complete task JSON plus workflow context:
 
 ## Data Operations
 
+### Session Initialization
+```bash
+# Create minimal required structure
+mkdir -p .workflow/WFS-topic-slug/.task
+echo '{"session_id":"WFS-topic-slug",...}' > .workflow/WFS-topic-slug/workflow-session.json
+echo '# Implementation Plan' > .workflow/WFS-topic-slug/IMPL_PLAN.md
+echo '# Tasks' > .workflow/WFS-topic-slug/TODO_LIST.md
+```
+
 ### Task Creation
 ```bash
 echo '{"id":"impl-1","title":"New task",...}' > .task/impl-1.json
+```
+
+### Directory Creation (On-Demand)
+```bash
+# Create directories only when needed
+mkdir -p .brainstorming     # When brainstorming is initiated
+mkdir -p .chat              # When analysis commands are run
+mkdir -p .summaries         # When first task completes
 ```
 
 ### Task Updates
