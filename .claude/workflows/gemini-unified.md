@@ -17,6 +17,21 @@ type: technical-guideline
     -   Architectural analysis and pattern detection.
     -   Identification of coding standards and conventions.
 
+### 🎯 Intelligent Wrapper: `gemini-wrapper`
+
+-   **Purpose**: Smart wrapper that automatically manages `--all-files` flag and approval modes based on project analysis
+-   **Location**: `~/.claude/scripts/gemini-wrapper` (auto-installed)
+-   **Token Threshold**: 2,000,000 tokens (configurable via `GEMINI_TOKEN_LIMIT`)
+-   **Auto-Management Features**:
+    -   **Token-based `--all-files`**: Small projects get `--all-files`, large projects use patterns
+    -   **Smart approval modes**: Analysis tasks use `default`, execution tasks use `yolo`
+    -   **Error logging**: Captures and logs execution errors to `~/.claude/.logs/gemini-errors.log`
+-   **Task Detection**:
+    -   **Analysis keywords**: "analyze", "analysis", "review", "understand", "inspect", "examine" → `--approval-mode default`
+    -   **All other tasks**: → `--approval-mode yolo`
+-   **Usage**: Identical to `gemini` command - all parameters pass through unchanged
+-   **Benefits**: Prevents token limits, optimizes approval workflow, provides error tracking
+
 ### ⚙️ Command Syntax & Arguments
 
 -   **Basic Structure**:
@@ -28,6 +43,8 @@ type: technical-guideline
     -   `-p`: The prompt string, which must contain file reference patterns and the analysis query.
     -   `{template}`: Template injection using `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)` for standardized analysis
     -   `@{pattern}`: A special syntax for referencing files and directories.
+    -   `--approval-mode`: Tool approval mode (`default` for analysis | `yolo` for execution)
+    -   `--include-directories`: Additional workspace directories (max 5, comma-separated)
 
 -   **Template Usage**:
     ```bash
@@ -89,16 +106,47 @@ type: technical-guideline
 
 These are recommended command templates for common scenarios.
 
+#### 🎯 Using Intelligent Wrapper (Recommended)
+
+-   **Automatic Token & Approval Management**
+    ```bash
+    # Analysis task - auto adds --approval-mode default
+    gemini-wrapper -p "Analyze authentication module patterns and implementation"
+    
+    # Execution task - auto adds --approval-mode yolo  
+    gemini-wrapper -p "Implement user login feature with JWT tokens"
+    
+    # Navigate to specific directory with wrapper
+    cd src/auth && gemini-wrapper -p "Review authentication patterns"
+    
+    # Override token threshold if needed
+    GEMINI_TOKEN_LIMIT=500000 gemini-wrapper -p "Custom threshold analysis"
+    
+    # Multi-directory support with wrapper
+    gemini-wrapper --include-directories /path/to/other/project -p "Cross-project analysis"
+    ```
+
 -   **Module-Specific Analysis (Quick Module Analysis)**
     ```bash
     # Navigate to module directory for focused analysis
-    cd src/auth && gemini --all-files -p "Analyze authentication module patterns and implementation"
+    cd src/auth && gemini-wrapper -p "Analyze authentication module patterns and implementation"
     
     # Or specify module from root directory
-    cd backend/services && gemini --all-files -p "Review service architecture and dependencies"
+    cd backend/services && gemini-wrapper -p "Review service architecture and dependencies"
     
-    # Template-enhanced module analysis
-    cd frontend/components && gemini --all-files -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
+    # Template-enhanced module analysis with wrapper
+    cd frontend/components && gemini-wrapper -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
+    ```
+
+#### 📝 Direct Gemini Usage (Manual Control)
+
+-   **Manual Token Management**
+    ```bash
+    # Direct gemini usage when you want explicit control
+    gemini --all-files -p "Analyze authentication module patterns and implementation"
+    
+    # Fallback when wrapper suggests pattern usage
+    gemini -p "@{src/auth/**/*} @{CLAUDE.md} Analyze authentication patterns"
     ```
 
 -   **Basic Structure (Manual Prompt)**

@@ -56,8 +56,8 @@ ELIF context insufficient OR task has analysis marker:
   - **Purpose**: Enables autonomous development with intelligent file discovery and code generation
 
 **Analysis CLI Usage Standards**:
-- **Gemini CLI**: Use task-specific paths from JSON: `gemini -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) [prompt]" `
-- **Codex CLI**: Use task-specific paths from JSON: `codex --full-auto exec "$(.claude/scripts/read-task-paths.sh [task-json-file]) [prompt]"`
+- **Gemini CLI**: Use task-specific paths from JSON: `gemini-wrapper -p "$(~/.claude/scripts/read-task-paths.sh [task-json-file]) [prompt]" `
+- **Codex CLI**: Use task-specific paths from JSON: `codex --full-auto exec "$(~/.claude/scripts/read-task-paths.sh [task-json-file]) [prompt]"`
 - **Follow Guidelines**: @~/.claude/workflows/gemini-unified.md and @~/.claude/workflows/codex-unified.md
 
 
