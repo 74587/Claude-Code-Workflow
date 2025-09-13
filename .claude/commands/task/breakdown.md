@@ -73,10 +73,11 @@ Accept task breakdown? (y/n/edit): y
 Automatic generation:
 ```
 ✅ Task impl-1 broken down:
-├── impl-1.1: Design authentication schema
-├── impl-1.2: Implement core auth logic
-├── impl-1.3: Add security middleware
-└── impl-1.4: Write comprehensive tests
+▸ impl-1: Build authentication module (container)
+  ├── impl-1.1: Design authentication schema
+  ├── impl-1.2: Implement core auth logic
+  ├── impl-1.3: Add security middleware
+  └── impl-1.4: Write comprehensive tests
 
 Agents assigned:
 - impl-1.1 → planning-agent
@@ -85,6 +86,7 @@ Agents assigned:
 - impl-1.4 → code-review-test-agent
 
 JSON files created:
+- .task/impl-1.json (container)
 - .task/impl-1.1.json
 - .task/impl-1.2.json
 - .task/impl-1.3.json
@@ -267,11 +269,11 @@ Based on subtask type and implementation complexity:
 /task:breakdown impl-1
 
 Result:
-impl-1: Build authentication (container)
-├── impl-1.1: Design auth schema
-├── impl-1.2: Implement auth logic  
-├── impl-1.3: Add security middleware
-└── impl-1.4: Write tests
+▸ impl-1: Build authentication (container)
+  ├── impl-1.1: Design auth schema
+  ├── impl-1.2: Implement auth logic  
+  ├── impl-1.3: Add security middleware
+  └── impl-1.4: Write tests
 ```
 
 ### Two-Level Breakdown
@@ -279,13 +281,13 @@ impl-1: Build authentication (container)
 /task:breakdown impl-1 --depth=2
 
 Result:  
-impl-1: E-commerce checkout (container)
-├── impl-1.1: Payment processing
-│   ├── impl-1.1.1: Integrate gateway
-│   └── impl-1.1.2: Handle transactions
-├── impl-1.2: Order management
-│   └── impl-1.2.1: Create order model
-└── impl-1.3: Testing
+▸ impl-1: E-commerce checkout (container)
+  ├── impl-1.1: Payment processing
+  │   ├── impl-1.1.1: Integrate gateway
+  │   └── impl-1.1.2: Handle transactions
+  ├── impl-1.2: Order management
+  │   └── impl-1.2.1: Create order model
+  └── impl-1.3: Testing
 ```
 
 ## Error Handling

@@ -384,17 +384,25 @@ File structure scales with task complexity to minimize overhead for simple tasks
 ```markdown
 # Tasks: [Session Topic]
 
-## Main Tasks
-- [ ] **IMPL-001**: [Task Description] → [📋](./.task/impl-001.json)
-- [x] **IMPL-002**: [Completed Task] → [📋](./.task/impl-002.json) | [✅](./.summaries/IMPL-002.md)
-- [ ] **IMPL-003**: [Task Description] → [📋](./.task/impl-003.json)
+## Task Progress
+▸ **IMPL-001**: [Main Task Group] → [📋](./.task/impl-001.json)
+  - [ ] **IMPL-001.1**: [Subtask] → [📋](./.task/impl-001.1.json)
+  - [x] **IMPL-001.2**: [Subtask] → [📋](./.task/impl-001.2.json) | [✅](./.summaries/IMPL-001.2.md)
+  
+- [x] **IMPL-002**: [Simple Task] → [📋](./.task/impl-002.json) | [✅](./.summaries/IMPL-002.md)
 
-## Subtasks  
-- [ ] **IMPL-001.1**: [Subtask] → [📋](./.task/impl-001.1.json)
-- [ ] **IMPL-001.2**: [Subtask] → [📋](./.task/impl-001.2.json)
+▸ **IMPL-003**: [Main Task Group] → [📋](./.task/impl-003.json)
+  - [ ] **IMPL-003.1**: [Subtask] → [📋](./.task/impl-003.1.json)
+    - [ ] **IMPL-003.1.1**: [Sub-subtask] → [📋](./.task/impl-003.1.1.json)
+
+## Status Legend
+- `▸` = Container task (has subtasks)
+- `- [ ]` = Pending leaf task  
+- `- [x]` = Completed leaf task
+- Indentation shows hierarchy (2 spaces per level)
 
 ## Notes
-[可选备注]
+[Optional notes]
 ```
 
 ## Agent Integration

@@ -122,14 +122,18 @@ ELIF context insufficient OR task has analysis marker:
    ```markdown
    # Tasks: User Authentication System
    
-   ## Main Tasks
-   - [x] **IMPL-001**: Create auth module → [📋](./.task/impl-001.json) | [✅](./.summaries/IMPL-001.md)
+   ## Task Progress
+   ▸ **IMPL-001**: Create auth module → [📋](./.task/impl-001.json)
+     - [x] **IMPL-001.1**: Database schema → [📋](./.task/impl-001.1.json) | [✅](./.summaries/IMPL-001.1.md)
+     - [ ] **IMPL-001.2**: API endpoints → [📋](./.task/impl-001.2.json)
+   
    - [ ] **IMPL-002**: Add JWT validation → [📋](./.task/impl-002.json)
    - [ ] **IMPL-003**: OAuth2 integration → [📋](./.task/impl-003.json)
    
-   ## Subtasks
-   - [x] **IMPL-001.1**: Database schema → [📋](./.task/impl-001.1.json) | [✅](./.summaries/IMPL-001.1.md)
-   - [ ] **IMPL-001.2**: API endpoints → [📋](./.task/impl-001.2.json)
+   ## Status Legend
+   - `▸` = Container task (has subtasks)
+   - `- [ ]` = Pending leaf task
+   - `- [x]` = Completed leaf task
    ```
 
 3. **Generate Summary** (using session context paths):

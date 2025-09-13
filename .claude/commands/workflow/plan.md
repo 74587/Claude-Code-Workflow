@@ -90,6 +90,7 @@ The command automatically detects input type:
 ### Task Generation
 - Automatically creates .task/ files when complexity warrants
 - Generates hierarchical task structure (max 3 levels)
+- Main tasks with subtasks become container tasks (not directly executable)
 - Updates session state with task references
 - Runs project structure analysis to populate paths field
 
@@ -190,6 +191,12 @@ task.paths = join(relevant_paths, ";")
 
 ### Optional TODO_LIST.md (Auto-triggered)
 Created when complexity > simple or task count > 5
+
+**TODO_LIST Structure**: Uses unified hierarchical list format
+- Container tasks (with subtasks) marked with `▸` symbol
+- Leaf tasks use standard `- [ ]` / `- [x]` checkboxes
+- Indentation shows hierarchy (2 spaces per level)
+- Container tasks represent logical grouping, not executable items
 
 ### Task JSON Files (Auto-created)
 Generated in .task/ directory when decomposition enabled
