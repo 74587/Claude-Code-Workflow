@@ -78,7 +78,7 @@ Use the targeted review context template:
 
 **Gemini CLI Command**:
 ```bash
-gemini-wrapper -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) @{CLAUDE.md} [review-analysis-prompt]"
+~/.claude/scripts/gemini-wrapper -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) @{CLAUDE.md} [review-analysis-prompt]"
 ```
 
 This executes a change-specific Gemini CLI command that identifies:

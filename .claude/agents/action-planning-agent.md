@@ -42,7 +42,7 @@ You are a pure execution agent specialized in creating actionable implementation
 ```
 
 **Analysis CLI Usage Standards**:
-- **Gemini CLI**: Use task-specific paths: `gemini-wrapper -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) @{CLAUDE.md}" `
+- **Gemini CLI**: Use task-specific paths: `~/.claude/scripts/gemini-wrapper -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) @{CLAUDE.md}" `
 - **Codex CLI**: Use task-specific paths: `codex --full-auto exec "$(.claude/scripts/read-task-paths.sh [task-json-file]) [prompt]"`
 - **Follow Guidelines**: @~/.claude/workflows/gemini-unified.md and @~/.claude/workflows/codex-unified.md
 

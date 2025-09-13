@@ -29,8 +29,9 @@ type: technical-guideline
 -   **Task Detection**:
     -   **Analysis keywords**: "analyze", "analysis", "review", "understand", "inspect", "examine" → `--approval-mode default`
     -   **All other tasks**: → `--approval-mode yolo`
--   **Usage**: Identical to `gemini` command - all parameters pass through unchanged
+-   **Usage**: Use full path `~/.claude/scripts/gemini-wrapper` - all parameters pass through unchanged
 -   **Benefits**: Prevents token limits, optimizes approval workflow, provides error tracking
+-   **Setup**: Script auto-installs to `~/.claude/scripts/` location
 
 ### ⚙️ Command Syntax & Arguments
 
@@ -111,31 +112,31 @@ These are recommended command templates for common scenarios.
 -   **Automatic Token & Approval Management**
     ```bash
     # Analysis task - auto adds --approval-mode default
-    gemini-wrapper -p "Analyze authentication module patterns and implementation"
+    ~/.claude/scripts/gemini-wrapper -p "Analyze authentication module patterns and implementation"
     
     # Execution task - auto adds --approval-mode yolo  
-    gemini-wrapper -p "Implement user login feature with JWT tokens"
+    ~/.claude/scripts/gemini-wrapper -p "Implement user login feature with JWT tokens"
     
     # Navigate to specific directory with wrapper
-    cd src/auth && gemini-wrapper -p "Review authentication patterns"
+    cd src/auth && ~/.claude/scripts/gemini-wrapper -p "Review authentication patterns"
     
     # Override token threshold if needed
-    GEMINI_TOKEN_LIMIT=500000 gemini-wrapper -p "Custom threshold analysis"
+    GEMINI_TOKEN_LIMIT=500000 ~/.claude/scripts/gemini-wrapper -p "Custom threshold analysis"
     
     # Multi-directory support with wrapper
-    gemini-wrapper --include-directories /path/to/other/project -p "Cross-project analysis"
+    ~/.claude/scripts/gemini-wrapper --include-directories /path/to/other/project -p "Cross-project analysis"
     ```
 
 -   **Module-Specific Analysis (Quick Module Analysis)**
     ```bash
     # Navigate to module directory for focused analysis
-    cd src/auth && gemini-wrapper -p "Analyze authentication module patterns and implementation"
+    cd src/auth && ~/.claude/scripts/gemini-wrapper -p "Analyze authentication module patterns and implementation"
     
     # Or specify module from root directory
-    cd backend/services && gemini-wrapper -p "Review service architecture and dependencies"
+    cd backend/services && ~/.claude/scripts/gemini-wrapper -p "Review service architecture and dependencies"
     
     # Template-enhanced module analysis with wrapper
-    cd frontend/components && gemini-wrapper -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
+    cd frontend/components && ~/.claude/scripts/gemini-wrapper -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
     ```
 
 #### 📝 Direct Gemini Usage (Manual Control)
