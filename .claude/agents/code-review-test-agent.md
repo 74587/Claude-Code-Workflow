@@ -78,7 +78,7 @@ Use the targeted review context template:
 
 **Gemini CLI Command**:
 ```bash
-~/.claude/scripts/gemini-wrapper -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) @{CLAUDE.md} [review-analysis-prompt]"
+bash(~/.claude/scripts/gemini-wrapper -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) @{CLAUDE.md} [review-analysis-prompt]")
 ```
 
 This executes a change-specific Gemini CLI command that identifies:
@@ -96,7 +96,7 @@ Use the autonomous development context template:
 
 **Codex CLI Command**:
 ```bash
-codex --full-auto exec "$(.claude/scripts/read-task-paths.sh [task-json-file]) [autonomous-review-prompt]"
+bash(codex --full-auto exec "$(.claude/scripts/read-task-paths.sh [task-json-file]) [autonomous-review-prompt]")
 ```
 
 This executes autonomous Codex CLI analysis that provides:

@@ -8,7 +8,7 @@ type: technical-guideline
 
 -   **Purpose**: An AI-powered CLI tool for automated codebase analysis, intelligent code generation, and autonomous development workflows.
 -   **Key Characteristic**: **No `--all-files` flag** - requires explicit `@` pattern references for file inclusion.
--   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), use: `codex --cd XXX --full-auto exec "prompt"` or `cd XXX && codex --full-auto exec "@{**/*} prompt"`
+-   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), use: `bash(codex --cd XXX --full-auto exec "prompt")` or `bash(cd XXX && codex --full-auto exec "@{**/*} prompt")`
 -   **Default Mode**: `--full-auto exec` autonomous development mode (RECOMMENDED for all tasks).
 -   **Primary Triggers**:
     -   When user needs automated code generation or refactoring.
@@ -22,16 +22,16 @@ type: technical-guideline
 
 ### ⭐ **CRITICAL: Default to `--full-auto` Mode**
 
-> **🎯 Golden Rule**: Always start with `codex --full-auto exec "your task description"` for maximum autonomous capabilities. This is the recommended approach for 90% of development tasks.
+> **🎯 Golden Rule**: Always start with `bash(codex --full-auto exec "your task description")` for maximum autonomous capabilities. This is the recommended approach for 90% of development tasks.
 
-**Why `--full-auto` Should Be Your Default:**
+**Why `bash(codex --full-auto)` Should Be Your Default:**
 - **🧠 Intelligent File Discovery**: Codex automatically identifies relevant files without manual `@` patterns
 - **🎯 Context-Aware Execution**: Understands project structure and dependencies autonomously  
 - **⚡ Streamlined Workflow**: No need to specify file patterns - just describe what you want
 - **🚀 Maximum Automation**: Leverages full autonomous development capabilities
 - **📚 Smart Documentation**: Automatically includes relevant CLAUDE.md files and project context
 
-**When to Use `codex --full-auto exec` with Explicit Patterns:**
+**When to Use `bash(codex --full-auto exec)` with Explicit Patterns:**
 - ✅ When you need precise control over which files are included
 - ✅ When working with specific file patterns that require manual specification
 - ✅ When debugging issues with file discovery in `--full-auto` mode
@@ -41,30 +41,30 @@ type: technical-guideline
 
 -   **Basic Structure** (Priority Order):
     ```bash
-    codex --full-auto exec "autonomous development task"  # DEFAULT & RECOMMENDED
-    codex --full-auto exec "prompt with @{patterns}"              # For specific control needs
+    bash(codex --full-auto exec "autonomous development task")  # DEFAULT & RECOMMENDED
+    bash(codex --full-auto exec "prompt with @{patterns}")              # For specific control needs
     ```
 -   **Key Commands** (In Order of Preference):
-    -   `codex --full-auto exec "..."` ⭐ **PRIMARY MODE** - Full autonomous development
-    -   `codex --full-auto exec "..."` - Controlled execution when you need specific patterns
-    -   `codex --cd /path --full-auto exec "..."` - Directory-specific autonomous development
-    -   `codex --cd /path --full-auto exec "@{patterns} ..."` - Directory-specific execution with patterns
+    -   `bash(codex --full-auto exec "...")` ⭐ **PRIMARY MODE** - Full autonomous development
+    -   `bash(codex --full-auto exec "...")` - Controlled execution when you need specific patterns
+    -   `bash(codex --cd /path --full-auto exec "...")` - Directory-specific autonomous development
+    -   `bash(codex --cd /path --full-auto exec "@{patterns} ...")` - Directory-specific execution with patterns
 
 -   **Template Usage** (Preferred Approaches):
     ```bash
     # RECOMMENDED: Full autonomous mode (let Codex handle file discovery)
-    codex --full-auto exec "Refactor authentication system using best practices"
+    bash(codex --full-auto exec "Refactor authentication system using best practices")
     
     # Alternative: Direct execution with explicit patterns
-    codex --full-auto exec "@{src/**/*} @{CLAUDE.md} Refactor authentication system"
+    bash(codex --full-auto exec "@{src/**/*} @{CLAUDE.md} Refactor authentication system")
     
     # Advanced: Template injection with autonomous mode
-    codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
+    bash(codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
     
     ## Task: Authentication System Refactoring
     - Apply modern security patterns
     - Improve code organization
-    - Add comprehensive tests"
+    - Add comprehensive tests")
     ```
 
 ### 📂 File Pattern Rules - **CRITICAL FOR CODEX**
@@ -111,62 +111,62 @@ type: technical-guideline
 -   **Module-Specific Development**
     ```bash
     # RECOMMENDED: Full autonomous mode with directory context
-    codex --cd src/auth --full-auto exec "Refactor authentication module using latest patterns"
+    bash(codex --cd src/auth --full-auto exec "Refactor authentication module using latest patterns")
     
     # Alternative: Full autonomous mode with explicit task description
-    codex --full-auto exec "Refactor the authentication module in src/auth/ using latest security patterns"
+    bash(codex --full-auto exec "Refactor the authentication module in src/auth/ using latest security patterns")
     
     # Fallback: Explicit patterns when autonomous mode needs guidance  
-    codex --full-auto exec "@{src/auth/**/*,CLAUDE.md} Refactor authentication module using latest patterns"
+    bash(codex --full-auto exec "@{src/auth/**/*,CLAUDE.md} Refactor authentication module using latest patterns")
     
     # Alternative: Directory-specific execution with explicit patterns
-    codex --cd src/auth --full-auto exec "@{**/*,../../CLAUDE.md} Refactor authentication module using latest patterns"
+    bash(codex --cd src/auth --full-auto exec "@{**/*,../../CLAUDE.md} Refactor authentication module using latest patterns")
     ```
 
 -   **Basic Development Task**
     ```bash
     # RECOMMENDED: Let Codex handle everything autonomously
-    codex --full-auto exec "Implement user authentication with JWT tokens"
+    bash(codex --full-auto exec "Implement user authentication with JWT tokens")
     
     # Alternative: Explicit file patterns if needed
-    codex --full-auto exec "@{src/**/*,*.json,CLAUDE.md} Implement user authentication with JWT"
+    bash(codex --full-auto exec "@{src/**/*,*.json,CLAUDE.md} Implement user authentication with JWT")
     ```
 
 -   **Template-Enhanced Development**
     ```bash
     # RECOMMENDED: Autonomous mode with template guidance
-    codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
+    bash(codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
     
     ## Task: User Authentication System
     - JWT token management
     - Role-based access control
-    - Password reset functionality"
+    - Password reset functionality")
     
     # Alternative: Explicit patterns with templates
-    codex --full-auto exec "@{src/**/*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)"
+    bash(codex --full-auto exec "@{src/**/*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)")
     ```
 
 -   **Full Auto Mode (PRIMARY RECOMMENDATION)**
     ```bash
     # OPTIMAL: Let Codex discover files and handle everything
-    codex --full-auto exec "Create a complete todo application with React and TypeScript"
+    bash(codex --full-auto exec "Create a complete todo application with React and TypeScript")
     
     # Alternative: Explicit patterns if you want to control file scope
-    codex --full-auto exec "@{**/*} Create a complete todo application with React and TypeScript"
+    bash(codex --full-auto exec "@{**/*} Create a complete todo application with React and TypeScript")
     ```
 
 -   **Debugging & Analysis**
     ```bash
     # RECOMMENDED: Autonomous debugging mode
-    codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)
+    bash(codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)
     
     ## Issue: Performance degradation in user dashboard
     - Identify bottlenecks in the codebase
     - Propose and implement optimizations
-    - Add performance monitoring"
+    - Add performance monitoring")
     
     # Alternative: Explicit patterns for controlled analysis
-    codex --full-auto exec "@{src/**/*,package.json,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)"
+    bash(codex --full-auto exec "@{src/**/*,package.json,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)")
     ```
 
 ### ⭐ Best Practices & Rules
@@ -180,10 +180,10 @@ type: technical-guideline
 - **Be selective**: Use specific patterns like `@{src/**/*.ts}` for targeted analysis
 
 **Default Automation Mode (CRITICAL GUIDANCE):**
-- **`--full-auto exec` is the PRIMARY choice**: Use for 90% of all tasks - maximizes autonomous capabilities
-- **`codex --full-auto exec` with explicit patterns only when necessary**: Reserve for cases where you need explicit file pattern control
+- **`bash(codex --full-auto exec)` is the PRIMARY choice**: Use for 90% of all tasks - maximizes autonomous capabilities
+- **`bash(codex --full-auto exec)` with explicit patterns only when necessary**: Reserve for cases where you need explicit file pattern control
 - **Trust the autonomous intelligence**: Codex excels at file discovery, context gathering, and architectural decisions
-- **Start with `--full-auto exec` always**: If it doesn't meet needs, then consider explicit patterns with `exec` mode
+- **Start with `bash(codex --full-auto exec)` always**: If it doesn't meet needs, then consider explicit patterns with `exec` mode
 
 #### 📋 CLAUDE.md Loading Rules
 
@@ -231,38 +231,38 @@ type: technical-guideline
 **Pre-Development Analysis:**
 ```bash
 # RECOMMENDED: Autonomous pattern analysis
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
+bash(codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
-Analyze the existing codebase patterns and conventions before implementing new features."
+Analyze the existing codebase patterns and conventions before implementing new features.")
 
 # Alternative: Explicit patterns if needed
-codex --full-auto exec "@{src/**/*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
+bash(codex --full-auto exec "@{src/**/*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)")
 ```
 
 **Feature Development:**
 ```bash
 # RECOMMENDED: Full autonomous feature development
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
+bash(codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
 
 ## Feature: Advanced Search Functionality
 - Full-text search capabilities
 - Filter and sort options
 - Performance optimization
-- Integration with existing UI components"
+- Integration with existing UI components")
 
 # Alternative: Explicit patterns when needed
-codex --full-auto exec "@{**/*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)"
+bash(codex --full-auto exec "@{**/*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)")
 ```
 
 **Quality Assurance:**
 ```bash
 # RECOMMENDED: Autonomous testing and validation
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/testing.txt)
+bash(codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/testing.txt)
 
-Generate comprehensive tests and perform validation for the entire codebase."
+Generate comprehensive tests and perform validation for the entire codebase.")
 
 # Alternative: Specific test scope control
-codex --full-auto exec "@{src/**/*,test/**/*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/testing.txt)"
+bash(codex --full-auto exec "@{src/**/*,test/**/*,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/testing.txt)")
 ```
 
 ### 🎨 Advanced Usage Patterns
@@ -270,25 +270,25 @@ codex --full-auto exec "@{src/**/*,test/**/*,CLAUDE.md} $(cat ~/.claude/workflow
 **Multi-Phase Development (Full Autonomous Workflow):**
 ```bash
 # Phase 1: Autonomous Analysis
-codex --full-auto exec "Analyze current architecture for payment system integration"
+bash(codex --full-auto exec "Analyze current architecture for payment system integration")
 
 # Phase 2: Autonomous Implementation (RECOMMENDED APPROACH)
-codex --full-auto exec "Implement Stripe payment integration based on the analyzed architecture"
+bash(codex --full-auto exec "Implement Stripe payment integration based on the analyzed architecture")
 
 # Phase 3: Autonomous Testing
-codex --full-auto exec "Generate comprehensive tests for the payment system implementation"
+bash(codex --full-auto exec "Generate comprehensive tests for the payment system implementation")
 
 # Alternative: Explicit control when needed
-codex --full-auto exec "@{**/*,CLAUDE.md} Analyze current architecture for payment system integration"
+bash(codex --full-auto exec "@{**/*,CLAUDE.md} Analyze current architecture for payment system integration")
 ```
 
 **Cross-Project Learning:**
 ```bash
 # RECOMMENDED: Autonomous cross-project pattern learning
-codex --full-auto exec "Implement feature X by learning patterns from ../other-project/ and applying them to the current codebase"
+bash(codex --full-auto exec "Implement feature X by learning patterns from ../other-project/ and applying them to the current codebase")
 
 # Alternative: Explicit pattern specification
-codex --full-auto exec "@{../other-project/src/**/*,src/**/*,CLAUDE.md} Implement feature X using patterns from other-project"
+bash(codex --full-auto exec "@{../other-project/src/**/*,src/**/*,CLAUDE.md} Implement feature X using patterns from other-project")
 ```
 
-Remember: **Codex excels at autonomous development** - `--full-auto exec` mode should be your default choice. Trust its intelligence for file discovery, context gathering, and implementation decisions. Use explicit `@` patterns with `--full-auto exec` only when you need precise control over file scope.
+Remember: **Codex excels at autonomous development** - `bash(codex --full-auto exec)` mode should be your default choice. Trust its intelligence for file discovery, context gathering, and implementation decisions. Use explicit `@` patterns with `bash(codex --full-auto exec)` only when you need precise control over file scope.

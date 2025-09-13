@@ -17,7 +17,11 @@ type: technical-guideline
     -   Architectural analysis and pattern detection.
     -   Identification of coding standards and conventions.
 
-### 🎯 Intelligent Wrapper: `gemini-wrapper`
+## ⭐ **RECOMMENDED: Use `gemini-wrapper` as Primary Method**
+
+> **🎯 Core Recommendation**: Always use `gemini-wrapper` instead of direct `gemini` commands. This intelligent wrapper handles token limits, approval modes, and error management automatically.
+
+### 🎯 Intelligent Wrapper: `gemini-wrapper` (PRIMARY METHOD)
 
 -   **Purpose**: Smart wrapper that automatically manages `--all-files` flag and approval modes based on project analysis
 -   **Location**: `~/.claude/scripts/gemini-wrapper` (auto-installed)
@@ -32,6 +36,21 @@ type: technical-guideline
 -   **Usage**: Use full path `~/.claude/scripts/gemini-wrapper` - all parameters pass through unchanged
 -   **Benefits**: Prevents token limits, optimizes approval workflow, provides error tracking
 -   **Setup**: Script auto-installs to `~/.claude/scripts/` location
+
+**⚡ Quick Start Examples:**
+```bash
+# RECOMMENDED: Let wrapper handle everything automatically
+bash(~/.claude/scripts/gemini-wrapper -p "Analyze authentication patterns")
+
+# Analysis task - wrapper auto-detects and uses --approval-mode default
+bash(~/.claude/scripts/gemini-wrapper -p "Review code quality and conventions")
+
+# Development task - wrapper auto-detects and uses --approval-mode yolo  
+bash(~/.claude/scripts/gemini-wrapper -p "Implement user dashboard feature")
+
+# Directory-specific analysis
+bash(cd src/auth && ~/.claude/scripts/gemini-wrapper -p "Analyze module patterns")
+```
 
 ### ⚙️ Command Syntax & Arguments
 
@@ -50,19 +69,19 @@ type: technical-guideline
 -   **Template Usage**:
     ```bash
     # Without template (manual prompt)
-    gemini --all-files -p "@{src/**/*} @{CLAUDE.md} Analyze code patterns and conventions"
+    bash(gemini --all-files -p "@{src/**/*} @{CLAUDE.md} Analyze code patterns and conventions")
     
     # With template (recommended)
-    gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
+    bash(gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)")
     
     # Multi-template composition
-    gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat <<'EOF'
+    bash(gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat <<'EOF'
     $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt)
     
     Additional Security Focus:
     $(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt)
     EOF
-    )"
+    )")
     ```
 
 
@@ -105,54 +124,54 @@ type: technical-guideline
 
 ### 📦 Standard Command Structures
 
-These are recommended command templates for common scenarios.
+> **⚠️ IMPORTANT**: Use `gemini-wrapper` for 90% of all tasks. Only use direct `gemini` commands when you need explicit manual control.
 
-#### 🎯 Using Intelligent Wrapper (Recommended)
+#### 🎯 Using Intelligent Wrapper (PRIMARY CHOICE - 90% of tasks)
 
 -   **Automatic Token & Approval Management**
     ```bash
     # Analysis task - auto adds --approval-mode default
-    ~/.claude/scripts/gemini-wrapper -p "Analyze authentication module patterns and implementation"
+    bash(~/.claude/scripts/gemini-wrapper -p "Analyze authentication module patterns and implementation")
     
     # Execution task - auto adds --approval-mode yolo  
-    ~/.claude/scripts/gemini-wrapper -p "Implement user login feature with JWT tokens"
+    bash(~/.claude/scripts/gemini-wrapper -p "Implement user login feature with JWT tokens")
     
     # Navigate to specific directory with wrapper
-    cd src/auth && ~/.claude/scripts/gemini-wrapper -p "Review authentication patterns"
+    bash(cd src/auth && ~/.claude/scripts/gemini-wrapper -p "Review authentication patterns")
     
     # Override token threshold if needed
-    GEMINI_TOKEN_LIMIT=500000 ~/.claude/scripts/gemini-wrapper -p "Custom threshold analysis"
+    bash(GEMINI_TOKEN_LIMIT=500000 ~/.claude/scripts/gemini-wrapper -p "Custom threshold analysis")
     
     # Multi-directory support with wrapper
-    ~/.claude/scripts/gemini-wrapper --include-directories /path/to/other/project -p "Cross-project analysis"
+    bash(~/.claude/scripts/gemini-wrapper --include-directories /path/to/other/project -p "Cross-project analysis")
     ```
 
 -   **Module-Specific Analysis (Quick Module Analysis)**
     ```bash
     # Navigate to module directory for focused analysis
-    cd src/auth && ~/.claude/scripts/gemini-wrapper -p "Analyze authentication module patterns and implementation"
+    bash(cd src/auth && ~/.claude/scripts/gemini-wrapper -p "Analyze authentication module patterns and implementation")
     
     # Or specify module from root directory
-    cd backend/services && ~/.claude/scripts/gemini-wrapper -p "Review service architecture and dependencies"
+    bash(cd backend/services && ~/.claude/scripts/gemini-wrapper -p "Review service architecture and dependencies")
     
     # Template-enhanced module analysis with wrapper
-    cd frontend/components && ~/.claude/scripts/gemini-wrapper -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
+    bash(cd frontend/components && ~/.claude/scripts/gemini-wrapper -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)")
     ```
 
-#### 📝 Direct Gemini Usage (Manual Control)
+#### 📝 Direct Gemini Usage (Manual Control - Use Only When Needed)
 
 -   **Manual Token Management**
     ```bash
     # Direct gemini usage when you want explicit control
-    gemini --all-files -p "Analyze authentication module patterns and implementation"
+    bash(gemini --all-files -p "Analyze authentication module patterns and implementation")
     
     # Fallback when wrapper suggests pattern usage
-    gemini -p "@{src/auth/**/*} @{CLAUDE.md} Analyze authentication patterns"
+    bash(gemini -p "@{src/auth/**/*} @{CLAUDE.md} Analyze authentication patterns")
     ```
 
 -   **Basic Structure (Manual Prompt)**
     ```bash
-    gemini --all-files -p "@{target_patterns} @{CLAUDE.md,**/*CLAUDE.md}
+    bash(gemini --all-files -p "@{target_patterns} @{CLAUDE.md,**/*CLAUDE.md}
 
     Context: [Analysis type] targeting @{target_patterns}
     Guidelines: Include CLAUDE.md standards
@@ -163,13 +182,13 @@ These are recommended command templates for common scenarios.
 
     ## Output:
     - File:line references
-    - Code examples"
+    - Code examples")
     ```
 
 -   **Template-Enhanced (Recommended)**
     ```bash
     # Using a predefined template for consistent, high-quality analysis
-    gemini --all-files -p "@{target_patterns} @{CLAUDE.md,**/*CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)
+    bash(gemini --all-files -p "@{target_patterns} @{CLAUDE.md,**/*CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)
 
     ## Analysis:
     1. [Point 1]
@@ -177,13 +196,12 @@ These are recommended command templates for common scenarios.
 
     ## Output:
     - File:line references
-    - Code examples"
-    "
+    - Code examples")
     ```
 
 -   **Multi-Template Composition**
     ```bash
-    gemini --all-files -p "@{src/**/*} @{CLAUDE.md} 
+    bash(gemini --all-files -p "@{src/**/*} @{CLAUDE.md} 
     $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
     Additional Security Focus:
@@ -195,8 +213,7 @@ These are recommended command templates for common scenarios.
 
     ## Output:
     - File:line references
-    - Code examples"
-    "
+    - Code examples")
     ```
 
 -   **Token Limit Fallback**
@@ -204,13 +221,13 @@ These are recommended command templates for common scenarios.
     # If --all-files exceeds token limits, immediately retry with targeted patterns:
     
     # Original command that failed:
-    gemini --all-files -p "Analyze authentication patterns"
+    bash(gemini --all-files -p "Analyze authentication patterns")
     
     # Fallback with specific patterns:
-    gemini -p "@{src/auth/**/*} @{src/middleware/**/*} @{CLAUDE.md} Analyze authentication patterns"
+    bash(gemini -p "@{src/auth/**/*} @{src/middleware/**/*} @{CLAUDE.md} Analyze authentication patterns")
     
     # Or focus on specific file types:
-    gemini -p "@{**/*.ts} @{**/*.js} @{CLAUDE.md} Analyze authentication patterns"
+    bash(gemini -p "@{**/*.ts} @{**/*.js} @{CLAUDE.md} Analyze authentication patterns")
     ```
 
 ### ⭐ Best Practices & Rules
