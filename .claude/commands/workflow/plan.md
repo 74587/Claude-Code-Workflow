@@ -91,6 +91,7 @@ The command automatically detects input type:
 - Automatically creates .task/ files when complexity warrants
 - Generates hierarchical task structure (max 3 levels)
 - Updates session state with task references
+- Runs project structure analysis to populate paths field
 
 ### Implementation Field Requirements
 ⚠️ **CRITICAL**: All generated tasks must include detailed implementation guidance
@@ -131,6 +132,31 @@ The command automatically detects input type:
 - **files**: Must contain at least 1 file with detailed info (path, location, original_code, modifications)
 - **context_notes**: Dependencies, risks, performance considerations
 - **analysis_source**: manual|gemini|codex|auto-detected
+
+**Paths Field Population Process**:
+1. **Project Structure Analysis**: Run `get_modules_by_depth.sh` to discover project structure
+2. **Relevance Filtering**: Match discovered modules to task requirements
+3. **Path Selection**: Choose concrete directories/files (avoid wildcards)
+4. **Format**: Semicolon-separated list (e.g., `"src/auth;tests/auth;config/auth.json"`)
+
+**Path Selection Strategy**:
+```pseudo
+# Step 1: Analyze project structure
+modules = Bash(.claude/scripts/get_modules_by_depth.sh list)
+
+# Step 2: Extract relevant modules based on task scope
+relevant_paths = []
+for module in modules:
+    if matches_task_scope(module.path, task_requirements):
+        relevant_paths.append(module.path)
+
+# Step 3: Add specific files mentioned in requirements
+specific_files = extract_file_mentions(task_requirements)
+relevant_paths.extend(specific_files)
+
+# Step 4: Format as semicolon-separated string
+task.paths = join(relevant_paths, ";")
+```
 
 **Quality Standards**:
 - logic_flow must use specified symbols (───►, ◊───, ◄───)

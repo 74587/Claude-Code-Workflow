@@ -168,6 +168,9 @@ Task(subagent_type="code-developer",
      - Risks: Schema changes require database migration, Existing user data compatibility
      - Performance: Index JWT fields for faster lookups
      
+     Focus Paths (from task JSON): $(.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json)
+     Gemini Command: gemini -p "$(.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json) @{CLAUDE.md}"
+     
      IMPORTANT: Update TODO_LIST.md and create summary in provided directories upon completion.
      Use implementation details above for precise, targeted development.",
      description="Execute impl-1.2 with full workflow context and implementation details")
@@ -237,10 +240,14 @@ Task(subagent_type="code-developer",
      - Workflow Directory: .workflow/WFS-user-auth/
      - TODO_LIST Location: .workflow/WFS-user-auth/TODO_LIST.md
      - Summaries Directory: .workflow/WFS-user-auth/.summaries/
+     - Task JSON: .workflow/WFS-user-auth/.task/impl-1.2.json
      
-     CRITICAL: Update TODO_LIST.md and create completion summary using provided paths.",
+     Focus Paths: $(.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json)
+     Analysis Command: Use gemini -p \"$(.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json) @{CLAUDE.md}\"
      
-     description="Agent executes with full discovered context")
+     CRITICAL: Use task-specific paths for focused analysis. Update TODO_LIST.md and create completion summary using provided paths.",
+     
+     description="Agent executes with task-specific paths and full discovered context")
 ```
 
 ### Status Tracking Integration

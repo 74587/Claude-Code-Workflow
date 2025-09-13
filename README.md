@@ -16,6 +16,7 @@ Claude Code Workflow (CCW) is built on three core architectural principles:
 
 ### **JSON-First Data Model**
 - **Single Source of Truth**: All workflow states and task definitions stored in structured `.task/impl-*.json` files
+- **Task-Specific Paths**: New `paths` field enables precise CLI analysis targeting concrete project paths
 - **Generated Views**: Markdown documents created on-demand from JSON data sources
 - **Data Consistency**: Eliminates synchronization issues through centralized data management
 - **Performance**: Direct JSON operations with sub-millisecond query response times
@@ -47,6 +48,7 @@ CCW automatically adjusts workflow structure based on project complexity:
 ### Dual CLI Integration
 - **Gemini CLI**: Deep codebase analysis, pattern recognition, and investigation workflows
 - **Codex CLI**: Autonomous development, code generation, and implementation automation
+- **Task-Specific Targeting**: Precise path management for focused analysis (replaces `--all-files`)
 - **Template System**: Unified template library for consistent workflow execution
 - **Cross-Platform Support**: Windows and Linux compatibility with unified path handling
 
@@ -238,6 +240,8 @@ cd src/api && /update-memory-related
 ├── planning-templates/    # Role-specific planning approaches
 ├── prompt-templates/      # AI interaction templates
 ├── scripts/              # Automation and utility scripts
+│   ├── read-task-paths.sh        # Convert task JSON paths to @ format
+│   └── get_modules_by_depth.sh   # Project structure analysis
 ├── tech-stack-templates/ # Technology-specific configurations
 ├── workflows/            # Core workflow documentation
 │   ├── system-architecture.md         # Architecture specifications

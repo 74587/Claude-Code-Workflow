@@ -76,6 +76,11 @@ When [GEMINI_CLI_REQUIRED] flag is present or complexity triggers apply, gather 
 Use the targeted review context template:
 @~/.claude/workflows/gemini-unified.md
 
+**Gemini CLI Command**:
+```bash
+gemini -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) @{CLAUDE.md} [review-analysis-prompt]"
+```
+
 This executes a change-specific Gemini CLI command that identifies:
 - **Change understanding**: What specific task was being implemented
 - **Repository conventions**: Standards used in similar files and functions
@@ -88,6 +93,11 @@ When [CODEX_CLI_REQUIRED] flag is present, execute autonomous analysis:
 
 Use the autonomous development context template:
 @~/.claude/workflows/codex-unified.md
+
+**Codex CLI Command**:
+```bash
+codex --full-auto exec "$(.claude/scripts/read-task-paths.sh [task-json-file]) [autonomous-review-prompt]"
+```
 
 This executes autonomous Codex CLI analysis that provides:
 - **Autonomous understanding**: Intelligent discovery of implementation context

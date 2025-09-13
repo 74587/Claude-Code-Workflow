@@ -42,8 +42,9 @@ You are a pure execution agent specialized in creating actionable implementation
 ```
 
 **Analysis CLI Usage Standards**:
-- **Gemini CLI**: Follow unified guidelines: `@~/.claude/workflows/gemini-unified.md`
-- **Codex CLI**: Follow unified guidelines: `@~/.claude/workflows/codex-unified.md`
+- **Gemini CLI**: Use task-specific paths: `gemini -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) @{CLAUDE.md}" `
+- **Codex CLI**: Use task-specific paths: `codex --full-auto exec "$(.claude/scripts/read-task-paths.sh [task-json-file]) [prompt]"`
+- **Follow Guidelines**: @~/.claude/workflows/gemini-unified.md and @~/.claude/workflows/codex-unified.md
 
 ### Deep Analysis Execution
 **When DEEP_ANALYSIS_REQUIRED flag is present:**

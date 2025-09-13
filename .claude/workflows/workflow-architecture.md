@@ -75,7 +75,7 @@ Each session directory contains `workflow-session.json`:
 - **Performance**: Direct JSON access without parsing overhead
 
 ### Task JSON Schema
-All task files use this 9-field schema:
+All task files use this 10-field schema:
 
 ```json
 {
@@ -84,6 +84,7 @@ All task files use this 9-field schema:
   "status": "pending|active|completed|blocked|container",
   "type": "feature|bugfix|refactor|test|docs", 
   "agent": "code-developer|planning-agent|code-review-test-agent",
+  "paths": "src/auth;tests/auth;config/auth.json;src/middleware/auth.ts",
   
   "context": {
     "requirements": ["JWT authentication", "OAuth2 support"],
@@ -145,6 +146,34 @@ All task files use this 9-field schema:
     "analysis_source": "manual|gemini|codex|auto-detected"
   }
 }
+```
+
+### Paths Field Details
+
+The **paths** field specifies concrete project paths (folders and files) relevant to the task implementation:
+
+#### Path Format
+- **Semicolon-separated list**: `"folder1;folder2;specific_file.ts"`
+- **Concrete paths**: Use actual directory/file names without wildcards
+- **Mixed types**: Can include both directories and specific files
+- **Relative paths**: From project root (e.g., `src/auth`, not `./src/auth`)
+
+#### Path Selection Strategy
+- **Directories**: Include relevant module directories (e.g., `src/auth`, `tests/auth`)
+- **Specific files**: Include files explicitly mentioned in requirements (e.g., `config/auth.json`)
+- **Avoid wildcards**: Use concrete paths discovered via `get_modules_by_depth.sh`
+- **Focus scope**: Only include paths directly related to task implementation
+
+#### Examples
+```json
+// Authentication system task
+"paths": "src/auth;tests/auth;config/auth.json;src/middleware/auth.ts"
+
+// UI component task
+"paths": "src/components/Button;src/styles;tests/components"
+
+// Database migration task  
+"paths": "migrations;src/models;config/database.json"
 ```
 
 ### Implementation Field Details

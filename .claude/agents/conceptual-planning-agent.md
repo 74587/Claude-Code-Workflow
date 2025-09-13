@@ -53,6 +53,7 @@ def handle_analysis_markers(prompt):
     if "[GEMINI_CLI_REQUIRED]" in prompt:
         for dimension in dimensions:
             result = execute_gemini_cli(
+                command=f"gemini -p \"$(.claude/scripts/read-task-paths.sh [task-json-file]) @{{CLAUDE.md}} {dimension}\"",
                 dimension=dimension,
                 role_context=role,
                 topic=topic
@@ -61,6 +62,7 @@ def handle_analysis_markers(prompt):
     
     elif "[CODEX_CLI_REQUIRED]" in prompt:
         result = execute_codex_cli(
+            command=f"codex --full-auto exec \"$(.claude/scripts/read-task-paths.sh [task-json-file]) {topic}\"",
             autonomous_analysis=True,
             role_context=role, 
             topic=topic
