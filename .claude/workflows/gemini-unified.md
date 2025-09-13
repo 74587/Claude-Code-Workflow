@@ -7,7 +7,7 @@ type: technical-guideline
 ### 🚀 Command Overview: `gemini`
 
 -   **Purpose**: A CLI tool for comprehensive codebase analysis, context gathering, and pattern detection across multiple files.
--   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), always navigate first: `cd XXX && gemini --all-files -p "prompt"`
+-   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), always navigate first: `cd XXX && gemini  -p "prompt"`
 -   **Primary Triggers**:
     -   When user intent is to "analyze", "get context", or "understand the codebase".
     -   When a task requires understanding relationships between multiple files.
@@ -24,20 +24,20 @@ type: technical-guideline
     gemini [flags] -p "@{patterns} {template} prompt"
     ```
 -   **Key Arguments**:
-    -   `--all-files`: Includes all files in the current working directory. **Default behavior unless content limit exceeded**.
+    -   `--all-files`: Includes all files in the current working directory
     -   `-p`: The prompt string, which must contain file reference patterns and the analysis query.
     -   `{template}`: Template injection using `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)` for standardized analysis
     -   `@{pattern}`: A special syntax for referencing files and directories.
 
 -   **Template Usage**:
     ```bash
-    # Without template (manual prompt) - --all-files is default
+    # Without template (manual prompt)
     gemini --all-files -p "@{src/**/*} @{CLAUDE.md} Analyze code patterns and conventions"
     
-    # With template (recommended) - --all-files is default
+    # With template (recommended)
     gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
     
-    # Multi-template composition - --all-files is default
+    # Multi-template composition
     gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat <<'EOF'
     $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt)
     
@@ -69,7 +69,7 @@ type: technical-guideline
 ### ⏱️ Execution Settings
 
 -   **Default Timeout**: Bash command execution extended to **10 minutes** to handle large codebase analysis.
--   **Content Limits**: When `--all-files` exceeds token limits, automatically fall back to selective `@` patterns.
+-   **Token Limit Handling**: When `--all-files` exceeds token limits, **remove `--all-files` and re-execute** with specific `@{patterns}` to target relevant files only.
 
 
 ###  📁 Templates
@@ -150,6 +150,20 @@ These are recommended command templates for common scenarios.
     "
     ```
 
+-   **Token Limit Fallback**
+    ```bash
+    # If --all-files exceeds token limits, immediately retry with targeted patterns:
+    
+    # Original command that failed:
+    gemini --all-files -p "Analyze authentication patterns"
+    
+    # Fallback with specific patterns:
+    gemini -p "@{src/auth/**/*} @{src/middleware/**/*} @{CLAUDE.md} Analyze authentication patterns"
+    
+    # Or focus on specific file types:
+    gemini -p "@{**/*.ts} @{**/*.js} @{CLAUDE.md} Analyze authentication patterns"
+    ```
+
 ### ⭐ Best Practices & Rules
 
 
@@ -170,4 +184,5 @@ These are recommended command templates for common scenarios.
 -   **Test patterns first**: Validate @ patterns match existing files  
 -   **Prefer directory navigation**: Reduces complexity and improves performance
 -   **Preserve user patterns**: When user provides @, always keep them
+-   **Handle token limits**: If `--all-files` fails due to token limits, immediately retry without `--all-files` using targeted `@{patterns}`
 

@@ -2,14 +2,15 @@
 
 ## Overview
 
-This document defines the complete workflow system architecture using a **JSON-only data model**, **marker-based session management**, and **progressive file structures** that scale with task complexity.
+This document defines the complete workflow system architecture using a **JSON-only data model**, **marker-based session management**, and **unified file structure** with dynamic task decomposition.
 
 ## Core Architecture Principles
 
 ### Key Design Decisions
 - **JSON files are the single source of truth** - All markdown documents are read-only generated views
 - **Marker files for session tracking** - Ultra-simple active session management
-- **Progressive complexity structure** - File organization scales from simple to complex workflows
+- **Unified file structure** - Same structure for all workflows regardless of complexity
+- **Dynamic task decomposition** - Subtasks created as needed during execution
 - **Agent-agnostic task definitions** - Complete context preserved for autonomous execution
 
 ## Session Management
@@ -205,14 +206,14 @@ The **implementation** field provides detailed code implementation guidance with
 - **auto-detected**: Auto-detected based on task type and context
 
 ### Hierarchical Task System
-**Maximum Depth**: 3 levels (impl-N.M.P format)
+**Maximum Depth**: 2 levels (impl-N.M format)
 
 ```
 impl-1              # Main task
-impl-1.1            # Subtask of impl-1
-impl-1.1.1          # Detailed subtask of impl-1.1
+impl-1.1            # Subtask of impl-1 (dynamically created)
 impl-1.2            # Another subtask of impl-1
 impl-2              # Another main task
+impl-2.1            # Subtask of impl-2 (dynamically created)
 ```
 
 **Task Status Rules**:
@@ -222,56 +223,24 @@ impl-2              # Another main task
 
 ## File Structure
 
-### Progressive Structure System
-File structure scales with task complexity to minimize overhead for simple tasks while providing comprehensive organization for complex workflows.
+### Unified File Structure
+All workflows use the same file structure regardless of complexity. Task complexity is expressed through dynamic task decomposition, not file structure variations.
 
-#### Level 0: Minimal Structure (<5 tasks)
 ```
 .workflow/WFS-[topic-slug]/
 ├── workflow-session.json        # Session metadata and state
-├── [.brainstorming/]           # Optional brainstorming phase
-├── [.chat/]                    # Gemini CLI interaction sessions
-├── IMPL_PLAN.md                # Combined planning document
+├── [.brainstorming/]           # Optional brainstorming phase  
+├── .chat/                      # CLI interaction sessions
+│   ├── chat-*.md              # Saved chat sessions
+│   └── analysis-*.md          # Analysis results
+├── IMPL_PLAN.md                # Planning document
+├── TODO_LIST.md                # Progress tracking
 ├── .summaries/                 # Task completion summaries
-│   └── IMPL-*.md              # Individual task summaries
+│   ├── IMPL-*.md              # Main task summaries
+│   └── IMPL-*.*.md            # Subtask summaries
 └── .task/
-    └── impl-*.json             # Task definitions
-```
-
-#### Level 1: Enhanced Structure (5-15 tasks)
-```
-.workflow/WFS-[topic-slug]/
-├── workflow-session.json        # Session metadata and state
-├── [.brainstorming/]          # Optional brainstorming phase
-├── [.chat/]                   # Gemini CLI interaction sessions
-├── IMPL_PLAN.md               # Combined planning document
-├── TODO_LIST.md               # Auto-triggered progress tracking
-├── .summaries/                # Task completion summaries
-│   ├── IMPL-*.md             # Main task summaries
-│   └── IMPL-*.*.md           # Subtask summaries
-└── .task/
-    ├── impl-*.json            # Main task definitions
-    └── impl-*.*.json          # Subtask definitions (up to 3 levels)
-```
-
-#### Level 2: Complete Structure (>15 tasks)
-```
-.workflow/WFS-[topic-slug]/
-├── workflow-session.json        # Session metadata and state
-├── [.brainstorming/]          # Optional brainstorming phase  
-├── [.chat/]                   # Gemini CLI interaction sessions
-│   ├── chat-*.md             # Saved chat sessions
-│   └── analysis-*.md         # Comprehensive analysis results
-├── IMPL_PLAN.md               # Comprehensive planning document
-├── TODO_LIST.md               # Progress tracking and monitoring
-├── .summaries/                # Task completion summaries
-│   ├── IMPL-*.md             # Main task summaries
-│   ├── IMPL-*.*.md           # Subtask summaries
-│   └── IMPL-*.*.*.md         # Detailed subtask summaries
-└── .task/
-    ├── impl-*.json            # Task hierarchy (max 3 levels deep)
-    ├── impl-*.*.json          # Subtasks
-    └── impl-*.*.*.json        # Detailed subtasks
+    ├── impl-*.json             # Main task definitions
+    └── impl-*.*.json           # Subtask definitions (dynamic)
 ```
 
 ### File Naming Conventions
@@ -290,31 +259,31 @@ File structure scales with task complexity to minimize overhead for simple tasks
 
 ## Complexity Classification
 
-### Unified Classification Rules
-**Consistent thresholds across all workflow components:**
+### Task Complexity Rules
+**Complexity is determined by task count and decomposition needs:**
 
-| Complexity | Task Count | Hierarchy Depth | Structure Level | Behavior |
-|------------|------------|----------------|-----------------|----------|
-| **Simple** | <5 tasks | 1 level (impl-N) | Level 0 - Minimal | Direct execution, basic docs |
-| **Medium** | 5-15 tasks | 2 levels (impl-N.M) | Level 1 - Enhanced | Context coordination, TODO tracking |
-| **Complex** | >15 tasks | 3 levels (impl-N.M.P) | Level 2 - Complete | Multi-agent orchestration, full docs |
+| Complexity | Task Count | Hierarchy Depth | Decomposition Behavior |
+|------------|------------|----------------|----------------------|
+| **Simple** | <5 tasks | 1 level (impl-N) | Direct execution, minimal decomposition |
+| **Medium** | 5-15 tasks | 2 levels (impl-N.M) | Moderate decomposition, context coordination |
+| **Complex** | >15 tasks | 2 levels (impl-N.M) | Frequent decomposition, multi-agent orchestration |
 
 ### Simple Workflows
 **Characteristics**: Direct implementation tasks with clear, limited scope
 - **Examples**: Bug fixes, small feature additions, configuration changes
-- **System Behavior**: Minimal structure, single-level tasks, basic planning only
+- **Task Decomposition**: Usually single-level tasks, minimal breakdown needed
 - **Agent Coordination**: Direct execution without complex orchestration
 
 ### Medium Workflows  
-**Characteristics**: Feature implementation requiring task breakdown
+**Characteristics**: Feature implementation requiring moderate task breakdown
 - **Examples**: New features, API endpoints with integration, database schema changes
-- **System Behavior**: Enhanced structure, two-level hierarchy, auto-triggered TODO_LIST.md
-- **Auto-trigger Conditions**: Tasks >5 OR modules >3 OR effort >4h OR complex dependencies
+- **Task Decomposition**: Two-level hierarchy when decomposition is needed
+- **Agent Coordination**: Context coordination between related tasks
 
 ### Complex Workflows
 **Characteristics**: System-wide changes requiring detailed decomposition
 - **Examples**: Major features, architecture refactoring, security implementations, multi-service deployments
-- **System Behavior**: Complete structure, three-level hierarchy, comprehensive documentation
+- **Task Decomposition**: Frequent use of two-level hierarchy with dynamic subtask creation
 - **Agent Coordination**: Multi-agent orchestration with deep context analysis
 
 ### Automatic Assessment & Upgrades
@@ -324,61 +293,8 @@ File structure scales with task complexity to minimize overhead for simple tasks
 
 ## Document Templates
 
-### IMPL_PLAN.md Templates
-
-#### Stage-Based Format (Simple Tasks)
-```markdown
-# Implementation Plan: [Task Name]
-
-## Overview
-[Brief description of the overall goal and approach]
-
-## Requirements  
-[Functional and non-functional requirements]
-
-## Stage 1: [Name]
-**Goal**: [Specific deliverable]
-**Success Criteria**: 
-- [Testable outcome 1]
-**Tests**: 
-- [Specific test case 1]
-**Dependencies**: [Previous stages or external requirements]
-**Status**: [Not Started]
-
-## Risk Mitigation
-[Identified risks and mitigation strategies]
-```
-
-#### Hierarchical Format (Complex Tasks)
-```markdown
-# Implementation Plan: [Project Name]
-
-## Overview
-[Brief description and strategic approach]
-
-## Requirements
-[Functional and non-functional requirements]
-
-## Task Hierarchy
-
-### Main Task: [IMPL-001] [Primary Goal]
-**Description**: [Detailed description]
-**Complexity**: [High/Medium/Low]
-**Status**: [Not Started]
-
-#### Subtask: [IMPL-001.1] [Subtask Name]
-**Description**: [Specific deliverable]
-**Assigned Agent**: [code-developer/code-review-agent/general-purpose]
-**Acceptance Criteria**: 
-- [Testable criteria 1]
-**Status**: [Not Started]
-
-##### Action Item: [IMPL-001.1.1] [Specific Action]
-**Type**: [Code/Test/Documentation/Review]
-**Description**: [Concrete action]
-**Files Affected**: [List of files]
-**Status**: [Not Started]
-```
+### IMPL_PLAN.md
+Generated based on task complexity and requirements. Contains overview, requirements, and task structure.
 
 ### TODO_LIST.md Template
 ```markdown
@@ -393,13 +309,13 @@ File structure scales with task complexity to minimize overhead for simple tasks
 
 ▸ **IMPL-003**: [Main Task Group] → [📋](./.task/impl-003.json)
   - [ ] **IMPL-003.1**: [Subtask] → [📋](./.task/impl-003.1.json)
-    - [ ] **IMPL-003.1.1**: [Sub-subtask] → [📋](./.task/impl-003.1.1.json)
+  - [ ] **IMPL-003.2**: [Subtask] → [📋](./.task/impl-003.2.json)
 
 ## Status Legend
 - `▸` = Container task (has subtasks)
 - `- [ ]` = Pending leaf task  
 - `- [x]` = Completed leaf task
-- Indentation shows hierarchy (2 spaces per level)
+- Maximum 2 levels: Main tasks and subtasks only
 
 ## Notes
 [Optional notes]
@@ -426,136 +342,6 @@ Agents receive complete task JSON plus workflow context:
 }
 ```
 
-## Analysis Method Integration
-
-### Supported Analysis Tools
-
-The workflow system supports multiple analysis methods for context gathering and code analysis:
-
-#### Analysis Method Selection
-- **Gemini CLI**: Pattern-based codebase analysis and architectural understanding (default)
-- **Codex CLI**: Autonomous development context gathering with intelligent file discovery
-
-#### Selection Criteria
-- **Use Gemini when**: 
-  - Need comprehensive pattern analysis and architectural understanding
-  - Analyzing existing code conventions and relationships
-  - Understanding complex module dependencies
-- **Use Codex when**: 
-  - Need autonomous file discovery and context gathering
-  - Working with complex refactoring scenarios
-  - Requiring intelligent code generation and autonomous development
-
-#### Analysis Method Mapping
-```markdown
-analysis_source → CLI Tool → Agent Marker
-"gemini"        → Gemini CLI → [GEMINI_CLI_REQUIRED]
-"codex"         → Codex CLI  → [CODEX_CLI_REQUIRED]  
-"manual"        → N/A       → No marker
-"auto-detected" → Context-based → [GEMINI_CLI_REQUIRED] (default)
-```
-
-## Gemini Analysis Integration
-
-### Implementation Field Population Strategy
-
-When task creation encounters insufficient implementation details, the system integrates with Gemini CLI for automated code analysis:
-
-#### Trigger Conditions
-- **Missing File Paths**: No specific files identified in task scope
-- **Vague Code Locations**: Generic descriptions without function/class names
-- **Empty Risk Assessment**: No specific risks or dependencies identified
-- **analysis_source**: Marked as "gemini" during task creation
-
-#### Gemini Analysis Command Template
-```bash
-gemini --all-files -p "@{scope-patterns} @{CLAUDE.md} 
-$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
-
-## Task-Specific Analysis:
-Task: [task title and description]
-Target Files: [scope patterns or 'auto-detect']
-
-## Required Extraction:
-1. **File Locations**: Identify specific files, functions, classes, line ranges
-2. **Original Code**: Extract relevant code snippets that need modification  
-3. **Data Flow**: Map current logic flow and identify integration points
-4. **Risk Assessment**: Analyze dependencies, performance impact, error scenarios
-5. **Implementation Context**: Document required libraries, affected modules
-
-## Output Format:
-- File references with :line format
-- Code snippets in markdown blocks
-- Flow diagrams using ───►, ◊───, ◄─── symbols
-- Risk list with specific impact descriptions"
-```
-
-#### Analysis Result Processing
-1. **Parse Gemini Output**: Extract file paths, code snippets, and analysis insights
-2. **Structure Mapping**: Convert analysis results into implementation JSON structure
-3. **Validation**: Ensure all required fields are populated with meaningful content
-4. **Quality Check**: Verify logic_flow uses proper symbols and risks are specific
-
-#### Integration Points
-- **Task Creation**: `/workflow:plan` and `/task:create` commands
-- **Task Refinement**: `/task:replan` for updating incomplete implementation details
-- **Manual Trigger**: Direct gemini analysis when implementation details are missing
-
-## Codex Analysis Integration
-
-### Autonomous Context Gathering Strategy
-
-When task creation specifies Codex analysis, the system integrates with Codex CLI for autonomous development context gathering:
-
-#### Trigger Conditions
-- **analysis_source**: Marked as "codex" during task creation
-- **Complex Refactoring**: Tasks involving system-wide changes or architectural modifications
-- **Autonomous Development**: When intelligent file discovery and code generation is preferred
-
-#### Codex Analysis Command Template
-```bash
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
-
-## Task-Specific Analysis:
-Task: [task title and description]
-Context: Autonomous analysis and implementation context gathering
-
-## Required Extraction:
-1. **Intelligent File Discovery**: Auto-discover relevant files and code patterns
-2. **Context Gathering**: Understand existing code architecture and dependencies
-3. **Implementation Strategy**: Propose autonomous implementation approach
-4. **Risk Assessment**: Identify potential issues and mitigation strategies
-
-## Autonomous Execution:
-- Let Codex handle file discovery and pattern analysis
-- Generate context-aware implementation guidance
-- Provide autonomous development recommendations"
-```
-
-#### Analysis Result Processing  
-1. **Parse Codex Output**: Extract autonomous analysis and implementation recommendations
-2. **Context Integration**: Incorporate Codex insights into task implementation field
-3. **Autonomous Guidance**: Update task JSON with Codex-generated context and strategy
-4. **Quality Validation**: Ensure autonomous recommendations meet project standards
-
-#### Integration Points
-- **Task Creation**: `/workflow:plan --AM codex` command
-- **Autonomous Development**: Tasks requiring intelligent code generation
-- **Complex Refactoring**: System-wide changes with autonomous discovery needs
-
-### Implementation Field Validation
-
-**Required Quality Standards**:
-- Each file must have specific `location.function` or `location.lines`
-- `original_code` cannot be empty placeholder text
-- `logic_flow` must use standard symbols: `───►` (flow), `◊───` (condition), `◄───` (return)
-- `risks` array must contain at least one specific, actionable risk
-- `dependencies` must list actual package names, not generic terms
-
-**Auto-Correction**:
-- Missing line numbers → Trigger gemini re-analysis with specific file focus
-- Generic risk descriptions → Request detailed impact analysis
-- Empty original_code → Flag for manual code review or gemini extraction
 
 ## Data Operations
 
@@ -579,9 +365,9 @@ generate_todo_list_from_json .task/
 
 ### Task Integrity Rules
 1. **ID Uniqueness**: All task IDs must be unique
-2. **Hierarchical Format**: Must follow impl-N[.M[.P]] pattern
+2. **Hierarchical Format**: Must follow impl-N[.M] pattern (maximum 2 levels)
 3. **Parent References**: All parent IDs must exist as JSON files
-4. **Depth Limits**: Maximum 3 levels deep
+4. **Depth Limits**: Maximum 2 levels deep
 5. **Status Consistency**: Status values from defined enumeration
 6. **Required Fields**: All 9 core fields must be present
 7. **Implementation Structure**: implementation.files array must contain valid file paths
@@ -608,26 +394,6 @@ fi
 - **Corrupted Session File**: Recreate from template
 - **Broken Task Hierarchy**: Reconstruct parent-child relationships
 
-## Performance Benefits
-
-### Marker File System
-- **Session Detection**: Single `ls` command (< 1ms)
-- **Session Switching**: Two file operations (delete + create)
-- **Status Check**: File existence test (instant)
-- **No Parsing Overhead**: Zero JSON/text processing
-
-### JSON-Only Architecture
-- **Direct Access**: No document parsing overhead
-- **Atomic Updates**: Single file operations
-- **No Sync Conflicts**: Eliminates coordination complexity
-- **Fast Queries**: Direct JSON traversal
-- **Scalability**: Handles hundreds of tasks efficiently
-
-### On-Demand Generation
-- **Memory Efficient**: Documents created only when needed
-- **Always Fresh**: Generated views reflect current state
-- **No Stale Data**: Eliminates sync lag issues
-
 ---
 
-**System ensures**: Unified workflow architecture with ultra-fast session management, JSON-only data model, and progressive file structures that scale from simple tasks to complex system-wide implementations.
+**System ensures**: Unified workflow architecture with ultra-fast session management, JSON-only data model, and unified file structure for all workflows regardless of complexity.
