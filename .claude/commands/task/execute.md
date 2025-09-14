@@ -126,12 +126,6 @@ FUNCTION on_execution_failure(checkpoint):
 END FUNCTION
 ```
 
-### ✨ **Advanced Execution Controls**
-
--   **Dry Run (`--dry-run`)**: Simulates execution, showing the agent, estimated time, and files affected without making changes.
--   **Custom Checkpoints (`--checkpoints="..."`)**: Overrides the default checkpoints with a custom, comma-separated list (e.g., `"design,implement,deploy"`).
--   **Conditional Execution (`--if="..."`)**: Proceeds with execution only if a specified condition (e.g., `"tests-pass"`) is met.
--   **Rollback (`--rollback`)**: Reverts file modifications and restores the previous task state.
 
 ### 📄 **Simplified Context Structure (JSON)**
 

@@ -47,11 +47,17 @@ Creates comprehensive implementation plans through deep codebase analysis using 
 ### 1. Input Processing
 ```
 Input Analysis:
+├── Validate input clarity (reject vague descriptions)
 ├── Parse task description or file
 ├── Extract key technical terms
 ├── Identify potential affected domains
 └── Prepare context for agent
 ```
+
+**Clarity Requirements**:
+- **Minimum specificity**: Must include clear technical goal and affected components
+- **Auto-rejection**: Vague inputs like "optimize system", "refactor code", "improve performance" without context
+- **Response**: `❌ Input too vague. Deep planning requires specific technical objectives and component scope.`
 
 ### 2. Agent Invocation with Deep Analysis Flag
 The command invokes action-planning-agent with special parameters that **enforce** Gemini CLI analysis.
@@ -86,7 +92,7 @@ Task(action-planning-agent):
     - Skip session inheritance (standalone planning)
     - Force GEMINI_CLI_REQUIRED flag = true
     - Set analysis_source = "gemini" (深度分析固定值)
-    - Generate hierarchical task decomposition
+    - Generate hierarchical task decomposition (max 2 levels: impl-N.M)
     - Create detailed IMPL_PLAN.md with subtasks
     - Generate TODO_LIST.md for tracking
     
@@ -102,7 +108,7 @@ Task(action-planning-agent):
 ### 4. Output Generation (by Agent)
 The action-planning-agent generates in `.workflow/WFS-[session-id]/`:
 - **IMPL_PLAN.md** - Hierarchical implementation plan with stages
-- **TODO_LIST.md** - Task tracking checklist (if complexity > simple)
+- **TODO_LIST.md** - Unified hierarchical task tracking with ▸ container tasks and indented subtasks
 - **.task/*.json** - Task definitions for complex projects
 - **workflow-session.json** - Session tracking
 - **gemini-analysis.md** - Consolidated Gemini analysis results
@@ -144,6 +150,11 @@ def process_plan_deep_command(input):
 ## Error Handling
 
 ### Common Issues and Solutions
+
+**Input Processing Errors**
+- **Vague text input**: Auto-reject without guidance
+  - Rejected examples: "optimize system", "refactor code", "make it faster", "improve architecture"
+  - Response: Direct rejection message, no further assistance
 
 **Agent Execution Errors**
 - Verify action-planning-agent availability

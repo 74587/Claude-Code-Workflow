@@ -8,6 +8,25 @@ For all CLI tool usage, command syntax, and integration guidelines:
 - **Gemini (Analysis)**: @~/.claude/workflows/gemini-unified.md
 - **Codex (Analysis)**: @~/.claude/workflows/codex-unified.md
 
+### Intelligent Context Acquisition
+
+**Core Rule**: No task execution without sufficient context. Must gather project understanding before implementation.
+
+**Context Tools**:
+- **Structure**: Bash(~/.claude/scripts/get_modules_by_depth.sh) for project hierarchy
+- **Module Analysis**: Bash(cd [module] && ~/.claude/scripts/gemini-wrapper -p "analyze patterns")
+- **Full Analysis**: 
+
+Bash(cd [module] && ~/.claude/scripts/gemini-wrapper -p "analyze [scope] architecture")
+
+Bash(codex --full-auto exec "analyze [scope] architecture")
+
+**Context Requirements**:
+- Identify 3+ existing similar patterns before implementation
+- Map dependencies and integration points
+- Understand testing framework and coding conventions
+- Use Task agents for parallel context gathering when needed
+
 ## Philosophy
 
 ### Core Beliefs
