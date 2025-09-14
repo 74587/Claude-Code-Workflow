@@ -8,11 +8,61 @@
 
 A comprehensive multi-agent automation framework for software development that orchestrates complex development tasks through intelligent workflow management and autonomous execution.
 
-> **📦 Latest Release v1.1**: Unified CLI architecture with integrated Gemini (analysis) and Codex (development) workflows, shared template system, and autonomous development capabilities. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **📦 Latest Release v1.2**: Enhanced workflow diagrams, intelligent task saturation control, path-specific analysis system, and comprehensive documentation updates with detailed mermaid visualizations. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Architecture Overview
 
-Claude Code Workflow (CCW) is built on three core architectural principles:
+Claude Code Workflow (CCW) is built on three core architectural principles enhanced with intelligent workflow orchestration:
+
+### **System Architecture Visualization**
+
+```mermaid
+graph TB
+    subgraph "CLI Interface Layer"
+        CLI[CLI Commands]
+        GEM[Gemini CLI]
+        COD[Codex CLI]
+        WRAPPER[Gemini Wrapper]
+    end
+
+    subgraph "Session Management"
+        MARKER[".active-session marker"]
+        SESSION["workflow-session.json"]
+        WDIR[".workflow/ directories"]
+    end
+
+    subgraph "Task System"
+        TASK_JSON[".task/impl-*.json"]
+        HIERARCHY["Task Hierarchy (max 2 levels)"]
+        STATUS["Task Status Management"]
+    end
+
+    subgraph "Agent Orchestration"
+        PLAN_AGENT[Conceptual Planning Agent]
+        ACTION_AGENT[Action Planning Agent]
+        CODE_AGENT[Code Developer]
+        REVIEW_AGENT[Code Review Agent]
+        MEMORY_AGENT[Memory Gemini Bridge]
+    end
+
+    CLI --> GEM
+    CLI --> COD
+    CLI --> WRAPPER
+    WRAPPER --> GEM
+
+    GEM --> PLAN_AGENT
+    COD --> CODE_AGENT
+
+    PLAN_AGENT --> TASK_JSON
+    ACTION_AGENT --> TASK_JSON
+    CODE_AGENT --> TASK_JSON
+
+    TASK_JSON --> HIERARCHY
+    HIERARCHY --> STATUS
+
+    SESSION --> MARKER
+    MARKER --> WDIR
+```
 
 ### **JSON-First Data Model**
 - **Single Source of Truth**: All workflow states and task definitions stored in structured `.task/impl-*.json` files
@@ -35,6 +85,68 @@ CCW automatically adjusts workflow structure based on project complexity:
 | **Simple** | <5 tasks | Single-level hierarchy | Minimal overhead, direct execution |
 | **Medium** | 5-15 tasks | Two-level task breakdown | Progress tracking, automated documentation |
 | **Complex** | >15 tasks | Three-level deep hierarchy | Full orchestration, multi-agent coordination |
+
+## Major Enhancements Since v1.0
+
+### **🚀 Intelligent Task Saturation Control**
+Advanced workflow planning prevents agent overload and optimizes task distribution across the system.
+
+### **🧠 Gemini Wrapper Intelligence**
+Smart wrapper automatically manages token limits and approval modes based on task analysis:
+- Analysis keywords → `--approval-mode default`
+- Development tasks → `--approval-mode yolo`
+- Automatic `--all-files` flag management based on project size
+
+### **🎯 Path-Specific Analysis System**
+New task-specific path management enables precise CLI analysis targeting concrete project paths instead of wildcards.
+
+### **📝 Unified Template System**
+Cross-tool template compatibility with shared template library supporting both Gemini and Codex workflows.
+
+### **⚡ Enhanced Performance**
+- Sub-millisecond JSON query response times
+- 10-minute execution timeout for complex operations
+- On-demand file creation reduces initialization overhead
+
+### **Command Execution Flow**
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant GeminiWrapper as Gemini Wrapper
+    participant GeminiCLI as Gemini CLI
+    participant CodexCLI as Codex CLI
+    participant Agent
+    participant TaskSystem as Task System
+    participant FileSystem as File System
+
+    User->>CLI: Command Request
+    CLI->>CLI: Parse Command Type
+
+    alt Analysis Task
+        CLI->>GeminiWrapper: Analysis Request
+        GeminiWrapper->>GeminiWrapper: Check Token Limit
+        GeminiWrapper->>GeminiWrapper: Set Approval Mode
+        GeminiWrapper->>GeminiCLI: Execute Analysis
+        GeminiCLI->>FileSystem: Read Codebase
+        GeminiCLI->>Agent: Route to Planning Agent
+    else Development Task
+        CLI->>CodexCLI: Development Request
+        CodexCLI->>Agent: Route to Code Agent
+    end
+
+    Agent->>TaskSystem: Create/Update Tasks
+    TaskSystem->>FileSystem: Save task JSON
+    Agent->>Agent: Execute Task Logic
+    Agent->>FileSystem: Apply Changes
+    Agent->>TaskSystem: Update Task Status
+    TaskSystem->>FileSystem: Regenerate Markdown Views
+    Agent->>CLI: Return Results
+    CLI->>User: Display Results
+```
+
+> 📊 **Comprehensive Workflow Diagrams**: For detailed system architecture, agent coordination, session management, and CLI integration diagrams, see [WORKFLOW_DIAGRAMS.md](WORKFLOW_DIAGRAMS.md).
 
 ## Core Components
 

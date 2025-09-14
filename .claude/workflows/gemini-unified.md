@@ -4,7 +4,7 @@ description: Consolidated Gemini CLI guidelines - core rules, syntax, patterns, 
 type: technical-guideline
 ---
 
-### 🚀 Command Overview: `gemini`
+### 🚀 Command Overview: Bash(gemini *)
 
 -   **Purpose**: A CLI tool for comprehensive codebase analysis, context gathering, and pattern detection across multiple files.
 -   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), always navigate first: `cd XXX && gemini  -p "prompt"`

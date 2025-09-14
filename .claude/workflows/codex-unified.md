@@ -4,7 +4,7 @@ description: Comprehensive Codex CLI guidelines - core rules, syntax, patterns, 
 type: technical-guideline
 ---
 
-### 🚀 Command Overview: `codex`
+### 🚀 Command Overview: Bash(codex *) 
 
 -   **Purpose**: An AI-powered CLI tool for automated codebase analysis, intelligent code generation, and autonomous development workflows.
 -   **Key Characteristic**: **No `--all-files` flag** - requires explicit `@` pattern references for file inclusion.

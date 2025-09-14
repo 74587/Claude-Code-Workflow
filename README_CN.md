@@ -8,11 +8,61 @@
 
 一个全面的多智能体自动化开发框架，通过智能工作流管理和自主执行协调复杂的软件开发任务。
 
-> **📦 最新版本 v1.1**: 统一的CLI架构，集成Gemini（分析）和Codex（开发）工作流，共享模板系统和自主开发能力。详见[CHANGELOG.md](CHANGELOG.md)。
+> **📦 最新版本 v1.2**: 增强工作流图表、智能任务饱和控制、路径特定分析系统以及包含详细mermaid可视化的综合文档更新。详见[CHANGELOG.md](CHANGELOG.md)。
 
 ## 架构概览
 
-Claude Code Workflow (CCW) 建立在三个核心架构原则之上：
+Claude Code Workflow (CCW) 建立在三个核心架构原则之上，具备智能工作流编排功能：
+
+### **系统架构可视化**
+
+```mermaid
+graph TB
+    subgraph "CLI接口层"
+        CLI[CLI命令]
+        GEM[Gemini CLI]
+        COD[Codex CLI]
+        WRAPPER[Gemini包装器]
+    end
+
+    subgraph "会话管理"
+        MARKER[".active-session 标记"]
+        SESSION["workflow-session.json"]
+        WDIR[".workflow/ 目录"]
+    end
+
+    subgraph "任务系统"
+        TASK_JSON[".task/impl-*.json"]
+        HIERARCHY["任务层次结构（最多2级）"]
+        STATUS["任务状态管理"]
+    end
+
+    subgraph "智能体编排"
+        PLAN_AGENT[概念规划智能体]
+        ACTION_AGENT[行动规划智能体]
+        CODE_AGENT[代码开发智能体]
+        REVIEW_AGENT[代码审查智能体]
+        MEMORY_AGENT[记忆桥接智能体]
+    end
+
+    CLI --> GEM
+    CLI --> COD
+    CLI --> WRAPPER
+    WRAPPER --> GEM
+
+    GEM --> PLAN_AGENT
+    COD --> CODE_AGENT
+
+    PLAN_AGENT --> TASK_JSON
+    ACTION_AGENT --> TASK_JSON
+    CODE_AGENT --> TASK_JSON
+
+    TASK_JSON --> HIERARCHY
+    HIERARCHY --> STATUS
+
+    SESSION --> MARKER
+    MARKER --> WDIR
+```
 
 ### **JSON优先数据模型**
 - **单一数据源**: 所有工作流状态和任务定义存储在结构化的 `.task/impl-*.json` 文件中
@@ -35,6 +85,68 @@ CCW根据项目复杂度自动调整工作流结构：
 | **简单** | <5个任务 | 单级层次结构 | 最小开销，直接执行 |
 | **中等** | 5-15个任务 | 两级任务分解 | 进度跟踪，自动文档 |
 | **复杂** | >15个任务 | 三级深度层次结构 | 完全编排，多智能体协调 |
+
+## v1.0以来的主要增强功能
+
+### **🚀 智能任务饱和控制**
+高级工作流规划防止智能体过载，优化整个系统中的任务分配。
+
+### **🧠 Gemini包装器智能**
+智能包装器根据任务分析自动管理令牌限制和审批模式：
+- 分析关键词 → `--approval-mode default`
+- 开发任务 → `--approval-mode yolo`
+- 基于项目大小的自动 `--all-files` 标志管理
+
+### **🎯 路径特定分析系统**
+新的任务特定路径管理系统，实现针对具体项目路径的精确CLI分析，替代通配符。
+
+### **📝 统一模板系统**
+跨工具模板兼容性，共享模板库支持Gemini和Codex工作流。
+
+### **⚡ 性能增强**
+- 亚毫秒级JSON查询响应时间
+- 复杂操作10分钟执行超时
+- 按需文件创建减少初始化开销
+
+### **命令执行流程**
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant CLI
+    participant GeminiWrapper as Gemini包装器
+    participant GeminiCLI as Gemini CLI
+    participant CodexCLI as Codex CLI
+    participant Agent as 智能体
+    participant TaskSystem as 任务系统
+    participant FileSystem as 文件系统
+
+    User->>CLI: 命令请求
+    CLI->>CLI: 解析命令类型
+
+    alt 分析任务
+        CLI->>GeminiWrapper: 分析请求
+        GeminiWrapper->>GeminiWrapper: 检查令牌限制
+        GeminiWrapper->>GeminiWrapper: 设置审批模式
+        GeminiWrapper->>GeminiCLI: 执行分析
+        GeminiCLI->>FileSystem: 读取代码库
+        GeminiCLI->>Agent: 路由到规划智能体
+    else 开发任务
+        CLI->>CodexCLI: 开发请求
+        CodexCLI->>Agent: 路由到代码智能体
+    end
+
+    Agent->>TaskSystem: 创建/更新任务
+    TaskSystem->>FileSystem: 保存任务JSON
+    Agent->>Agent: 执行任务逻辑
+    Agent->>FileSystem: 应用变更
+    Agent->>TaskSystem: 更新任务状态
+    TaskSystem->>FileSystem: 重新生成Markdown视图
+    Agent->>CLI: 返回结果
+    CLI->>User: 显示结果
+```
+
+> 📊 **完整工作流图表**: 有关详细的系统架构、智能体协调、会话管理和CLI集成图表，请参见 [WORKFLOW_DIAGRAMS.md](WORKFLOW_DIAGRAMS.md)。
 
 ## 核心组件
 
