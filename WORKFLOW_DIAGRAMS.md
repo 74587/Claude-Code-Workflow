@@ -449,3 +449,320 @@ flowchart TD
 - Sub-millisecond JSON query performance
 - Atomic session switching with zero overhead
 - Intelligent file discovery reducing context switching
+
+## 9. Complete Development Workflow (Workflow vs Task Commands)
+
+```mermaid
+graph TD
+    START[Project Requirement] --> SESSION["/workflow:session:start"]
+
+    SESSION --> PLANNING_CHOICE{Choose Planning Method}
+
+    PLANNING_CHOICE -->|Collaborative Analysis| BRAINSTORM["/workflow:brainstorm"]
+    PLANNING_CHOICE -->|AI-Powered Planning| GEMINI_PLAN["/gemini:mode:plan"]
+    PLANNING_CHOICE -->|Document Analysis| DOC_ANALYSIS["Document Review"]
+    PLANNING_CHOICE -->|Direct Planning| DIRECT_PLAN["/workflow:plan"]
+
+    subgraph "Brainstorming Path"
+        BRAINSTORM --> SYNTHESIS["/workflow:brainstorm:synthesis"]
+        SYNTHESIS --> BRAINSTORM_PLAN["/workflow:plan --from-brainstorming"]
+    end
+
+    subgraph "Gemini Planning Path"
+        GEMINI_PLAN --> GEMINI_ANALYSIS["Gemini Analysis Results"]
+        GEMINI_ANALYSIS --> GEMINI_WF_PLAN["/workflow:plan"]
+    end
+
+    subgraph "Document Analysis Path"
+        DOC_ANALYSIS --> DOC_INSIGHTS["Extract Requirements"]
+        DOC_INSIGHTS --> DOC_PLAN["/workflow:plan"]
+    end
+
+    BRAINSTORM_PLAN --> WORKFLOW_EXECUTE
+    GEMINI_WF_PLAN --> WORKFLOW_EXECUTE
+    DOC_PLAN --> WORKFLOW_EXECUTE
+    DIRECT_PLAN --> WORKFLOW_EXECUTE
+
+    WORKFLOW_EXECUTE["/workflow:execute"] --> TASK_CREATION["Auto-Create Tasks"]
+
+    subgraph "Task Management Layer"
+        TASK_CREATION --> TASK_BREAKDOWN["/task:breakdown"]
+        TASK_BREAKDOWN --> TASK_EXECUTE["/task:execute"]
+        TASK_EXECUTE --> TASK_STATUS{Task Status}
+
+        TASK_STATUS -->|More Tasks| NEXT_TASK["/task:execute next"]
+        TASK_STATUS -->|Blocked| TASK_REPLAN["/task:replan"]
+        TASK_STATUS -->|Complete| TASK_DONE[Task Complete]
+
+        NEXT_TASK --> TASK_EXECUTE
+        TASK_REPLAN --> TASK_EXECUTE
+    end
+
+    TASK_DONE --> ALL_DONE{All Tasks Done?}
+    ALL_DONE -->|No| TASK_EXECUTE
+    ALL_DONE -->|Yes| WORKFLOW_REVIEW["/workflow:review"]
+
+    WORKFLOW_REVIEW --> FINAL_DOCS["/update-memory-related"]
+    FINAL_DOCS --> PROJECT_COMPLETE[Project Complete]
+```
+
+## 10. Workflow Command Relationships
+
+```mermaid
+graph LR
+    subgraph "Session Management"
+        WFS_START["/workflow:session:start"]
+        WFS_PAUSE["/workflow:session:pause"]
+        WFS_RESUME["/workflow:session:resume"]
+        WFS_SWITCH["/workflow:session:switch"]
+        WFS_LIST["/workflow:session:list"]
+
+        WFS_START --> WFS_PAUSE
+        WFS_PAUSE --> WFS_RESUME
+        WFS_RESUME --> WFS_SWITCH
+        WFS_SWITCH --> WFS_LIST
+    end
+
+    subgraph "Planning Phase"
+        WF_BRAINSTORM["/workflow:brainstorm"]
+        WF_PLAN["/workflow:plan"]
+        WF_PLAN_DEEP["/workflow:plan-deep"]
+
+        WF_BRAINSTORM --> WF_PLAN
+        WF_PLAN_DEEP --> WF_PLAN
+    end
+
+    subgraph "Execution Phase"
+        WF_EXECUTE["/workflow:execute"]
+        WF_REVIEW["/workflow:review"]
+
+        WF_EXECUTE --> WF_REVIEW
+    end
+
+    subgraph "Task Layer"
+        TASK_CREATE["/task:create"]
+        TASK_BREAKDOWN["/task:breakdown"]
+        TASK_EXECUTE["/task:execute"]
+        TASK_REPLAN["/task:replan"]
+
+        TASK_CREATE --> TASK_BREAKDOWN
+        TASK_BREAKDOWN --> TASK_EXECUTE
+        TASK_EXECUTE --> TASK_REPLAN
+        TASK_REPLAN --> TASK_EXECUTE
+    end
+
+    WFS_START --> WF_BRAINSTORM
+    WF_PLAN --> WF_EXECUTE
+    WF_EXECUTE --> TASK_CREATE
+    WF_REVIEW --> WFS_PAUSE
+```
+
+## 11. Planning Method Selection Flow
+
+```mermaid
+flowchart TD
+    PROJECT_START[New Project/Feature] --> COMPLEXITY{Assess Complexity}
+
+    COMPLEXITY -->|Simple < 5 tasks| SIMPLE_FLOW
+    COMPLEXITY -->|Medium 5-15 tasks| MEDIUM_FLOW
+    COMPLEXITY -->|Complex > 15 tasks| COMPLEX_FLOW
+
+    subgraph SIMPLE_FLOW["Simple Workflow"]
+        S_DIRECT["/workflow:plan (direct)"]
+        S_EXECUTE["/workflow:execute --type=simple"]
+        S_TASKS["Direct task execution"]
+
+        S_DIRECT --> S_EXECUTE --> S_TASKS
+    end
+
+    subgraph MEDIUM_FLOW["Medium Workflow"]
+        M_CHOICE{Planning Method?}
+        M_GEMINI["/gemini:mode:plan"]
+        M_DOCS["Review existing docs"]
+        M_PLAN["/workflow:plan"]
+        M_EXECUTE["/workflow:execute --type=medium"]
+        M_BREAKDOWN["/task:breakdown"]
+
+        M_CHOICE -->|AI Planning| M_GEMINI
+        M_CHOICE -->|Documentation| M_DOCS
+        M_GEMINI --> M_PLAN
+        M_DOCS --> M_PLAN
+        M_PLAN --> M_EXECUTE
+        M_EXECUTE --> M_BREAKDOWN
+    end
+
+    subgraph COMPLEX_FLOW["Complex Workflow"]
+        C_BRAINSTORM["/workflow:brainstorm --perspectives=multiple"]
+        C_SYNTHESIS["/workflow:brainstorm:synthesis"]
+        C_PLAN_DEEP["/workflow:plan-deep"]
+        C_PLAN["/workflow:plan --from-brainstorming"]
+        C_EXECUTE["/workflow:execute --type=complex"]
+        C_TASKS["Hierarchical task management"]
+
+        C_BRAINSTORM --> C_SYNTHESIS
+        C_SYNTHESIS --> C_PLAN_DEEP
+        C_PLAN_DEEP --> C_PLAN
+        C_PLAN --> C_EXECUTE
+        C_EXECUTE --> C_TASKS
+    end
+```
+
+## 12. Brainstorming to Execution Pipeline
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant WF as Workflow System
+    participant BS as Brainstorm Agents
+    participant PLAN as Planning Agent
+    participant TASK as Task System
+    participant EXEC as Execution Agents
+
+    User->>WF: /workflow:session:start "Feature Name"
+    WF->>User: Session Created
+
+    User->>BS: /workflow:brainstorm "topic" --perspectives=system-architect,security-expert
+    BS->>BS: Multiple Agent Perspectives
+    BS->>WF: Generate Ideas & Analysis
+
+    User->>BS: /workflow:brainstorm:synthesis
+    BS->>WF: Consolidated Recommendations
+
+    User->>PLAN: /workflow:plan --from-brainstorming
+    PLAN->>PLAN: Convert Ideas to Implementation Plan
+    PLAN->>WF: Generate IMPL_PLAN.md + TODO_LIST.md
+
+    User->>WF: /workflow:execute --type=complex
+    WF->>TASK: Auto-create task hierarchy
+    TASK->>TASK: Create impl-*.json files
+
+    loop Task Execution
+        User->>EXEC: /task:execute impl-1
+        EXEC->>EXEC: Execute Implementation
+        EXEC->>TASK: Update task status
+
+        alt Task needs breakdown
+            EXEC->>TASK: /task:breakdown impl-1
+            TASK->>TASK: Create subtasks
+        else Task blocked
+            EXEC->>TASK: /task:replan impl-1
+            TASK->>TASK: Adjust task plan
+        end
+    end
+
+    User->>WF: /workflow:review
+    WF->>User: Quality validation complete
+
+    User->>WF: /update-memory-related
+    WF->>User: Documentation updated
+```
+
+## 13. Task Command Hierarchy and Dependencies
+
+```mermaid
+graph TB
+    subgraph "Workflow Layer"
+        WF_PLAN["/workflow:plan"]
+        WF_EXECUTE["/workflow:execute"]
+        WF_REVIEW["/workflow:review"]
+    end
+
+    subgraph "Task Management Layer"
+        TASK_CREATE["/task:create"]
+        TASK_BREAKDOWN["/task:breakdown"]
+        TASK_REPLAN["/task:replan"]
+    end
+
+    subgraph "Task Execution Layer"
+        TASK_EXECUTE["/task:execute"]
+
+        subgraph "Execution Modes"
+            MANUAL["--mode=guided"]
+            AUTO["--mode=auto"]
+        end
+
+        subgraph "Agent Selection"
+            CODE_AGENT["--agent=code-developer"]
+            PLAN_AGENT["--agent=planning-agent"]
+            REVIEW_AGENT["--agent=code-review-test-agent"]
+        end
+    end
+
+    subgraph "Task Hierarchy"
+        MAIN_TASK["impl-1 (Main Task)"]
+        SUB_TASK1["impl-1.1 (Subtask)"]
+        SUB_TASK2["impl-1.2 (Subtask)"]
+
+        MAIN_TASK --> SUB_TASK1
+        MAIN_TASK --> SUB_TASK2
+    end
+
+    WF_PLAN --> TASK_CREATE
+    WF_EXECUTE --> TASK_CREATE
+    TASK_CREATE --> TASK_BREAKDOWN
+    TASK_BREAKDOWN --> MAIN_TASK
+    MAIN_TASK --> SUB_TASK1
+    MAIN_TASK --> SUB_TASK2
+
+    SUB_TASK1 --> TASK_EXECUTE
+    SUB_TASK2 --> TASK_EXECUTE
+
+    TASK_EXECUTE --> MANUAL
+    TASK_EXECUTE --> AUTO
+    TASK_EXECUTE --> CODE_AGENT
+    TASK_EXECUTE --> PLAN_AGENT
+    TASK_EXECUTE --> REVIEW_AGENT
+
+    TASK_EXECUTE --> TASK_REPLAN
+    TASK_REPLAN --> TASK_BREAKDOWN
+```
+
+## 14. CLI Integration in Workflow Context
+
+```mermaid
+graph LR
+    subgraph "Planning Phase CLIs"
+        GEMINI_PLAN["/gemini:mode:plan"]
+        GEMINI_ANALYZE["/gemini:analyze"]
+        CODEX_PLAN["/codex:mode:plan"]
+    end
+
+    subgraph "Execution Phase CLIs"
+        GEMINI_EXEC["/gemini:execute"]
+        CODEX_AUTO["/codex:mode:auto"]
+        CODEX_EXEC["/codex:execute"]
+    end
+
+    subgraph "Workflow Commands"
+        WF_BRAINSTORM["/workflow:brainstorm"]
+        WF_PLAN["/workflow:plan"]
+        WF_EXECUTE["/workflow:execute"]
+    end
+
+    subgraph "Task Commands"
+        TASK_CREATE["/task:create"]
+        TASK_EXECUTE["/task:execute"]
+    end
+
+    subgraph "Context Integration"
+        UPDATE_MEMORY["/update-memory-related"]
+        CONTEXT["/context"]
+    end
+
+    GEMINI_PLAN --> WF_PLAN
+    GEMINI_ANALYZE --> WF_BRAINSTORM
+    CODEX_PLAN --> WF_PLAN
+
+    WF_PLAN --> TASK_CREATE
+    WF_EXECUTE --> TASK_EXECUTE
+
+    TASK_EXECUTE --> GEMINI_EXEC
+    TASK_EXECUTE --> CODEX_AUTO
+    TASK_EXECUTE --> CODEX_EXEC
+
+    CODEX_AUTO --> UPDATE_MEMORY
+    GEMINI_EXEC --> CONTEXT
+
+    UPDATE_MEMORY --> WF_EXECUTE
+    CONTEXT --> TASK_EXECUTE
+```

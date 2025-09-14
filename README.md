@@ -146,7 +146,31 @@ sequenceDiagram
     CLI->>User: Display Results
 ```
 
-> 📊 **Comprehensive Workflow Diagrams**: For detailed system architecture, agent coordination, session management, and CLI integration diagrams, see [WORKFLOW_DIAGRAMS.md](WORKFLOW_DIAGRAMS.md).
+## Complete Development Workflow Examples
+
+### 🚀 **Complex Feature Development Flow**
+```mermaid
+graph TD
+    START[New Feature Request] --> SESSION["/workflow:session:start 'OAuth2 System'"]
+    SESSION --> BRAINSTORM["/workflow:brainstorm --perspectives=system-architect,security-expert"]
+    BRAINSTORM --> SYNTHESIS["/workflow:brainstorm:synthesis"]
+    SYNTHESIS --> PLAN["/workflow:plan --from-brainstorming"]
+    PLAN --> EXECUTE["/workflow:execute --type=complex"]
+    EXECUTE --> TASKS["/task:breakdown impl-1 --depth=2"]
+    TASKS --> IMPL["/task:execute impl-1.1"]
+    IMPL --> REVIEW["/workflow:review --auto-fix"]
+    REVIEW --> DOCS["/update-memory-related"]
+```
+
+### 🎯 **Planning Method Selection Guide**
+| Project Type | Recommended Flow | Commands |
+|--------------|------------------|----------|
+| **Bug Fix** | Direct Planning | `/workflow:plan` → `/task:execute` |
+| **Small Feature** | Gemini Analysis | `/gemini:mode:plan` → `/workflow:execute` |
+| **Medium Feature** | Document + Gemini | Review docs → `/gemini:analyze` → `/workflow:plan` |
+| **Large System** | Full Brainstorming | `/workflow:brainstorm` → synthesis → `/workflow:plan-deep` |
+
+> 📊 **Comprehensive Workflow Diagrams**: For detailed system architecture, agent coordination, session management, and complete workflow variations, see [WORKFLOW_DIAGRAMS.md](WORKFLOW_DIAGRAMS.md).
 
 ## Core Components
 

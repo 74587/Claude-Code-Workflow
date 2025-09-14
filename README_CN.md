@@ -146,7 +146,31 @@ sequenceDiagram
     CLI->>User: 显示结果
 ```
 
-> 📊 **完整工作流图表**: 有关详细的系统架构、智能体协调、会话管理和CLI集成图表，请参见 [WORKFLOW_DIAGRAMS.md](WORKFLOW_DIAGRAMS.md)。
+## 完整开发工作流示例
+
+### 🚀 **复杂功能开发流程**
+```mermaid
+graph TD
+    START[新功能请求] --> SESSION["/workflow:session:start 'OAuth2系统'"]
+    SESSION --> BRAINSTORM["/workflow:brainstorm --perspectives=system-architect,security-expert"]
+    BRAINSTORM --> SYNTHESIS["/workflow:brainstorm:synthesis"]
+    SYNTHESIS --> PLAN["/workflow:plan --from-brainstorming"]
+    PLAN --> EXECUTE["/workflow:execute --type=complex"]
+    EXECUTE --> TASKS["/task:breakdown impl-1 --depth=2"]
+    TASKS --> IMPL["/task:execute impl-1.1"]
+    IMPL --> REVIEW["/workflow:review --auto-fix"]
+    REVIEW --> DOCS["/update-memory-related"]
+```
+
+### 🎯 **规划方法选择指南**
+| 项目类型 | 推荐流程 | 命令序列 |
+|----------|----------|----------|
+| **Bug修复** | 直接规划 | `/workflow:plan` → `/task:execute` |
+| **小功能** | Gemini分析 | `/gemini:mode:plan` → `/workflow:execute` |
+| **中等功能** | 文档+Gemini | 查看文档 → `/gemini:analyze` → `/workflow:plan` |
+| **大型系统** | 完整头脑风暴 | `/workflow:brainstorm` → 综合 → `/workflow:plan-deep` |
+
+> 📊 **完整工作流图表**: 有关详细的系统架构、智能体协调、会话管理和完整工作流变体的图表，请参见 [WORKFLOW_DIAGRAMS.md](WORKFLOW_DIAGRAMS.md)。
 
 ## 核心组件
 
