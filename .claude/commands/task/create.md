@@ -12,31 +12,26 @@ examples:
 # Task Create Command (/task:create)
 
 ## Overview
-Creates new implementation tasks during IMPLEMENT phase with automatic context awareness and ID generation.
+Creates new implementation tasks with automatic context awareness and ID generation.
 
 ## Core Principles
-**Task Management:** @~/.claude/workflows/workflow-architecture.md
+**Task System:** @~/.claude/workflows/task-core.md
 
-## Features
+## Core Features
 
 ### Automatic Behaviors
-- **ID Generation**: Auto-generates impl-N hierarchical format (impl-N.M.P max depth)
-- **Context Inheritance**: Inherits from workflow session and IMPL_PLAN.md
-- **JSON File Creation**: Generates task JSON in `.workflow/WFS-[topic-slug]/.task/`
-- **Document Integration**: Creates/updates TODO_LIST.md based on complexity triggers
+- **ID Generation**: Auto-generates impl-N format (max 2 levels)
+- **Context Inheritance**: Inherits from active workflow session
+- **JSON Creation**: Creates task JSON in active session
 - **Status Setting**: Initial status = "pending"
-- **Workflow Sync**: Updates workflow-session.json task list automatically
 - **Agent Assignment**: Suggests agent based on task type
-- **Hierarchy Support**: Creates parent-child relationships up to 3 levels
-- **Progressive Structure**: Auto-triggers enhanced structure at complexity thresholds
-- **Dynamic Complexity Escalation**: Automatically upgrades workflow complexity when thresholds are exceeded
+- **Session Integration**: Updates workflow session stats
 
 ### Context Awareness
-- Detects current workflow phase (must be IMPLEMENT)
-- Reads existing tasks from `.task/` directory to avoid duplicates
-- Inherits requirements and scope from workflow-session.json
-- Suggests related tasks based on existing JSON task hierarchy
-- Analyzes complexity for structure level determination (Level 0-2)
+- Validates active workflow session exists
+- Avoids duplicate task IDs
+- Inherits session requirements and scope
+- Suggests task relationships
 
 ## Usage
 
@@ -50,14 +45,8 @@ Output:
 ✅ Task created: impl-1
 Title: Build authentication module
 Type: feature
+Agent: code-developer
 Status: pending
-Depth: 1 (main task)
-Context inherited from workflow
-```
-
-### With Options
-```bash
-/task:create "Fix security vulnerability" --type=bugfix --priority=critical
 ```
 
 ### Task Types
@@ -65,188 +54,72 @@ Context inherited from workflow
 - `bugfix` - Bug fixes
 - `refactor` - Code improvements
 - `test` - Test implementation
-- `docs` - Documentation (handled by code-developer)
+- `docs` - Documentation
 
-### Priority Levels (Optional - moved to context)
-- `low` - Can be deferred  
-- `normal` - Standard priority (default)
-- `high` - Should be done soon
-- `critical` - Must be done immediately
+## Task Creation Process
 
-**Note**: Priority is now stored in `context.priority` if needed, removed from top level for simplification.
+1. **Session Validation**: Check active workflow session
+2. **ID Generation**: Auto-increment impl-N
+3. **Context Inheritance**: Load workflow context
+4. **Implementation Setup**: Initialize implementation field
+5. **Agent Assignment**: Select appropriate agent
+6. **File Creation**: Save JSON to .task/ directory
+7. **Session Update**: Update workflow stats
 
-## Simplified Task Structure
+**Task Schema**: See @~/.claude/workflows/task-core.md for complete JSON structure
 
-```json
-{
-  "id": "impl-1",
-  "title": "Build authentication module",
-  "status": "pending",
-  "type": "feature",
-  "agent": "code-developer",
-  
-  "context": {
-    "requirements": ["JWT authentication", "OAuth2 support"],
-    "scope": ["src/auth/*", "tests/auth/*"],
-    "acceptance": ["Module handles JWT tokens", "OAuth2 flow implemented"],
-    "inherited_from": "WFS-user-auth"
-  },
-  
-  "relations": {
-    "parent": null,
-    "subtasks": [],
-    "dependencies": []
-  },
-  
-  "execution": {
-    "attempts": 0,
-    "last_attempt": null
-  },
-  
-  "implementation": {
-    "files": [
-      {
-        "path": "src/auth/login.ts",
-        "location": {
-          "function": "handleLogin",
-          "lines": "auto-detect",
-          "description": "Login handler function"
-        },
-        "original_code": "// Requires gemini analysis for code extraction",
-        "modifications": {
-          "current_state": "Basic password authentication",
-          "proposed_changes": [
-            "Add JWT token generation",
-            "Integrate OAuth2 flow"
-          ],
-          "logic_flow": [
-            "validateInput() ───► checkCredentials()",
-            "◊─── if valid ───► generateJWT() ───► return token"
-          ],
-          "reason": "Implement modern authentication standards",
-          "expected_outcome": "Secure, flexible authentication system"
-        }
-      }
-    ],
-    "context_notes": {
-      "dependencies": ["jsonwebtoken", "passport"],
-      "affected_modules": ["user-management", "session-handler"],
-      "risks": [
-        "Breaking changes to existing auth middleware",
-        "Database schema changes required"
-      ],
-      "performance_considerations": "JWT validation adds ~5ms per request",
-      "error_handling": "Ensure no sensitive data in error responses"
-    },
-    "analysis_source": "auto-detected"
-  }
-}
-```
-
-## Implementation Field Generation
+## Implementation Field Setup
 
 ### Auto-Population Strategy
-**Sufficient Information**: When task description contains specific details
-- Extract file paths from scope or task description
-- Identify functions/classes mentioned in requirements
-- Generate basic implementation structure automatically
+- **Detailed info**: Extract from task description and scope
+- **Missing info**: Mark `analysis_source` as "gemini" for later analysis
+- **Basic structure**: Initialize with standard template
 
-**Insufficient Information**: When details are vague or missing
-- Mark `analysis_source` as "gemini" 
-- Set `original_code` to "// Requires gemini analysis for code extraction"
-- Prompt user for gemini analysis:
+### Analysis Triggers
+When implementation details incomplete:
 ```bash
-⚠️ Implementation details incomplete for task: [task-title]
-Recommend running: 
-gemini --all-files -p "@{scope-patterns} @{CLAUDE.md} 
-Analyze task: [task-description]
-Extract: 1) File locations and functions 2) Current code state 3) Risks and dependencies"
+⚠️ Task requires analysis for implementation details
+Suggest running: gemini analysis for file locations and dependencies
 ```
 
-### Implementation Quality Standards
-- **File paths**: Must be specific (not wildcards like "src/*")
-- **Location details**: Include function name or line range, not just file name
-- **Logic flow**: Use standard symbols (───►, ◊───, ◄───)
-- **Risk assessment**: At least 1 specific, actionable risk
-- **Dependencies**: Actual package names, not generic descriptions
+## File Management
 
-### Simplified File Generation
+### JSON Task File
+- **Location**: `.task/impl-[N].json` in active session
+- **Content**: Complete task with implementation field
+- **Updates**: Session stats only
 
-### JSON Task File Only  
-**File Location**: `.task/impl-[N].json`
-**Naming**: Follows impl-N.M.P format for nested tasks
-**Content**: Contains all task data including implementation details
-
-### No Document Synchronization
-- Creates JSON task file only with complete implementation field
-- Updates workflow-session.json stats only
-- No automatic TODO_LIST.md generation  
-- No complex cross-referencing needed
-
-### View Generation On-Demand
-- Use `/context` to generate views when needed
-- No persistent markdown files created
-- All data including implementation stored in JSON only
-
-## Simplified Task Management
-
-### Basic Task Statistics
-- Task count tracked in workflow-session.json
-- No automatic complexity escalation
-- Manual workflow type selection during init
-
-### Simple Creation Process
-```
-1. Create New Task → Generate JSON file only
-2. Update Session Stats → Increment task count  
-3. Notify User → Confirm task created
-```
-
-### Benefits of Simplification
-- **No Overhead**: Just create tasks, no complex logic
-- **Predictable**: Same process every time
-- **Fast**: Minimal processing needed
-- **Clear**: User controls complexity level
+### Simple Process
+1. Validate session and inputs
+2. Generate task JSON
+3. Update session stats
+4. Notify completion
 
 ## Context Inheritance
 
-Tasks automatically inherit:
-1. **Requirements** - From workflow-session.json and IMPL_PLAN.md
-2. **Scope** - File patterns from workflow context  
-3. **Parent Context** - When created as subtasks, inherit from parent
-4. **Session Context** - Global workflow context from active session
+Tasks inherit from:
+1. **Active Session** - Requirements and scope from workflow-session.json
+2. **Planning Document** - Context from IMPL_PLAN.md
+3. **Parent Task** - For subtasks (impl-N.M format)
 
-## Smart Suggestions
+## Agent Assignment
 
-Based on title analysis:
-```bash
-/task:create "Write unit tests for auth module"
-
-Suggestions:
-- Related task: impl-1 (Build authentication module)
-- Suggested agent: code-review-test-agent
-- Estimated effort: 2h
-- Dependencies: [impl-1]
-- Suggested hierarchy: impl-1.3 (as subtask of impl-1)
-```
+Based on task type and title keywords:
+- **Build/Implement** → `code-developer`
+- **Design/Plan** → `planning-agent`
+- **Test/Validate** → `code-review-test-agent`
+- **Review/Audit** → `review-agent`
 
 ## Validation Rules
 
-1. **Phase Check** - Must be in IMPLEMENT phase (from workflow-session.json)
-2. **Duplicate Check** - Title similarity detection across existing JSON files
-3. **Session Validation** - Active workflow session must exist in `.workflow/`
-4. **ID Uniqueness** - Auto-increment to avoid conflicts in `.task/` directory
-5. **Hierarchy Validation** - Parent-child relationships must be valid (max 3 levels)
-6. **File System Validation** - Proper directory structure and naming conventions
-7. **JSON Schema Validation** - All task files conform to unified schema
+1. **Session Check** - Active workflow session required
+2. **Duplicate Check** - Avoid similar task titles
+3. **ID Uniqueness** - Auto-increment task IDs
+4. **Schema Validation** - Ensure proper JSON structure
 
 ## Error Handling
 
 ```bash
-# Not in IMPLEMENT phase
-❌ Cannot create tasks in PLAN phase
-→ Use: /workflow implement
-
 # No workflow session
 ❌ No active workflow found
 → Use: /workflow init "project name"
@@ -255,72 +128,35 @@ Suggestions:
 ⚠️ Similar task exists: impl-3
 → Continue anyway? (y/n)
 
-# Maximum depth exceeded
-❌ Cannot create impl-1.2.3.1 (exceeds 3-level limit)
-→ Suggest: impl-1.2.4 or promote to impl-2?
+# Max depth exceeded
+❌ Cannot create impl-1.2.1 (max 2 levels)
+→ Use: impl-2 for new main task
 ```
-
-## Batch Creation
-
-Create multiple tasks at once:
-```bash
-/task:create --batch
-> Enter tasks (empty line to finish):
-> Build login endpoint
-> Add session management
-> Write authentication tests
->
-
-Created 3 tasks:
-- impl-1: Build login endpoint
-- impl-2: Add session management  
-- impl-3: Write authentication tests
-```
-
-## File Output
-
-### JSON Task File
-**Location**: `.task/impl-[id].json`
-**Schema**: Simplified task JSON schema  
-**Contents**: Complete task definition with context
-
-### Session Updates
-**File**: `workflow-session.json`
-**Updates**: Basic task count and active task list only
-
-## Integration
-
-### Simple Integration
-- Updates workflow-session.json stats
-- Creates JSON task file
-- No complex file coordination needed
-
-### Next Steps
-After creation, use:
-- `/task:breakdown` - Split into subtasks  
-- `/task:execute` - Run the task
-- `/context` - View task details and status
 
 ## Examples
 
-### Feature Development
+### Feature Task
 ```bash
-/task:create "Implement shopping cart functionality" --type=feature
+/task:create "Implement user authentication"
+
+✅ Created impl-1: Implement user authentication
+Type: feature
+Agent: code-developer
+Status: pending
 ```
 
 ### Bug Fix
 ```bash
-/task:create "Fix memory leak in data processor" --type=bugfix --priority=high
-```
+/task:create "Fix login validation bug" --type=bugfix
 
-### Refactoring
-```bash
-/task:create "Refactor database connection pool" --type=refactor
+✅ Created impl-2: Fix login validation bug
+Type: bugfix
+Agent: code-developer
+Status: pending
 ```
 
 ## Related Commands
 
-- `/task:breakdown` - Break task into hierarchical subtasks
-- `/task:context` - View/modify task context
-- `/task:execute` - Execute task with agent
-- `/task:status` - View task status and hierarchy
+- `/task:breakdown` - Break into subtasks
+- `/task:execute` - Execute with agent
+- `/context` - View task details
