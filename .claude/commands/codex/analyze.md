@@ -16,7 +16,7 @@ model: haiku
 ## Overview
 Quick analysis tool for codebase insights using intelligent pattern detection and template-driven analysis with Codex CLI.
 
-**Core Guidelines**: @~/.claude/workflows/codex-unified.md
+**Core Guidelines**: @~/.claude/workflows/tools-implementation-guide.md
 
 ⚠️ **Critical Difference**: Codex has **NO `--all-files` flag** - you MUST use `@` patterns to reference files.
 
@@ -152,4 +152,4 @@ Context: [user_description]"
 | Pattern Flexibility | Must be explicit | Auto-includes with flag |
 
 For detailed syntax, patterns, and advanced usage see:
-**@~/.claude/workflows/codex-unified.md**
+**@~/.claude/workflows/tools-implementation-guide.md**

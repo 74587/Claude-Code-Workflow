@@ -20,7 +20,7 @@ model: sonnet
 
 **Purpose**: Execute implementation tasks using intelligent context inference and Codex CLI with full permissions.
 
-**Core Guidelines**: @~/.claude/workflows/codex-unified.md
+**Core Guidelines**: @~/.claude/workflows/tools-implementation-guide.md
 
 ⚠️ **Critical Difference**: Codex has **NO `--all-files` flag** - you MUST use `@` patterns to reference files.
 
@@ -220,4 +220,4 @@ Based on task type, automatically selects:
 | Development Focus | Code generation & implementation | Analysis & planning |
 
 For detailed patterns, syntax, and templates see:
-**@~/.claude/workflows/codex-unified.md**
+**@~/.claude/workflows/tools-implementation-guide.md**

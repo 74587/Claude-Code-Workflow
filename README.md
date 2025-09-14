@@ -385,8 +385,8 @@ cd src/api && /update-memory-related
 │   ├── complexity-rules.md           # Complexity management rules
 │   ├── session-management-principles.md # Session system design
 │   ├── file-structure-standards.md   # Directory organization
-│   ├── gemini-unified.md             # Gemini CLI integration
-│   └── codex-unified.md              # Codex CLI integration
+│   ├── intelligent-tools-strategy.md # Tool selection strategy guide
+│   └── tools-implementation-guide.md # Tool implementation details
 └── settings.local.json   # Local environment configuration
 
 .workflow/                 # Session workspace (auto-generated)

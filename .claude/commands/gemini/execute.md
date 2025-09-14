@@ -20,7 +20,7 @@ model: sonnet
 
 **Purpose**: Execute implementation tasks using intelligent context inference and Gemini CLI with full permissions.
 
-**Core Guidelines**: @~/.claude/workflows/gemini-unified.md
+**Core Guidelines**: @~/.claude/workflows/tools-implementation-guide.md
 
 ## 🚨 YOLO Permissions
 
@@ -167,4 +167,4 @@ Execute implementation following task acceptance criteria."
 **vs. `/gemini:analyze`**: Execute performs analysis **and implementation**, analyze is read-only.
 
 For detailed patterns, syntax, and templates see:
-**@~/.claude/workflows/gemini-unified.md**
+**@~/.claude/workflows/tools-implementation-guide.md**

@@ -74,7 +74,7 @@ ELSE:
 When [GEMINI_CLI_REQUIRED] flag is present or complexity triggers apply, gather precise, change-focused context:
 
 Use the targeted review context template:
-@~/.claude/workflows/gemini-unified.md
+@~/.claude/workflows/tools-implementation-guide.md
 
 **Gemini CLI Command**:
 ```bash
@@ -92,7 +92,7 @@ This executes a change-specific Gemini CLI command that identifies:
 When [CODEX_CLI_REQUIRED] flag is present, execute autonomous analysis:
 
 Use the autonomous development context template:
-@~/.claude/workflows/codex-unified.md
+@~/.claude/workflows/tools-implementation-guide.md
 
 **Codex CLI Command**:
 ```bash

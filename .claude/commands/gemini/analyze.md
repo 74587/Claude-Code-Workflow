@@ -16,7 +16,7 @@ model: haiku
 ## Overview
 Quick analysis tool for codebase insights using intelligent pattern detection and template-driven analysis.
 
-**Core Guidelines**: @~/.claude/workflows/gemini-unified.md
+**Core Guidelines**: @~/.claude/workflows/tools-implementation-guide.md
 
 ## Analysis Types
 
@@ -95,4 +95,4 @@ Analysis results include:
 - **Integration Points**: How components connect
 
 For detailed syntax, patterns, and advanced usage see:
-**@~/.claude/workflows/gemini-unified.md**
+**@~/.claude/workflows/tools-implementation-guide.md**

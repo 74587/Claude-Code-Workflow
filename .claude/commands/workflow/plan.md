@@ -120,7 +120,7 @@ Three analysis levels available:
 **Analysis Selection**:
 - Default: Auto-selects based on project complexity
 - Manual: Use flags to override automatic selection
-- Strategy: See @~/.claude/workflows/intelligent-tools.md for tool selection principles
+- Strategy: See @~/.claude/workflows/intelligent-tools-strategy.md for tool selection principles
 
 **Execution**:
 1. Always runs `get_modules_by_depth.sh` for structure

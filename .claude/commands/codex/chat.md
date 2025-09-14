@@ -186,4 +186,4 @@ When `--save-session` flag is used:
 ```
 
 For detailed syntax, patterns, and advanced usage see:
-**@~/.claude/workflows/codex-unified.md**
+**@~/.claude/workflows/tools-implementation-guide.md**

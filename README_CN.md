@@ -383,8 +383,8 @@ cd src/api && /update-memory-related
 │   ├── complexity-rules.md           # 复杂度管理规则
 │   ├── session-management-principles.md # 会话系统设计
 │   ├── file-structure-standards.md   # 目录组织
-│   ├── gemini-unified.md             # Gemini CLI集成
-│   └── codex-unified.md              # Codex CLI集成
+│   ├── intelligent-tools-strategy.md # 工具选择策略指南
+│   └── tools-implementation-guide.md # 工具实施详细指南
 └── settings.local.json   # 本地环境配置
 
 .workflow/                 # 会话工作空间（自动生成）

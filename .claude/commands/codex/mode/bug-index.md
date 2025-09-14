@@ -17,7 +17,7 @@ model: sonnet
 ## Overview
 Systematic bug analysis, debugging, and automated fix implementation using expert diagnostic templates with Codex CLI.
 
-**Core Guidelines**: @~/.claude/workflows/codex-unified.md
+**Core Guidelines**: @~/.claude/workflows/tools-implementation-guide.md
 
 ⚠️ **Critical Difference**: Codex has **NO `--all-files` flag** - you MUST use `@` patterns to reference files.
 
@@ -266,4 +266,4 @@ When `--save-session` used, saves to:
 ```
 
 For detailed syntax, patterns, and advanced usage see:
-**@~/.claude/workflows/codex-unified.md**
+**@~/.claude/workflows/tools-implementation-guide.md**
