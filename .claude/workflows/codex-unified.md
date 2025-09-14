@@ -4,9 +4,10 @@ description: Comprehensive Codex CLI guidelines - core rules, syntax, patterns, 
 type: technical-guideline
 ---
 
-### 🚀 Command Overview: Bash(codex *) 
+### 🚀 Command Overview: Bash(codex *)
 
 -   **Purpose**: An AI-powered CLI tool for automated codebase analysis, intelligent code generation, and autonomous development workflows.
+-   **⚠️ CRITICAL**: **NO wrapper script exists** - always use direct `codex` command, never `~/.claude/scripts/codex`
 -   **Key Characteristic**: **No `--all-files` flag** - requires explicit `@` pattern references for file inclusion.
 -   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), use: `bash(codex --cd XXX --full-auto exec "prompt")` or `bash(cd XXX && codex --full-auto exec "@{**/*} prompt")`
 -   **Default Mode**: `--full-auto exec` autonomous development mode (RECOMMENDED for all tasks).
@@ -42,8 +43,10 @@ type: technical-guideline
 -   **Basic Structure** (Priority Order):
     ```bash
     bash(codex --full-auto exec "autonomous development task")  # DEFAULT & RECOMMENDED
-    bash(codex --full-auto exec "prompt with @{patterns}")              # For specific control needs
+    bash(codex --full-auto exec "prompt with @{patterns}")      # For specific control needs
     ```
+
+    **⚠️ NEVER use**: `~/.claude/scripts/codex` - this wrapper script does not exist!
 -   **Key Commands** (In Order of Preference):
     -   `bash(codex --full-auto exec "...")` ⭐ **PRIMARY MODE** - Full autonomous development
     -   `bash(codex --full-auto exec "...")` - Controlled execution when you need specific patterns

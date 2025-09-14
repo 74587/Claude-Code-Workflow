@@ -5,8 +5,6 @@
 This document defines project-specific coding standards and development principles.
 ### CLI Tool Context Protocols
 For all CLI tool usage, command syntax, and integration guidelines:
-- **Gemini (Analysis)**: @~/.claude/workflows/gemini-unified.md
-- **Codex (Development)**: @~/.claude/workflows/codex-unified.md
 - **Tool Selection Strategy**: @~/.claude/workflows/intelligent-tools.md
 
 ### Intelligent Context Acquisition

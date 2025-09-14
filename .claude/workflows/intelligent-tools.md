@@ -16,6 +16,7 @@ This document provides strategic guidance for selecting the appropriate analysis
 ## Tool Characteristics Comparison
 
 ### Gemini
+- **Command Syntax**: `bash(~/.claude/scripts/gemini-wrapper -p "prompt")` (HAS wrapper script)
 - **Strengths**:
   - Large context window for analyzing many files simultaneously
   - Excellent pattern recognition across modules
@@ -27,6 +28,7 @@ This document provides strategic guidance for selecting the appropriate analysis
   - Refactoring with broad dependencies
 
 ### Codex
+- **Command Syntax**: `bash(codex --full-auto exec "prompt")` (NO wrapper script - direct command only)
 - **Strengths**:
   - Superior mathematical and algorithmic reasoning
   - Deeper technical knowledge base
@@ -81,6 +83,20 @@ Task(subagent_type="general-purpose",
 
 Commands should reference this strategy guide for tool selection decisions.
 Specific tool usage syntax and examples are documented in their respective unified guides.
+
+## ⚠️ CRITICAL Command Syntax Differences
+
+**Gemini** (HAS intelligent wrapper):
+```bash
+bash(~/.claude/scripts/gemini-wrapper -p "analyze patterns")
+```
+
+**Codex** (NO wrapper - direct command only):
+```bash
+bash(codex --full-auto exec "implement feature")
+```
+
+**❌ NEVER use**: `~/.claude/scripts/codex` - this does not exist!
 
 **See also**:
 - Gemini detailed usage: @~/.claude/workflows/gemini-unified.md
