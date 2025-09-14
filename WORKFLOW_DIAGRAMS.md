@@ -212,7 +212,7 @@ graph TB
 
         subgraph "Gemini Features"
             ALL_FILES[--all-files Mode]
-            PATTERNS[@{pattern} Mode]
+            PATTERNS["@{pattern} Mode"]
             TEMPLATES[Template Integration]
         end
     end
@@ -223,7 +223,7 @@ graph TB
         CONTEXT_AWARE[Context-Aware Execution]
 
         subgraph "Codex Features"
-            EXPLICIT_PATTERNS[@{pattern} Control]
+            EXPLICIT_PATTERNS["@{pattern} Control"]
             AUTONOMOUS[Full Autonomous Mode]
             TEMPLATE_INTEGRATION[Template Support]
         end
