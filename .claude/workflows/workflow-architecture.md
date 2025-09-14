@@ -37,7 +37,7 @@ This document defines the complete workflow system architecture using a **JSON-o
 
 #### Detect Active Session
 ```bash
-active_session=$(ls .workflow/.active-* 2>/dev/null | head -1)
+active_session=$(find .workflow -name ".active-*" | head -1)
 if [ -n "$active_session" ]; then
   session_name=$(basename "$active_session" | sed 's/^\.active-//')
   echo "Active session: $session_name"
@@ -46,7 +46,7 @@ fi
 
 #### Switch Session
 ```bash
-rm .workflow/.active-* 2>/dev/null && touch .workflow/.active-WFS-new-feature
+find .workflow -name ".active-*" -delete && touch .workflow/.active-WFS-new-feature
 ```
 
 ### Individual Session Tracking
@@ -424,11 +424,11 @@ generate_todo_list_from_json .task/
 ### Session Consistency Checks
 ```bash
 # Validate active session integrity
-active_marker=$(ls .workflow/.active-* 2>/dev/null | head -1)
+active_marker=$(find .workflow -name ".active-*" | head -1)
 if [ -n "$active_marker" ]; then
   session_name=$(basename "$active_marker" | sed 's/^\.active-//')
   session_dir=".workflow/$session_name"
-  
+
   if [ ! -d "$session_dir" ]; then
     echo "⚠️ Orphaned active marker, removing..."
     rm "$active_marker"
