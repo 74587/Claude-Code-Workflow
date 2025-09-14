@@ -6,7 +6,8 @@ This document defines project-specific coding standards and development principl
 ### CLI Tool Context Protocols
 For all CLI tool usage, command syntax, and integration guidelines:
 - **Gemini (Analysis)**: @~/.claude/workflows/gemini-unified.md
-- **Codex (Analysis)**: @~/.claude/workflows/codex-unified.md
+- **Codex (Development)**: @~/.claude/workflows/codex-unified.md
+- **Tool Selection Strategy**: @~/.claude/workflows/intelligent-tools.md
 
 ### Intelligent Context Acquisition
 
@@ -25,7 +26,7 @@ Bash(codex --full-auto exec "analyze [scope] architecture")
 - Identify 3+ existing similar patterns before implementation
 - Map dependencies and integration points
 - Understand testing framework and coding conventions
-- Use Task agents for parallel context gathering when needed
+
 
 ## Philosophy
 

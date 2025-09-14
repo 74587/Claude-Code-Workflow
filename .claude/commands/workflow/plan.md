@@ -102,6 +102,31 @@ The command automatically detects input type:
 - Updates session state with task references
 - Runs project structure analysis to populate paths field
 
+### Project Analysis Options
+
+Three analysis levels available:
+
+```bash
+# Quick - Structure only (5 seconds)
+/workflow:plan "requirements"
+
+# Standard - Structure + Gemini analysis (30 seconds)
+/workflow:plan --analyze "requirements"
+
+# Deep - Structure + Parallel comprehensive analysis (1-2 minutes)
+/workflow:plan --deep "requirements"
+```
+
+**Analysis Selection**:
+- Default: Auto-selects based on project complexity
+- Manual: Use flags to override automatic selection
+- Strategy: See @~/.claude/workflows/intelligent-tools.md for tool selection principles
+
+**Execution**:
+1. Always runs `get_modules_by_depth.sh` for structure
+2. Applies selected analysis level
+3. Populates task paths automatically
+
 ### Task Saturation Assessment
 Evaluates whether to merge preparation and execution:
 
