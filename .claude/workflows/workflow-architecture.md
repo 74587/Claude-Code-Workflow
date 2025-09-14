@@ -107,6 +107,13 @@ All task files use this 10-field schema:
   },
   
   "implementation": {
+    "preparation_complexity": "simple|moderate|complex",
+    "preparation_tasks": [
+      "Review existing auth patterns",
+      "Check JWT library compatibility",
+      "Analyze current session management"
+    ],
+    "estimated_prep_time": "20min",
     "files": [
       {
         "path": "src/auth/login.ts",
@@ -120,7 +127,7 @@ All task files use this 10-field schema:
           "current_state": "Currently using simple password validation",
           "proposed_changes": [
             "Add JWT token generation logic",
-            "Integrate OAuth2 authentication flow", 
+            "Integrate OAuth2 authentication flow",
             "Enhance error handling mechanisms"
           ],
           "logic_flow": [
@@ -192,6 +199,20 @@ The **implementation** field provides detailed code implementation guidance with
   - **logic_flow**: Data flow and call relationship diagram
   - **reason**: Modification rationale and objectives
   - **expected_outcome**: Expected results
+
+#### preparation_complexity - Task Saturation Assessment
+- **simple**: Preparation work < 30min, ≤ 3 files, single module → Merge with execution
+- **moderate**: Cross-module analysis needed, 30min-2h prep → Consider separation
+- **complex**: Architecture design, >2h prep, >5 modules → Separate preparation task
+
+#### preparation_tasks - Preparation Work List
+- Array of specific preparation activities to be performed
+- Used to estimate complexity and decide merge/split strategy
+- Examples: ["Review patterns", "Check dependencies", "Analyze performance"]
+
+#### estimated_prep_time - Time Estimation
+- String format time estimate (e.g., "20min", "2h", "half-day")
+- Helps determine if preparation should be merged with execution
 
 #### context_notes - Implementation Context Information
 - **dependencies**: Required dependency packages or modules

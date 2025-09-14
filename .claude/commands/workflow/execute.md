@@ -70,9 +70,10 @@ Workflow Discovery:
 - [ ] **TASK-003**: [Agent: code-review-agent] Review implementations
 - [ ] **TASK-004**: Update task statuses and session state
 
-**Marker Legend**: 
+**Marker Legend**:
 - [GEMINI_CLI_REQUIRED] = Agent must use Gemini CLI for pattern analysis
 - [CODEX_CLI_REQUIRED] = Agent must use Codex CLI for autonomous analysis
+- [PREPARATION_INCLUDED] = Task includes preparation phase (analyze then implement)
 ```
 
 ### 3. Agent Context Assignment
@@ -144,20 +145,30 @@ For each executable task:
 - **Workflow Integration**: Include session state and IMPL_PLAN.md context
 - **Scope Focus**: Direct agents to specific files from implementation.files[].path
 - **Gemini Marker**: Auto-add [GEMINI_CLI_REQUIRED] when analysis_source = "gemini"
+- **Merged Task Handling**: Add [PREPARATION_INCLUDED] marker when preparation_complexity exists
 
 ### 4. Agent Execution & Progress Tracking
 
 ```bash
 Task(subagent_type="code-developer",
-     prompt="[GEMINI_CLI_REQUIRED] Implement authentication logic based on schema
-     
-     Task Context: impl-1.2 - Implement auth logic
+     prompt="[PREPARATION_INCLUDED] [GEMINI_CLI_REQUIRED] Analyze auth patterns and implement JWT authentication system
+
+     Task Context: impl-1.2 - Saturated task with merged preparation and execution
+
+     PREPARATION PHASE (preparation_complexity: simple, estimated_prep_time: 20min):
+     1. Review existing auth patterns in the codebase
+     2. Check JWT library compatibility with current stack
+     3. Analyze current session management approach
+
+     EXECUTION PHASE:
+     Based on preparation findings, implement JWT authentication system
+
      Session Context:
      - Workflow Directory: .workflow/WFS-user-auth/
      - TODO_LIST Location: .workflow/WFS-user-auth/TODO_LIST.md
      - Summaries Directory: .workflow/WFS-user-auth/.summaries/
      - Task JSON Location: .workflow/WFS-user-auth/.task/impl-1.2.json
-     
+
      Implementation Details:
      - Target File: src/auth/models/User.ts
      - Function: UserSchema (lines 10-50)
@@ -167,13 +178,15 @@ Task(subagent_type="code-developer",
      - Dependencies: mongoose, jsonwebtoken
      - Risks: Schema changes require database migration, Existing user data compatibility
      - Performance: Index JWT fields for faster lookups
-     
-     Focus Paths (from task JSON): $(.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json)
-     Gemini Command: gemini -p "$(.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json) @{CLAUDE.md}"
-     
-     IMPORTANT: Update TODO_LIST.md and create summary in provided directories upon completion.
-     Use implementation details above for precise, targeted development.",
-     description="Execute impl-1.2 with full workflow context and implementation details")
+
+     Focus Paths (from task JSON): $(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json)
+     Gemini Command: ~/.claude/scripts/gemini-wrapper -p "$(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json) @{CLAUDE.md}"
+
+     IMPORTANT:
+     1. Document both preparation analysis results and implementation in summary
+     2. Update TODO_LIST.md and create summary in provided directories upon completion
+     3. Use preparation findings to inform implementation decisions",
+     description="Execute saturated task with preparation and implementation phases")
 ```
 
 **Execution Protocol:**
@@ -226,28 +239,42 @@ Based on discovered task data:
 
 ### Discovery-Based Assignment
 ```bash
-# Agent receives complete discovered context
+# Agent receives complete discovered context with saturation handling
 Task(subagent_type="code-developer",
-     prompt="[GEMINI_CLI_REQUIRED] Execute impl-1.2: Implement auth logic
-     
+     prompt="[PREPARATION_INCLUDED] [GEMINI_CLI_REQUIRED] Execute impl-1.2: Analyze and implement auth logic
+
+     TASK TYPE: Saturated task (preparation_complexity: simple)
+
+     PREPARATION PHASE:
+     - Review existing auth patterns and conventions
+     - Check JWT library compatibility
+     - Analyze current session management
+
+     EXECUTION PHASE:
+     Implement JWT authentication based on preparation findings
+
      Context from discovery:
      - Requirements: JWT authentication, OAuth2 support
      - Scope: src/auth/*, tests/auth/*
      - Dependencies: impl-1.1 (completed)
      - Workflow: WFS-user-auth authentication system
-     
+
      Session Context:
      - Workflow Directory: .workflow/WFS-user-auth/
      - TODO_LIST Location: .workflow/WFS-user-auth/TODO_LIST.md
      - Summaries Directory: .workflow/WFS-user-auth/.summaries/
      - Task JSON: .workflow/WFS-user-auth/.task/impl-1.2.json
-     
-     Focus Paths: $(.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json)
-     Analysis Command: Use gemini -p \"$(.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json) @{CLAUDE.md}\"
-     
-     CRITICAL: Use task-specific paths for focused analysis. Update TODO_LIST.md and create completion summary using provided paths.",
-     
-     description="Agent executes with task-specific paths and full discovered context")
+
+     Focus Paths: $(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json)
+     Analysis Command: Use ~/.claude/scripts/gemini-wrapper -p \"$(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json) @{CLAUDE.md}\"
+
+     CRITICAL:
+     1. Execute preparation phase first, then use findings for implementation
+     2. Use task-specific paths for focused analysis
+     3. Document both phases in completion summary
+     4. Update TODO_LIST.md and create completion summary using provided paths.",
+
+     description="Agent executes saturated task with preparation and implementation phases")
 ```
 
 ### Status Tracking Integration
@@ -341,13 +368,3 @@ mark_dependent_tasks_ready(task_dependencies)
 /workflow:review          # Move to review phase when complete
 ```
 
-## Related Commands
-
-- `/context` - View discovered tasks and current status
-- `/task:execute` - Execute individual tasks (user-controlled)
-- `/workflow:session:status` - Check session progress and dependencies
-- `/workflow:review` - Move to review phase after completion
-
----
-
-**System ensures**: Intelligent task discovery with context-rich agent coordination and automatic progress tracking
