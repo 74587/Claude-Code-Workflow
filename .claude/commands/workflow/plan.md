@@ -75,22 +75,22 @@ The command automatically detects input type:
 **Note**: 1 complex preparation task = 0.5 saturated task for counting
 
 ### Task Granularity Principles
-- **按功能分解，不按文件分解**: 一个任务应该完成一个完整功能
-- **保持功能完整性**: 每个任务产出可独立运行或测试的功能单元
-- **相关组件一起实现**: UI、逻辑、测试等相关部分在同一任务中完成
-- **避免技术步骤分解**: 不要把"创建文件"、"添加函数"作为独立任务
+- **Decompose by function, not by file**: Each task should complete a whole functional unit
+- **Maintain functional integrity**: Each task produces independently runnable or testable functionality
+- **Implement related components together**: UI, logic, tests and other related parts in the same task
+- **Avoid technical step decomposition**: Don't make "create file" or "add function" as separate tasks
 
-### 任务分解反模式
-❌ **错误示例 - 按文件/步骤分解**：
-- IMPL-001: 创建数据库模型
-- IMPL-002: 创建API端点
-- IMPL-003: 创建前端组件
-- IMPL-004: 添加路由配置
-- IMPL-005: 编写单元测试
+### Task Decomposition Anti-patterns
+❌ **Wrong Example - File/Step-based Decomposition**:
+- IMPL-001: Create database model
+- IMPL-002: Create API endpoint
+- IMPL-003: Create frontend component
+- IMPL-004: Add routing configuration
+- IMPL-005: Write unit tests
 
-✅ **正确示例 - 按功能分解**：
-- IMPL-001: 实现用户认证功能（包含模型、API、UI、测试）
-- IMPL-002: 实现数据导出功能（包含处理逻辑、UI、文件生成）
+✅ **Correct Example - Function-based Decomposition**:
+- IMPL-001: Implement user authentication feature (includes model, API, UI, tests)
+- IMPL-002: Implement data export functionality (includes processing logic, UI, file generation)
 
 ### Task Generation with Saturation Control
 - **Task Saturation Assessment**: Evaluates whether to merge preparation and execution
@@ -105,22 +105,22 @@ The command automatically detects input type:
 ### Task Saturation Assessment
 Evaluates whether to merge preparation and execution:
 
-**默认合并原则** (Saturated Tasks):
-- 同一功能模块的所有组件
-- 前后端配套实现
-- 功能与其对应的测试
-- 配置与其使用的代码
-- 相互依赖的多个小功能
+**Default Merge Principles** (Saturated Tasks):
+- All components of the same functional module
+- Frontend and backend paired implementation
+- Features with their corresponding tests
+- Configuration with its usage code
+- Multiple small interdependent functions
 
-**仅在以下情况分离任务**:
-- 完全独立的功能模块（无共享代码）
-- 不同技术栈的独立服务（如前端/后端分离部署）
-- 需要不同专业知识的模块（如ML模型训练 vs Web开发）
-- 有明确先后顺序依赖的大型功能
+**Only Separate Tasks When**:
+- Completely independent functional modules (no shared code)
+- Independent services with different tech stacks (e.g., separate frontend/backend deployment)
+- Modules requiring different expertise (e.g., ML model training vs Web development)
+- Large features with clear sequential dependencies
 
 **Task Examples**:
-- **合并示例**: "IMPL-001: 实现用户认证系统（包含JWT管理、API端点、UI组件和测试）"
-- **分离示例**: "IMPL-001: 设计跨服务认证架构" + "IMPL-002: 实现前端认证模块" + "IMPL-003: 实现后端认证服务"
+- **Merged Example**: "IMPL-001: Implement user authentication system (includes JWT management, API endpoints, UI components, and tests)"
+- **Separated Example**: "IMPL-001: Design cross-service authentication architecture" + "IMPL-002: Implement frontend authentication module" + "IMPL-003: Implement backend authentication service"
 
 ### Task Breakdown Process
 - **Automatic decomposition**: Only when task count >15 are tasks broken into subtasks (impl-N.M format)
