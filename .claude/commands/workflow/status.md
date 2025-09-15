@@ -1,16 +1,16 @@
 ---
-name: context
+name: workflow:status
 description: Generate on-demand views from JSON task data
-usage: /context [task-id] [--format=<format>] [--validate]
+usage: /workflow:status [task-id] [--format=<format>] [--validate]
 argument-hint: [optional: task-id, format, validation]
 examples:
-  - /context
-  - /context impl-1
-  - /context --format=hierarchy
-  - /context --validate
+  - /workflow:status
+  - /workflow:status impl-1
+  - /workflow:status --format=hierarchy
+  - /workflow:status --validate
 ---
 
-# Context Command (/context)
+# Workflow Status Command (/workflow:status)
 
 ## Overview
 Generates on-demand views from JSON task data. No synchronization needed - all views are calculated from the current state of JSON files.
@@ -35,7 +35,7 @@ Generates on-demand views from JSON task data. No synchronization needed - all v
 
 ### Default Overview
 ```bash
-/context
+/workflow:status
 ```
 
 Generates current workflow overview:
@@ -49,7 +49,7 @@ Generates current workflow overview:
 - [⚠️] impl-1: Build authentication module (code-developer)
 - [⚠️] impl-2: Setup user management (code-developer)
 
-## Completed Tasks  
+## Completed Tasks
 - [✅] impl-0: Project setup
 
 ## Stats
@@ -61,7 +61,7 @@ Generates current workflow overview:
 
 ### Specific Task View
 ```bash
-/context impl-1
+/workflow:status impl-1
 ```
 
 Shows detailed task information:
@@ -95,7 +95,7 @@ Shows detailed task information:
 
 ### Hierarchy View
 ```bash
-/context --format=hierarchy
+/workflow:status --format=hierarchy
 ```
 
 Shows task relationships:
@@ -118,16 +118,16 @@ Shows task relationships:
 
 ### Data Loading
 ```pseudo
-function generate_context_view(task_id, format):
+function generate_workflow_status(task_id, format):
   // Load all current data
   session = load_workflow_session()
   all_tasks = load_all_task_json_files()
-  
+
   // Filter if specific task requested
   if task_id:
     target_task = find_task(all_tasks, task_id)
     return generate_task_detail_view(target_task)
-  
+
   // Generate requested format
   switch format:
     case 'hierarchy':
@@ -145,7 +145,7 @@ function generate_context_view(task_id, format):
 
 ### Basic Validation
 ```bash
-/context --validate
+/workflow:status --validate
 ```
 
 Performs integrity checks:
@@ -156,7 +156,7 @@ Performs integrity checks:
 ✅ All task JSON files are valid
 ✅ Session file is valid and readable
 
-## Relationship Validation  
+## Relationship Validation
 ✅ All parent-child relationships are valid
 ✅ All dependencies reference existing tasks
 ✅ No circular dependencies detected
@@ -185,7 +185,7 @@ Performs integrity checks:
 ❌ Session file not found
 → Initialize new workflow session? (y/n)
 
-❌ Task impl-5 not found  
+❌ Task impl-5 not found
 → Available tasks: impl-1, impl-2, impl-3, impl-4
 ```
 
@@ -222,9 +222,9 @@ Performs integrity checks:
 ```bash
 # Common workflow
 /task:create "New feature"
-/context                    # Check current state
-/task:breakdown impl-1  
-/context --format=hierarchy # View new structure
+/workflow:status                    # Check current state
+/task:breakdown impl-1
+/workflow:status --format=hierarchy # View new structure
 /task:execute impl-1.1
 ```
 
@@ -239,20 +239,20 @@ Performs integrity checks:
 ### Custom Filtering
 ```bash
 # Show only active tasks
-/context --format=tasks --filter=active
+/workflow:status --format=tasks --filter=active
 
 # Show completed tasks only
-/context --format=tasks --filter=completed
+/workflow:status --format=tasks --filter=completed
 
 # Show tasks for specific agent
-/context --format=tasks --agent=code-developer
+/workflow:status --format=tasks --agent=code-developer
 ```
 
 ## Related Commands
 
 - `/task:create` - Create tasks (generates JSON data)
 - `/task:execute` - Execute tasks (updates JSON data)
-- `/task:breakdown` - Create subtasks (generates more JSON data)  
-- `/workflow:vibe` - Coordinate agents (uses context for coordination)
+- `/task:breakdown` - Create subtasks (generates more JSON data)
+- `/workflow:vibe` - Coordinate agents (uses workflow status for coordination)
 
-This context system provides instant, accurate views of workflow state without any synchronization complexity or performance overhead.
+This workflow status system provides instant, accurate views of workflow state without any synchronization complexity or performance overhead.
