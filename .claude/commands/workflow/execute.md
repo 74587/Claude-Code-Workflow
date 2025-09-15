@@ -148,8 +148,7 @@ For each executable task:
     "phase": "IMPLEMENT",
     "plan_context": "Authentication system with OAuth2 support"
   },
-  "focus_modules": ["src/auth/", "tests/auth/"],
-  "gemini_required": true
+  "focus_modules": ["src/auth/", "tests/auth/"]
 }
 ```
 
