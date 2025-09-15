@@ -4,9 +4,9 @@ description: Execute tasks with appropriate agents and context-aware orchestrati
 usage: /task:execute <task-id>
 argument-hint: task-id
 examples:
-  - /task:execute impl-1
-  - /task:execute impl-1.2
-  - /task:execute impl-3
+  - /task:execute IMPL-1
+  - /task:execute IMPL-1.2
+  - /task:execute IMPL-3
 ---
 
 ### 🚀 **Command Overview: `/task:execute`**
@@ -134,7 +134,7 @@ This is the simplified data structure loaded to provide context for task executi
 ```json
 {
   "task": {
-    "id": "impl-1",
+    "id": "IMPL-1",
     "title": "Build authentication module",
     "type": "feature",
     "status": "active",
@@ -147,8 +147,8 @@ This is the simplified data structure loaded to provide context for task executi
     },
     "relations": {
       "parent": null,
-      "subtasks": ["impl-1.1", "impl-1.2"],
-      "dependencies": ["impl-0"]
+      "subtasks": ["IMPL-1.1", "IMPL-1.2"],
+      "dependencies": ["IMPL-0"]
     },
     "implementation": {
       "files": [
@@ -252,10 +252,10 @@ Different agents receive context tailored to their function, including implement
 
 ### 📝 **Simplified Summary Template**
 
-Optional summary file generated at `.summaries/impl-[task-id]-summary.md`.
+Optional summary file generated at `.summaries/IMPL-[task-id]-summary.md`.
 
 ```markdown
-# Task Summary: impl-1 Build Authentication Module
+# Task Summary: IMPL-1 Build Authentication Module
 
 ## What Was Done
 - Created src/auth/login.ts with JWT validation

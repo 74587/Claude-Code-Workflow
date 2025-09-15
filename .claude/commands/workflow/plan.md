@@ -17,6 +17,10 @@ Creates actionable implementation plans with intelligent input source detection.
 ## Core Principles
 **File Structure:** @~/.claude/workflows/workflow-architecture.md
 
+**Dependency Context Rules:**
+- **For tasks with dependencies**: MUST read previous task summary documents before planning
+- **Context inheritance**: Use dependency summaries to maintain consistency and avoid duplicate work
+
 ## Usage
 ```bash
 /workflow:plan [--AM gemini|codex] <input>
@@ -74,36 +78,42 @@ The command automatically detects input type:
 1. **Complexity Assessment**: Analyze requirements to determine total saturated task count
 2. **Decomposition Strategy**: Based on complexity, decide:
    - Task structure (flat vs hierarchical)
-   - Subtask necessity (>15 tasks triggers decomposition)
+   - Re-scoping necessity (>10 tasks triggers re-scoping)
    - Task saturation level (merged vs separated)
+   - File grouping strategy (cohesive files together)
 3. **Quantity Prediction**: Calculate expected:
    - Total main tasks (IMPL-XXX)
-   - Subtasks per main task (impl-N.M)
+   - Subtasks per main task (IMPL-N.M)
    - Container vs leaf task ratio
 
 **Pre-Planning Outputs**:
-- Complexity level: Simple (≤8) | Medium (9-15) | Complex (>15)
-- Decomposition approach: Flat | Two-level hierarchy
-- Estimated task count: [number] main tasks, [number] total leaf tasks
+- Complexity level: Simple (≤5) | Medium (6-10) | Over-scoped (>10, requires re-scoping)
+- Decomposition approach: Flat | Two-level hierarchy | Re-scope required
+- Estimated task count: [number] main tasks, [number] total leaf tasks (max 10)
 - Document set: Which documents will be generated (IMPL_PLAN.md, TODO_LIST.md, .task/*.json)
+- **Re-scoping recommendation**: If >10 tasks, provide guidance for breaking into iterations
 
 **Only after completing pre-planning analysis**: Proceed to generate actual plan documents
 
 ### Complexity Detection with Saturation
 *Based on Pre-Planning Analysis results:*
-- **Simple**: ≤8 saturated tasks → Direct IMPL_PLAN.md
-- **Medium**: 9-15 saturated tasks → IMPL_PLAN.md + TODO_LIST.md
-- **Complex**: >15 saturated tasks → Full decomposition
+- **Simple**: ≤5 saturated tasks → Direct IMPL_PLAN.md
+- **Medium**: 6-10 saturated tasks → IMPL_PLAN.md + TODO_LIST.md
+- **Complex**: Exceeding 10 tasks requires re-scoping (maximum enforced)
 
+**10-Task Hard Limit**: Projects exceeding 10 tasks must be re-scoped into smaller iterations
 **Note**: 1 complex preparation task = 0.5 saturated task for counting
 
 ### Task Granularity Principles
 - **Decompose by function, not by file**: Each task should complete a whole functional unit
 - **Maintain functional integrity**: Each task produces independently runnable or testable functionality
-- **Implement related components together**: UI, logic, tests and other related parts in the same task
+- **Group related files together**: Keep related files (UI, logic, tests, config) in same task
+- **File cohesion rule**: Files that work together should be modified in the same task
 - **Avoid technical step decomposition**: Don't make "create file" or "add function" as separate tasks
+- **Maximum 10 tasks**: Hard limit enforced; re-scope if exceeded
 
 ### Task Decomposition Anti-patterns
+
 ❌ **Wrong Example - File/Step-based Decomposition**:
 - IMPL-001: Create database model
 - IMPL-002: Create API endpoint
@@ -111,9 +121,18 @@ The command automatically detects input type:
 - IMPL-004: Add routing configuration
 - IMPL-005: Write unit tests
 
-✅ **Correct Example - Function-based Decomposition**:
-- IMPL-001: Implement user authentication feature (includes model, API, UI, tests)
-- IMPL-002: Implement data export functionality (includes processing logic, UI, file generation)
+❌ **Wrong Example - Same File Split Across Tasks**:
+- IMPL-001: Add authentication routes to routes/auth.js
+- IMPL-002: Add user validation to routes/auth.js
+- IMPL-003: Add session handling to routes/auth.js
+
+✅ **Correct Example - Function-based with File Cohesion**:
+- IMPL-001: Implement user authentication (includes models/User.js, routes/auth.js, components/LoginForm.jsx, middleware/auth.js, tests/auth.test.js)
+- IMPL-002: Implement data export functionality (includes services/export.js, routes/export.js, components/ExportButton.jsx, utils/fileGenerator.js, tests/export.test.js)
+
+✅ **Correct Example - Related Files Grouped**:
+- IMPL-001: User management system (includes User model, UserController, UserService, user routes, user tests)
+- IMPL-002: Product catalog system (includes Product model, ProductController, catalog components, product tests)
 
 ### Task Generation with Saturation Control
 *Using decomposition strategy determined in Pre-Planning Analysis:*
@@ -152,45 +171,53 @@ Three analysis levels available:
 3. Populates task paths automatically
 
 ### Task Saturation Assessment
-Evaluates whether to merge preparation and execution:
+Evaluates whether to merge preparation and execution within 10-task limit:
 
 **Default Merge Principles** (Saturated Tasks):
 - All components of the same functional module
-- Frontend and backend paired implementation
-- Features with their corresponding tests
+- Related files that work together (UI, logic, tests, config)
+- Features with their corresponding tests and documentation
 - Configuration with its usage code
 - Multiple small interdependent functions
+- Files that share common interfaces or data structures
 
 **Only Separate Tasks When**:
-- Completely independent functional modules (no shared code)
-- Independent services with different tech stacks (e.g., separate frontend/backend deployment)
+- Completely independent functional modules (no shared code or interfaces)
+- Independent services with different tech stacks (e.g., separate deployment units)
 - Modules requiring different expertise (e.g., ML model training vs Web development)
 - Large features with clear sequential dependencies
+- **Critical**: Would exceed 10-task limit otherwise
 
-**Task Examples**:
-- **Merged Example**: "IMPL-001: Implement user authentication system (includes JWT management, API endpoints, UI components, and tests)"
-- **Separated Example**: "IMPL-001: Design cross-service authentication architecture" + "IMPL-002: Implement frontend authentication module" + "IMPL-003: Implement backend authentication service"
+**File Cohesion Examples**:
+- **Merged**: "IMPL-001: Implement user authentication (includes models/User.js, routes/auth.js, components/LoginForm.jsx, tests/auth.test.js)"
+- **Separated**: "IMPL-001: User service authentication" + "IMPL-002: Admin dashboard authentication" (different user contexts)
+
+**10-Task Compliance**: Always prioritize related file grouping to stay within limit
 
 ### Task Breakdown Process
-- **Automatic decomposition**: Only when task count >15 are tasks broken into subtasks (impl-N.M format)
+- **Automatic decomposition**: Only when task count >10 triggers re-scoping (not decomposition)
 - **Function-based decomposition**: Split by independent functional boundaries, not by technical layers
 - **Container tasks**: Parent tasks with subtasks become containers (marked with ▸ in TODO_LIST)
 - **Smart decomposition**: AI analyzes task title to suggest logical functional subtask structure
 - **Complete unit principle**: Each subtask must still represent a complete functional unit
 - **Context inheritance**: Subtasks inherit parent's requirements and scope, refined for specific needs
 - **Agent assignment**: Automatic agent mapping based on subtask type (planning/code/test/review)
-- **Maximum depth**: 2 levels (impl-N.M) to maintain manageable hierarchy
+- **Maximum depth**: 2 levels (IMPL-N.M) to maintain manageable hierarchy
+- **10-task enforcement**: Exceeding 10 tasks requires project re-scoping
 
-### Implementation Field Requirements
-- **pre_analysis**: Multi-step analysis configuration array containing:
-  - `action`: Brief 2-3 word description (e.g., "analyze patterns", "review security") - agent expands based on context
-  - `template`: Full template path (e.g., "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt")
-  - `method`: Analysis method ("manual"|"auto-detected"|"gemini"|"codex")
-  - **Agent Behavior**: Agents interpret brief actions and expand them into comprehensive analysis tasks
-  - **Execution**: Steps processed sequentially, results accumulated for comprehensive context
-- **Auto-assignment**: Defaults to appropriate multi-step configuration based on complexity
-- **Required fields**: files (with path/location/modifications), context_notes, pre_analysis
-- **Paths format**: Semicolon-separated list (e.g., "src/auth;tests/auth;config/auth.json")
+### Flow Control Field Requirements
+- **flow_control**: Universal process manager containing:
+  - `pre_analysis`: Array of sequential process steps with:
+    - `step`: Unique identifier for the step
+    - `action`: Human-readable description
+    - `command`: Executable command with embedded context variables (e.g., `${variable_name}`)
+    - `output_to`: Variable name to store step results (optional for final steps)
+    - `on_error`: Error handling strategy
+  - `implementation_approach`: Brief one-line strategy description
+  - `target_files`: Array of "file:function:lines" format strings
+- **Auto-generation**: Creates flow based on task type and complexity
+- **Required fields**: meta (type, agent), context (requirements, focus_paths, acceptance, depends_on), flow_control
+- **Focus paths format**: Array of strings (e.g., ["src/auth", "tests/auth", "config/auth.json"])
 
 ## Session Check Process
 ⚠️ **CRITICAL**: Check for existing active session before planning
@@ -208,9 +235,9 @@ Evaluates whether to merge preparation and execution:
   - Used by: `/workflow:execute` for context loading
   - Contains: Requirements, task overview, success criteria
 
-- **Task Definitions**: `.workflow/WFS-[topic-slug]/.task/impl-*.json`
+- **Task Definitions**: `.workflow/WFS-[topic-slug]/.task/IMPL-*.json`
   - Used by: Agents for implementation context
-  - Contains: Complete task details with implementation field including preparation_complexity
+  - Contains: Complete task details with 7-field structure including flow_control process manager
 
 - **Progress Tracking**: `.workflow/WFS-[topic-slug]/TODO_LIST.md`
   - Used by: `/workflow:execute` for status tracking
@@ -233,7 +260,7 @@ Evaluates whether to merge preparation and execution:
 ```
 
 ### Optional TODO_LIST.md (Auto-triggered)
-Created when complexity > simple or task count > 5
+Created when complexity > simple or task count > 3
 
 **TODO_LIST Structure**: Uses unified hierarchical list format
 - Container tasks (with subtasks) marked with `▸` symbol
@@ -258,18 +285,20 @@ Generated in .task/ directory when decomposition enabled
 ### Recommended Task Patterns
 
 #### Complete Feature Implementation
-"Implement user management system" - includes CRUD operations, permissions, UI components, API endpoints, and tests
+"Implement user management system" - includes all related files: models/User.js, controllers/UserController.js, routes/users.js, components/UserList.jsx, services/UserService.js, tests/user.test.js
 
 #### End-to-End Features
-"Add Excel export functionality" - includes data processing, file generation, download API, UI buttons, and error handling
+"Add Excel export functionality" - includes cohesive file set: services/ExportService.js, utils/excelGenerator.js, routes/export.js, components/ExportButton.jsx, middleware/downloadHandler.js, tests/export.test.js
 
 #### System Integration
-"Integrate payment gateway" - includes API integration, order processing, payment flows, webhook handling, and testing
+"Integrate payment gateway" - includes integration files: services/PaymentService.js, controllers/PaymentController.js, models/Payment.js, components/PaymentForm.jsx, webhooks/paymentWebhook.js, tests/payment.test.js
 
 #### Problem Resolution
-"Fix and optimize search functionality" - includes bug fixes, performance optimization, UI improvements, and related tests
+"Fix and optimize search functionality" - includes related files: services/SearchService.js, utils/searchOptimizer.js, components/SearchBar.jsx, controllers/SearchController.js, tests/search.test.js
 
 #### Module Development
-"Create notification system" - includes email/SMS sending, template management, subscription handling, and admin interface
+"Create notification system" - includes module files: services/NotificationService.js, models/Notification.js, templates/emailTemplates.js, components/NotificationCenter.jsx, workers/notificationQueue.js, tests/notification.test.js
 
-**System ensures**: Unified planning interface with intelligent input detection and function-based task granularity
+**File Cohesion Principle**: Each task includes ALL files that work together to deliver the complete functionality
+
+**System ensures**: Unified planning interface with intelligent input detection, function-based task granularity, file cohesion enforcement, and 10-task maximum limit

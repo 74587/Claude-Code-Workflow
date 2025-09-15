@@ -75,7 +75,7 @@ model: sonnet
 # Execute specific workflow task
 /gemini:execute IMPL-001
 
-# Loads from: .task/impl-001.json
+# Loads from: .task/IMPL-001.json
 # Uses: task context, brainstorming refs, scope definitions
 # Updates: workflow status, generates summary
 ```

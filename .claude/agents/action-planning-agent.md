@@ -102,7 +102,7 @@ For tasks requiring >5 subtasks or spanning >3 modules:
 
 ### 4. Document Generation
 Create workflow documents with proper linking:
-- Todo items link to task JSON: `[📋 Details](./.task/impl-XXX.json)`
+- Todo items link to task JSON: `[📋 Details](./.task/IMPL-XXX.json)`
 - Completed tasks link to summaries: `[✅ Summary](./.summaries/IMPL-XXX-summary.md)`
 - Consistent ID schemes (IMPL-XXX, IMPL-XXX.Y, IMPL-XXX.Y.Z)
 

@@ -23,20 +23,22 @@ The intelligent execution approach focuses on:
 - **Dynamic task orchestration** - Coordinate based on discovered task relationships
 - **Progress tracking** - Update task status after agent completion
 
-**Analysis Marker**:
-- **[MULTI_STEP_ANALYSIS]**: Indicates sequential pre-execution analysis required
-  - **Auto-trigger**: When task.pre_analysis is an array (default format)
-  - **Agent Action**: Execute comprehensive pre-analysis BEFORE implementation begins
-    - Process each step sequentially with specified templates and methods
-    - Expand brief actions into full analysis tasks
-    - Gather context, understand patterns, identify requirements
-    - Use method specified in each step (gemini/codex/manual/auto-detected)
+**Flow Control Execution**:
+- **[FLOW_CONTROL]**: Indicates sequential flow control execution required
+  - **Auto-trigger**: When task.flow_control.pre_analysis is an array (default format)
+  - **Agent Action**: Execute flow control steps sequentially BEFORE implementation begins
+    - Process each step with command execution and context accumulation
+    - Load dependency summaries and parent task context
+    - Execute CLI tools, scripts, and agent commands as specified
+    - Pass context between steps via named variables
+    - Handle errors according to per-step error strategies
 
-**pre_analysis to Marker Mapping**:
-- **Array format (multi-step pre-analysis)**:
-  - Add [MULTI_STEP_ANALYSIS] - triggers comprehensive pre-execution analysis
-  - Agent processes each step with specified method (gemini/codex/manual/auto-detected)
-  - Agent expands each action into comprehensive analysis based on template
+**Flow Control Step Processing**:
+- **Sequential Execution**: Steps processed in order with context flow
+  - Each step can use outputs from previous steps via ${variable_name}
+  - Dependency summaries loaded automatically from .summaries/
+  - Context accumulates through the execution chain
+  - Error handling per step (skip_optional, fail, retry_once, manual_intervention)
 
 ## Execution Flow
 
@@ -53,7 +55,7 @@ Workflow Discovery:
 
 **Discovery Logic:**
 - **Folder Detection**: Use provided folder or find current active session
-- **Task Inventory**: Load all impl-*.json files from .task/ directory
+- **Task Inventory**: Load all IMPL-*.json files from .task/ directory
 - **Status Analysis**: Check pending/active/completed/blocked states
 - **Dependency Check**: Verify all task dependencies are met
 - **Execution Queue**: Build list of ready-to-execute tasks
@@ -66,14 +68,13 @@ Workflow Discovery:
 *Session: WFS-[topic-slug]*
 
 ## Execution Plan
-- [ ] **TASK-001**: [Agent: planning-agent] [MULTI_STEP_ANALYSIS] Design auth schema (impl-1.1)
-- [ ] **TASK-002**: [Agent: code-developer] [MULTI_STEP_ANALYSIS] Implement auth logic (impl-1.2)  
+- [ ] **TASK-001**: [Agent: planning-agent] [FLOW_CONTROL] Design auth schema (IMPL-1.1)
+- [ ] **TASK-002**: [Agent: code-developer] [FLOW_CONTROL] Implement auth logic (IMPL-1.2)  
 - [ ] **TASK-003**: [Agent: code-review-agent] Review implementations
 - [ ] **TASK-004**: Update task statuses and session state
 
 **Marker Legend**:
-- [MULTI_STEP_ANALYSIS] = Agent must execute multi-step pre-execution analysis
-- [PREPARATION_INCLUDED] = Task includes preparation phase (analyze then implement)
+- [FLOW_CONTROL] = Agent must execute flow control steps with context accumulation
 ```
 
 ### 3. Agent Context Assignment
@@ -82,126 +83,119 @@ For each executable task:
 ```json
 {
   "task": {
-    "id": "impl-1.1",
+    "id": "IMPL-1.1",
     "title": "Design auth schema",
+    "status": "pending",
+
+    "meta": {
+      "type": "feature",
+      "agent": "code-developer"
+    },
+
     "context": {
       "requirements": ["JWT authentication", "User model design"],
-      "scope": ["src/auth/models/*"],
-      "acceptance": ["Schema validates JWT tokens"]
-    },
-    "implementation": {
-      "files": [
-        {
-          "path": "src/auth/models/User.ts",
-          "location": {
-            "function": "UserSchema",
-            "lines": "10-50",
-            "description": "User model definition"
-          },
-          "original_code": "// Requires gemini analysis for current schema",
-          "modifications": {
-            "current_state": "Basic user model without auth fields",
-            "proposed_changes": [
-              "Add JWT token fields to schema",
-              "Include OAuth provider fields"
-            ],
-            "logic_flow": [
-              "createUser() ───► validateSchema() ───► generateJWT()",
-              "◊─── if OAuth ───► linkProvider() ───► storeTokens()"
-            ],
-            "reason": "Support modern authentication patterns",
-            "expected_outcome": "Flexible user schema supporting multiple auth methods"
-          }
-        }
-      ],
-      "context_notes": {
-        "dependencies": ["mongoose", "jsonwebtoken"],
-        "affected_modules": ["auth-middleware", "user-service"],
-        "risks": [
-          "Schema changes require database migration",
-          "Existing user data compatibility"
-        ],
-        "performance_considerations": "Index JWT fields for faster lookups",
-        "error_handling": "Graceful schema validation errors"
+      "focus_paths": ["src/auth/models", "tests/auth"],
+      "acceptance": ["Schema validates JWT tokens"],
+      "parent": "IMPL-1",
+      "depends_on": [],
+      "inherited": {
+        "from": "IMPL-1",
+        "context": ["Authentication system architecture completed"]
       },
+      "shared_context": {
+        "auth_strategy": "JWT with refresh tokens"
+      }
+    },
+
+    "flow_control": {
       "pre_analysis": [
         {
-          "action": "analyze auth",
-          "template": "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt",
-          "method": "gemini"
+          "step": "gather_context",
+          "action": "Load dependency summaries",
+          "command": "bash(echo 'No dependencies for this initial task')",
+          "output_to": "dependency_context",
+          "on_error": "skip_optional"
         },
         {
-          "action": "security review",
-          "template": "~/.claude/workflows/cli-templates/prompts/analysis/security.txt",
-          "method": "gemini"
+          "step": "analyze_patterns",
+          "action": "Analyze existing auth patterns",
+          "command": "bash(~/.claude/scripts/gemini-wrapper -p '@{src/auth/**/*} analyze authentication patterns with context: [dependency_context]')",
+          "output_to": "pattern_analysis",
+          "on_error": "fail"
         },
         {
-          "action": "implement feature",
-          "template": "~/.claude/workflows/cli-templates/prompts/development/feature.txt",
-          "method": "codex"
+          "step": "implement",
+          "action": "Design JWT schema based on analysis",
+          "command": "bash(codex --full-auto exec 'Design JWT schema using analysis: [pattern_analysis] and context: [dependency_context]')",
+          "on_error": "manual_intervention"
         }
+      ],
+      "implementation_approach": "Design flexible user schema supporting JWT and OAuth authentication",
+      "target_files": [
+        "src/auth/models/User.ts:UserSchema:10-50"
       ]
     }
   },
   "workflow": {
-    "session": "WFS-user-auth", 
+    "session": "WFS-user-auth",
     "phase": "IMPLEMENT",
     "plan_context": "Authentication system with OAuth2 support"
-  },
-  "focus_modules": ["src/auth/", "tests/auth/"]
+  }
 }
 ```
 
 **Context Assignment Rules:**
-- **Complete Context**: Use full task JSON context including implementation field for agent execution
-- **Implementation Details**: Pass complete implementation.files array to agents for precise execution
-- **Code Context**: Include original_code snippets and logic_flow diagrams in agent prompts
-- **Risk Awareness**: Alert agents to implementation.context_notes.risks before execution
+- **Complete Context**: Use full task JSON context including flow_control field for agent execution
+- **Flow Control Processing**: Execute flow_control.pre_analysis steps sequentially with context accumulation
+- **Dependency Integration**: Load summaries from context.depends_on automatically
+- **Mandatory Dependency Reading**: For tasks with dependencies, MUST read previous task summary documents
+- **Context Inheritance**: Use dependency summaries to maintain consistency and include context.inherited data from parent tasks
 - **Workflow Integration**: Include session state and IMPL_PLAN.md context
-- **Scope Focus**: Direct agents to specific files from implementation.files[].path
-- **Analysis Marker**: Auto-add [MULTI_STEP_ANALYSIS] when pre_analysis is array format
-- **Merged Task Handling**: Add [PREPARATION_INCLUDED] marker when preparation_complexity exists
+- **Focus Scope**: Direct agents to specific paths from context.focus_paths array
+- **Flow Control Marker**: Auto-add [FLOW_CONTROL] when flow_control.pre_analysis exists
+- **Target File Guidance**: Use flow_control.target_files for precise file targeting
 
 ### 4. Agent Execution & Progress Tracking
 
 ```bash
 Task(subagent_type="code-developer",
-     prompt="[PREPARATION_INCLUDED] [MULTI_STEP_ANALYSIS] Analyze auth patterns and implement JWT authentication system
+     prompt="[FLOW_CONTROL] Execute IMPL-1.2: Implement JWT authentication system with flow control
 
-     Task Context: impl-1.2 - Saturated task with merged preparation and execution
+     Task Context: IMPL-1.2 - Flow control managed execution
 
-     PREPARATION PHASE (preparation_complexity: simple, estimated_prep_time: 20min):
-     1. Review existing auth patterns in the codebase
-     2. Check JWT library compatibility with current stack
-     3. Analyze current session management approach
+     FLOW CONTROL EXECUTION:
+     Execute the following steps sequentially with context accumulation:
 
-     EXECUTION PHASE:
-     Based on preparation findings, implement JWT authentication system
+     Step 1 (gather_context): Load dependency summaries
+     Command: for dep in ${depends_on}; do cat .summaries/$dep-summary.md 2>/dev/null || echo "No summary for $dep"; done
+     Output: dependency_context
+
+     Step 2 (analyze_patterns): Analyze existing auth patterns
+     Command: ~/.claude/scripts/gemini-wrapper -p '@{src/auth/**/*} analyze authentication patterns with context: [dependency_context]'
+     Output: pattern_analysis
+
+     Step 3 (implement): Implement JWT based on analysis
+     Command: codex --full-auto exec 'Implement JWT using analysis: [pattern_analysis] and context: [dependency_context]'
 
      Session Context:
      - Workflow Directory: .workflow/WFS-user-auth/
      - TODO_LIST Location: .workflow/WFS-user-auth/TODO_LIST.md
      - Summaries Directory: .workflow/WFS-user-auth/.summaries/
-     - Task JSON Location: .workflow/WFS-user-auth/.task/impl-1.2.json
+     - Task JSON Location: .workflow/WFS-user-auth/.task/IMPL-1.2.json
 
-     Implementation Details:
-     - Target File: src/auth/models/User.ts
-     - Function: UserSchema (lines 10-50)
-     - Current State: Basic user model without auth fields
-     - Required Changes: Add JWT token fields, Include OAuth provider fields
-     - Logic Flow: createUser() ───► validateSchema() ───► generateJWT()
-     - Dependencies: mongoose, jsonwebtoken
-     - Risks: Schema changes require database migration, Existing user data compatibility
-     - Performance: Index JWT fields for faster lookups
-
-     Focus Paths (from task JSON): $(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json)
-     Gemini Command: ~/.claude/scripts/gemini-wrapper -p "$(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json) @{CLAUDE.md}"
+     Implementation Guidance:
+     - Approach: Design flexible user schema supporting JWT and OAuth authentication
+     - Target Files: src/auth/models/User.ts:UserSchema:10-50
+     - Focus Paths: src/auth/models, tests/auth
+     - Dependencies: From context.depends_on
+     - Inherited Context: [context.inherited]
 
      IMPORTANT:
-     1. Document both preparation analysis results and implementation in summary
-     2. Update TODO_LIST.md and create summary in provided directories upon completion
-     3. Use preparation findings to inform implementation decisions",
-     description="Execute saturated task with preparation and implementation phases")
+     1. Execute flow control steps in sequence with error handling
+     2. Accumulate context through step chain
+     3. Create comprehensive summary with 'Outputs for Dependent Tasks' section
+     4. Update TODO_LIST.md upon completion",
+     description="Execute task with flow control step processing")
 ```
 
 **Execution Protocol:**
@@ -218,9 +212,9 @@ Task(subagent_type="code-developer",
 ├── workflow-session.json     # Session state and stats
 ├── IMPL_PLAN.md             # Workflow context and requirements  
 ├── .task/                   # Task definitions
-│   ├── impl-1.json         # Main tasks
-│   ├── impl-1.1.json       # Subtasks
-│   └── impl-1.2.json       # Detailed tasks
+│   ├── IMPL-1.json         # Main tasks
+│   ├── IMPL-1.1.json       # Subtasks
+│   └── IMPL-1.2.json       # Detailed tasks
 └── .summaries/             # Completed task summaries
 ```
 
@@ -256,7 +250,7 @@ Based on discovered task data:
 ```bash
 # Agent receives complete discovered context with saturation handling
 Task(subagent_type="code-developer",
-     prompt="[PREPARATION_INCLUDED] [MULTI_STEP_ANALYSIS] Execute impl-1.2: Analyze and implement auth logic
+     prompt="[FLOW_CONTROL] Execute IMPL-1.2: Analyze and implement auth logic
 
      TASK TYPE: Saturated task (preparation_complexity: simple)
 
@@ -271,17 +265,17 @@ Task(subagent_type="code-developer",
      Context from discovery:
      - Requirements: JWT authentication, OAuth2 support
      - Scope: src/auth/*, tests/auth/*
-     - Dependencies: impl-1.1 (completed)
+     - Dependencies: IMPL-1.1 (completed)
      - Workflow: WFS-user-auth authentication system
 
      Session Context:
      - Workflow Directory: .workflow/WFS-user-auth/
      - TODO_LIST Location: .workflow/WFS-user-auth/TODO_LIST.md
      - Summaries Directory: .workflow/WFS-user-auth/.summaries/
-     - Task JSON: .workflow/WFS-user-auth/.task/impl-1.2.json
+     - Task JSON: .workflow/WFS-user-auth/.task/IMPL-1.2.json
 
-     Focus Paths: $(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json)
-     Analysis Command: Use ~/.claude/scripts/gemini-wrapper -p \"$(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json) @{CLAUDE.md}\"
+     Focus Paths: $(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/IMPL-1.2.json)
+     Analysis Command: Use ~/.claude/scripts/gemini-wrapper -p \"$(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/IMPL-1.2.json) @{CLAUDE.md}\"
 
      CRITICAL:
      1. Execute preparation phase first, then use findings for implementation
@@ -295,7 +289,7 @@ Task(subagent_type="code-developer",
 ### Status Tracking Integration
 ```bash  
 # After agent completion, update discovered task status
-update_task_status("impl-1.2", "completed")
+update_task_status("IMPL-1.2", "completed")
 mark_dependent_tasks_ready(task_dependencies)
 ```
 
@@ -318,7 +312,7 @@ mark_dependent_tasks_ready(task_dependencies)
 ```json
 // Before execution
 {
-  "id": "impl-1.2",
+  "id": "IMPL-1.2",
   "status": "pending",
   "execution": {
     "attempts": 0,
@@ -328,7 +322,7 @@ mark_dependent_tasks_ready(task_dependencies)
 
 // After execution  
 {
-  "id": "impl-1.2", 
+  "id": "IMPL-1.2", 
   "status": "completed",
   "execution": {
     "attempts": 1,
@@ -358,7 +352,7 @@ mark_dependent_tasks_ready(task_dependencies)
 → Check: /context for task status overview
 
 # Missing task files
-❌ Task impl-1.2 referenced but JSON file missing
+❌ Task IMPL-1.2 referenced but JSON file missing
 → Fix: /task/create or repair task references
 ```
 
@@ -379,7 +373,7 @@ mark_dependent_tasks_ready(task_dependencies)
 ```bash  
 # After /workflow:execute completion
 /context                  # View updated task status
-/task:execute impl-X      # Execute specific remaining tasks  
+/task:execute IMPL-X      # Execute specific remaining tasks  
 /workflow:review          # Move to review phase when complete
 ```
 

@@ -53,7 +53,7 @@ Display comprehensive status information for the currently active workflow sessi
 📄 Generated Documents:
    ✅ IMPL_PLAN.md (Complete)
    ✅ TODO_LIST.md (Auto-updated)
-   📝 .task/impl-*.json (5 tasks)
+   📝 .task/IMPL-*.json (5 tasks)
    📊 reports/ (Ready for generation)
 ```
 

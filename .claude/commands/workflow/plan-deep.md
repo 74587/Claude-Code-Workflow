@@ -90,9 +90,9 @@ Task(action-planning-agent):
     - Execute comprehensive Gemini CLI analysis (4 dimensions)
     - Skip PRD processing (no PRD provided)
     - Skip session inheritance (standalone planning)
-    - Force MULTI_STEP_ANALYSIS flag = true
+    - Force FLOW_CONTROL flag = true
     - Set pre_analysis = multi-step array format with comprehensive analysis steps
-    - Generate hierarchical task decomposition (max 2 levels: impl-N.M)
+    - Generate hierarchical task decomposition (max 2 levels: IMPL-N.M)
     - Create detailed IMPL_PLAN.md with subtasks
     - Generate TODO_LIST.md for tracking
     
@@ -126,7 +126,7 @@ def process_plan_deep_command(input):
     TASK: {task_description}
     
     MANDATORY FLAGS:
-    - MULTI_STEP_ANALYSIS = true
+    - FLOW_CONTROL = true
     - pre_analysis = multi-step array format for comprehensive pre-analysis
     - FORCE_PARALLEL_ANALYSIS = true
     - SKIP_PRD = true

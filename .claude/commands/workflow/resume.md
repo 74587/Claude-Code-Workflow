@@ -18,6 +18,10 @@ Intelligently resumes interrupted workflows with automatic detection of interrup
 ## Core Principles
 **File Structure:** @~/.claude/workflows/workflow-architecture.md
 
+**Dependency Context Rules:**
+- **For tasks with dependencies**: MUST read previous task summary documents before resuming
+- **Context inheritance**: Use dependency summaries to maintain consistency and avoid duplicate work
+
 ## Usage
 ```bash
 /workflow:resume [--from TASK-ID] [--retry] [--skip TASK-ID] [--force]
@@ -152,7 +156,7 @@ function detect_interruption():
 ```bash
 # Reconstruct complete agent context from interruption point
 Task(subagent_type="code-developer",
-     prompt="[RESUME_CONTEXT] [MULTI_STEP_ANALYSIS] Resume impl-1.2: Implement JWT authentication
+     prompt="[RESUME_CONTEXT] [FLOW_CONTROL] Resume impl-1.2: Implement JWT authentication
 
      RESUMPTION CONTEXT:
      - Interruption Type: agent_timeout
@@ -160,6 +164,7 @@ Task(subagent_type="code-developer",
      - Completed Tasks: impl-1.1 (auth schema design)
      - Current Task State: in_progress
      - Recovery Strategy: retry_with_enhanced_context
+     - Interrupted at Flow Step: analyze_patterns
 
      AVAILABLE CONTEXT:
      - Completed Task Summaries: .workflow/WFS-user-auth/.summaries/impl-1.1-summary.md
@@ -167,20 +172,28 @@ Task(subagent_type="code-developer",
      - Task Definition: .workflow/WFS-user-auth/.task/impl-1.2.json
      - Session State: .workflow/WFS-user-auth/workflow-session.json
 
-     PRE-ANALYSIS REQUIREMENTS:
-     $(cat .workflow/WFS-user-auth/.task/impl-1.2.json | jq -r '.implementation.pre_analysis[] | "- " + .action + " (" + .method + "): " + .template')
+     FLOW CONTROL RECOVERY:
+     Resume from step: analyze_patterns
+     $(cat .workflow/WFS-user-auth/.task/impl-1.2.json | jq -r '.flow_control.pre_analysis[] | "- Step: " + .step + " | Action: " + .action + " | Command: " + .command')
 
-     CONTINUATION INSTRUCTIONS:
-     1. Review previous completion summaries for context
-     2. Check current codebase state against expected progress
-     3. Identify any changes since last execution
-     4. Resume from detected interruption point
-     5. Complete remaining task objectives
+     CONTEXT RECOVERY STEPS:
+     1. MANDATORY: Read previous task summary documents for all dependencies
+     2. Load dependency summaries from context.depends_on
+     3. Restore previous step outputs if available
+     4. Resume from interrupted flow control step
+     5. Execute remaining steps with accumulated context
+     6. Generate comprehensive summary with dependency outputs
 
-     Focus Paths: $(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json)
-     Analysis Command: ~/.claude/scripts/gemini-wrapper -p \"$(~/.claude/scripts/read-task-paths.sh .workflow/WFS-user-auth/.task/impl-1.2.json) @{CLAUDE.md}\"",
+     Focus Paths: $(cat .workflow/WFS-user-auth/.task/impl-1.2.json | jq -r '.context.focus_paths[]')
+     Target Files: $(cat .workflow/WFS-user-auth/.task/impl-1.2.json | jq -r '.flow_control.target_files[]')
 
-     description="Resume interrupted task with complete context reconstruction")
+     IMPORTANT:
+     1. Resume flow control from interrupted step with error recovery
+     2. Ensure context continuity through step chain
+     3. Create enhanced summary for dependent tasks
+     4. Update progress tracking upon successful completion",
+
+     description="Resume interrupted task with flow control step recovery")
 ```
 
 ### 4. Resume Coordination with TodoWrite
@@ -197,7 +210,7 @@ Task(subagent_type="code-developer",
 
 ## Resume Execution Plan
 - [x] **TASK-001**: [Completed] Design auth schema (impl-1.1)
-- [ ] **TASK-002**: [RESUME] [Agent: code-developer] [MULTI_STEP_ANALYSIS] Implement JWT authentication (impl-1.2)
+- [ ] **TASK-002**: [RESUME] [Agent: code-developer] [FLOW_CONTROL] Implement JWT authentication (impl-1.2)
 - [ ] **TASK-003**: [Pending] [Agent: code-review-agent] Review implementations (impl-1.3)
 - [ ] **TASK-004**: Update session state and mark workflow complete
 
@@ -326,10 +339,34 @@ Task(subagent_type="code-developer",
 
 ## Advanced Resume Features
 
+### Step-Level Recovery
+- **Flow Control Interruption Detection**: Identify which flow control step was interrupted
+- **Step Context Restoration**: Restore accumulated context up to interruption point
+- **Partial Step Recovery**: Resume from specific flow control step
+- **Context Chain Validation**: Verify context continuity through step sequence
+
+#### Step-Level Resume Options
+```bash
+# Resume from specific flow control step
+/workflow:resume --from-step analyze_patterns impl-1.2
+
+# Retry specific step with enhanced context
+/workflow:resume --retry-step gather_context impl-1.2
+
+# Skip failing step and continue with next
+/workflow:resume --skip-step analyze_patterns impl-1.2
+```
+
+### Enhanced Context Recovery
+- **Dependency Summary Integration**: Automatic loading of prerequisite task summaries
+- **Variable State Restoration**: Restore step output variables from previous execution
+- **Command State Recovery**: Detect partial command execution and resume appropriately
+- **Error Context Preservation**: Maintain error information for improved retry strategies
+
 ### Checkpoint System
-- **Automatic Checkpoints**: Created after each successful task completion
-- **Checkpoint Validation**: Verify codebase state matches expected progress
-- **Rollback Capability**: Option to resume from previous valid checkpoint
+- **Step-Level Checkpoints**: Created after each successful flow control step
+- **Context State Snapshots**: Save variable states at each checkpoint
+- **Rollback Capability**: Option to resume from previous valid step checkpoint
 
 ### Parallel Task Recovery
 ```bash

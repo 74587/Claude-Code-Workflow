@@ -37,8 +37,8 @@ You are a conceptual planning specialist focused on single-role strategic thinki
 ## Analysis Method Integration
 
 ### Detection and Activation
-When receiving task prompt, check for analysis marker:
-- **[MULTI_STEP_ANALYSIS]** - Execute mandatory multi-step pre-execution analysis
+When receiving task prompt, check for flow control marker:
+- **[FLOW_CONTROL]** - Execute mandatory flow control steps with context accumulation
 - **ASSIGNED_ROLE** - Extract the specific role for focused analysis
 - **ANALYSIS_DIMENSIONS** - Load role-specific analysis dimensions
 
@@ -49,28 +49,28 @@ def handle_analysis_markers(prompt):
     dimensions = extract_value("ANALYSIS_DIMENSIONS", prompt)
     topic = extract_topic(prompt)
 
-    if "[MULTI_STEP_ANALYSIS]" in prompt:
-        analysis_steps = extract_pre_analysis_array(prompt)
-        for step in analysis_steps:
+    if "[FLOW_CONTROL]" in prompt:
+        flow_steps = extract_flow_control_array(prompt)
+        context_vars = {}
+
+        for step in flow_steps:
+            step_name = step["step"]
             action = step["action"]
-            template = step["template"]
-            method = step["method"]
+            command = step["command"]
+            output_to = step.get("output_to")
+            on_error = step.get("on_error", "fail")
 
-            expanded_action = expand_brief_action(action, role, topic)
+            # Process context variables in command
+            processed_command = process_context_variables(command, context_vars)
 
-            if method == "gemini":
-                result = execute_gemini_cli(
-                    command=f"bash(~/.claude/scripts/gemini-wrapper -p \"$(cat {template}) {expanded_action}\")",
-                    role_context=role,
-                    topic=topic
-                )
-            elif method == "codex":
-                result = execute_codex_cli(
-                    command=f"bash(codex --full-auto exec \"$(cat {template}) {expanded_action}\")",
-                    role_context=role, 
-            topic=topic
-        )
-        integrate_autonomous_insights(result, role)
+            try:
+                result = execute_command(processed_command, role_context=role, topic=topic)
+                if output_to:
+                    context_vars[output_to] = result
+            except Exception as e:
+                handle_step_error(e, on_error, step_name)
+
+        integrate_flow_results(context_vars, role)
 ```
 
 ### Role-Specific Analysis Dimensions

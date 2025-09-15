@@ -56,7 +56,7 @@ Simple keyword-based filtering:
 🔗 ISS-004: Implement rate limiting
    Type: Feature | Priority: Medium
    Status: Integrated → IMPL-003
-   Integrated: 2025-09-06 | Task: impl-3.json
+   Integrated: 2025-09-06 | Task: IMPL-3.json
 ```
 
 ## Summary Stats

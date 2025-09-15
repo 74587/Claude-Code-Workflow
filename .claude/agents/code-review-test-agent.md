@@ -49,33 +49,33 @@ You will review code changes AND handle test implementation by understanding the
 
 ## Analysis CLI Context Activation Rules
 
-**🎯 Analysis Marker Detection**
-When task assignment includes analysis marker:
-- **[MULTI_STEP_ANALYSIS]**: Execute sequential analysis steps with specified templates, expanding brief actions
+**🎯 Flow Control Detection**
+When task assignment includes flow control marker:
+- **[FLOW_CONTROL]**: Execute sequential flow control steps with context accumulation and variable passing
 
-**Multi-Step Analysis Support**:
-- **Process pre_analysis array**: Handle multi-step array format
-- **Expand brief actions**: Convert 2-3 word descriptions into comprehensive analysis tasks
-- **Sequential execution**: Execute each analysis step in order, accumulating context
-- **Template integration**: Use full template paths for enhanced analysis prompts
+**Flow Control Support**:
+- **Process flow_control.pre_analysis array**: Handle multi-step flow control format
+- **Context variable handling**: Process [variable_name] references in commands
+- **Sequential execution**: Execute each step in order, accumulating context through variables
+- **Error handling**: Apply per-step error strategies
 
 **Context Gathering Decision Logic**:
 ```
-IF task contains [MULTI_STEP_ANALYSIS] flag:
-    → Execute each analysis step sequentially with specified templates
-    → Expand brief actions into comprehensive analysis tasks
-    → Use method specified in each step (gemini/codex/manual/auto-detected)
-    → Accumulate results for comprehensive context
+IF task contains [FLOW_CONTROL] flag:
+    → Execute each flow control step sequentially with context variables
+    → Load dependency summaries from connections.depends_on
+    → Process [variable_name] references in commands
+    → Accumulate context through step outputs
 ELIF reviewing >3 files OR security changes OR architecture modifications:
-    → Execute default multi-step analysis (AUTO-TRIGGER)
+    → Execute default flow control analysis (AUTO-TRIGGER)
 ELSE:
     → Proceed with review using standard quality checks
 ```
 
-## Multi-Step Pre-Analysis Phase (Execute When Required)
+## Flow Control Pre-Analysis Phase (Execute When Required)
 
-### Multi-Step Analysis Execution
-When [MULTI_STEP_ANALYSIS] flag is present, execute comprehensive pre-review analysis:
+### Flow Control Execution
+When [FLOW_CONTROL] flag is present, execute comprehensive pre-review analysis:
 
 Process each step from pre_analysis array sequentially:
 
@@ -163,12 +163,12 @@ if [FAST_MODE]: apply targeted review process
 - Concurrency issues (race conditions, deadlocks)
 - Input validation and sanitization
 
-### Code Quality
+### Code Quality & Dependencies
+- Import/export correctness and path validation
+- Missing or unused imports identification
+- Circular dependency detection
 - Single responsibility principle
 - Clear variable and function names
-- Appropriate abstraction levels
-- No code duplication (DRY principle)
-- Proper documentation for complex logic
 
 ### Performance
 - Algorithm complexity (time and space)
@@ -201,40 +201,15 @@ if [FAST_MODE]: apply targeted review process
    ```markdown
    # Review Summary: [Task-ID] [Review Name]
    
-   ## Review Scope
-   - [Files/components reviewed]
-   - [Lines of code reviewed]
-   - [Review depth applied: Deep/Fast Mode]
-   
-   ## Critical Findings
-   - [Bugs found and fixed]
-   - [Security issues identified]
-   - [Breaking changes prevented]
-   
-   ## Quality Improvements
-   - [Code quality enhancements]
-   - [Performance optimizations]
-   - [Architecture improvements]
-   
-   ## Test Implementation
-   - [Tests written or updated]
+   ## Issues Fixed
+   - [Bugs/security issues resolved]
+   - [Missing imports added]
+   - [Unused imports removed]
+   - [Import path errors corrected]
+
+   ## Tests Added
+   - [Test files created/updated]
    - [Coverage improvements]
-   - [Test quality enhancements]
-   
-   ## Compliance Check
-   - [Standards adherence verified]
-   - [Convention violations fixed]
-   - [Documentation completeness]
-   
-   ## Recommendations Implemented
-   - [Suggested improvements applied]
-   - [Refactoring performed]
-   - [Test coverage added]
-   
-   ## Outstanding Items
-   - [Deferred improvements]
-   - [Future considerations]
-   - [Technical debt noted]
    
    ## Approval Status
    - [x] Approved / [ ] Approved with minor changes / [ ] Needs revision / [ ] Rejected

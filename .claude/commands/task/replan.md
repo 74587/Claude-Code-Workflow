@@ -4,9 +4,9 @@ description: Replan individual tasks with detailed user input and change trackin
 usage: /task:replan <task-id> [input]
 argument-hint: task-id ["text"|file.md|ISS-001]
 examples:
-  - /task:replan impl-1 "Add OAuth2 authentication support"
-  - /task:replan impl-1 updated-specs.md
-  - /task:replan impl-1 ISS-001
+  - /task:replan IMPL-1 "Add OAuth2 authentication support"
+  - /task:replan IMPL-1 updated-specs.md
+  - /task:replan IMPL-1 ISS-001
 ---
 
 # Task Replan Command (/task:replan)
@@ -29,24 +29,24 @@ Replans individual tasks with multiple input options, change tracking, and versi
 
 ### Direct Text (Default)
 ```bash
-/task:replan impl-1 "Add OAuth2 authentication support"
+/task:replan IMPL-1 "Add OAuth2 authentication support"
 ```
 
 ### File-based Input
 ```bash
-/task:replan impl-1 updated-specs.md
+/task:replan IMPL-1 updated-specs.md
 ```
 Supports: .md, .txt, .json, .yaml
 
 ### Issue Reference
 ```bash
-/task:replan impl-1 ISS-001
+/task:replan IMPL-1 ISS-001
 ```
 Loads issue description and requirements
 
 ### Interactive Mode
 ```bash
-/task:replan impl-1 --interactive
+/task:replan IMPL-1 --interactive
 ```
 Guided step-by-step modification process with validation
 
@@ -65,14 +65,14 @@ Guided step-by-step modification process with validation
 Tasks maintain version history:
 ```json
 {
-  "id": "impl-1",
+  "id": "IMPL-1",
   "version": "1.2",
   "replan_history": [
     {
       "version": "1.2",
       "reason": "Add OAuth2 support",
       "input_source": "direct_text",
-      "backup_location": ".task/versions/impl-1-v1.1.json"
+      "backup_location": ".task/versions/IMPL-1-v1.1.json"
     }
   ]
 }
@@ -83,9 +83,9 @@ Tasks maintain version history:
 ### File Structure
 ```
 .task/
-├── impl-1.json                    # Current version
+├── IMPL-1.json                    # Current version
 ├── versions/
-│   └── impl-1-v1.1.json          # Previous backup
+│   └── IMPL-1-v1.1.json          # Previous backup
 └── [new subtasks as needed]
 ```
 
@@ -135,7 +135,7 @@ Updates workflow-session.json with:
 ## Rollback Support
 
 ```bash
-/task:replan impl-1 --rollback v1.1
+/task:replan IMPL-1 --rollback v1.1
 
 Rollback to version 1.1:
 - Restore task from backup
@@ -151,7 +151,7 @@ Confirm rollback? (y/n): y
 
 ### Text Input
 ```bash
-/task:replan impl-1 "Add OAuth2 authentication support"
+/task:replan IMPL-1 "Add OAuth2 authentication support"
 
 Processing changes...
 Proposed updates:
@@ -167,7 +167,7 @@ Apply changes? (y/n): y
 
 ### File Input
 ```bash
-/task:replan impl-2 requirements.md
+/task:replan IMPL-2 requirements.md
 
 Loading requirements.md...
 Applying specification changes...
@@ -180,11 +180,11 @@ Applying specification changes...
 
 ```bash
 # Task not found
-❌ Task impl-5 not found
+❌ Task IMPL-5 not found
 → Check task ID with /context
 
 # Task completed
-⚠️ Task impl-1 is completed (cannot replan)
+⚠️ Task IMPL-1 is completed (cannot replan)
 → Create new task for additional work
 
 # File not found

@@ -4,122 +4,116 @@
 Task commands provide single-execution workflow capabilities with full context awareness, hierarchical organization, and agent orchestration.
 
 ## Task JSON Schema
-All task files use this unified 10-field structure:
+All task files use this simplified 5-field schema (aligned with workflow-architecture.md):
 
 ```json
 {
-  "id": "impl-1",
-  "title": "Build authentication module",
+  "id": "IMPL-1.2",
+  "title": "Implement JWT authentication",
   "status": "pending|active|completed|blocked|container",
-  "type": "feature|bugfix|refactor|test|docs",
-  "agent": "code-developer|planning-agent|code-review-test-agent",
-  "paths": "src/auth;tests/auth;config/auth.json;src/middleware/auth.ts",
+
+  "meta": {
+    "type": "feature|bugfix|refactor|test|docs",
+    "agent": "code-developer|planning-agent|code-review-test-agent"
+  },
 
   "context": {
     "requirements": ["JWT authentication", "OAuth2 support"],
-    "scope": ["src/auth/*", "tests/auth/*"],
-    "acceptance": ["Module handles JWT tokens", "OAuth2 flow implemented"],
-    "inherited_from": "WFS-user-auth"
-  },
-
-  "relations": {
-    "parent": null,
-    "subtasks": ["impl-1.1", "impl-1.2"],
-    "dependencies": ["impl-0"]
-  },
-
-  "execution": {
-    "attempts": 0,
-    "last_attempt": null
-  },
-
-  "implementation": {
-    "preparation_complexity": "simple|moderate|complex",
-    "preparation_tasks": [
-      "Review existing auth patterns",
-      "Check JWT library compatibility"
-    ],
-    "estimated_prep_time": "20min",
-    "files": [
-      {
-        "path": "src/auth/login.ts",
-        "location": {
-          "function": "handleLogin",
-          "lines": "75-120",
-          "description": "Core login handler function"
-        },
-        "original_code": "// Requires gemini analysis for code extraction",
-        "modifications": {
-          "current_state": "Basic password validation",
-          "proposed_changes": [
-            "Add JWT token generation",
-            "Integrate OAuth2 flow"
-          ],
-          "logic_flow": [
-            "validateInput() ───► checkCredentials()",
-            "◊─── if valid ───► generateJWT() ───► return token"
-          ],
-          "reason": "Meet JWT and OAuth2 requirements",
-          "expected_outcome": "Flexible login system"
-        }
-      }
-    ],
-    "context_notes": {
-      "dependencies": ["jsonwebtoken", "passport-oauth2"],
-      "affected_modules": ["user-profile", "session-manager"],
-      "risks": ["Breaking auth middleware changes"],
-      "performance_considerations": "JWT adds ~5ms latency",
-      "error_handling": "No sensitive data in errors"
+    "focus_paths": ["src/auth", "tests/auth", "config/auth.json"],
+    "acceptance": ["JWT validation works", "OAuth flow complete"],
+    "parent": "IMPL-1",
+    "depends_on": ["IMPL-1.1"],
+    "inherited": {
+      "from": "IMPL-1",
+      "context": ["Authentication system design completed"]
     },
+    "shared_context": {
+      "auth_strategy": "JWT with refresh tokens"
+    }
+  },
+
+  "flow_control": {
     "pre_analysis": [
       {
-        "action": "analyze patterns",
-        "template": "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt",
-        "method": "gemini"
-      },
-      {
-        "action": "implement feature",
-        "template": "~/.claude/workflows/cli-templates/prompts/development/feature.txt",
-        "method": "codex"
+        "step": "gather_context",
+        "action": "Read dependency summaries",
+        "command": "bash(cat .workflow/*/summaries/IMPL-1.1-summary.md)",
+        "output_to": "auth_design_context",
+        "on_error": "skip_optional"
       }
+    ],
+    "implementation_approach": {
+      "task_description": "Implement comprehensive JWT authentication system...",
+      "modification_points": ["Add JWT token generation...", "..."],
+      "logic_flow": ["User login request → validate credentials...", "..."]
+    },
+    "target_files": [
+      "src/auth/login.ts:handleLogin:75-120",
+      "src/middleware/auth.ts:validateToken"
     ]
   }
 }
 ```
 
-## Implementation Field Details
+## Field Structure Details
 
-### preparation_complexity Assessment
-- **simple**: <30min prep, ≤3 files, single module → merge with execution
-- **moderate**: Cross-module analysis, 30min-2h → consider separation
-- **complex**: Architecture design, >2h, >5 modules → separate preparation
+### focus_paths Field (within context)
+**Purpose**: Specifies concrete project paths relevant to task implementation
 
-### files Array Structure
-- **path**: Specific file path
-- **location**: Function/class/line range
-- **original_code**: Current code (or "requires gemini analysis")
-- **modifications**: Detailed change specification
+**Format**:
+- **Array of strings**: `["folder1", "folder2", "specific_file.ts"]`
+- **Concrete paths**: Use actual directory/file names without wildcards
+- **Mixed types**: Can include both directories and specific files
+- **Relative paths**: From project root (e.g., `src/auth`, not `./src/auth`)
 
-### context_notes Requirements
-- **dependencies**: Required packages
-- **affected_modules**: Impact scope
-- **risks**: Specific implementation risks
-- **performance_considerations**: Performance impact
-- **error_handling**: Error handling requirements
+**Examples**:
+```json
+// Authentication system task
+"focus_paths": ["src/auth", "tests/auth", "config/auth.json", "src/middleware/auth.ts"]
 
-### pre_analysis Options
-- **manual**: User-provided details
-- **auto-detected**: System-inferred
-- **gemini**: Requires Gemini CLI analysis
-- **codex**: Requires Codex CLI analysis
+// UI component task
+"focus_paths": ["src/components/Button", "src/styles", "tests/components"]
+```
+
+### flow_control Field Structure
+**Purpose**: Universal process manager for task execution
+
+**Components**:
+- **pre_analysis**: Array of sequential process steps
+- **implementation_approach**: Task execution strategy
+- **target_files**: Specific files to modify in "file:function:lines" format
+
+**Step Structure**:
+```json
+{
+  "step": "gather_context",
+  "action": "Human-readable description",
+  "command": "bash(executable command with [variables])",
+  "output_to": "variable_name",
+  "on_error": "skip_optional|fail|retry_once|manual_intervention"
+}
+```
 
 ## Hierarchical System
 
 ### Task Hierarchy Rules
-- **Format**: impl-N (main), impl-N.M (subtasks)
+- **Format**: IMPL-N (main), IMPL-N.M (subtasks) - uppercase required
 - **Maximum Depth**: 2 levels only
+- **10-Task Limit**: Hard limit enforced across all tasks
 - **Container Tasks**: Parents with subtasks (not executable)
 - **Leaf Tasks**: No subtasks (executable)
+- **File Cohesion**: Related files must stay in same task
+
+### Task Complexity Classifications
+- **Simple**: ≤5 tasks, single-level tasks, direct execution
+- **Medium**: 6-10 tasks, two-level hierarchy, context coordination
+- **Over-scope**: >10 tasks requires project re-scoping into iterations
+
+### Complexity Assessment Rules
+- **Creation**: System evaluates and assigns complexity
+- **10-task limit**: Hard limit enforced - exceeding requires re-scoping
+- **Execution**: Can upgrade (Simple→Medium→Over-scope), triggers re-scoping
+- **Override**: Users can manually specify complexity within 10-task limit
 
 ### Status Rules
 - **pending**: Ready for execution
@@ -143,7 +137,7 @@ Tasks inherit from:
 3. `IMPL_PLAN.md` - Planning document
 
 ### File Locations
-- **Task JSON**: `.workflow/WFS-[topic]/.task/impl-*.json`
+- **Task JSON**: `.workflow/WFS-[topic]/.task/IMPL-*.json` (uppercase required)
 - **Session State**: `.workflow/WFS-[topic]/workflow-session.json`
 - **Planning Doc**: `.workflow/WFS-[topic]/IMPL_PLAN.md`
 - **Progress**: `.workflow/WFS-[topic]/TODO_LIST.md`
@@ -163,19 +157,22 @@ Each agent receives tailored context:
 - **test-agent**: Files to test, logic flows to validate
 - **review-agent**: Quality standards, security considerations
 
-## Paths Field Format
+## Deprecated Fields
 
-### Structure
-Semicolon-separated list of concrete paths:
+### Legacy paths Field
+**Deprecated**: The semicolon-separated `paths` field has been replaced by `context.focus_paths` array.
+
+**Old Format** (no longer used):
 ```json
 "paths": "src/auth;tests/auth;config/auth.json;src/middleware/auth.ts"
 ```
 
-### Selection Strategy
-- **Directories**: Relevant module directories
-- **Specific Files**: Explicitly mentioned files
-- **No Wildcards**: Use concrete paths only
-- **Focus Scope**: Only task-related paths
+**New Format** (use this instead):
+```json
+"context": {
+  "focus_paths": ["src/auth", "tests/auth", "config/auth.json", "src/middleware/auth.ts"]
+}
+```
 
 ## Validation Rules
 
@@ -184,7 +181,9 @@ Semicolon-separated list of concrete paths:
 2. Task status allows operation
 3. Dependencies are met
 4. Active workflow session exists
-5. Implementation field is complete
+5. All 5 core fields present (id, title, status, meta, context, flow_control)
+6. Total task count ≤ 10 (hard limit)
+7. File cohesion maintained in focus_paths
 
 ### Hierarchy Validation
 - Parent-child relationships valid

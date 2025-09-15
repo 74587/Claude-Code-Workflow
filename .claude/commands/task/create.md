@@ -20,7 +20,7 @@ Creates new implementation tasks with automatic context awareness and ID generat
 ## Core Features
 
 ### Automatic Behaviors
-- **ID Generation**: Auto-generates impl-N format (max 2 levels)
+- **ID Generation**: Auto-generates IMPL-N format (max 2 levels)
 - **Context Inheritance**: Inherits from active workflow session
 - **JSON Creation**: Creates task JSON in active session
 - **Status Setting**: Initial status = "pending"
@@ -42,7 +42,7 @@ Creates new implementation tasks with automatic context awareness and ID generat
 
 Output:
 ```
-✅ Task created: impl-1
+✅ Task created: IMPL-1
 Title: Build authentication module
 Type: feature
 Agent: code-developer
@@ -59,7 +59,7 @@ Status: pending
 ## Task Creation Process
 
 1. **Session Validation**: Check active workflow session
-2. **ID Generation**: Auto-increment impl-N
+2. **ID Generation**: Auto-increment IMPL-N
 3. **Context Inheritance**: Load workflow context
 4. **Implementation Setup**: Initialize implementation field
 5. **Agent Assignment**: Select appropriate agent
@@ -85,7 +85,7 @@ Suggest running: gemini analysis for file locations and dependencies
 ## File Management
 
 ### JSON Task File
-- **Location**: `.task/impl-[N].json` in active session
+- **Location**: `.task/IMPL-[N].json` in active session
 - **Content**: Complete task with implementation field
 - **Updates**: Session stats only
 
@@ -100,7 +100,7 @@ Suggest running: gemini analysis for file locations and dependencies
 Tasks inherit from:
 1. **Active Session** - Requirements and scope from workflow-session.json
 2. **Planning Document** - Context from IMPL_PLAN.md
-3. **Parent Task** - For subtasks (impl-N.M format)
+3. **Parent Task** - For subtasks (IMPL-N.M format)
 
 ## Agent Assignment
 
@@ -125,12 +125,12 @@ Based on task type and title keywords:
 → Use: /workflow init "project name"
 
 # Duplicate task
-⚠️ Similar task exists: impl-3
+⚠️ Similar task exists: IMPL-3
 → Continue anyway? (y/n)
 
 # Max depth exceeded
-❌ Cannot create impl-1.2.1 (max 2 levels)
-→ Use: impl-2 for new main task
+❌ Cannot create IMPL-1.2.1 (max 2 levels)
+→ Use: IMPL-2 for new main task
 ```
 
 ## Examples
@@ -139,7 +139,7 @@ Based on task type and title keywords:
 ```bash
 /task:create "Implement user authentication"
 
-✅ Created impl-1: Implement user authentication
+✅ Created IMPL-1: Implement user authentication
 Type: feature
 Agent: code-developer
 Status: pending
@@ -149,7 +149,7 @@ Status: pending
 ```bash
 /task:create "Fix login validation bug" --type=bugfix
 
-✅ Created impl-2: Fix login validation bug
+✅ Created IMPL-2: Fix login validation bug
 Type: bugfix
 Agent: code-developer
 Status: pending

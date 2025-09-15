@@ -1,179 +1,85 @@
 # Workflow Architecture
 
-## Overview
+## Overview & Core Principles
 
-This document defines the complete workflow system architecture using a **JSON-only data model**, **marker-based session management**, and **unified file structure** with dynamic task decomposition.
+This document defines a streamlined workflow system architecture featuring **JSON-only data model**, **marker-based session management**, and **unified file structure** with dynamic task decomposition.
 
-## Core Architecture Principles
+### Design Philosophy
+- **JSON-first data model** - JSON files are single source of truth; markdown is generated views
+- **Marker-based sessions** - Ultra-simple active session tracking via marker files
+- **Unified structure** - Same file template for all workflows, created on-demand
+- **Dynamic decomposition** - Tasks break down as needed during execution
+- **On-demand creation** - Files and directories created only when required
+- **Agent autonomy** - Complete context preserved for independent execution
 
-### Key Design Decisions
-- **JSON files are the single source of truth** - All markdown documents are read-only generated views
-- **Marker files for session tracking** - Ultra-simple active session management
-- **Unified file structure definition** - Same structure template for all workflows, created on-demand
-- **Dynamic task decomposition** - Subtasks created as needed during execution
-- **On-demand file creation** - Directories and files created only when required
-- **Agent-agnostic task definitions** - Complete context preserved for autonomous execution
+## Data Architecture
 
-## Session Management
+### JSON-Only Data Model
+**Core Principle**: JSON files are the authoritative source; markdown documents are read-only generated views.
 
-### Active Session Marker System
-**Ultra-Simple Active Tracking**: `.workflow/.active-[session-name]`
-
-```bash
-.workflow/
-├── WFS-oauth-integration/         # Session directory (paused)
-├── WFS-user-profile/             # Session directory (paused)
-├── WFS-bug-fix-123/              # Session directory (completed)
-└── .active-WFS-user-profile      # Marker file (indicates active session)
-```
-
-**Marker File Benefits**:
-- **Zero Parsing**: File existence check is atomic and instant
-- **Atomic Operations**: File creation/deletion is naturally atomic  
-- **Visual Discovery**: `ls .workflow/.active-*` shows active session immediately
-- **Simple Switching**: Delete old marker + create new marker = session switch
-
-### Session Operations
-
-#### Detect Active Session
-```bash
-active_session=$(find .workflow -name ".active-*" | head -1)
-if [ -n "$active_session" ]; then
-  session_name=$(basename "$active_session" | sed 's/^\.active-//')
-  echo "Active session: $session_name"
-fi
-```
-
-#### Switch Session
-```bash
-find .workflow -name ".active-*" -delete && touch .workflow/.active-WFS-new-feature
-```
-
-### Individual Session Tracking
-Each session directory contains `workflow-session.json`:
-
-```json
-{
-  "session_id": "WFS-[topic-slug]",
-  "project": "feature description",
-  "type": "simple|medium|complex", 
-  "current_phase": "PLAN|IMPLEMENT|REVIEW",
-  "status": "active|paused|completed",
-  "progress": {
-    "completed_phases": ["PLAN"],
-    "current_tasks": ["impl-1", "impl-2"]
-  }
-}
-```
-
-## Data Model
-
-### JSON-Only Architecture
-**JSON files (.task/impl-*.json) are the only authoritative source of task state. All markdown documents are read-only generated views.**
-
-- **Task State**: Stored exclusively in JSON files
+- **Task State**: Stored exclusively in `.task/IMPL-*.json` files
 - **Documents**: Generated on-demand from JSON data
 - **No Synchronization**: Eliminates bidirectional sync complexity
 - **Performance**: Direct JSON access without parsing overhead
 
 ### Task JSON Schema
-All task files use this 10-field schema:
+All task files use this simplified 5-field schema:
 
 ```json
 {
-  "id": "impl-1",
-  "title": "Build authentication module",
+  "id": "IMPL-1.2",
+  "title": "Implement JWT authentication",
   "status": "pending|active|completed|blocked|container",
-  "type": "feature|bugfix|refactor|test|docs", 
-  "agent": "code-developer|planning-agent|code-review-test-agent",
-  "paths": "src/auth;tests/auth;config/auth.json;src/middleware/auth.ts",
-  
+
+  "meta": {
+    "type": "feature|bugfix|refactor|test|docs",
+    "agent": "code-developer|planning-agent|code-review-test-agent"
+  },
+
   "context": {
     "requirements": ["JWT authentication", "OAuth2 support"],
-    "scope": ["src/auth/*", "tests/auth/*"],
-    "acceptance": ["Module handles JWT tokens", "OAuth2 flow implemented"],
-    "inherited_from": "WFS-user-auth"
-  },
-  
-  "relations": {
-    "parent": null,
-    "subtasks": ["impl-1.1", "impl-1.2"],
-    "dependencies": ["impl-0"]
-  },
-  
-  "execution": {
-    "attempts": 0,
-    "last_attempt": null
-  },
-  
-  "implementation": {
-    "preparation_complexity": "simple|moderate|complex",
-    "preparation_tasks": [
-      "Review existing auth patterns",
-      "Check JWT library compatibility",
-      "Analyze current session management"
-    ],
-    "estimated_prep_time": "20min",
-    "files": [
-      {
-        "path": "src/auth/login.ts",
-        "location": {
-          "function": "handleLogin",
-          "lines": "75-120",
-          "description": "Core logic of login handler function"
-        },
-        "original_code": "// Related code not provided, requires gemini analysis",
-        "modifications": {
-          "current_state": "Currently using simple password validation",
-          "proposed_changes": [
-            "Add JWT token generation logic",
-            "Integrate OAuth2 authentication flow",
-            "Enhance error handling mechanisms"
-          ],
-          "logic_flow": [
-            "validateInput() ───► checkCredentials()",
-            "◊─── if valid ───► generateJWT() ───► return token",
-            "◊─── if OAuth ───► redirectToProvider() ───► handleCallback()",
-            "◊─── if error ───► logError() ───► return errorResponse"
-          ],
-          "reason": "Meet JWT and OAuth2 authentication requirements, enhance security",
-          "expected_outcome": "Flexible login system supporting multiple authentication methods"
-        }
-      }
-    ],
-    "context_notes": {
-      "dependencies": ["jsonwebtoken", "passport-oauth2"],
-      "affected_modules": ["user-profile", "session-manager"],
-      "risks": [
-        "Need to update authentication middleware for all API endpoints",
-        "May affect existing user sessions",
-        "Require database migration to add token storage table"
-      ],
-      "performance_considerations": "JWT validation will add approximately 5ms latency",
-      "error_handling": "Ensure sensitive information is not leaked in error responses"
+    "focus_paths": ["src/auth", "tests/auth", "config/auth.json"],
+    "acceptance": ["JWT validation works", "OAuth flow complete"],
+    "parent": "IMPL-1",
+    "depends_on": ["IMPL-1.1"],
+    "inherited": {
+      "from": "IMPL-1",
+      "context": ["Authentication system design completed"]
     },
+    "shared_context": {
+      "auth_strategy": "JWT with refresh tokens"
+    }
+  },
+
+  "flow_control": {
     "pre_analysis": [
       {
-        "action": "analyze patterns",
-        "template": "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt",
-        "method": "gemini"
-      },
-      {
-        "action": "generate implementation",
-        "template": "~/.claude/workflows/cli-templates/prompts/development/feature.txt",
-        "method": "codex"
+        "step": "gather_context",
+        "action": "Read dependency summaries",
+        "command": "bash(cat .workflow/*/summaries/IMPL-1.1-summary.md)",
+        "output_to": "auth_design_context",
+        "on_error": "skip_optional"
       }
+    ],
+    "implementation_approach": {
+      "task_description": "Implement comprehensive JWT authentication system...",
+      "modification_points": ["Add JWT token generation...", "..."],
+      "logic_flow": ["User login request → validate credentials...", "..."]
+    },
+    "target_files": [
+      "src/auth/login.ts:handleLogin:75-120",
+      "src/middleware/auth.ts:validateToken"
     ]
   }
 }
 ```
 
-### Paths Field Details
+### Focus Paths Field Details
 
-The **paths** field specifies concrete project paths (folders and files) relevant to the task implementation:
+The **focus_paths** field within **context** specifies concrete project paths relevant to the task implementation:
 
-#### Path Format
-- **Semicolon-separated list**: `"folder1;folder2;specific_file.ts"`
+#### Focus Paths Format
+- **Array of strings**: `["folder1", "folder2", "specific_file.ts"]`
 - **Concrete paths**: Use actual directory/file names without wildcards
 - **Mixed types**: Can include both directories and specific files
 - **Relative paths**: From project root (e.g., `src/auth`, not `./src/auth`)
@@ -187,193 +93,226 @@ The **paths** field specifies concrete project paths (folders and files) relevan
 #### Examples
 ```json
 // Authentication system task
-"paths": "src/auth;tests/auth;config/auth.json;src/middleware/auth.ts"
+"focus_paths": ["src/auth", "tests/auth", "config/auth.json", "src/middleware/auth.ts"]
 
 // UI component task
-"paths": "src/components/Button;src/styles;tests/components"
+"focus_paths": ["src/components/Button", "src/styles", "tests/components"]
 
-// Database migration task  
-"paths": "migrations;src/models;config/database.json"
+// Database migration task
+"focus_paths": ["migrations", "src/models", "config/database.json"]
 ```
 
-### Implementation Field Details
+### Flow Control Field Details
 
-The **implementation** field provides detailed code implementation guidance with 4 core components:
+The **flow_control** field serves as a universal process manager for task execution with comprehensive flow orchestration:
 
-#### files Array - Detailed File Information
-- **path**: File path or filename
-- **location**: Specific code location (function name, class name, line range)
-- **original_code**: Original code snippet to be modified (mark as "requires gemini analysis" if not obtained)
-- **modifications**: Modification details
-  - **current_state**: Brief description of current code state
-  - **proposed_changes**: Step-by-step list of modification points
-  - **logic_flow**: Data flow and call relationship diagram
-  - **reason**: Modification rationale and objectives
-  - **expected_outcome**: Expected results
+#### pre_analysis Array - Sequential Process Steps
+Each step contains:
+- **step**: Unique identifier for the step
+- **action**: Human-readable description of what the step does
+- **command**: Executable command wrapped in `bash()` with embedded context variables (e.g., `bash(command with [variable_name])`)
+- **output_to**: Variable name to store step results (optional for final steps)
+- **on_error**: Error handling strategy (`skip_optional`, `fail`, `retry_once`, `manual_intervention`)
+- **success_criteria**: Optional validation criteria (e.g., `exit_code:0`)
 
-#### preparation_complexity - Task Saturation Assessment
-- **simple**: Preparation work < 30min, ≤ 3 files, single module → Merge with execution
-- **moderate**: Cross-module analysis needed, 30min-2h prep → Consider separation
-- **complex**: Architecture design, >2h prep, >5 modules → Separate preparation task
+#### Context Flow Management
+- **Variable Accumulation**: Each step can reference outputs from previous steps via `[variable_name]`
+- **Context Inheritance**: Steps can use dependency summaries and parent task context
+- **Pipeline Processing**: Results flow sequentially through the analysis chain
 
-#### preparation_tasks - Preparation Work List
-- Array of specific preparation activities to be performed
-- Used to estimate complexity and decide merge/split strategy
-- Examples: ["Review patterns", "Check dependencies", "Analyze performance"]
+#### Variable Reference Format
+- **Context Variables**: Use `[variable_name]` to reference step outputs
+- **Task Properties**: Use `[depends_on]`, `[focus_paths]` to reference task JSON properties
+- **Bash Compatibility**: Avoids conflicts with bash `${}` variable expansion
 
-#### estimated_prep_time - Time Estimation
-- String format time estimate (e.g., "20min", "2h", "half-day")
-- Helps determine if preparation should be merged with execution
+#### Command Types Supported
+- **CLI Analysis**: `bash(~/.claude/scripts/gemini-wrapper -p 'prompt')`
+- **Agent Execution**: `bash(codex --full-auto exec 'task description')`
+- **Shell Commands**: `bash(cat)`, `bash(grep)`, `bash(find)`, `bash(custom scripts)`
+- **Context Processing**: `bash(file reading)`, `bash(dependency loading)`, `bash(context merging)`
 
-#### context_notes - Implementation Context Information
-- **dependencies**: Required dependency packages or modules
-- **affected_modules**: Other modules that will be affected
-- **risks**: Potential risk points and cascading effects
-- **performance_considerations**: Performance impact assessment
-- **error_handling**: Error handling requirements
+#### Error Handling Strategies
+- **skip_optional**: Continue execution, step result is empty
+- **fail**: Stop execution, mark task as failed
+- **retry_once**: Retry step once, then fail if still unsuccessful
+- **manual_intervention**: Pause execution for manual review
 
-#### pre_analysis - Information Source Identifier
-- **manual**: Detailed information manually provided by user
-- **gemini**: Automatically obtained through Gemini CLI analysis
-- **codex**: Automatically obtained through Codex CLI analysis
-- **auto-detected**: Auto-detected based on task type and context
+#### Example Flow Control Patterns
 
-### Hierarchical Task System
-**Maximum Depth**: 2 levels (impl-N.M format)
+**Pattern 1: Multi-Step Analysis**
+```json
+"pre_analysis": [
+  {
+    "step": "gather_dependencies",
+    "command": "bash(for dep in ${depends_on}; do cat .summaries/$dep-summary.md; done)",
+    "output_to": "dependency_context"
+  },
+  {
+    "step": "analyze_codebase",
+    "command": "bash(gemini -p '@{[focus_paths]} using context: [dependency_context]')",
+    "output_to": "codebase_analysis"
+  }
+]
+```
+
+**Pattern 2: Direct Implementation**
+```json
+"pre_analysis": [
+  {
+    "step": "implement",
+    "command": "bash(codex --full-auto exec 'Implement [title] in [focus_paths]')"
+  }
+]
+```
+
+#### Benefits of Flow Control
+- **Universal Process Manager**: Handles any type of analysis or implementation flow
+- **Context Accumulation**: Builds comprehensive context through step chain
+- **Error Recovery**: Granular error handling at step level
+- **Command Flexibility**: Supports any executable command or agent
+- **Dependency Integration**: Automatic loading of prerequisite task results
+
+### Task Hierarchy
+**Structure**: Maximum 2 levels (IMPL-N.M format)
 
 ```
-impl-1              # Main task
-impl-1.1            # Subtask of impl-1 (dynamically created)
-impl-1.2            # Another subtask of impl-1
-impl-2              # Another main task
-impl-2.1            # Subtask of impl-2 (dynamically created)
+IMPL-1              # Main task
+IMPL-1.1            # Subtask (dynamically created)
+IMPL-1.2            # Another subtask
+IMPL-2              # Another main task
+IMPL-2.1            # Subtask (dynamically created)
 ```
 
-**Task Status Rules**:
-- **Container tasks**: Parent tasks with subtasks (cannot be directly executed)
-- **Leaf tasks**: Only these can be executed directly
+**Rules**:
+- **Container tasks**: Parent tasks with subtasks (cannot execute directly)
+- **Leaf tasks**: Only executable tasks
 - **Status inheritance**: Parent status derived from subtask completion
 
-## File Structure
+## Session Management
 
-### Unified File Structure
-All workflows use the same file structure definition regardless of complexity. **Directories and files are created on-demand as needed**, not all at once during initialization.
+### Active Session Marker System
+**Ultra-Simple Tracking**: `.workflow/.active-[session-name]`
 
-#### Complete Structure Reference
+```bash
+.workflow/
+├── WFS-oauth-integration/         # Session directory (paused)
+├── WFS-user-profile/             # Session directory (paused)
+├── WFS-bug-fix-123/              # Session directory (completed)
+└── .active-WFS-user-profile      # Marker file (active session)
+```
+
+**Benefits**:
+- **Zero Parsing**: File existence check is atomic
+- **Atomic Operations**: File creation/deletion is naturally atomic
+- **Visual Discovery**: `ls .workflow/.active-*` shows active session
+- **Simple Switching**: Delete old + create new marker
+
+### Session Operations
+
+```bash
+# Detect active session
+active_session=$(find .workflow -name ".active-*" | head -1)
+if [ -n "$active_session" ]; then
+  session_name=$(basename "$active_session" | sed 's/^\.active-//')
+  echo "Active session: $session_name"
+fi
+
+# Switch session
+find .workflow -name ".active-*" -delete && touch .workflow/.active-WFS-new-feature
+```
+
+### Session State
+Each session directory contains `workflow-session.json`:
+
+```json
+{
+  "session_id": "WFS-[topic-slug]",
+  "project": "feature description",
+  "type": "simple|medium|complex",
+  "current_phase": "PLAN|IMPLEMENT|REVIEW",
+  "status": "active|paused|completed",
+  "progress": {
+    "completed_phases": ["PLAN"],
+    "current_tasks": ["IMPL-1", "IMPL-2"]
+  }
+}
+```
+
+## File Organization
+
+### Unified Structure
+All workflows use the same structure regardless of complexity. **Files created on-demand only.**
+
 ```
 .workflow/WFS-[topic-slug]/
-├── workflow-session.json        # Session metadata and state (REQUIRED)
-├── [.brainstorming/]           # Optional brainstorming phase (created when needed)
-├── [.chat/]                    # CLI interaction sessions (created when analysis is run)
-│   ├── chat-*.md              # Saved chat sessions
-│   └── analysis-*.md          # Analysis results
+├── workflow-session.json        # Session state (REQUIRED)
 ├── IMPL_PLAN.md                # Planning document (REQUIRED)
 ├── TODO_LIST.md                # Progress tracking (REQUIRED)
-├── [.summaries/]               # Task completion summaries (created when tasks complete)
-│   ├── IMPL-*.md              # Main task summaries
-│   └── IMPL-*.*.md            # Subtask summaries
-└── .task/                      # Task definitions (REQUIRED)
-    ├── impl-*.json             # Main task definitions
-    └── impl-*.*.json           # Subtask definitions (created dynamically)
+├── .task/                      # Task definitions (REQUIRED)
+│   ├── IMPL-*.json             # Main task definitions
+│   └── IMPL-*.*.json           # Subtask definitions (dynamic)
+├── [.brainstorming/]           # Brainstorming phase (on-demand)
+├── [.chat/]                    # CLI sessions (on-demand)
+│   ├── chat-*.md              # Saved chat sessions
+│   └── analysis-*.md          # Analysis results
+└── [.summaries/]               # Task summaries (on-demand)
+    ├── IMPL-*.md              # Main task summaries
+    └── IMPL-*.*.md            # Subtask summaries
 ```
 
-#### Creation Strategy
-- **Initial Setup**: Create only `workflow-session.json`, `IMPL_PLAN.md`, `TODO_LIST.md`, and `.task/` directory
-- **On-Demand Creation**: Other directories created when first needed:
-  - `.brainstorming/` → When brainstorming phase is initiated
-  - `.chat/` → When CLI analysis commands are executed
-  - `.summaries/` → When first task is completed
-- **Dynamic Files**: Subtask JSON files created during task decomposition
+### Creation Strategy
+- **Initial**: Only `workflow-session.json`, `IMPL_PLAN.md`, `TODO_LIST.md`, `.task/`
+- **On-Demand**:
+  - `.brainstorming/` → When brainstorming initiated
+  - `.chat/` → When analysis commands executed
+  - `.summaries/` → When first task completed
 
-### File Naming Conventions
+### Naming Conventions
+- **Sessions**: `WFS-[topic-slug]` (lowercase with hyphens)
+- **Conflicts**: Add `-NNN` suffix if needed
+- **Documents**: Standard names (`workflow-session.json`, `IMPL_PLAN.md`, etc.)
+- **Chat**: `chat-analysis-*.md`
+- **Summaries**: `IMPL-[task-id]-summary.md`
 
-#### Session Identifiers
-**Format**: `WFS-[topic-slug]`
-- Convert topic to lowercase with hyphens (e.g., "User Auth System" → `WFS-user-auth-system`)
-- Add `-NNN` suffix only if conflicts exist (e.g., `WFS-payment-integration-002`)
+## Workflow Classification
 
-#### Document Naming
-- `workflow-session.json` - Session state (required)
-- `IMPL_PLAN.md` - Planning document (required)
-- `TODO_LIST.md` - Progress tracking (auto-generated when needed)
-- Chat sessions: `chat-analysis-*.md`
-- Task summaries: `IMPL-[task-id]-summary.md`
+### Complexity Types
+**Based on task count and decomposition needs:**
 
-## Complexity Classification
+| Type | Tasks | Depth | Behavior |
+|------|-------|-------|----------|
+| **Simple** | ≤5 | 1 level | Direct execution, minimal decomposition |
+| **Medium** | 6-10 | 2 levels | Moderate decomposition, context coordination |
+| **Over-scope** | >10 | Re-scope | Requires project re-scoping into iterations |
 
-### Task Complexity Rules
-**Complexity is determined by task count and decomposition needs:**
+### Characteristics
 
-| Complexity | Task Count | Hierarchy Depth | Decomposition Behavior |
-|------------|------------|----------------|----------------------|
-| **Simple** | <5 tasks | 1 level (impl-N) | Direct execution, minimal decomposition |
-| **Medium** | 5-15 tasks | 2 levels (impl-N.M) | Moderate decomposition, context coordination |
-| **Complex** | >15 tasks | 2 levels (impl-N.M) | Frequent decomposition, multi-agent orchestration |
+**Simple**: Bug fixes, small features, config changes
+- Single-level tasks, direct execution, ≤5 tasks
 
-### Simple Workflows
-**Characteristics**: Direct implementation tasks with clear, limited scope
-- **Examples**: Bug fixes, small feature additions, configuration changes
-- **Task Decomposition**: Usually single-level tasks, minimal breakdown needed
-- **Agent Coordination**: Direct execution without complex orchestration
+**Medium**: New features, API endpoints, schema changes
+- Two-level hierarchy, context coordination, 6-10 tasks
 
-### Medium Workflows  
-**Characteristics**: Feature implementation requiring moderate task breakdown
-- **Examples**: New features, API endpoints with integration, database schema changes
-- **Task Decomposition**: Two-level hierarchy when decomposition is needed
-- **Agent Coordination**: Context coordination between related tasks
+**Over-scope**: Major features exceeding 10 tasks
+- Requires re-scoping into smaller iterations, never >10 tasks
 
-### Complex Workflows
-**Characteristics**: System-wide changes requiring detailed decomposition
-- **Examples**: Major features, architecture refactoring, security implementations, multi-service deployments
-- **Task Decomposition**: Frequent use of two-level hierarchy with dynamic subtask creation
-- **Agent Coordination**: Multi-agent orchestration with deep context analysis
+### Assessment Rules
+- **Creation**: System evaluates and assigns complexity
+- **10-task limit**: Hard limit enforced - exceeding requires re-scoping
+- **Execution**: Can upgrade (Simple→Medium→Over-scope), triggers re-scoping
+- **Override**: Users can manually specify complexity within 10-task limit
 
-### Automatic Assessment & Upgrades
-- **During Creation**: System evaluates requirements and assigns complexity
-- **During Execution**: Can upgrade (Simple→Medium→Complex) but never downgrade
-- **Override Allowed**: Users can specify higher complexity manually
+## Task Execution Framework
 
-## Document Templates
+### Agent Integration
 
-### IMPL_PLAN.md
-Generated based on task complexity and requirements. Contains overview, requirements, and task structure.
-
-### TODO_LIST.md Template
-```markdown
-# Tasks: [Session Topic]
-
-## Task Progress
-▸ **IMPL-001**: [Main Task Group] → [📋](./.task/impl-001.json)
-  - [ ] **IMPL-001.1**: [Subtask] → [📋](./.task/impl-001.1.json)
-  - [x] **IMPL-001.2**: [Subtask] → [📋](./.task/impl-001.2.json) | [✅](./.summaries/IMPL-001.2.md)
-  
-- [x] **IMPL-002**: [Simple Task] → [📋](./.task/impl-002.json) | [✅](./.summaries/IMPL-002.md)
-
-▸ **IMPL-003**: [Main Task Group] → [📋](./.task/impl-003.json)
-  - [ ] **IMPL-003.1**: [Subtask] → [📋](./.task/impl-003.1.json)
-  - [ ] **IMPL-003.2**: [Subtask] → [📋](./.task/impl-003.2.json)
-
-## Status Legend
-- `▸` = Container task (has subtasks)
-- `- [ ]` = Pending leaf task  
-- `- [x]` = Completed leaf task
-- Maximum 2 levels: Main tasks and subtasks only
-
-## Notes
-[Optional notes]
-```
-
-## Agent Integration
-
-### Agent Assignment
-Based on task type and title keywords:
-- **Planning tasks** → planning-agent
-- **Implementation** → code-developer  
+**Assignment Rules** (based on task type/keywords):
+- **Planning** → planning-agent
+- **Implementation** → code-developer
 - **Testing** → code-review-test-agent
 - **Review** → review-agent
 
-### Execution Context
-Agents receive complete task JSON plus workflow context:
+**Execution Context** (agents receive):
 ```json
 {
   "task": { /* complete task JSON */ },
@@ -383,63 +322,47 @@ Agents receive complete task JSON plus workflow context:
   }
 }
 ```
+## Operations Guide
 
+### Basic Operations
 
-## Data Operations
-
-### Session Initialization
 ```bash
-# Create minimal required structure
+# Session initialization
 mkdir -p .workflow/WFS-topic-slug/.task
 echo '{"session_id":"WFS-topic-slug",...}' > .workflow/WFS-topic-slug/workflow-session.json
 echo '# Implementation Plan' > .workflow/WFS-topic-slug/IMPL_PLAN.md
 echo '# Tasks' > .workflow/WFS-topic-slug/TODO_LIST.md
-```
 
-### Task Creation
-```bash
-echo '{"id":"impl-1","title":"New task",...}' > .task/impl-1.json
-```
+# Task creation
+echo '{"id":"IMPL-1","title":"New task",...}' > .task/IMPL-1.json
 
-### Directory Creation (On-Demand)
-```bash
-# Create directories only when needed
-mkdir -p .brainstorming     # When brainstorming is initiated
-mkdir -p .chat              # When analysis commands are run
-mkdir -p .summaries         # When first task completes
-```
+# Task updates
+jq '.status = "active"' .task/IMPL-1.json > temp && mv temp .task/IMPL-1.json
 
-### Task Updates
-```bash
-jq '.status = "active"' .task/impl-1.json > temp && mv temp .task/impl-1.json
-```
-
-### Document Generation
-```bash
-# Generate TODO_LIST.md from current JSON state
+# Document generation
 generate_todo_list_from_json .task/
 ```
 
-## Validation and Error Handling
-
-### Task Integrity Rules
+### Validation Rules
 1. **ID Uniqueness**: All task IDs must be unique
-2. **Hierarchical Format**: Must follow impl-N[.M] pattern (maximum 2 levels)
-3. **Parent References**: All parent IDs must exist as JSON files
-4. **Depth Limits**: Maximum 2 levels deep
-5. **Status Consistency**: Status values from defined enumeration
-6. **Required Fields**: All 9 core fields must be present
-7. **Implementation Structure**: implementation.files array must contain valid file paths
-8. **Pre-Analysis Source**: pre_analysis must be multi-step array format with action, template, method
+2. **Format**: IMPL-N[.M] pattern (max 2 levels)
+3. **References**: Parent IDs must exist as JSON files
+4. **Fields**: All 5 core fields required (id, title, status, meta, context, flow_control)
+5. **Paths**: context.focus_paths must contain valid project paths
+6. **Dependencies**: context.depends_on task IDs must exist
 
-### Session Consistency Checks
+### Error Recovery
+- **Missing Session**: Remove orphaned active marker
+- **Multiple Active**: Keep newest, remove others
+- **Corrupted Session**: Recreate from template
+- **Broken Hierarchy**: Reconstruct parent-child relationships
+
 ```bash
-# Validate active session integrity
+# Session consistency check
 active_marker=$(find .workflow -name ".active-*" | head -1)
 if [ -n "$active_marker" ]; then
   session_name=$(basename "$active_marker" | sed 's/^\.active-//')
   session_dir=".workflow/$session_name"
-
   if [ ! -d "$session_dir" ]; then
     echo "⚠️ Orphaned active marker, removing..."
     rm "$active_marker"
@@ -447,12 +370,46 @@ if [ -n "$active_marker" ]; then
 fi
 ```
 
-### Recovery Strategies
-- **Missing Session Directory**: Remove orphaned active marker
-- **Multiple Active Markers**: Keep newest, remove others
-- **Corrupted Session File**: Recreate from template
-- **Broken Task Hierarchy**: Reconstruct parent-child relationships
+## Reference Templates
+
+### Integration Points
+- **[Component Name]**: [how to use/integrate]
+- **[API Endpoint]**: [usage details]
+- **[Configuration]**: [location and format]
+
+## Testing Verification
+- [Test type]: [location/results]
+- [Validation]: [confirmation method]
+- [Quality checks]: [what was verified]
+
+## Notes for Future Tasks
+[Any important considerations, limitations, or follow-up items]
+```
+### TODO List (TODO_LIST.md)
+```markdown
+# Tasks: [Session Topic]
+
+## Task Progress
+▸ **IMPL-001**: [Main Task Group] → [📋](./.task/IMPL-001.json)
+  - [ ] **IMPL-001.1**: [Subtask] → [📋](./.task/IMPL-001.1.json)
+  - [x] **IMPL-001.2**: [Subtask] → [📋](./.task/IMPL-001.2.json) | [✅](./.summaries/IMPL-001.2.md)
+
+- [x] **IMPL-002**: [Simple Task] → [📋](./.task/IMPL-002.json) | [✅](./.summaries/IMPL-002.md)
+
+▸ **IMPL-003**: [Main Task Group] → [📋](./.task/IMPL-003.json)
+  - [ ] **IMPL-003.1**: [Subtask] → [📋](./.task/IMPL-003.1.json)
+  - [ ] **IMPL-003.2**: [Subtask] → [📋](./.task/IMPL-003.2.json)
+
+## Status Legend
+- `▸` = Container task (has subtasks)
+- `- [ ]` = Pending leaf task
+- `- [x]` = Completed leaf task
+- Maximum 2 levels: Main tasks and subtasks only
+
+## Notes
+[Optional notes]
+```
 
 ---
 
-**System ensures**: Unified workflow architecture with ultra-fast session management, JSON-only data model, and unified file structure for all workflows regardless of complexity.
+**System Design**: Unified workflow architecture featuring ultra-fast session management, JSON-only data model, and consistent file structure across all workflow types.
