@@ -4,8 +4,6 @@
 
 This document defines the complete workflow system architecture using a **JSON-only data model**, **marker-based session management**, and **unified file structure** with dynamic task decomposition.
 
-## Core Architecture Principles
-
 ### Key Design Decisions
 - **JSON files are the single source of truth** - All markdown documents are read-only generated views
 - **Marker files for session tracking** - Ultra-simple active session management
@@ -76,6 +74,22 @@ Each session directory contains `workflow-session.json`:
 - **No Synchronization**: Eliminates bidirectional sync complexity
 - **Performance**: Direct JSON access without parsing overhead
 
+### Hierarchical Task System
+**Maximum Depth**: 2 levels (IMPL-N.M format)
+
+```
+IMPL-1              # Main task
+IMPL-1.1            # Subtask of IMPL-1 (dynamically created)
+IMPL-1.2            # Another subtask of IMPL-1
+IMPL-2              # Another main task
+IMPL-2.1            # Subtask of IMPL-2 (dynamically created)
+```
+
+**Task Status Rules**:
+- **Container tasks**: Parent tasks with subtasks (cannot be directly executed)
+- **Leaf tasks**: Only these can be executed directly
+- **Status inheritance**: Parent status derived from subtask completion
+
 ### Task JSON Schema
 All task files use this simplified 5-field schema:
 
@@ -110,7 +124,7 @@ All task files use this simplified 5-field schema:
       {
         "step": "gather_context",
         "action": "Read dependency summaries",
-        "command": "bash(cat .workflow/*/summaries/IMPL-1.1-summary.md)",
+        "command": "bash(cat .workflow/WFS-[session-id]/.summaries/IMPL-1.1-summary.md)",
         "output_to": "auth_design_context",
         "on_error": "skip_optional"
       },
@@ -202,11 +216,106 @@ Each step contains:
 - **Task Properties**: Use `[depends_on]`, `[focus_paths]` to reference task JSON properties
 - **Bash Compatibility**: Avoids conflicts with bash `${}` variable expansion
 
+#### Path Reference Format
+- **Session-Specific**: Use `.workflow/WFS-[session-id]/` for commands within active session context
+- **Cross-Session**: Use `.workflow/*/` only when accessing multiple sessions (rare cases)
+- **Relative Paths**: Use `.summaries/` when executing from within session directory
+
 #### Command Types Supported
 - **CLI Analysis**: `bash(~/.claude/scripts/gemini-wrapper -p 'prompt')`
 - **Agent Execution**: `bash(codex --full-auto exec 'task description')`
-- **Shell Commands**: `bash(cat)`, `bash(grep)`, `bash(find)`, `bash(custom scripts)`
+- **Shell Commands**: `bash(cat)`, `bash(grep)`, `bash(find)`, `bash(rg)`, `bash(awk)`, `bash(sed)`, `bash(custom scripts)`
+- **Search Pipelines**: `bash(find + grep combinations)`, `bash(rg + jq processing)`, `bash(pattern discovery chains)`
 - **Context Processing**: `bash(file reading)`, `bash(dependency loading)`, `bash(context merging)`
+- **Combined Analysis**: `bash(multi-tool command pipelines for comprehensive analysis)`
+
+#### Combined Search Strategies
+
+The pre_analysis system supports flexible command combinations beyond just codex and gemini CLI tools. You can chain together grep, ripgrep (rg), find, awk, sed, and other bash commands for powerful analysis pipelines.
+
+**Pattern Discovery Commands**:
+```json
+// Search for authentication patterns with context
+{
+  "step": "find_auth_patterns",
+  "action": "Discover authentication patterns across codebase",
+  "command": "bash(rg -A 3 -B 3 'authenticate|login|jwt|auth' --type ts --type js | head -50)",
+  "output_to": "auth_patterns",
+  "on_error": "skip_optional"
+}
+
+// Find related test files
+{
+  "step": "discover_test_files",
+  "action": "Locate test files related to authentication",
+  "command": "bash(find . -type f \\( -name '*test*' -o -name '*spec*' \\) | xargs rg -l 'auth|login' 2>/dev/null | head -10)",
+  "output_to": "test_files",
+  "on_error": "skip_optional"
+}
+
+// Extract interface definitions
+{
+  "step": "extract_interfaces",
+  "action": "Extract TypeScript interface definitions",
+  "command": "bash(rg '^\\s*interface\\s+\\w+' --type ts -A 5 [focus_paths] | awk '/^[[:space:]]*interface/{p=1} p&&/^[[:space:]]*}/{p=0;print;print\"\"}')",
+  "output_to": "interfaces",
+  "on_error": "skip_optional"
+}
+```
+
+**File Discovery Commands**:
+```json
+// Find configuration files
+{
+  "step": "find_config_files",
+  "action": "Locate configuration files related to auth",
+  "command": "bash(find [focus_paths] -type f \\( -name '*.json' -o -name '*.yaml' -o -name '*.yml' -o -name '*.env*' \\) | xargs rg -l 'auth|jwt|token' 2>/dev/null)",
+  "output_to": "config_files",
+  "on_error": "skip_optional"
+}
+
+// Discover API endpoints
+{
+  "step": "find_api_endpoints",
+  "action": "Find API route definitions",
+  "command": "bash(rg -n 'app\\.(get|post|put|delete|patch).*auth|router\\.(get|post|put|delete|patch).*auth' --type js --type ts [focus_paths])",
+  "output_to": "api_routes",
+  "on_error": "skip_optional"
+}
+```
+
+**Advanced Analysis Commands**:
+```json
+// Analyze import dependencies
+{
+  "step": "analyze_imports",
+  "action": "Map import dependencies for auth modules",
+  "command": "bash(rg '^import.*from.*auth' --type ts --type js [focus_paths] | awk -F'from' '{print $2}' | sort | uniq -c | sort -nr)",
+  "output_to": "import_analysis",
+  "on_error": "skip_optional"
+}
+
+// Count function definitions
+{
+  "step": "count_functions",
+  "action": "Count and categorize function definitions",
+  "command": "bash(rg '^\\s*(function|const\\s+\\w+\\s*=|export\\s+(function|const))' --type ts --type js [focus_paths] | wc -l)",
+  "output_to": "function_count",
+  "on_error": "skip_optional"
+}
+```
+
+**Context Merging Commands**:
+```json
+// Combine multiple analysis results
+{
+  "step": "merge_analysis",
+  "action": "Combine pattern and structure analysis",
+  "command": "bash(echo 'Auth Patterns:'; echo '[auth_patterns]'; echo; echo 'Test Files:'; echo '[test_files]'; echo; echo 'Config Files:'; echo '[config_files]')",
+  "output_to": "combined_context",
+  "on_error": "skip_optional"
+}
+```
 
 #### Error Handling Strategies
 - **skip_optional**: Continue execution, step result is empty
@@ -221,21 +330,35 @@ Each step contains:
     {
       "step": "gather_dependencies",
       "action": "Load context from completed dependencies",
-      "command": "bash(for dep in ${depends_on}; do cat .summaries/$dep-summary.md 2>/dev/null || echo \"No summary for $dep\"; done)",
+      "command": "bash(for dep in ${depends_on}; do cat .workflow/WFS-[session-id]/.summaries/${dep}-summary.md 2>/dev/null || echo \"No summary for $dep\"; done)",
       "output_to": "dependency_context",
       "on_error": "skip_optional"
     },
     {
+      "step": "discover_patterns",
+      "action": "Find existing patterns using combined search",
+      "command": "bash(rg -A 2 -B 2 'class.*Auth|interface.*Auth|type.*Auth' --type ts [focus_paths] | head -30)",
+      "output_to": "auth_patterns",
+      "on_error": "skip_optional"
+    },
+    {
+      "step": "find_related_files",
+      "action": "Discover related implementation files",
+      "command": "bash(find [focus_paths] -type f -name '*.ts' -o -name '*.js' | xargs rg -l 'auth|login|jwt' 2>/dev/null | head -15)",
+      "output_to": "related_files",
+      "on_error": "skip_optional"
+    },
+    {
       "step": "analyze_codebase",
-      "action": "Understand current implementation",
-      "command": "bash(gemini -p '@{[focus_paths]} analyze current patterns using context: [dependency_context]')",
+      "action": "Understand current implementation with Gemini",
+      "command": "bash(~/.claude/scripts/gemini-wrapper -p 'Analyze patterns: [auth_patterns] in files: [related_files] using context: [dependency_context]')",
       "output_to": "codebase_analysis",
       "on_error": "fail"
     },
     {
       "step": "implement",
-      "action": "Execute implementation based on analysis",
-      "command": "bash(codex --full-auto exec 'Implement based on: [codebase_analysis] with dependency context: [dependency_context]')",
+      "action": "Execute implementation based on comprehensive analysis",
+      "command": "bash(codex --full-auto exec 'Implement based on: [codebase_analysis] with discovered patterns: [auth_patterns] and dependency context: [dependency_context]')",
       "on_error": "manual_intervention"
     }
   ],
@@ -261,22 +384,6 @@ Each step contains:
 - **Error Recovery**: Granular error handling at step level
 - **Command Flexibility**: Supports any executable command or agent
 - **Dependency Integration**: Automatic loading of prerequisite task results
-
-### Hierarchical Task System
-**Maximum Depth**: 2 levels (IMPL-N.M format)
-
-```
-IMPL-1              # Main task
-IMPL-1.1            # Subtask of IMPL-1 (dynamically created)
-IMPL-1.2            # Another subtask of IMPL-1
-IMPL-2              # Another main task
-IMPL-2.1            # Subtask of IMPL-2 (dynamically created)
-```
-
-**Task Status Rules**:
-- **Container tasks**: Parent tasks with subtasks (cannot be directly executed)
-- **Leaf tasks**: Only these can be executed directly
-- **Status inheritance**: Parent status derived from subtask completion
 
 ## File Structure
 
@@ -313,8 +420,16 @@ All workflows use the same file structure definition regardless of complexity. *
 
 #### Session Identifiers
 **Format**: `WFS-[topic-slug]`
+
+**WFS Prefix Meaning**:
+- `WFS` = **W**ork**F**low **S**ession
+- Identifies directories as workflow session containers
+- Distinguishes workflow sessions from other project directories
+
+**Naming Rules**:
 - Convert topic to lowercase with hyphens (e.g., "User Auth System" → `WFS-user-auth-system`)
 - Add `-NNN` suffix only if conflicts exist (e.g., `WFS-payment-integration-002`)
+- Maximum length: 50 characters including WFS- prefix
 
 #### Document Naming
 - `workflow-session.json` - Session state (required)
@@ -323,56 +438,22 @@ All workflows use the same file structure definition regardless of complexity. *
 - Chat sessions: `chat-analysis-*.md`
 - Task summaries: `IMPL-[task-id]-summary.md`
 
-## Complexity Classification
 
-### Task Complexity Rules
-**Complexity is determined by task count and decomposition needs:**
+### Document Templates
 
-| Complexity | Task Count | Hierarchy Depth | Decomposition Behavior |
-|------------|------------|----------------|----------------------|
-| **Simple** | <5 tasks | 1 level (IMPL-N) | Direct execution, minimal decomposition |
-| **Medium** | 5-15 tasks | 2 levels (IMPL-N.M) | Moderate decomposition, context coordination |
-| **Complex** | >15 tasks | 2 levels (IMPL-N.M) | Frequent decomposition, multi-agent orchestration |
-
-### Simple Workflows
-**Characteristics**: Direct implementation tasks with clear, limited scope
-- **Examples**: Bug fixes, small feature additions, configuration changes
-- **Task Decomposition**: Usually single-level tasks, minimal breakdown needed
-- **Agent Coordination**: Direct execution without complex orchestration
-
-### Medium Workflows  
-**Characteristics**: Feature implementation requiring moderate task breakdown
-- **Examples**: New features, API endpoints with integration, database schema changes
-- **Task Decomposition**: Two-level hierarchy when decomposition is needed
-- **Agent Coordination**: Context coordination between related tasks
-
-### Complex Workflows
-**Characteristics**: System-wide changes requiring detailed decomposition
-- **Examples**: Major features, architecture refactoring, security implementations, multi-service deployments
-- **Task Decomposition**: Frequent use of two-level hierarchy with dynamic subtask creation
-- **Agent Coordination**: Multi-agent orchestration with deep context analysis
-
-### Automatic Assessment & Upgrades
-- **During Creation**: System evaluates requirements and assigns complexity
-- **During Execution**: Can upgrade (Simple→Medium→Complex) but never downgrade
-- **Override Allowed**: Users can specify higher complexity manually
-
-## Document Templates
-
-### IMPL_PLAN.md
+#### IMPL_PLAN.md Template
 Generated based on task complexity and requirements. Contains overview, requirements, and task structure.
 
-## Notes for Future Tasks
-[Any important considerations, limitations, or follow-up items]
+**Notes for Future Tasks**: [Any important considerations, limitations, or follow-up items]
 
-#### Summary Document Purpose
+**Summary Document Purpose**:
 - **Context Inheritance**: Provides structured context for dependent tasks
 - **Integration Guidance**: Offers clear integration points and usage instructions
 - **Quality Assurance**: Documents testing and validation performed
 - **Decision History**: Preserves rationale for implementation choices
 - **Dependency Chain**: Enables automatic context accumulation through task dependencies
 
-### TODO_LIST.md Template
+#### TODO_LIST.md Template
 ```markdown
 # Tasks: [Session Topic]
 
@@ -402,7 +483,7 @@ Generated based on task complexity and requirements. Contains overview, requirem
 ### Agent Assignment
 Based on task type and title keywords:
 - **Planning tasks** → planning-agent
-- **Implementation** → code-developer  
+- **Implementation** → code-developer
 - **Testing** → code-review-test-agent
 - **Review** → review-agent
 
@@ -417,7 +498,6 @@ Agents receive complete task JSON plus workflow context:
   }
 }
 ```
-
 
 ## Data Operations
 
@@ -453,6 +533,40 @@ jq '.status = "active"' .task/IMPL-1.json > temp && mv temp .task/IMPL-1.json
 # Generate TODO_LIST.md from current JSON state
 generate_todo_list_from_json .task/
 ```
+
+## Complexity Classification
+
+### Task Complexity Rules
+**Complexity is determined by task count and decomposition needs:**
+
+| Complexity | Task Count | Hierarchy Depth | Decomposition Behavior |
+|------------|------------|----------------|----------------------|
+| **Simple** | <5 tasks | 1 level (IMPL-N) | Direct execution, minimal decomposition |
+| **Medium** | 5-15 tasks | 2 levels (IMPL-N.M) | Moderate decomposition, context coordination |
+| **Complex** | >15 tasks | 2 levels (IMPL-N.M) | Frequent decomposition, multi-agent orchestration |
+
+### Simple Workflows
+**Characteristics**: Direct implementation tasks with clear, limited scope
+- **Examples**: Bug fixes, small feature additions, configuration changes
+- **Task Decomposition**: Usually single-level tasks, minimal breakdown needed
+- **Agent Coordination**: Direct execution without complex orchestration
+
+### Medium Workflows
+**Characteristics**: Feature implementation requiring moderate task breakdown
+- **Examples**: New features, API endpoints with integration, database schema changes
+- **Task Decomposition**: Two-level hierarchy when decomposition is needed
+- **Agent Coordination**: Context coordination between related tasks
+
+### Complex Workflows
+**Characteristics**: System-wide changes requiring detailed decomposition
+- **Examples**: Major features, architecture refactoring, security implementations, multi-service deployments
+- **Task Decomposition**: Frequent use of two-level hierarchy with dynamic subtask creation
+- **Agent Coordination**: Multi-agent orchestration with deep context analysis
+
+### Automatic Assessment & Upgrades
+- **During Creation**: System evaluates requirements and assigns complexity
+- **During Execution**: Can upgrade (Simple→Medium→Complex) but never downgrade
+- **Override Allowed**: Users can specify higher complexity manually
 
 ## Validation and Error Handling
 

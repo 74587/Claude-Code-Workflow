@@ -65,6 +65,7 @@ ELIF context insufficient OR task has flow control marker:
   - **Dependency Loading**: Read summaries from context.depends_on automatically
   - **Context Accumulation**: Pass step outputs to subsequent steps via [variable_name]
 - **Error Handling**: Apply on_error strategies per step (skip_optional, fail, retry_once, manual_intervention)
+- **Free Exploration Phase**: After completing pre_analysis steps, can enter additional exploration using bash commands (grep, find, rg, awk, sed) or CLI tools to gather supplementary context if needed
 - **Follow Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md and @~/.claude/workflows/tools-implementation-guide.md
 
 
@@ -120,9 +121,15 @@ ELIF context insufficient OR task has flow control marker:
    **Project Structure Understanding**:
    ```
    .workflow/WFS-[session-id]/     # (Path provided in session context)
-   ├── TODO_LIST.md              # Progress tracking document  
-   ├── .task/IMPL-*.json         # Task definitions (source of truth)
-   └── .summaries/IMPL-*.md      # Task completion summaries
+   ├── workflow-session.json     # Session metadata and state (REQUIRED)
+   ├── IMPL_PLAN.md              # Planning document (REQUIRED)
+   ├── TODO_LIST.md              # Progress tracking document (REQUIRED)
+   ├── .task/                    # Task definitions (REQUIRED)
+   │   ├── IMPL-*.json           # Main task definitions
+   │   └── IMPL-*.*.json         # Subtask definitions (created dynamically)
+   └── .summaries/               # Task completion summaries (created when tasks complete)
+       ├── IMPL-*-summary.md     # Main task summaries
+       └── IMPL-*.*-summary.md   # Subtask summaries
    ```
    
    **Example TODO_LIST.md Update**:
@@ -144,11 +151,11 @@ ELIF context insufficient OR task has flow control marker:
    ```
 
 3. **Generate Summary** (using session context paths):
-   - **MANDATORY**: Create summary in provided Summaries Directory
+   - **MANDATORY**: Create summary in provided summaries directory
    - Use exact paths from session context (e.g., `.workflow/WFS-[session-id]/.summaries/`)
    - Link summary in TODO_LIST.md using relative path
    
-   **Enhanced Summary Template**:
+   **Enhanced Summary Template** (using naming convention `IMPL-[task-id]-summary.md`):
    ```markdown
    # Task: [Task-ID] [Name]
 
@@ -188,6 +195,11 @@ ELIF context insufficient OR task has flow control marker:
 
    ## Status: ✅ Complete
    ```
+
+   **Summary Naming Convention** (per workflow-architecture.md):
+   - **Main tasks**: `IMPL-[task-id]-summary.md` (e.g., `IMPL-001-summary.md`)
+   - **Subtasks**: `IMPL-[task-id].[subtask-id]-summary.md` (e.g., `IMPL-001.1-summary.md`)
+   - **Location**: Always in `.summaries/` directory within session workflow folder
    
    **Auto-Check Workflow Context**:
    - Verify session context paths are provided in agent prompt

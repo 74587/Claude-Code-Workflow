@@ -58,6 +58,7 @@ When task assignment includes flow control marker:
 - **Context variable handling**: Process [variable_name] references in commands
 - **Sequential execution**: Execute each step in order, accumulating context through variables
 - **Error handling**: Apply per-step error strategies
+- **Free Exploration Phase**: After completing pre_analysis steps, can enter additional exploration using bash commands (grep, find, rg, awk, sed) or CLI tools to gather supplementary context for more thorough review
 
 **Context Gathering Decision Logic**:
 ```
