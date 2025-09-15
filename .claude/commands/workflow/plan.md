@@ -50,6 +50,22 @@ examples:
 - Uses existing active session if available
 - **Dependency context**: MUST read previous task summary documents before planning
 
+### Project Structure Analysis
+**Always First**: Run project hierarchy analysis before planning
+```bash
+# Get project structure with depth analysis
+~/.claude/scripts/get_modules_by_depth.sh
+
+# Results populate task paths automatically
+# Used for focus_paths and target_files generation
+```
+
+**Structure Integration**:
+- Identifies module boundaries and relationships
+- Maps file dependencies and cohesion groups
+- Populates task.context.focus_paths automatically
+- Enables precise target_files generation
+
 ## Task Patterns
 
 ### ✅ Correct (Function-based)
@@ -92,14 +108,14 @@ examples:
 - Different tech stacks or deployment units
 - Would exceed 10-task limit otherwise
 
-## Flow Control Schema
-Each task.json includes required fields:
-- **meta**: type, agent assignment
-- **context**: requirements, focus_paths, acceptance, depends_on
-- **flow_control**:
-  - `pre_analysis`: Steps with commands and context variables (${var})
-  - `implementation_approach`: One-line strategy
-  - `target_files`: "file:function:lines" format
+## Task JSON Schema (5-Field Architecture)
+Each task.json uses the workflow-architecture.md 5-field schema:
+- **id**: IMPL-N[.M] format (max 2 levels)
+- **title**: Descriptive task name
+- **status**: pending|active|completed|blocked|container
+- **meta**: { type, agent }
+- **context**: { requirements, focus_paths, acceptance, parent, depends_on, inherited, shared_context }
+- **flow_control**: { pre_analysis[], implementation_approach, target_files[] }
 
 ## Execution Integration
 Documents created for `/workflow:execute`:
@@ -112,6 +128,58 @@ Documents created for `/workflow:execute`:
 - **File not found**: Clear suggestions
 - **>10 tasks**: Force re-scoping into iterations
 
-## Analysis Method (--AM)
+## Context Acquisition Strategy
+
+### Analysis Method Selection (--AM)
 - **gemini** (default): Pattern analysis, architectural understanding
 - **codex**: Autonomous development, intelligent file discovery
+
+### Detailed Context Gathering Commands
+
+#### Gemini Analysis Templates
+```bash
+# Module-specific pattern analysis
+cd [module] && ~/.claude/scripts/gemini-wrapper -p "analyze patterns"
+
+# Full architectural analysis
+cd [module] && ~/.claude/scripts/gemini-wrapper -p "analyze [scope] architecture"
+
+# Cross-module relationship analysis
+~/.claude/scripts/gemini-wrapper -p "@{src/**/*} @{CLAUDE.md} analyze module relationships and dependencies"
+```
+
+#### Codex Analysis Templates
+```bash
+# Autonomous architectural analysis
+codex --full-auto exec "analyze [scope] architecture"
+
+# Pattern-based development context
+codex --full-auto exec "analyze existing patterns for [feature] implementation"
+
+# Comprehensive project understanding
+codex --full-auto exec "@{**/*} @{CLAUDE.md} analyze project structure and conventions"
+```
+
+### Context Accumulation & Inheritance
+**Context Flow Process**:
+1. **Structure Analysis**: `get_modules_by_depth.sh` → project hierarchy
+2. **Pattern Analysis**: Tool-specific commands → existing patterns
+3. **Dependency Mapping**: Previous task summaries → inheritance context
+4. **Task Context Generation**: Combined analysis → task.context fields
+
+**Context Inheritance Rules**:
+- **Parent → Child**: Container tasks pass context to subtasks via `context.inherited`
+- **Dependency → Dependent**: Previous task summaries loaded via `context.depends_on`
+- **Session → Task**: Global session context included in all tasks
+- **Module → Feature**: Module patterns inform feature implementation context
+
+### Variable System & Path Rules
+**Flow Control Variables**: Use `[variable_name]` format (see workflow-architecture.md)
+- **Step outputs**: `[dependency_context]`, `[pattern_analysis]`
+- **Task properties**: `[depends_on]`, `[focus_paths]`, `[parent]`
+- **Commands**: Wrapped in `bash()` with error handling strategies
+
+**Focus Paths**: Concrete paths only (no wildcards)
+- Use `get_modules_by_depth.sh` results for actual directory names
+- Include both directories and specific files from requirements
+- Format: `["src/auth", "tests/auth", "config/auth.json"]`
