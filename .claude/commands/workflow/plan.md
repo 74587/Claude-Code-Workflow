@@ -37,6 +37,15 @@ examples:
 - **File cohesion**: Group related files (UI + logic + tests + config) in same task
 - **Task saturation**: Merge "analyze + implement" by default (0.5 count for complex prep tasks)
 
+### Core Task Decomposition Standards
+1. **Functional Completeness Principle** - Each task must deliver a complete, independently runnable functional unit including all related files (logic, UI, tests, config)
+
+2. **Minimum Size Threshold** - A single task must contain at least 3 related files or 200 lines of code; content below this threshold must be merged with adjacent features
+
+3. **Dependency Cohesion Principle** - Tightly coupled components must be completed in the same task, including shared data models, same API endpoints, and all parts of a single user flow
+
+4. **Hierarchy Control Rule** - Use flat structure for ≤5 tasks, two-level structure for 6-10 tasks, and mandatory re-scoping into multiple iterations for >10 tasks
+
 ### Pre-Planning Analysis (CRITICAL)
 ⚠️ **Must complete BEFORE generating any plan documents**
 1. **Complexity assessment**: Count total saturated tasks
@@ -138,26 +147,32 @@ Documents created for `/workflow:execute`:
 
 #### Gemini Analysis Templates
 ```bash
-# Module-specific pattern analysis
-cd [module] && ~/.claude/scripts/gemini-wrapper -p "analyze patterns"
+# Module pattern analysis
+cd [module] && ~/.claude/scripts/gemini-wrapper -p "Analyze patterns, conventions, and file organization in this module"
 
-# Full architectural analysis
-cd [module] && ~/.claude/scripts/gemini-wrapper -p "analyze [scope] architecture"
+# Architectural analysis
+cd [module] && ~/.claude/scripts/gemini-wrapper -p "Analyze [scope] architecture, relationships, and integration points"
 
-# Cross-module relationship analysis
+# Cross-module dependencies
 ~/.claude/scripts/gemini-wrapper -p "@{src/**/*} @{CLAUDE.md} analyze module relationships and dependencies"
+
+# Similar feature analysis
+cd [module] && ~/.claude/scripts/gemini-wrapper -p "Find 3+ similar [feature_type] implementations and their patterns"
 ```
 
 #### Codex Analysis Templates
 ```bash
-# Autonomous architectural analysis
-codex --full-auto exec "analyze [scope] architecture"
+# Architectural analysis
+codex --full-auto exec "analyze [scope] architecture and identify optimization opportunities"
 
-# Pattern-based development context
-codex --full-auto exec "analyze existing patterns for [feature] implementation"
+# Pattern-based development
+codex --full-auto exec "analyze existing patterns for [feature] implementation with concrete examples"
 
-# Comprehensive project understanding
-codex --full-auto exec "@{**/*} @{CLAUDE.md} analyze project structure and conventions"
+# Project understanding
+codex --full-auto exec "analyze project structure, conventions, and development requirements"
+
+# Modernization analysis
+codex --full-auto exec "identify modernization opportunities and refactoring priorities"
 ```
 
 ### Context Accumulation & Inheritance
