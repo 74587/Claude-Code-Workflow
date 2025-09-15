@@ -152,7 +152,18 @@ All task files use this 10-field schema:
       "performance_considerations": "JWT validation will add approximately 5ms latency",
       "error_handling": "Ensure sensitive information is not leaked in error responses"
     },
-    "analysis_source": "manual|gemini|codex|auto-detected"
+    "pre_analysis": [
+      {
+        "action": "analyze patterns",
+        "template": "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt",
+        "method": "gemini"
+      },
+      {
+        "action": "generate implementation",
+        "template": "~/.claude/workflows/cli-templates/prompts/development/feature.txt",
+        "method": "codex"
+      }
+    ]
   }
 }
 ```
@@ -221,7 +232,7 @@ The **implementation** field provides detailed code implementation guidance with
 - **performance_considerations**: Performance impact assessment
 - **error_handling**: Error handling requirements
 
-#### analysis_source - Information Source Identifier
+#### pre_analysis - Information Source Identifier
 - **manual**: Detailed information manually provided by user
 - **gemini**: Automatically obtained through Gemini CLI analysis
 - **codex**: Automatically obtained through Codex CLI analysis
@@ -419,7 +430,7 @@ generate_todo_list_from_json .task/
 5. **Status Consistency**: Status values from defined enumeration
 6. **Required Fields**: All 9 core fields must be present
 7. **Implementation Structure**: implementation.files array must contain valid file paths
-8. **Analysis Source**: analysis_source must be one of: manual|gemini|codex|auto-detected
+8. **Pre-Analysis Source**: pre_analysis must be multi-step array format with action, template, method
 
 ### Session Consistency Checks
 ```bash

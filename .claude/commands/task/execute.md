@@ -189,7 +189,13 @@ This is the simplified data structure loaded to provide context for task executi
         "performance_considerations": "JWT validation adds ~10ms per request, OAuth callbacks may timeout",
         "error_handling": "Ensure sensitive authentication errors don't leak user enumeration data"
       },
-      "analysis_source": "gemini"
+      "pre_analysis": [
+        {
+          "action": "analyze patterns",
+          "template": "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt",
+          "method": "gemini"
+        }
+      ]
     }
   },
   "workflow": {

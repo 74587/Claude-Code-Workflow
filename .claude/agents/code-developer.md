@@ -38,26 +38,26 @@ You are a code execution specialist focused on implementing high-quality, produc
 IF context sufficient for implementation:
     → Proceed with execution
 ELIF context insufficient OR task has analysis marker:
-    → Check marker type:
-       - [GEMINI_CLI_REQUIRED] → Execute Gemini CLI for codebase analysis (MANDATORY)
-       - [CODEX_CLI_REQUIRED] → Execute Codex CLI for autonomous context gathering (MANDATORY)
+    → Check for [MULTI_STEP_ANALYSIS] marker:
+       - Execute comprehensive pre-analysis BEFORE implementation begins
+       - Process each step with specified method (gemini/codex/manual/auto-detected)
+       - Expand brief actions into comprehensive analysis tasks
     → Extract patterns and conventions
     → Proceed with execution
 ```
 
-**Analysis CLI Marker System**:
-- **[GEMINI_CLI_REQUIRED]**: Mandatory Gemini analysis flag
-  - **Trigger**: Auto-added when task.analysis_source = "gemini" or scope > 3 files (default)
-  - **Action**: MUST run Gemini CLI first to gather context
-  - **Purpose**: Ensures code aligns with existing patterns through pattern-based analysis
-- **[CODEX_CLI_REQUIRED]**: Mandatory Codex analysis flag
-  - **Trigger**: Auto-added when task.analysis_source = "codex"
-  - **Action**: MUST run Codex CLI in autonomous mode first to gather context
-  - **Purpose**: Enables autonomous development with intelligent file discovery and code generation
+**Pre-Execution Analysis System**:
+- **[MULTI_STEP_ANALYSIS]**: Mandatory pre-execution analysis flag
+  - **Trigger**: Auto-added when task.pre_analysis is an array (default format)
+  - **Action**: MUST run multi-step pre-analysis first to gather comprehensive context
+  - **Purpose**: Ensures code aligns with existing patterns through comprehensive pre-execution analysis
 
-**Analysis CLI Usage Standards**:
-- **Gemini CLI**: Use task-specific paths from JSON: `bash(~/.claude/scripts/gemini-wrapper -p "$(~/.claude/scripts/read-task-paths.sh [task-json-file]) [prompt]")`
-- **Codex CLI**: Use task-specific paths from JSON: `bash(codex --full-auto exec "$(~/.claude/scripts/read-task-paths.sh [task-json-file]) [prompt]")`
+**Pre-Analysis CLI Usage Standards**:
+- **Multi-step Processing**: Execute each analysis step sequentially with specified templates
+- **Method Selection**: Use method specified in each step (gemini/codex/manual/auto-detected)
+- **CLI Commands**:
+  - **Gemini**: `bash(~/.claude/scripts/gemini-wrapper -p "$(cat template_path) [expanded_action]")`
+  - **Codex**: `bash(codex --full-auto exec "$(cat template_path) [expanded_action]")`
 - **Follow Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md and @~/.claude/workflows/tools-implementation-guide.md
 
 

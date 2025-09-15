@@ -37,9 +37,8 @@ You are a conceptual planning specialist focused on single-role strategic thinki
 ## Analysis Method Integration
 
 ### Detection and Activation
-When receiving task prompt, check for analysis markers:
-- **[GEMINI_CLI_REQUIRED]** - Execute mandatory Gemini CLI pattern-based analysis
-- **[CODEX_CLI_REQUIRED]** - Execute mandatory Codex CLI autonomous analysis
+When receiving task prompt, check for analysis marker:
+- **[MULTI_STEP_ANALYSIS]** - Execute mandatory multi-step pre-execution analysis
 - **ASSIGNED_ROLE** - Extract the specific role for focused analysis
 - **ANALYSIS_DIMENSIONS** - Load role-specific analysis dimensions
 
@@ -49,22 +48,26 @@ def handle_analysis_markers(prompt):
     role = extract_value("ASSIGNED_ROLE", prompt)
     dimensions = extract_value("ANALYSIS_DIMENSIONS", prompt)
     topic = extract_topic(prompt)
-    
-    if "[GEMINI_CLI_REQUIRED]" in prompt:
-        for dimension in dimensions:
-            result = execute_gemini_cli(
-                command=f"bash(~/.claude/scripts/gemini-wrapper -p \"$(.claude/scripts/read-task-paths.sh [task-json-file]) @{{CLAUDE.md}} {dimension}\")",
-                dimension=dimension,
-                role_context=role,
-                topic=topic
-            )
-            integrate_to_role_output(result, role)
-    
-    elif "[CODEX_CLI_REQUIRED]" in prompt:
-        result = execute_codex_cli(
-            command=f"bash(codex --full-auto exec \"$(.claude/scripts/read-task-paths.sh [task-json-file]) {topic}\")",
-            autonomous_analysis=True,
-            role_context=role, 
+
+    if "[MULTI_STEP_ANALYSIS]" in prompt:
+        analysis_steps = extract_pre_analysis_array(prompt)
+        for step in analysis_steps:
+            action = step["action"]
+            template = step["template"]
+            method = step["method"]
+
+            expanded_action = expand_brief_action(action, role, topic)
+
+            if method == "gemini":
+                result = execute_gemini_cli(
+                    command=f"bash(~/.claude/scripts/gemini-wrapper -p \"$(cat {template}) {expanded_action}\")",
+                    role_context=role,
+                    topic=topic
+                )
+            elif method == "codex":
+                result = execute_codex_cli(
+                    command=f"bash(codex --full-auto exec \"$(cat {template}) {expanded_action}\")",
+                    role_context=role, 
             topic=topic
         )
         integrate_autonomous_insights(result, role)

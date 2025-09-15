@@ -23,19 +23,20 @@ The intelligent execution approach focuses on:
 - **Dynamic task orchestration** - Coordinate based on discovered task relationships
 - **Progress tracking** - Update task status after agent completion
 
-**Analysis Markers**:
-- **[GEMINI_CLI_REQUIRED]**: Forces agent to use Gemini CLI for pattern-based codebase analysis
-  - **Auto-trigger**: When task.analysis_source = "gemini" OR scope > 3 files (default)
-  - **Agent Action**: MUST execute Gemini CLI as first step
-- **[CODEX_CLI_REQUIRED]**: Forces agent to use Codex CLI for autonomous development analysis
-  - **Auto-trigger**: When task.analysis_source = "codex"
-  - **Agent Action**: MUST execute Codex CLI in autonomous mode as first step
+**Analysis Marker**:
+- **[MULTI_STEP_ANALYSIS]**: Indicates sequential pre-execution analysis required
+  - **Auto-trigger**: When task.pre_analysis is an array (default format)
+  - **Agent Action**: Execute comprehensive pre-analysis BEFORE implementation begins
+    - Process each step sequentially with specified templates and methods
+    - Expand brief actions into full analysis tasks
+    - Gather context, understand patterns, identify requirements
+    - Use method specified in each step (gemini/codex/manual/auto-detected)
 
-**analysis_source to Marker Mapping**:
-- **"gemini"** → Add [GEMINI_CLI_REQUIRED]
-- **"codex"** → Add [CODEX_CLI_REQUIRED]
-- **"auto-detected"** + scope > 3 files → Add [GEMINI_CLI_REQUIRED] (default)
-- **"manual"** → No marker added
+**pre_analysis to Marker Mapping**:
+- **Array format (multi-step pre-analysis)**:
+  - Add [MULTI_STEP_ANALYSIS] - triggers comprehensive pre-execution analysis
+  - Agent processes each step with specified method (gemini/codex/manual/auto-detected)
+  - Agent expands each action into comprehensive analysis based on template
 
 ## Execution Flow
 
@@ -65,14 +66,13 @@ Workflow Discovery:
 *Session: WFS-[topic-slug]*
 
 ## Execution Plan
-- [ ] **TASK-001**: [Agent: planning-agent] [GEMINI_CLI_REQUIRED] Design auth schema (impl-1.1)
-- [ ] **TASK-002**: [Agent: code-developer] [CODEX_CLI_REQUIRED] Implement auth logic (impl-1.2)  
+- [ ] **TASK-001**: [Agent: planning-agent] [MULTI_STEP_ANALYSIS] Design auth schema (impl-1.1)
+- [ ] **TASK-002**: [Agent: code-developer] [MULTI_STEP_ANALYSIS] Implement auth logic (impl-1.2)  
 - [ ] **TASK-003**: [Agent: code-review-agent] Review implementations
 - [ ] **TASK-004**: Update task statuses and session state
 
 **Marker Legend**:
-- [GEMINI_CLI_REQUIRED] = Agent must use Gemini CLI for pattern analysis
-- [CODEX_CLI_REQUIRED] = Agent must use Codex CLI for autonomous analysis
+- [MULTI_STEP_ANALYSIS] = Agent must execute multi-step pre-execution analysis
 - [PREPARATION_INCLUDED] = Task includes preparation phase (analyze then implement)
 ```
 
@@ -124,7 +124,23 @@ For each executable task:
         "performance_considerations": "Index JWT fields for faster lookups",
         "error_handling": "Graceful schema validation errors"
       },
-      "analysis_source": "auto-detected"
+      "pre_analysis": [
+        {
+          "action": "analyze auth",
+          "template": "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt",
+          "method": "gemini"
+        },
+        {
+          "action": "security review",
+          "template": "~/.claude/workflows/cli-templates/prompts/analysis/security.txt",
+          "method": "gemini"
+        },
+        {
+          "action": "implement feature",
+          "template": "~/.claude/workflows/cli-templates/prompts/development/feature.txt",
+          "method": "codex"
+        }
+      ]
     }
   },
   "workflow": {
@@ -144,14 +160,14 @@ For each executable task:
 - **Risk Awareness**: Alert agents to implementation.context_notes.risks before execution
 - **Workflow Integration**: Include session state and IMPL_PLAN.md context
 - **Scope Focus**: Direct agents to specific files from implementation.files[].path
-- **Gemini Marker**: Auto-add [GEMINI_CLI_REQUIRED] when analysis_source = "gemini"
+- **Analysis Marker**: Auto-add [MULTI_STEP_ANALYSIS] when pre_analysis is array format
 - **Merged Task Handling**: Add [PREPARATION_INCLUDED] marker when preparation_complexity exists
 
 ### 4. Agent Execution & Progress Tracking
 
 ```bash
 Task(subagent_type="code-developer",
-     prompt="[PREPARATION_INCLUDED] [GEMINI_CLI_REQUIRED] Analyze auth patterns and implement JWT authentication system
+     prompt="[PREPARATION_INCLUDED] [MULTI_STEP_ANALYSIS] Analyze auth patterns and implement JWT authentication system
 
      Task Context: impl-1.2 - Saturated task with merged preparation and execution
 
@@ -241,7 +257,7 @@ Based on discovered task data:
 ```bash
 # Agent receives complete discovered context with saturation handling
 Task(subagent_type="code-developer",
-     prompt="[PREPARATION_INCLUDED] [GEMINI_CLI_REQUIRED] Execute impl-1.2: Analyze and implement auth logic
+     prompt="[PREPARATION_INCLUDED] [MULTI_STEP_ANALYSIS] Execute impl-1.2: Analyze and implement auth logic
 
      TASK TYPE: Saturated task (preparation_complexity: simple)
 

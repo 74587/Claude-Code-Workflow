@@ -72,7 +72,7 @@ Status: pending
 
 ### Auto-Population Strategy
 - **Detailed info**: Extract from task description and scope
-- **Missing info**: Mark `analysis_source` as "gemini" for later analysis
+- **Missing info**: Mark `pre_analysis` as multi-step array format for later pre-analysis
 - **Basic structure**: Initialize with standard template
 
 ### Analysis Triggers

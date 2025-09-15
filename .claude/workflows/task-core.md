@@ -71,7 +71,18 @@ All task files use this unified 10-field structure:
       "performance_considerations": "JWT adds ~5ms latency",
       "error_handling": "No sensitive data in errors"
     },
-    "analysis_source": "manual|gemini|codex|auto-detected"
+    "pre_analysis": [
+      {
+        "action": "analyze patterns",
+        "template": "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt",
+        "method": "gemini"
+      },
+      {
+        "action": "implement feature",
+        "template": "~/.claude/workflows/cli-templates/prompts/development/feature.txt",
+        "method": "codex"
+      }
+    ]
   }
 }
 ```
@@ -96,7 +107,7 @@ All task files use this unified 10-field structure:
 - **performance_considerations**: Performance impact
 - **error_handling**: Error handling requirements
 
-### analysis_source Options
+### pre_analysis Options
 - **manual**: User-provided details
 - **auto-detected**: System-inferred
 - **gemini**: Requires Gemini CLI analysis

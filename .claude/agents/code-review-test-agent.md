@@ -50,54 +50,58 @@ You will review code changes AND handle test implementation by understanding the
 ## Analysis CLI Context Activation Rules
 
 **🎯 Analysis Marker Detection**
-When task assignment includes analysis markers:
-- **[GEMINI_CLI_REQUIRED]**: Execute Gemini CLI context gathering as first step
-- **[CODEX_CLI_REQUIRED]**: Execute Codex CLI autonomous analysis as first step
+When task assignment includes analysis marker:
+- **[MULTI_STEP_ANALYSIS]**: Execute sequential analysis steps with specified templates, expanding brief actions
+
+**Multi-Step Analysis Support**:
+- **Process pre_analysis array**: Handle multi-step array format
+- **Expand brief actions**: Convert 2-3 word descriptions into comprehensive analysis tasks
+- **Sequential execution**: Execute each analysis step in order, accumulating context
+- **Template integration**: Use full template paths for enhanced analysis prompts
 
 **Context Gathering Decision Logic**:
 ```
-IF task contains [GEMINI_CLI_REQUIRED] flag:
-    → Execute Gemini CLI context gathering (MANDATORY)
-    → Use pattern-based code review analysis
-ELIF task contains [CODEX_CLI_REQUIRED] flag:
-    → Execute Codex CLI autonomous analysis (MANDATORY)  
-    → Use autonomous development context for review
+IF task contains [MULTI_STEP_ANALYSIS] flag:
+    → Execute each analysis step sequentially with specified templates
+    → Expand brief actions into comprehensive analysis tasks
+    → Use method specified in each step (gemini/codex/manual/auto-detected)
+    → Accumulate results for comprehensive context
 ELIF reviewing >3 files OR security changes OR architecture modifications:
-    → Execute Gemini CLI context gathering (AUTO-TRIGGER, default)
+    → Execute default multi-step analysis (AUTO-TRIGGER)
 ELSE:
     → Proceed with review using standard quality checks
 ```
 
-## Context Gathering Phase (Execute When Required)
+## Multi-Step Pre-Analysis Phase (Execute When Required)
 
-### Gemini CLI Context Gathering
-When [GEMINI_CLI_REQUIRED] flag is present or complexity triggers apply, gather precise, change-focused context:
+### Multi-Step Analysis Execution
+When [MULTI_STEP_ANALYSIS] flag is present, execute comprehensive pre-review analysis:
 
-Use the targeted review context template:
-@~/.claude/workflows/tools-implementation-guide.md
+Process each step from pre_analysis array sequentially:
 
-**Gemini CLI Command**:
+**Multi-Step Analysis Process**:
+1. For each analysis step:
+   - Extract action, template, method from step configuration
+   - Expand brief action into comprehensive analysis task
+   - Execute with specified method and template
+
+**Example CLI Commands**:
 ```bash
-bash(~/.claude/scripts/gemini-wrapper -p "$(.claude/scripts/read-task-paths.sh [task-json-file]) @{CLAUDE.md} [review-analysis-prompt]")
+# For method="gemini"
+bash(~/.claude/scripts/gemini-wrapper -p "$(cat template_path) [expanded_action]")
+
+# For method="codex"
+bash(codex --full-auto exec "$(cat template_path) [expanded_action]")
 ```
 
-This executes a change-specific Gemini CLI command that identifies:
+This executes comprehensive pre-review analysis that covers:
 - **Change understanding**: What specific task was being implemented
 - **Repository conventions**: Standards used in similar files and functions
 - **Impact analysis**: Other code that might be affected by these changes
 - **Test coverage validation**: Whether changes are properly tested
 - **Integration verification**: If necessary integration points are handled
-
-### Codex CLI Context Gathering  
-When [CODEX_CLI_REQUIRED] flag is present, execute autonomous analysis:
-
-Use the autonomous development context template:
-@~/.claude/workflows/tools-implementation-guide.md
-
-**Codex CLI Command**:
-```bash
-bash(codex --full-auto exec "$(.claude/scripts/read-task-paths.sh [task-json-file]) [autonomous-review-prompt]")
-```
+- **Security implications**: Potential security considerations
+- **Performance impact**: Performance-related changes and implications
 
 This executes autonomous Codex CLI analysis that provides:
 - **Autonomous understanding**: Intelligent discovery of implementation context

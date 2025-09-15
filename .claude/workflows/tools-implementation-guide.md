@@ -22,6 +22,39 @@ type: technical-guideline
 
 **Usage**: `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)`
 
+### 📚 Template Quick Reference Map
+
+**Full Path Format**: All templates use complete paths starting with `~/.claude/`
+
+**Analysis Templates**:
+- `~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt` - Pattern detection and convention analysis
+- `~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt` - System architecture review
+- `~/.claude/workflows/cli-templates/prompts/analysis/security.txt` - Security vulnerability assessment
+- `~/.claude/workflows/cli-templates/prompts/analysis/performance.txt` - Performance bottleneck analysis
+- `~/.claude/workflows/cli-templates/prompts/analysis/quality.txt` - Code quality and maintainability review
+
+**Development Templates**:
+- `~/.claude/workflows/cli-templates/prompts/development/feature.txt` - Feature implementation guidance
+- `~/.claude/workflows/cli-templates/prompts/development/component.txt` - Component development patterns
+- `~/.claude/workflows/cli-templates/prompts/development/refactor.txt` - Refactoring strategies
+- `~/.claude/workflows/cli-templates/prompts/development/testing.txt` - Test generation and coverage
+- `~/.claude/workflows/cli-templates/prompts/development/debugging.txt` - Issue diagnosis and resolution
+
+**Planning Templates**:
+- `~/.claude/workflows/cli-templates/prompts/planning/task-breakdown.txt` - Task decomposition strategy
+- `~/.claude/workflows/cli-templates/prompts/planning/migration.txt` - Migration planning and execution
+
+**Automation Templates**:
+- `~/.claude/workflows/cli-templates/prompts/automation/scaffold.txt` - Project scaffolding automation
+- `~/.claude/workflows/cli-templates/prompts/automation/deployment.txt` - Deployment configuration
+
+**Review Templates**:
+- `~/.claude/workflows/cli-templates/prompts/review/code-review.txt` - Code review checklist
+
+**Integration Templates**:
+- `~/.claude/workflows/cli-templates/prompts/integration/api-design.txt` - API design patterns
+- `~/.claude/workflows/cli-templates/prompts/integration/database.txt` - Database schema design
+
 ### 📂 File Pattern Wildcards
 
 ```bash

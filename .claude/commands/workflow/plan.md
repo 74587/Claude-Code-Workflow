@@ -24,7 +24,7 @@ Creates actionable implementation plans with intelligent input source detection.
 
 ### Analysis Method Flag (--AM)
 Optional flag to specify which CLI tool to use for context analysis:
-- **gemini** (default): Uses Gemini CLI for pattern-based analysis and architectural understanding
+- **gemini** (default): Uses Gemini CLI for pattern-based analysis, architectural understanding, and broader context acquisition
 - **codex**: Uses Codex CLI for autonomous development context gathering with intelligent file discovery
 
 **Examples**:
@@ -67,7 +67,30 @@ The command automatically detects input type:
 - Uses active session if available
 - Generates session ID: WFS-[topic-slug]
 
+### Pre-Planning Analysis
+⚠️ **CRITICAL**: Determine decomposition strategy BEFORE generating any plan documents
+
+**Required Pre-Analysis Steps**:
+1. **Complexity Assessment**: Analyze requirements to determine total saturated task count
+2. **Decomposition Strategy**: Based on complexity, decide:
+   - Task structure (flat vs hierarchical)
+   - Subtask necessity (>15 tasks triggers decomposition)
+   - Task saturation level (merged vs separated)
+3. **Quantity Prediction**: Calculate expected:
+   - Total main tasks (IMPL-XXX)
+   - Subtasks per main task (impl-N.M)
+   - Container vs leaf task ratio
+
+**Pre-Planning Outputs**:
+- Complexity level: Simple (≤8) | Medium (9-15) | Complex (>15)
+- Decomposition approach: Flat | Two-level hierarchy
+- Estimated task count: [number] main tasks, [number] total leaf tasks
+- Document set: Which documents will be generated (IMPL_PLAN.md, TODO_LIST.md, .task/*.json)
+
+**Only after completing pre-planning analysis**: Proceed to generate actual plan documents
+
 ### Complexity Detection with Saturation
+*Based on Pre-Planning Analysis results:*
 - **Simple**: ≤8 saturated tasks → Direct IMPL_PLAN.md
 - **Medium**: 9-15 saturated tasks → IMPL_PLAN.md + TODO_LIST.md
 - **Complex**: >15 saturated tasks → Full decomposition
@@ -93,6 +116,7 @@ The command automatically detects input type:
 - IMPL-002: Implement data export functionality (includes processing logic, UI, file generation)
 
 ### Task Generation with Saturation Control
+*Using decomposition strategy determined in Pre-Planning Analysis:*
 - **Task Saturation Assessment**: Evaluates whether to merge preparation and execution
 - **Default merge mode**: "Analyze and implement X" instead of "Analyze X" + "Implement X"
 - **Smart splitting**: Only separate when preparation complexity > threshold
@@ -157,10 +181,15 @@ Evaluates whether to merge preparation and execution:
 - **Agent assignment**: Automatic agent mapping based on subtask type (planning/code/test/review)
 - **Maximum depth**: 2 levels (impl-N.M) to maintain manageable hierarchy
 
-### Implementation Field Requirements  
-- **analysis_source**: Determines context gathering method (manual|auto-detected|gemini|codex)
-- **Auto-assignment**: manual (user provides details) → auto-detected (system infers) → gemini/codex (needs analysis)
-- **Required fields**: files (with path/location/modifications), context_notes, analysis_source
+### Implementation Field Requirements
+- **pre_analysis**: Multi-step analysis configuration array containing:
+  - `action`: Brief 2-3 word description (e.g., "analyze patterns", "review security") - agent expands based on context
+  - `template`: Full template path (e.g., "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt")
+  - `method`: Analysis method ("manual"|"auto-detected"|"gemini"|"codex")
+  - **Agent Behavior**: Agents interpret brief actions and expand them into comprehensive analysis tasks
+  - **Execution**: Steps processed sequentially, results accumulated for comprehensive context
+- **Auto-assignment**: Defaults to appropriate multi-step configuration based on complexity
+- **Required fields**: files (with path/location/modifications), context_notes, pre_analysis
 - **Paths format**: Semicolon-separated list (e.g., "src/auth;tests/auth;config/auth.json")
 
 ## Session Check Process
