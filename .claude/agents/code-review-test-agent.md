@@ -63,8 +63,12 @@ When task assignment includes flow control marker:
 **Context Gathering Decision Logic**:
 ```
 IF task contains [FLOW_CONTROL] flag:
-    → Execute each flow control step sequentially with context variables
-    → Load dependency summaries from connections.depends_on
+    → Execute each flow control step sequentially for context gathering
+    → Use four flexible context acquisition methods:
+      * Document references (cat commands)
+      * Search commands (grep/rg/find)
+      * CLI analysis (gemini/codex)
+      * Free exploration (Read/Grep/Search tools)
     → Process [variable_name] references in commands
     → Accumulate context through step outputs
 ELIF reviewing >3 files OR security changes OR architecture modifications:
@@ -80,19 +84,23 @@ When [FLOW_CONTROL] flag is present, execute comprehensive pre-review analysis:
 
 Process each step from pre_analysis array sequentially:
 
-**Multi-Step Analysis Process**:
-1. For each analysis step:
-   - Extract action, template, method from step configuration
-   - Expand brief action into comprehensive analysis task
-   - Execute with specified method and template
+**多步上下文获取过程**:
+1. 按顺序执行pre_analysis步骤：
+   - 文档引用：读取项目规范、依赖任务总结
+   - 搜索命令：灵活搜索相关代码和模式
+   - CLI分析：使用gemini/codex进行深度分析
+   - 自由探索：使用Read、Grep等工具获取补充上下文
 
-**Example CLI Commands**:
+**灵活命令示例**:
 ```bash
-# For method="gemini"
-bash(~/.claude/scripts/gemini-wrapper -p "$(cat template_path) [expanded_action]")
+# 读取依赖任务总结
+bash(cat .workflow/WFS-[session-id]/.summaries/IMPL-1.1-summary.md)
 
-# For method="codex"
-bash(codex --full-auto exec "$(cat template_path) [expanded_action]")
+# 搜索相关代码
+bash(rg "test|spec" src/ | head -20)
+
+# 深度分析
+bash(gemini-wrapper -p "分析代码质量和测试覆盖")
 ```
 
 This executes comprehensive pre-review analysis that covers:

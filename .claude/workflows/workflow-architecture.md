@@ -122,24 +122,9 @@ All task files use this simplified 5-field schema:
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "gather_context",
-        "action": "Read dependency summaries",
-        "command": "bash(cat .workflow/WFS-[session-id]/.summaries/IMPL-1.1-summary.md)",
-        "output_to": "auth_design_context",
-        "on_error": "skip_optional"
-      },
-      {
-        "step": "analyze_patterns",
-        "action": "Analyze existing auth patterns",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p '@{src/auth/**/*} analyze authentication patterns using context: [auth_design_context]')",
-        "output_to": "pattern_analysis",
-        "on_error": "fail"
-      },
-      {
-        "step": "implement",
-        "action": "Implement JWT based on analysis",
-        "command": "bash(codex --full-auto exec 'Implement JWT using analysis: [pattern_analysis] and dependency context: [auth_design_context]')",
-        "on_error": "manual_intervention"
+        "step": "...",
+        "action": "...",
+        "command": "..."
       }
     ],
     "implementation_approach": {
@@ -197,14 +182,27 @@ The **focus_paths** field within **context** specifies concrete project paths re
 
 The **flow_control** field serves as a universal process manager for task execution with comprehensive flow orchestration:
 
-#### pre_analysis Array - Sequential Process Steps
-Each step contains:
-- **step**: Unique identifier for the step
-- **action**: Human-readable description of what the step does
-- **command**: Executable command wrapped in `bash()` with embedded context variables (e.g., `bash(command with [variable_name])`)
-- **output_to**: Variable name to store step results (optional for final steps)
-- **on_error**: Error handling strategy (`skip_optional`, `fail`, `retry_once`, `manual_intervention`)
-- **success_criteria**: Optional validation criteria (e.g., `exit_code:0`)
+#### pre_analysis - Flexible Context Gathering
+
+**核心定位**: 纯上下文获取阶段，为实现准备充分信息
+
+**四种灵活获取方式**:
+- **文档引用**: `bash(cat 相关文档路径)` - 直接读取项目文档
+- **搜索命令**: `bash(grep/rg/find等)` - 灵活搜索代码模式
+- **CLI分析**: `bash(gemini/codex分析命令)` - 深度分析理解
+- **自由探索**: Agent自主使用Read、Grep、Search等工具
+
+**设计原则**:
+- **步骤数量自由**: 1-N步，按需求复杂度决定
+- **命令组合灵活**: 支持任意bash管道组合
+- **够用即可**: 不要过度设计，获取足够上下文即可
+
+**基本步骤结构**:
+- **step**: 步骤标识
+- **action**: 步骤描述
+- **command**: 执行命令（支持变量引用）
+- **output_to**: 存储结果的变量名（可选）
+- **on_error**: 错误处理策略
 
 #### Context Flow Management
 - **Variable Accumulation**: Each step can reference outputs from previous steps via `[variable_name]`
@@ -221,101 +219,46 @@ Each step contains:
 - **Cross-Session**: Use `.workflow/*/` only when accessing multiple sessions (rare cases)
 - **Relative Paths**: Use `.summaries/` when executing from within session directory
 
-#### Command Types Supported
-- **CLI Analysis**: `bash(~/.claude/scripts/gemini-wrapper -p 'prompt')`
-- **Agent Execution**: `bash(codex --full-auto exec 'task description')`
-- **Shell Commands**: `bash(cat)`, `bash(grep)`, `bash(find)`, `bash(rg)`, `bash(awk)`, `bash(sed)`, `bash(custom scripts)`
-- **Search Pipelines**: `bash(find + grep combinations)`, `bash(rg + jq processing)`, `bash(pattern discovery chains)`
-- **Context Processing**: `bash(file reading)`, `bash(dependency loading)`, `bash(context merging)`
-- **Combined Analysis**: `bash(multi-tool command pipelines for comprehensive analysis)`
+#### Supported Context Acquisition Methods
+- **Document Retrieval**: `bash(cat)` - Read CLAUDE.md, README and other documentation
+- **Pattern Search**: `bash(rg)`, `bash(grep)`, `bash(find)` - Search for code patterns
+- **Deep Analysis**: `bash(gemini-wrapper)` - Understand existing architecture and patterns
+- **Autonomous Exploration**: Flexible combination of Read, Grep, Search and other tools
+- **Pipeline Combinations**: Any bash command pipelines, supporting complex information processing
 
-#### Combined Search Strategies
+#### Flexible Command Combination Examples
 
-The pre_analysis system supports flexible command combinations beyond just codex and gemini CLI tools. You can chain together grep, ripgrep (rg), find, awk, sed, and other bash commands for powerful analysis pipelines.
-
-**Pattern Discovery Commands**:
-```json
-// Search for authentication patterns with context
-{
-  "step": "find_auth_patterns",
-  "action": "Discover authentication patterns across codebase",
-  "command": "bash(rg -A 3 -B 3 'authenticate|login|jwt|auth' --type ts --type js | head -50)",
-  "output_to": "auth_patterns",
-  "on_error": "skip_optional"
-}
-
-// Find related test files
-{
-  "step": "discover_test_files",
-  "action": "Locate test files related to authentication",
-  "command": "bash(find . -type f \\( -name '*test*' -o -name '*spec*' \\) | xargs rg -l 'auth|login' 2>/dev/null | head -10)",
-  "output_to": "test_files",
-  "on_error": "skip_optional"
-}
-
-// Extract interface definitions
-{
-  "step": "extract_interfaces",
-  "action": "Extract TypeScript interface definitions",
-  "command": "bash(rg '^\\s*interface\\s+\\w+' --type ts -A 5 [focus_paths] | awk '/^[[:space:]]*interface/{p=1} p&&/^[[:space:]]*}/{p=0;print;print\"\"}')",
-  "output_to": "interfaces",
-  "on_error": "skip_optional"
-}
+**Basic Search**:
+```bash
+rg "auth|login" --type ts    # Search authentication-related code
+find . -name "*test*" | head  # Find test files
+cat CLAUDE.md               # Read project specifications
 ```
 
-**File Discovery Commands**:
-```json
-// Find configuration files
-{
-  "step": "find_config_files",
-  "action": "Locate configuration files related to auth",
-  "command": "bash(find [focus_paths] -type f \\( -name '*.json' -o -name '*.yaml' -o -name '*.yml' -o -name '*.env*' \\) | xargs rg -l 'auth|jwt|token' 2>/dev/null)",
-  "output_to": "config_files",
-  "on_error": "skip_optional"
-}
+**Dependency Task Summary References**:
+```bash
+# Reference completed task summary documents
+cat .workflow/WFS-[session-id]/.summaries/IMPL-1.1-summary.md
 
-// Discover API endpoints
-{
-  "step": "find_api_endpoints",
-  "action": "Find API route definitions",
-  "command": "bash(rg -n 'app\\.(get|post|put|delete|patch).*auth|router\\.(get|post|put|delete|patch).*auth' --type js --type ts [focus_paths])",
-  "output_to": "api_routes",
-  "on_error": "skip_optional"
-}
+# Batch read dependency task summaries
+for dep in IMPL-1.1 IMPL-1.2; do
+  cat .workflow/WFS-[session-id]/.summaries/${dep}-summary.md 2>/dev/null
+done
 ```
 
-**Advanced Analysis Commands**:
-```json
-// Analyze import dependencies
-{
-  "step": "analyze_imports",
-  "action": "Map import dependencies for auth modules",
-  "command": "bash(rg '^import.*from.*auth' --type ts --type js [focus_paths] | awk -F'from' '{print $2}' | sort | uniq -c | sort -nr)",
-  "output_to": "import_analysis",
-  "on_error": "skip_optional"
-}
-
-// Count function definitions
-{
-  "step": "count_functions",
-  "action": "Count and categorize function definitions",
-  "command": "bash(rg '^\\s*(function|const\\s+\\w+\\s*=|export\\s+(function|const))' --type ts --type js [focus_paths] | wc -l)",
-  "output_to": "function_count",
-  "on_error": "skip_optional"
-}
+**Combined Analysis**:
+```bash
+rg "interface.*Auth" | head -20                    # Find interface definitions
+find src -name "*.ts" | xargs rg -l "login"       # Find related files
+gemini-wrapper -p "analyze existing auth patterns"  # Deep analysis
 ```
 
-**Context Merging Commands**:
-```json
-// Combine multiple analysis results
-{
-  "step": "merge_analysis",
-  "action": "Combine pattern and structure analysis",
-  "command": "bash(echo 'Auth Patterns:'; echo '[auth_patterns]'; echo; echo 'Test Files:'; echo '[test_files]'; echo; echo 'Config Files:'; echo '[config_files]')",
-  "output_to": "combined_context",
-  "on_error": "skip_optional"
-}
-```
+**Flexibility Principles**:
+- Combine commands based on task requirements, don't mechanically copy examples
+- Simple tasks may only need 1-2 search commands
+- Complex tasks can design multi-step context accumulation
+- Fully utilize the powerful combination capabilities of pipeline commands
+- Reasonably reference prerequisite task summary documents as context
 
 #### Error Handling Strategies
 - **skip_optional**: Continue execution, step result is empty
@@ -323,60 +266,60 @@ The pre_analysis system supports flexible command combinations beyond just codex
 - **retry_once**: Retry step once, then fail if still unsuccessful
 - **manual_intervention**: Pause execution for manual review
 
-#### Example Flow Control
+#### Flexible Design Examples
+
+**Simple Tasks** (1-2 step context gathering):
 ```json
-{
-  "pre_analysis": [
-    {
-      "step": "gather_dependencies",
-      "action": "Load context from completed dependencies",
-      "command": "bash(for dep in ${depends_on}; do cat .workflow/WFS-[session-id]/.summaries/${dep}-summary.md 2>/dev/null || echo \"No summary for $dep\"; done)",
-      "output_to": "dependency_context",
-      "on_error": "skip_optional"
-    },
-    {
-      "step": "discover_patterns",
-      "action": "Find existing patterns using combined search",
-      "command": "bash(rg -A 2 -B 2 'class.*Auth|interface.*Auth|type.*Auth' --type ts [focus_paths] | head -30)",
-      "output_to": "auth_patterns",
-      "on_error": "skip_optional"
-    },
-    {
-      "step": "find_related_files",
-      "action": "Discover related implementation files",
-      "command": "bash(find [focus_paths] -type f -name '*.ts' -o -name '*.js' | xargs rg -l 'auth|login|jwt' 2>/dev/null | head -15)",
-      "output_to": "related_files",
-      "on_error": "skip_optional"
-    },
-    {
-      "step": "analyze_codebase",
-      "action": "Understand current implementation with Gemini",
-      "command": "bash(~/.claude/scripts/gemini-wrapper -p 'Analyze patterns: [auth_patterns] in files: [related_files] using context: [dependency_context]')",
-      "output_to": "codebase_analysis",
-      "on_error": "fail"
-    },
-    {
-      "step": "implement",
-      "action": "Execute implementation based on comprehensive analysis",
-      "command": "bash(codex --full-auto exec 'Implement based on: [codebase_analysis] with discovered patterns: [auth_patterns] and dependency context: [dependency_context]')",
-      "on_error": "manual_intervention"
-    }
-  ],
-  "implementation_approach": {
-    "task_description": "Execute implementation following [codebase_analysis] patterns and [dependency_context] requirements",
-    "modification_points": [
-      "Update target files in [focus_paths] following established patterns",
-      "Apply [dependency_context] insights to maintain consistency"
-    ],
-    "logic_flow": [
-      "Analyze existing patterns → apply dependency context → implement changes → validate results"
-    ]
-  },
-  "target_files": [
-    "file:function:lines format for precise targeting"
-  ]
-}
+"pre_analysis": [
+  {
+    "step": "check_patterns",
+    "action": "Search existing patterns",
+    "command": "bash(rg 'login|auth' src/ | head -10)"
+  }
+]
 ```
+
+**Medium Tasks** (Multi-step context accumulation):
+```json
+"pre_analysis": [
+  {
+    "step": "load_dependencies",
+    "action": "Read dependency task summaries",
+    "command": "bash(cat .workflow/WFS-[session-id]/.summaries/IMPL-1.1-summary.md)",
+    "output_to": "dependency_context"
+  },
+  {
+    "step": "read_docs",
+    "action": "Read project specifications",
+    "command": "bash(cat CLAUDE.md)",
+    "output_to": "project_rules"
+  },
+  {
+    "step": "find_similar",
+    "action": "Find similar implementations",
+    "command": "bash(rg 'class.*Service' src/)",
+    "output_to": "existing_services"
+  }
+]
+```
+
+**Important**: These are references only, please design flexibly based on actual task requirements, don't mechanically copy.
+
+#### implementation_approach - Implementation Method Definition
+
+**Core Purpose**: Based on context gathered from pre_analysis, describe specific implementation strategies and methods
+
+**Four Design Principles**:
+1. **Context Driven**: Fully utilize all context information collected during pre_analysis phase
+2. **Pattern Following**: Implement based on discovered existing code patterns and project conventions
+3. **Precise Targeting**: Clearly specify files, functions and code locations that need modification
+4. **Clear Logic**: Describe clear implementation flow and business logic
+
+**Field Descriptions**:
+- **task_description**: Comprehensive description, referencing context variables and inherited information
+- **modification_points**: Specific code modification points, precise to files and functions
+- **logic_flow**: Business logic flow, describing implementation execution sequence
+- **target_files**: Target file list, format as `file:function:lines`
 
 #### Benefits of Flow Control
 - **Universal Process Manager**: Handles any type of analysis or implementation flow

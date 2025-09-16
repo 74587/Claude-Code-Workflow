@@ -39,10 +39,12 @@ IF context sufficient for implementation:
     → Proceed with execution
 ELIF context insufficient OR task has flow control marker:
     → Check for [FLOW_CONTROL] marker:
-       - Execute flow_control.pre_analysis steps sequentially BEFORE implementation
-       - Process each step with command execution and context accumulation
-       - Load dependency summaries and parent task context
-       - Execute CLI tools, scripts, and agent commands as specified
+       - Execute flow_control.pre_analysis steps sequentially for context gathering
+       - Use four flexible context acquisition methods:
+         * Document references (cat commands)
+         * Search commands (grep/rg/find)
+         * CLI analysis (gemini/codex)
+         * Free exploration (Read/Grep/Search tools)
        - Pass context between steps via [variable_name] references
     → Extract patterns and conventions from accumulated context
     → Proceed with execution
@@ -60,12 +62,13 @@ ELIF context insufficient OR task has flow control marker:
 **Flow Control Execution Standards**:
 - **Sequential Step Processing**: Execute flow_control.pre_analysis steps in defined order
 - **Context Variable Handling**: Process [variable_name] references in commands
-- **Command Types**:
-  - **CLI Analysis**: Execute gemini/codex commands with context variables
-  - **Dependency Loading**: Read summaries from context.depends_on automatically
-  - **Context Accumulation**: Pass step outputs to subsequent steps via [variable_name]
+- **四种上下文获取方式**:
+  - **文档引用**: `bash(cat 相关文档路径)` - 读取CLAUDE.md、依赖任务总结等
+  - **搜索命令**: `bash(grep/rg/find等)` - 灵活搜索代码模式
+  - **CLI分析**: `bash(gemini/codex分析命令)` - 深度分析理解
+  - **自由探索**: Agent自主使用Read、Grep、Search等工具
+- **灵活性原则**: 根据任务需求灵活组合，步骤数量1-N自由决定
 - **Error Handling**: Apply on_error strategies per step (skip_optional, fail, retry_once, manual_intervention)
-- **Free Exploration Phase**: After completing pre_analysis steps, can enter additional exploration using bash commands (grep, find, rg, awk, sed) or CLI tools to gather supplementary context if needed
 - **Follow Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md and @~/.claude/workflows/tools-implementation-guide.md
 
 
