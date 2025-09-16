@@ -17,7 +17,7 @@ type: strategic-guideline
 
 **Codex** (Development & Implementation):
 ```bash
-codex --full-auto exec "implement user authentication system"
+codex -s workspace-write --full-auto exec "implement user authentication system"
 ```
 
 ### ⚠️ CRITICAL Command Differences
@@ -25,9 +25,19 @@ codex --full-auto exec "implement user authentication system"
 | Tool | Command | Has Wrapper | Key Feature |
 |------|---------|-------------|-------------|
 | **Gemini** | `~/.claude/scripts/gemini-wrapper` | ✅ YES | Large context window, pattern recognition |
-| **Codex** | `codex --full-auto exec` | ❌ NO | Autonomous development, math reasoning |
+| **Codex** | `codex -s workspace-write --full-auto exec` | ❌ NO | Autonomous development, math reasoning |
 
 **❌ NEVER use**: `~/.claude/scripts/codex` - this wrapper does not exist!
+
+### 🔒 Codex Sandbox Modes
+
+Codex requires the `-s` (sandbox) parameter for write operations:
+
+- **`-s read-only`**: Safe analysis mode, no file modifications
+- **`-s workspace-write`**: Standard development mode, can modify project files (RECOMMENDED for development tasks)
+- **`-s danger-full-access`**: Full system access (use with extreme caution)
+
+**Default Choice**: Use `-s workspace-write` for all development and implementation tasks.
 
 ## 🎯 Tool Selection Matrix
 
@@ -42,7 +52,7 @@ codex --full-auto exec "implement user authentication system"
   - Large codebase understanding
 
 ### When to Use Codex
-- **Command**: `codex --full-auto exec "prompt"`
+- **Command**: `codex -s workspace-write --full-auto exec "prompt"`
 - **Strengths**: Mathematical reasoning, autonomous development
 - **Best For**:
   - Complex algorithm analysis
@@ -111,13 +121,13 @@ cd src && ~/.claude/scripts/gemini-wrapper -p "review overall architecture"
 ### Codex Quick Commands
 ```bash
 # Feature development
-codex --full-auto exec "implement JWT authentication with refresh tokens"
+codex -s workspace-write --full-auto exec "implement JWT authentication with refresh tokens"
 
 # Performance optimization
-codex --full-auto exec "optimize database queries in user service"
+codex -s workspace-write --full-auto exec "optimize database queries in user service"
 
 # Security enhancement
-codex --full-auto exec "add input validation and sanitization"
+codex -s workspace-write --full-auto exec "add input validation and sanitization"
 ```
 
 ## 📋 Implementation Guidelines
@@ -138,7 +148,7 @@ For comprehensive syntax, patterns, and advanced usage:
 |---------|--------|-------|
 | **Command Syntax** | Has wrapper script | Direct command only |
 | **File Loading** | `--all-files` available | `@` patterns required |
-| **Default Mode** | Interactive analysis | `--full-auto exec` automation |
+| **Default Mode** | Interactive analysis | `-s workspace-write --full-auto exec` automation |
 | **Primary Use** | Analysis & planning | Development & implementation |
 | **Context Window** | Very large | Standard with smart discovery |
 | **Automation Level** | Manual implementation | Autonomous execution |

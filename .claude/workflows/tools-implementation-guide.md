@@ -224,11 +224,22 @@ gemini -p "@{**/*.ts} @{**/*.js} @{CLAUDE.md} Analyze authentication patterns"
 - **Purpose**: Automated codebase analysis, intelligent code generation, and autonomous development workflows
 - **⚠️ CRITICAL**: **NO wrapper script exists** - always use direct `codex` command
 - **Key Characteristic**: **No `--all-files` flag** - requires explicit `@` pattern references
-- **Default Mode**: `--full-auto exec` autonomous development mode (RECOMMENDED)
+- **Default Mode**: `-s workspace-write --full-auto exec` autonomous development mode (RECOMMENDED)
+- **🔒 Sandbox Required**: Must specify `-s` (sandbox) parameter for write operations
+
+### 🔒 Codex Sandbox Modes
+
+Codex requires the `-s` (sandbox) parameter to control file modification permissions:
+
+- **`-s read-only`**: Safe analysis mode, no file modifications allowed
+- **`-s workspace-write`**: Standard development mode, can modify project files (**RECOMMENDED for development tasks**)
+- **`-s danger-full-access`**: Full system access, use with extreme caution
+
+**Default Choice**: Always use `-s workspace-write` for development and implementation tasks.
 
 ### ⭐ CRITICAL: Default to `--full-auto` Mode
 
-**🎯 Golden Rule**: Always start with `codex --full-auto exec "task description"` for maximum autonomous capabilities.
+**🎯 Golden Rule**: Always start with `codex -s workspace-write --full-auto exec "task description"` for maximum autonomous capabilities.
 
 **Why `--full-auto` Should Be Your Default**:
 - **🧠 Intelligent File Discovery**: Auto-identifies relevant files without manual `@` patterns
@@ -247,16 +258,16 @@ gemini -p "@{**/*.ts} @{**/*.js} @{CLAUDE.md} Analyze authentication patterns"
 
 **Basic Structure** (Priority Order):
 ```bash
-codex --full-auto exec "autonomous development task"  # DEFAULT & RECOMMENDED
-codex --full-auto exec "prompt with @{patterns}"      # For specific control needs
+codex -s workspace-write --full-auto exec "autonomous development task"  # DEFAULT & RECOMMENDED
+codex -s workspace-write --full-auto exec "prompt with @{patterns}"      # For specific control needs
 ```
 
 **⚠️ NEVER use**: `~/.claude/scripts/codex` - this wrapper script does not exist!
 
 **Key Commands** (In Order of Preference):
-- `codex --full-auto exec "..."` ⭐ **PRIMARY MODE** - Full autonomous development
-- `codex --cd /path --full-auto exec "..."` - Directory-specific autonomous development
-- `codex --cd /path --full-auto exec "@{patterns} ..."` - Directory-specific with patterns
+- `codex -s workspace-write --full-auto exec "..."` ⭐ **PRIMARY MODE** - Full autonomous development
+- `codex -s workspace-write --cd /path --full-auto exec "..."` - Directory-specific autonomous development
+- `codex -s workspace-write --cd /path --full-auto exec "@{patterns} ..."` - Directory-specific with patterns
 
 ### 📦 Codex Usage Patterns
 
@@ -265,19 +276,19 @@ codex --full-auto exec "prompt with @{patterns}"      # For specific control nee
 **Basic Development**:
 ```bash
 # RECOMMENDED: Let Codex handle everything autonomously
-codex --full-auto exec "Implement user authentication with JWT tokens"
+codex -s workspace-write --full-auto exec "Implement user authentication with JWT tokens"
 
 # Directory-specific autonomous development
-codex --cd src/auth --full-auto exec "Refactor authentication module using latest patterns"
+codex -s workspace-write --cd src/auth --full-auto exec "Refactor authentication module using latest patterns"
 
 # Complex feature development
-codex --full-auto exec "Create a complete todo application with React and TypeScript"
+codex -s workspace-write --full-auto exec "Create a complete todo application with React and TypeScript"
 ```
 
 **Template-Enhanced Development**:
 ```bash
 # Autonomous mode with template guidance
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
+codex -s workspace-write --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
 
 ## Task: User Authentication System
 - JWT token management
@@ -290,16 +301,16 @@ codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/developm
 **Module-Specific with Patterns**:
 ```bash
 # Explicit patterns when autonomous mode needs guidance
-codex --full-auto exec "@{src/auth/**/*,CLAUDE.md} Refactor authentication module using latest patterns"
+codex -s workspace-write --full-auto exec "@{src/auth/**/*,CLAUDE.md} Refactor authentication module using latest patterns"
 
 # Alternative: Directory-specific execution with explicit patterns
-codex --cd src/auth --full-auto exec "@{**/*,../../CLAUDE.md} Refactor authentication module"
+codex -s workspace-write --cd src/auth --full-auto exec "@{**/*,../../CLAUDE.md} Refactor authentication module"
 ```
 
 **Debugging & Analysis**:
 ```bash
 # Autonomous debugging mode
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)
+codex -s workspace-write --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)
 
 ## Issue: Performance degradation in user dashboard
 - Identify bottlenecks in the codebase
@@ -307,7 +318,7 @@ codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/developm
 - Add performance monitoring"
 
 # Alternative: Explicit patterns for controlled analysis
-codex --full-auto exec "@{src/**/*,package.json,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)"
+codex -s workspace-write --full-auto exec "@{src/**/*,package.json,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)"
 ```
 
 ### 📂 Codex File Pattern Rules - CRITICAL
@@ -334,26 +345,26 @@ codex --full-auto exec "@{src/**/*,package.json,CLAUDE.md} $(cat ~/.claude/workf
 
 ```bash
 # Phase 1: Autonomous Analysis
-codex --full-auto exec "Analyze current architecture for payment system integration"
+codex -s workspace-write --full-auto exec "Analyze current architecture for payment system integration"
 
 # Phase 2: Autonomous Implementation (RECOMMENDED APPROACH)
-codex --full-auto exec "Implement Stripe payment integration based on the analyzed architecture"
+codex -s workspace-write --full-auto exec "Implement Stripe payment integration based on the analyzed architecture"
 
 # Phase 3: Autonomous Testing
-codex --full-auto exec "Generate comprehensive tests for the payment system implementation"
+codex -s workspace-write --full-auto exec "Generate comprehensive tests for the payment system implementation"
 
 # Alternative: Explicit control when needed
-codex --full-auto exec "@{**/*,CLAUDE.md} Analyze current architecture for payment system integration"
+codex -s workspace-write --full-auto exec "@{**/*,CLAUDE.md} Analyze current architecture for payment system integration"
 ```
 
 #### 🌐 Cross-Project Learning
 
 ```bash
 # RECOMMENDED: Autonomous cross-project pattern learning
-codex --full-auto exec "Implement feature X by learning patterns from ../other-project/ and applying them to the current codebase"
+codex -s workspace-write --full-auto exec "Implement feature X by learning patterns from ../other-project/ and applying them to the current codebase"
 
 # Alternative: Explicit pattern specification
-codex --full-auto exec "@{../other-project/src/**/*,src/**/*,CLAUDE.md} Implement feature X using patterns from other-project"
+codex -s workspace-write --full-auto exec "@{../other-project/src/**/*,src/**/*,CLAUDE.md} Implement feature X using patterns from other-project"
 ```
 
 #### 📊 Development Workflow Integration
@@ -361,7 +372,7 @@ codex --full-auto exec "@{../other-project/src/**/*,src/**/*,CLAUDE.md} Implemen
 **Pre-Development Analysis**:
 ```bash
 # RECOMMENDED: Autonomous pattern analysis
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
+codex -s workspace-write --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
 Analyze the existing codebase patterns and conventions before implementing new features."
 ```
@@ -369,7 +380,7 @@ Analyze the existing codebase patterns and conventions before implementing new f
 **Quality Assurance**:
 ```bash
 # RECOMMENDED: Autonomous testing and validation
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/testing.txt)
+codex -s workspace-write --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/testing.txt)
 
 Generate comprehensive tests and perform validation for the entire codebase."
 ```
@@ -383,7 +394,7 @@ Generate comprehensive tests and perform validation for the entire codebase."
 - **Be selective**: Use specific patterns like `@{src/**/*.ts}` for targeted analysis
 
 **Default Automation Mode** (CRITICAL GUIDANCE):
-- **`codex --full-auto exec` is PRIMARY choice**: Use for 90% of all tasks - maximizes autonomous capabilities
+- **`codex -s workspace-write --full-auto exec` is PRIMARY choice**: Use for 90% of all tasks - maximizes autonomous capabilities
 - **Explicit patterns only when necessary**: Reserve for cases where you need explicit file pattern control
 - **Trust the autonomous intelligence**: Codex excels at file discovery, context gathering, and architectural decisions
 - **Start with full-auto always**: If it doesn't meet needs, then consider explicit patterns
@@ -417,4 +428,4 @@ Generate comprehensive tests and perform validation for the entire codebase."
 
 **Remember**:
 - **Gemini excels at understanding** - use `~/.claude/scripts/gemini-wrapper` for analysis and pattern recognition
-- **Codex excels at building** - use `codex --full-auto exec` for autonomous development and implementation
+- **Codex excels at building** - use `codex -s workspace-write --full-auto exec` for autonomous development and implementation
