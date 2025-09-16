@@ -19,7 +19,7 @@ For all CLI tool usage, command syntax, and integration guidelines:
 
 Bash(cd [module] && ~/.claude/scripts/gemini-wrapper -p "analyze [scope] architecture")
 
-Bash(codex --full-auto exec "analyze [scope] architecture")
+Bash(codex -s workspace-write --full-auto exec "analyze [scope] architecture")
 
 **Context Requirements**:
 - Identify 3+ existing similar patterns before implementation

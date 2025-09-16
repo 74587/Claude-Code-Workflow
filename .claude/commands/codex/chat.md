@@ -145,7 +145,7 @@ When `--save-session` flag is used:
 #### Full Auto Mode
 ```bash
 /codex:chat "create a complete user dashboard with charts" --full-auto
-# Executes: codex --full-auto "@{CLAUDE.md,**/*CLAUDE.md,**/*user*,**/*dashboard*} create a complete user dashboard with charts"
+# Executes: codex -s workspace-write --full-auto "@{CLAUDE.md,**/*CLAUDE.md,**/*user*,**/*dashboard*} create a complete user dashboard with charts"
 ```
 
 ### ⚠️ **Error Prevention**

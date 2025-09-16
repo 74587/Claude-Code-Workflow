@@ -53,7 +53,7 @@ model: sonnet
 ```bash
 /codex:execute "create complete todo application with React and TypeScript"
 ```
-**Process**: Uses `codex --full-auto` for autonomous implementation
+**Process**: Uses `codex -s workspace-write --full-auto` for autonomous implementation
 
 ## Context Inference Logic
 
@@ -129,7 +129,7 @@ Execute implementation following task acceptance criteria."
 
 ### Full Auto Template
 ```bash
-codex --full-auto "@{**/*} @{CLAUDE.md,**/*CLAUDE.md}
+codex -s workspace-write --full-auto "@{**/*} @{CLAUDE.md,**/*CLAUDE.md}
 
 Development Task: [user_description]
 

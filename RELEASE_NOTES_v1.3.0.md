@@ -166,10 +166,10 @@ cd [module] && ~/.claude/scripts/gemini-wrapper -p "Analyze patterns, convention
 #### **Codex Analysis Templates**
 ```bash
 # Architectural analysis
-codex --full-auto exec "analyze [scope] architecture and identify optimization opportunities"
+codex -s workspace-write --full-auto exec "analyze [scope] architecture and identify optimization opportunities"
 
 # Pattern-based development
-codex --full-auto exec "analyze existing patterns for [feature] implementation with examples"
+codex -s workspace-write --full-auto exec "analyze existing patterns for [feature] implementation with examples"
 ```
 
 ### **Improved Command Structure**

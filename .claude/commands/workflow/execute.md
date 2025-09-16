@@ -113,7 +113,7 @@ Task(subagent_type="code-developer",
      Output: pattern_analysis
 
      Step 3 (implement): Implement JWT based on analysis
-     Command: codex --full-auto exec 'Implement JWT using analysis: [pattern_analysis] and context: [dependency_context]'
+     Command: codex -s workspace-write --full-auto exec 'Implement JWT using analysis: [pattern_analysis] and context: [dependency_context]'
 
      Session Context:
      - Workflow Directory: .workflow/WFS-user-auth/

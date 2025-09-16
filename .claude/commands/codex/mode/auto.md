@@ -19,7 +19,7 @@ Leverages Codex's `--full-auto` mode for autonomous development with intelligent
 
 **Process**: Analyze Input → Select Templates → Gather Context → Execute Autonomous Development
 
-⚠️ **Critical Feature**: Uses `codex --full-auto` for maximum autonomous capability with mandatory `@` pattern requirements.
+⚠️ **Critical Feature**: Uses `codex -s workspace-write --full-auto` for maximum autonomous capability with mandatory `@` pattern requirements.
 
 ## Usage
 
@@ -137,7 +137,7 @@ END FUNCTION
 ### Step 3: Execute with Full Auto Mode
 ```bash
 # Autonomous development execution with comprehensive context
-codex --full-auto "@{**/*} @{CLAUDE.md,**/*CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/[selected_template])
+codex -s workspace-write --full-auto "@{**/*} @{CLAUDE.md,**/*CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/[selected_template])
 
 Development Task: [user_input]
 
