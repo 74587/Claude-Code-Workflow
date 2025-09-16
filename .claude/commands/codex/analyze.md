@@ -37,19 +37,19 @@ Quick analysis tool for codebase insights using intelligent pattern detection an
 ```bash
 /codex:analyze "authentication patterns"
 ```
-**Executes**: `codex exec "@{**/*auth*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"`
+**Executes**: `codex --full-auto exec "@{**/*auth*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)" -s danger-full-access`
 
 ### Targeted Analysis
 ```bash
 /codex:analyze "React component architecture"
 ```
-**Executes**: `codex exec "@{src/components/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt)"`
+**Executes**: `codex --full-auto exec "@{src/components/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt)" -s danger-full-access`
 
 ### Security Focus
 ```bash
 /codex:analyze "API security vulnerabilities"
 ```
-**Executes**: `codex exec "@{**/api/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt)"`
+**Executes**: `codex --full-auto exec "@{**/api/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt)" -s danger-full-access`
 
 ## Codex-Specific Patterns
 
@@ -83,25 +83,25 @@ Templates are automatically selected based on analysis type:
 ### Technology Stack Analysis
 ```bash
 /codex:analyze "project technology stack"
-# Executes: codex exec "@{package.json,*.config.*,CLAUDE.md} [analysis prompt]"
+# Executes: codex --full-auto exec "@{package.json,*.config.*,CLAUDE.md} [analysis prompt]" -s danger-full-access
 ```
 
 ### Code Quality Review
 ```bash
 /codex:analyze "code quality and standards"
-# Executes: codex exec "@{src/**/*,test/**/*,CLAUDE.md} [analysis prompt]"
+# Executes: codex --full-auto exec "@{src/**/*,test/**/*,CLAUDE.md} [analysis prompt]" -s danger-full-access
 ```
 
 ### Migration Planning
 ```bash
 /codex:analyze "legacy code modernization"
-# Executes: codex exec "@{**/*.{js,jsx,ts,tsx},CLAUDE.md} [analysis prompt]"
+# Executes: codex --full-auto exec "@{**/*.{js,jsx,ts,tsx},CLAUDE.md} [analysis prompt]" -s danger-full-access
 ```
 
 ### Module-Specific Analysis
 ```bash
 /codex:analyze "authentication module patterns"
-# Executes: codex exec "@{src/auth/**/*,**/*auth*,CLAUDE.md} [analysis prompt]"
+# Executes: codex --full-auto exec "@{src/auth/**/*,**/*auth*,CLAUDE.md} [analysis prompt]" -s danger-full-access
 ```
 
 ## Output Format
@@ -117,7 +117,7 @@ Analysis results include:
 
 ### Basic Analysis Template
 ```bash
-codex exec "@{inferred_patterns} @{CLAUDE.md,**/*CLAUDE.md}
+codex --full-auto exec "@{inferred_patterns} @{CLAUDE.md,**/*CLAUDE.md}
 
 Analysis Type: [analysis_type]
 
@@ -125,15 +125,15 @@ Provide:
 - Pattern identification and analysis
 - Code quality assessment
 - Architecture insights
-- Specific recommendations with file:line references"
+- Specific recommendations with file:line references" -s danger-full-access
 ```
 
 ### Template-Enhanced Analysis
 ```bash
-codex exec "@{inferred_patterns} @{CLAUDE.md,**/*CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/[template].txt)
+codex --full-auto exec "@{inferred_patterns} @{CLAUDE.md,**/*CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/[template].txt)
 
 Focus: [analysis_type]
-Context: [user_description]"
+Context: [user_description]" -s danger-full-access
 ```
 
 ## Error Prevention

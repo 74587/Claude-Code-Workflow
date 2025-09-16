@@ -163,16 +163,16 @@ cd [module] && ~/.claude/scripts/gemini-wrapper -p "Find 3+ similar [feature_typ
 #### Codex Analysis Templates
 ```bash
 # Architectural analysis
-codex -s workspace-write --full-auto exec "analyze [scope] architecture and identify optimization opportunities"
+codex --full-auto exec "analyze [scope] architecture and identify optimization opportunities" -s danger-full-access
 
 # Pattern-based development
-codex -s workspace-write --full-auto exec "analyze existing patterns for [feature] implementation with concrete examples"
+codex --full-auto exec "analyze existing patterns for [feature] implementation with concrete examples" -s danger-full-access
 
 # Project understanding
-codex -s workspace-write --full-auto exec "analyze project structure, conventions, and development requirements"
+codex --full-auto exec "analyze project structure, conventions, and development requirements" -s danger-full-access
 
 # Modernization analysis
-codex -s workspace-write --full-auto exec "identify modernization opportunities and refactoring priorities"
+codex --full-auto exec "identify modernization opportunities and refactoring priorities" -s danger-full-access
 ```
 
 ### Context Accumulation & Inheritance

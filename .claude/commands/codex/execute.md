@@ -53,7 +53,7 @@ model: sonnet
 ```bash
 /codex:execute "create complete todo application with React and TypeScript"
 ```
-**Process**: Uses `codex -s workspace-write --full-auto` for autonomous implementation
+**Process**: Uses `codex --full-auto ... -s danger-full-access` for autonomous implementation
 
 ## Context Inference Logic
 
@@ -105,7 +105,7 @@ model: sonnet
 
 ### User Description Template
 ```bash
-codex exec "@{inferred_patterns} @{CLAUDE.md,**/*CLAUDE.md}
+codex --full-auto exec "@{inferred_patterns} @{CLAUDE.md,**/*CLAUDE.md}
 
 Implementation Task: [user_description]
 
@@ -113,23 +113,23 @@ Provide:
 - Specific implementation code
 - File modification locations (file:line)
 - Test cases
-- Integration guidance"
+- Integration guidance" -s danger-full-access
 ```
 
 ### Task ID Template
 ```bash
-codex exec "@{task_files} @{brainstorming_refs} @{CLAUDE.md,**/*CLAUDE.md}
+codex --full-auto exec "@{task_files} @{brainstorming_refs} @{CLAUDE.md,**/*CLAUDE.md}
 
 Task: [task_title] (ID: [task-id])
 Type: [task_type]
 Scope: [task_scope]
 
-Execute implementation following task acceptance criteria."
+Execute implementation following task acceptance criteria." -s danger-full-access
 ```
 
 ### Full Auto Template
 ```bash
-codex -s workspace-write --full-auto "@{**/*} @{CLAUDE.md,**/*CLAUDE.md}
+codex --full-auto exec "@{**/*} @{CLAUDE.md,**/*CLAUDE.md}
 
 Development Task: [user_description]
 
@@ -137,7 +137,7 @@ Autonomous implementation with:
 - Architecture decisions
 - Code generation
 - Testing
-- Documentation"
+- Documentation" -s danger-full-access
 ```
 
 ## Auto-Generated Outputs

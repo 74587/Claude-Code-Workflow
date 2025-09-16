@@ -55,7 +55,9 @@ detect_changed_modules() {
                         
                         local types=$(find "$dir" -maxdepth 1 -type f -name "*.*" 2>/dev/null | \
                                     grep -E '\.[^/]*$' | sed 's/.*\.//' | sort -u | tr '\n' ',' | sed 's/,$//')
-                        echo "depth:$depth|path:$dir|files:$file_count|types:[$types]|status:changed"
+                        local has_claude="no"
+                        [ -f "$dir/CLAUDE.md" ] && has_claude="yes"
+                        echo "depth:$depth|path:$dir|files:$file_count|types:[$types]|has_claude:$has_claude|status:changed"
                     fi
                 done
             fi
@@ -69,7 +71,9 @@ detect_changed_modules() {
                     if [ -d "$dir" ]; then
                         local depth=$(echo "$dir" | tr -cd '/' | wc -c)
                         if [ "$dir" = "." ]; then depth=0; fi
-                        echo "$depth:$dir"
+                        local claude_indicator=""
+                        [ -f "$dir/CLAUDE.md" ] && claude_indicator=" [✓]"
+                        echo "$depth:$dir$claude_indicator"
                     fi
                 done | sort -n | awk -F: '
                     {

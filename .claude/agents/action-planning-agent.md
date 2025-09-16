@@ -55,7 +55,7 @@ You are a pure execution agent specialized in creating actionable implementation
   - **Method Selection**: Use method specified in each step (gemini/codex/manual/auto-detected)
 - **CLI Commands**:
   - **Gemini**: `bash(~/.claude/scripts/gemini-wrapper -p "$(cat template_path) [expanded_action]")`
-  - **Codex**: `bash(codex -s workspace-write --full-auto exec "$(cat template_path) [expanded_action]")`
+  - **Codex**: `bash(codex --full-auto exec "$(cat template_path) [expanded_action]" -s danger-full-access)`
 - **Follow Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md and @~/.claude/workflows/tools-implementation-guide.md
 
 ### Pre-Execution Analysis

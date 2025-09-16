@@ -232,14 +232,15 @@ gemini -p "@{**/*.ts} @{**/*.js} @{CLAUDE.md} Analyze authentication patterns"
 Codex requires the `-s` (sandbox) parameter to control file modification permissions:
 
 - **`-s read-only`**: Safe analysis mode, no file modifications allowed
-- **`-s workspace-write`**: Standard development mode, can modify project files (**RECOMMENDED for development tasks**)
+- **`-s workspace-write`**: Standard development mode, can modify project files
+- **`-s danger-full-access`**: Full system access (**RECOMMENDED for development tasks**)
 - **`-s danger-full-access`**: Full system access, use with extreme caution
 
-**Default Choice**: Always use `-s workspace-write` for development and implementation tasks.
+**Default Choice**: Always use `-s danger-full-access` for development and implementation tasks.
 
 ### ⭐ CRITICAL: Default to `--full-auto` Mode
 
-**🎯 Golden Rule**: Always start with `codex -s workspace-write --full-auto exec "task description"` for maximum autonomous capabilities.
+**🎯 Golden Rule**: Always start with `codex --full-auto exec "task description" -s danger-full-access` for maximum autonomous capabilities.
 
 **Why `--full-auto` Should Be Your Default**:
 - **🧠 Intelligent File Discovery**: Auto-identifies relevant files without manual `@` patterns
@@ -258,16 +259,16 @@ Codex requires the `-s` (sandbox) parameter to control file modification permiss
 
 **Basic Structure** (Priority Order):
 ```bash
-codex -s workspace-write --full-auto exec "autonomous development task"  # DEFAULT & RECOMMENDED
-codex -s workspace-write --full-auto exec "prompt with @{patterns}"      # For specific control needs
+codex --full-auto exec "autonomous development task" -s danger-full-access  # DEFAULT & RECOMMENDED
+codex --full-auto exec "prompt with @{patterns}" -s danger-full-access      # For specific control needs
 ```
 
 **⚠️ NEVER use**: `~/.claude/scripts/codex` - this wrapper script does not exist!
 
 **Key Commands** (In Order of Preference):
-- `codex -s workspace-write --full-auto exec "..."` ⭐ **PRIMARY MODE** - Full autonomous development
-- `codex -s workspace-write --cd /path --full-auto exec "..."` - Directory-specific autonomous development
-- `codex -s workspace-write --cd /path --full-auto exec "@{patterns} ..."` - Directory-specific with patterns
+- `codex --full-auto exec "..." -s danger-full-access` ⭐ **PRIMARY MODE** - Full autonomous development
+- `codex --cd /path --full-auto exec "..." -s danger-full-access` - Directory-specific autonomous development
+- `codex --cd /path --full-auto exec "@{patterns} ..." -s danger-full-access` - Directory-specific with patterns
 
 ### 📦 Codex Usage Patterns
 
@@ -276,24 +277,24 @@ codex -s workspace-write --full-auto exec "prompt with @{patterns}"      # For s
 **Basic Development**:
 ```bash
 # RECOMMENDED: Let Codex handle everything autonomously
-codex -s workspace-write --full-auto exec "Implement user authentication with JWT tokens"
+codex --full-auto exec "Implement user authentication with JWT tokens" -s danger-full-access
 
 # Directory-specific autonomous development
-codex -s workspace-write --cd src/auth --full-auto exec "Refactor authentication module using latest patterns"
+codex --cd src/auth --full-auto exec "Refactor authentication module using latest patterns" -s danger-full-access
 
 # Complex feature development
-codex -s workspace-write --full-auto exec "Create a complete todo application with React and TypeScript"
+codex --full-auto exec "Create a complete todo application with React and TypeScript" -s danger-full-access
 ```
 
 **Template-Enhanced Development**:
 ```bash
 # Autonomous mode with template guidance
-codex -s workspace-write --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
+codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
 
 ## Task: User Authentication System
 - JWT token management
 - Role-based access control
-- Password reset functionality"
+- Password reset functionality" -s danger-full-access
 ```
 
 #### 🛠️ Controlled Development (When Explicit Control Needed)
@@ -301,24 +302,24 @@ codex -s workspace-write --full-auto exec "$(cat ~/.claude/workflows/cli-templat
 **Module-Specific with Patterns**:
 ```bash
 # Explicit patterns when autonomous mode needs guidance
-codex -s workspace-write --full-auto exec "@{src/auth/**/*,CLAUDE.md} Refactor authentication module using latest patterns"
+codex --full-auto exec "@{src/auth/**/*,CLAUDE.md} Refactor authentication module using latest patterns" -s danger-full-access
 
 # Alternative: Directory-specific execution with explicit patterns
-codex -s workspace-write --cd src/auth --full-auto exec "@{**/*,../../CLAUDE.md} Refactor authentication module"
+codex --cd src/auth --full-auto exec "@{**/*,../../CLAUDE.md} Refactor authentication module" -s danger-full-access
 ```
 
 **Debugging & Analysis**:
 ```bash
 # Autonomous debugging mode
-codex -s workspace-write --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)
+codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)
 
 ## Issue: Performance degradation in user dashboard
 - Identify bottlenecks in the codebase
 - Propose and implement optimizations
-- Add performance monitoring"
+- Add performance monitoring" -s danger-full-access
 
 # Alternative: Explicit patterns for controlled analysis
-codex -s workspace-write --full-auto exec "@{src/**/*,package.json,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)"
+codex --full-auto exec "@{src/**/*,package.json,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)" -s danger-full-access
 ```
 
 ### 📂 Codex File Pattern Rules - CRITICAL
@@ -345,26 +346,26 @@ codex -s workspace-write --full-auto exec "@{src/**/*,package.json,CLAUDE.md} $(
 
 ```bash
 # Phase 1: Autonomous Analysis
-codex -s workspace-write --full-auto exec "Analyze current architecture for payment system integration"
+codex --full-auto exec "Analyze current architecture for payment system integration" -s danger-full-access
 
 # Phase 2: Autonomous Implementation (RECOMMENDED APPROACH)
-codex -s workspace-write --full-auto exec "Implement Stripe payment integration based on the analyzed architecture"
+codex --full-auto exec "Implement Stripe payment integration based on the analyzed architecture" -s danger-full-access
 
 # Phase 3: Autonomous Testing
-codex -s workspace-write --full-auto exec "Generate comprehensive tests for the payment system implementation"
+codex --full-auto exec "Generate comprehensive tests for the payment system implementation" -s danger-full-access
 
 # Alternative: Explicit control when needed
-codex -s workspace-write --full-auto exec "@{**/*,CLAUDE.md} Analyze current architecture for payment system integration"
+codex --full-auto exec "@{**/*,CLAUDE.md} Analyze current architecture for payment system integration" -s danger-full-access
 ```
 
 #### 🌐 Cross-Project Learning
 
 ```bash
 # RECOMMENDED: Autonomous cross-project pattern learning
-codex -s workspace-write --full-auto exec "Implement feature X by learning patterns from ../other-project/ and applying them to the current codebase"
+codex --full-auto exec "Implement feature X by learning patterns from ../other-project/ and applying them to the current codebase" -s danger-full-access
 
 # Alternative: Explicit pattern specification
-codex -s workspace-write --full-auto exec "@{../other-project/src/**/*,src/**/*,CLAUDE.md} Implement feature X using patterns from other-project"
+codex --full-auto exec "@{../other-project/src/**/*,src/**/*,CLAUDE.md} Implement feature X using patterns from other-project" -s danger-full-access
 ```
 
 #### 📊 Development Workflow Integration
@@ -372,17 +373,17 @@ codex -s workspace-write --full-auto exec "@{../other-project/src/**/*,src/**/*,
 **Pre-Development Analysis**:
 ```bash
 # RECOMMENDED: Autonomous pattern analysis
-codex -s workspace-write --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
+codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
-Analyze the existing codebase patterns and conventions before implementing new features."
+Analyze the existing codebase patterns and conventions before implementing new features." -s danger-full-access
 ```
 
 **Quality Assurance**:
 ```bash
 # RECOMMENDED: Autonomous testing and validation
-codex -s workspace-write --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/testing.txt)
+codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/testing.txt)
 
-Generate comprehensive tests and perform validation for the entire codebase."
+Generate comprehensive tests and perform validation for the entire codebase." -s danger-full-access
 ```
 
 ### ⚠️ Codex Best Practices
@@ -394,7 +395,7 @@ Generate comprehensive tests and perform validation for the entire codebase."
 - **Be selective**: Use specific patterns like `@{src/**/*.ts}` for targeted analysis
 
 **Default Automation Mode** (CRITICAL GUIDANCE):
-- **`codex -s workspace-write --full-auto exec` is PRIMARY choice**: Use for 90% of all tasks - maximizes autonomous capabilities
+- **`codex --full-auto exec ... -s danger-full-access` is PRIMARY choice**: Use for 90% of all tasks - maximizes autonomous capabilities
 - **Explicit patterns only when necessary**: Reserve for cases where you need explicit file pattern control
 - **Trust the autonomous intelligence**: Codex excels at file discovery, context gathering, and architectural decisions
 - **Start with full-auto always**: If it doesn't meet needs, then consider explicit patterns
@@ -428,4 +429,4 @@ Generate comprehensive tests and perform validation for the entire codebase."
 
 **Remember**:
 - **Gemini excels at understanding** - use `~/.claude/scripts/gemini-wrapper` for analysis and pattern recognition
-- **Codex excels at building** - use `codex -s workspace-write --full-auto exec` for autonomous development and implementation
+- **Codex excels at building** - use `codex --full-auto exec ... -s danger-full-access` for autonomous development and implementation

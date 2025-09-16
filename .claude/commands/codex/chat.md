@@ -127,25 +127,25 @@ When `--save-session` flag is used:
 #### Basic Development Chat
 ```bash
 /codex:chat "implement password reset functionality"
-# Executes: codex exec "@{CLAUDE.md,**/*CLAUDE.md,**/*auth*,**/*user*} implement password reset functionality"
+# Executes: codex --full-auto exec "@{CLAUDE.md,**/*CLAUDE.md,**/*auth*,**/*user*} implement password reset functionality" -s danger-full-access
 ```
 
 #### Architecture Discussion
 ```bash
 /codex:chat "how should I structure the user management module?"
-# Executes: codex exec "@{CLAUDE.md,**/*CLAUDE.md,**/*user*,src/**/*} how should I structure the user management module?"
+# Executes: codex --full-auto exec "@{CLAUDE.md,**/*CLAUDE.md,**/*user*,src/**/*} how should I structure the user management module?" -s danger-full-access
 ```
 
 #### Performance Optimization
 ```bash
 /codex:chat "optimize React component rendering performance"
-# Executes: codex exec "@{CLAUDE.md,**/*CLAUDE.md,src/**/*.{jsx,tsx}} optimize React component rendering performance"
+# Executes: codex --full-auto exec "@{CLAUDE.md,**/*CLAUDE.md,src/**/*.{jsx,tsx}} optimize React component rendering performance" -s danger-full-access
 ```
 
 #### Full Auto Mode
 ```bash
 /codex:chat "create a complete user dashboard with charts" --full-auto
-# Executes: codex -s workspace-write --full-auto "@{CLAUDE.md,**/*CLAUDE.md,**/*user*,**/*dashboard*} create a complete user dashboard with charts"
+# Executes: codex --full-auto exec "@{CLAUDE.md,**/*CLAUDE.md,**/*user*,**/*dashboard*} create a complete user dashboard with charts" -s danger-full-access
 ```
 
 ### ⚠️ **Error Prevention**

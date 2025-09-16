@@ -29,19 +29,19 @@ Systematic bug analysis, debugging, and automated fix implementation using exper
 ```bash
 /codex:mode:bug-index "authentication error during login"
 ```
-**Executes**: `codex exec "@{**/*auth*,**/*login*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)"`
+**Executes**: `codex --full-auto exec "@{**/*auth*,**/*login*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)" -s danger-full-access`
 
 ### Comprehensive Bug Investigation
 ```bash
 /codex:mode:bug-index "React state not updating in dashboard"
 ```
-**Executes**: `codex exec "@{src/**/*.{jsx,tsx},**/*dashboard*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)"`
+**Executes**: `codex --full-auto exec "@{src/**/*.{jsx,tsx},**/*dashboard*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)" -s danger-full-access`
 
 ### Production Error Analysis
 ```bash
 /codex:mode:bug-index "API timeout issues in production environment"
 ```
-**Executes**: `codex exec "@{**/api/**/*,*.config.*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)"`
+**Executes**: `codex --full-auto exec "@{**/api/**/*,*.config.*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)" -s danger-full-access`
 
 ## Codex-Specific Debugging Patterns
 
@@ -65,7 +65,7 @@ codex exec "@{inferred_bug_patterns} @{CLAUDE.md,**/*CLAUDE.md} $(cat ~/.claude/
 
 Context: Comprehensive codebase analysis for bug investigation
 Bug Description: [user_description]
-Fix Implementation: Provide working code solutions"
+Fix Implementation: Provide working code solutions" -s danger-full-access
 ```
 
 ## Bug Pattern Inference

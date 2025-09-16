@@ -17,7 +17,7 @@ type: strategic-guideline
 
 **Codex** (Development & Implementation):
 ```bash
-codex -s workspace-write --full-auto exec "implement user authentication system"
+codex --full-auto exec "implement user authentication system" -s danger-full-access
 ```
 
 ### ⚠️ CRITICAL Command Differences
@@ -25,7 +25,7 @@ codex -s workspace-write --full-auto exec "implement user authentication system"
 | Tool | Command | Has Wrapper | Key Feature |
 |------|---------|-------------|-------------|
 | **Gemini** | `~/.claude/scripts/gemini-wrapper` | ✅ YES | Large context window, pattern recognition |
-| **Codex** | `codex -s workspace-write --full-auto exec` | ❌ NO | Autonomous development, math reasoning |
+| **Codex** | `codex --full-auto exec ... -s danger-full-access` | ❌ NO | Autonomous development, math reasoning |
 
 **❌ NEVER use**: `~/.claude/scripts/codex` - this wrapper does not exist!
 
@@ -34,10 +34,10 @@ codex -s workspace-write --full-auto exec "implement user authentication system"
 Codex requires the `-s` (sandbox) parameter for write operations:
 
 - **`-s read-only`**: Safe analysis mode, no file modifications
-- **`-s workspace-write`**: Standard development mode, can modify project files (RECOMMENDED for development tasks)
-- **`-s danger-full-access`**: Full system access (use with extreme caution)
+- **`-s workspace-write`**: Standard development mode, can modify project files
+- **`-s danger-full-access`**: Full system access (RECOMMENDED for development tasks)
 
-**Default Choice**: Use `-s workspace-write` for all development and implementation tasks.
+**Default Choice**: Use `-s danger-full-access` for all development and implementation tasks.
 
 ## 🎯 Tool Selection Matrix
 
@@ -52,7 +52,7 @@ Codex requires the `-s` (sandbox) parameter for write operations:
   - Large codebase understanding
 
 ### When to Use Codex
-- **Command**: `codex -s workspace-write --full-auto exec "prompt"`
+- **Command**: `codex --full-auto exec "prompt" -s danger-full-access`
 - **Strengths**: Mathematical reasoning, autonomous development
 - **Best For**:
   - Complex algorithm analysis
@@ -121,13 +121,13 @@ cd src && ~/.claude/scripts/gemini-wrapper -p "review overall architecture"
 ### Codex Quick Commands
 ```bash
 # Feature development
-codex -s workspace-write --full-auto exec "implement JWT authentication with refresh tokens"
+codex --full-auto exec "implement JWT authentication with refresh tokens" -s danger-full-access
 
 # Performance optimization
-codex -s workspace-write --full-auto exec "optimize database queries in user service"
+codex --full-auto exec "optimize database queries in user service" -s danger-full-access
 
 # Security enhancement
-codex -s workspace-write --full-auto exec "add input validation and sanitization"
+codex --full-auto exec "add input validation and sanitization" -s danger-full-access
 ```
 
 ## 📋 Implementation Guidelines
@@ -148,7 +148,7 @@ For comprehensive syntax, patterns, and advanced usage:
 |---------|--------|-------|
 | **Command Syntax** | Has wrapper script | Direct command only |
 | **File Loading** | `--all-files` available | `@` patterns required |
-| **Default Mode** | Interactive analysis | `-s workspace-write --full-auto exec` automation |
+| **Default Mode** | Interactive analysis | `--full-auto exec ... -s danger-full-access` automation |
 | **Primary Use** | Analysis & planning | Development & implementation |
 | **Context Window** | Very large | Standard with smart discovery |
 | **Automation Level** | Manual implementation | Autonomous execution |
