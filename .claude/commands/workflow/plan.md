@@ -28,6 +28,7 @@ examples:
 
 ## Core Rules
 
+
 ### File Structure Reference
 **Architecture**: @~/.claude/workflows/workflow-architecture.md
 
@@ -53,13 +54,17 @@ examples:
 3. **File grouping**: Identify cohesive file sets
 4. **Quantity prediction**: Estimate main tasks, subtasks, container vs leaf ratio
 
-### Session Management
-- **Active session check**: Check for `.workflow/.active-*` marker first
-- Auto-creates new session: `WFS-[topic-slug]`
-- Uses existing active session if available
-- **Dependency context**: MUST read previous task summary documents before planning
+### Session Management ⚠️ CRITICAL
+- **⚡ FIRST ACTION**: Always check for `.workflow/.active-*` marker before any planning
+- **Auto-session creation**: `WFS-[topic-slug]` only if no active session exists
+- **Session continuity**: MUST use existing active session to maintain context
+- **⚠️ Dependency context**: MUST read ALL previous task summary documents before planning
+- **Session isolation**: Each session maintains independent context and state
 
-### Project Structure Analysis
+### Project Structure Analysis & Engineering Enhancement
+**Process**: Context → Analyze → Implement (Simple: CLI direct | Complex: Task + CLI hybrid)
+**Tool Priority**: Task(complex) > CLI(simple) > Hybrid(mixed complexity)
+
 **Always First**: Run project hierarchy analysis before planning
 ```bash
 # Get project structure with depth analysis
@@ -68,6 +73,12 @@ examples:
 # Results populate task paths automatically
 # Used for focus_paths and target_files generation
 ```
+
+**Core Principles**:
+- **Complexity-Driven Selection**: Simple patterns use direct CLI, complex analysis uses Task agents with CLI integration
+- **Context-First Approach**: Always gather project understanding before tool selection
+- **Intelligent Escalation**: Start CLI, escalate to Task agents when encountering complexity
+- **Hybrid Flexibility**: Task agents can freely use CLI commands and built-in tools for comprehensive analysis
 
 **Structure Integration**:
 - Identifies module boundaries and relationships
@@ -137,11 +148,6 @@ Documents created for `/workflow:execute`:
 - **File not found**: Clear suggestions
 - **>10 tasks**: Force re-scoping into iterations
 
-## Context Acquisition Strategy
-
-### Analysis Method Selection (--AM)
-- **gemini** (default): Pattern analysis, architectural understanding
-- **codex**: Autonomous development, intelligent file discovery
 
 ### Detailed Context Gathering Commands
 
@@ -156,9 +162,6 @@ cd [module] && ~/.claude/scripts/gemini-wrapper -p "Analyze [scope] architecture
 # Cross-module dependencies
 ~/.claude/scripts/gemini-wrapper -p "@{src/**/*} @{CLAUDE.md} analyze module relationships and dependencies"
 
-# Similar feature analysis
-cd [module] && ~/.claude/scripts/gemini-wrapper -p "Find 3+ similar [feature_type] implementations and their patterns"
-```
 
 #### Codex Analysis Templates
 ```bash
@@ -170,9 +173,6 @@ codex --full-auto exec "analyze existing patterns for [feature] implementation w
 
 # Project understanding
 codex --full-auto exec "analyze project structure, conventions, and development requirements" -s danger-full-access
-
-# Modernization analysis
-codex --full-auto exec "identify modernization opportunities and refactoring priorities" -s danger-full-access
 ```
 
 ### Context Accumulation & Inheritance
