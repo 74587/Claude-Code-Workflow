@@ -131,8 +131,8 @@ Task(subagent_type="code-developer",
      IMPORTANT:
      1. Execute flow control steps in sequence with error handling
      2. Accumulate context through step chain
-     3. Create comprehensive summary with 'Outputs for Dependent Tasks' section
-     4. Update TODO_LIST.md upon completion",
+     3. Provide detailed completion report for summary generation
+     4. Mark task as completed - system will auto-generate summary and update TODO_LIST.md",
      description="Execute task with flow control step processing")
 ```
 
