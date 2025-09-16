@@ -1,43 +1,17 @@
 ---
 name: intelligent-tools-strategy
-description: Strategic guide for intelligent tool selection - quick start and decision framework
+description: Strategic decision framework for intelligent tool selection
 type: strategic-guideline
 ---
 
 # Intelligent Tools Selection Strategy
 
-## ⚡ Quick Start
+## ⚡ Core Decision Framework
 
-### Essential Commands
+**Gemini**: Analysis & understanding large codebases
+**Codex**: Development & autonomous implementation
 
-**Gemini** (Analysis & Pattern Recognition):
-```bash
-~/.claude/scripts/gemini-wrapper -p "analyze authentication patterns"
-```
-
-**Codex** (Development & Implementation):
-```bash
-codex --full-auto exec "implement user authentication system" -s danger-full-access
-```
-
-### ⚠️ CRITICAL Command Differences
-
-| Tool | Command | Has Wrapper | Key Feature |
-|------|---------|-------------|-------------|
-| **Gemini** | `~/.claude/scripts/gemini-wrapper` | ✅ YES | Large context window, pattern recognition |
-| **Codex** | `codex --full-auto exec ... -s danger-full-access` | ❌ NO | Autonomous development, math reasoning |
-
-**❌ NEVER use**: `~/.claude/scripts/codex` - this wrapper does not exist!
-
-### 🔒 Codex Sandbox Modes
-
-Codex requires the `-s` (sandbox) parameter for write operations:
-
-- **`-s read-only`**: Safe analysis mode, no file modifications
-- **`-s workspace-write`**: Standard development mode, can modify project files
-- **`-s danger-full-access`**: Full system access (RECOMMENDED for development tasks)
-
-**Default Choice**: Use `-s danger-full-access` for all development and implementation tasks.
+> **Implementation Details**: See @~/.claude/workflows/tools-implementation-guide.md
 
 ## 🎯 Tool Selection Matrix
 
@@ -80,15 +54,9 @@ Codex requires the `-s` (sandbox) parameter for write operations:
 ## 🔄 Parallel Analysis Strategy
 
 For complex projects requiring both broad context and deep analysis:
-
-```bash
-# Use Task agents to run both tools in parallel
-Task(subagent_type="general-purpose",
-     prompt="Use Gemini (see @~/.claude/workflows/tools-implementation-guide.md) for architectural analysis")
-+
-Task(subagent_type="general-purpose",
-     prompt="Use Codex (see @~/.claude/workflows/tools-implementation-guide.md) for algorithmic analysis")
-```
+- **Gemini** for architectural understanding
+- **Codex** for focused development tasks
+- Run both via Task agents when comprehensive coverage needed
 
 ## 📈 Complexity-Based Selection
 
@@ -104,56 +72,17 @@ Task(subagent_type="general-purpose",
 - **Gemini** for architectural understanding
 - **Codex** for focused development tasks
 
-## 🎯 Quick Reference
+## 🎯 Strategic Guidelines
 
-### Gemini Quick Commands
-```bash
-# Pattern analysis
-~/.claude/scripts/gemini-wrapper -p "analyze existing patterns in auth module"
+1. **Task-driven selection**: Let project characteristics drive tool choice
+2. **Start simple**: Begin with single tool, escalate to parallel if needed
+3. **Context first**: Understand scope before selecting approach
+4. **Trust autonomous capabilities**: Let tools handle their specialized domains
 
-# Architecture review
-cd src && ~/.claude/scripts/gemini-wrapper -p "review overall architecture"
+## 🔗 Implementation Details
 
-# Code conventions
-~/.claude/scripts/gemini-wrapper -p "identify coding standards and conventions"
-```
-
-### Codex Quick Commands
-```bash
-# Feature development
-codex --full-auto exec "implement JWT authentication with refresh tokens" -s danger-full-access
-
-# Performance optimization
-codex --full-auto exec "optimize database queries in user service" -s danger-full-access
-
-# Security enhancement
-codex --full-auto exec "add input validation and sanitization" -s danger-full-access
-```
-
-## 📋 Implementation Guidelines
-
-1. **Default Selection**: Let project characteristics drive tool choice
-2. **Start Simple**: Begin with single tool, escalate to parallel if needed
-3. **Context First**: Understand scope before selecting approach
-4. **Trust the Tools**: Let autonomous capabilities handle complexity
-
-## 🔗 Detailed Implementation
-
-For comprehensive syntax, patterns, and advanced usage:
-- **Implementation Guide**: @~/.claude/workflows/tools-implementation-guide.md
-
-## 📊 Tools Comparison Summary
-
-| Feature | Gemini | Codex |
-|---------|--------|-------|
-| **Command Syntax** | Has wrapper script | Direct command only |
-| **File Loading** | `--all-files` available | `@` patterns required |
-| **Default Mode** | Interactive analysis | `--full-auto exec ... -s danger-full-access` automation |
-| **Primary Use** | Analysis & planning | Development & implementation |
-| **Context Window** | Very large | Standard with smart discovery |
-| **Automation Level** | Manual implementation | Autonomous execution |
-| **Best For** | Understanding codebases | Building features |
+**Complete syntax and usage patterns**: @~/.claude/workflows/tools-implementation-guide.md
 
 ---
 
-**Remember**: Choose based on task nature, not personal preference. Gemini excels at understanding, Codex excels at building.
+**Decision Principle**: Choose based on task nature - Gemini excels at understanding, Codex excels at building.

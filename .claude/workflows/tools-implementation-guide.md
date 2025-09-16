@@ -6,135 +6,174 @@ type: technical-guideline
 
 # Tools Implementation Guide
 
-## 📚 Part A: Shared Resources
+## 🚀 Quick Start
 
-### 📁 Template System
+### ⚡ Tool Selection at a Glance
 
-**Structure**: `~/.claude/workflows/cli-templates/prompts/`
+| Tool | Primary Use | Command Pattern | File Loading | Best For |
+|------|-------------|-----------------|---------------|-----------|
+| **Gemini** | Analysis & Understanding | `~/.claude/scripts/gemini-wrapper -p "prompt"` | `--all-files` or `@{patterns}` | Large context analysis, pattern detection |
+| **Codex** | Development & Implementation | `codex --full-auto exec "task" -s danger-full-access` | `@{patterns}` or autonomous discovery | Feature development, automation |
 
-**Categories**:
-- `analysis/` - pattern.txt, architecture.txt, security.txt, performance.txt, quality.txt (Gemini primary, Codex compatible)
-- `development/` - feature.txt, component.txt, refactor.txt, testing.txt, debugging.txt (Codex primary)
-- `planning/` - task-breakdown.txt, migration.txt (Cross-tool)
-- `automation/` - scaffold.txt, migration.txt, deployment.txt (Codex specialized)
-- `review/` - code-review.txt (Cross-tool)
-- `integration/` - api-design.txt, database.txt (Codex primary)
+### 🎯 Quick Commands
 
-**Usage**: `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)`
-
-### 🎭 Planning Role Templates
-
-**Location**: `~/.claude/workflows/cli-templates/planning-roles/`
-
-**Specialized Planning Roles**:
-- **business-analyst.md** - Business requirements and process analysis
-- **data-architect.md** - Data modeling and architecture design
-- **feature-planner.md** - Feature specification and planning
-- **innovation-lead.md** - Innovation strategy and technology exploration
-- **product-manager.md** - Product roadmap and user story management
-- **security-expert.md** - Security architecture and threat modeling
-- **system-architect.md** - System design and technical architecture
-- **test-strategist.md** - Testing strategy and quality assurance
-- **ui-designer.md** - User interface and experience design
-- **user-researcher.md** - User research and requirements gathering
-
-**Usage**: `$(cat ~/.claude/workflows/cli-templates/planning-roles/[role].md)`
-
-### 🛠️ Tech Stack Templates
-
-**Location**: `~/.claude/workflows/cli-templates/tech-stacks/`
-
-**Technology-Specific Development Templates**:
-- **go-dev.md** - Go development patterns and best practices
-- **java-dev.md** - Java enterprise development standards
-- **javascript-dev.md** - JavaScript development fundamentals
-- **python-dev.md** - Python development conventions and patterns
-- **react-dev.md** - React component development and architecture
-- **typescript-dev.md** - TypeScript development guidelines and patterns
-
-**Usage**: `$(cat ~/.claude/workflows/cli-templates/tech-stacks/[stack]-dev.md)`
-
-### 📚 Template Quick Reference Map
-
-**Base Path**: `~/.claude/workflows/cli-templates/prompts/`
-
-**Templates by Category**:
-- **analysis/** - pattern.txt, architecture.txt, security.txt, performance.txt, quality.txt
-- **development/** - feature.txt, component.txt, refactor.txt, testing.txt, debugging.txt
-- **planning/** - task-breakdown.txt, migration.txt
-- **automation/** - scaffold.txt, deployment.txt
-- **review/** - code-review.txt
-- **integration/** - api-design.txt, database.txt
-
-### 📂 File Pattern Wildcards
-
+**Gemini (Analysis)**:
 ```bash
-*         # Any character (excluding path separators)
-**        # Any directory levels (recursive)
-?         # Any single character
-[abc]     # Any character within the brackets
-{a,b,c}   # Any of the options within the braces
+# Pattern analysis
+~/.claude/scripts/gemini-wrapper -p "analyze authentication patterns"
+
+# Architecture review
+cd src && ~/.claude/scripts/gemini-wrapper -p "review overall architecture"
 ```
 
-### 🌐 Cross-Platform Rules
+**Codex (Development)**:
+```bash
+# Autonomous feature development
+codex --full-auto exec "implement JWT authentication system" -s danger-full-access
 
-- Always use forward slashes (`/`) for paths
-- Enclose paths with spaces in quotes: `@{"My Project/src/**/*"}`
-- Escape special characters like brackets: `@{src/**/*\[bracket\]*}`
+# Targeted development
+codex --cd src/auth --full-auto exec "refactor authentication module" -s danger-full-access
+```
 
-### ⏱️ Execution Settings
+### ⚠️ Critical Differences
 
-- **Default Timeout**: Bash command execution extended to **10 minutes** for complex analysis and development workflows
-- **Error Handling**: Both tools provide comprehensive error logging and recovery mechanisms
+| Aspect | Gemini | Codex |
+|--------|--------|--------|
+| **Wrapper Script** | ✅ Has wrapper: `~/.claude/scripts/gemini-wrapper` | ❌ No wrapper: direct `codex` command only |
+| **File Discovery** | Auto `--all-files` for small projects | Autonomous discovery with `--full-auto` |
+| **Sandbox Mode** | Not required | 🔒 Required: `-s danger-full-access` |
+| **Default Mode** | Interactive analysis | Autonomous execution |
 
 ---
 
-## 🔍 Part B: Gemini Implementation Guide
+## 📚 Shared Resources
 
-### 🚀 Command Overview
+### 📁 Template System
 
-- **Purpose**: Comprehensive codebase analysis, context gathering, and pattern detection across multiple files
-- **Key Feature**: Large context window for simultaneous multi-file analysis
-- **Primary Triggers**: "analyze", "get context", "understand the codebase", relationships between files
+**Base Structure**: `~/.claude/workflows/cli-templates/`
 
-### ⭐ Primary Method: gemini-wrapper
+#### Prompt Templates (`prompts/`)
+```
+analysis/        # Gemini primary, Codex compatible
+├── pattern.txt      - Code pattern analysis
+├── architecture.txt - System architecture review
+├── security.txt     - Security assessment
+├── performance.txt  - Performance analysis
+└── quality.txt      - Code quality review
+
+development/     # Codex primary
+├── feature.txt      - Feature implementation
+├── component.txt    - Component development
+├── refactor.txt     - Refactoring tasks
+├── testing.txt      - Test generation
+└── debugging.txt    - Debug and fix issues
+
+planning/        # Cross-tool compatible
+├── task-breakdown.txt - Task decomposition
+└── migration.txt      - Migration planning
+
+automation/      # Codex specialized
+├── scaffold.txt     - Project scaffolding
+├── migration.txt    - Data migration
+└── deployment.txt   - Deployment automation
+
+review/          # Cross-tool compatible
+└── code-review.txt  - Code review process
+
+integration/     # Codex primary
+├── api-design.txt   - API specification
+└── database.txt     - Database design
+```
+
+**Usage**: `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)`
+
+#### Planning Role Templates (`planning-roles/`)
+- **business-analyst.md** - Business requirements analysis
+- **data-architect.md** - Data modeling and architecture
+- **feature-planner.md** - Feature specification
+- **innovation-lead.md** - Technology exploration
+- **product-manager.md** - Product roadmap
+- **security-expert.md** - Security architecture
+- **system-architect.md** - System design
+- **test-strategist.md** - Testing strategy
+- **ui-designer.md** - UI/UX design
+- **user-researcher.md** - User research
+
+**Usage**: `$(cat ~/.claude/workflows/cli-templates/planning-roles/[role].md)`
+
+#### Tech Stack Templates (`tech-stacks/`)
+- **go-dev.md** - Go development patterns
+- **java-dev.md** - Java enterprise standards
+- **javascript-dev.md** - JavaScript fundamentals
+- **python-dev.md** - Python conventions
+- **react-dev.md** - React architecture
+- **typescript-dev.md** - TypeScript guidelines
+
+**Usage**: `$(cat ~/.claude/workflows/cli-templates/tech-stacks/[stack]-dev.md)`
+
+### 📂 File Pattern Reference
+
+#### Universal Patterns
+```bash
+*                      # Any character (excluding path separators)
+**                     # Any directory levels (recursive)
+?                      # Any single character
+[abc]                  # Any character within brackets
+{a,b,c}                # Any of the specified options
+```
+
+#### Common Pattern Examples
+```bash
+@{**/*}                    # All files recursively
+@{src/**/*}               # All source files
+@{*.ts,*.js}              # TypeScript and JavaScript files
+@{CLAUDE.md,**/*CLAUDE.md} # Documentation hierarchy
+@{package.json,*.config.*} # Configuration files
+@{src/**/*.test.*}        # Test files
+```
+
+#### Cross-Platform Rules
+- Always use forward slashes (`/`) for paths
+- Quote paths with spaces: `@{"My Project/src/**/*"}`
+- Escape special characters: `@{src/**/*\[bracket\]*}`
+
+### ⏱️ Execution Environment
+- **Default Timeout**: 20 minutes for complex analysis and development workflows
+- **Error Logging**: Comprehensive logging and recovery mechanisms
+- **Token Management**: Automatic optimization for large codebases
+
+---
+
+## 🔍 Gemini Implementation Guide
+
+### 🎯 Purpose & Strengths
+- **Large context window** for simultaneous multi-file analysis
+- **Pattern detection** across multiple modules
+- **Architectural understanding** of complex codebases
+- **Cross-module relationship** analysis
+
+### ⭐ Primary Method: gemini-wrapper (RECOMMENDED)
 
 **Location**: `~/.claude/scripts/gemini-wrapper` (auto-installed)
 
 **Smart Features**:
 - **Token Threshold**: 2,000,000 tokens (configurable via `GEMINI_TOKEN_LIMIT`)
-- **Auto `--all-files`**: Small projects get `--all-files`, large projects use patterns
+- **Auto File Loading**: Small projects get `--all-files`, large projects use targeted patterns
 - **Smart Approval Modes**: Analysis tasks use `default`, execution tasks use `yolo`
 - **Error Logging**: Captures errors to `~/.claude/.logs/gemini-errors.log`
 
 **Task Detection**:
-- **Analysis Keywords**: "analyze", "analysis", "review", "understand", "inspect", "examine" → `--approval-mode default`
+- **Analysis Keywords**: "analyze", "review", "understand", "inspect" → `--approval-mode default`
 - **All Other Tasks**: → `--approval-mode yolo`
 
-### 📝 Gemini Command Syntax
+### 📝 Command Patterns
 
-**Basic Structure**:
+#### Automatic Management (90% of use cases)
 ```bash
-gemini [flags] -p "@{patterns} {template} prompt"
-```
-
-**Key Arguments**:
-- `--all-files`: Includes all files in current working directory
-- `-p`: Prompt string with file patterns and analysis query
-- `@{pattern}`: Special syntax for referencing files and directories
-- `--approval-mode`: Tool approval mode (`default` | `yolo`)
-- `--include-directories`: Additional workspace directories (max 5, comma-separated)
-
-### 📦 Gemini Usage Patterns
-
-#### 🎯 Using gemini-wrapper (RECOMMENDED - 90% of tasks)
-
-**Automatic Management**:
-```bash
-# Analysis task - auto detects and uses --approval-mode default
+# Analysis task - auto detects and configures appropriately
 ~/.claude/scripts/gemini-wrapper -p "Analyze authentication module patterns"
 
-# Development task - auto detects and uses --approval-mode yolo
+# Development task - auto configures for execution
 ~/.claude/scripts/gemini-wrapper -p "Implement user login feature with JWT"
 
 # Directory-specific analysis
@@ -144,139 +183,71 @@ cd src/auth && ~/.claude/scripts/gemini-wrapper -p "Review authentication patter
 GEMINI_TOKEN_LIMIT=500000 ~/.claude/scripts/gemini-wrapper -p "Custom analysis"
 ```
 
-**Module-Specific Analysis**:
+#### Template-Enhanced Analysis
 ```bash
-# Navigate to module directory
-cd src/auth && ~/.claude/scripts/gemini-wrapper -p "Analyze authentication module patterns"
-
-# Template-enhanced analysis
+# Single template
 cd frontend/components && ~/.claude/scripts/gemini-wrapper -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
-```
-
-#### 📝 Direct Gemini Usage (Manual Control)
-
-**Manual Token Management**:
-```bash
-# Direct control when needed
-gemini --all-files -p "Analyze authentication module patterns and implementation"
-
-# Pattern-based fallback
-gemini -p "@{src/auth/**/*} @{CLAUDE.md} Analyze authentication patterns"
-```
-
-**Template-Enhanced Prompts**:
-```bash
-# Single template usage
-gemini --all-files -p "@{src/**/*} @{CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)"
 
 # Multi-template composition
-gemini --all-files -p "@{src/**/*} @{CLAUDE.md}
-$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
+~/.claude/scripts/gemini-wrapper -p "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
 Additional Security Focus:
 $(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt)"
 ```
 
-**Token Limit Fallback Strategy**:
+#### Manual Control (when needed)
 ```bash
-# If --all-files exceeds token limits, retry with targeted patterns:
+# Direct control with all files
+gemini --all-files -p "Analyze authentication module patterns"
 
-# Original command that failed:
-gemini --all-files -p "Analyze authentication patterns"
-
-# Fallback with specific patterns:
-gemini -p "@{src/auth/**/*} @{src/middleware/**/*} @{CLAUDE.md} Analyze authentication patterns"
-
-# Focus on specific file types:
-gemini -p "@{**/*.ts} @{**/*.js} @{CLAUDE.md} Analyze authentication patterns"
+# Pattern-based targeting
+gemini -p "@{src/auth/**/*} @{CLAUDE.md} Analyze authentication patterns"
 ```
 
-### 📋 Gemini File Pattern Rules
-
-**Syntax**:
-- `@{pattern}`: Single file or directory pattern
-- `@{pattern1,pattern2}`: Multiple patterns, comma-separated
-
-**CLAUDE.md Loading Rules**:
-- **With `--all-files`**: CLAUDE.md files automatically included
-- **Without `--all-files`**: Must use `@{CLAUDE.md}` or `@{**/CLAUDE.md}`
-
-**When to Use @ Patterns**:
-1. User explicitly provides @ patterns - ALWAYS preserve exactly
-2. Cross-directory analysis - relationships between modules
-3. Configuration files - scattered config files
-4. Selective inclusion - specific file types only
-
-### ⚠️ Gemini Best Practices
-
-- **Quote paths with spaces**: Use proper shell quoting
-- **Test patterns first**: Validate @ patterns match existing files
-- **Prefer directory navigation**: Reduces complexity, improves performance
-- **Preserve user patterns**: When user provides @, always keep them
-- **Handle token limits**: Immediate retry without `--all-files` using targeted patterns
+### 🔄 Token Limit Fallback Strategy
+```bash
+# If automatic loading fails due to token limits, retry with patterns:
+# Original: ~/.claude/scripts/gemini-wrapper -p "Analyze patterns"
+# Fallback:
+gemini -p "@{src/auth/**/*} @{src/middleware/**/*} @{CLAUDE.md} Analyze patterns"
+```
 
 ---
 
-## 🛠️ Part C: Codex Implementation Guide
+## 🛠️ Codex Implementation Guide
 
-### 🚀 Command Overview
+### 🎯 Purpose & Strengths
+- **Autonomous development** workflows
+- **Mathematical reasoning** and optimization
+- **Security analysis** and implementation
+- **Intelligent code generation**
+- **Full project automation**
 
-- **Purpose**: Automated codebase analysis, intelligent code generation, and autonomous development workflows
-- **⚠️ CRITICAL**: **NO wrapper script exists** - always use direct `codex` command
-- **Key Characteristic**: **No `--all-files` flag** - requires explicit `@` pattern references
-- **Default Mode**: `-s workspace-write --full-auto exec` autonomous development mode (RECOMMENDED)
-- **🔒 Sandbox Required**: Must specify `-s` (sandbox) parameter for write operations
-
-### 🔒 Codex Sandbox Modes
-
-Codex requires the `-s` (sandbox) parameter to control file modification permissions:
-
-- **`-s read-only`**: Safe analysis mode, no file modifications allowed
-- **`-s workspace-write`**: Standard development mode, can modify project files
-- **`-s danger-full-access`**: Full system access (**RECOMMENDED for development tasks**)
-- **`-s danger-full-access`**: Full system access, use with extreme caution
-
-**Default Choice**: Always use `-s danger-full-access` for development and implementation tasks.
-
-### ⭐ CRITICAL: Default to `--full-auto` Mode
-
-**🎯 Golden Rule**: Always start with `codex --full-auto exec "task description" -s danger-full-access` for maximum autonomous capabilities.
-
-**Why `--full-auto` Should Be Your Default**:
-- **🧠 Intelligent File Discovery**: Auto-identifies relevant files without manual `@` patterns
-- **🎯 Context-Aware Execution**: Understands project structure and dependencies autonomously
-- **⚡ Streamlined Workflow**: No need to specify file patterns - just describe what you want
-- **🚀 Maximum Automation**: Leverages full autonomous development capabilities
-- **📚 Smart Documentation**: Automatically includes relevant CLAUDE.md files
-
-**When to Use Explicit Patterns**:
-- ✅ Precise control over which files are included
-- ✅ Specific file patterns requiring manual specification
-- ✅ Debugging issues with file discovery in `--full-auto` mode
-- ❌ **NOT as default choice** - reserve for special circumstances
-
-### 📝 Codex Command Syntax
-
-**Basic Structure** (Priority Order):
+### 🔒 Sandbox Modes (REQUIRED)
 ```bash
-codex --full-auto exec "autonomous development task" -s danger-full-access  # DEFAULT & RECOMMENDED
-codex --full-auto exec "prompt with @{patterns}" -s danger-full-access      # For specific control needs
+-s read-only           # Safe analysis mode, no modifications
+-s workspace-write     # Standard development mode
+-s danger-full-access  # Full system access (RECOMMENDED for development)
 ```
 
-**⚠️ NEVER use**: `~/.claude/scripts/codex` - this wrapper script does not exist!
+**⚠️ CRITICAL**: No wrapper script exists - always use direct `codex` command
 
-**Key Commands** (In Order of Preference):
-- `codex --full-auto exec "..." -s danger-full-access` ⭐ **PRIMARY MODE** - Full autonomous development
-- `codex --cd /path --full-auto exec "..." -s danger-full-access` - Directory-specific autonomous development
-- `codex --cd /path --full-auto exec "@{patterns} ..." -s danger-full-access` - Directory-specific with patterns
+### ⭐ Default Mode: Full Autonomous (RECOMMENDED)
 
-### 📦 Codex Usage Patterns
+**🎯 Golden Rule**: Always start with `codex --full-auto exec "task" -s danger-full-access`
 
-#### 🎯 Autonomous Development (PRIMARY - 90% of tasks)
+**Why Full-Auto is Primary Choice**:
+- 🧠 **Intelligent File Discovery**: Auto-identifies relevant files
+- 🎯 **Context-Aware Execution**: Understands project dependencies
+- ⚡ **Streamlined Workflow**: Just describe what you want
+- 🚀 **Maximum Automation**: Full autonomous capabilities
+- 📚 **Smart Documentation**: Includes relevant CLAUDE.md files
 
-**Basic Development**:
+### 📝 Command Patterns (Priority Order)
+
+#### 1. Autonomous Development (PRIMARY - 90% of tasks)
 ```bash
-# RECOMMENDED: Let Codex handle everything autonomously
+# RECOMMENDED: Full autonomous mode
 codex --full-auto exec "Implement user authentication with JWT tokens" -s danger-full-access
 
 # Directory-specific autonomous development
@@ -286,7 +257,7 @@ codex --cd src/auth --full-auto exec "Refactor authentication module using lates
 codex --full-auto exec "Create a complete todo application with React and TypeScript" -s danger-full-access
 ```
 
-**Template-Enhanced Development**:
+#### 2. Template-Enhanced Development
 ```bash
 # Autonomous mode with template guidance
 codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
@@ -297,136 +268,135 @@ codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/developm
 - Password reset functionality" -s danger-full-access
 ```
 
-#### 🛠️ Controlled Development (When Explicit Control Needed)
-
-**Module-Specific with Patterns**:
+#### 3. Controlled Development (When Explicit Control Needed)
 ```bash
-# Explicit patterns when autonomous mode needs guidance
-codex --full-auto exec "@{src/auth/**/*,CLAUDE.md} Refactor authentication module using latest patterns" -s danger-full-access
+# Explicit patterns for specific control
+codex --full-auto exec "@{src/auth/**/*,CLAUDE.md} Refactor authentication module" -s danger-full-access
 
-# Alternative: Directory-specific execution with explicit patterns
-codex --cd src/auth --full-auto exec "@{**/*,../../CLAUDE.md} Refactor authentication module" -s danger-full-access
+# Directory-specific with patterns
+codex --cd src/auth --full-auto exec "@{**/*,../../CLAUDE.md} Refactor module" -s danger-full-access
 ```
 
-**Debugging & Analysis**:
-```bash
-# Autonomous debugging mode
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)
+### 🚀 Advanced Workflow Patterns
 
-## Issue: Performance degradation in user dashboard
-- Identify bottlenecks in the codebase
-- Propose and implement optimizations
-- Add performance monitoring" -s danger-full-access
-
-# Alternative: Explicit patterns for controlled analysis
-codex --full-auto exec "@{src/**/*,package.json,CLAUDE.md} $(cat ~/.claude/workflows/cli-templates/prompts/development/debugging.txt)" -s danger-full-access
-```
-
-### 📂 Codex File Pattern Rules - CRITICAL
-
-⚠️ **UNLIKE GEMINI**: Codex has **NO `--all-files` flag** - you MUST use `@` patterns to reference files.
-
-**Essential Patterns**:
-```bash
-@{**/*}                    # All files recursively (equivalent to --all-files)
-@{src/**/*}               # All source files
-@{*.ts,*.js}              # Specific file types
-@{CLAUDE.md,**/*CLAUDE.md} # Documentation hierarchy
-@{package.json,*.config.*} # Configuration files
-```
-
-**CLAUDE.md Loading Rules** (Critical Difference from Gemini):
-- **Always explicit**: Must use `@{CLAUDE.md}` or `@{**/*CLAUDE.md}`
-- **No automatic loading**: Codex will not include documentation without explicit reference
-- **Hierarchical loading**: Use `@{CLAUDE.md,**/*CLAUDE.md}` for complete context
-
-### 🚀 Codex Advanced Patterns
-
-#### 🔄 Multi-Phase Development (Full Autonomous Workflow)
-
+#### Multi-Phase Development
 ```bash
 # Phase 1: Autonomous Analysis
-codex --full-auto exec "Analyze current architecture for payment system integration" -s danger-full-access
+codex --full-auto exec "Analyze current architecture for payment integration" -s danger-full-access
 
-# Phase 2: Autonomous Implementation (RECOMMENDED APPROACH)
-codex --full-auto exec "Implement Stripe payment integration based on the analyzed architecture" -s danger-full-access
+# Phase 2: Autonomous Implementation
+codex --full-auto exec "Implement Stripe payment integration" -s danger-full-access
 
 # Phase 3: Autonomous Testing
-codex --full-auto exec "Generate comprehensive tests for the payment system implementation" -s danger-full-access
-
-# Alternative: Explicit control when needed
-codex --full-auto exec "@{**/*,CLAUDE.md} Analyze current architecture for payment system integration" -s danger-full-access
+codex --full-auto exec "Generate comprehensive tests for payment system" -s danger-full-access
 ```
 
-#### 🌐 Cross-Project Learning
-
+#### Cross-Project Learning
 ```bash
-# RECOMMENDED: Autonomous cross-project pattern learning
-codex --full-auto exec "Implement feature X by learning patterns from ../other-project/ and applying them to the current codebase" -s danger-full-access
+# Learn from other projects
+codex --full-auto exec "Implement feature X by learning patterns from ../other-project/" -s danger-full-access
 
-# Alternative: Explicit pattern specification
-codex --full-auto exec "@{../other-project/src/**/*,src/**/*,CLAUDE.md} Implement feature X using patterns from other-project" -s danger-full-access
+# Explicit cross-project patterns
+codex --full-auto exec "@{../other-project/src/**/*,src/**/*,CLAUDE.md} Implement feature X" -s danger-full-access
 ```
 
-#### 📊 Development Workflow Integration
+### ⚠️ Critical Requirements
+- **File References**: Unlike Gemini, Codex has NO `--all-files` flag
+- **Sandbox Required**: Must specify `-s` parameter for write operations
+- **Pattern Syntax**: Use `@{patterns}` when not using full-auto mode
+- **Documentation Loading**: Must explicitly reference `@{CLAUDE.md}` when using patterns
 
-**Pre-Development Analysis**:
-```bash
-# RECOMMENDED: Autonomous pattern analysis
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
+---
 
-Analyze the existing codebase patterns and conventions before implementing new features." -s danger-full-access
-```
+## ✅ Best Practices & Guidelines
 
-**Quality Assurance**:
-```bash
-# RECOMMENDED: Autonomous testing and validation
-codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/testing.txt)
+### 🎯 Tool Selection Strategy
 
-Generate comprehensive tests and perform validation for the entire codebase." -s danger-full-access
-```
+**Choose Gemini when**:
+- Understanding large codebases (>50 files)
+- Analyzing patterns across modules
+- Cross-module dependency analysis
+- Code convention detection
+- Architectural review
 
-### ⚠️ Codex Best Practices
+**Choose Codex when**:
+- Building new features
+- Algorithm optimization
+- Security implementation
+- Autonomous development workflows
+- Mathematical problem solving
 
-**Always Use @ Patterns**:
-- **MANDATORY**: Codex requires explicit file references via `@` patterns (when not using full-auto autonomous mode)
-- **No automatic inclusion**: Unlike Gemini's `--all-files`, you must specify what to analyze
-- **Be comprehensive**: Use `@{**/*}` for full codebase context when needed
-- **Be selective**: Use specific patterns like `@{src/**/*.ts}` for targeted analysis
+### 🛠️ Development Workflow
 
-**Default Automation Mode** (CRITICAL GUIDANCE):
-- **`codex --full-auto exec ... -s danger-full-access` is PRIMARY choice**: Use for 90% of all tasks - maximizes autonomous capabilities
-- **Explicit patterns only when necessary**: Reserve for cases where you need explicit file pattern control
-- **Trust the autonomous intelligence**: Codex excels at file discovery, context gathering, and architectural decisions
-- **Start with full-auto always**: If it doesn't meet needs, then consider explicit patterns
+#### Pre-Development Pattern
+1. **Context Gathering** (Gemini): `~/.claude/scripts/gemini-wrapper -p "analyze project architecture"`
+2. **Implementation** (Codex): `codex --full-auto exec "implement feature based on analysis" -s danger-full-access`
+3. **Quality Assurance** (Codex): `codex --full-auto exec "generate tests and validate" -s danger-full-access`
 
-**Error Prevention**:
-- **Always include @ patterns**: Commands without file references will fail (except in full-auto mode)
-- **Test patterns first**: Validate @ patterns match existing files
-- **Use comprehensive patterns**: `@{**/*}` when unsure of file structure
-- **Include documentation**: Always add `@{CLAUDE.md,**/*CLAUDE.md}` for context when using explicit patterns
+#### Error Prevention
+- **Test patterns first**: Validate `@{patterns}` match existing files
 - **Quote complex paths**: Use proper shell quoting for paths with spaces
+- **Start simple**: Begin with basic patterns, add complexity as needed
+- **Include documentation**: Always reference CLAUDE.md files for context
+
+#### Token and Context Management
+- **Gemini**: Rely on wrapper for automatic token management
+- **Codex**: Trust full-auto mode for intelligent file discovery
+- **Manual patterns**: Use only when autonomous modes need guidance
+- **Fallback strategies**: Have targeted patterns ready for large projects
+
+### 📊 Template Integration Strategy
+
+#### Template Composition
+```bash
+# Combine multiple templates
+codex --full-auto exec "$(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
+
+$(cat ~/.claude/workflows/cli-templates/planning-roles/system-architect.md)
+
+Task: Implement authentication system" -s danger-full-access
+```
+
+#### Cross-Tool Template Reuse
+- Templates work identically with both tools
+- Use `cat` command for seamless integration
+- Combine analysis and development templates
+- Build complex prompts from multiple sources
+
+### 🚨 Troubleshooting
+
+#### Common Issues
+1. **Token limit exceeded** (Gemini): Wrapper automatically retries with targeted patterns
+2. **File not found** (Both): Validate patterns with `ls` before using
+3. **Sandbox errors** (Codex): Ensure `-s` parameter is specified
+4. **Pattern matching** (Both): Test with simple patterns first
+
+#### Recovery Strategies
+- **Gemini**: Fallback from `--all-files` to specific patterns
+- **Codex**: Fallback from full-auto to explicit patterns
+- **Both**: Use directory navigation to reduce complexity
+- **Documentation**: Always include CLAUDE.md for context
 
 ---
 
-## 🎯 Strategic Integration
+## 🎯 Strategic Integration Summary
 
-### Template Reuse Across Tools
+### Template Ecosystem
+- **Cross-tool compatibility**: Templates work with both Gemini and Codex
+- **Layered approach**: Combine prompt templates with planning roles and tech stacks
+- **Reusable patterns**: Build library of common development patterns
 
-**Gemini and Codex Template Compatibility**:
-- **`cat` command works identically**: Reuse templates seamlessly between tools
-- **Cross-reference patterns**: Combine analysis and development templates
-- **Template composition**: Build complex prompts from multiple template sources
+### Autonomous Development Pipeline
+1. **Analysis Phase** (Gemini): Large context understanding
+2. **Development Phase** (Codex): Autonomous implementation
+3. **Quality Phase** (Codex): Testing and validation
 
-### Autonomous Development Pattern (Codex-Specific)
-
-1. **Context Gathering**: `@{**/*,CLAUDE.md}` for full project understanding (or let full-auto handle)
-2. **Pattern Analysis**: Understand existing code conventions
-3. **Automated Implementation**: Let codex handle the development workflow
-4. **Quality Assurance**: Built-in testing and validation
+### Key Reminders
+- **Gemini excels at understanding** - use for analysis and pattern recognition
+- **Codex excels at building** - use for development and implementation
+- **Start with autonomous modes** - leverage full capabilities before manual control
+- **Trust the intelligence** - both tools excel at their specialized functions
 
 ---
 
-**Remember**:
-- **Gemini excels at understanding** - use `~/.claude/scripts/gemini-wrapper` for analysis and pattern recognition
-- **Codex excels at building** - use `codex --full-auto exec ... -s danger-full-access` for autonomous development and implementation
+**Quick Reference**: For strategic guidance on tool selection, see `@~/.claude/workflows/intelligent-tools-strategy.md`
