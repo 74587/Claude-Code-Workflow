@@ -5,21 +5,8 @@
 This document defines project-specific coding standards and development principles.
 ### CLI Tool Context Protocols
 For all CLI tool usage, command syntax, and integration guidelines:
-- **Tool Selection Strategy**: @~/.claude/workflows/intelligent-tools-strategy.md
+- **Intelligent Context Strategy**: @~/.claude/workflows/intelligent-tools-strategy.md
 - **Implementation Guide**: @~/.claude/workflows/tools-implementation-guide.md
-
-### Intelligent Context Acquisition
-
-**Core Rule**: No task execution without sufficient context. Must gather project understanding before implementation.
-
-**Context Tools**:
-- **Structure**: Bash(~/.claude/scripts/get_modules_by_depth.sh) for project hierarchy
-- **Module Analysis**: Bash(cd [module] && ~/.claude/scripts/gemini-wrapper -p "analyze patterns")
-- **Full Analysis**: 
-
-Bash(cd [module] && ~/.claude/scripts/gemini-wrapper -p "analyze [scope] architecture")
-
-Bash(codex --full-auto exec "analyze [scope] architecture" -s danger-full-access)
 
 **Context Requirements**:
 - Identify 3+ existing similar patterns before implementation

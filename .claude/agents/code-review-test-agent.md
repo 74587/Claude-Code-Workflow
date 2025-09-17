@@ -77,54 +77,6 @@ ELSE:
     → Proceed with review using standard quality checks
 ```
 
-## Flow Control Pre-Analysis Phase (Execute When Required)
-
-### Flow Control Execution
-When [FLOW_CONTROL] flag is present, execute comprehensive pre-review analysis:
-
-Process each step from pre_analysis array sequentially:
-
-**多步上下文获取过程**:
-1. 按顺序执行pre_analysis步骤：
-   - 文档引用：读取项目规范、依赖任务总结
-   - 搜索命令：灵活搜索相关代码和模式
-   - CLI分析：使用gemini/codex进行深度分析
-   - 自由探索：使用Read、Grep等工具获取补充上下文
-
-**灵活命令示例**:
-```bash
-# 读取依赖任务总结
-bash(cat .workflow/WFS-[session-id]/.summaries/IMPL-1.1-summary.md)
-
-# 搜索相关代码
-bash(rg "test|spec" src/ | head -20)
-
-# 深度分析
-bash(gemini-wrapper -p "分析代码质量和测试覆盖")
-```
-
-This executes comprehensive pre-review analysis that covers:
-- **Change understanding**: What specific task was being implemented
-- **Repository conventions**: Standards used in similar files and functions
-- **Impact analysis**: Other code that might be affected by these changes
-- **Test coverage validation**: Whether changes are properly tested
-- **Integration verification**: If necessary integration points are handled
-- **Security implications**: Potential security considerations
-- **Performance impact**: Performance-related changes and implications
-
-This executes autonomous Codex CLI analysis that provides:
-- **Autonomous understanding**: Intelligent discovery of implementation context
-- **Code generation insights**: Autonomous development recommendations
-- **System-wide impact**: Comprehensive integration analysis
-- **Automated testing strategy**: Autonomous test implementation approach
-- **Quality assurance**: Self-guided validation and optimization recommendations
-
-**Context Application for Review**:
-- Review changes against repository-specific standards for similar code
-- Compare implementation approach with established patterns for this type of feature
-- Validate test coverage specifically for the functionality that was implemented
-- Ensure integration points are properly handled based on repository practices
-
 ## Review Process (Mode-Adaptive)
 
 ### Deep Mode Review Process
@@ -173,11 +125,10 @@ if [FAST_MODE]: apply targeted review process
 - Input validation and sanitization
 
 ### Code Quality & Dependencies
+- **Module import verification first** - Use `rg` to check all imports exist before other checks
 - Import/export correctness and path validation
 - Missing or unused imports identification
 - Circular dependency detection
-- Single responsibility principle
-- Clear variable and function names
 
 ### Performance
 - Algorithm complexity (time and space)
@@ -230,7 +181,7 @@ if [FAST_MODE]: apply targeted review process
 
 2. **Update TODO_LIST.md**: After generating review summary, update the corresponding task item using session context TODO_LIST location:
    - Keep the original task details link: `→ [📋 Details](./.task/[Task-ID].json)`
-   - Add review summary link after pipe separator: `| [✅ Review](./.summaries/[Task-ID]-review.md)`
+   - Add review summary link after pipe separator: `| [✅ Review](./.summaries/IMPL-[Task-ID]-summary.md)`
    - Mark the checkbox as completed: `- [x]`
    - Update progress percentages in the progress overview section
 
@@ -240,9 +191,9 @@ if [FAST_MODE]: apply targeted review process
    - Update last modified timestamp
 
 4. **Review Summary Document Naming Convention**:
-   - Implementation Task Reviews: `IMPL-001-review.md`
-   - Subtask Reviews: `IMPL-001.1-review.md` 
-   - Detailed Subtask Reviews: `IMPL-001.1.1-review.md`
+   - Implementation Task Reviews: `IMPL-001-summary.md`
+   - Subtask Reviews: `IMPL-001.1-summary.md`
+   - Detailed Subtask Reviews: `IMPL-001.1.1-summary.md`
 
 ## Output Format
 

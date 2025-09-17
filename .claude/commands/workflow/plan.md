@@ -28,6 +28,40 @@ examples:
 
 ## Core Rules
 
+### Dependency Context Resolution (CRITICAL)
+⚠️ **For tasks with dependencies or documentation associations**: MUST include bash content retrieval as first step in flow_control.pre_analysis
+
+**Required Pattern**:
+```json
+"flow_control": {
+  "pre_analysis": [
+    {
+      "step": "load_dependencies",
+      "action": "Retrieve dependency task summaries",
+      "command": "bash(cat .workflow/WFS-[session]/.summaries/IMPL-[dependency_id]-summary.md 2>/dev/null || echo 'dependency summary not found')",
+      "output_to": "dependency_context"
+    },
+    {
+      "step": "load_documentation",
+      "action": "Retrieve project documentation",
+      "command": "bash(cat CLAUDE.md README.md 2>/dev/null || echo 'documentation not found')",
+      "output_to": "doc_context"
+    }
+  ]
+}
+```
+
+**Trigger Conditions**:
+- Task has `context.depends_on` array with task IDs
+- Task references external documentation files
+- Task builds upon previous implementation summaries
+- Task requires configuration or schema files
+
+**Content Sources**:
+- Task summaries: `.workflow/WFS-[session]/.summaries/IMPL-[task-id]-summary.md` (主任务) / `IMPL-[task-id].[subtask-id]-summary.md` (子任务)
+- Documentation: `CLAUDE.md`, `README.md`, config files
+- Schema definitions: `.json`, `.yaml`, `.sql` files
+- Dependency contexts: `.workflow/WFS-[session]/.task/IMPL-*.json`
 
 ### File Structure Reference
 **Architecture**: @~/.claude/workflows/workflow-architecture.md
@@ -62,17 +96,12 @@ examples:
 - **Session isolation**: Each session maintains independent context and state
 
 ### Project Structure Analysis & Engineering Enhancement
-**Process**: Context → Analyze → Implement (Simple: CLI direct | Complex: Task + CLI hybrid)
-**Tool Priority**: Task(complex) > CLI(simple) > Hybrid(mixed complexity)
-
-**Always First**: Run project hierarchy analysis before planning
-```bash
-# Get project structure with depth analysis
-~/.claude/scripts/get_modules_by_depth.sh
-
-# Results populate task paths automatically
-# Used for focus_paths and target_files generation
-```
+**⚠️ CRITICAL PRE-PLANNING STEP**: Must complete comprehensive project analysis before any task planning begins
+**Analysis Process**: Context Gathering → Codebase Exploration → Pattern Recognition → Implementation Strategy
+**Tool Selection Protocol**:
+- **Simple patterns** (≤3 modules): Use `~/.claude/scripts/gemini-wrapper` or `codex --full-auto exec`
+- **Complex analysis** (>3 modules): Launch Task agents with integrated CLI tool access
+**Tool Priority**: Task(complex) > Direct CLI(simple) > Hybrid(mixed complexity)
 
 **Core Principles**:
 - **Complexity-Driven Selection**: Simple patterns use direct CLI, complex analysis uses Task agents with CLI integration
@@ -98,6 +127,9 @@ examples:
 - `IMPL-003: Create frontend component`
 
 ## Output Documents
+
+### Document Workflow
+**Identifier Creation** → **Folder Structure Creation** → **IMPL_PLAN.md** → **.task/IMPL-NNN.json** → **TODO_LIST.md**
 
 ### Always Created
 - **IMPL_PLAN.md**: Requirements, task breakdown, success criteria
@@ -148,53 +180,10 @@ Documents created for `/workflow:execute`:
 - **File not found**: Clear suggestions
 - **>10 tasks**: Force re-scoping into iterations
 
-
-### Detailed Context Gathering Commands
-
-#### Gemini Analysis Templates
-```bash
-# Module pattern analysis
-cd [module] && ~/.claude/scripts/gemini-wrapper -p "Analyze patterns, conventions, and file organization in this module"
-
-# Architectural analysis
-cd [module] && ~/.claude/scripts/gemini-wrapper -p "Analyze [scope] architecture, relationships, and integration points"
-
-# Cross-module dependencies
-~/.claude/scripts/gemini-wrapper -p "@{src/**/*} @{CLAUDE.md} analyze module relationships and dependencies"
-
-
-#### Codex Analysis Templates
-```bash
-# Architectural analysis
-codex --full-auto exec "analyze [scope] architecture and identify optimization opportunities" -s danger-full-access
-
-# Pattern-based development
-codex --full-auto exec "analyze existing patterns for [feature] implementation with concrete examples" -s danger-full-access
-
-# Project understanding
-codex --full-auto exec "analyze project structure, conventions, and development requirements" -s danger-full-access
-```
-
 ### Context Accumulation & Inheritance
 **Context Flow Process**:
-1. **Structure Analysis**: `get_modules_by_depth.sh` → project hierarchy
+1. **Structure Analysis**: project hierarchy
 2. **Pattern Analysis**: Tool-specific commands → existing patterns
 3. **Dependency Mapping**: Previous task summaries → inheritance context
 4. **Task Context Generation**: Combined analysis → task.context fields
 
-**Context Inheritance Rules**:
-- **Parent → Child**: Container tasks pass context to subtasks via `context.inherited`
-- **Dependency → Dependent**: Previous task summaries loaded via `context.depends_on`
-- **Session → Task**: Global session context included in all tasks
-- **Module → Feature**: Module patterns inform feature implementation context
-
-### Variable System & Path Rules
-**Flow Control Variables**: Use `[variable_name]` format (see workflow-architecture.md)
-- **Step outputs**: `[dependency_context]`, `[pattern_analysis]`
-- **Task properties**: `[depends_on]`, `[focus_paths]`, `[parent]`
-- **Commands**: Wrapped in `bash()` with error handling strategies
-
-**Focus Paths**: Concrete paths only (no wildcards)
-- Use `get_modules_by_depth.sh` results for actual directory names
-- Include both directories and specific files from requirements
-- Format: `["src/auth", "tests/auth", "config/auth.json"]`

@@ -126,19 +126,31 @@ All task files use this unified 5-field schema:
       {
         "step": "check_patterns",
         "action": "Analyze existing patterns",
-        "command": "bash(rg 'auth' src/ | head -10)",
-        "output_to": "auth_patterns"
+        "command": "bash(rg 'auth' [focus_paths] | head -10)",
+        "output_to": "patterns"
+      },
+      {
+        "step": "analyze_architecture",
+        "action": "Review system architecture",
+        "command": "~/.claude/scripts/gemini-wrapper -p \"analyze patterns: [patterns]\"",
+        "output_to": "design"
+      },
+      {
+        "step": "check_deps",
+        "action": "Check dependencies",
+        "command": "bash(echo [depends_on] | xargs cat)",
+        "output_to": "context"
       }
     ],
     "implementation_approach": {
-      "task_description": "Implement JWT authentication following existing patterns",
+      "task_description": "Implement JWT authentication following [design]",
       "modification_points": [
-        "Add JWT generation in login handler",
-        "Implement token validation middleware"
+        "Add JWT generation using [parent] patterns",
+        "Implement validation middleware from [context]"
       ],
       "logic_flow": [
-        "User login → validate → generate JWT → return token",
-        "Protected route → extract JWT → validate → allow/deny"
+        "User login → validate with [inherited] → generate JWT",
+        "Protected route → extract JWT → validate using [shared] rules"
       ]
     },
     "target_files": [
@@ -162,7 +174,7 @@ The **focus_paths** field specifies concrete project paths for task implementati
 The **flow_control** field manages task execution with two main components:
 
 **pre_analysis** - Context gathering phase:
-- **Flexible commands**: Supports bash pipelines, CLI tools, and agent calls
+- **Flexible commands**: Supports multiple tool types (see Tool Reference below)
 - **Step structure**: Each step has `step`, `action`, `command` fields
 - **Variable accumulation**: Steps can reference previous outputs via `[variable_name]`
 - **Error handling**: `skip_optional`, `fail`, `retry_once`, `manual_intervention`
@@ -173,13 +185,39 @@ The **flow_control** field manages task execution with two main components:
 - **logic_flow**: Business logic execution sequence
 - **target_files**: Target file list in `file:function:lines` format
 
+#### Tool Reference
+**Command Types Available**:
+- **Gemini CLI**: `~/.claude/scripts/gemini-wrapper -p "prompt"`
+- **Codex CLI**: `codex --full-auto exec "task" -s danger-full-access`
+- **Built-in Tools**: `grep(pattern)`, `glob(pattern)`, `search(query)`
+- **Bash Commands**: `bash(rg 'pattern' src/)`, `bash(find . -name "*.ts")`
+
+#### Variable System & Context Flow
+**Flow Control Variables**: Use `[variable_name]` format for dynamic content:
+- **Step outputs**: `[step_output_name]` - Reference any pre_analysis step output
+- **Task properties**: `[task_property]` - Reference any task context field
+- **Previous results**: `[analysis_result]` - Reference accumulated context
+- **Commands**: All commands wrapped with appropriate error handling
+
+**Context Accumulation Process**:
+1. **Structure Analysis**: `get_modules_by_depth.sh` → project hierarchy
+2. **Pattern Analysis**: Tool-specific commands → existing patterns
+3. **Dependency Mapping**: Previous task summaries → inheritance context
+4. **Task Context Generation**: Combined analysis → task.context fields
+
+**Context Inheritance Rules**:
+- **Parent → Child**: Container tasks pass context via `context.inherited`
+- **Dependency → Dependent**: Previous task summaries via `context.depends_on`
+- **Session → Task**: Global session context included in all tasks
+- **Module → Feature**: Module patterns inform feature implementation
+
 ### Task Validation Rules
 1. **ID Uniqueness**: All task IDs must be unique
 2. **Hierarchical Format**: Must follow IMPL-N[.M] pattern (maximum 2 levels)
 3. **Parent References**: All parent IDs must exist as JSON files
 4. **Status Consistency**: Status values from defined enumeration
 5. **Required Fields**: All 5 core fields must be present
-6. **Focus Paths Structure**: context.focus_paths must contain valid project paths
+6. **Focus Paths Structure**: context.focus_paths must contain concrete paths (no wildcards)
 7. **Flow Control Format**: pre_analysis must be array with required fields
 8. **Dependency Integrity**: All depends_on task IDs must exist as JSON files
 
@@ -199,8 +237,8 @@ All workflows use the same file structure definition regardless of complexity. *
 ├── IMPL_PLAN.md                # Planning document (REQUIRED)
 ├── TODO_LIST.md                # Progress tracking (REQUIRED)
 ├── [.summaries/]               # Task completion summaries (created when tasks complete)
-│   ├── IMPL-*.md              # Main task summaries
-│   └── IMPL-*.*.md            # Subtask summaries
+│   ├── IMPL-*-summary.md      # Main task summaries
+│   └── IMPL-*.*-summary.md    # Subtask summaries
 └── .task/                      # Task definitions (REQUIRED)
     ├── IMPL-*.json             # Main task definitions
     └── IMPL-*.*.json           # Subtask definitions (created dynamically)
@@ -242,9 +280,9 @@ All workflows use the same file structure definition regardless of complexity. *
 ## Task Progress
 ▸ **IMPL-001**: [Main Task Group] → [📋](./.task/IMPL-001.json)
   - [ ] **IMPL-001.1**: [Subtask] → [📋](./.task/IMPL-001.1.json)
-  - [x] **IMPL-001.2**: [Subtask] → [📋](./.task/IMPL-001.2.json) | [✅](./.summaries/IMPL-001.2.md)
+  - [x] **IMPL-001.2**: [Subtask] → [📋](./.task/IMPL-001.2.json) | [✅](./.summaries/IMPL-001.2-summary.md)
 
-- [x] **IMPL-002**: [Simple Task] → [📋](./.task/IMPL-002.json) | [✅](./.summaries/IMPL-002.md)
+- [x] **IMPL-002**: [Simple Task] → [📋](./.task/IMPL-002.json) | [✅](./.summaries/IMPL-002-summary.md)
 
 ## Status Legend
 - `▸` = Container task (has subtasks)
@@ -314,22 +352,25 @@ fi
 | **Medium** | 5-15 tasks | 2 levels (IMPL-N.M) | Moderate decomposition, context coordination |
 | **Complex** | >15 tasks | 2 levels (IMPL-N.M) | Frequent decomposition, multi-agent orchestration |
 
-### Workflow Characteristics
+### Workflow Characteristics & Tool Guidance
 
 #### Simple Workflows
 - **Examples**: Bug fixes, small feature additions, configuration changes
 - **Task Decomposition**: Usually single-level tasks, minimal breakdown needed
 - **Agent Coordination**: Direct execution without complex orchestration
+- **Tool Strategy**: `bash()` commands, `grep()` for pattern matching
 
 #### Medium Workflows
 - **Examples**: New features, API endpoints with integration, database schema changes
 - **Task Decomposition**: Two-level hierarchy when decomposition is needed
 - **Agent Coordination**: Context coordination between related tasks
+- **Tool Strategy**: `gemini-wrapper` for pattern analysis, `codex --full-auto` for implementation
 
 #### Complex Workflows
 - **Examples**: Major features, architecture refactoring, security implementations, multi-service deployments
 - **Task Decomposition**: Frequent use of two-level hierarchy with dynamic subtask creation
 - **Agent Coordination**: Multi-agent orchestration with deep context analysis
+- **Tool Strategy**: `gemini-wrapper` for architecture analysis, `codex --full-auto` for complex problem solving, `bash()` commands for flexible analysis
 
 ### Assessment & Upgrades
 - **During Creation**: System evaluates requirements and assigns complexity
