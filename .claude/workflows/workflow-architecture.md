@@ -43,12 +43,23 @@ This document defines the complete workflow system architecture using a **JSON-o
 
 ### Session Operations
 
-#### Detect Active Session
+#### Detect Active Session(s)
 ```bash
-active_session=$(find .workflow -name ".active-*" | head -1)
-if [ -n "$active_session" ]; then
-  session_name=$(basename "$active_session" | sed 's/^\.active-//')
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+count=$(echo "$active_sessions" | wc -l)
+
+if [ -z "$active_sessions" ]; then
+  echo "No active session"
+elif [ "$count" -eq 1 ]; then
+  session_name=$(basename "$active_sessions" | sed 's/^\.active-//')
   echo "Active session: $session_name"
+else
+  echo "Multiple active sessions found:"
+  echo "$active_sessions" | while read marker; do
+    session=$(basename "$marker" | sed 's/^\.active-//')
+    echo "  - $session"
+  done
+  echo "Please specify which session to work with"
 fi
 ```
 

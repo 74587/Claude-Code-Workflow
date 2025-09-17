@@ -31,11 +31,13 @@ Coordinates agents for executing workflow tasks through automatic discovery and 
 
 ### 1. Discovery Phase
 ```
-├── Locate workflow folder (current session)
-├── Load workflow-session.json and IMPL_PLAN.md
-├── Scan .task/ directory for task JSON files
-├── Analyze task statuses and dependencies
-└── Build execution queue of ready tasks
+├── Check for .active-* markers in .workflow/
+├── If multiple active sessions found → Prompt user to select
+├── Locate selected session's workflow folder
+├── Load selected session's workflow-session.json and IMPL_PLAN.md
+├── Scan selected session's .task/ directory for task JSON files
+├── Analyze task statuses and dependencies for selected session only
+└── Build execution queue of ready tasks from selected session
 ```
 
 ### 2. TodoWrite Coordination

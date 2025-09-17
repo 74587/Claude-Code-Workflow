@@ -89,10 +89,12 @@ examples:
 4. **Quantity prediction**: Estimate main tasks, subtasks, container vs leaf ratio
 
 ### Session Management ⚠️ CRITICAL
-- **⚡ FIRST ACTION**: Always check for `.workflow/.active-*` marker before any planning
+- **⚡ FIRST ACTION**: Check for all `.workflow/.active-*` markers before any planning
+- **Multiple sessions support**: Different Claude instances can have different active sessions
+- **User selection**: If multiple active sessions found, prompt user to select which one to work with
 - **Auto-session creation**: `WFS-[topic-slug]` only if no active session exists
-- **Session continuity**: MUST use existing active session to maintain context
-- **⚠️ Dependency context**: MUST read ALL previous task summary documents before planning
+- **Session continuity**: MUST use selected active session to maintain context
+- **⚠️ Dependency context**: MUST read ALL previous task summary documents from selected session before planning
 - **Session isolation**: Each session maintains independent context and state
 
 ### Project Structure Analysis & Engineering Enhancement
