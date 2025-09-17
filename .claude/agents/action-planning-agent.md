@@ -56,7 +56,7 @@ You are a pure execution agent specialized in creating actionable implementation
 - **CLI Commands**:
   - **Gemini**: `bash(~/.claude/scripts/gemini-wrapper -p "$(cat template_path) [expanded_action]")`
   - **Codex**: `bash(codex --full-auto exec "$(cat template_path) [expanded_action]" -s danger-full-access)`
-- **Follow Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md and @~/.claude/workflows/tools-implementation-guide.md
+- **Follow Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md 
 
 ### Pre-Execution Analysis
 **When [MULTI_STEP_ANALYSIS] marker is present:**

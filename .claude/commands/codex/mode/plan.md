@@ -257,4 +257,4 @@ When `--save-session` used, saves to:
 ```
 
 For detailed syntax, patterns, and advanced usage see:
-**@~/.claude/workflows/tools-implementation-guide.md**
+**@~/.claude/workflows/intelligent-tools-strategy.md**

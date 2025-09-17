@@ -6,7 +6,6 @@ This document defines project-specific coding standards and development principl
 ### CLI Tool Context Protocols
 For all CLI tool usage, command syntax, and integration guidelines:
 - **Intelligent Context Strategy**: @~/.claude/workflows/intelligent-tools-strategy.md
-- **Implementation Guide**: @~/.claude/workflows/tools-implementation-guide.md
 
 **Context Requirements**:
 - Identify 3+ existing similar patterns before implementation
