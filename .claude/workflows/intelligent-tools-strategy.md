@@ -23,6 +23,11 @@ type: strategic-guideline
 3. **Not sure?** → Use both in parallel
 4. **Small task?** → Still use tools - they're faster than manual work
 
+### Core Execution Rules
+- **Default Timeout**: CLI commands default execution time = 20 minutes (1200000ms)
+- **Apply to All Tools**: Gemini wrapper and Codex executions use this timeout
+- **Override When Needed**: Specify custom timeout for longer operations
+
 ## 🎯 Universal Command Template
 
 ### Standard Format (REQUIRED)
@@ -31,6 +36,7 @@ type: strategic-guideline
 ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
+CONTEXT: [file references and memory context]
 EXPECTED: [expected output]
 RULES: [template reference and constraints]
 "
@@ -39,6 +45,7 @@ RULES: [template reference and constraints]
 codex --full-auto exec "
 PURPOSE: [clear development goal]
 TASK: [specific development task]
+CONTEXT: [file references and memory context]
 EXPECTED: [expected deliverables]
 RULES: [template reference and constraints]
 " -s danger-full-access
@@ -47,6 +54,7 @@ RULES: [template reference and constraints]
 ### Template Structure
 - [ ] **PURPOSE** - Clear goal and intent
 - [ ] **TASK** - Specific execution task
+- [ ] **CONTEXT** - File references and memory context from previous sessions
 - [ ] **EXPECTED** - Clear expected results
 - [ ] **RULES** - Template reference and constraints
 
@@ -117,6 +125,7 @@ When planning any coding task, **ALWAYS** integrate CLI tools:
 ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Understand codebase architecture
 TASK: Analyze project structure and identify patterns
+CONTEXT: @{src/**/*.ts,CLAUDE.md} Previous analysis of auth system
 EXPECTED: Architecture overview and integration points
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on integration points
 "
@@ -125,6 +134,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt
 codex --full-auto exec "
 PURPOSE: Implement user authentication
 TASK: Create JWT-based authentication system
+CONTEXT: @{src/auth/**/*} Database schema from session memory
 EXPECTED: Complete auth module with tests
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) | Follow security best practices
 " -s danger-full-access
@@ -133,6 +143,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) 
 ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Prepare comprehensive code review
 TASK: Analyze code changes and identify potential issues
+CONTEXT: @{**/*.modified} Recent changes discussed in last session
 EXPECTED: Review checklist and improvement suggestions
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/quality.txt) | Focus on maintainability
 "
@@ -142,6 +153,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/quality.txt) | F
 
 For every development task:
 - [ ] **Purpose defined** - Clear goal and intent
+- [ ] **Context gathered** - File references and session memory documented
 - [ ] **Gemini analysis** completed for understanding
 - [ ] **Template selected** - Appropriate template chosen
 - [ ] **Constraints specified** - File patterns, scope, requirements
