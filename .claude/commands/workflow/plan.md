@@ -13,7 +13,7 @@ examples:
 
 ## Usage
 ```bash
-/workflow:plan [--AM gemini|codex] [--analyze|--deep] <input>
+/workflow:plan <input>
 ```
 
 ## Input Detection
@@ -21,20 +21,37 @@ examples:
 - **Issues**: `ISS-*`, `ISSUE-*`, `*-request-*` → Loads issue data and acceptance criteria
 - **Text**: Everything else → Parses natural language requirements
 
-## Analysis Levels
-- **Quick** (default): Structure only (5s)
-- **--analyze**: Structure + context analysis (30s)
-- **--deep**: Structure + comprehensive parallel analysis (1-2m)
+## Default Analysis Workflow
+
+### Automatic Intelligence Selection
+The command automatically performs comprehensive analysis by:
+1. **Context Gathering**: Reading relevant CLAUDE.md documentation based on task requirements
+2. **Task Assignment**: Automatically assigning Task agents based on complexity:
+   - **Simple tasks** (≤3 modules): Direct CLI tools (`~/.claude/scripts/gemini-wrapper` or `codex --full-auto exec`)
+   - **Complex tasks** (>3 modules): Task agents with integrated CLI tool access
+3. **Process Documentation**: Generates analysis artifacts in `.workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md`
+4. **Flow Control Integration**: Automatic tool selection managed by flow_control system
+
+### Analysis Artifacts Generated
+- **ANALYSIS_RESULTS.md**: Documents context analysis, codebase structure, pattern identification, and task decomposition results
+- **Context mapping**: Project structure, dependencies, and cohesion groups
+- **Implementation strategy**: Tool selection and execution approach
 
 ## Core Rules
 
-### Dependency Context Resolution (CRITICAL)
-⚠️ **For tasks with dependencies or documentation associations**: MUST include bash content retrieval as first step in flow_control.pre_analysis
+### Agent Execution Context (CRITICAL)
+⚠️ **For agent execution phase**: Agents will automatically load context from plan-generated documents
 
-**Required Pattern**:
+**Agent Context Loading Pattern**:
 ```json
 "flow_control": {
   "pre_analysis": [
+    {
+      "step": "load_planning_context",
+      "action": "Load plan-generated analysis and context",
+      "command": "bash(cat .workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md 2>/dev/null || echo 'planning analysis not found')",
+      "output_to": "planning_context"
+    }, // 可选：Task任务较为复杂时
     {
       "step": "load_dependencies",
       "action": "Retrieve dependency task summaries",
@@ -43,7 +60,7 @@ examples:
     },
     {
       "step": "load_documentation",
-      "action": "Retrieve project documentation",
+      "action": "Retrieve project documentation based on task requirements",
       "command": "bash(cat CLAUDE.md README.md 2>/dev/null || echo 'documentation not found')",
       "output_to": "doc_context"
     }
@@ -59,12 +76,14 @@ examples:
 
 **Content Sources**:
 - Task summaries: `.workflow/WFS-[session]/.summaries/IMPL-[task-id]-summary.md` (主任务) / `IMPL-[task-id].[subtask-id]-summary.md` (子任务)
-- Documentation: `CLAUDE.md`, `README.md`, config files
+- Documentation: `CLAUDE.md`, `README.md`, config files (loaded based on task context requirements)
 - Schema definitions: `.json`, `.yaml`, `.sql` files
 - Dependency contexts: `.workflow/WFS-[session]/.task/IMPL-*.json`
+- Analysis artifacts: `.workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md`
 
 ### File Structure Reference
 **Architecture**: @~/.claude/workflows/workflow-architecture.md
+
 
 ### Task Limits & Decomposition
 - **Maximum 10 tasks**: Hard enforced limit - projects exceeding must be re-scoped
@@ -100,10 +119,11 @@ examples:
 ### Project Structure Analysis & Engineering Enhancement
 **⚠️ CRITICAL PRE-PLANNING STEP**: Must complete comprehensive project analysis before any task planning begins
 **Analysis Process**: Context Gathering → Codebase Exploration → Pattern Recognition → Implementation Strategy
-**Tool Selection Protocol**:
-- **Simple patterns** (≤3 modules): Use `~/.claude/scripts/gemini-wrapper` or `codex --full-auto exec`
-- **Complex analysis** (>3 modules): Launch Task agents with integrated CLI tool access
+**Tool Selection Protocol** (Managed by flow_control):
+- **Simple patterns** (≤3 modules): Direct CLI tools (`~/.claude/scripts/gemini-wrapper` or `codex --full-auto exec`)
+- **Complex analysis** (>3 modules): Task agents with integrated CLI tool access and built-in tool capabilities
 **Tool Priority**: Task(complex) > Direct CLI(simple) > Hybrid(mixed complexity)
+**Automatic Selection**: flow_control system determines optimal tool based on task complexity and context requirements
 
 **Core Principles**:
 - **Complexity-Driven Selection**: Simple patterns use direct CLI, complex analysis uses Task agents with CLI integration
@@ -140,14 +160,17 @@ examples:
 ### Auto-Created (complexity > simple)
 - **TODO_LIST.md**: Hierarchical progress tracking
 - **.task/*.json**: Individual task definitions with flow_control
+- **.process/ANALYSIS_RESULTS.md**: Analysis results and planning artifacts.Template:@~/.claude/workflows/ANALYSIS_RESULTS.md
 
 ### Document Structure
 ```
 .workflow/WFS-[topic]/
 ├── IMPL_PLAN.md          # Main planning document
 ├── TODO_LIST.md          # Progress tracking (if complex)
+├── .process/
+│   └── ANALYSIS_RESULTS.md  # Analysis results and planning artifacts
 └── .task/
-    ├── IMPL-001.json     # Task definitions
+    ├── IMPL-001.json     # Task definitions with flow_control
     └── IMPL-002.json
 ```
 

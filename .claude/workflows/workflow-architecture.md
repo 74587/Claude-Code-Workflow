@@ -245,6 +245,8 @@ All workflows use the same file structure definition regardless of complexity. *
 ├── [.chat/]                    # CLI interaction sessions (created when analysis is run)
 │   ├── chat-*.md              # Saved chat sessions
 │   └── analysis-*.md          # Analysis results
+├── [.process/]                 # Planning analysis results (created by /workflow:plan)
+│   └── ANALYSIS_RESULTS.md    # Analysis results and planning artifacts
 ├── IMPL_PLAN.md                # Planning document (REQUIRED)
 ├── TODO_LIST.md                # Progress tracking (REQUIRED)
 ├── [.summaries/]               # Task completion summaries (created when tasks complete)
