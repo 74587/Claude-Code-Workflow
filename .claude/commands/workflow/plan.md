@@ -21,28 +21,47 @@ examples:
 - **Issues**: `ISS-*`, `ISSUE-*`, `*-request-*` → Loads issue data and acceptance criteria
 - **Text**: Everything else → Parses natural language requirements
 
-## Default Analysis Workflow
+## Core Workflow
 
-### Automatic Intelligence Selection
-The command automatically performs comprehensive analysis by:
-1. **Context Gathering**: Reading relevant CLAUDE.md documentation based on task requirements
-2. **Task Assignment**: Automatically assigning Task agents based on complexity:
-   - **Simple tasks** (≤3 modules): Direct CLI tools (`~/.claude/scripts/gemini-wrapper` or `codex --full-auto exec`)
-   - **Complex tasks** (>3 modules): Task agents with integrated CLI tool access
-3. **Process Documentation**: Generates analysis artifacts in `.workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md`
-4. **Flow Control Integration**: Automatic tool selection managed by flow_control system
+### Analysis & Planning Process
+The command performs comprehensive analysis through:
 
-### Analysis Artifacts Generated
-- **ANALYSIS_RESULTS.md**: Documents context analysis, codebase structure, pattern identification, and task decomposition results
-- **Context mapping**: Project structure, dependencies, and cohesion groups
+**0. Pre-Analysis Documentation Check** ⚠️ FIRST STEP
+- **Selective documentation loading based on task requirements**:
+  - **Always check**: `.workflow/docs/README.md` - System navigation and module index
+  - **For architecture tasks**: `.workflow/docs/architecture/system-design.md`, `module-map.md`
+  - **For specific modules**: `.workflow/docs/modules/[relevant-module]/overview.md`
+  - **For API tasks**: `.workflow/docs/api/unified-api.md`
+- **Context-driven selection**: Only load documentation relevant to the specific task scope
+- **Foundation for analysis**: Use relevant docs to understand affected components and dependencies
+
+**1. Context Gathering & Intelligence Selection**
+- Reading relevant CLAUDE.md documentation based on task requirements
+- Automatic tool assignment based on complexity:
+  - **Simple tasks** (≤3 modules): Direct CLI tools (`~/.claude/scripts/gemini-wrapper` or `codex --full-auto exec`)
+  - **Complex tasks** (>3 modules): Task agents with integrated CLI tool access
+- Flow control integration with automatic tool selection
+
+**2. Project Structure Analysis** ⚠️ CRITICAL PRE-PLANNING STEP
+- **Documentation Context First**: Reference `.workflow/docs/` content from `/workflow:docs` command if available
+- **Complexity assessment**: Count total saturated tasks
+- **Decomposition strategy**: Flat (≤5) | Hierarchical (6-10) | Re-scope (>10)
+- **Module boundaries**: Identify relationships and dependencies using existing documentation
+- **File grouping**: Cohesive file sets and target_files generation
+- **Pattern recognition**: Existing implementations and conventions
+
+**3. Analysis Artifacts Generated**
+- **ANALYSIS_RESULTS.md**: Context analysis, codebase structure, pattern identification, task decomposition
+- **Context mapping**: Project structure, dependencies, cohesion groups
 - **Implementation strategy**: Tool selection and execution approach
 
-## Core Rules
+## Implementation Standards
 
-### Agent Execution Context (CRITICAL)
-⚠️ **For agent execution phase**: Agents will automatically load context from plan-generated documents
+### Context Management & Agent Execution
 
-**Agent Context Loading Pattern**:
+**Agent Context Loading** ⚠️ CRITICAL
+Agents automatically load context from plan-generated documents during execution:
+
 ```json
 "flow_control": {
   "pre_analysis": [
@@ -51,7 +70,7 @@ The command automatically performs comprehensive analysis by:
       "action": "Load plan-generated analysis and context",
       "command": "bash(cat .workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md 2>/dev/null || echo 'planning analysis not found')",
       "output_to": "planning_context"
-    }, // 可选：Task任务较为复杂时
+    },
     {
       "step": "load_dependencies",
       "action": "Retrieve dependency task summaries",
@@ -60,52 +79,48 @@ The command automatically performs comprehensive analysis by:
     },
     {
       "step": "load_documentation",
-      "action": "Retrieve project documentation based on task requirements",
-      "command": "bash(cat CLAUDE.md README.md 2>/dev/null || echo 'documentation not found')",
+      "action": "Retrieve relevant documentation based on task scope and requirements",
+      "command": "bash(cat .workflow/docs/README.md $(if [[ \"$TASK_TYPE\" == *\"architecture\"* ]]; then echo .workflow/docs/architecture/*.md; fi) $(if [[ \"$TASK_MODULES\" ]]; then for module in $TASK_MODULES; do echo .workflow/docs/modules/$module/*.md; done; fi) $(if [[ \"$TASK_TYPE\" == *\"api\"* ]]; then echo .workflow/docs/api/*.md; fi) CLAUDE.md README.md 2>/dev/null || echo 'documentation not found')",
       "output_to": "doc_context"
     }
   ]
 }
 ```
 
-**Trigger Conditions**:
-- Task has `context.depends_on` array with task IDs
-- Task references external documentation files
-- Task builds upon previous implementation summaries
-- Task requires configuration or schema files
+**Context Accumulation & Inheritance**:
+1. **Structure Analysis**: project hierarchy
+2. **Pattern Analysis**: Tool-specific commands → existing patterns
+3. **Dependency Mapping**: Previous task summaries → inheritance context
+4. **Task Context Generation**: Combined analysis → task.context fields
 
 **Content Sources**:
-- Task summaries: `.workflow/WFS-[session]/.summaries/IMPL-[task-id]-summary.md` (主任务) / `IMPL-[task-id].[subtask-id]-summary.md` (子任务)
-- Documentation: `CLAUDE.md`, `README.md`, config files (loaded based on task context requirements)
+- Task summaries: `.workflow/WFS-[session]/.summaries/IMPL-[task-id]-summary.md`
+- Generated documentation: `.workflow/docs/` (architecture, modules, APIs from `/workflow:docs`)
+- Documentation: `CLAUDE.md`, `README.md`, config files
 - Schema definitions: `.json`, `.yaml`, `.sql` files
 - Dependency contexts: `.workflow/WFS-[session]/.task/IMPL-*.json`
 - Analysis artifacts: `.workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md`
 
-### File Structure Reference
-**Architecture**: @~/.claude/workflows/workflow-architecture.md
+**Trigger Conditions**: Task has `context.depends_on` array, references external docs, builds on previous summaries, requires config/schema files
 
+### Task Decomposition Standards
 
-### Task Limits & Decomposition
+**Core Principles**:
+1. **Functional Completeness** - Each task delivers complete, independently runnable functional unit including all related files (logic, UI, tests, config)
+2. **Minimum Size Threshold** - Single task must contain ≥3 related files or 200 lines of code; smaller content merged with adjacent features
+3. **Dependency Cohesion** - Tightly coupled components completed in same task (shared models, API endpoints, user flows)
+4. **Hierarchy Control** - Flat structure (≤5 tasks) | Two-level (6-10 tasks) | Re-scope (>10 tasks)
+
+**Implementation Rules**:
 - **Maximum 10 tasks**: Hard enforced limit - projects exceeding must be re-scoped
 - **Function-based decomposition**: By complete functional units, not files/steps
 - **File cohesion**: Group related files (UI + logic + tests + config) in same task
 - **Task saturation**: Merge "analyze + implement" by default (0.5 count for complex prep tasks)
 
-### Core Task Decomposition Standards
-1. **Functional Completeness Principle** - Each task must deliver a complete, independently runnable functional unit including all related files (logic, UI, tests, config)
+**Task Saturation Assessment**:
+- **Default Merge** (cohesive files together): Functional modules with UI + logic + tests + config, features with tests/docs, files sharing interfaces/data structures
+- **Only Separate When**: Independent functional modules, different tech stacks/deployment units, would exceed 10-task limit
 
-2. **Minimum Size Threshold** - A single task must contain at least 3 related files or 200 lines of code; content below this threshold must be merged with adjacent features
-
-3. **Dependency Cohesion Principle** - Tightly coupled components must be completed in the same task, including shared data models, same API endpoints, and all parts of a single user flow
-
-4. **Hierarchy Control Rule** - Use flat structure for ≤5 tasks, two-level structure for 6-10 tasks, and mandatory re-scoping into multiple iterations for >10 tasks
-
-### Pre-Planning Analysis (CRITICAL)
-⚠️ **Must complete BEFORE generating any plan documents**
-1. **Complexity assessment**: Count total saturated tasks
-2. **Decomposition strategy**: Flat (≤5) | Hierarchical (6-10) | Re-scope (>10)
-3. **File grouping**: Identify cohesive file sets
-4. **Quantity prediction**: Estimate main tasks, subtasks, container vs leaf ratio
 
 ### Session Management ⚠️ CRITICAL
 - **⚡ FIRST ACTION**: Check for all `.workflow/.active-*` markers before any planning
@@ -116,53 +131,25 @@ The command automatically performs comprehensive analysis by:
 - **⚠️ Dependency context**: MUST read ALL previous task summary documents from selected session before planning
 - **Session isolation**: Each session maintains independent context and state
 
-### Project Structure Analysis & Engineering Enhancement
-**⚠️ CRITICAL PRE-PLANNING STEP**: Must complete comprehensive project analysis before any task planning begins
-**Analysis Process**: Context Gathering → Codebase Exploration → Pattern Recognition → Implementation Strategy
-**Tool Selection Protocol** (Managed by flow_control):
-- **Simple patterns** (≤3 modules): Direct CLI tools (`~/.claude/scripts/gemini-wrapper` or `codex --full-auto exec`)
-- **Complex analysis** (>3 modules): Task agents with integrated CLI tool access and built-in tool capabilities
-**Tool Priority**: Task(complex) > Direct CLI(simple) > Hybrid(mixed complexity)
-**Automatic Selection**: flow_control system determines optimal tool based on task complexity and context requirements
 
-**Core Principles**:
-- **Complexity-Driven Selection**: Simple patterns use direct CLI, complex analysis uses Task agents with CLI integration
-- **Context-First Approach**: Always gather project understanding before tool selection
-- **Intelligent Escalation**: Start CLI, escalate to Task agents when encountering complexity
-- **Hybrid Flexibility**: Task agents can freely use CLI commands and built-in tools for comprehensive analysis
+**Task Patterns**:
+- ✅ **Correct (Function-based)**: `IMPL-001: User authentication system` (models + routes + components + middleware + tests)
+- ❌ **Wrong (File/step-based)**: `IMPL-001: Create database model`, `IMPL-002: Create API endpoint`
 
-**Structure Integration**:
-- Identifies module boundaries and relationships
-- Maps file dependencies and cohesion groups
-- Populates task.context.focus_paths automatically
-- Enables precise target_files generation
+## Document Generation
 
-## Task Patterns
+**Workflow**: Identifier Creation → Folder Structure → IMPL_PLAN.md → .task/IMPL-NNN.json → TODO_LIST.md
 
-### ✅ Correct (Function-based)
-- `IMPL-001: User authentication system` (models + routes + components + middleware + tests)
-- `IMPL-002: Data export functionality` (service + routes + UI + utils + tests)
-
-### ❌ Wrong (File/step-based)
-- `IMPL-001: Create database model`
-- `IMPL-002: Create API endpoint`
-- `IMPL-003: Create frontend component`
-
-## Output Documents
-
-### Document Workflow
-**Identifier Creation** → **Folder Structure Creation** → **IMPL_PLAN.md** → **.task/IMPL-NNN.json** → **TODO_LIST.md**
-
-### Always Created
+**Always Created**:
 - **IMPL_PLAN.md**: Requirements, task breakdown, success criteria
 - **Session state**: Task references and paths
 
-### Auto-Created (complexity > simple)
+**Auto-Created (complexity > simple)**:
 - **TODO_LIST.md**: Hierarchical progress tracking
 - **.task/*.json**: Individual task definitions with flow_control
-- **.process/ANALYSIS_RESULTS.md**: Analysis results and planning artifacts.Template:@~/.claude/workflows/ANALYSIS_RESULTS.md
+- **.process/ANALYSIS_RESULTS.md**: Analysis results and planning artifacts
 
-### Document Structure
+**Document Structure**:
 ```
 .workflow/WFS-[topic]/
 ├── IMPL_PLAN.md          # Main planning document
@@ -174,18 +161,10 @@ The command automatically performs comprehensive analysis by:
     └── IMPL-002.json
 ```
 
-## Task Saturation Assessment
-**Default Merge** (cohesive files together):
-- Functional modules with UI + logic + tests + config
-- Features with their tests and documentation
-- Files sharing common interfaces/data structures
 
-**Only Separate When**:
-- Completely independent functional modules
-- Different tech stacks or deployment units
-- Would exceed 10-task limit otherwise
+## Reference Information
 
-## Task JSON Schema (5-Field Architecture)
+### Task JSON Schema (5-Field Architecture)
 Each task.json uses the workflow-architecture.md 5-field schema:
 - **id**: IMPL-N[.M] format (max 2 levels)
 - **title**: Descriptive task name
@@ -194,7 +173,10 @@ Each task.json uses the workflow-architecture.md 5-field schema:
 - **context**: { requirements, focus_paths, acceptance, parent, depends_on, inherited, shared_context }
 - **flow_control**: { pre_analysis[], implementation_approach, target_files[] }
 
-## Execution Integration
+### File Structure Reference
+**Architecture**: @~/.claude/workflows/workflow-architecture.md
+
+### Execution Integration
 Documents created for `/workflow:execute`:
 - **IMPL_PLAN.md**: Context loading and requirements
 - **.task/*.json**: Agent implementation context
@@ -205,10 +187,4 @@ Documents created for `/workflow:execute`:
 - **File not found**: Clear suggestions
 - **>10 tasks**: Force re-scoping into iterations
 
-### Context Accumulation & Inheritance
-**Context Flow Process**:
-1. **Structure Analysis**: project hierarchy
-2. **Pattern Analysis**: Tool-specific commands → existing patterns
-3. **Dependency Mapping**: Previous task summaries → inheritance context
-4. **Task Context Generation**: Combined analysis → task.context fields
 
