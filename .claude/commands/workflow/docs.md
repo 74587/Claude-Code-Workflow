@@ -40,9 +40,17 @@ The command performs structured planning and task creation:
 
 **2. Task Generation**
 - **Create session**: `.workflow/WFS-docs-[timestamp]/`
+- **Create active marker**: `.workflow/.active-WFS-docs-[timestamp]` (must match session folder name)
 - **Generate IMPL_PLAN.md**: Documentation requirements and task breakdown
 - **Create task.json files**: Individual documentation tasks with flow_control
 - **Setup TODO_LIST.md**: Progress tracking for documentation generation
+
+### Session Management ⚠️ CRITICAL
+- **Check for active sessions**: Look for `.workflow/.active-WFS-docs-*` markers
+- **Marker naming**: Active marker must exactly match session folder name
+- **Session creation**: `WFS-docs-[timestamp]` folder with matching `.active-WFS-docs-[timestamp]` marker
+- **Task execution**: Use `/workflow:execute` to run individual documentation tasks within active session
+- **Session isolation**: Each documentation session maintains independent context and state
 
 ## Output Structure
 ```
@@ -116,16 +124,18 @@ Each documentation task uses the workflow-architecture.md 5-field schema:
 
 **Document Structure**:
 ```
-.workflow/WFS-docs-[timestamp]/
-├── IMPL_PLAN.md           # Main documentation plan
-├── TODO_LIST.md           # Progress tracking
-├── .process/
-│   └── ANALYSIS_RESULTS.md   # Documentation analysis
-└── .task/
-    ├── IMPL-001.json      # System overview task
-    ├── IMPL-002.json      # Module documentation task
-    ├── IMPL-003.json      # Architecture documentation task
-    └── IMPL-004.json      # API documentation task
+.workflow/
+├── .active-WFS-docs-20231201-143022  # Active session marker (matches folder name)
+└── WFS-docs-20231201-143022/         # Documentation session folder
+    ├── IMPL_PLAN.md                  # Main documentation plan
+    ├── TODO_LIST.md                  # Progress tracking
+    ├── .process/
+    │   └── ANALYSIS_RESULTS.md       # Documentation analysis
+    └── .task/
+        ├── IMPL-001.json             # System overview task
+        ├── IMPL-002.json             # Module documentation task
+        ├── IMPL-003.json             # Architecture documentation task
+        └── IMPL-004.json             # API documentation task
 ```
 
 ### Task Flow Control Templates
