@@ -9,24 +9,40 @@ examples:
   - /workflow:docs api --scope api/
 ---
 
-# Hierarchical Documentation Generator
+# Workflow Documentation Command
 
 ## Usage
 ```bash
 /workflow:docs <type> [scope]
 ```
 
-## Document Types
-- **architecture**: System architecture documentation (bottom-up analysis)
-- **api**: API interface documentation (module-first approach)
-- **all**: Complete documentation suite with full hierarchy (default)
+## Input Detection
+- **Document Types**: `architecture`, `api`, `all` → Creates appropriate documentation tasks
+- **Scope**: Optional module/directory filtering → Focuses documentation generation
+- **Default**: `all` → Complete documentation suite
 
-## Generation Strategy
-Uses **doc-generator agent** with **flow_control** for structured documentation generation:
-1. Agent receives task with embedded flow_control structure
-2. Agent executes pre_analysis steps using CLI tools
-3. Agent generates hierarchical documentation (module → system)
-4. Agent tracks progress with TodoWrite throughout process
+## Core Workflow
+
+### Planning & Task Creation Process
+The command performs structured planning and task creation:
+
+**0. Pre-Planning Architecture Analysis** ⚠️ FIRST STEP
+- **System Structure Analysis**: Run `bash(~/.claude/scripts/get_modules_by_depth.sh)` to discover project hierarchy
+- **Module Boundary Identification**: Understand module organization and dependencies
+- **Architecture Pattern Recognition**: Identify architectural styles and design patterns
+- **Foundation for documentation**: Use structure analysis to guide task decomposition
+
+**1. Documentation Planning**
+- **Type Analysis**: Determine documentation scope (architecture/api/all)
+- **Module Discovery**: Use architecture analysis results to identify components
+- **Task Decomposition**: Break documentation into manageable tasks based on discovered structure
+- **Session Management**: Create or use existing documentation session
+
+**2. Task Generation**
+- **Create session**: `.workflow/WFS-docs-[timestamp]/`
+- **Generate IMPL_PLAN.md**: Documentation requirements and task breakdown
+- **Create task.json files**: Individual documentation tasks with flow_control
+- **Setup TODO_LIST.md**: Progress tracking for documentation generation
 
 ## Output Structure
 ```
@@ -49,90 +65,118 @@ Uses **doc-generator agent** with **flow_control** for structured documentation 
     └── openapi.yaml
 ```
 
-## Complete Documentation Generation (All Types)
+## Task Decomposition Standards
 
-### Agent Task Invocation
-```bash
-Task(
-  description="Generate complete system documentation",
-  prompt="[FLOW_CONTROL] You are the doc-generator agent tasked with creating comprehensive system documentation. Execute the embedded flow_control structure for hierarchical documentation generation.
+### Documentation Task Types
+**IMPL-001**: System Overview Documentation
+- Project structure analysis
+- Technology stack documentation
+- Main navigation creation
 
-Your flow_control includes these pre_analysis steps:
-1. Initialize TodoWrite tracking for documentation process
-2. Discover project modules using bash commands
-3. Analyze project structure with gemini-wrapper
-4. Perform deep module analysis with gemini-wrapper
-5. Scan API endpoints using bash/rg commands
-6. Analyze API structure with gemini-wrapper
+**IMPL-002**: Module Documentation (per module)
+- Individual module analysis
+- API surface documentation
+- Dependencies and relationships
+- Usage examples
 
-After pre_analysis, generate documentation:
-- Create module documentation in .workflow/docs/modules/
-- Generate architecture docs in .workflow/docs/architecture/
-- Create unified API docs in .workflow/docs/api/
-- Build main navigation in .workflow/docs/README.md
+**IMPL-003**: Architecture Documentation
+- System design patterns
+- Module interaction mapping
+- Data flow documentation
+- Design principles
 
-Use TodoWrite to track progress and update status as you complete each phase.",
-  subagent_type="doc-generator"
-)
+**IMPL-004**: API Documentation
+- Endpoint discovery and analysis
+- OpenAPI specification generation
+- Authentication documentation
+- Integration examples
+
+### Task JSON Schema (5-Field Architecture)
+Each documentation task uses the workflow-architecture.md 5-field schema:
+- **id**: IMPL-N format
+- **title**: Documentation task name
+- **status**: pending|active|completed|blocked
+- **meta**: { type: "documentation", agent: "doc-generator" }
+- **context**: { requirements, focus_paths, acceptance, scope }
+- **flow_control**: { pre_analysis[], implementation_approach, target_files[] }
+
+## Document Generation
+
+### Workflow Process
+**Input Analysis** → **Session Creation** → **IMPL_PLAN.md** → **.task/IMPL-NNN.json** → **TODO_LIST.md** → **Execute Tasks**
+
+**Always Created**:
+- **IMPL_PLAN.md**: Documentation requirements and task breakdown
+- **Session state**: Task references and documentation paths
+
+**Auto-Created (based on scope)**:
+- **TODO_LIST.md**: Progress tracking for documentation tasks
+- **.task/IMPL-*.json**: Individual documentation tasks with flow_control
+- **.process/ANALYSIS_RESULTS.md**: Documentation analysis artifacts
+
+**Document Structure**:
+```
+.workflow/WFS-docs-[timestamp]/
+├── IMPL_PLAN.md           # Main documentation plan
+├── TODO_LIST.md           # Progress tracking
+├── .process/
+│   └── ANALYSIS_RESULTS.md   # Documentation analysis
+└── .task/
+    ├── IMPL-001.json      # System overview task
+    ├── IMPL-002.json      # Module documentation task
+    ├── IMPL-003.json      # Architecture documentation task
+    └── IMPL-004.json      # API documentation task
 ```
 
-## Architecture-Only Documentation
+### Task Flow Control Templates
 
-### Agent Task for Architecture Focus
-```bash
-Task(
-  description="Generate architecture documentation",
-  prompt="[FLOW_CONTROL] You are the doc-generator agent focused on architecture documentation.
-
-Execute flow_control with these pre_analysis steps:
-1. Initialize TodoWrite for architecture documentation tracking
-2. Analyze system architecture with gemini-wrapper using comprehensive architectural analysis rules
-3. Generate architecture documentation in .workflow/docs/architecture/
-
-Focus on system design, module relationships, and technology stack documentation.",
-  subagent_type="doc-generator"
-)
+**System Overview Task (IMPL-001)**:
+```json
+"flow_control": {
+  "pre_analysis": [
+    {
+      "step": "system_architecture_analysis",
+      "action": "Discover system architecture and module hierarchy",
+      "command": "bash(~/.claude/scripts/get_modules_by_depth.sh)",
+      "output_to": "system_structure"
+    },
+    {
+      "step": "project_discovery",
+      "action": "Discover project structure and entry points",
+      "command": "bash(find . -type f -name '*.json' -o -name '*.md' -o -name 'package.json' | head -20)",
+      "output_to": "project_structure"
+    },
+    {
+      "step": "analyze_tech_stack",
+      "action": "Analyze technology stack and dependencies using structure analysis",
+      "command": "~/.claude/scripts/gemini-wrapper -p \"Analyze project technology stack and dependencies based on: [system_structure]\"",
+      "output_to": "tech_analysis"
+    }
+  ],
+  "target_files": [".workflow/docs/README.md"]
+}
 ```
 
-## API-Only Documentation
-
-### Agent Task for API Focus
-```bash
-Task(
-  description="Generate API documentation",
-  prompt="[FLOW_CONTROL] You are the doc-generator agent focused on API documentation.
-
-Execute flow_control with these pre_analysis steps:
-1. Initialize TodoWrite for API documentation tracking
-2. Scan for API endpoints using bash/rg commands
-3. Analyze API patterns with gemini-wrapper for comprehensive documentation
-4. Generate API documentation in .workflow/docs/api/
-
-Create complete API reference with OpenAPI specifications and usage examples.",
-  subagent_type="doc-generator"
-)
+**Module Documentation Task (IMPL-002)**:
+```json
+"flow_control": {
+  "pre_analysis": [
+    {
+      "step": "load_system_structure",
+      "action": "Load system architecture analysis from previous task",
+      "command": "bash(cat .workflow/WFS-docs-*/IMPL-001-system_structure.output 2>/dev/null || ~/.claude/scripts/get_modules_by_depth.sh)",
+      "output_to": "system_context"
+    },
+    {
+      "step": "module_analysis",
+      "action": "Analyze specific module structure and API within system context",
+      "command": "~/.claude/scripts/gemini-wrapper -p \"Analyze module [MODULE_NAME] structure and exported API within system: [system_context]\"",
+      "output_to": "module_context"
+    }
+  ],
+  "target_files": [".workflow/docs/modules/[MODULE_NAME]/overview.md"]
+}
 ```
-
-## Flow Control Templates
-
-The doc-generator agent internally uses these flow_control structures:
-
-### Complete Documentation Flow Control
-- **initialize_tracking**: Set up TodoWrite progress tracking
-- **discover_modules**: Find project modules with bash commands
-- **analyze_project_structure**: Comprehensive analysis with gemini-wrapper
-- **analyze_individual_modules**: Deep module analysis with gemini-wrapper
-- **scan_api_endpoints**: API endpoint discovery with bash/rg
-- **analyze_api_structure**: API documentation with gemini-wrapper
-
-### Architecture Flow Control
-- **initialize_architecture_tracking**: TodoWrite setup for architecture
-- **analyze_architecture**: System architecture analysis with gemini-wrapper
-
-### API Flow Control
-- **initialize_api_tracking**: TodoWrite setup for API documentation
-- **scan_apis**: API endpoint scanning with bash/rg
-- **analyze_api_patterns**: API documentation with gemini-wrapper
 
 ## Analysis Templates
 
@@ -160,51 +204,36 @@ The doc-generator agent internally uses these flow_control structures:
 - Create comprehensive endpoint documentation
 - Provide usage examples and integration guides
 
-## Integration with Workflow System
-
-### Automatic Context Loading
-- Generated documentation serves as context for `/workflow:plan` and `/workflow:execute`
-- Documentation provides single source of truth for system understanding
-- Other workflow commands automatically reference `.workflow/docs/` for context
-
-### Progressive Enhancement
-- Documentation builds incrementally from modules to system
-- Individual modules can be re-documented as needed
-- System documentation synthesizes from module-level understanding
+## Error Handling
+- **Invalid document type**: Clear error message with valid options
+- **Module not found**: Skip missing modules with warning
+- **Analysis failures**: Fall back to file-based analysis
+- **Permission issues**: Clear guidance on directory access
 
 ## Key Benefits
 
-### Agent + Flow Control Architecture
-- **Unified Execution**: All documentation generation through doc-generator agent
-- **Structured Analysis**: Flow control ensures systematic context gathering
-- **CLI Tool Integration**: Agent uses bash, gemini-wrapper, and codex internally
-- **Progress Tracking**: TodoWrite provides visibility throughout process
+### Structured Documentation Process
+- **Task-based approach**: Documentation broken into manageable, trackable tasks
+- **Flow control integration**: Systematic analysis ensures completeness
+- **Progress visibility**: TODO_LIST.md provides clear completion status
+- **Quality assurance**: Each task has defined acceptance criteria
 
-### Hierarchical Documentation
-- **Bottom-up Analysis**: Start with detailed module understanding
-- **System Synthesis**: Build unified documentation from module knowledge
-- **Two-level Architecture**: Module-level and system-level documentation
-
-### Quality and Consistency
-- **Flow Control Ensures Completeness**: Structured analysis prevents missing components
-- **Agent Expertise**: Specialized doc-generator provides consistent quality
-- **Tool Optimization**: Right tool for each analysis phase
-- **Error Recovery**: Progress tracking enables recovery from failures
+### Workflow Integration
+- **Planning foundation**: Documentation provides context for implementation planning
+- **Execution consistency**: Same task execution model as implementation
+- **Context accumulation**: Documentation builds comprehensive project understanding
 
 ## Usage Examples
 
+### Complete Documentation Workflow
 ```bash
-# Generate complete documentation suite
+# Step 1: Create documentation plan and tasks
 /workflow:docs all
 
-# Generate only architecture documentation
-/workflow:docs architecture
-
-# Generate only API documentation
-/workflow:docs api
-
-# Generate scoped documentation
-/workflow:docs architecture src/core,src/auth
+# Step 2: Execute documentation tasks (after planning)
+/workflow:execute IMPL-001  # System overview
+/workflow:execute IMPL-002  # Module documentation
+/workflow:execute IMPL-003  # Architecture documentation
+/workflow:execute IMPL-004  # API documentation
 ```
-
-The system executes the appropriate agent task with embedded flow_control, ensuring systematic and comprehensive documentation generation.
+The system creates structured documentation tasks with proper session management, task.json files, and integration with the broader workflow system for systematic and trackable documentation generation.
