@@ -155,7 +155,7 @@ OUTPUT FORMAT:
 - API documentation with types and examples
 - Dependency map with clear relationships
 - Usage examples from actual codebase
-" -t 1200000
+" 
 ```
 
 ### Module Documentation Template
@@ -173,7 +173,7 @@ DOCUMENTATION GENERATION RULES:
 4. Generate dependencies.md with dependency analysis
 5. Create examples.md with practical usage examples
 6. Ensure consistent formatting and cross-references
-" -s danger-full-access -t 1200000
+" -s danger-full-access 
 ```
 
 ## Agent Task Templates
