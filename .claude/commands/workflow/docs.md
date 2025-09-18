@@ -35,7 +35,7 @@ The command performs structured planning and task creation:
 **1. Documentation Planning**
 - **Type Analysis**: Determine documentation scope (architecture/api/all)
 - **Module Discovery**: Use architecture analysis results to identify components
-- **Task Decomposition**: Break documentation into manageable tasks based on discovered structure
+- **Dynamic Task Decomposition**: Analyze project structure to determine optimal task count and module grouping
 - **Session Management**: Create or use existing documentation session
 
 **2. Task Generation**
@@ -74,6 +74,13 @@ The command performs structured planning and task creation:
 ```
 
 ## Task Decomposition Standards
+
+### Dynamic Task Planning Rules
+**Module Grouping**: Max 3 modules per task, max 30 files per task
+**Task Count**: Calculate based on `total_modules ÷ 3 (rounded up) + base_tasks`
+**File Limits**: Split tasks when file count exceeds 30 in any module group
+**Base Tasks**: System overview (1) + Architecture (1) + API consolidation (1)
+**Module Tasks**: Group related modules by dependency depth and functional similarity
 
 ### Documentation Task Types
 **IMPL-001**: System Overview Documentation
