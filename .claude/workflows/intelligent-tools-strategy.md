@@ -24,8 +24,9 @@ type: strategic-guideline
 4. **Small task?** → Still use tools - they're faster than manual work
 
 ### Core Execution Rules
-- **Default Timeout**: CLI commands default execution time = 20 minutes (1200000ms)
-- **Apply to All Tools**: Gemini wrapper and Codex executions use this timeout
+- **Default Timeout**: Bash commands default execution time = 20 minutes (1200000ms)
+- **Apply to All Tools**: All bash() wrapped commands including Gemini wrapper and Codex executions use this timeout
+- **Command Examples**: `bash(~/.claude/scripts/gemini-wrapper -p "prompt")`, `bash(codex --full-auto exec "task")`
 - **Override When Needed**: Specify custom timeout for longer operations
 
 ## 🎯 Universal Command Template
