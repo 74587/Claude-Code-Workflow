@@ -11,14 +11,20 @@ type: search-guideline
 **rg (ripgrep)**: Fast content search with regex support
 **find**: File/directory location by name patterns
 **grep**: Built-in pattern matching in files
+**get_modules_by_depth.sh**: Program architecture analysis and structural discovery
 
 ### Decision Principles
 - **Use rg for content** - Fastest for searching within files
 - **Use find for files** - Locate files/directories by name
 - **Use grep sparingly** - Only when rg unavailable
+- **Use get_modules_by_depth.sh first** - MANDATORY for program architecture analysis before planning
 
 ### Quick Command Reference
 ```bash
+# Program Architecture Analysis (MANDATORY FIRST)
+~/.claude/scripts/get_modules_by_depth.sh  # Discover program architecture
+bash(~/.claude/scripts/get_modules_by_depth.sh)  # Analyze structural hierarchy
+
 # Content Search (rg preferred)
 rg "pattern" --type js          # Search in JS files
 rg -i "case-insensitive"        # Ignore case
@@ -36,6 +42,10 @@ grep -n -i "pattern" file.txt   # Line numbers, case-insensitive
 
 ### Workflow Integration Examples
 ```bash
+# Program Architecture Analysis (MANDATORY BEFORE PLANNING)
+~/.claude/scripts/get_modules_by_depth.sh  # Discover program architecture
+bash(~/.claude/scripts/get_modules_by_depth.sh)  # Analyze structural hierarchy
+
 # Search for task definitions
 rg "IMPL-\d+" .workflow/ --type json        # Find task IDs
 find .workflow/ -name "*.json" -path "*/.task/*"  # Locate task files

@@ -26,8 +26,8 @@ examples:
 ### Planning & Task Creation Process
 The command performs structured planning and task creation:
 
-**0. Pre-Planning Architecture Analysis** ⚠️ FIRST STEP
-- **System Structure Analysis**: Run `bash(~/.claude/scripts/get_modules_by_depth.sh)` to discover project hierarchy
+**0. Pre-Planning Architecture Analysis** ⚠️ MANDATORY FIRST STEP
+- **System Structure Analysis**: MUST run `bash(~/.claude/scripts/get_modules_by_depth.sh)` for dynamic task decomposition
 - **Module Boundary Identification**: Understand module organization and dependencies
 - **Architecture Pattern Recognition**: Identify architectural styles and design patterns
 - **Foundation for documentation**: Use structure analysis to guide task decomposition
