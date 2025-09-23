@@ -75,6 +75,7 @@ class EmbeddingManager:
         self.similarity_threshold = config.get('embedding', {}).get('similarity_threshold', 0.6)
         self.max_context_length = config.get('embedding', {}).get('max_context_length', 512)
         self.batch_size = config.get('embedding', {}).get('batch_size', 32)
+        self.trust_remote_code = config.get('embedding', {}).get('trust_remote_code', False)
 
         # Setup cache directories
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -95,7 +96,11 @@ class EmbeddingManager:
         if self._model is None:
             try:
                 self.logger.info(f"Loading embedding model: {self.model_name}")
-                self._model = SentenceTransformer(self.model_name)
+                # Initialize with trust_remote_code for CodeSage V2
+                if self.trust_remote_code:
+                    self._model = SentenceTransformer(self.model_name, trust_remote_code=True)
+                else:
+                    self._model = SentenceTransformer(self.model_name)
                 self.logger.info(f"Model loaded successfully")
             except Exception as e:
                 self.logger.error(f"Failed to load embedding model: {e}")
@@ -203,7 +208,7 @@ class EmbeddingManager:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
 
-            # Truncate content if too long
+            # Truncate content if too long (CodeSage V2 supports longer contexts)
             if len(content) > self.max_context_length * 4:  # Approximate token limit
                 content = content[:self.max_context_length * 4]
 
