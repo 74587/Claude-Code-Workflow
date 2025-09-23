@@ -114,7 +114,7 @@ All task files use this unified 5-field schema:
 
   "meta": {
     "type": "feature|bugfix|refactor|test|docs",
-    "agent": "code-developer|planning-agent|code-review-test-agent"
+    "agent": "@code-developer|@planning-agent|@code-review-test-agent"
   },
 
   "context": {
@@ -394,10 +394,10 @@ fi
 
 ### Agent Assignment
 Based on task type and title keywords:
-- **Planning tasks** → planning-agent
-- **Implementation** → code-developer
-- **Testing** → code-review-test-agent
-- **Review** → review-agent
+- **Planning tasks** → @planning-agent
+- **Implementation** → @code-developer
+- **Testing** → @code-review-test-agent
+- **Review** → @review-agent
 
 ### Execution Context
 Agents receive complete task JSON plus workflow context:

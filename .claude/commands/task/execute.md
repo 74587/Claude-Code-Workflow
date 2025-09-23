@@ -24,7 +24,7 @@ examples:
     -   Executes step-by-step, requiring user confirmation at each checkpoint.
     -   Allows for dynamic adjustments and manual review during the process.
 -   **review**
-    -   Executes under the supervision of a `review-agent`.
+    -   Executes under the supervision of a `@review-agent`.
     -   Performs quality checks and provides detailed feedback at each step.
 
 ### 🤖 **Agent Selection Logic**
@@ -42,15 +42,15 @@ FUNCTION select_agent(task, agent_override):
     ELSE:
         CASE task.title:
             WHEN CONTAINS "Build API", "Implement":
-                RETURN "code-developer"
+                RETURN "@code-developer"
             WHEN CONTAINS "Design schema", "Plan":
-                RETURN "planning-agent"
+                RETURN "@planning-agent"
             WHEN CONTAINS "Write tests":
-                RETURN "code-review-test-agent"
+                RETURN "@code-review-test-agent"
             WHEN CONTAINS "Review code":
-                RETURN "review-agent"
+                RETURN "@review-agent"
             DEFAULT:
-                RETURN "code-developer" // Default agent
+                RETURN "@code-developer" // Default agent
         END CASE
 END FUNCTION
 ```
@@ -138,7 +138,7 @@ This is the simplified data structure loaded to provide context for task executi
     "title": "Build authentication module",
     "type": "feature",
     "status": "active",
-    "agent": "code-developer",
+    "agent": "@code-developer",
     "context": {
       "requirements": ["JWT authentication", "OAuth2 support"],
       "scope": ["src/auth/*", "tests/auth/*"],
@@ -209,7 +209,7 @@ This is the simplified data structure loaded to provide context for task executi
     }
   },
   "execution": {
-    "agent": "code-developer",
+    "agent": "@code-developer",
     "mode": "auto",
     "attempts": 0
   }
@@ -220,25 +220,25 @@ This is the simplified data structure loaded to provide context for task executi
 
 Different agents receive context tailored to their function, including implementation details:
 
-**`code-developer`**: 
+**`@code-developer`**: 
 - Complete implementation.files array with file paths and locations
 - original_code snippets and proposed_changes for precise modifications
 - logic_flow diagrams for understanding data flow
 - Dependencies and affected modules for integration planning
 - Performance and error handling considerations
 
-**`planning-agent`**: 
+**`@planning-agent`**: 
 - High-level requirements, constraints, success criteria
 - Implementation risks and mitigation strategies
 - Architecture implications from implementation.context_notes
 
-**`code-review-test-agent`**: 
+**`@code-review-test-agent`**: 
 - Files to test from implementation.files[].path
 - Logic flows to validate from implementation.modifications.logic_flow
 - Error conditions to test from implementation.context_notes.error_handling
 - Performance benchmarks from implementation.context_notes.performance_considerations
 
-**`review-agent`**: 
+**`@review-agent`**: 
 - Code quality standards and implementation patterns
 - Security considerations from implementation.context_notes.risks
 - Dependency validation from implementation.context_notes.dependencies
@@ -262,7 +262,7 @@ Optional summary file generated at `.summaries/IMPL-[task-id]-summary.md`.
 - Added tests in tests/auth.test.ts
 
 ## Execution Results
-- **Agent**: code-developer
+- **Agent**: @code-developer
 - **Status**: completed
 
 ## Files Modified

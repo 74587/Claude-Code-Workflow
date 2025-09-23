@@ -26,7 +26,7 @@ Before ANY agent coordination begins, the brainstorming command MUST establish t
    - Establish agent coordination metadata
 
 ### Pre-Agent Verification
-Before delegating to conceptual-planning-agent, VERIFY:
+Before delegating to @conceptual-planning-agent, VERIFY:
 - [ ] Topic slug generated correctly
 - [ ] All required directories exist  
 - [ ] workflow-session.json initialized
@@ -103,7 +103,7 @@ Each brainstorming session maintains metadata in `session-summary.md` header:
 **Topic**: [Challenge description]  
 **Mode**: creative|analytical|strategic  
 **Perspectives**: [role1, role2, role3...]  
-**Facilitator**: conceptual-planning-agent  
+**Facilitator**: @conceptual-planning-agent  
 **Date**: YYYY-MM-DD  
 
 ## Session Overview
@@ -161,7 +161,7 @@ done
 ```
 
 ### Agent Document Assignment Protocol
-When coordinating with conceptual-planning-agent, ALWAYS specify exact output location:
+When coordinating with @conceptual-planning-agent, ALWAYS specify exact output location:
 
 **Correct Agent Delegation:**
 ```

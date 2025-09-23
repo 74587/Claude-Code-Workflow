@@ -70,7 +70,7 @@ Shows detailed task information:
 
 **Title**: Build authentication module
 **Status**: active
-**Agent**: code-developer
+**Agent**: @code-developer
 **Type**: feature
 
 ## Context
@@ -245,7 +245,7 @@ Performs integrity checks:
 /workflow:status --format=tasks --filter=completed
 
 # Show tasks for specific agent
-/workflow:status --format=tasks --agent=code-developer
+/workflow:status --format=tasks --agent=@code-developer
 ```
 
 ## Related Commands

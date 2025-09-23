@@ -233,10 +233,10 @@ Task(subagent_type="{agent_type}",
 ```
 meta.agent specified → Use specified agent
 meta.agent missing → Infer from meta.type:
-  - "feature" → code-developer
-  - "test" → code-review-test-agent
-  - "review" → code-review-agent
-  - "docs" → doc-generator
+  - "feature" → @code-developer
+  - "test" → @code-review-test-agent
+  - "review" → @code-review-agent
+  - "docs" → @doc-generator
 ```
 
 #### Error Handling During Execution

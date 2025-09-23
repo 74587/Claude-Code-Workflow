@@ -77,8 +77,8 @@ Proceed with breakdown? (y/n): y
 
 ✅ Task IMPL-1 broken down:
 ▸ IMPL-1: Build authentication module (container)
-  ├── IMPL-1.1: User authentication core → code-developer
-  └── IMPL-1.2: OAuth integration → code-developer
+  ├── IMPL-1.1: User authentication core → @code-developer
+  └── IMPL-1.2: OAuth integration → @code-developer
 
 Files updated: .task/IMPL-1.json + 2 subtask files + TODO_LIST.md
 ```
@@ -86,10 +86,10 @@ Files updated: .task/IMPL-1.json + 2 subtask files + TODO_LIST.md
 ## Decomposition Logic
 
 ### Agent Assignment
-- **Design/Planning** → `planning-agent`
-- **Implementation** → `code-developer`
-- **Testing** → `code-review-test-agent`
-- **Review** → `review-agent`
+- **Design/Planning** → `@planning-agent`
+- **Implementation** → `@code-developer`
+- **Testing** → `@code-review-test-agent`
+- **Review** → `@review-agent`
 
 ### Context Inheritance
 - Subtasks inherit parent requirements
@@ -160,9 +160,9 @@ See @~/.claude/workflows/workflow-architecture.md for:
 /task:breakdown impl-1
 
 ▸ impl-1: Build authentication (container)
-  ├── impl-1.1: Design schema → planning-agent
-  ├── impl-1.2: Implement logic → code-developer
-  └── impl-1.3: Write tests → code-review-test-agent
+  ├── impl-1.1: Design schema → @planning-agent
+  ├── impl-1.2: Implement logic → @code-developer
+  └── impl-1.3: Write tests → @code-review-test-agent
 ```
 
 ## Error Handling

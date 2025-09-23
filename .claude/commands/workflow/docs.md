@@ -111,7 +111,7 @@ Each documentation task uses the workflow-architecture.md 5-field schema:
 - **id**: IMPL-N format
 - **title**: Documentation task name
 - **status**: pending|active|completed|blocked
-- **meta**: { type: "documentation", agent: "doc-generator" }
+- **meta**: { type: "documentation", agent: "@doc-generator" }
 - **context**: { requirements, focus_paths, acceptance, scope }
 - **flow_control**: { pre_analysis[], implementation_approach, target_files[] }
 
