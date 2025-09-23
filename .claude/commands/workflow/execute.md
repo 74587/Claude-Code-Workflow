@@ -10,22 +10,28 @@ examples:
 # Workflow Execute Command
 
 ## Overview
-Orchestrates autonomous workflow execution through systematic task discovery, agent coordination, and progress tracking. Provides complete context to agents and ensures proper flow control execution.
+Orchestrates autonomous workflow execution through systematic task discovery, agent coordination, and progress tracking. **Executes entire workflow without user interruption**, providing complete context to agents and ensuring proper flow control execution with comprehensive TodoWrite tracking.
+
+## Core Rules
+**Complete entire workflow autonomously without user interruption, using TodoWrite for comprehensive progress tracking.**
+**Execute all discovered pending tasks sequentially until workflow completion or blocking dependency.**
 
 ## Core Responsibilities
 - **Session Discovery**: Identify and select active workflow sessions
 - **Task Dependency Resolution**: Analyze task relationships and execution order
-- **TodoWrite Progress Tracking**: Maintain real-time execution status
+- **TodoWrite Progress Tracking**: Maintain real-time execution status throughout entire workflow
 - **Agent Orchestration**: Coordinate specialized agents with complete context
 - **Flow Control Execution**: Execute pre-analysis steps and context accumulation
 - **Status Synchronization**: Update task JSON files and workflow state
+- **Autonomous Completion**: Continue execution until all tasks complete or reach blocking state
 
 ## Execution Philosophy
 - **Discovery-first**: Auto-discover existing plans and tasks
 - **Status-aware**: Execute only ready tasks with resolved dependencies
 - **Context-rich**: Provide complete task JSON and accumulated context to agents
-- **Progress tracking**: Real-time TodoWrite updates and status synchronization
+- **Progress tracking**: **Continuous TodoWrite updates throughout entire workflow execution**
 - **Flow control**: Sequential step execution with variable passing
+- **Autonomous completion**: **Execute all tasks without user interruption until workflow complete**
 
 ## Flow Control Execution
 **[FLOW_CONTROL]** marker indicates sequential step execution required for context gathering and preparation.
@@ -72,8 +78,9 @@ Step 3: implement_solution [pattern_analysis] [dependency_context] → implement
 ### Phase 4: Execution
 1. **Execute Flow Control**: Run `pre_analysis` steps if present
 2. **Launch Agent**: Invoke specialized agent with complete context
-3. **Monitor Progress**: Track agent execution and handle errors
+3. **Monitor Progress**: Track agent execution and handle errors without user interruption
 4. **Collect Results**: Gather implementation results and outputs
+5. **Continue Workflow**: Automatically proceed to next pending task until completion
 
 ### Phase 5: Completion
 1. **Update Task Status**: Mark completed tasks in JSON files
@@ -102,13 +109,14 @@ blocked → skip until dependencies clear
 ```
 
 ## TodoWrite Coordination
-**Real-time progress tracking** with immediate status updates:
+**Comprehensive workflow tracking** with immediate status updates throughout entire execution without user interruption:
 
 #### TodoWrite Workflow Rules
-1. **Initial Creation**: Generate TodoWrite from discovered pending tasks
+1. **Initial Creation**: Generate TodoWrite from discovered pending tasks for entire workflow
 2. **Single In-Progress**: Mark ONLY ONE task as `in_progress` at a time
-3. **Immediate Updates**: Update status after each task completion
+3. **Immediate Updates**: Update status after each task completion without user interruption
 4. **Status Synchronization**: Sync with JSON task files after updates
+5. **Continuous Tracking**: Maintain TodoWrite throughout entire workflow execution until completion
 
 #### TodoWrite Tool Usage
 **Use Claude Code's built-in TodoWrite tool** to track workflow progress in real-time:
@@ -149,10 +157,12 @@ TodoWrite({
 ```
 
 **TodoWrite Integration Rules**:
-- **Real-time Updates**: Use TodoWrite tool for immediate progress tracking
+- **Continuous Workflow Tracking**: Use TodoWrite tool throughout entire workflow execution
+- **Real-time Updates**: Immediate progress tracking without user interruption
 - **Single Active Task**: Only ONE task marked as `in_progress` at any time
 - **Immediate Completion**: Mark tasks `completed` immediately after finishing
 - **Status Sync**: Sync TodoWrite status with JSON task files after each update
+- **Full Execution**: Continue TodoWrite tracking until all workflow tasks complete
 
 #### TODO_LIST.md Update Timing
 - **Before Agent Launch**: Update TODO_LIST.md to mark task as `in_progress` (⚠️)
