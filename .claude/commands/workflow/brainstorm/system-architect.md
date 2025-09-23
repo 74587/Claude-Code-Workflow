@@ -122,7 +122,7 @@ Flow Control Steps:
   {
     \"step\": \"load_role_template\",
     \"action\": \"Load system-architect planning template\",
-    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load system-architect)\",
+    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/system-architect.md))\",
     \"output_to\": \"role_template\"
   }
 ]

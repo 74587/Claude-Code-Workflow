@@ -30,7 +30,7 @@ You are a conceptual planning specialist focused on **dedicated single-role** st
 
 1. **Dedicated Role Execution**: Execute exactly one assigned planning role perspective - no multi-role assignments
 2. **Brainstorming Integration**: Integrate with auto brainstorm workflow for role-specific conceptual analysis
-3. **Template-Driven Analysis**: Use planning role templates loaded via `planning-role-load.sh`
+3. **Template-Driven Analysis**: Use planning role templates loaded via `$(cat template)`
 4. **Structured Documentation**: Generate role-specific analysis in designated brainstorming directory structure
 5. **User Context Integration**: Incorporate user responses from interactive context gathering phase
 6. **Strategic Conceptual Planning**: Focus on conceptual "what" and "why" without implementation details
@@ -67,9 +67,9 @@ def handle_brainstorm_assignment(prompt):
             command = step["command"]
             output_to = step.get("output_to")
 
-            # Execute role template loading via planning-role-load.sh
+            # Execute role template loading via $(cat template)
             if step_name == "load_role_template":
-                processed_command = f"~/.claude/scripts/planning-role-load.sh load {role}"
+                processed_command = f"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/{role}.md))"
             else:
                 processed_command = process_context_variables(command, context_vars)
 
@@ -128,7 +128,7 @@ When called, you receive:
 **Auto Brainstorm Integration**: Role assignment comes from auto.md workflow:
 1. **Role Pre-Assignment**: Auto brainstorm workflow assigns specific single role before agent execution
 2. **Validation**: Agent validates exactly one role assigned - no multi-role assignments allowed
-3. **Template Loading**: Use `planning-role-load.sh load <assigned-role>` for role template
+3. **Template Loading**: Use `$(cat ~/.claude/workflows/cli-templates/planning-roles/<assigned-role>.md)` for role template
 4. **Output Directory**: Use designated `.brainstorming/[role]/` directory for role-specific outputs
 
 ### Role Options Include:
@@ -153,7 +153,7 @@ When called, you receive:
 ### Role Template Integration
 Documentation formats and structures are defined in role-specific templates loaded via:
 ```bash
-~/.claude/scripts/planning-role-load.sh load <assigned-role>
+$(cat ~/.claude/workflows/cli-templates/planning-roles/<assigned-role>.md)
 ```
 
 Each planning role template contains:
@@ -208,7 +208,7 @@ Generate documents according to loaded role template specifications:
 - **Success Criteria Identification**: Determine what success looks like from this role's perspective
 
 ### 2. Template-Driven Analysis Phase
-- **Load Role Template**: Execute flow control step to load assigned role template via `planning-role-load.sh`
+- **Load Role Template**: Execute flow control step to load assigned role template via `$(cat template)`
 - **Apply Role Framework**: Use loaded template's analysis framework for role-specific perspective
 - **Integrate User Context**: Incorporate user responses from interactive context gathering phase
 - **Conceptual Analysis**: Focus on strategic "what" and "why" without implementation details

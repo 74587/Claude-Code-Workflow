@@ -127,7 +127,7 @@ Flow Control Steps:
   {
     \"step\": \"load_role_template\",
     \"action\": \"Load innovation-lead planning template\",
-    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load innovation-lead)\",
+    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/innovation-lead.md))\",
     \"output_to\": \"role_template\"
   }
 ]

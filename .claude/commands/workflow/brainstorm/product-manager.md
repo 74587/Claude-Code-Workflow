@@ -122,7 +122,7 @@ Flow Control Steps:
   {
     \"step\": \"load_role_template\",
     \"action\": \"Load product-manager planning template\",
-    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load product-manager)\",
+    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/product-manager.md))\",
     \"output_to\": \"role_template\"
   }
 ]

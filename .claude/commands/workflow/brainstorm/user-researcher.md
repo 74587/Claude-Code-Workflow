@@ -127,7 +127,7 @@ Flow Control Steps:
   {
     \"step\": \"load_role_template\",
     \"action\": \"Load user-researcher planning template\",
-    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load user-researcher)\",
+    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/user-researcher.md))\",
     \"output_to\": \"role_template\"
   }
 ]

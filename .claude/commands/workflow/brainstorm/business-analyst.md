@@ -127,7 +127,7 @@ Flow Control Steps:
   {
     \"step\": \"load_role_template\",
     \"action\": \"Load business-analyst planning template\",
-    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load business-analyst)\",
+    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/business-analyst.md))\",
     \"output_to\": \"role_template\"
   }
 ]

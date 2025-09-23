@@ -122,7 +122,7 @@ Flow Control Steps:
   {
     \"step\": \"load_role_template\",
     \"action\": \"Load security-expert planning template\",
-    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load security-expert)\",
+    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/security-expert.md))\",
     \"output_to\": \"role_template\"
   }
 ]

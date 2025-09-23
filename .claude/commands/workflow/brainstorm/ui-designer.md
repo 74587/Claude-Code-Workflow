@@ -122,7 +122,7 @@ Flow Control Steps:
   {
     \"step\": \"load_role_template\",
     \"action\": \"Load ui-designer planning template\",
-    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load ui-designer)\",
+    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/ui-designer.md))\",
     \"output_to\": \"role_template\"
   }
 ]

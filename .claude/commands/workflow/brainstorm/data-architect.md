@@ -127,7 +127,7 @@ Flow Control Steps:
   {
     \"step\": \"load_role_template\",
     \"action\": \"Load data-architect planning template\",
-    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load data-architect)\",
+    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/data-architect.md))\",
     \"output_to\": \"role_template\"
   }
 ]

@@ -24,15 +24,15 @@ allowed-tools: Task(*), TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 - **Multi-role**: Complex topics automatically select 2-3 complementary roles
 - **Default**: `product-manager` if no clear match
 
-**Template Loading**: `~/.claude/scripts/planning-role-load.sh load <role-name>`
+**Template Loading**: `bash($(cat ~/.claude/workflows/cli-templates/planning-roles/<role-name>.md))`
 **Template Source**: `.claude/workflows/cli-templates/planning-roles/`
 **Available Roles**: business-analyst, data-architect, feature-planner, innovation-lead, product-manager, security-expert, system-architect, test-strategist, ui-designer, user-researcher
 
 **Example**:
 ```bash
-~/.claude/scripts/planning-role-load.sh load system-architect
-~/.claude/scripts/planning-role-load.sh load ui-designer
-~/.claude/scripts/planning-role-load.sh list  # Show all available roles
+bash($(cat ~/.claude/workflows/cli-templates/planning-roles/system-architect.md))
+bash($(cat ~/.claude/workflows/cli-templates/planning-roles/ui-designer.md))
+ls ~/.claude/workflows/cli-templates/planning-roles/  # Show all available roles
 ```
 
 ## Core Workflow
@@ -48,7 +48,7 @@ The command performs dedicated role analysis through:
 
 **1. Role Selection & Template Loading**
 - **Keyword analysis**: Extract topic keywords and map to planning roles
-- **Template loading**: Load role templates via `~/.claude/scripts/planning-role-load.sh`
+- **Template loading**: Load role templates via `bash($(cat ~/.claude/workflows/cli-templates/planning-roles/<role>.md))`
 - **Role validation**: Verify against `.claude/workflows/cli-templates/planning-roles/`
 - **Multi-role detection**: Select 1-3 complementary roles based on topic complexity
 
@@ -80,7 +80,7 @@ Agents receive dedicated role assignments with complete context isolation:
       {
         "step": "load_role_template",
         "action": "Load system-architect planning template",
-        "command": "bash(~/.claude/scripts/planning-role-load.sh load system-architect)",
+        "command": "bash($(cat ~/.claude/workflows/cli-templates/planning-roles/system-architect.md))",
         "output_to": "role_template"
       }
     ],
@@ -101,7 +101,7 @@ Agents receive dedicated role assignments with complete context isolation:
 4. **Agent delegation**: Complete context handoff to dedicated conceptual-planning-agent
 
 **Content Sources**:
-- Role templates: `~/.claude/scripts/planning-role-load.sh load <role>` from `.claude/workflows/cli-templates/planning-roles/`
+- Role templates: `bash($(cat ~/.claude/workflows/cli-templates/planning-roles/<role>.md))` from `.claude/workflows/cli-templates/planning-roles/`
 - User responses: Direct context gathering during interactive questioning phase
 - Conceptual focus: Strategic and planning perspective without technical implementation
 

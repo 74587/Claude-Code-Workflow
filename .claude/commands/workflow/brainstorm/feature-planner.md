@@ -127,7 +127,7 @@ Flow Control Steps:
   {
     \"step\": \"load_role_template\",
     \"action\": \"Load feature-planner planning template\",
-    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load feature-planner)\",
+    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/feature-planner.md))\",
     \"output_to\": \"role_template\"
   }
 ]
