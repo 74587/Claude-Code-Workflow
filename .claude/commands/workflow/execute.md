@@ -154,11 +154,11 @@ TodoWrite({
 - **Immediate Completion**: Mark tasks `completed` immediately after finishing
 - **Status Sync**: Sync TodoWrite status with JSON task files after each update
 
-#### Update Timing
-- **Before Agent Launch**: Mark task as `in_progress` (⚠️)
-- **After Task Complete**: Mark as `completed` (✅), advance to next
-- **On Error**: Keep as `in_progress`, add error note
-- **Session End**: Sync all statuses with JSON files
+#### TODO_LIST.md Update Timing
+- **Before Agent Launch**: Update TODO_LIST.md to mark task as `in_progress` (⚠️)
+- **After Task Complete**: Update TODO_LIST.md to mark as `completed` (✅), advance to next
+- **On Error**: Keep as `in_progress` in TODO_LIST.md, add error note
+- **Session End**: Sync all TODO_LIST.md statuses with JSON task files
 
 ### 3. Agent Context Management
 **Comprehensive context preparation** for autonomous agent execution:
