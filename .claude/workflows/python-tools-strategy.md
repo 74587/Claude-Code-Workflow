@@ -1,451 +1,223 @@
 ---
 name: python-tools-strategy
-description: Command reference for Python-based tool invocation
-type: command-reference
+description: Strategic framework for Python-based intelligent tool selection
+type: strategic-guideline
 ---
 
-# Python Tools Command Reference
+# Python Tools Selection Strategy
 
-## ⚡ Quick Commands
+## ⚡ Core Framework
 
-**Smart Analysis**: `pycli --analyze --query "search term" --tool [gemini/codex]`
-**Direct Tool Invocation**: `pycli --analyze --tool [gemini/codex] -p "prompt"`
-**Vector Database Setup**: `pycli --init`
-**Vector Database Update**: `pycli --update-embeddings`
+**Python CLI (pycli)**: Unified interface for intelligent context discovery and tool execution
+**Vector Database**: Hierarchical semantic search with automatic parent discovery
+**Smart Analysis**: Context-aware file selection with similarity scoring
 
-## ⏰ When to Use What
+### Decision Principles
+- **Context first** - Use vector search for intelligent file discovery
+- **Hierarchical by default** - Leverage parent directory vector databases automatically
+- **Semantic over syntactic** - Find relevant code by meaning, not just keywords
+- **Tool integration** - Seamlessly combine context discovery with Gemini/Codex execution
 
-### 🔄 Vector Database Timing
+### Quick Decision Rules
+1. **Need context discovery?** → Start with `pycli --analyze --query`
+2. **Know exact files?** → Use `pycli --analyze -p` directly
+3. **First time in project?** → Run `pycli --init` first
+4. **Files changed?** → Update with `pycli --update-embeddings`
+
+### Core Execution Rules
+- **Default Tool**: Gemini for analysis, Codex for development
+- **Similarity Threshold**: 0.3 minimum for relevant results
+- **Hierarchical Search**: Automatic parent directory vector database discovery
+- **Command Pattern**: Always use `pycli` wrapper for consistent interface
+
+## 🎯 Universal Command Template
+
+### Standard Format (REQUIRED)
 ```bash
-# FIRST TIME (run once per project)
+# Smart Context Discovery
+pycli --analyze --query "
+PURPOSE: [clear analysis goal]
+SEARCH: [semantic search terms]
+TOOL: [gemini/codex/both]
+EXPECTED: [expected context and output]
+" --tool [gemini/codex]
+
+# Direct Tool Execution
+pycli --analyze --tool [gemini/codex] -p "
+PURPOSE: [clear execution goal]
+TASK: [specific execution task]
+CONTEXT: [known file references]
+EXPECTED: [expected deliverables]
+"
+```
+
+### Template Structure
+- [ ] **PURPOSE** - Clear goal and intent for analysis
+- [ ] **SEARCH/TASK** - Semantic search terms or specific task
+- [ ] **TOOL** - Gemini for analysis, Codex for development
+- [ ] **CONTEXT** - File references and project context
+- [ ] **EXPECTED** - Clear expected results and format
+
+## 📊 Tool Selection Matrix
+
+| Task Type | Command | Use Case | Context Strategy |
+|-----------|---------|----------|------------------|
+| **Context Discovery** | `pycli --analyze --query` | Code exploration, pattern finding | Vector similarity search |
+| **Targeted Analysis** | `pycli --analyze --tool gemini -p` | Architecture review, understanding | Known file analysis |
+| **Development** | `pycli --analyze --tool codex -p` | Feature implementation, bug fixes | Smart context + execution |
+| **Setup** | `pycli --init` | Project initialization | Vector database creation |
+| **Maintenance** | `pycli --update-embeddings` | Index updates after changes | Incremental vectorization |
+| **Health Check** | `pycli --status` | System verification | Database validation |
+
+## 🚀 Usage Patterns
+
+### Workflow Integration (REQUIRED)
+When planning any coding task, **ALWAYS** integrate Python CLI tools:
+
+1. **Discovery Phase**: Use `pycli --analyze --query` for context
+2. **Analysis Phase**: Use Gemini for understanding with smart context
+3. **Implementation Phase**: Use Codex for development with relevant files
+4. **Validation Phase**: Update embeddings and verify results
+
+### Common Scenarios
+```bash
+# Project Context Discovery
+pycli --analyze --query "
+PURPOSE: Understand authentication architecture
+SEARCH: authentication patterns, login systems, user management
+TOOL: gemini
+EXPECTED: Architecture overview and key implementation files
+" --tool gemini
+
+# Feature Development with Context
+pycli --analyze --query "
+PURPOSE: Implement user registration
+SEARCH: user creation, validation patterns, database models
+TOOL: codex
+EXPECTED: Complete registration module with tests
+" --tool codex
+
+# Code Quality Analysis
+pycli --analyze --query "
+PURPOSE: Review error handling patterns
+SEARCH: exception handling, error middleware, logging
+TOOL: gemini
+EXPECTED: Error handling assessment and recommendations
+" --tool gemini
+```
+
+## 📋 Planning Checklist
+
+For every development task:
+- [ ] **Discovery completed** - Context discovery with vector search
+- [ ] **Purpose defined** - Clear goal and intent documented
+- [ ] **Tool selected** - Gemini for analysis, Codex for development
+- [ ] **Context gathered** - Relevant files identified through similarity
+- [ ] **Template applied** - Standard command format used
+- [ ] **Embeddings updated** - Vector database reflects current state
+- [ ] **Results validated** - Output quality and relevance verified
+
+## 🎯 Key Features
+
+### Python CLI (pycli)
+- **Command**: `pycli --analyze`
+- **Strengths**: Hierarchical vector search, semantic similarity, context discovery
+- **Best For**: Intelligent file selection, context-aware analysis, project exploration
+
+### Vector Database
+- **Hierarchical**: Automatic parent directory discovery
+- **Semantic**: Meaning-based similarity scoring
+- **Efficient**: Incremental updates and smart caching
+- **Scalable**: Project-wide context with subdirectory support
+
+### Context Patterns
+- Query-based: `--query "semantic search terms"`
+- Direct prompt: `-p "specific task"`
+- Tool selection: `--tool [gemini|codex|both]`
+- Similarity control: `--top-k N --similarity-threshold X`
+
+## 🔧 Best Practices
+
+- **Start with discovery** - Use `--query` for context before direct prompts
+- **Be semantic** - Use meaning-based search terms, not just keywords
+- **Update regularly** - Run `--update-embeddings` after file changes
+- **Validate context** - Check similarity scores and relevance before proceeding
+- **Document patterns** - Reference successful query patterns for reuse
+- **Leverage hierarchy** - Work in subdirectories, let parent DBs provide context
+
+## 📁 Hierarchical Vector System
+
+**Base Structure**: `~/.claude/vector_db/[project-path]/`
+
+### Automatic Discovery
+```
+Project Structure                Vector Database Usage
+/project/                       Creates: ~/.claude/vector_db/project/
+├── src/                        → Uses parent DB automatically
+│   ├── auth/                   → Uses parent DB automatically
+│   └── api/                    → Uses parent DB automatically
+└── tests/                      → Uses parent DB automatically
+```
+
+### Smart Context Integration
+- **Parent Discovery**: Subdirectories automatically use parent vector DB
+- **Semantic Search**: Find files by meaning, not just filename patterns
+- **Similarity Scoring**: Relevance-based file selection with configurable thresholds
+- **Incremental Updates**: Efficient re-indexing of only changed files
+
+### Migration Benefits
+```bash
+# Enhanced Context Discovery (vs traditional grep/find)
+# OLD: find . -name "*auth*" | head -10
+# NEW: pycli --analyze --query "authentication patterns" --tool gemini
+
+# OLD: grep -r "login" src/ | head -20
+# NEW: pycli --analyze --query "login implementation" --tool codex
+
+# OLD: ~/.claude/scripts/gemini-wrapper -p "analyze auth"
+# NEW: pycli --analyze --query "authentication architecture" --tool gemini
+```
+
+## 🎯 Quick Setup Guide
+
+
+### Project Setup (One-time per project)
+```bash
+# 1. Navigate to project root
+cd /path/to/project
+
+# 2. Initialize vector database
 pycli --init
 
-# DAILY (when files change)
+# 3. Verify setup
+pycli --status
+```
+
+### Daily Workflow
+```bash
+# 1. Update embeddings (after file changes)
 pycli --update-embeddings
 
-# BEFORE ANALYSIS (check status)
-pycli --status
+# 2. Smart context discovery
+pycli --analyze --query "your search terms" --tool gemini
+
+# 3. Targeted development
+pycli --analyze --query "implementation patterns" --tool codex
 ```
 
-### 🎯 Tool Selection Timing
-- **Code Discovery** → Use `pycli --analyze --query` to find relevant files
-- **Direct Analysis** → Use `pycli --analyze -p` when you know what to analyze
-- **Development** → Use `--tool codex` for implementation tasks
-- **Understanding** → Use `--tool gemini` for analysis and exploration
-
-## 🎯 Core Commands
-
-### Smart Analysis (Recommended)
-```bash
-# Find similar code patterns and analyze
-pycli --analyze --query "authentication patterns" --tool gemini
-
-# Search with development context
-pycli --analyze --query "error handling" --tool codex
-
-# Both discovery and analysis
-pycli --analyze --query "database connections" --tool both
-```
-
-### Direct Tool Invocation
-```bash
-# Direct analysis with known context
-pycli --analyze --tool gemini -p "analyze authentication patterns"
-
-# Direct development task
-pycli --analyze --tool codex -p "implement user login"
-
-# Status and testing
-pycli --status
-pycli --test-search
-```
-
-### Vector Database Operations
-```bash
-# Initial setup (run once per project)
-pycli --init
-
-# Daily updates (run when files change)
-pycli --update-embeddings
-
-# Status check
-pycli --status
-```
-
-## 📊 Command Matrix
-
-| What You Want | Command | Use Case |
-|---------------|---------|----------|
-| **Smart analysis** | `pycli --analyze --query "pattern" --tool gemini` | Code discovery & analysis |
-| **Direct analysis** | `pycli --analyze --tool gemini -p "prompt"` | Known target analysis |
-| **Generate code** | `pycli --analyze --tool codex -p "task"` | Development |
-| **Setup project** | `pycli --init` | First time setup |
-| **Update search index** | `pycli --update-embeddings` | Maintenance |
-| **Check status** | `pycli --status` | System health |
-
-## 🚀 Usage Examples
-
-### Replace Gemini Wrapper
-```bash
-# OLD: ~/.claude/scripts/gemini-wrapper -p "analyze auth patterns"
-# NEW: pycli --analyze --tool gemini -p "analyze auth patterns"
-```
-
-### Replace Codex Commands
-```bash
-# OLD: codex --full-auto exec "implement login"
-# NEW: pycli --analyze --tool codex -p "implement login"
-```
-
-### Smart Context Discovery
-```bash
-# Find relevant files first, then analyze
-pycli --analyze --query "user authentication" --tool gemini
-
-# Results include:
-# - Hierarchical vector database search
-# - Semantically similar files from project and parent directories
-# - Generated tool command with intelligent context
-# - Executed analysis with smart file selection
-```
-
-## 🔧 Command Options
-
-### pycli (Unified Interface)
-```bash
-pycli [command] [options]
-
-Commands:
-  --init                Initialize vector database for current project
-  --analyze             Run analysis with AI tools
-  --status              Show system status and health
-  --test-search         Test vector search functionality
-  --update-embeddings   Update vector embeddings for changed files
-
-Analysis Options:
-  --tool [gemini|codex|both]   Which AI tool to use (default: gemini)
-  -p, --prompt TEXT            Direct prompt for analysis
-  --query TEXT                 Semantic search query for context discovery
-  --top-k INTEGER              Number of similar files to find (default: 10)
-  --similarity-threshold FLOAT Minimum similarity score (0.0-1.0)
-
-Output Options:
-  --quiet                      Suppress progress output
-  --verbose                    Show detailed analysis information
-  --output [patterns|json]     Output format (default: patterns)
-```
-
-### Installation & Setup
-```bash
-# Install pycli system
-bash D:/Claude_dms3/.claude/scripts/install_pycli.sh
-
-# The script will automatically add ~/.claude/scripts/ to your PATH
-# Reload your shell configuration
-source ~/.bashrc  # or ~/.zshrc
-
-# Verify installation - now you can use pycli directly
-pycli --help
-```
-
-## 📋 Common Workflows
-
-### 🚀 First-Time Setup (Vector Database)
-```bash
-# 1. Install pycli system
-bash D:/Claude_dms3/.claude/scripts/install_pycli.sh
-
-# 2. Initialize vector database for project
-cd /path/to/your/project
-pycli --init
-
-# 3. Verify setup works
-pycli --status
-
-# 4. Test search functionality
-pycli --test-search
-```
-
-### 🎯 Analysis Workflow (Recommended)
-```bash
-# 1. Update vectors (if files changed)
-pycli --update-embeddings
-
-# 2. Smart analysis with context discovery
-pycli --analyze --query "what you're looking for" --tool gemini
-
-# 3. Development with context
-pycli --analyze --query "related patterns" --tool codex
-```
-
-### ⏰ When to Run Commands
-
-#### 🔄 Vector Database Maintenance
-```bash
-# WHEN: First time using system
-pycli --init
-
-# WHEN: Files have been added/modified (daily/after coding)
-pycli --update-embeddings
-
-# WHEN: Before starting analysis (check if system ready)
-pycli --status
-```
-
-#### 🎯 Analysis Timing
-```bash
-# WHEN: You need to find relevant code patterns
-pycli --analyze --query "search term" --tool gemini
-
-# WHEN: You have specific prompt and know context
-pycli --analyze --tool gemini -p "specific prompt"
-
-# WHEN: You want to develop/implement something
-pycli --analyze --query "similar implementations" --tool codex
-```
-
-### Integration with Existing Tools
-```bash
-# In place of gemini-wrapper
-pycli --analyze --tool gemini -p "$YOUR_PROMPT"
-
-# In place of codex commands
-pycli --analyze --tool codex -p "$YOUR_TASK"
-
-# Enhanced with hierarchical context discovery
-pycli --analyze --query "relevant context" --tool both
-```
-
-## 🎯 Quick Reference
-
-### 🚀 Most Common Commands
-```bash
-# 1. Smart analysis (recommended first choice)
-pycli --analyze --query "what you're looking for" --tool gemini
-
-# 2. Direct tool call (when you know exactly what to analyze)
-pycli --analyze --tool codex -p "what you want to do"
-
-# 3. Keep embeddings updated (run after file changes)
-pycli --update-embeddings
-```
-
-### ⚙️ Configuration (config.yaml)
-```yaml
-# Essential settings only
-embeddings:
-  enabled: true
-  similarity_threshold: 0.3
-
-tools:
-  default_tool: "gemini"
-  timeout: 300
-```
-
-### 🐛 Troubleshooting
-```bash
-# Check if everything works
-pycli --status
-
-# Rebuild if issues
-pycli --init
-
-# Test search functionality
-pycli --test-search
-```
-
-## 🎪 Integration Decision Tree
+## 🎪 Decision Framework
 
 ```
-Need to analyze code?
-├─ Do you know specific files to analyze?
-│  ├─ YES → Use: pycli --analyze --tool [gemini/codex] -p "prompt"
-│  └─ NO → Use: pycli --analyze --query "search term" --tool [gemini/codex]
-└─ Is vector database updated?
-   ├─ UNSURE → Run: pycli --status
-   ├─ NO → Run: pycli --update-embeddings
-   └─ YES → Proceed with analysis
+Need intelligent code analysis?
+├─ Know specific files to analyze?
+│  ├─ YES → pycli --analyze --tool [gemini/codex] -p "prompt"
+│  └─ NO → pycli --analyze --query "semantic search" --tool [gemini/codex]
+├─ Vector database updated?
+│  ├─ UNSURE → pycli --status
+│  ├─ NO → pycli --update-embeddings
+│  └─ YES → Proceed with analysis
+└─ First time in project?
+   └─ Run pycli --init first
 ```
-
-## 🏗️ Hierarchical Vector Database
-
-### Key Features
-- **Automatic Parent Discovery**: Subdirectories automatically use parent's vector database
-- **No Redundant Vectorization**: Avoids duplicate processing in project subdirectories
-- **Central Storage**: All vector databases stored in `~/.claude/vector_db/`
-- **Path-based Organization**: Vector DBs organized by project directory structure
-
-### How It Works
-```bash
-# Project structure
-/home/user/myproject/
-├── src/
-│   └── auth/          # Uses parent's vector DB
-└── tests/             # Uses parent's vector DB
-
-# Vector database structure
-~/.claude/vector_db/
-└── home_user_myproject/    # Single DB for entire project
-    ├── embeddings.pkl
-    └── index.json
-```
-
-### Usage Examples
-```bash
-# Initialize at project root
-cd /home/user/myproject
-pycli --init
-
-# Work in subdirectory (automatically finds parent DB)
-cd src/auth
-pycli --analyze --query "authentication patterns"  # Uses parent's DB
-
-# Work in another subdirectory
-cd ../../tests
-pycli --analyze --query "test patterns"  # Uses same parent DB
-```
-
-## 🔧 Vector Database Setup & Maintenance
-
-### ⚡ One-Time System Setup
-```bash
-# 1. Install dependencies (first time only)
-cd .claude/python_script && pip install -r requirements.txt
-
-# 2. Initialize vector database (creates embeddings)
-python indexer.py --rebuild-index --update-embeddings
-
-# 3. Verify setup works
-python cli.py --status
-
-# 4. Test search functionality
-python cli.py --test-search
-```
-
-### 📋 What Happens During Setup
-1. **File Indexing**: Scans project files and creates index
-2. **Model Download**: Downloads AI model (first time only, ~500MB)
-3. **Embedding Generation**: Creates vector representations of code
-4. **Cache Creation**: Saves embeddings to `.claude/cache/embeddings/`
-
-### 🎯 Verification Checklist
-After setup, verify these work:
-- [ ] `python cli.py --status` shows "System ready"
-- [ ] `python cli.py --test-search` returns results
-- [ ] Files exist: `.claude/cache/embeddings/embeddings.pkl`
-- [ ] Search works: `python analyzer.py --query "test"`
-
-### 🐛 Common Issues & Fixes
-
-#### Nothing works / Setup failed
-```bash
-# Nuclear option - reset everything
-rm -rf .claude/cache/embeddings/*
-python indexer.py --rebuild-index --update-embeddings
-```
-
-#### Slow performance
-```yaml
-# In config.yaml - reduce batch size
-embeddings:
-  batch_size: 16
-```
-
-#### No search results found
-```yaml
-# In config.yaml - lower similarity threshold
-embeddings:
-  similarity_threshold: 0.1
-```
-
-#### Memory errors during setup
-```yaml
-# In config.yaml - use smaller batches
-embeddings:
-  batch_size: 8
-```
-
-#### Model download fails
-```bash
-# Manual model download
-python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
-```
-
-## 📋 Usage Rules & Best Practices
-
-### 🎯 Core Rules
-
-1. **Always check status first** - Run `python cli.py --status` before analysis
-2. **Update after file changes** - Run `indexer.py --update-embeddings` when files modified
-3. **Use vector search for discovery** - Use `analyzer.py --query` when exploring code
-4. **Use direct tools for known targets** - Use `cli.py --analyze` for specific analysis
-5. **Prefer context-aware tools** - Enhanced Python tools over legacy shell scripts
-
-### ⏰ Maintenance Schedule
-
-```bash
-# DAILY (or after coding sessions)
-python .claude/python_script/indexer.py --update-embeddings
-
-# WEEKLY (or when config changes)
-python .claude/python_script/cli.py --status  # Check system health
-
-# MONTHLY (or after major project changes)
-python .claude/python_script/indexer.py --rebuild-index --update-embeddings
-```
-
-### 🎯 Tool Selection Rules
-
-#### Use `cli.py --analyze --query` when:
-- ✅ Exploring unfamiliar codebase
-- ✅ Looking for similar code patterns
-- ✅ Need context discovery for complex tasks
-- ✅ Want smart file selection for tool execution
-
-#### Use `cli.py --analyze -p` when:
-- ✅ You know exactly what files to analyze
-- ✅ Direct prompt execution without context search
-- ✅ Quick tool invocation with known targets
-
-#### Use `indexer.py` when:
-- ✅ First time setup
-- ✅ Files have been added/modified
-- ✅ System performance degraded
-- ✅ Configuration changed
-
-
-### 🚀 Migration from Legacy Tools
-
-#### Replace gemini-wrapper
-```bash
-# OLD (shell-based)
-~/.claude/scripts/gemini-wrapper -p "analyze authentication"
-
-# NEW (Python-based with hierarchical vector context)
-pycli --analyze --query "authentication" --tool gemini
-```
-
-#### Replace codex commands
-```bash
-# OLD (direct execution)
-codex --full-auto exec "implement user login"
-
-# NEW (context-aware development with hierarchical DB)
-pycli --analyze --query "login implementation patterns" --tool codex
-```
-
-#### Integration workflow
-1. **Install pycli** - Run installation script once
-2. **Initialize projects** - Run `pycli --init` in each project root
-3. **Replace commands** - Update scripts to use `pycli` instead of direct Python calls
-4. **Enjoy hierarchical benefits** - Automatic parent DB discovery in subdirectories
-
-## 🎉 Advanced Features
-
-### Bash Wrapper Benefits
-- **Unified Interface**: Single `pycli` command for all operations
-- **Smart Path Detection**: Automatically finds project roots and vector databases
-- **Environment Management**: Configurable Python interpreter path
-- **Hierarchical Support**: Intelligent parent directory discovery
 
 
