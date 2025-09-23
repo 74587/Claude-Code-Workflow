@@ -1,5 +1,5 @@
 ---
-name: planner
+name: feature-planner
 description: Feature planner perspective brainstorming for feature development and planning analysis
 usage: /workflow:brainstorm:feature-planner <topic>
 argument-hint: "topic or challenge to analyze from feature planning perspective"
@@ -10,142 +10,152 @@ examples:
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 
-## 🔧 **角色定义: Feature Planner**
+## 🔧 **Role Overview: Feature Planner**
 
-### 核心职责
-- **功能规划**: 设计和规划产品功能的开发路线图
-- **需求转化**: 将业务需求转化为具体的功能规范
-- **优先级排序**: 基于价值和资源平衡功能开发优先级
-- **交付规划**: 制定功能开发和发布时间表
+### Role Definition
+Feature development specialist responsible for transforming business requirements into actionable feature specifications, managing development priorities, and ensuring successful feature delivery through strategic planning and execution.
 
-### 关注领域
-- **功能设计**: 功能规范、用户故事、验收标准
-- **开发规划**: 迭代计划、里程碑、依赖关系管理
-- **质量保证**: 测试策略、质量标准、验收流程
-- **发布管理**: 发布策略、版本控制、变更管理
+### Core Responsibilities
+- **Feature Specification**: Transform business requirements into detailed feature specifications
+- **Development Planning**: Create development roadmaps and manage feature priorities
+- **Quality Assurance**: Design testing strategies and acceptance criteria
+- **Delivery Management**: Plan feature releases and manage implementation timelines
+
+### Focus Areas
+- **Feature Design**: User stories, acceptance criteria, feature specifications
+- **Development Planning**: Sprint planning, milestones, dependency management
+- **Quality Assurance**: Testing strategies, quality gates, acceptance processes
+- **Release Management**: Release planning, version control, change management
+
+### Success Metrics
+- Feature delivery on time and within scope
+- Quality standards and acceptance criteria met
+- User satisfaction with delivered features
+- Development team productivity and efficiency
 
 ## 🧠 **分析框架**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/brainstorming-framework.md
 
-### 核心分析问题
-1. **功能需求分析**:
-   - 核心功能需求和用户故事？
-   - 功能的MVP和完整版本规划？
-   - 跨功能依赖和集成需求？
+### Key Analysis Questions
 
-2. **技术可行性评估**:
-   - 技术实现的复杂度和挑战？
-   - 现有系统的扩展和改造需求？
-   - 第三方服务和API集成？
+**1. Feature Requirements and Scope**
+- What are the core feature requirements and user stories?
+- How should MVP and full feature versions be planned?
+- What cross-feature dependencies and integration requirements exist?
 
-3. **开发资源和时间估算**:
-   - 开发工作量和时间预估？
-   - 所需技能和团队配置？
-   - 开发风险和缓解策略？
+**2. Implementation Complexity and Feasibility**
+- What is the technical implementation complexity and what challenges exist?
+- What extensions or modifications to existing systems are required?
+- What third-party services and API integrations are needed?
 
-4. **测试和质量保证**:
-   - 测试策略和测试用例设计？
-   - 质量标准和验收条件？
-   - 用户验收和反馈机制？
+**3. Development Resources and Timeline**
+- What are the development effort estimates and time projections?
+- What skills and team configurations are required?
+- What development risks exist and how can they be mitigated?
 
-## ⚙️ **执行协议**
+**4. Testing and Quality Assurance**
+- What testing strategies and test case designs are needed?
+- What quality standards and acceptance criteria should be defined?
+- What user acceptance and feedback mechanisms are required?
 
-### Phase 1: 会话检测与初始化
+## ⚡ **Two-Step Execution Flow**
+
+### ⚠️ Session Management - FIRST STEP
+Session detection and selection:
 ```bash
-# 自动检测活动会话
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    load_context_from(session_id)
-ELSE:
-    request_user_for_session_creation()
+# Check for active sessions
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+if [ multiple_sessions ]; then
+  prompt_user_to_select_session()
+else
+  use_existing_or_create_new()
+fi
 ```
 
-### Phase 2: 目录结构创建
-```bash
-# 创建功能规划师分析目录
-mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/feature-planner/
-```
+### Step 1: Context Gathering Phase
+**Feature Planner Perspective Questioning**
 
-### Phase 3: TodoWrite 初始化
-设置功能规划师视角分析的任务跟踪：
-```json
-[
-  {"content": "Initialize feature planner brainstorming session", "status": "completed", "activeForm": "Initializing session"},
-  {"content": "Analyze feature requirements and user stories", "status": "in_progress", "activeForm": "Analyzing feature requirements"},
-  {"content": "Design feature architecture and specifications", "status": "pending", "activeForm": "Designing feature architecture"},
-  {"content": "Plan development phases and prioritization", "status": "pending", "activeForm": "Planning development phases"},
-  {"content": "Evaluate testing strategy and quality assurance", "status": "pending", "activeForm": "Evaluating testing strategy"},
-  {"content": "Create implementation timeline and milestones", "status": "pending", "activeForm": "Creating timeline"},
-  {"content": "Generate comprehensive feature planning documentation", "status": "pending", "activeForm": "Generating documentation"}
-]
-```
+Before agent assignment, gather comprehensive feature planner context:
 
-### Phase 4: 概念规划代理协调
+#### 📋 Role-Specific Questions
+
+**1. Implementation Complexity and Scope**
+- What is the scope and complexity of the features you want to plan?
+- Are there existing features or systems that need to be extended or integrated?
+- What are the technical constraints or requirements that need to be considered?
+- How do these features fit into the overall product roadmap?
+
+**2. Dependency Mapping and Integration**
+- What other features, systems, or teams does this depend on?
+- Are there any external APIs, services, or third-party integrations required?
+- What are the data dependencies and how will data flow between components?
+- What are the potential blockers or risks that could impact development?
+
+**3. Risk Assessment and Mitigation**
+- What are the main technical, business, or timeline risks?
+- Are there any unknowns or areas that need research or prototyping?
+- What fallback plans or alternative approaches should be considered?
+- How will quality and testing be ensured throughout development?
+
+**4. Technical Feasibility and Resource Planning**
+- What is the estimated development effort and timeline?
+- What skills, expertise, or team composition is needed?
+- Are there any specific technologies, tools, or frameworks required?
+- What are the performance, scalability, or maintenance considerations?
+
+#### Context Validation
+- **Minimum Response**: Each answer must be ≥50 characters
+- **Re-prompting**: Insufficient detail triggers follow-up questions
+- **Context Storage**: Save responses to `.brainstorming/feature-planner-context.md`
+
+### Step 2: Agent Assignment with Flow Control
+**Dedicated Agent Execution**
+
 ```bash
 Task(conceptual-planning-agent): "
-Conduct feature planner perspective brainstorming for: {topic}
+[FLOW_CONTROL]
 
-ROLE CONTEXT: Feature Planner
-- Focus Areas: Feature specification, development planning, quality assurance, delivery management
-- Analysis Framework: Feature-centric approach with emphasis on deliverability and user value
-- Success Metrics: Feature completion, quality standards, user satisfaction, delivery timeline
+Execute dedicated feature planner conceptual analysis for: {topic}
 
-USER CONTEXT: {captured_user_requirements_from_session}
+ASSIGNED_ROLE: feature-planner
+OUTPUT_LOCATION: .brainstorming/feature-planner/
+USER_CONTEXT: {validated_responses_from_context_gathering}
 
-ANALYSIS REQUIREMENTS:
-1. Feature Requirements Analysis
-   - Break down high-level requirements into specific feature specifications
-   - Create detailed user stories with acceptance criteria
-   - Identify feature dependencies and integration requirements
-   - Map features to user personas and use cases
-   - Define feature scope and boundaries (MVP vs full feature)
+Flow Control Steps:
+[
+  {
+    \"step\": \"load_role_template\",
+    \"action\": \"Load feature-planner planning template\",
+    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load feature-planner)\",
+    \"output_to\": \"role_template\"
+  }
+]
 
-2. Feature Architecture and Design
-   - Design feature workflows and user interaction patterns
-   - Plan feature integration with existing system components
-   - Define APIs and data interfaces required
-   - Plan for feature configuration and customization options
-   - Design feature monitoring and analytics capabilities
+Conceptual Analysis Requirements:
+- Apply feature planner perspective to topic analysis
+- Focus on implementation complexity, dependency mapping, risk assessment, and technical feasibility
+- Use loaded role template framework for analysis structure
+- Generate role-specific deliverables in designated output location
+- Address all user context from questioning phase
 
-3. Development Planning and Estimation
-   - Estimate development effort and complexity for each feature
-   - Identify technical risks and implementation challenges
-   - Plan feature development phases and incremental delivery
-   - Define development milestones and checkpoints
-   - Assess resource requirements and team capacity
+Deliverables:
+- analysis.md: Main feature planner analysis
+- recommendations.md: Feature planner recommendations
+- deliverables/: Feature planner-specific outputs as defined in role template
 
-4. Quality Assurance and Testing Strategy
-   - Design comprehensive testing strategy (unit, integration, E2E)
-   - Create test scenarios and edge case coverage
-   - Plan performance testing and scalability validation
-   - Design user acceptance testing procedures
-   - Plan for accessibility and usability testing
+Embody feature planner role expertise for comprehensive conceptual planning."
+```
 
-5. Feature Prioritization and Roadmap
-   - Apply prioritization frameworks (MoSCoW, Kano, RICE)
-   - Balance business value with development complexity
-   - Create feature release planning and versioning strategy
-   - Plan for feature flags and gradual rollout
-   - Design feature deprecation and sunset strategies
-
-6. Delivery and Release Management
-   - Plan feature delivery timeline and release schedule
-   - Design change management and deployment strategies
-   - Plan for feature documentation and user training
-   - Create feature success metrics and KPIs
-   - Design post-release monitoring and support plans
-
-OUTPUT REQUIREMENTS: Save comprehensive analysis to:
-.workflow/WFS-{topic-slug}/.brainstorming/feature-planner/
-- analysis.md (main feature analysis and specifications)
-- user-stories.md (detailed user stories and acceptance criteria)
-- development-plan.md (development timeline and resource planning)
-- testing-strategy.md (quality assurance and testing approach)
-
-Apply feature planning expertise to create deliverable, high-quality feature implementations."
+### Progress Tracking
+TodoWrite tracking for two-step process:
+```json
+[
+  {"content": "Gather feature planner context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
+  {"content": "Validate context responses and save to feature-planner-context.md", "status": "pending", "activeForm": "Validating context"},
+  {"content": "Load feature-planner planning template via flow control", "status": "pending", "activeForm": "Loading template"},
+  {"content": "Execute dedicated conceptual-planning-agent for feature-planner role", "status": "pending", "activeForm": "Executing agent"}
+]
 ```
 
 ## 📊 **输出结构**

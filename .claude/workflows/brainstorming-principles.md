@@ -3,177 +3,80 @@
 ## Core Philosophy
 **"Diverge first, then converge"** - Generate multiple solutions from diverse perspectives, then synthesize and prioritize.
 
-## Project Structure Establishment (MANDATORY FIRST STEP)
+## Creative Techniques Reference
 
-### Automatic Directory Creation
-Before ANY agent coordination begins, the brainstorming command MUST establish the complete project structure:
+### SCAMPER Method
+- **Substitute**: What can be substituted or replaced?
+- **Combine**: What can be combined or merged?
+- **Adapt**: What can be adapted from elsewhere?
+- **Modify**: What can be magnified, minimized, or modified?
+- **Put to other uses**: How else can this be used?
+- **Eliminate**: What can be removed or simplified?
+- **Reverse**: What can be rearranged or reversed?
 
-1. **Create Session Directory**:
-   ```bash
-   mkdir -p .workflow/WFS-[topic-slug]/.brainstorming/
-   ```
+### Six Thinking Hats
+- **White Hat**: Facts, information, data
+- **Red Hat**: Emotions, feelings, intuition
+- **Black Hat**: Critical judgment, caution, problems
+- **Yellow Hat**: Optimism, benefits, positive thinking
+- **Green Hat**: Creativity, alternatives, new ideas
+- **Blue Hat**: Process control, meta-thinking
 
-2. **Create Agent Output Directories**: 
-   ```bash
-   # Create directories ONLY for selected participating agent roles
-   mkdir -p .workflow/WFS-[topic-slug]/.brainstorming/{selected-agent1,selected-agent2,selected-agent3}
-   # Example: mkdir -p .workflow/WFS-user-auth/.brainstorming/{system-architect,ui-designer,product-manager}
-   ```
+### Additional Techniques
+- **Mind Mapping**: Visual idea exploration and connection
+- **Brainwriting**: Silent idea generation and building
+- **Random Word**: Stimulus-based creative thinking
+- **Assumption Challenging**: Question fundamental assumptions
 
-3. **Initialize Session State**:
-   - Create workflow-session.json with brainstorming phase tracking
-   - Set up document reference structure
-   - Establish agent coordination metadata
-
-### Pre-Agent Verification
-Before delegating to @conceptual-planning-agent, VERIFY:
-- [ ] Topic slug generated correctly
-- [ ] All required directories exist  
-- [ ] workflow-session.json initialized
-- [ ] Agent roles selected and corresponding directories created
-
-## Brainstorming Modes
+## Analysis Modes
 
 ### Creative Mode (Default)
-- **Techniques**: SCAMPER, Six Thinking Hats, wild ideas
 - **Focus**: Innovation and unconventional solutions
+- **Approach**: Emphasize divergent thinking, "what if" scenarios, assumption challenging
 
-### Analytical Mode  
-- **Techniques**: Root cause analysis, data-driven insights
+### Analytical Mode
 - **Focus**: Evidence-based systematic problem-solving
+- **Approach**: Structured analysis, root cause analysis, logical reasoning
 
 ### Strategic Mode
-- **Techniques**: Systems thinking, scenario planning
 - **Focus**: Long-term strategic positioning
+- **Approach**: Systems thinking, competitive dynamics, market forces
 
-## Documentation Structure
+## Documentation Standards
 
-### Workflow Integration
-Brainstorming sessions are integrated with the unified workflow system under `.workflow/WFS-[topic-slug]/.brainstorming/`. 
-
-**Directory Creation**: If `.workflow/WFS-[topic-slug]/` doesn't exist, create it automatically before starting brainstorming.
-
-**Topic Slug Format**: Convert topic to lowercase with hyphens (e.g., "User Authentication System" → `WFS-user-authentication-system`)
-
+### Session Output Format
 ```
-.workflow/WFS-[topic-slug]/
-└── .brainstorming/
-    ├── session-summary.md              # Main session documentation
-    ├── synthesis-analysis.md           # Cross-role integration
-    ├── recommendations.md              # Prioritized solutions
-    ├── system-architect/               # Architecture perspective
-    │   ├── analysis.md
-    │   └── technical-specifications.md
-    ├── ui-designer/                    # Design perspective  
-    │   ├── analysis.md
-    │   └── user-experience-plan.md
-    ├── product-manager/                # Product perspective
-    │   ├── analysis.md
-    │   └── business-requirements.md
-    ├── data-architect/                 # Data perspective
-    │   ├── analysis.md
-    │   └── data-model-design.md
-    ├── test-strategist/                # Testing perspective
-    │   ├── analysis.md
-    │   └── test-strategy-plan.md
-    ├── security-expert/                # Security perspective
-    │   ├── analysis.md
-    │   └── security-assessment.md
-    ├── user-researcher/                # User research perspective
-    │   ├── analysis.md
-    │   └── user-insights.md
-    ├── business-analyst/               # Business analysis perspective
-    │   ├── analysis.md
-    │   └── process-optimization.md
-    ├── innovation-lead/                # Innovation perspective
-    │   ├── analysis.md
-    │   └── future-roadmap.md
-    └── feature-planner/                # Feature planning perspective
-        ├── analysis.md
-        └── feature-specifications.md
+CHALLENGE_DEFINITION: Clear problem space definition
+KEY_INSIGHTS: Major discoveries and patterns
+TOP_CONCEPTS: 5 most promising solutions with analysis
+PERSPECTIVE_SYNTHESIS: Integration of role-based insights
+FEASIBILITY_ASSESSMENT: Technical and resource evaluation
+RECOMMENDATIONS: Prioritized next steps and actions
 ```
 
-## Session Metadata
-Each brainstorming session maintains metadata in `session-summary.md` header:
-
-```markdown
-# Brainstorming Session: [Topic]
-
-**Session ID**: WFS-[topic-slug]  
-**Topic**: [Challenge description]  
-**Mode**: creative|analytical|strategic  
-**Perspectives**: [role1, role2, role3...]  
-**Facilitator**: @conceptual-planning-agent  
-**Date**: YYYY-MM-DD  
-
-## Session Overview
-[Brief session description and objectives]
-```
+### Idea Documentation
+For each significant concept:
+- Core mechanism and description
+- Multi-perspective implications
+- Feasibility assessment (technical, resource, timeline)
+- Impact potential and success metrics
+- Implementation considerations
+- Risk assessment and mitigation
 
 ## Quality Standards
+
+### Session Excellence
 - **Clear Structure**: Follow Explore → Ideate → Converge → Document phases
-- **Diverse Perspectives**: Include multiple role viewpoints
-- **Actionable Outputs**: Generate concrete next steps
-- **Comprehensive Documentation**: Capture all insights and recommendations
+- **Inclusive Participation**: Ensure all perspectives are valued
+- **Creative Environment**: Maintain judgment-free ideation atmosphere
+- **Actionable Outcomes**: Generate concrete next steps
 
-## Unified Workflow Integration
+### Perspective Integration
+- **Authentic Representation**: Accurately channel each role's mental models
+- **Constructive Synthesis**: Combine insights into stronger solutions
+- **Conflict Navigation**: Address perspective tensions constructively
+- **Comprehensive Coverage**: Ensure no critical aspects overlooked
 
-### Document-State Separation
-Following unified workflow system principles:
-- **Markdown Files** → Brainstorming insights, role analyses, synthesis results  
-- **JSON Files** → Session state, role completion tracking, workflow coordination  
-- **Auto-sync** → Integration with `workflow-session.json` for seamless workflow transition
+---
 
-### Session Coordination
-Brainstorming sessions integrate with the unified workflow system:
-
-```json
-// workflow-session.json integration
-{
-  "session_id": "WFS-[topic-slug]",
-  "type": "complex",  // brainstorming typically creates complex workflows
-  "current_phase": "PLAN",  // conceptual phase
-  "brainstorming": {
-    "status": "active|completed", 
-    "mode": "creative|analytical|strategic",
-    "roles_completed": ["system-architect", "ui-designer"],
-    "current_role": "data-architect",
-    "output_directory": ".workflow/WFS-[topic-slug]/.brainstorming/",
-    "agent_document_paths": {
-      "system-architect": ".workflow/WFS-[topic-slug]/.brainstorming/system-architect/",
-      "ui-designer": ".workflow/WFS-[topic-slug]/.brainstorming/ui-designer/",
-      "product-manager": ".workflow/WFS-[topic-slug]/.brainstorming/product-manager/",
-      "data-architect": ".workflow/WFS-[topic-slug]/.brainstorming/data-architect/"
-    }
-  }
-}
-```
-
-### Directory Auto-Creation
-Before starting brainstorming session:
-```bash
-# Create workflow structure and ONLY selected agent directories
-mkdir -p .workflow/WFS-[topic-slug]/.brainstorming/
-# Create directories for selected agents only
-for agent in selected_agents; do
-  mkdir -p .workflow/WFS-[topic-slug]/.brainstorming/$agent
-done
-```
-
-### Agent Document Assignment Protocol
-When coordinating with @conceptual-planning-agent, ALWAYS specify exact output location:
-
-**Correct Agent Delegation:**
-```
-Task(conceptual-planning-agent): "Conduct brainstorming analysis for: [topic]. Use [mode] approach. Required perspective: [role]. 
-
-Load role definition using: ~/.claude/scripts/plan-executor.sh [role]
-
-OUTPUT REQUIREMENT: Save all generated documents to: .workflow/WFS-[topic-slug]/.brainstorming/[role]/
-- analysis.md (main perspective analysis) 
-- [role-specific-output].md (specialized deliverable)
-"
-```
-
-### Brainstorming Output
-The brainstorming phase produces comprehensive role-based analysis documents that serve as input for subsequent workflow phases.
+This framework provides the conceptual foundation for brainstorming activities. Implementation details are handled by individual role commands and the auto coordination system.

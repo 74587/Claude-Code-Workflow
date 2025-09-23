@@ -36,7 +36,6 @@ Cybersecurity specialist focused on identifying threats, designing security cont
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 
@@ -60,36 +59,97 @@ Cybersecurity specialist focused on identifying threats, designing security cont
 - What monitoring and detection capabilities are required?
 - How should we plan for incident response and recovery?
 
-## ⚙️ **Execution Protocol**
+## ⚡ **Two-Step Execution Flow**
 
-### Phase 1: Session Detection & Initialization
+### ⚠️ Session Management - FIRST STEP
+Session detection and selection:
 ```bash
-# Detect active workflow session
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    load_context_from(session_id)
-ELSE:
-    request_user_for_session_creation()
+# Check for active sessions
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+if [ multiple_sessions ]; then
+  prompt_user_to_select_session()
+else
+  use_existing_or_create_new()
+fi
 ```
 
-### Phase 2: Directory Structure Creation
+### Step 1: Context Gathering Phase
+**Security Expert Perspective Questioning**
+
+Before agent assignment, gather comprehensive security context:
+
+#### 📋 Role-Specific Questions
+1. **Threat Assessment & Attack Vectors**
+   - Sensitive data types and classification levels?
+   - Known threat actors and attack scenarios?
+   - Current security vulnerabilities and concerns?
+
+2. **Compliance & Regulatory Requirements**
+   - Applicable compliance standards (GDPR, SOX, HIPAA)?
+   - Industry-specific security requirements?
+   - Audit and reporting obligations?
+
+3. **Security Architecture & Controls**
+   - Authentication and authorization needs?
+   - Data encryption and protection requirements?
+   - Network security and access control strategy?
+
+4. **Incident Response & Monitoring**
+   - Security monitoring and detection capabilities?
+   - Incident response procedures and team readiness?
+   - Business continuity and disaster recovery plans?
+
+#### Context Validation
+- **Minimum Response**: Each answer must be ≥50 characters
+- **Re-prompting**: Insufficient detail triggers follow-up questions
+- **Context Storage**: Save responses to `.brainstorming/security-expert-context.md`
+
+### Step 2: Agent Assignment with Flow Control
+**Dedicated Agent Execution**
+
 ```bash
-# Create security expert analysis directory
-mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/security-expert/
+Task(conceptual-planning-agent): "
+[FLOW_CONTROL]
+
+Execute dedicated security-expert conceptual analysis for: {topic}
+
+ASSIGNED_ROLE: security-expert
+OUTPUT_LOCATION: .brainstorming/security-expert/
+USER_CONTEXT: {validated_responses_from_context_gathering}
+
+Flow Control Steps:
+[
+  {
+    \"step\": \"load_role_template\",
+    \"action\": \"Load security-expert planning template\",
+    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load security-expert)\",
+    \"output_to\": \"role_template\"
+  }
+]
+
+Conceptual Analysis Requirements:
+- Apply security-expert perspective to topic analysis
+- Focus on threat modeling, security architecture, and risk assessment
+- Use loaded role template framework for analysis structure
+- Generate role-specific deliverables in designated output location
+- Address all user context from questioning phase
+
+Deliverables:
+- analysis.md: Main security analysis
+- recommendations.md: Security recommendations
+- deliverables/: Security-specific outputs as defined in role template
+
+Embody security-expert role expertise for comprehensive conceptual planning."
 ```
 
-### Phase 3: Task Tracking Initialization
-Initialize security expert perspective analysis tracking:
+### Progress Tracking
+TodoWrite tracking for two-step process:
 ```json
 [
-  {"content": "Initialize security expert brainstorming session", "status": "completed", "activeForm": "Initializing session"},
-  {"content": "Conduct threat modeling and risk assessment", "status": "in_progress", "activeForm": "Conducting threat modeling"},
-  {"content": "Design security architecture and controls", "status": "pending", "activeForm": "Designing security architecture"},
-  {"content": "Evaluate compliance and regulatory requirements", "status": "pending", "activeForm": "Evaluating compliance"},
-  {"content": "Plan security implementation and integration", "status": "pending", "activeForm": "Planning implementation"},
-  {"content": "Design monitoring and incident response", "status": "pending", "activeForm": "Designing monitoring"},
-  {"content": "Generate comprehensive security documentation", "status": "pending", "activeForm": "Generating documentation"}
+  {"content": "Gather security expert context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
+  {"content": "Validate context responses and save to security-expert-context.md", "status": "pending", "activeForm": "Validating context"},
+  {"content": "Load security-expert planning template via flow control", "status": "pending", "activeForm": "Loading template"},
+  {"content": "Execute dedicated conceptual-planning-agent for security-expert role", "status": "pending", "activeForm": "Executing agent"}
 ]
 ```
 

@@ -36,7 +36,6 @@ Business process expert responsible for analyzing workflows, identifying require
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 
@@ -60,110 +59,103 @@ Business process expert responsible for analyzing workflows, identifying require
 - What training and adaptation requirements exist?
 - What success metrics and monitoring mechanisms are needed?
 
-## ⚙️ **Execution Protocol**
+## ⚡ **Two-Step Execution Flow**
 
-### Phase 1: Session Detection & Initialization
+### ⚠️ Session Management - FIRST STEP
+Session detection and selection:
 ```bash
-# Detect active workflow session
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    load_context_from(session_id)
-ELSE:
-    request_user_for_session_creation()
+# Check for active sessions
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+if [ multiple_sessions ]; then
+  prompt_user_to_select_session()
+else
+  use_existing_or_create_new()
+fi
 ```
 
-### Phase 2: Directory Structure Creation
-```bash
-# Create business analyst analysis directory
-mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/business-analyst/
-```
+### Step 1: Context Gathering Phase
+**Business Analyst Perspective Questioning**
 
-### Phase 3: Task Tracking Initialization
-Initialize business analyst perspective analysis tracking:
-```json
-[
-  {"content": "Initialize business analyst brainstorming session", "status": "completed", "activeForm": "Initializing session"},
-  {"content": "Analyze current business processes and workflows", "status": "in_progress", "activeForm": "Analyzing business processes"},
-  {"content": "Identify business requirements and stakeholder needs", "status": "pending", "activeForm": "Identifying requirements"},
-  {"content": "Evaluate cost-benefit and ROI analysis", "status": "pending", "activeForm": "Evaluating cost-benefit"},
-  {"content": "Design process improvements and optimizations", "status": "pending", "activeForm": "Designing improvements"},
-  {"content": "Plan change management and implementation", "status": "pending", "activeForm": "Planning change management"},
-  {"content": "Generate comprehensive business analysis documentation", "status": "pending", "activeForm": "Generating documentation"}
-]
-```
+Before agent assignment, gather comprehensive business analyst context:
 
-### Phase 4: Conceptual Planning Agent Coordination
+#### 📋 Role-Specific Questions
+
+**1. Business Process Analysis**
+- What are the current business processes and workflows that need analysis?
+- Which departments, teams, or stakeholders are involved in these processes?
+- What are the key bottlenecks, inefficiencies, or pain points you've observed?
+- What metrics or KPIs are currently used to measure process performance?
+
+**2. Cost and Resource Analysis**
+- What are the current costs associated with these processes (time, money, resources)?
+- How much time do stakeholders spend on these activities daily/weekly?
+- What technology, tools, or systems are currently being used?
+- What budget constraints or financial targets need to be considered?
+
+**3. Business Requirements and Objectives**
+- What are the primary business objectives this analysis should achieve?
+- Who are the key stakeholders and what are their specific needs?
+- What are the success criteria and how will you measure improvement?
+- Are there any compliance, regulatory, or governance requirements?
+
+**4. Change Management and Implementation**
+- How ready is the organization for process changes?
+- What training or change management support might be needed?
+- What timeline or deadlines are we working with?
+- What potential resistance or challenges do you anticipate?
+
+#### Context Validation
+- **Minimum Response**: Each answer must be ≥50 characters
+- **Re-prompting**: Insufficient detail triggers follow-up questions
+- **Context Storage**: Save responses to `.brainstorming/business-analyst-context.md`
+
+### Step 2: Agent Assignment with Flow Control
+**Dedicated Agent Execution**
+
 ```bash
 Task(conceptual-planning-agent): "
+[FLOW_CONTROL]
+
+Execute dedicated business analyst conceptual analysis for: {topic}
+
 ASSIGNED_ROLE: business-analyst
-GEMINI_ANALYSIS_REQUIRED: true
-ANALYSIS_DIMENSIONS: 
-  - process_optimization
-  - cost_analysis
-  - efficiency_metrics
-  - workflow_patterns
+OUTPUT_LOCATION: .brainstorming/business-analyst/
+USER_CONTEXT: {validated_responses_from_context_gathering}
 
-Conduct business analyst perspective brainstorming for: {topic}
+Flow Control Steps:
+[
+  {
+    \"step\": \"load_role_template\",
+    \"action\": \"Load business-analyst planning template\",
+    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load business-analyst)\",
+    \"output_to\": \"role_template\"
+  }
+]
 
-ROLE CONTEXT: Business Analyst
-- Focus Areas: Process optimization, requirements analysis, cost-benefit analysis, change management
-- Analysis Framework: Business-centric approach with emphasis on efficiency and value creation
-- Success Metrics: Process efficiency, cost reduction, stakeholder satisfaction, ROI achievement
+Conceptual Analysis Requirements:
+- Apply business analyst perspective to topic analysis
+- Focus on process optimization, cost-benefit analysis, and change management
+- Use loaded role template framework for analysis structure
+- Generate role-specific deliverables in designated output location
+- Address all user context from questioning phase
 
-USER CONTEXT: {captured_user_requirements_from_session}
+Deliverables:
+- analysis.md: Main business analyst analysis
+- recommendations.md: Business analyst recommendations
+- deliverables/: Business analyst-specific outputs as defined in role template
 
-ANALYSIS REQUIREMENTS:
-1. Current State Business Analysis
-   - Map existing business processes and workflows
-   - Identify process inefficiencies and bottlenecks
-   - Analyze current costs, resources, and time investments
-   - Assess stakeholder roles and responsibilities
-   - Document pain points and improvement opportunities
+Embody business analyst role expertise for comprehensive conceptual planning."
+```
 
-2. Requirements Gathering and Analysis
-   - Identify key stakeholders and their needs
-   - Define functional and non-functional business requirements
-   - Prioritize requirements based on business value and urgency
-   - Analyze requirement dependencies and constraints
-   - Create requirements traceability matrix
-
-3. Process Design and Optimization
-   - Design optimized future state processes
-   - Identify automation opportunities and digital solutions
-   - Plan for process standardization and best practices
-   - Design quality gates and control points
-   - Create process documentation and standard operating procedures
-
-4. Cost-Benefit and ROI Analysis
-   - Calculate implementation costs (people, technology, time)
-   - Quantify expected benefits (cost savings, efficiency gains, revenue)
-   - Perform ROI analysis and payback period calculation
-   - Assess intangible benefits (customer satisfaction, employee morale)
-   - Create business case with financial justification
-
-5. Risk Assessment and Mitigation
-   - Identify business, operational, and technical risks
-   - Assess impact and probability of identified risks
-   - Develop risk mitigation strategies and contingency plans
-   - Plan for compliance and regulatory requirements
-   - Design risk monitoring and control measures
-
-6. Change Management and Implementation Planning
-   - Assess organizational change readiness and impact
-   - Design change management strategy and communication plan
-   - Plan training and knowledge transfer requirements
-   - Create implementation timeline with milestones
-   - Design success metrics and monitoring framework
-
-OUTPUT REQUIREMENTS: Save comprehensive analysis to:
-.workflow/WFS-{topic-slug}/.brainstorming/business-analyst/
-- analysis.md (main business analysis and process assessment)
-- requirements.md (detailed business requirements and specifications)
-- business-case.md (cost-benefit analysis and financial justification)
-- implementation-plan.md (change management and implementation strategy)
-
-Apply business analysis expertise to optimize processes and maximize business value."
+### Progress Tracking
+TodoWrite tracking for two-step process:
+```json
+[
+  {"content": "Gather business analyst context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
+  {"content": "Validate context responses and save to business-analyst-context.md", "status": "pending", "activeForm": "Validating context"},
+  {"content": "Load business-analyst planning template via flow control", "status": "pending", "activeForm": "Loading template"},
+  {"content": "Execute dedicated conceptual-planning-agent for business-analyst role", "status": "pending", "activeForm": "Executing agent"}
+]
 ```
 
 ## 📊 **Output Structure**

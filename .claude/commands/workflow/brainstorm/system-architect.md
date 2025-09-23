@@ -36,7 +36,6 @@ Technical leader responsible for designing scalable, maintainable, and high-perf
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 
@@ -60,90 +59,98 @@ Technical leader responsible for designing scalable, maintainable, and high-perf
 - How should we handle traffic growth and scaling demands?
 - What database scaling and optimization strategies are needed?
 
-## ⚙️ **Execution Protocol**
+## ⚡ **Two-Step Execution Flow**
 
-### Phase 1: Session Detection & Initialization
+### ⚠️ Session Management - FIRST STEP
+Session detection and selection:
 ```bash
-# Detect active workflow session
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    load_context_from(session_id)
-ELSE:
-    request_user_for_session_creation()
+# Check for active sessions
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+if [ multiple_sessions ]; then
+  prompt_user_to_select_session()
+else
+  use_existing_or_create_new()
+fi
 ```
 
-### Phase 2: Directory Structure Creation
-```bash
-# Create system architect analysis directory
-mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/system-architect/
-```
+### Step 1: Context Gathering Phase
+**System Architect Perspective Questioning**
 
-### Phase 3: Task Tracking Initialization
-Initialize system architect perspective analysis tracking:
-```json
-[
-  {"content": "Initialize system architect brainstorming session", "status": "completed", "activeForm": "Initializing session"},
-  {"content": "Analyze current system architecture", "status": "in_progress", "activeForm": "Analyzing architecture"},
-  {"content": "Evaluate technical requirements and constraints", "status": "pending", "activeForm": "Evaluating requirements"},
-  {"content": "Design optimal system architecture", "status": "pending", "activeForm": "Designing architecture"},
-  {"content": "Assess scalability and performance", "status": "pending", "activeForm": "Assessing scalability"},
-  {"content": "Plan technology stack and integration", "status": "pending", "activeForm": "Planning technology"},
-  {"content": "Generate comprehensive architecture documentation", "status": "pending", "activeForm": "Generating documentation"}
-]
-```
+Before agent assignment, gather comprehensive system architecture context:
 
-### Phase 4: Conceptual Planning Agent Coordination
+#### 📋 Role-Specific Questions
+1. **Scale & Performance Requirements**
+   - Expected user load and traffic patterns?
+   - Performance requirements (latency, throughput)?
+   - Data volume and growth projections?
+
+2. **Technical Constraints & Environment**
+   - Existing technology stack and constraints?
+   - Integration requirements with external systems?
+   - Infrastructure and deployment environment?
+
+3. **Architecture Complexity & Patterns**
+   - Microservices vs monolithic considerations?
+   - Data consistency and transaction requirements?
+   - Event-driven vs request-response patterns?
+
+4. **Non-Functional Requirements**
+   - High availability and disaster recovery needs?
+   - Security and compliance requirements?
+   - Monitoring and observability expectations?
+
+#### Context Validation
+- **Minimum Response**: Each answer must be ≥50 characters
+- **Re-prompting**: Insufficient detail triggers follow-up questions
+- **Context Storage**: Save responses to `.brainstorming/system-architect-context.md`
+
+### Step 2: Agent Assignment with Flow Control
+**Dedicated Agent Execution**
+
 ```bash
 Task(conceptual-planning-agent): "
-Conduct system architecture perspective brainstorming for: {topic}
+[FLOW_CONTROL]
 
-ROLE CONTEXT: System Architect
-- Focus Areas: Technical architecture, scalability, system integration, performance
-- Analysis Framework: Architecture-first approach with scalability and maintainability focus
-- Success Metrics: System performance, availability, maintainability, technical debt reduction
+Execute dedicated system-architect conceptual analysis for: {topic}
 
-USER CONTEXT: {captured_user_requirements_from_session}
+ASSIGNED_ROLE: system-architect
+OUTPUT_LOCATION: .brainstorming/system-architect/
+USER_CONTEXT: {validated_responses_from_context_gathering}
 
-ANALYSIS REQUIREMENTS:
-1. Current Architecture Assessment
-   - Analyze existing system architecture and identify pain points
-   - Evaluate current technology stack effectiveness
-   - Assess technical debt and maintenance overhead
-   - Identify architectural bottlenecks and limitations
+Flow Control Steps:
+[
+  {
+    \"step\": \"load_role_template\",
+    \"action\": \"Load system-architect planning template\",
+    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load system-architect)\",
+    \"output_to\": \"role_template\"
+  }
+]
 
-2. Requirements and Constraints Analysis
-   - Define functional and non-functional requirements
-   - Identify performance, scalability, and availability requirements
-   - Analyze security and compliance constraints
-   - Assess resource and budget limitations
+Conceptual Analysis Requirements:
+- Apply system-architect perspective to topic analysis
+- Focus on architectural patterns, scalability, and integration points
+- Use loaded role template framework for analysis structure
+- Generate role-specific deliverables in designated output location
+- Address all user context from questioning phase
 
-3. Architecture Design and Strategy
-   - Design optimal system architecture for the given requirements
-   - Recommend technology stack and architectural patterns
-   - Plan for microservices vs monolithic architecture decisions
-   - Design data architecture and storage strategies
+Deliverables:
+- analysis.md: Main system architecture analysis
+- recommendations.md: Architecture recommendations
+- deliverables/: Architecture-specific outputs as defined in role template
 
-4. Integration and Scalability Planning
-   - Design system integration patterns and APIs
-   - Plan for horizontal and vertical scaling strategies
-   - Design monitoring, logging, and observability systems
-   - Plan deployment and DevOps strategies
+Embody system-architect role expertise for comprehensive conceptual planning."
+```
 
-5. Risk Assessment and Mitigation
-   - Identify technical risks and failure points
-   - Design fault tolerance and disaster recovery strategies
-   - Plan for security vulnerabilities and mitigations
-   - Assess migration risks and strategies
-
-OUTPUT REQUIREMENTS: Save comprehensive analysis to:
-.workflow/WFS-{topic-slug}/.brainstorming/system-architect/
-- analysis.md (main architecture analysis)
-- architecture-design.md (detailed system design and diagrams)
-- technology-stack.md (technology recommendations and justifications)
-- integration-plan.md (system integration and API strategies)
-
-Apply system architecture expertise to generate scalable, maintainable, and performant solutions."
+### Progress Tracking
+TodoWrite tracking for two-step process:
+```json
+[
+  {"content": "Gather system architect context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
+  {"content": "Validate context responses and save to system-architect-context.md", "status": "pending", "activeForm": "Validating context"},
+  {"content": "Load system-architect planning template via flow control", "status": "pending", "activeForm": "Loading template"},
+  {"content": "Execute dedicated conceptual-planning-agent for system-architect role", "status": "pending", "activeForm": "Executing agent"}
+]
 ```
 
 ## 📊 **Output Specification**

@@ -36,7 +36,6 @@ Strategic product leader focused on maximizing user value and business impact th
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 
@@ -60,84 +59,98 @@ Strategic product leader focused on maximizing user value and business impact th
 - What are the technical and market risks?
 - Do we have the right team capabilities?
 
-## ⚙️ **Execution Protocol**
+## ⚡ **Two-Step Execution Flow**
 
-### Phase 1: Session Detection & Initialization
+### ⚠️ Session Management - FIRST STEP
+Session detection and selection:
 ```bash
-# Detect active workflow session
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    load_context_from(session_id)
-ELSE:
-    request_user_for_session_creation()
+# Check for active sessions
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+if [ multiple_sessions ]; then
+  prompt_user_to_select_session()
+else
+  use_existing_or_create_new()
+fi
 ```
 
-### Phase 2: Directory Structure Creation
-```bash
-# Create product manager analysis directory
-mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/product-manager/
-```
+### Step 1: Context Gathering Phase
+**Product Manager Perspective Questioning**
 
-### Phase 3: Task Tracking Initialization
-Initialize product manager perspective analysis tracking:
-```json
-[
-  {"content": "Initialize product manager brainstorming session", "status": "completed", "activeForm": "Initializing session"},
-  {"content": "Analyze user needs and pain points", "status": "in_progress", "activeForm": "Analyzing user needs"},
-  {"content": "Evaluate business value and impact", "status": "pending", "activeForm": "Evaluating business impact"},
-  {"content": "Assess market opportunities", "status": "pending", "activeForm": "Assessing market opportunities"},
-  {"content": "Develop product strategy recommendations", "status": "pending", "activeForm": "Developing strategy"},
-  {"content": "Create prioritized action plan", "status": "pending", "activeForm": "Creating action plan"},
-  {"content": "Generate comprehensive product analysis", "status": "pending", "activeForm": "Generating analysis"}
-]
-```
+Before agent assignment, gather comprehensive product management context:
 
-### Phase 4: Conceptual Planning Agent Coordination
+#### 📋 Role-Specific Questions
+1. **Business Objectives & Metrics**
+   - Primary business goals and success metrics?
+   - Revenue impact expectations and timeline?
+   - Key stakeholders and decision makers?
+
+2. **Target Users & Market**
+   - Primary user segments and personas?
+   - User pain points and current solutions?
+   - Competitive landscape and differentiation needs?
+
+3. **Product Strategy & Scope**
+   - Feature priorities and user value propositions?
+   - Resource constraints and timeline expectations?
+   - Integration with existing product ecosystem?
+
+4. **Success Criteria & Risk Assessment**
+   - How will success be measured and validated?
+   - Market and technical risks to consider?
+   - Go-to-market strategy requirements?
+
+#### Context Validation
+- **Minimum Response**: Each answer must be ≥50 characters
+- **Re-prompting**: Insufficient detail triggers follow-up questions
+- **Context Storage**: Save responses to `.brainstorming/product-manager-context.md`
+
+### Step 2: Agent Assignment with Flow Control
+**Dedicated Agent Execution**
+
 ```bash
 Task(conceptual-planning-agent): "
-Conduct product management perspective brainstorming for: {topic}
+[FLOW_CONTROL]
 
-ROLE CONTEXT: Product Manager
-- Focus Areas: User needs, business value, market positioning, product strategy
-- Analysis Framework: User-centric approach with business impact assessment
-- Success Metrics: User satisfaction, business growth, market differentiation
+Execute dedicated product-manager conceptual analysis for: {topic}
 
-USER CONTEXT: {captured_user_requirements_from_session}
+ASSIGNED_ROLE: product-manager
+OUTPUT_LOCATION: .brainstorming/product-manager/
+USER_CONTEXT: {validated_responses_from_context_gathering}
 
-ANALYSIS REQUIREMENTS:
-1. User Needs Analysis
-   - Identify core user problems and pain points
-   - Define target user segments and personas
-   - Map user journey and experience gaps
-   - Prioritize user requirements by impact and frequency
+Flow Control Steps:
+[
+  {
+    \"step\": \"load_role_template\",
+    \"action\": \"Load product-manager planning template\",
+    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load product-manager)\",
+    \"output_to\": \"role_template\"
+  }
+]
 
-2. Business Value Assessment
-   - Quantify potential business impact (revenue, growth, efficiency)
-   - Analyze cost-benefit ratio and ROI projections
-   - Identify key success metrics and KPIs
-   - Assess risk factors and mitigation strategies
+Conceptual Analysis Requirements:
+- Apply product-manager perspective to topic analysis
+- Focus on user value, business impact, and market positioning
+- Use loaded role template framework for analysis structure
+- Generate role-specific deliverables in designated output location
+- Address all user context from questioning phase
 
-3. Market Opportunity Analysis
-   - Competitive landscape and gap analysis
-   - Market trends and emerging opportunities
-   - Differentiation strategies and unique value propositions
-   - Go-to-market considerations
+Deliverables:
+- analysis.md: Main product management analysis
+- recommendations.md: Product strategy recommendations
+- deliverables/: Product-specific outputs as defined in role template
 
-4. Product Strategy Development
-   - Feature prioritization matrix
-   - Product roadmap recommendations
-   - Resource allocation strategies
-   - Implementation timeline and milestones
+Embody product-manager role expertise for comprehensive conceptual planning."
+```
 
-OUTPUT REQUIREMENTS: Save comprehensive analysis to:
-.workflow/WFS-{topic-slug}/.brainstorming/product-manager/
-- analysis.md (main product management analysis)
-- business-case.md (business justification and metrics)
-- user-research.md (user needs and market insights)
-- roadmap.md (strategic recommendations and timeline)
-
-Apply product management expertise to generate actionable insights addressing business goals and user needs."
+### Progress Tracking
+TodoWrite tracking for two-step process:
+```json
+[
+  {"content": "Gather product manager context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
+  {"content": "Validate context responses and save to product-manager-context.md", "status": "pending", "activeForm": "Validating context"},
+  {"content": "Load product-manager planning template via flow control", "status": "pending", "activeForm": "Loading template"},
+  {"content": "Execute dedicated conceptual-planning-agent for product-manager role", "status": "pending", "activeForm": "Executing agent"}
+]
 ```
 
 ## 📊 **Output Specification**

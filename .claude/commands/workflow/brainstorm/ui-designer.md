@@ -36,7 +36,6 @@ Creative professional responsible for designing intuitive, accessible, and visua
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 
@@ -60,36 +59,97 @@ Creative professional responsible for designing intuitive, accessible, and visua
 - What responsive design requirements must be addressed?
 - How do performance considerations impact user experience?
 
-## ⚙️ **Execution Protocol**
+## ⚡ **Two-Step Execution Flow**
 
-### Phase 1: Session Detection & Initialization
+### ⚠️ Session Management - FIRST STEP
+Session detection and selection:
 ```bash
-# Detect active workflow session
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    load_context_from(session_id)
-ELSE:
-    request_user_for_session_creation()
+# Check for active sessions
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+if [ multiple_sessions ]; then
+  prompt_user_to_select_session()
+else
+  use_existing_or_create_new()
+fi
 ```
 
-### Phase 2: Directory Structure Creation
+### Step 1: Context Gathering Phase
+**UI Designer Perspective Questioning**
+
+Before agent assignment, gather comprehensive UI/UX design context:
+
+#### 📋 Role-Specific Questions
+1. **User Experience & Personas**
+   - Primary user personas and their key characteristics?
+   - Current user pain points and usability issues?
+   - Platform requirements (web, mobile, desktop)?
+
+2. **Design System & Branding**
+   - Existing design system and brand guidelines?
+   - Visual design preferences and constraints?
+   - Accessibility and compliance requirements?
+
+3. **User Journey & Interactions**
+   - Key user workflows and task flows?
+   - Critical interaction points and user goals?
+   - Performance and responsive design requirements?
+
+4. **Implementation & Integration**
+   - Technical constraints and development capabilities?
+   - Integration with existing UI components?
+   - Testing and validation approach?
+
+#### Context Validation
+- **Minimum Response**: Each answer must be ≥50 characters
+- **Re-prompting**: Insufficient detail triggers follow-up questions
+- **Context Storage**: Save responses to `.brainstorming/ui-designer-context.md`
+
+### Step 2: Agent Assignment with Flow Control
+**Dedicated Agent Execution**
+
 ```bash
-# Create UI designer analysis directory
-mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/ui-designer/
+Task(conceptual-planning-agent): "
+[FLOW_CONTROL]
+
+Execute dedicated ui-designer conceptual analysis for: {topic}
+
+ASSIGNED_ROLE: ui-designer
+OUTPUT_LOCATION: .brainstorming/ui-designer/
+USER_CONTEXT: {validated_responses_from_context_gathering}
+
+Flow Control Steps:
+[
+  {
+    \"step\": \"load_role_template\",
+    \"action\": \"Load ui-designer planning template\",
+    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load ui-designer)\",
+    \"output_to\": \"role_template\"
+  }
+]
+
+Conceptual Analysis Requirements:
+- Apply ui-designer perspective to topic analysis
+- Focus on user experience, interface design, and interaction patterns
+- Use loaded role template framework for analysis structure
+- Generate role-specific deliverables in designated output location
+- Address all user context from questioning phase
+
+Deliverables:
+- analysis.md: Main UI/UX design analysis
+- recommendations.md: Design recommendations
+- deliverables/: UI-specific outputs as defined in role template
+
+Embody ui-designer role expertise for comprehensive conceptual planning."
 ```
 
-### Phase 3: Task Tracking Initialization
-Initialize UI designer perspective analysis tracking:
+### Progress Tracking
+TodoWrite tracking for two-step process:
 ```json
 [
-  {"content": "Initialize UI designer brainstorming session", "status": "completed", "activeForm": "Initializing session"},
-  {"content": "Analyze current user experience and pain points", "status": "in_progress", "activeForm": "Analyzing user experience"},
-  {"content": "Design user journey and interaction flows", "status": "pending", "activeForm": "Designing user flows"},
-  {"content": "Create visual design concepts and mockups", "status": "pending", "activeForm": "Creating visual concepts"},
-  {"content": "Evaluate accessibility and usability", "status": "pending", "activeForm": "Evaluating accessibility"},
-  {"content": "Plan responsive design strategy", "status": "pending", "activeForm": "Planning responsive design"},
-  {"content": "Generate comprehensive UI/UX documentation", "status": "pending", "activeForm": "Generating documentation"}
+  {"content": "Gather ui-designer context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
+  {"content": "Validate context responses and save to ui-designer-context.md", "status": "pending", "activeForm": "Validating context"},
+  {"content": "Load ui-designer planning template via flow control", "status": "pending", "activeForm": "Loading template"},
+  {"content": "Execute dedicated conceptual-planning-agent for ui-designer role", "status": "pending", "activeForm": "Executing agent"}
 ]
 ```
 

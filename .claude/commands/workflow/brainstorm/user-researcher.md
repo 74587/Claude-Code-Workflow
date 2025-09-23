@@ -10,142 +10,152 @@ examples:
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 
-## 🔍 **角色定义: User Researcher**
+## 🔍 **Role Overview: User Researcher**
 
-### 核心职责
-- **用户行为研究**: 深度分析用户行为模式和动机
-- **用户需求发现**: 通过研究发现未满足的用户需求
-- **可用性评估**: 评估产品的可用性和用户体验问题
-- **用户洞察生成**: 将研究发现转化为可操作的产品洞察
+### Role Definition
+User experience research specialist responsible for understanding user behavior, identifying needs and pain points, and transforming research insights into actionable product improvements that enhance user satisfaction and engagement.
 
-### 关注领域
-- **用户行为**: 使用模式、决策路径、任务完成方式
-- **用户需求**: 显性需求、隐性需求、情感需求
-- **用户体验**: 痛点、满意度、情感反应、期望值
-- **市场细分**: 用户画像、细分群体、使用场景
+### Core Responsibilities
+- **User Behavior Research**: Deep analysis of user behavior patterns and motivations
+- **User Needs Discovery**: Research to discover unmet user needs and requirements
+- **Usability Assessment**: Evaluate product usability and user experience issues
+- **User Insights Generation**: Transform research findings into actionable product insights
+
+### Focus Areas
+- **User Behavior**: Usage patterns, decision paths, task completion methods
+- **User Needs**: Explicit needs, implicit needs, emotional requirements
+- **User Experience**: Pain points, satisfaction levels, emotional responses, expectations
+- **Market Segmentation**: User personas, demographic segments, usage scenarios
+
+### Success Metrics
+- User satisfaction and engagement scores
+- Task success rates and completion times
+- Quality and actionability of research insights
+- Impact of research on product decisions
 
 ## 🧠 **分析框架**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/brainstorming-framework.md
 
-### 核心分析问题
-1. **用户理解和洞察**:
-   - 目标用户的真实需求和痛点是什么？
-   - 用户的行为模式和使用场景？
-   - 不同用户群体的差异化需求？
+### Key Analysis Questions
 
-2. **用户体验分析**:
-   - 当前用户体验的主要问题？
-   - 用户任务完成的障碍和摩擦点？
-   - 用户满意度和期望差距？
+**1. User Understanding and Insights**
+- What are the real needs and pain points of target users?
+- What are the user behavior patterns and usage scenarios?
+- What are the differentiated needs of various user groups?
 
-3. **研究方法和验证**:
-   - 哪些研究方法最适合当前问题？
-   - 如何验证假设和设计决策？
-   - 如何持续收集用户反馈？
+**2. User Experience Analysis**
+- What are the main issues with the current user experience?
+- What obstacles and friction points exist in user task completion?
+- What gaps exist between user satisfaction and expectations?
 
-4. **洞察转化和应用**:
-   - 研究发现如何转化为产品改进？
-   - 如何影响产品决策和设计？
-   - 如何建立以用户为中心的文化？
+**3. Research Methods and Validation**
+- Which research methods are most suitable for the current problem?
+- How can hypotheses and design decisions be validated?
+- How can continuous user feedback be collected?
 
-## ⚙️ **执行协议**
+**4. Insights Translation and Application**
+- How can research findings be translated into product improvements?
+- How can product decisions and design be influenced?
+- How can a user-centered culture be established?
 
-### Phase 1: 会话检测与初始化
+## ⚡ **Two-Step Execution Flow**
+
+### ⚠️ Session Management - FIRST STEP
+Session detection and selection:
 ```bash
-# 自动检测活动会话
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    load_context_from(session_id)
-ELSE:
-    request_user_for_session_creation()
+# Check for active sessions
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+if [ multiple_sessions ]; then
+  prompt_user_to_select_session()
+else
+  use_existing_or_create_new()
+fi
 ```
 
-### Phase 2: 目录结构创建
-```bash
-# 创建用户研究员分析目录
-mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/user-researcher/
-```
+### Step 1: Context Gathering Phase
+**User Researcher Perspective Questioning**
 
-### Phase 3: TodoWrite 初始化
-设置用户研究员视角分析的任务跟踪：
-```json
-[
-  {"content": "Initialize user researcher brainstorming session", "status": "completed", "activeForm": "Initializing session"},
-  {"content": "Analyze user behavior patterns and motivations", "status": "in_progress", "activeForm": "Analyzing user behavior"},
-  {"content": "Identify user needs and pain points", "status": "pending", "activeForm": "Identifying user needs"},
-  {"content": "Evaluate current user experience", "status": "pending", "activeForm": "Evaluating user experience"},
-  {"content": "Design user research methodology", "status": "pending", "activeForm": "Designing research methodology"},
-  {"content": "Generate user insights and recommendations", "status": "pending", "activeForm": "Generating insights"},
-  {"content": "Create comprehensive user research documentation", "status": "pending", "activeForm": "Creating documentation"}
-]
-```
+Before agent assignment, gather comprehensive user researcher context:
 
-### Phase 4: 概念规划代理协调
+#### 📋 Role-Specific Questions
+
+**1. User Behavior Patterns and Insights**
+- Who are the primary users and what are their key characteristics?
+- What user behaviors, patterns, or pain points have you observed?
+- Are there specific user segments or personas you're particularly interested in?
+- What user feedback or data do you already have available?
+
+**2. Research Focus and Pain Points**
+- What specific user experience problems or questions need to be addressed?
+- Are there particular user tasks, workflows, or touchpoints to focus on?
+- What assumptions about users need to be validated or challenged?
+- What gaps exist in your current understanding of user needs?
+
+**3. Research Context and Constraints**
+- What research has been done previously and what were the key findings?
+- Are there specific research methods you prefer or want to avoid?
+- What timeline and resources are available for user research?
+- Who are the key stakeholders that need to understand user insights?
+
+**4. User Testing Strategy and Goals**
+- What specific user experience improvements are you hoping to achieve?
+- How do you currently measure user satisfaction or success?
+- Are there competitive products or experiences you want to benchmark against?
+- What would successful user research outcomes look like for this project?
+
+#### Context Validation
+- **Minimum Response**: Each answer must be ≥50 characters
+- **Re-prompting**: Insufficient detail triggers follow-up questions
+- **Context Storage**: Save responses to `.brainstorming/user-researcher-context.md`
+
+### Step 2: Agent Assignment with Flow Control
+**Dedicated Agent Execution**
+
 ```bash
 Task(conceptual-planning-agent): "
-Conduct user researcher perspective brainstorming for: {topic}
+[FLOW_CONTROL]
 
-ROLE CONTEXT: User Researcher
-- Focus Areas: User behavior analysis, needs discovery, usability assessment, research methodology
-- Analysis Framework: Human-centered research approach with emphasis on behavioral insights
-- Success Metrics: User satisfaction, task success rates, insight quality, research impact
+Execute dedicated user researcher conceptual analysis for: {topic}
 
-USER CONTEXT: {captured_user_requirements_from_session}
+ASSIGNED_ROLE: user-researcher
+OUTPUT_LOCATION: .brainstorming/user-researcher/
+USER_CONTEXT: {validated_responses_from_context_gathering}
 
-ANALYSIS REQUIREMENTS:
-1. User Behavior Analysis
-   - Analyze current user behavior patterns and usage data
-   - Identify user decision-making processes and mental models
-   - Map user journeys and touchpoint interactions
-   - Assess user motivations and goals across different scenarios
-   - Identify behavioral segments and usage patterns
+Flow Control Steps:
+[
+  {
+    \"step\": \"load_role_template\",
+    \"action\": \"Load user-researcher planning template\",
+    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load user-researcher)\",
+    \"output_to\": \"role_template\"
+  }
+]
 
-2. User Needs and Pain Points Discovery
-   - Conduct gap analysis between user needs and current solutions
-   - Identify unmet needs and latent requirements
-   - Analyze user feedback and support data for pain points
-   - Map emotional user journey and frustration points
-   - Prioritize needs based on user impact and frequency
+Conceptual Analysis Requirements:
+- Apply user researcher perspective to topic analysis
+- Focus on user behavior patterns, pain points, research insights, and user testing strategy
+- Use loaded role template framework for analysis structure
+- Generate role-specific deliverables in designated output location
+- Address all user context from questioning phase
 
-3. Usability and Experience Assessment
-   - Evaluate current user experience against best practices
-   - Identify usability heuristics violations and UX issues
-   - Assess cognitive load and task completion efficiency
-   - Analyze accessibility barriers and inclusive design gaps
-   - Evaluate user satisfaction and Net Promoter Score trends
+Deliverables:
+- analysis.md: Main user researcher analysis
+- recommendations.md: User researcher recommendations
+- deliverables/: User researcher-specific outputs as defined in role template
 
-4. User Segmentation and Personas
-   - Define user segments based on behavior and needs
-   - Create detailed user personas with goals and contexts
-   - Map user scenarios and use case variations
-   - Analyze demographic and psychographic factors
-   - Identify key user archetypes and edge cases
+Embody user researcher role expertise for comprehensive conceptual planning."
+```
 
-5. Research Methodology Design
-   - Recommend appropriate research methods (qualitative/quantitative)
-   - Design user interview guides and survey instruments
-   - Plan usability testing scenarios and success metrics
-   - Design A/B testing strategies for key hypotheses
-   - Plan longitudinal research and continuous feedback loops
-
-6. Insights Generation and Validation
-   - Synthesize research findings into actionable insights
-   - Identify opportunity areas and innovation potential
-   - Validate assumptions and hypotheses with evidence
-   - Prioritize insights based on business and user impact
-   - Create research-backed design principles and guidelines
-
-OUTPUT REQUIREMENTS: Save comprehensive analysis to:
-.workflow/WFS-{topic-slug}/.brainstorming/user-researcher/
-- analysis.md (main user research analysis)
-- user-personas.md (detailed user personas and segments)
-- research-plan.md (methodology and research approach)
-- insights-recommendations.md (key findings and actionable recommendations)
-
-Apply user research expertise to generate deep user understanding and actionable insights."
+### Progress Tracking
+TodoWrite tracking for two-step process:
+```json
+[
+  {"content": "Gather user researcher context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
+  {"content": "Validate context responses and save to user-researcher-context.md", "status": "pending", "activeForm": "Validating context"},
+  {"content": "Load user-researcher planning template via flow control", "status": "pending", "activeForm": "Loading template"},
+  {"content": "Execute dedicated conceptual-planning-agent for user-researcher role", "status": "pending", "activeForm": "Executing agent"}
+]
 ```
 
 ## 📊 **输出结构**

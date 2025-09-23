@@ -110,21 +110,49 @@ blocked → skip until dependencies clear
 3. **Immediate Updates**: Update status after each task completion
 4. **Status Synchronization**: Sync with JSON task files after updates
 
-#### TodoWrite Template
-```markdown
-# Workflow Execute Progress
-*Session: WFS-[topic-slug]*
+#### TodoWrite Tool Usage
+**Use Claude Code's built-in TodoWrite tool** to track workflow progress in real-time:
 
-- [⚠️] **IMPL-1.1**: [code-developer] [FLOW_CONTROL] Design auth schema
-- [ ] **IMPL-1.2**: [code-developer] [FLOW_CONTROL] Implement auth logic
-- [ ] **IMPL-2**: [code-review-agent] Review implementations
+```javascript
+// Create initial todo list from discovered pending tasks
+TodoWrite({
+  todos: [
+    {
+      content: "Execute IMPL-1.1: Design auth schema [code-developer] [FLOW_CONTROL]",
+      status: "pending",
+      activeForm: "Executing IMPL-1.1: Design auth schema"
+    },
+    {
+      content: "Execute IMPL-1.2: Implement auth logic [code-developer] [FLOW_CONTROL]",
+      status: "pending",
+      activeForm: "Executing IMPL-1.2: Implement auth logic"
+    },
+    {
+      content: "Execute IMPL-2: Review implementations [code-review-agent]",
+      status: "pending",
+      activeForm: "Executing IMPL-2: Review implementations"
+    }
+  ]
+});
 
-**Status Legend**:
-- [ ] = Pending task
-- [⚠️] = Currently in progress
-- [✅] = Completed task
-- [FLOW_CONTROL] = Requires pre-analysis step execution
+// Update status as tasks progress - ONLY ONE task should be in_progress at a time
+TodoWrite({
+  todos: [
+    {
+      content: "Execute IMPL-1.1: Design auth schema [code-developer] [FLOW_CONTROL]",
+      status: "in_progress",  // Mark current task as in_progress
+      activeForm: "Executing IMPL-1.1: Design auth schema"
+    },
+    // ... other tasks remain pending
+  ]
+});
 ```
+
+**TodoWrite Integration Rules**:
+- **Real-time Updates**: Use TodoWrite tool for immediate progress tracking
+- **Single Active Task**: Only ONE task marked as `in_progress` at any time
+- **Immediate Completion**: Mark tasks `completed` immediately after finishing
+- **Status Sync**: Sync TodoWrite status with JSON task files after each update
 
 #### Update Timing
 - **Before Agent Launch**: Mark task as `in_progress` (⚠️)

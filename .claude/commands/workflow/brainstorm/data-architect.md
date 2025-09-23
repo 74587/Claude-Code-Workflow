@@ -36,7 +36,6 @@ Strategic data professional responsible for designing scalable, efficient data a
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/brainstorming-framework.md
 
 ### Key Analysis Questions
 
@@ -60,96 +59,103 @@ Strategic data professional responsible for designing scalable, efficient data a
 - What balance between real-time dashboards and periodic reports is optimal?
 - What self-service analytics and data visualization capabilities are needed?
 
-## ⚙️ **Execution Protocol**
+## ⚡ **Two-Step Execution Flow**
 
-### Phase 1: Session Detection & Initialization
+### ⚠️ Session Management - FIRST STEP
+Session detection and selection:
 ```bash
-# Detect active workflow session
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    load_context_from(session_id)
-ELSE:
-    request_user_for_session_creation()
+# Check for active sessions
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+if [ multiple_sessions ]; then
+  prompt_user_to_select_session()
+else
+  use_existing_or_create_new()
+fi
 ```
 
-### Phase 2: Directory Structure Creation
-```bash
-# Create data architect analysis directory
-mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/data-architect/
-```
+### Step 1: Context Gathering Phase
+**Data Architect Perspective Questioning**
 
-### Phase 3: Task Tracking Initialization
-Initialize data architect perspective analysis tracking:
-```json
-[
-  {"content": "Initialize data architect brainstorming session", "status": "completed", "activeForm": "Initializing session"},
-  {"content": "Analyze data requirements and sources", "status": "in_progress", "activeForm": "Analyzing data requirements"},
-  {"content": "Design optimal data model and schema", "status": "pending", "activeForm": "Designing data model"},
-  {"content": "Plan data pipeline and processing workflows", "status": "pending", "activeForm": "Planning data pipelines"},
-  {"content": "Evaluate data quality and governance", "status": "pending", "activeForm": "Evaluating data governance"},
-  {"content": "Design analytics and reporting solutions", "status": "pending", "activeForm": "Designing analytics"},
-  {"content": "Generate comprehensive data architecture documentation", "status": "pending", "activeForm": "Generating documentation"}
-]
-```
+Before agent assignment, gather comprehensive data architect context:
 
-### Phase 4: Conceptual Planning Agent Coordination
+#### 📋 Role-Specific Questions
+
+**1. Data Models and Flow Patterns**
+- What types of data will you be working with (structured, semi-structured, unstructured)?
+- What are the expected data volumes and growth projections?
+- What are the primary data sources and how frequently will data be updated?
+- Are there existing data models or schemas that need to be considered?
+
+**2. Storage Strategies and Performance**
+- What are the query performance requirements and expected response times?
+- Do you need real-time processing, batch processing, or both?
+- What are the data retention and archival requirements?
+- Are there specific compliance or regulatory requirements for data storage?
+
+**3. Analytics Requirements and Insights**
+- What types of analytics and reporting capabilities are needed?
+- Who are the primary users of the data and what are their skill levels?
+- What business intelligence or machine learning use cases need to be supported?
+- Are there specific dashboard or visualization requirements?
+
+**4. Data Governance and Quality**
+- What data quality standards and validation rules need to be implemented?
+- Who owns the data and what are the access control requirements?
+- Are there data privacy or security concerns that need to be addressed?
+- What data lineage and auditing capabilities are required?
+
+#### Context Validation
+- **Minimum Response**: Each answer must be ≥50 characters
+- **Re-prompting**: Insufficient detail triggers follow-up questions
+- **Context Storage**: Save responses to `.brainstorming/data-architect-context.md`
+
+### Step 2: Agent Assignment with Flow Control
+**Dedicated Agent Execution**
+
 ```bash
 Task(conceptual-planning-agent): "
-Conduct data architect perspective brainstorming for: {topic}
+[FLOW_CONTROL]
 
-ROLE CONTEXT: Data Architect
-- Focus Areas: Data modeling, data flow, storage optimization, analytics infrastructure
-- Analysis Framework: Data-driven approach with emphasis on scalability, quality, and insights
-- Success Metrics: Data quality, processing efficiency, analytics accuracy, scalability
+Execute dedicated data architect conceptual analysis for: {topic}
 
-USER CONTEXT: {captured_user_requirements_from_session}
+ASSIGNED_ROLE: data-architect
+OUTPUT_LOCATION: .brainstorming/data-architect/
+USER_CONTEXT: {validated_responses_from_context_gathering}
 
-ANALYSIS REQUIREMENTS:
-1. Data Requirements Analysis
-   - Identify all data sources (internal, external, third-party)
-   - Define data collection requirements and constraints
-   - Analyze data volume, velocity, and variety characteristics
-   - Map data lineage and dependencies across systems
+Flow Control Steps:
+[
+  {
+    \"step\": \"load_role_template\",
+    \"action\": \"Load data-architect planning template\",
+    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load data-architect)\",
+    \"output_to\": \"role_template\"
+  }
+]
 
-2. Data Model and Schema Design
-   - Design logical and physical data models for optimal performance
-   - Plan database schemas, indexes, and partitioning strategies
-   - Design data relationships and referential integrity constraints
-   - Plan for data archival, retention, and lifecycle management
+Conceptual Analysis Requirements:
+- Apply data architect perspective to topic analysis
+- Focus on data models, flow patterns, storage strategies, and analytics requirements
+- Use loaded role template framework for analysis structure
+- Generate role-specific deliverables in designated output location
+- Address all user context from questioning phase
 
-3. Data Pipeline Architecture
-   - Design ETL/ELT processes for data ingestion and transformation
-   - Plan real-time and batch processing workflows
-   - Design error handling, monitoring, and alerting mechanisms
-   - Plan for data pipeline scalability and performance optimization
+Deliverables:
+- analysis.md: Main data architect analysis
+- recommendations.md: Data architect recommendations
+- deliverables/: Data architect-specific outputs as defined in role template
 
-4. Data Quality and Governance
-   - Establish data quality metrics and validation rules
-   - Design data governance policies and procedures
-   - Plan data security, privacy, and compliance frameworks
-   - Create data cataloging and metadata management strategies
+Embody data architect role expertise for comprehensive conceptual planning."
+```
 
-5. Analytics and Business Intelligence
-   - Design data warehouse and data mart architectures
-   - Plan for OLAP cubes, reporting, and dashboard requirements
-   - Design self-service analytics and data exploration capabilities
-   - Plan for machine learning and advanced analytics integration
-
-6. Performance and Scalability Planning
-   - Analyze current and projected data volumes and growth
-   - Design horizontal and vertical scaling strategies
-   - Plan for high availability and disaster recovery
-   - Optimize query performance and resource utilization
-
-OUTPUT REQUIREMENTS: Save comprehensive analysis to:
-.workflow/WFS-{topic-slug}/.brainstorming/data-architect/
-- analysis.md (main data architecture analysis)
-- data-model.md (data models, schemas, and relationships)
-- pipeline-design.md (data processing and ETL/ELT workflows)
-- governance-plan.md (data quality, security, and governance)
-
-Apply data architecture expertise to create scalable, reliable, and insightful data solutions."
+### Progress Tracking
+TodoWrite tracking for two-step process:
+```json
+[
+  {"content": "Gather data architect context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
+  {"content": "Validate context responses and save to data-architect-context.md", "status": "pending", "activeForm": "Validating context"},
+  {"content": "Load data-architect planning template via flow control", "status": "pending", "activeForm": "Loading template"},
+  {"content": "Execute dedicated conceptual-planning-agent for data-architect role", "status": "pending", "activeForm": "Executing agent"}
+]
 ```
 
 ## 📊 **Output Specification**

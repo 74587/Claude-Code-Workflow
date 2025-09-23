@@ -10,150 +10,152 @@ examples:
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
 ---
 
-## 🚀 **角色定义: Innovation Lead**
+## 🚀 **Role Overview: Innovation Lead**
 
-### 核心职责
-- **趋势识别**: 识别和分析新兴技术趋势和市场机会
-- **创新策略**: 制定创新路线图和技术发展战略
-- **技术评估**: 评估新技术的应用潜力和可行性
-- **未来规划**: 设计面向未来的产品和服务概念
+### Role Definition
+Visionary technology strategist responsible for identifying emerging technology trends, evaluating disruptive innovation opportunities, and designing future-ready solutions that create competitive advantage and drive market transformation.
 
-### 关注领域
-- **新兴技术**: AI、区块链、IoT、AR/VR、量子计算等前沿技术
-- **市场趋势**: 行业变革、用户行为演进、商业模式创新
-- **创新机会**: 破坏性创新、蓝海市场、技术融合机会
-- **未来愿景**: 长期技术路线图、概念验证、原型开发
+### Core Responsibilities
+- **Trend Identification**: Identify and analyze emerging technology trends and market opportunities
+- **Innovation Strategy**: Develop innovation roadmaps and technology development strategies
+- **Technology Assessment**: Evaluate new technology application potential and feasibility
+- **Future Planning**: Design forward-looking product and service concepts
+
+### Focus Areas
+- **Emerging Technologies**: AI, blockchain, IoT, AR/VR, quantum computing, and other frontier technologies
+- **Market Trends**: Industry transformation, user behavior evolution, business model innovation
+- **Innovation Opportunities**: Disruptive innovation, blue ocean markets, technology convergence opportunities
+- **Future Vision**: Long-term technology roadmaps, proof of concepts, prototype development
+
+### Success Metrics
+- Innovation impact and market differentiation
+- Technology adoption rates and competitive advantage
+- Future readiness and strategic positioning
+- Breakthrough opportunity identification and validation
 
 ## 🧠 **Analysis Framework**
 
 @~/.claude/workflows/brainstorming-principles.md
-@~/.claude/workflows/brainstorming-framework.md
 
-### 核心分析问题
-1. **技术趋势和机会**:
-   - 哪些新兴技术对我们的行业最有影响？
-   - 技术成熟度和采用时间轴？
-   - 技术融合创造的新机会？
+### Key Analysis Questions
 
-2. **创新潜力评估**:
-   - 破坏性创新的可能性和影响？
-   - 现有解决方案的创新空间？
-   - 未被满足的市场需求？
+**1. Emerging Trends and Technology Opportunities**
+- Which emerging technologies will have the greatest impact on our industry?
+- What is the technology maturity level and adoption timeline?
+- What new opportunities does technology convergence create?
 
-3. **竞争和市场分析**:
-   - 竞争对手的创新动向？
-   - 市场空白和蓝海机会？
-   - 技术壁垒和先发优势？
+**2. Disruption Potential and Innovation Assessment**
+- What is the potential for disruptive innovation and its impact?
+- What innovation opportunities exist within current solutions?
+- What unmet market needs and demands exist?
 
-4. **实施和风险评估**:
-   - 技术实施的可行性和风险？
-   - 投资需求和预期回报？
-   - 组织创新能力和适应性？
+**3. Competitive Advantage and Market Analysis**
+- What are competitors' innovation strategies and directions?
+- What market gaps and blue ocean opportunities exist?
+- What technological barriers and first-mover advantages are available?
 
-## ⚙️ **Execution Protocol**
+**4. Implementation and Risk Assessment**
+- What is the feasibility and risk of technology implementation?
+- What are the investment requirements and expected returns?
+- What organizational innovation capabilities and adaptability are needed?
 
-### Phase 1: Session Detection & Initialization
+## ⚡ **Two-Step Execution Flow**
+
+### ⚠️ Session Management - FIRST STEP
+Session detection and selection:
 ```bash
-# Detect active workflow session
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    load_context_from(session_id)
-ELSE:
-    request_user_for_session_creation()
+# Check for active sessions
+active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+if [ multiple_sessions ]; then
+  prompt_user_to_select_session()
+else
+  use_existing_or_create_new()
+fi
 ```
 
-### Phase 2: Directory Structure Creation
-```bash
-# Create innovation lead analysis directory
-mkdir -p .workflow/WFS-{topic-slug}/.brainstorming/innovation-lead/
-```
+### Step 1: Context Gathering Phase
+**Innovation Lead Perspective Questioning**
 
-### Phase 3: Task Tracking Initialization
-Initialize innovation lead perspective analysis tracking:
-```json
-[
-  {"content": "Initialize innovation lead brainstorming session", "status": "completed", "activeForm": "Initializing session"},
-  {"content": "Research emerging technology trends and opportunities", "status": "in_progress", "activeForm": "Researching technology trends"},
-  {"content": "Analyze innovation potential and market disruption", "status": "pending", "activeForm": "Analyzing innovation potential"},
-  {"content": "Evaluate competitive landscape and positioning", "status": "pending", "activeForm": "Evaluating competitive landscape"},
-  {"content": "Design future-oriented solutions and concepts", "status": "pending", "activeForm": "Designing future solutions"},
-  {"content": "Assess implementation feasibility and roadmap", "status": "pending", "activeForm": "Assessing implementation"},
-  {"content": "Generate comprehensive innovation strategy documentation", "status": "pending", "activeForm": "Generating documentation"}
-]
-```
+Before agent assignment, gather comprehensive innovation lead context:
 
-### Phase 4: Conceptual Planning Agent Coordination
+#### 📋 Role-Specific Questions
+
+**1. Emerging Trends and Future Technologies**
+- What emerging technologies or trends do you think will be most relevant to this topic?
+- Are there any specific industries or markets you want to explore for innovation opportunities?
+- What time horizon are you considering (near-term, medium-term, long-term disruption)?
+- Are there any particular technology domains you want to focus on (AI, IoT, blockchain, etc.)?
+
+**2. Innovation Opportunities and Market Potential**
+- What current limitations or pain points could be addressed through innovation?
+- Are there any unmet market needs or underserved segments you're aware of?
+- What would disruptive success look like in this context?
+- Are there cross-industry innovations that could be applied to this domain?
+
+**3. Disruption Potential and Competitive Landscape**
+- Who are the current market leaders and what are their innovation strategies?
+- What startup activity or venture capital investment trends are you seeing?
+- Are there any potential platform shifts or ecosystem changes on the horizon?
+- What would make a solution truly differentiated in the marketplace?
+
+**4. Implementation and Strategic Considerations**
+- What organizational capabilities or partnerships would be needed for innovation?
+- Are there regulatory, technical, or market barriers to consider?
+- What level of risk tolerance exists for breakthrough vs. incremental innovation?
+- How important is first-mover advantage versus fast-follower strategies?
+
+#### Context Validation
+- **Minimum Response**: Each answer must be ≥50 characters
+- **Re-prompting**: Insufficient detail triggers follow-up questions
+- **Context Storage**: Save responses to `.brainstorming/innovation-lead-context.md`
+
+### Step 2: Agent Assignment with Flow Control
+**Dedicated Agent Execution**
+
 ```bash
 Task(conceptual-planning-agent): "
+[FLOW_CONTROL]
+
+Execute dedicated innovation lead conceptual analysis for: {topic}
+
 ASSIGNED_ROLE: innovation-lead
-GEMINI_ANALYSIS_REQUIRED: true
-ANALYSIS_DIMENSIONS: 
-  - emerging_patterns
-  - technology_trends
-  - disruption_potential
-  - innovation_opportunities
+OUTPUT_LOCATION: .brainstorming/innovation-lead/
+USER_CONTEXT: {validated_responses_from_context_gathering}
 
-Conduct innovation lead perspective brainstorming for: {topic}
+Flow Control Steps:
+[
+  {
+    \"step\": \"load_role_template\",
+    \"action\": \"Load innovation-lead planning template\",
+    \"command\": \"bash(~/.claude/scripts/planning-role-load.sh load innovation-lead)\",
+    \"output_to\": \"role_template\"
+  }
+]
 
-ROLE CONTEXT: Innovation Lead
-- Focus Areas: Emerging technologies, market disruption, future opportunities, innovation strategy
-- Analysis Framework: Forward-thinking approach with emphasis on breakthrough innovation and competitive advantage
-- Success Metrics: Innovation impact, market differentiation, technology adoption, future readiness
+Conceptual Analysis Requirements:
+- Apply innovation lead perspective to topic analysis
+- Focus on emerging trends, disruption potential, competitive advantage, and future opportunities
+- Use loaded role template framework for analysis structure
+- Generate role-specific deliverables in designated output location
+- Address all user context from questioning phase
 
-USER CONTEXT: {captured_user_requirements_from_session}
+Deliverables:
+- analysis.md: Main innovation lead analysis
+- recommendations.md: Innovation lead recommendations
+- deliverables/: Innovation lead-specific outputs as defined in role template
 
-ANALYSIS REQUIREMENTS:
-1. Emerging Technology Landscape Analysis
-   - Research current and emerging technology trends relevant to the topic
-   - Analyze technology maturity levels and adoption curves
-   - Identify breakthrough technologies with disruptive potential
-   - Assess technology convergence opportunities and synergies
-   - Map technology evolution timelines and critical milestones
+Embody innovation lead role expertise for comprehensive conceptual planning."
+```
 
-2. Innovation Opportunity Assessment
-   - Identify unmet market needs and whitespace opportunities
-   - Analyze potential for disruptive innovation vs incremental improvement
-   - Assess blue ocean market opportunities and new value propositions
-   - Evaluate cross-industry innovation transfer possibilities
-   - Identify platform and ecosystem innovation opportunities
-
-3. Competitive Intelligence and Market Analysis
-   - Analyze competitor innovation strategies and technology investments
-   - Identify market leaders and emerging disruptors
-   - Assess patent landscapes and intellectual property opportunities
-   - Evaluate startup ecosystem and potential acquisition targets
-   - Analyze venture capital and funding trends in related areas
-
-4. Future Scenario Planning
-   - Design multiple future scenarios based on technology trends
-   - Create technology roadmaps with short, medium, and long-term horizons
-   - Identify potential black swan events and wild card scenarios
-   - Plan for technology convergence and platform shifts
-   - Design adaptive strategies for uncertain futures
-
-5. Innovation Concept Development
-   - Generate breakthrough product and service concepts
-   - Design minimum viable innovation experiments
-   - Create proof-of-concept prototyping strategies
-   - Plan innovation pilot programs and validation approaches
-   - Design scalable innovation frameworks and processes
-
-6. Implementation Strategy and Risk Assessment
-   - Assess organizational innovation readiness and capabilities
-   - Identify required technology investments and partnerships
-   - Evaluate risks including technology, market, and execution risks
-   - Design innovation governance and decision-making frameworks
-   - Plan talent acquisition and capability building strategies
-
-OUTPUT REQUIREMENTS: Save comprehensive analysis to:
-.workflow/WFS-{topic-slug}/.brainstorming/innovation-lead/
-- analysis.md (main innovation analysis and opportunity assessment)
-- technology-roadmap.md (technology trends and future scenarios)
-- innovation-concepts.md (breakthrough ideas and concept development)
-- strategy-implementation.md (innovation strategy and execution plan)
-
-Apply innovation leadership expertise to identify breakthrough opportunities and design future-ready strategies."
+### Progress Tracking
+TodoWrite tracking for two-step process:
+```json
+[
+  {"content": "Gather innovation lead context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
+  {"content": "Validate context responses and save to innovation-lead-context.md", "status": "pending", "activeForm": "Validating context"},
+  {"content": "Load innovation-lead planning template via flow control", "status": "pending", "activeForm": "Loading template"},
+  {"content": "Execute dedicated conceptual-planning-agent for innovation-lead role", "status": "pending", "activeForm": "Executing agent"}
+]
 ```
 
 ## 📊 **输出结构**
