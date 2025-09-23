@@ -1,0 +1,225 @@
+#!/bin/bash
+
+#==============================================================================
+# pycli - Python CLI Wrapper with Hierarchical Vector Database Support
+#
+# This script provides a bash wrapper for the Python-based analysis CLI,
+# with intelligent hierarchical vector database management.
+#
+# Features:
+# - Hierarchical vector database support (subdirs use parent's DB)
+# - Configurable Python environment
+# - Central vector database storage
+# - Smart project root detection
+#==============================================================================
+
+set -euo pipefail
+
+# Load configuration
+CONFIG_FILE="$(dirname "$0")/pycli.conf"
+if [[ -f "$CONFIG_FILE" ]]; then
+    source "$CONFIG_FILE"
+else
+    echo "Error: Configuration file not found: $CONFIG_FILE"
+    echo "Please ensure pycli.conf exists in the same directory as this script."
+    exit 1
+fi
+
+# Validate required configuration
+if [[ -z "${PYTHON_PATH:-}" ]]; then
+    echo "Error: PYTHON_PATH not set in configuration"
+    exit 1
+fi
+
+if [[ -z "${PYTHON_SCRIPT_DIR:-}" ]]; then
+    echo "Error: PYTHON_SCRIPT_DIR not set in configuration"
+    exit 1
+fi
+
+if [[ -z "${VECTOR_DB_ROOT:-}" ]]; then
+    echo "Error: VECTOR_DB_ROOT not set in configuration"
+    exit 1
+fi
+
+# Check if Python is available
+if ! command -v "$PYTHON_PATH" &> /dev/null; then
+    echo "Error: Python not found at $PYTHON_PATH"
+    echo "Please update PYTHON_PATH in $CONFIG_FILE"
+    exit 1
+fi
+
+# Check if Python script directory exists
+if [[ ! -d "$PYTHON_SCRIPT_DIR" ]]; then
+    echo "Error: Python script directory not found: $PYTHON_SCRIPT_DIR"
+    exit 1
+fi
+
+# Get current directory (will be used as project root for indexing)
+CURRENT_DIR=$(pwd)
+
+#==============================================================================
+# Helper Functions
+#==============================================================================
+
+# Convert current path to vector DB path
+# e.g., /home/user/project/subdir -> ~/.claude/vector_db/home_user_project_subdir
+get_vector_db_path() {
+    local path="$1"
+    # Replace / with _ and remove leading /
+    local safe_path="${path//\//_}"
+    safe_path="${safe_path#_}"
+    # Handle Windows paths (C: -> C_)
+    safe_path="${safe_path//:/_}"
+    echo "$VECTOR_DB_ROOT/$safe_path"
+}
+
+# Find nearest parent with existing vector DB
+find_project_root() {
+    local dir="$CURRENT_DIR"
+    local max_depth=10  # Prevent infinite loops
+    local depth=0
+
+    while [[ "$dir" != "/" ]] && [[ "$depth" -lt "$max_depth" ]]; do
+        local db_path=$(get_vector_db_path "$dir")
+
+        # Check if vector DB exists and has required files
+        if [[ -d "$db_path" ]] && ([[ -f "$db_path/embeddings.pkl" ]] || [[ -f "$db_path/index.json" ]]); then
+            echo "$dir"
+            return 0
+        fi
+
+        # Move to parent directory
+        local parent_dir=$(dirname "$dir")
+        if [[ "$parent_dir" == "$dir" ]]; then
+            break  # Reached root
+        fi
+        dir="$parent_dir"
+        ((depth++))
+    done
+
+    # No parent vector DB found, use current directory
+    echo "$CURRENT_DIR"
+}
+
+# Show help message
+show_help() {
+    cat << EOF
+pycli - Python CLI Wrapper with Hierarchical Vector Database Support
+
+USAGE:
+    pycli [OPTIONS]
+
+INITIALIZATION:
+    --init                    Initialize vector DB for current directory
+    --rebuild-index           Rebuild file index from scratch
+    --update-embeddings       Update vector embeddings for changed files
+
+ANALYSIS:
+    --analyze                 Run analysis with tool
+    --query TEXT              Semantic search query for context discovery
+    -p, --prompt TEXT         Direct prompt for analysis
+    --tool [gemini|codex|both] Which tool to use (default: $DEFAULT_TOOL)
+    --top-k INTEGER          Number of similar files to find (default: $DEFAULT_TOP_K)
+
+STATUS:
+    --status                 Show system status
+    --test-search            Test vector search functionality
+
+EXAMPLES:
+    # Initialize vector DB for current project
+    pycli --init
+
+    # Smart analysis with context discovery
+    pycli --analyze --query "authentication patterns" --tool gemini
+
+    # Direct analysis with known prompt
+    pycli --analyze --tool codex -p "implement user login"
+
+    # Update embeddings after code changes
+    pycli --update-embeddings
+
+    # Check system status
+    pycli --status
+
+For more information, see: ~/.claude/workflows/python-tools-strategy.md
+EOF
+}
+
+#==============================================================================
+# Main Logic
+#==============================================================================
+
+# Handle help
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]] || [[ $# -eq 0 ]]; then
+    show_help
+    exit 0
+fi
+
+# Determine action based on arguments
+case "${1:-}" in
+    --init|--rebuild-index)
+        # For initialization, always use current directory
+        PROJECT_ROOT="$CURRENT_DIR"
+        echo "Initializing vector database for: $PROJECT_ROOT"
+        ;;
+    *)
+        # For other operations, find nearest project root
+        PROJECT_ROOT=$(find_project_root)
+        if [[ "$PROJECT_ROOT" != "$CURRENT_DIR" ]]; then
+            echo "Using existing vector database from: $PROJECT_ROOT"
+        fi
+        ;;
+esac
+
+VECTOR_DB_PATH=$(get_vector_db_path "$PROJECT_ROOT")
+
+# Create vector DB directory if needed
+mkdir -p "$VECTOR_DB_PATH"
+
+# Determine which Python script to call
+if [[ "${1:-}" == "--update-embeddings" ]] || [[ "${1:-}" == "--rebuild-index" ]] || [[ "${1:-}" == "--init" ]]; then
+    # Use indexer.py for indexing operations
+    PYTHON_SCRIPT="$PYTHON_SCRIPT_DIR/indexer.py"
+
+    # Map --init to --rebuild-index --update-embeddings
+    if [[ "${1:-}" == "--init" ]]; then
+        set -- "--rebuild-index" "--update-embeddings"
+    fi
+
+    if [[ ! -f "$PYTHON_SCRIPT" ]]; then
+        echo "Error: indexer.py not found at $PYTHON_SCRIPT"
+        exit 1
+    fi
+else
+    # Use cli.py for analysis operations
+    PYTHON_SCRIPT="$PYTHON_SCRIPT_DIR/cli.py"
+
+    if [[ ! -f "$PYTHON_SCRIPT" ]]; then
+        echo "Error: cli.py not found at $PYTHON_SCRIPT"
+        exit 1
+    fi
+fi
+
+#==============================================================================
+# Environment Setup and Execution
+#==============================================================================
+
+# Set environment variables for Python scripts
+export PYCLI_VECTOR_DB_PATH="$VECTOR_DB_PATH"
+export PYCLI_PROJECT_ROOT="$PROJECT_ROOT"
+export PYCLI_CONFIG_FILE="$CONFIG_FILE"
+
+# Add some debugging info in verbose mode
+if [[ "${PYCLI_VERBOSE:-}" == "1" ]]; then
+    echo "Debug: PROJECT_ROOT=$PROJECT_ROOT"
+    echo "Debug: VECTOR_DB_PATH=$VECTOR_DB_PATH"
+    echo "Debug: PYTHON_SCRIPT=$PYTHON_SCRIPT"
+    echo "Debug: Arguments: $*"
+fi
+
+# Execute Python script with all arguments
+echo "Executing: $PYTHON_PATH $PYTHON_SCRIPT --root-path \"$PROJECT_ROOT\" $*"
+
+exec "$PYTHON_PATH" "$PYTHON_SCRIPT" \
+    --root-path "$PROJECT_ROOT" \
+    "$@"

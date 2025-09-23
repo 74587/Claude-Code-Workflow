@@ -66,12 +66,12 @@ file_extensions:
 # Embedding/RAG configuration
 embedding:
   enabled: true  # Set to true to enable RAG features
-  model: "codesage/codesage-large-v2"  # CodeSage V2 for code embeddings
+  model: "all-MiniLM-L6-v2"  # Stable general-purpose embedding model
   cache_dir: "cache"
   similarity_threshold: 0.6  # Higher threshold for better code similarity
-  max_context_length: 2048  # Increased for CodeSage V2 capabilities
-  batch_size: 8  # Reduced for larger model
-  trust_remote_code: true  # Required for CodeSage V2
+  max_context_length: 512  # Standard context length
+  batch_size: 32  # Standard batch size
+  trust_remote_code: false  # Not required for standard models
 
 # Context analysis settings
 context_analysis:
