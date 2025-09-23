@@ -199,19 +199,14 @@ add_to_shell_config() {
     return 1
 }
 
-# Try to add alias automatically
-ALIAS_ADDED=false
+# Add pycli to PATH
 PATH_ADDED=false
 
 if [[ -n "$SHELL_RC" ]]; then
-    # Try to add alias
-    if add_to_shell_config "$SHELL_RC" "alias pycli='$INSTALL_DIR/pycli'"; then
-        ALIAS_ADDED=true
-    fi
-
-    # Also add to PATH
+    # Add pycli directory to PATH
     if add_to_shell_config "$SHELL_RC" "export PATH=\"\$PATH:$INSTALL_DIR\""; then
         PATH_ADDED=true
+        print_success "Added $INSTALL_DIR to PATH in $SHELL_RC"
     fi
 fi
 
@@ -254,7 +249,7 @@ echo
 echo "🚀 Quick Start:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if [[ "$ALIAS_ADDED" == true ]]; then
+if [[ "$PATH_ADDED" == true ]]; then
     echo "  1. Reload your shell configuration:"
     echo "     source $SHELL_RC"
     echo
@@ -265,16 +260,12 @@ if [[ "$ALIAS_ADDED" == true ]]; then
     echo "  3. Start analyzing code:"
     echo "     pycli --analyze --query \"authentication patterns\" --tool gemini"
 else
-    echo "  1. Add pycli to your shell configuration:"
-    if [[ -n "$SHELL_RC" ]]; then
-        echo "     echo \"alias pycli='$INSTALL_DIR/pycli'\" >> $SHELL_RC"
-        echo "     source $SHELL_RC"
-    else
-        echo "     alias pycli='$INSTALL_DIR/pycli'"
-    fi
+    echo "  1. Add pycli to your PATH manually:"
+    echo "     echo 'export PATH=\"\$PATH:$INSTALL_DIR\"' >> $SHELL_RC"
+    echo "     source $SHELL_RC"
     echo
-    echo "  2. Or add to PATH:"
-    echo "     export PATH=\"\$PATH:$INSTALL_DIR\""
+    echo "  2. Or create a symlink (alternative):"
+    echo "     sudo ln -sf $INSTALL_DIR/pycli /usr/local/bin/pycli"
     echo
     echo "  3. Initialize vector DB for a project:"
     echo "     cd /path/to/your/project"
@@ -293,10 +284,11 @@ echo
 echo "⚙️  Configuration:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  • Edit config:  $INSTALL_DIR/pycli.conf"
+echo "  • pycli location: $INSTALL_DIR/pycli"
 
 if [[ -z "$DETECTED_PYTHON" ]]; then
     echo "  • ⚠️  Please update PYTHON_PATH in pycli.conf"
 fi
 
 echo
-print_success "Installation complete! 🎉"
+print_success "Installation complete! Now you can use 'pycli' command directly! 🎉"

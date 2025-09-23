@@ -140,10 +140,11 @@ Output Options:
 # Install pycli system
 bash D:/Claude_dms3/.claude/scripts/install_pycli.sh
 
-# Add to shell (automatic during install)
-alias pycli='~/.claude/scripts/pycli'
+# The script will automatically add ~/.claude/scripts/ to your PATH
+# Reload your shell configuration
+source ~/.bashrc  # or ~/.zshrc
 
-# Verify installation
+# Verify installation - now you can use pycli directly
 pycli --help
 ```
 
@@ -412,38 +413,6 @@ python .claude/python_script/indexer.py --rebuild-index --update-embeddings
 - ✅ System performance degraded
 - ✅ Configuration changed
 
-### 🔧 Configuration Guidelines
-
-#### Minimal config.yaml
-```yaml
-embeddings:
-  enabled: true
-  similarity_threshold: 0.3
-  model: "all-MiniLM-L6-v2"
-  batch_size: 32
-
-tools:
-  default_tool: "gemini"
-  timeout: 300
-```
-
-#### Performance tuning
-```yaml
-# Large codebase (>1000 files)
-embeddings:
-  batch_size: 64
-  similarity_threshold: 0.4
-
-# Memory constrained
-embeddings:
-  batch_size: 16
-  similarity_threshold: 0.2
-
-# High accuracy needed
-embeddings:
-  model: "all-mpnet-base-v2"
-  similarity_threshold: 0.5
-```
 
 ### 🚀 Migration from Legacy Tools
 
@@ -479,33 +448,4 @@ pycli --analyze --query "login implementation patterns" --tool codex
 - **Environment Management**: Configurable Python interpreter path
 - **Hierarchical Support**: Intelligent parent directory discovery
 
-### Configuration Flexibility
-```bash
-# Edit pycli configuration
-nano ~/.claude/scripts/pycli.conf
 
-# Key settings:
-# PYTHON_PATH - Python interpreter location
-# VECTOR_DB_ROOT - Central vector database storage
-# HIERARCHICAL_MODE - Enable parent DB discovery
-```
-
-### Integration Examples
-```bash
-# Add to your project's package.json scripts
-{
-  "scripts": {
-    "analyze": "pycli --analyze --query",
-    "init-ai": "pycli --init",
-    "update-ai": "pycli --update-embeddings"
-  }
-}
-
-# Use in Makefiles
-analyze:
-	pycli --analyze --query "$(QUERY)" --tool gemini
-
-# Use in CI/CD pipelines
-- name: Update AI Context
-  run: pycli --update-embeddings
-```
