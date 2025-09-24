@@ -59,10 +59,10 @@ The command performs dedicated role analysis through:
 - **Progress tracking**: Real-time TodoWrite updates per role
 
 **3. Analysis Artifacts Generated**
-- **Role contexts**: `.brainstorming/[role]-context.md` - User responses per role
-- **Agent outputs**: `.brainstorming/[role]/analysis.md` - Dedicated role analysis
-- **Session metadata**: `.brainstorming/auto-session.json` - Agent assignments and validation
-- **Synthesis**: `.brainstorming/synthesis/integrated-analysis.md` - Multi-role integration
+- **Role contexts**: `.workflow/WFS-[topic]/.brainstorming/[role]-context.md` - User responses per role
+- **Agent outputs**: `.workflow/WFS-[topic]/.brainstorming/[role]/analysis.md` - Dedicated role analysis
+- **Session metadata**: `.workflow/WFS-[topic]/.brainstorming/auto-session.json` - Agent assignments and validation
+- **Synthesis**: `.workflow/WFS-[topic]/.brainstorming/synthesis/integrated-analysis.md` - Multi-role integration
 
 ## Implementation Standards
 
@@ -73,8 +73,8 @@ Agents receive dedicated role assignments with complete context isolation:
 "agent_assignment": {
   "role": "system-architect",
   "agent_id": "conceptual-planning-agent-system-architect",
-  "context_source": ".brainstorming/system-architect-context.md",
-  "output_location": ".brainstorming/system-architect/",
+  "context_source": ".workflow/WFS-[topic]/.brainstorming/system-architect-context.md",
+  "output_location": ".workflow/WFS-[topic]/.brainstorming/system-architect/",
   "flow_control": {
     "pre_analysis": [
       {
@@ -86,19 +86,19 @@ Agents receive dedicated role assignments with complete context isolation:
       {
         "step": "load_user_context",
         "action": "Load user responses and context for role analysis",
-        "command": "bash(cat .brainstorming/system-architect-context.md)",
+        "command": "bash(cat .workflow/WFS-[topic]/.brainstorming/system-architect-context.md)",
         "output_to": "user_context"
       },
       {
         "step": "load_content_analysis",
         "action": "Load existing content analysis documents if available",
-        "command": "bash(find .brainstorming/ -name '*.md' -path '*/analysis/*' -o -name 'content-analysis.md' | head -5 | xargs cat 2>/dev/null || echo 'No content analysis found')",
+        "command": "bash(find .workflow/*/.brainstorming/ -name '*.md' -path '*/analysis/*' -o -name 'content-analysis.md' | head -5 | xargs cat 2>/dev/null || echo 'No content analysis found')",
         "output_to": "content_analysis"
       },
       {
         "step": "load_session_metadata",
         "action": "Load session metadata and previous analysis state",
-        "command": "bash(cat .brainstorming/auto-session.json 2>/dev/null || echo '{}')",
+        "command": "bash(cat .workflow/WFS-[topic]/.brainstorming/auto-session.json 2>/dev/null || echo '{}')",
         "output_to": "session_metadata"
       }
     ],
@@ -122,9 +122,9 @@ Agents receive dedicated role assignments with complete context isolation:
 
 **Content Sources**:
 - Role templates: `bash($(cat ~/.claude/workflows/cli-templates/planning-roles/<role>.md))` from `.claude/workflows/cli-templates/planning-roles/`
-- User responses: `bash(cat .brainstorming/<role>-context.md)` from interactive questioning phase
-- Content analysis: `bash(find .brainstorming/ -name '*.md' -path '*/analysis/*')` existing analysis documents
-- Session metadata: `bash(cat .brainstorming/auto-session.json)` for analysis state and context
+- User responses: `bash(cat .workflow/WFS-[topic]/.brainstorming/<role>-context.md)` from interactive questioning phase
+- Content analysis: `bash(find .workflow/*/.brainstorming/ -name '*.md' -path '*/analysis/*')` existing analysis documents
+- Session metadata: `bash(cat .workflow/WFS-[topic]/.brainstorming/auto-session.json)` for analysis state and context
 - Conceptual focus: Strategic and planning perspective without technical implementation
 
 **Trigger Conditions**: Topic analysis matches role domains, user provides adequate context responses, role template successfully loaded
@@ -161,9 +161,11 @@ Agents receive dedicated role assignments with complete context isolation:
 
 ## Document Generation
 
-**Workflow**: Role Selection → Context Gathering → Agent Delegation → Documentation → Synthesis
+**Workflow**: Interactive Discussion → Topic Decomposition → Role Selection → Context Gathering → Agent Delegation → Documentation → Synthesis
 
 **Always Created**:
+- **discussion-summary.md**: Main conversation points and key insights from interactive discussion
+- **component-analysis.md**: Detailed breakdown of topic components from discussion phase
 - **auto-session.json**: Agent assignments, context validation, completion tracking
 - **[role]-context.md**: User responses per role with question-answer pairs
 
@@ -180,6 +182,8 @@ Agents receive dedicated role assignments with complete context isolation:
 **Document Structure**:
 ```
 .workflow/WFS-[topic]/.brainstorming/
+├── discussion-summary.md       # Main conversation and insights
+├── component-analysis.md       # Detailed topic breakdown
 ├── auto-session.json           # Session metadata and agent tracking
 ├── system-architect-context.md # User responses for system-architect
 ├── system-architect-template.md# Loaded role template
@@ -216,6 +220,7 @@ Documents created for synthesis and action planning:
 - **[role]-context.md**: Context loading for role analysis
 - **[role]/analysis.md**: Role-specific analysis outputs
 - **synthesis/**: Multi-role integration for comprehensive planning
+
 
 ## Error Handling
 - **Role selection failure**: Default to `product-manager` with explanation
