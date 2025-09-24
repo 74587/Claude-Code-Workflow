@@ -7,10 +7,70 @@
 build_exclusion_filters() {
     local filters=""
     
-    # Always exclude these system/cache directories
+    # Always exclude these system/cache directories and common web dev packages
     local system_excludes=(
-        ".git" ".history" ".vscode" "__pycache__" ".pytest_cache"
-        "node_modules" "dist" "build" ".egg-info" ".env"
+        # Version control and IDE
+        ".git" ".gitignore" ".gitmodules" ".gitattributes"
+        ".svn" ".hg" ".bzr"
+        ".history" ".vscode" ".idea" ".vs" ".vscode-test"
+        ".sublime-text" ".atom"
+
+        # Python
+        "__pycache__" ".pytest_cache" ".mypy_cache" ".tox"
+        ".coverage" "htmlcov" ".nox" ".venv" "venv" "env"
+        ".egg-info" "*.egg-info" ".eggs" ".wheel"
+        "site-packages" ".python-version" ".pyc"
+
+        # Node.js/JavaScript
+        "node_modules" ".npm" ".yarn" ".pnpm" "yarn-error.log"
+        ".nyc_output" "coverage" ".next" ".nuxt"
+        ".cache" ".parcel-cache" ".vite" "dist" "build"
+        ".turbo" ".vercel" ".netlify"
+
+        # Package managers
+        ".pnpm-store" "pnpm-lock.yaml" "yarn.lock" "package-lock.json"
+        ".bundle" "vendor/bundle" "Gemfile.lock"
+        ".gradle" "gradle" "gradlew" "gradlew.bat"
+        ".mvn" "target" ".m2"
+
+        # Build/compile outputs
+        "dist" "build" "out" "output" "_site" "public"
+        ".output" ".generated" "generated" "gen"
+        "bin" "obj" "Debug" "Release"
+
+        # Testing
+        ".pytest_cache" ".coverage" "htmlcov" "test-results"
+        ".nyc_output" "junit.xml" "test_results"
+        "cypress/screenshots" "cypress/videos"
+        "playwright-report" ".playwright"
+
+        # Logs and temp files
+        "logs" "*.log" "log" "tmp" "temp" ".tmp" ".temp"
+        ".env" ".env.local" ".env.*.local"
+        ".DS_Store" "Thumbs.db" "*.tmp" "*.swp" "*.swo"
+
+        # Documentation build outputs
+        "_book" "_site" "docs/_build" "site" "gh-pages"
+        ".docusaurus" ".vuepress" ".gitbook"
+
+        # Database files
+        "*.sqlite" "*.sqlite3" "*.db" "data.db"
+
+        # OS and editor files
+        ".DS_Store" "Thumbs.db" "desktop.ini"
+        "*.stackdump" "core" "*.core"
+
+        # Cloud and deployment
+        ".serverless" ".terraform" "terraform.tfstate"
+        ".aws" ".azure" ".gcp"
+
+        # Mobile development
+        ".gradle" "build" ".expo" ".metro"
+        "android/app/build" "ios/build" "DerivedData"
+
+        # Game development
+        "Library" "Temp" "ProjectSettings"
+        "Logs" "MemoryCaptures" "UserSettings"
     )
     
     for exclude in "${system_excludes[@]}"; do

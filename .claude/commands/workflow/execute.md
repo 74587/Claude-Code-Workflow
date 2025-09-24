@@ -34,13 +34,13 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 - **Autonomous completion**: **Execute all tasks without user interruption until workflow complete**
 
 ## Flow Control Execution
-**[FLOW_CONTROL]** marker indicates sequential step execution required for context gathering and preparation.
+**[FLOW_CONTROL]** marker indicates sequential step execution required for context gathering and preparation. **These steps are executed BY THE AGENT, not by the workflow:execute command.**
 
 ### Flow Control Rules
-1. **Auto-trigger**: When `task.flow_control.pre_analysis` array exists in task JSON
-2. **Sequential Processing**: Execute steps in order, accumulating context
-3. **Variable Passing**: Use `[variable_name]` syntax to reference step outputs
-4. **Error Handling**: Follow step-specific error strategies (`fail`, `skip_optional`, `retry_once`)
+1. **Auto-trigger**: When `task.flow_control.pre_analysis` array exists in task JSON, agents execute these steps
+2. **Sequential Processing**: Agents execute steps in order, accumulating context
+3. **Variable Passing**: Agents use `[variable_name]` syntax to reference step outputs
+4. **Error Handling**: Agents follow step-specific error strategies (`fail`, `skip_optional`, `retry_once`)
 
 ### Execution Pattern
 ```
@@ -49,11 +49,11 @@ Step 2: analyze_patterns [dependency_context] → pattern_analysis
 Step 3: implement_solution [pattern_analysis] [dependency_context] → implementation
 ```
 
-### Context Accumulation Process
-- **Load Dependencies**: Retrieve summaries from `context.depends_on` tasks
-- **Execute Analysis**: Run CLI tools with accumulated context
-- **Prepare Implementation**: Build comprehensive context for agent execution
-- **Pass to Agent**: Provide all accumulated context for implementation
+### Context Accumulation Process (Executed by Agents)
+- **Load Dependencies**: Agents retrieve summaries from `context.depends_on` tasks
+- **Execute Analysis**: Agents run CLI tools with accumulated context
+- **Prepare Implementation**: Agents build comprehensive context for implementation
+- **Continue Implementation**: Agents use all accumulated context for task execution
 
 ## Execution Lifecycle
 
@@ -73,11 +73,12 @@ Step 3: implement_solution [pattern_analysis] [dependency_context] → implement
 1. **Create TodoWrite List**: Generate task list with status markers
 2. **Mark Initial Status**: Set first task as `in_progress`
 3. **Prepare Session Context**: Inject workflow paths for agent use
-4. **Validate Prerequisites**: Ensure all required context is available
+4. **Prepare Complete Task JSON**: Include pre_analysis and flow control steps for agent consumption
+5. **Validate Prerequisites**: Ensure all required context is available
 
 ### Phase 4: Execution
-1. **Execute Flow Control**: Run `pre_analysis` steps if present
-2. **Launch Agent**: Invoke specialized agent with complete context
+1. **Pass Task with Flow Control**: Include complete task JSON with `pre_analysis` steps for agent execution
+2. **Launch Agent**: Invoke specialized agent with complete context including flow control steps
 3. **Monitor Progress**: Track agent execution and handle errors without user interruption
 4. **Collect Results**: Gather implementation results and outputs
 5. **Continue Workflow**: Automatically proceed to next pending task until completion
@@ -231,7 +232,7 @@ Task(subagent_type="{agent_type}",
      {flow_control_marker}
 
      ### Flow Control Steps (if [FLOW_CONTROL] present)
-     Execute sequentially with context accumulation:
+     **AGENT RESPONSIBILITY**: Execute these pre_analysis steps sequentially with context accumulation:
      {pre_analysis_steps}
 
      ### Implementation Context
@@ -375,58 +376,16 @@ fi
 - **Dependency Validation**: Check all depends_on references exist
 - **Context Verification**: Ensure all required context is available
 
-## Usage Examples & Integration
+## Usage Examples
 
-### Complete Execution Workflow
+### Basic Usage
 ```bash
-# 1. Check current status
-/workflow:status
-
-# 2. Execute workflow tasks
-/workflow:execute
-
-# 3. Monitor progress
-/workflow:status --format=hierarchy
-
-# 4. Continue with remaining tasks
-/workflow:execute
-
-# 5. Review when complete
-/workflow:review
+/workflow:execute          # Execute all pending tasks autonomously
+/workflow:status           # Check progress
+/task:execute IMPL-1.2     # Execute specific task
 ```
 
-### Common Scenarios
-
-#### Single Task Execution
-```bash
-/task:execute IMPL-1.2    # Execute specific task
-```
-
-#### Resume After Error
-```bash
-/workflow:status --validate  # Check for issues
-/workflow:execute           # Resume execution
-```
-
-#### Multiple Session Management
-```bash
-# Will prompt for session selection if multiple active
-/workflow:execute
-
-# Or check status first
-find .workflow -name ".active-*" -exec basename {} \; | sed 's/^\.active-//'
-```
-
-### Integration Points
-- **Planning**: Use `/workflow:plan` to create session and tasks
-- **Status**: Use `/workflow:status` for real-time progress views
-- **Documentation**: Use `/workflow:docs` for context generation
-- **Review**: Use `/workflow:review` for completion validation
-
-### Key Benefits
-- **Autonomous Execution**: Agents work independently with complete context
-- **Progress Tracking**: Real-time TodoWrite updates and status synchronization
-- **Error Recovery**: Comprehensive error handling and recovery procedures
-- **Context Management**: Systematic context accumulation and distribution
-- **Flow Control**: Sequential step execution with variable passing
+### Integration
+- **Planning**: `/workflow:plan` → `/workflow:execute` → `/workflow:review`
+- **Recovery**: `/workflow:status --validate` → `/workflow:execute`
 
