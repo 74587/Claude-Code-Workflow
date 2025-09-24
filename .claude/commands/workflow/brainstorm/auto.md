@@ -82,6 +82,24 @@ Agents receive dedicated role assignments with complete context isolation:
         "action": "Load system-architect planning template",
         "command": "bash($(cat ~/.claude/workflows/cli-templates/planning-roles/system-architect.md))",
         "output_to": "role_template"
+      },
+      {
+        "step": "load_user_context",
+        "action": "Load user responses and context for role analysis",
+        "command": "bash(cat .brainstorming/system-architect-context.md)",
+        "output_to": "user_context"
+      },
+      {
+        "step": "load_content_analysis",
+        "action": "Load existing content analysis documents if available",
+        "command": "bash(find .brainstorming/ -name '*.md' -path '*/analysis/*' -o -name 'content-analysis.md' | head -5 | xargs cat 2>/dev/null || echo 'No content analysis found')",
+        "output_to": "content_analysis"
+      },
+      {
+        "step": "load_session_metadata",
+        "action": "Load session metadata and previous analysis state",
+        "command": "bash(cat .brainstorming/auto-session.json 2>/dev/null || echo '{}')",
+        "output_to": "session_metadata"
       }
     ],
     "implementation_approach": {
@@ -96,13 +114,17 @@ Agents receive dedicated role assignments with complete context isolation:
 
 **Context Accumulation & Role Isolation**:
 1. **Role template loading**: Planning role template with domain expertise via CLI
-2. **Context validation**: Minimum response requirements with re-prompting
-3. **Conceptual analysis**: Role-specific perspective on topic without implementation details
-4. **Agent delegation**: Complete context handoff to dedicated conceptual-planning-agent
+2. **User context loading**: Direct user responses and context from interactive questioning
+3. **Content analysis integration**: Existing analysis documents and session metadata
+4. **Context validation**: Minimum response requirements with re-prompting
+5. **Conceptual analysis**: Role-specific perspective on topic without implementation details
+6. **Agent delegation**: Complete context handoff to dedicated conceptual-planning-agent with all references
 
 **Content Sources**:
 - Role templates: `bash($(cat ~/.claude/workflows/cli-templates/planning-roles/<role>.md))` from `.claude/workflows/cli-templates/planning-roles/`
-- User responses: Direct context gathering during interactive questioning phase
+- User responses: `bash(cat .brainstorming/<role>-context.md)` from interactive questioning phase
+- Content analysis: `bash(find .brainstorming/ -name '*.md' -path '*/analysis/*')` existing analysis documents
+- Session metadata: `bash(cat .brainstorming/auto-session.json)` for analysis state and context
 - Conceptual focus: Strategic and planning perspective without technical implementation
 
 **Trigger Conditions**: Topic analysis matches role domains, user provides adequate context responses, role template successfully loaded
