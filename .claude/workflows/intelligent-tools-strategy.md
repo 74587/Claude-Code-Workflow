@@ -16,6 +16,7 @@ type: strategic-guideline
 - **When in doubt, use both** - Parallel usage provides comprehensive coverage
 - **Default to tools** - Use specialized tools for most coding tasks, no matter how small
 - **Lower barriers** - Engage tools immediately when encountering any complexity
+- **Context optimization** - Based on user intent, determine whether to use `cd [directory]` for focused analysis to reduce irrelevant context import
 
 ### Quick Decision Rules
 1. **Exploring/Understanding?** → Start with Gemini
@@ -188,3 +189,20 @@ For every development task:
 - **Include constraints** - File patterns, scope, requirements in RULES
 - **Test patterns first** - Validate file patterns with `ls`
 - **Document context** - Always reference CLAUDE.md for context
+
+### Context Optimization Strategy
+**Directory Navigation**: Use `cd [directory]` when analyzing specific areas to reduce irrelevant context
+
+**When to use `cd`**:
+- Specific directory mentioned → Navigate first
+- Focused analysis needed → Change to target directory
+- Multi-directory scope → Stay in root, use explicit paths
+
+**Example**:
+```bash
+# Focused (preferred)
+cd src/auth && ~/.claude/scripts/gemini-wrapper -p "analyze auth patterns"
+
+# Multi-scope
+~/.claude/scripts/gemini-wrapper -p "CONTEXT: @{src/auth/**/*,src/api/**/*}"
+```
