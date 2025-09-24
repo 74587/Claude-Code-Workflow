@@ -187,4 +187,8 @@ Documents created for `/workflow:execute`:
 - **File not found**: Clear suggestions
 - **>10 tasks**: Force re-scoping into iterations
 
+## Planning-Only Constraint
+This command creates implementation plans but does not execute them.
+Use `/workflow:execute` for actual implementation.
+
 
