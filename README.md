@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v1.3.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v2.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -16,15 +16,16 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework for software development that orchestrates complex development tasks through intelligent workflow management and autonomous execution.
 
-> **🎯 Latest Release v1.3**: Enhanced task decomposition standards, advanced search strategies with bash command combinations, free exploration phases for agents, and comprehensive workflow system improvements. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎯 Latest Release v2.0**: Major architectural evolution with enhanced workflow lifecycle, Python-powered backend (`pycli`), comprehensive test workflow generation, plan verification system, and brainstorm artifacts integration. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ### 🌟 Key Innovations
 
-- **🧠 Intelligent Task Decomposition**: New core standards prevent over-fragmentation with functional completeness principles
-- **🔍 Advanced Search Strategies**: Powerful command combinations using ripgrep, grep, find, awk, sed for comprehensive analysis
-- **⚡ Free Exploration Phase**: Agents can gather supplementary context after structured analysis
+- **🔄 Enhanced Workflow Lifecycle**: Complete development cycle: Brainstorm → Plan → Verify → Execute → Test → Review
+- **🐍 Python-Powered Backend**: Advanced `pycli` integration with hierarchical vector database support for semantic context discovery
+- **🧪 Automated Test Generation**: Comprehensive test workflow generation (`/workflow:test-gen`) with full coverage planning
+- **✅ Plan Verification System**: Pre-execution validation using dual Gemini/Codex analysis (`/workflow:plan-verify`)
 - **🎯 JSON-First Architecture**: Single source of truth with atomic session management
-- **🤖 Dual CLI Integration**: Gemini for analysis, Codex for autonomous development
+- **💡 Brainstorm Artifacts**: Multi-perspective planning with synthesis and structured document generation
 
 ---
 
@@ -92,39 +93,45 @@ graph TB
 
 ---
 
-## ✨ Major Enhancements v1.3
+## ✨ Major Enhancements v2.0
 
-### 🎯 **Core Task Decomposition Standards**
-Revolutionary task decomposition system with four core principles:
+### 🔄 **Enhanced Workflow Lifecycle**
+Complete development lifecycle with quality gates at each phase:
 
-1. **🎯 Functional Completeness Principle** - Complete, runnable functional units
-2. **📏 Minimum Size Threshold** - 3+ files or 200+ lines minimum
-3. **🔗 Dependency Cohesion Principle** - Tightly coupled components together
-4. **📊 Hierarchy Control Rule** - Flat ≤5, hierarchical 6-10, re-scope >10
+1. **💡 Brainstorm Phase** - Multi-perspective conceptual planning with role-based analysis
+2. **📋 Plan Phase** - Structured implementation planning with task decomposition
+3. **✅ Verify Phase** - Pre-execution validation using Gemini (strategic) + Codex (technical)
+4. **⚡ Execute Phase** - Autonomous implementation with multi-agent orchestration
+5. **🧪 Test Phase** - Automated test workflow generation with comprehensive coverage
+6. **🔍 Review Phase** - Quality assurance and completion validation
 
-### 🔍 **Advanced Search Strategies**
-Powerful command combinations for comprehensive codebase analysis:
+### 🐍 **Python-Powered Backend (`pycli`)**
+Advanced semantic context discovery system:
 
 ```bash
-# Pattern discovery with context
-rg -A 3 -B 3 'authenticate|login|jwt' --type ts --type js | head -50
+# Hierarchical vector database support
+pycli --semantic-search "authentication patterns"
 
-# Multi-tool analysis pipeline
-find . -name '*.ts' | xargs rg -l 'auth' | head -15
+# Auto-detects parent directory vector DB
+pycli --context-discovery --inherit-parent
 
-# Interface extraction with awk
-rg '^\\s*interface\\s+\\w+' --type ts -A 5 | awk '/interface/{p=1} p&&/^}/{p=0;print}'
+# Intelligent file relevance scoring
+pycli --analyze-relevance "jwt token validation"
 ```
 
-### 🚀 **Free Exploration Phase**
-Agents can enter supplementary context gathering using bash commands (grep, find, rg, awk, sed) after completing structured pre-analysis steps.
+### 🧪 **Automated Test Generation**
+Comprehensive test workflow creation:
+- **Implementation Analysis**: Scans completed IMPL-* tasks for test requirements
+- **Multi-layered Testing**: Unit, Integration, E2E, Performance, Security tests
+- **Agent Assignment**: Specialized test agents for different test types
+- **Dependency Mapping**: Test execution follows implementation dependency chains
 
-### 🧠 **Intelligent Gemini Wrapper**
-Smart automation with token management and approval modes:
-- **Analysis Detection**: Keywords trigger `--approval-mode default`
-- **Development Detection**: Action words trigger `--approval-mode yolo`
-- **Auto Token Management**: Handles `--all-files` based on project size
-- **Error Logging**: Comprehensive error tracking and recovery
+### ✅ **Plan Verification System**
+Dual-engine validation before execution:
+- **Gemini Strategic Analysis**: High-level feasibility and architectural soundness
+- **Codex Technical Analysis**: Implementation details and technical feasibility
+- **Cross-Validation**: Identifies conflicts between strategic vision and technical constraints
+- **Improvement Suggestions**: Actionable recommendations before implementation begins
 
 ---
 
@@ -185,11 +192,13 @@ CCW automatically adapts workflow structure based on project complexity:
 #### 🎯 Workflow Operations
 | Command | Function | Usage |
 |---------|----------|-------|
-| `💭 /workflow:brainstorm` | Multi-agent planning | `/workflow:brainstorm "microservices architecture"` |
+| `💭 /workflow:brainstorm:*` | **NEW**: Multi-perspective planning | `/workflow:brainstorm:system-architect "microservices"` |
+| `🎨 /workflow:brainstorm:artifacts` | **NEW**: Generate planning documents | `/workflow:brainstorm:artifacts --synthesis` |
 | `📋 /workflow:plan` | Convert to executable plans | `/workflow:plan --from-brainstorming` |
-| `🔍 /workflow:plan-deep` | Deep architectural planning | `/workflow:plan-deep "API redesign" --complexity=high` |
-| `⚡ /workflow:execute` | Implementation phase | `/workflow:execute --type=complex` |
-| `✅ /workflow:review` | Quality assurance | `/workflow:review --auto-fix` |
+| `✅ /workflow:plan-verify` | **NEW**: Pre-execution validation | `/workflow:plan-verify --dual-analysis` |
+| `⚡ /workflow:execute` | Implementation phase | `/workflow:execute --autonomous` |
+| `🧪 /workflow:test-gen` | **NEW**: Generate test workflows | `/workflow:test-gen --coverage=comprehensive` |
+| `🔍 /workflow:review` | Quality assurance | `/workflow:review --auto-fix` |
 
 #### 🏷️ Task Management
 | Command | Function | Usage |
@@ -272,11 +281,14 @@ graph TD
 ├── 💬 prompt-templates/      # AI interaction templates
 ├── 🔧 scripts/              # Automation utilities
 │   ├── 📊 gemini-wrapper           # Intelligent Gemini wrapper
+│   ├── 🐍 pycli                    # NEW: Python CLI backend
+│   ├── 🛠️ install_pycli.sh          # NEW: Python tools installer
 │   ├── 📋 read-task-paths.sh       # Task path conversion
 │   └── 🏗️ get_modules_by_depth.sh  # Project analysis
 ├── 🛠️ workflows/            # Core workflow documentation
 │   ├── 🏛️ workflow-architecture.md      # System architecture
 │   ├── 📊 intelligent-tools-strategy.md # Tool selection guide
+│   ├── 🐍 python-tools-strategy.md     # NEW: Python backend strategy
 │   └── 🔧 tools-implementation-guide.md # Implementation details
 └── ⚙️ settings.local.json   # Local configuration
 
@@ -287,7 +299,10 @@ graph TD
     ├── 📊 .task/impl-*.json        # Task definitions
     ├── 📝 IMPL_PLAN.md             # Planning documents
     ├── ✅ TODO_LIST.md              # Progress tracking
-    └── 📚 .summaries/              # Completion summaries
+    ├── 📚 .summaries/              # Completion summaries
+    ├── 🧠 .process/                # NEW: Planning artifacts
+    │   └── 📈 ANALYSIS_RESULTS.md  # Analysis results
+    └── 🧪 WFS-test-[session]/     # NEW: Generated test workflows
 ```
 
 ---
