@@ -16,7 +16,7 @@ type: strategic-guideline
 - **When in doubt, use both** - Parallel usage provides comprehensive coverage
 - **Default to tools** - Use specialized tools for most coding tasks, no matter how small
 - **Lower barriers** - Engage tools immediately when encountering any complexity
-- **Context optimization** - Based on user intent, determine whether to use `cd [directory]` for focused analysis to reduce irrelevant context import
+- **Context optimization** - Based on user intent, determine whether to use `-C [directory]` parameter for focused analysis to reduce irrelevant context import
 
 ### Quick Decision Rules
 1. **Exploring/Understanding?** → Start with Gemini
@@ -35,7 +35,7 @@ type: strategic-guideline
 ### Standard Format (REQUIRED)
 ```bash
 # Gemini Analysis
-~/.claude/scripts/gemini-wrapper -p "
+~/.claude/scripts/gemini-wrapper [-C directory] -p "
 PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
 CONTEXT: [file references and memory context]
@@ -44,7 +44,7 @@ RULES: [template reference and constraints]
 "
 
 # Codex Development
-codex --full-auto exec "
+codex [-C directory] --full-auto exec "
 PURPOSE: [clear development goal]
 TASK: [specific development task]
 CONTEXT: [file references and memory context]
@@ -59,6 +59,13 @@ RULES: [template reference and constraints]
 - [ ] **CONTEXT** - File references and memory context from previous sessions
 - [ ] **EXPECTED** - Clear expected results
 - [ ] **RULES** - Template reference and constraints
+
+### Directory Context (-C parameter)
+Both tools support changing working directory before execution:
+- **Gemini**: `~/.claude/scripts/gemini-wrapper -C path/to/project -p "prompt"`
+- **Codex**: `codex -C path/to/project --full-auto exec "task"`
+- **Path types**: Supports both relative (`../project`) and absolute (`/full/path`) paths
+- **Token analysis**: For gemini-wrapper, token counting happens in target directory
 
 ### Rules Field Format
 ```bash
@@ -123,7 +130,7 @@ When planning any coding task, **ALWAYS** integrate CLI tools:
 
 ### Common Scenarios
 ```bash
-# Project Analysis
+# Project Analysis (in current directory)
 ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Understand codebase architecture
 TASK: Analyze project structure and identify patterns
@@ -132,8 +139,17 @@ EXPECTED: Architecture overview and integration points
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on integration points
 "
 
-# Feature Development
-codex --full-auto exec "
+# Project Analysis (in different directory)
+~/.claude/scripts/gemini-wrapper -C ../other-project -p "
+PURPOSE: Compare authentication patterns
+TASK: Analyze auth implementation in related project
+CONTEXT: @{src/auth/**/*} Current project context from session memory
+EXPECTED: Pattern comparison and recommendations
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | Focus on architectural differences
+"
+
+# Feature Development (in target directory)
+codex -C path/to/project --full-auto exec "
 PURPOSE: Implement user authentication
 TASK: Create JWT-based authentication system
 CONTEXT: @{src/auth/**/*} Database schema from session memory
@@ -191,18 +207,21 @@ For every development task:
 - **Document context** - Always reference CLAUDE.md for context
 
 ### Context Optimization Strategy
-**Directory Navigation**: Use `cd [directory]` when analyzing specific areas to reduce irrelevant context
+**Directory Navigation**: Use `-C [directory]` parameter when analyzing specific areas to reduce irrelevant context
 
-**When to use `cd`**:
-- Specific directory mentioned → Navigate first
-- Focused analysis needed → Change to target directory
-- Multi-directory scope → Stay in root, use explicit paths
+**When to use `-C`**:
+- Specific directory mentioned → Use `-C directory` parameter
+- Focused analysis needed → Target specific directory with `-C`
+- Multi-directory scope → Stay in root, use explicit paths or multiple commands
 
 **Example**:
 ```bash
 # Focused (preferred)
-cd src/auth && ~/.claude/scripts/gemini-wrapper -p "analyze auth patterns"
+~/.claude/scripts/gemini-wrapper -C src/auth -p "analyze auth patterns"
 
-# Multi-scope
+# Alternative for codex
+codex -C src/auth --full-auto exec "analyze auth implementation"
+
+# Multi-scope (stay in root)
 ~/.claude/scripts/gemini-wrapper -p "CONTEXT: @{src/auth/**/*,src/api/**/*}"
 ```

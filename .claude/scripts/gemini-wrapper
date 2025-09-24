@@ -1,9 +1,10 @@
 #!/bin/bash
 # gemini-wrapper - Token-aware wrapper for gemini command
 # Location: ~/.claude/scripts/gemini-wrapper
-# 
+#
 # This wrapper automatically manages --all-files flag based on project token count
-# Usage: gemini-wrapper [all gemini options]
+# Usage: gemini-wrapper [-C <directory>] [all gemini options]
+#   -C <directory>  Change to specified directory before analysis (relative or absolute path)
 
 set -e
 
@@ -38,19 +39,57 @@ count_tokens() {
 # Parse arguments to check for flags
 has_all_files=false
 has_approval_mode=false
+change_dir=""
 args=()
 
-# Check for existing flags
-for arg in "$@"; do
-    if [[ "$arg" == "--all-files" ]]; then
-        has_all_files=true
-    elif [[ "$arg" == --approval-mode* ]]; then
-        has_approval_mode=true
-    fi
-    args+=("$arg")
+# Check for existing flags and -c parameter
+i=0
+while [[ $i -lt $# ]]; do
+    arg="${!i}"
+    case "$arg" in
+        "--all-files")
+            has_all_files=true
+            args+=("$arg")
+            ;;
+        --approval-mode*)
+            has_approval_mode=true
+            args+=("$arg")
+            ;;
+        "-C")
+            # Next argument is the directory
+            i=$((i + 1))
+            if [[ $i -lt $# ]]; then
+                change_dir="${!i}"
+                echo -e "${YELLOW}📁 Directory change requested: $change_dir${NC}" >&2
+            else
+                echo -e "${RED}❌ Error: -C requires a directory path${NC}" >&2
+                exit 1
+            fi
+            ;;
+        *)
+            args+=("$arg")
+            ;;
+    esac
+    i=$((i + 1))
 done
 
-# Count tokens
+# Change directory if requested
+original_dir=""
+if [[ -n "$change_dir" ]]; then
+    original_dir=$(pwd)
+    if [[ -d "$change_dir" ]]; then
+        echo -e "${GREEN}📁 Changing to directory: $change_dir${NC}" >&2
+        cd "$change_dir" || {
+            echo -e "${RED}❌ Error: Cannot change to directory: $change_dir${NC}" >&2
+            exit 1
+        }
+    else
+        echo -e "${RED}❌ Error: Directory does not exist: $change_dir${NC}" >&2
+        exit 1
+    fi
+fi
+
+# Count tokens (in the target directory if -c was used)
 echo -e "${YELLOW}🔍 Analyzing project size...${NC}" >&2
 read -r token_count file_count <<< "$(count_tokens)"
 

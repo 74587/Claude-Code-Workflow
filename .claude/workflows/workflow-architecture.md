@@ -114,7 +114,7 @@ All task files use this unified 5-field schema:
 
   "meta": {
     "type": "feature|bugfix|refactor|test|docs",
-    "agent": "@code-developer|@planning-agent|@code-review-test-agent"
+    "agent": "code-developer|planning-agent|code-review-test-agent"
   },
 
   "context": {
