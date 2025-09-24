@@ -83,6 +83,13 @@ The following pre_analysis steps are generated for agent execution:
       "action": "Retrieve relevant documentation based on task scope and requirements",
       "command": "bash(cat .workflow/docs/README.md $(if [[ \"$TASK_TYPE\" == *\"architecture\"* ]]; then echo .workflow/docs/architecture/*.md; fi) $(if [[ \"$TASK_MODULES\" ]]; then for module in $TASK_MODULES; do echo .workflow/docs/modules/$module/*.md; done; fi) $(if [[ \"$TASK_TYPE\" == *\"api\"* ]]; then echo .workflow/docs/api/*.md; fi) CLAUDE.md README.md 2>/dev/null || echo 'documentation not found')",
       "output_to": "doc_context"
+    },
+    {
+      "step": "analyze_patterns",
+      "action": "Analyze codebase patterns and architecture using CLI tools",
+      "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze existing patterns TASK: Identify implementation patterns for [task_type] CONTEXT: [planning_context] [dependency_context] EXPECTED: Pattern analysis and recommendations RULES: Focus on architectural consistency\")",
+      "output_to": "pattern_analysis",
+      "on_error": "skip_optional"
     }
   ]
 }
@@ -93,6 +100,7 @@ Flow_control design should follow these principles:
 1. **Structure Analysis**: Project hierarchy and patterns
 2. **Dependency Mapping**: Previous task summaries → inheritance context
 3. **Task Context Generation**: Combined analysis → task.context fields
+4. **CLI Tool Analysis**: Use Gemini/Codex appropriately for pattern analysis when needed 
 
 **Content Sources**:
 - Task summaries: `.workflow/WFS-[session]/.summaries/`
