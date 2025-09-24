@@ -1,14 +1,14 @@
 ---
-name: verify
+name: plan-verify
 description: Cross-validate action plans using gemini and codex analysis before execution
-usage: /workflow:verify
+usage: /workflow:plan-verify
 argument-hint: none
 examples:
-  - /workflow:verify
+  - /workflow:plan-verify
 allowed-tools: Task(*), TodoWrite(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*)
 ---
 
-# Workflow Verify Command
+# Workflow Plan Verify Command
 
 ## Overview
 Cross-validates existing workflow plans using gemini and codex analysis to ensure plan quality, feasibility, and completeness before execution. **Works between `/workflow:plan` and `/workflow:execute`** to catch potential issues early and suggest improvements.
