@@ -23,6 +23,7 @@ For all CLI tool usage, command syntax, and integration guidelines:
 - **Pragmatic over dogmatic** - Adapt to project reality
 - **Clear intent over clever code** - Be boring and obvious
 - **Simple solutions over complex architectures** - Avoid over-engineering and premature optimization
+- **Follow existing code style** - Match import patterns, naming conventions, and formatting of existing codebase
 
 ### Simplicity Means
 
