@@ -19,9 +19,10 @@ For all CLI tool usage, command syntax, and integration guidelines:
 ### Core Beliefs
 
 - **Incremental progress over big bangs** - Small changes that compile and pass tests
-- **Learning from existing code** - Study and plan before implementing  
+- **Learning from existing code** - Study and plan before implementing
 - **Pragmatic over dogmatic** - Adapt to project reality
 - **Clear intent over clever code** - Be boring and obvious
+- **Simple solutions over complex architectures** - Avoid over-engineering and premature optimization
 
 ### Simplicity Means
 
