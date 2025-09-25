@@ -105,9 +105,16 @@ The following pre_analysis steps are generated for agent execution:
     },
     {
       "step": "analyze_patterns",
-      "action": "Analyze codebase patterns and architecture using CLI tools",
-      "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze existing patterns TASK: Identify implementation patterns for [task_type] CONTEXT: [planning_context] [dependency_context] EXPECTED: Pattern analysis and recommendations RULES: Focus on architectural consistency\")",
+      "action": "Analyze codebase patterns and architecture using CLI tools with directory context",
+      "command": "bash(~/.claude/scripts/gemini-wrapper -C [target_directory] -p \"PURPOSE: Analyze existing patterns TASK: Identify implementation patterns for [task_type] CONTEXT: [planning_context] [dependency_context] EXPECTED: Pattern analysis and recommendations RULES: Focus on architectural consistency\")",
       "output_to": "pattern_analysis",
+      "on_error": "skip_optional"
+    },
+    {
+      "step": "analyze_implementation",
+      "action": "Development-focused analysis using Codex when needed",
+      "command": "bash(codex -C [target_directory] --full-auto exec \"PURPOSE: Analyze implementation patterns TASK: Review development patterns for [task_type] CONTEXT: [planning_context] [dependency_context] EXPECTED: Development strategy and code patterns RULES: Focus on implementation consistency\" -s danger-full-access)",
+      "output_to": "implementation_analysis",
       "on_error": "skip_optional"
     }
   ]
