@@ -45,7 +45,7 @@ Output:
 ✅ Task created: IMPL-1
 Title: Build authentication module
 Type: feature
-Agent: @code-developer
+Agent: code-developer
 Status: pending
 ```
 
@@ -105,10 +105,10 @@ Tasks inherit from:
 ## Agent Assignment
 
 Based on task type and title keywords:
-- **Build/Implement** → `@code-developer`
-- **Design/Plan** → `@planning-agent`
-- **Test/Validate** → `@code-review-test-agent`
-- **Review/Audit** → `@review-agent`
+- **Build/Implement** → @code-developer
+- **Design/Plan** → @planning-agent
+- **Test/Validate** → @code-review-test-agent
+- **Review/Audit** → @review-agent`
 
 ## Validation Rules
 
@@ -141,7 +141,7 @@ Based on task type and title keywords:
 
 ✅ Created IMPL-1: Implement user authentication
 Type: feature
-Agent: @code-developer
+Agent: code-developer
 Status: pending
 ```
 
@@ -151,7 +151,7 @@ Status: pending
 
 ✅ Created IMPL-2: Fix login validation bug
 Type: bugfix
-Agent: @code-developer
+Agent: code-developer
 Status: pending
 ```
 

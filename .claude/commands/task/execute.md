@@ -138,7 +138,7 @@ This is the simplified data structure loaded to provide context for task executi
     "title": "Build authentication module",
     "type": "feature",
     "status": "active",
-    "agent": "@code-developer",
+    "agent": "code-developer",
     "context": {
       "requirements": ["JWT authentication", "OAuth2 support"],
       "scope": ["src/auth/*", "tests/auth/*"],
@@ -209,7 +209,7 @@ This is the simplified data structure loaded to provide context for task executi
     }
   },
   "execution": {
-    "agent": "@code-developer",
+    "agent": "code-developer",
     "mode": "auto",
     "attempts": 0
   }
@@ -262,7 +262,7 @@ Optional summary file generated at `.summaries/IMPL-[task-id]-summary.md`.
 - Added tests in tests/auth.test.ts
 
 ## Execution Results
-- **Agent**: @code-developer
+- **Agent**: code-developer
 - **Status**: completed
 
 ## Files Modified
