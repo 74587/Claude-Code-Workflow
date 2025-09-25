@@ -38,8 +38,27 @@ The command performs comprehensive analysis through:
 **1. Context Gathering & Intelligence Selection**
 - Reading relevant CLAUDE.md documentation based on task requirements
 - Automatic tool assignment based on complexity:
-  - **Simple tasks** (≤3 modules): Direct CLI tools (`~/.claude/scripts/gemini-wrapper` or `codex --full-auto exec`)
-  - **Complex tasks** (>3 modules): Task agents with integrated CLI tool access
+  - **Simple tasks** (≤3 modules): Direct CLI tools with intelligent path navigation and multi-round analysis
+    ```bash
+    # Analyze specific directory
+    ~/.claude/scripts/gemini-wrapper -C src/auth -p "
+    PURPOSE: Analyze authentication patterns
+    TASK: Review auth implementation for security patterns
+    CONTEXT: Focus on JWT handling and user validation
+    EXPECTED: Security assessment and recommendations
+    RULES: Focus on security vulnerabilities and best practices
+    "
+
+    # Implement in specific directory
+    codex -C src/components --full-auto exec "
+    PURPOSE: Create user profile component
+    TASK: Build responsive profile component with form validation
+    CONTEXT: Use existing component patterns
+    EXPECTED: Complete component with tests
+    RULES: Follow existing component architecture
+    " -s danger-full-access
+    ```
+  - **Complex tasks** (>3 modules): Specialized task agents with autonomous CLI tool orchestration and cross-module coordination
 - Flow control integration with automatic tool selection
 
 **2. Project Structure Analysis** ⚠️ CRITICAL PRE-PLANNING STEP
