@@ -9,6 +9,7 @@ type: strategic-guideline
 ## ⚡ Core Framework
 
 **Gemini**: Analysis, understanding, exploration & documentation
+**Qwen**: Architecture analysis, code generation & implementation
 **Codex**: Development, implementation & automation
 
 ### Decision Principles
@@ -20,14 +21,15 @@ type: strategic-guideline
 
 ### Quick Decision Rules
 1. **Exploring/Understanding?** → Start with Gemini
-2. **Building/Fixing?** → Start with Codex
-3. **Not sure?** → Use both in parallel
-4. **Small task?** → Still use tools - they're faster than manual work
+2. **Architecture/Code generation?** → Start with Qwen
+3. **Building/Fixing?** → Start with Codex
+4. **Not sure?** → Use multiple tools in parallel
+5. **Small task?** → Still use tools - they're faster than manual work
 
 ### Core Execution Rules
 - **Default Timeout**: Bash commands default execution time = 20 minutes (1200000ms)
-- **Apply to All Tools**: All bash() wrapped commands including Gemini wrapper and Codex executions use this timeout
-- **Command Examples**: `bash(~/.claude/scripts/gemini-wrapper -p "prompt")`, `bash(codex --full-auto exec "task")`
+- **Apply to All Tools**: All bash() wrapped commands including Gemini, Qwen wrapper and Codex executions use this timeout
+- **Command Examples**: `bash(~/.claude/scripts/gemini-wrapper -p "prompt")`, `bash(~/.claude/scripts/qwen-wrapper -p "prompt")`, `bash(codex --full-auto exec "task")`
 - **Override When Needed**: Specify custom timeout for longer operations
 
 ## 🎯 Universal Command Template
@@ -40,6 +42,15 @@ PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
 CONTEXT: [file references and memory context]
 EXPECTED: [expected output]
+RULES: [template reference and constraints]
+"
+
+# Qwen Architecture & Code Generation
+~/.claude/scripts/qwen-wrapper [-C directory] -p "
+PURPOSE: [clear architecture/code goal]
+TASK: [specific architecture/code task]
+CONTEXT: [file references and memory context]
+EXPECTED: [expected deliverables]
 RULES: [template reference and constraints]
 "
 
@@ -61,11 +72,12 @@ RULES: [template reference and constraints]
 - [ ] **RULES** - Template reference and constraints
 
 ### Directory Context (-C parameter)
-Both tools support changing working directory before execution:
+All tools support changing working directory before execution:
 - **Gemini**: `~/.claude/scripts/gemini-wrapper -C path/to/project -p "prompt"`
+- **Qwen**: `~/.claude/scripts/qwen-wrapper -C path/to/project -p "prompt"`
 - **Codex**: `codex -C path/to/project --full-auto exec "task"`
 - **Path types**: Supports both relative (`../project`) and absolute (`/full/path`) paths
-- **Token analysis**: For gemini-wrapper, token counting happens in target directory
+- **Token analysis**: For gemini-wrapper and qwen-wrapper, token counting happens in target directory
 
 ### Rules Field Format
 ```bash
@@ -83,11 +95,13 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt
 | Task Type | Tool | Use Case | Template |
 |-----------|------|----------|-----------|
 | **Analysis** | Gemini | Code exploration, architecture review, patterns | `analysis/pattern.txt` |
+| **Architecture** | Qwen | System design, code generation, architectural analysis | `analysis/architecture.txt` |
+| **Code Generation** | Qwen | Implementation patterns, code scaffolding, component creation | `development/feature.txt` |
 | **Development** | Codex | Feature implementation, bug fixes, testing | `development/feature.txt` |
-| **Planning** | Both | Task breakdown, migration planning | `planning/task-breakdown.txt` |
-| **Documentation** | Both | Code docs, API specs, guides | `analysis/quality.txt` |
+| **Planning** | Multiple | Task breakdown, migration planning | `planning/task-breakdown.txt` |
+| **Documentation** | Multiple | Code docs, API specs, guides | `analysis/quality.txt` |
 | **Security** | Codex | Vulnerability assessment, fixes | `analysis/security.txt` |
-| **Refactoring** | Both | Gemini for analysis, Codex for execution | `development/refactor.txt` |
+| **Refactoring** | Multiple | Gemini for analysis, Qwen/Codex for execution | `development/refactor.txt` |
 
 ## 📁 Template System
 
@@ -125,8 +139,9 @@ tech-stacks/
 When planning any coding task, **ALWAYS** integrate CLI tools:
 
 1. **Understanding Phase**: Use Gemini for analysis
-2. **Implementation Phase**: Use Codex for development
-3. **Quality Phase**: Use Codex for testing and validation
+2. **Architecture Phase**: Use Qwen for design and code generation
+3. **Implementation Phase**: Use Qwen/Codex for development
+4. **Quality Phase**: Use Codex for testing and validation
 
 ### Common Scenarios
 ```bash
@@ -146,6 +161,15 @@ TASK: Analyze auth implementation in related project
 CONTEXT: @{src/auth/**/*} Current project context from session memory
 EXPECTED: Pattern comparison and recommendations
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | Focus on architectural differences
+"
+
+# Architecture Design (with Qwen)
+~/.claude/scripts/qwen-wrapper -C src/auth -p "
+PURPOSE: Design authentication system architecture
+TASK: Create modular JWT-based auth system design
+CONTEXT: @{src/auth/**/*} Existing patterns and requirements
+EXPECTED: Complete architecture with code scaffolding
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on modularity and security
 "
 
 # Feature Development (in target directory)
@@ -185,6 +209,11 @@ For every development task:
 - **Strengths**: Large context window, pattern recognition
 - **Best For**: Analysis, architecture review, code exploration
 
+### Qwen
+- **Command**: `~/.claude/scripts/qwen-wrapper`
+- **Strengths**: Architecture analysis, code generation, implementation patterns
+- **Best For**: System design, code scaffolding, architectural planning
+
 ### Codex
 - **Command**: `codex --full-auto exec`
 - **Strengths**: Autonomous development, mathematical reasoning
@@ -216,10 +245,13 @@ For every development task:
 
 **Example**:
 ```bash
-# Focused (preferred)
+# Focused analysis (preferred)
 ~/.claude/scripts/gemini-wrapper -C src/auth -p "analyze auth patterns"
 
-# Alternative for codex
+# Focused architecture (Qwen)
+~/.claude/scripts/qwen-wrapper -C src/auth -p "design auth architecture"
+
+# Focused implementation (Codex)
 codex -C src/auth --full-auto exec "analyze auth implementation"
 
 # Multi-scope (stay in root)
