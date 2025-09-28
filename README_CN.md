@@ -2,9 +2,10 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v2.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v2.1.0--experimental-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
+[![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
 
 **语言:** [English](README.md) | [中文](README_CN.md)
 
@@ -16,7 +17,9 @@
 
 **Claude Code Workflow (CCW)** 是新一代多智能体自动化开发框架，通过智能工作流管理和自主执行协调复杂的软件开发任务。
 
-> **🎯 最新版本 v2.0**: 主要架构演进，包含增强的工作流生命周期、全面的测试工作流生成、计划验证系统和头脑风暴产物集成。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🧪 最新版本 v2.1.0-experimental**: 引入**实验性 MCP (模型上下文协议) 工具集成**，实现增强的代码库分析和外部上下文获取。包含用于外部 API 模式的 Exa MCP Server 和用于高级内部代码库探索的 Code Index MCP。详见 [CHANGELOG.md](CHANGELOG.md)。
+
+> **⚠️ 实验性功能**: MCP 工具是可选的实验性功能。所有现有功能保持稳定。
 
 ### 🌟 核心创新
 

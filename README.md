@@ -2,9 +2,10 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v2.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v2.1.0--experimental-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
+[![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
 
 **Languages:** [English](README.md) | [中文](README_CN.md)
 
@@ -16,7 +17,9 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework for software development that orchestrates complex development tasks through intelligent workflow management and autonomous execution.
 
-> **🎯 Latest Release v2.0**: Major architectural evolution with enhanced workflow lifecycle, comprehensive test workflow generation, plan verification system, and brainstorm artifacts integration. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🧪 Latest Release v2.1.0-experimental**: Introduces **experimental MCP (Model Context Protocol) tools integration** for enhanced codebase analysis and external context retrieval. Includes Exa MCP Server for external API patterns and Code Index MCP for advanced internal codebase exploration. See [CHANGELOG.md](CHANGELOG.md) for details.
+
+> **⚠️ Experimental Features**: MCP tools are optional and experimental. All existing functionality remains stable.
 
 ### 🌟 Key Innovations
 
@@ -25,6 +28,7 @@
 - **✅ Plan Verification System**: Pre-execution validation using dual Gemini/Codex analysis (`/workflow:plan-verify`)
 - **🎯 JSON-First Architecture**: Single source of truth with atomic session management
 - **💡 Brainstorm Artifacts**: Multi-perspective planning with synthesis and structured document generation
+- **🔧 MCP Tools Integration** *(Experimental)*: Enhanced codebase analysis through Model Context Protocol tools
 
 ---
 
