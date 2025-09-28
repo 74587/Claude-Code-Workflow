@@ -434,6 +434,42 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 !**/CLAUDE.md
 ```
 
+### 🔧 **MCP Tools Configuration** *(Optional Enhancement)*
+
+[![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Optional-blue.svg)](https://github.com/modelcontextprotocol)
+
+**MCP (Model Context Protocol) tools provide enhanced codebase analysis capabilities. They are completely optional - CCW works perfectly without them.**
+
+#### **Quick MCP Setup**
+1. **Install MCP Servers** (choose what you need):
+   ```bash
+   # Option 1: Exa MCP Server (External API patterns)
+   # 📋 Installation Guide: https://github.com/exa-labs/exa-mcp-server
+
+   # Option 2: Code Index MCP (Advanced code search)
+   # 📋 Installation Guide: https://github.com/johnhuang316/code-index-mcp
+   ```
+
+2. **Configure Claude Code IDE**:
+   - Follow the MCP server installation guides above
+   - Restart Claude Code IDE after MCP server installation
+   - CCW will automatically detect and use available MCP tools
+
+#### **Benefits When Enabled**
+- 📊 **Faster Analysis**: Direct codebase indexing vs manual searching
+- 🌐 **External Context**: Real-world API patterns and examples
+- 🔍 **Advanced Search**: Pattern matching and similarity detection
+- ⚡ **Automatic Fallback**: Uses traditional tools when MCP unavailable
+
+#### **Configuration Resources**
+| MCP Server | Installation Guide | Purpose |
+|------------|-------------------|---------|
+| 🌐 **Exa MCP** | [Installation Guide](https://github.com/exa-labs/exa-mcp-server) | External API patterns & best practices |
+| 🔍 **Code Index MCP** | [Installation Guide](https://github.com/johnhuang316/code-index-mcp) | Advanced internal codebase search |
+| 📖 **MCP Protocol** | [Official Documentation](https://github.com/modelcontextprotocol) | Technical specifications |
+
+> **💡 Pro Tip**: Start with basic CCW functionality, then add MCP tools when you want enhanced analysis capabilities.
+
 ---
 
 ## 🤝 Contributing

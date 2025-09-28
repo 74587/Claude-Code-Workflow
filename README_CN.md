@@ -606,6 +606,42 @@ apikeys.txt
 
 **注意**: 与 `.gitignore` 不同，`.geminiignore` 仅影响Gemini CLI操作，不会影响Git版本控制。
 
+### 🔧 **MCP 工具配置** *(可选增强)*
+
+[![MCP工具](https://img.shields.io/badge/🔧_MCP工具-可选-blue.svg)](https://github.com/modelcontextprotocol)
+
+**MCP (模型上下文协议) 工具提供增强的代码库分析能力。它们完全是可选的 - CCW 在没有它们的情况下也能完美工作。**
+
+#### **快速 MCP 设置**
+1. **安装 MCP 服务器** (选择您需要的):
+   ```bash
+   # 选项 1: Exa MCP Server (外部 API 模式)
+   # 📋 安装指南: https://github.com/exa-labs/exa-mcp-server
+
+   # 选项 2: Code Index MCP (高级代码搜索)
+   # 📋 安装指南: https://github.com/johnhuang316/code-index-mcp
+   ```
+
+2. **配置 Claude Code IDE**:
+   - 按照上述 MCP 服务器安装指南操作
+   - 安装 MCP 服务器后重启 Claude Code IDE
+   - CCW 将自动检测并使用可用的 MCP 工具
+
+#### **启用后的好处**
+- 📊 **更快分析**: 直接代码库索引 vs 手动搜索
+- 🌐 **外部上下文**: 真实世界的 API 模式和示例
+- 🔍 **高级搜索**: 模式匹配和相似性检测
+- ⚡ **自动回退**: MCP 不可用时使用传统工具
+
+#### **配置资源**
+| MCP 服务器 | 安装指南 | 用途 |
+|------------|---------|------|
+| 🌐 **Exa MCP** | [安装指南](https://github.com/exa-labs/exa-mcp-server) | 外部 API 模式和最佳实践 |
+| 🔍 **Code Index MCP** | [安装指南](https://github.com/johnhuang316/code-index-mcp) | 高级内部代码库搜索 |
+| 📖 **MCP 协议** | [官方文档](https://github.com/modelcontextprotocol) | 技术规范 |
+
+> **💡 专业提示**: 从基本的 CCW 功能开始，然后在需要增强分析能力时添加 MCP 工具。
+
 ## 贡献
 
 ### 开发设置
