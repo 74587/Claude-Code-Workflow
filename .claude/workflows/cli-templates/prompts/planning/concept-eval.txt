@@ -1,0 +1,201 @@
+CONCEPT EVALUATION FRAMEWORK
+
+## EVALUATION DIRECTIVE
+You are conducting a comprehensive concept evaluation to assess feasibility, identify risks, and provide optimization recommendations before formal implementation planning begins.
+
+## CORE EVALUATION DIMENSIONS
+
+### 1. CONCEPTUAL INTEGRITY
+- **Design Coherence**: Are all components logically connected and consistent?
+- **Requirement Completeness**: Are all necessary requirements identified and defined?
+- **Scope Clarity**: Is the concept scope clearly defined and bounded?
+- **Success Criteria**: Are measurable success criteria clearly established?
+
+### 2. ARCHITECTURAL SOUNDNESS
+- **System Integration**: How well does the concept integrate with existing architecture?
+- **Design Patterns**: Are appropriate and established design patterns utilized?
+- **Modularity**: Is the concept appropriately modular and maintainable?
+- **Scalability**: Can the concept scale to meet future requirements?
+
+### 3. TECHNICAL FEASIBILITY
+- **Implementation Complexity**: What is the technical difficulty level?
+- **Technology Maturity**: Are required technologies stable and well-supported?
+- **Skill Requirements**: Do we have the necessary technical expertise?
+- **Infrastructure Needs**: What infrastructure changes or additions are required?
+
+### 4. RESOURCE ASSESSMENT
+- **Development Time**: Realistic time estimation for implementation
+- **Team Resources**: Required team size and skill composition
+- **Budget Impact**: Financial implications and resource allocation
+- **Opportunity Cost**: What other initiatives might be delayed or cancelled?
+
+### 5. RISK IDENTIFICATION
+- **Technical Risks**: Technology limitations, complexity, and unknowns
+- **Business Risks**: Market timing, user adoption, and business impact
+- **Integration Risks**: Compatibility and system integration challenges
+- **Resource Risks**: Team availability, skill gaps, and timeline pressures
+
+### 6. DEPENDENCY ANALYSIS
+- **External Dependencies**: Third-party services, libraries, and tools
+- **Internal Dependencies**: Other systems, teams, and organizational resources
+- **Temporal Dependencies**: Sequence requirements and timing constraints
+- **Critical Path**: Essential dependencies that could block progress
+
+## EVALUATION METHODOLOGY
+
+### ASSESSMENT CRITERIA
+Rate each dimension on a scale of 1-5:
+- **5 - Excellent**: Minimal risk, well-defined, highly feasible
+- **4 - Good**: Low risk, mostly clear, feasible with minor adjustments
+- **3 - Average**: Moderate risk, some clarification needed, feasible with effort
+- **2 - Poor**: High risk, significant issues, major changes required
+- **1 - Critical**: Very high risk, fundamental problems, may not be feasible
+
+### RISK CLASSIFICATION
+- **LOW**: Minor issues, easily addressable
+- **MEDIUM**: Manageable challenges requiring attention
+- **HIGH**: Significant concerns requiring major mitigation
+- **CRITICAL**: Fundamental problems threatening concept viability
+
+### OPTIMIZATION PRIORITIES
+- **CRITICAL**: Must be addressed before planning
+- **IMPORTANT**: Should be addressed for optimal outcomes
+- **OPTIONAL**: Nice-to-have improvements
+
+## OUTPUT REQUIREMENTS
+
+### EVALUATION SUMMARY
+```markdown
+# Concept Evaluation Summary
+
+## Overall Assessment
+- **Feasibility Score**: X/5
+- **Risk Level**: LOW/MEDIUM/HIGH/CRITICAL
+- **Recommendation**: PROCEED/PROCEED_WITH_MODIFICATIONS/RECONSIDER/REJECT
+
+## Dimension Scores
+- Conceptual Integrity: X/5
+- Architectural Soundness: X/5
+- Technical Feasibility: X/5
+- Resource Assessment: X/5
+- Risk Profile: X/5
+- Dependency Complexity: X/5
+```
+
+### DETAILED ANALYSIS
+For each dimension, provide:
+1. **Assessment**: Current state evaluation
+2. **Strengths**: What works well in the concept
+3. **Concerns**: Identified issues and risks
+4. **Recommendations**: Specific improvement suggestions
+
+### RISK MATRIX
+```markdown
+| Risk Category | Level | Impact | Mitigation Strategy |
+|---------------|-------|--------|-------------------|
+| Technical     | HIGH  | Delays | Proof of concept  |
+| Resource      | MED   | Budget | Phase approach    |
+```
+
+### OPTIMIZATION ROADMAP
+Prioritized list of improvements:
+1. **CRITICAL**: [Issue] - [Recommendation] - [Impact]
+2. **IMPORTANT**: [Issue] - [Recommendation] - [Impact]
+3. **OPTIONAL**: [Issue] - [Recommendation] - [Impact]
+
+## CONTEXT INTEGRATION RULES
+
+### CLAUDE CODE MEMORY INTEGRATION
+- **Session Context**: Reference current conversation history and decisions made
+- **Project Memory**: Leverage knowledge from previous implementations and lessons learned
+- **Pattern Recognition**: Use identified successful approaches and anti-patterns from session memory
+- **Evaluation History**: Consider previous concept evaluations and their outcomes
+- **Technical Evolution**: Build on previous technical decisions and architectural changes
+- **Context Continuity**: Maintain consistency with established project direction and decisions
+
+### EXISTING PATTERNS
+- **Identify**: Find similar implementations in the codebase
+- **Analyze**: Evaluate success/failure patterns
+- **Leverage**: Recommend reusing successful approaches
+- **Avoid**: Flag problematic patterns to avoid
+
+### ARCHITECTURAL ALIGNMENT
+- **Consistency**: Ensure concept aligns with existing architecture
+- **Evolution**: Consider architectural evolution and migration paths
+- **Standards**: Apply established coding and design standards
+- **Integration**: Evaluate integration touchpoints and complexity
+
+### BUSINESS CONTEXT
+- **Strategic Fit**: Alignment with business objectives and priorities
+- **User Impact**: Effect on user experience and satisfaction
+- **Competitive Advantage**: Differentiation and market positioning
+- **Timeline**: Alignment with business timelines and milestones
+
+## QUALITY STANDARDS
+
+### ANALYSIS DEPTH
+- Provide specific examples and evidence
+- Quantify assessments where possible
+- Consider multiple perspectives and scenarios
+- Base recommendations on concrete analysis
+
+### ACTIONABILITY
+- Make recommendations specific and implementable
+- Provide clear next steps and decision points
+- Identify responsible parties and timelines
+- Include success metrics and validation criteria
+
+### OBJECTIVITY
+- Balance optimism with realistic assessment
+- Acknowledge uncertainty and assumptions
+- Present multiple options where applicable
+- Focus on concept improvement rather than criticism
+
+## SPECIAL CONSIDERATIONS
+
+### INNOVATION PROJECTS
+- Higher tolerance for technical risk
+- Emphasis on learning and experimentation
+- Phased approach with validation milestones
+- Clear success/failure criteria
+
+### CRITICAL BUSINESS PROJECTS
+- Lower risk tolerance
+- Emphasis on reliability and predictability
+- Comprehensive risk mitigation strategies
+- Detailed contingency planning
+
+### INTEGRATION PROJECTS
+- Focus on compatibility and interoperability
+- Emphasis on minimizing system disruption
+- Careful change management planning
+- Rollback and recovery strategies
+
+### GREENFIELD PROJECTS
+- Opportunity for architectural innovation
+- Emphasis on future scalability and flexibility
+- Technology stack selection and standardization
+- Team skill development considerations
+
+## EVALUATION COMPLETION CHECKLIST
+
+- [ ] All six evaluation dimensions thoroughly assessed
+- [ ] Risk matrix completed with mitigation strategies
+- [ ] Optimization recommendations prioritized
+- [ ] Integration with existing systems evaluated
+- [ ] Resource requirements clearly identified
+- [ ] Timeline implications considered
+- [ ] Success criteria and validation metrics defined
+- [ ] Next steps and decision points outlined
+
+## OUTPUT FORMAT
+
+Provide a structured evaluation report that includes:
+1. Executive summary with overall recommendation
+2. Detailed dimension-by-dimension analysis
+3. Risk assessment and mitigation strategies
+4. Prioritized optimization recommendations
+5. Implementation roadmap and next steps
+6. Resource requirements and timeline implications
+
+Focus on providing actionable insights that will improve concept quality and reduce implementation risks during the formal planning phase.

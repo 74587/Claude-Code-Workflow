@@ -182,6 +182,33 @@ Flow_control design should follow these principles:
     └── IMPL-002.json
 ```
 
+### IMPL_PLAN.md Structure ⚠️ REQUIRED FORMAT
+
+**File Header** (required)：
+- **Identifier**: Unique project identifier and session ID, format WFS-[topic]
+- **Source**: Input type, e.g. "User requirements analysis"
+- **Analysis**: Analysis document reference
+
+**Summary** (execution overview)：
+- Concise description of core requirements and objectives
+- Technical direction and implementation approach
+
+**Context Analysis** (context analysis)：
+- **Project** - Project type and architectural patterns
+- **Modules** - Involved modules and component list
+- **Dependencies** - Dependency mapping and constraints
+- **Patterns** - Identified code patterns and conventions
+
+**Task Breakdown** (task decomposition)：
+- **Task Count** - Total task count and complexity level
+- **Hierarchy** - Task organization structure (flat/hierarchical)
+- **Dependencies** - Inter-task dependency graph
+
+**Implementation Plan** (implementation plan)：
+- **Execution Strategy** - Execution strategy and methodology
+- **Resource Requirements** - Required resources and tool selection
+- **Success Criteria** - Success criteria and acceptance conditions
+
 
 ## Reference Information
 
