@@ -19,7 +19,7 @@ model: sonnet
 ### Key Features
 - **qwen CLI Integration**: Utilizes qwen CLI's deep codebase analysis for informed planning decisions
 
-**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd [path] && qwen --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
+**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd "[path]" && qwen --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
 
 ## Usage
 
@@ -44,7 +44,7 @@ qwen --all-files -p "$(cat ~/.claude/prompt-templates/plan.md)
 Planning Topic: [user_description]"
 
 # Directory-specific analysis  
-cd [directory] && qwen --all-files -p "$(cat ~/.claude/prompt-templates/plan.md)
+cd "[directory]" && qwen --all-files -p "$(cat ~/.claude/prompt-templates/plan.md)
 Planning Topic: [user_description]"
 ```
 

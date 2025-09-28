@@ -3,8 +3,8 @@
 # Location: ~/.claude/scripts/qwen-wrapper
 #
 # This wrapper automatically manages --all-files flag based on project token count
-# Usage: qwen-wrapper [-C <directory>] [all qwen options]
-#   -C <directory>  Change to specified directory before analysis (relative or absolute path)
+# Usage: qwen-wrapper [all qwen options]
+# Note: Executes in current working directory
 
 set -e
 
@@ -39,13 +39,10 @@ count_tokens() {
 # Parse arguments to check for flags
 has_all_files=false
 has_approval_mode=false
-change_dir=""
 args=()
 
-# Check for existing flags and -c parameter
-i=0
-while [[ $i -lt $# ]]; do
-    arg="${!i}"
+# Check for existing flags
+for arg in "$@"; do
     case "$arg" in
         "--all-files")
             has_all_files=true
@@ -55,39 +52,14 @@ while [[ $i -lt $# ]]; do
             has_approval_mode=true
             args+=("$arg")
             ;;
-        "-C")
-            # Next argument is the directory
-            i=$((i + 1))
-            if [[ $i -lt $# ]]; then
-                change_dir="${!i}"
-                echo -e "${YELLOW}📁 Directory change requested: $change_dir${NC}" >&2
-            else
-                echo -e "${RED}❌ Error: -C requires a directory path${NC}" >&2
-                exit 1
-            fi
-            ;;
         *)
             args+=("$arg")
             ;;
     esac
-    i=$((i + 1))
 done
 
-# Change directory if requested
-original_dir=""
-if [[ -n "$change_dir" ]]; then
-    original_dir=$(pwd)
-    if [[ -d "$change_dir" ]]; then
-        echo -e "${GREEN}📁 Changing to directory: $change_dir${NC}" >&2
-        cd "$change_dir" || {
-            echo -e "${RED}❌ Error: Cannot change to directory: $change_dir${NC}" >&2
-            exit 1
-        }
-    else
-        echo -e "${RED}❌ Error: Directory does not exist: $change_dir${NC}" >&2
-        exit 1
-    fi
-fi
+# Analyze current working directory
+echo -e "${GREEN}📁 Analyzing current directory: $(pwd)${NC}" >&2
 
 # Count tokens (in the target directory if -c was used)
 echo -e "${YELLOW}🔍 Analyzing project size...${NC}" >&2
@@ -137,5 +109,5 @@ fi
 # Show final command (for transparency)
 echo -e "${YELLOW}🚀 Executing: qwen ${args[*]}${NC}" >&2
 
-# Execute qwen with adjusted arguments
-exec qwen "${args[@]}"
+# Execute qwen with adjusted arguments (we're already in the right directory)
+qwen "${args[@]}"

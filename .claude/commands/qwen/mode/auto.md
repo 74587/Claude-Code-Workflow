@@ -19,7 +19,7 @@ Automatically analyzes user input to select the most appropriate template and ex
 
 **Directory Analysis Rule**: Intelligent detection of directory context intent - automatically navigate to target directory when analysis scope is directory-specific.
 
-**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd [path] && qwen --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
+**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd "[path]" && qwen --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
 
 **Process**: List Templates → Analyze Input → Select Template → Execute with Context
 
@@ -72,7 +72,7 @@ keywords: [keyword1, keyword2, keyword3]
 ### Step 1: Template Discovery
 ```bash
 # Dynamically discover all templates and extract YAML frontmatter
-cd ~/.claude/prompt-templates && echo "Discovering templates..." && for template_file in *.md; do echo "=== $template_file ==="; head -6 "$template_file" 2>/dev/null || echo "Error reading $template_file"; echo; done
+cd "~/.claude/prompt-templates" && echo "Discovering templates..." && for template_file in *.md; do echo "=== $template_file ==="; head -6 "$template_file" 2>/dev/null || echo "Error reading $template_file"; echo; done
 ```
 
 ### Step 2: Dynamic Template Analysis & Selection
@@ -131,7 +131,7 @@ qwen --all-files -p "$(cat ~/.claude/prompt-templates/[selected_template])
 User Input: [user_input]"
 
 # With --cd parameter
-cd [specified_directory] && qwen --all-files -p "$(cat ~/.claude/prompt-templates/[selected_template])
+cd "[specified_directory]" && qwen --all-files -p "$(cat ~/.claude/prompt-templates/[selected_template])
 
 User Input: [user_input]"
 ```

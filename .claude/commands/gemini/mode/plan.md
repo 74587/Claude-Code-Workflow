@@ -19,7 +19,7 @@ model: sonnet
 ### Key Features
 - **Gemini CLI Integration**: Utilizes Gemini CLI's deep codebase analysis for informed planning decisions
 
-**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd [path] && gemini --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
+**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd "[path]" && gemini --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
 
 ## Usage
 
@@ -44,7 +44,7 @@ gemini --all-files -p "$(cat ~/.claude/prompt-templates/plan.md)
 Planning Topic: [user_description]"
 
 # Directory-specific analysis  
-cd [directory] && gemini --all-files -p "$(cat ~/.claude/prompt-templates/plan.md)
+cd "[directory]" && gemini --all-files -p "$(cat ~/.claude/prompt-templates/plan.md)
 Planning Topic: [user_description]"
 ```
 

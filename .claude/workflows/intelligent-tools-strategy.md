@@ -29,7 +29,7 @@ type: strategic-guideline
 ### Core Execution Rules
 - **Default Timeout**: Bash commands default execution time = 20 minutes (1200000ms)
 - **Apply to All Tools**: All bash() wrapped commands including Gemini, Qwen wrapper and Codex executions use this timeout
-- **Command Examples**: `bash(~/.claude/scripts/gemini-wrapper -p "prompt")`, `bash(~/.claude/scripts/qwen-wrapper -p "prompt")`, `bash(codex --full-auto exec "task")`
+- **Command Examples**: `bash(cd target/directory && ~/.claude/scripts/gemini-wrapper -p "prompt")`, `bash(cd target/directory && ~/.claude/scripts/qwen-wrapper -p "prompt")`, `bash(codex -C directory --full-auto exec "task")`
 - **Override When Needed**: Specify custom timeout for longer operations
 
 ## 🎯 Universal Command Template
@@ -37,7 +37,7 @@ type: strategic-guideline
 ### Standard Format (REQUIRED)
 ```bash
 # Gemini Analysis
-~/.claude/scripts/gemini-wrapper -C [directory] -p "
+cd [directory] && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
 CONTEXT: [file references and memory context]
@@ -46,7 +46,7 @@ RULES: [template reference and constraints]
 "
 
 # Qwen Architecture & Code Generation
-~/.claude/scripts/qwen-wrapper -C [directory] -p "
+cd [directory] && ~/.claude/scripts/qwen-wrapper -p "
 PURPOSE: [clear architecture/code goal]
 TASK: [specific architecture/code task]
 CONTEXT: [file references and memory context]
@@ -71,13 +71,13 @@ RULES: [template reference and constraints]
 - [ ] **EXPECTED** - Clear expected results
 - [ ] **RULES** - Template reference and constraints
 
-### Directory Context (-C parameter)
-All tools support changing working directory before execution:
-- **Gemini**: `~/.claude/scripts/gemini-wrapper -C path/to/project -p "prompt"`
-- **Qwen**: `~/.claude/scripts/qwen-wrapper -C path/to/project -p "prompt"`
-- **Codex**: `codex -C path/to/project --full-auto exec "task"`
+### Directory Context
+Tools execute in current working directory:
+- **Gemini**: `cd path/to/project && ~/.claude/scripts/gemini-wrapper -p "prompt"`
+- **Qwen**: `cd path/to/project && ~/.claude/scripts/qwen-wrapper -p "prompt"`
+- **Codex**: `codex -C path/to/project --full-auto exec "task"` (Codex still supports -C)
 - **Path types**: Supports both relative (`../project`) and absolute (`/full/path`) paths
-- **Token analysis**: For gemini-wrapper and qwen-wrapper, token counting happens in target directory
+- **Token analysis**: For gemini-wrapper and qwen-wrapper, token counting happens in current directory
 
 ### Rules Field Format
 ```bash
@@ -155,7 +155,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt
 "
 
 # Project Analysis (in different directory)
-~/.claude/scripts/gemini-wrapper -C ../other-project -p "
+cd ../other-project && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Compare authentication patterns
 TASK: Analyze auth implementation in related project
 CONTEXT: @{src/auth/**/*} Current project context from session memory
@@ -164,7 +164,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | F
 "
 
 # Architecture Design (with Qwen)
-~/.claude/scripts/qwen-wrapper -C src/auth -p "
+cd src/auth && ~/.claude/scripts/qwen-wrapper -p "
 PURPOSE: Design authentication system architecture
 TASK: Create modular JWT-based auth system design
 CONTEXT: @{src/auth/**/*} Existing patterns and requirements
@@ -236,20 +236,20 @@ For every development task:
 - **Document context** - Always reference CLAUDE.md for context
 
 ### Context Optimization Strategy
-**Directory Navigation**: Use `-C [directory]` parameter when analyzing specific areas to reduce irrelevant context
+**Directory Navigation**: Use `cd [directory] &&` pattern when analyzing specific areas to reduce irrelevant context
 
-**When to use `-C`**:
-- Specific directory mentioned → Use `-C directory` parameter
-- Focused analysis needed → Target specific directory with `-C`
+**When to change directory**:
+- Specific directory mentioned → Use `cd directory &&` pattern
+- Focused analysis needed → Target specific directory with cd
 - Multi-directory scope → Stay in root, use explicit paths or multiple commands
 
 **Example**:
 ```bash
 # Focused analysis (preferred)
-~/.claude/scripts/gemini-wrapper -C src/auth -p "analyze auth patterns"
+cd src/auth && ~/.claude/scripts/gemini-wrapper -p "analyze auth patterns"
 
 # Focused architecture (Qwen)
-~/.claude/scripts/qwen-wrapper -C src/auth -p "design auth architecture"
+cd src/auth && ~/.claude/scripts/qwen-wrapper -p "design auth architecture"
 
 # Focused implementation (Codex)
 codex -C src/auth --full-auto exec "analyze auth implementation"

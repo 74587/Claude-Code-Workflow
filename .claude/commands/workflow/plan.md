@@ -41,7 +41,7 @@ The command performs comprehensive analysis through:
   - **Simple tasks** (≤3 modules): Direct CLI tools with intelligent path navigation and multi-round analysis
     ```bash
     # Analyze specific directory
-    ~/.claude/scripts/gemini-wrapper -C src/auth -p "
+    cd "src/auth" && ~/.claude/scripts/gemini-wrapper -p "
     PURPOSE: Analyze authentication patterns
     TASK: Review auth implementation for security patterns
     CONTEXT: Focus on JWT handling and user validation
@@ -106,7 +106,7 @@ The following pre_analysis steps are generated for agent execution:
     {
       "step": "analyze_patterns",
       "action": "Analyze codebase patterns and architecture using CLI tools with directory context",
-      "command": "bash(~/.claude/scripts/gemini-wrapper -C [target_directory] -p \"PURPOSE: Analyze existing patterns TASK: Identify implementation patterns for [task_type] CONTEXT: [planning_context] [dependency_context] EXPECTED: Pattern analysis and recommendations RULES: Focus on architectural consistency\")",
+      "command": "bash(cd \"[target_directory]\" && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze existing patterns TASK: Identify implementation patterns for [task_type] CONTEXT: [planning_context] [dependency_context] EXPECTED: Pattern analysis and recommendations RULES: Focus on architectural consistency\")",
       "output_to": "pattern_analysis",
       "on_error": "skip_optional"
     },

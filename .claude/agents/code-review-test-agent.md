@@ -49,6 +49,29 @@ You will review code changes AND handle test implementation by understanding the
 
 ## Analysis CLI Context Activation Rules
 
+**🎯 Pre-Analysis: Tech Stack Detection and Loading**
+MANDATORY FIRST STEP for all reviews:
+```bash
+# Step 1: Detect project tech stack
+TECH_STACK="default"
+if find . -name "tsconfig.json" -o -name "*.ts" -o -name "*.tsx" 2>/dev/null | head -1; then
+    TECH_STACK="typescript-dev"
+elif find . -name "package.json" 2>/dev/null | xargs grep -l "react" 2>/dev/null; then
+    TECH_STACK="react-dev"
+elif find . -name "*.py" -o -name "requirements.txt" -o -name "pyproject.toml" 2>/dev/null | head -1; then
+    TECH_STACK="python-dev"
+elif find . -name "*.java" -o -name "pom.xml" -o -name "build.gradle" 2>/dev/null | head -1; then
+    TECH_STACK="java-dev"
+elif find . -name "*.go" -o -name "go.mod" 2>/dev/null | head -1; then
+    TECH_STACK="go-dev"
+elif find . -name "*.js" -o -name "package.json" 2>/dev/null | head -1; then
+    TECH_STACK="javascript-dev"
+fi
+
+# Step 2: Load tech stack guidelines
+TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/${TECH_STACK}.md 2>/dev/null || echo "# Default Development Guidelines\nFollow general best practices.")
+```
+
 **🎯 Flow Control Detection**
 When task assignment includes flow control marker:
 - **[FLOW_CONTROL]**: Execute sequential flow control steps with context accumulation and variable passing
@@ -62,19 +85,24 @@ When task assignment includes flow control marker:
 
 **Context Gathering Decision Logic**:
 ```
+MANDATORY FIRST STEP:
+    → Execute tech stack detection and load guidelines into [tech_guidelines] variable
+    → All subsequent review criteria must align with loaded tech stack principles
+
 IF task contains [FLOW_CONTROL] flag:
     → Execute each flow control step sequentially for context gathering
     → Use four flexible context acquisition methods:
-      * Document references (cat commands)
-      * Search commands (grep/rg/find)
-      * CLI analysis (gemini/codex)
-      * Free exploration (Read/Grep/Search tools)
+      * Document references (cat commands with tech stack context)
+      * Search commands (grep/rg/find for tech-specific patterns)
+      * CLI analysis (gemini/codex with tech stack guidelines)
+      * Free exploration (Read/Grep/Search tools guided by tech principles)
     → Process [variable_name] references in commands
     → Accumulate context through step outputs
+    → Ensure [tech_guidelines] informs all analysis steps
 ELIF reviewing >3 files OR security changes OR architecture modifications:
-    → Execute default flow control analysis (AUTO-TRIGGER)
+    → Execute default flow control analysis (AUTO-TRIGGER) with tech stack guidelines
 ELSE:
-    → Proceed with review using standard quality checks
+    → Proceed with tech-stack-informed review using standard quality checks
 ```
 
 ## Review Process (Mode-Adaptive)

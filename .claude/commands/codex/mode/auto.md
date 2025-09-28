@@ -73,7 +73,7 @@ development_type: feature|component|refactor|debug|testing
 ### Step 1: Template Discovery
 ```bash
 # Dynamically discover development templates
-cd ~/.claude/workflows/cli-templates/prompts && echo "Discovering development templates..." && for dir in development automation analysis integration; do if [ -d "$dir" ]; then echo "=== $dir templates ==="; for template_file in "$dir"/*.txt; do if [ -f "$template_file" ]; then echo "Template: $(basename "$template_file")"; head -10 "$template_file" 2>/dev/null | grep -E "^(name|description|keywords):" || echo "No metadata"; echo; fi; done; fi; done
+cd "~/.claude/workflows/cli-templates/prompts" && echo "Discovering development templates..." && for dir in development automation analysis integration; do if [ -d "$dir" ]; then echo "=== $dir templates ==="; for template_file in "$dir"/*.txt; do if [ -f "$template_file" ]; then echo "Template: $(basename "$template_file")"; head -10 "$template_file" 2>/dev/null | grep -E "^(name|description|keywords):" || echo "No metadata"; echo; fi; done; fi; done
 ```
 
 ### Step 2: Dynamic Template Analysis & Selection

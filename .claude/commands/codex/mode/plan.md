@@ -15,7 +15,7 @@ model: sonnet
 
 ## Overview
 Comprehensive development planning and implementation strategy using expert planning templates with Codex CLI.
--   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), use: `codex --cd XXX --full-auto exec "prompt" -s danger-full-access` or `cd XXX && codex --full-auto exec "@{**/*} prompt" -s danger-full-access`
+-   **Directory Analysis Rule**: When user intends to analyze specific directory (cd XXX), use: `codex --cd XXX --full-auto exec "prompt" -s danger-full-access` or `cd "XXX" && codex --full-auto exec "@{**/*} prompt" -s danger-full-access`
 -   **Default Mode**: `--full-auto exec` autonomous development mode (RECOMMENDED for all tasks).
 
 

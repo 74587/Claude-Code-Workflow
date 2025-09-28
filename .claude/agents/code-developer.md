@@ -35,21 +35,50 @@ You are a code execution specialist focused on implementing high-quality, produc
 - Existing documentation and code examples
 - Project CLAUDE.md standards
 
+**Pre-Analysis: Tech Stack Detection and Loading**:
+```bash
+# Step 1: Detect project tech stack
+TECH_STACK="default"
+if find . -name "tsconfig.json" -o -name "*.ts" -o -name "*.tsx" 2>/dev/null | head -1; then
+    TECH_STACK="typescript-dev"
+elif find . -name "package.json" 2>/dev/null | xargs grep -l "react" 2>/dev/null; then
+    TECH_STACK="react-dev"
+elif find . -name "*.py" -o -name "requirements.txt" -o -name "pyproject.toml" 2>/dev/null | head -1; then
+    TECH_STACK="python-dev"
+elif find . -name "*.java" -o -name "pom.xml" -o -name "build.gradle" 2>/dev/null | head -1; then
+    TECH_STACK="java-dev"
+elif find . -name "*.go" -o -name "go.mod" 2>/dev/null | head -1; then
+    TECH_STACK="go-dev"
+elif find . -name "*.js" -o -name "package.json" 2>/dev/null | head -1; then
+    TECH_STACK="javascript-dev"
+fi
+
+# Step 2: Load tech stack guidelines
+TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/${TECH_STACK}.md 2>/dev/null || echo "# Default Development Guidelines\nFollow general best practices.")
+```
+
 **Context Evaluation**:
 ```
+MANDATORY FIRST STEP:
+    → Execute tech stack detection and load guidelines into [tech_guidelines] variable
+    → All subsequent development must follow loaded tech stack principles
+
 IF context sufficient for implementation:
-    → Proceed with execution
+    → Apply [tech_guidelines] to execution
+    → Proceed with tech-stack-compliant implementation
 ELIF context insufficient OR task has flow control marker:
     → Check for [FLOW_CONTROL] marker:
        - Execute flow_control.pre_analysis steps sequentially for context gathering
        - Use four flexible context acquisition methods:
-         * Document references (cat commands)
-         * Search commands (grep/rg/find)
-         * CLI analysis (gemini/codex)
-         * Free exploration (Read/Grep/Search tools)
+         * Document references (cat commands with tech stack context)
+         * Search commands (grep/rg/find for tech-specific patterns)
+         * CLI analysis (gemini/codex with tech stack guidelines)
+         * Free exploration (Read/Grep/Search tools guided by tech principles)
        - Pass context between steps via [variable_name] references
+       - Ensure [tech_guidelines] is available to all steps
     → Extract patterns and conventions from accumulated context
-    → Proceed with execution
+    → Apply tech stack principles to all implementation decisions
+    → Proceed with tech-stack-compliant execution
 ```
 ### Module Verification Guidelines
 

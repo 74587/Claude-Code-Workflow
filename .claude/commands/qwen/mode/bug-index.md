@@ -18,7 +18,7 @@ Systematic bug analysis and fix suggestions using expert diagnostic template.
 
 **Directory Analysis Rule**: Intelligent detection of directory context intent - automatically navigate to target directory when analysis scope is directory-specific.
 
-**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd [path] && qwen --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
+**--cd Parameter Rule**: When `--cd` parameter is provided, always execute `cd "[path]" && qwen --all-files -p "prompt"` to ensure analysis occurs in the specified directory context.
 
 ## Usage
 
@@ -50,7 +50,7 @@ qwen --all-files -p "$(cat ~/.claude/prompt-templates/bug-fix.md)
 Bug Description: [user_description]"
 
 # With --cd parameter
-cd [specified_directory] && qwen --all-files -p "$(cat ~/.claude/prompt-templates/bug-fix.md)
+cd "[specified_directory]" && qwen --all-files -p "$(cat ~/.claude/prompt-templates/bug-fix.md)
 
 Bug Description: [user_description]"
 ```
