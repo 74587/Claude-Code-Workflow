@@ -113,8 +113,8 @@ The following pre_analysis steps are generated for agent execution:
       "step": "load_base_documentation",
       "action": "Load core documentation files",
       "commands": [
-        "bash(cat .workflow/docs/README.md 2>/dev/null || echo 'base docs not found')",
-        "bash(cat CLAUDE.md README.md 2>/dev/null || echo 'project docs not found')"
+        "bash(cat .workflow/docs/README.md 2>/dev/null || echo 'Base docs not found')",
+        "bash(cat CLAUDE.md README.md 2>/dev/null || echo 'Project docs not found')"
       ],
       "output_to": "base_docs"
     },
@@ -122,8 +122,8 @@ The following pre_analysis steps are generated for agent execution:
       "step": "load_task_specific_docs",
       "action": "Load documentation relevant to task type",
       "commands": [
-        "bash(cat .workflow/docs/architecture/*.md 2>/dev/null || echo 'architecture docs not found')",
-        "bash(cat .workflow/docs/api/*.md 2>/dev/null || echo 'api docs not found')"
+        "bash(cat .workflow/docs/architecture/*.md 2>/dev/null || echo 'Architecture docs not found')",
+        "bash(cat .workflow/docs/api/*.md 2>/dev/null || echo 'API docs not found')"
       ],
       "output_to": "task_docs"
     },
@@ -197,6 +197,14 @@ Each task's `flow_control.implementation_approach` defines execution strategy (p
 - Dependency contexts: `.workflow/WFS-[session]/.task/IMPL-*.json`
 
 ### Task Decomposition Standards
+
+**Core Principle: Task Merging Over Decomposition**
+- **Merge Rule**: Tasks that can be executed together should not be separated - avoid unnecessary decomposition
+- **Decomposition Criteria**: Only decompose tasks in the following situations:
+  - **Excessive Workload**: Code exceeds 2500 lines or modifies more than 6 files 
+  - **Context Separation**: Involves completely different tech stacks or business domains
+  - **Dependency Blocking**: Subsequent tasks must wait for prerequisite task completion
+  - **Parallel Execution**: Independent features that can be developed simultaneously by different developers
 
 **Rules**:
 - **Maximum 10 tasks**: Hard limit - exceeding requires re-scoping
