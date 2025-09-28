@@ -1,18 +1,45 @@
-# Claude Code Workflow (CCW)
+# 🚀 Claude Code Workflow (CCW)
 
-<div align="right">
+<div align="center">
+
+[![Version](https://img.shields.io/badge/version-v2.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
 **语言:** [English](README.md) | [中文](README_CN.md)
 
 </div>
 
-一个全面的多智能体自动化开发框架，通过智能工作流管理和自主执行协调复杂的软件开发任务。
+---
 
-> **📦 最新版本 v1.2**: 增强工作流图表、智能任务饱和控制、路径特定分析系统以及包含详细mermaid可视化的综合文档更新。详见[CHANGELOG.md](CHANGELOG.md)。
+## 📋 概述
 
-## 架构概览
+**Claude Code Workflow (CCW)** 是新一代多智能体自动化开发框架，通过智能工作流管理和自主执行协调复杂的软件开发任务。
 
-Claude Code Workflow (CCW) 建立在三个核心架构原则之上，具备智能工作流编排功能：
+> **🎯 最新版本 v2.0**: 主要架构演进，包含增强的工作流生命周期、全面的测试工作流生成、计划验证系统和头脑风暴产物集成。详见 [CHANGELOG.md](CHANGELOG.md)。
+
+### 🌟 核心创新
+
+- **🔄 增强的工作流生命周期**: 完整开发周期：头脑风暴 → 规划 → 验证 → 执行 → 测试 → 审查
+- **🧪 自动测试生成**: 全面的测试工作流生成 (`/workflow:test-gen`) 与完整覆盖规划
+- **✅ 计划验证系统**: 使用 Gemini/Codex 双重分析的执行前验证 (`/workflow:plan-verify`)
+- **🎯 JSON优先架构**: 具有原子会话管理的单一数据源
+- **💡 头脑风暴产物**: 多视角规划与综合和结构化文档生成
+
+---
+
+## 🏗️ 系统架构
+
+### 🏛️ **四层架构**
+
+CCW 通过四个不同的架构层运行，具有明确的职责和数据契约：
+
+| 层级 | 组件 | 数据流 | 集成点 |
+|------|------|--------|--------|
+| **🖥️ 接口层** | CLI 命令、Gemini/Codex/Qwen 包装器 | 用户输入 → 命令 → 智能体 | 外部 CLI 工具、审批模式 |
+| **📋 会话层** | `.active-[session]` 标记、`workflow-session.json` | 会话状态 → 任务发现 | 原子会话切换 |
+| **📊 任务/数据层** | `.task/impl-*.json`、层次管理 | 任务定义 → 智能体执行 | JSON优先模型、生成视图 |
+| **🤖 编排层** | 多智能体协调、依赖解析 | 智能体输出 → 任务更新 | 智能执行流程 |
 
 ### **系统架构可视化**
 
@@ -77,36 +104,19 @@ graph TB
 - **冲突解决**: 自动检测和解决会话状态冲突
 - **可扩展性**: 支持并发会话而无性能下降
 
-### **自适应复杂度管理**
-CCW根据项目复杂度自动调整工作流结构：
+---
 
-| 复杂度级别 | 任务数量 | 结构 | 功能 |
-|------------|----------|------|------|
-| **简单** | <5个任务 | 单级层次结构 | 最小开销，直接执行 |
-| **中等** | 5-15个任务 | 两级任务分解 | 进度跟踪，自动文档 |
-| **复杂** | >15个任务 | 三级深度层次结构 | 完全编排，多智能体协调 |
+## 📊 复杂度管理系统
 
-## v1.0以来的主要增强功能
+CCW 根据项目复杂度自动调整工作流结构：
 
-### **🚀 智能任务饱和控制**
-高级工作流规划防止智能体过载，优化整个系统中的任务分配。
+| **复杂度** | **任务数量** | **结构** | **功能** |
+|---|---|---|---|
+| 🟢 **简单** | <5 任务 | 单级层次结构 | 最小开销，直接执行 |
+| 🟡 **中等** | 5-10 任务 | 两级层次结构 | 进度跟踪，自动文档 |
+| 🔴 **复杂** | >10 任务 | 强制重新划分范围 | 需要多迭代规划 |
 
-### **🧠 Gemini包装器智能**
-智能包装器根据任务分析自动管理令牌限制和审批模式：
-- 分析关键词 → `--approval-mode default`
-- 开发任务 → `--approval-mode yolo`
-- 基于项目大小的自动 `--all-files` 标志管理
-
-### **🎯 路径特定分析系统**
-新的任务特定路径管理系统，实现针对具体项目路径的精确CLI分析，替代通配符。
-
-### **📝 统一模板系统**
-跨工具模板兼容性，共享模板库支持Gemini和Codex工作流。
-
-### **⚡ 性能增强**
-- 亚毫秒级JSON查询响应时间
-- 复杂操作10分钟执行超时
-- 按需文件创建减少初始化开销
+---
 
 ### **命令执行流程**
 
@@ -170,7 +180,7 @@ graph TD
 graph LR
     START[📋 会话开始] --> MARKER[🏷️ .active-session 标记]
     MARKER --> JSON[📊 workflow-session.json]
-    JSON --> TASKS[🎯 .task/IMPL-*.json]
+    JSON --> TASKS[🎯 .task/impl-*.json]
     TASKS --> PAUSE[⏸️ 暂停：删除标记]
     PAUSE --> RESUME[▶️ 恢复：恢复标记]
     RESUME --> SWITCH[🔄 切换：更改活跃会话]
@@ -184,7 +194,31 @@ graph LR
 | **中等功能** | 文档+Gemini | 查看文档 → `/gemini:analyze` → `/workflow:plan` |
 | **大型系统** | 完整头脑风暴 | `/workflow:brainstorm` → 综合 → `/workflow:plan-deep` |
 
-> 📊 **完整工作流图表**: 有关详细的系统架构、智能体协调、会话管理和完整工作流变体的图表，请参见 [WORKFLOW_DIAGRAMS.md](WORKFLOW_DIAGRAMS.md)。
+### ✨ v2.0 主要增强功能
+
+### 🔄 **增强的工作流生命周期**
+每个阶段都有质量门禁的完整开发生命周期：
+
+1. **💡 头脑风暴阶段** - 基于角色分析的多视角概念规划
+2. **📋 规划阶段** - 结构化实现规划与任务分解
+3. **✅ 验证阶段** - 使用 Gemini（战略）+ Codex（技术）的执行前验证
+4. **⚡ 执行阶段** - 多智能体编排的自主实现
+5. **🧪 测试阶段** - 全面覆盖的自动测试工作流生成
+6. **🔍 审查阶段** - 质量保证和完成验证
+
+### 🧪 **自动测试生成**
+全面的测试工作流创建：
+- **实现分析**: 扫描已完成的 IMPL-* 任务以确定测试需求
+- **多层测试**: 单元、集成、E2E、性能、安全测试
+- **智能体分配**: 不同测试类型的专门测试智能体
+- **依赖映射**: 测试执行遵循实现依赖链
+
+### ✅ **计划验证系统**
+执行前的双引擎验证：
+- **Gemini 战略分析**: 高级可行性和架构合理性
+- **Codex 技术分析**: 实现细节和技术可行性
+- **交叉验证**: 识别战略愿景与技术约束之间的冲突
+- **改进建议**: 实现开始前的可行性建议
 
 ## 核心组件
 
@@ -223,7 +257,7 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 
 ### 验证安装
 ```bash
-/workflow:session list
+/workflow:session:list
 ```
 
 ### 必需配置
@@ -308,13 +342,13 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 | `🔍 /workflow:review` | `/workflow:review` | 执行质量验证审查阶段 |
 | `📚 /workflow:docs` | `/workflow:docs "architecture" \| "api" \| "all"` | 生成分层文档 |
 
-#### 问题管理
+#### 🏷️ 问题管理
 | 命令 | 语法 | 描述 |
 |------|------|------|
-| `/workflow:issue:create` | `/workflow:issue:create "<标题>" [--priority=级别] [--type=类型]` | 创建新项目问题 |
-| `/workflow:issue:list` | `/workflow:issue:list [--status=状态] [--assigned=智能体]` | 列出项目问题并过滤 |
-| `/workflow:issue:update` | `/workflow:issue:update <问题ID> [--status=状态] [--assign=智能体]` | 更新现有问题 |
-| `/workflow:issue:close` | `/workflow:issue:close <问题ID> [--reason=原因]` | 关闭已解决的问题 |
+| `➕ /workflow:issue:create` | `/workflow:issue:create "API 速率限制" --priority=high` | 创建新项目问题 |
+| `📋 /workflow:issue:list` | `/workflow:issue:list --status=open --assigned=system-architect` | 列出和过滤问题 |
+| `📝 /workflow:issue:update` | `/workflow:issue:update ISS-001 --status=in-progress` | 更新现有问题 |
+| `✅ /workflow:issue:close` | `/workflow:issue:close ISS-001 --reason=resolved` | 关闭已完成问题 |
 
 ### 任务管理命令
 
@@ -447,7 +481,7 @@ cd src/api && /update-memory-related
 └── settings.local.json   # 本地环境配置
 
 .workflow/                 # 会话工作空间（自动生成）
-├── .active-[session-name] # 活跃会话标记文件
+├── .active-[session] # 活跃会话标记文件
 └── WFS-[topic-slug]/      # 个别会话目录
     ├── workflow-session.json      # 会话元数据
     ├── .task/impl-*.json          # JSON任务定义

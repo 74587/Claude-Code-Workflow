@@ -21,7 +21,6 @@
 ### 🌟 Key Innovations
 
 - **🔄 Enhanced Workflow Lifecycle**: Complete development cycle: Brainstorm → Plan → Verify → Execute → Test → Review
-- **🧪 Automated Test Generation**: Comprehensive test workflow creation with full coverage planning
 - **🧪 Automated Test Generation**: Comprehensive test workflow generation (`/workflow:test-gen`) with full coverage planning
 - **✅ Plan Verification System**: Pre-execution validation using dual Gemini/Codex analysis (`/workflow:plan-verify`)
 - **🎯 JSON-First Architecture**: Single source of truth with atomic session management
@@ -82,14 +81,16 @@ graph TB
     MARKER --> WDIR
 ```
 
-### 🏛️ **Three-Pillar Foundation**
+### 🏛️ **Four-Layer Architecture**
 
-| 🏗️ **JSON-First Data Model** | ⚡ **Atomic Session Management** | 🧩 **Adaptive Complexity** |
-|---|---|---|
-| Single source of truth | Marker-based session state | Auto-adjusts to project size |
-| Sub-millisecond queries | Zero-overhead switching | Simple → Medium → Complex |
-| Generated Markdown views | Conflict-free concurrency | Task limit enforcement |
-| Data consistency guaranteed | Instant context switching | Intelligent decomposition |
+CCW operates through four distinct architectural layers with defined responsibilities and data contracts:
+
+| Layer | Components | Data Flow | Integration Points |
+|-------|------------|-----------|-------------------|
+| **🖥️ Interface Layer** | CLI Commands, Gemini/Codex/Qwen Wrappers | User input → Commands → Agents | External CLI tools, approval modes |
+| **📋 Session Layer** | `.active-[session]` markers, `workflow-session.json` | Session state → Task discovery | Atomic session switching |
+| **📊 Task/Data Layer** | `.task/impl-*.json`, hierarchy management | Task definitions → Agent execution | JSON-first model, generated views |
+| **🤖 Orchestration Layer** | Multi-agent coordination, dependency resolution | Agent outputs → Task updates | Intelligent execution flow |
 
 ---
 
@@ -104,13 +105,6 @@ Complete development lifecycle with quality gates at each phase:
 4. **⚡ Execute Phase** - Autonomous implementation with multi-agent orchestration
 5. **🧪 Test Phase** - Automated test workflow generation with comprehensive coverage
 6. **🔍 Review Phase** - Quality assurance and completion validation
-
-### 🧪 **Automated Test Generation**
-Comprehensive test workflow creation:
-- **Implementation Analysis**: Scans completed IMPL-* tasks for test requirements
-- **Multi-layered Testing**: Unit, Integration, E2E, Performance, Security tests
-- **Agent Assignment**: Specialized test agents for different test types
-- **Dependency Mapping**: Test execution follows implementation dependency chains
 
 ### 🧪 **Automated Test Generation**
 Comprehensive test workflow creation:
@@ -220,6 +214,14 @@ CCW automatically adapts workflow structure based on project complexity:
 | `🔄 /task:breakdown` | Intelligent task decomposition | `/task:breakdown task-id` |
 | `⚡ /task:execute` | Execute tasks with appropriate agents | `/task:execute task-id` |
 | `📋 /task:replan` | Replan tasks with detailed input | `/task:replan task-id ["text" \| file.md \| ISS-001]` |
+
+#### 🏷️ Issue Management
+| Command | Function | Usage |
+|---------|----------|-------|
+| `➕ /workflow:issue:create` | Create new project issue | `/workflow:issue:create "API Rate Limiting" --priority=high` |
+| `📋 /workflow:issue:list` | List and filter issues | `/workflow:issue:list --status=open --assigned=system-architect` |
+| `📝 /workflow:issue:update` | Update existing issue | `/workflow:issue:update ISS-001 --status=in-progress` |
+| `✅ /workflow:issue:close` | Close completed issue | `/workflow:issue:close ISS-001 --reason=resolved` |
 
 #### 🧠 Brainstorming Role Commands
 | Role | Command | Purpose |
@@ -339,8 +341,7 @@ graph LR
 ├── 🔧 scripts/              # Automation utilities
 │   ├── 📊 gemini-wrapper           # Intelligent Gemini wrapper
 │   ├── 🔧 get_modules_by_depth.sh  # Project analysis
-│   ├── 📋 read-task-paths.sh       # Task path conversion
-│   └── 🏗️ get_modules_by_depth.sh  # Project analysis
+│   └── 📋 read-task-paths.sh       # Task path conversion
 ├── 🛠️ workflows/            # Core workflow documentation
 │   ├── 🏛️ workflow-architecture.md      # System architecture
 │   ├── 📊 intelligent-tools-strategy.md # Tool selection guide
@@ -398,7 +399,7 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 
 ### ✅ **Verify Installation**
 ```bash
-/workflow:session list
+/workflow:session:list
 ```
 
 ### ⚙️ **Essential Configuration**
