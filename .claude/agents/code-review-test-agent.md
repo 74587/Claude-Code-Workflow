@@ -159,6 +159,11 @@ if [FAST_MODE]: apply targeted review process
 - Missing or unused imports identification
 - Circular dependency detection
 
+**MCP Tools Integration**: Use Code Index for comprehensive analysis:
+- Pattern discovery: `mcp__code-index__search_code_advanced(pattern="import.*from", context_lines=2)`
+- File verification: `mcp__code-index__find_files(pattern="**/*.test.js")`
+- Post-review refresh: `mcp__code-index__refresh_index()`
+
 ### Performance
 - Algorithm complexity (time and space)
 - Database query optimization

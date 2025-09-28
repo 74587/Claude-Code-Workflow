@@ -86,17 +86,17 @@ def handle_brainstorm_assignment(prompt):
 
 ### Role-Specific Analysis Dimensions
 
-| Role | Primary Dimensions | Focus Areas |
-|------|-------------------|--------------|
-| system-architect | architecture_patterns, scalability_analysis, integration_points | Technical design and system structure |
-| ui-designer | user_flow_patterns, component_reuse, design_system_compliance | UI/UX patterns and consistency |
-| business-analyst | process_optimization, cost_analysis, efficiency_metrics, workflow_patterns | Business process and ROI |
-| data-architect | data_models, flow_patterns, storage_optimization | Data structure and flow |
-| security-expert | vulnerability_assessment, threat_modeling, compliance_check | Security risks and compliance |
-| user-researcher | usage_patterns, pain_points, behavior_analysis | User behavior and needs |
-| product-manager | feature_alignment, market_fit, competitive_analysis | Product strategy and positioning |
-| innovation-lead | emerging_patterns, technology_trends, disruption_potential | Innovation opportunities |
-| feature-planner | implementation_complexity, dependency_mapping, risk_assessment | Development planning |
+| Role | Primary Dimensions | Focus Areas | Exa Usage |
+|------|-------------------|--------------|-----------|
+| system-architect | architecture_patterns, scalability_analysis, integration_points | Technical design and system structure | `mcp__exa__get_code_context_exa("microservices patterns")` |
+| ui-designer | user_flow_patterns, component_reuse, design_system_compliance | UI/UX patterns and consistency | `mcp__exa__get_code_context_exa("React design system patterns")` |
+| business-analyst | process_optimization, cost_analysis, efficiency_metrics, workflow_patterns | Business process and ROI | `mcp__exa__get_code_context_exa("business workflow automation")` |
+| data-architect | data_models, flow_patterns, storage_optimization | Data structure and flow | `mcp__exa__get_code_context_exa("database schema patterns")` |
+| security-expert | vulnerability_assessment, threat_modeling, compliance_check | Security risks and compliance | `mcp__exa__get_code_context_exa("security authentication patterns")` |
+| user-researcher | usage_patterns, pain_points, behavior_analysis | User behavior and needs | `mcp__exa__get_code_context_exa("user research methodologies")` |
+| product-manager | feature_alignment, market_fit, competitive_analysis | Product strategy and positioning | `mcp__exa__get_code_context_exa("product management frameworks")` |
+| innovation-lead | emerging_patterns, technology_trends, disruption_potential | Innovation opportunities | `mcp__exa__get_code_context_exa("emerging technology trends")` |
+| feature-planner | implementation_complexity, dependency_mapping, risk_assessment | Development planning | `mcp__exa__get_code_context_exa("agile development patterns")` |
 
 ### Output Integration
 

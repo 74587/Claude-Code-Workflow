@@ -85,6 +85,12 @@ ELIF context insufficient OR task has flow control marker:
 
 **Rule**: Before referencing modules/components, use `rg` or search to verify existence first.
 
+**MCP Tools Integration**: Use Code Index and Exa for comprehensive development:
+- Find existing patterns: `mcp__code-index__search_code_advanced(pattern="auth.*function")`
+- Locate files: `mcp__code-index__find_files(pattern="src/**/*.ts")`
+- Get API examples: `mcp__exa__get_code_context_exa(query="React authentication hooks", tokensNum="dynamic")`
+- Update after changes: `mcp__code-index__refresh_index()`
+
 **Test-Driven Development**:
 - Write tests first (red → green → refactor)
 - Focus on core functionality and edge cases

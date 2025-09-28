@@ -17,10 +17,14 @@ Context-aware documentation update for modules affected by recent changes.
 #!/bin/bash
 # Context-aware CLAUDE.md documentation update
 
-# Step 1: Detect changed modules (before staging)
+# Step 1: Code Index refresh and architecture analysis
+mcp__code-index__refresh_index()
+mcp__code-index__search_code_advanced(pattern="class|function|interface", file_pattern="**/*.{ts,js,py}")
+
+# Step 2: Detect changed modules (before staging)
 changed=$(Bash(~/.claude/scripts/detect_changed_modules.sh list))
 
-# Step 2: Cache git changes (protect current state)
+# Step 3: Cache git changes (protect current state)
 Bash(git add -A 2>/dev/null || true)
 
 # Step 3: Use detected changes or fallback

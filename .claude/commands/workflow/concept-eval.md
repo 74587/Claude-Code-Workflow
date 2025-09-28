@@ -46,6 +46,7 @@ Pre-planning evaluation command that assesses concept feasibility, identifies po
 The command performs comprehensive concept evaluation through:
 
 **0. Context Preparation** ⚠️ FIRST STEP
+- **MCP Tools Integration**: Use Code Index for codebase exploration, Exa for external context
 - **Documentation loading**: Automatic context gathering based on concept scope
   - **Always check**: `CLAUDE.md`, `README.md` - Project context and conventions
   - **For architecture concepts**: `.workflow/docs/architecture/`, existing system patterns

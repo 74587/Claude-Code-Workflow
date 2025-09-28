@@ -41,6 +41,7 @@ ls ~/.claude/workflows/cli-templates/planning-roles/  # Show all available roles
 The command performs dedicated role analysis through:
 
 **0. Session Management** ⚠️ FIRST STEP
+- **MCP Tools Integration**: Use Code Index for codebase context, Exa for external insights
 - **Active session detection**: Check `.workflow/.active-*` markers
 - **Session selection**: Prompt user if multiple active sessions found
 - **Auto-creation**: Create `WFS-[topic-slug]` only if no active session exists

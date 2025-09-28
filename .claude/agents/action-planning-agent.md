@@ -71,6 +71,7 @@ You are a pure execution agent specialized in creating actionable implementation
 4. Use consolidated analysis to inform implementation stages and task breakdown
 
 #### Analysis Dimensions Coverage
+- **Exa Research**: Use `mcp__exa__get_code_context_exa` for technology stack selection and API patterns
 - Architecture patterns and component relationships
 - Implementation conventions and coding standards
 - Module dependencies and integration points

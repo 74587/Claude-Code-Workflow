@@ -25,6 +25,32 @@
 - **✅ 计划验证系统**: 使用 Gemini/Codex 双重分析的执行前验证 (`/workflow:plan-verify`)
 - **🎯 JSON优先架构**: 具有原子会话管理的单一数据源
 - **💡 头脑风暴产物**: 多视角规划与综合和结构化文档生成
+- **🚀 MCP 工具集成**: 通过模型上下文协议实现增强的代码库分析和外部上下文获取
+
+### 🔧 MCP 工具增强 (NEW!)
+
+**通过 MCP (Model Context Protocol) 工具实现的高级代码库分析:**
+
+#### 必需的 MCP 服务器
+1. **Exa MCP Server** - 外部 API 模式和示例
+   - 仓库: https://github.com/exa-labs/exa-mcp-server
+   - 功能: `mcp__exa__get_code_context_exa()` - 获取外部最佳实践
+
+2. **Code Index MCP** - 内部代码库探索
+   - 仓库: https://github.com/johnhuang316/code-index-mcp
+   - 功能:
+     - `mcp__code-index__find_files()` - 文件模式匹配
+     - `mcp__code-index__search_code_advanced()` - 高级代码搜索
+
+#### MCP 集成优势
+- **📊 更快分析**: 直接代码库索引 vs 手动文件搜索
+- **🌐 外部上下文**: 真实世界的 API 模式和实现示例
+- **🔍 模式识别**: 高级代码模式匹配和相似性检测
+- **📈 全面覆盖**: 内部代码探索和外部最佳实践查找
+- **⚡ 自动回退**: 如果 MCP 工具不可用，工作流使用传统 bash/CLI 工具
+
+#### 安装和设置
+请安装这些 MCP 服务器以启用增强的代码库分析。工作流将在可用时自动使用它们。
 
 ---
 
@@ -509,6 +535,9 @@ cd src/api && /update-memory-related
 - **🔮 Qwen CLI**: 架构分析和代码生成必需
 - **📂 Git仓库**: 变更跟踪和版本控制必需
 - **🎯 Claude Code IDE**: 推荐用于最佳体验
+- **🔧 MCP 服务器**: 推荐用于增强代码库分析
+  - **Exa MCP Server**: 外部 API 模式和最佳实践获取
+  - **Code Index MCP**: 高级内部代码库搜索和索引
 
 ## 配置
 

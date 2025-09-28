@@ -15,11 +15,15 @@ Coordinate parallel execution of `~/.claude/scripts/update_module_claude.sh` scr
 
 ### 1. Analyze Project Structure
 ```bash
-# Step 1: Get module list with depth information
+# Step 1: Code Index architecture analysis
+mcp__code-index__search_code_advanced(pattern="class|function|interface", file_pattern="**/*.{ts,js,py}")
+mcp__code-index__find_files(pattern="**/*.{md,json,yaml,yml}")
+
+# Step 2: Get module list with depth information
 modules=$(Bash(~/.claude/scripts/get_modules_by_depth.sh list))
 count=$(echo "$modules" | wc -l)
 
-# Step 2: Display project structure
+# Step 3: Display project structure
 Bash(~/.claude/scripts/get_modules_by_depth.sh grouped)
 ```
 

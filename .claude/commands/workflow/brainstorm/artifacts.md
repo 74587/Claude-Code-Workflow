@@ -25,6 +25,7 @@ Dedicated command for topic discussion, decomposition, and analysis artifacts ge
 ### Discussion & Artifacts Generation Process
 
 **0. Session Management** ⚠️ FIRST STEP
+- **MCP Tools Integration**: Use Code Index for technical context, Exa for industry insights
 - **Active session detection**: Check `.workflow/.active-*` markers
 - **Session selection**: Prompt user if multiple active sessions found
 - **Auto-creation**: Create `WFS-[topic-slug]` only if no active session exists

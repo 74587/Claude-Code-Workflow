@@ -16,10 +16,14 @@ Complete project-wide documentation update using depth-parallel execution.
 #!/bin/bash
 # Complete project-wide CLAUDE.md documentation update
 
-# Step 1: Cache git changes
+# Step 1: Code Index architecture analysis
+mcp__code-index__search_code_advanced(pattern="class|function|interface", file_pattern="**/*.{ts,js,py}")
+mcp__code-index__find_files(pattern="**/*.{md,json,yaml,yml}")
+
+# Step 2: Cache git changes
 Bash(git add -A 2>/dev/null || true)
 
-# Step 2: Get and display project structure
+# Step 3: Get and display project structure
 modules=$(Bash(~/.claude/scripts/get_modules_by_depth.sh list))
 count=$(echo "$modules" | wc -l)
 

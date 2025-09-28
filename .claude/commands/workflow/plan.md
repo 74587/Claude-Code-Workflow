@@ -11,6 +11,24 @@ examples:
 
 # Workflow Plan Command
 
+## 🚀 MCP Tools Integration (NEW!)
+
+**Enhanced with MCP (Model Context Protocol) tools for advanced codebase analysis:**
+
+### Required MCP Servers
+1. **Exa MCP Server** - External API patterns and examples
+   - Repository: https://github.com/exa-labs/exa-mcp-server
+   - Function: `mcp__exa__get_code_context_exa()` - Get external best practices
+
+2. **Code Index MCP** - Internal codebase exploration
+   - Repository: https://github.com/johnhuang316/code-index-mcp
+   - Functions:
+     - `mcp__code-index__find_files()` - File pattern matching
+     - `mcp__code-index__search_code_advanced()` - Advanced code search
+
+### Installation & Setup
+Please install these MCP servers to enable enhanced codebase analysis. The workflow will automatically use them when available.
+
 ## Usage
 ```bash
 /workflow:plan <input>
@@ -92,6 +110,18 @@ The following pre_analysis steps are generated for agent execution:
       "output_to": "planning_context"
     },
     {
+      "step": "mcp_codebase_exploration",
+      "action": "Explore codebase structure and patterns using MCP tools",
+      "command": "mcp__code-index__find_files(pattern=\"[task_focus_patterns]\") && mcp__code-index__search_code_advanced(pattern=\"[relevant_patterns]\", file_pattern=\"[target_extensions]\")",
+      "output_to": "codebase_structure"
+    },
+    {
+      "step": "mcp_external_context",
+      "action": "Get external API examples and best practices",
+      "command": "mcp__exa__get_code_context_exa(query=\"[task_technology] [task_patterns]\", tokensNum=\"dynamic\")",
+      "output_to": "external_context"
+    },
+    {
       "step": "load_dependencies",
       "action": "Retrieve dependency task summaries",
       "command": "bash(cat .workflow/WFS-[session]/.summaries/IMPL-[dependency_id]-summary.md 2>/dev/null || echo 'dependency summary not found')",
@@ -104,18 +134,11 @@ The following pre_analysis steps are generated for agent execution:
       "output_to": "doc_context"
     },
     {
-      "step": "analyze_patterns",
-      "action": "Analyze codebase patterns and architecture using CLI tools with directory context",
-      "command": "bash(cd \"[target_directory]\" && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze existing patterns TASK: Identify implementation patterns for [task_type] CONTEXT: [planning_context] [dependency_context] EXPECTED: Pattern analysis and recommendations RULES: Focus on architectural consistency\")",
-      "output_to": "pattern_analysis",
-      "on_error": "skip_optional"
-    },
-    {
-      "step": "analyze_implementation",
-      "action": "Development-focused analysis using Codex when needed",
-      "command": "bash(codex -C [target_directory] --full-auto exec \"PURPOSE: Analyze implementation patterns TASK: Review development patterns for [task_type] CONTEXT: [planning_context] [dependency_context] EXPECTED: Development strategy and code patterns RULES: Focus on implementation consistency\" -s danger-full-access)",
-      "output_to": "implementation_analysis",
-      "on_error": "skip_optional"
+      "step": "gather_task_context",
+      "action": "Analyze task context and dependencies without implementation",
+      "command": "bash(cd \"[task_focus_paths]\" && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze task context and patterns TASK: Review existing patterns and dependencies for '[task_title]' CONTEXT: Task ID [task_id], Focus paths: [task_focus_paths], MCP findings: [codebase_structure] [external_context] EXPECTED: Pattern analysis, dependency mapping, and architectural insights RULES: Focus on understanding existing code patterns, no implementation\")",
+      "output_to": "task_context",
+      "on_error": "fail"
     }
   ]
 }
@@ -126,7 +149,49 @@ Flow_control design should follow these principles:
 1. **Structure Analysis**: Project hierarchy and patterns
 2. **Dependency Mapping**: Previous task summaries → inheritance context
 3. **Task Context Generation**: Combined analysis → task.context fields
-4. **CLI Tool Analysis**: Use Gemini/Codex appropriately for pattern analysis when needed 
+4. **CLI Tool Analysis**: Use Gemini/Codex appropriately for pattern analysis when needed
+
+**MCP Integration Principles**:
+- **Code Index First**: Use `mcp__code-index__` for internal codebase exploration before external tools
+- **Exa for Context**: Use `mcp__exa__get_code_context_exa` to supplement with external API patterns and examples
+- **Automatic Fallback**: If MCP tools unavailable, workflow uses traditional bash/CLI tools
+- **Enhanced Analysis**: MCP tools provide deeper codebase understanding and external best practices
+
+**Benefits of MCP Integration**:
+- **Faster Analysis**: Direct codebase indexing vs. manual file searching
+- **External Context**: Real-world API patterns and implementation examples
+- **Pattern Recognition**: Advanced code pattern matching and similarity detection
+- **Comprehensive Coverage**: Both internal code exploration and external best practice lookup
+
+**Implementation Approach Planning**:
+Each task's `flow_control.implementation_approach` defines execution strategy (planning phase):
+
+1. **task_description**: Implementation strategy definition:
+   - Clear implementation goal to be executed later
+   - Planned reference to patterns from pre_analysis results
+   - Integration strategy with existing codebase
+
+2. **modification_points**: Planned code modification targets:
+   - Specific code changes to be made during execution
+   - Planned use of parent task patterns via `[parent]` context
+   - Integration points with existing components via `[context]` from dependencies
+
+3. **logic_flow**: Business logic execution plan:
+   - Step-by-step workflow to be implemented
+   - Planned data flow between components
+   - Integration points using `[inherited]` and `[shared]` context
+
+4. **target_files**: Target file specifications for execution:
+   - `src/auth/login.ts:handleLogin:75-120` (planned function and line range)
+   - `src/middleware/auth.ts:validateToken` (planned function target)
+   - Must align with task's `context.focus_paths`
+
+**Variable Reference System**:
+- `[design]` - Results from pre_analysis steps
+- `[parent]` - Context inherited from parent tasks
+- `[context]` - Dependencies from related tasks
+- `[inherited]` - Shared context from session
+- `[shared]` - Global rules and patterns 
 
 **Content Sources**:
 - Task summaries: `.workflow/WFS-[session]/.summaries/`
@@ -156,6 +221,7 @@ Flow_control design should follow these principles:
 **Task Patterns**:
 - ✅ **Correct (Function-based)**: `IMPL-001: User authentication system` (models + routes + components + middleware + tests)
 - ❌ **Wrong (File/step-based)**: `IMPL-001: Create database model`, `IMPL-002: Create API endpoint`
+
 
 ## Document Generation
 
