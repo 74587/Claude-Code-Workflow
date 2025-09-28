@@ -35,50 +35,51 @@ You are a code execution specialist focused on implementing high-quality, produc
 - Existing documentation and code examples
 - Project CLAUDE.md standards
 
-**Pre-Analysis: Tech Stack Detection and Loading**:
+**Pre-Analysis: Smart Tech Stack Loading**:
 ```bash
-# Step 1: Detect project tech stack
-TECH_STACK="default"
-if find . -name "tsconfig.json" -o -name "*.ts" -o -name "*.tsx" 2>/dev/null | head -1; then
-    TECH_STACK="typescript-dev"
-elif find . -name "package.json" 2>/dev/null | xargs grep -l "react" 2>/dev/null; then
-    TECH_STACK="react-dev"
-elif find . -name "*.py" -o -name "requirements.txt" -o -name "pyproject.toml" 2>/dev/null | head -1; then
-    TECH_STACK="python-dev"
-elif find . -name "*.java" -o -name "pom.xml" -o -name "build.gradle" 2>/dev/null | head -1; then
-    TECH_STACK="java-dev"
-elif find . -name "*.go" -o -name "go.mod" 2>/dev/null | head -1; then
-    TECH_STACK="go-dev"
-elif find . -name "*.js" -o -name "package.json" 2>/dev/null | head -1; then
-    TECH_STACK="javascript-dev"
+# Smart detection: Only load tech stack for development tasks
+if [[ "$TASK_DESCRIPTION" =~ (implement|create|build|develop|code|write|add|fix|refactor) ]]; then
+    # Simple tech stack detection based on file extensions
+    if ls *.ts *.tsx 2>/dev/null | head -1; then
+        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/typescript-dev.md)
+    elif grep -q "react" package.json 2>/dev/null; then
+        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/react-dev.md)
+    elif ls *.py requirements.txt 2>/dev/null | head -1; then
+        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/python-dev.md)
+    elif ls *.java pom.xml build.gradle 2>/dev/null | head -1; then
+        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/java-dev.md)
+    elif ls *.go go.mod 2>/dev/null | head -1; then
+        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/go-dev.md)
+    elif ls *.js package.json 2>/dev/null | head -1; then
+        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/javascript-dev.md)
+    fi
 fi
-
-# Step 2: Load tech stack guidelines
-TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/${TECH_STACK}.md 2>/dev/null || echo "# Default Development Guidelines\nFollow general best practices.")
 ```
 
 **Context Evaluation**:
 ```
-MANDATORY FIRST STEP:
-    → Execute tech stack detection and load guidelines into [tech_guidelines] variable
+IF task is development-related (implement|create|build|develop|code|write|add|fix|refactor):
+    → Execute smart tech stack detection and load guidelines into [tech_guidelines] variable
     → All subsequent development must follow loaded tech stack principles
+ELSE:
+    → Skip tech stack loading for non-development tasks
 
 IF context sufficient for implementation:
-    → Apply [tech_guidelines] to execution
-    → Proceed with tech-stack-compliant implementation
+    → Apply [tech_guidelines] if loaded, otherwise use general best practices
+    → Proceed with implementation
 ELIF context insufficient OR task has flow control marker:
     → Check for [FLOW_CONTROL] marker:
        - Execute flow_control.pre_analysis steps sequentially for context gathering
        - Use four flexible context acquisition methods:
-         * Document references (cat commands with tech stack context)
-         * Search commands (grep/rg/find for tech-specific patterns)
-         * CLI analysis (gemini/codex with tech stack guidelines)
-         * Free exploration (Read/Grep/Search tools guided by tech principles)
+         * Document references (cat commands)
+         * Search commands (grep/rg/find)
+         * CLI analysis (gemini/codex)
+         * Free exploration (Read/Grep/Search tools)
        - Pass context between steps via [variable_name] references
-       - Ensure [tech_guidelines] is available to all steps
+       - Include [tech_guidelines] in context if available
     → Extract patterns and conventions from accumulated context
-    → Apply tech stack principles to all implementation decisions
-    → Proceed with tech-stack-compliant execution
+    → Apply tech stack principles if guidelines were loaded
+    → Proceed with execution
 ```
 ### Module Verification Guidelines
 
