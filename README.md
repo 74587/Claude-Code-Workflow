@@ -16,12 +16,12 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework for software development that orchestrates complex development tasks through intelligent workflow management and autonomous execution.
 
-> **🎯 Latest Release v2.0**: Major architectural evolution with enhanced workflow lifecycle, Python-powered backend (`pycli`), comprehensive test workflow generation, plan verification system, and brainstorm artifacts integration. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎯 Latest Release v2.0**: Major architectural evolution with enhanced workflow lifecycle, comprehensive test workflow generation, plan verification system, and brainstorm artifacts integration. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ### 🌟 Key Innovations
 
 - **🔄 Enhanced Workflow Lifecycle**: Complete development cycle: Brainstorm → Plan → Verify → Execute → Test → Review
-- **🐍 Python-Powered Backend**: Advanced `pycli` integration with hierarchical vector database support for semantic context discovery
+- **🧪 Automated Test Generation**: Comprehensive test workflow creation with full coverage planning
 - **🧪 Automated Test Generation**: Comprehensive test workflow generation (`/workflow:test-gen`) with full coverage planning
 - **✅ Plan Verification System**: Pre-execution validation using dual Gemini/Codex analysis (`/workflow:plan-verify`)
 - **🎯 JSON-First Architecture**: Single source of truth with atomic session management
@@ -105,19 +105,12 @@ Complete development lifecycle with quality gates at each phase:
 5. **🧪 Test Phase** - Automated test workflow generation with comprehensive coverage
 6. **🔍 Review Phase** - Quality assurance and completion validation
 
-### 🐍 **Python-Powered Backend (`pycli`)**
-Advanced semantic context discovery system:
-
-```bash
-# Hierarchical vector database support
-pycli --semantic-search "authentication patterns"
-
-# Auto-detects parent directory vector DB
-pycli --context-discovery --inherit-parent
-
-# Intelligent file relevance scoring
-pycli --analyze-relevance "jwt token validation"
-```
+### 🧪 **Automated Test Generation**
+Comprehensive test workflow creation:
+- **Implementation Analysis**: Scans completed IMPL-* tasks for test requirements
+- **Multi-layered Testing**: Unit, Integration, E2E, Performance, Security tests
+- **Agent Assignment**: Specialized test agents for different test types
+- **Dependency Mapping**: Test execution follows implementation dependency chains
 
 ### 🧪 **Automated Test Generation**
 Comprehensive test workflow creation:
@@ -345,14 +338,13 @@ graph LR
 ├── 💬 prompt-templates/      # AI interaction templates
 ├── 🔧 scripts/              # Automation utilities
 │   ├── 📊 gemini-wrapper           # Intelligent Gemini wrapper
-│   ├── 🐍 pycli                    # NEW: Python CLI backend
-│   ├── 🛠️ install_pycli.sh          # NEW: Python tools installer
+│   ├── 🔧 get_modules_by_depth.sh  # Project analysis
 │   ├── 📋 read-task-paths.sh       # Task path conversion
 │   └── 🏗️ get_modules_by_depth.sh  # Project analysis
 ├── 🛠️ workflows/            # Core workflow documentation
 │   ├── 🏛️ workflow-architecture.md      # System architecture
 │   ├── 📊 intelligent-tools-strategy.md # Tool selection guide
-│   ├── 🐍 python-tools-strategy.md     # NEW: Python backend strategy
+│   ├── 🔧 context-search-strategy.md  # Search and discovery strategy
 │   └── 🔧 tools-implementation-guide.md # Implementation details
 └── ⚙️ settings.local.json   # Local configuration
 
@@ -394,7 +386,6 @@ graph LR
 - **🔮 Qwen CLI**: Required for architecture analysis and code generation
 - **📂 Git Repository**: Required for change tracking and version control
 - **🎯 Claude Code IDE**: Recommended for optimal experience
-- **🐍 Python 3.8+**: Required for advanced pycli backend features
 
 ---
 

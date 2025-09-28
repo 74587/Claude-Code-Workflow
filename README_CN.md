@@ -475,7 +475,6 @@ cd src/api && /update-memory-related
 - **🔮 Qwen CLI**: 架构分析和代码生成必需
 - **📂 Git仓库**: 变更跟踪和版本控制必需
 - **🎯 Claude Code IDE**: 推荐用于最佳体验
-- **🐍 Python 3.8+**: 高级pycli后端功能必需
 
 ## 配置
 
