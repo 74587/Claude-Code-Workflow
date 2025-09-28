@@ -11,24 +11,6 @@ examples:
 
 # Workflow Plan Command
 
-## 🚀 MCP Tools Integration (NEW!)
-
-**Enhanced with MCP (Model Context Protocol) tools for advanced codebase analysis:**
-
-### Required MCP Servers
-1. **Exa MCP Server** - External API patterns and examples
-   - Repository: https://github.com/exa-labs/exa-mcp-server
-   - Function: `mcp__exa__get_code_context_exa()` - Get external best practices
-
-2. **Code Index MCP** - Internal codebase exploration
-   - Repository: https://github.com/johnhuang316/code-index-mcp
-   - Functions:
-     - `mcp__code-index__find_files()` - File pattern matching
-     - `mcp__code-index__search_code_advanced()` - Advanced code search
-
-### Installation & Setup
-Please install these MCP servers to enable enhanced codebase analysis. The workflow will automatically use them when available.
-
 ## Usage
 ```bash
 /workflow:plan <input>
@@ -128,15 +110,30 @@ The following pre_analysis steps are generated for agent execution:
       "output_to": "dependency_context"
     },
     {
-      "step": "load_documentation",
-      "action": "Retrieve relevant documentation based on task scope and requirements",
-      "command": "bash(cat .workflow/docs/README.md $(if [[ \"$TASK_TYPE\" == *\"architecture\"* ]]; then echo .workflow/docs/architecture/*.md; fi) $(if [[ \"$TASK_MODULES\" ]]; then for module in $TASK_MODULES; do echo .workflow/docs/modules/$module/*.md; done; fi) $(if [[ \"$TASK_TYPE\" == *\"api\"* ]]; then echo .workflow/docs/api/*.md; fi) CLAUDE.md README.md 2>/dev/null || echo 'documentation not found')",
-      "output_to": "doc_context"
+      "step": "load_base_documentation",
+      "action": "Load core documentation files",
+      "commands": [
+        "bash(cat .workflow/docs/README.md 2>/dev/null || echo 'base docs not found')",
+        "bash(cat CLAUDE.md README.md 2>/dev/null || echo 'project docs not found')"
+      ],
+      "output_to": "base_docs"
     },
     {
-      "step": "gather_task_context",
-      "action": "Analyze task context and dependencies without implementation",
-      "command": "bash(cd \"[task_focus_paths]\" && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze task context and patterns TASK: Review existing patterns and dependencies for '[task_title]' CONTEXT: Task ID [task_id], Focus paths: [task_focus_paths], MCP findings: [codebase_structure] [external_context] EXPECTED: Pattern analysis, dependency mapping, and architectural insights RULES: Focus on understanding existing code patterns, no implementation\")",
+      "step": "load_task_specific_docs",
+      "action": "Load documentation relevant to task type",
+      "commands": [
+        "bash(cat .workflow/docs/architecture/*.md 2>/dev/null || echo 'architecture docs not found')",
+        "bash(cat .workflow/docs/api/*.md 2>/dev/null || echo 'api docs not found')"
+      ],
+      "output_to": "task_docs"
+    },
+    {
+      "step": "analyze_task_patterns",
+      "action": "Analyze existing code patterns for task context",
+      "commands": [
+        "bash(cd \"[task_focus_paths]\")",
+        "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze task patterns TASK: Review '[task_title]' patterns CONTEXT: Task [task_id] in [task_focus_paths] EXPECTED: Pattern analysis RULES: Focus on existing patterns\")"
+      ],
       "output_to": "task_context",
       "on_error": "fail"
     }
@@ -286,6 +283,10 @@ Each task.json uses the workflow-architecture.md 5-field schema:
 - **meta**: { type, agent }
 - **context**: { requirements, focus_paths, acceptance, parent, depends_on, inherited, shared_context }
 - **flow_control**: { pre_analysis[], implementation_approach, target_files[] }
+
+**MCP Tools Integration**: Enhanced with optional MCP servers for advanced analysis:
+- **Code Index MCP**: `mcp__code-index__find_files()`, `mcp__code-index__search_code_advanced()`
+- **Exa MCP**: `mcp__exa__get_code_context_exa()` for external patterns
 
 ### File Structure Reference
 **Architecture**: @~/.claude/workflows/workflow-architecture.md
