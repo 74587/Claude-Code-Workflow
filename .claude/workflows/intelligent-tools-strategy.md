@@ -37,7 +37,7 @@ type: strategic-guideline
 ### Standard Format (REQUIRED)
 ```bash
 # Gemini Analysis
-~/.claude/scripts/gemini-wrapper [-C directory] -p "
+~/.claude/scripts/gemini-wrapper -C [directory] -p "
 PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
 CONTEXT: [file references and memory context]
@@ -46,7 +46,7 @@ RULES: [template reference and constraints]
 "
 
 # Qwen Architecture & Code Generation
-~/.claude/scripts/qwen-wrapper [-C directory] -p "
+~/.claude/scripts/qwen-wrapper -C [directory] -p "
 PURPOSE: [clear architecture/code goal]
 TASK: [specific architecture/code task]
 CONTEXT: [file references and memory context]
@@ -55,7 +55,7 @@ RULES: [template reference and constraints]
 "
 
 # Codex Development
-codex [-C directory] --full-auto exec "
+codex -C [directory] --full-auto exec "
 PURPOSE: [clear development goal]
 TASK: [specific development task]
 CONTEXT: [file references and memory context]

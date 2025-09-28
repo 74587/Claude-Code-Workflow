@@ -148,18 +148,32 @@ sequenceDiagram
 
 ## 完整开发工作流示例
 
-### 🚀 **复杂功能开发流程**
+### 🚀 **增强的工作流生命周期**
+
 ```mermaid
 graph TD
-    START[新功能请求] --> SESSION["/workflow:session:start 'OAuth2系统'"]
-    SESSION --> BRAINSTORM["/workflow:brainstorm --perspectives=system-architect,security-expert"]
+    START[🎯 新功能请求] --> SESSION["/workflow:session:start 'OAuth2系统'"]
+    SESSION --> BRAINSTORM["/workflow:brainstorm:system-architect 主题"]
     BRAINSTORM --> SYNTHESIS["/workflow:brainstorm:synthesis"]
-    SYNTHESIS --> PLAN["/workflow:plan --from-brainstorming"]
-    PLAN --> EXECUTE["/workflow:execute --type=complex"]
-    EXECUTE --> TASKS["/task:breakdown impl-1 --depth=2"]
-    TASKS --> IMPL["/task:execute impl-1.1"]
-    IMPL --> REVIEW["/workflow:review --auto-fix"]
-    REVIEW --> DOCS["/update-memory-related"]
+    SYNTHESIS --> PLAN["/workflow:plan 描述"]
+    PLAN --> VERIFY["/workflow:plan-verify"]
+    VERIFY --> EXECUTE["/workflow:execute"]
+    EXECUTE --> TEST["/workflow:test-gen WFS-session-id"]
+    TEST --> REVIEW["/workflow:review"]
+    REVIEW --> DOCS["/workflow:docs all"]
+    DOCS --> COMPLETE[✅ 完成]
+```
+
+### ⚡ **工作流会话管理**
+
+```mermaid
+graph LR
+    START[📋 会话开始] --> MARKER[🏷️ .active-session 标记]
+    MARKER --> JSON[📊 workflow-session.json]
+    JSON --> TASKS[🎯 .task/IMPL-*.json]
+    TASKS --> PAUSE[⏸️ 暂停：删除标记]
+    PAUSE --> RESUME[▶️ 恢复：恢复标记]
+    RESUME --> SWITCH[🔄 切换：更改活跃会话]
 ```
 
 ### 🎯 **规划方法选择指南**
@@ -226,32 +240,45 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 
 | 命令 | 语法 | 描述 |
 |------|------|------|
-| `/enhance-prompt` | `/enhance-prompt <输入>` | 用技术上下文和结构增强用户输入 |
-| `/context` | `/context [任务ID\|--filter] [--analyze] [--format=tree\|list\|json]` | 统一上下文管理，自动数据一致性 |
-| `/update-memory-full` | `/update-memory-full` | 完整的项目级CLAUDE.md文档更新 |
-| `/update-memory-related` | `/update-memory-related` | 针对变更模块的上下文感知文档更新 |
+| `🎯 /enhance-prompt` | `/enhance-prompt "添加认证系统"` | 技术上下文增强 |
+| `📊 /context` | `/context --analyze --format=tree` | 统一上下文管理 |
+| `📝 /update-memory-full` | `/update-memory-full` | 完整文档更新 |
+| `🔄 /update-memory-related` | `/update-memory-related` | 智能上下文感知更新 |
 
-### Gemini CLI命令（分析与调查）
-
-| 命令 | 语法 | 描述 |
-|------|------|------|
-| `/gemini:analyze` | `/gemini:analyze <查询> [--all-files] [--save-session]` | 深度代码库分析和模式调查 |
-| `/gemini:chat` | `/gemini:chat <查询> [--all-files] [--save-session]` | 无模板的直接Gemini CLI交互 |
-| `/gemini:execute` | `/gemini:execute <任务ID\|描述> [--yolo] [--debug]` | 智能执行，自动上下文推断 |
-| `/gemini:mode:auto` | `/gemini:mode:auto "<描述>"` | 基于输入分析的自动模板选择 |
-| `/gemini:mode:bug-index` | `/gemini:mode:bug-index <错误描述>` | 专门的错误分析和诊断工作流 |
-| `/gemini:mode:plan` | `/gemini:mode:plan <规划主题>` | 架构和规划模板执行 |
-
-### Codex CLI命令（开发与实现）
+### 🔍 Gemini CLI命令（分析与调查）
 
 | 命令 | 语法 | 描述 |
 |------|------|------|
-| `/codex:analyze` | `/codex:analyze <查询> [模式]` | 开发导向的代码库分析 |
-| `/codex:chat` | `/codex:chat <查询> [模式]` | 直接Codex CLI交互 |
-| `/codex:execute` | `/codex:execute <任务描述> [模式]` | 受控的自主开发 |
-| `/codex:mode:auto` | `/codex:mode:auto "<任务描述>"` | **主要模式**: 完全自主开发 |
-| `/codex:mode:bug-index` | `/codex:mode:bug-index <错误描述>` | 自主错误修复和解决 |
-| `/codex:mode:plan` | `/codex:mode:plan <规划主题>` | 开发规划和架构 |
+| `🔍 /gemini:analyze` | `/gemini:analyze "认证模式"` | 深度代码库分析 |
+| `💬 /gemini:chat` | `/gemini:chat "解释这个架构"` | 直接Gemini交互 |
+| `⚡ /gemini:execute` | `/gemini:execute "实现任务-001"` | 智能执行（YOLO权限） |
+| `🎯 /gemini:mode:auto` | `/gemini:mode:auto "分析安全漏洞"` | 自动模板选择 |
+| `🐛 /gemini:mode:bug-index` | `/gemini:mode:bug-index "支付处理失败"` | 错误分析和修复建议 |
+| `📋 /gemini:mode:plan` | `/gemini:mode:plan "微服务架构"` | 项目规划和架构 |
+| `🎯 /gemini:mode:plan-precise` | `/gemini:mode:plan-precise "复杂重构"` | 精确路径规划分析 |
+
+### 🔮 Qwen CLI命令（架构与代码生成）
+
+| 命令 | 语法 | 描述 |
+|------|------|------|
+| `🔍 /qwen:analyze` | `/qwen:analyze "系统架构模式"` | 架构分析和代码质量 |
+| `💬 /qwen:chat` | `/qwen:chat "设计认证系统"` | 直接Qwen交互 |
+| `⚡ /qwen:execute` | `/qwen:execute "实现用户认证"` | 智能实现（YOLO权限） |
+| `🚀 /qwen:mode:auto` | `/qwen:mode:auto "构建微服务API"` | 自动模板选择和执行 |
+| `🐛 /qwen:mode:bug-index` | `/qwen:mode:bug-index "服务内存泄漏"` | 错误分析和修复建议 |
+| `📋 /qwen:mode:plan` | `/qwen:mode:plan "设计可扩展数据库"` | 架构规划和分析 |
+| `🎯 /qwen:mode:plan-precise` | `/qwen:mode:plan-precise "复杂系统迁移"` | 精确架构规划 |
+
+### 🤖 Codex CLI命令（开发与实现）
+
+| 命令 | 语法 | 描述 |
+|------|------|------|
+| `🔍 /codex:analyze` | `/codex:analyze "优化机会"` | 开发分析 |
+| `💬 /codex:chat` | `/codex:chat "实现JWT认证"` | 直接Codex交互 |
+| `⚡ /codex:execute` | `/codex:execute "重构用户服务"` | 自主实现（YOLO权限） |
+| `🚀 /codex:mode:auto` | `/codex:mode:auto "构建支付系统"` | **主要模式**: 完全自主开发 |
+| `🐛 /codex:mode:bug-index` | `/codex:mode:bug-index "修复竞态条件"` | 自主错误修复和实现 |
+| `📋 /codex:mode:plan` | `/codex:mode:plan "实现API端点"` | 开发规划和实现 |
 
 ### 工作流管理命令
 
@@ -268,11 +295,18 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 #### 工作流操作
 | 命令 | 语法 | 描述 |
 |------|------|------|
-| `/workflow:brainstorm` | `/workflow:brainstorm <主题> [--perspectives=角色1,角色2,...]` | 多智能体概念规划 |
-| `/workflow:plan` | `/workflow:plan [--from-brainstorming] [--skip-brainstorming]` | 将概念转换为可执行计划 |
-| `/workflow:plan-deep` | `/workflow:plan-deep <主题> [--complexity=high] [--depth=3]` | 深度架构规划与综合分析 |
-| `/workflow:execute` | `/workflow:execute [--type=simple\|medium\|complex] [--auto-create-tasks]` | 进入实现阶段 |
-| `/workflow:review` | `/workflow:review [--auto-fix]` | 质量保证和验证 |
+| `💭 /workflow:brainstorm:*` | `/workflow:brainstorm:system-architect "微服务"` | 角色专家的多视角规划 |
+| `🤝 /workflow:brainstorm:synthesis` | `/workflow:brainstorm:synthesis` | 综合所有头脑风暴视角 |
+| `🎨 /workflow:brainstorm:artifacts` | `/workflow:brainstorm:artifacts "主题描述"` | 生成结构化规划文档 |
+| `📋 /workflow:plan` | `/workflow:plan "描述" \| file.md \| ISS-001` | 转换为可执行实现计划 |
+| `🔍 /workflow:plan-deep` | `/workflow:plan-deep "需求描述"` | Gemini分析的深度技术规划 |
+| `✅ /workflow:plan-verify` | `/workflow:plan-verify` | 双分析的执行前验证 |
+| `⚡ /workflow:execute` | `/workflow:execute` | 协调智能体进行实现 |
+| `🔄 /workflow:resume` | `/workflow:resume [--from TASK-ID] [--retry]` | 智能工作流恢复 |
+| `📊 /workflow:status` | `/workflow:status [task-id] [format] [validation]` | 从任务数据生成按需视图 |
+| `🧪 /workflow:test-gen` | `/workflow:test-gen WFS-session-id` | 生成全面测试工作流 |
+| `🔍 /workflow:review` | `/workflow:review` | 执行质量验证审查阶段 |
+| `📚 /workflow:docs` | `/workflow:docs "architecture" \| "api" \| "all"` | 生成分层文档 |
 
 #### 问题管理
 | 命令 | 语法 | 描述 |
@@ -286,10 +320,24 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 
 | 命令 | 语法 | 描述 |
 |------|------|------|
-| `/task:create` | `/task:create "<标题>" [--type=类型] [--priority=级别] [--parent=父ID]` | 创建带层次结构的实现任务 |
-| `/task:breakdown` | `/task:breakdown <任务ID> [--strategy=auto\|interactive] [--depth=1-3]` | 将任务分解为可管理的子任务 |
-| `/task:execute` | `/task:execute <任务ID> [--mode=auto\|guided] [--agent=类型]` | 执行任务并选择智能体 |
-| `/task:replan` | `/task:replan [任务ID\|--all] [--reason] [--strategy=adjust\|rebuild]` | 使任务适应变更需求 |
+| `➕ /task:create` | `/task:create "用户认证系统"` | 创建带上下文的实现任务 |
+| `🔄 /task:breakdown` | `/task:breakdown task-id` | 智能任务分解 |
+| `⚡ /task:execute` | `/task:execute task-id` | 用适当的智能体执行任务 |
+| `📋 /task:replan` | `/task:replan task-id ["text" \| file.md \| ISS-001]` | 用详细输入重新规划任务 |
+
+#### 🧠 头脑风暴角色命令
+| 角色 | 命令 | 目的 |
+|------|---------|----------|
+| 🏗️ **系统架构师** | `/workflow:brainstorm:system-architect` | 技术架构分析 |
+| 🔒 **安全专家** | `/workflow:brainstorm:security-expert` | 安全和威胁分析 |
+| 📊 **产品经理** | `/workflow:brainstorm:product-manager` | 用户需求和商业价值 |
+| 🎨 **UI设计师** | `/workflow:brainstorm:ui-designer` | 用户体验和界面 |
+| 📈 **业务分析师** | `/workflow:brainstorm:business-analyst` | 流程优化分析 |
+| 🔬 **创新负责人** | `/workflow:brainstorm:innovation-lead` | 新兴技术机会 |
+| 📋 **功能规划师** | `/workflow:brainstorm:feature-planner` | 功能开发规划 |
+| 🗄️ **数据架构师** | `/workflow:brainstorm:data-architect` | 数据建模和分析 |
+| 👥 **用户研究员** | `/workflow:brainstorm:user-researcher` | 用户行为分析 |
+| 🚀 **自动选择** | `/workflow:brainstorm:auto` | 动态角色选择 |
 
 ### 头脑风暴角色命令
 
@@ -308,46 +356,57 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 
 ## 使用工作流
 
-### 复杂功能开发
+### 完整功能开发工作流
 ```bash
-# 1. 初始化工作流会话
-/workflow:session:start "OAuth2认证系统"
+# 1. 初始化专注会话
+/workflow:session:start "用户仪表盘功能"
 
-# 2. 多视角分析
-/workflow:brainstorm "OAuth2实现策略" \
-  --perspectives=system-architect,security-expert,data-architect
+# 2. 多视角头脑风暴
+/workflow:brainstorm:system-architect "仪表盘分析系统"
+/workflow:brainstorm:ui-designer "仪表盘用户体验"
+/workflow:brainstorm:data-architect "分析数据流"
 
-# 3. 生成实现计划
-/workflow:plan --from-brainstorming
+# 3. 综合所有视角
+/workflow:brainstorm:synthesis
 
-# 4. 创建任务层次结构
-/task:create "后端认证API"
-/task:breakdown IMPL-1 --strategy=auto --depth=2
+# 4. 创建可执行实现计划
+/workflow:plan "用户仪表盘与分析和实时数据"
 
-# 5. 执行开发任务
-/codex:mode:auto "实现JWT令牌管理系统"
-/codex:mode:auto "创建OAuth2提供商集成"
+# 5. 执行前验证计划
+/workflow:plan-verify
 
-# 6. 审查和验证
-/workflow:review --auto-fix
+# 6. 智能体协调执行实现
+/workflow:execute
 
-# 7. 更新文档
-/update-memory-related
+# 7. 生成全面测试套件
+/workflow:test-gen WFS-user-dashboard-feature
+
+# 8. 质量保证和审查
+/workflow:review
+
+# 9. 生成文档
+/workflow:docs "all"
 ```
 
-### 错误分析和解决
+### 快速错误解决
 ```bash
-# 1. 创建专注会话
-/workflow:session:start "支付处理错误修复"
-
-# 2. 分析问题
+# 快速错误修复工作流
+/workflow:session:start "支付处理修复"
 /gemini:mode:bug-index "并发请求时支付验证失败"
+/codex:mode:bug-index "修复支付验证竞态条件"
+/workflow:review
+```
 
-# 3. 实现解决方案
-/codex:mode:auto "修复支付验证逻辑中的竞态条件"
-
-# 4. 验证解决方案
-/workflow:review --auto-fix
+### 架构分析与重构
+```bash
+# 深度架构工作流
+/workflow:session:start "API重构倡议"
+/gemini:analyze "当前API架构模式和技术债务"
+/workflow:plan-deep "微服务转换策略"
+/workflow:plan-verify
+/qwen:mode:auto "重构单体架构为微服务架构"
+/workflow:test-gen WFS-api-refactoring-initiative
+/workflow:review
 ```
 
 ### 项目文档管理
@@ -411,10 +470,12 @@ cd src/api && /update-memory-related
 - **内存**: 最低512MB，复杂工作流推荐2GB
 
 ### 集成要求
-- **Gemini CLI**: 分析工作流必需
-- **Codex CLI**: 自主开发必需
-- **Git仓库**: 变更跟踪和文档更新必需
-- **Claude Code IDE**: 推荐用于最佳命令集成
+- **🔍 Gemini CLI**: 分析和战略规划工作流必需
+- **🤖 Codex CLI**: 自主开发和错误修复必需
+- **🔮 Qwen CLI**: 架构分析和代码生成必需
+- **📂 Git仓库**: 变更跟踪和版本控制必需
+- **🎯 Claude Code IDE**: 推荐用于最佳体验
+- **🐍 Python 3.8+**: 高级pycli后端功能必需
 
 ## 配置
 
