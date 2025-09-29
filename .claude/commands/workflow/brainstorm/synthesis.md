@@ -141,132 +141,96 @@ SORT recommendations BY priority_score DESC
 └── synthesis-report.md         # ★ OUTPUT: Integrated synthesis with @ references
 ```
 
-### Core Output Documents
+### Streamlined Single-Document Output ⚠️ SIMPLIFIED STRUCTURE
 
-#### synthesis-report.md Structure
+#### Output Document - Single Comprehensive Synthesis
+The synthesis process creates **one consolidated document** that integrates all role perspectives:
+
+```
+.workflow/WFS-{topic-slug}/.brainstorming/
+├── topic-framework.md          # Input: Framework structure
+├── [role]/analysis.md          # Input: Role analyses (multiple)
+└── synthesis-specification.md  # ★ OUTPUT: Complete integrated specification
+```
+
+#### synthesis-specification.md Structure (Complete Specification)
 ```markdown
-# [Topic] - Integrated Analysis
+# [Topic] - Integrated Implementation Specification
 
-**Framework Reference**: @topic-framework.md
-**Generated**: [timestamp] | **Session**: WFS-[topic-slug]
+**Framework Reference**: @topic-framework.md | **Generated**: [timestamp] | **Session**: WFS-[topic-slug]
+**Source Integration**: All brainstorming role perspectives consolidated
 
 ## Executive Summary
-Brief synthesis of key insights and recommendations across all role perspectives.
+Strategic overview with key insights, breakthrough opportunities, and implementation priorities.
 
-## Framework Analysis Integration
+## Requirements & Acceptance Criteria
+### Functional Requirements
+| ID | Description | Source | Priority | Acceptance | Dependencies |
+|----|-------------|--------|----------|------------|--------------|
+| FR-01 | Core feature | @role/analysis.md | High | Criteria | None |
 
-### Discussion Point 1: Core Requirements
-**Framework Questions**: @topic-framework.md (Core Requirements section)
+### Non-Functional Requirements
+| ID | Description | Target | Validation |
+|----|-------------|--------|------------|
+| NFR-01 | Performance | <200ms | Testing |
 
-**Role Perspectives**:
-- **System Architect**: @system-architect/analysis.md (requirements section)
-- **Product Manager**: @product-manager/analysis.md (requirements section)
-- **Security Expert**: @security-expert/analysis.md (requirements section)
+### Business Requirements
+| ID | Description | Value | Success Metric |
+|----|-------------|-------|----------------|
+| BR-01 | User engagement | High | 80% retention |
 
-**Cross-Role Insights**:
-- [Consensus areas and disagreements on core requirements]
-- [Integration recommendations]
+## Design Specifications
+### UI/UX Guidelines
+**Consolidated from**: @ui-designer/analysis.md, @user-researcher/analysis.md
+- Component specifications and interaction patterns
+- Visual design system and accessibility requirements
+- User flow and interface specifications
 
-### Discussion Point 2: Technical Considerations
-**Framework Questions**: @topic-framework.md (Technical Considerations section)
+### Architecture Design
+**Consolidated from**: @system-architect/analysis.md, @data-architect/analysis.md
+- System architecture and component interactions
+- Data flow and storage strategy
+- Technology stack decisions
 
-**Role Perspectives**:
-- **System Architect**: @system-architect/analysis.md (technical section)
-- **Data Architect**: @data-architect/analysis.md (technical section)
-- **UI Designer**: @ui-designer/analysis.md (technical section)
+### Security Framework
+**Consolidated from**: @security-expert/analysis.md
+- Authentication and authorization patterns
+- Data protection and compliance requirements
+- Security monitoring and audit strategy
 
-**Cross-Role Insights**:
-- [Technical consensus and conflicts]
-- [Implementation recommendations]
+## Implementation Roadmap
+### Development Phases
+**Phase 1** (0-3 months): Foundation and core features
+**Phase 2** (3-6 months): Advanced features and integrations
+**Phase 3** (6+ months): Optimization and innovation
 
-### ⚡ Breakthrough Ideas
-**Innovation Opportunities**:
-1. **{breakthrough_idea_1}**
-   - Origin: {source_role}
-   - Cross-role support: {supporting_roles}
-   - Innovation potential: {potential_assessment}
+### Technical Guidelines
+- Development standards and code organization
+- Testing strategy and quality assurance
+- Deployment and monitoring approach
 
-2. **{breakthrough_idea_2}**
-   - Origin: {source_role}
-   - Cross-role support: {supporting_roles}
-   - Innovation potential: {potential_assessment}
+### Task Breakdown
+- Epic and feature mapping aligned with requirements
+- Sprint planning guidance with dependency management
+- Resource allocation and timeline recommendations
 
-### 🔄 Areas of Disagreement
-**Tension Points Requiring Resolution**:
-1. **{disagreement_area_1}**
-   - Conflicting views: {role1_view} vs {role2_view}
-   - Root cause: {underlying_issue}
-   - Resolution approach: {recommended_resolution}
-
-2. **{disagreement_area_2}**
-   - Conflicting views: {role1_view} vs {role2_view}
-   - Root cause: {underlying_issue}
-   - Resolution approach: {recommended_resolution}
-
-## Comprehensive Recommendations Matrix
-
-### 🎯 High Priority (Immediate Action)
-| Recommendation | Business Impact | Technical Feasibility | Implementation Effort | Risk Level | Supporting Roles |
-|----------------|-----------------|----------------------|---------------------|------------|------------------|
-| {rec_1}        | High           | High                 | Medium              | Low        | PM, Arch, UX     |
-| {rec_2}        | High           | Medium               | Low                 | Medium     | BA, PM, FP       |
-
-### 📋 Medium Priority (Strategic Planning)
-| Recommendation | Business Impact | Technical Feasibility | Implementation Effort | Risk Level | Supporting Roles |
-|----------------|-----------------|----------------------|---------------------|------------|------------------|
-| {rec_3}        | Medium         | High                 | High                | Medium     | Arch, DA, Sec    |
-| {rec_4}        | Medium         | Medium               | Medium              | Low        | UX, UR, PM       |
-
-### 🔬 Research Priority (Future Investigation)
-| Recommendation | Business Impact | Technical Feasibility | Implementation Effort | Risk Level | Supporting Roles |
-|----------------|-----------------|----------------------|---------------------|------------|------------------|
-| {rec_5}        | High           | Unknown              | High                | High       | IL, Arch, PM     |
-| {rec_6}        | Medium         | Low                  | High                | High       | IL, DA, Sec      |
-
-## Implementation Strategy
-
-### Phase 1: Foundation (0-3 months)
-- **Focus**: High-priority, low-effort recommendations
-- **Key Actions**: {action_list}
-- **Success Metrics**: {metrics_list}
-- **Required Resources**: {resource_list}
-
-### Phase 2: Development (3-9 months)
-- **Focus**: Medium-priority strategic initiatives
-- **Key Actions**: {action_list}
-- **Success Metrics**: {metrics_list}
-- **Required Resources**: {resource_list}
-
-### Phase 3: Innovation (9+ months)
-- **Focus**: Research and breakthrough opportunities
-- **Key Actions**: {action_list}
-- **Success Metrics**: {metrics_list}
-- **Required Resources**: {resource_list}
-
-## Risk Assessment and Mitigation
-
+## Risk Assessment & Mitigation
 ### Critical Risks Identified
-1. **{risk_1}**: {description} | Mitigation: {strategy}
-2. **{risk_2}**: {description} | Mitigation: {strategy}
+1. **Risk**: Description | **Mitigation**: Strategy
+2. **Risk**: Description | **Mitigation**: Strategy
 
 ### Success Factors
-- {success_factor_1}
-- {success_factor_2}
-- {success_factor_3}
-
-## Next Steps and Follow-up
-### Immediate Actions Required
-### Decision Points Needing Resolution
-### Continuous Monitoring Requirements
-### Future Brainstorming Sessions Recommended
+- Key factors for implementation success
+- Continuous monitoring requirements
+- Quality gates and validation checkpoints
 
 ---
-*This synthesis integrates insights from {role_count} perspectives to provide comprehensive strategic guidance.*
+*Complete implementation specification consolidating all role perspectives into actionable guidance*
 ```
 
 ## 🔄 **Session Integration**
 
-### Status Synchronization
+### Streamlined Status Synchronization
 Upon completion, update `workflow-session.json`:
 ```json
 {
@@ -275,18 +239,22 @@ Upon completion, update `workflow-session.json`:
       "status": "completed",
       "synthesis_completed": true,
       "completed_at": "timestamp",
-      "participating_roles": ["product-manager", "system-architect", "ui-designer", ...],
-      "key_outputs": {
-        "synthesis_report": ".workflow/WFS-{topic}/.brainstorming/synthesis-report.md",
-        "action_plan": ".workflow/WFS-{topic}/.brainstorming/action-plan.md",
-        "recommendations_matrix": ".workflow/WFS-{topic}/.brainstorming/recommendations-matrix.md"
+      "participating_roles": ["product-manager", "system-architect", "ui-designer", "security-expert", "data-architect", ...],
+      "consolidated_output": {
+        "synthesis_specification": ".workflow/WFS-{topic}/.brainstorming/synthesis-specification.md"
       },
-      "metrics": {
-        "roles_analyzed": 9,
-        "consensus_areas": 5,
-        "breakthrough_ideas": 3,
-        "high_priority_recommendations": 8,
-        "implementation_phases": 3
+      "synthesis_quality": {
+        "role_integration": "complete",
+        "requirement_coverage": "comprehensive",
+        "implementation_readiness": "ready"
+      },
+      "content_metrics": {
+        "roles_synthesized": 9,
+        "functional_requirements": 25,
+        "non_functional_requirements": 12,
+        "business_requirements": 8,
+        "implementation_phases": 3,
+        "risk_factors_identified": 8
       }
     }
   }

@@ -21,7 +21,7 @@ Intelligent analysis engine that processes standardized context packages, execut
 
 ## Core Responsibilities
 - **Context Package Parsing**: Read and validate context-package.json
-- **Multi-Tool Orchestration**: Execute parallel analysis using Gemini/Qwen/Codex
+- **Multi-Tool Orchestration**: Execute parallel analysis using Gemini/Codex
 - **Perspective Synthesis**: Collect and organize different tool viewpoints
 - **Consensus Analysis**: Identify agreements and conflicts between tools
 - **Analysis Report Generation**: Output multi-perspective ANALYSIS_RESULTS.md (NOT implementation plan)
@@ -36,12 +36,12 @@ Intelligent analysis engine that processes standardized context packages, execut
 - **Execution Mode**: Single-round analysis, focus on existing patterns
 
 **Medium Tasks (4-6 modules)**:
-- **Primary Tool**: Qwen (architecture analysis and code generation)
-- **Support Tools**: Gemini (pattern recognition) + Exa (external best practices)
-- **Execution Mode**: Two-round analysis, architecture design + implementation strategy
+- **Primary Tool**: Gemini (comprehensive analysis and architecture design)
+- **Support Tools**: Code-index + Exa (external best practices)
+- **Execution Mode**: Two-round analysis, understanding + architecture design
 
 **Complex Tasks (>6 modules)**:
-- **Primary Tools**: Multi-tool collaboration (Gemini+Qwen+Codex)
+- **Primary Tools**: Multi-tool collaboration (Gemini+Codex)
 - **Analysis Strategy**: Layered analysis with progressive refinement
 - **Execution Mode**: Three-round analysis, understand + design + validate
 
@@ -50,18 +50,18 @@ Intelligent analysis engine that processes standardized context packages, execut
 ```json
 {
   "frontend": {
-    "primary": "qwen",
-    "secondary": "gemini",
+    "primary": "gemini",
+    "secondary": "codex",
     "focus": ["component_design", "state_management", "ui_patterns"]
   },
   "backend": {
     "primary": "codex",
-    "secondary": "qwen",
+    "secondary": "gemini",
     "focus": ["api_design", "data_flow", "security", "performance"]
   },
   "fullstack": {
     "primary": "gemini",
-    "secondary": "qwen+codex",
+    "secondary": "codex",
     "focus": ["system_architecture", "integration", "data_consistency"]
   }
 }
@@ -106,9 +106,9 @@ Intelligent analysis engine that processes standardized context packages, execut
    if [ "$complexity" = "simple" ]; then
      analysis_tools=("gemini")
    elif [ "$complexity" = "medium" ]; then
-     analysis_tools=("qwen" "gemini")
+     analysis_tools=("gemini")
    else
-     analysis_tools=("gemini" "qwen" "codex")
+     analysis_tools=("gemini" "codex")
    fi
    ```
 
@@ -118,44 +118,33 @@ Intelligent analysis engine that processes standardized context packages, execut
    - Optimize token usage efficiency
 
 ### Phase 3: Multi-Tool Analysis Execution
-1. **Gemini Analysis** (Understanding & Pattern Recognition)
+1. **Gemini Analysis** (Comprehensive Understanding & Architecture Design)
    ```bash
    cd "$project_root" && ~/.claude/scripts/gemini-wrapper -p "
-   PURPOSE: Deep understanding of project architecture and existing patterns
-   TASK: Analyze ${task_description}
-   CONTEXT: $(cat ${context_package_path} | jq -r '.assets[] | select(.priority=="high") | .path' | head -10)
+   PURPOSE: Deep understanding of project architecture, existing patterns, and design implementation architecture
+   TASK: Comprehensive analysis of ${task_description}
+   CONTEXT: $(cat ${context_package_path} | jq -r '.assets[] | select(.priority=="high") | .path' | head -15)
    EXPECTED:
    - Existing architecture pattern analysis
    - Relevant code component identification
    - Technical risk assessment
    - Implementation complexity evaluation
-   RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on existing patterns and integration points
-   "
-   ```
-
-2. **Qwen Analysis** (Architecture Design & Code Generation Strategy)
-   ```bash
-   cd "$project_root" && ~/.claude/scripts/qwen-wrapper -p "
-   PURPOSE: Design implementation architecture and code structure
-   TASK: Design technical implementation plan for ${task_description}
-   CONTEXT: $(cat ${context_package_path} | jq -r '.assets[].path') + Gemini analysis results
-   EXPECTED:
    - Detailed technical implementation architecture
    - Code organization structure recommendations
    - Interface design and data flow
    - Specific implementation steps
-   RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) | Design based on existing architecture
+   RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on existing patterns, integration points, and comprehensive design
    "
    ```
 
-3. **Codex Analysis** (Implementation Feasibility & Technical Validation)
+2. **Codex Analysis** (Implementation Feasibility & Technical Validation)
    ```bash
    # Only used for complex tasks
    if [ "$complexity" = "complex" ]; then
      codex -C "$project_root" --full-auto exec "
      PURPOSE: Validate technical implementation feasibility
      TASK: Assess implementation risks and technical challenges for ${task_description}
-     CONTEXT: Project codebase + Gemini and Qwen analysis results
+     CONTEXT: Project codebase + Gemini analysis results
      EXPECTED: Technical feasibility report and risk assessment
      RULES: Focus on technical risks, performance impact, and maintenance costs
      " -s danger-full-access
@@ -164,8 +153,7 @@ Intelligent analysis engine that processes standardized context packages, execut
 
 ### Phase 4: Multi-Perspective Analysis Integration
 1. **Tool-Specific Result Organization**
-   - Organize Gemini analysis (understanding & patterns)
-   - Organize Qwen analysis (architecture & design)
+   - Organize Gemini analysis (comprehensive understanding, patterns & architecture design)
    - Organize Codex analysis (feasibility & validation)
 
 2. **Perspective Synthesis**
@@ -193,8 +181,8 @@ Generated ANALYSIS_RESULTS.md format (Multi-Tool Perspective Analysis):
 
 ## Tool-Specific Analysis
 
-### 🧠 Gemini Analysis (Understanding & Pattern Recognition)
-**Focus**: Existing codebase understanding and pattern identification
+### 🧠 Gemini Analysis (Comprehensive Understanding & Architecture Design)
+**Focus**: Existing codebase understanding, pattern identification, and technical architecture design
 
 #### Current Architecture Assessment
 - **Existing Patterns**: {identified_patterns}
@@ -206,9 +194,6 @@ Generated ANALYSIS_RESULTS.md format (Multi-Tool Perspective Analysis):
 - **Framework Compatibility**: {framework_analysis}
 - **Dependency Impact**: {dependency_analysis}
 - **Migration Considerations**: {migration_notes}
-
-### 🏗️ Qwen Analysis (Architecture Design & Code Generation)
-**Focus**: Technical architecture and implementation design
 
 #### Proposed Architecture
 - **System Design**: {architectural_design}
@@ -273,10 +258,10 @@ Generated ANALYSIS_RESULTS.md format (Multi-Tool Perspective Analysis):
 
 2. **Tool Unavailability Handling**
    ```bash
-   # Use Qwen when Gemini is unavailable
+   # Use Codex when Gemini is unavailable
    if ! command -v ~/.claude/scripts/gemini-wrapper; then
-     echo "⚠️ Gemini not available, falling back to Qwen"
-     analysis_tools=("qwen")
+     echo "⚠️ Gemini not available, falling back to Codex"
+     analysis_tools=("codex")
    fi
    ```
 

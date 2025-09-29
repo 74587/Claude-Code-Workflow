@@ -12,147 +12,185 @@ examples:
 # Context Gather Command (/context:gather)
 
 ## Overview
-Intelligent context collector that gathers relevant information from project codebase, documentation, and dependencies based on task descriptions, generating standardized context packages.
+Enhanced intelligent context collector that leverages Gemini and Codex CLI tools to perform deep analysis, generate improvement suggestions, design blueprints, and create comprehensive analysis documents. All outputs are systematically organized in the current session's WFS `.process` directory.
 
 ## Core Philosophy
-- **Intelligent Collection**: Auto-identify relevant resources based on keyword analysis
-- **Comprehensive Coverage**: Collect code, documentation, configurations, and dependencies
-- **Standardized Output**: Generate unified format context-package.json
-- **Efficient Execution**: Optimize collection strategies to avoid irrelevant information
+- **AI-Driven Analysis**: Use Gemini for architectural analysis and design blueprints
+- **Implementation Focus**: Use Codex for practical implementation planning and quality assessment
+- **Structured Output**: Generate organized analysis documents in WFS session `.process` folders
+- **Synthesis Approach**: Combine all analysis results into a final comprehensive document
 
 ## Core Responsibilities
-- **Keyword Extraction**: Extract core keywords from task descriptions
-- **Smart Documentation Loading**: Load relevant project documentation based on keywords
-- **Code Structure Analysis**: Analyze project structure to locate relevant code files
-- **Dependency Discovery**: Identify tech stack and dependency relationships
-- **MCP Tools Integration**: Leverage code-index and exa tools for enhanced collection
-- **Context Packaging**: Generate standardized JSON context packages
+- **Initial Context Collection**: Use MCP tools to gather relevant codebase information
+- **Gemini Analysis**: Generate deep architectural analysis and improvement suggestions
+- **Design Blueprint Creation**: Create comprehensive design blueprints using Gemini
+- **Codex Implementation Planning**: Generate practical implementation roadmaps with Codex
+- **Quality Assessment**: Perform code quality analysis and optimization recommendations
+- **Synthesis Documentation**: Combine all analysis into comprehensive final document
+- **Process Organization**: Structure all outputs in WFS session `.process` directories
 
-## Execution Process
+## Enhanced CLI Execution Process
 
-### Phase 1: Task Analysis
-1. **Keyword Extraction**
-   - Parse task description to extract core keywords
-   - Identify technical domain (auth, API, frontend, backend, etc.)
-   - Determine complexity level (simple, medium, complex)
-
-2. **Scope Determination**
-   - Define collection scope based on keywords
-   - Identify potentially involved modules and components
-   - Set file type filters
-
-### Phase 2: Project Structure Exploration
-1. **Architecture Analysis**
+### Phase 1: Task Analysis & Context Collection
+1. **Initial Context Gathering**
    ```bash
    # Get project structure
    ~/.claude/scripts/get_modules_by_depth.sh
-   ```
 
-2. **Code File Location**
-   ```bash
    # Use MCP tools for precise search
    mcp__code-index__find_files(pattern="*{keywords}*")
    mcp__code-index__search_code_advanced(pattern="{keywords}", file_pattern="*.{ts,js,py,go}")
-   ```
 
-3. **Documentation Collection**
-   - Load CLAUDE.md and README.md
-   - Load relevant documentation from .workflow/docs/ based on keywords
-   - Collect configuration files (package.json, requirements.txt, etc.)
-
-### Phase 3: Intelligent Filtering & Association
-1. **Relevance Scoring**
-   - Score based on keyword match degree
-   - Score based on file path relevance
-   - Score based on code content relevance
-
-2. **Dependency Analysis**
-   - Analyze import/require statements
-   - Identify inter-module dependencies
-   - Determine core and optional dependencies
-
-### Phase 4: External Context Enhancement (Optional)
-1. **MCP Exa Integration**
-   ```bash
-   # Get external best practices and examples
+   # Get external context if needed
    mcp__exa__get_code_context_exa(query="{task_type} {tech_stack} examples", tokensNum="dynamic")
    ```
 
-2. **Tech Stack Analysis**
-   - Identify frameworks and libraries in use
-   - Gather relevant best practices
-   - Collect common patterns and examples
+2. **Session Directory Setup**
+   ```bash
+   # Ensure session .process directory exists
+   mkdir -p ".workflow/${session_id}/.process"
+   ```
 
-### Phase 5: Context Packaging
-1. **Standardized Output**
-   - Generate context-package.json
-   - Organize resources by type and importance
-   - Add relevance descriptions and usage recommendations
+### Phase 2: Gemini Analysis & Planning
+1. **Comprehensive Analysis with Gemini**
+   ```bash
+   cd . && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+   PURPOSE: Deep analysis of task requirements and current codebase state
+   TASK: Analyze task '${task_description}' and generate improvement suggestions
+   CONTEXT: @{CLAUDE.md,README.md,**/*${keywords}*} Current session: ${session_id}
+   EXPECTED: Detailed analysis with improvement suggestions saved to .workflow/${session_id}/.process/
+   RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | Generate specific improvement recommendations and save to improvement-suggestions.md
+   " > ".workflow/${session_id}/.process/gemini-analysis.md"
+   ```
 
-## Context Package Format
+2. **Design Blueprint Generation**
+   ```bash
+   cd . && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+   PURPOSE: Create comprehensive design blueprint for task implementation
+   TASK: Design architectural blueprint for '${task_description}'
+   CONTEXT: @{.workflow/${session_id}/.process/gemini-analysis.md,CLAUDE.md} Previous analysis results
+   EXPECTED: Complete design blueprint with component diagrams and implementation strategy
+   RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Create detailed design blueprint and save to design-blueprint.md
+   " > ".workflow/${session_id}/.process/design-blueprint.md"
+   ```
 
-Generated context package format:
+### Phase 3: Codex Implementation Planning
+1. **Implementation Strategy with Codex**
+   ```bash
+   codex --full-auto exec "
+   PURPOSE: Generate detailed implementation plan based on analysis and design
+   TASK: Create implementation roadmap for '${task_description}'
+   CONTEXT: @{.workflow/${session_id}/.process/gemini-analysis.md,.workflow/${session_id}/.process/design-blueprint.md}
+   EXPECTED: Step-by-step implementation plan with code examples
+   RULES: Generate practical implementation plan and save to .workflow/${session_id}/.process/implementation-plan.md
+   " -s danger-full-access
+   ```
+
+2. **Code Quality Assessment**
+   ```bash
+   codex --full-auto exec "
+   PURPOSE: Assess current code quality and identify optimization opportunities
+   TASK: Evaluate codebase quality related to '${task_description}'
+   CONTEXT: @{**/*${keywords}*,.workflow/${session_id}/.process/design-blueprint.md}
+   EXPECTED: Quality assessment report with optimization recommendations
+   RULES: Focus on maintainability, performance, and security. Save to .workflow/${session_id}/.process/quality-assessment.md
+   " -s danger-full-access
+   ```
+
+### Phase 4: Synthesis & Final Analysis
+1. **Comprehensive Analysis Document Generation**
+   ```bash
+   cd . && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+   PURPOSE: Synthesize all analysis results into comprehensive final document
+   TASK: Combine all generated analysis documents into unified comprehensive analysis
+   CONTEXT: @{.workflow/${session_id}/.process/gemini-analysis.md,.workflow/${session_id}/.process/design-blueprint.md,.workflow/${session_id}/.process/implementation-plan.md,.workflow/${session_id}/.process/quality-assessment.md}
+   EXPECTED: Single comprehensive analysis document with executive summary, detailed findings, and actionable recommendations
+   RULES: Create synthesis of all previous analysis. Structure: Executive Summary, Key Findings, Design Recommendations, Implementation Strategy, Quality Improvements, Next Steps
+   " > ".workflow/${session_id}/.process/comprehensive-analysis.md"
+   ```
+
+2. **Context Package Generation**
+   ```bash
+   # Generate the final context-package.json based on all analysis
+   cat > ".workflow/${session_id}/.process/context-package.json" << EOF
+   {
+     "metadata": {
+       "task_description": "${task_description}",
+       "timestamp": "$(date -Iseconds)",
+       "session_id": "${session_id}",
+       "analysis_files": [
+         "gemini-analysis.md",
+         "design-blueprint.md",
+         "implementation-plan.md",
+         "quality-assessment.md",
+         "comprehensive-analysis.md"
+       ]
+     },
+     "generated_analysis": {
+       "improvement_suggestions": ".workflow/${session_id}/.process/gemini-analysis.md",
+       "design_blueprint": ".workflow/${session_id}/.process/design-blueprint.md",
+       "implementation_plan": ".workflow/${session_id}/.process/implementation-plan.md",
+       "quality_assessment": ".workflow/${session_id}/.process/quality-assessment.md",
+       "comprehensive_analysis": ".workflow/${session_id}/.process/comprehensive-analysis.md"
+     }
+   }
+   EOF
+   ```
+
+## Enhanced Context Package Format
+
+Generated context package format with analysis documents:
 
 ```json
 {
   "metadata": {
     "task_description": "Implement user authentication system",
     "timestamp": "2025-09-29T10:30:00Z",
-    "keywords": ["user", "authentication", "JWT", "login"],
-    "complexity": "medium",
-    "tech_stack": ["typescript", "node.js", "express"],
-    "session_id": "WFS-user-auth"
+    "session_id": "WFS-user-auth",
+    "execution_method": "gemini_codex_analysis",
+    "analysis_files": [
+      "gemini-analysis.md",
+      "design-blueprint.md",
+      "implementation-plan.md",
+      "quality-assessment.md",
+      "comprehensive-analysis.md"
+    ]
   },
-  "assets": [
-    {
-      "type": "documentation",
-      "path": "CLAUDE.md",
-      "relevance": "Project development standards and conventions",
-      "priority": "high"
+  "generated_analysis": {
+    "improvement_suggestions": {
+      "file": ".workflow/WFS-user-auth/.process/gemini-analysis.md",
+      "description": "Gemini-generated analysis with improvement recommendations",
+      "tool": "gemini-wrapper"
     },
-    {
-      "type": "documentation",
-      "path": ".workflow/docs/architecture/security.md",
-      "relevance": "Security architecture design guidance",
-      "priority": "high"
+    "design_blueprint": {
+      "file": ".workflow/WFS-user-auth/.process/design-blueprint.md",
+      "description": "Architectural design blueprint with component diagrams",
+      "tool": "gemini-wrapper"
     },
-    {
-      "type": "source_code",
-      "path": "src/auth/AuthService.ts",
-      "relevance": "Existing authentication service implementation",
-      "priority": "high"
+    "implementation_plan": {
+      "file": ".workflow/WFS-user-auth/.process/implementation-plan.md",
+      "description": "Step-by-step implementation roadmap with code examples",
+      "tool": "codex"
     },
-    {
-      "type": "source_code",
-      "path": "src/models/User.ts",
-      "relevance": "User data model definition",
-      "priority": "medium"
+    "quality_assessment": {
+      "file": ".workflow/WFS-user-auth/.process/quality-assessment.md",
+      "description": "Code quality analysis and optimization recommendations",
+      "tool": "codex"
     },
-    {
-      "type": "config",
-      "path": "package.json",
-      "relevance": "Project dependencies and tech stack",
-      "priority": "medium"
-    },
-    {
-      "type": "test",
-      "path": "tests/auth/*.test.ts",
-      "relevance": "Authentication related test cases",
-      "priority": "medium"
+    "comprehensive_analysis": {
+      "file": ".workflow/WFS-user-auth/.process/comprehensive-analysis.md",
+      "description": "Synthesized final analysis document combining all findings",
+      "tool": "gemini-wrapper"
     }
-  ],
-  "external_context": {
-    "best_practices": "Best practices retrieved from exa",
-    "examples": "Relevant code examples and patterns",
-    "frameworks": "Recommended frameworks and libraries"
   },
-  "statistics": {
-    "total_files": 15,
-    "source_files": 8,
-    "docs_files": 4,
-    "config_files": 2,
-    "test_files": 1
-  }
+  "process_workflow": {
+    "phase_1": "Context collection with MCP tools",
+    "phase_2": "Gemini analysis and design blueprint generation",
+    "phase_3": "Codex implementation planning and quality assessment",
+    "phase_4": "Synthesis into comprehensive analysis document"
+  },
+  "output_location": ".workflow/${session_id}/.process/",
+  "final_deliverable": "comprehensive-analysis.md"
 }
 ```
 
@@ -251,13 +289,81 @@ rg "{keywords}" --type-add 'source:*.{ts,js,py,go}' -t source
 - MCP tool calls and traditional commands in parallel
 - Reduce I/O wait time
 
+## Practical Execution Summary
+
+### Quick Start CLI Commands
+```bash
+# Example usage for authentication task
+session_id="WFS-user-auth"
+task_description="Implement user authentication system"
+
+# 1. Setup and context collection
+mkdir -p ".workflow/${session_id}/.process"
+~/.claude/scripts/get_modules_by_depth.sh
+
+# 2. Gemini analysis and design
+cd . && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+PURPOSE: Deep analysis of task requirements and current codebase state
+TASK: Analyze task '${task_description}' and generate improvement suggestions
+CONTEXT: @{CLAUDE.md,README.md,**/*auth*} Current session: ${session_id}
+EXPECTED: Detailed analysis with improvement suggestions
+RULES: Generate specific improvement recommendations and save results
+" > ".workflow/${session_id}/.process/gemini-analysis.md"
+
+cd . && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+PURPOSE: Create comprehensive design blueprint
+TASK: Design architectural blueprint for '${task_description}'
+CONTEXT: @{.workflow/${session_id}/.process/gemini-analysis.md,CLAUDE.md}
+EXPECTED: Complete design blueprint with component diagrams
+RULES: Create detailed design blueprint
+" > ".workflow/${session_id}/.process/design-blueprint.md"
+
+# 3. Codex implementation and quality
+codex --full-auto exec "
+PURPOSE: Generate implementation plan based on analysis
+TASK: Create implementation roadmap for '${task_description}'
+CONTEXT: @{.workflow/${session_id}/.process/gemini-analysis.md,.workflow/${session_id}/.process/design-blueprint.md}
+EXPECTED: Step-by-step implementation plan with code examples
+RULES: Generate practical implementation plan and save to .workflow/${session_id}/.process/implementation-plan.md
+" -s danger-full-access
+
+codex --full-auto exec "
+PURPOSE: Assess code quality and optimization opportunities
+TASK: Evaluate codebase quality related to '${task_description}'
+CONTEXT: @{**/*auth*,.workflow/${session_id}/.process/design-blueprint.md}
+EXPECTED: Quality assessment with optimization recommendations
+RULES: Save to .workflow/${session_id}/.process/quality-assessment.md
+" -s danger-full-access
+
+# 4. Final synthesis
+cd . && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+PURPOSE: Synthesize all analysis results into comprehensive document
+TASK: Combine all analysis documents into unified comprehensive analysis
+CONTEXT: @{.workflow/${session_id}/.process/gemini-analysis.md,.workflow/${session_id}/.process/design-blueprint.md,.workflow/${session_id}/.process/implementation-plan.md,.workflow/${session_id}/.process/quality-assessment.md}
+EXPECTED: Comprehensive analysis with executive summary and recommendations
+RULES: Structure: Executive Summary, Key Findings, Design Recommendations, Implementation Strategy, Quality Improvements, Next Steps
+" > ".workflow/${session_id}/.process/comprehensive-analysis.md"
+```
+
+### Expected Output Structure
+```
+.workflow/${session_id}/.process/
+├── gemini-analysis.md           # Improvement suggestions
+├── design-blueprint.md          # Architectural design
+├── implementation-plan.md       # Implementation roadmap
+├── quality-assessment.md        # Code quality analysis
+├── comprehensive-analysis.md    # Final synthesis document
+└── context-package.json        # Metadata package
+```
+
 ## Success Criteria
-- Generate valid context-package.json file
-- Contains sufficient relevant information for subsequent analysis
-- Execution time controlled within 30 seconds
-- File relevance accuracy rate >80%
+- Generate comprehensive analysis documents in WFS `.process` directory
+- Produce actionable improvement suggestions and design blueprints
+- Create practical implementation plans with Codex
+- Synthesize all findings into unified comprehensive analysis
+- Complete execution within reasonable timeframe (5-10 minutes)
 
 ## Related Commands
-- `/analysis:run` - Consumes output of this command for analysis
-- `/workflow:plan` - Calls this command to gather context
-- `/workflow:status` - Can display context collection status
+- `/analysis:run` - Consumes output of this command for further analysis
+- `/workflow:plan` - Integrates with this command for context gathering
+- `/workflow:status` - Can display analysis generation status

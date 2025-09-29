@@ -3,10 +3,59 @@
 # Location: ~/.claude/scripts/qwen-wrapper
 #
 # This wrapper automatically manages --all-files flag based on project token count
+# and provides intelligent approval mode defaults
+#
 # Usage: qwen-wrapper [all qwen options]
+#
+# Approval Mode Options:
+#   --approval-mode default    : Prompt for approval on each tool call (default)
+#   --approval-mode auto_edit  : Auto-approve edit tools, prompt for others
+#   --approval-mode yolo       : Auto-approve all tool calls
+#
 # Note: Executes in current working directory
 
 set -e
+
+# Function to show help
+show_help() {
+    echo "qwen-wrapper - Token-aware wrapper for qwen command"
+    echo ""
+    echo "Usage: qwen-wrapper [options] [qwen options]"
+    echo ""
+    echo "Options:"
+    echo "  --approval-mode <mode>  Sets the approval mode for tool calls"
+    echo "                          Available modes:"
+    echo "                            default    : Prompt for approval on each tool call (default)"
+    echo "                            auto_edit  : Auto-approve edit tools, prompt for others"
+    echo "                            yolo       : Auto-approve all tool calls"
+    echo "  --help                  Show this help message"
+    echo ""
+    echo "Features:"
+    echo "  - Automatically manages --all-files flag based on project token count"
+    echo "  - Intelligent approval mode detection based on task type"
+    echo "  - Token limit: $DEFAULT_TOKEN_LIMIT (set QWEN_TOKEN_LIMIT to override)"
+    echo ""
+    echo "Examples:"
+    echo "  qwen-wrapper -p \"Analyze the codebase structure\""
+    echo "  qwen-wrapper --approval-mode yolo -p \"Implement user authentication\""
+    echo "  qwen-wrapper --approval-mode auto_edit -p \"Fix all linting errors\""
+    echo ""
+}
+
+# Function to validate approval mode
+validate_approval_mode() {
+    local mode="$1"
+    case "$mode" in
+        "default"|"auto_edit"|"yolo")
+            return 0
+            ;;
+        *)
+            echo -e "${RED}❌ Invalid approval mode: $mode${NC}" >&2
+            echo -e "${YELLOW}Valid modes: default, auto_edit, yolo${NC}" >&2
+            return 1
+            ;;
+    esac
+}
 
 # Configuration
 DEFAULT_TOKEN_LIMIT=2000000
@@ -39,24 +88,63 @@ count_tokens() {
 # Parse arguments to check for flags
 has_all_files=false
 has_approval_mode=false
-args=()
+approval_mode_value=""
 
-# Check for existing flags
-for arg in "$@"; do
+# Parse arguments with proper handling of --approval-mode value
+args=("$@")  # Start with all arguments
+parsed_args=()
+skip_next=false
+
+for ((i=0; i<${#args[@]}; i++)); do
+    if [[ "$skip_next" == true ]]; then
+        skip_next=false
+        continue
+    fi
+
+    arg="${args[i]}"
     case "$arg" in
+        "--help"|"-h")
+            show_help
+            exit 0
+            ;;
         "--all-files")
             has_all_files=true
-            args+=("$arg")
+            parsed_args+=("$arg")
             ;;
-        --approval-mode*)
+        "--approval-mode")
             has_approval_mode=true
-            args+=("$arg")
+            # Get the next argument as the mode value
+            if [[ $((i+1)) -lt ${#args[@]} ]]; then
+                approval_mode_value="${args[$((i+1))]}"
+                if validate_approval_mode "$approval_mode_value"; then
+                    parsed_args+=("$arg" "$approval_mode_value")
+                    skip_next=true
+                else
+                    exit 1
+                fi
+            else
+                echo -e "${RED}❌ --approval-mode requires a value${NC}" >&2
+                echo -e "${YELLOW}Valid modes: default, auto_edit, yolo${NC}" >&2
+                exit 1
+            fi
+            ;;
+        --approval-mode=*)
+            has_approval_mode=true
+            approval_mode_value="${arg#*=}"
+            if validate_approval_mode "$approval_mode_value"; then
+                parsed_args+=("$arg")
+            else
+                exit 1
+            fi
             ;;
         *)
-            args+=("$arg")
+            parsed_args+=("$arg")
             ;;
     esac
 done
+
+# Replace args with parsed_args
+args=("${parsed_args[@]}")
 
 # Analyze current working directory
 echo -e "${GREEN}📁 Analyzing current directory: $(pwd)${NC}" >&2
@@ -95,15 +183,42 @@ fi
 
 # Auto-add approval-mode if not specified
 if [[ "$has_approval_mode" == false ]]; then
-    # Check if this is an analysis task (contains words like "analyze", "review", "understand")
+    # Intelligent approval mode detection based on prompt content
     prompt_text="${args[*]}"
-    if [[ "$prompt_text" =~ (analyze|analysis|review|understand|inspect|examine) ]]; then
+
+    # Analysis/Research tasks - use default (prompt for each tool)
+    if [[ "$prompt_text" =~ (analyze|analysis|review|understand|inspect|examine|research|study|explore|investigate) ]]; then
         echo -e "${GREEN}📋 Analysis task detected: Adding --approval-mode default${NC}" >&2
         args=("--approval-mode" "default" "${args[@]}")
-    else
-        echo -e "${YELLOW}⚡ Execution task detected: Adding --approval-mode yolo${NC}" >&2
+
+    # Development/Edit tasks - use auto_edit (auto-approve edits, prompt for others)
+    elif [[ "$prompt_text" =~ (implement|create|build|develop|code|write|edit|modify|update|fix|refactor|generate) ]]; then
+        echo -e "${GREEN}🔧 Development task detected: Adding --approval-mode auto_edit${NC}" >&2
+        args=("--approval-mode" "auto_edit" "${args[@]}")
+
+    # Automation/Batch tasks - use yolo (auto-approve all)
+    elif [[ "$prompt_text" =~ (automate|batch|mass|bulk|all|execute|run|deploy|install|setup) ]]; then
+        echo -e "${YELLOW}⚡ Automation task detected: Adding --approval-mode yolo${NC}" >&2
         args=("--approval-mode" "yolo" "${args[@]}")
+
+    # Default fallback - use default mode for safety
+    else
+        echo -e "${YELLOW}🔍 General task detected: Adding --approval-mode default${NC}" >&2
+        args=("--approval-mode" "default" "${args[@]}")
     fi
+
+    # Show approval mode explanation
+    case "${args[1]}" in
+        "default")
+            echo -e "${YELLOW}   → Will prompt for approval on each tool call${NC}" >&2
+            ;;
+        "auto_edit")
+            echo -e "${YELLOW}   → Will auto-approve edit tools, prompt for others${NC}" >&2
+            ;;
+        "yolo")
+            echo -e "${YELLOW}   → Will auto-approve all tool calls${NC}" >&2
+            ;;
+    esac
 fi
 
 # Show final command (for transparency)

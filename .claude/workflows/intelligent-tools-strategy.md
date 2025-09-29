@@ -32,6 +32,11 @@ type: strategic-guideline
 - **Command Examples**: `bash(cd target/directory && ~/.claude/scripts/gemini-wrapper -p "prompt")`, `bash(cd target/directory && ~/.claude/scripts/qwen-wrapper -p "prompt")`, `bash(codex -C directory --full-auto exec "task")`
 - **Override When Needed**: Specify custom timeout for longer operations
 
+### Permission Framework
+- **Gemini/Qwen Write Access**: Use `--approval-mode yolo` when tools need to create/modify files
+- **Codex Write Access**: Always use `-s danger-full-access` for development and file operations
+- **Auto-approval Protocol**: Enable automatic tool approvals for autonomous workflow execution
+
 ## 🎯 Universal Command Template
 
 ### Standard Format (REQUIRED)

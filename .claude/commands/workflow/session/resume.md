@@ -2,81 +2,74 @@
 name: resume
 description: Resume the most recently paused workflow session
 usage: /workflow:session:resume
-
+examples:
+  - /workflow:session:resume
 ---
 
 # Resume Workflow Session (/workflow:session:resume)
 
-## Purpose
+## Overview
 Resume the most recently paused workflow session, restoring all context and state.
 
 ## Usage
 ```bash
-/workflow:session:resume
+/workflow:session:resume     # Resume most recent paused session
 ```
 
-## Resume Logic
+## Implementation Flow
 
-### Session Detection
-- Finds most recently paused session
-- Loads session state from `workflow-session.json`
-- Validates session integrity
+### Step 1: Find Paused Sessions
+```bash
+ls .workflow/WFS-* 2>/dev/null
+```
 
-### State Restoration
-- Creates `.workflow/.active-[session-name]` marker file
-- Loads current phase from session state
-- Restores appropriate agent context
-- Continues from exact interruption point
+### Step 2: Check Session Status
+```bash
+jq -r '.status' .workflow/WFS-session/workflow-session.json
+```
 
-### Context Continuity
-- Restores TodoWrite state
-- Loads phase-specific context
-- Maintains full audit trail
-- Preserves document references
+### Step 3: Find Most Recent Paused
+```bash
+ls -t .workflow/WFS-*/workflow-session.json | head -1
+```
 
-## Phase-Specific Resume
+### Step 4: Update Session Status
+```bash
+jq '.status = "active"' .workflow/WFS-session/workflow-session.json > temp.json
+mv temp.json .workflow/WFS-session/workflow-session.json
+```
 
-### Planning Phase
-- Resumes planning document generation
-- Maintains requirement analysis progress
-- Continues task breakdown where left off
+### Step 5: Add Resume Timestamp
+```bash
+jq '.resumed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' .workflow/WFS-session/workflow-session.json > temp.json
+mv temp.json .workflow/WFS-session/workflow-session.json
+```
 
-### Implementation Phase  
-- Resumes task execution state
-- Maintains agent coordination
-- Continues from current task
+### Step 6: Create Active Marker
+```bash
+touch .workflow/.active-WFS-session-name
+```
 
-### Review Phase
-- Resumes validation process
-- Maintains quality checks
-- Continues review workflow
+## Simple Bash Commands
 
-## Session Validation
-Before resuming, validates:
-- Session directory exists
-- Required documents present
-- State consistency
-- No corruption detected
+### Basic Operations
+- **List sessions**: `ls .workflow/WFS-*`
+- **Check status**: `jq -r '.status' session.json`
+- **Find recent**: `ls -t .workflow/*/workflow-session.json | head -1`
+- **Update status**: `jq '.status = "active"' session.json > temp.json`
+- **Add timestamp**: `jq '.resumed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"'`
+- **Create marker**: `touch .workflow/.active-session`
 
-## Output
-Displays:
-- Resumed session ID and description
-- Current phase and progress
-- Available next actions
-- Session directory location
+### Resume Result
+```
+Session WFS-user-auth resumed
+- Status: active
+- Paused at: 2025-09-15T14:30:00Z
+- Resumed at: 2025-09-15T15:45:00Z
+- Ready for: /workflow:execute
+```
 
-## Error Handling
-- **No paused sessions**: Lists available sessions to switch to
-- **Corrupted session**: Attempts recovery or suggests manual repair
-- **Directory missing**: Clear error with recovery options
-- **State inconsistency**: Validates and repairs where possible
-
-## Next Actions
-After resuming:
-- Use `/context` to view current session state
-- Continue with phase-appropriate commands
-- Check TodoWrite status for next steps
-
----
-
-**Result**: Previously paused session is now active and ready to continue
+## Related Commands
+- `/workflow:session:pause` - Pause current session
+- `/workflow:execute` - Continue workflow execution
+- `/workflow:session:list` - Show all sessions

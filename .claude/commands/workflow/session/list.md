@@ -2,82 +2,104 @@
 name: list
 description: List all workflow sessions with status
 usage: /workflow:session:list
+examples:
+  - /workflow:session:list
 ---
 
-# List Workflow Sessions (/workflow/session/list)
+# List Workflow Sessions (/workflow:session:list)
 
-## Purpose
+## Overview
 Display all workflow sessions with their current status, progress, and metadata.
 
 ## Usage
 ```bash
-/workflow/session/list
+/workflow:session:list       # Show all sessions with status
 ```
 
-## Output Format
+## Implementation Flow
 
-### Active Session (Highlighted)
+### Step 1: Find All Sessions
+```bash
+ls .workflow/WFS-* 2>/dev/null
 ```
+
+### Step 2: Check Active Session
+```bash
+ls .workflow/.active-* 2>/dev/null | head -1
+```
+
+### Step 3: Read Session Metadata
+```bash
+jq -r '.session_id, .status, .project' .workflow/WFS-session/workflow-session.json
+```
+
+### Step 4: Count Task Progress
+```bash
+ls .workflow/WFS-session/.task/*.json 2>/dev/null | wc -l
+ls .workflow/WFS-session/.summaries/*.md 2>/dev/null | wc -l
+```
+
+### Step 5: Get Creation Time
+```bash
+jq -r '.created_at // "unknown"' .workflow/WFS-session/workflow-session.json
+```
+
+## Simple Bash Commands
+
+### Basic Operations
+- **List sessions**: `ls .workflow/WFS-*`
+- **Find active**: `ls .workflow/.active-*`
+- **Read session data**: `jq -r '.session_id, .status' session.json`
+- **Count tasks**: `ls .task/*.json | wc -l`
+- **Count completed**: `ls .summaries/*.md | wc -l`
+- **Get timestamp**: `jq -r '.created_at' session.json`
+
+## Simple Output Format
+
+### Session List Display
+```
+Workflow Sessions:
+
 ✅ WFS-oauth-integration (ACTIVE)
-   Description: Implement OAuth2 authentication
-   Phase: IMPLEMENTATION
-   Created: 2025-09-07 14:30:00
-   Directory: .workflow/WFS-oauth-integration/
-   Progress: 3/5 tasks completed
+   Project: OAuth2 authentication system
+   Status: active
+   Progress: 3/8 tasks completed
+   Created: 2025-09-15T10:30:00Z
+
+⏸️ WFS-user-profile (PAUSED)
+   Project: User profile management
+   Status: paused
+   Progress: 1/5 tasks completed
+   Created: 2025-09-14T14:15:00Z
+
+📁 WFS-database-migration (COMPLETED)
+   Project: Database schema migration
+   Status: completed
+   Progress: 4/4 tasks completed
+   Created: 2025-09-13T09:00:00Z
+
+Total: 3 sessions (1 active, 1 paused, 1 completed)
 ```
 
-### Paused Sessions
-```
-⏸️  WFS-user-profile (PAUSED)
-   Description: Build user profile management
-   Phase: PLANNING  
-   Created: 2025-09-06 10:15:00
-   Last active: 2025-09-07 09:20:00
-   Directory: .workflow/WFS-user-profile/
-```
+### Status Indicators
+- **✅**: Active session
+- **⏸️**: Paused session
+- **📁**: Completed session
+- **❌**: Error/corrupted session
 
-### Completed Sessions
-```
-✅ WFS-bug-fix-123 (COMPLETED)
-   Description: Fix login security vulnerability
-   Completed: 2025-09-05 16:45:00
-   Directory: .workflow/WFS-bug-fix-123/
-```
+### Quick Commands
+```bash
+# Count all sessions
+ls .workflow/WFS-* | wc -l
 
-## Status Indicators
-- **✅ ACTIVE**: Currently active session (has marker file)
-- **⏸️ PAUSED**: Session paused, can be resumed
-- **✅ COMPLETED**: Session finished successfully
-- **❌ FAILED**: Session ended with errors
-- **🔄 INTERRUPTED**: Session was interrupted unexpectedly
+# Show only active
+ls .workflow/.active-* | basename | sed 's/^\.active-//'
 
-## Session Discovery
-Searches for:
-- `.workflow/WFS-*` directories
-- Reads `workflow-session.json` from each
-- Checks for `.active-*` marker files
-- Sorts by last activity date
-
-## Quick Actions
-For each session, shows available actions:
-- **Resume**: `/workflow/session/resume` (paused sessions)
-- **Switch**: `/workflow/session/switch <session-id>`
-- **View**: `/context <session-id>`
-
-## Empty State
-If no sessions exist:
-```
-No workflow sessions found.
-
-Create a new session:
-/workflow/session/start "your task description"
+# Show recent sessions
+ls -t .workflow/WFS-*/workflow-session.json | head -3
 ```
 
-## Error Handling
-- **Directory access**: Handles permission issues
-- **Corrupted sessions**: Shows warning but continues listing
-- **Missing metadata**: Shows partial info with warnings
-
----
-
-**Result**: Complete overview of all workflow sessions and their current state
+## Related Commands
+- `/workflow:session:start` - Create new session
+- `/workflow:session:switch` - Switch to different session
+- `/workflow:session:status` - Detailed session info

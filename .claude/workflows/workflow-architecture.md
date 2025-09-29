@@ -103,8 +103,8 @@ IMPL-2.1            # Subtask of IMPL-2 (dynamically created)
 - **Leaf tasks**: Only these can be executed directly
 - **Status inheritance**: Parent status derived from subtask completion
 
-### Task JSON Schema
-All task files use this unified 5-field schema:
+### Enhanced Task JSON Schema
+All task files use this unified 5-field schema with optional artifacts enhancement:
 
 ```json
 {
@@ -129,7 +129,16 @@ All task files use this unified 5-field schema:
     },
     "shared_context": {
       "auth_strategy": "JWT with refresh tokens"
-    }
+    },
+    "artifacts": [
+      {
+        "type": "synthesis_specification",
+        "source": "brainstorm_synthesis",
+        "path": ".workflow/WFS-session/.brainstorming/synthesis-specification.md",
+        "priority": "highest",
+        "contains": "complete_integrated_specification"
+      }
+    ]
   },
 
   "flow_control": {
@@ -181,6 +190,22 @@ The **focus_paths** field specifies concrete project paths for task implementati
 - **Mixed types**: Can include both directories and specific files
 - **Relative paths**: From project root (e.g., `src/auth`, not `./src/auth`)
 
+#### Artifacts Field ⚠️ NEW FIELD
+Optional field referencing brainstorming outputs for task execution:
+
+```json
+"artifacts": [
+  {
+    "type": "synthesis_specification|topic_framework|individual_role_analysis",
+    "source": "brainstorm_synthesis|brainstorm_framework|brainstorm_roles",
+    "path": ".workflow/WFS-session/.brainstorming/document.md",
+    "priority": "highest|high|medium|low"
+  }
+]
+```
+
+**Types & Priority**: synthesis_specification (highest) → topic_framework (medium) → individual_role_analysis (low)
+
 #### Flow Control Configuration
 The **flow_control** field manages task execution with two main components:
 
@@ -231,6 +256,7 @@ The **flow_control** field manages task execution with two main components:
 6. **Focus Paths Structure**: context.focus_paths must contain concrete paths (no wildcards)
 7. **Flow Control Format**: pre_analysis must be array with required fields
 8. **Dependency Integrity**: All depends_on task IDs must exist as JSON files
+9. **Artifacts Structure**: context.artifacts (optional) must use valid type, priority, and path format
 
 ## Workflow Structure
 

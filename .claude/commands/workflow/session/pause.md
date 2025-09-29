@@ -2,64 +2,68 @@
 name: pause
 description: Pause the active workflow session
 usage: /workflow:session:pause
-
+examples:
+  - /workflow:session:pause
 ---
 
 # Pause Workflow Session (/workflow:session:pause)
 
-## Purpose
+## Overview
 Pause the currently active workflow session, saving all state for later resumption.
 
 ## Usage
 ```bash
-/workflow:session:pause
+/workflow:session:pause      # Pause current active session
 ```
 
-## Behavior
+## Implementation Flow
 
-### State Preservation
-- Saves complete session state to `workflow-session.json`
-- Preserves context across all phases
-- Maintains TodoWrite synchronization
-- Creates checkpoint timestamp
-
-### Active Session Handling
-- Removes `.workflow/.active-[session-name]` marker file
-- Session becomes paused (no longer active)
-- Other commands will work in temporary mode
-
-### Context Saved
-- Current phase and progress
-- Generated documents and artifacts
-- Task execution state
-- Agent context and history
-
-## Status Update
-Updates session status to:
-- **status**: "paused"
-- **paused_at**: Current timestamp
-- **resumable**: true
-
-## Output
-Displays:
-- Session ID that was paused
-- Current phase and progress
-- Resume instructions
-- Session directory location
-
-## Resume Instructions
-Shows how to resume:
+### Step 1: Find Active Session
 ```bash
-/workflow:session:resume        # Resume this session
-/workflow:session:list          # View all sessions
-/workflow:session:switch <id>   # Switch to different session
+ls .workflow/.active-* 2>/dev/null | head -1
 ```
 
-## Error Handling
-- **No active session**: Clear message that no session is active
-- **Save errors**: Handles file system issues gracefully
-- **State corruption**: Validates session state before saving
+### Step 2: Get Session Name
+```bash
+basename .workflow/.active-WFS-session-name | sed 's/^\.active-//'
+```
 
----
+### Step 3: Update Session Status
+```bash
+jq '.status = "paused"' .workflow/WFS-session/workflow-session.json > temp.json
+mv temp.json .workflow/WFS-session/workflow-session.json
+```
 
-**Result**: Active session is safely paused and can be resumed later
+### Step 4: Add Pause Timestamp
+```bash
+jq '.paused_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' .workflow/WFS-session/workflow-session.json > temp.json
+mv temp.json .workflow/WFS-session/workflow-session.json
+```
+
+### Step 5: Remove Active Marker
+```bash
+rm .workflow/.active-WFS-session-name
+```
+
+## Simple Bash Commands
+
+### Basic Operations
+- **Find active session**: `ls .workflow/.active-*`
+- **Get session name**: `basename marker | sed 's/^\.active-//'`
+- **Update status**: `jq '.status = "paused"' session.json > temp.json`
+- **Add timestamp**: `jq '.paused_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"'`
+- **Remove marker**: `rm .workflow/.active-session`
+
+### Pause Result
+```
+Session WFS-user-auth paused
+- Status: paused
+- Paused at: 2025-09-15T14:30:00Z
+- Tasks preserved: 8 tasks
+- Can resume with: /workflow:session:resume
+```
+
+## Related Commands
+- `/workflow:session:resume` - Resume paused session
+- `/workflow:session:list` - Show all sessions including paused
+- `/workflow:session:status` - Check session state

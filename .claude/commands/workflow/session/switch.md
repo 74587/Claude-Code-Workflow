@@ -2,7 +2,7 @@
 name: switch
 description: Switch to a different workflow session
 usage: /workflow:session:switch <session-id>
-
+argument-hint: session-id to switch to
 examples:
   - /workflow:session:switch WFS-oauth-integration
   - /workflow:session:switch WFS-user-profile
@@ -10,76 +10,78 @@ examples:
 
 # Switch Workflow Session (/workflow:session:switch)
 
-## Purpose
+## Overview
 Switch the active session to a different workflow session.
 
 ## Usage
 ```bash
-/workflow:session:switch <session-id>
+/workflow:session:switch WFS-session-name     # Switch to specific session
 ```
 
-## Session Switching Process
+## Implementation Flow
 
-### Validation
-- Verifies target session exists
-- Checks session directory integrity
-- Validates session state
-
-### Active Session Handling
-- Automatically pauses currently active session
-- Saves current session state
-- Removes current `.active-*` marker file
-
-### Target Session Activation
-- Creates `.active-[target-session]` marker file
-- Updates session status to "active"
-- Loads session context and state
-
-### State Transition
-```
-Current Active → Paused (auto-saved)
-Target Session → Active (context loaded)
+### Step 1: Validate Target Session
+```bash
+test -d .workflow/WFS-target-session && echo "Session exists"
 ```
 
-## Context Loading
-After switching:
-- Loads target session's phase and progress
-- Restores appropriate agent context
-- Makes session's documents available
-- Updates TodoWrite to target session's tasks
+### Step 2: Pause Current Session
+```bash
+ls .workflow/.active-* 2>/dev/null | head -1
+jq '.status = "paused"' .workflow/current-session/workflow-session.json > temp.json
+```
 
-## Output
-Displays:
-- Previous active session (now paused)
-- New active session details
-- Current phase and progress
-- Available next actions
+### Step 3: Remove Current Active Marker
+```bash
+rm .workflow/.active-* 2>/dev/null
+```
 
-## Session ID Formats
-Accepts various formats:
-- Full ID: `WFS-oauth-integration`
-- Partial match: `oauth` (if unique)
-- Index from list: `1` (from session list order)
+### Step 4: Activate Target Session
+```bash
+jq '.status = "active"' .workflow/WFS-target/workflow-session.json > temp.json
+mv temp.json .workflow/WFS-target/workflow-session.json
+```
 
-## Error Handling
-- **Session not found**: Lists available sessions
-- **Invalid session**: Shows session validation errors
-- **Already active**: No-op with confirmation message
-- **Switch failure**: Maintains current session, shows error
+### Step 5: Create New Active Marker
+```bash
+touch .workflow/.active-WFS-target-session
+```
 
-## Quick Reference
-After switching, shows:
-- Session description and phase
-- Recent activity and progress
-- Suggested next commands
-- Directory location
+### Step 6: Add Switch Timestamp
+```bash
+jq '.switched_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' .workflow/WFS-target/workflow-session.json > temp.json
+mv temp.json .workflow/WFS-target/workflow-session.json
+```
 
-## Integration
-Commands executed after switch will:
-- Use new active session context
-- Save artifacts to new session directory
-- Update new session's state and progress
+## Simple Bash Commands
 
----
+### Basic Operations
+- **Check session exists**: `test -d .workflow/WFS-session`
+- **Find current active**: `ls .workflow/.active-*`
+- **Pause current**: `jq '.status = "paused"' session.json > temp.json`
+- **Remove marker**: `rm .workflow/.active-*`
+- **Activate target**: `jq '.status = "active"' target.json > temp.json`
+- **Create marker**: `touch .workflow/.active-target`
 
-**Result**: Different session is now active and ready for work
+### Switch Result
+```
+Switched to session: WFS-oauth-integration
+- Previous: WFS-user-auth (paused)
+- Current: WFS-oauth-integration (active)
+- Switched at: 2025-09-15T15:45:00Z
+- Ready for: /workflow:execute
+```
+
+### Error Handling
+```bash
+# Session not found
+test -d .workflow/WFS-nonexistent || echo "Error: Session not found"
+
+# No sessions available
+ls .workflow/WFS-* 2>/dev/null || echo "No sessions available"
+```
+
+## Related Commands
+- `/workflow:session:list` - Show all available sessions
+- `/workflow:session:pause` - Pause current before switching
+- `/workflow:execute` - Continue with new active session
