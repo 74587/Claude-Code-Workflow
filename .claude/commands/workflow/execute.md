@@ -220,53 +220,115 @@ TodoWrite({
 
 #### Agent Prompt Template
 ```bash
-Task(subagent_type="{agent_type}",
-     prompt="Execute {task_id}: {task_title}
+Task(subagent_type="{meta.agent}",
+     prompt="**TASK EXECUTION WITH FULL JSON LOADING**
 
-     ## Task Definition
-     **ID**: {task_id}
-     **Type**: {task_type}
-     **Agent**: {assigned_agent}
+     ## STEP 1: Load Complete Task JSON
+     **MANDATORY**: First load the complete task JSON from: {session.task_json_path}
 
-     ## Execution Instructions
-     {flow_control_marker}
+     cat {session.task_json_path}
 
-     ### Flow Control Steps (if [FLOW_CONTROL] present)
-     **AGENT RESPONSIBILITY**: Execute these pre_analysis steps sequentially with context accumulation:
-     {pre_analysis_steps}
+     **CRITICAL**: Validate all 5 required fields are present:
+     - id, title, status, meta, context, flow_control
 
-     ### Implementation Context
-     **Requirements**: {context.requirements}
-     **Focus Paths**: {context.focus_paths}
-     **Acceptance Criteria**: {context.acceptance}
-     **Target Files**: {flow_control.target_files}
+     ## STEP 2: Task Definition (From Loaded JSON)
+     **ID**: Use id field from JSON
+     **Title**: Use title field from JSON
+     **Type**: Use meta.type field from JSON
+     **Agent**: Use meta.agent field from JSON
+     **Status**: Verify status is pending or active
 
-     ### Session Context
+     ## STEP 3: Flow Control Execution (if flow_control.pre_analysis exists)
+     **AGENT RESPONSIBILITY**: Execute pre_analysis steps sequentially from loaded JSON:
+
+     For each step in flow_control.pre_analysis array:
+     1. Execute step.command with variable substitution
+     2. Store output to step.output_to variable
+     3. Handle errors per step.on_error strategy
+     4. Pass accumulated variables to next step
+
+     ## STEP 4: Implementation Context (From JSON context field)
+     **Requirements**: Use context.requirements array from JSON
+     **Focus Paths**: Use context.focus_paths array from JSON
+     **Acceptance Criteria**: Use context.acceptance array from JSON
+     **Dependencies**: Use context.depends_on array from JSON
+     **Parent Context**: Use context.inherited object from JSON
+     **Target Files**: Use flow_control.target_files array from JSON
+     **Implementation Approach**: Use flow_control.implementation_approach object from JSON
+
+     ## STEP 5: Session Context (Provided by workflow:execute)
      **Workflow Directory**: {session.workflow_dir}
      **TODO List Path**: {session.todo_list_path}
      **Summaries Directory**: {session.summaries_dir}
      **Task JSON Path**: {session.task_json_path}
+     **Flow Context**: {flow_context.step_outputs}
 
-     ### Dependencies & Context
-     **Dependencies**: {context.depends_on}
-     **Inherited Context**: {context.inherited}
-     **Previous Outputs**: {flow_context.step_outputs}
+     ## STEP 6: Agent Completion Requirements
+     1. **Load Task JSON**: Read and validate complete task structure
+     2. **Execute Flow Control**: Run all pre_analysis steps if present
+     3. **Implement Solution**: Follow implementation_approach from JSON
+     4. **Update Progress**: Mark task status in JSON as completed
+     5. **Update TODO List**: Update TODO_LIST.md at provided path
+     6. **Generate Summary**: Create completion summary in summaries directory
 
-     ## Completion Requirements
-     1. Execute all flow control steps if present
-     2. Implement according to acceptance criteria
-     3. Update TODO_LIST.md at provided path
-     4. Generate summary in summaries directory
-     5. Mark task as completed in task JSON",
-     description="{task_description}")
+     **JSON UPDATE COMMAND**:
+     Update task status to completed using jq:
+     jq '.status = \"completed\"' {session.task_json_path} > temp.json && mv temp.json {session.task_json_path}"),
+     description="Execute task with full JSON loading and validation")
+```
+
+#### Agent JSON Loading Specification
+**MANDATORY AGENT PROTOCOL**: All agents must follow this exact loading sequence:
+
+1. **JSON Loading**: First action must be `cat {session.task_json_path}`
+2. **Field Validation**: Verify all 5 required fields exist: `id`, `title`, `status`, `meta`, `context`, `flow_control`
+3. **Structure Parsing**: Parse nested fields correctly:
+   - `meta.type` and `meta.agent` (NOT flat `task_type`)
+   - `context.requirements`, `context.focus_paths`, `context.acceptance`
+   - `context.depends_on`, `context.inherited`
+   - `flow_control.pre_analysis` array, `flow_control.target_files`
+4. **Flow Control Execution**: If `flow_control.pre_analysis` exists, execute steps sequentially
+5. **Status Management**: Update JSON status upon completion
+
+**JSON Field Reference**:
+```json
+{
+  "id": "IMPL-1.2",
+  "title": "Task title",
+  "status": "pending|active|completed|blocked",
+  "meta": {
+    "type": "feature|bugfix|refactor|test|docs",
+    "agent": "@code-developer|@planning-agent|@code-review-test-agent"
+  },
+  "context": {
+    "requirements": ["req1", "req2"],
+    "focus_paths": ["src/path1", "src/path2"],
+    "acceptance": ["criteria1", "criteria2"],
+    "depends_on": ["IMPL-1.1"],
+    "inherited": { "from": "parent", "context": ["info"] }
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "step_name",
+        "command": "bash_command",
+        "output_to": "variable",
+        "on_error": "skip_optional|fail|retry_once"
+      }
+    ],
+    "implementation_approach": { "task_description": "...", "modification_points": ["..."] },
+    "target_files": ["file:function:lines"]
+  }
+}
 ```
 
 #### Execution Flow
-1. **Prepare Agent Context**: Assemble complete context package
-2. **Generate Prompt**: Fill template with task and context data
-3. **Launch Agent**: Invoke specialized agent with structured prompt
-4. **Monitor Execution**: Track progress and handle errors
-5. **Collect Results**: Process agent outputs and update status
+1. **Load Task JSON**: Agent reads and validates complete JSON structure
+2. **Execute Flow Control**: Agent runs pre_analysis steps if present
+3. **Prepare Implementation**: Agent uses implementation_approach from JSON
+4. **Launch Implementation**: Agent follows focus_paths and target_files
+5. **Update Status**: Agent marks JSON status as completed
+6. **Generate Summary**: Agent creates completion summary
 
 #### Agent Assignment Rules
 ```

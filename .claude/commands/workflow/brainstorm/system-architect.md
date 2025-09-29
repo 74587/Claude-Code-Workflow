@@ -1,57 +1,164 @@
 ---
 name: system-architect
-description: System architect perspective brainstorming for technical architecture and scalability analysis
-usage: /workflow:brainstorm:system-architect <topic>
-argument-hint: "topic or challenge to analyze from system architecture perspective"
+description: Generate or update system-architect/analysis.md addressing topic-framework discussion points
+usage: /workflow:brainstorm:system-architect [topic]
+argument-hint: "optional topic - uses existing framework if available"
 examples:
+  - /workflow:brainstorm:system-architect
   - /workflow:brainstorm:system-architect "user authentication redesign"
-  - /workflow:brainstorm:system-architect "microservices migration strategy"
-  - /workflow:brainstorm:system-architect "system performance optimization"
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
+allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
-## 🏗️ **Role Overview: System Architect**
+## 🏗️ **System Architect Analysis Generator**
 
-### Role Definition
-Technical leader responsible for designing scalable, maintainable, and high-performance system architectures that align with business requirements and industry best practices.
+### Purpose
+**Specialized command for generating system-architect/analysis.md** that addresses topic-framework.md discussion points from system architecture perspective. Creates or updates role-specific analysis with framework references.
 
-### Core Responsibilities
-- **Technical Architecture Design**: Create scalable and maintainable system architectures
-- **Technology Selection**: Evaluate and choose appropriate technology stacks and tools
-- **System Integration**: Design inter-system communication and integration patterns
-- **Performance Optimization**: Identify bottlenecks and propose optimization solutions
+### Core Function
+- **Framework-based Analysis**: Address each discussion point in topic-framework.md
+- **Architecture Focus**: Technical architecture, scalability, and system design perspective
+- **Update Mechanism**: Create new or update existing analysis.md
+- **Agent Delegation**: Use conceptual-planning-agent for analysis generation
 
-### Focus Areas
-- **Scalability**: Capacity planning, load handling, elastic scaling strategies
-- **Reliability**: High availability design, fault tolerance, disaster recovery
-- **Security**: Architectural security, data protection, access control patterns
-- **Maintainability**: Code quality, modular design, technical debt management
+### Analysis Scope
+- **Technical Architecture**: Scalable and maintainable system design
+- **Technology Selection**: Stack evaluation and architectural decisions
+- **Performance & Scalability**: Capacity planning and optimization strategies
+- **Integration Patterns**: System communication and data flow design
 
-### Success Metrics
-- System performance benchmarks (latency, throughput)
-- Availability and uptime metrics
-- Scalability handling capacity growth
-- Technical debt and maintenance efficiency
+## ⚙️ **Execution Protocol**
 
-## 🧠 **Analysis Framework**
+### Phase 1: Session & Framework Detection
+```bash
+# Check active session and framework
+CHECK: .workflow/.active-* marker files
+IF active_session EXISTS:
+    session_id = get_active_session()
+    brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
 
-@~/.claude/workflows/brainstorming-principles.md
+    CHECK: brainstorm_dir/topic-framework.md
+    IF EXISTS:
+        framework_mode = true
+        load_framework = true
+    ELSE:
+        IF topic_provided:
+            framework_mode = false  # Create analysis without framework
+        ELSE:
+            ERROR: "No framework found and no topic provided"
+```
 
-### Key Analysis Questions
+### Phase 2: Analysis Mode Detection
+```bash
+# Check existing analysis
+CHECK: brainstorm_dir/system-architect/analysis.md
+IF EXISTS:
+    SHOW existing analysis summary
+    ASK: "Analysis exists. Do you want to:"
+    OPTIONS:
+      1. "Update with new insights" → Update existing
+      2. "Replace completely" → Generate new
+      3. "Cancel" → Exit without changes
+ELSE:
+    CREATE new analysis
+```
 
-**1. Architecture Design Assessment**
-- What are the strengths and limitations of current architecture?
-- How should we design architecture to meet business requirements?
-- What are the trade-offs between microservices vs monolithic approaches?
+### Phase 3: Agent Task Generation
+**Framework-Based Analysis** (when topic-framework.md exists):
+```bash
+Task(subagent_type="conceptual-planning-agent",
+     prompt="Generate system architect analysis addressing topic framework
 
-**2. Technology Selection Strategy**
-- Which technology stack best fits current requirements?
-- What are the risks and benefits of introducing new technologies?
-- How well does team expertise align with technology choices?
+     ## Framework Integration Required
+     **MANDATORY**: Load and address topic-framework.md discussion points
+     **Framework Reference**: @{session.brainstorm_dir}/topic-framework.md
+     **Output Location**: {session.brainstorm_dir}/system-architect/analysis.md
 
-**3. System Integration Planning**
-- How should systems efficiently integrate and communicate?
-- What are the third-party service integration strategies?
+     ## Analysis Requirements
+     1. **Load Topic Framework**: Read topic-framework.md completely
+     2. **Address Each Discussion Point**: Respond to all 5 framework sections from system architecture perspective
+     3. **Include Framework Reference**: Start analysis.md with @../topic-framework.md
+     4. **Technical Focus**: Emphasize scalability, architecture patterns, technology decisions
+     5. **Structured Response**: Use framework structure for analysis organization
+
+     ## Framework Sections to Address
+     - Core Requirements (from architecture perspective)
+     - Technical Considerations (detailed architectural analysis)
+     - User Experience Factors (technical UX considerations)
+     - Implementation Challenges (architecture risks and solutions)
+     - Success Metrics (technical metrics and monitoring)
+
+     ## Output Structure Required
+     ```markdown
+     # System Architect Analysis: [Topic]
+
+     **Framework Reference**: @../topic-framework.md
+     **Role Focus**: System Architecture and Technical Design
+
+     ## Core Requirements Analysis
+     [Address framework requirements from architecture perspective]
+
+     ## Technical Considerations
+     [Detailed architectural analysis]
+
+     ## User Experience Factors
+     [Technical aspects of UX implementation]
+
+     ## Implementation Challenges
+     [Architecture risks and mitigation strategies]
+
+     ## Success Metrics
+     [Technical metrics and system monitoring]
+
+     ## Architecture-Specific Recommendations
+     [Detailed technical recommendations]
+     ```",
+     description="Generate system architect framework-based analysis")
+```
+
+### Phase 4: Update Mechanism
+**Analysis Update Process**:
+```bash
+# For existing analysis updates
+IF update_mode = "incremental":
+    Task(subagent_type="conceptual-planning-agent",
+         prompt="Update existing system architect analysis
+
+         ## Current Analysis Context
+         **Existing Analysis**: @{session.brainstorm_dir}/system-architect/analysis.md
+         **Framework Reference**: @{session.brainstorm_dir}/topic-framework.md
+
+         ## Update Requirements
+         1. **Preserve Structure**: Maintain existing analysis structure
+         2. **Add New Insights**: Integrate new technical insights and recommendations
+         3. **Framework Alignment**: Ensure continued alignment with topic framework
+         4. **Technical Updates**: Add new architecture patterns, technology considerations
+         5. **Maintain References**: Keep @../topic-framework.md reference
+
+         ## Update Instructions
+         - Read existing analysis completely
+         - Identify areas for enhancement or new insights
+         - Add technical depth while preserving original structure
+         - Update recommendations with new architectural approaches
+         - Maintain framework discussion point addressing",
+         description="Update system architect analysis incrementally")
+```
+
+## Document Structure
+
+### Output Files
+```
+.workflow/WFS-[topic]/.brainstorming/
+├── topic-framework.md          # Input: Framework (if exists)
+└── system-architect/
+    └── analysis.md            # ★ OUTPUT: Framework-based analysis
+```
+
+### Analysis Structure
+**Required Elements**:
+- **Framework Reference**: @../topic-framework.md (if framework exists)
+- **Role Focus**: System Architecture and Technical Design perspective
+- **5 Framework Sections**: Address each framework discussion point
+- **Technical Recommendations**: Architecture-specific insights and solutions
 - How should we design APIs and manage versioning?
 
 **4. Performance and Scalability**

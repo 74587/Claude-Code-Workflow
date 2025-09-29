@@ -1,8 +1,8 @@
 ---
 name: artifacts
-description: Topic discussion, decomposition, and analysis artifacts generation through structured inquiry
+description: Generate structured topic-framework.md for role-based brainstorming analysis
 usage: /workflow:brainstorm:artifacts "<topic>"
-argument-hint: "topic or challenge description for discussion and analysis"
+argument-hint: "topic or challenge description for framework generation"
 examples:
   - /workflow:brainstorm:artifacts "Build real-time collaboration feature"
   - /workflow:brainstorm:artifacts "Optimize database performance for millions of users"
@@ -10,7 +10,7 @@ examples:
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---
 
-# Workflow Brainstorm Artifacts Command
+# Topic Framework Generator Command
 
 ## Usage
 ```bash
@@ -18,34 +18,34 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ```
 
 ## Purpose
-Dedicated command for topic discussion, decomposition, and analysis artifacts generation. This command focuses on interactive exploration and documentation creation without complex agent workflows.
+**Specialized command for generating structured topic-framework.md documents** that provide discussion frameworks for role-based brainstorming analysis. Creates the foundation document that all role agents will reference.
 
 ## Core Workflow
 
-### Discussion & Artifacts Generation Process
+### Topic Framework Generation Process
 
-**0. Session Management** ⚠️ FIRST STEP
-- **MCP Tools Integration**: Use Code Index for technical context, Exa for industry insights
+**Phase 1: Session Management** ⚠️ FIRST STEP
 - **Active session detection**: Check `.workflow/.active-*` markers
 - **Session selection**: Prompt user if multiple active sessions found
 - **Auto-creation**: Create `WFS-[topic-slug]` only if no active session exists
-- **Context isolation**: Each session maintains independent analysis state
+- **Framework check**: Check if `topic-framework.md` exists (update vs create mode)
 
-**1. Topic Discussion & Inquiry**
-- **Interactive exploration**: Direct conversation about topic aspects
-- **Structured questioning**: Key areas of investigation
-- **Context gathering**: User input and requirements clarification
-- **Perspective collection**: Multiple viewpoints and considerations
+**Phase 2: Interactive Topic Analysis**
+- **Scope definition**: Define topic boundaries and objectives
+- **Stakeholder identification**: Identify key users and stakeholders
+- **Requirements gathering**: Extract core requirements and constraints
+- **Context collection**: Gather technical and business context
 
-**2. Topic Decomposition**
-- **Component identification**: Break down topic into key areas
-- **Relationship mapping**: Connections between components
-- **Priority assessment**: Importance and urgency evaluation
-- **Constraint analysis**: Limitations and requirements
+**Phase 3: Structured Framework Generation**
+- **Discussion points creation**: Generate 5 key discussion areas
+- **Role-specific questions**: Create tailored questions for each relevant role
+- **Framework document**: Generate structured `topic-framework.md`
+- **Validation check**: Ensure framework completeness and clarity
 
-**3. Analysis Artifacts Generation**
-- **Discussion summary**: `.workflow/WFS-[topic]/.brainstorming/discussion-summary.md` - Key points and insights
-- **Component analysis**: `.workflow/WFS-[topic]/.brainstorming/component-analysis.md` - Detailed decomposition
+**Phase 4: Update Mechanism**
+- **Existing framework detection**: Check for existing framework
+- **Incremental updates**: Add new discussion points if requested
+- **Version tracking**: Maintain framework evolution history
 
 ## Implementation Standards
 
@@ -74,60 +74,75 @@ Dedicated command for topic discussion, decomposition, and analysis artifacts ge
 
 ## Document Generation
 
-**Workflow**: Topic Discussion → Component Analysis → Documentation
+**Primary Output**: Single structured `topic-framework.md` document
 
 **Document Structure**:
 ```
 .workflow/WFS-[topic]/.brainstorming/
-├── discussion-summary.md       # Main conversation and insights
-└── component-analysis.md       # Detailed topic breakdown
+├── topic-framework.md          # ★ STRUCTURED FRAMEWORK DOCUMENT
+└── session.json               # Framework metadata and role assignments
 ```
 
-**Document Templates**:
+**Topic Framework Template**:
 
-### discussion-summary.md
+### topic-framework.md Structure
 ```markdown
-# Topic Discussion Summary: [topic]
+# [Topic] - Discussion Framework
 
-## Overview
-Brief description of the topic and its scope.
+## Topic Overview
+- **Scope**: [Clear topic boundaries and scope definition]
+- **Objectives**: [Primary goals and expected outcomes]
+- **Context**: [Relevant background and constraints]
+- **Stakeholders**: [Key users, roles, and affected parties]
 
-## Key Insights
-- Major points discovered during discussion
-- Important considerations identified
-- Critical success factors
+## Key Discussion Points
 
-## Questions Explored
-- Primary areas of investigation
-- User responses and clarifications
-- Open questions requiring further research
+### 1. Core Requirements
+- What are the fundamental requirements?
+- What are the critical success factors?
+- What constraints must be considered?
+- What acceptance criteria define success?
 
-## Next Steps
-- Recommended follow-up actions
-- Areas needing deeper analysis
-```
+### 2. Technical Considerations
+- What are the technical challenges?
+- What architectural decisions are needed?
+- What technology choices impact the solution?
+- What integration points exist?
 
-### component-analysis.md
-```markdown
-# Component Analysis: [topic]
+### 3. User Experience Factors
+- Who are the primary users?
+- What are the key user journeys?
+- What usability requirements exist?
+- What accessibility considerations apply?
 
-## Core Components
-Detailed breakdown of main topic elements:
+### 4. Implementation Challenges
+- What are the main implementation risks?
+- What dependencies exist?
+- What resources are required?
+- What timeline constraints apply?
 
-### Component 1: [Name]
-- **Purpose**: What it does
-- **Dependencies**: What it relies on
-- **Interfaces**: How it connects to other components
+### 5. Success Metrics
+- How will success be measured?
+- What are the acceptance criteria?
+- What performance requirements exist?
+- What monitoring and analytics are needed?
 
-### Component 2: [Name]
-- **Purpose**:
-- **Dependencies**:
-- **Interfaces**:
+## Role-Specific Analysis Points
+- **System Architect**: Architecture patterns, scalability, technology stack
+- **Product Manager**: Business value, user needs, market positioning
+- **UI Designer**: User experience, interface design, usability
+- **Security Expert**: Security requirements, threat modeling, compliance
+- **Data Architect**: Data modeling, processing workflows, analytics
+- **Business Analyst**: Process optimization, cost-benefit, change management
 
-## Component Relationships
-- How components interact
-- Data flow between components
-- Critical dependencies
+## Framework Usage Instructions
+**For Role Agents**: Address each discussion point from your role perspective
+**Reference Format**: Use @../topic-framework.md in your analysis.md
+**Update Process**: Use /workflow:brainstorm:artifacts to update framework
+
+---
+*Generated by /workflow:brainstorm:artifacts*
+*Last updated: [timestamp]*
 ```
 
 ## Session Management ⚠️ CRITICAL
@@ -162,19 +177,46 @@ Detailed breakdown of main topic elements:
 - **Alternatives**: What other approaches exist?
 - **Migration**: How do we transition from current state?
 
-## Quality Standards
+## Update Mechanism ⚠️ SMART UPDATES
 
-### Discussion Excellence
-- **Comprehensive exploration**: Cover all relevant aspects of the topic
-- **Clear documentation**: Capture insights in structured, readable format
-- **Actionable outcomes**: Generate practical next steps and recommendations
-- **User-driven**: Follow user interests and priorities in the discussion
+### Framework Update Logic
+```bash
+# Check existing framework
+IF topic-framework.md EXISTS:
+    SHOW current framework to user
+    ASK: "Framework exists. Do you want to:"
+    OPTIONS:
+      1. "Replace completely" → Generate new framework
+      2. "Add discussion points" → Append to existing
+      3. "Refine existing points" → Interactive editing
+      4. "Cancel" → Exit without changes
+ELSE:
+    CREATE new framework
+```
 
-### Documentation Quality
-- **Structured format**: Use consistent templates for easy navigation
-- **Complete coverage**: Document all important discussion points
-- **Clear language**: Avoid jargon, explain technical concepts
-- **Practical focus**: Emphasize actionable insights and recommendations
+### Update Strategies
+
+**1. Complete Replacement**
+- Backup existing framework as `topic-framework-[timestamp].md.backup`
+- Generate completely new framework
+- Preserve role-specific analysis points from previous version
+
+**2. Incremental Addition**
+- Load existing framework
+- Identify new discussion areas through user interaction
+- Add new sections while preserving existing structure
+- Update framework usage instructions
+
+**3. Refinement Mode**
+- Interactive editing of existing discussion points
+- Allow modification of scope, objectives, and questions
+- Preserve framework structure and role assignments
+- Update timestamp and version info
+
+### Version Control
+- **Backup Creation**: Always backup before major changes
+- **Change Tracking**: Include change summary in framework footer
+- **Rollback Support**: Keep previous version accessible
 
 ## Error Handling
 - **Session creation failure**: Provide clear error message and retry option

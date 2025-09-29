@@ -1,273 +1,205 @@
 ---
 name: business-analyst
-description: Business analyst perspective brainstorming for process optimization and business efficiency analysis
-usage: /workflow:brainstorm:business-analyst <topic>
-argument-hint: "topic or challenge to analyze from business analysis perspective"
+description: Generate or update business-analyst/analysis.md addressing topic-framework discussion points
+usage: /workflow:brainstorm:business-analyst [topic]
+argument-hint: "optional topic - uses existing framework if available"
 examples:
+  - /workflow:brainstorm:business-analyst
   - /workflow:brainstorm:business-analyst "workflow automation opportunities"
   - /workflow:brainstorm:business-analyst "business process optimization"
-  - /workflow:brainstorm:business-analyst "cost reduction initiatives"
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
+allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
-## 📊 **Role Overview: Business Analyst**
+## 📊 **Business Analyst Analysis Generator**
 
-### Role Definition
-Business process expert responsible for analyzing workflows, identifying requirements, and optimizing business operations to maximize value and efficiency.
+### Purpose
+**Specialized command for generating business-analyst/analysis.md** that addresses topic-framework.md discussion points from business analysis perspective. Creates or updates role-specific analysis with framework references.
 
-### Core Responsibilities
+### Core Function
+- **Framework-based Analysis**: Address each discussion point in topic-framework.md
+- **Business Analysis Focus**: Process optimization, requirements analysis, and business efficiency perspective
+- **Update Mechanism**: Create new or update existing analysis.md
+- **Agent Delegation**: Use conceptual-planning-agent for analysis generation
+
+### Analysis Scope
 - **Process Analysis**: Analyze existing business processes for efficiency and improvement opportunities
 - **Requirements Analysis**: Identify and define business requirements and functional specifications
-- **Value Assessment**: Evaluate solution business value and return on investment
-- **Change Management**: Plan and manage business process changes
+- **Value Analysis**: Assess cost-benefit and ROI of business initiatives
+- **Change Management**: Plan organizational change and process transformation
 
-### Focus Areas
-- **Process Optimization**: Workflows, automation opportunities, efficiency improvements
-- **Data Analysis**: Business metrics, KPI design, performance measurement
-- **Cost-Benefit**: ROI analysis, cost optimization, value creation
-- **Risk Management**: Business risks, compliance requirements, change risks
+## ⚙️ **Execution Protocol**
 
-### Success Metrics
-- Process efficiency improvements (time/cost reduction)
-- Requirements clarity and completeness
-- Stakeholder satisfaction levels
-- ROI achievement and value delivery
-
-## 🧠 **Analysis Framework**
-
-@~/.claude/workflows/brainstorming-principles.md
-
-### Key Analysis Questions
-
-**1. Business Process Analysis**
-- What are the bottlenecks and inefficiencies in current business processes?
-- Which processes can be automated or simplified?
-- What are the obstacles in cross-departmental collaboration?
-
-**2. Business Requirements Identification**
-- What are the core needs of stakeholders?
-- What are the business objectives and success metrics?
-- How should functional and non-functional requirements be prioritized?
-
-**3. Value and Benefit Analysis**
-- What is the expected business value of the solution?
-- How does implementation cost compare to expected benefits?
-- What are the risk assessments and mitigation strategies?
-
-**4. Implementation and Change Management**
-- How will changes impact existing processes?
-- What training and adaptation requirements exist?
-- What success metrics and monitoring mechanisms are needed?
-
-## ⚡ **Two-Step Execution Flow**
-
-### ⚠️ Session Management - FIRST STEP
-Session detection and selection:
+### Phase 1: Session & Framework Detection
 ```bash
-# Check for active sessions
-active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
-if [ multiple_sessions ]; then
-  prompt_user_to_select_session()
-else
-  use_existing_or_create_new()
-fi
+# Check active session and framework
+CHECK: .workflow/.active-* marker files
+IF active_session EXISTS:
+    session_id = get_active_session()
+    brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
+
+    CHECK: brainstorm_dir/topic-framework.md
+    IF EXISTS:
+        framework_mode = true
+        load_framework = true
+    ELSE:
+        IF topic_provided:
+            framework_mode = false  # Create analysis without framework
+        ELSE:
+            ERROR: "No framework found and no topic provided"
 ```
 
-### Step 1: Context Gathering Phase
-**Business Analyst Perspective Questioning**
+### Phase 2: Analysis Mode Detection
+```bash
+# Determine execution mode
+IF framework_mode == true:
+    mode = "framework_based_analysis"
+    topic_ref = load_framework_topic()
+    discussion_points = extract_framework_points()
+ELSE:
+    mode = "standalone_analysis"
+    topic_ref = provided_topic
+    discussion_points = generate_basic_structure()
+```
 
-Before agent assignment, gather comprehensive business analyst context:
-
-#### 📋 Role-Specific Questions
-
-**1. Business Process Analysis**
-- What are the current business processes and workflows that need analysis?
-- Which departments, teams, or stakeholders are involved in these processes?
-- What are the key bottlenecks, inefficiencies, or pain points you've observed?
-- What metrics or KPIs are currently used to measure process performance?
-
-**2. Cost and Resource Analysis**
-- What are the current costs associated with these processes (time, money, resources)?
-- How much time do stakeholders spend on these activities daily/weekly?
-- What technology, tools, or systems are currently being used?
-- What budget constraints or financial targets need to be considered?
-
-**3. Business Requirements and Objectives**
-- What are the primary business objectives this analysis should achieve?
-- Who are the key stakeholders and what are their specific needs?
-- What are the success criteria and how will you measure improvement?
-- Are there any compliance, regulatory, or governance requirements?
-
-**4. Change Management and Implementation**
-- How ready is the organization for process changes?
-- What training or change management support might be needed?
-- What timeline or deadlines are we working with?
-- What potential resistance or challenges do you anticipate?
-
-#### Context Validation
-- **Minimum Response**: Each answer must be ≥50 characters
-- **Re-prompting**: Insufficient detail triggers follow-up questions
-- **Context Storage**: Save responses to `.brainstorming/business-analyst-context.md`
-
-### Step 2: Agent Assignment with Flow Control
-**Dedicated Agent Execution**
+### Phase 3: Agent Execution with Flow Control
+**Framework-Based Analysis Generation**
 
 ```bash
 Task(conceptual-planning-agent): "
 [FLOW_CONTROL]
 
-Execute dedicated business analyst conceptual analysis for: {topic}
+Execute business-analyst analysis for existing topic framework
 
+## Context Loading
 ASSIGNED_ROLE: business-analyst
-OUTPUT_LOCATION: .brainstorming/business-analyst/
-USER_CONTEXT: {validated_responses_from_context_gathering}
+OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/business-analyst/
+ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 
-Flow Control Steps:
-[
-  {
-    \"step\": \"load_role_template\",
-    \"action\": \"Load business-analyst planning template\",
-    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/business-analyst.md))\",
-    \"output_to\": \"role_template\"
-  }
-]
+## Flow Control Steps
+1. **load_topic_framework**
+   - Action: Load structured topic discussion framework
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
+   - Output: topic_framework_content
 
-Conceptual Analysis Requirements:
-- Apply business analyst perspective to topic analysis
-- Focus on process optimization, cost-benefit analysis, and change management
-- Use loaded role template framework for analysis structure
-- Generate role-specific deliverables in designated output location
-- Address all user context from questioning phase
+2. **load_role_template**
+   - Action: Load business-analyst planning template
+   - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/business-analyst.md))
+   - Output: role_template_guidelines
 
-Deliverables:
-- analysis.md: Main business analyst analysis
-- recommendations.md: Business analyst recommendations
-- deliverables/: Business analyst-specific outputs as defined in role template
+3. **load_session_metadata**
+   - Action: Load session metadata and existing context
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/session.json)
+   - Output: session_context
 
-Embody business analyst role expertise for comprehensive conceptual planning."
+## Analysis Requirements
+**Framework Reference**: Address all discussion points in topic-framework.md from business analysis perspective
+**Role Focus**: Process optimization, requirements analysis, business efficiency
+**Structured Approach**: Create analysis.md addressing framework discussion points
+**Template Integration**: Apply role template guidelines within framework structure
+
+## Expected Deliverables
+1. **analysis.md**: Comprehensive business analysis addressing all framework discussion points
+2. **Framework Reference**: Include @../topic-framework.md reference in analysis
+
+## Completion Criteria
+- Address each discussion point from topic-framework.md with business analysis expertise
+- Provide process optimization recommendations and requirements specifications
+- Include cost-benefit analysis and change management considerations
+- Reference framework document using @ notation for integration
+"
 ```
 
-### Progress Tracking
-TodoWrite tracking for two-step process:
-```json
-[
-  {"content": "Gather business analyst context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
-  {"content": "Validate context responses and save to business-analyst-context.md", "status": "pending", "activeForm": "Validating context"},
-  {"content": "Load business-analyst planning template via flow control", "status": "pending", "activeForm": "Loading template"},
-  {"content": "Execute dedicated conceptual-planning-agent for business-analyst role", "status": "pending", "activeForm": "Executing agent"}
-]
+## 📋 **TodoWrite Integration**
+
+### Workflow Progress Tracking
+```javascript
+TodoWrite({
+  todos: [
+    {
+      content: "Detect active session and locate topic framework",
+      status: "in_progress",
+      activeForm: "Detecting session and framework"
+    },
+    {
+      content: "Load topic-framework.md and session metadata for context",
+      status: "pending",
+      activeForm: "Loading framework and session context"
+    },
+    {
+      content: "Execute business-analyst analysis using conceptual-planning-agent with FLOW_CONTROL",
+      status: "pending",
+      activeForm: "Executing business-analyst framework analysis"
+    },
+    {
+      content: "Generate analysis.md addressing all framework discussion points",
+      status: "pending",
+      activeForm: "Generating structured business-analyst analysis"
+    },
+    {
+      content: "Update session.json with business-analyst completion status",
+      status: "pending",
+      activeForm: "Updating session metadata"
+    }
+  ]
+});
 ```
 
 ## 📊 **Output Structure**
 
-### Output Location
+### Framework-Based Analysis
 ```
-.workflow/WFS-{topic-slug}/.brainstorming/business-analyst/
-├── analysis.md                 # Main business analysis and process assessment
-├── requirements.md             # Detailed business requirements and specifications
-├── business-case.md            # Cost-benefit analysis and financial justification
-└── implementation-plan.md      # Change management and implementation strategy
+.workflow/WFS-{session}/.brainstorming/business-analyst/
+└── analysis.md    # Structured analysis addressing topic-framework.md discussion points
 ```
 
-### Document Templates
-
-#### analysis.md Structure
+### Analysis Document Structure
 ```markdown
-# Business Analyst Analysis: {Topic}
-*Generated: {timestamp}*
+# Business Analyst Analysis: [Topic from Framework]
 
-## Executive Summary
-[Overview of key business analysis findings and recommendations]
+## Framework Reference
+**Topic Framework**: @../topic-framework.md
+**Role Focus**: Business Analysis perspective
 
-## Current State Assessment
-### Business Process Mapping
-### Stakeholder Analysis
-### Performance Metrics Analysis
-### Pain Points and Inefficiencies
+## Discussion Points Analysis
+[Address each point from topic-framework.md with business analysis expertise]
 
-## Business Requirements
-### Functional Requirements
-### Non-Functional Requirements
-### Stakeholder Needs Analysis
-### Requirements Prioritization
+### Core Requirements (from framework)
+[Business analysis perspective on requirements]
 
-## Process Optimization Opportunities
-### Automation Potential
-### Workflow Improvements
-### Resource Optimization
-### Quality Enhancements
+### Technical Considerations (from framework)
+[Business process and workflow considerations]
 
-## Financial Analysis
-### Cost-Benefit Analysis
-### ROI Calculations
-### Budget Requirements
-### Financial Projections
+### User Experience Factors (from framework)
+[Business user experience and stakeholder considerations]
 
-## Risk Assessment
-### Business Risks
-### Operational Risks
-### Mitigation Strategies
-### Contingency Planning
+### Implementation Challenges (from framework)
+[Change management and process transformation challenges]
 
-## Implementation Strategy
-### Change Management Plan
-### Training Requirements
-### Timeline and Milestones
-### Success Metrics and KPIs
+### Success Metrics (from framework)
+[Business success metrics and performance indicators]
 
-## Recommendations
-### Immediate Actions (0-3 months)
-### Medium-term Initiatives (3-12 months)
-### Long-term Strategic Goals (12+ months)
-### Resource Requirements
+## Business Analysis Specific Recommendations
+[Role-specific business process recommendations and solutions]
+
+---
+*Generated by business-analyst analysis addressing structured framework*
 ```
 
 ## 🔄 **Session Integration**
 
-### Status Synchronization
-After analysis completion, update `workflow-session.json`:
+### Completion Status Update
 ```json
 {
-  "phases": {
-    "BRAINSTORM": {
-      "business_analyst": {
-        "status": "completed",
-        "completed_at": "timestamp",
-        "output_directory": ".workflow/WFS-{topic}/.brainstorming/business-analyst/",
-        "key_insights": ["process_optimization", "cost_saving", "efficiency_gain"]
-      }
-    }
+  "business_analyst": {
+    "status": "completed",
+    "framework_addressed": true,
+    "output_location": ".workflow/WFS-{session}/.brainstorming/business-analyst/analysis.md",
+    "framework_reference": "@../topic-framework.md"
   }
 }
 ```
 
-### Collaboration with Other Roles
-Business analyst perspective provides to other roles:
-- **Business requirements and constraints** → Product Manager
-- **Process technology requirements** → System Architect
-- **Business process interface needs** → UI Designer
-- **Business data requirements** → Data Architect
-- **Business security requirements** → Security Expert
-
-## ✅ **Quality Standards**
-
-### Required Analysis Elements
-- [ ] Detailed business process mapping
-- [ ] Clear requirements specifications and priorities
-- [ ] Quantified cost-benefit analysis
-- [ ] Comprehensive risk assessment
-- [ ] Actionable implementation plan
-
-### Business Analysis Principles Checklist
-- [ ] Value-oriented: Focus on business value creation
-- [ ] Data-driven: Analysis based on facts and data
-- [ ] Holistic thinking: Consider entire business ecosystem
-- [ ] Risk awareness: Identify and manage various risks
-- [ ] Sustainability: Long-term maintainability and improvement
-
-### Analysis Quality Metrics
-- [ ] Requirements completeness and accuracy
-- [ ] Quantified benefits from process optimization
-- [ ] Comprehensiveness of risk assessment
-- [ ] Feasibility of implementation plan
-- [ ] Stakeholder satisfaction levels
+### Integration Points
+- **Framework Reference**: @../topic-framework.md for structured discussion points
+- **Cross-Role Synthesis**: Business analysis insights available for synthesis-report.md integration
+- **Agent Autonomy**: Independent execution with framework guidance

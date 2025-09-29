@@ -1,77 +1,88 @@
 ---
 name: synthesis
-description: Synthesize all brainstorming role perspectives into comprehensive analysis and recommendations
+description: Generate synthesis-report.md from topic-framework and role analyses with @ references
 usage: /workflow:brainstorm:synthesis
-argument-hint: "no arguments required - analyzes existing brainstorming session outputs"
+argument-hint: "no arguments required - synthesizes existing framework and role analyses"
 examples:
   - /workflow:brainstorm:synthesis
 allowed-tools: Read(*), Write(*), TodoWrite(*), Glob(*)
 ---
 
-## 🧩 **Command Overview: Brainstorm Synthesis**
+## 🧩 **Synthesis Document Generator**
 
 ### Core Function
-Cross-role integration command that synthesizes all brainstorming role perspectives into comprehensive strategic analysis, actionable recommendations, and prioritized implementation roadmaps.
+**Specialized command for generating synthesis-report.md** that integrates topic-framework.md and all role analysis.md files using @ reference system. Creates comprehensive strategic analysis with cross-role insights.
 
 ### Primary Capabilities
-- **Cross-Role Integration**: Consolidate analysis results from all brainstorming role perspectives
-- **Insight Synthesis**: Identify consensus areas, disagreement points, and breakthrough opportunities
-- **Decision Support**: Generate prioritized recommendations and strategic action plans
-- **Comprehensive Reporting**: Create integrated brainstorming summary reports with implementation guidance
+- **Framework Integration**: Reference topic-framework.md discussion points across all roles
+- **Role Analysis Integration**: Consolidate all role/analysis.md files using @ references
+- **Cross-Framework Comparison**: Compare how each role addressed framework discussion points
+- **@ Reference System**: Create structured references to source documents
+- **Update Detection**: Smart updates when new role analyses are added
 
-### Analysis Scope Coverage
-- **Product Management**: User needs, business value, market opportunities
-- **System Architecture**: Technical design, technology selection, implementation feasibility
-- **User Experience**: Interface design, usability, accessibility standards
-- **Data Architecture**: Data models, processing workflows, analytics capabilities
-- **Security Expert**: Threat assessment, security controls, compliance requirements
-- **User Research**: Behavioral insights, needs validation, experience optimization
-- **Business Analysis**: Process optimization, cost-benefit analysis, change management
-- **Innovation Leadership**: Technology trends, innovation opportunities, future planning
-- **Feature Planning**: Development planning, quality assurance, delivery management
+### Document Integration Model
+**Three-Document Reference System**:
+1. **topic-framework.md** → Structured discussion framework (input)
+2. **[role]/analysis.md** → Role-specific analyses addressing framework (input)
+3. **synthesis-report.md** → Integrated synthesis with @ references (output)
 
 ## ⚙️ **Execution Protocol**
 
-### Phase 1: Session Detection & Data Collection
+### Phase 1: Document Discovery & Validation
 ```bash
 # Detect active brainstorming session
 CHECK: .workflow/.active-* marker files
 IF active_session EXISTS:
     session_id = get_active_session()
-    load_context_from(session_id)
+    brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
 ELSE:
-    ERROR: "No active brainstorming session found. Please run role-specific brainstorming commands first."
+    ERROR: "No active brainstorming session found"
+    EXIT
+
+# Validate required documents
+CHECK: brainstorm_dir/topic-framework.md
+IF NOT EXISTS:
+    ERROR: "topic-framework.md not found. Run /workflow:brainstorm:artifacts first"
     EXIT
 ```
 
-### Phase 2: Role Output Scanning
+### Phase 2: Role Analysis Discovery
 ```bash
-# Scan all role brainstorming outputs
+# Discover available role analyses
 SCAN_DIRECTORY: .workflow/WFS-{session}/.brainstorming/
-COLLECT_OUTPUTS: [
-    product-manager/analysis.md,
-    system-architect/analysis.md,
-    ui-designer/analysis.md,
-    data-architect/analysis.md,
-    security-expert/analysis.md,
-    user-researcher/analysis.md,
-    business-analyst/analysis.md,
-    innovation-lead/analysis.md,
-    feature-planner/analysis.md
+FIND_ANALYSES: [
+    */analysis.md files in role directories
 ]
+LOAD_DOCUMENTS: {
+    "topic_framework": topic-framework.md,
+    "role_analyses": [discovered analysis.md files],
+    "existing_synthesis": synthesis-report.md (if exists)
+}
 ```
 
-### Phase 3: Task Tracking Initialization
-Initialize synthesis analysis task tracking:
+### Phase 3: Update Mechanism Check
+```bash
+# Check for existing synthesis
+IF synthesis-report.md EXISTS:
+    SHOW current synthesis summary to user
+    ASK: "Synthesis exists. Do you want to:"
+    OPTIONS:
+      1. "Regenerate completely" → Create new synthesis
+      2. "Update with new analyses" → Integrate new role analyses
+      3. "Preserve existing" → Exit without changes
+ELSE:
+    CREATE new synthesis
+```
+
+### Phase 4: Synthesis Generation Process
+Initialize synthesis task tracking:
 ```json
 [
-  {"content": "Initialize brainstorming synthesis session", "status": "completed", "activeForm": "Initializing synthesis"},
-  {"content": "Collect and analyze all role perspectives", "status": "in_progress", "activeForm": "Collecting role analyses"},
-  {"content": "Identify cross-role insights and patterns", "status": "pending", "activeForm": "Identifying insights"},
-  {"content": "Generate consensus and disagreement analysis", "status": "pending", "activeForm": "Analyzing consensus"},
-  {"content": "Create prioritized recommendations matrix", "status": "pending", "activeForm": "Creating recommendations"},
-  {"content": "Generate comprehensive synthesis report", "status": "pending", "activeForm": "Generating synthesis report"},
-  {"content": "Create action plan with implementation priorities", "status": "pending", "activeForm": "Creating action plan"}
+  {"content": "Validate topic-framework.md and role analyses availability", "status": "in_progress", "activeForm": "Validating source documents"},
+  {"content": "Load topic framework discussion points structure", "status": "pending", "activeForm": "Loading framework structure"},
+  {"content": "Cross-analyze role responses to each framework point", "status": "pending", "activeForm": "Cross-analyzing framework responses"},
+  {"content": "Generate synthesis-report.md with @ references", "status": "pending", "activeForm": "Generating synthesis with references"},
+  {"content": "Update session metadata with synthesis completion", "status": "pending", "activeForm": "Updating session metadata"}
 ]
 ```
 
@@ -125,44 +136,48 @@ SORT recommendations BY priority_score DESC
 ### Output Location
 ```
 .workflow/WFS-{topic-slug}/.brainstorming/
-├── synthesis-report.md          # Comprehensive synthesis analysis report
-├── recommendations-matrix.md    # Priority recommendation matrix
-├── action-plan.md              # Implementation action plan
-├── consensus-analysis.md       # Consensus and disagreement analysis
-└── brainstorm-summary.json     # Machine-readable synthesis data
+├── topic-framework.md          # Input: Framework structure
+├── [role]/analysis.md          # Input: Role analyses (multiple)
+└── synthesis-report.md         # ★ OUTPUT: Integrated synthesis with @ references
 ```
 
 ### Core Output Documents
 
 #### synthesis-report.md Structure
 ```markdown
-# Brainstorming Synthesis Report: {Topic}
-*Generated: {timestamp} | Session: WFS-{topic-slug}*
+# [Topic] - Integrated Analysis
+
+**Framework Reference**: @topic-framework.md
+**Generated**: [timestamp] | **Session**: WFS-[topic-slug]
 
 ## Executive Summary
-### Key Findings Overview
-### Strategic Recommendations
-### Implementation Priority
-### Success Metrics
+Brief synthesis of key insights and recommendations across all role perspectives.
 
-## Participating Perspectives Analysis
-### Roles Analyzed: {list_of_completed_roles}
-### Coverage Assessment: {completeness_percentage}%
-### Analysis Quality Score: {quality_assessment}
+## Framework Analysis Integration
 
-## Cross-Role Insights Synthesis
+### Discussion Point 1: Core Requirements
+**Framework Questions**: @topic-framework.md (Core Requirements section)
 
-### 🤝 Consensus Areas
-**Strong Agreement (3+ roles)**:
-1. **{consensus_theme_1}**
-   - Supporting roles: {role1, role2, role3}
-   - Key insight: {shared_understanding}
-   - Business impact: {impact_assessment}
+**Role Perspectives**:
+- **System Architect**: @system-architect/analysis.md (requirements section)
+- **Product Manager**: @product-manager/analysis.md (requirements section)
+- **Security Expert**: @security-expert/analysis.md (requirements section)
 
-2. **{consensus_theme_2}**
-   - Supporting roles: {role1, role2, role4}
-   - Key insight: {shared_understanding}
-   - Business impact: {impact_assessment}
+**Cross-Role Insights**:
+- [Consensus areas and disagreements on core requirements]
+- [Integration recommendations]
+
+### Discussion Point 2: Technical Considerations
+**Framework Questions**: @topic-framework.md (Technical Considerations section)
+
+**Role Perspectives**:
+- **System Architect**: @system-architect/analysis.md (technical section)
+- **Data Architect**: @data-architect/analysis.md (technical section)
+- **UI Designer**: @ui-designer/analysis.md (technical section)
+
+**Cross-Role Insights**:
+- [Technical consensus and conflicts]
+- [Implementation recommendations]
 
 ### ⚡ Breakthrough Ideas
 **Innovation Opportunities**:

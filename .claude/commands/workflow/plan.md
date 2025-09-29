@@ -58,11 +58,11 @@ The command performs comprehensive analysis through:
     RULES: Follow existing component architecture
     " -s danger-full-access
     ```
-  - **Complex tasks** (>3 modules): Specialized task agents with autonomous CLI tool orchestration and cross-module coordination
+  - **Complex tasks** (>3 modules): Specialized general-purpose with autonomous CLI tool orchestration and cross-module coordination
 - Flow control integration with automatic tool selection
 
 **2. Project Structure Analysis** ⚠️ CRITICAL PRE-PLANNING STEP
-- **Documentation Context First**: Reference `.workflow/docs/` content from `/workflow:docs` command if available
+- **Documentation Context First**: Reference existing documentation at `.workflow/docs/README.md`, `.workflow/docs/modules/*/overview.md`, `.workflow/docs/architecture/*.md` if available
 - **Complexity assessment**: Count total saturated tasks
 - **Decomposition strategy**: Flat (≤5) | Hierarchical (6-10) | Re-scope (>10)
 - **Module boundaries**: Identify relationships and dependencies using existing documentation
@@ -94,13 +94,13 @@ The following pre_analysis steps are generated for agent execution:
     {
       "step": "mcp_codebase_exploration",
       "action": "Explore codebase structure and patterns using MCP tools",
-      "command": "mcp__code-index__find_files(pattern=\"[task_focus_patterns]\") && mcp__code-index__search_code_advanced(pattern=\"[relevant_patterns]\", file_pattern=\"[target_extensions]\")",
+      "command": "mcp__code-index__find_files(pattern=\"[focus_paths_pattern]\") && mcp__code-index__search_code_advanced(pattern=\"[context_requirements_pattern]\", file_pattern=\"[target_extensions]\")",
       "output_to": "codebase_structure"
     },
     {
       "step": "mcp_external_context",
       "action": "Get external API examples and best practices",
-      "command": "mcp__exa__get_code_context_exa(query=\"[task_technology] [task_patterns]\", tokensNum=\"dynamic\")",
+      "command": "mcp__exa__get_code_context_exa(query=\"[meta_type] [context_requirements]\", tokensNum=\"dynamic\")",
       "output_to": "external_context"
     },
     {
@@ -131,8 +131,8 @@ The following pre_analysis steps are generated for agent execution:
       "step": "analyze_task_patterns",
       "action": "Analyze existing code patterns for task context",
       "commands": [
-        "bash(cd \"[task_focus_paths]\")",
-        "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze task patterns TASK: Review '[task_title]' patterns CONTEXT: Task [task_id] in [task_focus_paths] EXPECTED: Pattern analysis RULES: Focus on existing patterns\")"
+        "bash(cd \"[context.focus_paths]\")",
+        "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze task patterns for '[title]' TASK: Review existing patterns and dependencies CONTEXT: @{[session.task_json_path]} @{CLAUDE.md} @{[context.focus_paths]/**/*} EXPECTED: Pattern analysis with recommendations RULES: Focus on existing patterns and integration points\")"
       ],
       "output_to": "task_context",
       "on_error": "fail"
@@ -284,13 +284,50 @@ Each task's `flow_control.implementation_approach` defines execution strategy (p
 ## Reference Information
 
 ### Task JSON Schema (5-Field Architecture)
-Each task.json uses the workflow-architecture.md 5-field schema:
-- **id**: IMPL-N[.M] format (max 2 levels)
-- **title**: Descriptive task name
-- **status**: pending|active|completed|blocked|container
-- **meta**: { type, agent }
-- **context**: { requirements, focus_paths, acceptance, parent, depends_on, inherited, shared_context }
-- **flow_control**: { pre_analysis[], implementation_approach, target_files[] }
+Each task.json uses the standardized 5-field schema (aligned with task-core.md and execute.md):
+
+```json
+{
+  "id": "IMPL-N[.M]",
+  "title": "Descriptive task name",
+  "status": "pending|active|completed|blocked|container",
+  "meta": {
+    "type": "feature|bugfix|refactor|test|docs",
+    "agent": "@code-developer|@planning-agent|@code-review-test-agent"
+  },
+  "context": {
+    "requirements": ["requirement1", "requirement2"],
+    "focus_paths": ["src/path1", "src/path2", "specific_file.ts"],
+    "acceptance": ["criteria1", "criteria2"],
+    "parent": "IMPL-N",
+    "depends_on": ["IMPL-N.M"],
+    "inherited": {
+      "from": "parent_task_id",
+      "context": ["inherited_info"]
+    },
+    "shared_context": {
+      "key": "shared_value"
+    }
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "step_name",
+        "action": "description",
+        "command": "executable_command",
+        "output_to": "variable_name",
+        "on_error": "skip_optional|fail|retry_once"
+      }
+    ],
+    "implementation_approach": {
+      "task_description": "detailed implementation strategy",
+      "modification_points": ["specific changes"],
+      "logic_flow": ["step by step process"]
+    },
+    "target_files": ["file:function:lines"]
+  }
+}
+```
 
 **MCP Tools Integration**: Enhanced with optional MCP servers for advanced analysis:
 - **Code Index MCP**: `mcp__code-index__find_files()`, `mcp__code-index__search_code_advanced()`

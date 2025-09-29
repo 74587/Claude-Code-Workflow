@@ -1,248 +1,205 @@
 ---
 name: product-manager
-description: Product manager perspective brainstorming for user needs and business value analysis
-usage: /workflow:brainstorm:product-manager <topic>
-argument-hint: "topic or challenge to analyze from product management perspective"
+description: Generate or update product-manager/analysis.md addressing topic-framework discussion points
+usage: /workflow:brainstorm:product-manager [topic]
+argument-hint: "optional topic - uses existing framework if available"
 examples:
+  - /workflow:brainstorm:product-manager
   - /workflow:brainstorm:product-manager "user authentication redesign"
   - /workflow:brainstorm:product-manager "mobile app performance optimization"
-  - /workflow:brainstorm:product-manager "feature prioritization strategy"
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
+allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
-## 🎯 **Role Overview: Product Manager**
+## 🎯 **Product Manager Analysis Generator**
 
-### Role Definition
-Strategic product leader focused on maximizing user value and business impact through data-driven decisions and market-oriented thinking.
+### Purpose
+**Specialized command for generating product-manager/analysis.md** that addresses topic-framework.md discussion points from product strategy perspective. Creates or updates role-specific analysis with framework references.
 
-### Core Responsibilities
-- **User Needs Analysis**: Identify and validate genuine user problems and requirements
-- **Business Value Assessment**: Quantify commercial impact and return on investment
-- **Market Positioning**: Analyze competitive landscape and identify opportunities
-- **Product Strategy**: Develop roadmaps, priorities, and go-to-market approaches
+### Core Function
+- **Framework-based Analysis**: Address each discussion point in topic-framework.md
+- **Product Strategy Focus**: User needs, business value, and market positioning
+- **Update Mechanism**: Create new or update existing analysis.md
+- **Agent Delegation**: Use conceptual-planning-agent for analysis generation
 
-### Focus Areas
-- **User Experience**: Journey mapping, satisfaction metrics, conversion optimization
-- **Business Metrics**: ROI, user growth, retention rates, revenue impact
-- **Market Dynamics**: Competitive analysis, differentiation, market trends
-- **Product Lifecycle**: Feature evolution, technical debt management, scalability
+### Analysis Scope
+- **User Needs Analysis**: Target users, problems, and value propositions
+- **Business Impact Assessment**: ROI, metrics, and commercial outcomes
+- **Market Positioning**: Competitive analysis and differentiation
+- **Product Strategy**: Roadmaps, priorities, and go-to-market approaches
 
-### Success Metrics
-- User satisfaction scores and engagement metrics
-- Business KPIs (revenue, growth, retention)
-- Market share and competitive positioning
-- Product adoption and feature utilization rates
+## ⚙️ **Execution Protocol**
 
-## 🧠 **Analysis Framework**
-
-@~/.claude/workflows/brainstorming-principles.md
-
-### Key Analysis Questions
-
-**1. User Value Assessment**
-- What genuine user problem does this solve?
-- Who are the target users and what are their core needs?
-- How does this improve the user experience measurably?
-
-**2. Business Impact Evaluation**
-- What are the expected business outcomes?
-- How does the cost-benefit analysis look?
-- What impact will this have on existing workflows?
-
-**3. Market Opportunity Analysis**
-- What gaps exist in current market solutions?
-- What is our unique competitive advantage?
-- Is the timing right for this initiative?
-
-**4. Execution Feasibility**
-- What resources and timeline are required?
-- What are the technical and market risks?
-- Do we have the right team capabilities?
-
-## ⚡ **Two-Step Execution Flow**
-
-### ⚠️ Session Management - FIRST STEP
-Session detection and selection:
+### Phase 1: Session & Framework Detection
 ```bash
-# Check for active sessions
-active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
-if [ multiple_sessions ]; then
-  prompt_user_to_select_session()
-else
-  use_existing_or_create_new()
-fi
+# Check active session and framework
+CHECK: .workflow/.active-* marker files
+IF active_session EXISTS:
+    session_id = get_active_session()
+    brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
+
+    CHECK: brainstorm_dir/topic-framework.md
+    IF EXISTS:
+        framework_mode = true
+        load_framework = true
+    ELSE:
+        IF topic_provided:
+            framework_mode = false  # Create analysis without framework
+        ELSE:
+            ERROR: "No framework found and no topic provided"
 ```
 
-### Step 1: Context Gathering Phase
-**Product Manager Perspective Questioning**
+### Phase 2: Analysis Mode Detection
+```bash
+# Determine execution mode
+IF framework_mode == true:
+    mode = "framework_based_analysis"
+    topic_ref = load_framework_topic()
+    discussion_points = extract_framework_points()
+ELSE:
+    mode = "standalone_analysis"
+    topic_ref = provided_topic
+    discussion_points = generate_basic_structure()
+```
 
-Before agent assignment, gather comprehensive product management context:
-
-#### 📋 Role-Specific Questions
-1. **Business Objectives & Metrics**
-   - Primary business goals and success metrics?
-   - Revenue impact expectations and timeline?
-   - Key stakeholders and decision makers?
-
-2. **Target Users & Market**
-   - Primary user segments and personas?
-   - User pain points and current solutions?
-   - Competitive landscape and differentiation needs?
-
-3. **Product Strategy & Scope**
-   - Feature priorities and user value propositions?
-   - Resource constraints and timeline expectations?
-   - Integration with existing product ecosystem?
-
-4. **Success Criteria & Risk Assessment**
-   - How will success be measured and validated?
-   - Market and technical risks to consider?
-   - Go-to-market strategy requirements?
-
-#### Context Validation
-- **Minimum Response**: Each answer must be ≥50 characters
-- **Re-prompting**: Insufficient detail triggers follow-up questions
-- **Context Storage**: Save responses to `.brainstorming/product-manager-context.md`
-
-### Step 2: Agent Assignment with Flow Control
-**Dedicated Agent Execution**
+### Phase 3: Agent Execution with Flow Control
+**Framework-Based Analysis Generation**
 
 ```bash
 Task(conceptual-planning-agent): "
 [FLOW_CONTROL]
 
-Execute dedicated product-manager conceptual analysis for: {topic}
+Execute product-manager analysis for existing topic framework
 
+## Context Loading
 ASSIGNED_ROLE: product-manager
-OUTPUT_LOCATION: .brainstorming/product-manager/
-USER_CONTEXT: {validated_responses_from_context_gathering}
+OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/product-manager/
+ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 
-Flow Control Steps:
-[
-  {
-    \"step\": \"load_role_template\",
-    \"action\": \"Load product-manager planning template\",
-    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/product-manager.md))\",
-    \"output_to\": \"role_template\"
-  }
-]
+## Flow Control Steps
+1. **load_topic_framework**
+   - Action: Load structured topic discussion framework
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
+   - Output: topic_framework_content
 
-Conceptual Analysis Requirements:
-- Apply product-manager perspective to topic analysis
-- Focus on user value, business impact, and market positioning
-- Use loaded role template framework for analysis structure
-- Generate role-specific deliverables in designated output location
-- Address all user context from questioning phase
+2. **load_role_template**
+   - Action: Load product-manager planning template
+   - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/product-manager.md))
+   - Output: role_template_guidelines
 
-Deliverables:
-- analysis.md: Main product management analysis
-- recommendations.md: Product strategy recommendations
-- deliverables/: Product-specific outputs as defined in role template
+3. **load_session_metadata**
+   - Action: Load session metadata and existing context
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/session.json)
+   - Output: session_context
 
-Embody product-manager role expertise for comprehensive conceptual planning."
+## Analysis Requirements
+**Framework Reference**: Address all discussion points in topic-framework.md from product strategy perspective
+**Role Focus**: User value, business impact, market positioning, product strategy
+**Structured Approach**: Create analysis.md addressing framework discussion points
+**Template Integration**: Apply role template guidelines within framework structure
+
+## Expected Deliverables
+1. **analysis.md**: Comprehensive product strategy analysis addressing all framework discussion points
+2. **Framework Reference**: Include @../topic-framework.md reference in analysis
+
+## Completion Criteria
+- Address each discussion point from topic-framework.md with product management expertise
+- Provide actionable business strategies and user value propositions
+- Include market analysis and competitive positioning insights
+- Reference framework document using @ notation for integration
+"
 ```
 
-### Progress Tracking
-TodoWrite tracking for two-step process:
-```json
-[
-  {"content": "Gather product manager context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
-  {"content": "Validate context responses and save to product-manager-context.md", "status": "pending", "activeForm": "Validating context"},
-  {"content": "Load product-manager planning template via flow control", "status": "pending", "activeForm": "Loading template"},
-  {"content": "Execute dedicated conceptual-planning-agent for product-manager role", "status": "pending", "activeForm": "Executing agent"}
-]
+## 📋 **TodoWrite Integration**
+
+### Workflow Progress Tracking
+```javascript
+TodoWrite({
+  todos: [
+    {
+      content: "Detect active session and locate topic framework",
+      status: "in_progress",
+      activeForm: "Detecting session and framework"
+    },
+    {
+      content: "Load topic-framework.md and session metadata for context",
+      status: "pending",
+      activeForm: "Loading framework and session context"
+    },
+    {
+      content: "Execute product-manager analysis using conceptual-planning-agent with FLOW_CONTROL",
+      status: "pending",
+      activeForm: "Executing product-manager framework analysis"
+    },
+    {
+      content: "Generate analysis.md addressing all framework discussion points",
+      status: "pending",
+      activeForm: "Generating structured product-manager analysis"
+    },
+    {
+      content: "Update session.json with product-manager completion status",
+      status: "pending",
+      activeForm: "Updating session metadata"
+    }
+  ]
+});
 ```
 
-## 📊 **Output Specification**
+## 📊 **Output Structure**
 
-### Output Location
+### Framework-Based Analysis
 ```
-.workflow/WFS-{topic-slug}/.brainstorming/product-manager/
-├── analysis.md                 # Primary product management analysis
-├── business-case.md            # Business justification and metrics
-├── user-research.md            # User research and market insights
-└── roadmap.md                  # Strategic recommendations and timeline
+.workflow/WFS-{session}/.brainstorming/product-manager/
+└── analysis.md    # Structured analysis addressing topic-framework.md discussion points
 ```
 
-### Document Templates
-
-#### analysis.md Structure
+### Analysis Document Structure
 ```markdown
-# Product Manager Analysis: {Topic}
-*Generated: {timestamp}*
+# Product Manager Analysis: [Topic from Framework]
 
-## Executive Summary
-[Key findings and recommendations overview]
+## Framework Reference
+**Topic Framework**: @../topic-framework.md
+**Role Focus**: Product Strategy perspective
 
-## User Needs Analysis
-### Target User Segments
-### Core Problems Identified
-### User Journey Mapping
-### Priority Requirements
+## Discussion Points Analysis
+[Address each point from topic-framework.md with product management expertise]
 
-## Business Impact Assessment
-### Revenue Impact
-### Cost Analysis
-### ROI Projections
-### Risk Assessment
+### Core Requirements (from framework)
+[Product strategy perspective on user needs and requirements]
 
-## Competitive Analysis
-### Market Position
-### Differentiation Opportunities
-### Competitive Advantages
+### Technical Considerations (from framework)
+[Business and technical feasibility considerations]
 
-## Strategic Recommendations
-### Immediate Actions (0-3 months)
-### Medium-term Initiatives (3-12 months)
-### Long-term Vision (12+ months)
+### User Experience Factors (from framework)
+[User value proposition and market positioning analysis]
+
+### Implementation Challenges (from framework)
+[Business execution and go-to-market considerations]
+
+### Success Metrics (from framework)
+[Product success metrics and business KPIs]
+
+## Product Strategy Specific Recommendations
+[Role-specific product management strategies and business solutions]
+
+---
+*Generated by product-manager analysis addressing structured framework*
 ```
 
 ## 🔄 **Session Integration**
 
-### Status Synchronization
-Upon completion, update `workflow-session.json`:
+### Completion Status Update
 ```json
 {
-  "phases": {
-    "BRAINSTORM": {
-      "product_manager": {
-        "status": "completed",
-        "completed_at": "timestamp",
-        "output_directory": ".workflow/WFS-{topic}/.brainstorming/product-manager/",
-        "key_insights": ["user_value_proposition", "business_impact_assessment", "strategic_recommendations"]
-      }
-    }
+  "product_manager": {
+    "status": "completed",
+    "framework_addressed": true,
+    "output_location": ".workflow/WFS-{session}/.brainstorming/product-manager/analysis.md",
+    "framework_reference": "@../topic-framework.md"
   }
 }
 ```
 
-### Cross-Role Collaboration
-Product manager perspective provides:
-- **User Requirements Definition** → UI Designer
-- **Business Constraints and Objectives** → System Architect
-- **Feature Prioritization** → Feature Planner
-- **Market Requirements** → Innovation Lead
-- **Success Metrics** → Business Analyst
-
-## ✅ **Quality Assurance**
-
-### Required Analysis Elements
-- [ ] Clear user value proposition with supporting evidence
-- [ ] Quantified business impact assessment with metrics
-- [ ] Actionable product strategy recommendations
-- [ ] Data-driven priority rankings
-- [ ] Well-defined success criteria and KPIs
-
-### Output Quality Standards
-- [ ] Analysis grounded in real user needs and market data
-- [ ] Business justification with clear logic and assumptions
-- [ ] Recommendations are specific and actionable
-- [ ] Timeline and milestones are realistic and achievable
-- [ ] Risk identification is comprehensive and accurate
-
-### Product Management Principles
-- [ ] **User-Centric**: All decisions prioritize user value and experience
-- [ ] **Data-Driven**: Conclusions supported by metrics and research
-- [ ] **Market-Aware**: Considers competitive landscape and trends
-- [ ] **Business-Focused**: Aligns with commercial objectives and constraints
-- [ ] **Execution-Ready**: Provides clear next steps and success measures
+### Integration Points
+- **Framework Reference**: @../topic-framework.md for structured discussion points
+- **Cross-Role Synthesis**: Product strategy insights available for synthesis-report.md integration
+- **Agent Autonomy**: Independent execution with framework guidance

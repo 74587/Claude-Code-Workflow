@@ -1,13 +1,13 @@
 ---
 name: innovation-lead
-description: Innovation lead perspective brainstorming for emerging technologies and future opportunities analysis
-usage: /workflow:brainstorm:innovation-lead <topic>
-argument-hint: "topic or challenge to analyze from innovation and emerging technology perspective"
+description: Generate or update innovation-lead/analysis.md addressing topic-framework discussion points
+usage: /workflow:brainstorm:innovation-lead [topic]
+argument-hint: "optional topic - uses existing framework if available"
 examples:
+  - /workflow:brainstorm:innovation-lead
   - /workflow:brainstorm:innovation-lead "AI integration opportunities"
   - /workflow:brainstorm:innovation-lead "future technology trends"
-  - /workflow:brainstorm:innovation-lead "disruptive innovation strategy"
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
+allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
 ## 🚀 **Role Overview: Innovation Lead**
@@ -158,116 +158,97 @@ TodoWrite tracking for two-step process:
 ]
 ```
 
-## 📊 **输出结构**
+## 📋 **TodoWrite Integration**
 
-### 保存位置
+### Workflow Progress Tracking
+```javascript
+TodoWrite({
+  todos: [
+    {
+      content: "Detect active session and locate topic framework",
+      status: "in_progress",
+      activeForm: "Detecting session and framework"
+    },
+    {
+      content: "Load topic-framework.md and session metadata for context",
+      status: "pending",
+      activeForm: "Loading framework and session context"
+    },
+    {
+      content: "Execute innovation-lead analysis using conceptual-planning-agent with FLOW_CONTROL",
+      status: "pending",
+      activeForm: "Executing innovation-lead framework analysis"
+    },
+    {
+      content: "Generate analysis.md addressing all framework discussion points",
+      status: "pending",
+      activeForm: "Generating structured innovation-lead analysis"
+    },
+    {
+      content: "Update session.json with innovation-lead completion status",
+      status: "pending",
+      activeForm: "Updating session metadata"
+    }
+  ]
+});
 ```
-.workflow/WFS-{topic-slug}/.brainstorming/innovation-lead/
-├── analysis.md                 # 主要创新分析和机会评估
-├── technology-roadmap.md       # 技术趋势和未来场景
-├── innovation-concepts.md      # 突破性想法和概念开发
-└── strategy-implementation.md  # 创新策略和执行计划
+
+## 📊 **Output Structure**
+
+### Framework-Based Analysis
+```
+.workflow/WFS-{session}/.brainstorming/innovation-lead/
+└── analysis.md    # Structured analysis addressing topic-framework.md discussion points
 ```
 
-### 文档模板
-
-#### analysis.md 结构
+### Analysis Document Structure
 ```markdown
-# Innovation Lead Analysis: {Topic}
-*Generated: {timestamp}*
+# Innovation Lead Analysis: [Topic from Framework]
 
-## Executive Summary
-[核心创新机会和战略建议概述]
+## Framework Reference
+**Topic Framework**: @../topic-framework.md
+**Role Focus**: Innovation and Emerging Technology perspective
 
-## Technology Landscape Assessment
-### Emerging Technologies Overview
-### Technology Maturity Analysis
-### Convergence Opportunities
-### Disruptive Potential Assessment
+## Discussion Points Analysis
+[Address each point from topic-framework.md with innovation expertise]
 
-## Innovation Opportunity Analysis
-### Market Whitespace Identification
-### Unmet Needs and Pain Points
-### Disruptive Innovation Potential
-### Blue Ocean Opportunities
+### Core Requirements (from framework)
+[Innovation perspective on emerging technology requirements]
 
-## Competitive Intelligence
-### Competitor Innovation Strategies
-### Patent Landscape Analysis
-### Startup Ecosystem Insights
-### Investment and Funding Trends
+### Technical Considerations (from framework)
+[Future technology and breakthrough considerations]
 
-## Future Scenarios and Trends
-### Short-term Innovations (0-2 years)
-### Medium-term Disruptions (2-5 years)
-### Long-term Transformations (5+ years)
-### Wild Card Scenarios
+### User Experience Factors (from framework)
+[Future user behavior and interaction trends]
 
-## Innovation Concepts
-### Breakthrough Ideas
-### Proof-of-Concept Opportunities
-### Platform Innovation Possibilities
-### Ecosystem Partnership Ideas
+### Implementation Challenges (from framework)
+[Innovation implementation and market adoption considerations]
 
-## Strategic Recommendations
-### Innovation Investment Priorities
-### Technology Partnership Strategy
-### Capability Building Requirements
-### Risk Mitigation Approaches
+### Success Metrics (from framework)
+[Innovation success metrics and breakthrough criteria]
 
-## Implementation Roadmap
-### Innovation Pilot Programs
-### Technology Validation Milestones
-### Scaling and Commercialization Plan
-### Success Metrics and KPIs
+## Innovation Specific Recommendations
+[Role-specific innovation opportunities and breakthrough concepts]
+
+---
+*Generated by innovation-lead analysis addressing structured framework*
 ```
 
-## 🔄 **会话集成**
+## 🔄 **Session Integration**
 
-### 状态同步
-分析完成后，更新 `workflow-session.json`:
+### Completion Status Update
 ```json
 {
-  "phases": {
-    "BRAINSTORM": {
-      "innovation_lead": {
-        "status": "completed",
-        "completed_at": "timestamp",
-        "output_directory": ".workflow/WFS-{topic}/.brainstorming/innovation-lead/",
-        "key_insights": ["breakthrough_opportunity", "emerging_technology", "disruptive_potential"]
-      }
-    }
+  "innovation_lead": {
+    "status": "completed",
+    "framework_addressed": true,
+    "output_location": ".workflow/WFS-{session}/.brainstorming/innovation-lead/analysis.md",
+    "framework_reference": "@../topic-framework.md"
   }
 }
 ```
 
-### 与其他角色的协作
-创新领导视角为其他角色提供：
-- **创新机会和趋势** → Product Manager
-- **新技术可行性** → System Architect
-- **未来用户体验趋势** → UI Designer
-- **新兴数据技术** → Data Architect
-- **创新安全挑战** → Security Expert
-
-## ✅ **质量标准**
-
-### 必须包含的创新元素
-- [ ] 全面的技术趋势分析
-- [ ] 明确的创新机会识别
-- [ ] 具体的概念验证方案
-- [ ] 现实的实施路线图
-- [ ] 前瞻性的风险评估
-
-### 创新思维原则检查
-- [ ] 前瞻性：关注未来3-10年趋势
-- [ ] 颠覆性：寻找破坏性创新机会
-- [ ] 系统性：考虑技术生态系统影响
-- [ ] 可行性：平衡愿景与现实可能
-- [ ] 差异化：创造独特竞争优势
-
-### 创新价值评估
-- [ ] 市场影响的潜在规模
-- [ ] 技术可行性和成熟度
-- [ ] 竞争优势的可持续性
-- [ ] 投资回报的时间框架
-- [ ] 组织实施的复杂度
+### Integration Points
+- **Framework Reference**: @../topic-framework.md for structured discussion points
+- **Cross-Role Synthesis**: Innovation insights available for synthesis-report.md integration
+- **Agent Autonomy**: Independent execution with framework guidance

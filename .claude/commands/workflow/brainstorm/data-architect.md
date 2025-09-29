@@ -1,274 +1,205 @@
 ---
 name: data-architect
-description: Data architect perspective brainstorming for data modeling, flow, and analytics analysis
-usage: /workflow:brainstorm:data-architect <topic>
-argument-hint: "topic or challenge to analyze from data architecture perspective"
+description: Generate or update data-architect/analysis.md addressing topic-framework discussion points
+usage: /workflow:brainstorm:data-architect [topic]
+argument-hint: "optional topic - uses existing framework if available"
 examples:
+  - /workflow:brainstorm:data-architect
   - /workflow:brainstorm:data-architect "user analytics data pipeline"
   - /workflow:brainstorm:data-architect "real-time data processing system"
-  - /workflow:brainstorm:data-architect "data warehouse modernization"
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*)
+allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
-## 📊 **Role Overview: Data Architect**
+## 📊 **Data Architect Analysis Generator**
 
-### Role Definition
-Strategic data professional responsible for designing scalable, efficient data architectures that enable data-driven decision making through robust data models, processing pipelines, and analytics platforms.
+### Purpose
+**Specialized command for generating data-architect/analysis.md** that addresses topic-framework.md discussion points from data architecture perspective. Creates or updates role-specific analysis with framework references.
 
-### Core Responsibilities
-- **Data Model Design**: Create efficient and scalable data models and schemas
-- **Data Flow Design**: Plan data collection, processing, and storage workflows
-- **Data Quality Management**: Ensure data accuracy, completeness, and consistency
-- **Analytics and Insights**: Design data analysis and business intelligence solutions
+### Core Function
+- **Framework-based Analysis**: Address each discussion point in topic-framework.md
+- **Data Architecture Focus**: Data models, pipelines, governance, and analytics perspective
+- **Update Mechanism**: Create new or update existing analysis.md
+- **Agent Delegation**: Use conceptual-planning-agent for analysis generation
 
-### Focus Areas
-- **Data Modeling**: Relational models, NoSQL, data warehouses, lakehouse architectures
-- **Data Pipelines**: ETL/ELT processes, real-time processing, batch processing
-- **Data Governance**: Data quality, security, privacy, compliance frameworks
-- **Analytics Platforms**: BI tools, machine learning infrastructure, reporting systems
+### Analysis Scope
+- **Data Model Design**: Efficient and scalable data models and schemas
+- **Data Flow Design**: Data collection, processing, and storage workflows
+- **Data Quality Management**: Data accuracy, completeness, and consistency
+- **Analytics and Insights**: Data analysis and business intelligence solutions
 
-### Success Metrics
-- Data quality and consistency metrics
-- Processing performance and throughput
-- Analytics accuracy and business impact
-- Data governance and compliance adherence
+## ⚙️ **Execution Protocol**
 
-## 🧠 **Analysis Framework**
-
-@~/.claude/workflows/brainstorming-principles.md
-
-### Key Analysis Questions
-
-**1. Data Requirements and Sources**
-- What data is needed to support business decisions and analytics?
-- How reliable and high-quality are the available data sources?
-- What is the balance between real-time and historical data needs?
-
-**2. Data Architecture and Storage**
-- What is the most appropriate data storage solution for requirements?
-- How should we design scalable and maintainable data models?
-- What are the optimal data partitioning and indexing strategies?
-
-**3. Data Processing and Workflows**
-- What are the performance requirements for data processing?
-- How should we design fault-tolerant and resilient data pipelines?
-- What data versioning and change management strategies are needed?
-
-**4. Analytics and Reporting**
-- How can we support diverse analytical requirements and use cases?
-- What balance between real-time dashboards and periodic reports is optimal?
-- What self-service analytics and data visualization capabilities are needed?
-
-## ⚡ **Two-Step Execution Flow**
-
-### ⚠️ Session Management - FIRST STEP
-Session detection and selection:
+### Phase 1: Session & Framework Detection
 ```bash
-# Check for active sessions
-active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
-if [ multiple_sessions ]; then
-  prompt_user_to_select_session()
-else
-  use_existing_or_create_new()
-fi
+# Check active session and framework
+CHECK: .workflow/.active-* marker files
+IF active_session EXISTS:
+    session_id = get_active_session()
+    brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
+
+    CHECK: brainstorm_dir/topic-framework.md
+    IF EXISTS:
+        framework_mode = true
+        load_framework = true
+    ELSE:
+        IF topic_provided:
+            framework_mode = false  # Create analysis without framework
+        ELSE:
+            ERROR: "No framework found and no topic provided"
 ```
 
-### Step 1: Context Gathering Phase
-**Data Architect Perspective Questioning**
+### Phase 2: Analysis Mode Detection
+```bash
+# Determine execution mode
+IF framework_mode == true:
+    mode = "framework_based_analysis"
+    topic_ref = load_framework_topic()
+    discussion_points = extract_framework_points()
+ELSE:
+    mode = "standalone_analysis"
+    topic_ref = provided_topic
+    discussion_points = generate_basic_structure()
+```
 
-Before agent assignment, gather comprehensive data architect context:
-
-#### 📋 Role-Specific Questions
-
-**1. Data Models and Flow Patterns**
-- What types of data will you be working with (structured, semi-structured, unstructured)?
-- What are the expected data volumes and growth projections?
-- What are the primary data sources and how frequently will data be updated?
-- Are there existing data models or schemas that need to be considered?
-
-**2. Storage Strategies and Performance**
-- What are the query performance requirements and expected response times?
-- Do you need real-time processing, batch processing, or both?
-- What are the data retention and archival requirements?
-- Are there specific compliance or regulatory requirements for data storage?
-
-**3. Analytics Requirements and Insights**
-- What types of analytics and reporting capabilities are needed?
-- Who are the primary users of the data and what are their skill levels?
-- What business intelligence or machine learning use cases need to be supported?
-- Are there specific dashboard or visualization requirements?
-
-**4. Data Governance and Quality**
-- What data quality standards and validation rules need to be implemented?
-- Who owns the data and what are the access control requirements?
-- Are there data privacy or security concerns that need to be addressed?
-- What data lineage and auditing capabilities are required?
-
-#### Context Validation
-- **Minimum Response**: Each answer must be ≥50 characters
-- **Re-prompting**: Insufficient detail triggers follow-up questions
-- **Context Storage**: Save responses to `.brainstorming/data-architect-context.md`
-
-### Step 2: Agent Assignment with Flow Control
-**Dedicated Agent Execution**
+### Phase 3: Agent Execution with Flow Control
+**Framework-Based Analysis Generation**
 
 ```bash
 Task(conceptual-planning-agent): "
 [FLOW_CONTROL]
 
-Execute dedicated data architect conceptual analysis for: {topic}
+Execute data-architect analysis for existing topic framework
 
+## Context Loading
 ASSIGNED_ROLE: data-architect
-OUTPUT_LOCATION: .brainstorming/data-architect/
-USER_CONTEXT: {validated_responses_from_context_gathering}
+OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/data-architect/
+ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 
-Flow Control Steps:
-[
-  {
-    \"step\": \"load_role_template\",
-    \"action\": \"Load data-architect planning template\",
-    \"command\": \"bash($(cat ~/.claude/workflows/cli-templates/planning-roles/data-architect.md))\",
-    \"output_to\": \"role_template\"
-  }
-]
+## Flow Control Steps
+1. **load_topic_framework**
+   - Action: Load structured topic discussion framework
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
+   - Output: topic_framework_content
 
-Conceptual Analysis Requirements:
-- Apply data architect perspective to topic analysis
-- Focus on data models, flow patterns, storage strategies, and analytics requirements
-- Use loaded role template framework for analysis structure
-- Generate role-specific deliverables in designated output location
-- Address all user context from questioning phase
+2. **load_role_template**
+   - Action: Load data-architect planning template
+   - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/data-architect.md))
+   - Output: role_template_guidelines
 
-Deliverables:
-- analysis.md: Main data architect analysis
-- recommendations.md: Data architect recommendations
-- deliverables/: Data architect-specific outputs as defined in role template
+3. **load_session_metadata**
+   - Action: Load session metadata and existing context
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/session.json)
+   - Output: session_context
 
-Embody data architect role expertise for comprehensive conceptual planning."
+## Analysis Requirements
+**Framework Reference**: Address all discussion points in topic-framework.md from data architecture perspective
+**Role Focus**: Data models, pipelines, governance, analytics platforms
+**Structured Approach**: Create analysis.md addressing framework discussion points
+**Template Integration**: Apply role template guidelines within framework structure
+
+## Expected Deliverables
+1. **analysis.md**: Comprehensive data architecture analysis addressing all framework discussion points
+2. **Framework Reference**: Include @../topic-framework.md reference in analysis
+
+## Completion Criteria
+- Address each discussion point from topic-framework.md with data architecture expertise
+- Provide data model designs, pipeline architectures, and governance strategies
+- Include scalability, performance, and quality considerations
+- Reference framework document using @ notation for integration
+"
 ```
 
-### Progress Tracking
-TodoWrite tracking for two-step process:
-```json
-[
-  {"content": "Gather data architect context through role-specific questioning", "status": "in_progress", "activeForm": "Gathering context"},
-  {"content": "Validate context responses and save to data-architect-context.md", "status": "pending", "activeForm": "Validating context"},
-  {"content": "Load data-architect planning template via flow control", "status": "pending", "activeForm": "Loading template"},
-  {"content": "Execute dedicated conceptual-planning-agent for data-architect role", "status": "pending", "activeForm": "Executing agent"}
-]
+## 📋 **TodoWrite Integration**
+
+### Workflow Progress Tracking
+```javascript
+TodoWrite({
+  todos: [
+    {
+      content: "Detect active session and locate topic framework",
+      status: "in_progress",
+      activeForm: "Detecting session and framework"
+    },
+    {
+      content: "Load topic-framework.md and session metadata for context",
+      status: "pending",
+      activeForm: "Loading framework and session context"
+    },
+    {
+      content: "Execute data-architect analysis using conceptual-planning-agent with FLOW_CONTROL",
+      status: "pending",
+      activeForm: "Executing data-architect framework analysis"
+    },
+    {
+      content: "Generate analysis.md addressing all framework discussion points",
+      status: "pending",
+      activeForm: "Generating structured data-architect analysis"
+    },
+    {
+      content: "Update session.json with data-architect completion status",
+      status: "pending",
+      activeForm: "Updating session metadata"
+    }
+  ]
+});
 ```
 
-## 📊 **Output Specification**
+## 📊 **Output Structure**
 
-### Output Location
+### Framework-Based Analysis
 ```
-.workflow/WFS-{topic-slug}/.brainstorming/data-architect/
-├── analysis.md                 # Primary data architecture analysis
-├── data-model.md               # Data models, schemas, and relationships
-├── pipeline-design.md          # Data processing and ETL/ELT workflows
-└── governance-plan.md          # Data quality, security, and governance
+.workflow/WFS-{session}/.brainstorming/data-architect/
+└── analysis.md    # Structured analysis addressing topic-framework.md discussion points
 ```
 
-### Document Templates
-
-#### analysis.md Structure
+### Analysis Document Structure
 ```markdown
-# Data Architect Analysis: {Topic}
-*Generated: {timestamp}*
+# Data Architect Analysis: [Topic from Framework]
 
-## Executive Summary
-[Key data architecture findings and recommendations overview]
+## Framework Reference
+**Topic Framework**: @../topic-framework.md
+**Role Focus**: Data Architecture perspective
 
-## Current Data Landscape
-### Existing Data Sources
-### Current Data Architecture
-### Data Quality Assessment
-### Performance Bottlenecks
+## Discussion Points Analysis
+[Address each point from topic-framework.md with data architecture expertise]
 
-## Data Requirements Analysis
-### Business Data Needs
-### Technical Data Requirements
-### Data Volume and Growth Projections
-### Real-time vs Batch Processing Needs
+### Core Requirements (from framework)
+[Data architecture perspective on requirements]
 
-## Proposed Data Architecture
-### Data Model Design
-### Storage Architecture
-### Processing Pipeline Design
-### Integration Patterns
+### Technical Considerations (from framework)
+[Data model, pipeline, and storage considerations]
 
-## Data Quality and Governance
-### Data Quality Framework
-### Governance Policies
-### Security and Privacy Controls
-### Compliance Requirements
+### User Experience Factors (from framework)
+[Data access patterns and analytics user experience]
 
-## Analytics and Reporting Strategy
-### Business Intelligence Architecture
-### Self-Service Analytics Design
-### Performance Monitoring
-### Scalability Planning
+### Implementation Challenges (from framework)
+[Data migration, quality, and governance challenges]
 
-## Implementation Roadmap
-### Migration Strategy
-### Technology Stack Recommendations
-### Resource Requirements
-### Risk Mitigation Plan
+### Success Metrics (from framework)
+[Data quality metrics and analytics success criteria]
+
+## Data Architecture Specific Recommendations
+[Role-specific data architecture recommendations and solutions]
+
+---
+*Generated by data-architect analysis addressing structured framework*
 ```
 
 ## 🔄 **Session Integration**
 
-### Status Synchronization
-Upon completion, update `workflow-session.json`:
+### Completion Status Update
 ```json
 {
-  "phases": {
-    "BRAINSTORM": {
-      "data_architect": {
-        "status": "completed",
-        "completed_at": "timestamp",
-        "output_directory": ".workflow/WFS-{topic}/.brainstorming/data-architect/",
-        "key_insights": ["data_model_optimization", "pipeline_architecture", "analytics_strategy"]
-      }
-    }
+  "data_architect": {
+    "status": "completed",
+    "framework_addressed": true,
+    "output_location": ".workflow/WFS-{session}/.brainstorming/data-architect/analysis.md",
+    "framework_reference": "@../topic-framework.md"
   }
 }
 ```
 
-### Cross-Role Collaboration
-Data architect perspective provides:
-- **Data Storage Requirements** → System Architect
-- **Analytics Data Requirements** → Product Manager
-- **Data Visualization Specifications** → UI Designer
-- **Data Security Framework** → Security Expert
-- **Feature Data Requirements** → Feature Planner
-
-## ✅ **Quality Assurance**
-
-### Required Architecture Elements
-- [ ] Comprehensive data model with clear relationships and constraints
-- [ ] Scalable data pipeline design with error handling and monitoring
-- [ ] Data quality framework with validation rules and metrics
-- [ ] Governance plan addressing security, privacy, and compliance
-- [ ] Analytics architecture supporting business intelligence needs
-
-### Data Architecture Principles
-- [ ] **Scalability**: Architecture can handle data volume and velocity growth
-- [ ] **Quality**: Built-in data validation, cleansing, and quality monitoring
-- [ ] **Security**: Data protection, access controls, and privacy compliance
-- [ ] **Performance**: Optimized for query performance and processing efficiency
-- [ ] **Maintainability**: Clear data lineage, documentation, and change management
-
-### Implementation Validation
-- [ ] **Technical Feasibility**: All proposed solutions are technically achievable
-- [ ] **Performance Requirements**: Architecture meets processing and query performance needs
-- [ ] **Cost Effectiveness**: Storage and processing costs are optimized and sustainable
-- [ ] **Governance Compliance**: Meets regulatory and organizational data requirements
-- [ ] **Future Readiness**: Design accommodates anticipated growth and changing needs
-
-### Data Quality Standards
-- [ ] **Accuracy**: Data validation rules ensure correctness and consistency
-- [ ] **Completeness**: Strategies for handling missing data and ensuring coverage
-- [ ] **Timeliness**: Data freshness requirements met through appropriate processing
-- [ ] **Consistency**: Data definitions and formats standardized across systems
-- [ ] **Lineage**: Complete data lineage tracking from source to consumption
+### Integration Points
+- **Framework Reference**: @../topic-framework.md for structured discussion points
+- **Cross-Role Synthesis**: Data architecture insights available for synthesis-report.md integration
+- **Agent Autonomy**: Independent execution with framework guidance
