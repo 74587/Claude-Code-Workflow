@@ -59,6 +59,12 @@ mcp__code-index__refresh_index()  # git操作后刷新
 - **定位文件**: `find_files(pattern="src/**/*.tsx")`
 - **更新索引**: `refresh_index()` (git操作后)
 
+**文件搜索测试结果**:
+- ✅ `find_files(pattern="*.md")` - 搜索所有 Markdown 文件
+- ✅ `find_files(pattern="*complete*")` - 通配符匹配文件名
+- ❌ `find_files(pattern="complete.md")` - 精确匹配可能失败
+- 📝 建议使用通配符模式获得更好的搜索结果
+
 ## 📊 Tool Selection Matrix
 
 | Task | MCP Tool | Use Case | Integration |
@@ -106,6 +112,8 @@ codex -C src/async --full-auto exec "Apply modern async patterns" -s danger-full
 - **Refresh after git ops** - Keep index synchronized
 - **Pattern specificity** - Use precise regex patterns for better results
 - **File patterns** - Combine with glob patterns for targeted search
+- **Glob pattern matching** - Use `*.md`, `*complete*` patterns for file discovery
+- **Exact vs wildcard** - Exact names may fail, use wildcards for better results
 
 ### Exa Code Context
 - **Use "dynamic" tokens** for efficiency

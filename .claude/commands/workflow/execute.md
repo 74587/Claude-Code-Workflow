@@ -18,6 +18,7 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 ## Core Rules
 **Complete entire workflow autonomously without user interruption, using TodoWrite for comprehensive progress tracking.**
 **Execute all discovered pending tasks sequentially until workflow completion or blocking dependency.**
+**Auto-complete session when all tasks finished: Call `/workflow:session:complete` upon workflow completion.**
 
 ## Core Responsibilities
 - **Session Discovery**: Identify and select active workflow sessions
@@ -27,6 +28,7 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 - **Flow Control Execution**: Execute pre-analysis steps and context accumulation
 - **Status Synchronization**: Update task JSON files and workflow state
 - **Autonomous Completion**: Continue execution until all tasks complete or reach blocking state
+- **Session Auto-Complete**: Call `/workflow:session:complete` when all workflow tasks finished
 
 ## Execution Philosophy
 - **Discovery-first**: Auto-discover existing plans and tasks
@@ -41,9 +43,10 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 
 ### Flow Control Rules
 1. **Auto-trigger**: When `task.flow_control.pre_analysis` array exists in task JSON, agents execute these steps
-2. **Sequential Processing**: Agents execute steps in order, accumulating context
-3. **Variable Passing**: Agents use `[variable_name]` syntax to reference step outputs
+2. **Sequential Processing**: Agents execute steps in order, accumulating context including artifacts
+3. **Variable Passing**: Agents use `[variable_name]` syntax to reference step outputs including artifact content
 4. **Error Handling**: Agents follow step-specific error strategies (`fail`, `skip_optional`, `retry_once`)
+5. **Artifacts Priority**: When artifacts exist in task.context.artifacts, load synthesis specifications first
 
 ### Execution Pattern
 ```
@@ -53,10 +56,11 @@ Step 3: implement_solution [pattern_analysis] [dependency_context] → implement
 ```
 
 ### Context Accumulation Process (Executed by Agents)
+- **Load Artifacts**: Agents retrieve synthesis specifications and brainstorming outputs from `context.artifacts`
 - **Load Dependencies**: Agents retrieve summaries from `context.depends_on` tasks
-- **Execute Analysis**: Agents run CLI tools with accumulated context
+- **Execute Analysis**: Agents run CLI tools with accumulated context including artifacts
 - **Prepare Implementation**: Agents build comprehensive context for implementation
-- **Continue Implementation**: Agents use all accumulated context for task execution
+- **Continue Implementation**: Agents use all accumulated context including artifacts for task execution
 
 ## Execution Lifecycle
 
@@ -221,30 +225,44 @@ TodoWrite({
 **Comprehensive context preparation** for autonomous agent execution:
 
 #### Context Sources (Priority Order)
-1. **Complete Task JSON**: Full task definition including all fields
-2. **Flow Control Context**: Accumulated outputs from pre_analysis steps
-3. **Dependency Summaries**: Previous task completion summaries
-4. **Session Context**: Workflow paths and session metadata
-5. **Inherited Context**: Parent task context and shared variables
+1. **Complete Task JSON**: Full task definition including all fields and artifacts
+2. **Artifacts Context**: Brainstorming outputs and synthesis specifications from task.context.artifacts
+3. **Flow Control Context**: Accumulated outputs from pre_analysis steps (including artifact loading)
+4. **Dependency Summaries**: Previous task completion summaries
+5. **Session Context**: Workflow paths and session metadata
+6. **Inherited Context**: Parent task context and shared variables
 
 #### Context Assembly Process
 ```
-1. Load Task JSON → Base context
-2. Execute Flow Control → Accumulated context
-3. Load Dependencies → Dependency context
-4. Prepare Session Paths → Session context
-5. Combine All → Complete agent context
+1. Load Task JSON → Base context (including artifacts array)
+2. Load Artifacts → Synthesis specifications and brainstorming outputs
+3. Execute Flow Control → Accumulated context (with artifact loading steps)
+4. Load Dependencies → Dependency context
+5. Prepare Session Paths → Session context
+6. Combine All → Complete agent context with artifact integration
 ```
 
 #### Agent Context Package Structure
 ```json
 {
-  "task": { /* Complete task JSON */ },
+  "task": { /* Complete task JSON with artifacts array */ },
+  "artifacts": {
+    "synthesis_specification": { "path": ".workflow/WFS-session/.brainstorming/synthesis-specification.md", "priority": "highest" },
+    "topic_framework": { "path": ".workflow/WFS-session/.brainstorming/topic-framework.md", "priority": "medium" },
+    "role_analyses": [ /* Individual role analysis files */ ],
+    "available_artifacts": [ /* All detected brainstorming artifacts */ ]
+  },
   "flow_context": {
-    "step_outputs": { "pattern_analysis": "...", "dependency_context": "..." }
+    "step_outputs": {
+      "synthesis_specification": "...",
+      "individual_artifacts": "...",
+      "pattern_analysis": "...",
+      "dependency_context": "..."
+    }
   },
   "session": {
     "workflow_dir": ".workflow/WFS-session/",
+    "brainstorming_dir": ".workflow/WFS-session/.brainstorming/",
     "todo_list_path": ".workflow/WFS-session/TODO_LIST.md",
     "summaries_dir": ".workflow/WFS-session/.summaries/",
     "task_json_path": ".workflow/WFS-session/.task/IMPL-1.1.json"
@@ -255,10 +273,11 @@ TodoWrite({
 ```
 
 #### Context Validation Rules
-- **Task JSON Complete**: All 5 fields present and valid
-- **Flow Control Ready**: All pre_analysis steps completed if present
+- **Task JSON Complete**: All 5 fields present and valid, including artifacts array in context
+- **Artifacts Available**: Synthesis specifications and brainstorming outputs accessible
+- **Flow Control Ready**: All pre_analysis steps completed including artifact loading steps
 - **Dependencies Loaded**: All depends_on summaries available
-- **Session Paths Valid**: All workflow paths exist and accessible
+- **Session Paths Valid**: All workflow paths exist and accessible, including .brainstorming directory
 - **Agent Assignment**: Valid agent type specified in meta.agent
 
 ### 4. Agent Execution Pattern
@@ -287,11 +306,22 @@ Task(subagent_type="{meta.agent}",
      ## STEP 3: Flow Control Execution (if flow_control.pre_analysis exists)
      **AGENT RESPONSIBILITY**: Execute pre_analysis steps sequentially from loaded JSON:
 
+     **PRIORITY: Artifact Loading Steps First**
+     1. **Load Synthesis Specification** (if present): Priority artifact loading for consolidated design
+     2. **Load Individual Artifacts** (fallback): Load role-specific brainstorming outputs if synthesis unavailable
+     3. **Execute Remaining Steps**: Continue with other pre_analysis steps
+
      For each step in flow_control.pre_analysis array:
-     1. Execute step.command with variable substitution
+     1. Execute step.command/commands with variable substitution (support both single command and commands array)
      2. Store output to step.output_to variable
-     3. Handle errors per step.on_error strategy
-     4. Pass accumulated variables to next step
+     3. Handle errors per step.on_error strategy (skip_optional, fail, retry_once)
+     4. Pass accumulated variables to next step including artifact context
+
+     **Special Artifact Loading Commands**:
+     - Use `bash(ls path 2>/dev/null || echo 'file not found')` for artifact existence checks
+     - Use `Read(path)` for loading artifact content
+     - Use `find` commands for discovering multiple artifact files
+     - Reference artifacts in subsequent steps using output variables: [synthesis_specification], [individual_artifacts]
 
      ## STEP 4: Implementation Context (From JSON context field)
      **Requirements**: Use context.requirements array from JSON
@@ -299,8 +329,9 @@ Task(subagent_type="{meta.agent}",
      **Acceptance Criteria**: Use context.acceptance array from JSON
      **Dependencies**: Use context.depends_on array from JSON
      **Parent Context**: Use context.inherited object from JSON
+     **Artifacts**: Use context.artifacts array from JSON (synthesis specifications, brainstorming outputs)
      **Target Files**: Use flow_control.target_files array from JSON
-     **Implementation Approach**: Use flow_control.implementation_approach object from JSON
+     **Implementation Approach**: Use flow_control.implementation_approach object from JSON (with artifact integration)
 
      ## STEP 5: Session Context (Provided by workflow:execute)
      **Workflow Directory**: {session.workflow_dir}
@@ -361,10 +392,36 @@ Task(subagent_type="{meta.agent}",
     "focus_paths": ["src/path1", "src/path2"],
     "acceptance": ["criteria1", "criteria2"],
     "depends_on": ["IMPL-1.1"],
-    "inherited": { "from": "parent", "context": ["info"] }
+    "inherited": { "from": "parent", "context": ["info"] },
+    "artifacts": [
+      {
+        "type": "synthesis_specification",
+        "source": "brainstorm_synthesis",
+        "path": ".workflow/WFS-[session]/.brainstorming/synthesis-specification.md",
+        "priority": "highest",
+        "contains": "complete_integrated_specification"
+      },
+      {
+        "type": "individual_role_analysis",
+        "source": "brainstorm_roles",
+        "path": ".workflow/WFS-[session]/.brainstorming/[role]/analysis.md",
+        "priority": "low",
+        "contains": "role_specific_analysis_fallback"
+      }
+    ]
   },
   "flow_control": {
     "pre_analysis": [
+      {
+        "step": "load_synthesis_specification",
+        "action": "Load consolidated synthesis specification from brainstorming",
+        "commands": [
+          "bash(ls .workflow/WFS-[session]/.brainstorming/synthesis-specification.md 2>/dev/null || echo 'synthesis specification not found')",
+          "Read(.workflow/WFS-[session]/.brainstorming/synthesis-specification.md)"
+        ],
+        "output_to": "synthesis_specification",
+        "on_error": "skip_optional"
+      },
       {
         "step": "step_name",
         "command": "bash_command",
@@ -372,7 +429,10 @@ Task(subagent_type="{meta.agent}",
         "on_error": "skip_optional|fail|retry_once"
       }
     ],
-    "implementation_approach": { "task_description": "...", "modification_points": ["..."] },
+    "implementation_approach": {
+      "task_description": "Implement following consolidated synthesis specification...",
+      "modification_points": ["Apply synthesis specification requirements..."]
+    },
     "target_files": ["file:function:lines"]
   }
 }
@@ -505,5 +565,5 @@ fi
 
 ### Integration
 - **Planning**: `/workflow:plan` → `/workflow:execute` → `/workflow:review`
-- **Recovery**: `/workflow:session:tatus --validate` → `/workflow:execute`
+- **Recovery**: `/workflow:status --validate` → `/workflow:execute`
 

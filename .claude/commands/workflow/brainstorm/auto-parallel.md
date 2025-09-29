@@ -24,14 +24,14 @@ allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*
 - **Multi-role**: Complex topics automatically select 2-3 complementary roles
 - **Default**: `product-manager` if no clear match
 
-**Template Loading**: `bash($(cat ~/.claude/workflows/cli-templates/planning-roles/<role-name>.md))`
+**Template Loading**: `bash($(cat "~/.claude/workflows/cli-templates/planning-roles/<role-name>.md"))`
 **Template Source**: `.claude/workflows/cli-templates/planning-roles/`
 **Available Roles**: business-analyst, data-architect, feature-planner, innovation-lead, product-manager, security-expert, system-architect, test-strategist, ui-designer, user-researcher
 
 **Example**:
 ```bash
-bash($(cat ~/.claude/workflows/cli-templates/planning-roles/system-architect.md))
-bash($(cat ~/.claude/workflows/cli-templates/planning-roles/ui-designer.md))
+bash($(cat "~/.claude/workflows/cli-templates/planning-roles/system-architect.md"))
+bash($(cat "~/.claude/workflows/cli-templates/planning-roles/ui-designer.md"))
 ```
 
 ## Core Workflow
@@ -78,7 +78,7 @@ Auto command coordinates independent specialized commands:
 ### Simplified Processing Standards
 
 **Core Principles**:
-1. **Minimal preprocessing** - Only session.json and basic role selection
+1. **Minimal preprocessing** - Only workflow-session.json and basic role selection
 2. **Agent autonomy** - Agents handle their own context and validation
 3. **Parallel execution** - Multiple agents can work simultaneously
 4. **Post-processing synthesis** - Integration happens after agent completion
@@ -139,12 +139,12 @@ Task(subagent_type="conceptual-planning-agent",
 
      2. **load_role_template**
         - Action: Load {role-name} planning template
-        - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/{role}.md))
+        - Command: bash($(cat "~/.claude/workflows/cli-templates/planning-roles/{role}.md"))
         - Output: role_template
 
      3. **load_session_metadata**
         - Action: Load session metadata and topic description
-        - Command: bash(cat .workflow/WFS-{topic}/.brainstorming/session.json 2>/dev/null || echo '{}')
+        - Command: bash(cat .workflow/WFS-{topic}/.brainstorming/workflow-session.json 2>/dev/null || echo '{}')
         - Output: session_metadata
 
      ### Implementation Context
@@ -157,11 +157,11 @@ Task(subagent_type="conceptual-planning-agent",
      ### Session Context
      **Workflow Directory**: .workflow/WFS-{topic}/.brainstorming/
      **Output Directory**: .workflow/WFS-{topic}/.brainstorming/{role}/
-     **Session JSON**: .workflow/WFS-{topic}/.brainstorming/session.json
+     **Session JSON**: .workflow/WFS-{topic}/.brainstorming/workflow-session.json
 
      ### Dependencies & Context
      **Topic**: {user-provided-topic}
-     **Role Template**: ~/.claude/workflows/cli-templates/planning-roles/{role}.md
+     **Role Template**: "~/.claude/workflows/cli-templates/planning-roles/{role}.md"
      **User Requirements**: To be gathered through interactive questioning
 
      ## Completion Requirements
@@ -172,7 +172,7 @@ Task(subagent_type="conceptual-planning-agent",
      5. Create single comprehensive deliverable in OUTPUT_LOCATION:
         - analysis.md (structured analysis addressing all topic framework points with role-specific insights)
      6. Include framework reference: @../topic-framework.md in analysis.md
-     7. Update session.json with completion status",
+     7. Update workflow-session.json with completion status",
      description="Execute {role-name} brainstorming analysis")
 ```
 
@@ -216,7 +216,7 @@ TodoWrite({
       activeForm: "Executing artifacts command for topic framework"
     },
     {
-      content: "Select roles and create session.json with framework references",
+      content: "Select roles and create workflow-session.json with framework references",
       status: "pending",
       activeForm: "Selecting roles and creating session metadata"
     },
@@ -247,7 +247,7 @@ TodoWrite({
       activeForm: "Initializing brainstorming session"
     },
     {
-      content: "Select roles for topic analysis and create session.json",
+      content: "Select roles for topic analysis and create workflow-session.json",
       status: "in_progress",  // Mark current task as in_progress
       activeForm: "Selecting roles and creating session metadata"
     },

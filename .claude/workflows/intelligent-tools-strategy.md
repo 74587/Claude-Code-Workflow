@@ -34,7 +34,7 @@ type: strategic-guideline
 
 ### Permission Framework
 - **Gemini/Qwen Write Access**: Use `--approval-mode yolo` when tools need to create/modify files
-- **Codex Write Access**: Always use `-s danger-full-access` for development and file operations
+- **Codex Write Access**: Always use `-s danger-full-access` and `--skip-git-repo-check` for development and file operations
 - **Auto-approval Protocol**: Enable automatic tool approvals for autonomous workflow execution
 
 ## 🎯 Universal Command Template
@@ -60,7 +60,7 @@ RULES: [template reference and constraints]
 "
 
 # Codex Development
-codex -C [directory] --full-auto exec "
+codex -C [directory] --skip-git-repo-check --full-auto exec "
 PURPOSE: [clear development goal]
 TASK: [specific development task]
 CONTEXT: [file references and memory context]
@@ -86,12 +86,12 @@ Tools execute in current working directory:
 
 ### Rules Field Format
 ```bash
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [constraints]
+RULES: $(cat "~/.claude/workflows/cli-templates/prompts/[category]/[template].txt") | [constraints]
 ```
 
 **Examples**:
-- Single template: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | Focus on security`
-- Multiple templates: `$(cat template1.txt) $(cat template2.txt) | Enterprise standards`
+- Single template: `$(cat "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt") | Focus on security`
+- Multiple templates: `$(cat "template1.txt") $(cat "template2.txt") | Enterprise standards`
 - No template: `Focus on security patterns, include dependency analysis`
 - File patterns: `@{src/**/*.ts,CLAUDE.md} - Stay within scope`
 
@@ -156,7 +156,7 @@ PURPOSE: Understand codebase architecture
 TASK: Analyze project structure and identify patterns
 CONTEXT: @{src/**/*.ts,CLAUDE.md} Previous analysis of auth system
 EXPECTED: Architecture overview and integration points
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on integration points
+RULES: $(cat "~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt") | Focus on integration points
 "
 
 # Project Analysis (in different directory)
@@ -165,7 +165,7 @@ PURPOSE: Compare authentication patterns
 TASK: Analyze auth implementation in related project
 CONTEXT: @{src/auth/**/*} Current project context from session memory
 EXPECTED: Pattern comparison and recommendations
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | Focus on architectural differences
+RULES: $(cat "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt") | Focus on architectural differences
 "
 
 # Architecture Design (with Qwen)
@@ -174,16 +174,16 @@ PURPOSE: Design authentication system architecture
 TASK: Create modular JWT-based auth system design
 CONTEXT: @{src/auth/**/*} Existing patterns and requirements
 EXPECTED: Complete architecture with code scaffolding
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on modularity and security
+RULES: $(cat "~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt") | Focus on modularity and security
 "
 
 # Feature Development (in target directory)
-codex -C path/to/project --full-auto exec "
+codex -C path/to/project --skip-git-repo-check --full-auto exec "
 PURPOSE: Implement user authentication
 TASK: Create JWT-based authentication system
 CONTEXT: @{src/auth/**/*} Database schema from session memory
 EXPECTED: Complete auth module with tests
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) | Follow security best practices
+RULES: $(cat "~/.claude/workflows/cli-templates/prompts/development/feature.txt") | Follow security best practices
 " -s danger-full-access
 
 # Code Review Preparation
@@ -192,7 +192,7 @@ PURPOSE: Prepare comprehensive code review
 TASK: Analyze code changes and identify potential issues
 CONTEXT: @{**/*.modified} Recent changes discussed in last session
 EXPECTED: Review checklist and improvement suggestions
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/quality.txt) | Focus on maintainability
+RULES: $(cat "~/.claude/workflows/cli-templates/prompts/analysis/quality.txt") | Focus on maintainability
 "
 ```
 
@@ -220,10 +220,10 @@ For every development task:
 - **Best For**: System design, code scaffolding, architectural planning
 
 ### Codex
-- **Command**: `codex --full-auto exec`
+- **Command**: `codex --skip-git-repo-check --full-auto exec`
 - **Strengths**: Autonomous development, mathematical reasoning
 - **Best For**: Implementation, testing, automation
-- **Required**: `-s danger-full-access` for development
+- **Required**: `-s danger-full-access` and `--skip-git-repo-check` for development
 
 ### File Patterns
 - All files: `@{**/*}`
@@ -257,7 +257,7 @@ cd src/auth && ~/.claude/scripts/gemini-wrapper -p "analyze auth patterns"
 cd src/auth && ~/.claude/scripts/qwen-wrapper -p "design auth architecture"
 
 # Focused implementation (Codex)
-codex -C src/auth --full-auto exec "analyze auth implementation"
+codex -C src/auth --skip-git-repo-check --full-auto exec "analyze auth implementation"
 
 # Multi-scope (stay in root)
 ~/.claude/scripts/gemini-wrapper -p "CONTEXT: @{src/auth/**/*,src/api/**/*}"

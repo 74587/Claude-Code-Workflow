@@ -80,7 +80,7 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ```
 .workflow/WFS-[topic]/.brainstorming/
 ├── topic-framework.md          # ★ STRUCTURED FRAMEWORK DOCUMENT
-└── session.json               # Framework metadata and role assignments
+└── workflow-session.json               # Framework metadata and role assignments
 ```
 
 **Topic Framework Template**:

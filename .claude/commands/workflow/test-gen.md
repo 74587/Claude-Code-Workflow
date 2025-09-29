@@ -11,309 +11,135 @@ examples:
 # Workflow Test Generation Command
 
 ## Overview
-Automatically generates comprehensive test workflows based on completed implementation tasks. **Creates dedicated test session with full test coverage planning**, including unit tests, integration tests, and validation workflows that mirror the implementation structure.
+Analyzes completed implementation sessions and generates comprehensive test requirements, then calls workflow:plan to create test workflow.
 
-## Core Rules
-**Analyze completed implementation workflows to generate comprehensive test coverage workflows.**
-**Create dedicated test session with systematic test task decomposition following implementation patterns.**
-
-## Core Responsibilities
-- **Implementation Analysis**: Analyze completed tasks and their deliverables
-- **Test Coverage Planning**: Generate comprehensive test strategies for all implementations
-- **Test Workflow Creation**: Create structured test session following workflow architecture
-- **Task Decomposition**: Break down test requirements into executable test tasks
-- **Dependency Mapping**: Establish test dependencies based on implementation relationships
-- **Agent Assignment**: Assign appropriate test agents for different test types
-
-## Execution Philosophy
-- **Coverage-driven**: Ensure all implemented features have corresponding tests
-- **Implementation-aware**: Tests reflect actual implementation patterns and dependencies
-- **Systematic approach**: Follow established workflow patterns for test planning
-- **Agent-optimized**: Assign specialized agents for different test types
-- **Continuous validation**: Include ongoing test execution and maintenance tasks
-
-## Test Generation Lifecycle
-
-### Phase 1: Implementation Discovery
-1. **Session Analysis**: Identify active or recently completed implementation session
-2. **Task Analysis**: Parse completed IMPL-* tasks and their deliverables
-3. **Code Analysis**: Examine implemented files and functionality
-4. **Pattern Recognition**: Identify testing requirements from implementation patterns
-
-### Phase 2: Test Strategy Planning
-1. **Coverage Mapping**: Map implementation components to test requirements
-2. **Test Type Classification**: Categorize tests (unit, integration, e2e, performance)
-3. **Dependency Analysis**: Establish test execution dependencies
-4. **Tool Selection**: Choose appropriate testing frameworks and tools
-
-### Phase 3: Test Workflow Creation
-1. **Session Creation**: Create dedicated test session `WFS-test-[base-session]`
-2. **Plan Generation**: Create TEST_PLAN.md with comprehensive test strategy
-3. **Task Decomposition**: Generate TEST-* task definitions following workflow patterns
-4. **Agent Assignment**: Assign specialized test agents for execution
-
-### Phase 4: Test Session Setup
-1. **Structure Creation**: Establish test workflow directory structure
-2. **Context Preparation**: Link test tasks to implementation context
-3. **Flow Control Setup**: Configure test execution flow and dependencies
-4. **Documentation Generation**: Create test documentation and tracking files
-
-## Test Discovery & Analysis Process
-
-### Implementation Analysis
-```
-├── Load completed implementation session
-├── Analyze IMPL_PLAN.md and completed tasks
-├── Scan .summaries/ for implementation deliverables
-├── Examine target_files from task definitions
-├── Identify implemented features and components
-├── Map code coverage requirements
-└── Generate test coverage matrix
-```
-
-### Test Pattern Recognition
-```
-Implementation Pattern → Test Pattern
-├── API endpoints → API testing + contract testing
-├── Database models → Data validation + migration testing
-├── UI components → Component testing + user workflow testing
-├── Business logic → Unit testing + integration testing
-├── Authentication → Security testing + access control testing
-├── Configuration → Environment testing + deployment testing
-└── Performance critical → Load testing + performance testing
-```
-
-## Test Workflow Structure
-
-### Generated Test Session Structure
-```
-.workflow/WFS-test-[base-session]/
-├── TEST_PLAN.md                 # Comprehensive test planning document
-├── TODO_LIST.md                 # Test execution progress tracking
-├── .process/
-│   ├── TEST_ANALYSIS.md         # Test coverage analysis results
-│   └── COVERAGE_MATRIX.md       # Implementation-to-test mapping
-├── .task/
-│   ├── TEST-001.json           # Unit test tasks
-│   ├── TEST-002.json           # Integration test tasks
-│   ├── TEST-003.json           # E2E test tasks
-│   └── TEST-004.json           # Performance test tasks
-├── .summaries/                  # Test execution summaries
-└── .context/
-    ├── impl-context.md         # Implementation context reference
-    └── test-fixtures.md        # Test data and fixture planning
-```
-
-## Test Task Types & Agent Assignment
-
-### Task Categories
-1. **Unit Tests** (`TEST-U-*`)
-   - **Agent**: `code-review-test-agent`
-   - **Scope**: Individual function/method testing
-   - **Dependencies**: Implementation files
-
-2. **Integration Tests** (`TEST-I-*`)
-   - **Agent**: `code-review-test-agent`
-   - **Scope**: Component interaction testing
-   - **Dependencies**: Unit tests completion
-
-3. **End-to-End Tests** (`TEST-E-*`)
-   - **Agent**: `general-purpose`
-   - **Scope**: User workflow and system testing
-   - **Dependencies**: Integration tests completion
-
-4. **Performance Tests** (`TEST-P-*`)
-   - **Agent**: `code-developer`
-   - **Scope**: Load, stress, and performance validation
-   - **Dependencies**: E2E tests completion
-
-5. **Security Tests** (`TEST-S-*`)
-   - **Agent**: `code-review-test-agent`
-   - **Scope**: Security validation and vulnerability testing
-   - **Dependencies**: Implementation completion
-
-6. **Documentation Tests** (`TEST-D-*`)
-   - **Agent**: `doc-generator`
-   - **Scope**: Documentation validation and example testing
-   - **Dependencies**: Feature tests completion
-
-## Test Task JSON Schema
-
-Each test task follows the 5-field workflow architecture with test-specific extensions:
-
-### Basic Test Task Structure
-```json
-{
-  "id": "TEST-U-001",
-  "title": "Unit tests for authentication service",
-  "status": "pending",
-  "meta": {
-    "type": "unit-test",
-    "agent": "code-review-test-agent",
-    "test_framework": "jest",
-    "coverage_target": "90%",
-    "impl_reference": "IMPL-001"
-  },
-  "context": {
-    "requirements": "Test all authentication service functions with edge cases",
-    "focus_paths": ["src/auth/", "tests/unit/auth/"],
-    "acceptance": [
-      "All auth service functions tested",
-      "Edge cases covered",
-      "90% code coverage achieved",
-      "Tests pass in CI/CD pipeline"
-    ],
-    "depends_on": [],
-    "impl_context": "IMPL-001-summary.md",
-    "test_data": "auth-test-fixtures.json"
-  },
-  "flow_control": {
-    "pre_analysis": [
-      {
-        "step": "load_impl_context",
-        "action": "Load implementation context and deliverables",
-        "command": "bash(cat .workflow/WFS-[base-session]/.summaries/IMPL-001-summary.md)",
-        "output_to": "impl_context"
-      },
-      {
-        "step": "analyze_test_coverage",
-        "action": "Analyze existing test coverage and gaps",
-        "command": "bash(find src/auth/ -name '*.js' -o -name '*.ts' | head -20)",
-        "output_to": "coverage_analysis"
-      }
-    ],
-    "implementation_approach": "test-driven",
-    "target_files": [
-      "tests/unit/auth/auth-service.test.js",
-      "tests/unit/auth/auth-utils.test.js",
-      "tests/fixtures/auth-test-data.json"
-    ]
-  }
-}
-```
-
-## Test Context Management
-
-### Implementation Context Integration
-Test tasks automatically inherit context from corresponding implementation tasks:
-
-```json
-"context": {
-  "impl_reference": "IMPL-001",
-  "impl_summary": ".workflow/WFS-[base-session]/.summaries/IMPL-001-summary.md",
-  "impl_files": ["src/auth/service.js", "src/auth/middleware.js"],
-  "test_requirements": "derived from implementation acceptance criteria",
-  "coverage_requirements": "90% line coverage, 80% branch coverage"
-}
-```
-
-### Flow Control for Test Execution
-```json
-"flow_control": {
-  "pre_analysis": [
-    {
-      "step": "load_impl_deliverables",
-      "action": "Load implementation files and analyze test requirements",
-      "command": "~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze implementation for test requirements TASK: Review [impl_files] and identify test cases CONTEXT: @{[impl_files]} EXPECTED: Comprehensive test case list RULES: Focus on edge cases and integration points\""
-    },
-    {
-      "step": "setup_test_environment",
-      "action": "Prepare test environment and fixtures",
-      "command": "codex --full-auto exec \"Setup test environment for [test_framework] with fixtures for [feature_name]\" -s danger-full-access"
-    }
-  ]
-}
-```
-
-## Session Management & Integration
-
-### Test Session Creation Process
-1. **Base Session Discovery**: Identify implementation session to test
-2. **Test Session Creation**: Create `WFS-test-[base-session]` directory structure
-3. **Context Linking**: Establish references to implementation context
-4. **Active Marker**: Create `.active-test-[base-session]` marker for session management
-
-### Integration with Execute Command
-Test workflows integrate seamlessly with existing execute infrastructure:
-- Use same TodoWrite progress tracking
-- Follow same agent orchestration patterns
-- Support same flow control mechanisms
-- Maintain same session isolation and management
-
-## Usage Examples
-
-### Generate Tests for Completed Implementation
+## Usage
 ```bash
-# After completing an implementation workflow
-/workflow:execute  # Complete implementation tasks
-
-# Generate comprehensive test workflow
-/workflow:test-gen  # Auto-detects active session
-
-# Execute test workflow
-/workflow:execute  # Runs test tasks
+/workflow:test-gen                # Auto-detect active session
+/workflow:test-gen WFS-session-id # Analyze specific session
 ```
 
-### Generate Tests for Specific Session
+## Dynamic Session ID Resolution
+
+The `${SESSION_ID}` variable is dynamically resolved based on:
+
+1. **Command argument**: If session-id provided as argument, use it directly
+2. **Auto-detection**: If no argument, detect from active session markers
+3. **Format**: Always in format `WFS-session-name`
+
 ```bash
-# Generate tests for specific implementation session
-/workflow:test-gen WFS-user-auth-system
-
-# Check test workflow status
-/workflow:status --session=WFS-test-user-auth-system
-
-# Execute specific test category
-/task:execute TEST-U-001  # Run unit tests
+# Example resolution logic:
+# If argument provided: SESSION_ID = "WFS-user-auth"
+# If no argument: SESSION_ID = $(find .workflow/ -name '.active-*' | head -1 | sed 's/.*active-//')
 ```
 
-### Multi-Phase Test Generation
+## Implementation Flow
+
+### Step 1: Identify Target Session
 ```bash
-# Generate and execute tests in phases
-/workflow:test-gen WFS-api-implementation
-/task:execute TEST-U-*     # Unit tests first
-/task:execute TEST-I-*     # Integration tests
-/task:execute TEST-E-*     # E2E tests last
+# Auto-detect active session (if no session-id provided)
+find .workflow/ -name '.active-*' | head -1 | sed 's/.*active-//'
+
+# Use provided session-id or detected session-id
+# SESSION_ID = provided argument OR detected active session
 ```
 
-## Error Handling & Recovery
+### Step 2: Get Session Start Time
+```bash
+cat .workflow/WFS-${SESSION_ID}/workflow-session.json | jq -r .created_at
+```
 
-### Implementation Analysis Errors
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| No completed implementations | No IMPL-* tasks found | Complete implementation tasks first |
-| Missing implementation context | Corrupted summaries | Regenerate summaries from task results |
-| Invalid implementation files | File references broken | Update file paths and re-analyze |
+### Step 3: Git Change Analysis (using session start time)
+```bash
+git log --since="$(cat .workflow/WFS-${SESSION_ID}/workflow-session.json | jq -r .created_at)" --name-only --pretty=format: | sort -u | grep -v '^$'
+```
 
-### Test Generation Errors
-| Error | Cause | Recovery Strategy |
-|-------|-------|------------------|
-| Test framework not detected | No testing setup found | Prompt for test framework selection |
-| Insufficient implementation context | Missing implementation details | Request additional implementation documentation |
-| Test session collision | Test session already exists | Merge or create versioned test session |
+### Step 4: Filter Code Files
+```bash
+git log --since="$(cat .workflow/WFS-${SESSION_ID}/workflow-session.json | jq -r .created_at)" --name-only --pretty=format: | sort -u | grep -E '\.(js|ts|jsx|tsx|py|java|go|rs)$'
+```
 
-## Key Benefits
+### Step 5: Load Session Context
+```bash
+cat .workflow/WFS-${SESSION_ID}/.summaries/IMPL-*-summary.md 2>/dev/null
+```
 
-### Comprehensive Coverage
-- **Implementation-driven**: Tests generated based on actual implementation patterns
-- **Multi-layered**: Unit, integration, E2E, and specialized testing
-- **Dependency-aware**: Test execution follows logical dependency chains
-- **Agent-optimized**: Specialized agents for different test types
+### Step 6: Extract Focus Paths
+```bash
+find .workflow/WFS-${SESSION_ID}/.task/ -name '*.json' -exec jq -r '.context.focus_paths[]?' {} \;
+```
 
-### Workflow Integration
-- **Seamless execution**: Uses existing workflow infrastructure
-- **Progress tracking**: Full TodoWrite integration for test progress
-- **Context preservation**: Maintains links to implementation context
-- **Session management**: Independent test sessions with proper isolation
+### Step 7: Gemini Analysis and Planning Document Generation
+```bash
+cd project-root && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Analyze implementation and generate comprehensive test planning document
+TASK: Review changed files and implementation context to create detailed test planning document
+CONTEXT: Changed files: [changed_files], Implementation summaries: [impl_summaries], Focus paths: [focus_paths]
+EXPECTED: Complete test planning document including:
+- Test strategy analysis
+- Critical test scenarios identification
+- Edge cases and error conditions
+- Test priority matrix
+- Resource requirements
+- Implementation approach recommendations
+- Specific test cases with acceptance criteria
+RULES: Generate structured markdown document suitable for workflow planning. Focus on actionable test requirements based on actual implementation changes.
+" > .workflow/WFS-${SESSION_ID}/.process/GEMINI_TEST_PLAN.md
+```
 
-### Maintenance & Evolution
-- **Updateable**: Test workflows can evolve with implementation changes
-- **Traceable**: Clear mapping from implementation to test requirements
-- **Extensible**: Support for new test types and frameworks
-- **Documentable**: Comprehensive test documentation and coverage reports
+### Step 8: Generate Combined Test Requirements Document
+```bash
+mkdir -p .workflow/WFS-${SESSION_ID}/.process
+```
 
-## Integration Points
-- **Planning**: Integrates with `/workflow:plan` for test planning
-- **Execution**: Uses `/workflow:execute` for test task execution
-- **Status**: Works with `/workflow:status` for test progress tracking
-- **Documentation**: Coordinates with `/workflow:docs` for test documentation
-- **Review**: Supports `/workflow:review` for test validation and coverage analysis
+```bash
+cat > .workflow/WFS-${SESSION_ID}/.process/TEST_REQUIREMENTS.md << 'EOF'
+# Test Requirements Summary for WFS-${SESSION_ID}
+
+## Analysis Data Sources
+- Git change analysis results
+- Implementation summaries and context
+- Gemini-generated test planning document
+
+## Reference Documents
+- Detailed test plan: GEMINI_TEST_PLAN.md
+- Implementation context: IMPL-*-summary.md files
+
+## Integration Note
+This document combines analysis data with Gemini-generated planning document for comprehensive test workflow generation.
+EOF
+```
+
+### Step 9: Call Workflow Plan with Gemini Planning Document
+```bash
+/workflow:plan .workflow/WFS-${SESSION_ID}/.process/GEMINI_TEST_PLAN.md
+```
+
+## Simple Bash Commands
+
+### Basic Operations
+- **Find active session**: `find .workflow/ -name '.active-*'`
+- **Get git changes**: `git log --since='date' --name-only`
+- **Filter code files**: `grep -E '\.(js|ts|py)$'`
+- **Load summaries**: `cat .workflow/WFS-*/summaries/*.md`
+- **Extract JSON data**: `jq -r '.context.focus_paths[]'`
+- **Create directory**: `mkdir -p .workflow/session/.process`
+- **Write file**: `cat > file << 'EOF'`
+
+### Gemini CLI Integration
+- **Planning command**: `~/.claude/scripts/gemini-wrapper -p "prompt" > GEMINI_TEST_PLAN.md`
+- **Context loading**: Include changed files and implementation context
+- **Document generation**: Creates comprehensive test planning document
+- **Direct handoff**: Pass Gemini planning document to workflow:plan
+
+## No Complex Logic
+- No variables or functions
+- No conditional statements
+- No loops or complex pipes
+- Direct bash commands only
+- Gemini CLI for intelligent analysis
+
+## Related Commands
+- `/workflow:plan` - Called to generate test workflow
+- `/workflow:execute` - Executes generated test tasks
+- `/workflow:status` - Shows test workflow progress

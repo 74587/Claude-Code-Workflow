@@ -65,7 +65,7 @@ Creates implementation plans by orchestrating intelligent context gathering and 
 
 ### Session ID Transmission Guidelines ⚠️ CRITICAL
 - **Format**: `WFS-[topic-slug]` from active session markers
-- **Usage**: `/context:gather --session WFS-[id]` and `/analysis:run --session WFS-[id]`
+- **Usage**: `/workflow:tools:context-gather --session WFS-[id]` and `/workflow:tools:plan-enchanced --session WFS-[id]`
 - **Rule**: ALL modular commands MUST receive current session ID for context continuity
 
 ### Brainstorming Artifacts Integration ⚠️ NEW FEATURE
@@ -84,13 +84,13 @@ Creates implementation plans by orchestrating intelligent context gathering and 
 4. **Context Preparation**: Load session state and prepare for planning
 
 ### Phase 2: Context Gathering
-1. **Context Collection**: Execute `/context:gather` with task description and session ID
+1. **Context Collection**: Execute `/workflow:tools:context-gather` with task description and session ID
 2. **Asset Discovery**: Gather relevant documentation, code, and configuration files
 3. **Context Packaging**: Generate standardized context-package.json
 4. **Validation**: Ensure context package contains sufficient information
 
 ### Phase 3: Intelligent Analysis
-1. **Analysis Execution**: Run `/analysis:run` with context package and session ID
+1. **Analysis Execution**: Run `/workflow:tools:plan-enchanced` with context package and session ID
 2. **Tool Selection**: Automatically select optimal analysis tools (Gemini/Qwen/Codex)
 3. **Result Generation**: Produce structured ANALYSIS_RESULTS.md
 4. **Validation**: Verify analysis completeness and task recommendations
@@ -112,6 +112,9 @@ Creates implementation plans by orchestrating intelligent context gathering and 
 4. **Continuous Tracking**: Maintain TodoWrite throughout entire planning workflow
 
 ### TodoWrite Tool Usage
+
+**Core Rule**: Monitor slash command completion before proceeding to next step
+
 ```javascript
 // Initialize planning workflow tracking
 TodoWrite({
