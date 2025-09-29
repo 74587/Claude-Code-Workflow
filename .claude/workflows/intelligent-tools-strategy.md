@@ -60,13 +60,13 @@ RULES: [template reference and constraints]
 "
 
 # Codex Development
-codex -C [directory] --skip-git-repo-check --full-auto exec "
+codex -C [directory] --full-auto exec "
 PURPOSE: [clear development goal]
 TASK: [specific development task]
 CONTEXT: [file references and memory context]
 EXPECTED: [expected deliverables]
 RULES: [template reference and constraints]
-" -s danger-full-access
+" --skip-git-repo-check -s danger-full-access
 ```
 
 ### Template Structure
@@ -178,13 +178,13 @@ RULES: $(cat "~/.claude/workflows/cli-templates/prompts/analysis/architecture.tx
 "
 
 # Feature Development (in target directory)
-codex -C path/to/project --skip-git-repo-check --full-auto exec "
+codex -C path/to/project --full-auto exec "
 PURPOSE: Implement user authentication
 TASK: Create JWT-based authentication system
 CONTEXT: @{src/auth/**/*} Database schema from session memory
 EXPECTED: Complete auth module with tests
 RULES: $(cat "~/.claude/workflows/cli-templates/prompts/development/feature.txt") | Follow security best practices
-" -s danger-full-access
+" --skip-git-repo-check -s danger-full-access
 
 # Code Review Preparation
 ~/.claude/scripts/gemini-wrapper -p "
@@ -220,7 +220,7 @@ For every development task:
 - **Best For**: System design, code scaffolding, architectural planning
 
 ### Codex
-- **Command**: `codex --skip-git-repo-check --full-auto exec`
+- **Command**: `codex --full-auto exec`
 - **Strengths**: Autonomous development, mathematical reasoning
 - **Best For**: Implementation, testing, automation
 - **Required**: `-s danger-full-access` and `--skip-git-repo-check` for development
@@ -257,7 +257,7 @@ cd src/auth && ~/.claude/scripts/gemini-wrapper -p "analyze auth patterns"
 cd src/auth && ~/.claude/scripts/qwen-wrapper -p "design auth architecture"
 
 # Focused implementation (Codex)
-codex -C src/auth --skip-git-repo-check --full-auto exec "analyze auth implementation"
+codex -C src/auth --full-auto exec "analyze auth implementation" --skip-git-repo-check
 
 # Multi-scope (stay in root)
 ~/.claude/scripts/gemini-wrapper -p "CONTEXT: @{src/auth/**/*,src/api/**/*}"

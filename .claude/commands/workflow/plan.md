@@ -12,9 +12,9 @@ examples:
 # Workflow Plan Command (/workflow:plan)
 
 ## Overview
-Creates implementation plans by orchestrating intelligent context gathering and analysis modules.
+Creates comprehensive implementation plans by orchestrating intelligent context gathering and analysis modules. Integrates with workflow session management, brainstorming artifacts, and automated task generation.
 
-## Core Principles
+## Core Planning Principles
 
 ### Task Decomposition Standards
 
@@ -26,13 +26,13 @@ Creates implementation plans by orchestrating intelligent context gathering and 
   - **Dependency Blocking**: Subsequent tasks must wait for prerequisite task completion
   - **Parallel Execution**: Independent features that can be developed simultaneously by different developers
 
-**Rules**:
+**Task Limits & Structure**:
 - **Maximum 10 tasks**: Hard limit - exceeding requires re-scoping
 - **Function-based**: Complete functional units with related files (logic + UI + tests + config)
 - **File cohesion**: Group tightly coupled components in same task
 - **Hierarchy**: Flat (≤5 tasks) | Two-level (6-10 tasks) | Re-scope (>10 tasks)
 
-**Task Patterns**:
+**Task Pattern Examples**:
 - ✅ **Correct (Function-based)**: `IMPL-001: User authentication system` (models + routes + components + middleware + tests)
 - ❌ **Wrong (File/step-based)**: `IMPL-001: Create database model`, `IMPL-002: Create API endpoint`
 
@@ -54,9 +54,12 @@ Creates implementation plans by orchestrating intelligent context gathering and 
 5. **Build Enhanced Flow Control**: Define pre_analysis steps with artifact loading and implementation approach
 6. **Create Artifact-Aware JSON Files**: Generate individual .task/IMPL-*.json files with enhanced schema
 
-### Session Management ⚠️ CRITICAL
-- **Command**: Uses `/workflow:session:start` command for intelligent session discovery and creation
-- **⚡ FIRST ACTION**: Check for all `.workflow/.active-*` markers before any planning
+## Critical Process Requirements
+
+### Session Management ⚠️ CRITICAL FIRST STEP
+- **⚡ FIRST ACTION**: Execute `SlashCommand(command="/workflow:session:start")` for intelligent session discovery
+- **Command Integration**: Uses `/workflow:session:start` command for intelligent session discovery and creation
+- **Active Session Check**: Check for all `.workflow/.active-*` markers before any planning
 - **Relevance Analysis**: Automatically analyzes task relevance with existing sessions
 - **Auto-session creation**: `WFS-[topic-slug]` only if no active session exists or task is unrelated
 - **Session continuity**: MUST use selected active session to maintain context
@@ -65,7 +68,7 @@ Creates implementation plans by orchestrating intelligent context gathering and 
 
 ### Session ID Transmission Guidelines ⚠️ CRITICAL
 - **Format**: `WFS-[topic-slug]` from active session markers
-- **Usage**: `/workflow:tools:context-gather --session WFS-[id]` and `/workflow:tools:plan-enchanced --session WFS-[id]`
+- **Usage**: `SlashCommand(command="/workflow:tools:context-gather --session WFS-[id]")` and `SlashCommand(command="/workflow:tools:plan-enchanced --session WFS-[id]")`
 - **Rule**: ALL modular commands MUST receive current session ID for context continuity
 
 ### Brainstorming Artifacts Integration ⚠️ NEW FEATURE
@@ -74,60 +77,99 @@ Creates implementation plans by orchestrating intelligent context gathering and 
 - **Artifact References**: Create structured references to design documents and specifications
 - **Context Enhancement**: Load artifacts in pre_analysis steps to provide complete design context
 
+## Planning Execution Lifecycle
 
-## Execution Lifecycle
+### Phase 1: Session Management & Discovery ⚠️ TodoWrite Control
+1. **TodoWrite Initialization**: Initialize flow control, mark first phase as `in_progress`
+2. **Session Discovery**: Execute `SlashCommand(command="/workflow:session:start [task-description]")`
+3. **Relevance Analysis**: Automatically analyze task relevance with existing sessions
+4. **Session Selection**: Auto-select or create session based on relevance analysis
+5. **Context Preparation**: Load session state and prepare for planning
+6. **TodoWrite Update**: Mark phase 1 as `completed`, phase 2 as `in_progress`
 
-### Phase 1: Session Management
-1. **Session Discovery**: Use `/workflow:session:start` command for intelligent session discovery
-2. **Relevance Analysis**: Automatically analyze task relevance with existing sessions
-3. **Session Selection**: Auto-select or create session based on relevance analysis
-4. **Context Preparation**: Load session state and prepare for planning
-
-### Phase 2: Context Gathering
-1. **Context Collection**: Execute `/workflow:tools:context-gather` with task description and session ID
+### Phase 2: Context Gathering & Asset Discovery ⚠️ TodoWrite Control
+1. **Context Collection**: Execute `SlashCommand(command="/workflow:tools:context-gather --session WFS-[id] \"task description\"")`
 2. **Asset Discovery**: Gather relevant documentation, code, and configuration files
 3. **Context Packaging**: Generate standardized context-package.json
-4. **Validation**: Ensure context package contains sufficient information
+4. **Validation**: Ensure context package contains sufficient information for analysis
+5. **TodoWrite Update**: Mark phase 2 as `completed`, phase 3 as `in_progress`
 
-### Phase 3: Intelligent Analysis
-1. **Analysis Execution**: Run `/workflow:tools:plan-enchanced` with context package and session ID
+### Phase 3: Intelligent Analysis & Tool Orchestration ⚠️ TodoWrite Control
+1. **Analysis Execution**: Execute `SlashCommand(command="/workflow:tools:plan-enchanced --session WFS-[id] --context path/to/context-package.json")`
 2. **Tool Selection**: Automatically select optimal analysis tools (Gemini/Qwen/Codex)
-3. **Result Generation**: Produce structured ANALYSIS_RESULTS.md
+3. **Result Generation**: Produce structured ANALYSIS_RESULTS.md with task recommendations
 4. **Validation**: Verify analysis completeness and task recommendations
+5. **TodoWrite Update**: Mark phase 3 as `completed`, phase 4 as `in_progress`
 
-### Phase 4: Plan Assembly & Document Generation
+### Phase 4: Plan Assembly & Artifact Integration ⚠️ TodoWrite Control
 1. **Artifact Detection**: Scan session for brainstorming outputs (.brainstorming/ directory)
 2. **Plan Generation**: Create IMPL_PLAN.md from analysis results and artifacts
 3. **Enhanced Task JSON Creation**: Generate task JSON files with artifacts integration
 4. **TODO List Creation**: Generate TODO_LIST.md with artifact references
 5. **Session Update**: Mark session as ready for execution with artifact context
+6. **TodoWrite Completion Validation**: Ensure all phases are marked as `completed` for complete execution
 
-## TodoWrite Progress Tracking
-**Comprehensive planning tracking** with real-time status updates throughout entire planning lifecycle:
+## TodoWrite Progress Tracking ⚠️ CRITICAL FLOW CONTROL
 
-### TodoWrite Planning Rules
-1. **Initial Creation**: Generate TodoWrite from planning phases
-2. **Single In-Progress**: Mark ONLY ONE phase as `in_progress` at a time
-3. **Immediate Updates**: Update status after each phase completion
-4. **Continuous Tracking**: Maintain TodoWrite throughout entire planning workflow
+**TodoWrite Control Ensures Complete Workflow Execution** - Guarantees planning lifecycle integrity through real-time status tracking:
+
+### TodoWrite Flow Control Rules ⚠️ MANDATORY
+1. **Process Integrity Guarantee**: TodoWrite is the key control mechanism ensuring all planning phases execute in sequence
+2. **Phase Gating**: Must wait for previous phase `completed` before starting next phase
+3. **SlashCommand Synchronization**: Update TodoWrite status before and after each SlashCommand execution
+4. **Error Recovery**: If phase fails, TodoWrite maintains `in_progress` status until issue resolved
+5. **Process Validation**: Verify all required phases completed through TodoWrite
+
+### TodoWrite Execution Control Rules
+1. **Initial Creation**: Generate TodoWrite task list from planning phases
+2. **Single Execution**: Only one task can be `in_progress` at any time
+3. **Immediate Updates**: Update status to `completed` immediately after each phase completion
+4. **Continuous Tracking**: Maintain TodoWrite state throughout entire planning workflow
+5. **Integrity Validation**: Final verification that all tasks are `completed` status
 
 ### TodoWrite Tool Usage
 
-**Core Rule**: Monitor slash command completion before proceeding to next step
+**Core Control Rule**: Monitor SlashCommand completion status to ensure sequential execution
 
 ```javascript
-// Initialize planning workflow tracking
+// Flow Control Example: Ensure Complete Execution of All Planning Phases
+// Step 1: Initialize Flow Control
 TodoWrite({
   todos: [
-    {"content": "Initialize session management", "status": "pending", "activeForm": "Initializing session management"},
+    {"content": "Initialize session management and discovery", "status": "in_progress", "activeForm": "Initializing session management and discovery"},
     {"content": "Detect and analyze brainstorming artifacts", "status": "pending", "activeForm": "Detecting and analyzing brainstorming artifacts"},
-    {"content": "Gather intelligent context", "status": "pending", "activeForm": "Gathering intelligent context"},
-    {"content": "Execute intelligent analysis", "status": "pending", "activeForm": "Executing intelligent analysis"},
+    {"content": "Gather intelligent context and assets", "status": "pending", "activeForm": "Gathering intelligent context and assets"},
+    {"content": "Execute intelligent analysis and tool orchestration", "status": "pending", "activeForm": "Executing intelligent analysis and tool orchestration"},
     {"content": "Generate artifact-enhanced implementation plan and tasks", "status": "pending", "activeForm": "Generating artifact-enhanced implementation plan and tasks"}
   ]
 })
+
+// Step 2: Execute SlashCommand and Update Status Immediately
+SlashCommand(command="/workflow:session:start task-description")
+// After command completion:
+TodoWrite({
+  todos: [
+    {"content": "Initialize session management and discovery", "status": "completed", "activeForm": "Initializing session management and discovery"},
+    {"content": "Detect and analyze brainstorming artifacts", "status": "in_progress", "activeForm": "Detecting and analyzing brainstorming artifacts"},
+    {"content": "Gather intelligent context and assets", "status": "pending", "activeForm": "Gathering intelligent context and assets"},
+    {"content": "Execute intelligent analysis and tool orchestration", "status": "pending", "activeForm": "Executing intelligent analysis and tool orchestration"},
+    {"content": "Generate artifact-enhanced implementation plan and tasks", "status": "pending", "activeForm": "Generating artifact-enhanced implementation plan and tasks"}
+  ]
+})
+
+// Step 3: Continue Next SlashCommand
+SlashCommand(command="/workflow:tools:context-gather --session WFS-[id] \"task description\"")
+// Repeat this pattern until all phases completed
 ```
 
+### Flow Control Validation Checkpoints
+- ✅ **Phase Completion Verification**: Check return status after each SlashCommand execution
+- ✅ **Dependency Checking**: Ensure prerequisite phases completed before starting next phase
+- ✅ **Error Handling**: If command fails, remain in current phase until issue resolved
+- ✅ **Final Validation**: All todos status must be `completed` for planning completion
+
+
+## Output Document Structures
 
 ### IMPL_PLAN.md Structure ⚠️ REQUIRED FORMAT
 
@@ -156,8 +198,7 @@ TodoWrite({
 - **Resource Requirements** - Required resources and tool selection
 - **Success Criteria** - Success criteria and acceptance conditions
 
-
-## Reference Information
+## Technical Reference
 
 ### Enhanced Task JSON Schema (5-Field + Artifacts)
 Each task.json uses the workflow-architecture.md 5-field schema enhanced with artifacts:
@@ -313,16 +354,16 @@ The following pre_analysis steps are generated for agent execution:
 }
 ```
 
-## Artifact Detection & Integration ⚠️ ENHANCED FEATURE
+## Advanced Features
 
-### Artifact Detection Logic
+### Artifact Detection & Integration ⚠️ ENHANCED FEATURE
+
 **Automatic Brainstorming Artifact Scanning**:
 1. **Session Scan**: Check `.workflow/WFS-[session]/.brainstorming/` directory
 2. **Role Detection**: Identify completed role analyses (ui-designer, system-architect, etc.)
 3. **Artifact Mapping**: Map artifacts to relevant task types
 4. **Relevance Scoring**: Assign relevance scores based on task-artifact alignment
 
-### Role-Task Mapping Rules
 **Artifact-Task Relevance Matrix**:
 - **ui-designer** → UI/Frontend/Component tasks (high relevance)
 - **system-architect** → Architecture/Backend/Database tasks (high relevance)
@@ -331,7 +372,6 @@ The following pre_analysis steps are generated for agent execution:
 - **product-manager** → Feature/Business Logic tasks (medium relevance)
 - **topic-framework.md** → All tasks (low-medium relevance for context)
 
-### Enhanced Task Generation
 **Artifact-Enhanced Task Creation Process**:
 1. **Standard Task Generation**: Create base task from analysis results
 2. **Artifact Detection**: Scan for relevant brainstorming outputs
@@ -339,8 +379,7 @@ The following pre_analysis steps are generated for agent execution:
 4. **Pre-Analysis Enhancement**: Insert artifact loading steps
 5. **Implementation Update**: Reference artifacts in task description and approach
 
-### Artifact Loading in Pre-Analysis
-**Automatic Artifact Integration**:
+**Automatic Artifact Integration Example**:
 ```json
 {
   "step": "load_brainstorming_artifacts",
@@ -354,11 +393,16 @@ The following pre_analysis steps are generated for agent execution:
 }
 ```
 
-### File Structure Reference
-**Architecture**: @~/.claude/workflows/workflow-architecture.md
+### Integration & Output
 
-### Execution Integration
-Documents created for `/workflow:execute`:
+**Architecture Reference**: `@~/.claude/workflows/workflow-architecture.md`
+
+**Documents Created for `/workflow:execute`**:
 - **IMPL_PLAN.md**: Context loading and requirements with artifact references
 - **.task/*.json**: Agent implementation context with enhanced artifact loading
 - **TODO_LIST.md**: Status tracking (container tasks with ▸, leaf tasks with checkboxes)
+
+**Command Chain Integration**:
+1. `/workflow:plan` → Creates implementation plan with task breakdown
+2. `/workflow:execute` → Executes tasks using generated plan and context
+3. Task management system → Tracks progress and dependencies

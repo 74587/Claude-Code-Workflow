@@ -113,35 +113,39 @@ Advanced intelligent planning engine with parallel CLI execution that processes 
 
 ### Phase 3: Parallel Analysis Execution
 1. **Gemini Comprehensive Analysis & Documentation**
-   - **Tool Configuration**: `gemini-wrapper --approval-mode yolo` for write permissions
-   - **Purpose**: Enhanced comprehensive analysis with actionable suggestions, design blueprints, and documentation generation
-   - **Expected Outputs**:
-     - Current State Analysis: Architecture patterns, code quality, technical debt, performance bottlenecks
-     - Enhanced Suggestions: Implementation blueprints, code organization, API specifications, security guidelines
-     - Implementation Roadmap: Phase-by-phase plans, CI/CD blueprints, testing strategies
-     - Actionable Examples: Code templates, configuration scripts, integration patterns
-     - Documentation Generation: Technical documentation, API docs, user guides, and README files
-   - **Prompt Template**:
-     ```
+   - **Tool Configuration**:
+     ```bash
+     cd .workflow/{session_id}/.process && ~/.claude/scripts/gemini-wrapper -p "
      PURPOSE: Generate comprehensive analysis and documentation for {task_description}
      TASK: Analyze codebase, create implementation blueprints, and generate supporting documentation
      CONTEXT: {context_package_assets}
      EXPECTED:
-     1. Complete technical analysis with implementation strategy
-     2. Generated documentation files (README.md, API.md, GUIDE.md as needed)
-     3. Code examples and configuration templates
-     4. Implementation roadmap with phase-by-phase plans
-     RULES: Create both analysis blueprints AND user-facing documentation. Generate actual documentation files, not just analysis of documentation needs.
+     1. Current State Analysis: Architecture patterns, code quality, technical debt, performance bottlenecks
+     2. Enhanced Suggestions: Implementation blueprints, code organization, API specifications, security guidelines
+     3. Implementation Roadmap: Phase-by-phase plans, CI/CD blueprints, testing strategies
+     4. Actionable Examples: Code templates, configuration scripts, integration patterns
+     5. Documentation Generation: Technical documentation, API docs, user guides, and README files
+     6. Generate .workflow/{session_id}/.process/gemini-enhanced-analysis.md with all analysis results
+     RULES: Create both analysis blueprints AND user-facing documentation. Generate actual documentation files, not just analysis of documentation needs. Focus on planning documents, architectural designs, and specifications - do NOT generate specific code implementations.
+     " --approval-mode yolo
      ```
    - **Output Location**: `.workflow/{session_id}/.process/gemini-enhanced-analysis.md` + generated docs
 
 2. **Codex Implementation Validation** (Complex Tasks Only)
-   - **Tool Configuration**: `codex --skip-git-repo-check --full-auto exec -s danger-full-access` for implementation validation
-   - **Purpose**: Technical feasibility validation with write-enabled blueprint generation
-   - **Expected Outputs**:
-     - Feasibility Assessment: Complexity analysis, resource requirements, technology compatibility
-     - Implementation Validation: Quality recommendations, security assessments, testing frameworks
-     - Implementation Guides: Step-by-step procedures, configuration management, monitoring setup
+   - **Tool Configuration**:
+     ```bash
+     codex -C .workflow/{session_id}/.process --full-auto exec "
+     PURPOSE: Technical feasibility validation with write-enabled blueprint generation
+     TASK: Validate implementation feasibility and generate comprehensive blueprints
+     CONTEXT: {context_package_assets} and {gemini_analysis_results}
+     EXPECTED:
+     1. Feasibility Assessment: Complexity analysis, resource requirements, technology compatibility
+     2. Implementation Validation: Quality recommendations, security assessments, testing frameworks
+     3. Implementation Guides: Step-by-step procedures, configuration management, monitoring setup
+     4. Generate .workflow/{session_id}/.process/codex-validation-analysis.md with all validation results
+     RULES: Focus on technical validation, security assessments, and implementation planning examples. Create comprehensive validation documentation with architectural guidance and specifications - do NOT generate specific code implementations.
+     " --skip-git-repo-check -s danger-full-access
+     ```
    - **Output Location**: `.workflow/{session_id}/.process/codex-validation-analysis.md`
 
 3. **Parallel Execution Management**
@@ -406,7 +410,7 @@ fi
 
 ### Success Criteria
 - ✅ **Enhanced Output Generation**: Comprehensive ANALYSIS_RESULTS.md with implementation blueprints and machine-readable summary
-- ✅ **Write-Enabled CLI Tools**: Full write permissions for Gemini (--approval-mode yolo) and Codex (--skip-git-repo-check -s danger-full-access)
+- ✅ **Write-Enabled CLI Tools**: Full write permissions for Gemini (--approval-mode yolo) and Codex (exec ... --skip-git-repo-check -s danger-full-access)
 - ✅ **Enhanced Suggestions**: Concrete implementation examples, configuration templates, and step-by-step procedures
 - ✅ **Design Blueprints**: Detailed technical architecture with component diagrams and API specifications
 - ✅ **Parallel Execution**: Efficient concurrent tool execution with proper monitoring and timeout handling
