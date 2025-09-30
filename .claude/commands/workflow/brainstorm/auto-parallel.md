@@ -40,7 +40,9 @@ bash($(cat "~/.claude/workflows/cli-templates/planning-roles/ui-designer.md"))
 The command follows a structured three-phase approach with dedicated document types:
 
 **Phase 1: Framework Generation** ⚠️ COMMAND EXECUTION
-- **Call artifacts command**: Execute `/workflow:brainstorm:artifacts "{topic}"` using SlashCommand tool
+- **Role selection**: Auto-select 2-3 roles based on topic keywords (see Role Selection Logic)
+- **Call artifacts command**: Execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,role3}"` using SlashCommand tool
+- **Role-specific framework**: Generate framework with sections tailored to selected roles
 
 **Phase 2: Role Analysis Execution** ⚠️ PARALLEL AGENT ANALYSIS
 - **Parallel execution**: Multiple roles execute simultaneously for faster completion
@@ -58,15 +60,15 @@ The command follows a structured three-phase approach with dedicated document ty
 Auto command coordinates independent specialized commands:
 
 **Command Sequence**:
-1. **Generate Framework**: Use SlashCommand to execute `/workflow:brainstorm:artifacts "{topic}"`
-2. **Role Selection**: Auto-select 2-3 relevant roles based on topic keywords
-3. **Role Analysis**: Execute selected role commands in parallel
+1. **Role Selection**: Auto-select 2-3 relevant roles based on topic keywords
+2. **Generate Role-Specific Framework**: Use SlashCommand to execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,role3}"`
+3. **Parallel Role Analysis**: Execute selected role agents in parallel, each reading their specific framework section
 4. **Generate Synthesis**: Use SlashCommand to execute `/workflow:brainstorm:synthesis`
 
 **SlashCommand Integration**:
-1. **artifacts command**: Called via SlashCommand tool for framework generation
-2. **role commands**: Each role command operates in parallel with framework reference
-3. **synthesis command**: Called via SlashCommand tool for final integration
+1. **artifacts command**: Called via SlashCommand tool with `--roles` parameter for role-specific framework generation
+2. **role agents**: Each agent reads its dedicated section in the role-specific framework
+3. **synthesis command**: Called via SlashCommand tool for final integration with role-targeted insights
 4. **Command coordination**: SlashCommand handles execution and validation
 
 **Role Selection Logic**:
@@ -211,14 +213,14 @@ TodoWrite({
       activeForm: "Initializing brainstorming session"
     },
     {
-      content: "Execute artifacts command using SlashCommand for framework generation",
+      content: "Select roles based on topic keyword analysis",
       status: "pending",
-      activeForm: "Executing artifacts command for topic framework"
+      activeForm: "Selecting roles for brainstorming analysis"
     },
     {
-      content: "Select roles and create workflow-session.json with framework references",
+      content: "Execute artifacts command with selected roles for role-specific framework",
       status: "pending",
-      activeForm: "Selecting roles and creating session metadata"
+      activeForm: "Generating role-specific topic framework"
     },
     {
       content: "Execute [role-1] analysis [conceptual-planning-agent] [FLOW_CONTROL] addressing framework",

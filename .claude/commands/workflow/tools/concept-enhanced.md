@@ -119,18 +119,32 @@ Advanced solution design and feasibility analysis engine with parallel CLI execu
 1. **Gemini Solution Design & Architecture Analysis**
    - **Tool Configuration**:
      ```bash
-     cd .workflow/{session_id}/.process && ~/.claude/scripts/gemini-wrapper -p "
+     ~/.claude/scripts/gemini-wrapper -p "
      PURPOSE: Analyze and design optimal solution for {task_description}
      TASK: Evaluate current architecture, propose solution design, and identify key design decisions
-     CONTEXT: {context_package_assets}
+     CONTEXT: @{.workflow/{session_id}/.process/context-package.json,.workflow/{session_id}/workflow-session.json,CLAUDE.md}
+
+     **MANDATORY FIRST STEP**: Read and analyze .workflow/{session_id}/.process/context-package.json to understand:
+     - Task requirements from metadata.task_description
+     - Relevant source files from assets[] array
+     - Tech stack from tech_stack section
+     - Project structure from statistics section
+
      EXPECTED:
-     1. CURRENT STATE: Existing patterns, code structure, integration points, technical debt
+     1. CURRENT STATE ANALYSIS: Existing patterns, code structure, integration points, technical debt
      2. SOLUTION DESIGN: Core architecture principles, system design, key design decisions with rationale
      3. CRITICAL INSIGHTS: What works well, identified gaps, technical risks, architectural tradeoffs
      4. OPTIMIZATION STRATEGIES: Performance improvements, security enhancements, code quality recommendations
      5. FEASIBILITY ASSESSMENT: Complexity analysis, compatibility evaluation, implementation readiness
-     6. Generate .workflow/{session_id}/.process/gemini-solution-design.md with complete analysis
-     RULES: Focus on SOLUTION IMPROVEMENTS and KEY DESIGN DECISIONS, not task planning. Provide architectural rationale, evaluate alternatives, assess tradeoffs. Do NOT create task lists or implementation plans. Output ONLY ANALYSIS_RESULTS.md.
+     6. **OUTPUT FILE**: Write complete analysis to .workflow/{session_id}/.process/gemini-solution-design.md
+
+     RULES:
+     - Focus on SOLUTION IMPROVEMENTS and KEY DESIGN DECISIONS, NOT task planning
+     - Provide architectural rationale, evaluate alternatives, assess tradeoffs
+     - Do NOT create task lists, implementation steps, or code examples
+     - Do NOT generate any code snippets or implementation details
+     - **MUST write output to .workflow/{session_id}/.process/gemini-solution-design.md**
+     - Output ONLY architectural analysis and design recommendations
      " --approval-mode yolo
      ```
    - **Output Location**: `.workflow/{session_id}/.process/gemini-solution-design.md`
@@ -138,17 +152,30 @@ Advanced solution design and feasibility analysis engine with parallel CLI execu
 2. **Codex Technical Feasibility Validation** (Complex Tasks Only)
    - **Tool Configuration**:
      ```bash
-     codex -C .workflow/{session_id}/.process --full-auto exec "
+     codex --full-auto exec "
      PURPOSE: Validate technical feasibility and identify implementation risks for {task_description}
      TASK: Assess implementation complexity, validate technology choices, evaluate performance and security implications
-     CONTEXT: {context_package_assets} and {gemini_solution_design}
+     CONTEXT: @{.workflow/{session_id}/.process/context-package.json,.workflow/{session_id}/.process/gemini-solution-design.md,.workflow/{session_id}/workflow-session.json,CLAUDE.md}
+
+     **MANDATORY FIRST STEP**: Read and analyze:
+     - .workflow/{session_id}/.process/context-package.json for task context
+     - .workflow/{session_id}/.process/gemini-solution-design.md for proposed solution design
+     - Relevant source files listed in context-package.json assets[]
+
      EXPECTED:
      1. FEASIBILITY ASSESSMENT: Technical complexity rating, resource requirements, technology compatibility
      2. RISK ANALYSIS: Implementation risks, integration challenges, performance concerns, security vulnerabilities
      3. TECHNICAL VALIDATION: Development approach validation, quality standards assessment, maintenance implications
      4. CRITICAL RECOMMENDATIONS: Must-have requirements, optimization opportunities, security controls
-     5. Generate .workflow/{session_id}/.process/codex-feasibility-validation.md with validation results
-     RULES: Focus on TECHNICAL FEASIBILITY and RISK ASSESSMENT, not implementation planning. Validate architectural decisions, identify potential issues, recommend optimizations. Do NOT create task breakdowns or step-by-step guides. Output ONLY feasibility analysis.
+     5. **OUTPUT FILE**: Write validation results to .workflow/{session_id}/.process/codex-feasibility-validation.md
+
+     RULES:
+     - Focus on TECHNICAL FEASIBILITY and RISK ASSESSMENT, NOT implementation planning
+     - Validate architectural decisions, identify potential issues, recommend optimizations
+     - Do NOT create task breakdowns, step-by-step guides, or code examples
+     - Do NOT generate any code snippets or implementation details
+     - **MUST write output to .workflow/{session_id}/.process/codex-feasibility-validation.md**
+     - Output ONLY feasibility analysis and risk assessment
      " --skip-git-repo-check -s danger-full-access
      ```
    - **Output Location**: `.workflow/{session_id}/.process/codex-feasibility-validation.md`

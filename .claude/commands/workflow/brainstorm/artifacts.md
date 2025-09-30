@@ -1,12 +1,12 @@
 ---
 name: artifacts
-description: Generate structured topic-framework.md for role-based brainstorming analysis
-usage: /workflow:brainstorm:artifacts "<topic>"
+description: Generate role-specific topic-framework.md dynamically based on selected roles
+usage: /workflow:brainstorm:artifacts "<topic>" [--roles "role1,role2,role3"]
 argument-hint: "topic or challenge description for framework generation"
 examples:
   - /workflow:brainstorm:artifacts "Build real-time collaboration feature"
-  - /workflow:brainstorm:artifacts "Optimize database performance for millions of users"
-  - /workflow:brainstorm:artifacts "Implement secure authentication system"
+  - /workflow:brainstorm:artifacts "Optimize database performance" --roles "system-architect,data-architect,security-expert"
+  - /workflow:brainstorm:artifacts "Implement secure authentication system" --roles "ui-designer,security-expert,user-researcher"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---
 
@@ -14,11 +14,17 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 
 ## Usage
 ```bash
-/workflow:brainstorm:artifacts "<topic>"
+/workflow:brainstorm:artifacts "<topic>" [--roles "role1,role2,role3"]
 ```
 
 ## Purpose
-**Specialized command for generating structured topic-framework.md documents** that provide discussion frameworks for role-based brainstorming analysis. Creates the foundation document that all role agents will reference.
+**Generate dynamic topic-framework.md tailored to selected roles**. Creates role-specific discussion frameworks that address relevant perspectives. If no roles specified, generates comprehensive framework covering common analysis areas.
+
+## Role-Based Framework Generation
+
+**Dynamic Generation**: Framework content adapts based on selected roles
+- **With roles**: Generate targeted discussion points for specified roles only
+- **Without roles**: Generate comprehensive framework covering all common areas
 
 ## Core Workflow
 
@@ -30,22 +36,28 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 - **Auto-creation**: Create `WFS-[topic-slug]` only if no active session exists
 - **Framework check**: Check if `topic-framework.md` exists (update vs create mode)
 
-**Phase 2: Interactive Topic Analysis**
+**Phase 2: Role Analysis** ⚠️ NEW
+- **Parse roles parameter**: Extract roles from `--roles "role1,role2,role3"` if provided
+- **Role validation**: Verify each role is valid (matches available role commands)
+- **Store role list**: Save selected roles to session metadata for reference
+- **Default behavior**: If no roles specified, use comprehensive coverage
+
+**Phase 3: Dynamic Topic Analysis**
 - **Scope definition**: Define topic boundaries and objectives
-- **Stakeholder identification**: Identify key users and stakeholders
-- **Requirements gathering**: Extract core requirements and constraints
-- **Context collection**: Gather technical and business context
+- **Stakeholder identification**: Identify key users and stakeholders based on selected roles
+- **Requirements gathering**: Extract requirements relevant to selected roles
+- **Context collection**: Gather context appropriate for role perspectives
 
-**Phase 3: Structured Framework Generation**
-- **Discussion points creation**: Generate 5 key discussion areas
-- **Role-specific questions**: Create tailored questions for each relevant role
-- **Framework document**: Generate structured `topic-framework.md`
-- **Validation check**: Ensure framework completeness and clarity
+**Phase 4: Role-Specific Framework Generation**
+- **Discussion points creation**: Generate 3-5 discussion areas **tailored to selected roles**
+- **Role-targeted questions**: Create questions specifically for chosen roles
+- **Framework document**: Generate `topic-framework.md` with role-specific sections
+- **Validation check**: Ensure framework addresses all selected role perspectives
 
-**Phase 4: Update Mechanism**
-- **Existing framework detection**: Check for existing framework
-- **Incremental updates**: Add new discussion points if requested
-- **Version tracking**: Maintain framework evolution history
+**Phase 5: Metadata Storage**
+- **Save role assignment**: Store selected roles in session metadata
+- **Framework versioning**: Track which roles framework addresses
+- **Update tracking**: Maintain role evolution if framework updated
 
 ## Implementation Standards
 
@@ -83,67 +95,180 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 └── workflow-session.json               # Framework metadata and role assignments
 ```
 
-**Topic Framework Template**:
+## Framework Template Structures
 
-### topic-framework.md Structure
+### Dynamic Role-Based Framework
+
+Framework content adapts based on `--roles` parameter:
+
+#### Option 1: Specific Roles Provided
 ```markdown
 # [Topic] - Discussion Framework
 
 ## Topic Overview
-- **Scope**: [Clear topic boundaries and scope definition]
-- **Objectives**: [Primary goals and expected outcomes]
-- **Context**: [Relevant background and constraints]
-- **Stakeholders**: [Key users, roles, and affected parties]
+- **Scope**: [Topic boundaries relevant to selected roles]
+- **Objectives**: [Goals from perspective of selected roles]
+- **Context**: [Background focusing on role-specific concerns]
+- **Target Roles**: ui-designer, system-architect, security-expert
 
-## Key Discussion Points
+## Role-Specific Discussion Points
 
-### 1. Core Requirements
+### For UI Designer
+1. **User Interface Requirements**
+   - What interface components are needed?
+   - What user interactions must be supported?
+   - What visual design considerations apply?
+
+2. **User Experience Challenges**
+   - What are the key user journeys?
+   - What accessibility requirements exist?
+   - How to balance aesthetics with functionality?
+
+### For System Architect
+1. **Architecture Decisions**
+   - What architectural patterns fit this solution?
+   - What scalability requirements exist?
+   - How does this integrate with existing systems?
+
+2. **Technical Implementation**
+   - What technology stack is appropriate?
+   - What are the performance requirements?
+   - What dependencies must be managed?
+
+### For Security Expert
+1. **Security Requirements**
+   - What are the key security concerns?
+   - What threat vectors must be addressed?
+   - What compliance requirements apply?
+
+2. **Security Implementation**
+   - What authentication/authorization is needed?
+   - What data protection mechanisms are required?
+   - How to handle security incidents?
+
+## Cross-Role Integration Points
+- How do UI decisions impact architecture?
+- How does architecture constrain UI possibilities?
+- What security requirements affect both UI and architecture?
+
+## Framework Usage
+**For Role Agents**: Address your specific section + integration points
+**Reference Format**: @../topic-framework.md in your analysis.md
+**Update Process**: Use /workflow:brainstorm:artifacts to update
+
+---
+*Generated for roles: ui-designer, system-architect, security-expert*
+*Last updated: [timestamp]*
+```
+
+#### Option 2: No Roles Specified (Comprehensive)
+```markdown
+# [Topic] - Discussion Framework
+
+## Topic Overview
+- **Scope**: [Comprehensive topic boundaries]
+- **Objectives**: [All-encompassing goals]
+- **Context**: [Full background and constraints]
+- **Stakeholders**: [All relevant parties]
+
+## Core Discussion Areas
+
+### 1. Requirements & Objectives
 - What are the fundamental requirements?
 - What are the critical success factors?
 - What constraints must be considered?
-- What acceptance criteria define success?
 
-### 2. Technical Considerations
+### 2. Technical & Architecture
 - What are the technical challenges?
 - What architectural decisions are needed?
-- What technology choices impact the solution?
 - What integration points exist?
 
-### 3. User Experience Factors
+### 3. User Experience & Design
 - Who are the primary users?
 - What are the key user journeys?
 - What usability requirements exist?
-- What accessibility considerations apply?
 
-### 4. Implementation Challenges
-- What are the main implementation risks?
-- What dependencies exist?
+### 4. Security & Compliance
+- What security requirements exist?
+- What compliance considerations apply?
+- What data protection is needed?
+
+### 5. Implementation & Operations
+- What are the implementation risks?
 - What resources are required?
-- What timeline constraints apply?
+- How will this be maintained?
 
-### 5. Success Metrics
-- How will success be measured?
-- What are the acceptance criteria?
-- What performance requirements exist?
-- What monitoring and analytics are needed?
-
-## Role-Specific Analysis Points
-- **System Architect**: Architecture patterns, scalability, technology stack
-- **Product Manager**: Business value, user needs, market positioning
-- **UI Designer**: User experience, interface design, usability
-- **Security Expert**: Security requirements, threat modeling, compliance
-- **Data Architect**: Data modeling, processing workflows, analytics
-- **Business Analyst**: Process optimization, cost-benefit, change management
-
-## Framework Usage Instructions
-**For Role Agents**: Address each discussion point from your role perspective
-**Reference Format**: Use @../topic-framework.md in your analysis.md
-**Update Process**: Use /workflow:brainstorm:artifacts to update framework
+## Available Role Perspectives
+Framework supports analysis from any of these roles:
+- system-architect, ui-designer, security-expert
+- user-researcher, product-manager, business-analyst
+- data-architect, innovation-lead, feature-planner
 
 ---
-*Generated by /workflow:brainstorm:artifacts*
+*Comprehensive framework - adaptable to any role*
 *Last updated: [timestamp]*
 ```
+
+## Role-Specific Content Generation
+
+### Available Roles and Their Focus Areas
+
+**Technical Roles**:
+- `system-architect`: Architecture patterns, scalability, technology stack, integration
+- `data-architect`: Data modeling, processing workflows, analytics, storage
+- `security-expert`: Security requirements, threat modeling, compliance, protection
+
+**Product & Design Roles**:
+- `ui-designer`: User interface, visual design, interaction patterns, accessibility
+- `user-researcher`: User needs, behavior analysis, usability testing, personas
+- `product-manager`: Business value, feature prioritization, market positioning, roadmap
+
+**Business Roles**:
+- `business-analyst`: Process optimization, requirements analysis, cost-benefit, ROI
+- `innovation-lead`: Emerging technologies, competitive advantage, transformation, trends
+- `feature-planner`: Feature specification, user stories, acceptance criteria, dependencies
+
+### Dynamic Discussion Point Generation
+
+**For each selected role, generate**:
+1. **2-3 core discussion areas** specific to that role's perspective
+2. **3-5 targeted questions** per discussion area
+3. **Cross-role integration points** showing how roles interact
+
+**Example mapping**:
+```javascript
+// If roles = ["ui-designer", "system-architect"]
+Generate:
+- UI Designer section: UI Requirements, UX Challenges
+- System Architect section: Architecture Decisions, Technical Implementation
+- Integration Points: UI↔Architecture dependencies
+```
+
+### Framework Generation Examples
+
+#### Example 1: Architecture-Heavy Topic
+```bash
+/workflow:brainstorm:artifacts "Design scalable microservices platform" --roles "system-architect,data-architect,security-expert"
+```
+**Generated framework focuses on**:
+- Service architecture and communication patterns
+- Data flow and storage strategies
+- Security boundaries and authentication
+
+#### Example 2: User-Focused Topic
+```bash
+/workflow:brainstorm:artifacts "Improve user onboarding experience" --roles "ui-designer,user-researcher,product-manager"
+```
+**Generated framework focuses on**:
+- Onboarding flow and UI components
+- User behavior and pain points
+- Business value and success metrics
+
+#### Example 3: Comprehensive Analysis
+```bash
+/workflow:brainstorm:artifacts "Build real-time collaboration feature"
+```
+**Generated framework covers** all aspects (no roles specified)
 
 ## Session Management ⚠️ CRITICAL
 - **⚡ FIRST ACTION**: Check for all `.workflow/.active-*` markers before processing
