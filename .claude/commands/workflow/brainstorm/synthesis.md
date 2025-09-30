@@ -28,6 +28,9 @@ allowed-tools: Read(*), Write(*), TodoWrite(*), Glob(*)
 
 ## ⚙️ **Execution Protocol**
 
+### ⚠️ Direct Execution Only
+**DO NOT use Task tool or delegate to any agent** - This is a document synthesis task using only Read/Write/Glob tools for aggregating existing analyses.
+
 ### Phase 1: Document Discovery & Validation
 ```bash
 # Detect active brainstorming session
