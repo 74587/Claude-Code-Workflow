@@ -143,52 +143,54 @@ CCW automatically adapts workflow structure based on project complexity:
 ### 🎮 **Core System Commands**
 
 | Command | Function | Example |
-|---------|----------|---------|
+|---|---|---|
 | `🎯 /enhance-prompt` | Technical context enhancement | `/enhance-prompt "add auth system"` |
 | `📊 /context` | Unified context management | `/context --analyze --format=tree` |
 | `📝 /update-memory-full` | Complete documentation update | `/update-memory-full` |
 | `🔄 /update-memory-related` | Smart context-aware updates | `/update-memory-related` |
 
-### 🔍 **Gemini CLI Commands** (Analysis & Investigation)
+### 🚀 **Unified CLI Commands (v3.0.0+)**
 
 | Command | Purpose | Usage |
-|---------|---------|-------|
-| `🔍 /gemini:analyze` | Deep codebase analysis | `/gemini:analyze "authentication patterns"` |
-| `💬 /gemini:chat` | Direct Gemini interaction | `/gemini:chat "explain this architecture"` |
-| `⚡ /gemini:execute` | Intelligent execution with YOLO permissions | `/gemini:execute "implement task-001"` |
-| `🎯 /gemini:mode:auto` | Auto template selection | `/gemini:mode:auto "analyze security vulnerabilities"` |
-| `🐛 /gemini:mode:bug-index` | Bug analysis and fix suggestions | `/gemini:mode:bug-index "payment processing fails"` |
-| `📋 /gemini:mode:plan` | Project planning and architecture | `/gemini:mode:plan "microservices architecture"` |
-| `🎯 /gemini:mode:plan-precise` | Precise path planning analysis | `/gemini:mode:plan-precise "complex refactoring"` |
+|---|---|---|
+| `/cli:analyze` | Deep codebase analysis | `/cli:analyze "[target]" [--tool <tool>]` |
+| `/cli:chat` | Direct interaction with a tool | `/cli:chat "[inquiry]" [--tool <tool>]` |
+| `/cli:execute` | Intelligent execution with YOLO permissions | `/cli:execute "[description|task-id]" [--tool <tool>]` |
+| `/cli:cli-init`| Initialize CLI tool configurations | `/cli:cli-init [--tool <tool>]` |
+| `/cli:mode:bug-index` | Bug analysis and fix suggestions | `/cli:mode:bug-index "[description]" [--tool <tool>]` |
+| `/cli:mode:code-analysis` | Deep code analysis and debugging | `/cli:mode:code-analysis "[target]" [--tool <tool>]` |
+| `/cli:mode:plan` | Project planning and architecture | `/cli:mode:plan "[topic]" [--tool <tool>]` |
 
-### 🔮 **Qwen CLI Commands** (Architecture & Code Generation)
+**Supported tools for `--tool` flag:** `gemini` (default), `qwen`, `codex`.
 
-| Command | Purpose | Usage |
-|---------|---------|-------|
-| `🔍 /qwen:analyze` | Architecture analysis and code quality | `/qwen:analyze "system architecture patterns"` |
-| `💬 /qwen:chat` | Direct Qwen interaction | `/qwen:chat "design authentication system"` |
-| `⚡ /qwen:execute` | Intelligent implementation with YOLO permissions | `/qwen:execute "implement user authentication"` |
-| `🚀 /qwen:mode:auto` | Auto template selection and execution | `/qwen:mode:auto "build microservices API"` |
-| `🐛 /qwen:mode:bug-index` | Bug analysis and fix suggestions | `/qwen:mode:bug-index "memory leak in service"` |
-| `📋 /qwen:mode:plan` | Architecture planning and analysis | `/qwen:mode:plan "design scalable database"` |
-| `🎯 /qwen:mode:plan-precise` | Precise architectural planning | `/qwen:mode:plan-precise "complex system migration"` |
+---
 
-### 🤖 **Codex CLI Commands** (Development & Implementation)
+### 📖 **Migration Guide: From v2 to v3.0.0**
 
-| Command | Purpose | Usage |
-|---------|---------|-------|
-| `🔍 /codex:analyze` | Development analysis | `/codex:analyze "optimization opportunities"` |
-| `💬 /codex:chat` | Direct Codex interaction | `/codex:chat "implement JWT auth"` |
-| `⚡ /codex:execute` | Autonomous implementation with YOLO permissions | `/codex:execute "refactor user service"` |
-| `🚀 /codex:mode:auto` | **PRIMARY**: Full autonomous development | `/codex:mode:auto "build payment system"` |
-| `🐛 /codex:mode:bug-index` | Autonomous bug fixing and implementation | `/codex:mode:bug-index "fix race condition"` |
-| `📋 /codex:mode:plan` | Development planning and implementation | `/codex:mode:plan "implement API endpoints"` |
+Version 3.0.0 introduces a unified CLI command structure, consolidating the previous tool-specific commands (`/gemini:*`, `/qwen:*`, `/codex:*`) into a single, more powerful `/cli:*` command set.
+
+**Key Change**: The specific tool (Gemini, Qwen, Codex) is now selected using the `--tool <name>` flag. If no tool is specified, it defaults to `gemini`.
+
+**Command Mapping:**
+
+| Old Command (v2) | New Command (v3.0.0) | Notes |
+|---|---|---|
+| `/gemini:analyze "..."` | `/cli:analyze "..."` | Defaults to Gemini. |
+| `/qwen:analyze "..."` | `/cli:analyze "..." --tool qwen` | Specify Qwen with `--tool`. |
+| `/codex:chat "..."` | `/cli:chat "..." --tool codex` | Specify Codex with `--tool`. |
+| `/gemini:execute "..."` | `/cli:execute "..."` | Defaults to Gemini. |
+| `/gemini:mode:bug-index "..."` | `/cli:mode:bug-index "..."` | Defaults to Gemini. |
+| `/qwen:mode:plan "..."` | `/cli:mode:plan "..." --tool qwen` | Specify Qwen with `--tool`. |
+
+The commands `/gemini:mode:auto` and `/gemini:mode:plan-precise` have been removed and their functionality integrated into the enhanced `/cli:execute` and `/cli:mode:plan` commands respectively.
+
+---
 
 ### 🎯 **Workflow Management**
 
 #### 📋 Session Management
 | Command | Function | Usage |
-|---------|----------|-------|
+|---|---|---|
 | `🚀 /workflow:session:start` | Create new session | `/workflow:session:start "OAuth2 System"` |
 | `⏸️ /workflow:session:pause` | Pause current session | `/workflow:session:pause` |
 | `▶️ /workflow:session:resume` | Resume session | `/workflow:session:resume "OAuth2 System"` |
@@ -197,7 +199,7 @@ CCW automatically adapts workflow structure based on project complexity:
 
 #### 🎯 Workflow Operations
 | Command | Function | Usage |
-|---------|----------|-------|
+|---|---|---|
 | `💭 /workflow:brainstorm:*` | Multi-perspective planning with role experts | `/workflow:brainstorm:system-architect "microservices"` |
 | `🤝 /workflow:brainstorm:synthesis` | Synthesize all brainstorming perspectives | `/workflow:brainstorm:synthesis` |
 | `🎨 /workflow:brainstorm:artifacts` | Generate structured planning documents | `/workflow:brainstorm:artifacts "topic description"` |
@@ -213,7 +215,7 @@ CCW automatically adapts workflow structure based on project complexity:
 
 #### 🏷️ Task Management
 | Command | Function | Usage |
-|---------|----------|-------|
+|---|---|---|
 | `➕ /task:create` | Create implementation task with context | `/task:create "User Authentication System"` |
 | `🔄 /task:breakdown` | Intelligent task decomposition | `/task:breakdown task-id` |
 | `⚡ /task:execute` | Execute tasks with appropriate agents | `/task:execute task-id` |
@@ -221,7 +223,7 @@ CCW automatically adapts workflow structure based on project complexity:
 
 #### 🏷️ Issue Management
 | Command | Function | Usage |
-|---------|----------|-------|
+|---|---|---|
 | `➕ /workflow:issue:create` | Create new project issue | `/workflow:issue:create "API Rate Limiting" --priority=high` |
 | `📋 /workflow:issue:list` | List and filter issues | `/workflow:issue:list --status=open --assigned=system-architect` |
 | `📝 /workflow:issue:update` | Update existing issue | `/workflow:issue:update ISS-001 --status=in-progress` |
@@ -229,7 +231,7 @@ CCW automatically adapts workflow structure based on project complexity:
 
 #### 🧠 Brainstorming Role Commands
 | Role | Command | Purpose |
-|------|---------|---------|
+|---|---|---|
 | 🏗️ **System Architect** | `/workflow:brainstorm:system-architect` | Technical architecture analysis |
 | 🔒 **Security Expert** | `/workflow:brainstorm:security-expert` | Security and threat analysis |
 | 📊 **Product Manager** | `/workflow:brainstorm:product-manager` | User needs and business value |
@@ -311,8 +313,8 @@ graph LR
 ```bash
 # Quick bug fix workflow
 /workflow:session:start "Payment Processing Fix"
-/gemini:mode:bug-index "Payment validation fails on concurrent requests"
-/codex:mode:bug-index "Fix race condition in payment validation"
+/cli:mode:bug-index "Payment validation fails on concurrent requests" --tool gemini
+/cli:mode:bug-index "Fix race condition in payment validation" --tool codex
 /workflow:review
 ```
 
@@ -320,10 +322,10 @@ graph LR
 ```bash
 # Deep architecture workflow
 /workflow:session:start "API Refactoring Initiative"
-/gemini:analyze "current API architecture patterns and technical debt"
+/cli:analyze "current API architecture patterns and technical debt" --tool gemini
 /workflow:plan-deep "microservices transition strategy"
 /workflow:plan-verify
-/qwen:mode:auto "Refactor monolith to microservices architecture"
+/cli:execute "Refactor monolith to microservices architecture" --tool qwen
 /workflow:test-gen WFS-api-refactoring-initiative
 /workflow:review
 ```
@@ -336,8 +338,8 @@ graph LR
 📁 .claude/
 ├── 🤖 agents/                 # AI agent definitions
 ├── 🎯 commands/              # CLI command implementations
-│   ├── 🔍 gemini/           # Gemini CLI commands
-│   ├── 🤖 codex/            # Codex CLI commands
+│   ├── cli/                 # NEW: Unified CLI commands
+│   │   └── mode/
 │   └── 🎯 workflow/         # Workflow management
 ├── 🎨 output-styles/         # Output formatting templates
 ├── 🎭 planning-templates/    # Role-specific planning
