@@ -1,10 +1,11 @@
 ---
 name: plan
 description: Create implementation plans by orchestrating intelligent context gathering and analysis modules
-usage: /workflow:plan <input>
-argument-hint: "text description"|file.md|ISS-001
+usage: /workflow:plan [--agent] <input>
+argument-hint: "[--agent] \"text description\"|file.md|ISS-001"
 examples:
   - /workflow:plan "Build authentication system"
+  - /workflow:plan --agent "Build authentication system"
   - /workflow:plan requirements.md
   - /workflow:plan ISS-001
 ---
@@ -14,7 +15,13 @@ examples:
 ## Overview
 Creates comprehensive implementation plans by orchestrating intelligent context gathering and analysis modules. Integrates with workflow session management, brainstorming artifacts, and automated task generation.
 
+**Execution Modes**:
+- **Manual Mode** (default): Command-driven task generation with phase-by-phase control
+- **Agent Mode** (`--agent`): Autonomous agent-driven task generation using action-planning-agent
+
 ## Core Planning Principles
+
+**⚡ Autonomous Execution Mandate**: Complete all planning phases sequentially without user interruption—from session initialization through task generation—ensuring full workflow integrity.
 
 ### Task Decomposition Standards
 
@@ -57,14 +64,15 @@ Creates comprehensive implementation plans by orchestrating intelligent context 
 ## Critical Process Requirements
 
 ### Session Management ⚠️ CRITICAL FIRST STEP
-- **⚡ FIRST ACTION**: Execute `SlashCommand(command="/workflow:session:start")` for intelligent session discovery
-- **Command Integration**: Uses `/workflow:session:start` command for intelligent session discovery and creation
-- **Active Session Check**: Check for all `.workflow/.active-*` markers before any planning
-- **Relevance Analysis**: Automatically analyzes task relevance with existing sessions
+- **⚡ FIRST ACTION**: Execute `SlashCommand(command="/workflow:session:start --auto \"[task-description]\"")` for intelligent session discovery
+- **Command Integration**: Uses `/workflow:session:start --auto` for automated session discovery and creation
+- **Auto Mode Behavior**: Automatically analyzes relevance and selects/creates appropriate session
+- **Relevance Analysis**: Keyword-based matching between task description and existing session projects
 - **Auto-session creation**: `WFS-[topic-slug]` only if no active session exists or task is unrelated
 - **Session continuity**: MUST use selected active session to maintain context
 - **⚠️ Dependency context**: MUST read ALL previous task summary documents from selected session before planning
 - **Session isolation**: Each session maintains independent context and state
+- **Output Parsing**: Extract session ID from output line matching pattern `SESSION_ID: WFS-[id]`
 
 ### Session ID Transmission Guidelines ⚠️ CRITICAL
 - **Format**: `WFS-[topic-slug]` from active session markers
@@ -81,11 +89,13 @@ Creates comprehensive implementation plans by orchestrating intelligent context 
 
 ### Phase 1: Session Management & Discovery ⚠️ TodoWrite Control
 1. **TodoWrite Initialization**: Initialize flow control, mark first phase as `in_progress`
-2. **Session Discovery**: Execute `SlashCommand(command="/workflow:session:start [task-description]")`
-3. **Relevance Analysis**: Automatically analyze task relevance with existing sessions
-4. **Session Selection**: Auto-select or create session based on relevance analysis
+2. **Session Discovery**: Execute `SlashCommand(command="/workflow:session:start --auto \"[task-description]\"")`
+3. **Parse Session ID**: Extract session ID from command output matching pattern `SESSION_ID: WFS-[id]`
+4. **Validate Session**: Verify session directory structure and metadata exist
 5. **Context Preparation**: Load session state and prepare for planning
 6. **TodoWrite Update**: Mark phase 1 as `completed`, phase 2 as `in_progress`
+
+**Note**: The `--auto` flag enables automatic relevance analysis and session selection/creation without user interaction.
 
 ### Phase 2: Context Gathering & Asset Discovery ⚠️ TodoWrite Control
 1. **Context Collection**: Execute `SlashCommand(command="/workflow:tools:context-gather --session WFS-[id] \"task description\"")`
@@ -102,12 +112,30 @@ Creates comprehensive implementation plans by orchestrating intelligent context 
 5. **TodoWrite Update**: Mark phase 3 as `completed`, phase 4 as `in_progress`
 
 ### Phase 4: Plan Assembly & Artifact Integration ⚠️ TodoWrite Control
+**Delegated to**:
+- Manual Mode: `/workflow:tools:task-generate --session WFS-[id]`
+- Agent Mode: `/workflow:tools:task-generate-agent --session WFS-[id]`
+
+Execute task generation command to:
 1. **Artifact Detection**: Scan session for brainstorming outputs (.brainstorming/ directory)
 2. **Plan Generation**: Create IMPL_PLAN.md from analysis results and artifacts
-3. **Enhanced Task JSON Creation**: Generate task JSON files with artifacts integration
+3. **Enhanced Task JSON Creation**: Generate task JSON files with artifacts integration (5-field schema)
 4. **TODO List Creation**: Generate TODO_LIST.md with artifact references
 5. **Session Update**: Mark session as ready for execution with artifact context
 6. **TodoWrite Completion Validation**: Ensure all phases are marked as `completed` for complete execution
+
+**Command Execution**:
+```bash
+# Manual Mode (default)
+SlashCommand(command="/workflow:tools:task-generate --session WFS-[id]")
+
+# Agent Mode (if --agent flag provided)
+SlashCommand(command="/workflow:tools:task-generate-agent --session WFS-[id]")
+```
+
+**Reference Documentation**:
+- Manual: `@.claude/commands/workflow/tools/task-generate.md`
+- Agent: `@.claude/commands/workflow/tools/task-generate-agent.md`
 
 ## TodoWrite Progress Tracking ⚠️ CRITICAL FLOW CONTROL
 
@@ -145,7 +173,7 @@ TodoWrite({
 })
 
 // Step 2: Execute SlashCommand and Update Status Immediately
-SlashCommand(command="/workflow:session:start task-description")
+SlashCommand(command="/workflow:session:start --auto \"task-description\"")
 // After command completion:
 TodoWrite({
   todos: [
@@ -168,241 +196,27 @@ SlashCommand(command="/workflow:tools:context-gather --session WFS-[id] \"task d
 - ✅ **Error Handling**: If command fails, remain in current phase until issue resolved
 - ✅ **Final Validation**: All todos status must be `completed` for planning completion
 
+## Output Documents
 
-## Output Document Structures
+### Generated Files
+**Documents Created by Phase 4** (`/workflow:tools:task-generate`):
+- **IMPL_PLAN.md**: Implementation plan with context analysis and artifact references
+- **.task/*.json**: Task definitions using 5-field schema with flow_control and artifacts
+- **TODO_LIST.md**: Progress tracking (container tasks with ▸, leaf tasks with checkboxes)
 
-### IMPL_PLAN.md Structure ⚠️ REQUIRED FORMAT
-
-**File Header** (required)：
-- **Identifier**: Unique project identifier and session ID, format WFS-[topic]
-- **Source**: Input type, e.g. "User requirements analysis"
-- **Analysis**: Analysis document reference
-
-**Summary** (execution overview)：
-- Concise description of core requirements and objectives
-- Technical direction and implementation approach
-
-**Context Analysis** (context analysis)：
-- **Project** - Project type and architectural patterns
-- **Modules** - Involved modules and component list
-- **Dependencies** - Dependency mapping and constraints
-- **Patterns** - Identified code patterns and conventions
-
-**Task Breakdown** (task decomposition)：
-- **Task Count** - Total task count and complexity level
-- **Hierarchy** - Task organization structure (flat/hierarchical)
-- **Dependencies** - Inter-task dependency graph
-
-**Implementation Plan** (implementation plan)：
-- **Execution Strategy** - Execution strategy and methodology
-- **Resource Requirements** - Required resources and tool selection
-- **Success Criteria** - Success criteria and acceptance conditions
-
-## Technical Reference
-
-### Enhanced Task JSON Schema (5-Field + Artifacts)
-Each task.json uses the workflow-architecture.md 5-field schema enhanced with artifacts:
-- **id**: IMPL-N[.M] format (max 2 levels)
-- **title**: Descriptive task name
-- **status**: pending|active|completed|blocked|container
-- **meta**: { type, agent }
-- **context**: { requirements, focus_paths, acceptance, parent, depends_on, inherited, shared_context, **artifacts** }
-- **flow_control**: { pre_analysis[] (with artifact loading), implementation_approach, target_files[] }
-
-**Streamlined Artifacts Field with Single Synthesis Document**:
-```json
-"artifacts": [
-  {
-    "type": "synthesis_specification",
-    "source": "brainstorm_synthesis",
-    "path": ".workflow/WFS-[session]/.brainstorming/synthesis-specification.md",
-    "priority": "highest",
-    "contains": "complete_integrated_specification"
-  },
-  {
-    "type": "topic_framework",
-    "source": "brainstorm_framework",
-    "path": ".workflow/WFS-[session]/.brainstorming/topic-framework.md",
-    "priority": "medium",
-    "contains": "discussion_framework_structure"
-  },
-  {
-    "type": "individual_role_analysis",
-    "source": "brainstorm_roles",
-    "path": ".workflow/WFS-[session]/.brainstorming/[role]/analysis.md",
-    "priority": "low",
-    "contains": "role_specific_analysis_fallback"
-  }
-]
-```
-
-**MCP Tools Integration**: Enhanced with optional MCP servers for advanced analysis:
-- **Code Index MCP**: `mcp__code-index__find_files()`, `mcp__code-index__search_code_advanced()`
-- **Exa MCP**: `mcp__exa__get_code_context_exa()` for external patterns
-
-
-
-
-### Context Management & Agent Execution
-
-**Agent Context Loading** ⚠️ CRITICAL
-The following pre_analysis steps are generated for agent execution:
-
-```json
-// Example pre_analysis steps generated by /workflow:plan for agent execution
-"flow_control": {
-  "pre_analysis": [
-    {
-      "step": "load_synthesis_specification",
-      "action": "Load consolidated synthesis specification from brainstorming",
-      "commands": [
-        "bash(ls .workflow/WFS-[session]/.brainstorming/synthesis-specification.md 2>/dev/null || echo 'synthesis specification not found')",
-        "Read(.workflow/WFS-[session]/.brainstorming/synthesis-specification.md)"
-      ],
-      "output_to": "synthesis_specification",
-      "on_error": "skip_optional"
-    },
-    {
-      "step": "load_individual_role_artifacts",
-      "action": "Load individual role analyses as fallback",
-      "commands": [
-        "bash(find .workflow/WFS-[session]/.brainstorming/ -name 'analysis.md' 2>/dev/null | head -8)",
-        "Read(.workflow/WFS-[session]/.brainstorming/ui-designer/analysis.md)",
-        "Read(.workflow/WFS-[session]/.brainstorming/system-architect/analysis.md)",
-        "Read(.workflow/WFS-[session]/.brainstorming/topic-framework.md)"
-      ],
-      "output_to": "individual_artifacts",
-      "on_error": "skip_optional"
-    },
-    {
-      "step": "load_planning_context",
-      "action": "Load plan-generated analysis and context",
-      "commands": [
-        "Read(.workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md)",
-        "Read(.workflow/WFS-[session]/.process/context-package.json)"
-      ],
-      "output_to": "planning_context"
-    },
-    {
-      "step": "load_context_assets",
-      "action": "Load structured assets from context package",
-      "command": "Read(.workflow/WFS-[session]/.process/context-package.json)",
-      "output_to": "context_assets"
-    },
-    {
-      "step": "mcp_codebase_exploration",
-      "action": "Explore codebase structure and patterns using MCP tools",
-      "command": "mcp__code-index__find_files(pattern=\"[task_focus_patterns]\") && mcp__code-index__search_code_advanced(pattern=\"[relevant_patterns]\", file_pattern=\"[target_extensions]\")",
-      "output_to": "codebase_structure"
-    },
-    {
-      "step": "mcp_external_context",
-      "action": "Get external API examples and best practices",
-      "command": "mcp__exa__get_code_context_exa(query=\"[task_technology] [task_patterns]\", tokensNum=\"dynamic\")",
-      "output_to": "external_context"
-    },
-    {
-      "step": "load_dependencies",
-      "action": "Retrieve dependency task summaries",
-      "command": "bash(cat .workflow/WFS-[session]/.summaries/IMPL-[dependency_id]-summary.md 2>/dev/null || echo 'dependency summary not found')",
-      "output_to": "dependency_context"
-    },
-    {
-      "step": "load_base_documentation",
-      "action": "Load core documentation files",
-      "commands": [
-        "bash(cat .workflow/docs/README.md 2>/dev/null || echo 'base docs not found')",
-        "bash(cat CLAUDE.md README.md 2>/dev/null || echo 'project docs not found')"
-      ],
-      "output_to": "base_docs"
-    },
-    {
-      "step": "load_task_specific_docs",
-      "action": "Load documentation relevant to task type",
-      "commands": [
-        "bash(cat .workflow/docs/architecture/*.md 2>/dev/null || echo 'architecture docs not found')",
-        "bash(cat .workflow/docs/api/*.md 2>/dev/null || echo 'api docs not found')"
-      ],
-      "output_to": "task_docs"
-    },
-    {
-      "step": "analyze_task_patterns",
-      "action": "Analyze existing code patterns for task context",
-      "commands": [
-        "bash(cd \"[task_focus_paths]\")",
-        "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze task patterns TASK: Review '[task_title]' patterns CONTEXT: Task [task_id] in [task_focus_paths], synthesis spec: [synthesis_specification], fallback artifacts: [individual_artifacts] EXPECTED: Pattern analysis integrating consolidated design specification RULES: Prioritize synthesis-specification.md over individual artifacts, align with consolidated requirements and design\")"
-      ],
-      "output_to": "task_context",
-      "on_error": "fail"
-    }
-  ],
-  "implementation_approach": {
-    "task_description": "Implement '[task_title]' following consolidated synthesis specification from [synthesis_specification] with fallback to [individual_artifacts]",
-    "modification_points": [
-      "Apply consolidated requirements and design patterns from synthesis-specification.md",
-      "Follow technical guidelines and implementation roadmap from synthesis specification",
-      "Integrate with existing patterns while maintaining design integrity from consolidated specification"
-    ],
-    "logic_flow": [
-      "Load consolidated synthesis specification as primary context",
-      "Extract specific requirements, design patterns, and technical guidelines",
-      "Analyze existing code patterns for integration with synthesized design",
-      "Implement feature following consolidated specification",
-      "Validate implementation against synthesized acceptance criteria"
-    ]
-  }
-}
-```
-
-## Advanced Features
-
-### Artifact Detection & Integration ⚠️ ENHANCED FEATURE
-
-**Automatic Brainstorming Artifact Scanning**:
-1. **Session Scan**: Check `.workflow/WFS-[session]/.brainstorming/` directory
-2. **Role Detection**: Identify completed role analyses (ui-designer, system-architect, etc.)
-3. **Artifact Mapping**: Map artifacts to relevant task types
-4. **Relevance Scoring**: Assign relevance scores based on task-artifact alignment
-
-**Artifact-Task Relevance Matrix**:
-- **ui-designer** → UI/Frontend/Component tasks (high relevance)
-- **system-architect** → Architecture/Backend/Database tasks (high relevance)
-- **security-expert** → Authentication/Security/Validation tasks (high relevance)
-- **data-architect** → Data/API/Analytics tasks (high relevance)
-- **product-manager** → Feature/Business Logic tasks (medium relevance)
-- **topic-framework.md** → All tasks (low-medium relevance for context)
-
-**Artifact-Enhanced Task Creation Process**:
-1. **Standard Task Generation**: Create base task from analysis results
-2. **Artifact Detection**: Scan for relevant brainstorming outputs
-3. **Context Enrichment**: Add artifacts array to task.context
-4. **Pre-Analysis Enhancement**: Insert artifact loading steps
-5. **Implementation Update**: Reference artifacts in task description and approach
-
-**Automatic Artifact Integration Example**:
-```json
-{
-  "step": "load_brainstorming_artifacts",
-  "action": "Load brainstorming artifacts and design documents",
-  "commands": [
-    "bash(find .workflow/WFS-[session]/.brainstorming/ -name 'analysis.md' 2>/dev/null | while read file; do echo \"=== $(dirname \"$file\" | xargs basename) ===\"; cat \"$file\"; echo; done)",
-    "Read(.workflow/WFS-[session]/.brainstorming/topic-framework.md)"
-  ],
-  "output_to": "brainstorming_artifacts",
-  "on_error": "skip_optional"
-}
-```
-
-### Integration & Output
+**Key Schemas**:
+- **Task JSON**: 5-field schema (id, title, status, meta, context, flow_control) with artifacts integration
+- **Artifacts**: synthesis-specification.md (highest), topic-framework.md (medium), role analyses (low)
+- **Flow Control**: Pre-analysis steps for artifact loading, MCP tools, and pattern analysis
 
 **Architecture Reference**: `@~/.claude/workflows/workflow-architecture.md`
 
-**Documents Created for `/workflow:execute`**:
-- **IMPL_PLAN.md**: Context loading and requirements with artifact references
-- **.task/*.json**: Agent implementation context with enhanced artifact loading
-- **TODO_LIST.md**: Status tracking (container tasks with ▸, leaf tasks with checkboxes)
+## Command Chain Integration
+1. `/workflow:plan [--agent]` → Orchestrates planning phases and delegates to modular commands
+2. `/workflow:tools:context-gather` → Collects project context (Phase 2)
+3. `/workflow:tools:concept-enhanced` → Analyzes and generates recommendations (Phase 3)
+4. `/workflow:tools:task-generate` or `/workflow:tools:task-generate-agent` → Creates tasks and documents (Phase 4)
 
-**Command Chain Integration**:
-1. `/workflow:plan` → Creates implementation plan with task breakdown
-2. `/workflow:execute` → Executes tasks using generated plan and context
-3. Task management system → Tracks progress and dependencies
+**Next Steps** (manual execution):
+- Run `/workflow:execute` to begin task execution
+- Run `/workflow:status` to check planning results and task status
