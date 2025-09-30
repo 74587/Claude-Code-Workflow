@@ -23,11 +23,11 @@
 
 ### 🌟 Key Innovations
 
-- **🔄 Enhanced Workflow Lifecycle**: Complete development cycle: Brainstorm → Plan → Verify → Execute → Test → Review
+- **🔄 Enhanced Workflow Lifecycle**: Complete development cycle: Brainstorm → Plan → Execute → Test → Review
 - **🧪 Automated Test Generation**: Comprehensive test workflow generation (`/workflow:test-gen`) with full coverage planning
-- **✅ Plan Verification System**: Pre-execution validation using dual Gemini/Codex analysis (`/workflow:plan-verify`)
 - **🎯 JSON-First Architecture**: Single source of truth with atomic session management
 - **💡 Brainstorm Artifacts**: Multi-perspective planning with synthesis and structured document generation
+- **🤖 Intelligent Agent Orchestration**: Automated agent assignment and task coordination
 - **🔧 MCP Tools Integration** *(Experimental)*: Enhanced codebase analysis through Model Context Protocol tools
 
 ---
@@ -105,10 +105,9 @@ Complete development lifecycle with quality gates at each phase:
 
 1. **💡 Brainstorm Phase** - Multi-perspective conceptual planning with role-based analysis
 2. **📋 Plan Phase** - Structured implementation planning with task decomposition
-3. **✅ Verify Phase** - Pre-execution validation using Gemini (strategic) + Codex (technical)
-4. **⚡ Execute Phase** - Autonomous implementation with multi-agent orchestration
-5. **🧪 Test Phase** - Automated test workflow generation with comprehensive coverage
-6. **🔍 Review Phase** - Quality assurance and completion validation
+3. **⚡ Execute Phase** - Autonomous implementation with multi-agent orchestration
+4. **🧪 Test Phase** - Automated test workflow generation with comprehensive coverage
+5. **🔍 Review Phase** - Quality assurance and completion validation
 
 ### 🧪 **Automated Test Generation**
 Comprehensive test workflow creation:
@@ -117,12 +116,6 @@ Comprehensive test workflow creation:
 - **Agent Assignment**: Specialized test agents for different test types
 - **Dependency Mapping**: Test execution follows implementation dependency chains
 
-### ✅ **Plan Verification System**
-Dual-engine validation before execution:
-- **Gemini Strategic Analysis**: High-level feasibility and architectural soundness
-- **Codex Technical Analysis**: Implementation details and technical feasibility
-- **Cross-Validation**: Identifies conflicts between strategic vision and technical constraints
-- **Improvement Suggestions**: Actionable recommendations before implementation begins
 
 ---
 
@@ -145,7 +138,6 @@ CCW automatically adapts workflow structure based on project complexity:
 | Command | Function | Example |
 |---|---|---|
 | `🎯 /enhance-prompt` | Technical context enhancement | `/enhance-prompt "add auth system"` |
-| `📊 /context` | Unified context management | `/context --analyze --format=tree` |
 | `📝 /update-memory-full` | Complete documentation update | `/update-memory-full` |
 | `🔄 /update-memory-related` | Smart context-aware updates | `/update-memory-related` |
 
@@ -194,6 +186,7 @@ The commands `/gemini:mode:auto` and `/gemini:mode:plan-precise` have been remov
 | `🚀 /workflow:session:start` | Create new session | `/workflow:session:start "OAuth2 System"` |
 | `⏸️ /workflow:session:pause` | Pause current session | `/workflow:session:pause` |
 | `▶️ /workflow:session:resume` | Resume session | `/workflow:session:resume "OAuth2 System"` |
+| `✅ /workflow:session:complete` | Complete current session | `/workflow:session:complete` |
 | `📋 /workflow:session:list` | List all sessions | `/workflow:session:list --active` |
 | `🔄 /workflow:session:switch` | Switch sessions | `/workflow:session:switch "Payment Fix"` |
 
@@ -201,17 +194,26 @@ The commands `/gemini:mode:auto` and `/gemini:mode:plan-precise` have been remov
 | Command | Function | Usage |
 |---|---|---|
 | `💭 /workflow:brainstorm:*` | Multi-perspective planning with role experts | `/workflow:brainstorm:system-architect "microservices"` |
+| `🚀 /workflow:brainstorm:auto-parallel` | Automated parallel brainstorming | `/workflow:brainstorm:auto-parallel "topic"` |
+| `🔄 /workflow:brainstorm:auto-squeeze` | Automated sequential brainstorming | `/workflow:brainstorm:auto-squeeze "topic"` |
 | `🤝 /workflow:brainstorm:synthesis` | Synthesize all brainstorming perspectives | `/workflow:brainstorm:synthesis` |
 | `🎨 /workflow:brainstorm:artifacts` | Generate structured planning documents | `/workflow:brainstorm:artifacts "topic description"` |
 | `📋 /workflow:plan` | Convert to executable implementation plans | `/workflow:plan "description" \| file.md \| ISS-001` |
-| `🔍 /workflow:plan-deep` | Deep technical planning with Gemini analysis | `/workflow:plan-deep "requirements description"` |
-| `✅ /workflow:plan-verify` | Pre-execution validation using dual analysis | `/workflow:plan-verify` |
 | `⚡ /workflow:execute` | Coordinate agents for implementation | `/workflow:execute` |
 | `🔄 /workflow:resume` | Intelligent workflow resumption | `/workflow:resume [--from TASK-ID] [--retry]` |
-| `📊 /workflow:status` | Generate on-demand views from task data | `/workflow:status [task-id] [format] [validation]` |
+| `📊 /workflow:status` | Generate on-demand views from task data | `/workflow:status [task-id]` |
 | `🧪 /workflow:test-gen` | Generate comprehensive test workflows | `/workflow:test-gen WFS-session-id` |
 | `🔍 /workflow:review` | Execute review phase for quality validation | `/workflow:review` |
-| `📚 /workflow:docs` | Generate hierarchical documentation | `/workflow:docs "architecture" \| "api" \| "all"` |
+
+#### 🔧 Workflow Tools (Internal)
+| Command | Function | Usage |
+|---|---|---|
+| `🔍 /workflow:tools:context-gather` | Intelligent context collection | `/workflow:tools:context-gather --session WFS-id "task"` |
+| `🧪 /workflow:tools:concept-enhanced` | Enhanced concept analysis | `/workflow:tools:concept-enhanced --session WFS-id` |
+| `📝 /workflow:tools:task-generate` | Manual task generation | `/workflow:tools:task-generate --session WFS-id` |
+| `🤖 /workflow:tools:task-generate-agent` | Autonomous task generation | `/workflow:tools:task-generate-agent --session WFS-id` |
+| `📊 /workflow:tools:status` | Advanced status reporting | `/workflow:tools:status [task-id]` |
+| `📚 /workflow:tools:docs` | Generate hierarchical documentation | `/workflow:tools:docs "architecture" \| "api" \| "all"` |
 
 #### 🏷️ Task Management
 | Command | Function | Usage |
@@ -255,11 +257,10 @@ graph TD
     SESSION --> BRAINSTORM["/workflow:brainstorm:system-architect topic"]
     BRAINSTORM --> SYNTHESIS["/workflow:brainstorm:synthesis"]
     SYNTHESIS --> PLAN["/workflow:plan description"]
-    PLAN --> VERIFY["/workflow:plan-verify"]
-    VERIFY --> EXECUTE["/workflow:execute"]
+    PLAN --> EXECUTE["/workflow:execute"]
     EXECUTE --> TEST["/workflow:test-gen WFS-session-id"]
     TEST --> REVIEW["/workflow:review"]
-    REVIEW --> DOCS["/workflow:docs all"]
+    REVIEW --> DOCS["/workflow:tools:docs all"]
     DOCS --> COMPLETE[✅ Complete]
 ```
 
@@ -293,20 +294,17 @@ graph LR
 # 4. Create executable implementation plan
 /workflow:plan "user dashboard with analytics and real-time data"
 
-# 5. Verify plan before execution
-/workflow:plan-verify
-
-# 6. Execute implementation with agent coordination
+# 5. Execute implementation with agent coordination
 /workflow:execute
 
-# 7. Generate comprehensive test suite
+# 6. Generate comprehensive test suite
 /workflow:test-gen WFS-user-dashboard-feature
 
-# 8. Quality assurance and review
+# 7. Quality assurance and review
 /workflow:review
 
-# 9. Generate documentation
-/workflow:docs "all"
+# 8. Generate documentation
+/workflow:tools:docs "all"
 ```
 
 #### **⚡ Rapid Bug Resolution**
@@ -323,8 +321,7 @@ graph LR
 # Deep architecture workflow
 /workflow:session:start "API Refactoring Initiative"
 /cli:analyze "current API architecture patterns and technical debt" --tool gemini
-/workflow:plan-deep "microservices transition strategy"
-/workflow:plan-verify
+/workflow:plan "microservices transition strategy"
 /cli:execute "Refactor monolith to microservices architecture" --tool qwen
 /workflow:test-gen WFS-api-refactoring-initiative
 /workflow:review
