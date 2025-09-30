@@ -68,7 +68,7 @@ Creates comprehensive implementation plans by orchestrating intelligent context 
 
 ### Session ID Transmission Guidelines ⚠️ CRITICAL
 - **Format**: `WFS-[topic-slug]` from active session markers
-- **Usage**: `SlashCommand(command="/workflow:tools:context-gather --session WFS-[id]")` and `SlashCommand(command="/workflow:tools:plan-enchanced --session WFS-[id]")`
+- **Usage**: `SlashCommand(command="/workflow:tools:context-gather --session WFS-[id]")` and `SlashCommand(command="/workflow:tools:concept-enhanced --session WFS-[id]")`
 - **Rule**: ALL modular commands MUST receive current session ID for context continuity
 
 ### Brainstorming Artifacts Integration ⚠️ NEW FEATURE
@@ -95,10 +95,10 @@ Creates comprehensive implementation plans by orchestrating intelligent context 
 5. **TodoWrite Update**: Mark phase 2 as `completed`, phase 3 as `in_progress`
 
 ### Phase 3: Intelligent Analysis & Tool Orchestration ⚠️ TodoWrite Control
-1. **Analysis Execution**: Execute `SlashCommand(command="/workflow:tools:plan-enchanced --session WFS-[id] --context path/to/context-package.json")`
-2. **Tool Selection**: Automatically select optimal analysis tools (Gemini/Qwen/Codex)
-3. **Result Generation**: Produce structured ANALYSIS_RESULTS.md with task recommendations
-4. **Validation**: Verify analysis completeness and task recommendations
+1. **Analysis Execution**: Execute `SlashCommand(command="/workflow:tools:concept-enhanced --session WFS-[id] --context path/to/context-package.json")` (delegated to independent concept-enhanced command)
+2. **Context Passing**: Pass session ID and context package path from Phase 2 to enable comprehensive analysis
+3. **Result Generation**: Produce structured ANALYSIS_RESULTS.md with task recommendations via concept-enhanced command
+4. **Validation**: Verify analysis completeness and task recommendations from concept-enhanced output
 5. **TodoWrite Update**: Mark phase 3 as `completed`, phase 4 as `in_progress`
 
 ### Phase 4: Plan Assembly & Artifact Integration ⚠️ TodoWrite Control

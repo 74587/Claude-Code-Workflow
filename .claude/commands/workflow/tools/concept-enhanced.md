@@ -1,5 +1,5 @@
 ---
-name: plan-enchanced
+name: concept-enhanced
 description: Enhanced intelligent analysis with parallel CLI execution and design blueprint generation
 usage: /workflow:tools:concept-enhanced --session <session_id> --context <context_package_path>
 argument-hint: "--session WFS-session-id --context path/to/context-package.json"
@@ -8,10 +8,12 @@ examples:
   - /workflow:tools:concept-enhanced --session WFS-payment --context .workflow/WFS-payment/.process/context-package.json
 ---
 
-# Enhanced Planning Command (/workflow:tools:concept-enhanced)
+# Enhanced Analysis Command (/workflow:tools:concept-enhanced)
 
 ## Overview
 Advanced intelligent planning engine with parallel CLI execution that processes standardized context packages, generates enhanced suggestions and design blueprints, and produces comprehensive analysis results with implementation strategies.
+
+**Independent Usage**: This command can be called directly by users or as part of the `/workflow:plan` command. It accepts context packages and provides comprehensive analysis results that can be used for planning or standalone analysis.
 
 ## Core Philosophy
 - **Context-Driven**: Precise analysis based on comprehensive context
