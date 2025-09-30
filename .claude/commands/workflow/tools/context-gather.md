@@ -296,6 +296,6 @@ rg -A 2 -B 2 "{keywords}" --type-add 'source:*.{ts,js,py,go}' -t source --max-co
 - File relevance accuracy rate >80%
 
 ## Related Commands
-- `/analysis:run` - Consumes output of this command for analysis
+- `/workflow:tools:concept-enhanced` - Consumes output of this command for analysis
 - `/workflow:plan` - Calls this command to gather context
 - `/workflow:status` - Can display context collection status

@@ -1,43 +1,61 @@
 ---
-name: gemini-init
-description: Initialize Gemini CLI configuration with .gemini config and .geminiignore based on workspace analysis
-usage: /gemini:gemini-init [--output=<path>] [--preview]
-argument-hint: [optional: output path, preview flag]
+name: cli-init
+description: Initialize CLI tool configurations (Gemini and Qwen) based on workspace analysis
+usage: /cli:cli-init [--tool <gemini|qwen|all>] [--output=<path>] [--preview]
+argument-hint: "[--tool gemini|qwen|all] [--output path] [--preview]"
 examples:
-  - /gemini:gemini-init
-  - /gemini:gemini-init --output=.config/
-  - /gemini:gemini-init --preview
+  - /cli:cli-init
+  - /cli:cli-init --tool qwen
+  - /cli:cli-init --tool all --preview
+  - /cli:cli-init --output=.config/
+allowed-tools: Bash(*), Read(*), Write(*), Glob(*)
 ---
 
-# Gemini Initialization Command
+# CLI Initialization Command (/cli:cli-init)
 
 ## Overview
-Initializes Gemini CLI configuration for the workspace by:
+Initializes CLI tool configurations for the workspace by:
 1. Analyzing current workspace using `get_modules_by_depth.sh` to identify technology stacks
-2. Generating `.geminiignore` file with filtering rules optimized for detected technologies
-3. Creating `.gemini` configuration file with contextfilename and other settings
+2. Generating ignore files (`.geminiignore` and `.qwenignore`) with filtering rules optimized for detected technologies
+3. Creating configuration directories (`.gemini/` and `.qwen/`) with settings.json files
+
+**Supported Tools**: gemini, qwen, all (default: all)
 
 ## Core Functionality
 
 ### Configuration Generation
 1. **Workspace Analysis**: Runs `get_modules_by_depth.sh` to analyze project structure
 2. **Technology Stack Detection**: Identifies tech stacks based on file extensions, directories, and configuration files
-3. **Gemini Config Creation**: Generates `.gemini` file with contextfilename and workspace-specific settings
-4. **Ignore Rules Generation**: Creates `.geminiignore` file with filtering patterns for detected technologies
+3. **Config Creation**: Generates tool-specific configuration directories and settings files
+4. **Ignore Rules Generation**: Creates ignore files with filtering patterns for detected technologies
 
 ### Generated Files
 
-#### .gemini Configuration Directory
-Creates `.gemini/` directory containing configuration files:
-- `.gemini/settings.json` - Main configuration with contextfilename setting:
+#### Configuration Directories
+Creates tool-specific configuration directories:
+
+**For Gemini** (`.gemini/`):
+- `.gemini/settings.json`:
 ```json
 {
   "contextfilename": "CLAUDE.md"
 }
 ```
 
-#### .geminiignore Filter File
-Uses gitignore syntax to filter files from Gemini CLI analysis
+**For Qwen** (`.qwen/`):
+- `.qwen/settings.json`:
+```json
+{
+  "contextfilename": "CLAUDE.md"
+}
+```
+
+#### Ignore Files
+Uses gitignore syntax to filter files from CLI tool analysis:
+- `.geminiignore` - For Gemini CLI
+- `.qwenignore` - For Qwen CLI
+
+Both files have identical content based on detected technologies.
 
 ### Supported Technology Stacks
 
@@ -124,39 +142,65 @@ target/
 
 ## Command Options
 
-### Basic Usage
+### Tool Selection
+
+**Initialize All Tools (default)**:
 ```bash
-/gemini:gemini-init
+/cli:cli-init
 ```
-- Analyzes workspace and generates `.gemini/` directory with `settings.json` and `.geminiignore` in current directory
-- Creates backup of existing files if present
-- Sets contextfilename to "CLAUDE.md" by default
+- Creates `.gemini/`, `.qwen/` directories with settings.json
+- Creates `.geminiignore` and `.qwenignore` files
+- Sets contextfilename to "CLAUDE.md" for both
+
+**Initialize Gemini Only**:
+```bash
+/cli:cli-init --tool gemini
+```
+- Creates only `.gemini/` directory and `.geminiignore` file
+
+**Initialize Qwen Only**:
+```bash
+/cli:cli-init --tool qwen
+```
+- Creates only `.qwen/` directory and `.qwenignore` file
 
 ### Preview Mode
 ```bash
-/gemini:gemini-init --preview
+/cli:cli-init --preview
 ```
 - Shows what would be generated without creating files
 - Displays detected technologies, configuration, and ignore rules
 
 ### Custom Output Path
 ```bash
-/gemini:gemini-init --output=.config/
+/cli:cli-init --output=.config/
 ```
 - Generates files in specified directory
 - Creates directories if they don't exist
+
+### Combined Options
+```bash
+/cli:cli-init --tool qwen --preview
+/cli:cli-init --tool all --output=.config/
+```
 
 ## EXECUTION INSTRUCTIONS ⚡ START HERE
 
 **When this command is triggered, follow these exact steps:**
 
-### Step 1: Workspace Analysis (MANDATORY FIRST)
+### Step 1: Parse Tool Selection
+```bash
+# Extract --tool flag (default: all)
+# Options: gemini, qwen, all
+```
+
+### Step 2: Workspace Analysis (MANDATORY FIRST)
 ```bash
 # Analyze workspace structure
 bash(~/.claude/scripts/get_modules_by_depth.sh json)
 ```
 
-### Step 2: Technology Detection
+### Step 3: Technology Detection
 ```bash
 # Check for common tech stack indicators
 bash(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
@@ -165,22 +209,44 @@ bash(find . -name "pom.xml" -o -name "build.gradle" | head -1)
 bash(find . -name "Dockerfile" | head -1)
 ```
 
-### Step 3: Generate Configuration Files
+### Step 4: Generate Configuration Files
+
+**For Gemini** (if --tool is gemini or all):
 ```bash
-# Create .gemini/ directory and settings.json config file
+# Create .gemini/ directory and settings.json
+mkdir -p .gemini
+echo '{"contextfilename": "CLAUDE.md"}' > .gemini/settings.json
+
 # Create .geminiignore file with detected technology rules
 # Backup existing files if present
 ```
 
-### Step 4: Validation
+**For Qwen** (if --tool is qwen or all):
+```bash
+# Create .qwen/ directory and settings.json
+mkdir -p .qwen
+echo '{"contextfilename": "CLAUDE.md"}' > .qwen/settings.json
+
+# Create .qwenignore file with detected technology rules
+# Backup existing files if present
+```
+
+### Step 5: Validation
 ```bash
 # Verify generated files are valid
-bash(ls -la .gemini* 2>/dev/null || echo "Configuration files created")
+bash(ls -la .gemini* .qwen* 2>/dev/null || echo "Configuration files created")
 ```
 
 ## Implementation Process (Technical Details)
 
-### Phase 1: Workspace Analysis
+### Phase 1: Tool Selection
+1. Parse `--tool` flag from command arguments
+2. Determine which configurations to generate:
+   - `gemini`: Generate .gemini/ and .geminiignore only
+   - `qwen`: Generate .qwen/ and .qwenignore only
+   - `all` (default): Generate both sets of files
+
+### Phase 2: Workspace Analysis
 1. Execute `get_modules_by_depth.sh json` to get structured project data
 2. Parse JSON output to identify directories and files
 3. Scan for technology indicators:
@@ -189,7 +255,7 @@ bash(ls -la .gemini* 2>/dev/null || echo "Configuration files created")
    - File extensions (.js, .py, .java, etc.)
 4. Detect project name from directory name or package.json
 
-### Phase 2: Technology Detection
+### Phase 3: Technology Detection
 ```bash
 # Technology detection logic
 detect_nodejs() {
@@ -207,33 +273,52 @@ detect_java() {
 }
 ```
 
-### Phase 3: Configuration Generation
-1. **Gemini Config (.gemini/ directory)**:
-   - Create `.gemini/` directory if it doesn't exist
+### Phase 4: Configuration Generation
+**For each selected tool**, create:
+
+1. **Config Directory**:
+   - Create `.gemini/` or `.qwen/` directory if it doesn't exist
    - Generate `settings.json` with contextfilename setting
    - Set contextfilename to "CLAUDE.md" by default
 
-### Phase 4: Ignore Rules Generation
+2. **Settings.json Format** (identical for both tools):
+```json
+{
+  "contextfilename": "CLAUDE.md"
+}
+```
+
+### Phase 5: Ignore Rules Generation
 1. Start with base rules (always included)
 2. Add technology-specific rules based on detection
 3. Add workspace-specific patterns if found
 4. Sort and deduplicate rules
+5. Generate identical content for both `.geminiignore` and `.qwenignore`
 
-### Phase 5: File Creation
-1. **Generate .gemini/ directory and settings.json**: Create directory structure and JSON configuration file
-2. **Generate .geminiignore**: Create organized ignore file with sections
+### Phase 6: File Creation
+1. **Generate config directories**: Create `.gemini/` and/or `.qwen/` directories with settings.json
+2. **Generate ignore files**: Create organized ignore files with sections
 3. **Create backups**: Backup existing files if present
 4. **Validate**: Check generated files are valid
 
 ## Generated File Format
 
+### Configuration Files
+```json
+// .gemini/settings.json or .qwen/settings.json
+{
+  "contextfilename": "CLAUDE.md"
+}
 ```
-# .geminiignore
-# Generated by Claude Code gemini:gemini-ignore command
+
+### Ignore Files
+```
+# .geminiignore / .qwenignore
+# Generated by Claude Code /cli:cli-init command
 # Creation date: 2024-01-15 10:30:00
 # Detected technologies: Node.js, Python, Docker
 #
-# This file uses gitignore syntax to filter files for Gemini CLI analysis
+# This file uses gitignore syntax to filter files for CLI tool analysis
 # Edit this file to customize filtering rules for your project
 
 # ============================================================================
@@ -290,13 +375,15 @@ docker-compose.override.yml
 
 ### Backup Existing Files
 - If `.gemini/` directory exists, create backup as `.gemini.backup/`
+- If `.qwen/` directory exists, create backup as `.qwen.backup/`
 - If `.geminiignore` exists, create backup as `.geminiignore.backup`
+- If `.qwenignore` exists, create backup as `.qwenignore.backup`
 - Include timestamp in backup filename
 
 ## Integration Points
 
 ### Workflow Commands
-- **After `/gemini:plan`**: Suggest running gemini-ignore for better analysis
+- **After `/cli:plan`**: Suggest running cli-init for better analysis
 - **Before analysis**: Recommend updating ignore patterns for cleaner results
 
 ### CLI Tool Integration
@@ -307,29 +394,62 @@ docker-compose.override.yml
 
 ### Basic Project Setup
 ```bash
-# New project - initialize Gemini configuration
-/gemini:gemini-init
+# Initialize all CLI tools (Gemini + Qwen)
+/cli:cli-init
+
+# Initialize only Gemini
+/cli:cli-init --tool gemini
+
+# Initialize only Qwen
+/cli:cli-init --tool qwen
 
 # Preview what would be generated
-/gemini:gemini-init --preview
+/cli:cli-init --preview
 
 # Generate in subdirectory
-/gemini:gemini-init --output=.config/
+/cli:cli-init --output=.config/
 ```
 
 ### Technology Migration
 ```bash
 # After adding new tech stack (e.g., Docker)
-/gemini:gemini-init  # Regenerates both config and ignore files with new rules
+/cli:cli-init  # Regenerates all config and ignore files with new rules
 
 # Check what changed
-/gemini:gemini-init --preview  # Compare with existing configuration
+/cli:cli-init --preview  # Compare with existing configuration
+
+# Update only Qwen configuration
+/cli:cli-init --tool qwen
+```
+
+### Tool-Specific Initialization
+```bash
+# Setup for Gemini-only workflow
+/cli:cli-init --tool gemini
+
+# Setup for Qwen-only workflow
+/cli:cli-init --tool qwen
+
+# Setup both with preview
+/cli:cli-init --tool all --preview
 ```
 
 ## Key Benefits
 
 - **Automatic Detection**: No manual configuration needed
+- **Multi-Tool Support**: Configure Gemini and Qwen simultaneously
 - **Technology Aware**: Rules adapted to actual project stack
 - **Maintainable**: Clear sections for easy customization
 - **Consistent**: Follows gitignore syntax standards
 - **Safe**: Creates backups of existing files
+- **Flexible**: Initialize specific tools or all at once
+
+## Tool Selection Guide
+
+| Scenario | Command | Result |
+|----------|---------|--------|
+| **New project, using both tools** | `/cli:cli-init` | Creates .gemini/, .qwen/, .geminiignore, .qwenignore |
+| **Gemini-only workflow** | `/cli:cli-init --tool gemini` | Creates .gemini/ and .geminiignore only |
+| **Qwen-only workflow** | `/cli:cli-init --tool qwen` | Creates .qwen/ and .qwenignore only |
+| **Preview before commit** | `/cli:cli-init --preview` | Shows what would be generated |
+| **Update configurations** | `/cli:cli-init` | Regenerates all files with backups |
