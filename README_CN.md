@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v2.1.0--experimental-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -17,9 +17,9 @@
 
 **Claude Code Workflow (CCW)** 是新一代多智能体自动化开发框架，通过智能工作流管理和自主执行协调复杂的软件开发任务。
 
-> **🧪 最新版本 v2.1.0-experimental**: 引入**实验性 MCP (模型上下文协议) 工具集成**，实现增强的代码库分析和外部上下文获取。包含用于外部 API 模式的 Exa MCP Server 和用于高级内部代码库探索的 Code Index MCP。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本 v3.0.0**: 重大更新，采用**统一 CLI 命令结构**。将 Gemini、Qwen 和 Codex 命令整合为单一的 `/cli:*` 命令集，通过 `--tool` 标志选择工具。包含完整工作流指南和命令验证。详见 [CHANGELOG.md](CHANGELOG.md)。
 
-> **⚠️ 实验性功能**: MCP 工具是可选的实验性功能。所有现有功能保持稳定。
+> **⚠️ 破坏性变更**: 旧的工具特定命令（`/gemini:*`、`/qwen:*`、`/codex:*`）已弃用。请使用新的统一 `/cli:*` 命令。详见下方迁移指南。
 
 ### 🌟 核心创新
 
