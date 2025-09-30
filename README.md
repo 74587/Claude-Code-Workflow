@@ -332,74 +332,74 @@ graph LR
 
 ---
 
-## 📖 完整工作流详解 (Complete Workflow Guide)
+## 📖 Complete Workflow Guide
 
-> **💡 社区讨论**: [LINUX DO 论坛讨论帖](https://linux.do/t/topic/995175/24)
-> **📦 项目仓库**: [GitHub - Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
+> **💡 Community Discussion**: [LINUX DO Forum Thread](https://linux.do/t/topic/995175/24)
+> **📦 Repository**: [GitHub - Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
 
-### 🎯 核心工作流程 (Core Workflow)
+### 🎯 Core Workflow Process
 
-**完整开发流程**: 头脑风暴 → 用户打磨修改 → 行动规划 → 执行 → 测试
+**Complete Development Flow**: Brainstorm → User Refinement → Action Planning → Execution → Testing
 
 ```mermaid
 graph LR
-    A[💭 头脑风暴] --> B[✏️ 用户修改]
-    B --> C[📋 行动规划]
-    C --> D[⚡ 执行]
-    D --> E[🧪 测试]
+    A[💭 Brainstorm] --> B[✏️ Refinement]
+    B --> C[📋 Planning]
+    C --> D[⚡ Execution]
+    D --> E[🧪 Testing]
 ```
 
-### 🧠 头脑风暴阶段 (Brainstorming Phase)
+### 🧠 Brainstorming Phase
 
-#### 涉及指令:
-- `/workflow:brainstorm:auto-parallel` - 自动概念规划（并行版）
-- `/workflow:brainstorm:auto-squeeze` - 自动概念规划（串行版，用于测试）
-- 单个角色指令（用于重新规划）
+#### Available Commands:
+- `/workflow:brainstorm:auto-parallel` - Automated concept planning (parallel execution)
+- `/workflow:brainstorm:auto-squeeze` - Automated concept planning (sequential execution for testing)
+- Individual role commands (for replanning)
 
-#### 工作流程:
+#### Workflow Steps:
 
-1. **初始规划**: 通过 `/workflow:brainstorm:auto-squeeze [topic]` 进行自动规划
-2. **修改优化**: 如果对规划不满意，使用单个角色指令如 `/workflow:brainstorm:ui-designer` 进行修改
-3. **综合文档**: 通过 `/workflow:brainstorm:synthesis` 生成综合规划文档
+1. **Initial Planning**: Execute `/workflow:brainstorm:auto-squeeze [topic]` for automated planning
+2. **Refinement**: If unsatisfied with the plan, use individual role commands like `/workflow:brainstorm:ui-designer` to refine
+3. **Synthesis**: Execute `/workflow:brainstorm:synthesis` to generate comprehensive planning documentation
 
-**可用角色指令**:
-- `🏗️ system-architect` - 系统架构分析
-- `🎨 ui-designer` - UI/UX 设计规划
-- `🗄️ data-architect` - 数据架构设计
-- `🔒 security-expert` - 安全架构分析
-- `📊 product-manager` - 产品需求分析
-- `🔬 innovation-lead` - 技术创新建议
-- `📋 feature-planner` - 功能规划
-- `📈 business-analyst` - 业务流程分析
-- `👥 user-researcher` - 用户行为分析
+**Available Role Commands**:
+- `🏗️ system-architect` - System architecture analysis
+- `🎨 ui-designer` - UI/UX design planning
+- `🗄️ data-architect` - Data architecture design
+- `🔒 security-expert` - Security architecture analysis
+- `📊 product-manager` - Product requirements analysis
+- `🔬 innovation-lead` - Technical innovation recommendations
+- `📋 feature-planner` - Feature planning
+- `📈 business-analyst` - Business process analysis
+- `👥 user-researcher` - User behavior analysis
 
-### 📋 行动规划阶段 (Action Planning Phase)
+### 📋 Action Planning Phase
 
-前述工作过程被称为**概念规划**，完成后进入**行动规划**阶段：
+The previous stage is called **Concept Planning**. After completion, enter the **Action Planning** phase:
 
 ```bash
 /workflow:plan "d:\test_project\.workflow\.active-WFS-promptmaster-platform"
-# 一般会传入前一项任务的标识符，也可以增加任务描述
+# Typically pass the session identifier from the previous task, can also add task description
 ```
 
-#### Plan 命令协调器架构:
+#### Plan Command Coordinator Architecture:
 
-`/workflow:plan` 被设计为协调器，自动协调其他斜杠命令执行，包括四个阶段：
+`/workflow:plan` is designed as a coordinator that automatically orchestrates other slash commands in four phases:
 
-1. **🚀 Session 启动**: `/workflow:session:start` - 启动一个 workflow session
-2. **🔍 上下文收集**: `/workflow:tools:context-gather`
-   - 查找相关代码文件（如果是功能更新）
-   - 使用 MCP 查找示例代码
-   - 产出 `context-package.json` 供 agent 引用
-3. **🧪 概念增强**: `/workflow:tools:concept-enhanced`
-   - 使用 CLI 工具对现有计划进行分析
-   - 提出改进建议及重点关注事项
-   - 产出 `ANALYSIS_RESULTS.md` 供 agent 引用
-4. **📝 任务生成**: `/workflow:tools:task-generate` 或 `/workflow:tools:task-generate-agent`
-   - 制定详细规划
-   - 产出任务 JSON 文件、`IMPL_PLAN.md`、`TODO_LIST.md`
+1. **🚀 Session Initialization**: `/workflow:session:start` - Start a workflow session
+2. **🔍 Context Gathering**: `/workflow:tools:context-gather`
+   - Locate relevant code files (for feature updates)
+   - Use MCP to find example code
+   - Generate `context-package.json` for agent reference
+3. **🧪 Concept Enhancement**: `/workflow:tools:concept-enhanced`
+   - Analyze existing plans using CLI tools
+   - Provide improvement suggestions and key focus areas
+   - Generate `ANALYSIS_RESULTS.md` for agent reference
+4. **📝 Task Generation**: `/workflow:tools:task-generate` or `/workflow:tools:task-generate-agent`
+   - Develop detailed plans
+   - Generate task JSON files, `IMPL_PLAN.md`, `TODO_LIST.md`
 
-#### 🗂️ Context Package 示例结构:
+#### 🗂️ Context Package Structure Example:
 
 ```json
 {
@@ -422,13 +422,13 @@ graph LR
     }
   ],
   "implementation_guidance": {
-    "start_with": ["项目结构初始化", "数据库架构", "认证系统"],
-    "key_deliverables": ["后端API", "前端界面", "测试套件"]
+    "start_with": ["Project structure initialization", "Database architecture", "Authentication system"],
+    "key_deliverables": ["Backend API", "Frontend interface", "Test suite"]
   }
 }
 ```
 
-#### 📋 Task JSON 示例结构:
+#### 📋 Task JSON Structure Example:
 
 ```json
 {
@@ -442,15 +442,15 @@ graph LR
     "priority": "P0"
   },
   "context": {
-    "requirements": ["设置后端项目结构", "配置 Docker Compose"],
+    "requirements": ["Setup backend project structure", "Configure Docker Compose"],
     "focus_paths": ["backend/", "frontend/", "docker-compose.yml"],
-    "acceptance": ["后端服务运行在 8000 端口", "前端运行在 3000 端口"]
+    "acceptance": ["Backend service running on port 8000", "Frontend running on port 3000"]
   },
   "flow_control": {
     "pre_analysis": [
       {
         "step": "load_synthesis_specification",
-        "action": "加载综合规范文档",
+        "action": "Load comprehensive specification document",
         "commands": ["Read(.workflow/xxx/synthesis-specification.md)"]
       }
     ]
@@ -458,67 +458,67 @@ graph LR
 }
 ```
 
-系统自动产生上下文，执行下一个斜杠命令，直到流程执行完毕。
+The system automatically generates context and executes the next slash command until the workflow completes.
 
-### ⚡ 任务执行阶段 (Execution Phase)
+### ⚡ Execution Phase
 
-通过 `/workflow:execute` 进入任务执行阶段：
+Enter the execution phase via `/workflow:execute`:
 
-#### 🤖 Agent 自动分配:
-- **code-developer**: 代码开发任务
-- **code-review-test-agent**: 代码审查和测试任务
+#### 🤖 Automatic Agent Assignment:
+- **code-developer**: Code development tasks
+- **code-review-test-agent**: Code review and testing tasks
 
-#### 📚 技术栈指南自动加载:
-Agent 根据上下文自动加载对应的技术栈指南（位置：`~\.claude\workflows\cli-templates\tech-stacks`）
+#### 📚 Tech Stack Guidelines Auto-Loading:
+Agents automatically load corresponding tech stack guidelines based on context (location: `~\.claude\workflows\cli-templates\tech-stacks`)
 
-**可用技术栈模板**:
-- `typescript-dev.md` - TypeScript 开发规范
-- `python-dev.md` - Python 开发约定
-- `react-dev.md` - React 架构指南
-- `vue-dev.md` - Vue 开发最佳实践
-- `fastapi-dev.md` - FastAPI 后端规范
+**Available Tech Stack Templates**:
+- `typescript-dev.md` - TypeScript development standards
+- `python-dev.md` - Python development conventions
+- `react-dev.md` - React architecture guidelines
+- `vue-dev.md` - Vue development best practices
+- `fastapi-dev.md` - FastAPI backend standards
 
-> 💡 **欢迎贡献**: 如果您有更好的技术栈提示词，欢迎提交 PR！
+> 💡 **Contributions Welcome**: If you have better tech stack prompts, PRs are welcome!
 
-### 🐛 功能新增与 Bug 修复工作流 (Feature & Bug Fix Workflow)
+### 🐛 Feature Development & Bug Fix Workflow
 
-#### 快速交互式规划:
+#### Quick Interactive Planning:
 
-使用 CLI 命令进行交互式询问，形成计划文档：
+Use CLI commands for interactive inquiry to form planning documents:
 
 ```bash
-# Bug 分析和修复
-/cli:mode:bug-index "描述 bug 现象" --tool gemini
+# Bug analysis and fixing
+/cli:mode:bug-index "Describe bug symptoms" --tool gemini
 
-# 深度代码分析
-/cli:mode:code-analysis "分析目标" --tool codex
+# Deep code analysis
+/cli:mode:code-analysis "Analysis target" --tool codex
 
-# 架构规划
-/cli:mode:plan "规划主题" --tool qwen
+# Architecture planning
+/cli:mode:plan "Planning topic" --tool qwen
 ```
 
-**执行策略**:
-- **简单任务**: 让 Claude 直接执行
-- **复杂任务**: 按照完整工作流执行（头脑风暴 → 规划 → 执行）
+**Execution Strategy**:
+- **Simple tasks**: Let Claude execute directly
+- **Complex tasks**: Follow complete workflow (Brainstorm → Planning → Execution)
 
-### 🧪 测试工作流 (Testing Workflow)
+### 🧪 Testing Workflow
 
-在 `/workflow:execute` 完成后：
+After `/workflow:execute` completion:
 
 ```bash
-# 生成测试工作流
+# Generate test workflow
 /workflow:test-gen WFS-session-id
 
-# 执行测试任务
+# Execute test tasks
 /workflow:execute
 ```
 
-测试工作流自动生成多层次测试：
-- **单元测试** (Unit Tests)
-- **集成测试** (Integration Tests)
-- **端到端测试** (E2E Tests)
-- **性能测试** (Performance Tests)
-- **安全测试** (Security Tests)
+Test workflow automatically generates multi-level tests:
+- **Unit Tests**
+- **Integration Tests**
+- **End-to-End Tests** (E2E)
+- **Performance Tests**
+- **Security Tests**
 
 
 ---
