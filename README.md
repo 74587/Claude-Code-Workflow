@@ -496,7 +496,7 @@ Use CLI commands for interactive inquiry to form planning documents:
 
 **Execution Strategy**:
 - **Simple tasks**: Let Claude execute directly
-- **Complex tasks**: Follow complete workflow (Brainstorm → Planning → Execution)
+- **Complex tasks**: Use `/workflow:plan` for structured planning and execution
 
 ### 🧪 Testing Workflow
 
