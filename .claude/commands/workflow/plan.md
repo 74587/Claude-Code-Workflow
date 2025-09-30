@@ -39,7 +39,21 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ## 4-Phase Execution
 
 ### Phase 1: Session Discovery
-**Command**: `SlashCommand(command="/workflow:session:start --auto \"[task-description]\"")`
+**Command**: `SlashCommand(command="/workflow:session:start --auto \"[structured-task-description]\"")`
+
+**Task Description Structure**:
+```
+GOAL: [Clear, concise objective]
+SCOPE: [What's included/excluded]
+CONTEXT: [Relevant background or constraints]
+```
+
+**Example**:
+```
+GOAL: Build JWT-based authentication system
+SCOPE: User registration, login, token validation
+CONTEXT: Existing user database schema, REST API endpoints
+```
 
 **Parse Output**:
 - Extract: `SESSION_ID: WFS-[id]` (store as `sessionId`)
@@ -53,7 +67,9 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
 ### Phase 2: Context Gathering
-**Command**: `SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"[task-description]\"")`
+**Command**: `SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"[structured-task-description]\"")`
+
+**Use Same Structured Description**: Pass the same structured format from Phase 1
 
 **Input**: `sessionId` from Phase 1
 
@@ -130,17 +146,58 @@ TodoWrite({todos: [
 // Continue pattern for Phase 2, 3, 4...
 ```
 
+## Input Processing
+
+**Convert User Input to Structured Format**:
+
+1. **Simple Text** → Structure it:
+   ```
+   User: "Build authentication system"
+
+   Structured:
+   GOAL: Build authentication system
+   SCOPE: Core authentication features
+   CONTEXT: New implementation
+   ```
+
+2. **Detailed Text** → Extract components:
+   ```
+   User: "Add JWT authentication with email/password login and token refresh"
+
+   Structured:
+   GOAL: Implement JWT-based authentication
+   SCOPE: Email/password login, token generation, token refresh endpoints
+   CONTEXT: JWT token-based security, refresh token rotation
+   ```
+
+3. **File Reference** (e.g., `requirements.md`) → Read and structure:
+   - Read file content
+   - Extract goal, scope, requirements
+   - Format into structured description
+
+4. **Issue Reference** (e.g., `ISS-001`) → Read and structure:
+   - Read issue file
+   - Extract title as goal
+   - Extract description as scope/context
+   - Format into structured description
+
 ## Data Flow
 
 ```
 User Input (task description)
     ↓
-Phase 1: session:start --auto "description"
+[Convert to Structured Format]
+    ↓ Structured Description:
+    ↓   GOAL: [objective]
+    ↓   SCOPE: [boundaries]
+    ↓   CONTEXT: [background]
+    ↓
+Phase 1: session:start --auto "structured-description"
     ↓ Output: sessionId
     ↓ Session Memory: Previous tasks, context, artifacts
     ↓
-Phase 2: context-gather --session sessionId "description"
-    ↓ Input: sessionId + session memory
+Phase 2: context-gather --session sessionId "structured-description"
+    ↓ Input: sessionId + session memory + structured description
     ↓ Output: contextPath (context-package.json)
     ↓
 Phase 3: concept-enhanced --session sessionId --context contextPath
@@ -160,6 +217,12 @@ Return summary to user
 - Brainstorming artifacts
 - Session-specific configuration
 
+**Structured Description Benefits**:
+- **Clarity**: Clear separation of goal, scope, and context
+- **Consistency**: Same format across all phases
+- **Traceability**: Easy to track what was requested
+- **Precision**: Better context gathering and analysis
+
 ## Error Handling
 
 - **Parsing Failure**: If output parsing fails, retry command once, then report error
@@ -168,10 +231,11 @@ Return summary to user
 
 ## Coordinator Checklist
 
+✅ **Pre-Phase**: Convert user input to structured format (GOAL/SCOPE/CONTEXT)
 ✅ Initialize TodoWrite before any command
-✅ Execute Phase 1 immediately (no preliminary steps)
+✅ Execute Phase 1 immediately with structured description
 ✅ Parse session ID from Phase 1 output
-✅ Pass session ID to Phase 2 command
+✅ Pass session ID and structured description to Phase 2 command
 ✅ Parse context path from Phase 2 output
 ✅ Pass session ID and context path to Phase 3 command
 ✅ Verify ANALYSIS_RESULTS.md after Phase 3
@@ -180,3 +244,30 @@ Return summary to user
 ✅ Verify all Phase 4 outputs
 ✅ Update TodoWrite after each phase
 ✅ Return summary only after Phase 4 completes
+
+## Structure Template Reference
+
+**Minimal Structure**:
+```
+GOAL: [What to achieve]
+SCOPE: [What's included]
+CONTEXT: [Relevant info]
+```
+
+**Detailed Structure** (optional, when more context available):
+```
+GOAL: [Primary objective]
+SCOPE: [Included features/components]
+CONTEXT: [Existing system, constraints, dependencies]
+REQUIREMENTS: [Specific technical requirements]
+CONSTRAINTS: [Limitations or boundaries]
+```
+
+**Usage in Commands**:
+```bash
+# Phase 1
+/workflow:session:start --auto "GOAL: Build authentication\nSCOPE: JWT, login, registration\nCONTEXT: REST API"
+
+# Phase 2
+/workflow:tools:context-gather --session WFS-123 "GOAL: Build authentication\nSCOPE: JWT, login, registration\nCONTEXT: REST API"
+```
