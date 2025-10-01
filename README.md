@@ -116,9 +116,11 @@ After installation, run the following command to ensure CCW is working:
 
 ---
 
-## ⚙️ Essential Configuration
+## ⚙️ Configuration
 
-For optimal integration, configure your Gemini CLI settings by creating a `settings.json` file in `~/.gemini/`:
+### **Essential: Gemini CLI Setup**
+
+Configure Gemini CLI for optimal integration:
 
 ```json
 // ~/.gemini/settings.json
@@ -126,7 +128,42 @@ For optimal integration, configure your Gemini CLI settings by creating a `setti
   "contextFileName": "CLAUDE.md"
 }
 ```
-This ensures CCW's intelligent documentation system works seamlessly with the Gemini CLI.
+
+### **Recommended: .geminiignore**
+
+Optimize performance by excluding unnecessary files:
+
+```bash
+# .geminiignore (in project root)
+/dist/
+/build/
+/node_modules/
+/.next/
+*.tmp
+*.log
+/temp/
+
+# Include important docs
+!README.md
+!**/CLAUDE.md
+```
+
+### **Optional: MCP Tools** *(Enhanced Analysis)*
+
+MCP (Model Context Protocol) tools provide advanced codebase analysis. **Completely optional** - CCW works perfectly without them.
+
+#### Available MCP Servers
+
+| MCP Server | Purpose | Installation Guide |
+|------------|---------|-------------------|
+| **Exa MCP** | External API patterns & best practices | [Install Guide](https://github.com/exa-labs/exa-mcp-server) |
+| **Code Index MCP** | Advanced internal code search | [Install Guide](https://github.com/johnhuang316/code-index-mcp) |
+
+#### Benefits When Enabled
+- 📊 **Faster Analysis**: Direct codebase indexing vs manual searching
+- 🌐 **External Context**: Real-world API patterns and examples
+- 🔍 **Advanced Search**: Pattern matching and similarity detection
+- ⚡ **Automatic Fallback**: Uses traditional tools when MCP unavailable
 
 ---
 
