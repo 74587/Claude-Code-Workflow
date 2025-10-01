@@ -13,6 +13,27 @@
 
 ---
 
+## ⚙️ Installation
+
+### 🚀 **Quick Installation via Shell**
+
+**For PowerShell (Windows):**
+```powershell
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
+```
+
+**For Bash/Zsh (Linux/macOS):**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
+```
+
+### ✅ **Verify Installation**
+```bash
+/workflow:session:list
+```
+
+---
+
 ## 📋 Overview
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework for software development that orchestrates complex development tasks through intelligent workflow management and autonomous execution.
@@ -584,19 +605,7 @@ Test workflow automatically generates multi-level tests:
 
 ---
 
-## ⚙️ Installation & Configuration
-
-### 🚀 **Quick Installation**
-```powershell
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
-```
-
-### ✅ **Verify Installation**
-```bash
-/workflow:session:list
-```
-
-### ⚙️ **Essential Configuration**
+## ⚙️ Essential Configuration
 
 #### **Gemini CLI Setup**
 ```json

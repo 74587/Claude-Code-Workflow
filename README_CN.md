@@ -13,6 +13,27 @@
 
 ---
 
+## ⚙️ 安装
+
+### 🚀 **通过 Shell 快速安装**
+
+**PowerShell (Windows):**
+```powershell
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
+```
+
+**Bash/Zsh (Linux/macOS):**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
+```
+
+### ✅ **验证安装**
+```bash
+/workflow:session:list
+```
+
+---
+
 ## 📋 概述
 
 **Claude Code Workflow (CCW)** 是新一代多智能体自动化开发框架，通过智能工作流管理和自主执行协调复杂的软件开发任务。
@@ -277,19 +298,7 @@ graph LR
   - `related`: 仅更新受近期变更影响的模块
   - `full`: 完整的项目级文档刷新
 
-## 安装
-
-### 快速安装
-```powershell
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
-```
-
-### 验证安装
-```bash
-/workflow:session:list
-```
-
-### 必需配置
+## 必需配置
 对于Gemini CLI集成，配置您的设置：
 ```json
 {
