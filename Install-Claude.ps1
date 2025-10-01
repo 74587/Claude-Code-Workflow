@@ -48,15 +48,17 @@
 #>
 
 param(
-    [ValidateSet("Global")]
-    [string]$InstallMode = "Global",
-    
+    [ValidateSet("Global", "Path")]
+    [string]$InstallMode = "",
+
+    [string]$TargetPath = "",
+
     [switch]$Force,
-    
+
     [switch]$NonInteractive,
-    
+
     [switch]$BackupAll,
-    
+
     [switch]$NoBackup
 )
 
@@ -95,13 +97,54 @@ function Write-ColorOutput {
     Write-Host $Message -ForegroundColor $Color
 }
 
+function Show-Banner {
+    Write-Host ""
+    # CLAUDE - Cyan color
+    Write-Host '  ______   __                            __                   ' -ForegroundColor Cyan
+    Write-Host ' /      \ |  \                          |  \                 ' -ForegroundColor Cyan
+    Write-Host '|  $$$$$$\| $$  ______   __    __   ____| $$  ______        ' -ForegroundColor Cyan
+    Write-Host '| $$   \$$| $$ |      \ |  \  |  \ /      $$ /      \       ' -ForegroundColor Cyan
+    Write-Host '| $$      | $$  \$$$$$$\| $$  | $$|  $$$$$$$|  $$$$$$\      ' -ForegroundColor Cyan
+    Write-Host '| $$   __ | $$ /      $$| $$  | $$| $$  | $$| $$    $$      ' -ForegroundColor Cyan
+    Write-Host '| $$__/  \| $$|  $$$$$$$| $$__/ $$| $$__| $$| $$$$$$$$      ' -ForegroundColor Cyan
+    Write-Host ' \$$    $$| $$ \$$    $$ \$$    $$ \$$    $$ \$$     \       ' -ForegroundColor Cyan
+    Write-Host '  \$$$$$$  \$$  \$$$$$$$  \$$$$$$   \$$$$$$$  \$$$$$$$        ' -ForegroundColor Cyan
+    Write-Host ""
+
+    # CODE - Green color
+    Write-Host ' ______                   __                  ' -ForegroundColor Green
+    Write-Host '/      \                 |  \                ' -ForegroundColor Green
+    Write-Host '|  $$$$$$\  ______    ____| $$  ______        ' -ForegroundColor Green
+    Write-Host '| $$   \$$ /      \  /      $$ /      \       ' -ForegroundColor Green
+    Write-Host '| $$      |  $$$$$$\|  $$$$$$$|  $$$$$$\      ' -ForegroundColor Green
+    Write-Host '| $$   __ | $$  | $$| $$  | $$| $$    $$      ' -ForegroundColor Green
+    Write-Host '| $$__/  \| $$__/ $$| $$__| $$| $$$$$$$$      ' -ForegroundColor Green
+    Write-Host ' \$$    $$ \$$    $$ \$$    $$ \$$     \      ' -ForegroundColor Green
+    Write-Host '  \$$$$$$   \$$$$$$   \$$$$$$$  \$$$$$$$       ' -ForegroundColor Green
+    Write-Host ""
+
+    # WORKFLOW - Yellow color
+    Write-Host '__       __                      __         ______   __                         ' -ForegroundColor Yellow
+    Write-Host '|  \  _  |  \                    |  \       /      \ |  \                        ' -ForegroundColor Yellow
+    Write-Host '| $$ / \ | $$  ______    ______  | $$   __ |  $$$$$$\| $$  ______   __   __   __ ' -ForegroundColor Yellow
+    Write-Host '| $$/  $\| $$ /      \  /      \ | $$  /  \| $$_  \$$| $$ /      \ |  \ |  \ |  \' -ForegroundColor Yellow
+    Write-Host '| $$  $$$\ $$|  $$$$$$\|  $$$$$$\| $$_/  $$| $$ \    | $$|  $$$$$$\| $$ | $$ | $$' -ForegroundColor Yellow
+    Write-Host '| $$ $$\$$\$$| $$  | $$| $$   \$$| $$   $$ | $$$$    | $$| $$  | $$| $$ | $$ | $$' -ForegroundColor Yellow
+    Write-Host '| $$$$  \$$$$| $$__/ $$| $$      | $$$$$$\ | $$      | $$| $$__/ $$| $$_/ $$_/ $$' -ForegroundColor Yellow
+    Write-Host '| $$$    \$$$ \$$    $$| $$      | $$  \$$\| $$      | $$ \$$    $$ \$$   $$   $$' -ForegroundColor Yellow
+    Write-Host ' \$$      \$$  \$$$$$$  \$$       \$$   \$$ \$$       \$$  \$$$$$$   \$$$$$\$$$$' -ForegroundColor Yellow
+    Write-Host ""
+}
+
 function Show-Header {
-    Write-ColorOutput "==== $ScriptName v$Version ====" $ColorInfo
-    Write-ColorOutput "========================================================" $ColorInfo
+    Show-Banner
+    Write-ColorOutput "    $ScriptName v$Version" $ColorInfo
+    Write-ColorOutput "    Unified workflow system with comprehensive coordination" $ColorInfo
+    Write-ColorOutput "========================================================================" $ColorInfo
     if ($NoBackup) {
-        Write-ColorOutput "WARNING: Backup disabled - existing files will be overwritten without backup!" $ColorWarning
+        Write-ColorOutput "WARNING: Backup disabled - existing files will be overwritten!" $ColorWarning
     } else {
-        Write-ColorOutput "Auto-backup enabled - existing files will be backed up before replacement" $ColorSuccess
+        Write-ColorOutput "Auto-backup enabled - existing files will be backed up" $ColorSuccess
     }
     Write-Host ""
 }
@@ -133,18 +176,130 @@ function Test-Prerequisites {
     return $true
 }
 
+function Get-UserChoiceWithArrows {
+    param(
+        [string]$Prompt,
+        [string[]]$Options,
+        [int]$DefaultIndex = 0
+    )
+
+    if ($NonInteractive) {
+        Write-ColorOutput "Non-interactive mode: Using default '$($Options[$DefaultIndex])'" $ColorInfo
+        return $Options[$DefaultIndex]
+    }
+
+    # Test if we can use console features (interactive terminal)
+    $canUseConsole = $true
+    try {
+        $null = [Console]::CursorVisible
+        $null = $Host.UI.RawUI.ReadKey
+    }
+    catch {
+        $canUseConsole = $false
+    }
+
+    # Fallback to simple numbered menu if console not available
+    if (-not $canUseConsole) {
+        Write-ColorOutput "Arrow navigation not available in this environment. Using numbered menu." $ColorWarning
+        return Get-UserChoice -Prompt $Prompt -Options $Options -Default $Options[$DefaultIndex]
+    }
+
+    $selectedIndex = $DefaultIndex
+    $cursorVisible = $true
+
+    try {
+        $cursorVisible = [Console]::CursorVisible
+        [Console]::CursorVisible = $false
+    }
+    catch {
+        # Silently continue if cursor control fails
+    }
+
+    try {
+        Write-Host ""
+        Write-ColorOutput $Prompt $ColorPrompt
+        Write-Host ""
+
+        while ($true) {
+            # Display options
+            for ($i = 0; $i -lt $Options.Count; $i++) {
+                $prefix = if ($i -eq $selectedIndex) { "  > " } else { "    " }
+                $color = if ($i -eq $selectedIndex) { $ColorSuccess } else { "White" }
+
+                # Clear line and write option
+                Write-Host "`r$prefix$($Options[$i])".PadRight(80) -ForegroundColor $color
+            }
+
+            Write-Host ""
+            Write-Host "  Use " -NoNewline -ForegroundColor DarkGray
+            Write-Host "UP/DOWN" -NoNewline -ForegroundColor Yellow
+            Write-Host " arrows to navigate, " -NoNewline -ForegroundColor DarkGray
+            Write-Host "ENTER" -NoNewline -ForegroundColor Yellow
+            Write-Host " to select, or type " -NoNewline -ForegroundColor DarkGray
+            Write-Host "1-$($Options.Count)" -NoNewline -ForegroundColor Yellow
+            Write-Host "" -ForegroundColor DarkGray
+
+            # Read key
+            $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+            # Handle arrow keys
+            if ($key.VirtualKeyCode -eq 38) {
+                # Up arrow
+                $selectedIndex = if ($selectedIndex -gt 0) { $selectedIndex - 1 } else { $Options.Count - 1 }
+            }
+            elseif ($key.VirtualKeyCode -eq 40) {
+                # Down arrow
+                $selectedIndex = if ($selectedIndex -lt ($Options.Count - 1)) { $selectedIndex + 1 } else { 0 }
+            }
+            elseif ($key.VirtualKeyCode -eq 13) {
+                # Enter key
+                Write-Host ""
+                return $Options[$selectedIndex]
+            }
+            elseif ($key.Character -match '^\d$') {
+                # Number key
+                $num = [int]::Parse($key.Character)
+                if ($num -ge 1 -and $num -le $Options.Count) {
+                    Write-Host ""
+                    return $Options[$num - 1]
+                }
+            }
+
+            # Move cursor back up to redraw menu
+            $linesToMove = $Options.Count + 2
+            try {
+                for ($i = 0; $i -lt $linesToMove; $i++) {
+                    [Console]::SetCursorPosition(0, [Console]::CursorTop - 1)
+                }
+            }
+            catch {
+                # If cursor positioning fails, just continue
+                break
+            }
+        }
+    }
+    finally {
+        try {
+            [Console]::CursorVisible = $cursorVisible
+        }
+        catch {
+            # Silently continue if cursor control fails
+        }
+    }
+}
+
 function Get-UserChoice {
     param(
         [string]$Prompt,
         [string[]]$Options,
         [string]$Default = $null
     )
-    
+
     if ($NonInteractive -and $Default) {
         Write-ColorOutput "Non-interactive mode: Using default '$Default'" $ColorInfo
         return $Default
     }
-    
+
     Write-ColorOutput $Prompt $ColorPrompt
     for ($i = 0; $i -lt $Options.Count; $i++) {
         if ($Default -and $Options[$i] -eq $Default) {
@@ -154,18 +309,18 @@ function Get-UserChoice {
         }
         Write-Host "  $($i + 1). $($Options[$i])$marker"
     }
-    
+
     do {
         $input = Read-Host "Please select (1-$($Options.Count))"
         if ([string]::IsNullOrWhiteSpace($input) -and $Default) {
             return $Default
         }
-        
+
         $index = $null
         if ([int]::TryParse($input, [ref]$index) -and $index -ge 1 -and $index -le $Options.Count) {
             return $Options[$index - 1]
         }
-        
+
         Write-ColorOutput "Invalid selection. Please enter a number between 1 and $($Options.Count)" $ColorWarning
     } while ($true)
 }
@@ -457,19 +612,19 @@ function Merge-DirectoryContents {
 
 function Install-Global {
     Write-ColorOutput "Installing Claude Code Workflow System globally..." $ColorInfo
-    
+
     # Determine user profile directory
     $userProfile = [Environment]::GetFolderPath("UserProfile")
     $globalClaudeDir = Join-Path $userProfile ".claude"
     $globalClaudeMd = Join-Path $globalClaudeDir "CLAUDE.md"
-    
+
     Write-ColorOutput "Global installation path: $userProfile" $ColorInfo
-    
+
     # Source paths
     $sourceDir = $PSScriptRoot
     $sourceClaudeDir = Join-Path $sourceDir ".claude"
     $sourceClaudeMd = Join-Path $sourceDir "CLAUDE.md"
-    
+
     # Create backup folder if needed (default behavior unless NoBackup is specified)
     $backupFolder = $null
     if (-not $NoBackup) {
@@ -485,15 +640,15 @@ function Install-Global {
             Write-ColorOutput "Backup folder created: $backupFolder" $ColorInfo
         }
     }
-    
+
     # Merge .claude directory contents (don't replace entire directory)
     Write-ColorOutput "Merging .claude directory contents..." $ColorInfo
     $claudeMerged = Merge-DirectoryContents -Source $sourceClaudeDir -Destination $globalClaudeDir -Description ".claude directory contents" -BackupFolder $backupFolder
-    
+
     # Handle CLAUDE.md file in .claude directory
     Write-ColorOutput "Installing CLAUDE.md to global .claude directory..." $ColorInfo
     $claudeMdInstalled = Copy-FileToDestination -Source $sourceClaudeMd -Destination $globalClaudeMd -Description "CLAUDE.md" -BackupFolder $backupFolder
-    
+
     if ($backupFolder -and (Test-Path $backupFolder)) {
         $backupFiles = Get-ChildItem $backupFolder -Recurse -File -ErrorAction SilentlyContinue
         if (-not $backupFiles -or ($backupFiles | Measure-Object).Count -eq 0) {
@@ -502,14 +657,205 @@ function Install-Global {
             Write-ColorOutput "Removed empty backup folder" $ColorInfo
         }
     }
-    
+
+    return $true
+}
+
+function Install-Path {
+    param(
+        [string]$TargetDirectory
+    )
+
+    Write-ColorOutput "Installing Claude Code Workflow System in hybrid mode..." $ColorInfo
+    Write-ColorOutput "Local path: $TargetDirectory" $ColorInfo
+
+    # Determine user profile directory for global files
+    $userProfile = [Environment]::GetFolderPath("UserProfile")
+    $globalClaudeDir = Join-Path $userProfile ".claude"
+
+    Write-ColorOutput "Global path: $userProfile" $ColorInfo
+
+    # Source paths
+    $sourceDir = $PSScriptRoot
+    $sourceClaudeDir = Join-Path $sourceDir ".claude"
+    $sourceClaudeMd = Join-Path $sourceDir "CLAUDE.md"
+
+    # Local paths - only for agents, commands, output-styles
+    $localClaudeDir = Join-Path $TargetDirectory ".claude"
+
+    # Create backup folder if needed
+    $backupFolder = $null
+    if (-not $NoBackup) {
+        if ((Test-Path $localClaudeDir) -or (Test-Path $globalClaudeDir)) {
+            $backupFolder = Get-BackupDirectory -TargetDirectory $TargetDirectory
+            Write-ColorOutput "Backup folder created: $backupFolder" $ColorInfo
+        }
+    }
+
+    # Create local .claude directory
+    if (-not (Test-Path $localClaudeDir)) {
+        New-Item -ItemType Directory -Path $localClaudeDir -Force | Out-Null
+        Write-ColorOutput "Created local .claude directory" $ColorSuccess
+    }
+
+    # Local folders to install (agents, commands, output-styles)
+    $localFolders = @("agents", "commands", "output-styles")
+
+    Write-ColorOutput "Installing local components (agents, commands, output-styles)..." $ColorInfo
+    foreach ($folder in $localFolders) {
+        $sourceFolderPath = Join-Path $sourceClaudeDir $folder
+        $destFolderPath = Join-Path $localClaudeDir $folder
+
+        if (Test-Path $sourceFolderPath) {
+            if (Test-Path $destFolderPath) {
+                if ($backupFolder) {
+                    Backup-DirectoryToFolder -DirectoryPath $destFolderPath -BackupFolder $backupFolder
+                }
+            }
+
+            Copy-DirectoryRecursive -Source $sourceFolderPath -Destination $destFolderPath
+            Write-ColorOutput "Installed local folder: $folder" $ColorSuccess
+        } else {
+            Write-ColorOutput "WARNING: Source folder not found: $folder" $ColorWarning
+        }
+    }
+
+    # Global components - exclude local folders
+    Write-ColorOutput "Installing global components to $globalClaudeDir..." $ColorInfo
+
+    # Get all items from source, excluding local folders
+    $sourceItems = Get-ChildItem -Path $sourceClaudeDir -Recurse -File | Where-Object {
+        $relativePath = $_.FullName.Substring($sourceClaudeDir.Length + 1)
+        $topFolder = $relativePath.Split([System.IO.Path]::DirectorySeparatorChar)[0]
+        $topFolder -notin $localFolders
+    }
+
+    $mergedCount = 0
+    foreach ($item in $sourceItems) {
+        $relativePath = $item.FullName.Substring($sourceClaudeDir.Length + 1)
+        $destinationPath = Join-Path $globalClaudeDir $relativePath
+
+        # Ensure destination directory exists
+        $destinationDir = Split-Path $destinationPath -Parent
+        if (-not (Test-Path $destinationDir)) {
+            New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+        }
+
+        # Handle file merging
+        if (Test-Path $destinationPath) {
+            if ($BackupAll -and -not $NoBackup) {
+                if ($backupFolder) {
+                    Backup-FileToFolder -FilePath $destinationPath -BackupFolder $backupFolder
+                }
+                Copy-Item -Path $item.FullName -Destination $destinationPath -Force
+                $mergedCount++
+            } elseif ($NoBackup) {
+                if (Confirm-Action "File '$relativePath' already exists in global location. Replace it? (NO BACKUP)" -DefaultYes:$false) {
+                    Copy-Item -Path $item.FullName -Destination $destinationPath -Force
+                    $mergedCount++
+                }
+            } elseif (Confirm-Action "File '$relativePath' already exists in global location. Replace it?" -DefaultYes:$false) {
+                if ($backupFolder) {
+                    Backup-FileToFolder -FilePath $destinationPath -BackupFolder $backupFolder
+                }
+                Copy-Item -Path $item.FullName -Destination $destinationPath -Force
+                $mergedCount++
+            }
+        } else {
+            Copy-Item -Path $item.FullName -Destination $destinationPath -Force
+            $mergedCount++
+        }
+    }
+
+    Write-ColorOutput "Merged $mergedCount files to global location" $ColorSuccess
+
+    # Handle CLAUDE.md file in global .claude directory
+    $globalClaudeMd = Join-Path $globalClaudeDir "CLAUDE.md"
+    Write-ColorOutput "Installing CLAUDE.md to global .claude directory..." $ColorInfo
+    Copy-FileToDestination -Source $sourceClaudeMd -Destination $globalClaudeMd -Description "CLAUDE.md" -BackupFolder $backupFolder
+
+    if ($backupFolder -and (Test-Path $backupFolder)) {
+        $backupFiles = Get-ChildItem $backupFolder -Recurse -File -ErrorAction SilentlyContinue
+        if (-not $backupFiles -or ($backupFiles | Measure-Object).Count -eq 0) {
+            Remove-Item -Path $backupFolder -Force
+            Write-ColorOutput "Removed empty backup folder" $ColorInfo
+        }
+    }
+
     return $true
 }
 
 
 function Get-InstallationMode {
-    Write-ColorOutput "Installation mode: Global (installing to user profile ~/.claude/)" $ColorInfo
+    if ($InstallMode) {
+        Write-ColorOutput "Installation mode: $InstallMode" $ColorInfo
+        return $InstallMode
+    }
+
+    $modes = @(
+        "Global - Install to user profile (~/.claude/)",
+        "Path - Install to custom directory (partial local + global)"
+    )
+
+    Write-Host ""
+    $selection = Get-UserChoiceWithArrows -Prompt "Choose installation mode:" -Options $modes -DefaultIndex 0
+
+    if ($selection -like "Global*") {
+        return "Global"
+    } elseif ($selection -like "Path*") {
+        return "Path"
+    }
+
     return "Global"
+}
+
+function Get-InstallationPath {
+    param(
+        [string]$Mode
+    )
+
+    if ($Mode -eq "Global") {
+        return [Environment]::GetFolderPath("UserProfile")
+    }
+
+    if ($TargetPath) {
+        if (Test-Path $TargetPath) {
+            return $TargetPath
+        }
+        Write-ColorOutput "WARNING: Specified target path does not exist: $TargetPath" $ColorWarning
+    }
+
+    # Interactive path selection
+    do {
+        Write-Host ""
+        Write-ColorOutput "Enter the target directory path for installation:" $ColorPrompt
+        Write-ColorOutput "(This will install agents, commands, output-styles locally, other files globally)" $ColorInfo
+        $path = Read-Host "Path"
+
+        if ([string]::IsNullOrWhiteSpace($path)) {
+            Write-ColorOutput "Path cannot be empty" $ColorWarning
+            continue
+        }
+
+        # Expand environment variables and relative paths
+        $expandedPath = [System.Environment]::ExpandEnvironmentVariables($path)
+        $expandedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($expandedPath)
+
+        if (Test-Path $expandedPath) {
+            return $expandedPath
+        }
+
+        Write-ColorOutput "Path does not exist: $expandedPath" $ColorWarning
+        if (Confirm-Action "Create this directory?" -DefaultYes) {
+            try {
+                New-Item -ItemType Directory -Path $expandedPath -Force | Out-Null
+                Write-ColorOutput "Directory created successfully" $ColorSuccess
+                return $expandedPath
+            } catch {
+                Write-ColorOutput "Failed to create directory: $($_.Exception.Message)" $ColorError
+            }
+        }
+    } while ($true)
 }
 
 
@@ -519,17 +865,26 @@ function Show-Summary {
         [string]$Path,
         [bool]$Success
     )
-    
+
     Write-Host ""
     if ($Success) {
         Write-ColorOutput "Installation completed successfully!" $ColorSuccess
     } else {
         Write-ColorOutput "Installation completed with warnings" $ColorWarning
     }
-    
+
     Write-ColorOutput "Installation Details:" $ColorInfo
     Write-Host "  Mode: $Mode"
-    Write-Host "  Path: $Path"
+
+    if ($Mode -eq "Path") {
+        Write-Host "  Local Path: $Path"
+        Write-Host "  Global Path: $([Environment]::GetFolderPath('UserProfile'))"
+        Write-Host "  Local Components: agents, commands, output-styles"
+        Write-Host "  Global Components: workflows, scripts, python_script, etc."
+    } else {
+        Write-Host "  Path: $Path"
+    }
+
     if ($NoBackup) {
         Write-Host "  Backup: Disabled (no backup created)"
     } elseif ($BackupAll) {
@@ -537,7 +892,7 @@ function Show-Summary {
     } else {
         Write-Host "  Backup: Enabled (default behavior)"
     }
-    
+
     Write-Host ""
     Write-ColorOutput "Next steps:" $ColorInfo
     Write-Host "1. Review CLAUDE.md - Customize guidelines for your project"
@@ -545,7 +900,7 @@ function Show-Summary {
     Write-Host "3. Start using Claude Code with Agent workflow coordination!"
     Write-Host "4. Use /workflow commands for task execution"
     Write-Host "5. Use /update-memory commands for memory system management"
-    
+
     Write-Host ""
     Write-ColorOutput "Documentation: https://github.com/catlog22/Claude-CCW" $ColorInfo
     Write-ColorOutput "Features: Unified workflow system with comprehensive file output generation" $ColorInfo
@@ -553,48 +908,57 @@ function Show-Summary {
 
 function Main {
     Show-Header
-    
+
     # Test prerequisites
     Write-ColorOutput "Checking system requirements..." $ColorInfo
     if (-not (Test-Prerequisites)) {
         Write-ColorOutput "Prerequisites check failed!" $ColorError
         return 1
     }
-    
+
     try {
         # Get installation mode
         $mode = Get-InstallationMode
         $installPath = ""
         $success = $false
-        
-        $installPath = [Environment]::GetFolderPath("UserProfile")
-        $success = Install-Global
-        
-        Show-Summary -Mode $mode -Path $installPath -Success $success
-        
+
+        if ($mode -eq "Global") {
+            $installPath = [Environment]::GetFolderPath("UserProfile")
+            $result = Install-Global
+            $success = $result -eq $true
+        }
+        elseif ($mode -eq "Path") {
+            $installPath = Get-InstallationPath -Mode $mode
+            $result = Install-Path -TargetDirectory $installPath
+            $success = $result -eq $true
+        }
+
+        Show-Summary -Mode $mode -Path $installPath -Success ([bool]$success)
+
         # Wait for user confirmation before exit in interactive mode
         if (-not $NonInteractive) {
             Write-Host ""
             Write-ColorOutput "Installation completed. Press any key to exit..." $ColorPrompt
             $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         }
-        
+
         if ($success) {
             return 0
         } else {
             return 1
         }
-        
+
     } catch {
         Write-ColorOutput "CRITICAL ERROR: $($_.Exception.Message)" $ColorError
-        
+        Write-ColorOutput "Stack trace: $($_.ScriptStackTrace)" $ColorError
+
         # Wait for user confirmation before exit in interactive mode
         if (-not $NonInteractive) {
             Write-Host ""
             Write-ColorOutput "An error occurred. Press any key to exit..." $ColorPrompt
             $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         }
-        
+
         return 1
     }
 }
