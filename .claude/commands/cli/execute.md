@@ -167,7 +167,7 @@ RULES: $(cat [task_template]) | Task type: [task_type], Scope: [task_scope]
 cd .workflow/WFS-123 && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
 PURPOSE: Implement user profile editing
 TASK: Execute IMPL-001 implementation
-CONTEXT: @{src/user/**/*} @{.brainstorming/feature-planner/analysis.md} @{CLAUDE.md}
+CONTEXT: @{src/user/**/*} @{.brainstorming/product-owner/analysis.md} @{CLAUDE.md}
 EXPECTED: Profile edit API, UI components, validation, tests
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) | Type: feature, Scope: user module
 "

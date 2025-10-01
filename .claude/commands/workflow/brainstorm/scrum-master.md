@@ -1,31 +1,31 @@
 ---
-name: security-expert
-description: Generate or update security-expert/analysis.md addressing topic-framework discussion points
-usage: /workflow:brainstorm:security-expert [topic]
+name: scrum-master
+description: Generate or update scrum-master/analysis.md addressing topic-framework discussion points
+usage: /workflow:brainstorm:scrum-master [topic]
 argument-hint: "optional topic - uses existing framework if available"
 examples:
-  - /workflow:brainstorm:security-expert
-  - /workflow:brainstorm:security-expert "user authentication security review"
-  - /workflow:brainstorm:security-expert "API security architecture"
+  - /workflow:brainstorm:scrum-master
+  - /workflow:brainstorm:scrum-master "user authentication redesign"
+  - /workflow:brainstorm:scrum-master "mobile app performance optimization"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
-## 🔒 **Security Expert Analysis Generator**
+## 🎯 **Scrum Master Analysis Generator**
 
 ### Purpose
-**Specialized command for generating security-expert/analysis.md** that addresses topic-framework.md discussion points from cybersecurity perspective. Creates or updates role-specific analysis with framework references.
+**Specialized command for generating scrum-master/analysis.md** that addresses topic-framework.md discussion points from agile process and team collaboration perspective. Creates or updates role-specific analysis with framework references.
 
 ### Core Function
 - **Framework-based Analysis**: Address each discussion point in topic-framework.md
-- **Cybersecurity Focus**: Threat modeling, security architecture, and risk management
+- **Agile Process Focus**: Sprint planning, team dynamics, and delivery optimization
 - **Update Mechanism**: Create new or update existing analysis.md
 - **Agent Delegation**: Use conceptual-planning-agent for analysis generation
 
 ### Analysis Scope
-- **Threat Modeling**: Attack vectors, threat actors, and vulnerability assessment
-- **Security Architecture**: Controls, defensive measures, and compliance
-- **Risk Management**: Risk assessment, mitigation, and security policies
-- **Implementation Security**: Integration, monitoring, and incident response
+- **Sprint Planning**: Task breakdown, estimation, and iteration planning
+- **Team Collaboration**: Communication patterns, impediment removal, and facilitation
+- **Process Optimization**: Agile ceremonies, retrospectives, and continuous improvement
+- **Delivery Management**: Velocity tracking, burndown analysis, and release planning
 
 ## ⚙️ **Execution Protocol**
 
@@ -68,11 +68,11 @@ ELSE:
 Task(conceptual-planning-agent): "
 [FLOW_CONTROL]
 
-Execute security-expert analysis for existing topic framework
+Execute scrum-master analysis for existing topic framework
 
 ## Context Loading
-ASSIGNED_ROLE: security-expert
-OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/security-expert/
+ASSIGNED_ROLE: scrum-master
+OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/scrum-master/
 ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 
 ## Flow Control Steps
@@ -82,8 +82,8 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
    - Output: topic_framework_content
 
 2. **load_role_template**
-   - Action: Load security-expert planning template
-   - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/security-expert.md))
+   - Action: Load scrum-master planning template
+   - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/scrum-master.md))
    - Output: role_template_guidelines
 
 3. **load_session_metadata**
@@ -92,19 +92,19 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
    - Output: session_context
 
 ## Analysis Requirements
-**Framework Reference**: Address all discussion points in topic-framework.md from cybersecurity perspective
-**Role Focus**: Threat modeling, security architecture, risk management, compliance
+**Framework Reference**: Address all discussion points in topic-framework.md from agile process and team collaboration perspective
+**Role Focus**: Sprint planning, team dynamics, process optimization, delivery management
 **Structured Approach**: Create analysis.md addressing framework discussion points
 **Template Integration**: Apply role template guidelines within framework structure
 
 ## Expected Deliverables
-1. **analysis.md**: Comprehensive security analysis addressing all framework discussion points
+1. **analysis.md**: Comprehensive agile process analysis addressing all framework discussion points
 2. **Framework Reference**: Include @../topic-framework.md reference in analysis
 
 ## Completion Criteria
-- Address each discussion point from topic-framework.md with cybersecurity expertise
-- Provide actionable security controls and threat mitigation strategies
-- Include compliance requirements and risk assessment insights
+- Address each discussion point from topic-framework.md with scrum mastery expertise
+- Provide actionable sprint planning and team facilitation strategies
+- Include process optimization and impediment removal insights
 - Reference framework document using @ notation for integration
 "
 ```
@@ -126,17 +126,17 @@ TodoWrite({
       activeForm: "Loading framework and session context"
     },
     {
-      content: "Execute security-expert analysis using conceptual-planning-agent with FLOW_CONTROL",
+      content: "Execute scrum-master analysis using conceptual-planning-agent with FLOW_CONTROL",
       status: "pending",
-      activeForm: "Executing security-expert framework analysis"
+      activeForm: "Executing scrum-master framework analysis"
     },
     {
       content: "Generate analysis.md addressing all framework discussion points",
       status: "pending",
-      activeForm: "Generating structured security-expert analysis"
+      activeForm: "Generating structured scrum-master analysis"
     },
     {
-      content: "Update session.json with security-expert completion status",
+      content: "Update session.json with scrum-master completion status",
       status: "pending",
       activeForm: "Updating session metadata"
     }
@@ -148,41 +148,41 @@ TodoWrite({
 
 ### Framework-Based Analysis
 ```
-.workflow/WFS-{session}/.brainstorming/security-expert/
+.workflow/WFS-{session}/.brainstorming/scrum-master/
 └── analysis.md    # Structured analysis addressing topic-framework.md discussion points
 ```
 
 ### Analysis Document Structure
 ```markdown
-# Security Expert Analysis: [Topic from Framework]
+# Scrum Master Analysis: [Topic from Framework]
 
 ## Framework Reference
 **Topic Framework**: @../topic-framework.md
-**Role Focus**: Cybersecurity perspective
+**Role Focus**: Agile Process & Team Collaboration perspective
 
 ## Discussion Points Analysis
-[Address each point from topic-framework.md with cybersecurity expertise]
+[Address each point from topic-framework.md with scrum mastery expertise]
 
 ### Core Requirements (from framework)
-[Security perspective on threat modeling and protection requirements]
+[Sprint planning and iteration breakdown perspective]
 
 ### Technical Considerations (from framework)
-[Security architecture and technical control considerations]
+[Technical debt management and process considerations]
 
 ### User Experience Factors (from framework)
-[Security usability and user protection considerations]
+[User story refinement and acceptance criteria analysis]
 
 ### Implementation Challenges (from framework)
-[Security implementation and compliance considerations]
+[Impediment identification and removal strategies]
 
 ### Success Metrics (from framework)
-[Security success metrics and risk management criteria]
+[Velocity tracking, burndown metrics, and team performance indicators]
 
-## Cybersecurity Specific Recommendations
-[Role-specific security controls and threat mitigation strategies]
+## Scrum Master Specific Recommendations
+[Role-specific agile process optimization and team facilitation strategies]
 
 ---
-*Generated by security-expert analysis addressing structured framework*
+*Generated by scrum-master analysis addressing structured framework*
 ```
 
 ## 🔄 **Session Integration**
@@ -190,10 +190,10 @@ TodoWrite({
 ### Completion Status Update
 ```json
 {
-  "security_expert": {
+  "scrum_master": {
     "status": "completed",
     "framework_addressed": true,
-    "output_location": ".workflow/WFS-{session}/.brainstorming/security-expert/analysis.md",
+    "output_location": ".workflow/WFS-{session}/.brainstorming/scrum-master/analysis.md",
     "framework_reference": "@../topic-framework.md"
   }
 }
@@ -201,5 +201,5 @@ TodoWrite({
 
 ### Integration Points
 - **Framework Reference**: @../topic-framework.md for structured discussion points
-- **Cross-Role Synthesis**: Security insights available for synthesis-report.md integration
+- **Cross-Role Synthesis**: Agile process insights available for synthesis-report.md integration
 - **Agent Autonomy**: Independent execution with framework guidance

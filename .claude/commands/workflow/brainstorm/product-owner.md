@@ -1,31 +1,31 @@
 ---
-name: business-analyst
-description: Generate or update business-analyst/analysis.md addressing topic-framework discussion points
-usage: /workflow:brainstorm:business-analyst [topic]
+name: product-owner
+description: Generate or update product-owner/analysis.md addressing topic-framework discussion points
+usage: /workflow:brainstorm:product-owner [topic]
 argument-hint: "optional topic - uses existing framework if available"
 examples:
-  - /workflow:brainstorm:business-analyst
-  - /workflow:brainstorm:business-analyst "workflow automation opportunities"
-  - /workflow:brainstorm:business-analyst "business process optimization"
+  - /workflow:brainstorm:product-owner
+  - /workflow:brainstorm:product-owner "user authentication redesign"
+  - /workflow:brainstorm:product-owner "mobile app performance optimization"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
-## 📊 **Business Analyst Analysis Generator**
+## 🎯 **Product Owner Analysis Generator**
 
 ### Purpose
-**Specialized command for generating business-analyst/analysis.md** that addresses topic-framework.md discussion points from business analysis perspective. Creates or updates role-specific analysis with framework references.
+**Specialized command for generating product-owner/analysis.md** that addresses topic-framework.md discussion points from product backlog and feature prioritization perspective. Creates or updates role-specific analysis with framework references.
 
 ### Core Function
 - **Framework-based Analysis**: Address each discussion point in topic-framework.md
-- **Business Analysis Focus**: Process optimization, requirements analysis, and business efficiency perspective
+- **Product Backlog Focus**: Feature prioritization, user stories, and acceptance criteria
 - **Update Mechanism**: Create new or update existing analysis.md
 - **Agent Delegation**: Use conceptual-planning-agent for analysis generation
 
 ### Analysis Scope
-- **Process Analysis**: Analyze existing business processes for efficiency and improvement opportunities
-- **Requirements Analysis**: Identify and define business requirements and functional specifications
-- **Value Analysis**: Assess cost-benefit and ROI of business initiatives
-- **Change Management**: Plan organizational change and process transformation
+- **Backlog Management**: User story creation, refinement, and prioritization
+- **Stakeholder Alignment**: Requirements gathering, value definition, and expectation management
+- **Feature Prioritization**: ROI analysis, MoSCoW method, and value-driven delivery
+- **Acceptance Criteria**: Definition of Done, acceptance testing, and quality standards
 
 ## ⚙️ **Execution Protocol**
 
@@ -68,11 +68,11 @@ ELSE:
 Task(conceptual-planning-agent): "
 [FLOW_CONTROL]
 
-Execute business-analyst analysis for existing topic framework
+Execute product-owner analysis for existing topic framework
 
 ## Context Loading
-ASSIGNED_ROLE: business-analyst
-OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/business-analyst/
+ASSIGNED_ROLE: product-owner
+OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/product-owner/
 ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 
 ## Flow Control Steps
@@ -82,8 +82,8 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
    - Output: topic_framework_content
 
 2. **load_role_template**
-   - Action: Load business-analyst planning template
-   - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/business-analyst.md))
+   - Action: Load product-owner planning template
+   - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/product-owner.md))
    - Output: role_template_guidelines
 
 3. **load_session_metadata**
@@ -92,19 +92,19 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
    - Output: session_context
 
 ## Analysis Requirements
-**Framework Reference**: Address all discussion points in topic-framework.md from business analysis perspective
-**Role Focus**: Process optimization, requirements analysis, business efficiency
+**Framework Reference**: Address all discussion points in topic-framework.md from product backlog and feature prioritization perspective
+**Role Focus**: Backlog management, stakeholder alignment, feature prioritization, acceptance criteria
 **Structured Approach**: Create analysis.md addressing framework discussion points
 **Template Integration**: Apply role template guidelines within framework structure
 
 ## Expected Deliverables
-1. **analysis.md**: Comprehensive business analysis addressing all framework discussion points
+1. **analysis.md**: Comprehensive product ownership analysis addressing all framework discussion points
 2. **Framework Reference**: Include @../topic-framework.md reference in analysis
 
 ## Completion Criteria
-- Address each discussion point from topic-framework.md with business analysis expertise
-- Provide process optimization recommendations and requirements specifications
-- Include cost-benefit analysis and change management considerations
+- Address each discussion point from topic-framework.md with product ownership expertise
+- Provide actionable user stories and acceptance criteria definitions
+- Include feature prioritization and stakeholder alignment strategies
 - Reference framework document using @ notation for integration
 "
 ```
@@ -126,17 +126,17 @@ TodoWrite({
       activeForm: "Loading framework and session context"
     },
     {
-      content: "Execute business-analyst analysis using conceptual-planning-agent with FLOW_CONTROL",
+      content: "Execute product-owner analysis using conceptual-planning-agent with FLOW_CONTROL",
       status: "pending",
-      activeForm: "Executing business-analyst framework analysis"
+      activeForm: "Executing product-owner framework analysis"
     },
     {
       content: "Generate analysis.md addressing all framework discussion points",
       status: "pending",
-      activeForm: "Generating structured business-analyst analysis"
+      activeForm: "Generating structured product-owner analysis"
     },
     {
-      content: "Update session.json with business-analyst completion status",
+      content: "Update session.json with product-owner completion status",
       status: "pending",
       activeForm: "Updating session metadata"
     }
@@ -148,41 +148,41 @@ TodoWrite({
 
 ### Framework-Based Analysis
 ```
-.workflow/WFS-{session}/.brainstorming/business-analyst/
+.workflow/WFS-{session}/.brainstorming/product-owner/
 └── analysis.md    # Structured analysis addressing topic-framework.md discussion points
 ```
 
 ### Analysis Document Structure
 ```markdown
-# Business Analyst Analysis: [Topic from Framework]
+# Product Owner Analysis: [Topic from Framework]
 
 ## Framework Reference
 **Topic Framework**: @../topic-framework.md
-**Role Focus**: Business Analysis perspective
+**Role Focus**: Product Backlog & Feature Prioritization perspective
 
 ## Discussion Points Analysis
-[Address each point from topic-framework.md with business analysis expertise]
+[Address each point from topic-framework.md with product ownership expertise]
 
 ### Core Requirements (from framework)
-[Business analysis perspective on requirements]
+[User story formulation and backlog refinement perspective]
 
 ### Technical Considerations (from framework)
-[Business process and workflow considerations]
+[Technical feasibility and implementation sequencing considerations]
 
 ### User Experience Factors (from framework)
-[Business user experience and stakeholder considerations]
+[User value definition and acceptance criteria analysis]
 
 ### Implementation Challenges (from framework)
-[Change management and process transformation challenges]
+[Sprint planning, dependency management, and delivery strategies]
 
 ### Success Metrics (from framework)
-[Business success metrics and performance indicators]
+[Feature adoption, value delivery metrics, and stakeholder satisfaction indicators]
 
-## Business Analysis Specific Recommendations
-[Role-specific business process recommendations and solutions]
+## Product Owner Specific Recommendations
+[Role-specific backlog management and feature prioritization strategies]
 
 ---
-*Generated by business-analyst analysis addressing structured framework*
+*Generated by product-owner analysis addressing structured framework*
 ```
 
 ## 🔄 **Session Integration**
@@ -190,10 +190,10 @@ TodoWrite({
 ### Completion Status Update
 ```json
 {
-  "business_analyst": {
+  "product_owner": {
     "status": "completed",
     "framework_addressed": true,
-    "output_location": ".workflow/WFS-{session}/.brainstorming/business-analyst/analysis.md",
+    "output_location": ".workflow/WFS-{session}/.brainstorming/product-owner/analysis.md",
     "framework_reference": "@../topic-framework.md"
   }
 }
@@ -201,5 +201,5 @@ TodoWrite({
 
 ### Integration Points
 - **Framework Reference**: @../topic-framework.md for structured discussion points
-- **Cross-Role Synthesis**: Business analysis insights available for synthesis-report.md integration
+- **Cross-Role Synthesis**: Product ownership insights available for synthesis-report.md integration
 - **Agent Autonomy**: Independent execution with framework guidance

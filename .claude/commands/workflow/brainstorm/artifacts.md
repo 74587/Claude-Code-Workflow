@@ -5,8 +5,8 @@ usage: /workflow:brainstorm:artifacts "<topic>" [--roles "role1,role2,role3"]
 argument-hint: "topic or challenge description for framework generation"
 examples:
   - /workflow:brainstorm:artifacts "Build real-time collaboration feature"
-  - /workflow:brainstorm:artifacts "Optimize database performance" --roles "system-architect,data-architect,security-expert"
-  - /workflow:brainstorm:artifacts "Implement secure authentication system" --roles "ui-designer,security-expert,user-researcher"
+  - /workflow:brainstorm:artifacts "Optimize database performance" --roles "system-architect,data-architect,subject-matter-expert"
+  - /workflow:brainstorm:artifacts "Implement secure authentication system" --roles "ui-designer,ux-expert,subject-matter-expert"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---
 
@@ -109,7 +109,7 @@ Framework content adapts based on `--roles` parameter:
 - **Scope**: [Topic boundaries relevant to selected roles]
 - **Objectives**: [Goals from perspective of selected roles]
 - **Context**: [Background focusing on role-specific concerns]
-- **Target Roles**: ui-designer, system-architect, security-expert
+- **Target Roles**: ui-designer, system-architect, subject-matter-expert
 
 ## Role-Specific Discussion Points
 
@@ -135,21 +135,21 @@ Framework content adapts based on `--roles` parameter:
    - What are the performance requirements?
    - What dependencies must be managed?
 
-### For Security Expert
-1. **Security Requirements**
-   - What are the key security concerns?
-   - What threat vectors must be addressed?
-   - What compliance requirements apply?
+### For Subject Matter Expert
+1. **Domain Expertise & Standards**
+   - What industry standards and best practices apply?
+   - What regulatory compliance requirements exist?
+   - What domain-specific patterns should be followed?
 
-2. **Security Implementation**
-   - What authentication/authorization is needed?
-   - What data protection mechanisms are required?
-   - How to handle security incidents?
+2. **Technical Quality & Risk**
+   - What technical debt considerations exist?
+   - What scalability and maintenance implications apply?
+   - What knowledge transfer and documentation is needed?
 
 ## Cross-Role Integration Points
 - How do UI decisions impact architecture?
 - How does architecture constrain UI possibilities?
-- What security requirements affect both UI and architecture?
+- What domain standards affect both UI and architecture?
 
 ## Framework Usage
 **For Role Agents**: Address your specific section + integration points
@@ -157,7 +157,7 @@ Framework content adapts based on `--roles` parameter:
 **Update Process**: Use /workflow:brainstorm:artifacts to update
 
 ---
-*Generated for roles: ui-designer, system-architect, security-expert*
+*Generated for roles: ui-designer, system-architect, subject-matter-expert*
 *Last updated: [timestamp]*
 ```
 
@@ -200,9 +200,9 @@ Framework content adapts based on `--roles` parameter:
 
 ## Available Role Perspectives
 Framework supports analysis from any of these roles:
-- system-architect, ui-designer, security-expert
-- user-researcher, product-manager, business-analyst
-- data-architect, innovation-lead, feature-planner
+- **Technical**: system-architect, data-architect, subject-matter-expert
+- **Product & Design**: ui-designer, ux-expert, product-manager, product-owner
+- **Agile & Quality**: scrum-master, test-strategist
 
 ---
 *Comprehensive framework - adaptable to any role*
@@ -216,17 +216,17 @@ Framework supports analysis from any of these roles:
 **Technical Roles**:
 - `system-architect`: Architecture patterns, scalability, technology stack, integration
 - `data-architect`: Data modeling, processing workflows, analytics, storage
-- `security-expert`: Security requirements, threat modeling, compliance, protection
+- `subject-matter-expert`: Domain expertise, industry standards, compliance, best practices
 
 **Product & Design Roles**:
 - `ui-designer`: User interface, visual design, interaction patterns, accessibility
-- `user-researcher`: User needs, behavior analysis, usability testing, personas
+- `ux-expert`: User experience optimization, usability testing, interaction design, design systems
 - `product-manager`: Business value, feature prioritization, market positioning, roadmap
+- `product-owner`: Backlog management, user stories, acceptance criteria, stakeholder alignment
 
-**Business Roles**:
-- `business-analyst`: Process optimization, requirements analysis, cost-benefit, ROI
-- `innovation-lead`: Emerging technologies, competitive advantage, transformation, trends
-- `feature-planner`: Feature specification, user stories, acceptance criteria, dependencies
+**Agile & Quality Roles**:
+- `scrum-master`: Sprint planning, team dynamics, process optimization, delivery management
+- `test-strategist`: Testing strategies, quality assurance, test automation, validation approaches
 
 ### Dynamic Discussion Point Generation
 
@@ -248,23 +248,32 @@ Generate:
 
 #### Example 1: Architecture-Heavy Topic
 ```bash
-/workflow:brainstorm:artifacts "Design scalable microservices platform" --roles "system-architect,data-architect,security-expert"
+/workflow:brainstorm:artifacts "Design scalable microservices platform" --roles "system-architect,data-architect,subject-matter-expert"
 ```
 **Generated framework focuses on**:
 - Service architecture and communication patterns
 - Data flow and storage strategies
-- Security boundaries and authentication
+- Domain standards and best practices
 
 #### Example 2: User-Focused Topic
 ```bash
-/workflow:brainstorm:artifacts "Improve user onboarding experience" --roles "ui-designer,user-researcher,product-manager"
+/workflow:brainstorm:artifacts "Improve user onboarding experience" --roles "ui-designer,ux-expert,product-manager"
 ```
 **Generated framework focuses on**:
 - Onboarding flow and UI components
-- User behavior and pain points
+- User experience optimization and usability
 - Business value and success metrics
 
-#### Example 3: Comprehensive Analysis
+#### Example 3: Agile Delivery Topic
+```bash
+/workflow:brainstorm:artifacts "Optimize sprint delivery process" --roles "scrum-master,product-owner,test-strategist"
+```
+**Generated framework focuses on**:
+- Sprint planning and team collaboration
+- Backlog management and prioritization
+- Quality assurance and testing strategies
+
+#### Example 4: Comprehensive Analysis
 ```bash
 /workflow:brainstorm:artifacts "Build real-time collaboration feature"
 ```

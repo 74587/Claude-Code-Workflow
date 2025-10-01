@@ -184,7 +184,7 @@ Strategic overview with key insights, breakthrough opportunities, and implementa
 
 ## Design Specifications
 ### UI/UX Guidelines
-**Consolidated from**: @ui-designer/analysis.md, @user-researcher/analysis.md
+**Consolidated from**: @ui-designer/analysis.md, @ux-expert/analysis.md
 - Component specifications and interaction patterns
 - Visual design system and accessibility requirements
 - User flow and interface specifications
@@ -195,11 +195,11 @@ Strategic overview with key insights, breakthrough opportunities, and implementa
 - Data flow and storage strategy
 - Technology stack decisions
 
-### Security Framework
-**Consolidated from**: @security-expert/analysis.md
-- Authentication and authorization patterns
-- Data protection and compliance requirements
-- Security monitoring and audit strategy
+### Domain Expertise & Standards
+**Consolidated from**: @subject-matter-expert/analysis.md
+- Industry standards and best practices
+- Compliance requirements and regulations
+- Technical quality and domain-specific patterns
 
 ## Implementation Roadmap
 ### Development Phases
@@ -242,7 +242,7 @@ Upon completion, update `workflow-session.json`:
       "status": "completed",
       "synthesis_completed": true,
       "completed_at": "timestamp",
-      "participating_roles": ["product-manager", "system-architect", "ui-designer", "security-expert", "data-architect", ...],
+      "participating_roles": ["product-manager", "product-owner", "scrum-master", "system-architect", "ui-designer", "ux-expert", "data-architect", "subject-matter-expert", "test-strategist"],
       "consolidated_output": {
         "synthesis_specification": ".workflow/WFS-{topic}/.brainstorming/synthesis-specification.md"
       },

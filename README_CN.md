@@ -444,30 +444,27 @@ graph LR
 | 角色 | 命令 | 目的 |
 |------|---------|----------|
 | 🏗️ **系统架构师** | `/workflow:brainstorm:system-architect` | 技术架构分析 |
-| 🔒 **安全专家** | `/workflow:brainstorm:security-expert` | 安全和威胁分析 |
-| 📊 **产品经理** | `/workflow:brainstorm:product-manager` | 用户需求和商业价值 |
-| 🎨 **UI设计师** | `/workflow:brainstorm:ui-designer` | 用户体验和界面 |
-| 📈 **业务分析师** | `/workflow:brainstorm:business-analyst` | 流程优化分析 |
-| 🔬 **创新负责人** | `/workflow:brainstorm:innovation-lead` | 新兴技术机会 |
-| 📋 **功能规划师** | `/workflow:brainstorm:feature-planner` | 功能开发规划 |
 | 🗄️ **数据架构师** | `/workflow:brainstorm:data-architect` | 数据建模和分析 |
-| 👥 **用户研究员** | `/workflow:brainstorm:user-researcher` | 用户行为分析 |
-| 🚀 **自动选择** | `/workflow:brainstorm:auto` | 动态角色选择 |
+| 🎓 **领域专家** | `/workflow:brainstorm:subject-matter-expert` | 领域知识和行业标准 |
+| 📊 **产品经理** | `/workflow:brainstorm:product-manager` | 产品策略和商业价值 |
+| 📋 **产品负责人** | `/workflow:brainstorm:product-owner` | 待办列表管理和用户故事 |
+| 🏃 **敏捷教练** | `/workflow:brainstorm:scrum-master` | 敏捷流程和团队协作 |
+| 🎨 **UI设计师** | `/workflow:brainstorm:ui-designer` | 视觉界面设计 |
+| 💫 **UX专家** | `/workflow:brainstorm:ux-expert` | 用户体验优化 |
+| 🧪 **测试策略师** | `/workflow:brainstorm:test-strategist` | 测试策略和质量保证 |
 
-### 头脑风暴角色命令
+### 可用角色命令
 
-| 命令 | 描述 |
-|------|------|
-| `/workflow:brainstorm:business-analyst` | 业务需求和市场分析 |
-| `/workflow:brainstorm:data-architect` | 数据建模和架构规划 |
-| `/workflow:brainstorm:feature-planner` | 功能规范和用户故事 |
-| `/workflow:brainstorm:innovation-lead` | 技术创新和新兴解决方案 |
-| `/workflow:brainstorm:product-manager` | 产品策略和路线图规划 |
-| `/workflow:brainstorm:security-expert` | 安全分析和威胁建模 |
-| `/workflow:brainstorm:system-architect` | 系统设计和技术架构 |
-| `/workflow:brainstorm:ui-designer` | 用户界面和体验设计 |
-| `/workflow:brainstorm:user-researcher` | 用户需求分析和研究洞察 |
-| `/workflow:brainstorm:synthesis` | 整合和综合多个视角 |
+**角色说明**：
+- `🏗️ system-architect` - 系统架构分析
+- `🗄️ data-architect` - 数据架构设计
+- `🎓 subject-matter-expert` - 领域专业知识和行业标准
+- `📊 product-manager` - 产品策略和需求分析
+- `📋 product-owner` - 待办列表管理和用户故事定义
+- `🏃 scrum-master` - Sprint 规划和敏捷流程协调
+- `🎨 ui-designer` - 视觉界面设计规划
+- `💫 ux-expert` - 用户体验优化和可用性测试
+- `🧪 test-strategist` - 测试策略和质量保证
 
 ## 使用工作流
 

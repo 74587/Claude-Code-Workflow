@@ -188,9 +188,12 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
 #### Artifact-Task Mapping
 - **synthesis-specification.md** → All tasks
 - **ui-designer/analysis.md** → UI/Frontend tasks
+- **ux-expert/analysis.md** → UX/Interaction tasks
 - **system-architect/analysis.md** → Architecture/Backend tasks
-- **security-expert/analysis.md** → Security tasks
+- **subject-matter-expert/analysis.md** → Domain/Standards tasks
 - **data-architect/analysis.md** → Data/API tasks
+- **scrum-master/analysis.md** → Sprint/Process tasks
+- **product-owner/analysis.md** → Backlog/Story tasks
 
 ### Phase 4: IMPL_PLAN.md Generation
 

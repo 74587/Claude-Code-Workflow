@@ -18,15 +18,17 @@ allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*
 ```
 
 ## Role Selection Logic
-- **Technical & Architecture**: `architecture|system|performance|database|security` → system-architect, data-architect, security-expert
-- **Product & UX**: `user|ui|ux|interface|design|product|feature` → ui-designer, user-researcher, product-manager
+- **Technical & Architecture**: `architecture|system|performance|database|security` → system-architect, data-architect, security-expert, subject-matter-expert
+- **Product & UX**: `user|ui|ux|interface|design|product|feature|experience` → ui-designer, user-researcher, product-manager, ux-expert, product-owner
 - **Business & Process**: `business|process|workflow|cost|innovation|testing` → business-analyst, innovation-lead, test-strategist
+- **Agile & Delivery**: `agile|sprint|scrum|team|collaboration|delivery` → scrum-master, product-owner
+- **Domain Expertise**: `domain|standard|compliance|expertise|regulation` → subject-matter-expert
 - **Multi-role**: Complex topics automatically select 2-3 complementary roles
 - **Default**: `product-manager` if no clear match
 
 **Template Loading**: `bash($(cat "~/.claude/workflows/cli-templates/planning-roles/<role-name>.md"))`
 **Template Source**: `.claude/workflows/cli-templates/planning-roles/`
-**Available Roles**: business-analyst, data-architect, feature-planner, innovation-lead, product-manager, security-expert, system-architect, test-strategist, ui-designer, user-researcher
+**Available Roles**: data-architect, product-manager, product-owner, scrum-master, subject-matter-expert, system-architect, test-strategist, ui-designer, ux-expert
 
 **Example**:
 ```bash
@@ -72,9 +74,10 @@ Auto command coordinates independent specialized commands:
 4. **Command coordination**: SlashCommand handles execution and validation
 
 **Role Selection Logic**:
-- **Technical**: `architecture|system|performance|database|security` → system-architect, data-architect, security-expert
-- **Product & UX**: `user|ui|ux|interface|design|product|feature` → ui-designer, user-researcher, product-manager
-- **Business**: `business|process|workflow|cost|innovation` → business-analyst, innovation-lead
+- **Technical**: `architecture|system|performance|database` → system-architect, data-architect, subject-matter-expert
+- **Product & UX**: `user|ui|ux|interface|design|product|feature|experience` → ui-designer, ux-expert, product-manager, product-owner
+- **Agile & Delivery**: `agile|sprint|scrum|team|collaboration|delivery` → scrum-master, product-owner
+- **Domain Expertise**: `domain|standard|compliance|expertise|regulation` → subject-matter-expert
 - **Auto-select**: 2-3 most relevant roles based on topic analysis
 
 ### Simplified Processing Standards

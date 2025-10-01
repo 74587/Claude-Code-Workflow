@@ -1,31 +1,31 @@
 ---
-name: feature-planner
-description: Generate or update feature-planner/analysis.md addressing topic-framework discussion points
-usage: /workflow:brainstorm:feature-planner [topic]
+name: subject-matter-expert
+description: Generate or update subject-matter-expert/analysis.md addressing topic-framework discussion points
+usage: /workflow:brainstorm:subject-matter-expert [topic]
 argument-hint: "optional topic - uses existing framework if available"
 examples:
-  - /workflow:brainstorm:feature-planner
-  - /workflow:brainstorm:feature-planner "user dashboard enhancement"
-  - /workflow:brainstorm:feature-planner "mobile app feature roadmap"
+  - /workflow:brainstorm:subject-matter-expert
+  - /workflow:brainstorm:subject-matter-expert "user authentication redesign"
+  - /workflow:brainstorm:subject-matter-expert "mobile app performance optimization"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
-## 🔧 **Feature Planner Analysis Generator**
+## 🎯 **Subject Matter Expert Analysis Generator**
 
 ### Purpose
-**Specialized command for generating feature-planner/analysis.md** that addresses topic-framework.md discussion points from feature development perspective. Creates or updates role-specific analysis with framework references.
+**Specialized command for generating subject-matter-expert/analysis.md** that addresses topic-framework.md discussion points from domain knowledge and technical expertise perspective. Creates or updates role-specific analysis with framework references.
 
 ### Core Function
 - **Framework-based Analysis**: Address each discussion point in topic-framework.md
-- **Feature Development Focus**: Feature specification, development planning, and delivery management
+- **Domain Expertise Focus**: Deep technical knowledge, industry standards, and best practices
 - **Update Mechanism**: Create new or update existing analysis.md
 - **Agent Delegation**: Use conceptual-planning-agent for analysis generation
 
 ### Analysis Scope
-- **Feature Specification**: Transform requirements into detailed specifications
-- **Development Planning**: Sprint planning, milestones, and dependency management
-- **Quality Assurance**: Testing strategies and acceptance criteria
-- **Delivery Management**: Release planning and implementation timelines
+- **Domain Knowledge**: Industry-specific expertise, regulatory requirements, and compliance
+- **Technical Standards**: Best practices, design patterns, and architectural guidelines
+- **Risk Assessment**: Technical debt, scalability concerns, and maintenance implications
+- **Knowledge Transfer**: Documentation strategies, training requirements, and expertise sharing
 
 ## ⚙️ **Execution Protocol**
 
@@ -68,11 +68,11 @@ ELSE:
 Task(conceptual-planning-agent): "
 [FLOW_CONTROL]
 
-Execute feature-planner analysis for existing topic framework
+Execute subject-matter-expert analysis for existing topic framework
 
 ## Context Loading
-ASSIGNED_ROLE: feature-planner
-OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/feature-planner/
+ASSIGNED_ROLE: subject-matter-expert
+OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/subject-matter-expert/
 ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 
 ## Flow Control Steps
@@ -82,8 +82,8 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
    - Output: topic_framework_content
 
 2. **load_role_template**
-   - Action: Load feature-planner planning template
-   - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/feature-planner.md))
+   - Action: Load subject-matter-expert planning template
+   - Command: bash($(cat ~/.claude/workflows/cli-templates/planning-roles/subject-matter-expert.md))
    - Output: role_template_guidelines
 
 3. **load_session_metadata**
@@ -92,19 +92,19 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
    - Output: session_context
 
 ## Analysis Requirements
-**Framework Reference**: Address all discussion points in topic-framework.md from feature development perspective
-**Role Focus**: Feature specification, development planning, quality assurance, delivery management
+**Framework Reference**: Address all discussion points in topic-framework.md from domain expertise and technical standards perspective
+**Role Focus**: Domain knowledge, technical standards, risk assessment, knowledge transfer
 **Structured Approach**: Create analysis.md addressing framework discussion points
 **Template Integration**: Apply role template guidelines within framework structure
 
 ## Expected Deliverables
-1. **analysis.md**: Comprehensive feature planning analysis addressing all framework discussion points
+1. **analysis.md**: Comprehensive domain expertise analysis addressing all framework discussion points
 2. **Framework Reference**: Include @../topic-framework.md reference in analysis
 
 ## Completion Criteria
-- Address each discussion point from topic-framework.md with feature development expertise
-- Provide actionable development plans and implementation strategies
-- Include quality assurance and testing considerations
+- Address each discussion point from topic-framework.md with subject matter expertise
+- Provide actionable technical standards and best practices recommendations
+- Include risk assessment and compliance considerations
 - Reference framework document using @ notation for integration
 "
 ```
@@ -126,17 +126,17 @@ TodoWrite({
       activeForm: "Loading framework and session context"
     },
     {
-      content: "Execute feature-planner analysis using conceptual-planning-agent with FLOW_CONTROL",
+      content: "Execute subject-matter-expert analysis using conceptual-planning-agent with FLOW_CONTROL",
       status: "pending",
-      activeForm: "Executing feature-planner framework analysis"
+      activeForm: "Executing subject-matter-expert framework analysis"
     },
     {
       content: "Generate analysis.md addressing all framework discussion points",
       status: "pending",
-      activeForm: "Generating structured feature-planner analysis"
+      activeForm: "Generating structured subject-matter-expert analysis"
     },
     {
-      content: "Update session.json with feature-planner completion status",
+      content: "Update session.json with subject-matter-expert completion status",
       status: "pending",
       activeForm: "Updating session metadata"
     }
@@ -148,41 +148,41 @@ TodoWrite({
 
 ### Framework-Based Analysis
 ```
-.workflow/WFS-{session}/.brainstorming/feature-planner/
+.workflow/WFS-{session}/.brainstorming/subject-matter-expert/
 └── analysis.md    # Structured analysis addressing topic-framework.md discussion points
 ```
 
 ### Analysis Document Structure
 ```markdown
-# Feature Planner Analysis: [Topic from Framework]
+# Subject Matter Expert Analysis: [Topic from Framework]
 
 ## Framework Reference
 **Topic Framework**: @../topic-framework.md
-**Role Focus**: Feature Development perspective
+**Role Focus**: Domain Expertise & Technical Standards perspective
 
 ## Discussion Points Analysis
-[Address each point from topic-framework.md with feature development expertise]
+[Address each point from topic-framework.md with subject matter expertise]
 
 ### Core Requirements (from framework)
-[Feature development perspective on requirements]
+[Domain-specific requirements and industry standards perspective]
 
 ### Technical Considerations (from framework)
-[Feature architecture and development considerations]
+[Deep technical analysis, architectural patterns, and best practices]
 
 ### User Experience Factors (from framework)
-[Feature usability and user story considerations]
+[Domain-specific usability standards and industry conventions]
 
 ### Implementation Challenges (from framework)
-[Development complexity and delivery considerations]
+[Technical risks, scalability concerns, and maintenance implications]
 
 ### Success Metrics (from framework)
-[Feature success metrics and acceptance criteria]
+[Domain-specific KPIs, compliance metrics, and quality standards]
 
-## Feature Development Specific Recommendations
-[Role-specific feature planning recommendations and strategies]
+## Subject Matter Expert Specific Recommendations
+[Role-specific technical expertise and industry best practices]
 
 ---
-*Generated by feature-planner analysis addressing structured framework*
+*Generated by subject-matter-expert analysis addressing structured framework*
 ```
 
 ## 🔄 **Session Integration**
@@ -190,10 +190,10 @@ TodoWrite({
 ### Completion Status Update
 ```json
 {
-  "feature_planner": {
+  "subject_matter_expert": {
     "status": "completed",
     "framework_addressed": true,
-    "output_location": ".workflow/WFS-{session}/.brainstorming/feature-planner/analysis.md",
+    "output_location": ".workflow/WFS-{session}/.brainstorming/subject-matter-expert/analysis.md",
     "framework_reference": "@../topic-framework.md"
   }
 }
@@ -201,5 +201,5 @@ TodoWrite({
 
 ### Integration Points
 - **Framework Reference**: @../topic-framework.md for structured discussion points
-- **Cross-Role Synthesis**: Feature development insights available for synthesis-report.md integration
+- **Cross-Role Synthesis**: Domain expertise insights available for synthesis-report.md integration
 - **Agent Autonomy**: Independent execution with framework guidance

@@ -299,15 +299,14 @@ The commands `/gemini:mode:auto` and `/gemini:mode:plan-precise` have been remov
 | Role | Command | Purpose |
 |---|---|---|
 | 🏗️ **System Architect** | `/workflow:brainstorm:system-architect` | Technical architecture analysis |
-| 🔒 **Security Expert** | `/workflow:brainstorm:security-expert` | Security and threat analysis |
-| 📊 **Product Manager** | `/workflow:brainstorm:product-manager` | User needs and business value |
-| 🎨 **UI Designer** | `/workflow:brainstorm:ui-designer` | User experience and interface |
-| 📈 **Business Analyst** | `/workflow:brainstorm:business-analyst` | Process optimization analysis |
-| 🔬 **Innovation Lead** | `/workflow:brainstorm:innovation-lead` | Emerging technology opportunities |
-| 📋 **Feature Planner** | `/workflow:brainstorm:feature-planner` | Feature development planning |
 | 🗄️ **Data Architect** | `/workflow:brainstorm:data-architect` | Data modeling and analytics |
-| 👥 **User Researcher** | `/workflow:brainstorm:user-researcher` | User behavior analysis |
-| 🚀 **Auto Selection** | `/workflow:brainstorm:auto` | Dynamic role selection |
+| 🎓 **Subject Matter Expert** | `/workflow:brainstorm:subject-matter-expert` | Domain expertise and standards |
+| 📊 **Product Manager** | `/workflow:brainstorm:product-manager` | Product strategy and business value |
+| 📋 **Product Owner** | `/workflow:brainstorm:product-owner` | Backlog management and user stories |
+| 🏃 **Scrum Master** | `/workflow:brainstorm:scrum-master` | Agile process and team facilitation |
+| 🎨 **UI Designer** | `/workflow:brainstorm:ui-designer` | Visual interface design |
+| 💫 **UX Expert** | `/workflow:brainstorm:ux-expert` | User experience optimization |
+| 🧪 **Test Strategist** | `/workflow:brainstorm:test-strategist` | Testing strategy and quality assurance |
 
 ---
 
@@ -425,14 +424,14 @@ graph LR
 
 **Available Role Commands**:
 - `🏗️ system-architect` - System architecture analysis
-- `🎨 ui-designer` - UI/UX design planning
 - `🗄️ data-architect` - Data architecture design
-- `🔒 security-expert` - Security architecture analysis
-- `📊 product-manager` - Product requirements analysis
-- `🔬 innovation-lead` - Technical innovation recommendations
-- `📋 feature-planner` - Feature planning
-- `📈 business-analyst` - Business process analysis
-- `👥 user-researcher` - User behavior analysis
+- `🎓 subject-matter-expert` - Domain expertise and industry standards
+- `📊 product-manager` - Product strategy and requirements analysis
+- `📋 product-owner` - Backlog management and user story definition
+- `🏃 scrum-master` - Sprint planning and agile process facilitation
+- `🎨 ui-designer` - Visual interface design planning
+- `💫 ux-expert` - User experience optimization and usability testing
+- `🧪 test-strategist` - Testing strategy and quality assurance
 
 ### 📋 Action Planning Phase
 

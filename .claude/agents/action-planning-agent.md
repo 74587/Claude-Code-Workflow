@@ -82,7 +82,7 @@ Phase 2: Document Generation (Autonomous Output)
     "topic_framework": ".workflow/WFS-auth/.brainstorming/topic-framework.md",
     "role_analyses": [
       ".workflow/WFS-auth/.brainstorming/system-architect/analysis.md",
-      ".workflow/WFS-auth/.brainstorming/security-expert/analysis.md"
+      ".workflow/WFS-auth/.brainstorming/subject-matter-expert/analysis.md"
     ]
   },
   "context_package": {

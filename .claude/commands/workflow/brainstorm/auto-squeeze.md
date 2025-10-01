@@ -61,16 +61,16 @@ Use keyword analysis to auto-select 2-3 roles:
 
 **Role Selection Logic**:
 - **Technical/Architecture keywords**: `architecture|system|performance|database|api|backend|scalability`
-  → system-architect, data-architect, security-expert
+  → system-architect, data-architect, subject-matter-expert
 - **UI/UX keywords**: `user|ui|ux|interface|design|frontend|experience`
-  → ui-designer, user-researcher
+  → ui-designer, ux-expert
 - **Product/Business keywords**: `product|feature|business|workflow|process|customer`
-  → product-manager, business-analyst
-- **Security keywords**: `security|auth|permission|encryption|compliance`
-  → security-expert
-- **Innovation keywords**: `innovation|new|disrupt|transform|emerging`
-  → innovation-lead
-- **Default**: ui-designer (if no clear match)
+  → product-manager, product-owner
+- **Agile/Delivery keywords**: `agile|sprint|scrum|team|collaboration|delivery`
+  → scrum-master, product-owner
+- **Domain Expertise keywords**: `domain|standard|compliance|expertise|regulation`
+  → subject-matter-expert
+- **Default**: product-manager (if no clear match)
 
 **Selection Rules**:
 - Maximum 3 roles
@@ -91,14 +91,14 @@ Execute each selected role command one by one:
 
 **Commands**:
 - `SlashCommand(command="/workflow:brainstorm:ui-designer")`
+- `SlashCommand(command="/workflow:brainstorm:ux-expert")`
 - `SlashCommand(command="/workflow:brainstorm:system-architect")`
-- `SlashCommand(command="/workflow:brainstorm:security-expert")`
-- `SlashCommand(command="/workflow:brainstorm:user-researcher")`
-- `SlashCommand(command="/workflow:brainstorm:product-manager")`
-- `SlashCommand(command="/workflow:brainstorm:business-analyst")`
 - `SlashCommand(command="/workflow:brainstorm:data-architect")`
-- `SlashCommand(command="/workflow:brainstorm:innovation-lead")`
-- `SlashCommand(command="/workflow:brainstorm:feature-planner")`
+- `SlashCommand(command="/workflow:brainstorm:product-manager")`
+- `SlashCommand(command="/workflow:brainstorm:product-owner")`
+- `SlashCommand(command="/workflow:brainstorm:scrum-master")`
+- `SlashCommand(command="/workflow:brainstorm:subject-matter-expert")`
+- `SlashCommand(command="/workflow:brainstorm:test-strategist")`
 
 **Validation** (after each role):
 - File `.workflow/[session]/.brainstorming/[role]/analysis.md` exists
@@ -202,8 +202,8 @@ Return summary to user
 **Keywords detected**: user, interface, design
 **Selected roles**:
 - ui-designer (primary: UI/UX match)
-- user-researcher (secondary: user experience)
-- security-expert (complementary: auth security)
+- ux-expert (secondary: user experience)
+- subject-matter-expert (complementary: auth standards)
 
 ### Example 2: Architecture Topic
 **Topic**: "Design scalable microservices architecture"
@@ -211,15 +211,15 @@ Return summary to user
 **Selected roles**:
 - system-architect (primary: architecture match)
 - data-architect (secondary: scalability/data)
-- security-expert (complementary: system security)
+- subject-matter-expert (complementary: domain expertise)
 
-### Example 3: Business Process Topic
-**Topic**: "Optimize customer onboarding workflow"
-**Keywords detected**: workflow, process, customer
+### Example 3: Agile Delivery Topic
+**Topic**: "Optimize team sprint planning and delivery process"
+**Keywords detected**: sprint, team, delivery, process
 **Selected roles**:
-- business-analyst (primary: process match)
-- product-manager (secondary: customer focus)
-- ui-designer (complementary: user experience)
+- scrum-master (primary: agile process match)
+- product-owner (secondary: backlog/delivery focus)
+- product-manager (complementary: product strategy)
 
 ## Error Handling
 
