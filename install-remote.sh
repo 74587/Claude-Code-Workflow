@@ -82,13 +82,29 @@ function download_repository() {
     write_color "Downloading from GitHub..." "$COLOR_INFO"
     write_color "Source: $repo_url" "$COLOR_INFO"
     write_color "Branch: $branch" "$COLOR_INFO"
+    write_color "URL: $zip_url" "$COLOR_INFO"
 
+    # Use -L to follow redirects and -J to use server-provided filename
     if curl -fsSL -o "$zip_path" "$zip_url"; then
-        local file_size
-        file_size=$(du -h "$zip_path" | cut -f1)
-        write_color "✓ Download complete ($file_size)" "$COLOR_SUCCESS"
-        echo "$zip_path"
-        return 0
+        # Verify the download
+        if [ -f "$zip_path" ] && [ -s "$zip_path" ]; then
+            local file_size
+            file_size=$(du -h "$zip_path" | cut -f1)
+            write_color "✓ Download complete ($file_size)" "$COLOR_SUCCESS"
+            write_color "Downloaded to: $zip_path" "$COLOR_INFO"
+
+            # Check file type
+            if command -v file &> /dev/null; then
+                local file_type=$(file "$zip_path")
+                write_color "File type: $file_type" "$COLOR_INFO"
+            fi
+
+            echo "$zip_path"
+            return 0
+        else
+            write_color "ERROR: Downloaded file is missing or empty" "$COLOR_ERROR"
+            return 1
+        fi
     else
         write_color "Download failed" "$COLOR_ERROR"
         return 1
@@ -101,7 +117,28 @@ function extract_repository() {
 
     write_color "Extracting files..." "$COLOR_INFO"
 
-    if unzip -q "$zip_path" -d "$temp_dir"; then
+    # Verify zip file exists and is not empty
+    if [ ! -f "$zip_path" ]; then
+        write_color "ERROR: Downloaded file not found: $zip_path" "$COLOR_ERROR"
+        return 1
+    fi
+
+    if [ ! -s "$zip_path" ]; then
+        write_color "ERROR: Downloaded file is empty" "$COLOR_ERROR"
+        return 1
+    fi
+
+    # Check if file is actually a zip file
+    if ! file "$zip_path" 2>/dev/null | grep -q "Zip\|ZIP"; then
+        write_color "ERROR: Downloaded file is not a valid ZIP archive" "$COLOR_ERROR"
+        write_color "File type: $(file "$zip_path" 2>/dev/null || echo 'unknown')" "$COLOR_ERROR"
+        write_color "First few bytes:" "$COLOR_ERROR"
+        head -c 100 "$zip_path" | od -A x -t x1z -v | head -n 3
+        return 1
+    fi
+
+    # Try to extract
+    if unzip -q "$zip_path" -d "$temp_dir" 2>&1; then
         # Find the extracted directory (usually repo-name-branch)
         local repo_dir
         repo_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "Claude-Code-Workflow-*" | head -n 1)
@@ -112,10 +149,14 @@ function extract_repository() {
             return 0
         else
             write_color "Could not find extracted repository directory" "$COLOR_ERROR"
+            write_color "Contents of temp directory:" "$COLOR_INFO"
+            ls -la "$temp_dir"
             return 1
         fi
     else
         write_color "Extraction failed" "$COLOR_ERROR"
+        write_color "Testing zip file integrity..." "$COLOR_INFO"
+        unzip -t "$zip_path"
         return 1
     fi
 }
