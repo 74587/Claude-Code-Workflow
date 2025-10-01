@@ -306,7 +306,6 @@ The commands `/gemini:mode:auto` and `/gemini:mode:plan-precise` have been remov
 | 🏃 **Scrum Master** | `/workflow:brainstorm:scrum-master` | Agile process and team facilitation |
 | 🎨 **UI Designer** | `/workflow:brainstorm:ui-designer` | Visual interface design |
 | 💫 **UX Expert** | `/workflow:brainstorm:ux-expert` | User experience optimization |
-| 🧪 **Test Strategist** | `/workflow:brainstorm:test-strategist` | Testing strategy and quality assurance |
 
 ---
 
@@ -431,7 +430,6 @@ graph LR
 - `🏃 scrum-master` - Sprint planning and agile process facilitation
 - `🎨 ui-designer` - Visual interface design planning
 - `💫 ux-expert` - User experience optimization and usability testing
-- `🧪 test-strategist` - Testing strategy and quality assurance
 
 ### 📋 Action Planning Phase
 

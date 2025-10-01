@@ -451,7 +451,6 @@ graph LR
 | 🏃 **敏捷教练** | `/workflow:brainstorm:scrum-master` | 敏捷流程和团队协作 |
 | 🎨 **UI设计师** | `/workflow:brainstorm:ui-designer` | 视觉界面设计 |
 | 💫 **UX专家** | `/workflow:brainstorm:ux-expert` | 用户体验优化 |
-| 🧪 **测试策略师** | `/workflow:brainstorm:test-strategist` | 测试策略和质量保证 |
 
 ### 可用角色命令
 
@@ -464,7 +463,6 @@ graph LR
 - `🏃 scrum-master` - Sprint 规划和敏捷流程协调
 - `🎨 ui-designer` - 视觉界面设计规划
 - `💫 ux-expert` - 用户体验优化和可用性测试
-- `🧪 test-strategist` - 测试策略和质量保证
 
 ## 使用工作流
 
