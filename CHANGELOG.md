@@ -5,6 +5,67 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2025-10-01
+
+### 🔧 Command Updates
+
+#### Changed
+- **Brainstorming Roles**: Removed `test-strategist` and `user-researcher` roles
+  - `test-strategist` functionality integrated into automated test generation (`/workflow:test-gen`)
+  - `user-researcher` functionality consolidated into `ux-expert` role
+- **Available Roles**: Updated to 8 core roles for focused, efficient brainstorming
+  - 🏗️ System Architect
+  - 🗄️ Data Architect
+  - 🎓 Subject Matter Expert
+  - 📊 Product Manager
+  - 📋 Product Owner
+  - 🏃 Scrum Master
+  - 🎨 UI Designer
+  - 💫 UX Expert
+
+### 📚 Documentation
+
+#### Improved
+- **README Optimization**: Streamlined README.md and README_CN.md by 81% (from ~750 lines to ~140 lines)
+- **Better Structure**: Reorganized content with clearer sections and improved navigation
+- **Quick Start Guide**: Added immediate usability guide for new users
+- **Simplified Command Reference**: Consolidated command tables for easier reference
+- **Maintained Essential Information**: Preserved all installation steps, badges, links, and critical functionality
+
+#### Benefits
+- **Faster Onboarding**: New users can get started in minutes with the Quick Start section
+- **Reduced Cognitive Load**: Less verbose documentation with focused, actionable information
+- **Consistent Bilingual Structure**: English and Chinese versions now have identical organization
+- **Professional Presentation**: Cleaner, more modern documentation format
+
+---
+
+## [3.0.0] - 2025-09-30
+
+### 🚀 Major Release - Unified CLI Command Structure
+
+This is a **breaking change release** introducing a unified CLI command structure.
+
+#### Added
+- **Unified CLI Commands**: New `/cli:*` command set consolidating all tool interactions
+- **Tool Selection Flag**: Use `--tool <gemini|qwen|codex>` to select AI tools
+- **Command Verification**: Comprehensive workflow guide and command validation
+- **MCP Tools Integration** *(Experimental)*: Enhanced codebase analysis through Model Context Protocol
+
+#### Changed
+- **BREAKING**: Tool-specific commands (`/gemini:*`, `/qwen:*`, `/codex:*`) deprecated
+- **Command Structure**: All CLI commands now use unified `/cli:*` prefix
+- **Default Tool**: Commands default to `gemini` when `--tool` flag not specified
+
+#### Migration
+| Old Command (v2) | New Command (v3.0.0) |
+|---|---|
+| `/gemini:analyze "..."` | `/cli:analyze "..."` |
+| `/qwen:analyze "..."` | `/cli:analyze "..." --tool qwen` |
+| `/codex:chat "..."` | `/cli:chat "..." --tool codex` |
+
+---
+
 ## [2.0.0] - 2025-09-28
 
 ### 🚀 Major Release - Architectural Evolution

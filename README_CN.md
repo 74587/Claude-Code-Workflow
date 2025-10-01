@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.0.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,7 +15,9 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 v3.0.0 版本**: 此版本引入了**统一的 CLI 命令结构**。`/cli:*` 命令现在通过 `--tool` 标志整合了所有工具（Gemini, Qwen, Codex）的交互。
+> **🎉 最新版本: v3.0.1** - 文档优化和头脑风暴角色更新。详见 [CHANGELOG.md](CHANGELOG.md)。
+>
+> **v3.0.0 版本**: 引入了**统一的 CLI 命令结构**。`/cli:*` 命令通过 `--tool` 标志整合了所有工具（Gemini, Qwen, Codex）的交互。
 
 ---
 

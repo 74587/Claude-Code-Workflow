@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.0.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,7 +15,9 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 v3.0.0**: This version introduces a **unified CLI command structure**. The `/cli:*` commands now consolidate all tool interactions (Gemini, Qwen, Codex) using a `--tool` flag for selection.
+> **🎉 Latest: v3.0.1** - Documentation optimization and brainstorming role updates. See [CHANGELOG.md](CHANGELOG.md) for details.
+>
+> **v3.0.0**: Introduced **unified CLI command structure**. The `/cli:*` commands consolidate all tool interactions (Gemini, Qwen, Codex) using a `--tool` flag for selection.
 
 ---
 
