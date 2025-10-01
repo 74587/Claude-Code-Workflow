@@ -138,7 +138,8 @@ function extract_repository() {
     fi
 
     # Try to extract
-    if unzip -q "$zip_path" -d "$temp_dir" 2>&1; then
+    local unzip_output
+    if unzip_output=$(unzip -q "$zip_path" -d "$temp_dir" 2>&1); then
         # Find the extracted directory (usually repo-name-branch)
         local repo_dir
         repo_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "Claude-Code-Workflow-*" | head -n 1)
@@ -155,8 +156,13 @@ function extract_repository() {
         fi
     else
         write_color "Extraction failed" "$COLOR_ERROR"
+        if [ -n "$unzip_output" ]; then
+            write_color "Error details: $unzip_output" "$COLOR_ERROR"
+        fi
         write_color "Testing zip file integrity..." "$COLOR_INFO"
-        unzip -t "$zip_path"
+        if ! unzip -t "$zip_path" 2>&1; then
+            write_color "ZIP file is corrupted" "$COLOR_ERROR"
+        fi
         return 1
     fi
 }
