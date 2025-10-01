@@ -15,22 +15,65 @@
 
 ## ⚙️ 安装
 
-### 🚀 **通过 Shell 快速安装**
+### 🚀 **一键快速安装**
 
-**PowerShell (Windows):**
+CCW 为所有平台提供原生安装脚本 - 无需跨平台依赖！
+
+**Windows (PowerShell):**
 ```powershell
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
 ```
 
-**Bash/Zsh (Linux/macOS):**
+**Linux/macOS (Bash/Zsh):**
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
 ```
 
+### 📦 **从克隆仓库本地安装**
+
+如果您希望在安装前审查代码：
+
+**1. 克隆仓库:**
+```bash
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
+cd Claude-Code-Workflow
+```
+
+**2. 运行本地安装器:**
+
+**Windows:**
+```powershell
+.\Install-Claude.ps1
+```
+
+**Linux/macOS:**
+```bash
+chmod +x Install-Claude.sh
+./Install-Claude.sh
+```
+
 ### ✅ **验证安装**
+
+安装完成后，验证 CCW 是否正常工作：
 ```bash
 /workflow:session:list
 ```
+
+### 📋 **安装脚本概览**
+
+| 脚本 | 平台 | 用途 |
+|------|------|------|
+| `install-remote.ps1` | Windows | 通过 PowerShell 一键远程安装 |
+| `install-remote.sh` | Linux/macOS | 通过 Bash 一键远程安装 |
+| `Install-Claude.ps1` | Windows | 带 GUI 菜单的本地交互式安装器 |
+| `Install-Claude.sh` | Linux/macOS | 带彩色菜单的本地交互式安装器 |
+
+**所有安装器都支持:**
+- ✅ 交互模式：箭头键导航 (Windows) 或数字菜单 (Linux/macOS)
+- ✅ 自动备份现有文件（默认启用）
+- ✅ 全局安装到 `~/.claude/` 或自定义路径
+- ✅ 非交互模式用于自动化
+- ✅ 强制模式跳过确认提示
 
 ---
 

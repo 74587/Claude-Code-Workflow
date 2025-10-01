@@ -15,22 +15,65 @@
 
 ## ⚙️ Installation
 
-### 🚀 **Quick Installation via Shell**
+### 🚀 **Quick One-Line Installation**
 
-**For PowerShell (Windows):**
+CCW provides native installation scripts for all platforms - no cross-platform dependencies required!
+
+**Windows (PowerShell):**
 ```powershell
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
 ```
 
-**For Bash/Zsh (Linux/macOS):**
+**Linux/macOS (Bash/Zsh):**
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
 ```
 
+### 📦 **Local Installation from Cloned Repository**
+
+If you prefer to review the code before installation:
+
+**1. Clone the repository:**
+```bash
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
+cd Claude-Code-Workflow
+```
+
+**2. Run the local installer:**
+
+**Windows:**
+```powershell
+.\Install-Claude.ps1
+```
+
+**Linux/macOS:**
+```bash
+chmod +x Install-Claude.sh
+./Install-Claude.sh
+```
+
 ### ✅ **Verify Installation**
+
+After installation, verify CCW is working:
 ```bash
 /workflow:session:list
 ```
+
+### 📋 **Installation Scripts Overview**
+
+| Script | Platform | Purpose |
+|--------|----------|---------|
+| `install-remote.ps1` | Windows | One-line remote installation via PowerShell |
+| `install-remote.sh` | Linux/macOS | One-line remote installation via Bash |
+| `Install-Claude.ps1` | Windows | Local interactive installer with GUI menu |
+| `Install-Claude.sh` | Linux/macOS | Local interactive installer with colored menu |
+
+**All installers support:**
+- ✅ Interactive mode with arrow-key navigation (Windows) or numbered menu (Linux/macOS)
+- ✅ Automatic backup of existing files (enabled by default)
+- ✅ Global installation to `~/.claude/` or custom path
+- ✅ Non-interactive mode for automation
+- ✅ Force mode to skip confirmations
 
 ---
 
