@@ -119,18 +119,21 @@ function get_user_choice() {
     local default_index=0
 
     if [ "$NON_INTERACTIVE" = true ]; then
-        write_color "Non-interactive mode: Using default '${options[$default_index]}'" "$COLOR_INFO"
+        write_color "Non-interactive mode: Using default '${options[$default_index]}'" "$COLOR_INFO" >&2
         echo "${options[$default_index]}"
         return
     fi
 
-    echo ""
-    write_color "$prompt" "$COLOR_PROMPT"
-    echo ""
+    # Output prompts to stderr so they don't interfere with function return value
+    echo "" >&2
+    write_color "$prompt" "$COLOR_PROMPT" >&2
+    echo "" >&2
 
     for i in "${!options[@]}"; do
-        echo "  $((i + 1)). ${options[$i]}"
+        echo "  $((i + 1)). ${options[$i]}" >&2
     done
+
+    echo "" >&2
 
     while true; do
         read -p "Please select (1-${#options[@]}): " choice
@@ -140,7 +143,7 @@ function get_user_choice() {
             return
         fi
 
-        write_color "Invalid selection. Please enter a number between 1 and ${#options[@]}" "$COLOR_WARNING"
+        write_color "Invalid selection. Please enter a number between 1 and ${#options[@]}" "$COLOR_WARNING" >&2
     done
 }
 
