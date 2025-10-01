@@ -79,34 +79,28 @@ function download_repository() {
     local zip_url="${repo_url}/archive/refs/heads/${branch}.zip"
     local zip_path="${temp_dir}/repo.zip"
 
-    write_color "Downloading from GitHub..." "$COLOR_INFO"
-    write_color "Source: $repo_url" "$COLOR_INFO"
-    write_color "Branch: $branch" "$COLOR_INFO"
-    write_color "URL: $zip_url" "$COLOR_INFO"
+    write_color "Downloading from GitHub..." "$COLOR_INFO" >&2
+    write_color "Source: $repo_url" "$COLOR_INFO" >&2
+    write_color "Branch: $branch" "$COLOR_INFO" >&2
+    write_color "URL: $zip_url" "$COLOR_INFO" >&2
 
-    # Use -L to follow redirects and -J to use server-provided filename
-    if curl -fsSL -o "$zip_path" "$zip_url"; then
+    # Download with curl
+    if curl -fsSL -o "$zip_path" "$zip_url" 2>&1 >&2; then
         # Verify the download
-        if [ -f "$zip_path" ] && [ -s "$zip_path" ]; then
+        if [ -f "$zip_path" ]; then
             local file_size
-            file_size=$(du -h "$zip_path" | cut -f1)
-            write_color "✓ Download complete ($file_size)" "$COLOR_SUCCESS"
-            write_color "Downloaded to: $zip_path" "$COLOR_INFO"
+            file_size=$(du -h "$zip_path" 2>/dev/null | cut -f1)
+            write_color "✓ Download complete ($file_size)" "$COLOR_SUCCESS" >&2
 
-            # Check file type
-            if command -v file &> /dev/null; then
-                local file_type=$(file "$zip_path")
-                write_color "File type: $file_type" "$COLOR_INFO"
-            fi
-
+            # Output path to stdout for capture
             echo "$zip_path"
             return 0
         else
-            write_color "ERROR: Downloaded file is missing or empty" "$COLOR_ERROR"
+            write_color "ERROR: Downloaded file does not exist" "$COLOR_ERROR" >&2
             return 1
         fi
     else
-        write_color "Download failed" "$COLOR_ERROR"
+        write_color "ERROR: Download failed" "$COLOR_ERROR" >&2
         return 1
     fi
 }
@@ -115,54 +109,33 @@ function extract_repository() {
     local zip_path="$1"
     local temp_dir="$2"
 
-    write_color "Extracting files..." "$COLOR_INFO"
+    write_color "Extracting files..." "$COLOR_INFO" >&2
 
-    # Verify zip file exists and is not empty
+    # Verify zip file exists
     if [ ! -f "$zip_path" ]; then
-        write_color "ERROR: Downloaded file not found: $zip_path" "$COLOR_ERROR"
+        write_color "ERROR: ZIP file not found: $zip_path" "$COLOR_ERROR" >&2
         return 1
     fi
 
-    if [ ! -s "$zip_path" ]; then
-        write_color "ERROR: Downloaded file is empty" "$COLOR_ERROR"
-        return 1
-    fi
-
-    # Check if file is actually a zip file
-    if ! file "$zip_path" 2>/dev/null | grep -q "Zip\|ZIP"; then
-        write_color "ERROR: Downloaded file is not a valid ZIP archive" "$COLOR_ERROR"
-        write_color "File type: $(file "$zip_path" 2>/dev/null || echo 'unknown')" "$COLOR_ERROR"
-        write_color "First few bytes:" "$COLOR_ERROR"
-        head -c 100 "$zip_path" | od -A x -t x1z -v | head -n 3
-        return 1
-    fi
-
-    # Try to extract
-    local unzip_output
-    if unzip_output=$(unzip -q "$zip_path" -d "$temp_dir" 2>&1); then
-        # Find the extracted directory (usually repo-name-branch)
+    # Extract with unzip
+    if unzip -q "$zip_path" -d "$temp_dir" >&2 2>&1; then
+        # Find the extracted directory
         local repo_dir
-        repo_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "Claude-Code-Workflow-*" | head -n 1)
+        repo_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "Claude-Code-Workflow-*" 2>/dev/null | head -n 1)
 
-        if [ -n "$repo_dir" ]; then
-            write_color "✓ Extraction complete: $repo_dir" "$COLOR_SUCCESS"
+        if [ -n "$repo_dir" ] && [ -d "$repo_dir" ]; then
+            write_color "✓ Extraction complete: $repo_dir" "$COLOR_SUCCESS" >&2
+            # Output path to stdout for capture
             echo "$repo_dir"
             return 0
         else
-            write_color "Could not find extracted repository directory" "$COLOR_ERROR"
-            write_color "Contents of temp directory:" "$COLOR_INFO"
-            ls -la "$temp_dir"
+            write_color "ERROR: Could not find extracted repository directory" "$COLOR_ERROR" >&2
+            write_color "Temp directory contents:" "$COLOR_INFO" >&2
+            ls -la "$temp_dir" >&2
             return 1
         fi
     else
-        write_color "Extraction failed" "$COLOR_ERROR"
-        if [ -n "$unzip_output" ]; then
-            write_color "Error details: $unzip_output" "$COLOR_ERROR"
-        fi
-        write_color "Testing zip file integrity..." "$COLOR_INFO"
-        if ! unzip -t "$zip_path" 2>&1; then
-            write_color "ZIP file is corrupted" "$COLOR_ERROR"
-        fi
+        write_color "ERROR: Extraction failed" "$COLOR_ERROR" >&2
         return 1
     fi
 }
@@ -354,23 +327,45 @@ function main() {
 
     # Download repository
     local zip_path
-    if zip_path=$(download_repository "$temp_dir" "$BRANCH"); then
+    write_color "Starting download process..." "$COLOR_INFO"
+    zip_path=$(download_repository "$temp_dir" "$BRANCH")
+    local download_status=$?
+
+    if [ $download_status -eq 0 ] && [ -n "$zip_path" ] && [ -f "$zip_path" ]; then
+        write_color "Download successful: $zip_path" "$COLOR_SUCCESS"
+
         # Extract repository
         local repo_dir
-        if repo_dir=$(extract_repository "$zip_path" "$temp_dir"); then
+        write_color "Starting extraction process..." "$COLOR_INFO"
+        repo_dir=$(extract_repository "$zip_path" "$temp_dir")
+        local extract_status=$?
+
+        if [ $extract_status -eq 0 ] && [ -n "$repo_dir" ] && [ -d "$repo_dir" ]; then
+            write_color "Extraction successful: $repo_dir" "$COLOR_SUCCESS"
+
             # Run local installer
             if invoke_local_installer "$repo_dir"; then
                 success=true
                 echo ""
                 write_color "✓ Remote installation completed successfully!" "$COLOR_SUCCESS"
             else
-                write_color "Installation script failed" "$COLOR_ERROR"
+                write_color "ERROR: Installation script failed" "$COLOR_ERROR"
             fi
         else
-            write_color "Extraction failed" "$COLOR_ERROR"
+            write_color "ERROR: Extraction failed (status: $extract_status)" "$COLOR_ERROR"
+            if [ ! -f "$zip_path" ]; then
+                write_color "ZIP file does not exist: $zip_path" "$COLOR_ERROR"
+            elif [ ! -s "$zip_path" ]; then
+                write_color "ZIP file is empty: $zip_path" "$COLOR_ERROR"
+            fi
         fi
     else
-        write_color "Download failed" "$COLOR_ERROR"
+        write_color "ERROR: Download failed (status: $download_status)" "$COLOR_ERROR"
+        if [ -z "$zip_path" ]; then
+            write_color "Download did not return a file path" "$COLOR_ERROR"
+        elif [ ! -f "$zip_path" ]; then
+            write_color "Downloaded file does not exist: $zip_path" "$COLOR_ERROR"
+        fi
     fi
 
     # Cleanup
