@@ -49,7 +49,8 @@ All task files use this simplified 5-field schema (aligned with workflow-archite
     },
     "target_files": [
       "src/auth/login.ts:handleLogin:75-120",
-      "src/middleware/auth.ts:validateToken"
+      "src/middleware/auth.ts:validateToken",
+      "src/auth/PasswordReset.ts"
     ]
   }
 }
@@ -81,7 +82,7 @@ All task files use this simplified 5-field schema (aligned with workflow-archite
 **Components**:
 - **pre_analysis**: Array of sequential process steps
 - **implementation_approach**: Task execution strategy
-- **target_files**: Specific files to modify in "file:function:lines" format
+- **target_files**: Files to modify/create - existing files in `file:function:lines` format, new files as `file` only
 
 **Step Structure**:
 ```json

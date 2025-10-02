@@ -44,8 +44,8 @@ mv temp.json .workflow/WFS-session/workflow-session.json
 
 ### Step 5: Count Final Statistics
 ```bash
-ls .workflow/WFS-session/.task/*.json 2>/dev/null | wc -l
-ls .workflow/WFS-session/.summaries/*.md 2>/dev/null | wc -l
+find .workflow/WFS-session/.task/ -name "*.json" -type f 2>/dev/null | wc -l
+find .workflow/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
 ```
 
 ### Step 6: Remove Active Marker
@@ -56,12 +56,12 @@ rm .workflow/.active-WFS-session-name
 ## Simple Bash Commands
 
 ### Basic Operations
-- **Find active session**: `ls .workflow/.active-*`
+- **Find active session**: `find .workflow/ -name ".active-*" -type f`
 - **Get session name**: `basename marker | sed 's/^\.active-//'`
 - **Update status**: `jq '.status = "completed"' session.json > temp.json`
 - **Add timestamp**: `jq '.completed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"'`
-- **Count tasks**: `ls .task/*.json | wc -l`
-- **Count completed**: `ls .summaries/*.md | wc -l`
+- **Count tasks**: `find .task/ -name "*.json" -type f | wc -l`
+- **Count completed**: `find .summaries/ -name "*.md" -type f 2>/dev/null | wc -l`
 - **Remove marker**: `rm .workflow/.active-session`
 
 ### Completion Result
@@ -92,11 +92,11 @@ Session Completion Summary:
 ### Error Handling
 ```bash
 # No active session
-ls .workflow/.active-* 2>/dev/null || echo "No active session found"
+find .workflow/ -name ".active-*" -type f 2>/dev/null || echo "No active session found"
 
 # Incomplete tasks
-task_count=$(ls .task/*.json | wc -l)
-summary_count=$(ls .summaries/*.md 2>/dev/null | wc -l)
+task_count=$(find .task/ -name "*.json" -type f | wc -l)
+summary_count=$(find .summaries/ -name "*.md" -type f 2>/dev/null | wc -l)
 test $task_count -eq $summary_count || echo "Warning: Not all tasks completed"
 ```
 

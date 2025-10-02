@@ -175,7 +175,8 @@ All task files use this unified 5-field schema with optional artifacts enhanceme
     },
     "target_files": [
       "src/auth/login.ts:handleLogin:75-120",
-      "src/middleware/auth.ts:validateToken"
+      "src/middleware/auth.ts:validateToken",
+      "src/auth/PasswordReset.ts"
     ]
   }
 }
@@ -219,7 +220,7 @@ The **flow_control** field manages task execution with two main components:
 - **task_description**: Comprehensive implementation description
 - **modification_points**: Specific code modification targets
 - **logic_flow**: Business logic execution sequence
-- **target_files**: Target file list in `file:function:lines` format
+- **target_files**: Target file list - existing files in `file:function:lines` format, new files as `file` only
 
 #### Tool Reference
 **Command Types Available**:

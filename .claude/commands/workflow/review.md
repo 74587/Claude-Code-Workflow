@@ -55,7 +55,7 @@ if [ ! -d ".workflow/${sessionId}" ]; then
 fi
 
 # Check for completed tasks
-if [ ! -d ".workflow/${sessionId}/.summaries" ] || [ -z "$(ls .workflow/${sessionId}/.summaries/IMPL-*.md 2>/dev/null)" ]; then
+if [ ! -d ".workflow/${sessionId}/.summaries" ] || [ -z "$(find .workflow/${sessionId}/.summaries/ -name "IMPL-*.md" -type f 2>/dev/null)" ]; then
     echo "❌ No completed implementation found. Complete implementation first"
     exit 1
 fi

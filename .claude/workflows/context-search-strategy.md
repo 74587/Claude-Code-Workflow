@@ -6,6 +6,12 @@ type: search-guideline
 
 # Context Search Strategy
 
+## ⚡ Execution Environment
+
+**CRITICAL**: All commands execute in **Bash environment** (Git Bash on Windows, Bash on Linux/macOS)
+
+**❌ Forbidden**: Windows-specific commands (`findstr`, `dir`, `where`, `type`, `copy`, `del`) - Use Bash equivalents (`grep`, `find`, `which`, `cat`, `cp`, `rm`)
+
 ## ⚡ Core Search Tools
 
 **rg (ripgrep)**: Fast content search with regex support
@@ -18,6 +24,7 @@ type: search-guideline
 - **Use find for files** - Locate files/directories by name
 - **Use grep sparingly** - Only when rg unavailable
 - **Use get_modules_by_depth.sh first** - MANDATORY for program architecture analysis before planning
+- **Always use Bash commands** - NEVER use Windows cmd/PowerShell commands
 
 ### Quick Command Reference
 ```bash

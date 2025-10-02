@@ -141,6 +141,9 @@ Advanced solution design and feasibility analysis engine with parallel CLI execu
      RULES:
      - Focus on SOLUTION IMPROVEMENTS and KEY DESIGN DECISIONS, NOT task planning
      - Provide architectural rationale, evaluate alternatives, assess tradeoffs
+     - **CRITICAL**: Identify code targets - existing files as "file:function:lines", new files as "file"
+     - For modifications: specify exact files/functions/line ranges
+     - For new files: specify file path only (no function or lines)
      - Do NOT create task lists, implementation steps, or code examples
      - Do NOT generate any code snippets or implementation details
      - **MUST write output to .workflow/{session_id}/.process/gemini-solution-design.md**
@@ -172,6 +175,8 @@ Advanced solution design and feasibility analysis engine with parallel CLI execu
      RULES:
      - Focus on TECHNICAL FEASIBILITY and RISK ASSESSMENT, NOT implementation planning
      - Validate architectural decisions, identify potential issues, recommend optimizations
+     - **CRITICAL**: Verify code targets - existing files "file:function:lines", new files "file"
+     - Confirm exact locations for modifications, identify additional new files if needed
      - Do NOT create task breakdowns, step-by-step guides, or code examples
      - Do NOT generate any code snippets or implementation details
      - **MUST write output to .workflow/{session_id}/.process/codex-feasibility-validation.md**
@@ -300,6 +305,39 @@ Generated ANALYSIS_RESULTS.md focuses on **solution improvements, key design dec
 - **Core Implementation Pattern**: {primary_implementation_strategy}
 - **Module Dependencies**: {dependency_graph_and_order}
 - **Quality Assurance**: {qa_approach_and_validation}
+
+### Code Modification Targets
+**Purpose**: Specific code locations for modification AND new files to create
+
+**Format**:
+- Existing files: `file:function:lines` (with line numbers)
+- New files: `file` (no function or lines)
+
+**Identified Targets**:
+1. **Target**: `src/auth/AuthService.ts:login:45-52`
+   - **Type**: Modify existing
+   - **Modification**: Enhance error handling
+   - **Rationale**: Current logic lacks validation for edge cases
+
+2. **Target**: `src/auth/PasswordReset.ts`
+   - **Type**: Create new file
+   - **Purpose**: Password reset functionality
+   - **Rationale**: New feature requirement
+
+3. **Target**: `src/middleware/auth.ts:validateToken:30-45`
+   - **Type**: Modify existing
+   - **Modification**: Add token expiry check
+   - **Rationale**: Security requirement for JWT validation
+
+4. **Target**: `tests/auth/PasswordReset.test.ts`
+   - **Type**: Create new file
+   - **Purpose**: Test coverage for password reset
+   - **Rationale**: Test requirement for new feature
+
+**Note**:
+- For new files, only specify the file path (no function or lines)
+- For existing files without line numbers, use `file:function:*` format
+- Task generation will refine these during the `analyze_task_patterns` step
 
 ### Feasibility Assessment
 - **Technical Complexity**: {complexity_rating_and_analysis}

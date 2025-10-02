@@ -356,8 +356,8 @@ Task(subagent_type="{meta.agent}",
 
      **WORKFLOW COMPLETION CHECK**:
      After updating task status, check if workflow is complete:
-     total_tasks=\$(ls .workflow/*/\.task/*.json | wc -l)
-     completed_tasks=\$(ls .workflow/*/\.summaries/*.md 2>/dev/null | wc -l)
+     total_tasks=\$(find .workflow/*/\.task/ -name "*.json" -type f 2>/dev/null | wc -l)
+     completed_tasks=\$(find .workflow/*/\.summaries/ -name "*.md" -type f 2>/dev/null | wc -l)
      if [ \$total_tasks -eq \$completed_tasks ]; then
        SlashCommand(command=\"/workflow:session:complete\")
      fi"),
@@ -433,7 +433,7 @@ Task(subagent_type="{meta.agent}",
       "task_description": "Implement following consolidated synthesis specification...",
       "modification_points": ["Apply synthesis specification requirements..."]
     },
-    "target_files": ["file:function:lines"]
+    "target_files": ["file:function:lines", "path/to/NewFile.ts"]
   }
 }
 ```

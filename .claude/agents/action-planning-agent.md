@@ -228,7 +228,7 @@ Generate individual `.task/IMPL-*.json` files with:
       "modification_points": ["Apply requirements"],
       "logic_flow": ["Load spec", "Analyze", "Implement", "Validate"]
     },
-    "target_files": ["file:function:lines"]
+    "target_files": ["file:function:lines", "path/to/NewFile.ts"]
   }
 }
 ```

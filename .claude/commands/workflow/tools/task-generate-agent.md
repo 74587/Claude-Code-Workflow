@@ -212,7 +212,7 @@ Task(
         "Validate against acceptance criteria"
       ]
     },
-    "target_files": ["file:function:lines"]
+    "target_files": ["file:function:lines", "path/to/NewFile.ts"]
   }
 }
 \`\`\`

@@ -142,12 +142,12 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
       },
       {
         "step": "analyze_task_patterns",
-        "action": "Analyze existing code patterns",
+        "action": "Analyze existing code patterns and identify modification targets",
         "commands": [
           "bash(cd \"[focus_paths]\")",
-          "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze patterns TASK: Review '[title]' CONTEXT: [synthesis_specification] [individual_artifacts] EXPECTED: Pattern analysis RULES: Prioritize synthesis-specification.md\")"
+          "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Identify modification targets TASK: Analyze '[title]' and locate specific files/functions/lines to modify CONTEXT: [synthesis_specification] [individual_artifacts] EXPECTED: Code locations in format 'file:function:lines' RULES: Prioritize synthesis-specification.md, identify exact modification points\")"
         ],
-        "output_to": "task_context",
+        "output_to": "task_context_with_targets",
         "on_error": "fail"
       }
     ],
@@ -175,8 +175,40 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
 1. Parse analysis results and extract task definitions
 2. Detect brainstorming artifacts with priority scoring
 3. Generate task context (requirements, focus_paths, acceptance)
-4. Build flow_control with artifact loading steps
-5. Create individual task JSON files in `.task/`
+4. **Determine modification targets**: Extract specific code locations from analysis
+5. Build flow_control with artifact loading steps and target_files
+6. Create individual task JSON files in `.task/`
+
+#### Target Files Generation (Critical)
+**Purpose**: Identify specific code locations for modification AND new files to create
+
+**Source Data Priority**:
+1. **ANALYSIS_RESULTS.md** - Should contain identified code locations
+2. **Gemini/MCP Analysis** - From `analyze_task_patterns` step
+3. **Context Package** - File references from `focus_paths`
+
+**Format**: `["file:function:lines"]` or `["file"]` (for new files)
+- `file`: Relative path from project root (e.g., `src/auth/AuthService.ts`)
+- `function`: Function/method name to modify (e.g., `login`, `validateToken`) - **omit for new files**
+- `lines`: Approximate line range (e.g., `45-52`, `120-135`) - **omit for new files**
+
+**Examples**:
+```json
+"target_files": [
+  "src/auth/AuthService.ts:login:45-52",
+  "src/middleware/auth.ts:validateToken:30-45",
+  "src/auth/PasswordReset.ts",
+  "tests/auth/PasswordReset.test.ts",
+  "tests/auth.test.ts:testLogin:15-20"
+]
+```
+
+**Generation Strategy**:
+- **New files to create** → Use `["path/to/NewFile.ts"]` (no function or lines)
+- **Existing files with specific locations** → Use `["file:function:lines"]`
+- **Existing files with function only** → Search lines using MCP/grep `["file:function:*"]`
+- **Existing files (explore entire)** → Mark as `["file.ts:*:*"]`
+- **No specific targets** → Leave empty `[]` (agent explores focus_paths)
 
 ### Phase 3: Artifact Detection & Integration
 

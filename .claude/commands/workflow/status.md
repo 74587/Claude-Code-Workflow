@@ -25,7 +25,7 @@ Generates on-demand views from JSON task data. No synchronization needed - all v
 
 ### Step 1: Find Active Session
 ```bash
-ls .workflow/.active-* 2>/dev/null | head -1
+find .workflow/ -name ".active-*" -type f 2>/dev/null | head -1
 ```
 
 ### Step 2: Load Session Data
@@ -35,7 +35,7 @@ cat .workflow/WFS-session/workflow-session.json
 
 ### Step 3: Scan Task Files
 ```bash
-ls .workflow/WFS-session/.task/*.json 2>/dev/null
+find .workflow/WFS-session/.task/ -name "*.json" -type f 2>/dev/null
 ```
 
 ### Step 4: Generate Task Status
@@ -45,8 +45,8 @@ cat .workflow/WFS-session/.task/impl-1.json | jq -r '.status'
 
 ### Step 5: Count Task Progress
 ```bash
-ls .workflow/WFS-session/.task/*.json | wc -l
-ls .workflow/WFS-session/.summaries/*.md 2>/dev/null | wc -l
+find .workflow/WFS-session/.task/ -name "*.json" -type f | wc -l
+find .workflow/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
 ```
 
 ### Step 6: Display Overview
@@ -66,11 +66,11 @@ ls .workflow/WFS-session/.summaries/*.md 2>/dev/null | wc -l
 ## Simple Bash Commands
 
 ### Basic Operations
-- **Find active session**: `ls .workflow/.active-*`
+- **Find active session**: `find .workflow/ -name ".active-*" -type f`
 - **Read session info**: `cat .workflow/session/workflow-session.json`
-- **List tasks**: `ls .workflow/session/.task/*.json`
+- **List tasks**: `find .workflow/session/.task/ -name "*.json" -type f`
 - **Check task status**: `cat task.json | jq -r '.status'`
-- **Count completed**: `ls .summaries/*.md | wc -l`
+- **Count completed**: `find .summaries/ -name "*.md" -type f | wc -l`
 
 ### Task Status Check
 - **pending**: Not started yet
@@ -87,8 +87,8 @@ test -f .workflow/.active-* && echo "Session active"
 for f in .workflow/session/.task/*.json; do jq empty "$f" && echo "Valid: $f"; done
 
 # Check summaries match
-ls .task/*.json | wc -l
-ls .summaries/*.md | wc -l
+find .task/ -name "*.json" -type f | wc -l
+find .summaries/ -name "*.md" -type f 2>/dev/null | wc -l
 ```
 
 ## Simple Output Format

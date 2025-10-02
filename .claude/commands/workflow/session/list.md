@@ -35,8 +35,8 @@ jq -r '.session_id, .status, .project' .workflow/WFS-session/workflow-session.js
 
 ### Step 4: Count Task Progress
 ```bash
-ls .workflow/WFS-session/.task/*.json 2>/dev/null | wc -l
-ls .workflow/WFS-session/.summaries/*.md 2>/dev/null | wc -l
+find .workflow/WFS-session/.task/ -name "*.json" -type f 2>/dev/null | wc -l
+find .workflow/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
 ```
 
 ### Step 5: Get Creation Time
@@ -47,11 +47,11 @@ jq -r '.created_at // "unknown"' .workflow/WFS-session/workflow-session.json
 ## Simple Bash Commands
 
 ### Basic Operations
-- **List sessions**: `ls .workflow/WFS-*`
-- **Find active**: `ls .workflow/.active-*`
+- **List sessions**: `find .workflow/ -maxdepth 1 -type d -name "WFS-*"`
+- **Find active**: `find .workflow/ -name ".active-*" -type f`
 - **Read session data**: `jq -r '.session_id, .status' session.json`
-- **Count tasks**: `ls .task/*.json | wc -l`
-- **Count completed**: `ls .summaries/*.md | wc -l`
+- **Count tasks**: `find .task/ -name "*.json" -type f | wc -l`
+- **Count completed**: `find .summaries/ -name "*.md" -type f 2>/dev/null | wc -l`
 - **Get timestamp**: `jq -r '.created_at' session.json`
 
 ## Simple Output Format
