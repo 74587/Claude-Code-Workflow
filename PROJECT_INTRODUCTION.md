@@ -1,6 +1,6 @@
 # 🚀 Claude Code Workflow (CCW): 下一代多智能体软件开发自动化框架
 
-[![Version](https://img.shields.io/badge/version-v2.1.0--experimental-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.2.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
