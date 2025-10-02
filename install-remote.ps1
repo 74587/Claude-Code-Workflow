@@ -339,21 +339,40 @@ function Wait-ForUserConfirmation {
 }
 
 function Show-VersionMenu {
+    param(
+        [string]$LatestStableVersion = "Detecting..."
+    )
+
     Write-Host ""
-    Write-ColorOutput "====== Version Selection ======" $ColorInfo
-    Write-Host "1) Latest Stable Release (Recommended)"
-    Write-Host "   - Production-ready version"
-    Write-Host "   - Auto-detected from GitHub releases"
+    Write-ColorOutput "============================================" $ColorInfo
+    Write-ColorOutput "         Version Selection Menu" $ColorInfo
+    Write-ColorOutput "============================================" $ColorInfo
     Write-Host ""
-    Write-Host "2) Latest Development Version"
-    Write-Host "   - Cutting-edge features"
-    Write-Host "   - May contain experimental changes"
+
+    # Option 1: Latest Stable
+    Write-ColorOutput "1) Latest Stable Release (Recommended)" $ColorSuccess
+    if ($LatestStableVersion -ne "Detecting..." -and $LatestStableVersion -ne "Unknown") {
+        Write-Host "   └─ Version: $LatestStableVersion"
+    } else {
+        Write-Host "   └─ Version: Auto-detected from GitHub"
+    }
+    Write-Host "   └─ Production-ready"
     Write-Host ""
-    Write-Host "3) Specific Release Version"
-    Write-Host "   - Install a specific tagged release"
-    Write-Host "   - You will be asked for the version tag"
+
+    # Option 2: Latest Development
+    Write-ColorOutput "2) Latest Development Version" $ColorWarning
+    Write-Host "   └─ Branch: main"
+    Write-Host "   └─ Cutting-edge features"
+    Write-Host "   └─ May contain experimental changes"
     Write-Host ""
-    Write-ColorOutput "===============================" $ColorInfo
+
+    # Option 3: Specific Version
+    Write-ColorOutput "3) Specific Release Version" $ColorInfo
+    Write-Host "   └─ Install a specific tagged release"
+    Write-Host "   └─ Recent releases: v3.2.0, v3.1.0, v3.0.1"
+    Write-Host ""
+
+    Write-ColorOutput "============================================" $ColorInfo
     Write-Host ""
 }
 
@@ -367,13 +386,26 @@ function Get-UserVersionChoice {
         }
     }
 
-    Show-VersionMenu
+    # Detect latest stable version
+    Write-ColorOutput "Detecting latest release..." $ColorInfo
+    $latestVersion = "Unknown"
+    try {
+        $apiUrl = "https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest"
+        $response = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -TimeoutSec 5
+        $latestVersion = $response.tag_name
+        Write-ColorOutput "Latest stable release: $latestVersion" $ColorSuccess
+    } catch {
+        Write-ColorOutput "Could not detect latest version, will auto-detect during download" $ColorWarning
+    }
+
+    Show-VersionMenu -LatestStableVersion $latestVersion
 
     $choice = Read-Host "Select version to install (1-3, default: 1)"
 
     switch ($choice) {
         "2" {
-            Write-ColorOutput "Selected: Latest Development Version" $ColorSuccess
+            Write-Host ""
+            Write-ColorOutput "✓ Selected: Latest Development Version (main branch)" $ColorSuccess
             return @{
                 Type = "latest"
                 Tag = ""
@@ -396,7 +428,7 @@ function Get-UserVersionChoice {
                 }
             }
 
-            Write-ColorOutput "Selected: Specific Version $tagInput" $ColorSuccess
+            Write-ColorOutput "✓ Selected: Specific Version $tagInput" $ColorSuccess
             return @{
                 Type = "stable"
                 Tag = $tagInput
@@ -404,7 +436,12 @@ function Get-UserVersionChoice {
             }
         }
         default {
-            Write-ColorOutput "Selected: Latest Stable Release (default)" $ColorSuccess
+            Write-Host ""
+            if ($latestVersion -ne "Unknown") {
+                Write-ColorOutput "✓ Selected: Latest Stable Release ($latestVersion)" $ColorSuccess
+            } else {
+                Write-ColorOutput "✓ Selected: Latest Stable Release (auto-detect)" $ColorSuccess
+            }
             return @{
                 Type = "stable"
                 Tag = ""

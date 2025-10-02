@@ -383,21 +383,38 @@ EOF
 }
 
 function show_version_menu() {
+    local latest_version="$1"
+
     echo ""
-    write_color "====== Version Selection ======" "$COLOR_INFO"
-    echo "1) Latest Stable Release (Recommended)"
-    echo "   - Production-ready version"
-    echo "   - Auto-detected from GitHub releases"
+    write_color "============================================" "$COLOR_INFO"
+    write_color "         Version Selection Menu" "$COLOR_INFO"
+    write_color "============================================" "$COLOR_INFO"
     echo ""
-    echo "2) Latest Development Version"
-    echo "   - Cutting-edge features"
-    echo "   - May contain experimental changes"
+
+    # Option 1: Latest Stable
+    write_color "1) Latest Stable Release (Recommended)" "$COLOR_SUCCESS"
+    if [ -n "$latest_version" ] && [ "$latest_version" != "Unknown" ]; then
+        echo "   └─ Version: $latest_version"
+    else
+        echo "   └─ Version: Auto-detected from GitHub"
+    fi
+    echo "   └─ Production-ready"
     echo ""
-    echo "3) Specific Release Version"
-    echo "   - Install a specific tagged release"
-    echo "   - You will be asked for the version tag"
+
+    # Option 2: Latest Development
+    write_color "2) Latest Development Version" "$COLOR_WARNING"
+    echo "   └─ Branch: main"
+    echo "   └─ Cutting-edge features"
+    echo "   └─ May contain experimental changes"
     echo ""
-    write_color "===============================" "$COLOR_INFO"
+
+    # Option 3: Specific Version
+    write_color "3) Specific Release Version" "$COLOR_INFO"
+    echo "   └─ Install a specific tagged release"
+    echo "   └─ Recent releases: v3.2.0, v3.1.0, v3.0.1"
+    echo ""
+
+    write_color "============================================" "$COLOR_INFO"
     echo ""
 }
 
@@ -408,13 +425,33 @@ function get_user_version_choice() {
         return 0
     fi
 
-    show_version_menu
+    # Detect latest stable version
+    write_color "Detecting latest release..." "$COLOR_INFO"
+    local latest_version="Unknown"
+
+    if command -v jq &> /dev/null; then
+        # Use jq if available
+        latest_version=$(curl -fsSL --connect-timeout 5 "https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest" 2>/dev/null | jq -r '.tag_name' 2>/dev/null)
+    else
+        # Fallback: parse JSON with grep/sed
+        latest_version=$(curl -fsSL --connect-timeout 5 "https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest" 2>/dev/null | grep -o '"tag_name":\s*"[^"]*"' | sed 's/"tag_name":\s*"\([^"]*\)"/\1/')
+    fi
+
+    if [ -n "$latest_version" ] && [ "$latest_version" != "null" ] && [ "$latest_version" != "Unknown" ]; then
+        write_color "Latest stable release: $latest_version" "$COLOR_SUCCESS"
+    else
+        latest_version="Unknown"
+        write_color "Could not detect latest version, will auto-detect during download" "$COLOR_WARNING"
+    fi
+
+    show_version_menu "$latest_version"
 
     read -p "Select version to install (1-3, default: 1): " choice
 
     case "$choice" in
         2)
-            write_color "✓ Selected: Latest Development Version" "$COLOR_SUCCESS"
+            echo ""
+            write_color "✓ Selected: Latest Development Version (main branch)" "$COLOR_SUCCESS"
             VERSION_TYPE="latest"
             TAG_VERSION=""
             BRANCH="main"
@@ -431,6 +468,7 @@ function get_user_version_choice() {
                 VERSION_TYPE="stable"
                 TAG_VERSION=""
             else
+                echo ""
                 write_color "✓ Selected: Specific Version $tag_input" "$COLOR_SUCCESS"
                 VERSION_TYPE="stable"
                 TAG_VERSION="$tag_input"
@@ -438,7 +476,12 @@ function get_user_version_choice() {
             BRANCH="main"
             ;;
         *)
-            write_color "✓ Selected: Latest Stable Release (default)" "$COLOR_SUCCESS"
+            echo ""
+            if [ "$latest_version" != "Unknown" ]; then
+                write_color "✓ Selected: Latest Stable Release ($latest_version)" "$COLOR_SUCCESS"
+            else
+                write_color "✓ Selected: Latest Stable Release (auto-detect)" "$COLOR_SUCCESS"
+            fi
             VERSION_TYPE="stable"
             TAG_VERSION=""
             BRANCH="main"
