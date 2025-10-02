@@ -88,8 +88,9 @@ Files updated: .task/IMPL-1.json + 2 subtask files + TODO_LIST.md
 ### Agent Assignment
 - **Design/Planning** → `@planning-agent`
 - **Implementation** → `@code-developer`
-- **Testing** → `@code-review-test-agent`
-- **Review** → `@review-agent`
+- **Testing** → `@code-developer` (type: "test-gen")
+- **Test Validation** → `@test-fix-agent` (type: "test-fix")
+- **Review** → `@general-purpose` (optional)
 
 ### Context Inheritance
 - Subtasks inherit parent requirements
@@ -161,8 +162,8 @@ See @~/.claude/workflows/workflow-architecture.md for:
 
 ▸ impl-1: Build authentication (container)
   ├── impl-1.1: Design schema → @planning-agent
-  ├── impl-1.2: Implement logic → @code-developer
-  └── impl-1.3: Write tests → @code-review-test-agent
+  ├── impl-1.2: Implement logic + tests → @code-developer
+  └── impl-1.3: Execute & fix tests → @test-fix-agent
 ```
 
 ## Error Handling

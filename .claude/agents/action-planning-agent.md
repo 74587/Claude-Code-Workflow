@@ -194,7 +194,7 @@ Generate individual `.task/IMPL-*.json` files with:
   "status": "pending",
   "meta": {
     "type": "feature|bugfix|refactor|test|docs",
-    "agent": "@code-developer|@code-review-test-agent"
+    "agent": "@code-developer"
   },
   "context": {
     "requirements": ["from analysis_results"],

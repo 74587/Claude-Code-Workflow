@@ -107,8 +107,9 @@ Tasks inherit from:
 Based on task type and title keywords:
 - **Build/Implement** → @code-developer
 - **Design/Plan** → @planning-agent
-- **Test/Validate** → @code-review-test-agent
-- **Review/Audit** → @review-agent`
+- **Test Generation** → @code-developer (type: "test-gen")
+- **Test Execution/Fix** → @test-fix-agent (type: "test-fix")
+- **Review/Audit** → @general-purpose (optional, only when explicitly requested)
 
 ## Validation Rules
 

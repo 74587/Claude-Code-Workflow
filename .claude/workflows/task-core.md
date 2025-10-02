@@ -13,8 +13,8 @@ All task files use this simplified 5-field schema (aligned with workflow-archite
   "status": "pending|active|completed|blocked|container",
 
   "meta": {
-    "type": "feature|bugfix|refactor|test|docs",
-    "agent": "@code-developer|@planning-agent|@code-review-test-agent"
+    "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
+    "agent": "@code-developer|@action-planning-agent|@test-fix-agent|@general-purpose"
   },
 
   "context": {
@@ -145,17 +145,17 @@ Tasks inherit from:
 ## Agent Mapping
 
 ### Automatic Agent Selection
-- **@code-developer**: Implementation tasks, coding
-- **@planning-agent**: Design, architecture planning
-- **@code-review-test-agent**: Testing, validation
-- **@review-agent**: Code review, quality checks
+- **@code-developer**: Implementation tasks, coding, test writing
+- **@action-planning-agent**: Design, architecture planning
+- **@test-fix-agent**: Test execution, failure diagnosis, code fixing
+- **@general-purpose**: Optional manual review (only when explicitly requested)
 
 ### Agent Context Filtering
 Each agent receives tailored context:
-- **@code-developer**: Complete implementation details
-- **@planning-agent**: High-level requirements, risks
-- **@test-agent**: Files to test, logic flows to validate
-- **@review-agent**: Quality standards, security considerations
+- **@code-developer**: Complete implementation details, test requirements
+- **@action-planning-agent**: High-level requirements, risks, architecture
+- **@test-fix-agent**: Test execution, failure diagnosis, code fixing
+- **@general-purpose**: Quality standards, security considerations (when requested)
 
 ## Deprecated Fields
 

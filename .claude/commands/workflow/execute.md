@@ -185,9 +185,9 @@ TodoWrite({
       activeForm: "Executing IMPL-1.2: Implement auth logic"
     },
     {
-      content: "Execute IMPL-2: Review implementations [code-review-agent]",
+      content: "Execute TEST-FIX-1: Validate implementation tests [test-fix-agent]",
       status: "pending",
-      activeForm: "Executing IMPL-2: Review implementations"
+      activeForm: "Executing TEST-FIX-1: Validate implementation tests"
     }
   ]
 });
@@ -384,8 +384,8 @@ Task(subagent_type="{meta.agent}",
   "title": "Task title",
   "status": "pending|active|completed|blocked",
   "meta": {
-    "type": "feature|bugfix|refactor|test|docs",
-    "agent": "@code-developer|@planning-agent|@code-review-test-agent"
+    "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
+    "agent": "@code-developer|@test-fix-agent|@general-purpose"
   },
   "context": {
     "requirements": ["req1", "req2"],
@@ -451,8 +451,9 @@ Task(subagent_type="{meta.agent}",
 meta.agent specified → Use specified agent
 meta.agent missing → Infer from meta.type:
   - "feature" → @code-developer
-  - "test" → @code-review-test-agent
-  - "review" → @code-review-agent
+  - "test-gen" → @code-developer
+  - "test-fix" → @test-fix-agent
+  - "review" → @general-purpose
   - "docs" → @doc-generator
 ```
 

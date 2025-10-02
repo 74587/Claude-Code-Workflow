@@ -5,6 +5,69 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2025-10-02
+
+### 🔄 Test-Fix Workflow & Agent Architecture Simplification
+
+This release simplifies the agent architecture and introduces an automated test-fix workflow based on the principle "Tests Are the Review".
+
+#### Added
+
+**New Agent: test-fix-agent**:
+- **Purpose**: Execute tests, diagnose failures, and fix code until all tests pass
+- **Philosophy**: When all tests pass, code is automatically approved (no separate review needed)
+- **Responsibilities**:
+  - Execute complete test suite for implemented modules
+  - Parse test output and identify failures
+  - Diagnose root cause of test failures
+  - Modify source code to fix issues
+  - Re-run tests to verify fixes
+  - Certify code approval when all tests pass
+
+**Enhanced test-gen Command**:
+- Transforms from planning tool to workflow orchestrator
+- Auto-generates TEST-FIX tasks for test-fix-agent
+- Automatically executes test validation via `/workflow:execute`
+- Eliminates manual planning document generation
+
+**New Task Types**:
+- `test-gen`: Test generation tasks (handled by @code-developer)
+- `test-fix`: Test execution and fixing tasks (handled by @test-fix-agent)
+
+#### Changed
+
+**Agent Architecture Simplification**:
+- **Removed**: `@code-review-agent` and `@code-review-test-agent`
+  - Testing now serves as the quality gate
+  - Passing tests = approved code
+- **Enhanced**: `@code-developer` now writes implementation + tests together
+  - Unified generative work (code + tests)
+  - Maintains context continuity
+- **Added**: `@general-purpose` for optional manual reviews
+  - Used only when explicitly requested
+  - Handles special cases and edge scenarios
+
+**Task Type Updates**:
+- `"test"` → `"test-gen"` (clearer distinction from test-fix)
+- Agent mapping updated across all commands:
+  - `feature|bugfix|refactor|test-gen` → `@code-developer`
+  - `test-fix` → `@test-fix-agent`
+  - `review` → `@general-purpose` (optional)
+
+**Workflow Changes**:
+```
+Old: code-developer → test-agent → code-review-agent
+New: code-developer (code+tests) → test-fix-agent (execute+fix) → ✅ approved
+```
+
+#### Removed
+
+- `@code-review-agent` - Testing serves as quality gate
+- `@code-review-test-agent` - Functionality split between code-developer and test-fix-agent
+- Separate review step - Tests passing = code approved
+
+---
+
 ## [3.1.0] - 2025-10-02
 
 ### 🧪 TDD Workflow Support

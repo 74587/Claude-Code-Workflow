@@ -24,8 +24,8 @@ examples:
     -   Executes step-by-step, requiring user confirmation at each checkpoint.
     -   Allows for dynamic adjustments and manual review during the process.
 -   **review**
-    -   Executes under the supervision of a `@review-agent`.
-    -   Performs quality checks and provides detailed feedback at each step.
+    -   Optional manual review using `@general-purpose`.
+    -   Used only when explicitly requested by user.
 
 ### 🤖 **Agent Selection Logic**
 
@@ -45,10 +45,12 @@ FUNCTION select_agent(task, agent_override):
                 RETURN "@code-developer"
             WHEN CONTAINS "Design schema", "Plan":
                 RETURN "@planning-agent"
-            WHEN CONTAINS "Write tests":
-                RETURN "@code-review-test-agent"
+            WHEN CONTAINS "Write tests", "Generate tests":
+                RETURN "@code-developer" // type: test-gen
+            WHEN CONTAINS "Execute tests", "Fix tests", "Validate":
+                RETURN "@test-fix-agent" // type: test-fix
             WHEN CONTAINS "Review code":
-                RETURN "@review-agent"
+                RETURN "@general-purpose" // Optional manual review
             DEFAULT:
                 RETURN "@code-developer" // Default agent
         END CASE
@@ -232,13 +234,15 @@ Different agents receive context tailored to their function, including implement
 - Implementation risks and mitigation strategies
 - Architecture implications from implementation.context_notes
 
-**`@code-review-test-agent`**: 
-- Files to test from implementation.files[].path
-- Logic flows to validate from implementation.modifications.logic_flow
-- Error conditions to test from implementation.context_notes.error_handling
-- Performance benchmarks from implementation.context_notes.performance_considerations
+**`@test-fix-agent`**:
+- Test files to execute from task.context.focus_paths
+- Source files to fix from implementation.files[].path
+- Expected behaviors from implementation.modifications.logic_flow
+- Error conditions to validate from implementation.context_notes.error_handling
+- Performance requirements from implementation.context_notes.performance_considerations
 
-**`@review-agent`**: 
+**`@general-purpose`**:
+- Used for optional manual reviews when explicitly requested
 - Code quality standards and implementation patterns
 - Security considerations from implementation.context_notes.risks
 - Dependency validation from implementation.context_notes.dependencies

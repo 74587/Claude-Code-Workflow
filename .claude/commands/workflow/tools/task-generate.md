@@ -67,8 +67,8 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
   "title": "Descriptive task name",
   "status": "pending|active|completed|blocked|container",
   "meta": {
-    "type": "feature|bugfix|refactor|test|docs",
-    "agent": "@code-developer|@planning-agent|@code-review-test-agent"
+    "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
+    "agent": "@code-developer|@test-fix-agent|@general-purpose"
   },
   "context": {
     "requirements": ["Clear requirement from analysis"],

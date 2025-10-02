@@ -24,7 +24,7 @@
 ## ✨ Key Features
 
 - **🎯 Context-First Architecture**: Pre-defined context gathering eliminates execution uncertainty and error accumulation.
-- **🤖 Multi-Agent System**: Specialized agents (`@code-developer`, `@code-review-test-agent`) with tech-stack awareness.
+- **🤖 Multi-Agent System**: Specialized agents (`@code-developer`, `@test-fix-agent`) with tech-stack awareness and automated test validation.
 - **🔄 End-to-End Workflow Automation**: From brainstorming to deployment with multi-phase orchestration.
 - **📋 JSON-First Task Model**: Structured task definitions with `pre_analysis` steps for deterministic execution.
 - **🧪 TDD Workflow Support**: Complete Test-Driven Development with Red-Green-Refactor cycle enforcement.
@@ -97,9 +97,6 @@ After installation, run the following command to ensure CCW is working:
 
 # OR verify TDD compliance (TDD workflow)
 /workflow:tdd-verify
-
-# Final quality review
-/workflow:review
 ```
 
 ### Quick Start for Simple Tasks
@@ -155,7 +152,7 @@ After installation, run the following command to ensure CCW is working:
 | `/workflow:status` | Display the current status of the workflow. |
 | `/workflow:test-gen` | Automatically generate a test plan from the implementation. |
 | `/workflow:tdd-verify` | Verify TDD compliance and generate quality report. |
-| `/workflow:review` | Initiate a quality assurance review of the completed work. |
+| `/workflow:review` | **Optional** manual review (only use when explicitly needed - passing tests = approved code). |
 
 ### **Task & Memory Commands**
 

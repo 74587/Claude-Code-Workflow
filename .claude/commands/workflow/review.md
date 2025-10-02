@@ -1,85 +1,272 @@
 ---
 name: review
-description: Execute review phase for quality validation
-usage: /workflow:review
-argument-hint: none
+description: Optional specialized review (security, architecture, docs) for completed implementation
+usage: /workflow:review [--type=<type>] [session-id]
+argument-hint: "[--type=security|architecture|action-items|quality] [session-id]"
 examples:
-  - /workflow:review
+  - /workflow:review                           # Quality review of active session
+  - /workflow:review --type=security           # Security audit of active session
+  - /workflow:review --type=architecture WFS-user-auth  # Architecture review of specific session
+  - /workflow:review --type=action-items       # Pre-deployment verification
 ---
 
-# Workflow Review Command (/workflow:review)
+### 🚀 Command Overview: `/workflow:review`
 
-## Overview
-Final phase for quality validation, testing, and completion.
+**Optional specialized review** for completed implementations. In the standard workflow, **passing tests = approved code**. Use this command only when specialized review is required (security, architecture, compliance, docs).
 
-## Core Principles
-**Session Management:** @~/.claude/workflows/workflow-architecture.md
+## Philosophy: "Tests Are the Review"
 
-## Review Process
+- ✅ **Default**: All tests pass → Code approved
+- 🔍 **Optional**: Specialized reviews for:
+  - 🔒 Security audits (vulnerabilities, auth/authz)
+  - 🏗️ Architecture compliance (patterns, technical debt)
+  - 📋 Action items verification (requirements met, acceptance criteria)
 
-1. **Validation Checks**
-   - All tasks completed
-   - Tests passing
-   - Code quality metrics
-   - Documentation complete
+## Review Types
 
-2. **Generate Review Report**
+| Type | Focus | Use Case |
+|------|-------|----------|
+| `quality` | Code quality, best practices, maintainability | Default general review |
+| `security` | Security vulnerabilities, data handling, access control | Security audits |
+| `architecture` | Architectural patterns, technical debt, design decisions | Architecture compliance |
+| `action-items` | Requirements met, acceptance criteria verified, action items completed | Pre-deployment verification |
+
+**Notes**:
+- For documentation generation, use `/workflow:tools:docs`
+- For CLAUDE.md updates, use `/update-memory-related`
+
+## Execution Template
+
+```bash
+#!/bin/bash
+# Optional specialized review for completed implementation
+
+# Step 1: Session ID resolution
+if [ -n "$SESSION_ARG" ]; then
+    sessionId="$SESSION_ARG"
+else
+    sessionId=$(find .workflow/ -name '.active-*' | head -1 | sed 's/.*active-//')
+fi
+
+# Step 2: Validation
+if [ ! -d ".workflow/${sessionId}" ]; then
+    echo "❌ Session ${sessionId} not found"
+    exit 1
+fi
+
+# Check for completed tasks
+if [ ! -d ".workflow/${sessionId}/.summaries" ] || [ -z "$(ls .workflow/${sessionId}/.summaries/IMPL-*.md 2>/dev/null)" ]; then
+    echo "❌ No completed implementation found. Complete implementation first"
+    exit 1
+fi
+
+# Step 3: Determine review type (default: quality)
+review_type="${TYPE_ARG:-quality}"
+
+# Redirect docs review to specialized command
+if [ "$review_type" = "docs" ]; then
+    echo "💡 For documentation generation, please use:"
+    echo "   /workflow:tools:docs"
+    echo ""
+    echo "The docs command provides:"
+    echo "  - Hierarchical architecture documentation"
+    echo "  - API documentation generation"
+    echo "  - Documentation structure analysis"
+    exit 0
+fi
+
+# Step 4: Analysis handover → Model takes control
+# BASH_EXECUTION_STOPS → MODEL_ANALYSIS_BEGINS
+```
+
+### 🧠 Model Analysis Phase
+
+After bash validation, the model takes control to:
+
+1. **Load Context**: Read completed task summaries and changed files
+   ```bash
+   # Load implementation summaries
+   cat .workflow/${sessionId}/.summaries/IMPL-*.md
+
+   # Load test results (if available)
+   cat .workflow/${sessionId}/.summaries/TEST-FIX-*.md 2>/dev/null
+
+   # Get changed files
+   git log --since="$(cat .workflow/${sessionId}/workflow-session.json | jq -r .created_at)" --name-only --pretty=format: | sort -u
+   ```
+
+2. **Perform Specialized Review**: Based on `review_type`
+
+   **Security Review** (`--type=security`):
+   - Use MCP code search for security patterns:
+     ```bash
+     mcp__code-index__search_code_advanced(pattern="password|token|secret|auth", file_pattern="*.{ts,js,py}")
+     mcp__code-index__search_code_advanced(pattern="eval|exec|innerHTML|dangerouslySetInnerHTML", file_pattern="*.{ts,js,tsx}")
+     ```
+   - Use Gemini for security analysis:
+     ```bash
+     cd .workflow/${sessionId} && ~/.claude/scripts/gemini-wrapper -p "
+     PURPOSE: Security audit of completed implementation
+     TASK: Review code for security vulnerabilities, insecure patterns, auth/authz issues
+     CONTEXT: @{.summaries/IMPL-*.md,../..,../../CLAUDE.md}
+     EXPECTED: Security findings report with severity levels
+     RULES: Focus on OWASP Top 10, authentication, authorization, data validation, injection risks
+     " --approval-mode yolo
+     ```
+
+   **Architecture Review** (`--type=architecture`):
+   - Use Qwen for architecture analysis:
+     ```bash
+     cd .workflow/${sessionId} && ~/.claude/scripts/qwen-wrapper -p "
+     PURPOSE: Architecture compliance review
+     TASK: Evaluate adherence to architectural patterns, identify technical debt, review design decisions
+     CONTEXT: @{.summaries/IMPL-*.md,../..,../../CLAUDE.md}
+     EXPECTED: Architecture assessment with recommendations
+     RULES: Check for patterns, separation of concerns, modularity, scalability
+     " --approval-mode yolo
+     ```
+
+   **Quality Review** (`--type=quality`):
+   - Use Gemini for code quality:
+     ```bash
+     cd .workflow/${sessionId} && ~/.claude/scripts/gemini-wrapper -p "
+     PURPOSE: Code quality and best practices review
+     TASK: Assess code readability, maintainability, adherence to best practices
+     CONTEXT: @{.summaries/IMPL-*.md,../..,../../CLAUDE.md}
+     EXPECTED: Quality assessment with improvement suggestions
+     RULES: Check for code smells, duplication, complexity, naming conventions
+     " --approval-mode yolo
+     ```
+
+   **Action Items Review** (`--type=action-items`):
+   - Verify all requirements and acceptance criteria met:
+     ```bash
+     # Load task requirements and acceptance criteria
+     find .workflow/${sessionId}/.task -name "IMPL-*.json" -exec jq -r '
+       "Task: " + .id + "\n" +
+       "Requirements: " + (.context.requirements | join(", ")) + "\n" +
+       "Acceptance: " + (.context.acceptance | join(", "))
+     ' {} \;
+
+     # Check implementation summaries against requirements
+     cd .workflow/${sessionId} && ~/.claude/scripts/gemini-wrapper -p "
+     PURPOSE: Verify all requirements and acceptance criteria are met
+     TASK: Cross-check implementation summaries against original requirements
+     CONTEXT: @{.task/IMPL-*.json,.summaries/IMPL-*.md,../..,../../CLAUDE.md}
+     EXPECTED:
+     - Requirements coverage matrix
+     - Acceptance criteria verification
+     - Missing/incomplete action items
+     - Pre-deployment readiness assessment
+     RULES:
+     - Check each requirement has corresponding implementation
+     - Verify all acceptance criteria are met
+     - Flag any incomplete or missing action items
+     - Assess deployment readiness
+     " --approval-mode yolo
+     ```
+
+
+3. **Generate Review Report**: Create structured report
    ```markdown
-   # Review Report
-   
-   ## Task Completion
-   - Total: 10
-   - Completed: 10
-   - Success Rate: 100%
-   
-   ## Quality Metrics
-   - Test Coverage: 85%
-   - Code Quality: A
-   - Documentation: Complete
-   
-   ## Issues Found
-   - Minor: 2
-   - Major: 0
-   - Critical: 0
+   # Review Report: ${review_type}
+
+   **Session**: ${sessionId}
+   **Date**: $(date)
+   **Type**: ${review_type}
+
+   ## Summary
+   - Tasks Reviewed: [count IMPL tasks]
+   - Files Changed: [count files]
+   - Severity: [High/Medium/Low]
+
+   ## Findings
+
+   ### Critical Issues
+   - [Issue 1 with file:line reference]
+   - [Issue 2 with file:line reference]
+
+   ### Recommendations
+   - [Recommendation 1]
+   - [Recommendation 2]
+
+   ### Positive Observations
+   - [Good pattern observed]
+
+   ## Action Items
+   - [ ] [Action 1]
+   - [ ] [Action 2]
    ```
 
-3. **Update Session**
-   ```json
-   {
-     "current_phase": "REVIEW",
-     "phases": {
-       "REVIEW": {
-         "status": "completed",
-         "output": "REVIEW.md",
-         "test_results": {
-           "passed": 45,
-           "failed": 0,
-           "coverage": 85
-         }
-       }
-     }
-   }
+4. **Output Files**:
+   ```bash
+   # Save review report
+   Write(.workflow/${sessionId}/REVIEW-${review_type}.md)
+
+   # Update session metadata
+   # (optional) Update workflow-session.json with review status
    ```
 
-## Auto-fix (Default)
-Auto-fix is enabled by default:
-- Automatically fixes minor issues
-- Runs formatters and linters
-- Updates documentation
-- Re-runs tests
+5. **Optional: Update Memory** (if docs review or significant findings):
+   ```bash
+   # If architecture or quality issues found, suggest memory update
+   if [ "$review_type" = "architecture" ] || [ "$review_type" = "quality" ]; then
+       echo "💡 Consider updating project documentation:"
+       echo "   /update-memory-related"
+   fi
+   ```
 
-## Completion Criteria
-- All tasks marked complete
-- Tests passing (configurable threshold)
-- No critical issues
-- Documentation updated
+## Usage Examples
 
-## Output Files
-- `REVIEW.md` - Review report
-- `workflow-session.json` - Updated with results
-- `test-results.json` - Detailed test output
+```bash
+# General quality review after implementation
+/workflow:review
+
+# Security audit before deployment
+/workflow:review --type=security
+
+# Architecture review for specific session
+/workflow:review --type=architecture WFS-payment-integration
+
+# Documentation review
+/workflow:review --type=docs
+```
+
+## ✨ Features
+
+- **Simple Validation**: Check session exists and has completed tasks
+- **No Complex Orchestration**: Direct analysis, no multi-phase pipeline
+- **Specialized Reviews**: Different prompts and tools for different review types
+- **MCP Integration**: Fast code search for security and architecture patterns
+- **CLI Tool Integration**: Gemini for analysis, Qwen for architecture
+- **Structured Output**: Markdown reports with severity levels and action items
+- **Optional Memory Update**: Suggests documentation updates for significant findings
+
+## Integration with Workflow
+
+```
+Standard Workflow:
+  plan → execute → test-gen → execute ✅
+
+Optional Review (when needed):
+  plan → execute → test-gen → execute → review (security/architecture/docs)
+```
+
+**When to Use**:
+- Before production deployment (security review + action-items review)
+- After major feature (architecture review)
+- Before code freeze (quality review)
+- Pre-deployment verification (action-items review)
+
+**When NOT to Use**:
+- Regular development (tests are sufficient)
+- Simple bug fixes (test-fix-agent handles it)
+- Minor changes (update-memory-related is enough)
 
 ## Related Commands
-- `/workflow:execute` - Must complete first
-- `/task:status` - Check task completion
-- `/workflow:status` - View overall status
+
+- `/workflow:execute` - Must complete implementation first
+- `/workflow:test-gen` - Primary quality gate (tests)
+- `/workflow:tools:docs` - Generate hierarchical documentation (use instead of `--type=docs`)
+- `/update-memory-related` - Update CLAUDE.md docs after architecture findings
+- `/workflow:status` - Check session status

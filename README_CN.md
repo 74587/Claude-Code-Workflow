@@ -98,8 +98,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 # 或验证 TDD 合规性（TDD 工作流）
 /workflow:tdd-verify
 
-# 最终质量审查
-/workflow:review
+# 可选：手动审查（仅在明确需要时使用）
+# /workflow:review  # 测试通过 = 代码已批准
 ```
 
 ### 简单任务快速入门
@@ -155,7 +155,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 | `/workflow:status` | 显示工作流的当前状态。 |
 | `/workflow:test-gen` | 从实现中自动生成测试计划。 |
 | `/workflow:tdd-verify` | 验证 TDD 合规性并生成质量报告。 |
-| `/workflow:review` | 对已完成的工作启动质量保证审查。 |
+| `/workflow:review` | **可选** 手动审查（仅在明确需要时使用，测试通过即代表代码已批准）。 |
 
 ### **任务与内存命令**
 

@@ -158,7 +158,7 @@ Task(
   "status": "pending",
   "meta": {
     "type": "feature|bugfix|refactor|test|docs",
-    "agent": "@code-developer|@code-review-test-agent"
+    "agent": "@code-developer|@test-fix-agent|@general-purpose"
   },
   "context": {
     "requirements": ["extracted from analysis"],
