@@ -91,9 +91,10 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 **Document Structure**:
 ```
 .workflow/WFS-[topic]/.brainstorming/
-├── topic-framework.md          # ★ STRUCTURED FRAMEWORK DOCUMENT
-└── workflow-session.json               # Framework metadata and role assignments
+└── topic-framework.md          # ★ STRUCTURED FRAMEWORK DOCUMENT
 ```
+
+**Note**: `workflow-session.json` is located at `.workflow/WFS-[topic]/workflow-session.json` (session root), not inside `.brainstorming/`.
 
 ## Framework Template Structures
 

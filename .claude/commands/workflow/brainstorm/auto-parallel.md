@@ -149,7 +149,7 @@ Task(subagent_type="conceptual-planning-agent",
 
      3. **load_session_metadata**
         - Action: Load session metadata and topic description
-        - Command: bash(cat .workflow/WFS-{topic}/.brainstorming/workflow-session.json 2>/dev/null || echo '{}')
+        - Command: bash(cat .workflow/WFS-{topic}/workflow-session.json 2>/dev/null || echo '{}')
         - Output: session_metadata
 
      ### Implementation Context
@@ -162,7 +162,7 @@ Task(subagent_type="conceptual-planning-agent",
      ### Session Context
      **Workflow Directory**: .workflow/WFS-{topic}/.brainstorming/
      **Output Directory**: .workflow/WFS-{topic}/.brainstorming/{role}/
-     **Session JSON**: .workflow/WFS-{topic}/.brainstorming/workflow-session.json
+     **Session JSON**: .workflow/WFS-{topic}/workflow-session.json
 
      ### Dependencies & Context
      **Topic**: {user-provided-topic}

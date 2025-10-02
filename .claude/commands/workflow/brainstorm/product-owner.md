@@ -88,7 +88,7 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 
 3. **load_session_metadata**
    - Action: Load session metadata and existing context
-   - Command: Read(.workflow/WFS-{session}/.brainstorming/session.json)
+   - Command: Read(.workflow/WFS-{session}/workflow-session.json)
    - Output: session_context
 
 ## Analysis Requirements
@@ -136,7 +136,7 @@ TodoWrite({
       activeForm: "Generating structured product-owner analysis"
     },
     {
-      content: "Update session.json with product-owner completion status",
+      content: "Update workflow-session.json with product-owner completion status",
       status: "pending",
       activeForm: "Updating session metadata"
     }
