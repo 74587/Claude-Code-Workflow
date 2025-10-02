@@ -100,6 +100,12 @@ After installation, run the following command to ensure CCW is working:
 /workflow:session:list
 ```
 
+> **📝 Important Notes:**
+> - The installer will automatically install/update `.codex/` and `.gemini/` directories
+> - **Global mode**: Installs to `~/.codex` and `~/.gemini`
+> - **Path mode**: Installs to your specified directory (e.g., `project/.codex`, `project/.gemini`)
+> - Existing files will be backed up automatically before installation
+
 ---
 
 ## 🚀 Getting Started
@@ -161,6 +167,22 @@ After installation, run the following command to ensure CCW is working:
 # Execute the suggested fix
 /workflow:execute
 ```
+
+> **💡 When to Use Which Approach?**
+>
+> **Use `/workflow:plan` + `/workflow:execute` for:**
+> - Complex features requiring multiple modules (>3 modules)
+> - Tasks with multiple subtasks (>5 subtasks)
+> - Cross-cutting changes affecting architecture
+> - Features requiring coordination between components
+> - When you need structured planning and progress tracking
+>
+> **Use Claude Code directly for:**
+> - Simple, focused changes (single file or module)
+> - Quick bug fixes with clear solutions
+> - Documentation updates
+> - Code refactoring within one component
+> - Straightforward feature additions
 
 **Code Analysis:**
 ```bash

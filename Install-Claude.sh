@@ -97,6 +97,8 @@ function test_prerequisites() {
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local claude_dir="$script_dir/.claude"
     local claude_md="$script_dir/CLAUDE.md"
+    local codex_dir="$script_dir/.codex"
+    local gemini_dir="$script_dir/.gemini"
 
     if [ ! -d "$claude_dir" ]; then
         write_color "ERROR: .claude directory not found in $script_dir" "$COLOR_ERROR"
@@ -105,6 +107,16 @@ function test_prerequisites() {
 
     if [ ! -f "$claude_md" ]; then
         write_color "ERROR: CLAUDE.md file not found in $script_dir" "$COLOR_ERROR"
+        return 1
+    fi
+
+    if [ ! -d "$codex_dir" ]; then
+        write_color "ERROR: .codex directory not found in $script_dir" "$COLOR_ERROR"
+        return 1
+    fi
+
+    if [ ! -d "$gemini_dir" ]; then
+        write_color "ERROR: .gemini directory not found in $script_dir" "$COLOR_ERROR"
         return 1
     fi
 
@@ -389,6 +401,8 @@ function install_global() {
     local user_home="$HOME"
     local global_claude_dir="${user_home}/.claude"
     local global_claude_md="${global_claude_dir}/CLAUDE.md"
+    local global_codex_dir="${user_home}/.codex"
+    local global_gemini_dir="${user_home}/.gemini"
 
     write_color "Global installation path: $user_home" "$COLOR_INFO"
 
@@ -396,14 +410,25 @@ function install_global() {
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local source_claude_dir="${script_dir}/.claude"
     local source_claude_md="${script_dir}/CLAUDE.md"
+    local source_codex_dir="${script_dir}/.codex"
+    local source_gemini_dir="${script_dir}/.gemini"
 
     # Create backup folder if needed
     local backup_folder=""
     if [ "$NO_BACKUP" = false ]; then
+        local has_existing_files=false
+
         if [ -d "$global_claude_dir" ] && [ "$(ls -A "$global_claude_dir" 2>/dev/null)" ]; then
-            backup_folder=$(get_backup_directory "$user_home")
-            write_color "Backup folder created: $backup_folder" "$COLOR_INFO"
+            has_existing_files=true
+        elif [ -d "$global_codex_dir" ] && [ "$(ls -A "$global_codex_dir" 2>/dev/null)" ]; then
+            has_existing_files=true
+        elif [ -d "$global_gemini_dir" ] && [ "$(ls -A "$global_gemini_dir" 2>/dev/null)" ]; then
+            has_existing_files=true
         elif [ -f "$global_claude_md" ]; then
+            has_existing_files=true
+        fi
+
+        if [ "$has_existing_files" = true ]; then
             backup_folder=$(get_backup_directory "$user_home")
             write_color "Backup folder created: $backup_folder" "$COLOR_INFO"
         fi
@@ -416,6 +441,14 @@ function install_global() {
     # Handle CLAUDE.md file
     write_color "Installing CLAUDE.md to global .claude directory..." "$COLOR_INFO"
     copy_file_to_destination "$source_claude_md" "$global_claude_md" "CLAUDE.md" "$backup_folder"
+
+    # Merge .codex directory contents
+    write_color "Merging .codex directory contents..." "$COLOR_INFO"
+    merge_directory_contents "$source_codex_dir" "$global_codex_dir" ".codex directory contents" "$backup_folder"
+
+    # Merge .gemini directory contents
+    write_color "Merging .gemini directory contents..." "$COLOR_INFO"
+    merge_directory_contents "$source_gemini_dir" "$global_gemini_dir" ".gemini directory contents" "$backup_folder"
 
     # Remove empty backup folder
     if [ -n "$backup_folder" ] && [ -d "$backup_folder" ]; then
@@ -442,14 +475,18 @@ function install_path() {
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local source_claude_dir="${script_dir}/.claude"
     local source_claude_md="${script_dir}/CLAUDE.md"
+    local source_codex_dir="${script_dir}/.codex"
+    local source_gemini_dir="${script_dir}/.gemini"
 
     # Local paths
     local local_claude_dir="${target_dir}/.claude"
+    local local_codex_dir="${target_dir}/.codex"
+    local local_gemini_dir="${target_dir}/.gemini"
 
     # Create backup folder if needed
     local backup_folder=""
     if [ "$NO_BACKUP" = false ]; then
-        if [ -d "$local_claude_dir" ] || [ -d "$global_claude_dir" ]; then
+        if [ -d "$local_claude_dir" ] || [ -d "$local_codex_dir" ] || [ -d "$local_gemini_dir" ] || [ -d "$global_claude_dir" ]; then
             backup_folder=$(get_backup_directory "$target_dir")
             write_color "Backup folder created: $backup_folder" "$COLOR_INFO"
         fi
@@ -529,6 +566,14 @@ function install_path() {
     local global_claude_md="${global_claude_dir}/CLAUDE.md"
     write_color "Installing CLAUDE.md to global .claude directory..." "$COLOR_INFO"
     copy_file_to_destination "$source_claude_md" "$global_claude_md" "CLAUDE.md" "$backup_folder"
+
+    # Merge .codex directory contents to local location
+    write_color "Merging .codex directory contents to local location..." "$COLOR_INFO"
+    merge_directory_contents "$source_codex_dir" "$local_codex_dir" ".codex directory contents" "$backup_folder"
+
+    # Merge .gemini directory contents to local location
+    write_color "Merging .gemini directory contents to local location..." "$COLOR_INFO"
+    merge_directory_contents "$source_gemini_dir" "$local_gemini_dir" ".gemini directory contents" "$backup_folder"
 
     # Remove empty backup folder
     if [ -n "$backup_folder" ] && [ -d "$backup_folder" ]; then
@@ -631,10 +676,11 @@ function show_summary() {
     if [ "$mode" = "Path" ]; then
         echo "  Local Path: $path"
         echo "  Global Path: $HOME"
-        echo "  Local Components: agents, commands, output-styles"
+        echo "  Local Components: agents, commands, output-styles, .codex, .gemini"
         echo "  Global Components: workflows, scripts, python_script, etc."
     else
         echo "  Path: $path"
+        echo "  Global Components: .claude, .codex, .gemini"
     fi
 
     if [ "$NO_BACKUP" = true ]; then
@@ -648,10 +694,12 @@ function show_summary() {
     echo ""
     write_color "Next steps:" "$COLOR_INFO"
     echo "1. Review CLAUDE.md - Customize guidelines for your project"
-    echo "2. Configure settings - Edit .claude/settings.local.json as needed"
-    echo "3. Start using Claude Code with Agent workflow coordination!"
-    echo "4. Use /workflow commands for task execution"
-    echo "5. Use /update-memory commands for memory system management"
+    echo "2. Review .codex/Agent.md - Codex agent execution protocol"
+    echo "3. Review .gemini/CLAUDE.md - Gemini agent execution protocol"
+    echo "4. Configure settings - Edit .claude/settings.local.json as needed"
+    echo "5. Start using Claude Code with Agent workflow coordination!"
+    echo "6. Use /workflow commands for task execution"
+    echo "7. Use /update-memory commands for memory system management"
 
     echo ""
     write_color "Documentation: https://github.com/catlog22/Claude-Code-Workflow" "$COLOR_INFO"

@@ -100,6 +100,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 /workflow:session:list
 ```
 
+> **📝 重要说明：**
+> - 安装程序将自动安装/更新 `.codex/` 和 `.gemini/` 目录
+> - **全局模式**：安装到 `~/.codex` 和 `~/.gemini`
+> - **路径模式**：安装到指定目录（例如 `project/.codex`、`project/.gemini`）
+> - 安装前会自动备份现有文件
+
 ---
 
 ## 🚀 快速入门
@@ -164,6 +170,22 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 # 执行建议的修复
 /workflow:execute
 ```
+
+> **💡 何时使用哪种方式？**
+>
+> **使用 `/workflow:plan` + `/workflow:execute` 适用于：**
+> - 需要多个模块的复杂功能（>3 个模块）
+> - 包含多个子任务的任务（>5 个子任务）
+> - 影响架构的横切变更
+> - 需要组件间协调的功能
+> - 需要结构化规划和进度跟踪时
+>
+> **直接使用 Claude Code 适用于：**
+> - 简单、聚焦的变更（单个文件或模块）
+> - 解决方案明确的快速 bug 修复
+> - 文档更新
+> - 单个组件内的代码重构
+> - 简单直接的功能添加
 
 **代码分析：**
 ```bash

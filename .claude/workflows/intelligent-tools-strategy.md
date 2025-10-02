@@ -41,19 +41,21 @@ type: strategic-guideline
 
 ### Standard Format (REQUIRED)
 ```bash
-# Gemini Analysis
+# Gemini Analysis (全权限)
 cd [directory] && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
+MODE: [analysis|write]
 CONTEXT: [file references and memory context]
 EXPECTED: [expected output]
 RULES: [template reference and constraints]
 "
 
-# Qwen Architecture & Code Generation
+# Qwen Architecture Analysis (仅分析)
 cd [directory] && ~/.claude/scripts/qwen-wrapper -p "
-PURPOSE: [clear architecture/code goal]
-TASK: [specific architecture/code task]
+PURPOSE: [clear architecture goal]
+TASK: [specific analysis task]
+MODE: analysis
 CONTEXT: [file references and memory context]
 EXPECTED: [expected deliverables]
 RULES: [template reference and constraints]
@@ -63,6 +65,7 @@ RULES: [template reference and constraints]
 codex -C [directory] --full-auto exec "
 PURPOSE: [clear development goal]
 TASK: [specific development task]
+MODE: [auto|write]
 CONTEXT: [file references and memory context]
 EXPECTED: [expected deliverables]
 RULES: [template reference and constraints]
@@ -72,9 +75,25 @@ RULES: [template reference and constraints]
 ### Template Structure
 - [ ] **PURPOSE** - Clear goal and intent
 - [ ] **TASK** - Specific execution task
+- [ ] **MODE** - Execution mode and permission level
 - [ ] **CONTEXT** - File references and memory context from previous sessions
 - [ ] **EXPECTED** - Clear expected results
 - [ ] **RULES** - Template reference and constraints
+
+### MODE Field Definition
+
+The MODE field controls execution behavior and file permissions:
+
+**For Gemini** (全权限，可读写):
+- `analysis` (default) - 分析 + 可生成文档
+- `write` - 创建/修改文件（自动启用 --approval-mode yolo）
+
+**For Qwen** (仅分析):
+- `analysis` (default) - 仅架构分析，不生成代码
+
+**For Codex**:
+- `auto` (default) - 自主开发，全文件操作
+- `write` - 测试生成和文件修改
 
 ### Directory Context
 Tools execute in current working directory:
@@ -150,80 +169,92 @@ When planning any coding task, **ALWAYS** integrate CLI tools:
 
 ### Common Scenarios
 ```bash
-# Project Analysis (in current directory)
+# Gemini - Code Analysis
 ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Understand codebase architecture
 TASK: Analyze project structure and identify patterns
+MODE: analysis
 CONTEXT: @{src/**/*.ts,CLAUDE.md} Previous analysis of auth system
 EXPECTED: Architecture overview and integration points
-RULES: $(cat "~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt") | Focus on integration points
+RULES: $(cat '~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt') | Focus on integration points
 "
 
-# Project Analysis (in different directory)
-cd ../other-project && ~/.claude/scripts/gemini-wrapper -p "
-PURPOSE: Compare authentication patterns
-TASK: Analyze auth implementation in related project
-CONTEXT: @{src/auth/**/*} Current project context from session memory
-EXPECTED: Pattern comparison and recommendations
-RULES: $(cat "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt") | Focus on architectural differences
+# Gemini - Generate Documentation
+~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Generate API documentation
+TASK: Create comprehensive API reference from code
+MODE: write
+CONTEXT: @{src/api/**/*}
+EXPECTED: API.md with all endpoints documented
+RULES: Follow project documentation standards
 "
 
-# Architecture Design (with Qwen)
+# Qwen - Architecture Analysis
 cd src/auth && ~/.claude/scripts/qwen-wrapper -p "
-PURPOSE: Design authentication system architecture
-TASK: Create modular JWT-based auth system design
+PURPOSE: Analyze authentication system architecture
+TASK: Review JWT-based auth system design
+MODE: analysis
 CONTEXT: @{src/auth/**/*} Existing patterns and requirements
-EXPECTED: Complete architecture with code scaffolding
-RULES: $(cat "~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt") | Focus on modularity and security
+EXPECTED: Architecture analysis report with recommendations
+RULES: $(cat '~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt') | Focus on security
 "
 
-# Feature Development (in target directory)
+# Codex - Feature Development
 codex -C path/to/project --full-auto exec "
 PURPOSE: Implement user authentication
 TASK: Create JWT-based authentication system
+MODE: auto
 CONTEXT: @{src/auth/**/*} Database schema from session memory
 EXPECTED: Complete auth module with tests
-RULES: $(cat "~/.claude/workflows/cli-templates/prompts/development/feature.txt") | Follow security best practices
+RULES: $(cat '~/.claude/workflows/cli-templates/prompts/development/feature.txt') | Follow security best practices
 " --skip-git-repo-check -s danger-full-access
 
-# Code Review Preparation
-~/.claude/scripts/gemini-wrapper -p "
-PURPOSE: Prepare comprehensive code review
-TASK: Analyze code changes and identify potential issues
-CONTEXT: @{**/*.modified} Recent changes discussed in last session
-EXPECTED: Review checklist and improvement suggestions
-RULES: $(cat "~/.claude/workflows/cli-templates/prompts/analysis/quality.txt") | Focus on maintainability
-"
+# Codex - Test Generation
+codex -C src/auth --full-auto exec "
+PURPOSE: Increase test coverage
+TASK: Generate comprehensive tests for auth module
+MODE: write
+CONTEXT: @{**/*.ts} Exclude existing tests
+EXPECTED: Complete test suite with 80%+ coverage
+RULES: Use Jest, follow existing patterns
+" --skip-git-repo-check -s danger-full-access
 ```
 
 ## 📋 Planning Checklist
 
 For every development task:
 - [ ] **Purpose defined** - Clear goal and intent
+- [ ] **Mode selected** - Execution mode and permission level determined
 - [ ] **Context gathered** - File references and session memory documented
 - [ ] **Gemini analysis** completed for understanding
 - [ ] **Template selected** - Appropriate template chosen
 - [ ] **Constraints specified** - File patterns, scope, requirements
 - [ ] **Implementation approach** - Tool selection and workflow
 - [ ] **Quality measures** - Testing and validation plan
+- [ ] **Tool configuration** - Review `.gemini/CLAUDE.md` or `.codex/Agent.md` if needed
 
 ## 🎯 Key Features
 
-### Gemini
+### Gemini (全权限)
 - **Command**: `~/.claude/scripts/gemini-wrapper`
 - **Strengths**: Large context window, pattern recognition
-- **Best For**: Analysis, architecture review, code exploration
+- **Best For**: Analysis, documentation generation, code exploration
+- **Permissions**: 可读写，MODE=write 时自动启用 --approval-mode yolo
+- **Default MODE**: `analysis`
 
-### Qwen
+### Qwen (仅分析)
 - **Command**: `~/.claude/scripts/qwen-wrapper`
-- **Strengths**: Architecture analysis, code generation, implementation patterns
-- **Best For**: System design, code scaffolding, architectural planning
+- **Strengths**: Architecture analysis, pattern recognition
+- **Best For**: System design analysis, architectural review
+- **Permissions**: 仅分析，不生成代码
+- **Default MODE**: `analysis`
 
 ### Codex
 - **Command**: `codex --full-auto exec`
 - **Strengths**: Autonomous development, mathematical reasoning
 - **Best For**: Implementation, testing, automation
 - **Required**: `-s danger-full-access` and `--skip-git-repo-check` for development
+- **Default MODE**: `auto`
 
 ### File Patterns
 - All files: `@{**/*}`
@@ -250,15 +281,33 @@ For every development task:
 
 **Example**:
 ```bash
-# Focused analysis (preferred)
-cd src/auth && ~/.claude/scripts/gemini-wrapper -p "analyze auth patterns"
+# Gemini - Focused analysis
+cd src/auth && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Understand authentication patterns
+TASK: Analyze auth implementation
+MODE: analysis
+CONTEXT: @{**/*.ts}
+EXPECTED: Pattern documentation
+RULES: Focus on security best practices
+"
 
-# Focused architecture (Qwen)
-cd src/auth && ~/.claude/scripts/qwen-wrapper -p "design auth architecture"
+# Qwen - Architecture analysis
+cd src/auth && ~/.claude/scripts/qwen-wrapper -p "
+PURPOSE: Analyze auth architecture
+TASK: Review auth system design and patterns
+MODE: analysis
+CONTEXT: @{**/*}
+EXPECTED: Architecture analysis report
+RULES: Focus on modularity and security
+"
 
-# Focused implementation (Codex)
-codex -C src/auth --full-auto exec "analyze auth implementation" --skip-git-repo-check
-
-# Multi-scope (stay in root)
-~/.claude/scripts/gemini-wrapper -p "CONTEXT: @{src/auth/**/*,src/api/**/*}"
+# Codex - Implementation
+codex -C src/auth --full-auto exec "
+PURPOSE: Improve auth implementation
+TASK: Review and enhance auth code
+MODE: auto
+CONTEXT: @{**/*.ts}
+EXPECTED: Code improvements and fixes
+RULES: Maintain backward compatibility
+" --skip-git-repo-check -s danger-full-access
 ```

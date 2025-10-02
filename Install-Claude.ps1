@@ -156,22 +156,34 @@ function Test-Prerequisites {
         Write-ColorOutput "Current version: $($PSVersionTable.PSVersion)" $ColorError
         return $false
     }
-    
+
     # Test source files exist
     $sourceDir = $PSScriptRoot
     $claudeDir = Join-Path $sourceDir ".claude"
     $claudeMd = Join-Path $sourceDir "CLAUDE.md"
-    
+    $codexDir = Join-Path $sourceDir ".codex"
+    $geminiDir = Join-Path $sourceDir ".gemini"
+
     if (-not (Test-Path $claudeDir)) {
         Write-ColorOutput "ERROR: .claude directory not found in $sourceDir" $ColorError
         return $false
     }
-    
+
     if (-not (Test-Path $claudeMd)) {
         Write-ColorOutput "ERROR: CLAUDE.md file not found in $sourceDir" $ColorError
         return $false
     }
-    
+
+    if (-not (Test-Path $codexDir)) {
+        Write-ColorOutput "ERROR: .codex directory not found in $sourceDir" $ColorError
+        return $false
+    }
+
+    if (-not (Test-Path $geminiDir)) {
+        Write-ColorOutput "ERROR: .gemini directory not found in $sourceDir" $ColorError
+        return $false
+    }
+
     Write-ColorOutput "Prerequisites check passed" $ColorSuccess
     return $true
 }
@@ -617,6 +629,8 @@ function Install-Global {
     $userProfile = [Environment]::GetFolderPath("UserProfile")
     $globalClaudeDir = Join-Path $userProfile ".claude"
     $globalClaudeMd = Join-Path $globalClaudeDir "CLAUDE.md"
+    $globalCodexDir = Join-Path $userProfile ".codex"
+    $globalGeminiDir = Join-Path $userProfile ".gemini"
 
     Write-ColorOutput "Global installation path: $userProfile" $ColorInfo
 
@@ -624,12 +638,23 @@ function Install-Global {
     $sourceDir = $PSScriptRoot
     $sourceClaudeDir = Join-Path $sourceDir ".claude"
     $sourceClaudeMd = Join-Path $sourceDir "CLAUDE.md"
+    $sourceCodexDir = Join-Path $sourceDir ".codex"
+    $sourceGeminiDir = Join-Path $sourceDir ".gemini"
 
     # Create backup folder if needed (default behavior unless NoBackup is specified)
     $backupFolder = $null
     if (-not $NoBackup) {
-        if (Test-Path $globalClaudeDir) {
-            $existingFiles = Get-ChildItem $globalClaudeDir -Recurse -File -ErrorAction SilentlyContinue
+        if ((Test-Path $globalClaudeDir) -or (Test-Path $globalCodexDir) -or (Test-Path $globalGeminiDir)) {
+            $existingFiles = @()
+            if (Test-Path $globalClaudeDir) {
+                $existingFiles += Get-ChildItem $globalClaudeDir -Recurse -File -ErrorAction SilentlyContinue
+            }
+            if (Test-Path $globalCodexDir) {
+                $existingFiles += Get-ChildItem $globalCodexDir -Recurse -File -ErrorAction SilentlyContinue
+            }
+            if (Test-Path $globalGeminiDir) {
+                $existingFiles += Get-ChildItem $globalGeminiDir -Recurse -File -ErrorAction SilentlyContinue
+            }
             if (($existingFiles -and ($existingFiles | Measure-Object).Count -gt 0)) {
                 $backupFolder = Get-BackupDirectory -TargetDirectory $userProfile
                 Write-ColorOutput "Backup folder created: $backupFolder" $ColorInfo
@@ -648,6 +673,14 @@ function Install-Global {
     # Handle CLAUDE.md file in .claude directory
     Write-ColorOutput "Installing CLAUDE.md to global .claude directory..." $ColorInfo
     $claudeMdInstalled = Copy-FileToDestination -Source $sourceClaudeMd -Destination $globalClaudeMd -Description "CLAUDE.md" -BackupFolder $backupFolder
+
+    # Merge .codex directory contents
+    Write-ColorOutput "Merging .codex directory contents..." $ColorInfo
+    $codexMerged = Merge-DirectoryContents -Source $sourceCodexDir -Destination $globalCodexDir -Description ".codex directory contents" -BackupFolder $backupFolder
+
+    # Merge .gemini directory contents
+    Write-ColorOutput "Merging .gemini directory contents..." $ColorInfo
+    $geminiMerged = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $globalGeminiDir -Description ".gemini directory contents" -BackupFolder $backupFolder
 
     if ($backupFolder -and (Test-Path $backupFolder)) {
         $backupFiles = Get-ChildItem $backupFolder -Recurse -File -ErrorAction SilentlyContinue
@@ -679,14 +712,18 @@ function Install-Path {
     $sourceDir = $PSScriptRoot
     $sourceClaudeDir = Join-Path $sourceDir ".claude"
     $sourceClaudeMd = Join-Path $sourceDir "CLAUDE.md"
+    $sourceCodexDir = Join-Path $sourceDir ".codex"
+    $sourceGeminiDir = Join-Path $sourceDir ".gemini"
 
-    # Local paths - only for agents, commands, output-styles
+    # Local paths - for agents, commands, output-styles, .codex, .gemini
     $localClaudeDir = Join-Path $TargetDirectory ".claude"
+    $localCodexDir = Join-Path $TargetDirectory ".codex"
+    $localGeminiDir = Join-Path $TargetDirectory ".gemini"
 
     # Create backup folder if needed
     $backupFolder = $null
     if (-not $NoBackup) {
-        if ((Test-Path $localClaudeDir) -or (Test-Path $globalClaudeDir)) {
+        if ((Test-Path $localClaudeDir) -or (Test-Path $localCodexDir) -or (Test-Path $localGeminiDir) -or (Test-Path $globalClaudeDir)) {
             $backupFolder = Get-BackupDirectory -TargetDirectory $TargetDirectory
             Write-ColorOutput "Backup folder created: $backupFolder" $ColorInfo
         }
@@ -773,6 +810,14 @@ function Install-Path {
     $globalClaudeMd = Join-Path $globalClaudeDir "CLAUDE.md"
     Write-ColorOutput "Installing CLAUDE.md to global .claude directory..." $ColorInfo
     Copy-FileToDestination -Source $sourceClaudeMd -Destination $globalClaudeMd -Description "CLAUDE.md" -BackupFolder $backupFolder
+
+    # Merge .codex directory contents to local location
+    Write-ColorOutput "Merging .codex directory contents to local location..." $ColorInfo
+    $codexMerged = Merge-DirectoryContents -Source $sourceCodexDir -Destination $localCodexDir -Description ".codex directory contents" -BackupFolder $backupFolder
+
+    # Merge .gemini directory contents to local location
+    Write-ColorOutput "Merging .gemini directory contents to local location..." $ColorInfo
+    $geminiMerged = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $localGeminiDir -Description ".gemini directory contents" -BackupFolder $backupFolder
 
     if ($backupFolder -and (Test-Path $backupFolder)) {
         $backupFiles = Get-ChildItem $backupFolder -Recurse -File -ErrorAction SilentlyContinue
@@ -879,10 +924,11 @@ function Show-Summary {
     if ($Mode -eq "Path") {
         Write-Host "  Local Path: $Path"
         Write-Host "  Global Path: $([Environment]::GetFolderPath('UserProfile'))"
-        Write-Host "  Local Components: agents, commands, output-styles"
+        Write-Host "  Local Components: agents, commands, output-styles, .codex, .gemini"
         Write-Host "  Global Components: workflows, scripts, python_script, etc."
     } else {
         Write-Host "  Path: $Path"
+        Write-Host "  Global Components: .claude, .codex, .gemini"
     }
 
     if ($NoBackup) {
@@ -896,10 +942,12 @@ function Show-Summary {
     Write-Host ""
     Write-ColorOutput "Next steps:" $ColorInfo
     Write-Host "1. Review CLAUDE.md - Customize guidelines for your project"
-    Write-Host "2. Configure settings - Edit .claude/settings.local.json as needed"
-    Write-Host "3. Start using Claude Code with Agent workflow coordination!"
-    Write-Host "4. Use /workflow commands for task execution"
-    Write-Host "5. Use /update-memory commands for memory system management"
+    Write-Host "2. Review .codex/Agent.md - Codex agent execution protocol"
+    Write-Host "3. Review .gemini/CLAUDE.md - Gemini agent execution protocol"
+    Write-Host "4. Configure settings - Edit .claude/settings.local.json as needed"
+    Write-Host "5. Start using Claude Code with Agent workflow coordination!"
+    Write-Host "6. Use /workflow commands for task execution"
+    Write-Host "7. Use /update-memory commands for memory system management"
 
     Write-Host ""
     Write-ColorOutput "Documentation: https://github.com/catlog22/Claude-CCW" $ColorInfo
