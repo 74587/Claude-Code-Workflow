@@ -39,8 +39,6 @@
 
 ### **🚀 一键快速安装**
 
-#### **安装最新稳定版（推荐）**
-
 **Windows (PowerShell):**
 ```powershell
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
@@ -51,31 +49,10 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
 ```
 
-#### **安装最新开发版**
-
-**Windows (PowerShell):**
-```powershell
-$script = (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
-[ScriptBlock]::Create($script).Invoke('-Version', 'latest')
-```
-
-**Linux/macOS (Bash/Zsh):**
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh) --version latest
-```
-
-#### **安装指定版本**
-
-**Windows (PowerShell):**
-```powershell
-$script = (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
-[ScriptBlock]::Create($script).Invoke('-Version', 'stable', '-Tag', 'v3.2.0')
-```
-
-**Linux/macOS (Bash/Zsh):**
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh) --version stable --tag v3.2.0
-```
+> 💡 **版本选择**：安装过程中会显示交互式菜单，您可以选择：
+> - **最新稳定版**（推荐）- 生产就绪版本
+> - **最新开发版** - 最新功能
+> - **指定版本** - 安装特定标签版本（例如 v3.2.0）
 
 ### **✅ 验证安装**
 安装后，运行以下命令以确保 CCW 正常工作：

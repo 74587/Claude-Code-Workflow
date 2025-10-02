@@ -338,18 +338,100 @@ function Wait-ForUserConfirmation {
     }
 }
 
+function Show-VersionMenu {
+    Write-Host ""
+    Write-ColorOutput "====== Version Selection ======" $ColorInfo
+    Write-Host "1) Latest Stable Release (Recommended)"
+    Write-Host "   - Production-ready version"
+    Write-Host "   - Auto-detected from GitHub releases"
+    Write-Host ""
+    Write-Host "2) Latest Development Version"
+    Write-Host "   - Cutting-edge features"
+    Write-Host "   - May contain experimental changes"
+    Write-Host ""
+    Write-Host "3) Specific Release Version"
+    Write-Host "   - Install a specific tagged release"
+    Write-Host "   - You will be asked for the version tag"
+    Write-Host ""
+    Write-ColorOutput "===============================" $ColorInfo
+    Write-Host ""
+}
+
+function Get-UserVersionChoice {
+    if ($NonInteractive -or $Force) {
+        # Non-interactive mode: use default stable version
+        return @{
+            Type = "stable"
+            Tag = $Tag
+            Branch = $Branch
+        }
+    }
+
+    Show-VersionMenu
+
+    $choice = Read-Host "Select version to install (1-3, default: 1)"
+
+    switch ($choice) {
+        "2" {
+            Write-ColorOutput "Selected: Latest Development Version" $ColorSuccess
+            return @{
+                Type = "latest"
+                Tag = ""
+                Branch = "main"
+            }
+        }
+        "3" {
+            Write-Host ""
+            Write-ColorOutput "Available recent releases:" $ColorInfo
+            Write-Host "  v3.2.0, v3.1.0, v3.0.1, v3.0.0"
+            Write-Host ""
+            $tagInput = Read-Host "Enter version tag (e.g., v3.2.0)"
+
+            if ([string]::IsNullOrWhiteSpace($tagInput)) {
+                Write-ColorOutput "No tag specified, using latest stable" $ColorWarning
+                return @{
+                    Type = "stable"
+                    Tag = ""
+                    Branch = "main"
+                }
+            }
+
+            Write-ColorOutput "Selected: Specific Version $tagInput" $ColorSuccess
+            return @{
+                Type = "stable"
+                Tag = $tagInput
+                Branch = "main"
+            }
+        }
+        default {
+            Write-ColorOutput "Selected: Latest Stable Release (default)" $ColorSuccess
+            return @{
+                Type = "stable"
+                Tag = ""
+                Branch = "main"
+            }
+        }
+    }
+}
+
 function Main {
     Show-Header
-    
+
     Write-ColorOutput "This will download and install Claude Code Workflow System from GitHub." $ColorInfo
     Write-Host ""
-    
+
     # Test prerequisites
     Write-ColorOutput "Checking system requirements..." $ColorInfo
     if (-not (Test-Prerequisites)) {
         Wait-ForUserConfirmation "System check failed! Press any key to exit..." -ExitAfter
     }
-    
+
+    # Get version choice from user (interactive menu)
+    $versionChoice = Get-UserVersionChoice
+    $script:Version = $versionChoice.Type
+    $script:Tag = $versionChoice.Tag
+    $script:Branch = $versionChoice.Branch
+
     # Determine version information for display
     $versionInfo = switch ($Version) {
         "stable" {

@@ -39,8 +39,6 @@
 
 ### **🚀 Quick One-Line Installation**
 
-#### **Install Latest Stable Release (Recommended)**
-
 **Windows (PowerShell):**
 ```powershell
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
@@ -51,31 +49,10 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
 ```
 
-#### **Install Latest Development Version**
-
-**Windows (PowerShell):**
-```powershell
-$script = (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
-[ScriptBlock]::Create($script).Invoke('-Version', 'latest')
-```
-
-**Linux/macOS (Bash/Zsh):**
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh) --version latest
-```
-
-#### **Install Specific Version**
-
-**Windows (PowerShell):**
-```powershell
-$script = (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
-[ScriptBlock]::Create($script).Invoke('-Version', 'stable', '-Tag', 'v3.2.0')
-```
-
-**Linux/macOS (Bash/Zsh):**
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh) --version stable --tag v3.2.0
-```
+> 💡 **Version Selection**: During installation, you'll be presented with an interactive menu to choose:
+> - **Latest Stable Release** (Recommended) - Production-ready version
+> - **Latest Development Version** - Cutting-edge features
+> - **Specific Release Version** - Install a specific tagged release (e.g., v3.2.0)
 
 ### **✅ Verify Installation**
 After installation, run the following command to ensure CCW is working:

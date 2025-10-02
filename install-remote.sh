@@ -382,6 +382,70 @@ Repository: https://github.com/catlog22/Claude-Code-Workflow
 EOF
 }
 
+function show_version_menu() {
+    echo ""
+    write_color "====== Version Selection ======" "$COLOR_INFO"
+    echo "1) Latest Stable Release (Recommended)"
+    echo "   - Production-ready version"
+    echo "   - Auto-detected from GitHub releases"
+    echo ""
+    echo "2) Latest Development Version"
+    echo "   - Cutting-edge features"
+    echo "   - May contain experimental changes"
+    echo ""
+    echo "3) Specific Release Version"
+    echo "   - Install a specific tagged release"
+    echo "   - You will be asked for the version tag"
+    echo ""
+    write_color "===============================" "$COLOR_INFO"
+    echo ""
+}
+
+function get_user_version_choice() {
+    if [ "$NON_INTERACTIVE" = true ] || [ "$FORCE" = true ]; then
+        # Non-interactive mode: use default stable version
+        echo "stable"
+        return 0
+    fi
+
+    show_version_menu
+
+    read -p "Select version to install (1-3, default: 1): " choice
+
+    case "$choice" in
+        2)
+            write_color "✓ Selected: Latest Development Version" "$COLOR_SUCCESS"
+            VERSION_TYPE="latest"
+            TAG_VERSION=""
+            BRANCH="main"
+            ;;
+        3)
+            echo ""
+            write_color "Available recent releases:" "$COLOR_INFO"
+            echo "  v3.2.0, v3.1.0, v3.0.1, v3.0.0"
+            echo ""
+            read -p "Enter version tag (e.g., v3.2.0): " tag_input
+
+            if [ -z "$tag_input" ]; then
+                write_color "⚠ No tag specified, using latest stable" "$COLOR_WARNING"
+                VERSION_TYPE="stable"
+                TAG_VERSION=""
+            else
+                write_color "✓ Selected: Specific Version $tag_input" "$COLOR_SUCCESS"
+                VERSION_TYPE="stable"
+                TAG_VERSION="$tag_input"
+            fi
+            BRANCH="main"
+            ;;
+        *)
+            write_color "✓ Selected: Latest Stable Release (default)" "$COLOR_SUCCESS"
+            VERSION_TYPE="stable"
+            TAG_VERSION=""
+            BRANCH="main"
+            ;;
+    esac
+}
+
 function main() {
     show_header
 
@@ -394,6 +458,9 @@ function main() {
         wait_for_user "System check failed! Press Enter to exit..."
         exit 1
     fi
+
+    # Get version choice from user (interactive menu)
+    get_user_version_choice
 
     # Determine version information for display
     local version_info=""
