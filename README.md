@@ -49,10 +49,46 @@ Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cat
 bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
 ```
 
-> 💡 **Version Selection**: During installation, you'll be presented with an interactive menu to choose:
-> - **Latest Stable Release** (Recommended) - Production-ready version
-> - **Latest Development Version** - Cutting-edge features
-> - **Specific Release Version** - Install a specific tagged release (e.g., v3.2.0)
+### **📋 Interactive Version Selection**
+
+After running the installation command, you'll see an interactive menu with real-time version information:
+
+```
+Detecting latest release and commits...
+Latest stable: v3.2.0 (2025-10-02 04:27 UTC)
+Latest commit: cdea58f (2025-10-02 08:15 UTC)
+
+====================================================
+            Version Selection Menu
+====================================================
+
+1) Latest Stable Release (Recommended)
+   |-- Version: v3.2.0
+   |-- Released: 2025-10-02 04:27 UTC
+   \-- Production-ready
+
+2) Latest Development Version
+   |-- Branch: main
+   |-- Commit: cdea58f
+   |-- Updated: 2025-10-02 08:15 UTC
+   |-- Cutting-edge features
+   \-- May contain experimental changes
+
+3) Specific Release Version
+   |-- Install a specific tagged release
+   \-- Recent: v3.2.0, v3.1.0, v3.0.1
+
+====================================================
+
+Select version to install (1-3, default: 1):
+```
+
+**Version Options:**
+- **Option 1 (Recommended)**: Latest stable release with verified production quality
+- **Option 2**: Latest development version from main branch with newest features
+- **Option 3**: Specific version tag for controlled deployments
+
+> 💡 **Pro Tip**: The installer automatically detects and displays the latest version numbers and release dates from GitHub. Just press Enter to select the recommended stable release.
 
 ### **✅ Verify Installation**
 After installation, run the following command to ensure CCW is working:
