@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.1.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,9 +15,13 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v3.1.0** - TDD Workflow Support with Red-Green-Refactor cycle enforcement. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v3.2.0** - Simplified agent architecture with "Tests Are the Review" philosophy. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **v3.0.0**: Introduced **unified CLI command structure**. The `/cli:*` commands consolidate all tool interactions (Gemini, Qwen, Codex) using a `--tool` flag for selection.
+> **What's New in v3.2.0**:
+> - 🔄 Simplified from 3 agents to 2 core agents (`@code-developer`, `@test-fix-agent`)
+> - ✅ "Tests Are the Review" - Passing tests = approved code
+> - 🧪 Enhanced test-fix workflow with automatic execution and fixing
+> - 📦 Interactive installation with version selection menu
 
 ---
 

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.1.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,9 +15,13 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 最新版本: v3.1.0** - TDD 工作流支持，包含 Red-Green-Refactor 循环强制执行。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v3.2.0** - 采用"测试即审查"理念简化智能体架构。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v3.0.0 版本**: 引入了**统一的 CLI 命令结构**。`/cli:*` 命令通过 `--tool` 标志整合了所有工具（Gemini, Qwen, Codex）的交互。
+> **v3.2.0 版本新特性**:
+> - 🔄 从 3 个智能体简化为 2 个核心智能体（`@code-developer`、`@test-fix-agent`）
+> - ✅ "测试即审查" - 测试通过 = 代码批准
+> - 🧪 增强的测试修复工作流，支持自动执行和修复
+> - 📦 交互式安装，包含版本选择菜单
 
 ---
 
