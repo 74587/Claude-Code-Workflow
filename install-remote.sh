@@ -384,37 +384,48 @@ EOF
 
 function show_version_menu() {
     local latest_version="$1"
+    local latest_date="$2"
+    local commit_id="$3"
+    local commit_date="$4"
 
     echo ""
-    write_color "============================================" "$COLOR_INFO"
-    write_color "         Version Selection Menu" "$COLOR_INFO"
-    write_color "============================================" "$COLOR_INFO"
+    write_color "====================================================" "$COLOR_INFO"
+    write_color "            Version Selection Menu" "$COLOR_INFO"
+    write_color "====================================================" "$COLOR_INFO"
     echo ""
 
     # Option 1: Latest Stable
     write_color "1) Latest Stable Release (Recommended)" "$COLOR_SUCCESS"
     if [ -n "$latest_version" ] && [ "$latest_version" != "Unknown" ]; then
-        echo "   └─ Version: $latest_version"
+        echo "   |-- Version: $latest_version"
+        if [ -n "$latest_date" ]; then
+            echo "   |-- Released: $latest_date"
+        fi
+        echo "   \-- Production-ready"
     else
-        echo "   └─ Version: Auto-detected from GitHub"
+        echo "   |-- Version: Auto-detected from GitHub"
+        echo "   \-- Production-ready"
     fi
-    echo "   └─ Production-ready"
     echo ""
 
     # Option 2: Latest Development
     write_color "2) Latest Development Version" "$COLOR_WARNING"
-    echo "   └─ Branch: main"
-    echo "   └─ Cutting-edge features"
-    echo "   └─ May contain experimental changes"
+    echo "   |-- Branch: main"
+    if [ -n "$commit_id" ] && [ -n "$commit_date" ]; then
+        echo "   |-- Commit: $commit_id"
+        echo "   |-- Updated: $commit_date"
+    fi
+    echo "   |-- Cutting-edge features"
+    echo "   \-- May contain experimental changes"
     echo ""
 
     # Option 3: Specific Version
     write_color "3) Specific Release Version" "$COLOR_INFO"
-    echo "   └─ Install a specific tagged release"
-    echo "   └─ Recent releases: v3.2.0, v3.1.0, v3.0.1"
+    echo "   |-- Install a specific tagged release"
+    echo "   \-- Recent: v3.2.0, v3.1.0, v3.0.1"
     echo ""
 
-    write_color "============================================" "$COLOR_INFO"
+    write_color "====================================================" "$COLOR_INFO"
     echo ""
 }
 
@@ -425,26 +436,68 @@ function get_user_version_choice() {
         return 0
     fi
 
-    # Detect latest stable version
-    write_color "Detecting latest release..." "$COLOR_INFO"
+    # Detect latest stable version and commit info
+    write_color "Detecting latest release and commits..." "$COLOR_INFO"
     local latest_version="Unknown"
+    local latest_date=""
+    local commit_id=""
+    local commit_date=""
 
-    if command -v jq &> /dev/null; then
-        # Use jq if available
-        latest_version=$(curl -fsSL --connect-timeout 5 "https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest" 2>/dev/null | jq -r '.tag_name' 2>/dev/null)
-    else
-        # Fallback: parse JSON with grep/sed
-        latest_version=$(curl -fsSL --connect-timeout 5 "https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest" 2>/dev/null | grep -o '"tag_name":\s*"[^"]*"' | sed 's/"tag_name":\s*"\([^"]*\)"/\1/')
+    # Get latest release info
+    local release_data
+    release_data=$(curl -fsSL --connect-timeout 5 "https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest" 2>/dev/null)
+
+    if [ -n "$release_data" ]; then
+        if command -v jq &> /dev/null; then
+            latest_version=$(echo "$release_data" | jq -r '.tag_name' 2>/dev/null)
+            local published_at=$(echo "$release_data" | jq -r '.published_at' 2>/dev/null)
+            if [ -n "$published_at" ] && [ "$published_at" != "null" ]; then
+                # Format: 2025-10-02T04:27:21Z -> 2025-10-02 04:27 UTC
+                latest_date=$(echo "$published_at" | sed 's/T/ /' | sed 's/Z/ UTC/' | cut -d'.' -f1)
+            fi
+        else
+            latest_version=$(echo "$release_data" | grep -o '"tag_name":\s*"[^"]*"' | sed 's/"tag_name":\s*"\([^"]*\)"/\1/')
+            local published_at=$(echo "$release_data" | grep -o '"published_at":\s*"[^"]*"' | sed 's/"published_at":\s*"\([^"]*\)"/\1/')
+            if [ -n "$published_at" ]; then
+                latest_date=$(echo "$published_at" | sed 's/T/ /' | sed 's/Z/ UTC/' | cut -d'.' -f1)
+            fi
+        fi
     fi
 
     if [ -n "$latest_version" ] && [ "$latest_version" != "null" ] && [ "$latest_version" != "Unknown" ]; then
-        write_color "Latest stable release: $latest_version" "$COLOR_SUCCESS"
+        write_color "Latest stable: $latest_version ($latest_date)" "$COLOR_SUCCESS"
     else
         latest_version="Unknown"
-        write_color "Could not detect latest version, will auto-detect during download" "$COLOR_WARNING"
+        write_color "Could not detect latest release" "$COLOR_WARNING"
     fi
 
-    show_version_menu "$latest_version"
+    # Get latest commit info
+    local commit_data
+    commit_data=$(curl -fsSL --connect-timeout 5 "https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/main" 2>/dev/null)
+
+    if [ -n "$commit_data" ]; then
+        if command -v jq &> /dev/null; then
+            commit_id=$(echo "$commit_data" | jq -r '.sha' 2>/dev/null | cut -c1-7)
+            local committer_date=$(echo "$commit_data" | jq -r '.commit.committer.date' 2>/dev/null)
+            if [ -n "$committer_date" ] && [ "$committer_date" != "null" ]; then
+                commit_date=$(echo "$committer_date" | sed 's/T/ /' | sed 's/Z/ UTC/' | cut -d'.' -f1)
+            fi
+        else
+            commit_id=$(echo "$commit_data" | grep -o '"sha":\s*"[^"]*"' | head -1 | sed 's/"sha":\s*"\([^"]*\)"/\1/' | cut -c1-7)
+            local committer_date=$(echo "$commit_data" | grep -o '"date":\s*"[^"]*"' | head -1 | sed 's/"date":\s*"\([^"]*\)"/\1/')
+            if [ -n "$committer_date" ]; then
+                commit_date=$(echo "$committer_date" | sed 's/T/ /' | sed 's/Z/ UTC/' | cut -d'.' -f1)
+            fi
+        fi
+    fi
+
+    if [ -n "$commit_id" ] && [ -n "$commit_date" ]; then
+        write_color "Latest commit: $commit_id ($commit_date)" "$COLOR_SUCCESS"
+    else
+        write_color "Could not detect latest commit" "$COLOR_WARNING"
+    fi
+
+    show_version_menu "$latest_version" "$latest_date" "$commit_id" "$commit_date"
 
     read -p "Select version to install (1-3, default: 1): " choice
 

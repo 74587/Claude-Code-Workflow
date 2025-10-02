@@ -340,39 +340,50 @@ function Wait-ForUserConfirmation {
 
 function Show-VersionMenu {
     param(
-        [string]$LatestStableVersion = "Detecting..."
+        [string]$LatestStableVersion = "Detecting...",
+        [string]$LatestStableDate = "",
+        [string]$LatestCommitId = "",
+        [string]$LatestCommitDate = ""
     )
 
     Write-Host ""
-    Write-ColorOutput "============================================" $ColorInfo
-    Write-ColorOutput "         Version Selection Menu" $ColorInfo
-    Write-ColorOutput "============================================" $ColorInfo
+    Write-ColorOutput "====================================================" $ColorInfo
+    Write-ColorOutput "            Version Selection Menu" $ColorInfo
+    Write-ColorOutput "====================================================" $ColorInfo
     Write-Host ""
 
     # Option 1: Latest Stable
     Write-ColorOutput "1) Latest Stable Release (Recommended)" $ColorSuccess
     if ($LatestStableVersion -ne "Detecting..." -and $LatestStableVersion -ne "Unknown") {
-        Write-Host "   └─ Version: $LatestStableVersion"
+        Write-Host "   |-- Version: $LatestStableVersion"
+        if ($LatestStableDate) {
+            Write-Host "   |-- Released: $LatestStableDate"
+        }
+        Write-Host "   \-- Production-ready"
     } else {
-        Write-Host "   └─ Version: Auto-detected from GitHub"
+        Write-Host "   |-- Version: Auto-detected from GitHub"
+        Write-Host "   \-- Production-ready"
     }
-    Write-Host "   └─ Production-ready"
     Write-Host ""
 
     # Option 2: Latest Development
     Write-ColorOutput "2) Latest Development Version" $ColorWarning
-    Write-Host "   └─ Branch: main"
-    Write-Host "   └─ Cutting-edge features"
-    Write-Host "   └─ May contain experimental changes"
+    Write-Host "   |-- Branch: main"
+    if ($LatestCommitId -and $LatestCommitDate) {
+        Write-Host "   |-- Commit: $LatestCommitId"
+        Write-Host "   |-- Updated: $LatestCommitDate"
+    }
+    Write-Host "   |-- Cutting-edge features"
+    Write-Host "   \-- May contain experimental changes"
     Write-Host ""
 
     # Option 3: Specific Version
     Write-ColorOutput "3) Specific Release Version" $ColorInfo
-    Write-Host "   └─ Install a specific tagged release"
-    Write-Host "   └─ Recent releases: v3.2.0, v3.1.0, v3.0.1"
+    Write-Host "   |-- Install a specific tagged release"
+    Write-Host "   \-- Recent: v3.2.0, v3.1.0, v3.0.1"
     Write-Host ""
 
-    Write-ColorOutput "============================================" $ColorInfo
+    Write-ColorOutput "====================================================" $ColorInfo
     Write-Host ""
 }
 
@@ -386,19 +397,48 @@ function Get-UserVersionChoice {
         }
     }
 
-    # Detect latest stable version
-    Write-ColorOutput "Detecting latest release..." $ColorInfo
+    # Detect latest stable version and commit info
+    Write-ColorOutput "Detecting latest release and commits..." $ColorInfo
     $latestVersion = "Unknown"
+    $latestStableDate = ""
+    $latestCommitId = ""
+    $latestCommitDate = ""
+
     try {
+        # Get latest release info
         $apiUrl = "https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest"
         $response = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -TimeoutSec 5
         $latestVersion = $response.tag_name
-        Write-ColorOutput "Latest stable release: $latestVersion" $ColorSuccess
+
+        # Parse and format release date
+        if ($response.published_at) {
+            $publishDate = [DateTime]::Parse($response.published_at)
+            $latestStableDate = $publishDate.ToString("yyyy-MM-dd HH:mm UTC")
+        }
+
+        Write-ColorOutput "Latest stable: $latestVersion ($latestStableDate)" $ColorSuccess
     } catch {
-        Write-ColorOutput "Could not detect latest version, will auto-detect during download" $ColorWarning
+        Write-ColorOutput "Could not detect latest release" $ColorWarning
     }
 
-    Show-VersionMenu -LatestStableVersion $latestVersion
+    try {
+        # Get latest commit info from main branch
+        $commitUrl = "https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/main"
+        $commitResponse = Invoke-RestMethod -Uri $commitUrl -UseBasicParsing -TimeoutSec 5
+        $latestCommitId = $commitResponse.sha.Substring(0, 7)
+
+        # Parse and format commit date
+        if ($commitResponse.commit.committer.date) {
+            $commitDate = [DateTime]::Parse($commitResponse.commit.committer.date)
+            $latestCommitDate = $commitDate.ToString("yyyy-MM-dd HH:mm UTC")
+        }
+
+        Write-ColorOutput "Latest commit: $latestCommitId ($latestCommitDate)" $ColorSuccess
+    } catch {
+        Write-ColorOutput "Could not detect latest commit" $ColorWarning
+    }
+
+    Show-VersionMenu -LatestStableVersion $latestVersion -LatestStableDate $latestStableDate -LatestCommitId $latestCommitId -LatestCommitDate $latestCommitDate
 
     $choice = Read-Host "Select version to install (1-3, default: 1)"
 
