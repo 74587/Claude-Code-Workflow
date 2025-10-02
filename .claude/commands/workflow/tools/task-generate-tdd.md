@@ -95,6 +95,159 @@ For each feature, generate 3 tasks with ID format:
 - `meta.agent`: Agent for task execution
 - `meta.tdd_phase`: "red" | "green" | "refactor"
 
+#### Task JSON Examples
+
+**RED Phase - Test Task (TEST-1.1.json)**
+```json
+{
+  "id": "TEST-1.1",
+  "title": "Write failing test for user authentication",
+  "status": "pending",
+  "meta": {
+    "type": "test",
+    "agent": "@code-review-test-agent",
+    "tdd_phase": "red"
+  },
+  "context": {
+    "requirements": [
+      "Write test case for login with valid credentials",
+      "Test should fail with 'AuthService not implemented' error",
+      "Include tests for invalid credentials and edge cases"
+    ],
+    "focus_paths": ["tests/auth/login.test.ts"],
+    "acceptance": [
+      "Test file created with at least 3 test cases",
+      "Test runs and fails with clear error message",
+      "Test assertions define expected behavior"
+    ],
+    "depends_on": []
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "check_test_framework",
+        "action": "Verify test framework is configured",
+        "command": "bash(npm list jest || npm list vitest)",
+        "output_to": "test_framework_info",
+        "on_error": "warn"
+      }
+    ]
+  }
+}
+```
+
+**GREEN Phase - Implementation Task (IMPL-1.1.json)**
+```json
+{
+  "id": "IMPL-1.1",
+  "title": "Implement user authentication to pass tests",
+  "status": "pending",
+  "meta": {
+    "type": "feature",
+    "agent": "@code-developer",
+    "tdd_phase": "green"
+  },
+  "context": {
+    "requirements": [
+      "Implement minimal AuthService to pass TEST-1.1",
+      "Handle valid and invalid credentials",
+      "Return appropriate success/error responses"
+    ],
+    "focus_paths": ["src/auth/AuthService.ts", "tests/auth/login.test.ts"],
+    "acceptance": [
+      "All tests in TEST-1.1 pass",
+      "Implementation is minimal and focused",
+      "No over-engineering or premature optimization"
+    ],
+    "depends_on": ["TEST-1.1"]
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "load_test_requirements",
+        "action": "Read test specifications from TEST phase",
+        "command": "bash(cat .workflow/WFS-xxx/.summaries/TEST-1.1-summary.md)",
+        "output_to": "test_requirements",
+        "on_error": "fail"
+      },
+      {
+        "step": "verify_tests_failing",
+        "action": "Confirm tests are currently failing",
+        "command": "bash(npm test -- tests/auth/login.test.ts || echo 'Tests failing as expected')",
+        "output_to": "initial_test_status",
+        "on_error": "warn"
+      }
+    ],
+    "post_completion": [
+      {
+        "step": "verify_tests_passing",
+        "action": "Confirm all tests now pass",
+        "command": "bash(npm test -- tests/auth/login.test.ts)",
+        "output_to": "final_test_status",
+        "on_error": "fail"
+      }
+    ]
+  }
+}
+```
+
+**REFACTOR Phase - Refactoring Task (REFACTOR-1.1.json)**
+```json
+{
+  "id": "REFACTOR-1.1",
+  "title": "Refactor authentication implementation",
+  "status": "pending",
+  "meta": {
+    "type": "refactor",
+    "agent": "@code-developer",
+    "tdd_phase": "refactor"
+  },
+  "context": {
+    "requirements": [
+      "Improve code quality while keeping tests green",
+      "Remove duplication in credential validation",
+      "Improve error handling and logging",
+      "Enhance code readability and maintainability"
+    ],
+    "focus_paths": ["src/auth/AuthService.ts", "tests/auth/login.test.ts"],
+    "acceptance": [
+      "Code quality improved (complexity, readability)",
+      "All tests still pass after refactoring",
+      "No new functionality added",
+      "Duplication eliminated"
+    ],
+    "depends_on": ["IMPL-1.1"]
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "verify_tests_passing",
+        "action": "Run tests to confirm green state before refactoring",
+        "command": "bash(npm test -- tests/auth/login.test.ts)",
+        "output_to": "test_status",
+        "on_error": "fail"
+      },
+      {
+        "step": "analyze_code_quality",
+        "action": "Run linter and complexity analysis",
+        "command": "bash(npm run lint src/auth/AuthService.ts)",
+        "output_to": "quality_metrics",
+        "on_error": "warn"
+      }
+    ],
+    "post_completion": [
+      {
+        "step": "verify_tests_still_passing",
+        "action": "Confirm tests remain green after refactoring",
+        "command": "bash(npm test -- tests/auth/login.test.ts)",
+        "output_to": "final_test_status",
+        "on_error": "fail"
+      }
+    ]
+  }
+}
+```
+
 ### Phase 4: TDD_PLAN.md Generation
 
 Generate TDD-specific plan with:
