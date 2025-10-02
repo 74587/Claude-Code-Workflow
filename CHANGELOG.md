@@ -5,6 +5,103 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2025-10-02
+
+### 🧪 TDD Workflow Support
+
+This release introduces comprehensive Test-Driven Development (TDD) workflow support with Red-Green-Refactor cycle enforcement.
+
+#### Added
+
+**TDD Workflow Commands**:
+- **`/workflow:tdd-plan`**: 5-phase TDD planning orchestrator
+  - Creates structured TDD workflow with TEST → IMPL → REFACTOR task chains
+  - Enforces Red-Green-Refactor methodology through task dependencies
+  - Supports both manual and agent modes (`--agent` flag)
+  - Validates TDD structure (chains, dependencies, meta fields)
+  - Outputs: `TDD_PLAN.md`, `IMPL_PLAN.md`, `TODO_LIST.md`
+
+- **`/workflow:tdd-verify`**: 4-phase TDD compliance verification
+  - Validates task chain structure (TEST-N.M → IMPL-N.M → REFACTOR-N.M)
+  - Analyzes test coverage metrics (line, branch, function coverage)
+  - Verifies Red-Green-Refactor cycle execution
+  - Generates comprehensive compliance report with scoring (0-100)
+  - Outputs: `TDD_COMPLIANCE_REPORT.md`
+
+**TDD Tool Commands**:
+- **`/workflow:tools:task-generate-tdd`**: TDD task chain generator
+  - Uses Gemini AI to analyze requirements and create TDD breakdowns
+  - Generates TEST, IMPL, REFACTOR tasks with proper dependencies
+  - Creates task JSONs with `meta.tdd_phase` field ("red"/"green"/"refactor")
+  - Assigns specialized agents (`@code-review-test-agent`, `@code-developer`)
+  - Maximum 10 features (30 total tasks) per workflow
+
+- **`/workflow:tools:tdd-coverage-analysis`**: Test coverage and cycle analysis
+  - Extracts test files from TEST tasks
+  - Runs test suite with coverage (supports npm, pytest, cargo, go test)
+  - Parses coverage metrics (line, branch, function)
+  - Verifies TDD cycle execution through task summaries
+  - Outputs: `test-results.json`, `coverage-report.json`, `tdd-cycle-report.md`
+
+**TDD Architecture**:
+- **Task ID Format**: `TEST-N.M`, `IMPL-N.M`, `REFACTOR-N.M`
+  - N = feature number (1-10)
+  - M = sub-task number (1-N)
+
+- **Dependency System**:
+  - `IMPL-N.M` depends on `TEST-N.M`
+  - `REFACTOR-N.M` depends on `IMPL-N.M`
+  - Enforces execution order: Red → Green → Refactor
+
+- **Meta Fields**:
+  - `meta.tdd_phase`: "red" | "green" | "refactor"
+  - `meta.agent`: "@code-review-test-agent" | "@code-developer"
+
+**Compliance Scoring**:
+```
+Base Score: 100 points
+Deductions:
+- Missing TEST task: -30 points per feature
+- Missing IMPL task: -30 points per feature
+- Missing REFACTOR task: -10 points per feature
+- Wrong dependency: -15 points per error
+- Wrong agent: -5 points per error
+- Wrong tdd_phase: -5 points per error
+- Test didn't fail initially: -10 points per feature
+- Tests didn't pass after IMPL: -20 points per feature
+- Tests broke during REFACTOR: -15 points per feature
+```
+
+#### Changed
+
+**Documentation Updates**:
+- Updated README.md with TDD workflow section
+- Added TDD Quick Start guide
+- Updated command reference with TDD commands
+- Version badge updated to v3.1.0
+
+**Integration**:
+- TDD commands work alongside standard workflow commands
+- Compatible with `/workflow:execute`, `/workflow:status`, `/workflow:resume`
+- Uses same session management and artifact system
+
+#### Benefits
+
+**TDD Best Practices**:
+- ✅ Enforced test-first development through task dependencies
+- ✅ Automated Red-Green-Refactor cycle verification
+- ✅ Comprehensive test coverage analysis
+- ✅ Quality scoring and compliance reporting
+- ✅ AI-powered task breakdown with TDD focus
+
+**Developer Experience**:
+- 🚀 Quick TDD workflow creation with single command
+- 📊 Detailed compliance reports with actionable recommendations
+- 🔄 Seamless integration with existing workflow system
+- 🧪 Multi-framework test support (Jest, Pytest, Cargo, Go)
+
+---
+
 ## [3.0.1] - 2025-10-01
 
 ### 🔧 Command Updates
