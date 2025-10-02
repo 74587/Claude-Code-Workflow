@@ -6,8 +6,12 @@ set -e  # Exit on error
 
 # Script metadata
 SCRIPT_NAME="Claude Code Workflow (CCW) Remote Installer"
-VERSION="2.1.1"
+INSTALLER_VERSION="2.2.0"
 BRANCH="${BRANCH:-main}"
+
+# Version control
+VERSION_TYPE="${VERSION_TYPE:-stable}"  # stable, latest, branch
+TAG_VERSION=""
 
 # Colors for output
 COLOR_RESET='\033[0m'
@@ -32,7 +36,7 @@ function write_color() {
 }
 
 function show_header() {
-    write_color "==== $SCRIPT_NAME v$VERSION ====" "$COLOR_INFO"
+    write_color "==== $SCRIPT_NAME v$INSTALLER_VERSION ====" "$COLOR_INFO"
     write_color "========================================================" "$COLOR_INFO"
     echo ""
 }
@@ -72,17 +76,80 @@ function get_temp_directory() {
     echo "$temp_dir"
 }
 
+function get_latest_release() {
+    local api_url="https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest"
+
+    if command -v jq &> /dev/null; then
+        # Use jq if available
+        local tag
+        tag=$(curl -fsSL "$api_url" 2>/dev/null | jq -r '.tag_name' 2>/dev/null)
+        if [ -n "$tag" ] && [ "$tag" != "null" ]; then
+            echo "$tag"
+            return 0
+        fi
+    else
+        # Fallback: parse JSON with grep/sed
+        local tag
+        tag=$(curl -fsSL "$api_url" 2>/dev/null | grep -o '"tag_name":\s*"[^"]*"' | sed 's/"tag_name":\s*"\([^"]*\)"/\1/')
+        if [ -n "$tag" ]; then
+            echo "$tag"
+            return 0
+        fi
+    fi
+
+    write_color "WARNING: Failed to fetch latest release, using 'main' branch" "$COLOR_WARNING" >&2
+    return 1
+}
+
 function download_repository() {
     local temp_dir="$1"
-    local branch="${2:-main}"
+    local version_type="${2:-stable}"
+    local branch="${3:-main}"
+    local tag="${4:-}"
     local repo_url="https://github.com/catlog22/Claude-Code-Workflow"
-    local zip_url="${repo_url}/archive/refs/heads/${branch}.zip"
+    local zip_url=""
+    local download_type=""
+
+    # Determine download URL based on version type
+    case "$version_type" in
+        stable)
+            # Download latest stable release
+            if [ -z "$tag" ]; then
+                tag=$(get_latest_release)
+                if [ -z "$tag" ]; then
+                    # Fallback to main branch if API fails
+                    zip_url="${repo_url}/archive/refs/heads/main.zip"
+                    download_type="main branch (fallback)"
+                else
+                    zip_url="${repo_url}/archive/refs/tags/${tag}.zip"
+                    download_type="stable release $tag"
+                fi
+            else
+                zip_url="${repo_url}/archive/refs/tags/${tag}.zip"
+                download_type="stable release $tag"
+            fi
+            ;;
+        latest)
+            # Download latest main branch
+            zip_url="${repo_url}/archive/refs/heads/main.zip"
+            download_type="latest main branch"
+            ;;
+        branch)
+            # Download specific branch
+            zip_url="${repo_url}/archive/refs/heads/${branch}.zip"
+            download_type="branch $branch"
+            ;;
+        *)
+            write_color "ERROR: Invalid version type: $version_type" "$COLOR_ERROR" >&2
+            return 1
+            ;;
+    esac
+
     local zip_path="${temp_dir}/repo.zip"
 
     write_color "Downloading from GitHub..." "$COLOR_INFO" >&2
     write_color "Source: $repo_url" "$COLOR_INFO" >&2
-    write_color "Branch: $branch" "$COLOR_INFO" >&2
-    write_color "URL: $zip_url" "$COLOR_INFO" >&2
+    write_color "Type: $download_type" "$COLOR_INFO" >&2
 
     # Download with curl
     if curl -fsSL -o "$zip_path" "$zip_url" 2>&1 >&2; then
@@ -217,6 +284,23 @@ function wait_for_user() {
 function parse_arguments() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --version)
+                VERSION_TYPE="$2"
+                if [[ ! "$VERSION_TYPE" =~ ^(stable|latest|branch)$ ]]; then
+                    write_color "ERROR: Invalid version type: $VERSION_TYPE" "$COLOR_ERROR"
+                    write_color "Valid options: stable, latest, branch" "$COLOR_ERROR"
+                    exit 1
+                fi
+                shift 2
+                ;;
+            --tag)
+                TAG_VERSION="$2"
+                shift 2
+                ;;
+            --branch)
+                BRANCH="$2"
+                shift 2
+                ;;
             --global)
                 INSTALL_GLOBAL=true
                 shift
@@ -241,10 +325,6 @@ function parse_arguments() {
                 BACKUP_ALL=true
                 shift
                 ;;
-            --branch)
-                BRANCH="$2"
-                shift 2
-                ;;
             --help)
                 show_help
                 exit 0
@@ -260,29 +340,44 @@ function parse_arguments() {
 
 function show_help() {
     cat << EOF
-$SCRIPT_NAME v$VERSION
+$SCRIPT_NAME v$INSTALLER_VERSION
 
 Usage: $0 [OPTIONS]
 
-Options:
+Version Options:
+    --version TYPE        Version type: stable (default), latest, or branch
+    --tag TAG             Specific release tag (e.g., v3.2.0) - for stable version
+    --branch BRANCH       Branch name (default: main) - for branch version
+
+Installation Options:
     --global              Install to global user directory (~/.claude)
     --directory DIR       Install to custom directory
     --force               Force installation without prompts
     --no-backup           Skip backup creation
     --non-interactive     Non-interactive mode (no prompts)
     --backup-all          Backup all files before installation
-    --branch BRANCH       Specify GitHub branch (default: main)
     --help                Show this help message
 
 Examples:
-    # Interactive installation
+    # Install latest stable release (recommended)
     $0
+
+    # Install specific stable version
+    $0 --version stable --tag v3.2.0
+
+    # Install latest development version
+    $0 --version latest
+
+    # Install from specific branch
+    $0 --version branch --branch feature/new-feature
 
     # Global installation without prompts
     $0 --global --non-interactive
 
     # Custom directory installation
     $0 --directory /opt/claude-code-workflow
+
+Repository: https://github.com/catlog22/Claude-Code-Workflow
 
 EOF
 }
@@ -300,14 +395,34 @@ function main() {
         exit 1
     fi
 
+    # Determine version information for display
+    local version_info=""
+    case "$VERSION_TYPE" in
+        stable)
+            if [ -n "$TAG_VERSION" ]; then
+                version_info="Stable release: $TAG_VERSION"
+            else
+                version_info="Latest stable release (auto-detected)"
+            fi
+            ;;
+        latest)
+            version_info="Latest main branch (development)"
+            ;;
+        branch)
+            version_info="Custom branch: $BRANCH"
+            ;;
+    esac
+
     # Confirm installation
     if [ "$NON_INTERACTIVE" != true ] && [ "$FORCE" != true ]; then
         echo ""
-        write_color "SECURITY NOTE:" "$COLOR_WARNING"
-        echo "- This script will download and execute Claude Code Workflow from GitHub"
+        write_color "INSTALLATION DETAILS:" "$COLOR_INFO"
         echo "- Repository: https://github.com/catlog22/Claude-Code-Workflow"
-        echo "- Branch: $BRANCH (latest stable version)"
+        echo "- Version: $version_info"
         echo "- Features: Intelligent workflow orchestration with multi-agent coordination"
+        echo ""
+        write_color "SECURITY NOTE:" "$COLOR_WARNING"
+        echo "- This script will download and execute code from GitHub"
         echo "- Please ensure you trust this source"
         echo ""
 
@@ -328,7 +443,7 @@ function main() {
     # Download repository
     local zip_path
     write_color "Starting download process..." "$COLOR_INFO"
-    zip_path=$(download_repository "$temp_dir" "$BRANCH")
+    zip_path=$(download_repository "$temp_dir" "$VERSION_TYPE" "$BRANCH" "$TAG_VERSION")
     local download_status=$?
 
     if [ $download_status -eq 0 ] && [ -n "$zip_path" ] && [ -f "$zip_path" ]; then

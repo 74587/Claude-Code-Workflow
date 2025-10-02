@@ -1,16 +1,88 @@
 #!/usr/bin/env pwsh
-# Claude Code Workflow (CCW) - Remote Installation Script
-# One-liner remote installation for Claude Code Workflow system
+<#
+.SYNOPSIS
+    Claude Code Workflow (CCW) - Remote Installation Script
+
+.DESCRIPTION
+    One-liner remote installation for Claude Code Workflow system.
+    Downloads and installs CCW from GitHub with flexible version selection.
+
+.PARAMETER Version
+    Installation version type:
+    - "stable" (default): Latest stable release tag
+    - "latest": Latest main branch (development version)
+    - "branch": Install from specific branch
+
+.PARAMETER Tag
+    Specific release tag to install (e.g., "v3.2.0")
+    Only used when Version is "stable"
+
+.PARAMETER Branch
+    Branch name to install from (default: "main")
+    Only used when Version is "branch"
+
+.PARAMETER Global
+    Install to global user directory (~/.claude)
+
+.PARAMETER Directory
+    Install to custom directory
+
+.PARAMETER Force
+    Skip confirmation prompts
+
+.PARAMETER NoBackup
+    Skip backup of existing installation
+
+.PARAMETER NonInteractive
+    Run in non-interactive mode
+
+.PARAMETER BackupAll
+    Backup all files including git-ignored files
+
+.EXAMPLE
+    # Install latest stable release (recommended)
+    .\install-remote.ps1
+
+.EXAMPLE
+    # Install specific stable version
+    .\install-remote.ps1 -Version stable -Tag "v3.2.0"
+
+.EXAMPLE
+    # Install latest development version
+    .\install-remote.ps1 -Version latest
+
+.EXAMPLE
+    # Install from specific branch
+    .\install-remote.ps1 -Version branch -Branch "feature/new-feature"
+
+.EXAMPLE
+    # Install to global directory without prompts
+    .\install-remote.ps1 -Global -Force
+
+.LINK
+    https://github.com/catlog22/Claude-Code-Workflow
+#>
 
 [CmdletBinding()]
 param(
+    [ValidateSet("stable", "latest", "branch")]
+    [string]$Version = "stable",
+
+    [string]$Tag = "",
+
+    [string]$Branch = "main",
+
     [switch]$Global,
+
     [string]$Directory = "",
+
     [switch]$Force,
+
     [switch]$NoBackup,
+
     [switch]$NonInteractive,
-    [switch]$BackupAll,
-    [string]$Branch = "main"
+
+    [switch]$BackupAll
 )
 
 # Set encoding for proper Unicode support
@@ -26,7 +98,7 @@ if ($PSVersionTable.PSVersion.Major -ge 6) {
 
 # Script metadata
 $ScriptName = "Claude Code Workflow (CCW) Remote Installer"
-$Version = "2.1.1"
+$InstallerVersion = "2.2.0"
 
 # Colors for output
 $ColorSuccess = "Green"
@@ -43,7 +115,7 @@ function Write-ColorOutput {
 }
 
 function Show-Header {
-    Write-ColorOutput "==== $ScriptName v$Version ====" $ColorInfo
+    Write-ColorOutput "==== $ScriptName v$InstallerVersion ====" $ColorInfo
     Write-ColorOutput "========================================================" $ColorInfo
     Write-Host ""
 }
@@ -78,29 +150,70 @@ function Get-TempDirectory {
     return $tempDir
 }
 
+function Get-LatestRelease {
+    try {
+        $apiUrl = "https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest"
+        $response = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing
+        return $response.tag_name
+    } catch {
+        Write-ColorOutput "WARNING: Failed to fetch latest release, using 'main' branch" $ColorWarning
+        return $null
+    }
+}
+
 function Download-Repository {
     param(
         [string]$TempDir,
-        [string]$Branch = "main"
+        [string]$Version = "stable",
+        [string]$Branch = "main",
+        [string]$Tag = ""
     )
-    
+
     $repoUrl = "https://github.com/catlog22/Claude-Code-Workflow"
-    $zipUrl = "$repoUrl/archive/refs/heads/$Branch.zip"
+
+    # Determine download URL based on version type
+    if ($Version -eq "stable") {
+        # Download latest stable release
+        if ([string]::IsNullOrEmpty($Tag)) {
+            $latestTag = Get-LatestRelease
+            if ($latestTag) {
+                $Tag = $latestTag
+            } else {
+                # Fallback to main branch if API fails
+                $zipUrl = "$repoUrl/archive/refs/heads/main.zip"
+                $downloadType = "main branch (fallback)"
+            }
+        }
+
+        if (-not [string]::IsNullOrEmpty($Tag)) {
+            $zipUrl = "$repoUrl/archive/refs/tags/$Tag.zip"
+            $downloadType = "stable release $Tag"
+        }
+    } elseif ($Version -eq "latest") {
+        # Download latest main branch
+        $zipUrl = "$repoUrl/archive/refs/heads/main.zip"
+        $downloadType = "latest main branch"
+    } else {
+        # Download specific branch
+        $zipUrl = "$repoUrl/archive/refs/heads/$Branch.zip"
+        $downloadType = "branch $Branch"
+    }
+
     $zipPath = Join-Path $TempDir "repo.zip"
-    
+
     Write-ColorOutput "Downloading from GitHub..." $ColorInfo
     Write-ColorOutput "Source: $repoUrl" $ColorInfo
-    Write-ColorOutput "Branch: $Branch" $ColorInfo
-    
+    Write-ColorOutput "Type: $downloadType" $ColorInfo
+
     try {
         # Download with progress
         $progressPreference = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
-        
+
         Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
-        
+
         $ProgressPreference = $progressPreference
-        
+
         if (Test-Path $zipPath) {
             $fileSize = (Get-Item $zipPath).Length
             Write-ColorOutput "Download complete ($([math]::Round($fileSize/1024/1024, 2)) MB)" $ColorSuccess
@@ -237,17 +350,29 @@ function Main {
         Wait-ForUserConfirmation "System check failed! Press any key to exit..." -ExitAfter
     }
     
+    # Determine version information for display
+    $versionInfo = switch ($Version) {
+        "stable" {
+            if ($Tag) { "Stable release: $Tag" }
+            else { "Latest stable release (auto-detected)" }
+        }
+        "latest" { "Latest main branch (development)" }
+        "branch" { "Custom branch: $Branch" }
+    }
+
     # Confirm installation
     if (-not $NonInteractive -and -not $Force) {
         Write-Host ""
-        Write-ColorOutput "SECURITY NOTE:" $ColorWarning
-        Write-Host "- This script will download and execute Claude Code Workflow from GitHub"
-        Write-Host "- Repository: https://github.com/catlog22/Claude-Code-Workflow"  
-        Write-Host "- Branch: $Branch (latest stable version)"
+        Write-ColorOutput "INSTALLATION DETAILS:" $ColorInfo
+        Write-Host "- Repository: https://github.com/catlog22/Claude-Code-Workflow"
+        Write-Host "- Version: $versionInfo"
         Write-Host "- Features: Intelligent workflow orchestration with multi-agent coordination"
+        Write-Host ""
+        Write-ColorOutput "SECURITY NOTE:" $ColorWarning
+        Write-Host "- This script will download and execute code from GitHub"
         Write-Host "- Please ensure you trust this source"
         Write-Host ""
-        
+
         $choice = Read-Host "Continue with installation? (y/N)"
         if ($choice -notmatch '^[Yy]') {
             Write-ColorOutput "Installation cancelled" $ColorWarning
@@ -261,7 +386,7 @@ function Main {
     
     try {
         # Download repository
-        $zipPath = Download-Repository $tempDir $Branch
+        $zipPath = Download-Repository -TempDir $tempDir -Version $Version -Branch $Branch -Tag $Tag
         if (-not $zipPath) {
             throw "Download failed"
         }
