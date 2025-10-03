@@ -1,11 +1,11 @@
 ---
 name: test-gen
-description: Orchestrate test-fix workflow by analyzing implementation and generating TEST-FIX tasks
-usage: /workflow:test-gen [session-id]
-argument-hint: "[session-id]"
+description: Create independent test-fix workflow session by analyzing completed implementation
+usage: /workflow:test-gen <source-session-id>
+argument-hint: "<source-session-id>"
 examples:
-  - /workflow:test-gen
   - /workflow:test-gen WFS-user-auth
+  - /workflow:test-gen WFS-api-refactor
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -13,134 +13,177 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 ## Coordinator Role
 
-**This command is a pure orchestrator**: Analyze completed implementation session, generate test-fix workflow through standardized tool commands, and trigger automated test validation.
+**This command is a pure orchestrator**: Creates an independent test-fix workflow session for validating a completed implementation. It reuses the standard planning toolchain with automatic cross-session context gathering.
+
+**Core Principles**:
+- **Session Isolation**: Creates new `WFS-test-[source]` session to keep verification separate from implementation
+- **Context-First**: Prioritizes gathering code changes and summaries from source session
+- **Format Reuse**: Creates standard `IMPL-*.json` task, using `meta.type: "test-fix"` for agent assignment
+- **Parameter Simplification**: Tools auto-detect test session type via metadata, no manual cross-session parameters needed
 
 **Execution Flow**:
-1. Initialize TodoWrite → Execute Phase 1 → Parse output → Update TodoWrite
-2. Execute Phase 2 with Phase 1 data → Parse output → Update TodoWrite
-3. Execute Phase 3 with Phase 2 data → Parse output → Update TodoWrite
-4. Execute Phase 4 with Phase 3 validation → Update TodoWrite → Return summary
+1. Initialize TodoWrite → Create test session → Parse session ID
+2. Gather cross-session context (automatic) → Parse context path
+3. Analyze implementation with concept-enhanced → Parse ANALYSIS_RESULTS.md
+4. Generate test task from analysis → Return summary
 
 ## Core Rules
 
-1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 session discovery
+1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 test session creation
 2. **No Preliminary Analysis**: Do not read files or analyze before Phase 1
 3. **Parse Every Output**: Extract required data from each phase for next phase
 4. **Sequential Execution**: Each phase depends on previous phase's output
-5. **Complete All Phases**: Do not return to user until Phase 4 completes
+5. **Complete All Phases**: Do not return to user until Phase 4 completes (execution triggered separately)
 6. **Track Progress**: Update TodoWrite after every phase completion
-7. **Use Standard Tools**: Follow plan.md pattern using context-gather, concept-enhanced, task-generate
+7. **Automatic Detection**: context-gather auto-detects test session and gathers source session context
 
 ## 4-Phase Execution
 
-### Phase 1: Session Discovery & Context Gathering
-**Command**: `SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"TEST-FIX: Validate implementation for [sessionId]\"")`
+### Phase 1: Create Test Session
+**Command**: `SlashCommand(command="/workflow:session:start --new \"Test validation for [sourceSessionId]\"")`
 
-**Session ID Resolution**:
-- If argument provided → Use directly as `sessionId`
-- If no argument → Auto-detect from `.workflow/.active-*` marker
-- Format: `WFS-[session-name]`
+**Input**: `sourceSessionId` from user argument (e.g., `WFS-user-auth`)
 
-**Task Description Structure**:
-```
-GOAL: Execute and validate all tests for completed implementation
-SCOPE: Test execution, failure diagnosis, code fixing
-CONTEXT: Implementation session [sessionId] with completed IMPL tasks
-```
+**Expected Behavior**:
+- Creates new session with pattern `WFS-test-[source-slug]` (e.g., `WFS-test-user-auth`)
+- Writes metadata to `workflow-session.json`:
+  - `workflow_type: "test_session"`
+  - `source_session_id: "[sourceSessionId]"`
+- Returns new session ID for subsequent phases
 
 **Parse Output**:
-- Extract: context package path (store as `contextPath`)
-- Typical pattern: `.workflow/[sessionId]/.process/context-package-test.json`
+- Extract: new test session ID (store as `testSessionId`)
+- Pattern: `WFS-test-[slug]`
 
 **Validation**:
-- Session directory `.workflow/[sessionId]/` exists
-- Session has completed IMPL tasks (check .summaries/IMPL-*-summary.md)
-- Context package created successfully
+- Source session `.workflow/[sourceSessionId]/` exists
+- Source session has completed IMPL tasks (`.summaries/IMPL-*-summary.md`)
+- New test session directory created
+- Metadata includes `workflow_type` and `source_session_id`
 
 **TodoWrite**: Mark phase 1 completed, phase 2 in_progress
 
 ---
 
-### Phase 2: Implementation Analysis
-**Command**: `SlashCommand(command="/workflow:tools:concept-enhanced --session [sessionId] --context [contextPath]")`
+### Phase 2: Gather Cross-Session Context
+**Command**: `SlashCommand(command="/workflow:tools:context-gather --session [testSessionId]")`
 
-**Input**: `sessionId` from Phase 1, `contextPath` from Phase 1
+**Input**: `testSessionId` from Phase 1 (e.g., `WFS-test-user-auth`)
 
-**Expected Analysis**:
-- Review completed implementation summaries
-- Identify test files and coverage gaps
-- Assess test execution strategy
-- Determine failure diagnosis approach
+**Automatic Detection**:
+- context-gather reads `.workflow/[testSessionId]/workflow-session.json`
+- Detects `workflow_type: "test_session"`
+- Automatically uses `source_session_id` to gather source session context
+- No need for manual `--source-session` parameter
+
+**Cross-Session Context Collection** (Automatic):
+- Implementation summaries: `.workflow/[sourceSessionId]/.summaries/IMPL-*-summary.md`
+- Code changes: `git log --since=[source_session_created_at]` for changed files
+- Original plan: `.workflow/[sourceSessionId]/IMPL_PLAN.md`
+- Test files: Discovered via MCP code-index tools
 
 **Parse Output**:
-- Verify `.workflow/[sessionId]/.process/ANALYSIS_RESULTS.md` created
-- Extract test execution recommendations
-- Identify critical test areas
+- Extract: context package path (store as `contextPath`)
+- Pattern: `.workflow/[testSessionId]/.process/context-package.json`
 
 **Validation**:
-- File `.workflow/[sessionId]/.process/ANALYSIS_RESULTS.md` exists
-- Contains test strategy and execution plan
-- Lists focus test paths and acceptance criteria
+- Context package created in test session directory
+- Contains source session artifacts (summaries, changed files)
+- Includes test file inventory
 
 **TodoWrite**: Mark phase 2 completed, phase 3 in_progress
 
 ---
 
-### Phase 3: TEST-FIX Task Generation
-**Command**: `SlashCommand(command="/workflow:tools:task-generate --session [sessionId]")`
+### Phase 3: Implementation Analysis
+**Command**: `SlashCommand(command="/workflow:tools:concept-enhanced --session [testSessionId] --context [contextPath]")`
 
-**Input**: `sessionId` from Phase 1
+**Input**:
+- `testSessionId` from Phase 1 (e.g., `WFS-test-user-auth`)
+- `contextPath` from Phase 2 (e.g., `.workflow/WFS-test-user-auth/.process/context-package.json`)
+
+**Analysis Focus**:
+- Review implementation summaries from source session
+- Identify test files and coverage gaps
+- Assess test execution strategy (unit, integration, e2e)
+- Determine failure diagnosis approach
+- Recommend code quality improvements
 
 **Expected Behavior**:
-- Parse ANALYSIS_RESULTS.md for test requirements
-- Generate TEST-FIX-001.json with:
-  - `meta.type: "test-fix"`
-  - `meta.agent: "@test-fix-agent"`
-  - `context.requirements`: Test execution requirements
-  - `context.focus_paths`: Test files and source files
-  - `context.acceptance`: All tests pass criteria
-  - `flow_control.pre_analysis`: Load implementation summaries
-  - `flow_control.implementation_approach`: Test execution strategy
+- Reads context-package.json with cross-session artifacts
+- Executes parallel analysis (Gemini for test strategy, optional Codex for validation)
+- Generates comprehensive test execution strategy
+- Identifies code modification targets for test fixes
+- Provides feasibility assessment for test validation
 
 **Parse Output**:
-- Verify `.workflow/[sessionId]/.task/TEST-FIX-001.json` exists
-- Verify `.workflow/[sessionId]/IMPL_PLAN.md` updated
-- Verify `.workflow/[sessionId]/TODO_LIST.md` updated
+- Verify `.workflow/[testSessionId]/.process/ANALYSIS_RESULTS.md` created
+- Contains test strategy and execution plan
+- Lists code modification targets (format: `file:function:lines` or `file`)
+- Includes risk assessment and optimization recommendations
 
 **Validation**:
-- Task JSON has correct structure (id, meta.type="test-fix", meta.agent="@test-fix-agent")
-- IMPL_PLAN.md contains test-fix strategy
-- TODO_LIST.md shows TEST-FIX-001 task
+- File `.workflow/[testSessionId]/.process/ANALYSIS_RESULTS.md` exists
+- Contains complete analysis sections:
+  - Current State Analysis (test coverage, existing tests)
+  - Proposed Solution Design (test execution strategy)
+  - Implementation Strategy (code targets, feasibility)
+  - Solution Optimization (performance, quality)
+  - Critical Success Factors (acceptance criteria)
 
 **TodoWrite**: Mark phase 3 completed, phase 4 in_progress
 
 ---
 
-### Phase 4: Execute Test-Fix Workflow
-**Command**: `SlashCommand(command="/workflow:execute --session [sessionId]")`
+### Phase 4: Generate Test Task
+**Command**: `SlashCommand(command="/workflow:tools:task-generate --session [testSessionId]")`
 
-**Input**: `sessionId` from Phase 1
+**Input**: `testSessionId` from Phase 1
 
 **Expected Behavior**:
-- Workflow executor detects TEST-FIX-001 task
-- Assigns to @test-fix-agent
-- Agent executes tests using flow_control.pre_analysis
-- If failures: diagnoses and fixes code
-- Re-runs tests until all pass
-- Generates completion summary
+- Reads ANALYSIS_RESULTS.md from Phase 3
+- Extracts test strategy and code modification targets
+- Generates `IMPL-001.json` (reusing standard format) with:
+  - `meta.type: "test-fix"` (enables @test-fix-agent assignment)
+  - `meta.agent: "@test-fix-agent"`
+  - `context.requirements`: Test execution requirements from analysis
+  - `context.focus_paths`: Test files and source files from analysis
+  - `context.acceptance`: All tests pass criteria
+  - `flow_control.pre_analysis`: Load source session summaries
+  - `flow_control.implementation_approach`: Test execution strategy from ANALYSIS_RESULTS.md
+  - `flow_control.target_files`: Code modification targets from analysis
+
+**Parse Output**:
+- Verify `.workflow/[testSessionId]/.task/IMPL-001.json` exists
+- Verify `.workflow/[testSessionId]/IMPL_PLAN.md` created
+- Verify `.workflow/[testSessionId]/TODO_LIST.md` created
 
 **Validation**:
-- Workflow execution started successfully
-- TEST-FIX-001 task status updated to "active" or "completed"
+- Task JSON has `id: "IMPL-001"` and `meta.type: "test-fix"`
+- IMPL_PLAN.md contains test validation strategy from ANALYSIS_RESULTS.md
+- TODO_LIST.md shows IMPL-001 task
+- flow_control includes code targets and test strategy
+- Task is ready for /workflow:execute
 
 **TodoWrite**: Mark phase 4 completed
 
 **Return to User**:
 ```
-Test-fix workflow initiated for session: [sessionId]
-- TEST-FIX-001 created and executing
-- @test-fix-agent validating implementation
-- Progress: /workflow:status [sessionId]
+Independent test-fix workflow created successfully!
+
+Source Session: [sourceSessionId]
+Test Session: [testSessionId]
+Task Created: IMPL-001 (test-fix)
+
+Next Steps:
+1. Review test plan: .workflow/[testSessionId]/IMPL_PLAN.md
+2. Execute validation: /workflow:execute
+3. Monitor progress: /workflow:status
+
+The @test-fix-agent will:
+- Execute all tests
+- Diagnose any failures
+- Fix code until tests pass
 ```
 
 ---
@@ -150,72 +193,112 @@ Test-fix workflow initiated for session: [sessionId]
 ```javascript
 // Initialize (before Phase 1)
 TodoWrite({todos: [
-  {"content": "Execute context gathering for test-fix", "status": "in_progress", "activeForm": "Executing context gathering for test-fix"},
-  {"content": "Execute implementation analysis", "status": "pending", "activeForm": "Executing implementation analysis"},
-  {"content": "Execute TEST-FIX task generation", "status": "pending", "activeForm": "Executing TEST-FIX task generation"},
-  {"content": "Execute test-fix workflow", "status": "pending", "activeForm": "Executing test-fix workflow"}
+  {"content": "Create independent test session", "status": "in_progress", "activeForm": "Creating test session"},
+  {"content": "Gather cross-session context", "status": "pending", "activeForm": "Gathering cross-session context"},
+  {"content": "Analyze implementation for test strategy", "status": "pending", "activeForm": "Analyzing implementation"},
+  {"content": "Generate test validation task", "status": "pending", "activeForm": "Generating test validation task"}
 ]})
 
 // After Phase 1
 TodoWrite({todos: [
-  {"content": "Execute context gathering for test-fix", "status": "completed", "activeForm": "Executing context gathering for test-fix"},
-  {"content": "Execute implementation analysis", "status": "in_progress", "activeForm": "Executing implementation analysis"},
-  {"content": "Execute TEST-FIX task generation", "status": "pending", "activeForm": "Executing TEST-FIX task generation"},
-  {"content": "Execute test-fix workflow", "status": "pending", "activeForm": "Executing test-fix workflow"}
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Gather cross-session context", "status": "in_progress", "activeForm": "Gathering cross-session context"},
+  {"content": "Analyze implementation for test strategy", "status": "pending", "activeForm": "Analyzing implementation"},
+  {"content": "Generate test validation task", "status": "pending", "activeForm": "Generating test validation task"}
 ]})
 
-// Continue pattern for Phase 2, 3, 4...
+// After Phase 2
+TodoWrite({todos: [
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Gather cross-session context", "status": "completed", "activeForm": "Gathering cross-session context"},
+  {"content": "Analyze implementation for test strategy", "status": "in_progress", "activeForm": "Analyzing implementation"},
+  {"content": "Generate test validation task", "status": "pending", "activeForm": "Generating test validation task"}
+]})
+
+// After Phase 3
+TodoWrite({todos: [
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Gather cross-session context", "status": "completed", "activeForm": "Gathering cross-session context"},
+  {"content": "Analyze implementation for test strategy", "status": "completed", "activeForm": "Analyzing implementation"},
+  {"content": "Generate test validation task", "status": "in_progress", "activeForm": "Generating test validation task"}
+]})
+
+// After Phase 4
+TodoWrite({todos: [
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Gather cross-session context", "status": "completed", "activeForm": "Gathering cross-session context"},
+  {"content": "Analyze implementation for test strategy", "status": "completed", "activeForm": "Analyzing implementation"},
+  {"content": "Generate test validation task", "status": "completed", "activeForm": "Generating test validation task"}
+]})
 ```
 
 ## Data Flow
 
 ```
-Session ID (from argument or auto-detect)
+User: /workflow:test-gen WFS-user-auth
     ↓
-Phase 1: context-gather --session sessionId "test-fix description"
-    ↓ Output: contextPath (context-package-test.json)
+Phase 1: session-start --new "Test validation for WFS-user-auth"
+    ↓ Creates: WFS-test-user-auth session
+    ↓ Writes: workflow-session.json with workflow_type="test_session", source_session_id="WFS-user-auth"
+    ↓ Output: testSessionId = "WFS-test-user-auth"
     ↓
-Phase 2: concept-enhanced --session sessionId --context contextPath
-    ↓ Input: sessionId + contextPath
-    ↓ Output: ANALYSIS_RESULTS.md (test execution strategy)
+Phase 2: context-gather --session WFS-test-user-auth
+    ↓ Auto-detects: test session type from workflow-session.json
+    ↓ Auto-reads: source_session_id = "WFS-user-auth"
+    ↓ Gathers: Cross-session context (summaries, code changes, tests)
+    ↓ Output: .workflow/WFS-test-user-auth/.process/context-package.json
     ↓
-Phase 3: task-generate --session sessionId
-    ↓ Input: sessionId + ANALYSIS_RESULTS.md
-    ↓ Output: TEST-FIX-001.json, IMPL_PLAN.md, TODO_LIST.md
+Phase 3: concept-enhanced --session WFS-test-user-auth --context context-package.json
+    ↓ Reads: context-package.json with cross-session artifacts
+    ↓ Executes: Parallel analysis (Gemini test strategy + optional Codex validation)
+    ↓ Analyzes: Test coverage, execution strategy, code targets
+    ↓ Output: .workflow/WFS-test-user-auth/.process/ANALYSIS_RESULTS.md
     ↓
-Phase 4: execute --session sessionId
-    ↓ Input: sessionId + TEST-FIX-001.json
-    ↓ Output: Test execution and fixing
+Phase 4: task-generate --session WFS-test-user-auth
+    ↓ Reads: ANALYSIS_RESULTS.md with test strategy and code targets
+    ↓ Generates: IMPL-001.json with meta.type="test-fix"
+    ↓ Output: Task, plan, and todo files in test session
     ↓
-Return summary to user
+Return: Summary with next steps (user triggers /workflow:execute separately)
 ```
 
-## Context Gathering Customization
+## Session Metadata Design
 
-context-gather will analyze:
-- Completed IMPL task summaries
-- Git changes since session start
-- Test files in focus_paths
-- Implementation files to be tested
-- Test framework configuration
+**Test Session (`WFS-test-user-auth/workflow-session.json`)**:
+```json
+{
+  "session_id": "WFS-test-user-auth",
+  "project": "Test validation for user authentication implementation",
+  "status": "planning",
+  "created_at": "2025-10-03T12:00:00Z",
+  "workflow_type": "test_session",
+  "source_session_id": "WFS-user-auth"
+}
+```
 
-## Analysis Focus
+## Automatic Cross-Session Context Collection
 
-concept-enhanced will analyze:
-- Test coverage gaps
-- Test execution strategy (unit, integration, e2e)
-- Failure diagnosis approaches
-- Code fixing patterns
-- Test framework best practices
+When `context-gather` detects `workflow_type: "test_session"`:
+
+**Collected from Source Session** (`.workflow/WFS-user-auth/`):
+- Implementation summaries: `.summaries/IMPL-*-summary.md`
+- Code changes: `git log --since=[source_created_at] --name-only`
+- Original plan: `IMPL_PLAN.md`
+- Task definitions: `.task/IMPL-*.json`
+
+**Collected from Current Project**:
+- Test files: `mcp__code-index__find_files(pattern="*.test.*")`
+- Test configuration: `package.json`, `jest.config.js`, etc.
+- Source files: Based on changed files from git log
 
 ## Task Generation Output
 
-task-generate creates TEST-FIX-001.json with:
+task-generate creates `IMPL-001.json` (reusing standard format) with:
 
 ```json
 {
-  "id": "TEST-FIX-001",
-  "title": "Execute and validate tests for [sessionId]",
+  "id": "IMPL-001",
+  "title": "Execute and validate tests for [sourceSessionId]",
   "status": "pending",
   "meta": {
     "type": "test-fix",
@@ -239,11 +322,11 @@ task-generate creates TEST-FIX-001.json with:
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_implementation_summaries",
-        "action": "Load completed IMPL task summaries",
+        "step": "load_source_session_summaries",
+        "action": "Load implementation summaries from source session",
         "commands": [
-          "bash(find .workflow/[sessionId]/.summaries/ -name 'IMPL-*-summary.md' 2>/dev/null)",
-          "Read(.workflow/[sessionId]/.summaries/IMPL-001-summary.md)"
+          "bash(find .workflow/[sourceSessionId]/.summaries/ -name 'IMPL-*-summary.md' 2>/dev/null)",
+          "Read(.workflow/[sourceSessionId]/.summaries/IMPL-001-summary.md)"
         ],
         "output_to": "implementation_context",
         "on_error": "skip_optional"
@@ -286,20 +369,22 @@ task-generate creates TEST-FIX-001.json with:
 ## Error Handling
 
 ### Phase 1 Failures
-- **No session found**: Return error "No active session detected. Provide session-id or run /workflow:plan first"
-- **Invalid session**: Return error "Session [sessionId] not found or incomplete"
-- **No implementation**: Return error "No completed IMPL tasks found. Complete implementation first"
+- **Source session not found**: Return error "Source session [sourceSessionId] not found in .workflow/"
+- **Invalid source session**: Return error "Source session [sourceSessionId] has no completed IMPL tasks"
+- **Session creation failed**: Return error "Could not create test session. Check /workflow:session:start"
 
 ### Phase 2 Failures
-- **Analysis failed**: Return error "Implementation analysis failed. Check context package"
-- **No test strategy**: Return error "Could not determine test execution strategy"
+- **Context gathering failed**: Return error "Could not gather cross-session context. Check source session artifacts"
+- **No source artifacts**: Return error "Source session has no implementation summaries or git history"
 
 ### Phase 3 Failures
-- **Task generation failed**: Retry once, then return error with details
-- **Invalid task structure**: Return error with JSON validation details
+- **Analysis failed**: Return error "Implementation analysis failed. Check context package and ANALYSIS_RESULTS.md"
+- **No test strategy**: Return error "Could not determine test execution strategy from analysis"
+- **Missing code targets**: Warning only, proceed with general test task
 
 ### Phase 4 Failures
-- **Execution failed**: Return error "Could not start test-fix workflow. Check session state"
+- **Task generation failed**: Retry once, then return error with details
+- **Invalid task structure**: Return error with JSON validation details
 
 ## Workflow Integration
 
@@ -307,18 +392,22 @@ task-generate creates TEST-FIX-001.json with:
 ```
 1. Implementation Phase (prior to test-gen)
    /workflow:plan "Build auth system"
+   → Creates WFS-auth session
    → @code-developer implements + writes tests
-   → Creates IMPL-001-summary.md
+   → Creates IMPL-001-summary.md in WFS-auth
 
 2. Test Generation Phase (test-gen)
    /workflow:test-gen WFS-auth
-   Phase 1: context-gather → Creates context-package-test.json
-   Phase 2: concept-enhanced → Creates ANALYSIS_RESULTS.md
-   Phase 3: task-generate → Creates TEST-FIX-001.json
-   Phase 4: execute → Triggers @test-fix-agent
+   Phase 1: session-start → Creates WFS-test-auth session
+   Phase 2: context-gather → Gathers from WFS-auth, creates context-package.json
+   Phase 3: concept-enhanced → Analyzes implementation, creates ANALYSIS_RESULTS.md
+   Phase 4: task-generate → Creates IMPL-001.json with meta.type="test-fix"
+   Returns: Summary with next steps
 
-3. Test-Fix Phase (automated)
-   @test-fix-agent picks up TEST-FIX-001
+3. Test Execution Phase (user-triggered)
+   /workflow:execute
+   → Detects active session: WFS-test-auth
+   → @test-fix-agent picks up IMPL-001 (test-fix type)
    → Runs test suite
    → Diagnoses failures (if any)
    → Fixes source code
@@ -327,39 +416,72 @@ task-generate creates TEST-FIX-001.json with:
 ```
 
 ### Output Files Created
-- `.workflow/[sessionId]/.process/context-package-test.json` - Test context package
-- `.workflow/[sessionId]/.process/ANALYSIS_RESULTS.md` - Test execution strategy
-- `.workflow/[sessionId]/.task/TEST-FIX-001.json` - Task definition
-- `.workflow/[sessionId]/IMPL_PLAN.md` - Updated with test-fix plan
-- `.workflow/[sessionId]/TODO_LIST.md` - Updated with TEST-FIX task
-- `.workflow/[sessionId]/.summaries/TEST-FIX-001-summary.md` - Created by test-fix-agent after completion
+
+**In Test Session** (`.workflow/WFS-test-auth/`):
+- `workflow-session.json` - Contains workflow_type and source_session_id
+- `.process/context-package.json` - Cross-session context from WFS-auth
+- `.process/ANALYSIS_RESULTS.md` - Test strategy and code targets from concept-enhanced
+- `.task/IMPL-001.json` - Test-fix task definition
+- `IMPL_PLAN.md` - Test validation plan (from ANALYSIS_RESULTS.md)
+- `TODO_LIST.md` - Task checklist
+- `.summaries/IMPL-001-summary.md` - Created by @test-fix-agent after completion
 
 ## Best Practices
 
-1. **Run after implementation complete**: Ensure all IMPL tasks are done before test-gen
-2. **Check git commits**: Make sure implementation changes are committed
-3. **Verify test files exist**: Code-developer should have created tests
-4. **Monitor execution**: Use `/workflow:status` to track test-fix progress
-5. **Review failures**: If tests fail repeatedly, check test-fix-agent summary for details
+1. **Run after implementation complete**: Ensure source session has completed IMPL tasks and summaries
+2. **Check git commits**: Implementation changes should be committed for accurate git log analysis
+3. **Verify test files exist**: Source implementation should include test files
+4. **Independent sessions**: Test session is separate from implementation session for clean separation
+5. **Monitor execution**: Use `/workflow:status` to track test-fix progress after /workflow:execute
 
 ## Coordinator Checklist
 
-✅ Initialize TodoWrite before any command
-✅ Execute Phase 1 immediately with session ID
-✅ Parse context package path from Phase 1 output
-✅ Pass session ID and context path to Phase 2 command
-✅ Verify ANALYSIS_RESULTS.md after Phase 2
-✅ Pass session ID to Phase 3 command
-✅ Verify all Phase 3 outputs (task JSON, IMPL_PLAN, TODO_LIST)
-✅ Pass session ID to Phase 4 command
+✅ Initialize TodoWrite before any command (4 phases)
+✅ Phase 1: Create test session with source session ID
+✅ Parse new test session ID from Phase 1 output
+✅ Phase 2: Run context-gather (auto-detects test session, no extra params)
+✅ Verify context-package.json contains cross-session artifacts
+✅ Phase 3: Run concept-enhanced with session and context path
+✅ Verify ANALYSIS_RESULTS.md contains test strategy and code targets
+✅ Phase 4: Run task-generate to create IMPL-001.json
+✅ Verify task has meta.type="test-fix" and meta.agent="@test-fix-agent"
+✅ Verify flow_control includes analysis insights and code targets
 ✅ Update TodoWrite after each phase
-✅ Return summary only after Phase 4 completes
+✅ Return summary after Phase 4 (execution is separate user action)
+
+## Required Tool Modifications
+
+### `/workflow:session:start`
+- Support `--new` flag for test session creation
+- Auto-detect test session pattern from task description
+- Write `workflow_type: "test_session"` and `source_session_id` to metadata
+
+### `/workflow:tools:context-gather`
+- Read session metadata to detect `workflow_type: "test_session"`
+- Auto-extract `source_session_id` from metadata
+- Gather cross-session context from source session artifacts
+- Include git log analysis from source session creation time
+
+### `/workflow:tools:concept-enhanced`
+- No changes required (already supports cross-session context analysis)
+- Will automatically analyze test strategy based on context-package.json
+- Generates ANALYSIS_RESULTS.md with code targets and test execution plan
+
+### `/workflow:tools:task-generate`
+- Recognize test session context and generate appropriate task
+- Create `IMPL-001.json` with `meta.type: "test-fix"`
+- Extract test strategy from ANALYSIS_RESULTS.md
+- Include code targets and cross-session references in flow_control
+
+### `/workflow:execute`
+- No changes required (already dispatches by meta.agent)
 
 ## Related Commands
 - `/workflow:plan` - Create implementation workflow (run before test-gen)
-- `/workflow:tools:context-gather` - Phase 1 tool for context collection
-- `/workflow:tools:concept-enhanced` - Phase 2 tool for analysis
-- `/workflow:tools:task-generate` - Phase 3 tool for task creation
-- `/workflow:execute` - Phase 4 workflow execution
+- `/workflow:session:start` - Phase 1 tool for test session creation
+- `/workflow:tools:context-gather` - Phase 2 tool for cross-session context collection
+- `/workflow:tools:concept-enhanced` - Phase 3 tool for implementation analysis and test strategy
+- `/workflow:tools:task-generate` - Phase 4 tool for test task creation
+- `/workflow:execute` - Execute test-fix workflow (user-triggered after test-gen)
 - `/workflow:status` - Check workflow progress
 - `@test-fix-agent` - Agent that executes and fixes tests
