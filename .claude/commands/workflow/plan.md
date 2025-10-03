@@ -15,13 +15,22 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 ## Coordinator Role
 
-**This command is a pure orchestrator**: Execute 4 slash commands in sequence, parse their outputs, pass context between them, and ensure complete execution.
+**This command is a pure orchestrator**: Execute 4 slash commands in sequence, parse their outputs, pass context between them, and ensure complete execution through **automatic continuation**.
 
-**Execution Flow**:
-1. Initialize TodoWrite → Execute Phase 1 → Parse output → Update TodoWrite
-2. Execute Phase 2 with Phase 1 data → Parse output → Update TodoWrite
-3. Execute Phase 3 with Phase 2 data → Parse output → Update TodoWrite
-4. Execute Phase 4 with Phase 3 validation → Update TodoWrite → Return summary
+**Execution Model - Auto-Continue Workflow**:
+
+Each phase executes and returns to user, then **automatically continues** to next phase:
+
+1. **User triggers**: `/workflow:plan "task"`
+2. **Phase 1 executes** → Returns to user with results
+3. **Auto-continue to Phase 2** → Returns to user with results
+4. **Auto-continue to Phase 3** → Returns to user with results
+5. **Auto-continue to Phase 4** → Returns final summary
+
+**Auto-Continue Mechanism**:
+- Read TodoList to determine current phase status
+- Execute next pending phase based on TodoList state
+- No external state files needed - TodoList tracks progress
 
 **Execution Modes**:
 - **Manual Mode** (default): Use `/workflow:tools:task-generate`
@@ -32,9 +41,8 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 command execution
 2. **No Preliminary Analysis**: Do not read files, analyze structure, or gather context before Phase 1
 3. **Parse Every Output**: Extract required data from each command's output for next phase
-4. **Sequential Execution**: Each phase depends on previous phase's output
-5. **Complete All Phases**: Do not return to user until Phase 4 completes
-6. **Track Progress**: Update TodoWrite after every phase completion
+4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
+5. **Track Progress**: Update TodoWrite after every phase completion
 
 ## 4-Phase Execution
 
@@ -64,6 +72,8 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **TodoWrite**: Mark phase 1 completed, phase 2 in_progress
 
+**After Phase 1**: Return to user showing Phase 1 results, then auto-continue to Phase 2
+
 ---
 
 ### Phase 2: Context Gathering
@@ -83,6 +93,8 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **TodoWrite**: Mark phase 2 completed, phase 3 in_progress
 
+**After Phase 2**: Return to user showing Phase 2 results, then auto-continue to Phase 3
+
 ---
 
 ### Phase 3: Intelligent Analysis
@@ -98,6 +110,8 @@ CONTEXT: Existing user database schema, REST API endpoints
 - Contains task recommendations section
 
 **TodoWrite**: Mark phase 3 completed, phase 4 in_progress
+
+**After Phase 3**: Return to user showing Phase 3 results, then auto-continue to Phase 4
 
 ---
 
@@ -227,23 +241,23 @@ Return summary to user
 
 - **Parsing Failure**: If output parsing fails, retry command once, then report error
 - **Validation Failure**: If validation fails, report which file/data is missing
-- **Command Failure**: Keep phase `in_progress`, report error to user, do not proceed
+- **Command Failure**: Keep phase `in_progress`, report error to user, do not proceed to next phase
 
 ## Coordinator Checklist
 
 ✅ **Pre-Phase**: Convert user input to structured format (GOAL/SCOPE/CONTEXT)
 ✅ Initialize TodoWrite before any command
 ✅ Execute Phase 1 immediately with structured description
-✅ Parse session ID from Phase 1 output
+✅ Parse session ID from Phase 1 output, store in memory
 ✅ Pass session ID and structured description to Phase 2 command
-✅ Parse context path from Phase 2 output
+✅ Parse context path from Phase 2 output, store in memory
 ✅ Pass session ID and context path to Phase 3 command
 ✅ Verify ANALYSIS_RESULTS.md after Phase 3
 ✅ Select correct Phase 4 command based on --agent flag
 ✅ Pass session ID to Phase 4 command
 ✅ Verify all Phase 4 outputs
 ✅ Update TodoWrite after each phase
-✅ Return summary only after Phase 4 completes
+✅ After each phase, automatically continue to next phase based on TodoList status
 
 ## Structure Template Reference
 
