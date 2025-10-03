@@ -186,7 +186,7 @@ cd Dmsflow
 .\Install-Claude.ps1 -Global
 
 # 4. Start using Claude Code with Agent workflows!
-# Use /workflow commands and DMS system for development
+# Use /workflow commands and memory system for development
 ```
 
 ## Verification
@@ -207,7 +207,7 @@ After installation, verify:
    - Check that global `.claude` directory is recognized
    - Verify workflow commands and DMS commands are available
    - Test `/workflow` commands for agent coordination
-   - Test `/dmsflow version` to check version information
+   - Test `/workflow version` to check version information
 
 ## Troubleshooting
 

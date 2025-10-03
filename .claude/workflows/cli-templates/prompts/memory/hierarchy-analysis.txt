@@ -1,4 +1,4 @@
-Analyze project structure for DMS hierarchy optimization:
+Analyze project structure for memory hierarchy optimization:
 
 ## Required Analysis:
 1. Assess project complexity and file organization patterns

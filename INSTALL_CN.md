@@ -162,7 +162,7 @@ cd Dmsflow
 .\Install-Claude.ps1 -Global
 
 # 4. 开始使用 Claude Code Agent 工作流！
-# 使用 /workflow 命令和 DMS 系统进行开发
+# 使用 /workflow 命令和内存系统进行开发
 ```
 
 ## 验证
@@ -181,9 +181,9 @@ cd Dmsflow
 2. **测试 Claude Code：**
    - 在项目中打开 Claude Code
    - 检查全局 `.claude` 目录是否被识别
-   - 验证工作流命令和 DMS 命令是否可用
+   - 验证工作流命令和内存命令是否可用
    - 测试 `/workflow` 命令的 Agent 协调功能
-   - 测试 `/dmsflow version` 检查版本信息
+   - 测试 `/workflow version` 检查版本信息
 
 ## 故障排除
 
