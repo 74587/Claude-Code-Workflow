@@ -19,11 +19,14 @@ For all CLI tool usage, command syntax, and integration guidelines:
 
 ### Core Beliefs
 
+- **Pursue good taste** - Eliminate edge cases to make code logic natural and elegant
+- **Embrace extreme simplicity** - Complexity is the root of all evil
+- **Be pragmatic** - Code must solve real-world problems, not hypothetical ones
+- **Data structures first** - Bad programmers worry about code; good programmers worry about data structures
+- **Never break backward compatibility** - Existing functionality is sacred and inviolable
 - **Incremental progress over big bangs** - Small changes that compile and pass tests
 - **Learning from existing code** - Study and plan before implementing
-- **Pragmatic over dogmatic** - Adapt to project reality
 - **Clear intent over clever code** - Be boring and obvious
-- **Simple solutions over complex architectures** - Avoid over-engineering and premature optimization
 - **Follow existing code style** - Match import patterns, naming conventions, and formatting of existing codebase
 
 ### Simplicity Means
