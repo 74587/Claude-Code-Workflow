@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.2.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.3.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,14 +15,15 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v3.2.3** - Version management system with upgrade notifications. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v3.3.0** - CLI tool enhancements & Codex multi-step execution. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v3.2.3**:
-> - 🔍 New `/version` command for checking installed versions
-> - 📊 GitHub API integration for latest release detection
-> - 🔄 Automatic upgrade notifications and recommendations
-> - 📁 Version tracking in both local and global installations
-> - ⚡ Quick version check with comprehensive status display
+> **What's New in v3.3.0**:
+> - 🚀 New `/cli:codex-execute` command for automated multi-step task execution
+> - 🔄 Codex resume mechanism (`codex exec "..." resume --last`) for context continuity
+> - 📋 TodoWrite progress tracking for subtask execution
+> - 📚 Streamlined CLI documentation (60% reduction in redundancy)
+> - 🔧 Enhanced Codex agent configuration for multi-task workflows
+> - ✅ Optional Git verification after each subtask completion
 
 ---
 
@@ -342,7 +343,7 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Complet
 
 | MCP Server | Purpose | Installation Guide |
 |------------|---------|-------------------|
-| **Exa MCP** | External API patterns & best practices | [Install Guide](https://github.com/exa-labs/exa-mcp-server) |
+| **Exa MCP** | External API patterns & best practices | [Install Guide](https://smithery.ai/server/exa) |
 | **Code Index MCP** | Advanced internal code search | [Install Guide](https://github.com/johnhuang316/code-index-mcp) |
 
 #### Benefits When Enabled

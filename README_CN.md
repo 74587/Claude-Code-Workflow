@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.2.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.3.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,14 +15,15 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 最新版本: v3.2.3** - 版本管理系统与升级通知。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v3.3.0** - CLI 工具增强与 Codex 多步骤执行。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v3.2.3 版本新特性**:
-> - 🔍 新增 `/version` 命令用于检查已安装版本
-> - 📊 GitHub API 集成，获取最新版本信息
-> - 🔄 自动升级通知与建议
-> - 📁 支持本地和全局安装的版本跟踪
-> - ⚡ 一键版本检查，全面展示状态信息
+> **v3.3.0 版本新特性**:
+> - 🚀 新增 `/cli:codex-execute` 命令，实现自动化多步骤任务执行
+> - 🔄 Codex resume 机制（`codex exec "..." resume --last`），保持上下文连续性
+> - 📋 TodoWrite 进度跟踪，监控子任务执行状态
+> - 📚 精简 CLI 文档（减少 60% 冗余内容）
+> - 🔧 增强 Codex 智能体配置，支持多任务工作流
+> - ✅ 可选的 Git 验证，每个子任务完成后检查代码变更
 
 ---
 
@@ -342,7 +343,7 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**完全可选**
 
 | MCP 服务器 | 用途 | 安装指南 |
 |------------|------|---------|
-| **Exa MCP** | 外部 API 模式和最佳实践 | [安装指南](https://github.com/exa-labs/exa-mcp-server) |
+| **Exa MCP** | 外部 API 模式和最佳实践 | [安装指南](https://smithery.ai/server/exahttps://smithery.ai/server/exa) |
 | **Code Index MCP** | 高级内部代码搜索 | [安装指南](https://github.com/johnhuang316/code-index-mcp) |
 
 #### 启用后的好处

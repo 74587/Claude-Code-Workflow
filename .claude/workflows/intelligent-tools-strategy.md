@@ -265,6 +265,11 @@ For every development task:
 - **Permissions**: Requires explicit MODE=auto or MODE=write specification
 - **Default MODE**: No default, must be explicitly specified
 - **⚠️ Write Trigger**: Only when user explicitly requests "implement", "modify", "generate code" AND specifies MODE
+- **Session Management**:
+  - `codex resume` - Resume previous interactive session (picker by default)
+  - `codex exec "task" resume --last` - Continue most recent session with new task (maintains context)
+  - `codex -i <image_file>` - Attach image(s) to initial prompt (useful for UI/design references)
+  - **Multi-task Pattern**: First task uses `exec`, subsequent tasks use `exec "..." resume --last` for context continuity
 
 ### File Patterns
 - All files: `@{**/*}`

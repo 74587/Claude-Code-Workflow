@@ -12,150 +12,81 @@ allowed-tools: SlashCommand(*), Bash(*)
 model: sonnet
 ---
 
-### 🚀 **Command Overview: `/cli:chat`**
+## Purpose
 
--   **Type**: CLI Tool Wrapper for Interactive Analysis
--   **Purpose**: Direct interaction with CLI tools for codebase analysis
--   **Supported Tools**: codex, gemini (default), qwen
+Direct interaction with CLI tools for codebase analysis and Q&A.
 
-### 📥 **Parameters & Usage**
+**Supported Tools**: codex, gemini (default), qwen
+**Reference**: @~/.claude/workflows/intelligent-tools-strategy.md for complete tool details
 
--   **`<inquiry>` (Required)**: Your question or analysis request
--   **`--tool <codex|gemini|qwen>` (Optional)**: Select CLI tool (default: gemini)
--   **`--enhance` (Optional)**: Enhance inquiry with `/enhance-prompt` before execution
--   **`--all-files` (Optional)**: Includes the entire codebase in the analysis context
--   **`--save-session` (Optional)**: Saves the interaction to current workflow session directory
--   **File References**: Specify files or patterns using `@{path/to/file}` syntax
+## Parameters
 
-### 🔄 **Execution Workflow**
+- `<inquiry>` (Required): Question or analysis request
+- `--tool <codex|gemini|qwen>` (Optional): Select CLI tool (default: gemini)
+- `--enhance` (Optional): Enhance inquiry with `/enhance-prompt` first
+- `--all-files` (Optional): Include entire codebase in context
+- `--save-session` (Optional): Save interaction to workflow session
 
-`Parse Tool` **->** `Parse Input` **->** `[Optional] Enhance` **->** `Assemble Context` **->** `Construct Prompt` **->** `Execute CLI Tool` **->** `(Optional) Save Session`
+## Execution Flow
 
-### 🛠️ **Tool Selection**
+1. Parse tool selection (default: gemini)
+2. If `--enhance`: Execute `/enhance-prompt` first
+3. Assemble context (files + CLAUDE.md)
+4. Execute CLI tool
+5. Optional: Save to session
 
-| Tool | Best For | Wrapper |
-|------|----------|---------|
-| **gemini** (default) | General analysis, exploration | `~/.claude/scripts/gemini-wrapper` |
-| **qwen** | Architecture, design patterns | `~/.claude/scripts/qwen-wrapper` |
-| **codex** | Development queries, deep analysis | `codex --full-auto exec` |
+## Enhancement Integration
 
-### 🔄 **Original Execution Workflow**
+**When `--enhance` flag present**: Execute `/enhance-prompt "[inquiry]"` first, then use enhanced output (INTENT/CONTEXT/ACTION) to build the chat command.
 
-`Parse Input` **->** `[Optional] Enhance` **->** `Assemble Context` **->** `Construct Prompt` **->** `Execute Gemini CLI` **->** `(Optional) Save Session`
+## Context Assembly
 
-### 🎯 **Enhancement Integration**
+Context gathered from:
+1. **Project Guidelines**: `@{CLAUDE.md,**/*CLAUDE.md}` (always)
+2. **User-Explicit Files**: Files specified by user
+3. **All Files Flag**: `--all-files` includes entire codebase
 
-**When `--enhance` flag present**:
+## Command Template
+
+**Gemini/Qwen**:
 ```bash
-# Step 1: Enhance the inquiry
-SlashCommand(command="/enhance-prompt \"[inquiry]\"")
-
-# Step 2: Use enhanced output for chat
-# Enhanced output provides enriched context and structured intent
-```
-
-**Example**:
-```bash
-# User: /gemini:chat --enhance "fix the login"
-
-# Step 1: Enhance
-/enhance-prompt "fix the login"
-# Returns:
-# INTENT: Debug login authentication failure
-# CONTEXT: JWT auth in src/auth/, session state issue
-# ACTION: Check token validation → verify middleware → test flow
-
-# Step 2: Chat with enhanced context
-gemini -p "Debug login authentication failure. Focus on JWT token validation
-in src/auth/, verify middleware integration, and test authentication flow.
-Known issue: session state management"
-```
-
-### 📚 **Context Assembly**
-
-Context is gathered from:
-1. **Project Guidelines**: Always includes `@{CLAUDE.md,**/*CLAUDE.md}`
-2. **User-Explicit Files**: Files specified by the user (e.g., `@{src/auth/*.js}`)
-3. **All Files Flag**: The `--all-files` flag includes the entire codebase
-
-### 📝 **Prompt Format**
-
-**Core Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md
-
-```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper -p "
-PURPOSE: [clear analysis/inquiry goal]
-TASK: [specific analysis or question]
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} @{target_files}
-EXPECTED: [expected response format]
-RULES: [constraints or focus areas]
+cd [dir] && ~/.claude/scripts/[gemini|qwen]-wrapper -p "
+PURPOSE: [inquiry goal]
+TASK: [specific question]
+CONTEXT: @{CLAUDE.md} @{target_files}
+EXPECTED: [response format]
+RULES: [constraints]
 "
+
+# With --all-files
+cd [dir] && ~/.claude/scripts/[gemini|qwen]-wrapper --all-files -p "..."
 ```
 
-### ⚙️ **Execution Implementation**
-
-**Standard Template**:
+**Codex**:
 ```bash
-cd . && ~/.claude/scripts/gemini-wrapper -p "
-PURPOSE: [user inquiry goal]
-TASK: [specific question or analysis]
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} @{inferred_or_specified_files}
-EXPECTED: Analysis with file references and code examples
-RULES: [focus areas based on inquiry]
-"
+codex -C [dir] --full-auto exec "
+PURPOSE: [inquiry goal]
+TASK: [specific question]
+CONTEXT: @{CLAUDE.md} @{target_files}
+EXPECTED: [response format]
+RULES: [constraints]
+" --skip-git-repo-check -s danger-full-access
+
+# With image attachment
+codex -C [dir] -i screenshot.png --full-auto exec "..." --skip-git-repo-check -s danger-full-access
 ```
 
-**With --all-files flag**:
+## Examples
+
 ```bash
-cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
-PURPOSE: [user inquiry goal]
-TASK: [specific question or analysis]
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} [entire codebase]
-EXPECTED: Comprehensive analysis across all files
-RULES: [focus areas based on inquiry]
-"
+/cli:chat "analyze the authentication flow"              # Gemini (default)
+/cli:chat --tool qwen "optimize React component"         # Qwen
+/cli:chat --tool codex "review security vulnerabilities" # Codex
+/cli:chat --enhance "fix the login"                      # Enhanced prompt
+/cli:chat --all-files "find all API endpoints"           # Full codebase
 ```
 
-**Example - Authentication Analysis**:
-```bash
-cd . && ~/.claude/scripts/gemini-wrapper -p "
-PURPOSE: Understand authentication flow implementation
-TASK: Analyze authentication flow and identify patterns
-CONTEXT: @{**/*auth*,**/*login*} @{CLAUDE.md}
-EXPECTED: Flow diagram, security assessment, integration points
-RULES: Focus on security patterns and JWT handling
-"
-```
+## Session Persistence
 
-**Example - Performance Optimization**:
-```bash
-cd src/components && ~/.claude/scripts/gemini-wrapper -p "
-PURPOSE: Optimize React component performance
-TASK: Identify performance bottlenecks in component rendering
-CONTEXT: @{**/*.{jsx,tsx}} @{CLAUDE.md}
-EXPECTED: Specific optimization recommendations with file:line references
-RULES: Focus on re-render patterns and memoization opportunities
-"
-```
-
-### 💾 **Session Persistence**
-
-When `--save-session` flag is used:
--   Check for existing active session (`.workflow/.active-*` markers)
--   Save to existing session's `.chat/` directory or create new session
--   File format: `chat-YYYYMMDD-HHMMSS.md`
--   Include query, context, and response in saved file
-
-**Session Template:**
-```markdown
-# Chat Session: [Timestamp]
-
-## Query
-[Original user inquiry]
-
-## Context
-[Files and patterns included in analysis]
-
-## Gemini Response
-[Complete response from Gemini CLI]
-```
+- **Active Session**: Save to `.workflow/WFS-[id]/.chat/chat-[timestamp].md`
+- **No Session**: Return results directly

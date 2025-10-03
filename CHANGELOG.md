@@ -5,6 +5,122 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2025-10-04
+
+### 🚀 CLI Tool Enhancements & Codex Multi-Step Execution
+
+This release streamlines CLI tool documentation and introduces automated multi-step task execution with Codex.
+
+#### Added
+
+**New Command: `/cli:codex-execute`**:
+- **Purpose**: Automated task decomposition and sequential execution with Codex
+- **Features**:
+  - Automatic task breakdown into 3-8 manageable subtasks
+  - Sequential execution using `codex exec "..." resume --last` mechanism
+  - TodoWrite progress tracking for each subtask
+  - Optional Git verification after each subtask (`--verify-git` flag)
+  - Supports both freeform descriptions and workflow task IDs
+  - Automatic detection and loading of task JSON files
+  - Context continuity across subtasks via resume mechanism
+  - Integration with workflow system (optional)
+
+**Codex Resume Mechanism**:
+- **First Subtask**: Creates new Codex session with `codex exec`
+- **Subsequent Subtasks**: Continues with `codex exec "..." resume --last`
+- **Benefits**:
+  - Session memory preserves previous decisions
+  - Maintains implementation style consistency
+  - Avoids redundant context re-injection
+  - Enables incremental testing and validation
+
+**Enhanced Codex Agent Configuration** (`.codex/AGENTS.md`):
+- Added multi-task prompt format (Single-Task & Multi-Task)
+- Enhanced MODE: auto with subtask execution flow
+- New "Multi-Step Task Execution" section with:
+  - Context continuity best practices
+  - Subtask coordination guidelines
+  - Example 3-subtask workflow demonstration
+- Updated progress reporting for subtasks
+- Version 2.1.0 with multi-step task execution support
+
+#### Changed
+
+**CLI Documentation Optimization**:
+- **Streamlined Documentation**: Reduced redundancy by referencing `intelligent-tools-strategy.md`
+- **Updated Commands**:
+  - `/cli:analyze` - Simplified from ~200 to ~78 lines
+  - `/cli:chat` - Simplified from ~161 to ~92 lines
+  - `/cli:execute` - Simplified from ~235 to ~111 lines
+- **Unified Command Templates**:
+  - Separated Gemini/Qwen (uses `-p` parameter) from Codex (uses `exec` command)
+  - Added Codex `-i` parameter documentation for image attachment
+  - Consistent template structure across all CLI commands
+
+**Intelligent Tools Strategy Updates**:
+- Enhanced Codex session management documentation
+- Added `codex exec "..." resume --last` syntax explanation
+- Documented multi-task execution pattern
+- Clarified image attachment workflow with resume
+
+**Command Template Improvements**:
+- **Gemini/Qwen**: `cd [dir] && ~/.claude/scripts/[tool]-wrapper -p "..."`
+- **Codex**: `codex -C [dir] --full-auto exec "..." --skip-git-repo-check -s danger-full-access`
+- **Codex with Resume**: `codex exec "..." resume --last --skip-git-repo-check -s danger-full-access`
+- **Image Support**: `codex -C [dir] -i image.png --full-auto exec "..."`
+
+#### Technical Details
+
+**Multi-Step Execution Flow**:
+```
+Input → Parse (Description/Task ID) → Decompose into Subtasks → TodoWrite Tracking →
+For Each Subtask:
+  1. Execute with Codex (first: exec, subsequent: exec resume --last)
+  2. [Optional] Git verification
+  3. Mark complete in TodoWrite
+→ Final Summary
+```
+
+**Subtask Decomposition Criteria**:
+- Each subtask: 5-15 minutes completable
+- Clear, testable outcomes
+- Explicit dependencies
+- Focused file scope (1-5 files per subtask)
+
+**Error Handling**:
+- Subtask failure: Pause for user intervention
+- Git verification failure: Request user decision
+- Codex session lost: Attempt retry with fresh session
+
+**Integration Features**:
+- Automatic task ID detection (e.g., `IMPL-001`, `TASK-123`)
+- JSON task loading from `.task/[ID].json`
+- Execution logging to `.chat/codex-execute-[timestamp].md`
+- Summary generation to `.summaries/[TASK-ID]-summary.md`
+
+#### Benefits
+
+**Developer Experience**:
+- 🚀 Automated task breakdown reduces planning overhead
+- 📊 Clear progress tracking with TodoWrite integration
+- 🔄 Context continuity improves code consistency
+- ✅ Optional Git verification ensures code quality
+- 🎯 Focused subtask execution reduces complexity
+
+**Code Quality**:
+- 🧪 Incremental testing after each subtask
+- 🔍 Git verification catches unexpected changes
+- 📝 Comprehensive execution logs for audit trail
+- 🎨 Image attachment support for UI/design tasks
+
+**Documentation**:
+- 📚 Reduced documentation redundancy by ~60%
+- 🔗 Clear references to master documentation
+- ✨ Consistent command structure across all CLI tools
+- 📖 Better separation of concerns (strategy vs. command docs)
+
+---
+
 ## [3.2.3] - 2025-10-03
 
 ### ✨ Version Management System
