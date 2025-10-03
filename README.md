@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.2.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.2.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,13 +15,14 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v3.2.0** - Simplified agent architecture with "Tests Are the Review" philosophy. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v3.2.2** - Independent test-gen workflow with cross-session context. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v3.2.0**:
-> - 🔄 Simplified from 3 agents to 2 core agents (`@code-developer`, `@test-fix-agent`)
-> - ✅ "Tests Are the Review" - Passing tests = approved code
-> - 🧪 Enhanced test-fix workflow with automatic execution and fixing
-> - 📦 Interactive installation with version selection menu
+> **What's New in v3.2.2**:
+> - 🔄 Independent test session architecture (WFS-test-[source])
+> - 🤖 Automatic cross-session context gathering via metadata
+> - 🧪 Integrated concept-enhanced analysis (Gemini + Codex parallel execution)
+> - 📦 Reuses IMPL-*.json format with meta.type="test-fix" (zero breaking changes)
+> - ⚡ 4-phase workflow: session → context → analysis → task generation
 
 ---
 
@@ -94,17 +95,51 @@ Select version to install (1-3, default: 1):
 
 > 💡 **Pro Tip**: The installer automatically detects and displays the latest version numbers and release dates from GitHub. Just press Enter to select the recommended stable release.
 
+### **📦 Local Installation (Install-Claude.ps1)**
+
+For local installation without network access, use the bundled PowerShell installer:
+
+**Installation Modes:**
+```powershell
+# Interactive mode with prompts (recommended)
+.\Install-Claude.ps1
+
+# Quick install with automatic backup
+.\Install-Claude.ps1 -Force -BackupAll
+
+# Non-interactive install
+.\Install-Claude.ps1 -NonInteractive -Force
+```
+
+**Installation Options:**
+
+| Mode | Description | Installs To |
+|------|-------------|-------------|
+| **Global** | System-wide installation (default) | `~/.claude/`, `~/.codex/`, `~/.gemini/` |
+| **Path** | Custom directory + global hybrid | Local: `agents/`, `commands/`<br>Global: `workflows/`, `scripts/` |
+
+**Backup Behavior:**
+- **Default**: Automatic backup enabled (`-BackupAll`)
+- **Disable**: Use `-NoBackup` flag (⚠️ overwrites without backup)
+- **Backup location**: `claude-backup-{timestamp}/` in installation directory
+
+**⚠️ Important Warnings:**
+- `-Force -BackupAll`: Silent file overwrite (with backup)
+- `-NoBackup -Force`: Permanent file overwrite (no recovery)
+- Global mode modifies user profile directories
+
 ### **✅ Verify Installation**
 After installation, run the following command to ensure CCW is working:
 ```bash
 /workflow:session:list
 ```
 
-> **📝 Important Notes:**
+> **📝 Installation Notes:**
 > - The installer will automatically install/update `.codex/` and `.gemini/` directories
 > - **Global mode**: Installs to `~/.codex` and `~/.gemini`
 > - **Path mode**: Installs to your specified directory (e.g., `project/.codex`, `project/.gemini`)
-> - Existing files will be backed up automatically before installation
+> - **Backup**: Existing files are backed up by default to `claude-backup-{timestamp}/`
+> - **Safety**: Use interactive mode for first-time installation to review changes
 
 ---
 
@@ -142,9 +177,9 @@ After installation, run the following command to ensure CCW is working:
 
 **Phase 4: Testing & Quality Assurance**
 ```bash
-# Generate comprehensive test suite (standard workflow)
-/workflow:test-gen
-/workflow:execute
+# Generate independent test-fix workflow (v3.2.2+)
+/workflow:test-gen WFS-auth  # Creates WFS-test-auth session
+/workflow:execute            # Runs test validation
 
 # OR verify TDD compliance (TDD workflow)
 /workflow:tdd-verify
@@ -217,7 +252,7 @@ After installation, run the following command to ensure CCW is working:
 | `/workflow:tdd-plan` | Create a Test-Driven Development workflow with Red-Green-Refactor cycles. |
 | `/workflow:execute` | Execute the current workflow plan autonomously. |
 | `/workflow:status` | Display the current status of the workflow. |
-| `/workflow:test-gen` | Automatically generate a test plan from the implementation. |
+| `/workflow:test-gen` | Create independent test-fix workflow for validating completed implementation. |
 | `/workflow:tdd-verify` | Verify TDD compliance and generate quality report. |
 | `/workflow:review` | **Optional** manual review (only use when explicitly needed - passing tests = approved code). |
 
@@ -275,7 +310,7 @@ Configure Gemini CLI for optimal integration:
 ```json
 // ~/.gemini/settings.json
 {
-  "contextFileName": "CLAUDE.md"
+  "contextFileName": ["CLAUDE.md", "GEMINI.md"]
 }
 ```
 

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.2.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.2.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,13 +15,14 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 最新版本: v3.2.0** - 采用"测试即审查"理念简化智能体架构。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v3.2.2** - 独立测试生成工作流，支持跨会话上下文。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v3.2.0 版本新特性**:
-> - 🔄 从 3 个智能体简化为 2 个核心智能体（`@code-developer`、`@test-fix-agent`）
-> - ✅ "测试即审查" - 测试通过 = 代码批准
-> - 🧪 增强的测试修复工作流，支持自动执行和修复
-> - 📦 交互式安装，包含版本选择菜单
+> **v3.2.2 版本新特性**:
+> - 🔄 独立测试会话架构（WFS-test-[source]）
+> - 🤖 通过元数据自动跨会话上下文收集
+> - 🧪 集成 concept-enhanced 分析（Gemini + Codex 并行执行）
+> - 📦 复用 IMPL-*.json 格式，meta.type="test-fix"（零破坏性更改）
+> - ⚡ 4 阶段工作流：会话 → 上下文 → 分析 → 任务生成
 
 ---
 
@@ -94,17 +95,51 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 
 > 💡 **提示**：安装程序会自动从 GitHub 检测并显示最新的版本号和发布日期。只需按 Enter 键即可选择推荐的稳定版本。
 
+### **📦 本地安装 (Install-Claude.ps1)**
+
+无需网络访问时，使用内置的 PowerShell 安装脚本：
+
+**安装模式：**
+```powershell
+# 交互式安装（推荐）
+.\Install-Claude.ps1
+
+# 快速安装（自动备份）
+.\Install-Claude.ps1 -Force -BackupAll
+
+# 非交互式安装
+.\Install-Claude.ps1 -NonInteractive -Force
+```
+
+**安装选项：**
+
+| 模式 | 描述 | 安装位置 |
+|------|------|----------|
+| **Global** | 系统级安装（默认） | `~/.claude/`、`~/.codex/`、`~/.gemini/` |
+| **Path** | 自定义目录 + 全局混合 | 本地：`agents/`、`commands/`<br>全局：`workflows/`、`scripts/` |
+
+**备份行为：**
+- **默认**：自动备份启用（`-BackupAll`）
+- **禁用**：使用 `-NoBackup` 标志（⚠️ 无备份覆盖）
+- **备份位置**：安装目录中的 `claude-backup-{timestamp}/`
+
+**⚠️ 重要警告：**
+- `-Force -BackupAll`：静默文件覆盖（带备份）
+- `-NoBackup -Force`：永久文件覆盖（无法恢复）
+- Global 模式会修改用户配置目录
+
 ### **✅ 验证安装**
 安装后，运行以下命令以确保 CCW 正常工作：
 ```bash
 /workflow:session:list
 ```
 
-> **📝 重要说明：**
+> **📝 安装说明：**
 > - 安装程序将自动安装/更新 `.codex/` 和 `.gemini/` 目录
 > - **全局模式**：安装到 `~/.codex` 和 `~/.gemini`
 > - **路径模式**：安装到指定目录（例如 `project/.codex`、`project/.gemini`）
-> - 安装前会自动备份现有文件
+> - **备份**：默认自动备份现有文件到 `claude-backup-{timestamp}/`
+> - **安全**：首次安装建议使用交互式模式以审查更改
 
 ---
 
@@ -142,15 +177,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 
 **阶段 4：测试与质量保证**
 ```bash
-# 生成全面测试套件（标准工作流）
-/workflow:test-gen
-/workflow:execute
+# 生成独立测试修复工作流（v3.2.2+）
+/workflow:test-gen WFS-auth  # 创建 WFS-test-auth 会话
+/workflow:execute            # 运行测试验证
 
 # 或验证 TDD 合规性（TDD 工作流）
 /workflow:tdd-verify
-
-# 可选：手动审查（仅在明确需要时使用）
-# /workflow:review  # 测试通过 = 代码已批准
 ```
 
 ### 简单任务快速入门
@@ -220,7 +252,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 | `/workflow:tdd-plan` | 创建测试驱动开发工作流，包含 Red-Green-Refactor 循环。 |
 | `/workflow:execute` | 自主执行当前的工作流计划。 |
 | `/workflow:status` | 显示工作流的当前状态。 |
-| `/workflow:test-gen` | 从实现中自动生成测试计划。 |
+| `/workflow:test-gen` | 创建独立测试修复工作流，用于验证已完成的实现。 |
 | `/workflow:tdd-verify` | 验证 TDD 合规性并生成质量报告。 |
 | `/workflow:review` | **可选** 手动审查（仅在明确需要时使用，测试通过即代表代码已批准）。 |
 
@@ -278,7 +310,7 @@ npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
 ```json
 // ~/.gemini/settings.json
 {
-  "contextFileName": "CLAUDE.md"
+  "contextFileName": ["CLAUDE.md", "GEMINI.md"]
 }
 ```
 
