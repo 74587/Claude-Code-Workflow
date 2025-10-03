@@ -18,6 +18,7 @@ type: strategic-guideline
 - **Default to tools** - Use specialized tools for most coding tasks, no matter how small
 - **Lower barriers** - Engage tools immediately when encountering any complexity
 - **Context optimization** - Based on user intent, determine whether to use `-C [directory]` parameter for focused analysis to reduce irrelevant context import
+- **⚠️ Write operation protection** - For local codebase write/modify operations, require EXPLICIT user confirmation unless user provides clear instructions containing MODE=write or MODE=auto
 
 ### Quick Decision Rules
 1. **Exploring/Understanding?** → Start with Gemini
@@ -33,15 +34,19 @@ type: strategic-guideline
 - **Override When Needed**: Specify custom timeout for longer operations
 
 ### Permission Framework
-- **Gemini/Qwen Write Access**: Use `--approval-mode yolo` when tools need to create/modify files
-- **Codex Write Access**: Always use `-s danger-full-access` and `--skip-git-repo-check` for development and file operations
-- **Auto-approval Protocol**: Enable automatic tool approvals for autonomous workflow execution
+- **⚠️ WRITE PROTECTION**: Local codebase write/modify requires EXPLICIT user confirmation
+  - **Analysis Mode (default)**: Read-only, safe for auto-execution
+  - **Write Mode**: Requires user explicitly states MODE=write or MODE=auto in prompt
+  - **Exception**: User provides clear instructions like "modify", "create", "implement"
+- **Gemini/Qwen Write Access**: Use `--approval-mode yolo` ONLY when MODE=write explicitly specified
+- **Codex Write Access**: Use `-s danger-full-access` and `--skip-git-repo-check` ONLY when MODE=auto explicitly specified
+- **Default Behavior**: All tools default to analysis/read-only mode without explicit write permission
 
 ## 🎯 Universal Command Template
 
 ### Standard Format (REQUIRED)
 ```bash
-# Gemini Analysis (全权限)
+# Gemini Analysis (read/write capable)
 cd [directory] && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
@@ -51,7 +56,7 @@ EXPECTED: [expected output]
 RULES: [template reference and constraints]
 "
 
-# Qwen Architecture Analysis (仅分析)
+# Qwen Architecture Analysis (read-only analysis)
 cd [directory] && ~/.claude/scripts/qwen-wrapper -p "
 PURPOSE: [clear architecture goal]
 TASK: [specific analysis task]
@@ -84,16 +89,18 @@ RULES: [template reference and constraints]
 
 The MODE field controls execution behavior and file permissions:
 
-**For Gemini** (全权限，可读写):
-- `analysis` (default) - 分析 + 可生成文档
-- `write` - 创建/修改文件（自动启用 --approval-mode yolo）
+**For Gemini**:
+- `analysis` (default) - Read-only analysis and documentation generation
+- `write` - ⚠️ Create/modify codebase files (requires explicit specification, auto-enables --approval-mode yolo)
 
-**For Qwen** (仅分析):
-- `analysis` (default) - 仅架构分析，不生成代码
+**For Qwen**:
+- `analysis` (default) - Architecture analysis only, no code generation/modification (read-only)
+- `write` - ⚠️ Code generation (requires explicit specification, disabled by default)
 
 **For Codex**:
-- `auto` (default) - 自主开发，全文件操作
-- `write` - 测试生成和文件修改
+- `auto` - ⚠️ Autonomous development with full file operations (requires explicit specification, enables -s danger-full-access)
+- `write` - ⚠️ Test generation and file modification (requires explicit specification)
+- **Default**: No default mode, MODE must be explicitly specified
 
 ### Directory Context
 Tools execute in current working directory:
@@ -235,26 +242,29 @@ For every development task:
 
 ## 🎯 Key Features
 
-### Gemini (全权限)
+### Gemini
 - **Command**: `~/.claude/scripts/gemini-wrapper`
 - **Strengths**: Large context window, pattern recognition
 - **Best For**: Analysis, documentation generation, code exploration
-- **Permissions**: 可读写，MODE=write 时自动启用 --approval-mode yolo
-- **Default MODE**: `analysis`
+- **Permissions**: Default read-only analysis, MODE=write requires explicit specification (auto-enables --approval-mode yolo)
+- **Default MODE**: `analysis` (read-only)
+- **⚠️ Write Trigger**: Only when user explicitly requests "generate documentation", "modify code", or specifies MODE=write
 
-### Qwen (仅分析)
+### Qwen
 - **Command**: `~/.claude/scripts/qwen-wrapper`
 - **Strengths**: Architecture analysis, pattern recognition
 - **Best For**: System design analysis, architectural review
-- **Permissions**: 仅分析，不生成代码
-- **Default MODE**: `analysis`
+- **Permissions**: Architecture analysis only, no automatic code generation
+- **Default MODE**: `analysis` (read-only)
+- **⚠️ Write Trigger**: Explicitly prohibited from auto-calling write mode
 
 ### Codex
 - **Command**: `codex --full-auto exec`
 - **Strengths**: Autonomous development, mathematical reasoning
 - **Best For**: Implementation, testing, automation
-- **Required**: `-s danger-full-access` and `--skip-git-repo-check` for development
-- **Default MODE**: `auto`
+- **Permissions**: Requires explicit MODE=auto or MODE=write specification
+- **Default MODE**: No default, must be explicitly specified
+- **⚠️ Write Trigger**: Only when user explicitly requests "implement", "modify", "generate code" AND specifies MODE
 
 ### File Patterns
 - All files: `@{**/*}`

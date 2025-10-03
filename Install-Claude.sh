@@ -87,8 +87,8 @@ function show_header() {
 
 function test_prerequisites() {
     # Test bash version
-    if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
-        write_color "ERROR: Bash 4.0 or higher is required" "$COLOR_ERROR"
+    if [ "${BASH_VERSINFO[0]}" -lt 2 ]; then
+        write_color "ERROR: Bash 2.0 or higher is required" "$COLOR_ERROR"
         write_color "Current version: ${BASH_VERSION}" "$COLOR_ERROR"
         return 1
     fi
