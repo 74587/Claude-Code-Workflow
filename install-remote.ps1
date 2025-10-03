@@ -258,23 +258,25 @@ function Extract-Repository {
 
 function Invoke-LocalInstaller {
     param(
-        [string]$RepoDir
+        [string]$RepoDir,
+        [string]$VersionInfo = "",
+        [string]$BranchInfo = ""
     )
-    
+
     $installerPath = Join-Path $RepoDir "Install-Claude.ps1"
-    
+
     if (-not (Test-Path $installerPath)) {
         Write-ColorOutput "ERROR: Install-Claude.ps1 not found" $ColorError
         return $false
     }
-    
+
     Write-ColorOutput "Running local installer..." $ColorInfo
     Write-Host ""
-    
+
     # Build parameters for local installer
     $params = @{}
     if ($Global) { $params["InstallMode"] = "Global" }
-    if ($Directory) { 
+    if ($Directory) {
         $params["InstallMode"] = "Custom"
         $params["TargetPath"] = $Directory
     }
@@ -282,11 +284,15 @@ function Invoke-LocalInstaller {
     if ($NoBackup) { $params["NoBackup"] = $NoBackup }
     if ($NonInteractive) { $params["NonInteractive"] = $NonInteractive }
     if ($BackupAll) { $params["BackupAll"] = $BackupAll }
-    
+
+    # Pass version and branch information
+    if ($VersionInfo) { $params["SourceVersion"] = $VersionInfo }
+    if ($BranchInfo) { $params["SourceBranch"] = $BranchInfo }
+
     try {
         # Change to repo directory and run installer
         Push-Location $RepoDir
-        
+
         if ($params.Count -gt 0) {
             $paramList = ($params.GetEnumerator() | ForEach-Object { "-$($_.Key) $($_.Value)" }) -join " "
             Write-ColorOutput "Executing: & `"$installerPath`" $paramList" $ColorInfo
@@ -295,7 +301,7 @@ function Invoke-LocalInstaller {
             Write-ColorOutput "Executing: & `"$installerPath`"" $ColorInfo
             & $installerPath
         }
-        
+
         Pop-Location
         return $true
     } catch {
@@ -542,26 +548,32 @@ function Main {
     # Create temp directory
     $tempDir = Get-TempDirectory
     Write-ColorOutput "Temporary directory: $tempDir" $ColorInfo
-    
+
     try {
         # Download repository
         $zipPath = Download-Repository -TempDir $tempDir -Version $Version -Branch $Branch -Tag $Tag
         if (-not $zipPath) {
             throw "Download failed"
         }
-        
+
         # Extract repository
         $repoDir = Extract-Repository $zipPath $tempDir
         if (-not $repoDir) {
             throw "Extraction failed"
         }
-        
-        # Run local installer
-        $success = Invoke-LocalInstaller $repoDir
+
+        # Determine version and branch information to pass
+        $versionToPass = if ($Tag) { $Tag } else { "latest" }
+        $branchToPass = if ($Version -eq "branch") { $Branch } elseif ($Version -eq "latest") { "main" } elseif ($Tag) { $Tag } else { "main" }
+
+        Write-ColorOutput "Version info: $versionToPass (branch: $branchToPass)" $ColorInfo
+
+        # Run local installer with version information
+        $success = Invoke-LocalInstaller -RepoDir $repoDir -VersionInfo $versionToPass -BranchInfo $branchToPass
         if (-not $success) {
             throw "Installation script failed"
         }
-        
+
         Write-Host ""
         Write-ColorOutput "Remote installation completed successfully!" $ColorSuccess
         

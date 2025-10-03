@@ -59,7 +59,11 @@ param(
 
     [switch]$BackupAll,
 
-    [switch]$NoBackup
+    [switch]$NoBackup,
+
+    [string]$SourceVersion = "",
+
+    [string]$SourceBranch = ""
 )
 
 # Set encoding for proper Unicode support
@@ -622,6 +626,37 @@ function Merge-DirectoryContents {
     return $true
 }
 
+function Create-VersionJson {
+    param(
+        [string]$TargetClaudeDir,
+        [string]$InstallationMode
+    )
+
+    # Determine version from source or default
+    $versionNumber = if ($SourceVersion) { $SourceVersion } else { $Version }
+    $sourceBranch = if ($SourceBranch) { $SourceBranch } else { "unknown" }
+
+    # Create version.json content
+    $versionInfo = @{
+        version = $versionNumber
+        installation_mode = $InstallationMode
+        installation_path = $TargetClaudeDir
+        installation_date_utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        source_branch = $sourceBranch
+    }
+
+    $versionJsonPath = Join-Path $TargetClaudeDir "version.json"
+
+    try {
+        $versionInfo | ConvertTo-Json | Out-File -FilePath $versionJsonPath -Encoding utf8 -Force
+        Write-ColorOutput "Created version.json: $versionNumber ($InstallationMode)" $ColorSuccess
+        return $true
+    } catch {
+        Write-ColorOutput "WARNING: Failed to create version.json: $($_.Exception.Message)" $ColorWarning
+        return $false
+    }
+}
+
 function Install-Global {
     Write-ColorOutput "Installing Claude Code Workflow System globally..." $ColorInfo
 
@@ -681,6 +716,10 @@ function Install-Global {
     # Merge .gemini directory contents
     Write-ColorOutput "Merging .gemini directory contents..." $ColorInfo
     $geminiMerged = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $globalGeminiDir -Description ".gemini directory contents" -BackupFolder $backupFolder
+
+    # Create version.json in global .claude directory
+    Write-ColorOutput "Creating version.json..." $ColorInfo
+    Create-VersionJson -TargetClaudeDir $globalClaudeDir -InstallationMode "Global"
 
     if ($backupFolder -and (Test-Path $backupFolder)) {
         $backupFiles = Get-ChildItem $backupFolder -Recurse -File -ErrorAction SilentlyContinue
@@ -818,6 +857,14 @@ function Install-Path {
     # Merge .gemini directory contents to local location
     Write-ColorOutput "Merging .gemini directory contents to local location..." $ColorInfo
     $geminiMerged = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $localGeminiDir -Description ".gemini directory contents" -BackupFolder $backupFolder
+
+    # Create version.json in local .claude directory
+    Write-ColorOutput "Creating version.json in local directory..." $ColorInfo
+    Create-VersionJson -TargetClaudeDir $localClaudeDir -InstallationMode "Path"
+
+    # Also create version.json in global .claude directory
+    Write-ColorOutput "Creating version.json in global directory..." $ColorInfo
+    Create-VersionJson -TargetClaudeDir $globalClaudeDir -InstallationMode "Global"
 
     if ($backupFolder -and (Test-Path $backupFolder)) {
         $backupFiles = Get-ChildItem $backupFolder -Recurse -File -ErrorAction SilentlyContinue
