@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.2.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.2.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,14 +15,14 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 最新版本: v3.2.2** - 独立测试生成工作流，支持跨会话上下文。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v3.2.3** - 版本管理系统与升级通知。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v3.2.2 版本新特性**:
-> - 🔄 独立测试会话架构（WFS-test-[source]）
-> - 🤖 通过元数据自动跨会话上下文收集
-> - 🧪 集成 concept-enhanced 分析（Gemini + Codex 并行执行）
-> - 📦 复用 IMPL-*.json 格式，meta.type="test-fix"（零破坏性更改）
-> - ⚡ 4 阶段工作流：会话 → 上下文 → 分析 → 任务生成
+> **v3.2.3 版本新特性**:
+> - 🔍 新增 `/version` 命令用于检查已安装版本
+> - 📊 GitHub API 集成，获取最新版本信息
+> - 🔄 自动升级通知与建议
+> - 📁 支持本地和全局安装的版本跟踪
+> - ⚡ 一键版本检查，全面展示状态信息
 
 ---
 
@@ -263,6 +263,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 | `/task:*` | 管理单个任务（`create`, `breakdown`, `execute`, `replan`）。 |
 | `/update-memory-full` | 重新索引整个项目文档。 |
 | `/update-memory-related` | 更新与最近更改相关的文档。 |
+| `/version` | 显示版本信息并检查 GitHub 更新。 |
 
 ---
 

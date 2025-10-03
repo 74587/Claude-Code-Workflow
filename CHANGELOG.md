@@ -5,6 +5,125 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.3] - 2025-10-03
+
+### ✨ Version Management System
+
+This release introduces a comprehensive version management and upgrade notification system.
+
+#### Added
+
+**New Command: `/version`**:
+- **Purpose**: Display version information and check for updates from GitHub
+- **Features**:
+  - Shows local and global installation versions
+  - Fetches latest stable release from GitHub API
+  - Displays latest development commit from main branch
+  - Compares installed versions with remote versions
+  - Provides upgrade recommendations with installation commands
+  - Supports both stable and development version tracking
+
+**Version Information Display**:
+- **Local Version**: Shows project-specific installation (if exists)
+- **Global Version**: Shows `~/.claude` installation with tracking mode
+- **Latest Stable**: Displays latest release tag, name, and publish date
+- **Latest Dev**: Shows latest commit hash, message, and date
+- **Status Assessment**: Automatic version comparison and upgrade suggestions
+
+**Version Tracking Files**:
+- **`.claude/version.json`**: Local project version tracking
+- **`~/.claude/version.json`**: Global installation version tracking
+- **Fields**:
+  - `version`: Version number or "latest" for main branch tracking
+  - `installation_mode`: "Local" or "Global"
+  - `installation_path`: Installation directory
+  - `source_branch`: Source branch (usually "main")
+  - `installation_date_utc`: ISO 8601 timestamp
+
+**GitHub API Integration**:
+- **Latest Release**: `https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest`
+  - Extracts: `tag_name`, `name`, `published_at`
+- **Latest Commit**: `https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/main`
+  - Extracts: `sha`, `commit.message`, `commit.author.date`
+- **Timeout**: 30-second timeout for slow connections
+- **Error Handling**: Graceful fallback for network errors
+
+**Command Output Scenarios**:
+
+1. **Up to date**:
+   ```
+   ✅ You are on the latest stable version (3.2.3)
+   ```
+
+2. **Upgrade available**:
+   ```
+   ⬆️ A newer stable version is available: v3.2.3
+   Your version: 3.2.2
+
+   To upgrade:
+   PowerShell: iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1)
+   Bash: bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
+   ```
+
+3. **Development version**:
+   ```
+   ✨ You are running a development version (3.3.0-dev)
+   This is newer than the latest stable release (v3.2.3)
+   ```
+
+#### Changed
+
+**Documentation Updates**:
+- Added `/version` command reference to README.md
+- Added version management documentation to README_CN.md
+- Created comprehensive `.claude/commands/version.md` implementation guide
+- Updated command tables with version management examples
+
+**Installation Scripts Enhancement**:
+- Installation scripts now create `version.json` files automatically
+- Track installation mode (local vs global)
+- Record installation timestamp
+- Support version tracking for both stable and development installations
+
+#### Technical Details
+
+**Implementation**:
+- Uses simple bash commands (no jq dependency required)
+- Fallback to grep/sed for JSON parsing
+- Network calls with curl and error suppression
+- Version comparison using `sort -V` for semantic versioning
+- Cross-platform compatible (Windows Git Bash, Linux, macOS)
+
+**Command Structure**:
+```bash
+/version                    # Display version and check for updates
+```
+
+**No parameters required** - command automatically:
+1. Checks local version file (`./.claude/version.json`)
+2. Checks global version file (`~/.claude/version.json`)
+3. Fetches latest release from GitHub
+4. Fetches latest commit from main branch
+5. Compares versions and provides recommendations
+
+#### Benefits
+
+**User Experience**:
+- 🔍 Quick version check with single command
+- 📊 Comprehensive version information display
+- 🔄 Automatic upgrade notifications
+- 📈 Development version tracking support
+- 🌐 GitHub API integration for latest updates
+
+**DevOps**:
+- 📁 Version tracking in both local and global installations
+- 🕐 Installation timestamp for audit trails
+- 🔀 Support for both stable and development branches
+- ⚡ Fast execution with 30-second network timeout
+- 🛡️ Graceful error handling for offline scenarios
+
+---
+
 ## [3.2.0] - 2025-10-02
 
 ### 🔄 Test-Fix Workflow & Agent Architecture Simplification

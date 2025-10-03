@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.2.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.2.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,14 +15,14 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v3.2.2** - Independent test-gen workflow with cross-session context. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v3.2.3** - Version management system with upgrade notifications. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v3.2.2**:
-> - 🔄 Independent test session architecture (WFS-test-[source])
-> - 🤖 Automatic cross-session context gathering via metadata
-> - 🧪 Integrated concept-enhanced analysis (Gemini + Codex parallel execution)
-> - 📦 Reuses IMPL-*.json format with meta.type="test-fix" (zero breaking changes)
-> - ⚡ 4-phase workflow: session → context → analysis → task generation
+> **What's New in v3.2.3**:
+> - 🔍 New `/version` command for checking installed versions
+> - 📊 GitHub API integration for latest release detection
+> - 🔄 Automatic upgrade notifications and recommendations
+> - 📁 Version tracking in both local and global installations
+> - ⚡ Quick version check with comprehensive status display
 
 ---
 
@@ -263,6 +263,7 @@ After installation, run the following command to ensure CCW is working:
 | `/task:*` | Manage individual tasks (`create`, `breakdown`, `execute`, `replan`). |
 | `/update-memory-full` | Re-index the entire project documentation. |
 | `/update-memory-related` | Update documentation related to recent changes. |
+| `/version` | Display version information and check for updates from GitHub. |
 
 ---
 
