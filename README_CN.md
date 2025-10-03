@@ -236,6 +236,41 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 
 ## ⚙️ 配置
 
+### **前置要求：必需工具**
+
+在使用 CCW 之前，请安装以下命令行工具：
+
+#### **核心 CLI 工具**
+
+| 工具 | 用途 | 安装方式 |
+|------|------|----------|
+| **Gemini CLI** | AI 分析与文档生成 | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) |
+| **Codex CLI** | AI 开发与实现 | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) |
+| **Qwen Code** | AI 架构与代码生成 | `npm install -g @qwen-code/qwen-code` ([文档](https://github.com/QwenLM/qwen-code)) |
+
+#### **系统实用工具**
+
+| 工具 | 用途 | 安装方式 |
+|------|------|----------|
+| **ripgrep (rg)** | 快速代码搜索 | [下载](https://github.com/BurntSushi/ripgrep/releases) 或 `brew install ripgrep` (macOS), `apt install ripgrep` (Ubuntu) |
+| **jq** | JSON 处理 | [下载](https://jqlang.github.io/jq/download/) 或 `brew install jq` (macOS), `apt install jq` (Ubuntu) |
+
+**快速安装（所有工具）：**
+
+```bash
+# macOS
+brew install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+
+# Ubuntu/Debian
+sudo apt install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+
+# Windows (Chocolatey)
+choco install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+```
+
 ### **必需: Gemini CLI 设置**
 
 配置 Gemini CLI 以实现最佳集成：

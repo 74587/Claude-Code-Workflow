@@ -233,6 +233,41 @@ After installation, run the following command to ensure CCW is working:
 
 ## ⚙️ Configuration
 
+### **Prerequisites: Required Tools**
+
+Before using CCW, install the following command-line tools:
+
+#### **Core CLI Tools**
+
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| **Gemini CLI** | AI analysis & documentation | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) |
+| **Codex CLI** | AI development & implementation | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) |
+| **Qwen Code** | AI architecture & code generation | `npm install -g @qwen-code/qwen-code` ([Docs](https://github.com/QwenLM/qwen-code)) |
+
+#### **System Utilities**
+
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| **ripgrep (rg)** | Fast code search | [Download](https://github.com/BurntSushi/ripgrep/releases) or `brew install ripgrep` (macOS), `apt install ripgrep` (Ubuntu) |
+| **jq** | JSON processing | [Download](https://jqlang.github.io/jq/download/) or `brew install jq` (macOS), `apt install jq` (Ubuntu) |
+
+**Quick Install (All Tools):**
+
+```bash
+# macOS
+brew install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+
+# Ubuntu/Debian
+sudo apt install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+
+# Windows (Chocolatey)
+choco install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+```
+
 ### **Essential: Gemini CLI Setup**
 
 Configure Gemini CLI for optimal integration:
