@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.3.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,15 +15,15 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v3.3.0** - CLI tool enhancements & Codex multi-step execution. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v3.4.0** - TDD workflow optimization & test generation enhancements. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v3.3.0**:
-> - 🚀 New `/cli:codex-execute` command for automated multi-step task execution
-> - 🔄 Codex resume mechanism (`codex exec "..." resume --last`) for context continuity
-> - 📋 TodoWrite progress tracking for subtask execution
-> - 📚 Streamlined CLI documentation (60% reduction in redundancy)
-> - 🔧 Enhanced Codex agent configuration for multi-task workflows
-> - ✅ Optional Git verification after each subtask completion
+> **What's New in v3.4.0**:
+> - 🧪 **TDD Workflow Streamlining**: Unified IMPL_PLAN.md structure, 33% reduction in redundant files
+> - 🔄 **Test Coverage Analysis**: TDD workflow upgraded to 6 phases with Phase 3 test context gathering
+> - 🔁 **Iterative Green Phase**: Built-in test-fix-cycle in IMPL tasks with Gemini auto-diagnosis
+> - 🛠️ **Manual-First Fixes**: Gemini + bug-fix template diagnosis by default, optional `--use-codex` automation
+> - ✅ **Test-Gen Workflow Enhancement**: Added 3 supporting tool commands for complete test generation flow
+> - ⏱️ **Dynamic Timeout Allocation**: CLI tools default to 20-120min for large-scale analysis
 
 ---
 
@@ -342,12 +342,15 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 | `/workflow:session:*` | Manage development sessions (`start`, `pause`, `resume`, `list`, `switch`, `complete`). |
 | `/workflow:brainstorm:*` | Use role-based agents for multi-perspective planning. |
 | `/workflow:plan` | Create a detailed, executable plan from a description. |
-| `/workflow:tdd-plan` | Create a Test-Driven Development workflow with Red-Green-Refactor cycles. |
+| `/workflow:tdd-plan` | Create TDD workflow (6 phases) with test coverage analysis and Red-Green-Refactor cycles. |
 | `/workflow:execute` | Execute the current workflow plan autonomously. |
 | `/workflow:status` | Display the current status of the workflow. |
-| `/workflow:test-gen` | Create independent test-fix workflow for validating completed implementation. |
+| `/workflow:test-gen [--use-codex] <session>` | Create test generation workflow with auto-diagnosis and fix cycle for completed implementations. |
 | `/workflow:tdd-verify` | Verify TDD compliance and generate quality report. |
 | `/workflow:review` | **Optional** manual review (only use when explicitly needed - passing tests = approved code). |
+| `/workflow:tools:test-context-gather` | Analyze test coverage and identify missing test files. |
+| `/workflow:tools:test-concept-enhanced` | Generate test strategy and requirements analysis using Gemini. |
+| `/workflow:tools:test-task-generate` | Generate test task JSON with test-fix-cycle specification. |
 
 ### **Task & Memory Commands**
 

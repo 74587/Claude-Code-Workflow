@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.3.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,15 +15,15 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 最新版本: v3.3.0** - CLI 工具增强与 Codex 多步骤执行。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v3.4.0** - TDD 工作流优化与测试生成增强。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v3.3.0 版本新特性**:
-> - 🚀 新增 `/cli:codex-execute` 命令，实现自动化多步骤任务执行
-> - 🔄 Codex resume 机制（`codex exec "..." resume --last`），保持上下文连续性
-> - 📋 TodoWrite 进度跟踪，监控子任务执行状态
-> - 📚 精简 CLI 文档（减少 60% 冗余内容）
-> - 🔧 增强 Codex 智能体配置，支持多任务工作流
-> - ✅ 可选的 Git 验证，每个子任务完成后检查代码变更
+> **v3.4.0 版本新特性**:
+> - 🧪 **TDD 工作流优化**: 精简文件结构，统一使用 IMPL_PLAN.md，减少 33% 冗余文件
+> - 🔄 **测试覆盖分析**: TDD 工作流升级至 6 阶段，新增 Phase 3 测试上下文收集
+> - 🔁 **迭代 Green Phase**: IMPL 任务内置 test-fix-cycle，支持 Gemini 自动诊断和修复
+> - 🛠️ **手动优先修复**: 默认使用 Gemini + bug-fix 模板诊断，可选 `--use-codex` 自动化
+> - ✅ **test-gen 工作流增强**: 新增 3 个配套工具命令，完整测试生成和修复流程
+> - ⏱️ **动态超时分配**: CLI 工具默认 20-120 分钟超时，适应大型项目分析
 
 ---
 
@@ -342,12 +342,15 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 | `/workflow:session:*` | 管理开发会话（`start`, `pause`, `resume`, `list`, `switch`, `complete`）。 |
 | `/workflow:brainstorm:*` | 使用基于角色的智能体进行多视角规划。 |
 | `/workflow:plan` | 从描述创建详细、可执行的计划。 |
-| `/workflow:tdd-plan` | 创建测试驱动开发工作流，包含 Red-Green-Refactor 循环。 |
+| `/workflow:tdd-plan` | 创建 TDD 工作流（6 阶段），包含测试覆盖分析和 Red-Green-Refactor 循环。 |
 | `/workflow:execute` | 自主执行当前的工作流计划。 |
 | `/workflow:status` | 显示工作流的当前状态。 |
-| `/workflow:test-gen` | 创建独立测试修复工作流，用于验证已完成的实现。 |
+| `/workflow:test-gen [--use-codex] <session>` | 为已完成实现创建独立测试生成工作流，支持自动诊断和修复。 |
 | `/workflow:tdd-verify` | 验证 TDD 合规性并生成质量报告。 |
 | `/workflow:review` | **可选** 手动审查（仅在明确需要时使用，测试通过即代表代码已批准）。 |
+| `/workflow:tools:test-context-gather` | 分析测试覆盖率，识别缺失的测试文件。 |
+| `/workflow:tools:test-concept-enhanced` | 使用 Gemini 生成测试策略和需求分析。 |
+| `/workflow:tools:test-task-generate` | 生成测试任务 JSON，包含 test-fix-cycle 规范。 |
 
 ### **任务与内存命令**
 

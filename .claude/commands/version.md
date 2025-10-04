@@ -170,8 +170,8 @@ Bash: bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-W
 
 **Scenario 3: Development version**
 ```
-✨ You are running a development version (3.3.0-dev)
-This is newer than the latest stable release (v3.2.2)
+✨ You are running a development version (3.4.0-dev)
+This is newer than the latest stable release (v3.3.0)
 ```
 
 ## Simple Bash Commands
