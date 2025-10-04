@@ -452,14 +452,19 @@ function get_user_version_choice() {
             latest_version=$(echo "$release_data" | jq -r '.tag_name' 2>/dev/null)
             local published_at=$(echo "$release_data" | jq -r '.published_at' 2>/dev/null)
             if [ -n "$published_at" ] && [ "$published_at" != "null" ]; then
-                # Format: 2025-10-02T04:27:21Z -> 2025-10-02 04:27 UTC
-                latest_date=$(echo "$published_at" | sed 's/T/ /' | sed 's/Z/ UTC/' | cut -d'.' -f1)
+                # Convert UTC to local time
+                if command -v date &> /dev/null; then
+                    latest_date=$(date -d "$published_at" '+%Y-%m-%d %H:%M' 2>/dev/null || date -jf '%Y-%m-%dT%H:%M:%SZ' "$published_at" '+%Y-%m-%d %H:%M' 2>/dev/null)
+                fi
             fi
         else
             latest_version=$(echo "$release_data" | grep -o '"tag_name":\s*"[^"]*"' | sed 's/"tag_name":\s*"\([^"]*\)"/\1/')
             local published_at=$(echo "$release_data" | grep -o '"published_at":\s*"[^"]*"' | sed 's/"published_at":\s*"\([^"]*\)"/\1/')
             if [ -n "$published_at" ]; then
-                latest_date=$(echo "$published_at" | sed 's/T/ /' | sed 's/Z/ UTC/' | cut -d'.' -f1)
+                # Convert UTC to local time
+                if command -v date &> /dev/null; then
+                    latest_date=$(date -d "$published_at" '+%Y-%m-%d %H:%M' 2>/dev/null || date -jf '%Y-%m-%dT%H:%M:%SZ' "$published_at" '+%Y-%m-%d %H:%M' 2>/dev/null)
+                fi
             fi
         fi
     fi
@@ -480,13 +485,19 @@ function get_user_version_choice() {
             commit_id=$(echo "$commit_data" | jq -r '.sha' 2>/dev/null | cut -c1-7)
             local committer_date=$(echo "$commit_data" | jq -r '.commit.committer.date' 2>/dev/null)
             if [ -n "$committer_date" ] && [ "$committer_date" != "null" ]; then
-                commit_date=$(echo "$committer_date" | sed 's/T/ /' | sed 's/Z/ UTC/' | cut -d'.' -f1)
+                # Convert UTC to local time
+                if command -v date &> /dev/null; then
+                    commit_date=$(date -d "$committer_date" '+%Y-%m-%d %H:%M' 2>/dev/null || date -jf '%Y-%m-%dT%H:%M:%SZ' "$committer_date" '+%Y-%m-%d %H:%M' 2>/dev/null)
+                fi
             fi
         else
             commit_id=$(echo "$commit_data" | grep -o '"sha":\s*"[^"]*"' | head -1 | sed 's/"sha":\s*"\([^"]*\)"/\1/' | cut -c1-7)
             local committer_date=$(echo "$commit_data" | grep -o '"date":\s*"[^"]*"' | head -1 | sed 's/"date":\s*"\([^"]*\)"/\1/')
             if [ -n "$committer_date" ]; then
-                commit_date=$(echo "$committer_date" | sed 's/T/ /' | sed 's/Z/ UTC/' | cut -d'.' -f1)
+                # Convert UTC to local time
+                if command -v date &> /dev/null; then
+                    commit_date=$(date -d "$committer_date" '+%Y-%m-%d %H:%M' 2>/dev/null || date -jf '%Y-%m-%dT%H:%M:%SZ' "$committer_date" '+%Y-%m-%d %H:%M' 2>/dev/null)
+                fi
             fi
         fi
     fi

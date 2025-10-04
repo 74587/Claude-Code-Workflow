@@ -416,10 +416,10 @@ function Get-UserVersionChoice {
         $response = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -TimeoutSec 5
         $latestVersion = $response.tag_name
 
-        # Parse and format release date
+        # Parse and format release date to local time
         if ($response.published_at) {
-            $publishDate = [DateTime]::Parse($response.published_at)
-            $latestStableDate = $publishDate.ToString("yyyy-MM-dd HH:mm UTC")
+            $publishDate = [DateTime]::Parse($response.published_at).ToLocalTime()
+            $latestStableDate = $publishDate.ToString("yyyy-MM-dd HH:mm")
         }
 
         Write-ColorOutput "Latest stable: $latestVersion ($latestStableDate)" $ColorSuccess
@@ -433,10 +433,10 @@ function Get-UserVersionChoice {
         $commitResponse = Invoke-RestMethod -Uri $commitUrl -UseBasicParsing -TimeoutSec 5
         $latestCommitId = $commitResponse.sha.Substring(0, 7)
 
-        # Parse and format commit date
+        # Parse and format commit date to local time
         if ($commitResponse.commit.committer.date) {
-            $commitDate = [DateTime]::Parse($commitResponse.commit.committer.date)
-            $latestCommitDate = $commitDate.ToString("yyyy-MM-dd HH:mm UTC")
+            $commitDate = [DateTime]::Parse($commitResponse.commit.committer.date).ToLocalTime()
+            $latestCommitDate = $commitDate.ToString("yyyy-MM-dd HH:mm")
         }
 
         Write-ColorOutput "Latest commit: $latestCommitId ($latestCommitDate)" $ColorSuccess

@@ -1,10 +1,3 @@
----
-name: plan
-description: 软件架构规划和技术实现计划分析模板
-category: planning
-keywords: [规划, 架构, 实现计划, 技术设计, 修改方案]
----
-
 # 软件架构规划模板
 # AI Persona & Core Mission
 
