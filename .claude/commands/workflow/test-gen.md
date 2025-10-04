@@ -1,11 +1,11 @@
 ---
 name: test-gen
 description: Create independent test-fix workflow session by analyzing completed implementation
-usage: /workflow:test-gen <source-session-id>
-argument-hint: "<source-session-id>"
+usage: /workflow:test-gen [--use-codex] <source-session-id>
+argument-hint: "[--use-codex] <source-session-id>"
 examples:
   - /workflow:test-gen WFS-user-auth
-  - /workflow:test-gen WFS-api-refactor
+  - /workflow:test-gen --use-codex WFS-api-refactor
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -20,6 +20,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 - **Context-First**: Prioritizes gathering code changes and summaries from source session
 - **Format Reuse**: Creates standard `IMPL-*.json` task, using `meta.type: "test-fix"` for agent assignment
 - **Parameter Simplification**: Tools auto-detect test session type via metadata, no manual cross-session parameters needed
+- **Manual First**: Default to manual fixes, use `--use-codex` flag for automated Codex fix application
 
 **Execution Flow**:
 1. Initialize TodoWrite → Create test session → Parse session ID
@@ -36,6 +37,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 5. **Complete All Phases**: Do not return to user until Phase 4 completes (execution triggered separately)
 6. **Track Progress**: Update TodoWrite after every phase completion
 7. **Automatic Detection**: context-gather auto-detects test session and gathers source session context
+8. **Parse --use-codex Flag**: Extract flag from arguments and pass to Phase 4 (test-task-generate)
 
 ## 5-Phase Execution
 
@@ -125,9 +127,11 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
 ### Phase 4: Generate Test Tasks
-**Command**: `SlashCommand(command="/workflow:tools:test-task-generate --session [testSessionId]")`
+**Command**: `SlashCommand(command="/workflow:tools:test-task-generate [--use-codex] --session [testSessionId]")`
 
-**Input**: `testSessionId` from Phase 1
+**Input**:
+- `testSessionId` from Phase 1
+- `--use-codex` flag (if present in original command)
 
 **Expected Behavior**:
 - Parse TEST_ANALYSIS_RESULTS.md from Phase 3
@@ -157,15 +161,16 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 - Task ID: `IMPL-002`
 - `meta.type: "test-fix"`
 - `meta.agent: "@test-fix-agent"`
+- `meta.use_codex: true|false` (based on --use-codex flag)
 - `context.depends_on: ["IMPL-001"]`
 - `context.requirements`: Execute and fix tests
 - `flow_control.implementation_approach.test_fix_cycle`: Complete cycle specification
-  - **Cycle pattern**: test → gemini_diagnose → codex_fix_resume → retest
-  - **Tools configuration**: Gemini for analysis, Codex resume for fixes
+  - **Cycle pattern**: test → gemini_diagnose → manual_fix (or codex if --use-codex) → retest
+  - **Tools configuration**: Gemini for analysis with bug-fix template, manual or Codex for fixes
   - **Exit conditions**: Success (all pass) or failure (max iterations)
 - `flow_control.implementation_approach.modification_points`: 3-phase execution flow
   - Phase 1: Initial test execution
-  - Phase 2: Iterative Gemini diagnosis + Codex resume fixes
+  - Phase 2: Iterative Gemini diagnosis + manual/Codex fixes (based on flag)
   - Phase 3: Final validation and certification
 
 **TodoWrite**: Mark phase 4 completed, phase 5 in_progress
@@ -188,6 +193,7 @@ Tasks Created:
 Test Framework: [detected framework]
 Test Files to Generate: [count]
 Max Fix Iterations: 5
+Fix Mode: [Manual|Codex Automated] (based on --use-codex flag)
 
 Next Steps:
 1. Review test plan: .workflow/[testSessionId]/IMPL_PLAN.md
@@ -275,8 +281,8 @@ Created in `.workflow/WFS-test-[session]/`:
 **IMPL-002** (@test-fix-agent):
 1. Run test suite
 2. Iterative fix cycle (max 5):
-   - Gemini diagnosis → surgical fix suggestions
-   - Codex applies fixes (resume mechanism)
+   - Gemini diagnosis with bug-fix template → surgical fix suggestions
+   - Manual fix application (default) OR Codex applies fixes if --use-codex flag (resume mechanism)
    - Retest and check regressions
 3. Final validation and certification
 

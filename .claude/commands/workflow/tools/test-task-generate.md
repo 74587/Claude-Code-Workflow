@@ -1,24 +1,25 @@
 ---
 name: test-task-generate
 description: Generate test-fix task JSON with iterative test-fix-retest cycle specification
-usage: /workflow:tools:test-task-generate --session <test-session-id>
-argument-hint: "--session WFS-test-session-id"
+usage: /workflow:tools:test-task-generate [--use-codex] --session <test-session-id>
+argument-hint: "[--use-codex] --session WFS-test-session-id"
 examples:
   - /workflow:tools:test-task-generate --session WFS-test-auth
+  - /workflow:tools:test-task-generate --use-codex --session WFS-test-auth
 ---
 
 # Test Task Generation Command
 
 ## Overview
-Generate specialized test-fix task JSON with comprehensive test-fix-retest cycle specification, including Gemini diagnosis and Codex resume mechanism for intelligent failure resolution.
+Generate specialized test-fix task JSON with comprehensive test-fix-retest cycle specification, including Gemini diagnosis (using bug-fix template) and manual fix workflow (Codex automation only when explicitly requested).
 
 ## Core Philosophy
 - **Analysis-Driven Test Generation**: Use TEST_ANALYSIS_RESULTS.md from test-concept-enhanced
 - **Agent-Based Test Creation**: Call @code-developer agent for comprehensive test generation
 - **Coverage-First**: Generate all missing tests before execution
 - **Test Execution**: Execute complete test suite after generation
-- **Gemini Diagnosis**: Use Gemini for root cause analysis and fix suggestions
-- **Codex Resume**: Apply fixes using `codex exec "..." resume --last` for context continuity
+- **Gemini Diagnosis**: Use Gemini for root cause analysis and fix suggestions (references bug-fix template)
+- **Manual Fixes First**: Apply fixes manually by default, codex only when explicitly needed
 - **Iterative Refinement**: Repeat test-analyze-fix-retest cycle until all tests pass
 - **Surgical Fixes**: Minimal code changes, no refactoring during test fixes
 - **Auto-Revert**: Rollback all changes if max iterations reached
@@ -26,27 +27,32 @@ Generate specialized test-fix task JSON with comprehensive test-fix-retest cycle
 ## Core Responsibilities
 - Parse TEST_ANALYSIS_RESULTS.md from test-concept-enhanced
 - Extract test requirements and generation strategy
+- Parse `--use-codex` flag to determine fix mode (manual vs automated)
 - Generate test generation subtask calling @code-developer
-- Generate test execution and fix cycle task JSON
-- Configure Gemini diagnosis and Codex execution workflow
+- Generate test execution and fix cycle task JSON with appropriate fix mode
+- Configure Gemini diagnosis workflow (bug-fix template) and manual/Codex fix application
 - Create test-oriented IMPL_PLAN.md and TODO_LIST.md with test generation phase
 
 ## Execution Lifecycle
 
 ### Phase 1: Input Validation & Discovery
 
-1. **Test Session Validation**
+1. **Parameter Parsing**
+   - Parse `--use-codex` flag from command arguments
+   - Store flag value for IMPL-002.json generation
+
+2. **Test Session Validation**
    - Load `.workflow/{test-session-id}/workflow-session.json`
    - Verify `workflow_type: "test_session"`
    - Extract `source_session_id` from metadata
 
-2. **Test Analysis Results Loading**
+3. **Test Analysis Results Loading**
    - **REQUIRED**: Load `.workflow/{test-session-id}/.process/TEST_ANALYSIS_RESULTS.md`
    - Parse test requirements by file
    - Extract test generation strategy
    - Identify test files to create with specifications
 
-3. **Test Context Package Loading**
+4. **Test Context Package Loading**
    - Load `.workflow/{test-session-id}/.process/test-context-package.json`
    - Extract test framework configuration
    - Extract coverage gaps and priorities
@@ -183,13 +189,15 @@ Generate **TWO task JSON files**:
     "agent": "@test-fix-agent",
     "source_session": "[sourceSessionId]",
     "test_framework": "jest|pytest|cargo|detected",
-    "max_iterations": 5
+    "max_iterations": 5,
+    "use_codex": false  // Set to true if --use-codex flag present
   },
   "context": {
     "requirements": [
       "Execute complete test suite (generated in IMPL-001)",
-      "Diagnose test failures using Gemini analysis",
-      "Fix failures using Codex with resume mechanism",
+      "Diagnose test failures using Gemini analysis with bug-fix template",
+      "Present fixes to user for manual application (default)",
+      "Use Codex ONLY if user explicitly requests automation",
       "Iterate until all tests pass or max iterations reached",
       "Revert changes if unable to fix within iteration limit"
     ],
@@ -272,14 +280,14 @@ Generate **TWO task JSON files**:
       }
     ],
     "implementation_approach": {
-      "task_description": "Execute iterative test-fix-retest cycle using Gemini diagnosis and Codex execution",
+      "task_description": "Execute iterative test-fix-retest cycle using Gemini diagnosis (bug-fix template) and manual fixes (Codex only if explicitly needed)",
       "test_fix_cycle": {
         "max_iterations": 5,
-        "cycle_pattern": "test → gemini_diagnose → codex_fix_resume → retest",
+        "cycle_pattern": "test → gemini_diagnose → manual_fix (or codex if needed) → retest",
         "tools": {
           "test_execution": "bash(test_command)",
-          "diagnosis": "gemini-wrapper (MODE: analysis)",
-          "fix_application": "codex exec resume --last (MODE: write)",
+          "diagnosis": "gemini-wrapper (MODE: analysis, uses bug-fix template)",
+          "fix_application": "manual (default) or codex exec resume --last (if explicitly needed)",
           "verification": "bash(test_command) + regression_check"
         },
         "exit_conditions": {
@@ -303,30 +311,36 @@ Generate **TWO task JSON files**:
         "  WHILE (tests failing AND current_iteration < max_iterations):",
         "    current_iteration++",
         "    ",
-        "    STEP 2.1: Gemini Diagnosis",
+        "    STEP 2.1: Gemini Diagnosis (using bug-fix template)",
         "    - Prepare diagnosis context:",
         "      * Test failure output from previous run",
         "      * Source files from focus_paths",
         "      * Implementation summaries from source session",
-        "    - Execute Gemini analysis:",
-        "      bash(cd .workflow/WFS-test-[session]/.process && ~/.claude/scripts/gemini-wrapper -p \"",
+        "    - Execute Gemini analysis with bug-fix template:",
+        "      bash(cd .workflow/WFS-test-[session]/.process && ~/.claude/scripts/gemini-wrapper --all-files -p \"",
         "      PURPOSE: Diagnose test failure iteration [N] and propose minimal fix",
-        "      TASK: Analyze test output and identify root cause with specific code change",
+        "      TASK: Systematic bug analysis and fix recommendations for test failure",
         "      MODE: analysis",
-        "      CONTEXT: Test output: [test_failures]",
+        "      CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}",
+        "               Test output: [test_failures]",
         "               Source files: [focus_paths]",
         "               Implementation: [implementation_context]",
-        "      EXPECTED: Root cause analysis with fix in format:",
-        "                FILE: path/to/file.ts",
-        "                FUNCTION: functionName",
-        "                LINES: 45-52",
-        "                CHANGE: Specific code modification to apply",
-        "      RULES: Minimal surgical fixes only - no refactoring",
-        "             Focus on test failure, not code quality",
+        "      EXPECTED: Root cause analysis, code path tracing, targeted fixes",
+        "      RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: [test_failure_description]",
+        "             Minimal surgical fixes only - no refactoring",
         "      \" > fix-iteration-[N]-diagnosis.md)",
         "    - Parse diagnosis → extract fix_suggestion and target_files",
+        "    - Present fix to user for manual application (default)",
         "    ",
-        "    STEP 2.2: Codex Fix with Resume Mechanism",
+        "    STEP 2.2: Apply Fix (Based on meta.use_codex Flag)",
+        "    ",
+        "    IF meta.use_codex = false (DEFAULT):",
+        "    - Present Gemini diagnosis to user for manual fix",
+        "    - User applies fix based on diagnosis recommendations",
+        "    - Stage changes: bash(git add -A)",
+        "    - Store fix log: .process/fix-iteration-[N]-changes.log",
+        "    ",
+        "    IF meta.use_codex = true (--use-codex flag present):",
         "    - Stage current changes (if valid git repo): bash(git add -A)",
         "    - First iteration: Start new Codex session",
         "      codex -C [project_root] --full-auto exec \"",
@@ -391,8 +405,8 @@ Generate **TWO task JSON files**:
         "  Analyze existing test files",
         "  Identify files without tests",
         "  IF tests missing:",
-        "    Generate tests using Codex",
-        "    Verify test generation successful",
+        "    Report to user (no automatic generation)",
+        "    Wait for user to generate tests or request automation",
         "  ELSE:",
         "    Skip to Phase 1",
         "PHASE 1: Initial Test Execution",
@@ -401,8 +415,10 @@ Generate **TWO task JSON files**:
         "  ELSE → Store failures, proceed to Phase 2",
         "PHASE 2: Iterative Fix Cycle (max 5 iterations)",
         "  LOOP (max 5 times):",
-        "    1. Gemini diagnoses failure → fix suggestion",
-        "    2. Codex applies fix (resume for continuity)",
+        "    1. Gemini diagnoses failure with bug-fix template → fix suggestion",
+        "    2. Check meta.use_codex flag:",
+        "       - IF false (default): Present fix to user for manual application",
+        "       - IF true (--use-codex): Codex applies fix with resume for continuity",
         "    3. Retest and check results",
         "    4. IF pass → Exit loop to Phase 3",
         "    5. ELSE → Continue with updated context",
@@ -490,15 +506,17 @@ Diagnose and fix all test failures using iterative Gemini analysis and Codex exe
 
 ## Test-Fix-Retest Cycle
 - **Max Iterations**: 5
-- **Diagnosis Tool**: Gemini (analysis mode)
-- **Fix Tool**: Codex (resume mechanism)
+- **Diagnosis Tool**: Gemini (analysis mode with bug-fix template from bug-index.md)
+- **Fix Tool**: Manual (default, meta.use_codex=false) or Codex (if --use-codex flag, meta.use_codex=true)
 - **Verification**: Bash test execution + regression check
 
 ### Cycle Workflow
 1. **Initial Test**: Execute full suite, capture failures
 2. **Iterative Fix Loop** (max 5 times):
-   - Gemini diagnoses failure → surgical fix suggestion
-   - Codex applies fix using resume for context continuity
+   - Gemini diagnoses failure using bug-fix template → surgical fix suggestion
+   - Check meta.use_codex flag:
+     - If false (default): Present fix to user for manual application
+     - If true (--use-codex): Codex applies fix with resume for context continuity
    - Retest and verify (check for regressions)
    - Continue until all pass or max iterations reached
 3. **Final Validation**: Confirm all tests pass, certify code
@@ -596,8 +614,16 @@ Diagnose and fix all test failures using iterative Gemini analysis and Codex exe
 
 ### Basic Usage
 ```bash
+# Manual fix mode (default)
 /workflow:tools:test-task-generate --session WFS-test-auth
+
+# Automated Codex fix mode
+/workflow:tools:test-task-generate --use-codex --session WFS-test-auth
 ```
+
+### Flag Behavior
+- **No flag**: `meta.use_codex=false`, manual fixes presented to user
+- **--use-codex**: `meta.use_codex=true`, Codex automatically applies fixes with resume mechanism
 
 ## Related Commands
 - `/workflow:test-gen` - Creates test session and calls this tool
@@ -610,15 +636,20 @@ Diagnose and fix all test failures using iterative Gemini analysis and Codex exe
 
 The `@test-fix-agent` will execute the task by following the `flow_control.implementation_approach` specification:
 
-1. **Load task JSON**: Read complete test-fix task from `.task/IMPL-001.json`
-2. **Execute pre_analysis**: Load source context, discover framework, analyze tests
-3. **Phase 1**: Run initial test suite
-4. **Phase 2**: If failures, enter iterative loop:
-   - Use Gemini for diagnosis (analysis mode)
-   - Use Codex resume for fixes (maintains context)
+1. **Load task JSON**: Read complete test-fix task from `.task/IMPL-002.json`
+2. **Check meta.use_codex**: Determine fix mode (manual or automated)
+3. **Execute pre_analysis**: Load source context, discover framework, analyze tests
+4. **Phase 1**: Run initial test suite
+5. **Phase 2**: If failures, enter iterative loop:
+   - Use Gemini for diagnosis (analysis mode with bug-fix template)
+   - Check meta.use_codex flag:
+     - If false (default): Present fix suggestions to user for manual application
+     - If true (--use-codex): Use Codex resume for automated fixes (maintains context)
    - Retest and check for regressions
    - Repeat max 5 times
-5. **Phase 3**: Generate summary and certify code
-6. **Error Recovery**: Revert changes if max iterations reached
+6. **Phase 3**: Generate summary and certify code
+7. **Error Recovery**: Revert changes if max iterations reached
 
-The agent uses the `codex exec "..." resume --last` pattern to maintain conversation context across multiple fix iterations, ensuring consistency and learning from previous attempts.
+**Bug Diagnosis Template**: Uses bug-fix.md template as referenced in bug-index.md for systematic root cause analysis, code path tracing, and targeted fix recommendations.
+
+**Codex Usage**: The agent uses `codex exec "..." resume --last` pattern ONLY when meta.use_codex=true (--use-codex flag present) to maintain conversation context across multiple fix iterations, ensuring consistency and learning from previous attempts.
