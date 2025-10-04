@@ -335,9 +335,9 @@ Optimize performance by excluding unnecessary files:
 !**/CLAUDE.md
 ```
 
-### **Optional: MCP Tools** *(Enhanced Analysis)*
+### **Recommended: MCP Tools** *(Enhanced Analysis)*
 
-MCP (Model Context Protocol) tools provide advanced codebase analysis. **Completely optional** - CCW works perfectly without them.
+MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recommended installation** - While CCW has fallback mechanisms, not installing MCP tools may lead to unexpected behavior or degraded performance in some workflows.
 
 #### Available MCP Servers
 
@@ -350,7 +350,13 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Complet
 - 📊 **Faster Analysis**: Direct codebase indexing vs manual searching
 - 🌐 **External Context**: Real-world API patterns and examples
 - 🔍 **Advanced Search**: Pattern matching and similarity detection
-- ⚡ **Automatic Fallback**: Uses traditional tools when MCP unavailable
+- ⚡ **Better Reliability**: Primary tools for certain workflows
+
+⚠️ **Note**: Some workflows expect MCP tools to be available. Without them, you may experience:
+- Slower code analysis and search operations
+- Reduced context quality in some scenarios
+- Fallback to less efficient traditional tools
+- Potential unexpected behavior in advanced workflows
 
 ---
 

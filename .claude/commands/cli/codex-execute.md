@@ -24,6 +24,7 @@ Automated task decomposition and sequential execution with Codex, using `codex e
 ```
 Task Input → Decompose into Subtasks → TodoWrite Tracking →
 For Each Subtask:
+  0. Stage existing changes (git add -A) if valid git repo
   1. Execute with Codex
   2. [Optional] Git verification
   3. Mark complete in TodoWrite
@@ -61,6 +62,14 @@ For Each Subtask:
 
 ### Phase 2: Sequential Execution
 
+**Pre-Execution Git Staging** (if valid git repository):
+```bash
+# Stage all current changes before codex execution
+# This makes codex changes clearly visible in git diff
+git add -A
+git status --short
+```
+
 **For First Subtask**:
 ```bash
 # Initial execution (no resume needed)
@@ -76,6 +85,9 @@ Subtask 1 of N: [subtask title]
 
 **For Subsequent Subtasks** (using resume --last):
 ```bash
+# Stage changes from previous subtask (if valid git repository)
+git add -A
+
 # Resume previous session for context continuity
 codex exec "
 CONTINUE TO NEXT SUBTASK:
@@ -271,9 +283,10 @@ codex exec "CONTINUE TO NEXT SUBTASK: ..." resume --last --skip-git-repo-check -
 1. **Subtask Granularity**: Keep subtasks small and focused
 2. **Clear Boundaries**: Each subtask should have well-defined input/output
 3. **Git Hygiene**: Use `--verify-git` for critical refactoring
-4. **Context Continuity**: Let `codex resume --last` maintain context
-5. **Recovery Points**: TodoWrite provides clear progress tracking
-6. **Image References**: Attach design files for UI tasks
+4. **Pre-Execution Staging**: Stage changes before each subtask to clearly see codex modifications
+5. **Context Continuity**: Let `codex resume --last` maintain context
+6. **Recovery Points**: TodoWrite provides clear progress tracking
+7. **Image References**: Attach design files for UI tasks
 
 ## Input Processing
 

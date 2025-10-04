@@ -28,6 +28,7 @@ For all CLI tool usage, command syntax, and integration guidelines:
 - **Learning from existing code** - Study and plan before implementing
 - **Clear intent over clever code** - Be boring and obvious
 - **Follow existing code style** - Match import patterns, naming conventions, and formatting of existing codebase
+- **No unsolicited reports** - Task summaries can be performed internally, but NEVER generate additional reports, documentation files, or summary files without explicit user permission
 
 ### Simplicity Means
 
@@ -56,6 +57,7 @@ For all CLI tool usage, command syntax, and integration guidelines:
 
 **NEVER**:
 - Make assumptions - verify with existing code
+- Generate reports, summaries, or documentation files without explicit user request
 
 **ALWAYS**:
 - Plan complex tasks thoroughly before implementation
