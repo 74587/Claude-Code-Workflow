@@ -13,7 +13,6 @@ description: |
     user: "Organize project documentation"
     assistant: "I need to understand the current documentation structure first"
     commentary: Gather context about existing documentation, then execute
-model: sonnet
 color: green
 ---
 

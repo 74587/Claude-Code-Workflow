@@ -13,7 +13,6 @@ description: |
     user: "Add user authentication"
     assistant: "I need to analyze the codebase first to understand the patterns"
     commentary: Use Gemini to gather implementation context, then execute
-model: sonnet
 color: blue
 ---
 

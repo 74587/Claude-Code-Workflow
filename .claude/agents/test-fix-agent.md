@@ -18,7 +18,6 @@ description: |
     user: "Run the full test suite and ensure everything passes"
     assistant: "I'll use the test-fix-agent to execute all tests and fix any issues found"
     commentary: test-fix-agent serves as the quality gate - passing tests = approved code.
-model: sonnet
 color: green
 ---
 

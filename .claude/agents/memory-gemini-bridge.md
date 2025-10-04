@@ -1,7 +1,6 @@
 ---
 name: memory-gemini-bridge
 description: Execute complex project documentation updates using script coordination
-model: sonnet
 color: purple
 ---
 

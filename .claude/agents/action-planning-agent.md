@@ -13,7 +13,6 @@ description: |
     user: "Create implementation plan for: real-time notifications system"
     assistant: "I'll create a staged implementation plan using provided context"
     commentary: Agent executes planning based on provided requirements and context
-model: sonnet
 color: yellow
 ---
 

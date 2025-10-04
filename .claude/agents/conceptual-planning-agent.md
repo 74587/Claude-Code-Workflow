@@ -20,7 +20,6 @@ description: |
     auto.md: Assigns dedicated agent with ASSIGNED_ROLE: ui-designer
     agent: "I'll execute ui-designer analysis for this topic, creating UX-focused conceptual analysis in .brainstorming/ui-designer/ directory"
 
-model: sonnet
 color: purple
 ---
 

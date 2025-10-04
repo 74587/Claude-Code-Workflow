@@ -8,7 +8,6 @@ examples:
   - /cli:mode:code-analysis --tool qwen --enhance "explain data transformation pipeline"
   - /cli:mode:code-analysis --tool codex --cd "src/core" "trace execution path for user registration"
 allowed-tools: SlashCommand(*), Bash(*)
- 
 ---
 
 # CLI Mode: Code Analysis (/cli:mode:code-analysis)
