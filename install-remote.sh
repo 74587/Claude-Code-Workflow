@@ -648,10 +648,21 @@ function main() {
         if [ $extract_status -eq 0 ] && [ -n "$repo_dir" ] && [ -d "$repo_dir" ]; then
             write_color "Extraction successful: $repo_dir" "$COLOR_SUCCESS"
 
+            # Get commit SHA from the downloaded repository first
+            local commit_sha=""
+            if command -v git &> /dev/null && [ -d "$repo_dir/.git" ]; then
+                commit_sha=$(cd "$repo_dir" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            else
+                # Fallback: try to get from GitHub API
+                local temp_branch="main"
+                [ "$VERSION_TYPE" = "branch" ] && temp_branch="$BRANCH"
+                commit_sha=$(curl -fsSL "https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/$temp_branch" 2>/dev/null | grep -o '"sha": *"[^"]*"' | head -1 | cut -d'"' -f4 | cut -c1-7)
+                [ -z "$commit_sha" ] && commit_sha="unknown"
+            fi
+
             # Determine version and branch information to pass
             local version_to_pass=""
             local branch_to_pass=""
-            local commit_sha=""
 
             if [ -n "$TAG_VERSION" ]; then
                 # Specific tag version - remove 'v' prefix
@@ -663,11 +674,12 @@ function main() {
                 if [ -n "$latest_tag" ]; then
                     version_to_pass="${latest_tag#v}"
                 else
-                    version_to_pass="latest"
+                    # Fallback: use commit SHA as version
+                    version_to_pass="dev-$commit_sha"
                 fi
             else
-                # Latest development or branch
-                version_to_pass="latest"
+                # Latest development or branch - use commit SHA as version
+                version_to_pass="dev-$commit_sha"
             fi
 
             if [ "$VERSION_TYPE" = "branch" ]; then
@@ -678,15 +690,6 @@ function main() {
                 branch_to_pass="$TAG_VERSION"
             else
                 branch_to_pass="main"
-            fi
-
-            # Get commit SHA from the downloaded repository
-            if command -v git &> /dev/null && [ -d "$repo_dir/.git" ]; then
-                commit_sha=$(cd "$repo_dir" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-            else
-                # Fallback: try to get from GitHub API
-                commit_sha=$(curl -fsSL "https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/$branch_to_pass" 2>/dev/null | grep -o '"sha": *"[^"]*"' | head -1 | cut -d'"' -f4 | cut -c1-7)
-                [ -z "$commit_sha" ] && commit_sha="unknown"
             fi
 
             write_color "Version info: $version_to_pass (branch: $branch_to_pass, commit: $commit_sha)" "$COLOR_INFO"

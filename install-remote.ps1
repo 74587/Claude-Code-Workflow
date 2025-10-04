@@ -564,27 +564,8 @@ function Main {
             throw "Extraction failed"
         }
 
-        # Determine version and branch information to pass
-        $versionToPass = ""
+        # Get commit SHA from the downloaded repository first
         $commitSha = ""
-
-        if ($Tag) {
-            # Specific tag version
-            $versionToPass = $Tag -replace '^v', ''  # Remove 'v' prefix
-        } elseif ($Version -eq "stable") {
-            # Auto-detected latest stable
-            $latestTag = Get-LatestRelease
-            if ($latestTag) {
-                $versionToPass = $latestTag -replace '^v', ''
-            } else {
-                $versionToPass = "latest"
-            }
-        } else {
-            # Latest development or branch
-            $versionToPass = "latest"
-        }
-
-        # Get commit SHA from the downloaded repository
         try {
             Push-Location $repoDir
             $commitSha = (git rev-parse --short HEAD 2>$null)
@@ -600,6 +581,26 @@ function Main {
         } catch {
             Pop-Location
             $commitSha = "unknown"
+        }
+
+        # Determine version and branch information to pass
+        $versionToPass = ""
+
+        if ($Tag) {
+            # Specific tag version
+            $versionToPass = $Tag -replace '^v', ''  # Remove 'v' prefix
+        } elseif ($Version -eq "stable") {
+            # Auto-detected latest stable
+            $latestTag = Get-LatestRelease
+            if ($latestTag) {
+                $versionToPass = $latestTag -replace '^v', ''
+            } else {
+                # Fallback: use commit SHA as version
+                $versionToPass = "dev-$commitSha"
+            }
+        } else {
+            # Latest development or branch - use commit SHA as version
+            $versionToPass = "dev-$commitSha"
         }
 
         $branchToPass = if ($Version -eq "branch") { $Branch } elseif ($Version -eq "latest") { "main" } elseif ($Tag) { $Tag } else { "main" }
