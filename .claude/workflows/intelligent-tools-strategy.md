@@ -28,10 +28,14 @@ type: strategic-guideline
 5. **Small task?** → Still use tools - they're faster than manual work
 
 ### Core Execution Rules
-- **Default Timeout**: Bash commands default execution time = 20 minutes (1200000ms)
-- **Apply to All Tools**: All bash() wrapped commands including Gemini, Qwen wrapper and Codex executions use this timeout
-- **Command Examples**: `bash(cd target/directory && ~/.claude/scripts/gemini-wrapper -p "prompt")`, `bash(cd target/directory && ~/.claude/scripts/qwen-wrapper -p "prompt")`, `bash(codex -C directory --full-auto exec "task")`
-- **Override When Needed**: Specify custom timeout for longer operations
+- **Dynamic Timeout (20-120min)**: Allocate execution time based on task complexity
+  - Simple tasks (analysis, search): 20-40min (1200000-2400000ms)
+  - Medium tasks (refactoring, documentation): 40-60min (2400000-3600000ms)
+  - Complex tasks (implementation, migration): 60-120min (3600000-7200000ms)
+- **Codex Multiplier**: Codex commands use 1.5x of allocated time
+- **Apply to All Tools**: All bash() wrapped commands including Gemini, Qwen wrapper and Codex executions
+- **Command Examples**: `bash(~/.claude/scripts/gemini-wrapper -p "prompt", timeout: 2400000)`, `bash(codex -C directory --full-auto exec "task", timeout: 5400000)`
+- **Auto-detect**: Analyze PURPOSE and TASK fields to determine appropriate timeout
 
 ### Permission Framework
 - **⚠️ WRITE PROTECTION**: Local codebase write/modify requires EXPLICIT user confirmation
