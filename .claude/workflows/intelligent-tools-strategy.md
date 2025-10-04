@@ -34,7 +34,7 @@ type: strategic-guideline
   - Complex tasks (implementation, migration): 60-120min (3600000-7200000ms)
 - **Codex Multiplier**: Codex commands use 1.5x of allocated time
 - **Apply to All Tools**: All bash() wrapped commands including Gemini, Qwen wrapper and Codex executions
-- **Command Examples**: `bash(~/.claude/scripts/gemini-wrapper -p "prompt", timeout: 2400000)`, `bash(codex -C directory --full-auto exec "task", timeout: 5400000)`
+- **Command Examples**: `bash(~/.claude/scripts/gemini-wrapper -p "prompt")`, `bash(codex -C directory --full-auto exec "task")`
 - **Auto-detect**: Analyze PURPOSE and TASK fields to determine appropriate timeout
 
 ### Permission Framework
