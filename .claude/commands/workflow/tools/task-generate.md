@@ -84,21 +84,22 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
         "source": "brainstorm_synthesis",
         "path": ".workflow/WFS-[session]/.brainstorming/synthesis-specification.md",
         "priority": "highest",
-        "contains": "complete_integrated_specification"
+        "usage": "Primary requirement source - use for consolidated requirements and cross-role alignment"
+      },
+      {
+        "type": "role_analysis",
+        "source": "brainstorm_roles",
+        "path": ".workflow/WFS-[session]/.brainstorming/[role-name]/analysis.md",
+        "priority": "high",
+        "usage": "Technical/design/business details from specific roles. Common roles: system-architect (ADRs, APIs, caching), ui-designer (design tokens, layouts), product-manager (user stories, metrics)",
+        "note": "Dynamically discovered - multiple role analysis files may be included based on brainstorming results"
       },
       {
         "type": "topic_framework",
         "source": "brainstorm_framework",
         "path": ".workflow/WFS-[session]/.brainstorming/topic-framework.md",
-        "priority": "medium",
-        "contains": "discussion_framework_structure"
-      },
-      {
-        "type": "individual_role_analysis",
-        "source": "brainstorm_roles",
-        "path": ".workflow/WFS-[session]/.brainstorming/[role]/analysis.md",
         "priority": "low",
-        "contains": "role_specific_analysis_fallback"
+        "usage": "Discussion context and framework structure"
       }
     ]
   },
@@ -115,14 +116,16 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
         "on_error": "skip_optional"
       },
       {
-        "step": "load_individual_role_artifacts",
-        "action": "Load individual role analyses as fallback",
+        "step": "load_role_analysis_artifacts",
+        "action": "Load role-specific analysis documents for technical details",
+        "note": "These artifacts contain implementation details not in synthesis. Consult when needing: API schemas, caching configs, design tokens, ADRs, performance metrics.",
         "commands": [
           "bash(find .workflow/WFS-[session]/.brainstorming/ -name 'analysis.md' 2>/dev/null | head -8)",
+          "Read(.workflow/WFS-[session]/.brainstorming/system-architect/analysis.md)",
           "Read(.workflow/WFS-[session]/.brainstorming/ui-designer/analysis.md)",
-          "Read(.workflow/WFS-[session]/.brainstorming/system-architect/analysis.md)"
+          "Read(.workflow/WFS-[session]/.brainstorming/product-manager/analysis.md)"
         ],
-        "output_to": "individual_artifacts",
+        "output_to": "role_analysis_artifacts",
         "on_error": "skip_optional"
       },
       {
@@ -152,10 +155,11 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
       }
     ],
     "implementation_approach": {
-      "task_description": "Implement '[title]' following synthesis specification",
+      "task_description": "Implement '[title]' following synthesis specification. PRIORITY: Use synthesis-specification.md as primary requirement source. When implementation needs technical details (e.g., API schemas, caching configs, design tokens), refer to artifacts[] for detailed specifications from original role analyses.",
       "modification_points": [
         "Apply consolidated requirements from synthesis-specification.md",
         "Follow technical guidelines from synthesis",
+        "Consult artifacts for implementation details when needed",
         "Integrate with existing patterns"
       ],
       "logic_flow": [
@@ -163,6 +167,7 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
         "Extract requirements and design",
         "Analyze existing patterns",
         "Implement following specification",
+        "Consult artifacts for technical details when needed",
         "Validate against acceptance criteria"
       ]
     },

@@ -169,7 +169,21 @@ Task(
       {
         "type": "synthesis_specification",
         "path": "{synthesis_spec_path}",
-        "priority": "highest"
+        "priority": "highest",
+        "usage": "Primary requirement source - use for consolidated requirements and cross-role alignment"
+      },
+      {
+        "type": "role_analysis",
+        "path": "{role_analysis_path}",
+        "priority": "high",
+        "usage": "Technical/design/business details from specific roles. Common roles: system-architect (ADRs, APIs, caching), ui-designer (design tokens, layouts), product-manager (user stories, metrics)",
+        "note": "Dynamically discovered - multiple role analysis files included based on brainstorming results"
+      },
+      {
+        "type": "topic_framework",
+        "path": "{topic_framework_path}",
+        "priority": "low",
+        "usage": "Discussion context and framework structure"
       }
     ]
   },
@@ -203,12 +217,13 @@ Task(
       }
     ],
     "implementation_approach": {
-      "task_description": "Implement '[title]' following synthesis specification",
+      "task_description": "Implement '[title]' following synthesis specification. PRIORITY: Use synthesis-specification.md as primary requirement source. When implementation needs technical details (e.g., API schemas, caching configs, design tokens), refer to artifacts[] for detailed specifications from original role analyses.",
       "modification_points": ["Apply requirements from synthesis"],
       "logic_flow": [
         "Load synthesis specification",
         "Analyze existing patterns",
         "Implement following specification",
+        "Consult artifacts for technical details when needed",
         "Validate against acceptance criteria"
       ]
     },

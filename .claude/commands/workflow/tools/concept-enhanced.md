@@ -130,6 +130,15 @@ Advanced solution design and feasibility analysis engine with parallel CLI execu
      - Tech stack from tech_stack section
      - Project structure from statistics section
 
+     **ANALYSIS PRIORITY - Use ALL source documents from context-package assets[]**:
+     1. PRIMARY SOURCES (Highest Priority): Individual role analysis.md files (system-architect, ui-designer, product-manager, etc.)
+        - These contain complete technical details, design rationale, ADRs, and decision context
+        - Extract: Technical specs, API schemas, design tokens, caching configs, performance metrics
+     2. SYNTHESIS REFERENCE (Medium Priority): synthesis-specification.md
+        - Use for integrated requirements and cross-role alignment
+        - Validate decisions and identify integration points
+     3. TOPIC FRAMEWORK (Low Priority): topic-framework.md for discussion context
+
      EXPECTED:
      1. CURRENT STATE ANALYSIS: Existing patterns, code structure, integration points, technical debt
      2. SOLUTION DESIGN: Core architecture principles, system design, key design decisions with rationale
