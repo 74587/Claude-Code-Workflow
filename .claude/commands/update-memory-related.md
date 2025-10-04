@@ -126,12 +126,43 @@ Bash(git diff --stat)
 ```
 
 **For Complex Changes (>15 modules):**
-The model will delegate to the memory-gemini-bridge agent using the Task tool:
-```
+
+The model will delegate to the memory-gemini-bridge agent with structured context:
+
+```javascript
 Task "Complex project related update"
-prompt: "Execute context-aware update for [count] changed modules using [tool] with depth-parallel execution"
 subagent_type: "memory-gemini-bridge"
+prompt: `
+CONTEXT:
+- Total modules: ${change_count}
+- Tool: ${tool}  // from --tool parameter, default: gemini
+- Mode: related
+- Changed modules detected via: detect_changed_modules.sh
+- Existing CLAUDE.md: ${existing_count}
+- New CLAUDE.md needed: ${new_count}
+
+MODULE LIST:
+${changed_modules_output}  // Full output from detect_changed_modules.sh list
+
+REQUIREMENTS:
+1. Use TodoWrite to track each depth level before execution
+2. Process depths sequentially (deepest→shallowest), max 4 parallel jobs per depth
+3. Command format: update_module_claude.sh "<path>" "related" "${tool}" &
+4. Extract exact path from "depth:N|path:<PATH>|..." format
+5. Verify all ${change_count} modules are processed
+6. Run safety check after completion
+7. Display git diff --stat
+
+Execute depth-parallel updates for changed modules only.
+`
 ```
+
+**Agent receives complete context:**
+- Changed module count and tool selection
+- Full structured module list (changed only)
+- Clear execution requirements with "related" mode
+- Path extraction format
+- Success criteria
 
 
 ### 📚 Usage Examples

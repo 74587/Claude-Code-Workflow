@@ -119,12 +119,42 @@ Bash(git status --short)
 ```
 
 **For Complex Projects (>20 modules):**
-The model will delegate to the memory-gemini-bridge agent using the Task tool:
-```
+
+The model will delegate to the memory-gemini-bridge agent with structured context:
+
+```javascript
 Task "Complex project full update"
-prompt: "Execute full documentation update for [count] modules using [tool] with depth-parallel execution"
 subagent_type: "memory-gemini-bridge"
+prompt: `
+CONTEXT:
+- Total modules: ${module_count}
+- Tool: ${tool}  // from --tool parameter, default: gemini
+- Mode: full
+- Existing CLAUDE.md: ${existing_count}
+- New CLAUDE.md needed: ${new_count}
+
+MODULE LIST:
+${modules_output}  // Full output from get_modules_by_depth.sh list
+
+REQUIREMENTS:
+1. Use TodoWrite to track each depth level before execution
+2. Process depths 5→0 sequentially, max 4 parallel jobs per depth
+3. Command format: update_module_claude.sh "<path>" "full" "${tool}" &
+4. Extract exact path from "depth:N|path:<PATH>|..." format
+5. Verify all ${module_count} modules are processed
+6. Run safety check after completion
+7. Display git status
+
+Execute depth-parallel updates for all modules.
+`
 ```
+
+**Agent receives complete context:**
+- Module count and tool selection
+- Full structured module list
+- Clear execution requirements
+- Path extraction format
+- Success criteria
 
 
 ### 📚 Usage Examples
