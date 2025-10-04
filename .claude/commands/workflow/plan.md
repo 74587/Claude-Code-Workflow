@@ -19,18 +19,19 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 **Execution Model - Auto-Continue Workflow**:
 
-Each phase executes and returns to user, then **automatically continues** to next phase:
+This workflow runs **fully autonomously** once triggered. Each phase completes, reports its output to you, then **immediately and automatically** proceeds to the next phase without requiring any user intervention.
 
 1. **User triggers**: `/workflow:plan "task"`
-2. **Phase 1 executes** → Returns to user with results
-3. **Auto-continue to Phase 2** → Returns to user with results
-4. **Auto-continue to Phase 3** → Returns to user with results
-5. **Auto-continue to Phase 4** → Returns final summary
+2. **Phase 1 executes** → Reports output to user → Auto-continues
+3. **Phase 2 executes** → Reports output to user → Auto-continues
+4. **Phase 3 executes** → Reports output to user → Auto-continues
+5. **Phase 4 executes** → Reports final summary
 
 **Auto-Continue Mechanism**:
-- Read TodoList to determine current phase status
-- Execute next pending phase based on TodoList state
-- No external state files needed - TodoList tracks progress
+- TodoList tracks current phase status
+- After each phase completion, automatically executes next pending phase
+- **No user action required** - workflow runs end-to-end autonomously
+- Progress updates shown at each phase for visibility
 
 **Execution Modes**:
 - **Manual Mode** (default): Use `/workflow:tools:task-generate`
@@ -116,6 +117,13 @@ CONTEXT: Existing user database schema, REST API endpoints
 ---
 
 ### Phase 4: Task Generation
+
+**Relationship with Brainstorm Phase**:
+- If brainstorm synthesis exists (synthesis-specification.md), Phase 3 analysis incorporates it as input
+- **synthesis-specification.md defines "WHAT"**: Requirements, design specs, high-level features
+- **IMPL_PLAN.md defines "HOW"**: Executable task breakdown, dependencies, implementation sequence
+- Task generation translates high-level specifications into concrete, actionable work items
+
 **Command**:
 - Manual: `SlashCommand(command="/workflow:tools:task-generate --session [sessionId]")`
 - Agent: `SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId]")`

@@ -1,6 +1,6 @@
 ---
 name: synthesis
-description: Generate synthesis-report.md from topic-framework and role analyses with @ references
+description: Generate synthesis-specification.md from topic-framework and role analyses with @ references
 usage: /workflow:brainstorm:synthesis
 argument-hint: "no arguments required - synthesizes existing framework and role analyses"
 examples:
@@ -11,7 +11,7 @@ allowed-tools: Read(*), Write(*), TodoWrite(*), Glob(*)
 ## 🧩 **Synthesis Document Generator**
 
 ### Core Function
-**Specialized command for generating synthesis-report.md** that integrates topic-framework.md and all role analysis.md files using @ reference system. Creates comprehensive strategic analysis with cross-role insights.
+**Specialized command for generating synthesis-specification.md** that integrates topic-framework.md and all role analysis.md files using @ reference system. Creates comprehensive implementation specification with cross-role insights.
 
 ### Primary Capabilities
 - **Framework Integration**: Reference topic-framework.md discussion points across all roles
@@ -24,12 +24,19 @@ allowed-tools: Read(*), Write(*), TodoWrite(*), Glob(*)
 **Three-Document Reference System**:
 1. **topic-framework.md** → Structured discussion framework (input)
 2. **[role]/analysis.md** → Role-specific analyses addressing framework (input)
-3. **synthesis-report.md** → Integrated synthesis with @ references (output)
+3. **synthesis-specification.md** → Complete integrated specification (output)
 
 ## ⚙️ **Execution Protocol**
 
-### ⚠️ Direct Execution Only
-**DO NOT use Task tool or delegate to any agent** - This is a document synthesis task using only Read/Write/Glob tools for aggregating existing analyses.
+### ⚠️ Direct Execution by Main Claude
+**Execution Model**: Main Claude directly executes this command without delegating to sub-agents.
+
+**Rationale**:
+- **Full Context Access**: Avoids context transmission loss that occurs with Task tool delegation
+- **Complex Cognitive Analysis**: Leverages main Claude's complete reasoning capabilities for cross-role synthesis
+- **Tool Usage**: Combines Read/Write/Glob tools with main Claude's analytical intelligence
+
+**DO NOT use Task tool** - Main Claude performs intelligent analysis directly while reading/writing files, ensuring no information loss from context passing.
 
 ### Phase 1: Document Discovery & Validation
 ```bash
@@ -59,14 +66,14 @@ FIND_ANALYSES: [
 LOAD_DOCUMENTS: {
     "topic_framework": topic-framework.md,
     "role_analyses": [discovered analysis.md files],
-    "existing_synthesis": synthesis-report.md (if exists)
+    "existing_synthesis": synthesis-specification.md (if exists)
 }
 ```
 
 ### Phase 3: Update Mechanism Check
 ```bash
 # Check for existing synthesis
-IF synthesis-report.md EXISTS:
+IF synthesis-specification.md EXISTS:
     SHOW current synthesis summary to user
     ASK: "Synthesis exists. Do you want to:"
     OPTIONS:
@@ -84,7 +91,7 @@ Initialize synthesis task tracking:
   {"content": "Validate topic-framework.md and role analyses availability", "status": "in_progress", "activeForm": "Validating source documents"},
   {"content": "Load topic framework discussion points structure", "status": "pending", "activeForm": "Loading framework structure"},
   {"content": "Cross-analyze role responses to each framework point", "status": "pending", "activeForm": "Cross-analyzing framework responses"},
-  {"content": "Generate synthesis-report.md with @ references", "status": "pending", "activeForm": "Generating synthesis with references"},
+  {"content": "Generate synthesis-specification.md with @ references", "status": "pending", "activeForm": "Generating synthesis with references"},
   {"content": "Update session metadata with synthesis completion", "status": "pending", "activeForm": "Updating session metadata"}
 ]
 ```
@@ -137,16 +144,6 @@ SORT recommendations BY priority_score DESC
 ## 📊 **Output Specification**
 
 ### Output Location
-```
-.workflow/WFS-{topic-slug}/.brainstorming/
-├── topic-framework.md          # Input: Framework structure
-├── [role]/analysis.md          # Input: Role analyses (multiple)
-└── synthesis-report.md         # ★ OUTPUT: Integrated synthesis with @ references
-```
-
-### Streamlined Single-Document Output ⚠️ SIMPLIFIED STRUCTURE
-
-#### Output Document - Single Comprehensive Synthesis
 The synthesis process creates **one consolidated document** that integrates all role perspectives:
 
 ```
@@ -157,30 +154,74 @@ The synthesis process creates **one consolidated document** that integrates all 
 ```
 
 #### synthesis-specification.md Structure (Complete Specification)
+
+**Document Purpose**: Defines **"WHAT"** to build - comprehensive requirements and design blueprint.
+**Scope**: High-level features, requirements, and design specifications. Does NOT include executable task breakdown (that's IMPL_PLAN.md's responsibility).
+
 ```markdown
 # [Topic] - Integrated Implementation Specification
 
 **Framework Reference**: @topic-framework.md | **Generated**: [timestamp] | **Session**: WFS-[topic-slug]
 **Source Integration**: All brainstorming role perspectives consolidated
+**Document Type**: Requirements & Design Specification (WHAT to build)
 
 ## Executive Summary
 Strategic overview with key insights, breakthrough opportunities, and implementation priorities.
 
+## Key Designs & Decisions
+### Core Architecture Diagram
+```mermaid
+graph TD
+    A[Component A] --> B[Component B]
+    B --> C[Component C]
+```
+*Reference: @system-architect/analysis.md#architecture-diagram*
+
+### User Journey Map
+![User Journey](./assets/user-journey.png)
+*Reference: @ux-expert/analysis.md#user-journey*
+
+### Data Model Overview
+```mermaid
+erDiagram
+    USER ||--o{ ORDER : places
+    ORDER ||--|{ LINE-ITEM : contains
+```
+*Reference: @data-architect/analysis.md#data-model*
+
+### Architecture Decision Records (ADRs)
+**ADR-01: [Decision Title]**
+- **Context**: Background and problem statement
+- **Decision**: Chosen approach
+- **Rationale**: Why this approach was selected
+- **Reference**: @system-architect/analysis.md#adr-01
+
+## Controversial Points & Alternatives
+| Point | Adopted Solution | Alternative Solution(s) | Decision Rationale | Dissenting Roles |
+|-------|------------------|-------------------------|--------------------| -----------------|
+| Authentication | JWT Token (@security-expert) | Session-Cookie (@system-architect) | Stateless API support for multi-platform | System Architect noted session performance benefits |
+| UI Framework | React (@ui-designer) | Vue.js (@subject-matter-expert) | Team expertise and ecosystem maturity | Subject Matter Expert preferred Vue for learning curve |
+
+*This section preserves decision context and rejected alternatives for future reference.*
+
 ## Requirements & Acceptance Criteria
 ### Functional Requirements
-| ID | Description | Source | Priority | Acceptance | Dependencies |
-|----|-------------|--------|----------|------------|--------------|
-| FR-01 | Core feature | @role/analysis.md | High | Criteria | None |
+| ID | Description | Rationale Summary | Source | Priority | Acceptance | Dependencies |
+|----|-------------|-------------------|--------|----------|------------|--------------|
+| FR-01 | User authentication | Enable secure multi-platform access | @product-manager/analysis.md | High | User can login via email/password | None |
+| FR-02 | Data export | User-requested analytics feature | @product-owner/analysis.md | Medium | Export to CSV/JSON | FR-01 |
 
 ### Non-Functional Requirements
-| ID | Description | Target | Validation |
-|----|-------------|--------|------------|
-| NFR-01 | Performance | <200ms | Testing |
+| ID | Description | Rationale Summary | Target | Validation | Source |
+|----|-------------|-------------------|--------|------------|--------|
+| NFR-01 | Response time | UX research shows <200ms critical | <200ms | Load testing | @ux-expert/analysis.md |
+| NFR-02 | Data encryption | Compliance requirement | AES-256 | Security audit | @security-expert/analysis.md |
 
 ### Business Requirements
-| ID | Description | Value | Success Metric |
-|----|-------------|-------|----------------|
-| BR-01 | User engagement | High | 80% retention |
+| ID | Description | Rationale Summary | Value | Success Metric | Source |
+|----|-------------|-------------------|-------|----------------|--------|
+| BR-01 | User retention | Market analysis shows engagement gap | High | 80% 30-day retention | @product-manager/analysis.md |
+| BR-02 | Revenue growth | Business case justification | High | 25% MRR increase | @product-owner/analysis.md |
 
 ## Design Specifications
 ### UI/UX Guidelines
@@ -201,7 +242,7 @@ Strategic overview with key insights, breakthrough opportunities, and implementa
 - Compliance requirements and regulations
 - Technical quality and domain-specific patterns
 
-## Implementation Roadmap
+## Implementation Roadmap (High-Level)
 ### Development Phases
 **Phase 1** (0-3 months): Foundation and core features
 **Phase 2** (3-6 months): Advanced features and integrations
@@ -212,10 +253,12 @@ Strategic overview with key insights, breakthrough opportunities, and implementa
 - Testing strategy and quality assurance
 - Deployment and monitoring approach
 
-### Task Breakdown
-- Epic and feature mapping aligned with requirements
-- Sprint planning guidance with dependency management
-- Resource allocation and timeline recommendations
+### Feature Grouping (Epic-Level)
+- High-level feature grouping and prioritization
+- Epic-level dependencies and sequencing
+- Strategic milestones and release planning
+
+**Note**: Detailed task breakdown into executable work items is handled by `/workflow:plan` → `IMPL_PLAN.md`
 
 ## Risk Assessment & Mitigation
 ### Critical Risks Identified
