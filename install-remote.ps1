@@ -260,7 +260,8 @@ function Invoke-LocalInstaller {
     param(
         [string]$RepoDir,
         [string]$VersionInfo = "",
-        [string]$BranchInfo = ""
+        [string]$BranchInfo = "",
+        [string]$CommitSha = ""
     )
 
     $installerPath = Join-Path $RepoDir "Install-Claude.ps1"
@@ -285,9 +286,10 @@ function Invoke-LocalInstaller {
     if ($NonInteractive) { $params["NonInteractive"] = $NonInteractive }
     if ($BackupAll) { $params["BackupAll"] = $BackupAll }
 
-    # Pass version and branch information
+    # Pass version, branch, and commit information
     if ($VersionInfo) { $params["SourceVersion"] = $VersionInfo }
     if ($BranchInfo) { $params["SourceBranch"] = $BranchInfo }
+    if ($CommitSha) { $params["SourceCommit"] = $CommitSha }
 
     try {
         # Change to repo directory and run installer
@@ -564,6 +566,8 @@ function Main {
 
         # Determine version and branch information to pass
         $versionToPass = ""
+        $commitSha = ""
+
         if ($Tag) {
             # Specific tag version
             $versionToPass = $Tag -replace '^v', ''  # Remove 'v' prefix
@@ -580,12 +584,30 @@ function Main {
             $versionToPass = "latest"
         }
 
+        # Get commit SHA from the downloaded repository
+        try {
+            Push-Location $repoDir
+            $commitSha = (git rev-parse --short HEAD 2>$null)
+            if (-not $commitSha) {
+                # Fallback: try to get from GitHub API
+                $commitUrl = "https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/$Branch"
+                $commitResponse = Invoke-RestMethod -Uri $commitUrl -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+                if ($commitResponse.sha) {
+                    $commitSha = $commitResponse.sha.Substring(0, 7)
+                }
+            }
+            Pop-Location
+        } catch {
+            Pop-Location
+            $commitSha = "unknown"
+        }
+
         $branchToPass = if ($Version -eq "branch") { $Branch } elseif ($Version -eq "latest") { "main" } elseif ($Tag) { $Tag } else { "main" }
 
-        Write-ColorOutput "Version info: $versionToPass (branch: $branchToPass)" $ColorInfo
+        Write-ColorOutput "Version info: $versionToPass (branch: $branchToPass, commit: $commitSha)" $ColorInfo
 
         # Run local installer with version information
-        $success = Invoke-LocalInstaller -RepoDir $repoDir -VersionInfo $versionToPass -BranchInfo $branchToPass
+        $success = Invoke-LocalInstaller -RepoDir $repoDir -VersionInfo $versionToPass -BranchInfo $branchToPass -CommitSha $commitSha
         if (-not $success) {
             throw "Installation script failed"
         }

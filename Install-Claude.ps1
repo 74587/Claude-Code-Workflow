@@ -63,7 +63,9 @@ param(
 
     [string]$SourceVersion = "",
 
-    [string]$SourceBranch = ""
+    [string]$SourceBranch = "",
+
+    [string]$SourceCommit = ""
 )
 
 # Set encoding for proper Unicode support
@@ -651,10 +653,12 @@ function Create-VersionJson {
     # Determine version from source parameter (passed from install-remote.ps1)
     $versionNumber = if ($SourceVersion) { $SourceVersion } else { $DefaultVersion }
     $sourceBranch = if ($SourceBranch) { $SourceBranch } else { "unknown" }
+    $commitSha = if ($SourceCommit) { $SourceCommit } else { "unknown" }
 
     # Create version.json content
     $versionInfo = @{
         version = $versionNumber
+        commit_sha = $commitSha
         installation_mode = $InstallationMode
         installation_path = $TargetClaudeDir
         installation_date_utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -666,7 +670,7 @@ function Create-VersionJson {
 
     try {
         $versionInfo | ConvertTo-Json | Out-File -FilePath $versionJsonPath -Encoding utf8 -Force
-        Write-ColorOutput "Created version.json: $versionNumber ($InstallationMode)" $ColorSuccess
+        Write-ColorOutput "Created version.json: $versionNumber ($commitSha) - $InstallationMode" $ColorSuccess
         return $true
     } catch {
         Write-ColorOutput "WARNING: Failed to create version.json: $($_.Exception.Message)" $ColorWarning

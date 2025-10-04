@@ -211,6 +211,7 @@ function invoke_local_installer() {
     local repo_dir="$1"
     local version_info="$2"
     local branch_info="$3"
+    local commit_sha="$4"
     local installer_path="${repo_dir}/Install-Claude.sh"
 
     # Make installer executable
@@ -251,13 +252,17 @@ function invoke_local_installer() {
         params+=("-BackupAll")
     fi
 
-    # Pass version and branch information
+    # Pass version, branch, and commit information
     if [ -n "$version_info" ]; then
         params+=("-SourceVersion" "$version_info")
     fi
 
     if [ -n "$branch_info" ]; then
         params+=("-SourceBranch" "$branch_info")
+    fi
+
+    if [ -n "$commit_sha" ]; then
+        params+=("-SourceCommit" "$commit_sha")
     fi
 
     # Execute installer
@@ -646,6 +651,7 @@ function main() {
             # Determine version and branch information to pass
             local version_to_pass=""
             local branch_to_pass=""
+            local commit_sha=""
 
             if [ -n "$TAG_VERSION" ]; then
                 # Specific tag version - remove 'v' prefix
@@ -674,10 +680,19 @@ function main() {
                 branch_to_pass="main"
             fi
 
-            write_color "Version info: $version_to_pass (branch: $branch_to_pass)" "$COLOR_INFO"
+            # Get commit SHA from the downloaded repository
+            if command -v git &> /dev/null && [ -d "$repo_dir/.git" ]; then
+                commit_sha=$(cd "$repo_dir" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            else
+                # Fallback: try to get from GitHub API
+                commit_sha=$(curl -fsSL "https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/$branch_to_pass" 2>/dev/null | grep -o '"sha": *"[^"]*"' | head -1 | cut -d'"' -f4 | cut -c1-7)
+                [ -z "$commit_sha" ] && commit_sha="unknown"
+            fi
+
+            write_color "Version info: $version_to_pass (branch: $branch_to_pass, commit: $commit_sha)" "$COLOR_INFO"
 
             # Run local installer with version information
-            if invoke_local_installer "$repo_dir" "$version_to_pass" "$branch_to_pass"; then
+            if invoke_local_installer "$repo_dir" "$version_to_pass" "$branch_to_pass" "$commit_sha"; then
                 success=true
                 echo ""
                 write_color "✓ Remote installation completed successfully!" "$COLOR_SUCCESS"
