@@ -46,6 +46,30 @@ RULES: Build on previous subtask, maintain consistency
 
 ## Execution Requirements
 
+### System Optimization
+
+**Hard Requirement**: Call binaries directly in `functions.shell`, always set `workdir`, and avoid shell wrappers such as `bash -lc`, `sh -lc`, `zsh -lc`, `cmd /c`, `pwsh.exe -NoLogo -NoProfile -Command`, and `powershell.exe -NoLogo -NoProfile -Command`.
+
+**Text Editing Priority**: Use the `apply_patch` tool for all routine text edits; fall back to `sed` for single-line substitutions only if `apply_patch` is unavailable, and avoid `python` editing scripts unless both options fail.
+
+**`apply_patch` Usage**: Invoke `apply_patch` with the patch payload as the second element in the command array (no shell-style flags). Provide `workdir` and, when helpful, a short `justification` alongside the command.
+
+**Example invocation**:
+```json
+{
+  "command": ["apply_patch", "*** Begin Patch\n*** Update File: path/to/file\n@@\n- old\n+ new\n*** End Patch\n"],
+  "workdir": "<workdir>",
+  "justification": "Brief reason for the change"
+}
+```
+
+**Windows UTF-8 Encoding**: Before executing commands on Windows systems, ensure proper UTF-8 encoding by running:
+```powershell
+[Console]::InputEncoding  = [Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+chcp 65001 > $null
+```
+
 ### ALWAYS
 
 - **Parse all fields** - Understand PURPOSE, TASK, MODE, CONTEXT, EXPECTED, RULES
@@ -58,6 +82,9 @@ RULES: Build on previous subtask, maintain consistency
 - **Match project style** - Follow existing patterns exactly
 - **Validate EXPECTED** - Ensure all deliverables are met
 - **Report context** (subtasks) - Summarize key info for next subtask
+- **Use direct binary calls** - Avoid shell wrappers for efficiency
+- **Prefer apply_patch** - Use for text edits over Python scripts
+- **Configure Windows encoding** - Set UTF-8 for Chinese character support
 
 ### NEVER
 
@@ -335,6 +362,10 @@ Subtask 3: Add authentication (resume --last)
 
 ---
 
-**Version**: 2.1.0
+**Version**: 2.2.0
 **Last Updated**: 2025-10-04
-**Changes**: Added multi-step task execution support with resume mechanism
+**Changes**:
+- Added system optimization requirements for direct binary calls
+- Added apply_patch tool priority for text editing
+- Added Windows UTF-8 encoding configuration for Chinese character support
+- Previous: Multi-step task execution support with resume mechanism
