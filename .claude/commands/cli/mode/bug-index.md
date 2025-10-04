@@ -8,7 +8,7 @@ examples:
   - /cli:mode:bug-index --tool qwen --enhance "login not working"
   - /cli:mode:bug-index --tool codex --cd "src/auth" "token validation fails"
 allowed-tools: SlashCommand(*), Bash(*)
-model: sonnet
+ 
 ---
 
 # CLI Mode: Bug Index (/cli:mode:bug-index)

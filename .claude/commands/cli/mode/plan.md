@@ -8,7 +8,7 @@ examples:
   - /cli:mode:plan --tool qwen --enhance "plan microservices migration"
   - /cli:mode:plan --tool codex --cd "src/auth" "authentication system"
 allowed-tools: SlashCommand(*), Bash(*)
-model: sonnet
+ 
 ---
 
 # CLI Mode: Plan (/cli:mode:plan)

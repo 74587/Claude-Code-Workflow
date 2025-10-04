@@ -9,7 +9,6 @@ examples:
   - /cli:execute --tool codex IMPL-001
   - /cli:execute --enhance "fix API performance issues"
 allowed-tools: SlashCommand(*), Bash(*)
-model: sonnet
 ---
 
 # CLI Execute Command (/cli:execute)

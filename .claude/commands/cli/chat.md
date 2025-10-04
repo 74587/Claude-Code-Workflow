@@ -9,7 +9,7 @@ examples:
   - /cli:chat --tool qwen --enhance "optimize React component"
   - /cli:chat --tool codex "review security vulnerabilities"
 allowed-tools: SlashCommand(*), Bash(*)
-model: sonnet
+ 
 ---
 
 ## Purpose
