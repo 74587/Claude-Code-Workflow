@@ -144,6 +144,98 @@ After installation, run the following command to ensure CCW is working:
 
 ---
 
+## ⚙️ Configuration
+
+### **Prerequisites: Required Tools**
+
+Before using CCW, install the following command-line tools:
+
+#### **Core CLI Tools**
+
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| **Gemini CLI** | AI analysis & documentation | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) |
+| **Codex CLI** | AI development & implementation | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) |
+| **Qwen Code** | AI architecture & code generation | `npm install -g @qwen-code/qwen-code` ([Docs](https://github.com/QwenLM/qwen-code)) |
+
+#### **System Utilities**
+
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| **ripgrep (rg)** | Fast code search | [Download](https://github.com/BurntSushi/ripgrep/releases) or `brew install ripgrep` (macOS), `apt install ripgrep` (Ubuntu) |
+| **jq** | JSON processing | [Download](https://jqlang.github.io/jq/download/) or `brew install jq` (macOS), `apt install jq` (Ubuntu) |
+
+**Quick Install (All Tools):**
+
+```bash
+# macOS
+brew install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+
+# Ubuntu/Debian
+sudo apt install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+
+# Windows (Chocolatey)
+choco install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+```
+
+### **Essential: Gemini CLI Setup**
+
+Configure Gemini CLI for optimal integration:
+
+```json
+// ~/.gemini/settings.json
+{
+  "contextFileName": ["CLAUDE.md", "GEMINI.md"]
+}
+```
+
+### **Recommended: .geminiignore**
+
+Optimize performance by excluding unnecessary files:
+
+```bash
+# .geminiignore (in project root)
+/dist/
+/build/
+/node_modules/
+/.next/
+*.tmp
+*.log
+/temp/
+
+# Include important docs
+!README.md
+!**/CLAUDE.md
+```
+
+### **Recommended: MCP Tools** *(Enhanced Analysis)*
+
+MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recommended installation** - While CCW has fallback mechanisms, not installing MCP tools may lead to unexpected behavior or degraded performance in some workflows.
+
+#### Available MCP Servers
+
+| MCP Server | Purpose | Installation Guide |
+|------------|---------|-------------------|
+| **Exa MCP** | External API patterns & best practices | [Install Guide](https://smithery.ai/server/exa) |
+| **Code Index MCP** | Advanced internal code search | [Install Guide](https://github.com/johnhuang316/code-index-mcp) |
+
+#### Benefits When Enabled
+- 📊 **Faster Analysis**: Direct codebase indexing vs manual searching
+- 🌐 **External Context**: Real-world API patterns and examples
+- 🔍 **Advanced Search**: Pattern matching and similarity detection
+- ⚡ **Better Reliability**: Primary tools for certain workflows
+
+⚠️ **Note**: Some workflows expect MCP tools to be available. Without them, you may experience:
+- Slower code analysis and search operations
+- Reduced context quality in some scenarios
+- Fallback to less efficient traditional tools
+- Potential unexpected behavior in advanced workflows
+
+---
+
 ## 🚀 Getting Started
 
 ### Complete Development Workflow
@@ -265,98 +357,6 @@ After installation, run the following command to ensure CCW is working:
 | `/update-memory-full` | Re-index the entire project documentation. |
 | `/update-memory-related` | Update documentation related to recent changes. |
 | `/version` | Display version information and check for updates from GitHub. |
-
----
-
-## ⚙️ Configuration
-
-### **Prerequisites: Required Tools**
-
-Before using CCW, install the following command-line tools:
-
-#### **Core CLI Tools**
-
-| Tool | Purpose | Installation |
-|------|---------|--------------|
-| **Gemini CLI** | AI analysis & documentation | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) |
-| **Codex CLI** | AI development & implementation | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) |
-| **Qwen Code** | AI architecture & code generation | `npm install -g @qwen-code/qwen-code` ([Docs](https://github.com/QwenLM/qwen-code)) |
-
-#### **System Utilities**
-
-| Tool | Purpose | Installation |
-|------|---------|--------------|
-| **ripgrep (rg)** | Fast code search | [Download](https://github.com/BurntSushi/ripgrep/releases) or `brew install ripgrep` (macOS), `apt install ripgrep` (Ubuntu) |
-| **jq** | JSON processing | [Download](https://jqlang.github.io/jq/download/) or `brew install jq` (macOS), `apt install jq` (Ubuntu) |
-
-**Quick Install (All Tools):**
-
-```bash
-# macOS
-brew install ripgrep jq
-npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
-
-# Ubuntu/Debian
-sudo apt install ripgrep jq
-npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
-
-# Windows (Chocolatey)
-choco install ripgrep jq
-npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
-```
-
-### **Essential: Gemini CLI Setup**
-
-Configure Gemini CLI for optimal integration:
-
-```json
-// ~/.gemini/settings.json
-{
-  "contextFileName": ["CLAUDE.md", "GEMINI.md"]
-}
-```
-
-### **Recommended: .geminiignore**
-
-Optimize performance by excluding unnecessary files:
-
-```bash
-# .geminiignore (in project root)
-/dist/
-/build/
-/node_modules/
-/.next/
-*.tmp
-*.log
-/temp/
-
-# Include important docs
-!README.md
-!**/CLAUDE.md
-```
-
-### **Recommended: MCP Tools** *(Enhanced Analysis)*
-
-MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recommended installation** - While CCW has fallback mechanisms, not installing MCP tools may lead to unexpected behavior or degraded performance in some workflows.
-
-#### Available MCP Servers
-
-| MCP Server | Purpose | Installation Guide |
-|------------|---------|-------------------|
-| **Exa MCP** | External API patterns & best practices | [Install Guide](https://smithery.ai/server/exa) |
-| **Code Index MCP** | Advanced internal code search | [Install Guide](https://github.com/johnhuang316/code-index-mcp) |
-
-#### Benefits When Enabled
-- 📊 **Faster Analysis**: Direct codebase indexing vs manual searching
-- 🌐 **External Context**: Real-world API patterns and examples
-- 🔍 **Advanced Search**: Pattern matching and similarity detection
-- ⚡ **Better Reliability**: Primary tools for certain workflows
-
-⚠️ **Note**: Some workflows expect MCP tools to be available. Without them, you may experience:
-- Slower code analysis and search operations
-- Reduced context quality in some scenarios
-- Fallback to less efficient traditional tools
-- Potential unexpected behavior in advanced workflows
 
 ---
 

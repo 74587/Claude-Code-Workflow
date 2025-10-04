@@ -144,6 +144,98 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 
 ---
 
+## ⚙️ 配置
+
+### **前置要求：必需工具**
+
+在使用 CCW 之前，请安装以下命令行工具：
+
+#### **核心 CLI 工具**
+
+| 工具 | 用途 | 安装方式 |
+|------|------|----------|
+| **Gemini CLI** | AI 分析与文档生成 | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) |
+| **Codex CLI** | AI 开发与实现 | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) |
+| **Qwen Code** | AI 架构与代码生成 | `npm install -g @qwen-code/qwen-code` ([文档](https://github.com/QwenLM/qwen-code)) |
+
+#### **系统实用工具**
+
+| 工具 | 用途 | 安装方式 |
+|------|------|----------|
+| **ripgrep (rg)** | 快速代码搜索 | [下载](https://github.com/BurntSushi/ripgrep/releases) 或 `brew install ripgrep` (macOS), `apt install ripgrep` (Ubuntu) |
+| **jq** | JSON 处理 | [下载](https://jqlang.github.io/jq/download/) 或 `brew install jq` (macOS), `apt install jq` (Ubuntu) |
+
+**快速安装（所有工具）：**
+
+```bash
+# macOS
+brew install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+
+# Ubuntu/Debian
+sudo apt install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+
+# Windows (Chocolatey)
+choco install ripgrep jq
+npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
+```
+
+### **必需: Gemini CLI 设置**
+
+配置 Gemini CLI 以实现最佳集成：
+
+```json
+// ~/.gemini/settings.json
+{
+  "contextFileName": ["CLAUDE.md", "GEMINI.md"]
+}
+```
+
+### **推荐: .geminiignore**
+
+通过排除不必要的文件来优化性能：
+
+```bash
+# .geminiignore (在项目根目录)
+/dist/
+/build/
+/node_modules/
+/.next/
+*.tmp
+*.log
+/temp/
+
+# 包含重要文档
+!README.md
+!**/CLAUDE.md
+```
+
+### **推荐: MCP 工具** *(增强分析)*
+
+MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装** - 虽然 CCW 具有回退机制，但不安装 MCP 工具可能会导致某些工作流出现意外行为或性能下降。
+
+#### 可用的 MCP 服务器
+
+| MCP 服务器 | 用途 | 安装指南 |
+|------------|------|---------|
+| **Exa MCP** | 外部 API 模式和最佳实践 | [安装指南](https://smithery.ai/server/exa) |
+| **Code Index MCP** | 高级内部代码搜索 | [安装指南](https://github.com/johnhuang316/code-index-mcp) |
+
+#### 启用后的好处
+- 📊 **更快分析**: 直接代码库索引 vs 手动搜索
+- 🌐 **外部上下文**: 真实世界的 API 模式和示例
+- 🔍 **高级搜索**: 模式匹配和相似性检测
+- ⚡ **更好的可靠性**: 某些工作流的主要工具
+
+⚠️ **注意**: 某些工作流期望 MCP 工具可用。如果没有安装，您可能会遇到：
+- 代码分析和搜索操作速度较慢
+- 某些场景下上下文质量降低
+- 回退到效率较低的传统工具
+- 高级工作流中可能出现意外行为
+
+---
+
 ## 🚀 快速入门
 
 ### 完整开发工作流
@@ -265,92 +357,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 | `/update-memory-full` | 重新索引整个项目文档。 |
 | `/update-memory-related` | 更新与最近更改相关的文档。 |
 | `/version` | 显示版本信息并检查 GitHub 更新。 |
-
----
-
-## ⚙️ 配置
-
-### **前置要求：必需工具**
-
-在使用 CCW 之前，请安装以下命令行工具：
-
-#### **核心 CLI 工具**
-
-| 工具 | 用途 | 安装方式 |
-|------|------|----------|
-| **Gemini CLI** | AI 分析与文档生成 | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) |
-| **Codex CLI** | AI 开发与实现 | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) |
-| **Qwen Code** | AI 架构与代码生成 | `npm install -g @qwen-code/qwen-code` ([文档](https://github.com/QwenLM/qwen-code)) |
-
-#### **系统实用工具**
-
-| 工具 | 用途 | 安装方式 |
-|------|------|----------|
-| **ripgrep (rg)** | 快速代码搜索 | [下载](https://github.com/BurntSushi/ripgrep/releases) 或 `brew install ripgrep` (macOS), `apt install ripgrep` (Ubuntu) |
-| **jq** | JSON 处理 | [下载](https://jqlang.github.io/jq/download/) 或 `brew install jq` (macOS), `apt install jq` (Ubuntu) |
-
-**快速安装（所有工具）：**
-
-```bash
-# macOS
-brew install ripgrep jq
-npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
-
-# Ubuntu/Debian
-sudo apt install ripgrep jq
-npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
-
-# Windows (Chocolatey)
-choco install ripgrep jq
-npm install -g @google/gemini-cli @openai/codex @qwen-code/qwen-code
-```
-
-### **必需: Gemini CLI 设置**
-
-配置 Gemini CLI 以实现最佳集成：
-
-```json
-// ~/.gemini/settings.json
-{
-  "contextFileName": ["CLAUDE.md", "GEMINI.md"]
-}
-```
-
-### **推荐: .geminiignore**
-
-通过排除不必要的文件来优化性能：
-
-```bash
-# .geminiignore (在项目根目录)
-/dist/
-/build/
-/node_modules/
-/.next/
-*.tmp
-*.log
-/temp/
-
-# 包含重要文档
-!README.md
-!**/CLAUDE.md
-```
-
-### **可选: MCP 工具** *(增强分析)*
-
-MCP (模型上下文协议) 工具提供高级代码库分析。**完全可选** - CCW 在没有它们的情况下也能完美工作。
-
-#### 可用的 MCP 服务器
-
-| MCP 服务器 | 用途 | 安装指南 |
-|------------|------|---------|
-| **Exa MCP** | 外部 API 模式和最佳实践 | [安装指南](https://smithery.ai/server/exahttps://smithery.ai/server/exa) |
-| **Code Index MCP** | 高级内部代码搜索 | [安装指南](https://github.com/johnhuang316/code-index-mcp) |
-
-#### 启用后的好处
-- 📊 **更快分析**: 直接代码库索引 vs 手动搜索
-- 🌐 **外部上下文**: 真实世界的 API 模式和示例
-- 🔍 **高级搜索**: 模式匹配和相似性检测
-- ⚡ **自动回退**: MCP 不可用时使用传统工具
 
 ---
 
