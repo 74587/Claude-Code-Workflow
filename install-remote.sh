@@ -209,6 +209,8 @@ function extract_repository() {
 
 function invoke_local_installer() {
     local repo_dir="$1"
+    local version_info="$2"
+    local branch_info="$3"
     local installer_path="${repo_dir}/Install-Claude.sh"
 
     # Make installer executable
@@ -247,6 +249,15 @@ function invoke_local_installer() {
 
     if [ "$BACKUP_ALL" = true ]; then
         params+=("-BackupAll")
+    fi
+
+    # Pass version and branch information
+    if [ -n "$version_info" ]; then
+        params+=("-SourceVersion" "$version_info")
+    fi
+
+    if [ -n "$branch_info" ]; then
+        params+=("-SourceBranch" "$branch_info")
     fi
 
     # Execute installer
@@ -632,8 +643,41 @@ function main() {
         if [ $extract_status -eq 0 ] && [ -n "$repo_dir" ] && [ -d "$repo_dir" ]; then
             write_color "Extraction successful: $repo_dir" "$COLOR_SUCCESS"
 
-            # Run local installer
-            if invoke_local_installer "$repo_dir"; then
+            # Determine version and branch information to pass
+            local version_to_pass=""
+            local branch_to_pass=""
+
+            if [ -n "$TAG_VERSION" ]; then
+                # Specific tag version - remove 'v' prefix
+                version_to_pass="${TAG_VERSION#v}"
+            elif [ "$VERSION_TYPE" = "stable" ]; then
+                # Auto-detected latest stable
+                local latest_tag
+                latest_tag=$(get_latest_release)
+                if [ -n "$latest_tag" ]; then
+                    version_to_pass="${latest_tag#v}"
+                else
+                    version_to_pass="latest"
+                fi
+            else
+                # Latest development or branch
+                version_to_pass="latest"
+            fi
+
+            if [ "$VERSION_TYPE" = "branch" ]; then
+                branch_to_pass="$BRANCH"
+            elif [ "$VERSION_TYPE" = "latest" ]; then
+                branch_to_pass="main"
+            elif [ -n "$TAG_VERSION" ]; then
+                branch_to_pass="$TAG_VERSION"
+            else
+                branch_to_pass="main"
+            fi
+
+            write_color "Version info: $version_to_pass (branch: $branch_to_pass)" "$COLOR_INFO"
+
+            # Run local installer with version information
+            if invoke_local_installer "$repo_dir" "$version_to_pass" "$branch_to_pass"; then
                 success=true
                 echo ""
                 write_color "✓ Remote installation completed successfully!" "$COLOR_SUCCESS"

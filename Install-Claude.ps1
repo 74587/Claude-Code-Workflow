@@ -78,7 +78,10 @@ if ($PSVersionTable.PSVersion.Major -ge 6) {
 
 # Script metadata
 $ScriptName = "Claude Code Workflow System Installer"
-$Version = "2.1.0"
+$ScriptVersion = "2.2.0"  # Installer script version
+
+# Default version (will be overridden by -SourceVersion from install-remote.ps1)
+$DefaultVersion = "unknown"
 
 # Initialize backup behavior - backup is enabled by default unless NoBackup is specified
 if (-not $BackupAll -and -not $NoBackup) {
@@ -141,8 +144,15 @@ function Show-Banner {
 }
 
 function Show-Header {
+    param(
+        [string]$InstallVersion = $DefaultVersion
+    )
+
     Show-Banner
-    Write-ColorOutput "    $ScriptName v$Version" $ColorInfo
+    Write-ColorOutput "    $ScriptName v$ScriptVersion" $ColorInfo
+    if ($InstallVersion -ne "unknown") {
+        Write-ColorOutput "    Installing Claude Code Workflow v$InstallVersion" $ColorInfo
+    }
     Write-ColorOutput "    Unified workflow system with comprehensive coordination" $ColorInfo
     Write-ColorOutput "========================================================================" $ColorInfo
     if ($NoBackup) {
@@ -638,8 +648,8 @@ function Create-VersionJson {
         [string]$InstallationMode
     )
 
-    # Determine version from source or default
-    $versionNumber = if ($SourceVersion) { $SourceVersion } else { $Version }
+    # Determine version from source parameter (passed from install-remote.ps1)
+    $versionNumber = if ($SourceVersion) { $SourceVersion } else { $DefaultVersion }
     $sourceBranch = if ($SourceBranch) { $SourceBranch } else { "unknown" }
 
     # Create version.json content
@@ -649,6 +659,7 @@ function Create-VersionJson {
         installation_path = $TargetClaudeDir
         installation_date_utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         source_branch = $sourceBranch
+        installer_version = $ScriptVersion
     }
 
     $versionJsonPath = Join-Path $TargetClaudeDir "version.json"
@@ -1024,7 +1035,10 @@ function Show-Summary {
 }
 
 function Main {
-    Show-Header
+    # Use SourceVersion parameter if provided, otherwise use default
+    $installVersion = if ($SourceVersion) { $SourceVersion } else { $DefaultVersion }
+
+    Show-Header -InstallVersion $installVersion
 
     # Test prerequisites
     Write-ColorOutput "Checking system requirements..." $ColorInfo

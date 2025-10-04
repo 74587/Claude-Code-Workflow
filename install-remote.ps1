@@ -563,7 +563,23 @@ function Main {
         }
 
         # Determine version and branch information to pass
-        $versionToPass = if ($Tag) { $Tag } else { "latest" }
+        $versionToPass = ""
+        if ($Tag) {
+            # Specific tag version
+            $versionToPass = $Tag -replace '^v', ''  # Remove 'v' prefix
+        } elseif ($Version -eq "stable") {
+            # Auto-detected latest stable
+            $latestTag = Get-LatestRelease
+            if ($latestTag) {
+                $versionToPass = $latestTag -replace '^v', ''
+            } else {
+                $versionToPass = "latest"
+            }
+        } else {
+            # Latest development or branch
+            $versionToPass = "latest"
+        }
+
         $branchToPass = if ($Version -eq "branch") { $Branch } elseif ($Version -eq "latest") { "main" } elseif ($Tag) { $Tag } else { "main" }
 
         Write-ColorOutput "Version info: $versionToPass (branch: $branchToPass)" $ColorInfo
