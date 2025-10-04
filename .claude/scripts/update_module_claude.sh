@@ -1,13 +1,15 @@
 #!/bin/bash
 # Update CLAUDE.md for a specific module with automatic layer detection
-# Usage: update_module_claude.sh <module_path> [update_type]
+# Usage: update_module_claude.sh <module_path> [update_type] [tool]
 #   module_path: Path to the module directory
 #   update_type: full|related (default: full)
+#   tool: gemini|qwen|codex (default: gemini)
 #   Script automatically detects layer depth and selects appropriate template
 
 update_module_claude() {
     local module_path="$1"
     local update_type="${2:-full}"
+    local tool="${3:-gemini}"
     
     # Validate parameters
     if [ -z "$module_path" ]; then
@@ -61,9 +63,9 @@ update_module_claude() {
     
     # Prepare logging info
     local module_name=$(basename "$module_path")
-    
+
     echo "⚡ Updating: $module_path"
-    echo "   Layer: $layer | Type: $update_type | Files: $file_count"
+    echo "   Layer: $layer | Type: $update_type | Tool: $tool | Files: $file_count"
     echo "   Template: $(basename "$template_path") | Strategy: $analysis_strategy"
     
     # Generate prompt with template injection
@@ -106,31 +108,50 @@ update_module_claude() {
     # Execute update
     local start_time=$(date +%s)
     echo "   🔄 Starting update..."
-    
+
     if cd "$module_path" 2>/dev/null; then
-        # Execute gemini command with layer-specific analysis strategy
-        local gemini_result=0
-        if [ "$analysis_strategy" = "--all-files" ]; then
-            gemini --all-files --yolo -p "$base_prompt
+        local tool_result=0
+        local final_prompt="$base_prompt
 
         Module Information:
         - Name: $module_name
         - Path: $module_path
         - Layer: $layer
-        - Analysis Strategy: $analysis_strategy" 2>&1
-            gemini_result=$?
-        else
-            gemini --yolo -p "$analysis_strategy $base_prompt
+        - Tool: $tool
+        - Analysis Strategy: $analysis_strategy"
 
-        Module Information:
-        - Name: $module_name
-        - Path: $module_path
-        - Layer: $layer
-        - Analysis Strategy: $analysis_strategy" 2>&1
-            gemini_result=$?
-        fi
-        
-        if [ $gemini_result -eq 0 ]; then
+        # Execute with selected tool
+        case "$tool" in
+            qwen)
+                if [ "$analysis_strategy" = "--all-files" ]; then
+                    qwen --all-files --yolo -p "$final_prompt" 2>&1
+                    tool_result=$?
+                else
+                    qwen --yolo -p "$analysis_strategy $final_prompt" 2>&1
+                    tool_result=$?
+                fi
+                ;;
+            codex)
+                if [ "$analysis_strategy" = "--all-files" ]; then
+                    codex --full-auto exec "$final_prompt" --skip-git-repo-check -s danger-full-access 2>&1
+                    tool_result=$?
+                else
+                    codex --full-auto exec "$final_prompt CONTEXT: $analysis_strategy" --skip-git-repo-check -s danger-full-access 2>&1
+                    tool_result=$?
+                fi
+                ;;
+            gemini|*)
+                if [ "$analysis_strategy" = "--all-files" ]; then
+                    gemini --all-files --yolo -p "$final_prompt" 2>&1
+                    tool_result=$?
+                else
+                    gemini --yolo -p "$analysis_strategy $final_prompt" 2>&1
+                    tool_result=$?
+                fi
+                ;;
+        esac
+
+        if [ $tool_result -eq 0 ]; then
             local end_time=$(date +%s)
             local duration=$((end_time - start_time))
             echo "   ✅ Completed in ${duration}s"

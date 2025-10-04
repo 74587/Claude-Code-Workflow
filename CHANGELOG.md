@@ -5,6 +5,56 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.1] - 2025-10-04
+
+### 🎯 Multi-Tool Support for Documentation Updates
+
+This release adds flexible tool selection for CLAUDE.md documentation generation, allowing users to choose between Gemini, Qwen, or Codex based on their analysis needs.
+
+#### Added
+
+**Multi-Tool Support**:
+- **`/update-memory-full --tool <gemini|qwen|codex>`**: Choose tool for full project documentation update
+- **`/update-memory-related --tool <gemini|qwen|codex>`**: Choose tool for context-aware documentation update
+- **Default**: Gemini (documentation generation, pattern recognition)
+- **Qwen**: Architecture analysis, system design documentation
+- **Codex**: Implementation validation, code quality analysis
+
+**Script Enhancement** (`update_module_claude.sh`):
+- Added third parameter for tool selection: `<module_path> [update_type] [tool]`
+- Support for three tools with consistent parameter syntax:
+  - `gemini --all-files --yolo -p` (default)
+  - `qwen --all-files --yolo -p` (direct command, no wrapper)
+  - `codex --full-auto exec` (with danger-full-access)
+- Automatic tool routing via case statement
+- Improved logging with tool information display
+
+#### Changed
+
+**Command Documentation**:
+- Updated `/update-memory-full.md` with tool selection usage and examples
+- Updated `/update-memory-related.md` with tool selection usage and examples
+- Added tool selection strategy and rationale documentation
+
+#### Technical Details
+
+**Tool Execution Patterns**:
+```bash
+# Gemini (default)
+gemini --all-files --yolo -p "$prompt"
+
+# Qwen (architecture analysis)
+qwen --all-files --yolo -p "$prompt"
+
+# Codex (implementation validation)
+codex --full-auto exec "$prompt" --skip-git-repo-check -s danger-full-access
+```
+
+**Backward Compatibility**:
+- ✅ Existing commands without `--tool` parameter default to Gemini
+- ✅ All three tools support Layer 1-4 template system
+- ✅ No breaking changes to existing workflows
+
 ## [3.3.0] - 2025-10-04
 
 ### 🚀 CLI Tool Enhancements & Codex Multi-Step Execution

@@ -1,14 +1,22 @@
 ---
 name: update-memory-full
 description: Complete project-wide CLAUDE.md documentation update
-usage: /update-memory-full
+usage: /update-memory-full [--tool <gemini|qwen|codex>]
+argument-hint: "[--tool gemini|qwen|codex]"
 examples:
-  - /update-memory-full                      # Full project documentation update
+  - /update-memory-full                      # Full project documentation update (gemini default)
+  - /update-memory-full --tool qwen          # Use Qwen for architecture analysis
+  - /update-memory-full --tool codex         # Use Codex for implementation validation
 ---
 
 ### 🚀 Command Overview: `/update-memory-full`
 
 Complete project-wide documentation update using depth-parallel execution.
+
+**Tool Selection**:
+- **Gemini (default)**: Documentation generation, pattern recognition, architecture review
+- **Qwen**: Architecture analysis, system design documentation
+- **Codex**: Implementation validation, code quality analysis
 
 ### 📝 Execution Template
 
@@ -16,18 +24,23 @@ Complete project-wide documentation update using depth-parallel execution.
 #!/bin/bash
 # Complete project-wide CLAUDE.md documentation update
 
-# Step 1: Code Index architecture analysis
+# Step 1: Parse tool selection (default: gemini)
+tool="gemini"
+[[ "$*" == *"--tool qwen"* ]] && tool="qwen"
+[[ "$*" == *"--tool codex"* ]] && tool="codex"
+
+# Step 2: Code Index architecture analysis
 mcp__code-index__search_code_advanced(pattern="class|function|interface", file_pattern="**/*.{ts,js,py}")
 mcp__code-index__find_files(pattern="**/*.{md,json,yaml,yml}")
 
-# Step 2: Cache git changes
+# Step 3: Cache git changes
 Bash(git add -A 2>/dev/null || true)
 
-# Step 3: Get and display project structure
+# Step 4: Get and display project structure
 modules=$(Bash(~/.claude/scripts/get_modules_by_depth.sh list))
 count=$(echo "$modules" | wc -l)
 
-# Step 3: Analysis handover → Model takes control
+# Step 5: Analysis handover → Model takes control
 # BASH_EXECUTION_STOPS → MODEL_ANALYSIS_BEGINS
 
 # Pseudocode flow:
@@ -35,6 +48,8 @@ count=$(echo "$modules" | wc -l)
 #     → Task "Complex project full update" subagent_type: "memory-gemini-bridge"
 # ELSE:
 #     → Present plan and WAIT FOR USER APPROVAL before execution
+#
+# Pass tool parameter to update_module_claude.sh: "$tool"
 ```
 
 ### 🧠 Model Analysis Phase
@@ -43,7 +58,7 @@ After the bash script completes the initial analysis, the model takes control to
 
 1. **Analyze Complexity**: Review module count and project context
 2. **Parse CLAUDE.md Status**: Extract which modules have/need CLAUDE.md files
-3. **Choose Strategy**: 
+3. **Choose Strategy**:
    - Simple projects: Present execution plan with CLAUDE.md paths to user
    - Complex projects: Delegate to memory-gemini-bridge agent
 4. **Present Detailed Plan**: Show user exactly which CLAUDE.md files will be created/updated
@@ -56,17 +71,19 @@ After the bash script completes the initial analysis, the model takes control to
 Model will present detailed plan:
 ```
 📋 Update Plan:
+  Tool: [gemini|qwen|codex] (from --tool parameter)
+
   NEW CLAUDE.md files (X):
     - ./src/components/CLAUDE.md
     - ./src/services/CLAUDE.md
-  
+
   UPDATE existing CLAUDE.md files (Y):
     - ./CLAUDE.md
     - ./src/CLAUDE.md
     - ./tests/CLAUDE.md
 
   Total: N CLAUDE.md files will be processed
-  
+
   ⚠️ Confirm execution? (y/n)
 ```
 
@@ -84,7 +101,7 @@ depth_modules = organize_by_depth(modules)
 FOR depth FROM max_depth DOWN TO 0:
     FOR each module IN depth_modules[depth]:
         WHILE active_jobs >= 4: wait(0.1)
-        Bash(~/.claude/scripts/update_module_claude.sh "$module" "full" &)
+        Bash(~/.claude/scripts/update_module_claude.sh "$module" "full" "$tool" &)
     wait_all_jobs()
 
 # Step 6: Safety check and restore staging state
@@ -105,7 +122,7 @@ Bash(git status --short)
 The model will delegate to the memory-gemini-bridge agent using the Task tool:
 ```
 Task "Complex project full update"
-prompt: "Execute full documentation update for [count] modules using depth-parallel execution"
+prompt: "Execute full documentation update for [count] modules using [tool] with depth-parallel execution"
 subagent_type: "memory-gemini-bridge"
 ```
 

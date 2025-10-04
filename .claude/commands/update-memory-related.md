@@ -1,14 +1,22 @@
 ---
 name: update-memory-related
 description: Context-aware CLAUDE.md documentation updates based on recent changes
-usage: /update-memory-related
+usage: /update-memory-related [--tool <gemini|qwen|codex>]
+argument-hint: "[--tool gemini|qwen|codex]"
 examples:
-  - /update-memory-related                    # Update documentation based on recent changes
+  - /update-memory-related                    # Update documentation based on recent changes (gemini default)
+  - /update-memory-related --tool qwen        # Use Qwen for architecture analysis
+  - /update-memory-related --tool codex       # Use Codex for implementation validation
 ---
 
 ### 🚀 Command Overview: `/update-memory-related`
 
 Context-aware documentation update for modules affected by recent changes.
+
+**Tool Selection**:
+- **Gemini (default)**: Documentation generation, pattern recognition, architecture review
+- **Qwen**: Architecture analysis, system design documentation
+- **Codex**: Implementation validation, code quality analysis
 
 
 ### 📝 Execution Template
@@ -17,23 +25,28 @@ Context-aware documentation update for modules affected by recent changes.
 #!/bin/bash
 # Context-aware CLAUDE.md documentation update
 
-# Step 1: Code Index refresh and architecture analysis
+# Step 1: Parse tool selection (default: gemini)
+tool="gemini"
+[[ "$*" == *"--tool qwen"* ]] && tool="qwen"
+[[ "$*" == *"--tool codex"* ]] && tool="codex"
+
+# Step 2: Code Index refresh and architecture analysis
 mcp__code-index__refresh_index()
 mcp__code-index__search_code_advanced(pattern="class|function|interface", file_pattern="**/*.{ts,js,py}")
 
-# Step 2: Detect changed modules (before staging)
+# Step 3: Detect changed modules (before staging)
 changed=$(Bash(~/.claude/scripts/detect_changed_modules.sh list))
 
-# Step 3: Cache git changes (protect current state)
+# Step 4: Cache git changes (protect current state)
 Bash(git add -A 2>/dev/null || true)
 
-# Step 3: Use detected changes or fallback
+# Step 5: Use detected changes or fallback
 if [ -z "$changed" ]; then
     changed=$(Bash(~/.claude/scripts/get_modules_by_depth.sh list | head -10))
 fi
 count=$(echo "$changed" | wc -l)
 
-# Step 4: Analysis handover → Model takes control  
+# Step 6: Analysis handover → Model takes control
 # BASH_EXECUTION_STOPS → MODEL_ANALYSIS_BEGINS
 
 # Pseudocode flow:
@@ -41,6 +54,8 @@ count=$(echo "$changed" | wc -l)
 #     → Task "Complex project related update" subagent_type: "memory-gemini-bridge"
 # ELSE:
 #     → Present plan and WAIT FOR USER APPROVAL before execution
+#
+# Pass tool parameter to update_module_claude.sh: "$tool"
 ```
 
 ### 🧠 Model Analysis Phase
@@ -62,18 +77,20 @@ After the bash script completes change detection, the model takes control to:
 Model will present detailed plan for affected modules:
 ```
 📋 Related Update Plan:
+  Tool: [gemini|qwen|codex] (from --tool parameter)
+
   CHANGED modules affecting CLAUDE.md:
-  
+
   NEW CLAUDE.md files (X):
     - ./src/api/auth/CLAUDE.md  [new module]
     - ./src/utils/helpers/CLAUDE.md  [new module]
-  
+
   UPDATE existing CLAUDE.md files (Y):
     - ./src/api/CLAUDE.md  [parent of changed auth/]
     - ./src/CLAUDE.md  [root level]
 
   Total: N CLAUDE.md files will be processed for recent changes
-  
+
   ⚠️ Confirm execution? (y/n)
 ```
 
@@ -91,7 +108,7 @@ depth_modules = organize_by_depth(changed_modules)
 FOR depth FROM max_depth DOWN TO 0:
     FOR each module IN depth_modules[depth]:
         WHILE active_jobs >= 4: wait(0.1)
-        Bash(~/.claude/scripts/update_module_claude.sh "$module" "related" &)
+        Bash(~/.claude/scripts/update_module_claude.sh "$module" "related" "$tool" &)
     wait_all_jobs()
 
 # Step 6: Safety check and restore staging state
@@ -112,7 +129,7 @@ Bash(git diff --stat)
 The model will delegate to the memory-gemini-bridge agent using the Task tool:
 ```
 Task "Complex project related update"
-prompt: "Execute context-aware update for [count] changed modules using depth-parallel execution"
+prompt: "Execute context-aware update for [count] changed modules using [tool] with depth-parallel execution"
 subagent_type: "memory-gemini-bridge"
 ```
 
