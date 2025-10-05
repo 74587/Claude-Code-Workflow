@@ -200,6 +200,7 @@ analyze_cmd=$(build_analysis_command "analyze_module" "src/auth" \
         "action": "Analyze technology stack and dependencies",
         "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze project technology stack\\nTASK: Extract tech stack, architecture patterns, design principles\\nMODE: analysis\\nCONTEXT: System structure: [system_structure]\\n         Project files: [project_files]\\nEXPECTED: Technology analysis with architecture style\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/project-overview.txt)\")",
         "output_to": "tech_analysis",
+        "on_error": "fail",
         "note": "Command is built at planning time based on $tool variable (gemini/qwen/codex)"
       }
     ],
@@ -250,13 +251,15 @@ analyze_cmd=$(build_analysis_command "analyze_module" "src/auth" \
         "step": "load_system_context",
         "action": "Load system architecture from IMPL-001",
         "command": "bash(cat .workflow/WFS-docs-*/IMPL-001-system_structure.output 2>/dev/null || ~/.claude/scripts/get_modules_by_depth.sh)",
-        "output_to": "system_context"
+        "output_to": "system_context",
+        "on_error": "skip_optional"
       },
       {
         "step": "analyze_module_structure",
         "action": "Deep analysis of module structure and API",
         "command": "bash(cd src/auth && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document module comprehensively\\nTASK: Extract module purpose, architecture, public API, dependencies\\nMODE: analysis\\nCONTEXT: @{**/*}\\n         System: [system_context]\\nEXPECTED: Complete module analysis for documentation\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\")",
         "output_to": "module_analysis",
+        "on_error": "fail",
         "note": "For qwen: qwen-wrapper | For codex: codex -C src/auth --full-auto exec \"...\" --skip-git-repo-check"
       }
     ],
@@ -306,13 +309,15 @@ analyze_cmd=$(build_analysis_command "analyze_module" "src/auth" \
         "step": "load_all_module_docs",
         "action": "Aggregate all module documentation",
         "command": "bash(find .workflow/docs/modules -name 'README.md' -exec cat {} \\;)",
-        "output_to": "module_docs"
+        "output_to": "module_docs",
+        "on_error": "fail"
       },
       {
         "step": "analyze_architecture",
         "action": "Synthesize system architecture from modules",
         "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Synthesize system architecture\\nTASK: Create architecture documentation from module docs\\nMODE: analysis\\nCONTEXT: [module_docs]\\nEXPECTED: Architecture documentation with patterns\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/project-overview.txt) | Focus on design patterns, data flow, component interactions\")",
         "output_to": "architecture_analysis",
+        "on_error": "fail",
         "note": "Command varies: gemini-wrapper (default) | qwen-wrapper | codex exec"
       }
     ],
@@ -367,13 +372,15 @@ analyze_cmd=$(build_analysis_command "analyze_module" "src/auth" \
         "step": "discover_api_endpoints",
         "action": "Find all API routes and endpoints",
         "command": "bash(rg -t ts -t js '(router\\.|app\\.|@(Get|Post|Put|Delete|Patch))' src/ --no-heading | head -100)",
-        "output_to": "endpoint_discovery"
+        "output_to": "endpoint_discovery",
+        "on_error": "skip_optional"
       },
       {
         "step": "analyze_api_structure",
         "action": "Analyze API structure and patterns",
         "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document API comprehensively\\nTASK: Extract endpoints, auth, request/response formats\\nMODE: analysis\\nCONTEXT: @{src/api/**/*,src/routes/**/*,src/controllers/**/*}\\n         Endpoints: [endpoint_discovery]\\nEXPECTED: Complete API documentation\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/api-reference.txt)\")",
         "output_to": "api_analysis",
+        "on_error": "fail",
         "note": "Tool-specific: gemini-wrapper | qwen-wrapper | codex -C src/api exec"
       }
     ],
