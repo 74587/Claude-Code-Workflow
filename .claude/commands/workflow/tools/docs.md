@@ -21,141 +21,128 @@ examples:
 - **doc-generator.md** → Execution, content generation, quality assurance
 
 ## Usage
+
 ```bash
 /workflow:docs <type> [--tool <gemini|qwen|codex>] [--scope <path>]
 ```
 
 ### Parameters
+
 - **type**: `architecture` | `api` | `all` (required)
   - `architecture`: System design, module interactions, patterns
   - `api`: Endpoint documentation, API specifications
   - `all`: Complete documentation suite
+
 - **--tool**: `gemini` | `qwen` | `codex` (optional, default: gemini)
   - `gemini`: Comprehensive documentation, pattern recognition
   - `qwen`: Architecture analysis, system design focus
   - `codex`: Implementation validation, code quality
+
 - **--scope**: Directory path filter (optional)
 
-## Planning Process
+## Planning Workflow
 
-### Phase 1: Session Initialization
+### Complete Execution Flow
+
+```
+/workflow:docs [type] [--tool] [--scope]
+    ↓
+Phase 1: Init Session → Create session dir & active marker
+    ↓
+Phase 2: Module Analysis → Run get_modules_by_depth.sh
+    ↓
+Phase 3: Quick Assess → Check existing docs
+    ↓
+Phase 4: Decompose → Create task list & TodoWrite
+    ↓
+Phase 5: Generate Tasks → Build IMPL-*.json & plans
+    ↓
+✅ Planning Complete → Show TodoWrite status
+```
+
+### Phase Details
+
+#### Phase 1: Session Initialization
 ```bash
-# 1. Parse user input
+# Parse arguments and create session structure
 doc_type="all"  # architecture|api|all
 tool="gemini"   # gemini|qwen|codex (default: gemini)
 scope=""        # optional path filter
 
-# Extract from command arguments
-[[ "$*" == *"architecture"* ]] && doc_type="architecture"
-[[ "$*" == *"api"* ]] && doc_type="api"
-[[ "$*" == *"--tool qwen"* ]] && tool="qwen"
-[[ "$*" == *"--tool codex"* ]] && tool="codex"
-[[ "$*" =~ --scope[[:space:]]+([^[:space:]]+) ]] && scope="${BASH_REMATCH[1]}"
-
-# 2. Create session structure
 timestamp=$(date +%Y%m%d-%H%M%S)
 session_dir=".workflow/WFS-docs-${timestamp}"
 mkdir -p "${session_dir}"/{.task,.process,.summaries}
-
-# 3. Create active marker
 touch ".workflow/.active-WFS-docs-${timestamp}"
 ```
 
-### Phase 2: Project Structure Analysis (MANDATORY)
+#### Phase 2: Project Structure Analysis (MANDATORY)
 ```bash
 # Run get_modules_by_depth.sh for module hierarchy
 module_data=$(~/.claude/scripts/get_modules_by_depth.sh)
-
-# Parse module information
 # Format: depth:N|path:<PATH>|files:N|size:N|has_claude:yes/no
 ```
 
-### Phase 3: Pre-Planning Analysis (Optional)
-Uses selected tool to analyze existing documentation and suggest improvements:
-
+#### Phase 3: Quick Documentation Assessment
 ```bash
-if [[ "$tool" == "codex" ]]; then
-    # Codex: Direct exec
-    codex -C . --full-auto exec "
-    PURPOSE: Analyze documentation strategy
-    TASK: Review existing docs and suggest improvements for ${doc_type}
-    MODE: analysis
-    CONTEXT: @{CLAUDE.md,**/*CLAUDE.md,docs/**/*}
-    EXPECTED: Gap analysis and recommendations
-    RULES: Focus on clarity, completeness, architectural alignment
-    " --skip-git-repo-check > "${session_dir}/.process/pre-analysis.md"
-else
-    # Gemini/Qwen: Wrapper
-    cd .workflow && ~/.claude/scripts/${tool}-wrapper -p "
-    PURPOSE: Analyze documentation strategy
-    TASK: Review existing docs and suggest improvements for ${doc_type}
-    MODE: analysis
-    CONTEXT: @{../CLAUDE.md,../**/*CLAUDE.md,../docs/**/*}
-    EXPECTED: Gap analysis and recommendations
-    RULES: Focus on clarity, completeness, architectural alignment
-    " > "${session_dir}/.process/pre-analysis.md"
+# Lightweight check - no heavy analysis
+existing_docs=$(find . -maxdepth 2 -name "*.md" -not -path "./.workflow/*" | wc -l)
+
+if [[ $existing_docs -gt 5 ]]; then
+    find . -maxdepth 3 -name "*.md" > "${session_dir}/.process/existing-docs.txt"
 fi
+
+# Record strategy
+cat > "${session_dir}/.process/strategy.md" <<EOF
+**Type**: ${doc_type}
+**Tool**: ${tool}
+**Scope**: ${scope:-"Full project"}
+EOF
 ```
 
-### Phase 4: Task Decomposition
+#### Phase 4: Task Decomposition & TodoWrite Setup
 
 **Decomposition Strategy**:
 1. **Always create**: System Overview task (IMPL-001)
 2. **If architecture/all**: Architecture Documentation task
 3. **If api/all**: Unified API Documentation task
-4. **For each module**: Module Documentation task (grouped for efficiency)
+4. **For each module**: Module Documentation task (grouped)
 
 **Grouping Rules**:
 - Max 3 modules per task
 - Max 30 files per task
 - Group by dependency depth and functional similarity
 
-**Task Count Formula**:
+**TodoWrite Setup**:
 ```
-base_tasks = 1 (system overview)
-+ (doc_type includes "architecture" ? 1 : 0)
-+ (doc_type includes "api" ? 1 : 0)
-+ ceil(module_count / 3)
+✅ Session initialization (completed)
+⏳ IMPL-001: Project Overview (pending)
+⏳ IMPL-002: Module 'auth' (pending)
+⏳ IMPL-003: Module 'api' (pending)
+⏳ IMPL-004: Architecture Documentation (pending)
+⏳ IMPL-005: API Documentation (pending)
 ```
 
-### Phase 5: Task JSON Generation
+#### Phase 5: Task JSON Generation
 
 Each task follows the 5-field schema with detailed flow_control.
 
-#### Command Generation Logic
-
-At planning time, commands are built based on the `$tool` variable:
-
+**Command Generation Logic**:
 ```bash
-# Build tool-specific command for pre_analysis step
-build_analysis_command() {
-    local step_name="$1"
-    local context_path="$2"
-    local template_path="$3"
-    local output_var="$4"
-
-    if [[ "$tool" == "codex" ]]; then
-        # Codex: direct exec with -C directory
-        echo "codex -C ${context_path} --full-auto exec \"PURPOSE: ...\\nTASK: ...\\nMODE: analysis\\nCONTEXT: @{**/*}\\nEXPECTED: ...\\nRULES: \$(cat ${template_path})\" --skip-git-repo-check"
-    else
-        # Gemini/Qwen: wrapper with -p
-        echo "bash(cd ${context_path} && ~/.claude/scripts/${tool}-wrapper -p \"PURPOSE: ...\\nTASK: ...\\nMODE: analysis\\nCONTEXT: @{**/*}\\nEXPECTED: ...\\nRULES: \$(cat ${template_path})\")"
-    fi
-}
-
-# Usage in task JSON generation
-analyze_cmd=$(build_analysis_command "analyze_module" "src/auth" \
-    "~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt" \
-    "module_analysis")
+# Build tool-specific command at planning time
+if [[ "$tool" == "codex" ]]; then
+    cmd="codex -C ${dir} --full-auto exec \"...\""
+else
+    cmd="bash(cd ${dir} && ~/.claude/scripts/${tool}-wrapper -p \"...\")"
+fi
 ```
 
-**Key Points**:
-- **Default tool**: `gemini`
-- **Template reference**: Use `$(cat template_path.txt)` to embed template content
-- **One command per step**: No conditional blocks, command is concrete
-- **Tool selection happens at planning time**, not execution time
+## Task Templates
 
-#### IMPL-001: System Overview Task
+### 1. System Overview (IMPL-001)
+**Purpose**: Project-level documentation
+**Output**: `.workflow/docs/README.md`
+
+**Complete JSON Structure**:
 ```json
 {
   "id": "IMPL-001",
@@ -219,7 +206,11 @@ analyze_cmd=$(build_analysis_command "analyze_module" "src/auth" \
 }
 ```
 
-#### IMPL-002+: Module Documentation Tasks
+### 2. Module Documentation (IMPL-002+)
+**Purpose**: Module-level documentation
+**Output**: `.workflow/docs/modules/[name]/README.md`
+
+**Complete JSON Structure**:
 ```json
 {
   "id": "IMPL-002",
@@ -278,7 +269,11 @@ analyze_cmd=$(build_analysis_command "analyze_module" "src/auth" \
 }
 ```
 
-#### Architecture Documentation Task (if requested)
+### 3. Architecture Documentation (if requested)
+**Purpose**: System design and patterns
+**Output**: `.workflow/docs/architecture/`
+
+**Complete JSON Structure**:
 ```json
 {
   "id": "IMPL-N-1",
@@ -340,7 +335,11 @@ analyze_cmd=$(build_analysis_command "analyze_module" "src/auth" \
 }
 ```
 
-#### API Documentation Task (if requested)
+### 4. API Documentation (if requested)
+**Purpose**: API reference and specifications
+**Output**: `.workflow/docs/api/README.md`
+
+**Complete JSON Structure**:
 ```json
 {
   "id": "IMPL-N",
@@ -402,170 +401,190 @@ analyze_cmd=$(build_analysis_command "analyze_module" "src/auth" \
 }
 ```
 
-### Phase 6: Generate Planning Documents
+## Planning Outputs
 
-#### IMPL_PLAN.md
+### File Structure
+```
+.workflow/
+├── .active-WFS-docs-20240120-143022
+└── WFS-docs-20240120-143022/
+    ├── IMPL_PLAN.md              # Implementation plan
+    ├── TODO_LIST.md              # Progress tracker
+    ├── .process/
+    │   ├── strategy.md           # Doc strategy
+    │   └── existing-docs.txt     # Existing docs list
+    └── .task/
+        ├── IMPL-001.json         # System overview
+        ├── IMPL-002.json         # Module: auth
+        ├── IMPL-003.json         # Module: api
+        ├── IMPL-004.json         # Architecture
+        └── IMPL-005.json         # API docs
+```
+
+### IMPL_PLAN.md
 ```markdown
 # Documentation Implementation Plan
 
 **Session**: WFS-docs-[timestamp]
 **Type**: [architecture|api|all]
 **Tool**: [gemini|qwen|codex]
-**Scope**: [scope or "Full project"]
-
-## Documentation Strategy
-
-### Pre-Analysis Findings
-[Summary from .process/pre-analysis.md]
-
-### Documentation Scope
-- System Overview: Yes
-- Module Documentation: [N] modules
-- Architecture Documentation: [Yes/No]
-- API Documentation: [Yes/No]
 
 ## Task Breakdown
 
 ### IMPL-001: System Overview
-- **Purpose**: Project-level documentation
-- **Template**: project-overview.txt
 - **Output**: .workflow/docs/README.md
+- **Template**: project-overview.txt
 
-### IMPL-002 to IMPL-[M]: Module Documentation
-[For each module or module group]
-- **Module(s)**: [module-name(s)]
+### IMPL-002+: Module Documentation
+- **Modules**: [list]
 - **Template**: module-documentation.txt
-- **Output**: .workflow/docs/modules/[module]/README.md
 
-### IMPL-[M+1]: Architecture Documentation (if requested)
-- **Purpose**: System design and patterns
-- **Output**: .workflow/docs/architecture/
-
-### IMPL-[N]: API Documentation (if requested)
-- **Purpose**: API reference and specifications
-- **Template**: api-reference.txt
-- **Output**: .workflow/docs/api/README.md
+### IMPL-N: Architecture/API (if requested)
+- **Template**: architecture.txt / api-reference.txt
 
 ## Execution Order
-1. IMPL-001 (Foundation - provides system context)
-2. IMPL-002 to IMPL-[M] (Modules - can be parallelized)
-3. IMPL-[M+1] (Architecture - requires module docs)
+1. IMPL-001 (Foundation)
+2. IMPL-002 to IMPL-[M] (Modules - can parallelize)
+3. IMPL-[M+1] (Architecture - needs modules)
 4. IMPL-[N] (API - can run after IMPL-001)
-
-## Success Criteria
-- [ ] All template sections populated
-- [ ] Code examples tested and working
-- [ ] Navigation links functional
-- [ ] Documentation follows project standards
-- [ ] No broken references
 ```
 
-#### TODO_LIST.md
+### TODO_LIST.md
 ```markdown
 # Documentation Progress Tracker
 
-**Session**: WFS-docs-[timestamp]
-**Created**: [timestamp]
-
-## Tasks
-
-- [ ] **IMPL-001**: Generate Project Overview Documentation
+- [ ] **IMPL-001**: Generate Project Overview
 - [ ] **IMPL-002**: Document Module: 'auth'
 - [ ] **IMPL-003**: Document Module: 'api'
 - [ ] **IMPL-004**: Generate Architecture Documentation
 - [ ] **IMPL-005**: Generate Unified API Documentation
 
-## Execution Instructions
-
+## Execution
 ```bash
-# Execute tasks in order (or parallelize modules)
-/workflow:execute IMPL-001  # System overview (run first)
-/workflow:execute IMPL-002  # Module: auth
-/workflow:execute IMPL-003  # Module: api
-/workflow:execute IMPL-004  # Architecture (after modules)
-/workflow:execute IMPL-005  # API docs
+/workflow:execute IMPL-001
+/workflow:execute IMPL-002
+# ...
+```
 ```
 
-## Completion Checklist
+## Execution Phase
 
-After all tasks complete:
-- [ ] Review all generated documentation
-- [ ] Test all code examples
-- [ ] Verify navigation links
-- [ ] Check for consistency
-- [ ] Update main project README.md with docs link
-```
-
-## Output Structure
-
-After planning, the session structure is:
+### Via /workflow:execute
 
 ```
-.workflow/
-├── .active-WFS-docs-20240120-143022  # Active session marker
-└── WFS-docs-20240120-143022/         # Documentation session
-    ├── IMPL_PLAN.md                  # Implementation plan
-    ├── TODO_LIST.md                  # Progress tracker
-    ├── .process/
-    │   └── pre-analysis.md           # Pre-planning analysis
-    └── .task/
-        ├── IMPL-001.json             # System overview task
-        ├── IMPL-002.json             # Module: auth task
-        ├── IMPL-003.json             # Module: api task
-        ├── IMPL-004.json             # Architecture task
-        └── IMPL-005.json             # API docs task
+For Each Task (IMPL-001, IMPL-002, ...):
+
+/workflow:execute IMPL-NNN
+    ↓
+TodoWrite: pending → in_progress
+    ↓
+Execute flow_control (pre_analysis steps)
+    ↓
+Generate Documentation (apply template)
+    ↓
+TodoWrite: in_progress → completed
+    ↓
+✅ Task Complete
 ```
 
-Documentation output structure:
+### TodoWrite Status Tracking
+
+**Planning Phase**:
+```
+✅ Session initialization (completed)
+⏳ IMPL-001: Project Overview (pending)
+⏳ IMPL-002: Module 'auth' (pending)
+```
+
+**Execution Phase**:
+```
+Executing IMPL-001:
+✅ Session initialization
+🔄 IMPL-001: Project Overview (in_progress)
+⏳ IMPL-002: Module 'auth'
+
+After IMPL-001:
+✅ Session initialization
+✅ IMPL-001: Project Overview (completed)
+🔄 IMPL-002: Module 'auth' (in_progress)
+```
+
+## Documentation Output
+
+### Final Structure
 ```
 .workflow/docs/
-├── README.md                         # From IMPL-001
+├── README.md                     # IMPL-001: Project overview
 ├── modules/
-│   ├── auth/
-│   │   └── README.md                 # From IMPL-002
-│   └── api/
-│       └── README.md                 # From IMPL-003
-├── architecture/
-│   ├── system-design.md             # From IMPL-004
+│   ├── auth/README.md           # IMPL-002: Auth module
+│   └── api/README.md            # IMPL-003: API module
+├── architecture/                # IMPL-004: Architecture
+│   ├── system-design.md
 │   ├── module-map.md
 │   └── data-flow.md
-└── api/
-    ├── README.md                     # From IMPL-005
+└── api/                         # IMPL-005: API docs
+    ├── README.md
     └── openapi.yaml
 ```
+
+## Next Steps
+
+### 1. Review Planning Output
+```bash
+cat .workflow/WFS-docs-*/IMPL_PLAN.md
+cat .workflow/WFS-docs-*/TODO_LIST.md
+```
+
+### 2. Execute Documentation Tasks
+```bash
+# Sequential (recommended)
+/workflow:execute IMPL-001  # System overview first
+/workflow:execute IMPL-002  # Module docs
+/workflow:execute IMPL-003
+/workflow:execute IMPL-004  # Architecture
+/workflow:execute IMPL-005  # API docs
+
+# Parallel (module docs only)
+/workflow:execute IMPL-002 &
+/workflow:execute IMPL-003 &
+wait
+```
+
+### 3. Review Generated Documentation
+```bash
+ls -lah .workflow/docs/
+cat .workflow/docs/README.md
+```
+
+### 4. TodoWrite Progress
+- Planning: All tasks `pending`
+- Execution: `pending` → `in_progress` → `completed`
+- Real-time status updates via TodoWrite
 
 ## Error Handling
 
 - **No modules found**: Create only IMPL-001 (system overview)
 - **Scope path invalid**: Show error and exit
-- **Active session exists**: Prompt user to complete or pause current session
+- **Active session exists**: Prompt to complete or pause
 - **Tool unavailable**: Fall back to gemini
-
-## Next Steps
-
-After running `/workflow:docs`:
-1. Review generated `IMPL_PLAN.md` and `TODO_LIST.md`
-2. Execute tasks using `/workflow:execute IMPL-NNN`
-3. Tasks can be parallelized (modules) or run sequentially
-4. Review completed documentation in `.workflow/docs/`
 
 ## Key Benefits
 
 ### Clear Separation of Concerns
-- **Planning** (docs.md): Session creation, task decomposition, no content generation
-- **Execution** (doc-generator.md): Content generation, template application, quality assurance
+- **Planning**: Session creation, task decomposition (this command)
+- **Execution**: Content generation, quality assurance (doc-generator agent)
 
 ### Scalable Task Management
-- Each documentation task is independent and self-contained
-- Tasks can be parallelized for faster completion
-- Clear dependencies (e.g., architecture requires module docs)
+- Independent, self-contained tasks
+- Parallelizable module documentation
+- Clear dependencies (architecture needs modules)
 
 ### Template-Driven Consistency
 - All documentation follows standard templates
-- Templates are reusable and maintainable
-- Easy to update documentation standards
+- Reusable and maintainable
+- Easy to update standards
 
 ### Full Context for Execution
 - Each task JSON contains complete instructions
 - flow_control defines exact analysis steps
-- Conditional tool selection for flexibility
+- Tool selection for flexibility
