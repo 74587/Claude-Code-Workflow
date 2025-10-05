@@ -16,7 +16,6 @@ allowed-tools: SlashCommand(*), Bash(*)
 Direct interaction with CLI tools for codebase analysis and Q&A.
 
 **Supported Tools**: codex, gemini (default), qwen
-**Reference**: @~/.claude/workflows/intelligent-tools-strategy.md for complete tool details
 
 ## Parameters
 

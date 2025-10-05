@@ -37,8 +37,6 @@ Execute systematic bug analysis and fix suggestions using CLI tools with diagnos
 
 ## Command Template
 
-**Core Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md
-
 ```bash
 cd [directory] && ~/.claude/scripts/gemini-wrapper --all-files -p "
 PURPOSE: [bug analysis goal]

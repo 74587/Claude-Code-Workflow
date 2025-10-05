@@ -18,7 +18,6 @@ allowed-tools: SlashCommand(*), Bash(*)
 Execute implementation tasks with YOLO permissions (auto-approves all confirmations).
 
 **Supported Tools**: codex, gemini (default), qwen
-**Reference**: @~/.claude/workflows/intelligent-tools-strategy.md for complete tool details
 
 ## YOLO Permissions
 

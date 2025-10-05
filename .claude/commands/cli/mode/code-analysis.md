@@ -48,8 +48,6 @@ The code-analysis template provides:
 
 ## Command Templates
 
-**Core Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md
-
 ### Gemini (Default)
 ```bash
 cd [directory] && ~/.claude/scripts/gemini-wrapper --all-files -p "

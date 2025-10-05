@@ -17,7 +17,6 @@ allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*)
 Execute CLI tool analysis on codebase patterns, architecture, or code quality.
 
 **Supported Tools**: codex, gemini (default), qwen
-**Reference**: @~/.claude/workflows/intelligent-tools-strategy.md for complete tool details
 
 ## Execution Flow
 

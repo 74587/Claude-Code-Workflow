@@ -37,8 +37,6 @@ Execute planning and architecture analysis using CLI tools with specialized temp
 
 ## Command Template
 
-**Core Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md
-
 ```bash
 cd [directory] && ~/.claude/scripts/gemini-wrapper --all-files -p "
 PURPOSE: [planning goal from topic]

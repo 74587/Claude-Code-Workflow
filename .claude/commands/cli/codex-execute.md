@@ -17,18 +17,23 @@ allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*)
 Automated task decomposition and sequential execution with Codex, using `codex exec "..." resume --last` mechanism for continuity between subtasks.
 
 **Input**: User description or task ID (automatically loads from `.task/[ID].json` if applicable)
-**Reference**: @~/.claude/workflows/intelligent-tools-strategy.md for Codex details
 
 ## Core Workflow
 
 ```
-Task Input → Decompose into Subtasks → TodoWrite Tracking →
-For Each Subtask:
-  0. Stage existing changes (git add -A) if valid git repo
-  1. Execute with Codex
-  2. [Optional] Git verification
-  3. Mark complete in TodoWrite
-  4. Resume next subtask with `codex resume --last`
+Task Input → Analyze Dependencies → Create Task Flow Diagram →
+Decompose into Subtask Groups → TodoWrite Tracking →
+For Each Subtask Group:
+  For First Subtask in Group:
+    0. Stage existing changes (git add -A) if valid git repo
+    1. Execute with Codex (new session)
+    2. [Optional] Git verification
+    3. Mark complete in TodoWrite
+  For Related Subtasks in Same Group:
+    0. Stage changes from previous subtask
+    1. Execute with `codex exec "..." resume --last` (continue session)
+    2. [Optional] Git verification
+    3. Mark complete in TodoWrite
 → Final Summary
 ```
 
@@ -41,17 +46,49 @@ For Each Subtask:
 
 ## Execution Flow
 
-### Phase 1: Input Processing & Decomposition
+### Phase 1: Input Processing & Task Flow Analysis
 
 1. **Parse Input**:
    - Check if input matches task ID pattern (e.g., `IMPL-001`, `TASK-123`)
    - If yes: Load from `.task/[ID].json` and extract requirements
    - If no: Use input as task description directly
 
-2. **Analyze & Decompose**:
+2. **Analyze Dependencies & Create Task Flow Diagram**:
    - Analyze task complexity and scope
-   - Break down into 3-8 subtasks
-   - Create TodoWrite tracker with all subtasks
+   - Identify dependencies and relationships between subtasks
+   - Create visual task flow diagram showing:
+     - Independent task groups (parallel execution possible)
+     - Sequential dependencies (must use resume)
+     - Branching logic (conditional paths)
+   - Display flow diagram for user review
+
+**Task Flow Diagram Format**:
+```
+[Group A: Auth Core]
+  A1: Create user model ──┐
+  A2: Add validation     ─┤─► [resume] ─► A3: Database schema
+                          │
+[Group B: API Layer]      │
+  B1: Auth endpoints ─────┘─► [new session]
+  B2: Middleware ────────────► [resume] ─► B3: Error handling
+
+[Group C: Testing]
+  C1: Unit tests ─────────────► [new session]
+  C2: Integration tests ──────► [resume]
+```
+
+**Diagram Symbols**:
+- `──►` Sequential dependency (must resume previous session)
+- `─┐` Branch point (multiple paths)
+- `─┘` Merge point (wait for completion)
+- `[resume]` Use `codex exec "..." resume --last`
+- `[new session]` Start fresh Codex session
+
+3. **Decompose into Subtask Groups**:
+   - Group related subtasks that share context
+   - Break down into 3-8 subtasks total
+   - Assign each subtask to a group
+   - Create TodoWrite tracker with groups
    - Display decomposition for user review
 
 **Decomposition Criteria**:
@@ -59,8 +96,9 @@ For Each Subtask:
 - Clear, testable outcomes
 - Explicit dependencies
 - Focused file scope (1-5 files per subtask)
+- **Group coherence**: Subtasks in same group share context/files
 
-### Phase 2: Sequential Execution
+### Phase 2: Group-Based Execution
 
 **Pre-Execution Git Staging** (if valid git repository):
 ```bash
@@ -70,35 +108,59 @@ git add -A
 git status --short
 ```
 
-**For First Subtask**:
+**For First Subtask in Each Group** (New Session):
 ```bash
-# Initial execution (no resume needed)
+# Start new Codex session for independent task group
 codex -C [dir] --full-auto exec "
-PURPOSE: [task goal]
-TASK: [subtask 1 description]
+PURPOSE: [group goal]
+TASK: [subtask description - first in group]
 CONTEXT: @{relevant_files} @{CLAUDE.md}
 EXPECTED: [specific deliverables]
 RULES: [constraints]
-Subtask 1 of N: [subtask title]
+Group [X]: [group name] - Subtask 1 of N in this group
 " --skip-git-repo-check -s danger-full-access
 ```
 
-**For Subsequent Subtasks** (using resume --last):
+**For Related Subtasks in Same Group** (Resume Session):
 ```bash
 # Stage changes from previous subtask (if valid git repository)
 git add -A
 
-# Resume previous session for context continuity
+# Resume session ONLY for subtasks in same group
 codex exec "
-CONTINUE TO NEXT SUBTASK:
-Subtask N of M: [subtask title]
+CONTINUE IN SAME GROUP:
+Group [X]: [group name] - Subtask N of M
 
-PURPOSE: [continuation goal]
+PURPOSE: [continuation goal within group]
 TASK: [subtask N description]
-CONTEXT: Previous work completed, now focus on @{new_relevant_files}
+CONTEXT: Previous work in this group completed, now focus on @{new_relevant_files}
 EXPECTED: [specific deliverables]
-RULES: Build on previous subtask, maintain consistency
+RULES: Build on previous subtask in group, maintain consistency
 " resume --last --skip-git-repo-check -s danger-full-access
+```
+
+**For First Subtask in Different Group** (New Session):
+```bash
+# Stage changes from previous group
+git add -A
+
+# Start NEW session for different group (no resume)
+codex -C [dir] --full-auto exec "
+PURPOSE: [new group goal]
+TASK: [subtask description - first in new group]
+CONTEXT: @{different_files} @{CLAUDE.md}
+EXPECTED: [specific deliverables]
+RULES: [constraints]
+Group [Y]: [new group name] - Subtask 1 of N in this group
+" --skip-git-repo-check -s danger-full-access
+```
+
+**Resume Decision Logic**:
+```
+if (subtask.group == previous_subtask.group):
+    use `codex exec "..." resume --last`  # Continue session
+else:
+    use `codex -C [dir] exec "..."`       # New session
 ```
 
 ### Phase 3: Verification (if --verify-git enabled)
@@ -121,16 +183,26 @@ git ls-files --others --exclude-standard
 - No merge conflicts or errors
 - Code compiles/runs (if applicable)
 
-### Phase 4: TodoWrite Tracking
+### Phase 4: TodoWrite Tracking with Groups
 
-**Initial Setup**:
+**Initial Setup with Task Flow**:
 ```javascript
 TodoWrite({
   todos: [
-    { content: "Subtask 1: [description]", status: "in_progress", activeForm: "Executing subtask 1" },
-    { content: "Subtask 2: [description]", status: "pending", activeForm: "Executing subtask 2" },
-    { content: "Subtask 3: [description]", status: "pending", activeForm: "Executing subtask 3" },
-    // ... more subtasks
+    // Display task flow diagram first
+    { content: "Task Flow Analysis Complete - See diagram above", status: "completed", activeForm: "Analyzing task flow" },
+
+    // Group A subtasks (will use resume within group)
+    { content: "[Group A] Subtask 1: [description]", status: "in_progress", activeForm: "Executing Group A subtask 1" },
+    { content: "[Group A] Subtask 2: [description] [resume]", status: "pending", activeForm: "Executing Group A subtask 2" },
+
+    // Group B subtasks (new session, then resume within group)
+    { content: "[Group B] Subtask 1: [description] [new session]", status: "pending", activeForm: "Executing Group B subtask 1" },
+    { content: "[Group B] Subtask 2: [description] [resume]", status: "pending", activeForm: "Executing Group B subtask 2" },
+
+    // Group C subtasks (new session)
+    { content: "[Group C] Subtask 1: [description] [new session]", status: "pending", activeForm: "Executing Group C subtask 1" },
+
     { content: "Final verification and summary", status: "pending", activeForm: "Verifying and summarizing" }
   ]
 })
@@ -140,8 +212,9 @@ TodoWrite({
 ```javascript
 TodoWrite({
   todos: [
-    { content: "Subtask 1: [description]", status: "completed", activeForm: "Executing subtask 1" },
-    { content: "Subtask 2: [description]", status: "in_progress", activeForm: "Executing subtask 2" },
+    { content: "Task Flow Analysis Complete - See diagram above", status: "completed", activeForm: "Analyzing task flow" },
+    { content: "[Group A] Subtask 1: [description]", status: "completed", activeForm: "Executing Group A subtask 1" },
+    { content: "[Group A] Subtask 2: [description] [resume]", status: "in_progress", activeForm: "Executing Group A subtask 2" },
     // ... update status
   ]
 })
@@ -149,18 +222,36 @@ TodoWrite({
 
 ## Codex Resume Mechanism
 
-**Why `codex resume --last`?**
-- Maintains conversation context across subtasks
-- Codex remembers previous decisions and patterns
-- Reduces context repetition
-- Ensures consistency in implementation style
+**Why Group-Based Resume?**
+- **Within Group**: Maintains conversation context for related subtasks
+  - Codex remembers previous decisions and patterns
+  - Reduces context repetition
+  - Ensures consistency in implementation style
+- **Between Groups**: Fresh session for independent tasks
+  - Avoids context pollution from unrelated work
+  - Prevents confusion when switching domains
+  - Maintains focused attention on current group
 
 **How It Works**:
-1. First subtask creates new Codex session
-2. After completion, session is saved
-3. Subsequent subtasks use `codex resume --last` to continue
-4. Each subtask builds on previous context
-5. Final subtask completes full task
+1. **First subtask in Group A**: Creates new Codex session
+2. **Subsequent subtasks in Group A**: Use `codex resume --last` to continue session
+3. **First subtask in Group B**: Creates NEW Codex session (no resume)
+4. **Subsequent subtasks in Group B**: Use `codex resume --last` within Group B
+5. Each group builds on its own context, isolated from other groups
+
+**When to Resume vs New Session**:
+```
+✅ RESUME (same group):
+  - Subtasks share files/modules
+  - Logical continuation of previous work
+  - Same architectural domain
+
+❌ NEW SESSION (different group):
+  - Independent task area
+  - Different files/modules
+  - Switching architectural domains
+  - Testing after implementation
+```
 
 **Image Support**:
 ```bash
@@ -199,25 +290,47 @@ codex exec "CONTINUE TO NEXT SUBTASK: ..." resume --last --skip-git-repo-check -
 
 **During Execution**:
 ```
-📋 Task Decomposition:
-  1. [Subtask 1 description]
-  2. [Subtask 2 description]
-  ...
+📊 Task Flow Diagram:
+[Group A: Auth Core]
+  A1: Create user model ──┐
+  A2: Add validation     ─┤─► [resume] ─► A3: Database schema
+                          │
+[Group B: API Layer]      │
+  B1: Auth endpoints ─────┘─► [new session]
+  B2: Middleware ────────────► [resume] ─► B3: Error handling
 
-▶️  Executing Subtask 1/N: [title]
-  Codex session started...
+[Group C: Testing]
+  C1: Unit tests ─────────────► [new session]
+  C2: Integration tests ──────► [resume]
+
+📋 Task Decomposition:
+  [Group A] 1. Create user model
+  [Group A] 2. Add validation logic [resume]
+  [Group A] 3. Implement database schema [resume]
+  [Group B] 4. Create auth endpoints [new session]
+  [Group B] 5. Add middleware [resume]
+  [Group B] 6. Error handling [resume]
+  [Group C] 7. Unit tests [new session]
+  [Group C] 8. Integration tests [resume]
+
+▶️  [Group A] Executing Subtask 1/8: Create user model
+  Starting new Codex session for Group A...
   [Codex output]
   ✅ Subtask 1 completed
 
 🔍 Git Verification:
-  M  src/file1.ts
-  A  src/file2.ts
+  M  src/models/user.ts
   ✅ Changes verified
 
-▶️  Executing Subtask 2/N: [title]
-  Resuming Codex session...
+▶️  [Group A] Executing Subtask 2/8: Add validation logic
+  Resuming Codex session (same group)...
   [Codex output]
   ✅ Subtask 2 completed
+
+▶️  [Group B] Executing Subtask 4/8: Create auth endpoints
+  Starting NEW Codex session for Group B...
+  [Codex output]
+  ✅ Subtask 4 completed
 ...
 
 ✅ All Subtasks Completed
@@ -248,16 +361,30 @@ codex exec "CONTINUE TO NEXT SUBTASK: ..." resume --last --skip-git-repo-check -
 
 ## Examples
 
-**Example 1: Simple Task**
+**Example 1: Simple Task with Groups**
 ```bash
 /cli:codex-execute "implement user authentication system"
 
-# Decomposes into:
-# 1. Create user model and database schema
-# 2. Implement JWT token generation
-# 3. Create authentication middleware
-# 4. Add login/logout endpoints
-# 5. Write tests for auth flow
+# Task Flow Diagram:
+# [Group A: Data Layer]
+#   A1: Create user model ──► [resume] ──► A2: Database schema
+#
+# [Group B: Auth Logic]
+#   B1: JWT token generation ──► [new session]
+#   B2: Authentication middleware ──► [resume]
+#
+# [Group C: API Endpoints]
+#   C1: Login/logout endpoints ──► [new session]
+#
+# [Group D: Testing]
+#   D1: Unit tests ──► [new session]
+#   D2: Integration tests ──► [resume]
+
+# Execution:
+# Group A: A1 (new) → A2 (resume)
+# Group B: B1 (new) → B2 (resume)
+# Group C: C1 (new)
+# Group D: D1 (new) → D2 (resume)
 ```
 
 **Example 2: With Git Verification**
@@ -280,13 +407,16 @@ codex exec "CONTINUE TO NEXT SUBTASK: ..." resume --last --skip-git-repo-check -
 
 ## Best Practices
 
-1. **Subtask Granularity**: Keep subtasks small and focused
-2. **Clear Boundaries**: Each subtask should have well-defined input/output
-3. **Git Hygiene**: Use `--verify-git` for critical refactoring
-4. **Pre-Execution Staging**: Stage changes before each subtask to clearly see codex modifications
-5. **Context Continuity**: Let `codex resume --last` maintain context
-6. **Recovery Points**: TodoWrite provides clear progress tracking
-7. **Image References**: Attach design files for UI tasks
+1. **Task Flow First**: Always create visual flow diagram before execution
+2. **Group Related Work**: Cluster subtasks by domain/files for efficient resume
+3. **Subtask Granularity**: Keep subtasks small and focused (5-15 min each)
+4. **Clear Boundaries**: Each subtask should have well-defined input/output
+5. **Git Hygiene**: Use `--verify-git` for critical refactoring
+6. **Pre-Execution Staging**: Stage changes before each subtask to clearly see codex modifications
+7. **Smart Resume**: Use `resume --last` ONLY within same group
+8. **Fresh Sessions**: Start new session when switching to different group/domain
+9. **Recovery Points**: TodoWrite with group labels provides clear progress tracking
+10. **Image References**: Attach design files for UI tasks (first subtask in group)
 
 ## Input Processing
 
