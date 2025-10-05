@@ -19,3 +19,4 @@ Thumbs.db
 .env
 settings.local.json
 .workflow
+version.json

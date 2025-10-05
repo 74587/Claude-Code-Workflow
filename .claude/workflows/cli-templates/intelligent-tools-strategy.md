@@ -43,24 +43,37 @@ type: strategic-guideline
   - **Write Mode**: Requires user explicitly states MODE=write or MODE=auto in prompt
   - **Exception**: User provides clear instructions like "modify", "create", "implement"
 - **Gemini/Qwen Write Access**: Use `--approval-mode yolo` ONLY when MODE=write explicitly specified
+  - **Parameter Position**: Place AFTER the wrapper command: `gemini-wrapper --approval-mode yolo -p "..."`
 - **Codex Write Access**: Use `-s danger-full-access` and `--skip-git-repo-check` ONLY when MODE=auto explicitly specified
+  - **Parameter Position**: Place AFTER the prompt string at command END: `codex ... exec "..." --skip-git-repo-check -s danger-full-access`
 - **Default Behavior**: All tools default to analysis/read-only mode without explicit write permission
 
 ## 🎯 Universal Command Template
 
 ### Standard Format (REQUIRED)
 ```bash
-# Gemini Analysis (read/write capable)
+# Gemini Analysis (read-only, default)
 cd [directory] && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
-MODE: [analysis|write]
+MODE: analysis
 CONTEXT: [file references and memory context]
 EXPECTED: [expected output]
 RULES: [template reference and constraints]
 "
 
-# Qwen Architecture Analysis (read-only analysis)
+# Gemini Write Mode (requires explicit MODE=write)
+# NOTE: --approval-mode yolo must be placed AFTER wrapper command, BEFORE -p
+cd [directory] && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+PURPOSE: [clear goal]
+TASK: [specific task]
+MODE: write
+CONTEXT: [file references and memory context]
+EXPECTED: [expected output]
+RULES: [template reference and constraints]
+"
+
+# Qwen Architecture Analysis (read-only, default)
 cd [directory] && ~/.claude/scripts/qwen-wrapper -p "
 PURPOSE: [clear architecture goal]
 TASK: [specific analysis task]
@@ -70,11 +83,34 @@ EXPECTED: [expected deliverables]
 RULES: [template reference and constraints]
 "
 
-# Codex Development
+# Qwen Write Mode (requires explicit MODE=write)
+# NOTE: --approval-mode yolo must be placed AFTER wrapper command, BEFORE -p
+cd [directory] && ~/.claude/scripts/qwen-wrapper --approval-mode yolo -p "
+PURPOSE: [clear goal]
+TASK: [specific task]
+MODE: write
+CONTEXT: [file references and memory context]
+EXPECTED: [expected deliverables]
+RULES: [template reference and constraints]
+"
+
+# Codex Development (requires explicit MODE=auto)
+# NOTE: --skip-git-repo-check and -s danger-full-access must be placed at command END
 codex -C [directory] --full-auto exec "
 PURPOSE: [clear development goal]
 TASK: [specific development task]
-MODE: [auto|write]
+MODE: auto
+CONTEXT: [file references and memory context]
+EXPECTED: [expected deliverables]
+RULES: [template reference and constraints]
+" --skip-git-repo-check -s danger-full-access
+
+# Codex Test/Write Mode (requires explicit MODE=write)
+# NOTE: --skip-git-repo-check and -s danger-full-access must be placed at command END
+codex -C [directory] --full-auto exec "
+PURPOSE: [clear goal]
+TASK: [specific task]
+MODE: write
 CONTEXT: [file references and memory context]
 EXPECTED: [expected deliverables]
 RULES: [template reference and constraints]
@@ -274,6 +310,16 @@ For every development task:
   - `codex exec "task" resume --last` - Continue most recent session with new task (maintains context)
   - `codex -i <image_file>` - Attach image(s) to initial prompt (useful for UI/design references)
   - **Multi-task Pattern**: First task uses `exec`, subsequent tasks use `exec "..." resume --last` for context continuity
+    - **Parameter Position**: `resume --last` must be placed AFTER the prompt string at command END
+    - **Example**:
+      ```bash
+      # First task - establish session
+      codex -C project --full-auto exec "Implement auth module" --skip-git-repo-check -s danger-full-access
+
+      # Subsequent tasks - continue same session
+      codex --full-auto exec "Add JWT validation" resume --last --skip-git-repo-check -s danger-full-access
+      codex --full-auto exec "Write auth tests" resume --last --skip-git-repo-check -s danger-full-access
+      ```
 
 ### File Patterns
 - All files: `@{**/*}`
@@ -282,12 +328,39 @@ For every development task:
 - With docs: `@{CLAUDE.md,**/*CLAUDE.md}`
 - Tests: `@{src/**/*.test.*}`
 
+**Complex Pattern Discovery**:
+For complex file pattern requirements, use semantic discovery tools BEFORE CLI execution:
+- **rg (ripgrep)**: Content-based file discovery with regex patterns
+- **Code Index MCP**: Semantic file search based on task requirements
+- **Workflow**: Discover → Extract precise paths → Build CONTEXT field
+
+**Example**:
+```bash
+# Step 1: Discover files semantically
+rg "export.*Component" --files-with-matches --type ts  # Find component files
+mcp__code-index__search_code_advanced(pattern="interface.*Props", file_pattern="*.tsx")  # Find interface files
+
+# Step 2: Build precise CONTEXT from discovery results
+CONTEXT: @{src/components/Auth.tsx,src/types/auth.d.ts,src/hooks/useAuth.ts}
+
+# Step 3: Execute CLI with precise file references
+cd src && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Analyze authentication components
+TASK: Review auth component patterns and props interfaces
+MODE: analysis
+CONTEXT: @{components/Auth.tsx,types/auth.d.ts,hooks/useAuth.ts}
+EXPECTED: Pattern analysis and improvement suggestions
+RULES: Focus on type safety and component composition
+"
+```
+
 ## 🔧 Best Practices
 
 - **Start with templates** - Use predefined templates for consistency
 - **Be specific** - Clear PURPOSE, TASK, and EXPECTED fields
 - **Include constraints** - File patterns, scope, requirements in RULES
-- **Test patterns first** - Validate file patterns with `ls`
+- **Discover patterns first** - Use rg/MCP for complex file discovery before CLI execution
+- **Build precise CONTEXT** - Convert discovery results to explicit file references
 - **Document context** - Always reference CLAUDE.md for context
 
 ### Context Optimization Strategy
