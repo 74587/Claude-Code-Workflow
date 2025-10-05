@@ -1,0 +1,91 @@
+# Module-Level Documentation Template
+
+Generate detailed module documentation following this structure:
+
+## 1. Purpose and Responsibilities
+[What this module does, its boundaries, and its role in the larger system]
+
+## 2. Internal Architecture
+- **Key Components**:
+  - [Component 1]: [Description and responsibility]
+  - [Component 2]: [Description and responsibility]
+- **Data Flow**: [How data moves through the module, with diagrams if applicable]
+- **Core Logic**: [Explanation of the main business logic and algorithms]
+- **State Management**: [How state is managed within the module]
+
+## 3. Public API / Interface
+### Exported Functions
+```typescript
+/**
+ * Function description
+ * @param param1 - Parameter description
+ * @returns Return value description
+ */
+export function exampleFunction(param1: Type): ReturnType;
+```
+
+### Exported Classes
+```typescript
+/**
+ * Class description
+ */
+export class ExampleClass {
+  // Public methods and properties
+}
+```
+
+### Usage Examples
+```typescript
+import { exampleFunction } from './module';
+
+// Example 1: Basic usage
+const result = exampleFunction(input);
+
+// Example 2: Advanced usage
+// ...
+```
+
+## 4. Dependencies
+### Internal Dependencies
+- **[Module A]**: [Why this dependency exists, what it provides]
+- **[Module B]**: [Purpose of dependency]
+
+### External Dependencies
+- **[Library 1]** (`version`): [Purpose and usage]
+- **[Library 2]** (`version`): [Purpose and usage]
+
+## 5. Configuration
+### Environment Variables
+- `ENV_VAR_NAME`: [Description, default value]
+
+### Configuration Options
+```typescript
+interface ModuleConfig {
+  option1: Type; // Description
+  option2: Type; // Description
+}
+```
+
+## 6. Testing
+### Running Tests
+```bash
+npm test -- module-name
+```
+
+### Test Coverage
+- Unit tests: [Coverage percentage or key test files]
+- Integration tests: [Coverage or test scenarios]
+
+## 7. Common Use Cases
+1. **Use Case 1**: [Description and code example]
+2. **Use Case 2**: [Description and code example]
+
+## 8. Troubleshooting
+### Common Issues
+- **Issue 1**: [Description and solution]
+- **Issue 2**: [Description and solution]
+
+---
+**Module Path**: [File path]
+**Last Updated**: [Auto-generated timestamp]
+**Owner/Maintainer**: [Team or individual]
