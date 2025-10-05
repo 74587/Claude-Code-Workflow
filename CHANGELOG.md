@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.5.0] - 2025-10-06
 
-### 🎨 UI Design Workflow with Triple Vision Analysis
+### 🎨 UI Design Workflow with Triple Vision Analysis & Interactive Preview
 
-This release introduces a comprehensive UI design workflow system with triple vision analysis capabilities, interactive user checkpoints, and zero agent overhead for improved performance.
+This release introduces a comprehensive UI design workflow system with triple vision analysis capabilities, interactive user checkpoints, zero agent overhead, and enhanced preview tools for real-time prototype comparison.
 
 #### Added
 
@@ -34,29 +34,84 @@ This release introduces a comprehensive UI design workflow system with triple vi
   - Conflict resolution: Majority vote or synthesis-specification.md context
 
 **Individual Design Commands**:
-- **`/workflow:design:style-extract`**: Extract design styles from reference images
+
+**`/workflow:design:style-extract`** - Extract design styles from reference images
+- **Usage**: `/workflow:design:style-extract --session <session_id> --images "<glob_pattern>"`
+- **Examples**:
+  ```bash
+  /workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
+  /workflow:design:style-extract --session WFS-dashboard --images "refs/dashboard-*.jpg"
+  ```
+- **Features**:
   - Triple vision analysis (Claude Code + Gemini + Codex)
   - Generates `semantic_style_analysis.json`, `design-tokens.json`, `style-cards.json`
   - Outputs multiple style variant cards for user selection
   - Direct bash execution (no agent wrappers)
+  - Supports PNG, JPG, WebP image formats
+- **Output**: `.design/style-extraction/` with analysis files and 2-3 style variant cards
 
-- **`/workflow:design:style-consolidate`**: Consolidate selected style variants
-  - Validates and merges design tokens
+**`/workflow:design:style-consolidate`** - Consolidate selected style variants
+- **Usage**: `/workflow:design:style-consolidate --session <session_id> --variants "<variant_ids>"`
+- **Examples**:
+  ```bash
+  /workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
+  /workflow:design:style-consolidate --session WFS-dashboard --variants "variant-2"
+  ```
+- **Features**:
+  - Validates and merges design tokens from selected variants
   - Generates finalized `design-tokens.json`, `style-guide.md`, `tailwind.config.js`
-  - WCAG AA compliance validation
+  - WCAG AA compliance validation (contrast ≥4.5:1 for text)
   - Token coverage ≥90% requirement
+  - OKLCH color format with fallback
+- **Output**: `.design/style-consolidation/` with validated design system files
 
-- **`/workflow:design:ui-generate`**: Generate production-ready UI prototypes
+**`/workflow:design:ui-generate`** - Generate production-ready UI prototypes *(NEW: with preview enhancement)*
+- **Usage**: `/workflow:design:ui-generate --session <session_id> --pages "<page_list>" [--variants <count>] [--style-overrides "<path_or_json>"]`
+- **Examples**:
+  ```bash
+  /workflow:design:ui-generate --session WFS-auth --pages "login,register"
+  /workflow:design:ui-generate --session WFS-dashboard --pages "dashboard" --variants 3
+  /workflow:design:ui-generate --session WFS-auth --pages "login" --style-overrides "overrides.json"
+  ```
+- **Features**:
   - Token-driven HTML/CSS generation with Codex
   - Support for `--style-overrides` parameter for runtime customization
   - Generates `{page}-variant-{n}.html`, `{page}-variant-{n}.css` per page
+  - **🆕 Auto-generates preview files**: `index.html`, `compare.html`, `PREVIEW.md`
   - Semantic HTML5 with ARIA attributes
   - Responsive design with token-based breakpoints
+  - Complete standalone prototypes (no external dependencies)
+- **Output**: `.design/prototypes/` with HTML/CSS files and preview tools
+- **Preview**: Open `index.html` in browser or start local server for interactive preview
 
-- **`/workflow:design:design-update`**: Integrate design system into brainstorming
+**`/workflow:design:design-update`** - Integrate design system into brainstorming
+- **Usage**: `/workflow:design:design-update --session <session_id> [--selected-prototypes "<prototype_ids>"]`
+- **Examples**:
+  ```bash
+  /workflow:design:design-update --session WFS-auth
+  /workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+  ```
+- **Features**:
   - Updates `synthesis-specification.md` with UI/UX guidelines section
   - Creates/updates `ui-designer/style-guide.md`
   - Makes design tokens available for task generation phase
+  - Merges selected prototype recommendations into brainstorming artifacts
+- **Output**: Updated brainstorming files with design system integration
+
+**`/workflow:design:auto`** - Semi-autonomous orchestrator with interactive checkpoints
+- **Usage**: `/workflow:design:auto --session <session_id> --images "<glob>" --pages "<list>" [--variants <count>] [--batch-plan]`
+- **Examples**:
+  ```bash
+  /workflow:design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register"
+  /workflow:design:auto --session WFS-dashboard --images "refs/*.jpg" --pages "dashboard" --variants 3 --batch-plan
+  ```
+- **Features**:
+  - Orchestrates entire design workflow with pause-and-continue checkpoints
+  - Checkpoint 1: User selects style variants after extraction
+  - Checkpoint 2: User confirms prototypes before design-update
+  - Optional `--batch-plan` for automatic task generation after design-update
+  - Progress tracking with TodoWrite integration
+- **Workflow**: style-extract → [USER SELECTS] → style-consolidate → ui-generate → [USER CONFIRMS] → design-update → [optional batch-plan]
 
 **Interactive Checkpoint System**:
 - **Checkpoint 1 (After style-extract)**: User selects preferred style variants
@@ -73,6 +128,45 @@ This release introduces a comprehensive UI design workflow system with triple vi
 - **Style Override Mechanism**: Runtime token merging using jq
 - **Batch Task Generation**: Automatic `/workflow:plan` invocation for each page
 - **Accessibility Validation**: WCAG 2.1 AA compliance checks
+
+**Preview Enhancement System** *(NEW)*:
+- **`index.html`**: Master preview navigation page
+  - Grid layout of all generated prototypes
+  - Quick links to individual variants
+  - Metadata display (session ID, timestamps, page info)
+  - Direct access to implementation notes
+
+- **`compare.html`**: Interactive side-by-side comparison
+  - Iframe-based comparison for multiple variants
+  - Responsive viewport toggles (Desktop 100%, Tablet 768px, Mobile 375px)
+  - Synchronized scrolling option
+  - Dynamic page switching dropdown
+  - Real-time variant comparison
+
+- **`PREVIEW.md`**: Comprehensive preview instructions
+  - Direct browser opening guide
+  - Local server setup (Python, Node.js, PHP, VS Code Live Server)
+  - Browser compatibility notes
+  - Troubleshooting guide
+  - File structure overview
+
+**Preview Workflow**:
+```bash
+# After ui-generate completes:
+cd .workflow/WFS-{session}/.design/prototypes
+
+# Option 1: Direct browser (simplest)
+open index.html  # or double-click
+
+# Option 2: Local server (recommended)
+python -m http.server 8080  # Visit http://localhost:8080
+
+# Features:
+- index.html: Browse all prototypes
+- compare.html: Side-by-side comparison with viewport controls
+- Responsive preview: Test mobile, tablet, desktop views
+- Synchronized scrolling: Compare layouts in sync
+```
 
 #### Changed
 

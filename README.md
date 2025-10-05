@@ -260,6 +260,13 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 /workflow:design:style-extract --session WFS-auth --images "refs/*.png"
 /workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
 /workflow:design:ui-generate --session WFS-auth --pages "login,register" --variants 2
+
+# Preview generated prototypes (NEW!)
+# Option 1: Open .workflow/WFS-auth/.design/prototypes/index.html in browser
+# Option 2: Start local server
+cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
+# Visit http://localhost:8080 for interactive preview with comparison tools
+
 /workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
 ```
 
@@ -369,6 +376,87 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 | `/workflow:tools:test-context-gather` | Analyze test coverage and identify missing test files. |
 | `/workflow:tools:test-concept-enhanced` | Generate test strategy and requirements analysis using Gemini. |
 | `/workflow:tools:test-task-generate` | Generate test task JSON with test-fix-cycle specification. |
+
+### **UI Design Workflow Commands (`/workflow:design:*`)** *(v3.5.0+)*
+
+The design workflow system provides complete UI design refinement from style extraction to prototype generation with interactive preview tools.
+
+#### Core Commands
+
+**`/workflow:design:auto`** - Complete workflow orchestrator
+```bash
+# Semi-autonomous workflow with user checkpoints
+/workflow:design:auto --session WFS-auth --images "refs/*.png" --pages "login,register"
+/workflow:design:auto --session WFS-dash --images "refs/*.jpg" --pages "dashboard" --variants 3 --batch-plan
+```
+- **Checkpoints**: User selects style variants (Phase 1) and confirms prototypes (Phase 3)
+- **Optional**: `--batch-plan` for automatic task generation
+
+**`/workflow:design:style-extract`** - Triple vision style analysis
+```bash
+# Extract design from reference images
+/workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
+```
+- **Vision Sources**: Claude Code + Gemini + Codex
+- **Output**: Style variant cards for user selection
+
+**`/workflow:design:style-consolidate`** - Validate and merge tokens
+```bash
+# Consolidate selected style variants
+/workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
+```
+- **Features**: WCAG AA validation, OKLCH colors, W3C token format
+- **Output**: `design-tokens.json`, `style-guide.md`, `tailwind.config.js`
+
+**`/workflow:design:ui-generate`** - Generate HTML/CSS prototypes
+```bash
+# Generate prototypes with preview tools
+/workflow:design:ui-generate --session WFS-auth --pages "login,register" --variants 2
+/workflow:design:ui-generate --session WFS-auth --pages "dashboard" --style-overrides "custom.json"
+```
+- **🆕 Preview Files**: `index.html` (navigation), `compare.html` (side-by-side), `PREVIEW.md` (instructions)
+- **Features**: Token-driven CSS, semantic HTML5, ARIA attributes, responsive design
+
+**`/workflow:design:design-update`** - Integrate design system
+```bash
+# Update brainstorming artifacts with design system
+/workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+```
+- **Updates**: `synthesis-specification.md`, `ui-designer/style-guide.md`
+- **Makes design tokens available for task generation**
+
+#### Preview System
+
+After running `ui-generate`, you get interactive preview tools:
+
+**Quick Preview** (Direct Browser):
+```bash
+# Navigate to prototypes directory
+cd .workflow/WFS-auth/.design/prototypes
+# Open index.html in browser (double-click or):
+open index.html  # macOS
+start index.html  # Windows
+xdg-open index.html  # Linux
+```
+
+**Full Preview** (Local Server - Recommended):
+```bash
+cd .workflow/WFS-auth/.design/prototypes
+# Choose one:
+python -m http.server 8080      # Python
+npx http-server -p 8080         # Node.js
+php -S localhost:8080           # PHP
+# Visit: http://localhost:8080
+```
+
+**Preview Features**:
+- `index.html`: Master navigation with all prototypes
+- `compare.html`: Side-by-side comparison with viewport controls (Desktop/Tablet/Mobile)
+- Synchronized scrolling for layout comparison
+- Dynamic page switching
+- Real-time responsive testing
+
+---
 
 ### **Task & Memory Commands**
 

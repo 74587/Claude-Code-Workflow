@@ -260,6 +260,13 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 /workflow:design:style-extract --session WFS-auth --images "refs/*.png"
 /workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
 /workflow:design:ui-generate --session WFS-auth --pages "login,register" --variants 2
+
+# 预览生成的原型（新功能！）
+# 选项1：在浏览器中打开 .workflow/WFS-auth/.design/prototypes/index.html
+# 选项2：启动本地服务器
+cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
+# 访问 http://localhost:8080 获取交互式预览和对比工具
+
 /workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
 ```
 
@@ -369,6 +376,87 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 | `/workflow:tools:test-context-gather` | 分析测试覆盖率，识别缺失的测试文件。 |
 | `/workflow:tools:test-concept-enhanced` | 使用 Gemini 生成测试策略和需求分析。 |
 | `/workflow:tools:test-task-generate` | 生成测试任务 JSON，包含 test-fix-cycle 规范。 |
+
+### **UI 设计工作流命令 (`/workflow:design:*`)** *(v3.5.0+)*
+
+设计工作流系统提供从风格提取到原型生成的完整 UI 设计精炼，配备交互式预览工具。
+
+#### 核心命令
+
+**`/workflow:design:auto`** - 完整工作流编排器
+```bash
+# 带用户检查点的半自主工作流
+/workflow:design:auto --session WFS-auth --images "refs/*.png" --pages "login,register"
+/workflow:design:auto --session WFS-dash --images "refs/*.jpg" --pages "dashboard" --variants 3 --batch-plan
+```
+- **检查点**: 用户选择风格变体（阶段1）和确认原型（阶段3）
+- **可选**: `--batch-plan` 用于自动任务生成
+
+**`/workflow:design:style-extract`** - 三重视觉风格分析
+```bash
+# 从参考图像提取设计
+/workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
+```
+- **视觉来源**: Claude Code + Gemini + Codex
+- **输出**: 用于用户选择的风格变体卡片
+
+**`/workflow:design:style-consolidate`** - 验证和合并令牌
+```bash
+# 整合选定的风格变体
+/workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
+```
+- **功能**: WCAG AA 验证、OKLCH 颜色、W3C 令牌格式
+- **输出**: `design-tokens.json`、`style-guide.md`、`tailwind.config.js`
+
+**`/workflow:design:ui-generate`** - 生成 HTML/CSS 原型
+```bash
+# 生成带预览工具的原型
+/workflow:design:ui-generate --session WFS-auth --pages "login,register" --variants 2
+/workflow:design:ui-generate --session WFS-auth --pages "dashboard" --style-overrides "custom.json"
+```
+- **🆕 预览文件**: `index.html`（导航）、`compare.html`（并排对比）、`PREVIEW.md`（说明）
+- **功能**: 令牌驱动的 CSS、语义化 HTML5、ARIA 属性、响应式设计
+
+**`/workflow:design:design-update`** - 集成设计系统
+```bash
+# 使用设计系统更新头脑风暴产物
+/workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+```
+- **更新**: `synthesis-specification.md`、`ui-designer/style-guide.md`
+- **使设计令牌可用于任务生成**
+
+#### 预览系统
+
+运行 `ui-generate` 后，您将获得交互式预览工具：
+
+**快速预览**（直接浏览器）:
+```bash
+# 导航到原型目录
+cd .workflow/WFS-auth/.design/prototypes
+# 在浏览器中打开 index.html（双击或执行）:
+open index.html  # macOS
+start index.html  # Windows
+xdg-open index.html  # Linux
+```
+
+**完整预览**（本地服务器 - 推荐）:
+```bash
+cd .workflow/WFS-auth/.design/prototypes
+# 选择一个:
+python -m http.server 8080      # Python
+npx http-server -p 8080         # Node.js
+php -S localhost:8080           # PHP
+# 访问: http://localhost:8080
+```
+
+**预览功能**:
+- `index.html`: 包含所有原型的主导航
+- `compare.html`: 带视口控制的并排对比（桌面/平板/移动）
+- 同步滚动用于布局对比
+- 动态页面切换
+- 实时响应式测试
+
+---
 
 ### **任务与内存命令**
 
