@@ -1,5 +1,5 @@
 ---
-name: memory-gemini-bridge
+name: memory-bridge
 description: Execute complex project documentation updates using script coordination
 color: purple
 ---

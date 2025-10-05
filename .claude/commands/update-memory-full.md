@@ -45,7 +45,7 @@ count=$(echo "$modules" | wc -l)
 
 # Pseudocode flow:
 # IF (module_count > 20 OR complex_project_detected):
-#     → Task "Complex project full update" subagent_type: "memory-gemini-bridge"
+#     → Task "Complex project full update" subagent_type: "memory-bridge"
 # ELSE:
 #     → Present plan and WAIT FOR USER APPROVAL before execution
 #
@@ -60,7 +60,7 @@ After the bash script completes the initial analysis, the model takes control to
 2. **Parse CLAUDE.md Status**: Extract which modules have/need CLAUDE.md files
 3. **Choose Strategy**:
    - Simple projects: Present execution plan with CLAUDE.md paths to user
-   - Complex projects: Delegate to memory-gemini-bridge agent
+   - Complex projects: Delegate to memory-bridge agent
 4. **Present Detailed Plan**: Show user exactly which CLAUDE.md files will be created/updated
 5. **⚠️ CRITICAL: WAIT FOR USER APPROVAL**: No execution without explicit user consent
 
@@ -120,11 +120,11 @@ Bash(git status --short)
 
 **For Complex Projects (>20 modules):**
 
-The model will delegate to the memory-gemini-bridge agent with structured context:
+The model will delegate to the memory-bridge agent with structured context:
 
 ```javascript
 Task "Complex project full update"
-subagent_type: "memory-gemini-bridge"
+subagent_type: "memory-bridge"
 prompt: `
 CONTEXT:
 - Total modules: ${module_count}

@@ -51,7 +51,7 @@ count=$(echo "$changed" | wc -l)
 
 # Pseudocode flow:
 # IF (change_count > 15 OR complex_changes_detected):
-#     → Task "Complex project related update" subagent_type: "memory-gemini-bridge"
+#     → Task "Complex project related update" subagent_type: "memory-bridge"
 # ELSE:
 #     → Present plan and WAIT FOR USER APPROVAL before execution
 #
@@ -66,7 +66,7 @@ After the bash script completes change detection, the model takes control to:
 2. **Parse CLAUDE.md Status**: Extract which changed modules have/need CLAUDE.md files
 3. **Choose Strategy**: 
    - Simple changes: Present execution plan with CLAUDE.md paths to user
-   - Complex changes: Delegate to memory-gemini-bridge agent
+   - Complex changes: Delegate to memory-bridge agent
 4. **Present Detailed Plan**: Show user exactly which CLAUDE.md files will be created/updated for changed modules
 5. **⚠️ CRITICAL: WAIT FOR USER APPROVAL**: No execution without explicit user consent
 
@@ -127,11 +127,11 @@ Bash(git diff --stat)
 
 **For Complex Changes (>15 modules):**
 
-The model will delegate to the memory-gemini-bridge agent with structured context:
+The model will delegate to the memory-bridge agent with structured context:
 
 ```javascript
 Task "Complex project related update"
-subagent_type: "memory-gemini-bridge"
+subagent_type: "memory-bridge"
 prompt: `
 CONTEXT:
 - Total modules: ${change_count}
