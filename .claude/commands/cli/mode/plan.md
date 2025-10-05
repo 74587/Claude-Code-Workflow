@@ -47,6 +47,38 @@ RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on [topic area]
 "
 ```
 
+## File Pattern Reference
+
+### Common Patterns
+- All files: `@{**/*}`
+- Source files: `@{src/**/*}`
+- TypeScript: `@{*.ts,*.tsx}`
+- JavaScript: `@{*.js,*.jsx}`
+- With docs: `@{CLAUDE.md,**/*CLAUDE.md}`
+- Tests: `@{**/*.test.*,**/*.spec.*}`
+- Config files: `@{*.config.*,**/config/**/*}`
+
+### Complex Pattern Discovery
+For comprehensive planning, use semantic discovery to understand project scope:
+
+```bash
+# Step 1: Discover project structure
+~/.claude/scripts/get_modules_by_depth.sh
+mcp__code-index__find_files(pattern="*.ts")
+
+# Step 2: Identify key architectural files
+rg "export.*class|export.*interface" --files-with-matches
+mcp__code-index__search_code_advanced(pattern="class.*Service|interface.*Config")
+
+# Step 3: Execute planning with full context
+cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
+PURPOSE: Plan feature implementation
+CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} Full project context
+EXPECTED: Architecture design and implementation roadmap
+RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on scalability
+"
+```
+
 ## Examples
 
 **Basic Planning**:

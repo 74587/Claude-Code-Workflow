@@ -46,6 +46,39 @@ The code-analysis template provides:
 - **Logical Reasoning**: Explain "why" behind code behavior
 - **Debugging Insights**: Identify potential bugs or inefficiencies
 
+## File Pattern Reference
+
+### Common Patterns
+- All files: `@{**/*}`
+- Source files: `@{src/**/*}`
+- TypeScript: `@{*.ts,*.tsx}`
+- JavaScript: `@{*.js,*.jsx}`
+- Python: `@{*.py}`
+- With docs: `@{CLAUDE.md,**/*CLAUDE.md}`
+- Tests: `@{**/*.test.*,**/*.spec.*}`
+
+### Complex Pattern Discovery
+For deep code analysis, use semantic discovery to trace execution paths:
+
+```bash
+# Step 1: Find entry points and related files
+rg "function.*authenticate|class.*AuthService" --files-with-matches
+mcp__code-index__search_code_advanced(pattern="authenticate|login", file_pattern="*.ts")
+
+# Step 2: Trace execution flow through discovered files
+# Build call graph: entry → middleware → service → repository
+
+# Step 3: Execute analysis with focused context
+cd src && ~/.claude/scripts/gemini-wrapper --all-files -p "
+PURPOSE: Trace authentication execution flow
+TASK: Analyze complete auth flow from request to response
+MODE: analysis
+CONTEXT: @{CLAUDE.md,api/auth.ts,middleware/auth.ts,services/auth.ts}
+EXPECTED: Step-by-step execution trace with call diagram
+RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on control flow
+"
+```
+
 ## Command Templates
 
 ### Gemini (Default)

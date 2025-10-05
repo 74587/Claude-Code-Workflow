@@ -100,6 +100,39 @@ RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Focus on session managemen
 - **Targeted Solutions**: Minimal, specific fixes
 - **Impact Assessment**: Side effect evaluation
 
+## File Pattern Reference
+
+### Common Patterns
+- All files: `@{**/*}`
+- Source files: `@{src/**/*}`
+- TypeScript: `@{*.ts,*.tsx}`
+- JavaScript: `@{*.js,*.jsx}`
+- Python: `@{*.py}`
+- With docs: `@{CLAUDE.md,**/*CLAUDE.md}`
+- Tests: `@{**/*.test.*,**/*.spec.*}`
+
+### Complex Pattern Discovery
+For bug investigation, use semantic discovery to find relevant code:
+
+```bash
+# Step 1: Find bug-related files
+rg "error_keyword|exception_pattern" --files-with-matches
+mcp__code-index__search_code_advanced(pattern="throw|catch|error", file_pattern="*.ts")
+
+# Step 2: Trace error propagation path
+# Identify: origin → propagation → handler
+
+# Step 3: Execute bug analysis with focused context
+cd src && ~/.claude/scripts/gemini-wrapper --all-files -p "
+PURPOSE: Debug null pointer error in authentication
+TASK: Identify root cause and provide fix
+MODE: analysis
+CONTEXT: @{CLAUDE.md,auth/service.ts,middleware/auth.ts}
+EXPECTED: Root cause, execution trace, minimal fix
+RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: null pointer in token validation
+"
+```
+
 ## Session Output
 
 **Location**: `.workflow/WFS-[topic]/.chat/bug-index-[timestamp].md`

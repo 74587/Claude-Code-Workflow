@@ -69,12 +69,45 @@ codex -C [dir] -i screenshot.png --full-auto exec "..." --skip-git-repo-check -s
 
 ## File Pattern Logic
 
-Auto-detect file patterns from keywords:
-- "auth" → `@{**/*auth*}`
-- "component" → `@{src/components/**/*}`
-- "API" → `@{**/api/**/*}`
-- "test" → `@{**/*.test.*}`
+### Auto-Detection from Keywords
+- "auth" → `@{**/*auth*,**/*user*}`
+- "component" → `@{src/components/**/*,**/*.component.*}`
+- "API" → `@{**/api/**/*,**/routes/**/*}`
+- "test" → `@{**/*.test.*,**/*.spec.*}`
+- "config" → `@{*.config.*,**/config/**/*}`
 - Generic → `@{src/**/*}`
+
+### Common File Patterns
+- All files: `@{**/*}`
+- Source files: `@{src/**/*}`
+- TypeScript: `@{*.ts,*.tsx}`
+- JavaScript: `@{*.js,*.jsx}`
+- With docs: `@{CLAUDE.md,**/*CLAUDE.md}`
+- Tests: `@{**/*.test.*,**/*.spec.*}`
+
+### Complex Pattern Discovery
+For complex file pattern requirements, use semantic discovery BEFORE CLI execution:
+
+**Workflow**: Discover → Extract precise paths → Build CONTEXT field
+
+```bash
+# Step 1: Discover files semantically
+rg "export.*Component" --files-with-matches --type ts
+mcp__code-index__search_code_advanced(pattern="interface.*Props", file_pattern="*.tsx")
+
+# Step 2: Build precise CONTEXT from discovery results
+CONTEXT: @{src/components/Auth.tsx,src/types/auth.d.ts,src/hooks/useAuth.ts}
+
+# Step 3: Execute CLI with precise file references
+cd src && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Analyze authentication components
+TASK: Review auth component patterns and props interfaces
+MODE: analysis
+CONTEXT: @{components/Auth.tsx,types/auth.d.ts,hooks/useAuth.ts}
+EXPECTED: Pattern analysis and improvement suggestions
+RULES: Focus on type safety and component composition
+"
+```
 
 ## Session Integration
 

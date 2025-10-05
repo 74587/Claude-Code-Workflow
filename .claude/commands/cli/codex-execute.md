@@ -98,6 +98,34 @@ For Each Subtask Group:
 - Focused file scope (1-5 files per subtask)
 - **Group coherence**: Subtasks in same group share context/files
 
+### File Pattern Reference
+- All files: `@{**/*}`
+- Source files: `@{src/**/*}`
+- TypeScript: `@{*.ts,*.tsx}`
+- JavaScript: `@{*.js,*.jsx}`
+- Python: `@{*.py}`
+- Tests: `@{**/*.test.*,**/*.spec.*}`
+- Config files: `@{*.config.*,**/config/**/*}`
+
+### Complex Pattern Discovery
+For task decomposition, use semantic discovery to identify relevant files:
+
+**Workflow**: Discover → Analyze scope → Group by files → Decompose
+
+```bash
+# Step 1: Discover all relevant files
+rg "authentication" --files-with-matches --type ts
+mcp__code-index__search_code_advanced(pattern="auth|login", file_pattern="*.ts")
+
+# Step 2: Analyze scope and group files
+# Group A: src/auth/model.ts, src/auth/schema.ts
+# Group B: src/api/auth.ts, src/middleware/auth.ts
+# Group C: tests/auth/*.test.ts
+
+# Step 3: Create task flow based on file groups
+# Each group becomes a session with related subtasks
+```
+
 ### Phase 2: Group-Based Execution
 
 **Pre-Execution Git Staging** (if valid git repository):

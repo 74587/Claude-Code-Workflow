@@ -44,6 +44,34 @@ Context gathered from:
 2. **User-Explicit Files**: Files specified by user
 3. **All Files Flag**: `--all-files` includes entire codebase
 
+### File Pattern Reference
+- All files: `@{**/*}`
+- Source files: `@{src/**/*}`
+- TypeScript: `@{*.ts,*.tsx}`
+- JavaScript: `@{*.js,*.jsx}`
+- With docs: `@{CLAUDE.md,**/*CLAUDE.md}`
+- Tests: `@{**/*.test.*,**/*.spec.*}`
+- Config files: `@{*.config.*,**/config/**/*}`
+
+### Complex Pattern Discovery
+For targeted analysis, use semantic discovery BEFORE CLI execution:
+
+```bash
+# Step 1: Discover relevant files
+rg "specific_pattern" --files-with-matches --type ts
+mcp__code-index__search_code_advanced(pattern="target_code", file_pattern="*.ts")
+
+# Step 2: Build CONTEXT with discovered files
+CONTEXT: @{CLAUDE.md} @{src/file1.ts,src/file2.ts}
+
+# Step 3: Execute chat command
+cd src && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Answer specific inquiry
+CONTEXT: @{CLAUDE.md,file1.ts,file2.ts}
+EXPECTED: Detailed response
+"
+```
+
 ## Command Template
 
 **Gemini/Qwen**:
