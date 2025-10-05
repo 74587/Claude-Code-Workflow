@@ -24,6 +24,9 @@ FORCE=false
 NON_INTERACTIVE=false
 BACKUP_ALL=true  # Enabled by default
 NO_BACKUP=false
+SOURCE_VERSION=""  # Version from remote installer
+SOURCE_BRANCH=""   # Branch from remote installer
+SOURCE_COMMIT=""   # Commit SHA from remote installer
 
 # Functions
 function write_color() {
@@ -99,6 +102,7 @@ function test_prerequisites() {
     local claude_md="$script_dir/CLAUDE.md"
     local codex_dir="$script_dir/.codex"
     local gemini_dir="$script_dir/.gemini"
+    local qwen_dir="$script_dir/.qwen"
 
     if [ ! -d "$claude_dir" ]; then
         write_color "ERROR: .claude directory not found in $script_dir" "$COLOR_ERROR"
@@ -117,6 +121,11 @@ function test_prerequisites() {
 
     if [ ! -d "$gemini_dir" ]; then
         write_color "ERROR: .gemini directory not found in $script_dir" "$COLOR_ERROR"
+        return 1
+    fi
+
+    if [ ! -d "$qwen_dir" ]; then
+        write_color "ERROR: .qwen directory not found in $script_dir" "$COLOR_ERROR"
         return 1
     fi
 
@@ -403,6 +412,7 @@ function install_global() {
     local global_claude_md="${global_claude_dir}/CLAUDE.md"
     local global_codex_dir="${user_home}/.codex"
     local global_gemini_dir="${user_home}/.gemini"
+    local global_qwen_dir="${user_home}/.qwen"
 
     write_color "Global installation path: $user_home" "$COLOR_INFO"
 
@@ -412,6 +422,7 @@ function install_global() {
     local source_claude_md="${script_dir}/CLAUDE.md"
     local source_codex_dir="${script_dir}/.codex"
     local source_gemini_dir="${script_dir}/.gemini"
+    local source_qwen_dir="${script_dir}/.qwen"
 
     # Create backup folder if needed
     local backup_folder=""
@@ -423,6 +434,8 @@ function install_global() {
         elif [ -d "$global_codex_dir" ] && [ "$(ls -A "$global_codex_dir" 2>/dev/null)" ]; then
             has_existing_files=true
         elif [ -d "$global_gemini_dir" ] && [ "$(ls -A "$global_gemini_dir" 2>/dev/null)" ]; then
+            has_existing_files=true
+        elif [ -d "$global_qwen_dir" ] && [ "$(ls -A "$global_qwen_dir" 2>/dev/null)" ]; then
             has_existing_files=true
         elif [ -f "$global_claude_md" ]; then
             has_existing_files=true
@@ -450,6 +463,10 @@ function install_global() {
     write_color "Merging .gemini directory contents..." "$COLOR_INFO"
     merge_directory_contents "$source_gemini_dir" "$global_gemini_dir" ".gemini directory contents" "$backup_folder"
 
+    # Merge .qwen directory contents
+    write_color "Merging .qwen directory contents..." "$COLOR_INFO"
+    merge_directory_contents "$source_qwen_dir" "$global_qwen_dir" ".qwen directory contents" "$backup_folder"
+
     # Remove empty backup folder
     if [ -n "$backup_folder" ] && [ -d "$backup_folder" ]; then
         if [ -z "$(ls -A "$backup_folder" 2>/dev/null)" ]; then
@@ -457,6 +474,10 @@ function install_global() {
             write_color "Removed empty backup folder" "$COLOR_INFO"
         fi
     fi
+
+    # Create version.json in global .claude directory
+    write_color "Creating version.json..." "$COLOR_INFO"
+    create_version_json "$global_claude_dir" "Global"
 
     return 0
 }
@@ -477,16 +498,18 @@ function install_path() {
     local source_claude_md="${script_dir}/CLAUDE.md"
     local source_codex_dir="${script_dir}/.codex"
     local source_gemini_dir="${script_dir}/.gemini"
+    local source_qwen_dir="${script_dir}/.qwen"
 
     # Local paths
     local local_claude_dir="${target_dir}/.claude"
     local local_codex_dir="${target_dir}/.codex"
     local local_gemini_dir="${target_dir}/.gemini"
+    local local_qwen_dir="${target_dir}/.qwen"
 
     # Create backup folder if needed
     local backup_folder=""
     if [ "$NO_BACKUP" = false ]; then
-        if [ -d "$local_claude_dir" ] || [ -d "$local_codex_dir" ] || [ -d "$local_gemini_dir" ] || [ -d "$global_claude_dir" ]; then
+        if [ -d "$local_claude_dir" ] || [ -d "$local_codex_dir" ] || [ -d "$local_gemini_dir" ] || [ -d "$local_qwen_dir" ] || [ -d "$global_claude_dir" ]; then
             backup_folder=$(get_backup_directory "$target_dir")
             write_color "Backup folder created: $backup_folder" "$COLOR_INFO"
         fi
@@ -575,6 +598,10 @@ function install_path() {
     write_color "Merging .gemini directory contents to local location..." "$COLOR_INFO"
     merge_directory_contents "$source_gemini_dir" "$local_gemini_dir" ".gemini directory contents" "$backup_folder"
 
+    # Merge .qwen directory contents to local location
+    write_color "Merging .qwen directory contents to local location..." "$COLOR_INFO"
+    merge_directory_contents "$source_qwen_dir" "$local_qwen_dir" ".qwen directory contents" "$backup_folder"
+
     # Remove empty backup folder
     if [ -n "$backup_folder" ] && [ -d "$backup_folder" ]; then
         if [ -z "$(ls -A "$backup_folder" 2>/dev/null)" ]; then
@@ -583,12 +610,20 @@ function install_path() {
         fi
     fi
 
+    # Create version.json in local .claude directory
+    write_color "Creating version.json in local directory..." "$COLOR_INFO"
+    create_version_json "$local_claude_dir" "Path"
+
+    # Also create version.json in global .claude directory
+    write_color "Creating version.json in global directory..." "$COLOR_INFO"
+    create_version_json "$global_claude_dir" "Global"
+
     return 0
 }
 
 function get_installation_mode() {
     if [ -n "$INSTALL_MODE" ]; then
-        write_color "Installation mode: $INSTALL_MODE" "$COLOR_INFO"
+        write_color "Installation mode: $INSTALL_MODE" "$COLOR_INFO" >&2
         echo "$INSTALL_MODE"
         return
     fi
@@ -658,6 +693,42 @@ function get_installation_path() {
     done
 }
 
+function create_version_json() {
+    local target_claude_dir="$1"
+    local installation_mode="$2"
+
+    # Determine version from source parameter (passed from install-remote.sh)
+    local version_number="${SOURCE_VERSION:-unknown}"
+    local source_branch="${SOURCE_BRANCH:-unknown}"
+    local commit_sha="${SOURCE_COMMIT:-unknown}"
+
+    # Get current UTC timestamp
+    local installation_date_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    # Create version.json content
+    local version_json_path="${target_claude_dir}/version.json"
+
+    cat > "$version_json_path" << EOF
+{
+  "version": "$version_number",
+  "commit_sha": "$commit_sha",
+  "installation_mode": "$installation_mode",
+  "installation_path": "$target_claude_dir",
+  "installation_date_utc": "$installation_date_utc",
+  "source_branch": "$source_branch",
+  "installer_version": "$VERSION"
+}
+EOF
+
+    if [ -f "$version_json_path" ]; then
+        write_color "Created version.json: $version_number ($commit_sha) - $installation_mode" "$COLOR_SUCCESS"
+        return 0
+    else
+        write_color "WARNING: Failed to create version.json" "$COLOR_WARNING"
+        return 1
+    fi
+}
+
 function show_summary() {
     local mode="$1"
     local path="$2"
@@ -676,11 +747,11 @@ function show_summary() {
     if [ "$mode" = "Path" ]; then
         echo "  Local Path: $path"
         echo "  Global Path: $HOME"
-        echo "  Local Components: agents, commands, output-styles, .codex, .gemini"
+        echo "  Local Components: agents, commands, output-styles, .codex, .gemini, .qwen"
         echo "  Global Components: workflows, scripts, python_script, etc."
     else
         echo "  Path: $path"
-        echo "  Global Components: .claude, .codex, .gemini"
+        echo "  Global Components: .claude, .codex, .gemini, .qwen"
     fi
 
     if [ "$NO_BACKUP" = true ]; then
@@ -696,10 +767,11 @@ function show_summary() {
     echo "1. Review CLAUDE.md - Customize guidelines for your project"
     echo "2. Review .codex/Agent.md - Codex agent execution protocol"
     echo "3. Review .gemini/CLAUDE.md - Gemini agent execution protocol"
-    echo "4. Configure settings - Edit .claude/settings.local.json as needed"
-    echo "5. Start using Claude Code with Agent workflow coordination!"
-    echo "6. Use /workflow commands for task execution"
-    echo "7. Use /update-memory commands for memory system management"
+    echo "4. Review .qwen/QWEN.md - Qwen agent execution protocol"
+    echo "5. Configure settings - Edit .claude/settings.local.json as needed"
+    echo "6. Start using Claude Code with Agent workflow coordination!"
+    echo "7. Use /workflow commands for task execution"
+    echo "8. Use /update-memory commands for memory system management"
 
     echo ""
     write_color "Documentation: https://github.com/catlog22/Claude-Code-Workflow" "$COLOR_INFO"
@@ -735,6 +807,18 @@ function parse_arguments() {
                 BACKUP_ALL=false
                 shift
                 ;;
+            -SourceVersion)
+                SOURCE_VERSION="$2"
+                shift 2
+                ;;
+            -SourceBranch)
+                SOURCE_BRANCH="$2"
+                shift 2
+                ;;
+            -SourceCommit)
+                SOURCE_COMMIT="$2"
+                shift 2
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -761,6 +845,9 @@ Options:
     -NonInteractive       Run in non-interactive mode with default options
     -BackupAll            Automatically backup all existing files (default)
     -NoBackup             Disable automatic backup functionality
+    -SourceVersion <ver>  Source version (passed from install-remote.sh)
+    -SourceBranch <name>  Source branch (passed from install-remote.sh)
+    -SourceCommit <sha>   Source commit SHA (passed from install-remote.sh)
     --help, -h            Show this help message
 
 Examples:
@@ -775,6 +862,9 @@ Examples:
 
     # Installation without backup
     $0 -NoBackup
+
+    # With version info (typically called by install-remote.sh)
+    $0 -InstallMode Global -Force -SourceVersion "3.4.2" -SourceBranch "main" -SourceCommit "abc1234"
 
 EOF
 }
