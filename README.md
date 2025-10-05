@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.4.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,15 +15,15 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v3.4.0** - TDD workflow optimization & test generation enhancements. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v3.4.2** - CLI documentation refactoring & single source of truth. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v3.4.0**:
-> - 🧪 **TDD Workflow Streamlining**: Unified IMPL_PLAN.md structure, 33% reduction in redundant files
-> - 🔄 **Test Coverage Analysis**: TDD workflow upgraded to 6 phases with Phase 3 test context gathering
-> - 🔁 **Iterative Green Phase**: Built-in test-fix-cycle in IMPL tasks with Gemini auto-diagnosis
-> - 🛠️ **Manual-First Fixes**: Gemini + bug-fix template diagnosis by default, optional `--use-codex` automation
-> - ✅ **Test-Gen Workflow Enhancement**: Added 3 supporting tool commands for complete test generation flow
-> - ⏱️ **Dynamic Timeout Allocation**: CLI tools default to 20-120min for large-scale analysis
+> **What's New in v3.4.2**:
+> - 📚 **CLI Documentation Refactoring**: Eliminated 681 lines of duplicate content across 7 command files
+> - 🎯 **Single Source of Truth**: Established implicit reference pattern to `intelligent-tools-strategy.md`
+> - 🔍 **Documentation Consistency**: All CLI commands now reference centralized strategy guide
+> - 💡 **Maintenance Optimization**: Reduced maintenance overhead while preserving unique command features
+> - ✨ **Enhanced Clarity**: Streamlined documentation focuses on command-specific capabilities
+> - 📖 **Better Organization**: File patterns, templates, and MODE definitions centralized
 
 ---
 

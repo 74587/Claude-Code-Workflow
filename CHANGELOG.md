@@ -5,6 +5,69 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.2] - 2025-10-05
+
+### 📚 CLI Documentation Refactoring
+
+This release focuses on eliminating redundant documentation by establishing a single source of truth (SSOT) pattern for CLI command references.
+
+#### Changed
+
+**CLI Command Documentation Refactoring**:
+- Refactored 7 CLI command documentation files to eliminate redundancy
+- Removed **681 total lines** of duplicate content across all files
+- Established implicit reference pattern to `intelligent-tools-strategy.md` (loaded in memory)
+- Preserved all unique command-specific content and capabilities
+
+**Specific File Reductions**:
+- `analyze.md`: 117→61 lines (48% reduction)
+- `chat.md`: 118→62 lines (47% reduction)
+- `execute.md`: 180→100 lines (44% reduction)
+- `codex-execute.md`: 481→473 lines (2% - preserved unique workflow content)
+- `mode/bug-index.md`: 144→75 lines (48% reduction)
+- `mode/code-analysis.md`: 188→76 lines (60% reduction)
+- `mode/plan.md`: 100→76 lines (24% reduction)
+
+**Removed Duplicate Sections**:
+- Universal Command Template (now only in `intelligent-tools-strategy.md`)
+- File Pattern Reference (centralized in strategy guide)
+- Complex Pattern Discovery (centralized in strategy guide)
+- MODE Field Definition (centralized in strategy guide)
+- Enhancement Integration details (referenced implicitly)
+- Session Persistence details (referenced implicitly)
+
+**Preserved Unique Content**:
+- Command-specific purpose and parameters
+- Unique execution flows and capabilities
+- Specialized features (YOLO permissions, task decomposition, resume patterns)
+- Command-specific examples and workflows
+- File pattern auto-detection logic for analyze command
+- Group-based execution workflow for codex-execute command
+
+#### Added
+
+**Documentation Enhancement** (prior to refactoring):
+- Enhanced file pattern examples and complex pattern discovery documentation
+- Added semantic discovery workflow integration examples
+
+#### Technical Details
+
+**Single Source of Truth Pattern**:
+All CLI commands now reference `intelligent-tools-strategy.md` for:
+- Universal command template structure
+- File pattern syntax and examples
+- Complex pattern discovery workflows
+- MODE field definitions and permissions
+- Tool-specific features and capabilities
+
+**Reference Pattern**:
+```markdown
+## Notes
+- Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
+```
+
+This approach reduces maintenance overhead while ensuring documentation consistency across all CLI commands.
+
 ## [3.4.1] - 2025-10-04
 
 ### 🎯 Multi-Tool Support for Documentation Updates

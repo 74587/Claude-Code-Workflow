@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.4.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,15 +15,15 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 最新版本: v3.4.0** - TDD 工作流优化与测试生成增强。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v3.4.2** - CLI 文档重构与单一信息源。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v3.4.0 版本新特性**:
-> - 🧪 **TDD 工作流优化**: 精简文件结构，统一使用 IMPL_PLAN.md，减少 33% 冗余文件
-> - 🔄 **测试覆盖分析**: TDD 工作流升级至 6 阶段，新增 Phase 3 测试上下文收集
-> - 🔁 **迭代 Green Phase**: IMPL 任务内置 test-fix-cycle，支持 Gemini 自动诊断和修复
-> - 🛠️ **手动优先修复**: 默认使用 Gemini + bug-fix 模板诊断，可选 `--use-codex` 自动化
-> - ✅ **test-gen 工作流增强**: 新增 3 个配套工具命令，完整测试生成和修复流程
-> - ⏱️ **动态超时分配**: CLI 工具默认 20-120 分钟超时，适应大型项目分析
+> **v3.4.2 版本新特性**:
+> - 📚 **CLI 文档重构**: 消除 7 个命令文件中的 681 行重复内容
+> - 🎯 **单一信息源**: 建立对 `intelligent-tools-strategy.md` 的隐式引用模式
+> - 🔍 **文档一致性**: 所有 CLI 命令现在引用集中的策略指南
+> - 💡 **维护优化**: 降低维护开销，同时保留独特的命令功能
+> - ✨ **增强清晰度**: 精简的文档专注于命令特定功能
+> - 📖 **更好的组织**: 文件模式、模板和 MODE 定义集中化
 
 ---
 
