@@ -14,62 +14,27 @@ allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*)
 
 ## Purpose
 
-Execute CLI tool analysis on codebase patterns, architecture, or code quality.
+Quick codebase analysis using CLI tools. Automatically detects analysis type and selects appropriate template.
 
 **Supported Tools**: codex, gemini (default), qwen
+
+## Parameters
+
+- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini)
+- `--enhance` - Use `/enhance-prompt` for context-aware enhancement
+- `<analysis-target>` - Description of what to analyze
 
 ## Execution Flow
 
 1. Parse tool selection (default: gemini)
-2. If `--enhance`: Execute `/enhance-prompt` first
-3. Detect analysis type and select template
-4. Build and execute command
-5. Return results
+2. If `--enhance`: Execute `/enhance-prompt` first to expand user intent
+3. Auto-detect analysis type from keywords → select template
+4. Build command with auto-detected file patterns
+5. Execute and return results
 
-## Enhancement Integration
+## File Pattern Auto-Detection
 
-**When `--enhance` flag present**: Execute `/enhance-prompt "[analysis-target]"` first, then use enhanced output (INTENT/CONTEXT/ACTION) to build the analysis command.
-
-
-## Command Template
-
-**Gemini/Qwen**:
-```bash
-cd [dir] && ~/.claude/scripts/[gemini|qwen]-wrapper -p "
-PURPOSE: [analysis goal]
-TASK: [specific task]
-CONTEXT: @{[file-patterns]} @{CLAUDE.md}
-EXPECTED: [output format]
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [constraints]
-"
-```
-
-**Codex**:
-```bash
-codex -C [dir] --full-auto exec "
-PURPOSE: [analysis goal]
-TASK: [specific task]
-CONTEXT: @{[file-patterns]} @{CLAUDE.md}
-EXPECTED: [output format]
-RULES: [constraints]
-" --skip-git-repo-check -s danger-full-access
-
-# With image attachment (e.g., UI screenshots, diagrams)
-codex -C [dir] -i screenshot.png --full-auto exec "..." --skip-git-repo-check -s danger-full-access
-```
-
-## Examples
-
-```bash
-/cli:analyze "authentication patterns"              # Gemini (default)
-/cli:analyze --tool qwen "component architecture"   # Qwen architecture
-/cli:analyze --tool codex "performance bottlenecks" # Codex deep analysis
-/cli:analyze --enhance "fix auth issues"            # Enhanced prompt first
-```
-
-## File Pattern Logic
-
-### Auto-Detection from Keywords
+Keywords trigger specific file patterns:
 - "auth" → `@{**/*auth*,**/*user*}`
 - "component" → `@{src/components/**/*,**/*.component.*}`
 - "API" → `@{**/api/**/*,**/routes/**/*}`
@@ -77,40 +42,19 @@ codex -C [dir] -i screenshot.png --full-auto exec "..." --skip-git-repo-check -s
 - "config" → `@{*.config.*,**/config/**/*}`
 - Generic → `@{src/**/*}`
 
-### Common File Patterns
-- All files: `@{**/*}`
-- Source files: `@{src/**/*}`
-- TypeScript: `@{*.ts,*.tsx}`
-- JavaScript: `@{*.js,*.jsx}`
-- With docs: `@{CLAUDE.md,**/*CLAUDE.md}`
-- Tests: `@{**/*.test.*,**/*.spec.*}`
+For complex patterns, use `rg` or MCP tools to discover files first, then execute CLI with precise file references.
 
-### Complex Pattern Discovery
-For complex file pattern requirements, use semantic discovery BEFORE CLI execution:
-
-**Workflow**: Discover → Extract precise paths → Build CONTEXT field
+## Examples
 
 ```bash
-# Step 1: Discover files semantically
-rg "export.*Component" --files-with-matches --type ts
-mcp__code-index__search_code_advanced(pattern="interface.*Props", file_pattern="*.tsx")
-
-# Step 2: Build precise CONTEXT from discovery results
-CONTEXT: @{src/components/Auth.tsx,src/types/auth.d.ts,src/hooks/useAuth.ts}
-
-# Step 3: Execute CLI with precise file references
-cd src && ~/.claude/scripts/gemini-wrapper -p "
-PURPOSE: Analyze authentication components
-TASK: Review auth component patterns and props interfaces
-MODE: analysis
-CONTEXT: @{components/Auth.tsx,types/auth.d.ts,hooks/useAuth.ts}
-EXPECTED: Pattern analysis and improvement suggestions
-RULES: Focus on type safety and component composition
-"
+/cli:analyze "authentication patterns"              # Auto: gemini + auth patterns
+/cli:analyze --tool qwen "component architecture"   # Qwen architecture analysis
+/cli:analyze --tool codex "performance bottlenecks" # Codex deep analysis
+/cli:analyze --enhance "fix auth issues"            # Enhanced prompt → analysis
 ```
 
-## Session Integration
+## Notes
 
-- **Active Session**: Save results to `.workflow/WFS-[id]/.chat/analysis-[timestamp].md`
-- **No Session**: Return results directly to user
-
+- Command templates, file patterns, and best practices: see intelligent-tools-strategy.md (loaded in memory)
+- Active workflow session: results saved to `.workflow/WFS-[id]/.chat/`
+- No session: results returned directly

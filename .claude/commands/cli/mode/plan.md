@@ -14,120 +14,62 @@ allowed-tools: SlashCommand(*), Bash(*)
 
 ## Purpose
 
-Execute planning and architecture analysis using CLI tools with specialized template.
+Comprehensive planning and architecture analysis with strategic planning template (`~/.claude/prompt-templates/plan.md`).
 
 **Supported Tools**: codex, gemini (default), qwen
+**Key Feature**: `--cd` flag for directory-scoped planning
+
+## Parameters
+
+- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini)
+- `--enhance` - Enhance topic with `/enhance-prompt` first
+- `--cd "path"` - Target directory for focused planning
+- `<topic>` (Required) - Planning topic or architectural question
 
 ## Execution Flow
 
-1. **Parse tool selection**: Extract `--tool` flag (default: gemini)
-2. **If `--enhance` flag present**: Execute `/enhance-prompt "[topic]"` first
-3. Parse topic (original or enhanced)
-4. Detect target directory (from `--cd` or auto-infer)
-5. Build command for selected tool with planning template
-6. Execute analysis
-7. Save to session (if active)
+1. Parse tool and directory options
+2. If `--enhance`: Execute `/enhance-prompt` to expand planning context
+3. Use planning template: `~/.claude/prompt-templates/plan.md`
+4. Execute with `--all-files` in target directory
+5. Save to `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
 
-## Core Rules
+## Planning Capabilities (via Template)
 
-1. **Enhance First (if flagged)**: Execute `/enhance-prompt` before planning
-2. **Directory Context**: Use `cd` when `--cd` provided or auto-detected
-3. **Template Required**: Always use planning template
-4. **Session Output**: Save to `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
-
-## Command Template
-
-```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper --all-files -p "
-PURPOSE: [planning goal from topic]
-TASK: Comprehensive planning and architecture analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} [entire codebase in directory]
-EXPECTED: Strategic insights, implementation roadmap, key decisions
-RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on [topic area]
-"
-```
-
-## File Pattern Reference
-
-### Common Patterns
-- All files: `@{**/*}`
-- Source files: `@{src/**/*}`
-- TypeScript: `@{*.ts,*.tsx}`
-- JavaScript: `@{*.js,*.jsx}`
-- With docs: `@{CLAUDE.md,**/*CLAUDE.md}`
-- Tests: `@{**/*.test.*,**/*.spec.*}`
-- Config files: `@{*.config.*,**/config/**/*}`
-
-### Complex Pattern Discovery
-For comprehensive planning, use semantic discovery to understand project scope:
-
-```bash
-# Step 1: Discover project structure
-~/.claude/scripts/get_modules_by_depth.sh
-mcp__code-index__find_files(pattern="*.ts")
-
-# Step 2: Identify key architectural files
-rg "export.*class|export.*interface" --files-with-matches
-mcp__code-index__search_code_advanced(pattern="class.*Service|interface.*Config")
-
-# Step 3: Execute planning with full context
-cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
-PURPOSE: Plan feature implementation
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} Full project context
-EXPECTED: Architecture design and implementation roadmap
-RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on scalability
-"
-```
+- Strategic architecture insights
+- Implementation roadmaps
+- Key technical decisions
+- Risk assessment
+- Resource planning
 
 ## Examples
 
-**Basic Planning**:
 ```bash
-cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
-PURPOSE: Design user dashboard feature architecture
-TASK: Comprehensive architecture planning for dashboard
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
-EXPECTED: Architecture design, component structure, implementation roadmap
-RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on scalability and UX
-"
+# Basic planning
+/cli:mode:plan "design user dashboard"
+
+# Enhanced with directory scope
+/cli:mode:plan --cd "src/api" --enhance "plan API refactoring"
+
+# Qwen for architecture planning
+/cli:mode:plan --tool qwen "plan microservices migration"
+
+# Codex for technical planning
+/cli:mode:plan --tool codex "plan testing strategy"
 ```
 
-**Directory-Specific**:
+## Planning Workflow
+
 ```bash
-cd src/auth && ~/.claude/scripts/gemini-wrapper --all-files -p "
-PURPOSE: Plan authentication system redesign
-TASK: Analyze current auth and plan improvements
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
-EXPECTED: Migration strategy, security improvements, timeline
-RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on security and backward compatibility
-"
+# 1. Gather existing architecture info
+rg "architecture|design" --files-with-matches
+
+# 2. Execute planning analysis
+/cli:mode:plan "topic for strategic planning"
 ```
 
-**With Enhancement**:
-```bash
-# User: /gemini:mode:plan --enhance "fix auth issues"
+## Notes
 
-# Step 1: Enhance
-/enhance-prompt "fix auth issues"
-# Returns structured planning context
-
-# Step 2: Plan with enhanced input
-cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
-PURPOSE: [enhanced goal]
-TASK: [enhanced task description]
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} [enhanced context]
-EXPECTED: Strategic plan with enhanced requirements
-RULES: $(cat ~/.claude/prompt-templates/plan.md) | [enhanced constraints]
-"
-```
-
-## Session Output
-
-**Location**: `.workflow/WFS-[topic]/.chat/plan-[timestamp].md`
-
-**Includes**:
-- Planning topic
-- Template used
-- Analysis results
-- Implementation roadmap
-- Key decisions
+- Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
+- Template path: `~/.claude/prompt-templates/plan.md`
+- Always uses `--all-files` for comprehensive project context
