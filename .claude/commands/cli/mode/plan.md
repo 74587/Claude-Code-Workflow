@@ -28,48 +28,98 @@ Comprehensive planning and architecture analysis with strategic planning templat
 
 ## Execution Flow
 
-1. Parse tool and directory options
-2. If `--enhance`: Execute `/enhance-prompt` to expand planning context
-3. Use planning template: `~/.claude/prompt-templates/plan.md`
-4. Execute with `--all-files` in target directory
-5. Save to `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
+1. **Parse tool selection**: Extract `--tool` flag (default: gemini)
+2. **If `--enhance` flag present**: Execute `/enhance-prompt "[topic]"` first
+3. Parse topic (original or enhanced)
+4. Detect target directory (from `--cd` or auto-infer)
+5. Build command for selected tool with planning template
+6. Execute analysis (read-only, no code modification)
+7. Save to `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
+
+## Core Rules
+
+1. **Analysis Only**: This command provides planning recommendations and insights - it does NOT modify code
+2. **Enhance First (if flagged)**: Execute `/enhance-prompt` before planning
+3. **Directory Context**: Use `cd` when `--cd` provided or auto-detected
+4. **Template Required**: Always use planning template
+5. **Session Output**: Save analysis results to session chat
 
 ## Planning Capabilities (via Template)
 
-- Strategic architecture insights
-- Implementation roadmaps
-- Key technical decisions
+- Strategic architecture insights and recommendations
+- Implementation roadmaps and suggestions
+- Key technical decisions analysis
 - Risk assessment
 - Resource planning
 
-## Examples
+## Command Template
 
 ```bash
-# Basic planning
-/cli:mode:plan "design user dashboard"
+cd [directory] && ~/.claude/scripts/gemini-wrapper --all-files -p "
+PURPOSE: [planning goal from topic]
+TASK: Comprehensive planning and architecture analysis
+MODE: analysis
+CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} [entire codebase in directory]
+EXPECTED: Strategic insights, implementation recommendations, key decisions
+RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on [topic area]
+"
+```
 
-# Enhanced with directory scope
-/cli:mode:plan --cd "src/api" --enhance "plan API refactoring"
+## Examples
 
-# Qwen for architecture planning
-/cli:mode:plan --tool qwen "plan microservices migration"
+**Basic Planning Analysis**:
+```bash
+cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
+PURPOSE: Design user dashboard architecture
+TASK: Plan dashboard component structure and data flow
+MODE: analysis
+CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+EXPECTED: Architecture recommendations, component design, data flow diagram
+RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on scalability
+"
+```
 
-# Codex for technical planning
-/cli:mode:plan --tool codex "plan testing strategy"
+**Directory-Specific Planning**:
+```bash
+cd src/api && ~/.claude/scripts/gemini-wrapper --all-files -p "
+PURPOSE: Plan API refactoring strategy
+TASK: Analyze current API structure and recommend improvements
+MODE: analysis
+CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+EXPECTED: Refactoring roadmap, breaking change analysis, migration plan
+RULES: $(cat ~/.claude/prompt-templates/plan.md) | Maintain backward compatibility
+"
 ```
 
 ## Planning Workflow
 
 ```bash
-# 1. Gather existing architecture info
+# 1. Discover project structure
+~/.claude/scripts/get_modules_by_depth.sh
+mcp__code-index__find_files(pattern="*.ts")
+
+# 2. Gather existing architecture info
 rg "architecture|design" --files-with-matches
 
-# 2. Execute planning analysis
+# 3. Execute planning analysis (analysis only, no code changes)
 /cli:mode:plan "topic for strategic planning"
 ```
+
+## Output Routing
+
+**Output Destination Logic**:
+- **Active session exists AND planning is session-relevant**:
+  - Save to `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
+- **No active session OR exploratory planning**:
+  - Save to `.workflow/.scratchpad/plan-[description]-[timestamp].md`
+
+**Examples**:
+- During active session `WFS-dashboard`, planning dashboard architecture → `.chat/plan-20250105-143022.md`
+- No session, exploring new feature idea → `.scratchpad/plan-feature-idea-20250105-143045.md`
 
 ## Notes
 
 - Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
+- Scratchpad directory details: see workflow-architecture.md
 - Template path: `~/.claude/prompt-templates/plan.md`
 - Always uses `--all-files` for comprehensive project context

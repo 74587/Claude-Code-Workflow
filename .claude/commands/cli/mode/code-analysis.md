@@ -28,48 +28,100 @@ Systematic code analysis with execution path tracing template (`~/.claude/prompt
 
 ## Execution Flow
 
-1. Parse tool and directory options
-2. If `--enhance`: Execute `/enhance-prompt` to expand analysis intent
-3. Use code-analysis template: `~/.claude/prompt-templates/code-analysis.md`
-4. Execute with `--all-files` in target directory
-5. Save to `.workflow/WFS-[id]/.chat/code-analysis-[timestamp].md`
+1. **Parse tool selection**: Extract `--tool` flag (default: gemini)
+2. **If `--enhance` flag present**: Execute `/enhance-prompt "[analysis-target]"` first
+3. Parse analysis target (original or enhanced)
+4. Detect target directory (from `--cd` or auto-infer)
+5. Build command for selected tool with code-analysis template
+6. Execute deep analysis (read-only, no code modification)
+7. Save to `.workflow/WFS-[id]/.chat/code-analysis-[timestamp].md`
+
+## Core Rules
+
+1. **Analysis Only**: This command analyzes code and provides insights - it does NOT modify code
+2. **Tool Selection**: Use `--tool` value or default to gemini
+3. **Enhance First (if flagged)**: Execute `/enhance-prompt` before analysis
+4. **Directory Context**: Use `cd` when `--cd` provided or auto-detected
+5. **Template Required**: Always use code-analysis template
+6. **Session Output**: Save analysis results to session chat
 
 ## Analysis Capabilities (via Template)
 
-- Execution path tracing with variable states
-- Call flow visualization and diagrams
-- Control & data flow analysis
-- Logical reasoning ("why" behind code behavior)
-- Debugging insights and inefficiency detection
+- **Systematic Code Analysis**: Break down complex code into manageable parts
+- **Execution Path Tracing**: Track variable states and call stacks
+- **Control & Data Flow**: Understand code logic and data transformations
+- **Call Flow Visualization**: Diagram function calling sequences
+- **Logical Reasoning**: Explain "why" behind code behavior
+- **Debugging Insights**: Identify potential bugs or inefficiencies
+
+## Command Template
+
+```bash
+cd [directory] && ~/.claude/scripts/gemini-wrapper --all-files -p "
+PURPOSE: [analysis goal]
+TASK: Systematic code analysis and execution path tracing
+MODE: analysis
+CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} [entire codebase in directory]
+EXPECTED: Execution trace, call flow diagram, debugging insights
+RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on [aspect]
+"
+```
 
 ## Examples
 
+**Basic Code Analysis**:
 ```bash
-# Basic code analysis
-/cli:mode:code-analysis "trace authentication flow"
+cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
+PURPOSE: Trace authentication execution flow
+TASK: Analyze complete auth flow from request to response
+MODE: analysis
+CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+EXPECTED: Step-by-step execution trace with call diagram, variable states
+RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on control flow
+"
+```
 
-# Directory-specific with enhancement
-/cli:mode:code-analysis --cd "src/auth" --enhance "how does JWT work"
-
-# Qwen for architecture analysis
-/cli:mode:code-analysis --tool qwen "explain microservices communication"
-
-# Codex for deep tracing
-/cli:mode:code-analysis --tool codex --cd "src/api" "trace request lifecycle"
+**Directory-Specific Analysis**:
+```bash
+cd src/auth && ~/.claude/scripts/gemini-wrapper --all-files -p "
+PURPOSE: Understand JWT token validation logic
+TASK: Trace JWT validation from middleware to service layer
+MODE: analysis
+CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+EXPECTED: Validation flow diagram, token lifecycle analysis
+RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on security
+"
 ```
 
 ## Code Tracing Workflow
 
 ```bash
-# 1. Find entry points
-rg "function.*main|export.*handler" --files-with-matches
+# 1. Find entry points and related files
+rg "function.*authenticate|class.*AuthService" --files-with-matches
+mcp__code-index__search_code_advanced(pattern="authenticate|login", file_pattern="*.ts")
 
-# 2. Execute deep analysis
+# 2. Build call graph understanding
+# entry → middleware → service → repository
+
+# 3. Execute deep analysis (analysis only, no code changes)
 /cli:mode:code-analysis --cd "src" "trace execution from entry point"
 ```
+
+## Output Routing
+
+**Output Destination Logic**:
+- **Active session exists AND analysis is session-relevant**:
+  - Save to `.workflow/WFS-[id]/.chat/code-analysis-[timestamp].md`
+- **No active session OR standalone analysis**:
+  - Save to `.workflow/.scratchpad/code-analysis-[description]-[timestamp].md`
+
+**Examples**:
+- During active session `WFS-auth-refactor`, analyzing auth flow → `.chat/code-analysis-20250105-143022.md`
+- No session, tracing request lifecycle → `.scratchpad/code-analysis-request-flow-20250105-143045.md`
 
 ## Notes
 
 - Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
+- Scratchpad directory details: see workflow-architecture.md
 - Template path: `~/.claude/prompt-templates/code-analysis.md`
 - Always uses `--all-files` for comprehensive code context

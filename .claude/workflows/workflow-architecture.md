@@ -266,28 +266,73 @@ All workflows use the same file structure definition regardless of complexity. *
 
 #### Complete Structure Reference
 ```
-.workflow/WFS-[topic-slug]/
-├── workflow-session.json        # Session metadata and state (REQUIRED)
-├── [.brainstorming/]           # Optional brainstorming phase (created when needed)
-├── [.chat/]                    # CLI interaction sessions (created when analysis is run)
-│   ├── chat-*.md              # Saved chat sessions
-│   └── analysis-*.md          # Analysis results
-├── [.process/]                 # Planning analysis results (created by /workflow:plan)
-│   └── ANALYSIS_RESULTS.md    # Analysis results and planning artifacts
-├── IMPL_PLAN.md                # Planning document (REQUIRED)
-├── TODO_LIST.md                # Progress tracking (REQUIRED)
-├── [.summaries/]               # Task completion summaries (created when tasks complete)
-│   ├── IMPL-*-summary.md      # Main task summaries
-│   └── IMPL-*.*-summary.md    # Subtask summaries
-└── .task/                      # Task definitions (REQUIRED)
-    ├── IMPL-*.json             # Main task definitions
-    └── IMPL-*.*.json           # Subtask definitions (created dynamically)
+.workflow/
+├── [.scratchpad/]              # Non-session-specific outputs (created when needed)
+│   ├── analyze-*-[timestamp].md        # One-off analysis results
+│   ├── chat-*-[timestamp].md           # Standalone chat sessions
+│   ├── plan-*-[timestamp].md           # Ad-hoc planning notes
+│   ├── bug-index-*-[timestamp].md      # Quick bug analyses
+│   ├── code-analysis-*-[timestamp].md  # Standalone code analysis
+│   ├── execute-*-[timestamp].md        # Ad-hoc implementation logs
+│   └── codex-execute-*-[timestamp].md  # Multi-stage execution logs
+│
+└── WFS-[topic-slug]/
+    ├── workflow-session.json        # Session metadata and state (REQUIRED)
+    ├── [.brainstorming/]           # Optional brainstorming phase (created when needed)
+    ├── [.chat/]                    # CLI interaction sessions (created when analysis is run)
+    │   ├── chat-*.md              # Saved chat sessions
+    │   └── analysis-*.md          # Analysis results
+    ├── [.process/]                 # Planning analysis results (created by /workflow:plan)
+    │   └── ANALYSIS_RESULTS.md    # Analysis results and planning artifacts
+    ├── IMPL_PLAN.md                # Planning document (REQUIRED)
+    ├── TODO_LIST.md                # Progress tracking (REQUIRED)
+    ├── [.summaries/]               # Task completion summaries (created when tasks complete)
+    │   ├── IMPL-*-summary.md      # Main task summaries
+    │   └── IMPL-*.*-summary.md    # Subtask summaries
+    └── .task/                      # Task definitions (REQUIRED)
+        ├── IMPL-*.json             # Main task definitions
+        └── IMPL-*.*.json           # Subtask definitions (created dynamically)
 ```
 
 #### Creation Strategy
 - **Initial Setup**: Create only `workflow-session.json`, `IMPL_PLAN.md`, `TODO_LIST.md`, and `.task/` directory
 - **On-Demand Creation**: Other directories created when first needed
 - **Dynamic Files**: Subtask JSON files created during task decomposition
+- **Scratchpad Usage**: `.scratchpad/` created when CLI commands run without active session
+
+#### Scratchpad Directory (.scratchpad/)
+**Purpose**: Centralized location for non-session-specific CLI outputs
+
+**When to Use**:
+1. **No Active Session**: CLI analysis/chat commands run without an active workflow session
+2. **Unrelated Analysis**: Quick analysis not related to current active session
+3. **Exploratory Work**: Ad-hoc investigation before creating formal workflow
+4. **One-Off Queries**: Standalone questions or debugging without workflow context
+
+**Output Routing Logic**:
+- **IF** active session exists AND command is session-relevant:
+  - Save to `.workflow/WFS-[id]/.chat/[command]-[timestamp].md`
+- **ELSE** (no session OR one-off analysis):
+  - Save to `.workflow/.scratchpad/[command]-[description]-[timestamp].md`
+
+**File Naming Pattern**: `[command-type]-[brief-description]-[timestamp].md`
+
+**Examples**:
+
+*Analysis Commands (read-only):*
+- `/cli:analyze "security"` (no session) → `.scratchpad/analyze-security-20250105-143022.md`
+- `/cli:chat "build process"` (unrelated to active session) → `.scratchpad/chat-build-process-20250105-143045.md`
+- `/cli:mode:plan "feature idea"` (exploratory) → `.scratchpad/plan-feature-idea-20250105-143110.md`
+- `/cli:mode:code-analysis "trace auth flow"` (no session) → `.scratchpad/code-analysis-auth-flow-20250105-143130.md`
+
+*Implementation Commands (⚠️ modifies code):*
+- `/cli:execute "implement JWT auth"` (no session) → `.scratchpad/execute-jwt-auth-20250105-143200.md`
+- `/cli:codex-execute "refactor API layer"` (no session) → `.scratchpad/codex-execute-api-refactor-20250105-143230.md`
+
+**Maintenance**:
+- Periodically review and clean up old scratchpad files
+- Promote useful analyses to formal workflow sessions if needed
+- No automatic cleanup - manual management recommended
 
 ### File Naming Conventions
 

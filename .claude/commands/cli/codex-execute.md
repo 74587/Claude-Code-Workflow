@@ -457,10 +457,45 @@ codex exec "CONTINUE TO NEXT SUBTASK: ..." resume --last --skip-git-repo-check -
 }
 ```
 
+## Output Routing
+
+**Execution Log Destination**:
+- **IF** active workflow session exists:
+  - Execution log: `.workflow/WFS-[id]/.chat/codex-execute-[timestamp].md`
+  - Task summaries: `.workflow/WFS-[id]/.summaries/[TASK-ID]-summary.md` (if task ID)
+  - Task updates: `.workflow/WFS-[id]/.task/[TASK-ID].json` status updates
+  - TodoWrite tracking: Embedded in execution log
+- **ELSE** (no active session):
+  - **Recommended**: Create workflow session first (`/workflow:session:start`)
+  - **Alternative**: Save to `.workflow/.scratchpad/codex-execute-[description]-[timestamp].md`
+
+**Output Files** (during execution):
+```
+.workflow/WFS-[session-id]/
+├── .chat/
+│   └── codex-execute-20250105-143022.md    # Full execution log with task flow
+├── .summaries/
+│   ├── IMPL-001.1-summary.md               # Subtask summaries
+│   ├── IMPL-001.2-summary.md
+│   └── IMPL-001-summary.md                 # Final task summary
+└── .task/
+    ├── IMPL-001.json                       # Updated task status
+    └── [subtask JSONs if decomposed]
+```
+
+**Examples**:
+- During session `WFS-auth-system`, executing multi-stage auth implementation:
+  - Log: `.workflow/WFS-auth-system/.chat/codex-execute-20250105-143022.md`
+  - Summaries: `.workflow/WFS-auth-system/.summaries/IMPL-001.{1,2,3}-summary.md`
+  - Task status: `.workflow/WFS-auth-system/.task/IMPL-001.json` (status: completed)
+- No session, ad-hoc multi-stage task:
+  - Log: `.workflow/.scratchpad/codex-execute-auth-refactor-20250105-143045.md`
+
 **Save Results**:
-- Execution log: `.chat/codex-execute-[timestamp].md` (if workflow active)
-- Summary: `.summaries/[TASK-ID]-summary.md` (if task ID provided)
-- TodoWrite tracking embedded in session
+- Execution log with task flow diagram and TodoWrite tracking
+- Individual summaries for each completed subtask
+- Final consolidated summary when all subtasks complete
+- Modified code files throughout project
 
 ## Notes
 
@@ -471,3 +506,8 @@ codex exec "CONTINUE TO NEXT SUBTASK: ..." resume --last --skip-git-repo-check -
 **Input Flexibility**: Accepts both freeform descriptions and task IDs (auto-detects and loads JSON)
 
 **Context Window**: `codex exec "..." resume --last` maintains conversation history, ensuring consistency across subtasks without redundant context injection.
+
+**Output Details**:
+- Output routing and scratchpad details: see workflow-architecture.md
+- Session management: see intelligent-tools-strategy.md
+- **⚠️ Code Modification**: This command performs multi-stage code modifications - execution log tracks all changes
