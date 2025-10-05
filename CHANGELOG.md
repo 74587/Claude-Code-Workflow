@@ -5,6 +5,201 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2025-10-06
+
+### 🎨 UI Design Workflow with Triple Vision Analysis
+
+This release introduces a comprehensive UI design workflow system with triple vision analysis capabilities, interactive user checkpoints, and zero agent overhead for improved performance.
+
+#### Added
+
+**New UI Design Workflow System**:
+- **`/workflow:design:auto`**: Semi-autonomous UI design workflow orchestrator
+  - Interactive checkpoints for user style selection and prototype confirmation
+  - Optional batch task generation with `--batch-plan` flag
+  - Pause-and-continue pattern at critical decision points
+  - Automatic progression between phases after user input
+  - Support for multiple UI variants per page (`--variants` parameter)
+
+**Triple Vision Analysis Architecture**:
+- **Phase 1: Claude Code Vision Analysis**: Quick initial visual analysis using native Read tool
+- **Phase 2: Gemini Vision Analysis**: Deep semantic understanding of design intent
+- **Phase 3: Codex Vision Analysis**: Structured pattern recognition with `-i` parameter
+- **Phase 4: Consensus Synthesis**: Weighted combination by main Claude agent
+- **Synthesis Strategy**:
+  - Color system: Consensus with Codex precision preference
+  - Typography: Gemini semantic + Codex measurements
+  - Spacing: Cross-validation across all three sources
+  - Design philosophy: Weighted with Gemini highest priority
+  - Conflict resolution: Majority vote or synthesis-specification.md context
+
+**Individual Design Commands**:
+- **`/workflow:design:style-extract`**: Extract design styles from reference images
+  - Triple vision analysis (Claude Code + Gemini + Codex)
+  - Generates `semantic_style_analysis.json`, `design-tokens.json`, `style-cards.json`
+  - Outputs multiple style variant cards for user selection
+  - Direct bash execution (no agent wrappers)
+
+- **`/workflow:design:style-consolidate`**: Consolidate selected style variants
+  - Validates and merges design tokens
+  - Generates finalized `design-tokens.json`, `style-guide.md`, `tailwind.config.js`
+  - WCAG AA compliance validation
+  - Token coverage ≥90% requirement
+
+- **`/workflow:design:ui-generate`**: Generate production-ready UI prototypes
+  - Token-driven HTML/CSS generation with Codex
+  - Support for `--style-overrides` parameter for runtime customization
+  - Generates `{page}-variant-{n}.html`, `{page}-variant-{n}.css` per page
+  - Semantic HTML5 with ARIA attributes
+  - Responsive design with token-based breakpoints
+
+- **`/workflow:design:design-update`**: Integrate design system into brainstorming
+  - Updates `synthesis-specification.md` with UI/UX guidelines section
+  - Creates/updates `ui-designer/style-guide.md`
+  - Makes design tokens available for task generation phase
+
+**Interactive Checkpoint System**:
+- **Checkpoint 1 (After style-extract)**: User selects preferred style variants
+  - Command: `/workflow:design:style-consolidate --session WFS-xxx --variants "variant-1,variant-3"`
+  - Workflow pauses until user runs consolidation command
+
+- **Checkpoint 2 (After ui-generate)**: User confirms selected prototypes
+  - Command: `/workflow:design:design-update --session WFS-xxx --selected-prototypes "page-variant-1,page-variant-2"`
+  - Workflow pauses until user runs design-update command
+
+**Design System Features**:
+- **OKLCH Color Format**: Perceptually uniform color space for design tokens
+- **W3C Design Tokens Compatibility**: Standard-compliant token format
+- **Style Override Mechanism**: Runtime token merging using jq
+- **Batch Task Generation**: Automatic `/workflow:plan` invocation for each page
+- **Accessibility Validation**: WCAG 2.1 AA compliance checks
+
+#### Changed
+
+**Agent Architecture Simplification**:
+- **Removed agent wrappers** from `style-extract` and `ui-generate` commands
+  - Previously used `Task(conceptual-planning-agent)` for simple bash execution
+  - Now executes `gemini-wrapper` and `codex` commands directly via Bash tool
+  - Reduced execution overhead and complexity
+  - Preserved all functionality while improving performance
+
+**Command Execution Pattern**:
+- **Direct Bash Execution**: All CLI tools now use direct bash commands
+  - Gemini Vision: `bash(gemini-wrapper --approval-mode yolo -p "...")`
+  - Codex Vision: `bash(codex -i {images} --full-auto exec "..." -s danger-full-access)`
+  - Codex Token Generation: `bash(codex --full-auto exec "..." -s danger-full-access)`
+  - No intermediate agent layers
+
+**Workflow Integration**:
+- Design phase now optional but recommended for UI-heavy projects
+- Seamless integration with existing brainstorming → planning → execution flow
+- Design artifacts automatically discovered by `task-generate` if present
+- UI tasks automatically include `load_design_tokens` in flow_control
+
+**Updated Documentation**:
+- **README.md**: Added UI Design Workflow section in Getting Started
+- **README_CN.md**: Chinese documentation updated with design workflow
+- **Command Reference**: Added 5 new `/workflow:design:*` commands
+- **Phase Renumbering**: Shifted phases to accommodate new Phase 2 (UI Design)
+
+#### Benefits
+
+**User Experience**:
+- 🎨 **Visual Validation**: Users confirm design before implementation starts
+- ⏸️ **Interactive Control**: Critical design decisions require explicit user approval
+- 👁️ **Comprehensive Analysis**: Three AI vision sources provide robust style extraction
+- 🎯 **Zero Waiting**: Direct bash execution eliminates agent overhead
+- 📦 **Automation Ready**: Optional batch task generation accelerates workflow
+
+**Code Quality**:
+- 🔒 **Token Enforcement**: 100% CSS values use custom properties (verified)
+- ♿ **Accessibility**: WCAG AA validated at design phase
+- 🎨 **Consistency**: Single source of truth for visual design (design-tokens.json)
+- 🧪 **Production Ready**: Semantic HTML5, responsive, accessible prototypes
+
+**Development Workflow**:
+- 🔄 **Seamless Integration**: Optional design phase fits between brainstorming and planning
+- 🚀 **Backward Compatible**: Existing workflows unaffected if design phase skipped
+- 📊 **Better Planning**: Design system context improves task generation quality
+- 🎯 **Focused Implementation**: Developers work from validated prototypes and tokens
+
+#### Technical Details
+
+**Triple Vision Analysis Flow**:
+```
+Reference Images
+  ↓
+Phase 2: Claude Code (Read tool) → claude_vision_analysis.json
+Phase 3: Gemini Vision (gemini-wrapper) → gemini_vision_analysis.json
+Phase 4: Codex Vision (codex -i) → codex_vision_analysis.json
+  ↓
+Phase 5: Main Claude Synthesis → semantic_style_analysis.json
+  ↓
+Phase 6: Codex Token Generation → design-tokens.json, style-cards.json
+```
+
+**Checkpoint Workflow Pattern**:
+```
+User: /workflow:design:auto --session WFS-xxx --images "refs/*.png" --pages "dashboard,auth"
+  ↓
+Phase 1: style-extract (automatic)
+  ↓ [CHECKPOINT 1: User selects style variants]
+User: /workflow:design:style-consolidate --session WFS-xxx --variants "variant-1,variant-3"
+  ↓
+Phase 3: ui-generate (automatic after Phase 2)
+  ↓ [CHECKPOINT 2: User confirms prototypes]
+User: /workflow:design:design-update --session WFS-xxx --selected-prototypes "dashboard-variant-1,auth-variant-2"
+  ↓
+Phase 5: batch-plan (optional, automatic if --batch-plan flag)
+```
+
+**Output Structure**:
+```
+.workflow/WFS-{session}/.design/
+├── style-extraction/
+│   ├── claude_vision_analysis.json
+│   ├── gemini_vision_analysis.json
+│   ├── codex_vision_analysis.json
+│   ├── semantic_style_analysis.json (synthesis)
+│   ├── design-tokens.json (preliminary)
+│   └── style-cards.json (variants for selection)
+├── style-consolidation/
+│   ├── style-philosophy.md
+│   ├── design-tokens.json (final, validated)
+│   ├── style-guide.md
+│   ├── tailwind.config.js
+│   └── validation-report.json
+└── prototypes/
+    ├── {page}-variant-{n}.html (per page, per variant)
+    ├── {page}-variant-{n}.css (token-driven styles)
+    ├── {page}-variant-{n}-notes.md (implementation notes)
+    └── design-tokens.css (CSS custom properties)
+```
+
+**New Agent Documentation**:
+- **`ui-design-agent.md`**: Specialized agent for UI/UX design workflows
+  - Vision analysis, token generation, prototype creation capabilities
+  - Multi-modal vision provider strategy (Gemini primary, Codex fallback)
+  - Quality gates: WCAG AA, token coverage ≥90%, component mapping ≥95%
+  - Flow control specification for 3 design phases
+
+#### Use Cases
+
+**When to Use Design Workflow**:
+- User-facing applications with visual design requirements
+- Design system creation and maintenance
+- Brand-critical user interfaces
+- Projects requiring accessibility compliance
+- Multi-page applications with consistent styling
+
+**When to Skip Design Workflow**:
+- Backend APIs without UI components
+- CLI tools and command-line applications
+- Quick prototypes and MVPs
+- Projects with existing design systems
+
+---
+
 ## [3.4.2] - 2025-10-05
 
 ### 📚 CLI Documentation Refactoring

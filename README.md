@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.4.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.5.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,15 +15,16 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v3.4.2** - CLI documentation refactoring & single source of truth. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v3.5.0** - UI Design Workflow with Triple Vision Analysis. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v3.4.2**:
-> - 📚 **CLI Documentation Refactoring**: Eliminated 681 lines of duplicate content across 7 command files
-> - 🎯 **Single Source of Truth**: Established implicit reference pattern to `intelligent-tools-strategy.md`
-> - 🔍 **Documentation Consistency**: All CLI commands now reference centralized strategy guide
-> - 💡 **Maintenance Optimization**: Reduced maintenance overhead while preserving unique command features
-> - ✨ **Enhanced Clarity**: Streamlined documentation focuses on command-specific capabilities
-> - 📖 **Better Organization**: File patterns, templates, and MODE definitions centralized
+> **What's New in v3.5.0**:
+> - 🎨 **UI Design Workflow**: Complete design refinement workflow from style extraction to prototype generation
+> - 👁️ **Triple Vision Analysis**: Combines Claude Code + Gemini + Codex vision capabilities for comprehensive style extraction
+> - ⏸️ **Interactive Checkpoints**: User selection points for style variants and prototype confirmation
+> - 🎯 **Zero Agent Overhead**: Direct bash execution for CLI tools, removing unnecessary agent wrappers
+> - 🎨 **Style Customization**: Runtime override support with `--style-overrides` parameter
+> - 📦 **Batch Task Generation**: Optional automatic task creation for selected prototypes with `--batch-plan`
+> - 🔄 **Semi-Autonomous Workflow**: User-driven continuation at critical design decision points
 
 ---
 
@@ -250,7 +251,19 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 /workflow:brainstorm:synthesis  # Generate consolidated specification
 ```
 
-**Phase 2: Action Planning**
+**Phase 2: UI Design Refinement** *(Optional for UI-heavy projects)*
+```bash
+# Extract design styles from reference images and generate prototypes
+/workflow:design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register" --batch-plan
+
+# Or run individual design phases
+/workflow:design:style-extract --session WFS-auth --images "refs/*.png"
+/workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
+/workflow:design:ui-generate --session WFS-auth --pages "login,register" --variants 2
+/workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+```
+
+**Phase 3: Action Planning**
 ```bash
 # Create executable implementation plan
 /workflow:plan "Implement JWT-based authentication system"
@@ -259,7 +272,7 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 /workflow:tdd-plan "Implement authentication with test-first development"
 ```
 
-**Phase 3: Execution**
+**Phase 4: Execution**
 ```bash
 # Execute tasks with AI agents
 /workflow:execute
@@ -268,7 +281,7 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 /workflow:status
 ```
 
-**Phase 4: Testing & Quality Assurance**
+**Phase 5: Testing & Quality Assurance**
 ```bash
 # Generate independent test-fix workflow (v3.2.2+)
 /workflow:test-gen WFS-auth  # Creates WFS-test-auth session
@@ -341,6 +354,11 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 |---|---|
 | `/workflow:session:*` | Manage development sessions (`start`, `pause`, `resume`, `list`, `switch`, `complete`). |
 | `/workflow:brainstorm:*` | Use role-based agents for multi-perspective planning. |
+| `/workflow:design:auto` | **NEW** Semi-autonomous UI design workflow with interactive checkpoints for style and prototype selection. |
+| `/workflow:design:style-extract` | **NEW** Extract design styles from reference images using triple vision analysis (Claude + Gemini + Codex). |
+| `/workflow:design:style-consolidate` | **NEW** Consolidate selected style variants into validated design tokens and style guide. |
+| `/workflow:design:ui-generate` | **NEW** Generate token-driven HTML/CSS prototypes with optional style overrides. |
+| `/workflow:design:design-update` | **NEW** Integrate finalized design system into brainstorming artifacts. |
 | `/workflow:plan` | Create a detailed, executable plan from a description. |
 | `/workflow:tdd-plan` | Create TDD workflow (6 phases) with test coverage analysis and Red-Green-Refactor cycles. |
 | `/workflow:execute` | Execute the current workflow plan autonomously. |

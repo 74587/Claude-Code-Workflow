@@ -1,45 +1,47 @@
 ---
 name: auto
-description: Orchestrate complete UI design refinement workflow from style extraction to brainstorming integration
-usage: /workflow:design:auto --session <session_id> --images "<glob>" --pages "<list>" [--interactive] [--variants <count>]
-argument-hint: "--session WFS-session-id --images \"refs/*.png\" --pages \"dashboard,auth\" [--interactive] [--variants 2]"
+description: Orchestrate UI design refinement workflow with interactive checkpoints for user selection
+usage: /workflow:design:auto --session <session_id> --images "<glob>" --pages "<list>" [--variants <count>] [--batch-plan]
+argument-hint: "--session WFS-session-id --images \"refs/*.png\" --pages \"dashboard,auth\" [--variants 2] [--batch-plan]"
 examples:
-  - /workflow:design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register" --interactive
-  - /workflow:design:auto --session WFS-dashboard --images "refs/*.jpg" --pages "dashboard" --variants 3
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
+  - /workflow:design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register"
+  - /workflow:design:auto --session WFS-dashboard --images "refs/*.jpg" --pages "dashboard" --variants 3 --batch-plan
+allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*)
 ---
 
 # UI Design Auto Workflow Command
 
 ## Overview
-Complete autonomous orchestration of UI design refinement workflow: style extraction → consolidation → UI generation → brainstorming integration.
+Semi-autonomous UI design workflow with interactive checkpoints: style extraction → **user selection** → consolidation → UI generation → **user confirmation** → design update → optional batch planning.
 
 ## Coordinator Role
-**Pure orchestrator following /workflow:plan pattern**: Execute 4 design commands in sequence with TodoWrite-driven auto-continuation, no user intervention required.
+**Checkpoint-based orchestrator**: Execute Phase 1 automatically, pause for user style selection, execute Phase 3, pause for user prototype confirmation, complete with optional batch task generation.
 
-## Execution Model - Auto-Continue Workflow
+## Execution Model - Checkpoint Workflow
 
-This workflow runs **fully autonomously** once triggered:
+This workflow runs **semi-autonomously** with user checkpoints:
 
-1. **User triggers**: `/workflow:design:auto --session WFS-xxx --images "refs/*.png" --pages "dashboard,auth"`
-2. **Phase 1 executes** (style-extract) → Reports output → Auto-continues
-3. **Phase 2 executes** (style-consolidate) → Reports output → Auto-continues
-4. **Phase 3 executes** (ui-generate) → Reports output → Auto-continues
-5. **Phase 4 executes** (design-update) → Reports final summary
+1. **User triggers**: `/workflow:design:auto --session WFS-xxx --images "refs/*.png" --pages "dashboard,auth" [--batch-plan]`
+2. **Phase 1 executes** (style-extract) → Reports style cards → **⏸️ PAUSE FOR USER SELECTION**
+3. **User selects variants** → Runs `style-consolidate --variants "..."` → Auto-continues
+4. **Phase 3 executes** (ui-generate) → Reports prototypes → **⏸️ PAUSE FOR USER CONFIRMATION**
+5. **User confirms prototypes** → Runs `design-update --selected-prototypes "..."` → Auto-continues
+6. **Phase 5 executes** (batch-plan, optional) → Reports task files
 
-**Auto-Continue Mechanism**:
-- TodoWrite tracks current phase status
-- After each phase completion, automatically executes next pending phase
-- **No user action required** - workflow runs end-to-end autonomously
-- Progress updates shown at each phase for visibility
+**Checkpoint Mechanism**:
+- TodoWrite tracks current phase with "awaiting_user_confirmation" status
+- System reports output location and exact command for next step
+- User runs provided command to continue workflow
+- Workflow resumes automatically after user input
 
 ## Core Rules
 
 1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 command execution
 2. **No Preliminary Analysis**: Do not read files or validate before Phase 1 (commands handle their own validation)
 3. **Parse Every Output**: Extract required data from each command's output for next phase
-4. **Auto-Continue via TodoWrite**: Check TodoWrite status to execute next pending phase automatically
-5. **Track Progress**: Update TodoWrite after every phase completion
+4. **Pause at Checkpoints**: After Phase 1 and Phase 3, pause and prompt user with exact command to continue
+5. **User-Driven Continuation**: Workflow resumes when user runs style-consolidate or design-update commands
+6. **Track Progress**: Update TodoWrite after every phase completion and checkpoint
 
 ## Parameter Requirements
 
@@ -49,10 +51,10 @@ This workflow runs **fully autonomously** once triggered:
 - `--pages "<page_list>"`: Comma-separated list of pages to generate
 
 **Optional Parameters**:
-- `--interactive`: Enable interactive style variant selection (default: auto-select first variant)
 - `--variants <count>`: Number of UI variants per page (default: 1)
+- `--batch-plan`: Auto-generate implementation tasks for selected prototypes after design-update
 
-## 4-Phase Execution
+## 5-Phase Execution
 
 ### Phase 1: Style Extraction
 **Command**: `SlashCommand(command="/workflow:design:style-extract --session {session_id} --images \"{image_glob}\"")`
@@ -60,50 +62,43 @@ This workflow runs **fully autonomously** once triggered:
 **Parse Output**:
 - Verify: `.design/style-extraction/style-cards.json` created
 - Extract: `style_cards_count` from output message
+- List available style variant IDs
 
 **Validation**:
 - Style cards successfully generated
 - At least one style variant available
 
-**TodoWrite**: Mark phase 1 completed, phase 2 in_progress
+**TodoWrite**: Mark phase 1 completed, mark checkpoint "awaiting_user_confirmation"
 
-**After Phase 1**: Report to user, auto-continue to Phase 2
+**⏸️ CHECKPOINT 1: Pause for User Style Selection**
 
 ```
 Phase 1 Complete: Style Extraction
 Style cards generated: {count}
+Available variants: {variant_ids}
 Location: .workflow/WFS-{session}/.design/style-extraction/
 
-Continuing to Phase 2: Style Consolidation...
+⏸️  USER SELECTION REQUIRED
+Review style cards and select your preferred variants.
+Then run:
+
+/workflow:design:style-consolidate --session WFS-{session} --variants "{variant_ids}"
+
+Example: /workflow:design:style-consolidate --session WFS-{session} --variants "variant-1,variant-3"
 ```
 
 ---
 
-### Phase 2: Style Consolidation
-**Command Construction**:
+### Phase 2: Style Consolidation (User-Triggered)
+**User Command**: `/workflow:design:style-consolidate --session {session_id} --variants "{selected_variants}"`
 
-```bash
-IF --interactive flag present:
-    command = "/workflow:design:style-consolidate --session {session_id} --interactive"
-ELSE:
-    # Auto-select first variant
-    command = "/workflow:design:style-consolidate --session {session_id} --variants \"variant-1\""
-```
-
-**Command**: `SlashCommand(command="{constructed_command}")`
-
-**Parse Output**:
-- Verify: `.design/style-consolidation/design-tokens.json` created
-- Extract: `token_count`, `validation_status` from output message
-
-**Validation**:
-- Design tokens finalized
-- Validation report shows no critical errors
+**After user runs command**:
+- Workflow automatically continues to Phase 3
+- Parse output: token_count, validation_status
 
 **TodoWrite**: Mark phase 2 completed, phase 3 in_progress
 
-**After Phase 2**: Report to user, auto-continue to Phase 3
-
+**Output**:
 ```
 Phase 2 Complete: Style Consolidation
 Design tokens: {count}
@@ -115,7 +110,7 @@ Continuing to Phase 3: UI Generation...
 
 ---
 
-### Phase 3: UI Generation
+### Phase 3: UI Generation (Auto-Triggered after Phase 2)
 **Command Construction**:
 
 ```bash
@@ -127,41 +122,50 @@ command = "/workflow:design:ui-generate --session {session_id} --pages \"{page_l
 
 **Parse Output**:
 - Verify: `.design/prototypes/*.html` files created
-- Extract: `prototype_count`, `page_list` from output message
+- Extract: `prototype_count`, `page_list`, `generated_files` list
 
 **Validation**:
 - All requested pages generated
 - HTML and CSS files present for each variant
 
-**TodoWrite**: Mark phase 3 completed, phase 4 in_progress
+**TodoWrite**: Mark phase 3 completed, mark checkpoint "awaiting_user_confirmation"
 
-**After Phase 3**: Report to user, auto-continue to Phase 4
+**⏸️ CHECKPOINT 2: Pause for User Prototype Confirmation**
 
 ```
 Phase 3 Complete: UI Generation
-Prototypes generated: {count}
-Pages: {page_list}
+Prototypes generated: {count} ({page_list})
+Generated files: {file_list}
 Location: .workflow/WFS-{session}/.design/prototypes/
 
-Continuing to Phase 4: Design System Integration...
+⏸️  USER CONFIRMATION REQUIRED
+Review the generated prototypes and select your preferred variants.
+Then run:
+
+/workflow:design:design-update --session WFS-{session} --selected-prototypes "{prototype_ids}"
+
+Example: /workflow:design:design-update --session WFS-{session} --selected-prototypes "dashboard-variant-1,auth-variant-2"
+
+Or to use all generated prototypes:
+/workflow:design:design-update --session WFS-{session}
 ```
 
 ---
 
-### Phase 4: Design System Integration
-**Command**: `SlashCommand(command="/workflow:design:design-update --session {session_id}")`
+### Phase 4: Design System Integration (User-Triggered)
+**User Command**: `/workflow:design:design-update --session {session_id} [--selected-prototypes "{selected_prototypes}"]`
+
+**After user runs command**:
+- Workflow updates brainstorming artifacts
+- If --batch-plan flag present, automatically continues to Phase 5
 
 **Parse Output**:
 - Verify: `synthesis-specification.md` updated
 - Verify: `ui-designer/style-guide.md` created/updated
 
-**Validation**:
-- Brainstorming artifacts successfully updated
-- Design system references integrated
-
 **TodoWrite**: Mark phase 4 completed
 
-**Return to User**:
+**Output** (if --batch-plan NOT present):
 ```
 UI Design Refinement Complete for session: WFS-{session}
 
@@ -181,6 +185,45 @@ Next Steps:
 1. Review prototypes: .workflow/WFS-{session}/.design/prototypes/
 2. Continue to planning: /workflow:plan [--agent] "<task description>"
    (The plan phase will automatically discover and utilize the design system)
+```
+
+**Output** (if --batch-plan present):
+```
+Phase 4 Complete: Design System Integration
+Updated Artifacts:
+✓ synthesis-specification.md
+✓ ui-designer/style-guide.md
+
+Continuing to Phase 5: Batch Task Generation...
+```
+
+---
+
+### Phase 5: Batch Task Generation (Optional, Auto-Triggered if --batch-plan)
+**Condition**: Only executes if `--batch-plan` flag present
+
+**Execution**:
+```bash
+FOR each page IN selected_prototypes_pages:
+  SlashCommand(command="/workflow:plan --agent \"Implement {page} page based on design system\"")
+
+  # Parse output task file location
+  task_files.add(output_location)
+```
+
+**TodoWrite**: Mark phase 5 completed
+
+**Return to User**:
+```
+Phase 5 Complete: Batch Task Generation
+Tasks generated for: {page_count} pages
+
+Generated task files:
+{task_file_list}
+
+Design workflow complete for session: WFS-{session}
+
+Next: /workflow:execute
 ```
 
 ## TodoWrite Pattern

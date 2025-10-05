@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v3.4.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v3.5.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,15 +15,16 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 最新版本: v3.4.2** - CLI 文档重构与单一信息源。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v3.5.0** - UI 设计工作流与三重视觉分析。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v3.4.2 版本新特性**:
-> - 📚 **CLI 文档重构**: 消除 7 个命令文件中的 681 行重复内容
-> - 🎯 **单一信息源**: 建立对 `intelligent-tools-strategy.md` 的隐式引用模式
-> - 🔍 **文档一致性**: 所有 CLI 命令现在引用集中的策略指南
-> - 💡 **维护优化**: 降低维护开销，同时保留独特的命令功能
-> - ✨ **增强清晰度**: 精简的文档专注于命令特定功能
-> - 📖 **更好的组织**: 文件模式、模板和 MODE 定义集中化
+> **v3.5.0 版本新特性**:
+> - 🎨 **UI 设计工作流**: 从风格提取到原型生成的完整设计精炼工作流
+> - 👁️ **三重视觉分析**: 融合 Claude Code + Gemini + Codex 视觉能力进行综合风格提取
+> - ⏸️ **交互式检查点**: 用户选择风格变体和原型确认的决策点
+> - 🎯 **零智能体开销**: CLI 工具直接 bash 执行，移除不必要的智能体包装
+> - 🎨 **风格自定义**: 通过 `--style-overrides` 参数支持运行时样式覆盖
+> - 📦 **批量任务生成**: 使用 `--batch-plan` 为选定原型自动创建实现任务
+> - 🔄 **半自主工作流**: 在关键设计决策点由用户驱动继续
 
 ---
 
@@ -250,7 +251,19 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 /workflow:brainstorm:synthesis  # 生成综合规范
 ```
 
-**阶段 2：行动规划**
+**阶段 2：UI 设计精炼** *(UI 密集型项目可选)*
+```bash
+# 从参考图像中提取设计风格并生成原型
+/workflow:design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register" --batch-plan
+
+# 或者运行单独的设计阶段
+/workflow:design:style-extract --session WFS-auth --images "refs/*.png"
+/workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
+/workflow:design:ui-generate --session WFS-auth --pages "login,register" --variants 2
+/workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+```
+
+**阶段 3：行动规划**
 ```bash
 # 创建可执行的实现计划
 /workflow:plan "实现基于 JWT 的认证系统"
@@ -259,7 +272,7 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 /workflow:tdd-plan "使用测试优先开发实现认证"
 ```
 
-**阶段 3：执行**
+**阶段 4：执行**
 ```bash
 # 使用 AI 智能体执行任务
 /workflow:execute
@@ -268,7 +281,7 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 /workflow:status
 ```
 
-**阶段 4：测试与质量保证**
+**阶段 5：测试与质量保证**
 ```bash
 # 生成独立测试修复工作流（v3.2.2+）
 /workflow:test-gen WFS-auth  # 创建 WFS-test-auth 会话
@@ -341,6 +354,11 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 |---|---|
 | `/workflow:session:*` | 管理开发会话（`start`, `pause`, `resume`, `list`, `switch`, `complete`）。 |
 | `/workflow:brainstorm:*` | 使用基于角色的智能体进行多视角规划。 |
+| `/workflow:design:auto` | **新增** 带交互式检查点的半自主 UI 设计工作流，用于风格和原型选择。 |
+| `/workflow:design:style-extract` | **新增** 使用三重视觉分析（Claude + Gemini + Codex）从参考图像提取设计风格。 |
+| `/workflow:design:style-consolidate` | **新增** 将选定的风格变体整合为经过验证的设计令牌和风格指南。 |
+| `/workflow:design:ui-generate` | **新增** 生成基于令牌的 HTML/CSS 原型，支持可选的风格覆盖。 |
+| `/workflow:design:design-update` | **新增** 将最终确定的设计系统集成到头脑风暴产物中。 |
 | `/workflow:plan` | 从描述创建详细、可执行的计划。 |
 | `/workflow:tdd-plan` | 创建 TDD 工作流（6 阶段），包含测试覆盖分析和 Red-Green-Refactor 循环。 |
 | `/workflow:execute` | 自主执行当前的工作流计划。 |

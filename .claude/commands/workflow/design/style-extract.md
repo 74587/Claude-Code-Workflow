@@ -1,22 +1,23 @@
 ---
 name: style-extract
-description: Extract design style from reference images using Gemini Vision and Codex
+description: Extract design style from reference images using triple vision analysis (Claude Code + Gemini + Codex)
 usage: /workflow:design:style-extract --session <session_id> --images "<glob_pattern>"
 argument-hint: "--session WFS-session-id --images \"path/to/*.png\""
 examples:
   - /workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
   - /workflow:design:style-extract --session WFS-dashboard --images "refs/dashboard-*.jpg"
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
+allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---
 
 # Style Extraction Command
 
 ## Overview
-Extract design style elements from reference images using a hybrid approach: Gemini Vision for semantic understanding and Codex for structured CSS token generation.
+Extract design style elements from reference images using triple vision analysis: Claude Code's native vision, Gemini Vision for semantic understanding, and Codex for structured token generation.
 
 ## Core Philosophy
-- **Visual Semantic Understanding**: Gemini Vision analyzes design style, typography, and composition
-- **Structured Token Generation**: Codex converts semantic analysis to OKLCH + CSS variables + Tailwind config
+- **Triple Vision Analysis**: Combine Claude Code, Gemini Vision, and Codex vision capabilities
+- **Comprehensive Coverage**: Claude Code for quick analysis, Gemini for deep semantic understanding, Codex for structured output
+- **Consensus-Based Extraction**: Synthesize results from all three sources
 - **Style Card System**: Generate reusable style cards for consolidation phase
 - **Multi-Image Support**: Process multiple reference images and extract common patterns
 
@@ -31,73 +32,102 @@ EXPAND: glob pattern to concrete image paths
 VERIFY: at least one image file exists
 ```
 
-### Phase 2: Gemini Vision Analysis
-**Agent Invocation**: Task(conceptual-planning-agent) with Gemini Vision capability
+### Phase 2: Claude Code Vision Analysis (Quick Initial Pass)
+**Direct Execution**: Use Read tool with image paths
 
 ```bash
-Task(conceptual-planning-agent): "
-[FLOW_CONTROL]
+# Claude Code's native vision capability for quick initial analysis
+FOR each image IN expanded_image_paths:
+  Read({image_path})
+  # Claude Code analyzes image and extracts basic patterns
 
-Extract visual design semantics from reference images
-
-## Context Loading
-ASSIGNED_TASK: style-extraction
-OUTPUT_LOCATION: .workflow/WFS-{session}/.design/style-extraction/
-IMAGE_INPUTS: {expanded_image_paths}
-
-## Flow Control Steps
-1. **load_images_gemini**
-   - Action: Analyze reference images using Gemini Vision
-   - Command: bash(cd .workflow/WFS-{session} && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p \"
-     PURPOSE: Extract design style semantics from reference images
-     TASK: Analyze color palettes, typography, spacing, layout principles, component styles
-     MODE: write
-     CONTEXT: @{../../{image_paths}}
-     EXPECTED: JSON with semantic style description (colors with names, font characteristics, spacing scale, design philosophy)
-     RULES: Focus on extracting semantic meaning, not exact pixel values
-     \")
-   - Output: semantic_style_analysis.json
-
-2. **load_session_context**
-   - Action: Load brainstorming context for style alignment
-   - Command: Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md) || Read(.workflow/WFS-{session}/.brainstorming/ui-designer/analysis.md)
-   - Output: design_context
-   - Optional: true
-
-## Analysis Requirements
-**Semantic Extraction**: Identify design philosophy (minimalist, brutalist, neumorphic, etc.)
-**Color System**: Extract primary, secondary, accent colors with semantic names
-**Typography**: Font families, weights, scale (headings, body, small)
-**Spacing**: Identify spacing scale patterns
-**Components**: Border radius, shadows, button styles, card styles
-
-## Expected Deliverables
-1. **semantic_style_analysis.json**: Gemini Vision analysis results
-"
+# Write preliminary analysis
+Write(.workflow/WFS-{session}/.design/style-extraction/claude_vision_analysis.json)
 ```
 
-### Phase 3: Codex Structured Token Generation
-**Agent Invocation**: Task(conceptual-planning-agent) with Codex capabilities
+**Output**: `claude_vision_analysis.json` with Claude Code's initial observations
+
+### Phase 3: Gemini Vision Analysis (Deep Semantic Understanding)
+**Direct Bash Execution**: No agent wrapper
 
 ```bash
-Task(conceptual-planning-agent): "
-[FLOW_CONTROL]
+bash(cd .workflow/WFS-{session}/.design/style-extraction && \
+  ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+    PURPOSE: Extract deep design semantics from reference images
+    TASK: Analyze color palettes, typography, spacing, layout principles, component styles, design philosophy
+    MODE: write
+    CONTEXT: @{../../{image_paths}}
+    EXPECTED: JSON with comprehensive semantic style description (colors with names, font characteristics, spacing scale, design philosophy, UI patterns)
+    RULES: Focus on extracting semantic meaning and design intent, not exact pixel values. Identify design system patterns.
+  ")
 
-Convert semantic style analysis to structured CSS tokens
+# Output: gemini_vision_analysis.json
+```
 
-## Context Loading
-INPUT_ANALYSIS: .workflow/WFS-{session}/.design/style-extraction/semantic_style_analysis.json
-OUTPUT_LOCATION: .workflow/WFS-{session}/.design/style-extraction/
-TECH_STACK_CONTEXT: CLAUDE.md, .claude/workflows/cli-templates/tech-stacks/*.md
+**Output**: `gemini_vision_analysis.json` with Gemini's deep semantic analysis
 
-## Flow Control Steps
-1. **load_semantic_analysis**
-   - Action: Read Gemini Vision analysis
-   - Command: Read(.workflow/WFS-{session}/.design/style-extraction/semantic_style_analysis.json)
-   - Output: semantic_analysis
+### Phase 4: Codex Vision Analysis (Structured Pattern Recognition)
+**Direct Bash Execution**: Codex with -i parameter
 
-2. **generate_css_tokens_codex**
-   - Action: Convert semantic analysis to structured CSS tokens
+```bash
+bash(codex -C .workflow/WFS-{session}/.design/style-extraction --full-auto -i {image_paths} exec "
+  PURPOSE: Analyze reference images for structured design patterns
+  TASK: Extract color values, typography specs, spacing measurements, component patterns
+  MODE: auto
+  CONTEXT: Reference images provided via -i parameter
+  EXPECTED: Structured JSON with precise design specifications
+  RULES: Focus on measurable design attributes and component patterns
+" --skip-git-repo-check -s danger-full-access)
+
+# Output: codex_vision_analysis.json
+```
+
+**Output**: `codex_vision_analysis.json` with Codex's structured analysis
+
+### Phase 5: Synthesis of Triple Vision Analysis
+**Direct Execution**: Main Claude synthesizes all three analyses
+
+```bash
+# Read all three vision analysis results
+Read(.workflow/WFS-{session}/.design/style-extraction/claude_vision_analysis.json)
+Read(.workflow/WFS-{session}/.design/style-extraction/gemini_vision_analysis.json)
+Read(.workflow/WFS-{session}/.design/style-extraction/codex_vision_analysis.json)
+
+# Load optional session context
+Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md) [optional]
+
+# Synthesize consensus analysis
+# Main Claude identifies common patterns, resolves conflicts, creates unified semantic analysis
+Write(.workflow/WFS-{session}/.design/style-extraction/semantic_style_analysis.json)
+```
+
+**Synthesis Strategy**:
+- **Color system**: Consensus from all three sources, prefer Codex for precise values
+- **Typography**: Gemini for semantic understanding, Codex for measurements
+- **Spacing**: Cross-validate across all three,identify consistent patterns
+- **Design philosophy**: Weighted combination with Gemini having highest weight
+- **Conflict resolution**: Majority vote or use context from synthesis-specification.md
+
+**Output**: `semantic_style_analysis.json` - unified analysis synthesizing all three sources
+
+### Phase 6: Structured Token Generation
+**Direct Bash Execution**: Codex generates CSS tokens
+
+```bash
+bash(codex -C .workflow/WFS-{session}/.design/style-extraction --full-auto exec "
+  PURPOSE: Convert synthesized semantic analysis to structured CSS design tokens
+  TASK: Generate W3C-compliant design tokens, Tailwind config, and style card variants
+  MODE: auto
+  CONTEXT: @{semantic_style_analysis.json,../../../../CLAUDE.md}
+  EXPECTED: design-tokens.json (OKLCH format), tailwind-tokens.js, style-cards.json (3 variants)
+  RULES: $(cat ~/.claude/workflows/design-tokens-schema.md) | OKLCH colors, rem spacing, semantic naming
+" --skip-git-repo-check -s danger-full-access)
+```
+
+**Output**:
+- `design-tokens.json`: W3C-compliant tokens in OKLCH format
+- `tailwind-tokens.js`: Tailwind theme extension
+- `style-cards.json`: 3 style variant cards for user selection
    - Command: bash(codex -C .workflow/WFS-{session}/.design/style-extraction --full-auto exec \"
      PURPOSE: Generate structured CSS design tokens from semantic analysis
      TASK: Convert semantic color/typography/spacing to OKLCH CSS variables and Tailwind config

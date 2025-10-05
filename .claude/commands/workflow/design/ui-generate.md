@@ -1,12 +1,12 @@
 ---
 name: ui-generate
-description: Generate UI prototypes using consolidated design tokens and synthesis specification
-usage: /workflow:design:ui-generate --session <session_id> --pages "<page_list>" [--variants <count>]
-argument-hint: "--session WFS-session-id --pages \"dashboard,auth,settings\" [--variants 2]"
+description: Generate UI prototypes using consolidated design tokens with optional style overrides
+usage: /workflow:design:ui-generate --session <session_id> --pages "<page_list>" [--variants <count>] [--style-overrides "<path_or_json>"]
+argument-hint: "--session WFS-session-id --pages \"dashboard,auth\" [--variants 2] [--style-overrides \"overrides.json\"]"
 examples:
   - /workflow:design:ui-generate --session WFS-auth --pages "login,register"
-  - /workflow:design:ui-generate --session WFS-dashboard --pages "dashboard" --variants 3
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*), Bash(*)
+  - /workflow:design:ui-generate --session WFS-dashboard --pages "dashboard" --variants 3 --style-overrides "overrides.json"
+allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*)
 ---
 
 # UI Generation Command
