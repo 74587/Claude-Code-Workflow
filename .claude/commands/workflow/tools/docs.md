@@ -14,11 +14,16 @@ examples:
 
 ## Purpose
 
-**`/workflow:docs` is a pure planner/orchestrator** - it analyzes project structure, decomposes documentation work into tasks, and generates execution plans. It does **NOT** generate any documentation content itself.
+**`/workflow:docs` is a lightweight planner/orchestrator** - it analyzes project structure using metadata tools, decomposes documentation work into tasks, and generates execution plans. It does **NOT** generate any documentation content itself.
 
-**Key Principle**: Separation of Concerns
-- **docs.md** → Planning, session creation, task generation
-- **doc-generator.md** → Execution, content generation, quality assurance
+**Key Principle**: Lightweight Planning + Targeted Execution
+- **docs.md** → Collect metadata (paths, structure), generate task JSONs with path references
+- **doc-generator.md** → Execute targeted analysis on focus_paths, generate content
+
+**Optimization Philosophy**:
+- **Planning phase**: Minimal context - only metadata (module paths, file lists via `get_modules_by_depth.sh` and Code Index MCP)
+- **Task JSON**: Store path references, not content
+- **Execution phase**: Targeted deep analysis within focus_paths scope
 
 ## Usage
 
@@ -75,11 +80,18 @@ mkdir -p "${session_dir}"/{.task,.process,.summaries}
 touch ".workflow/.active-WFS-docs-${timestamp}"
 ```
 
-#### Phase 2: Project Structure Analysis (MANDATORY)
+#### Phase 2: Lightweight Metadata Collection (MANDATORY)
 ```bash
-# Run get_modules_by_depth.sh for module hierarchy
+# Step 1: Run get_modules_by_depth.sh for module hierarchy (metadata only)
 module_data=$(~/.claude/scripts/get_modules_by_depth.sh)
 # Format: depth:N|path:<PATH>|files:N|size:N|has_claude:yes/no
+
+# Step 2: Use Code Index MCP for file discovery (optional, for better precision)
+# Example: mcp__code-index__find_files(pattern="src/**/")
+# This finds directories without loading content
+
+# IMPORTANT: Do NOT read file contents in planning phase
+# Only collect: paths, file counts, module structure
 ```
 
 #### Phase 3: Quick Documentation Assessment
@@ -172,32 +184,27 @@ fi
     "pre_analysis": [
       {
         "step": "discover_project_structure",
-        "action": "Analyze project structure and modules",
+        "action": "Get project module hierarchy metadata",
         "command": "bash(~/.claude/scripts/get_modules_by_depth.sh)",
-        "output_to": "system_structure"
-      },
-      {
-        "step": "discover_project_files",
-        "action": "Identify key project files",
-        "command": "bash(find . -maxdepth 2 -type f \\( -name '*.json' -o -name '*.md' -o -name '*.yml' -o -name '*.yaml' \\) | head -30)",
-        "output_to": "project_files"
+        "output_to": "system_structure",
+        "on_error": "fail",
+        "note": "Lightweight metadata only - no file content"
       },
       {
         "step": "analyze_tech_stack",
-        "action": "Analyze technology stack and dependencies",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze project technology stack\\nTASK: Extract tech stack, architecture patterns, design principles\\nMODE: analysis\\nCONTEXT: System structure: [system_structure]\\n         Project files: [project_files]\\nEXPECTED: Technology analysis with architecture style\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/project-overview.txt)\")",
-        "output_to": "tech_analysis",
-        "on_error": "fail",
-        "note": "Command is built at planning time based on $tool variable (gemini/qwen/codex)"
+        "action": "Analyze technology stack from key config files",
+        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze project technology stack\\nTASK: Extract tech stack from key config files\\nMODE: analysis\\nCONTEXT: @{package.json,pom.xml,build.gradle,requirements.txt,go.mod,Cargo.toml,CLAUDE.md}\\nEXPECTED: Technology list and architecture style\\nRULES: Be concise, focus on stack only\")",
+        "output_to": "tech_stack_analysis",
+        "on_error": "skip_optional",
+        "note": "Only analyze config files - small, controlled context"
       }
     ],
     "implementation_approach": {
-      "task_description": "Use tech_analysis to populate Project-Level Documentation Template",
+      "task_description": "Use system_structure and tech_stack_analysis to populate Project Overview Template",
       "logic_flow": [
         "Load template: ~/.claude/workflows/cli-templates/prompts/documentation/project-overview.txt",
-        "Parse tech_analysis for: purpose, architecture, tech stack, design principles",
-        "Fill template sections with extracted information",
-        "Generate navigation links to module/API docs",
+        "Fill sections using [system_structure] and [tech_stack_analysis]",
+        "Generate navigation links based on module paths",
         "Format output as Markdown"
       ]
     },
@@ -239,27 +246,19 @@ fi
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_system_context",
-        "action": "Load system architecture from IMPL-001",
-        "command": "bash(cat .workflow/WFS-docs-*/IMPL-001-system_structure.output 2>/dev/null || ~/.claude/scripts/get_modules_by_depth.sh)",
-        "output_to": "system_context",
-        "on_error": "skip_optional"
-      },
-      {
-        "step": "analyze_module_structure",
-        "action": "Deep analysis of module structure and API",
-        "command": "bash(cd src/auth && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document module comprehensively\\nTASK: Extract module purpose, architecture, public API, dependencies\\nMODE: analysis\\nCONTEXT: @{**/*}\\n         System: [system_context]\\nEXPECTED: Complete module analysis for documentation\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\")",
+        "step": "analyze_module_content",
+        "action": "Perform deep analysis of the specific module's content",
+        "command": "bash(cd src/auth && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document 'auth' module comprehensively\\nTASK: Extract module purpose, architecture, public API, dependencies\\nMODE: analysis\\nCONTEXT: @{**/*}\\nEXPECTED: Structured analysis of module content\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\")",
         "output_to": "module_analysis",
         "on_error": "fail",
-        "note": "For qwen: qwen-wrapper | For codex: codex -C src/auth --full-auto exec \"...\" --skip-git-repo-check"
+        "note": "Analysis strictly limited to focus_paths ('src/auth') - controlled context"
       }
     ],
     "implementation_approach": {
-      "task_description": "Use module_analysis to populate Module-Level Documentation Template",
+      "task_description": "Use the detailed [module_analysis] to populate the Module-Level Documentation Template",
       "logic_flow": [
         "Load template: ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt",
-        "Parse module_analysis for: purpose, components, API, dependencies",
-        "Fill template sections with extracted information",
+        "Fill sections using [module_analysis]",
         "Generate code examples from actual usage",
         "Format output as Markdown"
       ]
@@ -369,18 +368,19 @@ fi
     "pre_analysis": [
       {
         "step": "discover_api_endpoints",
-        "action": "Find all API routes and endpoints",
-        "command": "bash(rg -t ts -t js '(router\\.|app\\.|@(Get|Post|Put|Delete|Patch))' src/ --no-heading | head -100)",
+        "action": "Find all API routes and endpoints using MCP",
+        "command": "mcp__code-index__search_code_advanced(pattern='router\\.|app\\.|@(Get|Post|Put|Delete|Patch)', file_pattern='*.{ts,js}', output_mode='content', head_limit=100)",
         "output_to": "endpoint_discovery",
-        "on_error": "skip_optional"
+        "on_error": "skip_optional",
+        "note": "Use MCP instead of rg for better structure"
       },
       {
         "step": "analyze_api_structure",
         "action": "Analyze API structure and patterns",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document API comprehensively\\nTASK: Extract endpoints, auth, request/response formats\\nMODE: analysis\\nCONTEXT: @{src/api/**/*,src/routes/**/*,src/controllers/**/*}\\n         Endpoints: [endpoint_discovery]\\nEXPECTED: Complete API documentation\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/api-reference.txt)\")",
+        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document API comprehensively\\nTASK: Extract endpoints, auth, request/response formats\\nMODE: analysis\\nCONTEXT: @{src/api/**/*,src/routes/**/*,src/controllers/**/*}\\nEXPECTED: Complete API documentation\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/api-reference.txt)\")",
         "output_to": "api_analysis",
         "on_error": "fail",
-        "note": "Tool-specific: gemini-wrapper | qwen-wrapper | codex -C src/api exec"
+        "note": "Analysis limited to API-related paths - controlled context"
       }
     ],
     "implementation_approach": {
