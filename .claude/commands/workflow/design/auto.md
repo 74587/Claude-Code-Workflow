@@ -1,11 +1,12 @@
 ---
 name: auto
 description: Orchestrate UI design refinement workflow with interactive checkpoints for user selection
-usage: /workflow:design:auto --session <session_id> --images "<glob>" --pages "<list>" [--variants <count>] [--batch-plan]
-argument-hint: "--session WFS-session-id --images \"refs/*.png\" --pages \"dashboard,auth\" [--variants 2] [--batch-plan]"
+usage: /workflow:design:auto --pages "<list>" [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>] [--use-agent] [--batch-plan]
+argument-hint: "--pages \"dashboard,auth\" [--session WFS-xxx] [--images \"refs/*.png\"] [--prompt \"Modern SaaS\"] [--variants 3] [--use-agent] [--batch-plan]"
 examples:
-  - /workflow:design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register"
-  - /workflow:design:auto --session WFS-dashboard --images "refs/*.jpg" --pages "dashboard" --variants 3 --batch-plan
+  - /workflow:design:auto --pages "login,register" --images "design-refs/*.png"
+  - /workflow:design:auto --pages "dashboard" --prompt "Modern minimalist, dark theme" --variants 3 --use-agent
+  - /workflow:design:auto --session WFS-auth --images "refs/*.png" --pages "login" --variants 2 --batch-plan
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*)
 ---
 
@@ -46,27 +47,69 @@ This workflow runs **semi-autonomously** with user checkpoints:
 ## Parameter Requirements
 
 **Required Parameters**:
-- `--session <session_id>`: Active workflow session ID
-- `--images "<glob_pattern>"`: Reference image paths for style extraction
 - `--pages "<page_list>"`: Comma-separated list of pages to generate
 
 **Optional Parameters**:
-- `--variants <count>`: Number of UI variants per page (default: 1)
-- `--batch-plan`: Auto-generate implementation tasks for selected prototypes after design-update
+- `--session <session_id>`: Workflow session ID (if omitted, runs in standalone mode)
+- `--images "<glob_pattern>"`: Reference image paths (default: `design-refs/*`)
+- `--prompt "<description>"`: Text description of design style
+- `--variants <count>`: Number of style/UI variants to generate (default: 3, range: 1-5)
+- `--use-agent`: Enable agent-driven creative exploration mode
+- `--batch-plan`: Auto-generate implementation tasks after design-update (integrated mode only)
+
+**Input Source Rules**:
+- Must provide at least one of: `--images` or `--prompt`
+- Both can be combined for guided style analysis
+
+## Execution Modes
+
+### Integrated Mode (with `--session`)
+- Works within existing workflow session: `.workflow/WFS-{session}/`
+- Reads from `.brainstorming/` artifacts
+- Phase 4 (design-update) updates synthesis-specification.md
+- Enables `--batch-plan` for task generation
+
+### Standalone Mode (without `--session`)
+- Creates new session: `design-session-YYYYMMDD-HHMMSS/`
+- Independent of brainstorming phase
+- Phase 4 (design-update) is **skipped**
+- Outputs final summary instead of artifact updates
+
+### Mode Detection
+```bash
+IF --session provided:
+    mode = "integrated"
+    base_path = ".workflow/WFS-{session}/"
+ELSE:
+    mode = "standalone"
+    session_id = "design-session-" + timestamp()
+    base_path = "./{session_id}/"
+```
 
 ## 5-Phase Execution
 
 ### Phase 1: Style Extraction
-**Command**: `SlashCommand(command="/workflow:design:style-extract --session {session_id} --images \"{image_glob}\"")`
+**Command Construction**:
+```bash
+variants_flag = --variants present ? "--variants {variants_count}" : ""
+agent_flag = --use-agent present ? "--use-agent" : ""
+images_flag = --images present ? "--images \"{image_glob}\"" : ""
+prompt_flag = --prompt present ? "--prompt \"{prompt_text}\"" : ""
+session_flag = --session present ? "--session {session_id}" : ""
+
+command = "/workflow:design:style-extract {session_flag} {images_flag} {prompt_flag} {variants_flag} {agent_flag}"
+```
+
+**Command**: `SlashCommand(command="{constructed_command}")`
 
 **Parse Output**:
 - Verify: `.design/style-extraction/style-cards.json` created
-- Extract: `style_cards_count` from output message
+- Extract: `style_cards_count` (should match `variants_count`)
 - List available style variant IDs
 
 **Validation**:
 - Style cards successfully generated
-- At least one style variant available
+- Variant count matches requested count
 
 **TodoWrite**: Mark phase 1 completed, mark checkpoint "awaiting_user_confirmation"
 
@@ -115,7 +158,9 @@ Continuing to Phase 3: UI Generation...
 
 ```bash
 variants_flag = --variants present ? "--variants {variants_count}" : ""
-command = "/workflow:design:ui-generate --session {session_id} --pages \"{page_list}\" {variants_flag}"
+agent_flag = --use-agent present ? "--use-agent" : ""
+session_flag = --session present ? "--session {session_id}" : ""
+command = "/workflow:design:ui-generate {session_flag} --pages \"{page_list}\" {variants_flag} {agent_flag}"
 ```
 
 **Command**: `SlashCommand(command="{constructed_command}")`

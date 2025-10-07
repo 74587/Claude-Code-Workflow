@@ -1,12 +1,13 @@
 ---
 name: style-extract
-description: Extract design style from reference images using triple vision analysis (Claude Code + Gemini + Codex)
-usage: /workflow:design:style-extract --session <session_id> --images "<glob_pattern>"
-argument-hint: "--session WFS-session-id --images \"path/to/*.png\""
+description: Extract design style from reference images or text prompts using triple vision analysis or agent mode
+usage: /workflow:design:style-extract [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>] [--use-agent]
+argument-hint: "[--session WFS-xxx] [--images \"refs/*.png\"] [--prompt \"Modern minimalist\"] [--variants 3] [--use-agent]"
 examples:
-  - /workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
-  - /workflow:design:style-extract --session WFS-dashboard --images "refs/dashboard-*.jpg"
-allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
+  - /workflow:design:style-extract --images "design-refs/*.png" --variants 3
+  - /workflow:design:style-extract --prompt "Modern minimalist blog, dark theme" --variants 3 --use-agent
+  - /workflow:design:style-extract --session WFS-auth --images "refs/*.png" --prompt "Linear.app style" --variants 2
+allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*), Task(conceptual-planning-agent)
 ---
 
 # Style Extraction Command
@@ -15,172 +16,195 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 Extract design style elements from reference images using triple vision analysis: Claude Code's native vision, Gemini Vision for semantic understanding, and Codex for structured token generation.
 
 ## Core Philosophy
-- **Triple Vision Analysis**: Combine Claude Code, Gemini Vision, and Codex vision capabilities
-- **Comprehensive Coverage**: Claude Code for quick analysis, Gemini for deep semantic understanding, Codex for structured output
-- **Consensus-Based Extraction**: Synthesize results from all three sources
-- **Style Card System**: Generate reusable style cards for consolidation phase
-- **Multi-Image Support**: Process multiple reference images and extract common patterns
+- **Dual Mode Support**: Conventional triple vision OR agent-driven creative exploration
+- **Flexible Input**: Images, text prompts, or both combined
+- **Variant Control**: Generate N style cards based on `--variants` parameter (default: 3)
+- **Consensus Synthesis**: Multi-source analysis for quality assurance
+- **Style Card Output**: Reusable design direction cards for consolidation phase
 
 ## Execution Protocol
 
-### Phase 1: Session & Input Validation
+### Phase 0: Mode & Parameter Detection
 ```bash
-# Validate session and locate images
-CHECK: .workflow/.active-* marker files
-VALIDATE: session_id matches active session
-EXPAND: glob pattern to concrete image paths
-VERIFY: at least one image file exists
+# Detect execution mode
+IF --use-agent:
+    mode = "agent"  # Agent-driven creative exploration
+ELSE:
+    mode = "conventional"  # Triple vision analysis
+
+# Detect input source
+IF --images AND --prompt:
+    input_mode = "hybrid"  # Text guides image analysis
+ELSE IF --images:
+    input_mode = "image"
+ELSE IF --prompt:
+    input_mode = "text"
+ELSE:
+    ERROR: "Must provide --images or --prompt"
+
+# Detect session mode
+IF --session:
+    session_mode = "integrated"
+    session_id = {provided_session}
+    base_path = ".workflow/WFS-{session_id}/"
+ELSE:
+    session_mode = "standalone"
+    session_id = "design-session-" + timestamp()
+    base_path = "./{session_id}/"
+
+# Set variant count
+variants_count = --variants provided ? {count} : 3
+VALIDATE: 1 <= variants_count <= 5
 ```
 
-### Phase 2: Claude Code Vision Analysis (Quick Initial Pass)
-**Direct Execution**: Use Read tool with image paths
-
+### Phase 1: Input Validation & Preparation
 ```bash
-# Claude Code's native vision capability for quick initial analysis
-FOR each image IN expanded_image_paths:
-  Read({image_path})
-  # Claude Code analyzes image and extracts basic patterns
+# Validate and prepare inputs based on input_mode
+IF input_mode IN ["image", "hybrid"]:
+    EXPAND: --images glob pattern to concrete paths
+    VERIFY: at least one image file exists
 
-# Write preliminary analysis
-Write(.workflow/WFS-{session}/.design/style-extraction/claude_vision_analysis.json)
+IF input_mode IN ["text", "hybrid"]:
+    VALIDATE: --prompt is non-empty string
+
+# Create session directory structure
+CREATE: {base_path}/.design/style-extraction/
 ```
 
-**Output**: `claude_vision_analysis.json` with Claude Code's initial observations
+### Phase 2: Style Extraction Execution
 
-### Phase 3: Gemini Vision Analysis (Deep Semantic Understanding)
-**Direct Bash Execution**: No agent wrapper
+**Route based on mode**:
 
+#### A. Conventional Mode (Triple Vision)
+Execute if `mode == "conventional"`
+
+**Step 1**: Claude Code initial analysis
 ```bash
-bash(cd .workflow/WFS-{session}/.design/style-extraction && \
+IF input_mode IN ["image", "hybrid"]:
+    FOR each image IN expanded_image_paths:
+        Read({image_path})  # Claude analyzes visuals
+ELSE IF input_mode == "text":
+    # Analyze text prompt for design keywords
+    keywords = extract_design_keywords({prompt_text})
+
+Write({base_path}/.design/style-extraction/claude_analysis.json)
+```
+
+**Step 2**: Gemini deep semantic analysis
+```bash
+context_arg = ""
+IF input_mode IN ["image", "hybrid"]:
+    context_arg += "@{image_paths}"
+IF input_mode IN ["text", "hybrid"]:
+    guidance = "GUIDED BY PROMPT: '{prompt_text}'"
+
+bash(cd {base_path}/.design/style-extraction && \
   ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
-    PURPOSE: Extract deep design semantics from reference images
-    TASK: Analyze color palettes, typography, spacing, layout principles, component styles, design philosophy
+    PURPOSE: Extract design semantics {guidance}
+    TASK: Generate {variants_count} distinct style directions
     MODE: write
-    CONTEXT: @{../../{image_paths}}
-    EXPECTED: JSON with comprehensive semantic style description (colors with names, font characteristics, spacing scale, design philosophy, UI patterns)
-    RULES: Focus on extracting semantic meaning and design intent, not exact pixel values. Identify design system patterns.
+    CONTEXT: {context_arg}
+    EXPECTED: {variants_count} style analysis variants in JSON
+    RULES: OKLCH colors, semantic naming, explore diverse themes
   ")
-
-# Output: gemini_vision_analysis.json
 ```
 
-**Output**: `gemini_vision_analysis.json` with Gemini's deep semantic analysis
-
-### Phase 4: Codex Vision Analysis (Structured Pattern Recognition)
-**Direct Bash Execution**: Codex with -i parameter
-
+**Step 3**: Codex structured token generation
 ```bash
-bash(codex -C .workflow/WFS-{session}/.design/style-extraction --full-auto -i {image_paths} exec "
-  PURPOSE: Analyze reference images for structured design patterns
-  TASK: Extract color values, typography specs, spacing measurements, component patterns
+bash(codex -C {base_path}/.design/style-extraction --full-auto exec "
+  PURPOSE: Convert semantic analysis to structured tokens
+  TASK: Generate design-tokens.json and {variants_count} style-cards
   MODE: auto
-  CONTEXT: Reference images provided via -i parameter
-  EXPECTED: Structured JSON with precise design specifications
-  RULES: Focus on measurable design attributes and component patterns
-" --skip-git-repo-check -s danger-full-access)
-
-# Output: codex_vision_analysis.json
-```
-
-**Output**: `codex_vision_analysis.json` with Codex's structured analysis
-
-### Phase 5: Synthesis of Triple Vision Analysis
-**Direct Execution**: Main Claude synthesizes all three analyses
-
-```bash
-# Read all three vision analysis results
-Read(.workflow/WFS-{session}/.design/style-extraction/claude_vision_analysis.json)
-Read(.workflow/WFS-{session}/.design/style-extraction/gemini_vision_analysis.json)
-Read(.workflow/WFS-{session}/.design/style-extraction/codex_vision_analysis.json)
-
-# Load optional session context
-Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md) [optional]
-
-# Synthesize consensus analysis
-# Main Claude identifies common patterns, resolves conflicts, creates unified semantic analysis
-Write(.workflow/WFS-{session}/.design/style-extraction/semantic_style_analysis.json)
-```
-
-**Synthesis Strategy**:
-- **Color system**: Consensus from all three sources, prefer Codex for precise values
-- **Typography**: Gemini for semantic understanding, Codex for measurements
-- **Spacing**: Cross-validate across all three,identify consistent patterns
-- **Design philosophy**: Weighted combination with Gemini having highest weight
-- **Conflict resolution**: Majority vote or use context from synthesis-specification.md
-
-**Output**: `semantic_style_analysis.json` - unified analysis synthesizing all three sources
-
-### Phase 6: Structured Token Generation
-**Direct Bash Execution**: Codex generates CSS tokens
-
-```bash
-bash(codex -C .workflow/WFS-{session}/.design/style-extraction --full-auto exec "
-  PURPOSE: Convert synthesized semantic analysis to structured CSS design tokens
-  TASK: Generate W3C-compliant design tokens, Tailwind config, and style card variants
-  MODE: auto
-  CONTEXT: @{semantic_style_analysis.json,../../../../CLAUDE.md}
-  EXPECTED: design-tokens.json (OKLCH format), tailwind-tokens.js, style-cards.json (3 variants)
-  RULES: $(cat ~/.claude/workflows/design-tokens-schema.md) | OKLCH colors, rem spacing, semantic naming
+  CONTEXT: @{claude_analysis.json,gemini output}
+  EXPECTED: design-tokens.json, style-cards.json with {variants_count} variants
+  RULES: OKLCH format, rem spacing, semantic names
 " --skip-git-repo-check -s danger-full-access)
 ```
 
-**Output**:
-- `design-tokens.json`: W3C-compliant tokens in OKLCH format
-- `tailwind-tokens.js`: Tailwind theme extension
-- `style-cards.json`: 3 style variant cards for user selection
-   - Command: bash(codex -C .workflow/WFS-{session}/.design/style-extraction --full-auto exec \"
-     PURPOSE: Generate structured CSS design tokens from semantic analysis
-     TASK: Convert semantic color/typography/spacing to OKLCH CSS variables and Tailwind config
-     MODE: auto
-     CONTEXT: @{semantic_style_analysis.json,../../../../CLAUDE.md}
-     EXPECTED:
-     1. design-tokens.json with OKLCH color values, font stacks, spacing scale
-     2. tailwind-tokens.js with Tailwind config extension
-     3. style-cards.json with named style variants for user selection
-     RULES: Use OKLCH for colors, rem for spacing, maintain semantic naming, generate 2-3 style card variants
-     \" --skip-git-repo-check -s danger-full-access)
-   - Output: design-tokens.json, tailwind-tokens.js, style-cards.json
+#### B. Agent Mode (Creative Exploration)
+Execute if `mode == "agent"`
 
-## Token Requirements
-**Color Format**: OKLCH with fallback (e.g., \"oklch(0.65 0.15 270 / 1)\")
-**Spacing Scale**: rem-based (0.25rem, 0.5rem, 1rem, 1.5rem, 2rem, 3rem, 4rem, 6rem)
-**Typography Scale**: rem-based with line-height (xs, sm, base, lg, xl, 2xl, 3xl, 4xl)
-**Border Radius**: rem-based (none, sm, md, lg, xl, 2xl, full)
-**Shadows**: Layered shadows with OKLCH colors
+**Agent-Driven Parallel Generation**:
+```bash
+# Prepare base context
+context_files = ""
+IF input_mode IN ["image", "hybrid"]:
+    context_files += "@{image_paths}"
+IF session_mode == "integrated":
+    context_files += "@{../../.brainstorming/synthesis-specification.md}"
 
-## Expected Deliverables
-1. **design-tokens.json**: Structured CSS token definitions
-2. **tailwind-tokens.js**: Tailwind configuration extension
-3. **style-cards.json**: Multiple style variants for user selection
-"
+# Define creative themes for diversity
+themes = generate_creative_themes(variants_count)
+# Example: ["Modern Minimalist", "Brutalist Tech", "Organic Warmth"]
+
+# Launch parallel agent tasks
+FOR i IN range(variants_count):
+    Task(conceptual-planning-agent): "
+    [FLOW_CONTROL]
+
+    Generate unique design style variant: '{themes[i]}'
+
+    ## Context
+    INPUT_SOURCE: {input_mode}
+    PROMPT_GUIDANCE: {prompt_text if present else 'derive from images'}
+    THEME_FOCUS: {themes[i]}
+    OUTPUT_LOCATION: {base_path}/.design/style-extraction/
+
+    ## Flow Steps
+    1. **analyze_input**
+       IF input_mode IN ['image', 'hybrid']:
+           Use Gemini Vision to analyze images with theme focus
+       IF input_mode IN ['text', 'hybrid']:
+           Use Gemini to expand prompt into detailed design philosophy
+
+    2. **generate_tokens**
+       Use Codex to create design-tokens subset for this variant
+       Output: variant-{i}-tokens.json
+
+    3. **create_style_card**
+       Synthesize into style card with:
+       - id: 'variant-{i}'
+       - name: '{themes[i]}'
+       - preview: key design token values
+       Output: variant-{i}-card.json
+
+    ## Rules
+    - Focus on '{themes[i]}' aesthetic
+    - OKLCH colors, rem spacing, semantic naming
+    - Must be distinct from other variants
+    "
+
+# Consolidate parallel results
+Wait for all {variants_count} tasks to complete
+Consolidate variant-*-card.json → style-cards.json
+Merge variant-*-tokens.json → design-tokens.json (include all variants)
 ```
 
-### Phase 4: TodoWrite Integration
+**Output**: `style-cards.json` with {variants_count} creatively distinct variants
+
+### Phase 3: TodoWrite & Completion
+
 ```javascript
 TodoWrite({
   todos: [
-    {
-      content: "Validate session and locate reference images",
-      status: "completed",
-      activeForm: "Validating session and images"
-    },
-    {
-      content: "Extract visual semantics using Gemini Vision",
-      status: "completed",
-      activeForm: "Extracting visual semantics"
-    },
-    {
-      content: "Generate structured CSS tokens using Codex",
-      status: "completed",
-      activeForm: "Generating CSS tokens"
-    },
-    {
-      content: "Create style cards for consolidation phase",
-      status: "completed",
-      activeForm: "Creating style cards"
-    }
+    {content: "Detect mode and validate inputs", status: "completed", activeForm: "Detecting mode"},
+    {content: "Execute style extraction (conventional/agent mode)", status: "completed", activeForm: "Extracting styles"},
+    {content: "Generate {variants_count} style cards", status: "completed", activeForm: "Generating style cards"}
   ]
 });
+```
+
+**Completion Message**:
+```
+Style extraction complete for session: {session_id}
+Mode: {mode} | Input: {input_mode} | Variants: {variants_count}
+
+Generated {variants_count} style cards:
+{list_variant_names}
+
+Location: {base_path}/.design/style-extraction/
+
+Next: /workflow:design:style-consolidate --session {session_id} --variants "{selected_ids}"
 ```
 
 ## Output Structure

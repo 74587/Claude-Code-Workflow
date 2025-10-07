@@ -1,12 +1,13 @@
 ---
 name: ui-generate
-description: Generate UI prototypes using consolidated design tokens with optional style overrides
-usage: /workflow:design:ui-generate --session <session_id> --pages "<page_list>" [--variants <count>] [--style-overrides "<path_or_json>"]
-argument-hint: "--session WFS-session-id --pages \"dashboard,auth\" [--variants 2] [--style-overrides \"overrides.json\"]"
+description: Generate UI prototypes using consolidated design tokens with conventional or agent mode
+usage: /workflow:design:ui-generate --pages "<list>" [--session <id>] [--variants <count>] [--use-agent]
+argument-hint: "--pages \"dashboard,auth\" [--session WFS-xxx] [--variants 3] [--use-agent]"
 examples:
-  - /workflow:design:ui-generate --session WFS-auth --pages "login,register"
-  - /workflow:design:ui-generate --session WFS-dashboard --pages "dashboard" --variants 3 --style-overrides "overrides.json"
-allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*)
+  - /workflow:design:ui-generate --pages "login,register" --variants 2
+  - /workflow:design:ui-generate --session WFS-auth --pages "dashboard" --variants 3 --use-agent
+  - /workflow:design:ui-generate --pages "home,pricing" --variants 2
+allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Task(conceptual-planning-agent)
 ---
 
 # UI Generation Command
@@ -15,226 +16,156 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*)
 Generate production-ready UI prototypes (HTML/CSS) strictly adhering to consolidated design tokens and synthesis specification requirements.
 
 ## Core Philosophy
+- **Dual Mode**: Conventional (Codex primary) OR agent-driven (creative layouts)
 - **Token-Driven**: All styles reference design-tokens.json, no hardcoded values
-- **Specification-Aligned**: UI structure follows synthesis-specification.md requirements
-- **Codex Primary**: Code generation with strict token enforcement
-- **Gemini Variants**: Optional semantic layout variations
-- **Production-Ready**: Clean HTML5, semantic markup, accessibility attributes
+- **Variant Control**: Generate N prototypes per page based on `--variants` (default: 1)
+- **Layout Diversity**: Agent mode explores structural variations (F-pattern, grid, asymmetric)
+- **Production-Ready**: Semantic HTML5, ARIA attributes, responsive design
 
 ## Execution Protocol
 
-### Phase 1: Session & Requirements Loading
+### Phase 1: Mode Detection & Context Loading
 ```bash
-# Validate session and load design system
-CHECK: .workflow/.active-* marker files
-VALIDATE: session_id matches active session
-VERIFY: .design/style-consolidation/design-tokens.json exists
-PARSE: --pages parameter to page list
-SET: variants_count = --variants || 1
+# Detect execution mode
+IF --use-agent:
+    mode = "agent"  # Agent-driven creative layouts
+ELSE:
+    mode = "conventional"  # Codex primary generation
+
+# Detect session mode
+IF --session:
+    session_mode = "integrated"
+    session_id = {provided_session}
+    base_path = ".workflow/WFS-{session_id}/"
+ELSE:
+    session_mode = "standalone"
+    # Infer session_id from existing design-session-* directory
+    base_path = "./{detected_design_session}/"
+
+# Set parameters
+PARSE: --pages to page_list[]
+variants_count = --variants provided ? {count} : 1
+VALIDATE: 1 <= variants_count <= 5
+
+# Load design system
+VERIFY: {base_path}/.design/style-consolidation/design-tokens.json exists
+LOAD: design-tokens.json, style-guide.md, tailwind.config.js
+
+# Load requirements (if integrated mode)
+IF session_mode == "integrated":
+    LOAD: {base_path}/.brainstorming/synthesis-specification.md
 ```
 
-### Phase 2: Context Gathering
-**Load comprehensive context for UI generation**
+### Phase 2: UI Generation Execution
 
-```bash
-LOAD: design-tokens.json (style system)
-LOAD: style-guide.md (usage guidelines)
-LOAD: synthesis-specification.md (functional requirements)
-LOAD: ui-designer/analysis.md (UX guidelines, optional)
-PARSE: page_requirements for each page in --pages list
-```
+**Route based on mode**:
 
-### Phase 3: Codex UI Generation (Primary)
-**Agent Invocation**: Task(conceptual-planning-agent) with Codex capabilities
-
-```bash
-Task(conceptual-planning-agent): "
-[FLOW_CONTROL]
-
-Generate production-ready UI prototypes with strict design token adherence
-
-## Context Loading
-ASSIGNED_TASK: ui-prototype-generation
-OUTPUT_LOCATION: .workflow/WFS-{session}/.design/prototypes/
-TARGET_PAGES: {page_list}
-VARIANTS_PER_PAGE: {variants_count}
-
-## Flow Control Steps
-1. **load_design_system**
-   - Action: Load finalized design tokens and style guide
-   - Commands:
-     - Read(.workflow/WFS-{session}/.design/style-consolidation/design-tokens.json)
-     - Read(.workflow/WFS-{session}/.design/style-consolidation/style-guide.md)
-     - Read(.workflow/WFS-{session}/.design/style-consolidation/tailwind.config.js)
-   - Output: design_system
-
-2. **load_requirements**
-   - Action: Load functional and UX requirements
-   - Commands:
-     - Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
-     - Read(.workflow/WFS-{session}/.brainstorming/ui-designer/analysis.md) [optional]
-   - Output: requirements_context
-
-3. **generate_ui_prototypes_codex**
-   - Action: Generate HTML/CSS prototypes with strict token enforcement
-   - Command: bash(codex -C .workflow/WFS-{session}/.design/prototypes --full-auto exec \"
-     PURPOSE: Generate production-ready UI prototypes adhering to design tokens
-     TASK: Create HTML/CSS prototypes for pages: {page_list} with {variants_count} variant(s) each
-     MODE: auto
-     CONTEXT: @{../style-consolidation/design-tokens.json,../style-consolidation/style-guide.md,../../.brainstorming/synthesis-specification.md,../../../../CLAUDE.md}
-     EXPECTED:
-     For each page, generate {variants_count} variant(s):
-     1. {page}-variant-{n}.html - Complete HTML structure
-     2. {page}-variant-{n}.css - CSS using design token custom properties
-     3. {page}-variant-{n}-notes.md - Implementation notes and token usage
-
-     RULES:
-     - ALL styles MUST reference design token CSS custom properties (--color-brand-primary, --spacing-4, etc.)
-     - NO hardcoded colors, spacing, or typography values
-     - Use semantic HTML5 elements (header, nav, main, section, article, footer)
-     - Include ARIA labels and accessibility attributes (role, aria-label, aria-describedby)
-     - Implement responsive design using token-based breakpoints
-     - Follow component patterns from style-guide.md
-     - Include placeholder content matching page purpose
-     - Variants explore different layouts while maintaining token consistency
-     - Generate CSS custom properties mapping in each CSS file
-     \" --skip-git-repo-check -s danger-full-access)
-   - Output: {page}-variant-{n}.html, {page}-variant-{n}.css, {page}-variant-{n}-notes.md
-
-## Generation Requirements
-
-**Token Adherence**:
-- Use CSS custom properties for all design values
-- Reference design-tokens.json for property definitions
-- Example: `color: var(--color-brand-primary);`
-- Example: `padding: var(--spacing-4) var(--spacing-6);`
-- Example: `font-size: var(--font-size-lg);`
-
-**Semantic HTML**:
-```html
-<header role=\"banner\">
-  <nav role=\"navigation\" aria-label=\"Main navigation\">
-    <!-- Navigation items -->
-  </nav>
-</header>
-<main role=\"main\">
-  <section aria-labelledby=\"section-heading\">
-    <h2 id=\"section-heading\">Section Title</h2>
-    <!-- Content -->
-  </section>
-</main>
-<footer role=\"contentinfo\">
-  <!-- Footer content -->
-</footer>
-```
-
-**Accessibility Requirements**:
-- Proper heading hierarchy (h1 → h2 → h3)
-- Alt text for images
-- ARIA labels for interactive elements
-- Keyboard navigation support
-- Focus indicators using token colors
-- Sufficient color contrast (validated against tokens)
-
-**Responsive Design**:
-- Mobile-first approach
-- Token-based breakpoints (e.g., --breakpoint-md: 768px)
-- Flexible layouts using CSS Grid or Flexbox
-- Responsive typography using clamp() with token values
-
-## Expected Deliverables
-For each page in {page_list}:
-1. **{page}-variant-{n}.html**: Complete HTML prototype
-2. **{page}-variant-{n}.css**: Token-driven CSS
-3. **{page}-variant-{n}-notes.md**: Implementation notes
-"
-```
-
-### Phase 4: Generate Preview Enhancement Files
-**Direct Execution**: Create preview index and comparison view
+#### A. Conventional Mode (Codex Primary)
+Execute if `mode == "conventional"`
 
 ```bash
-# Generate preview index page
-Write(.workflow/WFS-{session}/.design/prototypes/index.html):
-  - List all generated prototypes with thumbnails
-  - Quick navigation to individual variants
-  - Metadata: page name, variant count, generation timestamp
-  - Direct links to HTML files
+# Single Codex call generates all variants for all pages
+bash(codex -C {base_path}/.design/prototypes --full-auto exec "
+  PURPOSE: Generate UI prototypes adhering to design tokens
+  TASK: Create HTML/CSS for pages: {page_list} with {variants_count} variant(s) each
+  MODE: auto
+  CONTEXT: @{../style-consolidation/design-tokens.json,../style-consolidation/style-guide.md}
+  EXPECTED:
+  For each page, generate {variants_count} variant(s):
+  - {page}-variant-{n}.html (semantic HTML5)
+  - {page}-variant-{n}.css (token-driven, no hardcoded values)
+  - {page}-variant-{n}-notes.md (implementation notes)
 
-# Generate side-by-side comparison view
-Write(.workflow/WFS-{session}/.design/prototypes/compare.html):
-  - Iframe-based comparison for all variants of same page
-  - Responsive viewport toggles (mobile, tablet, desktop)
-  - Synchronized scrolling option
-  - Variant labels and quick switching
-
-# Generate preview server instructions
-Write(.workflow/WFS-{session}/.design/prototypes/PREVIEW.md):
-  - How to open files directly in browser
-  - Local server setup commands (Python, Node.js, PHP)
-  - Port and access instructions
-  - Browser compatibility notes
+  RULES:
+  - STRICT token adherence: var(--color-brand-primary), var(--spacing-4)
+  - Semantic HTML5 + ARIA attributes
+  - Responsive: mobile-first, token-based breakpoints
+  - Variants differ in minor layout details
+" --skip-git-repo-check -s danger-full-access)
 ```
 
-**Output**:
-- `index.html`: Master index page for all prototypes
-- `compare.html`: Side-by-side comparison view
-- `PREVIEW.md`: Preview instructions and server setup guide
+#### B. Agent Mode (Creative Layouts)
+Execute if `mode == "agent"`
 
-### Phase 5: Gemini Variant Suggestions (Optional)
-**Conditional Execution**: Only if --variants > 1
+**Agent-Driven Parallel Generation**:
+```bash
+# Define layout strategies for diversity
+layouts = generate_layout_strategies(variants_count)
+# Example: ["F-Pattern", "Asymmetric Grid", "Card-Based Modular"]
+
+# Launch parallel agent tasks for each page-variant combination
+FOR page IN page_list:
+  FOR i IN range(variants_count):
+    Task(conceptual-planning-agent): "
+    [FLOW_CONTROL]
+
+    Generate UI prototype: {page} using '{layouts[i]}' layout
+
+    ## Context
+    PAGE: {page}
+    LAYOUT_STRATEGY: {layouts[i]}
+    OUTPUT: {base_path}/.design/prototypes/
+
+    ## Flow Steps
+    1. **load_design_system**
+       Read design-tokens.json and style-guide.md
+
+    2. **load_requirements**
+       IF session_mode == 'integrated':
+           Read synthesis-specification.md for {page} requirements
+
+    3. **generate_prototype_codex**
+       Use Codex to generate HTML/CSS with layout focus:
+       Layout: {layouts[i]}
+       Token adherence: STRICT (all values from design-tokens)
+       Output: {page}-variant-{i}.html/css/notes.md
+
+    ## Rules
+    - Layout must follow '{layouts[i]}' strategy
+    - Examples:
+      * F-Pattern: Content flows top→left→middle→bottom
+      * Asymmetric Grid: Strong visual hierarchy, off-center
+      * Card-Based: Modular components, flexible grid
+    - STRICT token usage, semantic HTML, ARIA attributes
+    "
+
+Wait for all {len(page_list) * variants_count} tasks to complete
+```
+
+### Phase 3: Generate Preview Files
 
 ```bash
-IF variants_count > 1:
-  bash(cd .workflow/WFS-{session}/.design/prototypes && \
-    ~/.claude/scripts/gemini-wrapper -p "
-    PURPOSE: Generate semantic layout variation rationale
-    TASK: Analyze synthesis-specification.md and explain {variants_count} layout approaches
-    MODE: analysis
-    CONTEXT: @{../../.brainstorming/synthesis-specification.md,../../.brainstorming/ui-designer/analysis.md}
-    EXPECTED: variant-suggestions.md with layout rationale for each variant
-    RULES: Focus on information hierarchy, component composition, user flow emphasis, layout patterns
-    ")
+# Generate preview utilities
+Write({base_path}/.design/prototypes/index.html)  # Master navigation
+Write({base_path}/.design/prototypes/compare.html)  # Side-by-side comparison
+Write({base_path}/.design/prototypes/PREVIEW.md)  # Setup instructions
 ```
 
-**Output**: `variant-suggestions.md` with Gemini's layout rationale
+### Phase 4: TodoWrite & Completion
 
-### Phase 6: TodoWrite Integration
 ```javascript
 TodoWrite({
   todos: [
-    {
-      content: "Validate session and load design system",
-      status: "completed",
-      activeForm: "Loading design system"
-    },
-    {
-      content: "Load functional requirements and UX guidelines",
-      status: "completed",
-      activeForm: "Loading requirements"
-    },
-    {
-      content: "Generate UI prototypes using Codex with token enforcement",
-      status: "completed",
-      activeForm: "Generating UI prototypes"
-    },
-    {
-      content: "Generate preview enhancement files (index, compare, instructions)",
-      status: "completed",
-      activeForm: "Generating preview files"
-    },
-    {
-      content: "Generate layout variant suggestions using Gemini (optional)",
-      status: "completed",
-      activeForm: "Generating variant suggestions"
-    },
-    {
-      content: "Create implementation notes for each prototype",
-      status: "completed",
-      activeForm: "Creating implementation notes"
-    }
+    {content: "Detect mode and load design system", status: "completed", activeForm: "Loading design system"},
+    {content: "Generate {len(page_list) * variants_count} UI prototypes", status: "completed", activeForm: "Generating prototypes"},
+    {content: "Generate preview files", status: "completed", activeForm: "Generating preview"}
   ]
 });
+```
+
+**Completion Message**:
+```
+UI generation complete for session: {session_id}
+Mode: {mode} | Pages: {page_list} | Variants: {variants_count}
+
+Generated {len(page_list) * variants_count} prototypes:
+{list_generated_files}
+
+Location: {base_path}/.design/prototypes/
+
+Preview: Open index.html or run: python -m http.server 8080
+
+Next: /workflow:design:design-update --session {session_id} --selected-prototypes "{selected_ids}"
 ```
 
 ## Output Structure

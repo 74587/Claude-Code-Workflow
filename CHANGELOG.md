@@ -5,6 +5,126 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.1] - 2025-10-07
+
+### 🚀 Enhanced UI Design Workflow with Agent Mode & Flexible Inputs
+
+This release significantly enhances the UI design workflow with agent-driven creative exploration, unified variant control, dual-mode support (standalone/integrated), and flexible input sources (images + text prompts).
+
+#### Added
+
+**Unified Variant Control**:
+- **`--variants <count>`**: Single parameter controls both style cards AND UI prototypes generation
+  - Default: 3 | Range: 1-5
+  - Data flow: `auto.md` → `style-extract` → `ui-generate`
+  - Example: `--variants 3` generates 3 style cards and 3 UI variants per page
+
+**Agent Creative Exploration Mode** (`--use-agent`):
+- **style-extract**: Parallel generation of distinctly different design directions
+  - Conventional mode: Subtle variations within same core style
+  - Agent mode: Dramatically different aesthetics (e.g., "Modern Minimalist" vs "Brutalist Tech" vs "Organic Warmth")
+  - Uses `conceptual-planning-agent` for creative exploration
+- **ui-generate**: Diverse layout strategies exploration
+  - Conventional mode: Minor layout differences
+  - Agent mode: Structural variations (F-Pattern, Asymmetric Grid, Card-Based Modular)
+  - Parallel execution for efficiency
+
+**Dual Mode Support**:
+- **Integrated Mode** (with `--session`): Works within existing workflow session
+  - Location: `.workflow/WFS-{session}/`
+  - Reads from `.brainstorming/` artifacts
+  - Phase 4 (design-update) updates synthesis-specification.md
+- **Standalone Mode** (without `--session`): Independent quick prototyping
+  - Auto-creates: `design-session-YYYYMMDD-HHMMSS/`
+  - No dependency on brainstorming phase
+  - Phase 4 (design-update) is skipped
+  - Outputs final summary instead
+
+**Dual Input Source Support**:
+- **`--images`**: Reference image paths (optional, default: `design-refs/*`)
+- **`--prompt`**: Text description of design style (NEW)
+- **Hybrid Mode**: Both combined - text guides image analysis
+- Input modes:
+  - Pure image: Existing triple vision analysis
+  - Pure text: Claude keywords → Gemini philosophy → Codex tokens
+  - Hybrid: Text as context for visual analysis
+
+#### Changed
+
+**Command Interface Simplification**:
+- **`/workflow:design:auto`**:
+  - `--session` now optional (enables standalone mode when omitted)
+  - `--images` now optional (defaults to `design-refs/*`)
+  - Added `--prompt` for text-based design input
+  - Added `--use-agent` for creative exploration
+  - **Before**: `/workflow:design:auto --session WFS-auth --images "refs/*.png" --pages "login"`
+  - **After**: `/workflow:design:auto --pages "login"` (all defaults)
+  - **Agent Mode**: `/workflow:design:auto --prompt "Modern SaaS" --pages "home" --variants 3 --use-agent`
+
+- **`/workflow:design:style-extract`**:
+  - Added `--variants <count>` parameter
+  - Added `--use-agent` flag
+  - Added `--prompt <description>` parameter
+  - `--session` now optional
+  - Supports image-only, text-only, or hybrid inputs
+
+- **`/workflow:design:ui-generate`**:
+  - Added `--use-agent` flag
+  - `--session` now optional
+  - Removed `--style-overrides` (simplified)
+  - Agent mode enables parallel layout exploration
+
+#### Usage Examples
+
+**Standalone Quick Prototyping**:
+```bash
+# Pure text, agent exploration
+/workflow:design:auto --prompt "Modern minimalist blog, dark theme" --pages "home,article" --variants 3 --use-agent
+
+# Pure image, conventional mode
+/workflow:design:auto --images "refs/*.png" --pages "dashboard" --variants 2
+
+# Hybrid input
+/workflow:design:auto --images "current-app.png" --prompt "Modernize with Linear.app style" --pages "tasks,settings" --use-agent
+```
+
+**Integrated Workflow Enhancement**:
+```bash
+# Within existing workflow session
+/workflow:design:auto --session WFS-app-refresh --images "refs/*.png" --pages "dashboard" --variants 3 --use-agent
+```
+
+#### Technical Details
+
+**Agent Mode Architecture**:
+- Uses `conceptual-planning-agent` for both style-extract and ui-generate phases
+- Parallel task execution: N variants × M pages run concurrently
+- Theme diversity strategies:
+  - style-extract: Creative theme generation (Minimalist, Brutalist, Organic)
+  - ui-generate: Layout strategy assignment (F-Pattern, Grid, Asymmetric)
+- Quality assurance: All variants maintain strict token adherence and WCAG AA compliance
+
+**Mode Detection Logic**:
+```bash
+# Session mode
+IF --session provided: mode = "integrated"
+ELSE: mode = "standalone", auto-create design-session-YYYYMMDD-HHMMSS/
+
+# Execution mode
+IF --use-agent: mode = "agent" (creative exploration)
+ELSE: mode = "conventional" (triple vision)
+
+# Input mode
+IF --images AND --prompt: mode = "hybrid"
+ELSE IF --images: mode = "image"
+ELSE IF --prompt: mode = "text"
+```
+
+**Backward Compatibility**:
+- All existing commands continue to work unchanged
+- New parameters are optional with sensible defaults
+- No breaking changes to command interfaces
+
 ## [3.5.0] - 2025-10-06
 
 ### 🎨 UI Design Workflow with Triple Vision Analysis & Interactive Preview
