@@ -421,5 +421,3 @@ Return summary to user
 - `task-generate` automatically detects `.design/` directory
 - If present, adds design system to task context.artifacts
 - UI tasks automatically include `load_design_tokens` in flow_control
-
-This design ensures backward compatibility while enabling powerful visual design workflows when needed.
