@@ -1,12 +1,13 @@
 ---
 name: auto
 description: Orchestrate UI design refinement workflow with interactive checkpoints for user selection
-usage: /workflow:design:auto --pages "<list>" [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>] [--use-agent] [--batch-plan]
-argument-hint: "--pages \"dashboard,auth\" [--session WFS-xxx] [--images \"refs/*.png\"] [--prompt \"Modern SaaS\"] [--variants 3] [--use-agent] [--batch-plan]"
+usage: /workflow:design:auto [--prompt "<desc>"] [--images "<glob>"] [--pages "<list>"] [--session <id>] [--variants <count>] [--use-agent] [--batch-plan]
+argument-hint: "[--prompt \"Modern SaaS\"] [--images \"refs/*.png\"] [--pages \"dashboard,auth\"] [--session WFS-xxx] [--variants 3] [--use-agent]"
 examples:
-  - /workflow:design:auto --pages "login,register" --images "design-refs/*.png"
-  - /workflow:design:auto --pages "dashboard" --prompt "Modern minimalist, dark theme" --variants 3 --use-agent
-  - /workflow:design:auto --session WFS-auth --images "refs/*.png" --pages "login" --variants 2 --batch-plan
+  - /workflow:design:auto --prompt "Modern blog with home, article and author pages, dark theme"
+  - /workflow:design:auto --prompt "SaaS dashboard and settings" --variants 3 --use-agent
+  - /workflow:design:auto --images "refs/*.png" --prompt "E-commerce site: home, product, cart"
+  - /workflow:design:auto --session WFS-auth --images "refs/*.png" --variants 2
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*)
 ---
 
@@ -46,13 +47,11 @@ This workflow runs **semi-autonomously** with user checkpoints:
 
 ## Parameter Requirements
 
-**Required Parameters**:
-- `--pages "<page_list>"`: Comma-separated list of pages to generate
-
-**Optional Parameters**:
+**Optional Parameters** (all have smart defaults):
+- `--pages "<page_list>"`: Pages to generate (if omitted, inferred from prompt/session)
 - `--session <session_id>`: Workflow session ID (if omitted, runs in standalone mode)
 - `--images "<glob_pattern>"`: Reference image paths (default: `design-refs/*`)
-- `--prompt "<description>"`: Text description of design style
+- `--prompt "<description>"`: Text description of design style and pages
 - `--variants <count>`: Number of style/UI variants to generate (default: 3, range: 1-5)
 - `--use-agent`: Enable agent-driven creative exploration mode
 - `--batch-plan`: Auto-generate implementation tasks after design-update (integrated mode only)
@@ -60,6 +59,14 @@ This workflow runs **semi-autonomously** with user checkpoints:
 **Input Source Rules**:
 - Must provide at least one of: `--images` or `--prompt`
 - Both can be combined for guided style analysis
+
+**Page Inference Logic**:
+1. If `--pages` provided: Use explicit list
+2. Else if `--prompt` provided: Extract page names from prompt text
+   - Example: "dashboard and login page" → ["dashboard", "login"]
+   - Example: "Modern SaaS app" → ["home", "dashboard", "settings"]
+3. Else if `--session` provided (integrated mode): Infer from synthesis-specification.md
+4. Else: Default to ["home"]
 
 ## Execution Modes
 
@@ -87,6 +94,27 @@ ELSE:
 ```
 
 ## 5-Phase Execution
+
+### Phase 0: Page Inference (if needed)
+**Infer page list if not explicitly provided**:
+```bash
+IF --pages provided:
+    page_list = {explicit_pages}
+ELSE IF --prompt provided:
+    # Extract page names from prompt using Claude analysis
+    page_list = extract_page_names_from_prompt({prompt_text})
+    # Examples:
+    # "dashboard and login page" → ["dashboard", "login"]
+    # "blog with home, article, author pages" → ["home", "article", "author"]
+    # "Modern SaaS app" → ["home", "dashboard", "settings"]
+ELSE IF --session provided:
+    # Read synthesis-specification.md and extract page requirements
+    page_list = extract_pages_from_synthesis({session_id})
+ELSE:
+    page_list = ["home"]  # Default fallback
+
+VALIDATE: page_list not empty
+```
 
 ### Phase 1: Style Extraction
 **Command Construction**:

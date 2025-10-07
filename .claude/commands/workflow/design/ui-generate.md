@@ -1,12 +1,12 @@
 ---
 name: ui-generate
 description: Generate UI prototypes using consolidated design tokens with conventional or agent mode
-usage: /workflow:design:ui-generate --pages "<list>" [--session <id>] [--variants <count>] [--use-agent]
-argument-hint: "--pages \"dashboard,auth\" [--session WFS-xxx] [--variants 3] [--use-agent]"
+usage: /workflow:design:ui-generate [--pages "<list>"] [--session <id>] [--variants <count>] [--use-agent]
+argument-hint: "[--pages \"dashboard,auth\"] [--session WFS-xxx] [--variants 3] [--use-agent]"
 examples:
-  - /workflow:design:ui-generate --pages "login,register" --variants 2
-  - /workflow:design:ui-generate --session WFS-auth --pages "dashboard" --variants 3 --use-agent
-  - /workflow:design:ui-generate --pages "home,pricing" --variants 2
+  - /workflow:design:ui-generate --variants 2
+  - /workflow:design:ui-generate --session WFS-auth --variants 3 --use-agent
+  - /workflow:design:ui-generate --pages "home,pricing,contact" --variants 2
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Task(conceptual-planning-agent)
 ---
 
@@ -42,8 +42,19 @@ ELSE:
     # Infer session_id from existing design-session-* directory
     base_path = "./{detected_design_session}/"
 
+# Infer page list if not provided
+IF --pages provided:
+    page_list = {explicit_pages}
+ELSE IF session_mode == "integrated":
+    # Read synthesis-specification.md to extract page requirements
+    page_list = extract_pages_from_synthesis({base_path}/.brainstorming/synthesis-specification.md)
+ELSE:
+    # Infer from generated prototypes or default
+    page_list = detect_from_prototypes({base_path}/.design/prototypes/) OR ["home"]
+
+VALIDATE: page_list not empty
+
 # Set parameters
-PARSE: --pages to page_list[]
 variants_count = --variants provided ? {count} : 1
 VALIDATE: 1 <= variants_count <= 5
 

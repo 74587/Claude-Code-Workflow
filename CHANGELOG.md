@@ -5,6 +5,32 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.1] - 2025-10-07
+
+### 🎯 Intelligent Page Inference
+
+**IMPROVEMENT**: `--pages` parameter is now **optional** with smart inference from prompt or session context.
+
+**Changes**:
+- `--pages` parameter: Now optional, intelligently inferred from:
+  1. Explicit `--pages` if provided
+  2. `--prompt` text analysis (e.g., "blog with home, article pages" → ["home", "article"])
+  3. `--session` synthesis-specification.md extraction
+  4. Default: ["home"]
+
+**New Examples**:
+```bash
+# Simplest - pages inferred from prompt
+/workflow:design:auto --prompt "Modern blog with home, article and author pages"
+
+# Explicit override if needed
+/workflow:design:auto --prompt "SaaS app" --pages "dashboard,settings,billing"
+```
+
+**Commands Updated**:
+- `/workflow:design:auto`: All parameters now optional
+- `/workflow:design:ui-generate`: `--pages` optional with smart inference
+
 ## [4.0.0] - 2025-10-07
 
 ### 🚀 UI Design Workflow V2 - Agent Mode & Flexible Inputs
@@ -17,10 +43,11 @@ This major release introduces agent-driven creative exploration, unified variant
 
 **Required Migration**:
 - **Old format no longer supported**: Commands using old parameter structure will fail
-- **`--session` parameter**: Now optional, omitting it enables standalone mode
-- **`--images` parameter**: Now optional with default value `design-refs/*`
-- **Removed `--style-overrides`**: Simplified to `--prompt` for text-based guidance
-- **New required parameter**: `--pages` is now the only mandatory parameter
+- **All parameters now optional**: Smart defaults and inference for all parameters
+- **`--session`**: Optional, omitting enables standalone mode
+- **`--images`**: Optional with default `design-refs/*`
+- **`--pages`**: Optional, inferred from prompt or session (as of v4.0.1)
+- **Removed `--style-overrides`**: Use `--prompt` instead
 
 **Migration Guide**:
 ```bash
@@ -28,15 +55,15 @@ This major release introduces agent-driven creative exploration, unified variant
 /workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
 /workflow:design:ui-generate --session WFS-auth --pages "login,register"
 
-# ✅ New (v4.0.0+)
+# ✅ New (v4.0.1) - All parameters optional
 /workflow:design:style-extract --images "design-refs/*.png" --variants 3
-/workflow:design:ui-generate --pages "login,register" --variants 2
+/workflow:design:ui-generate --variants 2
 
-# ✅ Simplest form (using defaults)
-/workflow:design:auto --pages "dashboard"
+# ✅ Simplest form (pages inferred from prompt)
+/workflow:design:auto --prompt "Modern blog with home, article and author pages"
 
-# ✅ With agent mode
-/workflow:design:auto --prompt "Modern SaaS" --pages "home" --variants 3 --use-agent
+# ✅ With agent mode and explicit pages
+/workflow:design:auto --prompt "Modern SaaS" --pages "dashboard,settings" --variants 3 --use-agent
 ```
 
 **Deprecated Commands**:
@@ -84,46 +111,46 @@ This major release introduces agent-driven creative exploration, unified variant
 
 #### Changed
 
-**New Command Interface**:
+**New Command Interface** (v4.0.1):
 - **`/workflow:design:auto`**:
-  - Required: `--pages <list>`
-  - Optional: `--session <id>`, `--images <glob>`, `--prompt <desc>`, `--variants <count>`, `--use-agent`
-  - Defaults: `--variants 3`, `--images "design-refs/*"`
+  - All parameters optional with smart defaults
+  - `--prompt <desc>`: Design description (infers pages automatically)
+  - `--images <glob>`: Reference images (default: `design-refs/*`)
+  - `--pages <list>`: Explicit page override (auto-inferred if omitted)
+  - `--session <id>`, `--variants <count>`, `--use-agent`, `--batch-plan`
   - Examples:
-    - Minimal: `/workflow:design:auto --pages "login"`
-    - Agent Mode: `/workflow:design:auto --prompt "Modern SaaS" --pages "home" --variants 3 --use-agent`
-    - Hybrid: `/workflow:design:auto --images "refs/*.png" --prompt "Linear.app style" --pages "tasks" --use-agent`
+    - Minimal: `/workflow:design:auto --prompt "Modern blog with home and article pages"`
+    - Agent Mode: `/workflow:design:auto --prompt "SaaS dashboard and settings" --variants 3 --use-agent`
+    - Hybrid: `/workflow:design:auto --images "refs/*.png" --prompt "E-commerce: home, product, cart"`
 
 - **`/workflow:design:style-extract`**:
-  - Required: At least one of `--images` or `--prompt`
-  - Optional: `--session <id>`, `--variants <count>`, `--use-agent`
-  - Supports: image-only, text-only, or hybrid inputs
+  - At least one of `--images` or `--prompt` recommended
+  - All other parameters optional
   - Agent mode: Parallel generation of diverse design directions
 
 - **`/workflow:design:ui-generate`**:
-  - Required: `--pages <list>`
-  - Optional: `--session <id>`, `--variants <count>`, `--use-agent`
+  - All parameters optional (pages inferred from session or defaults to ["home"])
+  - `--pages <list>`: Optional explicit page list
   - Agent mode: Parallel layout exploration (F-Pattern, Grid, Asymmetric)
-  - Conventional mode: Codex-driven generation with minor variations
 
 #### Usage Examples
 
 **Standalone Quick Prototyping**:
 ```bash
-# Pure text, agent exploration
-/workflow:design:auto --prompt "Modern minimalist blog, dark theme" --pages "home,article" --variants 3 --use-agent
+# Pure text with page inference (simplest)
+/workflow:design:auto --prompt "Modern minimalist blog with home, article and author pages, dark theme" --use-agent
 
-# Pure image, conventional mode
-/workflow:design:auto --images "refs/*.png" --pages "dashboard" --variants 2
+# Pure image with inferred pages
+/workflow:design:auto --images "refs/*.png" --variants 2
 
-# Hybrid input
-/workflow:design:auto --images "current-app.png" --prompt "Modernize with Linear.app style" --pages "tasks,settings" --use-agent
+# Hybrid input with explicit page override
+/workflow:design:auto --images "current-app.png" --prompt "Modernize to Linear.app style" --pages "tasks,settings" --use-agent
 ```
 
 **Integrated Workflow Enhancement**:
 ```bash
-# Within existing workflow session
-/workflow:design:auto --session WFS-app-refresh --images "refs/*.png" --pages "dashboard" --variants 3 --use-agent
+# Within existing workflow (pages inferred from synthesis)
+/workflow:design:auto --session WFS-app-refresh --images "refs/*.png" --variants 3 --use-agent
 ```
 
 #### Technical Details
