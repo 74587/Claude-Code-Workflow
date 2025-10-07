@@ -5,11 +5,44 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.5.1] - 2025-10-07
+## [4.0.0] - 2025-10-07
 
-### 🚀 Enhanced UI Design Workflow with Agent Mode & Flexible Inputs
+### 🚀 UI Design Workflow V2 - Agent Mode & Flexible Inputs
 
-This release significantly enhances the UI design workflow with agent-driven creative exploration, unified variant control, dual-mode support (standalone/integrated), and flexible input sources (images + text prompts).
+**BREAKING CHANGES**: Complete redesign of UI design workflow with mandatory new parameter structure. All old command formats are deprecated.
+
+This major release introduces agent-driven creative exploration, unified variant control, dual-mode support (standalone/integrated), and flexible input sources (images + text prompts).
+
+#### Breaking Changes
+
+**Required Migration**:
+- **Old format no longer supported**: Commands using old parameter structure will fail
+- **`--session` parameter**: Now optional, omitting it enables standalone mode
+- **`--images` parameter**: Now optional with default value `design-refs/*`
+- **Removed `--style-overrides`**: Simplified to `--prompt` for text-based guidance
+- **New required parameter**: `--pages` is now the only mandatory parameter
+
+**Migration Guide**:
+```bash
+# ❌ Old (v3.5.0 and earlier) - NO LONGER WORKS
+/workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
+/workflow:design:ui-generate --session WFS-auth --pages "login,register"
+
+# ✅ New (v4.0.0+)
+/workflow:design:style-extract --images "design-refs/*.png" --variants 3
+/workflow:design:ui-generate --pages "login,register" --variants 2
+
+# ✅ Simplest form (using defaults)
+/workflow:design:auto --pages "dashboard"
+
+# ✅ With agent mode
+/workflow:design:auto --prompt "Modern SaaS" --pages "home" --variants 3 --use-agent
+```
+
+**Deprecated Commands**:
+- Old `style-extract` format without `--variants`
+- Old `ui-generate` format without `--use-agent` support
+- `--style-overrides` parameter (replaced by `--prompt`)
 
 #### Added
 
@@ -51,28 +84,27 @@ This release significantly enhances the UI design workflow with agent-driven cre
 
 #### Changed
 
-**Command Interface Simplification**:
+**New Command Interface**:
 - **`/workflow:design:auto`**:
-  - `--session` now optional (enables standalone mode when omitted)
-  - `--images` now optional (defaults to `design-refs/*`)
-  - Added `--prompt` for text-based design input
-  - Added `--use-agent` for creative exploration
-  - **Before**: `/workflow:design:auto --session WFS-auth --images "refs/*.png" --pages "login"`
-  - **After**: `/workflow:design:auto --pages "login"` (all defaults)
-  - **Agent Mode**: `/workflow:design:auto --prompt "Modern SaaS" --pages "home" --variants 3 --use-agent`
+  - Required: `--pages <list>`
+  - Optional: `--session <id>`, `--images <glob>`, `--prompt <desc>`, `--variants <count>`, `--use-agent`
+  - Defaults: `--variants 3`, `--images "design-refs/*"`
+  - Examples:
+    - Minimal: `/workflow:design:auto --pages "login"`
+    - Agent Mode: `/workflow:design:auto --prompt "Modern SaaS" --pages "home" --variants 3 --use-agent`
+    - Hybrid: `/workflow:design:auto --images "refs/*.png" --prompt "Linear.app style" --pages "tasks" --use-agent`
 
 - **`/workflow:design:style-extract`**:
-  - Added `--variants <count>` parameter
-  - Added `--use-agent` flag
-  - Added `--prompt <description>` parameter
-  - `--session` now optional
-  - Supports image-only, text-only, or hybrid inputs
+  - Required: At least one of `--images` or `--prompt`
+  - Optional: `--session <id>`, `--variants <count>`, `--use-agent`
+  - Supports: image-only, text-only, or hybrid inputs
+  - Agent mode: Parallel generation of diverse design directions
 
 - **`/workflow:design:ui-generate`**:
-  - Added `--use-agent` flag
-  - `--session` now optional
-  - Removed `--style-overrides` (simplified)
-  - Agent mode enables parallel layout exploration
+  - Required: `--pages <list>`
+  - Optional: `--session <id>`, `--variants <count>`, `--use-agent`
+  - Agent mode: Parallel layout exploration (F-Pattern, Grid, Asymmetric)
+  - Conventional mode: Codex-driven generation with minor variations
 
 #### Usage Examples
 
@@ -120,10 +152,22 @@ ELSE IF --images: mode = "image"
 ELSE IF --prompt: mode = "text"
 ```
 
-**Backward Compatibility**:
-- All existing commands continue to work unchanged
-- New parameters are optional with sensible defaults
-- No breaking changes to command interfaces
+#### Upgrade Benefits
+
+**Simplified Workflow**:
+- Fewer required parameters (only `--pages` mandatory)
+- Smart defaults reduce boilerplate
+- Standalone mode for quick prototyping without workflow setup
+
+**Enhanced Capabilities**:
+- Agent-driven creative exploration produces diverse designs
+- Parallel execution improves performance
+- Text prompts enable design without reference images
+
+**Quality Improvements**:
+- All variants maintain strict token adherence
+- WCAG AA compliance validated automatically
+- Better separation of concerns (style vs layout)
 
 ## [3.5.0] - 2025-10-06
 
