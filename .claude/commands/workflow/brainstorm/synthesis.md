@@ -437,3 +437,64 @@ Upon completion, update `workflow-session.json`:
 - [ ] **Stakeholder Alignment**: Addresses needs and concerns of all key stakeholders
 - [ ] **Decision Traceability**: Every major decision traceable to source role analysis via @ references
 - [ ] **Continuous Improvement**: Establishes framework for ongoing optimization and learning
+
+## 🚀 **Recommended Next Steps**
+
+After synthesis completion, follow this recommended workflow:
+
+### Option 1: Standard Planning Workflow (Recommended)
+```bash
+# Step 1: Verify conceptual clarity (Quality Gate)
+/workflow:concept-verify --session WFS-{session-id}
+# → Interactive Q&A (up to 5 questions) to clarify ambiguities in synthesis
+
+# Step 2: Proceed to action planning (after concept verification)
+/workflow:plan --session WFS-{session-id}
+# → Generates IMPL_PLAN.md and task.json files
+
+# Step 3: Verify action plan quality (Quality Gate)
+/workflow:action-plan-verify --session WFS-{session-id}
+# → Read-only analysis to catch issues before execution
+
+# Step 4: Start implementation
+/workflow:execute --session WFS-{session-id}
+```
+
+### Option 2: TDD Workflow
+```bash
+# Step 1: Verify conceptual clarity
+/workflow:concept-verify --session WFS-{session-id}
+
+# Step 2: Generate TDD task chains (RED-GREEN-REFACTOR)
+/workflow:tdd-plan --session WFS-{session-id} "Feature description"
+
+# Step 3: Verify TDD plan quality
+/workflow:action-plan-verify --session WFS-{session-id}
+
+# Step 4: Execute TDD workflow
+/workflow:execute --session WFS-{session-id}
+```
+
+### Quality Gates Explained
+
+**`/workflow:concept-verify`** (Phase 2 - After Brainstorming):
+- **Purpose**: Detect and resolve conceptual ambiguities before detailed planning
+- **Time**: 10-20 minutes (interactive)
+- **Value**: Reduces downstream rework by 40-60%
+- **Output**: Updated synthesis-specification.md with clarifications
+
+**`/workflow:action-plan-verify`** (Phase 4 - After Planning):
+- **Purpose**: Validate IMPL_PLAN.md and task.json consistency and completeness
+- **Time**: 5-10 minutes (read-only analysis)
+- **Value**: Prevents execution of flawed plans, saves 2-5 days
+- **Output**: Verification report with actionable recommendations
+
+### Skip Verification? (Not Recommended)
+
+If you want to skip verification and proceed directly:
+```bash
+/workflow:plan --session WFS-{session-id}
+/workflow:execute --session WFS-{session-id}
+```
+
+⚠️ **Warning**: Skipping verification increases risk of late-stage issues and rework.

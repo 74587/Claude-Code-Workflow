@@ -143,7 +143,12 @@ Planning complete for session: [sessionId]
 Tasks generated: [count]
 Plan: .workflow/[sessionId]/IMPL_PLAN.md
 
-Next: /workflow:execute or /workflow:status
+✅ Recommended Next Steps:
+1. /workflow:action-plan-verify --session [sessionId]  # Verify plan quality before execution
+2. /workflow:status  # Review task breakdown
+3. /workflow:execute  # Start implementation (after verification)
+
+⚠️ Quality Gate: Consider running /workflow:action-plan-verify to catch issues early
 ```
 
 ## TodoWrite Pattern

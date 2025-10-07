@@ -26,10 +26,11 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 2. **No Preliminary Analysis**: Do not read files before Phase 1
 3. **Parse Every Output**: Extract required data for next phase
 4. **Sequential Execution**: Each phase depends on previous output
-5. **Complete All Phases**: Do not return until Phase 5 completes
+5. **Complete All Phases**: Do not return until Phase 7 completes (with concept verification)
 6. **TDD Context**: All descriptions include "TDD:" prefix
+7. **Quality Gate**: Phase 5 concept verification ensures clarity before task generation
 
-## 6-Phase Execution
+## 7-Phase Execution (with Concept Verification)
 
 ### Phase 1: Session Discovery
 **Command**: `/workflow:session:start --auto "TDD: [structured-description]"`
@@ -79,7 +80,22 @@ TEST_FOCUS: [Test scenarios]
 
 **Parse**: Verify ANALYSIS_RESULTS.md contains TDD breakdown sections
 
-### Phase 5: TDD Task Generation
+### Phase 5: Concept Verification (NEW QUALITY GATE)
+**Command**: `/workflow:concept-verify --session [sessionId]`
+
+**Purpose**: Verify conceptual clarity before TDD task generation
+- Clarify test requirements and acceptance criteria
+- Resolve ambiguities in expected behavior
+- Validate TDD approach is appropriate
+
+**Behavior**:
+- If no ambiguities found → Auto-proceed to Phase 6
+- If ambiguities exist → Interactive clarification (up to 5 questions)
+- After clarifications → Auto-proceed to Phase 6
+
+**Parse**: Verify concept verification completed (check for clarifications section in ANALYSIS_RESULTS.md or synthesis file if exists)
+
+### Phase 6: TDD Task Generation
 **Command**:
 - Manual: `/workflow:tools:task-generate-tdd --session [sessionId]`
 - Agent: `/workflow:tools:task-generate-tdd --session [sessionId] --agent`
@@ -93,10 +109,10 @@ TEST_FOCUS: [Test scenarios]
 - IMPL tasks include test-fix-cycle configuration
 - IMPL_PLAN.md contains workflow_type: "tdd" in frontmatter
 
-### Phase 6: TDD Structure Validation
-**Internal validation (no command)**
+### Phase 7: TDD Structure Validation & Action Plan Verification (RECOMMENDED)
+**Internal validation first, then recommend external verification**
 
-**Validate**:
+**Internal Validation**:
 1. Each feature has TEST → IMPL → REFACTOR chain
 2. Dependencies: IMPL depends_on TEST, REFACTOR depends_on IMPL
 3. Meta fields: tdd_phase correct ("red"/"green"/"refactor")
@@ -117,20 +133,26 @@ Structure:
 
 Plan:
 - Unified Implementation Plan: .workflow/[sessionId]/IMPL_PLAN.md
-  (includes TDD Task Chains section)
+  (includes TDD Task Chains section with workflow_type: "tdd")
 
-Next: /workflow:execute or /workflow:tdd-verify
+✅ Recommended Next Steps:
+1. /workflow:action-plan-verify --session [sessionId]  # Verify TDD plan quality
+2. /workflow:execute --session [sessionId]  # Start TDD execution
+3. /workflow:tdd-verify [sessionId]  # Post-execution TDD compliance check
+
+⚠️ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task dependencies
 ```
 
 ## TodoWrite Pattern
 
 ```javascript
-// Initialize (6 phases now)
+// Initialize (7 phases now with concept verification)
 [
   {content: "Execute session discovery", status: "in_progress", activeForm: "Executing session discovery"},
-  {content: "Execute context gathering", status: "pending", activeForm: "Executing context gathering"},
-  {content: "Execute test coverage analysis", status: "pending", activeForm: "Executing test coverage analysis"},
-  {content: "Execute TDD analysis", status: "pending", activeForm: "Executing TDD analysis"},
+  {content: "Execute context gathering", status: "pending", activeForm": "Executing context gathering"},
+  {content: "Execute test coverage analysis", status: "pending", activeForm": "Executing test coverage analysis"},
+  {content: "Execute TDD analysis", status: "pending", activeForm": "Executing TDD analysis"},
+  {content: "Execute concept verification", status: "pending", activeForm": "Executing concept verification"},
   {content: "Execute TDD task generation", status: "pending", activeForm: "Executing TDD task generation"},
   {content: "Validate TDD structure", status: "pending", activeForm: "Validating TDD structure"}
 ]

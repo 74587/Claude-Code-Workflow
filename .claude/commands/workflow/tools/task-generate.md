@@ -240,33 +240,229 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
 identifier: WFS-{session-id}
 source: "User requirements" | "File: path" | "Issue: ISS-001"
 analysis: .workflow/{session-id}/.process/ANALYSIS_RESULTS.md
+artifacts: .workflow/{session-id}/.brainstorming/
+context_package: .workflow/{session-id}/.process/context-package.json  # CCW smart context
+workflow_type: "standard | tdd | design"  # Indicates execution model
+verification_history:  # CCW quality gates
+  concept_verify: "passed | skipped | pending"
+  action_plan_verify: "pending"
+phase_progression: "brainstorm → context → analysis → concept_verify → planning"  # CCW workflow phases
 ---
 
 # Implementation Plan: {Project Title}
 
-## Summary
-Core requirements, objectives, and technical approach.
+## 1. Summary
+Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
-## Context Analysis
-- **Project**: Type, patterns, tech stack
-- **Modules**: Components and integration points
-- **Dependencies**: External libraries and constraints
-- **Patterns**: Code conventions and guidelines
+**Core Objectives**:
+- [Key objective 1]
+- [Key objective 2]
 
-## Brainstorming Artifacts
-- synthesis-specification.md (Highest priority)
-- topic-framework.md (Medium priority)
-- Role analyses: ui-designer, system-architect, etc.
+**Technical Approach**:
+- [High-level approach]
 
-## Task Breakdown
-- **Task Count**: N tasks, complexity level
-- **Hierarchy**: Flat/Two-level structure
-- **Dependencies**: Task dependency graph
+## 2. Context Analysis
 
-## Implementation Plan
-- **Execution Strategy**: Sequential/Parallel approach
-- **Resource Requirements**: Tools, dependencies, artifacts
-- **Success Criteria**: Metrics and acceptance conditions
+### CCW Workflow Context
+**Phase Progression**:
+- ✅ Phase 1: Brainstorming (synthesis-specification.md generated)
+- ✅ Phase 2: Context Gathering (context-package.json: {N} files, {M} modules analyzed)
+- ✅ Phase 3: Enhanced Analysis (ANALYSIS_RESULTS.md: Gemini/Qwen/Codex parallel insights)
+- ✅ Phase 4: Concept Verification ({X} clarifications answered, synthesis updated | skipped)
+- ⏳ Phase 5: Action Planning (current phase - generating IMPL_PLAN.md)
+
+**Quality Gates**:
+- concept-verify: ✅ Passed (0 ambiguities remaining) | ⏭️ Skipped (user decision) | ⏳ Pending
+- action-plan-verify: ⏳ Pending (recommended before /workflow:execute)
+
+**Context Package Summary**:
+- **Focus Paths**: {list key directories from context-package.json}
+- **Key Files**: {list primary files for modification}
+- **Module Depth Analysis**: {from get_modules_by_depth.sh output}
+- **Smart Context**: {total file count} files, {module count} modules, {dependency count} dependencies identified
+
+### Project Profile
+- **Type**: Greenfield/Enhancement/Refactor
+- **Scale**: User count, data volume, complexity
+- **Tech Stack**: Primary technologies
+- **Timeline**: Duration and milestones
+
+### Module Structure
+```
+[Directory tree showing key modules]
+```
+
+### Dependencies
+**Primary**: [Core libraries and frameworks]
+**APIs**: [External services]
+**Development**: [Testing, linting, CI/CD tools]
+
+### Patterns & Conventions
+- **Architecture**: [Key patterns like DI, Event-Driven]
+- **Component Design**: [Design patterns]
+- **State Management**: [State strategy]
+- **Code Style**: [Naming, TypeScript coverage]
+
+## 3. Brainstorming Artifacts Reference
+
+### Artifact Usage Strategy
+**Primary Reference (synthesis-specification.md)**:
+- **What**: Comprehensive implementation blueprint from multi-role synthesis
+- **When**: Every task references this first for requirements and design decisions
+- **How**: Extract architecture decisions, UI/UX patterns, functional requirements, non-functional requirements
+- **Priority**: Authoritative - overrides role-specific analyses when conflicts arise
+- **CCW Value**: Consolidates insights from all brainstorming roles into single source of truth
+
+**Context Intelligence (context-package.json)**:
+- **What**: Smart context gathered by CCW's context-gather phase
+- **Content**: Focus paths, dependency graph, existing patterns, module structure
+- **Usage**: Tasks load this via `flow_control.preparatory_steps` for environment setup
+- **CCW Value**: Automated intelligent context discovery replacing manual file exploration
+
+**Technical Analysis (ANALYSIS_RESULTS.md)**:
+- **What**: Gemini/Qwen/Codex parallel analysis results
+- **Content**: Optimization strategies, risk assessment, architecture review, implementation patterns
+- **Usage**: Referenced in task planning for technical guidance and risk mitigation
+- **CCW Value**: Multi-model parallel analysis providing comprehensive technical intelligence
+
+### Integrated Specifications (Highest Priority)
+- **synthesis-specification.md**: Comprehensive implementation blueprint
+  - Contains: Architecture design, UI/UX guidelines, functional/non-functional requirements, implementation roadmap, risk assessment
+
+### Supporting Artifacts (Reference)
+- **topic-framework.md**: Role-specific discussion points and analysis framework
+- **system-architect/analysis.md**: Detailed architecture specifications
+- **ui-designer/analysis.md**: Layout and component specifications
+- **product-manager/analysis.md**: Product vision and user stories
+
+**Artifact Priority in Development**:
+1. synthesis-specification.md (primary reference for all tasks)
+2. context-package.json (smart context for execution environment)
+3. ANALYSIS_RESULTS.md (technical analysis and optimization strategies)
+4. Role-specific analyses (fallback for detailed specifications)
+
+## 4. Implementation Strategy
+
+### Execution Strategy
+**Execution Model**: [Sequential | Parallel | Phased | TDD Cycles]
+
+**Rationale**: [Why this execution model fits the project]
+
+**Parallelization Opportunities**:
+- [List independent workstreams]
+
+**Serialization Requirements**:
+- [List critical dependencies]
+
+### Architectural Approach
+**Key Architecture Decisions**:
+- [ADR references from synthesis]
+- [Justification for architecture patterns]
+
+**Integration Strategy**:
+- [How modules communicate]
+- [State management approach]
+
+### Key Dependencies
+**Task Dependency Graph**:
+```
+[High-level dependency visualization]
+```
+
+**Critical Path**: [Identify bottleneck tasks]
+
+### Testing Strategy
+**Testing Approach**:
+- Unit testing: [Tools, scope]
+- Integration testing: [Key integration points]
+- E2E testing: [Critical user flows]
+
+**Coverage Targets**:
+- Lines: ≥70%
+- Functions: ≥70%
+- Branches: ≥65%
+
+**Quality Gates**:
+- [CI/CD gates]
+- [Performance budgets]
+
+## 5. Task Breakdown Summary
+
+### Task Count
+**{N} tasks** (flat hierarchy | two-level hierarchy, sequential | parallel execution)
+
+### Task Structure
+- **IMPL-1**: [Main task title]
+- **IMPL-2**: [Main task title]
+...
+
+### Complexity Assessment
+- **High**: [List with rationale]
+- **Medium**: [List]
+- **Low**: [List]
+
+### Dependencies
+[Reference Section 4.3 for dependency graph]
+
+**Parallelization Opportunities**:
+- [Specific task groups that can run in parallel]
+
+## 6. Implementation Plan (Detailed Phased Breakdown)
+
+### Execution Strategy
+
+**Phase 1 (Weeks 1-2): [Phase Name]**
+- **Tasks**: IMPL-1, IMPL-2
+- **Deliverables**:
+  - [Specific deliverable 1]
+  - [Specific deliverable 2]
+- **Success Criteria**:
+  - [Measurable criterion]
+
+**Phase 2 (Weeks 3-N): [Phase Name]**
+...
+
+### Resource Requirements
+
+**Development Team**:
+- [Team composition and skills]
+
+**External Dependencies**:
+- [Third-party services, APIs]
+
+**Infrastructure**:
+- [Development, staging, production environments]
+
+## 7. Risk Assessment & Mitigation
+
+| Risk | Impact | Probability | Mitigation Strategy | Owner |
+|------|--------|-------------|---------------------|-------|
+| [Risk description] | High/Med/Low | High/Med/Low | [Strategy] | [Role] |
+
+**Critical Risks** (High impact + High probability):
+- [Risk 1]: [Detailed mitigation plan]
+
+**Monitoring Strategy**:
+- [How risks will be monitored]
+
+## 8. Success Criteria
+
+**Functional Completeness**:
+- [ ] All requirements from synthesis-specification.md implemented
+- [ ] All acceptance criteria from task.json files met
+
+**Technical Quality**:
+- [ ] Test coverage ≥70%
+- [ ] Bundle size within budget
+- [ ] Performance targets met
+
+**Operational Readiness**:
+- [ ] CI/CD pipeline operational
+- [ ] Monitoring and logging configured
+- [ ] Documentation complete
+
+**Business Metrics**:
+- [ ] [Key business metrics from synthesis]
 ```
 
 ### Phase 5: TODO_LIST.md Generation

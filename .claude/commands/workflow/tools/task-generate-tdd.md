@@ -305,27 +305,279 @@ For each feature, generate 3 tasks with ID format:
 
 ### Phase 4: Unified IMPL_PLAN.md Generation
 
-Generate single comprehensive IMPL_PLAN.md with:
+Generate single comprehensive IMPL_PLAN.md with enhanced 8-section structure:
 
 **Frontmatter**:
 ```yaml
 ---
 identifier: WFS-{session-id}
-workflow_type: "tdd"
+source: "User requirements" | "File: path" | "Issue: ISS-001"
+analysis: .workflow/{session-id}/.process/ANALYSIS_RESULTS.md
+artifacts: .workflow/{session-id}/.brainstorming/
+context_package: .workflow/{session-id}/.process/context-package.json  # CCW smart context
+workflow_type: "tdd"  # TDD-specific workflow
+verification_history:  # CCW quality gates
+  concept_verify: "passed | skipped | pending"
+  action_plan_verify: "pending"
+phase_progression: "brainstorm → context → test_context → analysis → concept_verify → tdd_planning"  # TDD workflow phases
 feature_count: N
 task_count: 3N
 tdd_chains: N
 ---
 ```
 
-**Structure**:
-1. **Summary**: Project overview
-2. **TDD Task Chains** (TDD-specific section):
-   - Visual representation of TEST → IMPL → REFACTOR chains
-   - Feature-by-feature breakdown with phase indicators
-3. **Task Breakdown**: Standard task listing
-4. **Implementation Strategy**: Execution approach
-5. **Success Criteria**: Acceptance conditions
+**Complete Structure** (8 Sections):
+
+```markdown
+# Implementation Plan: {Project Title}
+
+## 1. Summary
+Core requirements, objectives, and TDD-specific technical approach (2-3 paragraphs max).
+
+**Core Objectives**:
+- [Key objective 1]
+- [Key objective 2]
+
+**Technical Approach**:
+- TDD-driven development with Red-Green-Refactor cycles
+- [Other high-level approaches]
+
+## 2. Context Analysis
+
+### CCW Workflow Context
+**Phase Progression** (TDD-specific):
+- ✅ Phase 1: Brainstorming (synthesis-specification.md generated)
+- ✅ Phase 2: Context Gathering (context-package.json: {N} files, {M} modules analyzed)
+- ✅ Phase 3: Test Coverage Analysis (test-context-package.json: existing test patterns identified)
+- ✅ Phase 4: TDD Analysis (ANALYSIS_RESULTS.md: test-first requirements with Gemini/Qwen insights)
+- ✅ Phase 5: Concept Verification ({X} clarifications answered, test requirements clarified | skipped)
+- ⏳ Phase 6: TDD Task Generation (current phase - generating IMPL_PLAN.md with TDD chains)
+
+**Quality Gates**:
+- concept-verify: ✅ Passed (test requirements clarified, 0 ambiguities) | ⏭️ Skipped (user decision) | ⏳ Pending
+- action-plan-verify: ⏳ Pending (recommended before /workflow:execute for TDD dependency validation)
+
+**Context Package Summary**:
+- **Focus Paths**: {list key directories from context-package.json}
+- **Key Files**: {list primary files for modification}
+- **Test Context**: {existing test patterns, coverage baseline, test framework detected}
+- **Module Depth Analysis**: {from get_modules_by_depth.sh output}
+- **Smart Context**: {total file count} files, {module count} modules, {test file count} tests identified
+
+### Project Profile
+- **Type**: Greenfield/Enhancement/Refactor
+- **Scale**: User count, data volume, complexity
+- **Tech Stack**: Primary technologies
+- **Timeline**: Duration and milestones
+- **TDD Framework**: Testing framework and tools
+
+### Module Structure
+```
+[Directory tree showing key modules and test directories]
+```
+
+### Dependencies
+**Primary**: [Core libraries and frameworks]
+**Testing**: [Test framework, mocking libraries]
+**Development**: [Linting, CI/CD tools]
+
+### Patterns & Conventions
+- **Architecture**: [Key patterns]
+- **Testing Patterns**: [Unit, integration, E2E patterns]
+- **Code Style**: [Naming, TypeScript coverage]
+
+## 3. Brainstorming Artifacts Reference
+
+### Artifact Usage Strategy
+**Primary Reference (synthesis-specification.md)**:
+- **What**: Comprehensive implementation blueprint from multi-role synthesis
+- **When**: Every TDD task (TEST/IMPL/REFACTOR) references this for requirements and acceptance criteria
+- **How**: Extract testable requirements, architecture decisions, expected behaviors
+- **Priority**: Authoritative - defines what to test and how to implement
+- **CCW Value**: Consolidates insights from all brainstorming roles into single source of truth for TDD
+
+**Context Intelligence (context-package.json & test-context-package.json)**:
+- **What**: Smart context from CCW's context-gather and test-context-gather phases
+- **Content**: Focus paths, dependency graph, existing test patterns, test framework configuration
+- **Usage**: RED phase loads test patterns, GREEN phase loads implementation context
+- **CCW Value**: Automated discovery of existing tests and patterns for TDD consistency
+
+**Technical Analysis (ANALYSIS_RESULTS.md)**:
+- **What**: Gemini/Qwen parallel analysis with TDD-specific breakdown
+- **Content**: Testable requirements, test scenarios, implementation strategies, risk assessment
+- **Usage**: RED phase references test cases, GREEN phase references implementation approach
+- **CCW Value**: Multi-model analysis providing comprehensive TDD guidance
+
+### Integrated Specifications (Highest Priority)
+- **synthesis-specification.md**: Comprehensive implementation blueprint
+  - Contains: Architecture design, functional/non-functional requirements
+
+### Supporting Artifacts (Reference)
+- **topic-framework.md**: Discussion framework
+- **system-architect/analysis.md**: Architecture specifications
+- **Role-specific analyses**: [Other relevant analyses]
+
+**Artifact Priority in Development**:
+1. synthesis-specification.md (primary reference for test cases and implementation)
+2. test-context-package.json (existing test patterns for TDD consistency)
+3. context-package.json (smart context for execution environment)
+4. ANALYSIS_RESULTS.md (technical analysis with TDD breakdown)
+5. Role-specific analyses (supplementary)
+
+## 4. Implementation Strategy
+
+### Execution Strategy
+**Execution Model**: TDD Cycles (Red-Green-Refactor)
+
+**Rationale**: Test-first approach ensures correctness and reduces bugs
+
+**TDD Cycle Pattern**:
+- RED: Write failing test
+- GREEN: Implement minimal code to pass (with test-fix cycle if needed)
+- REFACTOR: Improve code quality while keeping tests green
+
+**Parallelization Opportunities**:
+- [Independent features that can be developed in parallel]
+
+### Architectural Approach
+**Key Architecture Decisions**:
+- [ADR references from synthesis]
+- [TDD-compatible architecture patterns]
+
+**Integration Strategy**:
+- [How modules communicate]
+- [Test isolation strategy]
+
+### Key Dependencies
+**Task Dependency Graph**:
+```
+Feature 1:
+  TEST-1.1 (RED)
+      ↓
+  IMPL-1.1 (GREEN) [with test-fix cycle]
+      ↓
+  REFACTOR-1.1 (REFACTOR)
+
+Feature 2:
+  TEST-2.1 (RED) [depends on REFACTOR-1.1 if related]
+      ↓
+  IMPL-2.1 (GREEN)
+      ↓
+  REFACTOR-2.1 (REFACTOR)
+```
+
+**Critical Path**: [Identify bottleneck features]
+
+### Testing Strategy
+**TDD Testing Approach**:
+- Unit testing: Each feature has comprehensive unit tests
+- Integration testing: Cross-feature integration
+- E2E testing: Critical user flows after all TDD cycles
+
+**Coverage Targets**:
+- Lines: ≥80% (TDD ensures high coverage)
+- Functions: ≥80%
+- Branches: ≥75%
+
+**Quality Gates**:
+- All tests must pass before moving to next phase
+- Refactor phase must maintain test success
+
+## 5. TDD Task Chains (TDD-Specific Section)
+
+### Feature-by-Feature TDD Chains
+
+**Feature 1: {Feature Name}**
+```
+🔴 TEST-1.1: Write failing test for {feature}
+    ↓
+🟢 IMPL-1.1: Implement to pass tests (includes test-fix cycle: max 3 iterations)
+    ↓
+🔵 REFACTOR-1.1: Refactor implementation while keeping tests green
+```
+
+**Feature 2: {Feature Name}**
+```
+🔴 TEST-2.1: Write failing test for {feature}
+    ↓
+🟢 IMPL-2.1: Implement to pass tests (includes test-fix cycle)
+    ↓
+🔵 REFACTOR-2.1: Refactor implementation
+```
+
+[Continue for all N features]
+
+### TDD Task Breakdown Summary
+- **Total Features**: {N}
+- **Total Tasks**: {3N} (N TEST + N IMPL + N REFACTOR)
+- **TDD Chains**: {N}
+
+## 6. Implementation Plan (Detailed Phased Breakdown)
+
+### Execution Strategy
+
+**TDD Cycle Execution**: Feature-by-feature sequential TDD cycles
+
+**Phase 1 (Weeks 1-2): Foundation Features**
+- **Features**: Feature 1, Feature 2
+- **Tasks**: TEST-1.1, IMPL-1.1, REFACTOR-1.1, TEST-2.1, IMPL-2.1, REFACTOR-2.1
+- **Deliverables**:
+  - Complete TDD cycles for foundation features
+  - All tests passing
+- **Success Criteria**:
+  - ≥80% test coverage
+  - All RED-GREEN-REFACTOR cycles completed
+
+**Phase 2 (Weeks 3-N): Advanced Features**
+[Continue with remaining features]
+
+### Resource Requirements
+
+**Development Team**:
+- [Team composition with TDD experience]
+
+**External Dependencies**:
+- [Testing frameworks, mocking services]
+
+**Infrastructure**:
+- [CI/CD with test automation]
+
+## 7. Risk Assessment & Mitigation
+
+| Risk | Impact | Probability | Mitigation Strategy | Owner |
+|------|--------|-------------|---------------------|-------|
+| Tests fail repeatedly in GREEN phase | High | Medium | Test-fix cycle (max 3 iterations) with auto-revert | Dev Team |
+| Complex features hard to test | High | Medium | Break down into smaller testable units | Architect |
+| [Other risks] | Med/Low | Med/Low | [Strategies] | [Owner] |
+
+**Critical Risks** (TDD-Specific):
+- **GREEN phase failures**: Mitigated by test-fix cycle with Gemini diagnosis
+- **Test coverage gaps**: Mitigated by TDD-first approach ensuring tests before code
+
+**Monitoring Strategy**:
+- Track TDD cycle completion rate
+- Monitor test success rate per iteration
+
+## 8. Success Criteria
+
+**Functional Completeness**:
+- [ ] All features implemented through TDD cycles
+- [ ] All RED-GREEN-REFACTOR cycles completed successfully
+
+**Technical Quality**:
+- [ ] Test coverage ≥80% (ensured by TDD)
+- [ ] All tests passing (GREEN state achieved)
+- [ ] Code refactored for quality (REFACTOR phase completed)
+
+**Operational Readiness**:
+- [ ] CI/CD pipeline with automated test execution
+- [ ] Test failure alerting configured
+
+**TDD Compliance**:
+- [ ] Every feature has TEST → IMPL → REFACTOR chain
+- [ ] No implementation without tests (RED-first principle)
+- [ ] Refactoring did not break tests
+```
 
 ### Phase 5: TODO_LIST.md Generation
 
