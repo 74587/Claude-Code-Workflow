@@ -1,14 +1,14 @@
 ---
 name: auto
-description: Fully autonomous UI design workflow with style extraction, consolidation, prototype generation, and design system integration
-usage: /workflow:ui-design:auto [--prompt "<desc>"] [--images "<glob>"] [--pages "<list>"] [--session <id>] [--variants <count>] [--creative-variants <count>] [--batch-plan]
-argument-hint: "[--prompt \"Modern SaaS\"] [--images \"refs/*.png\"] [--pages \"dashboard,auth\"] [--session WFS-xxx] [--variants 3] [--creative-variants 3]"
+description: Fully autonomous UI design workflow with style extraction, consolidation, prototype generation (3×3 matrix), and design system integration
+usage: /workflow:ui-design:auto [--prompt "<desc>"] [--images "<glob>"] [--pages "<list>"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]
+argument-hint: "[--prompt \"Modern SaaS with 3 styles\"] [--images \"refs/*.png\"] [--pages \"dashboard,auth\"] [--session WFS-xxx] [--style-variants 3] [--layout-variants 3]"
 examples:
-  - /workflow:ui-design:auto --prompt "Modern blog with home, article and author pages, dark theme"
-  - /workflow:ui-design:auto --prompt "SaaS dashboard and settings" --variants 3 --creative-variants 3
-  - /workflow:ui-design:auto --images "refs/*.png" --prompt "E-commerce site: home, product, cart"
-  - /workflow:ui-design:auto --session WFS-auth --images "refs/*.png" --variants 2
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Task(conceptual-planning-agent)
+  - /workflow:ui-design:auto --prompt "Generate 3 style variants for modern blog: home, article, author"
+  - /workflow:ui-design:auto --prompt "SaaS dashboard and settings with 2 layout options"
+  - /workflow:ui-design:auto --images "refs/*.png" --prompt "E-commerce: home, product, cart" --style-variants 3 --layout-variants 3
+  - /workflow:ui-design:auto --session WFS-auth --images "refs/*.png"
+allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*), Task(conceptual-planning-agent)
 ---
 
 # UI Design Auto Workflow Command
@@ -50,34 +50,114 @@ This workflow runs **fully autonomously** from start to finish:
 - `--pages "<page_list>"`: Pages to generate (if omitted, inferred from prompt/session)
 - `--session <session_id>`: Workflow session ID (if omitted, runs in standalone mode)
 - `--images "<glob_pattern>"`: Reference image paths (default: `design-refs/*`)
-- `--prompt "<description>"`: Text description of design style and pages
-- `--variants <count>`: Number of style variants (Phase 1) or UI variants (Phase 3, standard mode) to generate (default: 1, range: 1-5)
-- `--creative-variants <count>`: Number of **parallel agents** to launch for creative UI generation (Phase 3 only). This enables Creative Mode for layout exploration
+- `--prompt "<description>"`: Text description of design style and pages (supports intelligent parsing)
+- `--style-variants <count>`: Number of style variants to generate (default: inferred from prompt or 3, range: 1-5)
+- `--layout-variants <count>`: Number of layout variants per style (default: inferred from prompt or 3, range: 1-5)
 - `--batch-plan`: Auto-generate implementation tasks after design-update (integrated mode only)
 
 **Input Source Rules**:
 - Must provide at least one of: `--images` or `--prompt`
 - Both can be combined for guided style analysis
 
+**Intelligent Prompt Parsing**:
+The workflow extracts variant counts from natural language:
+- "Generate **3 style variants**" → `--style-variants 3`
+- "**2 layout options**" → `--layout-variants 2`
+- "Create **4 styles** with **2 layouts each**" → `--style-variants 4 --layout-variants 2`
+- Explicit flags override prompt inference
+
 ## Execution Modes
 
-### Standard Mode (Default)
-- Executes all phases sequentially
-- **Phase 1 (Style Extraction)**: Generates multiple style options using the `--variants` parameter in a single execution
-- **Phase 3 (UI Generation)**: Generates multiple UI prototypes using the `--variants` parameter in a single execution
-
-### Creative Mode (with `--creative-variants`)
-- Triggered by the `--creative-variants` parameter for **Phase 3 (UI Generation) only**
-- Launches multiple, parallel `Task(conceptual-planning-agent)` instances to explore diverse UI layouts
-- Each agent generates a single prototype for a single page, resulting in `N pages * M creative-variants` total prototypes
-- This mode is ideal for initial UI exploration where a wide range of layout ideas is desired
+### Matrix Mode (Default and Only)
+- Generates `style_variants × layout_variants × pages` prototypes in 3×3 matrix pattern
+- **Phase 1 (Style Extraction)**: Generates `style_variants` style options
+- **Phase 2 (Style Consolidation)**: Creates `style_variants` independent design systems
+- **Phase 3 (Matrix Generation)**: Generates `style_variants × layout_variants` prototypes per page
+- This is the only supported mode - focused on systematic design exploration
 
 ### Integrated vs. Standalone Mode
 - `--session` flag determines if the workflow is integrated with a larger session or runs standalone
 
-## 5-Phase Execution
+## 6-Phase Execution
 
-### Phase 0: Page Inference
+### Phase 0a: Intelligent Prompt Parsing
+```bash
+# Extract variant counts from prompt if not explicitly provided
+IF --prompt provided AND (NOT --style-variants OR NOT --layout-variants):
+    prompt_text = {--prompt value}
+
+    # Parse style variants: "3 style variants", "generate 4 styles", etc.
+    style_match = regex_search(prompt_text, r"(\d+)\s*(style\s*variants?|styles?)")
+    IF style_match AND NOT --style-variants:
+        style_variants = int(style_match.group(1))
+    ELSE:
+        style_variants = --style-variants OR 3  # Default to 3
+
+    # Parse layout variants: "2 layout options", "3 layouts each", etc.
+    layout_match = regex_search(prompt_text, r"(\d+)\s*(layout\s*(variants?|options?)|layouts?)")
+    IF layout_match AND NOT --layout-variants:
+        layout_variants = int(layout_match.group(1))
+    ELSE:
+        layout_variants = --layout-variants OR 3  # Default to 3
+ELSE:
+    style_variants = --style-variants OR 3
+    layout_variants = --layout-variants OR 3
+
+VALIDATE: 1 <= style_variants <= 5
+VALIDATE: 1 <= layout_variants <= 5
+
+STORE: style_variants, layout_variants  # For Phase 1 and Phase 3
+```
+
+### Phase 0b: Run Initialization & Directory Setup
+```bash
+# Generate run ID with timestamp
+run_id = "run-$(date +%Y%m%d-%H%M%S)"
+
+# Determine base path
+IF --session:
+    session_id = {provided_session}
+    base_path = ".workflow/WFS-{session_id}/runs/${run_id}"
+ELSE:
+    # Standalone mode: use scratchpad
+    session_id = "design-session-$(date +%Y%m%d-%H%M%S)"
+    base_path = ".workflow/.scratchpad/${session_id}/runs/${run_id}"
+
+# Create run directory structure
+Bash(mkdir -p "${base_path}/.design/style-extraction")
+Bash(mkdir -p "${base_path}/.design/style-consolidation")
+Bash(mkdir -p "${base_path}/.design/prototypes")
+
+# Initialize run metadata
+Write({base_path}/.run-metadata.json):
+{
+  "run_id": "${run_id}",
+  "session_id": "${session_id}",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "workflow": "ui-design:auto",
+  "parameters": {
+    "style_variants": ${style_variants},
+    "layout_variants": ${layout_variants},
+    "pages": "${inferred_page_list}",
+    "prompt": "${prompt_text}",
+    "images": "${images_pattern}"
+  },
+  "status": "in_progress"
+}
+
+# Update "latest" symlink
+IF --session:
+    Bash(rm -f ".workflow/WFS-{session_id}/latest")
+    Bash(ln -s "runs/${run_id}" ".workflow/WFS-{session_id}/latest")
+ELSE:
+    # Standalone mode: create symlink in scratchpad session dir
+    Bash(rm -f ".workflow/.scratchpad/${session_id}/latest")
+    Bash(ln -s "runs/${run_id}" ".workflow/.scratchpad/${session_id}/latest")
+
+STORE: run_id, base_path  # Use throughout workflow
+```
+
+### Phase 0c: Page Inference
 ```bash
 # Infer page list if not explicitly provided
 IF --pages provided:
@@ -99,52 +179,57 @@ STORE: inferred_page_list = page_list  # For Phase 3
 ```bash
 images_flag = --images present ? "--images \"{image_glob}\"" : ""
 prompt_flag = --prompt present ? "--prompt \"{prompt_text}\"" : ""
-session_flag = --session present ? "--session {session_id}" : ""
 
-# Phase 1 always runs sequentially, using --variants to generate multiple style options
-# --creative-variants does not apply to this phase
-variants_flag = --variants present ? "--variants {variants_count}" : "--variants 1"
-command = "/workflow:ui-design:extract {session_flag} {images_flag} {prompt_flag} {variants_flag}"
+# Use run-scoped base path
+run_base_flag = "--base-path \"{base_path}/.design\""
+
+# Use style_variants from Phase 0a
+command = "/workflow:ui-design:extract {run_base_flag} {images_flag} {prompt_flag} --variants {style_variants}"
 SlashCommand(command=command)
 ```
 **Auto-Continue**: On completion, proceeds to Phase 2
 
 ---
 
-### Phase 2: Style Consolidation (Auto-Triggered)
-**Action**: Consolidates all style variants generated in Phase 1
+### Phase 2: Style Consolidation with Separation (Auto-Triggered)
+**Action**: Consolidates each style variant into separate design systems for matrix generation
 
 **Command Construction**:
 ```bash
-session_flag = --session present ? "--session {session_id}" : ""
-# The --variants flag will list ALL variants from Phase 1 (auto-select all)
-variants_list = get_all_variant_ids_from_phase_1_output()
+# Use run-scoped base path and keep styles separate
+run_base_flag = "--base-path \"{base_path}/.design\""
 
-command = "/workflow:ui-design:consolidate {session_flag} --variants \"{variants_list}\""
+# Use count-based parameter (automatically uses all style_variants)
+command = "/workflow:ui-design:consolidate {run_base_flag} --variants {style_variants} --keep-separate"
 ```
 **Command**: `SlashCommand(command=command)`
-**Note**: In auto mode, ALL style variants are consolidated automatically without user selection
+**Result**: Generates `style_variants` independent design systems:
+- `.design/style-consolidation/style-1/design-tokens.json`
+- `.design/style-consolidation/style-2/design-tokens.json`
+- `.design/style-consolidation/style-3/design-tokens.json`
+
 **Auto-Continue**: On completion, proceeds to Phase 3
 
 ---
 
-### Phase 3: UI Generation (Auto-Triggered)
-**Action**: Generates UI prototypes based on the consolidated design system
+### Phase 3: Matrix UI Generation (Auto-Triggered)
+**Action**: Generates `style_variants × layout_variants × pages` prototypes using matrix mode
 
 **Command Construction**:
 ```bash
-session_flag = --session present ? "--session {session_id}" : ""
-pages_flag = "--pages \"{inferred_page_list}\" "
+run_base_flag = "--base-path \"{base_path}/.design\""
+pages_flag = "--pages \"{inferred_page_list}\""
 
-IF --creative-variants provided:
-    # Creative Mode: Launch N agents × M pages in parallel for diverse layouts
-    command = "/workflow:ui-design:generate {session_flag} {pages_flag}--creative-variants {creative_variants_count}"
-ELSE:
-    # Standard Mode: Single execution generating N variants for all pages
-    variants_flag = --variants present ? "--variants {variants_count}" : "--variants 1"
-    command = "/workflow:ui-design:generate {session_flag} {pages_flag}{variants_flag}"
+# Matrix mode is default in generate.md, no mode flag needed
+command = "/workflow:ui-design:generate {run_base_flag} {pages_flag} --style-variants {style_variants} --layout-variants {layout_variants}"
+SlashCommand(command=command)
 ```
-**Command**: `SlashCommand(command=command)`
+
+**Result**: Generates `style_variants × layout_variants × pages` prototypes:
+- File naming: `{page}-style-{s}-layout-{l}.html`
+- Total prototypes: `style_variants * layout_variants * len(inferred_page_list)`
+- Matrix visualization: `compare.html` with interactive 3×3 grid
+
 **Auto-Continue**: On completion, proceeds to Phase 4
 
 ---
@@ -221,37 +306,41 @@ The workflow acts as the bridge between brainstorming (`synthesis-specification.
 
 ## Example Execution Flows
 
-### Example 1: Text Prompt Only (Standalone)
+### Example 1: Default 3×3 Matrix (Prompt Inference)
 ```bash
 /workflow:ui-design:auto --prompt "Modern minimalist blog with home, article, and author pages"
 
+# Inferred: 3 style variants, 3 layout variants (default)
 # Executes:
-# 1. /workflow:ui-design:extract --prompt "..." --variants 1
-# 2. /workflow:ui-design:consolidate --variants "variant-1"
-# 3. /workflow:ui-design:generate --pages "home,article,author" --variants 1
+# 1. /workflow:ui-design:extract --base-path ".../run-xxx/.design" --prompt "..." --variants 3
+# 2. /workflow:ui-design:consolidate --base-path ".../run-xxx/.design" --variants 3 --keep-separate
+# 3. /workflow:ui-design:generate --base-path ".../run-xxx/.design" --pages "home,article,author" --style-variants 3 --layout-variants 3
 # 4. /workflow:ui-design:update
+# Total: 27 prototypes (3 styles × 3 layouts × 3 pages)
 ```
 
-### Example 2: Images + Prompt + Session (Integrated)
+### Example 2: Custom 2×2 Matrix with Explicit Parameters
 ```bash
-/workflow:ui-design:auto --session WFS-ecommerce --images "refs/*.png" --prompt "E-commerce with minimalist aesthetic" --variants 3
+/workflow:ui-design:auto --session WFS-ecommerce --images "refs/*.png" --prompt "E-commerce" --style-variants 2 --layout-variants 2
 
 # Executes:
-# 1. /workflow:ui-design:extract --session WFS-ecommerce --images "refs/*.png" --prompt "..." --variants 3
-# 2. /workflow:ui-design:consolidate --session WFS-ecommerce --variants "variant-1,variant-2,variant-3"
-# 3. /workflow:ui-design:generate --session WFS-ecommerce --pages "{inferred_from_synthesis}" --variants 1
+# 1. /workflow:ui-design:extract --base-path ".workflow/WFS-ecommerce/runs/run-xxx/.design" --images "refs/*.png" --variants 2
+# 2. /workflow:ui-design:consolidate --base-path "..." --variants 2 --keep-separate
+# 3. /workflow:ui-design:generate --base-path "..." --pages "{inferred}" --style-variants 2 --layout-variants 2
 # 4. /workflow:ui-design:update --session WFS-ecommerce
+# Total: 2×2×N prototypes
 ```
 
-### Example 3: Creative Mode with Batch Planning
+### Example 3: Intelligent Parsing with Batch Planning
 ```bash
-/workflow:ui-design:auto --session WFS-saas --prompt "SaaS dashboard and settings" --variants 2 --creative-variants 4 --batch-plan
+/workflow:ui-design:auto --session WFS-saas --prompt "Create 4 styles with 2 layouts for SaaS dashboard and settings" --batch-plan
 
+# Parsed: --style-variants 4, --layout-variants 2
 # Executes:
-# 1. /workflow:ui-design:extract --session WFS-saas --prompt "..." --variants 2
-# 2. /workflow:ui-design:consolidate --session WFS-saas --variants "variant-1,variant-2"
-# 3. /workflow:ui-design:generate --session WFS-saas --pages "dashboard,settings" --creative-variants 4
-#    (launches 8 parallel agents: 2 pages × 4 creative variants)
+# 1. /workflow:ui-design:extract --variants 4
+# 2. /workflow:ui-design:consolidate --variants 4 --keep-separate
+# 3. /workflow:ui-design:generate --pages "dashboard,settings" --style-variants 4 --layout-variants 2
+#    (generates 16 prototypes: 4 styles × 2 layouts × 2 pages)
 # 4. /workflow:ui-design:update --session WFS-saas
 # 5. /workflow:plan --agent "Implement dashboard page..."
 #    /workflow:plan --agent "Implement settings page..."
@@ -262,19 +351,26 @@ The workflow acts as the bridge between brainstorming (`synthesis-specification.
 ```
 ✅ UI Design Auto Workflow Complete!
 
+Run ID: {run_id}
 Session: {session_id or "standalone"}
-Mode: {standard|creative}
+Matrix: {style_variants}×{layout_variants} ({total_prototypes} total prototypes)
 Input: {images and/or prompt summary}
 
-Phase 1 - Style Extraction: {variants_count} style variants
-Phase 2 - Style Consolidation: Unified design system
-Phase 3 - UI Generation: {total_prototypes} prototypes ({mode} mode)
+Phase 1 - Style Extraction: {style_variants} style variants
+Phase 2 - Style Consolidation: {style_variants} independent design systems
+Phase 3 - Matrix Generation: {style_variants}×{layout_variants}×{pages_count} = {total_prototypes} prototypes
 Phase 4 - Design Update: Brainstorming artifacts updated
 {IF batch-plan: Phase 5 - Task Generation: {task_count} implementation tasks created}
 
-📂 Design System: {base_path}/.design/
-📂 Prototypes: {base_path}/.design/prototypes/
-🌐 Preview: Open {base_path}/.design/prototypes/index.html
+📂 Run Output: {base_path}/
+  ├── .design/style-consolidation/  ({style_variants} design systems)
+  ├── .design/prototypes/           ({total_prototypes} HTML/CSS files)
+  └── .run-metadata.json            (run configuration)
+
+🌐 Interactive Preview: {base_path}/.design/prototypes/compare.html
+  - 3×3 matrix view with synchronized scrolling
+  - Zoom controls and fullscreen mode
+  - Selection export for implementation
 
 {IF batch-plan:
 📋 Implementation Tasks: .workflow/WFS-{session}/.task/
@@ -282,8 +378,8 @@ Next: /workflow:execute to begin implementation
 }
 {ELSE:
 Next Steps:
-1. Preview prototypes in browser
-2. Select preferred designs
+1. Open compare.html to preview all variants
+2. Select preferred style×layout combinations
 3. Run /workflow:plan to create implementation tasks
 }
 ```

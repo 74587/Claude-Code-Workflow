@@ -1,12 +1,13 @@
 ---
 name: consolidate
-description: Consolidate style variants into unified design system using Claude's synthesis
-usage: /workflow:ui-design:consolidate --session <session_id> [--variants "<ids>"]
-argument-hint: "--session WFS-session-id [--variants \"variant-1,variant-3\"]"
+description: Consolidate style variants into unified or separate design systems
+usage: /workflow:ui-design:consolidate [--base-path <path>] [--session <id>] [--variants <count>] [--keep-separate]
+argument-hint: "[--base-path \".workflow/WFS-xxx/runs/run-xxx/.design\"] [--variants 3] [--keep-separate]"
 examples:
-  - /workflow:ui-design:consolidate --session WFS-auth --variants "variant-1,variant-2,variant-3"
-  - /workflow:ui-design:consolidate --session WFS-dashboard --variants "variant-1,variant-3"
-allowed-tools: TodoWrite(*), Read(*), Write(*)
+  - /workflow:ui-design:consolidate --base-path ".workflow/WFS-auth/latest/.design" --variants 3 --keep-separate
+  - /workflow:ui-design:consolidate --session WFS-auth --variants 2
+  - /workflow:ui-design:consolidate --base-path "./design-session-xxx/.design"
+allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*)
 ---
 
 # Style Consolidation Command
@@ -22,39 +23,46 @@ Consolidate user-selected style variants into a unified, production-ready design
 
 ## Execution Protocol
 
-### Phase 1: Session & Variant Loading
+### Phase 1: Path Resolution & Variant Loading
 ```bash
-# Validate session and load style cards
-IF --session:
+# Determine base path
+IF --base-path provided:
+    base_path = {provided_base_path}  # e.g., ".workflow/WFS-xxx/runs/run-xxx/.design"
+ELSE IF --session provided:
     session_id = {provided_session}
-    base_path = ".workflow/WFS-{session_id}/"
+    base_path = ".workflow/WFS-{session_id}/latest/.design"  # Use latest run
 ELSE:
-    ERROR: "Must provide --session parameter"
+    # Standalone mode: search for most recent design-session in scratchpad
+    base_path = find_latest_design_session(".workflow/.scratchpad/")
 
 # Verify extraction output exists
-VERIFY: {base_path}/.design/style-extraction/style-cards.json exists
+style_cards_path = "{base_path}/style-extraction/style-cards.json"
+VERIFY: exists(style_cards_path)
 
 # Load style cards
-style_cards = Read({base_path}/.design/style-extraction/style-cards.json)
+style_cards = Read(style_cards_path)
+total_variants = len(style_cards.style_cards)
 ```
 
-### Phase 2: Variant Selection
+### Phase 2: Variant Selection (Count-Based)
 ```bash
-# Parse variant selection
+# Determine how many variants to consolidate
 IF --variants provided:
-    variant_ids = parse_csv({--variants value})
-    VALIDATE: All variant_ids exist in style_cards.style_cards[]
+    variants_count = {provided_count}
+    VALIDATE: 1 <= variants_count <= total_variants
 ELSE:
-    # Auto-select all variants when called from /workflow:ui-design:auto
-    variant_ids = extract_all_ids(style_cards.style_cards)
+    # Default to all variants
+    variants_count = total_variants
 
-# Extract selected variants
-selected_variants = []
-FOR each id IN variant_ids:
-    variant = find_variant_by_id(style_cards, id)
-    selected_variants.push(variant)
-
+# Select first N variants
+selected_variants = style_cards.style_cards[0:variants_count]
 VERIFY: selected_variants.length > 0
+
+# Determine consolidation mode
+IF --keep-separate provided:
+    consolidation_mode = "separate"  # Generate N independent design systems
+ELSE:
+    consolidation_mode = "unified"    # Merge into 1 design system
 ```
 
 ### Phase 3: Load Design Context (Optional)
@@ -67,8 +75,12 @@ ELSE IF exists({base_path}/.brainstorming/ui-designer/analysis.md):
     design_context = Read({base_path}/.brainstorming/ui-designer/analysis.md)
 ```
 
-### Phase 4: Unified Design System Synthesis (Claude)
-This is a single-pass synthesis that replaces all external tool calls.
+### Phase 4: Design System Synthesis (Claude)
+
+**Route based on consolidation_mode**:
+
+#### Mode A: Unified Consolidation (Default)
+Merges all style variants into a single, cohesive design system.
 
 **Synthesis Prompt Template**:
 ```

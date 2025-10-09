@@ -44,7 +44,7 @@ IF --session:
 ELSE:
     session_mode = "standalone"
     session_id = "design-session-" + timestamp()
-    base_path = "./{session_id}/"
+    base_path = ".workflow/.scratchpad/{session_id}/"
 
 # Set variant count
 variants_count = --variants provided ? {count} : 1
