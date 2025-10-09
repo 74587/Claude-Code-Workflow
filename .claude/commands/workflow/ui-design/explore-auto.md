@@ -409,14 +409,14 @@ SlashCommand(command)
 
 ---
 
-### Phase 2: Style Consolidation with Separation
+### Phase 2: Style Consolidation (Separate Design Systems)
 **Command**:
 ```bash
 run_base_flag = "--base-path \"{base_path}\""
 
-# Use count-based parameter with --keep-separate for matrix mode
+# Consolidate generates independent design systems by default
 # IMPORTANT: Pass --layout-variants to ensure correct number of layout strategies are generated
-command = "/workflow:ui-design:consolidate {run_base_flag} --variants {style_variants} --layout-variants {layout_variants} --keep-separate"
+command = "/workflow:ui-design:consolidate {run_base_flag} --variants {style_variants} --layout-variants {layout_variants}"
 SlashCommand(command)
 ```
 **Result**: Generates `style_variants` independent design systems:

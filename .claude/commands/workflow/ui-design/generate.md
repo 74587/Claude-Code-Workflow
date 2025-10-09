@@ -165,6 +165,66 @@ REPORT: "   - Semantic HTML structures"
 REPORT: "   - CSS architecture patterns"
 ```
 
+### Phase 1.8: Token Variable Name Extraction
+
+```bash
+# Load design-tokens.json from style-1 to extract exact variable names
+# This ensures template generation uses correct token names
+REPORT: "📋 Extracting design token variable names..."
+
+tokens_json_path = "{base_path}/style-consolidation/style-1/design-tokens.json"
+VERIFY: exists(tokens_json_path), "Design tokens not found. Run /workflow:ui-design:consolidate first."
+
+design_tokens = Read(tokens_json_path)
+
+# Extract all available token categories and variable names
+token_reference = {
+  "colors": {
+    "brand": list(design_tokens.colors.brand.keys()),  # e.g., ["primary", "secondary", "accent"]
+    "surface": list(design_tokens.colors.surface.keys()),  # e.g., ["background", "elevated", "overlay"]
+    "semantic": list(design_tokens.colors.semantic.keys()),  # e.g., ["success", "warning", "error", "info"]
+    "text": list(design_tokens.colors.text.keys()),  # e.g., ["primary", "secondary", "tertiary", "inverse"]
+    "border": list(design_tokens.colors.border.keys())  # e.g., ["default", "strong", "subtle"]
+  },
+  "typography": {
+    "font_family": list(design_tokens.typography.font_family.keys()),  # e.g., ["heading", "body", "mono"]
+    "font_size": list(design_tokens.typography.font_size.keys()),  # e.g., ["xs", "sm", "base", "lg", "xl", "2xl", "3xl", "4xl"]
+    "font_weight": list(design_tokens.typography.font_weight.keys()),  # e.g., ["normal", "medium", "semibold", "bold"]
+    "line_height": list(design_tokens.typography.line_height.keys()),  # e.g., ["tight", "normal", "relaxed"]
+    "letter_spacing": list(design_tokens.typography.letter_spacing.keys())  # e.g., ["tight", "normal", "wide"]
+  },
+  "spacing": list(design_tokens.spacing.keys()),  # e.g., ["0", "1", "2", ..., "24"]
+  "border_radius": list(design_tokens.border_radius.keys()),  # e.g., ["none", "sm", "md", "lg", "xl", "full"]
+  "shadows": list(design_tokens.shadows.keys()),  # e.g., ["sm", "md", "lg", "xl"]
+  "breakpoints": list(design_tokens.breakpoints.keys())  # e.g., ["sm", "md", "lg", "xl", "2xl"]
+}
+
+# Generate complete variable name lists for Agent prompt
+color_vars = []
+FOR category IN ["brand", "surface", "semantic", "text", "border"]:
+    FOR key IN token_reference.colors[category]:
+        color_vars.append(f"--color-{category}-{key}")
+
+typography_vars = []
+FOR category IN ["font_family", "font_size", "font_weight", "line_height", "letter_spacing"]:
+    prefix = "--" + category.replace("_", "-")
+    FOR key IN token_reference.typography[category]:
+        typography_vars.append(f"{prefix}-{key}")
+
+spacing_vars = [f"--spacing-{key}" for key in token_reference.spacing]
+radius_vars = [f"--border-radius-{key}" for key in token_reference.border_radius]
+shadow_vars = [f"--shadow-{key}" for key in token_reference.shadows]
+breakpoint_vars = [f"--breakpoint-{key}" for key in token_reference.breakpoints]
+
+all_token_vars = color_vars + typography_vars + spacing_vars + radius_vars + shadow_vars + breakpoint_vars
+
+REPORT: f"✅ Extracted {len(all_token_vars)} design token variables from design-tokens.json"
+REPORT: f"   - Color variables: {len(color_vars)}"
+REPORT: f"   - Typography variables: {len(typography_vars)}"
+REPORT: f"   - Spacing variables: {len(spacing_vars)}"
+REPORT: f"   - Other variables: {len(radius_vars) + len(shadow_vars) + len(breakpoint_vars)}"
+```
+
 ### Phase 2: Optimized Matrix UI Generation
 
 **Strategy**: Two-layer generation reduces complexity from `O(S×L×P)` to `O(L×P)`, achieving **`S` times faster** performance.
@@ -242,11 +302,49 @@ FOR layout_id IN range(1, layout_variants + 1):
 
           Apply this strategy CONSISTENTLY to all styles.
 
-          ## Token Usage Requirements (STRICT)
-          - All colors: var(--color-brand-primary), var(--color-surface-background), etc.
-          - All spacing: var(--spacing-4), var(--spacing-6), etc.
-          - All typography: var(--font-family-heading), var(--font-size-lg), etc.
-          - NO hardcoded values allowed
+          ## Token Usage Requirements (STRICT - USE EXACT NAMES)
+
+          **CRITICAL**: You MUST use ONLY the variable names listed below. These are extracted from design-tokens.json.
+          DO NOT invent variable names like --color-background-base, --radius-md, --transition-base, etc.
+
+          **Available Color Variables** ({len(color_vars)} total):
+          {', '.join(color_vars[:10])}... ({len(color_vars) - 10} more)
+
+          **Key Color Variables**:
+          - Brand: --color-brand-primary, --color-brand-secondary, --color-brand-accent
+          - Surface: --color-surface-background, --color-surface-elevated, --color-surface-overlay
+          - Text: --color-text-primary, --color-text-secondary, --color-text-tertiary, --color-text-inverse
+          - Border: --color-border-default, --color-border-strong, --color-border-subtle
+          - Semantic: --color-semantic-success, --color-semantic-warning, --color-semantic-error, --color-semantic-info
+
+          **Available Typography Variables** ({len(typography_vars)} total):
+          {', '.join(typography_vars[:10])}... ({len(typography_vars) - 10} more)
+
+          **Key Typography Variables**:
+          - Families: --font-family-heading, --font-family-body, --font-family-mono
+          - Sizes: --font-size-xs, --font-size-sm, --font-size-base, --font-size-lg, --font-size-xl, --font-size-2xl, --font-size-3xl, --font-size-4xl
+          - Weights: --font-weight-normal, --font-weight-medium, --font-weight-semibold, --font-weight-bold
+          - Line heights: --line-height-tight, --line-height-normal, --line-height-relaxed
+          - Letter spacing: --letter-spacing-tight, --letter-spacing-normal, --letter-spacing-wide
+
+          **Available Spacing Variables** ({len(spacing_vars)} total):
+          {', '.join(spacing_vars)}
+
+          **Available Border Radius Variables** ({len(radius_vars)} total):
+          {', '.join(radius_vars)}
+
+          **Available Shadow Variables** ({len(shadow_vars)} total):
+          {', '.join(shadow_vars)}
+
+          **Available Breakpoint Variables** ({len(breakpoint_vars)} total):
+          {', '.join(breakpoint_vars)}
+
+          **STRICT RULES**:
+          1. Use ONLY the variables listed above - NO custom variable names
+          2. If you need a value not in the list, use the closest semantic match
+          3. For missing tokens (like transitions), use literal CSS values: `transition: all 0.2s ease;`
+          4. NO hardcoded colors, fonts, or spacing (e.g., #4F46E5, 16px, Arial)
+          5. All `var()` references must match exact variable names above
 
           ## HTML Requirements (Apply Modern Best Practices from Research)
           - Semantic HTML5 elements (<header>, <nav>, <main>, <section>, <article>)
@@ -292,11 +390,39 @@ REPORT: "🚀 Phase 2b: Instantiating prototypes from templates..."
 
 # Step 1: Convert design tokens to CSS for each style
 REPORT: "   Converting design tokens to CSS variables..."
+
+# Check for jq dependency (required by convert_tokens_to_css.sh)
+IF NOT command_exists("jq"):
+    ERROR: "jq is not installed or not in PATH. The conversion script requires jq."
+    REPORT: "Please install jq:"
+    REPORT: "  - macOS: brew install jq"
+    REPORT: "  - Linux: apt-get install jq or yum install jq"
+    REPORT: "  - Windows: Download from https://stedolan.github.io/jq/download/"
+    EXIT 1
+
+# Convert design tokens to CSS for each style variant
 FOR style_id IN range(1, style_variants + 1):
-    tokens_json = Read({base_path}/style-consolidation/style-{style_id}/design-tokens.json)
-    tokens_css = convert_json_to_css_variables(tokens_json)
-    Write({base_path}/style-consolidation/style-{style_id}/tokens.css, tokens_css)
-    REPORT: "   ✓ Generated tokens.css for style-{style_id}"
+    tokens_json_path = "{base_path}/style-consolidation/style-${style_id}/design-tokens.json"
+    tokens_css_path = "{base_path}/style-consolidation/style-${style_id}/tokens.css"
+    script_path = "~/.claude/scripts/convert_tokens_to_css.sh"
+
+    # Verify input file exists
+    IF NOT exists(tokens_json_path):
+        REPORT: "   ✗ ERROR: Input file not found for style-${style_id}: ${tokens_json_path}"
+        CONTINUE  # Skip this iteration, continue with next style
+
+    # Execute conversion: cat input.json | script.sh > output.css
+    Bash(cat "${tokens_json_path}" | "${script_path}" > "${tokens_css_path}")
+
+    # Verify output was generated
+    IF exit_code == 0 AND exists(tokens_css_path):
+        REPORT: "   ✓ Generated tokens.css for style-${style_id}"
+    ELSE:
+        REPORT: "   ✗ ERROR: Failed to generate tokens.css for style-${style_id}"
+        IF exit_code != 0:
+            REPORT: "      Script exit code: ${exit_code}"
+        IF NOT exists(tokens_css_path):
+            REPORT: "      Output file not created at: ${tokens_css_path}"
 
 # Step 2: Use ui-instantiate-prototypes.sh script for instantiation
 # The script handles:

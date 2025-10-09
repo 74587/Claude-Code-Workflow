@@ -1,36 +1,33 @@
 ---
 name: consolidate
-description: Consolidate style variants into unified or separate design systems and plan layout strategies
-usage: /workflow:ui-design:consolidate [--base-path <path>] [--session <id>] [--variants <count>] [--keep-separate] [--layout-variants <count>]
-argument-hint: "[--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--variants 3] [--keep-separate] [--layout-variants 3]"
+description: Consolidate style variants into independent design systems and plan layout strategies
+usage: /workflow:ui-design:consolidate [--base-path <path>] [--session <id>] [--variants <count>] [--layout-variants <count>]
+argument-hint: "[--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--variants 3] [--layout-variants 3]"
 examples:
-  - /workflow:ui-design:consolidate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --variants 3 --keep-separate --layout-variants 3
+  - /workflow:ui-design:consolidate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --variants 3 --layout-variants 3
   - /workflow:ui-design:consolidate --session WFS-auth --variants 2 --layout-variants 2
   - /workflow:ui-design:consolidate --base-path "./.workflow/.design/run-20250109-150533" --layout-variants 3
-allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*)
+allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Task(*)
 ---
 
 # Design System Consolidation & Layout Planning Command
 
 ## Overview
-Consolidate user-selected style variants into unified or separate production-ready design systems AND plan layout strategies for UI generation. This command serves as the **Design Planning Phase**, producing all strategic decisions needed for the subsequent generation phase.
+Consolidate user-selected style variants into **independent production-ready design systems** AND plan layout strategies for UI generation. This command serves as the **Design Planning Phase**, producing all strategic decisions needed for the subsequent generation phase.
 
 ## Core Philosophy
 - **Design Planning Hub**: Centralizes both style consolidation and layout strategy planning
-- **Claude-Native**: 100% Claude-driven consolidation, no external tools
-- **Token Merging**: Combines `proposed_tokens` from selected variants
+- **Agent-Driven**: Uses ui-design-agent for multi-file generation efficiency
+- **Separate Design Systems**: Generates N independent design systems (one per variant)
+- **Token Refinement**: Refines `proposed_tokens` from each variant into complete systems
 - **Layout Strategy Definition**: Plans and documents layout variants for generation
-- **Intelligent Synthesis**: Resolves conflicts, ensures consistency
+- **Intelligent Synthesis**: Ensures completeness and consistency
 - **Production-Ready**: Complete design system(s) with documentation
-- **Dual Mode**: Unified (1 merged system) or Separate (N independent systems)
+- **Matrix-Ready**: Supports style × layout matrix exploration in generate phase
 
 ## Execution Protocol
 
-### 🔄 Common Phases (All Modes)
-
-These phases are executed identically regardless of consolidation mode.
-
-#### Phase 1: Path Resolution & Variant Loading
+### Phase 1: Path Resolution & Variant Loading
 
 ```bash
 # Determine base path
@@ -51,7 +48,7 @@ style_cards = Read(style_cards_path)
 total_variants = len(style_cards.style_cards)
 ```
 
-#### Phase 2: Variant Selection & Mode Determination
+### Phase 2: Variant Selection
 
 ```bash
 # Determine how many variants to consolidate
@@ -65,16 +62,10 @@ ELSE:
 selected_variants = style_cards.style_cards[0:variants_count]
 VERIFY: selected_variants.length > 0
 
-# Determine consolidation mode
-IF --keep-separate provided:
-    consolidation_mode = "separate"  # Generate N independent design systems
-    REPORT: "Mode: Separate - generating {variants_count} independent design systems"
-ELSE:
-    consolidation_mode = "unified"   # Merge into 1 design system
-    REPORT: "Mode: Unified - merging {variants_count} variants into one design system"
+REPORT: "📦 Generating {variants_count} independent design systems"
 ```
 
-#### Phase 2.5: Layout Strategy Planning (Dynamic Generation)
+### Phase 2.5: Layout Strategy Planning (Dynamic Generation)
 
 ```bash
 # Determine layout variants count
@@ -172,7 +163,7 @@ Write({base_path}/style-consolidation/layout-strategies.json, JSON.stringify(lay
 REPORT: "✅ Layout strategies defined: {[s.name for s in layout_strategies.strategies]}"
 ```
 
-#### Phase 3: Load Design Context (Optional)
+### Phase 3: Load Design Context (Optional)
 
 ```bash
 # Load brainstorming context if available
@@ -183,24 +174,19 @@ ELSE IF exists({base_path}/.brainstorming/ui-designer/analysis.md):
     design_context = Read({base_path}/.brainstorming/ui-designer/analysis.md)
 ```
 
----
+### Phase 4: Design System Synthesis (Agent Execution)
 
-### 🔀 Mode-Specific Phases
+```bash
+REPORT: "🤖 Using agent for separate design system generation..."
 
-**Execution branches based on `consolidation_mode`:**
-
-#### Branch A: Unified Mode
-
-**When**: `consolidation_mode == "unified"` (default)
-
-**Goal**: Merge all selected variants into a single, cohesive design system.
-
-**Phase 4A: Unified Design System Synthesis**
-```
-Create a unified, production-ready design system by consolidating the following style variants.
+# Prepare agent task prompt
+agent_task_prompt = """
+Generate {variants_count} independent production-ready design systems, one for each style variant.
 
 SESSION: {session_id}
-SELECTED VARIANTS: {variant_ids}
+MODE: Separate design system generation
+
+VARIANTS TO PROCESS: {variants_count}
 
 VARIANT DATA:
 {FOR each variant IN selected_variants:
@@ -220,20 +206,20 @@ DESIGN CONTEXT (from brainstorming):
 {design_context}
 }
 
-TASK: Consolidate these {selected_variants.length} style variant(s) into a single, cohesive design system.
+TASK: For EACH variant, generate a complete, production-ready design system.
 
-CONSOLIDATION RULES:
-1. **Merge Token Proposals**: Combine all `proposed_tokens` into one unified system
-2. **Resolve Conflicts**: When variants disagree, choose the most appropriate value or create a balanced compromise
-3. **Maintain Completeness**: Ensure all token categories are present (colors, typography, spacing, etc.)
+REFINEMENT RULES (apply to each variant):
+1. **Complete Token Coverage**: Ensure all categories are present (colors, typography, spacing, etc.)
+2. **Fill Gaps**: If any tokens are missing, generate appropriate values based on the variant's philosophy
+3. **Maintain Style Identity**: Preserve the unique characteristics of this variant
 4. **Semantic Naming**: Use clear, semantic names (e.g., "brand-primary" not "color-1")
 5. **Accessibility**: Validate WCAG AA contrast ratios (4.5:1 text, 3:1 UI)
 6. **OKLCH Format**: All colors must use oklch(L C H / A) format
-7. **Design Philosophy**: Synthesize a unified philosophy statement from variant descriptions
+7. **Design Philosophy**: Expand and articulate the variant's design philosophy
 
-OUTPUT: Generate the following files:
+OUTPUT STRUCTURE: For each variant {variant_id} (1 to {variants_count}), generate 2 files:
 
-FILE 1: design-tokens.json
+FILE 1: style-{variant_id}/design-tokens.json
 {
   "colors": {
     "brand": { "primary": "oklch(...)", "secondary": "oklch(...)", "accent": "oklch(...)" },
@@ -255,19 +241,14 @@ FILE 1: design-tokens.json
   "breakpoints": { "sm": "640px", "md": "768px", "lg": "1024px", "xl": "1280px", "2xl": "1536px" }
 }
 
-FILE 2: style-guide.md
-# Design System Style Guide
+FILE 2: style-{variant_id}/style-guide.md
+# Design System Style Guide - {variant.name}
 
 ## Design Philosophy
-{Synthesized philosophy from all variants}
+{Expanded variant philosophy}
 
 ## Color System
-### Brand Colors
-- **Primary**: {value} - {usage description}
-- **Secondary**: {value} - {usage description}
-- **Accent**: {value} - {usage description}
-
-### Surface Colors, Semantic Colors, Text Colors, Border Colors
+### Brand Colors, Surface Colors, Semantic Colors, Text Colors, Border Colors
 {List all with usage and accessibility notes}
 
 ## Typography
@@ -282,128 +263,61 @@ FILE 2: style-guide.md
 - UI components meet WCAG AA (3:1 minimum)
 - Focus indicators are clearly visible
 
-FILE 3: consolidation-report.json
-{
-  "session_id": "{session_id}",
-  "consolidation_mode": "unified",
-  "timestamp": "{ISO timestamp}",
-  "style_systems": {
-    "consolidated_variants": {variant_ids},
-    "variant_count": {selected_variants.length},
-    "validation_results": {
-      "colors": { "total": {count}, "wcag_aa_compliant": {count}, "warnings": [{issues}] },
-      "typography": { "font_families": {count}, "scale_sizes": {count} },
-      "spacing": { "scale_values": {count} },
-      "accessibility": { "status": "pass|warnings", "issues": [{list}] },
-      "completeness": {
-        "required_categories": ["colors", "typography", "spacing", "border_radius", "shadows", "breakpoints"],
-        "present_categories": [{list}],
-        "missing_categories": [{list if any}]
-      }
-    }
-  },
-  "layout_strategies": {
-    "count": {layout_variants},
-    "strategies": {READ from layout-strategies.json}
-  }
-}
-
 RESPONSE FORMAT:
-Provide each file's content in clearly labeled sections:
+For each variant, provide clearly labeled sections:
 
-===== design-tokens.json =====
+===== style-1/design-tokens.json =====
 {JSON content}
 
-===== style-guide.md =====
+===== style-1/style-guide.md =====
 {Markdown content}
 
-===== consolidation-report.json =====
-{JSON content}
-```
-
-**Phase 5A: Unified Output**
-
-```bash
-# Parse Claude's response
-CREATE: {base_path}/style-consolidation/
-parsed_output = parse_claude_response(claude_response)
-
-Write({base_path}/style-consolidation/design-tokens.json, parsed_output.design_tokens)
-Write({base_path}/style-consolidation/style-guide.md, parsed_output.style_guide)
-Write({base_path}/style-consolidation/consolidation-report.json, parsed_output.consolidation_report)
-```
-
-**Output Structure**:
-```
-{base_path}/style-consolidation/
-├── design-tokens.json           # Merged token definitions
-├── style-guide.md               # Comprehensive design documentation
-├── layout-strategies.json       # Layout variant definitions
-└── consolidation-report.json    # Unified validation & planning report
-```
-
----
-
-#### Branch B: Separate Mode
-
-**When**: `consolidation_mode == "separate"` (--keep-separate flag)
-
-**Goal**: Generate N independent design systems, each refining one style variant.
-
-**Phase 4B: Separate Design System Synthesis**
-
-For each variant, use this synthesis prompt:
-```
-Create a production-ready design system for the following style variant.
-
-SESSION: {session_id}
-VARIANT: {variant.id}
-
-VARIANT DATA:
-  Name: {variant.name}
-  Description: {variant.description}
-  Design Philosophy: {variant.design_philosophy}
-
-  Proposed Tokens:
-  {JSON.stringify(variant.proposed_tokens, null, 2)}
-
-{IF design_context:
-DESIGN CONTEXT (from brainstorming):
-{design_context}
-}
-
-TASK: Refine this style variant into a complete, production-ready design system.
-
-REFINEMENT RULES:
-1. **Complete Token Coverage**: Ensure all categories are present (colors, typography, spacing, etc.)
-2. **Fill Gaps**: If any tokens are missing, generate appropriate values based on the variant's philosophy
-3. **Maintain Style Identity**: Preserve the unique characteristics of this variant
-4. **Semantic Naming**: Use clear, semantic names (e.g., "brand-primary" not "color-1")
-5. **Accessibility**: Validate WCAG AA contrast ratios (4.5:1 text, 3:1 UI)
-6. **OKLCH Format**: All colors must use oklch(L C H / A) format
-7. **Design Philosophy**: Expand and articulate the variant's design philosophy
-
-OUTPUT: Generate 2 files (design-tokens.json, style-guide.md) - validation will be aggregated later
-
-RESPONSE FORMAT:
-Provide each file's content in clearly labeled sections:
-
-===== design-tokens.json =====
+===== style-2/design-tokens.json =====
 {JSON content}
 
-===== style-guide.md =====
+===== style-2/style-guide.md =====
 {Markdown content}
+
+... (repeat for all {variants_count} variants)
+
+IMPORTANT:
+- Generate files for ALL {variants_count} variants
+- Use sequential IDs: style-1, style-2, ..., style-{variants_count}
+- Each variant must be complete and independent
+- Maintain consistent structure across all variants
+"""
+
+# Execute agent task
+Task(
+  subagent_type="ui-design-agent",
+  description="Generate {variants_count} separate design systems",
+  prompt=agent_task_prompt
+)
+
+REPORT: "✅ Agent task dispatched for {variants_count} design systems"
 ```
 
-**Phase 5B: Separate Output**
+### Phase 5: Process Agent Results and Generate Report
 ```bash
-# Parse each variant's response
+REPORT: "📝 Processing agent output for {variants_count} design systems..."
+
+# Parse agent's response - agent returns all files in labeled sections
+agent_output = get_agent_response()
+
+# Extract and write files for each variant
 FOR variant_id IN range(1, variants_count + 1):
     CREATE: {base_path}/style-consolidation/style-{variant_id}/
-    parsed_output = parse_claude_response(claude_responses[variant_id - 1])
 
-    Write({base_path}/style-consolidation/style-{variant_id}/design-tokens.json, parsed_output.design_tokens)
-    Write({base_path}/style-consolidation/style-{variant_id}/style-guide.md, parsed_output.style_guide)
+    # Extract design tokens
+    design_tokens_section = extract_section(agent_output, f"===== style-{variant_id}/design-tokens.json =====")
+    design_tokens = parse_json(design_tokens_section)
+    Write({base_path}/style-consolidation/style-{variant_id}/design-tokens.json, JSON.stringify(design_tokens, null, 2))
+
+    # Extract style guide
+    style_guide_section = extract_section(agent_output, f"===== style-{variant_id}/style-guide.md =====")
+    Write({base_path}/style-consolidation/style-{variant_id}/style-guide.md, style_guide_section)
+
+    REPORT: "  ✅ style-{variant_id}/ written"
 
 # Generate unified consolidation report for all variants
 consolidation_report = {
@@ -443,22 +357,18 @@ Write({base_path}/style-consolidation/consolidation-report.json, JSON.stringify(
 └── consolidation-report.json    # Unified validation for all styles + layout plan
 ```
 
----
-
-### 🎯 Common Completion Phase
-
-**Phase 6: Completion & Reporting** (executed after mode-specific phases)
+### Phase 6: Completion & Reporting
 
 ```javascript
 TodoWrite({
   todos: [
     {content: "Load session and style cards", status: "completed", activeForm: "Loading style cards"},
-    {content: "Select variants and determine mode", status: "completed", activeForm: "Selecting variants"},
+    {content: "Select variants for consolidation", status: "completed", activeForm: "Selecting variants"},
     {content: "Plan layout strategies", status: "completed", activeForm: "Planning layout strategies"},
     {content: "Load design context from brainstorming", status: "completed", activeForm: "Loading context"},
-    {content: "Synthesize design system(s) with Claude", status: "completed", activeForm: "Synthesizing design system"},
-    {content: "Write consolidated design system files", status: "completed", activeForm: "Writing output files"},
-    {content: "Generate unified consolidation report", status: "completed", activeForm: "Generating report"}
+    {content: "Generate design systems via agent", status: "completed", activeForm: "Generating design systems"},
+    {content: "Process agent results and write files", status: "completed", activeForm: "Writing output files"},
+    {content: "Generate consolidation report", status: "completed", activeForm: "Generating report"}
   ]
 });
 ```
@@ -467,42 +377,23 @@ TodoWrite({
 ```
 ✅ Design consolidation & layout planning complete for session: {session_id}
 
-Mode: {consolidation_mode}
-Consolidated {selected_variants.length} style variant(s):
+Generated {variants_count} independent design systems:
 {FOR each variant: - {variant.name} ({variant.id})}
 
 Layout Strategies Planned: {layout_variants}
 {FOR each strategy: - Layout {strategy.id}: {strategy.name}}
 
-{IF unified mode:
-Validation Summary:
-- Colors: {total_colors} (WCAG AA: {compliant_count}/{total_colors})
-- Typography: {scale_count} sizes
-- Spacing: {scale_count} values
-- Accessibility: {status}
-
-📂 Output: {base_path}/style-consolidation/
-  ├── design-tokens.json
-  ├── style-guide.md
-  ├── layout-strategies.json          [NEW]
-  └── consolidation-report.json       [NEW - replaces validation-report.json]
-}
-
-{IF separate mode:
-Generated {variants_count} independent design systems:
-
 📂 Output: {base_path}/style-consolidation/
 ├── style-1/ (design-tokens.json, style-guide.md)
 ├── style-2/ (same structure)
 ├── style-{variants_count}/ (same structure)
-├── layout-strategies.json          [NEW]
-└── consolidation-report.json       [NEW - unified report for all variants]
-}
+├── layout-strategies.json
+└── consolidation-report.json
 
-Next: /workflow:ui-design:generate --session {session_id} {IF separate: --style-variants {variants_count} --layout-variants {layout_variants}} --pages "dashboard,auth"
+Next: /workflow:ui-design:generate --session {session_id} --style-variants {variants_count} --layout-variants {layout_variants} --pages "dashboard,auth"
 
 Note: When called from /workflow:ui-design:auto, UI generation is triggered automatically.
-The generate command will now read layout strategies from layout-strategies.json.
+The generate command will read layout strategies from layout-strategies.json.
 ```
 
 ## design-tokens.json Format
@@ -622,13 +513,15 @@ Complete token structure with OKLCH colors and semantic naming:
 
 ## Key Features
 
-1. **Zero External Dependencies for Style Consolidation**
-   - No `gemini-wrapper`, no `codex` for style synthesis - pure Claude
-   - Single-pass comprehensive prompt generates all outputs
+1. **Agent-Driven Architecture**
+   - Uses ui-design-agent for multi-file generation efficiency
+   - Parallel generation of N independent design systems
+   - Structured output parsing with labeled sections
 
-2. **Dual Consolidation Modes**
-   - Unified: Merge N variants → 1 design system (default)
-   - Separate: Refine N variants → N independent systems (--keep-separate)
+2. **Separate Design Systems (Matrix-Ready)**
+   - Generates N independent design systems (one per variant)
+   - Each variant maintains unique style identity
+   - Enables style × layout matrix exploration in generate phase
 
 3. **Dynamic Layout Strategy Generation** 🆕
    - Uses Exa MCP to research current UI/UX layout trends (2024-2025)
@@ -636,15 +529,16 @@ Complete token structure with OKLCH colors and semantic naming:
    - Adapts to project type (dashboard, marketing, SaaS, etc.)
    - Balances innovation with usability
 
-4. **Direct Token Merging**
+4. **Token Refinement**
    - Reads `proposed_tokens` from style cards directly
-   - Intelligent conflict resolution with clear rules
+   - Agent refines each variant into complete design system
+   - Fills gaps while maintaining style identity
 
 5. **Complete Design System Output**
-   - design-tokens.json (CSS tokens)
-   - style-guide.md (documentation)
+   - design-tokens.json (CSS tokens per variant)
+   - style-guide.md (documentation per variant)
    - layout-strategies.json (dynamic layout plans)
-   - consolidation-report.json (quality audit & planning)
+   - consolidation-report.json (unified validation & planning)
 
 6. **Production-Ready Quality**
    - WCAG AA accessibility validation
@@ -653,8 +547,8 @@ Complete token structure with OKLCH colors and semantic naming:
    - Complete token coverage
 
 7. **Streamlined Workflow**
-   - Common phases (setup, context, completion) shared across modes
-   - Mode-specific synthesis clearly separated
+   - Sequential phases with clear responsibilities
+   - Agent handles complex multi-file generation
    - Reproducible with deterministic structure
    - Context-aware (integrates brainstorming artifacts)
 
@@ -662,13 +556,12 @@ Complete token structure with OKLCH colors and semantic naming:
 
 - **Input**:
   - `style-cards.json` from `/workflow:ui-design:extract` (with `proposed_tokens`)
+  - `--variants` parameter (default: all variants)
   - `--layout-variants` parameter (default: 3)
 - **Output**:
-  - Style Systems:
-    - Unified: `style-consolidation/design-tokens.json` for `/workflow:ui-design:generate`
-    - Separate: `style-consolidation/style-{n}/design-tokens.json` for matrix mode generation
+  - Style Systems: `style-consolidation/style-{n}/design-tokens.json` for matrix mode generation
   - Layout Planning: `layout-strategies.json` consumed by `/workflow:ui-design:generate`
   - Unified Reporting: `consolidation-report.json` for audit and validation
 - **Context**: Optional `synthesis-specification.md` or `ui-designer/analysis.md`
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` workflow
-- **Next Command**: `/workflow:ui-design:generate` reads both design tokens and layout strategies
+- **Next Command**: `/workflow:ui-design:generate --style-variants N --layout-variants M` reads design tokens and layout strategies
