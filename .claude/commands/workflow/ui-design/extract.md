@@ -37,15 +37,16 @@ ELSE IF --prompt:
 ELSE:
     ERROR: "Must provide --images or --prompt"
 
-# Detect session mode
+# Detect session mode and generate run ID
+run_id = "run-" + timestamp()
+
 IF --session:
     session_mode = "integrated"
     session_id = {provided_session}
-    base_path = ".workflow/WFS-{session_id}/"
+    base_path = ".workflow/WFS-{session_id}/design-{run_id}/"
 ELSE:
     session_mode = "standalone"
-    session_id = "design-session-" + timestamp()
-    base_path = ".workflow/.scratchpad/{session_id}/"
+    base_path = ".workflow/.design/{run_id}/"
 
 # Set variant count
 variants_count = --variants provided ? {count} : 1
@@ -67,16 +68,55 @@ IF input_mode IN ["text", "hybrid"]:
     prompt_guidance = {--prompt value}
 
 # Create output directory
-CREATE: {base_path}/.design/style-extraction/
+CREATE: {base_path}/style-extraction/
 ```
 
-### Phase 2: Unified Style Analysis (Claude)
+### Phase 1.5: Design Trend Research (Exa MCP)
+
+```bash
+# Step 1: Load project context to inform search queries
+project_context = ""
+IF exists({base_path}/.brainstorming/synthesis-specification.md):
+    project_context = Read({base_path}/.brainstorming/synthesis-specification.md)
+ELSE IF exists({base_path}/.brainstorming/ui-designer/analysis.md):
+    project_context = Read({base_path}/.brainstorming/ui-designer/analysis.md)
+
+# Extract hints from context and prompt
+search_hints = []
+IF prompt_guidance:
+    search_hints.append(extract_design_keywords(prompt_guidance))  # e.g., "minimalist", "dark theme", "Linear.app"
+IF project_context:
+    search_hints.append(extract_project_type(project_context))     # e.g., "dashboard", "SaaS", "blog"
+
+# Step 2: Search for design trends using Exa MCP
+REPORT: "🔍 Researching modern design trends and color theory..."
+
+# Build comprehensive search query
+exa_queries = [
+    "modern UI design color palettes trends 2024 2025 {search_hints}",
+    "typography web design best practices system fonts {search_hints}",
+    "design system color theory accessibility WCAG {search_hints}",
+    "UI spacing rhythm layout patterns {search_hints}"
+]
+
+design_trends = {}
+FOR query IN exa_queries:
+    category = identify_category(query)  # "colors", "typography", "layout", "accessibility"
+    design_trends[category] = mcp__exa__get_code_context_exa(
+        query=query,
+        tokensNum="dynamic"
+    )
+
+REPORT: "✅ Design research complete. Found trends for: colors, typography, layout, accessibility"
+```
+
+### Phase 2: Unified Style Analysis (Claude with Design Trends)
 
 This is a single-pass analysis that replaces all external tool calls.
 
 **Analysis Prompt Template**:
 ```
-Analyze the following design references and generate {variants_count} distinct design style proposals.
+Analyze the following design references and generate {variants_count} distinct design style proposals informed by current design trends.
 
 INPUT MODE: {input_mode}
 
@@ -90,11 +130,28 @@ TEXT GUIDANCE: "{prompt_guidance}"
 Use this to guide the aesthetic direction and feature requirements
 {ENDIF}
 
+DESIGN TRENDS RESEARCH (from web, 2024-2025):
+
+COLOR TRENDS:
+{design_trends.colors}
+
+TYPOGRAPHY TRENDS:
+{design_trends.typography}
+
+LAYOUT PATTERNS:
+{design_trends.layout}
+
+ACCESSIBILITY GUIDELINES:
+{design_trends.accessibility}
+
 TASK: Generate {variants_count} design style variants that:
 1. Each have a distinct visual identity and design philosophy
-2. Use OKLCH color space for all color values
-3. Include complete, production-ready design token proposals
-4. Are semantically organized (brand, surface, semantic colors)
+2. Incorporate modern design trends from the research above (2024-2025)
+3. Balance trend awareness with timeless design principles
+4. Use OKLCH color space for all color values
+5. Include complete, production-ready design token proposals
+6. Are semantically organized (brand, surface, semantic colors)
+7. Apply current accessibility best practices from WCAG guidelines
 
 OUTPUT FORMAT: JSON matching this exact structure:
 {
@@ -143,11 +200,15 @@ OUTPUT FORMAT: JSON matching this exact structure:
 
 RULES:
 - Each variant must be distinct in visual character
+- Incorporate insights from DESIGN TRENDS RESEARCH into color, typography, and spacing choices
+- Balance modern trends with timeless design principles
 - All colors MUST use OKLCH format: oklch(L C H / A)
 - Token structures must be complete and production-ready
 - Use semantic naming throughout (e.g., "brand-primary" not "color-1")
-- Ensure accessibility (WCAG AA contrast ratios: 4.5:1 text, 3:1 UI)
+- Ensure accessibility (WCAG AA contrast ratios: 4.5:1 text, 3:1 UI) using guidelines from research
+- Apply modern typography trends (variable fonts, system font stacks, optical sizing)
 - Include complete token categories for each variant
+- Reference specific trends or patterns from the research when making design decisions
 ```
 
 ### Phase 3: Parse & Write Output
@@ -158,7 +219,7 @@ style_cards_data = parse_json(claude_response)
 
 # Write single output file
 Write({
-  file_path: "{base_path}/.design/style-extraction/style-cards.json",
+  file_path: "{base_path}/style-extraction/style-cards.json",
   content: style_cards_data
 })
 ```
@@ -169,6 +230,7 @@ Write({
 TodoWrite({
   todos: [
     {content: "Validate inputs and create directories", status: "completed", activeForm: "Validating inputs"},
+    {content: "Research modern design trends with Exa MCP", status: "completed", activeForm: "Researching design trends"},
     {content: "Analyze design references with Claude", status: "completed", activeForm: "Analyzing design"},
     {content: `Generate ${variants_count} style cards with token proposals`, status: "completed", activeForm: "Generating style cards"}
   ]
@@ -186,7 +248,7 @@ Input mode: {input_mode}
 Generated {variants_count} style variant(s):
 {FOR each card: - {card.name} ({card.id})}
 
-📂 Output: {base_path}/.design/style-extraction/style-cards.json
+📂 Output: {base_path}/style-extraction/style-cards.json
 
 Next: /workflow:ui-design:consolidate --session {session_id} --variants {variants_count}
 
@@ -196,7 +258,12 @@ Note: When called from /workflow:ui-design:auto, consolidation is triggered auto
 ## Output Structure
 
 ```
-.workflow/WFS-{session}/.design/style-extraction/
+.workflow/WFS-{session}/design-{run_id}/style-extraction/
+└── style-cards.json    # Single comprehensive output
+
+OR (standalone mode):
+
+.workflow/.design/{run_id}/style-extraction/
 └── style-cards.json    # Single comprehensive output
 ```
 
@@ -569,32 +636,45 @@ Complete structure with example values:
 
 ## Key Features
 
-1. **Zero External Dependencies**
-   - No `gemini-wrapper`, no `codex` - pure Claude synthesis
-   - Single-pass comprehensive analysis
+1. **Trend-Aware Style Generation** 🆕
+   - Uses Exa MCP to research current design trends (2024-2025)
+   - Searches for color theory, typography trends, layout patterns, and accessibility guidelines
+   - Generates style variants informed by modern best practices
+   - Balances innovation with timeless design principles
 
-2. **Streamlined Output**
+2. **Zero External Dependencies for Analysis**
+   - No `gemini-wrapper`, no `codex` for style synthesis - pure Claude
+   - Single-pass comprehensive analysis with trend integration
+
+3. **Streamlined Output**
    - Single file (`style-cards.json`) vs. multiple scattered files
    - Eliminates `semantic_style_analysis.json`, `design-tokens.json`, `tailwind-tokens.js` clutter
    - Each variant contains complete token proposals embedded
 
-3. **Flexible Input Modes**
+4. **Flexible Input Modes**
    - Image-only: Analyze visual references
    - Text-only: Generate from descriptions
    - Hybrid: Text guides image analysis
+   - All modes enhanced with web-based design research
 
-4. **Reproducible Structure**
+5. **Context-Aware Research**
+   - Extracts design keywords from user prompts (e.g., "minimalist", "Linear.app")
+   - Considers project type from brainstorming artifacts
+   - Customizes search queries based on project context
+
+6. **Reproducible Structure**
    - Same inputs = same output structure
    - Deterministic JSON schema
-   - Content may vary based on Claude model version
+   - Content informed by current design trends
 
-5. **Production-Ready Tokens**
+7. **Production-Ready Tokens**
    - Complete design system proposals per variant
    - OKLCH color format for accessibility
    - Semantic naming conventions
-   - WCAG AA accessibility considerations
+   - WCAG AA accessibility considerations from latest guidelines
+   - Modern typography trends (variable fonts, system stacks)
 
-6. **Workflow Integration**
+8. **Workflow Integration**
    - Integrated mode: Works within existing workflow sessions
    - Standalone mode: Auto-creates session in scratchpad
    - Context-aware: Can reference synthesis-specification.md or ui-designer/analysis.md

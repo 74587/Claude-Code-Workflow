@@ -64,13 +64,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 run_id = "run-$(date +%Y%m%d-%H%M%S)"
 
 IF --session:
-    base_path = ".workflow/WFS-{session_id}/runs/${run_id}"
+    base_path = ".workflow/WFS-{session_id}/design-${run_id}"
 ELSE:
-    session_id = "imitate-session-$(date +%Y%m%d-%H%M%S)"
-    base_path = ".workflow/.scratchpad/${session_id}/runs/${run_id}"
+    base_path = ".workflow/.design/${run_id}"
 
 # Create directories (simpler than explore-auto)
-Bash(mkdir -p "${base_path}/.design/{style-extraction,style-consolidation/style-1,prototypes}")
+Bash(mkdir -p "${base_path}/{style-extraction,style-consolidation/style-1,prototypes}")
 
 # Initialize metadata
 Write({base_path}/.run-metadata.json): {
@@ -130,7 +129,7 @@ STORE: run_id, base_path, inferred_page_list = validated_pages
 ```bash
 IF --url provided:
     REPORT: "📸 Phase 0.5: Capturing screenshots..."
-    screenshot_dir = "{base_path}/.design/screenshots"
+    screenshot_dir = "{base_path}/screenshots"
     Bash(mkdir -p "{screenshot_dir}")
 
     screenshot_success = false
@@ -215,7 +214,7 @@ ELSE:
 ```bash
 # Determine input based on screenshot capture
 IF screenshot_mode == "with_screenshots":
-    screenshot_glob = "{base_path}/.design/screenshots/*.{png,jpg,jpeg}"
+    screenshot_glob = "{base_path}/screenshots/*.{png,jpg,jpeg}"
     images_flag = "--images \"{screenshot_glob}\""
     url_flag = ""
     source_desc = "captured screenshots from {url_value}"
@@ -229,7 +228,7 @@ ELSE IF screenshot_mode == "manual_images":
     source_desc = "user-provided images"
 
 prompt_flag = --prompt present ? "--prompt \"{prompt_text}\"" : ""
-run_base_flag = "--base-path \"{base_path}/.design\""
+run_base_flag = "--base-path \"{base_path}\""
 
 # Construct optimized extraction prompt
 enhanced_prompt = "Extract a single, high-fidelity design system that accurately imitates the visual style from {source_desc}. {prompt_text}"
@@ -256,7 +255,7 @@ SlashCommand(command)
 REPORT: "🚀 Phase 2: Fast token adaptation (bypassing consolidate)"
 
 # Read single style card
-style_cards = Read({base_path}/.design/style-extraction/style-cards.json)
+style_cards = Read({base_path}/style-extraction/style-cards.json)
 style_card = style_cards.style_cards[0]
 
 design_tokens = style_card.proposed_tokens
@@ -264,10 +263,10 @@ philosophy = style_card.design_philosophy
 style_name = style_card.name
 
 # Write design-tokens.json directly
-Write({base_path}/.design/style-consolidation/style-1/design-tokens.json, JSON.stringify(design_tokens, null, 2))
+Write({base_path}/style-consolidation/style-1/design-tokens.json, JSON.stringify(design_tokens, null, 2))
 
 # Create minimal style-guide.md
-Write({base_path}/.design/style-consolidation/style-1/style-guide.md):
+Write({base_path}/style-consolidation/style-1/style-guide.md):
 # Design System: {style_name}
 
 ## Design Philosophy
@@ -292,19 +291,6 @@ All tokens in `design-tokens.json` follow OKLCH color space.
 
 *Note: Generated in imitate mode for fast replication.*
 
-# Create minimal tailwind.config.js
-Write({base_path}/.design/style-consolidation/style-1/tailwind.config.js):
-module.exports = {
-  theme: {
-    extend: {
-      colors: ${JSON.stringify(design_tokens.colors, null, 6)},
-      fontFamily: ${JSON.stringify(design_tokens.typography.font_family, null, 6)},
-      spacing: ${JSON.stringify(design_tokens.spacing, null, 6)},
-      borderRadius: ${JSON.stringify(design_tokens.border_radius, null, 6)},
-    }
-  }
-}
-
 REPORT: "✅ Tokens extracted and formatted"
 REPORT: "   Style: {style_name}"
 REPORT: "   Bypassed consolidate for {performance_gain}× speed"
@@ -318,7 +304,7 @@ REPORT: "   Bypassed consolidate for {performance_gain}× speed"
 
 **Command**:
 ```bash
-run_base_flag = "--base-path \"{base_path}/.design\""
+run_base_flag = "--base-path \"{base_path}\""
 pages_string = ",".join(inferred_page_list)
 pages_flag = "--pages \"{pages_string}\""
 
@@ -349,7 +335,7 @@ IF --session:
     SlashCommand(command)
 ELSE:
     REPORT: "ℹ️ Standalone mode: Skipping integration"
-    REPORT: "   Prototypes at: {base_path}/.design/prototypes/"
+    REPORT: "   Prototypes at: {base_path}/prototypes/"
 ```
 
 **Completion**: Workflow complete
@@ -453,12 +439,12 @@ Phase 2 - Token Adaptation: Bypassed consolidate (⚡ {time_saved}s saved)
 Phase 3 - Prototype Generation: {page_count} prototypes created
 Phase 4 - Design Integration: {integrated OR "Standalone mode"}
 
-📂 Output: {base_path}/.design/
+📂 Output: {base_path}/
   ├── style-extraction/style-cards.json (1 style card)
   ├── style-consolidation/style-1/ (design tokens)
   └── prototypes/ ({page_count} HTML/CSS files)
 
-🌐 Preview: {base_path}/.design/prototypes/index.html
+🌐 Preview: {base_path}/prototypes/index.html
 
 Performance:
 - Design system: ~{time}s (vs ~{consolidate_time}s with consolidate)
@@ -469,6 +455,6 @@ Performance:
 Next: /workflow:plan to create implementation tasks
 }
 {ELSE:
-Prototypes ready: {base_path}/.design/prototypes/
+Prototypes ready: {base_path}/prototypes/
 }
 ```

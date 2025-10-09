@@ -112,13 +112,12 @@ STORE: style_variants, layout_variants
 run_id = "run-$(date +%Y%m%d-%H%M%S)"
 
 IF --session:
-    base_path = ".workflow/WFS-{session_id}/runs/${run_id}"
+    base_path = ".workflow/WFS-{session_id}/design-${run_id}"
 ELSE:
-    session_id = "design-session-$(date +%Y%m%d-%H%M%S)"
-    base_path = ".workflow/.scratchpad/${session_id}/runs/${run_id}"
+    base_path = ".workflow/.design/${run_id}"
 
 # Create directories
-Bash(mkdir -p "${base_path}/.design/{style-extraction,style-consolidation,prototypes}")
+Bash(mkdir -p "${base_path}/{style-extraction,style-consolidation,prototypes}")
 
 # Initialize metadata
 Write({base_path}/.run-metadata.json): {
@@ -135,12 +134,6 @@ Write({base_path}/.run-metadata.json): {
   },
   "status": "in_progress"
 }
-
-# Update "latest" symlink (Windows-compatible)
-IF --session:
-    Bash(cd ".workflow/WFS-{session_id}" && rm -rf latest && mklink /D latest "runs/${run_id}")
-ELSE:
-    Bash(cd ".workflow/.scratchpad/${session_id}" && rm -rf latest && mklink /D latest "runs/${run_id}")
 
 STORE: run_id, base_path
 ```
@@ -407,7 +400,7 @@ STORE: exploration_mode = exploration_mode  # "page" or "component"
 ```bash
 images_flag = --images present ? "--images \"{image_glob}\"" : ""
 prompt_flag = --prompt present ? "--prompt \"{prompt_text}\"" : ""
-run_base_flag = "--base-path \"{base_path}/.design\""
+run_base_flag = "--base-path \"{base_path}\""
 
 command = "/workflow:ui-design:extract {run_base_flag} {images_flag} {prompt_flag} --variants {style_variants}"
 SlashCommand(command)
@@ -419,15 +412,15 @@ SlashCommand(command)
 ### Phase 2: Style Consolidation with Separation
 **Command**:
 ```bash
-run_base_flag = "--base-path \"{base_path}/.design\""
+run_base_flag = "--base-path \"{base_path}\""
 
 # Use count-based parameter with --keep-separate for matrix mode
 command = "/workflow:ui-design:consolidate {run_base_flag} --variants {style_variants} --keep-separate"
 SlashCommand(command)
 ```
 **Result**: Generates `style_variants` independent design systems:
-- `.design/style-consolidation/style-1/design-tokens.json`
-- `.design/style-consolidation/style-{N}/design-tokens.json`
+- `style-consolidation/style-1/design-tokens.json`
+- `style-consolidation/style-{N}/design-tokens.json`
 
 **Auto-Continue**: On completion → Phase 3
 
@@ -436,7 +429,7 @@ SlashCommand(command)
 ### Phase 3: Matrix UI Generation (Mode-Aware)
 **Command**:
 ```bash
-run_base_flag = "--base-path \"{base_path}/.design\""
+run_base_flag = "--base-path \"{base_path}\""
 
 IF exploration_mode == "page":
     # Page Mode: Generate full pages
@@ -620,11 +613,11 @@ Phase 4 - Design Update: Brainstorming artifacts updated
 {IF batch-plan: Phase 5 - Task Generation: {task_count} implementation tasks created}
 
 📂 Run Output: {base_path}/
-  ├── .design/style-consolidation/  ({style_variants} design systems)
-  ├── .design/prototypes/           ({total_prototypes} HTML/CSS files)
-  └── .run-metadata.json            (run configuration)
+  ├── style-consolidation/  ({style_variants} design systems)
+  ├── prototypes/           ({total_prototypes} HTML/CSS files)
+  └── .run-metadata.json    (run configuration)
 
-🌐 Interactive Preview: {base_path}/.design/prototypes/compare.html
+🌐 Interactive Preview: {base_path}/prototypes/compare.html
   - {style_variants}×{layout_variants} matrix view with synchronized scrolling
   - Zoom controls and fullscreen mode
   - Selection export for implementation
@@ -659,11 +652,11 @@ Phase 3 - Matrix Generation: {style_variants}×{layout_variants}×{component_cou
 Phase 4 - Design Update: Brainstorming artifacts updated
 
 📂 Run Output: {base_path}/
-  ├── .design/style-consolidation/  ({style_variants} design systems)
-  ├── .design/prototypes/           ({total_prototypes} component HTML/CSS files)
-  └── .run-metadata.json            (run configuration)
+  ├── style-consolidation/  ({style_variants} design systems)
+  ├── prototypes/           ({total_prototypes} component HTML/CSS files)
+  └── .run-metadata.json    (run configuration)
 
-🌐 Interactive Preview: {base_path}/.design/prototypes/compare.html
+🌐 Interactive Preview: {base_path}/prototypes/compare.html
   - {style_variants}×{layout_variants} component matrix view
   - Isolated component rendering (minimal wrapper)
   - Side-by-side comparison for design decisions

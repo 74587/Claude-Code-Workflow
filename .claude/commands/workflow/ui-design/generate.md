@@ -2,11 +2,11 @@
 name: generate
 description: Generate UI prototypes in matrix mode (style × layout combinations)
 usage: /workflow:ui-design:generate [--pages "<list>"] [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
-argument-hint: "[--pages \"dashboard,auth\"] [--base-path \".workflow/WFS-xxx/runs/run-xxx/.design\"] [--style-variants 3] [--layout-variants 3]"
+argument-hint: "[--pages \"dashboard,auth\"] [--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--style-variants 3] [--layout-variants 3]"
 examples:
-  - /workflow:ui-design:generate --base-path ".workflow/WFS-auth/runs/run-xxx/.design" --pages "dashboard,settings" --style-variants 3 --layout-variants 3
+  - /workflow:ui-design:generate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --pages "dashboard,settings" --style-variants 3 --layout-variants 3
   - /workflow:ui-design:generate --session WFS-auth --pages "home,pricing" --style-variants 2 --layout-variants 2
-  - /workflow:ui-design:generate --base-path "./design-session-xxx/.design" --style-variants 3 --layout-variants 3
+  - /workflow:ui-design:generate --base-path "./.workflow/.design/run-20250109-150533" --style-variants 3 --layout-variants 3
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(conceptual-planning-agent), Bash(*)
 ---
 
@@ -24,6 +24,38 @@ Generate production-ready UI prototypes (HTML/CSS) in `style × layout` matrix m
 
 ## Execution Protocol
 
+### Phase 0: Load Layout Strategies
+
+```bash
+# Determine base path first (using same logic as Phase 1)
+IF --base-path provided:
+    base_path = {provided_base_path}
+ELSE IF --session provided:
+    # Find latest design run in session
+    base_path = find_latest_path_matching(".workflow/WFS-{session}/design-*")
+ELSE:
+    base_path = find_latest_path_matching(".workflow/.design/*")
+
+# Load layout strategies from consolidation output
+layout_strategies_path = "{base_path}/style-consolidation/layout-strategies.json"
+VERIFY: exists(layout_strategies_path), "Layout strategies not found. Run /workflow:ui-design:consolidate first."
+
+layout_strategies = Read(layout_strategies_path)
+layout_variants = layout_strategies.layout_variants_count
+
+REPORT: "📐 Loaded {layout_variants} layout strategies:"
+FOR strategy IN layout_strategies.strategies:
+    REPORT: "  - {strategy.name}: {strategy.description}"
+
+# Override layout_variants if --layout-variants is provided (for manual runs)
+IF --layout-variants provided:
+    WARN: "Overriding layout strategies count from {layout_variants} to {provided_count}"
+    layout_variants = {provided_count}
+    VALIDATE: 1 <= layout_variants <= len(layout_strategies.strategies)
+    # Trim strategies to match count
+    layout_strategies.strategies = layout_strategies.strategies[0:layout_variants]
+```
+
 ### Phase 1: Path Resolution & Context Loading
 
 ```bash
@@ -35,12 +67,12 @@ ELSE IF --session provided:
 ELSE:
     base_path = find_latest_design_session(".workflow/.scratchpad/")
 
-# 2. Determine variant counts
+# 2. Determine style variant count (layout_variants already loaded in Phase 0)
 style_variants = --style-variants OR 3  # Default to 3
-layout_variants = --layout-variants OR 3  # Default to 3
 
 VALIDATE: 1 <= style_variants <= 5
-VALIDATE: 1 <= layout_variants <= 5
+
+# Note: layout_variants is loaded from layout-strategies.json in Phase 0
 
 # 3. Enhanced page list parsing
 page_list = []
@@ -85,14 +117,62 @@ IF --session:
     synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
 ```
 
+### Phase 1.5: Implementation Pattern Research (Exa MCP)
+
+```bash
+# Step 1: Extract project context and technology preferences
+project_context = ""
+tech_stack_hints = []
+
+IF --session:
+    # Load brainstorming artifacts to understand tech requirements
+    IF exists(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md):
+        project_context = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
+        tech_stack_hints = extract_tech_stack(project_context)  # e.g., "React", "Vue", "vanilla JS"
+
+    IF exists(.workflow/WFS-{session}/.brainstorming/system-architect/analysis.md):
+        arch_context = Read(.workflow/WFS-{session}/.brainstorming/system-architect/analysis.md)
+        tech_stack_hints.extend(extract_tech_stack(arch_context))
+
+# Step 2: Extract page types and requirements
+page_types = classify_pages(page_list)  # e.g., "dashboard", "auth", "settings"
+layout_names = [s.name for s in layout_strategies.strategies]
+
+REPORT: "🔍 Researching modern UI implementation patterns..."
+
+# Step 3: Multi-dimensional implementation research using Exa MCP
+exa_queries = {
+    "component_patterns": f"modern UI component implementation patterns {' '.join(tech_stack_hints)} 2024 2025",
+    "responsive_design": f"responsive web design best practices mobile-first {' '.join(page_types)} 2024",
+    "accessibility": f"web accessibility ARIA attributes implementation WCAG 2.2 {' '.join(page_types)}",
+    "html_semantics": f"semantic HTML5 structure best practices {' '.join(page_types)} modern",
+    "css_architecture": f"CSS architecture design tokens custom properties BEM {' '.join(tech_stack_hints)}"
+}
+
+implementation_research = {}
+FOR category, query IN exa_queries.items():
+    REPORT: f"   Searching {category}..."
+    implementation_research[category] = mcp__exa__get_code_context_exa(
+        query=query,
+        tokensNum="dynamic"
+    )
+
+REPORT: "✅ Implementation research complete:"
+REPORT: "   - Component patterns and best practices"
+REPORT: "   - Responsive design strategies"
+REPORT: "   - Accessibility implementation guides"
+REPORT: "   - Semantic HTML structures"
+REPORT: "   - CSS architecture patterns"
+```
+
 ### Phase 2: Optimized Matrix UI Generation
 
 **Strategy**: Two-layer generation reduces complexity from `O(S×L×P)` to `O(L×P)`, achieving **`S` times faster** performance.
 
-- **Layer 1**: Generate `L × P` layout templates (HTML structure + structural CSS)
+- **Layer 1**: Generate `L × P` layout templates (HTML structure + structural CSS) with modern best practices
 - **Layer 2**: Instantiate `S × L × P` final prototypes via fast file operations
 
-#### Phase 2a: Layout Template Generation
+#### Phase 2a: Layout Template Generation (Research-Informed)
 
 Generate style-agnostic layout templates for each `{page} × {layout}` combination.
 Total agent tasks: `layout_variants × len(page_list)`
@@ -108,7 +188,7 @@ FOR layout_id IN range(1, layout_variants + 1):
         Task(conceptual-planning-agent): "
           [UI_LAYOUT_TEMPLATE_GENERATION]
 
-          Generate a **style-agnostic** layout template for a specific page and layout strategy.
+          Generate a **style-agnostic** layout template for a specific page and layout strategy, informed by modern web development best practices.
 
           ## Context
           LAYOUT_ID: {layout_id}
@@ -116,8 +196,25 @@ FOR layout_id IN range(1, layout_variants + 1):
           BASE_PATH: {base_path}
           {IF --session: - Requirements: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md}
 
+          ## Implementation Research (from web, 2024-2025)
+
+          COMPONENT PATTERNS:
+          {implementation_research.component_patterns}
+
+          RESPONSIVE DESIGN:
+          {implementation_research.responsive_design}
+
+          ACCESSIBILITY GUIDELINES:
+          {implementation_research.accessibility}
+
+          HTML SEMANTICS:
+          {implementation_research.html_semantics}
+
+          CSS ARCHITECTURE:
+          {implementation_research.css_architecture}
+
           ## Task
-          Generate TWO files that work together as a reusable template:
+          Generate TWO files that work together as a reusable template, incorporating insights from the implementation research above:
 
           **File 1**: `{page}-layout-{layout_id}.html`
           - Semantic HTML5 structure WITHOUT any style-specific values
@@ -137,27 +234,13 @@ FOR layout_id IN range(1, layout_variants + 1):
           - Mobile-first responsive design using token-based breakpoints
 
           ## Layout Diversity Strategy
-          Apply this strategy CONSISTENTLY to all styles:
+          Apply the following strategy from the planned layout strategies (loaded from layout-strategies.json):
 
-          {IF layout_id == 1}
-          **Layout 1: Classic Hierarchy**
-          - Traditional F-pattern reading flow
-          - Top navigation with sidebar
-          - Card-based content sections
-          {ELSE IF layout_id == 2}
-          **Layout 2: Modern Asymmetric**
-          - Z-pattern visual flow
-          - Split-screen hero sections
-          - Grid-based modular content
-          {ELSE IF layout_id == 3}
-          **Layout 3: Minimal Focus**
-          - Centered single-column content
-          - Floating navigation
-          - Generous whitespace and breathing room
-          {ELSE}
-          **Layout {layout_id}: Custom Variant**
-          - Develop a unique and consistent layout structure different from the standard three
-          {ENDIF}
+          **Layout ID**: {layout_id}
+          **Name**: {layout_strategies.strategies[layout_id - 1].name}
+          **Description**: {layout_strategies.strategies[layout_id - 1].description}
+
+          Apply this strategy CONSISTENTLY to all styles.
 
           ## Token Usage Requirements (STRICT)
           - All colors: var(--color-brand-primary), var(--color-surface-background), etc.
@@ -165,17 +248,19 @@ FOR layout_id IN range(1, layout_variants + 1):
           - All typography: var(--font-family-heading), var(--font-size-lg), etc.
           - NO hardcoded values allowed
 
-          ## HTML Requirements
+          ## HTML Requirements (Apply Modern Best Practices from Research)
           - Semantic HTML5 elements (<header>, <nav>, <main>, <section>, <article>)
-          - ARIA attributes for accessibility (role, aria-label, aria-labelledby)
-          - Proper heading hierarchy (h1 → h2 → h3)
-          - Mobile-first responsive design
+          - ARIA attributes for accessibility following WCAG 2.2 guidelines from research
+          - Proper heading hierarchy (h1 → h2 → h3) as recommended in HTML semantics research
+          - Mobile-first responsive design using patterns from responsive design research
+          - Component structure following modern patterns from component research
 
-          ## CSS Requirements
+          ## CSS Requirements (Apply Architecture Patterns from Research)
           - Use CSS custom properties from design-tokens.json
           - Mobile-first media queries using token breakpoints
           - No inline styles
-          - BEM or semantic class naming
+          - BEM or semantic class naming following CSS architecture research
+          - Apply modern responsive patterns (grid, flexbox, container queries if applicable)
 
           ## Responsive Design
           - Mobile: 375px+ (single column, stacked)
@@ -199,73 +284,60 @@ REPORT: "✅ Phase 2a complete: Generated {layout_variants * len(page_list)} lay
 
 #### Phase 2b: Prototype Instantiation
 
-Create final `S × L × P` prototypes by copying templates and injecting style-specific CSS links.
-Uses **fast file operations** instead of expensive Agent calls.
+Create final `S × L × P` prototypes using the optimized `ui-instantiate-prototypes.sh` script.
+Uses **fast file operations** and **auto-detection** for efficient generation.
 
 ```bash
 REPORT: "🚀 Phase 2b: Instantiating prototypes from templates..."
 
-# Convert design tokens to CSS for each style
+# Step 1: Convert design tokens to CSS for each style
+REPORT: "   Converting design tokens to CSS variables..."
 FOR style_id IN range(1, style_variants + 1):
     tokens_json = Read({base_path}/style-consolidation/style-{style_id}/design-tokens.json)
     tokens_css = convert_json_to_css_variables(tokens_json)
     Write({base_path}/style-consolidation/style-{style_id}/tokens.css, tokens_css)
+    REPORT: "   ✓ Generated tokens.css for style-{style_id}"
 
-# Instantiate S × L × P final prototypes
+# Step 2: Use ui-instantiate-prototypes.sh script for instantiation
+# The script handles:
+# - Template copying with placeholder replacement
+# - Implementation notes generation
+# - Preview files (compare.html, index.html, PREVIEW.md)
+# - Auto-detection of configuration from directory structure
+
+# Prepare script parameters
+prototypes_dir = "{base_path}/prototypes"
+pages_csv = ','.join(page_list)
+
+# Determine session ID
+IF --session provided:
+    session_id = {session_id}
+ELSE:
+    session_id = "standalone"
+
+# Execute instantiation script
 Bash(
-  cd {base_path}/prototypes/
-
-  for s in $(seq 1 {style_variants}); do
-    for l in $(seq 1 {layout_variants}); do
-      for p in {' '.join(page_list)}; do
-
-        # Define file paths
-        TEMPLATE_HTML="_templates/${p}-layout-${l}.html"
-        STRUCTURAL_CSS="./_templates/${p}-layout-${l}.css"
-        TOKEN_CSS="../../style-consolidation/style-${s}/tokens.css"
-        OUTPUT_HTML="${p}-style-${s}-layout-${l}.html"
-
-        # Copy template and replace placeholders
-        cp "${TEMPLATE_HTML}" "${OUTPUT_HTML}"
-        sed -i "s|{{STRUCTURAL_CSS}}|${STRUCTURAL_CSS}|g" "${OUTPUT_HTML}"
-        sed -i "s|{{TOKEN_CSS}}|${TOKEN_CSS}|g" "${OUTPUT_HTML}"
-
-        # Create implementation notes
-        cat > "${p}-style-${s}-layout-${l}-notes.md" <<EOF
-# Implementation Notes: ${p}-style-${s}-layout-${l}
-
-## Generation Details
-- **Template**: ${TEMPLATE_HTML}
-- **Structural CSS**: ${STRUCTURAL_CSS}
-- **Style Tokens**: ${TOKEN_CSS}
-- **Layout Strategy**: Layout ${l}
-- **Style Variant**: Style ${s}
-
-## Template Reuse
-This prototype was generated from a shared layout template to ensure consistency
-across all style variants. The HTML structure is identical for all ${p}-layout-${l}
-prototypes, with only the design tokens (colors, fonts, spacing) varying.
-
-## Design System Reference
-Refer to \`../../style-consolidation/style-${s}/style-guide.md\` for:
-- Design philosophy
-- Token usage guidelines
-- Component patterns
-- Accessibility requirements
-
-## Customization
-To modify this prototype:
-1. Edit the layout template: \`${TEMPLATE_HTML}\` (affects all styles)
-2. Edit the structural CSS: \`${STRUCTURAL_CSS}\` (affects all styles)
-3. Edit design tokens: \`${TOKEN_CSS}\` (affects only this style variant)
-EOF
-      done
-    done
-  done
+  ~/.claude/scripts/ui-instantiate-prototypes.sh \
+    "{prototypes_dir}" \
+    --session-id "{session_id}" \
+    --mode "page"
 )
+
+# The script auto-detects:
+# - Pages from _templates/*.html files
+# - Style variants from ../style-consolidation/style-* directories
+# - Layout variants from _templates/*-layout-*.html pattern
+
+# Script generates:
+# 1. S × L × P HTML prototypes with CSS links
+# 2. Implementation notes for each prototype
+# 3. compare.html (interactive matrix)
+# 4. index.html (navigation page)
+# 5. PREVIEW.md (documentation)
 
 REPORT: "✅ Phase 2b complete: Instantiated {style_variants * layout_variants * len(page_list)} final prototypes"
 REPORT: "   Performance: {style_variants}× faster than original approach"
+REPORT: "   Preview files generated: compare.html, index.html, PREVIEW.md"
 ```
 
 **Performance Comparison**:
@@ -277,139 +349,48 @@ REPORT: "   Performance: {style_variants}× faster than original approach"
 | Speed Improvement | Baseline | **3× faster** (S times) |
 | Resource Usage | High (creative generation for each combo) | Optimized (creative only for templates) |
 
-### Phase 3: Generate Preview Files
+### Phase 3: Verify Preview Files
 
 ```bash
-# Read matrix visualization template
-template_content = Read("~/.claude/workflows/_template-compare-matrix.html")
+# Note: Preview files are now generated by ui-instantiate-prototypes.sh script
+# This phase only verifies that all expected files were created
 
-# Inject variables into template
-pages_json = JSON.stringify(page_list)
-run_id = extract_run_id_from_base_path({base_path})
+REPORT: "🔍 Phase 3: Verifying preview files..."
 
-injected_content = template_content
-    .replace("{{run_id}}", run_id)
-    .replace("{{style_variants}}", style_variants)
-    .replace("{{layout_variants}}", layout_variants)
-    .replace("{{pages_json}}", pages_json)
+expected_files = [
+    "{base_path}/prototypes/compare.html",
+    "{base_path}/prototypes/index.html",
+    "{base_path}/prototypes/PREVIEW.md"
+]
 
-Write({base_path}/prototypes/compare.html, injected_content)
+all_present = true
+FOR file_path IN expected_files:
+    IF exists(file_path):
+        REPORT: "   ✓ Found: {basename(file_path)}"
+    ELSE:
+        REPORT: "   ✗ Missing: {basename(file_path)}"
+        all_present = false
 
-# Generate fallback design-tokens.css
-Write({base_path}/prototypes/design-tokens.css):
-/* Auto-generated from all style design systems */
-/* Note: Each prototype links to its specific style's tokens */
+IF all_present:
+    REPORT: "✅ Phase 3 complete: All preview files verified"
+ELSE:
+    WARN: "⚠️ Some preview files missing - script may have failed"
+    REPORT: "   Check Phase 2b output for errors"
+
+# Optional: Generate fallback design-tokens.css for reference
+fallback_css_path = "{base_path}/prototypes/design-tokens.css"
+IF NOT exists(fallback_css_path):
+    Write(fallback_css_path, """
+/* Auto-generated fallback CSS custom properties */
+/* Note: Each prototype links to its specific style's tokens.css */
+/* See style-consolidation/style-{n}/tokens.css for actual values */
 
 :root {
-  /* Fallback tokens - each HTML file should link to its style-specific tokens */
-  /* See style-consolidation/style-{n}/design-tokens.json for actual values */
+  /* This file serves as documentation only */
+  /* Individual prototypes use style-specific tokens */
 }
-
-# Generate simple index.html
-Write({base_path}/prototypes/index.html):
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UI Prototypes - Matrix View</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
-    h1 { color: #2563eb; }
-    .info { background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
-    .cta { display: inline-block; background: #2563eb; color: white; padding: 0.75rem 1.5rem;
-           border-radius: 0.5rem; text-decoration: none; font-weight: 600; margin-top: 1rem; }
-    .cta:hover { background: #1d4ed8; }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.5rem 0; }
-    .stat { background: white; border: 1px solid #e5e7eb; padding: 1rem; border-radius: 0.5rem; text-align: center; }
-    .stat-value { font-size: 2rem; font-weight: bold; color: #2563eb; }
-    .stat-label { color: #6b7280; font-size: 0.875rem; margin-top: 0.25rem; }
-  </style>
-</head>
-<body>
-  <h1>🎨 UI Prototype Matrix</h1>
-
-  <div class="info">
-    <p><strong>Matrix Configuration:</strong> {style_variants} styles × {layout_variants} layouts × {len(page_list)} pages</p>
-    <p><strong>Total Prototypes:</strong> {style_variants * layout_variants * len(page_list)}</p>
-  </div>
-
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-value">{style_variants}</div>
-      <div class="stat-label">Style Variants</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value">{layout_variants}</div>
-      <div class="stat-label">Layout Options</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value">{len(page_list)}</div>
-      <div class="stat-label">Pages</div>
-    </div>
-  </div>
-
-  <a href="compare.html" class="cta">🔍 Open Interactive Matrix Comparison →</a>
-
-  <h2>Features</h2>
-  <ul>
-    <li>3×3 matrix grid view with synchronized scrolling</li>
-    <li>Zoom controls (25%, 50%, 75%, 100%)</li>
-    <li>Fullscreen mode for individual prototypes</li>
-    <li>Selection system with export functionality</li>
-    <li>Page switcher for multi-page comparison</li>
-  </ul>
-
-  <h2>Generated Pages</h2>
-  <ul>
-    {FOR page IN page_list:
-      <li><strong>{page}</strong>: {style_variants × layout_variants} variants</li>
-    }
-  </ul>
-</body>
-</html>
-
-# Generate PREVIEW.md
-Write({base_path}/prototypes/PREVIEW.md):
-# UI Prototype Preview Guide
-
-## Quick Start
-1. Open `compare.html` in a modern browser
-2. Use the page selector to switch between pages
-3. Interact with prototypes in the 3×3 matrix
-
-## Matrix Configuration
-- **Style Variants:** {style_variants}
-- **Layout Options:** {layout_variants}
-- **Pages:** {page_list}
-- **Total Prototypes:** {style_variants * layout_variants * len(page_list)}
-
-## File Naming Convention
-`{page}-style-{s}-layout-{l}.html`
-
-Example: `dashboard-style-1-layout-2.html`
-- Page: dashboard
-- Style: Design system 1
-- Layout: Layout variant 2
-
-## Interactive Features
-- **Synchronized Scroll:** All prototypes scroll together
-- **Zoom Controls:** Adjust viewport scale (25%-100%)
-- **Fullscreen:** Click any prototype for detailed view
-- **Selection:** Mark favorites for implementation
-- **Export:** Save selections as JSON
-
-## Design System References
-Each prototype uses tokens from:
-`../style-consolidation/style-{s}/design-tokens.json`
-
-Refer to corresponding `style-guide.md` for design philosophy and usage guidelines.
-
-## Next Steps
-1. Review all variants in compare.html
-2. Select preferred style×layout combinations
-3. Export selections for implementation planning
-4. Run `/workflow:ui-design:update` to integrate chosen designs
+""")
+    REPORT: "   ✓ Generated fallback design-tokens.css"
 ```
 
 ### Phase 3.5: Cross-Page Consistency Validation
@@ -520,10 +501,13 @@ Run `/workflow:ui-design:update` once all issues are resolved.
 ```javascript
 TodoWrite({
   todos: [
+    {content: "Load layout strategies from consolidation", status: "completed", activeForm: "Loading layout strategies"},
     {content: "Resolve paths and load design systems", status: "completed", activeForm: "Loading design systems"},
-    {content: `Generate ${layout_variants}×${page_list.length} layout templates`, status: "completed", activeForm: "Generating layout templates"},
-    {content: `Instantiate ${style_variants}×${layout_variants}×${page_list.length} final prototypes`, status: "completed", activeForm: "Instantiating prototypes"},
-    {content: "Generate interactive preview files", status: "completed", activeForm: "Generating preview"}
+    {content: "Research modern UI implementation patterns with Exa MCP", status: "completed", activeForm: "Researching implementation patterns"},
+    {content: `Generate ${layout_variants}×${page_list.length} layout templates using planned strategies`, status: "completed", activeForm: "Generating layout templates"},
+    {content: "Convert design tokens to CSS variables", status: "completed", activeForm: "Converting tokens"},
+    {content: `Instantiate ${style_variants}×${layout_variants}×${page_list.length} prototypes using script`, status: "completed", activeForm: "Running instantiation script"},
+    {content: "Verify preview files generation", status: "completed", activeForm: "Verifying preview files"}
   ]
 });
 ```
@@ -534,15 +518,18 @@ TodoWrite({
 
 Configuration:
 - Style Variants: {style_variants}
-- Layout Variants: {layout_variants}
+- Layout Variants: {layout_variants} (from layout-strategies.json)
+- Layout Strategies: {[s.name for s in layout_strategies.strategies]}
 - Pages: {page_list}
 - Total Prototypes: {style_variants * layout_variants * len(page_list)}
 
 Performance Metrics:
 - Layout Templates Generated: {layout_variants * len(page_list)} (Agent tasks)
-- Prototypes Instantiated: {style_variants * layout_variants * len(page_list)} (file operations)
+- Prototypes Instantiated: {style_variants * layout_variants * len(page_list)} (script-based)
+- Preview Files: compare.html, index.html, PREVIEW.md (auto-generated)
 - Speed Improvement: {style_variants}× faster than previous approach
 - Resource Efficiency: {100 * (1 - 1/style_variants)}% reduction in Agent calls
+- Script: ui-instantiate-prototypes.sh v3.0 with auto-detection
 
 Generated Structure:
 📂 {base_path}/prototypes/
@@ -595,10 +582,32 @@ Note: When called from /workflow:ui-design:auto, design-update is triggered auto
 ```
 
 ## Error Handling
-- **No design systems found**: Run `/workflow:ui-design:consolidate --keep-separate` first
+
+### Pre-execution Checks
+- **Missing layout-strategies.json**: Error - Run `/workflow:ui-design:consolidate` first
+- **No design systems found**: Error - Run `/workflow:ui-design:consolidate --keep-separate` first
 - **Invalid page names**: Extract from synthesis-specification.md or error with validation message
-- **Agent execution errors**: Report details, suggest retry with specific phase
-- **Missing template**: Provide fallback or error with template path
+- **Missing templates directory**: Verify Phase 2a completed successfully
+
+### Phase-Specific Errors
+- **Agent execution errors (Phase 2a)**: Report details, suggest retry with specific phase
+- **Token conversion errors (Phase 2b)**: Check design-tokens.json format, validate JSON schema
+- **Script execution errors (Phase 2b)**:
+  - Check `ui-instantiate-prototypes.sh` exists at `~/.claude/scripts/`
+  - Verify script has execute permissions (`chmod +x`)
+  - Review script output for specific error messages
+  - Check template files exist in `_templates/` directory
+  - Verify style-consolidation directory structure
+- **Preview generation errors (Phase 3)**:
+  - Check script completed successfully
+  - Verify `_template-compare-matrix.html` exists
+  - Review Phase 2b output for warnings
+
+### Recovery Strategies
+- **Partial failure**: Script reports generated vs failed counts - review logs
+- **Missing templates**: Indicates Phase 2a issue - regenerate templates
+- **Auto-detection failures**: Use manual mode with explicit parameters
+- **Permission errors**: Run `chmod +x ~/.claude/scripts/ui-instantiate-prototypes.sh`
 
 ## Quality Checks
 
@@ -614,40 +623,67 @@ After generation, ensure:
 
 ## Key Features
 
-1. **Optimized Template-Based Architecture**
+1. **Research-Informed Implementation** 🆕
+   - Uses Exa MCP to research modern UI implementation patterns (2024-2025)
+   - Searches for component patterns, responsive design, accessibility, HTML semantics, CSS architecture
+   - Generates prototypes based on current web development best practices
+   - Context-aware: extracts tech stack hints from project brainstorming artifacts
+   - Multi-dimensional research: component, responsive, accessibility, semantic HTML, CSS patterns
+
+2. **Optimized Template-Based Architecture**
    - Decouples HTML structure from CSS styling
    - Generates `L × P` reusable templates instead of `S × L × P` unique files
    - **`S` times faster** than previous approach (typically 3× faster for S=3)
 
-2. **Two-Layer Generation Strategy**
-   - Layer 1: Agent-driven creative generation of layout templates
-   - Layer 2: Fast file operations for prototype instantiation
+3. **Two-Layer Generation Strategy**
+   - Layer 1: Agent-driven creative generation of layout templates (informed by research)
+   - Layer 2: Fast file operations for prototype instantiation (script-based)
    - Reduces expensive Agent calls by ~67% (for S=3)
 
-3. **Consistent Cross-Style Layouts**
+4. **Script-Based Instantiation (v3.0)**
+   - Uses `ui-instantiate-prototypes.sh` for efficient file operations
+   - Auto-detection of configuration from directory structure
+   - Robust error handling with detailed reporting
+   - Generates implementation notes for each prototype
+   - Integrated preview file generation
+
+5. **Modern Best Practices Integration**
+   - Component patterns from latest UI libraries and frameworks
+   - WCAG 2.2 accessibility implementation
+   - Modern responsive design (grid, flexbox, container queries)
+   - Semantic HTML5 structure following current standards
+   - CSS architecture patterns (BEM, design tokens, custom properties)
+
+6. **Consistent Cross-Style Layouts**
    - Same layout structure applied uniformly across all style variants
    - Easier to compare styles directly (HTML structure is identical)
    - Simplified maintenance (edit template once, affects all styles)
 
-4. **Dynamic Style Injection**
+7. **Dynamic Style Injection**
    - CSS custom properties enable runtime style switching
    - Each style variant has its own `tokens.css` file
    - Clean separation of structure and aesthetics
 
-5. **Interactive Visualization**
+8. **Interactive Visualization**
    - Full-featured compare.html from template
    - Matrix grid view with synchronized scrolling
+   - Enhanced index.html with statistics
+   - Comprehensive PREVIEW.md documentation
    - Per-style design system references
 
-6. **Production-Ready Output**
-   - Semantic HTML5 and ARIA attributes
-   - Mobile-first responsive design
+9. **Production-Ready Output**
+   - Semantic HTML5 and ARIA attributes (following latest guidelines)
+   - Mobile-first responsive design (modern patterns)
    - Token-driven styling (no hardcoded values)
+   - Implementation notes for each prototype
 
 ## Integration Points
 
-- **Input**: Per-style design-tokens.json from `/workflow:ui-design:consolidate --keep-separate`
+- **Input**:
+  - Per-style `design-tokens.json` from `/workflow:ui-design:consolidate --keep-separate`
+  - **`layout-strategies.json`** from `/workflow:ui-design:consolidate` (defines layout variants)
+  - Optional: `synthesis-specification.md` for page requirements
 - **Output**: Matrix HTML/CSS prototypes for `/workflow:ui-design:update`
 - **Template**: `~/.claude/workflows/_template-compare-matrix.html` (global)
-- **Context**: synthesis-specification.md for page requirements (optional)
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` workflow
+- **Key Change**: Layout strategies are now externalized and planned by consolidate command

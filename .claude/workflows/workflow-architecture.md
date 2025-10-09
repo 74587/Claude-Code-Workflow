@@ -276,6 +276,13 @@ All workflows use the same file structure definition regardless of complexity. *
 │   ├── execute-*-[timestamp].md        # Ad-hoc implementation logs
 │   └── codex-execute-*-[timestamp].md  # Multi-stage execution logs
 │
+├── [.design/]                  # Standalone UI design outputs (created when needed)
+│   └── run-[timestamp]/        # Timestamped design runs without session
+│       ├── style-extraction/   # Style analysis results
+│       ├── style-consolidation/ # Design system tokens
+│       ├── prototypes/         # Generated HTML/CSS prototypes
+│       └── .run-metadata.json  # Run configuration
+│
 └── WFS-[topic-slug]/
     ├── workflow-session.json        # Session metadata and state (REQUIRED)
     ├── [.brainstorming/]           # Optional brainstorming phase (created when needed)
@@ -289,6 +296,11 @@ All workflows use the same file structure definition regardless of complexity. *
     ├── [.summaries/]               # Task completion summaries (created when tasks complete)
     │   ├── IMPL-*-summary.md      # Main task summaries
     │   └── IMPL-*.*-summary.md    # Subtask summaries
+    ├── [design-*/]                 # UI design outputs (created by ui-design workflows)
+    │   ├── style-extraction/       # Style analysis results
+    │   ├── style-consolidation/    # Design system tokens
+    │   ├── prototypes/             # Generated HTML/CSS prototypes
+    │   └── .run-metadata.json      # Run configuration
     └── .task/                      # Task definitions (REQUIRED)
         ├── IMPL-*.json             # Main task definitions
         └── IMPL-*.*.json           # Subtask definitions (created dynamically)
@@ -299,6 +311,7 @@ All workflows use the same file structure definition regardless of complexity. *
 - **On-Demand Creation**: Other directories created when first needed
 - **Dynamic Files**: Subtask JSON files created during task decomposition
 - **Scratchpad Usage**: `.scratchpad/` created when CLI commands run without active session
+- **Design Usage**: `design-{timestamp}/` created by UI design workflows, `.design/` for standalone design runs
 
 #### Scratchpad Directory (.scratchpad/)
 **Purpose**: Centralized location for non-session-specific CLI outputs
