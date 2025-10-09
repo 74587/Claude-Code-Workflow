@@ -250,7 +250,7 @@ Generated {variants_count} style variant(s):
 
 📂 Output: {base_path}/style-extraction/style-cards.json
 
-Next: /workflow:ui-design:consolidate --session {session_id} --variants {variants_count}
+Next: /workflow:ui-design:consolidate --session {session_id} --variants {variants_count} [--layout-variants <count>]
 
 Note: When called from /workflow:ui-design:auto, consolidation is triggered automatically.
 ```
@@ -685,4 +685,4 @@ Complete structure with example values:
 - **Output**: `style-cards.json` for `/workflow:ui-design:consolidate`
 - **Context**: Optional brainstorming artifacts (`synthesis-specification.md`, `ui-designer/analysis.md`)
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` workflow
-- **Next Step**: `/workflow:ui-design:consolidate --session {session_id} --variants {count}` (or `--keep-separate` for matrix mode)
+- **Next Step**: `/workflow:ui-design:consolidate --session {session_id} --variants {count} [--layout-variants <count>]` (add `--keep-separate` for matrix mode)

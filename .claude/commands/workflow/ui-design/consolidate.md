@@ -108,7 +108,7 @@ layout_trends = mcp__exa__get_code_context_exa(
 REPORT: "🎨 Generating {layout_variants} custom layout strategies..."
 
 layout_synthesis_prompt = """
-Generate {layout_variants} distinct, modern UI layout strategies for this project.
+Generate EXACTLY {layout_variants} distinct, modern UI layout strategies for this project.
 
 PROJECT CONTEXT:
 {project_context}
@@ -117,27 +117,46 @@ CURRENT LAYOUT TRENDS (from web research):
 {layout_trends}
 
 REQUIREMENTS:
-1. Each layout must be unique and serve different use cases
-2. Consider modern design trends from 2024-2025
-3. Align with project type: {project_hints}
-4. Balance innovation with usability
-5. Cover diverse layout paradigms (grid-based, asymmetric, minimal, etc.)
+1. Generate EXACTLY {layout_variants} unique layout strategies (not more, not less)
+2. Each layout must be unique and serve different use cases
+3. Consider modern design trends from 2024-2025
+4. Align with project type: {project_hints}
+5. Balance innovation with usability
+6. Cover diverse layout paradigms (grid-based, asymmetric, minimal, single-column, sidebar-based, etc.)
 
 OUTPUT FORMAT (JSON):
+You MUST generate {layout_variants} strategy objects in the "strategies" array.
+
+Example for layout_variants=3:
 {
-  "layout_variants_count": {layout_variants},
+  "layout_variants_count": 3,
   "strategies": [
     {
       "id": "layout-1",
-      "name": "{Concise name, max 3 words}",
-      "description": "{Detailed description: layout structure, visual hierarchy, reading patterns, use cases. 2-3 sentences.}"
+      "name": "Grid Dashboard",
+      "description": "Traditional grid-based layout with sidebar navigation. Clear visual hierarchy with card-based content areas. Ideal for data-heavy dashboards."
     },
-    ...
+    {
+      "id": "layout-2",
+      "name": "Asymmetric Flow",
+      "description": "Dynamic asymmetric layout with floating content blocks. Natural reading flow with varied content widths. Perfect for content-focused applications."
+    },
+    {
+      "id": "layout-3",
+      "name": "Minimal Centered",
+      "description": "Clean centered layout with generous whitespace. Single-column focus with subtle hierarchy. Best for documentation or blog-style interfaces."
+    }
   ]
 }
 
+IMPORTANT:
+- The "strategies" array MUST contain EXACTLY {layout_variants} objects
+- Each strategy must have sequential IDs: "layout-1", "layout-2", ..., "layout-{layout_variants}"
+- Each strategy name must be concise (max 3 words)
+- Each description must be detailed (2-3 sentences covering structure, hierarchy, use cases)
+
 RESPONSE FORMAT:
-Provide ONLY the JSON object, no additional text.
+Provide ONLY the JSON object, no additional text before or after.
 
 ===== layout-strategies.json =====
 {JSON content}

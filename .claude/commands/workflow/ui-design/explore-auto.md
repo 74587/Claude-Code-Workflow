@@ -415,7 +415,8 @@ SlashCommand(command)
 run_base_flag = "--base-path \"{base_path}\""
 
 # Use count-based parameter with --keep-separate for matrix mode
-command = "/workflow:ui-design:consolidate {run_base_flag} --variants {style_variants} --keep-separate"
+# IMPORTANT: Pass --layout-variants to ensure correct number of layout strategies are generated
+command = "/workflow:ui-design:consolidate {run_base_flag} --variants {style_variants} --layout-variants {layout_variants} --keep-separate"
 SlashCommand(command)
 ```
 **Result**: Generates `style_variants` independent design systems:
