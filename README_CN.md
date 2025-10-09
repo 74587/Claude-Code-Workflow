@@ -254,12 +254,12 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 **阶段 2：UI 设计精炼** *(UI 密集型项目可选)*
 ```bash
 # 从参考图像中提取设计风格并生成原型
-/workflow:design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register" --batch-plan
+/workflow:ui-design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register" --batch-plan
 
 # 或者运行单独的设计阶段
-/workflow:design:style-extract --session WFS-auth --images "refs/*.png"
-/workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
-/workflow:design:ui-generate --session WFS-auth --pages "login,register" --variants 2
+/workflow:ui-design:style-extract --session WFS-auth --images "refs/*.png"
+/workflow:ui-design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
+/workflow:ui-design:ui-generate --session WFS-auth --pages "login,register" --variants 2
 
 # 预览生成的原型（新功能！）
 # 选项1：在浏览器中打开 .workflow/WFS-auth/.design/prototypes/index.html
@@ -267,7 +267,7 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 # 访问 http://localhost:8080 获取交互式预览和对比工具
 
-/workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+/workflow:ui-design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
 ```
 
 **阶段 3：行动规划**
@@ -361,11 +361,11 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 |---|---|
 | `/workflow:session:*` | 管理开发会话（`start`, `pause`, `resume`, `list`, `switch`, `complete`）。 |
 | `/workflow:brainstorm:*` | 使用基于角色的智能体进行多视角规划。 |
-| `/workflow:design:auto` | **新增** 带交互式检查点的半自主 UI 设计工作流，用于风格和原型选择。 |
-| `/workflow:design:style-extract` | **新增** 使用三重视觉分析（Claude + Gemini + Codex）从参考图像提取设计风格。 |
-| `/workflow:design:style-consolidate` | **新增** 将选定的风格变体整合为经过验证的设计令牌和风格指南。 |
-| `/workflow:design:ui-generate` | **新增** 生成基于令牌的 HTML/CSS 原型，支持可选的风格覆盖。 |
-| `/workflow:design:design-update` | **新增** 将最终确定的设计系统集成到头脑风暴产物中。 |
+| `/workflow:ui-design:auto` | **新增** 带交互式检查点的半自主 UI 设计工作流，用于风格和原型选择。 |
+| `/workflow:ui-design:style-extract` | **新增** 使用三重视觉分析（Claude + Gemini + Codex）从参考图像提取设计风格。 |
+| `/workflow:ui-design:style-consolidate` | **新增** 将选定的风格变体整合为经过验证的设计令牌和风格指南。 |
+| `/workflow:ui-design:ui-generate` | **新增** 生成基于令牌的 HTML/CSS 原型，支持可选的风格覆盖。 |
+| `/workflow:ui-design:design-update` | **新增** 将最终确定的设计系统集成到头脑风暴产物中。 |
 | `/workflow:plan` | 从描述创建详细、可执行的计划。 |
 | `/workflow:tdd-plan` | 创建 TDD 工作流（6 阶段），包含测试覆盖分析和 Red-Green-Refactor 循环。 |
 | `/workflow:execute` | 自主执行当前的工作流计划。 |
@@ -377,50 +377,50 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 | `/workflow:tools:test-concept-enhanced` | 使用 Gemini 生成测试策略和需求分析。 |
 | `/workflow:tools:test-task-generate` | 生成测试任务 JSON，包含 test-fix-cycle 规范。 |
 
-### **UI 设计工作流命令 (`/workflow:design:*`)** *(v3.5.0+)*
+### **UI 设计工作流命令 (`/workflow:ui-design:*`)** *(v3.5.0+)*
 
 设计工作流系统提供从风格提取到原型生成的完整 UI 设计精炼，配备交互式预览工具。
 
 #### 核心命令
 
-**`/workflow:design:auto`** - 完整工作流编排器
+**`/workflow:ui-design:auto`** - 完整工作流编排器
 ```bash
 # 带用户检查点的半自主工作流
-/workflow:design:auto --session WFS-auth --images "refs/*.png" --pages "login,register"
-/workflow:design:auto --session WFS-dash --images "refs/*.jpg" --pages "dashboard" --variants 3 --batch-plan
+/workflow:ui-design:auto --session WFS-auth --images "refs/*.png" --pages "login,register"
+/workflow:ui-design:auto --session WFS-dash --images "refs/*.jpg" --pages "dashboard" --variants 3 --batch-plan
 ```
 - **检查点**: 用户选择风格变体（阶段1）和确认原型（阶段3）
 - **可选**: `--batch-plan` 用于自动任务生成
 
-**`/workflow:design:style-extract`** - 三重视觉风格分析
+**`/workflow:ui-design:style-extract`** - 三重视觉风格分析
 ```bash
 # 从参考图像提取设计
-/workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
+/workflow:ui-design:style-extract --session WFS-auth --images "design-refs/*.png"
 ```
 - **视觉来源**: Claude Code + Gemini + Codex
 - **输出**: 用于用户选择的风格变体卡片
 
-**`/workflow:design:style-consolidate`** - 验证和合并令牌
+**`/workflow:ui-design:style-consolidate`** - 验证和合并令牌
 ```bash
 # 整合选定的风格变体
-/workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
+/workflow:ui-design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
 ```
 - **功能**: WCAG AA 验证、OKLCH 颜色、W3C 令牌格式
 - **输出**: `design-tokens.json`、`style-guide.md`、`tailwind.config.js`
 
-**`/workflow:design:ui-generate`** - 生成 HTML/CSS 原型
+**`/workflow:ui-design:ui-generate`** - 生成 HTML/CSS 原型
 ```bash
 # 生成带预览工具的原型
-/workflow:design:ui-generate --session WFS-auth --pages "login,register" --variants 2
-/workflow:design:ui-generate --session WFS-auth --pages "dashboard" --style-overrides "custom.json"
+/workflow:ui-design:ui-generate --session WFS-auth --pages "login,register" --variants 2
+/workflow:ui-design:ui-generate --session WFS-auth --pages "dashboard" --style-overrides "custom.json"
 ```
 - **🆕 预览文件**: `index.html`（导航）、`compare.html`（并排对比）、`PREVIEW.md`（说明）
 - **功能**: 令牌驱动的 CSS、语义化 HTML5、ARIA 属性、响应式设计
 
-**`/workflow:design:design-update`** - 集成设计系统
+**`/workflow:ui-design:design-update`** - 集成设计系统
 ```bash
 # 使用设计系统更新头脑风暴产物
-/workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+/workflow:ui-design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
 ```
 - **更新**: `synthesis-specification.md`、`ui-designer/style-guide.md`
 - **使设计令牌可用于任务生成**

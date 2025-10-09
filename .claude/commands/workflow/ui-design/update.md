@@ -1,11 +1,11 @@
 ---
-name: design-update
+name: update
 description: Update brainstorming artifacts with finalized design system
-usage: /workflow:design:design-update --session <session_id> [--selected-prototypes "<list>"]
+usage: /workflow:ui-design:update --session <session_id> [--selected-prototypes "<list>"]
 argument-hint: "--session WFS-session-id [--selected-prototypes \"dashboard-variant-1,auth-variant-2\"]"
 examples:
-  - /workflow:design:design-update --session WFS-auth
-  - /workflow:design:design-update --session WFS-dashboard --selected-prototypes "dashboard-variant-1"
+  - /workflow:ui-design:update --session WFS-auth
+  - /workflow:ui-design:update --session WFS-dashboard --selected-prototypes "dashboard-variant-1"
 allowed-tools: Read(*), Write(*), TodoWrite(*), Glob(*), Bash(*)
 ---
 
@@ -48,8 +48,8 @@ ELSE:
 # Load all design system artifacts
 Read(.workflow/WFS-{session}/.design/style-consolidation/design-tokens.json)
 Read(.workflow/WFS-{session}/.design/style-consolidation/style-guide.md)
-Read(.workflow/WFS-{session}/.design/style-consolidation/style-philosophy.md)
 Read(.workflow/WFS-{session}/.design/style-consolidation/tailwind.config.js)
+Read(.workflow/WFS-{session}/.design/style-consolidation/validation-report.json)
 
 # Load selected prototype files
 FOR each selected_prototype IN selected_prototypes:
@@ -75,7 +75,7 @@ Update `.brainstorming/synthesis-specification.md`:
 **Tailwind Configuration**: @../.design/style-consolidation/tailwind.config.js
 
 ### Design Philosophy
-[Insert content from style-philosophy.md]
+[Extract philosophy section from style-guide.md]
 
 ### Token System Overview
 **Colors**: OKLCH-based color system with semantic naming
@@ -142,7 +142,7 @@ This style guide integrates the finalized design system from the design refineme
 **Source Style Guide**: @../../.design/style-consolidation/style-guide.md
 
 ## Design Philosophy
-[Content from style-philosophy.md]
+[Extract philosophy section from source style-guide.md]
 
 ## Design Tokens Reference
 For complete token definitions, see: @../../.design/style-consolidation/design-tokens.json
@@ -295,8 +295,8 @@ After this update, `/workflow:tools:task-generate` will discover:
 ```
 
 ## Error Handling
-- **Missing design tokens**: Error, run `/workflow:design:style-consolidate` first
-- **Missing prototypes**: Error, run `/workflow:design:ui-generate` first
+- **Missing design tokens**: Error, run `/workflow:ui-design:consolidate` first
+- **Missing prototypes**: Error, run `/workflow:ui-design:generate` first
 - **synthesis-specification.md not found**: Warning, create minimal version
 - **Edit conflicts**: Preserve existing content, append design system section
 - **Symlink failures**: Warning only, continue with @ references

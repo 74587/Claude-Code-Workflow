@@ -253,16 +253,16 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 
 **Phase 2: UI Design Refinement** *(Optional for UI-heavy projects)*
 ```bash
-# Simplest - pages inferred from prompt (v4.0.1+)
-/workflow:design:auto --prompt "Modern blog with home, article and author pages, dark theme" --use-agent
+# Simplest - pages inferred from prompt (v4.0.2+)
+/workflow:ui-design:auto --prompt "Modern blog with home, article and author pages, dark theme"
 
 # With session integration
-/workflow:design:auto --session WFS-auth --images "refs/*.png" --variants 3 --use-agent
+/workflow:ui-design:auto --session WFS-auth --images "refs/*.png" --variants 3
 
 # Or run individual design phases
-/workflow:design:style-extract --images "refs/*.png" --variants 3 --use-agent
-/workflow:design:style-consolidate --variants "variant-1,variant-3"
-/workflow:design:ui-generate --variants 2 --use-agent
+/workflow:ui-design:extract --images "refs/*.png" --variants 3
+/workflow:ui-design:consolidate --variants "variant-1,variant-3"
+/workflow:ui-design:generate --variants 2
 
 # Preview generated prototypes (NEW!)
 # Option 1: Open .workflow/WFS-auth/.design/prototypes/index.html in browser
@@ -270,7 +270,7 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 # Visit http://localhost:8080 for interactive preview with comparison tools
 
-/workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+/workflow:ui-design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
 ```
 
 **Phase 3: Action Planning**
@@ -364,11 +364,11 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 |---|---|
 | `/workflow:session:*` | Manage development sessions (`start`, `pause`, `resume`, `list`, `switch`, `complete`). |
 | `/workflow:brainstorm:*` | Use role-based agents for multi-perspective planning. |
-| `/workflow:design:auto` | **v4.0** UI design workflow with intelligent page inference and agent creative mode. All parameters optional. |
-| `/workflow:design:style-extract` | **v4.0** Extract design from images/text using triple vision or agent mode. Parallel variant generation. |
-| `/workflow:design:style-consolidate` | **v4.0** Consolidate selected style variants into validated design tokens and style guide. |
-| `/workflow:design:ui-generate` | **v4.0** Generate token-driven HTML/CSS prototypes with agent mode for diverse layouts. |
-| `/workflow:design:design-update` | **v4.0** Integrate finalized design system into brainstorming artifacts. |
+| `/workflow:ui-design:auto` | **v4.0.2** UI design workflow with pure Claude execution. All parameters optional, no external tools. |
+| `/workflow:ui-design:extract` | **v4.0.2** Extract design from images/text using Claude-native analysis. Single-pass variant generation. |
+| `/workflow:ui-design:consolidate` | **v4.0.2** Consolidate style variants into validated design tokens using Claude synthesis. |
+| `/workflow:ui-design:generate` | **v4.0.2** Generate token-driven HTML/CSS prototypes with agent-based execution. |
+| `/workflow:ui-design:update` | **v4.0.2** Integrate finalized design system into brainstorming artifacts. |
 | `/workflow:plan` | Create a detailed, executable plan from a description. |
 | `/workflow:tdd-plan` | Create TDD workflow (6 phases) with test coverage analysis and Red-Green-Refactor cycles. |
 | `/workflow:execute` | Execute the current workflow plan autonomously. |
@@ -380,72 +380,74 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 | `/workflow:tools:test-concept-enhanced` | Generate test strategy and requirements analysis using Gemini. |
 | `/workflow:tools:test-task-generate` | Generate test task JSON with test-fix-cycle specification. |
 
-### **UI Design Workflow Commands (`/workflow:design:*`)** *(v4.0.1)*
+### **UI Design Workflow Commands (`/workflow:ui-design:*`)** *(v4.0.2)*
 
-The design workflow system provides complete UI design refinement with **intelligent page inference**, **agent creative mode**, and **flexible input sources**.
+The design workflow system provides complete UI design refinement with **pure Claude execution**, **intelligent page inference**, and **zero external dependencies**.
 
 #### Core Commands
 
-**`/workflow:design:auto`** - Complete workflow orchestrator
+**`/workflow:ui-design:auto`** - Complete workflow orchestrator
 ```bash
-# Simplest - pages auto-inferred from prompt (v4.0.1+)
-/workflow:design:auto --prompt "Modern blog with home, article and author pages, dark theme"
+# Simplest - pages auto-inferred from prompt (v4.0.2)
+/workflow:ui-design:auto --prompt "Modern blog with home, article and author pages, dark theme"
 
-# Agent mode for creative exploration
-/workflow:design:auto --prompt "SaaS dashboard and settings" --variants 3 --use-agent
+# Multiple style variants
+/workflow:ui-design:auto --prompt "SaaS dashboard and settings" --variants 3
 
 # Hybrid: images + text prompt
-/workflow:design:auto --images "refs/*.png" --prompt "E-commerce: home, product, cart" --use-agent
+/workflow:ui-design:auto --images "refs/*.png" --prompt "E-commerce: home, product, cart"
 
-# Integrated with session
-/workflow:design:auto --session WFS-auth --images "refs/*.png" --variants 3 --use-agent
+# Integrated with session + creative mode
+/workflow:ui-design:auto --session WFS-auth --images "refs/*.png" --variants 2 --creative-variants 3
 ```
-- **🆕 All Parameters Optional**: Smart defaults and inference for everything
-- **🆕 Page Inference**: Auto-extract pages from `--prompt` text
-- **🆕 Agent Mode**: `--use-agent` enables parallel creative exploration
+- **🆕 Pure Claude**: No external tools (gemini-wrapper, codex) required
+- **🆕 Zero Dependencies**: All analysis and generation done natively
+- **All Parameters Optional**: Smart defaults and inference for everything
+- **Page Inference**: Auto-extract pages from `--prompt` text
 - **Dual Mode**: Standalone (quick prototyping) or Integrated (workflow enhancement)
 
-**`/workflow:design:style-extract`** - Style analysis with dual input sources
+**`/workflow:ui-design:extract`** - Style analysis with dual input sources
 ```bash
-# Pure text prompt (NEW)
-/workflow:design:style-extract --prompt "Modern minimalist, dark theme" --variants 3 --use-agent
+# Pure text prompt
+/workflow:ui-design:extract --prompt "Modern minimalist, dark theme" --variants 3
 
 # Pure images
-/workflow:design:style-extract --images "refs/*.png" --variants 3
+/workflow:ui-design:extract --images "refs/*.png" --variants 3
 
 # Hybrid (text guides image analysis)
-/workflow:design:style-extract --images "refs/*.png" --prompt "Linear.app style" --variants 2 --use-agent
+/workflow:ui-design:extract --images "refs/*.png" --prompt "Linear.app style" --variants 2
 ```
-- **🆕 Text Prompts**: Design without reference images
-- **🆕 Agent Mode**: Parallel generation of diverse design directions
-- **Vision Sources**: Claude Code + Gemini + Codex (conventional) or Agent-driven (creative)
-- **Output**: N style variant cards (default: 3, range: 1-5)
+- **Claude-Native**: Single-pass analysis, no external tools
+- **Enhanced Output**: `style-cards.json` with embedded `proposed_tokens`
+- **Reproducible**: Deterministic structure, version-controlled logic
+- **Output**: 1 file (vs 4+ in previous versions)
 
-**`/workflow:design:style-consolidate`** - Validate and merge tokens
+**`/workflow:ui-design:consolidate`** - Validate and merge tokens
 ```bash
 # Consolidate selected style variants
-/workflow:design:style-consolidate --variants "variant-1,variant-3"
+/workflow:ui-design:consolidate --session WFS-auth --variants "variant-1,variant-3"
 ```
+- **Claude Synthesis**: Single-pass generation of all design system files
 - **Features**: WCAG AA validation, OKLCH colors, W3C token format
-- **Output**: `design-tokens.json`, `style-guide.md`, `tailwind.config.js`
+- **Output**: `design-tokens.json`, `style-guide.md`, `tailwind.config.js`, `validation-report.json`
 
-**`/workflow:design:ui-generate`** - Generate HTML/CSS prototypes
+**`/workflow:ui-design:generate`** - Generate HTML/CSS prototypes
 ```bash
-# Simplest - pages inferred (NEW)
-/workflow:design:ui-generate --variants 2 --use-agent
+# Standard mode (consistent layouts)
+/workflow:ui-design:generate --pages "dashboard,auth" --variants 2
 
-# Explicit pages
-/workflow:design:ui-generate --pages "home,product,cart" --variants 3 --use-agent
+# Creative mode (diverse layout exploration)
+/workflow:ui-design:generate --pages "home,product,cart" --creative-variants 3
 ```
-- **🆕 Page Inference**: Auto-detect from session or default to `["home"]`
-- **🆕 Agent Mode**: Diverse layout strategies (F-Pattern, Grid, Asymmetric)
+- **Page Inference**: Auto-detect from session or default to `["home"]`
+- **Agent-Only**: Task(conceptual-planning-agent) execution
+- **Creative Mode**: Parallel agents for diverse layout strategies
 - **Preview Files**: `index.html`, `compare.html`, `PREVIEW.md`
-- **Features**: Token-driven CSS, semantic HTML5, ARIA attributes
 
-**`/workflow:design:design-update`** - Integrate design system
+**`/workflow:ui-design:update`** - Integrate design system
 ```bash
 # Update brainstorming artifacts with design system
-/workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1"
+/workflow:ui-design:update --session WFS-auth --selected-prototypes "login-variant-1"
 ```
 - **Updates**: `synthesis-specification.md`, `ui-designer/style-guide.md`
 - **Makes design tokens available for task generation**

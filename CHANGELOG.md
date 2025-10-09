@@ -5,6 +5,221 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.2] - 2025-10-09
+
+### 🔄 UI Design Workflow - Complete Refactoring
+
+**BREAKING CHANGES**: Complete refactoring to pure Claude-native execution, removing all external tool dependencies.
+
+#### Breaking Changes
+
+**Command Path Migration**:
+```bash
+# ❌ Old (v4.0.1 and earlier)
+/workflow:design:style-extract
+/workflow:design:style-consolidate
+/workflow:design:ui-generate
+/workflow:design:design-update
+/workflow:design:auto
+
+# ✅ New (v4.0.2)
+/workflow:ui-design:extract
+/workflow:ui-design:consolidate
+/workflow:ui-design:generate
+/workflow:ui-design:update
+/workflow:ui-design:auto
+```
+
+**Parameter Removal**:
+- **`--tool` parameter removed**: All commands now use Claude-native execution exclusively
+- No more `--tool gemini` or `--tool codex` options
+- Simplified command syntax
+
+**Execution Model Changes**:
+```bash
+# ❌ Old: External CLI tools required
+# Required: gemini-wrapper, codex, qwen-wrapper
+/workflow:design:style-extract --tool gemini --images "refs/*.png"
+/workflow:design:style-consolidate --tool gemini --variants "variant-1,variant-2"
+/workflow:design:ui-generate --tool codex --pages "dashboard,auth"
+
+# ✅ New: Pure Claude + agents
+/workflow:ui-design:extract --images "refs/*.png" --variants 3
+/workflow:ui-design:consolidate --variants "variant-1,variant-2"
+/workflow:ui-design:generate --pages "dashboard,auth" --variants 2
+```
+
+#### Removed
+
+**External Tool Dependencies**:
+- `gemini-wrapper` calls removed from style-extract and style-consolidate
+- `codex` calls removed from style-consolidate and ui-generate
+- `qwen-wrapper` calls removed entirely
+- All `bash()` wrapped CLI tool invocations eliminated
+
+**Intermediate Output Files**:
+- `semantic_style_analysis.json` (replaced by embedded data in style-cards.json)
+- `initial_analysis.json` (analysis now done in single pass)
+- `style-philosophy.md` (integrated into style-guide.md)
+- Reduced from 7+ files to 4 essential files per phase
+
+**Execution Modes**:
+- "conventional" mode removed from ui-generate (codex dependency)
+- "cli" mode removed from style-consolidate (external tool dependency)
+- Unified to agent-only execution
+
+#### Changed
+
+**style-extract (`/workflow:ui-design:extract`)**:
+- **Before**: Multi-step with gemini-wrapper + codex
+  - Step 1: Claude analysis → initial_analysis.json
+  - Step 2: gemini-wrapper → semantic_style_analysis.json
+  - Step 3: codex → design-tokens.json + tailwind-tokens.js
+  - Output: 4 files
+- **After**: Single-pass Claude analysis
+  - Step 1: Claude analysis → style-cards.json (with embedded proposed_tokens)
+  - Output: 1 file
+- **New structure**: `style-cards.json` includes complete `proposed_tokens` object per variant
+- **Reproducibility**: 100% deterministic with Claude-only execution
+
+**style-consolidate (`/workflow:ui-design:consolidate`)**:
+- **Before**: Dual-tool approach
+  - Step 1: gemini-wrapper → style-philosophy.md
+  - Step 2: codex → design-tokens.json + validation
+  - Mode detection: cli vs agent
+- **After**: Single-pass Claude synthesis
+  - Step 1: Claude reads `proposed_tokens` from style-cards.json
+  - Step 2: Claude generates all 4 files in one prompt
+  - Output: design-tokens.json, style-guide.md, tailwind.config.js, validation-report.json
+- **Removed**: `--tool` parameter and mode detection logic
+
+**ui-generate (`/workflow:ui-design:generate`)**:
+- **Before**: Three execution modes
+  - conventional: codex CLI calls
+  - agent: Task(conceptual-planning-agent)
+  - Mode detection based on `--tool` flag
+- **After**: Unified agent-only execution
+  - standard: Single Task(conceptual-planning-agent) for consistent variants
+  - creative: Parallel Task(conceptual-planning-agent) for diverse layouts
+  - Only `--variants` or `--creative-variants` determines mode
+- **Removed**: `--tool` parameter, conventional mode
+
+**design-update (`/workflow:ui-design:update`)**:
+- **Before**: References `style-philosophy.md`
+- **After**: Extracts philosophy from `style-guide.md`
+- **Changed**: Adapted to new 4-file output structure from consolidate phase
+
+**auto (`/workflow:ui-design:auto`)**:
+- **Before**: Passed `--tool` flags to sub-commands
+- **After**: No tool parameters, pure orchestration
+- **Simplified**: Command construction logic (no mode detection)
+- **Examples**: Updated all 3 example flows
+
+#### Added
+
+**Enhanced style-cards.json Structure**:
+```json
+{
+  "extraction_metadata": {
+    "session_id": "WFS-xxx",
+    "input_mode": "image|text|hybrid",
+    "timestamp": "ISO-8601",
+    "variants_count": 3
+  },
+  "style_cards": [
+    {
+      "id": "variant-1",
+      "name": "Modern Minimalist",
+      "description": "...",
+      "design_philosophy": "...",
+      "preview": { "primary": "oklch(...)", ... },
+      "proposed_tokens": {
+        "colors": { /* complete color system */ },
+        "typography": { /* complete typography system */ },
+        "spacing": { /* complete spacing scale */ },
+        "border_radius": { /* border radius scale */ },
+        "shadows": { /* shadow system */ },
+        "breakpoints": { /* responsive breakpoints */ }
+      }
+    }
+  ]
+}
+```
+
+**Unified Output Structure**:
+- `style-extraction/`: style-cards.json (1 file)
+- `style-consolidation/`: design-tokens.json, style-guide.md, tailwind.config.js, validation-report.json (4 files)
+- `prototypes/`: HTML/CSS files + index.html + compare.html + PREVIEW.md
+
+#### Improved
+
+**Performance**:
+- **Faster execution**: No external process spawning
+- **Reduced I/O**: Fewer intermediate files
+- **Parallel efficiency**: Native agent parallelization
+
+**Reliability**:
+- **Zero external dependencies**: No gemini-wrapper, codex, or qwen-wrapper required
+- **No API failures**: Eliminates external API call failure points
+- **Consistent output**: Deterministic JSON structure
+
+**Maintainability**:
+- **Simpler codebase**: 5 commands, unified patterns
+- **Clear data flow**: style-cards → design-tokens → prototypes
+- **Easier debugging**: All logic visible in command files
+
+**Reproducibility**:
+- **Deterministic structure**: Same inputs → same output structure
+- **Version-controlled logic**: All prompts in .md files
+- **No black-box tools**: Complete transparency
+
+#### Migration Guide
+
+**For Standalone Usage**:
+```bash
+# Old command format
+/workflow:design:auto --tool gemini --prompt "Modern blog" --variants 3
+
+# New command format (auto-migrated)
+/workflow:ui-design:auto --prompt "Modern blog" --variants 3
+```
+
+**For Integrated Workflow Sessions**:
+```bash
+# Old workflow
+/workflow:design:style-extract --session WFS-xxx --tool gemini --images "refs/*.png"
+/workflow:design:style-consolidate --session WFS-xxx --tool gemini --variants "variant-1,variant-2"
+/workflow:design:ui-generate --session WFS-xxx --tool codex --pages "dashboard,auth"
+/workflow:design:design-update --session WFS-xxx
+
+# New workflow (simplified)
+/workflow:ui-design:extract --session WFS-xxx --images "refs/*.png" --variants 2
+/workflow:ui-design:consolidate --session WFS-xxx --variants "variant-1,variant-2"
+/workflow:ui-design:generate --session WFS-xxx --pages "dashboard,auth" --variants 2
+/workflow:ui-design:update --session WFS-xxx
+```
+
+**Configuration Changes Required**: None - all external tool configurations can be removed
+
+#### Files Changed
+
+**Renamed/Relocated**:
+- `.claude/commands/workflow/design/` → `.claude/commands/workflow/ui-design/`
+- All command files updated with new paths
+
+**Modified Commands**:
+- `style-extract.md` → `extract.md` (complete rewrite)
+- `style-consolidate.md` → `consolidate.md` (complete rewrite)
+- `ui-generate.md` → `generate.md` (simplified)
+- `design-update.md` → `update.md` (adapted to new structure)
+- `auto.md` (updated orchestration)
+
+**Documentation**:
+- Updated all command examples
+- Updated parameter descriptions
+- Added Key Improvements sections
+- Clarified Integration Points
+
 ## [4.0.1] - 2025-10-07
 
 ### 🎯 Intelligent Page Inference
@@ -21,15 +236,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **New Examples**:
 ```bash
 # Simplest - pages inferred from prompt
-/workflow:design:auto --prompt "Modern blog with home, article and author pages"
+/workflow:ui-design:auto --prompt "Modern blog with home, article and author pages"
 
 # Explicit override if needed
-/workflow:design:auto --prompt "SaaS app" --pages "dashboard,settings,billing"
+/workflow:ui-design:auto --prompt "SaaS app" --pages "dashboard,settings,billing"
 ```
 
 **Commands Updated**:
-- `/workflow:design:auto`: All parameters now optional
-- `/workflow:design:ui-generate`: `--pages` optional with smart inference
+- `/workflow:ui-design:auto`: All parameters now optional
+- `/workflow:ui-design:ui-generate`: `--pages` optional with smart inference
 
 ## [4.0.0] - 2025-10-07
 
@@ -52,18 +267,18 @@ This major release introduces agent-driven creative exploration, unified variant
 **Migration Guide**:
 ```bash
 # ❌ Old (v3.5.0 and earlier) - NO LONGER WORKS
-/workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
-/workflow:design:ui-generate --session WFS-auth --pages "login,register"
+/workflow:ui-design:style-extract --session WFS-auth --images "design-refs/*.png"
+/workflow:ui-design:ui-generate --session WFS-auth --pages "login,register"
 
 # ✅ New (v4.0.1) - All parameters optional
-/workflow:design:style-extract --images "design-refs/*.png" --variants 3
-/workflow:design:ui-generate --variants 2
+/workflow:ui-design:style-extract --images "design-refs/*.png" --variants 3
+/workflow:ui-design:ui-generate --variants 2
 
 # ✅ Simplest form (pages inferred from prompt)
-/workflow:design:auto --prompt "Modern blog with home, article and author pages"
+/workflow:ui-design:auto --prompt "Modern blog with home, article and author pages"
 
 # ✅ With agent mode and explicit pages
-/workflow:design:auto --prompt "Modern SaaS" --pages "dashboard,settings" --variants 3 --use-agent
+/workflow:ui-design:auto --prompt "Modern SaaS" --pages "dashboard,settings" --variants 3 --use-agent
 ```
 
 **Deprecated Commands**:
@@ -112,23 +327,23 @@ This major release introduces agent-driven creative exploration, unified variant
 #### Changed
 
 **New Command Interface** (v4.0.1):
-- **`/workflow:design:auto`**:
+- **`/workflow:ui-design:auto`**:
   - All parameters optional with smart defaults
   - `--prompt <desc>`: Design description (infers pages automatically)
   - `--images <glob>`: Reference images (default: `design-refs/*`)
   - `--pages <list>`: Explicit page override (auto-inferred if omitted)
   - `--session <id>`, `--variants <count>`, `--use-agent`, `--batch-plan`
   - Examples:
-    - Minimal: `/workflow:design:auto --prompt "Modern blog with home and article pages"`
-    - Agent Mode: `/workflow:design:auto --prompt "SaaS dashboard and settings" --variants 3 --use-agent`
-    - Hybrid: `/workflow:design:auto --images "refs/*.png" --prompt "E-commerce: home, product, cart"`
+    - Minimal: `/workflow:ui-design:auto --prompt "Modern blog with home and article pages"`
+    - Agent Mode: `/workflow:ui-design:auto --prompt "SaaS dashboard and settings" --variants 3 --use-agent`
+    - Hybrid: `/workflow:ui-design:auto --images "refs/*.png" --prompt "E-commerce: home, product, cart"`
 
-- **`/workflow:design:style-extract`**:
+- **`/workflow:ui-design:style-extract`**:
   - At least one of `--images` or `--prompt` recommended
   - All other parameters optional
   - Agent mode: Parallel generation of diverse design directions
 
-- **`/workflow:design:ui-generate`**:
+- **`/workflow:ui-design:ui-generate`**:
   - All parameters optional (pages inferred from session or defaults to ["home"])
   - `--pages <list>`: Optional explicit page list
   - Agent mode: Parallel layout exploration (F-Pattern, Grid, Asymmetric)
@@ -138,19 +353,19 @@ This major release introduces agent-driven creative exploration, unified variant
 **Standalone Quick Prototyping**:
 ```bash
 # Pure text with page inference (simplest)
-/workflow:design:auto --prompt "Modern minimalist blog with home, article and author pages, dark theme" --use-agent
+/workflow:ui-design:auto --prompt "Modern minimalist blog with home, article and author pages, dark theme" --use-agent
 
 # Pure image with inferred pages
-/workflow:design:auto --images "refs/*.png" --variants 2
+/workflow:ui-design:auto --images "refs/*.png" --variants 2
 
 # Hybrid input with explicit page override
-/workflow:design:auto --images "current-app.png" --prompt "Modernize to Linear.app style" --pages "tasks,settings" --use-agent
+/workflow:ui-design:auto --images "current-app.png" --prompt "Modernize to Linear.app style" --pages "tasks,settings" --use-agent
 ```
 
 **Integrated Workflow Enhancement**:
 ```bash
 # Within existing workflow (pages inferred from synthesis)
-/workflow:design:auto --session WFS-app-refresh --images "refs/*.png" --variants 3 --use-agent
+/workflow:ui-design:auto --session WFS-app-refresh --images "refs/*.png" --variants 3 --use-agent
 ```
 
 #### Technical Details
@@ -205,7 +420,7 @@ This release introduces a comprehensive UI design workflow system with triple vi
 #### Added
 
 **New UI Design Workflow System**:
-- **`/workflow:design:auto`**: Semi-autonomous UI design workflow orchestrator
+- **`/workflow:ui-design:auto`**: Semi-autonomous UI design workflow orchestrator
   - Interactive checkpoints for user style selection and prototype confirmation
   - Optional batch task generation with `--batch-plan` flag
   - Pause-and-continue pattern at critical decision points
@@ -226,12 +441,12 @@ This release introduces a comprehensive UI design workflow system with triple vi
 
 **Individual Design Commands**:
 
-**`/workflow:design:style-extract`** - Extract design styles from reference images
-- **Usage**: `/workflow:design:style-extract --session <session_id> --images "<glob_pattern>"`
+**`/workflow:ui-design:style-extract`** - Extract design styles from reference images
+- **Usage**: `/workflow:ui-design:style-extract --session <session_id> --images "<glob_pattern>"`
 - **Examples**:
   ```bash
-  /workflow:design:style-extract --session WFS-auth --images "design-refs/*.png"
-  /workflow:design:style-extract --session WFS-dashboard --images "refs/dashboard-*.jpg"
+  /workflow:ui-design:style-extract --session WFS-auth --images "design-refs/*.png"
+  /workflow:ui-design:style-extract --session WFS-dashboard --images "refs/dashboard-*.jpg"
   ```
 - **Features**:
   - Triple vision analysis (Claude Code + Gemini + Codex)
@@ -241,12 +456,12 @@ This release introduces a comprehensive UI design workflow system with triple vi
   - Supports PNG, JPG, WebP image formats
 - **Output**: `.design/style-extraction/` with analysis files and 2-3 style variant cards
 
-**`/workflow:design:style-consolidate`** - Consolidate selected style variants
-- **Usage**: `/workflow:design:style-consolidate --session <session_id> --variants "<variant_ids>"`
+**`/workflow:ui-design:style-consolidate`** - Consolidate selected style variants
+- **Usage**: `/workflow:ui-design:style-consolidate --session <session_id> --variants "<variant_ids>"`
 - **Examples**:
   ```bash
-  /workflow:design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
-  /workflow:design:style-consolidate --session WFS-dashboard --variants "variant-2"
+  /workflow:ui-design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
+  /workflow:ui-design:style-consolidate --session WFS-dashboard --variants "variant-2"
   ```
 - **Features**:
   - Validates and merges design tokens from selected variants
@@ -256,13 +471,13 @@ This release introduces a comprehensive UI design workflow system with triple vi
   - OKLCH color format with fallback
 - **Output**: `.design/style-consolidation/` with validated design system files
 
-**`/workflow:design:ui-generate`** - Generate production-ready UI prototypes *(NEW: with preview enhancement)*
-- **Usage**: `/workflow:design:ui-generate --session <session_id> --pages "<page_list>" [--variants <count>] [--style-overrides "<path_or_json>"]`
+**`/workflow:ui-design:ui-generate`** - Generate production-ready UI prototypes *(NEW: with preview enhancement)*
+- **Usage**: `/workflow:ui-design:ui-generate --session <session_id> --pages "<page_list>" [--variants <count>] [--style-overrides "<path_or_json>"]`
 - **Examples**:
   ```bash
-  /workflow:design:ui-generate --session WFS-auth --pages "login,register"
-  /workflow:design:ui-generate --session WFS-dashboard --pages "dashboard" --variants 3
-  /workflow:design:ui-generate --session WFS-auth --pages "login" --style-overrides "overrides.json"
+  /workflow:ui-design:ui-generate --session WFS-auth --pages "login,register"
+  /workflow:ui-design:ui-generate --session WFS-dashboard --pages "dashboard" --variants 3
+  /workflow:ui-design:ui-generate --session WFS-auth --pages "login" --style-overrides "overrides.json"
   ```
 - **Features**:
   - Token-driven HTML/CSS generation with Codex
@@ -275,12 +490,12 @@ This release introduces a comprehensive UI design workflow system with triple vi
 - **Output**: `.design/prototypes/` with HTML/CSS files and preview tools
 - **Preview**: Open `index.html` in browser or start local server for interactive preview
 
-**`/workflow:design:design-update`** - Integrate design system into brainstorming
-- **Usage**: `/workflow:design:design-update --session <session_id> [--selected-prototypes "<prototype_ids>"]`
+**`/workflow:ui-design:design-update`** - Integrate design system into brainstorming
+- **Usage**: `/workflow:ui-design:design-update --session <session_id> [--selected-prototypes "<prototype_ids>"]`
 - **Examples**:
   ```bash
-  /workflow:design:design-update --session WFS-auth
-  /workflow:design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+  /workflow:ui-design:design-update --session WFS-auth
+  /workflow:ui-design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
   ```
 - **Features**:
   - Updates `synthesis-specification.md` with UI/UX guidelines section
@@ -289,12 +504,12 @@ This release introduces a comprehensive UI design workflow system with triple vi
   - Merges selected prototype recommendations into brainstorming artifacts
 - **Output**: Updated brainstorming files with design system integration
 
-**`/workflow:design:auto`** - Semi-autonomous orchestrator with interactive checkpoints
-- **Usage**: `/workflow:design:auto --session <session_id> --images "<glob>" --pages "<list>" [--variants <count>] [--batch-plan]`
+**`/workflow:ui-design:auto`** - Semi-autonomous orchestrator with interactive checkpoints
+- **Usage**: `/workflow:ui-design:auto --session <session_id> --images "<glob>" --pages "<list>" [--variants <count>] [--batch-plan]`
 - **Examples**:
   ```bash
-  /workflow:design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register"
-  /workflow:design:auto --session WFS-dashboard --images "refs/*.jpg" --pages "dashboard" --variants 3 --batch-plan
+  /workflow:ui-design:auto --session WFS-auth --images "design-refs/*.png" --pages "login,register"
+  /workflow:ui-design:auto --session WFS-dashboard --images "refs/*.jpg" --pages "dashboard" --variants 3 --batch-plan
   ```
 - **Features**:
   - Orchestrates entire design workflow with pause-and-continue checkpoints
@@ -306,11 +521,11 @@ This release introduces a comprehensive UI design workflow system with triple vi
 
 **Interactive Checkpoint System**:
 - **Checkpoint 1 (After style-extract)**: User selects preferred style variants
-  - Command: `/workflow:design:style-consolidate --session WFS-xxx --variants "variant-1,variant-3"`
+  - Command: `/workflow:ui-design:style-consolidate --session WFS-xxx --variants "variant-1,variant-3"`
   - Workflow pauses until user runs consolidation command
 
 - **Checkpoint 2 (After ui-generate)**: User confirms selected prototypes
-  - Command: `/workflow:design:design-update --session WFS-xxx --selected-prototypes "page-variant-1,page-variant-2"`
+  - Command: `/workflow:ui-design:design-update --session WFS-xxx --selected-prototypes "page-variant-1,page-variant-2"`
   - Workflow pauses until user runs design-update command
 
 **Design System Features**:
@@ -384,7 +599,7 @@ python -m http.server 8080  # Visit http://localhost:8080
 **Updated Documentation**:
 - **README.md**: Added UI Design Workflow section in Getting Started
 - **README_CN.md**: Chinese documentation updated with design workflow
-- **Command Reference**: Added 5 new `/workflow:design:*` commands
+- **Command Reference**: Added 5 new `/workflow:ui-design:*` commands
 - **Phase Renumbering**: Shifted phases to accommodate new Phase 2 (UI Design)
 
 #### Benefits
@@ -425,15 +640,15 @@ Phase 6: Codex Token Generation → design-tokens.json, style-cards.json
 
 **Checkpoint Workflow Pattern**:
 ```
-User: /workflow:design:auto --session WFS-xxx --images "refs/*.png" --pages "dashboard,auth"
+User: /workflow:ui-design:auto --session WFS-xxx --images "refs/*.png" --pages "dashboard,auth"
   ↓
 Phase 1: style-extract (automatic)
   ↓ [CHECKPOINT 1: User selects style variants]
-User: /workflow:design:style-consolidate --session WFS-xxx --variants "variant-1,variant-3"
+User: /workflow:ui-design:style-consolidate --session WFS-xxx --variants "variant-1,variant-3"
   ↓
 Phase 3: ui-generate (automatic after Phase 2)
   ↓ [CHECKPOINT 2: User confirms prototypes]
-User: /workflow:design:design-update --session WFS-xxx --selected-prototypes "dashboard-variant-1,auth-variant-2"
+User: /workflow:ui-design:design-update --session WFS-xxx --selected-prototypes "dashboard-variant-1,auth-variant-2"
   ↓
 Phase 5: batch-plan (optional, automatic if --batch-plan flag)
 ```
