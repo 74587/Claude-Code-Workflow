@@ -23,7 +23,7 @@ Generate production-ready UI prototypes (HTML/CSS) in `style × layout` matrix m
 
 ## Execution Protocol
 
-### Phase 1: Path Resolution & Context Loading
+### Phase 1: Path Resolution & Context Loading (Enhanced)
 ```bash
 # Determine base path
 IF --base-path provided:
@@ -42,18 +42,63 @@ layout_variants = --layout-variants OR 3  # Default to 3
 VALIDATE: 1 <= style_variants <= 5
 VALIDATE: 1 <= layout_variants <= 5
 
-# Infer page list if not provided
+# Enhanced page list parsing
+page_list = []
+page_source = "none"
+
+# Priority 1: Explicit --pages parameter (with robust parsing)
 IF --pages provided:
-    page_list = parse_csv({--pages value})
+    # Enhanced parsing: handle spaces, multiple delimiters
+    raw_pages = {--pages value}
+
+    # Split by comma, semicolon, or Chinese comma, then clean
+    page_list = split_and_clean(raw_pages, delimiters=[",", ";", "、"])
+
+    # Clean each page name: strip whitespace, convert to lowercase
+    page_list = [p.strip().lower().replace(" ", "-") for p in page_list if p.strip()]
+
+    page_source = "explicit_parameter"
+    REPORT: "📋 Using provided pages: {', '.join(page_list)}"
+
+# Priority 2: Extract from synthesis-specification.md
 ELSE IF --session:
     # Read synthesis-specification.md to extract page requirements
     synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
     page_list = extract_pages_from_synthesis(synthesis_spec)
+    page_source = "synthesis_specification"
+    REPORT: "📋 Extracted pages from synthesis: {', '.join(page_list)}"
+
+# Priority 3: Detect from existing prototypes
 ELSE:
     # Infer from existing prototypes or default
-    page_list = detect_from_prototypes({base_path}/prototypes/) OR ["home"]
+    page_list = detect_from_prototypes({base_path}/prototypes/)
+    IF page_list:
+        page_source = "existing_prototypes"
+        REPORT: "📋 Detected pages from existing prototypes: {', '.join(page_list)}"
+    ELSE:
+        page_list = ["home"]
+        page_source = "default"
+        REPORT: "⚠️ No pages found, using default: 'home'"
 
-VALIDATE: page_list not empty
+# Validation: ensure page names are valid
+validated_pages = []
+invalid_pages = []
+FOR page IN page_list:
+    # Validate format: must start with letter/number, can contain alphanumeric, hyphens, underscores
+    IF regex_match(page, r"^[a-z0-9][a-z0-9_-]*$"):
+        validated_pages.append(page)
+    ELSE:
+        invalid_pages.append(page)
+
+IF invalid_pages:
+    REPORT: "⚠️ Skipped invalid page names: {', '.join(invalid_pages)}"
+    REPORT: "   Valid format: lowercase, alphanumeric, hyphens, underscores"
+
+VALIDATE: validated_pages not empty, "No valid pages found"
+
+# Use validated list
+page_list = validated_pages
+REPORT: "✅ Final page list ({len(page_list)}): {', '.join(page_list)}"
 
 # Verify design systems exist for all styles
 FOR style_id IN range(1, style_variants + 1):
@@ -344,6 +389,109 @@ Refer to corresponding `style-guide.md` for design philosophy and usage guidelin
 2. Select preferred style×layout combinations
 3. Export selections for implementation planning
 4. Run `/workflow:ui-design:update` to integrate chosen designs
+```
+
+### Phase 3.5: Cross-Page Consistency Validation (Optional, Multi-Page Only)
+**Condition**: Only executes if `len(page_list) > 1`
+
+```bash
+# Skip if only one page
+IF len(page_list) <= 1:
+    SKIP to Phase 4
+
+# For multi-page workflows, validate cross-page consistency
+FOR style_id IN range(1, style_variants + 1):
+    FOR layout_id IN range(1, layout_variants + 1):
+        # Generate consistency report for this style-layout combo across all pages
+        Task(conceptual-planning-agent): "
+          [CROSS_PAGE_CONSISTENCY_VALIDATION]
+
+          Validate design consistency across multiple pages for Style-{style_id} Layout-{layout_id}
+
+          ## Context
+          STYLE_ID: {style_id}
+          LAYOUT_ID: {layout_id}
+          PAGES: {page_list}
+          BASE_PATH: {base_path}
+
+          ## Input Files
+          FOR each page IN {page_list}:
+              - {base_path}/prototypes/{page}-style-{style_id}-layout-{layout_id}.html
+              - {base_path}/prototypes/{page}-style-{style_id}-layout-{layout_id}.css
+
+          ## Validation Tasks
+          1. **Shared Component Consistency**:
+             - Check if header/navigation structure is identical across all pages
+             - Verify footer content and styling matches
+             - Confirm common UI elements (buttons, forms, cards) use same classes/styles
+
+          2. **Token Usage Consistency**:
+             - Verify all pages reference the same design-tokens file
+             - Confirm CSS variable usage is consistent (no hardcoded values)
+             - Check spacing, typography, and color token application
+
+          3. **Accessibility Consistency**:
+             - Validate ARIA attributes are used consistently
+             - Check heading hierarchy (h1 unique per page, h2-h6 consistent)
+             - Verify landmark roles are consistent
+
+          4. **Layout Strategy Adherence**:
+             - Confirm Layout-{layout_id} strategy is applied consistently to all pages
+             - Check responsive breakpoints are identical
+             - Verify grid/flex systems match across pages
+
+          ## Output Format
+          Generate a consistency report: {base_path}/prototypes/consistency-report-s{style_id}-l{layout_id}.md
+
+          ```markdown
+          # Cross-Page Consistency Report
+          **Style**: {style_id} | **Layout**: {layout_id} | **Pages**: {', '.join(page_list)}
+
+          ## ✅ Passed Checks
+          - [List consistency checks that passed]
+
+          ## ⚠️ Warnings
+          - [List minor inconsistencies that should be reviewed]
+
+          ## ❌ Issues
+          - [List critical inconsistencies that must be fixed]
+
+          ## Recommendations
+          - [Suggestions for improving consistency]
+          ```
+
+          ## Severity Levels
+          - **Critical**: Shared components have different structure/styling
+          - **Warning**: Minor variations in spacing or naming
+          - **Info**: Intentional page-specific adaptations
+
+          IMPORTANT: Focus on truly shared elements (header, nav, footer). Page-specific content variations are expected and acceptable.
+        "
+
+# Aggregate all consistency reports
+Write({base_path}/prototypes/CONSISTENCY_SUMMARY.md):
+# Multi-Page Consistency Summary
+
+This report summarizes consistency validation across all {len(page_list)} pages.
+
+## Validated Combinations
+- **Style Variants**: {style_variants}
+- **Layout Variants**: {layout_variants}
+- **Total Reports**: {style_variants * layout_variants}
+
+## Report Files
+{FOR s IN range(1, style_variants + 1):
+  {FOR l IN range(1, layout_variants + 1):
+    - [Style {s} Layout {l}](./consistency-report-s{s}-l{l}.md)
+  }
+}
+
+## Quick Actions
+1. Review all consistency reports
+2. Fix critical issues before proceeding to implementation
+3. Document intentional page-specific variations
+
+Run `/workflow:ui-design:update` once all issues are resolved.
 ```
 
 ### Phase 4: TodoWrite & Completion

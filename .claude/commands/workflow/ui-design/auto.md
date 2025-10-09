@@ -155,21 +155,161 @@ ELSE:
 STORE: run_id, base_path  # Use throughout workflow
 ```
 
-### Phase 0c: Page Inference
+### Phase 0c: Enhanced Page Inference with Dynamic Analysis
 ```bash
-# Infer page list if not explicitly provided
+# Initialize
+page_list = []
+page_source = "none"
+page_structure = null  # Store structured analysis results
+
+# Priority 1: Explicit --pages parameter (with enhanced cleaning)
 IF --pages provided:
-    page_list = parse_csv({--pages value})
+    # Enhanced cleaning: tolerate spaces, multiple delimiters
+    raw_pages = {--pages value}
+    # Split by comma, semicolon, or Chinese comma, then clean each
+    page_list = split_and_clean(raw_pages, delimiters=[",", ";", "、"])
+    # Strip whitespace, convert to lowercase, replace spaces with hyphens
+    page_list = [p.strip().lower().replace(" ", "-") for p in page_list if p.strip()]
+    page_source = "explicit"
+    REPORT: "📋 Using explicitly provided pages: {', '.join(page_list)}"
+
+# Priority 2: Dynamic prompt decomposition (using Claude's analysis)
 ELSE IF --prompt provided:
-    # Extract page names from prompt (e.g., "blog with home, article, author pages")
-    page_list = extract_pages_from_prompt({--prompt value})
+    REPORT: "🔍 Analyzing prompt to identify pages..."
+
+    # Use main Claude to analyze prompt structure
+    analysis_prompt = """
+    Analyze the following UI design request and identify all distinct pages/screens needed.
+
+    User Request: "{prompt_text}"
+
+    Output a JSON object with this structure:
+    {
+      "pages": [
+        {"name": "page-name", "purpose": "brief description", "priority": "high|medium|low"}
+      ],
+      "shared_components": ["header", "footer", "sidebar"],
+      "navigation_structure": {
+        "primary": ["home", "dashboard"],
+        "secondary": ["settings", "profile"]
+      }
+    }
+
+    Rules:
+    - Normalize page names to be URL-friendly (lowercase, use hyphens, no spaces)
+    - Consolidate synonyms (e.g., "homepage" → "home", "user-profile" → "profile")
+    - Identify hierarchical relationships if mentioned
+    - Prioritize pages based on user intent
+    - Common page patterns: home, dashboard, settings, profile, login, signup, about, contact
+    """
+
+    # Execute analysis (internal to main Claude, no external tool needed)
+    page_structure = analyze_prompt_structure(analysis_prompt, prompt_text)
+    page_list = extract_page_names_from_structure(page_structure)
+    page_source = "prompt_analysis"
+
+    # Display analysis results
+    IF page_list:
+        REPORT: "📋 Identified pages from prompt:"
+        FOR each page IN page_structure.pages:
+            REPORT: "   • {page.name}: {page.purpose} [{page.priority}]"
+
+        IF page_structure.shared_components:
+            REPORT: "🔧 Shared components: {', '.join(page_structure.shared_components)}"
+    ELSE:
+        REPORT: "⚠️ No pages could be extracted from the prompt."
+
+# Priority 3: Extract from synthesis-specification.md
 ELSE IF --session AND exists(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md):
     synthesis = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
     page_list = extract_pages_from_synthesis(synthesis)
-ELSE:
-    page_list = ["home"]  # Default fallback
+    page_source = "synthesis"
+    REPORT: "📋 Extracted pages from synthesis: {', '.join(page_list)}"
 
-STORE: inferred_page_list = page_list  # For Phase 3
+# Priority 4: Final fallback - default page
+IF NOT page_list:
+    page_list = ["home"]
+    page_source = "default"
+    REPORT: "⚠️ No pages identified, using default: 'home'"
+
+# Enhanced validation
+validated_pages = []
+invalid_pages = []
+FOR page IN page_list:
+    # Clean: strip, lowercase, replace spaces with hyphens
+    cleaned_page = page.strip().lower().replace(" ", "-")
+    # Validate: must start with letter/number, can contain letters, numbers, hyphens, underscores
+    IF regex_match(cleaned_page, r"^[a-z0-9][a-z0-9_-]*$"):
+        validated_pages.append(cleaned_page)
+    ELSE:
+        invalid_pages.append(page)
+
+IF invalid_pages:
+    REPORT: "⚠️ Skipped invalid page names: {', '.join(invalid_pages)}"
+    REPORT: "   Valid format: lowercase, alphanumeric, hyphens, underscores (e.g., 'user-profile', 'dashboard')"
+
+IF NOT validated_pages:
+    validated_pages = ["home"]
+    REPORT: "⚠️ All page names invalid, using default: 'home'"
+
+# Interactive confirmation step
+REPORT: ""
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "📌 PAGE LIST CONFIRMATION"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "Source: {page_source}"
+REPORT: "Pages to generate ({len(validated_pages)}): {', '.join(validated_pages)}"
+REPORT: ""
+REPORT: "⏸️  Please confirm or modify the page list:"
+REPORT: ""
+REPORT: "Options:"
+REPORT: "  • Type 'continue' or 'yes' to proceed with these pages"
+REPORT: "  • Type 'pages: page1, page2, page3' to replace the entire list"
+REPORT: "  • Type 'skip: page-name' to remove specific pages"
+REPORT: "  • Type 'add: page-name' to add specific pages"
+REPORT: ""
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Wait for user input
+user_confirmation = WAIT_FOR_USER_INPUT()
+
+# Process user input
+IF user_confirmation MATCHES r"^(continue|yes|ok|proceed)$":
+    REPORT: "✅ Proceeding with: {', '.join(validated_pages)}"
+ELSE IF user_confirmation MATCHES r"^pages:\s*(.+)$":
+    # User provided new page list
+    new_pages_raw = extract_after_prefix(user_confirmation, "pages:")
+    new_pages = split_and_clean(new_pages_raw, delimiters=[",", ";", "、"])
+    validated_pages = [p.strip().lower().replace(" ", "-") for p in new_pages if p.strip()]
+    REPORT: "✅ Updated page list: {', '.join(validated_pages)}"
+ELSE IF user_confirmation MATCHES r"^skip:\s*(.+)$":
+    # Remove specified pages
+    pages_to_skip_raw = extract_after_prefix(user_confirmation, "skip:")
+    pages_to_skip = [p.strip().lower() for p in pages_to_skip_raw.split(",")]
+    validated_pages = [p for p in validated_pages if p not in pages_to_skip]
+    REPORT: "✅ Removed pages: {', '.join(pages_to_skip)}"
+    REPORT: "   Final list: {', '.join(validated_pages)}"
+ELSE IF user_confirmation MATCHES r"^add:\s*(.+)$":
+    # Add specified pages
+    pages_to_add_raw = extract_after_prefix(user_confirmation, "add:")
+    pages_to_add = [p.strip().lower().replace(" ", "-") for p in pages_to_add_raw.split(",") if p.strip()]
+    validated_pages.extend(pages_to_add)
+    # Remove duplicates while preserving order
+    validated_pages = list(dict.fromkeys(validated_pages))
+    REPORT: "✅ Added pages: {', '.join(pages_to_add)}"
+    REPORT: "   Final list: {', '.join(validated_pages)}"
+ELSE:
+    REPORT: "⚠️ Invalid input format, proceeding with original list: {', '.join(validated_pages)}"
+
+# Final verification
+IF NOT validated_pages:
+    validated_pages = ["home"]
+    REPORT: "⚠️ Empty page list detected, using default: 'home'"
+
+# Store results for subsequent phases
+STORE: inferred_page_list = validated_pages  # For Phase 3
+STORE: page_inference_source = page_source  # Track source for metadata
+STORE: page_structure_data = page_structure  # Save structured data for future use
 ```
 
 ### Phase 1: Style Extraction
@@ -216,10 +356,26 @@ command = "/workflow:ui-design:consolidate {run_base_flag} --variants {style_var
 **Command Construction**:
 ```bash
 run_base_flag = "--base-path \"{base_path}/.design\""
-pages_flag = "--pages \"{inferred_page_list}\""
+
+# Ensure inferred_page_list is serialized correctly as comma-separated string
+# Convert list to string: ['dashboard', 'settings'] → "dashboard,settings"
+pages_string = ",".join(inferred_page_list)
+
+# Validate the serialized string format
+VERIFY: pages_string matches r"^[a-z0-9_-]+(,[a-z0-9_-]+)*$"
+
+pages_flag = "--pages \"{pages_string}\""
 
 # Matrix mode is default in generate.md, no mode flag needed
 command = "/workflow:ui-design:generate {run_base_flag} {pages_flag} --style-variants {style_variants} --layout-variants {layout_variants}"
+
+# Log command for debugging
+REPORT: "🚀 Executing Phase 3: Matrix UI Generation"
+REPORT: "   Pages: {pages_string}"
+REPORT: "   Style variants: {style_variants}"
+REPORT: "   Layout variants: {layout_variants}"
+REPORT: "   Total prototypes: {style_variants * layout_variants * len(inferred_page_list)}"
+
 SlashCommand(command=command)
 ```
 
