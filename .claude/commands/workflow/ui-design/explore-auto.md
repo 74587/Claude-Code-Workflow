@@ -1,13 +1,13 @@
 ---
-name: auto
-description: Fully autonomous UI design workflow with style extraction, consolidation, prototype generation (3×3 matrix), and design system integration
-usage: /workflow:ui-design:auto [--prompt "<desc>"] [--images "<glob>"] [--pages "<list>"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]
+name: explore-auto
+description: Exploratory UI design workflow - Generate and compare multiple style × layout combinations (3×3 matrix exploration)
+usage: /workflow:ui-design:explore-auto [--prompt "<desc>"] [--images "<glob>"] [--pages "<list>"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]
 argument-hint: "[--prompt \"Modern SaaS with 3 styles\"] [--images \"refs/*.png\"] [--pages \"dashboard,auth\"] [--session WFS-xxx] [--style-variants 3] [--layout-variants 3]"
 examples:
-  - /workflow:ui-design:auto --prompt "Generate 3 style variants for modern blog: home, article, author"
-  - /workflow:ui-design:auto --prompt "SaaS dashboard and settings with 2 layout options"
-  - /workflow:ui-design:auto --images "refs/*.png" --prompt "E-commerce: home, product, cart" --style-variants 3 --layout-variants 3
-  - /workflow:ui-design:auto --session WFS-auth --images "refs/*.png"
+  - /workflow:ui-design:explore-auto --prompt "Generate 3 style variants for modern blog: home, article, author"
+  - /workflow:ui-design:explore-auto --prompt "SaaS dashboard and settings with 2 layout options"
+  - /workflow:ui-design:explore-auto --images "refs/*.png" --prompt "E-commerce: home, product, cart" --style-variants 3 --layout-variants 3
+  - /workflow:ui-design:explore-auto --session WFS-auth --images "refs/*.png"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*), Task(conceptual-planning-agent)
 ---
 

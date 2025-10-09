@@ -110,46 +110,59 @@ IF --session:
     synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
 ```
 
-### Phase 2: Matrix UI Generation (Parallel, Layout-Based)
-Execute parallel agents to generate `style_variants × layout_variants × pages` prototypes.
-Each agent handles ONE layout strategy across MULTIPLE styles (batched to max 8 styles per agent).
+### Phase 2: Optimized Matrix UI Generation (Layered, Template-Based)
+
+**Strategy**: Decouple HTML structure from CSS styling to eliminate redundancy.
+- **Layer 1**: Generate `L × P` layout templates (HTML structure + structural CSS)
+- **Layer 2**: Instantiate `S × L × P` final prototypes via fast file operations
+
+**Performance**: Reduces core generation tasks from `O(S×L×P)` to `O(L×P)` — **`S` times faster**
+
+---
+
+#### Phase 2a: Layout Template Generation (Parallel Agent Execution)
+
+Generate style-agnostic layout templates for each `{page} × {layout}` combination.
+Total agent tasks: `layout_variants × len(page_list)`
 
 ```bash
-# Create output directory
+# Create template directory
+CREATE: {base_path}/prototypes/_templates/
 CREATE: {base_path}/prototypes/
 
-# Calculate style batches (max 8 styles per agent)
-batch_size = 8
-all_style_ids = range(1, style_variants + 1)
-style_batches = split_into_chunks(all_style_ids, batch_size)  # e.g., [[1-8], [9-16]]
-
-# Launch layout_variants × num_batches parallel tasks
+# Launch layout_variants × page_list parallel tasks
 FOR layout_id IN range(1, layout_variants + 1):
-    FOR style_batch IN style_batches:
+    FOR page IN page_list:
         Task(conceptual-planning-agent): "
-          [UI_GENERATION_MATRIX_BATCH]
+          [UI_LAYOUT_TEMPLATE_GENERATION]
 
-          Generate prototypes for layout-{layout_id} across a batch of styles.
+          Generate a **style-agnostic** layout template for a specific page and layout strategy.
 
           ## Context
           LAYOUT_ID: {layout_id}
-          STYLE_IDS_BATCH: {style_batch}  # e.g., [1, 2, 3, 4, 5, 6, 7, 8]
-          PAGES: {page_list}
+          PAGE: {page}
           BASE_PATH: {base_path}
-
-          ## Input Files
-          For each style_id in your batch, you MUST load its corresponding files:
-          - Design Tokens: {base_path}/style-consolidation/style-{style_id}/design-tokens.json
-          - Style Guide: {base_path}/style-consolidation/style-{style_id}/style-guide.md
           {IF --session: - Requirements: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md}
 
           ## Task
-          For each style_id in {style_batch}:
-            For each page in [{page_list}]:
-              Generate the prototype files for the specific combination:
-              - {page}-style-{style_id}-layout-{layout_id}.html (semantic HTML5)
-              - {page}-style-{style_id}-layout-{layout_id}.css (token-driven, no hardcoded values)
-              - {page}-style-{style_id}-layout-{layout_id}-notes.md (implementation notes)
+          Generate TWO files that work together as a reusable template:
+
+          **File 1**: `{page}-layout-{layout_id}.html`
+          - Semantic HTML5 structure WITHOUT any style-specific values
+          - Use placeholder links for stylesheets:
+            ```html
+            <link rel=\"stylesheet\" href=\"{{STRUCTURAL_CSS}}\">
+            <link rel=\"stylesheet\" href=\"{{TOKEN_CSS}}\">
+            ```
+          - Include all semantic elements, ARIA attributes, and responsive structure
+          - NO inline styles, NO hardcoded colors/fonts/spacing
+
+          **File 2**: `{page}-layout-{layout_id}.css`
+          - Structural CSS rules using CSS variable references
+          - ALL values MUST use `var()` functions (e.g., `background-color: var(--color-surface-background);`)
+          - NO hardcoded values (e.g., #4F46E5, 16px, Arial)
+          - BEM or semantic class naming
+          - Mobile-first responsive design using token-based breakpoints
 
           ## Layout Diversity Strategy
           You are responsible for Layout {layout_id}. Apply this strategy CONSISTENTLY to all styles in your batch.
@@ -202,19 +215,110 @@ FOR layout_id IN range(1, layout_variants + 1):
           - Desktop: var(--breakpoint-lg)+ (full layout)
 
           ## Output Location
-          {base_path}/prototypes/
+          {base_path}/prototypes/_templates/
 
           ## Deliverables
-          For each page-style-layout combination in your assigned batch:
-          1. HTML file with token-driven structure
-          2. CSS file with custom property references
-          3. Notes file with implementation details and layout rationale
+          TWO template files for the '{page}-layout-{layout_id}' combination:
+          1. `{page}-layout-{layout_id}.html` - Reusable HTML structure with CSS placeholders
+          2. `{page}-layout-{layout_id}.css` - Structural CSS using var() for all values
 
-          Total files to generate: {len(page_list) * len(style_batch) * 3}
+          IMPORTANT: These templates will be reused across ALL styles, so they must be
+          completely style-agnostic (no hardcoded colors, fonts, or spacing).
         "
 
-# Wait for all {layout_variants * len(style_batches)} parallel tasks to complete
-# Total prototypes: {style_variants * layout_variants * len(page_list)}
+# Wait for all {layout_variants × len(page_list)} parallel tasks to complete
+# Generated templates: L × P (significantly fewer than the old S × L × P approach)
+REPORT: "✅ Phase 2a complete: Generated {layout_variants * len(page_list)} layout templates"
+```
+
+---
+
+#### Phase 2b: Prototype Instantiation (Fast File Operations)
+
+Create final `S × L × P` prototypes by copying templates and injecting style-specific CSS links.
+This phase uses **fast file operations** instead of expensive Agent calls.
+
+```bash
+REPORT: "🚀 Phase 2b: Instantiating prototypes from templates..."
+
+# Ensure design tokens are converted to CSS for each style
+FOR style_id IN range(1, style_variants + 1):
+    tokens_json = Read({base_path}/style-consolidation/style-{style_id}/design-tokens.json)
+    tokens_css = convert_json_to_css_variables(tokens_json)
+
+    # Write tokens.css for this style
+    Write({base_path}/style-consolidation/style-{style_id}/tokens.css, tokens_css)
+
+# Instantiate S × L × P final prototypes via file copying and placeholder replacement
+Bash(
+  cd {base_path}/prototypes/
+
+  # For each style, layout, and page combination...
+  for s in $(seq 1 {style_variants}); do
+    for l in $(seq 1 {layout_variants}); do
+      for p in {' '.join(page_list)}; do
+
+        # Define file names
+        TEMPLATE_HTML="_templates/${p}-layout-${l}.html"
+        STRUCTURAL_CSS="./_templates/${p}-layout-${l}.css"
+        TOKEN_CSS="../../style-consolidation/style-${s}/tokens.css"
+        OUTPUT_HTML="${p}-style-${s}-layout-${l}.html"
+
+        # 1. Copy the HTML template
+        cp "${TEMPLATE_HTML}" "${OUTPUT_HTML}"
+
+        # 2. Replace CSS placeholders with actual paths
+        # Using | delimiter for sed to handle paths with slashes
+        sed -i "s|{{STRUCTURAL_CSS}}|${STRUCTURAL_CSS}|g" "${OUTPUT_HTML}"
+        sed -i "s|{{TOKEN_CSS}}|${TOKEN_CSS}|g" "${OUTPUT_HTML}"
+
+        # 3. Create implementation notes file
+        cat > "${p}-style-${s}-layout-${l}-notes.md" <<EOF
+# Implementation Notes: ${p}-style-${s}-layout-${l}
+
+## Generation Details
+- **Template**: ${TEMPLATE_HTML}
+- **Structural CSS**: ${STRUCTURAL_CSS}
+- **Style Tokens**: ${TOKEN_CSS}
+- **Layout Strategy**: Layout ${l}
+- **Style Variant**: Style ${s}
+
+## Template Reuse
+This prototype was generated from a shared layout template to ensure consistency
+across all style variants. The HTML structure is identical for all ${p}-layout-${l}
+prototypes, with only the design tokens (colors, fonts, spacing) varying.
+
+## Design System Reference
+Refer to \`../../style-consolidation/style-${s}/style-guide.md\` for:
+- Design philosophy
+- Token usage guidelines
+- Component patterns
+- Accessibility requirements
+
+## Customization
+To modify this prototype:
+1. Edit the layout template: \`${TEMPLATE_HTML}\` (affects all styles)
+2. Edit the structural CSS: \`${STRUCTURAL_CSS}\` (affects all styles)
+3. Edit design tokens: \`${TOKEN_CSS}\` (affects only this style variant)
+
+EOF
+      done
+    done
+  done
+)
+
+REPORT: "✅ Phase 2b complete: Instantiated {style_variants * layout_variants * len(page_list)} final prototypes"
+REPORT: "   Performance: {style_variants}× faster than original approach"
+```
+
+**Performance Comparison**:
+
+| Metric | Before (S×L×P Agent calls) | After (L×P Agent calls + File Ops) |
+|--------|----------------------------|-----------------------------------|
+| Agent Tasks | `S × L × P` | `L × P` |
+| Example (3×3×3) | 27 Agent calls | 9 Agent calls |
+| Speed Improvement | Baseline | **3× faster** (S times) |
+| Resource Usage | High (creative generation for each combo) | Optimized (creative only for templates) |
 ```
 
 ### Phase 3: Generate Preview Files
@@ -500,7 +604,8 @@ Run `/workflow:ui-design:update` once all issues are resolved.
 TodoWrite({
   todos: [
     {content: "Resolve paths and load design systems", status: "completed", activeForm: "Loading design systems"},
-    {content: `Generate ${style_variants}×${layout_variants}×${page_list.length} prototypes`, status: "completed", activeForm: "Generating matrix prototypes"},
+    {content: `Generate ${layout_variants}×${page_list.length} layout templates (optimized)`, status: "completed", activeForm: "Generating layout templates"},
+    {content: `Instantiate ${style_variants}×${layout_variants}×${page_list.length} final prototypes`, status: "completed", activeForm: "Instantiating prototypes"},
     {content: "Generate interactive preview files", status: "completed", activeForm: "Generating preview"}
   ]
 });
@@ -508,24 +613,29 @@ TodoWrite({
 
 **Completion Message**:
 ```
-✅ Matrix UI generation complete!
+✅ Optimized Matrix UI generation complete!
 
 Configuration:
 - Style Variants: {style_variants}
-- Layout Options: {layout_variants}
+- Layout Variants: {layout_variants}
 - Pages: {page_list}
 - Total Prototypes: {style_variants * layout_variants * len(page_list)}
 
-Generated Files:
-{FOR style_id IN range(1, style_variants + 1):
-  {FOR layout_id IN range(1, layout_variants + 1):
-    {FOR page IN page_list:
-      - {page}-style-{style_id}-layout-{layout_id}.html
-    }
-  }
-}
+Performance Metrics:
+- Layout Templates Generated: {layout_variants * len(page_list)} (Agent tasks)
+- Prototypes Instantiated: {style_variants * layout_variants * len(page_list)} (file operations)
+- Speed Improvement: {style_variants}× faster than previous approach
+- Resource Efficiency: {100 * (1 - 1/style_variants)}% reduction in Agent calls
 
-📂 Location: {base_path}/prototypes/
+Generated Structure:
+📂 {base_path}/prototypes/
+├── _templates/
+│   ├── {page}-layout-{1..L}.html ({layout_variants * len(page_list)} templates)
+│   └── {page}-layout-{1..L}.css ({layout_variants * len(page_list)} structural CSS)
+├── {page}-style-{s}-layout-{l}.html ({style_variants * layout_variants * len(page_list)} final prototypes)
+├── {page}-style-{s}-layout-{l}-notes.md
+├── compare.html (interactive matrix visualization)
+└── index.html (quick navigation)
 
 🌐 Interactive Preview:
 1. Matrix View: Open compare.html (recommended)
@@ -537,24 +647,47 @@ Features:
 - Zoom controls and fullscreen mode
 - Selection export for implementation
 - Per-page comparison
+- Template-based consistency across style variants
+
+Technical Highlights:
+- ✅ Decoupled HTML structure from CSS styling
+- ✅ Reusable layout templates (affects all styles uniformly)
+- ✅ Dynamic style injection via CSS custom properties
+- ✅ Significantly reduced generation time
 
 Next: /workflow:ui-design:update {--session flag if applicable}
 
 Note: When called from /workflow:ui-design:auto, design-update is triggered automatically.
 ```
 
-## Output Structure
+## Output Structure (Optimized, Template-Based)
 
 ```
 {base_path}/prototypes/
+├── _templates/                            # Reusable layout templates (NEW)
+│   ├── {page}-layout-1.html              # Style-agnostic HTML structure
+│   ├── {page}-layout-1.css               # Structural CSS with var() references
+│   ├── {page}-layout-2.html
+│   ├── {page}-layout-2.css
+│   └── ... (L × P templates total)
 ├── compare.html                           # Interactive matrix visualization
 ├── index.html                             # Simple navigation page
 ├── PREVIEW.md                             # Preview instructions
 ├── design-tokens.css                      # CSS custom properties fallback
-├── {page}-style-{s}-layout-{l}.html      # Matrix prototype files
-├── {page}-style-{s}-layout-{l}.css
-├── {page}-style-{s}-layout-{l}-notes.md
-└── ... (all style×layout×page combinations)
+├── {page}-style-{s}-layout-{l}.html      # Final prototypes (copied from templates)
+├── {page}-style-{s}-layout-{l}-notes.md  # Implementation notes (auto-generated)
+└── ... (S × L × P total final files)
+
+{base_path}/style-consolidation/
+├── style-1/
+│   ├── design-tokens.json
+│   ├── tokens.css                         # NEW: CSS variables for style-1
+│   └── style-guide.md
+├── style-2/
+│   ├── design-tokens.json
+│   ├── tokens.css                         # NEW: CSS variables for style-2
+│   └── style-guide.md
+└── ...
 ```
 
 ## Error Handling
@@ -576,11 +709,35 @@ After generation, ensure:
 
 ## Key Features
 
-1. **Matrix-Only Mode**: Simplified, focused workflow
-2. **Parallel Generation**: All style×layout combinations in parallel
-3. **Interactive Visualization**: Full-featured compare.html from template
-4. **Per-Style Tokens**: Each prototype references its style's design system
-5. **Systematic Exploration**: Consistent layout strategies across all styles
+1. **Optimized Template-Based Architecture** (NEW)
+   - Decouples HTML structure from CSS styling
+   - Generates `L × P` reusable templates instead of `S × L × P` unique files
+   - **`S` times faster** than previous approach (typically 3× faster)
+
+2. **Two-Layer Generation Strategy**
+   - **Layer 1**: Agent-driven creative generation of layout templates
+   - **Layer 2**: Fast file operations for prototype instantiation
+   - Reduces expensive Agent calls by ~67% (for S=3)
+
+3. **Consistent Cross-Style Layouts**
+   - Same layout structure applied uniformly across all style variants
+   - Easier to compare styles directly (HTML structure is identical)
+   - Simplified maintenance (edit template once, affects all styles)
+
+4. **Dynamic Style Injection**
+   - CSS custom properties enable runtime style switching
+   - Each style variant has its own `tokens.css` file
+   - Clean separation of structure and aesthetics
+
+5. **Interactive Visualization**
+   - Full-featured compare.html from template
+   - Matrix grid view with synchronized scrolling
+   - Per-style design system references
+
+6. **Production-Ready Output**
+   - Semantic HTML5 and ARIA attributes
+   - Mobile-first responsive design
+   - Token-driven styling (no hardcoded values)
 
 ## Integration Points
 - **Input**: Per-style design-tokens.json from `/workflow:ui-design:consolidate --keep-separate`
