@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.0.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v4.2.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,16 +15,13 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v4.0.1** - UI Design Workflow V2 with Intelligent Page Inference & Agent Mode. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v4.2.1** - Documentation Refactoring for UI Design Workflow. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v4.0.1**:
-> - 🧠 **Intelligent Page Inference**: Pages auto-extracted from prompt text - no need to specify `--pages` manually
-> - 🤖 **Agent Creative Mode**: `--use-agent` enables parallel exploration of diverse design directions
-> - 🎯 **Unified Variant Control**: Single `--variants` parameter controls both style cards and UI prototypes
-> - 🔀 **Dual Mode Support**: Standalone (quick prototyping) or Integrated (workflow enhancement)
-> - 💬 **Dual Input Sources**: Images, text prompts, or hybrid (text guides image analysis)
-> - ✨ **Extreme Simplification**: All parameters optional with smart defaults
-> - ⚡ **Parallel Execution**: Agent mode generates variants concurrently for speed
+> **What's New in v4.2.1**:
+> - 📚 **Documentation Optimization**: Reduced file sizes by 15-20% while preserving all functionality
+> - 🎯 **Clearer Structure**: Merged duplicate concepts and streamlined content organization
+> - ✨ **Improved Maintainability**: Better content separation and consistent formatting patterns
+> - 📖 **Zero Functionality Loss**: All features, workflows, and technical details preserved
 
 ---
 
@@ -253,24 +250,27 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 
 **Phase 2: UI Design Refinement** *(Optional for UI-heavy projects)*
 ```bash
-# Simplest - pages inferred from prompt (v4.0.2+)
-/workflow:ui-design:auto --prompt "Modern blog with home, article and author pages, dark theme"
+# Matrix Exploration Mode - Multiple style/layout variants (v4.2.1+)
+/workflow:ui-design:explore-auto --prompt "Modern blog: home, article, author" --style-variants 3 --layout-variants 2
+
+# Fast Imitation Mode - Single design replication (v4.2.1+)
+/workflow:ui-design:imitate-auto --images "refs/design.png" --pages "dashboard,settings"
 
 # With session integration
-/workflow:ui-design:auto --session WFS-auth --images "refs/*.png" --variants 3
+/workflow:ui-design:explore-auto --session WFS-auth --images "refs/*.png" --style-variants 2 --layout-variants 3
 
 # Or run individual design phases
 /workflow:ui-design:extract --images "refs/*.png" --variants 3
 /workflow:ui-design:consolidate --variants "variant-1,variant-3"
-/workflow:ui-design:generate --variants 2
+/workflow:ui-design:generate --pages "dashboard,auth" --style-variants 2 --layout-variants 2
 
-# Preview generated prototypes (NEW!)
-# Option 1: Open .workflow/WFS-auth/.design/prototypes/index.html in browser
+# Preview generated prototypes
+# Option 1: Open .workflow/WFS-auth/.design/prototypes/compare.html in browser
 # Option 2: Start local server
 cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 # Visit http://localhost:8080 for interactive preview with comparison tools
 
-/workflow:ui-design:design-update --session WFS-auth --selected-prototypes "login-variant-1,register-variant-2"
+/workflow:ui-design:update --session WFS-auth --selected-prototypes "dashboard-s1-l2"
 ```
 
 **Phase 3: Action Planning**
@@ -364,11 +364,12 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 |---|---|
 | `/workflow:session:*` | Manage development sessions (`start`, `pause`, `resume`, `list`, `switch`, `complete`). |
 | `/workflow:brainstorm:*` | Use role-based agents for multi-perspective planning. |
-| `/workflow:ui-design:auto` | **v4.0.2** UI design workflow with pure Claude execution. All parameters optional, no external tools. |
-| `/workflow:ui-design:extract` | **v4.0.2** Extract design from images/text using Claude-native analysis. Single-pass variant generation. |
-| `/workflow:ui-design:consolidate` | **v4.0.2** Consolidate style variants into validated design tokens using Claude synthesis. |
-| `/workflow:ui-design:generate` | **v4.0.2** Generate token-driven HTML/CSS prototypes with agent-based execution. |
-| `/workflow:ui-design:update` | **v4.0.2** Integrate finalized design system into brainstorming artifacts. |
+| `/workflow:ui-design:explore-auto` | **v4.2.1** Matrix exploration mode - Generate multiple style × layout variants for comprehensive design exploration. |
+| `/workflow:ui-design:imitate-auto` | **v4.2.1** Fast imitation mode - Rapid single-design replication with auto-screenshot and direct token extraction. |
+| `/workflow:ui-design:extract` | **v4.2.1** Extract design from images/text using Claude-native analysis. Single-pass variant generation. |
+| `/workflow:ui-design:consolidate` | **v4.2.1** Consolidate style variants into validated design tokens using Claude synthesis. |
+| `/workflow:ui-design:generate` | **v4.2.1** Generate token-driven HTML/CSS prototypes in matrix mode (style × layout combinations). |
+| `/workflow:ui-design:update` | **v4.2.1** Integrate finalized design system into brainstorming artifacts. |
 | `/workflow:plan` | Create a detailed, executable plan from a description. |
 | `/workflow:tdd-plan` | Create TDD workflow (6 phases) with test coverage analysis and Red-Green-Refactor cycles. |
 | `/workflow:execute` | Execute the current workflow plan autonomously. |
@@ -380,31 +381,44 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 | `/workflow:tools:test-concept-enhanced` | Generate test strategy and requirements analysis using Gemini. |
 | `/workflow:tools:test-task-generate` | Generate test task JSON with test-fix-cycle specification. |
 
-### **UI Design Workflow Commands (`/workflow:ui-design:*`)** *(v4.0.2)*
+### **UI Design Workflow Commands (`/workflow:ui-design:*`)** *(v4.2.1)*
 
 The design workflow system provides complete UI design refinement with **pure Claude execution**, **intelligent page inference**, and **zero external dependencies**.
 
 #### Core Commands
 
-**`/workflow:ui-design:auto`** - Complete workflow orchestrator
+**`/workflow:ui-design:explore-auto`** - Matrix exploration mode
 ```bash
-# Simplest - pages auto-inferred from prompt (v4.0.2)
-/workflow:ui-design:auto --prompt "Modern blog with home, article and author pages, dark theme"
+# Comprehensive exploration - multiple style × layout variants
+/workflow:ui-design:explore-auto --prompt "Modern blog: home, article, author" --style-variants 3 --layout-variants 2
 
-# Multiple style variants
-/workflow:ui-design:auto --prompt "SaaS dashboard and settings" --variants 3
+# With images and session integration
+/workflow:ui-design:explore-auto --session WFS-auth --images "refs/*.png" --style-variants 2 --layout-variants 3
 
-# Hybrid: images + text prompt
-/workflow:ui-design:auto --images "refs/*.png" --prompt "E-commerce: home, product, cart"
-
-# Integrated with session + creative mode
-/workflow:ui-design:auto --session WFS-auth --images "refs/*.png" --variants 2 --creative-variants 3
+# Text-only mode with page inference
+/workflow:ui-design:explore-auto --prompt "E-commerce: home, product, cart" --style-variants 2 --layout-variants 2
 ```
-- **🆕 Pure Claude**: No external tools (gemini-wrapper, codex) required
-- **🆕 Zero Dependencies**: All analysis and generation done natively
-- **All Parameters Optional**: Smart defaults and inference for everything
-- **Page Inference**: Auto-extract pages from `--prompt` text
-- **Dual Mode**: Standalone (quick prototyping) or Integrated (workflow enhancement)
+- **🎯 Matrix Mode**: Generate all style × layout combinations
+- **📊 Comprehensive Exploration**: Compare multiple design directions
+- **🔍 Interactive Comparison**: Side-by-side comparison with viewport controls
+- **✅ Cross-page Validation**: Automatic consistency checks for multi-page designs
+- **⚡ Batch Selection**: Quick selection by style or layout
+
+**`/workflow:ui-design:imitate-auto`** - Fast imitation mode
+```bash
+# Rapid single-design replication
+/workflow:ui-design:imitate-auto --images "refs/design.png" --pages "dashboard,settings"
+
+# With session integration
+/workflow:ui-design:imitate-auto --session WFS-auth --images "refs/ui.png" --pages "home,product"
+
+# Auto-screenshot from URL (requires Playwright)
+/workflow:ui-design:imitate-auto --url "https://example.com" --pages "landing"
+```
+- **⚡ Speed Optimized**: 5-10x faster than explore-auto
+- **📸 Auto-Screenshot**: Automatic URL screenshot capture with Playwright/Chrome
+- **🎯 Direct Extraction**: Skip variant selection, go straight to implementation
+- **🔧 Single Design Focus**: Best for copying existing designs quickly
 
 **`/workflow:ui-design:extract`** - Style analysis with dual input sources
 ```bash
@@ -433,16 +447,17 @@ The design workflow system provides complete UI design refinement with **pure Cl
 
 **`/workflow:ui-design:generate`** - Generate HTML/CSS prototypes
 ```bash
-# Standard mode (consistent layouts)
-/workflow:ui-design:generate --pages "dashboard,auth" --variants 2
+# Matrix mode - style × layout combinations
+/workflow:ui-design:generate --pages "dashboard,auth" --style-variants 2 --layout-variants 3
 
-# Creative mode (diverse layout exploration)
-/workflow:ui-design:generate --pages "home,product,cart" --creative-variants 3
+# Single page with multiple variants
+/workflow:ui-design:generate --pages "home" --style-variants 3 --layout-variants 2
 ```
-- **Page Inference**: Auto-detect from session or default to `["home"]`
-- **Agent-Only**: Task(conceptual-planning-agent) execution
-- **Creative Mode**: Parallel agents for diverse layout strategies
-- **Preview Files**: `index.html`, `compare.html`, `PREVIEW.md`
+- **🎯 Matrix Generation**: Creates all style × layout combinations
+- **📊 Multi-page Support**: Consistent design system across pages
+- **✅ Consistency Validation**: Automatic cross-page consistency reports (v4.2.0+)
+- **🔍 Interactive Preview**: `compare.html` with side-by-side comparison
+- **📋 Batch Selection**: Quick selection by style or layout filters
 
 **`/workflow:ui-design:update`** - Integrate design system
 ```bash

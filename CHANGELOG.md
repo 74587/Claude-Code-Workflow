@@ -5,6 +5,89 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.1] - 2025-10-09
+
+### 📝 Documentation Refactoring: UI Design Workflow Commands
+
+This release refactors UI design workflow documentation for improved clarity and maintainability, with significant size reductions while preserving all functionality.
+
+#### Changed
+
+**explore-auto.md** (formerly `auto.md`):
+- **File Reorganization**: Reduced from 540 to 435 lines (19.4% reduction)
+- **Merged Duplicate Content**: Consolidated Overview, Coordinator Role, and Execution Model into single "Overview & Execution Model" section
+- **Simplified Core Rules**: From verbose descriptions to 5 concise rules
+- **Streamlined TodoWrite Pattern**: From detailed steps to concise mode with comments
+- **Preserved Functionality**: All 6-phase execution logic, intelligent parsing, interactive confirmation, and matrix mode intact
+
+**imitate-auto.md** (NEW command):
+- **File Reorganization**: Reduced from 566 to 475 lines (16.1% reduction)
+- **Merged Sections**: Combined Overview, Core Philosophy, Execution Model, and Workflow Position into unified structure
+- **Simplified Phase 0.5**: Screenshot capture logic complete but reduced redundant error handling
+- **Consolidated Performance**: Merged "Key Differences" and "Performance Benefits" into single comparison table
+- **Preserved Functionality**: All 5-phase execution, auto-screenshot mechanism, direct token extraction, and error handling intact
+
+#### Improved
+
+**Documentation Quality**:
+- 📚 Clearer structure with merged duplicate concepts
+- 🎯 Reduced redundancy across command documentation
+- ✨ Consistent formatting and organization patterns
+- 📖 Improved maintainability with better content separation
+- 🔍 All key functionality points preserved and highlighted
+
+**Total Impact**:
+- **explore-auto.md**: 105 lines removed (19.4% reduction)
+- **imitate-auto.md**: 91 lines removed (16.1% reduction)
+- **Combined**: 196 lines of documentation optimized
+- **Zero functionality loss**: All features, workflows, and technical details preserved
+
+## [4.2.0] - 2025-10-09
+
+### 🎯 Multi-Page Support Enhancement
+
+Based on Gemini's analysis of the UI Design Workflow, this version implements four key optimizations to improve the multi-page design experience.
+
+#### Added
+
+- **Cross-Page Consistency Validation**: New `Phase 3.5` in `generate` command automatically validates design consistency (shared components, tokens, accessibility) across multiple pages
+- **Side-by-Side Prototype Comparison**: `compare.html` preview tool now includes "Side-by-Side" tab to compare any two prototypes with intelligent consistency hints
+- **Batch Prototype Selection**: `compare.html` features "By Style" and "By Layout" buttons for quick bulk prototype selection
+
+#### Changed
+
+- **Enhanced Page Inference**: `auto` command's page detection uses multiple regex patterns with interactive user confirmation
+- **Improved Export**: Selection export from `compare.html` is now more structured with detailed metadata
+
+## [4.1.1] - 2025-10-09
+
+### 🔧 Symlink Fix & Agent Optimization
+
+#### Fixed
+
+- **Windows Symbolic Link Creation**: Corrected `auto.md` workflow to use `mklink /D` on Windows, preventing duplicate directories instead of symlinks
+
+#### Changed
+
+- **Agent Allocation Strategy**: `generate.md` now allocates tasks by layout (layout-based) instead of style, improving performance and consistency for high variant counts by having one agent handle one layout strategy across multiple styles
+
+## [4.1.0] - 2025-10-09
+
+### 🔄 Matrix-Only UI Design Workflow
+
+#### Changed
+
+- **Matrix Mode by Default**: UI Design workflow now exclusively uses `style × layout` matrix mode with `--style-variants` and `--layout-variants` as standard parameters
+- **Path Standardization**: Standalone design sessions saved to `.workflow/.scratchpad/` adhering to project architecture
+- **Simplified Orchestration**: `auto.md` command simplified to use single `SlashCommand` for generation phase, removing complex loop logic
+
+#### Removed
+
+- **Deprecated Parameters**: Removed `--variants` and `--creative-variants` in favor of explicit `--style-variants` and `--layout-variants`
+- **Standard/Creative Modes**: Distinction between these modes removed
+
+---
+
 ## [4.0.2] - 2025-10-09
 
 ### 🔄 UI Design Workflow - Complete Refactoring

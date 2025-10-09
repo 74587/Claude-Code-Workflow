@@ -1,66 +1,75 @@
 ---
 name: explore-auto
-description: Exploratory UI design workflow - Generate and compare multiple style × layout combinations (3×3 matrix exploration)
-usage: /workflow:ui-design:explore-auto [--prompt "<desc>"] [--images "<glob>"] [--pages "<list>"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]
-argument-hint: "[--prompt \"Modern SaaS with 3 styles\"] [--images \"refs/*.png\"] [--pages \"dashboard,auth\"] [--session WFS-xxx] [--style-variants 3] [--layout-variants 3]"
+description: Exploratory UI design workflow - Generate and compare multiple style × layout combinations for pages OR components (3×3 matrix exploration)
+usage: /workflow:ui-design:explore-auto [--prompt "<desc>"] [--images "<glob>"] [--pages "<list>" | --components "<list>"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]
+argument-hint: "[--prompt \"Modern SaaS with 3 styles\"] [--images \"refs/*.png\"] [--pages \"dashboard,auth\" | --components \"navbar,hero,card\"] [--session WFS-xxx] [--style-variants 3] [--layout-variants 3]"
 examples:
   - /workflow:ui-design:explore-auto --prompt "Generate 3 style variants for modern blog: home, article, author"
   - /workflow:ui-design:explore-auto --prompt "SaaS dashboard and settings with 2 layout options"
   - /workflow:ui-design:explore-auto --images "refs/*.png" --prompt "E-commerce: home, product, cart" --style-variants 3 --layout-variants 3
   - /workflow:ui-design:explore-auto --session WFS-auth --images "refs/*.png"
+  - /workflow:ui-design:explore-auto --components "navbar,hero" --prompt "Compare 3 navigation bar designs" --style-variants 3 --layout-variants 2
+  - /workflow:ui-design:explore-auto --components "card,form" --images "refs/*.png" --style-variants 2 --layout-variants 3
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*), Task(conceptual-planning-agent)
 ---
 
 # UI Design Auto Workflow Command
 
-## Overview
-Fully autonomous UI design workflow: style extraction → consolidation → UI generation → design update → optional batch planning. This command orchestrates the entire design process without user intervention.
+## Overview & Execution Model
 
-## Coordinator Role
-**Fully autonomous orchestrator**: Executes all phases sequentially, parsing outputs from one phase to construct the inputs for the next. Supports both standard sequential mode and parallel creative mode for generating diverse design variants.
+**Fully autonomous orchestrator**: Executes all design phases sequentially from style extraction to design integration, with optional batch planning. Supports two exploration modes:
 
-## Execution Model - Autonomous Workflow
+**Exploration Modes**:
+- **Page Mode** (default): Generates `style_variants × layout_variants × pages` full-page prototypes
+- **Component Mode**: Generates `style_variants × layout_variants × components` isolated component prototypes
 
-This workflow runs **fully autonomously** from start to finish:
+**Autonomous Flow**:
+1. User triggers: `/workflow:ui-design:explore-auto [params]`
+2. Phase 1 (style-extract) → Auto-continues
+3. Phase 2 (style-consolidate) → Auto-continues
+4. Phase 3 (ui-generate) → Auto-continues with appropriate mode
+5. Phase 4 (design-update) → Auto-continues
+6. Phase 5 (batch-plan, optional) → Reports completion
 
-1. **User triggers**: `/workflow:ui-design:auto --session WFS-xxx --images "refs/*.png" --pages "dashboard,auth" [--batch-plan]`
-2. **Phase 1 executes** (style-extract) → Auto-continues
-3. **Phase 2 executes** (style-consolidate) → Auto-continues
-4. **Phase 3 executes** (ui-generate) → Auto-continues
-5. **Phase 4 executes** (design-update) → Auto-continues
-6. **Phase 5 executes** (batch-plan, optional) → Reports task files
+**Auto-Continue Mechanism**: TodoWrite tracks phase status. Upon completion, coordinator constructs next command and executes immediately. No user intervention required.
 
-**Auto-Continue Mechanism**:
-- The workflow uses `TodoWrite` to track the state of each phase
-- Upon successful completion of a phase, the coordinator immediately constructs and executes the command for the next phase
-- This pattern ensures a seamless flow
+**Mode Selection**: Determined by `--pages` vs `--components` parameter (mutually exclusive).
 
 ## Core Rules
 
-1. **Start Immediately**: First action is `TodoWrite` initialization, second action is Phase 1 command execution
-2. **No Preliminary Analysis**: Do not read files or validate before Phase 1 (sub-commands handle their own validation)
-3. **Parse Every Output**: Extract required data from each command's output for the next phase
-4. **Auto-Continue**: After each phase, automatically proceed to the next without pausing
-5. **Track Progress**: Update `TodoWrite` after every phase completion
-6. **Default to All**: When selecting variants or prototypes for the next phase, the autonomous workflow defaults to using **all** generated items
+1. **Start Immediately**: TodoWrite initialization → Phase 1 execution
+2. **No Preliminary Validation**: Sub-commands handle their own validation
+3. **Parse & Pass**: Extract data from each output for next phase
+4. **Default to All**: When selecting variants/prototypes, use ALL generated items
+5. **Track Progress**: Update TodoWrite after each phase
 
 ## Parameter Requirements
 
 **Optional Parameters** (all have smart defaults):
-- `--pages "<page_list>"`: Pages to generate (if omitted, inferred from prompt/session)
-- `--session <session_id>`: Workflow session ID (if omitted, runs in standalone mode)
-- `--images "<glob_pattern>"`: Reference image paths (default: `design-refs/*`)
-- `--prompt "<description>"`: Text description of design style and pages (supports intelligent parsing)
-- `--style-variants <count>`: Number of style variants to generate (default: inferred from prompt or 3, range: 1-5)
-- `--layout-variants <count>`: Number of layout variants per style (default: inferred from prompt or 3, range: 1-5)
-- `--batch-plan`: Auto-generate implementation tasks after design-update (integrated mode only)
+- `--pages "<list>"`: Pages to generate (inferred from prompt/session if omitted) - **Page Mode**
+- `--components "<list>"`: Components to generate (inferred from prompt if omitted) - **Component Mode**
+- `--session <id>`: Workflow session ID (standalone mode if omitted)
+- `--images "<glob>"`: Reference image paths (default: `design-refs/*`)
+- `--prompt "<description>"`: Design style and pages/components description
+- `--style-variants <count>`: Style variants (default: inferred from prompt or 3, range: 1-5)
+- `--layout-variants <count>`: Layout variants per style (default: inferred or 3, range: 1-5)
+- `--batch-plan`: Auto-generate implementation tasks after design-update
 
-**Input Source Rules**:
-- Must provide at least one of: `--images` or `--prompt`
-- Both can be combined for guided style analysis
+**Input Rules**:
+- Must provide at least one: `--images` or `--prompt`
+- Both can be combined for guided analysis
+- `--pages` and `--components` are **mutually exclusive**
+- Default mode: **Page Mode** if neither specified
 
-**Intelligent Prompt Parsing**:
-The workflow extracts variant counts from natural language:
+**Supported Component Types**:
+- **Navigation**: navbar, header, menu, breadcrumb, tabs, sidebar
+- **Content**: hero, card, list, table, grid, timeline
+- **Input**: form, search, filter, input-group
+- **Feedback**: modal, alert, toast, badge, progress
+- **Media**: gallery, carousel, video-player, image-card
+- **Other**: footer, pagination, dropdown, tooltip, avatar
+
+**Intelligent Prompt Parsing**: Extracts variant counts from natural language:
 - "Generate **3 style variants**" → `--style-variants 3`
 - "**2 layout options**" → `--layout-variants 2`
 - "Create **4 styles** with **2 layouts each**" → `--style-variants 4 --layout-variants 2`
@@ -68,15 +77,14 @@ The workflow extracts variant counts from natural language:
 
 ## Execution Modes
 
-### Matrix Mode (Default and Only)
-- Generates `style_variants × layout_variants × pages` prototypes in 3×3 matrix pattern
-- **Phase 1 (Style Extraction)**: Generates `style_variants` style options
-- **Phase 2 (Style Consolidation)**: Creates `style_variants` independent design systems
-- **Phase 3 (Matrix Generation)**: Generates `style_variants × layout_variants` prototypes per page
-- This is the only supported mode - focused on systematic design exploration
+**Matrix Mode** (default and only):
+- Generates `style_variants × layout_variants × pages` prototypes
+- **Phase 1**: `style_variants` style options
+- **Phase 2**: `style_variants` independent design systems
+- **Phase 3**: `style_variants × layout_variants` prototypes per page
 
-### Integrated vs. Standalone Mode
-- `--session` flag determines if the workflow is integrated with a larger session or runs standalone
+**Integrated vs. Standalone**:
+- `--session` flag determines session integration or standalone execution
 
 ## 6-Phase Execution
 
@@ -84,53 +92,36 @@ The workflow extracts variant counts from natural language:
 ```bash
 # Extract variant counts from prompt if not explicitly provided
 IF --prompt provided AND (NOT --style-variants OR NOT --layout-variants):
-    prompt_text = {--prompt value}
-
-    # Parse style variants: "3 style variants", "generate 4 styles", etc.
+    # Parse: "3 style variants", "4 styles", "2 layout options", "3 layouts each"
     style_match = regex_search(prompt_text, r"(\d+)\s*(style\s*variants?|styles?)")
-    IF style_match AND NOT --style-variants:
-        style_variants = int(style_match.group(1))
-    ELSE:
-        style_variants = --style-variants OR 3  # Default to 3
-
-    # Parse layout variants: "2 layout options", "3 layouts each", etc.
     layout_match = regex_search(prompt_text, r"(\d+)\s*(layout\s*(variants?|options?)|layouts?)")
-    IF layout_match AND NOT --layout-variants:
-        layout_variants = int(layout_match.group(1))
-    ELSE:
-        layout_variants = --layout-variants OR 3  # Default to 3
+
+    style_variants = style_match ? int(match[1]) : (--style-variants OR 3)
+    layout_variants = layout_match ? int(match[1]) : (--layout-variants OR 3)
 ELSE:
     style_variants = --style-variants OR 3
     layout_variants = --layout-variants OR 3
 
-VALIDATE: 1 <= style_variants <= 5
-VALIDATE: 1 <= layout_variants <= 5
-
-STORE: style_variants, layout_variants  # For Phase 1 and Phase 3
+VALIDATE: 1 <= style_variants <= 5, 1 <= layout_variants <= 5
+STORE: style_variants, layout_variants
 ```
 
 ### Phase 0b: Run Initialization & Directory Setup
 ```bash
-# Generate run ID with timestamp
+# Generate run ID and determine base path
 run_id = "run-$(date +%Y%m%d-%H%M%S)"
 
-# Determine base path
 IF --session:
-    session_id = {provided_session}
     base_path = ".workflow/WFS-{session_id}/runs/${run_id}"
 ELSE:
-    # Standalone mode: use scratchpad
     session_id = "design-session-$(date +%Y%m%d-%H%M%S)"
     base_path = ".workflow/.scratchpad/${session_id}/runs/${run_id}"
 
-# Create run directory structure
-Bash(mkdir -p "${base_path}/.design/style-extraction")
-Bash(mkdir -p "${base_path}/.design/style-consolidation")
-Bash(mkdir -p "${base_path}/.design/prototypes")
+# Create directories
+Bash(mkdir -p "${base_path}/.design/{style-extraction,style-consolidation,prototypes}")
 
-# Initialize run metadata
-Write({base_path}/.run-metadata.json):
-{
+# Initialize metadata
+Write({base_path}/.run-metadata.json): {
   "run_id": "${run_id}",
   "session_id": "${session_id}",
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
@@ -149,273 +140,374 @@ Write({base_path}/.run-metadata.json):
 IF --session:
     Bash(cd ".workflow/WFS-{session_id}" && rm -rf latest && mklink /D latest "runs/${run_id}")
 ELSE:
-    # Standalone mode: create symlink in scratchpad session dir
     Bash(cd ".workflow/.scratchpad/${session_id}" && rm -rf latest && mklink /D latest "runs/${run_id}")
 
-STORE: run_id, base_path  # Use throughout workflow
+STORE: run_id, base_path
 ```
 
 ### Phase 0c: Enhanced Page Inference with Dynamic Analysis
 ```bash
-# Initialize
 page_list = []
 page_source = "none"
-page_structure = null  # Store structured analysis results
 
-# Priority 1: Explicit --pages parameter (with enhanced cleaning)
+# Priority 1: Explicit --pages parameter
 IF --pages provided:
-    # Enhanced cleaning: tolerate spaces, multiple delimiters
     raw_pages = {--pages value}
-    # Split by comma, semicolon, or Chinese comma, then clean each
+    # Split by comma/semicolon/Chinese comma, clean and normalize
     page_list = split_and_clean(raw_pages, delimiters=[",", ";", "、"])
-    # Strip whitespace, convert to lowercase, replace spaces with hyphens
     page_list = [p.strip().lower().replace(" ", "-") for p in page_list if p.strip()]
     page_source = "explicit"
     REPORT: "📋 Using explicitly provided pages: {', '.join(page_list)}"
 
-# Priority 2: Dynamic prompt decomposition (using Claude's analysis)
+# Priority 2: Dynamic prompt decomposition (Claude analysis)
 ELSE IF --prompt provided:
     REPORT: "🔍 Analyzing prompt to identify pages..."
 
-    # Use main Claude to analyze prompt structure
+    # Internal Claude analysis
     analysis_prompt = """
-    Analyze the following UI design request and identify all distinct pages/screens needed.
+    Analyze the UI design request and identify all distinct pages/screens.
 
-    User Request: "{prompt_text}"
+    Request: "{prompt_text}"
 
-    Output a JSON object with this structure:
+    Output JSON:
     {
-      "pages": [
-        {"name": "page-name", "purpose": "brief description", "priority": "high|medium|low"}
-      ],
-      "shared_components": ["header", "footer", "sidebar"],
-      "navigation_structure": {
-        "primary": ["home", "dashboard"],
-        "secondary": ["settings", "profile"]
-      }
+      "pages": [{"name": "page-name", "purpose": "description", "priority": "high|medium|low"}],
+      "shared_components": ["header", "footer"],
+      "navigation_structure": {"primary": ["home"], "secondary": ["settings"]}
     }
 
     Rules:
-    - Normalize page names to be URL-friendly (lowercase, use hyphens, no spaces)
-    - Consolidate synonyms (e.g., "homepage" → "home", "user-profile" → "profile")
-    - Identify hierarchical relationships if mentioned
-    - Prioritize pages based on user intent
-    - Common page patterns: home, dashboard, settings, profile, login, signup, about, contact
+    - Normalize to URL-friendly (lowercase, hyphens, no spaces)
+    - Consolidate synonyms (homepage → home, user-profile → profile)
+    - Identify hierarchical relationships
+    - Prioritize by user intent
+    - Common patterns: home, dashboard, settings, profile, login, signup
     """
 
-    # Execute analysis (internal to main Claude, no external tool needed)
     page_structure = analyze_prompt_structure(analysis_prompt, prompt_text)
     page_list = extract_page_names_from_structure(page_structure)
     page_source = "prompt_analysis"
 
-    # Display analysis results
     IF page_list:
         REPORT: "📋 Identified pages from prompt:"
-        FOR each page IN page_structure.pages:
+        FOR page IN page_structure.pages:
             REPORT: "   • {page.name}: {page.purpose} [{page.priority}]"
-
         IF page_structure.shared_components:
-            REPORT: "🔧 Shared components: {', '.join(page_structure.shared_components)}"
-    ELSE:
-        REPORT: "⚠️ No pages could be extracted from the prompt."
+            REPORT: "🔧 Shared components: {', '.join(shared_components)}"
 
 # Priority 3: Extract from synthesis-specification.md
 ELSE IF --session AND exists(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md):
     synthesis = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
     page_list = extract_pages_from_synthesis(synthesis)
     page_source = "synthesis"
-    REPORT: "📋 Extracted pages from synthesis: {', '.join(page_list)}"
+    REPORT: "📋 Extracted from synthesis: {', '.join(page_list)}"
 
-# Priority 4: Final fallback - default page
+# Priority 4: Fallback default
 IF NOT page_list:
     page_list = ["home"]
     page_source = "default"
     REPORT: "⚠️ No pages identified, using default: 'home'"
 
-# Enhanced validation
+# Validate page names
 validated_pages = []
 invalid_pages = []
 FOR page IN page_list:
-    # Clean: strip, lowercase, replace spaces with hyphens
-    cleaned_page = page.strip().lower().replace(" ", "-")
-    # Validate: must start with letter/number, can contain letters, numbers, hyphens, underscores
-    IF regex_match(cleaned_page, r"^[a-z0-9][a-z0-9_-]*$"):
-        validated_pages.append(cleaned_page)
+    cleaned = page.strip().lower().replace(" ", "-")
+    IF regex_match(cleaned, r"^[a-z0-9][a-z0-9_-]*$"):
+        validated_pages.append(cleaned)
     ELSE:
         invalid_pages.append(page)
 
 IF invalid_pages:
-    REPORT: "⚠️ Skipped invalid page names: {', '.join(invalid_pages)}"
-    REPORT: "   Valid format: lowercase, alphanumeric, hyphens, underscores (e.g., 'user-profile', 'dashboard')"
+    REPORT: "⚠️ Skipped invalid: {', '.join(invalid_pages)}"
 
 IF NOT validated_pages:
     validated_pages = ["home"]
-    REPORT: "⚠️ All page names invalid, using default: 'home'"
+    REPORT: "⚠️ All invalid, using default: 'home'"
 
-# Interactive confirmation step
+# Interactive confirmation
 REPORT: ""
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 REPORT: "📌 PAGE LIST CONFIRMATION"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 REPORT: "Source: {page_source}"
-REPORT: "Pages to generate ({len(validated_pages)}): {', '.join(validated_pages)}"
-REPORT: ""
-REPORT: "⏸️  Please confirm or modify the page list:"
+REPORT: "Pages ({len(validated_pages)}): {', '.join(validated_pages)}"
 REPORT: ""
 REPORT: "Options:"
-REPORT: "  • Type 'continue' or 'yes' to proceed with these pages"
-REPORT: "  • Type 'pages: page1, page2, page3' to replace the entire list"
-REPORT: "  • Type 'skip: page-name' to remove specific pages"
-REPORT: "  • Type 'add: page-name' to add specific pages"
-REPORT: ""
+REPORT: "  • 'continue/yes' - proceed"
+REPORT: "  • 'pages: page1,page2' - replace list"
+REPORT: "  • 'skip: page-name' - remove pages"
+REPORT: "  • 'add: page-name' - add pages"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Wait for user input
-user_confirmation = WAIT_FOR_USER_INPUT()
+user_input = WAIT_FOR_USER_INPUT()
 
-# Process user input
-IF user_confirmation MATCHES r"^(continue|yes|ok|proceed)$":
+# Process input
+IF user_input MATCHES r"^(continue|yes|ok|proceed)$":
     REPORT: "✅ Proceeding with: {', '.join(validated_pages)}"
-ELSE IF user_confirmation MATCHES r"^pages:\s*(.+)$":
-    # User provided new page list
-    new_pages_raw = extract_after_prefix(user_confirmation, "pages:")
-    new_pages = split_and_clean(new_pages_raw, delimiters=[",", ";", "、"])
+ELSE IF user_input MATCHES r"^pages:\s*(.+)$":
+    new_pages = split_and_clean(extract_after("pages:"), [",", ";"])
     validated_pages = [p.strip().lower().replace(" ", "-") for p in new_pages if p.strip()]
-    REPORT: "✅ Updated page list: {', '.join(validated_pages)}"
-ELSE IF user_confirmation MATCHES r"^skip:\s*(.+)$":
-    # Remove specified pages
-    pages_to_skip_raw = extract_after_prefix(user_confirmation, "skip:")
-    pages_to_skip = [p.strip().lower() for p in pages_to_skip_raw.split(",")]
-    validated_pages = [p for p in validated_pages if p not in pages_to_skip]
-    REPORT: "✅ Removed pages: {', '.join(pages_to_skip)}"
-    REPORT: "   Final list: {', '.join(validated_pages)}"
-ELSE IF user_confirmation MATCHES r"^add:\s*(.+)$":
-    # Add specified pages
-    pages_to_add_raw = extract_after_prefix(user_confirmation, "add:")
-    pages_to_add = [p.strip().lower().replace(" ", "-") for p in pages_to_add_raw.split(",") if p.strip()]
-    validated_pages.extend(pages_to_add)
-    # Remove duplicates while preserving order
-    validated_pages = list(dict.fromkeys(validated_pages))
-    REPORT: "✅ Added pages: {', '.join(pages_to_add)}"
-    REPORT: "   Final list: {', '.join(validated_pages)}"
+    REPORT: "✅ Updated: {', '.join(validated_pages)}"
+ELSE IF user_input MATCHES r"^skip:\s*(.+)$":
+    to_skip = [p.strip().lower() for p in extract_after("skip:").split(",")]
+    validated_pages = [p for p in validated_pages if p not in to_skip]
+    REPORT: "✅ Removed: {', '.join(to_skip)}, Final: {', '.join(validated_pages)}"
+ELSE IF user_input MATCHES r"^add:\s*(.+)$":
+    to_add = [p.strip().lower().replace(" ", "-") for p in extract_after("add:").split(",") if p.strip()]
+    validated_pages.extend(to_add)
+    validated_pages = list(dict.fromkeys(validated_pages))  # Remove duplicates
+    REPORT: "✅ Added: {', '.join(to_add)}, Final: {', '.join(validated_pages)}"
 ELSE:
-    REPORT: "⚠️ Invalid input format, proceeding with original list: {', '.join(validated_pages)}"
+    REPORT: "⚠️ Invalid input, proceeding with: {', '.join(validated_pages)}"
 
-# Final verification
 IF NOT validated_pages:
     validated_pages = ["home"]
-    REPORT: "⚠️ Empty page list detected, using default: 'home'"
 
-# Store results for subsequent phases
-STORE: inferred_page_list = validated_pages  # For Phase 3
-STORE: page_inference_source = page_source  # Track source for metadata
-STORE: page_structure_data = page_structure  # Save structured data for future use
+STORE: inferred_page_list = validated_pages
+STORE: page_inference_source = page_source
+STORE: page_structure_data = page_structure
+STORE: exploration_mode = "page"
+```
+
+### Phase 0d: Component Inference (Component Mode Only)
+```bash
+component_list = []
+component_source = "none"
+exploration_mode = "page"  # Default
+
+# Determine exploration mode
+IF --components provided:
+    exploration_mode = "component"
+    raw_components = {--components value}
+    # Split and clean
+    component_list = split_and_clean(raw_components, delimiters=[",", ";", "、"])
+    component_list = [c.strip().lower().replace(" ", "-") for c in component_list if c.strip()]
+    component_source = "explicit"
+    REPORT: "🧩 Using explicitly provided components: {', '.join(component_list)}"
+
+# Component inference from prompt (if no --pages and no --components)
+ELSE IF --prompt provided AND NOT --pages:
+    REPORT: "🔍 Analyzing prompt to identify components..."
+
+    # Internal Claude analysis for components
+    analysis_prompt = """
+    Analyze the UI design request and identify component-level design elements.
+
+    Request: "{prompt_text}"
+
+    Output JSON:
+    {
+      "components": [
+        {"name": "component-type", "purpose": "description", "variants": ["variant1", "variant2"]}
+      ],
+      "component_context": "page or section where components appear",
+      "interaction_patterns": ["hover", "click", "scroll"]
+    }
+
+    Component Categories:
+    - Navigation: navbar, header, menu, breadcrumb, tabs, sidebar
+    - Content: hero, card, list, table, grid, timeline
+    - Input: form, search, filter, input-group
+    - Feedback: modal, alert, toast, badge, progress
+    - Media: gallery, carousel, video-player, image-card
+    - Other: footer, pagination, dropdown, tooltip, avatar
+
+    Rules:
+    - Normalize to lowercase with hyphens
+    - Be specific (e.g., "navbar" not "navigation")
+    - Include interaction context
+    """
+
+    component_structure = analyze_prompt_structure(analysis_prompt, prompt_text)
+
+    # Check if prompt is component-focused
+    IF component_structure.components AND len(component_structure.components) > 0:
+        component_list = extract_component_names_from_structure(component_structure)
+        component_source = "prompt_analysis"
+        exploration_mode = "component"
+
+        REPORT: "🧩 Identified components from prompt:"
+        FOR comp IN component_structure.components:
+            REPORT: "   • {comp.name}: {comp.purpose}"
+        IF component_structure.interaction_patterns:
+            REPORT: "🎯 Interaction patterns: {', '.join(interaction_patterns)}"
+
+# Validate component names
+IF exploration_mode == "component":
+    validated_components = []
+    invalid_components = []
+    FOR comp IN component_list:
+        cleaned = comp.strip().lower().replace(" ", "-")
+        IF regex_match(cleaned, r"^[a-z0-9][a-z0-9_-]*$"):
+            validated_components.append(cleaned)
+        ELSE:
+            invalid_components.append(comp)
+
+    IF invalid_components:
+        REPORT: "⚠️ Skipped invalid: {', '.join(invalid_components)}"
+
+    IF NOT validated_components:
+        # Fallback to page mode with default page
+        exploration_mode = "page"
+        inferred_page_list = ["home"]
+        REPORT: "⚠️ No valid components, switching to page mode: 'home'"
+    ELSE:
+        # Interactive confirmation for components
+        REPORT: ""
+        REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        REPORT: "🧩 COMPONENT LIST CONFIRMATION"
+        REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        REPORT: "Mode: Component Exploration"
+        REPORT: "Source: {component_source}"
+        REPORT: "Components ({len(validated_components)}): {', '.join(validated_components)}"
+        REPORT: ""
+        REPORT: "Options:"
+        REPORT: "  • 'continue/yes' - proceed"
+        REPORT: "  • 'components: comp1,comp2' - replace list"
+        REPORT: "  • 'skip: comp-name' - remove components"
+        REPORT: "  • 'add: comp-name' - add components"
+        REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+        user_input = WAIT_FOR_USER_INPUT()
+
+        # Process input
+        IF user_input MATCHES r"^(continue|yes|ok|proceed)$":
+            REPORT: "✅ Proceeding with: {', '.join(validated_components)}"
+        ELSE IF user_input MATCHES r"^components:\s*(.+)$":
+            new_comps = split_and_clean(extract_after("components:"), [",", ";"])
+            validated_components = [c.strip().lower().replace(" ", "-") for c in new_comps if c.strip()]
+            REPORT: "✅ Updated: {', '.join(validated_components)}"
+        ELSE IF user_input MATCHES r"^skip:\s*(.+)$":
+            to_skip = [c.strip().lower() for c in extract_after("skip:").split(",")]
+            validated_components = [c for c in validated_components if c not in to_skip]
+            REPORT: "✅ Removed: {', '.join(to_skip)}, Final: {', '.join(validated_components)}"
+        ELSE IF user_input MATCHES r"^add:\s*(.+)$":
+            to_add = [c.strip().lower().replace(" ", "-") for c in extract_after("add:").split(",") if c.strip()]
+            validated_components.extend(to_add)
+            validated_components = list(dict.fromkeys(validated_components))  # Remove duplicates
+            REPORT: "✅ Added: {', '.join(to_add)}, Final: {', '.join(validated_components)}"
+        ELSE:
+            REPORT: "⚠️ Invalid input, proceeding with: {', '.join(validated_components)}"
+
+        IF NOT validated_components:
+            # Fallback to page mode
+            exploration_mode = "page"
+            inferred_page_list = ["home"]
+            REPORT: "⚠️ No components, switching to page mode: 'home'"
+
+STORE: inferred_component_list = validated_components IF exploration_mode == "component" ELSE []
+STORE: component_inference_source = component_source
+STORE: component_structure_data = component_structure IF exploration_mode == "component" ELSE {}
+STORE: exploration_mode = exploration_mode  # "page" or "component"
 ```
 
 ### Phase 1: Style Extraction
-**Command Construction**:
+**Command**:
 ```bash
 images_flag = --images present ? "--images \"{image_glob}\"" : ""
 prompt_flag = --prompt present ? "--prompt \"{prompt_text}\"" : ""
-
-# Use run-scoped base path
 run_base_flag = "--base-path \"{base_path}/.design\""
 
-# Use style_variants from Phase 0a
 command = "/workflow:ui-design:extract {run_base_flag} {images_flag} {prompt_flag} --variants {style_variants}"
-SlashCommand(command=command)
+SlashCommand(command)
 ```
-**Auto-Continue**: On completion, proceeds to Phase 2
+**Auto-Continue**: On completion → Phase 2
 
 ---
 
-### Phase 2: Style Consolidation with Separation (Auto-Triggered)
-**Action**: Consolidates each style variant into separate design systems for matrix generation
-
-**Command Construction**:
+### Phase 2: Style Consolidation with Separation
+**Command**:
 ```bash
-# Use run-scoped base path and keep styles separate
 run_base_flag = "--base-path \"{base_path}/.design\""
 
-# Use count-based parameter (automatically uses all style_variants)
+# Use count-based parameter with --keep-separate for matrix mode
 command = "/workflow:ui-design:consolidate {run_base_flag} --variants {style_variants} --keep-separate"
+SlashCommand(command)
 ```
-**Command**: `SlashCommand(command=command)`
 **Result**: Generates `style_variants` independent design systems:
 - `.design/style-consolidation/style-1/design-tokens.json`
-- `.design/style-consolidation/style-2/design-tokens.json`
-- `.design/style-consolidation/style-3/design-tokens.json`
+- `.design/style-consolidation/style-{N}/design-tokens.json`
 
-**Auto-Continue**: On completion, proceeds to Phase 3
+**Auto-Continue**: On completion → Phase 3
 
 ---
 
-### Phase 3: Matrix UI Generation (Auto-Triggered)
-**Action**: Generates `style_variants × layout_variants × pages` prototypes using matrix mode
-
-**Command Construction**:
+### Phase 3: Matrix UI Generation (Mode-Aware)
+**Command**:
 ```bash
 run_base_flag = "--base-path \"{base_path}/.design\""
 
-# Ensure inferred_page_list is serialized correctly as comma-separated string
-# Convert list to string: ['dashboard', 'settings'] → "dashboard,settings"
-pages_string = ",".join(inferred_page_list)
+IF exploration_mode == "page":
+    # Page Mode: Generate full pages
+    pages_string = ",".join(inferred_page_list)
+    VERIFY: pages_string matches r"^[a-z0-9_-]+(,[a-z0-9_-]+)*$"
 
-# Validate the serialized string format
-VERIFY: pages_string matches r"^[a-z0-9_-]+(,[a-z0-9_-]+)*$"
+    pages_flag = "--pages \"{pages_string}\""
+    command = "/workflow:ui-design:generate {run_base_flag} {pages_flag} --style-variants {style_variants} --layout-variants {layout_variants}"
 
-pages_flag = "--pages \"{pages_string}\""
+    total_prototypes = style_variants * layout_variants * len(inferred_page_list)
+    REPORT: "🚀 Phase 3: Matrix UI Generation (Page Mode)"
+    REPORT: "   Pages: {pages_string}"
+    REPORT: "   Matrix: {style_variants}×{layout_variants}"
+    REPORT: "   Total: {total_prototypes} full-page prototypes"
 
-# Matrix mode is default in generate.md, no mode flag needed
-command = "/workflow:ui-design:generate {run_base_flag} {pages_flag} --style-variants {style_variants} --layout-variants {layout_variants}"
+ELSE IF exploration_mode == "component":
+    # Component Mode: Generate isolated components
+    components_string = ",".join(inferred_component_list)
+    VERIFY: components_string matches r"^[a-z0-9_-]+(,[a-z0-9_-]+)*$"
 
-# Log command for debugging
-REPORT: "🚀 Executing Phase 3: Matrix UI Generation"
-REPORT: "   Pages: {pages_string}"
-REPORT: "   Style variants: {style_variants}"
-REPORT: "   Layout variants: {layout_variants}"
-REPORT: "   Total prototypes: {style_variants * layout_variants * len(inferred_page_list)}"
+    components_flag = "--components \"{components_string}\""
+    command = "/workflow:ui-design:generate {run_base_flag} {components_flag} --style-variants {style_variants} --layout-variants {layout_variants}"
 
-SlashCommand(command=command)
+    total_prototypes = style_variants * layout_variants * len(inferred_component_list)
+    REPORT: "🚀 Phase 3: Matrix UI Generation (Component Mode)"
+    REPORT: "   Components: {components_string}"
+    REPORT: "   Matrix: {style_variants}×{layout_variants}"
+    REPORT: "   Total: {total_prototypes} component prototypes"
+    REPORT: "   Context: Components displayed in minimal page wrapper"
+
+SlashCommand(command)
 ```
 
-**Result**: Generates `style_variants × layout_variants × pages` prototypes:
-- File naming: `{page}-style-{s}-layout-{l}.html`
-- Total prototypes: `style_variants * layout_variants * len(inferred_page_list)`
-- Matrix visualization: `compare.html` with interactive 3×3 grid
+**Result**:
+- **Page Mode**: `{page}-style-{s}-layout-{l}.html`
+- **Component Mode**: `{component}-style-{s}-layout-{l}.html`
+- Total: `style_variants × layout_variants × (pages|components)`
+- Matrix view: `compare.html` with interactive grid
+- Component isolation: Minimal wrapper for focus on component design
 
-**Auto-Continue**: On completion, proceeds to Phase 4
+**Auto-Continue**: On completion → Phase 4
 
 ---
 
-### Phase 4: Design System Integration (Auto-Triggered)
-**Action**: Integrates all generated prototypes and the design system into the brainstorming artifacts
-
-**Command Construction**:
+### Phase 4: Design System Integration
+**Command**:
 ```bash
 session_flag = --session present ? "--session {session_id}" : ""
-# --selected-prototypes is omitted to default to ALL generated prototypes
+
+# Omit --selected-prototypes to use ALL generated prototypes
 command = "/workflow:ui-design:update {session_flag}"
+SlashCommand(command)
 ```
-**Command**: `SlashCommand(command=command)`
-**Auto-Continue**: If `--batch-plan` is present, proceeds to Phase 5. Otherwise, the workflow completes
+**Auto-Continue**: If `--batch-plan` present → Phase 5, else complete
 
 ---
 
-### Phase 5: Batch Task Generation (Optional, Auto-Triggered)
-**Condition**: Only executes if `--batch-plan` flag is present
+### Phase 5: Batch Task Generation (Optional)
+**Condition**: Only if `--batch-plan` flag present
 
 **Execution**:
 ```bash
-FOR each page IN inferred_page_list:
-  SlashCommand(command="/workflow:plan --agent \"Implement {page} page based on design system\"")
+FOR page IN inferred_page_list:
+    SlashCommand("/workflow:plan --agent \"Implement {page} page based on design system\"")
 ```
-**Completion**: The workflow is now complete
+**Completion**: Workflow complete
 
-## TodoWrite Pattern (Autonomous)
+## TodoWrite Pattern
 
 ```javascript
-// Initialize (before Phase 1)
+// Initialize
 TodoWrite({todos: [
   {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing style extraction"},
   {"content": "Execute style consolidation", "status": "pending", "activeForm": "Executing style consolidation"},
@@ -423,96 +515,107 @@ TodoWrite({todos: [
   {"content": "Execute design system integration", "status": "pending", "activeForm": "Executing design system integration"}
 ]})
 
-// After Phase 1 completes, before Phase 2 starts
-TodoWrite({todos: [
-  {"content": "Execute style extraction", "status": "completed", "activeForm": "Executing style extraction"},
-  {"content": "Execute style consolidation", "status": "in_progress", "activeForm": "Executing style consolidation"},
-  // ... rest are pending
-]})
-
-// After Phase 2 completes, before Phase 3 starts
-TodoWrite({todos: [
-  {"content": "Execute style extraction", "status": "completed"},
-  {"content": "Execute style consolidation", "status": "completed", "activeForm": "Executing style consolidation"},
-  {"content": "Execute UI prototype generation", "status": "in_progress", "activeForm": "Executing UI generation"},
-  // ... rest are pending
-]})
-
-// This pattern continues until all phases are complete
+// After each phase: Mark current completed, next in_progress, rest pending
+// Phase 1 done → Phase 2 in_progress
+// Phase 2 done → Phase 3 in_progress
+// ... continues until all completed
 ```
 
 ## Error Handling
 
-- **Phase Execution Failures**: The workflow will halt, keeping the failed phase `in_progress`. It will report the error and provide recovery instructions, suggesting a manual command execution with corrected parameters
-- **Default Behavior**: In case of ambiguity (e.g., which variants to select), the system defaults to selecting ALL available items to ensure the workflow can proceed autonomously
+- **Phase Failures**: Workflow halts, keeps failed phase `in_progress`, reports error with recovery instructions
+- **Ambiguity**: Defaults to ALL available items (variants/prototypes) to ensure autonomous continuation
 
-## Key Improvements Over Previous Version
+## Key Features & Workflow Position
 
-1. **Zero External Dependencies**: Pure Claude + agents, no CLI tools
-2. **Streamlined Commands**: Removed `--tool` parameter and all CLI tool flags
-3. **Consistent Execution**: All sub-commands use unified patterns
-4. **Reproducible**: Deterministic flow with clear phase dependencies
-5. **Simpler**: Fewer moving parts, easier to understand and debug
+**Core Improvements**:
+- **Zero External Dependencies**: Pure Claude + agents, no CLI tools
+- **Streamlined Commands**: Unified patterns, no tool-specific flags
+- **Reproducible Flow**: Deterministic phase dependencies
+- **Intelligent Parsing**: Natural language → variant counts, pages
+- **Run Isolation**: Each execution in timestamped run directory
 
-## Workflow Position
-
-The workflow acts as the bridge between brainstorming (`synthesis-specification.md`) and planning (`/workflow:plan`), providing this connection in a fully automated fashion with options for deep creative exploration through parallel agents.
+**Workflow Bridge**: Connects brainstorming (`synthesis-specification.md`) → design phase → planning (`/workflow:plan`) in fully automated fashion with matrix-based design exploration.
 
 ## Example Execution Flows
 
-### Example 1: Default 3×3 Matrix (Prompt Inference)
+### Example 1: Default 3×3 Matrix (Page Mode - Prompt Inference)
 ```bash
-/workflow:ui-design:auto --prompt "Modern minimalist blog with home, article, and author pages"
+/workflow:ui-design:explore-auto --prompt "Modern minimalist blog with home, article, and author pages"
 
+# Mode: Page
 # Inferred: 3 style variants, 3 layout variants (default)
-# Executes:
-# 1. /workflow:ui-design:extract --base-path ".../run-xxx/.design" --prompt "..." --variants 3
-# 2. /workflow:ui-design:consolidate --base-path ".../run-xxx/.design" --variants 3 --keep-separate
-# 3. /workflow:ui-design:generate --base-path ".../run-xxx/.design" --pages "home,article,author" --style-variants 3 --layout-variants 3
-# 4. /workflow:ui-design:update
-# Total: 27 prototypes (3 styles × 3 layouts × 3 pages)
+# Pages: home, article, author
+# Total: 27 full-page prototypes (3×3×3)
 ```
 
-### Example 2: Custom 2×2 Matrix with Explicit Parameters
+### Example 2: Custom 2×2 Matrix with Session (Page Mode)
 ```bash
-/workflow:ui-design:auto --session WFS-ecommerce --images "refs/*.png" --prompt "E-commerce" --style-variants 2 --layout-variants 2
+/workflow:ui-design:explore-auto --session WFS-ecommerce --images "refs/*.png" --style-variants 2 --layout-variants 2
 
-# Executes:
-# 1. /workflow:ui-design:extract --base-path ".workflow/WFS-ecommerce/runs/run-xxx/.design" --images "refs/*.png" --variants 2
-# 2. /workflow:ui-design:consolidate --base-path "..." --variants 2 --keep-separate
-# 3. /workflow:ui-design:generate --base-path "..." --pages "{inferred}" --style-variants 2 --layout-variants 2
-# 4. /workflow:ui-design:update --session WFS-ecommerce
-# Total: 2×2×N prototypes
+# Mode: Page
+# Executes with session integration
+# Total: 2×2×N prototypes (N from inference)
 ```
 
-### Example 3: Intelligent Parsing with Batch Planning
+### Example 3: Component Mode - Navbar Design Comparison
 ```bash
-/workflow:ui-design:auto --session WFS-saas --prompt "Create 4 styles with 2 layouts for SaaS dashboard and settings" --batch-plan
+/workflow:ui-design:explore-auto --components "navbar,hero" --prompt "Compare 3 navigation bar designs for SaaS product" --style-variants 3 --layout-variants 2
 
-# Parsed: --style-variants 4, --layout-variants 2
-# Executes:
-# 1. /workflow:ui-design:extract --variants 4
-# 2. /workflow:ui-design:consolidate --variants 4 --keep-separate
-# 3. /workflow:ui-design:generate --pages "dashboard,settings" --style-variants 4 --layout-variants 2
-#    (generates 16 prototypes: 4 styles × 2 layouts × 2 pages)
-# 4. /workflow:ui-design:update --session WFS-saas
-# 5. /workflow:plan --agent "Implement dashboard page..."
-#    /workflow:plan --agent "Implement settings page..."
+# Mode: Component
+# Components: navbar, hero
+# Matrix: 3 styles × 2 layouts
+# Total: 12 component prototypes (3×2×2)
+# Output: navbar-style-1-layout-1.html, navbar-style-1-layout-2.html, ...
+```
+
+### Example 4: Component Mode - Card & Form Exploration
+```bash
+/workflow:ui-design:explore-auto --components "card,form,button" --images "refs/*.png" --style-variants 2 --layout-variants 3
+
+# Mode: Component
+# Components: card, form, button
+# Matrix: 2 styles × 3 layouts
+# Total: 18 component prototypes (2×3×3)
+# Context: Each component in minimal wrapper for isolated comparison
+```
+
+### Example 5: Intelligent Parsing + Batch Planning (Page Mode)
+```bash
+/workflow:ui-design:explore-auto --session WFS-saas --prompt "Create 4 styles with 2 layouts for SaaS dashboard and settings" --batch-plan
+
+# Mode: Page
+# Parsed: 4 styles, 2 layouts
+# Pages: dashboard, settings
+# Total: 16 full-page prototypes (4×2×2)
+# Auto-generates implementation tasks for each page
+```
+
+### Example 6: Component Mode - Prompt-Inferred Components
+```bash
+/workflow:ui-design:explore-auto --prompt "Design exploration for pricing table and testimonial card components" --style-variants 3 --layout-variants 2
+
+# Mode: Component (auto-detected from prompt)
+# Inferred components: pricing-table, testimonial-card
+# Matrix: 3 styles × 2 layouts
+# Total: 12 component prototypes (3×2×2)
 ```
 
 ## Final Completion Message
 
+**Page Mode**:
 ```
-✅ UI Design Auto Workflow Complete!
+✅ UI Design Explore-Auto Workflow Complete! (Page Mode)
 
 Run ID: {run_id}
 Session: {session_id or "standalone"}
+Mode: Full-Page Exploration
 Matrix: {style_variants}×{layout_variants} ({total_prototypes} total prototypes)
 Input: {images and/or prompt summary}
 
 Phase 1 - Style Extraction: {style_variants} style variants
 Phase 2 - Style Consolidation: {style_variants} independent design systems
-Phase 3 - Matrix Generation: {style_variants}×{layout_variants}×{pages_count} = {total_prototypes} prototypes
+Phase 3 - Matrix Generation: {style_variants}×{layout_variants}×{pages_count} = {total_prototypes} page prototypes
 Phase 4 - Design Update: Brainstorming artifacts updated
 {IF batch-plan: Phase 5 - Task Generation: {task_count} implementation tasks created}
 
@@ -522,9 +625,11 @@ Phase 4 - Design Update: Brainstorming artifacts updated
   └── .run-metadata.json            (run configuration)
 
 🌐 Interactive Preview: {base_path}/.design/prototypes/compare.html
-  - 3×3 matrix view with synchronized scrolling
+  - {style_variants}×{layout_variants} matrix view with synchronized scrolling
   - Zoom controls and fullscreen mode
   - Selection export for implementation
+
+📄 Pages Explored: {', '.join(inferred_page_list)}
 
 {IF batch-plan:
 📋 Implementation Tasks: .workflow/WFS-{session}/.task/
@@ -532,8 +637,43 @@ Next: /workflow:execute to begin implementation
 }
 {ELSE:
 Next Steps:
-1. Open compare.html to preview all variants
-2. Select preferred style×layout combinations
+1. Open compare.html to preview all page variants
+2. Select preferred style×layout combinations per page
 3. Run /workflow:plan to create implementation tasks
 }
+```
+
+**Component Mode**:
+```
+✅ UI Design Explore-Auto Workflow Complete! (Component Mode)
+
+Run ID: {run_id}
+Session: {session_id or "standalone"}
+Mode: Component Exploration
+Matrix: {style_variants}×{layout_variants} ({total_prototypes} total component prototypes)
+Input: {images and/or prompt summary}
+
+Phase 1 - Style Extraction: {style_variants} style variants
+Phase 2 - Style Consolidation: {style_variants} independent design systems
+Phase 3 - Matrix Generation: {style_variants}×{layout_variants}×{component_count} = {total_prototypes} component prototypes
+Phase 4 - Design Update: Brainstorming artifacts updated
+
+📂 Run Output: {base_path}/
+  ├── .design/style-consolidation/  ({style_variants} design systems)
+  ├── .design/prototypes/           ({total_prototypes} component HTML/CSS files)
+  └── .run-metadata.json            (run configuration)
+
+🌐 Interactive Preview: {base_path}/.design/prototypes/compare.html
+  - {style_variants}×{layout_variants} component matrix view
+  - Isolated component rendering (minimal wrapper)
+  - Side-by-side comparison for design decisions
+  - Selection export for implementation
+
+🧩 Components Explored: {', '.join(inferred_component_list)}
+
+Next Steps:
+1. Open compare.html to preview all component variants
+2. Select preferred style×layout combinations per component
+3. Extract selected components for integration into pages
+4. Run /workflow:plan with component integration context
 ```
