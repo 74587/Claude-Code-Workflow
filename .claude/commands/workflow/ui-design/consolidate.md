@@ -318,29 +318,6 @@ FOR variant_id IN range(1, variants_count + 1):
     Write({base_path}/style-consolidation/style-{variant_id}/style-guide.md, style_guide_section)
 
     REPORT: "  ✅ style-{variant_id}/ written"
-
-# Generate unified consolidation report for all variants
-consolidation_report = {
-  "session_id": session_id,
-  "consolidation_mode": "separate",
-  "timestamp": ISO_timestamp,
-  "style_systems": {
-    "variant_count": variants_count,
-    "variants": []
-  },
-  "layout_strategies": Read({base_path}/style-consolidation/layout-strategies.json)
-}
-
-# Aggregate validation data from all style variants
-FOR variant_id IN range(1, variants_count + 1):
-    design_tokens = Read({base_path}/style-consolidation/style-{variant_id}/design-tokens.json)
-    validation_data = validate_design_tokens(design_tokens)
-    consolidation_report.style_systems.variants.append({
-      "id": "style-{variant_id}",
-      "validation": validation_data
-    })
-
-Write({base_path}/style-consolidation/consolidation-report.json, JSON.stringify(consolidation_report, null, 2))
 ```
 
 **Output Structure**:
@@ -353,8 +330,7 @@ Write({base_path}/style-consolidation/consolidation-report.json, JSON.stringify(
 │   └── ... (same structure)
 ├── style-N/
 │   └── ... (same structure)
-├── layout-strategies.json       # Layout variant definitions
-└── consolidation-report.json    # Unified validation for all styles + layout plan
+└── layout-strategies.json       # Layout variant definitions
 ```
 
 ### Phase 6: Completion & Reporting
@@ -367,8 +343,7 @@ TodoWrite({
     {content: "Plan layout strategies", status: "completed", activeForm: "Planning layout strategies"},
     {content: "Load design context from brainstorming", status: "completed", activeForm: "Loading context"},
     {content: "Generate design systems via agent", status: "completed", activeForm: "Generating design systems"},
-    {content: "Process agent results and write files", status: "completed", activeForm: "Writing output files"},
-    {content: "Generate consolidation report", status: "completed", activeForm: "Generating report"}
+    {content: "Process agent results and write files", status: "completed", activeForm: "Writing output files"}
   ]
 });
 ```
@@ -387,8 +362,7 @@ Layout Strategies Planned: {layout_variants}
 ├── style-1/ (design-tokens.json, style-guide.md)
 ├── style-2/ (same structure)
 ├── style-{variants_count}/ (same structure)
-├── layout-strategies.json
-└── consolidation-report.json
+└── layout-strategies.json
 
 Next: /workflow:ui-design:generate --session {session_id} --style-variants {variants_count} --layout-variants {layout_variants} --pages "dashboard,auth"
 
@@ -538,7 +512,6 @@ Complete token structure with OKLCH colors and semantic naming:
    - design-tokens.json (CSS tokens per variant)
    - style-guide.md (documentation per variant)
    - layout-strategies.json (dynamic layout plans)
-   - consolidation-report.json (unified validation & planning)
 
 6. **Production-Ready Quality**
    - WCAG AA accessibility validation
@@ -561,7 +534,6 @@ Complete token structure with OKLCH colors and semantic naming:
 - **Output**:
   - Style Systems: `style-consolidation/style-{n}/design-tokens.json` for matrix mode generation
   - Layout Planning: `layout-strategies.json` consumed by `/workflow:ui-design:generate`
-  - Unified Reporting: `consolidation-report.json` for audit and validation
 - **Context**: Optional `synthesis-specification.md` or `ui-designer/analysis.md`
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` workflow
 - **Next Command**: `/workflow:ui-design:generate --style-variants N --layout-variants M` reads design tokens and layout strategies

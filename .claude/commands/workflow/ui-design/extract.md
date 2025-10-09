@@ -1,12 +1,13 @@
 ---
 name: extract
 description: Extract design style from reference images or text prompts using Claude's analysis
-usage: /workflow:ui-design:extract [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>]
-argument-hint: "[--session WFS-xxx] [--images \"refs/*.png\"] [--prompt \"Modern minimalist\"] [--variants 3]"
+usage: /workflow:ui-design:extract [--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>]
+argument-hint: "[--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--session WFS-xxx] [--images \"refs/*.png\"] [--prompt \"Modern minimalist\"] [--variants 3]"
 examples:
   - /workflow:ui-design:extract --images "design-refs/*.png" --variants 3
   - /workflow:ui-design:extract --prompt "Modern minimalist blog, dark theme" --variants 3
   - /workflow:ui-design:extract --session WFS-auth --images "refs/*.png" --prompt "Linear.app style" --variants 2
+  - /workflow:ui-design:extract --base-path ".workflow/WFS-auth/design-run-20250109-143022" --images "refs/*.png" --variants 3
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 ---
 
@@ -37,16 +38,26 @@ ELSE IF --prompt:
 ELSE:
     ERROR: "Must provide --images or --prompt"
 
-# Detect session mode and generate run ID
-run_id = "run-" + timestamp()
-
-IF --session:
-    session_mode = "integrated"
-    session_id = {provided_session}
-    base_path = ".workflow/WFS-{session_id}/design-{run_id}/"
+# Determine base path (PRIORITY: --base-path > --session > standalone)
+IF --base-path provided:
+    base_path = {provided_base_path}
+    session_mode = "integrated"  # Assume integrated if path is passed
+    # Extract session_id if possible from path pattern
+    IF base_path matches ".workflow/WFS-*/design-*":
+        session_id = extract_from_path(base_path, pattern="WFS-([^/]+)")
+    ELSE:
+        session_id = "standalone"
 ELSE:
-    session_mode = "standalone"
-    base_path = ".workflow/.design/{run_id}/"
+    # Generate a new run_id and base_path only if not provided
+    run_id = "run-" + timestamp()
+
+    IF --session:
+        session_mode = "integrated"
+        session_id = {provided_session}
+        base_path = ".workflow/WFS-{session_id}/design-{run_id}/"
+    ELSE:
+        session_mode = "standalone"
+        base_path = ".workflow/.design/{run_id}/"
 
 # Set variant count
 variants_count = --variants provided ? {count} : 1

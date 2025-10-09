@@ -282,12 +282,20 @@ FOR layout_id IN range(1, layout_variants + 1):
         Task(ui-design-agent): "
           [UI_LAYOUT_TEMPLATE_GENERATION]
 
+          🚨 **CRITICAL: TARGET INDEPENDENCE REQUIREMENT** 🚨
+          You are generating a template for EXACTLY ONE target: '{target}'.
+          - Do NOT include content from other targets in the workflow
+          - This template is for '{target}' ONLY - treat it as a standalone UI entity
+          - Even if '{target}' might coexist with other targets in a final application,
+            your task is to create an INDEPENDENT, REUSABLE template for '{target}' alone
+
           Generate a **style-agnostic** layout template for a specific {target_type} and layout strategy, informed by modern web development best practices.
 
           🎯 **CRITICAL REQUIREMENTS**:
           ✅ **ADAPTIVE**: Multi-device responsive design (mobile, tablet, desktop)
           ✅ **STYLE-SWITCHABLE**: Support runtime theme/style switching via CSS variables
           ✅ **TOKEN-DRIVEN**: 100% CSS variable usage, zero hardcoded values
+          ✅ **INDEPENDENT**: Template for '{target}' only, no other targets included
 
           ## Context
           LAYOUT_ID: {layout_id}
@@ -709,7 +717,7 @@ IF len(target_list) <= 1 OR target_type == "component":
 # For multi-page workflows, validate cross-page consistency → @ui-design-agent
 FOR style_id IN range(1, style_variants + 1):
     FOR layout_id IN range(1, layout_variants + 1):
-        Task(ui-design-agent): "
+        Task(@ui-design-agent): "
           [CROSS_PAGE_CONSISTENCY_VALIDATION]
 
           Validate design consistency across multiple {target_type}s for Style-{style_id} Layout-{layout_id}
