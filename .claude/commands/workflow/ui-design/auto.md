@@ -145,14 +145,12 @@ Write({base_path}/.run-metadata.json):
   "status": "in_progress"
 }
 
-# Update "latest" symlink
+# Update "latest" symlink (Windows-compatible)
 IF --session:
-    Bash(rm -f ".workflow/WFS-{session_id}/latest")
-    Bash(ln -s "runs/${run_id}" ".workflow/WFS-{session_id}/latest")
+    Bash(cd ".workflow/WFS-{session_id}" && rm -rf latest && mklink /D latest "runs/${run_id}")
 ELSE:
     # Standalone mode: create symlink in scratchpad session dir
-    Bash(rm -f ".workflow/.scratchpad/${session_id}/latest")
-    Bash(ln -s "runs/${run_id}" ".workflow/.scratchpad/${session_id}/latest")
+    Bash(cd ".workflow/.scratchpad/${session_id}" && rm -rf latest && mklink /D latest "runs/${run_id}")
 
 STORE: run_id, base_path  # Use throughout workflow
 ```

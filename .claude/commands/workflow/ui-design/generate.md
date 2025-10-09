@@ -65,95 +65,110 @@ IF --session:
     synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
 ```
 
-### Phase 2: Matrix UI Generation (Parallel)
+### Phase 2: Matrix UI Generation (Parallel, Layout-Based)
 Execute parallel agents to generate `style_variants × layout_variants × pages` prototypes.
+Each agent handles ONE layout strategy across MULTIPLE styles (batched to max 8 styles per agent).
 
 ```bash
 # Create output directory
 CREATE: {base_path}/prototypes/
 
-# Launch style_variants parallel tasks
-FOR style_id IN range(1, style_variants + 1):
-    Task(conceptual-planning-agent): "
-      [UI_GENERATION_MATRIX]
+# Calculate style batches (max 8 styles per agent)
+batch_size = 8
+all_style_ids = range(1, style_variants + 1)
+style_batches = split_into_chunks(all_style_ids, batch_size)  # e.g., [[1-8], [9-16]]
 
-      Generate {layout_variants} layout variants for style-{style_id}
+# Launch layout_variants × num_batches parallel tasks
+FOR layout_id IN range(1, layout_variants + 1):
+    FOR style_batch IN style_batches:
+        Task(conceptual-planning-agent): "
+          [UI_GENERATION_MATRIX_BATCH]
 
-      ## Context
-      STYLE_ID: {style_id}
-      LAYOUT_VARIANTS: {layout_variants}
-      PAGES: {page_list}
-      BASE_PATH: {base_path}
+          Generate prototypes for layout-{layout_id} across a batch of styles.
 
-      ## Input Files
-      - Design Tokens: {base_path}/style-consolidation/style-{style_id}/design-tokens.json
-      - Style Guide: {base_path}/style-consolidation/style-{style_id}/style-guide.md
-      {IF --session: - Requirements: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md}
+          ## Context
+          LAYOUT_ID: {layout_id}
+          STYLE_IDS_BATCH: {style_batch}  # e.g., [1, 2, 3, 4, 5, 6, 7, 8]
+          PAGES: {page_list}
+          BASE_PATH: {base_path}
 
-      ## Task
-      For each page in [{page_list}], generate {layout_variants} layout variants:
-      - {page}-style-{style_id}-layout-{j}.html (semantic HTML5)
-      - {page}-style-{style_id}-layout-{j}.css (token-driven, no hardcoded values)
-      - {page}-style-{style_id}-layout-{j}-notes.md (implementation notes)
+          ## Input Files
+          For each style_id in your batch, you MUST load its corresponding files:
+          - Design Tokens: {base_path}/style-consolidation/style-{style_id}/design-tokens.json
+          - Style Guide: {base_path}/style-consolidation/style-{style_id}/style-guide.md
+          {IF --session: - Requirements: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md}
 
-      ## Layout Diversity Strategy
-      Each layout variant (j=1 to {layout_variants}) should explore different:
+          ## Task
+          For each style_id in {style_batch}:
+            For each page in [{page_list}]:
+              Generate the prototype files for the specific combination:
+              - {page}-style-{style_id}-layout-{layout_id}.html (semantic HTML5)
+              - {page}-style-{style_id}-layout-{layout_id}.css (token-driven, no hardcoded values)
+              - {page}-style-{style_id}-layout-{layout_id}-notes.md (implementation notes)
 
-      **Layout 1: Classic Hierarchy**
-      - Traditional F-pattern reading flow
-      - Top navigation with sidebar
-      - Card-based content sections
+          ## Layout Diversity Strategy
+          You are responsible for Layout {layout_id}. Apply this strategy CONSISTENTLY to all styles in your batch.
 
-      **Layout 2: Modern Asymmetric**
-      - Z-pattern visual flow
-      - Split-screen hero sections
-      - Grid-based modular content
+          {IF layout_id == 1}
+          **Layout 1: Classic Hierarchy**
+          - Traditional F-pattern reading flow
+          - Top navigation with sidebar
+          - Card-based content sections
+          {ELSE IF layout_id == 2}
+          **Layout 2: Modern Asymmetric**
+          - Z-pattern visual flow
+          - Split-screen hero sections
+          - Grid-based modular content
+          {ELSE IF layout_id == 3}
+          **Layout 3: Minimal Focus**
+          - Centered single-column content
+          - Floating navigation
+          - Generous whitespace and breathing room
+          {ELSE}
+          **Layout {layout_id}: Custom Variant**
+          - Develop a unique and consistent layout structure different from the standard three
+          {ENDIF}
 
-      **Layout 3: Minimal Focus**
-      - Centered single-column content
-      - Floating navigation
-      - Generous whitespace and breathing room
+          Adapt this strategy to each page's purpose while maintaining layout consistency.
 
-      Adapt these strategies to each page's purpose while maintaining consistency.
+          ## Token Usage Requirements (STRICT)
+          - For each style, load design tokens from its specific file: {base_path}/style-consolidation/style-{style_id}/design-tokens.json
+          - All colors: var(--color-brand-primary), var(--color-surface-background), etc.
+          - All spacing: var(--spacing-4), var(--spacing-6), etc.
+          - All typography: var(--font-family-heading), var(--font-size-lg), etc.
+          - NO hardcoded values (e.g., #4F46E5, 16px) allowed
 
-      ## Token Usage Requirements (STRICT)
-      - Load design tokens from: {base_path}/style-consolidation/style-{style_id}/design-tokens.json
-      - All colors: var(--color-brand-primary), var(--color-surface-background), etc.
-      - All spacing: var(--spacing-4), var(--spacing-6), etc.
-      - All typography: var(--font-family-heading), var(--font-size-lg), etc.
-      - NO hardcoded values (e.g., #4F46E5, 16px) allowed
+          ## HTML Requirements
+          - Semantic HTML5 elements (<header>, <nav>, <main>, <section>, <article>)
+          - ARIA attributes for accessibility (role, aria-label, aria-labelledby)
+          - Proper heading hierarchy (h1 → h2 → h3)
+          - Mobile-first responsive design
 
-      ## HTML Requirements
-      - Semantic HTML5 elements (<header>, <nav>, <main>, <section>, <article>)
-      - ARIA attributes for accessibility (role, aria-label, aria-labelledby)
-      - Proper heading hierarchy (h1 → h2 → h3)
-      - Mobile-first responsive design
+          ## CSS Requirements
+          - Link to design-tokens.css: <link rel=\"stylesheet\" href=\"../../design-tokens.css\">
+          - Use CSS custom properties from design-tokens.json
+          - Mobile-first media queries using token breakpoints
+          - No inline styles
+          - BEM or semantic class naming
 
-      ## CSS Requirements
-      - Link to design-tokens.css: <link rel=\"stylesheet\" href=\"../../design-tokens.css\">
-      - Use CSS custom properties from design-tokens.json
-      - Mobile-first media queries using token breakpoints
-      - No inline styles
-      - BEM or semantic class naming
+          ## Responsive Design
+          - Mobile: 375px+ (single column, stacked)
+          - Tablet: var(--breakpoint-md) (adapted layout)
+          - Desktop: var(--breakpoint-lg)+ (full layout)
 
-      ## Responsive Design
-      - Mobile: 375px+ (single column, stacked)
-      - Tablet: var(--breakpoint-md) (adapted layout)
-      - Desktop: var(--breakpoint-lg)+ (full layout)
+          ## Output Location
+          {base_path}/prototypes/
 
-      ## Output Location
-      {base_path}/prototypes/
+          ## Deliverables
+          For each page-style-layout combination in your assigned batch:
+          1. HTML file with token-driven structure
+          2. CSS file with custom property references
+          3. Notes file with implementation details and layout rationale
 
-      ## Deliverables
-      For each page-style-layout combination:
-      1. HTML file with token-driven structure
-      2. CSS file with custom property references
-      3. Notes file with implementation details and layout rationale
+          Total files to generate: {len(page_list) * len(style_batch) * 3}
+        "
 
-      Total files to generate: {len(page_list) * layout_variants * 3}
-    "
-
-# Wait for all {style_variants} parallel tasks to complete
+# Wait for all {layout_variants * len(style_batches)} parallel tasks to complete
 # Total prototypes: {style_variants * layout_variants * len(page_list)}
 ```
 
