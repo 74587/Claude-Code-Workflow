@@ -71,7 +71,8 @@ IF --layout-variants provided:
 IF --base-path provided:
     base_path = {provided_base_path}
 ELSE IF --session provided:
-    base_path = ".workflow/WFS-{session}/latest/.design"
+    # Find latest design run in session
+    base_path = find_latest_path_matching(".workflow/WFS-{session}/design-*")
 ELSE:
     base_path = find_latest_design_session(".workflow/.scratchpad/")
 
@@ -427,8 +428,17 @@ FOR layout_id IN range(1, layout_variants + 1):
           - Tablet: var(--breakpoint-md) (adapted layout)
           - Desktop: var(--breakpoint-lg)+ (full layout)
 
-          ## Output Location
-          {base_path}/prototypes/_templates/
+          ## Response Format
+          **CRITICAL**: Provide clearly labeled sections for each file. **DO NOT include base path or attempt to write files**.
+          The main command will handle file writing based on your labeled output.
+
+          Format your response as:
+
+          ===== {target}-layout-{layout_id}.html =====
+          {Complete HTML content here}
+
+          ===== {target}-layout-{layout_id}.css =====
+          {Complete CSS content here}
 
           ## Deliverables
           TWO template files for the '{target}-layout-{layout_id}' combination:
@@ -468,9 +478,80 @@ FOR layout_id IN range(1, layout_variants + 1):
             </html>
             ```
           }
+
+          **Output Instructions**:
+          - Return content using the labeled section format shown above
+          - Do not include file paths in your response
+          - The main command will extract sections and write files to: {base_path}/prototypes/_templates/
         "
 
-REPORT: "✅ Phase 2a complete: Generated {layout_variants * len(target_list)} layout templates ({target_type} mode)"
+REPORT: "⏳ Phase 2a: Waiting for agents to complete template generation..."
+```
+
+#### Phase 2a.5: Process Agent Output and Write Template Files
+
+**New Pattern**: Main command controls file paths; agents provide content.
+
+```bash
+REPORT: "📝 Phase 2a.5: Processing agent outputs and writing template files..."
+
+# Helper function to extract labeled sections from agent output
+extract_section(agent_output, section_label):
+    # Find the section between ===== markers
+    start_marker = f"===== {section_label} ====="
+    lines = agent_output.split("\n")
+
+    in_section = False
+    section_content = []
+
+    FOR line IN lines:
+        IF line.strip() == start_marker:
+            in_section = TRUE
+            CONTINUE
+        ELSE IF line.strip().startswith("=====") AND in_section:
+            # Found next section, stop
+            BREAK
+        ELSE IF in_section:
+            section_content.append(line)
+
+    RETURN "\n".join(section_content).strip()
+
+# Process each agent task result
+FOR layout_id IN range(1, layout_variants + 1):
+    FOR target IN target_list:
+        # Get agent response for this target-layout combination
+        agent_output = get_agent_response(layout_id, target)
+
+        # Extract labeled sections
+        html_label = f"{target}-layout-{layout_id}.html"
+        css_label = f"{target}-layout-{layout_id}.css"
+
+        html_content = extract_section(agent_output, html_label)
+        css_content = extract_section(agent_output, css_label)
+
+        # Verify content was extracted
+        IF NOT html_content:
+            ERROR: f"Failed to extract HTML content for {html_label} from agent output"
+            REPORT: f"Agent output preview: {agent_output[:200]}..."
+            CONTINUE
+
+        IF NOT css_content:
+            ERROR: f"Failed to extract CSS content for {css_label} from agent output"
+            REPORT: f"Agent output preview: {agent_output[:200]}..."
+            CONTINUE
+
+        # Write files to correct location (controlled by main command)
+        html_path = f"{base_path}/prototypes/_templates/{html_label}"
+        css_path = f"{base_path}/prototypes/_templates/{css_label}"
+
+        Write(html_path, html_content)
+        Write(css_path, css_content)
+
+        REPORT: f"   ✓ Written: {html_label} ({len(html_content)} chars)"
+        REPORT: f"   ✓ Written: {css_label} ({len(css_content)} chars)"
+
+REPORT: "✅ Phase 2a.5 complete: Wrote {layout_variants * len(target_list) * 2} template files"
+REPORT: "   Strategy: Agent provides content, main command writes files"
 ```
 
 #### Phase 2b: Prototype Instantiation
