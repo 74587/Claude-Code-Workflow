@@ -258,6 +258,33 @@ if [ "$LAYOUT_VARIANTS" -lt 1 ] || [ "$LAYOUT_VARIANTS" -gt 5 ]; then
     exit 1
 fi
 
+# Validate STYLE_VARIANTS against actual style directories
+if [ "$STYLE_VARIANTS" -gt 0 ]; then
+    style_dir="$BASE_PATH/../style-consolidation"
+
+    if [ ! -d "$style_dir" ]; then
+        log_error "Style consolidation directory not found: $style_dir"
+        log_info "Run /workflow:ui-design:consolidate first"
+        exit 1
+    fi
+
+    actual_styles=$(find "$style_dir" -maxdepth 1 -type d -name "style-*" 2>/dev/null | wc -l)
+
+    if [ "$actual_styles" -eq 0 ]; then
+        log_error "No style directories found in: $style_dir"
+        log_info "Run /workflow:ui-design:consolidate first to generate style design systems"
+        exit 1
+    fi
+
+    if [ "$STYLE_VARIANTS" -gt "$actual_styles" ]; then
+        log_warning "Requested $STYLE_VARIANTS style variants, but only found $actual_styles directories"
+        log_info "Available style directories:"
+        find "$style_dir" -maxdepth 1 -type d -name "style-*" 2>/dev/null | sed 's|.*/||' | sort
+        log_info "Auto-correcting to $actual_styles style variants"
+        STYLE_VARIANTS=$actual_styles
+    fi
+fi
+
 # Parse pages into array
 IFS=',' read -ra PAGE_ARRAY <<< "$PAGES"
 

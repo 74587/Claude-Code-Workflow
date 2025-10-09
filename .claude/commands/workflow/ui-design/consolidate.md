@@ -3,10 +3,26 @@ name: consolidate
 description: Consolidate style variants into independent design systems and plan layout strategies
 usage: /workflow:ui-design:consolidate [--base-path <path>] [--session <id>] [--variants <count>] [--layout-variants <count>]
 argument-hint: "[--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--variants 3] [--layout-variants 3]"
+parameters:
+  - name: --variants
+    type: number
+    default: all available variants from style-cards.json
+    description: "Number of style variants to consolidate (1-N). Processes first N variants from style-cards.json. Creates style-N directories."
+  - name: --layout-variants
+    type: number
+    default: 3
+    description: "Number of layout strategies to generate (1-5). Creates dynamic layout plans based on project context and modern trends."
+  - name: --session
+    type: string
+    description: "Workflow session ID (e.g., WFS-auth). Finds latest design run in session directory."
+  - name: --base-path
+    type: string
+    description: "Custom base path for input/output. Overrides --session if provided."
 examples:
   - /workflow:ui-design:consolidate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --variants 3 --layout-variants 3
   - /workflow:ui-design:consolidate --session WFS-auth --variants 2 --layout-variants 2
-  - /workflow:ui-design:consolidate --base-path "./.workflow/.design/run-20250109-150533" --layout-variants 3
+  - /workflow:ui-design:consolidate --base-path "./.workflow/.design/run-20250109-150533"  # Uses all variants, default 3 layouts
+  - /workflow:ui-design:consolidate --session WFS-auth --layout-variants 2  # Process all variants from extraction
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Task(*)
 ---
 
@@ -228,17 +244,11 @@ FILE 1: style-{variant_id}/design-tokens.json
     "text": { "primary": "oklch(...)", "secondary": "oklch(...)", "tertiary": "oklch(...)", "inverse": "oklch(...)" },
     "border": { "default": "oklch(...)", "strong": "oklch(...)", "subtle": "oklch(...)" }
   },
-  "typography": {
-    "font_family": { "heading": "...", "body": "...", "mono": "..." },
-    "font_size": { "xs": "...", "sm": "...", "base": "...", "lg": "...", "xl": "...", "2xl": "...", "3xl": "...", "4xl": "..." },
-    "font_weight": { "normal": "400", "medium": "500", "semibold": "600", "bold": "700" },
-    "line_height": { "tight": "1.25", "normal": "1.5", "relaxed": "1.75" },
-    "letter_spacing": { "tight": "-0.025em", "normal": "0", "wide": "0.025em" }
-  },
-  "spacing": { "0": "0", "1": "0.25rem", "2": "0.5rem", ..., "24": "6rem" },
+  "typography": { "font_family": {...}, "font_size": {...}, "font_weight": {...}, "line_height": {...}, "letter_spacing": {...} },
+  "spacing": { "0": "0", "1": "0.25rem", ..., "24": "6rem" },
   "border_radius": { "none": "0", "sm": "0.25rem", ..., "full": "9999px" },
   "shadows": { "sm": "...", "md": "...", "lg": "...", "xl": "..." },
-  "breakpoints": { "sm": "640px", "md": "768px", "lg": "1024px", "xl": "1280px", "2xl": "1536px" }
+  "breakpoints": { "sm": "640px", ..., "2xl": "1536px" }
 }
 
 FILE 2: style-{variant_id}/style-guide.md
@@ -372,110 +382,32 @@ The generate command will read layout strategies from layout-strategies.json.
 
 ## design-tokens.json Format
 
-Complete token structure with OKLCH colors and semantic naming:
+**Token structure** (all variants follow identical structure with different values):
 
 ```json
 {
   "colors": {
-    "brand": {
-      "primary": "oklch(0.45 0.20 270 / 1)",
-      "secondary": "oklch(0.60 0.15 320 / 1)",
-      "accent": "oklch(0.70 0.18 150 / 1)"
-    },
-    "surface": {
-      "background": "oklch(0.98 0.01 270 / 1)",
-      "elevated": "oklch(1.00 0.00 0 / 1)",
-      "overlay": "oklch(0.95 0.01 270 / 1)"
-    },
-    "semantic": {
-      "success": "oklch(0.60 0.15 142 / 1)",
-      "warning": "oklch(0.75 0.12 85 / 1)",
-      "error": "oklch(0.55 0.22 27 / 1)",
-      "info": "oklch(0.55 0.18 252 / 1)"
-    },
-    "text": {
-      "primary": "oklch(0.20 0.01 270 / 1)",
-      "secondary": "oklch(0.45 0.01 270 / 1)",
-      "tertiary": "oklch(0.60 0.01 270 / 1)",
-      "inverse": "oklch(0.95 0.01 270 / 1)"
-    },
-    "border": {
-      "default": "oklch(0.85 0.01 270 / 1)",
-      "strong": "oklch(0.70 0.01 270 / 1)",
-      "subtle": "oklch(0.92 0.01 270 / 1)"
-    }
+    "brand": { "primary": "oklch(...)", "secondary": "oklch(...)", "accent": "oklch(...)" },
+    "surface": { "background": "oklch(...)", "elevated": "oklch(...)", "overlay": "oklch(...)" },
+    "semantic": { "success": "oklch(...)", "warning": "oklch(...)", "error": "oklch(...)", "info": "oklch(...)" },
+    "text": { "primary": "oklch(...)", "secondary": "oklch(...)", "tertiary": "oklch(...)", "inverse": "oklch(...)" },
+    "border": { "default": "oklch(...)", "strong": "oklch(...)", "subtle": "oklch(...)" }
   },
   "typography": {
-    "font_family": {
-      "heading": "Inter, system-ui, sans-serif",
-      "body": "Inter, system-ui, sans-serif",
-      "mono": "JetBrains Mono, Consolas, monospace"
-    },
-    "font_size": {
-      "xs": "0.75rem",
-      "sm": "0.875rem",
-      "base": "1rem",
-      "lg": "1.125rem",
-      "xl": "1.25rem",
-      "2xl": "1.5rem",
-      "3xl": "1.875rem",
-      "4xl": "2.25rem"
-    },
-    "font_weight": {
-      "normal": "400",
-      "medium": "500",
-      "semibold": "600",
-      "bold": "700"
-    },
-    "line_height": {
-      "tight": "1.25",
-      "normal": "1.5",
-      "relaxed": "1.75"
-    },
-    "letter_spacing": {
-      "tight": "-0.025em",
-      "normal": "0",
-      "wide": "0.025em"
-    }
+    "font_family": { "heading": "...", "body": "...", "mono": "..." },
+    "font_size": { "xs": "...", "sm": "...", "base": "...", "lg": "...", "xl": "...", "2xl": "...", "3xl": "...", "4xl": "..." },
+    "font_weight": { "normal": "400", "medium": "500", "semibold": "600", "bold": "700" },
+    "line_height": { "tight": "1.25", "normal": "1.5", "relaxed": "1.75" },
+    "letter_spacing": { "tight": "-0.025em", "normal": "0", "wide": "0.025em" }
   },
-  "spacing": {
-    "0": "0",
-    "1": "0.25rem",
-    "2": "0.5rem",
-    "3": "0.75rem",
-    "4": "1rem",
-    "5": "1.25rem",
-    "6": "1.5rem",
-    "8": "2rem",
-    "10": "2.5rem",
-    "12": "3rem",
-    "16": "4rem",
-    "20": "5rem",
-    "24": "6rem"
-  },
-  "border_radius": {
-    "none": "0",
-    "sm": "0.25rem",
-    "md": "0.5rem",
-    "lg": "0.75rem",
-    "xl": "1rem",
-    "full": "9999px"
-  },
-  "shadows": {
-    "sm": "0 1px 2px oklch(0.00 0.00 0 / 0.05)",
-    "md": "0 4px 6px oklch(0.00 0.00 0 / 0.07)",
-    "lg": "0 10px 15px oklch(0.00 0.00 0 / 0.10)",
-    "xl": "0 20px 25px oklch(0.00 0.00 0 / 0.15)"
-  },
-  "breakpoints": {
-    "sm": "640px",
-    "md": "768px",
-    "lg": "1024px",
-    "xl": "1280px",
-    "2xl": "1536px"
-  }
+  "spacing": { "0": "0", "1": "0.25rem", ..., "24": "6rem" },
+  "border_radius": { "none": "0", "sm": "0.25rem", ..., "full": "9999px" },
+  "shadows": { "sm": "...", "md": "...", "lg": "...", "xl": "..." },
+  "breakpoints": { "sm": "640px", "md": "768px", "lg": "1024px", "xl": "1280px", "2xl": "1536px" }
 }
 ```
+
+**Requirements**: All colors in OKLCH format, complete token coverage, semantic naming
 
 ## Error Handling
 

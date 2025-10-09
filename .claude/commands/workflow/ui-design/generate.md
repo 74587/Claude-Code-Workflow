@@ -3,11 +3,27 @@ name: generate
 description: Generate UI prototypes in matrix mode (style × layout combinations) for pages or components
 usage: /workflow:ui-design:generate [--targets "<list>"] [--target-type "page|component"] [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
 argument-hint: "[--targets \"dashboard,auth,navbar,hero\"] [--target-type \"page\"] [--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--style-variants 3] [--layout-variants 3]"
+parameters:
+  - name: --style-variants
+    type: number
+    default: 3
+    description: "Number of style variants to generate prototypes for (1-5). Auto-validates against actual style-* directories. ⚠️ Recommend omitting to use auto-detection."
+  - name: --layout-variants
+    type: number
+    default: auto-detected from layout-strategies.json
+    description: "Number of layout variants. Default: loaded from consolidation output. Can override for manual testing."
+  - name: --targets
+    type: string
+    description: "Comma-separated list of targets (pages or components) to generate"
+  - name: --target-type
+    type: string
+    default: page
+    description: "Type of targets: 'page' (full layout) or 'component' (isolated element)"
 examples:
   - /workflow:ui-design:generate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --targets "dashboard,settings" --target-type "page" --style-variants 3 --layout-variants 3
   - /workflow:ui-design:generate --session WFS-auth --targets "home,pricing" --target-type "page" --style-variants 2 --layout-variants 2
+  - /workflow:ui-design:generate --base-path "./.workflow/.design/run-20250109-150533"  # ✅ Recommended: auto-detect variants
   - /workflow:ui-design:generate --targets "navbar,hero,card" --target-type "component" --style-variants 3 --layout-variants 2
-  - /workflow:ui-design:generate --base-path "./.workflow/.design/run-20250109-150533" --style-variants 3 --layout-variants 3
   - /workflow:ui-design:generate --pages "home,dashboard" --style-variants 2 --layout-variants 2  # Legacy syntax
 executor: → @ui-design-agent
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
@@ -79,7 +95,24 @@ ELSE:
 # 2. Determine style variant count (layout_variants already loaded in Phase 0)
 style_variants = --style-variants OR 3  # Default to 3
 
+# Validate range
 VALIDATE: 1 <= style_variants <= 5
+
+# Validate against actual style directories (prevent style-N file generation for non-existent directories)
+actual_style_count = count_directories({base_path}/style-consolidation/style-*)
+
+IF actual_style_count == 0:
+    ERROR: "No style directories found in {base_path}/style-consolidation/"
+    SUGGEST: "Run /workflow:ui-design:consolidate first to generate style design systems"
+    EXIT 1
+
+IF style_variants > actual_style_count:
+    WARN: "⚠️ Requested {style_variants} style variants, but only {actual_style_count} directories exist"
+    REPORT: "   Available styles: {list_directories({base_path}/style-consolidation/style-*)}"
+    REPORT: "   Auto-correcting to {actual_style_count} style variants"
+    style_variants = actual_style_count
+
+REPORT: "✅ Validated style variants: {style_variants} (matching actual directory count)"
 
 # Note: layout_variants is loaded from layout-strategies.json in Phase 0
 
@@ -149,55 +182,7 @@ IF --session:
     synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
 ```
 
-### Phase 1.5: Implementation Pattern Research (Exa MCP)
-
-```bash
-# Step 1: Extract project context and technology preferences
-project_context = ""
-tech_stack_hints = []
-
-IF --session:
-    # Load brainstorming artifacts to understand tech requirements
-    IF exists(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md):
-        project_context = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
-        tech_stack_hints = extract_tech_stack(project_context)  # e.g., "React", "Vue", "vanilla JS"
-
-    IF exists(.workflow/WFS-{session}/.brainstorming/system-architect/analysis.md):
-        arch_context = Read(.workflow/WFS-{session}/.brainstorming/system-architect/analysis.md)
-        tech_stack_hints.extend(extract_tech_stack(arch_context))
-
-# Step 2: Extract page types and requirements
-page_types = classify_pages(page_list)  # e.g., "dashboard", "auth", "settings"
-layout_names = [s.name for s in layout_strategies.strategies]
-
-REPORT: "🔍 Researching modern UI implementation patterns..."
-
-# Step 3: Multi-dimensional implementation research using Exa MCP
-exa_queries = {
-    "component_patterns": f"modern UI component implementation patterns {' '.join(tech_stack_hints)} 2024 2025",
-    "responsive_design": f"responsive web design best practices mobile-first {' '.join(page_types)} 2024",
-    "accessibility": f"web accessibility ARIA attributes implementation WCAG 2.2 {' '.join(page_types)}",
-    "html_semantics": f"semantic HTML5 structure best practices {' '.join(page_types)} modern",
-    "css_architecture": f"CSS architecture design tokens custom properties BEM {' '.join(tech_stack_hints)}"
-}
-
-implementation_research = {}
-FOR category, query IN exa_queries.items():
-    REPORT: f"   Searching {category}..."
-    implementation_research[category] = mcp__exa__get_code_context_exa(
-        query=query,
-        tokensNum="dynamic"
-    )
-
-REPORT: "✅ Implementation research complete:"
-REPORT: "   - Component patterns and best practices"
-REPORT: "   - Responsive design strategies"
-REPORT: "   - Accessibility implementation guides"
-REPORT: "   - Semantic HTML structures"
-REPORT: "   - CSS architecture patterns"
-```
-
-### Phase 1.8: Token Variable Name Extraction
+### Phase 1.5: Token Variable Name Extraction
 
 ```bash
 # Load design-tokens.json from style-1 to extract exact variable names
@@ -261,15 +246,17 @@ REPORT: f"   - Other variables: {len(radius_vars) + len(shadow_vars) + len(break
 
 **Strategy**: Two-layer generation reduces complexity from `O(S×L×P)` to `O(L×P)`, achieving **`S` times faster** performance.
 
-- **Layer 1**: Generate `L × P` layout templates (HTML structure + structural CSS) with modern best practices
-- **Layer 2**: Instantiate `S × L × P` final prototypes via fast file operations
+- **Layer 1**: Generate `L × T` layout templates (HTML structure + structural CSS) by agent
+- **Layer 2**: Instantiate `S × L × T` final prototypes via fast file operations
 
-#### Phase 2a: Layout Template Generation (Research-Informed)
+*T = targets (pages or components), P = pages (legacy notation)*
+
+#### Phase 2a: Layout Template Generation
 
 **Parallel Executor**: → @ui-design-agent
 
-Generate style-agnostic layout templates for each `{page} × {layout}` combination.
-Total agent tasks: `layout_variants × len(page_list)`
+Generate style-agnostic layout templates for each `{target} × {layout}` combination.
+Total agent tasks: `layout_variants × len(target_list)`
 
 ```bash
 # Create directories
@@ -289,13 +276,14 @@ FOR layout_id IN range(1, layout_variants + 1):
           - Even if '{target}' might coexist with other targets in a final application,
             your task is to create an INDEPENDENT, REUSABLE template for '{target}' alone
 
-          Generate a **style-agnostic** layout template for a specific {target_type} and layout strategy, informed by modern web development best practices.
+          Generate a **style-agnostic** layout template for a specific {target_type} and layout strategy.
 
           🎯 **CRITICAL REQUIREMENTS**:
           ✅ **ADAPTIVE**: Multi-device responsive design (mobile, tablet, desktop)
           ✅ **STYLE-SWITCHABLE**: Support runtime theme/style switching via CSS variables
           ✅ **TOKEN-DRIVEN**: 100% CSS variable usage, zero hardcoded values
           ✅ **INDEPENDENT**: Template for '{target}' only, no other targets included
+          ✅ **RESEARCH-INFORMED**: Use MCP tools to research modern UI patterns as needed
 
           ## Context
           LAYOUT_ID: {layout_id}
@@ -320,25 +308,8 @@ FOR layout_id IN range(1, layout_variants + 1):
             - Content: Focus solely on the component design
           }
 
-          ## Implementation Research (from web, 2024-2025)
-
-          COMPONENT PATTERNS:
-          {implementation_research.component_patterns}
-
-          RESPONSIVE DESIGN:
-          {implementation_research.responsive_design}
-
-          ACCESSIBILITY GUIDELINES:
-          {implementation_research.accessibility}
-
-          HTML SEMANTICS:
-          {implementation_research.html_semantics}
-
-          CSS ARCHITECTURE:
-          {implementation_research.css_architecture}
-
           ## Task
-          Generate TWO files that work together as a reusable template, incorporating insights from the implementation research above:
+          Generate TWO files that work together as a reusable template:
 
           **File 1**: `{target}-layout-{layout_id}.html`
           - 🏗️ **SEMANTIC STRUCTURE**: HTML5 structure WITHOUT any style-specific values
@@ -414,20 +385,20 @@ FOR layout_id IN range(1, layout_variants + 1):
           4. NO hardcoded colors, fonts, or spacing (e.g., #4F46E5, 16px, Arial)
           5. All `var()` references must match exact variable names above
 
-          ## HTML Requirements (Apply Modern Best Practices from Research)
+          ## HTML Requirements
           - 🏗️ **SEMANTIC STRUCTURE**: HTML5 elements (<header>, <nav>, <main>, <section>, <article>)
-          - ♿ **ACCESSIBILITY**: ARIA attributes following WCAG 2.2 guidelines from research
+          - ♿ **ACCESSIBILITY**: ARIA attributes following WCAG 2.2 guidelines
           - 📋 **HEADING HIERARCHY**: Proper h1 → h2 → h3 structure
           - 📱 **RESPONSIVE MARKUP**: Mobile-first structure with adaptive containers
-          - 🧩 **COMPONENT MODULARITY**: Reusable component structure from modern patterns
+          - 🧩 **COMPONENT MODULARITY**: Reusable component structure
           - 🎨 **STYLE-AGNOSTIC**: NO hardcoded colors/fonts/spacing in HTML
 
-          ## CSS Requirements (Apply Architecture Patterns from Research)
+          ## CSS Requirements
           - 🎨 **DYNAMIC THEMING**: 100% CSS custom properties (var()) for style switching
           - 📱 **ADAPTIVE LAYOUT**: Mobile-first media queries using token breakpoints
           - 🔄 **RUNTIME SWITCHABLE**: All visual styles via CSS variables only
           - 🚫 **NO HARDCODED VALUES**: Zero literal colors/fonts/spacing
-          - 📐 **SEMANTIC CLASSES**: BEM or descriptive naming following CSS architecture
+          - 📐 **SEMANTIC CLASSES**: BEM or descriptive naming
           - 🏛️ **MODERN PATTERNS**: Grid, flexbox, container queries for responsiveness
           - 💡 **TOKEN REFERENCES**: Every style property uses var(--token-name)
 
@@ -821,7 +792,7 @@ TodoWrite({
   todos: [
     {content: "Load layout strategies from consolidation", status: "completed", activeForm: "Loading layout strategies"},
     {content: "Resolve paths and load design systems", status: "completed", activeForm: "Loading design systems"},
-    {content: "Research modern UI implementation patterns with Exa MCP", status: "completed", activeForm: "Researching implementation patterns"},
+    {content: "Extract design token variable names", status: "completed", activeForm: "Extracting token variables"},
     {content: `Generate ${layout_variants}×${target_list.length} layout templates using planned strategies`, status: "completed", activeForm: "Generating layout templates"},
     {content: "Convert design tokens to CSS variables", status: "completed", activeForm: "Converting tokens"},
     {content: `Instantiate ${style_variants}×${layout_variants}×${target_list.length} prototypes using script`, status: "completed", activeForm: "Running instantiation script"},
@@ -951,29 +922,23 @@ After generation, ensure:
 
 ## Key Features
 
-1. **Research-Informed Implementation** 🆕
-   - Uses Exa MCP to research modern UI implementation patterns (2024-2025)
-   - Searches for component patterns, responsive design, accessibility, HTML semantics, CSS architecture
-   - Generates prototypes based on current web development best practices
-   - Context-aware: extracts tech stack hints from project brainstorming artifacts
-   - Multi-dimensional research: component, responsive, accessibility, semantic HTML, CSS patterns
-
-2. **Unified Target Generation**
+1. **Unified Target Generation**
    - Supports both pages (full layouts) and components (isolated elements)
    - Intelligent wrapper selection based on target type
    - Backward compatible with legacy `--pages` parameter
 
-3. **Optimized Template-Based Architecture**
+2. **Optimized Template-Based Architecture**
    - Decouples HTML structure from CSS styling
    - Generates `L × T` reusable templates instead of `S × L × T` unique files (T=targets)
    - **`S` times faster** than previous approach (typically 3× faster for S=3)
 
-4. **Two-Layer Generation Strategy**
-   - Layer 1: Agent-driven creative generation of layout templates (informed by research)
+3. **Two-Layer Generation Strategy**
+   - Layer 1: Agent-driven creative generation of layout templates
    - Layer 2: Fast file operations for prototype instantiation (script-based)
    - Reduces expensive Agent calls by ~67% (for S=3)
+   - Agent autonomously uses MCP tools for modern UI pattern research
 
-5. **Script-Based Instantiation (v3.0)**
+4. **Script-Based Instantiation (v3.0)**
    - Uses `ui-instantiate-prototypes.sh` for efficient file operations
    - Auto-detection of configuration from directory structure
    - Robust error handling with detailed reporting
@@ -981,33 +946,26 @@ After generation, ensure:
    - Integrated preview file generation
    - Supports both page and component modes
 
-6. **Modern Best Practices Integration**
-   - Component patterns from latest UI libraries and frameworks
-   - WCAG 2.2 accessibility implementation
-   - Modern responsive design (grid, flexbox, container queries)
-   - Semantic HTML5 structure following current standards
-   - CSS architecture patterns (BEM, design tokens, custom properties)
-
-7. **Consistent Cross-Style Layouts**
+5. **Consistent Cross-Style Layouts**
    - Same layout structure applied uniformly across all style variants
    - Easier to compare styles directly (HTML structure is identical)
    - Simplified maintenance (edit template once, affects all styles)
 
-8. **Dynamic Style Injection**
+6. **Dynamic Style Injection**
    - CSS custom properties enable runtime style switching
    - Each style variant has its own `tokens.css` file
    - Clean separation of structure and aesthetics
 
-9. **Interactive Visualization**
+7. **Interactive Visualization**
    - Full-featured compare.html from template
    - Matrix grid view with synchronized scrolling
    - Enhanced index.html with statistics
    - Comprehensive PREVIEW.md documentation
    - Per-style design system references
 
-10. **Production-Ready Output**
-   - Semantic HTML5 and ARIA attributes (following latest guidelines)
-   - Mobile-first responsive design (modern patterns)
+8. **Production-Ready Output**
+   - Semantic HTML5 and ARIA attributes (following WCAG 2.2 guidelines)
+   - Mobile-first responsive design
    - Token-driven styling (no hardcoded values)
    - Implementation notes for each prototype
 
