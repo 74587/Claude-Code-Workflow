@@ -1,13 +1,15 @@
 ---
 name: imitate-auto
 description: Imitation-focused UI design workflow - Rapidly replicate a single design style from URL or images (skip exploration, direct to implementation)
-usage: /workflow:ui-design:imitate-auto [--url "<url>"] [--images "<glob>"] [--prompt "<desc>"] [--pages "<list>"] [--session <id>]
-argument-hint: "[--url \"https://example.com\"] [--images \"refs/*.png\"] [--prompt \"Imitate dark mode style\"] [--pages \"dashboard,settings\"]"
+usage: /workflow:ui-design:imitate-auto [--url "<url>"] [--images "<glob>"] [--prompt "<desc>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>]
+argument-hint: "[--url \"https://example.com\"] [--images \"refs/*.png\"] [--prompt \"Imitate dark mode style\"] [--targets \"dashboard,settings\"] [--target-type \"page\"]"
 examples:
-  - /workflow:ui-design:imitate-auto --url "https://linear.app" --pages "home,features,pricing"
+  - /workflow:ui-design:imitate-auto --url "https://linear.app" --targets "home,features,pricing"
   - /workflow:ui-design:imitate-auto --images "refs/design.png" --prompt "Imitate this minimalist design for dashboard and settings"
   - /workflow:ui-design:imitate-auto --url "https://stripe.com" --session WFS-payment
-  - /workflow:ui-design:imitate-auto --images "refs/*.png" --pages "home"
+  - /workflow:ui-design:imitate-auto --images "refs/*.png" --targets "home"
+  - /workflow:ui-design:imitate-auto --url "https://example.com" --targets "navbar,hero" --target-type "component"
+  - /workflow:ui-design:imitate-auto --images "refs/*.png" --pages "home"  # Legacy syntax
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*)
 ---
 
@@ -47,9 +49,13 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 - `--images "<glob>"`: Local reference images (e.g., "refs/*.png")
 
 **Optional**:
-- `--pages "<list>"`: Pages to generate (default: "home")
+- `--targets "<list>"`: Comma-separated targets (pages/components) to generate (inferred from prompt if omitted)
+- `--target-type "page|component"`: Explicitly set target type (default: intelligent detection)
 - `--session <id>"`: Workflow session ID (standalone if omitted)
 - `--prompt "<desc>"`: Additional design guidance (e.g., "Focus on dark mode")
+
+**Legacy Parameters** (maintained for backward compatibility):
+- `--pages "<list>"`: Alias for `--targets` with `--target-type page`
 
 **Not Supported**:
 - `--style-variants`: Always 1 (single style)
@@ -87,36 +93,72 @@ Write({base_path}/.run-metadata.json): {
   "status": "in_progress"
 }
 
-# Page inference (simplified, no interactive confirmation)
+# Unified target inference (simplified for imitate mode, no interactive confirmation)
+target_list = []
+target_type = "page"  # Default to page for imitate mode
+target_source = "none"
+
+# Step 1: Handle legacy --pages parameter (backward compatibility)
 IF --pages provided:
-    page_list = split_and_clean({--pages value}, [",", ";", "、"])
-    page_list = [p.strip().lower().replace(" ", "-") for p in page_list if p.strip()]
-    page_source = "explicit"
+    target_list = split_and_clean({--pages value}, [",", ";", "、"])
+    target_type = "page"
+    target_source = "explicit_legacy"
+    REPORT: "📋 Using explicitly provided pages (legacy): {', '.join(target_list)}"
+
+# Step 2: Handle unified --targets parameter
+ELSE IF --targets provided:
+    target_list = split_and_clean({--targets value}, [",", ";", "、"])
+    target_source = "explicit"
+
+    # Override type if explicitly set
+    IF --target-type provided:
+        target_type = --target-type
+        REPORT: "🎯 Using explicitly provided targets with type '{target_type}': {', '.join(target_list)}"
+    ELSE:
+        # Intelligent type detection (same logic as explore-auto)
+        target_type = detect_target_type(target_list)
+        REPORT: "🎯 Using explicitly provided targets (detected type: {target_type}): {', '.join(target_list)}"
+
+# Step 3: Extract from prompt
 ELSE IF --prompt provided:
     # Extract from prompt: "for dashboard and settings" or "pages: home, about"
-    page_list = extract_pages_from_prompt(prompt_text)
-    page_source = "prompt_inferred"
-    IF NOT page_list:
-        page_list = ["home"]
+    target_list = extract_targets_from_prompt(prompt_text)
+    target_source = "prompt_inferred"
+    IF NOT target_list:
+        target_list = ["home"]
+
+    # Detect type from prompt or targets
+    IF --target-type provided:
+        target_type = --target-type
+    ELSE:
+        target_type = detect_target_type(target_list)
+
+# Step 4: Fallback default
 ELSE:
-    page_list = ["home"]
-    page_source = "default"
+    target_list = ["home"]
+    target_type = "page"
+    target_source = "default"
 
-# Validate page names
-validated_pages = []
-FOR page IN page_list:
-    cleaned = page.strip().lower().replace(" ", "-")
+# Validate and clean target names
+validated_targets = []
+FOR target IN target_list:
+    cleaned = target.strip().lower().replace(" ", "-")
     IF regex_match(cleaned, r"^[a-z0-9][a-z0-9_-]*$"):
-        validated_pages.append(cleaned)
+        validated_targets.append(cleaned)
 
-IF NOT validated_pages:
-    validated_pages = ["home"]
+IF NOT validated_targets:
+    validated_targets = ["home"]
+    target_type = "page"
 
-REPORT: "📋 Imitate mode: {len(validated_pages)} pages with single style"
-REPORT: "   Pages: {', '.join(validated_pages)}"
+type_emoji = "📄" IF target_type == "page" ELSE "🧩"
+type_label = "pages" IF target_type == "page" ELSE "components"
+
+REPORT: "📋 Imitate mode: {len(validated_targets)} {type_label} with single style"
+REPORT: "   {type_emoji} Targets: {', '.join(validated_targets)}"
+REPORT: "   Type: {target_type}"
 REPORT: "   Reference: {url_value OR images_pattern}"
 
-STORE: run_id, base_path, inferred_page_list = validated_pages
+STORE: run_id, base_path, inferred_target_list = validated_targets, target_type = target_type
 ```
 
 ---
@@ -305,21 +347,27 @@ REPORT: "   Bypassed consolidate for {performance_gain}× speed"
 **Command**:
 ```bash
 run_base_flag = "--base-path \"{base_path}\""
-pages_string = ",".join(inferred_page_list)
-pages_flag = "--pages \"{pages_string}\""
+targets_string = ",".join(inferred_target_list)
+targets_flag = "--targets \"{targets_string}\""
+type_flag = "--target-type \"{target_type}\""
 
 # Force 1×1 mode
-command = "/workflow:ui-design:generate {run_base_flag} {pages_flag} --style-variants 1 --layout-variants 1"
+command = "/workflow:ui-design:generate {run_base_flag} {targets_flag} {type_flag} --style-variants 1 --layout-variants 1"
 
-REPORT: "🚀 Phase 3: Generating {len(inferred_page_list)} prototype(s)"
+type_emoji = "📄" IF target_type == "page" ELSE "🧩"
+type_label = "page(s)" IF target_type == "page" ELSE "component(s)"
+
+REPORT: "🚀 Phase 3: Generating {len(inferred_target_list)} {type_label}"
+REPORT: "   {type_emoji} Targets: {targets_string}"
 REPORT: "   Mode: 1×1 (imitation-optimized)"
 
 SlashCommand(command)
 ```
 
 **Result**:
-- Prototypes: `{page}-style-1-layout-1.html`
-- Total: `len(inferred_page_list)`
+- Prototypes: `{target}-style-1-layout-1.html`
+- Total: `len(inferred_target_list)`
+- Type: {target_type} (full-page for pages, minimal wrapper for components)
 
 **Auto-Continue**: On completion → Phase 4
 
@@ -345,7 +393,7 @@ ELSE:
 ```javascript
 // Initialize
 TodoWrite({todos: [
-  {"content": "Initialize run directory and infer pages", "status": "in_progress", "activeForm": "Initializing"},
+  {"content": "Initialize run directory and infer targets", "status": "in_progress", "activeForm": "Initializing"},
   {"content": "Capture screenshots from URL (if provided)", "status": "pending", "activeForm": "Capturing screenshots"},
   {"content": "Extract single design style from reference", "status": "pending", "activeForm": "Extracting style"},
   {"content": "Adapt tokens (bypass consolidate)", "status": "pending", "activeForm": "Adapting tokens"},
@@ -386,31 +434,41 @@ TodoWrite({todos: [
 
 ## Example Execution Flows
 
-### Example 1: URL with Auto-Screenshot
+### Example 1: URL with Auto-Screenshot (Pages)
 ```bash
-/workflow:ui-design:imitate-auto --url "https://linear.app" --pages "home,features,pricing"
+/workflow:ui-design:imitate-auto --url "https://linear.app" --targets "home,features,pricing"
 
 # Flow:
 # 0. Init: 3 pages identified
 # 0.5. Screenshot: Playwright captures linear.app
 # 1. Extract: Single style from screenshot
 # 2. Adapt: Direct tokens (~2s vs consolidate's ~45s)
-# 3. Generate: 3 prototypes
+# 3. Generate: 3 page prototypes
 # 4. Complete
 # Time: ~2-3 min (vs 5-7 min with explore-auto)
 ```
 
-### Example 2: Images with Guidance
+### Example 2: Images with Guidance (Page Mode)
 ```bash
-/workflow:ui-design:imitate-auto --images "refs/dark-theme.png" --prompt "Focus on dark mode" --pages "dashboard"
+/workflow:ui-design:imitate-auto --images "refs/dark-theme.png" --prompt "Focus on dark mode" --targets "dashboard"
 
 # Flow: 0 → 0.5 (skip) → 1 → 2 → 3 → 4
 # Output: dashboard-style-1-layout-1.html
+# Type: page (full-page layout)
 ```
 
-### Example 3: URL with Manual Screenshot
+### Example 3: Component Mode
 ```bash
-/workflow:ui-design:imitate-auto --url "https://stripe.com/pricing" --pages "pricing"
+/workflow:ui-design:imitate-auto --url "https://example.com" --targets "navbar,hero,card" --target-type "component"
+
+# Flow: 0 → 0.5 → 1 → 2 → 3 → 4
+# Output: navbar-style-1-layout-1.html, hero-style-1-layout-1.html, card-style-1-layout-1.html
+# Type: component (minimal wrapper for isolated comparison)
+```
+
+### Example 4: URL with Manual Screenshot
+```bash
+/workflow:ui-design:imitate-auto --url "https://stripe.com/pricing" --targets "pricing"
 
 # 0.5. Screenshot:
 #      ⚠️ Playwright failed → Chrome failed
@@ -418,6 +476,14 @@ TodoWrite({todos: [
 #      User saves screenshot → types 'ready' → ✅ continues
 #      OR types 'skip' → ⚠️ uses URL analysis only
 # Continues: 1 → 2 → 3 → 4
+```
+
+### Example 5: Legacy Parameter Support
+```bash
+# Using legacy --pages parameter (backward compatible)
+/workflow:ui-design:imitate-auto --url "https://example.com" --pages "home,dashboard"
+
+# Equivalent to: --targets "home,dashboard" --target-type "page"
 ```
 
 ## Final Completion Message
@@ -429,22 +495,27 @@ Mode: Single Style Replication
 Run ID: {run_id}
 Session: {session_id or "standalone"}
 Reference: {url OR images}
+Type: {target_type_icon} {target_type_label}
 
-Phase 0 - Initialization: {page_count} pages prepared
+Phase 0 - Initialization: {target_count} {target_type}(s) prepared
 Phase 0.5 - Screenshot Capture: {screenshot_status}
   {IF success: ✅ Captured via {method}}
   {ELSE: ⚠️ URL analysis only}
 Phase 1 - Style Extraction: Single style extracted
 Phase 2 - Token Adaptation: Bypassed consolidate (⚡ {time_saved}s saved)
-Phase 3 - Prototype Generation: {page_count} prototypes created
+Phase 3 - Prototype Generation: {target_count} {target_type} prototypes created
 Phase 4 - Design Integration: {integrated OR "Standalone mode"}
 
 📂 Output: {base_path}/
   ├── style-extraction/style-cards.json (1 style card)
   ├── style-consolidation/style-1/ (design tokens)
-  └── prototypes/ ({page_count} HTML/CSS files)
+  └── prototypes/ ({target_count} HTML/CSS files)
 
 🌐 Preview: {base_path}/prototypes/index.html
+
+{target_type_icon} Targets: {', '.join(inferred_target_list)}
+  Type: {target_type}
+  Context: {IF target_type == "page": "Full-page layouts" ELSE: "Isolated components with minimal wrapper"}
 
 Performance:
 - Design system: ~{time}s (vs ~{consolidate_time}s with consolidate)
@@ -457,4 +528,10 @@ Next: /workflow:plan to create implementation tasks
 {ELSE:
 Prototypes ready: {base_path}/prototypes/
 }
+```
+
+**Dynamic Values**:
+- `target_type_icon`: "📄" for page, "🧩" for component
+- `target_type_label`: "Pages" for page, "Components" for component
+- `target_count`: `len(inferred_target_list)`
 ```

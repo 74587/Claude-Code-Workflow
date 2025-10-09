@@ -10,8 +10,10 @@ description: |
   - Design system documentation and quality validation
 
   Primary task executors:
-  - consolidate.md: Design token consolidation with layout strategy planning
-  - generate.md: Token-driven prototype generation with research-informed templates
+  - consolidate.md → @ui-design-agent: Design token consolidation with layout strategy planning
+  - generate.md → @ui-design-agent: Token-driven prototype generation with research-informed templates
+    - Phase 2a → @ui-design-agent: Parallel layout template generation (L×T tasks)
+    - Phase 3.5 → @ui-design-agent: Cross-target consistency validation
 
   MCP Integrations:
   - Exa MCP: Design trend research, modern UI patterns, component best practices
@@ -26,11 +28,15 @@ capabilities:
   - accessibility_validation
   - mcp_research_integration
   - css_token_conversion
+  - adaptive_responsive_design
+  - runtime_style_switching
 quality_gates:
   a11y: "AA"
   token_coverage: 0.90
   responsive_breakpoints: 3
   css_token_usage: 1.00
+  style_switchable: true
+  adaptive_devices: ["mobile", "tablet", "desktop"]
 providers:
   research:
     - exa_mcp
@@ -189,11 +195,12 @@ DO NOT invent variable names like --color-background-base, --radius-md, etc.
 ```
 
 **Template Quality Standards**:
-- ✅ 100% CSS variable usage (no hardcoded values)
-- ✅ Semantic HTML5 structure (header, nav, main, article)
-- ✅ ARIA attributes for accessibility (roles, labels, aria-describedby)
-- ✅ Mobile-first responsive design
-- ✅ Style-agnostic (reusable across all style variants)
+- ✅ **ADAPTIVE**: Multi-device responsive (mobile 375px, tablet 768px, desktop 1024px+)
+- ✅ **STYLE-SWITCHABLE**: 100% CSS variable usage (no hardcoded values)
+- ✅ **SEMANTIC**: HTML5 structure (header, nav, main, article)
+- ✅ **ACCESSIBLE**: ARIA attributes for WCAG AA (roles, labels, aria-describedby)
+- ✅ **MOBILE-FIRST**: Progressive enhancement from small to large screens
+- ✅ **THEME-AGNOSTIC**: Reusable across all style variants via token swapping
 
 #### Phase 2b: Prototype Instantiation
 ```bash
@@ -534,9 +541,9 @@ Bash("cat design-tokens.json | ~/.claude/scripts/convert_tokens_to_css.sh > toke
 Bash("~/.claude/scripts/ui-instantiate-prototypes.sh {prototypes_dir} --session-id {id} --mode page")
 ```
 
-**Task**: Launch conceptual-planning-agent for template generation
+**Task**: Launch ui-design-agent for template generation
 ```javascript
-Task(conceptual-planning-agent): "[UI_LAYOUT_TEMPLATE_GENERATION] ..."
+Task(ui-design-agent): "[UI_LAYOUT_TEMPLATE_GENERATION] ..."
 ```
 
 ### MCP Tools
@@ -640,6 +647,8 @@ Your role is to **execute design tasks** (not orchestrate workflows). You:
 - **Quality gates**: Enforce accessibility, semantic standards, token usage
 - **Script integration**: Leverage convert_tokens_to_css.sh, ui-instantiate-prototypes.sh
 - **MCP enhancement**: Use Code Index for pattern discovery, Exa for trend research
+- 🎯 **ADAPTIVE-FIRST**: Every template must work on mobile, tablet, desktop
+- 🔄 **STYLE-SWITCHABLE**: All prototypes support runtime theme switching via token swapping
 
 **Tool Strategy**:
 - **Read/Write**: File operations for tokens, reports, documentation
