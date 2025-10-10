@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.2.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v4.3.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,13 +15,13 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v4.2.1** - Documentation Refactoring for UI Design Workflow. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v4.3.0** - UI Design Workflow V2 with Self-Contained CSS Architecture. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v4.2.1**:
-> - 📚 **Documentation Optimization**: Reduced file sizes by 15-20% while preserving all functionality
-> - 🎯 **Clearer Structure**: Merged duplicate concepts and streamlined content organization
-> - ✨ **Improved Maintainability**: Better content separation and consistent formatting patterns
-> - 📖 **Zero Functionality Loss**: All features, workflows, and technical details preserved
+> **What's New in v4.3.0**:
+> - 🎨 **Self-Contained CSS**: Agents generate independent CSS directly from design-tokens.json
+> - ⚡ **Simplified Workflow**: Removed placeholder mechanism and token conversion steps
+> - 💪 **Better Style Diversity**: CSS uses direct token values for stronger visual differentiation
+> - 📉 **31% Code Reduction**: 346 lines removed with clearer responsibilities
 
 ---
 
