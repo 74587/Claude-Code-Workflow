@@ -100,9 +100,14 @@ REPORT: "🤖 Using agent for separate design system generation..."
 # Create output directories
 Bash(mkdir -p "{base_path}/style-consolidation/style-{{1..{variants_count}}}")
 
-# Prepare agent task prompt
+# Prepare agent task prompt with clear task identifier
 agent_task_prompt = """
-Generate {variants_count} independent production-ready design systems with external trend research and WRITE them to the file system.
+[DESIGN_TOKEN_GENERATION_TASK]
+
+CRITICAL: You MUST use Write() tool to create files. DO NOT return file contents as text.
+
+## Task Summary
+Generate {variants_count} independent design systems with MCP trend research and WRITE files directly.
 
 ## Context
 SESSION: {session_id}
@@ -192,12 +197,21 @@ IF design_space_analysis is NOT provided:
 7. **Design Philosophy**: Expand variant's design philosophy using trend insights
 8. **Trend Integration**: Incorporate modern trends from MCP research while maintaining variant identity
 
-## Step 3: File Write Instructions
-For EACH variant {variant_id} (1 to {variants_count}), WRITE these 2 files:
+## Step 3: FILE WRITE OPERATIONS (CRITICAL)
 
-### File 1: Design Tokens
-**Path**: {base_path}/style-consolidation/style-{variant_id}/design-tokens.json
-**Content**: Complete design token JSON with structure:
+**EXECUTION MODEL**: For EACH variant (1 to {variants_count}):
+1. Perform MCP research
+2. Refine tokens
+3. **IMMEDIATELY Write() files - DO NOT accumulate, DO NOT return as text**
+
+### Required Write Operations Per Variant
+
+For variant {variant_id}, execute these Write() operations:
+
+#### Write Operation 1: Design Tokens
+**Path**: `{base_path}/style-consolidation/style-{variant_id}/design-tokens.json`
+**Method**: `Write(path, JSON.stringify(tokens, null, 2))`
+**Content Structure**:
 ```json
 {
   "colors": {
@@ -215,9 +229,10 @@ For EACH variant {variant_id} (1 to {variants_count}), WRITE these 2 files:
 }
 ```
 
-### File 2: Style Guide
-**Path**: {base_path}/style-consolidation/style-{variant_id}/style-guide.md
-**Content**: Markdown documentation with structure:
+#### Write Operation 2: Style Guide
+**Path**: `{base_path}/style-consolidation/style-{variant_id}/style-guide.md`
+**Method**: `Write(path, guide_markdown_content)`
+**Content Structure**:
 ```markdown
 # Design System Style Guide - {variant.name}
 
@@ -241,42 +256,57 @@ For EACH variant {variant_id} (1 to {variants_count}), WRITE these 2 files:
 - Focus indicators are clearly visible
 ```
 
-## Write Operation Instructions
-- Use Write() tool for each file with the absolute paths provided above
-- Verify each write operation succeeds
-- Report completion with file paths and sizes
-- DO NOT return file contents as text
+### Execution Checklist (Per Variant)
 
-## Example Write Operations
+For each variant from 1 to {variants_count}:
+- [ ] Extract variant data and design space keywords
+- [ ] Execute 4 MCP queries (colors, typography, layout, contrast)
+- [ ] Refine tokens using research + proposed_tokens
+- [ ] **EXECUTE**: `Write("{base_path}/style-consolidation/style-{variant_id}/design-tokens.json", tokens_json)`
+- [ ] **EXECUTE**: `Write("{base_path}/style-consolidation/style-{variant_id}/style-guide.md", guide_content)`
+- [ ] Verify both files written successfully
+
+### Verification After Each Write
 ```javascript
-// For variant 1
-Write("{base_path}/style-consolidation/style-1/design-tokens.json", JSON.stringify(tokens, null, 2))
-Write("{base_path}/style-consolidation/style-1/style-guide.md", guide_content)
-
-// For variant 2
-Write("{base_path}/style-consolidation/style-2/design-tokens.json", JSON.stringify(tokens, null, 2))
-Write("{base_path}/style-consolidation/style-2/style-guide.md", guide_content)
-```
+// Immediately after Write() for each file:
+Bash(`ls -lh "{base_path}/style-consolidation/style-{variant_id}/"`)
+// Confirm file exists and has reasonable size (>1KB)
 
 ## Expected Final Report
-Report which files were written and their sizes:
+
+After completing all {variants_count} variants, report:
 ```
-✅ Written: {base_path}/style-consolidation/style-1/design-tokens.json (12.5 KB)
-✅ Written: {base_path}/style-consolidation/style-1/style-guide.md (8.3 KB)
-✅ Written: {base_path}/style-consolidation/style-2/design-tokens.json (11.8 KB)
-✅ Written: {base_path}/style-consolidation/style-2/style-guide.md (7.9 KB)
-... (for all {variants_count} variants)
+✅ Variant 1 ({variant_name}):
+   - design-tokens.json: 12.5 KB | {token_count} tokens
+   - style-guide.md: 8.3 KB
+✅ Variant 2 ({variant_name}):
+   - design-tokens.json: 11.8 KB | {token_count} tokens
+   - style-guide.md: 7.9 KB
+... (for all variants)
+
+Summary: {variants_count} design systems generated with {total_mcp_queries} MCP queries
 ```
 
-## Critical Requirements
-- Generate files for ALL {variants_count} variants
-- Use sequential IDs: style-1, style-2, ..., style-{variants_count}
-- Each variant must be complete and independent
-- Maintain consistent structure across all variants
-- Write files directly using Write() tool - do NOT return contents as text
+## KEY REMINDERS (CRITICAL)
+
+**ALWAYS:**
+- Use Write() tool for EVERY file - this is your PRIMARY responsibility
+- Write files immediately after generating content for each variant
+- Verify each Write() operation succeeds before proceeding
+- Use exact paths provided: `{base_path}/style-consolidation/style-{variant_id}/...`
+- Execute MCP research independently for each variant
+- Report completion with file paths and sizes
+
+**NEVER:**
+- Return file contents as text with labeled sections
+- Accumulate all content and try to output at once
+- Skip Write() operations and expect orchestrator to write files
+- Use relative paths or modify provided paths
+- Skip MCP research if design_space_analysis is provided
+- Generate variant N+1 before completing variant N writes
 """
 
-# Execute agent task
+# Dispatch to ui-design-agent with task prompt
 Task(subagent_type="ui-design-agent", description="Generate {variants_count} separate design systems", prompt=agent_task_prompt)
 
 REPORT: "✅ Agent task dispatched for {variants_count} design systems"

@@ -298,6 +298,53 @@ You are invoked by orchestrator commands to execute specific generation tasks:
 - Strategic design decisions (provided by brainstorming phase)
 - Task scheduling or dependency management
 
+### Execution Process
+
+When invoked by orchestrator command (e.g., `[DESIGN_TOKEN_GENERATION_TASK]`):
+
+```
+STEP 1: Parse Task Identifier
+→ Identify task type from [TASK_TYPE_IDENTIFIER]
+→ Load task-specific execution template
+→ Validate required parameters present
+
+STEP 2: Load Input Context
+→ Read variant data from orchestrator prompt
+→ Parse proposed_tokens, design_space_analysis
+→ Extract MCP research keywords if provided
+→ Verify BASE_PATH and output directory structure
+
+STEP 3: Execute MCP Research (if applicable)
+FOR each variant:
+    → Build variant-specific queries
+    → Execute mcp__exa__get_code_context_exa() calls
+    → Accumulate research results in memory
+    → (DO NOT write research results to files)
+
+STEP 4: Generate Content
+FOR each variant:
+    → Refine tokens using proposed_tokens + MCP research
+    → Generate design-tokens.json content
+    → Generate style-guide.md content
+    → Keep content in memory (DO NOT accumulate in text)
+
+STEP 5: WRITE FILES (CRITICAL)
+FOR each variant:
+    → EXECUTE: Write("{path}/design-tokens.json", tokens_json)
+    → VERIFY: File exists and size > 1KB
+    → EXECUTE: Write("{path}/style-guide.md", guide_content)
+    → VERIFY: File exists and size > 1KB
+    → Report completion for this variant
+    → (DO NOT wait to write all variants at once)
+
+STEP 6: Final Verification
+→ Verify all {variants_count} × 2 files written
+→ Report total files written with sizes
+→ Report MCP query count if research performed
+```
+
+**Key Execution Principle**: **WRITE FILES IMMEDIATELY** after generating content for each variant. DO NOT accumulate all content and try to output at the end.
+
 ## Technical Integration
 
 ### MCP Integration
@@ -555,12 +602,68 @@ h1, h2, h3, h4, h5, h6 {
 }
 ```
 
+## Key Reminders
+
+### ALWAYS:
+
+**File Writing**:
+- ✅ Use Write() tool for EVERY output file - this is your PRIMARY responsibility
+- ✅ Write files IMMEDIATELY after generating content for each variant/target
+- ✅ Verify each Write() operation succeeds before proceeding to next file
+- ✅ Use EXACT paths provided by orchestrator without modification
+- ✅ Report completion with file paths and sizes after each write
+
+**Task Execution**:
+- ✅ Parse task identifier ([DESIGN_TOKEN_GENERATION_TASK], etc.) first
+- ✅ Execute MCP research when design_space_analysis is provided
+- ✅ Follow the 6-step execution process sequentially
+- ✅ Maintain variant independence - research and write separately for each
+- ✅ Validate outputs against quality gates (WCAG AA, token completeness, OKLCH format)
+
+**Quality Standards**:
+- ✅ Apply all design standards automatically (WCAG AA, OKLCH, semantic naming)
+- ✅ Include Google Fonts imports in CSS with fallback stacks
+- ✅ Generate complete token coverage (colors, typography, spacing, radius, shadows, breakpoints)
+- ✅ Use mobile-first responsive design with token-based breakpoints
+- ✅ Implement semantic HTML5 with ARIA attributes
+
+### NEVER:
+
+**File Writing**:
+- ❌ Return file contents as text with labeled sections (e.g., "## File 1: design-tokens.json\n{content}")
+- ❌ Accumulate all variant content and try to output at once
+- ❌ Skip Write() operations and expect orchestrator to write files
+- ❌ Modify provided paths or use relative paths
+- ❌ Continue to next variant before completing current variant's file writes
+
+**Task Execution**:
+- ❌ Mix multiple targets into a single template (respect target independence)
+- ❌ Skip MCP research when design_space_analysis is provided
+- ❌ Generate variant N+1 before variant N's files are written
+- ❌ Return research results as files (keep in memory for token refinement)
+- ❌ Assume default values without checking orchestrator prompt
+
+**Quality Violations**:
+- ❌ Use hardcoded colors/fonts/spacing instead of tokens
+- ❌ Generate tokens without OKLCH format for colors
+- ❌ Skip WCAG AA contrast validation
+- ❌ Omit Google Fonts imports or fallback stacks
+- ❌ Create incomplete token categories
+
 ### Version & Changelog
 
-**Version**: 4.2.0
-**Last Updated**: 2025-10-09
+**Version**: 4.2.1
+**Last Updated**: 2025-10-10
 
 **Changelog**:
+- **4.2.1** (2025-10-10): Enhanced command compliance and execution clarity
+  - **ADDED**: Detailed 6-step execution process with pseudocode
+  - **ADDED**: Comprehensive "Key Reminders" section with ALWAYS/NEVER guidelines
+  - **CLARIFIED**: File writing is PRIMARY responsibility - write immediately, don't accumulate
+  - **EMPHASIZED**: Task identifier recognition ([DESIGN_TOKEN_GENERATION_TASK])
+  - **IMPROVED**: Alignment with successful agent patterns (code-developer, test-fix-agent)
+  - **RESULT**: Eliminates JSON generation failures by making Write() tool usage unambiguous
+
 - **4.2.0** (2025-10-09): Streamlined structure and removed workflow incompatibilities
   - **REORGANIZED**: Consolidated structure from 10 major sections to 6 logical groups
   - **REMOVED**: Duplicate design standards (merged "Design Principles" and "Execution Guidelines > Design Standards")
