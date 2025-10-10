@@ -342,6 +342,10 @@ FOR layout_id IN range(1, layout_variants + 1):
           - Radius: {', '.join(radius_vars[:3])}... ({len(radius_vars)} total)
           - Shadows: {', '.join(shadow_vars)}
 
+          **OPTIONAL: Layout-Specific Token Extension**
+          If core tokens are insufficient, create `{target}-layout-{layout_id}-tokens.css` with `--layout-*` prefix.
+          Example: `--layout-spacing-navbar-height`, `--layout-size-sidebar-width`
+
           **Example Workflow**:
           1. Read tokens.css → find \"--color-brand-primary: oklch(0.55 0.12 45);\"
           2. Use in CSS → \"background: var(--color-brand-primary);\"
