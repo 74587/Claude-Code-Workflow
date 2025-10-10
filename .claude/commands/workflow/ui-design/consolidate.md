@@ -116,9 +116,19 @@ BASE_PATH: {base_path}
 VARIANTS TO PROCESS: {variants_count}
 
 ## Variant Data
-{FOR each variant IN selected_variants:
+
+CRITICAL PATH MAPPING:
+- Variant 1 (id: {variant.id}) → Output directory: style-1/
+- Variant 2 (id: {variant.id}) → Output directory: style-2/
+- Variant N (id: {variant.id}) → Output directory: style-N/
+
+Use loop index (1-based) for directory names, NOT variant.id.
+
+{FOR each variant IN selected_variants with index N (1-based):
   ---
-  Variant ID: {variant.id} | Name: {variant.name}
+  VARIANT INDEX: {N} (use this for directory: style-{N}/)
+  Variant ID: {variant.id} (metadata only, DO NOT use in paths)
+  Name: {variant.name}
   Description: {variant.description}
   Design Philosophy: {variant.design_philosophy}
   Proposed Tokens: {JSON.stringify(variant.proposed_tokens, null, 2)}
@@ -200,11 +210,12 @@ ELSE:
 
 ### Required Write Operations Per Variant
 
-For variant {variant_id}, execute these Write() operations:
+For variant with loop index {N} (e.g., 1st variant = N=1, 2nd variant = N=2), execute these Write() operations:
 
 #### Write Operation 1: Design Tokens
-**Path**: `{base_path}/style-consolidation/style-{variant_id}/design-tokens.json`
+**Path**: `{base_path}/style-consolidation/style-{N}/design-tokens.json`
 **Method**: `Write(path, JSON.stringify(tokens, null, 2))`
+**Example**: For 1st variant → `{base_path}/style-consolidation/style-1/design-tokens.json`
 **Content Structure**:
 ```json
 {
@@ -224,8 +235,9 @@ For variant {variant_id}, execute these Write() operations:
 ```
 
 #### Write Operation 2: Style Guide
-**Path**: `{base_path}/style-consolidation/style-{variant_id}/style-guide.md`
+**Path**: `{base_path}/style-consolidation/style-{N}/style-guide.md`
 **Method**: `Write(path, guide_markdown_content)`
+**Example**: For 2nd variant → `{base_path}/style-consolidation/style-2/style-guide.md`
 **Content Structure**:
 ```markdown
 # Design System Style Guide - {variant.name}
@@ -252,18 +264,21 @@ For variant {variant_id}, execute these Write() operations:
 
 ### Execution Checklist (Per Variant)
 
-For each variant from 1 to {variants_count}:
+For each variant from 1 to {variants_count} (use loop index N):
 - [ ] Extract variant's philosophy, design_attributes, and anti_keywords
 - [ ] Apply philosophy-driven refinement strategy to proposed_tokens
 - [ ] Generate complete token set following refinement rules
-- [ ] **EXECUTE**: `Write("{base_path}/style-consolidation/style-{variant_id}/design-tokens.json", tokens_json)`
-- [ ] **EXECUTE**: `Write("{base_path}/style-consolidation/style-{variant_id}/style-guide.md", guide_content)`
+- [ ] **EXECUTE**: `Write("{base_path}/style-consolidation/style-{N}/design-tokens.json", tokens_json)`
+  - Example: 1st variant → `style-1/design-tokens.json`
+- [ ] **EXECUTE**: `Write("{base_path}/style-consolidation/style-{N}/style-guide.md", guide_content)`
+  - Example: 1st variant → `style-1/style-guide.md`
 - [ ] Verify both files written successfully
 
 ### Verification After Each Write
 ```javascript
-// Immediately after Write() for each file:
-Bash(`ls -lh "{base_path}/style-consolidation/style-{variant_id}/"`)
+// Immediately after Write() for each file (use loop index N):
+Bash(`ls -lh "{base_path}/style-consolidation/style-{N}/"`)
+// Example: For 1st variant → ls -lh ".../style-1/"
 // Confirm file exists and has reasonable size (>1KB)
 
 ## Expected Final Report
@@ -287,7 +302,9 @@ Summary: {variants_count} design systems generated with philosophy-driven refine
 - Use Write() tool for EVERY file - this is your PRIMARY responsibility
 - Write files immediately after generating content for each variant
 - Verify each Write() operation succeeds before proceeding
-- Use exact paths provided: `{base_path}/style-consolidation/style-{variant_id}/...`
+- Use loop index (N) for directory names: `{base_path}/style-consolidation/style-{N}/...`
+  - 1st variant → `style-1/`, 2nd variant → `style-2/`, etc.
+  - DO NOT use variant.id in paths (metadata only)
 - Apply philosophy-driven refinement strategy for each variant
 - Maintain variant divergence using design_attributes and anti_keywords
 - Report completion with file paths and sizes
@@ -311,14 +328,14 @@ REPORT: "✅ Agent task dispatched for {variants_count} design systems"
 ```bash
 REPORT: "📝 Verifying agent file creation for {variants_count} design systems..."
 
-# Verify each variant's files were created by agent
-FOR variant_id IN range(1, variants_count + 1):
-    tokens_path = "{base_path}/style-consolidation/style-{variant_id}/design-tokens.json"
-    guide_path = "{base_path}/style-consolidation/style-{variant_id}/style-guide.md"
+# Verify each variant's files were created by agent (use numeric index)
+FOR N IN range(1, variants_count + 1):
+    tokens_path = "{base_path}/style-consolidation/style-{N}/design-tokens.json"
+    guide_path = "{base_path}/style-consolidation/style-{N}/style-guide.md"
 
     # Verify files exist
-    VERIFY: exists(tokens_path), "Design tokens not created by agent for style-{variant_id}"
-    VERIFY: exists(guide_path), "Style guide not created by agent for style-{variant_id}"
+    VERIFY: exists(tokens_path), "Design tokens not created by agent for style-{N}"
+    VERIFY: exists(guide_path), "Style guide not created by agent for style-{N}"
 
     # Optional: Validate JSON structure
     TRY:
@@ -330,9 +347,9 @@ FOR variant_id IN range(1, variants_count + 1):
 
         tokens_size = get_file_size(tokens_path)
         guide_size = get_file_size(guide_path)
-        REPORT: "  ✅ style-{variant_id}/ verified ({tokens_size} KB tokens, {guide_size} KB guide)"
+        REPORT: "  ✅ style-{N}/ verified ({tokens_size} KB tokens, {guide_size} KB guide)"
     CATCH error:
-        ERROR: "Validation failed for style-{variant_id}: {error}"
+        ERROR: "Validation failed for style-{N}: {error}"
         REPORT: "  ⚠️ Files exist but validation failed - review agent output"
 
 REPORT: "✅ All {variants_count} design systems verified"
@@ -439,7 +456,7 @@ Layout planning is now handled in the generate phase for each specific target.
   - `style-cards.json` from `/workflow:ui-design:extract` (with `proposed_tokens`)
   - `design-space-analysis.json` from extraction phase (with philosophy and design_attributes)
   - `--variants` parameter (default: all variants)
-- **Output**: Style Systems: `style-consolidation/style-{n}/design-tokens.json` and `style-guide.md` for each variant (refined with philosophy-driven approach)
+- **Output**: Style Systems: `style-consolidation/style-{N}/design-tokens.json` and `style-guide.md` for each variant (refined with philosophy-driven approach), where N is the variant index (1, 2, 3...)
 - **Context**: Optional `synthesis-specification.md` or `ui-designer/analysis.md`
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:explore-auto` workflow
 - **Next Command**: `/workflow:ui-design:generate --style-variants N --targets "..." --layout-variants M` performs target-specific layout planning
