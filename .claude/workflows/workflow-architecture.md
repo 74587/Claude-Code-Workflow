@@ -279,8 +279,17 @@ All workflows use the same file structure definition regardless of complexity. *
 ├── [.design/]                  # Standalone UI design outputs (created when needed)
 │   └── run-[timestamp]/        # Timestamped design runs without session
 │       ├── style-extraction/   # Style analysis results
-│       ├── style-consolidation/ # Design system tokens
+│       ├── style-consolidation/ # Design system tokens (per-style)
+│       │   ├── style-1/        # design-tokens.json, style-guide.md
+│       │   └── style-N/
 │       ├── prototypes/         # Generated HTML/CSS prototypes
+│       │   ├── _templates/     # Target-specific layout plans and templates
+│       │   │   ├── {target}-layout-{n}.json  # Layout plan (target-specific)
+│       │   │   ├── {target}-layout-{n}.html  # HTML template
+│       │   │   └── {target}-layout-{n}.css   # CSS template
+│       │   ├── {target}-style-{s}-layout-{l}.html  # Final prototypes
+│       │   ├── compare.html    # Interactive matrix view
+│       │   └── index.html      # Navigation page
 │       └── .run-metadata.json  # Run configuration
 │
 └── WFS-[topic-slug]/
@@ -298,8 +307,17 @@ All workflows use the same file structure definition regardless of complexity. *
     │   └── IMPL-*.*-summary.md    # Subtask summaries
     ├── [design-*/]                 # UI design outputs (created by ui-design workflows)
     │   ├── style-extraction/       # Style analysis results
-    │   ├── style-consolidation/    # Design system tokens
+    │   ├── style-consolidation/    # Design system tokens (per-style)
+    │   │   ├── style-1/            # design-tokens.json, style-guide.md
+    │   │   └── style-N/
     │   ├── prototypes/             # Generated HTML/CSS prototypes
+    │   │   ├── _templates/         # Target-specific layout plans and templates
+    │   │   │   ├── {target}-layout-{n}.json  # Layout plan (target-specific)
+    │   │   │   ├── {target}-layout-{n}.html  # HTML template
+    │   │   │   └── {target}-layout-{n}.css   # CSS template
+    │   │   ├── {target}-style-{s}-layout-{l}.html  # Final prototypes
+    │   │   ├── compare.html        # Interactive matrix view
+    │   │   └── index.html          # Navigation page
     │   └── .run-metadata.json      # Run configuration
     └── .task/                      # Task definitions (REQUIRED)
         ├── IMPL-*.json             # Main task definitions
@@ -312,6 +330,7 @@ All workflows use the same file structure definition regardless of complexity. *
 - **Dynamic Files**: Subtask JSON files created during task decomposition
 - **Scratchpad Usage**: `.scratchpad/` created when CLI commands run without active session
 - **Design Usage**: `design-{timestamp}/` created by UI design workflows, `.design/` for standalone design runs
+- **Layout Planning**: `prototypes/_templates/` contains target-specific layout plans (JSON) generated during UI generation phase
 
 #### Scratchpad Directory (.scratchpad/)
 **Purpose**: Centralized location for non-session-specific CLI outputs

@@ -12,9 +12,11 @@ allowed-tools: Read(*), Write(*), Edit(*), TodoWrite(*), Glob(*), Bash(*)
 # Design Update Command
 
 ## Overview
+
 Synchronize finalized design system references to brainstorming artifacts, preparing them for `/workflow:plan` consumption. This command updates **references only** (via @ notation), not content duplication.
 
 ## Core Philosophy
+
 - **Reference-Only Updates**: Use @ references, no content duplication
 - **Main Claude Execution**: Direct updates by main Claude (no Agent handoff)
 - **Synthesis Alignment**: Update synthesis-specification.md UI/UX Guidelines section
@@ -27,41 +29,26 @@ Synchronize finalized design system references to brainstorming artifacts, prepa
 
 ```bash
 # Validate session
-CHECK: .workflow/.active-* marker files
-VALIDATE: session_id matches active session
+CHECK: .workflow/.active-* marker files; VALIDATE: session_id matches active session
 
-# Verify required design artifacts exist in latest design run
+# Verify design artifacts in latest design run
 latest_design = find_latest_path_matching(".workflow/WFS-{session}/design-*")
 
 # Detect design system structure (unified vs separate)
 IF exists({latest_design}/style-consolidation/design-tokens.json):
-    # Unified mode (single design system)
-    design_system_mode = "unified"
-    design_tokens_path = "style-consolidation/design-tokens.json"
-    style_guide_path = "style-consolidation/style-guide.md"
+    design_system_mode = "unified"; design_tokens_path = "style-consolidation/design-tokens.json"; style_guide_path = "style-consolidation/style-guide.md"
 ELSE IF exists({latest_design}/style-consolidation/style-1/design-tokens.json):
-    # Separate mode (per-style design systems)
-    design_system_mode = "separate"
-    design_tokens_path = "style-consolidation/style-1/design-tokens.json"
-    style_guide_path = "style-consolidation/style-1/style-guide.md"
+    design_system_mode = "separate"; design_tokens_path = "style-consolidation/style-1/design-tokens.json"; style_guide_path = "style-consolidation/style-1/style-guide.md"
 ELSE:
     ERROR: "No design tokens found. Run /workflow:ui-design:consolidate first"
 
-VERIFY:
-- {latest_design}/{design_tokens_path}
-- {latest_design}/{style_guide_path}
-- {latest_design}/prototypes/*.html (at least one prototype)
+VERIFY: {latest_design}/{design_tokens_path}, {latest_design}/{style_guide_path}, {latest_design}/prototypes/*.html
 
-REPORT: "📋 Design system mode: {design_system_mode}"
-REPORT: "   Tokens: {design_tokens_path}"
+REPORT: "📋 Design system mode: {design_system_mode} | Tokens: {design_tokens_path}"
 
 # Prototype selection
-IF --selected-prototypes provided:
-    VALIDATE: Specified prototypes exist
-    selected_list = parse_comma_separated(--selected-prototypes)
-ELSE:
-    AUTO-SELECT: Use all generated prototypes
-    selected_list = Glob({latest_design}/prototypes/*.html)
+selected_list = --selected-prototypes ? parse_comma_separated(--selected-prototypes) : Glob({latest_design}/prototypes/*.html)
+VALIDATE: Specified prototypes exist IF --selected-prototypes
 
 REPORT: "Found {count} design artifacts, {prototype_count} prototypes"
 ```
@@ -73,15 +60,14 @@ REPORT: "Found {count} design artifacts, {prototype_count} prototypes"
 ```bash
 # Load target brainstorming artifacts (files to be updated)
 Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
-Read(.workflow/WFS-{session}/.brainstorming/ui-designer/analysis.md) [if exists]
+IF exists(.workflow/WFS-{session}/.brainstorming/ui-designer/analysis.md): Read(analysis.md)
 
 # Optional: Read prototype notes for descriptions (minimal context)
 FOR each selected_prototype IN selected_list:
-    Read(.workflow/WFS-{session}/.design/prototypes/{selected_prototype}-notes.md)
-    # Extract: layout_strategy, page_name only
-```
+    Read({latest_design}/prototypes/{selected_prototype}-notes.md)  # Extract: layout_strategy, page_name only
 
-**Note**: We do **NOT** read design-tokens.json, style-guide.md, or prototype HTML. We only verify they exist and generate @ references to them.
+# Note: Do NOT read design-tokens.json, style-guide.md, or prototype HTML. Only verify existence and generate @ references.
+```
 
 ### Phase 3: Update Synthesis Specification
 
@@ -106,39 +92,25 @@ Update `.brainstorming/synthesis-specification.md` with design system references
 
 ### Reference Prototypes
 {FOR each selected_prototype:
-- **{page_name}**: @../design-{run_id}/prototypes/{prototype}.html
-  - Layout: {layout_strategy from notes}
+- **{page_name}**: @../design-{run_id}/prototypes/{prototype}.html | Layout: {layout_strategy from notes}
 }
 
 ### Design System Assets
 ```json
-{
-  "design_tokens": "design-{run_id}/{design_tokens_path}",
-  "style_guide": "design-{run_id}/{style_guide_path}",
-  "design_system_mode": "{design_system_mode}",
-  "prototypes": [
-    {FOR each: "design-{run_id}/prototypes/{prototype}.html"}
-  ]
-}
+{"design_tokens": "design-{run_id}/{design_tokens_path}", "style_guide": "design-{run_id}/{style_guide_path}", "design_system_mode": "{design_system_mode}", "prototypes": [{FOR each: "design-{run_id}/prototypes/{prototype}.html"}]}
 ```
 ```
 
 **Implementation**:
 ```bash
 # Option 1: Edit existing section
-Edit(
-  file_path=".workflow/WFS-{session}/.brainstorming/synthesis-specification.md",
-  old_string="## UI/UX Guidelines\n[existing content]",
-  new_string="## UI/UX Guidelines\n\n[new design reference content]"
-)
+Edit(file_path=".workflow/WFS-{session}/.brainstorming/synthesis-specification.md",
+     old_string="## UI/UX Guidelines\n[existing content]",
+     new_string="## UI/UX Guidelines\n\n[new design reference content]")
 
 # Option 2: Append if section doesn't exist
 IF section not found:
-    Edit(
-      file_path=".workflow/WFS-{session}/.brainstorming/synthesis-specification.md",
-      old_string="[end of document]",
-      new_string="\n\n## UI/UX Guidelines\n\n[new design reference content]"
-    )
+    Edit(file_path="...", old_string="[end of document]", new_string="\n\n## UI/UX Guidelines\n\n[new design reference content]")
 ```
 
 ### Phase 4: Update UI Designer Style Guide
@@ -172,29 +144,24 @@ For complete token definitions and usage examples, see:
 - Style Guide: @../../design-{run_id}/{style_guide_path}
 
 ---
-*Auto-generated by /workflow:ui-design:update*
-*Last updated: {timestamp}*
+*Auto-generated by /workflow:ui-design:update | Last updated: {timestamp}*
 ```
 
 **Implementation**:
 ```bash
-Write(
-  file_path=".workflow/WFS-{session}/.brainstorming/ui-designer/style-guide.md",
-  content="[generated content with @ references]"
-)
+Write(file_path=".workflow/WFS-{session}/.brainstorming/ui-designer/style-guide.md",
+      content="[generated content with @ references]")
 ```
 
 ### Phase 5: Completion
 
 ```javascript
-TodoWrite({
-  todos: [
-    {content: "Validate session and design system artifacts", status: "completed", activeForm: "Validating artifacts"},
-    {content: "Load target brainstorming artifacts", status: "completed", activeForm: "Loading target files"},
-    {content: "Update synthesis-specification.md with design references", status: "completed", activeForm: "Updating synthesis spec"},
-    {content: "Create/update ui-designer/style-guide.md", status: "completed", activeForm: "Updating UI designer guide"}
-  ]
-});
+TodoWrite({todos: [
+  {content: "Validate session and design system artifacts", status: "completed", activeForm: "Validating artifacts"},
+  {content: "Load target brainstorming artifacts", status: "completed", activeForm: "Loading target files"},
+  {content: "Update synthesis-specification.md with design references", status: "completed", activeForm: "Updating synthesis spec"},
+  {content: "Create/update ui-designer/style-guide.md", status: "completed", activeForm: "Updating UI designer guide"}
+]});
 ```
 
 **Completion Message**:
@@ -206,9 +173,7 @@ Updated artifacts:
 ✓ ui-designer/style-guide.md - Design system reference guide
 
 Design system assets ready for /workflow:plan:
-- design-tokens.json
-- style-guide.md
-- {prototype_count} reference prototypes
+- design-tokens.json | style-guide.md | {prototype_count} reference prototypes
 
 Next: /workflow:plan [--agent] "<task description>"
       The plan phase will automatically discover and utilize the design system.
@@ -224,14 +189,14 @@ Next: /workflow:plan [--agent] "<task description>"
     └── style-guide.md               # New or updated design reference guide
 ```
 
-**@ Reference Format** (used in synthesis-specification.md):
+**@ Reference Format** (synthesis-specification.md):
 ```
 @../design-{run_id}/style-consolidation/design-tokens.json
 @../design-{run_id}/style-consolidation/style-guide.md
 @../design-{run_id}/prototypes/{prototype}.html
 ```
 
-**@ Reference Format** (used in ui-designer/style-guide.md):
+**@ Reference Format** (ui-designer/style-guide.md):
 ```
 @../../design-{run_id}/style-consolidation/design-tokens.json
 @../../design-{run_id}/style-consolidation/style-guide.md
@@ -243,14 +208,10 @@ Next: /workflow:plan [--agent] "<task description>"
 After this update, `/workflow:plan` will discover design assets through:
 
 **Phase 3: Intelligent Analysis** (`/workflow:tools:concept-enhanced`)
-- Reads synthesis-specification.md
-- Discovers @ references to design system files
-- Includes design system context in ANALYSIS_RESULTS.md
+- Reads synthesis-specification.md → Discovers @ references → Includes design system context in ANALYSIS_RESULTS.md
 
 **Phase 4: Task Generation** (`/workflow:tools:task-generate`)
-- Reads ANALYSIS_RESULTS.md
-- Discovers design assets from synthesis-specification.md
-- Includes design system paths in task JSON files
+- Reads ANALYSIS_RESULTS.md → Discovers design assets → Includes design system paths in task JSON files
 
 **Example Task JSON** (generated by task-generate):
 ```json
@@ -285,30 +246,11 @@ After update, verify:
 
 ## Key Features
 
-1. **Reference-Only Updates**
-   - Uses @ notation for file references
-   - No content duplication between design and brainstorming spaces
-   - Lightweight, maintainable approach
-
-2. **Main Claude Direct Execution**
-   - No Agent handoff (preserves context)
-   - Simple reference generation (no complex synthesis)
-   - Reliable path resolution
-
-3. **Plan-Ready Output**
-   - `/workflow:plan` Phase 3 can discover design system
-   - Task generation includes design asset paths
-   - Clear integration points for implementation tasks
-
-4. **Minimal Reading**
-   - Only reads target files to update (synthesis-specification.md, ui-designer/analysis.md)
-   - Verifies design file existence (no content reading)
-   - Optional: reads prototype notes for descriptions
-
-5. **Flexible Prototype Selection**
-   - Auto-select all prototypes (default)
-   - Manual selection via --selected-prototypes parameter
-   - Validates prototype existence before referencing
+1. **Reference-Only Updates**: Uses @ notation for file references, no content duplication, lightweight and maintainable
+2. **Main Claude Direct Execution**: No Agent handoff (preserves context), simple reference generation, reliable path resolution
+3. **Plan-Ready Output**: `/workflow:plan` Phase 3 can discover design system, task generation includes design asset paths, clear integration points
+4. **Minimal Reading**: Only reads target files to update, verifies design file existence (no content reading), optional prototype notes for descriptions
+5. **Flexible Prototype Selection**: Auto-select all prototypes (default), manual selection via --selected-prototypes parameter, validates existence
 
 ## Integration Points
 

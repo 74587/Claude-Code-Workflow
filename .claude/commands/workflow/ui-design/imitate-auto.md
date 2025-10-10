@@ -9,7 +9,6 @@ examples:
   - /workflow:ui-design:imitate-auto --url "https://stripe.com" --session WFS-payment
   - /workflow:ui-design:imitate-auto --images "refs/*.png" --targets "home"
   - /workflow:ui-design:imitate-auto --url "https://example.com" --targets "navbar,hero" --target-type "component"
-  - /workflow:ui-design:imitate-auto --images "refs/*.png" --pages "home"  # Legacy syntax
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*)
 ---
 
@@ -21,282 +20,157 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 **Core Philosophy**:
 - **Imitation over Exploration**: Focus on replicating specific design, not generating variants
-- **Single Mode**: Always 1 style × 1 layout × N pages
+- **Single Mode**: Always 1 style × 1 layout × N targets
 - **Speed Optimized**: Bypasses `consolidate` step via direct token extraction
 - **Reference-Driven**: Requires URL or images as primary input
 - **Auto-Screenshot**: Supports Playwright/Chrome with manual upload fallback
 
-**Streamlined Flow**:
-1. User triggers → Phase 0 (initialization) → Phase 0.5 (screenshot capture) → Phase 1 (style extraction) → Phase 2 (token adaptation) → Phase 3 (prototype generation) → Phase 4 (integration) → Complete
+**Streamlined Flow**: Phase 0 (init) → 0.5 (screenshot) → 1 (extraction) → 2 (token adapt) → 3 (generate) → 4 (integrate)
 
 **Performance**: ~2-3× faster than explore-auto for single-style scenarios
 
 **Ideal For**: MVP development, high-fidelity prototyping, design replication, studying successful patterns
-**Not For**: Design exploration, generating multiple alternatives, novel design creation
 
 ## Core Rules
 
 1. **Start Immediately**: TodoWrite initialization → Phase 0 execution
-2. **No Multi-Variant**: Always 1 style × 1 layout × N pages
+2. **No Multi-Variant**: Always 1 style × 1 layout × N targets
 3. **Reference Required**: Must provide `--url` OR `--images`
 4. **Auto-Continue**: Automatic phase progression without pausing
 5. **Track Progress**: Update TodoWrite after each phase
 
 ## Parameter Requirements
 
-**Required** (at least one):
-- `--url "<url>"`: Website URL to imitate (e.g., "https://linear.app")
-- `--images "<glob>"`: Local reference images (e.g., "refs/*.png")
+**Required** (at least one): `--url "<url>"` OR `--images "<glob>"`
 
-**Optional**:
-- `--targets "<list>"`: Comma-separated targets (pages/components) to generate (inferred from prompt if omitted)
-- `--target-type "page|component"`: Explicitly set target type (default: intelligent detection)
-- `--session <id>"`: Workflow session ID (standalone if omitted)
-- `--prompt "<desc>"`: Additional design guidance (e.g., "Focus on dark mode")
+**Optional**: `--targets "<list>"`, `--target-type "page|component"`, `--session <id>`, `--prompt "<desc>"`
 
-**Legacy Parameters** (maintained for backward compatibility):
-- `--pages "<list>"`: Alias for `--targets` with `--target-type page`
+**Legacy**: `--pages "<list>"` (alias for `--targets` with type=page)
 
-**Not Supported**:
-- `--style-variants`: Always 1 (single style)
-- `--layout-variants`: Always 1 (single layout)
-- `--batch-plan`: Not supported in imitate mode
+**Not Supported**: `--style-variants`, `--layout-variants`, `--batch-plan`
 
 ## 5-Phase Execution
 
 ### Phase 0: Simplified Initialization
+
 ```bash
-# Generate run ID and determine base path
 run_id = "run-$(date +%Y%m%d-%H%M%S)"
+base_path = --session ? ".workflow/WFS-{session}/design-${run_id}" : ".workflow/.design/${run_id}"
 
-IF --session:
-    base_path = ".workflow/WFS-{session_id}/design-${run_id}"
-ELSE:
-    base_path = ".workflow/.design/${run_id}"
-
-# Create directories (simpler than explore-auto)
 Bash(mkdir -p "${base_path}/{style-extraction,style-consolidation/style-1,prototypes}")
 
-# Initialize metadata
+# Metadata
 Write({base_path}/.run-metadata.json): {
-  "run_id": "${run_id}",
-  "session_id": "${session_id}",
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "workflow": "ui-design:imitate-auto",
-  "mode": "single_style_imitation",
-  "parameters": {
-    "url": "${url_value}",
-    "images": "${images_pattern}",
-    "pages": "${inferred_page_list}",
-    "prompt": "${prompt_text}"
-  },
+  "run_id": "${run_id}", "session_id": "${session_id}", "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "workflow": "ui-design:imitate-auto", "mode": "single_style_imitation",
+  "parameters": {"url": "${url_value}", "images": "${images_pattern}", "targets": "${target_list}", "prompt": "${prompt_text}"},
   "status": "in_progress"
 }
 
-# Unified target inference (simplified for imitate mode, no interactive confirmation)
-target_list = []
-target_type = "page"  # Default to page for imitate mode
-target_source = "none"
+# Unified target inference (no interactive confirmation)
+target_list = []; target_type = "page"; target_source = "none"
 
-# Step 1: Handle legacy --pages parameter (backward compatibility)
-IF --pages provided:
-    target_list = split_and_clean({--pages value}, [",", ";", "、"])
-    target_type = "page"
-    target_source = "explicit_legacy"
-    REPORT: "📋 Using explicitly provided pages (legacy): {', '.join(target_list)}"
-
-# Step 2: Handle unified --targets parameter
-ELSE IF --targets provided:
-    target_list = split_and_clean({--targets value}, [",", ";", "、"])
+# Priority: --pages (legacy) → --targets → --prompt → default
+IF --pages: target_list = split(--pages); target_type = "page"; target_source = "explicit_legacy"
+ELSE IF --targets:
+    target_list = split(--targets)
+    target_type = --target-type ? --target-type : detect_target_type(target_list)
     target_source = "explicit"
-
-    # Override type if explicitly set
-    IF --target-type provided:
-        target_type = --target-type
-        REPORT: "🎯 Using explicitly provided targets with type '{target_type}': {', '.join(target_list)}"
-    ELSE:
-        # Intelligent type detection (same logic as explore-auto)
-        target_type = detect_target_type(target_list)
-        REPORT: "🎯 Using explicitly provided targets (detected type: {target_type}): {', '.join(target_list)}"
-
-# Step 3: Extract from prompt
-ELSE IF --prompt provided:
-    # Extract from prompt: "for dashboard and settings" or "pages: home, about"
-    target_list = extract_targets_from_prompt(prompt_text)
+ELSE IF --prompt:
+    target_list = extract_targets_from_prompt(prompt_text) OR ["home"]
+    target_type = --target-type ? --target-type : detect_target_type(target_list)
     target_source = "prompt_inferred"
-    IF NOT target_list:
-        target_list = ["home"]
-
-    # Detect type from prompt or targets
-    IF --target-type provided:
-        target_type = --target-type
-    ELSE:
-        target_type = detect_target_type(target_list)
-
-# Step 4: Fallback default
 ELSE:
-    target_list = ["home"]
-    target_type = "page"
-    target_source = "default"
+    target_list = ["home"]; target_type = "page"; target_source = "default"
 
-# Validate and clean target names
-validated_targets = []
-FOR target IN target_list:
-    cleaned = target.strip().lower().replace(" ", "-")
-    IF regex_match(cleaned, r"^[a-z0-9][a-z0-9_-]*$"):
-        validated_targets.append(cleaned)
-
-IF NOT validated_targets:
-    validated_targets = ["home"]
-    target_type = "page"
+# Validate and clean
+validated_targets = [t.strip().lower().replace(" ", "-") for t in target_list if regex_match(t, r"^[a-z0-9][a-z0-9_-]*$")]
+IF NOT validated_targets: validated_targets = ["home"]; target_type = "page"
 
 type_emoji = "📄" IF target_type == "page" ELSE "🧩"
 type_label = "pages" IF target_type == "page" ELSE "components"
 
 REPORT: "📋 Imitate mode: {len(validated_targets)} {type_label} with single style"
-REPORT: "   {type_emoji} Targets: {', '.join(validated_targets)}"
-REPORT: "   Type: {target_type}"
-REPORT: "   Reference: {url_value OR images_pattern}"
+REPORT: "   {type_emoji} Targets: {', '.join(validated_targets)} | Type: {target_type} | Reference: {url_value OR images_pattern}"
 
-STORE: run_id, base_path, inferred_target_list = validated_targets, target_type = target_type
+STORE: run_id, base_path, inferred_target_list = validated_targets, target_type
 ```
-
----
 
 ### Phase 0.5: URL Screenshot Capture (Auto-Fallback)
 
 **Condition**: Only if `--url` provided
 
-**Execution**:
 ```bash
-IF --url provided:
-    REPORT: "📸 Phase 0.5: Capturing screenshots..."
-    screenshot_dir = "{base_path}/screenshots"
-    Bash(mkdir -p "{screenshot_dir}")
+IF --url:
+    screenshot_dir = "{base_path}/screenshots"; Bash(mkdir -p "{screenshot_dir}")
+    screenshot_success = false; screenshot_files = []
 
-    screenshot_success = false
-    screenshot_files = []
+    # Try Playwright → Chrome → Manual fallback
+    TRY: Bash(npx playwright screenshot "{url_value}" "{screenshot_dir}/full-page.png" --full-page --timeout 30000)
+         screenshot_files.append("{screenshot_dir}/full-page.png"); screenshot_success = true
+         REPORT: "   ✅ Playwright screenshot captured"
+    CATCH: REPORT: "   ⚠️ Playwright failed"
 
-    # Method 1: Playwright CLI (preferred)
-    TRY:
-        REPORT: "   Attempting Playwright..."
-        Bash(npx playwright screenshot "{url_value}" "{screenshot_dir}/full-page.png" --full-page --timeout 30000)
-        screenshot_files.append("{screenshot_dir}/full-page.png")
-        screenshot_success = true
-        REPORT: "   ✅ Playwright screenshot captured"
-    CATCH:
-        REPORT: "   ⚠️ Playwright failed"
-
-    # Method 2: Chrome DevTools (fallback)
     IF NOT screenshot_success:
-        TRY:
-            REPORT: "   Attempting Chrome headless..."
-            Bash(google-chrome --headless --disable-gpu --screenshot="{screenshot_dir}/full-page.png" --window-size=1920,1080 "{url_value}")
-            screenshot_files.append("{screenshot_dir}/full-page.png")
-            screenshot_success = true
-            REPORT: "   ✅ Chrome screenshot captured"
-        CATCH:
-            REPORT: "   ⚠️ Chrome failed"
+        TRY: Bash(google-chrome --headless --disable-gpu --screenshot="{screenshot_dir}/full-page.png" --window-size=1920,1080 "{url_value}")
+             screenshot_files.append("{screenshot_dir}/full-page.png"); screenshot_success = true
+             REPORT: "   ✅ Chrome screenshot captured"
+        CATCH: REPORT: "   ⚠️ Chrome failed"
 
     # Manual upload fallback
     IF NOT screenshot_success:
-        REPORT: ""
-        REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        REPORT: "⚠️  AUTOMATED SCREENSHOT FAILED"
-        REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        REPORT: "━━━ ⚠️ AUTOMATED SCREENSHOT FAILED ━━━"
         REPORT: "Unable to capture: {url_value}"
-        REPORT: ""
         REPORT: "Manual screenshot required:"
-        REPORT: "  1. Visit: {url_value}"
-        REPORT: "  2. Take full-page screenshot"
-        REPORT: "  3. Save to: {screenshot_dir}/"
-        REPORT: ""
-        REPORT: "Options:"
-        REPORT: "  • 'ready' - screenshot saved"
-        REPORT: "  • 'skip' - use URL analysis only"
-        REPORT: "  • 'abort' - cancel workflow"
-        REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        REPORT: "  1. Visit: {url_value} | 2. Take full-page screenshot | 3. Save to: {screenshot_dir}/"
+        REPORT: "Options: 'ready' (screenshot saved) | 'skip' (URL only) | 'abort' (cancel)"
+        REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         user_response = WAIT_FOR_USER_INPUT()
-
-        IF user_response MATCHES r"^(ready|done|ok)$":
-            screenshot_files = Glob("{screenshot_dir}/*.{png,jpg,jpeg}")
-            IF screenshot_files:
-                screenshot_success = true
-                REPORT: "✅ Manual screenshot detected"
-            ELSE:
-                REPORT: "❌ No screenshot found, using URL analysis only"
-        ELSE IF user_response MATCHES r"^skip$":
-            REPORT: "⏭️  Skipping screenshot, using URL analysis"
-        ELSE IF user_response MATCHES r"^abort$":
-            ERROR: "Workflow aborted by user"
-            EXIT
-        ELSE:
-            REPORT: "⚠️ Invalid input, proceeding with URL analysis"
+        MATCH user_response:
+          "ready|done|ok" → screenshot_files = Glob("{screenshot_dir}/*.{png,jpg,jpeg}");
+                            IF screenshot_files: screenshot_success = true; REPORT: "✅ Manual screenshot detected"
+                            ELSE: REPORT: "❌ No screenshot found, using URL analysis only"
+          "skip" → REPORT: "⏭️ Skipping screenshot, using URL analysis"
+          "abort" → ERROR: "Workflow aborted by user"; EXIT
+          _ → REPORT: "⚠️ Invalid input, proceeding with URL analysis"
 
     # Store results
-    IF screenshot_success:
-        STORE: screenshot_mode = "with_screenshots", screenshot_paths = screenshot_files
-        REPORT: "✅ Screenshot capture complete: {len(screenshot_files)} image(s)"
-    ELSE:
-        STORE: screenshot_mode = "url_only", screenshot_paths = []
-        REPORT: "ℹ️  Proceeding with URL analysis only"
+    STORE: screenshot_mode = screenshot_success ? "with_screenshots" : "url_only", screenshot_paths = screenshot_files
+    REPORT: screenshot_success ? "✅ Screenshot capture complete: {len(screenshot_files)} image(s)" : "ℹ️ Proceeding with URL analysis only"
 ELSE:
     STORE: screenshot_mode = "manual_images", screenshot_paths = []
-    REPORT: "ℹ️  Using provided images (--images parameter)"
+    REPORT: "ℹ️ Using provided images (--images parameter)"
 ```
-
-**Auto-Continue**: On completion → Phase 1
-
----
 
 ### Phase 1: Single Style Extraction
 
-**Command**:
 ```bash
 # Determine input based on screenshot capture
-IF screenshot_mode == "with_screenshots":
-    screenshot_glob = "{base_path}/screenshots/*.{png,jpg,jpeg}"
-    images_flag = "--images \"{screenshot_glob}\""
-    url_flag = ""
-    source_desc = "captured screenshots from {url_value}"
-ELSE IF screenshot_mode == "url_only":
-    url_flag = "--url \"{url_value}\""
-    images_flag = ""
-    source_desc = "URL analysis of {url_value}"
-ELSE IF screenshot_mode == "manual_images":
-    images_flag = --images present ? "--images \"{image_glob}\"" : ""
-    url_flag = ""
-    source_desc = "user-provided images"
+source_desc = screenshot_mode == "with_screenshots" ? "captured screenshots from {url_value}" :
+              screenshot_mode == "url_only" ? "URL analysis of {url_value}" : "user-provided images"
 
-prompt_flag = --prompt present ? "--prompt \"{prompt_text}\"" : ""
-run_base_flag = "--base-path \"{base_path}\""
+images_flag = screenshot_mode == "with_screenshots" ? "--images \"{base_path}/screenshots/*.{png,jpg,jpeg}\"" :
+              screenshot_mode == "manual_images" AND --images ? "--images \"{image_glob}\"" : ""
+
+url_flag = screenshot_mode == "url_only" ? "--url \"{url_value}\"" : ""
 
 # Construct optimized extraction prompt
 enhanced_prompt = "Extract a single, high-fidelity design system that accurately imitates the visual style from {source_desc}. {prompt_text}"
 
 # Force single variant
-command = "/workflow:ui-design:extract {run_base_flag} {url_flag} {images_flag} --prompt \"{enhanced_prompt}\" --variants 1"
+command = "/workflow:ui-design:extract --base-path \"{base_path}\" {url_flag} {images_flag} --prompt \"{enhanced_prompt}\" --variants 1"
 
-REPORT: "🚀 Phase 1: Style Extraction"
-REPORT: "   Source: {source_desc}"
-REPORT: "   Mode: Single style (imitation-optimized)"
+REPORT: "🚀 Phase 1: Style Extraction | Source: {source_desc} | Mode: Single style (imitation-optimized)"
 
 SlashCommand(command)
 ```
-**Auto-Continue**: On completion → Phase 2
-
----
 
 ### Phase 2: Fast Token Adaptation (Bypass Consolidate)
 
-**Action**: Direct extraction of design tokens, bypassing heavy `consolidate` step
-
-**Execution**:
 ```bash
 REPORT: "🚀 Phase 2: Fast token adaptation (bypassing consolidate)"
 
-# Read single style card
 style_cards = Read({base_path}/style-extraction/style-cards.json)
 style_card = style_cards.style_cards[0]
 
@@ -320,73 +194,42 @@ Write({base_path}/style-consolidation/style-1/style-guide.md):
 ## Design Tokens
 All tokens in `design-tokens.json` follow OKLCH color space.
 
-**Key Colors**:
-- Primary: {design_tokens.colors.brand.primary}
-- Background: {design_tokens.colors.surface.background}
-- Text: {design_tokens.colors.text.primary}
+**Key Colors**: Primary: {design_tokens.colors.brand.primary} | Background: {design_tokens.colors.surface.background} | Text: {design_tokens.colors.text.primary}
 
-**Typography**:
-- Heading: {design_tokens.typography.font_family.heading}
-- Body: {design_tokens.typography.font_family.body}
+**Typography**: Heading: {design_tokens.typography.font_family.heading} | Body: {design_tokens.typography.font_family.body}
 
 **Spacing Scale**: {design_tokens.spacing.keys().length} values
 
 *Note: Generated in imitate mode for fast replication.*
 
-REPORT: "✅ Tokens extracted and formatted"
-REPORT: "   Style: {style_name}"
-REPORT: "   Bypassed consolidate for {performance_gain}× speed"
+REPORT: "✅ Tokens extracted and formatted | Style: {style_name} | Bypassed consolidate for {performance_gain}× speed"
 ```
-
-**Auto-Continue**: On completion → Phase 3
-
----
 
 ### Phase 3: Single Prototype Generation
 
-**Command**:
 ```bash
-run_base_flag = "--base-path \"{base_path}\""
 targets_string = ",".join(inferred_target_list)
-targets_flag = "--targets \"{targets_string}\""
-type_flag = "--target-type \"{target_type}\""
-
-# Force 1×1 mode
-command = "/workflow:ui-design:generate {run_base_flag} {targets_flag} {type_flag} --style-variants 1 --layout-variants 1"
-
 type_emoji = "📄" IF target_type == "page" ELSE "🧩"
 type_label = "page(s)" IF target_type == "page" ELSE "component(s)"
 
+command = "/workflow:ui-design:generate --base-path \"{base_path}\" --targets \"{targets_string}\" --target-type \"{target_type}\" --style-variants 1 --layout-variants 1"
+
 REPORT: "🚀 Phase 3: Generating {len(inferred_target_list)} {type_label}"
-REPORT: "   {type_emoji} Targets: {targets_string}"
-REPORT: "   Mode: 1×1 (imitation-optimized)"
+REPORT: "   {type_emoji} Targets: {targets_string} | Mode: 1×1 (imitation-optimized)"
 
 SlashCommand(command)
+
+# Result: Prototypes: {target}-style-1-layout-1.html, Total: len(inferred_target_list), Type: {target_type}
 ```
-
-**Result**:
-- Prototypes: `{target}-style-1-layout-1.html`
-- Total: `len(inferred_target_list)`
-- Type: {target_type} (full-page for pages, minimal wrapper for components)
-
-**Auto-Continue**: On completion → Phase 4
-
----
 
 ### Phase 4: Design System Integration
 
-**Command**:
 ```bash
 IF --session:
-    session_flag = "--session {session_id}"
-    command = "/workflow:ui-design:update {session_flag}"
-    SlashCommand(command)
+    SlashCommand("/workflow:ui-design:update --session {session_id}")
 ELSE:
-    REPORT: "ℹ️ Standalone mode: Skipping integration"
-    REPORT: "   Prototypes at: {base_path}/prototypes/"
+    REPORT: "ℹ️ Standalone mode: Skipping integration | Prototypes at: {base_path}/prototypes/"
 ```
-
-**Completion**: Workflow complete
 
 ## TodoWrite Pattern
 
@@ -407,10 +250,7 @@ TodoWrite({todos: [
 ## Error Handling
 
 - **No reference source**: Error if neither `--url` nor `--images` provided
-- **Screenshot capture failure**:
-  - Tries 2 methods: Playwright → Chrome DevTools
-  - Falls back to manual upload: user uploads screenshot, skips, or aborts
-  - Gracefully handles missing Playwright/Chrome
+- **Screenshot capture failure**: Tries Playwright → Chrome → Manual upload (user uploads, skips, or aborts); gracefully handles missing tools
 - **Invalid URL/images**: Report error, suggest alternative input
 - **Token extraction failure**: Fallback to minimal default design system
 
@@ -423,14 +263,9 @@ TodoWrite({todos: [
 | **Variants** | 1-5 styles × 1-5 layouts | Always 1 × 1 |
 | **Consolidate** | Full consolidation | **Bypassed** (direct tokens) |
 | **Speed** | Baseline | **~2-3× faster** |
-| **Output** | Matrix (S×L×P) | Direct (1×1×P) |
-| **Phases** | 6 phases | 5 phases |
+| **Output** | Matrix (S×L×T) | Direct (1×1×T) |
 
-**Performance Benefits**:
-1. **Skipped consolidate**: Saves ~30-60s (most expensive phase)
-2. **Single variant**: Reduces extraction complexity
-3. **Direct token mapping**: Simple file ops vs AI synthesis
-4. **Streamlined decisions**: No variant selection/confirmation
+**Performance Benefits**: Skipped consolidate (~30-60s saved), single variant, direct token mapping, streamlined decisions
 
 ## Example Execution Flows
 
@@ -438,13 +273,7 @@ TodoWrite({todos: [
 ```bash
 /workflow:ui-design:imitate-auto --url "https://linear.app" --targets "home,features,pricing"
 
-# Flow:
-# 0. Init: 3 pages identified
-# 0.5. Screenshot: Playwright captures linear.app
-# 1. Extract: Single style from screenshot
-# 2. Adapt: Direct tokens (~2s vs consolidate's ~45s)
-# 3. Generate: 3 page prototypes
-# 4. Complete
+# Flow: 0 (3 pages) → 0.5 (Playwright captures) → 1 (single style) → 2 (direct tokens ~2s vs ~45s) → 3 (3 prototypes) → 4
 # Time: ~2-3 min (vs 5-7 min with explore-auto)
 ```
 
@@ -453,8 +282,7 @@ TodoWrite({todos: [
 /workflow:ui-design:imitate-auto --images "refs/dark-theme.png" --prompt "Focus on dark mode" --targets "dashboard"
 
 # Flow: 0 → 0.5 (skip) → 1 → 2 → 3 → 4
-# Output: dashboard-style-1-layout-1.html
-# Type: page (full-page layout)
+# Output: dashboard-style-1-layout-1.html | Type: page (full-page layout)
 ```
 
 ### Example 3: Component Mode
@@ -462,28 +290,15 @@ TodoWrite({todos: [
 /workflow:ui-design:imitate-auto --url "https://example.com" --targets "navbar,hero,card" --target-type "component"
 
 # Flow: 0 → 0.5 → 1 → 2 → 3 → 4
-# Output: navbar-style-1-layout-1.html, hero-style-1-layout-1.html, card-style-1-layout-1.html
-# Type: component (minimal wrapper for isolated comparison)
+# Output: navbar/hero/card-style-1-layout-1.html | Type: component (minimal wrapper)
 ```
 
 ### Example 4: URL with Manual Screenshot
 ```bash
 /workflow:ui-design:imitate-auto --url "https://stripe.com/pricing" --targets "pricing"
 
-# 0.5. Screenshot:
-#      ⚠️ Playwright failed → Chrome failed
-#      📸 User prompted for manual upload
-#      User saves screenshot → types 'ready' → ✅ continues
-#      OR types 'skip' → ⚠️ uses URL analysis only
+# 0.5: Playwright failed → Chrome failed → User prompted → types 'ready' → ✅ continues OR 'skip' → ⚠️ URL only
 # Continues: 1 → 2 → 3 → 4
-```
-
-### Example 5: Legacy Parameter Support
-```bash
-# Using legacy --pages parameter (backward compatible)
-/workflow:ui-design:imitate-auto --url "https://example.com" --pages "home,dashboard"
-
-# Equivalent to: --targets "home,dashboard" --target-type "page"
 ```
 
 ## Final Completion Message
@@ -491,16 +306,11 @@ TodoWrite({todos: [
 ```
 ✅ UI Design Imitation Complete!
 
-Mode: Single Style Replication
-Run ID: {run_id}
-Session: {session_id or "standalone"}
-Reference: {url OR images}
-Type: {target_type_icon} {target_type_label}
+Mode: Single Style Replication | Run ID: {run_id} | Session: {session_id or "standalone"} | Reference: {url OR images} | Type: {type_emoji} {type_label}
 
 Phase 0 - Initialization: {target_count} {target_type}(s) prepared
 Phase 0.5 - Screenshot Capture: {screenshot_status}
-  {IF success: ✅ Captured via {method}}
-  {ELSE: ⚠️ URL analysis only}
+  {IF success: ✅ Captured via {method} | ELSE: ⚠️ URL analysis only}
 Phase 1 - Style Extraction: Single style extracted
 Phase 2 - Token Adaptation: Bypassed consolidate (⚡ {time_saved}s saved)
 Phase 3 - Prototype Generation: {target_count} {target_type} prototypes created
@@ -513,8 +323,7 @@ Phase 4 - Design Integration: {integrated OR "Standalone mode"}
 
 🌐 Preview: {base_path}/prototypes/index.html
 
-{target_type_icon} Targets: {', '.join(inferred_target_list)}
-  Type: {target_type}
+{type_emoji} Targets: {', '.join(inferred_target_list)} | Type: {target_type}
   Context: {IF target_type == "page": "Full-page layouts" ELSE: "Isolated components with minimal wrapper"}
 
 Performance:
@@ -522,16 +331,5 @@ Performance:
 - Total workflow: ~{total_time}s
 - Speed improvement: ~{improvement}× faster than explore-auto
 
-{IF session:
-Next: /workflow:plan to create implementation tasks
-}
-{ELSE:
-Prototypes ready: {base_path}/prototypes/
-}
-```
-
-**Dynamic Values**:
-- `target_type_icon`: "📄" for page, "🧩" for component
-- `target_type_label`: "Pages" for page, "Components" for component
-- `target_count`: `len(inferred_target_list)`
+{IF session: Next: /workflow:plan to create implementation tasks | ELSE: Prototypes ready: {base_path}/prototypes/}
 ```

@@ -365,8 +365,30 @@ summary = mcp__code-index__get_file_summary(file_path="path/to/component.tsx")
 
 **File Operations**:
 - **Read**: Load design tokens, layout strategies, project artifacts
-- **Write**: Generate design-tokens.json, tokens.css, HTML/CSS prototypes, documentation
-- **Edit**: Update token definitions, refine layout strategies
+- **Write**: **PRIMARY RESPONSIBILITY** - Generate and write files directly to the file system
+  - Agent MUST use Write() tool to create all output files
+  - Agent receives ABSOLUTE file paths from orchestrator (e.g., `{base_path}/style-consolidation/style-1/design-tokens.json`)
+  - Agent MUST create directories if they don't exist (use Bash `mkdir -p` if needed)
+  - Agent MUST verify each file write operation succeeds
+  - Agent does NOT return file contents as text with labeled sections
+- **Edit**: Update token definitions, refine layout strategies when files already exist
+
+**Path Handling**:
+- Orchestrator provides complete absolute paths in prompts
+- Agent uses provided paths exactly as given without modification
+- If path contains variables (e.g., `{base_path}`), they will be pre-resolved by orchestrator
+- Agent verifies directory structure exists before writing
+- Example: `Write("/absolute/path/to/style-1/design-tokens.json", content)`
+
+**File Write Verification**:
+- After writing each file, agent should verify file creation
+- Report file path and size in completion message
+- If write fails, report error immediately with details
+- Example completion report:
+  ```
+  ✅ Written: style-1/design-tokens.json (12.5 KB)
+  ✅ Written: style-1/style-guide.md (8.3 KB)
+  ```
 
 **Script Execution**:
 ```bash
@@ -379,7 +401,7 @@ cat design-tokens.json | ~/.claude/scripts/convert_tokens_to_css.sh > tokens.css
   --mode {page|component}
 ```
 
-**Agent Delegation**:
+**Agent Delegation Pattern**:
 ```javascript
 Task(ui-design-agent): "
   [TASK_TYPE_IDENTIFIER]
@@ -389,10 +411,30 @@ Task(ui-design-agent): "
   ## Context
   - Key parameters and input files
   - Quality standards and constraints
+  - BASE_PATH: {absolute_path_to_output_directory}
 
-  ## Output Format
-  - Expected deliverables
-  - File format specifications
+  ## File Write Instructions
+  Generate and WRITE files directly using Write() tool:
+
+  1. File 1:
+     Path: {absolute_path}/file1.json
+     Content: [specification]
+
+  2. File 2:
+     Path: {absolute_path}/file2.md
+     Content: [specification]
+
+  ## Instructions
+  - Use Write() tool for each file with provided absolute paths
+  - Create directories if needed: Bash('mkdir -p {directory}')
+  - Verify each write operation succeeds
+  - Report completion with file paths and sizes
+
+  ## Expected Final Report
+  ✅ Written: file1.json (12.5 KB)
+  ✅ Written: file2.md (8.3 KB)
+
+  DO NOT return file contents as text - write them directly to the file system.
 "
 ```
 

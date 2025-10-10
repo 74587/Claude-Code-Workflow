@@ -86,9 +86,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 **Matrix Mode** (unified):
 - Generates `style_variants × layout_variants × targets` prototypes
-- **Phase 1**: `style_variants` style options
-- **Phase 2**: `style_variants` independent design systems
-- **Phase 3**: `style_variants × layout_variants × targets` prototypes
+- **Phase 1**: `style_variants` style options (extract)
+- **Phase 2**: `style_variants` independent design systems (consolidate)
+- **Phase 3**: Layout planning + UI generation (generate)
+  - Sub-phase 1: `targets × layout_variants` target-specific layout plans
+  - Sub-phase 2: `layout_variants × targets` HTML/CSS templates
+  - Sub-phase 3: `style_variants × layout_variants × targets` final prototypes
   - Pages: Full-page layouts with complete structure
   - Components: Isolated elements with minimal wrapper
   - Mixed: Combination based on intelligent detection
@@ -100,527 +103,229 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 ### Phase 0a: Intelligent Prompt Parsing
 ```bash
-# Extract variant counts from prompt if not explicitly provided
-IF --prompt provided AND (NOT --style-variants OR NOT --layout-variants):
-    # Parse: "3 style variants", "4 styles", "2 layout options", "3 layouts each"
-    style_match = regex_search(prompt_text, r"(\d+)\s*(style\s*variants?|styles?)")
-    layout_match = regex_search(prompt_text, r"(\d+)\s*(layout\s*(variants?|options?)|layouts?)")
-
-    style_variants = style_match ? int(match[1]) : (--style-variants OR 3)
-    layout_variants = layout_match ? int(match[1]) : (--layout-variants OR 3)
+# Parse variant counts from prompt or use explicit/default values
+IF --prompt AND (NOT --style-variants OR NOT --layout-variants):
+    style_variants = regex_extract(prompt, r"(\d+)\s*style") OR --style-variants OR 3
+    layout_variants = regex_extract(prompt, r"(\d+)\s*layout") OR --layout-variants OR 3
 ELSE:
     style_variants = --style-variants OR 3
     layout_variants = --layout-variants OR 3
 
 VALIDATE: 1 <= style_variants <= 5, 1 <= layout_variants <= 5
-STORE: style_variants, layout_variants
 ```
 
 ### Phase 0b: Run Initialization & Directory Setup
 ```bash
-# Generate run ID and determine base path
 run_id = "run-$(date +%Y%m%d-%H%M%S)"
+base_path = --session ? ".workflow/WFS-{session}/design-${run_id}" : ".workflow/.design/${run_id}"
 
-IF --session:
-    base_path = ".workflow/WFS-{session_id}/design-${run_id}"
-ELSE:
-    base_path = ".workflow/.design/${run_id}"
-
-# Create directories
 Bash(mkdir -p "${base_path}/{style-extraction,style-consolidation,prototypes}")
 
-# Initialize metadata
 Write({base_path}/.run-metadata.json): {
-  "run_id": "${run_id}",
-  "session_id": "${session_id}",
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "run_id": "${run_id}", "session_id": "${session_id}", "timestamp": "...",
   "workflow": "ui-design:auto",
-  "parameters": {
-    "style_variants": ${style_variants},
-    "layout_variants": ${layout_variants},
-    "pages": "${inferred_page_list}",
-    "prompt": "${prompt_text}",
-    "images": "${images_pattern}"
-  },
+  "parameters": { "style_variants": ${style_variants}, "layout_variants": ${layout_variants},
+                  "targets": "${inferred_target_list}", "target_type": "${target_type}",
+                  "prompt": "${prompt_text}", "images": "${images_pattern}" },
   "status": "in_progress"
 }
-
-STORE: run_id, base_path
 ```
 
 ### Phase 0c: Unified Target Inference with Intelligent Type Detection
 ```bash
-target_list = []
-target_type = "auto"  # auto, page, component
-target_source = "none"
+# Priority: --pages/--components (legacy) → --targets → --prompt analysis → synthesis → default
+target_list = []; target_type = "auto"; target_source = "none"
 
-# Step 1: Handle legacy parameters (backward compatibility)
-IF --pages provided:
-    target_list = split_and_clean(--pages, delimiters=[",", ";", "、"])
-    target_type = "page"
-    target_source = "explicit_legacy"
-    REPORT: "📋 Using explicitly provided pages (legacy): {', '.join(target_list)}"
-ELSE IF --components provided:
-    target_list = split_and_clean(--components, delimiters=[",", ";", "、"])
-    target_type = "component"
-    target_source = "explicit_legacy"
-    REPORT: "🧩 Using explicitly provided components (legacy): {', '.join(target_list)}"
+# Step 1-2: Explicit parameters (legacy or unified)
+IF --pages: target_list = split(--pages); target_type = "page"; target_source = "explicit_legacy"
+ELSE IF --components: target_list = split(--components); target_type = "component"; target_source = "explicit_legacy"
+ELSE IF --targets:
+    target_list = split(--targets); target_source = "explicit"
+    target_type = --target-type != "auto" ? --target-type : detect_target_type(target_list)
 
-# Step 2: Handle unified --targets parameter
-ELSE IF --targets provided:
-    target_list = split_and_clean(--targets, delimiters=[",", ";", "、"])
-    target_source = "explicit"
-
-    # Override type if explicitly set
-    IF --target-type provided AND --target-type != "auto":
-        target_type = --target-type
-        REPORT: "🎯 Using explicitly provided targets with type '{target_type}': {', '.join(target_list)}"
-    ELSE:
-        # Intelligent type detection
-        target_type = detect_target_type(target_list)
-        REPORT: "🎯 Using explicitly provided targets (detected type: {target_type}): {', '.join(target_list)}"
-
-# Step 3: Dynamic prompt analysis
-ELSE IF --prompt provided:
-    REPORT: "🔍 Analyzing prompt to identify targets..."
-
-    # Internal Claude analysis
-    analysis_prompt = """
-    Analyze the UI design request and identify targets (pages or components) with their types.
-
-    Request: "{prompt_text}"
-
-    Output JSON:
-    {
-      "targets": [
-        {"name": "normalized-name", "type": "page|component", "purpose": "description", "priority": "high|medium|low"}
-      ],
-      "primary_type": "page|component|mixed",
-      "shared_elements": ["header", "footer"],
-      "context": "application context description"
-    }
-
-    Rules:
-    - Normalize to URL-friendly (lowercase, hyphens, no spaces)
-    - Detect type: page (full layouts like home, dashboard) vs component (UI elements like navbar, card)
-    - Consolidate synonyms (homepage → home, navigation → navbar)
-    - Common pages: home, dashboard, settings, profile, login, signup
-    - Common components: navbar, header, hero, card, form, button, modal, footer
-    - If prompt mentions "page", "screen", "view" → type: page
-    - If prompt mentions "component", "element", "widget" → type: component
-    """
-
-    target_structure = analyze_prompt_structure(analysis_prompt, prompt_text)
-    target_list = extract_target_names_from_structure(target_structure)
-    target_type = target_structure.primary_type OR detect_target_type(target_list)
+# Step 3: Prompt analysis (Claude internal analysis)
+ELSE IF --prompt:
+    analysis_result = analyze_prompt("{prompt_text}")  # Extract targets, types, purpose
+    target_list = analysis_result.targets
+    target_type = analysis_result.primary_type OR detect_target_type(target_list)
     target_source = "prompt_analysis"
 
-    IF target_list:
-        REPORT: "🎯 Identified targets from prompt (type: {target_type}):"
-        FOR target IN target_structure.targets:
-            icon = "📄" IF target.type == "page" ELSE "🧩"
-            REPORT: "   {icon} {target.name}: {target.purpose} [{target.priority}]"
-        IF target_structure.shared_elements:
-            REPORT: "🔧 Shared elements: {', '.join(shared_elements)}"
+# Step 4: Session synthesis
+ELSE IF --session AND exists(synthesis-specification.md):
+    target_list = extract_targets_from_synthesis(); target_type = "page"; target_source = "synthesis"
 
-# Step 4: Extract from synthesis-specification.md (for session mode)
-ELSE IF --session AND exists(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md):
-    synthesis = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
-    target_list = extract_targets_from_synthesis(synthesis)  # Returns pages by default
-    target_type = "page"
-    target_source = "synthesis"
-    REPORT: "📋 Extracted from synthesis: {', '.join(target_list)}"
+# Step 5: Fallback
+IF NOT target_list: target_list = ["home"]; target_type = "page"; target_source = "default"
 
-# Step 5: Fallback default
-IF NOT target_list:
-    target_list = ["home"]
-    target_type = "page"
-    target_source = "default"
-    REPORT: "⚠️ No targets identified, using default: 'home' (page)"
-
-# Validate and clean target names
-validated_targets = []
-invalid_targets = []
-FOR target IN target_list:
-    cleaned = target.strip().lower().replace(" ", "-")
-    IF regex_match(cleaned, r"^[a-z0-9][a-z0-9_-]*$"):
-        validated_targets.append(cleaned)
-    ELSE:
-        invalid_targets.append(target)
-
-IF invalid_targets:
-    REPORT: "⚠️ Skipped invalid: {', '.join(invalid_targets)}"
-
-IF NOT validated_targets:
-    validated_targets = ["home"]
-    target_type = "page"
-    REPORT: "⚠️ All invalid, using default: 'home'"
-
-# Override target type if explicitly set
-IF --target-type provided AND --target-type != "auto":
-    target_type = --target-type
-    REPORT: "🔧 Target type overridden to: {target_type}"
+# Validate and clean
+validated_targets = [normalize(t) for t in target_list if is_valid(t)]
+IF NOT validated_targets: validated_targets = ["home"]; target_type = "page"
+IF --target-type != "auto": target_type = --target-type
 
 # Interactive confirmation
-type_emoji = "📄" IF target_type == "page" ELSE ("🧩" IF target_type == "component" ELSE "🎯")
-type_label = "PAGES" IF target_type == "page" ELSE ("COMPONENTS" IF target_type == "component" ELSE "TARGETS")
-
-REPORT: ""
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "{type_emoji} {type_label} CONFIRMATION"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "Type: {target_type}"
-REPORT: "Source: {target_source}"
-REPORT: "Targets ({len(validated_targets)}): {', '.join(validated_targets)}"
-REPORT: ""
-REPORT: "Options:"
-REPORT: "  • 'continue/yes' - proceed"
-REPORT: "  • 'targets: item1,item2' - replace list"
-REPORT: "  • 'skip: item-name' - remove targets"
-REPORT: "  • 'add: item-name' - add targets"
-REPORT: "  • 'type: page|component' - change type"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+DISPLAY_CONFIRMATION(target_type, target_source, validated_targets):
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  "{emoji} {LABEL} CONFIRMATION"
+  "Type: {target_type} | Source: {target_source}"
+  "Targets ({count}): {', '.join(validated_targets)}"
+  "Options: 'continue/yes' | 'targets: a,b' | 'skip: x' | 'add: y' | 'type: page|component'"
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 user_input = WAIT_FOR_USER_INPUT()
 
-# Process input
-IF user_input MATCHES r"^(continue|yes|ok|proceed)$":
-    REPORT: "✅ Proceeding with {len(validated_targets)} {target_type}(s): {', '.join(validated_targets)}"
-ELSE IF user_input MATCHES r"^targets:\s*(.+)$":
-    new_targets = split_and_clean(extract_after("targets:"), [",", ";"])
-    validated_targets = [t.strip().lower().replace(" ", "-") for t in new_targets if t.strip()]
-    REPORT: "✅ Updated: {', '.join(validated_targets)}"
-ELSE IF user_input MATCHES r"^skip:\s*(.+)$":
-    to_skip = [t.strip().lower() for t in extract_after("skip:").split(",")]
-    validated_targets = [t for t in validated_targets if t not in to_skip]
-    REPORT: "✅ Removed: {', '.join(to_skip)}, Final: {', '.join(validated_targets)}"
-ELSE IF user_input MATCHES r"^add:\s*(.+)$":
-    to_add = [t.strip().lower().replace(" ", "-") for t in extract_after("add:").split(",") if t.strip()]
-    validated_targets.extend(to_add)
-    validated_targets = list(dict.fromkeys(validated_targets))  # Remove duplicates
-    REPORT: "✅ Added: {', '.join(to_add)}, Final: {', '.join(validated_targets)}"
-ELSE IF user_input MATCHES r"^type:\s*(page|component)$":
-    target_type = extract_after("type:").strip()
-    REPORT: "✅ Type changed to: {target_type}"
-ELSE:
-    REPORT: "⚠️ Invalid input, proceeding with: {', '.join(validated_targets)}"
+# Process user modifications
+MATCH user_input:
+  "continue|yes|ok" → proceed
+  "targets: ..." → validated_targets = parse_new_list()
+  "skip: ..." → validated_targets = remove_items()
+  "add: ..." → validated_targets = add_items()
+  "type: ..." → target_type = extract_type()
+  default → proceed with current list
 
-IF NOT validated_targets:
-    validated_targets = ["home"]
-    target_type = "page"
-
-STORE: inferred_target_list = validated_targets
-STORE: target_type = target_type
-STORE: target_inference_source = target_source
-STORE: target_structure_data = target_structure IF exists(target_structure) ELSE {}
+STORE: inferred_target_list, target_type, target_inference_source
 ```
 
 **Helper Function: detect_target_type()**
 ```bash
 detect_target_type(target_list):
-    # Common page keywords
-    page_keywords = ["home", "dashboard", "settings", "profile", "login", "signup", "auth",
-                     "landing", "about", "contact", "pricing", "account", "admin"]
+    page_keywords = ["home", "dashboard", "settings", "profile", "login", "signup", "auth", ...]
+    component_keywords = ["navbar", "header", "footer", "hero", "card", "button", "form", ...]
 
-    # Common component keywords
-    component_keywords = ["navbar", "header", "footer", "hero", "card", "button", "form",
-                          "modal", "alert", "toast", "menu", "sidebar", "breadcrumb", "tabs",
-                          "table", "list", "grid", "carousel", "gallery", "search", "filter"]
+    page_matches = count_matches(target_list, page_keywords + ["page", "screen", "view"])
+    component_matches = count_matches(target_list, component_keywords + ["component", "widget"])
 
-    page_matches = 0
-    component_matches = 0
-
-    FOR target IN target_list:
-        IF target IN page_keywords:
-            page_matches += 1
-        ELSE IF target IN component_keywords:
-            component_matches += 1
-        ELSE IF contains_keyword(target, ["page", "screen", "view"]):
-            page_matches += 1
-        ELSE IF contains_keyword(target, ["component", "widget", "element"]):
-            component_matches += 1
-
-    # Decision logic
-    IF component_matches > page_matches:
-        RETURN "component"
-    ELSE IF page_matches > 0 OR len(target_list) == 0:
-        RETURN "page"
-    ELSE:
-        # Ambiguous - default to page
-        RETURN "page"
+    RETURN "component" IF component_matches > page_matches ELSE "page"
 ```
 
 ### Phase 1: Style Extraction
-**Command**:
 ```bash
-images_flag = --images present ? "--images \"{image_glob}\"" : ""
-prompt_flag = --prompt present ? "--prompt \"{prompt_text}\"" : ""
-run_base_flag = "--base-path \"{base_path}\""
-
-command = "/workflow:ui-design:extract {run_base_flag} {images_flag} {prompt_flag} --variants {style_variants}"
-SlashCommand(command)
+command = "/workflow:ui-design:extract --base-path \"{base_path}\" " +
+          (--images ? "--images \"{images}\" " : "") +
+          (--prompt ? "--prompt \"{prompt}\" " : "") +
+          "--variants {style_variants}"
+SlashCommand(command)  # → Phase 2
 ```
-**Auto-Continue**: On completion → Phase 2
 
----
-
-### Phase 2: Style Consolidation (Separate Design Systems)
-**Command**:
+### Phase 2: Style Consolidation
 ```bash
-run_base_flag = "--base-path \"{base_path}\""
-
-# Consolidate generates independent design systems by default
-# IMPORTANT: Pass --layout-variants to ensure correct number of layout strategies are generated
-command = "/workflow:ui-design:consolidate {run_base_flag} --variants {style_variants} --layout-variants {layout_variants}"
-SlashCommand(command)
+command = "/workflow:ui-design:consolidate --base-path \"{base_path}\" " +
+          "--variants {style_variants}"
+SlashCommand(command)  # → Phase 3
+# Output: style_variants independent design systems (design tokens and style guides)
 ```
-**Result**: Generates `style_variants` independent design systems:
-- `style-consolidation/style-1/design-tokens.json`
-- `style-consolidation/style-{N}/design-tokens.json`
 
-**Auto-Continue**: On completion → Phase 3
-
----
-
-### Phase 3: Matrix UI Generation (Unified)
-**Command**:
+### Phase 3: Matrix UI Generation (with Layout Planning)
 ```bash
-run_base_flag = "--base-path \"{base_path}\""
-
-# Build unified targets string
 targets_string = ",".join(inferred_target_list)
-VERIFY: targets_string matches r"^[a-z0-9_-]+(,[a-z0-9_-]+)*$"
+command = "/workflow:ui-design:generate --base-path \"{base_path}\" " +
+          "--targets \"{targets_string}\" --target-type \"{target_type}\" " +
+          "--style-variants {style_variants} --layout-variants {layout_variants}"
 
-# Prepare command with unified parameters
-targets_flag = "--targets \"{targets_string}\""
-type_flag = "--target-type \"{target_type}\""
+total = style_variants × layout_variants × len(inferred_target_list)
+REPORT: "🚀 Phase 3: {type_icon} {targets_string} | Matrix: {s}×{l} | Total: {total} prototypes"
+REPORT: "   → Layout planning: {len(inferred_target_list)}×{layout_variants} target-specific layouts"
 
-command = "/workflow:ui-design:generate {run_base_flag} {targets_flag} {type_flag} --style-variants {style_variants} --layout-variants {layout_variants}"
-
-total_prototypes = style_variants * layout_variants * len(inferred_target_list)
-
-# Report based on type
-IF target_type == "page":
-    type_icon = "📄"
-    type_label = "Pages"
-    context_note = "Full-page layouts"
-ELSE IF target_type == "component":
-    type_icon = "🧩"
-    type_label = "Components"
-    context_note = "Isolated elements with minimal wrapper"
-ELSE:
-    type_icon = "🎯"
-    type_label = "Targets"
-    context_note = "Mixed pages and components"
-
-REPORT: "🚀 Phase 3: Matrix UI Generation"
-REPORT: "   {type_icon} {type_label}: {targets_string}"
-REPORT: "   Matrix: {style_variants}×{layout_variants}"
-REPORT: "   Total: {total_prototypes} prototypes"
-REPORT: "   Context: {context_note}"
-
-SlashCommand(command)
+SlashCommand(command)  # → Phase 4
+# Output:
+# - {target}-layout-{l}.json (target-specific layout plans)
+# - {target}-style-{s}-layout-{l}.html (final prototypes)
+# - compare.html (matrix view)
 ```
-
-**Result**:
-- File naming: `{target}-style-{s}-layout-{l}.html`
-- Total: `style_variants × layout_variants × targets`
-- Matrix view: `compare.html` with interactive grid
-- Rendering: Full-page for pages, minimal wrapper for components
-
-**Auto-Continue**: On completion → Phase 4
-
----
 
 ### Phase 4: Design System Integration
-**Command**:
 ```bash
-session_flag = --session present ? "--session {session_id}" : ""
-
-# Omit --selected-prototypes to use ALL generated prototypes
-command = "/workflow:ui-design:update {session_flag}"
-SlashCommand(command)
+command = "/workflow:ui-design:update" + (--session ? " --session {session_id}" : "")
+SlashCommand(command)  # → Phase 5 if --batch-plan, else complete
 ```
-**Auto-Continue**: If `--batch-plan` present → Phase 5, else complete
-
----
 
 ### Phase 5: Batch Task Generation (Optional)
-**Condition**: Only if `--batch-plan` flag present
-
-**Execution**:
 ```bash
-FOR target IN inferred_target_list:
-    IF target_type == "page":
-        SlashCommand("/workflow:plan --agent \"Implement {target} page based on design system\"")
-    ELSE IF target_type == "component":
-        SlashCommand("/workflow:plan --agent \"Implement {target} component based on design system\"")
-    ELSE:
-        SlashCommand("/workflow:plan --agent \"Implement {target} based on design system\"")
+IF --batch-plan:
+    FOR target IN inferred_target_list:
+        task_desc = "Implement {target} {target_type} based on design system"
+        SlashCommand("/workflow:plan --agent \"{task_desc}\"")
 ```
-**Completion**: Workflow complete
 
 ## TodoWrite Pattern
-
 ```javascript
-// Initialize
 TodoWrite({todos: [
-  {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing style extraction"},
-  {"content": "Execute style consolidation", "status": "pending", "activeForm": "Executing style consolidation"},
-  {"content": "Execute UI prototype generation", "status": "pending", "activeForm": "Executing UI generation"},
-  {"content": "Execute design system integration", "status": "pending", "activeForm": "Executing design system integration"}
+  {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing..."},
+  {"content": "Execute style consolidation", "status": "pending", "activeForm": "Executing..."},
+  {"content": "Execute UI generation", "status": "pending", "activeForm": "Executing..."},
+  {"content": "Execute design integration", "status": "pending", "activeForm": "Executing..."}
 ]})
-
-// After each phase: Mark current completed, next in_progress, rest pending
-// Phase 1 done → Phase 2 in_progress
-// Phase 2 done → Phase 3 in_progress
-// ... continues until all completed
+// Update after each phase: current → completed, next → in_progress
 ```
 
-## Error Handling
+## Key Features
+- **Autonomous**: No user intervention required between phases
+- **Intelligent**: Parses natural language, infers targets/types
+- **Reproducible**: Deterministic flow with isolated run directories
+- **Flexible**: Supports pages, components, or mixed targets
 
-- **Phase Failures**: Workflow halts, keeps failed phase `in_progress`, reports error with recovery instructions
-- **Ambiguity**: Defaults to ALL available items (variants/prototypes) to ensure autonomous continuation
+## Examples
 
-## Key Features & Workflow Position
-
-**Core Improvements**:
-- **Zero External Dependencies**: Pure Claude + agents, no CLI tools
-- **Streamlined Commands**: Unified patterns, no tool-specific flags
-- **Reproducible Flow**: Deterministic phase dependencies
-- **Intelligent Parsing**: Natural language → variant counts, pages
-- **Run Isolation**: Each execution in timestamped run directory
-
-**Workflow Bridge**: Connects brainstorming (`synthesis-specification.md`) → design phase → planning (`/workflow:plan`) in fully automated fashion with matrix-based design exploration.
-
-## Example Execution Flows
-
-### Example 1: Default 3×3 Matrix (Page Mode - Prompt Inference)
+### 1. Page Mode (Prompt Inference)
 ```bash
-/workflow:ui-design:explore-auto --prompt "Modern minimalist blog with home, article, and author pages"
-
-# Auto-detected type: page
-# Inferred: 3 style variants, 3 layout variants (default)
-# Targets: home, article, author
-# Total: 27 full-page prototypes (3×3×3)
+/workflow:ui-design:explore-auto --prompt "Modern blog: home, article, author"
+# Result: 27 prototypes (3×3×3 - inferred defaults)
 ```
 
-### Example 2: Custom 2×2 Matrix with Session
+### 2. Custom Matrix with Session
 ```bash
 /workflow:ui-design:explore-auto --session WFS-ecommerce --images "refs/*.png" --style-variants 2 --layout-variants 2
-
-# Auto-detected from session synthesis
-# Total: 2×2×N prototypes (N from inference)
+# Result: 2×2×N prototypes (targets from synthesis)
 ```
 
-### Example 3: Unified - Navbar Design Comparison
+### 3. Component Mode
 ```bash
-/workflow:ui-design:explore-auto --targets "navbar,hero" --target-type "component" --prompt "Compare 3 navigation bar designs for SaaS product" --style-variants 3 --layout-variants 2
-
-# Explicit type: component
-# Targets: navbar, hero
-# Matrix: 3 styles × 2 layouts
-# Total: 12 component prototypes (3×2×2)
-# Output: navbar-style-1-layout-1.html, navbar-style-1-layout-2.html, ...
+/workflow:ui-design:explore-auto --targets "navbar,hero" --target-type "component" --style-variants 3 --layout-variants 2
+# Result: 12 prototypes (3×2×2 components with minimal wrapper)
 ```
 
-### Example 4: Unified - Card & Form Exploration
+### 4. Intelligent Parsing + Batch Planning
 ```bash
-/workflow:ui-design:explore-auto --targets "card,form,button" --images "refs/*.png" --style-variants 2 --layout-variants 3
-
-# Auto-detected type: component (based on keywords)
-# Targets: card, form, button
-# Matrix: 2 styles × 3 layouts
-# Total: 18 component prototypes (2×3×3)
-# Context: Each component in minimal wrapper for isolated comparison
+/workflow:ui-design:explore-auto --prompt "Create 4 styles with 2 layouts for dashboard and settings" --batch-plan
+# Result: 16 prototypes (4×2×2) + auto-generated implementation tasks
 ```
 
-### Example 5: Intelligent Parsing + Batch Planning
+### 5. Legacy Support
 ```bash
-/workflow:ui-design:explore-auto --session WFS-saas --prompt "Create 4 styles with 2 layouts for SaaS dashboard and settings" --batch-plan
-
-# Auto-detected type: page
-# Parsed: 4 styles, 2 layouts
-# Targets: dashboard, settings
-# Total: 16 full-page prototypes (4×2×2)
-# Auto-generates implementation tasks for each target
-```
-
-### Example 6: Auto-Detected Components from Prompt
-```bash
-/workflow:ui-design:explore-auto --prompt "Design exploration for pricing table and testimonial card components" --style-variants 3 --layout-variants 2
-
-# Auto-detected type: component (keyword: "components")
-# Inferred targets: pricing-table, testimonial-card
-# Matrix: 3 styles × 2 layouts
-# Total: 12 component prototypes (3×2×2)
-```
-
-### Example 7: Legacy Parameter Support
-```bash
-# Using legacy --pages parameter (backward compatible)
 /workflow:ui-design:explore-auto --pages "home,dashboard,settings"
-
 # Equivalent to: --targets "home,dashboard,settings" --target-type "page"
 ```
 
-### Example 8: Mixed Mode (Future Enhancement)
-```bash
-/workflow:ui-design:explore-auto --targets "home,dashboard,navbar,hero,card" --target-type "auto"
-
-# Auto-detection: home, dashboard → page; navbar, hero, card → component
-# Generates appropriate wrapper for each target type
-# Future: Support per-target type specification
-```
-
-## Final Completion Message
-
-**Unified Template**:
+## Completion Output
 ```
 ✅ UI Design Explore-Auto Workflow Complete!
 
-Run ID: {run_id}
-Session: {session_id or "standalone"}
-Type: {target_type_icon} {target_type_label}
-Matrix: {style_variants}×{layout_variants} ({total_prototypes} total prototypes)
-Input: {images and/or prompt summary}
+Run ID: {run_id} | Session: {session_id or "standalone"}
+Type: {icon} {target_type} | Matrix: {s}×{l} ({total} prototypes)
 
-Phase 1 - Style Extraction: {style_variants} style variants
-Phase 2 - Style Consolidation: {style_variants} independent design systems
-Phase 3 - Matrix Generation: {style_variants}×{layout_variants}×{target_count} = {total_prototypes} prototypes
-Phase 4 - Design Update: Brainstorming artifacts updated
-{IF batch-plan: Phase 5 - Task Generation: {task_count} implementation tasks created}
+Phase 1: {s} style variants (extract)
+Phase 2: {s} design systems (consolidate)
+Phase 3: Layout planning + generation (generate)
+  - {n}×{l} target-specific layout plans
+  - {l}×{n} HTML/CSS templates
+  - {s}×{l}×{n} = {total} final prototypes
+Phase 4: Brainstorming artifacts updated
+[Phase 5: {n} implementation tasks created]  # if --batch-plan
 
-📂 Run Output: {base_path}/
-  ├── style-consolidation/  ({style_variants} design systems)
-  ├── prototypes/           ({total_prototypes} HTML/CSS files)
-  └── .run-metadata.json    (run configuration)
+📂 {base_path}/
+  ├── style-consolidation/  ({s} design systems)
+  ├── prototypes/
+  │   ├── _templates/       ({n}×{l} layout JSON + {l}×{n} HTML/CSS)
+  │   └── ...               ({total} final prototypes)
+  └── .run-metadata.json
 
-🌐 Interactive Preview: {base_path}/prototypes/compare.html
-  - {style_variants}×{layout_variants} matrix view with synchronized scrolling
-  - {IF target_type == "component": "Isolated rendering with minimal wrapper" ELSE: "Full-page layouts"}
-  - Side-by-side comparison for design decisions
-  - Selection export for implementation
+🌐 Preview: {base_path}/prototypes/compare.html
+  - Interactive {s}×{l} matrix view
+  - Side-by-side comparison
+  - Target-specific layouts per prototype
 
-{target_type_icon} Targets Explored: {', '.join(inferred_target_list)}
-  Type: {target_type}
-  Context: {IF target_type == "page": "Full-page layouts" ELSE IF target_type == "component": "Isolated UI elements" ELSE: "Mixed targets"}
+{icon} Targets: {', '.join(targets)} (type: {target_type})
+  - Each target has {l} custom-designed layouts
+  - Layout plans stored as structured JSON
 
-{IF batch-plan:
-📋 Implementation Tasks: .workflow/WFS-{session}/.task/
-Next: /workflow:execute to begin implementation
-}
-{ELSE:
-Next Steps:
-1. Open compare.html to preview all variants
-2. Select preferred style×layout combinations per target
-3. Run /workflow:plan to create implementation tasks
-{IF target_type == "component": "4. Integrate selected components into pages"}
-}
+Next: [/workflow:execute] OR [Open compare.html → Select → /workflow:plan]
 ```
-
-**Dynamic Values**:
-- `target_type_icon`: "📄" for page, "🧩" for component, "🎯" for mixed/auto
-- `target_type_label`: "Pages" for page, "Components" for component, "Targets" for mixed/auto
-- `target_count`: `len(inferred_target_list)`
-- All other placeholders are resolved from stored phase data
