@@ -48,97 +48,44 @@ Generate production-ready UI prototypes (HTML/CSS) in `style × layout` matrix m
 
 ## Execution Protocol
 
-### Phase 0: Load Layout Strategies
-
-```bash
-# Determine base path first (using same logic as Phase 1)
-IF --base-path provided:
-    base_path = {provided_base_path}
-ELSE IF --session provided:
-    # Find latest design run in session
-    base_path = find_latest_path_matching(".workflow/WFS-{session}/design-*")
-ELSE:
-    base_path = find_latest_path_matching(".workflow/.design/*")
-
-# Load layout strategies from consolidation output
-layout_strategies_path = "{base_path}/style-consolidation/layout-strategies.json"
-VERIFY: exists(layout_strategies_path), "Layout strategies not found. Run /workflow:ui-design:consolidate first."
-
-layout_strategies = Read(layout_strategies_path)
-layout_variants = layout_strategies.layout_variants_count
-
-REPORT: "📐 Loaded {layout_variants} layout strategies:"
-FOR strategy IN layout_strategies.strategies:
-    REPORT: "  - {strategy.name}: {strategy.description}"
-
-# Override layout_variants if --layout-variants is provided (for manual runs)
-IF --layout-variants provided:
-    WARN: "Overriding layout strategies count from {layout_variants} to {provided_count}"
-    layout_variants = {provided_count}
-    VALIDATE: 1 <= layout_variants <= len(layout_strategies.strategies)
-    # Trim strategies to match count
-    layout_strategies.strategies = layout_strategies.strategies[0:layout_variants]
-```
-
 ### Phase 1: Path Resolution & Context Loading
 
 ```bash
 # 1. Determine base path
-IF --base-path provided:
-    base_path = {provided_base_path}
-ELSE IF --session provided:
-    # Find latest design run in session
-    base_path = find_latest_path_matching(".workflow/WFS-{session}/design-*")
-ELSE:
-    base_path = find_latest_design_session(".workflow/.scratchpad/")
+IF --base-path: base_path = {provided_base_path}
+ELSE IF --session: base_path = find_latest_path_matching(".workflow/WFS-{session}/design-*")
+ELSE: base_path = find_latest_path_matching(".workflow/.design/*")
 
-# 2. Determine style variant count (layout_variants already loaded in Phase 0)
-style_variants = --style-variants OR 3  # Default to 3
+# 2. Determine style variant count and layout variant count
+style_variants = --style-variants OR 3; VALIDATE: 1 <= style_variants <= 5
+layout_variants = --layout-variants OR 3; VALIDATE: 1 <= layout_variants <= 5
 
-# Validate range
-VALIDATE: 1 <= style_variants <= 5
-
-# Validate against actual style directories (prevent style-N file generation for non-existent directories)
+# Validate against actual style directories
 actual_style_count = count_directories({base_path}/style-consolidation/style-*)
 
 IF actual_style_count == 0:
-    ERROR: "No style directories found in {base_path}/style-consolidation/"
-    SUGGEST: "Run /workflow:ui-design:consolidate first to generate style design systems"
-    EXIT 1
+    ERROR: "No style directories found"; SUGGEST: "Run /workflow:ui-design:consolidate first"; EXIT 1
 
 IF style_variants > actual_style_count:
-    WARN: "⚠️ Requested {style_variants} style variants, but only {actual_style_count} directories exist"
-    REPORT: "   Available styles: {list_directories({base_path}/style-consolidation/style-*)}"
-    REPORT: "   Auto-correcting to {actual_style_count} style variants"
-    style_variants = actual_style_count
+    WARN: "⚠️ Requested {style_variants}, but only {actual_style_count} exist"
+    REPORT: "   Available styles: {list_directories}"; style_variants = actual_style_count
 
-REPORT: "✅ Validated style variants: {style_variants} (matching actual directory count)"
-
-# Note: layout_variants is loaded from layout-strategies.json in Phase 0
+REPORT: "✅ Validated style variants: {style_variants}"
 
 # 3. Enhanced target list parsing with type detection
-target_list = []
-target_type = "page"  # Default to page for backward compatibility
+target_list = []; target_type = "page"  # Default
 
 # Priority 1: Unified --targets parameter
-IF --targets provided:
+IF --targets:
     raw_targets = {--targets value}
-    # Split by comma, semicolon, or Chinese comma
     target_list = split_and_clean(raw_targets, delimiters=[",", ";", "、"])
-    # Clean: strip whitespace, lowercase, replace spaces with hyphens
     target_list = [t.strip().lower().replace(" ", "-") for t in target_list if t.strip()]
 
-    # Get target type
-    IF --target-type provided:
-        target_type = {--target-type value}
-    ELSE:
-        # Auto-detect from target names (use same logic as explore-auto)
-        target_type = detect_target_type(target_list)
-
+    target_type = --target-type provided ? {--target-type} : detect_target_type(target_list)
     REPORT: "🎯 Using provided targets ({target_type}): {', '.join(target_list)}"
 
-# Priority 2: Legacy --pages parameter (backward compatibility)
-ELSE IF --pages provided:
+# Priority 2: Legacy --pages parameter
+ELSE IF --pages:
     raw_targets = {--pages value}
     target_list = split_and_clean(raw_targets, delimiters=[",", ";", "、"])
     target_list = [t.strip().lower().replace(" ", "-") for t in target_list if t.strip()]
@@ -148,47 +95,203 @@ ELSE IF --pages provided:
 # Priority 3: Extract from synthesis-specification.md
 ELSE IF --session:
     synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
-    target_list = extract_targets_from_synthesis(synthesis_spec)
-    target_type = "page"  # Synthesis typically defines pages
+    target_list = extract_targets_from_synthesis(synthesis_spec); target_type = "page"
     REPORT: "📋 Extracted from synthesis: {', '.join(target_list)}"
 
 # Priority 4: Detect from existing prototypes or default
 ELSE:
-    target_list = detect_from_prototypes({base_path}/prototypes/) OR ["home"]
-    target_type = "page"
+    target_list = detect_from_prototypes({base_path}/prototypes/) OR ["home"]; target_type = "page"
     REPORT: "📋 Detected/default targets: {', '.join(target_list)}"
 
 # 4. Validate target names
 validated_targets = [t for t in target_list if regex_match(t, r"^[a-z0-9][a-z0-9_-]*$")]
 invalid_targets = [t for t in target_list if t not in validated_targets]
 
-IF invalid_targets:
-    REPORT: "⚠️ Skipped invalid target names: {', '.join(invalid_targets)}"
-
+IF invalid_targets: REPORT: "⚠️ Skipped invalid target names: {', '.join(invalid_targets)}"
 VALIDATE: validated_targets not empty, "No valid targets found"
 target_list = validated_targets
 
-# Store for later use
-STORE: target_list = target_list
-STORE: target_type = target_type
+STORE: target_list, target_type
 
 # 5. Verify design systems exist
 FOR style_id IN range(1, style_variants + 1):
-    VERIFY: {base_path}/style-consolidation/style-{style_id}/design-tokens.json exists
-    VERIFY: {base_path}/style-consolidation/style-{style_id}/style-guide.md exists
+    VERIFY: exists({base_path}/style-consolidation/style-{style_id}/design-tokens.json)
+    VERIFY: exists({base_path}/style-consolidation/style-{style_id}/style-guide.md)
 
 # 6. Load requirements (if integrated mode)
-IF --session:
-    synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
+IF --session: synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
 ```
 
-### Phase 1.5: Token Variable Name Extraction
+### Phase 1.5: Target-Specific Layout Planning
 
 ```bash
-# Load design-tokens.json from style-1 to extract exact variable names
-# This ensures template generation uses correct token names
-REPORT: "📋 Extracting design token variable names..."
+REPORT: "📐 Planning {layout_variants} layout strategies for each target..."
 
+CREATE: {base_path}/prototypes/_templates/
+
+# For each target, plan its specific layouts
+FOR target IN target_list:
+    REPORT: "  Planning layouts for '{target}' ({target_type})..."
+
+    FOR layout_id IN range(1, layout_variants + 1):
+        Task(ui-design-agent): "
+          [TARGET_LAYOUT_PLANNING]
+
+          Generate a concrete, actionable layout plan for a specific target and WRITE it to the file system.
+
+          ## Context
+          TARGET: {target}
+          TARGET_TYPE: {target_type}
+          LAYOUT_ID: {layout_id}
+          BASE_PATH: {base_path}
+          {IF --session: PROJECT_REQUIREMENTS: Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)}
+
+          ## Task
+          Research, design, and WRITE a modern, innovative layout plan specifically for '{target}'.
+
+          ## Research Phase (Use MCP Tools)
+          1. Search for modern {target_type} layout patterns:
+             mcp__exa__get_code_context_exa(
+               query=\"modern {target} {target_type} layout design patterns 2024 2025\",
+               tokensNum=\"dynamic\"
+             )
+          2. Search for {target}-specific UI best practices
+
+          ## Layout Planning Rules
+
+          **For PAGES (target_type='page')**:
+          - Define macro-layout: main regions (header, sidebar, main, footer)
+          - Specify grid/flexbox structure for content organization
+          - Define responsive breakpoints and behavior
+          - Include navigation and page-level components
+
+          **For COMPONENTS (target_type='component')**:
+          - Define micro-layout: internal element arrangement
+          - Specify alignment, spacing, and element sizing
+          - Focus on component-specific structure (no header/footer)
+          - Optimize for reusability and composition
+
+          ## File Write Instructions
+          Generate layout plan JSON and WRITE it using Write() tool:
+
+          **Path**: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.json
+
+          **Content** - JSON with this EXACT structure:
+          ```json
+          {
+            \"id\": \"layout-{layout_id}\",
+            \"target\": \"{target}\",
+            \"target_type\": \"{target_type}\",
+            \"name\": \"Descriptive name (2-4 words)\",
+            \"description\": \"Detailed description (2-3 sentences explaining structure, use cases, and unique aspects)\",
+            \"structure\": {
+              // For pages, include:
+              \"type\": \"sidebar-main\" | \"centered\" | \"asymmetric\" | \"grid-dashboard\",
+              \"regions\": [\"header\", \"sidebar\", \"main\", \"footer\"],
+              \"grid\": {
+                \"columns\": 12,
+                \"rows\": \"auto\",
+                \"gap\": \"var(--spacing-6)\"
+              },
+              \"sidebar\": {
+                \"position\": \"left\" | \"right\",
+                \"width\": \"250px\",
+                \"fixed\": true,
+                \"collapsible\": true
+              },
+              \"responsive\": {
+                \"mobile\": {\"columns\": 1, \"sidebar\": \"hidden\"},
+                \"tablet\": {\"columns\": 6, \"sidebar\": \"overlay\"},
+                \"desktop\": {\"columns\": 12, \"sidebar\": \"fixed\"}
+              },
+
+              // For components, include:
+              \"arrangement\": \"flex-column\" | \"flex-row\" | \"grid\",
+              \"alignment\": \"center\" | \"start\" | \"end\" | \"stretch\",
+              \"spacing\": \"compact\" | \"normal\" | \"relaxed\",
+              \"element_order\": [\"icon\", \"title\", \"description\", \"action\"]
+            },
+            \"semantic_hints\": [
+              \"dashboard\",
+              \"data-visualization\",
+              \"navigation-sidebar\",
+              \"card-based\"
+            ],
+            \"accessibility_features\": [
+              \"skip-navigation\",
+              \"landmark-regions\",
+              \"keyboard-navigation\",
+              \"screen-reader-optimized\"
+            ],
+            \"research_references\": [
+              \"URL or description of research source 1\",
+              \"URL or description of research source 2\"
+            ]
+          }
+          ```
+
+          ## Write Operation Instructions
+          - Use Write() tool with the absolute path provided above
+          - Create directory if needed: Bash('mkdir -p {base_path}/prototypes/_templates')
+          - Verify write operation succeeds
+
+          ## Example Write Operation
+          ```javascript
+          Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.json\", JSON.stringify(layout_plan, null, 2))
+          ```
+
+          ## Completion
+          Report successful file creation with path confirmation.
+
+          ## Critical Requirements
+          - ✅ Layout plan is ONLY for '{target}' - tailor to this specific target's needs
+          - ✅ Consider {target_type} type (page vs component) when designing structure
+          - ✅ Research modern patterns using MCP tools before designing
+          - ✅ Provide concrete, implementable structure (not abstract descriptions)
+          - ✅ Different layout IDs should explore meaningfully different approaches
+          - ✅ Use semantic naming and clear documentation
+          - ✅ Write file directly using Write() tool - do NOT return contents as text
+        "
+
+# Wait for all agent tasks to complete
+REPORT: "⏳ Waiting for layout planning agents to complete..."
+
+# Verify agent created layout JSON files
+REPORT: "📝 Verifying agent file creation..."
+
+FOR target IN target_list:
+    FOR layout_id IN range(1, layout_variants + 1):
+        layout_json_label = f"{target}-layout-{layout_id}.json"
+        json_path = f"{base_path}/prototypes/_templates/{layout_json_label}"
+
+        # Verify file exists
+        VERIFY: exists(json_path), f"Layout JSON not created by agent: {layout_json_label}"
+
+        # Validate JSON structure
+        TRY:
+            layout_json_content = Read(json_path)
+            layout_plan = JSON.parse(layout_json_content)
+
+            # Validate required fields
+            VALIDATE: layout_plan.id == f"layout-{layout_id}", f"Invalid layout ID in {layout_json_label}"
+            VALIDATE: layout_plan.target == target, f"Invalid target in {layout_json_label}"
+            VALIDATE: layout_plan.target_type == target_type, f"Invalid target_type in {layout_json_label}"
+            VALIDATE: layout_plan.name exists, f"Missing 'name' field in {layout_json_label}"
+            VALIDATE: layout_plan.structure exists, f"Missing 'structure' field in {layout_json_label}"
+
+            file_size = get_file_size(json_path)
+            REPORT: f"   ✓ Verified: {layout_json_label} - {layout_plan.name} ({file_size} KB)"
+        CATCH error:
+            ERROR: f"Validation failed for {layout_json_label}: {error}"
+            REPORT: f"   ⚠️ File exists but validation failed - review agent output"
+
+REPORT: f"✅ Phase 1.5 complete: Verified {len(target_list) × layout_variants} target-specific layout files"
+```
+
+### Phase 1.6: Token Variable Name Extraction
+
+```bash
+REPORT: "📋 Extracting design token variable names..."
 tokens_json_path = "{base_path}/style-consolidation/style-1/design-tokens.json"
 VERIFY: exists(tokens_json_path), "Design tokens not found. Run /workflow:ui-design:consolidate first."
 
@@ -196,38 +299,14 @@ design_tokens = Read(tokens_json_path)
 
 # Extract all available token categories and variable names
 token_reference = {
-  "colors": {
-    "brand": list(design_tokens.colors.brand.keys()),  # e.g., ["primary", "secondary", "accent"]
-    "surface": list(design_tokens.colors.surface.keys()),  # e.g., ["background", "elevated", "overlay"]
-    "semantic": list(design_tokens.colors.semantic.keys()),  # e.g., ["success", "warning", "error", "info"]
-    "text": list(design_tokens.colors.text.keys()),  # e.g., ["primary", "secondary", "tertiary", "inverse"]
-    "border": list(design_tokens.colors.border.keys())  # e.g., ["default", "strong", "subtle"]
-  },
-  "typography": {
-    "font_family": list(design_tokens.typography.font_family.keys()),  # e.g., ["heading", "body", "mono"]
-    "font_size": list(design_tokens.typography.font_size.keys()),  # e.g., ["xs", "sm", "base", "lg", "xl", "2xl", "3xl", "4xl"]
-    "font_weight": list(design_tokens.typography.font_weight.keys()),  # e.g., ["normal", "medium", "semibold", "bold"]
-    "line_height": list(design_tokens.typography.line_height.keys()),  # e.g., ["tight", "normal", "relaxed"]
-    "letter_spacing": list(design_tokens.typography.letter_spacing.keys())  # e.g., ["tight", "normal", "wide"]
-  },
-  "spacing": list(design_tokens.spacing.keys()),  # e.g., ["0", "1", "2", ..., "24"]
-  "border_radius": list(design_tokens.border_radius.keys()),  # e.g., ["none", "sm", "md", "lg", "xl", "full"]
-  "shadows": list(design_tokens.shadows.keys()),  # e.g., ["sm", "md", "lg", "xl"]
-  "breakpoints": list(design_tokens.breakpoints.keys())  # e.g., ["sm", "md", "lg", "xl", "2xl"]
+  "colors": {"brand": list(keys), "surface": list(keys), "semantic": list(keys), "text": list(keys), "border": list(keys)},
+  "typography": {"font_family": list(keys), "font_size": list(keys), "font_weight": list(keys), "line_height": list(keys), "letter_spacing": list(keys)},
+  "spacing": list(keys), "border_radius": list(keys), "shadows": list(keys), "breakpoints": list(keys)
 }
 
 # Generate complete variable name lists for Agent prompt
-color_vars = []
-FOR category IN ["brand", "surface", "semantic", "text", "border"]:
-    FOR key IN token_reference.colors[category]:
-        color_vars.append(f"--color-{category}-{key}")
-
-typography_vars = []
-FOR category IN ["font_family", "font_size", "font_weight", "line_height", "letter_spacing"]:
-    prefix = "--" + category.replace("_", "-")
-    FOR key IN token_reference.typography[category]:
-        typography_vars.append(f"{prefix}-{key}")
-
+color_vars = []; FOR category, keys: FOR key: color_vars.append(f"--color-{category}-{key}")
+typography_vars = []; FOR category, keys: FOR key: typography_vars.append(f"--{category.replace('_', '-')}-{key}")
 spacing_vars = [f"--spacing-{key}" for key in token_reference.spacing]
 radius_vars = [f"--border-radius-{key}" for key in token_reference.border_radius]
 shadow_vars = [f"--shadow-{key}" for key in token_reference.shadows]
@@ -236,36 +315,31 @@ breakpoint_vars = [f"--breakpoint-{key}" for key in token_reference.breakpoints]
 all_token_vars = color_vars + typography_vars + spacing_vars + radius_vars + shadow_vars + breakpoint_vars
 
 REPORT: f"✅ Extracted {len(all_token_vars)} design token variables from design-tokens.json"
-REPORT: f"   - Color variables: {len(color_vars)}"
-REPORT: f"   - Typography variables: {len(typography_vars)}"
-REPORT: f"   - Spacing variables: {len(spacing_vars)}"
-REPORT: f"   - Other variables: {len(radius_vars) + len(shadow_vars) + len(breakpoint_vars)}"
 ```
 
 ### Phase 2: Optimized Matrix UI Generation
 
-**Strategy**: Two-layer generation reduces complexity from `O(S×L×P)` to `O(L×P)`, achieving **`S` times faster** performance.
+**Strategy**: Two-layer generation reduces complexity from `O(S×L×T)` to `O(L×T)`, achieving **`S` times faster** performance.
 
 - **Layer 1**: Generate `L × T` layout templates (HTML structure + structural CSS) by agent
 - **Layer 2**: Instantiate `S × L × T` final prototypes via fast file operations
-
-*T = targets (pages or components), P = pages (legacy notation)*
 
 #### Phase 2a: Layout Template Generation
 
 **Parallel Executor**: → @ui-design-agent
 
-Generate style-agnostic layout templates for each `{target} × {layout}` combination.
-Total agent tasks: `layout_variants × len(target_list)`
-
 ```bash
-# Create directories
 CREATE: {base_path}/prototypes/_templates/
 CREATE: {base_path}/prototypes/
 
 # Launch parallel template generation tasks → @ui-design-agent
+# Total agent tasks: layout_variants × len(target_list)
 FOR layout_id IN range(1, layout_variants + 1):
     FOR target IN target_list:
+        # Read the target-specific layout plan
+        layout_json_path = f"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.json"
+        layout_plan = Read(layout_json_path)
+
         Task(ui-design-agent): "
           [UI_LAYOUT_TEMPLATE_GENERATION]
 
@@ -286,97 +360,126 @@ FOR layout_id IN range(1, layout_variants + 1):
           ✅ **RESEARCH-INFORMED**: Use MCP tools to research modern UI patterns as needed
 
           ## Context
-          LAYOUT_ID: {layout_id}
-          TARGET: {target}
-          TARGET_TYPE: {target_type}
+          LAYOUT_ID: {layout_id} | TARGET: {target} | TARGET_TYPE: {target_type}
           BASE_PATH: {base_path}
-          {IF --session: - Requirements: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md}
+          {IF --session: Requirements: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md}
 
           **Target Type Details**:
           {IF target_type == "page":
-            - Type: Full-page layout
-            - Wrapper: Complete HTML document structure with <html>, <head>, <body>
-            - Navigation: Include header/navigation elements
-            - Footer: Include page footer
+            - Type: Full-page layout | Wrapper: Complete HTML document (<html>, <head>, <body>)
+            - Navigation: Include header/navigation | Footer: Include page footer
             - Content: Complete page content structure
           }
           {ELSE IF target_type == "component":
-            - Type: Isolated UI component
-            - Wrapper: Minimal container for component demonstration
-            - Navigation: Exclude header/footer (component-only)
-            - Container: Simple wrapper (e.g., <div class="component-container">)
-            - Content: Focus solely on the component design
+            - Type: Isolated UI component | Wrapper: Minimal container for demonstration
+            - Navigation: Exclude header/footer | Container: Simple wrapper (e.g., <div class=\"component-container\">)
+            - Content: Focus solely on component design
           }
 
           ## Task
-          Generate TWO files that work together as a reusable template:
+          Generate TWO files that work together as a reusable template.
 
-          **File 1**: `{target}-layout-{layout_id}.html`
-          - 🏗️ **SEMANTIC STRUCTURE**: HTML5 structure WITHOUT any style-specific values
-          - {IF target_type == "page": "Complete HTML document with <html>, <head>, <body>" ELSE: "Minimal wrapper with component container only"}
-          - 🔗 **DYNAMIC STYLING**: Use placeholder links for runtime style switching:
-            ```html
+          ### File 1: HTML Template (`{target}-layout-{layout_id}.html`)
+
+          **Structure Requirements**:
+          - Semantic HTML5 elements with ARIA attributes
+          - Complete {target_type} wrapper (full document for pages, minimal for components)
+          - Zero hardcoded styles, colors, or spacing
+          - Responsive structure ready for mobile/tablet/desktop
+
+          **⚠️ CRITICAL: CSS Placeholder Links**
+
+          You MUST include these EXACT placeholder links in the `<head>` section:
+
+          ```html
+          <link rel=\"stylesheet\" href=\"{{STRUCTURAL_CSS}}\">
+          <link rel=\"stylesheet\" href=\"{{TOKEN_CSS}}\">
+          ```
+
+          **Placeholder Rules**:
+          1. Use EXACTLY `{{STRUCTURAL_CSS}}` and `{{TOKEN_CSS}}` with double curly braces
+          2. Place in `<head>` AFTER `<meta>` tags, BEFORE `</head>` closing tag
+          3. DO NOT substitute with actual paths - the script handles this
+          4. DO NOT add any other CSS `<link>` tags
+          5. These enable runtime style switching for all variants
+
+          **Complete HTML Template Examples**:
+
+          {IF target_type == \"page\":
+          ```html
+          <!DOCTYPE html>
+          <html lang=\"en\">
+          <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>{target} - Layout {layout_id}</title>
             <link rel=\"stylesheet\" href=\"{{STRUCTURAL_CSS}}\">
             <link rel=\"stylesheet\" href=\"{{TOKEN_CSS}}\">
-            ```
-          - ♿ **ACCESSIBILITY**: All semantic elements, ARIA attributes, responsive structure
-          - 🚫 **ZERO HARDCODING**: NO inline styles, NO hardcoded colors/fonts/spacing
-          - 🎨 **STYLE-AGNOSTIC**: HTML structure must work with ANY design token set
+          </head>
+          <body>
+            <header><nav aria-label=\"Main navigation\"><!-- Nav content --></nav></header>
+            <main><!-- Page content --></main>
+            <footer><!-- Footer content --></footer>
+          </body>
+          </html>
+          ```
+          }
 
-          **File 2**: `{target}-layout-{layout_id}.css`
+          {ELSE IF target_type == \"component\":
+          ```html
+          <!DOCTYPE html>
+          <html lang=\"en\">
+          <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>{target} Component - Layout {layout_id}</title>
+            <link rel=\"stylesheet\" href=\"{{STRUCTURAL_CSS}}\">
+            <link rel=\"stylesheet\" href=\"{{TOKEN_CSS}}\">
+          </head>
+          <body>
+            <div class=\"component-container\">
+              <!-- Component content only -->
+            </div>
+          </body>
+          </html>
+          ```
+          }
+
+          ### File 2: CSS Template (`{target}-layout-{layout_id}.css`)
           - 🎨 **TOKEN-DRIVEN STYLING**: ALL values use `var()` for dynamic theme switching
           - 🔄 **RUNTIME SWITCHABLE**: `background-color: var(--color-surface-background);`
           - 🚫 **ZERO LITERALS**: NO hardcoded values (#4F46E5, 16px, Arial)
           - 📐 **SEMANTIC NAMING**: BEM or descriptive class naming
           - 📱 **MOBILE-FIRST**: Responsive design using token-based breakpoints
-          - 💡 **VARIABLE REFERENCES**: Every visual property must use var(--token-name)
           - {IF target_type == "component": "Focus styles on component only, minimal global styles"}
 
-          ## Layout Diversity Strategy
-          Apply the following strategy from the planned layout strategies (loaded from layout-strategies.json):
+          ## Layout Plan (Target-Specific)
+          Implement the following pre-defined layout plan for this target:
 
-          **Layout ID**: {layout_id}
-          **Name**: {layout_strategies.strategies[layout_id - 1].name}
-          **Description**: {layout_strategies.strategies[layout_id - 1].description}
+          **Layout JSON Path**: {layout_json_path}
+          **Layout Plan**:
+          ```json
+          {JSON.stringify(layout_plan, null, 2)}
+          ```
 
-          Apply this strategy CONSISTENTLY to all styles.
+          **Critical**: Your job is to IMPLEMENT this exact layout plan, not to redesign it.
+          - Follow the structure defined in the 'structure' field
+          - Use semantic hints for appropriate HTML elements
+          - Respect the target_type (page vs component) wrapper requirements
+          - Apply the specified responsive behavior
 
           ## Token Usage Requirements (STRICT - USE EXACT NAMES)
 
-          **CRITICAL**: You MUST use ONLY the variable names listed below. These are extracted from design-tokens.json.
+          **CRITICAL**: You MUST use ONLY the variable names listed below.
           DO NOT invent variable names like --color-background-base, --radius-md, --transition-base, etc.
 
-          **Available Color Variables** ({len(color_vars)} total):
-          {', '.join(color_vars[:10])}... ({len(color_vars) - 10} more)
-
-          **Key Color Variables**:
-          - Brand: --color-brand-primary, --color-brand-secondary, --color-brand-accent
-          - Surface: --color-surface-background, --color-surface-elevated, --color-surface-overlay
-          - Text: --color-text-primary, --color-text-secondary, --color-text-tertiary, --color-text-inverse
-          - Border: --color-border-default, --color-border-strong, --color-border-subtle
-          - Semantic: --color-semantic-success, --color-semantic-warning, --color-semantic-error, --color-semantic-info
-
-          **Available Typography Variables** ({len(typography_vars)} total):
-          {', '.join(typography_vars[:10])}... ({len(typography_vars) - 10} more)
-
-          **Key Typography Variables**:
-          - Families: --font-family-heading, --font-family-body, --font-family-mono
-          - Sizes: --font-size-xs, --font-size-sm, --font-size-base, --font-size-lg, --font-size-xl, --font-size-2xl, --font-size-3xl, --font-size-4xl
-          - Weights: --font-weight-normal, --font-weight-medium, --font-weight-semibold, --font-weight-bold
-          - Line heights: --line-height-tight, --line-height-normal, --line-height-relaxed
-          - Letter spacing: --letter-spacing-tight, --letter-spacing-normal, --letter-spacing-wide
-
-          **Available Spacing Variables** ({len(spacing_vars)} total):
-          {', '.join(spacing_vars)}
-
-          **Available Border Radius Variables** ({len(radius_vars)} total):
-          {', '.join(radius_vars)}
-
-          **Available Shadow Variables** ({len(shadow_vars)} total):
-          {', '.join(shadow_vars)}
-
-          **Available Breakpoint Variables** ({len(breakpoint_vars)} total):
-          {', '.join(breakpoint_vars)}
+          **Available Variables** ({len(all_token_vars)} total):
+          - Color variables ({len(color_vars)}): --color-brand-primary, --color-surface-background, --color-text-primary, etc.
+          - Typography variables ({len(typography_vars)}): --font-family-heading, --font-size-base, --font-weight-bold, etc.
+          - Spacing variables ({len(spacing_vars)}): --spacing-0, --spacing-1, ..., --spacing-24
+          - Border radius ({len(radius_vars)}): --border-radius-none, --border-radius-sm, ..., --border-radius-full
+          - Shadows ({len(shadow_vars)}): --shadow-sm, --shadow-md, --shadow-lg, --shadow-xl
+          - Breakpoints ({len(breakpoint_vars)}): --breakpoint-sm, --breakpoint-md, --breakpoint-lg, etc.
 
           **STRICT RULES**:
           1. Use ONLY the variables listed above - NO custom variable names
@@ -385,158 +488,88 @@ FOR layout_id IN range(1, layout_variants + 1):
           4. NO hardcoded colors, fonts, or spacing (e.g., #4F46E5, 16px, Arial)
           5. All `var()` references must match exact variable names above
 
-          ## HTML Requirements
-          - 🏗️ **SEMANTIC STRUCTURE**: HTML5 elements (<header>, <nav>, <main>, <section>, <article>)
-          - ♿ **ACCESSIBILITY**: ARIA attributes following WCAG 2.2 guidelines
-          - 📋 **HEADING HIERARCHY**: Proper h1 → h2 → h3 structure
-          - 📱 **RESPONSIVE MARKUP**: Mobile-first structure with adaptive containers
-          - 🧩 **COMPONENT MODULARITY**: Reusable component structure
-          - 🎨 **STYLE-AGNOSTIC**: NO hardcoded colors/fonts/spacing in HTML
+          ## File Write Instructions
+          Generate TWO template files and WRITE them using Write() tool:
 
-          ## CSS Requirements
-          - 🎨 **DYNAMIC THEMING**: 100% CSS custom properties (var()) for style switching
-          - 📱 **ADAPTIVE LAYOUT**: Mobile-first media queries using token breakpoints
-          - 🔄 **RUNTIME SWITCHABLE**: All visual styles via CSS variables only
-          - 🚫 **NO HARDCODED VALUES**: Zero literal colors/fonts/spacing
-          - 📐 **SEMANTIC CLASSES**: BEM or descriptive naming
-          - 🏛️ **MODERN PATTERNS**: Grid, flexbox, container queries for responsiveness
-          - 💡 **TOKEN REFERENCES**: Every style property uses var(--token-name)
+          ### File 1: HTML Template
+          **Path**: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.html
+          **Content**: Reusable HTML structure with CSS placeholders
 
-          ## Responsive Design
-          - Mobile: 375px+ (single column, stacked)
-          - Tablet: var(--breakpoint-md) (adapted layout)
-          - Desktop: var(--breakpoint-lg)+ (full layout)
+          ### File 2: CSS Template
+          **Path**: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.css
+          **Content**: Structural CSS using var() for all values
 
-          ## Response Format
-          **CRITICAL**: Provide clearly labeled sections for each file. **DO NOT include base path or attempt to write files**.
-          The main command will handle file writing based on your labeled output.
+          ## Write Operation Instructions
+          - Use Write() tool for both files with absolute paths provided above
+          - Create directory if needed: Bash('mkdir -p {base_path}/prototypes/_templates')
+          - Verify each write operation succeeds
 
-          Format your response as:
+          ## Example Write Operations
+          ```javascript
+          Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.html\", html_content)
+          Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.css\", css_content)
+          ```
 
-          ===== {target}-layout-{layout_id}.html =====
-          {Complete HTML content here}
-
-          ===== {target}-layout-{layout_id}.css =====
-          {Complete CSS content here}
-
-          ## Deliverables
-          TWO template files for the '{target}-layout-{layout_id}' combination:
-          1. `{target}-layout-{layout_id}.html` - Reusable HTML structure with CSS placeholders
-          2. `{target}-layout-{layout_id}.css` - Structural CSS using var() for all values
+          ## Completion
+          Report successful file creation for both HTML and CSS templates with path confirmation.
 
           🎯 **CRITICAL QUALITY GATES**:
           ✅ **ADAPTIVE**: Works on mobile (375px), tablet (768px), desktop (1024px+)
           ✅ **STYLE-SWITCHABLE**: Change {{TOKEN_CSS}} link → instant theme switching
-          ✅ **TOKEN-ONLY**: 100% var() usage, inspectable with "Search for: #|px|rem" → 0 matches in values
+          ✅ **TOKEN-ONLY**: 100% var() usage, inspectable with \"Search for: #|px|rem\" → 0 matches in values
           ✅ **REUSABLE**: Same HTML/CSS structure works for ALL style variants
-
-          IMPORTANT: These templates will be reused across ALL styles, so they must be
-          completely style-agnostic (no hardcoded colors, fonts, or spacing).
+          ✅ **FILE-WRITTEN**: Files written directly to file system, not returned as text
 
           **Wrapper Strategy**:
-          {IF target_type == "page":
-            Use complete HTML document structure with navigation and footer.
-          }
-          {ELSE IF target_type == "component":
-            Use minimal wrapper:
-            ```html
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset=\"UTF-8\">
-              <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-              <title>{target} Component</title>
-              {{STRUCTURAL_CSS}}
-              {{TOKEN_CSS}}
-            </head>
-            <body>
-              <div class=\"component-demo-container\">
-                <!-- Component content here -->
-              </div>
-            </body>
-            </html>
-            ```
-          }
+          {IF target_type == "page": Use complete HTML document structure with navigation and footer.}
+          {ELSE: Use minimal wrapper with component container only.}
 
-          **Output Instructions**:
-          - Return content using the labeled section format shown above
-          - Do not include file paths in your response
-          - The main command will extract sections and write files to: {base_path}/prototypes/_templates/
+          DO NOT return file contents as text - write them directly using Write() tool.
         "
 
 REPORT: "⏳ Phase 2a: Waiting for agents to complete template generation..."
 ```
 
-#### Phase 2a.5: Process Agent Output and Write Template Files
-
-**New Pattern**: Main command controls file paths; agents provide content.
+#### Phase 2a.5: Verify Agent Template File Creation
 
 ```bash
-REPORT: "📝 Phase 2a.5: Processing agent outputs and writing template files..."
+REPORT: "📝 Phase 2a.5: Verifying agent template file creation..."
 
-# Helper function to extract labeled sections from agent output
-extract_section(agent_output, section_label):
-    # Find the section between ===== markers
-    start_marker = f"===== {section_label} ====="
-    lines = agent_output.split("\n")
-
-    in_section = False
-    section_content = []
-
-    FOR line IN lines:
-        IF line.strip() == start_marker:
-            in_section = TRUE
-            CONTINUE
-        ELSE IF line.strip().startswith("=====") AND in_section:
-            # Found next section, stop
-            BREAK
-        ELSE IF in_section:
-            section_content.append(line)
-
-    RETURN "\n".join(section_content).strip()
-
-# Process each agent task result
+# Verify each agent created template files
 FOR layout_id IN range(1, layout_variants + 1):
     FOR target IN target_list:
-        # Get agent response for this target-layout combination
-        agent_output = get_agent_response(layout_id, target)
-
-        # Extract labeled sections
         html_label = f"{target}-layout-{layout_id}.html"
         css_label = f"{target}-layout-{layout_id}.css"
 
-        html_content = extract_section(agent_output, html_label)
-        css_content = extract_section(agent_output, css_label)
-
-        # Verify content was extracted
-        IF NOT html_content:
-            ERROR: f"Failed to extract HTML content for {html_label} from agent output"
-            REPORT: f"Agent output preview: {agent_output[:200]}..."
-            CONTINUE
-
-        IF NOT css_content:
-            ERROR: f"Failed to extract CSS content for {css_label} from agent output"
-            REPORT: f"Agent output preview: {agent_output[:200]}..."
-            CONTINUE
-
-        # Write files to correct location (controlled by main command)
         html_path = f"{base_path}/prototypes/_templates/{html_label}"
         css_path = f"{base_path}/prototypes/_templates/{css_label}"
 
-        Write(html_path, html_content)
-        Write(css_path, css_content)
+        # Verify files exist
+        VERIFY: exists(html_path), f"HTML template not created by agent: {html_label}"
+        VERIFY: exists(css_path), f"CSS template not created by agent: {css_label}"
 
-        REPORT: f"   ✓ Written: {html_label} ({len(html_content)} chars)"
-        REPORT: f"   ✓ Written: {css_label} ({len(css_content)} chars)"
+        # Validate content
+        TRY:
+            html_content = Read(html_path)
+            css_content = Read(css_path)
 
-REPORT: "✅ Phase 2a.5 complete: Wrote {layout_variants * len(target_list) * 2} template files"
-REPORT: "   Strategy: Agent provides content, main command writes files"
+            # Basic validation checks
+            VALIDATE: len(html_content) > 100, f"HTML template too short: {html_label}"
+            VALIDATE: len(css_content) > 50, f"CSS template too short: {css_label}"
+            VALIDATE: "<!DOCTYPE html>" in html_content OR "<div" in html_content, f"Invalid HTML structure: {html_label}"
+            VALIDATE: "var(--" in css_content, f"Missing CSS variables: {css_label}"
+
+            html_size = get_file_size(html_path)
+            css_size = get_file_size(css_path)
+            REPORT: f"   ✓ Verified: {html_label} ({html_size} KB) + {css_label} ({css_size} KB)"
+        CATCH error:
+            ERROR: f"Validation failed for {target}-layout-{layout_id}: {error}"
+            REPORT: f"   ⚠️ Files exist but validation failed - review agent output"
+
+REPORT: "✅ Phase 2a.5 complete: Verified {layout_variants * len(target_list) * 2} template files"
 ```
 
 #### Phase 2b: Prototype Instantiation
-
-Create final `S × L × P` prototypes using the optimized `ui-instantiate-prototypes.sh` script.
-Uses **fast file operations** and **auto-detection** for efficient generation.
 
 ```bash
 REPORT: "🚀 Phase 2b: Instantiating prototypes from templates..."
@@ -544,13 +577,10 @@ REPORT: "🚀 Phase 2b: Instantiating prototypes from templates..."
 # Step 1: Convert design tokens to CSS for each style
 REPORT: "   Converting design tokens to CSS variables..."
 
-# Check for jq dependency (required by convert_tokens_to_css.sh)
+# Check for jq dependency
 IF NOT command_exists("jq"):
     ERROR: "jq is not installed or not in PATH. The conversion script requires jq."
-    REPORT: "Please install jq:"
-    REPORT: "  - macOS: brew install jq"
-    REPORT: "  - Linux: apt-get install jq or yum install jq"
-    REPORT: "  - Windows: Download from https://stedolan.github.io/jq/download/"
+    REPORT: "Please install jq: macOS: brew install jq | Linux: apt-get install jq | Windows: https://stedolan.github.io/jq/download/"
     EXIT 1
 
 # Convert design tokens to CSS for each style variant
@@ -560,9 +590,7 @@ FOR style_id IN range(1, style_variants + 1):
     script_path = "~/.claude/scripts/convert_tokens_to_css.sh"
 
     # Verify input file exists
-    IF NOT exists(tokens_json_path):
-        REPORT: "   ✗ ERROR: Input file not found for style-${style_id}: ${tokens_json_path}"
-        CONTINUE  # Skip this iteration, continue with next style
+    IF NOT exists(tokens_json_path): REPORT: "   ✗ ERROR: Input file not found"; CONTINUE
 
     # Execute conversion: cat input.json | script.sh > output.css
     Bash(cat "${tokens_json_path}" | "${script_path}" > "${tokens_css_path}")
@@ -572,118 +600,55 @@ FOR style_id IN range(1, style_variants + 1):
         REPORT: "   ✓ Generated tokens.css for style-${style_id}"
     ELSE:
         REPORT: "   ✗ ERROR: Failed to generate tokens.css for style-${style_id}"
-        IF exit_code != 0:
-            REPORT: "      Script exit code: ${exit_code}"
-        IF NOT exists(tokens_css_path):
-            REPORT: "      Output file not created at: ${tokens_css_path}"
 
 # Step 2: Use ui-instantiate-prototypes.sh script for instantiation
-# The script handles:
-# - Template copying with placeholder replacement
-# - Implementation notes generation
-# - Preview files (compare.html, index.html, PREVIEW.md)
-# - Auto-detection of configuration from directory structure
-
-# Prepare script parameters
-prototypes_dir = "{base_path}/prototypes"
-targets_csv = ','.join(target_list)
-
-# Determine session ID
-IF --session provided:
-    session_id = {session_id}
-ELSE:
-    session_id = "standalone"
+prototypes_dir = "{base_path}/prototypes"; targets_csv = ','.join(target_list)
+session_id = --session provided ? {session_id} : "standalone"
 
 # Execute instantiation script with target type
-Bash(
-  ~/.claude/scripts/ui-instantiate-prototypes.sh \
-    "{prototypes_dir}" \
-    --session-id "{session_id}" \
-    --mode "{target_type}"
-)
+Bash(~/.claude/scripts/ui-instantiate-prototypes.sh "{prototypes_dir}" --session-id "{session_id}" --mode "{target_type}")
 
-# The script auto-detects:
-# - Targets from _templates/*.html files
-# - Style variants from ../style-consolidation/style-* directories
-# - Layout variants from _templates/*-layout-*.html pattern
-
-# Script generates:
-# 1. S × L × T HTML prototypes with CSS links (T = targets)
+# The script auto-detects: Targets, Style variants, Layout variants
+# The script generates:
+# 1. S × L × T HTML prototypes with CSS links
 # 2. Implementation notes for each prototype
 # 3. compare.html (interactive matrix)
 # 4. index.html (navigation page)
 # 5. PREVIEW.md (documentation)
 
 REPORT: "✅ Phase 2b complete: Instantiated {style_variants * layout_variants * len(target_list)} final prototypes"
-REPORT: "   Mode: {target_type}"
-REPORT: "   Performance: {style_variants}× faster than original approach"
-REPORT: "   Preview files generated: compare.html, index.html, PREVIEW.md"
+REPORT: "   Mode: {target_type} | Performance: {style_variants}× faster than original approach"
 ```
-
-**Performance Comparison**:
-
-| Metric | Before (S×L×T Agent calls) | After (L×T Agent calls + File Ops) |
-|--------|----------------------------|-----------------------------------|
-| Agent Tasks | `S × L × T` | `L × T` |
-| Example (3×3×3) | 27 Agent calls | 9 Agent calls |
-| Speed Improvement | Baseline | **3× faster** (S times) |
-| Resource Usage | High (creative generation for each combo) | Optimized (creative only for templates) |
-
-*T = targets (pages or components)*
 
 ### Phase 3: Verify Preview Files
 
 ```bash
-# Note: Preview files are now generated by ui-instantiate-prototypes.sh script
-# This phase only verifies that all expected files were created
-
 REPORT: "🔍 Phase 3: Verifying preview files..."
 
-expected_files = [
-    "{base_path}/prototypes/compare.html",
-    "{base_path}/prototypes/index.html",
-    "{base_path}/prototypes/PREVIEW.md"
-]
+expected_files = ["{base_path}/prototypes/compare.html", "{base_path}/prototypes/index.html", "{base_path}/prototypes/PREVIEW.md"]
 
 all_present = true
 FOR file_path IN expected_files:
-    IF exists(file_path):
-        REPORT: "   ✓ Found: {basename(file_path)}"
-    ELSE:
-        REPORT: "   ✗ Missing: {basename(file_path)}"
-        all_present = false
+    IF exists(file_path): REPORT: "   ✓ Found: {basename(file_path)}"
+    ELSE: REPORT: "   ✗ Missing: {basename(file_path)}"; all_present = false
 
-IF all_present:
-    REPORT: "✅ Phase 3 complete: All preview files verified"
-ELSE:
-    WARN: "⚠️ Some preview files missing - script may have failed"
-    REPORT: "   Check Phase 2b output for errors"
+IF all_present: REPORT: "✅ Phase 3 complete: All preview files verified"
+ELSE: WARN: "⚠️ Some preview files missing - script may have failed"
 
 # Optional: Generate fallback design-tokens.css for reference
 fallback_css_path = "{base_path}/prototypes/design-tokens.css"
 IF NOT exists(fallback_css_path):
-    Write(fallback_css_path, """
-/* Auto-generated fallback CSS custom properties */
-/* Note: Each prototype links to its specific style's tokens.css */
-/* See style-consolidation/style-{n}/tokens.css for actual values */
-
-:root {
-  /* This file serves as documentation only */
-  /* Individual prototypes use style-specific tokens */
-}
-""")
+    Write(fallback_css_path, "/* Auto-generated fallback CSS custom properties */\n/* See style-consolidation/style-{n}/tokens.css for actual values */")
     REPORT: "   ✓ Generated fallback design-tokens.css"
 ```
 
 ### Phase 3.5: Cross-Target Consistency Validation
 
 **Condition**: Only executes if `len(target_list) > 1 AND target_type == "page"`
-**Parallel Executor**: → @ui-design-agent
 
 ```bash
 # Skip if single target or component mode
-IF len(target_list) <= 1 OR target_type == "component":
-    SKIP to Phase 4
+IF len(target_list) <= 1 OR target_type == "component": SKIP to Phase 4
 
 # For multi-page workflows, validate cross-page consistency → @ui-design-agent
 FOR style_id IN range(1, style_variants + 1):
@@ -699,88 +664,36 @@ FOR style_id IN range(1, style_variants + 1):
           ✅ **CROSS-PAGE HARMONY**: Shared components use identical CSS variables
 
           ## Context
-          STYLE_ID: {style_id}
-          LAYOUT_ID: {layout_id}
-          TARGETS: {target_list}
-          TARGET_TYPE: {target_type}
+          STYLE_ID: {style_id} | LAYOUT_ID: {layout_id} | TARGETS: {target_list} | TARGET_TYPE: {target_type}
           BASE_PATH: {base_path}
 
           ## Input Files
-          FOR each target IN {target_list}:
-              - {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.html
-              - {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.css
+          FOR each target: {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.html/css
 
           ## Validation Tasks
-          1. **Shared Component Consistency**:
-             - Check if header/navigation structure is identical across all pages
-             - Verify footer content and styling matches
-             - Confirm common UI elements (buttons, forms, cards) use same classes/styles
+          1. **Shared Component Consistency**: Check header/nav/footer structure matches
+          2. **Token Usage Consistency**: Verify same design-tokens file, no hardcoded values
+          3. **Accessibility Consistency**: ARIA attributes, heading hierarchy, landmark roles
+          4. **Layout Strategy Adherence**: Layout-{layout_id} strategy applied consistently
 
-          2. **Token Usage Consistency**:
-             - Verify all pages reference the same design-tokens file
-             - Confirm CSS variable usage is consistent (no hardcoded values)
-             - Check spacing, typography, and color token application
+          ## Output
+          Generate consistency report markdown file at:
+          {base_path}/prototypes/consistency-report-s{style_id}-l{layout_id}.md
 
-          3. **Accessibility Consistency**:
-             - Validate ARIA attributes are used consistently
-             - Check heading hierarchy (h1 unique per page, h2-h6 consistent)
-             - Verify landmark roles are consistent
-
-          4. **Layout Strategy Adherence**:
-             - Confirm Layout-{layout_id} strategy is applied consistently to all pages
-             - Check responsive breakpoints are identical
-             - Verify grid/flex systems match across pages
-
-          ## Output Format
-          Generate a consistency report: {base_path}/prototypes/consistency-report-s{style_id}-l{layout_id}.md
-
-          ```markdown
-          # Cross-{target_type.capitalize()} Consistency Report
-          **Style**: {style_id} | **Layout**: {layout_id} | **Targets**: {', '.join(target_list)}
-
-          ## ✅ Passed Checks
-          - [List consistency checks that passed]
-
-          ## ⚠️ Warnings
-          - [List minor inconsistencies that should be reviewed]
-
-          ## ❌ Issues
-          - [List critical inconsistencies that must be fixed]
-
-          ## Recommendations
-          - [Suggestions for improving consistency]
-          ```
-
-          ## Severity Levels
-          - **Critical**: Shared components have different structure/styling
-          - **Warning**: Minor variations in spacing or naming
-          - **Info**: Intentional page-specific adaptations
-
-          IMPORTANT: Focus on truly shared elements (header, nav, footer). Page-specific content variations are expected and acceptable.
+          Include validation results, issues found, and recommendations.
+          Focus on truly shared elements. Page-specific content variations are acceptable.
         "
 
 # Aggregate consistency reports
 Write({base_path}/prototypes/CONSISTENCY_SUMMARY.md):
 # Multi-{target_type.capitalize()} Consistency Summary
 
-This report summarizes consistency validation across all {len(target_list)} {target_type}s.
-
 ## Validated Combinations
-- **Style Variants**: {style_variants}
-- **Layout Variants**: {layout_variants}
-- **Total Reports**: {style_variants * layout_variants}
+- Style Variants: {style_variants} | Layout Variants: {layout_variants}
+- Total Reports: {style_variants * layout_variants}
 
 ## Report Files
-{FOR s IN range(1, style_variants + 1):
-  {FOR l IN range(1, layout_variants + 1):
-    - [Style {s} Layout {l}](./consistency-report-s{s}-l{l}.md)
-  }
-}
-
-## Quick Actions
-1. Review all consistency reports
-2. Fix critical issues before proceeding to implementation
-3. Document intentional page-specific variations
+{FOR s, l: - [Style {s} Layout {l}](./consistency-report-s{s}-l{l}.md)}
 
 Run `/workflow:ui-design:update` once all issues are resolved.
 ```
@@ -788,17 +701,15 @@ Run `/workflow:ui-design:update` once all issues are resolved.
 ### Phase 4: Completion
 
 ```javascript
-TodoWrite({
-  todos: [
-    {content: "Load layout strategies from consolidation", status: "completed", activeForm: "Loading layout strategies"},
-    {content: "Resolve paths and load design systems", status: "completed", activeForm: "Loading design systems"},
-    {content: "Extract design token variable names", status: "completed", activeForm: "Extracting token variables"},
-    {content: `Generate ${layout_variants}×${target_list.length} layout templates using planned strategies`, status: "completed", activeForm: "Generating layout templates"},
-    {content: "Convert design tokens to CSS variables", status: "completed", activeForm: "Converting tokens"},
-    {content: `Instantiate ${style_variants}×${layout_variants}×${target_list.length} prototypes using script`, status: "completed", activeForm: "Running instantiation script"},
-    {content: "Verify preview files generation", status: "completed", activeForm: "Verifying preview files"}
-  ]
-});
+TodoWrite({todos: [
+  {content: "Resolve paths and load design systems", status: "completed", activeForm: "Loading design systems"},
+  {content: `Plan ${target_list.length}×${layout_variants} target-specific layouts`, status: "completed", activeForm: "Planning layouts"},
+  {content: "Extract design token variable names", status: "completed", activeForm: "Extracting token variables"},
+  {content: `Generate ${layout_variants}×${target_list.length} layout templates using target-specific plans`, status: "completed", activeForm: "Generating templates"},
+  {content: "Convert design tokens to CSS variables", status: "completed", activeForm: "Converting tokens"},
+  {content: `Instantiate ${style_variants}×${layout_variants}×${target_list.length} prototypes using script`, status: "completed", activeForm: "Running script"},
+  {content: "Verify preview files generation", status: "completed", activeForm: "Verifying files"}
+]});
 ```
 
 **Completion Message**:
@@ -807,11 +718,11 @@ TodoWrite({
 
 Configuration:
 - Style Variants: {style_variants}
-- Layout Variants: {layout_variants} (from layout-strategies.json)
-- Layout Strategies: {[s.name for s in layout_strategies.strategies]}
+- Layout Variants: {layout_variants} (target-specific planning)
 - Target Type: {target_type_icon} {target_type}
 - Targets: {target_list}
 - Total Prototypes: {style_variants * layout_variants * len(target_list)}
+- Layout Plans: {len(target_list) × layout_variants} target-specific JSON files generated
 
 Performance Metrics:
 - Layout Templates Generated: {layout_variants * len(target_list)} (Agent tasks)
@@ -824,8 +735,9 @@ Performance Metrics:
 Generated Structure:
 📂 {base_path}/prototypes/
 ├── _templates/
-│   ├── {target}-layout-{1..L}.html ({layout_variants * len(target_list)} templates)
-│   └── {target}-layout-{1..L}.css ({layout_variants * len(target_list)} structural CSS)
+│   ├── {target}-layout-{l}.json ({len(target_list) × layout_variants} layout plans)
+│   ├── {target}-layout-{l}.html ({layout_variants * len(target_list)} HTML templates)
+│   └── {target}-layout-{l}.css ({layout_variants * len(target_list)} CSS templates)
 ├── {target}-style-{s}-layout-{l}.html ({style_variants * layout_variants * len(target_list)} final prototypes)
 ├── {target}-style-{s}-layout-{l}-notes.md
 ├── compare.html (interactive matrix visualization)
@@ -836,28 +748,24 @@ Generated Structure:
 2. Quick Index: Open index.html
 3. Instructions: See PREVIEW.md
 
-{IF target_type == "component":
-Note: Components are rendered with minimal wrapper for isolated comparison.
-}
+{IF target_type == "component": Note: Components are rendered with minimal wrapper for isolated comparison.}
 
 Next: /workflow:ui-design:update {--session flag if applicable}
 
 Note: When called from /workflow:ui-design:auto, design-update is triggered automatically.
 
-**Dynamic Values**:
-- target_type_icon: "📄" for page, "🧩" for component
+**Dynamic Values**: target_type_icon: "📄" for page, "🧩" for component
 ```
 
 ## Output Structure
 
 ```
 {base_path}/prototypes/
-├── _templates/                            # Reusable layout templates
+├── _templates/                            # Target-specific layout plans and templates
+│   ├── {target}-layout-1.json            # Layout plan JSON (target-specific)
 │   ├── {target}-layout-1.html            # Style-agnostic HTML structure
 │   ├── {target}-layout-1.css             # Structural CSS with var() references
-│   ├── {target}-layout-2.html
-│   ├── {target}-layout-2.css
-│   └── ... (L × T templates total, T=targets)
+│   └── ... (T × L layout plans + templates)
 ├── compare.html                           # Interactive matrix visualization
 ├── index.html                             # Simple navigation page
 ├── PREVIEW.md                             # Preview instructions
@@ -867,39 +775,25 @@ Note: When called from /workflow:ui-design:auto, design-update is triggered auto
 └── ... (S × L × T total final files)
 
 {base_path}/style-consolidation/
-├── style-1/
-│   ├── design-tokens.json
-│   ├── tokens.css                         # CSS variables for style-1
-│   └── style-guide.md
-├── style-2/
-│   ├── design-tokens.json
-│   ├── tokens.css                         # CSS variables for style-2
-│   └── style-guide.md
+├── style-1/ (design-tokens.json, tokens.css, style-guide.md)
+├── style-2/ (same structure)
 └── ...
 ```
 
 ## Error Handling
 
 ### Pre-execution Checks
-- **Missing layout-strategies.json**: Error - Run `/workflow:ui-design:consolidate` first
-- **No design systems found**: Error - Run `/workflow:ui-design:consolidate --keep-separate` first
+- **No design systems found**: Error - Run `/workflow:ui-design:consolidate` first
 - **Invalid target names**: Extract from synthesis-specification.md or error with validation message
-- **Missing templates directory**: Verify Phase 2a completed successfully
+- **Missing templates directory**: Auto-created in Phase 1.5
 - **Unsupported target type**: Error if target_type not in ["page", "component"]
+- **Layout planning failures**: Check Phase 1.5 agent outputs for errors
 
 ### Phase-Specific Errors
 - **Agent execution errors (Phase 2a)**: Report details, suggest retry with specific phase
 - **Token conversion errors (Phase 2b)**: Check design-tokens.json format, validate JSON schema
-- **Script execution errors (Phase 2b)**:
-  - Check `ui-instantiate-prototypes.sh` exists at `~/.claude/scripts/`
-  - Verify script has execute permissions (`chmod +x`)
-  - Review script output for specific error messages
-  - Check template files exist in `_templates/` directory
-  - Verify style-consolidation directory structure
-- **Preview generation errors (Phase 3)**:
-  - Check script completed successfully
-  - Verify `_template-compare-matrix.html` exists
-  - Review Phase 2b output for warnings
+- **Script execution errors (Phase 2b)**: Check script exists, permissions, output for specific errors
+- **Preview generation errors (Phase 3)**: Check script completed, verify template exists, review Phase 2b output
 
 ### Recovery Strategies
 - **Partial failure**: Script reports generated vs failed counts - review logs
@@ -922,62 +816,21 @@ After generation, ensure:
 
 ## Key Features
 
-1. **Unified Target Generation**
-   - Supports both pages (full layouts) and components (isolated elements)
-   - Intelligent wrapper selection based on target type
-   - Backward compatible with legacy `--pages` parameter
-
-2. **Optimized Template-Based Architecture**
-   - Decouples HTML structure from CSS styling
-   - Generates `L × T` reusable templates instead of `S × L × T` unique files (T=targets)
-   - **`S` times faster** than previous approach (typically 3× faster for S=3)
-
-3. **Two-Layer Generation Strategy**
-   - Layer 1: Agent-driven creative generation of layout templates
-   - Layer 2: Fast file operations for prototype instantiation (script-based)
-   - Reduces expensive Agent calls by ~67% (for S=3)
-   - Agent autonomously uses MCP tools for modern UI pattern research
-
-4. **Script-Based Instantiation (v3.0)**
-   - Uses `ui-instantiate-prototypes.sh` for efficient file operations
-   - Auto-detection of configuration from directory structure
-   - Robust error handling with detailed reporting
-   - Generates implementation notes for each prototype
-   - Integrated preview file generation
-   - Supports both page and component modes
-
-5. **Consistent Cross-Style Layouts**
-   - Same layout structure applied uniformly across all style variants
-   - Easier to compare styles directly (HTML structure is identical)
-   - Simplified maintenance (edit template once, affects all styles)
-
-6. **Dynamic Style Injection**
-   - CSS custom properties enable runtime style switching
-   - Each style variant has its own `tokens.css` file
-   - Clean separation of structure and aesthetics
-
-7. **Interactive Visualization**
-   - Full-featured compare.html from template
-   - Matrix grid view with synchronized scrolling
-   - Enhanced index.html with statistics
-   - Comprehensive PREVIEW.md documentation
-   - Per-style design system references
-
-8. **Production-Ready Output**
-   - Semantic HTML5 and ARIA attributes (following WCAG 2.2 guidelines)
-   - Mobile-first responsive design
-   - Token-driven styling (no hardcoded values)
-   - Implementation notes for each prototype
+1. **Target-Specific Layout Planning** 🆕 - Each target gets custom-designed layouts; Agent researches modern patterns using MCP tools; Layout plans saved as structured JSON
+2. **Unified Target Generation** - Supports both pages (full layouts) and components (isolated elements); Backward compatible with legacy `--pages` parameter
+3. **Optimized Template-Based Architecture** - Generates `L × T` reusable templates plus `L × T` layout plans; **`S` times faster**
+4. **Three-Layer Generation Strategy** - Layer 1: Layout planning (target-specific); Layer 2: Template generation (implements plans); Layer 3: Fast instantiation; Agent autonomously uses MCP tools
+5. **Script-Based Instantiation (v3.0)** - Uses `ui-instantiate-prototypes.sh` for efficient file operations; Auto-detection; Robust error handling; Integrated preview generation; Supports both page and component modes
+6. **Consistent Cross-Style Layouts** - Same layout structure applied uniformly; Easier to compare styles; Simplified maintenance
+7. **Dynamic Style Injection** - CSS custom properties enable runtime style switching; Each style variant has its own `tokens.css` file
+8. **Interactive Visualization** - Full-featured compare.html; Matrix grid view with synchronized scrolling; Enhanced index.html with statistics; Comprehensive PREVIEW.md
+9. **Production-Ready Output** - Semantic HTML5 and ARIA attributes (WCAG 2.2); Mobile-first responsive design; Token-driven styling; Implementation notes
 
 ## Integration Points
 
-- **Input**:
-  - Per-style `design-tokens.json` from `/workflow:ui-design:consolidate --keep-separate`
-  - **`layout-strategies.json`** from `/workflow:ui-design:consolidate` (defines layout variants)
-  - Optional: `synthesis-specification.md` for target requirements
-  - Target type specification (page or component)
-- **Output**: Matrix HTML/CSS prototypes for `/workflow:ui-design:update`
+- **Input**: Per-style `design-tokens.json` from `/workflow:ui-design:consolidate`; `--targets` and `--layout-variants` parameters; Optional: `synthesis-specification.md` for target requirements; Target type specification
+- **Output**: Target-specific `layout-{n}.json` files; Matrix HTML/CSS prototypes for `/workflow:ui-design:update`
 - **Template**: `~/.claude/workflows/_template-compare-matrix.html` (global)
-- **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` or `/workflow:ui-design:explore-auto` workflows
-- **Key Change**: Unified target system supports both pages and components with appropriate wrapper selection
+- **Auto Integration**: Automatically triggered by `/workflow:ui-design:explore-auto` workflow
+- **Key Change**: Layout planning moved from consolidate to generate phase; Each target gets custom-designed layouts
 - **Backward Compatibility**: Legacy `--pages` parameter continues to work
