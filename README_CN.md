@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.2.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v4.3.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,13 +15,13 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 最新版本: v4.2.1** - UI 设计工作流文档重构。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v4.3.0** - UI 设计工作流 V2 自包含 CSS 架构。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v4.2.1 版本新特性**:
-> - 📚 **文档优化**: 文件大小减少 15-20%，同时保留所有功能
-> - 🎯 **更清晰的结构**: 合并重复概念，优化内容组织
-> - ✨ **改进的可维护性**: 更好的内容分离和一致的格式模式
-> - 📖 **零功能损失**: 保留所有特性、工作流和技术细节
+> **v4.3.0 版本新特性**:
+> - 🎨 **自包含 CSS**: Agent 从 design-tokens.json 直接生成独立 CSS
+> - ⚡ **简化工作流**: 移除占位符机制和令牌转换步骤
+> - 💪 **更强风格差异**: CSS 使用直接令牌值，实现更强视觉区分
+> - 📉 **代码减少 31%**: 移除 346 行代码，职责更清晰
 
 ---
 
