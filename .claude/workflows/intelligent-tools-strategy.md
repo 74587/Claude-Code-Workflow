@@ -19,8 +19,8 @@ type: strategic-guideline
 ## ⚡ Core Framework
 
 ### Tool Overview
-- **Gemini**: Analysis, understanding, exploration & documentation
-- **Qwen**: Architecture analysis, code generation & implementation
+- **Gemini**: Analysis, understanding, exploration & documentation (primary)
+- **Qwen**: Analysis, understanding, exploration & documentation (fallback, same capabilities as Gemini)
 - **Codex**: Development, implementation & automation
 
 ### Decision Principles
@@ -32,8 +32,8 @@ type: strategic-guideline
 - **⚠️ Write operation protection** - For local codebase write/modify operations, require EXPLICIT user confirmation unless user provides clear instructions containing MODE=write or MODE=auto
 
 ### Quick Decision Rules
-1. **Exploring/Understanding?** → Start with Gemini
-2. **Architecture/Code generation?** → Start with Qwen
+1. **Exploring/Understanding?** → Start with Gemini (fallback to Qwen if needed)
+2. **Architecture/Analysis?** → Start with Gemini (fallback to Qwen if needed)
 3. **Building/Fixing?** → Start with Codex
 4. **Not sure?** → Use multiple tools in parallel
 5. **Small task?** → Still use tools - they're faster than manual work
@@ -56,15 +56,16 @@ type: strategic-guideline
 
 ### Qwen
 - **Command**: `~/.claude/scripts/qwen-wrapper`
-- **Strengths**: Architecture analysis, pattern recognition
-- **Best For**: System design analysis, architectural review
-- **Permissions**: Architecture analysis only, no automatic code generation
+- **Strengths**: Large context window, pattern recognition (same as Gemini)
+- **Best For**: Analysis, documentation generation, code exploration (fallback option when Gemini unavailable)
+- **Permissions**: Default read-only analysis, MODE=write requires explicit specification (auto-enables --approval-mode yolo)
 - **Default MODE**: `analysis` (read-only)
-- **⚠️ Write Trigger**: Explicitly prohibited from auto-calling write mode
+- **⚠️ Write Trigger**: Only when user explicitly requests "generate documentation", "modify code", or specifies MODE=write
+- **Priority**: Secondary to Gemini - use as fallback for same tasks
 
 #### MODE Options
-- `analysis` (default) - Architecture analysis only, no code generation/modification (read-only)
-- `write` - ⚠️ Code generation (requires explicit specification, disabled by default)
+- `analysis` (default) - Read-only analysis and documentation generation (same as Gemini)
+- `write` - ⚠️ Create/modify codebase files (requires explicit specification, auto-enables --approval-mode yolo)
 
 ### Codex
 - **Command**: `codex --full-auto exec`
@@ -149,13 +150,13 @@ RULES: [template reference and constraints]
 
 #### Qwen Commands
 ```bash
-# Qwen Architecture Analysis (read-only, default)
+# Qwen Analysis (read-only, default) - Same as Gemini, use as fallback
 cd [directory] && ~/.claude/scripts/qwen-wrapper -p "
-PURPOSE: [clear architecture goal]
+PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
 MODE: analysis
 CONTEXT: [file references and memory context]
-EXPECTED: [expected deliverables]
+EXPECTED: [expected output]
 RULES: [template reference and constraints]
 "
 
@@ -166,7 +167,7 @@ PURPOSE: [clear goal]
 TASK: [specific task]
 MODE: write
 CONTEXT: [file references and memory context]
-EXPECTED: [expected deliverables]
+EXPECTED: [expected output]
 RULES: [template reference and constraints]
 "
 ```
@@ -256,14 +257,13 @@ RULES: Focus on type safety and component composition
 
 | Task Type | Tool | Use Case | Template |
 |-----------|------|----------|-----------|
-| **Analysis** | Gemini | Code exploration, architecture review, patterns | `analysis/pattern.txt` |
-| **Architecture** | Qwen | System design, code generation, architectural analysis | `analysis/architecture.txt` |
-| **Code Generation** | Qwen | Implementation patterns, code scaffolding, component creation | `development/feature.txt` |
+| **Analysis** | Gemini (Qwen fallback) | Code exploration, architecture review, patterns | `analysis/pattern.txt` |
+| **Architecture** | Gemini (Qwen fallback) | System design, architectural analysis | `analysis/architecture.txt` |
+| **Documentation** | Gemini (Qwen fallback) | Code docs, API specs, guides | `analysis/quality.txt` |
 | **Development** | Codex | Feature implementation, bug fixes, testing | `development/feature.txt` |
-| **Planning** | Multiple | Task breakdown, migration planning | `planning/task-breakdown.txt` |
-| **Documentation** | Multiple | Code docs, API specs, guides | `analysis/quality.txt` |
+| **Planning** | Gemini/Qwen | Task breakdown, migration planning | `planning/task-breakdown.txt` |
 | **Security** | Codex | Vulnerability assessment, fixes | `analysis/security.txt` |
-| **Refactoring** | Multiple | Gemini for analysis, Qwen/Codex for execution | `development/refactor.txt` |
+| **Refactoring** | Multiple | Gemini/Qwen for analysis, Codex for execution | `development/refactor.txt` |
 
 ### Template System
 
@@ -302,9 +302,9 @@ tech-stacks/
 ### Workflow Integration (REQUIRED)
 When planning any coding task, **ALWAYS** integrate CLI tools:
 
-1. **Understanding Phase**: Use Gemini for analysis
-2. **Architecture Phase**: Use Qwen for design and code generation
-3. **Implementation Phase**: Use Qwen/Codex for development
+1. **Understanding Phase**: Use Gemini for analysis (Qwen as fallback)
+2. **Architecture Phase**: Use Gemini for design and analysis (Qwen as fallback)
+3. **Implementation Phase**: Use Codex for development
 4. **Quality Phase**: Use Codex for testing and validation
 
 ### Common Scenarios
@@ -333,8 +333,19 @@ RULES: Follow project documentation standards
 "
 ```
 
-#### Architecture Analysis
+#### Architecture Analysis (Qwen as Gemini fallback)
 ```bash
+# Prefer Gemini for architecture analysis
+cd src/auth && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Analyze authentication system architecture
+TASK: Review JWT-based auth system design
+MODE: analysis
+CONTEXT: @{src/auth/**/*} Existing patterns and requirements
+EXPECTED: Architecture analysis report with recommendations
+RULES: $(cat '~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt') | Focus on security
+"
+
+# Use Qwen only if Gemini unavailable
 cd src/auth && ~/.claude/scripts/qwen-wrapper -p "
 PURPOSE: Analyze authentication system architecture
 TASK: Review JWT-based auth system design
@@ -419,7 +430,7 @@ EXPECTED: Pattern documentation
 RULES: Focus on security best practices
 "
 
-# Qwen - Architecture analysis
+# Qwen - Analysis (fallback option, same as Gemini)
 cd src/auth && ~/.claude/scripts/qwen-wrapper -p "
 PURPOSE: Analyze auth architecture
 TASK: Review auth system design and patterns
