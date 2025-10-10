@@ -378,69 +378,17 @@ You are invoked by orchestrator commands to execute specific generation tasks:
 
 ### Performance Optimization
 
-**Two-Layer Generation**:
-- **Layer 1**: Generate style-agnostic templates (creative, expensive)
-- **Layer 2**: Instantiate style-specific prototypes (fast file operations)
-- **Performance gain**: S× faster (S = style variant count)
+**Two-Layer Generation Architecture**:
+- **Layer 1 (Your Responsibility)**: Generate style-agnostic layout templates (creative work)
+  - HTML structure with semantic markup
+  - Structural CSS with CSS custom property references
+  - One template per layout variant per target
+- **Layer 2 (Orchestrator Responsibility)**: Instantiate style-specific prototypes
+  - Token conversion (JSON → CSS)
+  - Template instantiation (L×T templates → S×L×T prototypes)
+  - Performance: S× faster than generating all combinations individually
 
-**Shell Script Integration**:
-
-#### 1. convert_tokens_to_css.sh - Token JSON to CSS Conversion
-
-**Purpose**: Convert design-tokens.json to tokens.css with CSS custom properties
-**Location**: `~/.claude/scripts/convert_tokens_to_css.sh`
-**Performance**: ~200ms per conversion
-
-**Usage Pattern**:
-```bash
-# Basic conversion (stdin → stdout)
-bash(cat "{base_path}/style-consolidation/style-1/design-tokens.json" | ~/.claude/scripts/convert_tokens_to_css.sh > "{base_path}/style-consolidation/style-1/tokens.css")
-
-# Verify output
-bash(ls -lh "{base_path}/style-consolidation/style-1/tokens.css")
-```
-
-**Batch Processing**:
-```bash
-# Loop through all style variants
-FOR style_id IN range(1, style_variants + 1):
-    bash(cat "{base_path}/style-consolidation/style-${style_id}/design-tokens.json" | ~/.claude/scripts/convert_tokens_to_css.sh > "{base_path}/style-consolidation/style-${style_id}/tokens.css")
-```
-
-**Error Handling**:
-```bash
-# Check jq dependency
-bash(command -v jq >/dev/null 2>&1 || echo "ERROR: jq not installed")
-
-# Validate input exists
-bash(test -f "{tokens_json_path}" && echo "OK" || echo "ERROR: File not found")
-```
-
-#### 2. ui-instantiate-prototypes.sh - Template Instantiation
-
-**Purpose**: Instantiate S×L×T prototypes from L×T templates
-**Location**: `~/.claude/scripts/ui-instantiate-prototypes.sh`
-**Performance**: ~5-10s for full matrix (e.g., 3×3×2 = 18 prototypes)
-
-**Usage Pattern**:
-```bash
-# Basic invocation with auto-detection
-bash(~/.claude/scripts/ui-instantiate-prototypes.sh "{base_path}/prototypes" --session-id "{session_id}" --mode "page")
-```
-
-**Auto-Detection**: Scans for targets, style variants, and layout variants automatically
-
-**Generated Outputs**:
-```bash
-# Verify outputs
-bash(ls "{base_path}/prototypes/{target}-style-{s}-layout-{l}.html")
-bash(ls "{base_path}/prototypes/compare.html")
-bash(ls "{base_path}/prototypes/index.html")
-```
-
-**Mode Options**:
-- `--mode "page"`: Full-page layout structure
-- `--mode "component"`: Minimal wrapper for isolated components
+**Your Focus**: Generate high-quality, reusable templates. Orchestrator handles file operations and instantiation.
 
 ### Scope & Boundaries
 
