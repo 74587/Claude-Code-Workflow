@@ -73,7 +73,7 @@ IF extraction_mode == "auto":
     extraction_mode = (variants_count == 1) ? "imitate" : "explore"
     REPORT: "🔍 Auto-detected mode: {extraction_mode} (variants_count={variants_count})"
 
-# Skip divergence analysis for imitate mode
+# Branch: Skip or Execute divergence analysis
 IF extraction_mode == "imitate":
     REPORT: "🎯 IMITATE MODE: High-fidelity single style extraction"
     REPORT: "   → Skipping design space divergence analysis"
@@ -82,6 +82,8 @@ IF extraction_mode == "imitate":
     # Skip to Phase 2
     GOTO Phase 2
 
+# ELSE: REQUIRED execution path for explore mode
+# ⚠️ CRITICAL: The following steps (Step 1-3) MUST be executed when extraction_mode == "explore"
 # Step 1: Load project context (explore mode only)
 project_context = ""
 IF exists({base_path}/.brainstorming/synthesis-specification.md):
@@ -89,9 +91,12 @@ IF exists({base_path}/.brainstorming/synthesis-specification.md):
 ELSE IF exists({base_path}/.brainstorming/ui-designer/analysis.md):
     project_context = Read(ui-designer/analysis.md)
 
-REPORT: "🎨 EXPLORE MODE: Analyzing design space to generate maximally contrasting directions..."
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "🎨 EXPLORE MODE: Analyzing design space (REQUIRED)"
+REPORT: "   → Generating {variants_count} maximally contrasting directions"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Step 2: AI-driven divergent direction generation
+# Step 2: AI-driven divergent direction generation (REQUIRED)
 divergence_prompt = """
 Analyze user requirements and generate {variants_count} MAXIMALLY CONTRASTING design directions.
 
@@ -132,7 +137,7 @@ RULES: Output ONLY valid JSON, maximize inter-variant distance, ensure each vari
 occupies distinct aesthetic region, avoid overlapping attributes
 """
 
-# Execute AI analysis
+# Execute AI analysis (REQUIRED in explore mode)
 divergent_directions = parse_json(Claude_Native_Analysis(divergence_prompt))
 
 REPORT: "✅ Generated {variants_count} contrasting design directions:"
@@ -141,10 +146,17 @@ FOR direction IN divergent_directions.divergent_directions:
 
 design_space_analysis = divergent_directions
 
-# Step 3: Save design space analysis for consolidation phase
-Write({file_path: "{base_path}/style-extraction/design-space-analysis.json",
+# Step 3: Save design space analysis for consolidation phase (REQUIRED)
+# ⚠️ CRITICAL: This file MUST be generated in explore mode for downstream consolidation
+output_file_path = "{base_path}/style-extraction/design-space-analysis.json"
+Write({file_path: output_file_path,
        content: JSON.stringify(design_space_analysis, null, 2)})
+
 REPORT: "💾 Saved design space analysis to design-space-analysis.json"
+
+# Verification step (REQUIRED)
+VERIFY: file_exists(output_file_path) == true
+REPORT: "✅ Verified: design-space-analysis.json exists ({file_size(output_file_path)} bytes)"
 ```
 
 ### Phase 2: Variant-Specific Style Synthesis & Direct File Write
@@ -232,8 +244,8 @@ REPORT: "💾 Saved {variants_count} style variants to style-cards.json"
 TodoWrite({todos: [
   {content: "Validate inputs and create directories", status: "completed", activeForm: "Validating inputs"},
   {content: extraction_mode == "explore" ? "Analyze design space for maximum contrast" : "Skip design space analysis (imitate mode)", status: "completed", activeForm: extraction_mode == "explore" ? "Analyzing design space" : "Skipping analysis"},
-  {content: extraction_mode == "explore" ? `Generate ${variants_count} divergent design directions` : "Prepare for high-fidelity extraction", status: "completed", activeForm: extraction_mode == "explore" ? "Generating directions" : "Preparing extraction"},
-  {content: extraction_mode == "explore" ? "Save design space analysis for consolidation" : "Skip design space output", status: "completed", activeForm: extraction_mode == "explore" ? "Saving design space analysis" : "Skipping output"},
+  {content: extraction_mode == "explore" ? `Generate ${variants_count} divergent design directions (REQUIRED)` : "Prepare for high-fidelity extraction", status: "completed", activeForm: extraction_mode == "explore" ? "Generating directions" : "Preparing extraction"},
+  {content: extraction_mode == "explore" ? `Write and verify design-space-analysis.json (REQUIRED)` : "Skip design space output", status: "completed", activeForm: extraction_mode == "explore" ? "Writing and verifying file" : "Skipping output"},
   {content: `Generate and write ${variants_count} ${extraction_mode == "explore" ? "contrasting" : "high-fidelity"} style variant${variants_count > 1 ? "s" : ""} to file`, status: "completed", activeForm: "Generating and writing variants"}
 ]});
 ```

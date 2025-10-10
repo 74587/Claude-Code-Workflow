@@ -24,11 +24,18 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 **Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
 1. User triggers: `/workflow:ui-design:explore-auto-v2 [params]`
-2. Phase 1 (style-extract) → **WAIT for completion** → Auto-continues
-3. Phase 2 (style-consolidate) → **WAIT for completion** → Auto-continues
-4. **Phase 3 (ui-generate-v2)** → **WAIT for completion** → Auto-continues
-5. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
-6. Phase 5 (batch-plan, optional) → Reports completion
+2. Phase 0c: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 1**
+3. Phase 1 (style-extract) → **WAIT for completion** → Auto-continues
+4. Phase 2 (style-consolidate) → **WAIT for completion** → Auto-continues
+5. **Phase 3 (ui-generate-v2)** → **WAIT for completion** → Auto-continues
+6. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
+7. Phase 5 (batch-plan, optional) → Reports completion
+
+**Phase Transition Mechanism**:
+- **Phase 0c (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 1
+- **Phase 1-5 (Autonomous)**: `SlashCommand` is BLOCKING - execution pauses until completion
+- Upon each phase completion: Automatically process output and execute next phase
+- No additional user interaction after Phase 0c confirmation
 
 **Auto-Continue Mechanism**: TodoWrite tracks phase status. Upon each phase completion, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 4 (or Phase 5 if --batch-plan).
 
@@ -186,6 +193,10 @@ MATCH user_input:
   default → proceed with current list
 
 STORE: inferred_target_list, target_type, target_inference_source
+
+# ⚠️ CRITICAL: User confirmation complete, IMMEDIATELY initialize TodoWrite and execute Phase 1
+# This is the only user interaction point in the workflow
+# After this point, all subsequent phases execute automatically without user intervention
 ```
 
 **Helper Function: detect_target_type()**
@@ -209,8 +220,8 @@ command = "/workflow:ui-design:extract --base-path \"{base_path}\" " +
 SlashCommand(command)
 
 # Output: {style_variants} style cards with design_attributes
-# WAIT for extract command to complete, then IMMEDIATELY continue to Phase 2
-# DO NOT STOP - Phase 2 must execute automatically
+# SlashCommand blocks until phase complete
+# Upon completion, IMMEDIATELY execute Phase 2 (auto-continue)
 ```
 
 ### Phase 2: Style Consolidation
@@ -220,8 +231,8 @@ command = "/workflow:ui-design:consolidate --base-path \"{base_path}\" " +
 SlashCommand(command)
 
 # Output: {style_variants} independent design systems with tokens.css
-# WAIT for consolidate command to complete, then IMMEDIATELY continue to Phase 3
-# DO NOT STOP - Phase 3 must execute automatically
+# SlashCommand blocks until phase complete
+# Upon completion, IMMEDIATELY execute Phase 3 (auto-continue)
 ```
 
 ### Phase 3: Style-Centric Matrix UI Generation
@@ -241,8 +252,8 @@ REPORT: "   → Style-centric generation: Each of {style_variants} agents handle
 
 SlashCommand(command)
 
-# WAIT for generate-v2 command to complete, then IMMEDIATELY continue to Phase 4
-# DO NOT STOP - Phase 4 must execute automatically
+# SlashCommand blocks until phase complete
+# Upon completion, IMMEDIATELY execute Phase 4 (auto-continue)
 # Output:
 # - {target}-layout-{l}.json (target-specific layout plans)
 # - {target}-style-{s}-layout-{l}.html (final prototypes with style-aware structure)
@@ -255,9 +266,10 @@ SlashCommand(command)
 command = "/workflow:ui-design:update" + (--session ? " --session {session_id}" : "")
 SlashCommand(command)
 
-# WAIT for update command to complete
-# If --batch-plan flag present: IMMEDIATELY continue to Phase 5
-# If no --batch-plan: Workflow complete, display final report
+# SlashCommand blocks until phase complete
+# Upon completion:
+#   - If --batch-plan flag present: IMMEDIATELY execute Phase 5 (auto-continue)
+#   - If no --batch-plan: Workflow complete, display final report
 ```
 
 ### Phase 5: Batch Task Generation (Optional)
@@ -270,7 +282,7 @@ IF --batch-plan:
 
 ## TodoWrite Pattern
 ```javascript
-// Initialize at workflow start to track multi-phase execution
+// Initialize IMMEDIATELY after Phase 0c user confirmation to track multi-phase execution
 TodoWrite({todos: [
   {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing..."},
   {"content": "Execute style consolidation", "status": "pending", "activeForm": "Executing..."},
@@ -278,10 +290,11 @@ TodoWrite({todos: [
   {"content": "Execute design integration", "status": "pending", "activeForm": "Executing..."}
 ]})
 
-// ⚠️ CRITICAL: After EACH phase completion, you MUST:
-// 1. Update current phase: status → "completed"
-// 2. Update next phase: status → "in_progress"
-// 3. Continue to execute next phase immediately
+// ⚠️ CRITICAL: After EACH SlashCommand completion (Phase 1-5), you MUST:
+// 1. SlashCommand blocks and returns when phase is complete
+// 2. Update current phase: status → "completed"
+// 3. Update next phase: status → "in_progress"
+// 4. IMMEDIATELY execute next phase SlashCommand (auto-continue)
 // This ensures continuous workflow tracking and prevents premature stopping
 ```
 

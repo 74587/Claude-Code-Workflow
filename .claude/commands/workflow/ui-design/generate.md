@@ -124,23 +124,19 @@ FOR target IN target_list:
           {IF --session: PROJECT_REQUIREMENTS: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md}
 
           ## Task
-          Research common {target} {target_type} layout variations and select the #{layout_id} approach.
-          Generate layout plan JSON that is STRUCTURALLY DIFFERENT from other layout IDs.
+          Research {target} {target_type} layout variations → Select approach #{layout_id} → Generate layout plan JSON
 
-          ## Research (MCP Required)
+          ## Research
           mcp__exa__web_search_exa(
             query=\"common {target} {target_type} layout patterns variations best practices 2024\",
             numResults=5
           )
+          Identify multiple structural patterns → Select DISTINCT approach #{layout_id}
 
-          ## Selection Strategy
-          From search results, identify multiple layout variations and select approach #{layout_id}.
-          Ensure each layout_id uses a DIFFERENT structural pattern (not just styling differences).
-
-          ## Output File
+          ## Output
           Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.json\", layout_plan_json)
 
-          ## JSON Structure (Required Fields)
+          ## JSON Structure
           ```json
           {
             "id": "layout-{layout_id}",
@@ -159,7 +155,7 @@ FOR target IN target_list:
           ```
 
           ## Requirements
-          - Research-informed, target-specific, meaningfully different from other layout IDs
+          - Research-informed, structurally DIFFERENT from other layout IDs
           - Write file directly (not text output)
         "
 
@@ -294,53 +290,45 @@ FOR layout_id IN range(1, layout_variants + 1):
           **Plan**: {JSON.stringify(layout_plan, null, 2)}
 
           ## Task
-          Generate TWO template files implementing the layout plan above:
-          1. HTML: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.html
-          2. CSS: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.css
+          Generate TWO template files implementing the layout plan:
+          - HTML: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.html
+          - CSS: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.css
 
           ## HTML Requirements
-          - Semantic HTML5 + ARIA attributes
-          - Wrapper: Always generate a complete HTML5 document (<!DOCTYPE html>, <html>, <head>, <body>)
-            * IF page: <body> contains full page structure (header, nav, main, footer)
-            * IF component: <body> contains only the component in a simple presentation wrapper
-          - ⚠️ CRITICAL: Include CSS placeholders in <head>:
+          - Complete HTML5 document (<!DOCTYPE>, <html>, <head>, <body>)
+          - Semantic elements + ARIA attributes
+          - Body content:
+            * IF page → Full structure (header, nav, main, footer)
+            * IF component → Isolated element in presentation wrapper
+          - ⚠️ CRITICAL CSS placeholders in <head>:
             <link rel=\"stylesheet\" href=\"{{STRUCTURAL_CSS}}\">
             <link rel=\"stylesheet\" href=\"{{TOKEN_CSS}}\">
 
-          ## CSS Requirements - TOKEN REFERENCE (CRITICAL)
+          ## CSS Requirements - Token Reference
 
-          **STEP 1: Read the actual tokens.css file FIRST**
+          **1. Read tokens.css**
           Read(\"{base_path}/style-consolidation/style-1/tokens.css\")
+          Extract all CSS variable names (pattern: lines with \"  --\" in \":root {}\")
 
-          **STEP 2: Extract ALL CSS variable names**
-          - Pattern: Lines starting with \"  --\" inside \":root {}\"
-          - Example: \"  --color-brand-primary: oklch(...)\" → use \"--color-brand-primary\"
-
-          **STEP 3: Use ONLY variables that exist in tokens.css**
-          - ✅ DO: Copy exact variable names from tokens.css
-          - ✅ DO: Use var(--exact-name-from-file)
-          - ❌ DON'T: Invent or guess variable names
-          - ❌ DON'T: Use hardcoded values (colors, fonts, spacing)
-
-          **Available Token Categories** (extracted from actual file):
+          **2. Available Tokens**
           - Colors: {', '.join(color_vars[:5])}... ({len(color_vars)} total)
           - Typography: {', '.join(typography_vars[:5])}... ({len(typography_vars)} total)
           - Spacing: {', '.join(spacing_vars[:5])}... ({len(spacing_vars)} total)
           - Radius: {', '.join(radius_vars[:3])}... ({len(radius_vars)} total)
           - Shadows: {', '.join(shadow_vars)}
 
-          **OPTIONAL: Layout-Specific Token Extension**
-          If core tokens are insufficient, create `{target}-layout-{layout_id}-tokens.css` with `--layout-*` prefix.
-          Example: `--layout-spacing-navbar-height`, `--layout-size-sidebar-width`
+          **3. Variable Usage Rules**
+          - ✅ Use ONLY variables from tokens.css (exact names)
+          - ✅ Format: var(--exact-name-from-file)
+          - ❌ NO invented/guessed variable names
+          - ❌ NO hardcoded values (colors, fonts, spacing)
 
-          **Example Workflow**:
-          1. Read tokens.css → find \"--color-brand-primary: oklch(0.55 0.12 45);\"
-          2. Use in CSS → \"background: var(--color-brand-primary);\"
+          **4. Optional Extension**
+          If core tokens insufficient → Create `{target}-layout-{layout_id}-tokens.css` with `--layout-*` prefix
+          Examples: `--layout-spacing-navbar-height`, `--layout-size-sidebar-width`
 
-          **CSS Rules**:
-          - Token-driven: ALL stylistic values use var() (zero hardcoded values)
-          - Mobile-first responsive design
-          - Structural layout only (Flexbox, Grid, positioning)
+          **CSS Scope**: Structural layout only (Flexbox, Grid, positioning)
+          **Responsive**: Mobile-first approach
 
           ## Write Operations
           Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.html\", html_content)
@@ -459,22 +447,22 @@ FOR style_id IN range(1, style_variants + 1):
         Task(@ui-design-agent): "
           [CROSS_PAGE_CONSISTENCY_VALIDATION]
 
-          STYLE_ID: {style_id} | LAYOUT_ID: {layout_id} | TARGETS: {target_list} | TARGET_TYPE: {target_type}
+          STYLE: {style_id} | LAYOUT: {layout_id} | TARGETS: {target_list} | TYPE: {target_type}
           BASE_PATH: {base_path}
 
           ## Input
           {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.html/css (all targets)
 
           ## Validate
-          1. Shared component structure (header/nav/footer)
-          2. Token usage consistency (no hardcoded values)
-          3. Accessibility compliance (ARIA, headings, landmarks)
-          4. Layout strategy adherence
+          1. Shared components (header/nav/footer)
+          2. Token usage (no hardcoded values)
+          3. Accessibility (ARIA, headings, landmarks)
+          4. Layout strategy consistency
 
           ## Output
           Write({base_path}/prototypes/consistency-report-s{style_id}-l{layout_id}.md, validation_report)
 
-          Focus on shared elements. Page-specific variations are acceptable.
+          Focus on shared elements. Page-specific variations acceptable.
         "
 
 # Aggregate consistency reports
