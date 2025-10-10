@@ -25,7 +25,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 - **Reference-Driven**: Requires URL or images as primary input
 - **Auto-Screenshot**: Supports Playwright/Chrome with manual upload fallback
 
-**Streamlined Flow**: Phase 0 (init) → 0.5 (screenshot) → 1 (extraction) → 2 (token adapt) → 3 (generate) → 4 (integrate)
+**Streamlined Flow**: Phase 0 (init) → 0.5 (screenshot) → 0.75 (URL analysis if needed) → 1 (extraction) → 2 (token adapt) → 3 (generate) → 4 (integrate)
 
 **Performance**: ~2-3× faster than explore-auto for single-style scenarios
 
@@ -218,6 +218,26 @@ ELSE:
     REPORT: "ℹ️ Using provided images (--images parameter)"
 ```
 
+### Phase 0.75: URL Content Analysis (Fallback Mode)
+
+**Condition**: Only if `screenshot_mode == "url_only"`
+
+```bash
+url_analysis_content = ""
+
+IF screenshot_mode == "url_only":
+    REPORT: "🔍 Analyzing URL content (no screenshot available)"
+
+    # Fetch URL design patterns using MCP web search
+    url_analysis_content = mcp__exa__web_search_exa(
+        query="site:{url_value} design style color scheme layout",
+        numResults=3
+    )
+
+    STORE: url_analysis_data = url_analysis_content
+    REPORT: "✅ URL content analysis complete"
+```
+
 ### Phase 1: Single Style Extraction
 
 ```bash
@@ -230,8 +250,9 @@ images_flag = screenshot_mode == "with_screenshots" ? "--images \"{base_path}/sc
 
 url_flag = screenshot_mode == "url_only" ? "--url \"{url_value}\"" : ""
 
-# Construct optimized extraction prompt
-enhanced_prompt = "Extract a single, high-fidelity design system that accurately imitates the visual style from {source_desc}. {prompt_text}"
+# Construct optimized extraction prompt with URL analysis data
+url_context = screenshot_mode == "url_only" ? "URL analysis data: {url_analysis_data}" : ""
+enhanced_prompt = "Extract a single, high-fidelity design system that accurately imitates the visual style from {source_desc}. {url_context} {prompt_text}"
 
 # Force single variant with imitate mode
 command = "/workflow:ui-design:extract --base-path \"{base_path}\" {url_flag} {images_flag} --prompt \"{enhanced_prompt}\" --mode imitate"
@@ -314,6 +335,7 @@ ELSE:
 TodoWrite({todos: [
   {"content": "Initialize run directory and infer targets", "status": "in_progress", "activeForm": "Initializing"},
   {"content": "Capture screenshots from URL (if provided)", "status": "pending", "activeForm": "Capturing screenshots"},
+  {"content": "Analyze URL content (fallback mode)", "status": "pending", "activeForm": "Analyzing URL content"},
   {"content": "Extract single design style from reference", "status": "pending", "activeForm": "Extracting style"},
   {"content": "Adapt tokens (bypass consolidate)", "status": "pending", "activeForm": "Adapting tokens"},
   {"content": "Generate single-style prototypes", "status": "pending", "activeForm": "Generating prototypes"},
@@ -374,7 +396,8 @@ TodoWrite({todos: [
 /workflow:ui-design:imitate-auto --url "https://stripe.com/pricing" --targets "pricing"
 
 # 0.5: Playwright failed → Chrome failed → User prompted → types 'ready' → ✅ continues OR 'skip' → ⚠️ URL only
-# Continues: 1 → 2 → 3 → 4
+# If skip: 0.75 (MCP URL analysis) → 1 → 2 → 3 → 4
+# If ready: 1 → 2 → 3 → 4
 ```
 
 ## Completion Output
@@ -386,7 +409,8 @@ Mode: Single Style Replication | Run ID: {run_id} | Session: {session_id or "sta
 
 Phase 0 - Initialization: {target_count} {target_type}(s) prepared
 Phase 0.5 - Screenshot Capture: {screenshot_status}
-  {IF success: ✅ Captured via {method} | ELSE: ⚠️ URL analysis only}
+  {IF success: ✅ Captured via {method} | ELSE: ⚠️ URL analysis fallback activated}
+Phase 0.75 - URL Content Analysis: {IF url_only: ✅ Design patterns analyzed via MCP | ELSE: ⏭️ Skipped (screenshots available)}
 Phase 1 - Style Extraction: Single style extracted
 Phase 2 - Token Adaptation: Bypassed consolidate (⚡ {time_saved}s saved)
 Phase 3 - Prototype Generation: {target_count} {target_type} prototypes created

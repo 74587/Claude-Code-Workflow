@@ -162,18 +162,18 @@ IF design_space_analysis is provided, FOR EACH variant:
 3. **Execute MCP Searches**:
    ```javascript
    trend_research = {
-     colors: mcp__exa__get_code_context_exa(query=queries[0], tokensNum=2000),
-     typography: mcp__exa__get_code_context_exa(query=queries[1], tokensNum=2000),
-     layout: mcp__exa__get_code_context_exa(query=queries[2], tokensNum=2000),
-     contrast: mcp__exa__get_code_context_exa(query=queries[3], tokensNum=2000)
+     colors: mcp__exa__web_search_exa(query=queries[0], numResults=5),
+     typography: mcp__exa__web_search_exa(query=queries[1], numResults=5),
+     layout: mcp__exa__web_search_exa(query=queries[2], numResults=5),
+     contrast: mcp__exa__web_search_exa(query=queries[3], numResults=5)
    }
    ```
 
 4. **Shared Accessibility Research** (execute once, apply to all variants):
    ```javascript
-   accessibility_guidelines = mcp__exa__get_code_context_exa(
+   accessibility_guidelines = mcp__exa__web_search_exa(
      query="WCAG 2.2 accessibility color contrast ARIA best practices 2024",
-     tokensNum=1500
+     numResults=3
    )
    ```
 
