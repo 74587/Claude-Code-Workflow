@@ -2,29 +2,6 @@
 name: extract
 description: Extract design style from reference images or text prompts using Claude's analysis
 usage: /workflow:ui-design:extract [--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>]
-argument-hint: "[--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--session WFS-xxx] [--images \"refs/*.png\"] [--prompt \"Modern minimalist\"] [--variants 3]"
-parameters:
-  - name: --mode
-    type: string
-    enum: [imitate, explore, auto]
-    default: auto
-    description: "Extraction mode: 'imitate' (high-fidelity single style, skip divergence), 'explore' (multi-variant with contrast analysis), 'auto' (detect from --variants: 1=imitate, 2+=explore)"
-  - name: --variants
-    type: number
-    default: 1
-    description: "Number of design variants to extract (1-5). Each variant will be maximally contrasting. Generates style-cards.json with variant-N IDs."
-  - name: --images
-    type: string
-    description: "Glob pattern for reference images (e.g., 'refs/*.png'). Supports PNG, JPG, WebP."
-  - name: --prompt
-    type: string
-    description: "Text description of desired style (e.g., 'Modern minimalist blog'). Can be combined with --images."
-  - name: --session
-    type: string
-    description: "Workflow session ID (e.g., WFS-auth). Creates design run in session directory."
-  - name: --base-path
-    type: string
-    description: "Custom base path for output. Overrides --session if provided."
 examples:
   - /workflow:ui-design:extract --images "design-refs/*.png" --variants 3
   - /workflow:ui-design:extract --prompt "Modern minimalist blog, dark theme" --variants 3

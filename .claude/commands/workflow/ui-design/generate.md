@@ -2,30 +2,12 @@
 name: generate
 description: Generate UI prototypes in matrix mode (style × layout combinations) for pages or components
 usage: /workflow:ui-design:generate [--targets "<list>"] [--target-type "page|component"] [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
-argument-hint: "[--targets \"dashboard,auth,navbar,hero\"] [--target-type \"page\"] [--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--style-variants 3] [--layout-variants 3]"
-parameters:
-  - name: --style-variants
-    type: number
-    default: 3
-    description: "Number of style variants to generate prototypes for (1-5). Auto-validates against actual style-* directories. ⚠️ Recommend omitting to use auto-detection."
-  - name: --layout-variants
-    type: number
-    default: auto-detected from layout-strategies.json
-    description: "Number of layout variants. Default: loaded from consolidation output. Can override for manual testing."
-  - name: --targets
-    type: string
-    description: "Comma-separated list of targets (pages or components) to generate"
-  - name: --target-type
-    type: string
-    default: page
-    description: "Type of targets: 'page' (full layout) or 'component' (isolated element)"
 examples:
   - /workflow:ui-design:generate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --targets "dashboard,settings" --target-type "page" --style-variants 3 --layout-variants 3
   - /workflow:ui-design:generate --session WFS-auth --targets "home,pricing" --target-type "page" --style-variants 2 --layout-variants 2
   - /workflow:ui-design:generate --base-path "./.workflow/.design/run-20250109-150533"  # ✅ Recommended: auto-detect variants
   - /workflow:ui-design:generate --targets "navbar,hero,card" --target-type "component" --style-variants 3 --layout-variants 2
   - /workflow:ui-design:generate --pages "home,dashboard" --style-variants 2 --layout-variants 2  # Legacy syntax
-executor: → @ui-design-agent
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 ---
 

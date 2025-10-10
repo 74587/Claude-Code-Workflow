@@ -2,7 +2,6 @@
 name: imitate-auto
 description: Imitation-focused UI design workflow - Rapidly replicate a single design style from URL or images (skip exploration, direct to implementation)
 usage: /workflow:ui-design:imitate-auto [--url "<url>"] [--images "<glob>"] [--prompt "<desc>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>]
-argument-hint: "[--url \"https://example.com\"] [--images \"refs/*.png\"] [--prompt \"Imitate dark mode style\"] [--targets \"dashboard,settings\"] [--target-type \"page\"]"
 examples:
   - /workflow:ui-design:imitate-auto --url "https://linear.app" --targets "home,features,pricing"
   - /workflow:ui-design:imitate-auto --images "refs/design.png" --prompt "Imitate this minimalist design for dashboard and settings"

@@ -2,18 +2,6 @@
 name: consolidate
 description: Consolidate style variants into independent design systems and plan layout strategies
 usage: /workflow:ui-design:consolidate [--base-path <path>] [--session <id>] [--variants <count>] [--layout-variants <count>]
-argument-hint: "[--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--variants 3] [--layout-variants 3]"
-parameters:
-  - name: --variants
-    type: number
-    default: all available variants from style-cards.json
-    description: "Number of style variants to consolidate (1-N). Processes first N variants from style-cards.json. Creates style-N directories."
-  - name: --session
-    type: string
-    description: "Workflow session ID (e.g., WFS-auth). Finds latest design run in session directory."
-  - name: --base-path
-    type: string
-    description: "Custom base path for input/output. Overrides --session if provided."
 examples:
   - /workflow:ui-design:consolidate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --variants 3
   - /workflow:ui-design:consolidate --session WFS-auth --variants 2

@@ -2,7 +2,6 @@
 name: update
 description: Update brainstorming artifacts with finalized design system references
 usage: /workflow:ui-design:update --session <session_id> [--selected-prototypes "<list>"]
-argument-hint: "--session WFS-session-id [--selected-prototypes \"dashboard-variant-1,auth-variant-2\"]"
 examples:
   - /workflow:ui-design:update --session WFS-auth
   - /workflow:ui-design:update --session WFS-dashboard --selected-prototypes "dashboard-variant-1"

@@ -2,7 +2,6 @@
 name: explore-auto
 description: Exploratory UI design workflow - Generate and compare multiple style × layout combinations (3×3 matrix exploration)
 usage: /workflow:ui-design:explore-auto [--prompt "<desc>"] [--images "<glob>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]
-argument-hint: "[--prompt \"Modern SaaS with 3 styles\"] [--images \"refs/*.png\"] [--targets \"dashboard,auth,navbar,hero\"] [--target-type \"auto\"] [--session WFS-xxx] [--style-variants 3] [--layout-variants 3]"
 examples:
   - /workflow:ui-design:explore-auto --prompt "Generate 3 style variants for modern blog: home, article, author"
   - /workflow:ui-design:explore-auto --prompt "SaaS dashboard and settings with 2 layout options"
@@ -25,15 +24,15 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 - **Components** (isolated UI elements): navbar, card, hero, form, etc.
 - **Mixed**: Can combine both in a single workflow
 
-**Autonomous Flow**:
+**Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
 1. User triggers: `/workflow:ui-design:explore-auto [params]`
-2. Phase 1 (style-extract) → Auto-continues
-3. Phase 2 (style-consolidate) → Auto-continues
-4. Phase 3 (ui-generate) → Auto-continues with unified target list
-5. Phase 4 (design-update) → Auto-continues
+2. Phase 1 (style-extract) → **WAIT for completion** → Auto-continues
+3. Phase 2 (style-consolidate) → **WAIT for completion** → Auto-continues
+4. Phase 3 (ui-generate) → **WAIT for completion** → Auto-continues with unified target list
+5. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
 6. Phase 5 (batch-plan, optional) → Reports completion
 
-**Auto-Continue Mechanism**: TodoWrite tracks phase status. Upon completion, coordinator constructs next command and executes immediately. No user intervention required.
+**Auto-Continue Mechanism**: TodoWrite tracks phase status. Upon each phase completion, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 4 (or Phase 5 if --batch-plan).
 
 **Target Type Detection**: Automatically inferred from prompt/targets, or explicitly set via `--target-type`.
 
@@ -44,6 +43,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 3. **Parse & Pass**: Extract data from each output for next phase
 4. **Default to All**: When selecting variants/prototypes, use ALL generated items
 5. **Track Progress**: Update TodoWrite after each phase
+6. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After each SlashCommand completes, you MUST wait for completion, then immediately execute the next phase. Workflow is NOT complete until Phase 4 (or Phase 5 if --batch-plan).
 
 ## Parameter Requirements
 
@@ -56,6 +56,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 - `--style-variants <count>`: Style variants (default: inferred from prompt or 3, range: 1-5)
 - `--layout-variants <count>`: Layout variants per style (default: inferred or 3, range: 1-5)
 - `--batch-plan`: Auto-generate implementation tasks after design-update
+- `--continue-run <run_id>`: (Internal) Continue from previous phase completion
 
 **Legacy Parameters** (maintained for backward compatibility):
 - `--pages "<list>"`: Alias for `--targets` with `--target-type page`
@@ -203,14 +204,20 @@ command = "/workflow:ui-design:extract --base-path \"{base_path}\" " +
           (--images ? "--images \"{images}\" " : "") +
           (--prompt ? "--prompt \"{prompt}\" " : "") +
           "--variants {style_variants} --mode explore"
-SlashCommand(command)  # → Phase 2
+SlashCommand(command)
+
+# WAIT for extract command to complete, then IMMEDIATELY continue to Phase 2
+# DO NOT STOP - Phase 2 must execute automatically
 ```
 
 ### Phase 2: Style Consolidation
 ```bash
 command = "/workflow:ui-design:consolidate --base-path \"{base_path}\" " +
           "--variants {style_variants}"
-SlashCommand(command)  # → Phase 3
+SlashCommand(command)
+
+# WAIT for consolidate command to complete, then IMMEDIATELY continue to Phase 3
+# DO NOT STOP - Phase 3 must execute automatically
 # Output: style_variants independent design systems (design tokens and style guides)
 ```
 
@@ -225,7 +232,10 @@ total = style_variants × layout_variants × len(inferred_target_list)
 REPORT: "🚀 Phase 3: {type_icon} {targets_string} | Matrix: {s}×{l}×{n} = {total} prototypes"
 REPORT: "   → Layout planning: {len(inferred_target_list)}×{layout_variants} target-specific layouts"
 
-SlashCommand(command)  # → Phase 4
+SlashCommand(command)
+
+# WAIT for generate command to complete, then IMMEDIATELY continue to Phase 4
+# DO NOT STOP - Phase 4 must execute automatically
 # Output:
 # - {target}-layout-{l}.json (target-specific layout plans)
 # - {target}-style-{s}-layout-{l}.html (final prototypes)
@@ -235,7 +245,11 @@ SlashCommand(command)  # → Phase 4
 ### Phase 4: Design System Integration
 ```bash
 command = "/workflow:ui-design:update" + (--session ? " --session {session_id}" : "")
-SlashCommand(command)  # → Phase 5 if --batch-plan, else complete
+SlashCommand(command)
+
+# WAIT for update command to complete
+# If --batch-plan flag present: IMMEDIATELY continue to Phase 5
+# If no --batch-plan: Workflow complete, display final report
 ```
 
 ### Phase 5: Batch Task Generation (Optional)
@@ -248,13 +262,19 @@ IF --batch-plan:
 
 ## TodoWrite Pattern
 ```javascript
+// Initialize at workflow start to track multi-phase execution
 TodoWrite({todos: [
   {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing..."},
   {"content": "Execute style consolidation", "status": "pending", "activeForm": "Executing..."},
   {"content": "Execute UI generation", "status": "pending", "activeForm": "Executing..."},
   {"content": "Execute design integration", "status": "pending", "activeForm": "Executing..."}
 ]})
-// Update after each phase: current → completed, next → in_progress
+
+// ⚠️ CRITICAL: After EACH phase completion, you MUST:
+// 1. Update current phase: status → "completed"
+// 2. Update next phase: status → "in_progress"
+// 3. Continue to execute next phase immediately
+// This ensures continuous workflow tracking and prevents premature stopping
 ```
 
 ## Key Features
