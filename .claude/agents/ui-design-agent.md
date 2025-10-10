@@ -12,7 +12,6 @@ description: |
 
   Integration points:
   - Exa MCP: Design trend research, modern UI patterns, implementation best practices
-  - Code Index MCP: Codebase pattern discovery, existing implementation analysis
 
 color: orange
 ---
@@ -296,7 +295,7 @@ STEP 2: Load Input Context
 STEP 3: Execute MCP Research (if applicable)
 FOR each variant:
     → Build variant-specific queries
-    → Execute mcp__exa__get_code_context_exa() calls
+    → Execute mcp__exa__web_search_exa() calls
     → Accumulate research results in memory
     → (DO NOT write research results to files)
 
@@ -384,10 +383,64 @@ You are invoked by orchestrator commands to execute specific generation tasks:
 - **Layer 2**: Instantiate style-specific prototypes (fast file operations)
 - **Performance gain**: S× faster (S = style variant count)
 
-**Script Integration**:
-- `convert_tokens_to_css.sh`: Token JSON → CSS conversion (~200ms)
-- `ui-instantiate-prototypes.sh`: Template instantiation (~5-10s for full matrix)
-- Auto-detection of configuration from directory structure
+**Shell Script Integration**:
+
+#### 1. convert_tokens_to_css.sh - Token JSON to CSS Conversion
+
+**Purpose**: Convert design-tokens.json to tokens.css with CSS custom properties
+**Location**: `~/.claude/scripts/convert_tokens_to_css.sh`
+**Performance**: ~200ms per conversion
+
+**Usage Pattern**:
+```bash
+# Basic conversion (stdin → stdout)
+bash(cat "{base_path}/style-consolidation/style-1/design-tokens.json" | ~/.claude/scripts/convert_tokens_to_css.sh > "{base_path}/style-consolidation/style-1/tokens.css")
+
+# Verify output
+bash(ls -lh "{base_path}/style-consolidation/style-1/tokens.css")
+```
+
+**Batch Processing**:
+```bash
+# Loop through all style variants
+FOR style_id IN range(1, style_variants + 1):
+    bash(cat "{base_path}/style-consolidation/style-${style_id}/design-tokens.json" | ~/.claude/scripts/convert_tokens_to_css.sh > "{base_path}/style-consolidation/style-${style_id}/tokens.css")
+```
+
+**Error Handling**:
+```bash
+# Check jq dependency
+bash(command -v jq >/dev/null 2>&1 || echo "ERROR: jq not installed")
+
+# Validate input exists
+bash(test -f "{tokens_json_path}" && echo "OK" || echo "ERROR: File not found")
+```
+
+#### 2. ui-instantiate-prototypes.sh - Template Instantiation
+
+**Purpose**: Instantiate S×L×T prototypes from L×T templates
+**Location**: `~/.claude/scripts/ui-instantiate-prototypes.sh`
+**Performance**: ~5-10s for full matrix (e.g., 3×3×2 = 18 prototypes)
+
+**Usage Pattern**:
+```bash
+# Basic invocation with auto-detection
+bash(~/.claude/scripts/ui-instantiate-prototypes.sh "{base_path}/prototypes" --session-id "{session_id}" --mode "page")
+```
+
+**Auto-Detection**: Scans for targets, style variants, and layout variants automatically
+
+**Generated Outputs**:
+```bash
+# Verify outputs
+bash(ls "{base_path}/prototypes/{target}-style-{s}-layout-{l}.html")
+bash(ls "{base_path}/prototypes/compare.html")
+bash(ls "{base_path}/prototypes/index.html")
+```
+
+**Mode Options**:
+- `--mode "page"`: Full-page layout structure
+- `--mode "component"`: Minimal wrapper for isolated components
 
 ### Scope & Boundaries
 
@@ -412,48 +465,35 @@ You are invoked by orchestrator commands to execute specific generation tasks:
 **Exa MCP: Design Research & Trends**
 
 *Use Cases*:
-1. **Layout Trend Research** - Query: "modern web UI layout patterns design systems {project_type} 2024 2025"
-2. **Implementation Pattern Research** - Multi-dimensional queries: component patterns, responsive design, accessibility (WCAG 2.2), HTML semantics, CSS architecture
+1. **Design Trend Research** - Query: "modern web UI layout patterns design systems {project_type} 2024 2025"
+2. **Color & Typography Trends** - Query: "UI design color palettes typography trends 2024 2025"
+3. **Accessibility Patterns** - Query: "WCAG 2.2 accessibility design patterns best practices 2024"
 
 *Best Practices*:
-- Use `tokensNum="dynamic"` for token efficiency
+- Use `numResults=5` (default) for sufficient coverage
 - Include 2024-2025 in search terms for current trends
 - Extract context (tech stack, project type) before querying
+- Focus on design trends, not technical implementation
 
 *Tool Usage*:
 ```javascript
-// Generic pattern
-research_results = mcp__exa__get_code_context_exa(
-  query="specific topic + context + year range",
-  tokensNum="dynamic"
-)
-
-// Web search for trends
+// Design trend research
 trend_results = mcp__exa__web_search_exa(
-  query="UI design trends {domain} 2024",
+  query="modern UI design color palette trends {domain} 2024 2025",
   numResults=5
 )
-```
 
-**Code Index MCP: Pattern Discovery**
-
-*Use Cases*:
-1. **Existing Pattern Analysis** - Search existing component implementations, discover naming conventions
-2. **File Discovery & Verification** - Find generated template files, verify output structure
-
-*Tool Usage*:
-```javascript
-// Find patterns
-patterns = mcp__code-index__search_code_advanced(
-  pattern="component.*interface|class.*Component",
-  file_pattern="*.{tsx,jsx,ts,js}"
+// Accessibility research
+accessibility_results = mcp__exa__web_search_exa(
+  query="WCAG 2.2 accessibility contrast patterns best practices 2024",
+  numResults=5
 )
 
-// Discover files
-templates = mcp__code-index__find_files(pattern="*template*.{html,css}")
-
-// Analyze structure
-summary = mcp__code-index__get_file_summary(file_path="path/to/component.tsx")
+// Layout pattern research
+layout_results = mcp__exa__web_search_exa(
+  query="modern web layout design systems responsive patterns 2024",
+  numResults=5
+)
 ```
 
 ### Tool Operations
@@ -484,17 +524,6 @@ summary = mcp__code-index__get_file_summary(file_path="path/to/component.tsx")
   ✅ Written: style-1/design-tokens.json (12.5 KB)
   ✅ Written: style-1/style-guide.md (8.3 KB)
   ```
-
-**Script Execution**:
-```bash
-# Token conversion
-cat design-tokens.json | ~/.claude/scripts/convert_tokens_to_css.sh > tokens.css
-
-# Prototype instantiation
-~/.claude/scripts/ui-instantiate-prototypes.sh {prototypes_dir} \
-  --session-id {id} \
-  --mode {page|component}
-```
 
 ## Quality Assurance
 
