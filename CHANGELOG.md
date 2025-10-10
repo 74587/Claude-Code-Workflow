@@ -5,13 +5,19 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.2.1] - 2025-10-09
+## [4.2.1] - 2025-10-10
 
-### 📝 Documentation Refactoring: UI Design Workflow Commands
+### 📝 Command Renaming & Documentation Refactoring
 
-This release refactors UI design workflow documentation for improved clarity and maintainability, with significant size reductions while preserving all functionality.
+This release includes a command rename for better clarity and refactors UI design workflow documentation for improved maintainability.
 
 #### Changed
+
+**Command Renaming**:
+- **`/workflow:concept-verify` → `/workflow:concept-clarify`**: Renamed for clearer intent
+  - Better reflects the command's purpose of clarifying underspecified areas
+  - Updated all internal references and documentation
+  - Command functionality remains unchanged
 
 **explore-auto.md** (formerly `auto.md`):
 - **File Reorganization**: Reduced from 540 to 435 lines (19.4% reduction)

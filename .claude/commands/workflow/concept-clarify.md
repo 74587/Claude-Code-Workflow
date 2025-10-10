@@ -1,11 +1,11 @@
 ---
-name: concept-verify
+name: concept-clarify
 description: Identify underspecified areas in brainstorming artifacts through targeted clarification questions before action planning
-usage: /workflow:concept-verify [--session <session-id>]
+usage: /workflow:concept-clarify [--session <session-id>]
 argument-hint: "optional: --session <session-id>"
 examples:
-  - /workflow:concept-verify
-  - /workflow:concept-verify --session WFS-auth
+  - /workflow:concept-clarify
+  - /workflow:concept-clarify --session WFS-auth
 allowed-tools: Read(*), Write(*), Edit(*), TodoWrite(*), Glob(*), Bash(*)
 ---
 
@@ -255,7 +255,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    - ✅ **PROCEED to /workflow:plan**: Conceptual foundation is clear
    - OR ⚠️ **Address Outstanding Items First**: {list critical outstanding items}
-   - OR 🔄 **Run /workflow:concept-verify Again**: If new information available
+   - OR 🔄 **Run /workflow:concept-clarify Again**: If new information available
 
    ### Next Steps
    ```bash
