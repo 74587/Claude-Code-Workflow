@@ -170,7 +170,7 @@ Write({file_path: "{base_path}/style-extraction/design-space-analysis.json",
 REPORT: "💾 Saved design space analysis to design-space-analysis.json"
 ```
 
-### Phase 2: Variant-Specific Style Synthesis (Claude Native Analysis)
+### Phase 2: Variant-Specific Style Synthesis & Direct File Write
 
 **Analysis Prompt Template**:
 ```
@@ -239,14 +239,17 @@ all colors in OKLCH format; complete token structures; semantic naming;
 WCAG AA accessibility (4.5:1 text, 3:1 UI)
 ```
 
-### Phase 3: Parse & Write Output
-
+**Execution & File Write**:
 ```bash
-style_cards_data = parse_json(claude_response)
-Write({file_path: "{base_path}/style-extraction/style-cards.json", content: style_cards_data})
+# Execute Claude Native Analysis (internal processing, no context output)
+style_cards_json = Claude_Native_Analysis(synthesis_prompt)
+
+# Write directly to file
+Write({file_path: "{base_path}/style-extraction/style-cards.json", content: style_cards_json})
+REPORT: "💾 Saved {variants_count} style variants to style-cards.json"
 ```
 
-### Phase 4: Completion
+### Phase 3: Completion
 
 ```javascript
 TodoWrite({todos: [
@@ -254,7 +257,7 @@ TodoWrite({todos: [
   {content: extraction_mode == "explore" ? "Analyze design space for maximum contrast" : "Skip design space analysis (imitate mode)", status: "completed", activeForm: extraction_mode == "explore" ? "Analyzing design space" : "Skipping analysis"},
   {content: extraction_mode == "explore" ? `Generate ${variants_count} divergent design directions` : "Prepare for high-fidelity extraction", status: "completed", activeForm: extraction_mode == "explore" ? "Generating directions" : "Preparing extraction"},
   {content: extraction_mode == "explore" ? "Save design space analysis for consolidation" : "Skip design space output", status: "completed", activeForm: extraction_mode == "explore" ? "Saving design space analysis" : "Skipping output"},
-  {content: `Generate ${variants_count} ${extraction_mode == "explore" ? "contrasting" : "high-fidelity"} style variant${variants_count > 1 ? "s" : ""}`, status: "completed", activeForm: "Generating variants"}
+  {content: `Generate and write ${variants_count} ${extraction_mode == "explore" ? "contrasting" : "high-fidelity"} style variant${variants_count > 1 ? "s" : ""} to file`, status: "completed", activeForm: "Generating and writing variants"}
 ]});
 ```
 

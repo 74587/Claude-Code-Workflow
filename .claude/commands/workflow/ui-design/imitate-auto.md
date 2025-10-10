@@ -267,6 +267,8 @@ SlashCommand(command)  # → Phase 2
 ```bash
 REPORT: "🚀 Phase 2: Fast token adaptation (bypassing consolidate)"
 
+# Note: Orchestrator directly reads and transforms files here (not delegating to agent)
+# This is a performance optimization to bypass the full consolidate phase
 style_cards = Read({base_path}/style-extraction/style-cards.json)
 style_card = style_cards.style_cards[0]
 
@@ -274,7 +276,7 @@ design_tokens = style_card.proposed_tokens
 philosophy = style_card.design_philosophy
 style_name = style_card.name
 
-# Write design-tokens.json directly
+# Write design-tokens.json directly (orchestrator-level file transformation)
 Write({base_path}/style-consolidation/style-1/design-tokens.json, JSON.stringify(design_tokens, null, 2))
 
 # Create minimal style-guide.md
