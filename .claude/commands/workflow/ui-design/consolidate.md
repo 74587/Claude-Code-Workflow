@@ -89,7 +89,7 @@ IF exists(design_space_path):
     design_space_analysis = Read(design_space_path)
     REPORT: "📊 Loaded design space analysis with {len(design_space_analysis.divergent_directions)} variant directions"
 ELSE:
-    REPORT: "⚠️ No design space analysis found - trend research will be skipped"
+    REPORT: "⚠️ No design space analysis found - will refine tokens from proposed_tokens only"
 ```
 
 ### Phase 4: Design System Synthesis (Agent Execution)
@@ -107,11 +107,11 @@ agent_task_prompt = """
 CRITICAL: You MUST use Write() tool to create files. DO NOT return file contents as text.
 
 ## Task Summary
-Generate {variants_count} independent design systems with MCP trend research and WRITE files directly.
+Generate {variants_count} independent design systems using philosophy-driven refinement and WRITE files directly (NO MCP calls).
 
 ## Context
 SESSION: {session_id}
-MODE: Separate design system generation with MCP trend research
+MODE: Separate design system generation with philosophy-driven refinement (NO MCP)
 BASE_PATH: {base_path}
 VARIANTS TO PROCESS: {variants_count}
 
@@ -128,80 +128,74 @@ VARIANTS TO PROCESS: {variants_count}
 {IF design_context: DESIGN CONTEXT (from brainstorming): {design_context}}
 
 {IF design_space_analysis:
-## Design Space Analysis (for MCP Research)
+## Design Space Analysis (for Philosophy-Driven Refinement)
 {JSON.stringify(design_space_analysis, null, 2)}
 
-Note: Each variant has search_keywords and anti_keywords for trend research.
+Note: Each variant has design_attributes and anti_keywords for token refinement.
+Use philosophy_name and design_attributes to guide token generation WITHOUT external research.
 }
 
 ## Task
 For EACH variant (1 to {variants_count}):
-1. **Perform Variant-Specific Trend Research** (if design space analysis available)
-2. **Refine design tokens** using research insights
+1. **Load variant's design philosophy and attributes** (from design_space_analysis)
+2. **Refine design tokens** using philosophy-driven strategy (NO external research)
 3. **Generate and WRITE 2 files** to the file system
 
-## Step 1: Variant-Specific Trend Research (MCP)
+## Step 1: Load Design Philosophy (No MCP Calls)
 
-IF design_space_analysis is provided, FOR EACH variant:
+IF design_space_analysis is provided:
+  FOR EACH variant:
+    1. **Extract Design Direction**: Load philosophy_name, design_attributes, search_keywords, anti_keywords
+    2. **Use as Refinement Guide**: Apply philosophy and attributes to token generation
+    3. **Enforce Constraints**: Avoid characteristics listed in anti_keywords
+    4. **Maintain Divergence**: Ensure tokens differ from other variants based on attributes
 
-1. **Extract Research Parameters** from design space analysis:
-   - philosophy_name: The variant's design philosophy
-   - search_keywords: Keywords for trend research
-   - anti_keywords: Patterns to avoid
+ELSE:
+  Refine tokens based solely on variant's proposed_tokens and design_philosophy from style-cards.json
 
-2. **Build Variant-Specific Queries**:
-   ```javascript
-   queries = [
-     `{philosophy_name} UI design color palettes {search_keywords[:3]} 2024 2025`,
-     `{philosophy_name} typography trends {search_keywords[:3]} web design 2024`,
-     `{philosophy_name} layout patterns {search_keywords[:3]} design systems 2024`,
-     `design systems {philosophy_name} NOT {anti_keywords[:2]}`
-   ]
-   ```
+## Philosophy-Driven Refinement Strategy
 
-3. **Execute MCP Searches**:
-   ```javascript
-   trend_research = {
-     colors: mcp__exa__web_search_exa(query=queries[0], numResults=5),
-     typography: mcp__exa__web_search_exa(query=queries[1], numResults=5),
-     layout: mcp__exa__web_search_exa(query=queries[2], numResults=5),
-     contrast: mcp__exa__web_search_exa(query=queries[3], numResults=5)
-   }
-   ```
+**Core Principles**:
+- Use variant's design_attributes as primary guide (color saturation, visual weight, formality, organic/geometric, innovation, density)
+- Apply anti_keywords as explicit constraints during token selection
+- Ensure WCAG AA accessibility using built-in AI knowledge (4.5:1 text, 3:1 UI)
+- Preserve maximum contrast between variants from extraction phase
 
-4. **Shared Accessibility Research** (execute once, apply to all variants):
-   ```javascript
-   accessibility_guidelines = mcp__exa__web_search_exa(
-     query="WCAG 2.2 accessibility color contrast ARIA best practices 2024",
-     numResults=3
-   )
-   ```
-
-5. **Use Research Results** to inform token refinement:
-   - Color token refinement guided by `trend_research.colors`
-   - Typography refinement guided by `trend_research.typography`
-   - Layout spacing informed by `trend_research.layout`
-   - Contrast validation using `trend_research.contrast` and `accessibility_guidelines`
-
-IF design_space_analysis is NOT provided:
-- Skip trend research
-- Refine tokens based solely on variant's existing philosophy and proposed tokens
+**Refinement Process** (Apply to each variant):
+1. **Colors**: Generate palette based on saturation attribute
+   - "monochrome" → low chroma values (oklch L 0.00-0.02 H)
+   - "vibrant" → high chroma values (oklch L 0.20-0.30 H)
+2. **Typography**: Select font families matching formality level
+   - "playful" → rounded, friendly fonts
+   - "luxury" → serif, elegant fonts
+3. **Spacing**: Apply density attribute
+   - "spacious" → larger spacing scale (e.g., "4": "1.5rem")
+   - "compact" → smaller spacing scale (e.g., "4": "0.75rem")
+4. **Shadows**: Match visual weight
+   - "minimal" → subtle shadows with low opacity
+   - "bold" → strong shadows with higher spread
+5. **Border Radius**: Align with organic/geometric attribute
+   - "organic" → larger radius values (xl: "1.5rem")
+   - "brutalist" → minimal radius (xl: "0.125rem")
+6. **Innovation**: Influence overall token adventurousness
+   - "timeless" → conservative, proven values
+   - "experimental" → unconventional token combinations
 
 ## Step 2: Refinement Rules (apply to each variant)
 1. **Complete Token Coverage**: Ensure all categories present (colors, typography, spacing, etc.)
-2. **Fill Gaps**: Generate missing tokens based on variant's philosophy and trend research
+2. **Fill Gaps**: Generate missing tokens based on variant's philosophy and design_attributes
 3. **Maintain Style Identity**: Preserve unique characteristics from proposed tokens
 4. **Semantic Naming**: Use clear names (e.g., "brand-primary" not "color-1")
-5. **Accessibility**: Validate WCAG AA contrast using accessibility guidelines (4.5:1 text, 3:1 UI)
+5. **Accessibility**: Validate WCAG AA contrast using built-in AI knowledge (4.5:1 text, 3:1 UI)
 6. **OKLCH Format**: All colors use oklch(L C H / A) format
-7. **Design Philosophy**: Expand variant's design philosophy using trend insights
-8. **Trend Integration**: Incorporate modern trends from MCP research while maintaining variant identity
+7. **Design Philosophy**: Expand variant's design philosophy based on its attributes
+8. **Divergence Preservation**: Apply anti_keywords to prevent convergence with other variants
 
 ## Step 3: FILE WRITE OPERATIONS (CRITICAL)
 
 **EXECUTION MODEL**: For EACH variant (1 to {variants_count}):
-1. Perform MCP research
-2. Refine tokens
+1. Load design philosophy and attributes
+2. Refine tokens using philosophy-driven strategy
 3. **IMMEDIATELY Write() files - DO NOT accumulate, DO NOT return as text**
 
 ### Required Write Operations Per Variant
@@ -259,9 +253,9 @@ For variant {variant_id}, execute these Write() operations:
 ### Execution Checklist (Per Variant)
 
 For each variant from 1 to {variants_count}:
-- [ ] Extract variant data and design space keywords
-- [ ] Execute 4 MCP queries (colors, typography, layout, contrast)
-- [ ] Refine tokens using research + proposed_tokens
+- [ ] Extract variant's philosophy, design_attributes, and anti_keywords
+- [ ] Apply philosophy-driven refinement strategy to proposed_tokens
+- [ ] Generate complete token set following refinement rules
 - [ ] **EXECUTE**: `Write("{base_path}/style-consolidation/style-{variant_id}/design-tokens.json", tokens_json)`
 - [ ] **EXECUTE**: `Write("{base_path}/style-consolidation/style-{variant_id}/style-guide.md", guide_content)`
 - [ ] Verify both files written successfully
@@ -284,7 +278,7 @@ After completing all {variants_count} variants, report:
    - style-guide.md: 7.9 KB
 ... (for all variants)
 
-Summary: {variants_count} design systems generated with {total_mcp_queries} MCP queries
+Summary: {variants_count} design systems generated with philosophy-driven refinement (zero MCP calls)
 ```
 
 ## KEY REMINDERS (CRITICAL)
@@ -294,7 +288,8 @@ Summary: {variants_count} design systems generated with {total_mcp_queries} MCP 
 - Write files immediately after generating content for each variant
 - Verify each Write() operation succeeds before proceeding
 - Use exact paths provided: `{base_path}/style-consolidation/style-{variant_id}/...`
-- Execute MCP research independently for each variant
+- Apply philosophy-driven refinement strategy for each variant
+- Maintain variant divergence using design_attributes and anti_keywords
 - Report completion with file paths and sizes
 
 **NEVER:**
@@ -302,7 +297,7 @@ Summary: {variants_count} design systems generated with {total_mcp_queries} MCP 
 - Accumulate all content and try to output at once
 - Skip Write() operations and expect orchestrator to write files
 - Use relative paths or modify provided paths
-- Skip MCP research if design_space_analysis is provided
+- Use external research or MCP calls (pure AI refinement only)
 - Generate variant N+1 before completing variant N writes
 """
 
@@ -358,7 +353,7 @@ TodoWrite({todos: [
   {content: "Load session and style cards", status: "completed", activeForm: "Loading style cards"},
   {content: "Select variants for consolidation", status: "completed", activeForm: "Selecting variants"},
   {content: "Load design context and space analysis", status: "completed", activeForm: "Loading context"},
-  {content: "Perform variant-specific trend research", status: "completed", activeForm: "Researching design trends"},
+  {content: "Apply philosophy-driven refinement", status: "completed", activeForm: "Refining design tokens"},
   {content: "Generate design systems via agent", status: "completed", activeForm: "Generating design systems"},
   {content: "Process agent results and write files", status: "completed", activeForm: "Writing output files"}
 ]});
@@ -369,10 +364,11 @@ TodoWrite({todos: [
 ✅ Design system consolidation complete for session: {session_id}
 
 {IF design_space_analysis:
-🔍 Trend Research Performed:
-- {variants_count} × 4 variant-specific MCP queries ({variants_count * 4} total)
-- 1 shared accessibility research query
-- Each variant refined with independent trend guidance
+🎨 Philosophy-Driven Refinement:
+- {variants_count} design systems generated from AI-analyzed philosophies
+- Zero MCP calls (pure AI token refinement)
+- Divergence preserved from extraction phase design_attributes
+- Each variant maintains unique style identity via anti_keywords
 }
 
 Generated {variants_count} independent design systems:
@@ -428,22 +424,22 @@ Layout planning is now handled in the generate phase for each specific target.
 
 ## Key Features
 
-1. **Variant-Specific Trend Research** 🆕 - Agent performs independent MCP queries for each variant (4 queries per variant); Uses design space analysis keywords from extraction phase; Each variant researches its specific design philosophy; Shared accessibility research applied to all variants; Eliminates convergence by maintaining variant-specific research
-2. **Agent-Driven Architecture** - Uses ui-design-agent for multi-file generation and MCP research; Parallel generation of N independent design systems with external trend integration; Structured output parsing with labeled sections; Agent handles both research and synthesis
-3. **Separate Design Systems (Matrix-Ready)** - Generates N independent design systems (one per variant); Each variant maintains unique style identity enhanced by trend research; Provides style foundation for style × layout matrix exploration in generate phase
-4. **Token Refinement with Trend Integration** 🆕 - Reads `proposed_tokens` from style cards; Loads design space analysis for research parameters; Agent performs MCP trend research per variant; Refines tokens using research insights while maintaining style identity
-5. **Complete Design System Output** - design-tokens.json (CSS tokens per variant); style-guide.md (documentation per variant with trend insights)
-6. **Production-Ready Quality** - WCAG AA accessibility validation with MCP research; OKLCH color format for perceptual uniformity; Semantic token naming; Complete token coverage; Modern trends integration
-7. **Streamlined Workflow** - Sequential phases with clear responsibilities; Agent handles MCP research, token refinement, and file generation; Reproducible with deterministic structure; Context-aware (integrates brainstorming and design space analysis)
-8. **Clear Separation of Concerns** - Consolidation focuses on style systems with trend research; Extraction focuses on Claude-native analysis; Layout planning delegated to generate phase for target-specific optimization
+1. **Philosophy-Driven Refinement** - Pure AI token refinement based on design_space_analysis from extraction phase; Uses variant-specific philosophies and design_attributes as refinement rules; Preserves maximum contrast without external trend pollution; Zero MCP calls = faster execution + better divergence preservation
+2. **Agent-Driven Architecture** - Uses ui-design-agent for multi-file generation; Processes N variants with philosophy-guided synthesis; Structured output with deterministic token generation; Agent applies design attributes directly to token values
+3. **Separate Design Systems (Matrix-Ready)** - Generates N independent design systems (one per variant); Each variant maintains unique style identity from extraction phase; Provides style foundation for style × layout matrix exploration in generate phase
+4. **Token Refinement with AI Guidance** - Reads `proposed_tokens` from style cards; Loads design_space_analysis for philosophy and attributes; Applies attributes to token generation (saturation → chroma, density → spacing, etc.); Refines tokens while maintaining variant divergence through anti_keywords
+5. **Complete Design System Output** - design-tokens.json (CSS tokens per variant); style-guide.md (documentation per variant with philosophy explanation)
+6. **Production-Ready Quality** - WCAG AA accessibility validation using built-in AI knowledge (4.5:1 text, 3:1 UI); OKLCH color format for perceptual uniformity; Semantic token naming; Complete token coverage
+7. **Streamlined Workflow** - Sequential phases with clear responsibilities; Agent handles philosophy-driven token refinement and file generation; Reproducible with deterministic structure; Context-aware (integrates brainstorming and design space analysis); ~30-60s faster without MCP overhead
+8. **Divergence Preservation** - Strictly follows design_space_analysis constraints from extraction; Applies anti_keywords to prevent variant convergence; Maintains maximum variant contrast through attribute-driven generation; No external research = pure philosophical consistency
 
 ## Integration Points
 
 - **Input**:
   - `style-cards.json` from `/workflow:ui-design:extract` (with `proposed_tokens`)
-  - `design-space-analysis.json` from extraction phase (with search keywords for MCP research)
+  - `design-space-analysis.json` from extraction phase (with philosophy and design_attributes)
   - `--variants` parameter (default: all variants)
-- **Output**: Style Systems: `style-consolidation/style-{n}/design-tokens.json` and `style-guide.md` for each variant (enhanced with trend research)
+- **Output**: Style Systems: `style-consolidation/style-{n}/design-tokens.json` and `style-guide.md` for each variant (refined with philosophy-driven approach)
 - **Context**: Optional `synthesis-specification.md` or `ui-designer/analysis.md`
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:explore-auto` workflow
 - **Next Command**: `/workflow:ui-design:generate --style-variants N --targets "..." --layout-variants M` performs target-specific layout planning

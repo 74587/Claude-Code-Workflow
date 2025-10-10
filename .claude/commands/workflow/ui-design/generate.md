@@ -211,33 +211,63 @@ FOR target IN target_list:
 REPORT: f"✅ Phase 1.5 complete: Verified {len(target_list) × layout_variants} target-specific layout files"
 ```
 
-### Phase 1.6: Token Variable Name Extraction
+### Phase 1.6: Convert Design Tokens to CSS
 
 ```bash
-REPORT: "📋 Extracting design token variable names..."
-tokens_json_path = "{base_path}/style-consolidation/style-1/design-tokens.json"
-VERIFY: exists(tokens_json_path), "Design tokens not found. Run /workflow:ui-design:consolidate first."
+REPORT: "🎨 Converting design tokens to CSS variables..."
 
-design_tokens = Read(tokens_json_path)
+# Check for jq dependency
+IF NOT command_exists("jq"):
+    ERROR: "jq is not installed or not in PATH. The conversion script requires jq."
+    REPORT: "Please install jq: macOS: brew install jq | Linux: apt-get install jq | Windows: https://stedolan.github.io/jq/download/"
+    EXIT 1
 
-# Extract all available token categories and variable names
-token_reference = {
-  "colors": {"brand": list(keys), "surface": list(keys), "semantic": list(keys), "text": list(keys), "border": list(keys)},
-  "typography": {"font_family": list(keys), "font_size": list(keys), "font_weight": list(keys), "line_height": list(keys), "letter_spacing": list(keys)},
-  "spacing": list(keys), "border_radius": list(keys), "shadows": list(keys), "breakpoints": list(keys)
-}
+# Convert design tokens to CSS for each style variant
+FOR style_id IN range(1, style_variants + 1):
+    tokens_json_path = "{base_path}/style-consolidation/style-${style_id}/design-tokens.json"
+    tokens_css_path = "{base_path}/style-consolidation/style-${style_id}/tokens.css"
+    script_path = "~/.claude/scripts/convert_tokens_to_css.sh"
 
-# Generate complete variable name lists for Agent prompt
-color_vars = []; FOR category, keys: FOR key: color_vars.append(f"--color-{category}-{key}")
-typography_vars = []; FOR category, keys: FOR key: typography_vars.append(f"--{category.replace('_', '-')}-{key}")
-spacing_vars = [f"--spacing-{key}" for key in token_reference.spacing]
-radius_vars = [f"--border-radius-{key}" for key in token_reference.border_radius]
-shadow_vars = [f"--shadow-{key}" for key in token_reference.shadows]
-breakpoint_vars = [f"--breakpoint-{key}" for key in token_reference.breakpoints]
+    # Verify input file exists
+    VERIFY: exists(tokens_json_path), f"Design tokens not found for style-{style_id}"
 
-all_token_vars = color_vars + typography_vars + spacing_vars + radius_vars + shadow_vars + breakpoint_vars
+    # Execute conversion: cat input.json | script.sh > output.css
+    Bash(cat "${tokens_json_path}" | "${script_path}" > "${tokens_css_path}")
 
-REPORT: f"✅ Extracted {len(all_token_vars)} design token variables from design-tokens.json"
+    # Verify output was generated
+    IF exit_code == 0 AND exists(tokens_css_path):
+        file_size = get_file_size(tokens_css_path)
+        REPORT: f"   ✓ Generated tokens.css for style-{style_id} ({file_size} KB)"
+    ELSE:
+        ERROR: f"Failed to generate tokens.css for style-{style_id}"
+        EXIT 1
+
+REPORT: f"✅ Phase 1.6 complete: Converted {style_variants} design token files to CSS"
+```
+
+### Phase 1.7: Extract Token Variable Names from CSS
+
+```bash
+REPORT: "📋 Extracting actual CSS variable names from tokens.css..."
+tokens_css_path = "{base_path}/style-consolidation/style-1/tokens.css"
+VERIFY: exists(tokens_css_path), "tokens.css not found. Phase 1.6 may have failed."
+
+tokens_css_content = Read(tokens_css_path)
+
+# Extract all CSS variable names from the generated file
+# Pattern: --variable-name: value;
+all_token_vars = extract_css_variables(tokens_css_content)  # Regex: r'--([a-z0-9-_]+):'
+
+# Categorize variables for better Agent understanding
+color_vars = [v for v in all_token_vars if v.startswith('--color-')]
+typography_vars = [v for v in all_token_vars if v.startswith(('--font-', '--line-height-', '--letter-spacing-'))]
+spacing_vars = [v for v in all_token_vars if v.startswith('--spacing-')]
+radius_vars = [v for v in all_token_vars if v.startswith('--border-radius-')]
+shadow_vars = [v for v in all_token_vars if v.startswith('--shadow-')]
+breakpoint_vars = [v for v in all_token_vars if v.startswith('--breakpoint-')]
+
+REPORT: f"✅ Extracted {len(all_token_vars)} actual CSS variables from tokens.css"
+REPORT: f"   Colors: {len(color_vars)} | Typography: {len(typography_vars)} | Spacing: {len(spacing_vars)}"
 ```
 
 ### Phase 2: Optimized Matrix UI Generation
@@ -290,16 +320,36 @@ FOR layout_id IN range(1, layout_variants + 1):
             <link rel=\"stylesheet\" href=\"{{STRUCTURAL_CSS}}\">
             <link rel=\"stylesheet\" href=\"{{TOKEN_CSS}}\">
 
-          ## CSS Requirements
-          - Token-driven: ALL values use var() (zero hardcoded values)
+          ## CSS Requirements - TOKEN REFERENCE (CRITICAL)
+
+          **STEP 1: Read the actual tokens.css file FIRST**
+          Read(\"{base_path}/style-consolidation/style-1/tokens.css\")
+
+          **STEP 2: Extract ALL CSS variable names**
+          - Pattern: Lines starting with \"  --\" inside \":root {}\"
+          - Example: \"  --color-brand-primary: oklch(...)\" → use \"--color-brand-primary\"
+
+          **STEP 3: Use ONLY variables that exist in tokens.css**
+          - ✅ DO: Copy exact variable names from tokens.css
+          - ✅ DO: Use var(--exact-name-from-file)
+          - ❌ DON'T: Invent or guess variable names
+          - ❌ DON'T: Use hardcoded values (colors, fonts, spacing)
+
+          **Available Token Categories** (extracted from actual file):
+          - Colors: {', '.join(color_vars[:5])}... ({len(color_vars)} total)
+          - Typography: {', '.join(typography_vars[:5])}... ({len(typography_vars)} total)
+          - Spacing: {', '.join(spacing_vars[:5])}... ({len(spacing_vars)} total)
+          - Radius: {', '.join(radius_vars[:3])}... ({len(radius_vars)} total)
+          - Shadows: {', '.join(shadow_vars)}
+
+          **Example Workflow**:
+          1. Read tokens.css → find \"--color-brand-primary: oklch(0.55 0.12 45);\"
+          2. Use in CSS → \"background: var(--color-brand-primary);\"
+
+          **CSS Rules**:
+          - Token-driven: ALL stylistic values use var() (zero hardcoded values)
           - Mobile-first responsive design
-          - Available tokens ({len(all_token_vars)} variables):
-            * Colors: --color-brand-primary, --color-surface-background, --color-text-primary, ...
-            * Typography: --font-family-heading, --font-size-base, --font-weight-bold, ...
-            * Spacing: --spacing-0 through --spacing-24
-            * Radius: --border-radius-none, --border-radius-sm, ..., --border-radius-full
-            * Shadows: --shadow-sm, --shadow-md, --shadow-lg, --shadow-xl
-            * Breakpoints: --breakpoint-sm, --breakpoint-md, --breakpoint-lg
+          - Structural layout only (Flexbox, Grid, positioning)
 
           ## Write Operations
           Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.html\", html_content)
@@ -355,35 +405,16 @@ REPORT: "✅ Phase 2a.5 complete: Verified {layout_variants * len(target_list) *
 ```bash
 REPORT: "🚀 Phase 2b: Instantiating prototypes from templates..."
 
-# Step 1: Convert design tokens to CSS for each style
-REPORT: "   Converting design tokens to CSS variables..."
-
-# Check for jq dependency
-IF NOT command_exists("jq"):
-    ERROR: "jq is not installed or not in PATH. The conversion script requires jq."
-    REPORT: "Please install jq: macOS: brew install jq | Linux: apt-get install jq | Windows: https://stedolan.github.io/jq/download/"
-    EXIT 1
-
-# Convert design tokens to CSS for each style variant
+# Verify tokens.css files exist (should be created in Phase 1.6)
 FOR style_id IN range(1, style_variants + 1):
-    tokens_json_path = "{base_path}/style-consolidation/style-${style_id}/design-tokens.json"
     tokens_css_path = "{base_path}/style-consolidation/style-${style_id}/tokens.css"
-    script_path = "~/.claude/scripts/convert_tokens_to_css.sh"
+    VERIFY: exists(tokens_css_path), f"tokens.css missing for style-{style_id}. Phase 1.6 may have failed."
 
-    # Verify input file exists
-    IF NOT exists(tokens_json_path): REPORT: "   ✗ ERROR: Input file not found"; CONTINUE
+REPORT: "   ✓ Verified {style_variants} tokens.css files exist"
 
-    # Execute conversion: cat input.json | script.sh > output.css
-    Bash(cat "${tokens_json_path}" | "${script_path}" > "${tokens_css_path}")
-
-    # Verify output was generated
-    IF exit_code == 0 AND exists(tokens_css_path):
-        REPORT: "   ✓ Generated tokens.css for style-${style_id}"
-    ELSE:
-        REPORT: "   ✗ ERROR: Failed to generate tokens.css for style-${style_id}"
-
-# Step 2: Use ui-instantiate-prototypes.sh script for instantiation
-prototypes_dir = "{base_path}/prototypes"; targets_csv = ','.join(target_list)
+# Use ui-instantiate-prototypes.sh script for instantiation
+prototypes_dir = "{base_path}/prototypes"
+targets_csv = ','.join(target_list)
 session_id = --session provided ? {session_id} : "standalone"
 
 # Execute instantiation script with target type
@@ -475,9 +506,9 @@ Run `/workflow:ui-design:update` once all issues are resolved.
 TodoWrite({todos: [
   {content: "Resolve paths and load design systems", status: "completed", activeForm: "Loading design systems"},
   {content: `Plan ${target_list.length}×${layout_variants} target-specific layouts`, status: "completed", activeForm: "Planning layouts"},
-  {content: "Extract design token variable names", status: "completed", activeForm: "Extracting token variables"},
-  {content: `Generate ${layout_variants}×${target_list.length} layout templates using target-specific plans`, status: "completed", activeForm: "Generating templates"},
-  {content: "Convert design tokens to CSS variables", status: "completed", activeForm: "Converting tokens"},
+  {content: `Convert ${style_variants} design token files to CSS`, status: "completed", activeForm: "Converting tokens to CSS"},
+  {content: "Extract CSS variable names from tokens.css", status: "completed", activeForm: "Extracting variable names"},
+  {content: `Generate ${layout_variants}×${target_list.length} layout templates (agent reads tokens.css)`, status: "completed", activeForm: "Generating templates"},
   {content: `Instantiate ${style_variants}×${layout_variants}×${target_list.length} prototypes using script`, status: "completed", activeForm: "Running script"},
   {content: "Verify preview files generation", status: "completed", activeForm: "Verifying files"}
 ]});
