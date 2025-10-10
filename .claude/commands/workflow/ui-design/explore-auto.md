@@ -202,7 +202,7 @@ detect_target_type(target_list):
 command = "/workflow:ui-design:extract --base-path \"{base_path}\" " +
           (--images ? "--images \"{images}\" " : "") +
           (--prompt ? "--prompt \"{prompt}\" " : "") +
-          "--variants {style_variants}"
+          "--variants {style_variants} --mode explore"
 SlashCommand(command)  # → Phase 2
 ```
 
@@ -222,7 +222,7 @@ command = "/workflow:ui-design:generate --base-path \"{base_path}\" " +
           "--style-variants {style_variants} --layout-variants {layout_variants}"
 
 total = style_variants × layout_variants × len(inferred_target_list)
-REPORT: "🚀 Phase 3: {type_icon} {targets_string} | Matrix: {s}×{l} | Total: {total} prototypes"
+REPORT: "🚀 Phase 3: {type_icon} {targets_string} | Matrix: {s}×{l}×{n} = {total} prototypes"
 REPORT: "   → Layout planning: {len(inferred_target_list)}×{layout_variants} target-specific layouts"
 
 SlashCommand(command)  # → Phase 4
@@ -300,7 +300,7 @@ TodoWrite({todos: [
 ✅ UI Design Explore-Auto Workflow Complete!
 
 Run ID: {run_id} | Session: {session_id or "standalone"}
-Type: {icon} {target_type} | Matrix: {s}×{l} ({total} prototypes)
+Type: {icon} {target_type} | Matrix: {s}×{l}×{n} = {total} prototypes
 
 Phase 1: {s} style variants (extract)
 Phase 2: {s} design systems (consolidate)

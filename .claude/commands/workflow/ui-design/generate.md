@@ -44,7 +44,7 @@ Generate production-ready UI prototypes (HTML/CSS) in `style × layout` matrix m
 - **Token-Driven**: All styles reference per-style design-tokens.json; no hardcoded values
 - **Production-Ready**: Semantic HTML5, ARIA attributes, responsive design
 - **Template-Based**: Decouples HTML structure from CSS styling for optimal performance
-- **Adaptive Wrapper**: Full-page structure for pages, minimal wrapper for components
+- **Adaptive Wrapper**: All templates use complete HTML5 documents; body content adapts (full page structure for pages, isolated component for components)
 
 ## Execution Protocol
 
@@ -283,7 +283,9 @@ FOR layout_id IN range(1, layout_variants + 1):
 
           ## HTML Requirements
           - Semantic HTML5 + ARIA attributes
-          - Wrapper: {IF page: Full document (header/nav/main/footer) | IF component: Minimal container}
+          - Wrapper: Always generate a complete HTML5 document (<!DOCTYPE html>, <html>, <head>, <body>)
+            * IF page: <body> contains full page structure (header, nav, main, footer)
+            * IF component: <body> contains only the component in a simple presentation wrapper
           - ⚠️ CRITICAL: Include CSS placeholders in <head>:
             <link rel=\"stylesheet\" href=\"{{STRUCTURAL_CSS}}\">
             <link rel=\"stylesheet\" href=\"{{TOKEN_CSS}}\">
@@ -335,7 +337,7 @@ FOR layout_id IN range(1, layout_variants + 1):
             # Basic validation checks
             VALIDATE: len(html_content) > 100, f"HTML template too short: {html_label}"
             VALIDATE: len(css_content) > 50, f"CSS template too short: {css_label}"
-            VALIDATE: "<!DOCTYPE html>" in html_content OR "<div" in html_content, f"Invalid HTML structure: {html_label}"
+            VALIDATE: "<!DOCTYPE html>" in html_content, f"Invalid HTML structure: {html_label}"
             VALIDATE: "var(--" in css_content, f"Missing CSS variables: {css_label}"
 
             html_size = get_file_size(html_path)
@@ -517,7 +519,7 @@ Generated Structure:
 2. Quick Index: Open index.html
 3. Instructions: See PREVIEW.md
 
-{IF target_type == "component": Note: Components are rendered with minimal wrapper for isolated comparison.}
+{IF target_type == "component": Note: Components use complete HTML5 documents with isolated body content for better comparison and styling.}
 
 Next: /workflow:ui-design:update {--session flag if applicable}
 
@@ -581,7 +583,7 @@ After generation, ensure:
 - [ ] File naming follows `{target}-style-{s}-layout-{l}` convention
 - [ ] compare.html loads correctly with all prototypes
 - [ ] Template files are reusable and style-agnostic
-- [ ] Appropriate wrapper used (full-page for pages, minimal for components)
+- [ ] All templates use complete HTML5 documents with appropriate body content (full structure for pages, isolated component for components)
 
 ## Key Features
 

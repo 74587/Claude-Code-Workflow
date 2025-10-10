@@ -233,10 +233,10 @@ url_flag = screenshot_mode == "url_only" ? "--url \"{url_value}\"" : ""
 # Construct optimized extraction prompt
 enhanced_prompt = "Extract a single, high-fidelity design system that accurately imitates the visual style from {source_desc}. {prompt_text}"
 
-# Force single variant
-command = "/workflow:ui-design:extract --base-path \"{base_path}\" {url_flag} {images_flag} --prompt \"{enhanced_prompt}\" --variants 1"
+# Force single variant with imitate mode
+command = "/workflow:ui-design:extract --base-path \"{base_path}\" {url_flag} {images_flag} --prompt \"{enhanced_prompt}\" --mode imitate"
 
-REPORT: "🚀 Phase 1: Style Extraction | Source: {source_desc} | Mode: Single style (imitation-optimized)"
+REPORT: "🚀 Phase 1: Style Extraction | Source: {source_desc} | Mode: imitate (high-fidelity)"
 
 SlashCommand(command)  # → Phase 2
 ```

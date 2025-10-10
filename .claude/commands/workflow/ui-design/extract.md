@@ -4,6 +4,11 @@ description: Extract design style from reference images or text prompts using Cl
 usage: /workflow:ui-design:extract [--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>]
 argument-hint: "[--base-path \".workflow/WFS-xxx/design-run-xxx\"] [--session WFS-xxx] [--images \"refs/*.png\"] [--prompt \"Modern minimalist\"] [--variants 3]"
 parameters:
+  - name: --mode
+    type: string
+    enum: [imitate, explore, auto]
+    default: auto
+    description: "Extraction mode: 'imitate' (high-fidelity single style, skip divergence), 'explore' (multi-variant with contrast analysis), 'auto' (detect from --variants: 1=imitate, 2+=explore)"
   - name: --variants
     type: number
     default: 1
@@ -85,14 +90,29 @@ CREATE: {base_path}/style-extraction/
 ### Phase 0.5: AI-Driven Design Space Divergence
 
 ```bash
-# Step 1: Load project context
+# Determine extraction mode
+extraction_mode = --mode OR "auto"
+IF extraction_mode == "auto":
+    extraction_mode = (variants_count == 1) ? "imitate" : "explore"
+    REPORT: "🔍 Auto-detected mode: {extraction_mode} (variants_count={variants_count})"
+
+# Skip divergence analysis for imitate mode
+IF extraction_mode == "imitate":
+    REPORT: "🎯 IMITATE MODE: High-fidelity single style extraction"
+    REPORT: "   → Skipping design space divergence analysis"
+    REPORT: "   → Proceeding to Phase 2 for direct style synthesis"
+    design_space_analysis = null
+    # Skip to Phase 2
+    GOTO Phase 2
+
+# Step 1: Load project context (explore mode only)
 project_context = ""
 IF exists({base_path}/.brainstorming/synthesis-specification.md):
     project_context = Read(synthesis-specification.md)
 ELSE IF exists({base_path}/.brainstorming/ui-designer/analysis.md):
     project_context = Read(ui-designer/analysis.md)
 
-REPORT: "🎨 Analyzing design space to generate maximally contrasting directions..."
+REPORT: "🎨 EXPLORE MODE: Analyzing design space to generate maximally contrasting directions..."
 
 # Step 2: AI-driven divergent direction generation
 divergence_prompt = """
@@ -154,12 +174,13 @@ REPORT: "💾 Saved design space analysis to design-space-analysis.json"
 
 **Analysis Prompt Template**:
 ```
-Generate {variants_count} design style proposals, each guided by its pre-analyzed design direction.
+Generate {variants_count} design style proposals{IF extraction_mode == "explore": , each guided by its pre-analyzed design direction}.
 
 INPUT MODE: {input_mode}
 {IF input_mode IN ["image", "hybrid"]: VISUAL REFERENCES: {list of loaded images}}
 {IF input_mode IN ["text", "hybrid"]: TEXT GUIDANCE: "{prompt_guidance}"}
 
+{IF extraction_mode == "explore":
 DESIGN SPACE ANALYSIS: {design_space_analysis summary}
 
 VARIANT-SPECIFIC DESIGN DIRECTIONS:
@@ -171,20 +192,29 @@ SEARCH KEYWORDS: {direction.search_keywords}
 ANTI-PATTERNS (avoid): {direction.anti_keywords}
 RATIONALE: {direction.rationale}
 ---}
+}
 
-TASK: Generate {variants_count} design style variants where EACH variant:
+TASK: Generate {variants_count} design style variant{IF variants_count > 1: s} where {IF extraction_mode == "explore": EACH variant}:
+{IF extraction_mode == "explore":
 1. Strictly follows its pre-defined design philosophy and attributes
 2. Maintains maximum contrast with other variants' attributes
 3. Incorporates its design direction and avoids its anti-patterns
+}
+{IF extraction_mode == "imitate":
+1. Provides high-fidelity replication of reference design
+2. Focuses on accurate extraction of visual characteristics
+}
 4. Uses OKLCH color space for all color values
 5. Includes complete, production-ready design token proposals
 6. Applies WCAG AA accessibility guidelines (4.5:1 text, 3:1 UI)
 
+{IF extraction_mode == "explore":
 CRITICAL RULES FOR CONTRAST:
 - Variant-1 should feel completely different from Variant-2/3
 - Use each variant's specific attribute scores (e.g., "monochrome" vs "vibrant")
 - Each variant should embody its unique design direction
 - If Variant-1 is "minimal/geometric", Variant-2 must be "bold/organic" or similar contrast
+}
 
 OUTPUT FORMAT: JSON matching this structure:
 {"extraction_metadata": {"session_id": "...", "input_mode": "...", "timestamp": "...", "variants_count": N},
@@ -203,7 +233,8 @@ OUTPUT FORMAT: JSON matching this structure:
    // Repeat for ALL {variants_count} variants
  ]}
 
-RULES: Each variant must strictly adhere to pre-defined attributes; maximize visual contrast;
+RULES: {IF extraction_mode == "explore": Each variant must strictly adhere to pre-defined attributes; maximize visual contrast;}
+{IF extraction_mode == "imitate": Focus on high-fidelity replication;}
 all colors in OKLCH format; complete token structures; semantic naming;
 WCAG AA accessibility (4.5:1 text, 3:1 UI)
 ```
@@ -220,10 +251,10 @@ Write({file_path: "{base_path}/style-extraction/style-cards.json", content: styl
 ```javascript
 TodoWrite({todos: [
   {content: "Validate inputs and create directories", status: "completed", activeForm: "Validating inputs"},
-  {content: "Analyze design space for maximum contrast", status: "completed", activeForm: "Analyzing design space"},
-  {content: `Generate ${variants_count} divergent design directions`, status: "completed", activeForm: "Generating directions"},
-  {content: "Save design space analysis for consolidation", status: "completed", activeForm: "Saving design space analysis"},
-  {content: `Generate ${variants_count} contrasting style variants`, status: "completed", activeForm: "Generating variants"}
+  {content: extraction_mode == "explore" ? "Analyze design space for maximum contrast" : "Skip design space analysis (imitate mode)", status: "completed", activeForm: extraction_mode == "explore" ? "Analyzing design space" : "Skipping analysis"},
+  {content: extraction_mode == "explore" ? `Generate ${variants_count} divergent design directions` : "Prepare for high-fidelity extraction", status: "completed", activeForm: extraction_mode == "explore" ? "Generating directions" : "Preparing extraction"},
+  {content: extraction_mode == "explore" ? "Save design space analysis for consolidation" : "Skip design space output", status: "completed", activeForm: extraction_mode == "explore" ? "Saving design space analysis" : "Skipping output"},
+  {content: `Generate ${variants_count} ${extraction_mode == "explore" ? "contrasting" : "high-fidelity"} style variant${variants_count > 1 ? "s" : ""}`, status: "completed", activeForm: "Generating variants"}
 ]});
 ```
 
@@ -231,25 +262,33 @@ TodoWrite({todos: [
 ```
 ✅ Style extraction complete for session: {session_id}
 
+Mode: {extraction_mode == "imitate" ? "🎯 IMITATE (high-fidelity)" : "🎨 EXPLORE (contrast analysis)"}
 Input mode: {input_mode}
 {IF image mode: Images analyzed: {count}}
 {IF prompt mode: Prompt: "{truncated_prompt}"}
 
+{IF extraction_mode == "explore":
 🎨 Design Space Analysis:
 - Generated {variants_count} MAXIMALLY CONTRASTING design directions
 - Min pairwise contrast distance: {design_space_analysis.contrast_verification.min_pairwise_distance}
 - Strategy: {design_space_analysis.contrast_verification.strategy}
+}
+{IF extraction_mode == "imitate":
+🎯 Imitation Mode:
+- High-fidelity single style extraction
+- Design space divergence skipped for faster execution
+}
 
-Generated {variants_count} style variant(s):
+Generated {variants_count} style variant{variants_count > 1 ? "s" : ""}:
 {FOR each card: - {card.name} ({card.id}) - {card.design_philosophy}}
 
 📂 Outputs:
 - {base_path}/style-extraction/style-cards.json
-- {base_path}/style-extraction/design-space-analysis.json
+{IF extraction_mode == "explore": - {base_path}/style-extraction/design-space-analysis.json}
 
 Next: /workflow:ui-design:consolidate --session {session_id} --variants {variants_count} [--layout-variants <count>]
 
-Note: When called from /workflow:ui-design:auto, consolidation is triggered automatically.
+Note: When called from /workflow:ui-design:{extraction_mode == "imitate" ? "imitate" : "explore"}-auto, consolidation is triggered automatically.
 ```
 
 ## Output Structure
@@ -257,13 +296,13 @@ Note: When called from /workflow:ui-design:auto, consolidation is triggered auto
 ```
 .workflow/WFS-{session}/design-{run_id}/style-extraction/
 ├── style-cards.json              # Complete style variants with token proposals
-└── design-space-analysis.json    # Design directions for consolidation phase
+└── design-space-analysis.json    # Design directions (explore mode only)
 
 OR (standalone mode):
 
 .workflow/.design/{run_id}/style-extraction/
 ├── style-cards.json
-└── design-space-analysis.json
+└── design-space-analysis.json    # Only in explore mode
 ```
 
 ### style-cards.json Format
