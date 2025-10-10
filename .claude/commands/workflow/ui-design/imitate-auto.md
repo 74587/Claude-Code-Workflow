@@ -31,6 +31,16 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 **Ideal For**: MVP development, high-fidelity prototyping, design replication, studying successful patterns
 
+## Key Features
+
+- **Fast-Track Imitation**: ~2-3× faster than explore-auto by bypassing consolidation phase
+- **Reference-Driven**: Requires URL or images as primary design source for accurate replication
+- **Auto-Screenshot Capability**: Intelligent fallback (Playwright → Chrome → Manual upload) for URL-based workflows
+- **Single-Style Focus**: Always generates 1 style × 1 layout × N targets for streamlined execution
+- **Consolidation Bypass**: Direct design token extraction saves 30-60s per workflow
+- **Interactive Confirmation**: User validates inferred targets before execution to prevent mistakes
+- **Flexible Target Types**: Supports both full-page layouts and isolated UI components
+
 ## Core Rules
 
 1. **Start Immediately**: TodoWrite initialization → Phase 0 execution
@@ -41,13 +51,45 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 ## Parameter Requirements
 
-**Required** (at least one): `--url "<url>"` OR `--images "<glob>"`
+**Required Parameters** (at least one must be provided):
+- `--url "<url>"`: Reference website URL for style imitation (supports auto-screenshot)
+- `--images "<glob>"`: Reference image paths (e.g., `refs/*.png`, `design-refs/*.jpg`)
 
-**Optional**: `--targets "<list>"`, `--target-type "page|component"`, `--session <id>`, `--prompt "<desc>"`
+**Optional Parameters** (all have smart defaults):
+- `--targets "<list>"`: Comma-separated targets (pages/components) to generate
+  - Examples: `"home,dashboard"`, `"navbar,hero,card"`
+  - If omitted: inferred from `--prompt` or defaults to `["home"]`
+- `--target-type "page|component"`: Explicitly set target type
+  - `page`: Full-page layouts with complete structure
+  - `component`: Isolated UI elements with minimal wrapper
+  - Default: intelligent detection based on target names
+- `--session <id>`: Workflow session ID (e.g., `WFS-ecommerce`)
+  - If provided: integrates with session brainstorming artifacts
+  - If omitted: runs in standalone mode
+- `--prompt "<description>"`: Design guidance and target hints
+  - Used for target inference and style extraction refinement
+  - Examples: `"Imitate dark mode for dashboard"`, `"Focus on minimalist design"`
 
-**Legacy**: `--pages "<list>"` (alias for `--targets` with type=page)
+**Legacy Parameters** (maintained for backward compatibility):
+- `--pages "<list>"`: Alias for `--targets` with `--target-type page`
 
-**Not Supported**: `--style-variants`, `--layout-variants`, `--batch-plan`
+**Not Supported** (use `/workflow:ui-design:explore-auto` instead):
+- `--style-variants`, `--layout-variants`, `--batch-plan`
+
+**Input Rules**:
+- Must provide at least one: `--url` OR `--images`
+- Multiple parameters can be combined for guided imitation
+- If `--targets` not provided, intelligently inferred from prompt or defaults to `["home"]`
+- URL and images can be used together (screenshot + additional references)
+
+**Supported Target Types**:
+- **Pages** (full layouts): home, dashboard, settings, profile, login, pricing, etc.
+- **Components** (UI elements):
+  - Navigation: navbar, header, menu, sidebar, tabs
+  - Content: hero, card, list, table, gallery
+  - Input: form, search, filter, button
+  - Feedback: modal, alert, toast, badge
+  - Other: footer, dropdown, avatar, pagination
 
 ## 5-Phase Execution
 
@@ -90,10 +132,43 @@ IF NOT validated_targets: validated_targets = ["home"]; target_type = "page"
 type_emoji = "📄" IF target_type == "page" ELSE "🧩"
 type_label = "pages" IF target_type == "page" ELSE "components"
 
-REPORT: "📋 Imitate mode: {len(validated_targets)} {type_label} with single style"
+# Interactive confirmation
+DISPLAY_CONFIRMATION(target_type, target_source, validated_targets):
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  "⚡ IMITATE MODE CONFIRMATION"
+  "Type: {target_type} | Source: {target_source}"
+  "Targets ({count}): {', '.join(validated_targets)}"
+  "Reference: {url_value OR images_pattern}"
+  "Options: 'continue/yes' | 'targets: a,b' | 'skip: x' | 'add: y' | 'type: page|component'"
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+user_input = WAIT_FOR_USER_INPUT()
+
+# Process user modifications
+MATCH user_input:
+  "continue|yes|ok" → proceed
+  "targets: ..." → validated_targets = parse_new_list()
+  "skip: ..." → validated_targets = remove_items()
+  "add: ..." → validated_targets = add_items()
+  "type: ..." → target_type = extract_type()
+  default → proceed with current list
+
+REPORT: "✅ Confirmed: {len(validated_targets)} {type_label} with single style"
 REPORT: "   {type_emoji} Targets: {', '.join(validated_targets)} | Type: {target_type} | Reference: {url_value OR images_pattern}"
 
 STORE: run_id, base_path, inferred_target_list = validated_targets, target_type
+```
+
+**Helper Function: detect_target_type()**
+```bash
+detect_target_type(target_list):
+    page_keywords = ["home", "dashboard", "settings", "profile", "login", "signup", "auth", "pricing", "about", "contact", ...]
+    component_keywords = ["navbar", "header", "footer", "hero", "card", "button", "form", "modal", "alert", "dropdown", ...]
+
+    page_matches = count_matches(target_list, page_keywords + ["page", "screen", "view"])
+    component_matches = count_matches(target_list, component_keywords + ["component", "widget", "element"])
+
+    RETURN "component" IF component_matches > page_matches ELSE "page"
 ```
 
 ### Phase 0.5: URL Screenshot Capture (Auto-Fallback)
@@ -163,7 +238,7 @@ command = "/workflow:ui-design:extract --base-path \"{base_path}\" {url_flag} {i
 
 REPORT: "🚀 Phase 1: Style Extraction | Source: {source_desc} | Mode: Single style (imitation-optimized)"
 
-SlashCommand(command)
+SlashCommand(command)  # → Phase 2
 ```
 
 ### Phase 2: Fast Token Adaptation (Bypass Consolidate)
@@ -217,18 +292,19 @@ command = "/workflow:ui-design:generate --base-path \"{base_path}\" --targets \"
 REPORT: "🚀 Phase 3: Generating {len(inferred_target_list)} {type_label}"
 REPORT: "   {type_emoji} Targets: {targets_string} | Mode: 1×1 (imitation-optimized)"
 
-SlashCommand(command)
+SlashCommand(command)  # → Phase 4
 
-# Result: Prototypes: {target}-style-1-layout-1.html, Total: len(inferred_target_list), Type: {target_type}
+# Output: Prototypes: {target}-style-1-layout-1.html, Total: len(inferred_target_list), Type: {target_type}
 ```
 
 ### Phase 4: Design System Integration
 
 ```bash
 IF --session:
-    SlashCommand("/workflow:ui-design:update --session {session_id}")
+    SlashCommand("/workflow:ui-design:update --session {session_id}")  # → Complete
 ELSE:
     REPORT: "ℹ️ Standalone mode: Skipping integration | Prototypes at: {base_path}/prototypes/"
+    # → Complete (standalone)
 ```
 
 ## TodoWrite Pattern
@@ -301,7 +377,7 @@ TodoWrite({todos: [
 # Continues: 1 → 2 → 3 → 4
 ```
 
-## Final Completion Message
+## Completion Output
 
 ```
 ✅ UI Design Imitation Complete!

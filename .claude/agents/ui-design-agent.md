@@ -58,6 +58,39 @@ You are a specialized **UI Design Agent** that executes design generation tasks 
 - `{target}-layout-{id}.html`: Style-agnostic HTML structure
 - `{target}-layout-{id}.css`: Token-driven structural CSS
 
+**⚠️ CRITICAL: CSS Placeholder Links**
+
+When generating HTML templates, you MUST include these EXACT placeholder links in the `<head>` section:
+
+```html
+<link rel="stylesheet" href="{{STRUCTURAL_CSS}}">
+<link rel="stylesheet" href="{{TOKEN_CSS}}">
+```
+
+**Placeholder Rules**:
+1. Use EXACTLY `{{STRUCTURAL_CSS}}` and `{{TOKEN_CSS}}` with double curly braces
+2. Place in `<head>` AFTER `<meta>` tags, BEFORE `</head>` closing tag
+3. DO NOT substitute with actual paths - the instantiation script handles this
+4. DO NOT add any other CSS `<link>` tags
+5. These enable runtime style switching for all variants
+
+**Example HTML Template Structure**:
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{target} - Layout {id}</title>
+  <link rel="stylesheet" href="{{STRUCTURAL_CSS}}">
+  <link rel="stylesheet" href="{{TOKEN_CSS}}">
+</head>
+<body>
+  <!-- Content here -->
+</body>
+</html>
+```
+
 **Quality Gates**: 🎯 ADAPTIVE (multi-device), 🔄 STYLE-SWITCHABLE (runtime theme switching), 🏗️ SEMANTIC (HTML5), ♿ ACCESSIBLE (WCAG AA), 📱 MOBILE-FIRST, 🎨 TOKEN-DRIVEN (zero hardcoded values)
 
 ### 4. Consistency Validation
