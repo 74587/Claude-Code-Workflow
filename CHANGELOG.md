@@ -5,6 +5,144 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2025-10-10
+
+### 🎨 UI Design Workflow V2 - Self-Contained CSS Architecture
+
+This release introduces a major architectural improvement to the UI Design Workflow, removing the placeholder mechanism and enabling agents to generate fully self-contained CSS files directly from design tokens.
+
+#### Changed
+
+**UI Design Workflow V2 Commands**:
+- **`/workflow:ui-design:generate-v2`**: Enhanced prototype generation with self-contained CSS
+  - Agents now read `design-tokens.json` and generate independent CSS files
+  - CSS contains direct token values (e.g., `#3b82f6`) instead of `var()` references
+  - HTML files reference CSS directly: `<link rel="stylesheet" href="page-style-1-layout-2.css">`
+  - No more placeholder mechanism or post-processing steps
+
+- **`/workflow:ui-design:explore-auto-v2`**: Updated to use new generation architecture
+  - Automatic coordination with `generate-v2` command
+  - Streamlined workflow without placeholder replacement
+
+**Removed Dependencies**:
+- ❌ **No more `tokens.css`**: Eliminated intermediate CSS variable files
+- ❌ **No more Phase 1.6**: Removed token-to-CSS conversion step
+- ❌ **No more placeholder replacement**: Scripts no longer process `{{STYLE_CSS}}` placeholders
+
+**Agent Instructions Enhanced**:
+- Agents receive `design-tokens.json` as primary design system reference
+- Direct CSS generation instructions with token value extraction guidance
+- Better adaptation to `design_attributes` (density, visual_weight, formality, etc.)
+- Example instruction: "Use color values for backgrounds, typography values for fonts"
+
+**Script Simplification** (`ui-generate-preview-v2.sh`):
+- Removed placeholder replacement logic (32 lines removed)
+- Focus solely on preview file generation (compare.html, index.html, PREVIEW.md)
+- Cleaner, more focused responsibility
+
+#### Improved
+
+**Style Differentiation**:
+- 🎨 **Better Style Diversity**: Agents can now freely adapt token values based on design philosophy
+- 🎯 **Stronger Visual Identity**: Each style variant can use different color spaces, typography scales
+- 💡 **Design-Aware Selection**: Agents intelligently select tokens matching design_attributes
+
+**Workflow Simplicity**:
+- 📉 **Reduced Complexity**: 346 lines of code removed (net reduction)
+- ⚡ **Fewer Steps**: Eliminated intermediate conversion and replacement phases
+- 🔧 **Easier Debugging**: All styling visible directly in generated CSS files
+- 📝 **Clearer Agent Tasks**: Agents have single, focused responsibility
+
+**CSS Generation Quality**:
+- 🎨 **Fully Embodies Design**: CSS directly reflects design token values
+- 🔄 **No External Dependencies**: Each CSS file is completely self-contained
+- 📊 **Better Adaptation**: Agents can adjust values based on layout context
+- 🎯 **Style-Specific Implementation**: Same layout + different style = truly different CSS
+
+#### Technical Details
+
+**Before (v4.2.x)**:
+```html
+<!-- Agent generates HTML with placeholders -->
+<link rel="stylesheet" href="{{TOKEN_CSS}}">
+<link rel="stylesheet" href="{{STRUCTURAL_CSS}}">
+
+<!-- Phase 1.6: Convert design-tokens.json → tokens.css -->
+<!-- Phase 3a: Replace placeholders with actual paths -->
+```
+
+**After (v4.3.0)**:
+```html
+<!-- Agent generates HTML with direct reference -->
+<link rel="stylesheet" href="dashboard-style-1-layout-2.css">
+
+<!-- CSS contains direct values from design-tokens.json -->
+.button { background: #3b82f6; font-size: 16px; }
+```
+
+**Workflow Comparison**:
+```
+Old Flow:
+Phase 1.5: Inspiration → Phase 1.6: Token Conversion → Phase 2: Agent Gen →
+Phase 3a: Replace Placeholders → Phase 3b: Preview
+
+New Flow:
+Phase 1.5: Inspiration → Phase 2: Agent Gen (reads tokens.json directly) →
+Phase 3: Preview
+```
+
+#### Benefits
+
+**Developer Experience**:
+- 🚀 **Faster Execution**: Removed 2 intermediate processing steps
+- 📁 **Simpler Output**: No more tokens.css files to manage
+- 🔍 **Easier Inspection**: All styling visible in prototype CSS files
+- 🎯 **Clearer Intent**: Direct mapping from design tokens to CSS
+
+**Design Quality**:
+- 🎨 **Richer Style Variations**: Agents can adapt token usage creatively
+- 💪 **Stronger Differentiation**: Each style truly looks different
+- 🎯 **Context-Aware Styling**: Agents adjust tokens based on layout needs
+- ✨ **Better Design Expression**: No constraints from CSS variable structure
+
+**Maintainability**:
+- 📉 **Less Code**: 346 lines removed (5 files modified)
+- 🔧 **Fewer Moving Parts**: Removed token conversion and placeholder systems
+- 📝 **Clearer Responsibilities**: Scripts focus on single purpose
+- 🧪 **Easier Testing**: Self-contained files easier to validate
+
+#### Files Changed
+
+**Commands Updated**:
+- `.claude/commands/workflow/ui-design/generate-v2.md`: Removed Phase 1.6 and Phase 3a, updated agent instructions
+- `.claude/commands/workflow/ui-design/explore-auto-v2.md`: Updated to work with new architecture
+- `.claude/commands/workflow/ui-design/generate.md`: Documentation updates
+- `.claude/commands/workflow/ui-design/extract.md`: Documentation updates
+
+**Scripts Modified**:
+- `.claude/scripts/ui-generate-preview-v2.sh`: Removed placeholder replacement (32 lines)
+
+**Total Impact**:
+- 5 files changed
+- 471 insertions, 817 deletions
+- Net: -346 lines (31% reduction in UI generation code)
+
+#### Migration Notes
+
+**No Breaking Changes** for users:
+- ✅ V2 commands are separate from V1 (`generate-v2` vs `generate`)
+- ✅ Existing workflows continue to work unchanged
+- ✅ New commands are opt-in
+
+**For New Projects**:
+- Use `/workflow:ui-design:generate-v2` for better style differentiation
+- Use `/workflow:ui-design:explore-auto-v2` for automatic workflow
+
+**Design Token Changes**:
+- `design-tokens.json` structure unchanged
+- `tokens.css` files no longer generated (V2 commands only)
+- Style guides (`style-guide.md`) unchanged
+
 ## [4.2.1] - 2025-10-10
 
 ### 📝 Command Renaming & Documentation Refactoring
