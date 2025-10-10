@@ -128,18 +128,23 @@ FOR target IN target_list:
         Task(ui-design-agent): "
           [TARGET_LAYOUT_PLANNING]
 
-          TARGET: {target} | TARGET_TYPE: {target_type} | LAYOUT_ID: {layout_id}
+          TARGET: {target} | TARGET_TYPE: {target_type} | LAYOUT_ID: {layout_id}/{layout_variants}
           BASE_PATH: {base_path}
           {IF synthesis_spec: PROJECT_REQUIREMENTS: {synthesis_spec}}
 
           ## Task
-          Research and generate layout plan JSON for '{target}' ({target_type}).
+          Research common {target} {target_type} layout variations and select the #{layout_id} approach.
+          Generate layout plan JSON that is STRUCTURALLY DIFFERENT from other layout IDs.
 
           ## Research (MCP Required)
-          mcp__exa__get_code_context_exa(
-            query=\"modern {target} {target_type} layout patterns 2024 2025\",
-            tokensNum=\"dynamic\"
+          mcp__exa__web_search_exa(
+            query=\"common {target} {target_type} layout patterns variations best practices 2024\",
+            numResults=5
           )
+
+          ## Selection Strategy
+          From search results, identify multiple layout variations and select approach #{layout_id}.
+          Ensure each layout_id uses a DIFFERENT structural pattern (not just styling differences).
 
           ## Output File
           Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.json\", layout_plan_json)
