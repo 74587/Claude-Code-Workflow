@@ -56,7 +56,6 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 - `--style-variants <count>`: Style variants (default: inferred from prompt or 3, range: 1-5)
 - `--layout-variants <count>`: Layout variants per style (default: inferred or 3, range: 1-5)
 - `--batch-plan`: Auto-generate implementation tasks after design-update
-- `--continue-run <run_id>`: (Internal) Continue from previous phase completion
 
 **Legacy Parameters** (maintained for backward compatibility):
 - `--pages "<list>"`: Alias for `--targets` with `--target-type page`
