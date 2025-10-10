@@ -179,17 +179,33 @@ IF --url:
     screenshot_dir = "{base_path}/screenshots"; Bash(mkdir -p "{screenshot_dir}")
     screenshot_success = false; screenshot_files = []
 
-    # Try Playwright → Chrome → Manual fallback
-    TRY: Bash(npx playwright screenshot "{url_value}" "{screenshot_dir}/full-page.png" --full-page --timeout 30000)
-         screenshot_files.append("{screenshot_dir}/full-page.png"); screenshot_success = true
-         REPORT: "   ✅ Playwright screenshot captured"
-    CATCH: REPORT: "   ⚠️ Playwright failed"
+    # Check tool availability (DO NOT install if missing - check executables only)
+    # playwright-cli check: verify executable exists without triggering npx install
+    playwright_cli_path = Bash(which playwright-cli 2>/dev/null || echo "")
+    playwright_available = playwright_cli_path != "" ? "yes" : "no"
 
-    IF NOT screenshot_success:
-        TRY: Bash(google-chrome --headless --disable-gpu --screenshot="{screenshot_dir}/full-page.png" --window-size=1920,1080 "{url_value}")
+    # Chrome check: verify browser executable exists
+    chrome_path = Bash(which google-chrome 2>/dev/null || which chrome 2>/dev/null || which chromium 2>/dev/null || echo "")
+    chrome_available = chrome_path != "" ? "yes" : "no"
+
+    REPORT: "🔍 Tool availability: Playwright={playwright_available}, Chrome={chrome_available}"
+
+    # Try available tools in order: Playwright → Chrome → Manual fallback
+    IF playwright_available == "yes":
+        TRY: Bash({playwright_cli_path} screenshot "{url_value}" "{screenshot_dir}/full-page.png" --full-page --timeout 30000)
+             screenshot_files.append("{screenshot_dir}/full-page.png"); screenshot_success = true
+             REPORT: "   ✅ Playwright screenshot captured"
+        CATCH: REPORT: "   ⚠️ Playwright execution failed"
+    ELSE:
+        REPORT: "   ℹ️ Playwright CLI not installed, checking Chrome..."
+
+    IF NOT screenshot_success AND chrome_available == "yes":
+        TRY: Bash({chrome_path} --headless --disable-gpu --screenshot="{screenshot_dir}/full-page.png" --window-size=1920,1080 "{url_value}")
              screenshot_files.append("{screenshot_dir}/full-page.png"); screenshot_success = true
              REPORT: "   ✅ Chrome screenshot captured"
-        CATCH: REPORT: "   ⚠️ Chrome failed"
+        CATCH: REPORT: "   ⚠️ Chrome execution failed"
+    ELSE IF NOT screenshot_success:
+        REPORT: "   ℹ️ Chrome not installed, falling back to manual mode"
 
     # Manual upload fallback
     IF NOT screenshot_success:
