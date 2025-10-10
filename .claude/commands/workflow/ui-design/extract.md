@@ -64,6 +64,16 @@ IF input_mode IN ["text", "hybrid"]:
 CREATE: {base_path}/style-extraction/
 ```
 
+### Phase 0.1: Memory Check (Skip if Already Extracted)
+
+```bash
+# Check if output already exists in memory/cache
+IF exists("{base_path}/style-extraction/style-cards.json"):
+    REPORT: "✅ Style extraction already complete (found in memory)"
+    REPORT: "   Skipping: Phase 0.5-3 (Design Space Divergence, Variant-Specific Style Synthesis, Completion)"
+    EXIT 0
+```
+
 ### Phase 0.5: AI-Driven Design Space Divergence
 
 ```bash

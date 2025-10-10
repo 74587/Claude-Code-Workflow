@@ -104,6 +104,16 @@ FOR style_id IN range(1, style_variants + 1):
 IF --session: synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
 ```
 
+### Phase 1.1: Memory Check (Skip if Already Generated)
+
+```bash
+# Check if compare.html exists in memory
+IF exists("{base_path}/prototypes/compare.html"):
+    REPORT: "✅ UI generation already complete (found in memory)"
+    REPORT: "   Skipping: Phase 1.5-4 (Layout Planning, Token Conversion, Template Generation, Prototype Instantiation, Preview Verification, Completion)"
+    EXIT 0
+```
+
 ### Phase 1.5: Target-Specific Layout Planning
 
 ```bash

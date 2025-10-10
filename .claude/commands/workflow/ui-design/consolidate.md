@@ -43,6 +43,16 @@ style_cards = Read(style_cards_path)
 total_variants = len(style_cards.style_cards)
 ```
 
+### Phase 1.1: Memory Check (Skip if Already Consolidated)
+
+```bash
+# Check if style-1/design-tokens.json exists in memory
+IF exists("{base_path}/style-consolidation/style-1/design-tokens.json"):
+    REPORT: "✅ Design system consolidation already complete (found in memory)"
+    REPORT: "   Skipping: Phase 2-6 (Variant Selection, Design Context Loading, Design System Synthesis, Agent Verification, Completion)"
+    EXIT 0
+```
+
 ### Phase 2: Variant Selection
 
 ```bash

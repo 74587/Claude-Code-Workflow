@@ -52,6 +52,21 @@ VALIDATE: Specified prototypes exist IF --selected-prototypes
 REPORT: "Found {count} design artifacts, {prototype_count} prototypes"
 ```
 
+### Phase 1.1: Memory Check (Skip if Already Updated)
+
+```bash
+# Check if synthesis-specification.md contains current design run reference
+synthesis_spec_path = ".workflow/WFS-{session}/.brainstorming/synthesis-specification.md"
+current_design_run = basename(latest_design)  # e.g., "design-run-20250109-143022"
+
+IF exists(synthesis_spec_path):
+    synthesis_content = Read(synthesis_spec_path)
+    IF "## UI/UX Guidelines" in synthesis_content AND current_design_run in synthesis_content:
+        REPORT: "✅ Design system references already updated (found in memory)"
+        REPORT: "   Skipping: Phase 2-5 (Load Target Artifacts, Update Synthesis, Update UI Designer Guide, Completion)"
+        EXIT 0
+```
+
 ### Phase 2: Load Target Artifacts Only
 
 **What to Load**: Only the files we need to **update**, not the design files we're referencing.
