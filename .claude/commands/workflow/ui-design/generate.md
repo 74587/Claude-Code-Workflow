@@ -3,625 +3,373 @@ name: generate
 description: Generate UI prototypes in matrix mode (style × layout combinations) for pages or components
 usage: /workflow:ui-design:generate [--targets "<list>"] [--target-type "page|component"] [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
 examples:
-  - /workflow:ui-design:generate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --targets "dashboard,settings" --target-type "page" --style-variants 3 --layout-variants 3
-  - /workflow:ui-design:generate --session WFS-auth --targets "home,pricing" --target-type "page" --style-variants 2 --layout-variants 2
-  - /workflow:ui-design:generate --base-path "./.workflow/.design/run-20250109-150533"  # ✅ Recommended: auto-detect variants
-  - /workflow:ui-design:generate --targets "navbar,hero,card" --target-type "component" --style-variants 3 --layout-variants 2
-  - /workflow:ui-design:generate --pages "home,dashboard" --style-variants 2 --layout-variants 2  # Legacy syntax
+  - /workflow:ui-design:generate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --targets "dashboard,settings"
+  - /workflow:ui-design:generate --session WFS-auth --targets "home,pricing" --style-variants 2 --layout-variants 2
+  - /workflow:ui-design:generate --targets "navbar,hero,card" --target-type "component"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 ---
 
-# UI Generation Command (Matrix Mode)
-
-**Executor**: → @ui-design-agent
-**Parallel Generation**: Phase 2a → @ui-design-agent (L×T tasks)
+# Generate UI Prototypes (/workflow:ui-design:generate)
 
 ## Overview
-Generate production-ready UI prototypes (HTML/CSS) in `style × layout` matrix mode, strictly adhering to consolidated design tokens from separate style design systems. Supports both full-page layouts and isolated component generation.
+Generate matrix of UI prototypes (`style × layout × targets`) with production-ready HTML/CSS. Optimized template-based architecture: **`S` times faster** than direct generation.
 
-## Core Philosophy
-- **Unified Generation**: Single mode generating `style_variants × layout_variants × targets` prototypes
-- **Target Types**: Supports pages (full layouts) and components (isolated UI elements)
-- **Agent-Driven**: Uses `Task(ui-design-agent)` for parallel generation
-- **Token-Driven**: All styles reference per-style design-tokens.json; no hardcoded values
-- **Production-Ready**: Semantic HTML5, ARIA attributes, responsive design
-- **Template-Based**: Decouples HTML structure from CSS styling for optimal performance
-- **Adaptive Wrapper**: All templates use complete HTML5 documents; body content adapts (full page structure for pages, isolated component for components)
+**Strategy**: Two-layer generation
+- **Layer 1**: Generate `L × T` reusable templates (agent)
+- **Layer 2**: Instantiate `S × L × T` final prototypes (script)
 
-## Execution Protocol
+**Supports**: Pages (full layouts) and components (isolated elements)
 
-### Phase 1: Path Resolution & Context Loading
+## Phase 1: Setup & Validation
 
+### Step 1: Resolve Base Path
 ```bash
-# 1. Determine base path
-IF --base-path: base_path = {provided_base_path}
-ELSE IF --session: base_path = find_latest_path_matching(".workflow/WFS-{session}/design-*")
-ELSE: base_path = find_latest_path_matching(".workflow/.design/*")
-
-# 2. Determine style variant count and layout variant count
-style_variants = --style-variants OR 3; VALIDATE: 1 <= style_variants <= 5
-layout_variants = --layout-variants OR 3; VALIDATE: 1 <= layout_variants <= 5
-
-# Validate against actual style directories
-actual_style_count = count_directories({base_path}/style-consolidation/style-*)
-
-IF actual_style_count == 0:
-    ERROR: "No style directories found"; SUGGEST: "Run /workflow:ui-design:consolidate first"; EXIT 1
-
-IF style_variants > actual_style_count:
-    WARN: "⚠️ Requested {style_variants}, but only {actual_style_count} exist"
-    REPORT: "   Available styles: {list_directories}"; style_variants = actual_style_count
-
-REPORT: "✅ Validated style variants: {style_variants}"
-
-# 3. Enhanced target list parsing with type detection
-target_list = []; target_type = "page"  # Default
-
-# Priority 1: Unified --targets parameter
-IF --targets:
-    raw_targets = {--targets value}
-    target_list = split_and_clean(raw_targets, delimiters=[",", ";", "、"])
-    target_list = [t.strip().lower().replace(" ", "-") for t in target_list if t.strip()]
-
-    target_type = --target-type provided ? {--target-type} : detect_target_type(target_list)
-    REPORT: "🎯 Using provided targets ({target_type}): {', '.join(target_list)}"
-
-# Priority 2: Legacy --pages parameter
-ELSE IF --pages:
-    raw_targets = {--pages value}
-    target_list = split_and_clean(raw_targets, delimiters=[",", ";", "、"])
-    target_list = [t.strip().lower().replace(" ", "-") for t in target_list if t.strip()]
-    target_type = "page"
-    REPORT: "📋 Using provided pages (legacy): {', '.join(target_list)}"
-
-# Priority 3: Extract from synthesis-specification.md
-ELSE IF --session:
-    synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
-    target_list = extract_targets_from_synthesis(synthesis_spec); target_type = "page"
-    REPORT: "📋 Extracted from synthesis: {', '.join(target_list)}"
-
-# Priority 4: Detect from existing prototypes or default
-ELSE:
-    target_list = detect_from_prototypes({base_path}/prototypes/) OR ["home"]; target_type = "page"
-    REPORT: "📋 Detected/default targets: {', '.join(target_list)}"
-
-# 4. Validate target names
-validated_targets = [t for t in target_list if regex_match(t, r"^[a-z0-9][a-z0-9_-]*$")]
-invalid_targets = [t for t in target_list if t not in validated_targets]
-
-IF invalid_targets: REPORT: "⚠️ Skipped invalid target names: {', '.join(invalid_targets)}"
-VALIDATE: validated_targets not empty, "No valid targets found"
-target_list = validated_targets
-
-STORE: target_list, target_type
-
-# 5. Verify design systems exist
-FOR style_id IN range(1, style_variants + 1):
-    VERIFY: exists({base_path}/style-consolidation/style-{style_id}/design-tokens.json)
-    VERIFY: exists({base_path}/style-consolidation/style-{style_id}/style-guide.md)
-
-# 6. Load requirements (if integrated mode)
-IF --session: synthesis_spec = Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
+# Determine working directory
+bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
+# OR use --base-path / --session parameters
 ```
 
-### Phase 1.1: Memory Check (Skip if Already Generated)
-
+### Step 2: Parse Configuration
 ```bash
-# Check if compare.html exists in memory
-IF exists("{base_path}/prototypes/compare.html"):
-    REPORT: "✅ UI generation already complete (found in memory)"
-    REPORT: "   Skipping: Phase 1.5-4 (Layout Planning, Token Conversion, Template Generation, Prototype Instantiation, Preview Verification, Completion)"
-    EXIT 0
+# Get style variant count (default: 3)
+bash(ls {base_path}/style-consolidation/style-* -d | wc -l)
+
+# Get layout variant count (default: 3, configurable via --layout-variants)
+
+# Parse targets (pages/components)
+# Priority: --targets → --pages (legacy) → synthesis-specification.md → default ["home"]
 ```
 
-### Phase 1.5: Target-Specific Layout Planning
-
+### Step 3: Validate Inputs
 ```bash
-REPORT: "📐 Planning {layout_variants} layout strategies for each target..."
+# Check design systems exist
+bash(test -f {base_path}/style-consolidation/style-1/design-tokens.json && echo "valid")
 
-CREATE: {base_path}/prototypes/_templates/
-
-# For each target, plan its specific layouts
-FOR target IN target_list:
-    REPORT: "  Planning layouts for '{target}' ({target_type})..."
-
-    FOR layout_id IN range(1, layout_variants + 1):
-        Task(ui-design-agent): "
-          [TARGET_LAYOUT_PLANNING]
-
-          TARGET: {target} | TARGET_TYPE: {target_type} | LAYOUT_ID: {layout_id}/{layout_variants}
-          BASE_PATH: {base_path}
-          {IF --session: PROJECT_REQUIREMENTS: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md}
-
-          ## Task
-          Research {target} {target_type} layout variations → Select approach #{layout_id} → Generate layout plan JSON
-
-          ## Research
-          mcp__exa__web_search_exa(
-            query=\"common {target} {target_type} layout patterns variations best practices 2024\",
-            numResults=5
-          )
-          Identify multiple structural patterns → Select DISTINCT approach #{layout_id}
-
-          ## Output
-          Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.json\", layout_plan_json)
-
-          ## JSON Structure
-          ```json
-          {
-            "id": "layout-{layout_id}",
-            "target": "{target}",
-            "target_type": "{target_type}",
-            "name": "Descriptive name (2-4 words)",
-            "description": "2-3 sentences",
-            "structure": {
-              // IF page: type, regions, grid, sidebar, responsive
-              // IF component: arrangement, alignment, spacing, element_order
-            },
-            "semantic_hints": [...],
-            "accessibility_features": [...],
-            "research_references": [...]
-          }
-          ```
-
-          ## Requirements
-          - Research-informed, structurally DIFFERENT from other layout IDs
-          - Write file directly (not text output)
-        "
-
-# Wait for all agent tasks to complete
-REPORT: "⏳ Waiting for layout planning agents to complete..."
-
-# Verify agent created layout JSON files
-REPORT: "📝 Verifying agent file creation..."
-
-FOR target IN target_list:
-    FOR layout_id IN range(1, layout_variants + 1):
-        layout_json_label = f"{target}-layout-{layout_id}.json"
-        json_path = f"{base_path}/prototypes/_templates/{layout_json_label}"
-
-        # Verify file exists
-        VERIFY: exists(json_path), f"Layout JSON not created by agent: {layout_json_label}"
-
-        # Validate JSON structure
-        TRY:
-            layout_json_content = Read(json_path)
-            layout_plan = JSON.parse(layout_json_content)
-
-            # Validate required fields
-            VALIDATE: layout_plan.id == f"layout-{layout_id}", f"Invalid layout ID in {layout_json_label}"
-            VALIDATE: layout_plan.target == target, f"Invalid target in {layout_json_label}"
-            VALIDATE: layout_plan.target_type == target_type, f"Invalid target_type in {layout_json_label}"
-            VALIDATE: layout_plan.name exists, f"Missing 'name' field in {layout_json_label}"
-            VALIDATE: layout_plan.structure exists, f"Missing 'structure' field in {layout_json_label}"
-
-            file_size = get_file_size(json_path)
-            REPORT: f"   ✓ Verified: {layout_json_label} - {layout_plan.name} ({file_size} KB)"
-        CATCH error:
-            ERROR: f"Validation failed for {layout_json_label}: {error}"
-            REPORT: f"   ⚠️ File exists but validation failed - review agent output"
-
-REPORT: f"✅ Phase 1.5 complete: Verified {len(target_list) × layout_variants} target-specific layout files"
+# Validate target names (lowercase, alphanumeric, hyphens only)
+# Target type: "page" (default) or "component"
 ```
 
-### Phase 1.6: Convert Design Tokens to CSS
+**Output**: `base_path`, `style_variants`, `layout_variants`, `target_list[]`, `target_type`
 
+### Step 4: Check Existing Output
 ```bash
-REPORT: "🎨 Converting design tokens to CSS variables..."
-
-# Check for jq dependency
-IF NOT command_exists("jq"):
-    ERROR: "jq is not installed or not in PATH. The conversion script requires jq."
-    REPORT: "Please install jq: macOS: brew install jq | Linux: apt-get install jq | Windows: https://stedolan.github.io/jq/download/"
-    EXIT 1
-
-# Convert design tokens to CSS for each style variant
-FOR style_id IN range(1, style_variants + 1):
-    tokens_json_path = "{base_path}/style-consolidation/style-${style_id}/design-tokens.json"
-    tokens_css_path = "{base_path}/style-consolidation/style-${style_id}/tokens.css"
-    script_path = "~/.claude/scripts/convert_tokens_to_css.sh"
-
-    # Verify input file exists
-    VERIFY: exists(tokens_json_path), f"Design tokens not found for style-{style_id}"
-
-    # Execute conversion: cat input.json | script.sh > output.css
-    Bash(cat "${tokens_json_path}" | "${script_path}" > "${tokens_css_path}")
-
-    # Verify output was generated
-    IF exit_code == 0 AND exists(tokens_css_path):
-        file_size = get_file_size(tokens_css_path)
-        REPORT: f"   ✓ Generated tokens.css for style-{style_id} ({file_size} KB)"
-    ELSE:
-        ERROR: f"Failed to generate tokens.css for style-{style_id}"
-        EXIT 1
-
-REPORT: f"✅ Phase 1.6 complete: Converted {style_variants} design token files to CSS"
+# Skip if already generated
+bash(test -f {base_path}/prototypes/compare.html && echo "exists")
 ```
 
-### Phase 1.7: Extract Token Variable Names from CSS
+**If exists**: Skip to completion message
 
+## Phase 2: Layout Planning
+
+### Step 1: Research Layout Patterns (Agent)
 ```bash
-REPORT: "📋 Extracting actual CSS variable names from tokens.css..."
-tokens_css_path = "{base_path}/style-consolidation/style-1/tokens.css"
-VERIFY: exists(tokens_css_path), "tokens.css not found. Phase 1.6 may have failed."
-
-tokens_css_content = Read(tokens_css_path)
-
-# Extract all CSS variable names from the generated file
-# Pattern: --variable-name: value;
-all_token_vars = extract_css_variables(tokens_css_content)  # Regex: r'--([a-z0-9-_]+):'
-
-# Categorize variables for better Agent understanding
-color_vars = [v for v in all_token_vars if v.startswith('--color-')]
-typography_vars = [v for v in all_token_vars if v.startswith(('--font-', '--line-height-', '--letter-spacing-'))]
-spacing_vars = [v for v in all_token_vars if v.startswith('--spacing-')]
-radius_vars = [v for v in all_token_vars if v.startswith('--border-radius-')]
-shadow_vars = [v for v in all_token_vars if v.startswith('--shadow-')]
-breakpoint_vars = [v for v in all_token_vars if v.startswith('--breakpoint-')]
-
-REPORT: f"✅ Extracted {len(all_token_vars)} actual CSS variables from tokens.css"
-REPORT: f"   Colors: {len(color_vars)} | Typography: {len(typography_vars)} | Spacing: {len(spacing_vars)}"
+bash(mkdir -p {base_path}/prototypes/_templates)
 ```
 
-### Phase 2: Optimized Matrix UI Generation
+For each `target × layout_id`:
+```javascript
+Task(ui-design-agent): `
+  [TARGET_LAYOUT_PLANNING]
+  TARGET: {target} | TYPE: {target_type} | LAYOUT: {layout_id}/{layout_variants}
+  BASE_PATH: {base_path}
+  ${--session ? "REQUIREMENTS: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md" : ""}
 
-**Strategy**: Two-layer generation reduces complexity from `O(S×L×T)` to `O(L×T)`, achieving **`S` times faster** performance.
+  ## 参考
+  - Research via: mcp__exa__web_search_exa(query="{target} {target_type} layout patterns 2024", numResults=5)
+  - Layout differentiation: Layout 1=common, Layout 2=alternative, Layout 3=innovative
 
-- **Layer 1**: Generate `L × T` layout templates (HTML structure + structural CSS) by agent
-- **Layer 2**: Instantiate `S × L × T` final prototypes via fast file operations
+  ## 生成
+  Write("{base_path}/prototypes/_templates/{target}-layout-{layout_id}.json")
 
-#### Phase 2a: Layout Template Generation
+  JSON schema:
+  {
+    "id": "layout-{layout_id}",
+    "target": "{target}",
+    "target_type": "{target_type}",
+    "name": "2-4 words",
+    "description": "2-3 sentences",
+    "structure": {
+      // Page: type, regions, grid, sidebar, responsive{mobile/tablet/desktop}
+      // Component: arrangement, alignment, spacing, element_order, variants
+    },
+    "semantic_hints": ["<nav>", "<main role='main'>", ...],
+    "accessibility_features": ["skip-link", "landmarks", ...],
+    "research_references": ["source URLs/insights"]
+  }
 
-**Parallel Executor**: → @ui-design-agent
-
-```bash
-CREATE: {base_path}/prototypes/_templates/
-CREATE: {base_path}/prototypes/
-
-# Launch parallel template generation tasks → @ui-design-agent
-# Total agent tasks: layout_variants × len(target_list)
-FOR layout_id IN range(1, layout_variants + 1):
-    FOR target IN target_list:
-        # Read the target-specific layout plan
-        layout_json_path = f"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.json"
-        layout_plan = Read(layout_json_path)
-
-        Task(ui-design-agent): "
-          [UI_LAYOUT_TEMPLATE_GENERATION]
-
-          🚨 TARGET INDEPENDENCE: Generate template for EXACTLY ONE target: '{target}' (standalone, reusable)
-
-          LAYOUT_ID: {layout_id} | TARGET: {target} | TARGET_TYPE: {target_type}
-          BASE_PATH: {base_path}
-          {IF --session: REQUIREMENTS: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md}
-
-          ## Layout Plan to Implement
-          **Path**: {layout_json_path}
-          **Plan**: {JSON.stringify(layout_plan, null, 2)}
-
-          ## Task
-          Generate TWO template files implementing the layout plan:
-          - HTML: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.html
-          - CSS: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.css
-
-          ## HTML Requirements
-          - Complete HTML5 document (<!DOCTYPE>, <html>, <head>, <body>)
-          - Semantic elements + ARIA attributes
-          - Body content:
-            * IF page → Full structure (header, nav, main, footer)
-            * IF component → Isolated element in presentation wrapper
-          - ⚠️ CRITICAL CSS placeholders in <head>:
-            <link rel=\"stylesheet\" href=\"{{STRUCTURAL_CSS}}\">
-            <link rel=\"stylesheet\" href=\"{{TOKEN_CSS}}\">
-
-          ## CSS Requirements - Token Reference
-
-          **1. Read tokens.css**
-          Read(\"{base_path}/style-consolidation/style-1/tokens.css\")
-          Extract all CSS variable names (pattern: lines with \"  --\" in \":root {}\")
-
-          **2. Available Tokens**
-          - Colors: {', '.join(color_vars[:5])}... ({len(color_vars)} total)
-          - Typography: {', '.join(typography_vars[:5])}... ({len(typography_vars)} total)
-          - Spacing: {', '.join(spacing_vars[:5])}... ({len(spacing_vars)} total)
-          - Radius: {', '.join(radius_vars[:3])}... ({len(radius_vars)} total)
-          - Shadows: {', '.join(shadow_vars)}
-
-          **3. Variable Usage Rules**
-          - ✅ Use ONLY variables from tokens.css (exact names)
-          - ✅ Format: var(--exact-name-from-file)
-          - ❌ NO invented/guessed variable names
-          - ❌ NO hardcoded values (colors, fonts, spacing)
-
-          **4. Optional Extension**
-          If core tokens insufficient → Create `{target}-layout-{layout_id}-tokens.css` with `--layout-*` prefix
-          Examples: `--layout-spacing-navbar-height`, `--layout-size-sidebar-width`
-
-          **CSS Scope**: Structural layout only (Flexbox, Grid, positioning)
-          **Responsive**: Mobile-first approach
-
-          ## Write Operations
-          Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.html\", html_content)
-          Write(\"{base_path}/prototypes/_templates/{target}-layout-{layout_id}.css\", css_content)
-
-          Report completion with file paths. Write files directly (not text output).
-        "
-
-REPORT: "⏳ Phase 2a: Waiting for agents to complete template generation..."
+  ## 注意
+  - Layout #{layout_id} must be STRUCTURALLY DIFFERENT from other IDs
+  - Structure section must match target_type (page vs component)
+  - Write file directly, no text output
+`
 ```
 
-#### Phase 2a.5: Verify Agent Template File Creation
-
+### Step 2: Verify Layout Plans
 ```bash
-REPORT: "📝 Phase 2a.5: Verifying agent template file creation..."
+# Verify files created
+bash(ls {base_path}/prototypes/_templates/*.json | wc -l)  # Should equal L×T
 
-# Verify each agent created template files
-FOR layout_id IN range(1, layout_variants + 1):
-    FOR target IN target_list:
-        html_label = f"{target}-layout-{layout_id}.html"
-        css_label = f"{target}-layout-{layout_id}.css"
-
-        html_path = f"{base_path}/prototypes/_templates/{html_label}"
-        css_path = f"{base_path}/prototypes/_templates/{css_label}"
-
-        # Verify files exist
-        VERIFY: exists(html_path), f"HTML template not created by agent: {html_label}"
-        VERIFY: exists(css_path), f"CSS template not created by agent: {css_label}"
-
-        # Validate content
-        TRY:
-            html_content = Read(html_path)
-            css_content = Read(css_path)
-
-            # Basic validation checks
-            VALIDATE: len(html_content) > 100, f"HTML template too short: {html_label}"
-            VALIDATE: len(css_content) > 50, f"CSS template too short: {css_label}"
-            VALIDATE: "<!DOCTYPE html>" in html_content, f"Invalid HTML structure: {html_label}"
-            VALIDATE: "var(--" in css_content, f"Missing CSS variables: {css_label}"
-
-            html_size = get_file_size(html_path)
-            css_size = get_file_size(css_path)
-            REPORT: f"   ✓ Verified: {html_label} ({html_size} KB) + {css_label} ({css_size} KB)"
-        CATCH error:
-            ERROR: f"Validation failed for {target}-layout-{layout_id}: {error}"
-            REPORT: f"   ⚠️ Files exist but validation failed - review agent output"
-
-REPORT: "✅ Phase 2a.5 complete: Verified {layout_variants * len(target_list) * 2} template files"
+# Validate JSON structure
+Read({base_path}/prototypes/_templates/{target}-layout-{layout_id}.json)
 ```
 
-#### Phase 2b: Prototype Instantiation
+**Output**: `L × T` layout plan JSON files
 
+## Phase 3: Token Conversion
+
+### Step 1: Convert JSON to CSS Variables
 ```bash
-REPORT: "🚀 Phase 2b: Instantiating prototypes from templates..."
+# Check jq dependency
+bash(command -v jq >/dev/null 2>&1 || echo "ERROR: jq not found")
 
-# Verify tokens.css files exist (should be created in Phase 1.6)
-FOR style_id IN range(1, style_variants + 1):
-    tokens_css_path = "{base_path}/style-consolidation/style-${style_id}/tokens.css"
-    VERIFY: exists(tokens_css_path), f"tokens.css missing for style-{style_id}. Phase 1.6 may have failed."
-
-REPORT: "   ✓ Verified {style_variants} tokens.css files exist"
-
-# Use ui-instantiate-prototypes.sh script for instantiation
-prototypes_dir = "{base_path}/prototypes"
-targets_csv = ','.join(target_list)
-session_id = --session provided ? {session_id} : "standalone"
-
-# Execute instantiation script with target type
-Bash(~/.claude/scripts/ui-instantiate-prototypes.sh "{prototypes_dir}" --session-id "{session_id}" --mode "{target_type}")
-
-# The script auto-detects: Targets, Style variants, Layout variants
-# The script generates:
-# 1. S × L × T HTML prototypes with CSS links
-# 2. Implementation notes for each prototype
-# 3. compare.html (interactive matrix)
-# 4. index.html (navigation page)
-# 5. PREVIEW.md (documentation)
-
-REPORT: "✅ Phase 2b complete: Instantiated {style_variants * layout_variants * len(target_list)} final prototypes"
-REPORT: "   Mode: {target_type} | Performance: {style_variants}× faster than original approach"
+# Convert each style's design-tokens.json to tokens.css
+bash(cat {base_path}/style-consolidation/style-1/design-tokens.json | ~/.claude/scripts/convert_tokens_to_css.sh > tokens.css)
 ```
 
-### Phase 3: Verify Preview Files
-
+### Step 2: Extract Variable Names
 ```bash
-REPORT: "🔍 Phase 3: Verifying preview files..."
+# Read generated tokens.css
+Read({base_path}/style-consolidation/style-1/tokens.css)
 
-expected_files = ["{base_path}/prototypes/compare.html", "{base_path}/prototypes/index.html", "{base_path}/prototypes/PREVIEW.md"]
-
-all_present = true
-FOR file_path IN expected_files:
-    IF exists(file_path): REPORT: "   ✓ Found: {basename(file_path)}"
-    ELSE: REPORT: "   ✗ Missing: {basename(file_path)}"; all_present = false
-
-IF all_present: REPORT: "✅ Phase 3 complete: All preview files verified"
-ELSE: WARN: "⚠️ Some preview files missing - script may have failed"
-
-# Optional: Generate fallback design-tokens.css for reference
-fallback_css_path = "{base_path}/prototypes/design-tokens.css"
-IF NOT exists(fallback_css_path):
-    Write(fallback_css_path, "/* Auto-generated fallback CSS custom properties */\n/* See style-consolidation/style-{n}/tokens.css for actual values */")
-    REPORT: "   ✓ Generated fallback design-tokens.css"
+# Extract CSS variable names (pattern: --variable-name:)
+# Categorize: colors, typography, spacing, radius, shadows
 ```
 
-### Phase 3.5: Cross-Target Consistency Validation
+**Output**: `S × tokens.css` files + extracted variable list
 
-**Condition**: Only executes if `len(target_list) > 1 AND target_type == "page"`
+## Phase 4: Template Generation (Agent)
 
-```bash
-# Skip if single target or component mode
-IF len(target_list) <= 1 OR target_type == "component": SKIP to Phase 4
+**Executor**: `Task(ui-design-agent)` × `L × T` tasks in parallel
 
-# For multi-page workflows, validate cross-page consistency → @ui-design-agent
-FOR style_id IN range(1, style_variants + 1):
-    FOR layout_id IN range(1, layout_variants + 1):
-        Task(@ui-design-agent): "
-          [CROSS_PAGE_CONSISTENCY_VALIDATION]
+### Step 1: Launch Agent Tasks
+For each `layout_id × target`:
+```javascript
+Task(ui-design-agent): `
+  [UI_LAYOUT_TEMPLATE_GENERATION]
+  🚨 ONE target only: '{target}' (standalone, reusable)
 
-          STYLE: {style_id} | LAYOUT: {layout_id} | TARGETS: {target_list} | TYPE: {target_type}
-          BASE_PATH: {base_path}
+  LAYOUT: {layout_id} | TARGET: {target} | TYPE: {target_type}
+  BASE_PATH: {base_path}
+  ${--session ? "REQUIREMENTS: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md" : ""}
 
-          ## Input
-          {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.html/css (all targets)
+  ## 参考
+  - Layout plan: Read("{base_path}/prototypes/_templates/{target}-layout-{layout_id}.json")
+  - Design tokens: Read("{base_path}/style-consolidation/style-1/tokens.css")
+    Extract variables: --color-*, --font-*, --spacing-*, --border-radius-*, --shadow-*
 
-          ## Validate
-          1. Shared components (header/nav/footer)
-          2. Token usage (no hardcoded values)
-          3. Accessibility (ARIA, headings, landmarks)
-          4. Layout strategy consistency
+  ## 生成
+  1. HTML: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.html
+     - Complete HTML5 doc with <link href="{{STRUCTURAL_CSS}}"> and <link href="{{TOKEN_CSS}}">
+     - Body: Full structure (page) OR isolated element (component)
+     - Semantic: <header>, <nav>, <main>, <footer>, proper heading hierarchy
+     - A11y: ARIA landmarks, skip-link, alt/labels, focus styles
 
-          ## Output
-          Write({base_path}/prototypes/consistency-report-s{style_id}-l{layout_id}.md, validation_report)
+  2. CSS: {base_path}/prototypes/_templates/{target}-layout-{layout_id}.css
+     - Structure: Flexbox/Grid, positioning, dimensions, responsive
+     - Mobile-first: base → @media(768px) → @media(1024px)
+     - Optional: {target}-layout-{layout_id}-tokens.css for --layout-* vars
 
-          Focus on shared elements. Page-specific variations acceptable.
-        "
-
-# Aggregate consistency reports
-Write({base_path}/prototypes/CONSISTENCY_SUMMARY.md):
-# Multi-{target_type.capitalize()} Consistency Summary
-
-## Validated Combinations
-- Style Variants: {style_variants} | Layout Variants: {layout_variants}
-- Total Reports: {style_variants * layout_variants}
-
-## Report Files
-{FOR s, l: - [Style {s} Layout {l}](./consistency-report-s{s}-l{l}.md)}
-
-Run `/workflow:ui-design:update` once all issues are resolved.
+  ## 注意
+  - ✅ ONLY var(--token-name) from tokens.css
+  - ❌ NO hardcoded: colors (#333, rgb), spacing (16px), fonts ("Arial")
+  - ❌ NO invented variable names
+  - Body content matches target_type (page=full, component=isolated)
+  - Write files directly, no text output
+`
 ```
 
-### Phase 4: Completion
+### Step 2: Verify Templates Created
+```bash
+# Check file count
+bash(ls {base_path}/prototypes/_templates/{target}-layout-*.html | wc -l)
 
+# Validate structure
+Read({base_path}/prototypes/_templates/{target}-layout-{layout_id}.html)
+# Check: <!DOCTYPE html>, var(--, placeholders
+```
+
+**Output**: `L × T` template pairs (HTML + CSS)
+
+## Phase 5: Prototype Instantiation (Script)
+
+### Step 1: Execute Instantiation Script
+```bash
+# Verify tokens.css files exist
+bash(ls {base_path}/style-consolidation/style-*/tokens.css | wc -l)
+
+# Run instantiation script
+bash(~/.claude/scripts/ui-instantiate-prototypes.sh "{base_path}/prototypes" --session-id "{session_id}" --mode "{target_type}")
+```
+
+**Script generates**:
+- `S × L × T` HTML prototypes with CSS links
+- Implementation notes for each prototype
+- `compare.html` (interactive matrix)
+- `index.html` (navigation)
+- `PREVIEW.md` (documentation)
+
+### Step 2: Verify Output Files
+```bash
+# Check preview files
+bash(ls {base_path}/prototypes/compare.html {base_path}/prototypes/index.html {base_path}/prototypes/PREVIEW.md)
+
+# Count final prototypes
+bash(ls {base_path}/prototypes/{target}-style-*-layout-*.html | wc -l)
+```
+
+**Output**: `S × L × T` final prototypes + preview files
+
+
+
+## Completion
+
+### Todo Update
 ```javascript
 TodoWrite({todos: [
-  {content: "Resolve paths and load design systems", status: "completed", activeForm: "Loading design systems"},
-  {content: `Plan ${target_list.length}×${layout_variants} target-specific layouts`, status: "completed", activeForm: "Planning layouts"},
-  {content: `Convert ${style_variants} design token files to CSS`, status: "completed", activeForm: "Converting tokens to CSS"},
-  {content: "Extract CSS variable names from tokens.css", status: "completed", activeForm: "Extracting variable names"},
-  {content: `Generate ${layout_variants}×${target_list.length} layout templates (agent reads tokens.css)`, status: "completed", activeForm: "Generating templates"},
-  {content: `Instantiate ${style_variants}×${layout_variants}×${target_list.length} prototypes using script`, status: "completed", activeForm: "Running script"},
-  {content: "Verify preview files generation", status: "completed", activeForm: "Verifying files"}
+  {content: "Setup and validation", status: "completed", activeForm: "Loading design systems"},
+  {content: "Layout planning (agent)", status: "completed", activeForm: "Planning layouts"},
+  {content: "Token conversion", status: "completed", activeForm: "Converting tokens"},
+  {content: "Template generation (agent)", status: "completed", activeForm: "Generating templates"},
+  {content: "Prototype instantiation (script)", status: "completed", activeForm: "Running script"},
+  {content: "Verify output", status: "completed", activeForm: "Verifying files"}
 ]});
 ```
 
-**Completion Message**:
+### Output Message
 ```
-✅ Optimized Matrix UI generation complete!
+✅ Matrix UI generation complete!
 
 Configuration:
 - Style Variants: {style_variants}
-- Layout Variants: {layout_variants} (target-specific planning)
-- Target Type: {target_type_icon} {target_type}
+- Layout Variants: {layout_variants}
+- Target Type: {target_type}
 - Targets: {target_list}
-- Total Prototypes: {style_variants * layout_variants * len(target_list)}
-- Layout Plans: {len(target_list) × layout_variants} target-specific JSON files generated
+- Total Prototypes: {S × L × T}
 
-Performance Metrics:
-- Layout Templates Generated: {layout_variants * len(target_list)} (Agent tasks)
-- Prototypes Instantiated: {style_variants * layout_variants * len(target_list)} (script-based)
-- Preview Files: compare.html, index.html, PREVIEW.md (auto-generated)
-- Speed Improvement: {style_variants}× faster than previous approach
-- Resource Efficiency: {100 * (1 - 1/style_variants)}% reduction in Agent calls
-- Script: ui-instantiate-prototypes.sh v3.0 with auto-detection
+Performance:
+- Templates: {L × T} (agent)
+- Prototypes: {S × L × T} (script)
+- Speed: {S}× faster
+- Script: ui-instantiate-prototypes.sh v3.0
 
-Generated Structure:
-📂 {base_path}/prototypes/
-├── _templates/
-│   ├── {target}-layout-{l}.json ({len(target_list) × layout_variants} layout plans)
-│   ├── {target}-layout-{l}.html ({layout_variants * len(target_list)} HTML templates)
-│   └── {target}-layout-{l}.css ({layout_variants * len(target_list)} CSS templates)
-├── {target}-style-{s}-layout-{l}.html ({style_variants * layout_variants * len(target_list)} final prototypes)
-├── {target}-style-{s}-layout-{l}-notes.md
-├── compare.html (interactive matrix visualization)
-└── index.html (quick navigation)
+Generated Files:
+{base_path}/prototypes/
+├── _templates/ ({T×L} JSON + HTML + CSS)
+├── {target}-style-{s}-layout-{l}.html ({S×L×T} prototypes)
+├── compare.html (interactive matrix)
+├── index.html (navigation)
+└── PREVIEW.md (documentation)
 
-🌐 Interactive Preview:
-1. Matrix View: Open compare.html (recommended)
-2. Quick Index: Open index.html
-3. Instructions: See PREVIEW.md
+Preview:
+1. Open compare.html (recommended)
+2. Open index.html
+3. Read PREVIEW.md
 
-{IF target_type == "component": Note: Components use complete HTML5 documents with isolated body content for better comparison and styling.}
+Next: /workflow:ui-design:update
+```
 
-Next: /workflow:ui-design:update {--session flag if applicable}
+## Simple Bash Commands
 
-Note: When called from /workflow:ui-design:auto, design-update is triggered automatically.
+### Path Operations
+```bash
+# Find design directory
+bash(find .workflow -type d -name "design-*" | head -1)
 
-**Dynamic Values**: target_type_icon: "📄" for page, "🧩" for component
+# Count style variants
+bash(ls {base_path}/style-consolidation/style-* -d | wc -l)
+
+# List targets from templates
+bash(ls {base_path}/prototypes/_templates/*-layout-1.json | sed 's/-layout-1.json//')
+```
+
+### Validation Commands
+```bash
+# Check design tokens exist
+bash(test -f {base_path}/style-consolidation/style-1/design-tokens.json && echo "valid")
+
+# Count template files
+bash(ls {base_path}/prototypes/_templates/*.html | wc -l)
+
+# Verify output complete
+bash(test -f {base_path}/prototypes/compare.html && echo "exists")
+```
+
+### File Operations
+```bash
+# Create directories
+bash(mkdir -p {base_path}/prototypes/_templates)
+
+# Convert tokens to CSS
+bash(cat design-tokens.json | ~/.claude/scripts/convert_tokens_to_css.sh > tokens.css)
+
+# Run instantiation script
+bash(~/.claude/scripts/ui-instantiate-prototypes.sh "{base_path}/prototypes" --mode "page")
 ```
 
 ## Output Structure
 
 ```
-{base_path}/prototypes/
-├── _templates/                            # Target-specific layout plans and templates
-│   ├── {target}-layout-1.json            # Layout plan JSON (target-specific)
-│   ├── {target}-layout-1.html            # Style-agnostic HTML structure
-│   ├── {target}-layout-1.css             # Structural CSS with var() references
-│   └── ... (T × L layout plans + templates)
-├── compare.html                           # Interactive matrix visualization
-├── index.html                             # Simple navigation page
-├── PREVIEW.md                             # Preview instructions
-├── design-tokens.css                      # CSS custom properties fallback
-├── {target}-style-{s}-layout-{l}.html    # Final prototypes (copied from templates)
-├── {target}-style-{s}-layout-{l}-notes.md  # Implementation notes
-└── ... (S × L × T total final files)
-
-{base_path}/style-consolidation/
-├── style-1/ (design-tokens.json, tokens.css, style-guide.md)
-├── style-2/ (same structure)
-└── ...
+{base_path}/
+├── prototypes/
+│   ├── _templates/
+│   │   ├── {target}-layout-{l}.json  # Layout plans
+│   │   ├── {target}-layout-{l}.html  # HTML templates
+│   │   └── {target}-layout-{l}.css   # CSS templates
+│   ├── {target}-style-{s}-layout-{l}.html  # Final prototypes
+│   ├── {target}-style-{s}-layout-{l}-notes.md
+│   ├── compare.html
+│   ├── index.html
+│   └── PREVIEW.md
+└── style-consolidation/
+    └── style-{s}/
+        ├── design-tokens.json
+        ├── tokens.css
+        └── style-guide.md
 ```
 
 ## Error Handling
 
-### Pre-execution Checks
-- **No design systems found**: Error - Run `/workflow:ui-design:consolidate` first
-- **Invalid target names**: Extract from synthesis-specification.md or error with validation message
-- **Missing templates directory**: Auto-created in Phase 1.5
-- **Unsupported target type**: Error if target_type not in ["page", "component"]
-- **Layout planning failures**: Check Phase 1.5 agent outputs for errors
+### Common Errors
+```
+ERROR: No design systems found
+→ Run /workflow:ui-design:consolidate first
 
-### Phase-Specific Errors
-- **Agent execution errors (Phase 2a)**: Report details, suggest retry with specific phase
-- **Token conversion errors (Phase 2b)**: Check design-tokens.json format, validate JSON schema
-- **Script execution errors (Phase 2b)**: Check script exists, permissions, output for specific errors
-- **Preview generation errors (Phase 3)**: Check script completed, verify template exists, review Phase 2b output
+ERROR: jq not found
+→ Install jq: brew install jq
+
+ERROR: Agent task failed
+→ Check agent output, retry phase
+
+ERROR: Script permission denied
+→ chmod +x ~/.claude/scripts/ui-instantiate-prototypes.sh
+```
 
 ### Recovery Strategies
-- **Partial failure**: Script reports generated vs failed counts - review logs
-- **Missing templates**: Indicates Phase 2a issue - regenerate templates
-- **Auto-detection failures**: Use manual mode with explicit parameters
-- **Permission errors**: Run `chmod +x ~/.claude/scripts/ui-instantiate-prototypes.sh`
+- **Partial failure**: Check script logs for counts
+- **Missing templates**: Regenerate Phase 4
+- **Invalid tokens**: Validate design-tokens.json
 
-## Quality Checks
+## Quality Checklist
 
-After generation, ensure:
-- [ ] All CSS values reference design token custom properties
-- [ ] No hardcoded colors, spacing, or typography
-- [ ] Semantic HTML structure with proper element hierarchy
-- [ ] ARIA attributes present for accessibility
-- [ ] Responsive design implemented with mobile-first approach
-- [ ] File naming follows `{target}-style-{s}-layout-{l}` convention
-- [ ] compare.html loads correctly with all prototypes
-- [ ] Template files are reusable and style-agnostic
-- [ ] All templates use complete HTML5 documents with appropriate body content (full structure for pages, isolated component for components)
+- [ ] CSS uses var(--token-name) only
+- [ ] No hardcoded colors/spacing
+- [ ] Semantic HTML5 structure
+- [ ] ARIA attributes present
+- [ ] Mobile-first responsive
+- [ ] Naming: `{target}-style-{s}-layout-{l}`
+- [ ] compare.html works
 
 ## Key Features
 
-1. **Target-Specific Layout Planning** 🆕 - Each target gets custom-designed layouts; Agent researches modern patterns using MCP tools; Layout plans saved as structured JSON
-2. **Unified Target Generation** - Supports both pages (full layouts) and components (isolated elements); Backward compatible with legacy `--pages` parameter
-3. **Optimized Template-Based Architecture** - Generates `L × T` reusable templates plus `L × T` layout plans; **`S` times faster**
-4. **Three-Layer Generation Strategy** - Layer 1: Layout planning (target-specific); Layer 2: Template generation (implements plans); Layer 3: Fast instantiation; Agent autonomously uses MCP tools
-5. **Script-Based Instantiation (v3.0)** - Uses `ui-instantiate-prototypes.sh` for efficient file operations; Auto-detection; Robust error handling; Integrated preview generation; Supports both page and component modes
-6. **Consistent Cross-Style Layouts** - Same layout structure applied uniformly; Easier to compare styles; Simplified maintenance
-7. **Dynamic Style Injection** - CSS custom properties enable runtime style switching; Each style variant has its own `tokens.css` file
-8. **Interactive Visualization** - Full-featured compare.html; Matrix grid view with synchronized scrolling; Enhanced index.html with statistics; Comprehensive PREVIEW.md
-9. **Production-Ready Output** - Semantic HTML5 and ARIA attributes (WCAG 2.2); Mobile-first responsive design; Token-driven styling; Implementation notes
+- **Template-Based**: `S` times faster generation
+- **Target Types**: Pages and components
+- **Agent-Driven**: Parallel task execution
+- **Token-Driven**: No hardcoded values
+- **Production-Ready**: Semantic, accessible, responsive
+- **Interactive Preview**: Matrix comparison view
 
-## Integration Points
+## Integration
 
-- **Input**: Per-style `design-tokens.json` from `/workflow:ui-design:consolidate`; `--targets` and `--layout-variants` parameters; Optional: `synthesis-specification.md` for target requirements; Target type specification
-- **Output**: Target-specific `layout-{n}.json` files; Matrix HTML/CSS prototypes for `/workflow:ui-design:update`
-- **Template**: `~/.claude/workflows/_template-compare-matrix.html` (global)
-- **Auto Integration**: Automatically triggered by `/workflow:ui-design:explore-auto` workflow
-- **Key Change**: Layout planning moved from consolidate to generate phase; Each target gets custom-designed layouts
-- **Backward Compatibility**: Legacy `--pages` parameter continues to work
+**Input**: design-tokens.json from `/workflow:ui-design:consolidate`
+**Output**: Prototypes for `/workflow:ui-design:update`
+**Called by**: `/workflow:ui-design:explore-auto`, `/workflow:ui-design:imitate-auto`

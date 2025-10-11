@@ -14,423 +14,255 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 # Style Extraction Command
 
 ## Overview
-Extract design style elements from reference images or text prompts using Claude's built-in analysis capabilities. Generates a single, comprehensive `style-cards.json` file containing multiple design variants with complete token **proposals** (raw, unrefined data for consolidation phase).
+Extract design style from reference images or text prompts using Claude's built-in analysis. Generates `style-cards.json` with multiple design variants containing token proposals for consolidation.
 
-## Core Philosophy
-- **Claude-Native**: 100% Claude-driven analysis, no external tools
-- **Single Output**: Only `style-cards.json` with embedded token proposals
-- **Token Proposals, Not Final Systems**: Outputs raw token data proposals; does NOT create final CSS or separate design systems (that's consolidate's job)
-- **Sequential Execution**: Generate multiple style variants in one pass
+**Strategy**: AI-Driven Design Space Exploration
+- **Claude-Native**: 100% Claude analysis, no external tools
+- **Single Output**: `style-cards.json` with embedded token proposals
 - **Flexible Input**: Images, text prompts, or both (hybrid mode)
-- **Reproducible**: Deterministic output structure
+- **Maximum Contrast**: AI generates maximally divergent design directions
 
-## Execution Protocol
+## Phase 0: Setup & Input Validation
 
-### Phase 0: Parameter Detection & Validation
-
+### Step 1: Detect Input Mode & Base Path
 ```bash
 # Detect input source
-IF --images AND --prompt: input_mode = "hybrid"  # Text guides image analysis
-ELSE IF --images: input_mode = "image"
-ELSE IF --prompt: input_mode = "text"
-ELSE: ERROR: "Must provide --images or --prompt"
+# Priority: --images + --prompt → hybrid | --images → image | --prompt → text
 
-# Determine base path (PRIORITY: --base-path > --session > standalone)
-IF --base-path:
-    base_path = {provided_base_path}; session_mode = "integrated"
-    session_id = base_path matches ".workflow/WFS-*/design-*" ? extract_session_id(base_path) : "standalone"
-ELSE:
-    run_id = "run-" + timestamp()
-    IF --session:
-        session_mode = "integrated"; session_id = {provided_session}
-        base_path = ".workflow/WFS-{session_id}/design-{run_id}/"
-    ELSE:
-        session_mode = "standalone"; base_path = ".workflow/.design/{run_id}/"
+# Determine base path
+bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
+# OR use --base-path / --session parameters
 
-# Set variant count
-variants_count = --variants OR 1; VALIDATE: 1 <= variants_count <= 5
+# Set variant count (default: 1)
+# Priority: --variants parameter → default 1
+# Validate: 1 <= variants_count <= 5
 ```
 
-### Phase 1: Input Loading & Validation
-
+### Step 2: Load Inputs
 ```bash
-# Expand and validate inputs
-IF input_mode IN ["image", "hybrid"]:
-    expanded_images = Glob({--images pattern}); VERIFY: expanded_images.length > 0
-    FOR each image: image_data[i] = Read({image_path})
+# For image mode
+bash(ls {images_pattern})  # Expand glob pattern
+Read({image_path})  # Load each image
 
-IF input_mode IN ["text", "hybrid"]:
-    VALIDATE: --prompt is non-empty; prompt_guidance = {--prompt value}
+# For text mode
+# Validate --prompt is non-empty
 
-CREATE: {base_path}/style-extraction/
+# Create output directory
+bash(mkdir -p {base_path}/style-extraction/)
 ```
 
-### Phase 0.1: Memory Check (Skip if Already Extracted)
-
+### Step 3: Memory Check (Skip if Already Done)
 ```bash
-# Check if output already exists in memory/cache
-IF exists("{base_path}/style-extraction/style-cards.json"):
-    REPORT: "✅ Style extraction already complete (found in memory)"
-    REPORT: "   Skipping: Phase 0.5-3 (Design Space Divergence, Variant-Specific Style Synthesis, Completion)"
-    EXIT 0
+# Check if already extracted
+bash(test -f {base_path}/style-extraction/style-cards.json && echo "exists")
 ```
 
-### Phase 0.5: AI-Driven Design Space Divergence
+**If exists**: Skip to completion message
 
+**Output**: `input_mode`, `base_path`, `variants_count`, `loaded_images[]` or `prompt_guidance`
+
+## Phase 1: Design Space Analysis (Explore Mode Only)
+
+### Step 1: Determine Extraction Mode
 ```bash
-# Determine extraction mode
-extraction_mode = --mode OR "auto"
-IF extraction_mode == "auto":
-    extraction_mode = (variants_count == 1) ? "imitate" : "explore"
-    REPORT: "🔍 Auto-detected mode: {extraction_mode} (variants_count={variants_count})"
-
-# Branch: Skip or Execute divergence analysis
-IF extraction_mode == "imitate":
-    REPORT: "🎯 IMITATE MODE: High-fidelity single style extraction"
-    REPORT: "   → Skipping design space divergence analysis"
-    REPORT: "   → Proceeding to Phase 2 for direct style synthesis"
-    design_space_analysis = null
-    # Skip to Phase 2
-    GOTO Phase 2
-
-# ELSE: REQUIRED execution path for explore mode
-# ⚠️ CRITICAL: The following steps (Step 1-3) MUST be executed when extraction_mode == "explore"
-# Step 1: Load project context (explore mode only)
-project_context = ""
-IF exists({base_path}/.brainstorming/synthesis-specification.md):
-    project_context = Read(synthesis-specification.md)
-ELSE IF exists({base_path}/.brainstorming/ui-designer/analysis.md):
-    project_context = Read(ui-designer/analysis.md)
-
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🎨 EXPLORE MODE: Analyzing design space (REQUIRED)"
-REPORT: "   → Generating {variants_count} maximally contrasting directions"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# Step 2: AI-driven divergent direction generation (REQUIRED)
-divergence_prompt = """
-Analyze user requirements and generate {variants_count} MAXIMALLY CONTRASTING design directions.
-
-USER INPUT:
-{IF prompt_guidance: Prompt: "{prompt_guidance}"}
-{IF project_context: Project Context Summary: {extract_key_points(project_context, max_lines=10)}}
-{IF images: Reference Images: {image_count} images will be analyzed in next phase}
-
-DESIGN ATTRIBUTE SPACE (maximize contrast):
-- Color Saturation: [monochrome, muted, moderate, vibrant, hypersaturated]
-- Visual Weight: [minimal, light, balanced, bold, heavy]
-- Formality: [playful, casual, professional, formal, luxury]
-- Organic vs Geometric: [organic/fluid, soft, balanced, geometric, brutalist]
-- Innovation: [timeless, modern, contemporary, trendy, experimental]
-- Density: [spacious, airy, balanced, compact, dense]
-
-TASK:
-1. Identify design space center point from user requirements
-2. Generate {variants_count} directions that:
-   - Are MAXIMALLY DISTANT from each other in attribute space
-   - Each occupies a distinct region/quadrant of the design spectrum
-   - Together provide diverse aesthetic options
-   - Are contextually appropriate for project type
-   - Have clear, memorable philosophical differences
-3. For each direction, generate:
-   - Specific search keywords for MCP research (3-5 keywords)
-   - Anti-keywords to avoid (2-3 keywords)
-   - Clear rationale explaining contrast with other variants
-
-OUTPUT FORMAT: Valid JSON only, no markdown:
-{"design_space_center": {attributes}, "divergent_directions": [
-  {"id": "variant-1", "philosophy_name": "Brief name 2-3 words",
-   "design_attributes": {attribute_scores}, "search_keywords": [...],
-   "anti_keywords": [...], "rationale": "..."}
-], "contrast_verification": {"min_pairwise_distance": "0.75", "strategy": "..."}}
-
-RULES: Output ONLY valid JSON, maximize inter-variant distance, ensure each variant
-occupies distinct aesthetic region, avoid overlapping attributes
-"""
-
-# Execute AI analysis (REQUIRED in explore mode)
-divergent_directions = parse_json(Claude_Native_Analysis(divergence_prompt))
-
-REPORT: "✅ Generated {variants_count} contrasting design directions:"
-FOR direction IN divergent_directions.divergent_directions:
-    REPORT: "  - {direction.philosophy_name}: {direction.rationale}"
-
-design_space_analysis = divergent_directions
-
-# Step 3: Save design space analysis for consolidation phase (REQUIRED)
-# ⚠️ CRITICAL: This file MUST be generated in explore mode for downstream consolidation
-output_file_path = "{base_path}/style-extraction/design-space-analysis.json"
-Write({file_path: output_file_path,
-       content: JSON.stringify(design_space_analysis, null, 2)})
-
-REPORT: "💾 Saved design space analysis to design-space-analysis.json"
-
-# Verification step (REQUIRED)
-VERIFY: file_exists(output_file_path) == true
-REPORT: "✅ Verified: design-space-analysis.json exists ({file_size(output_file_path)} bytes)"
+# Auto-detect mode
+# variants_count == 1 → imitate mode (skip this phase)
+# variants_count > 1 → explore mode (execute this phase)
 ```
 
-### Phase 2: Variant-Specific Style Synthesis & Direct File Write
+**If imitate mode**: Skip to Phase 2
 
-**Analysis Prompt Template**:
-```
-Generate {variants_count} design style proposals{IF extraction_mode == "explore": , each guided by its pre-analyzed design direction}.
-
-INPUT MODE: {input_mode}
-{IF input_mode IN ["image", "hybrid"]: VISUAL REFERENCES: {list of loaded images}}
-{IF input_mode IN ["text", "hybrid"]: TEXT GUIDANCE: "{prompt_guidance}"}
-
-{IF extraction_mode == "explore":
-DESIGN SPACE ANALYSIS: {design_space_analysis summary}
-
-VARIANT-SPECIFIC DESIGN DIRECTIONS:
-{FOR each direction IN design_space_analysis.divergent_directions:
----
-VARIANT: {direction.id} | PHILOSOPHY: {direction.philosophy_name}
-DESIGN ATTRIBUTES: {direction.design_attributes}
-SEARCH KEYWORDS: {direction.search_keywords}
-ANTI-PATTERNS (avoid): {direction.anti_keywords}
-RATIONALE: {direction.rationale}
----}
-}
-
-TASK: Generate {variants_count} design style variant{IF variants_count > 1: s} where {IF extraction_mode == "explore": EACH variant}:
-{IF extraction_mode == "explore":
-1. Strictly follows its pre-defined design philosophy and attributes
-2. Maintains maximum contrast with other variants' attributes
-3. Incorporates its design direction and avoids its anti-patterns
-}
-{IF extraction_mode == "imitate":
-1. Provides high-fidelity replication of reference design
-2. Focuses on accurate extraction of visual characteristics
-}
-4. Uses OKLCH color space for all color values
-5. Includes complete, production-ready design token proposals
-6. Applies WCAG AA accessibility guidelines (4.5:1 text, 3:1 UI)
-
-{IF extraction_mode == "explore":
-CRITICAL RULES FOR CONTRAST:
-- Variant-1 should feel completely different from Variant-2/3
-- Use each variant's specific attribute scores (e.g., "monochrome" vs "vibrant")
-- Each variant should embody its unique design direction
-- If Variant-1 is "minimal/geometric", Variant-2 must be "bold/organic" or similar contrast
-}
-
-OUTPUT FORMAT: JSON matching this structure:
-{"extraction_metadata": {"session_id": "...", "input_mode": "...", "timestamp": "...", "variants_count": N},
- "style_cards": [
-   {"id": "variant-1", "name": "Concise Style Name (2-3 words)", "description": "2-3 sentences",
-    "design_philosophy": "Core design principles",
-    "preview": {"primary": "oklch(...)", "background": "oklch(...)", "font_heading": "...", "border_radius": "..."},
-    "proposed_tokens": {
-      "colors": {"brand": {...}, "surface": {...}, "semantic": {...}, "text": {...}, "border": {...}},
-      "typography": {"font_family": {...}, "font_size": {...}, "font_weight": {...}, "line_height": {...}, "letter_spacing": {...}},
-      "spacing": {"0": "0", ..., "24": "6rem"},
-      "border_radius": {"none": "0", ..., "full": "9999px"},
-      "shadows": {"sm": "...", ..., "xl": "..."},
-      "breakpoints": {"sm": "640px", ..., "2xl": "1536px"}
-    }}
-   // Repeat for ALL {variants_count} variants
- ]}
-
-RULES: {IF extraction_mode == "explore": Each variant must strictly adhere to pre-defined attributes; maximize visual contrast;}
-{IF extraction_mode == "imitate": Focus on high-fidelity replication;}
-all colors in OKLCH format; complete token structures; semantic naming;
-WCAG AA accessibility (4.5:1 text, 3:1 UI)
-```
-
-**Execution & File Write**:
+### Step 2: Load Project Context (Explore Mode)
 ```bash
-# Execute Claude Native Analysis (internal processing, no context output)
-style_cards_json = Claude_Native_Analysis(synthesis_prompt)
-
-# Write directly to file
-Write({file_path: "{base_path}/style-extraction/style-cards.json", content: style_cards_json})
-REPORT: "💾 Saved {variants_count} style variants to style-cards.json"
+# Load brainstorming context if available
+bash(test -f {base_path}/.brainstorming/synthesis-specification.md && cat it)
 ```
 
-### Phase 3: Completion
+### Step 3: Generate Divergent Directions (Claude Native)
+AI analyzes requirements and generates `variants_count` maximally contrasting design directions:
 
+**Input**: User prompt + project context + image count
+**Analysis**: 6D attribute space (color saturation, visual weight, formality, organic/geometric, innovation, density)
+**Output**: JSON with divergent_directions, each having:
+- philosophy_name (2-3 words)
+- design_attributes (specific scores)
+- search_keywords (3-5 keywords)
+- anti_keywords (2-3 keywords)
+- rationale (contrast explanation)
+
+### Step 4: Write Design Space Analysis
+```bash
+bash(echo '{design_space_analysis}' > {base_path}/style-extraction/design-space-analysis.json)
+
+# Verify output
+bash(test -f design-space-analysis.json && echo "saved")
+```
+
+**Output**: `design-space-analysis.json` for consolidation phase
+
+## Phase 2: Style Synthesis & File Write
+
+### Step 1: Claude Native Analysis
+AI generates `variants_count` design style proposals:
+
+**Input**:
+- Input mode (image/text/hybrid)
+- Visual references or text guidance
+- Design space analysis (explore mode only)
+- Variant-specific directions (explore mode only)
+
+**Analysis Rules**:
+- **Explore mode**: Each variant follows pre-defined philosophy and attributes, maintains maximum contrast
+- **Imitate mode**: High-fidelity replication of reference design
+- OKLCH color format
+- Complete token proposals (colors, typography, spacing, border_radius, shadows, breakpoints)
+- WCAG AA accessibility (4.5:1 text, 3:1 UI)
+
+**Output Format**: `style-cards.json` with:
+- extraction_metadata (session_id, input_mode, timestamp, variants_count)
+- style_cards[] (id, name, description, design_philosophy, preview, proposed_tokens)
+
+### Step 2: Write Style Cards
+```bash
+bash(echo '{style_cards_json}' > {base_path}/style-extraction/style-cards.json)
+```
+
+**Output**: `style-cards.json` with `variants_count` complete variants
+
+## Completion
+
+### Todo Update
 ```javascript
 TodoWrite({todos: [
-  {content: "Validate inputs and create directories", status: "completed", activeForm: "Validating inputs"},
-  {content: extraction_mode == "explore" ? "Analyze design space for maximum contrast" : "Skip design space analysis (imitate mode)", status: "completed", activeForm: extraction_mode == "explore" ? "Analyzing design space" : "Skipping analysis"},
-  {content: extraction_mode == "explore" ? `Generate ${variants_count} divergent design directions (REQUIRED)` : "Prepare for high-fidelity extraction", status: "completed", activeForm: extraction_mode == "explore" ? "Generating directions" : "Preparing extraction"},
-  {content: extraction_mode == "explore" ? `Write and verify design-space-analysis.json (REQUIRED)` : "Skip design space output", status: "completed", activeForm: extraction_mode == "explore" ? "Writing and verifying file" : "Skipping output"},
-  {content: `Generate and write ${variants_count} ${extraction_mode == "explore" ? "contrasting" : "high-fidelity"} style variant${variants_count > 1 ? "s" : ""} to file`, status: "completed", activeForm: "Generating and writing variants"}
+  {content: "Setup and input validation", status: "completed", activeForm: "Validating inputs"},
+  {content: "Design space analysis (explore mode)", status: "completed", activeForm: "Analyzing design space"},
+  {content: "Style synthesis and file write", status: "completed", activeForm: "Generating style cards"}
 ]});
 ```
 
-**Completion Message**:
+### Output Message
 ```
-✅ Style extraction complete for session: {session_id}
+✅ Style extraction complete!
 
-Mode: {extraction_mode == "imitate" ? "🎯 IMITATE (high-fidelity)" : "🎨 EXPLORE (contrast analysis)"}
-Input mode: {input_mode}
-{IF image mode: Images analyzed: {count}}
-{IF prompt mode: Prompt: "{truncated_prompt}"}
+Configuration:
+- Session: {session_id}
+- Mode: {extraction_mode} (imitate/explore)
+- Input: {input_mode} (image/text/hybrid)
+- Variants: {variants_count}
 
-{IF extraction_mode == "explore":
-🎨 Design Space Analysis:
-- Generated {variants_count} MAXIMALLY CONTRASTING design directions
-- Min pairwise contrast distance: {design_space_analysis.contrast_verification.min_pairwise_distance}
-- Strategy: {design_space_analysis.contrast_verification.strategy}
-}
-{IF extraction_mode == "imitate":
-🎯 Imitation Mode:
-- High-fidelity single style extraction
-- Design space divergence skipped for faster execution
+{IF explore mode:
+Design Space Analysis:
+- {variants_count} maximally contrasting design directions
+- Min contrast distance: {design_space_analysis.contrast_verification.min_pairwise_distance}
 }
 
-Generated {variants_count} style variant{variants_count > 1 ? "s" : ""}:
-{FOR each card: - {card.name} ({card.id}) - {card.design_philosophy}}
+Generated Variants:
+{FOR each card: - {card.name} - {card.design_philosophy}}
 
-📂 Outputs:
+Output Files:
 - {base_path}/style-extraction/style-cards.json
-{IF extraction_mode == "explore": - {base_path}/style-extraction/design-space-analysis.json}
+{IF explore mode: - {base_path}/style-extraction/design-space-analysis.json}
 
-Next: /workflow:ui-design:consolidate --session {session_id} --variants {variants_count} [--layout-variants <count>]
+Next: /workflow:ui-design:consolidate --session {session_id} --variants {variants_count}
+```
 
-Note: When called from /workflow:ui-design:{extraction_mode == "imitate" ? "imitate" : "explore"}-auto, consolidation is triggered automatically.
+## Simple Bash Commands
+
+### Path Operations
+```bash
+# Find design directory
+bash(find .workflow -type d -name "design-*" | head -1)
+
+# Expand image pattern
+bash(ls {images_pattern})
+
+# Create output directory
+bash(mkdir -p {base_path}/style-extraction/)
+```
+
+### Validation Commands
+```bash
+# Check if already extracted
+bash(test -f {base_path}/style-extraction/style-cards.json && echo "exists")
+
+# Count variants
+bash(cat style-cards.json | grep -c "\"id\": \"variant-")
+
+# Validate JSON
+bash(cat style-cards.json | grep -q "extraction_metadata" && echo "valid")
+```
+
+### File Operations
+```bash
+# Load brainstorming context
+bash(test -f .brainstorming/synthesis-specification.md && cat it)
+
+# Write output
+bash(echo '{json}' > {base_path}/style-extraction/style-cards.json)
+
+# Verify output
+bash(test -f design-space-analysis.json && echo "saved")
 ```
 
 ## Output Structure
 
 ```
-.workflow/WFS-{session}/design-{run_id}/style-extraction/
+{base_path}/style-extraction/
 ├── style-cards.json              # Complete style variants with token proposals
 └── design-space-analysis.json    # Design directions (explore mode only)
-
-OR (standalone mode):
-
-.workflow/.design/{run_id}/style-extraction/
-├── style-cards.json
-└── design-space-analysis.json    # Only in explore mode
 ```
 
-### style-cards.json Format
-
-**Schema Structure**:
+## style-cards.json Format
 
 ```json
 {
-  "extraction_metadata": {"session_id": "string", "input_mode": "image|text|hybrid",
-                           "timestamp": "ISO 8601", "variants_count": "number"},
+  "extraction_metadata": {"session_id": "...", "input_mode": "image|text|hybrid", "timestamp": "...", "variants_count": N},
   "style_cards": [
     {
-      "id": "variant-{n}", "name": "Concise Style Name (2-3 words)",
-      "description": "2-3 sentence description of visual language and UX",
-      "design_philosophy": "Core design principles for this variant",
-      "preview": {"primary": "oklch(...)", "background": "oklch(...)",
-                  "font_heading": "Font family, fallbacks", "border_radius": "value"},
+      "id": "variant-1", "name": "Style Name", "description": "...",
+      "design_philosophy": "Core principles",
+      "preview": {"primary": "oklch(...)", "background": "oklch(...)", "font_heading": "...", "border_radius": "..."},
       "proposed_tokens": {
-        "colors": {
-          "brand": {"primary": "oklch(...)", "secondary": "oklch(...)", "accent": "oklch(...)"},
-          "surface": {"background": "oklch(...)", "elevated": "oklch(...)", "overlay": "oklch(...)"},
-          "semantic": {"success": "oklch(...)", "warning": "oklch(...)", "error": "oklch(...)", "info": "oklch(...)"},
-          "text": {"primary": "oklch(...)", "secondary": "oklch(...)", "tertiary": "oklch(...)", "inverse": "oklch(...)"},
-          "border": {"default": "oklch(...)", "strong": "oklch(...)", "subtle": "oklch(...)"}
-        },
-        "typography": {
-          "font_family": {"heading": "...", "body": "...", "mono": "..."},
-          "font_size": {"xs": "...", "sm": "...", "base": "...", "lg": "...", "xl": "...", "2xl": "...", "3xl": "...", "4xl": "..."},
-          "font_weight": {"normal": "400", "medium": "500", "semibold": "600", "bold": "700"},
-          "line_height": {"tight": "1.25", "normal": "1.5", "relaxed": "1.75"},
-          "letter_spacing": {"tight": "-0.025em", "normal": "0", "wide": "0.025em"}
-        },
-        "spacing": {"0": "0", "1": "0.25rem", "2": "0.5rem", "3": "0.75rem", "4": "1rem",
-                    "5": "1.25rem", "6": "1.5rem", "8": "2rem", "10": "2.5rem", "12": "3rem",
-                    "16": "4rem", "20": "5rem", "24": "6rem"},
-        "border_radius": {"none": "0", "sm": "0.25rem", "md": "0.5rem", "lg": "0.75rem",
-                          "xl": "1rem", "full": "9999px"},
-        "shadows": {"sm": "0 1px 2px oklch(0.00 0.00 0 / 0.05)",
-                    "md": "0 4px 6px oklch(0.00 0.00 0 / 0.07)",
-                    "lg": "0 10px 15px oklch(0.00 0.00 0 / 0.10)",
-                    "xl": "0 20px 25px oklch(0.00 0.00 0 / 0.15)"},
-        "breakpoints": {"sm": "640px", "md": "768px", "lg": "1024px", "xl": "1280px", "2xl": "1536px"}
+        "colors": {"brand": {...}, "surface": {...}, "semantic": {...}, "text": {...}, "border": {...}},
+        "typography": {"font_family": {...}, "font_size": {...}, "font_weight": {...}, "line_height": {...}, "letter_spacing": {...}},
+        "spacing": {"0": "0", ..., "24": "6rem"},
+        "border_radius": {"none": "0", ..., "full": "9999px"},
+        "shadows": {"sm": "...", ..., "xl": "..."},
+        "breakpoints": {"sm": "640px", ..., "2xl": "1536px"}
       }
     }
-    // Repeat structure for variants_count total (variant-1, variant-2, ..., variant-n)
+    // Repeat for all variants
   ]
 }
 ```
 
-**Key Structural Requirements**:
-- Each variant MUST have complete, independent token proposals (all categories present)
-- All colors MUST use OKLCH format: `oklch(L C H / A)`
-- Token keys MUST match exactly across all variants for consistency
-- Variants differ in VALUES, not structure
-- Production-ready: no placeholders or incomplete sections
+**Requirements**: All colors in OKLCH format, complete token proposals, semantic naming
 
 ## Error Handling
 
-- **No images found**: Report glob pattern and suggest corrections
-- **Invalid prompt**: Require non-empty string for text mode
-- **Claude JSON parsing error**: Retry with stricter format instructions
-- **Invalid session**: Create standalone session automatically in `.workflow/.scratchpad/`
-- **Invalid variant count**: Clamp to 1-5 range and warn user
+### Common Errors
+```
+ERROR: No images found
+→ Check glob pattern
+
+ERROR: Invalid prompt
+→ Provide non-empty string
+
+ERROR: Claude JSON parsing error
+→ Retry with stricter format
+```
 
 ## Key Features
 
-1. **🚀 AI-Driven Design Space Exploration** 🆕
-   - Phase 0.5: AI analyzes requirements and generates MAXIMALLY CONTRASTING design directions
-   - Uses 6-dimensional design attribute space (color saturation, visual weight, formality, organic/geometric, innovation, density)
-   - Ensures each variant occupies a distinct region of the design spectrum
-   - Generates search keywords and anti-patterns for each variant
-   - Provides contrast verification with minimum pairwise distance metrics
+- **AI-Driven Design Space Exploration** - 6D attribute space analysis for maximum contrast
+- **Variant-Specific Directions** - Each variant has unique philosophy, keywords, anti-patterns
+- **Maximum Contrast Guarantee** - Variants maximally distant in attribute space
+- **Claude-Native** - No external tools, fast deterministic synthesis
+- **Flexible Input** - Images, text, or hybrid mode
+- **Production-Ready** - OKLCH colors, WCAG AA, semantic naming
 
-2. **🎯 Variant-Specific Design Directions** 🆕
-   - AI generates search keywords and anti-patterns for each variant
-   - Each variant has distinct design philosophy (e.g., "minimal brutalist" vs "bold vibrant")
-   - Philosophy-specific keywords guide synthesis
-   - Design space analysis saved for consolidation phase
-   - Trend research deferred to consolidation for better integration
+## Integration
 
-3. **🔒 Maximum Contrast Guarantee**
-   - AI-driven divergence ensures variants are maximally distant in attribute space
-   - Each variant has distinct: philosophy, color saturation, visual weight, formality, etc.
-   - Explicit anti-patterns prevent variants from borrowing each other's characteristics
-   - Contrast verification built into design space analysis
-
-4. **100% Claude-Native Analysis**
-   - No external tools (gemini-wrapper, codex, or MCP) - pure Claude
-   - Single-pass comprehensive analysis guided by design space analysis
-   - Fast, deterministic style synthesis without external dependencies
-
-5. **Streamlined Output**
-   - Single file (`style-cards.json`) vs. multiple scattered files
-   - Eliminates `semantic_style_analysis.json`, `design-tokens.json`, `tailwind-tokens.js` clutter
-   - Each variant contains complete token proposals embedded
-
-6. **Flexible Input Modes**
-   - Image-only: Analyze visual references through each variant's philosophical lens
-   - Text-only: Generate from descriptions with maximum divergence
-   - Hybrid: Text guides image analysis while maintaining variant independence
-   - All modes enhanced with AI-driven design space analysis
-
-7. **Context-Aware & Dynamic**
-   - Extracts design keywords from user prompts (e.g., "minimalist", "Linear.app")
-   - Considers project type from brainstorming artifacts
-   - Dynamically generates design directions based on project context
-   - No hardcoded design philosophies - fully adaptive
-
-8. **Production-Ready Token Proposals**
-   - Complete design system proposals per variant
-   - OKLCH color format for perceptual uniformity and accessibility
-   - Semantic naming conventions
-   - WCAG AA accessibility considerations built-in
-   - Variant-specific token sets (not generic)
-
-9. **Workflow Integration**
-   - Integrated mode: Works within existing workflow sessions
-   - Standalone mode: Auto-creates session in scratchpad
-   - Context-aware: Can reference synthesis-specification.md or ui-designer/analysis.md
-   - Contrast metrics included in completion report
-
-## Integration Points
-
-- **Input**: Reference images (PNG, JPG, WebP) via glob patterns, or text prompts
-- **Output**: `style-cards.json` for `/workflow:ui-design:consolidate`
-- **Context**: Optional brainstorming artifacts (`synthesis-specification.md`, `ui-designer/analysis.md`)
-- **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` workflow
-- **Next Step**: `/workflow:ui-design:consolidate --session {session_id} --variants {count} [--layout-variants <count>]` (add `--keep-separate` for matrix mode)
+**Input**: Reference images or text prompts
+**Output**: `style-cards.json` for `/workflow:ui-design:consolidate`
+**Next**: `/workflow:ui-design:consolidate --session {session_id} --variants {count}`
