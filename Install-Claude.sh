@@ -340,6 +340,64 @@ function copy_file_to_destination() {
     fi
 }
 
+function backup_and_replace_directory() {
+    local source="$1"
+    local destination="$2"
+    local description="${3:-directory}"
+    local backup_folder="${4:-}"
+
+    if [ ! -d "$source" ]; then
+        write_color "WARNING: Source $description not found: $source" "$COLOR_WARNING"
+        return 1
+    fi
+
+    # Backup destination if it exists
+    if [ -d "$destination" ]; then
+        write_color "Found existing $description at: $destination" "$COLOR_INFO"
+
+        # Backup entire directory if backup is enabled
+        if [ "$NO_BACKUP" = false ] && [ -n "$backup_folder" ]; then
+            write_color "Backing up entire $description..." "$COLOR_INFO"
+            if backup_directory_to_folder "$destination" "$backup_folder"; then
+                write_color "Backed up $description to: $backup_folder" "$COLOR_SUCCESS"
+            fi
+        elif [ "$NO_BACKUP" = true ]; then
+            if ! confirm_action "Replace existing $description without backup?" false; then
+                write_color "Skipping $description installation" "$COLOR_WARNING"
+                return 1
+            fi
+        fi
+
+        # Get all items from source to determine what to clear in destination
+        write_color "Clearing conflicting items in destination $description..." "$COLOR_INFO"
+        while IFS= read -r -d '' source_item; do
+            local item_name=$(basename "$source_item")
+            local dest_item_path="${destination}/${item_name}"
+
+            if [ -e "$dest_item_path" ]; then
+                write_color "Removing existing: $item_name" "$COLOR_INFO"
+                rm -rf "$dest_item_path"
+            fi
+        done < <(find "$source" -mindepth 1 -maxdepth 1 -print0)
+        write_color "Cleared conflicting items in destination" "$COLOR_SUCCESS"
+    else
+        # Create destination directory if it doesn't exist
+        mkdir -p "$destination"
+        write_color "Created destination directory: $destination" "$COLOR_INFO"
+    fi
+
+    # Copy all items from source to destination
+    write_color "Copying $description from $source to $destination..." "$COLOR_INFO"
+    while IFS= read -r -d '' item; do
+        local item_name=$(basename "$item")
+        local dest_path="${destination}/${item_name}"
+        cp -r "$item" "$dest_path"
+    done < <(find "$source" -mindepth 1 -maxdepth 1 -print0)
+    write_color "$description installed successfully" "$COLOR_SUCCESS"
+
+    return 0
+}
+
 function merge_directory_contents() {
     local source="$1"
     local destination="$2"
@@ -447,25 +505,25 @@ function install_global() {
         fi
     fi
 
-    # Merge .claude directory contents
-    write_color "Merging .claude directory contents..." "$COLOR_INFO"
-    merge_directory_contents "$source_claude_dir" "$global_claude_dir" ".claude directory contents" "$backup_folder"
+    # Replace .claude directory (backup → clear conflicting → copy)
+    write_color "Installing .claude directory..." "$COLOR_INFO"
+    backup_and_replace_directory "$source_claude_dir" "$global_claude_dir" ".claude directory" "$backup_folder"
 
     # Handle CLAUDE.md file
     write_color "Installing CLAUDE.md to global .claude directory..." "$COLOR_INFO"
     copy_file_to_destination "$source_claude_md" "$global_claude_md" "CLAUDE.md" "$backup_folder"
 
-    # Merge .codex directory contents
-    write_color "Merging .codex directory contents..." "$COLOR_INFO"
-    merge_directory_contents "$source_codex_dir" "$global_codex_dir" ".codex directory contents" "$backup_folder"
+    # Replace .codex directory (backup → clear conflicting → copy)
+    write_color "Installing .codex directory..." "$COLOR_INFO"
+    backup_and_replace_directory "$source_codex_dir" "$global_codex_dir" ".codex directory" "$backup_folder"
 
-    # Merge .gemini directory contents
-    write_color "Merging .gemini directory contents..." "$COLOR_INFO"
-    merge_directory_contents "$source_gemini_dir" "$global_gemini_dir" ".gemini directory contents" "$backup_folder"
+    # Replace .gemini directory (backup → clear conflicting → copy)
+    write_color "Installing .gemini directory..." "$COLOR_INFO"
+    backup_and_replace_directory "$source_gemini_dir" "$global_gemini_dir" ".gemini directory" "$backup_folder"
 
-    # Merge .qwen directory contents
-    write_color "Merging .qwen directory contents..." "$COLOR_INFO"
-    merge_directory_contents "$source_qwen_dir" "$global_qwen_dir" ".qwen directory contents" "$backup_folder"
+    # Replace .qwen directory (backup → clear conflicting → copy)
+    write_color "Installing .qwen directory..." "$COLOR_INFO"
+    backup_and_replace_directory "$source_qwen_dir" "$global_qwen_dir" ".qwen directory" "$backup_folder"
 
     # Remove empty backup folder
     if [ -n "$backup_folder" ] && [ -d "$backup_folder" ]; then
@@ -528,11 +586,9 @@ function install_path() {
         local dest_folder="${local_claude_dir}/${folder}"
 
         if [ -d "$source_folder" ]; then
-            if [ -d "$dest_folder" ] && [ -n "$backup_folder" ]; then
-                backup_directory_to_folder "$dest_folder" "$backup_folder"
-            fi
-
-            copy_directory_recursive "$source_folder" "$dest_folder"
+            # Use new backup and replace logic for local folders
+            write_color "Installing local folder: $folder..." "$COLOR_INFO"
+            backup_and_replace_directory "$source_folder" "$dest_folder" "$folder folder" "$backup_folder"
             write_color "✓ Installed local folder: $folder" "$COLOR_SUCCESS"
         else
             write_color "WARNING: Source folder not found: $folder" "$COLOR_WARNING"
@@ -590,17 +646,17 @@ function install_path() {
     write_color "Installing CLAUDE.md to global .claude directory..." "$COLOR_INFO"
     copy_file_to_destination "$source_claude_md" "$global_claude_md" "CLAUDE.md" "$backup_folder"
 
-    # Merge .codex directory contents to local location
-    write_color "Merging .codex directory contents to local location..." "$COLOR_INFO"
-    merge_directory_contents "$source_codex_dir" "$local_codex_dir" ".codex directory contents" "$backup_folder"
+    # Replace .codex directory to local location (backup → clear conflicting → copy)
+    write_color "Installing .codex directory to local location..." "$COLOR_INFO"
+    backup_and_replace_directory "$source_codex_dir" "$local_codex_dir" ".codex directory" "$backup_folder"
 
-    # Merge .gemini directory contents to local location
-    write_color "Merging .gemini directory contents to local location..." "$COLOR_INFO"
-    merge_directory_contents "$source_gemini_dir" "$local_gemini_dir" ".gemini directory contents" "$backup_folder"
+    # Replace .gemini directory to local location (backup → clear conflicting → copy)
+    write_color "Installing .gemini directory to local location..." "$COLOR_INFO"
+    backup_and_replace_directory "$source_gemini_dir" "$local_gemini_dir" ".gemini directory" "$backup_folder"
 
-    # Merge .qwen directory contents to local location
-    write_color "Merging .qwen directory contents to local location..." "$COLOR_INFO"
-    merge_directory_contents "$source_qwen_dir" "$local_qwen_dir" ".qwen directory contents" "$backup_folder"
+    # Replace .qwen directory to local location (backup → clear conflicting → copy)
+    write_color "Installing .qwen directory to local location..." "$COLOR_INFO"
+    backup_and_replace_directory "$source_qwen_dir" "$local_qwen_dir" ".qwen directory" "$backup_folder"
 
     # Remove empty backup folder
     if [ -n "$backup_folder" ] && [ -d "$backup_folder" ]; then
