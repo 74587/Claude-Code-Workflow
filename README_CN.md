@@ -144,17 +144,43 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 
 ## ⚙️ 配置
 
-### **前置要求：必需工具**
+### **工具控制系统**
 
-在使用 CCW 之前，请安装以下命令行工具：
+CCW 使用**基于配置的工具控制系统**，使外部 CLI 工具成为**可选项**而非必需项。这允许您：
 
-#### **核心 CLI 工具**
+- ✅ **从纯 Claude 模式开始** - 无需安装额外工具即可立即开始工作
+- ✅ **渐进式增强** - 根据需要选择性地添加外部工具
+- ✅ **优雅降级** - 工具不可用时自动回退
+- ✅ **灵活配置** - 按项目控制工具可用性
 
-| 工具 | 用途 | 安装方式 |
-|------|------|----------|
-| **Gemini CLI** | AI 分析与文档生成 | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) |
-| **Codex CLI** | AI 开发与实现 | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) |
-| **Qwen Code** | AI 架构与代码生成 | `npm install -g @qwen-code/qwen-code` ([文档](https://github.com/QwenLM/qwen-code)) |
+**配置文件**: `~/.claude/workflows/tool-control.yaml`
+
+```yaml
+tools:
+  gemini:
+    enabled: false  # 可选：AI 分析与文档生成
+  qwen:
+    enabled: true   # 可选：AI 架构与代码生成
+  codex:
+    enabled: true   # 可选：AI 开发与实现
+```
+
+**行为**:
+- **禁用时**: CCW 自动回退到其他已启用工具或 Claude 的原生能力
+- **启用时**: 使用专用工具发挥各自优势
+- **默认**: 所有工具禁用 - 纯 Claude 模式开箱即用
+
+### **可选 CLI 工具** *(增强功能)*
+
+虽然 CCW 仅使用 Claude 即可工作，但安装这些工具可提供增强的分析和扩展上下文：
+
+#### **外部 CLI 工具**
+
+| 工具 | 用途 | 安装方式 | 优势 |
+|------|------|----------|------|
+| **Gemini CLI** | AI 分析与文档生成 | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) | 免费配额，复杂项目的扩展上下文 |
+| **Codex CLI** | AI 开发与实现 | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) | 自主开发，数学推理 |
+| **Qwen Code** | AI 架构与代码生成 | `npm install -g @qwen-code/qwen-code` ([文档](https://github.com/QwenLM/qwen-code)) | 大上下文窗口，架构分析 |
 
 #### **系统实用工具**
 

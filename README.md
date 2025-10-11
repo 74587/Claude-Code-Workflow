@@ -144,17 +144,43 @@ After installation, run the following command to ensure CCW is working:
 
 ## ⚙️ Configuration
 
-### **Prerequisites: Required Tools**
+### **Tool Control System**
 
-Before using CCW, install the following command-line tools:
+CCW uses a **configuration-based tool control system** that makes external CLI tools **optional** rather than required. This allows you to:
 
-#### **Core CLI Tools**
+- ✅ **Start with Claude-only mode** - Work immediately without installing additional tools
+- ✅ **Progressive enhancement** - Add external tools selectively as needed
+- ✅ **Graceful degradation** - Automatic fallback when tools are unavailable
+- ✅ **Flexible configuration** - Control tool availability per project
 
-| Tool | Purpose | Installation |
-|------|---------|--------------|
-| **Gemini CLI** | AI analysis & documentation | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) |
-| **Codex CLI** | AI development & implementation | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) |
-| **Qwen Code** | AI architecture & code generation | `npm install -g @qwen-code/qwen-code` ([Docs](https://github.com/QwenLM/qwen-code)) |
+**Configuration File**: `~/.claude/workflows/tool-control.yaml`
+
+```yaml
+tools:
+  gemini:
+    enabled: false  # Optional: AI analysis & documentation
+  qwen:
+    enabled: true   # Optional: AI architecture & code generation
+  codex:
+    enabled: true   # Optional: AI development & implementation
+```
+
+**Behavior**:
+- **When disabled**: CCW automatically falls back to other enabled tools or Claude's native capabilities
+- **When enabled**: Uses specialized tools for their specific strengths
+- **Default**: All tools disabled - Claude-only mode works out of the box
+
+### **Optional CLI Tools** *(Enhanced Capabilities)*
+
+While CCW works with Claude alone, installing these tools provides enhanced analysis and extended context:
+
+#### **External CLI Tools**
+
+| Tool | Purpose | Installation | Benefits |
+|------|---------|--------------|----------|
+| **Gemini CLI** | AI analysis & documentation | `npm install -g @google/gemini-cli` ([GitHub](https://github.com/google-gemini/gemini-cli)) | Free quota, extended context for complex projects |
+| **Codex CLI** | AI development & implementation | `npm install -g @openai/codex` ([GitHub](https://github.com/openai/codex)) | Autonomous development, mathematical reasoning |
+| **Qwen Code** | AI architecture & code generation | `npm install -g @qwen-code/qwen-code` ([Docs](https://github.com/QwenLM/qwen-code)) | Large context window, architecture analysis |
 
 #### **System Utilities**
 
