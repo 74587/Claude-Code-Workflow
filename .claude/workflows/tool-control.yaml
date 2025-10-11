@@ -1,0 +1,10 @@
+# Tool Control Configuration
+# Controls whether CLI tools (Gemini, Qwen, Codex) are enabled in the workspace
+
+tools:
+  gemini:
+    enabled: true
+  qwen:
+    enabled: true
+  codex:
+    enabled: true
