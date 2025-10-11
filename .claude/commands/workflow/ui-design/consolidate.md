@@ -13,13 +13,14 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Task(*)
 # Design System Consolidation Command
 
 ## Overview
-Consolidate user-selected style variants into **independent production-ready design systems**. This command serves as the **Style Planning Phase**, focusing exclusively on design tokens and style guides for the subsequent generation phase.
+Consolidate user-selected style variants into **independent production-ready design systems**. This command serves as the **Style Refinement Phase**, transforming raw token proposals from `extract` into finalized, production-ready design tokens and style guides for the subsequent generation phase.
 
 ## Core Philosophy
 - **Style System Focus**: Exclusively handles design system consolidation
+- **System Refinement, Not Generation**: Consumes proposed tokens from `extract` to create finalized design systems; does NOT generate UI prototypes or CSS stylesheets (that's generate's job)
 - **Agent-Driven**: Uses ui-design-agent for multi-file generation efficiency
 - **Separate Design Systems**: Generates N independent design systems (one per variant)
-- **Token Refinement**: Refines `proposed_tokens` from each variant into complete systems
+- **Token Refinement**: Refines `proposed_tokens` from each variant into complete, production-ready systems
 - **Intelligent Synthesis**: Ensures completeness and consistency
 - **Production-Ready**: Complete design system(s) with documentation
 - **Matrix-Ready**: Provides style variants for style × layout matrix exploration in generate phase

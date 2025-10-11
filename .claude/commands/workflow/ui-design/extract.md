@@ -14,11 +14,12 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 # Style Extraction Command
 
 ## Overview
-Extract design style elements from reference images or text prompts using Claude's built-in analysis capabilities. Generates a single, comprehensive `style-cards.json` file containing multiple design variants with complete token proposals.
+Extract design style elements from reference images or text prompts using Claude's built-in analysis capabilities. Generates a single, comprehensive `style-cards.json` file containing multiple design variants with complete token **proposals** (raw, unrefined data for consolidation phase).
 
 ## Core Philosophy
 - **Claude-Native**: 100% Claude-driven analysis, no external tools
 - **Single Output**: Only `style-cards.json` with embedded token proposals
+- **Token Proposals, Not Final Systems**: Outputs raw token data proposals; does NOT create final CSS or separate design systems (that's consolidate's job)
 - **Sequential Execution**: Generate multiple style variants in one pass
 - **Flexible Input**: Images, text prompts, or both (hybrid mode)
 - **Reproducible**: Deterministic output structure

@@ -1,6 +1,8 @@
 ---
 name: imitate-auto
-description: Imitation-focused UI design workflow - Rapidly replicate a single design style from URL or images (skip exploration, direct to implementation)
+deprecated: true
+redirect_to: imitate-auto-v3
+description: "[DEPRECATED] Use /workflow:ui-design:imitate-auto-v3 for batch multi-page support. This command redirects to v3 with parameter conversion."
 usage: /workflow:ui-design:imitate-auto [--url "<url>"] [--images "<glob>"] [--prompt "<desc>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>]
 examples:
   - /workflow:ui-design:imitate-auto --url "https://linear.app" --targets "home,features,pricing"
@@ -90,11 +92,144 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
   - Feedback: modal, alert, toast, badge
   - Other: footer, dropdown, avatar, pagination
 
-## 5-Phase Execution
+## ⚠️ DEPRECATION NOTICE
 
-### Phase 0: Simplified Initialization
+**This command is deprecated in favor of `/workflow:ui-design:imitate-auto-v3`.**
+
+**Reasons for upgrade:**
+- ✅ Batch multi-page support (v1 = single URL only)
+- ✅ MCP-driven screenshot capture (more reliable)
+- ✅ Optional token refinement control (--refine-tokens)
+- ✅ Better error handling and progress tracking
+
+**This command now acts as a compatibility wrapper:**
+- Automatically redirects to imitate-auto-v3
+- Converts legacy parameters to v3 format
+- Maintains backward compatibility during transition
+
+## Parameter Conversion & Redirect
+
+### Phase 0: Deprecation Warning and Parameter Conversion
 
 ```bash
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "⚠️ DEPRECATION WARNING"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: ""
+REPORT: "/workflow:ui-design:imitate-auto is DEPRECATED"
+REPORT: ""
+REPORT: "This command redirects to /workflow:ui-design:imitate-auto-v3"
+REPORT: "with automatic parameter conversion for backward compatibility."
+REPORT: ""
+REPORT: "📋 Key Improvements in V3:"
+REPORT: "  • Batch multi-page support (v1 limited to single URL)"
+REPORT: "  • MCP-driven screenshot capture (more reliable)"
+REPORT: "  • Optional --refine-tokens flag for quality control"
+REPORT: "  • Better error handling and progress visibility"
+REPORT: ""
+REPORT: "💡 Migration Guide:"
+REPORT: "  OLD: /workflow:ui-design:imitate-auto --url 'https://example.com' --targets 'home,pricing'"
+REPORT: "  NEW: /workflow:ui-design:imitate-auto-v3 --url-map 'home:https://example.com, pricing:https://example.com/pricing'"
+REPORT: ""
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: ""
+REPORT: "Converting parameters..."
+
+# Parameter conversion logic
+url_value = --url OR null
+images_value = --images OR null
+targets_value = --targets OR null
+prompt_value = --prompt OR null
+session_value = --session OR null
+
+# Validate: v1 requires either --url or --images
+IF NOT url_value AND NOT images_value:
+    ERROR: "Either --url or --images must be provided"
+    ERROR: "For v3 usage, see: /help imitate-auto-v3"
+    EXIT 1
+
+# Parameter conversion strategy
+converted_params = []
+
+# Handle url-map conversion
+IF url_value:
+    # Build url-map from --url and --targets
+    IF targets_value:
+        # Multi-target case: url + targets
+        target_list = split(targets_value, ",")
+        url_map_pairs = [f"{target.strip()}:{url_value}" for target in target_list]
+        url_map_string = ", ".join(url_map_pairs)
+    ELSE:
+        # Single target case: default to "home"
+        url_map_string = f"home:{url_value}"
+
+    converted_params.append(f'--url-map "{url_map_string}"')
+    REPORT: "  ✓ Converted --url + --targets to --url-map: \"{url_map_string}\""
+
+ELSE IF images_value:
+    # Images mode: v3 doesn't have direct --images support in imitate-auto-v3
+    # Need to use extract manually, then call imitate-auto-v3 without capture
+    WARN: "⚠️ --images parameter not directly supported in v3"
+    WARN: "   v3 focuses on URL-based batch capture"
+    WARN: ""
+    WARN: "   For image-based workflows, use this sequence:"
+    WARN: "   1. /workflow:ui-design:extract --images '{images_value}' --mode imitate"
+    WARN: "   2. /workflow:ui-design:generate-v2 (will auto-detect proposed tokens)"
+    WARN: ""
+    ERROR: "Cannot auto-convert --images parameter"
+    ERROR: "Please use manual workflow sequence above"
+    EXIT 1
+
+# Pass through other parameters
+IF prompt_value:
+    converted_params.append(f'--prompt "{prompt_value}"')
+    REPORT: "  ✓ Passed through --prompt"
+
+IF session_value:
+    converted_params.append(f'--session {session_value}')
+    REPORT: "  ✓ Passed through --session"
+
+# Note: v1's --target-type is not needed in v3 (always "page" for url-based workflows)
+
+# Build redirect command
+redirect_command = f"/workflow:ui-design:imitate-auto-v3 {' '.join(converted_params)}"
+
+REPORT: ""
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "🔀 Redirecting to v3..."
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: ""
+REPORT: "Executing: {redirect_command}"
+REPORT: ""
+
+# Execute redirect
+SlashCommand(redirect_command)
+
+# If redirect succeeds, the v3 command will handle everything
+REPORT: ""
+REPORT: "✅ Workflow delegated to imitate-auto-v3"
+REPORT: ""
+REPORT: "Note: Future usage should call imitate-auto-v3 directly for full feature access."
+
+EXIT 0  # Redirect complete, v3 handles the rest
+```
+
+---
+
+## Legacy Documentation (For Reference Only)
+
+**The following sections document the original v1 implementation.**
+**This logic is NO LONGER EXECUTED - all calls redirect to v3.**
+
+---
+
+## 5-Phase Execution (LEGACY - NOT EXECUTED)
+
+### Phase 0: Simplified Initialization (LEGACY)
+
+```bash
+# THIS CODE IS NOT EXECUTED - KEPT FOR REFERENCE ONLY
+
 run_id = "run-$(date +%Y%m%d-%H%M%S)"
 base_path = --session ? ".workflow/WFS-{session}/design-${run_id}" : ".workflow/.design/${run_id}"
 

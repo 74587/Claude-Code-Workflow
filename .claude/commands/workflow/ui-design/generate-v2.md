@@ -114,6 +114,131 @@ ELSE:
     synthesis_spec = null
 ```
 
+### Phase 1.2: Token源智能检测
+
+```bash
+REPORT: "🔍 Phase 1.2: Detecting token sources for {style_variants} style(s)..."
+
+token_sources = {}  # {style_id: {path: str, quality: str, source: str}}
+consolidated_count = 0
+proposed_count = 0
+
+FOR style_id IN range(1, style_variants + 1):
+    # 优先级1：Consolidated tokens（完整refinement from consolidate command）
+    consolidated_path = "{base_path}/style-consolidation/style-{style_id}/design-tokens.json"
+
+    IF exists(consolidated_path):
+        token_sources[style_id] = {
+            "path": consolidated_path,
+            "quality": "consolidated",
+            "source": "consolidate command"
+        }
+        consolidated_count += 1
+        REPORT: "  ✓ Style-{style_id}: Using consolidated tokens (production-ready)"
+        CONTINUE
+
+    # 优先级2：Proposed tokens from style-cards.json（fast-track from extract command）
+    style_cards_path = "{base_path}/style-extraction/style-cards.json"
+
+    IF exists(style_cards_path):
+        # 读取style-cards.json
+        style_cards_data = Read(style_cards_path)
+
+        # 验证variant index有效
+        IF style_id <= len(style_cards_data.style_cards):
+            variant_index = style_id - 1
+            variant = style_cards_data.style_cards[variant_index]
+            proposed_tokens = variant.proposed_tokens
+
+            # 创建临时consolidation目录（兼容现有逻辑）
+            temp_consolidation_dir = "{base_path}/style-consolidation/style-{style_id}"
+            Bash(mkdir -p "{temp_consolidation_dir}")
+
+            # 写入proposed tokens（Fast Token Adaptation）
+            temp_tokens_path = "{temp_consolidation_dir}/design-tokens.json"
+            Write(temp_tokens_path, JSON.stringify(proposed_tokens, null, 2))
+
+            # 创建简化style guide（可选but recommended）
+            simple_guide_content = f"""# Design System: {variant.name}
+
+## Design Philosophy
+{variant.design_philosophy}
+
+## Description
+{variant.description}
+
+## Design Tokens
+Complete token specification in `design-tokens.json`.
+
+**Note**: Using proposed tokens from extraction phase (fast-track mode).
+For production-ready refinement with philosophy-driven token generation, run `/workflow:ui-design:consolidate` first.
+
+## Color Preview
+- Primary: {variant.preview.primary if variant.preview else "N/A"}
+- Background: {variant.preview.background if variant.preview else "N/A"}
+
+## Typography Preview
+- Heading Font: {variant.preview.font_heading if variant.preview else "N/A"}
+- Border Radius: {variant.preview.border_radius if variant.preview else "N/A"}
+"""
+
+            Write("{temp_consolidation_dir}/style-guide.md", simple_guide_content)
+
+            token_sources[style_id] = {
+                "path": temp_tokens_path,
+                "quality": "proposed",
+                "source": "extract command (fast adaptation)"
+            }
+            proposed_count += 1
+
+            REPORT: "  ✓ Style-{style_id}: Using proposed tokens (fast-track)"
+            REPORT: "     Source: {variant.name} from style-cards.json"
+            WARN: "     ⚠️ Tokens not refined - for production quality, run consolidate first"
+            CONTINUE
+        ELSE:
+            ERROR: "style-cards.json exists but does not contain variant {style_id}"
+            ERROR: "  style-cards.json has {len(style_cards_data.style_cards)} variants, but requested style-{style_id}"
+            SUGGEST: "  Reduce --style-variants to {len(style_cards_data.style_cards)} or run extract with more variants"
+            EXIT 1
+
+    # 优先级3：错误处理（无可用token源）
+    ERROR: "No token source found for style-{style_id}"
+    ERROR: "  Expected either:"
+    ERROR: "    1. {consolidated_path} (from /workflow:ui-design:consolidate)"
+    ERROR: "    2. {style_cards_path} (from /workflow:ui-design:extract)"
+    ERROR: ""
+    SUGGEST: "Run one of the following commands first:"
+    SUGGEST: "  - /workflow:ui-design:extract --base-path \"{base_path}\" --images \"refs/*.png\" --variants {style_variants}"
+    SUGGEST: "  - /workflow:ui-design:consolidate --base-path \"{base_path}\" --variants {style_variants}"
+    EXIT 1
+
+# 汇总报告Token sources
+REPORT: ""
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "📊 Token Source Summary:"
+REPORT: "  Total style variants: {style_variants}"
+REPORT: "  Consolidated (production-ready): {consolidated_count}/{style_variants}"
+REPORT: "  Proposed (fast-track): {proposed_count}/{style_variants}"
+
+IF proposed_count > 0:
+    REPORT: ""
+    REPORT: "💡 Production Quality Tip:"
+    REPORT: "   Fast-track mode is active for {proposed_count} style(s) using proposed tokens."
+    REPORT: "   For production-ready quality with philosophy-driven refinement:"
+    REPORT: "   /workflow:ui-design:consolidate --base-path \"{base_path}\" --variants {style_variants}"
+    REPORT: ""
+    REPORT: "   Benefits of consolidate:"
+    REPORT: "   • Philosophy-driven token refinement"
+    REPORT: "   • WCAG AA accessibility validation"
+    REPORT: "   • Complete design system documentation"
+    REPORT: "   • Token gap filling and consistency checks"
+
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Store token_sources for use in Phase 2
+STORE: token_sources, consolidated_count, proposed_count
+```
+
 ### Phase 1.5: Target Layout Inspiration
 ```bash
 REPORT: "💡 Gathering layout inspiration for {len(target_list)} targets..."
@@ -433,6 +558,11 @@ Design Quality:
 ✅ Style-Aware Structure: {IF design_space_analysis: 'YES - HTML adapts to design_attributes' ELSE: 'Standard semantic structure'}
 ✅ Focused generation: Each agent handles single target × single style
 ✅ Self-Contained CSS: Direct design token usage (no var() dependencies)
+✅ Token Quality: {consolidated_count} consolidated, {proposed_count} proposed
+{IF proposed_count > 0:
+   ℹ️ Fast-track mode active: {proposed_count} style(s) using proposed tokens
+   💡 For production quality: /workflow:ui-design:consolidate --base-path "{base_path}" --variants {style_variants}
+}
 
 Output Files:
 - Layout Inspirations: {len(target_list)} simple text files
