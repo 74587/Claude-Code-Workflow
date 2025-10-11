@@ -4,7 +4,7 @@
 # Purpose: Generate compare.html and index.html using template substitution
 # Template: ~/.claude/workflows/_template-compare-matrix.html
 #
-# Usage: ui-generate-preview-v2.sh <prototypes_dir> [--template <path>]
+# Usage: ui-generate-preview.sh <prototypes_dir> [--template <path>]
 #
 
 set -e

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.3.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v4.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,13 +15,13 @@
 
 **Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
 
-> **🎉 Latest: v4.3.0** - UI Design Workflow V2 with Self-Contained CSS Architecture. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v4.4.0** - UI Design Workflow V3 with Layout/Style Separation Architecture. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v4.3.0**:
-> - 🎨 **Self-Contained CSS**: Agents generate independent CSS directly from design-tokens.json
-> - ⚡ **Simplified Workflow**: Removed placeholder mechanism and token conversion steps
-> - 💪 **Better Style Diversity**: CSS uses direct token values for stronger visual differentiation
-> - 📉 **31% Code Reduction**: 346 lines removed with clearer responsibilities
+> **What's New in v4.4.0**:
+> - 🏗️ **Layout/Style Separation**: New `layout-extract` command separates structure from visual tokens
+> - 📦 **Pure Assembler**: `generate` command now purely combines pre-extracted layouts + styles
+> - 🎯 **Better Variety**: Layout exploration generates structurally distinct designs
+> - ✅ **Single Responsibility**: Each phase (style, layout, assembly) has clear purpose
 
 ---
 
@@ -259,10 +259,11 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 # With session integration
 /workflow:ui-design:explore-auto --session WFS-auth --images "refs/*.png" --style-variants 2 --layout-variants 3
 
-# Or run individual design phases
-/workflow:ui-design:extract --images "refs/*.png" --variants 3
+# Or run individual design phases (v4.4.0+)
+/workflow:ui-design:style-extract --images "refs/*.png" --mode explore --variants 3
 /workflow:ui-design:consolidate --variants "variant-1,variant-3"
-/workflow:ui-design:generate --pages "dashboard,auth" --style-variants 2 --layout-variants 2
+/workflow:ui-design:layout-extract --targets "dashboard,auth" --mode explore --variants 2 --device-type responsive
+/workflow:ui-design:generate --style-variants 1 --layout-variants 2
 
 # Preview generated prototypes
 # Option 1: Open .workflow/WFS-auth/.design/prototypes/compare.html in browser
@@ -364,12 +365,13 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 |---|---|
 | `/workflow:session:*` | Manage development sessions (`start`, `pause`, `resume`, `list`, `switch`, `complete`). |
 | `/workflow:brainstorm:*` | Use role-based agents for multi-perspective planning. |
-| `/workflow:ui-design:explore-auto` | **v4.2.1** Matrix exploration mode - Generate multiple style × layout variants for comprehensive design exploration. |
-| `/workflow:ui-design:imitate-auto` | **v4.2.1** Fast imitation mode - Rapid single-design replication with auto-screenshot and direct token extraction. |
-| `/workflow:ui-design:extract` | **v4.2.1** Extract design from images/text using Claude-native analysis. Single-pass variant generation. |
-| `/workflow:ui-design:consolidate` | **v4.2.1** Consolidate style variants into validated design tokens using Claude synthesis. |
-| `/workflow:ui-design:generate` | **v4.2.1** Generate token-driven HTML/CSS prototypes in matrix mode (style × layout combinations). |
-| `/workflow:ui-design:update` | **v4.2.1** Integrate finalized design system into brainstorming artifacts. |
+| `/workflow:ui-design:explore-auto` | **v4.4.0** Matrix exploration mode - Generate multiple style × layout variants with layout/style separation. |
+| `/workflow:ui-design:imitate-auto` | **v4.4.0** Fast imitation mode - Rapid UI replication with auto-screenshot, layout extraction, and assembly. |
+| `/workflow:ui-design:style-extract` | **v4.4.0** Extract visual style (colors, typography, spacing) from images/text using Claude-native analysis. |
+| `/workflow:ui-design:layout-extract` | **v4.4.0** Extract structural layout (DOM, CSS layout rules) with device-aware templates. |
+| `/workflow:ui-design:consolidate` | **v4.4.0** Consolidate style variants into validated design tokens using Claude synthesis. |
+| `/workflow:ui-design:generate` | **v4.4.0** Pure assembler - Combine layout templates + design tokens → HTML/CSS prototypes. |
+| `/workflow:ui-design:update` | **v4.4.0** Integrate finalized design system into brainstorming artifacts. |
 | `/workflow:plan` | Create a detailed, executable plan from a description. |
 | `/workflow:tdd-plan` | Create TDD workflow (6 phases) with test coverage analysis and Red-Green-Refactor cycles. |
 | `/workflow:execute` | Execute the current workflow plan autonomously. |
@@ -381,9 +383,9 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 | `/workflow:tools:test-concept-enhanced` | Generate test strategy and requirements analysis using Gemini. |
 | `/workflow:tools:test-task-generate` | Generate test task JSON with test-fix-cycle specification. |
 
-### **UI Design Workflow Commands (`/workflow:ui-design:*`)** *(v4.2.1)*
+### **UI Design Workflow Commands (`/workflow:ui-design:*`)** *(v4.4.0)*
 
-The design workflow system provides complete UI design refinement with **pure Claude execution**, **intelligent page inference**, and **zero external dependencies**.
+The design workflow system provides complete UI design refinement with **layout/style separation architecture**, **pure Claude execution**, **intelligent target inference**, and **zero external dependencies**.
 
 #### Core Commands
 
@@ -420,21 +422,41 @@ The design workflow system provides complete UI design refinement with **pure Cl
 - **🎯 Direct Extraction**: Skip variant selection, go straight to implementation
 - **🔧 Single Design Focus**: Best for copying existing designs quickly
 
-**`/workflow:ui-design:extract`** - Style analysis with dual input sources
+**`/workflow:ui-design:style-extract`** - Visual style extraction (v4.4.0)
 ```bash
 # Pure text prompt
-/workflow:ui-design:extract --prompt "Modern minimalist, dark theme" --variants 3
+/workflow:ui-design:style-extract --prompt "Modern minimalist, dark theme" --mode explore --variants 3
 
 # Pure images
-/workflow:ui-design:extract --images "refs/*.png" --variants 3
+/workflow:ui-design:style-extract --images "refs/*.png" --mode explore --variants 3
 
 # Hybrid (text guides image analysis)
-/workflow:ui-design:extract --images "refs/*.png" --prompt "Linear.app style" --variants 2
+/workflow:ui-design:style-extract --images "refs/*.png" --prompt "Linear.app style" --mode imitate
+
+# High-fidelity single style
+/workflow:ui-design:style-extract --images "design.png" --mode imitate
 ```
+- **🎨 Visual Tokens Only**: Colors, typography, spacing (no layout structure)
+- **🔄 Dual Mode**: Imitate (single variant) / Explore (multiple variants)
 - **Claude-Native**: Single-pass analysis, no external tools
-- **Enhanced Output**: `style-cards.json` with embedded `proposed_tokens`
-- **Reproducible**: Deterministic structure, version-controlled logic
-- **Output**: 1 file (vs 4+ in previous versions)
+- **Output**: `style-cards.json` with embedded `proposed_tokens`
+
+**`/workflow:ui-design:layout-extract`** - Structural layout extraction (v4.4.0)
+```bash
+# Explore mode - multiple layout variants
+/workflow:ui-design:layout-extract --targets "home,dashboard" --mode explore --variants 3 --device-type responsive
+
+# Imitate mode - single layout replication
+/workflow:ui-design:layout-extract --images "refs/*.png" --targets "dashboard" --mode imitate --device-type desktop
+
+# With MCP research (explore mode)
+/workflow:ui-design:layout-extract --prompt "E-commerce checkout" --targets "cart,checkout" --mode explore --variants 2
+```
+- **🏗️ Structure Only**: DOM hierarchy, CSS layout rules (no visual style)
+- **📱 Device-Aware**: Desktop, mobile, tablet, responsive optimizations
+- **🧠 Agent-Powered**: Uses ui-design-agent for structural analysis
+- **🔍 MCP Research**: Layout pattern inspiration (explore mode)
+- **Output**: `layout-templates.json` with token-based CSS
 
 **`/workflow:ui-design:consolidate`** - Validate and merge tokens
 ```bash
@@ -445,19 +467,19 @@ The design workflow system provides complete UI design refinement with **pure Cl
 - **Features**: WCAG AA validation, OKLCH colors, W3C token format
 - **Output**: `design-tokens.json`, `style-guide.md`, `tailwind.config.js`, `validation-report.json`
 
-**`/workflow:ui-design:generate`** - Generate HTML/CSS prototypes
+**`/workflow:ui-design:generate`** - Pure assembler (v4.4.0)
 ```bash
-# Matrix mode - style × layout combinations
-/workflow:ui-design:generate --pages "dashboard,auth" --style-variants 2 --layout-variants 3
+# Combine layout templates + design tokens
+/workflow:ui-design:generate --style-variants 1 --layout-variants 2
 
-# Single page with multiple variants
-/workflow:ui-design:generate --pages "home" --style-variants 3 --layout-variants 2
+# Multiple styles with multiple layouts
+/workflow:ui-design:generate --style-variants 2 --layout-variants 3
 ```
-- **🎯 Matrix Generation**: Creates all style × layout combinations
-- **📊 Multi-page Support**: Consistent design system across pages
-- **✅ Consistency Validation**: Automatic cross-page consistency reports (v4.2.0+)
+- **📦 Pure Assembly**: Combines pre-extracted layout-templates.json + design-tokens.json
+- **❌ No Design Logic**: All layout/style decisions made in previous phases
+- **✅ Token Resolution**: Replaces var() placeholders with actual token values
+- **🎯 Matrix Output**: Generates style × layout × targets prototypes
 - **🔍 Interactive Preview**: `compare.html` with side-by-side comparison
-- **📋 Batch Selection**: Quick selection by style or layout filters
 
 **`/workflow:ui-design:update`** - Integrate design system
 ```bash

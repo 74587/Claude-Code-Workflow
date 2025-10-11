@@ -5,6 +5,366 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2025-10-11
+
+### 🏗️ UI Design Workflow V3 - Layout/Style Separation Architecture
+
+This release introduces a fundamental architectural refactoring that separates layout structure extraction from style token extraction, enabling the `generate` command to become a pure assembler.
+
+#### Breaking Changes
+
+**Command Renaming**:
+```bash
+# ❌ Old (v4.3.0 and earlier)
+/workflow:ui-design:extract
+
+# ✅ New (v4.4.0)
+/workflow:ui-design:style-extract
+```
+
+**New Required Command**:
+- **`/workflow:ui-design:layout-extract`**: Now mandatory for workflows using `generate`
+- Layout templates must be generated before prototype assembly
+- Both `imitate-auto` and `explore-auto` now include Phase 2.5 (layout extraction)
+
+**Workflow Changes**:
+```bash
+# ❌ Old Flow (v4.3.0)
+style-extract → consolidate → generate → update
+
+# ✅ New Flow (v4.4.0)
+style-extract → consolidate → layout-extract → generate (assembler) → update
+```
+
+#### Added
+
+**New Command: `/workflow:ui-design:layout-extract`**:
+- **Purpose**: Extract structural layout information separate from visual style
+- **Features**:
+  - Agent-powered structural analysis using `ui-design-agent`
+  - Dual-mode operation: `imitate` (high-fidelity replication) / `explore` (multiple variants)
+  - Device-aware layouts: desktop, mobile, tablet, responsive
+  - Generates `layout-templates.json` with DOM structure and CSS layout rules
+  - MCP-integrated layout pattern research (explore mode only)
+  - Token-based CSS using `var()` placeholders for spacing and breakpoints
+- **Output**: `layout-extraction/layout-templates.json` with:
+  - DOM structure (semantic HTML5 with ARIA)
+  - Component hierarchy (high-level layout regions)
+  - CSS layout rules (Grid/Flexbox, no visual styling)
+  - Device-specific structures and responsive breakpoints
+
+**Enhanced Layout Extraction Architecture**:
+```json
+{
+  "layout_templates": [
+    {
+      "target": "home",
+      "variant_id": "layout-1",
+      "device_type": "responsive",
+      "design_philosophy": "3-column holy grail with fixed header",
+      "dom_structure": { /* JSON object */ },
+      "component_hierarchy": ["header", "main", "sidebar", "footer"],
+      "css_layout_rules": "/* Grid/Flexbox only, uses var() */"
+    }
+  ]
+}
+```
+
+**Device-Aware Layout Generation**:
+- **Desktop**: 1920×1080px - Multi-column grids, spacious layouts
+- **Mobile**: 375×812px - Single column, stacked sections, touch targets ≥44px
+- **Tablet**: 768×1024px - Hybrid layouts, flexible columns
+- **Responsive**: Mobile-first breakpoint-driven adaptive layouts
+
+**MCP Integration (Explore Mode)**:
+- `mcp__exa__web_search_exa` for layout pattern inspiration
+- Pattern research: `{target} layout patterns {device_type}`
+- Inspiration files: `layout-extraction/_inspirations/{target}-layout-ideas.txt`
+
+#### Changed
+
+**`/workflow:ui-design:style-extract` (Renamed from `extract`)**:
+- **File Renamed**: `extract.md` → `style-extract.md`
+- **Scope Clarified**: Focus exclusively on visual style (colors, typography, spacing)
+- **Documentation Updated**: Added note about layout extraction separation
+- **No Functionality Change**: All style extraction features preserved
+- **Output**: Still generates `style-cards.json` with `proposed_tokens`
+
+**`/workflow:ui-design:generate` (Refactored to Pure Assembler)**:
+- **Before (v4.3.0)**: Layout design + style application agent
+  - Agent made layout decisions during generation
+  - Mixed structural and visual responsibilities
+  - CSS contained both layout and style rules
+
+- **After (v4.4.0)**: Pure assembly only
+  - **Reads**: `layout-templates.json` + `design-tokens.json`
+  - **Action**: Combines pre-extracted components:
+    1. Build HTML from `dom_structure`
+    2. Apply `css_layout_rules` (structure)
+    3. Link design tokens CSS (visual style)
+    4. Inject placeholder content
+  - **No Design Logic**: All layout and style decisions pre-made
+  - **Agent Prompt Updated**: Removed layout design instructions
+
+**Agent Instructions Simplification** (`generate.md`):
+```javascript
+// ❌ Old (v4.3.0): Agent designs layout + applies style
+Agent: "Design page layout based on requirements, then apply design tokens"
+
+// ✅ New (v4.4.0): Agent only assembles
+Agent: "
+  [LAYOUT_STYLE_ASSEMBLY]
+  Read layout-templates.json → Extract dom_structure, css_layout_rules
+  Read design-tokens.json → Extract ALL token values
+  Build HTML from dom_structure
+  Build CSS from css_layout_rules + token values
+  Write files IMMEDIATELY
+"
+```
+
+**Workflow Commands Updated**:
+- **`/workflow:ui-design:imitate-auto`**:
+  - Added Phase 2.5: Layout Extraction (imitate mode, single variant)
+  - Generates `layout-templates.json` before Phase 4 (UI Assembly)
+  - Uses `--mode imitate` for high-fidelity layout replication
+
+- **`/workflow:ui-design:explore-auto`**:
+  - Added Phase 2.5: Layout Extraction (explore mode, multiple variants)
+  - Generates `{targets × layout_variants}` layout templates
+  - Uses `--mode explore` for structural variety
+  - MCP-powered layout pattern research
+
+**Output Structure Changes**:
+```
+{base_path}/
+├── style-extraction/         # Visual tokens (unchanged)
+│   └── style-cards.json
+├── layout-extraction/        # NEW: Structural templates
+│   ├── layout-templates.json
+│   ├── layout-space-analysis.json (explore mode)
+│   └── _inspirations/ (explore mode)
+├── style-consolidation/      # Final design tokens (unchanged)
+│   └── style-1/
+│       └── design-tokens.json
+└── prototypes/               # Assembled output (unchanged)
+    └── {target}-style-{s}-layout-{l}.html
+```
+
+#### Improved
+
+**Separation of Concerns**:
+- 🎨 **Style (style-extract)**: Colors, typography, spacing → design-tokens.json
+- 🏗️ **Layout (layout-extract)**: DOM structure, CSS layout → layout-templates.json
+- 📦 **Assembly (generate)**: Combine structure + style → final prototypes
+- ✅ **Result**: Each phase has single, clear responsibility
+
+**Quality Improvements**:
+- 🎯 **Better Layout Variety**: Explore mode generates structurally distinct layouts
+- 🔄 **Reusability**: Layout templates can be combined with different styles
+- 📊 **Clarity**: All structural decisions in layout-templates.json
+- 🧪 **Testability**: Layout structure and visual style tested independently
+
+**Performance Benefits**:
+- ⚡ **Faster Generation**: Assembly is simpler than design + application
+- 🔄 **Better Caching**: Layout templates reused across style variants
+- 📉 **Reduced Complexity**: Generate agent has single responsibility
+
+#### Technical Details
+
+**Phase Flow Comparison**:
+
+**Old Flow (v4.3.0)**:
+```
+Phase 1: style-extract → style-cards.json
+Phase 2: consolidate → design-tokens.json
+Phase 3: generate (design+apply) → prototypes
+Phase 4: update
+```
+
+**New Flow (v4.4.0)**:
+```
+Phase 1: style-extract → style-cards.json
+Phase 2: consolidate → design-tokens.json
+Phase 2.5: layout-extract → layout-templates.json  [NEW]
+Phase 3: generate (pure assembly) → prototypes
+Phase 4: update
+```
+
+**Agent Task Changes**:
+
+**Before (Mixed Responsibility)**:
+```javascript
+Agent Task: "
+  Design page layout for {target}
+  Apply design tokens from design-tokens.json
+  Generate HTML + CSS
+"
+// Problems:
+// - Layout decisions made during generation
+// - Style application mixed with structure
+// - Agent has dual responsibility
+```
+
+**After (Pure Assembly)**:
+```javascript
+Agent Task: "
+  [LAYOUT_STYLE_ASSEMBLY]
+  INPUT 1: layout-templates.json → dom_structure, css_layout_rules
+  INPUT 2: design-tokens.json → token values
+
+  ASSEMBLY:
+  1. Build HTML from dom_structure
+  2. Build CSS from css_layout_rules (replace var())
+  3. Add visual styling using token values
+  4. Write files IMMEDIATELY
+
+  RULES:
+  ✅ Pure assembly only
+  ❌ NO layout design decisions
+  ❌ NO style design decisions
+"
+```
+
+**Layout Template Structure**:
+```json
+{
+  "target": "home",
+  "variant_id": "layout-1",
+  "device_type": "responsive",
+  "design_philosophy": "F-pattern with sticky nav",
+  "dom_structure": {
+    "tag": "body",
+    "children": [
+      {"tag": "header", "attributes": {"class": "layout-header"}},
+      {"tag": "main", "attributes": {"class": "layout-main"}},
+      {"tag": "footer", "attributes": {"class": "layout-footer"}}
+    ]
+  },
+  "component_hierarchy": ["header", "main", "footer"],
+  "css_layout_rules": ".layout-main { display: grid; grid-template-columns: 1fr 3fr; gap: var(--spacing-6); }"
+}
+```
+
+**Token-Based CSS Pattern**:
+```css
+/* Layout rules use var() for spacing/breakpoints */
+.layout-wrapper {
+  display: grid;
+  gap: var(--spacing-4);
+  padding: var(--spacing-8);
+}
+
+@media (max-width: var(--breakpoint-md)) {
+  .layout-wrapper {
+    grid-template-columns: 1fr;
+  }
+}
+```
+
+#### Migration Guide
+
+**For Existing Workflows**:
+1. **Update Command Names**:
+   ```bash
+   # Old: /workflow:ui-design:extract
+   # New: /workflow:ui-design:style-extract
+   ```
+
+2. **Add Layout Extraction Step**:
+   ```bash
+   # After consolidate, before generate:
+   /workflow:ui-design:layout-extract --session WFS-xxx --targets "dashboard,settings" --mode explore --variants 3
+   ```
+
+3. **Update Orchestrator Workflows**:
+   - `imitate-auto`: Automatically includes Phase 2.5
+   - `explore-auto`: Automatically includes Phase 2.5
+   - Manual workflows: Add `layout-extract` call
+
+**Backward Compatibility**:
+- ✅ Old `extract` command files archived (not deleted)
+- ✅ New `style-extract` command name explicit and clear
+- ✅ All output structures backward compatible
+- ⚠️ **Breaking**: `generate` now requires `layout-templates.json` input
+
+**For New Projects**:
+- Use new workflow: `style-extract → consolidate → layout-extract → generate → update`
+- Leverage layout variants: `--layout-variants` in explore-auto
+- Device-specific layouts: `--device-type` parameter
+
+#### Files Changed
+
+**Renamed**:
+- `.claude/commands/workflow/ui-design/extract.md` → `style-extract.md`
+
+**Added**:
+- `.claude/commands/workflow/ui-design/layout-extract.md` (new command, 370+ lines)
+
+**Modified**:
+- `.claude/commands/workflow/ui-design/generate.md`:
+  - Refactored to pure assembler (agent instructions simplified)
+  - Added Phase 2: Load Layout Templates
+  - Updated agent prompt to focus on assembly only
+  - Documentation updates for separation of concerns
+
+- `.claude/commands/workflow/ui-design/imitate-auto.md`:
+  - Added Phase 2.5: Layout Extraction (imitate mode)
+  - Updated workflow orchestration
+  - Phase numbering shifted (old Phase 3 → Phase 4)
+
+- `.claude/commands/workflow/ui-design/explore-auto.md`:
+  - Added Phase 2.5: Layout Extraction (explore mode)
+  - Updated workflow orchestration
+  - Matrix calculation updated: `style_variants × layout_variants × targets`
+  - Phase numbering shifted (old Phase 3 → Phase 4)
+
+- `.claude/commands/workflow/ui-design/consolidate.md`:
+  - Documentation updates
+  - Note added about layout-extract requirement
+
+**Removed**:
+- ❌ **V2 Commands Deprecated**: All `-v2` command variants removed
+  - `generate-v2.md` removed (merged into main `generate.md`)
+  - `explore-auto-v2.md` removed (merged into main `explore-auto.md`)
+  - Self-contained CSS architecture now standard in all commands
+  - No more v1/v2 split - unified workflow
+
+**Total Impact**:
+- 5 files changed
+- 1 file renamed
+- 1 new command (layout-extract, 370+ lines)
+- 2 deprecated commands removed (generate-v2, explore-auto-v2)
+- ~200 lines modified in existing commands
+- Net: +400 lines (improved separation of concerns)
+
+#### Benefits
+
+**Architectural Clarity**:
+- ✅ **Single Responsibility**: Each command has one job
+- ✅ **Clear Contracts**: Explicit input/output for each phase
+- ✅ **Better Testing**: Components testable independently
+- ✅ **Maintainability**: Changes localized to relevant phase
+
+**Developer Experience**:
+- 🎯 **Predictable**: Layout structure visible before assembly
+- 🔍 **Debuggable**: Easier to identify issues (layout vs style)
+- 🔄 **Flexible**: Reuse layouts with different styles
+- 📚 **Understandable**: Each phase has clear documentation
+
+**Design Quality**:
+- 🎨 **Style Independence**: Visual tokens separate from structure
+- 🏗️ **Layout Variety**: Explore mode generates structurally different layouts
+- 📐 **Device Optimization**: Layout templates device-specific
+- ♿ **Accessibility**: Semantic HTML5 structure with ARIA
+
+**Implementation Quality**:
+- 🧩 **Modular**: Components can be developed independently
+- 🔄 **Reusable**: Layout templates work with any style
+- 🧪 **Testable**: Structure and style tested separately
+- 📦 **Production-Ready**: Token-driven, semantic, accessible
+
+---
+
 ## [4.3.0] - 2025-10-10
 
 ### 🎨 UI Design Workflow V2 - Self-Contained CSS Architecture

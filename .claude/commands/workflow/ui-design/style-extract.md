@@ -1,13 +1,13 @@
 ---
-name: extract
+name: style-extract
 description: Extract design style from reference images or text prompts using Claude's analysis
-usage: /workflow:ui-design:extract [--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--mode <imitate|explore>] [--variants <count>]
+usage: /workflow:ui-design:style-extract [--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--mode <imitate|explore>] [--variants <count>]
 examples:
-  - /workflow:ui-design:extract --images "design-refs/*.png" --mode explore --variants 3
-  - /workflow:ui-design:extract --prompt "Modern minimalist blog, dark theme" --mode explore --variants 3
-  - /workflow:ui-design:extract --session WFS-auth --images "refs/*.png" --prompt "Linear.app style" --mode imitate
-  - /workflow:ui-design:extract --base-path ".workflow/WFS-auth/design-run-20250109-143022" --images "refs/*.png" --mode explore --variants 3
-  - /workflow:ui-design:extract --prompt "Bold vibrant" --mode imitate  # High-fidelity single style
+  - /workflow:ui-design:style-extract --images "design-refs/*.png" --mode explore --variants 3
+  - /workflow:ui-design:style-extract --prompt "Modern minimalist blog, dark theme" --mode explore --variants 3
+  - /workflow:ui-design:style-extract --session WFS-auth --images "refs/*.png" --prompt "Linear.app style" --mode imitate
+  - /workflow:ui-design:style-extract --base-path ".workflow/WFS-auth/design-run-20250109-143022" --images "refs/*.png" --mode explore --variants 3
+  - /workflow:ui-design:style-extract --prompt "Bold vibrant" --mode imitate  # High-fidelity single style
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 ---
 
@@ -271,5 +271,7 @@ ERROR: Claude JSON parsing error
 ## Integration
 
 **Input**: Reference images or text prompts
-**Output**: `style-cards.json` for `/workflow:ui-design:consolidate`
+**Output**: `style-cards.json` for consolidation
 **Next**: `/workflow:ui-design:consolidate --session {session_id} --variants {count}`
+
+**Note**: This command only extracts visual style (colors, typography, spacing). For layout structure extraction, use `/workflow:ui-design:layout-extract`.

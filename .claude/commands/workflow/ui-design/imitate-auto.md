@@ -25,10 +25,11 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 1. User triggers: `/workflow:ui-design:imitate-auto --url-map "..."`
 2. Phase 0: Initialize and parse parameters
 3. Phase 1: Screenshot capture (batch or deep mode) → **WAIT for completion** → Auto-continues
-4. Phase 2: Unified design system extraction → **WAIT for completion** → Auto-continues
-5. Phase 3: Token processing (conditional consolidate) → **WAIT for completion** → Auto-continues
-6. Phase 4: Batch UI generation → **WAIT for completion** → Auto-continues
-7. Phase 5: Design system integration → Reports completion
+4. Phase 2: Style extraction (visual tokens) → **WAIT for completion** → Auto-continues
+5. Phase 2.5: Layout extraction (structure templates) → **WAIT for completion** → Auto-continues
+6. Phase 3: Token processing (conditional consolidate) → **WAIT for completion** → Auto-continues
+7. Phase 4: Batch UI assembly → **WAIT for completion** → Auto-continues
+8. Phase 5: Design system integration → Reports completion
 
 **Phase Transition Mechanism**:
 - `SlashCommand` is BLOCKING - execution pauses until completion
@@ -231,9 +232,10 @@ REPORT: ""
 TodoWrite({todos: [
   {content: "Initialize and parse url-map", status: "completed", activeForm: "Initializing"},
   {content: capture_mode == "batch" ? f"Batch screenshot capture ({len(target_names)} targets)" : f"Deep exploration (depth {depth})", status: "pending", activeForm: "Capturing screenshots"},
-  {content: "Extract unified design system", status: "pending", activeForm: "Extracting style"},
+  {content: "Extract style (visual tokens)", status: "pending", activeForm: "Extracting style"},
+  {content: "Extract layout (structure templates)", status: "pending", activeForm: "Extracting layout"},
   {content: refine_tokens_mode ? "Refine design tokens via consolidate" : "Fast token adaptation (skip consolidate)", status: "pending", activeForm: "Processing tokens"},
-  {content: f"Generate UI for {len(target_names)} targets", status: "pending", activeForm: "Generating UI"},
+  {content: f"Assemble UI for {len(target_names)} targets", status: "pending", activeForm: "Assembling UI"},
   {content: session_id ? "Integrate design system" : "Standalone completion", status: "pending", activeForm: "Completing"}
 ]})
 ```
@@ -335,15 +337,15 @@ ELSE:  # capture_mode == "deep"
     total_requested = captured_count  # For consistency with batch mode
 
 TodoWrite(mark_completed: f"Batch screenshot capture ({len(target_names)} targets)" IF capture_mode == "batch" ELSE f"Deep exploration (depth {depth})",
-          mark_in_progress: "Extract unified design system")
+          mark_in_progress: "Extract style (visual tokens)")
 ```
 
-### Phase 2: Unified Design System Extraction
+### Phase 2: Style Extraction (Visual Tokens)
 
 ```bash
 REPORT: ""
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 2: Extract Unified Design System"
+REPORT: "🚀 Phase 2: Extract Style (Visual Tokens)"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Use all screenshots as input to extract single design system
@@ -355,14 +357,14 @@ ELSE:  # deep mode
 # Build extraction prompt
 IF --prompt:
     user_guidance = {--prompt}
-    extraction_prompt = f"Extract a single, high-fidelity design system that accurately imitates the visual style from the '{primary_target}' page. Use other screenshots for component consistency. User guidance: {user_guidance}"
+    extraction_prompt = f"Extract visual style tokens (colors, typography, spacing) from the '{primary_target}' page. Use other screenshots for consistency. User guidance: {user_guidance}"
 ELSE:
-    extraction_prompt = f"Extract a single, high-fidelity design system that accurately imitates the visual style from the '{primary_target}' page. Use other screenshots to ensure component and pattern consistency across all pages."
+    extraction_prompt = f"Extract visual style tokens (colors, typography, spacing) from the '{primary_target}' page. Use other screenshots for consistency across all pages."
 
-# Call extract command (imitate mode, automatically uses single variant)
-extract_command = f"/workflow:ui-design:extract --base-path \"{base_path}\" --images \"{images_glob}\" --prompt \"{extraction_prompt}\" --mode imitate"
+# Call style-extract command (imitate mode, automatically uses single variant)
+extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --prompt \"{extraction_prompt}\" --mode imitate"
 
-REPORT: "Calling extract command..."
+REPORT: "Calling style-extract command..."
 REPORT: f"  Mode: imitate (high-fidelity single style, auto variants=1)"
 REPORT: f"  Primary source: '{primary_target}'"
 REPORT: f"  Images: {images_glob}"
@@ -371,16 +373,16 @@ TRY:
     SlashCommand(extract_command)
 CATCH error:
     ERROR: "Style extraction failed: {error}"
-    ERROR: "Cannot proceed without design system"
+    ERROR: "Cannot proceed without visual tokens"
     EXIT 1
 
-# extract outputs to: {base_path}/style-extraction/style-cards.json
+# style-extract outputs to: {base_path}/style-extraction/style-cards.json
 
 # Verify extraction results
 style_cards_path = "{base_path}/style-extraction/style-cards.json"
 
 IF NOT exists(style_cards_path):
-    ERROR: "extract command did not generate style-cards.json"
+    ERROR: "style-extract command did not generate style-cards.json"
     ERROR: "Expected: {style_cards_path}"
     EXIT 1
 
@@ -396,9 +398,58 @@ REPORT: ""
 REPORT: "✅ Phase 2 complete:"
 REPORT: "   Style: '{extracted_style.name}'"
 REPORT: "   Philosophy: {extracted_style.design_philosophy}"
-REPORT: "   Tokens: {count_tokens(extracted_style.proposed_tokens)} proposed tokens"
+REPORT: "   Tokens: {count_tokens(extracted_style.proposed_tokens)} visual tokens"
 
-TodoWrite(mark_completed: "Extract unified design system",
+TodoWrite(mark_completed: "Extract style (visual tokens)",
+          mark_in_progress: "Extract layout (structure templates)")
+```
+
+### Phase 2.5: Layout Extraction (Structure Templates)
+
+```bash
+REPORT: ""
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "🚀 Phase 2.5: Extract Layout (Structure Templates)"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Reuse same screenshots for layout extraction
+# Build URL map for layout-extract (uses first URL from each target)
+url_map_for_layout = ",".join([f"{target}:{url}" for target, url in url_map.items()])
+
+# Call layout-extract command (imitate mode for structure replication)
+layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --targets \"{','.join(target_names)}\" --mode imitate"
+
+REPORT: "Calling layout-extract command..."
+REPORT: f"  Mode: imitate (high-fidelity structure replication)"
+REPORT: f"  Targets: {', '.join(target_names)}"
+REPORT: f"  Images: {images_glob}"
+
+TRY:
+    SlashCommand(layout_extract_command)
+CATCH error:
+    ERROR: "Layout extraction failed: {error}"
+    ERROR: "Cannot proceed without layout templates"
+    EXIT 1
+
+# layout-extract outputs to: {base_path}/layout-extraction/layout-templates.json
+
+# Verify layout extraction results
+layout_templates_path = "{base_path}/layout-extraction/layout-templates.json"
+
+IF NOT exists(layout_templates_path):
+    ERROR: "layout-extract command did not generate layout-templates.json"
+    ERROR: "Expected: {layout_templates_path}"
+    EXIT 1
+
+layout_templates = Read(layout_templates_path)
+template_count = len(layout_templates.layout_templates)
+
+REPORT: ""
+REPORT: "✅ Phase 2.5 complete:"
+REPORT: "   Templates: {template_count} layout structures"
+REPORT: "   Targets: {', '.join(target_names)}"
+
+TodoWrite(mark_completed: "Extract layout (structure templates)",
           mark_in_progress: refine_tokens_mode ? "Refine design tokens via consolidate" : "Fast token adaptation")
 ```
 
@@ -507,53 +558,53 @@ REPORT: "   Quality: {token_quality}"
 REPORT: "   Time: {time_spent_estimate}"
 
 TodoWrite(mark_completed: refine_tokens_mode ? "Refine design tokens via consolidate" : "Fast token adaptation",
-          mark_in_progress: f"Generate UI for {len(target_names)} targets")
+          mark_in_progress: f"Assemble UI for {len(target_names)} targets")
 ```
 
-### Phase 4: Batch UI Generation
+### Phase 4: Batch UI Assembly
 
 ```bash
 REPORT: ""
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 4: Batch UI Generation"
+REPORT: "🚀 Phase 4: Batch UI Assembly"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Build targets string
 targets_string = ",".join(target_names)
 
-# Call generate command (smart token source detection will auto-select tokens)
-generate_command = f"/workflow:ui-design:generate --base-path \"{base_path}\" --targets \"{targets_string}\" --target-type page --style-variants 1 --layout-variants 1"
+# Call generate command (now pure assembler - combines layout templates + design tokens)
+generate_command = f"/workflow:ui-design:generate --base-path \"{base_path}\" --style-variants 1 --layout-variants 1"
 
-REPORT: "Calling generate command..."
-REPORT: f"  Targets: {targets_string}"
+REPORT: "Calling generate command (pure assembler)..."
+REPORT: f"  Targets: {targets_string} (from layout templates)"
 REPORT: f"  Configuration: 1 style × 1 layout × {len(target_names)} pages"
-REPORT: f"  Token source: generate will auto-detect ({token_quality})"
+REPORT: f"  Inputs: layout-templates.json + design-tokens.json"
 
 TRY:
     SlashCommand(generate_command)
 CATCH error:
-    ERROR: "UI generation failed: {error}"
-    ERROR: "Design tokens may be invalid"
+    ERROR: "UI assembly failed: {error}"
+    ERROR: "Layout templates or design tokens may be invalid"
     EXIT 1
 
 # generate outputs to: {base_path}/prototypes/{target}-style-1-layout-1.html
 
-# Verify generation results
+# Verify assembly results
 prototypes_dir = "{base_path}/prototypes"
 generated_html_files = Glob(f"{prototypes_dir}/*-style-1-layout-1.html")
 generated_count = len(generated_html_files)
 
 REPORT: ""
 REPORT: "✅ Phase 4 complete:"
-REPORT: "   Generated: {generated_count} HTML prototypes"
+REPORT: "   Assembled: {generated_count} HTML prototypes"
 REPORT: "   Targets: {', '.join(target_names)}"
 REPORT: "   Output: {prototypes_dir}/"
 
 IF generated_count < len(target_names):
-    WARN: "   ⚠️ Expected {len(target_names)} prototypes, generated {generated_count}"
+    WARN: "   ⚠️ Expected {len(target_names)} prototypes, assembled {generated_count}"
     WARN: "   Some targets may have failed - check generate output"
 
-TodoWrite(mark_completed: f"Generate UI for {len(target_names)} targets",
+TodoWrite(mark_completed: f"Assemble UI for {len(target_names)} targets",
           mark_in_progress: session_id ? "Integrate design system" : "Standalone completion")
 ```
 

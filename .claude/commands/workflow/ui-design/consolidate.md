@@ -13,7 +13,7 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Task(*)
 # Design System Consolidation Command
 
 ## Overview
-Consolidate style variants into independent production-ready design systems. Refines raw token proposals from `extract` into finalized design tokens and style guides.
+Consolidate style variants into independent production-ready design systems. Refines raw token proposals from `style-extract` into finalized design tokens and style guides.
 
 **Strategy**: Philosophy-Driven Refinement
 - **Agent-Driven**: Uses ui-design-agent for N variant generation
@@ -246,7 +246,7 @@ bash(ls -lh {base_path}/style-consolidation/style-1/)
 ### Common Errors
 ```
 ERROR: No style cards found
-→ Run /workflow:ui-design:extract first
+→ Run /workflow:ui-design:style-extract first
 
 ERROR: Invalid variant count
 → List available count, auto-select all
@@ -265,6 +265,8 @@ ERROR: Agent file creation failed
 
 ## Integration
 
-**Input**: `style-cards.json` from `/workflow:ui-design:extract`
+**Input**: `style-cards.json` from `/workflow:ui-design:style-extract`
 **Output**: `style-consolidation/style-{N}/` for each variant
-**Next**: `/workflow:ui-design:generate --style-variants N --targets "..."`
+**Next**: `/workflow:ui-design:generate --style-variants N`
+
+**Note**: After consolidate, use `/workflow:ui-design:layout-extract` to generate layout templates before running generate.

@@ -27,9 +27,10 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 2. Phase 0c: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 1**
 3. Phase 1 (style-extract) → **WAIT for completion** → Auto-continues
 4. Phase 2 (style-consolidate) → **WAIT for completion** → Auto-continues
-5. **Phase 3 (ui-generate)** → **WAIT for completion** → Auto-continues
-6. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
-7. Phase 5 (batch-plan, optional) → Reports completion
+5. Phase 2.5 (layout-extract) → **WAIT for completion** → Auto-continues
+6. **Phase 3 (ui-assembly)** → **WAIT for completion** → Auto-continues
+7. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
+8. Phase 5 (batch-plan, optional) → Reports completion
 
 **Phase Transition Mechanism**:
 - **Phase 0c (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 1
@@ -274,7 +275,7 @@ detect_target_type(target_list):
 
 ### Phase 1: Style Extraction
 ```bash
-command = "/workflow:ui-design:extract --base-path \"{base_path}\" " +
+command = "/workflow:ui-design:style-extract --base-path \"{base_path}\" " +
           (--images ? "--images \"{images}\" " : "") +
           (--prompt ? "--prompt \"{prompt}\" " : "") +
           "--mode explore --variants {style_variants}"
@@ -293,33 +294,50 @@ SlashCommand(command)
 
 # Output: {style_variants} independent design systems with tokens.css
 # SlashCommand blocks until phase complete
+# Upon completion, IMMEDIATELY execute Phase 2.5 (auto-continue)
+```
+
+### Phase 2.5: Layout Extraction
+```bash
+targets_string = ",".join(inferred_target_list)
+command = "/workflow:ui-design:layout-extract --base-path \"{base_path}\" " +
+          (--images ? "--images \"{images}\" " : "") +
+          (--prompt ? "--prompt \"{prompt}\" " : "") +
+          "--targets \"{targets_string}\" " +
+          "--mode explore --variants {layout_variants} " +
+          "--device-type \"{device_type}\""
+
+REPORT: "🚀 Phase 2.5: Layout Extraction (explore mode)"
+REPORT: "   → Targets: {targets_string}"
+REPORT: "   → Layout variants: {layout_variants}"
+REPORT: "   → Device: {device_type}"
+
+SlashCommand(command)
+
+# Output: layout-templates.json with {targets × layout_variants} layout structures
+# SlashCommand blocks until phase complete
 # Upon completion, IMMEDIATELY execute Phase 3 (auto-continue)
 ```
 
-### Phase 3: Style-Centric Matrix UI Generation
+### Phase 3: UI Assembly
 ```bash
-targets_string = ",".join(inferred_target_list)
 command = "/workflow:ui-design:generate --base-path \"{base_path}\" " +
-          "--targets \"{targets_string}\" --target-type \"{target_type}\" " +
-          "--style-variants {style_variants} --layout-variants {layout_variants} " +
-          "--device-type \"{device_type}\""
+          "--style-variants {style_variants} --layout-variants {layout_variants}"
 
 total = style_variants × layout_variants × len(inferred_target_list)
-agent_calls = style_variants
 
-REPORT: "🚀 Phase 3: {type_icon} {targets_string} | Matrix: {s}×{l}×{n} = {total} prototypes"
-REPORT: "   → Device: {device_type}"
-REPORT: "   → Agent calls: {agent_calls} style-centric agents"
-REPORT: "   → Layout planning: {len(inferred_target_list)}×{layout_variants} target-specific layouts"
-REPORT: "   → Style-centric generation: Each of {style_variants} agents handles {layout_variants}×{len(inferred_target_list)} combinations"
+REPORT: "🚀 Phase 3: UI Assembly | Matrix: {s}×{l}×{n} = {total} prototypes"
+REPORT: "   → Pure assembly: Combining layout templates + design tokens"
+REPORT: "   → Device: {device_type} (from layout templates)"
+REPORT: "   → Assembly tasks: {total} combinations"
 
 SlashCommand(command)
 
 # SlashCommand blocks until phase complete
 # Upon completion, IMMEDIATELY execute Phase 4 (auto-continue)
 # Output:
-# - {target}-layout-{l}.json (target-specific layout plans)
-# - {target}-style-{s}-layout-{l}.html (final prototypes with style-aware structure)
+# - {target}-style-{s}-layout-{l}.html (assembled prototypes)
+# - {target}-style-{s}-layout-{l}.css
 # - compare.html (interactive matrix view)
 # - PREVIEW.md (usage instructions)
 ```
@@ -349,7 +367,8 @@ IF --batch-plan:
 TodoWrite({todos: [
   {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing..."},
   {"content": "Execute style consolidation", "status": "pending", "activeForm": "Executing..."},
-  {"content": "Execute style-centric UI generation", "status": "pending", "activeForm": "Executing..."},
+  {"content": "Execute layout extraction", "status": "pending", "activeForm": "Executing..."},
+  {"content": "Execute UI assembly", "status": "pending", "activeForm": "Executing..."},
   {"content": "Execute design integration", "status": "pending", "activeForm": "Executing..."}
 ]})
 
@@ -429,33 +448,34 @@ Architecture: Style-Centric Batch Generation
 Run ID: {run_id} | Session: {session_id or "standalone"}
 Type: {icon} {target_type} | Device: {device_type} | Matrix: {s}×{l}×{n} = {total} prototypes
 
-Phase 1: {s} style variants with design_attributes (extract)
+Phase 1: {s} style variants with design_attributes (style-extract)
 Phase 2: {s} design systems with tokens.css (consolidate)
-Phase 3: Style-centric batch generation (generate)
+Phase 2.5: {n×l} layout templates (layout-extract explore mode)
   - Device: {device_type} layouts
-  - {n}×{l} target-specific layout plans
-  - {s} style-centric agents (each handled {l}×{n} combinations)
-  - {s}×{l}×{n} = {total} final prototypes with style-aware structure
+  - {n} targets × {l} layout variants = {n×l} structural templates
+Phase 3: UI Assembly (generate)
+  - Pure assembly: layout templates + design tokens
+  - {s}×{l}×{n} = {total} final prototypes
 Phase 4: Brainstorming artifacts updated
 [Phase 5: {n} implementation tasks created]  # if --batch-plan
 
-Agent Execution:
-✅ Style-centric agents: {s} agents total
-✅ Each agent handles: {l}×{n} combinations
-✅ Device-optimized: {device_type} layouts
+Assembly Process:
+✅ Separation of Concerns: Layout (structure) + Style (tokens) kept separate
+✅ Layout Extraction: {n×l} reusable structural templates
+✅ Pure Assembly: No design decisions in generate phase
+✅ Device-Optimized: Layouts designed for {device_type}
 
 Design Quality:
-✅ Style-Aware Structure: HTML adapts to design_attributes
-✅ Style Consistency: PERFECT (each style by single agent)
 ✅ Token-Driven Styling: 100% var() usage
+✅ Structural Variety: {l} distinct layouts per target
+✅ Style Variety: {s} independent design systems
 ✅ Device-Optimized: Layouts designed for {device_type}
 
 📂 {base_path}/
   ├── style-extraction/       ({s} style cards + design-space-analysis.json)
   ├── style-consolidation/    ({s} design systems with tokens.css)
-  ├── prototypes/
-  │   ├── _templates/         ({n}×{l} layout JSON files)
-  │   └── ...                 ({total} final prototypes)
+  ├── layout-extraction/      ({n×l} layout templates + layout-space-analysis.json)
+  ├── prototypes/             ({total} assembled prototypes)
   └── .run-metadata.json      (includes device type)
 
 🌐 Preview: {base_path}/prototypes/compare.html
