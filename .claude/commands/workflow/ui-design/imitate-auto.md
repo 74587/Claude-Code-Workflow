@@ -11,21 +11,49 @@ examples:
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 ---
 
-# UI Design Imitate-Auto Workflow
+# UI Design Imitate-Auto Workflow Command
 
-## Overview & Philosophy
+## Overview & Execution Model
 
-**Batch Multi-Page Fast Replication Workflow**: Efficiently replicate multiple pages through orchestrator pattern combining capture, extract, and generate commands.
+**Fully autonomous replication orchestrator**: Efficiently replicate multiple web pages through sequential execution from screenshot capture to design integration.
+
+**Dual Capture Strategy**: Supports two capture modes for different use cases:
+- **Batch Mode** (default): Fast multi-URL screenshot capture via `/workflow:ui-design:capture`
+- **Deep Mode**: Interactive layer exploration for single URL via `/workflow:ui-design:explore-layers`
+
+**Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
+1. User triggers: `/workflow:ui-design:imitate-auto --url-map "..."`
+2. Phase 0: Initialize and parse parameters
+3. Phase 1: Screenshot capture (batch or deep mode) → **WAIT for completion** → Auto-continues
+4. Phase 2: Unified design system extraction → **WAIT for completion** → Auto-continues
+5. Phase 3: Token processing (conditional consolidate) → **WAIT for completion** → Auto-continues
+6. Phase 4: Batch UI generation → **WAIT for completion** → Auto-continues
+7. Phase 5: Design system integration → Reports completion
+
+**Phase Transition Mechanism**:
+- `SlashCommand` is BLOCKING - execution pauses until completion
+- Upon each phase completion: Automatically process output and execute next phase
+- No user interaction required after initial parameter parsing
+
+**Auto-Continue Mechanism**: TodoWrite tracks phase status. Upon each phase completion, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 5.
+
+## Core Rules
+
+1. **Start Immediately**: TodoWrite initialization → Phase 1 execution
+2. **No Preliminary Validation**: Sub-commands handle their own validation
+3. **Parse & Pass**: Extract data from each output for next phase
+4. **Track Progress**: Update TodoWrite after each phase
+5. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After each SlashCommand completes, you MUST wait for completion, then immediately execute the next phase. Workflow is NOT complete until Phase 5.
 
 ## Parameter Requirements
 
-### Required Parameters
-- `--url-map "<map>"` (Required): Target page mapping
+**Required Parameters**:
+- `--url-map "<map>"`: Target page mapping
   - Format: `"target1:url1, target2:url2, ..."`
   - Example: `"home:https://linear.app, pricing:https://linear.app/pricing"`
   - First target serves as primary style source
 
-### Optional Parameters
+**Optional Parameters**:
 - `--capture-mode <batch|deep>` (Optional, default: batch): Screenshot capture strategy
   - `batch` (default): Multi-URL fast batch capture via `/workflow:ui-design:capture`
   - `deep`: Single-URL interactive depth exploration via `/workflow:ui-design:explore-layers`
@@ -52,7 +80,32 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
   - Influences extract command analysis focus
   - Example: `"Focus on dark mode"`, `"Emphasize minimalist design"`
 
-## 5-Phase Execution Protocol
+## Execution Modes
+
+**Capture Modes**:
+- **Batch Mode** (default): Multi-URL screenshot capture for fast replication
+  - Uses `/workflow:ui-design:capture` for parallel screenshot capture
+  - Optimized for replicating multiple pages efficiently
+- **Deep Mode**: Single-URL layer exploration for detailed analysis
+  - Uses `/workflow:ui-design:explore-layers` for interactive depth traversal
+  - Captures page layers at different depths (1-5)
+  - Only processes first URL from url-map
+
+**Token Processing Modes**:
+- **Fast-Track** (default): Skip consolidate, use proposed tokens directly (~2s)
+  - Best for rapid prototyping and testing
+  - Tokens may lack philosophy-driven refinement
+- **Production** (--refine-tokens): Full consolidate with WCAG validation (~60s)
+  - Philosophy-driven token refinement
+  - Complete accessibility validation
+  - Production-ready design system
+
+**Session Integration**:
+- `--session` flag determines session integration or standalone execution
+- Integrated: Design system automatically added to session artifacts
+- Standalone: Output in `.workflow/.design/{run_id}/`
+
+## 6-Phase Execution
 
 ### Phase 0: Initialization and Target Parsing
 
@@ -547,11 +600,8 @@ metadata.outputs = {
 Write("{base_path}/.run-metadata.json", JSON.stringify(metadata, null, 2))
 
 TodoWrite(mark_completed: session_id ? "Integrate design system" : "Standalone completion")
-```
 
-### Phase 6: Completion Report
-
-```javascript
+# Mark all phases complete
 TodoWrite({todos: [
   {content: "Initialize and parse url-map", status: "completed", activeForm: "Initializing"},
   {content: capture_mode == "batch" ? f"Batch screenshot capture ({len(target_names)} targets)" : f"Deep exploration (depth {depth})", status: "completed", activeForm: "Capturing"},
@@ -559,8 +609,10 @@ TodoWrite({todos: [
   {content: refine_tokens_mode ? "Refine design tokens via consolidate" : "Fast token adaptation", status: "completed", activeForm: "Processing"},
   {content: f"Generate UI for {len(target_names)} targets", status: "completed", activeForm: "Generating"},
   {content: session_id ? "Integrate design system" : "Standalone completion", status: "completed", activeForm: "Completing"}
-]});
+]})
 ```
+
+### Phase 6: Completion Report
 
 **Completion Message**:
 ```
@@ -666,7 +718,7 @@ ELSE:
 ## TodoWrite Pattern
 
 ```javascript
-// Initialize (Phase 0)
+// Initialize IMMEDIATELY at start of Phase 0 to track multi-phase execution
 TodoWrite({todos: [
   {content: "Initialize and parse url-map", status: "in_progress", activeForm: "Initializing"},
   {content: "Batch screenshot capture", status: "pending", activeForm: "Capturing screenshots"},
@@ -676,7 +728,12 @@ TodoWrite({todos: [
   {content: "Integrate design system", status: "pending", activeForm: "Integrating"}
 ]})
 
-// Update after each phase: Mark current completed, next in_progress
+// ⚠️ CRITICAL: After EACH SlashCommand completion (Phase 1-5), you MUST:
+// 1. SlashCommand blocks and returns when phase is complete
+// 2. Update current phase: status → "completed"
+// 3. Update next phase: status → "in_progress"
+// 4. IMMEDIATELY execute next phase SlashCommand (auto-continue)
+// This ensures continuous workflow tracking and prevents premature stopping
 ```
 
 ## Error Handling
@@ -713,6 +770,41 @@ TodoWrite({todos: [
 - **Integration failure**: Prototypes still usable, can integrate manually
 
 
+## Key Features
+
+- **🚀 Dual Capture**: Batch mode for speed, deep mode for detail
+- **⚡ Fast-Track Option**: Skip consolidate for 30-60s time savings
+- **🎨 High-Fidelity**: Single unified design system from primary target
+- **📦 Autonomous**: No user intervention required between phases
+- **🔄 Reproducible**: Deterministic flow with isolated run directories
+- **🎯 Flexible**: Standalone or session-integrated modes
+
+## Examples
+
+### 1. Basic Multi-Page Replication
+```bash
+/workflow:ui-design:imitate-auto --url-map "home:https://linear.app, features:https://linear.app/features"
+# Result: 2 prototypes with fast-track tokens
+```
+
+### 2. Production-Ready with Session
+```bash
+/workflow:ui-design:imitate-auto --session WFS-payment --url-map "pricing:https://stripe.com/pricing" --refine-tokens
+# Result: 1 prototype with production tokens, integrated into session
+```
+
+### 3. Deep Exploration Mode
+```bash
+/workflow:ui-design:imitate-auto --url-map "app:https://app.com" --capture-mode deep --depth 3
+# Result: Interactive layer capture + prototype
+```
+
+### 4. Guided Style Extraction
+```bash
+/workflow:ui-design:imitate-auto --url-map "home:https://example.com, about:https://example.com/about" --prompt "Focus on minimalist design"
+# Result: 2 prototypes with minimalist style focus
+```
+
 ## Integration Points
 
 - **Input**: `--url-map` (multiple target:url pairs) + optional `--capture-mode`, `--depth`, `--session`, `--refine-tokens`, `--prompt`
@@ -725,3 +817,36 @@ TodoWrite({todos: [
   3. `/workflow:ui-design:consolidate` (Phase 3, conditional)
   4. `/workflow:ui-design:generate` (Phase 4)
   5. `/workflow:ui-design:update` (Phase 5, if --session)
+
+## Completion Output
+
+```
+✅ UI Design Imitate-Auto Workflow Complete!
+
+Mode: {capture_mode} | Session: {session_id or "standalone"}
+Run ID: {run_id}
+
+Phase 1 - Screenshot Capture: ✅ {captured_count} screenshots
+Phase 2 - Style Extraction: ✅ Single unified design system
+Phase 3 - Token Processing: ✅ {token_quality}
+Phase 4 - UI Generation: ✅ {generated_count} pages generated
+Phase 5 - Integration: {IF session_id: "✅ Integrated" ELSE: "⏭️ Standalone"}
+
+Design Quality:
+✅ High-Fidelity Replication: Accurate style from primary target
+✅ Token-Driven Styling: 100% var() usage
+✅ {IF refine_tokens: "Production-Ready: WCAG validated" ELSE: "Fast-Track: Proposed tokens"}
+
+📂 {base_path}/
+  ├── screenshots/                  # {captured_count} screenshots
+  ├── style-extraction/             # Design analysis
+  ├── style-consolidation/          # {token_quality}
+  └── prototypes/                   # {generated_count} HTML/CSS files
+
+🌐 Preview: {base_path}/prototypes/compare.html
+  - Interactive preview
+  - Side-by-side comparison
+  - {generated_count} replicated pages
+
+Next: [/workflow:execute] OR [Open compare.html → /workflow:plan]
+```

@@ -112,6 +112,26 @@ bash(which google-chrome || which chrome || which chromium 2>/dev/null || echo "
 
 ## Phase 3: Capture Screenshots
 
+### Screenshot Format Options
+
+**PNG Format** (default, lossless):
+- **Pros**: Lossless quality, best for detailed UI screenshots
+- **Cons**: Larger file sizes (typically 200-500 KB per screenshot)
+- **Parameters**: `format: "png"` (no quality parameter)
+- **Use case**: High-fidelity UI replication, design system extraction
+
+**WebP Format** (optional, lossy/lossless):
+- **Pros**: Smaller file sizes with good quality (50-70% smaller than PNG)
+- **Cons**: Requires quality parameter, slight quality loss at high compression
+- **Parameters**: `format: "webp", quality: 90` (80-100 recommended)
+- **Use case**: Batch captures, network-constrained environments
+
+**JPEG Format** (optional, lossy):
+- **Pros**: Smallest file sizes
+- **Cons**: Lossy compression, not recommended for UI screenshots
+- **Parameters**: `format: "jpeg", quality: 90`
+- **Use case**: Photo-heavy pages, not recommended for UI design
+
 ### Step 1: MCP Capture (If Available)
 ```javascript
 IF tool == "chrome-devtools":
@@ -131,12 +151,21 @@ IF tool == "chrome-devtools":
     mcp__chrome-devtools__navigate_page({url: entry.url, timeout: 30000})
     bash(sleep 2)
 
+    // PNG format doesn't support quality parameter
+    // Use PNG for lossless quality (larger files)
     mcp__chrome-devtools__take_screenshot({
       fullPage: true,
       format: "png",
-      quality: 90,
       filePath: f"{base_path}/screenshots/{entry.target}.png"
     })
+
+    // Alternative: Use WebP with quality for smaller files
+    // mcp__chrome-devtools__take_screenshot({
+    //   fullPage: true,
+    //   format: "webp",
+    //   quality: 90,
+    //   filePath: f"{base_path}/screenshots/{entry.target}.webp"
+    // })
 
 ELSE IF tool == "playwright":
   FOR entry IN url_entries:
@@ -289,11 +318,24 @@ bash(du -h $base_path/screenshots/*.png)
 ERROR: Invalid url-map format
 → Use: "target:url, target2:url2"
 
+ERROR: png screenshots do not support 'quality'
+→ PNG format is lossless, no quality parameter needed
+→ Remove quality parameter OR switch to webp/jpeg format
+
 ERROR: MCP unavailable
 → Using local fallback
 
 ERROR: All tools failed
 → Manual mode activated
+```
+
+### Format-Specific Errors
+```
+❌ Wrong: format: "png", quality: 90
+✅ Right: format: "png"
+
+✅ Or use: format: "webp", quality: 90
+✅ Or use: format: "jpeg", quality: 90
 ```
 
 ### Recovery
