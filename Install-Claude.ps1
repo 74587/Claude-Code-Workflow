@@ -583,7 +583,7 @@ function Backup-AndReplaceDirectory {
         return $false
     }
 
-    # Backup and clear destination if it exists
+    # Backup destination if it exists
     if (Test-Path $Destination) {
         Write-ColorOutput "Found existing $Description at: $Destination" $ColorInfo
 
@@ -600,15 +600,31 @@ function Backup-AndReplaceDirectory {
             }
         }
 
-        # Clear destination directory
-        Write-ColorOutput "Clearing destination $Description..." $ColorInfo
-        Remove-Item -Path $Destination -Recurse -Force -ErrorAction SilentlyContinue
-        Write-ColorOutput "Cleared destination $Description" $ColorSuccess
+        # Get all items from source to determine what to clear in destination
+        Write-ColorOutput "Clearing conflicting items in destination $Description..." $ColorInfo
+        $sourceItems = Get-ChildItem -Path $Source -Force
+
+        foreach ($sourceItem in $sourceItems) {
+            $destItemPath = Join-Path $Destination $sourceItem.Name
+            if (Test-Path $destItemPath) {
+                Write-ColorOutput "Removing existing: $($sourceItem.Name)" $ColorInfo
+                Remove-Item -Path $destItemPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+        Write-ColorOutput "Cleared conflicting items in destination" $ColorSuccess
+    } else {
+        # Create destination directory if it doesn't exist
+        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+        Write-ColorOutput "Created destination directory: $Destination" $ColorInfo
     }
 
-    # Copy entire source directory to destination
+    # Copy all items from source to destination
     Write-ColorOutput "Copying $Description from $Source to $Destination..." $ColorInfo
-    Copy-Item -Path $Source -Destination $Destination -Recurse -Force
+    $sourceItems = Get-ChildItem -Path $Source -Force
+    foreach ($item in $sourceItems) {
+        $destPath = Join-Path $Destination $item.Name
+        Copy-Item -Path $item.FullName -Destination $destPath -Recurse -Force
+    }
     Write-ColorOutput "$Description installed successfully" $ColorSuccess
 
     return $true
