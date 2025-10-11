@@ -1,15 +1,13 @@
 ---
 name: explore-auto
-description: Exploratory UI design workflow - Generate and compare multiple style × layout combinations (3×3 matrix exploration)
+description: Exploratory UI design workflow with style-centric batch generation
 usage: /workflow:ui-design:explore-auto [--prompt "<desc>"] [--images "<glob>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]
 examples:
   - /workflow:ui-design:explore-auto --prompt "Generate 3 style variants for modern blog: home, article, author"
   - /workflow:ui-design:explore-auto --prompt "SaaS dashboard and settings with 2 layout options"
   - /workflow:ui-design:explore-auto --images "refs/*.png" --prompt "E-commerce: home, product, cart" --style-variants 3 --layout-variants 3
   - /workflow:ui-design:explore-auto --session WFS-auth --images "refs/*.png"
-  - /workflow:ui-design:explore-auto --targets "navbar,hero" --target-type "component" --prompt "Compare 3 navigation bar designs" --style-variants 3 --layout-variants 2
-  - /workflow:ui-design:explore-auto --targets "card,form,button" --images "refs/*.png" --style-variants 2 --layout-variants 3
-  - /workflow:ui-design:explore-auto --targets "home,dashboard" --target-type "page"
+  - /workflow:ui-design:explore-auto --targets "navbar,hero" --target-type "component" --style-variants 3 --layout-variants 2
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*), Task(conceptual-planning-agent)
 ---
 
@@ -26,11 +24,18 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 **Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
 1. User triggers: `/workflow:ui-design:explore-auto [params]`
-2. Phase 1 (style-extract) → **WAIT for completion** → Auto-continues
-3. Phase 2 (style-consolidate) → **WAIT for completion** → Auto-continues
-4. Phase 3 (ui-generate) → **WAIT for completion** → Auto-continues with unified target list
-5. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
-6. Phase 5 (batch-plan, optional) → Reports completion
+2. Phase 0c: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 1**
+3. Phase 1 (style-extract) → **WAIT for completion** → Auto-continues
+4. Phase 2 (style-consolidate) → **WAIT for completion** → Auto-continues
+5. **Phase 3 (ui-generate)** → **WAIT for completion** → Auto-continues
+6. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
+7. Phase 5 (batch-plan, optional) → Reports completion
+
+**Phase Transition Mechanism**:
+- **Phase 0c (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 1
+- **Phase 1-5 (Autonomous)**: `SlashCommand` is BLOCKING - execution pauses until completion
+- Upon each phase completion: Automatically process output and execute next phase
+- No additional user interaction after Phase 0c confirmation
 
 **Auto-Continue Mechanism**: TodoWrite tracks phase status. Upon each phase completion, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 4 (or Phase 5 if --batch-plan).
 
@@ -50,6 +55,11 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 **Optional Parameters** (all have smart defaults):
 - `--targets "<list>"`: Comma-separated targets (pages/components) to generate (inferred from prompt/session if omitted)
 - `--target-type "page|component|auto"`: Explicitly set target type (default: `auto` - intelligent detection)
+- `--device-type "desktop|mobile|tablet|responsive|auto"`: Device type for layout optimization (default: `auto` - intelligent detection)
+  - **Desktop**: 1920×1080px - Mouse-driven, spacious layouts
+  - **Mobile**: 375×812px - Touch-friendly, compact layouts
+  - **Tablet**: 768×1024px - Hybrid touch/mouse layouts
+  - **Responsive**: 1920×1080px base with mobile-first breakpoints
 - `--session <id>`: Workflow session ID (standalone mode if omitted)
 - `--images "<glob>"`: Reference image paths (default: `design-refs/*`)
 - `--prompt "<description>"`: Design style and target description
@@ -84,17 +94,18 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 ## Execution Modes
 
-**Matrix Mode** (unified):
+**Matrix Mode** (style-centric):
 - Generates `style_variants × layout_variants × targets` prototypes
-- **Phase 1**: `style_variants` style options (extract)
+- **Phase 1**: `style_variants` style options with design_attributes (extract)
 - **Phase 2**: `style_variants` independent design systems (consolidate)
-- **Phase 3**: Layout planning + UI generation (generate)
+- **Phase 3**: Style-centric batch generation (generate)
   - Sub-phase 1: `targets × layout_variants` target-specific layout plans
-  - Sub-phase 2: `layout_variants × targets` HTML/CSS templates
+  - **Sub-phase 2**: `S` style-centric agents (each handles `L×T` combinations)
   - Sub-phase 3: `style_variants × layout_variants × targets` final prototypes
+  - Performance: Efficient parallel execution with S agents
+  - Quality: HTML structure adapts to design_attributes
   - Pages: Full-page layouts with complete structure
   - Components: Isolated elements with minimal wrapper
-  - Mixed: Combination based on intelligent detection
 
 **Integrated vs. Standalone**:
 - `--session` flag determines session integration or standalone execution
@@ -114,6 +125,51 @@ ELSE:
 VALIDATE: 1 <= style_variants <= 5, 1 <= layout_variants <= 5
 ```
 
+### Phase 0a-2: Device Type Inference
+```bash
+# Device type inference
+device_type = "auto"
+
+# Step 1: Explicit parameter (highest priority)
+IF --device-type AND --device-type != "auto":
+    device_type = --device-type
+    device_source = "explicit"
+ELSE:
+    # Step 2: Prompt analysis
+    IF --prompt:
+        device_keywords = {
+            "desktop": ["desktop", "web", "laptop", "widescreen", "large screen"],
+            "mobile": ["mobile", "phone", "smartphone", "ios", "android"],
+            "tablet": ["tablet", "ipad", "medium screen"],
+            "responsive": ["responsive", "adaptive", "multi-device", "cross-platform"]
+        }
+        detected_device = detect_device_from_prompt(--prompt, device_keywords)
+        IF detected_device:
+            device_type = detected_device
+            device_source = "prompt_inference"
+
+    # Step 3: Target type inference
+    IF device_type == "auto":
+        # Components are typically desktop-first, pages can vary
+        device_type = target_type == "component" ? "desktop" : "responsive"
+        device_source = "target_type_inference"
+
+STORE: device_type, device_source
+```
+
+**Device Type Presets**:
+- **Desktop**: 1920×1080px - Mouse-driven, spacious layouts
+- **Mobile**: 375×812px - Touch-friendly, compact layouts
+- **Tablet**: 768×1024px - Hybrid touch/mouse layouts
+- **Responsive**: 1920×1080px base with mobile-first breakpoints
+
+**Detection Keywords**:
+- Prompt contains "mobile", "phone", "smartphone" → mobile
+- Prompt contains "tablet", "ipad" → tablet
+- Prompt contains "desktop", "web", "laptop" → desktop
+- Prompt contains "responsive", "adaptive" → responsive
+- Otherwise: Inferred from target type (components→desktop, pages→responsive)
+
 ### Phase 0b: Run Initialization & Directory Setup
 ```bash
 run_id = "run-$(date +%Y%m%d-%H%M%S)"
@@ -124,10 +180,13 @@ Bash(mkdir -p "${base_path}/{style-extraction,style-consolidation,prototypes}")
 Write({base_path}/.run-metadata.json): {
   "run_id": "${run_id}", "session_id": "${session_id}", "timestamp": "...",
   "workflow": "ui-design:auto",
+  "architecture": "style-centric-batch-generation",
   "parameters": { "style_variants": ${style_variants}, "layout_variants": ${layout_variants},
                   "targets": "${inferred_target_list}", "target_type": "${target_type}",
-                  "prompt": "${prompt_text}", "images": "${images_pattern}" },
-  "status": "in_progress"
+                  "prompt": "${prompt_text}", "images": "${images_pattern}",
+                  "device_type": "${device_type}", "device_source": "${device_source}" },
+  "status": "in_progress",
+  "performance_mode": "optimized"
 }
 ```
 
@@ -163,13 +222,24 @@ IF NOT validated_targets: validated_targets = ["home"]; target_type = "page"
 IF --target-type != "auto": target_type = --target-type
 
 # Interactive confirmation
-DISPLAY_CONFIRMATION(target_type, target_source, validated_targets):
-  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  "{emoji} {LABEL} CONFIRMATION"
+DISPLAY_CONFIRMATION(target_type, target_source, validated_targets, device_type, device_source):
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  "{emoji} {LABEL} CONFIRMATION (Style-Centric)"
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   "Type: {target_type} | Source: {target_source}"
   "Targets ({count}): {', '.join(validated_targets)}"
-  "Options: 'continue/yes' | 'targets: a,b' | 'skip: x' | 'add: y' | 'type: page|component'"
-  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  "Device: {device_type} | Source: {device_source}"
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  "Performance: {style_variants} agent calls"
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  "Modification Options:"
+  "  • 'continue/yes/ok' - Proceed with current configuration"
+  "  • 'targets: a,b,c' - Replace target list"
+  "  • 'skip: x,y' - Remove specific targets"
+  "  • 'add: z' - Add new targets"
+  "  • 'type: page|component' - Change target type"
+  "  • 'device: desktop|mobile|tablet|responsive' - Change device type"
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 user_input = WAIT_FOR_USER_INPUT()
 
@@ -180,9 +250,14 @@ MATCH user_input:
   "skip: ..." → validated_targets = remove_items()
   "add: ..." → validated_targets = add_items()
   "type: ..." → target_type = extract_type()
+  "device: ..." → device_type = extract_device()
   default → proceed with current list
 
 STORE: inferred_target_list, target_type, target_inference_source
+
+# ⚠️ CRITICAL: User confirmation complete, IMMEDIATELY initialize TodoWrite and execute Phase 1
+# This is the only user interaction point in the workflow
+# After this point, all subsequent phases execute automatically without user intervention
 ```
 
 **Helper Function: detect_target_type()**
@@ -202,11 +277,12 @@ detect_target_type(target_list):
 command = "/workflow:ui-design:extract --base-path \"{base_path}\" " +
           (--images ? "--images \"{images}\" " : "") +
           (--prompt ? "--prompt \"{prompt}\" " : "") +
-          "--variants {style_variants} --mode explore"
+          "--mode explore --variants {style_variants}"
 SlashCommand(command)
 
-# WAIT for extract command to complete, then IMMEDIATELY continue to Phase 2
-# DO NOT STOP - Phase 2 must execute automatically
+# Output: {style_variants} style cards with design_attributes
+# SlashCommand blocks until phase complete
+# Upon completion, IMMEDIATELY execute Phase 2 (auto-continue)
 ```
 
 ### Phase 2: Style Consolidation
@@ -215,30 +291,37 @@ command = "/workflow:ui-design:consolidate --base-path \"{base_path}\" " +
           "--variants {style_variants}"
 SlashCommand(command)
 
-# WAIT for consolidate command to complete, then IMMEDIATELY continue to Phase 3
-# DO NOT STOP - Phase 3 must execute automatically
-# Output: style_variants independent design systems (design tokens and style guides)
+# Output: {style_variants} independent design systems with tokens.css
+# SlashCommand blocks until phase complete
+# Upon completion, IMMEDIATELY execute Phase 3 (auto-continue)
 ```
 
-### Phase 3: Matrix UI Generation (with Layout Planning)
+### Phase 3: Style-Centric Matrix UI Generation
 ```bash
 targets_string = ",".join(inferred_target_list)
 command = "/workflow:ui-design:generate --base-path \"{base_path}\" " +
           "--targets \"{targets_string}\" --target-type \"{target_type}\" " +
-          "--style-variants {style_variants} --layout-variants {layout_variants}"
+          "--style-variants {style_variants} --layout-variants {layout_variants} " +
+          "--device-type \"{device_type}\""
 
 total = style_variants × layout_variants × len(inferred_target_list)
+agent_calls = style_variants
+
 REPORT: "🚀 Phase 3: {type_icon} {targets_string} | Matrix: {s}×{l}×{n} = {total} prototypes"
+REPORT: "   → Device: {device_type}"
+REPORT: "   → Agent calls: {agent_calls} style-centric agents"
 REPORT: "   → Layout planning: {len(inferred_target_list)}×{layout_variants} target-specific layouts"
+REPORT: "   → Style-centric generation: Each of {style_variants} agents handles {layout_variants}×{len(inferred_target_list)} combinations"
 
 SlashCommand(command)
 
-# WAIT for generate command to complete, then IMMEDIATELY continue to Phase 4
-# DO NOT STOP - Phase 4 must execute automatically
+# SlashCommand blocks until phase complete
+# Upon completion, IMMEDIATELY execute Phase 4 (auto-continue)
 # Output:
 # - {target}-layout-{l}.json (target-specific layout plans)
-# - {target}-style-{s}-layout-{l}.html (final prototypes)
-# - compare.html (matrix view)
+# - {target}-style-{s}-layout-{l}.html (final prototypes with style-aware structure)
+# - compare.html (interactive matrix view)
+# - PREVIEW.md (usage instructions)
 ```
 
 ### Phase 4: Design System Integration
@@ -246,9 +329,10 @@ SlashCommand(command)
 command = "/workflow:ui-design:update" + (--session ? " --session {session_id}" : "")
 SlashCommand(command)
 
-# WAIT for update command to complete
-# If --batch-plan flag present: IMMEDIATELY continue to Phase 5
-# If no --batch-plan: Workflow complete, display final report
+# SlashCommand blocks until phase complete
+# Upon completion:
+#   - If --batch-plan flag present: IMMEDIATELY execute Phase 5 (auto-continue)
+#   - If no --batch-plan: Workflow complete, display final report
 ```
 
 ### Phase 5: Batch Task Generation (Optional)
@@ -261,90 +345,131 @@ IF --batch-plan:
 
 ## TodoWrite Pattern
 ```javascript
-// Initialize at workflow start to track multi-phase execution
+// Initialize IMMEDIATELY after Phase 0c user confirmation to track multi-phase execution
 TodoWrite({todos: [
   {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing..."},
   {"content": "Execute style consolidation", "status": "pending", "activeForm": "Executing..."},
-  {"content": "Execute UI generation", "status": "pending", "activeForm": "Executing..."},
+  {"content": "Execute style-centric UI generation", "status": "pending", "activeForm": "Executing..."},
   {"content": "Execute design integration", "status": "pending", "activeForm": "Executing..."}
 ]})
 
-// ⚠️ CRITICAL: After EACH phase completion, you MUST:
-// 1. Update current phase: status → "completed"
-// 2. Update next phase: status → "in_progress"
-// 3. Continue to execute next phase immediately
+// ⚠️ CRITICAL: After EACH SlashCommand completion (Phase 1-5), you MUST:
+// 1. SlashCommand blocks and returns when phase is complete
+// 2. Update current phase: status → "completed"
+// 3. Update next phase: status → "in_progress"
+// 4. IMMEDIATELY execute next phase SlashCommand (auto-continue)
 // This ensures continuous workflow tracking and prevents premature stopping
 ```
 
 ## Key Features
-- **Autonomous**: No user intervention required between phases
-- **Intelligent**: Parses natural language, infers targets/types
-- **Reproducible**: Deterministic flow with isolated run directories
-- **Flexible**: Supports pages, components, or mixed targets
+
+- **🚀 Performance**: Style-centric batch generation with S agent calls
+- **🎨 Style-Aware**: HTML structure adapts to design_attributes
+- **✅ Perfect Consistency**: Each style by single agent
+- **📦 Autonomous**: No user intervention required between phases
+- **🧠 Intelligent**: Parses natural language, infers targets/types
+- **🔄 Reproducible**: Deterministic flow with isolated run directories
+- **🎯 Flexible**: Supports pages, components, or mixed targets
 
 ## Examples
 
 ### 1. Page Mode (Prompt Inference)
 ```bash
 /workflow:ui-design:explore-auto --prompt "Modern blog: home, article, author"
-# Result: 27 prototypes (3×3×3 - inferred defaults)
+# Result: 27 prototypes (3×3×3) - responsive layouts (default)
 ```
 
-### 2. Custom Matrix with Session
+### 2. Mobile-First Design
+```bash
+/workflow:ui-design:explore-auto --prompt "Mobile shopping app: home, product, cart" --device-type mobile
+# Result: 27 prototypes (3×3×3) - mobile layouts (375×812px)
+```
+
+### 3. Desktop Application
+```bash
+/workflow:ui-design:explore-auto --targets "dashboard,analytics,settings" --device-type desktop --style-variants 2 --layout-variants 2
+# Result: 12 prototypes (2×2×3) - desktop layouts (1920×1080px)
+```
+
+### 4. Tablet Interface
+```bash
+/workflow:ui-design:explore-auto --prompt "Educational app for tablets" --device-type tablet --targets "courses,lessons,profile"
+# Result: 27 prototypes (3×3×3) - tablet layouts (768×1024px)
+```
+
+### 5. Custom Matrix with Session
 ```bash
 /workflow:ui-design:explore-auto --session WFS-ecommerce --images "refs/*.png" --style-variants 2 --layout-variants 2
-# Result: 2×2×N prototypes (targets from synthesis)
+# Result: 2×2×N prototypes - device type inferred from session
 ```
 
-### 3. Component Mode
+### 6. Component Mode (Desktop)
 ```bash
-/workflow:ui-design:explore-auto --targets "navbar,hero" --target-type "component" --style-variants 3 --layout-variants 2
-# Result: 12 prototypes (3×2×2 components with minimal wrapper)
+/workflow:ui-design:explore-auto --targets "navbar,hero" --target-type "component" --device-type desktop --style-variants 3 --layout-variants 2
+# Result: 12 prototypes (3×2×2) - desktop components
 ```
 
-### 4. Intelligent Parsing + Batch Planning
+### 7. Intelligent Parsing + Batch Planning
 ```bash
-/workflow:ui-design:explore-auto --prompt "Create 4 styles with 2 layouts for dashboard and settings" --batch-plan
-# Result: 16 prototypes (4×2×2) + auto-generated implementation tasks
+/workflow:ui-design:explore-auto --prompt "Create 4 styles with 2 layouts for mobile dashboard and settings" --batch-plan
+# Result: 16 prototypes (4×2×2) + auto-generated tasks - mobile-optimized (inferred from prompt)
 ```
 
-### 5. Legacy Support
+### 8. Large Scale Responsive
 ```bash
-/workflow:ui-design:explore-auto --pages "home,dashboard,settings"
-# Equivalent to: --targets "home,dashboard,settings" --target-type "page"
+/workflow:ui-design:explore-auto --targets "home,dashboard,settings,profile" --device-type responsive --style-variants 3 --layout-variants 3
+# Result: 36 prototypes (3×3×4) - responsive layouts
 ```
 
 ## Completion Output
 ```
 ✅ UI Design Explore-Auto Workflow Complete!
 
+Architecture: Style-Centric Batch Generation
 Run ID: {run_id} | Session: {session_id or "standalone"}
-Type: {icon} {target_type} | Matrix: {s}×{l}×{n} = {total} prototypes
+Type: {icon} {target_type} | Device: {device_type} | Matrix: {s}×{l}×{n} = {total} prototypes
 
-Phase 1: {s} style variants (extract)
-Phase 2: {s} design systems (consolidate)
-Phase 3: Layout planning + generation (generate)
+Phase 1: {s} style variants with design_attributes (extract)
+Phase 2: {s} design systems with tokens.css (consolidate)
+Phase 3: Style-centric batch generation (generate)
+  - Device: {device_type} layouts
   - {n}×{l} target-specific layout plans
-  - {l}×{n} HTML/CSS templates
-  - {s}×{l}×{n} = {total} final prototypes
+  - {s} style-centric agents (each handled {l}×{n} combinations)
+  - {s}×{l}×{n} = {total} final prototypes with style-aware structure
 Phase 4: Brainstorming artifacts updated
 [Phase 5: {n} implementation tasks created]  # if --batch-plan
 
+Agent Execution:
+✅ Style-centric agents: {s} agents total
+✅ Each agent handles: {l}×{n} combinations
+✅ Device-optimized: {device_type} layouts
+
+Design Quality:
+✅ Style-Aware Structure: HTML adapts to design_attributes
+✅ Style Consistency: PERFECT (each style by single agent)
+✅ Token-Driven Styling: 100% var() usage
+✅ Device-Optimized: Layouts designed for {device_type}
+
 📂 {base_path}/
-  ├── style-consolidation/  ({s} design systems)
+  ├── style-extraction/       ({s} style cards + design-space-analysis.json)
+  ├── style-consolidation/    ({s} design systems with tokens.css)
   ├── prototypes/
-  │   ├── _templates/       ({n}×{l} layout JSON + {l}×{n} HTML/CSS)
-  │   └── ...               ({total} final prototypes)
-  └── .run-metadata.json
+  │   ├── _templates/         ({n}×{l} layout JSON files)
+  │   └── ...                 ({total} final prototypes)
+  └── .run-metadata.json      (includes device type)
 
 🌐 Preview: {base_path}/prototypes/compare.html
   - Interactive {s}×{l} matrix view
   - Side-by-side comparison
-  - Target-specific layouts per prototype
+  - Target-specific layouts with style-aware structure
+  - Toggle between {n} targets
 
 {icon} Targets: {', '.join(targets)} (type: {target_type})
   - Each target has {l} custom-designed layouts
+  - Each style × target × layout has unique HTML structure (not just CSS!)
   - Layout plans stored as structured JSON
+  - Optimized for {device_type} viewing
 
 Next: [/workflow:execute] OR [Open compare.html → Select → /workflow:plan]
 ```
+

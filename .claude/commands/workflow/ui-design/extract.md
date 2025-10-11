@@ -1,13 +1,13 @@
 ---
 name: extract
 description: Extract design style from reference images or text prompts using Claude's analysis
-usage: /workflow:ui-design:extract [--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--variants <count>]
+usage: /workflow:ui-design:extract [--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--mode <imitate|explore>] [--variants <count>]
 examples:
-  - /workflow:ui-design:extract --images "design-refs/*.png" --variants 3
-  - /workflow:ui-design:extract --prompt "Modern minimalist blog, dark theme" --variants 3
-  - /workflow:ui-design:extract --session WFS-auth --images "refs/*.png" --prompt "Linear.app style" --variants 2
-  - /workflow:ui-design:extract --base-path ".workflow/WFS-auth/design-run-20250109-143022" --images "refs/*.png" --variants 3
-  - /workflow:ui-design:extract --prompt "Bold vibrant" --variants 1  # Single variant (default)
+  - /workflow:ui-design:extract --images "design-refs/*.png" --mode explore --variants 3
+  - /workflow:ui-design:extract --prompt "Modern minimalist blog, dark theme" --mode explore --variants 3
+  - /workflow:ui-design:extract --session WFS-auth --images "refs/*.png" --prompt "Linear.app style" --mode imitate
+  - /workflow:ui-design:extract --base-path ".workflow/WFS-auth/design-run-20250109-143022" --images "refs/*.png" --mode explore --variants 3
+  - /workflow:ui-design:extract --prompt "Bold vibrant" --mode imitate  # High-fidelity single style
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 ---
 
@@ -24,18 +24,25 @@ Extract design style from reference images or text prompts using Claude's built-
 
 ## Phase 0: Setup & Input Validation
 
-### Step 1: Detect Input Mode & Base Path
+### Step 1: Detect Input Mode, Extraction Mode & Base Path
 ```bash
 # Detect input source
 # Priority: --images + --prompt → hybrid | --images → image | --prompt → text
 
+# Determine extraction mode
+# Priority: --mode parameter → default "imitate"
+extraction_mode = --mode OR "imitate"  # "imitate" or "explore"
+
+# Set variants count based on mode
+IF extraction_mode == "imitate":
+    variants_count = 1  # Force single variant for imitate mode (ignore --variants)
+ELSE IF extraction_mode == "explore":
+    variants_count = --variants OR 3  # Default to 3 for explore mode
+    VALIDATE: 1 <= variants_count <= 5
+
 # Determine base path
 bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
 # OR use --base-path / --session parameters
-
-# Set variant count (default: 1)
-# Priority: --variants parameter → default 1
-# Validate: 1 <= variants_count <= 5
 ```
 
 ### Step 2: Load Inputs
@@ -59,15 +66,15 @@ bash(test -f {base_path}/style-extraction/style-cards.json && echo "exists")
 
 **If exists**: Skip to completion message
 
-**Output**: `input_mode`, `base_path`, `variants_count`, `loaded_images[]` or `prompt_guidance`
+**Output**: `input_mode`, `base_path`, `extraction_mode`, `variants_count`, `loaded_images[]` or `prompt_guidance`
 
 ## Phase 1: Design Space Analysis (Explore Mode Only)
 
-### Step 1: Determine Extraction Mode
+### Step 1: Check Extraction Mode
 ```bash
-# Auto-detect mode
-# variants_count == 1 → imitate mode (skip this phase)
-# variants_count > 1 → explore mode (execute this phase)
+# Check extraction mode
+# extraction_mode == "imitate" → skip this phase
+# extraction_mode == "explore" → execute this phase
 ```
 
 **If imitate mode**: Skip to Phase 2
@@ -119,7 +126,7 @@ AI generates `variants_count` design style proposals:
 - WCAG AA accessibility (4.5:1 text, 3:1 UI)
 
 **Output Format**: `style-cards.json` with:
-- extraction_metadata (session_id, input_mode, timestamp, variants_count)
+- extraction_metadata (session_id, input_mode, extraction_mode, timestamp, variants_count)
 - style_cards[] (id, name, description, design_philosophy, preview, proposed_tokens)
 
 ### Step 2: Write Style Cards
@@ -146,11 +153,11 @@ TodoWrite({todos: [
 
 Configuration:
 - Session: {session_id}
-- Mode: {extraction_mode} (imitate/explore)
-- Input: {input_mode} (image/text/hybrid)
+- Extraction Mode: {extraction_mode} (imitate/explore)
+- Input Mode: {input_mode} (image/text/hybrid)
 - Variants: {variants_count}
 
-{IF explore mode:
+{IF extraction_mode == "explore":
 Design Space Analysis:
 - {variants_count} maximally contrasting design directions
 - Min contrast distance: {design_space_analysis.contrast_verification.min_pairwise_distance}
@@ -161,7 +168,7 @@ Generated Variants:
 
 Output Files:
 - {base_path}/style-extraction/style-cards.json
-{IF explore mode: - {base_path}/style-extraction/design-space-analysis.json}
+{IF extraction_mode == "explore": - {base_path}/style-extraction/design-space-analysis.json}
 
 Next: /workflow:ui-design:consolidate --session {session_id} --variants {variants_count}
 ```
@@ -216,7 +223,7 @@ bash(test -f design-space-analysis.json && echo "saved")
 
 ```json
 {
-  "extraction_metadata": {"session_id": "...", "input_mode": "image|text|hybrid", "timestamp": "...", "variants_count": N},
+  "extraction_metadata": {"session_id": "...", "input_mode": "image|text|hybrid", "extraction_mode": "imitate|explore", "timestamp": "...", "variants_count": N},
   "style_cards": [
     {
       "id": "variant-1", "name": "Style Name", "description": "...",
