@@ -1,13 +1,7 @@
 ---
 name: explore-auto
 description: Exploratory UI design workflow with style-centric batch generation
-usage: /workflow:ui-design:explore-auto [--prompt "<desc>"] [--images "<glob>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]
-examples:
-  - /workflow:ui-design:explore-auto --prompt "Generate 3 style variants for modern blog: home, article, author"
-  - /workflow:ui-design:explore-auto --prompt "SaaS dashboard and settings with 2 layout options"
-  - /workflow:ui-design:explore-auto --images "refs/*.png" --prompt "E-commerce: home, product, cart" --style-variants 3 --layout-variants 3
-  - /workflow:ui-design:explore-auto --session WFS-auth --images "refs/*.png"
-  - /workflow:ui-design:explore-auto --targets "navbar,hero" --target-type "component" --style-variants 3 --layout-variants 2
+argument-hint: "[--prompt "<desc>"] [--images "<glob>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]""
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*), Task(conceptual-planning-agent)
 ---
 

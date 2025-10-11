@@ -3,9 +3,6 @@ name: system-architect
 description: Generate or update system-architect/analysis.md addressing topic-framework discussion points
 usage: /workflow:brainstorm:system-architect [topic]
 argument-hint: "optional topic - uses existing framework if available"
-examples:
-  - /workflow:brainstorm:system-architect
-  - /workflow:brainstorm:system-architect "user authentication redesign"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 

@@ -2,11 +2,7 @@
 name: create
 description: Create implementation tasks with automatic context awareness
 usage: /task:create "title"
-argument-hint: "task title"
-examples:
-  - /task:create "Implement user authentication"
-  - /task:create "Build REST API endpoints"
-  - /task:create "Fix login validation bug"
+argument-hint: "\"task title\""
 ---
 
 # Task Create Command (/task:create)

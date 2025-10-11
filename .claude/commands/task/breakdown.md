@@ -2,11 +2,7 @@
 name: breakdown
 description: Intelligent task decomposition with context-aware subtask generation
 usage: /task:breakdown <task-id>
-argument-hint: task-id
-examples:
-  - /task:breakdown IMPL-1
-  - /task:breakdown IMPL-1.1
-  - /task:breakdown impl-3
+argument-hint: "task-id"
 ---
 
 # Task Breakdown Command (/task:breakdown)

@@ -1,7 +1,6 @@
 ---
 name: complete
 description: Mark the active workflow session as complete and remove active flag
-usage: /workflow:session:complete
 examples:
   - /workflow:session:complete
   - /workflow:session:complete --detailed

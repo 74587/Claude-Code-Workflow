@@ -388,7 +388,7 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 
 | 命令 | 描述 |
 |---|---|
-| `/workflow:session:*` | 管理开发会话（`start`, `pause`, `resume`, `list`, `switch`, `complete`）。 |
+| `/workflow:session:*` | 管理开发会话（`start`, `resume`, `list`, `complete`）。 |
 | `/workflow:brainstorm:*` | 使用基于角色的智能体进行多视角规划。 |
 | `/workflow:ui-design:explore-auto` | **v4.2.1** 矩阵探索模式 - 生成多个风格×布局变体，全面探索设计方向。 |
 | `/workflow:ui-design:imitate-auto` | **v4.2.1** 快速模仿模式 - 单一设计快速复制，自动截图和直接令牌提取。 |

@@ -3,10 +3,6 @@ name: plan
 description: Project planning and architecture analysis using CLI tools
 usage: /cli:mode:plan [--tool <codex|gemini|qwen>] [--enhance] [--cd "path"] "topic"
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] [--cd path] topic"
-examples:
-  - /cli:mode:plan "design user dashboard"
-  - /cli:mode:plan --tool qwen --enhance "plan microservices migration"
-  - /cli:mode:plan --tool codex --cd "src/auth" "authentication system"
 allowed-tools: SlashCommand(*), Bash(*)
 ---
 

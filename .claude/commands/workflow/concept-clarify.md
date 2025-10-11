@@ -2,10 +2,7 @@
 name: concept-clarify
 description: Identify underspecified areas in brainstorming artifacts through targeted clarification questions before action planning
 usage: /workflow:concept-clarify [--session <session-id>]
-argument-hint: "optional: --session <session-id>"
-examples:
-  - /workflow:concept-clarify
-  - /workflow:concept-clarify --session WFS-auth
+argument-hint: "[optional: --session session-id]"
 allowed-tools: Read(*), Write(*), Edit(*), TodoWrite(*), Glob(*), Bash(*)
 ---
 

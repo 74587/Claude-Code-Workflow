@@ -3,10 +3,6 @@ name: update-memory-full
 description: Complete project-wide CLAUDE.md documentation update
 usage: /update-memory-full [--tool <gemini|qwen|codex>]
 argument-hint: "[--tool gemini|qwen|codex]"
-examples:
-  - /update-memory-full                      # Full project documentation update (gemini default)
-  - /update-memory-full --tool qwen          # Use Qwen for architecture analysis
-  - /update-memory-full --tool codex         # Use Codex for implementation validation
 ---
 
 ### 🚀 Command Overview: `/update-memory-full`

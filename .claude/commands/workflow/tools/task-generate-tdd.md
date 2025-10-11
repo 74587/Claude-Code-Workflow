@@ -3,9 +3,6 @@ name: task-generate-tdd
 description: Generate TDD task chains with Red-Green-Refactor dependencies
 usage: /workflow:tools:task-generate-tdd --session <session_id> [--agent]
 argument-hint: "--session WFS-session-id [--agent]"
-examples:
-  - /workflow:tools:task-generate-tdd --session WFS-auth
-  - /workflow:tools:task-generate-tdd --session WFS-auth --agent
 allowed-tools: Read(*), Write(*), Bash(gemini-wrapper:*), TodoWrite(*)
 ---
 

@@ -1,11 +1,7 @@
 ---
 name: generate
 description: Assemble UI prototypes by combining layout templates with design tokens (pure assembler)
-usage: /workflow:ui-design:generate [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
-examples:
-  - /workflow:ui-design:generate --session WFS-auth
-  - /workflow:ui-design:generate --style-variants 2 --layout-variants 2
-  - /workflow:ui-design:generate --base-path ".workflow/WFS-auth/design-run-20250109-143022"
+argument-hint: [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 ---
 

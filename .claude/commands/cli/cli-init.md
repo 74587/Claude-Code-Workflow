@@ -3,11 +3,6 @@ name: cli-init
 description: Initialize CLI tool configurations (Gemini and Qwen) based on workspace analysis
 usage: /cli:cli-init [--tool <gemini|qwen|all>] [--output=<path>] [--preview]
 argument-hint: "[--tool gemini|qwen|all] [--output path] [--preview]"
-examples:
-  - /cli:cli-init
-  - /cli:cli-init --tool qwen
-  - /cli:cli-init --tool all --preview
-  - /cli:cli-init --output=.config/
 allowed-tools: Bash(*), Read(*), Write(*), Glob(*)
 ---
 

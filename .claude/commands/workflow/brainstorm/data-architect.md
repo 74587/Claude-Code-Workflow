@@ -3,10 +3,6 @@ name: data-architect
 description: Generate or update data-architect/analysis.md addressing topic-framework discussion points
 usage: /workflow:brainstorm:data-architect [topic]
 argument-hint: "optional topic - uses existing framework if available"
-examples:
-  - /workflow:brainstorm:data-architect
-  - /workflow:brainstorm:data-architect "user analytics data pipeline"
-  - /workflow:brainstorm:data-architect "real-time data processing system"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 

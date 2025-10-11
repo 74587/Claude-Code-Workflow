@@ -1,9 +1,6 @@
 ---
 name: resume
 description: Resume the most recently paused workflow session
-usage: /workflow:session:resume
-examples:
-  - /workflow:session:resume
 ---
 
 # Resume Workflow Session (/workflow:session:resume)

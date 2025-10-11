@@ -2,11 +2,7 @@
 name: workflow:status
 description: Generate on-demand views from JSON task data
 usage: /workflow:status [task-id]
-argument-hint: [optional: task-id]
-examples:
-  - /workflow:status
-  - /workflow:status impl-1
-  - /workflow:status --validate
+argument-hint: "[optional: task-id]"
 ---
 
 # Workflow Status Command (/workflow:status)

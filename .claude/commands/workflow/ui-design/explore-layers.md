@@ -3,10 +3,6 @@ name: explore-layers
 description: Interactive deep UI capture with depth-controlled layer exploration
 usage: /workflow:ui-design:explore-layers --url <url> --depth <1-5> [--session <id>] [--base-path <path>]
 argument-hint: --url <url> --depth <1-5> [--session id] [--base-path path]
-examples:
-  - /workflow:ui-design:explore-layers --url "https://app.linear.app" --depth 3
-  - /workflow:ui-design:explore-layers --url "https://notion.so" --depth 2 --session WFS-notion-ui
-  - /workflow:ui-design:explore-layers --url "https://app.com/dashboard" --depth 4
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*), mcp__chrome-devtools__*
 ---
 

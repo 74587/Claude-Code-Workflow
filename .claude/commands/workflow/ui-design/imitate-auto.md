@@ -1,13 +1,7 @@
 ---
 name: imitate-auto
 description: High-speed multi-page UI replication with batch screenshot and optional token refinement
-usage: /workflow:ui-design:imitate-auto --url-map "<map>" [--capture-mode <batch|deep>] [--depth <1-5>] [--session <id>] [--refine-tokens] [--prompt "<desc>"]
-examples:
-  - /workflow:ui-design:imitate-auto --url-map "home:https://linear.app, features:https://linear.app/features"
-  - /workflow:ui-design:imitate-auto --session WFS-payment --url-map "pricing:https://stripe.com/pricing"
-  - /workflow:ui-design:imitate-auto --url-map "dashboard:https://app.com/dash" --refine-tokens
-  - /workflow:ui-design:imitate-auto --url-map "app:https://app.com" --capture-mode deep --depth 3
-  - /workflow:ui-design:imitate-auto --url-map "home:https://example.com, about:https://example.com/about" --prompt "Focus on minimalist design"
+argument-hint: --url-map "<map>" [--capture-mode <batch|deep>] [--depth <1-5>] [--session <id>] [--refine-tokens] [--prompt "<desc>"]
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 ---
 

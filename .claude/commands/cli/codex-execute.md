@@ -3,10 +3,6 @@ name: codex-execute
 description: Automated task decomposition and execution with Codex using resume mechanism
 usage: /cli:codex-execute [--verify-git] <task-description|task-id>
 argument-hint: "[--verify-git] task description or task-id"
-examples:
-  - /cli:codex-execute "implement user authentication system"
-  - /cli:codex-execute --verify-git "refactor API layer"
-  - /cli:codex-execute IMPL-001
 allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*)
 ---
 

@@ -1898,12 +1898,6 @@ This is a **breaking change release** with significant architectural improvement
 - **Intelligent Modes**: Auto template selection and precise planning
 - **Full Command Suite**: analyze, chat, execute, mode:auto, mode:bug-index, mode:plan
 
-#### 🏷️ Issue Management Commands
-- `/workflow:issue:create` - Create new project issues with priority/type
-- `/workflow:issue:list` - List and filter issues by status/assignment
-- `/workflow:issue:update` - Update existing issue status and assignments
-- `/workflow:issue:close` - Close completed issues with resolution
-
 #### 📋 Enhanced Workflow Commands
 - `/workflow:plan-verify` - Pre-execution validation using dual analysis
 - `/workflow:test-gen` - Generate comprehensive test workflows

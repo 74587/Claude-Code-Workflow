@@ -1,7 +1,6 @@
 ---
 name: start
 description: Discover existing sessions or start a new workflow session with intelligent session management
-usage: /workflow:session:start [--auto|--new] [task_description]
 argument-hint: [--auto|--new] [optional: task description for new session]
 examples:
   - /workflow:session:start

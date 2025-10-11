@@ -3,10 +3,6 @@ name: update-memory-related
 description: Context-aware CLAUDE.md documentation updates based on recent changes
 usage: /update-memory-related [--tool <gemini|qwen|codex>]
 argument-hint: "[--tool gemini|qwen|codex]"
-examples:
-  - /update-memory-related                    # Update documentation based on recent changes (gemini default)
-  - /update-memory-related --tool qwen        # Use Qwen for architecture analysis
-  - /update-memory-related --tool codex       # Use Codex for implementation validation
 ---
 
 ### 🚀 Command Overview: `/update-memory-related`

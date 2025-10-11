@@ -1,12 +1,7 @@
 ---
 name: batch-generate
 description: Prompt-driven batch UI generation using target-style-centric parallel execution
-usage: /workflow:ui-design:batch-generate --prompt "<description>" [--targets "<list>"] [--target-type "page|component"] [--device-type "desktop|mobile|tablet|responsive"] [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
-examples:
-  - /workflow:ui-design:batch-generate --prompt "Dashboard with metrics cards" --style-variants 3
-  - /workflow:ui-design:batch-generate --prompt "Auth pages: login, signup" --session WFS-auth
-  - /workflow:ui-design:batch-generate --prompt "Navbar, hero, footer components" --target-type component
-  - /workflow:ui-design:batch-generate --prompt "Mobile e-commerce app" --device-type mobile
+argument-hint: [--targets "<list>"] [--target-type "page|component"] [--device-type "desktop|mobile|tablet|responsive"] [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*), mcp__exa__web_search_exa(*)
 ---
 

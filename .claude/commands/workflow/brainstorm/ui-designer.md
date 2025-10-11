@@ -3,10 +3,6 @@ name: ui-designer
 description: Generate or update ui-designer/analysis.md addressing topic-framework discussion points
 usage: /workflow:brainstorm:ui-designer [topic]
 argument-hint: "optional topic - uses existing framework if available"
-examples:
-  - /workflow:brainstorm:ui-designer
-  - /workflow:brainstorm:ui-designer "user authentication redesign"
-  - /workflow:brainstorm:ui-designer "mobile app navigation improvement"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 

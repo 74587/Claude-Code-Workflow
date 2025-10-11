@@ -1,12 +1,7 @@
 ---
 name: consolidate
 description: Consolidate style variants into independent design systems and plan layout strategies
-usage: /workflow:ui-design:consolidate [--base-path <path>] [--session <id>] [--variants <count>] [--layout-variants <count>]
-examples:
-  - /workflow:ui-design:consolidate --base-path ".workflow/WFS-auth/design-run-20250109-143022" --variants 3
-  - /workflow:ui-design:consolidate --session WFS-auth --variants 2
-  - /workflow:ui-design:consolidate --base-path "./.workflow/.design/run-20250109-150533"  # Uses all variants
-  - /workflow:ui-design:consolidate --session WFS-auth  # Process all variants from extraction
+argument-hint: /workflow:ui-design:consolidate [--base-path <path>] [--session <id>] [--variants <count>] [--layout-variants <count>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Task(*)
 ---
 

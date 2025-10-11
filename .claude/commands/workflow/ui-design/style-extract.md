@@ -1,13 +1,7 @@
 ---
 name: style-extract
 description: Extract design style from reference images or text prompts using Claude's analysis
-usage: /workflow:ui-design:style-extract [--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--mode <imitate|explore>] [--variants <count>]
-examples:
-  - /workflow:ui-design:style-extract --images "design-refs/*.png" --mode explore --variants 3
-  - /workflow:ui-design:style-extract --prompt "Modern minimalist blog, dark theme" --mode explore --variants 3
-  - /workflow:ui-design:style-extract --session WFS-auth --images "refs/*.png" --prompt "Linear.app style" --mode imitate
-  - /workflow:ui-design:style-extract --base-path ".workflow/WFS-auth/design-run-20250109-143022" --images "refs/*.png" --mode explore --variants 3
-  - /workflow:ui-design:style-extract --prompt "Bold vibrant" --mode imitate  # High-fidelity single style
+argument-hint: "[--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--mode <imitate|explore>] [--variants <count>]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 ---
 

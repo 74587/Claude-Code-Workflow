@@ -1,10 +1,7 @@
 ---
 name: update
 description: Update brainstorming artifacts with finalized design system references
-usage: /workflow:ui-design:update --session <session_id> [--selected-prototypes "<list>"]
-examples:
-  - /workflow:ui-design:update --session WFS-auth
-  - /workflow:ui-design:update --session WFS-dashboard --selected-prototypes "dashboard-variant-1"
+argument-hint: --session <session_id> [--selected-prototypes "<list>"]
 allowed-tools: Read(*), Write(*), Edit(*), TodoWrite(*), Glob(*), Bash(*)
 ---
 

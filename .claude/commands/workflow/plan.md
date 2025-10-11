@@ -2,12 +2,7 @@
 name: plan
 description: Orchestrate 4-phase planning workflow by executing commands and passing context between phases
 usage: /workflow:plan [--agent] <input>
-argument-hint: "[--agent] \"text description\"|file.md|ISS-001"
-examples:
-  - /workflow:plan "Build authentication system"
-  - /workflow:plan --agent "Build authentication system"
-  - /workflow:plan requirements.md
-  - /workflow:plan ISS-001
+argument-hint: "[--agent] \"text description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -200,12 +195,6 @@ TodoWrite({todos: [
 3. **File Reference** (e.g., `requirements.md`) → Read and structure:
    - Read file content
    - Extract goal, scope, requirements
-   - Format into structured description
-
-4. **Issue Reference** (e.g., `ISS-001`) → Read and structure:
-   - Read issue file
-   - Extract title as goal
-   - Extract description as scope/context
    - Format into structured description
 
 ## Data Flow

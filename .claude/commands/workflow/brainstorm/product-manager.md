@@ -3,10 +3,6 @@ name: product-manager
 description: Generate or update product-manager/analysis.md addressing topic-framework discussion points
 usage: /workflow:brainstorm:product-manager [topic]
 argument-hint: "optional topic - uses existing framework if available"
-examples:
-  - /workflow:brainstorm:product-manager
-  - /workflow:brainstorm:product-manager "user authentication redesign"
-  - /workflow:brainstorm:product-manager "mobile app performance optimization"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 

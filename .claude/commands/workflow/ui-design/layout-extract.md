@@ -1,12 +1,7 @@
 ---
 name: layout-extract
 description: Extract structural layout information from reference images, URLs, or text prompts
-usage: /workflow:ui-design:layout-extract [--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--targets "<list>"] [--mode <imitate|explore>] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>]
-examples:
-  - /workflow:ui-design:layout-extract --urls "home:https://linear.app" --mode imitate --targets "home"
-  - /workflow:ui-design:layout-extract --images "refs/*.png" --mode explore --variants 3 --targets "dashboard"
-  - /workflow:ui-design:layout-extract --prompt "Two-column blog with sticky sidebar" --mode explore --variants 2 --targets "blog-post"
-  - /workflow:ui-design:layout-extract --session WFS-auth --urls "login:https://clerk.dev" --device-type mobile --targets "login"
+argument-hint: [--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--targets "<list>"] [--mode <imitate|explore>] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), Task(ui-design-agent), mcp__exa__web_search_exa(*)
 ---
 

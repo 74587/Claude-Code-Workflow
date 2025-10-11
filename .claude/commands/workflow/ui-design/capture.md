@@ -3,10 +3,6 @@ name: capture
 description: Batch screenshot capture for UI design workflows using MCP or local fallback
 usage: /workflow:ui-design:capture --url-map "<map>" [--base-path <path>] [--session <id>]
 argument-hint: --url-map "target:url,..." [--base-path path] [--session id]
-examples:
-  - /workflow:ui-design:capture --url-map "home:https://linear.app, pricing:https://linear.app/pricing"
-  - /workflow:ui-design:capture --session WFS-auth --url-map "dashboard:https://app.com/dash"
-  - /workflow:ui-design:capture --base-path ".workflow/.design/run-20250110" --url-map "hero:https://example.com#hero"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*), ListMcpResourcesTool(*), mcp__chrome-devtools__*, mcp__playwright__*
 ---
 

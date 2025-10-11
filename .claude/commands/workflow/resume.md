@@ -3,10 +3,6 @@ name: resume
 description: Intelligent workflow session resumption with automatic progress analysis
 usage: /workflow:resume "<session-id>"
 argument-hint: "session-id for workflow session to resume"
-examples:
-  - /workflow:resume "WFS-user-auth"
-  - /workflow:resume "WFS-api-integration"
-  - /workflow:resume "WFS-database-migration"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 

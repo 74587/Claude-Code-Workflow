@@ -3,11 +3,6 @@ name: execute
 description: Auto-execution of implementation tasks with YOLO permissions and intelligent context inference
 usage: /cli:execute [--tool <codex|gemini|qwen>] [--enhance] <description|task-id>
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] description or task-id"
-examples:
-  - /cli:execute "implement user authentication system"
-  - /cli:execute --tool qwen --enhance "optimize React component"
-  - /cli:execute --tool codex IMPL-001
-  - /cli:execute --enhance "fix API performance issues"
 allowed-tools: SlashCommand(*), Bash(*)
 ---
 

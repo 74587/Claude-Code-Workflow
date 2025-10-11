@@ -3,10 +3,6 @@ name: bug-index
 description: Bug analysis and fix suggestions using CLI tools
 usage: /cli:mode:bug-index [--tool <codex|gemini|qwen>] [--enhance] [--cd "path"] "bug description"
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] [--cd path] bug description"
-examples:
-  - /cli:mode:bug-index "authentication null pointer error"
-  - /cli:mode:bug-index --tool qwen --enhance "login not working"
-  - /cli:mode:bug-index --tool codex --cd "src/auth" "token validation fails"
 allowed-tools: SlashCommand(*), Bash(*)
 ---
 

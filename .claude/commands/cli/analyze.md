@@ -3,10 +3,6 @@ name: analyze
 description: Quick codebase analysis using CLI tools (codex/gemini/qwen)
 usage: /cli:analyze [--tool <codex|gemini|qwen>] [--enhance] <analysis-target>
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] analysis target"
-examples:
-  - /cli:analyze "authentication patterns"
-  - /cli:analyze --tool qwen "API security"
-  - /cli:analyze --tool codex --enhance "performance bottlenecks"
 allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*)
 ---
 

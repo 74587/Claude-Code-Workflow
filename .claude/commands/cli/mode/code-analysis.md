@@ -3,10 +3,6 @@ name: code-analysis
 description: Deep code analysis and debugging using CLI tools with specialized template
 usage: /cli:mode:code-analysis [--tool <codex|gemini|qwen>] [--enhance] [--cd "path"] "analysis target"
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] [--cd path] analysis target"
-examples:
-  - /cli:mode:code-analysis "analyze authentication flow logic"
-  - /cli:mode:code-analysis --tool qwen --enhance "explain data transformation pipeline"
-  - /cli:mode:code-analysis --tool codex --cd "src/core" "trace execution path for user registration"
 allowed-tools: SlashCommand(*), Bash(*)
 ---
 

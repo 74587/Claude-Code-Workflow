@@ -3,10 +3,6 @@ name: artifacts
 description: Generate role-specific topic-framework.md dynamically based on selected roles
 usage: /workflow:brainstorm:artifacts "<topic>" [--roles "role1,role2,role3"]
 argument-hint: "topic or challenge description for framework generation"
-examples:
-  - /workflow:brainstorm:artifacts "Build real-time collaboration feature"
-  - /workflow:brainstorm:artifacts "Optimize database performance" --roles "system-architect,data-architect,subject-matter-expert"
-  - /workflow:brainstorm:artifacts "Implement secure authentication system" --roles "ui-designer,ux-expert,subject-matter-expert"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---
 

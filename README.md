@@ -275,28 +275,49 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 ```
 
 **Phase 2: UI Design Refinement** *(Optional for UI-heavy projects)*
+
+**🎯 Choose Your Workflow:**
+
+**Scenario 1: Starting from an idea or concept** → Use `explore-auto`
 ```bash
-# Matrix Exploration Mode - Multiple style/layout variants (v4.2.1+)
+# Generate multiple style and layout options to explore different directions
 /workflow:ui-design:explore-auto --prompt "Modern blog: home, article, author" --style-variants 3 --layout-variants 2
+# Creates a 3×2 matrix: 3 visual styles × 2 layouts = 6 prototypes to choose from
+```
 
-# Fast Imitation Mode - Single design replication (v4.2.1+)
+**Scenario 2: Replicating an existing design** → Use `imitate-auto`
+```bash
+# Fast, high-fidelity replication of reference designs
 /workflow:ui-design:imitate-auto --images "refs/design.png" --pages "dashboard,settings"
+# Or auto-screenshot from URL (requires Playwright/Chrome DevTools MCP)
+/workflow:ui-design:imitate-auto --url "https://linear.app" --pages "home,features"
+```
 
-# With session integration
-/workflow:ui-design:explore-auto --session WFS-auth --images "refs/*.png" --style-variants 2 --layout-variants 3
+**Scenario 3: Batch creation from existing design system** → Use `batch-generate`
+```bash
+# Already have a design system? Generate multiple pages quickly
+/workflow:ui-design:batch-generate --prompt "Create profile and settings pages" --layout-variants 2
+```
 
-# Or run individual design phases (v4.4.0+)
+**Advanced: Manual Step-by-Step Control** (v4.4.0+)
+```bash
+# 1. Extract visual style (colors, typography, spacing)
 /workflow:ui-design:style-extract --images "refs/*.png" --mode explore --variants 3
+
+# 2. Consolidate into production-ready design tokens
 /workflow:ui-design:consolidate --variants "variant-1,variant-3"
+
+# 3. Extract layout structure (DOM, CSS layout rules)
 /workflow:ui-design:layout-extract --targets "dashboard,auth" --mode explore --variants 2 --device-type responsive
+
+# 4. Combine style + layout → HTML/CSS prototypes
 /workflow:ui-design:generate --style-variants 1 --layout-variants 2
 
-# Preview generated prototypes
-# Option 1: Open .workflow/WFS-auth/.design/prototypes/compare.html in browser
-# Option 2: Start local server
+# 5. Preview and select
 cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
-# Visit http://localhost:8080 for interactive preview with comparison tools
+# Visit http://localhost:8080/compare.html for side-by-side comparison
 
+# 6. Integrate selected design into project
 /workflow:ui-design:update --session WFS-auth --selected-prototypes "dashboard-s1-l2"
 ```
 
@@ -389,7 +410,7 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 
 | Command | Description |
 |---|---|
-| `/workflow:session:*` | Manage development sessions (`start`, `pause`, `resume`, `list`, `switch`, `complete`). |
+| `/workflow:session:*` | Manage development sessions (`start`, `resume`, `list`, `complete`). |
 | `/workflow:brainstorm:*` | Use role-based agents for multi-perspective planning. |
 | `/workflow:ui-design:explore-auto` | **v4.4.0** Matrix exploration mode - Generate multiple style × layout variants with layout/style separation. |
 | `/workflow:ui-design:imitate-auto` | **v4.4.0** Fast imitation mode - Rapid UI replication with auto-screenshot, layout extraction, and assembly. |
@@ -412,6 +433,77 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 ### **UI Design Workflow Commands (`/workflow:ui-design:*`)** *(v4.4.0)*
 
 The design workflow system provides complete UI design refinement with **layout/style separation architecture**, **pure Claude execution**, **intelligent target inference**, and **zero external dependencies**.
+
+#### 📐 Architecture Overview
+
+The UI workflow follows a **separation of concerns** philosophy:
+- **Style (Visual Tokens)**: Colors, typography, spacing, borders → `design-tokens.json`
+- **Layout (Structure)**: DOM hierarchy, CSS layout rules → `layout-templates.json`
+- **Assembly**: Pure combination of style + layout → HTML/CSS prototypes
+
+**Command Categories:**
+
+| Category | Commands | Purpose |
+|----------|----------|---------|
+| **High-Level Orchestrators** | `explore-auto`, `imitate-auto`, `batch-generate` | Complete workflows (recommended) |
+| **Input/Capture** | `capture`, `explore-layers` | Screenshot acquisition |
+| **Analysis/Extraction** | `style-extract`, `layout-extract` | Visual style and structural layout extraction |
+| **Processing/Generation** | `consolidate`, `generate` | Token validation and prototype assembly |
+| **Integration** | `update` | Design system integration into project |
+
+#### 🧭 Decision Tree: Which Command Should I Use?
+
+```
+┌─ Have an idea or text description?
+│  └─→ /workflow:ui-design:explore-auto
+│     (Explores multiple style × layout options)
+│
+┌─ Want to replicate an existing design?
+│  └─→ /workflow:ui-design:imitate-auto
+│     (High-fidelity single design replication)
+│
+┌─ Already have a design system?
+│  └─→ /workflow:ui-design:batch-generate
+│     (Batch create multiple pages/components)
+│
+└─ Need fine-grained control?
+   └─→ Use individual commands in sequence:
+       1. style-extract → Extract colors, fonts, spacing
+       2. consolidate → Validate and merge tokens
+       3. layout-extract → Extract DOM structure
+       4. generate → Combine into prototypes
+       5. update → Integrate into project
+```
+
+#### 🔄 Workflow Diagrams
+
+**Explore Workflow** (Idea → Multiple Designs):
+```
+Prompt/Images → style-extract (explore mode)
+                     ↓
+              consolidate (N variants)
+                     ↓
+              layout-extract (explore mode)
+                     ↓
+              generate (N styles × M layouts)
+                     ↓
+              update (selected designs)
+```
+
+**Imitate Workflow** (Reference → Single Design):
+```
+URL/Images → capture/explore-layers
+                  ↓
+           style-extract (imitate mode)
+                  ↓
+           layout-extract (imitate mode)
+                  ↓
+           consolidate (single variant)
+                  ↓
+           generate (1 style × 1 layout)
+                  ↓
+           update (final design)
+```
 
 #### Core Commands
 
@@ -545,6 +637,61 @@ php -S localhost:8080           # PHP
 - Synchronized scrolling for layout comparison
 - Dynamic page switching
 - Real-time responsive testing
+
+#### 📦 Output Structure
+
+All UI workflow outputs are organized in the `.design` directory within your session:
+
+```
+.workflow/WFS-<session-id>/.design/
+├── design-run-YYYYMMDD-HHMMSS/          # Timestamped design run
+│   ├── screenshots/                      # 📸 Captured screenshots
+│   │   ├── home.png
+│   │   └── dashboard.png
+│   │
+│   ├── style-extraction/                 # 🎨 Style analysis phase
+│   │   ├── style-cards.json             # AI-proposed style variants
+│   │   └── design-space-analysis.json   # (explore mode) Diversity analysis
+│   │
+│   ├── layout-extraction/                # 🏗️ Layout analysis phase
+│   │   └── layout-templates.json        # Structural templates with token-based CSS
+│   │
+│   ├── style-consolidation/              # ✅ Production design systems
+│   │   ├── style-1/
+│   │   │   ├── design-tokens.json       # W3C design tokens
+│   │   │   ├── style-guide.md           # Visual design documentation
+│   │   │   ├── tailwind.config.js       # Tailwind configuration
+│   │   │   └── validation-report.json   # WCAG AA validation results
+│   │   └── style-2/
+│   │       └── ...
+│   │
+│   └── prototypes/                       # 🎯 Final HTML/CSS prototypes
+│       ├── home-style-1-layout-1.html   # Matrix-generated prototypes
+│       ├── home-style-1-layout-1.css
+│       ├── home-style-1-layout-2.html
+│       ├── dashboard-style-2-layout-1.html
+│       ├── index.html                   # Master navigation page
+│       └── compare.html                 # Side-by-side comparison tool
+│
+└── latest -> design-run-YYYYMMDD-HHMMSS  # Symlink to most recent run
+```
+
+**Key Files:**
+
+| File | Purpose | Generated By |
+|------|---------|--------------|
+| `style-cards.json` | AI-proposed visual styles with embedded tokens | `style-extract` |
+| `layout-templates.json` | Structural templates with token-based CSS | `layout-extract` |
+| `design-tokens.json` | Production-ready W3C design tokens | `consolidate` |
+| `style-guide.md` | Visual design system documentation | `consolidate` |
+| `compare.html` | Interactive prototype comparison matrix | `generate` |
+
+**Best Practices:**
+
+1. **Session Management**: All runs within a session accumulate in `.design/design-run-*/`
+2. **Versioning**: Each run is timestamped for easy rollback
+3. **Integration**: Use `update` command to link final tokens to project artifacts
+4. **Cleanup**: Old runs can be safely deleted; `latest` symlink always points to newest
 
 ---
 

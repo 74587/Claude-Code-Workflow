@@ -2,11 +2,7 @@
 name: replan
 description: Replan individual tasks with detailed user input and change tracking
 usage: /task:replan <task-id> [input]
-argument-hint: task-id ["text"|file.md|ISS-001]
-examples:
-  - /task:replan IMPL-1 "Add OAuth2 authentication support"
-  - /task:replan IMPL-1 updated-specs.md
-  - /task:replan IMPL-1 ISS-001
+argument-hint: "task-id [\"text\"|file.md]"
 ---
 
 # Task Replan Command (/task:replan)
@@ -37,12 +33,6 @@ Replans individual tasks with multiple input options, change tracking, and versi
 /task:replan IMPL-1 updated-specs.md
 ```
 Supports: .md, .txt, .json, .yaml
-
-### Issue Reference
-```bash
-/task:replan IMPL-1 ISS-001
-```
-Loads issue description and requirements
 
 ### Interactive Mode
 ```bash

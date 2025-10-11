@@ -3,10 +3,6 @@ name: auto-parallel
 description: Parallel brainstorming automation with dynamic role selection and concurrent execution
 usage: /workflow:brainstorm:auto-parallel "<topic>"
 argument-hint: "topic or challenge description"
-examples:
-  - /workflow:brainstorm:auto-parallel "Build real-time collaboration feature"
-  - /workflow:brainstorm:auto-parallel "Optimize database performance for millions of users"
-  - /workflow:brainstorm:auto-parallel "Implement secure authentication system"
 allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---
 

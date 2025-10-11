@@ -2,11 +2,7 @@
 name: tdd-plan
 description: Orchestrate TDD workflow planning with Red-Green-Refactor task chains
 usage: /workflow:tdd-plan [--agent] <input>
-argument-hint: "[--agent] \"feature description\"|file.md|ISS-001"
-examples:
-  - /workflow:tdd-plan "Implement user authentication"
-  - /workflow:tdd-plan --agent requirements.md
-  - /workflow:tdd-plan ISS-001
+argument-hint: "[--agent] \"feature description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 

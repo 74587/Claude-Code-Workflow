@@ -2,11 +2,7 @@
 name: execute
 description: Execute tasks with appropriate agents and context-aware orchestration
 usage: /task:execute <task-id>
-argument-hint: task-id
-examples:
-  - /task:execute IMPL-1
-  - /task:execute IMPL-1.2
-  - /task:execute IMPL-3
+argument-hint: "task-id"
 ---
 
 ### 🚀 **Command Overview: `/task:execute`**

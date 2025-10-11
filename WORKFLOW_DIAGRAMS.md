@@ -512,15 +512,13 @@ graph TD
 graph LR
     subgraph "Session Management"
         WFS_START["/workflow:session:start"]
-        WFS_PAUSE["/workflow:session:pause"]
         WFS_RESUME["/workflow:session:resume"]
-        WFS_SWITCH["/workflow:session:switch"]
         WFS_LIST["/workflow:session:list"]
+        WFS_COMPLETE["/workflow:session:complete"]
 
-        WFS_START --> WFS_PAUSE
-        WFS_PAUSE --> WFS_RESUME
-        WFS_RESUME --> WFS_SWITCH
-        WFS_SWITCH --> WFS_LIST
+        WFS_START --> WFS_LIST
+        WFS_LIST --> WFS_RESUME
+        WFS_RESUME --> WFS_COMPLETE
     end
 
     subgraph "Planning Phase"
@@ -554,7 +552,6 @@ graph LR
     WFS_START --> WF_BRAINSTORM
     WF_PLAN --> WF_EXECUTE
     WF_EXECUTE --> TASK_CREATE
-    WF_REVIEW --> WFS_PAUSE
 ```
 
 ## 11. Planning Method Selection Flow

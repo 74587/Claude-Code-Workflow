@@ -2,12 +2,7 @@
 name: review
 description: Optional specialized review (security, architecture, docs) for completed implementation
 usage: /workflow:review [--type=<type>] [session-id]
-argument-hint: "[--type=security|architecture|action-items|quality] [session-id]"
-examples:
-  - /workflow:review                           # Quality review of active session
-  - /workflow:review --type=security           # Security audit of active session
-  - /workflow:review --type=architecture WFS-user-auth  # Architecture review of specific session
-  - /workflow:review --type=action-items       # Pre-deployment verification
+argument-hint: "[--type=security|architecture|action-items|quality] [optional: session-id]"
 ---
 
 ### 🚀 Command Overview: `/workflow:review`

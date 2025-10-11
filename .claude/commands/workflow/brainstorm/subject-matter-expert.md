@@ -3,10 +3,6 @@ name: subject-matter-expert
 description: Generate or update subject-matter-expert/analysis.md addressing topic-framework discussion points
 usage: /workflow:brainstorm:subject-matter-expert [topic]
 argument-hint: "optional topic - uses existing framework if available"
-examples:
-  - /workflow:brainstorm:subject-matter-expert
-  - /workflow:brainstorm:subject-matter-expert "user authentication redesign"
-  - /workflow:brainstorm:subject-matter-expert "mobile app performance optimization"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
