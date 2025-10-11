@@ -570,6 +570,50 @@ function Copy-FileToDestination {
     }
 }
 
+function Backup-AndReplaceDirectory {
+    param(
+        [string]$Source,
+        [string]$Destination,
+        [string]$Description = "directory",
+        [string]$BackupFolder = $null
+    )
+
+    if (-not (Test-Path $Source)) {
+        Write-ColorOutput "WARNING: Source $Description not found: $Source" $ColorWarning
+        return $false
+    }
+
+    # Backup and clear destination if it exists
+    if (Test-Path $Destination) {
+        Write-ColorOutput "Found existing $Description at: $Destination" $ColorInfo
+
+        # Backup entire directory if backup is enabled
+        if (-not $NoBackup -and $BackupFolder) {
+            Write-ColorOutput "Backing up entire $Description..." $ColorInfo
+            if (Backup-DirectoryToFolder -DirectoryPath $Destination -BackupFolder $BackupFolder) {
+                Write-ColorOutput "Backed up $Description to: $BackupFolder" $ColorSuccess
+            }
+        } elseif ($NoBackup) {
+            if (-not (Confirm-Action "Replace existing $Description without backup?" -DefaultYes:$false)) {
+                Write-ColorOutput "Skipping $Description installation" $ColorWarning
+                return $false
+            }
+        }
+
+        # Clear destination directory
+        Write-ColorOutput "Clearing destination $Description..." $ColorInfo
+        Remove-Item -Path $Destination -Recurse -Force -ErrorAction SilentlyContinue
+        Write-ColorOutput "Cleared destination $Description" $ColorSuccess
+    }
+
+    # Copy entire source directory to destination
+    Write-ColorOutput "Copying $Description from $Source to $Destination..." $ColorInfo
+    Copy-Item -Path $Source -Destination $Destination -Recurse -Force
+    Write-ColorOutput "$Description installed successfully" $ColorSuccess
+
+    return $true
+}
+
 function Merge-DirectoryContents {
     param(
         [string]$Source,
@@ -577,34 +621,34 @@ function Merge-DirectoryContents {
         [string]$Description = "directory contents",
         [string]$BackupFolder = $null
     )
-    
+
     if (-not (Test-Path $Source)) {
         Write-ColorOutput "WARNING: Source $Description not found: $Source" $ColorWarning
         return $false
     }
-    
+
     # Create destination directory if it doesn't exist
     if (-not (Test-Path $Destination)) {
         New-Item -ItemType Directory -Path $Destination -Force | Out-Null
         Write-ColorOutput "Created destination directory: $Destination" $ColorInfo
     }
-    
+
     # Get all items in source directory
     $sourceItems = Get-ChildItem -Path $Source -Recurse -File
     $mergedCount = 0
     $skippedCount = 0
-    
+
     foreach ($item in $sourceItems) {
         # Calculate relative path from source
         $relativePath = $item.FullName.Substring($Source.Length + 1)
         $destinationPath = Join-Path $Destination $relativePath
-        
+
         # Ensure destination directory exists
         $destinationDir = Split-Path $destinationPath -Parent
         if (-not (Test-Path $destinationDir)) {
             New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
         }
-        
+
         # Handle file merging
         if (Test-Path $destinationPath) {
             $fileName = Split-Path $relativePath -Leaf
@@ -639,7 +683,7 @@ function Merge-DirectoryContents {
             $mergedCount++
         }
     }
-    
+
     Write-ColorOutput "Merged $mergedCount files, skipped $skippedCount files" $ColorSuccess
     return $true
 }
@@ -727,25 +771,25 @@ function Install-Global {
         }
     }
 
-    # Merge .claude directory contents (don't replace entire directory)
-    Write-ColorOutput "Merging .claude directory contents..." $ColorInfo
-    $claudeMerged = Merge-DirectoryContents -Source $sourceClaudeDir -Destination $globalClaudeDir -Description ".claude directory contents" -BackupFolder $backupFolder
+    # Replace .claude directory (backup → clear → copy entire folder)
+    Write-ColorOutput "Installing .claude directory..." $ColorInfo
+    $claudeInstalled = Backup-AndReplaceDirectory -Source $sourceClaudeDir -Destination $globalClaudeDir -Description ".claude directory" -BackupFolder $backupFolder
 
     # Handle CLAUDE.md file in .claude directory
     Write-ColorOutput "Installing CLAUDE.md to global .claude directory..." $ColorInfo
     $claudeMdInstalled = Copy-FileToDestination -Source $sourceClaudeMd -Destination $globalClaudeMd -Description "CLAUDE.md" -BackupFolder $backupFolder
 
-    # Merge .codex directory contents
-    Write-ColorOutput "Merging .codex directory contents..." $ColorInfo
-    $codexMerged = Merge-DirectoryContents -Source $sourceCodexDir -Destination $globalCodexDir -Description ".codex directory contents" -BackupFolder $backupFolder
+    # Replace .codex directory (backup → clear → copy entire folder)
+    Write-ColorOutput "Installing .codex directory..." $ColorInfo
+    $codexInstalled = Backup-AndReplaceDirectory -Source $sourceCodexDir -Destination $globalCodexDir -Description ".codex directory" -BackupFolder $backupFolder
 
-    # Merge .gemini directory contents
-    Write-ColorOutput "Merging .gemini directory contents..." $ColorInfo
-    $geminiMerged = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $globalGeminiDir -Description ".gemini directory contents" -BackupFolder $backupFolder
+    # Replace .gemini directory (backup → clear → copy entire folder)
+    Write-ColorOutput "Installing .gemini directory..." $ColorInfo
+    $geminiInstalled = Backup-AndReplaceDirectory -Source $sourceGeminiDir -Destination $globalGeminiDir -Description ".gemini directory" -BackupFolder $backupFolder
 
-    # Merge .qwen directory contents
-    Write-ColorOutput "Merging .qwen directory contents..." $ColorInfo
-    $qwenMerged = Merge-DirectoryContents -Source $sourceQwenDir -Destination $globalQwenDir -Description ".qwen directory contents" -BackupFolder $backupFolder
+    # Replace .qwen directory (backup → clear → copy entire folder)
+    Write-ColorOutput "Installing .qwen directory..." $ColorInfo
+    $qwenInstalled = Backup-AndReplaceDirectory -Source $sourceQwenDir -Destination $globalQwenDir -Description ".qwen directory" -BackupFolder $backupFolder
 
     # Create version.json in global .claude directory
     Write-ColorOutput "Creating version.json..." $ColorInfo
@@ -815,13 +859,9 @@ function Install-Path {
         $destFolderPath = Join-Path $localClaudeDir $folder
 
         if (Test-Path $sourceFolderPath) {
-            if (Test-Path $destFolderPath) {
-                if ($backupFolder) {
-                    Backup-DirectoryToFolder -DirectoryPath $destFolderPath -BackupFolder $backupFolder
-                }
-            }
-
-            Copy-DirectoryRecursive -Source $sourceFolderPath -Destination $destFolderPath
+            # Use new backup and replace logic for local folders
+            Write-ColorOutput "Installing local folder: $folder..." $ColorInfo
+            Backup-AndReplaceDirectory -Source $sourceFolderPath -Destination $destFolderPath -Description "$folder folder" -BackupFolder $backupFolder
             Write-ColorOutput "Installed local folder: $folder" $ColorSuccess
         } else {
             Write-ColorOutput "WARNING: Source folder not found: $folder" $ColorWarning
@@ -882,17 +922,17 @@ function Install-Path {
     Write-ColorOutput "Installing CLAUDE.md to global .claude directory..." $ColorInfo
     Copy-FileToDestination -Source $sourceClaudeMd -Destination $globalClaudeMd -Description "CLAUDE.md" -BackupFolder $backupFolder
 
-    # Merge .codex directory contents to local location
-    Write-ColorOutput "Merging .codex directory contents to local location..." $ColorInfo
-    $codexMerged = Merge-DirectoryContents -Source $sourceCodexDir -Destination $localCodexDir -Description ".codex directory contents" -BackupFolder $backupFolder
+    # Replace .codex directory to local location (backup → clear → copy entire folder)
+    Write-ColorOutput "Installing .codex directory to local location..." $ColorInfo
+    $codexInstalled = Backup-AndReplaceDirectory -Source $sourceCodexDir -Destination $localCodexDir -Description ".codex directory" -BackupFolder $backupFolder
 
-    # Merge .gemini directory contents to local location
-    Write-ColorOutput "Merging .gemini directory contents to local location..." $ColorInfo
-    $geminiMerged = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $localGeminiDir -Description ".gemini directory contents" -BackupFolder $backupFolder
+    # Replace .gemini directory to local location (backup → clear → copy entire folder)
+    Write-ColorOutput "Installing .gemini directory to local location..." $ColorInfo
+    $geminiInstalled = Backup-AndReplaceDirectory -Source $sourceGeminiDir -Destination $localGeminiDir -Description ".gemini directory" -BackupFolder $backupFolder
 
-    # Merge .qwen directory contents to local location
-    Write-ColorOutput "Merging .qwen directory contents to local location..." $ColorInfo
-    $qwenMerged = Merge-DirectoryContents -Source $sourceQwenDir -Destination $localQwenDir -Description ".qwen directory contents" -BackupFolder $backupFolder
+    # Replace .qwen directory to local location (backup → clear → copy entire folder)
+    Write-ColorOutput "Installing .qwen directory to local location..." $ColorInfo
+    $qwenInstalled = Backup-AndReplaceDirectory -Source $sourceQwenDir -Destination $localQwenDir -Description ".qwen directory" -BackupFolder $backupFolder
 
     # Create version.json in local .claude directory
     Write-ColorOutput "Creating version.json in local directory..." $ColorInfo
