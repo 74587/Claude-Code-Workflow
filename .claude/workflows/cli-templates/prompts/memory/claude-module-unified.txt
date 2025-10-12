@@ -1,0 +1,138 @@
+Create or update CLAUDE.md documentation with unified module/file template:
+
+## Unified Module Documentation Requirements
+
+### Analysis Strategy
+- **For Folders/Modules**: Analyze directory structure, sub-modules, and architectural patterns
+- **For Code Files**: Analyze classes, functions, interfaces, and implementation details
+
+### Content Focus (MUST INCLUDE):
+
+#### 1. Purpose and Scope
+- Clear description of what this module/file does
+- Main responsibilities and boundaries
+- Role within the larger system
+
+#### 2. Structure Overview
+**For Folders/Modules**:
+- Directory organization and file structure
+- Sub-module categorization
+- Architectural layout
+
+**For Code Files**:
+- File organization (imports, exports, structure)
+- Core classes and their hierarchy
+- Main functions and their grouping
+
+#### 3. Key Components
+**For Folders/Modules**:
+- Sub-modules and their responsibilities
+- Major components and their interactions
+- Entry points and public interfaces
+
+**For Code Files**:
+- Core classes with brief descriptions
+- Key methods/functions with signatures
+- Important interfaces/types
+- Exported APIs
+
+#### 4. Dependencies
+- **Internal Dependencies**: Other modules/files within the project
+  - What it imports/requires
+  - Dependency relationships and flow
+- **External Dependencies**: Third-party libraries and frameworks
+  - Critical dependencies and their purposes
+  - Version constraints if important
+
+#### 5. Integration Points
+- How this module/file connects to other parts
+- Public APIs or interfaces exposed
+- Data flow patterns (input → processing → output)
+- Event handling or callbacks
+- Extension points for customization
+
+#### 6. Implementation Notes
+- Key design patterns used (e.g., Singleton, Factory, Observer)
+- Important technical decisions and rationale
+- Configuration requirements or environment variables
+- Performance considerations
+- Security considerations if applicable
+- Known limitations or caveats
+
+### Documentation Style Guidelines:
+- Be concise but complete
+- Use clear, descriptive language
+- Include code signatures for key APIs
+- Focus on "what" and "why", not detailed "how"
+- Reference related documentation when appropriate
+- Use bullet points for readability
+
+### Template Structure:
+```markdown
+# [Module/File Name]
+
+## Purpose and Scope
+[Clear description of responsibilities and role]
+
+## Structure Overview
+[Directory structure for modules OR File organization for code files]
+
+## Key Components
+### [Component/Class Name 1]
+- Description: [Brief description]
+- Responsibilities: [What it does]
+- Key Methods: [Important methods if applicable]
+
+### [Component/Class Name 2]
+...
+
+## Dependencies
+### Internal Dependencies
+- `[module/file path]` - [purpose]
+- ...
+
+### External Dependencies
+- `[library name]` - [purpose and usage]
+- ...
+
+## Integration Points
+### Public APIs
+- `[API/function signature]` - [description]
+- ...
+
+### Data Flow
+[How data flows through this module/file]
+
+### Extension Points
+[How this can be extended or customized]
+
+## Implementation Notes
+### Design Patterns
+- [Pattern name]: [Usage and rationale]
+
+### Technical Decisions
+- [Decision]: [Rationale]
+
+### Configuration
+- [Config item]: [Purpose and default]
+
+### Considerations
+- Performance: [Any performance notes]
+- Security: [Any security considerations]
+- Limitations: [Known limitations]
+```
+
+### Content Restrictions (STRICTLY AVOID):
+- Don't duplicate content from other CLAUDE.md files - reference them instead
+- Avoid overly detailed code explanations (code should be self-documenting)
+- Don't include complete code listings (use signatures and descriptions)
+- Avoid version-specific implementation details unless critical
+- Don't document every single function - focus on key components
+
+### Special Instructions:
+- If analyzing a folder with existing CLAUDE.md files in subdirectories, reference them rather than duplicating their content
+- For code files, prioritize exported/public APIs over internal implementation details
+- Keep dependency lists focused on direct dependencies, not transitive ones
+- Update existing CLAUDE.md files rather than creating new sections unnecessarily
+
+Remember: This template serves both folder-level module documentation and file-level implementation documentation. Adapt the sections based on what you're documenting.

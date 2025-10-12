@@ -273,10 +273,7 @@ RULES: Focus on type safety and component composition
 | **Planning** | Gemini/Qwen | Task breakdown, migration planning | `planning/task-breakdown.txt` |
 | **Security** | Codex | Vulnerability assessment, fixes | `analysis/security.txt` |
 | **Refactoring** | Multiple | Gemini/Qwen for analysis, Codex for execution | `development/refactor.txt` |
-| **Memory Layer 1** | Gemini (Qwen fallback) | Root-level project overview, tech stack, architecture principles | `memory/claude-layer1-root.txt` |
-| **Memory Layer 2** | Gemini (Qwen fallback) | Domain-level architecture, responsibility boundaries | `memory/claude-layer2-domain.txt` |
-| **Memory Layer 3** | Gemini (Qwen fallback) | Module-level implementation patterns, APIs | `memory/claude-layer3-module.txt` |
-| **Memory Layer 4** | Gemini (Qwen fallback) | Submodule-level detailed implementation docs | `memory/claude-layer4-submodule.txt` |
+| **Module Documentation** | Gemini (Qwen fallback) | Universal module/file documentation for all levels | `memory/claude-module-unified.txt` |
 | **Memory Hierarchy** | Gemini (Qwen fallback) | Project structure analysis for optimal doc hierarchy | `memory/hierarchy-analysis.txt` |
 
 ### Template System
@@ -296,11 +293,8 @@ prompts/
 │   ├── refactor.txt     - Refactoring tasks
 │   └── testing.txt      - Test generation
 ├── memory/
-│   ├── claude-layer1-root.txt       - Root-level project documentation
-│   ├── claude-layer2-domain.txt     - Domain-level architecture docs
-│   ├── claude-layer3-module.txt     - Module-level implementation docs
-│   ├── claude-layer4-submodule.txt  - Submodule-level detailed docs
-│   └── hierarchy-analysis.txt       - Project structure analysis
+│   ├── claude-module-unified.txt  - Universal module/file documentation template
+│   └── hierarchy-analysis.txt     - Project structure analysis
 └── planning/
     └── task-breakdown.txt - Task decomposition
 

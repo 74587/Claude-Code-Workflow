@@ -1,5 +1,5 @@
 #!/bin/bash
-# Update CLAUDE.md for a specific module with automatic layer detection
+# Update CLAUDE.md for a specific module with unified template
 # Usage: update_module_claude.sh <module_path> [update_type] [tool]
 #   module_path: Path to the module directory
 #   update_type: full|related (default: full)
@@ -7,7 +7,7 @@
 #
 # Features:
 # - Respects .gitignore patterns (current directory or git root)
-# - Automatic layer detection (Root/Domain/Module/Sub-Module)
+# - Unified template for all modules (folders and files)
 # - Template-based documentation generation
 
 # Build exclusion filters from .gitignore
@@ -86,43 +86,16 @@ update_module_claude() {
         return 0
     fi
     
-    # Determine documentation layer based on path patterns
-    local layer=""
-    local template_path=""
-    local analysis_strategy=""
-    
-    # Clean path for pattern matching
-    local clean_path=$(echo "$module_path" | sed 's|^\./||')
-    
-    # Pattern-based layer detection
-    if [ "$module_path" = "." ]; then
-        # Root directory
-        layer="Layer 1 (Root)"
-        template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/claude-layer1-root.txt"
-        analysis_strategy="--all-files"
-    elif [[ "$clean_path" =~ ^[^/]+$ ]]; then
-        # Top-level directories (e.g., .claude, src, tests)
-        layer="Layer 2 (Domain)"
-        template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/claude-layer2-domain.txt"
-        analysis_strategy="@{*/CLAUDE.md}"
-    elif [[ "$clean_path" =~ ^[^/]+/[^/]+$ ]]; then
-        # Second-level directories (e.g., .claude/scripts, src/components)
-        layer="Layer 3 (Module)"
-        template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/claude-layer3-module.txt"
-        analysis_strategy="@{*/CLAUDE.md}"
-    else
-        # Deeper directories (e.g., .claude/workflows/cli-templates/prompts)
-        layer="Layer 4 (Sub-Module)"
-        template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/claude-layer4-submodule.txt"
-        analysis_strategy="--all-files"
-    fi
+    # Use unified template for all modules
+    local template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/claude-module-unified.txt"
+    local analysis_strategy="--all-files"
     
     # Prepare logging info
     local module_name=$(basename "$module_path")
 
     echo "⚡ Updating: $module_path"
-    echo "   Layer: $layer | Type: $update_type | Tool: $tool | Files: $file_count"
-    echo "   Template: $(basename "$template_path") | Strategy: $analysis_strategy"
+    echo "   Type: $update_type | Tool: $tool | Files: $file_count"
+    echo "   Template: $(basename "$template_path")"
     
     # Generate prompt with template injection
     local template_content=""
@@ -130,7 +103,7 @@ update_module_claude() {
         template_content=$(cat "$template_path")
     else
         echo "   ⚠️  Template not found: $template_path, using fallback"
-        template_content="Update CLAUDE.md documentation for this module following hierarchy standards."
+        template_content="Update CLAUDE.md documentation for this module: document structure, key components, dependencies, and integration points."
     fi
     
     local update_context=""
@@ -138,8 +111,7 @@ update_module_claude() {
         update_context="
         Update Mode: Complete refresh
         - Perform comprehensive analysis of all content
-        - Document patterns, architecture, and purpose
-        - Consider existing documentation hierarchy
+        - Document module structure, dependencies, and key components
         - Follow template guidelines strictly"
     else
         update_context="
@@ -152,13 +124,13 @@ update_module_claude() {
     
     local base_prompt="
     ⚠️ CRITICAL RULES - MUST FOLLOW:
-    1. ONLY modify CLAUDE.md files at any hierarchy level
+    1. ONLY modify CLAUDE.md files
     2. NEVER modify source code files
     3. Focus exclusively on updating documentation
     4. Follow the template guidelines exactly
-    
+
     $template_content
-    
+
     $update_context"
     
     # Execute update
@@ -172,38 +144,21 @@ update_module_claude() {
         Module Information:
         - Name: $module_name
         - Path: $module_path
-        - Layer: $layer
-        - Tool: $tool
-        - Analysis Strategy: $analysis_strategy"
+        - Tool: $tool"
 
-        # Execute with selected tool
+        # Execute with selected tool (always use --all-files)
         case "$tool" in
             qwen)
-                if [ "$analysis_strategy" = "--all-files" ]; then
-                    qwen --all-files --yolo -p "$final_prompt" 2>&1
-                    tool_result=$?
-                else
-                    qwen --yolo -p "$analysis_strategy $final_prompt" 2>&1
-                    tool_result=$?
-                fi
+                qwen --all-files --yolo -p "$final_prompt" 2>&1
+                tool_result=$?
                 ;;
             codex)
-                if [ "$analysis_strategy" = "--all-files" ]; then
-                    codex --full-auto exec "$final_prompt" --skip-git-repo-check -s danger-full-access 2>&1
-                    tool_result=$?
-                else
-                    codex --full-auto exec "$final_prompt CONTEXT: $analysis_strategy" --skip-git-repo-check -s danger-full-access 2>&1
-                    tool_result=$?
-                fi
+                codex --full-auto exec "$final_prompt" --skip-git-repo-check -s danger-full-access 2>&1
+                tool_result=$?
                 ;;
             gemini|*)
-                if [ "$analysis_strategy" = "--all-files" ]; then
-                    gemini --all-files --yolo -p "$final_prompt" 2>&1
-                    tool_result=$?
-                else
-                    gemini --yolo -p "$analysis_strategy $final_prompt" 2>&1
-                    tool_result=$?
-                fi
+                gemini --all-files --yolo -p "$final_prompt" 2>&1
+                tool_result=$?
                 ;;
         esac
 
