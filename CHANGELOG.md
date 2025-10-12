@@ -5,6 +5,182 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.1] - 2025-10-12
+
+### 🔧 Implementation Approach Structure Refactoring
+
+This release refactors the task generation system from a simple object-based implementation approach to a structured step-based approach with dependency management and CLI execution support.
+
+#### Changed
+
+**Implementation Approach Structure** (Major Refactoring):
+- **Array Format**: Changed from single object to array of step objects
+  - Before (v4.4.0): Single `implementation_approach` object with description
+  - After (v4.4.1): Array of steps with sequential execution and dependencies
+- **Step Structure**: Each step now includes:
+  - `step`: Step number (1, 2, 3...)
+  - `title`: Step title
+  - `description`: Detailed description with variable references
+  - `modification_points`: Specific modification targets
+  - `logic_flow`: Business logic sequence
+  - `command`: Optional CLI command for execution
+  - `depends_on`: Array of step numbers (dependencies)
+  - `output`: Variable name for step output (used in `[variable_name]` references)
+- **Benefits**:
+  - ✅ Multi-step workflows with clear dependencies
+  - ✅ Variable substitution between steps (`[variable_name]`)
+  - ✅ Better task decomposition clarity
+  - ✅ Sequential execution with dependency resolution
+
+**CLI Execution Mode Support**:
+- **New `--cli-execute` Flag**: Added to workflow commands
+  - `/workflow:plan --cli-execute` - Generate tasks with CLI execution
+  - `/workflow:test-gen --cli-execute` - Generate test tasks with CLI execution
+  - `/workflow:tools:task-generate --cli-execute` - Manual task generation with CLI
+  - `/workflow:tools:task-generate-agent --cli-execute` - Agent task generation with CLI
+  - `/workflow:tools:test-task-generate --cli-execute` - Test task generation with CLI
+- **Codex Resume Mechanism**: Maintains session context across steps
+  - First step: `codex exec "..."` (starts new session)
+  - Subsequent steps: `codex exec "..." resume --last` (continues session)
+  - Benefits: Context continuity, consistent implementation style
+
+**Agent Updates**:
+- **action-planning-agent.md**: Updated task generation with step-based approach
+- **code-developer.md**: Added implementation approach execution logic
+- **conceptual-planning-agent.md**: Added flow control format handling documentation
+- **doc-generator.md**: Updated to process step-based implementation approach
+- **test-fix-agent.md**: Added flow control execution and Codex mode support
+
+**Workflow Command Updates**:
+- **execute.md**: Updated task JSON examples with new structure
+- **plan.md**: Added `--cli-execute` flag and command examples
+- **test-gen.md**: Added `--cli-execute` flag support
+- **docs.md**: Refactored from 1328 to 435 lines (67% reduction)
+- **task-generate-agent.md**: Updated to generate step-based tasks
+- **task-generate-tdd.md**: Enhanced with array format and CLI execution
+- **task-generate.md**: Added CLI execution mode documentation
+- **test-task-generate.md**: Added CLI execution mode support
+
+**Core Architecture Updates**:
+- **task-core.md**: Updated implementation approach structure
+- **workflow-architecture.md**: Enhanced with flow control documentation (474 lines added)
+
+#### Technical Details
+
+**Step Execution Flow**:
+```javascript
+// Old approach (v4.4.0)
+"implementation_approach": {
+  "task_description": "Implement feature X",
+  "modification_points": ["File A", "File B"],
+  "logic_flow": ["Step 1", "Step 2"]
+}
+
+// New approach (v4.4.1)
+"implementation_approach": [
+  {
+    "step": 1,
+    "title": "Load requirements",
+    "description": "Load and analyze [previous_output]",
+    "modification_points": ["Parse requirements"],
+    "logic_flow": ["Read input", "Extract data"],
+    "depends_on": [],
+    "output": "requirements"
+  },
+  {
+    "step": 2,
+    "title": "Implement feature",
+    "description": "Implement using [requirements]",
+    "modification_points": ["File A", "File B"],
+    "logic_flow": ["Apply changes", "Validate"],
+    "command": "codex exec '...' resume --last",
+    "depends_on": [1],
+    "output": "implementation"
+  }
+]
+```
+
+**CLI Command Examples**:
+```bash
+# Manual task generation with CLI execution
+/workflow:tools:task-generate --session WFS-auth --cli-execute
+
+# Agent task generation with CLI execution
+/workflow:tools:task-generate-agent --session WFS-auth --cli-execute
+
+# Test task generation with CLI execution
+/workflow:tools:test-task-generate --session WFS-test --cli-execute
+
+# Full planning workflow with CLI execution
+/workflow:plan "Implement auth system" --cli-execute
+```
+
+#### Files Changed
+
+**Agents** (5 files):
+- `.claude/agents/action-planning-agent.md`
+- `.claude/agents/code-developer.md`
+- `.claude/agents/conceptual-planning-agent.md`
+- `.claude/agents/doc-generator.md`
+- `.claude/agents/test-fix-agent.md`
+
+**Commands** (7 files):
+- `.claude/commands/workflow/execute.md`
+- `.claude/commands/workflow/plan.md`
+- `.claude/commands/workflow/test-gen.md`
+- `.claude/commands/workflow/tools/docs.md` (major refactoring: 1328→435 lines)
+- `.claude/commands/workflow/tools/task-generate-agent.md`
+- `.claude/commands/workflow/tools/task-generate-tdd.md`
+- `.claude/commands/workflow/tools/task-generate.md`
+- `.claude/commands/workflow/tools/test-task-generate.md`
+
+**Core Architecture** (2 files):
+- `.claude/workflows/task-core.md`
+- `.claude/workflows/workflow-architecture.md` (+474 lines of flow control documentation)
+
+**Total Impact**:
+- 15 files changed
+- +1341 lines, -782 lines
+- Net: +559 lines
+- Major improvements in task generation clarity and CLI execution support
+
+#### Migration Guide
+
+**For Existing Workflows**:
+1. **Backward Compatible**: Old object-based approach still supported
+2. **Gradual Migration**: Can mix old and new formats in same workflow
+3. **Automatic Handling**: Agents detect and handle both formats
+
+**For New Workflows**:
+1. **Use Step-Based Approach**: Better for multi-step tasks
+2. **Enable CLI Execution**: Use `--cli-execute` flag for automated execution
+3. **Leverage Resume**: Use Codex resume for context continuity
+
+**Example Migration**:
+```bash
+# Old workflow (v4.4.0)
+/workflow:plan "Implement auth system"
+
+# New workflow (v4.4.1) - with CLI execution
+/workflow:plan "Implement auth system" --cli-execute
+```
+
+#### Benefits
+
+**Task Generation**:
+- 🎯 **Clearer Structure**: Step-based approach improves task clarity
+- 🔄 **Better Dependencies**: Explicit dependency management between steps
+- 📊 **Variable References**: Cross-step data flow with `[variable_name]`
+- 🤖 **Automated Execution**: CLI execution mode reduces manual intervention
+
+**Development Workflow**:
+- ⚡ **Faster Execution**: Codex resume maintains context
+- 🔍 **Better Traceability**: Each step's output explicitly tracked
+- 🧪 **Easier Testing**: Isolated steps can be tested independently
+- 📚 **Improved Documentation**: Flow control structure self-documenting
+
+---
+
 ## [4.4.0] - 2025-10-11
 
 ### 🏗️ UI Design Workflow V3 - Layout/Style Separation Architecture
