@@ -212,6 +212,7 @@ RULES: $(cat "~/.claude/workflows/cli-templates/prompts/[category]/[template].tx
 
 **⚠️ CRITICAL: Command Substitution Rules**
 When using `$(cat ...)` for template loading in actual CLI commands:
+- **Template reference only, never read**: When user specifies template name, use `$(cat ...)` directly in RULES field, do NOT read template content first
 - **NEVER use escape characters**: `\$`, `\"`, `\'` will break command substitution
 - **In -p "..." context**: Path in `$(cat ...)` needs NO quotes (tilde expands correctly)
 - **Correct**: `RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)`
