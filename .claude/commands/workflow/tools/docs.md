@@ -2,11 +2,6 @@
 name: docs
 description: Documentation planning and orchestration - creates structured documentation tasks for execution
 argument-hint: "[path] [--tool <gemini|qwen|codex>] [--cli-generate]"
-examples:
-  - /workflow:docs                              # Current directory (root: full docs, subdir: module only)
-  - /workflow:docs src/modules                  # Module documentation only
-  - /workflow:docs . --tool qwen                # Root directory with Qwen
-  - /workflow:docs --cli-generate               # Use CLI for doc generation (not just analysis)
 ---
 
 # Documentation Workflow (/workflow:docs)
@@ -14,9 +9,30 @@ examples:
 ## Overview
 Lightweight planner that analyzes project structure, decomposes documentation work into tasks, and generates execution plans. Does NOT generate documentation content itself - delegates to doc-generator agent.
 
+**Documentation Output**: All generated documentation is placed in `.workflow/docs/` directory with **mirrored project structure**. For example:
+- Source: `src/modules/auth/index.ts` → Docs: `.workflow/docs/src/modules/auth/API.md`
+- Source: `lib/core/utils.js` → Docs: `.workflow/docs/lib/core/README.md`
+
 **Two Execution Modes**:
 - **Default**: CLI analyzes in `pre_analysis` (MODE=analysis), agent writes docs in `implementation_approach`
 - **--cli-generate**: CLI generates docs in `implementation_approach` (MODE=write)
+
+## Path Mirroring Strategy
+
+**Principle**: Documentation structure **mirrors** source code structure.
+
+| Source Path | Documentation Path |
+|------------|-------------------|
+| `src/modules/auth/index.ts` | `.workflow/docs/src/modules/auth/API.md` |
+| `src/modules/auth/middleware/` | `.workflow/docs/src/modules/auth/middleware/README.md` |
+| `lib/core/utils.js` | `.workflow/docs/lib/core/API.md` |
+| `lib/core/helpers/` | `.workflow/docs/lib/core/helpers/README.md` |
+
+**Benefits**:
+- Easy to locate documentation for any source file
+- Maintains logical organization
+- Clear 1:1 mapping between code and docs
+- Supports any project structure (src/, lib/, packages/, etc.)
 
 ## Parameters
 
@@ -40,181 +56,283 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 ## Planning Workflow
 
 ### Phase 1: Initialize Session
+
+#### Step 1: Create Session and Generate Config
 ```bash
-# Parse arguments
-path="${1:-.}"
-tool="gemini"
-cli_generate=false
+# Create session structure and initialize config in one step
+bash(
+  # Parse arguments
+  path="${1:-.}"
+  tool="gemini"
+  cli_generate=false
+  shift
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --tool) tool="$2"; shift 2 ;;
+      --cli-generate) cli_generate=true; shift ;;
+      *) shift ;;
+    esac
+  done
 
-# Parse options
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --tool) tool="$2"; shift 2 ;;
-    --cli-generate) cli_generate=true; shift ;;
-    *) shift ;;
-  esac
-done
+  # Detect paths (normalize to Unix format for comparison)
+  project_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  if [[ "$path" == /* ]] || [[ "$path" == [A-Z]:* ]]; then
+    target_path="$path"
+  else
+    target_path=$(cd "$path" 2>/dev/null && pwd || echo "$PWD/$path")
+  fi
 
-# Detect project root
-bash(git rev-parse --show-toplevel)
-project_root=$(pwd)
-target_path=$(cd "$path" && pwd)
-is_root=false
-[[ "$target_path" == "$project_root" ]] && is_root=true
+  # Normalize both paths for comparison (handle Git Bash /d/ format and case)
+  norm_project=$(echo "${project_root%/}" | sed 's|^/\([a-z]\)/|\1:/|' | tr '[:upper:]' '[:lower:]')
+  norm_target=$(echo "${target_path%/}" | sed 's|^/\([a-z]\)/|\1:/|' | tr '[:upper:]' '[:lower:]')
+  [[ "$norm_target" == "$norm_project" ]] && is_root=true || is_root=false
 
-# Create session structure
-timestamp=$(date +%Y%m%d-%H%M%S)
-session_dir=".workflow/WFS-docs-${timestamp}"
+  # Create session
+  timestamp=$(date +%Y%m%d-%H%M%S)
+  session="WFS-docs-${timestamp}"
+  mkdir -p ".workflow/${session}"/{.task,.process,.summaries}
+  touch ".workflow/.active-${session}"
 
-bash(mkdir -p "${session_dir}"/{.task,.process,.summaries})
-bash(touch ".workflow/.active-WFS-docs-${timestamp}")
-
-# Record configuration
-bash(cat > "${session_dir}/.process/config.txt" <<EOF
-path=$path
-target_path=$target_path
-is_root=$is_root
-tool=$tool
-cli_generate=$cli_generate
+  # Generate single config file with all info
+  cat > ".workflow/${session}/.process/config.json" <<EOF
+{
+  "session_id": "${session}",
+  "timestamp": "$(date -Iseconds)",
+  "path": "${path}",
+  "target_path": "${target_path}",
+  "project_root": "${project_root}",
+  "is_root": ${is_root},
+  "tool": "${tool}",
+  "cli_generate": ${cli_generate}
+}
 EOF
+
+  echo "✓ Session initialized: ${session}"
+  echo "✓ Target: ${target_path} (root: ${is_root})"
+  echo "✓ Tool: ${tool}, CLI generate: ${cli_generate}"
 )
+```
+
+**Output**:
+```
+✓ Session initialized: WFS-docs-20240120-143022
+✓ Target: /d/Claude_dms3 (root: true)
+✓ Tool: gemini, CLI generate: false
 ```
 
 ### Phase 2: Analyze Structure
+
+#### Step 1: Discover and Classify Folders
 ```bash
-# Step 1: Discover module hierarchy
-bash(~/.claude/scripts/get_modules_by_depth.sh)
-# Output: depth:N|path:<PATH>|files:N|size:N|has_claude:yes/no
+# Run analysis pipeline (module discovery + folder classification)
+bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-folders.sh > .workflow/WFS-docs-20240120/.process/folder-analysis.txt)
+```
 
-# Step 2: Classify folders by type
-bash(cat > "${session_dir}/.process/classify-folders.sh" <<'SCRIPT'
-while IFS='|' read -r depth_info path_info files_info size_info claude_info; do
-  folder_path=$(echo "$path_info" | cut -d':' -f2-)
+**Output Sample** (folder-analysis.txt):
+```
+./src/modules/auth|code|code:5|dirs:2
+./src/modules/api|code|code:3|dirs:0
+./src/utils|navigation|code:0|dirs:4
+```
 
-  # Count code files (maxdepth 1)
-  code_files=$(find "$folder_path" -maxdepth 1 -type f \
-    \( -name "*.ts" -o -name "*.js" -o -name "*.py" \
-       -o -name "*.go" -o -name "*.java" -o -name "*.rs" \) \
-    2>/dev/null | wc -l)
+#### Step 2: Extract Top-Level Directories
+```bash
+# Group folders by top-level directory
+bash(awk -F'|' '{
+  path = $1
+  gsub(/^\.\//, "", path)
+  split(path, parts, "/")
+  if (length(parts) >= 2) print parts[1] "/" parts[2]
+  else if (length(parts) == 1 && parts[1] != ".") print parts[1]
+}' .workflow/WFS-docs-20240120/.process/folder-analysis.txt | sort -u > .workflow/WFS-docs-20240120/.process/top-level-dirs.txt)
+```
 
-  # Count subfolders
-  subfolders=$(find "$folder_path" -maxdepth 1 -type d \
-    -not -path "$folder_path" 2>/dev/null | wc -l)
+**Output** (top-level-dirs.txt):
+```
+src/modules
+src/utils
+lib/core
+```
 
-  # Determine type
-  if [[ $code_files -gt 0 ]]; then
-    folder_type="code"  # API.md + README.md
-  elif [[ $subfolders -gt 0 ]]; then
-    folder_type="navigation"  # README.md only
-  else
-    folder_type="skip"  # Empty
-  fi
+#### Step 3: Generate Analysis Summary
+```bash
+# Calculate statistics
+bash(
+  total=$(wc -l < .workflow/WFS-docs-20240120/.process/folder-analysis.txt)
+  code_count=$(grep '|code|' .workflow/WFS-docs-20240120/.process/folder-analysis.txt | wc -l)
+  nav_count=$(grep '|navigation|' .workflow/WFS-docs-20240120/.process/folder-analysis.txt | wc -l)
+  top_dirs=$(wc -l < .workflow/WFS-docs-20240120/.process/top-level-dirs.txt)
 
-  echo "${folder_path}|${folder_type}|code:${code_files}|dirs:${subfolders}"
-done
-SCRIPT
+  echo "📊 Folder Analysis Complete:"
+  echo "  - Total folders: $total"
+  echo "  - Code folders: $code_count"
+  echo "  - Navigation folders: $nav_count"
+  echo "  - Top-level dirs: $top_dirs"
 )
 
-bash(~/.claude/scripts/get_modules_by_depth.sh | bash "${session_dir}/.process/classify-folders.sh" > "${session_dir}/.process/folder-analysis.txt")
-
-# Step 3: Group by top-level directories
-bash(awk -F'|' '{split($1, parts, "/"); if (length(parts) >= 2) print parts[1] "/" parts[2]}' \
-  "${session_dir}/.process/folder-analysis.txt" | sort -u > "${session_dir}/.process/top-level-dirs.txt")
+# Update config with statistics
+bash(jq '. + {analysis: {total: "15", code: "8", navigation: "7", top_level: "3"}}' .workflow/WFS-docs-20240120/.process/config.json > .workflow/WFS-docs-20240120/.process/config.json.tmp && mv .workflow/WFS-docs-20240120/.process/config.json.tmp .workflow/WFS-docs-20240120/.process/config.json)
 ```
 
 ### Phase 3: Detect Update Mode
+
+#### Step 1: Count Existing Documentation in .workflow/docs/
 ```bash
-# Check existing documentation
-bash(find "$target_path" -name "API.md" -o -name "README.md" -o -name "ARCHITECTURE.md" -o -name "EXAMPLES.md" 2>/dev/null | grep -v ".workflow" | wc -l)
-
-existing_docs=$(...)
-
-if [[ $existing_docs -gt 0 ]]; then
-  bash(find "$target_path" -name "*.md" 2>/dev/null | grep -v ".workflow" > "${session_dir}/.process/existing-docs.txt")
-  echo "mode=update" >> "${session_dir}/.process/config.txt"
+# Check .workflow/docs/ directory and count existing files
+bash(if [[ -d ".workflow/docs" ]]; then
+  find .workflow/docs -name "*.md" 2>/dev/null | wc -l
 else
-  echo "mode=create" >> "${session_dir}/.process/config.txt"
-fi
+  echo "0"
+fi)
+```
 
-# Record strategy
-bash(cat > "${session_dir}/.process/strategy.md" <<EOF
-**Path**: ${target_path}
-**Is Root**: ${is_root}
-**Tool**: ${tool}
-**CLI Generate**: ${cli_generate}
-**Mode**: $(grep 'mode=' "${session_dir}/.process/config.txt" | cut -d'=' -f2)
-**Existing Docs**: ${existing_docs} files
-EOF
-)
+**Output**: `5` (existing docs in .workflow/docs/)
+
+#### Step 2: List Existing Documentation
+```bash
+# List existing files in .workflow/docs/ (for task context)
+bash(if [[ -d ".workflow/docs" ]]; then
+  find .workflow/docs -name "*.md" 2>/dev/null > .workflow/WFS-docs-20240120/.process/existing-docs.txt
+else
+  touch .workflow/WFS-docs-20240120/.process/existing-docs.txt
+fi)
+```
+
+**Output** (existing-docs.txt):
+```
+.workflow/docs/src/modules/auth/API.md
+.workflow/docs/src/modules/auth/README.md
+.workflow/docs/lib/core/README.md
+.workflow/docs/README.md
+```
+
+#### Step 3: Update Config with Mode
+```bash
+# Determine mode (create or update) and update config
+bash(jq '. + {mode: "update", existing_docs: 5}' .workflow/WFS-docs-20240120/.process/config.json > .workflow/WFS-docs-20240120/.process/config.json.tmp && mv .workflow/WFS-docs-20240120/.process/config.json.tmp .workflow/WFS-docs-20240120/.process/config.json)
+
+# Display strategy summary
+bash(echo "📋 Documentation Strategy:" && \
+     echo "  - Path: /d/Claude_dms3" && \
+     echo "  - Is Root: true" && \
+     echo "  - Mode: update (5 existing files)" && \
+     echo "  - Tool: gemini" && \
+     echo "  - CLI Generate: false")
 ```
 
 ### Phase 4: Decompose Tasks
 
-**Task Hierarchy**:
+#### Task Hierarchy
 ```
-Level 1: Module Tree Tasks (Always generated, can execute in parallel)
-  ├─ IMPL-001: Document tree 'src/modules/'
-  ├─ IMPL-002: Document tree 'src/utils/'
-  └─ IMPL-003: Document tree 'lib/'
+Level 1: Module Trees (always, parallel execution)
+  ├─ IMPL-001: Document 'src/modules/'
+  ├─ IMPL-002: Document 'src/utils/'
+  └─ IMPL-003: Document 'lib/'
 
-Level 2: Project README (Only if is_root=true, depends on Level 1)
+Level 2: Project README (root only, depends on Level 1)
   └─ IMPL-004: Generate Project README
 
-Level 3: Architecture & Examples (Only if is_root=true, depends on Level 2)
+Level 3: Architecture & Examples (root only, depends on Level 2, parallel)
   ├─ IMPL-005: Generate ARCHITECTURE.md
   ├─ IMPL-006: Generate EXAMPLES.md
-  └─ IMPL-007: Generate HTTP API docs (optional)
+  └─ IMPL-007: Generate HTTP API (optional)
 ```
 
-**Implementation**:
+#### Step 1: Generate Level 1 Tasks (Module Trees)
 ```bash
-# Generate Level 1 tasks (always)
-task_count=0
-while read -r top_dir; do
-  task_count=$((task_count + 1))
-  # Create IMPL-00${task_count}.json for module tree
-done < "${session_dir}/.process/top-level-dirs.txt"
+# Read top-level directories and create tasks
+bash(
+  task_count=0
+  while read -r top_dir; do
+    task_count=$((task_count + 1))
+    task_id=$(printf "IMPL-%03d" $task_count)
+    echo "Creating $task_id for '$top_dir'"
+    # Generate task JSON (see Task Templates section)
+  done < .workflow/WFS-docs-20240120/.process/top-level-dirs.txt
+)
+```
 
-# Generate Level 2-3 tasks (only if root)
-if [[ "$is_root" == "true" ]]; then
-  # IMPL-00$((task_count+1)).json: Project README
-  # IMPL-00$((task_count+2)).json: ARCHITECTURE.md
-  # IMPL-00$((task_count+3)).json: EXAMPLES.md
-  # IMPL-00$((task_count+4)).json: HTTP API (optional)
-fi
+**Output**:
+```
+Creating IMPL-001 for 'src/modules'
+Creating IMPL-002 for 'src/utils'
+Creating IMPL-003 for 'lib'
+```
+
+#### Step 2: Generate Level 2-3 Tasks (Root Only)
+```bash
+# Check if root directory
+bash(jq -r '.is_root' .workflow/WFS-docs-20240120/.process/config.json)
+
+# If root, create project-level tasks
+bash(
+  if [[ "$is_root" == "true" ]]; then
+    echo "Creating IMPL-004: Project README"
+    echo "Creating IMPL-005: ARCHITECTURE.md"
+    echo "Creating IMPL-006: EXAMPLES.md"
+    # Optional: Check for HTTP API endpoints
+    if grep -r "router\.|@Get\|@Post" src/ >/dev/null 2>&1; then
+      echo "Creating IMPL-007: HTTP API docs"
+    fi
+  fi
+)
 ```
 
 ### Phase 5: Generate Task JSONs
 
+#### Step 1: Extract Configuration
 ```bash
-# Read configuration
-cli_generate=$(grep 'cli_generate=' "${session_dir}/.process/config.txt" | cut -d'=' -f2)
-tool=$(grep 'tool=' "${session_dir}/.process/config.txt" | cut -d'=' -f2)
+# Read config values from JSON
+bash(jq -r '.tool' .workflow/WFS-docs-20240120/.process/config.json)
+bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120/.process/config.json)
+```
 
-# Determine CLI command placement
-if [[ "$cli_generate" == "true" ]]; then
-  # CLI generates docs: MODE=write, place in implementation_approach
-  mode="write"
-  placement="implementation_approach"
-  approval_flag="--approval-mode yolo"
-else
-  # CLI for analysis only: MODE=analysis, place in pre_analysis
-  mode="analysis"
-  placement="pre_analysis"
-  approval_flag=""
-fi
+**Output**: `tool=gemini`, `cli_generate=false`
 
-# Build tool-specific command
-if [[ "$tool" == "codex" ]]; then
-  cmd="codex -C ${dir} --full-auto exec \"...\" --skip-git-repo-check -s danger-full-access"
-else
-  cmd="bash(cd ${dir} && ~/.claude/scripts/${tool}-wrapper ${approval_flag} -p \"...MODE: ${mode}...\")"
-fi
+#### Step 2: Determine CLI Command Strategy
+```bash
+# Determine MODE and placement based on cli_generate flag
+bash(
+  cli_generate=$(jq -r '.cli_generate' .workflow/WFS-docs-20240120/.process/config.json)
+
+  if [[ "$cli_generate" == "true" ]]; then
+    echo "mode=write"
+    echo "placement=implementation_approach"
+    echo "approval_flag=--approval-mode yolo"
+  else
+    echo "mode=analysis"
+    echo "placement=pre_analysis"
+    echo "approval_flag="
+  fi
+)
+```
+
+**Output**:
+```
+mode=analysis
+placement=pre_analysis
+approval_flag=
+```
+
+#### Step 3: Build Tool-Specific Commands
+```bash
+# Generate command templates based on tool selection
+bash(
+  tool=$(jq -r '.tool' .workflow/WFS-docs-20240120/.process/config.json)
+
+  if [[ "$tool" == "codex" ]]; then
+    echo "codex -C \${dir} --full-auto exec \"...\" --skip-git-repo-check -s danger-full-access"
+  else
+    echo "bash(cd \${dir} && ~/.claude/scripts/${tool}-wrapper ${approval_flag} -p \"...\")"
+  fi
+)
 ```
 
 ## Task Templates
 
 ### Level 1: Module Tree Task
+
+**Path Mapping**: Source `src/modules/` → Output `.workflow/docs/src/modules/`
 
 **Default Mode (cli_generate=false)**:
 ```json
@@ -226,11 +344,14 @@ fi
     "type": "docs-tree",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "cli_generate": false
+    "cli_generate": false,
+    "source_path": "src/modules",
+    "output_path": ".workflow/docs/src/modules"
   },
   "context": {
     "requirements": [
-      "Recursively process all folders in src/modules/",
+      "Analyze source code in src/modules/",
+      "Generate docs to .workflow/docs/src/modules/ (mirrored structure)",
       "For code folders: generate API.md + README.md",
       "For navigation folders: generate README.md only"
     ],
@@ -241,7 +362,7 @@ fi
     "pre_analysis": [
       {
         "step": "load_existing_docs",
-        "command": "bash(find src/modules -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
+        "command": "bash(find .workflow/docs/${top_dir} -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
         "output_to": "existing_module_docs"
       },
       {
@@ -260,16 +381,29 @@ fi
       {
         "step": 1,
         "title": "Generate module tree documentation",
-        "description": "Process target folders and generate appropriate documentation files based on folder types",
-        "modification_points": ["Parse folder types from [target_folders]", "Parse structure from [tree_outline]", "Generate API.md for code folders", "Generate README.md for all folders"],
-        "logic_flow": ["Parse [target_folders] to get folder types", "Parse [tree_outline] for structure", "For each folder: if type == 'code': Generate API.md + README.md; elif type == 'navigation': Generate README.md only"],
+        "description": "Analyze source folders and generate docs to .workflow/docs/ with mirrored structure",
+        "modification_points": [
+          "Parse folder types from [target_folders]",
+          "Parse structure from [tree_outline]",
+          "For src/modules/auth/ → write to .workflow/docs/src/modules/auth/",
+          "Generate API.md for code folders",
+          "Generate README.md for all folders"
+        ],
+        "logic_flow": [
+          "Parse [target_folders] to get folder types",
+          "Parse [tree_outline] for structure",
+          "For each folder in source:",
+          "  - Map source_path to .workflow/docs/{source_path}",
+          "  - If type == 'code': Generate API.md + README.md",
+          "  - Elif type == 'navigation': Generate README.md only"
+        ],
         "depends_on": [],
         "output": "module_docs"
       }
     ],
     "target_files": [
-      ".workflow/docs/modules/*/API.md",
-      ".workflow/docs/modules/*/README.md"
+      ".workflow/docs/${top_dir}/*/API.md",
+      ".workflow/docs/${top_dir}/*/README.md"
     ]
   }
 }
@@ -285,11 +419,14 @@ fi
     "type": "docs-tree",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "cli_generate": true
+    "cli_generate": true,
+    "source_path": "src/modules",
+    "output_path": ".workflow/docs/src/modules"
   },
   "context": {
     "requirements": [
-      "Recursively process all folders in src/modules/",
+      "Analyze source code in src/modules/",
+      "Generate docs to .workflow/docs/src/modules/ (mirrored structure)",
       "CLI generates documentation files directly"
     ],
     "focus_paths": ["src/modules"]
@@ -298,7 +435,7 @@ fi
     "pre_analysis": [
       {
         "step": "load_existing_docs",
-        "command": "bash(find src/modules -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
+        "command": "bash(find .workflow/docs/${top_dir} -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
         "output_to": "existing_module_docs"
       },
       {
@@ -320,17 +457,25 @@ fi
       {
         "step": 2,
         "title": "Generate documentation via CLI",
-        "description": "Call CLI to generate documentation files for each folder using MODE=write",
-        "modification_points": ["Execute CLI generation command", "Generate API.md and README.md files"],
-        "logic_flow": ["Call CLI to generate documentation files for each folder"],
-        "command": "bash(cd src/modules && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p \"PURPOSE: Generate module docs\\nTASK: Create documentation files\\nMODE: write\\nCONTEXT: @{**/*} [target_folders] [existing_module_docs]\\nEXPECTED: API.md and README.md files\\nRULES: Generate complete docs\")",
+        "description": "Call CLI to generate docs to .workflow/docs/ with mirrored structure using MODE=write",
+        "modification_points": [
+          "Execute CLI generation command",
+          "Generate files to .workflow/docs/src/modules/ (mirrored path)",
+          "Generate API.md and README.md files"
+        ],
+        "logic_flow": [
+          "CLI analyzes source code in src/modules/",
+          "CLI writes documentation to .workflow/docs/src/modules/",
+          "Maintains directory structure mirroring"
+        ],
+        "command": "bash(cd src/modules && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p \"PURPOSE: Generate module docs\\nTASK: Create documentation files in .workflow/docs/src/modules/\\nMODE: write\\nCONTEXT: @{**/*} [target_folders] [existing_module_docs]\\nEXPECTED: API.md and README.md in .workflow/docs/src/modules/\\nRULES: Mirror source structure, generate complete docs\")",
         "depends_on": [1],
         "output": "generated_docs"
       }
     ],
     "target_files": [
-      ".workflow/docs/modules/*/API.md",
-      ".workflow/docs/modules/*/README.md"
+      ".workflow/docs/${top_dir}/*/API.md",
+      ".workflow/docs/${top_dir}/*/README.md"
     ]
   }
 }
@@ -360,8 +505,9 @@ fi
       },
       {
         "step": "load_module_docs",
-        "command": "bash(find .workflow/docs/modules -name '*.md' | xargs cat)",
-        "output_to": "all_module_docs"
+        "command": "bash(find .workflow/docs -type f -name '*.md' ! -path '.workflow/docs/README.md' ! -path '.workflow/docs/ARCHITECTURE.md' ! -path '.workflow/docs/EXAMPLES.md' ! -path '.workflow/docs/api/*' | xargs cat)",
+        "output_to": "all_module_docs",
+        "note": "Load all module docs from mirrored structure"
       },
       {
         "step": "analyze_project",
@@ -409,8 +555,9 @@ fi
       },
       {
         "step": "load_all_docs",
-        "command": "bash(cat .workflow/docs/README.md && find .workflow/docs/modules -name '*.md' | xargs cat)",
-        "output_to": "all_docs"
+        "command": "bash(cat .workflow/docs/README.md && find .workflow/docs -type f -name '*.md' ! -path '.workflow/docs/README.md' ! -path '.workflow/docs/ARCHITECTURE.md' ! -path '.workflow/docs/EXAMPLES.md' ! -path '.workflow/docs/api/*' | xargs cat)",
+        "output_to": "all_docs",
+        "note": "Load README + all module docs from mirrored structure"
       },
       {
         "step": "analyze_architecture",
@@ -536,41 +683,71 @@ fi
 
 ```
 .workflow/
-├── .active-WFS-docs-20240120-143022
+├── .active-WFS-docs-20240120-143022        # Active session marker
 └── WFS-docs-20240120-143022/
-    ├── IMPL_PLAN.md              # Implementation plan
-    ├── TODO_LIST.md              # Progress tracker
+    ├── IMPL_PLAN.md                         # Implementation plan
+    ├── TODO_LIST.md                         # Progress tracker
     ├── .process/
-    │   ├── config.txt            # path, is_root, tool, cli_generate, mode
-    │   ├── strategy.md           # Documentation strategy summary
-    │   ├── folder-analysis.txt   # Folder type classification
-    │   ├── top-level-dirs.txt    # Top-level directory list
-    │   └── existing-docs.txt     # Existing documentation files
+    │   ├── config.json                      # Single config (all settings + stats)
+    │   ├── folder-analysis.txt              # Folder classification results
+    │   ├── top-level-dirs.txt               # Top-level directory list
+    │   └── existing-docs.txt                # Existing documentation paths
     └── .task/
-        ├── IMPL-001.json         # Module tree task
-        ├── IMPL-002.json         # Module tree task
-        ├── IMPL-003.json         # Module tree task
-        ├── IMPL-004.json         # Project README (if root)
-        ├── IMPL-005.json         # Architecture (if root)
-        ├── IMPL-006.json         # Examples (if root)
-        └── IMPL-007.json         # HTTP API (if root, optional)
+        ├── IMPL-001.json                    # Module tree task
+        ├── IMPL-002.json                    # Module tree task
+        ├── IMPL-003.json                    # Module tree task
+        ├── IMPL-004.json                    # Project README (root only)
+        ├── IMPL-005.json                    # ARCHITECTURE.md (root only)
+        ├── IMPL-006.json                    # EXAMPLES.md (root only)
+        └── IMPL-007.json                    # HTTP API docs (optional)
+```
+
+**Config File Structure** (config.json):
+```json
+{
+  "session_id": "WFS-docs-20240120-143022",
+  "timestamp": "2024-01-20T14:30:22+08:00",
+  "path": ".",
+  "target_path": "/d/Claude_dms3",
+  "project_root": "/d/Claude_dms3",
+  "is_root": true,
+  "tool": "gemini",
+  "cli_generate": false,
+  "mode": "update",
+  "existing_docs": 5,
+  "analysis": {
+    "total": "15",
+    "code": "8",
+    "navigation": "7",
+    "top_level": "3"
+  }
+}
 ```
 
 ## Generated Documentation
 
+**Structure mirrors project source directories**:
+
 ```
 .workflow/docs/
-├── modules/                           # Level 1 output
-│   ├── README.md                      # Navigation for modules/
-│   ├── auth/
-│   │   ├── API.md                     # Auth module API signatures
-│   │   ├── README.md                  # Auth module documentation
-│   │   └── middleware/
-│   │       ├── API.md                 # Middleware API
-│   │       └── README.md              # Middleware docs
-│   └── api/
-│       ├── API.md                     # API module signatures
-│       └── README.md                  # API module docs
+├── src/                               # Mirrors src/ directory
+│   ├── modules/                       # Level 1 output
+│   │   ├── README.md                  # Navigation for src/modules/
+│   │   ├── auth/
+│   │   │   ├── API.md                 # Auth module API signatures
+│   │   │   ├── README.md              # Auth module documentation
+│   │   │   └── middleware/
+│   │   │       ├── API.md             # Middleware API
+│   │   │       └── README.md          # Middleware docs
+│   │   └── api/
+│   │       ├── API.md                 # API module signatures
+│   │       └── README.md              # API module docs
+│   └── utils/                         # Level 1 output
+│       └── README.md                  # Utils navigation
+├── lib/                               # Mirrors lib/ directory
+│   └── core/
+│       ├── API.md
+│       └── README.md
 ├── README.md                          # Level 2 output (root only)
 ├── ARCHITECTURE.md                    # Level 3 output (root only)
 ├── EXAMPLES.md                        # Level 3 output (root only)
@@ -604,40 +781,40 @@ fi
 
 ## Simple Bash Commands
 
-### Check Documentation Status
-```bash
-# List existing documentation
-bash(find . -name "API.md" -o -name "README.md" -o -name "ARCHITECTURE.md" 2>/dev/null | grep -v ".workflow")
-
-# Count documentation files
-bash(find . -name "*.md" 2>/dev/null | grep -v ".workflow" | wc -l)
-```
-
-### Analyze Module Structure
-```bash
-# Discover modules
-bash(~/.claude/scripts/get_modules_by_depth.sh)
-
-# Count code files in directory
-bash(find src/modules -maxdepth 1 -type f \( -name "*.ts" -o -name "*.js" \) | wc -l)
-
-# Count subdirectories
-bash(find src/modules -maxdepth 1 -type d -not -path "src/modules" | wc -l)
-```
-
 ### Session Management
 ```bash
-# Create session directories
-bash(mkdir -p .workflow/WFS-docs-20240120/.{task,process,summaries})
+# Create session and initialize config (all in one)
+bash(
+  session="WFS-docs-$(date +%Y%m%d-%H%M%S)"
+  mkdir -p ".workflow/${session}"/{.task,.process,.summaries}
+  touch ".workflow/.active-${session}"
+  cat > ".workflow/${session}/.process/config.json" <<EOF
+{"session_id":"${session}","timestamp":"$(date -Iseconds)","path":".","is_root":true,"tool":"gemini"}
+EOF
+  echo "Session: ${session}"
+)
 
-# Mark session as active
-bash(touch .workflow/.active-WFS-docs-20240120)
+# Read session config
+bash(cat .workflow/WFS-docs-20240120/.process/config.json)
 
-# Read session configuration
-bash(cat .workflow/WFS-docs-20240120/.process/config.txt)
+# Extract config values
+bash(jq -r '.tool' .workflow/WFS-docs-20240120/.process/config.json)
+bash(jq -r '.is_root' .workflow/WFS-docs-20240120/.process/config.json)
 
 # List session tasks
 bash(ls .workflow/WFS-docs-20240120/.task/*.json)
+```
+
+### Analysis Commands
+```bash
+# Discover and classify folders (scans project source)
+bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-folders.sh)
+
+# Count existing docs (in .workflow/docs/ directory)
+bash(if [[ -d ".workflow/docs" ]]; then find .workflow/docs -name "*.md" 2>/dev/null | wc -l; else echo "0"; fi)
+
+# List existing documentation (in .workflow/docs/ directory)
+bash(if [[ -d ".workflow/docs" ]]; then find .workflow/docs -name "*.md" 2>/dev/null; fi)
 ```
 
 ## Template Reference
