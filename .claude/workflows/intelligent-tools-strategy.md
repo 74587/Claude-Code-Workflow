@@ -210,6 +210,14 @@ Tools execute in current working directory:
 RULES: $(cat "~/.claude/workflows/cli-templates/prompts/[category]/[template].txt") | [constraints]
 ```
 
+**⚠️ CRITICAL: Command Substitution Rules**
+When using `$(cat ...)` for template loading in actual CLI commands:
+- **NEVER use escape characters**: `\$`, `\"`, `\'` will break command substitution
+- **In -p "..." context**: Path in `$(cat ...)` needs NO quotes (tilde expands correctly)
+- **Correct**: `RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)`
+- **WRONG**: `RULES: \$(cat ...)` or `RULES: $(cat \"...\")` or `RULES: $(cat '...')`
+- **Why**: Shell executes `$(...)` in subshell where path is safe without quotes
+
 **Examples**:
 - Single template: `$(cat "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt") | Focus on security`
 - Multiple templates: `$(cat "template1.txt") $(cat "template2.txt") | Enterprise standards`
@@ -328,7 +336,7 @@ TASK: Analyze project structure and identify patterns
 MODE: analysis
 CONTEXT: @{src/**/*.ts,CLAUDE.md} Previous analysis of auth system
 EXPECTED: Architecture overview and integration points
-RULES: $(cat '~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt') | Focus on integration points
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on integration points
 "
 ```
 
@@ -353,7 +361,7 @@ TASK: Review JWT-based auth system design
 MODE: analysis
 CONTEXT: @{src/auth/**/*} Existing patterns and requirements
 EXPECTED: Architecture analysis report with recommendations
-RULES: $(cat '~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt') | Focus on security
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on security
 "
 
 # Use Qwen only if Gemini unavailable
@@ -363,7 +371,7 @@ TASK: Review JWT-based auth system design
 MODE: analysis
 CONTEXT: @{src/auth/**/*} Existing patterns and requirements
 EXPECTED: Architecture analysis report with recommendations
-RULES: $(cat '~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt') | Focus on security
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on security
 "
 ```
 
@@ -376,7 +384,7 @@ TASK: Create JWT-based authentication system
 MODE: auto
 CONTEXT: @{src/auth/**/*} Database schema from session memory
 EXPECTED: Complete auth module with tests
-RULES: $(cat '~/.claude/workflows/cli-templates/prompts/development/feature.txt') | Follow security best practices
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) | Follow security best practices
 " --skip-git-repo-check -s danger-full-access
 
 # Continue in same session - Add JWT validation
@@ -420,6 +428,7 @@ codex resume --last
 - **Discover patterns first** - Use rg/MCP for complex file discovery before CLI execution
 - **Build precise CONTEXT** - Convert discovery results to explicit file references
 - **Document context** - Always reference CLAUDE.md for context
+- **⚠️ No escape characters in CLI commands** - NEVER use `\$`, `\"`, `\'` in actual CLI execution (breaks command substitution and path expansion)
 
 ### Context Optimization Strategy
 **Directory Navigation**: Use `cd [directory] &&` pattern when analyzing specific areas to reduce irrelevant context
