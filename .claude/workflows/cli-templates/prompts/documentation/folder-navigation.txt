@@ -1,0 +1,68 @@
+# Folder Navigation Documentation Template
+
+Generate a navigation README for directories that contain only subdirectories (no code files). This serves as an index to help readers navigate to specific modules.
+
+## Structure
+
+### 1. Overview
+
+Brief description of what this directory/category contains:
+
+> The `modules/` directory contains the core business logic modules of the application. Each subdirectory represents a self-contained functional module with its own responsibilities.
+
+### 2. Directory Structure
+
+Provide a tree view of the subdirectories with brief descriptions:
+
+```
+modules/
+├── auth/              - User authentication and authorization
+├── api/               - API route handlers and middleware
+├── database/          - Database connections and ORM models
+└── utils/             - Shared utility functions
+```
+
+### 3. Module Quick Reference
+
+Table format for quick scanning:
+
+| Module | Purpose | Key Features |
+|--------|---------|--------------|
+| [auth](./auth/) | Authentication | JWT tokens, session management |
+| [api](./api/) | API routing | REST endpoints, validation |
+| [database](./database/) | Data layer | PostgreSQL, migrations |
+| [utils](./utils/) | Utilities | Logging, helpers |
+
+### 4. How to Navigate
+
+Guidance on which module to explore based on needs:
+
+- **For authentication logic** → [auth module](./auth/)
+- **For API endpoints** → [api module](./api/)
+- **For database queries** → [database module](./database/)
+- **For helper functions** → [utils module](./utils/)
+
+### 5. Module Relationships (Optional)
+
+If modules have significant dependencies, show them:
+
+```
+api → auth (uses for authentication)
+api → database (uses for data access)
+auth → database (uses for user storage)
+```
+
+---
+
+## Rules
+
+1. **Keep it brief** - This is an index, not detailed documentation
+2. **One-line descriptions** - Each module gets a concise purpose statement
+3. **Scannable format** - Use tables and lists for quick navigation
+4. **Link to submodules** - Every module mentioned should link to its README
+5. **No code examples** - This is navigation only
+
+---
+
+**Directory Path**: [Auto-fill with actual directory path]
+**Last Updated**: [Auto-generated timestamp]

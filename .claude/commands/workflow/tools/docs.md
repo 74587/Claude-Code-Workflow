@@ -79,18 +79,54 @@ mkdir -p "${session_dir}"/{.task,.process,.summaries}
 touch ".workflow/.active-WFS-docs-${timestamp}"
 ```
 
-#### Phase 2: Lightweight Metadata Collection (MANDATORY)
+#### Phase 2: Lightweight Metadata Collection with Folder Type Analysis (MANDATORY)
 ```bash
 # Step 1: Run get_modules_by_depth.sh for module hierarchy (metadata only)
 module_data=$(~/.claude/scripts/get_modules_by_depth.sh)
 # Format: depth:N|path:<PATH>|files:N|size:N|has_claude:yes/no
 
-# Step 2: Use Code Index MCP for file discovery (optional, for better precision)
-# Example: mcp__code-index__find_files(pattern="src/**/")
-# This finds directories without loading content
+# Step 2: Analyze each folder to determine its type
+# Create folder analysis file
+mkdir -p "${session_dir}/.process"
+> "${session_dir}/.process/folder-analysis.txt"
+
+# For each folder discovered by get_modules_by_depth.sh:
+while IFS='|' read -r depth_info path_info files_info size_info claude_info; do
+  folder_path=$(echo "$path_info" | cut -d':' -f2-)
+  depth=$(echo "$depth_info" | cut -d':' -f2)
+
+  # Count code files in this folder (not recursive, maxdepth 1)
+  code_files=$(find "$folder_path" -maxdepth 1 -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" -o -name "*.java" -o -name "*.rs" \) 2>/dev/null | wc -l)
+
+  # Count immediate subfolders
+  subfolders=$(find "$folder_path" -maxdepth 1 -type d -not -path "$folder_path" 2>/dev/null | wc -l)
+
+  # Determine folder type
+  if [[ $code_files -gt 0 ]]; then
+    folder_type="code"  # Has code files → needs API.md + README.md
+  elif [[ $subfolders -gt 0 ]]; then
+    folder_type="navigation"  # Only subfolders → needs README.md (navigation)
+  else
+    folder_type="skip"  # Empty folder → skip
+  fi
+
+  # Record the analysis
+  echo "${folder_path}|${folder_type}|depth:${depth}|code_files:${code_files}|subfolders:${subfolders}" >> "${session_dir}/.process/folder-analysis.txt"
+done <<< "$module_data"
+
+# Step 3: Group folders by top-level directories for task assignment
+# Example: src/modules/auth, src/modules/api → group under "src/modules"
+# This reduces task count while maintaining logical organization
+awk -F'|' '{
+  split($1, parts, "/");
+  if (length(parts) >= 2) {
+    top_dir = parts[1] "/" parts[2];
+    print top_dir;
+  }
+}' "${session_dir}/.process/folder-analysis.txt" | sort -u > "${session_dir}/.process/top-level-dirs.txt"
 
 # IMPORTANT: Do NOT read file contents in planning phase
-# Only collect: paths, file counts, module structure
+# Only collect: paths, file counts, module structure, folder types
 ```
 
 #### Phase 3: Quick Documentation Assessment
@@ -110,27 +146,52 @@ cat > "${session_dir}/.process/strategy.md" <<EOF
 EOF
 ```
 
-#### Phase 4: Task Decomposition & TodoWrite Setup
+#### Phase 4: Task Decomposition & TodoWrite Setup (Revised Dependency Order)
 
-**Decomposition Strategy**:
-1. **Always create**: System Overview task (IMPL-001)
-2. **If architecture/all**: Architecture Documentation task
-3. **If api/all**: Unified API Documentation task
-4. **For each module**: Module Documentation task (grouped)
+**New Decomposition Strategy (Bottom-Up)**:
 
-**Grouping Rules**:
-- Max 3 modules per task
-- Max 30 files per task
-- Group by dependency depth and functional similarity
+**Level 1: Module Tree Tasks** (Execute in parallel)
+- For each top-level directory in `top-level-dirs.txt`, create one "tree" task
+- Each tree task recursively handles all subfolders within that directory
+- Task generates both API.md and README.md based on folder type analysis
 
-**TodoWrite Setup**:
+**Level 2: Project README Task** (Depends on all Level 1 tasks)
+- MUST wait for all module trees to complete
+- Aggregates information from all module documents
+- Creates navigation structure
+
+**Level 3: Architecture & Examples** (Depends on Level 2)
+- Architecture document synthesizes from all module docs + project README
+- Examples document uses project README as foundation
+
+**Task ID Assignment**:
+```
+IMPL-001 to IMPL-00N: Module tree tasks (Level 1)
+IMPL-[N+1]: Project README.md (Level 2, depends_on: IMPL-001 to IMPL-00N)
+IMPL-[N+2]: ARCHITECTURE.md (Level 3, depends_on: IMPL-[N+1])
+IMPL-[N+3]: EXAMPLES.md (Level 3, depends_on: IMPL-[N+1])
+IMPL-[N+4]: API docs (Optional, Level 3, depends_on: IMPL-[N+1])
+```
+
+**Example with 3 top-level dirs**:
+```
+IMPL-001: Document tree 'src/modules/' (Level 1)
+IMPL-002: Document tree 'src/utils/' (Level 1)
+IMPL-003: Document tree 'lib/' (Level 1)
+IMPL-004: Project README.md (Level 2, depends_on: [001,002,003])
+IMPL-005: ARCHITECTURE.md (Level 3, depends_on: [004])
+IMPL-006: EXAMPLES.md (Level 3, depends_on: [004])
+```
+
+**TodoWrite Setup (Correct Dependency Order)**:
 ```
 ✅ Session initialization (completed)
-⏳ IMPL-001: Project Overview (pending)
-⏳ IMPL-002: Module 'auth' (pending)
-⏳ IMPL-003: Module 'api' (pending)
-⏳ IMPL-004: Architecture Documentation (pending)
-⏳ IMPL-005: API Documentation (pending)
+⏳ IMPL-001: Document tree 'src/modules/' (pending)
+⏳ IMPL-002: Document tree 'src/utils/' (pending)
+⏳ IMPL-003: Document tree 'lib/' (pending)
+⏳ IMPL-004: Project README (pending, depends on IMPL-001~003)
+⏳ IMPL-005: Architecture Documentation (pending, depends on IMPL-004)
+⏳ IMPL-006: Examples Documentation (pending, depends on IMPL-004)
 ```
 
 #### Phase 5: Task JSON Generation
@@ -149,61 +210,148 @@ fi
 
 ## Task Templates
 
-### 1. System Overview (IMPL-001)
-**Purpose**: Project-level documentation
-**Output**: `.workflow/docs/README.md`
+### Task Execution Order
+
+**Level 1** (Parallel): Module tree tasks (IMPL-001 to IMPL-00N)
+**Level 2** (Sequential): Project README (IMPL-[N+1], depends on Level 1)
+**Level 3** (Parallel): Architecture, Examples, API docs (depends on Level 2)
+
+### 1. Module Tree Task (IMPL-001 to IMPL-00N) - Level 1
+**Purpose**: Recursively document entire directory tree
+**Output**: Multiple files: `modules/*/API.md`, `modules/*/README.md`
+**Dependencies**: None (can run in parallel with other tree tasks)
 
 **Complete JSON Structure**:
 ```json
 {
   "id": "IMPL-001",
-  "title": "Generate Project Overview Documentation",
+  "title": "Document Module Tree: 'src/modules/'",
   "status": "pending",
   "meta": {
-    "type": "docs",
+    "type": "docs-tree",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "template": "project-overview"
+    "template": "api + module-readme + folder-navigation"
   },
   "context": {
     "requirements": [
-      "Document project purpose, architecture, and getting started guide",
-      "Create navigation structure for all documentation",
-      "Use Project-Level Documentation Template"
+      "Recursively process all folders in src/modules/",
+      "For folders with code files: generate API.md + README.md",
+      "For folders with only subfolders: generate README.md (navigation)",
+      "Use folder-analysis.txt to determine folder types"
     ],
-    "focus_paths": ["."],
+    "focus_paths": ["src/modules"],
+    "folder_analysis_file": "${session_dir}/.process/folder-analysis.txt",
     "acceptance": [
-      "Complete .workflow/docs/README.md following template",
-      "All template sections populated with accurate information",
-      "Navigation links to module and API documentation"
+      "All code-containing folders have both API.md and README.md",
+      "All navigation folders have README.md",
+      "Documents follow their respective templates",
+      "File hierarchy matches source structure"
     ],
-    "scope": "Project root and overall structure"
+    "scope": "src/modules/ tree only"
   },
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "discover_project_structure",
-        "action": "Get project module hierarchy metadata",
-        "command": "bash(~/.claude/scripts/get_modules_by_depth.sh)",
-        "output_to": "system_structure",
+        "step": "load_folder_analysis",
+        "action": "Load folder type analysis for this tree",
+        "command": "bash(grep '^src/modules' ${session_dir}/.process/folder-analysis.txt)",
+        "output_to": "target_folders",
         "on_error": "fail",
-        "note": "Lightweight metadata only - no file content"
+        "note": "Filter analysis to only this tree's folders"
       },
       {
-        "step": "analyze_tech_stack",
-        "action": "Analyze technology stack from key config files",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze project technology stack\\nTASK: Extract tech stack from key config files\\nMODE: analysis\\nCONTEXT: @{package.json,pom.xml,build.gradle,requirements.txt,go.mod,Cargo.toml,CLAUDE.md}\\nEXPECTED: Technology list and architecture style\\nRULES: Be concise, focus on stack only\")",
-        "output_to": "tech_stack_analysis",
-        "on_error": "skip_optional",
-        "note": "Only analyze config files - small, controlled context"
+        "step": "analyze_module_tree_content",
+        "action": "Deep analysis of module tree content",
+        "command": "bash(cd src/modules && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document module tree comprehensively\\nTASK: For each folder, generate appropriate documentation (API.md for code folders, README.md for all)\\nMODE: analysis\\nCONTEXT: @{**/*} [target_folders]\\nEXPECTED: Structured documentation content for entire tree\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/api.txt) for API docs, $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-readme.txt) for module README, $(cat ~/.claude/workflows/cli-templates/prompts/documentation/folder-navigation.txt) for navigation README\")",
+        "output_to": "tree_documentation",
+        "on_error": "fail",
+        "note": "Analysis scoped to focus_paths only - controlled context"
       }
     ],
     "implementation_approach": {
-      "task_description": "Use system_structure and tech_stack_analysis to populate Project Overview Template",
+      "task_description": "Generate all documentation files for the module tree based on folder types",
       "logic_flow": [
-        "Load template: ~/.claude/workflows/cli-templates/prompts/documentation/project-overview.txt",
-        "Fill sections using [system_structure] and [tech_stack_analysis]",
-        "Generate navigation links based on module paths",
+        "Parse [target_folders] to get list of folders and their types",
+        "For each folder in tree:",
+        "  if type == 'code':",
+        "    - Generate API.md using api.txt template (Part A: Code API)",
+        "    - Generate README.md using module-readme.txt template",
+        "  elif type == 'navigation':",
+        "    - Generate README.md using folder-navigation.txt template",
+        "Maintain directory structure in output"
+      ]
+    },
+    "target_files": [
+      ".workflow/docs/modules/README.md",
+      ".workflow/docs/modules/*/API.md",
+      ".workflow/docs/modules/*/README.md",
+      ".workflow/docs/modules/*/*/API.md",
+      ".workflow/docs/modules/*/*/README.md"
+    ]
+  }
+}
+```
+
+### 2. Project README Task (IMPL-[N+1]) - Level 2
+**Purpose**: Project-level overview and navigation
+**Output**: `.workflow/docs/README.md`
+**Dependencies**: All Level 1 module tree tasks (MUST complete first)
+
+**Complete JSON Structure**:
+```json
+{
+  "id": "IMPL-004",
+  "title": "Generate Project README",
+  "status": "pending",
+  "depends_on": ["IMPL-001", "IMPL-002", "IMPL-003"],
+  "meta": {
+    "type": "docs",
+    "agent": "@doc-generator",
+    "tool": "gemini",
+    "template": "project-readme"
+  },
+  "context": {
+    "requirements": [
+      "Aggregate information from all module documentation",
+      "Generate navigation links to all modules",
+      "Provide project overview and getting started guide",
+      "Use Project README Template"
+    ],
+    "focus_paths": ["."],
+    "acceptance": [
+      "Complete .workflow/docs/README.md following template",
+      "All modules linked in navigation",
+      "Project structure clearly explained"
+    ],
+    "scope": "Project root - aggregates all module info"
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "load_all_module_docs",
+        "action": "Load all module documentation for aggregation",
+        "command": "bash(find .workflow/docs/modules -name 'README.md' -o -name 'API.md' | xargs cat)",
+        "output_to": "all_module_docs",
+        "on_error": "fail",
+        "note": "This step requires all module tree tasks to be completed"
+      },
+      {
+        "step": "analyze_project_structure",
+        "action": "Synthesize project overview from module docs",
+        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Generate project overview\\nTASK: Extract project structure, navigation, and summary from all module docs\\nMODE: analysis\\nCONTEXT: [all_module_docs] @{package.json,CLAUDE.md}\\nEXPECTED: Project README content\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/project-readme.txt) | Focus on navigation and aggregation\")",
+        "output_to": "project_overview",
+        "on_error": "fail",
+        "note": "Synthesizes information from completed module docs"
+      }
+    ],
+    "implementation_approach": {
+      "task_description": "Generate project README aggregating all module information",
+      "logic_flow": [
+        "Load template: ~/.claude/workflows/cli-templates/prompts/documentation/project-readme.txt",
+        "Extract module list and purposes from [all_module_docs]",
+        "Generate navigation structure with links to all modules",
+        "Fill template sections with [project_overview]",
         "Format output as Markdown"
       ]
     },
@@ -212,142 +360,166 @@ fi
 }
 ```
 
-### 2. Module Documentation (IMPL-002+)
-**Purpose**: Module-level documentation
-**Output**: `.workflow/docs/modules/[name]/README.md`
+### 3. Architecture Documentation Task (IMPL-[N+2]) - Level 3
+**Purpose**: System design and patterns aggregation
+**Output**: `.workflow/docs/ARCHITECTURE.md`
+**Dependencies**: Project README (IMPL-[N+1]) - MUST complete first
 
 **Complete JSON Structure**:
 ```json
 {
-  "id": "IMPL-002",
-  "title": "Document Module: 'auth'",
+  "id": "IMPL-005",
+  "title": "Generate Architecture Documentation",
   "status": "pending",
+  "depends_on": ["IMPL-004"],
   "meta": {
     "type": "docs",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "template": "module-documentation"
+    "template": "project-architecture"
   },
   "context": {
     "requirements": [
-      "Document module purpose, internal architecture, public API",
-      "Include dependencies and usage examples",
-      "Use Module-Level Documentation Template"
-    ],
-    "focus_paths": ["src/auth"],
-    "acceptance": [
-      "Complete .workflow/docs/modules/auth/README.md",
-      "All exported functions/classes documented",
-      "Working code examples included"
-    ],
-    "scope": "auth module only"
-  },
-  "flow_control": {
-    "pre_analysis": [
-      {
-        "step": "analyze_module_content",
-        "action": "Perform deep analysis of the specific module's content",
-        "command": "bash(cd src/auth && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document 'auth' module comprehensively\\nTASK: Extract module purpose, architecture, public API, dependencies\\nMODE: analysis\\nCONTEXT: @{**/*}\\nEXPECTED: Structured analysis of module content\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\")",
-        "output_to": "module_analysis",
-        "on_error": "fail",
-        "note": "Analysis strictly limited to focus_paths ('src/auth') - controlled context"
-      }
-    ],
-    "implementation_approach": {
-      "task_description": "Use the detailed [module_analysis] to populate the Module-Level Documentation Template",
-      "logic_flow": [
-        "Load template: ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt",
-        "Fill sections using [module_analysis]",
-        "Generate code examples from actual usage",
-        "Format output as Markdown"
-      ]
-    },
-    "target_files": [".workflow/docs/modules/auth/README.md"]
-  }
-}
-```
-
-### 3. Architecture Documentation (if requested)
-**Purpose**: System design and patterns
-**Output**: `.workflow/docs/architecture/`
-
-**Complete JSON Structure**:
-```json
-{
-  "id": "IMPL-N-1",
-  "title": "Generate Architecture Documentation",
-  "status": "pending",
-  "meta": {
-    "type": "docs",
-    "agent": "@doc-generator",
-    "tool": "qwen",
-    "template": "architecture"
-  },
-  "context": {
-    "requirements": [
-      "Document system design patterns and architectural decisions",
-      "Create module interaction diagrams",
-      "Explain data flow and component relationships"
+      "Synthesize system architecture from all module docs",
+      "Aggregate API overview from all module API.md files",
+      "Document module interactions and design patterns",
+      "Use Project Architecture Template"
     ],
     "focus_paths": ["."],
     "acceptance": [
-      "Complete architecture documentation in .workflow/docs/architecture/",
-      "Diagrams explaining system design",
-      "Clear explanation of architectural patterns"
-    ]
+      "Complete .workflow/docs/ARCHITECTURE.md following template",
+      "All modules included in architecture overview",
+      "Aggregated API section with links to detailed docs"
+    ],
+    "scope": "System-level architecture synthesis"
   },
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_all_module_docs",
-        "action": "Aggregate all module documentation",
-        "command": "bash(find .workflow/docs/modules -name 'README.md' -exec cat {} \\;)",
-        "output_to": "module_docs",
-        "on_error": "fail"
+        "step": "load_all_docs",
+        "action": "Load project README and all module documentation",
+        "command": "bash(cat .workflow/docs/README.md && find .workflow/docs/modules -name 'README.md' -o -name 'API.md' | xargs cat)",
+        "output_to": "all_docs",
+        "on_error": "fail",
+        "note": "Requires both project README and all module docs to be complete"
       },
       {
-        "step": "analyze_architecture",
-        "action": "Synthesize system architecture from modules",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Synthesize system architecture\\nTASK: Create architecture documentation from module docs\\nMODE: analysis\\nCONTEXT: [module_docs]\\nEXPECTED: Architecture documentation with patterns\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/project-overview.txt) | Focus on design patterns, data flow, component interactions\")",
-        "output_to": "architecture_analysis",
+        "step": "synthesize_architecture",
+        "action": "Create system architecture synthesis",
+        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Synthesize system architecture\\nTASK: Create comprehensive architecture doc from all module information\\nMODE: analysis\\nCONTEXT: [all_docs]\\nEXPECTED: Architecture documentation with patterns, module map, aggregated APIs\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/project-architecture.txt) | Focus on system-level view, aggregate APIs, show relationships\")",
+        "output_to": "architecture_content",
         "on_error": "fail",
-        "note": "Command varies: gemini-wrapper (default) | qwen-wrapper | codex exec"
+        "note": "Synthesizes from completed documentation"
       }
     ],
     "implementation_approach": {
-      "task_description": "Create architecture documentation from synthesis",
+      "task_description": "Generate architecture documentation synthesizing all module information",
       "logic_flow": [
-        "Parse architecture_analysis for patterns and design decisions",
-        "Create text-based diagrams (mermaid/ASCII) for module interactions",
-        "Document data flow between components",
-        "Explain architectural decisions and trade-offs",
-        "Format as structured documentation"
+        "Load template: ~/.claude/workflows/cli-templates/prompts/documentation/project-architecture.txt",
+        "Extract module purposes and responsibilities from [all_docs]",
+        "Build module map showing relationships",
+        "Aggregate public APIs from all API.md files",
+        "Generate architecture diagrams (text-based)",
+        "Fill template sections with [architecture_content]",
+        "Format output as Markdown"
       ]
     },
-    "target_files": [
-      ".workflow/docs/architecture/system-design.md",
-      ".workflow/docs/architecture/module-map.md",
-      ".workflow/docs/architecture/data-flow.md"
-    ]
+    "target_files": [".workflow/docs/ARCHITECTURE.md"]
   }
 }
 ```
 
-### 4. API Documentation (if requested)
-**Purpose**: API reference and specifications
-**Output**: `.workflow/docs/api/README.md`
+### 4. Examples Documentation Task (IMPL-[N+3]) - Level 3
+**Purpose**: Practical usage examples and best practices
+**Output**: `.workflow/docs/EXAMPLES.md`
+**Dependencies**: Project README (IMPL-[N+1]) - MUST complete first
 
 **Complete JSON Structure**:
 ```json
 {
-  "id": "IMPL-N",
-  "title": "Generate Unified API Documentation",
+  "id": "IMPL-006",
+  "title": "Generate Examples Documentation",
   "status": "pending",
+  "depends_on": ["IMPL-004"],
   "meta": {
     "type": "docs",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "template": "api-reference"
+    "template": "project-examples"
+  },
+  "context": {
+    "requirements": [
+      "Create end-to-end usage examples spanning multiple modules",
+      "Demonstrate common scenarios with complete, runnable code",
+      "Show best practices and integration patterns",
+      "Use Project Examples Template"
+    ],
+    "focus_paths": ["."],
+    "acceptance": [
+      "Complete .workflow/docs/EXAMPLES.md following template",
+      "All code examples are complete and runnable",
+      "Core use cases covered with explanations"
+    ],
+    "scope": "Project-level examples"
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "load_project_readme",
+        "action": "Load project README for context",
+        "command": "bash(cat .workflow/docs/README.md)",
+        "output_to": "project_readme",
+        "on_error": "fail",
+        "note": "Requires project README to be complete"
+      },
+      {
+        "step": "identify_example_scenarios",
+        "action": "Identify key usage scenarios from module docs",
+        "command": "bash(find .workflow/docs/modules -name 'README.md' | xargs grep -A 5 'Usage Scenarios\\|Common Use Cases' | head -100)",
+        "output_to": "module_usage_patterns",
+        "on_error": "skip_optional"
+      },
+      {
+        "step": "generate_examples_content",
+        "action": "Create comprehensive examples based on project structure",
+        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Generate practical usage examples\\nTASK: Create end-to-end examples showing how modules work together\\nMODE: analysis\\nCONTEXT: [project_readme] [module_usage_patterns] @{src/**/*.ts}\\nEXPECTED: Complete, runnable code examples\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/project-examples.txt) | Focus on real-world scenarios\")",
+        "output_to": "examples_content",
+        "on_error": "fail"
+      }
+    ],
+    "implementation_approach": {
+      "task_description": "Generate comprehensive examples documentation",
+      "logic_flow": [
+        "Load template: ~/.claude/workflows/cli-templates/prompts/documentation/project-examples.txt",
+        "Identify 3-5 core usage scenarios from [module_usage_patterns]",
+        "Generate complete, runnable code for each scenario",
+        "Add explanations and best practices",
+        "Fill template sections with [examples_content]",
+        "Format output as Markdown"
+      ]
+    },
+    "target_files": [".workflow/docs/EXAMPLES.md"]
+  }
+}
+```
+
+### 5. HTTP API Documentation (IMPL-[N+4]) - Level 3 (Optional)
+**Purpose**: REST/GraphQL API reference
+**Output**: `.workflow/docs/api/README.md`
+**Dependencies**: Project README (IMPL-[N+1])
+
+**Complete JSON Structure**:
+```json
+{
+  "id": "IMPL-007",
+  "title": "Generate HTTP API Documentation",
+  "status": "pending",
+  "depends_on": ["IMPL-004"],
+  "meta": {
+    "type": "docs",
+    "agent": "@doc-generator",
+    "tool": "gemini",
+    "template": "api"
   },
   "context": {
     "requirements": [
@@ -376,16 +548,17 @@ fi
       {
         "step": "analyze_api_structure",
         "action": "Analyze API structure and patterns",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document API comprehensively\\nTASK: Extract endpoints, auth, request/response formats\\nMODE: analysis\\nCONTEXT: @{src/api/**/*,src/routes/**/*,src/controllers/**/*}\\nEXPECTED: Complete API documentation\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/api-reference.txt)\")",
+        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document HTTP API comprehensively\\nTASK: Extract endpoints, auth, request/response formats\\nMODE: analysis\\nCONTEXT: @{src/api/**/*,src/routes/**/*,src/controllers/**/*}\\nEXPECTED: Complete HTTP API documentation\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/api.txt) | Use Part B: HTTP API only\")",
         "output_to": "api_analysis",
         "on_error": "fail",
         "note": "Analysis limited to API-related paths - controlled context"
       }
     ],
     "implementation_approach": {
-      "task_description": "Use api_analysis to populate API-Level Documentation Template",
+      "task_description": "Use api_analysis to populate HTTP API Documentation Template",
       "logic_flow": [
-        "Load template: ~/.claude/workflows/cli-templates/prompts/documentation/api-reference.txt",
+        "Load template: ~/.claude/workflows/cli-templates/prompts/documentation/api.txt",
+        "Use Part B: HTTP API section only",
         "Parse api_analysis for: endpoints, auth, request/response",
         "Fill template sections with extracted information",
         "Generate OpenAPI spec if REST API detected",
@@ -427,53 +600,113 @@ fi
 **Session**: WFS-docs-[timestamp]
 **Type**: [architecture|api|all]
 **Tool**: [gemini|qwen|codex]
+**Strategy**: Bottom-up, layered approach
 
-## Task Breakdown
+## Task Breakdown by Level
 
-### IMPL-001: System Overview
-- **Output**: .workflow/docs/README.md
-- **Template**: project-overview.txt
+### Level 1: Module Tree Tasks (Parallel Execution)
+- **IMPL-001**: Document tree 'src/modules/'
+  - Output: modules/*/API.md, modules/*/README.md
+  - Templates: api.txt (Part A), module-readme.txt, folder-navigation.txt
+- **IMPL-002**: Document tree 'src/utils/'
+- **IMPL-003**: Document tree 'lib/'
 
-### IMPL-002+: Module Documentation
-- **Modules**: [list]
-- **Template**: module-documentation.txt
+### Level 2: Project README (Sequential - Depends on Level 1)
+- **IMPL-004**: Generate Project README
+  - Output: .workflow/docs/README.md
+  - Template: project-readme.txt
+  - Dependencies: IMPL-001, IMPL-002, IMPL-003
 
-### IMPL-N: Architecture/API (if requested)
-- **Template**: architecture.txt / api-reference.txt
+### Level 3: Architecture & Examples (Parallel - Depends on Level 2)
+- **IMPL-005**: Generate Architecture Documentation
+  - Output: .workflow/docs/ARCHITECTURE.md
+  - Template: project-architecture.txt
+  - Dependencies: IMPL-004
+- **IMPL-006**: Generate Examples Documentation
+  - Output: .workflow/docs/EXAMPLES.md
+  - Template: project-examples.txt
+  - Dependencies: IMPL-004
+- **IMPL-007**: Generate HTTP API Documentation (Optional)
+  - Output: .workflow/docs/api/README.md
+  - Template: api.txt (Part B)
+  - Dependencies: IMPL-004
 
-## Execution Order
-1. IMPL-001 (Foundation)
-2. IMPL-002 to IMPL-[M] (Modules - can parallelize)
-3. IMPL-[M+1] (Architecture - needs modules)
-4. IMPL-[N] (API - can run after IMPL-001)
+## Execution Order (Respects Dependencies)
+1. **Level 1** (Parallel): IMPL-001, IMPL-002, IMPL-003
+2. **Level 2** (After Level 1): IMPL-004
+3. **Level 3** (After Level 2, can parallelize within level): IMPL-005, IMPL-006, IMPL-007
 ```
 
 ### TODO_LIST.md
 ```markdown
 # Documentation Progress Tracker
 
-- [ ] **IMPL-001**: Generate Project Overview
-- [ ] **IMPL-002**: Document Module: 'auth'
-- [ ] **IMPL-003**: Document Module: 'api'
-- [ ] **IMPL-004**: Generate Architecture Documentation
-- [ ] **IMPL-005**: Generate Unified API Documentation
+## Level 1: Module Tree Tasks (Can execute in parallel)
+- [ ] **IMPL-001**: Document tree 'src/modules/'
+- [ ] **IMPL-002**: Document tree 'src/utils/'
+- [ ] **IMPL-003**: Document tree 'lib/'
+
+## Level 2: Project README (Execute after Level 1)
+- [ ] **IMPL-004**: Generate Project README (depends on IMPL-001~003)
+
+## Level 3: Architecture & Examples (Execute after Level 2, can parallelize)
+- [ ] **IMPL-005**: Generate Architecture Documentation (depends on IMPL-004)
+- [ ] **IMPL-006**: Generate Examples Documentation (depends on IMPL-004)
+- [ ] **IMPL-007**: Generate HTTP API Documentation (Optional, depends on IMPL-004)
 
 ## Execution
+
+### Sequential (Respects Dependencies)
 ```bash
+# Level 1 - Execute in parallel or sequence
 /workflow:execute IMPL-001
 /workflow:execute IMPL-002
-# ...
+/workflow:execute IMPL-003
+
+# Wait for Level 1 to complete, then Level 2
+/workflow:execute IMPL-004
+
+# Wait for Level 2 to complete, then Level 3 (can parallelize)
+/workflow:execute IMPL-005
+/workflow:execute IMPL-006
+/workflow:execute IMPL-007  # if applicable
+```
+
+### With Dependency Awareness (Future Enhancement)
+```bash
+# /workflow:execute will automatically handle dependencies
+/workflow:execute --auto-deps IMPL-007
+# This would automatically execute IMPL-001~003 → IMPL-004 → IMPL-007
 ```
 ```
 
 ## Execution Phase
 
-### Via /workflow:execute
+### Layered Execution Flow
 
 ```
-For Each Task (IMPL-001, IMPL-002, ...):
+Phase 1: Module Tree Generation (Level 1 - Parallel)
+├─ /workflow:execute IMPL-001 (src/modules/) ──┐
+├─ /workflow:execute IMPL-002 (src/utils/)   ──┼─> All complete
+└─ /workflow:execute IMPL-003 (lib/)         ──┘
+                                                │
+Phase 2: Project README (Level 2 - Sequential) │
+└─ /workflow:execute IMPL-004 <────────────────┘ (Waits for Level 1)
+                                                │
+Phase 3: Architecture & Examples (Level 3)     │
+├─ /workflow:execute IMPL-005 (Architecture) <─┤
+├─ /workflow:execute IMPL-006 (Examples)    <──┤ (Waits for Level 2)
+└─ /workflow:execute IMPL-007 (HTTP API)    <──┘
+```
+
+### Per-Task Execution Flow
+
+```
+For Each Task (IMPL-001 to IMPL-007):
 
 /workflow:execute IMPL-NNN
+    ↓
+Check dependencies (if specified in depends_on)
     ↓
 TodoWrite: pending → in_progress
     ↓
@@ -510,20 +743,25 @@ After IMPL-001:
 
 ## Documentation Output
 
-### Final Structure
+### Final Structure (Revised)
 ```
 .workflow/docs/
-├── README.md                     # IMPL-001: Project overview
-├── modules/
-│   ├── auth/README.md           # IMPL-002: Auth module
-│   └── api/README.md            # IMPL-003: API module
-├── architecture/                # IMPL-004: Architecture
-│   ├── system-design.md
-│   ├── module-map.md
-│   └── data-flow.md
-└── api/                         # IMPL-005: API docs
-    ├── README.md
-    └── openapi.yaml
+├── modules/                           # IMPL-001,002,003 (Level 1)
+│   ├── README.md                      # Navigation for modules/
+│   ├── auth/
+│   │   ├── API.md                     # Auth module API signatures
+│   │   ├── README.md                  # Auth module documentation
+│   │   └── middleware/
+│   │       ├── API.md                 # Middleware API
+│   │       └── README.md              # Middleware docs
+│   └── api/
+│       ├── API.md                     # API module signatures
+│       └── README.md                  # API module docs
+├── README.md                          # IMPL-004 (Level 2) - Project overview
+├── ARCHITECTURE.md                    # IMPL-005 (Level 3) - System architecture
+├── EXAMPLES.md                        # IMPL-006 (Level 3) - Usage examples
+└── api/                               # IMPL-007 (Level 3, Optional)
+    └── README.md                      # HTTP API reference
 ```
 
 ## Next Steps
@@ -569,21 +807,35 @@ cat .workflow/docs/README.md
 
 ## Key Benefits
 
+### Bottom-Up Documentation Strategy
+- **Self-contained modules first**: Each module gets complete documentation (API.md + README.md)
+- **Project-level aggregation**: README, Architecture, Examples synthesize from completed modules
+- **No premature aggregation**: Project docs wait for all module docs to complete
+
+### Dynamic Folder Structure Recognition
+- **No hardcoded paths**: Automatically discovers all project directories
+- **Intelligent type detection**: Code folders get API.md + README.md, navigation folders get README.md only
+- **Respects project structure**: Works with any directory layout (not just "modules/")
+
 ### Clear Separation of Concerns
-- **Planning**: Session creation, task decomposition (this command)
-- **Execution**: Content generation, quality assurance (doc-generator agent)
+- **API.md**: Pure interface signatures (what can be called)
+- **README.md**: Purpose, usage, concepts (how and why to use it)
+- **Architecture.md**: System design and module relationships
+- **Examples.md**: End-to-end usage scenarios
+
+### Correct Dependency Management
+- **Level 1** (Module trees): Can execute in parallel
+- **Level 2** (Project README): Must wait for all module docs
+- **Level 3** (Architecture/Examples): Must wait for project README
+- **Prevents incomplete aggregation**: Ensures all source data exists before synthesis
 
 ### Scalable Task Management
-- Independent, self-contained tasks
-- Parallelizable module documentation
-- Clear dependencies (architecture needs modules)
+- **Coarse-grained tasks**: One task per top-level directory tree (not per module)
+- **Recursive processing**: Each task handles all subfolders within its tree
+- **Reduced task count**: 3 tree tasks instead of 10+ module tasks
 
 ### Template-Driven Consistency
-- All documentation follows standard templates
-- Reusable and maintainable
-- Easy to update standards
-
-### Full Context for Execution
-- Each task JSON contains complete instructions
-- flow_control defines exact analysis steps
-- Tool selection for flexibility
+- **5 specialized templates**: api (unified), module-readme, folder-navigation, project-architecture, project-examples
+- **Clear template purpose**: Each template focuses on a single documentation aspect
+- **Unified API template**: Single api.txt handles both Code API (Part A) and HTTP API (Part B)
+- **No content duplication**: API signatures stay in API.md, usage stays in README.md

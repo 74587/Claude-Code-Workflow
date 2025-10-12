@@ -1,0 +1,205 @@
+# Project Examples Documentation Template
+
+Generate practical, end-to-end examples demonstrating core usage patterns of the project. Focus on realistic scenarios that span multiple modules. These examples should help users understand how to accomplish common tasks.
+
+## Structure
+
+### 1. Introduction
+
+Brief overview of what these examples cover:
+
+> This document provides complete, working examples for common use cases. Each example demonstrates how multiple modules work together to accomplish a specific task.
+
+**Prerequisites**:
+- [List required setup, e.g., "Project installed and configured"]
+- [Environment requirements, e.g., "PostgreSQL running on localhost"]
+
+### 2. Quick Start Example
+
+The simplest possible working example to get started:
+
+```typescript
+// The minimal example to verify setup
+import { App } from './src';
+
+const app = new App();
+await app.start();
+console.log('Application running!');
+```
+
+**What this does**: [Brief explanation]
+
+### 3. Core Use Cases
+
+Provide 3-5 complete examples for common scenarios:
+
+#### Example 1: [Scenario Name, e.g., "User Registration and Login"]
+
+**Objective**: [What this example accomplishes]
+
+**Modules involved**: `auth`, `database`, `api`
+
+**Complete code**:
+```typescript
+import { createUser, authenticateUser } from './modules/auth';
+import { startServer } from './modules/api';
+
+// Step 1: Initialize the application
+const app = await startServer({ port: 3000 });
+
+// Step 2: Register a new user
+const user = await createUser({
+  email: 'user@example.com',
+  password: 'securePassword123',
+  name: 'John Doe'
+});
+
+// Step 3: Authenticate the user
+const session = await authenticateUser({
+  email: 'user@example.com',
+  password: 'securePassword123'
+});
+
+// Step 4: Use the authentication token
+console.log('Login successful, token:', session.token);
+```
+
+**Expected output**:
+```
+Server started on port 3000
+User created: { id: 1, email: 'user@example.com', name: 'John Doe' }
+Login successful, token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Explanation**:
+1. [Step-by-step breakdown of what each part does]
+2. [How modules interact]
+3. [Common variations or customizations]
+
+---
+
+#### Example 2: [Another Common Scenario]
+
+[Similar structure with complete code]
+
+---
+
+#### Example 3: [Another Use Case]
+
+[Similar structure with complete code]
+
+### 4. Advanced Examples
+
+More complex scenarios for power users:
+
+#### Advanced Example 1: [Complex Scenario]
+
+**Objective**: [What this example accomplishes]
+
+**Modules involved**: [List]
+
+```typescript
+// Complete working code with detailed comments
+```
+
+**Key points**:
+- [Important concept or gotcha]
+- [Performance consideration]
+- [Security note]
+
+### 5. Integration Examples
+
+Examples showing how to integrate with external systems:
+
+#### Integration with [External System]
+
+```typescript
+// Example of integrating with a third-party service
+```
+
+### 6. Testing Examples
+
+Show how to test code that uses this project:
+
+```typescript
+// Example test case using the project
+import { describe, it, expect } from 'your-test-framework';
+
+describe('User authentication', () => {
+  it('should authenticate valid credentials', async () => {
+    const result = await authenticateUser({
+      email: 'test@example.com',
+      password: 'password123'
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.token).toBeDefined();
+  });
+});
+```
+
+### 7. Best Practices
+
+Demonstrate recommended patterns:
+
+#### Pattern 1: [Best Practice Title]
+```typescript
+// Good: Recommended approach
+const result = await handleWithErrorRecovery(operation);
+
+// Bad: Anti-pattern to avoid
+const result = operation(); // No error handling
+```
+
+**Why**: [Explanation of why this is the best approach]
+
+#### Pattern 2: [Another Best Practice]
+[Similar structure]
+
+### 8. Troubleshooting Common Issues
+
+Example-based solutions to common problems:
+
+#### Issue: [Common Problem]
+
+**Symptom**: [What the user experiences]
+
+**Solution**:
+```typescript
+// Before: Code that causes the issue
+const broken = doSomethingWrong();
+
+// After: Corrected code
+const fixed = doSomethingRight();
+```
+
+---
+
+## Rules
+
+1. **Complete, runnable code** - Every example should be copy-paste ready
+2. **Real-world scenarios** - Avoid trivial or contrived examples
+3. **Explain the flow** - Show how modules work together
+4. **Include output** - Show what users should expect to see
+5. **Error handling** - Demonstrate proper error handling patterns
+6. **Comment complex parts** - Help readers understand non-obvious code
+7. **Version compatibility** - Note if examples are version-specific
+
+---
+
+## Code Quality Standards
+
+All example code should:
+- Follow project coding standards
+- Include proper error handling
+- Use async/await correctly
+- Show TypeScript types where applicable
+- Be tested and verified to work
+
+---
+
+**Last Updated**: [Auto-generated timestamp]
+**See also**:
+- [Project README](./README.md) for getting started
+- [Architecture](./ARCHITECTURE.md) for understanding system design
+- [Module Documentation](./modules/) for API details

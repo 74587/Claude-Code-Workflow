@@ -274,6 +274,21 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 /workflow:brainstorm:synthesis  # Generate consolidated specification
 ```
 
+**Phase 1.5: Concept Verification** *(Optional Quality Gate)*
+```bash
+# Identify and resolve ambiguities in brainstorming artifacts
+/workflow:concept-clarify
+
+# OR specify session explicitly
+/workflow:concept-clarify --session WFS-auth
+```
+- Runs after `/workflow:brainstorm:synthesis` and before `/workflow:plan`
+- Interactive Q&A to clarify underspecified requirements, architecture decisions, or risks
+- Maximum 5 questions per session with multiple-choice or short-answer format
+- Updates `synthesis-specification.md` with clarifications incrementally
+- Ensures conceptual foundation is clear before detailed planning
+- Generates coverage summary with recommendations to proceed or address outstanding items
+
 **Phase 2: UI Design Refinement** *(Optional for UI-heavy projects)*
 
 **🎯 Choose Your Workflow:**
@@ -329,6 +344,22 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 # OR for TDD approach
 /workflow:tdd-plan "Implement authentication with test-first development"
 ```
+
+**Phase 3.5: Action Plan Verification** *(Optional Pre-Execution Check)*
+```bash
+# Validate plan consistency and completeness
+/workflow:action-plan-verify
+
+# OR specify session explicitly
+/workflow:action-plan-verify --session WFS-auth
+```
+- Runs after `/workflow:plan` or `/workflow:tdd-plan` and before `/workflow:execute`
+- Read-only analysis of `IMPL_PLAN.md` and task JSON files against `synthesis-specification.md`
+- Validates requirements coverage, dependency integrity, and synthesis alignment
+- Identifies inconsistencies, duplications, ambiguities, and underspecified items
+- Generates detailed verification report with severity-rated findings (CRITICAL/HIGH/MEDIUM/LOW)
+- Recommends whether to PROCEED, PROCEED_WITH_FIXES, or BLOCK_EXECUTION
+- Provides actionable remediation suggestions for detected issues
 
 **Phase 4: Execution**
 ```bash
@@ -412,6 +443,7 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 |---|---|
 | `/workflow:session:*` | Manage development sessions (`start`, `resume`, `list`, `complete`). |
 | `/workflow:brainstorm:*` | Use role-based agents for multi-perspective planning. |
+| `/workflow:concept-clarify` | **Optional** Quality gate - Identify and resolve ambiguities in brainstorming artifacts before planning (runs after synthesis, before plan). |
 | `/workflow:ui-design:explore-auto` | **v4.4.0** Matrix exploration mode - Generate multiple style × layout variants with layout/style separation. |
 | `/workflow:ui-design:imitate-auto` | **v4.4.0** Fast imitation mode - Rapid UI replication with auto-screenshot, layout extraction, and assembly. |
 | `/workflow:ui-design:style-extract` | **v4.4.0** Extract visual style (colors, typography, spacing) from images/text using Claude-native analysis. |
@@ -421,6 +453,7 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 | `/workflow:ui-design:update` | **v4.4.0** Integrate finalized design system into brainstorming artifacts. |
 | `/workflow:plan` | Create a detailed, executable plan from a description. |
 | `/workflow:tdd-plan` | Create TDD workflow (6 phases) with test coverage analysis and Red-Green-Refactor cycles. |
+| `/workflow:action-plan-verify` | **Optional** Pre-execution check - Validate IMPL_PLAN.md and task.json consistency and completeness (runs after plan, before execute). |
 | `/workflow:execute` | Execute the current workflow plan autonomously. |
 | `/workflow:status` | Display the current status of the workflow. |
 | `/workflow:test-gen [--use-codex] <session>` | Create test generation workflow with auto-diagnosis and fix cycle for completed implementations. |

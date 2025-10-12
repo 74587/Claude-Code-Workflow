@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.3.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v4.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,13 +15,13 @@
 
 **Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
 
-> **🎉 最新版本: v4.3.0** - UI 设计工作流 V2 自包含 CSS 架构。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v4.4.0** - UI 设计工作流 V3 布局/样式分离架构。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v4.3.0 版本新特性**:
-> - 🎨 **自包含 CSS**: Agent 从 design-tokens.json 直接生成独立 CSS
-> - ⚡ **简化工作流**: 移除占位符机制和令牌转换步骤
-> - 💪 **更强风格差异**: CSS 使用直接令牌值，实现更强视觉区分
-> - 📉 **代码减少 31%**: 移除 346 行代码，职责更清晰
+> **v4.4.0 版本新特性**:
+> - 🏗️ **布局/样式分离**: 新的 `layout-extract` 命令将结构与视觉令牌分离
+> - 📦 **纯汇编器**: `generate` 命令现在纯粹组合预提取的布局 + 样式
+> - 🎯 **更好的多样性**: 布局探索生成结构上不同的设计
+> - ✅ **单一职责**: 每个阶段（样式、布局、汇编）都有明确的目的
 
 ---
 
@@ -274,28 +274,65 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 /workflow:brainstorm:synthesis  # 生成综合规范
 ```
 
-**阶段 2：UI 设计精炼** *(UI 密集型项目可选)*
+**阶段 1.5：概念验证** *(可选质量关卡)*
 ```bash
-# 矩阵探索模式 - 多个风格×布局变体（v4.2.1+）
+# 识别并解决头脑风暴产物中的歧义
+/workflow:concept-clarify
+
+# 或显式指定会话
+/workflow:concept-clarify --session WFS-auth
+```
+- 在 `/workflow:brainstorm:synthesis` 之后、`/workflow:plan` 之前运行
+- 通过交互式问答澄清未明确的需求、架构决策或风险
+- 每次会话最多 5 个问题，支持多选或简答格式
+- 增量更新 `synthesis-specification.md` 以记录澄清内容
+- 确保概念基础明确后再进行详细规划
+- 生成覆盖度摘要，建议继续或解决未决项
+
+**阶段 2：UI 设计精炼** *(UI 密集型项目可选)*
+
+**🎯 选择您的工作流：**
+
+**场景 1：从想法或概念开始** → 使用 `explore-auto`
+```bash
+# 生成多个风格和布局选项来探索不同方向
 /workflow:ui-design:explore-auto --prompt "现代博客：首页，文章，作者" --style-variants 3 --layout-variants 2
+# 创建一个 3×2 矩阵：3种视觉风格 × 2种布局 = 6个原型供选择
+```
 
-# 快速模仿模式 - 单一设计快速复制（v4.2.1+）
+**场景 2：复制现有设计** → 使用 `imitate-auto`
+```bash
+# 快速、高保真复制参考设计
 /workflow:ui-design:imitate-auto --images "refs/design.png" --pages "dashboard,settings"
+# 或从 URL 自动截图（需要 Playwright/Chrome DevTools MCP）
+/workflow:ui-design:imitate-auto --url "https://linear.app" --pages "home,features"
+```
 
-# 与会话集成
-/workflow:ui-design:explore-auto --session WFS-auth --images "refs/*.png" --style-variants 2 --layout-variants 3
+**场景 3：从现有设计系统批量创建** → 使用 `batch-generate`
+```bash
+# 已有设计系统？快速生成多个页面
+/workflow:ui-design:batch-generate --prompt "创建个人资料和设置页面" --layout-variants 2
+```
 
-# 或者运行单独的设计阶段
-/workflow:ui-design:extract --images "refs/*.png" --variants 3
+**高级：手动分步控制** (v4.4.0+)
+```bash
+# 1. 提取视觉样式（颜色、排版、间距）
+/workflow:ui-design:style-extract --images "refs/*.png" --mode explore --variants 3
+
+# 2. 整合为可用于生产的设计令牌
 /workflow:ui-design:consolidate --variants "variant-1,variant-3"
-/workflow:ui-design:generate --pages "dashboard,auth" --style-variants 2 --layout-variants 2
 
-# 预览生成的原型
-# 选项1：在浏览器中打开 .workflow/WFS-auth/.design/prototypes/compare.html
-# 选项2：启动本地服务器
+# 3. 提取布局结构（DOM、CSS 布局规则）
+/workflow:ui-design:layout-extract --targets "dashboard,auth" --mode explore --variants 2 --device-type responsive
+
+# 4. 组合样式 + 布局 → HTML/CSS 原型
+/workflow:ui-design:generate --style-variants 1 --layout-variants 2
+
+# 5. 预览并选择
 cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
-# 访问 http://localhost:8080 获取交互式预览和对比工具
+# 访问 http://localhost:8080/compare.html 进行并排比较
 
+# 6. 将选定的设计集成到项目中
 /workflow:ui-design:update --session WFS-auth --selected-prototypes "dashboard-s1-l2"
 ```
 
@@ -307,6 +344,22 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 # 或使用 TDD 方法
 /workflow:tdd-plan "使用测试优先开发实现认证"
 ```
+
+**阶段 3.5：行动计划验证** *(可选执行前检查)*
+```bash
+# 验证计划一致性和完整性
+/workflow:action-plan-verify
+
+# 或显式指定会话
+/workflow:action-plan-verify --session WFS-auth
+```
+- 在 `/workflow:plan` 或 `/workflow:tdd-plan` 之后、`/workflow:execute` 之前运行
+- 对 `IMPL_PLAN.md` 和任务 JSON 文件进行只读分析，并与 `synthesis-specification.md` 对照
+- 验证需求覆盖率、依赖完整性和综合对齐性
+- 识别不一致、重复、歧义和未充分说明的项目
+- 生成详细验证报告，包含严重性评级的发现（CRITICAL/HIGH/MEDIUM/LOW）
+- 建议是否 PROCEED、PROCEED_WITH_FIXES 或 BLOCK_EXECUTION
+- 提供针对检测到的问题的可操作修复建议
 
 **阶段 4：执行**
 ```bash
@@ -390,14 +443,17 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 |---|---|
 | `/workflow:session:*` | 管理开发会话（`start`, `resume`, `list`, `complete`）。 |
 | `/workflow:brainstorm:*` | 使用基于角色的智能体进行多视角规划。 |
-| `/workflow:ui-design:explore-auto` | **v4.2.1** 矩阵探索模式 - 生成多个风格×布局变体，全面探索设计方向。 |
-| `/workflow:ui-design:imitate-auto` | **v4.2.1** 快速模仿模式 - 单一设计快速复制，自动截图和直接令牌提取。 |
-| `/workflow:ui-design:extract` | **v4.2.1** 使用 Claude 原生分析从图像/文本提取设计。单次生成变体。 |
-| `/workflow:ui-design:consolidate` | **v4.2.1** 使用 Claude 合成将风格变体整合为经过验证的设计令牌。 |
-| `/workflow:ui-design:generate` | **v4.2.1** 生成矩阵模式（风格×布局组合）的令牌驱动 HTML/CSS 原型。 |
-| `/workflow:ui-design:update` | **v4.2.1** 将最终确定的设计系统集成到头脑风暴产物中。 |
+| `/workflow:concept-clarify` | **可选** 质量关卡 - 在规划之前识别并解决头脑风暴产物中的歧义（在综合后、规划前运行）。 |
+| `/workflow:ui-design:explore-auto` | **v4.4.0** 矩阵探索模式 - 通过布局/样式分离生成多个风格×布局变体。 |
+| `/workflow:ui-design:imitate-auto` | **v4.4.0** 快速模仿模式 - 通过自动截图、布局提取和汇编实现快速 UI 复制。 |
+| `/workflow:ui-design:style-extract` | **v4.4.0** 使用 Claude 原生分析从图像/文本提取视觉样式（颜色、排版、间距）。 |
+| `/workflow:ui-design:layout-extract` | **v4.4.0** 通过设备感知模板提取结构布局（DOM、CSS 布局规则）。 |
+| `/workflow:ui-design:consolidate` | **v4.4.0** 使用 Claude 合成将风格变体整合为经过验证的设计令牌。 |
+| `/workflow:ui-design:generate` | **v4.4.0** 纯汇编器 - 组合布局模板 + 设计令牌 → HTML/CSS 原型。 |
+| `/workflow:ui-design:update` | **v4.4.0** 将最终确定的设计系统集成到头脑风暴产物中。 |
 | `/workflow:plan` | 从描述创建详细、可执行的计划。 |
 | `/workflow:tdd-plan` | 创建 TDD 工作流（6 阶段），包含测试覆盖分析和 Red-Green-Refactor 循环。 |
+| `/workflow:action-plan-verify` | **可选** 执行前检查 - 验证 IMPL_PLAN.md 和任务 JSON 的一致性和完整性（在规划后、执行前运行）。 |
 | `/workflow:execute` | 自主执行当前的工作流计划。 |
 | `/workflow:status` | 显示工作流的当前状态。 |
 | `/workflow:test-gen [--use-codex] <session>` | 为已完成实现创建独立测试生成工作流，支持自动诊断和修复。 |
@@ -407,9 +463,80 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 | `/workflow:tools:test-concept-enhanced` | 使用 Gemini 生成测试策略和需求分析。 |
 | `/workflow:tools:test-task-generate` | 生成测试任务 JSON，包含 test-fix-cycle 规范。 |
 
-### **UI 设计工作流命令 (`/workflow:ui-design:*`)** *(v4.2.1)*
+### **UI 设计工作流命令 (`/workflow:ui-design:*`)** *(v4.4.0)*
 
-设计工作流系统提供完整的 UI 设计精炼，具备**纯 Claude 执行**、**智能页面推断**和**零外部依赖**。
+设计工作流系统提供完整的 UI 设计精炼，具备**布局/样式分离架构**、**纯 Claude 执行**、**智能目标推断**和**零外部依赖**。
+
+#### 📐 架构概述
+
+UI 工作流遵循**关注点分离**哲学：
+- **样式（视觉令牌）**：颜色、排版、间距、边框 → `design-tokens.json`
+- **布局（结构）**：DOM 层次结构、CSS 布局规则 → `layout-templates.json`
+- **汇编**：纯粹组合样式 + 布局 → HTML/CSS 原型
+
+**命令分类：**
+
+| 类别 | 命令 | 目的 |
+|----------|----------|---------|
+| **高级编排器** | `explore-auto`, `imitate-auto`, `batch-generate` | 完整工作流（推荐） |
+| **输入/捕获** | `capture`, `explore-layers` | 截图获取 |
+| **分析/提取** | `style-extract`, `layout-extract` | 视觉样式和结构布局提取 |
+| **处理/生成** | `consolidate`, `generate` | 令牌验证和原型汇编 |
+| **集成** | `update` | 设计系统集成到项目 |
+
+#### 🧭 决策树：应该使用哪个命令？
+
+```
+┌─ 有想法或文本描述？
+│  └─→ /workflow:ui-design:explore-auto
+│     （探索多个风格 × 布局选项）
+│
+┌─ 想复制现有设计？
+│  └─→ /workflow:ui-design:imitate-auto
+│     （高保真单一设计复制）
+│
+┌─ 已有设计系统？
+│  └─→ /workflow:ui-design:batch-generate
+│     （批量创建多个页面/组件）
+│
+└─ 需要细粒度控制？
+   └─→ 按顺序使用单独命令：
+       1. style-extract → 提取颜色、字体、间距
+       2. consolidate → 验证并合并令牌
+       3. layout-extract → 提取 DOM 结构
+       4. generate → 组合为原型
+       5. update → 集成到项目
+```
+
+#### 🔄 工作流程图
+
+**探索工作流**（想法 → 多个设计）：
+```
+提示词/图像 → style-extract（探索模式）
+                     ↓
+              consolidate（N 个变体）
+                     ↓
+              layout-extract（探索模式）
+                     ↓
+              generate（N 个样式 × M 个布局）
+                     ↓
+              update（选定的设计）
+```
+
+**模仿工作流**（参考 → 单一设计）：
+```
+URL/图像 → capture/explore-layers
+                  ↓
+           style-extract（模仿模式）
+                  ↓
+           layout-extract（模仿模式）
+                  ↓
+           consolidate（单一变体）
+                  ↓
+           generate（1 个样式 × 1 个布局）
+                  ↓
+           update（最终设计）
+```
 
 #### 核心命令
 
@@ -446,27 +573,64 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 - **🎯 直接提取**: 跳过变体选择，直接进入实现
 - **🔧 单一设计聚焦**: 最适合快速复制现有设计
 
-**`/workflow:ui-design:style-consolidate`** - 验证和合并令牌
+**`/workflow:ui-design:style-extract`** - 视觉样式提取（v4.4.0）
+```bash
+# 纯文本提示
+/workflow:ui-design:style-extract --prompt "现代极简，深色主题" --mode explore --variants 3
+
+# 纯图像
+/workflow:ui-design:style-extract --images "refs/*.png" --mode explore --variants 3
+
+# 混合（文本指导图像分析）
+/workflow:ui-design:style-extract --images "refs/*.png" --prompt "Linear.app 风格" --mode imitate
+
+# 高保真单一风格
+/workflow:ui-design:style-extract --images "design.png" --mode imitate
+```
+- **🎨 仅视觉令牌**：颜色、排版、间距（无布局结构）
+- **🔄 双模式**：模仿（单一变体）/ 探索（多个变体）
+- **Claude 原生**：单次分析，无外部工具
+- **输出**：包含嵌入式 `proposed_tokens` 的 `style-cards.json`
+
+**`/workflow:ui-design:layout-extract`** - 结构布局提取（v4.4.0）
+```bash
+# 探索模式 - 多个布局变体
+/workflow:ui-design:layout-extract --targets "home,dashboard" --mode explore --variants 3 --device-type responsive
+
+# 模仿模式 - 单一布局复制
+/workflow:ui-design:layout-extract --images "refs/*.png" --targets "dashboard" --mode imitate --device-type desktop
+
+# 使用 MCP 研究（探索模式）
+/workflow:ui-design:layout-extract --prompt "电商结账" --targets "cart,checkout" --mode explore --variants 2
+```
+- **🏗️ 仅结构**：DOM 层次结构、CSS 布局规则（无视觉样式）
+- **📱 设备感知**：桌面、移动、平板、响应式优化
+- **🧠 智能体驱动**：使用 ui-design-agent 进行结构分析
+- **🔍 MCP 研究**：布局模式灵感（探索模式）
+- **输出**：包含基于令牌的 CSS 的 `layout-templates.json`
+
+**`/workflow:ui-design:consolidate`** - 验证和合并令牌
 ```bash
 # 整合选定的风格变体
-/workflow:ui-design:style-consolidate --session WFS-auth --variants "variant-1,variant-3"
+/workflow:ui-design:consolidate --session WFS-auth --variants "variant-1,variant-3"
 ```
-- **功能**: WCAG AA 验证、OKLCH 颜色、W3C 令牌格式
-- **输出**: `design-tokens.json`、`style-guide.md`、`tailwind.config.js`
+- **Claude 合成**：单次生成所有设计系统文件
+- **功能**：WCAG AA 验证、OKLCH 颜色、W3C 令牌格式
+- **输出**：`design-tokens.json`、`style-guide.md`、`tailwind.config.js`、`validation-report.json`
 
-**`/workflow:ui-design:generate`** - 生成 HTML/CSS 原型
+**`/workflow:ui-design:generate`** - 纯汇编器（v4.4.0）
 ```bash
-# 矩阵模式 - 风格×布局组合
-/workflow:ui-design:generate --pages "dashboard,auth" --style-variants 2 --layout-variants 3
+# 组合布局模板 + 设计令牌
+/workflow:ui-design:generate --style-variants 1 --layout-variants 2
 
-# 单页面多变体
-/workflow:ui-design:generate --pages "home" --style-variants 3 --layout-variants 2
+# 多个样式与多个布局
+/workflow:ui-design:generate --style-variants 2 --layout-variants 3
 ```
-- **🎯 矩阵生成**: 创建所有风格×布局组合
-- **📊 多页面支持**: 跨页面一致的设计系统
-- **✅ 一致性验证**: 自动跨页面一致性报告（v4.2.0+）
-- **🔍 交互式预览**: `compare.html` 并排比较
-- **📋 批量选择**: 按风格或布局过滤器快速选择
+- **📦 纯汇编**：组合预提取的 layout-templates.json + design-tokens.json
+- **❌ 无设计逻辑**：所有布局/样式决策在之前阶段完成
+- **✅ 令牌解析**：用实际令牌值替换 var() 占位符
+- **🎯 矩阵输出**：生成样式 × 布局 × 目标原型
+- **🔍 交互式预览**：`compare.html` 并排比较
 
 **`/workflow:ui-design:update`** - 集成设计系统
 ```bash
@@ -506,6 +670,61 @@ php -S localhost:8080           # PHP
 - 同步滚动用于布局对比
 - 动态页面切换
 - 实时响应式测试
+
+#### 📦 输出结构
+
+所有 UI 工作流输出都组织在会话内的 `.design` 目录中：
+
+```
+.workflow/WFS-<session-id>/.design/
+├── design-run-YYYYMMDD-HHMMSS/          # 带时间戳的设计运行
+│   ├── screenshots/                      # 📸 捕获的截图
+│   │   ├── home.png
+│   │   └── dashboard.png
+│   │
+│   ├── style-extraction/                 # 🎨 样式分析阶段
+│   │   ├── style-cards.json             # AI 提议的风格变体
+│   │   └── design-space-analysis.json   # （探索模式）多样性分析
+│   │
+│   ├── layout-extraction/                # 🏗️ 布局分析阶段
+│   │   └── layout-templates.json        # 包含基于令牌的 CSS 的结构模板
+│   │
+│   ├── style-consolidation/              # ✅ 生产设计系统
+│   │   ├── style-1/
+│   │   │   ├── design-tokens.json       # W3C 设计令牌
+│   │   │   ├── style-guide.md           # 视觉设计文档
+│   │   │   ├── tailwind.config.js       # Tailwind 配置
+│   │   │   └── validation-report.json   # WCAG AA 验证结果
+│   │   └── style-2/
+│   │       └── ...
+│   │
+│   └── prototypes/                       # 🎯 最终 HTML/CSS 原型
+│       ├── home-style-1-layout-1.html   # 矩阵生成的原型
+│       ├── home-style-1-layout-1.css
+│       ├── home-style-1-layout-2.html
+│       ├── dashboard-style-2-layout-1.html
+│       ├── index.html                   # 主导航页面
+│       └── compare.html                 # 并排比较工具
+│
+└── latest -> design-run-YYYYMMDD-HHMMSS  # 指向最新运行的符号链接
+```
+
+**关键文件：**
+
+| 文件 | 目的 | 生成命令 |
+|------|---------|--------------|
+| `style-cards.json` | AI 提议的视觉样式及嵌入的令牌 | `style-extract` |
+| `layout-templates.json` | 包含基于令牌的 CSS 的结构模板 | `layout-extract` |
+| `design-tokens.json` | 可用于生产的 W3C 设计令牌 | `consolidate` |
+| `style-guide.md` | 视觉设计系统文档 | `consolidate` |
+| `compare.html` | 交互式原型比较矩阵 | `generate` |
+
+**最佳实践：**
+
+1. **会话管理**：会话内的所有运行累积在 `.design/design-run-*/`
+2. **版本控制**：每次运行都有时间戳，便于回滚
+3. **集成**：使用 `update` 命令将最终令牌链接到项目产物
+4. **清理**：旧运行可以安全删除；`latest` 符号链接始终指向最新的
 
 ---
 
