@@ -425,10 +425,28 @@ Task(subagent_type="{meta.agent}",
         "on_error": "skip_optional|fail|retry_once"
       }
     ],
-    "implementation_approach": {
-      "task_description": "Implement following consolidated synthesis specification...",
-      "modification_points": ["Apply synthesis specification requirements..."]
-    },
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Implement task following synthesis specification",
+        "description": "Implement '[title]' following synthesis specification. PRIORITY: Use synthesis-specification.md as primary requirement source. When implementation needs technical details (e.g., API schemas, caching configs, design tokens), refer to artifacts[] for detailed specifications from original role analyses.",
+        "modification_points": [
+          "Apply consolidated requirements from synthesis-specification.md",
+          "Follow technical guidelines from synthesis",
+          "Consult artifacts for implementation details when needed",
+          "Integrate with existing patterns"
+        ],
+        "logic_flow": [
+          "Load synthesis specification",
+          "Parse architecture and requirements",
+          "Implement following specification",
+          "Consult artifacts for technical details when needed",
+          "Validate against acceptance criteria"
+        ],
+        "depends_on": [],
+        "output": "implementation"
+      }
+    ],
     "target_files": ["file:function:lines", "path/to/NewFile.ts"]
   }
 }

@@ -162,17 +162,61 @@ All task files use this unified 5-field schema with optional artifacts enhanceme
         "output_to": "context"
       }
     ],
-    "implementation_approach": {
-      "task_description": "Implement JWT authentication following [design]",
-      "modification_points": [
-        "Add JWT generation using [parent] patterns",
-        "Implement validation middleware from [context]"
-      ],
-      "logic_flow": [
-        "User login → validate with [inherited] → generate JWT",
-        "Protected route → extract JWT → validate using [shared] rules"
-      ]
-    },
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Set up authentication infrastructure",
+        "description": "Install JWT library and create auth config following [design] patterns from [parent]",
+        "modification_points": [
+          "Add JWT library dependencies to package.json",
+          "Create auth configuration file using [parent] patterns"
+        ],
+        "logic_flow": [
+          "Install jsonwebtoken library via npm",
+          "Configure JWT secret and expiration from [inherited]",
+          "Export auth config for use by [jwt_generator]"
+        ],
+        "depends_on": [],
+        "output": "auth_config"
+      },
+      {
+        "step": 2,
+        "title": "Implement JWT generation",
+        "description": "Create JWT token generation logic using [auth_config] and [inherited] validation patterns",
+        "modification_points": [
+          "Add JWT generation function in auth service",
+          "Implement token signing with [auth_config]"
+        ],
+        "logic_flow": [
+          "User login → validate credentials with [inherited]",
+          "Generate JWT payload with user data",
+          "Sign JWT using secret from [auth_config]",
+          "Return signed token"
+        ],
+        "depends_on": [1],
+        "output": "jwt_generator"
+      },
+      {
+        "step": 3,
+        "title": "Implement JWT validation middleware",
+        "description": "Create middleware to validate JWT tokens using [auth_config] and [shared] rules",
+        "modification_points": [
+          "Create validation middleware using [jwt_generator]",
+          "Add token verification using [shared] rules",
+          "Implement user attachment to request object"
+        ],
+        "logic_flow": [
+          "Protected route → extract JWT from Authorization header",
+          "Validate token signature using [auth_config]",
+          "Check token expiration and [shared] rules",
+          "Decode payload and attach user to request",
+          "Call next() or return 401 error"
+        ],
+        "command": "bash(npm test -- middleware.test.ts)",
+        "depends_on": [1, 2],
+        "output": "auth_middleware"
+      }
+    ],
     "target_files": [
       "src/auth/login.ts:handleLogin:75-120",
       "src/middleware/auth.ts:validateToken",
@@ -208,33 +252,329 @@ Optional field referencing brainstorming outputs for task execution:
 **Types & Priority**: synthesis_specification (highest) → topic_framework (medium) → individual_role_analysis (low)
 
 #### Flow Control Configuration
-The **flow_control** field manages task execution with two main components:
+The **flow_control** field manages task execution through structured sequential steps. For complete format specifications and usage guidelines, see [Flow Control Format Guide](#flow-control-format-guide) below.
 
-**pre_analysis** - Context gathering phase:
-- **Flexible commands**: Supports multiple tool types (see Tool Reference below)
-- **Step structure**: Each step has `step`, `action`, `command` fields
-- **Variable accumulation**: Steps can reference previous outputs via `[variable_name]`
-- **Error handling**: `skip_optional`, `fail`, `retry_once`, `manual_intervention`
+**Quick Reference**:
+- **pre_analysis**: Context gathering steps (supports multiple command types)
+- **implementation_approach**: Implementation steps array with dependency management
+- **target_files**: Target files for modification (file:function:lines format)
+- **Variable references**: Use `[variable_name]` to reference step outputs
+- **Tool integration**: Supports Gemini, Codex, Bash commands, and MCP tools
 
-**implementation_approach** - Implementation definition:
-- **task_description**: Comprehensive implementation description
-- **modification_points**: Specific code modification targets
-- **logic_flow**: Business logic execution sequence
-- **target_files**: Target file list - existing files in `file:function:lines` format, new files as `file` only
+## Flow Control Format Guide
 
-#### Tool Reference
-**Command Types Available**:
-- **Gemini CLI**: `~/.claude/scripts/gemini-wrapper -p "prompt"`
-- **Codex CLI**: `codex --full-auto exec "task" -s danger-full-access`
-- **Built-in Tools**: `grep(pattern)`, `glob(pattern)`, `search(query)`
-- **Bash Commands**: `bash(rg 'pattern' src/)`, `bash(find . -name "*.ts")`
+The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow control steps for sequential execution. There are **two distinct formats** used in different scenarios:
 
-#### Variable System & Context Flow
-**Flow Control Variables**: Use `[variable_name]` format for dynamic content:
+### Format Comparison Matrix
+
+| Aspect | Inline Format | JSON Format |
+|--------|--------------|-------------|
+| **Used In** | Brainstorm workflows | Implementation tasks |
+| **Agent** | conceptual-planning-agent | code-developer, test-fix-agent, doc-generator |
+| **Location** | Task() prompt (markdown) | .task/IMPL-*.json file |
+| **Persistence** | Temporary (prompt-only) | Persistent (file storage) |
+| **Complexity** | Simple (3-5 steps) | Complex (10+ steps) |
+| **Dependencies** | None | Full `depends_on` support |
+| **Purpose** | Load brainstorming context | Implement task with preparation |
+
+### Inline Format (Brainstorm)
+
+**Marker**: `[FLOW_CONTROL]` written directly in Task() prompt
+
+**Structure**: Markdown list format
+
+**Used By**: Brainstorm commands (`auto-parallel.md`, role commands)
+
+**Agent**: `conceptual-planning-agent`
+
+**Example**:
+```markdown
+[FLOW_CONTROL]
+
+### Flow Control Steps
+**AGENT RESPONSIBILITY**: Execute these pre_analysis steps sequentially with context accumulation:
+
+1. **load_topic_framework**
+   - Action: Load structured topic discussion framework
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
+   - Output: topic_framework
+
+2. **load_role_template**
+   - Action: Load role-specific planning template
+   - Command: bash($(cat "~/.claude/workflows/cli-templates/planning-roles/{role}.md"))
+   - Output: role_template
+
+3. **load_session_metadata**
+   - Action: Load session metadata and topic description
+   - Command: bash(cat .workflow/WFS-{session}/workflow-session.json 2>/dev/null || echo '{}')
+   - Output: session_metadata
+```
+
+**Characteristics**:
+- 3-5 simple context loading steps
+- Written directly in prompt (not persistent)
+- No dependency management between steps
+- Used for temporary context preparation
+- Variables: `[variable_name]` for output references
+
+### JSON Format (Implementation)
+
+**Marker**: `[FLOW_CONTROL]` used in TodoWrite or documentation to indicate task has flow control
+
+**Structure**: Complete JSON structure in task file
+
+**Used By**: Implementation tasks (IMPL-*.json)
+
+**Agents**: `code-developer`, `test-fix-agent`, `doc-generator`
+
+**Example**:
+```json
+"flow_control": {
+  "pre_analysis": [
+    {
+      "step": "load_synthesis_specification",
+      "action": "Load consolidated synthesis specification",
+      "commands": [
+        "bash(ls .workflow/WFS-{session}/.brainstorming/synthesis-specification.md 2>/dev/null || echo 'not found')",
+        "Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)"
+      ],
+      "output_to": "synthesis_specification",
+      "on_error": "skip_optional"
+    },
+    {
+      "step": "mcp_codebase_exploration",
+      "action": "Explore codebase using MCP",
+      "command": "mcp__code-index__find_files(pattern=\"*.ts\") && mcp__code-index__search_code_advanced(pattern=\"auth\")",
+      "output_to": "codebase_structure"
+    }
+  ],
+  "implementation_approach": [
+    {
+      "step": 1,
+      "title": "Setup infrastructure",
+      "description": "Install JWT library and create config following [synthesis_specification]",
+      "modification_points": [
+        "Add JWT library dependencies to package.json",
+        "Create auth configuration file"
+      ],
+      "logic_flow": [
+        "Install jsonwebtoken library via npm",
+        "Configure JWT secret from [synthesis_specification]",
+        "Export auth config for use by [jwt_generator]"
+      ],
+      "depends_on": [],
+      "output": "auth_config"
+    },
+    {
+      "step": 2,
+      "title": "Implement JWT generation",
+      "description": "Create JWT token generation logic using [auth_config]",
+      "modification_points": [
+        "Add JWT generation function in auth service",
+        "Implement token signing with [auth_config]"
+      ],
+      "logic_flow": [
+        "User login → validate credentials",
+        "Generate JWT payload with user data",
+        "Sign JWT using secret from [auth_config]",
+        "Return signed token"
+      ],
+      "depends_on": [1],
+      "output": "jwt_generator"
+    }
+  ],
+  "target_files": [
+    "src/auth/login.ts:handleLogin:75-120",
+    "src/middleware/auth.ts:validateToken"
+  ]
+}
+```
+
+**Characteristics**:
+- Persistent storage in .task/IMPL-*.json files
+- Complete dependency management (`depends_on` arrays)
+- Two-phase structure: `pre_analysis` + `implementation_approach`
+- Error handling strategies (`on_error` field)
+- Target file specifications
+- Variables: `[variable_name]` for cross-step references
+
+### JSON Format Field Specifications
+
+#### pre_analysis Field
+**Purpose**: Context gathering phase before implementation
+
+**Structure**: Array of step objects with sequential execution
+
+**Step Fields**:
+- **step**: Step identifier (string, e.g., "load_synthesis_specification")
+- **action**: Human-readable description of the step
+- **command** or **commands**: Single command string or array of command strings
+- **output_to**: Variable name for storing step output
+- **on_error**: Error handling strategy (`skip_optional`, `fail`, `retry_once`, `manual_intervention`)
+
+**Command Types Supported**:
+- **Bash commands**: `bash(command)` - Any shell command
+- **Tool calls**: `Read(file)`, `Glob(pattern)`, `Grep(pattern)`
+- **MCP tools**: `mcp__code-index__find_files()`, `mcp__exa__get_code_context_exa()`
+- **CLI wrappers**: `~/.claude/scripts/gemini-wrapper`, `codex --full-auto exec`
+
+**Example**:
+```json
+{
+  "step": "load_context",
+  "action": "Load project context and patterns",
+  "commands": [
+    "bash(~/.claude/scripts/get_modules_by_depth.sh)",
+    "Read(CLAUDE.md)"
+  ],
+  "output_to": "project_structure",
+  "on_error": "skip_optional"
+}
+```
+
+#### implementation_approach Field
+**Purpose**: Define implementation steps with dependency management
+
+**Structure**: Array of step objects (NOT object format)
+
+**Step Fields (All Required)**:
+- **step**: Unique step number (1, 2, 3, ...) - serves as step identifier
+- **title**: Brief step title
+- **description**: Comprehensive implementation description with context variable references
+- **modification_points**: Array of specific code modification targets
+- **logic_flow**: Array describing business logic execution sequence
+- **depends_on**: Array of step numbers this step depends on (e.g., `[1]`, `[1, 2]`) - empty array `[]` for independent steps
+- **output**: Output variable name that can be referenced by subsequent steps via `[output_name]`
+
+**Optional Fields**:
+- **command**: Command for step execution (supports any shell command or CLI tool)
+  - When omitted: Agent interprets modification_points and logic_flow to execute
+  - When specified: Command executes the step directly
+
+**Execution Modes**:
+- **Default (without command)**: Agent executes based on modification_points and logic_flow
+- **With command**: Specified command handles execution
+
+**Command Field Usage**:
+- **Default approach**: Omit command field - let agent execute autonomously
+- **CLI tools (codex/gemini/qwen)**: Add ONLY when user explicitly requests CLI tool usage
+- **Simple commands**: Can include bash commands, test commands, validation scripts
+- **Complex workflows**: Use command for multi-step operations or tool coordination
+
+**Command Format Examples** (only when explicitly needed):
+```json
+// Simple Bash
+"command": "bash(npm install package)"
+"command": "bash(npm test)"
+
+// Validation
+"command": "bash(test -f config.ts && grep -q 'JWT_SECRET' config.ts)"
+
+// Codex (user requested)
+"command": "codex -C path --full-auto exec \"task\" --skip-git-repo-check -s danger-full-access"
+
+// Codex Resume (user requested, maintains context)
+"command": "codex --full-auto exec \"task\" resume --last --skip-git-repo-check -s danger-full-access"
+
+// Gemini (user requested)
+"command": "~/.claude/scripts/gemini-wrapper -p \"analyze [context]\""
+
+// Qwen (fallback for Gemini)
+"command": "~/.claude/scripts/qwen-wrapper -p \"analyze [context]\""
+```
+
+**Example Step**:
+```json
+{
+  "step": 2,
+  "title": "Implement JWT generation",
+  "description": "Create JWT token generation logic using [auth_config]",
+  "modification_points": [
+    "Add JWT generation function in auth service",
+    "Implement token signing with [auth_config]"
+  ],
+  "logic_flow": [
+    "User login → validate credentials",
+    "Generate JWT payload with user data",
+    "Sign JWT using secret from [auth_config]",
+    "Return signed token"
+  ],
+  "depends_on": [1],
+  "output": "jwt_generator"
+}
+```
+
+#### target_files Field
+**Purpose**: Specify files to be modified or created
+
+**Format**: Array of strings
+- **Existing files**: `"file:function:lines"` (e.g., `"src/auth/login.ts:handleLogin:75-120"`)
+- **New files**: `"path/to/NewFile.ts"` (file path only)
+
+### Tool Reference
+
+**Available Command Types**:
+
+**Gemini CLI**:
+```bash
+~/.claude/scripts/gemini-wrapper -p "prompt"
+~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "prompt"  # For write mode
+```
+
+**Qwen CLI** (Gemini fallback):
+```bash
+~/.claude/scripts/qwen-wrapper -p "prompt"
+~/.claude/scripts/qwen-wrapper --approval-mode yolo -p "prompt"  # For write mode
+```
+
+**Codex CLI**:
+```bash
+codex -C directory --full-auto exec "task" --skip-git-repo-check -s danger-full-access
+codex --full-auto exec "task" resume --last --skip-git-repo-check -s danger-full-access
+```
+
+**Built-in Tools**:
+- `Read(file_path)` - Read file contents
+- `Glob(pattern)` - Find files by pattern
+- `Grep(pattern)` - Search content with regex
+- `bash(command)` - Execute bash command
+
+**MCP Tools**:
+- `mcp__code-index__find_files(pattern="*.ts")` - Find files using code index
+- `mcp__code-index__search_code_advanced(pattern="auth")` - Search code patterns
+- `mcp__exa__get_code_context_exa(query="...")` - Get code context from Exa
+- `mcp__exa__web_search_exa(query="...")` - Web search via Exa
+
+**Bash Commands**:
+```bash
+bash(rg 'pattern' src/)
+bash(find . -name "*.ts")
+bash(npm test)
+bash(git log --oneline | head -5)
+```
+
+### Variable System & Context Flow
+
+**Variable Reference Syntax**:
+Both formats use `[variable_name]` syntax for referencing outputs from previous steps.
+
+**Variable Types**:
 - **Step outputs**: `[step_output_name]` - Reference any pre_analysis step output
 - **Task properties**: `[task_property]` - Reference any task context field
 - **Previous results**: `[analysis_result]` - Reference accumulated context
-- **Commands**: All commands wrapped with appropriate error handling
+- **Implementation outputs**: Reference outputs from previous implementation steps
+
+**Examples**:
+```json
+// Reference pre_analysis output
+"description": "Install JWT library following [synthesis_specification]"
+
+// Reference previous step output
+"description": "Create middleware using [auth_config] and [jwt_generator]"
+
+// Reference task context
+"command": "bash(cd [focus_paths] && npm test)"
+```
 
 **Context Accumulation Process**:
 1. **Structure Analysis**: `get_modules_by_depth.sh` → project hierarchy
@@ -248,16 +588,76 @@ The **flow_control** field manages task execution with two main components:
 - **Session → Task**: Global session context included in all tasks
 - **Module → Feature**: Module patterns inform feature implementation
 
+### Agent Processing Rules
+
+**conceptual-planning-agent** (Inline Format):
+- Parses markdown list from prompt
+- Executes 3-5 simple loading steps
+- No dependency resolution needed
+- Accumulates context in variables
+- Used only in brainstorm workflows
+
+**code-developer, test-fix-agent** (JSON Format):
+- Loads complete task JSON from file
+- Executes `pre_analysis` steps sequentially
+- Processes `implementation_approach` with dependency resolution
+- Handles complex variable substitution
+- Updates task status in JSON file
+
+### Usage Guidelines
+
+**Use Inline Format When**:
+- Running brainstorm workflows
+- Need 3-5 simple context loading steps
+- No persistence required
+- No dependencies between steps
+- Temporary context preparation
+
+**Use JSON Format When**:
+- Implementing features or tasks
+- Need 10+ complex execution steps
+- Require dependency management
+- Need persistent task definitions
+- Complex variable flow between steps
+- Error handling strategies needed
+
+### Variable Reference Syntax
+
+Both formats use `[variable_name]` syntax for referencing outputs:
+
+**Inline Format**:
+```markdown
+2. **analyze_context**
+   - Action: Analyze using [topic_framework] and [role_template]
+   - Output: analysis_results
+```
+
+**JSON Format**:
+```json
+{
+  "step": 2,
+  "description": "Implement following [synthesis_specification] and [codebase_structure]",
+  "depends_on": [1],
+  "output": "implementation"
+}
+```
+
 ### Task Validation Rules
 1. **ID Uniqueness**: All task IDs must be unique
 2. **Hierarchical Format**: Must follow IMPL-N[.M] pattern (maximum 2 levels)
 3. **Parent References**: All parent IDs must exist as JSON files
 4. **Status Consistency**: Status values from defined enumeration
-5. **Required Fields**: All 5 core fields must be present
+5. **Required Fields**: All 5 core fields must be present (id, title, status, meta, context, flow_control)
 6. **Focus Paths Structure**: context.focus_paths must contain concrete paths (no wildcards)
 7. **Flow Control Format**: pre_analysis must be array with required fields
-8. **Dependency Integrity**: All depends_on task IDs must exist as JSON files
+8. **Dependency Integrity**: All task-level depends_on references must exist as JSON files
 9. **Artifacts Structure**: context.artifacts (optional) must use valid type, priority, and path format
+10. **Implementation Steps Array**: implementation_approach must be array of step objects
+11. **Step Number Uniqueness**: All step numbers within a task must be unique and sequential (1, 2, 3, ...)
+12. **Step Dependencies**: All step-level depends_on numbers must reference valid steps within same task
+13. **Step Sequence**: Step numbers should match array order (first item step=1, second item step=2, etc.)
+14. **Step Required Fields**: Each step must have step, title, description, modification_points, logic_flow, depends_on, output
+15. **Step Optional Fields**: command field is optional - when omitted, agent executes based on modification_points and logic_flow
 
 ## Workflow Structure
 

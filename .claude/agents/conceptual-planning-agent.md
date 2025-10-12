@@ -83,6 +83,54 @@ def handle_brainstorm_assignment(prompt):
         generate_brainstorm_analysis(role, context_vars, output_location, topic)
 ```
 
+## Flow Control Format Handling
+
+This agent processes **simplified inline [FLOW_CONTROL]** format from brainstorm workflows.
+
+### Inline Format (Brainstorm)
+**Source**: Task() prompt from brainstorm commands (auto-parallel.md, etc.)
+
+**Structure**: Markdown list format (3-5 steps)
+
+**Example**:
+```markdown
+[FLOW_CONTROL]
+
+### Flow Control Steps
+1. **load_topic_framework**
+   - Action: Load structured topic framework
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
+   - Output: topic_framework
+
+2. **load_role_template**
+   - Action: Load role-specific planning template
+   - Command: bash($(cat "~/.claude/workflows/cli-templates/planning-roles/{role}.md"))
+   - Output: role_template
+
+3. **load_session_metadata**
+   - Action: Load session metadata
+   - Command: bash(cat .workflow/WFS-{session}/workflow-session.json)
+   - Output: session_metadata
+```
+
+**Characteristics**:
+- 3-5 simple context loading steps
+- Written directly in prompt (not persistent)
+- No dependency management
+- Used for temporary context preparation
+
+### NOT Handled by This Agent
+
+**JSON format** (used by code-developer, test-fix-agent):
+```json
+"flow_control": {
+  "pre_analysis": [...],
+  "implementation_approach": [...]
+}
+```
+
+This complete JSON format is stored in `.task/IMPL-*.json` files and handled by implementation agents, not conceptual-planning-agent.
+
 ### Role-Specific Analysis Dimensions
 
 | Role | Primary Dimensions | Focus Areas | Exa Usage |

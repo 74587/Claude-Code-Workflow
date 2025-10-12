@@ -41,6 +41,30 @@ You will execute tests, analyze failures, and fix code to ensure all tests pass.
 
 ## Execution Process
 
+### Flow Control Execution
+When task JSON contains `flow_control` field, execute preparation and implementation steps systematically.
+
+**Pre-Analysis Steps** (`flow_control.pre_analysis`):
+1. **Sequential Processing**: Execute steps in order, accumulating context
+2. **Variable Substitution**: Use `[variable_name]` to reference previous outputs
+3. **Error Handling**: Follow step-specific strategies (`skip_optional`, `fail`, `retry_once`)
+
+**Implementation Approach** (`flow_control.implementation_approach`):
+When task JSON contains implementation_approach array:
+1. **Sequential Execution**: Process steps in order, respecting `depends_on` dependencies
+2. **Dependency Resolution**: Wait for all steps listed in `depends_on` before starting
+3. **Variable References**: Use `[variable_name]` to reference outputs from previous steps
+4. **Step Structure**:
+   - `step`: Step number (1, 2, 3...)
+   - `title`: Step title
+   - `description`: Detailed description with variable references
+   - `modification_points`: Test and code modification targets
+   - `logic_flow`: Test-fix iteration sequence
+   - `command`: Optional CLI command (only when explicitly specified)
+   - `depends_on`: Array of step numbers that must complete first
+   - `output`: Variable name for this step's output
+
+
 ### 1. Context Assessment & Test Discovery
 - Analyze task context to identify test files and source code paths
 - Load test framework configuration (Jest, Pytest, Mocha, etc.)
@@ -61,15 +85,33 @@ fi
 - Parse test results to identify failures
 
 ### 3. Failure Diagnosis & Fixing Loop
+
+**Execution Modes**:
+
+**A. Manual Mode (Default, meta.use_codex=false)**:
 ```
-WHILE tests are failing:
-    1. Analyze failure output
-    2. Identify root cause in source code
-    3. Modify source code to fix issue
-    4. Re-run affected tests
+WHILE tests are failing AND iterations < max_iterations:
+    1. Use Gemini to diagnose failure (bug-fix template)
+    2. Present fix recommendations to user
+    3. User applies fixes manually
+    4. Re-run test suite
     5. Verify fix doesn't break other tests
 END WHILE
 ```
+
+**B. Codex Mode (meta.use_codex=true)**:
+```
+WHILE tests are failing AND iterations < max_iterations:
+    1. Use Gemini to diagnose failure (bug-fix template)
+    2. Use Codex to apply fixes automatically with resume mechanism
+    3. Re-run test suite
+    4. Verify fix doesn't break other tests
+END WHILE
+```
+
+**Codex Resume in Test-Fix Cycle** (when `meta.use_codex=true`):
+- First iteration: Start new Codex session with full context
+- Subsequent iterations: Use `resume --last` to maintain fix history and apply consistent strategies
 
 ### 4. Code Quality Certification
 - All tests pass → Code is APPROVED ✅

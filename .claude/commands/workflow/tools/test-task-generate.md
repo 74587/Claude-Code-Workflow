@@ -1,16 +1,28 @@
 ---
 name: test-task-generate
 description: Generate test-fix task JSON with iterative test-fix-retest cycle specification
-argument-hint: "[--use-codex] --session WFS-test-session-id"
+argument-hint: "[--use-codex] [--cli-execute] --session WFS-test-session-id"
 examples:
   - /workflow:tools:test-task-generate --session WFS-test-auth
   - /workflow:tools:test-task-generate --use-codex --session WFS-test-auth
+  - /workflow:tools:test-task-generate --cli-execute --session WFS-test-auth
+  - /workflow:tools:test-task-generate --cli-execute --use-codex --session WFS-test-auth
 ---
 
 # Test Task Generation Command
 
 ## Overview
 Generate specialized test-fix task JSON with comprehensive test-fix-retest cycle specification, including Gemini diagnosis (using bug-fix template) and manual fix workflow (Codex automation only when explicitly requested).
+
+## Execution Modes
+
+### Test Generation (IMPL-001)
+- **Agent Mode (Default)**: @code-developer generates tests within agent context
+- **CLI Execute Mode (`--cli-execute`)**: Use Codex CLI for autonomous test generation
+
+### Test Fix (IMPL-002)
+- **Manual Mode (Default)**: Gemini diagnosis → user applies fixes
+- **Codex Mode (`--use-codex`)**: Gemini diagnosis → Codex applies fixes with resume mechanism
 
 ## Core Philosophy
 - **Analysis-Driven Test Generation**: Use TEST_ANALYSIS_RESULTS.md from test-concept-enhanced
@@ -37,8 +49,9 @@ Generate specialized test-fix task JSON with comprehensive test-fix-retest cycle
 ### Phase 1: Input Validation & Discovery
 
 1. **Parameter Parsing**
-   - Parse `--use-codex` flag from command arguments
-   - Store flag value for IMPL-002.json generation
+   - Parse `--use-codex` flag from command arguments → Controls IMPL-002 fix mode
+   - Parse `--cli-execute` flag from command arguments → Controls IMPL-001 generation mode
+   - Store flag values for task JSON generation
 
 2. **Test Session Validation**
    - Load `.workflow/{test-session-id}/workflow-session.json`
@@ -142,31 +155,53 @@ Generate **TWO task JSON files**:
         "on_error": "skip_optional"
       }
     ],
-    "implementation_approach": {
-      "task_description": "Generate comprehensive test suite based on TEST_ANALYSIS_RESULTS.md. Follow test generation strategy and create all test files listed in section 5 (Implementation Targets).",
-      "generation_steps": [
-        "Read TEST_ANALYSIS_RESULTS.md section 3 (Test Requirements by File)",
-        "Read TEST_ANALYSIS_RESULTS.md section 4 (Test Generation Strategy)",
-        "Study existing test patterns from test_context.test_framework.conventions",
-        "For each test file in section 5 (Implementation Targets):",
-        "  - Create test file with specified scenarios",
-        "  - Implement happy path tests",
-        "  - Implement error handling tests",
-        "  - Implement edge case tests",
-        "  - Implement integration tests (if specified)",
-        "  - Add required mocks and fixtures",
-        "Follow test framework conventions and project standards",
-        "Ensure all tests are executable and syntactically valid"
+    // Agent Mode (Default): Agent implements tests
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Generate comprehensive test suite",
+        "description": "Generate comprehensive test suite based on TEST_ANALYSIS_RESULTS.md. Follow test generation strategy and create all test files listed in section 5 (Implementation Targets).",
+        "modification_points": [
+          "Read TEST_ANALYSIS_RESULTS.md sections 3 and 4",
+          "Study existing test patterns",
+          "Create test files with all required scenarios",
+          "Implement happy path, error handling, edge case, and integration tests",
+          "Add required mocks and fixtures"
+        ],
+        "logic_flow": [
+          "Read TEST_ANALYSIS_RESULTS.md section 3 (Test Requirements by File)",
+          "Read TEST_ANALYSIS_RESULTS.md section 4 (Test Generation Strategy)",
+          "Study existing test patterns from test_context.test_framework.conventions",
+          "For each test file in section 5 (Implementation Targets): Create test file with specified scenarios, Implement happy path tests, Implement error handling tests, Implement edge case tests, Implement integration tests (if specified), Add required mocks and fixtures",
+          "Follow test framework conventions and project standards",
+          "Ensure all tests are executable and syntactically valid"
+        ],
+        "depends_on": [],
+        "output": "test_suite"
+      }
+    ],
+
+    // CLI Execute Mode (--cli-execute): Use Codex command (alternative format shown below)
+    "implementation_approach": [{
+      "step": 1,
+      "title": "Generate tests using Codex",
+      "description": "Use Codex CLI to autonomously generate comprehensive test suite based on TEST_ANALYSIS_RESULTS.md",
+      "modification_points": [
+        "Codex loads TEST_ANALYSIS_RESULTS.md and existing test patterns",
+        "Codex generates all test files listed in analysis section 5",
+        "Codex ensures tests follow framework conventions"
       ],
-      "quality_criteria": [
-        "All test scenarios from analysis are implemented",
-        "Test structure matches existing patterns",
-        "Clear test descriptions and assertions",
-        "Proper setup/teardown and fixtures",
-        "Dependencies properly mocked",
-        "Tests follow project coding standards"
-      ]
-    },
+      "logic_flow": [
+        "Start new Codex session",
+        "Pass TEST_ANALYSIS_RESULTS.md to Codex",
+        "Codex studies existing test patterns",
+        "Codex generates comprehensive test suite",
+        "Codex validates test syntax and executability"
+      ],
+      "command": "bash(codex -C [focus_paths] --full-auto exec \"PURPOSE: Generate comprehensive test suite TASK: Create test files based on TEST_ANALYSIS_RESULTS.md section 5 MODE: write CONTEXT: @{.workflow/WFS-test-[session]/.process/TEST_ANALYSIS_RESULTS.md,.workflow/WFS-test-[session]/.process/test-context-package.json} EXPECTED: All test files with happy path, error handling, edge cases, integration tests RULES: Follow test framework conventions, ensure tests are executable\" --skip-git-repo-check -s danger-full-access)",
+      "depends_on": [],
+      "output": "test_generation"
+    }],
     "target_files": [
       "{test_file_1 from TEST_ANALYSIS_RESULTS.md section 5}",
       "{test_file_2 from TEST_ANALYSIS_RESULTS.md section 5}",
@@ -278,24 +313,27 @@ Generate **TWO task JSON files**:
         "on_error": "skip_optional"
       }
     ],
-    "implementation_approach": {
-      "task_description": "Execute iterative test-fix-retest cycle using Gemini diagnosis (bug-fix template) and manual fixes (Codex only if explicitly needed)",
-      "test_fix_cycle": {
-        "max_iterations": 5,
-        "cycle_pattern": "test → gemini_diagnose → manual_fix (or codex if needed) → retest",
-        "tools": {
-          "test_execution": "bash(test_command)",
-          "diagnosis": "gemini-wrapper (MODE: analysis, uses bug-fix template)",
-          "fix_application": "manual (default) or codex exec resume --last (if explicitly needed)",
-          "verification": "bash(test_command) + regression_check"
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Execute iterative test-fix-retest cycle",
+        "description": "Execute iterative test-fix-retest cycle using Gemini diagnosis (bug-fix template) and manual fixes (Codex only if meta.use_codex=true). Max 5 iterations with automatic revert on failure.",
+        "test_fix_cycle": {
+          "max_iterations": 5,
+          "cycle_pattern": "test → gemini_diagnose → manual_fix (or codex if needed) → retest",
+          "tools": {
+            "test_execution": "bash(test_command)",
+            "diagnosis": "gemini-wrapper (MODE: analysis, uses bug-fix template)",
+            "fix_application": "manual (default) or codex exec resume --last (if explicitly needed)",
+            "verification": "bash(test_command) + regression_check"
+          },
+          "exit_conditions": {
+            "success": "all_tests_pass",
+            "failure": "max_iterations_reached",
+            "error": "test_command_not_found"
+          }
         },
-        "exit_conditions": {
-          "success": "all_tests_pass",
-          "failure": "max_iterations_reached",
-          "error": "test_command_not_found"
-        }
-      },
-      "modification_points": [
+        "modification_points": [
         "PHASE 1: Initial Test Execution",
         "  1.1. Discover test command from framework detection",
         "  1.2. Execute initial test run: bash([test_command])",
@@ -427,33 +465,36 @@ Generate **TWO task JSON files**:
         "  Generate summary (include test generation info)",
         "  Certify code APPROVED"
       ],
-      "error_handling": {
-        "max_iterations_reached": {
-          "action": "revert_all_changes",
-          "commands": [
-            "bash(git reset --hard HEAD)",
-            "bash(jq '.status = \"blocked\"' .workflow/[session]/.task/IMPL-001.json > temp.json && mv temp.json .workflow/[session]/.task/IMPL-001.json)"
-          ],
-          "report": "Generate failure report with iteration logs in .summaries/IMPL-001-failure-report.md"
+        "error_handling": {
+          "max_iterations_reached": {
+            "action": "revert_all_changes",
+            "commands": [
+              "bash(git reset --hard HEAD)",
+              "bash(jq '.status = \"blocked\"' .workflow/[session]/.task/IMPL-001.json > temp.json && mv temp.json .workflow/[session]/.task/IMPL-001.json)"
+            ],
+            "report": "Generate failure report with iteration logs in .summaries/IMPL-001-failure-report.md"
+          },
+          "test_command_fails": {
+            "action": "treat_as_test_failure",
+            "context": "Use stderr as failure context for Gemini diagnosis"
+          },
+          "codex_apply_fails": {
+            "action": "retry_once_then_skip",
+            "fallback": "Mark iteration as skipped, continue to next"
+          },
+          "gemini_diagnosis_fails": {
+            "action": "retry_with_simplified_context",
+            "fallback": "Use previous diagnosis, continue"
+          },
+          "regression_detected": {
+            "action": "log_warning_continue",
+            "context": "Include regression info in next Gemini diagnosis"
+          }
         },
-        "test_command_fails": {
-          "action": "treat_as_test_failure",
-          "context": "Use stderr as failure context for Gemini diagnosis"
-        },
-        "codex_apply_fails": {
-          "action": "retry_once_then_skip",
-          "fallback": "Mark iteration as skipped, continue to next"
-        },
-        "gemini_diagnosis_fails": {
-          "action": "retry_with_simplified_context",
-          "fallback": "Use previous diagnosis, continue"
-        },
-        "regression_detected": {
-          "action": "log_warning_continue",
-          "context": "Include regression info in next Gemini diagnosis"
-        }
+        "depends_on": [],
+        "output": "test_fix_results"
       }
-    },
+    ],
     "target_files": [
       "Auto-discovered from test failures",
       "Extracted from Gemini diagnosis each iteration",

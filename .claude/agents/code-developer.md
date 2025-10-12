@@ -90,6 +90,32 @@ ELIF context insufficient OR task has flow control marker:
 - Get API examples: `mcp__exa__get_code_context_exa(query="React authentication hooks", tokensNum="dynamic")`
 - Update after changes: `mcp__code-index__refresh_index()`
 
+**Implementation Approach Execution**:
+When task JSON contains `flow_control.implementation_approach` array:
+1. **Sequential Processing**: Execute steps in order, respecting `depends_on` dependencies
+2. **Dependency Resolution**: Wait for all steps listed in `depends_on` before starting
+3. **Variable Substitution**: Use `[variable_name]` to reference outputs from previous steps
+4. **Step Structure**:
+   - `step`: Unique identifier (1, 2, 3...)
+   - `title`: Step title
+   - `description`: Detailed description with variable references
+   - `modification_points`: Code modification targets
+   - `logic_flow`: Business logic sequence
+   - `command`: Optional CLI command (only when explicitly specified)
+   - `depends_on`: Array of step numbers that must complete first
+   - `output`: Variable name for this step's output
+5. **Execution Rules**:
+   - Execute step 1 first (typically has `depends_on: []`)
+   - For each subsequent step, verify all `depends_on` steps completed
+   - Substitute `[variable_name]` with actual outputs from previous steps
+   - Store this step's result in the `output` variable for future steps
+   - If `command` field present, execute it; otherwise use agent capabilities
+
+**CLI Command Execution (CLI Execute Mode)**:
+When step contains `command` field with Codex CLI, execute via Bash tool. For Codex resume:
+- First task (`depends_on: []`): `codex -C [path] --full-auto exec "..." --skip-git-repo-check -s danger-full-access`
+- Subsequent tasks (has `depends_on`): Add `resume --last` flag to maintain session context
+
 **Test-Driven Development**:
 - Write tests first (red → green → refactor)
 - Focus on core functionality and edge cases

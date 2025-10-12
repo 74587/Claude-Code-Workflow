@@ -68,8 +68,17 @@ You are an expert technical documentation specialist. Your responsibility is to 
 
 ### 3. Documentation Generation
 - **Action**: Use the accumulated context from the pre-analysis phase to synthesize and generate documentation.
-- **Instructions**: Follow the `implementation_approach` defined in the `flow_control` block.
-- **Templates**: Apply templates as specified in `meta.template` or `implementation_approach`.
+- **Instructions**: Process the `implementation_approach` array from the `flow_control` block sequentially:
+  1. **Array Structure**: `implementation_approach` is an array of step objects
+  2. **Sequential Execution**: Execute steps in order, respecting `depends_on` dependencies
+  3. **Variable Substitution**: Use `[variable_name]` to reference outputs from previous steps
+  4. **Step Processing**:
+     - Verify all `depends_on` steps completed before starting
+     - Follow `modification_points` and `logic_flow` for each step
+     - Execute `command` if present, otherwise use agent capabilities
+     - Store result in `output` variable for future steps
+  5. **CLI Command Execution**: When step contains `command` field, execute via Bash tool (Codex/Gemini CLI). For Codex with dependencies, use `resume --last` flag.
+- **Templates**: Apply templates as specified in `meta.template` or step-level templates.
 - **Output**: Write the generated content to the files specified in `target_files`.
 
 ### 4. Progress Tracking with TodoWrite

@@ -1,7 +1,7 @@
 ---
 name: plan
 description: Orchestrate 4-phase planning workflow by executing commands and passing context between phases
-argument-hint: "[--agent] \"text description\"|file.md"
+argument-hint: "[--agent] [--cli-execute] \"text description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -30,6 +30,7 @@ This workflow runs **fully autonomously** once triggered. Each phase completes, 
 **Execution Modes**:
 - **Manual Mode** (default): Use `/workflow:tools:task-generate`
 - **Agent Mode** (`--agent`): Use `/workflow:tools:task-generate-agent`
+- **CLI Execute Mode** (`--cli-execute`): Generate tasks with Codex execution commands
 
 ## Core Rules
 
@@ -118,9 +119,23 @@ CONTEXT: Existing user database schema, REST API endpoints
 - **IMPL_PLAN.md defines "HOW"**: Executable task breakdown, dependencies, implementation sequence
 - Task generation translates high-level specifications into concrete, actionable work items
 
-**Command**:
+**Command Selection**:
 - Manual: `SlashCommand(command="/workflow:tools:task-generate --session [sessionId]")`
 - Agent: `SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId]")`
+- CLI Execute: Add `--cli-execute` flag to either command
+
+**Flag Combination**:
+- `--cli-execute` alone: Manual task generation with CLI execution
+- `--agent --cli-execute`: Agent task generation with CLI execution
+
+**Command Examples**:
+```bash
+# Manual with CLI execution
+/workflow:tools:task-generate --session WFS-auth --cli-execute
+
+# Agent with CLI execution
+/workflow:tools:task-generate-agent --session WFS-auth --cli-execute
+```
 
 **Input**: `sessionId` from Phase 1
 
@@ -254,7 +269,10 @@ Return summary to user
 ✅ Parse context path from Phase 2 output, store in memory
 ✅ Pass session ID and context path to Phase 3 command
 ✅ Verify ANALYSIS_RESULTS.md after Phase 3
-✅ Select correct Phase 4 command based on --agent flag
+✅ **Build Phase 4 command** based on flags:
+  - Base command: `/workflow:tools:task-generate` (or `-agent` if `--agent` flag)
+  - Add `--session [sessionId]`
+  - Add `--cli-execute` if flag present
 ✅ Pass session ID to Phase 4 command
 ✅ Verify all Phase 4 outputs
 ✅ Update TodoWrite after each phase

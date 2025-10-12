@@ -174,51 +174,53 @@ For each feature, generate 3 tasks with ID format:
         "on_error": "skip_optional"
       }
     ],
-    "implementation_approach": {
-      "task_description": "Write minimal code to pass tests, then enter iterative fix cycle if they still fail",
-      "initial_implementation": [
-        "Write minimal code based on test requirements",
-        "Execute test suite: bash(npm test -- tests/auth/login.test.ts)",
-        "If tests pass → Complete task",
-        "If tests fail → Capture failure logs and proceed to test-fix cycle"
-      ],
-      "test_fix_cycle": {
-        "max_iterations": 3,
-        "cycle_pattern": "gemini_diagnose → manual_fix (or codex if meta.use_codex=true) → retest",
-        "tools": {
-          "diagnosis": "gemini-wrapper (MODE: analysis, uses bug-fix template)",
-          "fix_application": "manual (default) or codex if meta.use_codex=true",
-          "verification": "bash(npm test -- tests/auth/login.test.ts)"
-        },
-        "exit_conditions": {
-          "success": "all_tests_pass",
-          "failure": "max_iterations_reached"
-        },
-        "steps": [
-          "ITERATION LOOP (max 3):",
-          "  1. Gemini Diagnosis:",
-          "     bash(cd .workflow/WFS-xxx/.process && ~/.claude/scripts/gemini-wrapper --all-files -p \"",
-          "     PURPOSE: Diagnose TDD Green phase test failure iteration [N]",
-          "     TASK: Systematic bug analysis and fix recommendations",
-          "     MODE: analysis",
-          "     CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}",
-          "              Test output: [test_failures]",
-          "              Test requirements: [test_requirements]",
-          "              Implementation: [focus_paths]",
-          "     EXPECTED: Root cause analysis, code path tracing, targeted fixes",
-          "     RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: [test_failure_description]",
-          "            Minimal surgical fixes only - stay in Green phase",
-          "     \" > green-fix-iteration-[N]-diagnosis.md)",
-          "  2. Apply Fix (check meta.use_codex):",
-          "     IF meta.use_codex=false (default): Present diagnosis to user for manual fix",
-          "     IF meta.use_codex=true: Codex applies fix automatically",
-          "  3. Retest: bash(npm test -- tests/auth/login.test.ts)",
-          "  4. If pass → Exit loop, complete task",
-          "     If fail → Continue to next iteration",
-          "IF max_iterations reached: Revert changes, report failure"
-        ]
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Implement minimal code to pass tests",
+        "description": "Write minimal code based on test requirements following TDD principles - no over-engineering",
+        "modification_points": [
+          "Load test requirements from TEST phase",
+          "Create/modify implementation files",
+          "Implement only what tests require",
+          "Focus on passing tests, not perfection"
+        ],
+        "logic_flow": [
+          "Load test requirements from [test_requirements]",
+          "Parse test expectations and edge cases",
+          "Write minimal implementation code",
+          "Avoid premature optimization or abstraction"
+        ],
+        "depends_on": [],
+        "output": "initial_implementation"
+      },
+      {
+        "step": 2,
+        "title": "Test and iteratively fix until passing",
+        "description": "Run tests and enter iterative fix cycle if needed (max 3 iterations with auto-revert on failure)",
+        "modification_points": [
+          "Execute test suite",
+          "If tests fail: diagnose with Gemini",
+          "Apply fixes (manual or Codex if meta.use_codex=true)",
+          "Retest and iterate"
+        ],
+        "logic_flow": [
+          "Run test suite",
+          "If all tests pass → Complete",
+          "If tests fail → Enter iteration loop (max 3):",
+          "  Extract failure messages and stack traces",
+          "  Use Gemini bug-fix template for diagnosis",
+          "  Generate targeted fix recommendations",
+          "  Apply fixes (manual or Codex)",
+          "  Rerun tests",
+          "  If pass → Complete, if fail → Continue iteration",
+          "If max_iterations reached → Trigger auto-revert"
+        ],
+        "command": "bash(npm test -- tests/auth/login.test.ts)",
+        "depends_on": [1],
+        "output": "test_results"
       }
-    },
+    ],
     "post_completion": [
       {
         "step": "verify_tests_passing",

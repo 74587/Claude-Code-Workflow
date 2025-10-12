@@ -1,7 +1,7 @@
 ---
 name: test-gen
 description: Create independent test-fix workflow session by analyzing completed implementation
-argument-hint: "[--use-codex] source-session-id"
+argument-hint: "[--use-codex] [--cli-execute] source-session-id"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -123,11 +123,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
 ### Phase 4: Generate Test Tasks
-**Command**: `SlashCommand(command="/workflow:tools:test-task-generate [--use-codex] --session [testSessionId]")`
+**Command**: `SlashCommand(command="/workflow:tools:test-task-generate [--use-codex] [--cli-execute] --session [testSessionId]")`
 
 **Input**:
 - `testSessionId` from Phase 1
-- `--use-codex` flag (if present in original command)
+- `--use-codex` flag (if present in original command) - Controls IMPL-002 fix mode
+- `--cli-execute` flag (if present in original command) - Controls IMPL-001 generation mode
 
 **Expected Behavior**:
 - Parse TEST_ANALYSIS_RESULTS.md from Phase 3

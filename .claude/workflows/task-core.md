@@ -42,11 +42,17 @@ All task files use this simplified 5-field schema (aligned with workflow-archite
         "on_error": "skip_optional"
       }
     ],
-    "implementation_approach": {
-      "task_description": "Implement comprehensive JWT authentication system...",
-      "modification_points": ["Add JWT token generation...", "..."],
-      "logic_flow": ["User login request → validate credentials...", "..."]
-    },
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Implement JWT authentication system",
+        "description": "Implement comprehensive JWT authentication system with token generation, validation, and refresh logic",
+        "modification_points": ["Add JWT token generation", "Implement token validation middleware", "Create refresh token logic"],
+        "logic_flow": ["User login request → validate credentials", "Generate JWT access and refresh tokens", "Store refresh token securely", "Return tokens to client"],
+        "depends_on": [],
+        "output": "jwt_implementation"
+      }
+    ],
     "target_files": [
       "src/auth/login.ts:handleLogin:75-120",
       "src/middleware/auth.ts:validateToken",

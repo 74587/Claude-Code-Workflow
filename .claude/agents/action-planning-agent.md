@@ -142,37 +142,6 @@ mcp__exa__get_code_context_exa(
 }
 ```
 
-**Legacy Pre-Execution Analysis** (backward compatibility):
-- **Multi-step Pre-Analysis**: Execute comprehensive analysis BEFORE implementation begins
-  - **Sequential Processing**: Process each step sequentially, expanding brief actions
-  - **Template Usage**: Use full template paths with $(cat template_path)
-  - **Method Selection**: gemini/codex/manual/auto-detected
-- **CLI Commands**:
-  - **Gemini**: `bash(~/.claude/scripts/gemini-wrapper -p "$(cat template_path) [action]")`
-  - **Codex**: `bash(codex --full-auto exec "$(cat template_path) [action]" -s danger-full-access)`
-- **Follow Guidelines**: @~/.claude/workflows/intelligent-tools-strategy.md 
-
-### Pre-Execution Analysis
-**When [MULTI_STEP_ANALYSIS] marker is present:**
-
-#### Multi-Step Pre-Analysis Execution
-1. Process each analysis step sequentially from pre_analysis array
-2. For each step:
-   - Expand brief action into comprehensive analysis task
-   - Use specified template with $(cat template_path)
-   - Execute with specified method (gemini/codex/manual/auto-detected)
-3. Accumulate results across all steps for comprehensive context
-4. Use consolidated analysis to inform implementation stages and task breakdown
-
-#### Analysis Dimensions Coverage
-- **Exa Research**: Use `mcp__exa__get_code_context_exa` for technology stack selection and API patterns
-- Architecture patterns and component relationships
-- Implementation conventions and coding standards
-- Module dependencies and integration points
-- Testing requirements and coverage patterns
-- Security considerations and performance implications
-3. Use Codex insights to create self-guided implementation stages
-
 ## Core Functions
 
 ### 1. Stage Design
@@ -222,11 +191,26 @@ Generate individual `.task/IMPL-*.json` files with:
         "output_to": "codebase_structure"
       }
     ],
-    "implementation_approach": {
-      "task_description": "Implement following synthesis specification",
-      "modification_points": ["Apply requirements"],
-      "logic_flow": ["Load spec", "Analyze", "Implement", "Validate"]
-    },
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Load and analyze synthesis specification",
+        "description": "Load synthesis specification from artifacts and extract requirements",
+        "modification_points": ["Load synthesis specification", "Extract requirements and design patterns"],
+        "logic_flow": ["Read synthesis specification from artifacts", "Parse architecture decisions", "Extract implementation requirements"],
+        "depends_on": [],
+        "output": "synthesis_requirements"
+      },
+      {
+        "step": 2,
+        "title": "Implement following specification",
+        "description": "Implement task requirements following consolidated synthesis specification",
+        "modification_points": ["Apply requirements from [synthesis_requirements]", "Modify target files", "Integrate with existing code"],
+        "logic_flow": ["Apply changes based on [synthesis_requirements]", "Implement core logic", "Validate against acceptance criteria"],
+        "depends_on": [1],
+        "output": "implementation"
+      }
+    ],
     "target_files": ["file:function:lines", "path/to/NewFile.ts"]
   }
 }

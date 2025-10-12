@@ -1,9 +1,10 @@
 ---
 name: task-generate
 description: Generate task JSON files and IMPL_PLAN.md from analysis results with artifacts integration
-argument-hint: "--session WFS-session-id"
+argument-hint: "--session WFS-session-id [--cli-execute]"
 examples:
   - /workflow:tools:task-generate --session WFS-auth
+  - /workflow:tools:task-generate --session WFS-auth --cli-execute
 ---
 
 # Task Generation Command
@@ -11,12 +12,30 @@ examples:
 ## Overview
 Generate task JSON files and IMPL_PLAN.md from analysis results with automatic artifact detection and integration.
 
+## Execution Modes
+
+### Agent Mode (Default)
+Tasks execute within agent context using agent's capabilities:
+- Agent reads synthesis specifications
+- Agent implements following requirements
+- Agent validates implementation
+- **Benefit**: Seamless context within single agent execution
+
+### CLI Execute Mode (`--cli-execute`)
+Tasks execute using Codex CLI with resume mechanism:
+- Each task uses `codex exec` command in `implementation_approach`
+- First task establishes Codex session
+- Subsequent tasks use `codex exec "..." resume --last` for context continuity
+- **Benefit**: Codex's autonomous development capabilities with persistent context
+- **Use Case**: Complex implementation requiring Codex's reasoning and iteration
+
 ## Core Philosophy
 - **Analysis-Driven**: Generate from ANALYSIS_RESULTS.md
 - **Artifact-Aware**: Auto-detect brainstorming outputs
 - **Context-Rich**: Embed comprehensive context in task JSON
 - **Flow-Control Ready**: Pre-define implementation steps
 - **Memory-First**: Reuse loaded documents from memory
+- **CLI-Aware**: Support Codex resume mechanism for persistent context
 
 ## Core Responsibilities
 - Parse analysis results and extract tasks
@@ -153,23 +172,52 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
         "on_error": "fail"
       }
     ],
-    "implementation_approach": {
-      "task_description": "Implement '[title]' following synthesis specification. PRIORITY: Use synthesis-specification.md as primary requirement source. When implementation needs technical details (e.g., API schemas, caching configs, design tokens), refer to artifacts[] for detailed specifications from original role analyses.",
-      "modification_points": [
-        "Apply consolidated requirements from synthesis-specification.md",
-        "Follow technical guidelines from synthesis",
-        "Consult artifacts for implementation details when needed",
-        "Integrate with existing patterns"
-      ],
-      "logic_flow": [
-        "Load synthesis specification",
-        "Extract requirements and design",
-        "Analyze existing patterns",
-        "Implement following specification",
-        "Consult artifacts for technical details when needed",
-        "Validate against acceptance criteria"
-      ]
-    },
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Implement task following synthesis specification",
+        "description": "Implement '[title]' following synthesis specification. PRIORITY: Use synthesis-specification.md as primary requirement source. When implementation needs technical details (e.g., API schemas, caching configs, design tokens), refer to artifacts[] for detailed specifications from original role analyses.",
+        "modification_points": [
+          "Apply consolidated requirements from synthesis-specification.md",
+          "Follow technical guidelines from synthesis",
+          "Consult artifacts for implementation details when needed",
+          "Integrate with existing patterns"
+        ],
+        "logic_flow": [
+          "Load synthesis specification",
+          "Extract requirements and design",
+          "Analyze existing patterns",
+          "Implement following specification",
+          "Consult artifacts for technical details when needed",
+          "Validate against acceptance criteria"
+        ],
+        "depends_on": [],
+        "output": "implementation"
+      }
+    ],
+
+    // CLI Execute Mode: Use Codex command (when --cli-execute flag present)
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Execute implementation with Codex",
+        "description": "Use Codex CLI to implement '[title]' following synthesis specification with autonomous development capabilities",
+        "modification_points": [
+          "Codex loads synthesis specification and artifacts",
+          "Codex implements following requirements",
+          "Codex validates and tests implementation"
+        ],
+        "logic_flow": [
+          "Establish or resume Codex session",
+          "Pass synthesis specification to Codex",
+          "Codex performs autonomous implementation",
+          "Codex validates against acceptance criteria"
+        ],
+        "command": "bash(codex -C [focus_paths] --full-auto exec \"PURPOSE: [title] TASK: [requirements] MODE: auto CONTEXT: @{[synthesis_path],[artifacts_paths]} EXPECTED: [acceptance] RULES: Follow synthesis-specification.md\" [resume_flag] --skip-git-repo-check -s danger-full-access)",
+        "depends_on": [],
+        "output": "implementation"
+      }
+    ],
     "target_files": ["file:function:lines"]
   }
 }
@@ -181,7 +229,37 @@ Generate task JSON files and IMPL_PLAN.md from analysis results with automatic a
 3. Generate task context (requirements, focus_paths, acceptance)
 4. **Determine modification targets**: Extract specific code locations from analysis
 5. Build flow_control with artifact loading steps and target_files
-6. Create individual task JSON files in `.task/`
+6. **CLI Execute Mode**: If `--cli-execute` flag present, generate Codex commands
+7. Create individual task JSON files in `.task/`
+
+#### Codex Resume Mechanism (CLI Execute Mode)
+
+**Session Continuity Strategy**:
+- **First Task** (no depends_on or depends_on=[]): Establish new Codex session
+  - Command: `codex -C [path] --full-auto exec "[prompt]" --skip-git-repo-check -s danger-full-access`
+  - Creates new session context
+
+- **Subsequent Tasks** (has depends_on): Resume previous Codex session
+  - Command: `codex --full-auto exec "[prompt]" resume --last --skip-git-repo-check -s danger-full-access`
+  - Maintains context from previous implementation
+  - **Critical**: `resume --last` flag enables context continuity
+
+**Resume Flag Logic**:
+```javascript
+// Determine resume flag based on task dependencies
+const resumeFlag = task.context.depends_on && task.context.depends_on.length > 0
+  ? "resume --last"
+  : "";
+
+// First task (IMPL-001): no resume flag
+// Later tasks (IMPL-002, IMPL-003): use "resume --last"
+```
+
+**Benefits**:
+- ✅ Shared context across related tasks
+- ✅ Codex learns from previous implementations
+- ✅ Consistent patterns and conventions
+- ✅ Reduced redundant analysis
 
 #### Target Files Generation (Critical)
 **Purpose**: Identify specific code locations for modification AND new files to create
@@ -542,8 +620,82 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 /workflow:tools:task-generate --session WFS-auth
 ```
 
+## CLI Execute Mode Examples
+
+### Example 1: First Task (Establish Session)
+```json
+{
+  "id": "IMPL-001",
+  "title": "Implement user authentication module",
+  "context": {
+    "depends_on": [],
+    "focus_paths": ["src/auth"],
+    "requirements": ["JWT-based authentication", "Login and registration endpoints"]
+  },
+  "flow_control": {
+    "implementation_approach": [{
+      "step": 1,
+      "title": "Execute implementation with Codex",
+      "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication module TASK: JWT-based authentication with login and registration MODE: auto CONTEXT: @{.workflow/WFS-session/.brainstorming/synthesis-specification.md} EXPECTED: Complete auth module with tests RULES: Follow synthesis specification\" --skip-git-repo-check -s danger-full-access)",
+      "depends_on": [],
+      "output": "implementation"
+    }]
+  }
+}
+```
+
+### Example 2: Subsequent Task (Resume Session)
+```json
+{
+  "id": "IMPL-002",
+  "title": "Add password reset functionality",
+  "context": {
+    "depends_on": ["IMPL-001"],
+    "focus_paths": ["src/auth"],
+    "requirements": ["Password reset via email", "Token validation"]
+  },
+  "flow_control": {
+    "implementation_approach": [{
+      "step": 1,
+      "title": "Execute implementation with Codex",
+      "command": "bash(codex --full-auto exec \"PURPOSE: Add password reset functionality TASK: Password reset via email with token validation MODE: auto CONTEXT: Previous auth implementation from session EXPECTED: Password reset endpoints with email integration RULES: Maintain consistency with existing auth patterns\" resume --last --skip-git-repo-check -s danger-full-access)",
+      "depends_on": [],
+      "output": "implementation"
+    }]
+  }
+}
+```
+
+### Example 3: Third Task (Continue Session)
+```json
+{
+  "id": "IMPL-003",
+  "title": "Implement role-based access control",
+  "context": {
+    "depends_on": ["IMPL-001", "IMPL-002"],
+    "focus_paths": ["src/auth"],
+    "requirements": ["User roles and permissions", "Middleware for route protection"]
+  },
+  "flow_control": {
+    "implementation_approach": [{
+      "step": 1,
+      "title": "Execute implementation with Codex",
+      "command": "bash(codex --full-auto exec \"PURPOSE: Implement role-based access control TASK: User roles, permissions, and route protection middleware MODE: auto CONTEXT: Existing auth system from session EXPECTED: RBAC system integrated with current auth RULES: Use established patterns from session context\" resume --last --skip-git-repo-check -s danger-full-access)",
+      "depends_on": [],
+      "output": "implementation"
+    }]
+  }
+}
+```
+
+**Pattern Summary**:
+- IMPL-001: Fresh start with `-C src/auth` and full prompt
+- IMPL-002: Resume with `resume --last`, references "previous auth implementation"
+- IMPL-003: Resume with `resume --last`, references "existing auth system"
+
 ## Related Commands
 - `/workflow:plan` - Orchestrates entire planning
+- `/workflow:plan --cli-execute` - Planning with CLI execution mode
 - `/workflow:tools:context-gather` - Provides context package
 - `/workflow:tools:concept-enhanced` - Provides analysis results
 - `/workflow:execute` - Executes generated tasks
