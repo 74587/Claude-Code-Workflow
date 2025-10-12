@@ -58,7 +58,7 @@ build_exclusion_filters() {
 
         # OS and editor files
         ".DS_Store" "Thumbs.db" "desktop.ini"
-        "*.stackdump" "core" "*.core"
+        "*.stackdump" "*.core"
 
         # Cloud and deployment
         ".serverless" ".terraform" "terraform.tfstate"

@@ -1,7 +1,7 @@
 ---
 name: docs
 description: Documentation planning and orchestration - creates structured documentation tasks for execution
-argument-hint: "[path] [--tool <gemini|qwen|codex>] [--cli-generate]"
+argument-hint: "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-generate]"
 ---
 
 # Documentation Workflow (/workflow:docs)
@@ -37,12 +37,20 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 ## Parameters
 
 ```bash
-/workflow:docs [path] [--tool <gemini|qwen|codex>] [--cli-generate]
+/workflow:docs [path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-generate]
 ```
 
 - **path**: Target directory (default: current directory)
-  - Project root → Full documentation (modules + project-level docs)
-  - Subdirectory → Module documentation only (API.md + README.md)
+  - Specifies the directory to generate documentation for
+
+- **--mode**: Documentation generation mode (default: full)
+  - `full`: Complete documentation (modules + project README + ARCHITECTURE + EXAMPLES)
+    - Level 1: Module tree documentation
+    - Level 2: Project README.md
+    - Level 3: ARCHITECTURE.md + EXAMPLES.md + HTTP API (optional)
+  - `partial`: Module documentation only
+    - Level 1: Module tree documentation (API.md + README.md)
+    - Skips project-level documentation
 
 - **--tool**: CLI tool selection (default: gemini)
   - `gemini`: Comprehensive documentation, pattern recognition
@@ -64,28 +72,25 @@ bash(
   # Parse arguments
   path="${1:-.}"
   tool="gemini"
+  mode="full"
   cli_generate=false
   shift
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --tool) tool="$2"; shift 2 ;;
+      --mode) mode="$2"; shift 2 ;;
       --cli-generate) cli_generate=true; shift ;;
       *) shift ;;
     esac
   done
 
-  # Detect paths (normalize to Unix format for comparison)
+  # Detect paths
   project_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   if [[ "$path" == /* ]] || [[ "$path" == [A-Z]:* ]]; then
     target_path="$path"
   else
     target_path=$(cd "$path" 2>/dev/null && pwd || echo "$PWD/$path")
   fi
-
-  # Normalize both paths for comparison (handle Git Bash /d/ format and case)
-  norm_project=$(echo "${project_root%/}" | sed 's|^/\([a-z]\)/|\1:/|' | tr '[:upper:]' '[:lower:]')
-  norm_target=$(echo "${target_path%/}" | sed 's|^/\([a-z]\)/|\1:/|' | tr '[:upper:]' '[:lower:]')
-  [[ "$norm_target" == "$norm_project" ]] && is_root=true || is_root=false
 
   # Create session
   timestamp=$(date +%Y%m%d-%H%M%S)
@@ -101,14 +106,15 @@ bash(
   "path": "${path}",
   "target_path": "${target_path}",
   "project_root": "${project_root}",
-  "is_root": ${is_root},
+  "mode": "${mode}",
   "tool": "${tool}",
   "cli_generate": ${cli_generate}
 }
 EOF
 
   echo "✓ Session initialized: ${session}"
-  echo "✓ Target: ${target_path} (root: ${is_root})"
+  echo "✓ Target: ${target_path}"
+  echo "✓ Mode: ${mode}"
   echo "✓ Tool: ${tool}, CLI generate: ${cli_generate}"
 )
 ```
@@ -116,7 +122,8 @@ EOF
 **Output**:
 ```
 ✓ Session initialized: WFS-docs-20240120-143022
-✓ Target: /d/Claude_dms3 (root: true)
+✓ Target: /d/Claude_dms3
+✓ Mode: full
 ✓ Tool: gemini, CLI generate: false
 ```
 
@@ -206,18 +213,32 @@ fi)
 .workflow/docs/README.md
 ```
 
-#### Step 3: Update Config with Mode
+#### Step 3: Update Config with Update Status
 ```bash
-# Determine mode (create or update) and update config
-bash(jq '. + {mode: "update", existing_docs: 5}' .workflow/WFS-docs-20240120/.process/config.json > .workflow/WFS-docs-20240120/.process/config.json.tmp && mv .workflow/WFS-docs-20240120/.process/config.json.tmp .workflow/WFS-docs-20240120/.process/config.json)
+# Determine update status (create or update) and update config
+bash(
+  existing_count=$(find .workflow/docs -name "*.md" 2>/dev/null | wc -l)
+  if [[ $existing_count -gt 0 ]]; then
+    jq ". + {update_mode: \"update\", existing_docs: $existing_count}" .workflow/WFS-docs-20240120/.process/config.json > .workflow/WFS-docs-20240120/.process/config.json.tmp && mv .workflow/WFS-docs-20240120/.process/config.json.tmp .workflow/WFS-docs-20240120/.process/config.json
+  else
+    jq '. + {update_mode: "create", existing_docs: 0}' .workflow/WFS-docs-20240120/.process/config.json > .workflow/WFS-docs-20240120/.process/config.json.tmp && mv .workflow/WFS-docs-20240120/.process/config.json.tmp .workflow/WFS-docs-20240120/.process/config.json
+  fi
+)
 
 # Display strategy summary
-bash(echo "📋 Documentation Strategy:" && \
-     echo "  - Path: /d/Claude_dms3" && \
-     echo "  - Is Root: true" && \
-     echo "  - Mode: update (5 existing files)" && \
-     echo "  - Tool: gemini" && \
-     echo "  - CLI Generate: false")
+bash(
+  mode=$(jq -r '.mode' .workflow/WFS-docs-20240120/.process/config.json)
+  update_mode=$(jq -r '.update_mode' .workflow/WFS-docs-20240120/.process/config.json)
+  existing=$(jq -r '.existing_docs' .workflow/WFS-docs-20240120/.process/config.json)
+  tool=$(jq -r '.tool' .workflow/WFS-docs-20240120/.process/config.json)
+  cli_gen=$(jq -r '.cli_generate' .workflow/WFS-docs-20240120/.process/config.json)
+
+  echo "📋 Documentation Strategy:"
+  echo "  - Path: $(jq -r '.target_path' .workflow/WFS-docs-20240120/.process/config.json)"
+  echo "  - Mode: $mode ($([ "$mode" = "full" ] && echo "complete docs" || echo "modules only"))"
+  echo "  - Update: $update_mode ($existing existing files)"
+  echo "  - Tool: $tool, CLI generate: $cli_gen"
+)
 ```
 
 ### Phase 4: Decompose Tasks
@@ -229,10 +250,10 @@ Level 1: Module Trees (always, parallel execution)
   ├─ IMPL-002: Document 'src/utils/'
   └─ IMPL-003: Document 'lib/'
 
-Level 2: Project README (root only, depends on Level 1)
+Level 2: Project README (mode=full only, depends on Level 1)
   └─ IMPL-004: Generate Project README
 
-Level 3: Architecture & Examples (root only, depends on Level 2, parallel)
+Level 3: Architecture & Examples (mode=full only, depends on Level 2, parallel)
   ├─ IMPL-005: Generate ARCHITECTURE.md
   ├─ IMPL-006: Generate EXAMPLES.md
   └─ IMPL-007: Generate HTTP API (optional)
@@ -259,14 +280,15 @@ Creating IMPL-002 for 'src/utils'
 Creating IMPL-003 for 'lib'
 ```
 
-#### Step 2: Generate Level 2-3 Tasks (Root Only)
+#### Step 2: Generate Level 2-3 Tasks (Full Mode Only)
 ```bash
-# Check if root directory
-bash(jq -r '.is_root' .workflow/WFS-docs-20240120/.process/config.json)
+# Check documentation mode
+bash(jq -r '.mode' .workflow/WFS-docs-20240120/.process/config.json)
 
-# If root, create project-level tasks
+# If full mode, create project-level tasks
 bash(
-  if [[ "$is_root" == "true" ]]; then
+  mode=$(jq -r '.mode' .workflow/WFS-docs-20240120/.process/config.json)
+  if [[ "$mode" == "full" ]]; then
     echo "Creating IMPL-004: Project README"
     echo "Creating IMPL-005: ARCHITECTURE.md"
     echo "Creating IMPL-006: EXAMPLES.md"
@@ -274,6 +296,8 @@ bash(
     if grep -r "router\.|@Get\|@Post" src/ >/dev/null 2>&1; then
       echo "Creating IMPL-007: HTTP API docs"
     fi
+  else
+    echo "Partial mode: Skipping project-level tasks"
   fi
 )
 ```
@@ -710,10 +734,10 @@ bash(
   "path": ".",
   "target_path": "/d/Claude_dms3",
   "project_root": "/d/Claude_dms3",
-  "is_root": true,
+  "mode": "full",
   "tool": "gemini",
   "cli_generate": false,
-  "mode": "update",
+  "update_mode": "update",
   "existing_docs": 5,
   "analysis": {
     "total": "15",
@@ -757,7 +781,7 @@ bash(
 
 ## Execution Commands
 
-### Root Directory (Full Documentation)
+### Full Mode (--mode full)
 ```bash
 # Level 1 - Module documentation (parallel)
 /workflow:execute IMPL-001
@@ -773,10 +797,12 @@ bash(
 /workflow:execute IMPL-007  # if HTTP API present
 ```
 
-### Subdirectory (Module Only)
+### Partial Mode (--mode partial)
 ```bash
-# Only Level 1 task generated
+# Only Level 1 tasks generated (module documentation)
 /workflow:execute IMPL-001
+/workflow:execute IMPL-002
+/workflow:execute IMPL-003
 ```
 
 ## Simple Bash Commands
@@ -789,7 +815,7 @@ bash(
   mkdir -p ".workflow/${session}"/{.task,.process,.summaries}
   touch ".workflow/.active-${session}"
   cat > ".workflow/${session}/.process/config.json" <<EOF
-{"session_id":"${session}","timestamp":"$(date -Iseconds)","path":".","is_root":true,"tool":"gemini"}
+{"session_id":"${session}","timestamp":"$(date -Iseconds)","path":".","mode":"full","tool":"gemini","cli_generate":false}
 EOF
   echo "Session: ${session}"
 )
@@ -799,7 +825,7 @@ bash(cat .workflow/WFS-docs-20240120/.process/config.json)
 
 # Extract config values
 bash(jq -r '.tool' .workflow/WFS-docs-20240120/.process/config.json)
-bash(jq -r '.is_root' .workflow/WFS-docs-20240120/.process/config.json)
+bash(jq -r '.mode' .workflow/WFS-docs-20240120/.process/config.json)
 
 # List session tasks
 bash(ls .workflow/WFS-docs-20240120/.task/*.json)
