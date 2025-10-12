@@ -30,6 +30,7 @@ argument-hint: "[--tool gemini|qwen|codex]"
 3. **Related Mode**: Update only changed modules and their parent contexts
 4. **Depth-Parallel**: Same depth runs parallel (max 4 jobs), different depths sequential
 5. **Safety Check**: Verify only CLAUDE.md files modified, revert if source files touched
+6. **No Background Bash Tool**: Never use `run_in_background` parameter in bash() calls; use shell `&` for parallelism
 
 ## Execution Workflow
 

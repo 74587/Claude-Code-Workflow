@@ -70,6 +70,11 @@ For all CLI tool usage, command syntax, and integration guidelines:
 - Learn from existing implementations
 - Stop after 3 failed attempts and reassess
 
+## Platform-Specific Guidelines
+
+### Windows Path Conversion for Bash Commands
+- **Windows paths** must convert to Git Bash format: `C:\path` → `/c/path`, `D:\path` → `/d/path`, `\` → `/`
+- **Relative paths** (starting with `.` or `..`) require no conversion
 
 #### **Content Uniqueness Rules**
 
