@@ -31,7 +31,7 @@ FUNCTION should_use_gemini(user_prompt):
 END
 ```
 
-**Gemini Integration:** @~/.claude/workflows/intelligent-tools-strategy.md
+**Gemini Integration:** ~/.claude/workflows/intelligent-tools-strategy.md
 
 ## Enhancement Rules
 
