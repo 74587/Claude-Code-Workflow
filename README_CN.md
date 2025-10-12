@@ -13,7 +13,7 @@
 
 ---
 
-**Claude Code Workflow (CCW)** 是一个新一代的多智能体自动化开发框架，通过智能工作流管理和自主执行来协调复杂的软件开发任务。
+**Claude Code Workflow (CCW)** 将 AI 开发从简单提示词链接转变为强大的上下文优先编排系统。通过结构化规划、确定性执行和智能多模型编排，解决执行不确定性和误差累积问题。
 
 > **🎉 最新版本: v4.4.0** - UI 设计工作流 V3 布局/样式分离架构。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
@@ -25,17 +25,37 @@
 
 ---
 
-## ✨ 核心特性
+## ✨ 核心差异化特性
 
-- **🎯 上下文优先架构**: 预定义上下文收集消除执行不确定性和误差累积。
-- **🤖 多智能体系统**: 专用智能体（`@code-developer`、`@code-review-test-agent`）具备技术栈感知能力。
-- **🔄 端到端工作流自动化**: 从头脑风暴到部署的多阶段编排。
-- **📋 JSON 优先任务模型**: 结构化任务定义，包含 `pre_analysis` 步骤实现确定性执行。
-- **🧪 TDD 工作流支持**: 完整的测试驱动开发，包含 Red-Green-Refactor 循环强制执行。
-- **🧠 多模型编排**: 发挥 Gemini（分析）、Qwen（架构）和 Codex（实现）各自优势。
-- **✅ 执行前验证**: 通过战略（Gemini）和技术（Codex）双重分析验证计划。
-- **🔧 统一 CLI**: 一个强大、统一的 `/cli:*` 命令集，用于与各种 AI 工具交互。
-- **📦 智能上下文包**: `context-package.json` 将任务链接到相关代码库文件和外部示例。
+#### **1. 上下文优先架构** 🎯
+通过 `context-package.json` 和 `flow_control.pre_analysis` 预定义上下文收集，消除执行不确定性。智能体在实现**前**加载正确上下文，解决"1到N"开发漂移问题。
+
+#### **2. JSON 优先状态管理** 📋
+任务状态存于 `.task/IMPL-*.json`（单一事实来源），Markdown 为只读视图。数据与表现分离，实现程序化编排无状态漂移。
+
+#### **3. 自主多阶段编排** 🔄
+`/workflow:plan` 等命令链接专用子命令（会话 → 上下文 → 分析 → 任务），零用户干预。`flow_control` 机制创建带步骤依赖的可执行"程序"。
+
+#### **4. 多模型战略编排** 🧠
+- **Gemini/Qwen**：分析、探索、文档（大上下文）
+- **Codex**：实现、自主执行（`resume --last` 保持上下文）
+- **结果**：比单模型方法任务处理提升 5-10 倍
+
+#### **5. 分层内存系统** 🧬
+4 层文档（根 → 领域 → 模块 → 子模块）在适当抽象级别提供上下文，防止信息过载并保持精确性。
+
+#### **6. 专用基于角色的智能体** 🤖
+专用智能体镜像真实软件团队：`@action-planning-agent`、`@code-developer`、`@test-fix-agent`、`@ui-design-agent`。包含 TDD 工作流（Red-Green-Refactor）、UI 设计（布局/样式分离）和自动 QA。
+
+---
+
+### **其他特性**
+
+- **✅ 执行前验证**：质量关卡（`/workflow:concept-clarify`、`/workflow:action-plan-verify`）
+- **🔧 统一 CLI**：`/cli:*` 命令支持多工具（`--tool gemini|qwen|codex`）
+- **📦 智能上下文包**：链接任务到相关代码和外部示例
+- **🎨 UI 设计工作流**：Claude 原生样式/布局提取，零依赖
+- **🔄 渐进式增强**：可选工具扩展能力，纯 Claude 模式开箱即用
 
 ---
 
@@ -736,6 +756,80 @@ php -S localhost:8080           # PHP
 | `/update-memory-full` | 重新索引整个项目文档。 |
 | `/update-memory-related` | 更新与最近更改相关的文档。 |
 | `/version` | 显示版本信息并检查 GitHub 更新。 |
+
+---
+
+## 🧠 内存管理：上下文质量基础
+
+分层内存系统实现精确上下文收集和防止执行漂移。定期更新是高质量 AI 输出的关键。
+
+#### **内存层次**
+
+```
+CLAUDE.md（根）→ domain/CLAUDE.md（领域）→ module/CLAUDE.md（模块）→ submodule/CLAUDE.md（子模块）
+```
+
+#### **更新时机**
+
+| 触发条件 | 命令 | 目的 |
+|---------|---------|---------|
+| 主要功能实现后 | `/update-memory-related` | 更新受影响模块/依赖 |
+| 架构变更后 | `/update-memory-full` | 重新索引整个项目 |
+| 复杂规划前 | `/update-memory-related` | 确保 context-package.json 最新模式 |
+| 重构后 | `/update-memory-related` | 更新实现模式/API |
+| 每周维护 | `/update-memory-full` | 保持文档同步 |
+
+#### **质量影响**
+
+**无更新：** ❌ 过时模式、弃用 API、错误上下文、架构漂移
+**有更新：** ✅ 当前模式、最新 API、准确上下文、架构对齐
+
+#### **最佳实践**
+
+1. 重大变更后立即更新
+2. 频繁使用 `/update-memory-related`（更快、有针对性）
+3. 每周安排 `/update-memory-full`（捕获漂移）
+4. 审查生成的 CLAUDE.md 文件
+5. 集成到 CI/CD 流水线
+
+> 💡 内存质量决定 context-package.json 质量和执行准确性。视为关键维护，非可选文档。
+
+#### **工具集成**
+
+```bash
+/update-memory-full --tool gemini  # 全面分析（默认）
+/update-memory-full --tool qwen    # 架构聚焦
+/update-memory-full --tool codex   # 实现细节
+```
+
+---
+
+## 🏗️ 技术架构
+
+完整的自文档化系统，用专业软件工程实践编排 AI 智能体。
+
+### **项目组织**
+
+```
+.claude/
+├── agents/          # 专用 AI 智能体（action-planning、code-developer、test-fix）
+├── commands/        # 面向用户和内部命令（workflow:*、cli:*、task:*）
+├── workflows/       # 战略框架（架构、策略、模式、模板）
+├── scripts/         # 实用工具自动化（模块分析、文件监控）
+└── prompt-templates/# 标准化 AI 提示词
+```
+
+**原则：** 关注点分离（agents/commands/workflows）、层次化命令、自文档化、可扩展模板
+
+### **执行模型**
+
+```
+用户命令 → 编排器 → 阶段 1-4（上下文 → 分析 → 规划 → 执行）
+                ↓
+          专用智能体（pre_analysis → 实现 → 验证）
+```
+
+**示例：** `/workflow:plan "构建认证"` → session:start → context-gather → concept-enhanced → task-generate
 
 ---
 

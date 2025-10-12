@@ -13,7 +13,7 @@
 
 ---
 
-**Claude Code Workflow (CCW)** is a next-generation multi-agent automation framework that orchestrates complex software development tasks through intelligent workflow management and autonomous execution.
+**Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a robust, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
 
 > **🎉 Latest: v4.4.0** - UI Design Workflow V3 with Layout/Style Separation Architecture. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
@@ -25,17 +25,37 @@
 
 ---
 
-## ✨ Key Features
+## ✨ Core Differentiators
 
-- **🎯 Context-First Architecture**: Pre-defined context gathering eliminates execution uncertainty and error accumulation.
-- **🤖 Multi-Agent System**: Specialized agents (`@code-developer`, `@test-fix-agent`) with tech-stack awareness and automated test validation.
-- **🔄 End-to-End Workflow Automation**: From brainstorming to deployment with multi-phase orchestration.
-- **📋 JSON-First Task Model**: Structured task definitions with `pre_analysis` steps for deterministic execution.
-- **🧪 TDD Workflow Support**: Complete Test-Driven Development with Red-Green-Refactor cycle enforcement.
-- **🧠 Multi-Model Orchestration**: Leverages Gemini (analysis), Qwen (architecture), and Codex (implementation) strengths.
-- **✅ Pre-execution Verification**: Validates plans with both strategic (Gemini) and technical (Codex) analysis.
-- **🔧 Unified CLI**: A single, powerful `/cli:*` command set for interacting with various AI tools.
-- **📦 Smart Context Package**: `context-package.json` links tasks to relevant codebase files and external examples.
+#### **1. Context-First Architecture** 🎯
+Pre-defined context gathering via `context-package.json` and `flow_control.pre_analysis` eliminates execution uncertainty. Agents load correct context **before** implementation, solving the "1-to-N" development drift problem.
+
+#### **2. JSON-First State Management** 📋
+Task states live in `.task/IMPL-*.json` (single source of truth). Markdown files are read-only views. Separates data from presentation, enabling programmatic orchestration without state drift.
+
+#### **3. Autonomous Multi-Phase Orchestration** 🔄
+Commands like `/workflow:plan` chain specialized sub-commands (session → context → analysis → tasks) with zero user intervention. `flow_control` mechanism creates executable "programs" for agents with step dependencies.
+
+#### **4. Multi-Model Strategic Orchestration** 🧠
+- **Gemini/Qwen**: Analysis, exploration, documentation (large context)
+- **Codex**: Implementation, autonomous execution (`resume --last` maintains context)
+- **Result**: 5-10x better task handling vs single-model approaches
+
+#### **5. Hierarchical Memory System** 🧬
+4-layer documentation (Root → Domain → Module → Sub-Module) provides context at appropriate abstraction levels, preventing information overload while maintaining precision.
+
+#### **6. Specialized Role-Based Agents** 🤖
+Dedicated agents mirror real software teams: `@action-planning-agent`, `@code-developer`, `@test-fix-agent`, `@ui-design-agent`. Includes TDD workflows (Red-Green-Refactor), UI design (layout/style separation), and automated QA.
+
+---
+
+### **Additional Features**
+
+- **✅ Pre-execution Verification**: Quality gates (`/workflow:concept-clarify`, `/workflow:action-plan-verify`)
+- **🔧 Unified CLI**: `/cli:*` commands with multi-tool support (`--tool gemini|qwen|codex`)
+- **📦 Smart Context Package**: Links tasks to relevant code and external examples
+- **🎨 UI Design Workflow**: Claude-native style/layout extraction, zero dependencies
+- **🔄 Progressive Enhancement**: Optional tools extend capabilities, Claude-only mode works out-of-box
 
 ---
 
@@ -736,6 +756,80 @@ All UI workflow outputs are organized in the `.design` directory within your ses
 | `/update-memory-full` | Re-index the entire project documentation. |
 | `/update-memory-related` | Update documentation related to recent changes. |
 | `/version` | Display version information and check for updates from GitHub. |
+
+---
+
+## 🧠 Memory Management: Foundation of Context Quality
+
+CCW's hierarchical memory system enables accurate context gathering and prevents execution drift. Regular updates are critical for high-quality AI outputs.
+
+#### **Memory Hierarchy**
+
+```
+CLAUDE.md (Root) → domain/CLAUDE.md (Domain) → module/CLAUDE.md (Module) → submodule/CLAUDE.md (Sub-Module)
+```
+
+#### **When to Update**
+
+| Trigger | Command | Purpose |
+|---------|---------|---------|
+| After major features | `/update-memory-related` | Update affected modules/dependencies |
+| After architecture changes | `/update-memory-full` | Re-index entire project |
+| Before complex planning | `/update-memory-related` | Ensure latest patterns in context-package.json |
+| After refactoring | `/update-memory-related` | Update implementation patterns/APIs |
+| Weekly maintenance | `/update-memory-full` | Keep docs synchronized |
+
+#### **Quality Impact**
+
+**Without updates:** ❌ Outdated patterns, deprecated APIs, incorrect context, architecture drift
+**With updates:** ✅ Current patterns, latest APIs, accurate context, architecture alignment
+
+#### **Best Practices**
+
+1. Update immediately after significant changes
+2. Use `/update-memory-related` frequently (faster, targeted)
+3. Schedule `/update-memory-full` weekly (catches drift)
+4. Review generated CLAUDE.md files
+5. Integrate into CI/CD pipelines
+
+> 💡 Memory quality determines context-package.json quality and execution accuracy. Treat as critical maintenance, not optional docs.
+
+#### **Tool Integration**
+
+```bash
+/update-memory-full --tool gemini  # Comprehensive analysis (default)
+/update-memory-full --tool qwen    # Architecture focus
+/update-memory-full --tool codex   # Implementation details
+```
+
+---
+
+## 🏗️ Technical Architecture
+
+Complete, self-documenting system for orchestrating AI agents with professional software engineering practices.
+
+### **Project Organization**
+
+```
+.claude/
+├── agents/          # Specialized AI agents (action-planning, code-developer, test-fix)
+├── commands/        # User-facing and internal commands (workflow:*, cli:*, task:*)
+├── workflows/       # Strategic framework (architecture, strategies, schemas, templates)
+├── scripts/         # Utility automation (module analysis, file watching)
+└── prompt-templates/# Standardized AI prompts
+```
+
+**Principles:** Separation of concerns (agents/commands/workflows), hierarchical commands, self-documenting, extensible templates
+
+### **Execution Model**
+
+```
+User Command → Orchestrator → Phase 1-4 (Context → Analysis → Planning → Execution)
+                    ↓
+              Specialized Agents (pre_analysis → implementation → validation)
+```
+
+**Example:** `/workflow:plan "Build auth"` → session:start → context-gather → concept-enhanced → task-generate
 
 ---
 
