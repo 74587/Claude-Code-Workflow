@@ -274,7 +274,6 @@ RULES: Focus on type safety and component composition
 | **Security** | Codex | Vulnerability assessment, fixes | `analysis/security.txt` |
 | **Refactoring** | Multiple | Gemini/Qwen for analysis, Codex for execution | `development/refactor.txt` |
 | **Module Documentation** | Gemini (Qwen fallback) | Universal module/file documentation for all levels | `memory/claude-module-unified.txt` |
-| **Memory Hierarchy** | Gemini (Qwen fallback) | Project structure analysis for optimal doc hierarchy | `memory/hierarchy-analysis.txt` |
 
 ### Template System
 
@@ -293,8 +292,7 @@ prompts/
 │   ├── refactor.txt     - Refactoring tasks
 │   └── testing.txt      - Test generation
 ├── memory/
-│   ├── claude-module-unified.txt  - Universal module/file documentation template
-│   └── hierarchy-analysis.txt     - Project structure analysis
+│   └── claude-module-unified.txt  - Universal module/file documentation template
 └── planning/
     └── task-breakdown.txt - Task decomposition
 
