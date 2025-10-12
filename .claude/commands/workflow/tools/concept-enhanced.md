@@ -10,47 +10,40 @@ examples:
 # Enhanced Analysis Command (/workflow:tools:concept-enhanced)
 
 ## Overview
-Advanced solution design and feasibility analysis engine with parallel CLI execution that processes standardized context packages and produces comprehensive technical analysis focused on solution improvements, key design decisions, and critical insights.
+Advanced solution design and feasibility analysis engine with parallel CLI execution. Processes standardized context packages to produce ANALYSIS_RESULTS.md focused on solution improvements, key design decisions, and critical insights.
 
-**Analysis Focus**: Produces ANALYSIS_RESULTS.md with solution design, architectural rationale, feasibility assessment, and optimization strategies. Does NOT generate task breakdowns or implementation plans.
+**Scope**: Solution-focused technical analysis only. Does NOT generate task breakdowns or implementation plans.
 
-**Independent Usage**: This command can be called directly by users or as part of the `/workflow:plan` command. It accepts context packages and provides solution-focused technical analysis.
+**Usage**: Standalone command or integrated into `/workflow:plan`. Accepts context packages and orchestrates Gemini/Codex for comprehensive analysis.
 
-## Core Philosophy
-- **Solution-Focused**: Emphasize design decisions, architectural rationale, and critical insights
-- **Context-Driven**: Precise analysis based on comprehensive context packages
-- **Intelligent Tool Selection**: Choose optimal tools based on task complexity (Gemini for design, Codex for validation)
+## Core Philosophy & Responsibilities
+- **Solution-Focused Analysis**: Emphasize design decisions, architectural rationale, and critical insights (exclude task planning)
+- **Context-Driven**: Parse and validate context-package.json for precise analysis
+- **Intelligent Tool Selection**: Gemini for design (all tasks), Codex for validation (complex tasks only)
 - **Parallel Execution**: Execute multiple CLI tools simultaneously for efficiency
-- **No Task Planning**: Exclude implementation steps, task breakdowns, and project planning
+- **Solution Design**: Evaluate architecture, identify key design decisions with rationale
+- **Feasibility Assessment**: Analyze technical complexity, risks, implementation readiness
+- **Optimization Recommendations**: Performance, security, and code quality improvements
+- **Perspective Synthesis**: Integrate multi-tool insights into unified assessment
 - **Single Output**: Generate only ANALYSIS_RESULTS.md with technical analysis
-
-## Core Responsibilities
-- **Context Package Parsing**: Read and validate context-package.json
-- **Parallel CLI Orchestration**: Execute Gemini (solution design) and optionally Codex (feasibility validation)
-- **Solution Design Analysis**: Evaluate architecture, identify key design decisions with rationale
-- **Feasibility Assessment**: Analyze technical complexity, risks, and implementation readiness
-- **Optimization Recommendations**: Propose performance, security, and code quality improvements
-- **Perspective Synthesis**: Integrate Gemini and Codex insights into unified solution assessment
-- **Technical Analysis Report**: Generate ANALYSIS_RESULTS.md focused on design decisions and critical insights (NO task planning)
 
 ## Analysis Strategy Selection
 
 ### Tool Selection by Task Complexity
 
 **Simple Tasks (≤3 modules)**:
-- **Primary Tool**: Gemini (rapid understanding and pattern recognition)
-- **Support Tool**: Code-index (structural analysis)
-- **Execution Mode**: Single-round analysis, focus on existing patterns
+- **Primary**: Gemini (rapid understanding + pattern recognition)
+- **Support**: Code-index (structural analysis)
+- **Mode**: Single-round analysis
 
 **Medium Tasks (4-6 modules)**:
-- **Primary Tool**: Gemini (comprehensive single-round analysis and architecture design)
-- **Support Tools**: Code-index + Exa (external best practices)
-- **Execution Mode**: Single comprehensive analysis covering understanding + architecture design
+- **Primary**: Gemini (comprehensive analysis + architecture design)
+- **Support**: Code-index + Exa (best practices)
+- **Mode**: Single comprehensive round
 
 **Complex Tasks (>6 modules)**:
-- **Primary Tools**: Gemini (single comprehensive analysis) + Codex (implementation validation)
-- **Analysis Strategy**: Gemini handles understanding + architecture in one round, Codex validates implementation
-- **Execution Mode**: Parallel execution - Gemini comprehensive analysis + Codex validation
+- **Primary**: Gemini (comprehensive analysis) + Codex (validation)
+- **Mode**: Parallel execution - Gemini design + Codex feasibility
 
 ### Tool Preferences by Tech Stack
 
@@ -77,168 +70,82 @@ Advanced solution design and feasibility analysis engine with parallel CLI execu
 ## Execution Lifecycle
 
 ### Phase 1: Validation & Preparation
-1. **Session Validation**
-   - Verify session directory exists: `.workflow/{session_id}/`
-   - Load session metadata from `workflow-session.json`
-   - Validate session state and task context
-
-2. **Context Package Validation**
-   - Verify context package exists at specified path
-   - Validate JSON format and structure
-   - Assess context package size and complexity
-
-3. **Task Analysis & Classification**
-   - Parse task description and extract keywords
-   - Identify technical domain and complexity level
-   - Determine required analysis depth and scope
-   - Load existing session context and task summaries
-
-4. **Tool Selection Strategy**
-   - **Simple/Medium Tasks**: Single Gemini comprehensive analysis
-   - **Complex Tasks**: Gemini comprehensive + Codex validation
-   - Load appropriate prompt templates and configurations
+1. **Session Validation**: Verify `.workflow/{session_id}/` exists, load `workflow-session.json`
+2. **Context Package Validation**: Verify path, validate JSON format and structure
+3. **Task Analysis**: Extract keywords, identify domain/complexity, determine scope
+4. **Tool Selection**: Gemini (all tasks), +Codex (complex only), load templates
 
 ### Phase 2: Analysis Preparation
-1. **Workspace Setup**
-   - Create analysis output directory: `.workflow/{session_id}/.process/`
-   - Initialize log files and monitoring structures
-   - Set process limits and resource management
-
-2. **Context Optimization**
-   - Filter high-priority assets from context package
-   - Organize project structure and dependencies
-   - Prepare template references and rule configurations
-
-3. **Execution Environment**
-   - Configure CLI tools with write permissions
-   - Set timeout parameters and monitoring intervals
-   - Prepare error handling and recovery mechanisms
+1. **Workspace Setup**: Create `.workflow/{session_id}/.process/`, initialize logs, set resource limits
+2. **Context Optimization**: Filter high-priority assets, organize structure, prepare templates
+3. **Execution Environment**: Configure CLI tools, set timeouts, prepare error handling
 
 ### Phase 3: Parallel Analysis Execution
 1. **Gemini Solution Design & Architecture Analysis**
-   - **Tool Configuration**:
-     ```bash
-     ~/.claude/scripts/gemini-wrapper -p "
-     PURPOSE: Analyze and design optimal solution for {task_description}
-     TASK: Evaluate current architecture, propose solution design, and identify key design decisions
-     CONTEXT: @{.workflow/{session_id}/.process/context-package.json,.workflow/{session_id}/workflow-session.json,CLAUDE.md}
+   ```bash
+   ~/.claude/scripts/gemini-wrapper -p "
+   PURPOSE: Analyze and design optimal solution for {task_description}
+   TASK: Evaluate current architecture, propose solution design, identify key design decisions
+   CONTEXT: @{.workflow/{session_id}/.process/context-package.json,.workflow/{session_id}/workflow-session.json,CLAUDE.md}
 
-     **MANDATORY FIRST STEP**: Read and analyze .workflow/{session_id}/.process/context-package.json to understand:
-     - Task requirements from metadata.task_description
-     - Relevant source files from assets[] array
-     - Tech stack from tech_stack section
-     - Project structure from statistics section
+   **MANDATORY**: Read context-package.json to understand task requirements, source files, tech stack, project structure
 
-     **ANALYSIS PRIORITY - Use ALL source documents from context-package assets[]**:
-     1. PRIMARY SOURCES (Highest Priority): Individual role analysis.md files (system-architect, ui-designer, product-manager, etc.)
-        - These contain complete technical details, design rationale, ADRs, and decision context
-        - Extract: Technical specs, API schemas, design tokens, caching configs, performance metrics
-     2. SYNTHESIS REFERENCE (Medium Priority): synthesis-specification.md
-        - Use for integrated requirements and cross-role alignment
-        - Validate decisions and identify integration points
-     3. TOPIC FRAMEWORK (Low Priority): topic-framework.md for discussion context
+   **ANALYSIS PRIORITY**:
+   1. PRIMARY: Individual role analysis.md files (system-architect, ui-designer, etc.) - technical details, ADRs, decision context
+   2. SECONDARY: synthesis-specification.md - integrated requirements, cross-role alignment
+   3. REFERENCE: topic-framework.md - discussion context
 
-     EXPECTED:
-     1. CURRENT STATE ANALYSIS: Existing patterns, code structure, integration points, technical debt
-     2. SOLUTION DESIGN: Core architecture principles, system design, key design decisions with rationale
-     3. CRITICAL INSIGHTS: What works well, identified gaps, technical risks, architectural tradeoffs
-     4. OPTIMIZATION STRATEGIES: Performance improvements, security enhancements, code quality recommendations
-     5. FEASIBILITY ASSESSMENT: Complexity analysis, compatibility evaluation, implementation readiness
-     6. **OUTPUT FILE**: Write complete analysis to .workflow/{session_id}/.process/gemini-solution-design.md
+   EXPECTED:
+   1. CURRENT STATE: Existing patterns, code structure, integration points, technical debt
+   2. SOLUTION DESIGN: Core principles, system design, key decisions with rationale
+   3. CRITICAL INSIGHTS: Strengths, gaps, risks, tradeoffs
+   4. OPTIMIZATION: Performance, security, code quality recommendations
+   5. FEASIBILITY: Complexity analysis, compatibility, implementation readiness
+   6. OUTPUT: Write to .workflow/{session_id}/.process/gemini-solution-design.md
 
-     RULES:
-     - Focus on SOLUTION IMPROVEMENTS and KEY DESIGN DECISIONS, NOT task planning
-     - Provide architectural rationale, evaluate alternatives, assess tradeoffs
-     - **CRITICAL**: Identify code targets - existing files as "file:function:lines", new files as "file"
-     - For modifications: specify exact files/functions/line ranges
-     - For new files: specify file path only (no function or lines)
-     - Do NOT create task lists, implementation steps, or code examples
-     - Do NOT generate any code snippets or implementation details
-     - **MUST write output to .workflow/{session_id}/.process/gemini-solution-design.md**
-     - Output ONLY architectural analysis and design recommendations
-     " --approval-mode yolo
-     ```
-   - **Output Location**: `.workflow/{session_id}/.process/gemini-solution-design.md`
+   RULES:
+   - Focus on SOLUTION IMPROVEMENTS and KEY DESIGN DECISIONS (NO task planning)
+   - Identify code targets: existing "file:function:lines", new files "file"
+   - Do NOT create task lists, implementation steps, or code examples
+   " --approval-mode yolo
+   ```
+   Output: `.workflow/{session_id}/.process/gemini-solution-design.md`
 
 2. **Codex Technical Feasibility Validation** (Complex Tasks Only)
-   - **Tool Configuration**:
-     ```bash
-     codex --full-auto exec "
-     PURPOSE: Validate technical feasibility and identify implementation risks for {task_description}
-     TASK: Assess implementation complexity, validate technology choices, evaluate performance and security implications
-     CONTEXT: @{.workflow/{session_id}/.process/context-package.json,.workflow/{session_id}/.process/gemini-solution-design.md,.workflow/{session_id}/workflow-session.json,CLAUDE.md}
+   ```bash
+   codex --full-auto exec "
+   PURPOSE: Validate technical feasibility and identify implementation risks for {task_description}
+   TASK: Assess complexity, validate technology choices, evaluate performance/security implications
+   CONTEXT: @{.workflow/{session_id}/.process/context-package.json,.workflow/{session_id}/.process/gemini-solution-design.md,.workflow/{session_id}/workflow-session.json,CLAUDE.md}
 
-     **MANDATORY FIRST STEP**: Read and analyze:
-     - .workflow/{session_id}/.process/context-package.json for task context
-     - .workflow/{session_id}/.process/gemini-solution-design.md for proposed solution design
-     - Relevant source files listed in context-package.json assets[]
+   **MANDATORY**: Read context-package.json, gemini-solution-design.md, and relevant source files
 
-     EXPECTED:
-     1. FEASIBILITY ASSESSMENT: Technical complexity rating, resource requirements, technology compatibility
-     2. RISK ANALYSIS: Implementation risks, integration challenges, performance concerns, security vulnerabilities
-     3. TECHNICAL VALIDATION: Development approach validation, quality standards assessment, maintenance implications
-     4. CRITICAL RECOMMENDATIONS: Must-have requirements, optimization opportunities, security controls
-     5. **OUTPUT FILE**: Write validation results to .workflow/{session_id}/.process/codex-feasibility-validation.md
+   EXPECTED:
+   1. FEASIBILITY: Complexity rating, resource requirements, technology compatibility
+   2. RISK ANALYSIS: Implementation risks, integration challenges, performance/security concerns
+   3. VALIDATION: Development approach, quality standards, maintenance implications
+   4. RECOMMENDATIONS: Must-have requirements, optimization opportunities, security controls
+   5. OUTPUT: Write to .workflow/{session_id}/.process/codex-feasibility-validation.md
 
-     RULES:
-     - Focus on TECHNICAL FEASIBILITY and RISK ASSESSMENT, NOT implementation planning
-     - Validate architectural decisions, identify potential issues, recommend optimizations
-     - **CRITICAL**: Verify code targets - existing files "file:function:lines", new files "file"
-     - Confirm exact locations for modifications, identify additional new files if needed
-     - Do NOT create task breakdowns, step-by-step guides, or code examples
-     - Do NOT generate any code snippets or implementation details
-     - **MUST write output to .workflow/{session_id}/.process/codex-feasibility-validation.md**
-     - Output ONLY feasibility analysis and risk assessment
-     " --skip-git-repo-check -s danger-full-access
-     ```
-   - **Output Location**: `.workflow/{session_id}/.process/codex-feasibility-validation.md`
+   RULES:
+   - Focus on TECHNICAL FEASIBILITY and RISK ASSESSMENT (NO implementation planning)
+   - Verify code targets: existing "file:function:lines", new files "file"
+   - Do NOT create task breakdowns, step-by-step guides, or code examples
+   " --skip-git-repo-check -s danger-full-access
+   ```
+   Output: `.workflow/{session_id}/.process/codex-feasibility-validation.md`
 
-3. **Parallel Execution Management**
-   - Launch both tools simultaneously for complex tasks
-   - Monitor execution progress with timeout controls
-   - Handle process completion and error scenarios
-   - Maintain execution logs for debugging and recovery
+3. **Parallel Execution**: Launch tools simultaneously, monitor progress, handle completion/errors, maintain logs
 
 ### Phase 4: Results Collection & Synthesis
-1. **Output Validation & Collection**
-   - **Gemini Results**: Validate `gemini-solution-design.md` contains complete solution analysis
-   - **Codex Results**: For complex tasks, validate `codex-feasibility-validation.md` with technical assessment
-   - **Fallback Processing**: Use execution logs if primary outputs are incomplete
-   - **Status Classification**: Mark each tool as completed, partial, failed, or skipped
-
-2. **Quality Assessment**
-   - **Design Quality**: Verify architectural decisions have clear rationale and alternatives analysis
-   - **Insight Depth**: Assess quality of critical insights and risk identification
-   - **Feasibility Rigor**: Validate completeness of technical feasibility assessment
-   - **Optimization Value**: Check actionability of optimization recommendations
-
-3. **Analysis Synthesis Strategy**
-   - **Simple/Medium Tasks**: Direct integration of Gemini solution design
-   - **Complex Tasks**: Synthesis of Gemini design with Codex feasibility validation
-   - **Conflict Resolution**: Identify architectural disagreements and provide balanced resolution
-   - **Confidence Scoring**: Assess overall solution confidence based on multi-tool consensus
+1. **Output Validation**: Validate gemini-solution-design.md (all), codex-feasibility-validation.md (complex), use logs if incomplete, classify status
+2. **Quality Assessment**: Verify design rationale, insight depth, feasibility rigor, optimization value
+3. **Synthesis Strategy**: Direct integration (simple/medium), multi-tool synthesis (complex), resolve conflicts, score confidence
 
 ### Phase 5: ANALYSIS_RESULTS.md Generation
-1. **Structured Report Assembly**
-   - **Executive Summary**: Analysis focus, overall assessment, recommendation status
-   - **Current State Analysis**: Architecture overview, compatibility, critical findings
-   - **Proposed Solution Design**: Core principles, system design, key design decisions with rationale
-   - **Implementation Strategy**: Development approach, feasibility assessment, risk mitigation
-   - **Solution Optimization**: Performance, security, code quality recommendations
-   - **Critical Success Factors**: Technical requirements, quality metrics, success validation
-   - **Confidence & Recommendations**: Assessment scores, final recommendation with rationale
-
-2. **Report Generation Guidelines**
-   - **Focus**: Solution improvements, key design decisions, critical insights
-   - **Exclude**: Task breakdowns, implementation steps, project planning
-   - **Emphasize**: Architectural rationale, tradeoff analysis, risk assessment
-   - **Structure**: Clear sections with decision justification and feasibility scoring
-
-3. **Final Output**
-   - **Primary Output**: `ANALYSIS_RESULTS.md` - comprehensive solution design and technical analysis
-   - **Single File Policy**: Only generate ANALYSIS_RESULTS.md, no supplementary files
-   - **Report Location**: `.workflow/{session_id}/.process/ANALYSIS_RESULTS.md`
-   - **Content Focus**: Technical insights, design decisions, optimization strategies
+1. **Report Sections**: Executive Summary, Current State, Solution Design, Implementation Strategy, Optimization, Success Factors, Confidence Scores
+2. **Guidelines**: Focus on solution improvements and design decisions (exclude task planning), emphasize rationale/tradeoffs/risk assessment
+3. **Output**: Single file `ANALYSIS_RESULTS.md` at `.workflow/{session_id}/.process/` with technical insights and optimization strategies
 
 ## Analysis Results Format
 
@@ -317,35 +224,22 @@ Generated ANALYSIS_RESULTS.md focuses on **solution improvements, key design dec
 ### Code Modification Targets
 **Purpose**: Specific code locations for modification AND new files to create
 
-**Format**:
-- Existing files: `file:function:lines` (with line numbers)
-- New files: `file` (no function or lines)
-
 **Identified Targets**:
 1. **Target**: `src/auth/AuthService.ts:login:45-52`
    - **Type**: Modify existing
    - **Modification**: Enhance error handling
-   - **Rationale**: Current logic lacks validation for edge cases
+   - **Rationale**: Current logic lacks validation
 
 2. **Target**: `src/auth/PasswordReset.ts`
    - **Type**: Create new file
    - **Purpose**: Password reset functionality
    - **Rationale**: New feature requirement
 
-3. **Target**: `src/middleware/auth.ts:validateToken:30-45`
-   - **Type**: Modify existing
-   - **Modification**: Add token expiry check
-   - **Rationale**: Security requirement for JWT validation
-
-4. **Target**: `tests/auth/PasswordReset.test.ts`
-   - **Type**: Create new file
-   - **Purpose**: Test coverage for password reset
-   - **Rationale**: Test requirement for new feature
-
-**Note**:
-- For new files, only specify the file path (no function or lines)
-- For existing files without line numbers, use `file:function:*` format
-- Task generation will refine these during the `analyze_task_patterns` step
+**Format Rules**:
+- Existing files: `file:function:lines` (with line numbers)
+- New files: `file` (no function or lines)
+- Unknown lines: `file:function:*`
+- Task generation will refine these targets during `analyze_task_patterns` step
 
 ### Feasibility Assessment
 - **Technical Complexity**: {complexity_rating_and_analysis}
@@ -437,94 +331,46 @@ Generated ANALYSIS_RESULTS.md focuses on **solution improvements, key design dec
 - **External Resources**: {external_references_and_best_practices}
 ```
 
-## Error Handling & Fallbacks
+## Execution Management
 
-### Error Handling & Recovery Strategies
+### Error Handling & Recovery
+1. **Pre-execution**: Verify session/context package, confirm CLI tools, validate dependencies
+2. **Monitoring & Timeout**: Track progress, 30-min limit, manage parallel execution, maintain status
+3. **Partial Recovery**: Generate results with incomplete outputs, use logs, provide next steps
+4. **Error Recovery**: Auto error detection, structured workflows, graceful degradation
 
-1. **Pre-execution Validation**
-   - **Session Verification**: Ensure session directory and metadata exist
-   - **Context Package Validation**: Verify JSON format and content structure
-   - **Tool Availability**: Confirm CLI tools are accessible and configured
-   - **Prerequisite Checks**: Validate all required dependencies and permissions
-
-2. **Execution Monitoring & Timeout Management**
-   - **Progress Monitoring**: Track analysis execution with regular status checks
-   - **Timeout Controls**: 30-minute execution limit with graceful termination
-   - **Process Management**: Handle parallel tool execution and resource limits
-   - **Status Tracking**: Maintain real-time execution state and completion status
-
-3. **Partial Results Recovery**
-   - **Fallback Strategy**: Generate analysis results even with incomplete outputs
-   - **Log Integration**: Use execution logs when primary outputs are unavailable
-   - **Recovery Mode**: Create partial analysis reports with available data
-   - **Guidance Generation**: Provide next steps and retry recommendations
-
-4. **Resource Management**
-   - **Disk Space Monitoring**: Check available storage and cleanup temporary files
-   - **Process Limits**: Set CPU and memory constraints for analysis execution
-   - **Performance Optimization**: Manage resource utilization and system load
-   - **Cleanup Procedures**: Remove outdated logs and temporary files
-
-5. **Comprehensive Error Recovery**
-   - **Error Detection**: Automatic error identification and classification
-   - **Recovery Workflows**: Structured approach to handling different failure modes
-   - **Status Reporting**: Clear communication of issues and resolution attempts
-   - **Graceful Degradation**: Provide useful outputs even with partial failures
-
-## Performance Optimization
-
-### Analysis Optimization Strategies
-- **Parallel Analysis**: Execute multiple tools in parallel to reduce total time
+### Performance & Resource Optimization
+- **Parallel Analysis**: Execute multiple tools simultaneously to reduce time
 - **Context Sharding**: Analyze large projects by module shards
-- **Caching Mechanism**: Reuse analysis results for similar contexts
-- **Incremental Analysis**: Perform incremental analysis based on changes
+- **Caching**: Reuse results for similar contexts
+- **Resource Management**: Monitor disk/CPU/memory, set limits, cleanup temporary files
+- **Timeout Control**: `timeout 600s` with partial result generation on failure
 
-### Resource Management
-```bash
-# Set analysis timeout
-timeout 600s analysis_command || {
-  echo "⚠️ Analysis timeout, generating partial results"
-  # Generate partial results
-}
+## Integration & Success Criteria
 
-# Memory usage monitoring
-memory_usage=$(ps -o pid,vsz,rss,comm -p $$)
-if [ "$memory_usage" -gt "$memory_limit" ]; then
-  echo "⚠️ High memory usage detected, optimizing..."
-fi
-```
+### Input/Output Interface
+**Input**:
+- `--session` (required): Session ID (e.g., WFS-auth)
+- `--context` (required): Context package path
+- `--depth` (optional): Analysis depth (quick|full|deep)
+- `--focus` (optional): Analysis focus areas
 
-## Integration Points
+**Output**:
+- Single file: `ANALYSIS_RESULTS.md` at `.workflow/{session_id}/.process/`
+- No supplementary files (JSON, roadmap, templates)
 
-### Input Interface
-- **Required**: `--session` parameter specifying session ID (e.g., WFS-auth)
-- **Required**: `--context` parameter specifying context package path
-- **Optional**: `--depth` specify analysis depth (quick|full|deep)
-- **Optional**: `--focus` specify analysis focus areas
+### Quality & Success Validation
+**Quality Checks**: Completeness, consistency, feasibility validation
 
-### Output Interface
-- **Primary**: ANALYSIS_RESULTS.md - solution design and technical analysis
-- **Location**: .workflow/{session_id}/.process/ANALYSIS_RESULTS.md
-- **Single Output Policy**: Only ANALYSIS_RESULTS.md is generated
-- **No Supplementary Files**: No additional JSON, roadmap, or template files
-
-## Quality Assurance
-
-### Analysis Quality Checks
-- **Completeness Check**: Ensure all required analysis sections are completed
-- **Consistency Check**: Verify consistency of multi-tool analysis results
-- **Feasibility Validation**: Ensure recommended implementation plans are feasible
-
-### Success Criteria
-- ✅ **Solution-Focused Analysis**: ANALYSIS_RESULTS.md emphasizes solution improvements, design decisions, and critical insights
-- ✅ **Single Output File**: Only ANALYSIS_RESULTS.md generated, no supplementary files
-- ✅ **Design Decision Depth**: Clear rationale for architectural choices with alternatives and tradeoffs
-- ✅ **Feasibility Assessment**: Technical complexity, risk analysis, and implementation readiness evaluation
-- ✅ **Optimization Strategies**: Performance, security, and code quality recommendations
-- ✅ **Parallel Execution**: Efficient concurrent tool execution (Gemini + Codex for complex tasks)
-- ✅ **Robust Error Handling**: Comprehensive validation, timeout management, and partial result recovery
-- ✅ **Confidence Scoring**: Multi-dimensional assessment with clear recommendation status
-- ✅ **No Task Planning**: Exclude task breakdowns, implementation steps, and project planning details
+**Success Criteria**:
+- ✅ Solution-focused analysis (design decisions, critical insights, NO task planning)
+- ✅ Single output file only
+- ✅ Design decision depth with rationale/alternatives/tradeoffs
+- ✅ Feasibility assessment (complexity, risks, readiness)
+- ✅ Optimization strategies (performance, security, quality)
+- ✅ Parallel execution efficiency (Gemini + Codex for complex tasks)
+- ✅ Robust error handling (validation, timeout, partial recovery)
+- ✅ Confidence scoring with clear recommendation status
 
 ## Related Commands
 - `/context:gather` - Generate context packages required by this command
