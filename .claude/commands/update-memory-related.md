@@ -4,179 +4,302 @@ description: Context-aware CLAUDE.md documentation updates based on recent chang
 argument-hint: "[--tool gemini|qwen|codex]"
 ---
 
-### 🚀 Command Overview: `/update-memory-related`
+# Related Documentation Update (/update-memory-related)
 
-Context-aware documentation update for modules affected by recent changes.
+## Coordinator Role
+
+**This command orchestrates context-aware CLAUDE.md updates** for modules affected by recent changes using intelligent change detection.
+
+**Execution Model**:
+
+1. **Change Detection**: Analyze git changes to identify affected modules
+2. **Complexity Analysis**: Evaluate change count and determine strategy
+3. **Plan Presentation**: Show user which modules need updates
+4. **Depth-Parallel Execution**: Update affected modules by depth (highest to lowest)
+5. **Safety Verification**: Ensure only CLAUDE.md files modified
 
 **Tool Selection**:
-- **Gemini (default)**: Documentation generation, pattern recognition, architecture review
-- **Qwen**: Architecture analysis, system design documentation
-- **Codex**: Implementation validation, code quality analysis
+- `--tool gemini` (default): Documentation generation, pattern recognition
+- `--tool qwen`: Architecture analysis, system design docs
+- `--tool codex`: Implementation validation, code quality analysis
 
+## Core Rules
 
-### 📝 Execution Template
+1. **Detect Changes First**: Use git diff to identify affected modules before updates
+2. **Wait for Approval**: Present plan, no execution without user confirmation
+3. **Related Mode**: Update only changed modules and their parent contexts
+4. **Depth-Parallel**: Same depth runs parallel (max 4 jobs), different depths sequential
+5. **Safety Check**: Verify only CLAUDE.md files modified, revert if source files touched
 
+## Execution Workflow
+
+### Phase 1: Change Detection & Analysis
+
+**Refresh code index:**
 ```bash
-#!/bin/bash
-# Context-aware CLAUDE.md documentation update
-
-# Step 1: Parse tool selection (default: gemini)
-tool="gemini"
-[[ "$*" == *"--tool qwen"* ]] && tool="qwen"
-[[ "$*" == *"--tool codex"* ]] && tool="codex"
-
-# Step 2: Code Index refresh and architecture analysis
-mcp__code-index__refresh_index()
-mcp__code-index__search_code_advanced(pattern="class|function|interface", file_pattern="**/*.{ts,js,py}")
-
-# Step 3: Detect changed modules (before staging)
-changed=$(Bash(~/.claude/scripts/detect_changed_modules.sh list))
-
-# Step 4: Cache git changes (protect current state)
-Bash(git add -A 2>/dev/null || true)
-
-# Step 5: Use detected changes or fallback
-if [ -z "$changed" ]; then
-    changed=$(Bash(~/.claude/scripts/get_modules_by_depth.sh list | head -10))
-fi
-count=$(echo "$changed" | wc -l)
-
-# Step 6: Analysis handover → Model takes control
-# BASH_EXECUTION_STOPS → MODEL_ANALYSIS_BEGINS
-
-# Pseudocode flow:
-# IF (change_count > 15 OR complex_changes_detected):
-#     → Task "Complex project related update" subagent_type: "memory-bridge"
-# ELSE:
-#     → Present plan and WAIT FOR USER APPROVAL before execution
-#
-# Pass tool parameter to update_module_claude.sh: "$tool"
+bash(mcp__code-index__refresh_index)
 ```
 
-### 🧠 Model Analysis Phase
+**Detect changed modules:**
+```bash
+bash(~/.claude/scripts/detect_changed_modules.sh list)
+```
 
-After the bash script completes change detection, the model takes control to:
+**Cache git changes:**
+```bash
+bash(git add -A 2>/dev/null || true)
+```
 
-1. **Analyze Changes**: Review change count and complexity  
-2. **Parse CLAUDE.md Status**: Extract which changed modules have/need CLAUDE.md files
-3. **Choose Strategy**: 
-   - Simple changes: Present execution plan with CLAUDE.md paths to user
-   - Complex changes: Delegate to memory-bridge agent
-4. **Present Detailed Plan**: Show user exactly which CLAUDE.md files will be created/updated for changed modules
-5. **⚠️ CRITICAL: WAIT FOR USER APPROVAL**: No execution without explicit user consent
+**Parse Output**:
+- Extract changed module paths from `depth:N|path:<PATH>|...` format
+- Count affected modules
+- Identify which modules have/need CLAUDE.md updates
 
-### 📋 Execution Strategies
+**Example output:**
+```
+depth:3|path:./src/api/auth|files:5|types:[ts]|has_claude:no|change:new
+depth:2|path:./src/api|files:12|types:[ts]|has_claude:yes|change:modified
+depth:1|path:./src|files:8|types:[ts]|has_claude:yes|change:parent
+depth:0|path:.|files:14|has_claude:yes|change:parent
+```
 
-**For Simple Changes (≤15 modules):**
+**Fallback behavior**:
+- If no git changes detected, use recent modules (first 10 by depth)
 
-Model will present detailed plan for affected modules:
+**Validation**:
+- Changed module list contains valid paths
+- At least one affected module exists
+
+---
+
+### Phase 2: Plan Presentation
+
+**Decision Logic**:
+- **Simple changes (≤15 modules)**: Present plan to user, wait for approval
+- **Complex changes (>15 modules)**: Delegate to memory-bridge agent
+
+**Plan format:**
 ```
 📋 Related Update Plan:
-  Tool: [gemini|qwen|codex] (from --tool parameter)
+  Tool: gemini
+  Changed modules: 4
 
-  CHANGED modules affecting CLAUDE.md:
+  NEW CLAUDE.md files (1):
+    - ./src/api/auth/CLAUDE.md [new module]
 
-  NEW CLAUDE.md files (X):
-    - ./src/api/auth/CLAUDE.md  [new module]
-    - ./src/utils/helpers/CLAUDE.md  [new module]
-
-  UPDATE existing CLAUDE.md files (Y):
-    - ./src/api/CLAUDE.md  [parent of changed auth/]
-    - ./src/CLAUDE.md  [root level]
-
-  Total: N CLAUDE.md files will be processed for recent changes
+  UPDATE existing CLAUDE.md files (3):
+    - ./src/api/CLAUDE.md [parent of changed auth/]
+    - ./src/CLAUDE.md [parent context]
+    - ./CLAUDE.md [root level]
 
   ⚠️ Confirm execution? (y/n)
 ```
 
-```pseudo
-# ⚠️ MANDATORY: User confirmation → MUST await explicit approval
-IF user_explicitly_confirms():
-    continue_execution()
-ELSE:
-    abort_execution()
+**User Confirmation Required**: No execution without explicit approval
 
-# Step 4: Organize modules by depth → Prepare execution
-depth_modules = organize_by_depth(changed_modules)
+---
 
-# Step 5: Execute depth-parallel updates → Process by depth
-FOR depth FROM max_depth DOWN TO 0:
-    FOR each module IN depth_modules[depth]:
-        WHILE active_jobs >= 4: wait(0.1)
-        Bash(~/.claude/scripts/update_module_claude.sh "$module" "related" "$tool" &)
-    wait_all_jobs()
+### Phase 3: Depth-Parallel Execution
 
-# Step 6: Safety check and restore staging state
-non_claude=$(Bash(git diff --cached --name-only | grep -v "CLAUDE.md" || true))
-if [ -n "$non_claude" ]; then
-    Bash(git restore --staged .)
-    echo "⚠️ Warning: Non-CLAUDE.md files were modified, staging reverted"
-    echo "Modified files: $non_claude"
-else
-    echo "✅ Only CLAUDE.md files modified, staging preserved"
-fi
+**Pattern**: Process highest depth first, parallel within depth, sequential across depths.
 
-# Step 7: Display changes → Final status
-Bash(git diff --stat)
+**Command structure:**
+```bash
+bash(cd <module-path> && ~/.claude/scripts/update_module_claude.sh "." "related" "<tool>" &)
 ```
 
-**For Complex Changes (>15 modules):**
+**Example - Depth 3 (new module):**
+```bash
+bash(cd ./src/api/auth && ~/.claude/scripts/update_module_claude.sh "." "related" "gemini" &)
+```
 
-The model will delegate to the memory-bridge agent with structured context:
+*Wait for depth 3 completion...*
+
+**Example - Depth 2 (modified parent):**
+```bash
+bash(cd ./src/api && ~/.claude/scripts/update_module_claude.sh "." "related" "gemini" &)
+```
+
+*Wait for depth 2 completion...*
+
+**Example - Depth 1 & 0 (parent contexts):**
+```bash
+bash(cd ./src && ~/.claude/scripts/update_module_claude.sh "." "related" "gemini" &)
+```
+```bash
+bash(cd . && ~/.claude/scripts/update_module_claude.sh "." "related" "gemini" &)
+```
+
+*Wait for all depths completion...*
+
+**Execution Rules**:
+- Each command is separate bash() call
+- Up to 4 concurrent jobs per depth
+- Wait for all jobs in current depth before proceeding
+- Use "related" mode (not "full") for context-aware updates
+- Extract path from `depth:N|path:<PATH>|...` format
+
+**Related Mode Behavior**:
+- Updates module based on recent git changes
+- Includes parent context for better documentation coherence
+- More efficient than full updates for iterative development
+
+---
+
+### Phase 4: Safety Verification
+
+**Check modified files:**
+```bash
+bash(git diff --cached --name-only | grep -v "CLAUDE.md" || echo "✅ Only CLAUDE.md files modified")
+```
+
+**Expected output:**
+```
+✅ Only CLAUDE.md files modified
+```
+
+**If non-CLAUDE.md files detected:**
+```
+⚠️ Warning: Non-CLAUDE.md files were modified
+Modified files: src/api/auth/index.ts, package.json
+→ Run: git restore --staged .
+```
+
+**Display final statistics:**
+```bash
+bash(git diff --stat)
+```
+
+**Example output:**
+```
+.claude/workflows/cli-templates/prompts/analysis/CLAUDE.md | 45 +++++++++++++++++++++
+src/api/CLAUDE.md                                          | 23 +++++++++--
+src/CLAUDE.md                                              | 12 ++++--
+CLAUDE.md                                                  | 8 ++--
+4 files changed, 82 insertions(+), 6 deletions(-)
+```
+
+## Command Pattern Reference
+
+**Single module update:**
+```bash
+bash(cd <module-path> && ~/.claude/scripts/update_module_claude.sh "." "related" "<tool>" &)
+```
+
+**Components**:
+- `cd <module-path>` - Navigate to module (from `path:` field)
+- `&&` - Ensure cd succeeds
+- `update_module_claude.sh` - Update script
+- `"."` - Current directory
+- `"related"` - Related mode (context-aware, change-based)
+- `"<tool>"` - gemini/qwen/codex
+- `&` - Background execution
+
+**Path extraction:**
+```bash
+# From: depth:3|path:./src/api/auth|files:5|change:new|has_claude:no
+# Extract: ./src/api/auth
+# Command: bash(cd ./src/api/auth && ~/.claude/scripts/update_module_claude.sh "." "related" "gemini" &)
+```
+
+**Mode comparison:**
+- `"full"` - Complete module documentation regeneration
+- `"related"` - Context-aware update based on recent changes (faster)
+
+## Complex Changes Strategy
+
+For changes affecting >15 modules, delegate to memory-bridge agent:
 
 ```javascript
-Task "Complex project related update"
-subagent_type: "memory-bridge"
-prompt: `
+Task(
+  subagent_type="memory-bridge",
+  description="Complex project related update",
+  prompt=`
 CONTEXT:
 - Total modules: ${change_count}
-- Tool: ${tool}  // from --tool parameter, default: gemini
+- Tool: ${tool}
 - Mode: related
-- Changed modules detected via: detect_changed_modules.sh
-- Existing CLAUDE.md: ${existing_count}
-- New CLAUDE.md needed: ${new_count}
 
 MODULE LIST:
-${changed_modules_output}  // Full output from detect_changed_modules.sh list
+${changed_modules_output}
 
 REQUIREMENTS:
-1. Use TodoWrite to track each depth level before execution
-2. Process depths sequentially (deepest→shallowest), max 4 parallel jobs per depth
-3. Command format: update_module_claude.sh "<path>" "related" "${tool}" &
-4. Extract exact path from "depth:N|path:<PATH>|..." format
-5. Verify all ${change_count} modules are processed
-6. Run safety check after completion
+1. Use TodoWrite to track each depth level
+2. Process depths N→0 sequentially, max 4 parallel per depth
+3. Command: cd "<path>" && update_module_claude.sh "." "related" "${tool}" &
+4. Extract path from "depth:N|path:<PATH>|..." format
+5. Verify all ${change_count} modules processed
+6. Run safety check
 7. Display git diff --stat
-
-Execute depth-parallel updates for changed modules only.
 `
+)
 ```
 
-**Agent receives complete context:**
-- Changed module count and tool selection
-- Full structured module list (changed only)
-- Clear execution requirements with "related" mode
-- Path extraction format
-- Success criteria
+## Error Handling
 
+- **No changes detected**: Use fallback mode (recent 10 modules)
+- **Change detection failure**: Report error, abort execution
+- **User declines approval**: Abort execution, no changes made
+- **Safety check failure**: Automatic staging revert, report modified files
+- **Update script failure**: Report failed modules, continue with remaining
 
-### 📚 Usage Examples
+## Coordinator Checklist
+
+✅ Parse `--tool` parameter (default: gemini)
+✅ Refresh code index for accurate change detection
+✅ Detect changed modules via detect_changed_modules.sh
+✅ Cache git changes to protect current state
+✅ Parse changed module list, count affected modules
+✅ Apply fallback if no changes detected (recent 10 modules)
+✅ Determine strategy based on change count (≤15 vs >15)
+✅ Present plan with exact file paths and change types
+✅ **Wait for user confirmation** (simple changes only)
+✅ Organize modules by depth
+✅ For each depth (highest to lowest):
+  - Launch up to 4 parallel updates with "related" mode
+  - Wait for depth completion
+  - Proceed to next depth
+✅ Run safety check after all updates
+✅ Display git diff statistics
+✅ Report completion summary
+
+## Usage Examples
 
 ```bash
-# Daily development update
+# Daily development update (default: gemini)
 /update-memory-related
 
-# After feature work
-/update-memory-related
+# After feature work with specific tool
+/update-memory-related --tool qwen
+
+# Code quality review after implementation
+/update-memory-related --tool codex
 ```
 
-### ✨ Features
+## Tool Parameter Reference
 
-- **Separated Commands**: Each bash operation is a discrete, trackable step
-- **Intelligent Change Analysis**: Model analyzes change complexity for optimal strategy
-- **Change Detection**: Automatically finds affected modules using git diff
-- **Depth-Parallel Execution**: Same depth modules run in parallel, depths run sequentially  
-- **Git Integration**: Auto-cache changes, show diff statistics after
-- **Fallback Mode**: Updates recent files when no git changes found
-- **User Confirmation**: Clear plan presentation with approval step
-- **CLAUDE.md Only**: Only updates documentation, never source code
+**Gemini** (default):
+- Best for: Documentation generation, pattern recognition
+- Use case: Daily development updates, feature documentation
+- Output style: Comprehensive, contextual explanations
+
+**Qwen**:
+- Best for: Architecture analysis, system design
+- Use case: Structural changes, API design updates
+- Output style: Structured, systematic documentation
+
+**Codex**:
+- Best for: Implementation validation, code quality
+- Use case: After implementation, refactoring work
+- Output style: Technical, implementation-focused
+
+## Comparison with Full Update
+
+| Aspect | Related Update | Full Update |
+|--------|----------------|-------------|
+| **Scope** | Changed modules only | All project modules |
+| **Speed** | Fast (minutes) | Slower (10-30 min) |
+| **Use case** | Daily development | Major refactoring |
+| **Mode** | `"related"` | `"full"` |
+| **Trigger** | After commits | After major changes |
+| **Complexity threshold** | ≤15 modules | ≤20 modules |
