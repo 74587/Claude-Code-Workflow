@@ -253,10 +253,9 @@ Level 1: Module Trees (always, parallel execution)
 Level 2: Project README (mode=full only, depends on Level 1)
   └─ IMPL-004: Generate Project README
 
-Level 3: Architecture & Examples (mode=full only, depends on Level 2, parallel)
-  ├─ IMPL-005: Generate ARCHITECTURE.md
-  ├─ IMPL-006: Generate EXAMPLES.md
-  └─ IMPL-007: Generate HTTP API (optional)
+Level 3: Architecture & Examples (mode=full only, depends on Level 2)
+  ├─ IMPL-005: Generate ARCHITECTURE.md + EXAMPLES.md
+  └─ IMPL-006: Generate HTTP API (optional)
 ```
 
 #### Step 1: Generate Level 1 Tasks (Module Trees)
@@ -290,11 +289,10 @@ bash(
   mode=$(jq -r '.mode' .workflow/WFS-docs-20240120/.process/config.json)
   if [[ "$mode" == "full" ]]; then
     echo "Creating IMPL-004: Project README"
-    echo "Creating IMPL-005: ARCHITECTURE.md"
-    echo "Creating IMPL-006: EXAMPLES.md"
+    echo "Creating IMPL-005: ARCHITECTURE.md + EXAMPLES.md"
     # Optional: Check for HTTP API endpoints
     if grep -r "router\.|@Get\|@Post" src/ >/dev/null 2>&1; then
-      echo "Creating IMPL-007: HTTP API docs"
+      echo "Creating IMPL-006: HTTP API docs"
     fi
   else
     echo "Partial mode: Skipping project-level tasks"
@@ -555,13 +553,13 @@ bash(
 }
 ```
 
-### Level 3: Architecture Documentation Task
+### Level 3: Architecture & Examples Documentation Task
 
 **Default Mode**:
 ```json
 {
   "id": "IMPL-005",
-  "title": "Generate Architecture Documentation",
+  "title": "Generate Architecture & Examples Documentation",
   "status": "pending",
   "depends_on": ["IMPL-004"],
   "meta": {
@@ -573,9 +571,9 @@ bash(
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_existing_arch",
-        "command": "bash(cat .workflow/docs/ARCHITECTURE.md 2>/dev/null || echo 'No existing ARCHITECTURE')",
-        "output_to": "existing_architecture"
+        "step": "load_existing_docs",
+        "command": "bash(cat .workflow/docs/ARCHITECTURE.md 2>/dev/null || echo 'No existing ARCHITECTURE'; echo '---SEPARATOR---'; cat .workflow/docs/EXAMPLES.md 2>/dev/null || echo 'No existing EXAMPLES')",
+        "output_to": "existing_arch_examples"
       },
       {
         "step": "load_all_docs",
@@ -584,72 +582,36 @@ bash(
         "note": "Load README + all module docs from mirrored structure"
       },
       {
-        "step": "analyze_architecture",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze system architecture\\nTASK: Synthesize architectural overview\\nMODE: analysis\\nCONTEXT: [all_docs]\\nEXPECTED: Architecture outline\")",
-        "output_to": "arch_outline"
+        "step": "analyze_architecture_and_examples",
+        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze system architecture and generate examples\\nTASK: Synthesize architectural overview and usage patterns\\nMODE: analysis\\nCONTEXT: [all_docs]\\nEXPECTED: Architecture outline + Examples outline\")",
+        "output_to": "arch_examples_outline"
       }
     ],
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Generate architecture documentation",
-        "description": "Generate ARCHITECTURE.md while preserving existing user modifications",
-        "modification_points": ["Parse [arch_outline] and [all_docs]", "Generate ARCHITECTURE.md structure", "Document system design and patterns", "Preserve [existing_architecture] modifications"],
-        "logic_flow": ["Parse [arch_outline] and [all_docs]", "Generate ARCHITECTURE.md", "Preserve [existing_architecture] modifications"],
+        "title": "Generate architecture and examples documentation",
+        "description": "Generate ARCHITECTURE.md and EXAMPLES.md while preserving existing user modifications",
+        "modification_points": [
+          "Parse [arch_examples_outline] and [all_docs]",
+          "Generate ARCHITECTURE.md structure with system design and patterns",
+          "Generate EXAMPLES.md structure with code snippets and usage examples",
+          "Preserve [existing_arch_examples] user modifications"
+        ],
+        "logic_flow": [
+          "Parse [arch_examples_outline] and [all_docs]",
+          "Generate ARCHITECTURE.md with system design",
+          "Generate EXAMPLES.md with code snippets",
+          "Preserve [existing_arch_examples] modifications"
+        ],
         "depends_on": [],
-        "output": "architecture_doc"
+        "output": "arch_examples_docs"
       }
     ],
-    "target_files": [".workflow/docs/ARCHITECTURE.md"]
-  }
-}
-```
-
-### Level 3: Examples Documentation Task
-
-**Default Mode**:
-```json
-{
-  "id": "IMPL-006",
-  "title": "Generate Examples Documentation",
-  "status": "pending",
-  "depends_on": ["IMPL-004"],
-  "meta": {
-    "type": "docs",
-    "agent": "@doc-generator",
-    "tool": "gemini",
-    "cli_generate": false
-  },
-  "flow_control": {
-    "pre_analysis": [
-      {
-        "step": "load_existing_examples",
-        "command": "bash(cat .workflow/docs/EXAMPLES.md 2>/dev/null || echo 'No existing EXAMPLES')",
-        "output_to": "existing_examples"
-      },
-      {
-        "step": "load_project_readme",
-        "command": "bash(cat .workflow/docs/README.md)",
-        "output_to": "project_readme"
-      },
-      {
-        "step": "generate_examples_outline",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Generate usage examples\\nTASK: Extract example patterns\\nMODE: analysis\\nCONTEXT: [project_readme]\\nEXPECTED: Examples outline\")",
-        "output_to": "examples_outline"
-      }
-    ],
-    "implementation_approach": [
-      {
-        "step": 1,
-        "title": "Generate examples documentation",
-        "description": "Generate EXAMPLES.md with code snippets while preserving existing user modifications",
-        "modification_points": ["Parse [examples_outline] and [project_readme]", "Generate EXAMPLES.md structure", "Add code snippets and usage examples", "Preserve [existing_examples] modifications"],
-        "logic_flow": ["Parse [examples_outline] and [project_readme]", "Generate EXAMPLES.md with code snippets", "Preserve [existing_examples] modifications"],
-        "depends_on": [],
-        "output": "examples_doc"
-      }
-    ],
-    "target_files": [".workflow/docs/EXAMPLES.md"]
+    "target_files": [
+      ".workflow/docs/ARCHITECTURE.md",
+      ".workflow/docs/EXAMPLES.md"
+    ]
   }
 }
 ```
@@ -659,7 +621,7 @@ bash(
 **Default Mode**:
 ```json
 {
-  "id": "IMPL-007",
+  "id": "IMPL-006",
   "title": "Generate HTTP API Documentation",
   "status": "pending",
   "depends_on": ["IMPL-004"],
@@ -720,10 +682,9 @@ bash(
         ├── IMPL-001.json                    # Module tree task
         ├── IMPL-002.json                    # Module tree task
         ├── IMPL-003.json                    # Module tree task
-        ├── IMPL-004.json                    # Project README (root only)
-        ├── IMPL-005.json                    # ARCHITECTURE.md (root only)
-        ├── IMPL-006.json                    # EXAMPLES.md (root only)
-        └── IMPL-007.json                    # HTTP API docs (optional)
+        ├── IMPL-004.json                    # Project README (full mode)
+        ├── IMPL-005.json                    # ARCHITECTURE.md + EXAMPLES.md (full mode)
+        └── IMPL-006.json                    # HTTP API docs (optional)
 ```
 
 **Config File Structure** (config.json):
@@ -791,10 +752,9 @@ bash(
 # Level 2 - Project README (after Level 1)
 /workflow:execute IMPL-004
 
-# Level 3 - Architecture & Examples (after Level 2, parallel)
-/workflow:execute IMPL-005
-/workflow:execute IMPL-006
-/workflow:execute IMPL-007  # if HTTP API present
+# Level 3 - Architecture & Examples (after Level 2)
+/workflow:execute IMPL-005  # ARCHITECTURE.md + EXAMPLES.md
+/workflow:execute IMPL-006  # HTTP API (if present)
 ```
 
 ### Partial Mode (--mode partial)
