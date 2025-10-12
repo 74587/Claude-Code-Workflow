@@ -1,7 +1,6 @@
 ---
 name: plan
 description: Orchestrate 4-phase planning workflow by executing commands and passing context between phases
-usage: /workflow:plan [--agent] <input>
 argument-hint: "[--agent] \"text description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---

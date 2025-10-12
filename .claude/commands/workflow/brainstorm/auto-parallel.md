@@ -1,7 +1,6 @@
 ---
 name: auto-parallel
 description: Parallel brainstorming automation with dynamic role selection and concurrent execution
-usage: /workflow:brainstorm:auto-parallel "<topic>"
 argument-hint: "topic or challenge description"
 allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---

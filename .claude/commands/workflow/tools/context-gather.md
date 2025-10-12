@@ -1,7 +1,6 @@
 ---
 name: gather
 description: Intelligently collect project context based on task description and package into standardized JSON
-usage: /workflow:tools:context-gather --session <session_id> "<task_description>"
 argument-hint: "--session WFS-session-id \"task description\""
 examples:
   - /workflow:tools:context-gather --session WFS-user-auth "Implement user authentication system"

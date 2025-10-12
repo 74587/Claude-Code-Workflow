@@ -1,7 +1,6 @@
 ---
 name: subject-matter-expert
 description: Generate or update subject-matter-expert/analysis.md addressing topic-framework discussion points
-usage: /workflow:brainstorm:subject-matter-expert [topic]
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---

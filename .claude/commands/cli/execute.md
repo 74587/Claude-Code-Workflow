@@ -1,7 +1,6 @@
 ---
 name: execute
 description: Auto-execution of implementation tasks with YOLO permissions and intelligent context inference
-usage: /cli:execute [--tool <codex|gemini|qwen>] [--enhance] <description|task-id>
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] description or task-id"
 allowed-tools: SlashCommand(*), Bash(*)
 ---

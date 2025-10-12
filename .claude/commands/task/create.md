@@ -1,7 +1,6 @@
 ---
 name: create
 description: Create implementation tasks with automatic context awareness
-usage: /task:create "title"
 argument-hint: "\"task title\""
 ---
 

@@ -1,7 +1,6 @@
 ---
 name: enhance-prompt
 description: Context-aware prompt enhancement using session memory and codebase analysis
-usage: /enhance-prompt <user_input>
 argument-hint: "user input to enhance"
 ---
 

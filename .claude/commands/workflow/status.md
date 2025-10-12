@@ -1,7 +1,6 @@
 ---
 name: workflow:status
 description: Generate on-demand views from JSON task data
-usage: /workflow:status [task-id]
 argument-hint: "[optional: task-id]"
 ---
 

@@ -1,7 +1,6 @@
 ---
 name: test-task-generate
 description: Generate test-fix task JSON with iterative test-fix-retest cycle specification
-usage: /workflow:tools:test-task-generate [--use-codex] --session <test-session-id>
 argument-hint: "[--use-codex] --session WFS-test-session-id"
 examples:
   - /workflow:tools:test-task-generate --session WFS-test-auth

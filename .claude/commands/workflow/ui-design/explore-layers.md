@@ -1,7 +1,6 @@
 ---
 name: explore-layers
 description: Interactive deep UI capture with depth-controlled layer exploration
-usage: /workflow:ui-design:explore-layers --url <url> --depth <1-5> [--session <id>] [--base-path <path>]
 argument-hint: --url <url> --depth <1-5> [--session id] [--base-path path]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*), mcp__chrome-devtools__*
 ---

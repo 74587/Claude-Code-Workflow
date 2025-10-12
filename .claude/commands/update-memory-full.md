@@ -1,7 +1,6 @@
 ---
 name: update-memory-full
 description: Complete project-wide CLAUDE.md documentation update
-usage: /update-memory-full [--tool <gemini|qwen|codex>]
 argument-hint: "[--tool gemini|qwen|codex]"
 ---
 

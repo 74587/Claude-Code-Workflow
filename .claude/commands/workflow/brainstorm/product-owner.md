@@ -1,7 +1,6 @@
 ---
 name: product-owner
 description: Generate or update product-owner/analysis.md addressing topic-framework discussion points
-usage: /workflow:brainstorm:product-owner [topic]
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---

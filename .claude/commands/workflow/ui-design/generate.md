@@ -11,10 +11,11 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 Pure assembler that combines pre-extracted layout templates with design tokens to generate UI prototypes (`style × layout × targets`). No layout design logic - purely combines existing components.
 
 **Strategy**: Pure Assembly
-- **Input**: `layout-templates.json` + `design-tokens.json`
+- **Input**: `layout-templates.json` + `design-tokens.json` (+ reference images if available)
 - **Process**: Combine structure (DOM) with style (tokens)
 - **Output**: Complete HTML/CSS prototypes
 - **No Design Logic**: All layout and style decisions already made
+- **Automatic Image Reference**: If source images exist in layout templates, they're automatically used for visual context
 
 **Prerequisite Commands**:
 - `/workflow:ui-design:style-extract` → Style tokens
@@ -30,6 +31,8 @@ bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
 
 # Get style count
 bash(ls {base_path}/style-consolidation/style-* -d | wc -l)
+
+# Image reference auto-detected from layout template source_image_path
 ```
 
 ### Step 2: Load Layout Templates
@@ -78,18 +81,29 @@ Task(ui-design-agent): `
   1. Layout Template:
      Read("{base_path}/layout-extraction/layout-templates.json")
      Find template where: target={target} AND variant_id="layout-{layout_id}"
-     Extract: dom_structure, css_layout_rules, device_type
+     Extract: dom_structure, css_layout_rules, device_type, source_image_path
 
   2. Design Tokens:
      Read("{base_path}/style-consolidation/style-{style_id}/design-tokens.json")
      Extract: ALL token values (colors, typography, spacing, borders, shadows, breakpoints)
+
+  3. Reference Image (AUTO-DETECTED):
+     IF template.source_image_path exists:
+       Read(template.source_image_path)
+       Purpose: Additional visual context for better placeholder content generation
+       Note: This is for reference only - layout and style decisions already made
+     ELSE:
+       Use generic placeholder content
 
   ## Assembly Process
   1. Build HTML: {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.html
      - Recursively build from template.dom_structure
      - Add: <!DOCTYPE html>, <head>, <meta viewport>
      - CSS link: <link href="{target}-style-{style_id}-layout-{layout_id}.css">
-     - Inject placeholder content (Lorem ipsum, sample data)
+     - Inject placeholder content:
+       * Default: Use Lorem ipsum, generic sample data
+       * If reference image available: Generate more contextually appropriate placeholders
+         (e.g., realistic headings, meaningful text snippets that match the visual context)
      - Preserve all attributes from dom_structure
 
   2. Build CSS: {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.css
@@ -169,6 +183,7 @@ Configuration:
 - Device Type: {device_type}
 - Targets: {targets}
 - Total Prototypes: {S × L × T}
+- Image Reference: Auto-detected (uses source images when available in layout templates)
 
 Assembly Process:
 - Pure assembly: Combined pre-extracted layouts + design tokens

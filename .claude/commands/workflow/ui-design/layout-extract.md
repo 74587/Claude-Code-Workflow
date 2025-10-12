@@ -144,6 +144,11 @@ Task(ui-design-agent): `
   Each template must include:
   - target (string)
   - variant_id (string, e.g., "layout-1")
+  - source_image_path (string, REQUIRED): Path to the primary reference image used for this layout analysis
+    * For image input: Use the actual image file path from {images_pattern}
+    * For URL input: Use the screenshot path if available, or empty string
+    * For text/prompt input: Use empty string
+    * Example: "{base_path}/screenshots/home.png"
   - device_type (string)
   - design_philosophy (string)
   - dom_structure (JSON object)
@@ -276,6 +281,7 @@ bash(echo '{json}' > {base_path}/layout-extraction/layout-templates.json)
     {
       "target": "home",
       "variant_id": "layout-1",
+      "source_image_path": "{base_path}/screenshots/home.png",
       "device_type": "responsive",
       "design_philosophy": "Responsive 3-column holy grail layout with fixed header and footer",
       "dom_structure": {

@@ -1,7 +1,6 @@
 ---
 name: execute
 description: Coordinate agents for existing workflow tasks with automatic discovery
-usage: /workflow:execute [--resume-session="session-id"]
 argument-hint: "[--resume-session=\"session-id\"]"
 ---
 

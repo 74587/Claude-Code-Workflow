@@ -1,7 +1,6 @@
 ---
 name: test-gen
 description: Create independent test-fix workflow session by analyzing completed implementation
-usage: /workflow:test-gen [--use-codex] <source-session-id>
 argument-hint: "[--use-codex] source-session-id"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---

@@ -1,7 +1,6 @@
 ---
 name: task-generate-agent
 description: Autonomous task generation using action-planning-agent with discovery and output phases
-usage: /workflow:tools:task-generate-agent --session <session_id>
 argument-hint: "--session WFS-session-id"
 examples:
   - /workflow:tools:task-generate-agent --session WFS-auth

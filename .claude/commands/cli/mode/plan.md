@@ -1,7 +1,6 @@
 ---
 name: plan
 description: Project planning and architecture analysis using CLI tools
-usage: /cli:mode:plan [--tool <codex|gemini|qwen>] [--enhance] [--cd "path"] "topic"
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] [--cd path] topic"
 allowed-tools: SlashCommand(*), Bash(*)
 ---

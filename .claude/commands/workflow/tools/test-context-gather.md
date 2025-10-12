@@ -1,7 +1,6 @@
 ---
 name: test-context-gather
 description: Collect test coverage context and identify files requiring test generation
-usage: /workflow:tools:test-context-gather --session <test_session_id>
 argument-hint: "--session WFS-test-session-id"
 examples:
   - /workflow:tools:test-context-gather --session WFS-test-auth

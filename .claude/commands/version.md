@@ -1,7 +1,6 @@
 ---
 name: version
 description: Display version information and check for updates
-usage: /version
 allowed-tools: Bash(*)
 ---
 

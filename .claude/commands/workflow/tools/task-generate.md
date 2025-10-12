@@ -1,7 +1,6 @@
 ---
 name: task-generate
 description: Generate task JSON files and IMPL_PLAN.md from analysis results with artifacts integration
-usage: /workflow:tools:task-generate --session <session_id>
 argument-hint: "--session WFS-session-id"
 examples:
   - /workflow:tools:task-generate --session WFS-auth

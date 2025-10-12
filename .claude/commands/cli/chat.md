@@ -1,7 +1,6 @@
 ---
 name: chat
 description: Simple CLI interaction command for direct codebase analysis
-usage: /cli:chat [--tool <codex|gemini|qwen>] [--enhance] "inquiry"
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] inquiry"
 allowed-tools: SlashCommand(*), Bash(*)
 ---

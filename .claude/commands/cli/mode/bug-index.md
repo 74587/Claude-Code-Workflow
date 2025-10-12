@@ -1,7 +1,6 @@
 ---
 name: bug-index
 description: Bug analysis and fix suggestions using CLI tools
-usage: /cli:mode:bug-index [--tool <codex|gemini|qwen>] [--enhance] [--cd "path"] "bug description"
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] [--cd path] bug description"
 allowed-tools: SlashCommand(*), Bash(*)
 ---

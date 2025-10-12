@@ -1,7 +1,6 @@
 ---
 name: analyze
 description: Quick codebase analysis using CLI tools (codex/gemini/qwen)
-usage: /cli:analyze [--tool <codex|gemini|qwen>] [--enhance] <analysis-target>
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] analysis target"
 allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*)
 ---

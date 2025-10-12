@@ -1,7 +1,6 @@
 ---
 name: synthesis
 description: Generate synthesis-specification.md from topic-framework and role analyses with @ references
-usage: /workflow:brainstorm:synthesis
 argument-hint: "no arguments required - synthesizes existing framework and role analyses"
 allowed-tools: Read(*), Write(*), TodoWrite(*), Glob(*)
 ---

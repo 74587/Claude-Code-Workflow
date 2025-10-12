@@ -1,7 +1,6 @@
 ---
 name: concept-enhanced
 description: Enhanced intelligent analysis with parallel CLI execution and design blueprint generation
-usage: /workflow:tools:concept-enhanced --session <session_id> --context <context_package_path>
 argument-hint: "--session WFS-session-id --context path/to/context-package.json"
 examples:
   - /workflow:tools:concept-enhanced --session WFS-auth --context .workflow/WFS-auth/.process/context-package.json

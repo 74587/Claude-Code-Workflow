@@ -1,7 +1,6 @@
 ---
 name: replan
 description: Replan individual tasks with detailed user input and change tracking
-usage: /task:replan <task-id> [input]
 argument-hint: "task-id [\"text\"|file.md]"
 ---
 

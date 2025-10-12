@@ -1,7 +1,6 @@
 ---
 name: tdd-coverage-analysis
 description: Analyze test coverage and TDD cycle execution
-usage: /workflow:tools:tdd-coverage-analysis --session <session_id>
 argument-hint: "--session WFS-session-id"
 allowed-tools: Read(*), Write(*), Bash(*)
 ---

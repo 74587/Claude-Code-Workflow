@@ -1,7 +1,6 @@
 ---
 name: resume
 description: Intelligent workflow session resumption with automatic progress analysis
-usage: /workflow:resume "<session-id>"
 argument-hint: "session-id for workflow session to resume"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---

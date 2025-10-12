@@ -1,7 +1,6 @@
 ---
 name: review
 description: Optional specialized review (security, architecture, docs) for completed implementation
-usage: /workflow:review [--type=<type>] [session-id]
 argument-hint: "[--type=security|architecture|action-items|quality] [optional: session-id]"
 ---
 

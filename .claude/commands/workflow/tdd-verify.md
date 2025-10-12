@@ -1,7 +1,7 @@
 ---
 name: tdd-verify
 description: Verify TDD workflow compliance and generate quality report
-usage: /workflow:tdd-verify [session-id]
+
 argument-hint: "[optional: WFS-session-id]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(gemini-wrapper:*)
 ---

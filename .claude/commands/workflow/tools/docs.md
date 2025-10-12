@@ -1,7 +1,6 @@
 ---
 name: docs
 description: Documentation planning and orchestration - creates structured documentation tasks for execution
-usage: /workflow:docs <type> [options]
 argument-hint: "architecture"|"api"|"all" [--tool <gemini|qwen|codex>] [--scope <path>]
 examples:
   - /workflow:docs all                          # Complete documentation (gemini default)

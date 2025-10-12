@@ -1,7 +1,6 @@
 ---
 name: scrum-master
 description: Generate or update scrum-master/analysis.md addressing topic-framework discussion points
-usage: /workflow:brainstorm:scrum-master [topic]
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---

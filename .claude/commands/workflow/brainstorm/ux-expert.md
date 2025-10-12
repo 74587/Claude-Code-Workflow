@@ -1,7 +1,6 @@
 ---
 name: ux-expert
 description: Generate or update ux-expert/analysis.md addressing topic-framework discussion points
-usage: /workflow:brainstorm:ux-expert [topic]
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---

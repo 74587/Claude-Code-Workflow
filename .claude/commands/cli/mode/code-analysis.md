@@ -1,7 +1,6 @@
 ---
 name: code-analysis
 description: Deep code analysis and debugging using CLI tools with specialized template
-usage: /cli:mode:code-analysis [--tool <codex|gemini|qwen>] [--enhance] [--cd "path"] "analysis target"
 argument-hint: "[--tool codex|gemini|qwen] [--enhance] [--cd path] analysis target"
 allowed-tools: SlashCommand(*), Bash(*)
 ---

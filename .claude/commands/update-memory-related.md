@@ -1,7 +1,6 @@
 ---
 name: update-memory-related
 description: Context-aware CLAUDE.md documentation updates based on recent changes
-usage: /update-memory-related [--tool <gemini|qwen|codex>]
 argument-hint: "[--tool gemini|qwen|codex]"
 ---
 

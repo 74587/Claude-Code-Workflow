@@ -1,7 +1,6 @@
 ---
 name: auto-squeeze
 description: Orchestrate 3-phase brainstorming workflow by executing commands sequentially
-usage: /workflow:brainstorm:auto-squeeze "<topic>"
 argument-hint: "topic or challenge description for coordinated brainstorming"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*)
 ---

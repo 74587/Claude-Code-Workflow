@@ -1,7 +1,6 @@
 ---
 name: codex-execute
 description: Automated task decomposition and execution with Codex using resume mechanism
-usage: /cli:codex-execute [--verify-git] <task-description|task-id>
 argument-hint: "[--verify-git] task description or task-id"
 allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*)
 ---

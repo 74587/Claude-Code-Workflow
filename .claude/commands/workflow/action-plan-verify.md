@@ -1,7 +1,6 @@
 ---
 name: action-plan-verify
 description: Perform non-destructive cross-artifact consistency and quality analysis of IMPL_PLAN.md and task.json before execution
-usage: /workflow:action-plan-verify [--session <session-id>]
 argument-hint: "[optional: --session session-id]"
 allowed-tools: Read(*), TodoWrite(*), Glob(*), Bash(*)
 ---
