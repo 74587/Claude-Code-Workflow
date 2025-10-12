@@ -109,6 +109,14 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **After Phase 3**: Return to user showing Phase 3 results, then auto-continue to Phase 4
 
+**Memory State Check**:
+- Evaluate current context window usage and memory state
+- If memory usage is high (>110K tokens or approaching context limits):
+  - **Command**: `SlashCommand(command="/compact")`
+  - This optimizes memory before proceeding to Phase 4
+- Memory compaction is particularly important after analysis phase which may generate extensive documentation
+- Ensures optimal performance and prevents context overflow
+
 ---
 
 ### Phase 4: Task Generation
