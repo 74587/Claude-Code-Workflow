@@ -14,20 +14,35 @@ type: search-guideline
 
 ## ⚡ Core Search Tools
 
+**codebase-retrieval**: Semantic file discovery via Gemini CLI with all files analysis
 **rg (ripgrep)**: Fast content search with regex support
 **find**: File/directory location by name patterns
 **grep**: Built-in pattern matching in files
 **get_modules_by_depth.sh**: Program architecture analysis and structural discovery
 
 ### Decision Principles
+- **Use codebase-retrieval for semantic discovery** - Intelligent file discovery based on task context
 - **Use rg for content** - Fastest for searching within files
 - **Use find for files** - Locate files/directories by name
 - **Use grep sparingly** - Only when rg unavailable
 - **Use get_modules_by_depth.sh first** - MANDATORY for program architecture analysis before planning
 - **Always use Bash commands** - NEVER use Windows cmd/PowerShell commands
 
+### Tool Selection Matrix
+
+| Need | Tool | Use Case |
+|------|------|----------|
+| **Semantic file discovery** | codebase-retrieval | Find files relevant to task/feature context |
+| **Pattern matching** | rg | Search code content with regex |
+| **File name lookup** | find | Locate files by name patterns |
+| **Architecture analysis** | get_modules_by_depth.sh | Understand program structure |
+
 ### Quick Command Reference
 ```bash
+# Semantic File Discovery (codebase-retrieval)
+~/.claude/scripts/gemini-wrapper --all-files -p "List all files relevant to: [task/feature description]"
+bash(~/.claude/scripts/gemini-wrapper --all-files -p "List all files relevant to: [task/feature description]")
+
 # Program Architecture Analysis (MANDATORY FIRST)
 ~/.claude/scripts/get_modules_by_depth.sh  # Discover program architecture
 bash(~/.claude/scripts/get_modules_by_depth.sh)  # Analyze structural hierarchy
@@ -49,6 +64,10 @@ grep -n -i "pattern" file.txt   # Line numbers, case-insensitive
 
 ### Workflow Integration Examples
 ```bash
+# Semantic Discovery → Content Search → Analysis (Recommended Pattern)
+~/.claude/scripts/gemini-wrapper --all-files -p "List all files relevant to: [task/feature]"  # Get relevant files
+rg "[pattern]" --type [filetype]  # Then search within discovered files
+
 # Program Architecture Analysis (MANDATORY BEFORE PLANNING)
 ~/.claude/scripts/get_modules_by_depth.sh  # Discover program architecture
 bash(~/.claude/scripts/get_modules_by_depth.sh)  # Analyze structural hierarchy
