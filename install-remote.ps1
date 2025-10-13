@@ -127,17 +127,36 @@ function Test-Prerequisites {
         Write-ColorOutput "Current version: $($PSVersionTable.PSVersion)" $ColorError
         return $false
     }
-    
+
+    # Check for optional but recommended commands
+    $gitAvailable = $false
+    try {
+        $gitVersion = git --version 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-ColorOutput "✓ Git available" $ColorSuccess
+            $gitAvailable = $true
+        }
+    } catch {
+        # Git not found
+    }
+
+    if (-not $gitAvailable) {
+        Write-ColorOutput "WARNING: 'git' not found - version detection may be limited" $ColorWarning
+        Write-ColorOutput "Hint: Install Git for Windows for better version tracking" $ColorInfo
+        Write-ColorOutput "      Download from: https://git-scm.com/download/win" $ColorInfo
+        Write-Host ""
+    }
+
     # Test internet connectivity
     try {
         $null = Invoke-WebRequest -Uri "https://github.com" -Method Head -TimeoutSec 10 -UseBasicParsing
-        Write-ColorOutput "Network connection OK" $ColorSuccess
+        Write-ColorOutput "✓ Network connection OK" $ColorSuccess
     } catch {
         Write-ColorOutput "ERROR: Cannot connect to GitHub" $ColorError
         Write-ColorOutput "Please check your network connection: $($_.Exception.Message)" $ColorError
         return $false
     }
-    
+
     return $true
 }
 
@@ -566,20 +585,52 @@ function Main {
 
         # Get commit SHA from the downloaded repository first
         $commitSha = ""
+        Write-ColorOutput "Detecting version information..." $ColorInfo
+
+        # Try to get from git repository if git is available
+        $gitAvailable = $false
         try {
-            Push-Location $repoDir
-            $commitSha = (git rev-parse --short HEAD 2>$null)
-            if (-not $commitSha) {
-                # Fallback: try to get from GitHub API
+            $null = git --version 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                $gitAvailable = $true
+            }
+        } catch {
+            # Git not available
+        }
+
+        if ($gitAvailable) {
+            try {
+                Push-Location $repoDir
+                $commitSha = (git rev-parse --short HEAD 2>$null)
+                Pop-Location
+
+                if ($commitSha) {
+                    Write-ColorOutput "✓ Version detected from git: $commitSha" $ColorSuccess
+                }
+            } catch {
+                Pop-Location
+                # Continue to fallback
+            }
+        }
+
+        # Fallback: try to get from GitHub API
+        if (-not $commitSha) {
+            try {
+                Write-ColorOutput "Fetching version from GitHub API..." $ColorInfo
                 $commitUrl = "https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/$Branch"
-                $commitResponse = Invoke-RestMethod -Uri $commitUrl -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+                $commitResponse = Invoke-RestMethod -Uri $commitUrl -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+
                 if ($commitResponse.sha) {
                     $commitSha = $commitResponse.sha.Substring(0, 7)
+                    Write-ColorOutput "✓ Version detected from API: $commitSha" $ColorSuccess
                 }
+            } catch {
+                Write-ColorOutput "WARNING: Could not detect version, using 'unknown'" $ColorWarning
+                $commitSha = "unknown"
             }
-            Pop-Location
-        } catch {
-            Pop-Location
+        }
+
+        if (-not $commitSha) {
             $commitSha = "unknown"
         }
 

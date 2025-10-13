@@ -58,6 +58,17 @@ function test_prerequisites() {
         fi
     done
 
+    # Check for optional but recommended commands
+    if ! command -v git &> /dev/null; then
+        write_color "WARNING: 'git' not found - version detection may be limited" "$COLOR_WARNING"
+        write_color "Hint: Install git for better version tracking" "$COLOR_INFO"
+        write_color "      On Ubuntu/Debian: sudo apt-get install git" "$COLOR_INFO"
+        write_color "      On WSL: sudo apt-get update && sudo apt-get install git" "$COLOR_INFO"
+        echo ""
+    else
+        write_color "✓ Git available" "$COLOR_SUCCESS"
+    fi
+
     # Test internet connectivity
     if curl -sSf --connect-timeout 10 "https://github.com" &> /dev/null; then
         write_color "✓ Network connection OK" "$COLOR_SUCCESS"
@@ -650,14 +661,39 @@ function main() {
 
             # Get commit SHA from the downloaded repository first
             local commit_sha=""
+            write_color "Detecting version information..." "$COLOR_INFO"
+
             if command -v git &> /dev/null && [ -d "$repo_dir/.git" ]; then
-                commit_sha=$(cd "$repo_dir" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-            else
+                # Try to get from git repository
+                commit_sha=$(cd "$repo_dir" && git rev-parse --short HEAD 2>/dev/null || echo "")
+                if [ -n "$commit_sha" ]; then
+                    write_color "✓ Version detected from git: $commit_sha" "$COLOR_SUCCESS"
+                fi
+            fi
+
+            if [ -z "$commit_sha" ]; then
                 # Fallback: try to get from GitHub API
+                write_color "Fetching version from GitHub API..." "$COLOR_INFO"
                 local temp_branch="main"
                 [ "$VERSION_TYPE" = "branch" ] && temp_branch="$BRANCH"
-                commit_sha=$(curl -fsSL "https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/$temp_branch" 2>/dev/null | grep -o '"sha": *"[^"]*"' | head -1 | cut -d'"' -f4 | cut -c1-7)
-                [ -z "$commit_sha" ] && commit_sha="unknown"
+
+                local commit_data
+                commit_data=$(curl -fsSL --connect-timeout 10 "https://api.github.com/repos/catlog22/Claude-Code-Workflow/commits/$temp_branch" 2>/dev/null)
+
+                if [ -n "$commit_data" ]; then
+                    if command -v jq &> /dev/null; then
+                        commit_sha=$(echo "$commit_data" | jq -r '.sha' 2>/dev/null | cut -c1-7)
+                    else
+                        commit_sha=$(echo "$commit_data" | grep -o '"sha": *"[^"]*"' | head -1 | cut -d'"' -f4 | cut -c1-7)
+                    fi
+                fi
+
+                if [ -n "$commit_sha" ] && [ "$commit_sha" != "null" ]; then
+                    write_color "✓ Version detected from API: $commit_sha" "$COLOR_SUCCESS"
+                else
+                    write_color "WARNING: Could not detect version, using 'unknown'" "$COLOR_WARNING"
+                    commit_sha="unknown"
+                fi
             fi
 
             # Determine version and branch information to pass
