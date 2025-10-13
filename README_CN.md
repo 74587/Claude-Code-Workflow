@@ -662,22 +662,26 @@ URL/图像 → capture/explore-layers
 
 #### 预览系统
 
-运行 `ui-generate` 后，您将获得交互式预览工具：
+运行 `ui-generate` 后，您将获得交互式预览工具，**无需启动服务器即可直接在浏览器中使用**：
 
-**快速预览**（直接浏览器）:
+**直接浏览器预览**（推荐 - 无需服务器）:
 ```bash
 # 导航到原型目录
 cd .workflow/WFS-auth/.design/prototypes
-# 在浏览器中打开 index.html（双击或执行）:
+
+# 在浏览器中打开（双击文件或使用命令）:
 open index.html  # macOS
 start index.html  # Windows
 xdg-open index.html  # Linux
+
+# index.html 和 compare.html 都可以直接打开，无需服务器
+open compare.html  # 直接打开对比视图
 ```
 
-**完整预览**（本地服务器 - 推荐）:
+**可选：本地服务器**（用于高级功能）:
 ```bash
 cd .workflow/WFS-auth/.design/prototypes
-# 选择一个:
+# 如果需要服务器端功能，可选择一个:
 python -m http.server 8080      # Python
 npx http-server -p 8080         # Node.js
 php -S localhost:8080           # PHP
@@ -685,11 +689,12 @@ php -S localhost:8080           # PHP
 ```
 
 **预览功能**:
-- `index.html`: 包含所有原型的主导航
-- `compare.html`: 带视口控制的并排对比（桌面/平板/移动）
+- `index.html`: 包含所有原型的主导航（离线可用）
+- `compare.html`: 带视口控制的并排对比（离线可用）
 - 同步滚动用于布局对比
 - 动态页面切换
 - 实时响应式测试
+- **无需服务器** - 所有功能都可通过直接在浏览器中打开文件来使用
 
 #### 📦 输出结构
 

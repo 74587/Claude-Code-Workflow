@@ -662,22 +662,26 @@ URL/Images → capture/explore-layers
 
 #### Preview System
 
-After running `ui-generate`, you get interactive preview tools:
+After running `ui-generate`, you get interactive preview tools that **work directly in the browser without requiring a server**:
 
-**Quick Preview** (Direct Browser):
+**Direct Browser Preview** (Recommended - No Server Required):
 ```bash
 # Navigate to prototypes directory
 cd .workflow/WFS-auth/.design/prototypes
-# Open index.html in browser (double-click or):
+
+# Open in browser (double-click the file, or use command):
 open index.html  # macOS
 start index.html  # Windows
 xdg-open index.html  # Linux
+
+# Both index.html and compare.html work directly without a server
+open compare.html  # Open comparison view directly
 ```
 
-**Full Preview** (Local Server - Recommended):
+**Optional: Local Server** (For advanced features):
 ```bash
 cd .workflow/WFS-auth/.design/prototypes
-# Choose one:
+# Choose one if you need server-side features:
 python -m http.server 8080      # Python
 npx http-server -p 8080         # Node.js
 php -S localhost:8080           # PHP
@@ -685,11 +689,12 @@ php -S localhost:8080           # PHP
 ```
 
 **Preview Features**:
-- `index.html`: Master navigation with all prototypes
-- `compare.html`: Side-by-side comparison with viewport controls (Desktop/Tablet/Mobile)
+- `index.html`: Master navigation with all prototypes (works offline)
+- `compare.html`: Side-by-side comparison with viewport controls (works offline)
 - Synchronized scrolling for layout comparison
 - Dynamic page switching
 - Real-time responsive testing
+- **No server required** - all features work by opening files directly in browser
 
 #### 📦 Output Structure
 
