@@ -19,9 +19,8 @@ type: strategic-guideline
 ## ⚡ Core Framework
 
 ### Tool Overview
-- **Analysis Tools (Gemini/Qwen)**: Analysis, understanding, exploration & documentation
-  - Gemini: Primary choice
-  - Qwen: Fallback with identical capabilities
+- **Gemini**: Analysis, understanding, exploration & documentation (primary)
+- **Qwen**: Analysis, understanding, exploration & documentation (fallback, same capabilities as Gemini)
 - **Codex**: Development, implementation & automation
 
 ### Decision Principles
@@ -33,9 +32,9 @@ type: strategic-guideline
 - **⚠️ Write operation protection** - For local codebase write/modify operations, require EXPLICIT user confirmation unless user provides clear instructions containing MODE=write or MODE=auto
 
 ### Quick Decision Rules
-1. **Exploring/Understanding?** → Use Analysis Tools (Gemini primary, Qwen fallback)
-2. **Architecture/Analysis?** → Use Analysis Tools
-3. **Building/Fixing?** → Use Codex
+1. **Exploring/Understanding?** → Start with Gemini (fallback to Qwen if needed)
+2. **Architecture/Analysis?** → Start with Gemini (fallback to Qwen if needed)
+3. **Building/Fixing?** → Start with Codex
 4. **Not sure?** → Use multiple tools in parallel
 5. **Small task?** → Still use tools - they're faster than manual work
 
@@ -43,17 +42,29 @@ type: strategic-guideline
 
 ## 🎯 Tool Specifications
 
-### Analysis Tools: Gemini & Qwen
-- **Commands**: `~/.claude/scripts/gemini-wrapper` | `~/.claude/scripts/qwen-wrapper`
-- **Priority**: Gemini (primary), Qwen (fallback - identical capabilities)
+### Gemini
+- **Command**: `~/.claude/scripts/gemini-wrapper`
 - **Strengths**: Large context window, pattern recognition
-- **Best For**: Analysis, documentation generation, code exploration, architecture review
+- **Best For**: Analysis, documentation generation, code exploration
 - **Permissions**: Default read-only analysis, MODE=write requires explicit specification (auto-enables --approval-mode yolo)
 - **Default MODE**: `analysis` (read-only)
 - **⚠️ Write Trigger**: Only when user explicitly requests "generate documentation", "modify code", or specifies MODE=write
 
 #### MODE Options
 - `analysis` (default) - Read-only analysis and documentation generation
+- `write` - ⚠️ Create/modify codebase files (requires explicit specification, auto-enables --approval-mode yolo)
+
+### Qwen
+- **Command**: `~/.claude/scripts/qwen-wrapper`
+- **Strengths**: Large context window, pattern recognition (same as Gemini)
+- **Best For**: Analysis, documentation generation, code exploration (fallback option when Gemini unavailable)
+- **Permissions**: Default read-only analysis, MODE=write requires explicit specification (auto-enables --approval-mode yolo)
+- **Default MODE**: `analysis` (read-only)
+- **⚠️ Write Trigger**: Only when user explicitly requests "generate documentation", "modify code", or specifies MODE=write
+- **Priority**: Secondary to Gemini - use as fallback for same tasks
+
+#### MODE Options
+- `analysis` (default) - Read-only analysis and documentation generation (same as Gemini)
 - `write` - ⚠️ Create/modify codebase files (requires explicit specification, auto-enables --approval-mode yolo)
 
 ### Codex
@@ -113,12 +124,10 @@ Every command MUST follow this structure:
 
 ### Standard Command Formats
 
-#### Analysis Tools Commands (Gemini/Qwen)
-**Note**: Commands are identical for both tools. Use `gemini-wrapper` (primary) or `qwen-wrapper` (fallback).
-
+#### Gemini Commands
 ```bash
-# Analysis Mode (read-only, default)
-cd [directory] && ~/.claude/scripts/{gemini,qwen}-wrapper -p "
+# Gemini Analysis (read-only, default)
+cd [directory] && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
 MODE: analysis
@@ -127,9 +136,33 @@ EXPECTED: [expected output]
 RULES: [template reference and constraints]
 "
 
-# Write Mode (requires explicit MODE=write)
+# Gemini Write Mode (requires explicit MODE=write)
 # NOTE: --approval-mode yolo must be placed AFTER wrapper command, BEFORE -p
-cd [directory] && ~/.claude/scripts/{gemini,qwen}-wrapper --approval-mode yolo -p "
+cd [directory] && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+PURPOSE: [clear goal]
+TASK: [specific task]
+MODE: write
+CONTEXT: [file references and memory context]
+EXPECTED: [expected output]
+RULES: [template reference and constraints]
+"
+```
+
+#### Qwen Commands
+```bash
+# Qwen Analysis (read-only, default) - Same as Gemini, use as fallback
+cd [directory] && ~/.claude/scripts/qwen-wrapper -p "
+PURPOSE: [clear analysis goal]
+TASK: [specific analysis task]
+MODE: analysis
+CONTEXT: [file references and memory context]
+EXPECTED: [expected output]
+RULES: [template reference and constraints]
+"
+
+# Qwen Write Mode (requires explicit MODE=write)
+# NOTE: --approval-mode yolo must be placed AFTER wrapper command, BEFORE -p
+cd [directory] && ~/.claude/scripts/qwen-wrapper --approval-mode yolo -p "
 PURPOSE: [clear goal]
 TASK: [specific task]
 MODE: write
@@ -166,10 +199,11 @@ RULES: [template reference and constraints]
 
 ### Directory Context Configuration
 Tools execute in current working directory:
-- **Analysis Tools**: `cd path/to/project && ~/.claude/scripts/{gemini,qwen}-wrapper -p "prompt"`
-- **Codex**: `codex -C path/to/project --full-auto exec "task"` (Codex supports -C flag)
+- **Gemini**: `cd path/to/project && ~/.claude/scripts/gemini-wrapper -p "prompt"`
+- **Qwen**: `cd path/to/project && ~/.claude/scripts/qwen-wrapper -p "prompt"`
+- **Codex**: `codex -C path/to/project --full-auto exec "task"` (Codex still supports -C)
 - **Path types**: Supports both relative (`../project`) and absolute (`/full/path`) paths
-- **Token analysis**: For analysis tools, token counting happens in current directory
+- **Token analysis**: For gemini-wrapper and qwen-wrapper, token counting happens in current directory
 
 ### RULES Field Format
 ```bash
@@ -192,7 +226,6 @@ When using `$(cat ...)` for template loading in actual CLI commands:
 - File patterns: `@{src/**/*.ts,CLAUDE.md} - Stay within scope`
 
 ### File Pattern Reference
-Common patterns:
 - All files: `@{**/*}`
 - Source files: `@{src/**/*}`
 - TypeScript: `@{*.ts,*.tsx}`
@@ -212,14 +245,14 @@ rg "export.*Component" --files-with-matches --type ts  # Find component files
 mcp__code-index__search_code_advanced(pattern="interface.*Props", file_pattern="*.tsx")  # Find interface files
 
 # Step 2: Build precise CONTEXT from discovery results
-CONTEXT: @{CLAUDE.md,src/components/Auth.tsx,src/types/auth.d.ts,src/hooks/useAuth.ts}
+CONTEXT: @{src/components/Auth.tsx,src/types/auth.d.ts,src/hooks/useAuth.ts}
 
 # Step 3: Execute CLI with precise file references
 cd src && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Analyze authentication components
 TASK: Review auth component patterns and props interfaces
 MODE: analysis
-CONTEXT: @{components/Auth.tsx,types/auth.d.ts,hooks/useAuth.ts,../CLAUDE.md}
+CONTEXT: @{components/Auth.tsx,types/auth.d.ts,hooks/useAuth.ts}
 EXPECTED: Pattern analysis and improvement suggestions
 RULES: Focus on type safety and component composition
 "
@@ -233,14 +266,14 @@ RULES: Focus on type safety and component composition
 
 | Task Type | Tool | Use Case | Template |
 |-----------|------|----------|-----------|
-| **Analysis** | Analysis Tools | Code exploration, architecture review, patterns | `analysis/pattern.txt` |
-| **Architecture** | Analysis Tools | System design, architectural analysis | `analysis/architecture.txt` |
-| **Documentation** | Analysis Tools | Code docs, API specs, guides | `analysis/quality.txt` |
+| **Analysis** | Gemini (Qwen fallback) | Code exploration, architecture review, patterns | `analysis/pattern.txt` |
+| **Architecture** | Gemini (Qwen fallback) | System design, architectural analysis | `analysis/architecture.txt` |
+| **Documentation** | Gemini (Qwen fallback) | Code docs, API specs, guides | `analysis/quality.txt` |
 | **Development** | Codex | Feature implementation, bug fixes, testing | `development/feature.txt` |
-| **Planning** | Analysis Tools | Task breakdown, migration planning | `planning/task-breakdown.txt` |
+| **Planning** | Gemini/Qwen | Task breakdown, migration planning | `planning/task-breakdown.txt` |
 | **Security** | Codex | Vulnerability assessment, fixes | `analysis/security.txt` |
-| **Refactoring** | Multiple | Analysis Tools for analysis, Codex for execution | `development/refactor.txt` |
-| **Module Documentation** | Analysis Tools | Universal module/file documentation for all levels | `memory/claude-module-unified.txt` |
+| **Refactoring** | Multiple | Gemini/Qwen for analysis, Codex for execution | `development/refactor.txt` |
+| **Module Documentation** | Gemini (Qwen fallback) | Universal module/file documentation for all levels | `memory/claude-module-unified.txt` |
 
 ### Template System
 
@@ -281,8 +314,8 @@ tech-stacks/
 ### Workflow Integration (REQUIRED)
 When planning any coding task, **ALWAYS** integrate CLI tools:
 
-1. **Understanding Phase**: Use Analysis Tools for codebase analysis
-2. **Architecture Phase**: Use Analysis Tools for design and architecture review
+1. **Understanding Phase**: Use Gemini for analysis (Qwen as fallback)
+2. **Architecture Phase**: Use Gemini for design and analysis (Qwen as fallback)
 3. **Implementation Phase**: Use Codex for development
 4. **Quality Phase**: Use Codex for testing and validation
 
@@ -302,19 +335,19 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt
 
 #### Documentation Generation
 ```bash
-~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Generate API documentation
 TASK: Create comprehensive API reference from code
 MODE: write
-CONTEXT: @{src/api/**/*,CLAUDE.md}
+CONTEXT: @{src/api/**/*}
 EXPECTED: API.md with all endpoints documented
 RULES: Follow project documentation standards
 "
 ```
 
-#### Architecture Analysis
+#### Architecture Analysis (Qwen as Gemini fallback)
 ```bash
-# Architecture analysis using Analysis Tools (Gemini primary)
+# Prefer Gemini for architecture analysis
 cd src/auth && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Analyze authentication system architecture
 TASK: Review JWT-based auth system design
@@ -324,7 +357,15 @@ EXPECTED: Architecture analysis report with recommendations
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on security
 "
 
-# Note: Replace 'gemini-wrapper' with 'qwen-wrapper' if Gemini unavailable
+# Use Qwen only if Gemini unavailable
+cd src/auth && ~/.claude/scripts/qwen-wrapper -p "
+PURPOSE: Analyze authentication system architecture
+TASK: Review JWT-based auth system design
+MODE: analysis
+CONTEXT: @{src/auth/**/*} Existing patterns and requirements
+EXPECTED: Architecture analysis report with recommendations
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on security
+"
 ```
 
 #### Feature Development (Multi-task with Resume)
@@ -334,7 +375,7 @@ codex -C path/to/project --full-auto exec "
 PURPOSE: Implement user authentication
 TASK: Create JWT-based authentication system
 MODE: auto
-CONTEXT: @{src/auth/**/*,CLAUDE.md} Database schema from session memory
+CONTEXT: @{src/auth/**/*} Database schema from session memory
 EXPECTED: Complete auth module with tests
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) | Follow security best practices
 " --skip-git-repo-check -s danger-full-access
@@ -369,7 +410,6 @@ codex resume
 codex resume --last
 ```
 
-
 ---
 
 ## 🔧 Best Practices
@@ -393,7 +433,7 @@ codex resume --last
 
 **Example**:
 ```bash
-# Analysis Tools - Focused analysis
+# Gemini - Focused analysis
 cd src/auth && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Understand authentication patterns
 TASK: Analyze auth implementation
@@ -401,6 +441,16 @@ MODE: analysis
 CONTEXT: @{**/*.ts}
 EXPECTED: Pattern documentation
 RULES: Focus on security best practices
+"
+
+# Qwen - Analysis (fallback option, same as Gemini)
+cd src/auth && ~/.claude/scripts/qwen-wrapper -p "
+PURPOSE: Analyze auth architecture
+TASK: Review auth system design and patterns
+MODE: analysis
+CONTEXT: @{**/*}
+EXPECTED: Architecture analysis report
+RULES: Focus on modularity and security
 "
 
 # Codex - Implementation
@@ -420,12 +470,12 @@ For every development task:
 - [ ] **Purpose defined** - Clear goal and intent
 - [ ] **Mode selected** - Execution mode and permission level determined
 - [ ] **Context gathered** - File references and session memory documented
-- [ ] **Analysis completed** - Use Analysis Tools (Gemini/Qwen) for understanding
+- [ ] **Gemini analysis** completed for understanding
 - [ ] **Template selected** - Appropriate template chosen
 - [ ] **Constraints specified** - File patterns, scope, requirements
 - [ ] **Implementation approach** - Tool selection and workflow
 - [ ] **Quality measures** - Testing and validation plan
-- [ ] **Tool configuration** - Review CLAUDE.md or tool-specific configs if needed
+- [ ] **Tool configuration** - Review `.gemini/CLAUDE.md` or `.codex/Agent.md` if needed
 
 ---
 
@@ -442,10 +492,12 @@ For every development task:
 - **Auto-detect**: Analyze PURPOSE and TASK fields to determine appropriate timeout
 
 ### Permission Framework
-- **⚠️ WRITE PROTECTION**: Codebase write/modify requires EXPLICIT user confirmation
-  - **Default**: Read-only analysis mode (safe for auto-execution)
-  - **Write Mode**: User must explicitly state MODE=write or MODE=auto
-  - **Exception**: Clear instructions like "modify", "create", "implement"
-- **Analysis Tools Write**: `--approval-mode yolo` AFTER wrapper command when MODE=write
-- **Codex Write**: `-s danger-full-access --skip-git-repo-check` AFTER prompt when MODE=auto
-- **Default Behavior**: All tools start in read-only mode
+- **⚠️ WRITE PROTECTION**: Local codebase write/modify requires EXPLICIT user confirmation
+  - **Analysis Mode (default)**: Read-only, safe for auto-execution
+  - **Write Mode**: Requires user explicitly states MODE=write or MODE=auto in prompt
+  - **Exception**: User provides clear instructions like "modify", "create", "implement"
+- **Gemini/Qwen Write Access**: Use `--approval-mode yolo` ONLY when MODE=write explicitly specified
+  - **Parameter Position**: Place AFTER the wrapper command: `gemini-wrapper --approval-mode yolo -p "..."`
+- **Codex Write Access**: Use `-s danger-full-access` and `--skip-git-repo-check` ONLY when MODE=auto explicitly specified
+  - **Parameter Position**: Place AFTER the prompt string at command END: `codex ... exec "..." --skip-git-repo-check -s danger-full-access`
+- **Default Behavior**: All tools default to analysis/read-only mode without explicit write permission
