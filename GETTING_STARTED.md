@@ -122,6 +122,174 @@ CCW can help you analyze and fix bugs.
 
 ---
 
+## 🔧 Workflow-Free Usage: Standalone Tools
+
+Beyond the full workflow mode, CCW provides standalone CLI tools and commands suitable for quick analysis, ad-hoc queries, and routine maintenance tasks.
+
+### Direct CLI Tool Invocation
+
+CCW supports direct invocation of external AI tools (Gemini, Qwen, Codex) through a unified CLI interface without creating workflow sessions.
+
+#### Code Analysis
+
+Quickly analyze project code structure and architectural patterns:
+
+```bash
+# Code analysis with Gemini
+/cli:analyze --tool gemini "Analyze authentication module architecture"
+
+# Code quality analysis with Qwen
+/cli:analyze --tool qwen "Review database model design for best practices"
+```
+
+#### Interactive Chat
+
+Direct interactive dialogue with AI tools:
+
+```bash
+# Chat with Gemini
+/cli:chat --tool gemini "Explain React Hook use cases"
+
+# Discuss implementation with Codex
+/cli:chat --tool codex "How to optimize this query performance"
+```
+
+#### Specialized Analysis Modes
+
+Use specific analysis modes for in-depth exploration:
+
+```bash
+# Architecture planning mode
+/cli:mode:plan --tool gemini "Design a scalable microservices architecture"
+
+# Deep code analysis
+/cli:mode:code-analysis --tool qwen "Analyze utility functions in src/utils/"
+
+# Bug analysis mode
+/cli:mode:bug-index --tool gemini "Analyze potential causes of memory leak"
+```
+
+### Semantic Gemini Tool Invocation
+
+CCW provides a convenient Gemini Wrapper script for semantic project analysis and document generation.
+
+#### Basic Analysis (Read-only Mode)
+
+By default, Gemini runs in read-only mode, suitable for code exploration and architectural analysis:
+
+```bash
+# Execute analysis in project root
+cd /path/to/project && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Analyze project modular architecture
+TASK: Identify core modules and their dependencies
+CONTEXT: @{src/**/*.ts,CLAUDE.md}
+EXPECTED: Generate architecture diagram and module documentation
+RULES: Focus on module boundaries and interface design
+"
+```
+
+#### Document Generation (Write Mode)
+
+When file generation or modification is needed, write mode must be explicitly enabled:
+
+```bash
+# Generate API documentation
+cd /path/to/project && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+PURPOSE: Generate REST API documentation
+TASK: Extract API endpoints from code and generate Markdown docs
+MODE: write
+CONTEXT: @{src/api/**/*.ts}
+EXPECTED: Generate API.md with all endpoint descriptions
+RULES: Follow OpenAPI specification format
+"
+```
+
+#### Context Optimization Techniques
+
+Using `cd` to switch to specific directories optimizes context scope:
+
+```bash
+# Analyze only auth module
+cd src/auth && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Security review of authentication module
+TASK: Check JWT implementation and password handling
+CONTEXT: @{**/*.ts}
+EXPECTED: Security audit report
+RULES: Focus on OWASP Top 10 security issues
+"
+```
+
+### Memory Management: CLAUDE.md Updates
+
+CCW uses a hierarchical CLAUDE.md documentation system to maintain project context. Regular updates to these documents are critical for ensuring high-quality AI outputs.
+
+#### Full Project Index Rebuild
+
+Suitable for large-scale refactoring, architectural changes, or first-time CCW usage:
+
+```bash
+# Rebuild entire project documentation index
+/update-memory-full
+
+# Use specific tool for indexing
+/update-memory-full --tool gemini   # Comprehensive analysis (recommended)
+/update-memory-full --tool qwen     # Architecture focus
+/update-memory-full --tool codex    # Implementation details
+```
+
+**When to Execute**:
+- During project initialization
+- After major architectural changes
+- Weekly routine maintenance
+- When AI output drift is detected
+
+#### Incremental Related Module Updates
+
+Suitable for daily development, updating only modules affected by changes:
+
+```bash
+# Update recently modified related documentation
+/update-memory-related
+
+# Specify tool for update
+/update-memory-related --tool gemini
+```
+
+**When to Execute**:
+- After feature development completion
+- After module refactoring
+- After API interface updates
+- After data model modifications
+
+#### Memory Quality Impact
+
+| Update Frequency | Result |
+|-----------------|--------|
+| ❌ Never update | Outdated API references, incorrect architectural assumptions, low-quality output |
+| ⚠️ Occasional updates | Partial context accuracy, potential inconsistencies |
+| ✅ Timely updates | High-quality output, precise context, correct pattern references |
+
+### CLI Tool Initialization
+
+When using external CLI tools for the first time, initialization commands provide quick configuration:
+
+```bash
+# Auto-configure all tools
+/cli:cli-init
+
+# Configure specific tools only
+/cli:cli-init --tool gemini
+/cli:cli-init --tool qwen
+```
+
+This command will:
+- Analyze project structure
+- Generate tool configuration files
+- Set up `.geminiignore` / `.qwenignore`
+- Create context file references
+
+---
+
 ## ❓ Troubleshooting
 
 -   **Problem: Prompt shows "No active session found"**

@@ -122,6 +122,174 @@ CCW 可以帮助您分析并修复 Bug。
 
 ---
 
+## 🔧 无工作流协作：独立工具使用
+
+除了完整的工作流模式，CCW 还提供独立的 CLI 工具和命令，适合快速分析、临时查询和日常维护任务。
+
+### CLI 工具直接调用
+
+CCW 支持通过统一的 CLI 接口直接调用外部 AI 工具（Gemini、Qwen、Codex），无需创建工作流会话。
+
+#### 代码分析
+
+快速分析项目代码结构和架构模式：
+
+```bash
+# 使用 Gemini 进行代码分析
+/cli:analyze --tool gemini "分析认证模块的架构设计"
+
+# 使用 Qwen 分析代码质量
+/cli:analyze --tool qwen "检查数据库模型的设计是否合理"
+```
+
+#### 交互式对话
+
+与 AI 工具进行直接交互式对话：
+
+```bash
+# 与 Gemini 交互
+/cli:chat --tool gemini "解释一下 React Hook 的使用场景"
+
+# 与 Codex 交互讨论实现方案
+/cli:chat --tool codex "如何优化这个查询性能"
+```
+
+#### 专业模式分析
+
+使用特定的分析模式进行深度探索：
+
+```bash
+# 架构分析模式
+/cli:mode:plan --tool gemini "设计一个可扩展的微服务架构"
+
+# 深度代码分析
+/cli:mode:code-analysis --tool qwen "分析 src/utils/ 目录下的工具函数"
+
+# Bug 分析模式
+/cli:mode:bug-index --tool gemini "分析内存泄漏问题的可能原因"
+```
+
+### Gemini 工具语义调用
+
+CCW 提供便捷的 Gemini Wrapper 脚本，支持语义化的项目分析和文档生成。
+
+#### 基础分析（只读模式）
+
+默认情况下，Gemini 以只读模式运行，适合代码探索和架构分析：
+
+```bash
+# 在项目根目录执行分析
+cd /path/to/project && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: 分析项目的模块化架构
+TASK: 识别核心模块及其依赖关系
+CONTEXT: @{src/**/*.ts,CLAUDE.md}
+EXPECTED: 生成架构关系图和模块说明
+RULES: 聚焦于模块边界和接口设计
+"
+```
+
+#### 文档生成（写入模式）
+
+当需要生成或修改文件时，需要显式启用写入模式：
+
+```bash
+# 生成 API 文档
+cd /path/to/project && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+PURPOSE: 生成 REST API 文档
+TASK: 从代码中提取 API 端点并生成 Markdown 文档
+MODE: write
+CONTEXT: @{src/api/**/*.ts}
+EXPECTED: 生成 API.md 文件，包含所有端点说明
+RULES: 遵循 OpenAPI 规范格式
+"
+```
+
+#### 上下文优化技巧
+
+使用 `cd` 切换到特定目录可以优化上下文范围：
+
+```bash
+# 只分析 auth 模块
+cd src/auth && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: 审查认证模块的安全性
+TASK: 检查 JWT 实现和密码处理
+CONTEXT: @{**/*.ts}
+EXPECTED: 安全审计报告
+RULES: 重点关注 OWASP Top 10 安全问题
+"
+```
+
+### 内存管理：CLAUDE.md 更新
+
+CCW 使用分层的 CLAUDE.md 文档系统维护项目上下文。定期更新这些文档对保证 AI 输出质量至关重要。
+
+#### 完整项目重建索引
+
+适用于大规模重构、架构变更或初次使用 CCW：
+
+```bash
+# 重建整个项目的文档索引
+/update-memory-full
+
+# 使用特定工具进行索引
+/update-memory-full --tool gemini   # 全面分析（推荐）
+/update-memory-full --tool qwen     # 架构重点
+/update-memory-full --tool codex    # 实现细节
+```
+
+**执行时机**：
+- 项目初始化时
+- 架构重大变更后
+- 每周定期维护
+- 发现 AI 输出偏差时
+
+#### 增量更新相关模块
+
+适用于日常开发，只更新变更影响的模块：
+
+```bash
+# 更新最近修改相关的文档
+/update-memory-related
+
+# 指定工具进行更新
+/update-memory-related --tool gemini
+```
+
+**执行时机**：
+- 完成功能开发后
+- 重构某个模块后
+- 更新 API 接口后
+- 修改数据模型后
+
+#### 内存质量的影响
+
+| 更新频率 | 结果 |
+|---------|------|
+| ❌ 从不更新 | 过时的 API 引用、错误的架构假设、低质量输出 |
+| ⚠️ 偶尔更新 | 部分上下文准确、可能出现不一致 |
+| ✅ 及时更新 | 高质量输出、精确的上下文、正确的模式引用 |
+
+### CLI 工具初始化
+
+首次使用外部 CLI 工具时，可以使用初始化命令快速配置：
+
+```bash
+# 自动配置所有工具
+/cli:cli-init
+
+# 只配置特定工具
+/cli:cli-init --tool gemini
+/cli:cli-init --tool qwen
+```
+
+该命令会：
+- 分析项目结构
+- 生成工具配置文件
+- 设置 `.geminiignore` / `.qwenignore`
+- 创建上下文文件引用
+
+---
+
 ## ❓ 常见问题排查 (Troubleshooting)
 
 -   **问题：提示 "No active session found" (未找到活动会话)**
