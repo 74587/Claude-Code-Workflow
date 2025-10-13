@@ -70,14 +70,33 @@ type: strategic-guideline
 - **Default**: No default mode, MODE must be explicitly specified
 
 #### Session Management
-- `codex resume` - Resume with picker | `codex exec "task" resume --last` - Continue most recent
-- `codex -i <image>` - Attach images for UI/design tasks
-- **Multi-task Pattern**: First uses `exec`, subsequent use `exec "..." resume --last`
-- **Position**: `resume --last` AFTER prompt string at command END
+- `codex resume` - Resume previous interactive session (picker by default)
+- `codex exec "task" resume --last` - Continue most recent session with new task (maintains context)
+- `codex -i <image_file>` - Attach image(s) to initial prompt (useful for UI/design references)
+- **Multi-task Pattern**: First task uses `exec`, subsequent tasks use `exec "..." resume --last` for context continuity
+  - **Parameter Position**: `resume --last` must be placed AFTER the prompt string at command END
+  - **Example**:
+    ```bash
+    # First task - establish session
+    codex -C project --full-auto exec "Implement auth module" --skip-git-repo-check -s danger-full-access
+
+    # Subsequent tasks - continue same session
+    codex --full-auto exec "Add JWT validation" resume --last --skip-git-repo-check -s danger-full-access
+    codex --full-auto exec "Write auth tests" resume --last --skip-git-repo-check -s danger-full-access
+    ```
 
 #### Auto-Resume Decision Rules
-**Use `resume --last`**: Related task, requires previous context, multi-step workflow on same module
-**Don't use**: First task, independent task, different module, no recent Codex session
+**When to use `resume --last`**:
+- Current task is related to/extends previous Codex task in conversation memory
+- Current task requires context from previous implementation
+- Current task is part of multi-step workflow (e.g., implement → enhance → test)
+- Session memory indicates recent Codex execution on same module/feature
+
+**When NOT to use `resume --last`**:
+- First Codex task in conversation
+- New independent task unrelated to previous work
+- Switching to different module/feature area
+- No recent Codex task in conversation memory
 
 ---
 
@@ -158,21 +177,52 @@ RULES: $(cat "~/.claude/workflows/cli-templates/prompts/[category]/[template].tx
 ```
 
 **⚠️ CRITICAL: Command Substitution Rules**
-- **NEVER use escape characters**: `\$`, `\"`, `\'` break command substitution
-- **Correct**: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)`
-- **WRONG**: `\$(cat ...)` or `$(cat \"...\")`
-- **Why**: Shell subshell handles path expansion safely
+When using `$(cat ...)` for template loading in actual CLI commands:
+- **Template reference only, never read**: When user specifies template name, use `$(cat ...)` directly in RULES field, do NOT read template content first
+- **NEVER use escape characters**: `\$`, `\"`, `\'` will break command substitution
+- **In -p "..." context**: Path in `$(cat ...)` needs NO quotes (tilde expands correctly)
+- **Correct**: `RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)`
+- **WRONG**: `RULES: \$(cat ...)` or `RULES: $(cat \"...\")` or `RULES: $(cat '...')`
+- **Why**: Shell executes `$(...)` in subshell where path is safe without quotes
 
-**Examples**: `$(cat "template.txt") | Focus on security` | `@{src/**/*.ts,CLAUDE.md}`
+**Examples**:
+- Single template: `$(cat "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt") | Focus on security`
+- Multiple templates: `$(cat "template1.txt") $(cat "template2.txt") | Enterprise standards`
+- No template: `Focus on security patterns, include dependency analysis`
+- File patterns: `@{src/**/*.ts,CLAUDE.md} - Stay within scope`
 
 ### File Pattern Reference
-Common patterns: `@{**/*}` (all), `@{src/**/*}` (source), `@{*.ts,*.tsx}` (TypeScript), `@{**/*.test.*}` (tests)
+Common patterns:
+- All files: `@{**/*}`
+- Source files: `@{src/**/*}`
+- TypeScript: `@{*.ts,*.tsx}`
+- With docs: `@{CLAUDE.md,**/*CLAUDE.md}`
+- Tests: `@{src/**/*.test.*}`
 
-**Complex Pattern Discovery**: Use semantic tools (rg, MCP) → Extract paths → Build CONTEXT
+**Complex Pattern Discovery**:
+For complex file pattern requirements, use semantic discovery tools BEFORE CLI execution:
+- **rg (ripgrep)**: Content-based file discovery with regex patterns
+- **Code Index MCP**: Semantic file search based on task requirements
+- **Workflow**: Discover → Extract precise paths → Build CONTEXT field
+
+**Example**:
 ```bash
-# 1. Discover: rg "export.*Component" --files-with-matches --type ts
-# 2. Build CONTEXT: @{src/components/Auth.tsx,src/types/auth.d.ts}
-# 3. Execute CLI with precise file references
+# Step 1: Discover files semantically
+rg "export.*Component" --files-with-matches --type ts  # Find component files
+mcp__code-index__search_code_advanced(pattern="interface.*Props", file_pattern="*.tsx")  # Find interface files
+
+# Step 2: Build precise CONTEXT from discovery results
+CONTEXT: @{CLAUDE.md,src/components/Auth.tsx,src/types/auth.d.ts,src/hooks/useAuth.ts}
+
+# Step 3: Execute CLI with precise file references
+cd src && ~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Analyze authentication components
+TASK: Review auth component patterns and props interfaces
+MODE: analysis
+CONTEXT: @{components/Auth.tsx,types/auth.d.ts,hooks/useAuth.ts,../CLAUDE.md}
+EXPECTED: Pattern analysis and improvement suggestions
+RULES: Focus on type safety and component composition
+"
 ```
 
 ---
@@ -218,9 +268,33 @@ When planning any coding task, **ALWAYS** integrate CLI tools:
 
 ### Common Scenarios
 
-#### Analysis Example
+#### Code Analysis
 ```bash
-# Architecture analysis using Analysis Tools
+~/.claude/scripts/gemini-wrapper -p "
+PURPOSE: Understand codebase architecture
+TASK: Analyze project structure and identify patterns
+MODE: analysis
+CONTEXT: @{src/**/*.ts,CLAUDE.md} Previous analysis of auth system
+EXPECTED: Architecture overview and integration points
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt) | Focus on integration points
+"
+```
+
+#### Documentation Generation
+```bash
+~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+PURPOSE: Generate API documentation
+TASK: Create comprehensive API reference from code
+MODE: write
+CONTEXT: @{src/api/**/*,CLAUDE.md}
+EXPECTED: API.md with all endpoints documented
+RULES: Follow project documentation standards
+"
+```
+
+#### Architecture Analysis
+```bash
+# Architecture analysis using Analysis Tools (Gemini primary)
 cd src/auth && ~/.claude/scripts/gemini-wrapper -p "
 PURPOSE: Analyze authentication system architecture
 TASK: Review JWT-based auth system design
@@ -233,21 +307,46 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/architecture.txt
 # Note: Replace 'gemini-wrapper' with 'qwen-wrapper' if Gemini unavailable
 ```
 
-#### Codex Development (Multi-task with Resume)
+#### Feature Development (Multi-task with Resume)
 ```bash
-# First task
-codex -C project --full-auto exec "
+# First task - establish session
+codex -C path/to/project --full-auto exec "
 PURPOSE: Implement user authentication
-TASK: JWT-based auth system
+TASK: Create JWT-based authentication system
 MODE: auto
-CONTEXT: @{src/auth/**/*}
-EXPECTED: Complete auth module
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt)
+CONTEXT: @{src/auth/**/*,CLAUDE.md} Database schema from session memory
+EXPECTED: Complete auth module with tests
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) | Follow security best practices
 " --skip-git-repo-check -s danger-full-access
 
-# Continue session
-codex --full-auto exec "Add JWT validation" resume --last --skip-git-repo-check -s danger-full-access
-codex --full-auto exec "Generate auth tests" resume --last --skip-git-repo-check -s danger-full-access
+# Continue in same session - Add JWT validation
+codex --full-auto exec "
+PURPOSE: Enhance authentication security
+TASK: Add JWT token validation and refresh logic
+MODE: auto
+CONTEXT: Previous auth implementation from current session
+EXPECTED: JWT validation middleware and token refresh endpoints
+RULES: Follow JWT best practices, maintain session context
+" resume --last --skip-git-repo-check -s danger-full-access
+
+# Continue in same session - Add tests
+codex --full-auto exec "
+PURPOSE: Increase test coverage
+TASK: Generate comprehensive tests for auth module
+MODE: write
+CONTEXT: Auth implementation from current session
+EXPECTED: Complete test suite with 80%+ coverage
+RULES: Use Jest, follow existing patterns
+" resume --last --skip-git-repo-check -s danger-full-access
+```
+
+#### Interactive Session Resume
+```bash
+# Resume previous session with picker
+codex resume
+
+# Or resume most recent session directly
+codex resume --last
 ```
 
 
@@ -256,18 +355,21 @@ codex --full-auto exec "Generate auth tests" resume --last --skip-git-repo-check
 ## 🔧 Best Practices
 
 ### General Guidelines
-- ✅ Use templates for consistency | Be specific in PURPOSE/TASK/EXPECTED
-- ✅ Use rg/MCP for file discovery → Build precise CONTEXT
-- ✅ Reference CLAUDE.md for project context
-- ⚠️ NEVER use escape characters (`\$`, `\"`, `\'`) in CLI commands
+- **Start with templates** - Use predefined templates for consistency
+- **Be specific** - Clear PURPOSE, TASK, and EXPECTED fields
+- **Include constraints** - File patterns, scope, requirements in RULES
+- **Discover patterns first** - Use rg/MCP for complex file discovery before CLI execution
+- **Build precise CONTEXT** - Convert discovery results to explicit file references
+- **Document context** - Always reference CLAUDE.md for context
+- **⚠️ No escape characters in CLI commands** - NEVER use `\$`, `\"`, `\'` in actual CLI execution (breaks command substitution and path expansion)
 
 ### Context Optimization Strategy
-**Directory Navigation**: Use `cd [directory] &&` for focused analysis to reduce token usage
+**Directory Navigation**: Use `cd [directory] &&` pattern when analyzing specific areas to reduce irrelevant context
 
-**Decision Rules**:
-- Specific directory → `cd directory &&` pattern
-- Focused analysis → Target specific directory
-- Multi-directory scope → Stay in root, use explicit paths
+**When to change directory**:
+- Specific directory mentioned → Use `cd directory &&` pattern
+- Focused analysis needed → Target specific directory with cd
+- Multi-directory scope → Stay in root, use explicit paths or multiple commands
 
 **Example**:
 ```bash
@@ -298,22 +400,26 @@ For every development task:
 - [ ] **Purpose defined** - Clear goal and intent
 - [ ] **Mode selected** - Execution mode and permission level determined
 - [ ] **Context gathered** - File references and session memory documented
-- [ ] **Analysis completed** - Use Analysis Tools for understanding
+- [ ] **Analysis completed** - Use Analysis Tools (Gemini/Qwen) for understanding
 - [ ] **Template selected** - Appropriate template chosen
 - [ ] **Constraints specified** - File patterns, scope, requirements
 - [ ] **Implementation approach** - Tool selection and workflow
 - [ ] **Quality measures** - Testing and validation plan
-- [ ] **Tool configuration** - Review tool-specific configs if needed
+- [ ] **Tool configuration** - Review CLAUDE.md or tool-specific configs if needed
 
 ---
 
 ## ⚙️ Execution Configuration
 
 ### Core Execution Rules
-- **Dynamic Timeout**: 20-40min (simple), 40-60min (medium), 60-120min (complex)
-- **Codex Multiplier**: 1.5x allocated time
-- **Apply to**: All bash() wrapped commands (Analysis Tools, Codex)
-- **Auto-detect**: Based on PURPOSE and TASK complexity
+- **Dynamic Timeout (20-120min)**: Allocate execution time based on task complexity
+  - Simple tasks (analysis, search): 20-40min (1200000-2400000ms)
+  - Medium tasks (refactoring, documentation): 40-60min (2400000-3600000ms)
+  - Complex tasks (implementation, migration): 60-120min (3600000-7200000ms)
+- **Codex Multiplier**: Codex commands use 1.5x of allocated time
+- **Apply to All Tools**: All bash() wrapped commands including Gemini, Qwen wrapper and Codex executions
+- **Command Examples**: `bash(~/.claude/scripts/gemini-wrapper -p "prompt")`, `bash(codex -C directory --full-auto exec "task")`
+- **Auto-detect**: Analyze PURPOSE and TASK fields to determine appropriate timeout
 
 ### Permission Framework
 - **⚠️ WRITE PROTECTION**: Codebase write/modify requires EXPLICIT user confirmation
