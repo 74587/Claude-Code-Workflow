@@ -169,9 +169,41 @@ Use specific analysis modes for in-depth exploration:
 /cli:mode:bug-index --tool gemini "Analyze potential causes of memory leak"
 ```
 
-### Semantic Gemini Tool Invocation
+### Semantic Tool Invocation
 
-CCW provides a convenient Gemini Wrapper script for semantic project analysis and document generation.
+Users can tell Claude to use specific tools through natural language, and Claude will understand the intent and automatically execute the appropriate commands.
+
+#### Semantic Invocation Examples
+
+Describe needs directly in conversation using natural language:
+
+**Example 1: Code Analysis**
+```
+User: "Use gemini to analyze the modular architecture of this project"
+→ Claude will automatically execute gemini-wrapper for analysis
+```
+
+**Example 2: Document Generation**
+```
+User: "Use gemini to generate API documentation with all endpoint descriptions"
+→ Claude will understand the need and automatically invoke gemini's write mode
+```
+
+**Example 3: Code Implementation**
+```
+User: "Use codex to implement user login functionality"
+→ Claude will invoke the codex tool for autonomous development
+```
+
+#### Advantages of Semantic Invocation
+
+- **Natural Interaction**: No need to memorize complex command syntax
+- **Intelligent Understanding**: Claude selects appropriate tools and parameters based on context
+- **Automatic Optimization**: Claude automatically adds necessary context and configuration
+
+### Direct Gemini Wrapper Script Usage
+
+For scenarios requiring precise control, the Gemini Wrapper script can be used directly.
 
 #### Basic Analysis (Read-only Mode)
 
