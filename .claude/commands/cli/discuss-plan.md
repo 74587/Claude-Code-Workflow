@@ -86,7 +86,7 @@ Codex reviews Gemini's output using conversational reasoning. Uses `resume --las
 
 ```bash
 # First round (new session)
-codex chat "
+codex --full-auto exec "
 PURPOSE: Critically review technical plan
 TASK: Review the provided plan, identify weaknesses, suggest alternatives, reason about trade-offs
 MODE: analysis
@@ -94,10 +94,10 @@ CONTEXT: @{CLAUDE.md} [relevant files]
 INPUT_PLAN: [Output from Gemini's analysis]
 EXPECTED: Critical review with alternative ideas and risk analysis
 RULES: Focus on architectural soundness and implementation feasibility
-"
+" --skip-git-repo-check
 
 # Subsequent rounds (resume discussion)
-codex chat "
+codex --full-auto exec "
 PURPOSE: Re-evaluate plan based on latest synthesis
 TASK: Review updated plan and discussion points, provide further critique or refined ideas
 MODE: analysis
@@ -105,7 +105,7 @@ CONTEXT: Previous discussion context (maintained via resume)
 INPUT_PLAN: [Output from Gemini's analysis for current round]
 EXPECTED: Updated critique building on previous discussion
 RULES: Build on previous insights, avoid repeating points
-" resume --last
+" resume --last --skip-git-repo-check
 ```
 
 **Step 3: Claude's Synthesis (Priority 3)**
