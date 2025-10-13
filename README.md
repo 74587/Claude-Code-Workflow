@@ -25,6 +25,10 @@
 
 ---
 
+> 📚 **New to CCW?** Check out the [**Getting Started Guide**](GETTING_STARTED.md) for a beginner-friendly 5-minute tutorial!
+
+---
+
 ## ✨ Core Differentiators
 
 #### **1. Context-First Architecture** 🎯
