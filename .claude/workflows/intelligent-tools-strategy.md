@@ -243,16 +243,36 @@ RULES: Focus on type safety and component composition
 | **Module Documentation** | Analysis Tools | Universal module/file documentation for all levels | `memory/claude-module-unified.txt` |
 
 ### Template System
-**Base**: `~/.claude/workflows/cli-templates/`
 
-| Category | Template | Purpose |
-|----------|----------|---------|
-| **Analysis** | pattern.txt, architecture.txt, security.txt, quality.txt | Code/architecture review |
-| **Development** | feature.txt, refactor.txt, testing.txt | Implementation tasks |
-| **Memory** | claude-module-unified.txt | Module documentation |
-| **Planning** | task-breakdown.txt | Task decomposition |
-| **Roles** | system-architect.md, security-expert.md, feature-planner.md | Planning perspectives |
-| **Tech Stacks** | typescript-dev.md, python-dev.md, react-dev.md | Language conventions |
+**Base Structure**: `~/.claude/workflows/cli-templates/`
+
+#### Available Templates
+```
+prompts/
+├── analysis/
+│   ├── pattern.txt      - Code pattern analysis
+│   ├── architecture.txt - System architecture review
+│   ├── security.txt     - Security assessment
+│   └── quality.txt      - Code quality review
+├── development/
+│   ├── feature.txt      - Feature implementation
+│   ├── refactor.txt     - Refactoring tasks
+│   └── testing.txt      - Test generation
+├── memory/
+│   └── claude-module-unified.txt  - Universal module/file documentation template
+└── planning/
+    └── task-breakdown.txt - Task decomposition
+
+planning-roles/
+├── system-architect.md  - System design perspective
+├── security-expert.md   - Security architecture
+└── feature-planner.md   - Feature specification
+
+tech-stacks/
+├── typescript-dev.md    - TypeScript guidelines
+├── python-dev.md        - Python conventions
+└── react-dev.md         - React architecture
+```
 
 ---
 
