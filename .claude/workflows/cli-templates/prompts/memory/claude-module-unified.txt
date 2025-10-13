@@ -32,9 +32,13 @@ Create or update CLAUDE.md documentation with unified module/file template:
 
 **For Code Files**:
 - Core classes with brief descriptions
-- Key methods/functions with signatures
+- Key methods/functions with complete signatures and parameter details
+  - Method name and purpose
+  - **Parameters**: name, type, description, default values (if any)
+  - **Return value**: type and description
+  - **Throws**: exceptions or errors (if applicable)
 - Important interfaces/types
-- Exported APIs
+- Exported APIs with usage examples
 
 #### 4. Dependencies
 - **Internal Dependencies**: Other modules/files within the project
@@ -63,9 +67,19 @@ Create or update CLAUDE.md documentation with unified module/file template:
 - Be concise but complete
 - Use clear, descriptive language
 - Include code signatures for key APIs
+- **For method parameters**:
+  - Always document each parameter with name, type, and description
+  - Indicate optional parameters with `[optional]`
+  - Show default values with `[default: value]`
+  - Include parameter constraints if applicable (e.g., range, format)
+- **For return values**:
+  - Specify return type clearly
+  - Describe what the returned value represents
+  - Document special return conditions (null, undefined, empty, etc.)
 - Focus on "what" and "why", not detailed "how"
 - Reference related documentation when appropriate
 - Use bullet points for readability
+- Provide usage examples for complex methods
 
 ### Template Structure:
 ```markdown
@@ -81,7 +95,19 @@ Create or update CLAUDE.md documentation with unified module/file template:
 ### [Component/Class Name 1]
 - Description: [Brief description]
 - Responsibilities: [What it does]
-- Key Methods: [Important methods if applicable]
+- Key Methods:
+
+  #### `methodName(param1: Type1, param2: Type2, ...): ReturnType`
+  - **Purpose**: [What this method does]
+  - **Parameters**:
+    - `param1` (Type1): [Description of param1] [default: value]
+    - `param2` (Type2): [Description of param2] [optional]
+  - **Returns**: (ReturnType) [Description of return value]
+  - **Throws**: [Exception types and conditions]
+  - **Example**:
+    ```
+    const result = instance.methodName(value1, value2);
+    ```
 
 ### [Component/Class Name 2]
 ...
@@ -128,10 +154,18 @@ Create or update CLAUDE.md documentation with unified module/file template:
 - Don't include complete code listings (use signatures and descriptions)
 - Avoid version-specific implementation details unless critical
 - Don't document every single function - focus on key components
+- **BUT DO document**: All public/exported APIs with complete parameter details
+- **Internal/private methods**: Only document if they are complex or critical to understanding
 
 ### Special Instructions:
 - If analyzing a folder with existing CLAUDE.md files in subdirectories, reference them rather than duplicating their content
 - For code files, prioritize exported/public APIs over internal implementation details
+- **For method documentation**:
+  - MUST document all parameters for public/exported methods
+  - Include parameter types, descriptions, and constraints
+  - Document return values and exceptions
+  - Add usage examples for non-trivial methods
+  - Private/internal methods: document only if complex or critical
 - Keep dependency lists focused on direct dependencies, not transitive ones
 - Update existing CLAUDE.md files rather than creating new sections unnecessarily
 
