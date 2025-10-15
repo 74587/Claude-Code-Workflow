@@ -8,9 +8,11 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), Task(ui-design
 # Layout Extraction Command
 
 ## Overview
+
 Extract structural layout information from reference images, URLs, or text prompts using AI analysis. This command separates the "scaffolding" (HTML structure and CSS layout) from the "paint" (visual tokens handled by `style-extract`).
 
 **Strategy**: AI-Driven Structural Analysis
+
 - **Agent-Powered**: Uses `ui-design-agent` for deep structural analysis
 - **Dual-Mode**:
   - `imitate`: High-fidelity replication of single layout structure
@@ -22,6 +24,7 @@ Extract structural layout information from reference images, URLs, or text promp
 ## Phase 0: Setup & Input Validation
 
 ### Step 1: Detect Input, Mode & Targets
+
 ```bash
 # Detect input source
 # Priority: --urls + --images → hybrid | --urls → url | --images → image | --prompt → text
