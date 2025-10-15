@@ -52,6 +52,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Respect custom Gemini base URL
+if [[ -n "$GOOGLE_GEMINI_BASE_URL" ]]; then
+    echo -e "${GREEN}🌐 Using custom Gemini base URL: $GOOGLE_GEMINI_BASE_URL${NC}" >&2
+    export GOOGLE_GEMINI_BASE_URL
+fi
+
 # Function to count tokens (approximate: chars/4) - optimized version
 count_tokens() {
     local total_chars=0
