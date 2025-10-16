@@ -72,9 +72,11 @@ For all CLI tool usage, command syntax, and integration guidelines:
 
 ## Platform-Specific Guidelines
 
-### Windows Path Conversion for Bash Commands
-- **Windows paths** must convert to Git Bash format: `C:\path` → `/c/path`, `D:\path` → `/d/path`, `\` → `/`
-- **Relative paths** (starting with `.` or `..`) require no conversion
+### Windows Path Format Guidelines
+- **MCP Tools**: Use double backslash `D:\\path\\file.txt` (MCP doesn't support POSIX `/d/path`)
+- **Bash Commands**: Use forward slash `D:/path/file.txt` or POSIX `/d/path/file.txt`
+- **Relative Paths**: No conversion needed `./src`, `../config`
+- **Quick Ref**: `C:\Users` → MCP: `C:\\Users` | Bash: `/c/Users` or `C:/Users`
 
 #### **Content Uniqueness Rules**
 
