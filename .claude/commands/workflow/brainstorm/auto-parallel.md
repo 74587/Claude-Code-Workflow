@@ -9,8 +9,12 @@ allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*
 
 ## Usage
 ```bash
-/workflow:brainstorm:auto-parallel "<topic>"
+/workflow:brainstorm:auto-parallel "<topic>" [--count N]
 ```
+
+**Parameters**:
+- `topic` (required): Topic or challenge description
+- `--count N` (optional): Number of roles to auto-select (default: 3, max: 9)
 
 ## Role Selection Logic
 - **Technical & Architecture**: `architecture|system|performance|database|security` → system-architect, data-architect, security-expert, subject-matter-expert
@@ -19,8 +23,9 @@ allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*
 - **Business & Process**: `business|process|workflow|cost|innovation|testing` → business-analyst, innovation-lead, test-strategist
 - **Agile & Delivery**: `agile|sprint|scrum|team|collaboration|delivery` → scrum-master, product-owner
 - **Domain Expertise**: `domain|standard|compliance|expertise|regulation` → subject-matter-expert
-- **Multi-role**: Complex topics automatically select 2-3 complementary roles
+- **Multi-role**: Complex topics automatically select N complementary roles (N specified by --count, default 3)
 - **Default**: `product-manager` if no clear match
+- **Count Parameter**: `--count N` determines number of roles to auto-select (default: 3, max: 9)
 
 **Template Loading**: `bash($(cat "~/.claude/workflows/cli-templates/planning-roles/<role-name>.md"))`
 **Template Source**: `.claude/workflows/cli-templates/planning-roles/`
@@ -38,8 +43,8 @@ bash($(cat "~/.claude/workflows/cli-templates/planning-roles/ui-designer.md"))
 The command follows a structured three-phase approach with dedicated document types:
 
 **Phase 1: Framework Generation** ⚠️ COMMAND EXECUTION
-- **Role selection**: Auto-select 2-3 roles based on topic keywords (see Role Selection Logic)
-- **Call artifacts command**: Execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,role3}"` using SlashCommand tool
+- **Role selection**: Auto-select N roles based on topic keywords and --count parameter (default: 3, see Role Selection Logic)
+- **Call artifacts command**: Execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,...,roleN}"` using SlashCommand tool
 - **Role-specific framework**: Generate framework with sections tailored to selected roles
 
 **Phase 2: Role Analysis Execution** ⚠️ PARALLEL AGENT ANALYSIS
@@ -58,8 +63,8 @@ The command follows a structured three-phase approach with dedicated document ty
 Auto command coordinates independent specialized commands:
 
 **Command Sequence**:
-1. **Role Selection**: Auto-select 2-3 relevant roles based on topic keywords
-2. **Generate Role-Specific Framework**: Use SlashCommand to execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,role3}"`
+1. **Role Selection**: Auto-select N relevant roles based on topic keywords and --count parameter (default: 3)
+2. **Generate Role-Specific Framework**: Use SlashCommand to execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,...,roleN}"`
 3. **Parallel Role Analysis**: Execute selected role agents in parallel, each reading their specific framework section
 4. **Generate Synthesis**: Use SlashCommand to execute `/workflow:brainstorm:synthesis`
 
@@ -75,7 +80,29 @@ Auto command coordinates independent specialized commands:
 - **Product & UX**: `user|ui|ux|interface|design|product|feature|experience` → ui-designer, ux-expert, product-manager, product-owner
 - **Agile & Delivery**: `agile|sprint|scrum|team|collaboration|delivery` → scrum-master, product-owner
 - **Domain Expertise**: `domain|standard|compliance|expertise|regulation` → subject-matter-expert
-- **Auto-select**: 2-3 most relevant roles based on topic analysis
+- **Auto-select**: N most relevant roles based on topic analysis (N from --count parameter, default: 3)
+
+### Parameter Parsing
+
+**Count Parameter Handling**:
+```bash
+# Parse --count parameter from user input
+IF user_input CONTAINS "--count":
+    EXTRACT count_value FROM "--count N" pattern
+    IF count_value > 9:
+        count_value = 9  # Cap at maximum 9 roles
+    END IF
+ELSE:
+    count_value = 3  # Default to 3 roles
+END IF
+```
+
+**Role Selection with Count**:
+1. **Analyze topic keywords**: Identify relevant role categories
+2. **Rank roles by relevance**: Score based on keyword matches
+3. **Select top N roles**: Pick N most relevant roles (N = count_value)
+4. **Ensure diversity**: Balance across different expertise areas
+5. **Minimum guarantee**: Always include at least one role (default to product-manager if no matches)
 
 ### Simplified Processing Standards
 
@@ -87,7 +114,7 @@ Auto command coordinates independent specialized commands:
 5. **TodoWrite control** - Progress tracking throughout all phases
 
 **Implementation Rules**:
-- **Maximum 3 roles**: Auto-selected based on simple keyword mapping
+- **Role count**: N roles auto-selected based on --count parameter (default: 3, max: 9) and keyword mapping
 - **No upfront validation**: Agents handle their own context requirements
 - **Parallel execution**: Each agent operates concurrently without dependencies
 - **Synthesis at end**: Integration only after all agents complete
@@ -180,18 +207,22 @@ Task(subagent_type="conceptual-planning-agent",
 
 ### Parallel Role Agent调用示例
 ```bash
-# Execute multiple roles in parallel using single message with multiple Task calls
-Task(subagent_type="conceptual-planning-agent",
-     prompt="Execute brainstorming analysis: system-architect perspective for {topic}...",
-     description="Execute system-architect brainstorming analysis")
+# Execute N roles in parallel using single message with multiple Task calls
+# (N determined by --count parameter, default 3, shown below with 3 roles as example)
 
 Task(subagent_type="conceptual-planning-agent",
-     prompt="Execute brainstorming analysis: ui-designer perspective for {topic}...",
-     description="Execute ui-designer brainstorming analysis")
+     prompt="Execute brainstorming analysis: {role-1} perspective for {topic}...",
+     description="Execute {role-1} brainstorming analysis")
 
 Task(subagent_type="conceptual-planning-agent",
-     prompt="Execute brainstorming analysis: security-expert perspective for {topic}...",
-     description="Execute security-expert brainstorming analysis")
+     prompt="Execute brainstorming analysis: {role-2} perspective for {topic}...",
+     description="Execute {role-2} brainstorming analysis")
+
+Task(subagent_type="conceptual-planning-agent",
+     prompt="Execute brainstorming analysis: {role-3} perspective for {topic}...",
+     description="Execute {role-3} brainstorming analysis")
+
+# ... repeat for remaining N-3 roles if --count > 3
 ```
 
 ### Direct Synthesis Process (Command-Driven)
@@ -213,9 +244,9 @@ TodoWrite({
       activeForm: "Initializing brainstorming session"
     },
     {
-      content: "Select roles based on topic keyword analysis",
+      content: "Parse --count parameter and select N roles based on topic keyword analysis",
       status: "pending",
-      activeForm: "Selecting roles for brainstorming analysis"
+      activeForm: "Parsing parameters and selecting roles for brainstorming"
     },
     {
       content: "Execute artifacts command with selected roles for role-specific framework",
@@ -231,6 +262,12 @@ TodoWrite({
       content: "Execute [role-2] analysis [conceptual-planning-agent] [FLOW_CONTROL] addressing framework",
       status: "pending",
       activeForm: "Executing [role-2] structured framework analysis"
+    },
+    // ... repeat for N roles (N determined by --count parameter, default 3)
+    {
+      content: "Execute [role-N] analysis [conceptual-planning-agent] [FLOW_CONTROL] addressing framework",
+      status: "pending",
+      activeForm: "Executing [role-N] structured framework analysis"
     },
     {
       content: "Execute synthesis command using SlashCommand for final integration",
@@ -257,24 +294,25 @@ TodoWrite({
   ]
 });
 
-// Phase 3: Parallel agent execution tracking
+// Phase 3: Parallel agent execution tracking (N roles, N from --count parameter)
 TodoWrite({
   todos: [
     // ... previous completed tasks
     {
-      content: "Execute system-architect analysis [conceptual-planning-agent] [FLOW_CONTROL]",
+      content: "Execute [role-1] analysis [conceptual-planning-agent] [FLOW_CONTROL]",
       status: "in_progress",  // Executing in parallel
-      activeForm: "Executing system-architect brainstorming analysis"
+      activeForm: "Executing [role-1] brainstorming analysis"
     },
     {
-      content: "Execute ui-designer analysis [conceptual-planning-agent] [FLOW_CONTROL]",
+      content: "Execute [role-2] analysis [conceptual-planning-agent] [FLOW_CONTROL]",
       status: "in_progress",  // Executing in parallel
-      activeForm: "Executing ui-designer brainstorming analysis"
+      activeForm: "Executing [role-2] brainstorming analysis"
     },
+    // ... repeat for remaining N-2 roles
     {
-      content: "Execute security-expert analysis [conceptual-planning-agent] [FLOW_CONTROL]",
+      content: "Execute [role-N] analysis [conceptual-planning-agent] [FLOW_CONTROL]",
       status: "in_progress",  // Executing in parallel
-      activeForm: "Executing security-expert brainstorming analysis"
+      activeForm: "Executing [role-N] brainstorming analysis"
     }
   ]
 });
