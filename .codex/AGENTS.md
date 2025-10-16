@@ -124,52 +124,131 @@ RULES: [templates | additional constraints]
 chcp 65001 > $null
 ```
 
-## Output Format
+## Output Standards
 
-### Related Files (At Beginning)
+### Format Priority
+
+**If template defines output format** → Follow template format EXACTLY (all sections mandatory)
+
+**If template has no format** → Use default format below based on task type
+
+### Default Output Formats
+
+#### Single Task Implementation
+
 ```markdown
+# Implementation: [TASK Title]
+
 ## Changes
 - Created: `path/to/file1.ext` (X lines)
 - Modified: `path/to/file2.ext` (+Y/-Z lines)
 - Deleted: `path/to/file3.ext`
-```
 
-### Completion Status
+## Summary
+[2-3 sentence overview of what was implemented]
 
-**Single Task Success**:
-```
-✅ Task completed
+## Key Decisions
+1. [Decision] - Rationale and reference to similar pattern
+2. [Decision] - path/to/reference:line
 
-Validation:
+## Implementation Details
+[Evidence-based description with code references]
+
+## Testing
+- Tests written: X new tests
+- Tests passing: Y/Z tests
+- Coverage: N%
+
+## Validation
 ✅ Tests: X passing
 ✅ Coverage: Y%
 ✅ Build: Success
 
-Next Steps: [recommendations]
+## Next Steps
+[Recommendations or future improvements]
 ```
 
-**Subtask Success**:
-```
-✅ Subtask N/M completed
+#### Multi-Task Execution (with Resume)
 
-Integration:
-✅ Compatible with previous subtasks
+**First Subtask**:
+```markdown
+# Subtask 1/N: [TASK Title]
+
+## Changes
+[List of file changes]
+
+## Implementation
+[Details with code references]
+
+## Testing
 ✅ Tests: X passing
+✅ Integration: Compatible with existing code
 
-Context for next subtask:
-- [Key decisions made]
-- [Files created/modified]
-- [Patterns established]
+## Context for Next Subtask
+- Key decisions: [established patterns]
+- Files created: [paths and purposes]
+- Integration points: [where next subtask should connect]
 ```
 
-**Partial Completion**:
-```
-⚠️ Task partially completed
+**Subsequent Subtasks**:
+```markdown
+# Subtask N/M: [TASK Title]
 
-Completed: [what worked]
-Blocked: [what failed, root cause]
-Required: [what's needed]
-Recommendation: [next steps]
+## Changes
+[List of file changes]
+
+## Integration Notes
+✅ Compatible with subtask N-1
+✅ Maintains established patterns
+✅ Tests pass with previous work
+
+## Implementation
+[Details with code references]
+
+## Testing
+✅ Tests: X passing
+✅ Total coverage: Y%
+
+## Context for Next Subtask
+[If not final subtask, provide context for continuation]
+```
+
+#### Partial Completion
+
+```markdown
+# Task Status: Partially Completed
+
+## Completed
+- [What worked successfully]
+- Files: `path/to/completed.ext`
+
+## Blocked
+- **Issue**: [What failed]
+- **Root Cause**: [Analysis of failure]
+- **Attempted**: [Solutions tried - attempt X of 3]
+
+## Required
+[What's needed to proceed]
+
+## Recommendation
+[Suggested next steps or alternative approaches]
+```
+
+### Code References
+
+**Format**: `path/to/file:line_number`
+
+**Example**: `src/auth/jwt.ts:45` - Implemented token validation following pattern from `src/auth/session.ts:78`
+
+### Related Files Section
+
+**Always include at output beginning** - List ALL files analyzed, created, or modified:
+
+```markdown
+## Related Files
+- `path/to/file1.ext` - [Role in implementation]
+- `path/to/file2.ext` - [Reference pattern used]
+- `path/to/file3.ext` - [Modified for X reason]
 ```
 
 ## Error Handling
