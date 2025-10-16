@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v4.5.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,13 +15,14 @@
 
 **Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a robust, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
 
-> **🎉 Latest: v4.4.0** - UI Design Workflow V3 with Layout/Style Separation Architecture. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v4.5.0** - Workflow System Optimization. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v4.4.0**:
-> - 🏗️ **Layout/Style Separation**: New `layout-extract` command separates structure from visual tokens
-> - 📦 **Pure Assembler**: `generate` command now purely combines pre-extracted layouts + styles
-> - 🎯 **Better Variety**: Layout exploration generates structurally distinct designs
-> - ✅ **Single Responsibility**: Each phase (style, layout, assembly) has clear purpose
+> **What's New in v4.5.0**:
+> - 🤖 **Enhanced Agent Protocols**: Unified execution protocols across Gemini/Qwen/Codex with structured output templates
+> - 🎨 **Streamlined UI Workflows**: Simplified design commands with improved documentation
+> - 📋 **Optimized Templates**: Refined workflow templates for better clarity and efficiency
+> - 🔧 **Improved CLI Commands**: Enhanced command documentation and tool integration
+> - ✨ **CLI Execution Agent**: New autonomous agent for CLI task handling
 
 ---
 

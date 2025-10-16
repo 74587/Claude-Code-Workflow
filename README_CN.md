@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v4.5.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP工具](https://img.shields.io/badge/🔧_MCP工具-实验性-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,13 +15,14 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单提示词链接转变为强大的上下文优先编排系统。通过结构化规划、确定性执行和智能多模型编排，解决执行不确定性和误差累积问题。
 
-> **🎉 最新版本: v4.4.0** - UI 设计工作流 V3 布局/样式分离架构。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v4.5.0** - 工作流系统优化。详见 [CHANGELOG.md](CHANGELOG.md)。
 >
-> **v4.4.0 版本新特性**:
-> - 🏗️ **布局/样式分离**: 新的 `layout-extract` 命令将结构与视觉令牌分离
-> - 📦 **纯汇编器**: `generate` 命令现在纯粹组合预提取的布局 + 样式
-> - 🎯 **更好的多样性**: 布局探索生成结构上不同的设计
-> - ✅ **单一职责**: 每个阶段（样式、布局、汇编）都有明确的目的
+> **v4.5.0 版本新特性**:
+> - 🤖 **增强的代理协议**: 统一 Gemini/Qwen/Codex 执行协议，提供结构化输出模板
+> - 🎨 **精简的 UI 工作流**: 简化设计命令，改进文档说明
+> - 📋 **优化的模板**: 精炼工作流模板，提升清晰度和效率
+> - 🔧 **改进的 CLI 命令**: 增强命令文档和工具集成
+> - ✨ **CLI 执行智能体**: 新增自主 CLI 任务处理智能体
 
 ---
 

@@ -1,7 +1,7 @@
 
 # 🚀 Claude Code Workflow (CCW) - Getting Started Guide
 
-Welcome to Claude Code Workflow (CCW)! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development.
+Welcome to Claude Code Workflow (CCW) v4.5.0! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development with our latest workflow system optimizations.
 
 ---
 
@@ -73,6 +73,7 @@ Understanding these concepts will help you use CCW more effectively:
     > -   `@code-developer`: Responsible for writing and implementing code.
     > -   `@test-fix-agent`: Responsible for running tests and automatically fixing failures.
     > -   `@ui-design-agent`: Responsible for UI design and prototype creation.
+    > -   `@cli-execution-agent`: Responsible for autonomous CLI task handling (v4.5.0+).
 
 -   **Workflow**
     > A series of predefined, collaborative commands used to orchestrate different agents and tools to achieve a complex development goal (e.g., `plan`, `execute`, `test-gen`).

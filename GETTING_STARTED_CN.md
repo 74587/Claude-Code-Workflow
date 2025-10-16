@@ -1,7 +1,7 @@
 
 # 🚀 Claude Code Workflow (CCW) - 快速上手指南
 
-欢迎来到 Claude Code Workflow (CCW)！本指南将帮助您在 5 分钟内快速入门，体验由 AI 驱动的自动化软件开发流程。
+欢迎来到 Claude Code Workflow (CCW) v4.5.0！本指南将帮助您在 5 分钟内快速入门，体验由 AI 驱动的自动化软件开发流程，以及我们最新的工作流系统优化。
 
 ---
 
@@ -73,6 +73,7 @@
     > -   `@code-developer`: 负责编写和实现代码。
     > -   `@test-fix-agent`: 负责运行测试并自动修复失败的用例。
     > -   `@ui-design-agent`: 负责 UI 设计和原型创建。
+    > -   `@cli-execution-agent`: 负责自主 CLI 任务处理（v4.5.0+）。
 
 -   **工作流 (Workflow)**
     > 一系列预定义的、相互协作的命令，用于编排不同的智能体和工具，以完成一个复杂的开发目标（如 `plan`、`execute`、`test-gen`）。
