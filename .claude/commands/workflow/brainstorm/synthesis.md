@@ -1,8 +1,8 @@
 ---
 name: synthesis
-description: Generate synthesis-specification.md from topic-framework and role analyses with @ references
+description: Generate synthesis-specification.md from topic-framework and role analyses with @ references using conceptual-planning-agent
 argument-hint: "no arguments required - synthesizes existing framework and role analyses"
-allowed-tools: Task(action-planning-agent), TodoWrite(*), Read(*), Write(*)
+allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
 ## 🧩 **Synthesis Document Generator**
@@ -30,14 +30,15 @@ allowed-tools: Task(action-planning-agent), TodoWrite(*), Read(*), Write(*)
 ## ⚙️ **Execution Protocol**
 
 ### ⚠️ Agent Execution with Flow Control
-**Execution Model**: Uses action-planning-agent for synthesis generation with structured file loading.
+**Execution Model**: Uses conceptual-planning-agent for synthesis generation with structured file loading.
 
 **Rationale**:
 - **Autonomous Execution**: Agent independently loads and processes all required documents
 - **Flow Control**: Structured document loading ensures systematic analysis
 - **Complex Cognitive Analysis**: Leverages agent's analytical capabilities for cross-role synthesis
+- **Conceptual Focus**: Agent specializes in conceptual analysis and multi-perspective integration
 
-**Agent Responsibility**: All file reading and synthesis generation performed by action-planning-agent with FLOW_CONTROL instructions.
+**Agent Responsibility**: All file reading and synthesis generation performed by conceptual-planning-agent with FLOW_CONTROL instructions.
 
 ### 📋 Task Tracking Protocol
 Initialize synthesis task tracking using TodoWrite at command start:
@@ -46,7 +47,7 @@ Initialize synthesis task tracking using TodoWrite at command start:
   {"content": "Detect active session and validate topic-framework.md existence", "status": "in_progress", "activeForm": "Detecting session and validating framework"},
   {"content": "Discover participating role analyses dynamically", "status": "pending", "activeForm": "Discovering role analyses"},
   {"content": "Check existing synthesis and confirm user action", "status": "pending", "activeForm": "Checking update mechanism"},
-  {"content": "Execute synthesis generation using action-planning-agent with FLOW_CONTROL", "status": "pending", "activeForm": "Executing agent-based synthesis generation"},
+  {"content": "Execute synthesis generation using conceptual-planning-agent with FLOW_CONTROL", "status": "pending", "activeForm": "Executing agent-based synthesis generation"},
   {"content": "Agent performs cross-role analysis and generates synthesis-specification.md", "status": "pending", "activeForm": "Agent analyzing and generating synthesis"},
   {"content": "Update workflow-session.json with synthesis completion status", "status": "pending", "activeForm": "Updating session metadata"}
 ]
@@ -116,12 +117,12 @@ ELSE:
 ```
 
 ### Phase 4: Agent Execution with Flow Control
-**Synthesis Generation using action-planning-agent**
+**Synthesis Generation using conceptual-planning-agent**
 
-Delegate synthesis generation to action-planning-agent with structured file loading:
+Delegate synthesis generation to conceptual-planning-agent with structured file loading:
 
 ```bash
-Task(action-planning-agent): "
+Task(conceptual-planning-agent): "
 [FLOW_CONTROL]
 
 Execute comprehensive synthesis generation from topic framework and role analyses
@@ -242,7 +243,7 @@ The synthesis process creates **one consolidated document** that integrates all 
 - Implementation Roadmap (high-level phases)
 - Risk Assessment & Mitigation strategies
 
-**Agent Usage**: The action-planning-agent loads this template to understand expected structure and quality standards.
+**Agent Usage**: The conceptual-planning-agent loads this template to understand expected structure and quality standards.
 
 ## 🔄 **Session Integration**
 
