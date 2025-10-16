@@ -137,15 +137,50 @@ ELSE:
 **Usage**: Read the script file and use content directly in `mcp__chrome-devtools__evaluate_script()`
 
 **Script returns**:
-- `metadata`: Extraction timestamp, URL, method
+- `metadata`: Extraction timestamp, URL, method, version
 - `patterns`: Layout pattern statistics (flexColumn, flexRow, grid counts)
 - `structure`: Hierarchical DOM tree with layout properties
+- `exploration`: (Optional) Progressive exploration results when standard selectors fail
 
 **Benefits**:
 - ✅ Real flex/grid configuration (justifyContent, alignItems, gap, etc.)
 - ✅ Accurate element bounds (x, y, width, height)
 - ✅ Structural hierarchy with depth control
 - ✅ Layout pattern identification (flex-row, flex-column, grid-NCol)
+- ✅ Progressive exploration: Auto-discovers missing selectors
+
+**Progressive Exploration Strategy** (v2.2.0+):
+
+When script finds <3 main containers, it automatically:
+1. **Scans** all large visible containers (≥500×300px)
+2. **Extracts** class patterns matching: `main|content|wrapper|container|page|layout|app`
+3. **Suggests** new selectors to add to script
+4. **Returns** exploration data in `result.exploration`:
+   ```json
+   {
+     "triggered": true,
+     "discoveredCandidates": [{classes, bounds, display}],
+     "suggestedSelectors": [".wrapper", ".page-index"],
+     "recommendation": ".wrapper, .page-index, .app-container"
+   }
+   ```
+
+**Using Exploration Results**:
+```javascript
+// After extraction, check for suggestions
+IF result.exploration?.triggered:
+    REPORT: result.exploration.warning
+    REPORT: "Suggested selectors: " + result.exploration.recommendation
+
+    // Update script by adding to commonClassSelectors array
+    // Then re-run extraction for better coverage
+```
+
+**Selector Update Workflow**:
+1. Run extraction on unfamiliar site
+2. Check `result.exploration.suggestedSelectors`
+3. Add relevant selectors to script's `commonClassSelectors`
+4. Re-run extraction → improved container detection
 
 ### Step 3: Memory Check
 ```bash
