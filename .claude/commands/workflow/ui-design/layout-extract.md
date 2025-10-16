@@ -29,6 +29,22 @@ Extract structural layout information from reference images, URLs, or text promp
 # Detect input source
 # Priority: --urls + --images → hybrid | --urls → url | --images → image | --prompt → text
 
+# Parse URLs if provided (format: "target:url,target:url,...")
+IF --urls:
+    url_list = []
+    FOR pair IN split(--urls, ","):
+        IF ":" IN pair:
+            target, url = pair.split(":", 1)
+            url_list.append({target: target.strip(), url: url.strip()})
+        ELSE:
+            # Single URL without target
+            url_list.append({target: "page", url: pair.strip()})
+
+    has_urls = true
+ELSE:
+    has_urls = false
+    url_list = []
+
 # Determine extraction mode
 extraction_mode = --mode OR "imitate"  # "imitate" or "explore"
 
@@ -40,8 +56,15 @@ ELSE IF extraction_mode == "explore":
     VALIDATE: 1 <= variants_count <= 5
 
 # Resolve targets
-# Priority: --targets → prompt analysis → default ["page"]
-targets = --targets OR extract_from_prompt(--prompt) OR ["page"]
+# Priority: --targets → url_list targets → prompt analysis → default ["page"]
+IF --targets:
+    targets = split(--targets, ",")
+ELSE IF has_urls:
+    targets = [url_info.target for url_info in url_list]
+ELSE IF --prompt:
+    targets = extract_from_prompt(--prompt)
+ELSE:
+    targets = ["page"]
 
 # Resolve device type
 device_type = --device-type OR "responsive"  # desktop|mobile|tablet|responsive
@@ -68,27 +91,43 @@ Read({image_path})  # Load each image
 bash(mkdir -p {base_path}/layout-extraction)
 ```
 
-### Step 2.5: Extract DOM Structure (URL Mode - Enhancement)
+### Step 2.5: Extract DOM Structure (URL Mode - Auto-Trigger)
 ```bash
-# If URLs are available, extract real DOM structure
+# AUTO-TRIGGER: If URLs are available (from --urls parameter), automatically extract real DOM structure
 # This provides accurate layout data to supplement visual analysis
 
-# For each URL in url_list:
-IF url_available AND mcp_chrome_devtools_available:
-    # Read extraction script
-    Read(~/.claude/scripts/extract-layout-structure.js)
+# Check if URLs provided via --urls parameter
+IF --urls AND url_list:
+    REPORT: "🔍 Auto-triggering URL mode: Extracting DOM structure"
 
-    # Open page in Chrome DevTools
-    mcp__chrome-devtools__navigate_page(url="{target_url}")
-
-    # Execute layout extraction script
-    result = mcp__chrome-devtools__evaluate_script(function="[SCRIPT_CONTENT]")
-
-    # Save DOM structure for this target (intermediate file)
     bash(mkdir -p {base_path}/.intermediates/layout-analysis)
-    Write({base_path}/.intermediates/layout-analysis/dom-structure-{target}.json, result)
 
-    dom_structure_available = true
+    # For each URL in url_list:
+    FOR url_info IN url_list:
+        target = url_info.target
+        url = url_info.url
+
+        IF mcp_chrome_devtools_available:
+            REPORT: "   Processing: {target} ({url})"
+
+            # Read extraction script
+            script_content = Read(~/.claude/scripts/extract-layout-structure.js)
+
+            # Open page in Chrome DevTools
+            mcp__chrome-devtools__navigate_page(url=url)
+
+            # Execute layout extraction script
+            result = mcp__chrome-devtools__evaluate_script(function=script_content)
+
+            # Save DOM structure for this target (intermediate file)
+            Write({base_path}/.intermediates/layout-analysis/dom-structure-{target}.json, result)
+
+            REPORT: "   ✅ DOM structure extracted for '{target}'"
+        ELSE:
+            REPORT: "   ⚠️ Chrome DevTools MCP not available, falling back to visual analysis"
+            BREAK
+
+    dom_structure_available = mcp_chrome_devtools_available
 ELSE:
     dom_structure_available = false
 ```
@@ -266,6 +305,13 @@ Configuration:
 - Targets: {targets}
 - Variants per Target: {variants_count}
 - Total Templates: {targets.length × variants_count}
+{IF has_urls AND dom_structure_available:
+- 🔍 URL Mode: DOM structure extracted from {len(url_list)} URL(s)
+- Accuracy: Real flex/grid properties from live pages
+}
+{IF has_urls AND NOT dom_structure_available:
+- ⚠️ URL Mode: Chrome DevTools unavailable, used visual analysis fallback
+}
 
 {IF extraction_mode == "explore":
 Layout Research:
@@ -278,6 +324,9 @@ Generated Templates:
 
 Output File:
 - {base_path}/layout-extraction/layout-templates.json
+{IF dom_structure_available:
+- {base_path}/.intermediates/layout-analysis/dom-structure-*.json ({len(url_list)} files)
+}
 
 Next: /workflow:ui-design:generate will combine these structural templates with style systems to produce final prototypes.
 ```
@@ -412,13 +461,14 @@ ERROR: MCP search failed (explore mode)
 
 ## Key Features
 
+- **Auto-Trigger URL Mode** - Automatically extracts DOM structure when --urls provided (no manual flag needed)
 - **Hybrid Extraction Strategy** - Combines real DOM structure data with AI visual analysis
 - **Accurate Layout Properties** - Chrome DevTools extracts real flex/grid configurations, bounds, and hierarchy
 - **Separation of Concerns** - Decouples layout (structure) from style (visuals)
 - **Structural Exploration** - Explore mode enables A/B testing of different layouts
 - **Token-Based Layout** - CSS uses `var()` placeholders for instant design system adaptation
 - **Device-Specific** - Tailored structures for different screen sizes
-- **Graceful Fallback** - Works with images/text when URL unavailable
+- **Graceful Fallback** - Falls back to visual analysis if Chrome DevTools unavailable
 - **Foundation for Assembly** - Provides structural blueprint for refactored `generate` command
 - **Agent-Powered** - Deep structural analysis with AI
 

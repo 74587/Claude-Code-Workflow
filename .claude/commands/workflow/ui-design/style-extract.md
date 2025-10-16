@@ -1,8 +1,8 @@
 ---
 name: style-extract
 description: Extract design style from reference images or text prompts using Claude's analysis
-argument-hint: "[--base-path <path>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--mode <imitate|explore>] [--variants <count>]"
-allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
+argument-hint: "[--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--mode <imitate|explore>] [--variants <count>]"
+allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
 ---
 
 # Style Extraction Command
@@ -22,7 +22,23 @@ Extract design style from reference images or text prompts using Claude's built-
 ### Step 1: Detect Input Mode, Extraction Mode & Base Path
 ```bash
 # Detect input source
-# Priority: --images + --prompt → hybrid | --images → image | --prompt → text
+# Priority: --urls + --images + --prompt → hybrid-url | --urls + --images → url-image | --urls → url | --images + --prompt → hybrid | --images → image | --prompt → text
+
+# Parse URLs if provided (format: "target:url,target:url,...")
+IF --urls:
+    url_list = []
+    FOR pair IN split(--urls, ","):
+        IF ":" IN pair:
+            target, url = pair.split(":", 1)
+            url_list.append({target: target.strip(), url: url.strip()})
+        ELSE:
+            # Single URL without target
+            url_list.append({target: "page", url: pair.strip()})
+
+    has_urls = true
+    primary_url = url_list[0].url  # First URL as primary source
+ELSE:
+    has_urls = false
 
 # Determine extraction mode
 # Priority: --mode parameter → default "imitate"
@@ -40,32 +56,48 @@ bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
 # OR use --base-path / --session parameters
 ```
 
-### Step 2: Extract Computed Styles (URL Mode - Optional Enhancement)
+### Step 2: Extract Computed Styles (URL Mode - Auto-Trigger)
 ```bash
-# If URL is available from capture metadata, extract real CSS values
+# AUTO-TRIGGER: If URLs are available (from --urls parameter or capture metadata), automatically extract real CSS values
 # This provides accurate design tokens to supplement visual analysis
 
-# Check for URL metadata from capture phase
-Read({base_path}/.metadata/capture-urls.json)  # If exists
+# Priority 1: Check for --urls parameter
+IF has_urls:
+    url_to_extract = primary_url
+    url_source = "--urls parameter"
 
-# For each URL in capture metadata:
-IF url_available AND mcp_chrome_devtools_available:
+# Priority 2: Check for URL metadata from capture phase
+ELSE IF exists({base_path}/.metadata/capture-urls.json):
+    capture_urls = Read({base_path}/.metadata/capture-urls.json)
+    url_to_extract = capture_urls[0]  # Use first URL
+    url_source = "capture metadata"
+ELSE:
+    url_to_extract = null
+
+# Execute extraction if URL available
+IF url_to_extract AND mcp_chrome_devtools_available:
+    REPORT: "🔍 Auto-triggering URL mode: Extracting computed styles from {url_source}"
+    REPORT: "   URL: {url_to_extract}"
+
     # Read extraction script
-    Read(~/.claude/scripts/extract-computed-styles.js)
+    script_content = Read(~/.claude/scripts/extract-computed-styles.js)
 
     # Open page in Chrome DevTools
-    mcp__chrome-devtools__navigate_page(url="{target_url}")
+    mcp__chrome-devtools__navigate_page(url=url_to_extract)
 
     # Execute extraction script directly
-    result = mcp__chrome-devtools__evaluate_script(function="[SCRIPT_CONTENT]")
+    result = mcp__chrome-devtools__evaluate_script(function=script_content)
 
     # Save computed styles to intermediates directory
     bash(mkdir -p {base_path}/.intermediates/style-analysis)
     Write({base_path}/.intermediates/style-analysis/computed-styles.json, result)
 
     computed_styles_available = true
+    REPORT: "   ✅ Computed styles extracted and saved"
 ELSE:
     computed_styles_available = false
+    IF url_to_extract:
+        REPORT: "⚠️ Chrome DevTools MCP not available, falling back to visual analysis"
 ```
 
 **Extraction Script Reference**: `~/.claude/scripts/extract-computed-styles.js`
@@ -106,7 +138,7 @@ IF exists: SKIP to completion
 
 ---
 
-**Phase 0 Output**: `input_mode`, `base_path`, `extraction_mode`, `variants_count`, `loaded_images[]` or `prompt_guidance`
+**Phase 0 Output**: `input_mode`, `base_path`, `extraction_mode`, `variants_count`, `loaded_images[]` or `prompt_guidance`, `has_urls`, `url_list[]`, `computed_styles_available`
 
 ## Phase 1: Design Space Analysis (Explore Mode Only)
 
@@ -254,9 +286,16 @@ TodoWrite({todos: [
 Configuration:
 - Session: {session_id}
 - Extraction Mode: {extraction_mode} (imitate/explore)
-- Input Mode: {input_mode} (image/text/hybrid)
+- Input Mode: {input_mode} (image/text/hybrid{"/url" if has_urls else ""})
 - Variants: {variants_count}
 - Production-Ready: Complete design systems generated
+{IF has_urls AND computed_styles_available:
+- 🔍 URL Mode: Computed styles extracted from {len(url_list)} URL(s)
+- Accuracy: Pixel-perfect design tokens from DOM
+}
+{IF has_urls AND NOT computed_styles_available:
+- ⚠️ URL Mode: Chrome DevTools unavailable, used visual analysis fallback
+}
 
 {IF extraction_mode == "explore":
 Design Space Analysis:
@@ -270,8 +309,11 @@ Generated Files:
 ├── style-2/ (same structure)
 └── style-{variants_count}/ (same structure)
 
-{IF extraction_mode == "explore":
+{IF computed_styles_available:
 Intermediate Analysis:
+{base_path}/.intermediates/style-analysis/computed-styles.json (extracted from {primary_url})
+}
+{IF extraction_mode == "explore":
 {base_path}/.intermediates/style-analysis/design-space-analysis.json
 }
 
@@ -371,6 +413,7 @@ ERROR: Claude JSON parsing error
 
 ## Key Features
 
+- **Auto-Trigger URL Mode** - Automatically extracts computed styles when --urls provided (no manual flag needed)
 - **Direct Design System Generation** - Complete design-tokens.json + style-guide.md in one step
 - **Hybrid Extraction Strategy** - Combines computed CSS values (ground truth) with AI visual analysis
 - **Pixel-Perfect Accuracy** - Chrome DevTools extracts exact border-radius, shadows, spacing values
@@ -378,7 +421,7 @@ ERROR: Claude JSON parsing error
 - **Variant-Specific Directions** - Each variant has unique philosophy, keywords, anti-patterns
 - **Maximum Contrast Guarantee** - Variants maximally distant in attribute space
 - **Flexible Input** - Images, text, URLs, or hybrid mode
-- **Graceful Fallback** - Falls back to pure visual inference if URL unavailable
+- **Graceful Fallback** - Falls back to pure visual inference if Chrome DevTools unavailable
 - **Production-Ready** - OKLCH colors, WCAG AA compliance, semantic naming
 - **Agent-Driven** - Autonomous multi-file generation with ui-design-agent
 

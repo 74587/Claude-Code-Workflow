@@ -98,19 +98,6 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 ### Phase 0: Initialization and Target Parsing
 
 ```bash
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 UI Design Imitate-Auto"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# Constants
-DEPTH_NAMES = {
-    1: "Page level",
-    2: "Element level",
-    3: "Interaction level",
-    4: "Embedded level",
-    5: "Shadow DOM"
-}
-
 # Generate run ID
 run_id = "run-$(date +%Y%m%d-%H%M%S)"
 
@@ -119,12 +106,10 @@ IF --session:
     session_id = {provided_session}
     base_path = ".workflow/WFS-{session_id}/design-{run_id}"
     session_mode = "integrated"
-    REPORT: "Mode: Integrated (Session: {session_id})"
 ELSE:
     session_id = null
     base_path = ".workflow/.design/{run_id}"
     session_mode = "standalone"
-    REPORT: "Mode: Standalone"
 
 # Create base directory
 Bash(mkdir -p "{base_path}")
@@ -198,20 +183,6 @@ metadata = {
 
 Write("{base_path}/.run-metadata.json", JSON.stringify(metadata, null, 2))
 
-REPORT: ""
-REPORT: "Configuration:"
-REPORT: "  Capture mode: {capture_mode}"
-IF capture_mode == "deep":
-    REPORT: "    Depth level: {depth} ({DEPTH_NAMES[depth]})"
-    REPORT: "    Target: '{primary_target}' ({url_map[primary_target]})"
-ELSE:
-    REPORT: "    Targets: {len(target_names)} pages"
-    REPORT: "    Primary source: '{primary_target}' ({url_map[primary_target]})"
-    REPORT: "    All targets: {', '.join(target_names)}"
-IF --prompt:
-    REPORT: "  Prompt guidance: \"{--prompt}\""
-REPORT: ""
-
 # Initialize TodoWrite
 TodoWrite({todos: [
   {content: "Initialize and parse url-map", status: "completed", activeForm: "Initializing"},
@@ -227,21 +198,13 @@ TodoWrite({todos: [
 
 ```bash
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: f"🚀 Phase 1: Screenshot Capture ({capture_mode} mode)"
+REPORT: "🚀 Phase 1: Screenshot Capture"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 IF capture_mode == "batch":
     # Mode A: Batch Multi-URL Capture
-    REPORT: "Using batch capture for multiple URLs..."
-
-    # Build url-map string for capture command
     url_map_command_string = ",".join([f"{name}:{url}" for name, url in url_map.items()])
-
-    # Call capture command
     capture_command = f"/workflow:ui-design:capture --base-path \"{base_path}\" --url-map \"{url_map_command_string}\""
-
-    REPORT: f"  Command: {capture_command}"
-    REPORT: f"  Targets: {len(target_names)}"
 
     TRY:
         SlashCommand(capture_command)
@@ -263,33 +226,18 @@ IF capture_mode == "batch":
     total_requested = screenshot_metadata.total_requested
     missing_count = total_requested - captured_count
 
-    REPORT: ""
-    REPORT: "✅ Batch capture complete:"
-    REPORT: "   Captured: {captured_count}/{total_requested} screenshots ({(captured_count/total_requested*100):.1f}%)"
-
     IF missing_count > 0:
         missing_targets = [s.target for s in screenshot_metadata.screenshots if not s.captured]
-        WARN: "   ⚠️ Missing {missing_count} screenshots: {', '.join(missing_targets)}"
-        WARN: "   Proceeding with available screenshots for extract phase"
+        WARN: "⚠️ Missing {missing_count} screenshots: {', '.join(missing_targets)}"
 
-    # If all screenshots failed, terminate
     IF captured_count == 0:
         ERROR: "No screenshots captured - cannot proceed"
-        ERROR: "Please check URLs and tool availability"
         EXIT 1
 
 ELSE:  # capture_mode == "deep"
     # Mode B: Deep Interactive Layer Exploration
-    REPORT: "Using deep exploration for single URL..."
-
     primary_url = url_map[primary_target]
-
-    # Call explore-layers command
     explore_command = f"/workflow:ui-design:explore-layers --url \"{primary_url}\" --depth {depth} --base-path \"{base_path}\""
-
-    REPORT: f"  Command: {explore_command}"
-    REPORT: f"  URL: {primary_url}"
-    REPORT: f"  Depth: {depth} ({DEPTH_NAMES[depth]})"
 
     TRY:
         SlashCommand(explore_command)
@@ -307,16 +255,7 @@ ELSE:  # capture_mode == "deep"
         EXIT 1
 
     layer_map = Read(layer_map_path)
-    total_layers = len(layer_map.layers)
     captured_count = layer_map.summary.total_captures
-
-    REPORT: ""
-    REPORT: "✅ Deep exploration complete:"
-    REPORT: "   Layers: {total_layers} (depth 1-{depth})"
-    REPORT: "   Captures: {captured_count} screenshots"
-    REPORT: "   Total size: {layer_map.summary.total_size_kb:.1f} KB"
-
-    # Count actual images for extract phase
     total_requested = captured_count  # For consistency with batch mode
 
 TodoWrite(mark_completed: f"Batch screenshot capture ({len(target_names)} targets)" IF capture_mode == "batch" ELSE f"Deep exploration (depth {depth})",
@@ -326,31 +265,29 @@ TodoWrite(mark_completed: f"Batch screenshot capture ({len(target_names)} target
 ### Phase 2: Style Extraction (Visual Tokens)
 
 ```bash
-REPORT: ""
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 2: Extract Style (Visual Tokens)"
+REPORT: "🚀 Phase 2: Style Extraction"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Use all screenshots as input to extract single design system
 IF capture_mode == "batch":
     images_glob = f"{base_path}/screenshots/*.{{png,jpg,jpeg,webp}}"
 ELSE:  # deep mode
-    images_glob = f"{base_path}/screenshots/**/*.{{png,jpg,jpeg,webp}}"  # Include all depth directories
+    images_glob = f"{base_path}/screenshots/**/*.{{png,jpg,jpeg,webp}}"
 
 # Build extraction prompt
 IF --prompt:
     user_guidance = {--prompt}
-    extraction_prompt = f"Extract visual style tokens (colors, typography, spacing) from the '{primary_target}' page. Use other screenshots for consistency. User guidance: {user_guidance}"
+    extraction_prompt = f"Extract visual style tokens from '{primary_target}'. User guidance: {user_guidance}"
 ELSE:
-    extraction_prompt = f"Extract visual style tokens (colors, typography, spacing) from the '{primary_target}' page. Use other screenshots for consistency across all pages."
+    extraction_prompt = f"Extract visual style tokens from '{primary_target}' with consistency across all pages."
+
+# Build url-map string for style-extract (enables computed styles extraction)
+url_map_for_extract = ",".join([f"{name}:{url}" for name, url in url_map.items()])
 
 # Call style-extract command (imitate mode, automatically uses single variant)
-extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --prompt \"{extraction_prompt}\" --mode imitate"
-
-REPORT: "Calling style-extract command..."
-REPORT: f"  Mode: imitate (high-fidelity single style, auto variants=1)"
-REPORT: f"  Primary source: '{primary_target}'"
-REPORT: f"  Images: {images_glob}"
+# Pass --urls to enable auto-trigger of computed styles extraction
+extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --mode imitate"
 
 TRY:
     SlashCommand(extract_command)
@@ -359,29 +296,13 @@ CATCH error:
     ERROR: "Cannot proceed without visual tokens"
     EXIT 1
 
-# style-extract outputs to: {base_path}/style-extraction/style-1/design-tokens.json
-
 # Verify extraction results
 design_tokens_path = "{base_path}/style-extraction/style-1/design-tokens.json"
 style_guide_path = "{base_path}/style-extraction/style-1/style-guide.md"
 
-IF NOT exists(design_tokens_path):
-    ERROR: "style-extract command did not generate design-tokens.json"
-    ERROR: "Expected: {design_tokens_path}"
+IF NOT exists(design_tokens_path) OR NOT exists(style_guide_path):
+    ERROR: "style-extract did not generate required files"
     EXIT 1
-
-IF NOT exists(style_guide_path):
-    ERROR: "style-extract command did not generate style-guide.md"
-    ERROR: "Expected: {style_guide_path}"
-    EXIT 1
-
-design_tokens = Read(design_tokens_path)
-
-REPORT: ""
-REPORT: "✅ Phase 2 complete:"
-REPORT: "   Output: style-extraction/style-1/"
-REPORT: "   Files: design-tokens.json, style-guide.md"
-REPORT: "   Quality: Production-ready (WCAG AA)"
 
 TodoWrite(mark_completed: "Extract style (complete design systems)",
           mark_in_progress: "Extract layout (structure templates)")
@@ -390,22 +311,16 @@ TodoWrite(mark_completed: "Extract style (complete design systems)",
 ### Phase 2.5: Layout Extraction (Structure Templates)
 
 ```bash
-REPORT: ""
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 2.5: Extract Layout (Structure Templates)"
+REPORT: "🚀 Phase 2.5: Layout Extraction"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Reuse same screenshots for layout extraction
-# Build URL map for layout-extract (uses first URL from each target)
+# Build URL map for layout-extract
 url_map_for_layout = ",".join([f"{target}:{url}" for target, url in url_map.items()])
 
 # Call layout-extract command (imitate mode for structure replication)
-layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --targets \"{','.join(target_names)}\" --mode imitate"
-
-REPORT: "Calling layout-extract command..."
-REPORT: f"  Mode: imitate (high-fidelity structure replication)"
-REPORT: f"  Targets: {', '.join(target_names)}"
-REPORT: f"  Images: {images_glob}"
+# Pass --urls to enable auto-trigger of DOM structure extraction
+layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --mode imitate"
 
 TRY:
     SlashCommand(layout_extract_command)
@@ -414,23 +329,12 @@ CATCH error:
     ERROR: "Cannot proceed without layout templates"
     EXIT 1
 
-# layout-extract outputs to: {base_path}/layout-extraction/layout-templates.json
-
 # Verify layout extraction results
 layout_templates_path = "{base_path}/layout-extraction/layout-templates.json"
 
 IF NOT exists(layout_templates_path):
-    ERROR: "layout-extract command did not generate layout-templates.json"
-    ERROR: "Expected: {layout_templates_path}"
+    ERROR: "layout-extract did not generate layout-templates.json"
     EXIT 1
-
-layout_templates = Read(layout_templates_path)
-template_count = len(layout_templates.layout_templates)
-
-REPORT: ""
-REPORT: "✅ Phase 2.5 complete:"
-REPORT: "   Templates: {template_count} layout structures"
-REPORT: "   Targets: {', '.join(target_names)}"
 
 TodoWrite(mark_completed: "Extract layout (structure templates)",
           mark_in_progress: f"Assemble UI for {len(target_names)} targets")
@@ -439,24 +343,12 @@ TodoWrite(mark_completed: "Extract layout (structure templates)",
 ### Phase 3: Batch UI Assembly
 
 ```bash
-REPORT: ""
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 3: Batch UI Assembly"
+REPORT: "🚀 Phase 3: UI Assembly"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Note: design-tokens.json already generated in Phase 2 (style-extract)
-# Located at: {base_path}/style-extraction/style-1/design-tokens.json
-
-# Build targets string
-targets_string = ",".join(target_names)
-
-# Call generate command (now pure assembler - combines layout templates + design tokens)
+# Call generate command (pure assembler - combines layout templates + design tokens)
 generate_command = f"/workflow:ui-design:generate --base-path \"{base_path}\" --style-variants 1 --layout-variants 1"
-
-REPORT: "Calling generate command (pure assembler)..."
-REPORT: f"  Targets: {targets_string} (from layout templates)"
-REPORT: f"  Configuration: 1 style × 1 layout × {len(target_names)} pages"
-REPORT: f"  Inputs: layout-templates.json + design-tokens.json"
 
 TRY:
     SlashCommand(generate_command)
@@ -465,22 +357,13 @@ CATCH error:
     ERROR: "Layout templates or design tokens may be invalid"
     EXIT 1
 
-# generate outputs to: {base_path}/prototypes/{target}-style-1-layout-1.html
-
 # Verify assembly results
 prototypes_dir = "{base_path}/prototypes"
 generated_html_files = Glob(f"{prototypes_dir}/*-style-1-layout-1.html")
 generated_count = len(generated_html_files)
 
-REPORT: ""
-REPORT: "✅ Phase 4 complete:"
-REPORT: "   Assembled: {generated_count} HTML prototypes"
-REPORT: "   Targets: {', '.join(target_names)}"
-REPORT: "   Output: {prototypes_dir}/"
-
 IF generated_count < len(target_names):
-    WARN: "   ⚠️ Expected {len(target_names)} prototypes, assembled {generated_count}"
-    WARN: "   Some targets may have failed - check generate output"
+    WARN: "⚠️ Expected {len(target_names)} prototypes, assembled {generated_count}"
 
 TodoWrite(mark_completed: f"Assemble UI for {len(target_names)} targets",
           mark_in_progress: session_id ? "Integrate design system" : "Standalone completion")
@@ -489,30 +372,18 @@ TodoWrite(mark_completed: f"Assemble UI for {len(target_names)} targets",
 ### Phase 4: Design System Integration
 
 ```bash
-REPORT: ""
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 REPORT: "🚀 Phase 4: Design System Integration"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 IF session_id:
-    REPORT: "Integrating design system into session {session_id}..."
-
     update_command = f"/workflow:ui-design:update --session {session_id}"
 
     TRY:
         SlashCommand(update_command)
     CATCH error:
-        WARN: "Design system integration failed: {error}"
-        WARN: "Prototypes are still available at {base_path}/prototypes/"
-        # Don't terminate, prototypes already generated
-
-    REPORT: "✅ Design system integrated into session {session_id}"
-ELSE:
-    REPORT: "ℹ️ Standalone mode: Skipping integration"
-    REPORT: "   Prototypes available at: {base_path}/prototypes/"
-    REPORT: "   To integrate later:"
-    REPORT: "   1. Create a workflow session"
-    REPORT: "   2. Copy design-tokens.json to session artifacts"
+        WARN: "⚠️ Design system integration failed: {error}"
+        WARN: "Prototypes available at {base_path}/prototypes/"
 
 # Update metadata
 metadata = Read("{base_path}/.run-metadata.json")
