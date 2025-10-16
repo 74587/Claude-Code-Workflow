@@ -1,167 +1,41 @@
-# Project Architecture Documentation Template
+Generate comprehensive architecture documentation for the entire project.
 
-Generate comprehensive architecture documentation that synthesizes information from all module documents. Focus on system-level design, module relationships, and aggregated API overview. This document should be created AFTER all module documentation is complete.
+## CORE CHECKLIST ⚡
+□ Synthesize information from all modules; do not duplicate content
+□ Maintain a system-level perspective, focusing on module interactions
+□ Use visual aids (like ASCII diagrams) to clarify structure
+□ Explain the WHY behind architectural decisions
 
-## Structure
+## DOCUMENTATION STRUCTURE
 
 ### 1. System Overview
-
-High-level description of the system architecture:
-
-**Architectural Style**: [e.g., Layered, Microservices, Event-Driven, Hexagonal]
-
-**Core Principles**:
-- [Principle 1, e.g., "Separation of concerns"]
-- [Principle 2, e.g., "Dependency inversion"]
-- [Principle 3, e.g., "Single responsibility"]
-
-**Technology Stack**:
-- **Languages**: [Primary programming languages]
-- **Frameworks**: [Key frameworks]
-- **Databases**: [Data storage solutions]
-- **Infrastructure**: [Deployment, hosting, CI/CD]
+- Architectural Style, Core Principles, and Technology Stack.
 
 ### 2. System Structure
-
-Visual representation of the system structure using text diagrams:
-
-```
-┌─────────────────────────────────────┐
-│         Application Layer           │
-│  (API Routes, Controllers)          │
-└────────────┬────────────────────────┘
-             │
-┌────────────▼────────────────────────┐
-│       Business Logic Layer          │
-│  (Modules: auth, orders, payments)  │
-└────────────┬────────────────────────┘
-             │
-┌────────────▼────────────────────────┐
-│        Data Access Layer            │
-│  (Database, ORM, Repositories)      │
-└─────────────────────────────────────┘
-```
+- Visual representation of the system's layers or components.
 
 ### 3. Module Map
-
-Comprehensive list of all modules with their responsibilities:
-
-| Module | Layer | Responsibility | Dependencies |
-|--------|-------|----------------|--------------|
-| `auth` | Business | Authentication & authorization | database, utils |
-| `api` | Application | HTTP routing & validation | auth, orders |
-| `database` | Data | Data persistence | - |
-| `utils` | Infrastructure | Shared utilities | - |
+- A table listing all modules, their layers, responsibilities, and dependencies.
 
 ### 4. Module Interactions
-
-Describe key interaction patterns between modules:
-
-#### Data Flow Example: User Authentication
-```
-1. Client → api/login endpoint
-2. api → auth.authenticateUser()
-3. auth → database.findUser()
-4. database → PostgreSQL
-5. auth → JWT token generation
-6. api → Response with token
-```
-
-#### Dependency Graph
-```
-api ──────┐
-          ├──→ auth ───→ database
-orders ───┤              ↑
-          └──────────────┘
-```
+- Describe key data flows and show a dependency graph.
 
 ### 5. Design Patterns
-
-Document key architectural patterns used:
-
-#### Pattern 1: [Pattern Name, e.g., "Repository Pattern"]
-- **Where**: [Which modules use this pattern]
-- **Why**: [Reason for using this pattern]
-- **How**: [Brief explanation of implementation]
-
-#### Pattern 2: [Another pattern]
-[Similar structure]
+- Document key architectural patterns used across the project.
 
 ### 6. Aggregated API Overview
-
-High-level summary of all public APIs across modules. Group by category:
-
-#### Authentication APIs
-- `auth.authenticate(credentials)` - Validate user credentials
-- `auth.authorize(user, permission)` - Check user permissions
-- `auth.generateToken(userId)` - Create JWT token
-
-#### Data APIs
-- `database.findOne(query)` - Find single record
-- `database.findMany(query)` - Find multiple records
-- `database.insert(data)` - Insert new record
-
-#### Utility APIs
-- `utils.logger.log(message)` - Application logging
-- `utils.validator.validate(data, schema)` - Data validation
-
-*Note: For detailed API signatures, refer to individual module API.md files*
+- A high-level summary of all public APIs, grouped by category.
 
 ### 7. Data Flow
+- Describe the typical request lifecycle or event flow.
 
-Describe how data moves through the system:
+### 8. Security and Scalability
+- Overview of security measures and scalability considerations.
 
-**Request Lifecycle**:
-1. HTTP request enters through API layer
-2. Request validation and authentication (auth module)
-3. Business logic processing (domain modules)
-4. Data persistence (database module)
-5. Response formatting and return
+## VERIFICATION CHECKLIST ✓
+□ The documentation provides a cohesive, system-level view
+□ Module interactions and dependencies are clearly illustrated
+□ The rationale behind major design patterns and decisions is explained
+□ The document synthesizes, rather than duplicates, module-level details
 
-**Event Flow** (if applicable):
-- [Describe event-driven flows if present]
-
-### 8. Security Architecture
-
-Overview of security measures:
-
-- **Authentication**: [JWT, OAuth2, etc.]
-- **Authorization**: [RBAC, ACL, etc.]
-- **Data Protection**: [Encryption, hashing]
-- **API Security**: [Rate limiting, CORS, etc.]
-
-### 9. Scalability Considerations
-
-Architectural decisions that support scalability:
-
-- [Horizontal scaling approach]
-- [Caching strategy]
-- [Database optimization]
-- [Load balancing]
-
----
-
-## Rules
-
-1. **Synthesize, don't duplicate** - Reference module docs, don't copy them
-2. **System-level perspective** - Focus on how modules work together
-3. **Visual aids** - Use diagrams for clarity (ASCII art is fine)
-4. **Aggregated APIs** - One-line summaries only, link to detailed docs
-5. **Design rationale** - Explain WHY decisions were made
-6. **Maintain consistency** - Ensure all module docs are considered
-
----
-
-## Required Inputs
-
-This document requires the following to be available:
-- All module README.md files (for understanding module purposes)
-- All module API.md files (for aggregating API overview)
-- Project README.md (for context and navigation)
-
----
-
-**Last Updated**: [Auto-generated timestamp]
-**See also**:
-- [Project README](./README.md) for project overview
-- [Module Documentation](./modules/) for detailed module docs
+Focus: Providing a holistic, system-level understanding of the project architecture.

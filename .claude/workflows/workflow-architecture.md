@@ -678,15 +678,20 @@ All workflows use the same file structure definition regardless of complexity. *
 │
 ├── [.design/]                  # Standalone UI design outputs (created when needed)
 │   └── run-[timestamp]/        # Timestamped design runs without session
-│       ├── style-extraction/   # Style analysis results
-│       ├── style-consolidation/ # Design system tokens (per-style)
+│       ├── .intermediates/     # Intermediate analysis files
+│       │   ├── style-analysis/ # Style analysis data
+│       │   │   ├── computed-styles.json        # Extracted CSS values
+│       │   │   └── design-space-analysis.json  # Design directions
+│       │   └── layout-analysis/ # Layout analysis data
+│       │       ├── dom-structure-{target}.json # DOM extraction
+│       │       └── inspirations/               # Layout research
+│       │           └── {target}-layout-ideas.txt
+│       ├── style-extraction/   # Final design systems
 │       │   ├── style-1/        # design-tokens.json, style-guide.md
 │       │   └── style-N/
+│       ├── layout-extraction/  # Layout templates
+│       │   └── layout-templates.json
 │       ├── prototypes/         # Generated HTML/CSS prototypes
-│       │   ├── _templates/     # Target-specific layout plans and templates
-│       │   │   ├── {target}-layout-{n}.json  # Layout plan (target-specific)
-│       │   │   ├── {target}-layout-{n}.html  # HTML template
-│       │   │   └── {target}-layout-{n}.css   # CSS template
 │       │   ├── {target}-style-{s}-layout-{l}.html  # Final prototypes
 │       │   ├── compare.html    # Interactive matrix view
 │       │   └── index.html      # Navigation page
@@ -706,15 +711,20 @@ All workflows use the same file structure definition regardless of complexity. *
     │   ├── IMPL-*-summary.md      # Main task summaries
     │   └── IMPL-*.*-summary.md    # Subtask summaries
     ├── [design-*/]                 # UI design outputs (created by ui-design workflows)
-    │   ├── style-extraction/       # Style analysis results
-    │   ├── style-consolidation/    # Design system tokens (per-style)
+    │   ├── .intermediates/         # Intermediate analysis files
+    │   │   ├── style-analysis/     # Style analysis data
+    │   │   │   ├── computed-styles.json        # Extracted CSS values
+    │   │   │   └── design-space-analysis.json  # Design directions
+    │   │   └── layout-analysis/    # Layout analysis data
+    │   │       ├── dom-structure-{target}.json # DOM extraction
+    │   │       └── inspirations/               # Layout research
+    │   │           └── {target}-layout-ideas.txt
+    │   ├── style-extraction/       # Final design systems
     │   │   ├── style-1/            # design-tokens.json, style-guide.md
     │   │   └── style-N/
+    │   ├── layout-extraction/      # Layout templates
+    │   │   └── layout-templates.json
     │   ├── prototypes/             # Generated HTML/CSS prototypes
-    │   │   ├── _templates/         # Target-specific layout plans and templates
-    │   │   │   ├── {target}-layout-{n}.json  # Layout plan (target-specific)
-    │   │   │   ├── {target}-layout-{n}.html  # HTML template
-    │   │   │   └── {target}-layout-{n}.css   # CSS template
     │   │   ├── {target}-style-{s}-layout-{l}.html  # Final prototypes
     │   │   ├── compare.html        # Interactive matrix view
     │   │   └── index.html          # Navigation page
@@ -730,7 +740,8 @@ All workflows use the same file structure definition regardless of complexity. *
 - **Dynamic Files**: Subtask JSON files created during task decomposition
 - **Scratchpad Usage**: `.scratchpad/` created when CLI commands run without active session
 - **Design Usage**: `design-{timestamp}/` created by UI design workflows, `.design/` for standalone design runs
-- **Layout Planning**: `prototypes/_templates/` contains target-specific layout plans (JSON) generated during UI generation phase
+- **Intermediate Files**: `.intermediates/` contains analysis data (style/layout) separate from final deliverables
+- **Layout Templates**: `layout-extraction/layout-templates.json` contains structural templates for UI assembly
 
 #### Scratchpad Directory (.scratchpad/)
 **Purpose**: Centralized location for non-session-specific CLI outputs

@@ -1,12 +1,20 @@
-Create or update CLAUDE.md documentation with unified module/file template:
+Create or update CLAUDE.md documentation using unified module/file template.
 
-## Unified Module Documentation Requirements
+## CORE CHECKLIST ⚡
+□ MUST include all 6 sections: Purpose, Structure, Components, Dependencies, Integration, Implementation
+□ For code files: Document all public/exported APIs with complete parameter details
+□ For folders: Reference subdirectory CLAUDE.md files instead of duplicating
+□ Provide method signatures with parameter types, descriptions, defaults, and return values
+□ Distinguish internal dependencies from external libraries
+□ Apply RULES template requirements exactly as specified
+
+## DOCUMENTATION REQUIREMENTS
 
 ### Analysis Strategy
-- **For Folders/Modules**: Analyze directory structure, sub-modules, and architectural patterns
-- **For Code Files**: Analyze classes, functions, interfaces, and implementation details
+- **Folders/Modules**: Analyze directory structure, sub-modules, and architectural patterns
+- **Code Files**: Analyze classes, functions, interfaces, and implementation details
 
-### Content Focus (MUST INCLUDE):
+### Required Sections (ALL 6 MUST BE INCLUDED)
 
 #### 1. Purpose and Scope
 - Clear description of what this module/file does
@@ -14,42 +22,33 @@ Create or update CLAUDE.md documentation with unified module/file template:
 - Role within the larger system
 
 #### 2. Structure Overview
-**For Folders/Modules**:
-- Directory organization and file structure
-- Sub-module categorization
-- Architectural layout
-
-**For Code Files**:
-- File organization (imports, exports, structure)
-- Core classes and their hierarchy
-- Main functions and their grouping
+**For Folders**: Directory organization, sub-module categorization, architectural layout
+**For Code Files**: File organization (imports, exports), class hierarchy, function grouping
 
 #### 3. Key Components
-**For Folders/Modules**:
-- Sub-modules and their responsibilities
-- Major components and their interactions
-- Entry points and public interfaces
-
+**For Folders**: Sub-modules, major components, entry points, public interfaces
 **For Code Files**:
-- Core classes with brief descriptions
-- Key methods/functions with complete signatures and parameter details
-  - Method name and purpose
-  - **Parameters**: name, type, description, default values (if any)
-  - **Return value**: type and description
-  - **Throws**: exceptions or errors (if applicable)
+- Core classes with descriptions and responsibilities
+- Key methods with complete signatures:
+  ```
+  methodName(param1: Type1, param2: Type2): ReturnType
+  - Purpose: [what it does]
+  - Parameters:
+    • param1 (Type1): [description] [default: value]
+    • param2 (Type2): [description] [optional]
+  - Returns: (ReturnType) [description]
+  - Throws: [exception types and conditions]
+  - Example: [usage example for complex methods]
+  ```
 - Important interfaces/types
-- Exported APIs with usage examples
+- Exported APIs
 
 #### 4. Dependencies
-- **Internal Dependencies**: Other modules/files within the project
-  - What it imports/requires
-  - Dependency relationships and flow
-- **External Dependencies**: Third-party libraries and frameworks
-  - Critical dependencies and their purposes
-  - Version constraints if important
+**Internal Dependencies**: Other modules/files within project (with purpose)
+**External Dependencies**: Third-party libraries and frameworks (with purpose, version constraints if critical)
 
 #### 5. Integration Points
-- How this module/file connects to other parts
+- How this connects to other parts
 - Public APIs or interfaces exposed
 - Data flow patterns (input → processing → output)
 - Event handling or callbacks
@@ -63,25 +62,9 @@ Create or update CLAUDE.md documentation with unified module/file template:
 - Security considerations if applicable
 - Known limitations or caveats
 
-### Documentation Style Guidelines:
-- Be concise but complete
-- Use clear, descriptive language
-- Include code signatures for key APIs
-- **For method parameters**:
-  - Always document each parameter with name, type, and description
-  - Indicate optional parameters with `[optional]`
-  - Show default values with `[default: value]`
-  - Include parameter constraints if applicable (e.g., range, format)
-- **For return values**:
-  - Specify return type clearly
-  - Describe what the returned value represents
-  - Document special return conditions (null, undefined, empty, etc.)
-- Focus on "what" and "why", not detailed "how"
-- Reference related documentation when appropriate
-- Use bullet points for readability
-- Provide usage examples for complex methods
+## OUTPUT REQUIREMENTS
 
-### Template Structure:
+### Template Structure
 ```markdown
 # [Module/File Name]
 
@@ -92,45 +75,31 @@ Create or update CLAUDE.md documentation with unified module/file template:
 [Directory structure for modules OR File organization for code files]
 
 ## Key Components
-### [Component/Class Name 1]
+### [Component/Class Name]
 - Description: [Brief description]
 - Responsibilities: [What it does]
 - Key Methods:
-
-  #### `methodName(param1: Type1, param2: Type2, ...): ReturnType`
-  - **Purpose**: [What this method does]
-  - **Parameters**:
-    - `param1` (Type1): [Description of param1] [default: value]
-    - `param2` (Type2): [Description of param2] [optional]
-  - **Returns**: (ReturnType) [Description of return value]
-  - **Throws**: [Exception types and conditions]
-  - **Example**:
-    ```
-    const result = instance.methodName(value1, value2);
-    ```
-
-### [Component/Class Name 2]
-...
+  #### `methodName(param1: Type1, param2?: Type2): ReturnType`
+  - Purpose: [what this method does]
+  - Parameters:
+    • param1 (Type1): [description]
+    • param2 (Type2): [description] [optional] [default: value]
+  - Returns: (ReturnType) [description]
+  - Throws: [exceptions if applicable]
 
 ## Dependencies
 ### Internal Dependencies
 - `[module/file path]` - [purpose]
-- ...
 
 ### External Dependencies
 - `[library name]` - [purpose and usage]
-- ...
 
 ## Integration Points
 ### Public APIs
 - `[API/function signature]` - [description]
-- ...
 
 ### Data Flow
 [How data flows through this module/file]
-
-### Extension Points
-[How this can be extended or customized]
 
 ## Implementation Notes
 ### Design Patterns
@@ -139,34 +108,46 @@ Create or update CLAUDE.md documentation with unified module/file template:
 ### Technical Decisions
 - [Decision]: [Rationale]
 
-### Configuration
-- [Config item]: [Purpose and default]
-
 ### Considerations
-- Performance: [Any performance notes]
-- Security: [Any security considerations]
-- Limitations: [Known limitations]
+- Performance: [notes]
+- Security: [notes]
+- Limitations: [notes]
 ```
 
-### Content Restrictions (STRICTLY AVOID):
-- Don't duplicate content from other CLAUDE.md files - reference them instead
-- Avoid overly detailed code explanations (code should be self-documenting)
-- Don't include complete code listings (use signatures and descriptions)
-- Avoid version-specific implementation details unless critical
-- Don't document every single function - focus on key components
-- **BUT DO document**: All public/exported APIs with complete parameter details
-- **Internal/private methods**: Only document if they are complex or critical to understanding
+### Documentation Style
+- **Concise but complete** - Focus on "what" and "why", not detailed "how"
+- **Code signatures** for key APIs - Include all parameter details
+- **Parameters**: Name, type, description, optional/default indicators, constraints
+- **Return values**: Type, description, special conditions (null, undefined, empty)
+- **Evidence-based** - Reference related documentation when appropriate
+- **Examples** for complex methods - Show usage patterns
 
-### Special Instructions:
-- If analyzing a folder with existing CLAUDE.md files in subdirectories, reference them rather than duplicating their content
-- For code files, prioritize exported/public APIs over internal implementation details
-- **For method documentation**:
-  - MUST document all parameters for public/exported methods
-  - Include parameter types, descriptions, and constraints
-  - Document return values and exceptions
-  - Add usage examples for non-trivial methods
-  - Private/internal methods: document only if complex or critical
-- Keep dependency lists focused on direct dependencies, not transitive ones
-- Update existing CLAUDE.md files rather than creating new sections unnecessarily
+### Content Restrictions (STRICTLY AVOID)
+- ❌ Duplicating content from other CLAUDE.md files (reference instead)
+- ❌ Overly detailed code explanations (code should be self-documenting)
+- ❌ Complete code listings (use signatures and descriptions)
+- ❌ Version-specific details unless critical
+- ❌ Documenting every single function (focus on public/exported APIs)
 
-Remember: This template serves both folder-level module documentation and file-level implementation documentation. Adapt the sections based on what you're documenting.
+### Method Documentation Rules
+- **Public/Exported methods**: MUST document with full parameter details
+- **Private/Internal methods**: Only document if complex or critical
+- **Parameters**: MUST include type, description, constraints, defaults
+- **Return values**: MUST document type and description
+- **Exceptions**: Document all thrown errors
+
+### Special Instructions
+- If analyzing folder with existing subdirectory CLAUDE.md files → reference them
+- For code files → prioritize exported/public APIs
+- Keep dependency lists focused on direct dependencies (not transitive)
+- Update existing CLAUDE.md files rather than creating duplicate sections
+
+## VERIFICATION CHECKLIST ✓
+□ All 6 required sections included (Purpose, Structure, Components, Dependencies, Integration, Implementation)
+□ All public/exported APIs documented with complete signatures
+□ Parameters documented with types, descriptions, and defaults
+□ References used instead of duplicating subdirectory documentation
+□ Internal vs external dependencies clearly distinguished
+□ Examples provided for non-trivial methods
+
+Focus: Comprehensive yet concise documentation covering all essential aspects without redundancy.

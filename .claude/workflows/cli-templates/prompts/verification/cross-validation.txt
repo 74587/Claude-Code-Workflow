@@ -1,65 +1,28 @@
-Cross-validation analysis of gemini strategic and codex technical assessments for workflow implementation plan:
+Cross-validate strategic (Gemini) and technical (Codex) assessments.
 
-## Required Cross-Validation Analysis:
-1. **Consensus Identification**
-   - Identify areas where both analyses agree on issues or strengths
-   - Document shared concerns and aligned recommendations
-   - Highlight consistent risk assessments and mitigation strategies
-   - Establish priority consensus for implementation focus
+## CORE CHECKLIST ⚡
+□ Identify both consensus and conflict between the two analyses
+□ Synthesize a unified risk profile and recommendation set
+□ Resolve conflicting suggestions with a balanced approach
+□ Frame final decisions as clear choices for the user
 
-2. **Conflict Resolution Analysis**
-   - Identify discrepancies between strategic and technical perspectives
-   - Analyze root causes of conflicting assessments
-   - Evaluate trade-offs between strategic goals and technical constraints
-   - Provide balanced recommendations for resolution
+## REQUIRED CROSS-VALIDATION ANALYSIS
+1. **Consensus Identification**: Find where both analyses agree.
+2. **Conflict Resolution**: Analyze and resolve discrepancies.
+3. **Risk Level Synthesis**: Combine risk assessments into a single profile.
+4. **Recommendation Integration**: Synthesize recommendations into a unified plan.
+5. **Quality Assurance Framework**: Establish combined quality metrics.
 
-3. **Risk Level Synthesis**
-   - Combine strategic and technical risk assessments
-   - Establish overall implementation risk profile
-   - Prioritize risks by impact and probability
-   - Recommend risk mitigation strategies
+## OUTPUT REQUIREMENTS
+- **Cross-Validation Summary**: Overall grade, confidence score, and risk profile.
+- **Synthesis Report**: Consensus areas, conflict areas, and integrated recommendations.
+- **User Approval Framework**: A clear breakdown of changes for user approval.
+- **Modification Categories**: Classify changes by type (e.g., Task Structure, Technical).
 
-4. **Recommendation Integration**
-   - Synthesize strategic and technical recommendations
-   - Resolve conflicting suggestions with balanced approach
-   - Prioritize recommendations by impact and effort
-   - Establish implementation sequence and dependencies
+## VERIFICATION CHECKLIST ✓
+□ Both consensus and conflict between analyses are identified and documented
+□ Risks and recommendations are synthesized into a single, coherent plan
+□ Conflicting points are resolved with balanced, well-reasoned proposals
+□ Final output is structured to facilitate clear user decisions
 
-5. **Quality Assurance Framework**
-   - Establish combined quality metrics and success criteria
-   - Define validation checkpoints and review gates
-   - Recommend monitoring and feedback mechanisms
-   - Ensure both strategic and technical quality standards
-
-## Input Analysis Sources:
-- **Gemini Strategic Analysis**: Architecture, business alignment, strategic risks
-- **Codex Technical Analysis**: Implementation feasibility, code quality, technical risks
-- **Original Implementation Plan**: IMPL_PLAN.md, task definitions, context
-
-## Output Requirements:
-### Cross-Validation Summary:
-- **Overall Assessment Grade** (A-F): Combined strategic and technical evaluation
-- **Implementation Confidence** (1-10): Combined feasibility assessment
-- **Risk Profile**: High/Medium/Low with specific risk categories
-- **Recommendation Priority Matrix**: Urgent/Important classification
-
-### Synthesis Report:
-- **Consensus Areas**: Shared findings and aligned recommendations
-- **Conflict Areas**: Divergent perspectives requiring resolution
-- **Integrated Recommendations**: Balanced strategic and technical guidance
-- **Implementation Roadmap**: Phased approach balancing strategic and technical needs
-
-### User Approval Framework:
-- **Critical Changes**: Must-implement modifications (blocking issues)
-- **Important Improvements**: High-value enhancements (quality/efficiency)
-- **Optional Enhancements**: Nice-to-have improvements (future consideration)
-- **Trade-off Decisions**: User choice between competing approaches
-
-### Modification Categories:
-- **Task Structure**: Task merging, splitting, or reordering
-- **Dependencies**: Dependency additions, removals, or modifications
-- **Context Enhancement**: Requirements, acceptance criteria, or documentation
-- **Technical Adjustments**: Implementation approach or tool changes
-- **Strategic Alignment**: Business objective or success criteria refinement
-
-Focus on balanced integration of strategic and technical perspectives. Provide clear user decision points with impact analysis and implementation guidance. Prioritize recommendations by combined strategic and technical value.
+Focus: A balanced integration of strategic and technical perspectives to produce a single, actionable plan.

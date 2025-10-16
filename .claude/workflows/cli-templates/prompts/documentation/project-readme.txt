@@ -1,58 +1,35 @@
-# Project-Level Documentation Template
+Generate a comprehensive project-level README documentation.
 
-Generate comprehensive project documentation following this structure:
+## CORE CHECKLIST ⚡
+□ Clearly state the project's purpose and target audience
+□ Provide clear, runnable instructions for getting started
+□ Outline the development workflow and coding standards
+□ Offer a high-level overview of the project structure and architecture
 
-## 1. Overview
-- **Purpose**: [High-level mission and goals of the project]
-- **Target Audience**: [Primary users, developers, stakeholders]
-- **Key Features**: [List of major functionalities and capabilities]
+## README STRUCTURE
 
-## 2. System Architecture
-- **Architectural Style**: [e.g., Monolith, Microservices, Layered, Event-Driven]
-- **Core Components**: [Diagram or list of major system parts and their interactions]
-- **Technology Stack**:
-  - Languages: [Programming languages used]
-  - Frameworks: [Key frameworks and libraries]
-  - Databases: [Data storage solutions]
-  - Infrastructure: [Deployment and hosting]
-- **Design Principles**: [Guiding principles like SOLID, DRY, separation of concerns]
+### 1. Overview
+- Purpose, Target Audience, and Key Features.
 
-## 3. Getting Started
-- **Prerequisites**: [Required software, tools, versions]
-- **Installation**:
-  ```bash
-  # Installation commands
-  ```
-- **Configuration**: [Environment setup, config files]
-- **Running the Project**:
-  ```bash
-  # Startup commands
-  ```
+### 2. System Architecture
+- Architectural Style, Core Components, Tech Stack, and Design Principles.
 
-## 4. Development Workflow
-- **Branching Strategy**: [e.g., GitFlow, trunk-based]
-- **Coding Standards**: [Style guide, linting rules]
-- **Testing**:
-  ```bash
-  # Test commands
-  ```
-- **Build & Deployment**: [CI/CD pipeline overview]
+### 3. Getting Started
+- Prerequisites, Installation, Configuration, and Running the Project.
 
-## 5. Project Structure
-```
-project-root/
-├── src/           # [Description]
-├── tests/         # [Description]
-├── docs/          # [Description]
-└── config/        # [Description]
-```
+### 4. Development Workflow
+- Branching Strategy, Coding Standards, Testing, and Build/Deployment.
 
-## 6. Navigation
-- [Module Documentation](./modules/)
-- [API Reference](./api/)
-- [Architecture Details](./architecture/)
-- [Contributing Guidelines](./CONTRIBUTING.md)
+### 5. Project Structure
+- A high-level tree view of the main directories.
 
----
-**Last Updated**: [Auto-generated timestamp]
-**Documentation Version**: [Project version]
+### 6. Navigation
+- Links to more detailed documentation (modules, API, architecture).
+
+## VERIFICATION CHECKLIST ✓
+□ The project's purpose and value proposition are clear
+□ A new developer can successfully set up and run the project
+□ The development process and standards are well-defined
+□ The README provides clear navigation to other key documents
+
+Focus: Providing a central entry point for new users and developers to understand and run the project.

@@ -1,68 +1,27 @@
-# Folder Navigation Documentation Template
+Generate a navigation README for directories that contain only subdirectories.
 
-Generate a navigation README for directories that contain only subdirectories (no code files). This serves as an index to help readers navigate to specific modules.
+## CORE CHECKLIST ⚡
+□ Keep the content brief and act as an index
+□ Use one-line descriptions for each module
+□ Ensure all mentioned modules link to their respective READMEs
+□ Use scannable formats like tables and lists
 
-## Structure
+## REQUIRED CONTENT
+1. **Overview**: Brief description of the directory's purpose.
+2. **Directory Structure**: A tree view of subdirectories with one-line descriptions.
+3. **Module Quick Reference**: A table with links, purposes, and key features.
+4. **How to Navigate**: Guidance on which module to explore for specific needs.
+5. **Module Relationships (Optional)**: A simple diagram showing dependencies.
 
-### 1. Overview
+## OUTPUT REQUIREMENTS
+- A scannable index for navigating subdirectories.
+- Links to each submodule's detailed documentation.
+- A clear, high-level overview of the directory's contents.
 
-Brief description of what this directory/category contains:
+## VERIFICATION CHECKLIST ✓
+□ The generated README is brief and serves as a scannable index
+□ All submodules are linked correctly
+□ Descriptions are concise and clear
+□ The structure follows the required content outline
 
-> The `modules/` directory contains the core business logic modules of the application. Each subdirectory represents a self-contained functional module with its own responsibilities.
-
-### 2. Directory Structure
-
-Provide a tree view of the subdirectories with brief descriptions:
-
-```
-modules/
-├── auth/              - User authentication and authorization
-├── api/               - API route handlers and middleware
-├── database/          - Database connections and ORM models
-└── utils/             - Shared utility functions
-```
-
-### 3. Module Quick Reference
-
-Table format for quick scanning:
-
-| Module | Purpose | Key Features |
-|--------|---------|--------------|
-| [auth](./auth/) | Authentication | JWT tokens, session management |
-| [api](./api/) | API routing | REST endpoints, validation |
-| [database](./database/) | Data layer | PostgreSQL, migrations |
-| [utils](./utils/) | Utilities | Logging, helpers |
-
-### 4. How to Navigate
-
-Guidance on which module to explore based on needs:
-
-- **For authentication logic** → [auth module](./auth/)
-- **For API endpoints** → [api module](./api/)
-- **For database queries** → [database module](./database/)
-- **For helper functions** → [utils module](./utils/)
-
-### 5. Module Relationships (Optional)
-
-If modules have significant dependencies, show them:
-
-```
-api → auth (uses for authentication)
-api → database (uses for data access)
-auth → database (uses for user storage)
-```
-
----
-
-## Rules
-
-1. **Keep it brief** - This is an index, not detailed documentation
-2. **One-line descriptions** - Each module gets a concise purpose statement
-3. **Scannable format** - Use tables and lists for quick navigation
-4. **Link to submodules** - Every module mentioned should link to its README
-5. **No code examples** - This is navigation only
-
----
-
-**Directory Path**: [Auto-fill with actual directory path]
-**Last Updated**: [Auto-generated timestamp]
+Focus: Creating a clear and concise navigation hub for parent directories.

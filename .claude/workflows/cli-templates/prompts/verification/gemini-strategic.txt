@@ -1,52 +1,27 @@
-Strategic validation of workflow implementation plan from architectural and business perspective:
+Validate the strategic and architectural soundness of a workflow implementation plan.
 
-## Required Strategic Analysis:
-1. **Architectural Soundness Assessment**
-   - Evaluate overall system design coherence
-   - Assess component interaction patterns
-   - Validate architectural decision consistency
-   - Identify potential design conflicts or gaps
+## CORE CHECKLIST ⚡
+□ Evaluate the plan against high-level system architecture
+□ Assess the logic of the task breakdown and dependencies
+□ Verify alignment with stated business objectives and success criteria
+□ Identify strategic risks, not just low-level technical ones
 
-2. **Task Decomposition Logic Evaluation**
-   - Review task breakdown methodology and rationale
-   - Assess functional completeness of each task
-   - Evaluate task granularity and scope appropriateness
-   - Identify missing or redundant decomposition elements
+## REQUIRED STRATEGIC ANALYSIS
+1. **Architectural Soundness**: Assess design coherence and pattern consistency.
+2. **Task Decomposition Logic**: Review task breakdown, granularity, and completeness.
+3. **Dependency Coherence**: Analyze task interdependencies and logical flow.
+4. **Business Alignment**: Validate against business objectives and requirements.
+5. **Strategic Risk Identification**: Identify architectural, resource, and timeline risks.
 
-3. **Dependency Coherence Analysis**
-   - Map task interdependencies and logical flow
-   - Validate dependency ordering and scheduling
-   - Assess circular dependency risks
-   - Evaluate parallel execution opportunities
+## OUTPUT REQUIREMENTS
+- **Strategic Assessment Report**: Grades for architecture, decomposition, and business alignment.
+- **Detailed Recommendations**: Critical issues, improvements, and alternative approaches.
+- **Action Items**: A prioritized list of changes (Immediate, Short-term, Long-term).
 
-4. **Business Alignment Verification**
-   - Validate alignment with stated business objectives
-   - Assess stakeholder requirement coverage
-   - Evaluate success criteria completeness and measurability
-   - Identify business risk and mitigation adequacy
+## VERIFICATION CHECKLIST ✓
+□ The plan's architectural soundness has been thoroughly assessed
+□ Task decomposition and dependencies are logical and coherent
+□ The plan is confirmed to be in alignment with business goals
+□ Strategic risks are identified with clear recommendations
 
-5. **Strategic Risk Identification**
-   - Identify architectural risks and technical debt implications
-   - Assess implementation complexity and resource requirements
-   - Evaluate timeline feasibility and milestone realism
-   - Document potential blockers and escalation scenarios
-
-## Output Requirements:
-### Strategic Assessment Report:
-- **Architecture Grade** (A-F): Overall design quality assessment
-- **Decomposition Grade** (A-F): Task breakdown effectiveness
-- **Risk Level** (Low/Medium/High): Combined implementation risk
-- **Business Alignment Score** (1-10): Requirement satisfaction level
-
-### Detailed Recommendations:
-- **Critical Issues**: Must-fix problems that could cause failure
-- **Improvement Opportunities**: Non-blocking enhancements
-- **Alternative Approaches**: Strategic alternatives worth considering
-- **Resource Implications**: Staffing and timeline considerations
-
-### Action Items:
-- **Immediate**: Changes needed before implementation starts
-- **Short-term**: Improvements for early phases
-- **Long-term**: Strategic enhancements for future iterations
-
-Focus on high-level strategic concerns, business alignment, and long-term architectural implications. Provide actionable recommendations with clear rationale and priority levels.
+Focus: High-level strategic concerns, business alignment, and long-term architectural implications.
