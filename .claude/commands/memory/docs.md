@@ -742,27 +742,15 @@ bash(
 
 ## Execution Commands
 
-### Full Mode (--mode full)
 ```bash
-# Level 1 - Module documentation (parallel)
-/workflow:execute IMPL-001
-/workflow:execute IMPL-002
-/workflow:execute IMPL-003
+# Execute entire workflow (auto-discovers active session)
+/workflow:execute
 
-# Level 2 - Project README (after Level 1)
-/workflow:execute IMPL-004
+# Or specify session
+/workflow:execute --resume-session="WFS-docs-yyyymmdd-hhmmss"
 
-# Level 3 - Architecture & Examples (after Level 2)
-/workflow:execute IMPL-005  # ARCHITECTURE.md + EXAMPLES.md
-/workflow:execute IMPL-006  # HTTP API (if present)
-```
-
-### Partial Mode (--mode partial)
-```bash
-# Only Level 1 tasks generated (module documentation)
-/workflow:execute IMPL-001
-/workflow:execute IMPL-002
-/workflow:execute IMPL-003
+# Individual task execution (if needed)
+/task:execute IMPL-001
 ```
 
 ## Simple Bash Commands
