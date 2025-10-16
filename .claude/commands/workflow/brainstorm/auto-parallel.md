@@ -1,7 +1,7 @@
 ---
 name: auto-parallel
 description: Parallel brainstorming automation with dynamic role selection and concurrent execution
-argument-hint: "topic or challenge description"
+argument-hint: "topic or challenge description" [--count N]
 allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 ---
 
