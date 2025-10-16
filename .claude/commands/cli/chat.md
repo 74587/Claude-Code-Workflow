@@ -1,8 +1,8 @@
 ---
 name: chat
 description: Simple CLI interaction command for direct codebase analysis
-argument-hint: "[--tool codex|gemini|qwen] [--enhance] inquiry"
-allowed-tools: SlashCommand(*), Bash(*)
+argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] inquiry"
+allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---
 
 # CLI Chat Command (/cli:chat)
@@ -24,12 +24,15 @@ Direct Q&A interaction with CLI tools for codebase analysis. **Analysis only - d
 ## Parameters
 
 - `<inquiry>` (Required) - Question or analysis request
-- `--tool <codex|gemini|qwen>` - Select CLI tool (default: gemini)
+- `--agent` - Use cli-execution-agent for automated context discovery (5-phase intelligent mode)
+- `--tool <codex|gemini|qwen>` - Select CLI tool (default: gemini, ignored in agent mode)
 - `--enhance` - Enhance inquiry with `/enhance-prompt` first
 - `--all-files` - Include entire codebase in context
 - `--save-session` - Save interaction to workflow session
 
 ## Execution Flow
+
+### Standard Mode (Default)
 
 1. Parse tool selection (default: gemini)
 2. If `--enhance`: Execute `/enhance-prompt` to expand user intent
@@ -37,6 +40,32 @@ Direct Q&A interaction with CLI tools for codebase analysis. **Analysis only - d
 4. Execute CLI tool with assembled context (read-only, analysis mode)
 5. Return explanations and insights (NO code changes)
 6. Optionally save to workflow session
+
+### Agent Mode (`--agent` flag)
+
+Delegate inquiry to `cli-execution-agent` for intelligent Q&A with automated context discovery.
+
+**Agent invocation**:
+```javascript
+Task(
+  subagent_type="cli-execution-agent",
+  description="Answer question with automated context discovery",
+  prompt=`
+    Task: ${inquiry}
+    Mode: analyze (Q&A)
+    Tool Preference: ${tool_flag || 'auto-select'}
+    ${all_files_flag ? 'Scope: all-files' : ''}
+
+    Agent will autonomously:
+    - Discover files relevant to the question
+    - Build Q&A prompt with precise context
+    - Execute and generate comprehensive answer
+    - Save conversation log
+  `
+)
+```
+
+The agent handles all phases internally.
 
 ## Context Assembly
 
@@ -61,11 +90,22 @@ RESPONSE: Direct answer, explanation, insights (NO code modification)
 
 ## Examples
 
-**Basic Question**:
+**Basic Question (Standard Mode)**:
 ```bash
 /cli:chat "analyze the authentication flow"
 # Executes: Gemini analysis
 # Returns: Explanation of auth flow, components involved, data flow
+```
+
+**Intelligent Q&A (Agent Mode)**:
+```bash
+/cli:chat --agent "how does JWT token refresh work in this codebase"
+# Phase 1: Understands inquiry = JWT refresh mechanism
+# Phase 2: Discovers JWT files, refresh logic, middleware patterns
+# Phase 3: Builds Q&A prompt with discovered implementation details
+# Phase 4: Executes Gemini with precise context for accurate answer
+# Phase 5: Saves conversation log with discovered context
+# Returns: Detailed answer with code references + execution log
 ```
 
 **Architecture Question**:

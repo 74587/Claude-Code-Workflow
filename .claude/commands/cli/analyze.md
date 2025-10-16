@@ -1,8 +1,8 @@
 ---
 name: analyze
 description: Quick codebase analysis using CLI tools (codex/gemini/qwen)
-argument-hint: "[--tool codex|gemini|qwen] [--enhance] analysis target"
-allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*)
+argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] analysis target"
+allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*), Task(*)
 ---
 
 # CLI Analyze Command (/cli:analyze)
@@ -23,11 +23,14 @@ Quick codebase analysis using CLI tools. **Analysis only - does NOT modify code*
 
 ## Parameters
 
-- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini)
+- `--agent` - Use cli-execution-agent for automated context discovery (5-phase intelligent mode)
+- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini, ignored in agent mode)
 - `--enhance` - Use `/enhance-prompt` for context-aware enhancement
 - `<analysis-target>` - Description of what to analyze
 
 ## Execution Flow
+
+### Standard Mode (Default)
 
 1. Parse tool selection (default: gemini)
 2. If `--enhance`: Execute `/enhance-prompt` first to expand user intent
@@ -35,6 +38,32 @@ Quick codebase analysis using CLI tools. **Analysis only - does NOT modify code*
 4. Build command with auto-detected file patterns and `MODE: analysis`
 5. Execute analysis (read-only, no code changes)
 6. Return analysis report with insights and recommendations
+
+### Agent Mode (`--agent` flag)
+
+Delegate task to `cli-execution-agent` for intelligent execution with automated context discovery.
+
+**Agent invocation**:
+```javascript
+Task(
+  subagent_type="cli-execution-agent",
+  description="Analyze codebase with automated context discovery",
+  prompt=`
+    Task: ${analysis_target}
+    Mode: analyze
+    Tool Preference: ${tool_flag || 'auto-select'}
+    ${enhance_flag ? 'Enhance: true' : ''}
+
+    Agent will autonomously:
+    - Discover relevant files and patterns
+    - Build enhanced analysis prompt
+    - Select optimal tool and execute
+    - Route output to session/scratchpad
+  `
+)
+```
+
+The agent handles all phases internally (understanding, discovery, enhancement, execution, routing).
 
 ## File Pattern Auto-Detection
 
@@ -63,11 +92,22 @@ RULES: [auto-selected template] | Focus on [analysis aspect]
 
 ## Examples
 
-**Basic Analysis**:
+**Basic Analysis (Standard Mode)**:
 ```bash
 /cli:analyze "authentication patterns"
 # Executes: Gemini analysis with auth file patterns
 # Returns: Pattern analysis, architecture insights, recommendations
+```
+
+**Intelligent Analysis (Agent Mode)**:
+```bash
+/cli:analyze --agent "authentication patterns"
+# Phase 1: Classifies intent=analyze, complexity=simple, keywords=['auth', 'patterns']
+# Phase 2: MCP discovers 12 auth files, identifies patterns
+# Phase 3: Builds enhanced prompt with discovered context
+# Phase 4: Executes Gemini with comprehensive file references
+# Phase 5: Saves execution log with all 5 phases documented
+# Returns: Comprehensive analysis + detailed execution log
 ```
 
 **Architecture Analysis**:

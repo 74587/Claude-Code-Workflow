@@ -1,8 +1,8 @@
 ---
 name: bug-index
 description: Bug analysis and fix suggestions using CLI tools
-argument-hint: "[--tool codex|gemini|qwen] [--enhance] [--cd path] bug description"
-allowed-tools: SlashCommand(*), Bash(*)
+argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] [--cd path] bug description"
+allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---
 
 # CLI Mode: Bug Index (/cli:mode:bug-index)
@@ -16,12 +16,15 @@ Systematic bug analysis with diagnostic template (`~/.claude/prompt-templates/bu
 
 ## Parameters
 
-- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini)
+- `--agent` - Use cli-execution-agent for automated context discovery (5-phase intelligent mode)
+- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini, ignored in agent mode)
 - `--enhance` - Enhance bug description with `/enhance-prompt` first
 - `--cd "path"` - Target directory for focused analysis
 - `<bug-description>` (Required) - Bug description or error message
 
 ## Execution Flow
+
+### Standard Mode (Default)
 
 1. **Parse tool selection**: Extract `--tool` flag (default: gemini)
 2. **If `--enhance` flag present**: Execute `/enhance-prompt "[bug-description]"` first
@@ -30,6 +33,33 @@ Systematic bug analysis with diagnostic template (`~/.claude/prompt-templates/bu
 5. Build command for selected tool with bug-fix template
 6. Execute analysis (read-only, provides fix recommendations)
 7. Save to `.workflow/WFS-[id]/.chat/bug-index-[timestamp].md`
+
+### Agent Mode (`--agent` flag)
+
+Delegate bug analysis to `cli-execution-agent` for intelligent debugging with automated context discovery.
+
+**Agent invocation**:
+```javascript
+Task(
+  subagent_type="cli-execution-agent",
+  description="Analyze bug with automated context discovery",
+  prompt=`
+    Task: ${bug_description}
+    Mode: debug (bug analysis)
+    Tool Preference: ${tool_flag || 'auto-select'}
+    ${cd_flag ? `Directory Scope: ${cd_path}` : ''}
+    Template: bug-fix
+
+    Agent will autonomously:
+    - Discover bug-related files and error traces
+    - Build debug prompt with bug-fix template
+    - Execute analysis and provide fix recommendations
+    - Save analysis log
+  `
+)
+```
+
+The agent handles all phases internally.
 
 ## Core Rules
 
@@ -61,7 +91,25 @@ RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: [description]
 
 ## Examples
 
-**Basic Bug Analysis**:
+**Basic Bug Analysis (Standard Mode)**:
+```bash
+/cli:mode:bug-index "null pointer error in login flow"
+# Executes: Gemini with bug-fix template
+# Returns: Root cause analysis, fix recommendations
+```
+
+**Intelligent Bug Analysis (Agent Mode)**:
+```bash
+/cli:mode:bug-index --agent "intermittent token validation failure"
+# Phase 1: Classifies as debug task, extracts keywords ['token', 'validation', 'failure']
+# Phase 2: MCP discovers token validation code, middleware, test files with errors
+# Phase 3: Builds debug prompt with bug-fix template + discovered error patterns
+# Phase 4: Executes Gemini with comprehensive bug context
+# Phase 5: Saves analysis log with detailed fix recommendations
+# Returns: Root cause analysis + code path traces + minimal fix suggestions
+```
+
+**Standard Template Example**:
 ```bash
 cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
 PURPOSE: Debug authentication null pointer error

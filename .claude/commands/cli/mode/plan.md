@@ -1,8 +1,8 @@
 ---
 name: plan
 description: Project planning and architecture analysis using CLI tools
-argument-hint: "[--tool codex|gemini|qwen] [--enhance] [--cd path] topic"
-allowed-tools: SlashCommand(*), Bash(*)
+argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] [--cd path] topic"
+allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---
 
 # CLI Mode: Plan (/cli:mode:plan)
@@ -16,12 +16,15 @@ Comprehensive planning and architecture analysis with strategic planning templat
 
 ## Parameters
 
-- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini)
+- `--agent` - Use cli-execution-agent for automated context discovery (5-phase intelligent mode)
+- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini, ignored in agent mode)
 - `--enhance` - Enhance topic with `/enhance-prompt` first
 - `--cd "path"` - Target directory for focused planning
 - `<topic>` (Required) - Planning topic or architectural question
 
 ## Execution Flow
+
+### Standard Mode (Default)
 
 1. **Parse tool selection**: Extract `--tool` flag (default: gemini)
 2. **If `--enhance` flag present**: Execute `/enhance-prompt "[topic]"` first
@@ -30,6 +33,33 @@ Comprehensive planning and architecture analysis with strategic planning templat
 5. Build command for selected tool with planning template
 6. Execute analysis (read-only, no code modification)
 7. Save to `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
+
+### Agent Mode (`--agent` flag)
+
+Delegate planning to `cli-execution-agent` for intelligent strategic planning with automated architecture discovery.
+
+**Agent invocation**:
+```javascript
+Task(
+  subagent_type="cli-execution-agent",
+  description="Create strategic plan with automated architecture discovery",
+  prompt=`
+    Task: ${planning_topic}
+    Mode: plan (strategic planning)
+    Tool Preference: ${tool_flag || 'auto-select'}
+    ${cd_flag ? `Directory Scope: ${cd_path}` : ''}
+    Template: plan
+
+    Agent will autonomously:
+    - Discover project structure and existing architecture
+    - Build planning prompt with plan template
+    - Execute strategic planning analysis
+    - Generate implementation roadmap and save
+  `
+)
+```
+
+The agent handles all phases internally.
 
 ## Core Rules
 
@@ -62,7 +92,25 @@ RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on [topic area]
 
 ## Examples
 
-**Basic Planning Analysis**:
+**Basic Planning Analysis (Standard Mode)**:
+```bash
+/cli:mode:plan "design user dashboard architecture"
+# Executes: Gemini with planning template
+# Returns: Architecture recommendations, component design, roadmap
+```
+
+**Intelligent Planning (Agent Mode)**:
+```bash
+/cli:mode:plan --agent "design microservices architecture for payment system"
+# Phase 1: Classifies as architectural planning, keywords ['microservices', 'payment', 'architecture']
+# Phase 2: MCP discovers existing services, payment flows, integration patterns
+# Phase 3: Builds planning prompt with plan template + current architecture context
+# Phase 4: Executes Gemini with comprehensive project understanding
+# Phase 5: Saves planning document with implementation roadmap and migration strategy
+# Returns: Strategic architecture plan + implementation roadmap + risk assessment
+```
+
+**Standard Template Example**:
 ```bash
 cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
 PURPOSE: Design user dashboard architecture

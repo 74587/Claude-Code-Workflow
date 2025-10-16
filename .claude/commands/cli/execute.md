@@ -1,8 +1,8 @@
 ---
 name: execute
 description: Auto-execution of implementation tasks with YOLO permissions and intelligent context inference
-argument-hint: "[--tool codex|gemini|qwen] [--enhance] description or task-id"
-allowed-tools: SlashCommand(*), Bash(*)
+argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] description or task-id"
+allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---
 
 # CLI Execute Command (/cli:execute)
@@ -39,6 +39,10 @@ Auto-approves: file pattern inference, execution, **file modifications**, summar
 - Input: Workflow task identifier (e.g., `IMPL-001`)
 - Process: Task JSON parsing → Scope analysis → Execute
 
+**3. Agent Mode** (`--agent` flag):
+- Input: Description or task-id
+- Process: 5-Phase Workflow → Context Discovery → Optimal Tool Selection → Execute
+
 ### Context Inference
 
 Auto-selects files based on keywords and technology:
@@ -64,7 +68,8 @@ Use `resume --last` when current task extends/relates to previous execution. See
 
 ## Parameters
 
-- `--tool <codex|gemini|qwen>` - Select CLI tool (default: gemini)
+- `--agent` - Use cli-execution-agent for automated context discovery (5-phase intelligent mode)
+- `--tool <codex|gemini|qwen>` - Select CLI tool (default: gemini, ignored in agent mode unless specified)
 - `--enhance` - Enhance input with `/enhance-prompt` first (Description Mode only)
 - `<description|task-id>` - Natural language description or task identifier
 - `--debug` - Verbose logging
@@ -101,8 +106,9 @@ Use `resume --last` when current task extends/relates to previous execution. See
 - No session, ad-hoc implementation:
   - Log: `.workflow/.scratchpad/execute-jwt-auth-20250105-143045.md`
 
-## Command Template
+## Execution Modes
 
+### Standard Mode (Default)
 ```bash
 # Gemini/Qwen: MODE=write with --approval-mode yolo
 cd . && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
@@ -124,13 +130,50 @@ EXPECTED: Complete implementation with tests
 " --skip-git-repo-check -s danger-full-access
 ```
 
+### Agent Mode (`--agent` flag)
+
+Delegate implementation to `cli-execution-agent` for intelligent execution with automated context discovery.
+
+**Agent invocation**:
+```javascript
+Task(
+  subagent_type="cli-execution-agent",
+  description="Implement with automated context discovery and optimal tool selection",
+  prompt=`
+    Task: ${description_or_task_id}
+    Mode: execute
+    Tool Preference: ${tool_flag || 'auto-select'}
+    ${enhance_flag ? 'Enhance: true' : ''}
+
+    Agent will autonomously:
+    - Discover implementation files and dependencies
+    - Assess complexity and select optimal tool
+    - Execute with YOLO permissions (auto-approve)
+    - Generate task summary if task-id provided
+  `
+)
+```
+
+The agent handles all phases internally, including complexity-based tool selection.
+
 ## Examples
 
-**Basic Implementation** (⚠️ modifies code):
+**Basic Implementation (Standard Mode)** (⚠️ modifies code):
 ```bash
 /cli:execute "implement JWT authentication with middleware"
 # Executes: Creates auth middleware, updates routes, modifies config
 # Result: NEW/MODIFIED code files with JWT implementation
+```
+
+**Intelligent Implementation (Agent Mode)** (⚠️ modifies code):
+```bash
+/cli:execute --agent "implement OAuth2 authentication with token refresh"
+# Phase 1: Classifies intent=execute, complexity=complex, keywords=['oauth2', 'auth', 'token', 'refresh']
+# Phase 2: MCP discovers auth patterns, existing middleware, JWT dependencies
+# Phase 3: Enhances prompt with discovered patterns and best practices
+# Phase 4: Selects Codex (complex task), executes with comprehensive context
+# Phase 5: Saves execution log + generates implementation summary
+# Result: Complete OAuth2 implementation + detailed execution log
 ```
 
 **Enhanced Implementation** (⚠️ modifies code):

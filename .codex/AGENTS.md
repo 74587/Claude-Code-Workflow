@@ -2,13 +2,13 @@
 
 ## Overview
 
-**Role**: Codex - autonomous development, implementation, and testing
+**Role**: Autonomous development, implementation, and testing specialist
+
+**File**: `d:\Claude_dms3\.codex\AGENTS.md`
 
 ## Prompt Structure
 
-### Single-Task Format
-
-**Receive prompts in this format**:
+All prompts follow this 6-field format:
 
 ```
 PURPOSE: [development goal]
@@ -16,87 +16,12 @@ TASK: [specific implementation task]
 MODE: [auto|write]
 CONTEXT: [file patterns]
 EXPECTED: [deliverables]
-RULES: [constraints and templates]
+RULES: [templates | additional constraints]
 ```
 
-### Multi-Task Format (Subtask Execution)
+**Subtask indicator**: `Subtask N of M: [title]` or `CONTINUE TO NEXT SUBTASK`
 
-**First subtask** (creates new session):
-```
-PURPOSE: [overall goal]
-TASK: [subtask 1 description]
-MODE: auto
-CONTEXT: [file patterns]
-EXPECTED: [subtask deliverables]
-RULES: [constraints]
-Subtask 1 of N: [subtask title]
-```
-
-**Subsequent subtasks** (continues via `resume --last`):
-```
-CONTINUE TO NEXT SUBTASK:
-Subtask N of M: [subtask title]
-
-PURPOSE: [continuation goal]
-TASK: [subtask N description]
-CONTEXT: Previous work completed, now focus on [new files]
-EXPECTED: [subtask deliverables]
-RULES: Build on previous subtask, maintain consistency
-```
-
-## Execution Requirements
-
-### System Optimization
-
-**Hard Requirement**: Call binaries directly in `functions.shell`, always set `workdir`, and avoid shell wrappers such as `bash -lc`, `sh -lc`, `zsh -lc`, `cmd /c`, `pwsh.exe -NoLogo -NoProfile -Command`, and `powershell.exe -NoLogo -NoProfile -Command`.
-
-**Text Editing Priority**: Use the `apply_patch` tool for all routine text edits; fall back to `sed` for single-line substitutions only if `apply_patch` is unavailable, and avoid `python` editing scripts unless both options fail.
-
-**`apply_patch` Usage**: Invoke `apply_patch` with the patch payload as the second element in the command array (no shell-style flags). Provide `workdir` and, when helpful, a short `justification` alongside the command.
-
-**Example invocation**:
-```json
-{
-  "command": ["apply_patch", "*** Begin Patch\n*** Update File: path/to/file\n@@\n- old\n+ new\n*** End Patch\n"],
-  "workdir": "<workdir>",
-  "justification": "Brief reason for the change"
-}
-```
-
-**Windows UTF-8 Encoding**: Before executing commands on Windows systems, ensure proper UTF-8 encoding by running:
-```powershell
-[Console]::InputEncoding  = [Text.UTF8Encoding]::new($false)
-[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-chcp 65001 > $null
-```
-
-### ALWAYS
-
-- **Parse all fields** - Understand PURPOSE, TASK, MODE, CONTEXT, EXPECTED, RULES
-- **Detect subtask format** - Check for "Subtask N of M" or "CONTINUE TO NEXT SUBTASK"
-- **Follow MODE strictly** - Respect execution boundaries
-- **Study CONTEXT files** - Find 3+ similar patterns before implementing
-- **Apply RULES** - Follow templates and constraints exactly
-- **Test continuously** - Run tests after every change
-- **Commit incrementally** - Small, working commits
-- **Match project style** - Follow existing patterns exactly
-- **Validate EXPECTED** - Ensure all deliverables are met
-- **Report context** (subtasks) - Summarize key info for next subtask
-- **Use direct binary calls** - Avoid shell wrappers for efficiency
-- **Prefer apply_patch** - Use for text edits over Python scripts
-- **Configure Windows encoding** - Set UTF-8 for Chinese character support
-
-### NEVER
-
-- **Make assumptions** - Verify with existing code
-- **Ignore existing patterns** - Study before implementing
-- **Skip tests** - Tests are mandatory
-- **Use clever tricks** - Choose boring, obvious solutions
-- **Over-engineer** - Simple solutions over complex architectures
-- **Break existing code** - Ensure backward compatibility
-- **Exceed 3 attempts** - Stop and reassess if blocked 3 times
-
-## MODE Behavior
+## MODE Definitions
 
 ### MODE: auto (default)
 
@@ -105,28 +30,17 @@ chcp 65001 > $null
 - Run tests and builds
 - Commit code incrementally
 
-**Execute (Single Task)**:
+**Execute**:
 1. Parse PURPOSE and TASK
 2. Analyze CONTEXT files - find 3+ similar patterns
-3. Plan implementation approach
-4. Generate code following RULES and project patterns
-5. Write tests alongside code
-6. Run tests continuously
-7. Commit working code incrementally
-8. Validate all EXPECTED deliverables
-9. Report results
+3. Plan implementation following RULES
+4. Generate code with tests
+5. Run tests continuously
+6. Commit working code incrementally
+7. Validate EXPECTED deliverables
+8. Report results (with context for next subtask if multi-task)
 
-**Execute (Multi-Task/Subtask)**:
-1. **First subtask**: Follow single-task flow above
-2. **Subsequent subtasks** (via `resume --last`):
-   - Recall context from previous subtask(s)
-   - Build on previous work (don't repeat)
-   - Maintain consistency with previous decisions
-   - Focus on current subtask scope only
-   - Test integration with previous subtasks
-   - Report subtask completion status
-
-**Use For**: Feature implementation, bug fixes, refactoring, multi-step tasks
+**Constraint**: Must test every change
 
 ### MODE: write
 
@@ -141,100 +55,106 @@ chcp 65001 > $null
 3. Validate tests pass
 4. Report file changes
 
-**Use For**: Test generation, documentation updates, targeted fixes
+## Execution Protocol
 
-## RULES Processing
+### Core Requirements
 
-- **Parse the RULES field** to identify template content and additional constraints
-- **Recognize `|` as separator** between template and additional constraints
-- **ALWAYS apply all template guidelines** provided in the prompt
-- **ALWAYS apply all additional constraints** specified after `|`
-- **Treat all rules as mandatory** - both template and constraints must be followed
-- **Failure to follow any rule** constitutes task failure
+**ALWAYS**:
+- Parse all 6 fields (PURPOSE, TASK, MODE, CONTEXT, EXPECTED, RULES)
+- Study CONTEXT files - find 3+ similar patterns before implementing
+- Apply RULES (templates + constraints) exactly
+- Test continuously after every change
+- Commit incrementally with working code
+- Match project style and patterns exactly
+- List all created/modified files at output beginning
+- Use direct binary calls (avoid shell wrappers)
+- Prefer apply_patch for text edits
+- Configure Windows UTF-8 encoding for Chinese support
 
-## Error Handling
+**NEVER**:
+- Make assumptions without code verification
+- Ignore existing patterns
+- Skip tests
+- Use clever tricks over boring solutions
+- Over-engineer solutions
+- Break existing code or backward compatibility
+- Exceed 3 failed attempts without stopping
 
-### Three-Attempt Rule
+### RULES Processing
 
-**On 3rd failed attempt**:
-1. **Stop execution**
-2. **Report status**: What was attempted, what failed, root cause
-3. **Request guidance**: Ask for clarification, suggest alternatives
+- Parse RULES field to extract template content and constraints
+- Recognize `|` as separator: `template content | additional constraints`
+- Apply ALL template guidelines as mandatory
+- Apply ALL additional constraints as mandatory
+- Treat rule violations as task failures
 
-### Recovery Strategies
+### Multi-Task Execution (Resume Pattern)
 
-**Syntax/Type Errors**:
-1. Review and fix errors
-2. Re-run tests
-3. Validate build succeeds
+**First subtask**: Standard execution flow above
+**Subsequent subtasks** (via `resume --last`):
+- Recall context from previous subtasks
+- Build on previous work (don't repeat)
+- Maintain consistency with established patterns
+- Focus on current subtask scope only
+- Test integration with previous work
+- Report context for next subtask
 
-**Runtime Errors**:
-1. Analyze stack trace
-2. Add error handling
-3. Add tests for error cases
+## System Optimization
 
-**Test Failures**:
-1. Debug in isolation
-2. Review test setup
-3. Fix implementation or test
+**Direct Binary Calls**: Always call binaries directly in `functions.shell`, set `workdir`, avoid shell wrappers (`bash -lc`, `cmd /c`, etc.)
 
-**Build Failures**:
-1. Check error messages
-2. Fix incrementally
-3. Validate each fix
+**Text Editing Priority**:
+1. Use `apply_patch` tool for all routine text edits
+2. Fall back to `sed` for single-line substitutions if unavailable
+3. Avoid Python editing scripts unless both fail
 
-## Progress Reporting
-
-### During Execution (Single Task)
-
-```
-[1/5] Analyzing existing code patterns...
-[2/5] Planning implementation approach...
-[3/5] Generating code...
-[4/5] Writing tests...
-[5/5] Running validation...
-```
-
-### During Execution (Subtask)
-
-```
-[Subtask N/M: Subtask Title]
-[1/4] Recalling context from previous subtasks...
-[2/4] Implementing current subtask...
-[3/4] Testing integration with previous work...
-[4/4] Validating subtask completion...
+**apply_patch invocation**:
+```json
+{
+  "command": ["apply_patch", "*** Begin Patch\n*** Update File: path/to/file\n@@\n- old\n+ new\n*** End Patch\n"],
+  "workdir": "<workdir>",
+  "justification": "Brief reason"
+}
 ```
 
-### On Success (Single Task)
+**Windows UTF-8 Encoding** (before commands):
+```powershell
+[Console]::InputEncoding  = [Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+chcp 65001 > $null
+```
 
+## Output Format
+
+### Related Files (At Beginning)
+```markdown
+## Changes
+- Created: `path/to/file1.ext` (X lines)
+- Modified: `path/to/file2.ext` (+Y/-Z lines)
+- Deleted: `path/to/file3.ext`
+```
+
+### Completion Status
+
+**Single Task Success**:
 ```
 ✅ Task completed
 
-Changes:
-- Created: [files with line counts]
-- Modified: [files with changes]
-
 Validation:
-✅ Tests: [count] passing
-✅ Coverage: [percentage]
+✅ Tests: X passing
+✅ Coverage: Y%
 ✅ Build: Success
 
 Next Steps: [recommendations]
 ```
 
-### On Success (Subtask)
-
+**Subtask Success**:
 ```
 ✅ Subtask N/M completed
 
-Changes:
-- Created: [files]
-- Modified: [files]
-
 Integration:
 ✅ Compatible with previous subtasks
-✅ Tests: [count] passing
-✅ Build: Success
+✅ Tests: X passing
 
 Context for next subtask:
 - [Key decisions made]
@@ -242,16 +162,33 @@ Context for next subtask:
 - [Patterns established]
 ```
 
-### On Partial Completion
-
+**Partial Completion**:
 ```
 ⚠️ Task partially completed
 
 Completed: [what worked]
-Blocked: [what failed and why]
+Blocked: [what failed, root cause]
 Required: [what's needed]
 Recommendation: [next steps]
 ```
+
+## Error Handling
+
+### Three-Attempt Rule
+
+**On 3rd failed attempt**:
+1. Stop execution
+2. Report: What attempted, what failed, root cause
+3. Request guidance or suggest alternatives
+
+### Recovery Strategies
+
+| Error Type | Response |
+|------------|----------|
+| **Syntax/Type** | Review errors → Fix → Re-run tests → Validate build |
+| **Runtime** | Analyze stack trace → Add error handling → Test error cases |
+| **Test Failure** | Debug in isolation → Review setup → Fix implementation/test |
+| **Build Failure** | Check messages → Fix incrementally → Validate each fix |
 
 ## Quality Standards
 
@@ -274,98 +211,43 @@ Recommendation: [next steps]
 - Graceful degradation
 - Don't expose sensitive info
 
-## Multi-Step Task Execution
+## Core Principles
 
-### Context Continuity via Resume
+**Incremental Progress**:
+- Small, testable changes
+- Commit working code frequently
+- Build on previous work (subtasks)
 
-When executing subtasks via `codex exec "..." resume --last`:
+**Evidence-Based**:
+- Study 3+ similar patterns before implementing
+- Match project style exactly
+- Verify with existing code
 
-**Advantages**:
-- Session memory preserves previous decisions
-- Maintains implementation style consistency
-- Avoids redundant context re-injection
-- Enables incremental testing and validation
+**Pragmatic**:
+- Boring solutions over clever code
+- Simple over complex
+- Adapt to project reality
 
-**Best Practices**:
-1. **First subtask**: Establish patterns and architecture
-2. **Subsequent subtasks**: Build on established patterns
-3. **Test integration**: After each subtask, verify compatibility
-4. **Report context**: Summarize key decisions for next subtask
-5. **Maintain scope**: Focus only on current subtask goals
-
-### Subtask Coordination
-
-**DO**:
-- Remember decisions from previous subtasks
-- Reuse patterns established earlier
-- Test integration with previous work
-- Report what's ready for next subtask
-
-**DON'T**:
-- Re-implement what previous subtasks completed
-- Change patterns established earlier (unless explicitly requested)
-- Skip testing integration points
-- Assume next subtask's requirements
-
-### Example Flow
-
-```
-Subtask 1: Create data models
-→ Establishes: Schema patterns, validation approach
-→ Delivers: Models with tests
-→ Context for next: Model structure, validation rules
-
-Subtask 2: Implement API endpoints (resume --last)
-→ Recalls: Model structure from subtask 1
-→ Builds on: Uses established models
-→ Delivers: API with integration tests
-→ Context for next: API patterns, error handling
-
-Subtask 3: Add authentication (resume --last)
-→ Recalls: API patterns from subtask 2
-→ Integrates: Auth middleware into existing endpoints
-→ Delivers: Secured API
-→ Final validation: Full integration test
-```
-
-## Philosophy
-
-- **Incremental progress over big bangs** - Small, testable changes
-- **Learning from existing code** - Study 3+ patterns before implementing
-- **Pragmatic over dogmatic** - Adapt to project reality
-- **Clear intent over clever code** - Boring, obvious solutions
-- **Simple over complex** - Avoid over-engineering
-- **Follow existing style** - Match project patterns exactly
-- **Context continuity** - Leverage resume for multi-step consistency
+**Context Continuity** (Multi-Task):
+- Leverage resume for consistency
+- Maintain established patterns
+- Test integration between subtasks
 
 ## Execution Checklist
 
-### Before Implementation
+**Before**:
 - [ ] Understand PURPOSE and TASK clearly
-- [ ] Review all CONTEXT files
-- [ ] Find 3+ similar patterns in codebase
+- [ ] Review CONTEXT files, find 3+ patterns
 - [ ] Check RULES templates and constraints
-- [ ] Plan implementation approach
 
-### During Implementation
+**During**:
 - [ ] Follow existing patterns exactly
 - [ ] Write tests alongside code
 - [ ] Run tests after every change
 - [ ] Commit working code incrementally
-- [ ] Handle errors properly
 
-### After Implementation
-- [ ] Run full test suite - all pass
-- [ ] Check coverage - meets target
-- [ ] Run build - succeeds
-- [ ] Review EXPECTED - all deliverables met
-
----
-
-**Version**: 2.2.0
-**Last Updated**: 2025-10-04
-**Changes**:
-- Added system optimization requirements for direct binary calls
-- Added apply_patch tool priority for text editing
-- Added Windows UTF-8 encoding configuration for Chinese character support
-- Previous: Multi-step task execution support with resume mechanism
+**After**:
+- [ ] All tests pass
+- [ ] Coverage meets target
+- [ ] Build succeeds
+- [ ] All EXPECTED deliverables met
