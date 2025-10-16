@@ -52,7 +52,7 @@ auto_detect_pages() {
 # Auto-detect style variants count
 auto_detect_style_variants() {
     local base_path="$1"
-    local style_dir="$base_path/../style-consolidation"
+    local style_dir="$base_path/../style-extraction"
 
     if [ ! -d "$style_dir" ]; then
         log_warning "Style consolidation directory not found: $style_dir"
@@ -260,7 +260,7 @@ fi
 
 # Validate STYLE_VARIANTS against actual style directories
 if [ "$STYLE_VARIANTS" -gt 0 ]; then
-    style_dir="$BASE_PATH/../style-consolidation"
+    style_dir="$BASE_PATH/../style-extraction"
 
     if [ ! -d "$style_dir" ]; then
         log_error "Style consolidation directory not found: $style_dir"
@@ -337,7 +337,7 @@ for page in "${PAGE_ARRAY[@]}"; do
             # Define file paths
             TEMPLATE_HTML="_templates/${page}-layout-${l}.html"
             STRUCTURAL_CSS="_templates/${page}-layout-${l}.css"
-            TOKEN_CSS="../style-consolidation/style-${s}/tokens.css"
+            TOKEN_CSS="../style-extraction/style-${s}/tokens.css"
             OUTPUT_HTML="${page}-style-${s}-layout-${l}.html"
 
             # Copy template and replace placeholders
@@ -376,7 +376,7 @@ across all style variants. The HTML structure is identical for all ${page}-layou
 prototypes, with only the design tokens (colors, fonts, spacing) varying.
 
 ## Design System Reference
-Refer to \`../style-consolidation/style-${s}/style-guide.md\` for:
+Refer to \`../style-extraction/style-${s}/style-guide.md\` for:
 - Design philosophy
 - Token usage guidelines
 - Component patterns
@@ -742,9 +742,9 @@ for s in $(seq 1 "$STYLE_VARIANTS"); do
     cat >> PREVIEW.md <<STYLEEOF
 
 ### Style ${s}
-- **Tokens:** \`../style-consolidation/style-${s}/design-tokens.json\`
-- **CSS Variables:** \`../style-consolidation/style-${s}/tokens.css\`
-- **Style Guide:** \`../style-consolidation/style-${s}/style-guide.md\`
+- **Tokens:** \`../style-extraction/style-${s}/design-tokens.json\`
+- **CSS Variables:** \`../style-extraction/style-${s}/tokens.css\`
+- **Style Guide:** \`../style-extraction/style-${s}/style-guide.md\`
 STYLEEOF
 done
 

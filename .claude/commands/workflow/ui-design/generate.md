@@ -18,8 +18,7 @@ Pure assembler that combines pre-extracted layout templates with design tokens t
 - **Automatic Image Reference**: If source images exist in layout templates, they're automatically used for visual context
 
 **Prerequisite Commands**:
-- `/workflow:ui-design:style-extract` → Style tokens
-- `/workflow:ui-design:consolidate` → Final design tokens
+- `/workflow:ui-design:style-extract` → Complete design systems (design-tokens.json + style-guide.md)
 - `/workflow:ui-design:layout-extract` → Layout structure
 
 ## Phase 1: Setup & Validation
@@ -30,7 +29,7 @@ Pure assembler that combines pre-extracted layout templates with design tokens t
 bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
 
 # Get style count
-bash(ls {base_path}/style-consolidation/style-* -d | wc -l)
+bash(ls {base_path}/style-extraction/style-* -d | wc -l)
 
 # Image reference auto-detected from layout template source_image_path
 ```
@@ -50,10 +49,10 @@ Read({base_path}/layout-extraction/layout-templates.json)
 ### Step 3: Validate Design Tokens
 ```bash
 # Check design tokens exist for all styles
-bash(test -f {base_path}/style-consolidation/style-1/design-tokens.json && echo "valid")
+bash(test -f {base_path}/style-extraction/style-1/design-tokens.json && echo "valid")
 
 # For each style variant: Load design tokens
-Read({base_path}/style-consolidation/style-{id}/design-tokens.json)
+Read({base_path}/style-extraction/style-{id}/design-tokens.json)
 ```
 
 **Output**: `design_tokens[]` for all style variants
@@ -84,7 +83,7 @@ Task(ui-design-agent): `
      Extract: dom_structure, css_layout_rules, device_type, source_image_path
 
   2. Design Tokens:
-     Read("{base_path}/style-consolidation/style-{style_id}/design-tokens.json")
+     Read("{base_path}/style-extraction/style-{style_id}/design-tokens.json")
      Extract: ALL token values (colors, typography, spacing, borders, shadows, breakpoints)
 
   3. Reference Image (AUTO-DETECTED):
@@ -192,7 +191,7 @@ Assembly Process:
 
 Quality:
 - Structure: From layout-extract (DOM, CSS layout rules)
-- Style: From consolidate (design tokens)
+- Style: From style-extract (design tokens)
 - CSS: Token values directly applied (var() replaced)
 - Device-optimized: Layouts match device_type from templates
 
@@ -222,7 +221,7 @@ Next: /workflow:ui-design:update
 bash(find .workflow -type d -name "design-*" | head -1)
 
 # Count style variants
-bash(ls {base_path}/style-consolidation/style-* -d | wc -l)
+bash(ls {base_path}/style-extraction/style-* -d | wc -l)
 ```
 
 ### Validation Commands
@@ -231,7 +230,7 @@ bash(ls {base_path}/style-consolidation/style-* -d | wc -l)
 bash(test -f {base_path}/layout-extraction/layout-templates.json && echo "exists")
 
 # Check design tokens exist
-bash(test -f {base_path}/style-consolidation/style-1/design-tokens.json && echo "valid")
+bash(test -f {base_path}/style-extraction/style-1/design-tokens.json && echo "valid")
 
 # Count generated files
 bash(ls {base_path}/prototypes/{target}-style-*-layout-*.html | wc -l)
@@ -255,9 +254,9 @@ bash(~/.claude/scripts/ui-generate-preview.sh "{base_path}/prototypes")
 {base_path}/
 ├── layout-extraction/
 │   └── layout-templates.json      # Input (from layout-extract)
-├── style-consolidation/
+├── style-extraction/
 │   └── style-{s}/
-│       ├── design-tokens.json     # Input (from consolidate)
+│       ├── design-tokens.json     # Input (from style-extract)
 │       └── style-guide.md
 └── prototypes/
     ├── {target}-style-{s}-layout-{l}.html  # Assembled prototypes
@@ -275,7 +274,7 @@ ERROR: Layout templates not found
 → Run /workflow:ui-design:layout-extract first
 
 ERROR: Design tokens not found
-→ Run /workflow:ui-design:consolidate first
+→ Run /workflow:ui-design:style-extract first
 
 ERROR: Agent assembly failed
 → Check inputs exist, validate JSON structure
@@ -311,8 +310,7 @@ ERROR: Script permission denied
 ## Integration
 
 **Prerequisites**:
-- `/workflow:ui-design:style-extract` → `style-cards.json`
-- `/workflow:ui-design:consolidate` → `design-tokens.json`
+- `/workflow:ui-design:style-extract` → `design-tokens.json` + `style-guide.md`
 - `/workflow:ui-design:layout-extract` → `layout-templates.json`
 
 **Input**: `layout-templates.json` + `design-tokens.json`

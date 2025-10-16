@@ -68,15 +68,59 @@ Read({image_path})  # Load each image
 bash(mkdir -p {base_path}/layout-extraction)
 ```
 
-### Step 3: Memory Check (Skip if Already Done)
+### Step 2.5: Extract DOM Structure (URL Mode - Enhancement)
 ```bash
-# Check if layouts already extracted
-bash(test -f {base_path}/layout-extraction/layout-templates.json && echo "exists")
+# If URLs are available, extract real DOM structure
+# This provides accurate layout data to supplement visual analysis
+
+# For each URL in url_list:
+IF url_available AND mcp_chrome_devtools_available:
+    # Read extraction script
+    Read(~/.claude/scripts/extract-layout-structure.js)
+
+    # Open page in Chrome DevTools
+    mcp__chrome-devtools__navigate_page(url="{target_url}")
+
+    # Execute layout extraction script
+    result = mcp__chrome-devtools__evaluate_script(function="[SCRIPT_CONTENT]")
+
+    # Save DOM structure for this target (intermediate file)
+    bash(mkdir -p {base_path}/.intermediates/layout-analysis)
+    Write({base_path}/.intermediates/layout-analysis/dom-structure-{target}.json, result)
+
+    dom_structure_available = true
+ELSE:
+    dom_structure_available = false
 ```
 
-**If exists**: Skip to completion message
+**Extraction Script Reference**: `~/.claude/scripts/extract-layout-structure.js`
 
-**Output**: `input_mode`, `base_path`, `extraction_mode`, `variants_count`, `targets[]`, `device_type`, loaded inputs
+**Usage**: Read the script file and use content directly in `mcp__chrome-devtools__evaluate_script()`
+
+**Script returns**:
+- `metadata`: Extraction timestamp, URL, method
+- `patterns`: Layout pattern statistics (flexColumn, flexRow, grid counts)
+- `structure`: Hierarchical DOM tree with layout properties
+
+**Benefits**:
+- ✅ Real flex/grid configuration (justifyContent, alignItems, gap, etc.)
+- ✅ Accurate element bounds (x, y, width, height)
+- ✅ Structural hierarchy with depth control
+- ✅ Layout pattern identification (flex-row, flex-column, grid-NCol)
+
+### Step 3: Memory Check
+```bash
+# 1. Check if inputs cached in session memory
+IF session_has_inputs: SKIP Step 2 file reading
+
+# 2. Check if output already exists
+bash(test -f {base_path}/layout-extraction/layout-templates.json && echo "exists")
+IF exists: SKIP to completion
+```
+
+---
+
+**Phase 0 Output**: `input_mode`, `base_path`, `extraction_mode`, `variants_count`, `targets[]`, `device_type`, loaded inputs
 
 ## Phase 1: Layout Research (Explore Mode Only)
 
@@ -90,13 +134,13 @@ bash(test -f {base_path}/layout-extraction/layout-templates.json && echo "exists
 
 ### Step 2: Gather Layout Inspiration (Explore Mode)
 ```bash
-bash(mkdir -p {base_path}/layout-extraction/_inspirations)
+bash(mkdir -p {base_path}/.intermediates/layout-analysis/inspirations)
 
 # For each target: Research via MCP
 # mcp__exa__web_search_exa(query="{target} layout patterns {device_type}", numResults=5)
 
 # Write inspiration file
-Write({base_path}/layout-extraction/_inspirations/{target}-layout-ideas.txt, inspiration_content)
+Write({base_path}/.intermediates/layout-analysis/inspirations/{target}-layout-ideas.txt, inspiration_content)
 ```
 
 **Output**: Inspiration text files for each target (explore mode only)
@@ -118,14 +162,28 @@ Task(ui-design-agent): `
   - Targets: {targets}  // List of page/component names
   - Variants per Target: {variants_count}
   - Device Type: {device_type}
-  ${exploration_mode ? "- Layout Inspiration: Read('" + base_path + "/layout-extraction/_inspirations/{target}-layout-ideas.txt')" : ""}
+  ${exploration_mode ? "- Layout Inspiration: Read('" + base_path + "/.intermediates/layout-analysis/inspirations/{target}-layout-ideas.txt')" : ""}
+  ${dom_structure_available ? "- DOM Structure Data: Read('" + base_path + "/.intermediates/layout-analysis/dom-structure-{target}.json') - USE THIS for accurate layout properties" : ""}
 
   ## Analysis & Generation
+  ${dom_structure_available ? "IMPORTANT: You have access to real DOM structure data with accurate flex/grid properties, bounds, and hierarchy. Use this data as ground truth for layout analysis." : ""}
   For EACH target in {targets}:
     For EACH variant (1 to {variants_count}):
-      1. **Analyze Structure**: Deconstruct reference to understand layout, hierarchy, responsiveness
+      1. **Analyze Structure**:
+         ${dom_structure_available ?
+           "- Use DOM structure data as primary source for layout properties" +
+           "- Extract real flex/grid configurations (display, flexDirection, justifyContent, alignItems, gap)" +
+           "- Use actual element bounds for responsive breakpoint decisions" +
+           "- Preserve identified patterns (flex-row, flex-column, grid-NCol)" +
+           "- Reference screenshots for visual context only" :
+           "- Deconstruct reference images/URLs to understand layout, hierarchy, responsiveness"}
       2. **Define Philosophy**: Short description (e.g., "Asymmetrical grid with overlapping content areas")
-      3. **Generate DOM Structure**: JSON object representing semantic HTML5 structure
+      3. **Generate DOM Structure**:
+         ${dom_structure_available ?
+           "- Base structure on extracted DOM tree from .intermediates" +
+           "- Preserve semantic tags and hierarchy from dom-structure-{target}.json" +
+           "- Maintain layout patterns identified in patterns field" :
+           "- JSON object representing semantic HTML5 structure"}
          - Semantic tags: <header>, <nav>, <main>, <aside>, <section>, <footer>
          - ARIA roles and accessibility attributes
          - Device-specific structure:
@@ -137,7 +195,12 @@ Task(ui-design-agent): `
       4. **Define Component Hierarchy**: High-level array of main layout regions
          Example: ["header", "main-content", "sidebar", "footer"]
       5. **Generate CSS Layout Rules**:
-         - Focus ONLY on layout (Grid, Flexbox, position, alignment, gap, etc.)
+         ${dom_structure_available ?
+           "- Use real layout properties from DOM structure data" +
+           "- Convert extracted flex/grid values to CSS rules" +
+           "- Preserve actual gap, justifyContent, alignItems values" +
+           "- Use element bounds to inform responsive breakpoints" :
+           "- Focus ONLY on layout (Grid, Flexbox, position, alignment, gap, etc.)"}
          - Use CSS Custom Properties for spacing/breakpoints: var(--spacing-4), var(--breakpoint-md)
          - Device-specific styles (mobile-first @media for responsive)
          - NO colors, NO fonts, NO shadows - layout structure only
@@ -228,7 +291,7 @@ bash(find .workflow -type d -name "design-*" | head -1)
 
 # Create output directories
 bash(mkdir -p {base_path}/layout-extraction)
-bash(mkdir -p {base_path}/layout-extraction/_inspirations)  # explore mode only
+bash(mkdir -p {base_path}/.intermediates/layout-analysis/inspirations)  # explore mode only
 ```
 
 ### Validation Commands
@@ -250,7 +313,7 @@ bash(ls {images_pattern})
 Read({image_path})
 
 # Write inspiration files (explore mode)
-Write({base_path}/layout-extraction/_inspirations/{target}-layout-ideas.txt, content)
+Write({base_path}/.intermediates/layout-analysis/inspirations/{target}-layout-ideas.txt, content)
 
 # Write layout templates
 bash(echo '{json}' > {base_path}/layout-extraction/layout-templates.json)
@@ -260,11 +323,14 @@ bash(echo '{json}' > {base_path}/layout-extraction/layout-templates.json)
 
 ```
 {base_path}/
-└── layout-extraction/
-    ├── layout-templates.json         # Structural layout templates
-    ├── layout-space-analysis.json    # Layout directions (explore mode only)
-    └── _inspirations/                 # Explore mode only
-        └── {target}-layout-ideas.txt  # Layout inspiration research
+├── .intermediates/                    # Intermediate analysis files
+│   └── layout-analysis/
+│       ├── dom-structure-{target}.json   # Extracted DOM structure (URL mode only)
+│       └── inspirations/                 # Explore mode only
+│           └── {target}-layout-ideas.txt # Layout inspiration research
+└── layout-extraction/                 # Final layout templates
+    ├── layout-templates.json          # Structural layout templates
+    └── layout-space-analysis.json     # Layout directions (explore mode only)
 ```
 
 ## layout-templates.json Format
@@ -346,10 +412,13 @@ ERROR: MCP search failed (explore mode)
 
 ## Key Features
 
+- **Hybrid Extraction Strategy** - Combines real DOM structure data with AI visual analysis
+- **Accurate Layout Properties** - Chrome DevTools extracts real flex/grid configurations, bounds, and hierarchy
 - **Separation of Concerns** - Decouples layout (structure) from style (visuals)
 - **Structural Exploration** - Explore mode enables A/B testing of different layouts
 - **Token-Based Layout** - CSS uses `var()` placeholders for instant design system adaptation
 - **Device-Specific** - Tailored structures for different screen sizes
+- **Graceful Fallback** - Works with images/text when URL unavailable
 - **Foundation for Assembly** - Provides structural blueprint for refactored `generate` command
 - **Agent-Powered** - Deep structural analysis with AI
 
@@ -358,10 +427,9 @@ ERROR: MCP search failed (explore mode)
 **Workflow Position**: Between style extraction and prototype generation
 
 **New Workflow**:
-1. `/workflow:ui-design:style-extract` → `style-cards.json` (Visual tokens)
-2. `/workflow:ui-design:consolidate` → `design-tokens.json` (Final visual system)
-3. `/workflow:ui-design:layout-extract` → `layout-templates.json` (Structural templates)
-4. `/workflow:ui-design:generate` (Refactored as assembler):
+1. `/workflow:ui-design:style-extract` → `design-tokens.json` + `style-guide.md` (Complete design systems)
+2. `/workflow:ui-design:layout-extract` → `layout-templates.json` (Structural templates)
+3. `/workflow:ui-design:generate` (Pure assembler):
    - **Reads**: `design-tokens.json` + `layout-templates.json`
    - **Action**: For each style × layout combination:
      1. Build HTML from `dom_structure`

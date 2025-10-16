@@ -20,11 +20,10 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 1. User triggers: `/workflow:ui-design:explore-auto [params]`
 2. Phase 0c: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 1**
 3. Phase 1 (style-extract) → **WAIT for completion** → Auto-continues
-4. Phase 2 (style-consolidate) → **WAIT for completion** → Auto-continues
-5. Phase 2.5 (layout-extract) → **WAIT for completion** → Auto-continues
-6. **Phase 3 (ui-assembly)** → **WAIT for completion** → Auto-continues
-7. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
-8. Phase 5 (batch-plan, optional) → Reports completion
+4. Phase 2 (layout-extract) → **WAIT for completion** → Auto-continues
+5. **Phase 3 (ui-assembly)** → **WAIT for completion** → Auto-continues
+6. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
+7. Phase 5 (batch-plan, optional) → Reports completion
 
 **Phase Transition Mechanism**:
 - **Phase 0c (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 1
@@ -91,8 +90,8 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 **Matrix Mode** (style-centric):
 - Generates `style_variants × layout_variants × targets` prototypes
-- **Phase 1**: `style_variants` style options with design_attributes (extract)
-- **Phase 2**: `style_variants` independent design systems (consolidate)
+- **Phase 1**: `style_variants` complete design systems (extract)
+- **Phase 2**: Layout templates extraction (layout-extract)
 - **Phase 3**: Style-centric batch generation (generate)
   - Sub-phase 1: `targets × layout_variants` target-specific layout plans
   - **Sub-phase 2**: `S` style-centric agents (each handles `L×T` combinations)
@@ -280,18 +279,7 @@ SlashCommand(command)
 # Upon completion, IMMEDIATELY execute Phase 2 (auto-continue)
 ```
 
-### Phase 2: Style Consolidation
-```bash
-command = "/workflow:ui-design:consolidate --base-path \"{base_path}\" " +
-          "--variants {style_variants}"
-SlashCommand(command)
-
-# Output: {style_variants} independent design systems with tokens.css
-# SlashCommand blocks until phase complete
-# Upon completion, IMMEDIATELY execute Phase 2.5 (auto-continue)
-```
-
-### Phase 2.5: Layout Extraction
+### Phase 2: Layout Extraction
 ```bash
 targets_string = ",".join(inferred_target_list)
 command = "/workflow:ui-design:layout-extract --base-path \"{base_path}\" " +
@@ -360,7 +348,6 @@ IF --batch-plan:
 // Initialize IMMEDIATELY after Phase 0c user confirmation to track multi-phase execution
 TodoWrite({todos: [
   {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing..."},
-  {"content": "Execute style consolidation", "status": "pending", "activeForm": "Executing..."},
   {"content": "Execute layout extraction", "status": "pending", "activeForm": "Executing..."},
   {"content": "Execute UI assembly", "status": "pending", "activeForm": "Executing..."},
   {"content": "Execute design integration", "status": "pending", "activeForm": "Executing..."}
@@ -442,9 +429,8 @@ Architecture: Style-Centric Batch Generation
 Run ID: {run_id} | Session: {session_id or "standalone"}
 Type: {icon} {target_type} | Device: {device_type} | Matrix: {s}×{l}×{n} = {total} prototypes
 
-Phase 1: {s} style variants with design_attributes (style-extract)
-Phase 2: {s} design systems with tokens.css (consolidate)
-Phase 2.5: {n×l} layout templates (layout-extract explore mode)
+Phase 1: {s} complete design systems (style-extract)
+Phase 2: {n×l} layout templates (layout-extract explore mode)
   - Device: {device_type} layouts
   - {n} targets × {l} layout variants = {n×l} structural templates
 Phase 3: UI Assembly (generate)
@@ -466,11 +452,13 @@ Design Quality:
 ✅ Device-Optimized: Layouts designed for {device_type}
 
 📂 {base_path}/
-  ├── style-extraction/       ({s} style cards + design-space-analysis.json)
-  ├── style-consolidation/    ({s} design systems with tokens.css)
-  ├── layout-extraction/      ({n×l} layout templates + layout-space-analysis.json)
-  ├── prototypes/             ({total} assembled prototypes)
-  └── .run-metadata.json      (includes device type)
+  ├── .intermediates/          (Intermediate analysis files)
+  │   ├── style-analysis/      (computed-styles.json, design-space-analysis.json)
+  │   └── layout-analysis/     (dom-structure-*.json, inspirations/*.txt)
+  ├── style-extraction/        ({s} complete design systems)
+  ├── layout-extraction/       ({n×l} layout templates + layout-space-analysis.json)
+  ├── prototypes/              ({total} assembled prototypes)
+  └── .run-metadata.json       (includes device type)
 
 🌐 Preview: {base_path}/prototypes/compare.html
   - Interactive {s}×{l} matrix view

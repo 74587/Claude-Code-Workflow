@@ -329,7 +329,7 @@ for style in $styles; do
 ### Style ${style}
 
 EOF3
-    style_guide="../style-consolidation/style-${style}/style-guide.md"
+    style_guide="../style-extraction/style-${style}/style-guide.md"
     if [[ -f "$style_guide" ]]; then
         head -n 10 "$style_guide" | tail -n +2 >> PREVIEW.md 2>/dev/null || echo "Design philosophy and tokens" >> PREVIEW.md
     else

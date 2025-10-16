@@ -1,7 +1,7 @@
 ---
 name: imitate-auto
-description: High-speed multi-page UI replication with batch screenshot and optional token refinement
-argument-hint: --url-map "<map>" [--capture-mode <batch|deep>] [--depth <1-5>] [--session <id>] [--refine-tokens] [--prompt "<desc>"]
+description: High-speed multi-page UI replication with batch screenshot capture
+argument-hint: --url-map "<map>" [--capture-mode <batch|deep>] [--depth <1-5>] [--session <id>] [--prompt "<desc>"]
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 ---
 
@@ -19,11 +19,10 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 1. User triggers: `/workflow:ui-design:imitate-auto --url-map "..."`
 2. Phase 0: Initialize and parse parameters
 3. Phase 1: Screenshot capture (batch or deep mode) → **WAIT for completion** → Auto-continues
-4. Phase 2: Style extraction (visual tokens) → **WAIT for completion** → Auto-continues
+4. Phase 2: Style extraction (complete design systems) → **WAIT for completion** → Auto-continues
 5. Phase 2.5: Layout extraction (structure templates) → **WAIT for completion** → Auto-continues
-6. Phase 3: Token processing (conditional consolidate) → **WAIT for completion** → Auto-continues
-7. Phase 4: Batch UI assembly → **WAIT for completion** → Auto-continues
-8. Phase 5: Design system integration → Reports completion
+6. Phase 3: Batch UI assembly → **WAIT for completion** → Auto-continues
+7. Phase 4: Design system integration → Reports completion
 
 **Phase Transition Mechanism**:
 - `SlashCommand` is BLOCKING - execution pauses until completion
@@ -67,13 +66,10 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
   - Enable automatic design system integration (Phase 5)
   - If not provided: standalone mode (`.workflow/.design/`)
 
-- `--refine-tokens` (Optional, default: false): Enable full token refinement
-  - `false` (default): Fast path, skip consolidate (~30-60s faster)
-  - `true`: Production quality, execute full consolidate (philosophy-driven refinement)
-
 - `--prompt "<desc>"` (Optional): Style extraction guidance
   - Influences extract command analysis focus
   - Example: `"Focus on dark mode"`, `"Emphasize minimalist design"`
+  - **Note**: Design systems are now production-ready by default (no separate consolidate step)
 
 ## Execution Modes
 
@@ -86,14 +82,11 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
   - Captures page layers at different depths (1-5)
   - Only processes first URL from url-map
 
-**Token Processing Modes**:
-- **Fast-Track** (default): Skip consolidate, use proposed tokens directly (~2s)
-  - Best for rapid prototyping and testing
-  - Tokens may lack philosophy-driven refinement
-- **Production** (--refine-tokens): Full consolidate with WCAG validation (~60s)
-  - Philosophy-driven token refinement
-  - Complete accessibility validation
-  - Production-ready design system
+**Token Processing**:
+- **Direct Generation**: Complete design systems generated in style-extract phase
+  - Production-ready design-tokens.json with WCAG compliance
+  - Complete style-guide.md documentation
+  - No separate consolidation step required (~30-60s faster)
 
 **Session Integration**:
 - `--session` flag determines session integration or standalone execution
@@ -163,7 +156,6 @@ FOR pair IN split(url_map_string, ","):
 VALIDATE: len(target_names) > 0, "url-map must contain at least one target:url pair"
 
 primary_target = target_names[0]  # First target as primary style source
-refine_tokens_mode = --refine-tokens OR false
 
 # Parse capture mode
 capture_mode = --capture-mode OR "batch"
@@ -198,7 +190,6 @@ metadata = {
         "url_map": url_map,
         "capture_mode": capture_mode,
         "depth": depth IF capture_mode == "deep" ELSE null,
-        "refine_tokens": refine_tokens_mode,
         "prompt": --prompt OR null
     },
     "targets": target_names,
@@ -217,7 +208,6 @@ ELSE:
     REPORT: "    Targets: {len(target_names)} pages"
     REPORT: "    Primary source: '{primary_target}' ({url_map[primary_target]})"
     REPORT: "    All targets: {', '.join(target_names)}"
-REPORT: "  Token refinement: {refine_tokens_mode ? 'Enabled (production quality)' : 'Disabled (fast-track)'}"
 IF --prompt:
     REPORT: "  Prompt guidance: \"{--prompt}\""
 REPORT: ""
@@ -226,9 +216,8 @@ REPORT: ""
 TodoWrite({todos: [
   {content: "Initialize and parse url-map", status: "completed", activeForm: "Initializing"},
   {content: capture_mode == "batch" ? f"Batch screenshot capture ({len(target_names)} targets)" : f"Deep exploration (depth {depth})", status: "pending", activeForm: "Capturing screenshots"},
-  {content: "Extract style (visual tokens)", status: "pending", activeForm: "Extracting style"},
+  {content: "Extract style (complete design systems)", status: "pending", activeForm: "Extracting style"},
   {content: "Extract layout (structure templates)", status: "pending", activeForm: "Extracting layout"},
-  {content: refine_tokens_mode ? "Refine design tokens via consolidate" : "Fast token adaptation (skip consolidate)", status: "pending", activeForm: "Processing tokens"},
   {content: f"Assemble UI for {len(target_names)} targets", status: "pending", activeForm: "Assembling UI"},
   {content: session_id ? "Integrate design system" : "Standalone completion", status: "pending", activeForm: "Completing"}
 ]})
@@ -370,31 +359,31 @@ CATCH error:
     ERROR: "Cannot proceed without visual tokens"
     EXIT 1
 
-# style-extract outputs to: {base_path}/style-extraction/style-cards.json
+# style-extract outputs to: {base_path}/style-extraction/style-1/design-tokens.json
 
 # Verify extraction results
-style_cards_path = "{base_path}/style-extraction/style-cards.json"
+design_tokens_path = "{base_path}/style-extraction/style-1/design-tokens.json"
+style_guide_path = "{base_path}/style-extraction/style-1/style-guide.md"
 
-IF NOT exists(style_cards_path):
-    ERROR: "style-extract command did not generate style-cards.json"
-    ERROR: "Expected: {style_cards_path}"
+IF NOT exists(design_tokens_path):
+    ERROR: "style-extract command did not generate design-tokens.json"
+    ERROR: "Expected: {design_tokens_path}"
     EXIT 1
 
-style_cards = Read(style_cards_path)
-
-IF len(style_cards.style_cards) != 1:
-    ERROR: "Expected single variant in imitate mode, got {len(style_cards.style_cards)}"
+IF NOT exists(style_guide_path):
+    ERROR: "style-extract command did not generate style-guide.md"
+    ERROR: "Expected: {style_guide_path}"
     EXIT 1
 
-extracted_style = style_cards.style_cards[0]
+design_tokens = Read(design_tokens_path)
 
 REPORT: ""
 REPORT: "✅ Phase 2 complete:"
-REPORT: "   Style: '{extracted_style.name}'"
-REPORT: "   Philosophy: {extracted_style.design_philosophy}"
-REPORT: "   Tokens: {count_tokens(extracted_style.proposed_tokens)} visual tokens"
+REPORT: "   Output: style-extraction/style-1/"
+REPORT: "   Files: design-tokens.json, style-guide.md"
+REPORT: "   Quality: Production-ready (WCAG AA)"
 
-TodoWrite(mark_completed: "Extract style (visual tokens)",
+TodoWrite(mark_completed: "Extract style (complete design systems)",
           mark_in_progress: "Extract layout (structure templates)")
 ```
 
@@ -444,124 +433,19 @@ REPORT: "   Templates: {template_count} layout structures"
 REPORT: "   Targets: {', '.join(target_names)}"
 
 TodoWrite(mark_completed: "Extract layout (structure templates)",
-          mark_in_progress: refine_tokens_mode ? "Refine design tokens via consolidate" : "Fast token adaptation")
-```
-
-### Phase 3: Token Processing (Conditional Consolidate)
-
-```bash
-REPORT: ""
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 3: Token Processing"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-IF refine_tokens_mode:
-    # Path A: Full consolidate (production quality)
-    REPORT: "🔧 Using full consolidate for production-ready tokens"
-    REPORT: "   Benefits:"
-    REPORT: "   • Philosophy-driven token refinement"
-    REPORT: "   • WCAG AA accessibility validation"
-    REPORT: "   • Complete design system documentation"
-    REPORT: "   • Token gap filling and consistency checks"
-    REPORT: ""
-
-    consolidate_command = f"/workflow:ui-design:consolidate --base-path \"{base_path}\" --variants 1"
-
-    REPORT: f"Calling consolidate command..."
-
-    TRY:
-        SlashCommand(consolidate_command)
-    CATCH error:
-        ERROR: "Token consolidation failed: {error}"
-        ERROR: "Cannot proceed without refined tokens"
-        EXIT 1
-
-    # consolidate outputs to: {base_path}/style-consolidation/style-1/design-tokens.json
-    tokens_path = "{base_path}/style-consolidation/style-1/design-tokens.json"
-
-    IF NOT exists(tokens_path):
-        ERROR: "consolidate command did not generate design-tokens.json"
-        ERROR: "Expected: {tokens_path}"
-        EXIT 1
-
-    REPORT: ""
-    REPORT: "✅ Full consolidate complete"
-    REPORT: "   Output: style-consolidation/style-1/"
-    REPORT: "   Quality: Production-ready"
-    token_quality = "production-ready (consolidated)"
-    time_spent_estimate = "~60s"
-
-ELSE:
-    # Path B: Fast Token Adaptation
-    REPORT: "⚡ Fast token adaptation (skipping consolidate for speed)"
-    REPORT: "   Note: Using proposed tokens from extraction phase"
-    REPORT: "   For production quality, re-run with --refine-tokens flag"
-    REPORT: ""
-
-    # Directly copy proposed_tokens to consolidation directory
-    style_cards = Read("{base_path}/style-extraction/style-cards.json")
-    proposed_tokens = style_cards.style_cards[0].proposed_tokens
-
-    # Create directory and write tokens
-    consolidation_dir = "{base_path}/style-consolidation/style-1"
-    Bash(mkdir -p "{consolidation_dir}")
-
-    tokens_path = f"{consolidation_dir}/design-tokens.json"
-    Write(tokens_path, JSON.stringify(proposed_tokens, null, 2))
-
-    # Create simplified style guide
-    variant = style_cards.style_cards[0]
-    simple_guide = f"""# Design System: {variant.name}
-
-## Design Philosophy
-{variant.design_philosophy}
-
-## Description
-{variant.description}
-
-## Design Tokens
-All tokens in `design-tokens.json` follow OKLCH color space.
-
-**Note**: Generated in fast-track imitate mode using proposed tokens from extraction.
-For production-ready quality with philosophy-driven refinement, re-run with `--refine-tokens` flag.
-
-## Color Preview
-- Primary: {variant.preview.primary if variant.preview else "N/A"}
-- Background: {variant.preview.background if variant.preview else "N/A"}
-
-## Typography Preview
-- Heading Font: {variant.preview.font_heading if variant.preview else "N/A"}
-
-## Token Categories
-{list_token_categories(proposed_tokens)}
-"""
-
-    Write(f"{consolidation_dir}/style-guide.md", simple_guide)
-
-    REPORT: "✅ Fast adaptation complete (~2s vs ~60s with consolidate)"
-    REPORT: "   Output: style-consolidation/style-1/"
-    REPORT: "   Quality: Proposed (not refined)"
-    REPORT: "   Time saved: ~30-60s"
-    token_quality = "proposed (fast-track)"
-    time_spent_estimate = "~2s"
-
-REPORT: ""
-REPORT: "Token processing summary:"
-REPORT: "   Path: {refine_tokens_mode ? 'Full consolidate' : 'Fast adaptation'}"
-REPORT: "   Quality: {token_quality}"
-REPORT: "   Time: {time_spent_estimate}"
-
-TodoWrite(mark_completed: refine_tokens_mode ? "Refine design tokens via consolidate" : "Fast token adaptation",
           mark_in_progress: f"Assemble UI for {len(target_names)} targets")
 ```
 
-### Phase 4: Batch UI Assembly
+### Phase 3: Batch UI Assembly
 
 ```bash
 REPORT: ""
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 4: Batch UI Assembly"
+REPORT: "🚀 Phase 3: Batch UI Assembly"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Note: design-tokens.json already generated in Phase 2 (style-extract)
+# Located at: {base_path}/style-extraction/style-1/design-tokens.json
 
 # Build targets string
 targets_string = ",".join(target_names)
@@ -602,12 +486,12 @@ TodoWrite(mark_completed: f"Assemble UI for {len(target_names)} targets",
           mark_in_progress: session_id ? "Integrate design system" : "Standalone completion")
 ```
 
-### Phase 5: Design System Integration
+### Phase 4: Design System Integration
 
 ```bash
 REPORT: ""
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 5: Design System Integration"
+REPORT: "🚀 Phase 4: Design System Integration"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 IF session_id:
@@ -636,9 +520,8 @@ metadata.status = "completed"
 metadata.completion_time = current_timestamp()
 metadata.outputs = {
     "screenshots": f"{base_path}/screenshots/",
-    "style_system": f"{base_path}/style-consolidation/style-1/",
+    "style_system": f"{base_path}/style-extraction/style-1/",
     "prototypes": f"{base_path}/prototypes/",
-    "token_quality": token_quality,
     "captured_count": captured_count,
     "generated_count": generated_count
 }
@@ -650,9 +533,9 @@ TodoWrite(mark_completed: session_id ? "Integrate design system" : "Standalone c
 TodoWrite({todos: [
   {content: "Initialize and parse url-map", status: "completed", activeForm: "Initializing"},
   {content: capture_mode == "batch" ? f"Batch screenshot capture ({len(target_names)} targets)" : f"Deep exploration (depth {depth})", status: "completed", activeForm: "Capturing"},
-  {content: "Extract unified design system", status: "completed", activeForm: "Extracting"},
-  {content: refine_tokens_mode ? "Refine design tokens via consolidate" : "Fast token adaptation", status: "completed", activeForm: "Processing"},
-  {content: f"Generate UI for {len(target_names)} targets", status: "completed", activeForm: "Generating"},
+  {content: "Extract style (complete design systems)", status: "completed", activeForm: "Extracting"},
+  {content: "Extract layout (structure templates)", status: "completed", activeForm: "Extracting layout"},
+  {content: f"Assemble UI for {len(target_names)} targets", status: "completed", activeForm: "Assembling"},
   {content: session_id ? "Integrate design system" : "Standalone completion", status: "completed", activeForm: "Completing"}
 ]})
 ```
@@ -674,24 +557,18 @@ Run ID: {run_id}
 Phase 1 - Screenshot Capture: ✅ {IF capture_mode == "batch": f"{captured_count}/{total_requested} screenshots" ELSE: f"{captured_count} screenshots ({total_layers} layers)"}
   {IF capture_mode == "batch" AND captured_count < total_requested: f"⚠️ {total_requested - captured_count} missing" ELSE: "All targets captured"}
 
-Phase 2 - Style Extraction: ✅ Single unified design system
-  Style: {extracted_style.name}
-  Philosophy: {extracted_style.design_philosophy[:80]}...
+Phase 2 - Style Extraction: ✅ Production-ready design systems
+  Output: style-extraction/style-1/ (design-tokens.json + style-guide.md)
+  Quality: WCAG AA compliant, OKLCH colors
 
-Phase 3 - Token Processing: ✅ {token_quality}
-  {IF refine_tokens_mode:
-    "Full consolidate (~60s)"
-    "Quality: Production-ready with philosophy-driven refinement"
-  ELSE:
-    "Fast adaptation (~2s, saved ~30-60s)"
-    "Quality: Proposed tokens (for production, use --refine-tokens)"
-  }
+Phase 2.5 - Layout Extraction: ✅ Structure templates
+  Templates: {template_count} layout structures
 
-Phase 4 - UI Generation: ✅ {generated_count} pages generated
+Phase 3 - UI Assembly: ✅ {generated_count} pages assembled
   Targets: {', '.join(target_names)}
   Configuration: 1 style × 1 layout × {generated_count} pages
 
-Phase 5 - Integration: {IF session_id: "✅ Integrated into session" ELSE: "⏭️ Standalone mode"}
+Phase 4 - Integration: {IF session_id: "✅ Integrated into session" ELSE: "⏭️ Standalone mode"}
 
 ━━━ 📂 Output Structure ━━━
 
@@ -710,12 +587,12 @@ ELSE:
 │   │   └── {layers}.png
 │   └── layer-map.json
 }
-├── style-extraction/               # Design analysis
-│   └── style-cards.json
-├── style-consolidation/            # {token_quality}
+├── style-extraction/               # Production-ready design systems
 │   └── style-1/
 │       ├── design-tokens.json
 │       └── style-guide.md
+├── layout-extraction/              # Structure templates
+│   └── layout-templates.json
 └── prototypes/                     # {generated_count} HTML/CSS files
     ├── {target1}-style-1-layout-1.html + .css
     ├── {target2}-style-1-layout-1.html + .css
@@ -750,13 +627,6 @@ ELSE:
 3. Explore prototypes in {base_path}/prototypes/ directory
 }
 
-{IF NOT refine_tokens_mode:
-💡 Production Quality Tip:
-   Fast-track mode used proposed tokens for speed.
-   For production-ready quality with full token refinement:
-   /workflow:ui-design:imitate-auto --url-map "{url_map_command_string}" --refine-tokens {f"--session {session_id}" if session_id else ""}
-}
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -767,9 +637,9 @@ ELSE:
 TodoWrite({todos: [
   {content: "Initialize and parse url-map", status: "in_progress", activeForm: "Initializing"},
   {content: "Batch screenshot capture", status: "pending", activeForm: "Capturing screenshots"},
-  {content: "Extract unified design system", status: "pending", activeForm: "Extracting style"},
-  {content: refine_tokens ? "Refine tokens via consolidate" : "Fast token adaptation", status: "pending", activeForm: "Processing tokens"},
-  {content: "Generate UI for all targets", status: "pending", activeForm: "Generating UI"},
+  {content: "Extract style (complete design systems)", status: "pending", activeForm: "Extracting style"},
+  {content: "Extract layout (structure templates)", status: "pending", activeForm: "Extracting layout"},
+  {content: "Assemble UI for all targets", status: "pending", activeForm: "Assembling UI"},
   {content: "Integrate design system", status: "pending", activeForm: "Integrating"}
 ]})
 
@@ -818,7 +688,7 @@ TodoWrite({todos: [
 ## Key Features
 
 - **🚀 Dual Capture**: Batch mode for speed, deep mode for detail
-- **⚡ Fast-Track Option**: Skip consolidate for 30-60s time savings
+- **⚡ Production-Ready**: Complete design systems generated directly (~30-60s faster)
 - **🎨 High-Fidelity**: Single unified design system from primary target
 - **📦 Autonomous**: No user intervention required between phases
 - **🔄 Reproducible**: Deterministic flow with isolated run directories
@@ -832,10 +702,10 @@ TodoWrite({todos: [
 # Result: 2 prototypes with fast-track tokens
 ```
 
-### 2. Production-Ready with Session
+### 2. Session Integration
 ```bash
-/workflow:ui-design:imitate-auto --session WFS-payment --url-map "pricing:https://stripe.com/pricing" --refine-tokens
-# Result: 1 prototype with production tokens, integrated into session
+/workflow:ui-design:imitate-auto --session WFS-payment --url-map "pricing:https://stripe.com/pricing"
+# Result: 1 prototype with production-ready design system, integrated into session
 ```
 
 ### 3. Deep Exploration Mode
@@ -852,16 +722,16 @@ TodoWrite({todos: [
 
 ## Integration Points
 
-- **Input**: `--url-map` (multiple target:url pairs) + optional `--capture-mode`, `--depth`, `--session`, `--refine-tokens`, `--prompt`
-- **Output**: Complete design system in `{base_path}/` (screenshots, style-extraction, style-consolidation, prototypes)
+- **Input**: `--url-map` (multiple target:url pairs) + optional `--capture-mode`, `--depth`, `--session`, `--prompt`
+- **Output**: Complete design system in `{base_path}/` (screenshots, style-extraction, layout-extraction, prototypes)
 - **Sub-commands Called**:
   1. Phase 1 (conditional):
      - `--capture-mode batch`: `/workflow:ui-design:capture` (multi-URL batch)
      - `--capture-mode deep`: `/workflow:ui-design:explore-layers` (single-URL depth exploration)
-  2. `/workflow:ui-design:extract` (Phase 2)
-  3. `/workflow:ui-design:consolidate` (Phase 3, conditional)
-  4. `/workflow:ui-design:generate` (Phase 4)
-  5. `/workflow:ui-design:update` (Phase 5, if --session)
+  2. `/workflow:ui-design:style-extract` (Phase 2 - complete design systems)
+  3. `/workflow:ui-design:layout-extract` (Phase 2.5 - structure templates)
+  4. `/workflow:ui-design:generate` (Phase 3 - pure assembly)
+  5. `/workflow:ui-design:update` (Phase 4, if --session)
 
 ## Completion Output
 
@@ -872,20 +742,20 @@ Mode: {capture_mode} | Session: {session_id or "standalone"}
 Run ID: {run_id}
 
 Phase 1 - Screenshot Capture: ✅ {captured_count} screenshots
-Phase 2 - Style Extraction: ✅ Single unified design system
-Phase 3 - Token Processing: ✅ {token_quality}
-Phase 4 - UI Generation: ✅ {generated_count} pages generated
-Phase 5 - Integration: {IF session_id: "✅ Integrated" ELSE: "⏭️ Standalone"}
+Phase 2 - Style Extraction: ✅ Production-ready design systems
+Phase 2.5 - Layout Extraction: ✅ Structure templates
+Phase 3 - UI Assembly: ✅ {generated_count} pages assembled
+Phase 4 - Integration: {IF session_id: "✅ Integrated" ELSE: "⏭️ Standalone"}
 
 Design Quality:
 ✅ High-Fidelity Replication: Accurate style from primary target
 ✅ Token-Driven Styling: 100% var() usage
-✅ {IF refine_tokens: "Production-Ready: WCAG validated" ELSE: "Fast-Track: Proposed tokens"}
+✅ Production-Ready: WCAG AA compliant, OKLCH colors
 
 📂 {base_path}/
   ├── screenshots/                  # {captured_count} screenshots
-  ├── style-extraction/             # Design analysis
-  ├── style-consolidation/          # {token_quality}
+  ├── style-extraction/style-1/     # Production-ready design system
+  ├── layout-extraction/            # Structure templates
   └── prototypes/                   # {generated_count} HTML/CSS files
 
 🌐 Preview: {base_path}/prototypes/compare.html

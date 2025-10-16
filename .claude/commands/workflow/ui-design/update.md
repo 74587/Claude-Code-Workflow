@@ -30,13 +30,11 @@ CHECK: .workflow/.active-* marker files; VALIDATE: session_id matches active ses
 # Verify design artifacts in latest design run
 latest_design = find_latest_path_matching(".workflow/WFS-{session}/design-*")
 
-# Detect design system structure (unified vs separate)
-IF exists({latest_design}/style-consolidation/design-tokens.json):
-    design_system_mode = "unified"; design_tokens_path = "style-consolidation/design-tokens.json"; style_guide_path = "style-consolidation/style-guide.md"
-ELSE IF exists({latest_design}/style-consolidation/style-1/design-tokens.json):
-    design_system_mode = "separate"; design_tokens_path = "style-consolidation/style-1/design-tokens.json"; style_guide_path = "style-consolidation/style-1/style-guide.md"
+# Detect design system structure
+IF exists({latest_design}/style-extraction/style-1/design-tokens.json):
+    design_system_mode = "separate"; design_tokens_path = "style-extraction/style-1/design-tokens.json"; style_guide_path = "style-extraction/style-1/style-guide.md"
 ELSE:
-    ERROR: "No design tokens found. Run /workflow:ui-design:consolidate first"
+    ERROR: "No design tokens found. Run /workflow:ui-design:style-extract first"
 
 VERIFY: {latest_design}/{design_tokens_path}, {latest_design}/{style_guide_path}, {latest_design}/prototypes/*.html
 
@@ -202,15 +200,15 @@ Next: /workflow:plan [--agent] "<task description>"
 
 **@ Reference Format** (synthesis-specification.md):
 ```
-@../design-{run_id}/style-consolidation/design-tokens.json
-@../design-{run_id}/style-consolidation/style-guide.md
+@../design-{run_id}/style-extraction/style-1/design-tokens.json
+@../design-{run_id}/style-extraction/style-1/style-guide.md
 @../design-{run_id}/prototypes/{prototype}.html
 ```
 
 **@ Reference Format** (ui-designer/style-guide.md):
 ```
-@../../design-{run_id}/style-consolidation/design-tokens.json
-@../../design-{run_id}/style-consolidation/style-guide.md
+@../../design-{run_id}/style-extraction/style-1/design-tokens.json
+@../../design-{run_id}/style-extraction/style-1/style-guide.md
 @../../design-{run_id}/prototypes/{prototype}.html
 ```
 
@@ -230,8 +228,8 @@ After this update, `/workflow:plan` will discover design assets through:
   "task_id": "IMPL-001",
   "context": {
     "design_system": {
-      "tokens": "design-{run_id}/style-consolidation/design-tokens.json",
-      "style_guide": "design-{run_id}/style-consolidation/style-guide.md",
+      "tokens": "design-{run_id}/style-extraction/style-1/design-tokens.json",
+      "style_guide": "design-{run_id}/style-extraction/style-1/style-guide.md",
       "prototypes": ["design-{run_id}/prototypes/dashboard-variant-1.html"]
     }
   }
@@ -240,7 +238,7 @@ After this update, `/workflow:plan` will discover design assets through:
 
 ## Error Handling
 
-- **Missing design artifacts**: Error with message "Run /workflow:ui-design:consolidate and /workflow:ui-design:generate first"
+- **Missing design artifacts**: Error with message "Run /workflow:ui-design:style-extract and /workflow:ui-design:generate first"
 - **synthesis-specification.md not found**: Warning, create minimal version with just UI/UX Guidelines
 - **ui-designer/ directory missing**: Create directory and file
 - **Edit conflicts**: Preserve existing content, append or replace only UI/UX Guidelines section
@@ -265,7 +263,7 @@ After update, verify:
 
 ## Integration Points
 
-- **Input**: Design system artifacts from `/workflow:ui-design:consolidate` and `/workflow:ui-design:generate`
+- **Input**: Design system artifacts from `/workflow:ui-design:style-extract` and `/workflow:ui-design:generate`
 - **Output**: Updated synthesis-specification.md, ui-designer/style-guide.md with @ references
 - **Next Phase**: `/workflow:plan` discovers and utilizes design system through @ references
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` workflow

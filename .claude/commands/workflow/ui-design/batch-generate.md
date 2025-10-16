@@ -47,48 +47,49 @@ ELSE:
     bash(find .workflow -type d -name "design-*" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2)
 
 # Get variant counts
-style_variants = --style-variants OR bash(ls {base_path}/style-consolidation/style-* -d | wc -l)
+style_variants = --style-variants OR bash(ls {base_path}/style-extraction/style-* -d | wc -l)
 layout_variants = --layout-variants OR 3
 ```
 
 **Output**: `base_path`, `target_list[]`, `target_type`, `device_type`, `style_variants`, `layout_variants`
 
-### Step 2: Detect Token Sources
+### Step 2: Validate Design Tokens
 ```bash
-# Check consolidated (priority 1) or proposed (priority 2)
-bash(test -f {base_path}/style-consolidation/style-1/design-tokens.json && echo "consolidated")
-# OR
-bash(test -f {base_path}/style-extraction/style-cards.json && echo "proposed")
+# Check design tokens exist
+bash(test -f {base_path}/style-extraction/style-1/design-tokens.json && echo "valid")
 
-# If proposed: Create temp consolidation dirs + write tokens
-FOR style_id IN 1..style_variants:
-    bash(mkdir -p {base_path}/style-consolidation/style-{style_id})
-    Write({base_path}/style-consolidation/style-{style_id}/design-tokens.json, proposed_tokens)
-
-# Load design space analysis (optional)
-IF exists({base_path}/style-extraction/design-space-analysis.json):
-    design_space_analysis = Read({base_path}/style-extraction/design-space-analysis.json)
+# Load design space analysis (optional, from intermediates)
+IF exists({base_path}/.intermediates/style-analysis/design-space-analysis.json):
+    design_space_analysis = Read({base_path}/.intermediates/style-analysis/design-space-analysis.json)
 ```
 
-**Output**: `token_sources{}`, `consolidated_count`, `proposed_count`, `design_space_analysis`
+**Output**: `design_tokens_valid`, `design_space_analysis`
 
-### Step 3: Gather Layout Inspiration
+### Step 3: Gather Layout Inspiration (Reuse or Create)
 ```bash
-bash(mkdir -p {base_path}/prototypes/_inspirations)
+# Check if layout inspirations already exist from layout-extract phase
+inspiration_source = "{base_path}/.intermediates/layout-analysis/inspirations"
 
-# For each target: Research via MCP
 FOR target IN target_list:
-    search_query = "{target} {target_type} layout patterns variations"
-    mcp__exa__web_search_exa(query=search_query, numResults=5)
+    # Priority 1: Reuse existing inspiration from layout-extract
+    IF exists({inspiration_source}/{target}-layout-ideas.txt):
+        # Reuse existing inspiration (no action needed)
+        REPORT: "Using existing layout inspiration for {target}"
+    ELSE:
+        # Priority 2: Generate new inspiration via MCP
+        bash(mkdir -p {inspiration_source})
+        search_query = "{target} {target_type} layout patterns variations"
+        mcp__exa__web_search_exa(query=search_query, numResults=5)
 
-    # Extract context from prompt for this target
-    target_requirements = extract_relevant_context_from_prompt(prompt_text, target)
+        # Extract context from prompt for this target
+        target_requirements = extract_relevant_context_from_prompt(prompt_text, target)
 
-    # Write simple inspiration file
-    Write({base_path}/prototypes/_inspirations/{target}-layout-ideas.txt, inspiration_content)
+        # Write inspiration file to centralized location
+        Write({inspiration_source}/{target}-layout-ideas.txt, inspiration_content)
+        REPORT: "Created new layout inspiration for {target}"
 ```
 
-**Output**: `T` inspiration text files
+**Output**: `T` inspiration text files (reused or created in `.intermediates/layout-analysis/inspirations/`)
 
 ## Phase 2: Target-Style-Centric Batch Generation (Agent)
 
@@ -126,8 +127,8 @@ Task(ui-design-agent): `
   ${design_attributes ? "DESIGN_ATTRIBUTES: " + JSON.stringify(design_attributes) : ""}
 
   ## Reference
-  - Layout inspiration: Read("{base_path}/prototypes/_inspirations/{target}-layout-ideas.txt")
-  - Design tokens: Read("{base_path}/style-consolidation/style-{style_id}/design-tokens.json")
+  - Layout inspiration: Read("{base_path}/.intermediates/layout-analysis/inspirations/{target}-layout-ideas.txt")
+  - Design tokens: Read("{base_path}/style-extraction/style-{style_id}/design-tokens.json")
     Parse ALL token values (colors, typography, spacing, borders, shadows, breakpoints)
   ${design_attributes ? "- Adapt DOM to: density, visual_weight, formality, organic_vs_geometric" : ""}
 
@@ -242,17 +243,18 @@ Quality:
 - Style-aware: {design_space_analysis ? 'HTML adapts to design_attributes' : 'Standard structure'}
 - CSS: Self-contained (direct token values, no var())
 - Device-optimized: {device_type} layouts
-- Tokens: {consolidated_count} consolidated, {proposed_count} proposed
-{IF proposed_count > 0: '  💡 For production: /workflow:ui-design:consolidate'}
+- Tokens: Production-ready (WCAG AA compliant)
 
 Generated Files:
 {base_path}/prototypes/
-├── _inspirations/ ({T} text files)
 ├── {target}-style-{s}-layout-{l}.html ({S×L×T} prototypes)
 ├── {target}-style-{s}-layout-{l}.css
 ├── compare.html (interactive matrix)
 ├── index.html (navigation)
 └── PREVIEW.md (instructions)
+
+Layout Inspirations:
+{base_path}/.intermediates/layout-analysis/inspirations/ ({T} text files, reused or created)
 
 Preview:
 1. Open compare.html (recommended)
@@ -270,11 +272,10 @@ Next: /workflow:ui-design:update
 bash(find .workflow -type d -name "design-*" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2)
 
 # Count style variants
-bash(ls {base_path}/style-consolidation/style-* -d | wc -l)
+bash(ls {base_path}/style-extraction/style-* -d | wc -l)
 
-# Check token sources
-bash(test -f {base_path}/style-consolidation/style-1/design-tokens.json && echo "consolidated")
-bash(test -f {base_path}/style-extraction/style-cards.json && echo "proposed")
+# Check design tokens exist
+bash(test -f {base_path}/style-extraction/style-1/design-tokens.json && echo "valid")
 ```
 
 ### Validation Commands
@@ -288,8 +289,11 @@ bash(test -f {base_path}/prototypes/compare.html && echo "exists")
 
 ### File Operations
 ```bash
-# Create directories
-bash(mkdir -p {base_path}/prototypes/_inspirations)
+# Create prototypes directory
+bash(mkdir -p {base_path}/prototypes)
+
+# Create inspirations directory (if needed)
+bash(mkdir -p {base_path}/.intermediates/layout-analysis/inspirations)
 
 # Run preview script
 bash(~/.claude/scripts/ui-generate-preview.sh "{base_path}/prototypes")
@@ -299,15 +303,17 @@ bash(~/.claude/scripts/ui-generate-preview.sh "{base_path}/prototypes")
 
 ```
 {base_path}/
+├── .intermediates/
+│   └── layout-analysis/
+│       └── inspirations/
+│           └── {target}-layout-ideas.txt  # Layout inspiration (reused or created)
 ├── prototypes/
-│   ├── _inspirations/
-│   │   └── {target}-layout-ideas.txt  # Layout inspiration
 │   ├── {target}-style-{s}-layout-{l}.html  # Final prototypes
 │   ├── {target}-style-{s}-layout-{l}.css
 │   ├── compare.html
 │   ├── index.html
 │   └── PREVIEW.md
-└── style-consolidation/
+└── style-extraction/
     └── style-{s}/
         ├── design-tokens.json
         └── style-guide.md
@@ -317,8 +323,8 @@ bash(~/.claude/scripts/ui-generate-preview.sh "{base_path}/prototypes")
 
 ### Common Errors
 ```
-ERROR: No token sources found
-→ Run /workflow:ui-design:extract or /workflow:ui-design:consolidate
+ERROR: No design tokens found
+→ Run /workflow:ui-design:style-extract first
 
 ERROR: No targets extracted from prompt
 → Use --targets explicitly or rephrase prompt
@@ -364,9 +370,14 @@ ERROR: Script permission denied
 
 ## Integration
 
-**Input**: Prompt, design-tokens.json, design-space-analysis.json (optional)
+**Input**:
+- Required: Prompt, design-tokens.json
+- Optional: design-space-analysis.json (from `.intermediates/style-analysis/`)
+- Reuses: Layout inspirations from `.intermediates/layout-analysis/inspirations/` (if available from layout-extract)
+
 **Output**: S×L×T prototypes for `/workflow:ui-design:update`
-**Compatible**: extract, consolidate, explore-auto, imitate-auto outputs
+**Compatible**: style-extract, explore-auto, imitate-auto outputs
+**Optimization**: Reuses layout inspirations from layout-extract phase, avoiding duplicate MCP searches
 
 ## Usage Examples
 
