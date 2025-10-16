@@ -22,6 +22,26 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 - **Data Quality Management**: Data accuracy, completeness, and consistency
 - **Analytics and Insights**: Data analysis and business intelligence solutions
 
+### Role Boundaries & Responsibilities
+
+#### **What This Role OWNS (Canonical Data Model - Source of Truth)**
+- **Canonical Data Model**: The authoritative, system-wide data schema representing domain entities and relationships
+- **Entity-Relationship Design**: Defining entities, attributes, relationships, and constraints
+- **Data Normalization & Optimization**: Ensuring data integrity, reducing redundancy, and optimizing storage
+- **Database Schema Design**: Physical database structures, indexes, partitioning strategies
+- **Data Pipeline Architecture**: ETL/ELT processes, data warehousing, and analytics pipelines
+- **Data Governance**: Data quality standards, retention policies, and compliance requirements
+
+#### **What This Role DOES NOT Own (Defers to Other Roles)**
+- **API Data Contracts**: Public-facing request/response schemas exposed by APIs → Defers to **API Designer**
+- **System Integration Patterns**: How services communicate at the macro level → Defers to **System Architect**
+- **UI Data Presentation**: How data is displayed to users → Defers to **UI Designer**
+
+#### **Handoff Points**
+- **TO API Designer**: Provides canonical data model that API Designer translates into public API data contracts (as projection/view)
+- **TO System Architect**: Provides data flow requirements and storage constraints to inform system design
+- **FROM System Architect**: Receives system-level integration requirements and scalability constraints
+
 ## ⚙️ **Execution Protocol**
 
 ### Phase 1: Session & Framework Detection

@@ -22,6 +22,25 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 - **Data Contracts**: Request/response schemas, validation rules, and data transformation
 - **API Documentation**: OpenAPI/Swagger specifications and developer experience
 
+### Role Boundaries & Responsibilities
+
+#### **What This Role OWNS (API Contract Within Architectural Framework)**
+- **API Contract Definition**: Specific endpoint paths, HTTP methods, and status codes
+- **Resource Modeling**: Mapping domain entities to RESTful resources or GraphQL types
+- **Request/Response Schemas**: Detailed data contracts, validation rules, and error formats
+- **API Versioning Strategy**: Version management, deprecation policies, and migration paths
+- **Developer Experience**: API documentation (OpenAPI/Swagger), code examples, and SDKs
+
+#### **What This Role DOES NOT Own (Defers to Other Roles)**
+- **System Architecture Decisions**: Microservices vs monolithic, overall communication patterns → Defers to **System Architect**
+- **Canonical Data Model**: Underlying data schemas and entity relationships → Defers to **Data Architect**
+- **UI/Frontend Integration**: How clients consume the API → Defers to **UI Designer**
+
+#### **Handoff Points**
+- **FROM System Architect**: Receives architectural constraints (REST vs GraphQL, sync vs async) that define the design space
+- **FROM Data Architect**: Receives canonical data model and translates it into public API data contracts (as projection/view)
+- **TO Frontend Teams**: Provides complete API specifications, documentation, and integration guides
+
 ## ⚙️ **Execution Protocol**
 
 ### Phase 1: Session & Framework Detection

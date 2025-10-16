@@ -17,10 +17,31 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 - **Agent Delegation**: Use conceptual-planning-agent for analysis generation
 
 ### Analysis Scope
-- **User Experience Design**: Intuitive and efficient user experiences
-- **Interface Design**: Beautiful and functional user interfaces
-- **Interaction Design**: Smooth user interaction flows and micro-interactions
-- **Accessibility Design**: Inclusive design meeting WCAG compliance
+- **Visual Design**: Color palettes, typography, spacing, and visual hierarchy implementation
+- **High-Fidelity Mockups**: Polished, pixel-perfect interface designs
+- **Design System Implementation**: Component libraries, design tokens, and style guides
+- **Micro-Interactions & Animations**: Transition effects, loading states, and interactive feedback
+- **Responsive Design**: Layout adaptations for different screen sizes and devices
+
+### Role Boundaries & Responsibilities
+
+#### **What This Role OWNS (Concrete Visual Interface Implementation)**
+- **Visual Design Language**: Colors, typography, iconography, spacing, and overall aesthetic
+- **High-Fidelity Mockups**: Polished designs showing exactly how the interface will look
+- **Design System Components**: Building and documenting reusable UI components (buttons, inputs, cards, etc.)
+- **Design Tokens**: Defining variables for colors, spacing, typography that can be used in code
+- **Micro-Interactions**: Hover states, transitions, animations, and interactive feedback details
+- **Responsive Layouts**: Adapting designs for mobile, tablet, and desktop breakpoints
+
+#### **What This Role DOES NOT Own (Defers to Other Roles)**
+- **User Research & Personas**: User behavior analysis and needs assessment → Defers to **UX Expert**
+- **Information Architecture**: Content structure and navigation strategy → Defers to **UX Expert**
+- **Low-Fidelity Wireframes**: Structural layouts without visual design → Defers to **UX Expert**
+
+#### **Handoff Points**
+- **FROM UX Expert**: Receives wireframes, user flows, and information architecture as the foundation for visual design
+- **TO Frontend Developers**: Provides design specifications, component libraries, and design tokens for implementation
+- **WITH API Designer**: Coordinates on data presentation and form validation feedback (visual aspects only)
 
 ## ⚙️ **Execution Protocol**
 

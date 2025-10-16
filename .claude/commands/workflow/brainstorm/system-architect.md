@@ -22,6 +22,25 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 - **Performance & Scalability**: Capacity planning and optimization strategies
 - **Integration Patterns**: System communication and data flow design
 
+### Role Boundaries & Responsibilities
+
+#### **What This Role OWNS (Macro-Architecture)**
+- **System-Level Architecture**: Service boundaries, deployment topology, and system composition
+- **Cross-Service Communication Patterns**: Choosing between microservices/monolithic, event-driven/request-response, sync/async patterns
+- **Technology Stack Decisions**: Language, framework, database, and infrastructure choices
+- **Non-Functional Requirements**: Scalability, performance, availability, disaster recovery, and monitoring strategies
+- **Integration Planning**: How systems and services connect at the macro level (not specific API contracts)
+
+#### **What This Role DOES NOT Own (Defers to Other Roles)**
+- **API Contract Details**: Specific endpoint definitions, URL structures, HTTP methods → Defers to **API Designer**
+- **Data Schemas**: Detailed data model design and entity relationships → Defers to **Data Architect**
+- **UI/UX Design**: Interface design and user experience → Defers to **UX Expert** and **UI Designer**
+
+#### **Handoff Points**
+- **TO API Designer**: Provides architectural constraints (REST vs GraphQL, sync vs async) that define the API design space
+- **TO Data Architect**: Provides system-level data flow requirements and integration patterns
+- **FROM Data Architect**: Receives canonical data model to inform system integration design
+
 ## ⚙️ **Execution Protocol**
 
 ### Phase 1: Session & Framework Detection

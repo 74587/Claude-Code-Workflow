@@ -1,10 +1,10 @@
 ---
-name: update-memory-related
+name: update-related
 description: Context-aware CLAUDE.md documentation updates based on recent changes
 argument-hint: "[--tool gemini|qwen|codex]"
 ---
 
-# Related Documentation Update (/update-memory-related)
+# Related Documentation Update (/memory:update-related)
 
 ## Coordinator Role
 
@@ -268,13 +268,13 @@ REQUIREMENTS:
 
 ```bash
 # Daily development update (default: gemini)
-/update-memory-related
+/memory:update-related
 
 # After feature work with specific tool
-/update-memory-related --tool qwen
+/memory:update-related --tool qwen
 
 # Code quality review after implementation
-/update-memory-related --tool codex
+/memory:update-related --tool codex
 ```
 
 ## Tool Parameter Reference

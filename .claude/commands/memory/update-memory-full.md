@@ -1,10 +1,10 @@
 ---
-name: update-memory-full
+name: update-full
 description: Complete project-wide CLAUDE.md documentation update
 argument-hint: "[--tool gemini|qwen|codex] [--path <directory>]"
 ---
 
-# Full Documentation Update (/update-memory-full)
+# Full Documentation Update (/memory:update-full)
 
 ## Coordinator Role
 
@@ -301,7 +301,7 @@ REQUIREMENTS:
 
 **Update configuration directory only:**
 ```bash
-/update-memory-full --path .claude
+/memory:update-full --path .claude
 ```
 - Updates only .claude directory and subdirectories
 - Useful after workflow or command modifications
@@ -309,7 +309,7 @@ REQUIREMENTS:
 
 **Update specific feature module:**
 ```bash
-/update-memory-full --path src/features/auth
+/memory:update-full --path src/features/auth
 ```
 - Updates authentication feature and sub-modules
 - Ideal for feature-specific documentation
@@ -317,7 +317,7 @@ REQUIREMENTS:
 
 **Update nested structure:**
 ```bash
-/update-memory-full --path .claude/workflows/cli-templates
+/memory:update-full --path .claude/workflows/cli-templates
 ```
 - Updates deeply nested directory tree
 - Maintains relative path structure in output

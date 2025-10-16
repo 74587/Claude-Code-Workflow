@@ -17,10 +17,31 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 - **Agent Delegation**: Use conceptual-planning-agent for analysis generation
 
 ### Analysis Scope
-- **User Interface Design**: Visual hierarchy, layout patterns, and component design
-- **Interaction Patterns**: User flows, navigation, and microinteractions
-- **Usability Optimization**: Accessibility, cognitive load, and user testing strategies
-- **Design Systems**: Component libraries, design tokens, and consistency frameworks
+- **User Research**: User personas, behavioral analysis, and needs assessment
+- **Information Architecture**: Content structure, navigation hierarchy, and mental models
+- **User Journey Mapping**: User flows, task analysis, and interaction models
+- **Usability Strategy**: Accessibility planning, cognitive load reduction, and user testing frameworks
+- **Wireframing**: Low-fidelity layouts and structural prototypes (not visual design)
+
+### Role Boundaries & Responsibilities
+
+#### **What This Role OWNS (Abstract User Experience & Research)**
+- **User Research & Personas**: Understanding target users, their goals, pain points, and behaviors
+- **Information Architecture**: Organizing content and defining navigation structures at a conceptual level
+- **User Journey Mapping**: Defining user flows, task sequences, and interaction models
+- **Wireframes & Low-Fidelity Prototypes**: Structural layouts showing information hierarchy (boxes and arrows, not colors/fonts)
+- **Usability Testing Strategy**: Planning user testing, A/B tests, and validation methods
+- **Accessibility Planning**: WCAG compliance strategy and inclusive design principles
+
+#### **What This Role DOES NOT Own (Defers to Other Roles)**
+- **Visual Design**: Colors, typography, spacing, visual style → Defers to **UI Designer**
+- **High-Fidelity Mockups**: Polished, pixel-perfect designs → Defers to **UI Designer**
+- **Component Implementation**: Design system components, CSS, animations → Defers to **UI Designer**
+
+#### **Handoff Points**
+- **TO UI Designer**: Provides wireframes, user flows, and information architecture that UI Designer will transform into high-fidelity visual designs
+- **FROM User Research**: May receive external research data to inform UX decisions
+- **TO Product Owner**: Provides user insights and validation results to inform feature prioritization
 
 ## ⚙️ **Execution Protocol**
 

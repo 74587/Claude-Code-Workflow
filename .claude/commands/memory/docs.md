@@ -4,7 +4,7 @@ description: Documentation planning and orchestration - creates structured docum
 argument-hint: "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-generate]"
 ---
 
-# Documentation Workflow (/workflow:docs)
+# Documentation Workflow (/memory:docs)
 
 ## Overview
 Lightweight planner that analyzes project structure, decomposes documentation work into tasks, and generates execution plans. Does NOT generate documentation content itself - delegates to doc-generator agent.
@@ -37,7 +37,7 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 ## Parameters
 
 ```bash
-/workflow:docs [path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-generate]
+/memory:docs [path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-generate]
 ```
 
 - **path**: Target directory (default: current directory)
