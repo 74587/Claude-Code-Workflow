@@ -270,12 +270,14 @@ MCP (模型上下文协议) 工具提供高级代码库分析。**推荐安装**
 |------------|------|---------|
 | **Exa MCP** | 外部 API 模式和最佳实践 | [安装指南](https://smithery.ai/server/exa) |
 | **Code Index MCP** | 高级内部代码搜索 | [安装指南](https://github.com/johnhuang316/code-index-mcp) |
+| **Chrome DevTools MCP** | ⚠️ **UI 工作流必需** - URL 模式设计提取 | [安装指南](https://github.com/ChromeDevTools/chrome-devtools-mcp) |
 
 #### 启用后的好处
 - 📊 **更快分析**: 直接代码库索引 vs 手动搜索
 - 🌐 **外部上下文**: 真实世界的 API 模式和示例
 - 🔍 **高级搜索**: 模式匹配和相似性检测
 - ⚡ **更好的可靠性**: 某些工作流的主要工具
+- 🎨 **UI 工作流**: Chrome DevTools 实现从在线 URL 进行像素级精确设计提取
 
 ⚠️ **注意**: 某些工作流期望 MCP 工具可用。如果没有安装，您可能会遇到：
 - 代码分析和搜索操作速度较慢
@@ -490,7 +492,9 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 
 ### **UI 设计工作流命令 (`/workflow:ui-design:*`)** *(v4.4.0)*
 
-设计工作流系统提供完整的 UI 设计精炼，具备**布局/样式分离架构**、**纯 Claude 执行**、**智能目标推断**和**零外部依赖**。
+⚠️ **基于 URL 的设计提取**: 安装 [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp) 以启用从在线 URL 自动提取计算样式和 DOM 结构。如果不可用，将回退到视觉分析。
+
+设计工作流系统提供完整的 UI 设计精炼,具备**布局/样式分离架构**、**纯 Claude 执行**、**智能目标推断**和**零外部依赖**。
 
 #### 📐 架构概述
 

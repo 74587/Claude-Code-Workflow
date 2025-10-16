@@ -270,12 +270,14 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 |------------|---------|-------------------|
 | **Exa MCP** | External API patterns & best practices | [Install Guide](https://smithery.ai/server/exa) |
 | **Code Index MCP** | Advanced internal code search | [Install Guide](https://github.com/johnhuang316/code-index-mcp) |
+| **Chrome DevTools MCP** | ⚠️ **Required for UI workflows** - URL mode design extraction | [Install Guide](https://github.com/ChromeDevTools/chrome-devtools-mcp) |
 
 #### Benefits When Enabled
 - 📊 **Faster Analysis**: Direct codebase indexing vs manual searching
 - 🌐 **External Context**: Real-world API patterns and examples
 - 🔍 **Advanced Search**: Pattern matching and similarity detection
 - ⚡ **Better Reliability**: Primary tools for certain workflows
+- 🎨 **UI Workflows**: Chrome DevTools enables pixel-perfect design extraction from live URLs
 
 ⚠️ **Note**: Some workflows expect MCP tools to be available. Without them, you may experience:
 - Slower code analysis and search operations
@@ -491,6 +493,8 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 ### **UI Design Workflow Commands (`/workflow:ui-design:*`)** *(v4.4.0)*
 
 The design workflow system provides complete UI design refinement with **layout/style separation architecture**, **pure Claude execution**, **intelligent target inference**, and **zero external dependencies**.
+
+⚠️ **For URL-based design extraction**: Install [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp) to enable auto-extraction of computed styles and DOM structure from live URLs. Falls back to visual analysis if unavailable.
 
 #### 📐 Architecture Overview
 
