@@ -189,6 +189,7 @@ TodoWrite({todos: [
   {content: "Initialize and parse url-map", status: "completed", activeForm: "Initializing"},
   {content: capture_mode == "batch" ? f"Batch screenshot capture ({len(target_names)} targets)" : f"Deep exploration (depth {depth})", status: "pending", activeForm: "Capturing screenshots"},
   {content: "Extract style (complete design systems)", status: "pending", activeForm: "Extracting style"},
+  {content: "Extract animation (CSS auto mode)", status: "pending", activeForm: "Extracting animation"},
   {content: "Extract layout (structure templates)", status: "pending", activeForm: "Extracting layout"},
   {content: f"Assemble UI for {len(target_names)} targets", status: "pending", activeForm: "Assembling UI"},
   {content: session_id ? "Integrate design system" : "Standalone completion", status: "pending", activeForm: "Completing"}
@@ -306,6 +307,39 @@ IF NOT exists(design_tokens_path) OR NOT exists(style_guide_path):
     EXIT 1
 
 TodoWrite(mark_completed: "Extract style (complete design systems)",
+          mark_in_progress: "Extract animation (CSS auto mode)")
+```
+
+### Phase 2.3: Animation Extraction (CSS Auto Mode)
+
+```bash
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "🚀 Phase 2.3: Animation Extraction"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Build URL list for animation-extract (auto mode for CSS extraction)
+url_map_for_animation = ",".join([f"{target}:{url}" for target, url in url_map.items()])
+
+# Call animation-extract command (auto mode for CSS animation extraction)
+# Pass --urls to auto-trigger CSS animation/transition extraction via Chrome DevTools
+animation_extract_command = f"/workflow:ui-design:animation-extract --base-path \"{base_path}\" --urls \"{url_map_for_animation}\" --mode auto"
+
+TRY:
+    SlashCommand(animation_extract_command)
+CATCH error:
+    ERROR: "Animation extraction failed: {error}"
+    ERROR: "Cannot proceed without animation tokens"
+    EXIT 1
+
+# Verify animation extraction results
+animation_tokens_path = "{base_path}/animation-extraction/animation-tokens.json"
+animation_guide_path = "{base_path}/animation-extraction/animation-guide.md"
+
+IF NOT exists(animation_tokens_path) OR NOT exists(animation_guide_path):
+    ERROR: "animation-extract did not generate required files"
+    EXIT 1
+
+TodoWrite(mark_completed: "Extract animation (CSS auto mode)",
           mark_in_progress: "Extract layout (structure templates)")
 ```
 
@@ -406,6 +440,7 @@ TodoWrite({todos: [
   {content: "Initialize and parse url-map", status: "completed", activeForm: "Initializing"},
   {content: capture_mode == "batch" ? f"Batch screenshot capture ({len(target_names)} targets)" : f"Deep exploration (depth {depth})", status: "completed", activeForm: "Capturing"},
   {content: "Extract style (complete design systems)", status: "completed", activeForm: "Extracting"},
+  {content: "Extract animation (CSS auto mode)", status: "completed", activeForm: "Extracting animation"},
   {content: "Extract layout (structure templates)", status: "completed", activeForm: "Extracting layout"},
   {content: f"Assemble UI for {len(target_names)} targets", status: "completed", activeForm: "Assembling"},
   {content: session_id ? "Integrate design system" : "Standalone completion", status: "completed", activeForm: "Completing"}
@@ -432,6 +467,10 @@ Phase 1 - Screenshot Capture: ✅ {IF capture_mode == "batch": f"{captured_count
 Phase 2 - Style Extraction: ✅ Production-ready design systems
   Output: style-extraction/style-1/ (design-tokens.json + style-guide.md)
   Quality: WCAG AA compliant, OKLCH colors
+
+Phase 2.3 - Animation Extraction: ✅ CSS animations and transitions
+  Output: animation-extraction/ (animation-tokens.json + animation-guide.md)
+  Method: Auto-extracted from live URLs via Chrome DevTools
 
 Phase 2.5 - Layout Extraction: ✅ Structure templates
   Templates: {template_count} layout structures
@@ -463,6 +502,9 @@ ELSE:
 │   └── style-1/
 │       ├── design-tokens.json
 │       └── style-guide.md
+├── animation-extraction/           # CSS animations and transitions
+│   ├── animation-tokens.json
+│   └── animation-guide.md
 ├── layout-extraction/              # Structure templates
 │   └── layout-templates.json
 └── prototypes/                     # {generated_count} HTML/CSS files
@@ -601,9 +643,10 @@ TodoWrite({todos: [
      - `--capture-mode batch`: `/workflow:ui-design:capture` (multi-URL batch)
      - `--capture-mode deep`: `/workflow:ui-design:explore-layers` (single-URL depth exploration)
   2. `/workflow:ui-design:style-extract` (Phase 2 - complete design systems)
-  3. `/workflow:ui-design:layout-extract` (Phase 2.5 - structure templates)
-  4. `/workflow:ui-design:generate` (Phase 3 - pure assembly)
-  5. `/workflow:ui-design:update` (Phase 4, if --session)
+  3. `/workflow:ui-design:animation-extract` (Phase 2.3 - CSS animations and transitions)
+  4. `/workflow:ui-design:layout-extract` (Phase 2.5 - structure templates)
+  5. `/workflow:ui-design:generate` (Phase 3 - pure assembly)
+  6. `/workflow:ui-design:update` (Phase 4, if --session)
 
 ## Completion Output
 
