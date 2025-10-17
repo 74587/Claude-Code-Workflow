@@ -68,7 +68,21 @@ Define subtasks manually (remaining capacity: 4 tasks):
    - "User authentication" and "OAuth integration" both handle auth
    - Consider combining into single task
 
-Proceed with breakdown? (y/n): y
+# Use AskUserQuestion for confirmation
+AskUserQuestion({
+  questions: [{
+    question: "File conflicts and/or similar functionality detected. How do you want to proceed?",
+    header: "Confirm",
+    options: [
+      { label: "Proceed with breakdown", description: "Accept the risks and create the subtasks as defined." },
+      { label: "Restart breakdown", description: "Discard current subtasks and start over." },
+      { label: "Cancel breakdown", description: "Abort the operation and leave the parent task as is." }
+    ],
+    multiSelect: false
+  }]
+})
+
+User selected: "Proceed with breakdown"
 
 ✅ Task IMPL-1 broken down:
 ▸ IMPL-1: Build authentication module (container)

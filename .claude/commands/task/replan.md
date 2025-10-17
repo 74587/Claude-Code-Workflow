@@ -174,7 +174,20 @@ Rollback to version 1.1:
 - Remove new subtasks if any
 - Update session stats
 
-Confirm rollback? (y/n): y
+# Use AskUserQuestion for confirmation
+AskUserQuestion({
+  questions: [{
+    question: "Are you sure you want to roll back this task to a previous version?",
+    header: "Confirm",
+    options: [
+      { label: "Yes, rollback", description: "Restore the task from the selected backup." },
+      { label: "No, cancel", description: "Keep the current version of the task." }
+    ],
+    multiSelect: false
+  }]
+})
+
+User selected: "Yes, rollback"
 
 ✅ Task rolled back to version 1.1
 ```
@@ -227,7 +240,20 @@ Proposed updates:
 + Add OAuth2 integration
 + Update authentication flow
 
-Apply changes? (y/n): y
+# Use AskUserQuestion for confirmation
+AskUserQuestion({
+  questions: [{
+    question: "Do you want to apply these changes to the task?",
+    header: "Apply",
+    options: [
+      { label: "Yes, apply", description: "Create new version with these changes." },
+      { label: "No, cancel", description: "Discard changes and keep current version." }
+    ],
+    multiSelect: false
+  }]
+})
+
+User selected: "Yes, apply"
 
 ✓ Version 1.2 created
 ✓ Context updated

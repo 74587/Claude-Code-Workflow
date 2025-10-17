@@ -121,9 +121,22 @@ Claude (orchestrating AI) synthesizes both outputs:
 ### Phase 3: User Review and Iteration
 
 1.  **Present Synthesis**: Show synthesized plan and key discussion points
-2.  **Continue or Conclude**: Prompt user:
-    - **(1)** Start another round of discussion
-    - **(2)** Conclude and finalize the plan
+2.  **Continue or Conclude**: Use AskUserQuestion to prompt user:
+
+```typescript
+AskUserQuestion({
+  questions: [{
+    question: "Round of discussion complete. What is the next step?",
+    header: "Next Round",
+    options: [
+      { label: "Start another round", description: "Continue the discussion to refine the plan further." },
+      { label: "Conclude and finalize", description: "End the discussion and save the final plan." }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
 3.  **Loop or Finalize**:
     -   Continue → New round with Gemini analyzing latest synthesis
     -   Conclude → Save final synthesized document

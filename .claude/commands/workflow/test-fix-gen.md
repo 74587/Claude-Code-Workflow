@@ -1,7 +1,7 @@
 ---
 name: test-fix-gen
-description: Create independent test-fix workflow session by analyzing completed implementation
-argument-hint: "[--use-codex] [--cli-execute] source-session-id"
+description: Create independent test-fix workflow session from existing implementation (session or prompt-based)
+argument-hint: "[--use-codex] [--cli-execute] (source-session-id | \"feature description\" | /path/to/file.md)"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -9,13 +9,16 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 ## Coordinator Role
 
-**This command is a pure orchestrator**: Creates an independent test-fix workflow session for validating a completed implementation. It reuses the standard planning toolchain with automatic cross-session context gathering.
+**This command is a pure orchestrator**: Creates an independent test-fix workflow session for existing code. Supports two input modes:
+- **Session Mode**: Analyze completed workflow session (cross-session context gathering)
+- **Prompt Mode**: Analyze existing codebase via description or file (prompt-based context gathering)
 
 **Core Principles**:
-- **Session Isolation**: Creates new `WFS-test-[source]` session to keep verification separate from implementation
-- **Context-First**: Prioritizes gathering code changes and summaries from source session
-- **Format Reuse**: Creates standard `IMPL-*.json` task, using `meta.type: "test-fix"` for agent assignment
-- **Parameter Simplification**: Tools auto-detect test session type via metadata, no manual cross-session parameters needed
+- **Dual Input Support**: Accepts either session ID (WFS-xxx) or feature description/file path
+- **Session Isolation**: Creates new `WFS-test-[slug]` session to keep test workflow independent
+- **Context-First**: Gathers implementation context via appropriate method (session or prompt-based)
+- **Format Reuse**: Creates standard `IMPL-*.json` tasks, using `meta.type: "test-fix"` for agent assignment
+- **Automatic Mode Detection**: Input pattern determines execution mode (no manual flags)
 - **Manual First**: Default to manual fixes, use `--use-codex` flag for automated Codex fix application
 
 **Execution Flow**:
@@ -339,3 +342,76 @@ See `/workflow:tools:test-task-generate` for detailed specifications.
 - `/workflow:test-cycle-execute` - Execute test-fix workflow with dynamic iteration
 - `/workflow:execute` - Execute standard workflow tasks
 - `/workflow:status` - Check progress
+
+## Dual-Mode Support (Enhanced)
+
+### Input Mode Detection
+
+**Automatic mode detection based on argument pattern**:
+
+```bash
+# Detection Logic
+if [[ "$input" == WFS-* ]]; then
+  MODE="session"  # Session Mode
+elif [ -f "$input" ]; then
+  MODE="prompt"   # Prompt Mode (file)
+else
+  MODE="prompt"   # Prompt Mode (text)
+fi
+```
+
+### Mode Comparison
+
+| Aspect | Session Mode | Prompt Mode |
+|--------|-------------|-------------|
+| **Input** | `WFS-xxx` pattern | Description or file path |
+| **Phase 1** | Create `WFS-test-[source]` with `source_session_id` | Create `WFS-test-[slug]` without `source_session_id` |
+| **Phase 2** | `/workflow:tools:test-context-gather` | `/workflow:tools:context-gather` |
+| **Phase 3-5** | Identical | Identical |
+| **Context Source** | Source session summaries | Direct codebase analysis |
+
+### Usage Examples
+
+#### Session Mode (Existing Behavior)
+```bash
+# Test validation for completed implementation session
+/workflow:test-fix-gen WFS-user-auth-v2
+```
+
+#### Prompt Mode - Text Description
+```bash
+# Generate tests from feature description
+/workflow:test-fix-gen "Test the user authentication API endpoints in src/auth/api.ts"
+```
+
+#### Prompt Mode - File Reference
+```bash
+# Generate tests from requirements file
+/workflow:test-fix-gen ./docs/api-requirements.md
+```
+
+#### With Codex Automation
+```bash
+# Session mode with automated fixes
+/workflow:test-fix-gen --use-codex WFS-user-auth
+
+# Prompt mode with automated fixes
+/workflow:test-fix-gen --use-codex "Test user registration flow"
+```
+
+### Implementation Notes
+
+**Core Rules Addition**:
+- Rule 0: **Detect Input Mode** - First analyze input argument to determine session vs prompt mode
+
+**Phase 1 Variation**:
+- Session: `"Test validation for [sourceSessionId]"`
+- Prompt: `"Test generation for: [prompt-description]"`
+
+**Phase 2 Variation**:
+- Session: `test-context-gather` (reads `source_session_id` from metadata)
+- Prompt: `context-gather --session [sessionId] "[task_description]"`
+
+### Backward Compatibility
+
+✅ **Fully backward compatible**: Existing session-based usage remains unchanged. All `WFS-*` arguments automatically use session mode.

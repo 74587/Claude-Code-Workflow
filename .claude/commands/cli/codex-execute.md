@@ -284,10 +284,22 @@ codex exec "CONTINUE TO NEXT SUBTASK: ..." resume --last --skip-git-repo-check -
 1. Mark subtask as blocked in TodoWrite
 2. Report error details to user
 3. Pause execution for manual intervention
-4. User can choose to:
-   - Retry current subtask
-   - Continue to next subtask
-   - Abort entire task
+4. Use AskUserQuestion for recovery decision:
+
+```typescript
+AskUserQuestion({
+  questions: [{
+    question: "Codex execution failed for the subtask. How should the workflow proceed?",
+    header: "Recovery",
+    options: [
+      { label: "Retry Subtask", description: "Attempt to execute the same subtask again." },
+      { label: "Skip Subtask", description: "Continue to the next subtask in the plan." },
+      { label: "Abort Workflow", description: "Stop the entire execution." }
+    ],
+    multiSelect: false
+  }]
+})
+```
 
 **Git Verification Failure** (if --verify-git):
 1. Show unexpected changes
