@@ -55,7 +55,7 @@ RULES: [Template reference] | [Specific constraints: standards, patterns, focus 
 - Specify scope boundaries
 
 **CONTEXT**:
-- File patterns: `@{src/**/*.ts}` (include only what you need), `@{src/**/*.ts,!**/*.test.ts}` (use `!` to exclude)
+- File patterns: `@{src/**/*.ts}` (include only what you need)
 - Business context: "50k DAU, PostgreSQL 14, target <200ms p95"
 - Tech stack: Versions, frameworks, constraints
 - Session memory: "Previous analysis showed X"
