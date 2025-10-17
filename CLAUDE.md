@@ -7,6 +7,8 @@ This document defines project-specific coding standards and development principl
 For all CLI tool usage, command syntax, and integration guidelines:
 - **Tool Control Configuration**: @~/.claude/workflows/tool-control.yaml - Controls CLI tool availability for all commands and agent executions (if disabled, use other enabled CLI tools or Claude's own capabilities)
 - **MCP Tool Strategy**: @~/.claude/workflows/mcp-tool-strategy.md
+- **Intelligent Context Strategy**: @~/.claude/workflows/intelligent-tools-strategy.md
+- **Context Search Commands**: @~/.claude/workflows/context-search-strategy.md
 
 **Context Requirements**:
 - Identify 3+ existing similar patterns before implementation
