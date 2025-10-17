@@ -82,7 +82,7 @@ Follow this recommended pattern for codebase exploration:
 
 - **rg > grep** - Always prefer ripgrep for content search
 - **Type filters** - Use `--type` to limit file types (e.g., `--type js`)
-- **Exclude patterns** - Use `--glob '!node_modules'` to exclude common directories
+- **Exclude patterns** - Use appropriate glob patterns to filter search scope
 - **Literal strings** - Use `-F` flag for exact matches (no regex overhead)
 
 ## Examples
