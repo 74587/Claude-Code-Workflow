@@ -20,9 +20,10 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 2. Phase 0: Initialize and parse parameters
 3. Phase 1: Screenshot capture (batch or deep mode) → **WAIT for completion** → Auto-continues
 4. Phase 2: Style extraction (complete design systems) → **WAIT for completion** → Auto-continues
-5. Phase 2.5: Layout extraction (structure templates) → **WAIT for completion** → Auto-continues
-6. Phase 3: Batch UI assembly → **WAIT for completion** → Auto-continues
-7. Phase 4: Design system integration → Reports completion
+5. Phase 2.3: Animation extraction (CSS auto mode) → **WAIT for completion** → Auto-continues
+6. Phase 2.5: Layout extraction (structure templates) → **WAIT for completion** → Auto-continues
+7. Phase 3: Batch UI assembly → **WAIT for completion** → Auto-continues
+8. Phase 4: Design system integration → Reports completion
 
 **Phase Transition Mechanism**:
 - `SlashCommand` is BLOCKING - execution pauses until completion

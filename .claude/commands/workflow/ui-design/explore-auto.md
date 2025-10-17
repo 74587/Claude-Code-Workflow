@@ -20,10 +20,11 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 1. User triggers: `/workflow:ui-design:explore-auto [params]`
 2. Phase 0c: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 1**
 3. Phase 1 (style-extract) → **WAIT for completion** → Auto-continues
-4. Phase 2 (layout-extract) → **WAIT for completion** → Auto-continues
-5. **Phase 3 (ui-assembly)** → **WAIT for completion** → Auto-continues
-6. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
-7. Phase 5 (batch-plan, optional) → Reports completion
+4. Phase 2.3 (animation-extract, optional) → **WAIT for completion** → Auto-continues
+5. Phase 2.5 (layout-extract) → **WAIT for completion** → Auto-continues
+6. **Phase 3 (ui-assembly)** → **WAIT for completion** → Auto-continues
+7. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
+8. Phase 5 (batch-plan, optional) → Reports completion
 
 **Phase Transition Mechanism**:
 - **Phase 0c (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 1
@@ -276,10 +277,26 @@ SlashCommand(command)
 
 # Output: {style_variants} style cards with design_attributes
 # SlashCommand blocks until phase complete
-# Upon completion, IMMEDIATELY execute Phase 2 (auto-continue)
+# Upon completion, IMMEDIATELY execute Phase 2.3 (auto-continue)
 ```
 
-### Phase 2: Layout Extraction
+### Phase 2.3: Animation Extraction (Optional - Interactive Mode)
+```bash
+# Animation extraction for motion design patterns
+REPORT: "🚀 Phase 2.3: Animation Extraction (interactive mode)"
+REPORT: "   → Mode: Interactive specification"
+REPORT: "   → Purpose: Define motion design patterns"
+
+command = "/workflow:ui-design:animation-extract --base-path \"{base_path}\" --mode interactive"
+
+SlashCommand(command)
+
+# Output: animation-tokens.json + animation-guide.md
+# SlashCommand blocks until phase complete
+# Upon completion, IMMEDIATELY execute Phase 2.5 (auto-continue)
+```
+
+### Phase 2.5: Layout Extraction
 ```bash
 targets_string = ",".join(inferred_target_list)
 command = "/workflow:ui-design:layout-extract --base-path \"{base_path}\" " +

@@ -57,6 +57,21 @@ Read({base_path}/style-extraction/style-{id}/design-tokens.json)
 
 **Output**: `design_tokens[]` for all style variants
 
+### Step 4: Load Animation Tokens (Optional)
+```bash
+# Check if animation tokens exist
+bash(test -f {base_path}/animation-extraction/animation-tokens.json && echo "exists")
+
+# Load animation tokens if available
+IF exists({base_path}/animation-extraction/animation-tokens.json):
+    animation_tokens = Read({base_path}/animation-extraction/animation-tokens.json)
+    has_animations = true
+ELSE:
+    has_animations = false
+```
+
+**Output**: `animation_tokens` (optional), `has_animations` flag
+
 ## Phase 2: Assembly (Agent)
 
 **Executor**: `Task(ui-design-agent)` × `T × S × L` tasks (can be batched)
@@ -86,7 +101,15 @@ Task(ui-design-agent): `
      Read("{base_path}/style-extraction/style-{style_id}/design-tokens.json")
      Extract: ALL token values (colors, typography, spacing, borders, shadows, breakpoints)
 
-  3. Reference Image (AUTO-DETECTED):
+  3. Animation Tokens (OPTIONAL):
+     IF exists("{base_path}/animation-extraction/animation-tokens.json"):
+       Read("{base_path}/animation-extraction/animation-tokens.json")
+       Extract: duration, easing, transitions, keyframes, interactions
+       has_animations = true
+     ELSE:
+       has_animations = false
+
+  4. Reference Image (AUTO-DETECTED):
      IF template.source_image_path exists:
        Read(template.source_image_path)
        Purpose: Additional visual context for better placeholder content generation
@@ -115,6 +138,14 @@ Task(ui-design-agent): `
        * Typography: tokens.typography.*
        * Shadows: tokens.shadows.*
        * Border radius: tokens.border_radius.*
+     - IF has_animations == true: Inject animation tokens
+       * Add CSS Custom Properties for animations at :root level:
+         --duration-instant, --duration-fast, --duration-normal, etc.
+         --easing-linear, --easing-ease-out, etc.
+       * Add @keyframes rules from animation_tokens.keyframes
+       * Add interaction classes (.button-hover, .card-hover) from animation_tokens.interactions
+       * Add utility classes (.transition-color, .transition-transform) from animation_tokens.transitions
+       * Include prefers-reduced-motion media query for accessibility
      - Device-optimized for template.device_type
 
   ## Assembly Rules
