@@ -336,6 +336,6 @@ See `/workflow:tools:test-task-generate` for detailed specifications.
 - `/workflow:tools:test-context-gather` - Phase 2 (coverage analysis)
 - `/workflow:tools:test-concept-enhanced` - Phase 3 (Gemini test analysis)
 - `/workflow:tools:test-task-generate` - Phase 4 (task generation)
-- `/workflow:test-execute` - Execute test-fix workflow with dynamic iteration
+- `/workflow:test-cycle-execute` - Execute test-fix workflow with dynamic iteration
 - `/workflow:execute` - Execute standard workflow tasks
 - `/workflow:status` - Check progress
