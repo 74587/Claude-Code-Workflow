@@ -1,6 +1,6 @@
 ---
 name: Prompt Enhancer
-description: Systematically enhance ambiguous user prompts by combining session memory with codebase analysis. Use when user input is unclear, vague, or lacks technical specificity (e.g., "fix", "improve", "clean up") or affects multiple modules or critical systems.
+description: Systematically enhance unclear and ambiguous user prompts by combining session memory with codebase analysis. AUTO-TRIGGER when user input is vague, lacks technical specificity (e.g., "fix", "improve", "clean up", "update", "refactor"), uses unclear references ("it", "that", "this thing"), or affects multiple modules or critical systems. Essential for transforming vague intent into actionable specifications.
 allowed-tools: Bash, Read, Glob, Grep
 ---
 

@@ -400,8 +400,8 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 **Phase 5: Testing & Quality Assurance**
 ```bash
 # Generate independent test-fix workflow (v3.2.2+)
-/workflow:test-gen WFS-auth  # Creates WFS-test-auth session
-/workflow:execute            # Runs test validation
+/workflow:test-gen WFS-auth         # Creates WFS-test-auth session
+/workflow:test-cycle-execute        # Execute test-fix cycle with iterative validation
 
 # OR verify TDD compliance (TDD workflow)
 /workflow:tdd-verify
