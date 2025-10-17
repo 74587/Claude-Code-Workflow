@@ -1,16 +1,16 @@
 ---
-name: Gemini CLI Tool
-description: Code analysis and documentation tool (primary). Trigger keywords "use gemini", "gemini analysis", "analyze with gemini". Use for code exploration, architecture review, and documentation generation. Supports read-only analysis (default) and write operations (explicit permission).
+name: Qwen CLI Tool
+description: Code analysis and documentation tool (Gemini fallback). Trigger keywords "use qwen", "qwen analysis", "analyze with qwen". Use when Gemini unavailable or for parallel analysis. Supports read-only analysis (default) and write operations (explicit permission).
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
-# Gemini CLI Tool
+# Qwen CLI Tool
 
 ## Core Execution
 
-Gemini executes code analysis and documentation tasks using large context window capabilities.
+Qwen executes code analysis and documentation tasks using large context window capabilities.
 
-**Trigger Keywords**: "use gemini", "gemini analysis", "gemini generate docs", "analyze with gemini"
+**Trigger Keywords**: "use qwen", "qwen analysis", "qwen generate docs", "analyze with qwen"
 
 **Execution Modes**:
 - `analysis` (default): Read-only analysis, auto-execute
@@ -18,7 +18,7 @@ Gemini executes code analysis and documentation tasks using large context window
 
 **Command Pattern**:
 ```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper [--approval-mode yolo] -p "
+cd [directory] && ~/.claude/scripts/qwen-wrapper [--approval-mode yolo] -p "
 PURPOSE: [goal]
 TASK: [specific task]
 MODE: [analysis|write]
@@ -30,10 +30,10 @@ RULES: [constraints]
 
 ## Universal Template Structure
 
-Every Gemini command should follow this detailed structure for best results:
+Every Qwen command should follow this detailed structure for best results:
 
 ```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper [--approval-mode yolo] -p "
+cd [directory] && ~/.claude/scripts/qwen-wrapper [--approval-mode yolo] -p "
 PURPOSE: [One clear sentence: what and why]
 TASK: [Specific actionable task with scope]
 MODE: [analysis|write]
@@ -47,38 +47,38 @@ RULES: [Template reference] | [Specific constraints: standards, patterns, focus 
 
 **PURPOSE**:
 - One sentence combining goal + reason
-- Examples: "Analyze auth system to identify security risks", "Generate API docs for partner integration"
+- Examples: "Analyze auth system for SOC 2 compliance", "Document payment module for audit"
 
 **TASK**:
 - Break down into numbered sub-tasks for complex operations
-- Include specific aspects: "Review JWT implementation, token management, session handling"
+- Include specific aspects: "Review authentication flow, session management, audit logging"
 - Specify scope boundaries
 
 **CONTEXT**:
-- File patterns: `@{src/**/*.ts}` (include only what you need), `@{src/**/*.ts,!**/*.test.ts}` (use `!` to exclude)
-- Business context: "50k DAU, PostgreSQL 14, target <200ms p95"
+- File patterns: `@{**/*.ts,**/*.test.ts}`
+- Business context: "100k users, $2M monthly transactions, PCI DSS scope"
 - Tech stack: Versions, frameworks, constraints
-- Session memory: "Previous analysis showed X"
+- Session memory: "Phase 1 identified 3 high-priority issues"
 
 **EXPECTED**:
-- Numbered deliverables: "1) File.md with sections, 2) Diagram in Mermaid format"
-- Specific file names: "API.md", "SECURITY.md", "analysis-report.json"
-- Coverage requirements: ">90% test coverage", "All endpoints documented"
-- Output format: "Markdown tables", "OpenAPI 3.1 spec", "Mermaid diagrams"
+- Numbered deliverables: "1) Compliance report, 2) Remediation roadmap, 3) Evidence collection guide"
+- Specific file names: "SECURITY.md", "PAYMENT_MODULE.md", "audit-findings.json"
+- Coverage requirements: ">95% coverage", "All SOC 2 controls mapped"
+- Output format: "Mermaid diagrams", "Compliance checklist", "Risk matrix"
 
 **RULES**:
-- Template reference: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)`
-- Multiple constraints separated by `|`: "Follow OWASP Top 10 | Use TypeScript strict | Include metrics"
-- Specific standards: "OWASP ASVS v4.0", "SOC 2 CC6.1", "RFC 6749"
-- Thresholds: "Complexity >10 is high", ">80% cache hit rate"
+- Template reference: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt)`
+- Multiple constraints separated by `|`: "Map to SOC 2 CC6.1 | Include CVE references | Follow NIST 800-63B"
+- Specific standards: "OWASP Top 10 2021", "PCI DSS 3.2.1", "GDPR Article 32"
+- Thresholds: "CVSS >7.0 as blocker", "p95 <200ms", ">80% cache hit rate"
 
 ## Command Structure
 
 ### Universal Template
-Every Gemini command follows this structure:
+Every Qwen command follows this structure:
 
 ```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper [options] -p "
+cd [directory] && ~/.claude/scripts/qwen-wrapper [options] -p "
 PURPOSE: [clear goal and intent]
 TASK: [specific execution task]
 MODE: [analysis|write]
@@ -94,7 +94,7 @@ RULES: [template reference and constraints]
 Safe for auto-execution without user confirmation:
 
 ```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper -p "
+cd [directory] && ~/.claude/scripts/qwen-wrapper -p "
 PURPOSE: [analysis goal]
 TASK: [specific analysis task]
 MODE: analysis
@@ -115,7 +115,7 @@ RULES: [constraints]
 ⚠️ Only use when user explicitly requests file creation/modification:
 
 ```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+cd [directory] && ~/.claude/scripts/qwen-wrapper --approval-mode yolo -p "
 PURPOSE: [documentation goal]
 TASK: [specific write task]
 MODE: write
@@ -125,7 +125,7 @@ RULES: [constraints]
 "
 ```
 
-**Parameter Position**: `--approval-mode yolo` must be placed AFTER `gemini-wrapper`, BEFORE `-p`
+**Parameter Position**: `--approval-mode yolo` must be placed AFTER `qwen-wrapper`, BEFORE `-p`
 
 **Write Triggers**:
 - User explicitly says "generate documentation"
@@ -197,13 +197,13 @@ Use `cd [directory] &&` pattern to focus analysis and reduce irrelevant context:
 
 ```bash
 # Focused analysis
-cd src/auth && ~/.claude/scripts/gemini-wrapper -p "
-PURPOSE: Understand authentication patterns
-TASK: Analyze auth implementation
+cd src/auth && ~/.claude/scripts/qwen-wrapper -p "
+PURPOSE: Analyze auth architecture
+TASK: Review auth system design and patterns
 MODE: analysis
-CONTEXT: @{**/*.ts}
-EXPECTED: Pattern documentation
-RULES: Focus on security best practices
+CONTEXT: @{**/*}
+EXPECTED: Architecture analysis report
+RULES: Focus on modularity and security
 "
 ```
 
@@ -231,13 +231,12 @@ Auto-detect from PURPOSE and TASK fields.
 
 Production-ready examples organized by scenario type:
 
-- **[Analysis Examples](analysis-examples.md)** - Read-only analysis with architecture review, pattern discovery, and multi-module tracing
-- **[Write Examples](write-examples.md)** - Documentation generation with OpenAPI specs and module documentation
-- **[Advanced Workflows](advanced-workflows.md)** - Multi-phase discovery → analysis → documentation pipelines
-- **[Template Examples](template-examples.md)** - Multiple template combinations for comprehensive audits
-- **[Context Optimization](context-optimization.md)** - Focused analysis strategies for large codebases
+- **[Analysis Examples](analysis-examples.md)** - Compliance-focused analysis with SOC 2 mapping, performance optimization, and technical debt assessment
+- **[Write Examples](write-examples.md)** - API documentation with OpenAPI specs and PCI DSS compliance documentation
+- **[Advanced Workflows](advanced-workflows.md)** - Security audit → remediation → verification pipeline
+- **[Template Examples](template-examples.md)** - Multi-template quality gates for production releases
 
-Each example follows the Universal Template Structure with detailed explanations.
+Each example follows the Universal Template Structure with compliance and business context focus.
 
 ## Best Practices
 

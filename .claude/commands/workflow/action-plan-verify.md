@@ -307,48 +307,73 @@ Output a Markdown report (no file writes) with the following structure:
 
 ### Next Actions
 
-#### If CRITICAL Issues Exist (Current Status: 2 CRITICAL)
-**Recommendation**: ❌ **BLOCK EXECUTION** - Resolve CRITICAL issues before proceeding
+#### Action Recommendations
 
-**Required Actions**:
-1. **CRITICAL**: Add authentication implementation tasks to cover FR-03
-2. **CRITICAL**: Add performance optimization tasks to cover NFR-01
+**If CRITICAL Issues Exist**:
+- ❌ **BLOCK EXECUTION** - Resolve critical issues before proceeding
+- Use `/task:create` for missing requirements coverage
+- Fix broken dependencies and circular references
 
-#### If Only HIGH/MEDIUM/LOW Issues
-**Recommendation**: ⚠️ **PROCEED WITH CAUTION** - Issues are non-blocking but should be addressed
+**If Only HIGH/MEDIUM/LOW Issues**:
+- ⚠️ **PROCEED WITH CAUTION** - Fix high-priority issues first
+- Use batch replan mode to apply all task improvements systematically
 
-**Suggested Improvements**:
-1. Add context.artifacts references to all tasks (use /task:replan)
-2. Fix broken dependency IMPL-2.3 → IMPL-2.4
-3. Add flow_control.target_files to underspecified tasks
+#### Batch Remediation
 
-#### Command Suggestions
+**Report Location**: `.workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md`
+
+**Apply All Task Improvements** (Recommended):
 ```bash
-# Fix critical coverage gaps
+# Batch process all task replan recommendations
+/task:replan --batch .workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md
+
+# Or with auto-confirmation (no prompts)
+/task:replan --batch ACTION_PLAN_VERIFICATION.md --auto-confirm
+```
+
+**Manual Selective Fixes**:
+```bash
+# Fix critical coverage gaps first
 /task:create "Implement user authentication (FR-03)"
 /task:create "Add performance optimization (NFR-01)"
 
-# Refine existing tasks
+# Then apply task refinements individually
 /task:replan IMPL-1.2 "Add context.artifacts and target_files"
-
-# Update IMPL_PLAN if architecture drift detected
-# (Manual edit required)
-```
 ```
 
-### 7. Provide Remediation Options
+**Notes**:
+- Batch mode extracts all `/task:replan` commands from report
+- Processes by priority: CRITICAL → HIGH → MEDIUM → LOW
+- Creates TodoWrite tracking for all modifications
+- Architecture drift in IMPL_PLAN requires manual editing
+```
 
-At end of report, ask the user:
+### 7. Save Report and Provide Remediation Options
+
+**Save Analysis Report**:
+```bash
+report_path = ".workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md"
+Write(report_path, full_report_content)
+```
+
+At end of report, provide batch remediation guidance:
 
 ```markdown
 ### 🔧 Remediation Options
 
-Would you like me to:
-1. **Generate task suggestions** for unmapped requirements (no auto-creation)
-2. **Provide specific edit commands** for top N issues (you execute manually)
-3. **Create remediation checklist** for systematic fixing
+**Recommended Workflow**:
+1. **Batch Mode** (Fastest): Apply all task improvements automatically
+   ```bash
+   /task:replan --batch .workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md
+   ```
 
-(Do NOT apply fixes automatically - this is read-only analysis)
+2. **Manual Review**: Examine each issue before applying
+   - Review findings in this report
+   - Execute specific `/task:create` or `/task:replan` commands individually
+
+3. **Architecture Changes**: Update IMPL_PLAN.md manually if architecture drift detected
+
+**Note**: This is read-only analysis. All fixes require explicit execution.
 ```
 
 ### 8. Update Session Metadata
