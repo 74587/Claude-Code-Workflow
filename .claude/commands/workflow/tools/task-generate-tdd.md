@@ -8,12 +8,47 @@ allowed-tools: Read(*), Write(*), Bash(gemini-wrapper:*), TodoWrite(*)
 # TDD Task Generation Command
 
 ## Overview
-Generate TDD-specific task chains from analysis results with enforced Red-Green-Refactor structure and dependencies.
+Generate TDD-specific tasks from analysis results with complete Red-Green-Refactor cycles contained within each task.
 
-## Core Philosophy
-- **TDD-First**: Every feature starts with a failing test
-- **Chain-Enforced**: Dependencies ensure proper TDD cycle
-- **Phase-Explicit**: Each task marked with Red/Green/Refactor phase
+## Task Strategy & Philosophy
+
+### Optimized Task Structure (Current)
+- **1 feature = 1 task** containing complete TDD cycle internally
+- Each task executes Red-Green-Refactor phases sequentially
+- Task count = Feature count (typically 5 features = 5 tasks)
+- **Benefits**:
+  - 70% reduction in task management overhead
+  - Continuous context per feature (no switching between TEST/IMPL/REFACTOR)
+  - Simpler dependency management
+  - Maintains TDD rigor through internal phase structure
+
+**Previous Approach** (Deprecated):
+- 1 feature = 3 separate tasks (TEST-N.M, IMPL-N.M, REFACTOR-N.M)
+- 5 features = 15 tasks with complex dependency chains
+- High context switching cost between phases
+
+### When to Use Subtasks
+- Feature complexity >2500 lines or >6 files per TDD cycle
+- Multiple independent sub-features needing parallel execution
+- Strong technical dependency blocking (e.g., API before UI)
+- Different tech stacks or domains within feature
+
+### Task Limits
+- **Maximum 10 tasks** (hard limit for TDD workflows)
+- **Feature-based**: Complete functional units with internal TDD cycles
+- **Hierarchy**: Flat (≤5 simple features) | Two-level (6-10 for complex features with sub-features)
+- **Re-scope**: If >10 tasks needed, break project into multiple TDD workflow sessions
+
+### TDD Cycle Mapping
+- **Old approach**: 1 feature = 3 tasks (TEST-N.M, IMPL-N.M, REFACTOR-N.M)
+- **Current approach**: 1 feature = 1 task (IMPL-N with internal Red-Green-Refactor phases)
+- **Complex features**: 1 container (IMPL-N) + subtasks (IMPL-N.M) when necessary
+
+### Core Principles
+- **TDD-First**: Every feature starts with a failing test (Red phase)
+- **Feature-Complete Tasks**: Each task contains complete Red-Green-Refactor cycle
+- **Phase-Explicit**: Internal phases clearly marked in flow_control.implementation_approach
+- **Task Merging**: Prefer single task per feature over decomposition
 - **Artifact-Aware**: Integrates brainstorming outputs
 - **Memory-First**: Reuse loaded documents from memory
 - **Context-Aware**: Analyzes existing codebase and test patterns
@@ -22,16 +57,16 @@ Generate TDD-specific task chains from analysis results with enforced Red-Green-
 
 ## Core Responsibilities
 - Parse analysis results and identify testable features
-- Generate Red-Green-Refactor task chains for each feature
-- Enforce proper dependencies (TEST → IMPL → REFACTOR)
-- Create TDD_PLAN.md and enhanced IMPL_PLAN.md
-- Generate TODO_LIST.md with TDD phase indicators
-- Update session state for TDD execution
+- Generate feature-complete tasks with internal TDD cycles (1 task per simple feature)
+- Apply task merging strategy by default, create subtasks only when complexity requires
+- Generate IMPL_PLAN.md with TDD Implementation Tasks section
+- Generate TODO_LIST.md with internal TDD phase indicators
+- Update session state for TDD execution with task count compliance
 
 ## Execution Lifecycle
 
 ### Phase 1: Input Validation & Discovery
-**⚡ Memory-First Rule**: Skip file loading if documents already in conversation memory
+**Memory-First Rule**: Skip file loading if documents already in conversation memory
 
 1. **Session Validation**
    - If session metadata in memory → Skip loading
@@ -50,584 +85,403 @@ Generate TDD-specific task chains from analysis results with enforced Red-Green-
 
 **Input**: Use `.process/ANALYSIS_RESULTS.md` directly (enhanced with TDD structure from concept-enhanced phase)
 
-**Note**: The ANALYSIS_RESULTS.md now includes TDD-specific breakdown:
+**ANALYSIS_RESULTS.md includes**:
 - Feature list with testable requirements
 - Test cases for Red phase
 - Implementation requirements for Green phase
 - Refactoring opportunities
 - Task dependencies and execution order
 
-### Phase 3: Enhanced IMPL_PLAN.md Generation
+### Phase 3: Task JSON & IMPL_PLAN.md Generation
 
-#### Task Chain Structure
-For each feature, generate 3 tasks with ID format:
-- **TEST-N.M** (Red phase)
-- **IMPL-N.M** (Green phase)
-- **REFACTOR-N.M** (Refactor phase)
+#### Task Structure (Feature-Complete with Internal TDD)
+For each feature, generate task(s) with ID format:
+- **IMPL-N** - Single task containing complete TDD cycle (Red-Green-Refactor)
+- **IMPL-N.M** - Sub-tasks only when feature is complex (>2500 lines or technical blocking)
 
-#### Chain Dependency Rules
-- **IMPL depends_on TEST**: Cannot implement before test exists
-- **REFACTOR depends_on IMPL**: Cannot refactor before implementation
-- **Cross-feature dependencies**: If Feature 2 needs Feature 1, then `IMPL-2.1 depends_on ["REFACTOR-1.1"]`
+**Task Dependency Rules**:
+- **Sequential features**: IMPL-2 depends_on ["IMPL-1"] if Feature 2 needs Feature 1
+- **Independent features**: No dependencies, can execute in parallel
+- **Complex features**: IMPL-N.2 depends_on ["IMPL-N.1"] for subtask ordering
 
-#### Agent Assignment
-- **TEST tasks** → `@code-review-test-agent`
-- **IMPL tasks** → `@code-developer`
-- **REFACTOR tasks** → `@code-developer`
+**Agent Assignment**:
+- **All IMPL tasks** → `@code-developer` (handles full TDD cycle)
+- Agent executes Red, Green, Refactor phases sequentially within task
 
-#### Meta Fields
-- `meta.type`: "test" | "feature" | "refactor"
-- `meta.agent`: Agent for task execution
-- `meta.tdd_phase`: "red" | "green" | "refactor"
+**Meta Fields**:
+- `meta.type`: "feature" (TDD-driven feature implementation)
+- `meta.agent`: "@code-developer"
+- `meta.tdd_workflow`: true (enables TDD-specific flow)
+- `meta.tdd_phase`: Not used (phases are in flow_control.implementation_approach)
+- `meta.max_iterations`: 3 (for Green phase test-fix cycle)
+- `meta.use_codex`: false (manual fixes by default)
 
-#### Task JSON Examples
+#### Task JSON Structure Reference
 
-**RED Phase - Test Task (TEST-1.1.json)**
+**Simple Feature Task (IMPL-N.json)** - Recommended for most features:
 ```json
 {
-  "id": "TEST-1.1",
-  "title": "Write failing test for user authentication",
-  "status": "pending",
+  "id": "IMPL-N",                                  // Task identifier
+  "title": "Feature description with TDD",         // Human-readable title
+  "status": "pending",                             // pending | in_progress | completed | container
   "meta": {
-    "type": "test",
-    "agent": "@code-review-test-agent",
-    "tdd_phase": "red"
+    "type": "feature",                             // Task type
+    "agent": "@code-developer",                    // Assigned agent
+    "tdd_workflow": true,                          // REQUIRED: Enables TDD flow
+    "max_iterations": 3,                           // Green phase test-fix cycle limit
+    "use_codex": false                             // false=manual fixes, true=Codex automated fixes
   },
   "context": {
-    "requirements": [
-      "Write test case for login with valid credentials",
-      "Test should fail with 'AuthService not implemented' error",
-      "Include tests for invalid credentials and edge cases"
+    "requirements": [                              // Feature requirements with TDD phases
+      "Feature description",
+      "Red: Test scenarios to write",
+      "Green: Implementation approach with test-fix cycle",
+      "Refactor: Code quality improvements"
     ],
-    "focus_paths": ["tests/auth/login.test.ts"],
-    "acceptance": [
-      "Test file created with at least 3 test cases",
-      "Test runs and fails with clear error message",
-      "Test assertions define expected behavior"
+    "tdd_cycles": [                                // OPTIONAL: Detailed test cycles
+      {
+        "cycle": 1,
+        "feature": "Specific functionality",
+        "test_focus": "What to test",
+        "expected_failure": "Why test should fail initially"
+      }
     ],
-    "depends_on": []
+    "focus_paths": ["src/path/", "tests/path/"],  // Files to modify
+    "acceptance": [                                // Success criteria
+      "All tests pass (Red → Green)",
+      "Code refactored (Refactor complete)",
+      "Test coverage ≥80%"
+    ],
+    "depends_on": []                               // Task dependencies
   },
   "flow_control": {
-    "pre_analysis": [
+    "pre_analysis": [                              // OPTIONAL: Pre-execution checks
       {
         "step": "check_test_framework",
-        "action": "Verify test framework is configured",
-        "command": "bash(npm list jest || npm list vitest)",
+        "action": "Verify test framework",
+        "command": "bash(npm list jest)",
         "output_to": "test_framework_info",
         "on_error": "warn"
       }
-    ]
-  }
-}
-```
-
-**GREEN Phase - Implementation Task (IMPL-1.1.json)**
-```json
-{
-  "id": "IMPL-1.1",
-  "title": "Implement user authentication to pass tests",
-  "status": "pending",
-  "meta": {
-    "type": "feature",
-    "agent": "@code-developer",
-    "tdd_phase": "green",
-    "max_iterations": 3,
-    "use_codex": false
-  },
-  "context": {
-    "requirements": [
-      "Implement minimal AuthService to pass TEST-1.1",
-      "Handle valid and invalid credentials",
-      "Return appropriate success/error responses",
-      "If tests fail after implementation, diagnose and fix iteratively"
     ],
-    "focus_paths": ["src/auth/AuthService.ts", "tests/auth/login.test.ts"],
-    "acceptance": [
-      "All tests in TEST-1.1 pass",
-      "Implementation is minimal and focused",
-      "No over-engineering or premature optimization",
-      "Test failures resolved within iteration limit"
-    ],
-    "depends_on": ["TEST-1.1"]
-  },
-  "flow_control": {
-    "pre_analysis": [
-      {
-        "step": "load_test_requirements",
-        "action": "Read test specifications from TEST phase",
-        "command": "bash(cat .workflow/WFS-xxx/.summaries/TEST-1.1-summary.md)",
-        "output_to": "test_requirements",
-        "on_error": "fail"
-      },
-      {
-        "step": "verify_tests_failing",
-        "action": "Confirm tests are currently failing (Red phase validation)",
-        "command": "bash(npm test -- tests/auth/login.test.ts || echo 'Tests failing as expected')",
-        "output_to": "initial_test_status",
-        "on_error": "warn"
-      },
-      {
-        "step": "load_test_context",
-        "action": "Load test patterns and framework info",
-        "command": "bash(cat .workflow/WFS-xxx/.process/test-context-package.json 2>/dev/null || echo '{}')",
-        "output_to": "test_context",
-        "on_error": "skip_optional"
-      }
-    ],
-    "implementation_approach": [
+    "implementation_approach": [                   // REQUIRED: 3 TDD phases
       {
         "step": 1,
-        "title": "Implement minimal code to pass tests",
-        "description": "Write minimal code based on test requirements following TDD principles - no over-engineering",
-        "modification_points": [
-          "Load test requirements from TEST phase",
-          "Create/modify implementation files",
-          "Implement only what tests require",
-          "Focus on passing tests, not perfection"
-        ],
-        "logic_flow": [
-          "Load test requirements from [test_requirements]",
-          "Parse test expectations and edge cases",
-          "Write minimal implementation code",
-          "Avoid premature optimization or abstraction"
-        ],
+        "title": "RED Phase: Write failing tests",
+        "tdd_phase": "red",                        // REQUIRED: Phase identifier
+        "description": "Write comprehensive failing tests",
+        "modification_points": ["Files/changes to make"],
+        "logic_flow": ["Step-by-step process"],
+        "acceptance": ["Phase success criteria"],
         "depends_on": [],
-        "output": "initial_implementation"
+        "output": "failing_tests"
       },
       {
         "step": 2,
-        "title": "Test and iteratively fix until passing",
-        "description": "Run tests and enter iterative fix cycle if needed (max 3 iterations with auto-revert on failure)",
-        "modification_points": [
-          "Execute test suite",
-          "If tests fail: diagnose with Gemini",
-          "Apply fixes (manual or Codex if meta.use_codex=true)",
-          "Retest and iterate"
-        ],
+        "title": "GREEN Phase: Implement to pass tests",
+        "tdd_phase": "green",                      // REQUIRED: Phase identifier
+        "description": "Minimal implementation with test-fix cycle",
+        "modification_points": ["Implementation files"],
         "logic_flow": [
-          "Run test suite",
-          "If all tests pass → Complete",
-          "If tests fail → Enter iteration loop (max 3):",
-          "  Extract failure messages and stack traces",
-          "  Use Gemini bug-fix template for diagnosis",
-          "  Generate targeted fix recommendations",
-          "  Apply fixes (manual or Codex)",
-          "  Rerun tests",
-          "  If pass → Complete, if fail → Continue iteration",
-          "If max_iterations reached → Trigger auto-revert"
+          "Implement minimal code",
+          "Run tests",
+          "If fail → Enter iteration loop (max 3):",
+          "  1. Extract failure messages",
+          "  2. Gemini bug-fix diagnosis",
+          "  3. Apply fixes",
+          "  4. Rerun tests",
+          "If max_iterations → Auto-revert"
         ],
-        "command": "bash(npm test -- tests/auth/login.test.ts)",
+        "acceptance": ["All tests pass"],
+        "command": "bash(npm test -- tests/path/)",
         "depends_on": [1],
-        "output": "test_results"
+        "output": "passing_implementation"
+      },
+      {
+        "step": 3,
+        "title": "REFACTOR Phase: Improve code quality",
+        "tdd_phase": "refactor",                   // REQUIRED: Phase identifier
+        "description": "Refactor while keeping tests green",
+        "modification_points": ["Quality improvements"],
+        "logic_flow": ["Incremental refactoring with test verification"],
+        "acceptance": ["Tests still pass", "Code quality improved"],
+        "command": "bash(npm run lint && npm test)",
+        "depends_on": [2],
+        "output": "refactored_implementation"
       }
     ],
-    "post_completion": [
+    "post_completion": [                           // OPTIONAL: Final verification
       {
-        "step": "verify_tests_passing",
-        "action": "Confirm all tests now pass (Green phase achieved)",
-        "command": "bash(npm test -- tests/auth/login.test.ts)",
-        "output_to": "final_test_status",
+        "step": "verify_full_tdd_cycle",
+        "action": "Confirm complete TDD cycle",
+        "command": "bash(npm test && echo 'TDD complete')",
+        "output_to": "final_validation",
         "on_error": "fail"
       }
     ],
-    "error_handling": {
-      "max_iterations_reached": {
+    "error_handling": {                            // OPTIONAL: Error recovery
+      "green_phase_max_iterations": {
         "action": "revert_all_changes",
-        "commands": [
-          "bash(git reset --hard HEAD)",
-          "bash(echo 'TDD Green phase failed: Unable to pass tests within 3 iterations' > .workflow/WFS-xxx/.process/green-phase-failure.md)"
-        ],
-        "report": "Generate failure report in .summaries/IMPL-1.1-failure-report.md"
+        "commands": ["bash(git reset --hard HEAD)"],
+        "report": "Generate failure report"
       }
     }
   }
 }
 ```
 
-**REFACTOR Phase - Refactoring Task (REFACTOR-1.1.json)**
+**Complex Feature Container (IMPL-N.json)** - Only when subtasks needed:
 ```json
 {
-  "id": "REFACTOR-1.1",
-  "title": "Refactor authentication implementation",
-  "status": "pending",
+  "id": "IMPL-N",
+  "title": "Complex feature with TDD",
+  "status": "container",                           // Container status
   "meta": {
-    "type": "refactor",
+    "type": "feature",
     "agent": "@code-developer",
-    "tdd_phase": "refactor"
+    "tdd_workflow": true
   },
   "context": {
-    "requirements": [
-      "Improve code quality while keeping tests green",
-      "Remove duplication in credential validation",
-      "Improve error handling and logging",
-      "Enhance code readability and maintainability"
-    ],
-    "focus_paths": ["src/auth/AuthService.ts", "tests/auth/login.test.ts"],
-    "acceptance": [
-      "Code quality improved (complexity, readability)",
-      "All tests still pass after refactoring",
-      "No new functionality added",
-      "Duplication eliminated"
-    ],
-    "depends_on": ["IMPL-1.1"]
+    "requirements": ["Complex feature requiring >2500 lines", "Split into subtasks"],
+    "focus_paths": ["src/feature/"],
+    "acceptance": ["All subtasks complete TDD cycles"],
+    "depends_on": []
+  }
+}
+```
+
+**Complex Feature Subtask (IMPL-N.M.json)**:
+```json
+{
+  "id": "IMPL-N.M",
+  "title": "Sub-feature with TDD",
+  "status": "pending",
+  "meta": {
+    "type": "feature",
+    "agent": "@code-developer",
+    "tdd_workflow": true,
+    "max_iterations": 3,
+    "use_codex": false
+  },
+  "context": {
+    "requirements": ["Sub-feature description with TDD phases"],
+    "tdd_cycles": [{"cycle": 1, "feature": "...", "test_focus": "...", "expected_failure": "..."}],
+    "focus_paths": ["src/feature/sub/", "tests/feature/sub/"],
+    "acceptance": ["Tests pass", "Code refactored"],
+    "parent": "IMPL-N",                            // Parent task reference
+    "depends_on": []
   },
   "flow_control": {
-    "pre_analysis": [
-      {
-        "step": "verify_tests_passing",
-        "action": "Run tests to confirm green state before refactoring",
-        "command": "bash(npm test -- tests/auth/login.test.ts)",
-        "output_to": "test_status",
-        "on_error": "fail"
-      },
-      {
-        "step": "analyze_code_quality",
-        "action": "Run linter and complexity analysis",
-        "command": "bash(npm run lint src/auth/AuthService.ts)",
-        "output_to": "quality_metrics",
-        "on_error": "warn"
-      }
-    ],
-    "post_completion": [
-      {
-        "step": "verify_tests_still_passing",
-        "action": "Confirm tests remain green after refactoring",
-        "command": "bash(npm test -- tests/auth/login.test.ts)",
-        "output_to": "final_test_status",
-        "on_error": "fail"
-      }
+    "implementation_approach": [                   // Same 3-phase structure as simple task
+      {"step": 1, "title": "RED Phase", "tdd_phase": "red", "description": "..."},
+      {"step": 2, "title": "GREEN Phase", "tdd_phase": "green", "description": "..."},
+      {"step": 3, "title": "REFACTOR Phase", "tdd_phase": "refactor", "description": "..."}
     ]
   }
 }
 ```
 
-### Phase 4: Unified IMPL_PLAN.md Generation
+**Key JSON Fields Summary**:
+- `meta.tdd_workflow`: Must be `true`
+- `meta.max_iterations`: Green phase fix cycle limit (default: 3)
+- `meta.use_codex`: Automated fixes (false=manual, true=Codex)
+- `flow_control.implementation_approach`: Exactly 3 steps with `tdd_phase`: "red", "green", "refactor"
+- `context.tdd_cycles`: Optional detailed test cycle specifications
+- `context.parent`: Required for subtasks (IMPL-N.M)
 
-Generate single comprehensive IMPL_PLAN.md with enhanced 8-section structure:
+#### IMPL_PLAN.md Structure
 
-**Frontmatter**:
+Generate IMPL_PLAN.md with 8-section structure:
+
+**Frontmatter** (required fields):
 ```yaml
 ---
 identifier: WFS-{session-id}
-source: "User requirements" | "File: path" | "Issue: ISS-001"
+source: "User requirements" | "File: path"
 analysis: .workflow/{session-id}/.process/ANALYSIS_RESULTS.md
-artifacts: .workflow/{session-id}/.brainstorming/
-context_package: .workflow/{session-id}/.process/context-package.json  # CCW smart context
-workflow_type: "tdd"  # TDD-specific workflow
-verification_history:  # CCW quality gates
+context_package: .workflow/{session-id}/.process/context-package.json
+workflow_type: "tdd"
+verification_history:
   concept_verify: "passed | skipped | pending"
   action_plan_verify: "pending"
-phase_progression: "brainstorm → context → test_context → analysis → concept_verify → tdd_planning"  # TDD workflow phases
+phase_progression: "brainstorm → context → test_context → analysis → concept_verify → tdd_planning"
 feature_count: N
-task_count: 3N
-tdd_chains: N
+task_count: N  # ≤10 total
+task_breakdown:
+  simple_features: K
+  complex_features: L
+  total_subtasks: M
+tdd_workflow: true
 ---
 ```
 
-**Complete Structure** (8 Sections):
+**8 Sections Structure**:
 
 ```markdown
 # Implementation Plan: {Project Title}
 
 ## 1. Summary
-Core requirements, objectives, and TDD-specific technical approach (2-3 paragraphs max).
-
-**Core Objectives**:
-- [Key objective 1]
-- [Key objective 2]
-
-**Technical Approach**:
-- TDD-driven development with Red-Green-Refactor cycles
-- [Other high-level approaches]
+- Core requirements and objectives (2-3 paragraphs)
+- TDD-specific technical approach
 
 ## 2. Context Analysis
-
-### CCW Workflow Context
-**Phase Progression** (TDD-specific):
-- ✅ Phase 1: Brainstorming (synthesis-specification.md generated)
-- ✅ Phase 2: Context Gathering (context-package.json: {N} files, {M} modules analyzed)
-- ✅ Phase 3: Test Coverage Analysis (test-context-package.json: existing test patterns identified)
-- ✅ Phase 4: TDD Analysis (ANALYSIS_RESULTS.md: test-first requirements with Gemini/Qwen insights)
-- ✅ Phase 5: Concept Verification ({X} clarifications answered, test requirements clarified | skipped)
-- ⏳ Phase 6: TDD Task Generation (current phase - generating IMPL_PLAN.md with TDD chains)
-
-**Quality Gates**:
-- concept-verify: ✅ Passed (test requirements clarified, 0 ambiguities) | ⏭️ Skipped (user decision) | ⏳ Pending
-- action-plan-verify: ⏳ Pending (recommended before /workflow:execute for TDD dependency validation)
-
-**Context Package Summary**:
-- **Focus Paths**: {list key directories from context-package.json}
-- **Key Files**: {list primary files for modification}
-- **Test Context**: {existing test patterns, coverage baseline, test framework detected}
-- **Module Depth Analysis**: {from get_modules_by_depth.sh output}
-- **Smart Context**: {total file count} files, {module count} modules, {test file count} tests identified
-
-### Project Profile
-- **Type**: Greenfield/Enhancement/Refactor
-- **Scale**: User count, data volume, complexity
-- **Tech Stack**: Primary technologies
-- **Timeline**: Duration and milestones
-- **TDD Framework**: Testing framework and tools
-
-### Module Structure
-```
-[Directory tree showing key modules and test directories]
-```
-
-### Dependencies
-**Primary**: [Core libraries and frameworks]
-**Testing**: [Test framework, mocking libraries]
-**Development**: [Linting, CI/CD tools]
-
-### Patterns & Conventions
-- **Architecture**: [Key patterns]
-- **Testing Patterns**: [Unit, integration, E2E patterns]
-- **Code Style**: [Naming, TypeScript coverage]
+- CCW Workflow Context (Phase progression, Quality gates)
+- Context Package Summary (Focus paths, Test context)
+- Project Profile (Type, Scale, Tech Stack, Timeline)
+- Module Structure (Directory tree)
+- Dependencies (Primary, Testing, Development)
+- Patterns & Conventions
 
 ## 3. Brainstorming Artifacts Reference
-
-### Artifact Usage Strategy
-**Primary Reference (synthesis-specification.md)**:
-- **What**: Comprehensive implementation blueprint from multi-role synthesis
-- **When**: Every TDD task (TEST/IMPL/REFACTOR) references this for requirements and acceptance criteria
-- **How**: Extract testable requirements, architecture decisions, expected behaviors
-- **Priority**: Authoritative - defines what to test and how to implement
-- **CCW Value**: Consolidates insights from all brainstorming roles into single source of truth for TDD
-
-**Context Intelligence (context-package.json & test-context-package.json)**:
-- **What**: Smart context from CCW's context-gather and test-context-gather phases
-- **Content**: Focus paths, dependency graph, existing test patterns, test framework configuration
-- **Usage**: RED phase loads test patterns, GREEN phase loads implementation context
-- **CCW Value**: Automated discovery of existing tests and patterns for TDD consistency
-
-**Technical Analysis (ANALYSIS_RESULTS.md)**:
-- **What**: Gemini/Qwen parallel analysis with TDD-specific breakdown
-- **Content**: Testable requirements, test scenarios, implementation strategies, risk assessment
-- **Usage**: RED phase references test cases, GREEN phase references implementation approach
-- **CCW Value**: Multi-model analysis providing comprehensive TDD guidance
-
-### Integrated Specifications (Highest Priority)
-- **synthesis-specification.md**: Comprehensive implementation blueprint
-  - Contains: Architecture design, functional/non-functional requirements
-
-### Supporting Artifacts (Reference)
-- **topic-framework.md**: Discussion framework
-- **system-architect/analysis.md**: Architecture specifications
-- **Role-specific analyses**: [Other relevant analyses]
-
-**Artifact Priority in Development**:
-1. synthesis-specification.md (primary reference for test cases and implementation)
-2. test-context-package.json (existing test patterns for TDD consistency)
-3. context-package.json (smart context for execution environment)
-4. ANALYSIS_RESULTS.md (technical analysis with TDD breakdown)
-5. Role-specific analyses (supplementary)
+- Artifact Usage Strategy
+  - synthesis-specification.md (primary reference)
+  - test-context-package.json (test patterns)
+  - context-package.json (smart context)
+  - ANALYSIS_RESULTS.md (technical analysis)
+- Artifact Priority in Development
 
 ## 4. Implementation Strategy
+- Execution Strategy (TDD Cycles: Red-Green-Refactor)
+- Architectural Approach
+- Key Dependencies (Task dependency graph)
+- Testing Strategy (Coverage targets, Quality gates)
 
-### Execution Strategy
-**Execution Model**: TDD Cycles (Red-Green-Refactor)
-
-**Rationale**: Test-first approach ensures correctness and reduces bugs
-
-**TDD Cycle Pattern**:
-- RED: Write failing test
-- GREEN: Implement minimal code to pass (with test-fix cycle if needed)
-- REFACTOR: Improve code quality while keeping tests green
-
-**Parallelization Opportunities**:
-- [Independent features that can be developed in parallel]
-
-### Architectural Approach
-**Key Architecture Decisions**:
-- [ADR references from synthesis]
-- [TDD-compatible architecture patterns]
-
-**Integration Strategy**:
-- [How modules communicate]
-- [Test isolation strategy]
-
-### Key Dependencies
-**Task Dependency Graph**:
-```
-Feature 1:
-  TEST-1.1 (RED)
-      ↓
-  IMPL-1.1 (GREEN) [with test-fix cycle]
-      ↓
-  REFACTOR-1.1 (REFACTOR)
-
-Feature 2:
-  TEST-2.1 (RED) [depends on REFACTOR-1.1 if related]
-      ↓
-  IMPL-2.1 (GREEN)
-      ↓
-  REFACTOR-2.1 (REFACTOR)
-```
-
-**Critical Path**: [Identify bottleneck features]
-
-### Testing Strategy
-**TDD Testing Approach**:
-- Unit testing: Each feature has comprehensive unit tests
-- Integration testing: Cross-feature integration
-- E2E testing: Critical user flows after all TDD cycles
-
-**Coverage Targets**:
-- Lines: ≥80% (TDD ensures high coverage)
-- Functions: ≥80%
-- Branches: ≥75%
-
-**Quality Gates**:
-- All tests must pass before moving to next phase
-- Refactor phase must maintain test success
-
-## 5. TDD Task Chains (TDD-Specific Section)
-
-### Feature-by-Feature TDD Chains
-
-**Feature 1: {Feature Name}**
-```
-🔴 TEST-1.1: Write failing test for {feature}
-    ↓
-🟢 IMPL-1.1: Implement to pass tests (includes test-fix cycle: max 3 iterations)
-    ↓
-🔵 REFACTOR-1.1: Refactor implementation while keeping tests green
-```
-
-**Feature 2: {Feature Name}**
-```
-🔴 TEST-2.1: Write failing test for {feature}
-    ↓
-🟢 IMPL-2.1: Implement to pass tests (includes test-fix cycle)
-    ↓
-🔵 REFACTOR-2.1: Refactor implementation
-```
-
-[Continue for all N features]
-
-### TDD Task Breakdown Summary
-- **Total Features**: {N}
-- **Total Tasks**: {3N} (N TEST + N IMPL + N REFACTOR)
-- **TDD Chains**: {N}
+## 5. TDD Implementation Tasks
+- Feature-by-Feature TDD Tasks
+  - Each task: IMPL-N with internal Red → Green → Refactor
+  - Dependencies and complexity metrics
+- Complex Feature Examples (when subtasks needed)
+- TDD Task Breakdown Summary
 
 ## 6. Implementation Plan (Detailed Phased Breakdown)
-
-### Execution Strategy
-
-**TDD Cycle Execution**: Feature-by-feature sequential TDD cycles
-
-**Phase 1 (Weeks 1-2): Foundation Features**
-- **Features**: Feature 1, Feature 2
-- **Tasks**: TEST-1.1, IMPL-1.1, REFACTOR-1.1, TEST-2.1, IMPL-2.1, REFACTOR-2.1
-- **Deliverables**:
-  - Complete TDD cycles for foundation features
-  - All tests passing
-- **Success Criteria**:
-  - ≥80% test coverage
-  - All RED-GREEN-REFACTOR cycles completed
-
-**Phase 2 (Weeks 3-N): Advanced Features**
-[Continue with remaining features]
-
-### Resource Requirements
-
-**Development Team**:
-- [Team composition with TDD experience]
-
-**External Dependencies**:
-- [Testing frameworks, mocking services]
-
-**Infrastructure**:
-- [CI/CD with test automation]
+- Execution Strategy (feature-by-feature sequential)
+- Phase breakdown (Phase 1, Phase 2, etc.)
+- Resource Requirements (Team, Dependencies, Infrastructure)
 
 ## 7. Risk Assessment & Mitigation
-
-| Risk | Impact | Probability | Mitigation Strategy | Owner |
-|------|--------|-------------|---------------------|-------|
-| Tests fail repeatedly in GREEN phase | High | Medium | Test-fix cycle (max 3 iterations) with auto-revert | Dev Team |
-| Complex features hard to test | High | Medium | Break down into smaller testable units | Architect |
-| [Other risks] | Med/Low | Med/Low | [Strategies] | [Owner] |
-
-**Critical Risks** (TDD-Specific):
-- **GREEN phase failures**: Mitigated by test-fix cycle with Gemini diagnosis
-- **Test coverage gaps**: Mitigated by TDD-first approach ensuring tests before code
-
-**Monitoring Strategy**:
-- Track TDD cycle completion rate
-- Monitor test success rate per iteration
+- Risk table (Risk, Impact, Probability, Mitigation, Owner)
+- Critical Risks (TDD-specific)
+- Monitoring Strategy
 
 ## 8. Success Criteria
-
-**Functional Completeness**:
-- [ ] All features implemented through TDD cycles
-- [ ] All RED-GREEN-REFACTOR cycles completed successfully
-
-**Technical Quality**:
-- [ ] Test coverage ≥80% (ensured by TDD)
-- [ ] All tests passing (GREEN state achieved)
-- [ ] Code refactored for quality (REFACTOR phase completed)
-
-**Operational Readiness**:
-- [ ] CI/CD pipeline with automated test execution
-- [ ] Test failure alerting configured
-
-**TDD Compliance**:
-- [ ] Every feature has TEST → IMPL → REFACTOR chain
-- [ ] No implementation without tests (RED-first principle)
-- [ ] Refactoring did not break tests
+- Functional Completeness
+- Technical Quality (Test coverage ≥80%)
+- Operational Readiness
+- TDD Compliance
 ```
 
-### Phase 5: TODO_LIST.md Generation
+### Phase 4: TODO_LIST.md Generation
 
-Generate task list with TDD phase indicators:
+Generate task list with internal TDD phase indicators:
+
+**For Simple Features (1 task per feature)**:
 ```markdown
-## Feature 1: {Feature Name}
-- [ ] **TEST-1.1**: Write failing test (🔴 RED) → [📋](./.task/TEST-1.1.json)
-- [ ] **IMPL-1.1**: Implement to pass tests (🟢 GREEN) [depends: TEST-1.1] → [📋](./.task/IMPL-1.1.json)
-- [ ] **REFACTOR-1.1**: Refactor implementation (🔵 REFACTOR) [depends: IMPL-1.1] → [📋](./.task/REFACTOR-1.1.json)
+## TDD Implementation Tasks
+
+### Feature 1: {Feature Name}
+- [ ] **IMPL-1**: Implement {feature} with TDD → [Task](./.task/IMPL-1.json)
+  - Internal phases: Red → Green → Refactor
+  - Dependencies: None
+
+### Feature 2: {Feature Name}
+- [ ] **IMPL-2**: Implement {feature} with TDD → [Task](./.task/IMPL-2.json)
+  - Internal phases: Red → Green → Refactor
+  - Dependencies: IMPL-1
 ```
 
-### Phase 6: Session State Update
+**For Complex Features (with subtasks)**:
+```markdown
+### Feature 3: {Complex Feature Name}
+▸ **IMPL-3**: Implement {complex feature} with TDD → [Task](./.task/IMPL-3.json)
+  - [ ] **IMPL-3.1**: {Sub-feature A} with TDD → [Task](./.task/IMPL-3.1.json)
+    - Internal phases: Red → Green → Refactor
+  - [ ] **IMPL-3.2**: {Sub-feature B} with TDD → [Task](./.task/IMPL-3.2.json)
+    - Internal phases: Red → Green → Refactor
+    - Dependencies: IMPL-3.1
+```
+
+**Status Legend**:
+```markdown
+## Status Legend
+- ▸ = Container task (has subtasks)
+- [ ] = Pending task
+- [x] = Completed task
+- Red = Write failing tests
+- Green = Implement to pass tests (with test-fix cycle)
+- Refactor = Improve code quality
+```
+
+### Phase 5: Session State Update
 
 Update workflow-session.json with TDD metadata:
 ```json
 {
   "workflow_type": "tdd",
-  "feature_count": 10,
-  "task_count": 30,
-  "tdd_chains": 10
+  "feature_count": 5,
+  "task_count": 5,
+  "task_breakdown": {
+    "simple_features": 4,
+    "complex_features": 1,
+    "total_subtasks": 2
+  },
+  "tdd_workflow": true,
+  "task_limit_compliance": true
 }
 ```
+
+**Task Count Calculation**:
+- **Simple features**: 1 task each (IMPL-N with internal TDD cycle)
+- **Complex features**: 1 container + M subtasks (IMPL-N + IMPL-N.M)
+- **Total**: Simple feature count + Complex feature subtask count
+- **Example**: 4 simple + 1 complex (with 2 subtasks) = 6 total tasks (not 15)
 
 ## Output Files Structure
 ```
 .workflow/{session-id}/
-├── IMPL_PLAN.md                     # Unified plan with TDD Task Chains section
-├── TODO_LIST.md                     # Progress tracking with TDD phases
+├── IMPL_PLAN.md                     # Unified plan with TDD Implementation Tasks section
+├── TODO_LIST.md                     # Progress tracking with internal TDD phase indicators
 ├── .task/
-│   ├── TEST-1.1.json                # Red phase task
-│   ├── IMPL-1.1.json                # Green phase task (with test-fix-cycle)
-│   ├── REFACTOR-1.1.json            # Refactor phase task
+│   ├── IMPL-1.json                  # Complete TDD task (Red-Green-Refactor internally)
+│   ├── IMPL-2.json                  # Complete TDD task
+│   ├── IMPL-3.json                  # Complex feature container (if needed)
+│   ├── IMPL-3.1.json                # Complex feature subtask (if needed)
+│   ├── IMPL-3.2.json                # Complex feature subtask (if needed)
 │   └── ...
 └── .process/
     ├── ANALYSIS_RESULTS.md          # Enhanced with TDD breakdown from concept-enhanced
     ├── test-context-package.json    # Test coverage analysis
     ├── context-package.json         # Input from context-gather
-    └── green-fix-iteration-*.md     # Fix logs from Green phase
+    └── green-fix-iteration-*.md     # Fix logs from Green phase test-fix cycles
 ```
+
+**File Count**:
+- **Old approach**: 5 features = 15 task JSON files (TEST/IMPL/REFACTOR × 5)
+- **New approach**: 5 features = 5 task JSON files (IMPL-N × 5)
+- **Complex feature**: 1 feature = 1 container + M subtasks (IMPL-N + IMPL-N.M)
 
 ## Validation Rules
 
-### Chain Completeness
-- Every TEST-N.M must have corresponding IMPL-N.M and REFACTOR-N.M
+### Task Completeness
+- Every IMPL-N must contain complete TDD workflow in `flow_control.implementation_approach`
+- Each task must have 3 steps with `tdd_phase`: "red", "green", "refactor"
+- Every task must have `meta.tdd_workflow: true`
 
 ### Dependency Enforcement
-- IMPL-N.M must have `depends_on: ["TEST-N.M"]`
-- REFACTOR-N.M must have `depends_on: ["IMPL-N.M"]`
+- Sequential features: IMPL-N depends_on ["IMPL-(N-1)"] if needed
+- Complex feature subtasks: IMPL-N.M depends_on ["IMPL-N.(M-1)"] or parent dependencies
+- No circular dependencies allowed
 
 ### Task Limits
-- Maximum 10 features (30 tasks total)
-- Flat hierarchy only
+- Maximum 10 total tasks (simple + subtasks)
+- Flat hierarchy (≤5 tasks) or two-level (6-10 tasks with containers)
+- Re-scope requirements if >10 tasks needed
+
+### TDD Workflow Validation
+- `meta.tdd_workflow` must be true
+- `flow_control.implementation_approach` must have exactly 3 steps
+- Each step must have `tdd_phase` field ("red", "green", or "refactor")
+- Green phase step must include test-fix cycle logic
+- `meta.max_iterations` must be present (default: 3)
 
 ## Error Handling
 
@@ -640,9 +494,10 @@ Update workflow-session.json with TDD metadata:
 ### TDD Generation Errors
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Feature count exceeds 10 | Too many features | Re-scope requirements |
+| Task count exceeds 10 | Too many features or subtasks | Re-scope requirements or merge features |
 | Missing test framework | No test config | Configure testing first |
-| Invalid chain structure | Parsing error | Fix TDD breakdown |
+| Invalid TDD workflow | Missing tdd_phase or incomplete flow_control | Fix TDD structure in ANALYSIS_RESULTS.md |
+| Missing tdd_workflow flag | Task doesn't have meta.tdd_workflow: true | Add TDD workflow metadata |
 
 ## Integration & Usage
 
@@ -665,17 +520,32 @@ Update workflow-session.json with TDD metadata:
 TDD task generation complete for session: WFS-auth
 
 Features analyzed: 5
-TDD chains generated: 5
-Total tasks: 15 (5 TEST + 5 IMPL + 5 REFACTOR)
+Total tasks: 5 (1 task per feature with internal TDD cycles)
+
+Task breakdown:
+- Simple features: 4 tasks (IMPL-1 to IMPL-4)
+- Complex features: 1 task with 2 subtasks (IMPL-5, IMPL-5.1, IMPL-5.2)
+- Total task count: 6 (within 10-task limit)
 
 Structure:
-- Feature 1: TEST-1.1 → IMPL-1.1 → REFACTOR-1.1
-- Feature 2: TEST-2.1 → IMPL-2.1 → REFACTOR-2.1
+- IMPL-1: User Authentication (Internal: Red → Green → Refactor)
+- IMPL-2: Password Reset (Internal: Red → Green → Refactor)
+- IMPL-3: Email Verification (Internal: Red → Green → Refactor)
+- IMPL-4: Role Management (Internal: Red → Green → Refactor)
+- IMPL-5: Payment System (Container)
+  - IMPL-5.1: Gateway Integration (Internal: Red → Green → Refactor)
+  - IMPL-5.2: Transaction Management (Internal: Red → Green → Refactor)
 
 Plans generated:
-- Unified Plan: .workflow/WFS-auth/IMPL_PLAN.md (includes TDD Task Chains section)
+- Unified Plan: .workflow/WFS-auth/IMPL_PLAN.md (includes TDD Implementation Tasks section)
+- Task List: .workflow/WFS-auth/TODO_LIST.md (with internal TDD phase indicators)
 
-Next: /workflow:execute or /workflow:tdd-verify
+TDD Configuration:
+- Each task contains complete Red-Green-Refactor cycle
+- Green phase includes test-fix cycle (max 3 iterations)
+- Auto-revert on max iterations reached
+
+Next: /workflow:action-plan-verify --session WFS-auth (recommended) or /workflow:execute --session WFS-auth
 ```
 
 ## Test Coverage Analysis Integration
@@ -704,10 +574,10 @@ IMPL (Green phase) tasks include automatic test-fix cycle:
 5. **Safety Net**: Auto-revert all changes if max iterations reached
 
 **Key Benefits**:
-- ✅ Faster feedback loop within Green phase
-- ✅ Autonomous recovery from initial implementation errors
-- ✅ Systematic debugging with Gemini's bug-fix template
-- ✅ Safe rollback prevents broken TDD state
+- Faster feedback loop within Green phase
+- Autonomous recovery from initial implementation errors
+- Systematic debugging with Gemini's bug-fix template
+- Safe rollback prevents broken TDD state
 
 ## Configuration Options
 - **meta.max_iterations**: Number of fix attempts (default: 3 for TDD, 5 for test-gen)

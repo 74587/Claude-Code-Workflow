@@ -95,47 +95,72 @@ TEST_FOCUS: [Test scenarios]
 - Manual: `/workflow:tools:task-generate-tdd --session [sessionId]`
 - Agent: `/workflow:tools:task-generate-tdd --session [sessionId] --agent`
 
-**Parse**: Extract feature count, chain count, task count
+**Parse**: Extract feature count, task count (not chain count - tasks now contain internal TDD cycles)
 
 **Validate**:
-- IMPL_PLAN.md exists (unified plan with TDD Task Chains section)
-- TEST-*.json, IMPL-*.json, REFACTOR-*.json exist
-- TODO_LIST.md exists
-- IMPL tasks include test-fix-cycle configuration
+- IMPL_PLAN.md exists (unified plan with TDD Implementation Tasks section)
+- IMPL-*.json files exist (one per feature, or container + subtasks for complex features)
+- TODO_LIST.md exists with internal TDD phase indicators
+- Each IMPL task includes:
+  - `meta.tdd_workflow: true`
+  - `flow_control.implementation_approach` with 3 steps (red/green/refactor)
+  - Green phase includes test-fix-cycle configuration
 - IMPL_PLAN.md contains workflow_type: "tdd" in frontmatter
+- Task count ≤10 (compliance with task limit)
 
 ### Phase 7: TDD Structure Validation & Action Plan Verification (RECOMMENDED)
 **Internal validation first, then recommend external verification**
 
 **Internal Validation**:
-1. Each feature has TEST → IMPL → REFACTOR chain
-2. Dependencies: IMPL depends_on TEST, REFACTOR depends_on IMPL
-3. Meta fields: tdd_phase correct ("red"/"green"/"refactor")
-4. Agents: TEST uses @code-review-test-agent, IMPL/REFACTOR use @code-developer
-5. IMPL tasks contain test-fix-cycle in flow_control for iterative Green phase
+1. Each task contains complete TDD workflow (Red-Green-Refactor internally)
+2. Task structure validation:
+   - `meta.tdd_workflow: true` in all IMPL tasks
+   - `flow_control.implementation_approach` has exactly 3 steps
+   - Each step has correct `tdd_phase`: "red", "green", "refactor"
+3. Dependency validation:
+   - Sequential features: IMPL-N depends_on ["IMPL-(N-1)"] if needed
+   - Complex features: IMPL-N.M depends_on ["IMPL-N.(M-1)"] for subtasks
+4. Agent assignment: All IMPL tasks use @code-developer
+5. Test-fix cycle: Green phase step includes test-fix-cycle logic with max_iterations
+6. Task count: Total tasks ≤10 (simple + subtasks)
 
 **Return Summary**:
 ```
 TDD Planning complete for session: [sessionId]
 
 Features analyzed: [N]
-TDD chains generated: [N]
-Total tasks: [3N]
+Total tasks: [M] (1 task per simple feature + subtasks for complex features)
+
+Task breakdown:
+- Simple features: [K] tasks (IMPL-1 to IMPL-K)
+- Complex features: [L] features with [P] subtasks
+- Total task count: [M] (within 10-task limit ✅)
 
 Structure:
-- Feature 1: TEST-1.1 → IMPL-1.1 → REFACTOR-1.1
+- IMPL-1: {Feature 1 Name} (Internal: 🔴 Red → 🟢 Green → 🔵 Refactor)
+- IMPL-2: {Feature 2 Name} (Internal: 🔴 Red → 🟢 Green → 🔵 Refactor)
+- IMPL-3: {Complex Feature} (Container)
+  - IMPL-3.1: {Sub-feature A} (Internal: 🔴 Red → 🟢 Green → 🔵 Refactor)
+  - IMPL-3.2: {Sub-feature B} (Internal: 🔴 Red → 🟢 Green → 🔵 Refactor)
 [...]
 
-Plan:
+Plans generated:
 - Unified Implementation Plan: .workflow/[sessionId]/IMPL_PLAN.md
-  (includes TDD Task Chains section with workflow_type: "tdd")
+  (includes TDD Implementation Tasks section with workflow_type: "tdd")
+- Task List: .workflow/[sessionId]/TODO_LIST.md
+  (with internal TDD phase indicators)
+
+TDD Configuration:
+- Each task contains complete Red-Green-Refactor cycle
+- Green phase includes test-fix cycle (max 3 iterations)
+- Auto-revert on max iterations reached
 
 ✅ Recommended Next Steps:
-1. /workflow:action-plan-verify --session [sessionId]  # Verify TDD plan quality
+1. /workflow:action-plan-verify --session [sessionId]  # Verify TDD plan quality and dependencies
 2. /workflow:execute --session [sessionId]  # Start TDD execution
 3. /workflow:tdd-verify [sessionId]  # Post-execution TDD compliance check
 
-⚠️ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task dependencies
+⚠️ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task structure and dependencies
 ```
 
 ## TodoWrite Pattern
@@ -232,14 +257,18 @@ Supports action-planning-agent for more autonomous TDD planning with:
 
 ### Workflow Comparison
 
-| Aspect | Previous | Current |
-|--------|----------|---------|
-| **Phases** | 5 | 6 (test coverage analysis) |
+| Aspect | Previous | Current (Optimized) |
+|--------|----------|---------------------|
+| **Phases** | 6 (with test coverage) | 7 (added concept verification) |
 | **Context** | Greenfield assumption | Existing codebase aware |
+| **Task Structure** | 1 feature = 3 tasks (TEST/IMPL/REFACTOR) | 1 feature = 1 task (internal TDD cycle) |
+| **Task Count** | 5 features = 15 tasks | 5 features = 5 tasks (70% reduction) |
 | **Green Phase** | Single implementation | Iterative with fix cycle |
 | **Failure Handling** | Manual intervention | Auto-diagnose + fix + revert |
 | **Test Analysis** | None | Deep coverage analysis |
 | **Feedback Loop** | Post-execution | During Green phase |
+| **Task Management** | High overhead (15 tasks) | Low overhead (5 tasks) |
+| **Execution Efficiency** | Frequent context switching | Continuous context per feature |
 
 ### Migration Notes
 
@@ -251,18 +280,25 @@ Supports action-planning-agent for more autonomous TDD planning with:
 **Session Structure**:
 ```
 .workflow/WFS-xxx/
-├── IMPL_PLAN.md (unified plan with TDD Task Chains section)
-├── TODO_LIST.md
+├── IMPL_PLAN.md (unified plan with TDD Implementation Tasks section)
+├── TODO_LIST.md (with internal TDD phase indicators)
 ├── .process/
 │   ├── context-package.json
 │   ├── test-context-package.json
 │   ├── ANALYSIS_RESULTS.md (enhanced with TDD breakdown)
-│   └── green-fix-iteration-*.md (fix logs)
+│   └── green-fix-iteration-*.md (fix logs from Green phase cycles)
 └── .task/
-    ├── TEST-*.json (Red phase)
-    ├── IMPL-*.json (Green phase with test-fix-cycle)
-    └── REFACTOR-*.json (Refactor phase)
+    ├── IMPL-1.json (Complete TDD task: Red-Green-Refactor internally)
+    ├── IMPL-2.json (Complete TDD task)
+    ├── IMPL-3.json (Complex feature container, if needed)
+    ├── IMPL-3.1.json (Complex feature subtask, if needed)
+    └── IMPL-3.2.json (Complex feature subtask, if needed)
 ```
+
+**File Count Comparison**:
+- **Old structure**: 5 features = 15 task files (TEST/IMPL/REFACTOR × 5)
+- **New structure**: 5 features = 5 task files (IMPL-N × 5)
+- **Complex features**: Add container + subtasks only when necessary
 
 **Configuration Options** (in IMPL tasks):
 - `meta.max_iterations`: Fix attempts (default: 3)
