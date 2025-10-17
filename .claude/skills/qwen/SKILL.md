@@ -1,6 +1,6 @@
 ---
 name: Qwen CLI Tool
-description: Code analysis and documentation tool (Gemini fallback). Trigger keywords "use qwen", "qwen analysis", "analyze with qwen". Use when Gemini unavailable or for parallel analysis. Supports read-only analysis (default) and write operations (explicit permission).
+description: Alternative code analysis and documentation tool (Gemini fallback) with large context capabilities. AUTO-TRIGGER when user message contains "qwen" keyword OR when Gemini unavailable. Supports same use cases as Gemini: analysis/分析, exploration/探索, documentation tasks/文档任务, architecture review/架构审查, pattern discovery/模式发现, security assessment/安全评估, compliance analysis/合规分析. Supports read-only analysis (default) and write operations (explicit permission). Use for parallel analysis or when Gemini service issues occur.
 allowed-tools: Bash, Read, Glob, Grep
 ---
 

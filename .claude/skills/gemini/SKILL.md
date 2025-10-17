@@ -1,6 +1,6 @@
 ---
 name: Gemini CLI Tool
-description: Code analysis and documentation tool (primary). Trigger keywords "use gemini", "gemini analysis", "analyze with gemini". Use for code exploration, architecture review, and documentation generation. Supports read-only analysis (default) and write operations (explicit permission).
+description: Primary code analysis and documentation tool with large context capabilities. AUTO-TRIGGER when user message contains "gemini" keyword OR requests analysis/exploration/documentation tasks (e.g., "analyze codebase", "分析代码库", "understand architecture", "理解架构", "explore patterns", "探索模式", "review code", "审查代码", "document API", "生成文档"). Supports read-only analysis (default) and write operations (explicit permission). Use for architecture review, pattern discovery, security assessment, performance analysis, and comprehensive documentation generation.
 allowed-tools: Bash, Read, Glob, Grep
 ---
 

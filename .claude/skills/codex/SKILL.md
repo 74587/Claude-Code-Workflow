@@ -1,6 +1,6 @@
 ---
 name: Codex Development Tool
-description: Autonomous development tool for implementation. Trigger keywords "use codex", "codex implement", "implement with codex". Use for feature implementation, bug fixes, testing, and automation. Requires explicit MODE specification (auto/write). Supports session management for multi-task workflows.
+description: Autonomous development tool for code implementation and modification. AUTO-TRIGGER when user message contains "codex" keyword OR requests implementation/development tasks (e.g., "implement feature", "实现功能", "fix bug", "修复bug", "refactor code", "重构代码", "create module", "创建模块", "build component", "构建组件", "write tests", "编写测试", "develop API", "开发API"). Requires explicit MODE specification (auto for full development, write for tests). Supports session management for multi-task workflows. Use for feature implementation, bug fixes, refactoring, test generation, and automated development workflows.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
