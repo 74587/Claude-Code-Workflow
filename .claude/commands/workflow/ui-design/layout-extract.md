@@ -196,7 +196,7 @@ IF exists: SKIP to completion
 
 **Phase 0 Output**: `input_mode`, `base_path`, `extraction_mode`, `variants_count`, `targets[]`, `device_type`, loaded inputs
 
-## Phase 1: Layout Research (Explore Mode Only)
+## Phase 1: Layout Concept Generation (Explore Mode Only)
 
 ### Step 1: Check Extraction Mode
 ```bash
@@ -217,93 +217,311 @@ bash(mkdir -p {base_path}/.intermediates/layout-analysis/inspirations)
 Write({base_path}/.intermediates/layout-analysis/inspirations/{target}-layout-ideas.txt, inspiration_content)
 ```
 
-**Output**: Inspiration text files for each target (explore mode only)
-
-## Phase 2: Layout Analysis & Synthesis (Agent)
-
+### Step 3: Generate Layout Concept Options (Agent Task 1)
 **Executor**: `Task(ui-design-agent)`
 
-### Step 1: Launch Agent Task
+Launch agent to generate `variants_count` layout concept options for each target:
+
 ```javascript
 Task(ui-design-agent): `
-  [LAYOUT_EXTRACTION_TASK]
-  Analyze references and extract structural layout templates.
+  [LAYOUT_CONCEPT_GENERATION_TASK]
+  Generate {variants_count} structurally distinct layout concepts for each target
+
+  SESSION: {session_id} | MODE: explore | BASE_PATH: {base_path}
+  TARGETS: {targets} | DEVICE_TYPE: {device_type}
+
+  ## Input Analysis
+  - Targets: {targets.join(", ")}
+  - Device type: {device_type}
+  - Layout inspiration: Read inspirations from {base_path}/.intermediates/layout-analysis/inspirations/
+  - Visual references: {loaded_images if available}
+  ${dom_structure_available ? "- DOM Structure: Read from .intermediates/layout-analysis/dom-structure-*.json" : ""}
+
+  ## Analysis Rules
+  - For EACH target, generate {variants_count} structurally DIFFERENT layout concepts
+  - Concepts must differ in: grid structure, component arrangement, visual hierarchy
+  - Each concept should have distinct navigation pattern, content flow, and responsive behavior
+
+  ## Generate for EACH Target
+  For target in {targets}:
+    For concept_index in 1..{variants_count}:
+      1. **Concept Definition**:
+         - concept_name (descriptive, e.g., "Classic Three-Column Holy Grail")
+         - design_philosophy (1-2 sentences explaining the structural approach)
+         - layout_pattern (e.g., "grid-3col", "flex-row", "single-column", "asymmetric-grid")
+         - key_components (array of main layout regions)
+         - structural_features (list of distinguishing characteristics)
+
+      2. **Wireframe Preview** (simple text representation):
+         - ascii_art (simple ASCII box diagram showing layout structure)
+         - Example:
+           ┌─────────────────┐
+           │     HEADER      │
+           ├──┬─────────┬────┤
+           │ L│  MAIN   │ R  │
+           └──┴─────────┴────┘
+
+  ## Output
+  Write single JSON file: {base_path}/.intermediates/layout-analysis/analysis-options.json
+
+  Use schema from INTERACTIVE-DATA-SPEC.md (Layout Extract: analysis-options.json)
+
+  CRITICAL: Use Write() tool immediately after generating complete JSON
+`
+```
+
+### Step 4: Verify Options File Created
+```bash
+bash(test -f {base_path}/.intermediates/layout-analysis/analysis-options.json && echo "created")
+
+# Quick validation
+bash(cat {base_path}/.intermediates/layout-analysis/analysis-options.json | grep -q "layout_concepts" && echo "valid")
+```
+
+**Output**: `analysis-options.json` with layout concept options for all targets
+
+---
+
+## Phase 1.5: User Confirmation (Explore Mode Only - INTERACTIVE)
+
+**Purpose**: Allow user to select preferred layout concept(s) for each target before generating detailed templates
+
+### Step 1: Load and Present Options
+```bash
+# Read options file
+options = Read({base_path}/.intermediates/layout-analysis/analysis-options.json)
+
+# Parse layout concepts
+layout_concepts = options.layout_concepts
+```
+
+### Step 2: Present Options to User (Per Target)
+For each target, present layout concept options and capture selection:
+
+```
+📋 Layout Concept Options for Target: {target}
+
+We've generated {variants_count} structurally different layout concepts for review.
+Please select your preferred concept for this target.
+
+{FOR each concept in layout_concepts[target]:
+  ═══════════════════════════════════════════════════
+  Concept {concept.index}: {concept.concept_name}
+  ═══════════════════════════════════════════════════
+
+  Philosophy: {concept.design_philosophy}
+  Pattern: {concept.layout_pattern}
+
+  Components:
+  {FOR each component in concept.key_components:
+    • {component}
+  }
+
+  Features:
+  {FOR each feature in concept.structural_features:
+    • {feature}
+  }
+
+  Wireframe:
+  {concept.wireframe_preview.ascii_art}
+
+  ═══════════════════════════════════════════════════
+}
+```
+
+### Step 3: Capture User Selection (Per Target)
+```javascript
+// Use AskUserQuestion tool for each target
+FOR each target:
+  AskUserQuestion({
+    questions: [{
+      question: "Which layout concept do you prefer for '{target}'?",
+      header: "Layout for " + target,
+      multiSelect: false,
+      options: [
+        {FOR each concept in layout_concepts[target]:
+          label: "Concept {concept.index}: {concept.concept_name}",
+          description: "{concept.design_philosophy}"
+        }
+      ]
+    }]
+  })
+
+  // Parse user response
+  selected_option_text = user_answer
+
+  // Check for user cancellation
+  IF selected_option_text == null OR selected_option_text == "":
+      REPORT: "⚠️ User canceled selection. Workflow terminated."
+      EXIT workflow
+
+  // Extract concept index from response format "Concept N: Name"
+  match = selected_option_text.match(/Concept (\d+):/)
+  IF match:
+      selected_index = parseInt(match[1])
+  ELSE:
+      ERROR: "Invalid selection format. Expected 'Concept N: ...' format"
+      EXIT workflow
+
+  // Store selection for this target
+  selections[target] = {
+    selected_index: selected_index,
+    concept_name: layout_concepts[target][selected_index-1].concept_name
+  }
+```
+
+### Step 4: Write User Selection File
+```bash
+# Create user selection JSON
+selection_data = {
+  "metadata": {
+    "selected_at": "{current_timestamp}",
+    "selection_type": "per_target",
+    "session_id": "{session_id}"
+  },
+  "selections": selections  // {target: {selected_index, concept_name}}
+}
+
+# Write to file
+bash(echo '{selection_data}' > {base_path}/.intermediates/layout-analysis/user-selection.json)
+
+# Verify
+bash(test -f {base_path}/.intermediates/layout-analysis/user-selection.json && echo "saved")
+```
+
+### Step 5: Confirmation Message
+```
+✅ Selections recorded!
+
+{FOR each target, selection in selections:
+  • {target}: Concept {selection.selected_index} - {selection.concept_name}
+}
+
+Proceeding to generate detailed layout templates based on your selections...
+```
+
+**Output**: `user-selection.json` with user's choices for all targets
+
+## Phase 2: Layout Template Generation (Agent Task 2)
+
+**Executor**: `Task(ui-design-agent)` for selected concept(s)
+
+### Step 1: Load User Selection (Explore Mode)
+```bash
+# For explore mode, read user selection
+IF extraction_mode == "explore":
+    selection = Read({base_path}/.intermediates/layout-analysis/user-selection.json)
+    selections_per_target = selection.selections
+
+    # Also read the selected concept details from options
+    options = Read({base_path}/.intermediates/layout-analysis/analysis-options.json)
+    layout_concepts = options.layout_concepts
+
+    # Build selected concepts map
+    selected_concepts = {}
+    FOR each target in targets:
+        selected_index = selections_per_target[target].selected_index
+        selected_concepts[target] = layout_concepts[target][selected_index-1]  # 0-indexed
+ELSE:
+    # Imitate mode - no selection needed
+    selected_concepts = null
+```
+
+### Step 2: Launch Agent Task
+Generate layout templates for selected concepts:
+```javascript
+Task(ui-design-agent): `
+  [LAYOUT_TEMPLATE_GENERATION_TASK]
+  Generate detailed layout templates based on user-selected concepts.
   Focus ONLY on structure and layout. DO NOT concern with visual style (colors, fonts, etc.).
 
-  REFERENCES:
-  - Input: {reference_material}  // Images, URLs, or prompt
-  - Mode: {extraction_mode}  // 'imitate' or 'explore'
-  - Targets: {targets}  // List of page/component names
-  - Variants per Target: {variants_count}
-  - Device Type: {device_type}
-  ${exploration_mode ? "- Layout Inspiration: Read('" + base_path + "/.intermediates/layout-analysis/inspirations/{target}-layout-ideas.txt')" : ""}
-  ${dom_structure_available ? "- DOM Structure Data: Read('" + base_path + "/.intermediates/layout-analysis/dom-structure-{target}.json') - USE THIS for accurate layout properties" : ""}
+  SESSION: {session_id} | MODE: {extraction_mode} | BASE_PATH: {base_path}
+  DEVICE_TYPE: {device_type}
 
-  ## Analysis & Generation
-  ${dom_structure_available ? "IMPORTANT: You have access to real DOM structure data with accurate flex/grid properties, bounds, and hierarchy. Use this data as ground truth for layout analysis." : ""}
-  For EACH target in {targets}:
-    For EACH variant (1 to {variants_count}):
-      1. **Analyze Structure**:
-         ${dom_structure_available ?
-           "- Use DOM structure data as primary source for layout properties" +
-           "- Extract real flex/grid configurations (display, flexDirection, justifyContent, alignItems, gap)" +
-           "- Use actual element bounds for responsive breakpoint decisions" +
-           "- Preserve identified patterns (flex-row, flex-column, grid-NCol)" +
-           "- Reference screenshots for visual context only" :
-           "- Deconstruct reference images/URLs to understand layout, hierarchy, responsiveness"}
-      2. **Define Philosophy**: Short description (e.g., "Asymmetrical grid with overlapping content areas")
-      3. **Generate DOM Structure**:
-         ${dom_structure_available ?
-           "- Base structure on extracted DOM tree from .intermediates" +
-           "- Preserve semantic tags and hierarchy from dom-structure-{target}.json" +
-           "- Maintain layout patterns identified in patterns field" :
-           "- JSON object representing semantic HTML5 structure"}
-         - Semantic tags: <header>, <nav>, <main>, <aside>, <section>, <footer>
-         - ARIA roles and accessibility attributes
-         - Device-specific structure:
-           * mobile: Single column, stacked sections, touch targets ≥44px
-           * desktop: Multi-column grids, hover states, larger hit areas
-           * tablet: Hybrid layouts, flexible columns
-           * responsive: Breakpoint-driven adaptive layouts (mobile-first)
-         - In 'explore' mode: Each variant structurally DISTINCT
-      4. **Define Component Hierarchy**: High-level array of main layout regions
-         Example: ["header", "main-content", "sidebar", "footer"]
-      5. **Generate CSS Layout Rules**:
-         ${dom_structure_available ?
-           "- Use real layout properties from DOM structure data" +
-           "- Convert extracted flex/grid values to CSS rules" +
-           "- Preserve actual gap, justifyContent, alignItems values" +
-           "- Use element bounds to inform responsive breakpoints" :
-           "- Focus ONLY on layout (Grid, Flexbox, position, alignment, gap, etc.)"}
-         - Use CSS Custom Properties for spacing/breakpoints: var(--spacing-4), var(--breakpoint-md)
-         - Device-specific styles (mobile-first @media for responsive)
-         - NO colors, NO fonts, NO shadows - layout structure only
+  ${extraction_mode == "explore" ? `
+  USER SELECTIONS:
+  ${targets.map(target => `
+  Target: ${target}
+  - Selected Concept: ${selected_concepts[target].concept_name}
+  - Philosophy: ${selected_concepts[target].design_philosophy}
+  - Pattern: ${selected_concepts[target].layout_pattern}
+  - Key Components: ${selected_concepts[target].key_components.join(", ")}
+  - Structural Features: ${selected_concepts[target].structural_features.join(", ")}
+  `).join("\n")}
+  ` : `
+  MODE: Imitate - High-fidelity replication of reference layout structure
+  TARGETS: ${targets.join(", ")}
+  `}
+
+  ## Input Analysis
+  - Targets: {targets.join(", ")}
+  - Device type: {device_type}
+  - Visual references: {loaded_images if available}
+  ${dom_structure_available ? "- DOM Structure Data: Read from .intermediates/layout-analysis/dom-structure-*.json - USE THIS for accurate layout properties" : ""}
+
+  ## Generation Rules
+  ${extraction_mode == "explore" ? `
+  - **Explore Mode**: Develop each user-selected layout concept into a detailed template
+  - Use the selected concept's key_components as foundation
+  - Apply the selected layout_pattern (grid-3col, flex-row, etc.)
+  - Honor the structural_features defined in the concept
+  - Expand the concept with complete DOM structure and CSS layout rules
+  ` : `
+  - **Imitate Mode**: High-fidelity replication of reference layout structure
+  ${dom_structure_available ? "- Use DOM structure data as ground truth" : "- Use visual inference"}
+  `}
+  ${dom_structure_available ? `
+  - IMPORTANT: You have access to real DOM structure data with accurate flex/grid properties
+  - Use DOM data as primary source for layout properties
+  - Extract real flex/grid configurations (display, flexDirection, justifyContent, alignItems, gap)
+  - Use actual element bounds for responsive breakpoint decisions
+  - Preserve identified patterns from DOM structure
+  ` : ""}
+
+  ## Generate for EACH Target
+  For target in {targets}:
+    ${extraction_mode == "explore" ? "Based on user-selected concept:" : "Based on reference:"}
+
+    1. **DOM Structure**:
+       - Semantic HTML5 tags: <header>, <nav>, <main>, <aside>, <section>, <footer>
+       - ARIA roles and accessibility attributes
+       ${extraction_mode == "explore" ? "- Use key_components from selected concept" : ""}
+       ${dom_structure_available ? "- Base on extracted DOM tree from .intermediates" : "- Infer from visual analysis"}
+       - Device-specific optimizations for {device_type}
+
+    2. **Component Hierarchy**:
+       - Array of main layout regions
+       ${extraction_mode == "explore" ? "- Derived from selected concept's key_components" : ""}
+
+    3. **CSS Layout Rules**:
+       ${extraction_mode == "explore" ? "- Implement selected layout_pattern" : ""}
+       ${dom_structure_available ? "- Use real layout properties from DOM structure data" : "- Focus on Grid, Flexbox, position, alignment"}
+       - Use CSS Custom Properties: var(--spacing-*), var(--breakpoint-*)
+       - Device-specific styles (mobile-first @media for responsive)
+       - NO colors, NO fonts, NO shadows - layout structure only
 
   ## Output Format
-  Return JSON object with layout_templates array.
+  Write complete layout-templates.json with layout_templates array.
   Each template must include:
   - target (string)
-  - variant_id (string, e.g., "layout-1")
-  - source_image_path (string, REQUIRED): Path to the primary reference image used for this layout analysis
-    * For image input: Use the actual image file path from {images_pattern}
-    * For URL input: Use the screenshot path if available, or empty string
-    * For text/prompt input: Use empty string
-    * Example: "{base_path}/screenshots/home.png"
+  - variant_id: "layout-1" (always 1 since only selected concept is generated)
+  - source_image_path (string): Reference image path
   - device_type (string)
-  - design_philosophy (string)
+  - design_philosophy (string ${extraction_mode == "explore" ? "- from selected concept" : ""})
   - dom_structure (JSON object)
   - component_hierarchy (array of strings)
   - css_layout_rules (string)
 
-  ## Notes
-  - Structure only, no visual styling
-  - Use var() for all spacing/sizing
-  - Layouts must be structurally distinct in explore mode
-  - Write complete layout-templates.json
+  ## Critical Requirements
+  - ✅ Use Write() tool for layout-templates.json
+  - ✅ One template per target (only selected concept)
+  - ✅ Structure only, no visual styling
+  - ✅ Token-based CSS (var())
+  ${extraction_mode == "explore" ? "- ✅ Maintain consistency with selected concepts" : ""}
 `
 ```
 
-**Output**: Agent returns JSON with `layout_templates` array
+**Output**: Agent generates `layout-templates.json` with one template per target
 
 ### Step 2: Write Output File
 ```bash
