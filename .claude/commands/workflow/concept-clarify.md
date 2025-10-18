@@ -271,6 +271,13 @@ This serves as a quality gate to ensure conceptual clarity before detailed task 
    - OR 🔄 **Run /workflow:concept-clarify Again**: If new information available
 
    ### Next Steps
+
+   **If Outstanding Items Exist**:
+   1. TodoWrite tracking for outstanding issues
+   2. Call conceptual-planning-agent to fix conceptual gaps
+   3. Wait for user confirmation before proceeding
+
+   **If No Issues**:
    ```bash
    /workflow:plan  # Generate IMPL_PLAN.md and task.json
    ```

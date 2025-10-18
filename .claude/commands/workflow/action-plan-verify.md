@@ -362,81 +362,8 @@ At end of report, provide batch remediation guidance:
 ### 🔧 Remediation Options
 
 **Recommended Workflow**:
-1. **Batch Mode** (Fastest): Apply all task improvements automatically
-   ```bash
-   /task:replan --batch .workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md
-   ```
+1. **TodoWrite Tracking**: Create task list for all fixes
+2. **Agent-Based Fixes**: Call action-planning-agent to regenerate task files
+3. **User Confirmation**: Wait for approval before executing fixes
 
-2. **Manual Review**: Examine each issue before applying
-   - Review findings in this report
-   - Execute specific `/task:create` or `/task:replan` commands individually
-
-3. **Architecture Changes**: Update IMPL_PLAN.md manually if architecture drift detected
-
-**Note**: This is read-only analysis. All fixes require explicit execution.
-```
-
-### 8. Update Session Metadata
-
-```json
-{
-  "phases": {
-    "PLAN": {
-      "status": "completed",
-      "action_plan_verification": {
-        "completed": true,
-        "completed_at": "timestamp",
-        "overall_risk_level": "HIGH",
-        "recommendation": "PROCEED_WITH_FIXES",
-        "issues": {
-          "critical": 2,
-          "high": 5,
-          "medium": 8,
-          "low": 3
-        },
-        "coverage": {
-          "functional_requirements": 0.85,
-          "non_functional_requirements": 0.40,
-          "business_requirements": 1.00
-        },
-        "report_path": ".workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md"
-      }
-    }
-  }
-}
-```
-
-## Operating Principles
-
-### Context Efficiency
-- **Minimal high-signal tokens**: Focus on actionable findings
-- **Progressive disclosure**: Load artifacts incrementally
-- **Token-efficient output**: Limit findings table to 50 rows; summarize overflow
-- **Deterministic results**: Rerunning without changes produces consistent IDs and counts
-
-### Analysis Guidelines
-- **NEVER modify files** (this is read-only analysis)
-- **NEVER hallucinate missing sections** (if absent, report them accurately)
-- **Prioritize synthesis violations** (these are always CRITICAL)
-- **Use examples over exhaustive rules** (cite specific instances)
-- **Report zero issues gracefully** (emit success report with coverage statistics)
-
-### Verification Taxonomy
-- **Coverage**: Requirements → Tasks mapping
-- **Consistency**: Cross-artifact alignment
-- **Dependencies**: Task ordering and relationships
-- **Synthesis Alignment**: Adherence to authoritative requirements
-- **Task Quality**: Specification completeness
-- **Feasibility**: Implementation risks
-
-## Behavior Rules
-
-- **If no issues found**: Report "✅ Action plan verification passed. No issues detected." and suggest proceeding to `/workflow:execute`.
-- **If CRITICAL issues exist**: Recommend blocking execution until resolved.
-- **If only HIGH/MEDIUM issues**: User may proceed with caution, but provide improvement suggestions.
-- **If IMPL_PLAN.md or task files missing**: Instruct user to run `/workflow:plan` first.
-- **Always provide actionable remediation suggestions**: Don't just identify problems—suggest solutions.
-
-## Context
-
-{ARGS}
+**Note**: All fixes require explicit user confirmation.
