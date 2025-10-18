@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.5.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v4.6.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,14 +15,14 @@
 
 **Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a robust, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
 
-> **🎉 Latest: v4.5.0** - Workflow System Optimization. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Latest: v4.6.0** - Concept Clarification & Agent-Driven Analysis. See [CHANGELOG.md](CHANGELOG.md) for details.
 >
-> **What's New in v4.5.0**:
-> - 🤖 **Enhanced Agent Protocols**: Unified execution protocols across Gemini/Qwen/Codex with structured output templates
-> - 🎨 **Streamlined UI Workflows**: Simplified design commands with improved documentation
-> - 📋 **Optimized Templates**: Refined workflow templates for better clarity and efficiency
-> - 🔧 **Improved CLI Commands**: Enhanced command documentation and tool integration
-> - ✨ **CLI Execution Agent**: New autonomous agent for CLI task handling
+> **What's New in v4.6.0**:
+> - 🎯 **Concept Clarification Quality Gate**: Interactive Q&A to resolve ambiguities before task generation (Phase 3.5)
+> - 🤖 **Agent-Delegated Analysis**: Phase 3 now uses cli-execution-agent for autonomous context discovery
+> - 🔄 **Dual-Mode Support**: concept-clarify auto-detects brainstorm vs plan workflows
+> - 📚 **Test-Cycle-Execute**: Enhanced documentation for dynamic test-fix iteration workflows
+> - ✨ **Backward Compatible**: All enhancements preserve existing workflow functionality
 
 ---
 

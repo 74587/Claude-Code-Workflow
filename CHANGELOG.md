@@ -5,6 +5,235 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.0] - 2025-10-18
+
+### 🎯 Concept Clarification & Agent-Driven Analysis
+
+This release introduces a concept clarification quality gate and agent-delegated intelligent analysis, significantly enhancing workflow planning accuracy and reducing execution errors.
+
+#### Added
+
+**Concept Clarification Quality Gate** (`/workflow:concept-clarify`):
+- **Dual-Mode Support**: Automatically detects and operates in brainstorm or plan workflows
+  - **Brainstorm Mode**: Analyzes `synthesis-specification.md` after brainstorm synthesis
+  - **Plan Mode**: Analyzes `ANALYSIS_RESULTS.md` between Phase 3 and Phase 4
+- **Interactive Q&A System**: Up to 5 targeted questions to resolve ambiguities
+  - Multiple-choice or short-answer format
+  - Covers requirements, architecture, UX, implementation, risks
+  - Progressive disclosure - one question at a time
+- **Incremental Updates**: Saves clarifications after each answer to prevent context loss
+- **Coverage Summary**: Generates detailed report with recommendations
+- **Session Metadata**: Tracks verification status in workflow session
+- **Phase 3.5 Integration**: Inserted as quality gate in `/workflow:plan`
+  - Pauses auto-continue workflow for user interaction
+  - Auto-skips if no critical ambiguities detected
+  - Updates ANALYSIS_RESULTS.md with user clarifications
+
+**Agent-Delegated Intelligent Analysis** (Phase 3 Enhancement):
+- **CLI Execution Agent Integration**: Phase 3 now uses `cli-execution-agent`
+  - Autonomous context discovery via MCP code-index
+  - Enhanced prompt generation with discovered patterns
+  - 5-phase agent workflow (understand → discover → enhance → execute → route)
+- **MCP-Powered Context Discovery**: Automatic file and pattern discovery
+  - `mcp__code-index__find_files`: Pattern-based file discovery
+  - `mcp__code-index__search_code_advanced`: Content-based code search
+  - `mcp__code-index__get_file_summary`: Structural analysis
+- **Smart Tool Selection**: Agent automatically chooses Gemini for analysis tasks
+- **Execution Logging**: Complete agent execution log saved to session
+- **Session-Aware Routing**: Results automatically routed to correct session directory
+
+**Enhanced Planning Workflow** (`/workflow:plan`):
+- **5-Phase Model**: Upgraded from 4-phase to 5-phase workflow
+  - Phase 1: Session Discovery
+  - Phase 2: Context Gathering
+  - Phase 3: Intelligent Analysis (agent-delegated)
+  - Phase 3.5: Concept Clarification (quality gate)
+  - Phase 4: Task Generation
+- **Auto-Continue Enhancement**: Workflow pauses only at Phase 3.5 for user input
+- **Memory Management**: Added memory state check before Phase 3.5
+  - Automatic `/compact` execution if context usage >110K tokens
+  - Prevents context overflow during intensive analysis
+
+#### Changed
+
+**concept-clarify.md** - Enhanced with Dual-Mode Support:
+- **Mode Detection Logic**: Auto-detects workflow type based on artifact presence
+  ```bash
+  IF EXISTS(ANALYSIS_RESULTS.md) → plan mode
+  ELSE IF EXISTS(synthesis-specification.md) → brainstorm mode
+  ```
+- **Dynamic File Handling**: Loads and updates appropriate artifact based on mode
+- **Mode-Specific Validation**: Different validation rules for each mode
+- **Enhanced Metadata**: Tracks `clarify_mode` in session verification data
+- **Backward Compatible**: Preserves all existing brainstorm mode functionality
+
+**plan.md** - Refactored for Agent Delegation:
+- **Phase 3 Delegation**: Changed from direct `concept-enhanced` call to `cli-execution-agent`
+  - Agent receives: sessionId, contextPath, task description
+  - Agent executes: autonomous context discovery + Gemini analysis
+  - Agent outputs: ANALYSIS_RESULTS.md + execution log
+- **Phase 3.5 Integration**: New quality gate phase with interactive Q&A
+  - Command: `SlashCommand(concept-clarify --session [sessionId])`
+  - Validation: Checks for clarifications section and recommendation
+  - Skip conditions: Auto-proceeds if no ambiguities detected
+- **TodoWrite Enhancement**: Updated to track 5 phases including Phase 3.5
+- **Data Flow Updates**: Enhanced context flow diagram showing agent execution
+- **Coordinator Checklist**: Added Phase 3.5 verification steps
+
+**README.md & README_CN.md** - Documentation Updates:
+- **Version Badge**: Updated to v4.6.0
+- **What's New Section**: Highlighted key features of v4.6.0
+  - Concept clarification quality gate
+  - Agent-delegated analysis
+  - Dual-mode support
+  - Test-cycle-execute documentation
+- **Phase 5 Enhancement**: Added `/workflow:test-cycle-execute` documentation
+  - Dynamic task generation explanation
+  - Iterative testing workflow
+  - CLI-driven analysis integration
+  - Resume session support
+- **Command Reference**: Added test-cycle-execute to workflow commands table
+
+#### Improved
+
+**Workflow Quality Gates**:
+- 🎯 **Pre-Planning Verification**: concept-clarify catches ambiguities before task generation
+- 🤖 **Intelligent Analysis**: Agent-driven Phase 3 provides deeper context discovery
+- 🔄 **Interactive Control**: Users validate critical decisions at Phase 3.5
+- ✅ **Higher Accuracy**: Clarified requirements reduce execution errors
+
+**Context Discovery**:
+- 🔍 **MCP Integration**: Leverages code-index for automatic pattern discovery
+- 📊 **Enhanced Prompts**: Agent enriches prompts with discovered context
+- 🎯 **Relevance Scoring**: Files ranked and filtered by relevance
+- 📁 **Execution Transparency**: Complete agent logs for debugging
+
+**User Experience**:
+- ⏸️ **Single Interaction Point**: Only Phase 3.5 requires user input
+- ⚡ **Auto-Skip Intelligence**: No questions if analysis is already clear
+- 📝 **Incremental Saves**: Clarifications saved after each answer
+- 🔄 **Resume Support**: Can continue interrupted test workflows
+
+#### Technical Details
+
+**Concept Clarification Architecture**:
+```javascript
+Phase 1: Session Detection & Mode Detection
+  ↓
+  IF EXISTS(process_dir/ANALYSIS_RESULTS.md):
+    mode = "plan" → primary_artifact = ANALYSIS_RESULTS.md
+  ELSE IF EXISTS(brainstorm_dir/synthesis-specification.md):
+    mode = "brainstorm" → primary_artifact = synthesis-specification.md
+  ↓
+Phase 2: Load Artifacts (mode-specific)
+  ↓
+Phase 3: Ambiguity Scan (8 categories)
+  ↓
+Phase 4: Question Generation (max 5, prioritized)
+  ↓
+Phase 5: Interactive Q&A (one at a time)
+  ↓
+Phase 6: Incremental Updates (save after each answer)
+  ↓
+Phase 7: Completion Report with recommendations
+```
+
+**Agent-Delegated Analysis Flow**:
+```javascript
+plan.md Phase 3:
+  Task(cli-execution-agent) →
+    Agent Phase 1: Understand analysis intent
+    Agent Phase 2: MCP code-index discovery
+    Agent Phase 3: Enhance prompt with patterns
+    Agent Phase 4: Execute Gemini analysis
+    Agent Phase 5: Route to .workflow/[session]/.process/ANALYSIS_RESULTS.md
+  → ANALYSIS_RESULTS.md + execution log
+```
+
+**Workflow Data Flow**:
+```
+User Input
+  ↓
+Phase 1: session:start → sessionId
+  ↓
+Phase 2: context-gather → contextPath
+  ↓
+Phase 3: cli-execution-agent → ANALYSIS_RESULTS.md (enhanced)
+  ↓
+Phase 3.5: concept-clarify → ANALYSIS_RESULTS.md (clarified)
+  ↓ [User answers 0-5 questions]
+  ↓
+Phase 4: task-generate → IMPL_PLAN.md + task.json
+```
+
+#### Files Changed
+
+**Commands** (3 files):
+- `.claude/commands/workflow/concept-clarify.md` - Added dual-mode support (85 lines changed)
+- `.claude/commands/workflow/plan.md` - Agent delegation + Phase 3.5 (106 lines added)
+- `.claude/commands/workflow/tools/concept-enhanced.md` - Documentation updates
+
+**Documentation** (3 files):
+- `README.md` - Version update + test-cycle-execute documentation (25 lines changed)
+- `README_CN.md` - Chinese version aligned with README.md (25 lines changed)
+- `CHANGELOG.md` - This changelog entry
+
+**Total Impact**:
+- 6 files changed
+- 241 insertions, 50 deletions
+- Net: +191 lines
+
+#### Backward Compatibility
+
+**✅ Fully Backward Compatible**:
+- Existing workflows continue to work unchanged
+- concept-clarify preserves brainstorm mode functionality
+- Phase 3.5 auto-skips when no ambiguities detected
+- Agent delegation transparent to users
+- All existing commands and sessions unaffected
+
+#### Benefits
+
+**Planning Accuracy**:
+- 🎯 **Ambiguity Resolution**: Interactive Q&A eliminates underspecified requirements
+- 📊 **Better Context**: Agent discovers patterns missed by manual analysis
+- ✅ **Pre-Execution Validation**: Catches issues before task generation
+
+**Workflow Efficiency**:
+- ⚡ **Autonomous Discovery**: MCP integration reduces manual context gathering
+- 🔄 **Smart Skipping**: No questions when analysis is already complete
+- 📝 **Incremental Progress**: Saves work after each clarification
+
+**Development Quality**:
+- 🐛 **Fewer Errors**: Clarified requirements reduce implementation mistakes
+- 🎯 **Focused Tasks**: Better analysis produces more precise task breakdown
+- 📚 **Audit Trail**: Complete execution logs for debugging
+
+#### Migration Notes
+
+**No Action Required**:
+- All changes are additive and backward compatible
+- Existing workflows benefit from new features automatically
+- concept-clarify can be used manually in existing sessions
+
+**Optional Enhancements**:
+- Use `/workflow:concept-clarify` manually before `/workflow:plan` for brainstorm workflows
+- Review Phase 3 execution logs in `.workflow/[session]/.chat/` for insights
+- Enable MCP tools for optimal agent context discovery
+
+**New Workflow Pattern**:
+```bash
+# New recommended workflow with quality gates
+/workflow:brainstorm:auto-parallel "topic"
+/workflow:brainstorm:synthesis
+/workflow:concept-clarify  # Optional but recommended
+/workflow:plan "description"
+# Phase 3.5 will pause for clarification Q&A if needed
+/workflow:execute
+```
+
+---
+
 ## [4.4.1] - 2025-10-12
 
 ### 🔧 Implementation Approach Structure Refactoring
