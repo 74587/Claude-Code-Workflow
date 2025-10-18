@@ -1,21 +1,24 @@
 ---
 name: task-generate-agent
 description: Autonomous task generation using action-planning-agent with discovery and output phases
-argument-hint: "--session WFS-session-id"
+argument-hint: "--session WFS-session-id [--cli-execute]"
 examples:
   - /workflow:tools:task-generate-agent --session WFS-auth
+  - /workflow:tools:task-generate-agent --session WFS-auth --cli-execute
 ---
 
 # Autonomous Task Generation Command
 
 ## Overview
-Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent with two-phase execution: discovery and document generation.
+Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent with two-phase execution: discovery and document generation. Supports both agent-driven execution (default) and CLI tool execution modes.
 
 ## Core Philosophy
 - **Agent-Driven**: Delegate execution to action-planning-agent for autonomous operation
 - **Two-Phase Flow**: Discovery (context gathering) → Output (document generation)
 - **Memory-First**: Reuse loaded documents from conversation memory
 - **MCP-Enhanced**: Use MCP tools for advanced code analysis and research
+- **Pre-Selected Templates**: Command selects correct template based on `--cli-execute` flag **before** invoking agent
+- **Agent Simplicity**: Agent receives pre-selected template and focuses only on content generation
 
 ## Execution Lifecycle
 
@@ -26,6 +29,10 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
 ```javascript
 {
   "session_id": "WFS-[session-id]",
+  "execution_mode": "agent-mode" | "cli-execute-mode",  // Determined by flag
+  "task_json_template_path": "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt"
+                           | "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt",
+  // Path selected by command based on --cli-execute flag, agent reads it
   "session_metadata": {
     // If in memory: use cached content
     // Else: Load from .workflow/{session-id}/workflow-session.json
@@ -96,6 +103,14 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
 
 ### Phase 2: Agent Execution (Document Generation)
 
+**Pre-Agent Template Selection** (Command decides path before invoking agent):
+```javascript
+// Command checks flag and selects template PATH (not content)
+const templatePath = hasCliExecuteFlag
+  ? "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt"
+  : "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt";
+```
+
 **Agent Invocation**:
 ```javascript
 Task(
@@ -105,7 +120,8 @@ Task(
 ## Execution Context
 
 **Session ID**: WFS-{session-id}
-**Mode**: Two-Phase Autonomous Task Generation
+**Execution Mode**: {agent-mode | cli-execute-mode}
+**Task JSON Template Path**: {template_path}
 
 ## Phase 1: Discovery Results (Provided Context)
 
@@ -147,17 +163,18 @@ Task(
 
 #### 1. Task JSON Files (.task/IMPL-*.json)
 **Location**: .workflow/{session-id}/.task/
-**Schema**: 5-field enhanced schema with artifacts
+**Template**: Read from the template path provided above
 
-**Task JSON Schema Template**:
+**Task JSON Template Loading**:
 \`\`\`
-$(cat ~/.claude/workflows/cli-templates/prompts/workflow/task-json-schema.txt)
+Read({template_path})
 \`\`\`
 
 **Important**:
-- Use the schema template above for all task JSON generation
-- Replace placeholder variables ({synthesis_spec_path}, {role_analysis_path}, etc.) with actual paths
-- Include MCP tool integration examples in pre_analysis steps
+- Read the template from the path provided in context
+- Use the template structure exactly as written
+- Replace placeholder variables ({synthesis_spec_path}, {role_analysis_path}, etc.) with actual session-specific paths
+- Include MCP tool integration in pre_analysis steps
 - Map artifacts based on task domain (UI → ui-designer, Backend → system-architect)
 
 #### 2. IMPL_PLAN.md
@@ -194,34 +211,43 @@ $(cat ~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
 - \`- [x]\` = Completed leaf task
 \`\`\`
 
-### Execution Instructions
+### Execution Instructions for Agent
 
-**Step 1: Extract Task Definitions**
-- Parse analysis results for task recommendations
-- Extract task ID, title, requirements, complexity
-- Map artifacts to relevant tasks based on type
+**Agent Task**: Generate task JSON files, IMPL_PLAN.md, and TODO_LIST.md based on analysis results
 
-**Step 2: Generate Task JSON Files**
-- Create individual .task/IMPL-*.json files
-- Embed artifacts array with detected brainstorming outputs
-- Generate flow_control with artifact loading steps
-- Add MCP tool integration for codebase exploration
+**Note**: The correct task JSON template path has been pre-selected by the command based on the `--cli-execute` flag and is provided in the context as `{template_path}`.
 
-**Step 3: Create IMPL_PLAN.md**
-- Summarize requirements and technical approach
-- List detected artifacts with priorities
-- Document task breakdown and dependencies
-- Define execution strategy and success criteria
+**Step 1: Load Task JSON Template**
+- Read template from the provided path: `Read({template_path})`
+- This template is already the correct one based on execution mode
 
-**Step 4: Generate TODO_LIST.md**
-- List all tasks with container/leaf structure
-- Link to task JSON files
+**Step 2: Extract and Decompose Tasks**
+- Parse ANALYSIS_RESULTS.md for task recommendations
+- Apply task merging rules (merge when possible, decompose only when necessary)
+- Map artifacts to tasks based on domain (UI/Backend/Data)
+- Ensure task count ≤10
+
+**Step 3: Generate Task JSON Files**
+- Use the template structure from Step 1
+- Create .task/IMPL-*.json files with proper structure
+- Replace all {placeholder} variables with actual session paths
+- Embed artifacts array with brainstorming outputs
+- Include MCP tool integration in pre_analysis steps
+
+**Step 4: Create IMPL_PLAN.md**
+- Use IMPL_PLAN template
+- Populate all sections with session-specific content
+- List artifacts with priorities and usage guidelines
+- Document execution strategy and dependencies
+
+**Step 5: Generate TODO_LIST.md**
+- Create task progress checklist matching generated JSONs
 - Use proper status indicators (▸, [ ], [x])
+- Link to task JSON files
 
-**Step 5: Update Session State**
-- Update .workflow/{session-id}/workflow-session.json
-- Mark session as ready for execution
-- Record task count and artifact inventory
+**Step 6: Update Session State**
+- Update workflow-session.json with task count and artifact inventory
+- Mark session ready for execution
 
 ### MCP Enhancement Examples
 
@@ -312,3 +338,29 @@ const agentContext = {
   mcp_analysis: executeMcpDiscovery()
 }
 ```
+
+
+## Usage Examples
+
+```bash
+# Agent Mode (default) - steps without command field
+/workflow:tools:task-generate-agent --session WFS-auth
+
+# CLI Execute Mode - steps with command field
+/workflow:tools:task-generate-agent --session WFS-auth --cli-execute
+
+# Called by /workflow:plan (default mode)
+SlashCommand(command="/workflow:tools:task-generate-agent --session WFS-[id]")
+
+# Called by /workflow:plan --cli-execute (CLI mode)
+SlashCommand(command="/workflow:tools:task-generate-agent --session WFS-[id] --cli-execute")
+```
+
+## Related Commands
+- `/workflow:plan` - Orchestrates planning and calls this command
+- `/workflow:plan --cli-execute` - Planning with CLI execution mode
+- `/workflow:tools:task-generate` - Manual version without agent
+- `/workflow:tools:context-gather` - Provides context package
+- `/workflow:tools:concept-enhanced` - Provides analysis results
+- `/workflow:execute` - Executes generated tasks
+
