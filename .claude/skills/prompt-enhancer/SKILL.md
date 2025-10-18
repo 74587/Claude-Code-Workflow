@@ -1,12 +1,12 @@
 ---
 name: Prompt Enhancer
 description: Transform vague prompts into actionable specs using session memory ONLY (no file analysis). AUTO-TRIGGER on (1) -e/--enhance flags, (2) vague keywords (fix/improve/refactor/修复/优化/重构), (3) unclear refs (it/that/这个/那个), (4) multi-module scope. Supports English + Chinese semantic recognition.
-allowed-tools: AskUserQuestion
+allowed-tools: (none)
 ---
 
 # Prompt Enhancer
 
-**Transform**: Vague intent → Structured specification (Memory-based)
+**Transform**: Vague intent → Structured specification (Memory-based, Direct Output)
 
 **Languages**: English + Chinese (中英文语义识别)
 
@@ -19,160 +19,202 @@ allowed-tools: AskUserQuestion
 | **P3** | Unclear references | EN: it/that/the code<br>CN: 这个/那个/它/代码 | Context extraction |
 | **P4** | Multi-module scope | >3 modules or critical systems | Dependency analysis |
 
-## Process (3 Steps - Streamlined)
+## Process (Internal → Direct Output)
 
-### 1. Semantic Analysis (Quick)
-Identify: Intent keywords (EN/CN) → Scope (file/module/system) → Domain (auth/API/DB/UI)
+**Internal Analysis (Silent)**:
 
-**English**: fix, improve, add, refactor, update, migrate
-**Chinese**: 修复, 优化, 添加, 重构, 更新, 迁移, 改进, 清理
+1. **Semantic Analysis**
+   - Intent keywords (EN/CN): fix/修复, improve/优化, add/添加, refactor/重构
+   - Scope identification: file → module → system
+   - Domain mapping: auth/API/DB/UI/Performance
 
-### 2. Memory-Only Extraction (NO File Reading)
-Extract from **conversation memory ONLY**:
-- Recent user requests and context
-- Previous implementations/patterns discussed
-- Known dependencies from session
-- User preferences and constraints
+2. **Memory Extraction** (NO File Reading)
+   - Recent user requests and context
+   - Tech stack mentioned in session (frameworks, libraries, patterns)
+   - Design patterns discussed or implied
+   - User preferences and constraints
+   - Known dependencies from conversation
 
-**SKIP**: File reading, codebase scanning, Glob/Grep operations
-**FOCUS**: Pure memory-based context extraction
+3. **Enhancement Dimensions**
+   - **Structure**: Convert to INTENT/CONTEXT/ACTION/ATTENTION format
+   - **Supplement**: Add tech stack, design patterns, testing requirements
+   - **Clarify**: Make intent explicit, resolve ambiguous references
 
-### 3. User Confirmation with Optimization Direction (REQUIRED)
-Present structured prompt → Ask: Continue? + Optimization suggestions needed?
+**Output**: Direct structured prompt (no intermediate steps shown)
 
 ## Output Format
 
 ```
 📋 ENHANCED PROMPT
 
-INTENT: [One-sentence technical goal / 明确技术目标]
+INTENT: [One-sentence technical goal with tech stack / 明确技术目标含技术栈]
+
+TECH STACK: [Relevant technologies from memory / 相关技术栈]
+- [Framework/Library: Purpose]
 
 CONTEXT: [Session memory findings / 会话记忆发现]
 - [Key context point 1]
 - [Key context point 2]
-- [...]
+- [Design patterns/constraints from session]
 
 ACTION:
-1. [Concrete step / 具体步骤]
-2. [Concrete step / 具体步骤]
-3. [...]
+1. [Concrete step with technical details / 具体步骤含技术细节]
+2. [Concrete step with technical details]
+3. [Testing/validation step]
 
 ATTENTION: [Critical constraints / 关键约束]
-- [Security/compatibility/testing concerns]
-
+- [Security/compatibility/performance concerns]
+- [Design pattern requirements]
 ```
 
 ## Semantic Patterns (EN + CN)
 
-| Intent (EN/CN) | Semantic Meaning | Focus |
-|----------------|------------------|-------|
-| fix/修复 + vague target | Debug & resolve | Root cause → preserve behavior |
-| improve/优化 + no metrics | Enhance/optimize | Performance/readability |
-| add/添加 + feature | Implement feature | Integration + edge cases |
-| refactor/重构 + module | Restructure | Maintain behavior |
-| update/更新 + version | Modernize | Version compatibility |
-| clean up/清理 + area | Simplify/organize | Remove redundancy |
+| Intent (EN/CN) | Semantic Meaning | Enhancement Focus |
+|----------------|------------------|-------------------|
+| fix/修复 + vague target | Debug & resolve | Root cause + tech stack + testing |
+| improve/优化 + no metrics | Enhance/optimize | Performance metrics + patterns + benchmarks |
+| add/添加 + feature | Implement feature | Integration points + edge cases + tests |
+| refactor/重构 + module | Restructure | Design patterns + backward compatibility |
+| update/更新 + version | Modernize | Migration path + breaking changes |
+| clean up/清理 + area | Simplify/organize | Code quality patterns + tech debt |
 
 ## Workflow
 
 ```
-Trigger → Analyze → Extract → Present → Confirm → Execute
-   ↓         ↓         ↓         ↓         ↓         ↓
-  P1-4    EN/CN    Memory    Struct   Ask User  Direct
-          detect    only      prompt              or refine
+Trigger → Internal Analysis → Direct Output
+   ↓            ↓                  ↓
+  P1-4    Semantic+Memory    Enhanced Prompt
+          (3 dimensions)      (Structured)
 ```
 
 1. **Detect**: Check triggers (P1-P4)
-2. **Analyze**: Semantic (EN/CN) analysis of user intent
-3. **Extract**: Memory-only context extraction (NO file reading)
-4. **Present**: Generate structured prompt output
-5. **Confirm**: AskUserQuestion (Continue/Modify/Cancel)
-6. **Execute**: Proceed based on user choice
+2. **Internal Analysis**:
+   - Semantic (EN/CN) intent analysis
+   - Memory extraction (tech stack, patterns, constraints)
+   - Enhancement (structure + supplement + clarify)
+3. **Output**: Present enhanced structured prompt directly
 
-## Confirmation (AskUserQuestion)
+## Enhancement Checklist (Internal)
 
-**Question**: "Enhanced prompt ready. Proceed or need adjustments? (已生成增强提示词，是否继续或需要调整？)"
+**Structure**:
+- [ ] INTENT: Clear, one-sentence technical goal
+- [ ] TECH STACK: Relevant technologies from session
+- [ ] CONTEXT: Key session findings and constraints
+- [ ] ACTION: Concrete steps with technical details
+- [ ] ATTENTION: Critical constraints and patterns
 
-**Options**:
-1. **Continue as-is / 按此继续** - Proceed with current specification
-2. **Suggest optimizations / 建议优化方向** - I need guidance on how to improve this
-3. **Modify requirements / 修改需求** - Let me provide specific changes
+**Supplement**:
+- [ ] Add tech stack/frameworks mentioned in session
+- [ ] Include design patterns if relevant
+- [ ] Add testing/validation requirements
+- [ ] Specify performance metrics if applicable
 
-```typescript
-AskUserQuestion({
-  questions: [{
-    question: "Enhanced prompt ready. Proceed or need adjustments? (已生成增强提示词，是否继续或需要调整？)",
-    header: "Next Step",
-    multiSelect: false,
-    options: [
-      {
-        label: "Continue as-is",
-        description: "Proceed with current specification (按此继续)"
-      },
-      {
-        label: "Suggest optimizations",
-        description: "I need guidance on how to improve this (建议优化方向)"
-      },
-      {
-        label: "Modify requirements",
-        description: "Let me provide specific changes (修改需求)"
-      }
-    ]
-  }]
-})
-```
+**Clarify**:
+- [ ] Make vague intent explicit
+- [ ] Resolve ambiguous references (it/that/这个/那个)
+- [ ] Expand multi-module scope with dependencies
+- [ ] Add missing context from memory
 
 ## Best Practices
 
 - ✅ Detect `-e`/`--enhance` flags first (P1)
 - ✅ Support EN + CN semantic keywords
 - ✅ Extract **memory context ONLY** (no file reading)
-- ✅ Use INTENT/CONTEXT/ACTION/ATTENTION format
-- ✅ ALWAYS confirm with AskUserQuestion
-- ✅ Offer optimization guidance option
+- ✅ Add tech stack, design patterns, testing requirements
+- ✅ Direct output (no intermediate steps)
+- ✅ Use INTENT/TECH STACK/CONTEXT/ACTION/ATTENTION format
+- ❌ NO tool calls (AskUserQuestion removed)
 - ❌ NO Bash, Read, Glob, Grep operations
-- ❌ NO direct file analysis
+- ❌ NO file analysis or codebase scanning
 
-## Key Changes from Previous Version
+## Key Changes
 
-1. **Removed file analysis** - Memory extraction only
-2. **Simplified to 3 steps** - Faster workflow
-3. **Updated confirmation options** - Added "Suggest optimizations"
-4. **Removed file tools** - Only AskUserQuestion allowed
-5. **Focus on speed** - Quick semantic analysis + memory extraction
+1. **Removed all tools** - Pure analysis and output
+2. **Removed user confirmation** - Direct output for speed
+3. **Added tech stack section** - Supplement with technologies
+4. **Enhanced internal analysis** - 3 dimensions (structure + supplement + clarify)
+5. **Focus on memory** - Session context only, no file reading
 
 ## Examples
 
-**Input**: "fix auth -e" / "优化性能 --enhance"
+### Example 1: Vague Fix Request
 
-**Process**:
-1. Detect P1 trigger (`-e` flag)
-2. Semantic analysis: "fix/优化" intent
-3. Extract from memory: Recent auth/performance discussions
-4. Generate structured prompt
-5. Ask user: Continue/Suggest optimizations/Modify
+**Input**: "fix auth -e" / "修复认证 --enhance"
+
+**Internal Analysis**:
+- Semantic: "fix/修复" → debug intent
+- Memory: Recent mention of JWT, token expiration issues
+- Tech stack: JWT, Express.js middleware (from session)
+- Enhancement: Add testing, security patterns
 
 **Output**:
 ```
 📋 ENHANCED PROMPT
 
-INTENT: Fix authentication module issues based on recent session context
+INTENT: Fix authentication token expiration handling in JWT-based auth system
+
+TECH STACK:
+- JWT: Token generation and validation
+- Express.js: Middleware implementation
+- Jest: Unit testing framework
 
 CONTEXT:
-- User mentioned auth token expiration problems
-- Previous discussion about JWT validation
-- Session indicates preference for backward compatibility
+- User reported token expiration issues in previous conversation
+- Session indicates JWT-based authentication system
+- Preference for backward compatibility with existing tokens
 
 ACTION:
-1. Review authentication token handling logic
-2. Implement proper JWT validation with expiration checks
-3. Add unit tests for token refresh flow
-4. Update documentation for auth changes
+1. Analyze JWT token lifecycle and expiration validation logic
+2. Implement proper token refresh mechanism with sliding expiration
+3. Add middleware for token validation with detailed error handling
+4. Write unit tests for token expiration and refresh scenarios
+5. Update API documentation for token refresh endpoints
 
 ATTENTION:
-- Must maintain backward compatibility with existing tokens
-- Security: Follow JWT best practices
-- Testing: Ensure no breaking changes to API contracts
+- Must maintain backward compatibility with existing valid tokens
+- Security: Follow JWT best practices (HS256/RS256, secure secret storage)
+- Testing: Cover edge cases (expired, malformed, missing tokens)
+- Performance: Consider token validation caching for high-traffic endpoints
 ```
 
-**Then ask**: Continue as-is / Suggest optimizations / Modify requirements
+### Example 2: Vague Optimization Request
+
+**Input**: "optimize performance --enhance" / "优化性能 -e"
+
+**Internal Analysis**:
+- Semantic: "optimize/优化" → performance intent
+- Memory: Previous discussion about API response times, React rendering
+- Tech stack: React, Node.js, PostgreSQL (from session)
+- Enhancement: Add metrics, profiling, specific optimizations
+
+**Output**:
+```
+📋 ENHANCED PROMPT
+
+INTENT: Optimize API response times and React component rendering performance
+
+TECH STACK:
+- React: Component optimization (memo, useMemo, useCallback)
+- Node.js: API endpoint optimization
+- PostgreSQL: Query optimization and indexing
+
+CONTEXT:
+- User mentioned slow API responses (>2s) in previous conversation
+- React app shows rendering performance issues on large lists
+- PostgreSQL database queries identified as bottleneck
+
+ACTION:
+1. Profile API endpoints using Node.js profiler to identify slow queries
+2. Optimize PostgreSQL queries with proper indexing and query analysis (EXPLAIN)
+3. Implement React.memo for expensive list components
+4. Add useMemo/useCallback for derived data and event handlers
+5. Implement pagination/virtualization for large data lists
+6. Add performance monitoring with metrics (response time, render time)
+7. Write performance benchmarks and regression tests
+
+ATTENTION:
+- Metrics: Target <500ms API response, <100ms render time
+- Patterns: Use React.memo judiciously (avoid over-optimization)
+- Testing: Add performance regression tests with benchmarks
+- Compatibility: Ensure optimizations don't break existing functionality
+```

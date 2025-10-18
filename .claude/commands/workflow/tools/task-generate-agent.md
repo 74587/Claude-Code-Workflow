@@ -338,29 +338,3 @@ const agentContext = {
   mcp_analysis: executeMcpDiscovery()
 }
 ```
-
-
-## Usage Examples
-
-```bash
-# Agent Mode (default) - steps without command field
-/workflow:tools:task-generate-agent --session WFS-auth
-
-# CLI Execute Mode - steps with command field
-/workflow:tools:task-generate-agent --session WFS-auth --cli-execute
-
-# Called by /workflow:plan (default mode)
-SlashCommand(command="/workflow:tools:task-generate-agent --session WFS-[id]")
-
-# Called by /workflow:plan --cli-execute (CLI mode)
-SlashCommand(command="/workflow:tools:task-generate-agent --session WFS-[id] --cli-execute")
-```
-
-## Related Commands
-- `/workflow:plan` - Orchestrates planning and calls this command
-- `/workflow:plan --cli-execute` - Planning with CLI execution mode
-- `/workflow:tools:task-generate` - Manual version without agent
-- `/workflow:tools:context-gather` - Provides context package
-- `/workflow:tools:concept-enhanced` - Provides analysis results
-- `/workflow:execute` - Executes generated tasks
-
