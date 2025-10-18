@@ -1,6 +1,6 @@
 ---
 name: gather
-description: Intelligently collect project context based on task description and package into standardized JSON
+description: Intelligently collect project context using general-purpose agent based on task description and package into standardized JSON
 argument-hint: "--session WFS-session-id \"task description\""
 examples:
   - /workflow:tools:context-gather --session WFS-user-auth "Implement user authentication system"
@@ -11,25 +11,105 @@ examples:
 # Context Gather Command (/workflow:tools:context-gather)
 
 ## Overview
-Intelligent context collector that gathers relevant information from project codebase, documentation, and dependencies based on task descriptions, generating standardized context packages.
+Agent-driven intelligent context collector that gathers relevant information from project codebase, documentation, and dependencies based on task descriptions, generating standardized context packages.
 
 ## Core Philosophy
+- **Agent-Driven**: Delegate execution to general-purpose agent for autonomous operation
+- **Two-Phase Flow**: Discovery (context loading) → Execution (context gathering and packaging)
+- **Memory-First**: Reuse loaded documents from conversation memory
+- **MCP-Enhanced**: Use MCP tools for advanced code analysis and file discovery
 - **Intelligent Collection**: Auto-identify relevant resources based on keyword analysis
 - **Comprehensive Coverage**: Collect code, documentation, configurations, and dependencies
 - **Standardized Output**: Generate unified format context-package.json
-- **Efficient Execution**: Optimize collection strategies to avoid irrelevant information
 
-## Core Responsibilities
-- **Keyword Extraction**: Extract core keywords from task descriptions
-- **Smart Documentation Loading**: Load relevant project documentation based on keywords
-- **Code Structure Analysis**: Analyze project structure to locate relevant code files
-- **Dependency Discovery**: Identify tech stack and dependency relationships
-- **MCP Tools Integration**: Leverage code-index tools for enhanced collection
-- **Context Packaging**: Generate standardized JSON context packages
+## Execution Lifecycle
 
-## Execution Process
+### Phase 1: Discovery & Context Loading
+**⚡ Memory-First Rule**: Skip file loading if documents already in conversation memory
 
-### Phase 1: Task Analysis
+**Agent Context Package**:
+```javascript
+{
+  "session_id": "WFS-[session-id]",
+  "task_description": "[user provided task description]",
+  "session_metadata": {
+    // If in memory: use cached content
+    // Else: Load from .workflow/{session-id}/workflow-session.json
+  },
+  "mcp_capabilities": {
+    // Agent will use these tools to discover project context
+    "code_index": true,
+    "exa_code": true,
+    "exa_web": true
+  }
+}
+
+// Agent will autonomously execute:
+// - Project structure analysis: bash(~/.claude/scripts/get_modules_by_depth.sh)
+// - Documentation loading: Read(CLAUDE.md), Read(README.md)
+```
+
+**Discovery Actions**:
+1. **Load Session Context** (if not in memory)
+   ```javascript
+   if (!memory.has("workflow-session.json")) {
+     Read(.workflow/{session-id}/workflow-session.json)
+   }
+   ```
+
+### Phase 2: Agent Execution (Context Gathering & Packaging)
+
+**Agent Invocation**:
+```javascript
+Task(
+  subagent_type="general-purpose",
+  description="Gather project context and generate context package",
+  prompt=`
+## Execution Context
+
+**Session ID**: WFS-{session-id}
+**Task Description**: {task_description}
+**Mode**: Agent-Driven Context Gathering
+
+## Phase 1: Discovery Results (Provided Context)
+
+### Session Metadata
+{session_metadata_content}
+
+### MCP Capabilities
+- code-index: Available for file discovery and code search
+- exa-code: Available for external research
+- exa-web: Available for web search
+
+## Phase 2: Context Gathering Task
+
+### Core Responsibilities
+1. **Project Structure Analysis**: Execute get_modules_by_depth.sh for architecture overview
+2. **Documentation Loading**: Load CLAUDE.md, README.md and relevant documentation
+3. **Keyword Extraction**: Extract core keywords from task description
+4. **Smart File Discovery**: Use MCP code-index tools to locate relevant files
+5. **Code Structure Analysis**: Analyze project structure to identify relevant modules
+6. **Dependency Discovery**: Identify tech stack and dependency relationships
+7. **Context Packaging**: Generate standardized JSON context package
+
+### Execution Process
+
+#### Step 0: Foundation Setup (Execute First)
+1. **Project Structure Analysis**
+   Execute to get comprehensive architecture overview:
+   \`\`\`javascript
+   bash(~/.claude/scripts/get_modules_by_depth.sh)
+   \`\`\`
+
+2. **Load Project Documentation** (if not in memory)
+   Load core project documentation:
+   \`\`\`javascript
+   Read(CLAUDE.md)
+   Read(README.md)
+   // Load other relevant documentation based on session context
+   \`\`\`
+
+#### Step 1: Task Analysis
 1. **Keyword Extraction**
    - Parse task description to extract core keywords
    - Identify technical domain (auth, API, frontend, backend, etc.)
@@ -40,23 +120,31 @@ Intelligent context collector that gathers relevant information from project cod
    - Identify potentially involved modules and components
    - Set file type filters
 
-### Phase 2: Project Structure Exploration
-1. **Architecture Analysis**
-   - Use `~/.claude/scripts/get_modules_by_depth.sh` for comprehensive project structure
-   - Analyze project layout and module organization
-   - Identify key directories and components
+#### Step 2: MCP-Enhanced File Discovery
+1. **Code File Location**
+   Use MCP code-index tools:
+   \`\`\`javascript
+   // Find files by pattern
+   mcp__code-index__find_files(pattern="*{keyword}*")
 
-2. **Code File Location**
-   - Use MCP tools for precise search: `mcp__code-index__find_files()` and `mcp__code-index__search_code_advanced()`
-   - Search for relevant source code files based on keywords
-   - Locate implementation files, interfaces, and modules
+   // Search code content
+   mcp__code-index__search_code_advanced(
+     pattern="{keyword_patterns}",
+     file_pattern="*.{ts,js,py,go,md}",
+     context_lines=3
+   )
 
-3. **Documentation Collection**
-   - Load CLAUDE.md and README.md
-   - Load relevant documentation from .workflow/docs/ based on keywords
-   - Collect configuration files (package.json, requirements.txt, etc.)
+   // Get file summaries
+   mcp__code-index__get_file_summary(file_path="relevant/file.ts")
+   \`\`\`
 
-### Phase 3: Intelligent Filtering & Association
+2. **Configuration Files Discovery**
+   Locate: package.json, requirements.txt, Cargo.toml, tsconfig.json, etc.
+
+3. **Test Files Location**
+   Find test files related to task keywords
+
+#### Step 3: Intelligent Filtering & Association
 1. **Relevance Scoring**
    - Score based on keyword match degree
    - Score based on file path relevance
@@ -67,17 +155,15 @@ Intelligent context collector that gathers relevant information from project cod
    - Identify inter-module dependencies
    - Determine core and optional dependencies
 
-### Phase 4: Context Packaging
-1. **Standardized Output**
-   - Generate context-package.json
-   - Organize resources by type and importance
-   - Add relevance descriptions and usage recommendations
+#### Step 4: Context Packaging
+Generate standardized context-package.json following the format below
 
-## Context Package Format
+### Required Output
 
-Generated context package format:
+**Output Location**: \`.workflow/{session-id}/.process/context-package.json\`
 
-```json
+**Output Format**:
+\`\`\`json
 {
   "metadata": {
     "task_description": "Implement user authentication system",
@@ -138,163 +224,130 @@ Generated context package format:
     "test_files": 1
   }
 }
-```
+\`\`\`
 
-## MCP Tools Integration
+### Quality Validation
 
-### Code Index Integration
-```bash
-# Set project path
+Before completion, verify:
+- [ ] context-package.json created in correct location
+- [ ] Valid JSON format with all required fields
+- [ ] Metadata includes task description, keywords, complexity
+- [ ] Assets array contains relevant files with priorities
+- [ ] Tech stack accurately identified
+- [ ] Statistics section provides file counts
+- [ ] File relevance accuracy >80%
+- [ ] No sensitive information exposed
+
+### Performance Optimization
+
+**Large Project Optimization**:
+- File count limit: Maximum 50 files per type
+- Size filtering: Skip oversized files (>10MB)
+- Depth limit: Maximum search depth of 3 levels
+- Use MCP tools for efficient discovery
+
+**MCP Tools Integration**:
+Agent should use MCP code-index tools when available:
+\`\`\`javascript
+// Set project path
 mcp__code-index__set_project_path(path="{current_project_path}")
 
-# Refresh index to ensure latest
+// Refresh index
 mcp__code-index__refresh_index()
 
-# Search relevant files
+// Find files by pattern
 mcp__code-index__find_files(pattern="*{keyword}*")
 
-# Search code content
+// Search code content
 mcp__code-index__search_code_advanced(
   pattern="{keyword_patterns}",
   file_pattern="*.{ts,js,py,go,md}",
   context_lines=3
 )
+\`\`\`
+
+**Fallback Strategy**:
+When MCP tools unavailable, agent should use traditional commands:
+- \`find\` for file discovery
+- \`rg\` or \`grep\` for content search
+- Bash commands from project structure analysis
+
+## Output
+
+Generate context-package.json and report completion:
+- Task description: {description}
+- Keywords extracted: {count}
+- Files collected: {total}
+  - Source files: {count}
+  - Documentation: {count}
+  - Configuration: {count}
+  - Tests: {count}
+- Tech stack identified: {frameworks/libraries}
+- Output location: .workflow/{session-id}/.process/context-package.json
+\`
+)
+\`\`\`
+
+## Command Integration
+
+### Usage
+```bash
+# Basic usage
+/workflow:tools:context-gather --session WFS-auth "Implement JWT authentication"
+
+# Called by /workflow:plan
+SlashCommand(command="/workflow:tools:context-gather --session WFS-[id] \\"[task description]\\"")
 ```
 
+### Agent Context Passing
+
+**Memory-Aware Context Assembly**:
+```javascript
+// Assemble minimal context package for agent
+// Agent will execute project structure analysis and documentation loading
+const agentContext = {
+  session_id: "WFS-[id]",
+  task_description: "[user provided task description]",
+
+  // Use memory if available, else load
+  session_metadata: memory.has("workflow-session.json")
+    ? memory.get("workflow-session.json")
+    : Read(.workflow/WFS-[id]/workflow-session.json),
+
+  // MCP capabilities - agent will use these tools
+  mcp_capabilities: {
+    code_index: true,
+    exa_code: true,
+    exa_web: true
+  }
+}
+
+// Note: Agent will execute these steps autonomously:
+// - bash(~/.claude/scripts/get_modules_by_depth.sh) for project structure
+// - Read(CLAUDE.md) and Read(README.md) for documentation
+```
 
 ## Session ID Integration
 
 ### Session ID Usage
 - **Required Parameter**: `--session WFS-session-id`
-- **Session Context Loading**: Load existing session state and task summaries
-- **Session Continuity**: Maintain context across pipeline phases
+- **Session Context Loading**: Load existing session state and metadata
+- **Session Continuity**: Maintain context across workflow pipeline phases
 
-### Session State Management
-```bash
-# Validate session exists
-if [ ! -d ".workflow/${session_id}" ]; then
-  echo "❌ Session ${session_id} not found"
-  exit 1
-fi
-
-# Load session metadata
-session_metadata=".workflow/${session_id}/workflow-session.json"
-```
-
-## Output Location
-
-Context package output location:
-```
-.workflow/{session_id}/.process/context-package.json
-```
-
-## Error Handling
-
-### Common Error Handling
-1. **No Active Session**: Create temporary session directory
-2. **MCP Tools Unavailable**: Fallback to traditional bash commands
-3. **Permission Errors**: Prompt user to check file permissions
-4. **Large Project Optimization**: Limit file count, prioritize high-relevance files
-
-### Graceful Degradation Strategy
-```bash
-# Fallback when MCP unavailable
-if ! command -v mcp__code-index__find_files; then
-  # Use find command for file discovery
-  find . -name "*{keyword}*" -type f -not -path "*/node_modules/*" -not -path "*/.git/*"
-
-  # Alternative pattern matching
-  find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" \) -exec grep -l "{keyword}" {} \;
-fi
-
-# Use ripgrep instead of MCP search
-rg "{keywords}" --type-add 'source:*.{ts,js,py,go}' -t source --max-count 30
-
-# Content-based search with context
-rg -A 3 -B 3 "{keywords}" --type-add 'source:*.{ts,js,py,go}' -t source
-
-# Quick relevance check
-grep -r --include="*.{ts,js,py,go}" -l "{keywords}" . | head -15
-
-# Test files discovery
-find . -name "*test*" -o -name "*spec*" | grep -E "\.(ts|js|py|go)$" | head -10
-
-# Import/dependency analysis
-rg "^(import|from|require|#include)" --type-add 'source:*.{ts,js,py,go}' -t source | head -20
-```
-
-## Performance Optimization
-
-### Large Project Optimization Strategy
-- **File Count Limit**: Maximum 50 files per type
-- **Size Filtering**: Skip oversized files (>10MB)
-- **Depth Limit**: Maximum search depth of 3 levels
-- **Caching Strategy**: Cache project structure analysis results
-
-### Parallel Processing
-- Documentation collection and code search in parallel
-- MCP tool calls and traditional commands in parallel
-- Reduce I/O wait time
-
-## Essential Bash Commands (Max 10)
-
-### 1. Project Structure Analysis
-```bash
-~/.claude/scripts/get_modules_by_depth.sh
-```
-
-### 2. File Discovery by Keywords
-```bash
-find . -name "*{keyword}*" -type f -not -path "*/node_modules/*" -not -path "*/.git/*"
-```
-
-### 3. Content Search in Code Files
-```bash
-rg "{keyword}" --type-add 'source:*.{ts,js,py,go}' -t source --max-count 20
-```
-
-### 4. Configuration Files Discovery
-```bash
-find . -maxdepth 3 \( -name "*.json" -o -name "package.json" -o -name "requirements.txt" -o -name "Cargo.toml" \) -not -path "*/node_modules/*"
-```
-
-### 5. Documentation Files Collection
-```bash
-find . -name "*.md" -o -name "README*" -o -name "CLAUDE.md" | grep -v node_modules | head -10
-```
-
-### 6. Test Files Location
-```bash
-find . \( -name "*test*" -o -name "*spec*" \) -type f | grep -E "\.(js|ts|py|go)$" | head -10
-```
-
-### 7. Function/Class Definitions Search
-```bash
-rg "^(function|def|func|class|interface)" --type-add 'source:*.{ts,js,py,go}' -t source -n --max-count 15
-```
-
-### 8. Import/Dependency Analysis
-```bash
-rg "^(import|from|require|#include)" --type-add 'source:*.{ts,js,py,go}' -t source | head -15
-```
-
-### 9. Workflow Session Information
-```bash
-find .workflow/ -name "*.json" -path "*/${session_id}/*" -o -name "workflow-session.json" | head -5
-```
-
-### 10. Context-Aware Content Search
-```bash
-rg -A 2 -B 2 "{keywords}" --type-add 'source:*.{ts,js,py,go}' -t source --max-count 10
+### Session Validation
+```javascript
+// Validate session exists
+const sessionPath = `.workflow/${session_id}`;
+if (!fs.existsSync(sessionPath)) {
+  console.error(`❌ Session ${session_id} not found`);
+  process.exit(1);
+}
 ```
 
 ## Success Criteria
-- Generate valid context-package.json file
-- Contains sufficient relevant information for subsequent analysis
-- Execution time controlled within 30 seconds
-- File relevance accuracy rate >80%
+- Valid context-package.json generated in correct location
+- Contains sufficient relevant information (>80% relevance)
+- Execution completes within reasonable time (<2 minutes)
+- All required fields present and properly formatted
+- Agent reports completion status with statistics
 
-## Related Commands
-- `/workflow:tools:concept-enhanced` - Consumes output of this command for analysis
-- `/workflow:plan` - Calls this command to gather context
-- `/workflow:status` - Can display context collection status

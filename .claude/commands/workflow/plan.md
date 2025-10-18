@@ -84,7 +84,7 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **Parse Output**:
 - Extract: context-package.json path (store as `contextPath`)
-- Typical pattern: `.workflow/[sessionId]/.context/context-package.json`
+- Typical pattern: `.workflow/[sessionId]/.process/context-package.json`
 
 **Validation**:
 - Context package path extracted
@@ -96,45 +96,19 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 ---
 
-### Phase 3: Intelligent Analysis (Agent-Delegated)
+### Phase 3: Intelligent Analysis
 
-**Command**: `Task(subagent_type="cli-execution-agent", description="Intelligent Analysis", prompt="...")`
-
-**Agent Task Prompt**:
-```
-Analyze project requirements and generate comprehensive solution blueprint for session [sessionId].
-
-Context: Load context package from [contextPath]
-Output: Generate ANALYSIS_RESULTS.md in .workflow/[sessionId]/.process/
-
-Requirements:
-- Review context-package.json and discover additional relevant files
-- Analyze architecture patterns, data models, and dependencies
-- Identify technical constraints and risks
-- Generate comprehensive solution blueprint
-- Include task breakdown recommendations
-
-Session: [sessionId]
-Mode: analysis (read-only during discovery, write for ANALYSIS_RESULTS.md)
-```
+**Command**: `SlashCommand(command="/workflow:tools:concept-enhanced --session [sessionId] --context [contextPath]")`
 
 **Input**: `sessionId` from Phase 1, `contextPath` from Phase 2
 
-**Agent Execution**:
-- Phase 1: Understands analysis intent, extracts keywords
-- Phase 2: Discovers additional context via MCP code-index
-- Phase 3: Enhances prompt with discovered patterns
-- Phase 4: Executes with Gemini (analysis mode), generates ANALYSIS_RESULTS.md
-- Phase 5: Routes output to session directory
-
 **Parse Output**:
-- Agent returns execution log path
-- Verify ANALYSIS_RESULTS.md created by agent
+- Extract: Execution status (success/failed)
+- Verify: ANALYSIS_RESULTS.md file path
 
 **Validation**:
 - File `.workflow/[sessionId]/.process/ANALYSIS_RESULTS.md` exists
-- Contains task recommendations section
-- Agent execution log saved to `.workflow/[sessionId]/.chat/`
+
 
 **TodoWrite**: Mark phase 3 completed, phase 3.5 in_progress
 
