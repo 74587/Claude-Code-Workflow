@@ -1,4 +1,4 @@
----
+--- 
 name: task-generate
 description: Generate task JSON files and IMPL_PLAN.md from analysis results with artifacts integration
 argument-hint: "--session WFS-session-id [--cli-execute]"
@@ -9,93 +9,159 @@ examples:
 
 # Task Generation Command
 
-## Overview
-Generate task JSON files and IMPL_PLAN.md from analysis results with automatic artifact detection and integration.
+## 1. Overview
+This command generates task JSON files and an `IMPL_PLAN.md` from `ANALYSIS_RESULTS.md`. It automatically detects and integrates brainstorming artifacts, creating a structured and context-rich plan for implementation. The command supports two primary execution modes: a default agent-based mode for seamless context handling and a `--cli-execute` mode that leverages the Codex CLI for complex, autonomous development tasks. Its core function is to translate analysis into actionable, executable tasks, ensuring all necessary context, dependencies, and implementation steps are defined upfront.
 
-## Execution Modes
+## 2. Execution Modes
+
+This command offers two distinct modes for task execution, providing flexibility for different implementation complexities.
 
 ### Agent Mode (Default)
-Tasks execute within agent context using agent's capabilities:
-- Agent reads synthesis specifications
-- Agent implements following requirements
-- Agent validates implementation
-- **Benefit**: Seamless context within single agent execution
+In the default mode, tasks are executed within the context of the currently active agent. This approach offers seamless context continuity, as the agent has direct access to all loaded documents, session state, and in-memory artifacts.
+- **Execution**: The agent reads the synthesis specification and other artifacts directly from memory.
+- **Implementation**: The agent performs the implementation based on its understanding of the requirements.
+- **Validation**: The agent is responsible for validating its own work against the acceptance criteria.
+- **Benefit**: High-speed execution with minimal overhead, ideal for tasks that are well-defined and don't require extensive autonomous reasoning.
 
 ### CLI Execute Mode (`--cli-execute`)
-Tasks execute using Codex CLI with resume mechanism:
-- Each task uses `codex exec` command in `implementation_approach`
-- First task establishes Codex session
-- Subsequent tasks use `codex exec "..." resume --last` for context continuity
-- **Benefit**: Codex's autonomous development capabilities with persistent context
-- **Use Case**: Complex implementation requiring Codex's reasoning and iteration
+When the `--cli-execute` flag is used, the command generates tasks that invoke the Codex CLI. This mode is designed for complex implementations that benefit from Codex's advanced reasoning, iterative development, and session-based context persistence.
+- **Execution**: Each task's `implementation_approach` contains a `codex exec` command.
+- **Context Continuity**: The first task establishes a new Codex session, while subsequent tasks use the `resume --last` flag to maintain context, allowing Codex to learn from previous steps.
+- **Benefit**: Leverages Codex's powerful autonomous development capabilities for complex, multi-step implementations requiring persistent context.
+- **Use Case**: Ideal for large-scale features, complex refactoring, or when the implementation logic requires iterative reasoning and self-correction.
 
-## Core Philosophy
-- **Analysis-Driven**: Generate from ANALYSIS_RESULTS.md
-- **Artifact-Aware**: Auto-detect brainstorming outputs
-- **Context-Rich**: Embed comprehensive context in task JSON
-- **Flow-Control Ready**: Pre-define implementation steps
-- **Memory-First**: Reuse loaded documents from memory
-- **CLI-Aware**: Support Codex resume mechanism for persistent context
+## 3. Core Principles
+This command is built on a set of core principles to ensure efficient and reliable task generation.
 
-## Core Responsibilities
-- Parse analysis results and extract tasks
-- Detect and integrate brainstorming artifacts
-- Generate enhanced task JSON files (5-field schema)
-- Create IMPL_PLAN.md and TODO_LIST.md
-- Update session state for execution
+- **Analysis-Driven**: All generated tasks originate from the `ANALYSIS_RESULTS.md`, ensuring a direct link between analysis and implementation.
+- **Artifact-Aware**: Automatically detects and integrates brainstorming outputs (e.g., `synthesis-specification.md`, role analyses) to enrich task context.
+- **Context-Rich**: Embeds comprehensive context, including requirements, focus paths, acceptance criteria, and artifact references, directly into each task JSON.
+- **Flow-Control Ready**: Pre-defines a clear sequence of operations (`pre_analysis`, `implementation_approach`) within each task to guide execution.
+- **Memory-First**: Prioritizes using documents and data already loaded in conversation memory to avoid redundant file operations.
+- **CLI-Aware**: Natively supports the Codex `resume` mechanism in CLI Execute Mode for persistent, stateful execution across multiple tasks.
+- **Responsibility**: Parses analysis, detects artifacts, generates enhanced 5-field schema task JSONs, creates `IMPL_PLAN.md` and `TODO_LIST.md`, and updates the session state.
 
-## Execution Lifecycle
+## 4. Execution Flow
+The command follows a streamlined, three-step process to convert analysis into executable tasks.
 
-### Phase 1: Input Validation & Discovery
-**⚡ Memory-First Rule**: Skip file loading if documents already in conversation memory
+### Step 1: Input & Discovery
+The process begins by gathering all necessary inputs. It follows a **Memory-First Rule**, skipping file reads if documents are already in the conversation memory.
+1.  **Session Validation**: Loads and validates the session from `.workflow/{session_id}/workflow-session.json`.
+2.  **Analysis Loading**: Reads the primary input, `.workflow/{session_id}/.process/ANALYSIS_RESULTS.md`.
+3.  **Artifact Discovery**: Scans the `.workflow/{session_id}/.brainstorming/` directory to find `synthesis-specification.md`, `topic-framework.md`, and various role analyses.
 
-1. **Session Validation**
-   - If session metadata in memory → Skip loading
-   - Else: Load `.workflow/{session_id}/workflow-session.json`
+### Step 2: Task Decomposition & Grouping
+Once all inputs are loaded, the command analyzes the tasks defined in the analysis results and groups them based on shared context.
+1.  **Task Definition Parsing**: Extracts task definitions, requirements, and dependencies.
+2.  **Context Signature Analysis**: Computes a unique hash (`context_signature`) for each task based on its `focus_paths` and referenced `artifacts`.
+3.  **Task Grouping**:
+    *   Tasks with the **same signature** are candidates for merging, as they operate on the same context.
+    *   Tasks with **different signatures** and no dependencies are grouped for parallel execution.
+    *   Tasks with `depends_on` relationships are marked for sequential execution.
+4.  **Modification Target Determination**: Extracts specific code locations (`file:function:lines`) from the analysis to populate the `target_files` field.
 
-2. **Analysis Results Loading**
-   - If ANALYSIS_RESULTS.md in memory → Skip loading
-   - Else: Read `.workflow/{session_id}/.process/ANALYSIS_RESULTS.md`
+### Step 3: Output Generation
+Finally, the command generates all the necessary output files.
+1.  **Task JSON Creation**: Creates individual `.task/IMPL-*.json` files, embedding all context, artifacts, and flow control steps. If `--cli-execute` is active, it generates the appropriate `codex exec` commands.
+2.  **IMPL_PLAN.md Generation**: Creates the main implementation plan document, summarizing the strategy, tasks, and dependencies.
+3.  **TODO_LIST.md Generation**: Creates a simple checklist for tracking task progress.
+4.  **Session State Update**: Updates `workflow-session.json` with the final task count and artifact inventory, marking the session as ready for execution.
 
-3. **Artifact Discovery**
-   - If artifact inventory in memory → Skip scanning
-   - Else: Scan `.workflow/{session_id}/.brainstorming/` directory
-   - Detect: synthesis-specification.md, topic-framework.md, role analyses
+## 5. Task Decomposition Strategy
+The command employs a sophisticated strategy to group and decompose tasks, optimizing for context reuse and parallel execution.
 
-### Phase 2: Task JSON Generation
+### Core Principles
+- **Primary Rule: Shared Context → Merge Tasks**: Tasks that operate on the same files, use the same artifacts, and share the same tech stack are merged. This avoids redundant context loading and recognizes inherent relationships between the tasks.
+- **Secondary Rule: Different Contexts + No Dependencies → Decompose for Parallel Execution**: Tasks that are fully independent (different files, different artifacts, no shared dependencies) are decomposed into separate parallel execution groups.
 
-#### Task Decomposition Standards
-**Core Principle: Shared Context Merging + Independent Parallelization**
-- **Primary Rule**: **Shared context → Merge tasks** (avoid redundant context loading, tasks have inherent relationships)
-- **Secondary Rule**: **Different contexts + No dependencies → Decompose for parallel execution**
+### Context Analysis for Task Grouping
+The decision to merge or decompose is based on analyzing context indicators:
 
-**Context Analysis for Task Grouping**:
-1. **Shared Context Indicators** (→ Merge):
-   - Same `focus_paths` (working on same modules/files)
-   - Same tech stack/dependencies
-   - Same `context.artifacts` references
-   - Sequential logic flow within same feature
-   - Common test fixtures/setup
+1.  **Shared Context Indicators (→ Merge)**:
+    *   Identical `focus_paths` (working on the same modules/files).
+    *   Same tech stack and dependencies.
+    *   Identical `context.artifacts` references.
+    *   A sequential logic flow within the same feature.
+    *   Shared test fixtures or setup.
 
-2. **Independent Context Indicators** (→ Decompose):
-   - Different `focus_paths` (separate modules)
-   - Different tech stacks (frontend vs backend)
-   - Different `context.artifacts` (using different brainstorming outputs)
-   - No shared dependencies
-   - Can be tested independently
+2.  **Independent Context Indicators (→ Decompose)**:
+    *   Different `focus_paths` (separate modules).
+    *   Different tech stacks (e.g., frontend vs. backend).
+    *   Different `context.artifacts` (using different brainstorming outputs).
+    *   No shared dependencies.
+    *   Can be tested independently.
 
-**Decompose Only When**:
-- Different contexts + No shared dependencies (→ Parallel execution)
-- Excessive workload (>2500 lines or >6 files)
-- Sequential dependency requires blocking (IMPL-1 → IMPL-2)
+**Decomposition is only performed when**:
+- Tasks have different contexts and no shared dependencies (enabling parallel execution).
+- A single task represents an excessive workload (e.g., >2500 lines of code or >6 files to modify).
+- A sequential dependency creates a necessary block (e.g., IMPL-1 must complete before IMPL-2 can start).
 
+### Context Signature Algorithm
+To automate grouping, a `context_signature` is computed for each task.
+
+```javascript
+// Compute context signature for task grouping
+function computeContextSignature(task) {
+  const focusPathsStr = task.context.focus_paths.sort().join('|');
+  const artifactsStr = task.context.artifacts.map(a => a.path).sort().join('|');
+  const techStack = task.context.shared_context?.tech_stack?.sort().join('|') || '';
+
+  return hash(`${focusPathsStr}:${artifactsStr}:${techStack}`);
+}
+```
+
+### Execution Group Assignment
+Tasks are assigned to execution groups based on their signatures and dependencies.
+
+```javascript
+// Group tasks by context signature
+function groupTasksByContext(tasks) {
+  const groups = {};
+
+  tasks.forEach(task => {
+    const signature = computeContextSignature(task);
+    if (!groups[signature]) {
+      groups[signature] = [];
+    }
+    groups[signature].push(task);
+  });
+
+  return groups;
+}
+
+// Assign execution groups for parallel tasks
+function assignExecutionGroups(tasks) {
+  const contextGroups = groupTasksByContext(tasks);
+
+  Object.entries(contextGroups).forEach(([signature, groupTasks]) => {
+    if (groupTasks.length === 1) {
+      const task = groupTasks[0];
+      // Single task with unique context
+      if (!task.context.depends_on || task.context.depends_on.length === 0) {
+        task.meta.execution_group = `parallel-${signature.slice(0, 8)}`;
+      } else {
+        task.meta.execution_group = null; // Sequential task
+      }
+    } else {
+      // Multiple tasks with same context → Should be merged
+      console.warn(`Tasks ${groupTasks.map(t => t.id).join(', ')} share context and should be merged`);
+      // Merge tasks into single task
+      return mergeTasks(groupTasks);
+    }
+  });
+}
+```
 **Task Limits**:
-- **Maximum 10 tasks** (hard limit)
-- **Function-based**: Complete units (logic + UI + tests + config)
-- **Hierarchy**: Flat (≤5) | Two-level (6-10) | Re-scope (>10)
-- **Parallel Groups**: Tasks with same `execution_group` ID are independent and run concurrently
+- **Maximum 10 tasks** (hard limit).
+- **Hierarchy**: Flat (≤5 tasks) or two-level (6-10 tasks). If >10, the scope should be re-evaluated.
+- **Parallel Groups**: Tasks with the same `execution_group` ID are independent and can run concurrently.
 
-#### Enhanced Task JSON Schema (5-Field + Artifacts)
+## 6. Generated Outputs
+The command produces three key documents and a directory of task files.
+
+### 6.1. Task JSON Schema (`.task/IMPL-*.json`)
+This enhanced 5-field schema embeds all necessary context, artifacts, and execution steps.
+
 ```json
 {
   "id": "IMPL-N[.M]",
@@ -214,177 +280,14 @@ Tasks execute using Codex CLI with resume mechanism:
         "output": "implementation"
       }
     ],
-
-    // CLI Execute Mode: Use Codex command (when --cli-execute flag present)
-    "implementation_approach": [
-      {
-        "step": 1,
-        "title": "Execute implementation with Codex",
-        "description": "Use Codex CLI to implement '[title]' following synthesis specification with autonomous development capabilities",
-        "modification_points": [
-          "Codex loads synthesis specification and artifacts",
-          "Codex implements following requirements",
-          "Codex validates and tests implementation"
-        ],
-        "logic_flow": [
-          "Establish or resume Codex session",
-          "Pass synthesis specification to Codex",
-          "Codex performs autonomous implementation",
-          "Codex validates against acceptance criteria"
-        ],
-        "command": "bash(codex -C [focus_paths] --full-auto exec \"PURPOSE: [title] TASK: [requirements] MODE: auto CONTEXT: @{[synthesis_path],[artifacts_paths]} EXPECTED: [acceptance] RULES: Follow synthesis-specification.md\" [resume_flag] --skip-git-repo-check -s danger-full-access)",
-        "depends_on": [],
-        "output": "implementation"
-      }
-    ],
     "target_files": ["file:function:lines"]
   }
 }
 ```
 
-#### Task Generation Process
-1. Parse analysis results and extract task definitions
-2. Detect brainstorming artifacts with priority scoring
-3. Generate task context (requirements, focus_paths, acceptance)
-4. **Analyze context signatures**: Compute hash of `focus_paths + artifacts` for each task
-5. **Group tasks by context**:
-   - Tasks with same `context_signature` → Same context, should merge
-   - Tasks with different `context_signature` + no `depends_on` → Independent, assign unique `execution_group`
-   - Tasks with `depends_on` → Must be sequential, `execution_group = null`
-6. **Determine modification targets**: Extract specific code locations from analysis
-7. Build flow_control with artifact loading steps and target_files
-8. **CLI Execute Mode**: If `--cli-execute` flag present, generate Codex commands
-9. Create individual task JSON files in `.task/`
+### 6.2. IMPL_PLAN.md Structure
+This document provides a high-level overview of the entire implementation plan.
 
-#### Context Signature Algorithm
-```javascript
-// Compute context signature for task grouping
-function computeContextSignature(task) {
-  const focusPathsStr = task.context.focus_paths.sort().join('|');
-  const artifactsStr = task.context.artifacts.map(a => a.path).sort().join('|');
-  const techStack = task.context.shared_context?.tech_stack?.sort().join('|') || '';
-
-  return hash(`${focusPathsStr}:${artifactsStr}:${techStack}`);
-}
-
-// Group tasks by context signature
-function groupTasksByContext(tasks) {
-  const groups = {};
-
-  tasks.forEach(task => {
-    const signature = computeContextSignature(task);
-    if (!groups[signature]) {
-      groups[signature] = [];
-    }
-    groups[signature].push(task);
-  });
-
-  return groups;
-}
-
-// Assign execution groups for parallel tasks
-function assignExecutionGroups(tasks) {
-  const contextGroups = groupTasksByContext(tasks);
-
-  Object.entries(contextGroups).forEach(([signature, groupTasks]) => {
-    if (groupTasks.length === 1) {
-      const task = groupTasks[0];
-      // Single task with unique context
-      if (!task.context.depends_on || task.context.depends_on.length === 0) {
-        task.meta.execution_group = `parallel-${signature.slice(0, 8)}`;
-      } else {
-        task.meta.execution_group = null; // Sequential task
-      }
-    } else {
-      // Multiple tasks with same context → Should be merged
-      console.warn(`Tasks ${groupTasks.map(t => t.id).join(', ')} share context and should be merged`);
-      // Merge tasks into single task
-      return mergeTasks(groupTasks);
-    }
-  });
-}
-```
-
-#### Codex Resume Mechanism (CLI Execute Mode)
-
-**Session Continuity Strategy**:
-- **First Task** (no depends_on or depends_on=[]): Establish new Codex session
-  - Command: `codex -C [path] --full-auto exec "[prompt]" --skip-git-repo-check -s danger-full-access`
-  - Creates new session context
-
-- **Subsequent Tasks** (has depends_on): Resume previous Codex session
-  - Command: `codex --full-auto exec "[prompt]" resume --last --skip-git-repo-check -s danger-full-access`
-  - Maintains context from previous implementation
-  - **Critical**: `resume --last` flag enables context continuity
-
-**Resume Flag Logic**:
-```javascript
-// Determine resume flag based on task dependencies
-const resumeFlag = task.context.depends_on && task.context.depends_on.length > 0
-  ? "resume --last"
-  : "";
-
-// First task (IMPL-001): no resume flag
-// Later tasks (IMPL-002, IMPL-003): use "resume --last"
-```
-
-**Benefits**:
-- ✅ Shared context across related tasks
-- ✅ Codex learns from previous implementations
-- ✅ Consistent patterns and conventions
-- ✅ Reduced redundant analysis
-
-#### Target Files Generation (Critical)
-**Purpose**: Identify specific code locations for modification AND new files to create
-
-**Source Data Priority**:
-1. **ANALYSIS_RESULTS.md** - Should contain identified code locations
-2. **Gemini/MCP Analysis** - From `analyze_task_patterns` step
-3. **Context Package** - File references from `focus_paths`
-
-**Format**: `["file:function:lines"]` or `["file"]` (for new files)
-- `file`: Relative path from project root (e.g., `src/auth/AuthService.ts`)
-- `function`: Function/method name to modify (e.g., `login`, `validateToken`) - **omit for new files**
-- `lines`: Approximate line range (e.g., `45-52`, `120-135`) - **omit for new files**
-
-**Examples**:
-```json
-"target_files": [
-  "src/auth/AuthService.ts:login:45-52",
-  "src/middleware/auth.ts:validateToken:30-45",
-  "src/auth/PasswordReset.ts",
-  "tests/auth/PasswordReset.test.ts",
-  "tests/auth.test.ts:testLogin:15-20"
-]
-```
-
-**Generation Strategy**:
-- **New files to create** → Use `["path/to/NewFile.ts"]` (no function or lines)
-- **Existing files with specific locations** → Use `["file:function:lines"]`
-- **Existing files with function only** → Search lines using MCP/grep `["file:function:*"]`
-- **Existing files (explore entire)** → Mark as `["file.ts:*:*"]`
-- **No specific targets** → Leave empty `[]` (agent explores focus_paths)
-
-### Phase 3: Artifact Detection & Integration
-
-#### Artifact Priority
-1. **synthesis-specification.md** (highest) - Complete integrated spec
-2. **topic-framework.md** (medium) - Discussion framework
-3. **role/analysis.md** (low) - Individual perspectives
-
-#### Artifact-Task Mapping
-- **synthesis-specification.md** → All tasks
-- **ui-designer/analysis.md** → UI/Frontend tasks
-- **ux-expert/analysis.md** → UX/Interaction tasks
-- **system-architect/analysis.md** → Architecture/Backend tasks
-- **subject-matter-expert/analysis.md** → Domain/Standards tasks
-- **data-architect/analysis.md** → Data/API tasks
-- **scrum-master/analysis.md** → Sprint/Process tasks
-- **product-owner/analysis.md** → Backlog/Story tasks
-
-### Phase 4: IMPL_PLAN.md Generation
-
-#### Document Structure
 ```markdown
 ---
 identifier: WFS-{session-id}
@@ -438,9 +341,9 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 - **Timeline**: Duration and milestones
 
 ### Module Structure
-```
+'''
 [Directory tree showing key modules]
-```
+'''
 
 ### Dependencies
 **Primary**: [Core libraries and frameworks]
@@ -515,9 +418,9 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
 ### Key Dependencies
 **Task Dependency Graph**:
-```
+'''
 [High-level dependency visualization]
-```
+'''
 
 **Critical Path**: [Identify bottleneck tasks]
 
@@ -615,9 +518,9 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 - [ ] [Key business metrics from synthesis]
 ```
 
-### Phase 5: TODO_LIST.md Generation
+### 6.3. TODO_LIST.md Structure
+A simple Markdown file for tracking the status of each task.
 
-#### Document Structure
 ```markdown
 # Tasks: [Session Topic]
 
@@ -635,12 +538,8 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 - Maximum 2 levels: Main tasks and subtasks only
 ```
 
-### Phase 6: Session State Update
-1. Update workflow-session.json with task count and artifacts
-2. Validate all output files (task JSONs, IMPL_PLAN.md, TODO_LIST.md)
-3. Generate completion report
-
-## Output Files Structure
+### 6.4. Output Files Diagram
+The command organizes outputs into a standard directory structure.
 ```
 .workflow/{session-id}/
 ├── IMPL_PLAN.md                     # Implementation plan
@@ -658,42 +557,50 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
     └── context-package.json         # Input from context-gather
 ```
 
-## Error Handling
+## 7. Artifact Integration
+The command intelligently detects and integrates artifacts from the `.brainstorming/` directory.
 
-### Input Validation Errors
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Session not found | Invalid session ID | Verify session exists |
-| Analysis missing | Incomplete planning | Run concept-enhanced first |
-| Invalid format | Corrupted results | Regenerate analysis |
+#### Artifact Priority
+1.  **synthesis-specification.md** (highest): The complete, integrated specification that serves as the primary source of truth.
+2.  **topic-framework.md** (medium): The discussion framework that provides high-level structure.
+3.  **role/analysis.md** (low): Individual role-based analyses that offer detailed, perspective-specific insights.
 
-### Task Generation Errors
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Count exceeds limit | >10 tasks | Re-scope requirements |
-| Invalid structure | Missing fields | Fix analysis results |
-| Dependency cycle | Circular refs | Adjust dependencies |
+#### Artifact-Task Mapping
+Artifacts are mapped to tasks based on their relevance to the task's domain.
+- **synthesis-specification.md**: Included in all tasks as the primary reference.
+- **ui-designer/analysis.md**: Mapped to UI/Frontend tasks.
+- **system-architect/analysis.md**: Mapped to Architecture/Backend tasks.
+- **subject-matter-expert/analysis.md**: Mapped to tasks related to domain logic or standards.
+- **data-architect/analysis.md**: Mapped to tasks involving data models or APIs.
 
-### Artifact Integration Errors
-| Error | Cause | Recovery |
-|-------|-------|----------|
-| Artifact not found | Missing output | Continue without artifacts |
-| Invalid format | Corrupted file | Skip artifact loading |
-| Path invalid | Moved/deleted | Update references |
+This ensures that each task has access to the most relevant and detailed specifications, from the high-level synthesis down to the role-specific details.
 
-## Integration & Usage
+## 8. CLI Execute Mode Details
+When using the `--cli-execute` flag, the command generates `bash(codex ...)` commands within the `implementation_approach` of the task JSON.
 
-### Command Chain
-- **Called By**: `/workflow:plan` (Phase 4)
-- **Calls**: None (terminal command)
-- **Followed By**: `/workflow:execute`, `/workflow:status`
+### Codex Resume Mechanism
+This mechanism ensures context continuity across multiple, dependent tasks.
 
-### Basic Usage
-```bash
-/workflow:tools:task-generate --session WFS-auth
+**Session Continuity Strategy**:
+-   **First Task** (a task with no dependencies): Establishes a new Codex session by running a standard `codex exec` command. This initializes the context for the implementation sequence.
+-   **Subsequent Tasks** (tasks with `depends_on` entries): Use the `resume --last` flag. This instructs Codex to load the context from the immediately preceding execution, allowing it to build upon previous work, maintain consistency, and learn from prior steps.
+
+**Resume Flag Logic**:
+```javascript
+// Determine resume flag based on task dependencies
+const resumeFlag = task.context.depends_on && task.context.depends_on.length > 0
+  ? "resume --last"
+  : "";
+
+// First task (IMPL-001): no resume flag
+// Later tasks (IMPL-002, IMPL-003): use "resume --last"
 ```
 
-## CLI Execute Mode Examples
+**Benefits**:
+-   ✅ **Shared Context**: Ensures related tasks are handled with a consistent understanding.
+-   ✅ **Learning**: Codex learns from previous implementations in the same session.
+-   ✅ **Consistency**: Maintains consistent patterns and conventions across tasks.
+-   ✅ **Efficiency**: Reduces redundant analysis and context loading.
 
 ### Example 1: First Task (Establish Session)
 ```json
@@ -762,11 +669,46 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 ```
 
 **Pattern Summary**:
-- IMPL-001: Fresh start with `-C src/auth` and full prompt
-- IMPL-002: Resume with `resume --last`, references "previous auth implementation"
-- IMPL-003: Resume with `resume --last`, references "existing auth system"
+-   **IMPL-001**: Starts a fresh session with a full prompt and context.
+-   **IMPL-002**: Resumes the last session, referencing the "previous auth implementation."
+-   **IMPL-003**: Continues the session, referencing the "existing auth system."
 
-## Related Commands
+## 9. Error Handling
+
+### Input Validation Errors
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| Session not found | Invalid session ID | Verify session exists |
+| Analysis missing | Incomplete planning | Run concept-enhanced first |
+| Invalid format | Corrupted results | Regenerate analysis |
+
+### Task Generation Errors
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| Count exceeds limit | >10 tasks | Re-scope requirements |
+| Invalid structure | Missing fields | Fix analysis results |
+| Dependency cycle | Circular refs | Adjust dependencies |
+
+### Artifact Integration Errors
+| Error | Cause | Recovery |
+|-------|-------|----------|
+| Artifact not found | Missing output | Continue without artifacts |
+| Invalid format | Corrupted file | Skip artifact loading |
+| Path invalid | Moved/deleted | Update references |
+
+## 10. Integration & Usage
+
+### Command Chain
+- **Called By**: `/workflow:plan` (Phase 4)
+- **Calls**: None (terminal command)
+- **Followed By**: `/workflow:execute`, `/workflow:status`
+
+### Basic Usage
+```bash
+/workflow:tools:task-generate --session WFS-auth
+```
+
+## 11. Related Commands
 - `/workflow:plan` - Orchestrates entire planning
 - `/workflow:plan --cli-execute` - Planning with CLI execution mode
 - `/workflow:tools:context-gather` - Provides context package
