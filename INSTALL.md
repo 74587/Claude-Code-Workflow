@@ -9,16 +9,16 @@ Interactive installation guide for Claude Code with Agent workflow coordination 
 ### All Platforms - Remote PowerShell Installation
 ```powershell
 # Interactive remote installation from feature branch (latest)
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1)
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1)
 
 # Global installation with unified file output system
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -Global
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Global
 
 # Force overwrite (non-interactive) - includes all new workflow file generation features
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -Force -NonInteractive
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Force -NonInteractive
 
 # One-click backup all existing files (no confirmations needed)
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -BackupAll
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -BackupAll
 ```
 
 **What the remote installer does:**
@@ -37,8 +37,7 @@ iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-r
 ### All Platforms (PowerShell)
 ```powershell
 # Clone the repository with latest features
-git clone -b main https://github.com/catlog22/Claude-CCW.git
-cd Dmsflow
+cd Claude-Code-Workflow
 
 # Windows PowerShell 5.1+ or PowerShell Core (Global installation only)
 .\Install-Claude.ps1
@@ -57,22 +56,22 @@ All parameters can be passed to the remote installer:
 
 ```powershell
 # Global installation
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -Global
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Global
 
 # Install to specific directory  
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -Directory "C:\MyProject"
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Directory "C:\MyProject"
 
 # Force overwrite without prompts
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -Force -NonInteractive
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Force -NonInteractive
 
 # Install from specific branch
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -Branch "dev"
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Branch "dev"
 
 # Skip backups (overwrite without backup - not recommended)
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -NoBackup
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -NoBackup
 
 # Explicit automatic backup all existing files (default behavior since v1.1.0)
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -BackupAll
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -BackupAll
 ```
 
 ### Local Installation Options
@@ -164,7 +163,7 @@ Install PowerShell Core:
 ### ⚡ Super Quick (One-Liner)
 ```powershell
 # Complete installation in one command
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Dmsflow/main/install-remote.ps1) -Global
+iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Global
 
 # Done! 🎉
 # Start using Claude Code with Agent workflows!
