@@ -15,9 +15,13 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-**Goal**: Detect and reduce ambiguity or missing decision points in brainstorming artifacts (synthesis-specification.md, topic-framework.md, role analyses) before moving to action planning phase.
+**Goal**: Detect and reduce ambiguity or missing decision points in planning artifacts before moving to task generation. Supports both brainstorm and plan workflows.
 
-**Timing**: This command runs AFTER `/workflow:brainstorm:synthesis` and BEFORE `/workflow:plan`. It serves as a quality gate to ensure conceptual clarity before detailed task planning.
+**Timing**:
+- **Brainstorm mode**: Runs AFTER `/workflow:brainstorm:synthesis` and BEFORE `/workflow:plan`
+- **Plan mode**: Runs AFTER Phase 3 (concept-enhanced) and BEFORE Phase 4 (task-generate) within `/workflow:plan`
+
+This serves as a quality gate to ensure conceptual clarity before detailed task planning or generation.
 
 **Execution steps**:
 
@@ -34,28 +38,40 @@ You **MUST** consider the user input before proceeding (if not empty).
            ERROR: "No active workflow session found. Use --session <session-id> or start a session."
            EXIT
 
-   # Validate brainstorming completion
+   # Mode detection: plan vs brainstorm
    brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
+   process_dir = .workflow/WFS-{session}/.process/
 
-   CHECK: brainstorm_dir/synthesis-specification.md
-   IF NOT EXISTS:
-       ERROR: "synthesis-specification.md not found. Run /workflow:brainstorm:synthesis first"
+   IF EXISTS(process_dir/ANALYSIS_RESULTS.md):
+       clarify_mode = "plan"
+       primary_artifact = process_dir/ANALYSIS_RESULTS.md
+       INFO: "Plan mode: Analyzing ANALYSIS_RESULTS.md"
+   ELSE IF EXISTS(brainstorm_dir/synthesis-specification.md):
+       clarify_mode = "brainstorm"
+       primary_artifact = brainstorm_dir/synthesis-specification.md
+       INFO: "Brainstorm mode: Analyzing synthesis-specification.md"
+   ELSE:
+       ERROR: "No valid artifact found. Run /workflow:brainstorm:synthesis or /workflow:plan first"
        EXIT
 
-   CHECK: brainstorm_dir/topic-framework.md
-   IF NOT EXISTS:
-       WARN: "topic-framework.md not found. Verification will be limited."
+   # Mode-specific validation
+   IF clarify_mode == "brainstorm":
+       CHECK: brainstorm_dir/topic-framework.md
+       IF NOT EXISTS:
+           WARN: "topic-framework.md not found. Verification will be limited."
    ```
 
-2. **Load Brainstorming Artifacts**
+2. **Load Artifacts (Mode-Aware)**
    ```bash
-   # Load primary artifacts
-   synthesis_spec = Read(brainstorm_dir + "/synthesis-specification.md")
-   topic_framework = Read(brainstorm_dir + "/topic-framework.md") # if exists
+   # Load primary artifact (determined in step 1)
+   primary_content = Read(primary_artifact)
 
-   # Discover role analyses
-   role_analyses = Glob(brainstorm_dir + "/*/analysis.md")
-   participating_roles = extract_role_names(role_analyses)
+   # Load mode-specific supplementary artifacts
+   IF clarify_mode == "brainstorm":
+       topic_framework = Read(brainstorm_dir + "/topic-framework.md") # if exists
+       role_analyses = Glob(brainstorm_dir + "/*/analysis.md")
+       participating_roles = extract_role_names(role_analyses)
+   # Plan mode: primary_content (ANALYSIS_RESULTS.md) is self-contained
    ```
 
 3. **Ambiguity & Coverage Scan**
@@ -182,8 +198,8 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    ```bash
    # Ensure Clarifications section exists
-   IF synthesis_spec NOT contains "## Clarifications":
-       Insert "## Clarifications" section after "# [Topic]" heading
+   IF primary_content NOT contains "## Clarifications":
+       Insert "## Clarifications" section after first heading
 
    # Create session subsection
    IF NOT contains "### Session YYYY-MM-DD":
@@ -194,20 +210,20 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    # Apply clarification to appropriate section
    CASE category:
-       Functional Requirements → Update "## Requirements & Acceptance Criteria"
-       Architecture → Update "## Key Designs & Decisions" or "## Design Specifications"
-       User Experience → Update "## Design Specifications > UI/UX Guidelines"
-       Risk → Update "## Risk Assessment & Mitigation"
-       Process → Update "## Process & Collaboration Concerns"
-       Data Model → Update "## Key Designs & Decisions > Data Model Overview"
-       Non-Functional → Update "## Requirements & Acceptance Criteria > Non-Functional Requirements"
+       Functional Requirements → Update "## Requirements" or equivalent section
+       Architecture → Update "## Architecture" or "## Design" sections
+       User Experience → Update "## UI/UX" or "## User Experience" sections
+       Risk → Update "## Risks" or "## Risk Assessment" sections
+       Process → Update "## Process" or "## Implementation" sections
+       Data Model → Update "## Data Model" or "## Database" sections
+       Non-Functional → Update "## Non-Functional Requirements" or equivalent
 
    # Remove obsolete/contradictory statements
    IF clarification invalidates existing statement:
        Replace statement instead of duplicating
 
-   # Save immediately
-   Write(synthesis_specification.md)
+   # Save immediately to primary_artifact
+   Write(primary_artifact)
    ```
 
 7. **Validation After Each Write**
@@ -227,8 +243,9 @@ You **MUST** consider the user input before proceeding (if not empty).
    ## ✅ Concept Verification Complete
 
    **Session**: WFS-{session-id}
+   **Mode**: {clarify_mode}
    **Questions Asked**: {count}/5
-   **Artifacts Updated**: synthesis-specification.md
+   **Artifacts Updated**: {primary_artifact filename}
    **Sections Touched**: {list section names}
 
    ### Coverage Summary
@@ -261,18 +278,26 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 9. **Update Session Metadata**
 
-   ```json
+   ```bash
+   # Update metadata based on mode
+   IF clarify_mode == "brainstorm":
+       phase_key = "BRAINSTORM"
+   ELSE: # plan mode
+       phase_key = "PLAN"
+
+   # Update session metadata
    {
      "phases": {
-       "BRAINSTORM": {
-         "status": "completed",
+       "{phase_key}": {
+         "status": "concept_verified",
          "concept_verification": {
            "completed": true,
            "completed_at": "timestamp",
-           "questions_asked": 3,
-           "categories_clarified": ["Requirements", "Risk", "Architecture"],
+           "mode": "{clarify_mode}",
+           "questions_asked": {count},
+           "categories_clarified": [{list}],
            "outstanding_items": [],
-           "recommendation": "PROCEED_TO_PLANNING"
+           "recommendation": "PROCEED" # or "ADDRESS_OUTSTANDING"
          }
        }
      }

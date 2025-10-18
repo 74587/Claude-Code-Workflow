@@ -400,12 +400,22 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 **阶段 5：测试与质量保证**
 ```bash
 # 生成独立测试修复工作流（v3.2.2+）
-/workflow:test-gen WFS-auth  # 创建 WFS-test-auth 会话
-/workflow:execute            # 运行测试验证
+/workflow:test-gen WFS-auth          # 创建 WFS-test-auth 会话
+/workflow:test-cycle-execute         # 执行测试修复循环，包含动态迭代
+
+# 恢复中断的测试会话
+/workflow:test-cycle-execute --resume-session="WFS-test-auth"
 
 # 或验证 TDD 合规性（TDD 工作流）
 /workflow:tdd-verify
 ```
+
+**什么是 `/workflow:test-cycle-execute`？**
+- **动态任务生成**：基于测试失败在执行过程中创建中间修复任务
+- **迭代测试**：自动运行测试修复循环，直到所有测试通过或达到最大迭代次数
+- **CLI 驱动分析**：使用 Gemini/Qwen 分析失败并生成修复策略
+- **智能体协调**：将测试执行和修复委托给 `@test-fix-agent`
+- **自主完成**：持续直到成功，无需用户干预
 
 ### 简单任务快速入门
 
@@ -484,6 +494,7 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 | `/workflow:execute` | 自主执行当前的工作流计划。 |
 | `/workflow:status` | 显示工作流的当前状态。 |
 | `/workflow:test-gen [--use-codex] <session>` | 为已完成实现创建独立测试生成工作流，支持自动诊断和修复。 |
+| `/workflow:test-cycle-execute` | **v4.5.0** 执行测试修复工作流，包含动态任务生成和迭代修复循环。运行测试 → 使用 CLI 分析失败 → 生成修复任务 → 重新测试直至成功。 |
 | `/workflow:tdd-verify` | 验证 TDD 合规性并生成质量报告。 |
 | `/workflow:review` | **可选** 手动审查（仅在明确需要时使用，测试通过即代表代码已批准）。 |
 | `/workflow:tools:test-context-gather` | 分析测试覆盖率，识别缺失的测试文件。 |

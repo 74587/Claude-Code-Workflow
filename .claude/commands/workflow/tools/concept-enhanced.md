@@ -137,6 +137,8 @@ Advanced solution design and feasibility analysis engine with parallel CLI execu
 
 3. **Parallel Execution**: Launch tools simultaneously, monitor progress, handle completion/errors, maintain logs
 
+   **⚠️ IMPORTANT**: CLI commands MUST execute in foreground (NOT background). Do NOT use `run_in_background` parameter for Gemini/Codex execution.
+
 ### Phase 4: Results Collection & Synthesis
 1. **Output Validation**: Validate gemini-solution-design.md (all), codex-feasibility-validation.md (complex), use logs if incomplete, classify status
 2. **Quality Assessment**: Verify design rationale, insight depth, feasibility rigor, optimization value

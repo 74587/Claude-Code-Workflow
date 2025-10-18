@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Orchestrate 4-phase planning workflow by executing commands and passing context between phases
+description: Orchestrate 5-phase planning workflow with quality gate, executing commands and passing context between phases
 argument-hint: "[--agent] [--cli-execute] \"text description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
@@ -9,22 +9,24 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 ## Coordinator Role
 
-**This command is a pure orchestrator**: Execute 4 slash commands in sequence, parse their outputs, pass context between them, and ensure complete execution through **automatic continuation**.
+**This command is a pure orchestrator**: Execute 5 slash commands in sequence (including a quality gate), parse their outputs, pass context between them, and ensure complete execution through **automatic continuation**.
 
-**Execution Model - Auto-Continue Workflow**:
+**Execution Model - Auto-Continue Workflow with Quality Gate**:
 
-This workflow runs **fully autonomously** once triggered. Each phase completes, reports its output to you, then **immediately and automatically** proceeds to the next phase without requiring any user intervention.
+This workflow runs **mostly autonomously** once triggered, with one interactive quality gate (Phase 3.5). Phases 3 and 4 are delegated to specialized agents for complex analysis and task generation.
 
 1. **User triggers**: `/workflow:plan "task"`
-2. **Phase 1 executes** → Reports output to user → Auto-continues
-3. **Phase 2 executes** → Reports output to user → Auto-continues
-4. **Phase 3 executes** → Reports output to user → Auto-continues
-5. **Phase 4 executes** → Reports final summary
+2. **Phase 1 executes** → Session discovery → Auto-continues
+3. **Phase 2 executes** → Context gathering → Auto-continues
+4. **Phase 3 executes** (cli-execution-agent) → Intelligent analysis → Auto-continues
+5. **Phase 3.5 executes** → **Pauses for user Q&A** → User answers clarification questions → Auto-continues
+6. **Phase 4 executes** (task-generate-agent if --agent) → Task generation → Reports final summary
 
 **Auto-Continue Mechanism**:
 - TodoList tracks current phase status
 - After each phase completion, automatically executes next pending phase
-- **No user action required** - workflow runs end-to-end autonomously
+- **Phase 3.5 requires user interaction** - answers clarification questions (up to 5)
+- If no ambiguities found, Phase 3.5 auto-skips and continues to Phase 4
 - Progress updates shown at each phase for visibility
 
 **Execution Modes**:
@@ -36,11 +38,12 @@ This workflow runs **fully autonomously** once triggered. Each phase completes, 
 
 1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 command execution
 2. **No Preliminary Analysis**: Do not read files, analyze structure, or gather context before Phase 1
-3. **Parse Every Output**: Extract required data from each command's output for next phase
+3. **Parse Every Output**: Extract required data from each command/agent output for next phase
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
 5. **Track Progress**: Update TodoWrite after every phase completion
+6. **Agent Delegation**: Phase 3 uses cli-execution-agent for autonomous intelligent analysis
 
-## 4-Phase Execution
+## 5-Phase Execution
 
 ### Phase 1: Session Discovery
 **Command**: `SlashCommand(command="/workflow:session:start --auto \"[structured-task-description]\"")`
@@ -93,29 +96,89 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 ---
 
-### Phase 3: Intelligent Analysis
-**Command**: `SlashCommand(command="/workflow:tools:concept-enhanced --session [sessionId] --context [contextPath]")`
+### Phase 3: Intelligent Analysis (Agent-Delegated)
+
+**Command**: `Task(subagent_type="cli-execution-agent", description="Intelligent Analysis", prompt="...")`
+
+**Agent Task Prompt**:
+```
+Analyze project requirements and generate comprehensive solution blueprint for session [sessionId].
+
+Context: Load context package from [contextPath]
+Output: Generate ANALYSIS_RESULTS.md in .workflow/[sessionId]/.process/
+
+Requirements:
+- Review context-package.json and discover additional relevant files
+- Analyze architecture patterns, data models, and dependencies
+- Identify technical constraints and risks
+- Generate comprehensive solution blueprint
+- Include task breakdown recommendations
+
+Session: [sessionId]
+Mode: analysis (read-only during discovery, write for ANALYSIS_RESULTS.md)
+```
 
 **Input**: `sessionId` from Phase 1, `contextPath` from Phase 2
 
+**Agent Execution**:
+- Phase 1: Understands analysis intent, extracts keywords
+- Phase 2: Discovers additional context via MCP code-index
+- Phase 3: Enhances prompt with discovered patterns
+- Phase 4: Executes with Gemini (analysis mode), generates ANALYSIS_RESULTS.md
+- Phase 5: Routes output to session directory
+
 **Parse Output**:
-- Verify ANALYSIS_RESULTS.md created
+- Agent returns execution log path
+- Verify ANALYSIS_RESULTS.md created by agent
 
 **Validation**:
-- File `.workflow/[sessionId]/ANALYSIS_RESULTS.md` exists
+- File `.workflow/[sessionId]/.process/ANALYSIS_RESULTS.md` exists
 - Contains task recommendations section
+- Agent execution log saved to `.workflow/[sessionId]/.chat/`
 
-**TodoWrite**: Mark phase 3 completed, phase 4 in_progress
+**TodoWrite**: Mark phase 3 completed, phase 3.5 in_progress
 
-**After Phase 3**: Return to user showing Phase 3 results, then auto-continue to Phase 4
+**After Phase 3**: Return to user showing Phase 3 results, then auto-continue to Phase 3.5
 
 **Memory State Check**:
 - Evaluate current context window usage and memory state
 - If memory usage is high (>110K tokens or approaching context limits):
   - **Command**: `SlashCommand(command="/compact")`
-  - This optimizes memory before proceeding to Phase 4
+  - This optimizes memory before proceeding to Phase 3.5
 - Memory compaction is particularly important after analysis phase which may generate extensive documentation
 - Ensures optimal performance and prevents context overflow
+
+---
+
+### Phase 3.5: Concept Clarification (Quality Gate)
+
+**Command**: `SlashCommand(command="/workflow:concept-clarify --session [sessionId]")`
+
+**Purpose**: Quality gate to verify and clarify analysis results before task generation
+
+**Input**: `sessionId` from Phase 1
+
+**Behavior**:
+- Auto-detects plan mode (ANALYSIS_RESULTS.md exists)
+- Interactively asks up to 5 targeted questions to resolve ambiguities
+- Updates ANALYSIS_RESULTS.md with clarifications
+- Pauses workflow for user input (breaks auto-continue temporarily)
+
+**Parse Output**:
+- Verify clarifications added to ANALYSIS_RESULTS.md
+- Check recommendation: "PROCEED" or "ADDRESS_OUTSTANDING"
+
+**Validation**:
+- ANALYSIS_RESULTS.md updated with `## Clarifications` section
+- All critical ambiguities resolved or documented as outstanding
+
+**TodoWrite**: Mark phase 3.5 completed, phase 4 in_progress
+
+**After Phase 3.5**: Return to user showing clarification summary, then auto-continue to Phase 4
+
+**Skip Conditions**:
+- If `/workflow:concept-clarify` reports "No critical ambiguities detected", automatically proceed to Phase 4
+- User can skip by responding "skip" or "proceed" immediately
 
 ---
 
@@ -176,6 +239,7 @@ TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "in_progress", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "pending", "activeForm": "Executing context gathering"},
   {"content": "Execute intelligent analysis", "status": "pending", "activeForm": "Executing intelligent analysis"},
+  {"content": "Execute concept clarification", "status": "pending", "activeForm": "Executing concept clarification"},
   {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
@@ -184,10 +248,11 @@ TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "in_progress", "activeForm": "Executing context gathering"},
   {"content": "Execute intelligent analysis", "status": "pending", "activeForm": "Executing intelligent analysis"},
+  {"content": "Execute concept clarification", "status": "pending", "activeForm": "Executing concept clarification"},
   {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
-// Continue pattern for Phase 2, 3, 4...
+// Continue pattern for Phase 2, 3, 3.5, 4...
 ```
 
 ## Input Processing
@@ -238,12 +303,18 @@ Phase 2: context-gather --session sessionId "structured-description"
     ↓ Input: sessionId + session memory + structured description
     ↓ Output: contextPath (context-package.json)
     ↓
-Phase 3: concept-enhanced --session sessionId --context contextPath
-    ↓ Input: sessionId + contextPath + session memory
-    ↓ Output: ANALYSIS_RESULTS.md
+Phase 3: cli-execution-agent (Intelligent Analysis)
+    ↓ Input: sessionId + contextPath + task description
+    ↓ Agent discovers context, enhances prompt, executes with Gemini
+    ↓ Output: ANALYSIS_RESULTS.md + execution log
+    ↓
+Phase 3.5: concept-clarify --session sessionId (Quality Gate)
+    ↓ Input: sessionId + ANALYSIS_RESULTS.md (auto-detected)
+    ↓ Interactive: User answers clarification questions
+    ↓ Output: Updated ANALYSIS_RESULTS.md with clarifications
     ↓
 Phase 4: task-generate[--agent] --session sessionId
-    ↓ Input: sessionId + ANALYSIS_RESULTS.md + session memory
+    ↓ Input: sessionId + clarified ANALYSIS_RESULTS.md + session memory
     ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
 Return summary to user
@@ -270,13 +341,18 @@ Return summary to user
 ## Coordinator Checklist
 
 ✅ **Pre-Phase**: Convert user input to structured format (GOAL/SCOPE/CONTEXT)
-✅ Initialize TodoWrite before any command
+✅ Initialize TodoWrite before any command (include Phase 3.5)
 ✅ Execute Phase 1 immediately with structured description
 ✅ Parse session ID from Phase 1 output, store in memory
 ✅ Pass session ID and structured description to Phase 2 command
 ✅ Parse context path from Phase 2 output, store in memory
-✅ Pass session ID and context path to Phase 3 command
-✅ Verify ANALYSIS_RESULTS.md after Phase 3
+✅ **Launch Phase 3 agent**: Build Task prompt with sessionId and contextPath
+✅ Wait for agent completion, parse execution log path
+✅ Verify ANALYSIS_RESULTS.md created by agent
+✅ **Execute Phase 3.5**: Pass session ID to `/workflow:concept-clarify`
+✅ Wait for user interaction (clarification Q&A)
+✅ Verify ANALYSIS_RESULTS.md updated with clarifications
+✅ Check recommendation: proceed if "PROCEED", otherwise alert user
 ✅ **Build Phase 4 command** based on flags:
   - Base command: `/workflow:tools:task-generate` (or `-agent` if `--agent` flag)
   - Add `--session [sessionId]`

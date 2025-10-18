@@ -400,12 +400,22 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 **Phase 5: Testing & Quality Assurance**
 ```bash
 # Generate independent test-fix workflow (v3.2.2+)
-/workflow:test-gen WFS-auth         # Creates WFS-test-auth session
-/workflow:test-cycle-execute        # Execute test-fix cycle with iterative validation
+/workflow:test-gen WFS-auth          # Creates WFS-test-auth session
+/workflow:test-cycle-execute         # Execute test-fix cycle with dynamic iteration
+
+# Resume interrupted test session
+/workflow:test-cycle-execute --resume-session="WFS-test-auth"
 
 # OR verify TDD compliance (TDD workflow)
 /workflow:tdd-verify
 ```
+
+**What is `/workflow:test-cycle-execute`?**
+- **Dynamic Task Generation**: Creates intermediate fix tasks based on test failures during execution
+- **Iterative Testing**: Automatically runs test-fix cycles until all tests pass or max iterations reached
+- **CLI-Driven Analysis**: Uses Gemini/Qwen to analyze failures and generate fix strategies
+- **Agent Coordination**: Delegates test execution and fixes to `@test-fix-agent`
+- **Autonomous Completion**: Continues until success without user interruption
 
 ### Quick Start for Simple Tasks
 
@@ -484,6 +494,7 @@ cd .workflow/WFS-auth/.design/prototypes && python -m http.server 8080
 | `/workflow:execute` | Execute the current workflow plan autonomously. |
 | `/workflow:status` | Display the current status of the workflow. |
 | `/workflow:test-gen [--use-codex] <session>` | Create test generation workflow with auto-diagnosis and fix cycle for completed implementations. |
+| `/workflow:test-cycle-execute` | **v4.5.0** Execute test-fix workflow with dynamic task generation and iterative fix cycles. Runs tests → analyzes failures with CLI → generates fix tasks → retests until success. |
 | `/workflow:tdd-verify` | Verify TDD compliance and generate quality report. |
 | `/workflow:review` | **Optional** manual review (only use when explicitly needed - passing tests = approved code). |
 | `/workflow:tools:test-context-gather` | Analyze test coverage and identify missing test files. |
