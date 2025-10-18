@@ -35,28 +35,21 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 - **Autonomous completion**: **Execute all tasks without user interruption until workflow complete**
 
 ## Flow Control Execution
-**[FLOW_CONTROL]** marker indicates sequential step execution required for context gathering and preparation. **These steps are executed BY THE AGENT, not by the workflow:execute command.**
+**[FLOW_CONTROL]** marker indicates task JSON contains `flow_control.pre_analysis` steps for context preparation.
 
-### Flow Control Rules
-1. **Auto-trigger**: When `task.flow_control.pre_analysis` array exists in task JSON, agents execute these steps
-2. **Sequential Processing**: Agents execute steps in order, accumulating context including artifacts
-3. **Variable Passing**: Agents use `[variable_name]` syntax to reference step outputs including artifact content
-4. **Error Handling**: Agents follow step-specific error strategies (`fail`, `skip_optional`, `retry_once`)
-5. **Artifacts Priority**: When artifacts exist in task.context.artifacts, load synthesis specifications first
+### Orchestrator Responsibility
+- Pass complete task JSON to agent (including `flow_control` block)
+- Provide session paths for artifact access
+- Monitor agent completion
 
-### Execution Pattern
-```
-Step 1: load_dependencies → dependency_context
-Step 2: analyze_patterns [dependency_context] → pattern_analysis
-Step 3: implement_solution [pattern_analysis] [dependency_context] → implementation
-```
+### Agent Responsibility
+- Parse `flow_control.pre_analysis` array from JSON
+- Execute steps sequentially with variable substitution
+- Accumulate context from artifacts and dependencies
+- Follow error handling per `step.on_error`
+- Complete implementation using accumulated context
 
-### Context Accumulation Process (Executed by Agents)
-- **Load Artifacts**: Agents retrieve synthesis specifications and brainstorming outputs from `context.artifacts`
-- **Load Dependencies**: Agents retrieve summaries from `context.depends_on` tasks
-- **Execute Analysis**: Agents run CLI tools with accumulated context including artifacts
-- **Prepare Implementation**: Agents build comprehensive context for implementation
-- **Continue Implementation**: Agents use all accumulated context including artifacts for task execution
+**Orchestrator does NOT execute flow control steps - Agent interprets and executes them from JSON.**
 
 ## Execution Lifecycle
 
@@ -143,6 +136,102 @@ completed → skip
 blocked → skip until dependencies clear
 ```
 
+## Batch Execution with Dependency Graph
+
+### Parallel Execution Algorithm
+**Core principle**: Execute independent tasks concurrently in batches based on dependency graph.
+
+#### Algorithm Steps
+```javascript
+function executeBatchWorkflow(sessionId) {
+  // 1. Build dependency graph from task JSONs
+  const graph = buildDependencyGraph(`.workflow/${sessionId}/.task/*.json`);
+
+  // 2. Process batches until graph is empty
+  while (!graph.isEmpty()) {
+    // 3. Identify current batch (tasks with in-degree = 0)
+    const batch = graph.getNodesWithInDegreeZero();
+
+    // 4. Check for parallel execution opportunities
+    const parallelGroups = groupByExecutionGroup(batch);
+
+    // 5. Execute batch concurrently
+    await Promise.all(
+      parallelGroups.map(group => executeBatch(group))
+    );
+
+    // 6. Update graph: remove completed tasks and their edges
+    graph.removeNodes(batch);
+
+    // 7. Update TodoWrite to reflect completed batch
+    updateTodoWriteAfterBatch(batch);
+  }
+
+  // 8. All tasks complete - auto-complete session
+  SlashCommand("/workflow:session:complete");
+}
+
+function buildDependencyGraph(taskFiles) {
+  const tasks = loadAllTaskJSONs(taskFiles);
+  const graph = new DirectedGraph();
+
+  tasks.forEach(task => {
+    graph.addNode(task.id, task);
+
+    // Add edges for dependencies
+    task.context.depends_on?.forEach(depId => {
+      graph.addEdge(depId, task.id); // Edge from dependency to task
+    });
+  });
+
+  return graph;
+}
+
+function groupByExecutionGroup(tasks) {
+  const groups = {};
+
+  tasks.forEach(task => {
+    const groupId = task.meta.execution_group || task.id;
+    if (!groups[groupId]) groups[groupId] = [];
+    groups[groupId].push(task);
+  });
+
+  return Object.values(groups);
+}
+
+async function executeBatch(tasks) {
+  // Execute all tasks in batch concurrently
+  return Promise.all(
+    tasks.map(task => executeTask(task))
+  );
+}
+```
+
+#### Execution Group Rules
+1. **Same `execution_group` ID** → Execute in parallel (independent, different contexts)
+2. **No `execution_group` (null)** → Execute sequentially (has dependencies)
+3. **Different `execution_group` IDs** → Execute in parallel (independent batches)
+4. **Same `context_signature`** → Should have been merged (warning if not)
+
+#### Parallel Execution Example
+```
+Batch 1 (no dependencies):
+  - IMPL-1.1 (execution_group: "parallel-auth-api") → Agent 1
+  - IMPL-1.2 (execution_group: "parallel-ui-comp") → Agent 2
+  - IMPL-1.3 (execution_group: "parallel-db-schema") → Agent 3
+
+Wait for Batch 1 completion...
+
+Batch 2 (depends on Batch 1):
+  - IMPL-2.1 (execution_group: null, depends_on: [IMPL-1.1, IMPL-1.2]) → Agent 1
+
+Wait for Batch 2 completion...
+
+Batch 3 (independent of Batch 2):
+  - IMPL-3.1 (execution_group: "parallel-tests-1") → Agent 1
+  - IMPL-3.2 (execution_group: "parallel-tests-2") → Agent 2
+```
+
 ## TodoWrite Coordination
 **Comprehensive workflow tracking** with immediate status updates throughout entire execution without user interruption:
 
@@ -150,8 +239,11 @@ blocked → skip until dependencies clear
 1. **Initial Creation**: Generate TodoWrite from discovered pending tasks for entire workflow
    - **Normal Mode**: Create from discovery results
    - **Resume Mode**: Create from existing session state and current progress
-2. **Single In-Progress**: Mark ONLY ONE task as `in_progress` at a time
-3. **Immediate Updates**: Update status after each task completion without user interruption
+2. **Parallel Task Support**:
+   - **Single-task execution**: Mark ONLY ONE task as `in_progress` at a time
+   - **Batch execution**: Mark ALL tasks in current batch as `in_progress` simultaneously
+   - **Execution group indicator**: Show `[execution_group: group-id]` for parallel tasks
+3. **Immediate Updates**: Update status after each task/batch completion without user interruption
 4. **Status Synchronization**: Sync with JSON task files after updates
 5. **Continuous Tracking**: Maintain TodoWrite throughout entire workflow execution until completion
 
@@ -167,36 +259,71 @@ blocked → skip until dependencies clear
 **Use Claude Code's built-in TodoWrite tool** to track workflow progress in real-time:
 
 ```javascript
-// Create initial todo list from discovered pending tasks
+// Example 1: Sequential execution (traditional)
 TodoWrite({
   todos: [
     {
       content: "Execute IMPL-1.1: Design auth schema [code-developer] [FLOW_CONTROL]",
-      status: "pending",
+      status: "in_progress",  // Single task in progress
       activeForm: "Executing IMPL-1.1: Design auth schema"
     },
     {
       content: "Execute IMPL-1.2: Implement auth logic [code-developer] [FLOW_CONTROL]",
       status: "pending",
       activeForm: "Executing IMPL-1.2: Implement auth logic"
-    },
-    {
-      content: "Execute TEST-FIX-1: Validate implementation tests [test-fix-agent]",
-      status: "pending",
-      activeForm: "Executing TEST-FIX-1: Validate implementation tests"
     }
   ]
 });
 
-// Update status as tasks progress - ONLY ONE task should be in_progress at a time
+// Example 2: Batch execution (parallel tasks with execution_group)
 TodoWrite({
   todos: [
     {
-      content: "Execute IMPL-1.1: Design auth schema [code-developer] [FLOW_CONTROL]",
-      status: "in_progress",  // Mark current task as in_progress
-      activeForm: "Executing IMPL-1.1: Design auth schema"
+      content: "Execute IMPL-1.1: Build Auth API [code-developer] [execution_group: parallel-auth-api]",
+      status: "in_progress",  // Batch task 1
+      activeForm: "Executing IMPL-1.1: Build Auth API"
     },
-    // ... other tasks remain pending
+    {
+      content: "Execute IMPL-1.2: Build User UI [code-developer] [execution_group: parallel-ui-comp]",
+      status: "in_progress",  // Batch task 2 (running concurrently)
+      activeForm: "Executing IMPL-1.2: Build User UI"
+    },
+    {
+      content: "Execute IMPL-1.3: Setup Database [code-developer] [execution_group: parallel-db-schema]",
+      status: "in_progress",  // Batch task 3 (running concurrently)
+      activeForm: "Executing IMPL-1.3: Setup Database"
+    },
+    {
+      content: "Execute IMPL-2.1: Integration Tests [test-fix-agent] [depends_on: IMPL-1.1, IMPL-1.2, IMPL-1.3]",
+      status: "pending",  // Next batch (waits for current batch completion)
+      activeForm: "Executing IMPL-2.1: Integration Tests"
+    }
+  ]
+});
+
+// Example 3: After batch completion
+TodoWrite({
+  todos: [
+    {
+      content: "Execute IMPL-1.1: Build Auth API [code-developer] [execution_group: parallel-auth-api]",
+      status: "completed",  // Batch completed
+      activeForm: "Executing IMPL-1.1: Build Auth API"
+    },
+    {
+      content: "Execute IMPL-1.2: Build User UI [code-developer] [execution_group: parallel-ui-comp]",
+      status: "completed",  // Batch completed
+      activeForm: "Executing IMPL-1.2: Build User UI"
+    },
+    {
+      content: "Execute IMPL-1.3: Setup Database [code-developer] [execution_group: parallel-db-schema]",
+      status: "completed",  // Batch completed
+      activeForm: "Executing IMPL-1.3: Setup Database"
+    },
+    {
+      content: "Execute IMPL-2.1: Integration Tests [test-fix-agent]",
+      status: "in_progress",  // Next batch started
+      activeForm: "Executing IMPL-2.1: Integration Tests"
+    }
   ]
 });
 ```
@@ -282,82 +409,40 @@ TodoWrite({
 #### Agent Prompt Template
 ```bash
 Task(subagent_type="{meta.agent}",
-     prompt="**TASK EXECUTION WITH FULL JSON LOADING**
+     prompt="**EXECUTE TASK FROM JSON**
 
-     ## STEP 1: Load Complete Task JSON
-     **MANDATORY**: First load the complete task JSON from: {session.task_json_path}
+     ## Task JSON Location
+     {session.task_json_path}
 
-     cat {session.task_json_path}
+     ## Instructions
+     1. **Load Complete Task JSON**: Read and validate all fields (id, title, status, meta, context, flow_control)
+     2. **Execute Flow Control**: If `flow_control.pre_analysis` exists, execute steps sequentially:
+        - Load artifacts (synthesis-specification.md, role analyses) using commands in each step
+        - Accumulate context from step outputs using variable substitution [variable_name]
+        - Handle errors per step.on_error (skip_optional | fail | retry_once)
+     3. **Implement Solution**: Follow `flow_control.implementation_approach` using accumulated context
+     4. **Complete Task**:
+        - Update task status: `jq '.status = \"completed\"' {session.task_json_path} > temp.json && mv temp.json {session.task_json_path}`
+        - Update TODO list: {session.todo_list_path}
+        - Generate summary: {session.summaries_dir}/{task.id}-summary.md
+        - Check workflow completion and call `/workflow:session:complete` if all tasks done
 
-     **CRITICAL**: Validate all 5 required fields are present:
-     - id, title, status, meta, context, flow_control
+     ## Context Sources (All from JSON)
+     - Requirements: `context.requirements`
+     - Focus Paths: `context.focus_paths`
+     - Acceptance: `context.acceptance`
+     - Artifacts: `context.artifacts` (synthesis specs, brainstorming outputs)
+     - Dependencies: `context.depends_on`
+     - Target Files: `flow_control.target_files`
 
-     ## STEP 2: Task Definition (From Loaded JSON)
-     **ID**: Use id field from JSON
-     **Title**: Use title field from JSON
-     **Type**: Use meta.type field from JSON
-     **Agent**: Use meta.agent field from JSON
-     **Status**: Verify status is pending or active
+     ## Session Paths
+     - Workflow Dir: {session.workflow_dir}
+     - TODO List: {session.todo_list_path}
+     - Summaries: {session.summaries_dir}
+     - Flow Context: {flow_context.step_outputs}
 
-     ## STEP 3: Flow Control Execution (if flow_control.pre_analysis exists)
-     **AGENT RESPONSIBILITY**: Execute pre_analysis steps sequentially from loaded JSON:
-
-     **PRIORITY: Artifact Loading Steps First**
-     1. **Load Synthesis Specification** (if present): Priority artifact loading for consolidated design
-     2. **Load Individual Artifacts** (fallback): Load role-specific brainstorming outputs if synthesis unavailable
-     3. **Execute Remaining Steps**: Continue with other pre_analysis steps
-
-     For each step in flow_control.pre_analysis array:
-     1. Execute step.command/commands with variable substitution (support both single command and commands array)
-     2. Store output to step.output_to variable
-     3. Handle errors per step.on_error strategy (skip_optional, fail, retry_once)
-     4. Pass accumulated variables to next step including artifact context
-
-     **Special Artifact Loading Commands**:
-     - Use `bash(ls path 2>/dev/null || echo 'file not found')` for artifact existence checks
-     - Use `Read(path)` for loading artifact content
-     - Use `find` commands for discovering multiple artifact files
-     - Reference artifacts in subsequent steps using output variables: [synthesis_specification], [individual_artifacts]
-
-     ## STEP 4: Implementation Context (From JSON context field)
-     **Requirements**: Use context.requirements array from JSON
-     **Focus Paths**: Use context.focus_paths array from JSON
-     **Acceptance Criteria**: Use context.acceptance array from JSON
-     **Dependencies**: Use context.depends_on array from JSON
-     **Parent Context**: Use context.inherited object from JSON
-     **Artifacts**: Use context.artifacts array from JSON (synthesis specifications, brainstorming outputs)
-     **Target Files**: Use flow_control.target_files array from JSON
-     **Implementation Approach**: Use flow_control.implementation_approach object from JSON (with artifact integration)
-
-     ## STEP 5: Session Context (Provided by workflow:execute)
-     **Workflow Directory**: {session.workflow_dir}
-     **TODO List Path**: {session.todo_list_path}
-     **Summaries Directory**: {session.summaries_dir}
-     **Task JSON Path**: {session.task_json_path}
-     **Flow Context**: {flow_context.step_outputs}
-
-     ## STEP 6: Agent Completion Requirements
-     1. **Load Task JSON**: Read and validate complete task structure
-     2. **Execute Flow Control**: Run all pre_analysis steps if present
-     3. **Implement Solution**: Follow implementation_approach from JSON
-     4. **Update Progress**: Mark task status in JSON as completed
-     5. **Update TODO List**: Update TODO_LIST.md at provided path
-     6. **Generate Summary**: Create completion summary in summaries directory
-     7. **Check Workflow Complete**: After task completion, check if all workflow tasks done
-     8. **Auto-Complete Session**: If all tasks completed, call SlashCommand(\"/workflow:session:complete\")
-
-     **JSON UPDATE COMMAND**:
-     Update task status to completed using jq:
-     jq '.status = \"completed\"' {session.task_json_path} > temp.json && mv temp.json {session.task_json_path}
-
-     **WORKFLOW COMPLETION CHECK**:
-     After updating task status, check if workflow is complete:
-     total_tasks=\$(find .workflow/*/\.task/ -name "*.json" -type f 2>/dev/null | wc -l)
-     completed_tasks=\$(find .workflow/*/\.summaries/ -name "*.md" -type f 2>/dev/null | wc -l)
-     if [ \$total_tasks -eq \$completed_tasks ]; then
-       SlashCommand(command=\"/workflow:session:complete\")
-     fi"),
-     description="Execute task with full JSON loading and validation")
+     **Complete JSON structure is authoritative - load and follow it exactly.**"),
+     description="Execute task: {task.id}")
 ```
 
 #### Agent JSON Loading Specification

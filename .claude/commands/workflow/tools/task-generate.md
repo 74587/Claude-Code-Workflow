@@ -65,18 +65,35 @@ Tasks execute using Codex CLI with resume mechanism:
 ### Phase 2: Task JSON Generation
 
 #### Task Decomposition Standards
-**Core Principle: Task Merging Over Decomposition**
-- **Merge Rule**: Execute together when possible
-- **Decompose Only When**:
-  - Excessive workload (>2500 lines or >6 files)
-  - Different tech stacks or domains
-  - Sequential dependency blocking
-  - Parallel execution needed
+**Core Principle: Shared Context Merging + Independent Parallelization**
+- **Primary Rule**: **Shared context → Merge tasks** (avoid redundant context loading, tasks have inherent relationships)
+- **Secondary Rule**: **Different contexts + No dependencies → Decompose for parallel execution**
+
+**Context Analysis for Task Grouping**:
+1. **Shared Context Indicators** (→ Merge):
+   - Same `focus_paths` (working on same modules/files)
+   - Same tech stack/dependencies
+   - Same `context.artifacts` references
+   - Sequential logic flow within same feature
+   - Common test fixtures/setup
+
+2. **Independent Context Indicators** (→ Decompose):
+   - Different `focus_paths` (separate modules)
+   - Different tech stacks (frontend vs backend)
+   - Different `context.artifacts` (using different brainstorming outputs)
+   - No shared dependencies
+   - Can be tested independently
+
+**Decompose Only When**:
+- Different contexts + No shared dependencies (→ Parallel execution)
+- Excessive workload (>2500 lines or >6 files)
+- Sequential dependency requires blocking (IMPL-1 → IMPL-2)
 
 **Task Limits**:
 - **Maximum 10 tasks** (hard limit)
 - **Function-based**: Complete units (logic + UI + tests + config)
 - **Hierarchy**: Flat (≤5) | Two-level (6-10) | Re-scope (>10)
+- **Parallel Groups**: Tasks with same `execution_group` ID are independent and run concurrently
 
 #### Enhanced Task JSON Schema (5-Field + Artifacts)
 ```json
@@ -86,7 +103,9 @@ Tasks execute using Codex CLI with resume mechanism:
   "status": "pending|active|completed|blocked|container",
   "meta": {
     "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
-    "agent": "@code-developer|@test-fix-agent|@general-purpose"
+    "agent": "@code-developer|@test-fix-agent|@general-purpose",
+    "execution_group": "group-id|null",
+    "context_signature": "hash-of-focus_paths-and-artifacts"
   },
   "context": {
     "requirements": ["Clear requirement from analysis"],
@@ -227,10 +246,64 @@ Tasks execute using Codex CLI with resume mechanism:
 1. Parse analysis results and extract task definitions
 2. Detect brainstorming artifacts with priority scoring
 3. Generate task context (requirements, focus_paths, acceptance)
-4. **Determine modification targets**: Extract specific code locations from analysis
-5. Build flow_control with artifact loading steps and target_files
-6. **CLI Execute Mode**: If `--cli-execute` flag present, generate Codex commands
-7. Create individual task JSON files in `.task/`
+4. **Analyze context signatures**: Compute hash of `focus_paths + artifacts` for each task
+5. **Group tasks by context**:
+   - Tasks with same `context_signature` → Same context, should merge
+   - Tasks with different `context_signature` + no `depends_on` → Independent, assign unique `execution_group`
+   - Tasks with `depends_on` → Must be sequential, `execution_group = null`
+6. **Determine modification targets**: Extract specific code locations from analysis
+7. Build flow_control with artifact loading steps and target_files
+8. **CLI Execute Mode**: If `--cli-execute` flag present, generate Codex commands
+9. Create individual task JSON files in `.task/`
+
+#### Context Signature Algorithm
+```javascript
+// Compute context signature for task grouping
+function computeContextSignature(task) {
+  const focusPathsStr = task.context.focus_paths.sort().join('|');
+  const artifactsStr = task.context.artifacts.map(a => a.path).sort().join('|');
+  const techStack = task.context.shared_context?.tech_stack?.sort().join('|') || '';
+
+  return hash(`${focusPathsStr}:${artifactsStr}:${techStack}`);
+}
+
+// Group tasks by context signature
+function groupTasksByContext(tasks) {
+  const groups = {};
+
+  tasks.forEach(task => {
+    const signature = computeContextSignature(task);
+    if (!groups[signature]) {
+      groups[signature] = [];
+    }
+    groups[signature].push(task);
+  });
+
+  return groups;
+}
+
+// Assign execution groups for parallel tasks
+function assignExecutionGroups(tasks) {
+  const contextGroups = groupTasksByContext(tasks);
+
+  Object.entries(contextGroups).forEach(([signature, groupTasks]) => {
+    if (groupTasks.length === 1) {
+      const task = groupTasks[0];
+      // Single task with unique context
+      if (!task.context.depends_on || task.context.depends_on.length === 0) {
+        task.meta.execution_group = `parallel-${signature.slice(0, 8)}`;
+      } else {
+        task.meta.execution_group = null; // Sequential task
+      }
+    } else {
+      // Multiple tasks with same context → Should be merged
+      console.warn(`Tasks ${groupTasks.map(t => t.id).join(', ')} share context and should be merged`);
+      // Merge tasks into single task
+      return mergeTasks(groupTasks);
+    }
+  });
+}
+```
 
 #### Codex Resume Mechanism (CLI Execute Mode)
 
