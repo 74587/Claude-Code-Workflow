@@ -1,12 +1,12 @@
 ---
 name: Prompt Enhancer
-description: Transform vague prompts into actionable specs using session memory + semantic analysis. AUTO-TRIGGER on (1) -e/--enhance flags, (2) vague keywords (fix/improve/refactor/修复/优化/重构), (3) unclear refs (it/that/这个/那个), (4) multi-module scope. Supports English + Chinese semantic recognition.
-allowed-tools: Bash, Read, Glob, Grep, AskUserQuestion
+description: Transform vague prompts into actionable specs using session memory ONLY (no file analysis). AUTO-TRIGGER on (1) -e/--enhance flags, (2) vague keywords (fix/improve/refactor/修复/优化/重构), (3) unclear refs (it/that/这个/那个), (4) multi-module scope. Supports English + Chinese semantic recognition.
+allowed-tools: AskUserQuestion
 ---
 
 # Prompt Enhancer
 
-**Transform**: Vague intent → Structured specification
+**Transform**: Vague intent → Structured specification (Memory-based)
 
 **Languages**: English + Chinese (中英文语义识别)
 
@@ -19,33 +19,47 @@ allowed-tools: Bash, Read, Glob, Grep, AskUserQuestion
 | **P3** | Unclear references | EN: it/that/the code<br>CN: 这个/那个/它/代码 | Context extraction |
 | **P4** | Multi-module scope | >3 modules or critical systems | Dependency analysis |
 
-## Process (4 Steps)
+## Process (3 Steps - Streamlined)
 
-### 1. Semantic Analysis
+### 1. Semantic Analysis (Quick)
 Identify: Intent keywords (EN/CN) → Scope (file/module/system) → Domain (auth/API/DB/UI)
 
 **English**: fix, improve, add, refactor, update, migrate
 **Chinese**: 修复, 优化, 添加, 重构, 更新, 迁移, 改进, 清理
 
-### 2. Memory Extraction
-Extract: Technical context → Current state → Dependencies → Constraints
+### 2. Memory-Only Extraction (NO File Reading)
+Extract from **conversation memory ONLY**:
+- Recent user requests and context
+- Previous implementations/patterns discussed
+- Known dependencies from session
+- User preferences and constraints
 
-### 3. Integration
-Combine: Precise intent + Action steps (with files) + Critical constraints
+**SKIP**: File reading, codebase scanning, Glob/Grep operations
+**FOCUS**: Pure memory-based context extraction
 
-### 4. User Confirmation (REQUIRED)
-Use AskUserQuestion with 3 options → Execute/Review/Refine
+### 3. User Confirmation with Optimization Direction (REQUIRED)
+Present structured prompt → Ask: Continue? + Optimization suggestions needed?
 
 ## Output Format
 
 ```
-INTENT: [One-sentence technical goal]
-CONTEXT: [Session memory + domain analysis]
+📋 ENHANCED PROMPT
+
+INTENT: [One-sentence technical goal / 明确技术目标]
+
+CONTEXT: [Session memory findings / 会话记忆发现]
+- [Key context point 1]
+- [Key context point 2]
+- [...]
+
 ACTION:
-1. [Step with file references]
-2. [Step with file references]
+1. [Concrete step / 具体步骤]
+2. [Concrete step / 具体步骤]
 3. [...]
-ATTENTION: [Security/compatibility/testing constraints]
+
+ATTENTION: [Critical constraints / 关键约束]
+- [Security/compatibility/testing concerns]
+
 ```
 
 ## Semantic Patterns (EN + CN)
@@ -59,48 +73,50 @@ ATTENTION: [Security/compatibility/testing constraints]
 | update/更新 + version | Modernize | Version compatibility |
 | clean up/清理 + area | Simplify/organize | Remove redundancy |
 
-### Scope Detection
-
-| Input Pattern | Scope | Action |
-|---------------|-------|--------|
-| "fix button", "修复按钮" | Single file | Session memory only |
-| "add auth", "添加认证" | Multi-module (>3) | Dependency analysis |
-| "improve perf", "优化性能" | System-wide | Cross-cutting concerns |
-
 ## Workflow
 
 ```
-Trigger → Analyze → Enhance → Confirm → Execute
-   ↓         ↓         ↓         ↓         ↓
-  P1-4    EN/CN    INTENT/    3 opts    Direct
-          detect  ACTION              or iterate
+Trigger → Analyze → Extract → Present → Confirm → Execute
+   ↓         ↓         ↓         ↓         ↓         ↓
+  P1-4    EN/CN    Memory    Struct   Ask User  Direct
+          detect    only      prompt              or refine
 ```
 
 1. **Detect**: Check triggers (P1-P4)
-2. **Analyze**: Semantic (EN/CN) + Memory extraction
-3. **Enhance**: Generate structured output
-4. **Confirm**: AskUserQuestion (Execute/Review/Refine)
-5. **Execute**: Proceed based on user choice
+2. **Analyze**: Semantic (EN/CN) analysis of user intent
+3. **Extract**: Memory-only context extraction (NO file reading)
+4. **Present**: Generate structured prompt output
+5. **Confirm**: AskUserQuestion (Continue/Modify/Cancel)
+6. **Execute**: Proceed based on user choice
 
 ## Confirmation (AskUserQuestion)
 
-**Question**: "已增强提示词，如何继续？/ Enhanced prompt ready. Proceed?"
+**Question**: "Enhanced prompt ready. Proceed or need adjustments? (已生成增强提示词，是否继续或需要调整？)"
 
 **Options**:
-1. **Execute now** / **立即执行** - Proceed immediately
-2. **Review first** / **先查看** - Show full spec before execution
-3. **Refine** / **优化需求** - Iterate with user input
+1. **Continue as-is / 按此继续** - Proceed with current specification
+2. **Suggest optimizations / 建议优化方向** - I need guidance on how to improve this
+3. **Modify requirements / 修改需求** - Let me provide specific changes
 
 ```typescript
 AskUserQuestion({
   questions: [{
-    question: "I've enhanced your prompt. How would you like to proceed? (已增强提示词，如何继续？)",
-    header: "Execution",
+    question: "Enhanced prompt ready. Proceed or need adjustments? (已生成增强提示词，是否继续或需要调整？)",
+    header: "Next Step",
     multiSelect: false,
     options: [
-      { label: "Execute now", description: "Proceed immediately with enhanced spec" },
-      { label: "Review first", description: "Show full specification before execution" },
-      { label: "Refine", description: "Let me adjust the requirements" }
+      {
+        label: "Continue as-is",
+        description: "Proceed with current specification (按此继续)"
+      },
+      {
+        label: "Suggest optimizations",
+        description: "I need guidance on how to improve this (建议优化方向)"
+      },
+      {
+        label: "Modify requirements",
+        description: "Let me provide specific changes (修改需求)"
+      }
     ]
   }]
 })
@@ -110,23 +126,53 @@ AskUserQuestion({
 
 - ✅ Detect `-e`/`--enhance` flags first (P1)
 - ✅ Support EN + CN semantic keywords
-- ✅ Extract session memory context
+- ✅ Extract **memory context ONLY** (no file reading)
 - ✅ Use INTENT/CONTEXT/ACTION/ATTENTION format
 - ✅ ALWAYS confirm with AskUserQuestion
-- ✅ Execute directly if "Execute now" selected
-- ✅ Include file references in ACTION steps
+- ✅ Offer optimization guidance option
+- ❌ NO Bash, Read, Glob, Grep operations
+- ❌ NO direct file analysis
+
+## Key Changes from Previous Version
+
+1. **Removed file analysis** - Memory extraction only
+2. **Simplified to 3 steps** - Faster workflow
+3. **Updated confirmation options** - Added "Suggest optimizations"
+4. **Removed file tools** - Only AskUserQuestion allowed
+5. **Focus on speed** - Quick semantic analysis + memory extraction
 
 ## Examples
 
 **Input**: "fix auth -e" / "优化性能 --enhance"
 
+**Process**:
+1. Detect P1 trigger (`-e` flag)
+2. Semantic analysis: "fix/优化" intent
+3. Extract from memory: Recent auth/performance discussions
+4. Generate structured prompt
+5. Ask user: Continue/Suggest optimizations/Modify
+
 **Output**:
 ```
-INTENT: [Clear technical goal / 明确技术目标]
-CONTEXT: [Session memory findings / 会话记忆发现]
+📋 ENHANCED PROMPT
+
+INTENT: Fix authentication module issues based on recent session context
+
+CONTEXT:
+- User mentioned auth token expiration problems
+- Previous discussion about JWT validation
+- Session indicates preference for backward compatibility
+
 ACTION:
-1. [Step with files / 带文件引用的步骤]
-2. [Step with files / 带文件引用的步骤]
-ATTENTION: [Constraints / 约束条件]
+1. Review authentication token handling logic
+2. Implement proper JWT validation with expiration checks
+3. Add unit tests for token refresh flow
+4. Update documentation for auth changes
+
+ATTENTION:
+- Must maintain backward compatibility with existing tokens
+- Security: Follow JWT best practices
+- Testing: Ensure no breaking changes to API contracts
 ```
-**Confirm** → Execute/Review/Refine
+
+**Then ask**: Continue as-is / Suggest optimizations / Modify requirements
