@@ -289,6 +289,66 @@ MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recomme
 
 ---
 
+## 🎯 Agent Skills
+
+**Agent Skills** extend Claude's capabilities with modular, reusable expertise packages. Skills are automatically discovered and triggered based on context.
+
+### **Available Skills**
+
+#### **Prompt Enhancer**
+Transform vague prompts into structured, actionable specifications.
+
+**Usage**: Add `-e` or `--enhance` flag to any request
+```bash
+# Example
+fix authentication issue -e
+optimize database queries --enhance
+```
+
+**What it does**:
+- Analyzes session context and tech stack
+- Structures intent into INTENT → ACTION format
+- Adds relevant context, constraints, and metrics
+- Outputs ready-to-execute specifications
+
+**Output**: Dynamic structured prompt adapted to task type (simple tasks get minimal fields, complex tasks get comprehensive specifications)
+
+### **Creating Custom Skills**
+
+Skills are stored in `.claude/skills/` (project) or `~/.claude/skills/` (personal):
+
+```bash
+# Create a new skill
+mkdir -p .claude/skills/my-skill
+```
+
+**SKILL.md structure**:
+```yaml
+---
+name: My Skill Name
+description: What it does and when to use it. Use when [trigger conditions].
+allowed-tools: Read, Grep, Glob  # Optional tool restrictions
+---
+
+# My Skill Name
+
+## Instructions
+[Step-by-step guidance for Claude]
+
+## Examples
+[Concrete usage examples]
+```
+
+**Best Practices**:
+- Write specific descriptions with clear trigger conditions
+- Include both what the skill does and when to use it
+- Keep skills focused on single capabilities
+- Test by asking questions that match your description
+
+For complete documentation, see [skills.md](skills.md).
+
+---
+
 ## 🚀 Getting Started
 
 ### Complete Development Workflow

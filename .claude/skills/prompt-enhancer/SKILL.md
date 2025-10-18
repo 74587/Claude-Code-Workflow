@@ -18,81 +18,107 @@ allowed-tools: (none)
 
 ## Output Format
 
+**Dynamic Structure**: Adapt fields based on task type and context needs. Not all fields are required.
+
+**Core Fields** (always present):
+- **INTENT**: One-sentence technical goal
+- **ACTION**: Concrete steps with technical details
+
+**Optional Fields** (include when relevant):
+- **TECH STACK**: Relevant technologies (when tech-specific)
+- **CONTEXT**: Session memory findings (when context matters)
+- **ATTENTION**: Critical constraints (when risks/requirements exist)
+- **SCOPE**: Affected modules/files (for multi-module tasks)
+- **METRICS**: Success criteria (for optimization/performance tasks)
+- **DEPENDENCIES**: Related components (for integration tasks)
+
+**Example (Simple Task)**:
 ```
 📋 ENHANCED PROMPT
 
-INTENT: [One-sentence technical goal with tech stack / 明确技术目标含技术栈]
-
-TECH STACK: [Relevant technologies from memory / 相关技术栈]
-- [Framework/Library: Purpose]
-
-CONTEXT: [Session memory findings / 会话记忆发现]
-- [Key context point 1]
-- [Key context point 2]
-- [Design patterns/constraints from session]
+INTENT: Fix authentication token validation in JWT middleware
 
 ACTION:
-1. [Concrete step with technical details / 具体步骤含技术细节]
-2. [Concrete step with technical details]
-3. [Testing/validation step]
+1. Review token expiration logic in auth middleware
+2. Add proper error handling for expired tokens
+3. Test with valid/expired/malformed tokens
+```
 
-ATTENTION: [Critical constraints / 关键约束]
-- [Security/compatibility/performance concerns]
-- [Design pattern requirements]
+**Example (Complex Task)**:
+```
+📋 ENHANCED PROMPT
+
+INTENT: Optimize API performance with caching and database indexing
+
+TECH STACK:
+- Redis: Response caching
+- PostgreSQL: Query optimization
+
+CONTEXT:
+- API response times >2s mentioned in previous conversation
+- PostgreSQL slow query logs show N+1 problems
+
+ACTION:
+1. Profile endpoints to identify slow queries
+2. Add PostgreSQL indexes on frequently queried columns
+3. Implement Redis caching for read-heavy endpoints
+4. Add cache invalidation on data updates
+
+METRICS:
+- Target: <500ms API response time
+- Cache hit ratio: >80%
+
+ATTENTION:
+- Maintain backward compatibility with existing API contracts
+- Handle cache invalidation correctly to avoid stale data
 ```
 ## Workflow
 
 ```
-Trigger → Internal Analysis → Direct Output
-   ↓            ↓                  ↓
-  P1-4    Semantic+Memory    Enhanced Prompt
-          (3 dimensions)      (Structured)
+Trigger (-e/--enhance) → Internal Analysis → Dynamic Output
+         ↓                       ↓                  ↓
+   User Input           Assess Task Type      Select Fields
+                    Extract Memory Context    Structure Prompt
 ```
 
-1. **Detect**: Check triggers (P1-P4)
-2. **Internal Analysis**:
-   - Semantic (EN/CN) intent analysis
-   - Memory extraction (tech stack, patterns, constraints)
-   - Enhancement (structure + supplement + clarify)
-3. **Output**: Present enhanced structured prompt directly
+1. **Detect**: User input contains `-e` or `--enhance`
+2. **Analyze**:
+   - Determine task type (fix/optimize/implement/refactor)
+   - Extract relevant session context
+   - Identify tech stack and constraints
+3. **Structure**:
+   - Always include: INTENT + ACTION
+   - Conditionally add: TECH STACK, CONTEXT, ATTENTION, METRICS, etc.
+4. **Output**: Present dynamically structured prompt
 
-## Enhancement Checklist (Internal)
+## Enhancement Guidelines (Internal)
 
-**Structure**:
-- [ ] INTENT: Clear, one-sentence technical goal
-- [ ] TECH STACK: Relevant technologies from session
-- [ ] CONTEXT: Key session findings and constraints
-- [ ] ACTION: Concrete steps with technical details
-- [ ] ATTENTION: Critical constraints and patterns
+**Always Include**:
+- Clear, actionable INTENT
+- Concrete ACTION steps with technical details
 
-**Supplement**:
-- [ ] Add tech stack/frameworks mentioned in session
-- [ ] Include design patterns if relevant
-- [ ] Add testing/validation requirements
-- [ ] Specify performance metrics if applicable
+**Add When Relevant**:
+- TECH STACK: Task involves specific technologies
+- CONTEXT: Session memory provides useful background
+- ATTENTION: Security/compatibility/performance concerns exist
+- SCOPE: Multi-module or cross-component changes
+- METRICS: Performance/optimization goals need measurement
+- DEPENDENCIES: Integration points matter
 
-**Clarify**:
-- [ ] Make vague intent explicit
-- [ ] Resolve ambiguous references (it/that/这个/那个)
-- [ ] Expand multi-module scope with dependencies
-- [ ] Add missing context from memory
+**Quality Checks**:
+- Make vague intent explicit
+- Resolve ambiguous references
+- Add testing/validation steps
+- Include constraints from memory
 
 ## Best Practices
 
-- ✅ Detect `-e`/`--enhance` flags first (P1)
-- ✅ Support EN + CN semantic keywords
+- ✅ Trigger only on `-e`/`--enhance` flags
+- ✅ Use **dynamic field selection** based on task type
 - ✅ Extract **memory context ONLY** (no file reading)
-- ✅ Add tech stack, design patterns, testing requirements
-- ✅ Direct output (no intermediate steps)
-- ✅ Use INTENT/TECH STACK/CONTEXT/ACTION/ATTENTION format
-- ❌ NO tool calls (AskUserQuestion removed)
-- ❌ NO Bash, Read, Glob, Grep operations
-- ❌ NO file analysis or codebase scanning
-
-## Key Changes
-
-1. **Removed all tools** - Pure analysis and output
-2. **Removed user confirmation** - Direct output for speed
-3. **Added tech stack section** - Supplement with technologies
-4. **Enhanced internal analysis** - 3 dimensions (structure + supplement + clarify)
-5. **Focus on memory** - Session context only, no file reading
+- ✅ Always include INTENT + ACTION as core fields
+- ✅ Add optional fields only when relevant to task
+- ✅ Direct output (no intermediate steps shown)
+- ❌ NO tool calls
+- ❌ NO file operations (Bash, Read, Glob, Grep)
+- ❌ NO fixed template - adapt to task needs
