@@ -153,10 +153,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 - Global 模式会修改用户配置目录
 
 ### **✅ 验证安装**
-安装后，运行以下命令以确保 CCW 正常工作：
+安装后，打开 **Claude Code** 并检查工作流命令是否可用，运行以下命令：
 ```bash
 /workflow:session:list
 ```
+
+此命令应在 Claude Code 界面中被识别。如果您能看到工作流 slash 命令（例如 `/workflow:*`、`/cli:*`），说明安装成功。
 
 > **📝 安装说明：**
 > - 安装程序将自动安装/更新 `.codex/` 和 `.gemini/` 目录

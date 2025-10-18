@@ -153,10 +153,12 @@ For local installation without network access, use the bundled PowerShell instal
 - Global mode modifies user profile directories
 
 ### **✅ Verify Installation**
-After installation, run the following command to ensure CCW is working:
+After installation, open **Claude Code** and check if the workflow commands are available by running:
 ```bash
 /workflow:session:list
 ```
+
+This command should be recognized in Claude Code's interface. If you see the workflow slash commands (e.g., `/workflow:*`, `/cli:*`), the installation was successful.
 
 > **📝 Installation Notes:**
 > - The installer will automatically install/update `.codex/` and `.gemini/` directories
