@@ -17,29 +17,34 @@ This command generates task JSON files and an `IMPL_PLAN.md` from `ANALYSIS_RESU
 This command offers two distinct modes for task execution, providing flexibility for different implementation complexities.
 
 ### Agent Mode (Default)
-In the default mode, tasks are executed within the context of the currently active agent. This approach offers seamless context continuity, as the agent has direct access to all loaded documents, session state, and in-memory artifacts.
-- **Execution**: The agent reads the synthesis specification and other artifacts directly from memory.
-- **Implementation**: The agent performs the implementation based on its understanding of the requirements.
-- **Validation**: The agent is responsible for validating its own work against the acceptance criteria.
-- **Benefit**: High-speed execution with minimal overhead, ideal for tasks that are well-defined and don't require extensive autonomous reasoning.
+In the default mode, each step in `implementation_approach` **omits the `command` field**. The agent interprets the step's `modification_points` and `logic_flow` to execute the task autonomously.
+- **Step Structure**: Contains `step`, `title`, `description`, `modification_points`, `logic_flow`, `depends_on`, and `output` fields
+- **Execution**: Agent reads these fields and performs the implementation autonomously
+- **Context Loading**: Agent loads context via `pre_analysis` steps
+- **Validation**: Agent validates against acceptance criteria in `context.acceptance`
+- **Benefit**: Direct agent execution with full context awareness, no external tool overhead
+- **Use Case**: Standard implementation tasks where agent capability is sufficient
 
 ### CLI Execute Mode (`--cli-execute`)
-When the `--cli-execute` flag is used, the command generates tasks that invoke the Codex CLI. This mode is designed for complex implementations that benefit from Codex's advanced reasoning, iterative development, and session-based context persistence.
-- **Execution**: Each task's `implementation_approach` contains a `codex exec` command.
-- **Context Continuity**: The first task establishes a new Codex session, while subsequent tasks use the `resume --last` flag to maintain context, allowing Codex to learn from previous steps.
-- **Benefit**: Leverages Codex's powerful autonomous development capabilities for complex, multi-step implementations requiring persistent context.
-- **Use Case**: Ideal for large-scale features, complex refactoring, or when the implementation logic requires iterative reasoning and self-correction.
+When the `--cli-execute` flag is used, each step in `implementation_approach` **includes a `command` field** that specifies the exact execution command. This mode is designed for complex implementations requiring specialized CLI tools.
+- **Step Structure**: Includes all default fields PLUS a `command` field
+- **Execution**: The specified command executes the step directly (e.g., `bash(codex ...)`)
+- **Context Packages**: Each command receives context via the CONTEXT field in the prompt
+- **Multi-Step Support**: Complex tasks can have multiple sequential codex steps with `resume --last`
+- **Benefit**: Leverages specialized CLI tools (codex/gemini/qwen) for complex reasoning and autonomous execution
+- **Use Case**: Large-scale features, complex refactoring, or when user explicitly requests CLI tool usage
 
 ## 3. Core Principles
 This command is built on a set of core principles to ensure efficient and reliable task generation.
 
-- **Analysis-Driven**: All generated tasks originate from the `ANALYSIS_RESULTS.md`, ensuring a direct link between analysis and implementation.
-- **Artifact-Aware**: Automatically detects and integrates brainstorming outputs (e.g., `synthesis-specification.md`, role analyses) to enrich task context.
-- **Context-Rich**: Embeds comprehensive context, including requirements, focus paths, acceptance criteria, and artifact references, directly into each task JSON.
-- **Flow-Control Ready**: Pre-defines a clear sequence of operations (`pre_analysis`, `implementation_approach`) within each task to guide execution.
-- **Memory-First**: Prioritizes using documents and data already loaded in conversation memory to avoid redundant file operations.
-- **CLI-Aware**: Natively supports the Codex `resume` mechanism in CLI Execute Mode for persistent, stateful execution across multiple tasks.
-- **Responsibility**: Parses analysis, detects artifacts, generates enhanced 5-field schema task JSONs, creates `IMPL_PLAN.md` and `TODO_LIST.md`, and updates the session state.
+- **Analysis-Driven**: All generated tasks originate from `ANALYSIS_RESULTS.md`, ensuring a direct link between analysis and implementation
+- **Artifact-Aware**: Automatically detects and integrates brainstorming outputs (`synthesis-specification.md`, role analyses) to enrich task context
+- **Context-Rich**: Embeds comprehensive context (requirements, focus paths, acceptance criteria, artifact references) directly into each task JSON
+- **Flow-Control Ready**: Pre-defines clear execution sequence (`pre_analysis`, `implementation_approach`) within each task
+- **Memory-First**: Prioritizes using documents already loaded in conversation memory to avoid redundant file operations
+- **Mode-Flexible**: Supports both agent-driven execution (default) and CLI tool execution (with `--cli-execute` flag)
+- **Multi-Step Support**: Complex tasks can use multiple sequential steps in `implementation_approach` with codex resume mechanism
+- **Responsibility**: Parses analysis, detects artifacts, generates enhanced task JSONs, creates `IMPL_PLAN.md` and `TODO_LIST.md`, updates session state
 
 ## 4. Execution Flow
 The command follows a streamlined, three-step process to convert analysis into executable tasks.
@@ -576,33 +581,15 @@ Artifacts are mapped to tasks based on their relevance to the task's domain.
 This ensures that each task has access to the most relevant and detailed specifications, from the high-level synthesis down to the role-specific details.
 
 ## 8. CLI Execute Mode Details
-When using the `--cli-execute` flag, the command generates `bash(codex ...)` commands within the `implementation_approach` of the task JSON.
+When using `--cli-execute`, each step in `implementation_approach` includes a `command` field with the execution command.
 
-### Codex Resume Mechanism
-This mechanism ensures context continuity across multiple, dependent tasks.
+**Key Points**:
+- **Sequential Steps**: Steps execute in order defined in `implementation_approach` array
+- **Context Delivery**: Each codex command receives context via CONTEXT field: `@{.workflow/{session}/.process/context-package.json}` and `@{.workflow/{session}/.brainstorming/synthesis-specification.md}`
+- **Multi-Step Tasks**: First step provides full context, subsequent steps use `resume --last` to maintain session continuity
+- **Step Dependencies**: Later steps reference outputs from earlier steps via `depends_on` field
 
-**Session Continuity Strategy**:
--   **First Task** (a task with no dependencies): Establishes a new Codex session by running a standard `codex exec` command. This initializes the context for the implementation sequence.
--   **Subsequent Tasks** (tasks with `depends_on` entries): Use the `resume --last` flag. This instructs Codex to load the context from the immediately preceding execution, allowing it to build upon previous work, maintain consistency, and learn from prior steps.
-
-**Resume Flag Logic**:
-```javascript
-// Determine resume flag based on task dependencies
-const resumeFlag = task.context.depends_on && task.context.depends_on.length > 0
-  ? "resume --last"
-  : "";
-
-// First task (IMPL-001): no resume flag
-// Later tasks (IMPL-002, IMPL-003): use "resume --last"
-```
-
-**Benefits**:
--   ✅ **Shared Context**: Ensures related tasks are handled with a consistent understanding.
--   ✅ **Learning**: Codex learns from previous implementations in the same session.
--   ✅ **Consistency**: Maintains consistent patterns and conventions across tasks.
--   ✅ **Efficiency**: Reduces redundant analysis and context loading.
-
-### Example 1: First Task (Establish Session)
+### Example 1: Agent Mode - Simple Task (Default, No Command)
 ```json
 {
   "id": "IMPL-001",
@@ -610,68 +597,164 @@ const resumeFlag = task.context.depends_on && task.context.depends_on.length > 0
   "context": {
     "depends_on": [],
     "focus_paths": ["src/auth"],
-    "requirements": ["JWT-based authentication", "Login and registration endpoints"]
+    "requirements": ["JWT-based authentication", "Login and registration endpoints"],
+    "acceptance": [
+      "JWT token generation working",
+      "Login and registration endpoints implemented",
+      "Tests passing with >70% coverage"
+    ]
   },
   "flow_control": {
-    "implementation_approach": [{
-      "step": 1,
-      "title": "Execute implementation with Codex",
-      "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication module TASK: JWT-based authentication with login and registration MODE: auto CONTEXT: @{.workflow/WFS-session/.brainstorming/synthesis-specification.md} EXPECTED: Complete auth module with tests RULES: Follow synthesis specification\" --skip-git-repo-check -s danger-full-access)",
-      "depends_on": [],
-      "output": "implementation"
-    }]
+    "pre_analysis": [
+      {
+        "step": "load_synthesis",
+        "action": "Load synthesis specification for requirements",
+        "commands": ["Read(.workflow/WFS-session/.brainstorming/synthesis-specification.md)"],
+        "output_to": "synthesis_spec",
+        "on_error": "fail"
+      },
+      {
+        "step": "load_context",
+        "action": "Load context package for project structure",
+        "commands": ["Read(.workflow/WFS-session/.process/context-package.json)"],
+        "output_to": "context_pkg",
+        "on_error": "fail"
+      }
+    ],
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Implement JWT-based authentication",
+        "description": "Create authentication module using JWT following [synthesis_spec] requirements and [context_pkg] patterns",
+        "modification_points": [
+          "Create auth service with JWT generation",
+          "Implement login endpoint with credential validation",
+          "Implement registration endpoint with user creation",
+          "Add JWT middleware for route protection"
+        ],
+        "logic_flow": [
+          "User registers → validate input → hash password → create user",
+          "User logs in → validate credentials → generate JWT → return token",
+          "Protected routes → validate JWT → extract user → allow access"
+        ],
+        "depends_on": [],
+        "output": "auth_implementation"
+      }
+    ],
+    "target_files": ["src/auth/service.ts", "src/auth/middleware.ts", "src/routes/auth.ts"]
   }
 }
 ```
 
-### Example 2: Subsequent Task (Resume Session)
+### Example 2: CLI Execute Mode - Single Codex Step
 ```json
 {
   "id": "IMPL-002",
-  "title": "Add password reset functionality",
+  "title": "Implement user authentication module",
   "context": {
-    "depends_on": ["IMPL-001"],
+    "depends_on": [],
     "focus_paths": ["src/auth"],
-    "requirements": ["Password reset via email", "Token validation"]
+    "requirements": ["JWT-based authentication", "Login and registration endpoints"],
+    "acceptance": ["JWT generation working", "Endpoints implemented", "Tests passing"]
   },
   "flow_control": {
-    "implementation_approach": [{
-      "step": 1,
-      "title": "Execute implementation with Codex",
-      "command": "bash(codex --full-auto exec \"PURPOSE: Add password reset functionality TASK: Password reset via email with token validation MODE: auto CONTEXT: Previous auth implementation from session EXPECTED: Password reset endpoints with email integration RULES: Maintain consistency with existing auth patterns\" resume --last --skip-git-repo-check -s danger-full-access)",
-      "depends_on": [],
-      "output": "implementation"
-    }]
+    "pre_analysis": [
+      {
+        "step": "load_synthesis",
+        "action": "Load synthesis specification",
+        "commands": ["Read(.workflow/WFS-session/.brainstorming/synthesis-specification.md)"],
+        "output_to": "synthesis_spec",
+        "on_error": "fail"
+      }
+    ],
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Implement authentication with Codex",
+        "description": "Create JWT-based authentication module",
+        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication TASK: JWT-based auth with login/registration MODE: auto CONTEXT: @{.workflow/WFS-session/.process/context-package.json} @{.workflow/WFS-session/.brainstorming/synthesis-specification.md} EXPECTED: Complete auth module with tests RULES: Follow synthesis specification\" --skip-git-repo-check -s danger-full-access)",
+        "modification_points": ["Create auth service", "Implement endpoints", "Add JWT middleware"],
+        "logic_flow": ["Validate credentials", "Generate JWT", "Return token"],
+        "depends_on": [],
+        "output": "auth_implementation"
+      }
+    ],
+    "target_files": ["src/auth/service.ts", "src/auth/middleware.ts"]
   }
 }
 ```
 
-### Example 3: Third Task (Continue Session)
+### Example 3: CLI Execute Mode - Multi-Step with Resume
 ```json
 {
   "id": "IMPL-003",
   "title": "Implement role-based access control",
   "context": {
-    "depends_on": ["IMPL-001", "IMPL-002"],
-    "focus_paths": ["src/auth"],
-    "requirements": ["User roles and permissions", "Middleware for route protection"]
+    "depends_on": ["IMPL-002"],
+    "focus_paths": ["src/auth", "src/middleware"],
+    "requirements": ["User roles and permissions", "Route protection middleware"],
+    "acceptance": ["RBAC models created", "Middleware working", "Management API complete"]
   },
   "flow_control": {
-    "implementation_approach": [{
-      "step": 1,
-      "title": "Execute implementation with Codex",
-      "command": "bash(codex --full-auto exec \"PURPOSE: Implement role-based access control TASK: User roles, permissions, and route protection middleware MODE: auto CONTEXT: Existing auth system from session EXPECTED: RBAC system integrated with current auth RULES: Use established patterns from session context\" resume --last --skip-git-repo-check -s danger-full-access)",
-      "depends_on": [],
-      "output": "implementation"
-    }]
+    "pre_analysis": [
+      {
+        "step": "load_context",
+        "action": "Load context and synthesis",
+        "commands": [
+          "Read(.workflow/WFS-session/.process/context-package.json)",
+          "Read(.workflow/WFS-session/.brainstorming/synthesis-specification.md)"
+        ],
+        "output_to": "full_context",
+        "on_error": "fail"
+      }
+    ],
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Create RBAC models",
+        "description": "Define role and permission data models",
+        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Create RBAC models TASK: Role and permission models MODE: auto CONTEXT: @{.workflow/WFS-session/.process/context-package.json} @{.workflow/WFS-session/.brainstorming/synthesis-specification.md} EXPECTED: Models with migrations RULES: Follow synthesis spec\" --skip-git-repo-check -s danger-full-access)",
+        "modification_points": ["Define role model", "Define permission model", "Create migrations"],
+        "logic_flow": ["Design schema", "Implement models", "Generate migrations"],
+        "depends_on": [],
+        "output": "rbac_models"
+      },
+      {
+        "step": 2,
+        "title": "Implement RBAC middleware",
+        "description": "Create route protection middleware using models from step 1",
+        "command": "bash(codex --full-auto exec \"PURPOSE: Create RBAC middleware TASK: Route protection middleware MODE: auto CONTEXT: RBAC models from step 1 EXPECTED: Middleware for route protection RULES: Use session patterns\" resume --last --skip-git-repo-check -s danger-full-access)",
+        "modification_points": ["Create permission checker", "Add route decorators", "Integrate with auth"],
+        "logic_flow": ["Check user role", "Validate permissions", "Allow/deny access"],
+        "depends_on": [1],
+        "output": "rbac_middleware"
+      },
+      {
+        "step": 3,
+        "title": "Add role management API",
+        "description": "Create CRUD endpoints for roles and permissions",
+        "command": "bash(codex --full-auto exec \"PURPOSE: Role management API TASK: CRUD endpoints for roles/permissions MODE: auto CONTEXT: Models and middleware from previous steps EXPECTED: Complete API with validation RULES: Maintain consistency\" resume --last --skip-git-repo-check -s danger-full-access)",
+        "modification_points": ["Create role endpoints", "Create permission endpoints", "Add validation"],
+        "logic_flow": ["Define routes", "Implement controllers", "Add authorization"],
+        "depends_on": [2],
+        "output": "role_management_api"
+      }
+    ],
+    "target_files": [
+      "src/models/Role.ts",
+      "src/models/Permission.ts",
+      "src/middleware/rbac.ts",
+      "src/routes/roles.ts"
+    ]
   }
 }
 ```
 
 **Pattern Summary**:
--   **IMPL-001**: Starts a fresh session with a full prompt and context.
--   **IMPL-002**: Resumes the last session, referencing the "previous auth implementation."
--   **IMPL-003**: Continues the session, referencing the "existing auth system."
+- **Agent Mode (Example 1)**: No `command` field - agent executes via `modification_points` and `logic_flow`
+- **CLI Mode Single-Step (Example 2)**: One `command` field with full context package
+- **CLI Mode Multi-Step (Example 3)**: First step uses full context, subsequent steps use `resume --last`
+- **Context Delivery**: Context package provided via `@{...}` references in CONTEXT field
 
 ## 9. Error Handling
 
