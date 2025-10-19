@@ -12,9 +12,16 @@ allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*
 /workflow:brainstorm:auto-parallel "<topic>" [--count N]
 ```
 
+**Recommended Structured Format**:
+```bash
+/workflow:brainstorm:auto-parallel "GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]" [--count N]
+```
+
 **Parameters**:
-- `topic` (required): Topic or challenge description
+- `topic` (required): Topic or challenge description (structured format recommended)
 - `--count N` (optional): Number of roles to auto-select (default: 3, max: 9)
+
+**⚠️ User Intent Preservation**: Topic description is stored in session metadata as authoritative reference throughout entire brainstorming workflow and plan generation.
 
 ## Role Selection Logic
 - **Technical & Architecture**: `architecture|system|performance|database|security` → system-architect, data-architect, security-expert, subject-matter-expert
@@ -46,6 +53,7 @@ The command follows a structured three-phase approach with dedicated document ty
 - **Role selection**: Auto-select N roles based on topic keywords and --count parameter (default: 3, see Role Selection Logic)
 - **Call artifacts command**: Execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,...,roleN}"` using SlashCommand tool
 - **Role-specific framework**: Generate framework with sections tailored to selected roles
+- **⚠️ User intent storage**: Topic saved in workflow-session.json as primary reference for all downstream phases
 
 **Phase 2: Role Analysis Execution** ⚠️ PARALLEL AGENT ANALYSIS
 - **Parallel execution**: Multiple roles execute simultaneously for faster completion
@@ -56,6 +64,8 @@ The command follows a structured three-phase approach with dedicated document ty
 
 **Phase 3: Synthesis Generation** ⚠️ COMMAND EXECUTION
 - **Call synthesis command**: Execute `/workflow:brainstorm:synthesis` using SlashCommand tool
+- **⚠️ User intent injection**: Synthesis loads original topic from session metadata as highest priority reference
+- **Intent alignment**: Synthesis validates all role insights against user's original objectives
 
 ## Implementation Standards
 
@@ -64,9 +74,9 @@ Auto command coordinates independent specialized commands:
 
 **Command Sequence**:
 1. **Role Selection**: Auto-select N relevant roles based on topic keywords and --count parameter (default: 3)
-2. **Generate Role-Specific Framework**: Use SlashCommand to execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,...,roleN}"`
+2. **Generate Role-Specific Framework**: Use SlashCommand to execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,...,roleN}"` (stores user intent in session)
 3. **Parallel Role Analysis**: Execute selected role agents in parallel, each reading their specific framework section
-4. **Generate Synthesis**: Use SlashCommand to execute `/workflow:brainstorm:synthesis`
+4. **Generate Synthesis**: Use SlashCommand to execute `/workflow:brainstorm:synthesis` (loads user intent from session as primary reference)
 
 **SlashCommand Integration**:
 1. **artifacts command**: Called via SlashCommand tool with `--roles` parameter for role-specific framework generation
@@ -172,16 +182,17 @@ Task(subagent_type="conceptual-planning-agent",
         - Output: role_template
 
      3. **load_session_metadata**
-        - Action: Load session metadata and topic description
+        - Action: Load session metadata and original user intent
         - Command: bash(cat .workflow/WFS-{topic}/workflow-session.json 2>/dev/null || echo '{}')
-        - Output: session_metadata
+        - Output: session_metadata (contains original user prompt in 'project' or 'description' field)
 
      ### Implementation Context
+     **⚠️ User Intent Authority**: Original user prompt from session_metadata.project is PRIMARY reference
      **Topic Framework**: Use loaded topic-framework.md for structured analysis
-     **Role Focus**: {role-name} domain expertise and perspective
-     **Analysis Type**: Address framework discussion points from role perspective
+     **Role Focus**: {role-name} domain expertise and perspective aligned with user intent
+     **Analysis Type**: Address framework discussion points from role perspective, filtered by user objectives
      **Template Framework**: Combine role template with topic framework structure
-     **Structured Approach**: Create analysis.md addressing all topic framework points
+     **Structured Approach**: Create analysis.md addressing all topic framework points relevant to user's goals
 
      ### Session Context
      **Workflow Directory**: .workflow/WFS-{topic}/.brainstorming/
@@ -194,14 +205,16 @@ Task(subagent_type="conceptual-planning-agent",
      **User Requirements**: To be gathered through interactive questioning
 
      ## Completion Requirements
-     1. Execute all flow control steps in sequence (load topic framework, role template, session metadata)
-     2. **Address Topic Framework**: Respond to all discussion points in topic-framework.md from role perspective
-     3. Apply role template guidelines within topic framework structure
-     4. Generate structured role analysis addressing framework points
-     5. Create single comprehensive deliverable in OUTPUT_LOCATION:
-        - analysis.md (structured analysis addressing all topic framework points with role-specific insights)
-     6. Include framework reference: @../topic-framework.md in analysis.md
-     7. Update workflow-session.json with completion status",
+     1. Execute all flow control steps in sequence (load topic framework, role template, session metadata with user intent)
+     2. **⚠️ User Intent Alignment**: Validate analysis aligns with original user objectives from session_metadata
+     3. **Address Topic Framework**: Respond to all discussion points in topic-framework.md from role perspective
+     4. **Filter by User Goals**: Prioritize insights directly relevant to user's stated objectives
+     5. Apply role template guidelines within topic framework structure
+     6. Generate structured role analysis addressing framework points aligned with user intent
+     7. Create single comprehensive deliverable in OUTPUT_LOCATION:
+        - analysis.md (structured analysis addressing all topic framework points with role-specific insights filtered by user goals)
+     8. Include framework reference: @../topic-framework.md in analysis.md
+     9. Update workflow-session.json with completion status",
      description="Execute {role-name} brainstorming analysis")
 ```
 

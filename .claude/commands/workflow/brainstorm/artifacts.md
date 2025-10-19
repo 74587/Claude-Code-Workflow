@@ -12,8 +12,15 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
 /workflow:brainstorm:artifacts "<topic>" [--roles "role1,role2,role3"]
 ```
 
+**Recommended Structured Format**:
+```bash
+/workflow:brainstorm:artifacts "GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]" [--roles "..."]
+```
+
 ## Purpose
 **Generate dynamic topic-framework.md tailored to selected roles**. Creates role-specific discussion frameworks that address relevant perspectives. If no roles specified, generates comprehensive framework covering common analysis areas.
+
+**⚠️ User Intent Preservation**: Topic description is stored in session metadata and serves as authoritative reference throughout workflow lifecycle.
 
 ## Role-Based Framework Generation
 

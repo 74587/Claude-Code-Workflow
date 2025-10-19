@@ -1,7 +1,7 @@
 ---
 name: synthesis
 description: Generate synthesis-specification.md from topic-framework and role analyses with @ references using conceptual-planning-agent
-argument-hint: "no arguments required - synthesizes existing framework and role analyses"
+argument-hint: "[optional: --session session-id]"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
 
@@ -56,19 +56,30 @@ Initialize synthesis task tracking using TodoWrite at command start:
 ### Phase 1: Document Discovery & Validation
 ```bash
 # Detect active brainstorming session
-CHECK: .workflow/.active-* marker files
-IF active_session EXISTS:
-    session_id = get_active_session()
-    brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
+IF --session parameter provided:
+    session_id = provided session
 ELSE:
-    ERROR: "No active brainstorming session found"
-    EXIT
+    CHECK: .workflow/.active-* marker files
+    IF active_session EXISTS:
+        session_id = get_active_session()
+    ELSE:
+        ERROR: "No active brainstorming session found"
+        EXIT
+
+brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
 
 # Validate required documents
 CHECK: brainstorm_dir/topic-framework.md
 IF NOT EXISTS:
     ERROR: "topic-framework.md not found. Run /workflow:brainstorm:artifacts first"
     EXIT
+
+# Load user's original prompt from session metadata
+session_metadata = Read(.workflow/WFS-{session}/workflow-session.json)
+original_user_prompt = session_metadata.project || session_metadata.description
+IF NOT original_user_prompt:
+    WARN: "No original user prompt found in session metadata"
+    original_user_prompt = "Not available"
 ```
 
 ### Phase 2: Role Analysis Discovery
@@ -92,6 +103,7 @@ FIND_ANALYSES: [
 # - test-strategist
 
 LOAD_DOCUMENTS: {
+    "original_user_prompt": original_user_prompt (from session metadata),
     "topic_framework": topic-framework.md,
     "role_analyses": [dynamically discovered analysis.md files],
     "participating_roles": [extract role names from discovered directories],
@@ -100,6 +112,7 @@ LOAD_DOCUMENTS: {
 
 # Note: Not all roles participate in every brainstorming session
 # Only synthesize roles that actually produced analysis.md files
+# CRITICAL: Original user prompt MUST be primary reference for synthesis
 ```
 
 ### Phase 3: Update Mechanism Check
@@ -133,31 +146,39 @@ OUTPUT_PATH: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md
 SESSION_ID: {session_id}
 ANALYSIS_MODE: cross_role_synthesis
 
+## ⚠️ CRITICAL: User Intent Authority
+**ORIGINAL USER PROMPT IS THE PRIMARY REFERENCE**: {original_user_prompt}
+All synthesis MUST align with user's original intent. Topic framework and role analyses are supplementary context.
+
 ## Flow Control Steps
-1. **load_topic_framework**
+1. **load_original_user_prompt**
+   - Action: Load user's original intent from session metadata
+   - Command: Read(.workflow/WFS-{session}/workflow-session.json)
+   - Extract: project field or description field
+   - Output: original_user_prompt (PRIMARY REFERENCE)
+   - Priority: HIGHEST - This is the authoritative source of user intent
+
+2. **load_topic_framework**
    - Action: Load structured topic discussion framework
    - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
    - Output: topic_framework_content
+   - Note: Validate alignment with original_user_prompt
 
-2. **discover_role_analyses**
+3. **discover_role_analyses**
    - Action: Dynamically discover all participating role analysis files
    - Command: Glob(.workflow/WFS-{session}/.brainstorming/*/analysis.md)
    - Output: role_analysis_paths, participating_roles
 
-3. **load_role_analyses**
+4. **load_role_analyses**
    - Action: Load all discovered role analysis documents
    - Command: Read(each path from role_analysis_paths)
    - Output: role_analyses_content
+   - Note: Filter insights relevant to original_user_prompt
 
-4. **check_existing_synthesis**
+5. **check_existing_synthesis**
    - Action: Check if synthesis-specification.md already exists
    - Command: Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md) [if exists]
    - Output: existing_synthesis_content [optional]
-
-5. **load_session_metadata**
-   - Action: Load session metadata and context
-   - Command: Read(.workflow/WFS-{session}/workflow-session.json)
-   - Output: session_context
 
 6. **load_synthesis_template**
    - Action: Load synthesis role template for structure and guidelines
@@ -166,14 +187,22 @@ ANALYSIS_MODE: cross_role_synthesis
 
 ## Synthesis Requirements
 
+### ⚠️ PRIMARY REQUIREMENT: User Intent Alignment
+**User's Original Goal is Supreme**: Synthesis MUST directly address {original_user_prompt}
+**Intent Validation**: Every requirement, design decision, and recommendation must trace back to user's original intent
+**Deviation Detection**: Flag any role analysis points that drift from user's stated goals
+**Refocus Mechanism**: When role discussions diverge, explicitly refocus on original user prompt
+**Traceability**: Each section should reference how it fulfills user's original intent
+
 ### Core Integration
 **Cross-Role Analysis**: Integrate all discovered role analyses with comprehensive coverage
 **Framework Integration**: Address how each role responded to topic-framework.md discussion points
+**User Intent Filter**: Prioritize insights that directly serve user's original prompt
 **Decision Transparency**: Document both adopted solutions and rejected alternatives with rationale
 **Process Integration**: Include team capability gaps, process risks, and collaboration patterns
 **Visual Documentation**: Include key diagrams (architecture, data model, user journey) via Mermaid
-**Priority Matrix**: Create quantified recommendation matrix with multi-dimensional evaluation
-**Actionable Plan**: Provide phased implementation roadmap with clear next steps
+**Priority Matrix**: Create quantified recommendation matrix aligned with user's goals
+**Actionable Plan**: Provide phased implementation roadmap addressing user's original objectives
 
 ### Cross-Role Analysis Process (Agent Internal Execution)
 Perform systematic cross-role analysis following these steps:
@@ -200,13 +229,16 @@ Follow synthesis-specification.md structure defined in synthesis-role.md templat
 3. **Session Metadata Update**: Update workflow-session.json with synthesis completion status
 
 ## Completion Criteria
+- ⚠️ **USER INTENT ALIGNMENT**: Synthesis directly addresses user's original prompt
 - All discovered role analyses integrated without gaps
 - Framework discussion points addressed across all roles
+- **Intent traceability**: Each major section references user's original goals
 - Controversial points documented with dissenting roles identified
 - Process concerns (team capabilities, risks, collaboration) captured
-- Quantified priority recommendations with evaluation criteria
-- Actionable implementation plan with phased approach
+- Quantified priority recommendations aligned with user's objectives
+- Actionable implementation plan addressing user's stated goals
 - Comprehensive risk assessment with mitigation strategies
+- **Deviation warnings**: Any significant departures from user intent flagged explicitly
 
 ## Execution Notes
 - Dynamic role participation: Only synthesize roles that produced analysis.md files

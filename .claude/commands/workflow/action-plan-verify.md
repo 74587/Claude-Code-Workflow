@@ -67,6 +67,11 @@ IF TASK_FILES.count == 0:
 
 Load only minimal necessary context from each artifact:
 
+**From workflow-session.json** (NEW - PRIMARY REFERENCE):
+- Original user prompt/intent (project or description field)
+- User's stated goals and objectives
+- User's scope definition
+
 **From synthesis-specification.md**:
 - Functional Requirements (IDs, descriptions, acceptance criteria)
 - Non-Functional Requirements (IDs, targets)
@@ -117,7 +122,14 @@ Create internal representations (do not include raw artifacts in output):
 
 Focus on high-signal findings. Limit to 50 findings total; aggregate remainder in overflow summary.
 
-#### A. Requirements Coverage Analysis
+#### A. User Intent Alignment (NEW - CRITICAL)
+
+- **Goal Alignment**: IMPL_PLAN objectives match user's original intent
+- **Scope Drift**: Plan covers user's stated scope without unauthorized expansion
+- **Success Criteria Match**: Plan's success criteria reflect user's expectations
+- **Intent Conflicts**: Tasks contradicting user's original objectives
+
+#### B. Requirements Coverage Analysis
 
 - **Orphaned Requirements**: Requirements in synthesis with zero associated tasks
 - **Unmapped Tasks**: Tasks with no clear requirement linkage
@@ -167,6 +179,7 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 Use this heuristic to prioritize findings:
 
 - **CRITICAL**:
+  - Violates user's original intent (goal misalignment, scope drift)
   - Violates synthesis authority (requirement conflict)
   - Core requirement with zero coverage
   - Circular dependencies

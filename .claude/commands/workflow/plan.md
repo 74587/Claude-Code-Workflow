@@ -160,9 +160,11 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **Relationship with Brainstorm Phase**:
 - If brainstorm synthesis exists (synthesis-specification.md), Phase 3 analysis incorporates it as input
+- **⚠️ User's original intent is ALWAYS primary**: New or refined user goals override synthesis recommendations
 - **synthesis-specification.md defines "WHAT"**: Requirements, design specs, high-level features
 - **IMPL_PLAN.md defines "HOW"**: Executable task breakdown, dependencies, implementation sequence
 - Task generation translates high-level specifications into concrete, actionable work items
+- **Intent priority**: Current user prompt > synthesis-specification.md > topic-framework.md
 
 **Command Selection**:
 - Manual: `SlashCommand(command="/workflow:tools:task-generate --session [sessionId]")`

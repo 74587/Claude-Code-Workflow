@@ -66,6 +66,13 @@ This serves as a quality gate to ensure conceptual clarity before detailed task 
    # Load primary artifact (determined in step 1)
    primary_content = Read(primary_artifact)
 
+   # Load user's original intent from session metadata
+   session_metadata = Read(.workflow/WFS-{session}/workflow-session.json)
+   original_user_intent = session_metadata.project || session_metadata.description
+   IF NOT original_user_intent:
+       WARN: "No original user intent found in session metadata"
+       original_user_intent = "Not available"
+
    # Load mode-specific supplementary artifacts
    IF clarify_mode == "brainstorm":
        topic_framework = Read(brainstorm_dir + "/topic-framework.md") # if exists
@@ -77,6 +84,13 @@ This serves as a quality gate to ensure conceptual clarity before detailed task 
 3. **Ambiguity & Coverage Scan**
 
    Perform structured scan using this taxonomy. For each category, mark status: **Clear** / **Partial** / **Missing**.
+
+   **⚠️ User Intent Alignment** (NEW - HIGHEST PRIORITY):
+   - Primary artifact alignment with original user intent
+   - Goal consistency between artifact and user's stated objectives
+   - Scope match with user's requirements
+   - Success criteria reflects user's expectations
+   - Any unexplained deviations from user intent
 
    **Requirements Clarity**:
    - Functional requirements specificity and measurability
