@@ -275,20 +275,31 @@ This command will:
 
 ## Advanced Usage: Agent Skills
 
-Agent Skills are modular, reusable capabilities that extend the AI's functionality. They are stored in the `.claude/skills/` directory and are invoked automatically by the model based on your request.
+Agent Skills are modular, reusable capabilities that extend the AI's functionality. They are stored in the `.claude/skills/` directory and are invoked through specific trigger mechanisms.
 
 ### How Skills Work
 
 -   **Model-Invoked**: Unlike slash commands, you don't call Skills directly. The AI decides when to use a Skill based on its understanding of your goal.
 -   **Contextual**: Skills provide specific instructions, scripts, and templates to the AI for specialized tasks.
--   **Example**: The built-in `prompt-enhancer` skill is triggered when you use the `--enhance` flag, automatically refining your prompt for better results.
+-   **Trigger Mechanisms**:
+    -   **Conversational Trigger**: Use `-e` or `--enhance` flag in **natural conversation** to trigger the `prompt-enhancer` skill
+    -   **CLI Command Enhancement**: Use `--enhance` flag in **CLI commands** for prompt refinement (this is a CLI feature, not a skill trigger)
 
+### Examples
+
+**Conversational Trigger** (activates prompt-enhancer skill):
+```
+User: "Analyze authentication module -e"
+→ AI uses prompt-enhancer skill to expand the request
+```
+
+**CLI Command Enhancement** (built-in CLI feature):
 ```bash
-# Using a command that triggers the prompt-enhancer skill
+# The --enhance flag here is a CLI parameter, not a skill trigger
 /cli:analyze --enhance "check for security issues"
 ```
 
-In this case, the `prompt-enhancer` skill activates to expand your brief request into a detailed, structured prompt for the security analysis.
+**Important Note**: The `-e` flag works in natural conversation, but `--enhance` in CLI commands is a separate enhancement mechanism, not the skill system.
 
 ---
 

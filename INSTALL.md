@@ -4,278 +4,201 @@
 
 Interactive installation guide for Claude Code with Agent workflow coordination and distributed memory system.
 
-## ⚡ One-Line Remote Installation (Recommended)
+## ⚡ Quick One-Line Installation
 
-### All Platforms - Remote PowerShell Installation
+**Windows (PowerShell):**
 ```powershell
-# Interactive remote installation from feature branch (latest)
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1)
-
-# Global installation with unified file output system
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Global
-
-# Force overwrite (non-interactive) - includes all new workflow file generation features
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Force -NonInteractive
-
-# One-click backup all existing files (no confirmations needed)
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -BackupAll
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1" -UseBasicParsing).Content
 ```
 
-**What the remote installer does:**
-- ✅ Checks system requirements (PowerShell version, network connectivity)
-- ✅ Downloads latest version from GitHub (main branch)
-- ✅ Includes all new unified file output system features
-- ✅ Automatically extracts and runs local installer
-- ✅ Security confirmation and user prompts
-- ✅ Automatic cleanup of temporary files
-- ✅ Sets up .workflow/ directory structure for session management
+**Linux/macOS (Bash/Zsh):**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.sh)
+```
 
-**Note**: Interface is in English for cross-platform compatibility
+### Interactive Version Selection
 
-## 📂 Local Installation
+After running the installation command, you'll see an interactive menu with real-time version information:
 
-### All Platforms (PowerShell)
+```
+Detecting latest release and commits...
+Latest stable: v4.6.0 (2025-10-19 04:27 UTC)
+Latest commit: cdea58f (2025-10-19 08:15 UTC)
+
+====================================================
+            Version Selection Menu
+====================================================
+
+1) Latest Stable Release (Recommended)
+   |-- Version: v4.6.0
+   |-- Released: 2025-10-19 04:27 UTC
+   \-- Production-ready
+
+2) Latest Development Version
+   |-- Branch: main
+   |-- Commit: cdea58f
+   |-- Updated: 2025-10-19 08:15 UTC
+   |-- Cutting-edge features
+   \-- May contain experimental changes
+
+3) Specific Release Version
+   |-- Install a specific tagged release
+   \-- Recent: v4.6.0, v4.5.0, v4.4.0
+
+====================================================
+
+Select version to install (1-3, default: 1):
+```
+
+**Version Options:**
+- **Option 1 (Recommended)**: Latest stable release with verified production quality
+- **Option 2**: Latest development version from main branch with newest features
+- **Option 3**: Specific version tag for controlled deployments
+
+> 💡 **Pro Tip**: The installer automatically detects and displays the latest version numbers and release dates from GitHub. Just press Enter to select the recommended stable release.
+
+## 📂 Local Installation (Install-Claude.ps1)
+
+For local installation without network access, use the bundled PowerShell installer:
+
+**Installation Modes:**
 ```powershell
-# Clone the repository with latest features
-cd Claude-Code-Workflow
-
-# Windows PowerShell 5.1+ or PowerShell Core (Global installation only)
+# Interactive mode with prompts (recommended)
 .\Install-Claude.ps1
 
-# Linux/macOS PowerShell Core (Global installation only)
-pwsh ./Install-Claude.ps1
+# Quick install with automatic backup
+.\Install-Claude.ps1 -Force -BackupAll
+
+# Non-interactive install
+.\Install-Claude.ps1 -NonInteractive -Force
 ```
 
-**Note**: The feature branch contains all the latest unified file output system enhancements and should be used for new installations.
+**Installation Options:**
 
-## Installation Options
+| Mode | Description | Installs To |
+|------|-------------|-------------|
+| **Global** | System-wide installation (default) | `~/.claude/`, `~/.codex/`, `~/.gemini/` |
+| **Path** | Custom directory + global hybrid | Local: `agents/`, `commands/`<br>Global: `workflows/`, `scripts/` |
 
-### Remote Installation Parameters
+**Backup Behavior:**
+- **Default**: Automatic backup enabled (`-BackupAll`)
+- **Disable**: Use `-NoBackup` flag (⚠️ overwrites without backup)
+- **Backup location**: `claude-backup-{timestamp}/` in installation directory
 
-All parameters can be passed to the remote installer:
+**⚠️ Important Warnings:**
+- `-Force -BackupAll`: Silent file overwrite (with backup)
+- `-NoBackup -Force`: Permanent file overwrite (no recovery)
+- Global mode modifies user profile directories
 
-```powershell
-# Global installation
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Global
-
-# Install to specific directory  
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Directory "C:\MyProject"
-
-# Force overwrite without prompts
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Force -NonInteractive
-
-# Install from specific branch
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Branch "dev"
-
-# Skip backups (overwrite without backup - not recommended)
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -NoBackup
-
-# Explicit automatic backup all existing files (default behavior since v1.1.0)
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -BackupAll
+### ✅ Verify Installation
+After installation, open **Claude Code** and check if the workflow commands are available by running:
+```bash
+/workflow:session:list
 ```
 
-### Local Installation Options
+This command should be recognized in Claude Code's interface. If you see the workflow slash commands (e.g., `/workflow:*`, `/cli:*`), the installation was successful.
 
-### Global Installation (Default and Only Mode)
-Install to user home directory (`~/.claude`):
-```powershell
-# All platforms - Global installation (default)
-.\Install-Claude.ps1
-
-# With automatic backup (default since v1.1.0)
-.\Install-Claude.ps1 -BackupAll
-
-# Disable automatic backup (not recommended)
-.\Install-Claude.ps1 -NoBackup
-
-# Non-interactive mode for automation
-.\Install-Claude.ps1 -Force -NonInteractive
-```
-
-**Global installation structure:**
-```
-~/.claude/
-├── agents/
-├── commands/
-├── output-styles/
-├── settings.local.json
-└── CLAUDE.md
-```
-
-**Note**: Starting from v1.2.0, only global installation is supported. Local directory and custom path installations have been removed to simplify the installation process and ensure consistent behavior across all platforms.
-
-## Advanced Options
-
-### 🛡️ Enhanced Backup Features (v1.1.0+)
-
-The installer now includes **automatic backup as the default behavior** to protect your existing files:
-
-**Backup Modes:**
-- **Automatic Backup** (default since v1.1.0): Automatically backs up all existing files without prompts
-- **Explicit Backup** (`-BackupAll`): Same as default behavior, explicitly specified for compatibility
-- **No Backup** (`-NoBackup`): Disable backup functionality (not recommended)
-
-**Backup Organization:**
-- Creates timestamped backup folders (e.g., `claude-backup-20240117-143022`)
-- Preserves directory structure within backup folders
-- Maintains file relationships and paths
-
-### Force Installation
-Overwrite existing files:
-```powershell
-.\Install-Claude.ps1 -Force
-```
-
-### One-Click Backup
-Automatically backup all existing files without confirmations:
-```powershell
-.\Install-Claude.ps1 -BackupAll
-```
-
-### Skip Backups
-Don't create backup files:
-```powershell
-.\Install-Claude.ps1 -NoBackup
-```
-
-### Uninstall
-Remove installation:
-```powershell
-.\Install-Claude.ps1 -Uninstall -Force
-```
+> **📝 Installation Notes:**
+> - The installer will automatically install/update `.codex/` and `.gemini/` directories
+> - **Global mode**: Installs to `~/.codex` and `~/.gemini`
+> - **Path mode**: Installs to your specified directory (e.g., `project/.codex`, `project/.gemini`)
+> - **Backup**: Existing files are backed up by default to `claude-backup-{timestamp}/`
+> - **Safety**: Use interactive mode for first-time installation to review changes
 
 ## Platform Requirements
 
-### PowerShell (Recommended)
 - **Windows**: PowerShell 5.1+ or PowerShell Core 6+
-- **Linux**: PowerShell Core 6+
-- **macOS**: PowerShell Core 6+
+- **Linux/macOS**: Bash/Zsh (for installer) or PowerShell Core 6+ (for manual Install-Claude.ps1)
 
-Install PowerShell Core:
+**Install PowerShell Core (if needed):**
 - **Ubuntu/Debian**: `sudo apt install powershell`
-- **CentOS/RHEL**: `sudo dnf install powershell`
 - **macOS**: `brew install powershell`
-- **Or download**: https://github.com/PowerShell/PowerShell
+- **Download**: https://github.com/PowerShell/PowerShell
 
+## ⚙️ Configuration
 
-## Complete Installation Examples
+### Tool Control System
 
-### ⚡ Super Quick (One-Liner)
-```powershell
-# Complete installation in one command
-iex (iwr -useb https://raw.githubusercontent.com/catlog22/Claude-Code-Workflow/main/install-remote.ps1) -Global
+CCW uses a **configuration-based tool control system** that makes external CLI tools **optional** rather than required. This allows you to:
 
-# Done! 🎉
-# Start using Claude Code with Agent workflows!
+- ✅ **Start with Claude-only mode** - Work immediately without installing additional tools
+- ✅ **Progressive enhancement** - Add external tools selectively as needed
+- ✅ **Graceful degradation** - Automatic fallback when tools are unavailable
+- ✅ **Flexible configuration** - Control tool availability per project
+
+**Configuration File**: `~/.claude/workflows/tool-control.yaml`
+
+```yaml
+tools:
+  gemini:
+    enabled: false  # Optional: AI analysis & documentation
+  qwen:
+    enabled: true   # Optional: AI architecture & code generation
+  codex:
+    enabled: true   # Optional: AI development & implementation
 ```
 
-### 📂 Manual Installation Method
-```powershell
-# Manual installation steps:
-# 1. Install PowerShell Core (if needed)
-# Windows: Download from GitHub
-# Linux: sudo apt install powershell
-# macOS: brew install powershell
+**Behavior**:
+- **When disabled**: CCW automatically falls back to other enabled tools or Claude's native capabilities
+- **When enabled**: Uses specialized tools for their specific strengths
+- **Default**: All tools disabled - Claude-only mode works out of the box
 
-# 2. Download Claude Code Workflow System
-git clone https://github.com/catlog22/Claude-CCW.git
-cd Dmsflow
+### Optional CLI Tools *(Enhanced Capabilities)*
 
-# 3. Install globally (interactive)
-.\Install-Claude.ps1 -Global
+While CCW works with Claude alone, installing these tools provides enhanced analysis and extended context:
 
-# 4. Start using Claude Code with Agent workflows!
-# Use /workflow commands and memory system for development
-```
+#### System Utilities
 
-## Prerequisites & Recommended Tools
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| **ripgrep (rg)** | Fast code search | `brew install ripgrep` (macOS), `apt install ripgrep` (Ubuntu), `winget install ripgrep` (Windows) |
+| **jq** | JSON processing | `brew install jq` (macOS), `apt install jq` (Ubuntu), `winget install jq` (Windows) |
 
-To unlock the full potential of CCW, installing these additional tools is highly recommended.
+#### External AI Tools
 
-### System Tools (Recommended)
+Configure these tools in `~/.claude/workflows/tool-control.yaml` after installation:
 
-These tools enhance file search and data processing capabilities.
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| **Gemini CLI** | AI analysis & documentation | Follow [official docs](https://ai.google.dev) - Free quota, extended context |
+| **Codex CLI** | AI development & implementation | Follow [official docs](https://github.com/openai/codex) - Autonomous development |
+| **Qwen Code** | AI architecture & code generation | Follow [official docs](https://github.com/QwenLM/qwen-code) - Large context window |
 
--   **`ripgrep` (rg)**: A high-speed code search tool.
-    -   **Windows**: `winget install BurntSushi.Ripper.MSVC` or `choco install ripgrep`
-    -   **macOS**: `brew install ripgrep`
-    -   **Linux**: `sudo apt-get install ripgrep` (Debian/Ubuntu) or `sudo dnf install ripgrep` (Fedora)
-    -   **Verify**: `rg --version`
+### Recommended: MCP Tools *(Enhanced Analysis)*
 
--   **`jq`**: A command-line JSON processor.
-    -   **Windows**: `winget install jqlang.jq` or `choco install jq`
-    -   **macOS**: `brew install jq`
-    -   **Linux**: `sudo apt-get install jq` (Debian/Ubuntu) or `sudo dnf install jq` (Fedora)
-    -   **Verify**: `jq --version`
+MCP (Model Context Protocol) tools provide advanced codebase analysis. **Recommended installation** - While CCW has fallback mechanisms, not installing MCP tools may lead to unexpected behavior or degraded performance in some workflows.
 
-### Model Context Protocol (MCP) Tools (Optional)
+| MCP Server | Purpose | Installation Guide |
+|------------|---------|-------------------|
+| **Exa MCP** | External API patterns & best practices | [Install Guide](https://smithery.ai/server/exa) |
+| **Code Index MCP** | Advanced internal code search | [Install Guide](https://github.com/johnhuang316/code-index-mcp) |
+| **Chrome DevTools MCP** | ⚠️ **Required for UI workflows** - URL mode design extraction | [Install Guide](https://github.com/ChromeDevTools/chrome-devtools-mcp) |
 
-MCP tools provide advanced context retrieval from external sources, enhancing the AI's understanding. For installation, please refer to the official documentation for each tool.
-
-| Tool | Purpose | Official Source |
-|---|---|---|
-| **Exa MCP** | For searching code and the web. | [exa-labs/exa-mcp-server](https://github.com/exa-labs/exa-mcp-server) |
-| **Code Index MCP** | For indexing and searching the local codebase. | [johnhuang316/code-index-mcp](https://github.com/johnhuang316/code-index-mcp) |
-| **Chrome DevTools MCP** | For interacting with web pages to extract layout and style information. | [ChromeDevTools/chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) |
-
--   **Prerequisite**: Node.js and npm (or a compatible JavaScript runtime).
--   **Verify**: After installation, check if the servers can be started (consult MCP documentation for details).
-
-### Optional AI CLI Tools
-
-CCW uses wrapper scripts to interact with underlying AI models. For these wrappers to function, the respective CLI tools must be installed and configured on your system.
-
--   **Gemini CLI**: For analysis, documentation, and exploration.
-    -   **Purpose**: Provides access to Google's Gemini models.
-    -   **Installation**: Follow the official Google AI documentation to install and configure the Gemini CLI. Ensure the `gemini` command is available in your system's PATH.
-
--   **Codex CLI**: For autonomous development and implementation.
-    -   **Purpose**: Provides access to OpenAI's Codex models for code generation and modification.
-    -   **Installation**: Follow the installation instructions for the specific Codex CLI tool used in your environment. Ensure the `codex` command is available in your system's PATH.
-
--   **Qwen Code**: For architecture and code generation.
-    -   **Purpose**: Provides access to Alibaba's Qwen models.
-    -   **Installation**: Follow the official Qwen documentation to install and configure their CLI tool. Ensure the `qwen` command is available in your system's PATH.
-
-## Verification
-
-After installation, verify:
-
-1. **Check installation:**
-   ```bash
-   # Global
-   ls ~/.claude
-   
-   # Local
-   ls ./.claude
-   ```
-
-2. **Test Claude Code:**
-   - Open Claude Code in your project
-   - Check that global `.claude` directory is recognized
-   - Verify workflow commands and DMS commands are available
-   - Test `/workflow` commands for agent coordination
-   - Test `/workflow version` to check version information
+⚠️ **Note**: Some workflows expect MCP tools to be available. Without them, you may experience:
+- Slower code analysis and search operations
+- Reduced context quality in some scenarios
+- Fallback to less efficient traditional tools
+- Potential unexpected behavior in advanced workflows
 
 ## Troubleshooting
 
-### PowerShell Execution Policy
+### PowerShell Execution Policy (Windows)
 If you get execution policy errors:
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 ### Workflow Commands Not Working
-- Ensure `.claude` directory exists in your project
-- Verify workflow.md and agent files are properly installed
-- Check that Claude Code recognizes the configuration
+- Verify installation: `ls ~/.claude` (should show agents/, commands/, workflows/)
+- Restart Claude Code after installation
+- Check `/workflow:session:list` command is recognized
 
 ### Permission Errors
-- **Windows**: Run as Administrator
-- **Linux/macOS**: Use `sudo` if needed for global PowerShell installation
+- **Windows**: Run PowerShell as Administrator
+- **Linux/macOS**: May need `sudo` for global PowerShell installation
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/catlog22/Claude-CCW/issues)
+- **Issues**: [GitHub Issues](https://github.com/catlog22/Claude-Code-Workflow/issues)
+- **Getting Started**: [Quick Start Guide](GETTING_STARTED.md)
 - **Documentation**: [Main README](README.md)
-- **Workflow Documentation**: [.claude/commands/workflow.md](.claude/commands/workflow.md)

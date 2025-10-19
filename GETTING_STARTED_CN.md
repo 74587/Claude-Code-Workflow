@@ -273,6 +273,58 @@ CCW 使用分层的 CLAUDE.md 文档系统维护项目上下文。定期更新�
 
 ---
 
+## 🎯 进阶用法：智能体技能 (Agent Skills)
+
+智能体技能是可扩展 AI 功能的模块化、可复用能力。它们存储在 `.claude/skills/` 目录中,通过特定的触发机制调用。
+
+### 技能工作原理
+
+-   **模型调用**：与斜杠命令不同,您不直接调用技能。AI 会根据对您目标的理解来决定何时使用技能。
+-   **上下文化**：技能为 AI 提供特定的指令、脚本和模板,用于专门化任务。
+-   **触发机制**：
+    -   **对话触发**：在**自然对话**中使用 `-e` 或 `--enhance` 标识符来触发 `prompt-enhancer` 技能
+    -   **CLI 命令增强**：在 **CLI 命令**中使用 `--enhance` 标识符进行提示词优化(这是 CLI 功能,不是技能触发)
+
+### 使用示例
+
+**对话触发** (激活 prompt-enhancer 技能):
+```
+用户: "分析认证模块 -e"
+→ AI 使用 prompt-enhancer 技能扩展请求
+```
+
+**CLI 命令增强** (CLI 内置功能):
+```bash
+# 这里的 --enhance 标识符是 CLI 参数,不是技能触发器
+/cli:analyze --enhance "检查安全问题"
+```
+
+**重要说明**：`-e` 标识符仅在自然对话中有效,而 CLI 命令中的 `--enhance` 是独立的增强机制,与技能系统无关。
+
+---
+
+## 🎨 进阶用法：UI 设计工作流
+
+CCW 包含强大的多阶段 UI 设计和原型制作工作流,能够从简单的描述或参考图像生成完整的设计系统和交互式原型。
+
+### 核心命令
+
+-   `/workflow:ui-design:explore-auto`: 探索性工作流,基于提示词生成多种不同的设计变体。
+-   `/workflow:ui-design:imitate-auto`: 复制工作流,从参考 URL 创建高保真原型。
+
+### 示例：从提示词生成 UI
+
+您可以使用单个命令为网页生成多种设计选项:
+
+```bash
+# 此命令将为登录页面生成 3 种不同的样式和布局变体
+/workflow:ui-design:explore-auto --prompt "一个现代简洁的 SaaS 应用登录页面" --targets "login" --style-variants 3 --layout-variants 3
+```
+
+工作流完成后,会提供一个 `compare.html` 文件,让您可以可视化地查看和选择最佳设计组合。
+
+---
+
 ## ❓ 常见问题排查 (Troubleshooting)
 
 -   **问题：提示 "No active session found" (未找到活动会话)**
