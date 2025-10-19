@@ -190,9 +190,9 @@ MCP 工具从外部来源提供高级上下文检索，增强 AI 的理解能力
 
 | 工具 | 用途 | 官方源码 |
 |---|---|---|
-| **Exa MCP** | 用于搜索代码和网络。 | [mcp.js/packages/server-exa](https://github.com/modelcontextprotocol/mcp.js/tree/main/packages/server-exa) |
-| **Code Index MCP** | 用于索引和搜索本地代码库。 | [mcp.js/packages/server-code-index](https://github.com/modelcontextprotocol/mcp.js/tree/main/packages/server-code-index) |
-| **Chrome DevTools MCP** | 用于与网页交互以提取布局和样式信息。 | [mcp.js/packages/server-chrome-devtools](https://github.com/modelcontextprotocol/mcp.js/tree/main/packages/server-chrome-devtools) |
+| **Exa MCP** | 用于搜索代码和网络。 | [exa-labs/exa-mcp-server](https://github.com/exa-labs/exa-mcp-server) |
+| **Code Index MCP** | 用于索引和搜索本地代码库。 |[johnhuang316/code-index-mcp](https://github.com/johnhuang316/code-index-mcp) |
+| **Chrome DevTools MCP** | 用于与网页交互以提取布局和样式信息。 | [ChromeDevTools/chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) |
 
 -   **先决条件**: Node.js 和 npm (或兼容的 JavaScript 运行时)。
 -   **验证**: 安装后，检查服务器是否可以启动 (具体请查阅 MCP 文档)。
