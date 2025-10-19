@@ -214,9 +214,9 @@ MCP tools provide advanced context retrieval from external sources, enhancing th
 
 | Tool | Purpose | Official Source |
 |---|---|---|
-| **Exa MCP** | For searching code and the web. | [mcp.js/packages/server-exa](https://github.com/modelcontextprotocol/mcp.js/tree/main/packages/server-exa) |
-| **Code Index MCP** | For indexing and searching the local codebase. | [mcp.js/packages/server-code-index](https://github.com/modelcontextprotocol/mcp.js/tree/main/packages/server-code-index) |
-| **Chrome DevTools MCP** | For interacting with web pages to extract layout and style information. | [mcp.js/packages/server-chrome-devtools](https://github.com/modelcontextprotocol/mcp.js/tree/main/packages/server-chrome-devtools) |
+| **Exa MCP** | For searching code and the web. | [exa-labs/exa-mcp-server](https://github.com/exa-labs/exa-mcp-server) |
+| **Code Index MCP** | For indexing and searching the local codebase. | [johnhuang316/code-index-mcp](https://github.com/johnhuang316/code-index-mcp) |
+| **Chrome DevTools MCP** | For interacting with web pages to extract layout and style information. | [ChromeDevTools/chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) |
 
 -   **Prerequisite**: Node.js and npm (or a compatible JavaScript runtime).
 -   **Verify**: After installation, check if the servers can be started (consult MCP documentation for details).
