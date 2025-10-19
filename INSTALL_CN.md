@@ -164,6 +164,57 @@ cd Dmsflow
 # 使用 /workflow 命令和内存系统进行开发
 ```
 
+## 先决条件和推荐工具
+
+为了充分发挥 CCW 的全部潜力，强烈建议安装这些额外工具。
+
+### 系统工具 (推荐)
+
+这些工具增强了文件搜索和数据处理能力。
+
+-   **`ripgrep` (rg)**: 一款高速代码搜索工具。
+    -   **Windows**: `winget install BurntSushi.Ripper.MSVC` 或 `choco install ripgrep`
+    -   **macOS**: `brew install ripgrep`
+    -   **Linux**: `sudo apt-get install ripgrep` (Debian/Ubuntu) 或 `sudo dnf install ripgrep` (Fedora)
+    -   **验证**: `rg --version`
+
+-   **`jq`**: 一款命令行 JSON 处理器。
+    -   **Windows**: `winget install jqlang.jq` 或 `choco install jq`
+    -   **macOS**: `brew install jq`
+    -   **Linux**: `sudo apt-get install jq` (Debian/Ubuntu) 或 `sudo dnf install jq` (Fedora)
+    -   **验证**: `jq --version`
+
+### 模型上下文协议 (MCP) 工具 (可选)
+
+MCP 工具从外部来源提供高级上下文检索，增强 AI 的理解能力。
+
+-   **先决条件**: Node.js 和 npm (或兼容的 JavaScript 运行时)。
+-   **安装**:
+    ```bash
+    npm install -g @modelcontextprotocol/server-exa @modelcontextprotocol/server-code-index @modelcontextprotocol/server-chrome-devtools
+    ```
+-   **包含的工具**:
+    -   **Exa MCP**: 用于搜索代码和网络。
+    -   **Code Index MCP**: 用于索引和搜索本地代码库。
+    -   **Chrome DevTools MCP**: 用于与网页交互以提取布局和样式信息。
+-   **验证**: 安装后，检查服务器是否可以启动 (具体请查阅 MCP 文档)。
+
+### 可选的 AI CLI 工具
+
+CCW 使用包装脚本与底层的 AI 模型进行交互。为了使这些包装器正常工作，必须在您的系统上安装和配置相应的 CLI 工具。
+
+-   **Gemini CLI**: 用于分析、文档和探索。
+    -   **用途**: 提供对 Google Gemini 模型的访问。
+    -   **安装**: 请遵循 Google AI 官方文档来安装和配置 Gemini CLI。确保 `gemini` 命令在您的系统 PATH 中可用。
+
+-   **Codex CLI**: 用于自主开发和实现。
+    -   **用途**: 提供对 OpenAI Codex 模型的访问，用于代码生成和修改。
+    -   **安装**: 请遵循您环境中使用的特定 Codex CLI 工具的安装说明。确保 `codex` 命令在您的系统 PATH 中可用。
+
+-   **Qwen Code**: 用于架构和代码生成。
+    -   **用途**: 提供对阿里巴巴通义千问模型的访问。
+    -   **安装**: 请遵循通义千问官方文档来安装和配置其 CLI 工具。确保 `qwen` 命令在您的系统 PATH 中可用。
+
 ## 验证
 
 安装后，验证：

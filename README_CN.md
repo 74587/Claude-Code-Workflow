@@ -63,6 +63,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-Workflo
 
 CCW 提供了一套丰富的命令，用于管理工作流、任务以及与 AI 工具的交互。有关所有可用命令的完整列表和详细说明，请参阅 [**COMMAND_REFERENCE.md**](COMMAND_REFERENCE.md) 文件。
 
+有关每个命令的详细技术规范，请参阅 [**COMMAND_SPEC.md**](COMMAND_SPEC.md)。
+
 ---
 
 ## 🚀 快速入门

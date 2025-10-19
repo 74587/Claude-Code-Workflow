@@ -188,6 +188,57 @@ cd Dmsflow
 # Use /workflow commands and memory system for development
 ```
 
+## Prerequisites & Recommended Tools
+
+To unlock the full potential of CCW, installing these additional tools is highly recommended.
+
+### System Tools (Recommended)
+
+These tools enhance file search and data processing capabilities.
+
+-   **`ripgrep` (rg)**: A high-speed code search tool.
+    -   **Windows**: `winget install BurntSushi.Ripper.MSVC` or `choco install ripgrep`
+    -   **macOS**: `brew install ripgrep`
+    -   **Linux**: `sudo apt-get install ripgrep` (Debian/Ubuntu) or `sudo dnf install ripgrep` (Fedora)
+    -   **Verify**: `rg --version`
+
+-   **`jq`**: A command-line JSON processor.
+    -   **Windows**: `winget install jqlang.jq` or `choco install jq`
+    -   **macOS**: `brew install jq`
+    -   **Linux**: `sudo apt-get install jq` (Debian/Ubuntu) or `sudo dnf install jq` (Fedora)
+    -   **Verify**: `jq --version`
+
+### Model Context Protocol (MCP) Tools (Optional)
+
+MCP tools provide advanced context retrieval from external sources, enhancing the AI's understanding.
+
+-   **Prerequisite**: Node.js and npm (or a compatible JavaScript runtime).
+-   **Installation**:
+    ```bash
+    npm install -g @modelcontextprotocol/server-exa @modelcontextprotocol/server-code-index @modelcontextprotocol/server-chrome-devtools
+    ```
+-   **Tools Included**:
+    -   **Exa MCP**: For searching code and the web.
+    -   **Code Index MCP**: For indexing and searching the local codebase.
+    -   **Chrome DevTools MCP**: For interacting with web pages to extract layout and style information.
+-   **Verify**: After installation, check if the servers can be started (consult MCP documentation for details).
+
+### Optional AI CLI Tools
+
+CCW uses wrapper scripts to interact with underlying AI models. For these wrappers to function, the respective CLI tools must be installed and configured on your system.
+
+-   **Gemini CLI**: For analysis, documentation, and exploration.
+    -   **Purpose**: Provides access to Google's Gemini models.
+    -   **Installation**: Follow the official Google AI documentation to install and configure the Gemini CLI. Ensure the `gemini` command is available in your system's PATH.
+
+-   **Codex CLI**: For autonomous development and implementation.
+    -   **Purpose**: Provides access to OpenAI's Codex models for code generation and modification.
+    -   **Installation**: Follow the installation instructions for the specific Codex CLI tool used in your environment. Ensure the `codex` command is available in your system's PATH.
+
+-   **Qwen Code**: For architecture and code generation.
+    -   **Purpose**: Provides access to Alibaba's Qwen models.
+    -   **Installation**: Follow the official Qwen documentation to install and configure their CLI tool. Ensure the `qwen` command is available in your system's PATH.
+
 ## Verification
 
 After installation, verify:

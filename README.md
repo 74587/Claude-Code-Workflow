@@ -63,6 +63,8 @@ If the slash commands (e.g., `/workflow:*`) are recognized, the installation was
 
 CCW provides a rich set of commands for managing workflows, tasks, and interacting with AI tools. For a complete list and detailed descriptions of all available commands, please see the [**COMMAND_REFERENCE.md**](COMMAND_REFERENCE.md) file.
 
+For a detailed technical specification of every command, see the [**COMMAND_SPEC.md**](COMMAND_SPEC.md).
+
 ---
 
 ## 🚀 Getting Started

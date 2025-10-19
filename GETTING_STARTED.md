@@ -273,6 +273,47 @@ This command will:
 
 ---
 
+## Advanced Usage: Agent Skills
+
+Agent Skills are modular, reusable capabilities that extend the AI's functionality. They are stored in the `.claude/skills/` directory and are invoked automatically by the model based on your request.
+
+### How Skills Work
+
+-   **Model-Invoked**: Unlike slash commands, you don't call Skills directly. The AI decides when to use a Skill based on its understanding of your goal.
+-   **Contextual**: Skills provide specific instructions, scripts, and templates to the AI for specialized tasks.
+-   **Example**: The built-in `prompt-enhancer` skill is triggered when you use the `--enhance` flag, automatically refining your prompt for better results.
+
+```bash
+# Using a command that triggers the prompt-enhancer skill
+/cli:analyze --enhance "check for security issues"
+```
+
+In this case, the `prompt-enhancer` skill activates to expand your brief request into a detailed, structured prompt for the security analysis.
+
+---
+
+## Advanced Usage: UI Design Workflow
+
+CCW includes a powerful, multi-phase workflow for UI design and prototyping, capable of generating complete design systems and interactive prototypes from simple descriptions or reference images.
+
+### Key Commands
+
+-   `/workflow:ui-design:explore-auto`: An exploratory workflow that generates multiple, distinct design variations based on a prompt.
+-   `/workflow:ui-design:imitate-auto`: A replication workflow that creates high-fidelity prototypes from reference URLs.
+
+### Example: Generating a UI from a Prompt
+
+You can generate multiple design options for a web page with a single command:
+
+```bash
+# This command will generate 3 different style and layout variations for a login page.
+/workflow:ui-design:explore-auto --prompt "A modern, clean login page for a SaaS application" --targets "login" --style-variants 3 --layout-variants 3
+```
+
+After the workflow completes, it provides a `compare.html` file, allowing you to visually review and select the best design combination.
+
+---
+
 ## ❓ Troubleshooting
 
 -   **Problem: Prompt shows "No active session found"**
