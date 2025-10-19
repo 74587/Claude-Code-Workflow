@@ -210,17 +210,15 @@ These tools enhance file search and data processing capabilities.
 
 ### Model Context Protocol (MCP) Tools (Optional)
 
-MCP tools provide advanced context retrieval from external sources, enhancing the AI's understanding.
+MCP tools provide advanced context retrieval from external sources, enhancing the AI's understanding. For installation, please refer to the official documentation for each tool.
+
+| Tool | Purpose | Official Source |
+|---|---|---|
+| **Exa MCP** | For searching code and the web. | [mcp.js/packages/server-exa](https://github.com/modelcontextprotocol/mcp.js/tree/main/packages/server-exa) |
+| **Code Index MCP** | For indexing and searching the local codebase. | [mcp.js/packages/server-code-index](https://github.com/modelcontextprotocol/mcp.js/tree/main/packages/server-code-index) |
+| **Chrome DevTools MCP** | For interacting with web pages to extract layout and style information. | [mcp.js/packages/server-chrome-devtools](https://github.com/modelcontextprotocol/mcp.js/tree/main/packages/server-chrome-devtools) |
 
 -   **Prerequisite**: Node.js and npm (or a compatible JavaScript runtime).
--   **Installation**:
-    ```bash
-    npm install -g @modelcontextprotocol/server-exa @modelcontextprotocol/server-code-index @modelcontextprotocol/server-chrome-devtools
-    ```
--   **Tools Included**:
-    -   **Exa MCP**: For searching code and the web.
-    -   **Code Index MCP**: For indexing and searching the local codebase.
-    -   **Chrome DevTools MCP**: For interacting with web pages to extract layout and style information.
 -   **Verify**: After installation, check if the servers can be started (consult MCP documentation for details).
 
 ### Optional AI CLI Tools
