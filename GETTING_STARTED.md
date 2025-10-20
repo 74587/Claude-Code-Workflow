@@ -121,6 +121,41 @@ CCW can help you analyze and fix bugs.
 /workflow:execute
 ```
 
+### Scenario 4: Multi-Agent Brainstorming
+
+Before implementing complex features, use multi-agent brainstorming to explore different perspectives and generate comprehensive specifications.
+
+```bash
+# Automatic role selection and parallel analysis (auto-creates session)
+/workflow:brainstorm:auto-parallel "Design a real-time collaborative document editing system with conflict resolution"
+
+# Specify number of expert roles (default: 3, max: 9)
+/workflow:brainstorm:auto-parallel "Build scalable microservices platform" --count 5
+```
+
+**How It Works**:
+- **Auto role selection**: Analyzes your topic and selects relevant expert roles
+- **Parallel execution**: Multiple AI agents analyze simultaneously from different perspectives
+- **Comprehensive output**: Generates integrated specification with cross-role insights
+
+**Available Expert Roles**:
+- Technical: `system-architect`, `data-architect`, `subject-matter-expert`
+- Product & Design: `ui-designer`, `ux-expert`, `product-manager`, `product-owner`
+- Agile & Quality: `scrum-master`, `test-strategist`
+- API Design: `api-designer`
+
+**Workflow Phases**:
+1. **Framework Generation**: Creates structured discussion framework
+2. **Parallel Analysis**: Multiple experts analyze simultaneously
+3. **Synthesis**: Integrates all perspectives into comprehensive specification
+4. **Action Planning**: Use `/workflow:plan` to generate implementation tasks
+
+**When to Use**:
+- Complex features requiring multiple perspectives
+- Architectural decisions with significant impact
+- New product features needing comprehensive analysis
+- When you want thorough requirements and design specifications
+
 ---
 
 ## 🔧 Workflow-Free Usage: Standalone Tools
