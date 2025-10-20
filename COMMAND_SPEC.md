@@ -299,6 +299,27 @@ Commands for managing individual tasks within a workflow session.
   /memory:update-full
   ```
 
+### **/memory:load**
+- **Syntax**: `/memory:load [--tool gemini|qwen] "task context description"`
+- **Parameters**:
+  - `"task context description"` (Required, String): Task description to guide context extraction.
+  - `--tool <gemini|qwen>` (Optional): Specify CLI tool for agent to use (default: gemini).
+- **Responsibilities**: Delegates to `@general-purpose` agent to analyze the project and return a structured "Core Content Pack". This pack is loaded into the main thread's memory, providing essential context for subsequent operations.
+- **Agent-Driven Execution**: Fully delegates to general-purpose agent which autonomously:
+  1. Analyzes project structure and documentation
+  2. Extracts keywords from task description
+  3. Discovers relevant files using MCP code-index or search tools
+  4. Executes Gemini/Qwen CLI for deep analysis
+  5. Generates structured JSON content package
+- **Core Philosophy**: Read-only analysis, token-efficient (CLI analysis in agent), structured output
+- **Agent Calls**: `@general-purpose` agent.
+- **Integration**: Provides quick, task-relevant context for subsequent agent operations while minimizing token consumption.
+- **Example**:
+  ```bash
+  /memory:load "在当前前端基础上开发用户认证功能"
+  /memory:load --tool qwen "重构支付模块API"
+  ```
+
 ### **/memory:update-related**
 - **Syntax**: `/memory:update-related [--tool gemini|qwen|codex]`
 - **Responsibilities**: Performs a context-aware update of `CLAUDE.md` files for modules affected by recent git changes.

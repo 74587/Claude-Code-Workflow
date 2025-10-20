@@ -226,6 +226,31 @@ Suitable for large-scale refactoring, architectural changes, or first-time CCW u
 - Weekly routine maintenance
 - When AI output drift is detected
 
+#### Quick Context Loading for Specific Tasks
+
+When you need immediate, task-specific context without updating documentation:
+
+```bash
+# Load context for a specific task into memory
+/memory:load "在当前前端基础上开发用户认证功能"
+
+# Use alternative CLI tool for analysis
+/memory:load --tool qwen "重构支付模块API"
+```
+
+**How It Works**:
+- Delegates to an AI agent for autonomous project analysis
+- Discovers relevant files and extracts task-specific keywords
+- Uses CLI tools (Gemini/Qwen) for deep analysis to save tokens
+- Returns a structured "Core Content Pack" loaded into memory
+- Provides context for subsequent agent operations
+
+**When to Use**:
+- Before starting a new feature or task
+- When you need quick context without full documentation rebuild
+- For task-specific architectural or pattern discovery
+- As preparation for agent-based development workflows
+
 #### Incremental Related Module Updates
 
 Suitable for daily development, updating only modules affected by changes:

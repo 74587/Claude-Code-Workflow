@@ -127,6 +127,7 @@ Commands for managing individual tasks within a workflow session.
 | Command | Description |
 |---|---|
 | `/memory:update-full` | Complete project-wide CLAUDE.md documentation update. |
+| `/memory:load` | Quickly load key project context into memory based on a task description. |
 | `/memory:update-related` | Context-aware CLAUDE.md documentation updates based on recent changes. |
 | `/version` | Display version information and check for updates. |
 | `/enhance-prompt` | Context-aware prompt enhancement using session memory and codebase analysis. |
