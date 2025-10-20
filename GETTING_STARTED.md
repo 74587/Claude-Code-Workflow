@@ -82,79 +82,70 @@ Understanding these concepts will help you use CCW more effectively:
 
 ## 🛠️ Common Scenarios
 
-### Scenario 1: Developing a New Feature (as shown above)
+### Scenario 1: Quick Feature Development
 
-This is the most common use case, following the "start session → plan → execute" pattern.
+For simple, well-defined features, use the direct "plan → execute" pattern:
 
 ```bash
-# 1. Start a session
-/workflow:session:start "User Login Feature"
-
-# 2. Create a plan
+# Create plan (auto-creates session)
 /workflow:plan "Implement JWT-based user login and registration"
 
-# 3. Execute
+# Execute
 /workflow:execute
 ```
 
-### Scenario 2: UI Design
+> **💡 Note**: `/workflow:plan` automatically creates a session. You can also manually start a session first with `/workflow:session:start "Feature Name"`.
 
-CCW has powerful UI design capabilities, capable of generating complex UI prototypes from simple text descriptions.
+### Scenario 2: Complex Feature with Multi-Agent Brainstorming
 
-```bash
-# 1. Start a UI design workflow
-/workflow:ui-design:explore-auto --prompt "A modern, clean admin dashboard login page with username, password fields and a login button"
-
-# 2. View the generated prototype
-# After the command finishes, it will provide a path to a compare.html file. Open it in your browser to preview.
-```
-
-### Scenario 3: Fixing a Bug
-
-CCW can help you analyze and fix bugs.
+For complex features requiring thorough analysis, use the complete workflow: **brainstorm → plan → execute**
 
 ```bash
-# 1. Use the bug-index command to analyze the problem
-/cli:mode:bug-index "Incorrect success message even with wrong password on login"
-
-# 2. The AI will analyze the relevant code and generate a fix plan. You can then execute this plan.
-/workflow:execute
-```
-
-### Scenario 4: Multi-Agent Brainstorming
-
-Before implementing complex features, use multi-agent brainstorming to explore different perspectives and generate comprehensive specifications.
-
-```bash
-# Automatic role selection and parallel analysis (auto-creates session)
+# Step 1: Multi-agent brainstorming (auto-creates session)
 /workflow:brainstorm:auto-parallel "Design a real-time collaborative document editing system with conflict resolution"
 
-# Specify number of expert roles (default: 3, max: 9)
+# Optional: Specify number of expert roles (default: 3, max: 9)
 /workflow:brainstorm:auto-parallel "Build scalable microservices platform" --count 5
+
+# Step 2: Generate implementation plan from brainstorming results
+/workflow:plan
+
+# Step 3: Execute the plan
+/workflow:execute
 ```
 
-**How It Works**:
-- **Auto role selection**: Analyzes your topic and selects relevant expert roles
+**Brainstorming Benefits**:
+- **Auto role selection**: Analyzes your topic and selects 3-9 relevant expert roles (system-architect, ui-designer, product-manager, etc.)
 - **Parallel execution**: Multiple AI agents analyze simultaneously from different perspectives
-- **Comprehensive output**: Generates integrated specification with cross-role insights
+- **Comprehensive specification**: Generates integrated requirements and design document
 
-**Available Expert Roles**:
-- Technical: `system-architect`, `data-architect`, `subject-matter-expert`
-- Product & Design: `ui-designer`, `ux-expert`, `product-manager`, `product-owner`
-- Agile & Quality: `scrum-master`, `test-strategist`
-- API Design: `api-designer`
-
-**Workflow Phases**:
-1. **Framework Generation**: Creates structured discussion framework
-2. **Parallel Analysis**: Multiple experts analyze simultaneously
-3. **Synthesis**: Integrates all perspectives into comprehensive specification
-4. **Action Planning**: Use `/workflow:plan` to generate implementation tasks
-
-**When to Use**:
+**When to Use Brainstorming**:
 - Complex features requiring multiple perspectives
 - Architectural decisions with significant impact
-- New product features needing comprehensive analysis
-- When you want thorough requirements and design specifications
+- When you need thorough requirements before implementation
+
+### Scenario 3: UI Design
+
+CCW has powerful UI design capabilities for generating prototypes from text descriptions:
+
+```bash
+# Generate UI design variations (auto-creates session)
+/workflow:ui-design:explore-auto --prompt "A modern, clean admin dashboard login page"
+```
+
+After completion, open the generated `compare.html` file in your browser to preview designs.
+
+### Scenario 4: Bug Fixing
+
+Quick bug analysis and fix workflow:
+
+```bash
+# Analyze the bug
+/cli:mode:bug-index "Incorrect success message with wrong password"
+
+# Generate and execute fix plan
+/workflow:execute
+```
 
 ---
 
