@@ -88,7 +88,27 @@
 
 > **💡 提示**：`/workflow:plan` 会自动创建会话。您也可以先手动启动会话：`/workflow:session:start "功能名称"`。
 
-### 场景 2：复杂功能的多智能体头脑风暴
+### 场景 2：UI 设计探索
+
+对于以 UI 为重点的项目，在实现前先进行设计探索：**ui-design → update → 规划 → 执行**
+
+```bash
+# 第 1 步：生成 UI 设计变体（自动创建会话）
+/workflow:ui-design:explore-auto --prompt "一个现代、简洁的管理后台登录页面"
+
+# 第 2 步：在 compare.html 中审查设计，然后更新头脑风暴工件
+/workflow:ui-design:update --session <session-id> --selected-prototypes "login-v1,login-v2"
+
+# 第 3 步：使用设计引用生成实现计划
+/workflow:plan
+
+# 第 4 步：执行实现
+/workflow:execute
+```
+
+> **💡 提示**：`update` 命令将选定的设计原型集成到头脑风暴工件中，确保实现遵循批准的设计。
+
+### 场景 3：复杂功能的多智能体头脑风暴
 
 对于需要深入分析的复杂功能，使用完整工作流：**头脑风暴 → 规划 → 执行**
 
@@ -115,17 +135,6 @@
 - 需要多视角分析的复杂功能
 - 具有重大影响的架构决策
 - 实现前需要详尽需求分析
-
-### 场景 3：UI 设计
-
-CCW 拥有强大的 UI 设计能力，可从文本描述生成原型：
-
-```bash
-# 生成 UI 设计变体（自动创建会话）
-/workflow:ui-design:explore-auto --prompt "一个现代、简洁的管理后台登录页面"
-```
-
-完成后，在浏览器中打开生成的 `compare.html` 文件预览设计。
 
 ### 场景 4：Bug 修复
 

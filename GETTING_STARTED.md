@@ -96,7 +96,27 @@ For simple, well-defined features, use the direct "plan → execute" pattern:
 
 > **💡 Note**: `/workflow:plan` automatically creates a session. You can also manually start a session first with `/workflow:session:start "Feature Name"`.
 
-### Scenario 2: Complex Feature with Multi-Agent Brainstorming
+### Scenario 2: UI Design Exploration
+
+For UI-focused projects, start with design exploration before implementation: **ui-design → update → plan → execute**
+
+```bash
+# Step 1: Generate UI design variations (auto-creates session)
+/workflow:ui-design:explore-auto --prompt "A modern, clean admin dashboard login page"
+
+# Step 2: Review designs in compare.html, then update brainstorming artifacts
+/workflow:ui-design:update --session <session-id> --selected-prototypes "login-v1,login-v2"
+
+# Step 3: Generate implementation plan with design references
+/workflow:plan
+
+# Step 4: Execute the implementation
+/workflow:execute
+```
+
+> **💡 Tip**: The `update` command integrates selected design prototypes into brainstorming artifacts, ensuring implementation follows the approved designs.
+
+### Scenario 3: Complex Feature with Multi-Agent Brainstorming
 
 For complex features requiring thorough analysis, use the complete workflow: **brainstorm → plan → execute**
 
@@ -123,17 +143,6 @@ For complex features requiring thorough analysis, use the complete workflow: **b
 - Complex features requiring multiple perspectives
 - Architectural decisions with significant impact
 - When you need thorough requirements before implementation
-
-### Scenario 3: UI Design
-
-CCW has powerful UI design capabilities for generating prototypes from text descriptions:
-
-```bash
-# Generate UI design variations (auto-creates session)
-/workflow:ui-design:explore-auto --prompt "A modern, clean admin dashboard login page"
-```
-
-After completion, open the generated `compare.html` file in your browser to preview designs.
 
 ### Scenario 4: Bug Fixing
 
