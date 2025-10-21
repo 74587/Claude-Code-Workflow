@@ -223,11 +223,13 @@ RULES: [template reference and constraints]
 - `@src/**/*` = Files within src subdirectory (if exists under current directory)
 - **CANNOT reference parent or sibling directories via @ alone**
 
-**To reference files outside current directory**:
-- **MUST use `--include-directories`** to explicitly add external directories
-- Example: `cd src/auth && gemini -p "..." --include-directories ../shared,../config`
-- After adding, @ patterns can then match files in included directories
-- Without `--include-directories`, parent/sibling files are INVISIBLE to @ patterns
+**To reference files outside current directory (TWO-STEP REQUIREMENT)**:
+- **Step 1**: Add `--include-directories` parameter to make external directories ACCESSIBLE
+- **Step 2**: Explicitly reference external files in CONTEXT field with @ patterns
+- **⚠️ BOTH steps are MANDATORY** - missing either step will fail
+- Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" --include-directories ../shared`
+- **Rule**: If CONTEXT contains `@../dir/**/*`, command MUST include `--include-directories ../dir`
+- Without `--include-directories`, @ patterns CANNOT access parent/sibling directories at all
 
 #### Multi-Directory Support (Gemini & Qwen)
 
@@ -254,7 +256,7 @@ cd src/auth && gemini -p "
 PURPOSE: Analyze authentication with shared utilities context
 TASK: Review auth implementation and its dependencies
 MODE: analysis
-CONTEXT: @**/* (includes current dir + shared + types directories)
+CONTEXT: @**/* @../shared/**/* @../types/**/*
 EXPECTED: Complete analysis with cross-directory dependencies
 RULES: Focus on integration patterns
 " --include-directories ../shared,../types
@@ -262,11 +264,13 @@ RULES: Focus on integration patterns
 
 **Best Practices**:
 - **Recommended Pattern**: Use `cd` to navigate to primary focus directory, then use `--include-directories` for additional context
-  - Example: `cd src/auth && gemini -p "..." --include-directories ../shared,../types`
+  - Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" --include-directories ../shared,../types`
+  - **⚠️ CRITICAL**: CONTEXT must explicitly list external files (e.g., `@../shared/**/*`), AND command must include `--include-directories ../shared`
   - Benefits: More precise file references (relative to current directory), clearer intent, better context control
+- **Enforcement Rule**: When CONTEXT references external directories, ALWAYS add corresponding `--include-directories`
 - Use when `cd` alone limits necessary context visibility
 - Keep directory count ≤ 5 for optimal performance
-- Combine with specific file patterns in CONTEXT for precision
+- **Pattern matching rule**: `@../dir/**/*` in CONTEXT → `--include-directories ../dir` in command (MANDATORY)
 - Prefer `cd + --include-directories` over multiple `cd` commands for cross-directory analysis
 
 ---

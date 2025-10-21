@@ -67,7 +67,7 @@ The agent handles all phases internally.
 
 ## Context Assembly
 
-**Always included**: `@CLAUDE.md @**/*CLAUDE.md` (project guidelines)
+**Always included**: `@CLAUDE.md @**/*CLAUDE.md` (project guidelines, space-separated)
 
 **Optional**:
 - User-explicit files from inquiry keywords
@@ -79,10 +79,12 @@ For targeted analysis, use `rg` or MCP tools to discover relevant files first, t
 
 ```bash
 cd . && gemini -p "
-INQUIRY: [user question]
-CONTEXT: @CLAUDE.md,**/*CLAUDE.md [inferred files or @**/* for all files]
+PURPOSE: Answer user inquiry about codebase
+TASK: [user question]
 MODE: analysis
-RESPONSE: Direct answer, explanation, insights (NO code modification)
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md [inferred files or @**/* for all files]
+EXPECTED: Direct answer, explanation, insights (NO code modification)
+RULES: Focus on clarity and accuracy
 "
 ```
 
