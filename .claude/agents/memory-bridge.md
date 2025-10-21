@@ -16,7 +16,6 @@ You will receive:
 ```
 - Total modules: [count]
 - Tool: [gemini|qwen|codex]
-- Mode: [full|related]
 - Module list (depth|path|files|types|has_claude format)
 ```
 
@@ -43,8 +42,8 @@ TodoWrite([
 # 3. Launch parallel jobs (max 4)
 
 # Depth 5 example:
-~/.claude/scripts/update_module_claude.sh "./.claude/workflows/cli-templates/prompts/analysis" "full" "gemini" &
-~/.claude/scripts/update_module_claude.sh "./.claude/workflows/cli-templates/prompts/development" "full" "gemini" &
+~/.claude/scripts/update_module_claude.sh "./.claude/workflows/cli-templates/prompts/analysis" "gemini" &
+~/.claude/scripts/update_module_claude.sh "./.claude/workflows/cli-templates/prompts/development" "gemini" &
 # ... up to 4 concurrent jobs
 
 # 4. Wait for all depth jobs to complete
@@ -63,18 +62,18 @@ git status --short
 
 ## Tool Parameter Flow
 
-**Command Format**: `update_module_claude.sh <path> <mode> <tool>`
+**Command Format**: `update_module_claude.sh <path> <tool>`
 
 Examples:
-- Gemini: `update_module_claude.sh "./.claude/agents" "full" "gemini" &`
-- Qwen: `update_module_claude.sh "./src/api" "full" "qwen" &`
-- Codex: `update_module_claude.sh "./tests" "full" "codex" &`
+- Gemini: `update_module_claude.sh "./.claude/agents" "gemini" &`
+- Qwen: `update_module_claude.sh "./src/api" "qwen" &`
+- Codex: `update_module_claude.sh "./tests" "codex" &`
 
 ## Execution Rules
 
 1. **Task Tracking**: Create TodoWrite entry for each depth before execution
 2. **Parallelism**: Max 4 jobs per depth, sequential across depths
-3. **Tool Passing**: Always pass tool parameter as 3rd argument
+3. **Tool Passing**: Always pass tool parameter as 2nd argument
 4. **Path Accuracy**: Extract exact path from `depth:N|path:X|...` format
 5. **Completion**: Mark todo completed only after all depth jobs finish
 6. **No Skipping**: Process every module from input list

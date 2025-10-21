@@ -22,6 +22,22 @@ type: strategic-guideline
 - **Qwen**: Analysis, understanding, exploration & documentation (fallback, same capabilities as Gemini)
 - **Codex**: Development, implementation & automation
 
+### Model Selection (-m parameter)
+
+**Gemini Models**:
+- `gemini-2.5-pro` - Analysis tasks (default)
+- `gemini-2.5-flash` - Documentation updates
+
+**Qwen Models**:
+- `coder-model` - Code analysis (default, -m optional)
+- `vision-model` - Image analysis (rare usage)
+
+**Codex Models**:
+- `gpt-5` - Analysis & execution (default)
+- `gpt5-codex` - Large context tasks
+
+**Usage**: `tool -p "prompt" -m model-name` (NOTE: -m placed AFTER prompt)
+
 ### Quick Decision Matrix
 
 | Scenario | Tool | Command Pattern |
@@ -163,6 +179,12 @@ EXPECTED: [expected output]
 RULES: [template reference and constraints]
 "
 
+# Model Selection Examples (NOTE: -m placed AFTER prompt)
+cd [directory] && gemini -p "..." -m gemini-2.5-pro      # Analysis (default)
+cd [directory] && gemini -p "..." -m gemini-2.5-flash    # Documentation updates
+cd [directory] && qwen -p "..."                          # coder-model (default, -m optional)
+cd [directory] && qwen -p "..." -m vision-model           # Image analysis (rare)
+
 # Write Mode (requires explicit MODE=write)
 # NOTE: --approval-mode yolo must be placed AFTER the prompt
 cd [directory] && gemini -p "
@@ -172,17 +194,17 @@ MODE: write
 CONTEXT: @**/* [default: all files, or specify file patterns]
 EXPECTED: [expected output]
 RULES: [template reference and constraints]
-" --approval-mode yolo
+" -m gemini-2.5-flash --approval-mode yolo
 
 # Fallback: Replace 'gemini' with 'qwen' if Gemini unavailable
-cd [directory] && qwen -p "..." # Same syntax as gemini
+cd [directory] && qwen -p "..." # coder-model default (-m optional)
 ```
 
 #### Codex Commands
 
 ```bash
 # Codex Development (requires explicit MODE=auto)
-# NOTE: --skip-git-repo-check and -s danger-full-access must be placed at command END
+# NOTE: -m, --skip-git-repo-check and -s danger-full-access must be placed at command END
 codex -C [directory] --full-auto exec "
 PURPOSE: [clear development goal]
 TASK: [specific development task]
@@ -190,10 +212,14 @@ MODE: auto
 CONTEXT: @**/* [default: all files, or specify file patterns and memory context]
 EXPECTED: [expected deliverables]
 RULES: [template reference and constraints]
-" --skip-git-repo-check -s danger-full-access
+" -m gpt-5 --skip-git-repo-check -s danger-full-access
+
+# Model Selection Examples (NOTE: -m placed AFTER prompt, BEFORE flags)
+codex -C [directory] --full-auto exec "..." -m gpt-5 --skip-git-repo-check -s danger-full-access        # Analysis & execution (default)
+codex -C [directory] --full-auto exec "..." -m gpt5-codex --skip-git-repo-check -s danger-full-access   # Large context tasks
 
 # Codex Test/Write Mode (requires explicit MODE=write)
-# NOTE: --skip-git-repo-check and -s danger-full-access must be placed at command END
+# NOTE: -m, --skip-git-repo-check and -s danger-full-access must be placed at command END
 codex -C [directory] --full-auto exec "
 PURPOSE: [clear goal]
 TASK: [specific task]
@@ -201,7 +227,7 @@ MODE: write
 CONTEXT: @**/* [default: all files, or specify file patterns and memory context]
 EXPECTED: [expected deliverables]
 RULES: [template reference and constraints]
-" --skip-git-repo-check -s danger-full-access
+" -m gpt-5 --skip-git-repo-check -s danger-full-access
 ```
 
 ---

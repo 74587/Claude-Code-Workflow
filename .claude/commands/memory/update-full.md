@@ -141,7 +141,7 @@ for (let depth of sorted_depths.reverse()) {  // N → 0
       return async () => {
         let success = false;
         for (let tool of tool_order) {
-          let exit_code = bash(cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "." "full" "${tool}");
+          let exit_code = bash(cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "." "${tool}");
           if (exit_code === 0) {
             report("${module.path} updated with ${tool}");
             success = true;
@@ -162,23 +162,23 @@ for (let depth of sorted_depths.reverse()) {  // N → 0
 **Example execution (7 modules)**:
 ```bash
 # Depth 2 (1 module)
-bash(cd ./core/interfaces && ~/.claude/scripts/update_module_claude.sh "." "full" "gemini")
+bash(cd ./core/interfaces && ~/.claude/scripts/update_module_claude.sh "." "gemini")
 # → Success with gemini
 
 # Depth 1 (5 modules → 2 batches: [4, 1])
 # Batch 1 (4 modules in parallel):
-bash(cd ./core && ~/.claude/scripts/update_module_claude.sh "." "full" "gemini") &
-bash(cd ./models && ~/.claude/scripts/update_module_claude.sh "." "full" "gemini") &
-bash(cd ./parametric && ~/.claude/scripts/update_module_claude.sh "." "full" "gemini") &
-bash(cd ./results && ~/.claude/scripts/update_module_claude.sh "." "full" "gemini") &
+bash(cd ./core && ~/.claude/scripts/update_module_claude.sh "." "gemini") &
+bash(cd ./models && ~/.claude/scripts/update_module_claude.sh "." "gemini") &
+bash(cd ./parametric && ~/.claude/scripts/update_module_claude.sh "." "gemini") &
+bash(cd ./results && ~/.claude/scripts/update_module_claude.sh "." "gemini") &
 wait  # Wait for batch 1 to complete
 
 # Batch 2 (1 module):
-bash(cd ./utils && ~/.claude/scripts/update_module_claude.sh "." "full" "gemini")
+bash(cd ./utils && ~/.claude/scripts/update_module_claude.sh "." "gemini")
 # → Success with gemini
 
 # Depth 0 (1 module)
-bash(cd . && ~/.claude/scripts/update_module_claude.sh "." "full" "gemini")
+bash(cd . && ~/.claude/scripts/update_module_claude.sh "." "gemini")
 # → Success with gemini
 ```
 
@@ -254,15 +254,15 @@ EXECUTION:
 For each module above:
   1. cd "{{module_path}}"
   2. Try tool 1:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "full" "{{tool_1}}")
+     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "{{tool_1}}")
      → Success: Report " {{module_path}} updated with {{tool_1}}", proceed to next module
      → Failure: Try tool 2
   3. Try tool 2:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "full" "{{tool_2}}")
+     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "{{tool_2}}")
      → Success: Report " {{module_path}} updated with {{tool_2}}", proceed to next module
      → Failure: Try tool 3
   4. Try tool 3:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "full" "{{tool_3}}")
+     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "{{tool_3}}")
      → Success: Report " {{module_path}} updated with {{tool_3}}", proceed to next module
      → Failure: Report "FAILED: {{module_path}} failed all tools", proceed to next module
 

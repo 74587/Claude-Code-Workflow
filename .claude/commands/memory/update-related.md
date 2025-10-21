@@ -108,7 +108,7 @@ for (let depth of sorted_depths.reverse()) {  // N → 0
       return async () => {
         let success = false;
         for (let tool of tool_order) {
-          let exit_code = bash(cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "." "related" "${tool}");
+          let exit_code = bash(cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "." "${tool}");
           if (exit_code === 0) {
             report("${module.path} updated with ${tool}");
             success = true;
@@ -198,15 +198,15 @@ EXECUTION:
 For each module above:
   1. cd "{{module_path}}"
   2. Try tool 1:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "related" "{{tool_1}}")
+     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "{{tool_1}}")
      → Success: Report "{{module_path}} updated with {{tool_1}}", proceed to next module
      → Failure: Try tool 2
   3. Try tool 2:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "related" "{{tool_2}}")
+     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "{{tool_2}}")
      → Success: Report "{{module_path}} updated with {{tool_2}}", proceed to next module
      → Failure: Try tool 3
   4. Try tool 3:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "related" "{{tool_3}}")
+     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "." "{{tool_3}}")
      → Success: Report "{{module_path}} updated with {{tool_3}}", proceed to next module
      → Failure: Report "FAILED: {{module_path}} failed all tools", proceed to next module
 

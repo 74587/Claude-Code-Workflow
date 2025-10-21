@@ -1,14 +1,20 @@
 #!/bin/bash
 # Update CLAUDE.md for a specific module with unified template
-# Usage: update_module_claude.sh <module_path> [update_type] [tool]
+# Usage: update_module_claude.sh <module_path> [tool] [model]
 #   module_path: Path to the module directory
-#   update_type: full|related (default: full)
 #   tool: gemini|qwen|codex (default: gemini)
+#   model: Model name (optional, uses tool defaults if not specified)
+#
+# Default Models:
+#   gemini: gemini-2.5-flash
+#   qwen: coder-model (default, -m optional)
+#   codex: gpt5-codex
 #
 # Features:
 # - Respects .gitignore patterns (current directory or git root)
 # - Unified template for all modules (folders and files)
 # - Template-based documentation generation
+# - Configurable model selection per tool
 
 # Build exclusion filters from .gitignore
 build_exclusion_filters() {
@@ -61,19 +67,37 @@ build_exclusion_filters() {
 
 update_module_claude() {
     local module_path="$1"
-    local update_type="${2:-full}"
-    local tool="${3:-gemini}"
+    local tool="${2:-gemini}"
+    local model="$3"
 
     # Validate parameters
     if [ -z "$module_path" ]; then
         echo "❌ Error: Module path is required"
-        echo "Usage: update_module_claude.sh <module_path> [update_type]"
+        echo "Usage: update_module_claude.sh <module_path> [tool] [model]"
         return 1
     fi
 
     if [ ! -d "$module_path" ]; then
         echo "❌ Error: Directory '$module_path' does not exist"
         return 1
+    fi
+
+    # Set default models if not specified
+    if [ -z "$model" ]; then
+        case "$tool" in
+            gemini)
+                model="gemini-2.5-flash"
+                ;;
+            qwen)
+                model="coder-model"
+                ;;
+            codex)
+                model="gpt5-codex"
+                ;;
+            *)
+                model=""
+                ;;
+        esac
     fi
 
     # Build exclusion filters from .gitignore
@@ -85,7 +109,7 @@ update_module_claude() {
         echo "⚠️  Skipping '$module_path' - no files found (after .gitignore filtering)"
         return 0
     fi
-    
+
     # Use unified template for all modules
     local template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/claude-module-unified.txt"
 
@@ -93,9 +117,9 @@ update_module_claude() {
     local module_name=$(basename "$module_path")
 
     echo "⚡ Updating: $module_path"
-    echo "   Type: $update_type | Tool: $tool | Files: $file_count"
+    echo "   Tool: $tool | Model: $model | Files: $file_count"
     echo "   Template: $(basename "$template_path")"
-    
+
     # Generate prompt with template injection
     local template_content=""
     if [ -f "$template_path" ]; then
@@ -104,23 +128,7 @@ update_module_claude() {
         echo "   ⚠️  Template not found: $template_path, using fallback"
         template_content="Update CLAUDE.md documentation for this module: document structure, key components, dependencies, and integration points."
     fi
-    
-    local update_context=""
-    if [ "$update_type" = "full" ]; then
-        update_context="
-        Update Mode: Complete refresh
-        - Perform comprehensive analysis of all content
-        - Document module structure, dependencies, and key components
-        - Follow template guidelines strictly"
-    else
-        update_context="
-        Update Mode: Context-aware update
-        - Focus on recent changes and affected areas
-        - Maintain consistency with existing documentation
-        - Update only relevant sections
-        - Follow template guidelines for updated content"
-    fi
-    
+
     local base_prompt="
     ⚠️ CRITICAL RULES - MUST FOLLOW:
     1. Target file: ONLY create/update the file named 'CLAUDE.md' in current directory
@@ -130,8 +138,6 @@ update_module_claude() {
     5. Follow the template guidelines exactly
 
     $template_content
-
-    $update_context
 
     CONTEXT: @**/*"
 
@@ -149,18 +155,28 @@ update_module_claude() {
         - Tool: $tool"
 
         # Execute with selected tool
-        # NOTE: Prompt is passed via -p flag for gemini/qwen, first parameter for codex
+        # NOTE: Model parameter (-m) is placed AFTER the prompt
         case "$tool" in
             qwen)
-                qwen -p "$final_prompt" --yolo 2>&1
+                if [ "$model" = "coder-model" ]; then
+                    # coder-model is default, -m is optional
+                    qwen -p "$final_prompt" --yolo 2>&1
+                else
+                    qwen -p "$final_prompt" -m "$model" --yolo 2>&1
+                fi
                 tool_result=$?
                 ;;
             codex)
-                codex --full-auto exec "$final_prompt" --skip-git-repo-check -s danger-full-access 2>&1
+                codex --full-auto exec "$final_prompt" -m "$model" --skip-git-repo-check -s danger-full-access 2>&1
                 tool_result=$?
                 ;;
-            gemini|*)
-                gemini -p "$final_prompt" --yolo 2>&1
+            gemini)
+                gemini -p "$final_prompt" -m "$model" --yolo 2>&1
+                tool_result=$?
+                ;;
+            *)
+                echo "   ⚠️  Unknown tool: $tool, defaulting to gemini"
+                gemini -p "$final_prompt" -m "$model" --yolo 2>&1
                 tool_result=$?
                 ;;
         esac
