@@ -123,10 +123,11 @@ update_module_claude() {
     
     local base_prompt="
     ⚠️ CRITICAL RULES - MUST FOLLOW:
-    1. ONLY modify CLAUDE.md files
-    2. NEVER modify source code files
-    3. Focus exclusively on updating documentation
-    4. Follow the template guidelines exactly
+    1. Target file: ONLY create/update the file named 'CLAUDE.md' in current directory
+    2. File name: MUST be exactly 'CLAUDE.md' (not ToolSidebar.CLAUDE.md or any variant)
+    3. NEVER modify source code files
+    4. Focus exclusively on updating documentation
+    5. Follow the template guidelines exactly
 
     $template_content
 

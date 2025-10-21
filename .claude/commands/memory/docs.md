@@ -129,9 +129,11 @@ EOF
 
 ### Phase 2: Analyze Structure
 
+**Smart filter**: Auto-detect and skip tests/build/config/vendor based on project tech stack (Node.js/Python/Go/Rust/etc).
+
 #### Step 1: Discover and Classify Folders
 ```bash
-# Run analysis pipeline (module discovery + folder classification)
+# Run analysis pipeline (module discovery + folder classification + smart filtering)
 bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-folders.sh > .workflow/WFS-docs-20240120/.process/folder-analysis.txt)
 ```
 
@@ -141,6 +143,12 @@ bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-fold
 ./src/modules/api|code|code:3|dirs:0
 ./src/utils|navigation|code:0|dirs:4
 ```
+
+**Auto-skipped**:
+- Tests: `**/test/**`, `**/*.test.*`, `**/__tests__/**`
+- Build: `**/node_modules/**`, `**/dist/**`, `**/build/**`
+- Config: Root-level config files (package.json, tsconfig.json, etc)
+- Vendor: Language-specific dependency directories
 
 #### Step 2: Extract Top-Level Directories
 ```bash

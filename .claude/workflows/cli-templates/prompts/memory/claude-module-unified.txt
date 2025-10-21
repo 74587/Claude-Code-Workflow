@@ -1,6 +1,12 @@
 Create or update CLAUDE.md documentation using unified module/file template.
 
+## ⚠️ FILE NAMING RULE (CRITICAL)
+- Target file: MUST be named exactly `CLAUDE.md` in the current directory
+- NEVER create files like `ToolSidebar.CLAUDE.md` or `[filename].CLAUDE.md`
+- ALWAYS use the fixed name: `CLAUDE.md`
+
 ## CORE CHECKLIST ⚡
+□ MUST create/update file named exactly 'CLAUDE.md' (not variants)
 □ MUST include all 6 sections: Purpose, Structure, Components, Dependencies, Integration, Implementation
 □ For code files: Document all public/exported APIs with complete parameter details
 □ For folders: Reference subdirectory CLAUDE.md files instead of duplicating
@@ -63,6 +69,11 @@ Create or update CLAUDE.md documentation using unified module/file template.
 - Known limitations or caveats
 
 ## OUTPUT REQUIREMENTS
+
+### File Naming (CRITICAL)
+- **Output file**: MUST be named exactly `CLAUDE.md` in the current directory
+- **Examples of WRONG naming**: `ToolSidebar.CLAUDE.md`, `index.CLAUDE.md`, `utils.CLAUDE.md`
+- **Correct naming**: `CLAUDE.md` (always, for all directories)
 
 ### Template Structure
 ```markdown
@@ -143,6 +154,7 @@ Create or update CLAUDE.md documentation using unified module/file template.
 - Update existing CLAUDE.md files rather than creating duplicate sections
 
 ## VERIFICATION CHECKLIST ✓
+□ Output file is named exactly 'CLAUDE.md' (not [filename].CLAUDE.md)
 □ All 6 required sections included (Purpose, Structure, Components, Dependencies, Integration, Implementation)
 □ All public/exported APIs documented with complete signatures
 □ Parameters documented with types, descriptions, and defaults
