@@ -67,24 +67,24 @@ The agent handles all phases internally (understanding, discovery, enhancement, 
 
 ## File Pattern Auto-Detection
 
-Keywords trigger specific file patterns:
-- "auth" → `@{**/*auth*,**/*user*}`
-- "component" → `@{src/components/**/*,**/*.component.*}`
-- "API" → `@{**/api/**/*,**/routes/**/*}`
-- "test" → `@{**/*.test.*,**/*.spec.*}`
-- "config" → `@{*.config.*,**/config/**/*}`
-- Generic → `@{src/**/*}`
+Keywords trigger specific file patterns (each @ references one pattern):
+- "auth" → `@**/*auth* @**/*user*`
+- "component" → `@src/components/**/* @**/*.component.*`
+- "API" → `@**/api/**/* @**/routes/**/*`
+- "test" → `@**/*.test.* @**/*.spec.*`
+- "config" → `@*.config.* @**/config/**/*`
+- Generic → `@src/**/*`
 
 For complex patterns, use `rg` or MCP tools to discover files first, then execute CLI with precise file references.
 
 ## Command Template
 
 ```bash
-cd . && ~/.claude/scripts/gemini-wrapper -p "
+cd . && gemini -p "
 PURPOSE: [analysis goal from target]
 TASK: [auto-detected analysis type]
 MODE: analysis
-CONTEXT: @{CLAUDE.md} [auto-detected file patterns]
+CONTEXT: @CLAUDE.md [auto-detected file patterns]
 EXPECTED: Insights, patterns, recommendations (NO code modification)
 RULES: [auto-selected template] | Focus on [analysis aspect]
 "
@@ -112,7 +112,7 @@ RULES: [auto-selected template] | Focus on [analysis aspect]
 
 **Architecture Analysis**:
 ```bash
-/cli:analyze --tool qwen "component architecture"
+/cli:analyze --tool qwen -p "component architecture"
 # Executes: Qwen with component file patterns
 # Returns: Architecture review, design patterns, improvement suggestions
 ```

@@ -86,9 +86,9 @@ mcp__code-index__search_code_advanced(pattern="async.*function", file_pattern="*
 mcp__exa__get_code_context_exa(query="TypeScript async patterns", tokensNum="dynamic")
 
 # 3. Analyze with Gemini
-cd "src/async" && ~/.claude/scripts/gemini-wrapper -p "
+cd "src/async" && gemini "
 PURPOSE: Understand async patterns
-CONTEXT: Code index results + Exa context + @{src/async/**/*}
+CONTEXT: Code index results + Exa context + @src/async/**/*
 EXPECTED: Pattern analysis
 RULES: Focus on TypeScript best practices
 "
@@ -134,7 +134,7 @@ codex -C src/async --full-auto exec "Apply modern async patterns" -s danger-full
 mcp__code-index__search_code_advanced(pattern="router|routing", file_pattern="*.ts")
 mcp__exa__get_code_context_exa(query="Next.js 14 app router", tokensNum="dynamic")
 mcp__exa__web_search_exa(query="Next.js 14 best practices 2024", numResults=3)
-cd "src/app" && ~/.claude/scripts/gemini-wrapper -p "Learn Next.js patterns"
+cd "src/app" && gemini "Learn Next.js patterns"
 ```
 
 ### Debugging
@@ -153,7 +153,7 @@ mcp__code-index__refresh_index()  # 刷新索引
 mcp__code-index__find_files(pattern="*auth*")  # Find auth-related files
 mcp__code-index__search_code_advanced(pattern="function.*auth", file_pattern="*.ts")  # Find auth functions
 mcp__code-index__get_file_summary(file_path="src/auth/index.ts")  # Understand structure
-cd "src/auth" && ~/.claude/scripts/gemini-wrapper -p "Analyze auth architecture"
+cd "src/auth" && gemini "Analyze auth architecture"
 ```
 
 ### Project Setup Workflow

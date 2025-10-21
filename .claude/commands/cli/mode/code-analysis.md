@@ -82,11 +82,11 @@ The agent handles all phases internally.
 ## Command Template
 
 ```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper --all-files -p "
+cd [directory] && gemini -p "
 PURPOSE: [analysis goal]
 TASK: Systematic code analysis and execution path tracing
 MODE: analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} [entire codebase in directory]
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md [entire codebase in directory]
 EXPECTED: Execution trace, call flow diagram, debugging insights
 RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on [aspect]
 "
@@ -114,11 +114,11 @@ RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on [aspect]
 
 **Standard Template Example**:
 ```bash
-cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
+cd . && gemini -p "
 PURPOSE: Trace authentication execution flow
 TASK: Analyze complete auth flow from request to response
 MODE: analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md
 EXPECTED: Step-by-step execution trace with call diagram, variable states
 RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on control flow
 "
@@ -126,11 +126,11 @@ RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on control flo
 
 **Directory-Specific Analysis**:
 ```bash
-cd src/auth && ~/.claude/scripts/gemini-wrapper --all-files -p "
+cd src/auth && gemini -p "
 PURPOSE: Understand JWT token validation logic
 TASK: Trace JWT validation from middleware to service layer
 MODE: analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md
 EXPECTED: Validation flow diagram, token lifecycle analysis
 RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on security
 "
@@ -167,4 +167,4 @@ mcp__code-index__search_code_advanced(pattern="authenticate|login", file_pattern
 - Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
 - Scratchpad directory details: see workflow-architecture.md
 - Template path: `~/.claude/prompt-templates/code-analysis.md`
-- Always uses `--all-files` for comprehensive code context
+- Uses `@**/*` for in CONTEXT field for comprehensive code context

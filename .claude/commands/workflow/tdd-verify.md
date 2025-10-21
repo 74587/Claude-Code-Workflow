@@ -3,7 +3,7 @@ name: tdd-verify
 description: Verify TDD workflow compliance and generate quality report
 
 argument-hint: "[optional: WFS-session-id]"
-allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(gemini-wrapper:*)
+allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(gemini:*)
 ---
 
 # TDD Verification Command (/workflow:tdd-verify)
@@ -94,7 +94,7 @@ find .workflow/{sessionId}/.task/ -name '*.json' -exec jq -r '.meta.agent' {} \;
 **Gemini analysis for comprehensive TDD compliance report**
 
 ```bash
-cd project-root && ~/.claude/scripts/gemini-wrapper -p "
+cd project-root && gemini -p "
 PURPOSE: Generate TDD compliance report
 TASK: Analyze TDD workflow execution and generate quality report
 CONTEXT: @{.workflow/{sessionId}/.task/*.json,.workflow/{sessionId}/.summaries/*,.workflow/{sessionId}/.process/tdd-cycle-report.md}

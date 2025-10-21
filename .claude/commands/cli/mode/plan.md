@@ -80,11 +80,11 @@ The agent handles all phases internally.
 ## Command Template
 
 ```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper --all-files -p "
+cd [directory] && gemini -p "
 PURPOSE: [planning goal from topic]
 TASK: Comprehensive planning and architecture analysis
 MODE: analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} [entire codebase in directory]
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md [entire codebase in directory]
 EXPECTED: Strategic insights, implementation recommendations, key decisions
 RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on [topic area]
 "
@@ -112,11 +112,11 @@ RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on [topic area]
 
 **Standard Template Example**:
 ```bash
-cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
+cd . && gemini -p "
 PURPOSE: Design user dashboard architecture
 TASK: Plan dashboard component structure and data flow
 MODE: analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md
 EXPECTED: Architecture recommendations, component design, data flow diagram
 RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on scalability
 "
@@ -124,11 +124,11 @@ RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on scalability
 
 **Directory-Specific Planning**:
 ```bash
-cd src/api && ~/.claude/scripts/gemini-wrapper --all-files -p "
+cd src/api && gemini -p "
 PURPOSE: Plan API refactoring strategy
 TASK: Analyze current API structure and recommend improvements
 MODE: analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md
 EXPECTED: Refactoring roadmap, breaking change analysis, migration plan
 RULES: $(cat ~/.claude/prompt-templates/plan.md) | Maintain backward compatibility
 "
@@ -165,4 +165,4 @@ rg "architecture|design" --files-with-matches
 - Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
 - Scratchpad directory details: see workflow-architecture.md
 - Template path: `~/.claude/prompt-templates/plan.md`
-- Always uses `--all-files` for comprehensive project context
+- Uses `@**/*` for in CONTEXT field for comprehensive project context

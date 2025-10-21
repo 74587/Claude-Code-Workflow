@@ -48,7 +48,7 @@ Specialized analysis tool for test generation workflows that uses Gemini to anal
 
 **Tool Configuration**:
 ```bash
-cd .workflow/{test_session_id}/.process && ~/.claude/scripts/gemini-wrapper -p "
+cd .workflow/{test_session_id}/.process && gemini -p "
 PURPOSE: Analyze test coverage gaps and design comprehensive test generation strategy
 TASK: Study implementation context, existing tests, and generate test requirements for missing coverage
 MODE: analysis

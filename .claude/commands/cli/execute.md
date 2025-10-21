@@ -45,11 +45,11 @@ Auto-approves: file pattern inference, execution, **file modifications**, summar
 
 ### Context Inference
 
-Auto-selects files based on keywords and technology:
-- "auth" → `@{**/*auth*,**/*user*}`
-- "React" → `@{src/**/*.{jsx,tsx}}`
-- "api" → `@{**/api/**/*,**/routes/**/*}`
-- Always includes: `@{CLAUDE.md,**/*CLAUDE.md}`
+Auto-selects files based on keywords and technology (each @ references one pattern):
+- "auth" → `@**/*auth* @**/*user*`
+- "React" → `@src/**/*.jsx @src/**/*.tsx`
+- "api" → `@**/api/**/* @**/routes/**/*`
+- Always includes: `@CLAUDE.md @**/*CLAUDE.md`
 
 For precise file targeting, use `rg` or MCP tools to discover files first.
 
@@ -111,11 +111,11 @@ Use `resume --last` when current task extends/relates to previous execution. See
 ### Standard Mode (Default)
 ```bash
 # Gemini/Qwen: MODE=write with --approval-mode yolo
-cd . && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "
+cd . && gemini --approval-mode yolo "
 PURPOSE: [implementation goal]
 TASK: [specific implementation]
 MODE: write
-CONTEXT: @{CLAUDE.md} [auto-detected files]
+CONTEXT: @CLAUDE.md [auto-detected files]
 EXPECTED: Working implementation with code changes
 RULES: [constraints] | Auto-approve all changes
 "

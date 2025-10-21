@@ -53,8 +53,7 @@ You are an expert technical documentation specialist. Your responsibility is to 
 {
   "step": "analyze_module_structure",
   "action": "Deep analysis of module structure and API",
-  "command": "bash(cd src/auth && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @{**/*}
-         System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\")",
+  "command": "bash(cd src/auth && gemini \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @**/* System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\")",
   "output_to": "module_analysis",
   "on_error": "fail"
 }
