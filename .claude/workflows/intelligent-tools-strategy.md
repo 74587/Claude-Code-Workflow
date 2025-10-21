@@ -26,8 +26,8 @@ type: strategic-guideline
 
 | Scenario | Tool | Command Pattern |
 |----------|------|-----------------|
-| **Exploring/Understanding** | Gemini → Qwen | `cd [dir] && gemini "PURPOSE:... CONTEXT: @**/*"` |
-| **Architecture/Analysis** | Gemini → Qwen | `cd [dir] && gemini "PURPOSE:... CONTEXT: @**/*"` |
+| **Exploring/Understanding** | Gemini → Qwen | `cd [dir] && gemini -p "PURPOSE:... CONTEXT: @**/*"` |
+| **Architecture/Analysis** | Gemini → Qwen | `cd [dir] && gemini -p "PURPOSE:... CONTEXT: @**/*"` |
 | **Building/Fixing** | Codex | `codex -C [dir] --full-auto exec "PURPOSE:... MODE: auto"` |
 | **Not sure?** | Multiple | Use tools in parallel |
 | **Small task?** | Still use tools | Tools are faster than manual work |
@@ -67,10 +67,10 @@ type: strategic-guideline
 #### Tool Selection
 ```bash
 # Default: Use Gemini
-gemini "analysis prompt"
+gemini -p "analysis prompt"
 
 # Fallback: Use Qwen if Gemini unavailable
-qwen "analysis prompt"
+qwen -p "analysis prompt"
 ```
 
 ---
@@ -154,7 +154,7 @@ Every command MUST follow this structure:
 ```bash
 # Analysis Mode (read-only, default)
 # Use 'gemini' (primary) or 'qwen' (fallback)
-cd [directory] && gemini "
+cd [directory] && gemini -p "
 PURPOSE: [clear analysis goal]
 TASK: [specific analysis task]
 MODE: analysis
@@ -165,7 +165,7 @@ RULES: [template reference and constraints]
 
 # Write Mode (requires explicit MODE=write)
 # NOTE: --approval-mode yolo must be placed AFTER the prompt
-cd [directory] && gemini "
+cd [directory] && gemini -p "
 PURPOSE: [clear goal]
 TASK: [specific task]
 MODE: write
@@ -175,7 +175,7 @@ RULES: [template reference and constraints]
 " --approval-mode yolo
 
 # Fallback: Replace 'gemini' with 'qwen' if Gemini unavailable
-cd [directory] && qwen "..." # Same syntax as gemini
+cd [directory] && qwen -p "..." # Same syntax as gemini
 ```
 
 #### Codex Commands
@@ -209,7 +209,7 @@ RULES: [template reference and constraints]
 ### Directory Context Configuration
 
 **Tool Directory Navigation**:
-- **Gemini & Qwen**: `cd path/to/project && gemini "prompt"` (or `qwen`)
+- **Gemini & Qwen**: `cd path/to/project && gemini -p "prompt"` (or `qwen`)
 - **Codex**: `codex -C path/to/project --full-auto exec "task"` (Codex still supports -C)
 - **Path types**: Supports both relative (`../project`) and absolute (`/full/path`) paths
 - **Token analysis**: For Gemini/Qwen, token counting happens in current directory
@@ -229,13 +229,13 @@ RULES: [template reference and constraints]
 **Syntax Options**:
 ```bash
 # Comma-separated format
-gemini "prompt" --include-directories /path/to/project1,/path/to/project2
+gemini -p "prompt" --include-directories /path/to/project1,/path/to/project2
 
 # Multiple flags format
-gemini "prompt" --include-directories /path/to/project1 --include-directories /path/to/project2
+gemini -p "prompt" --include-directories /path/to/project1 --include-directories /path/to/project2
 
 # Combined with cd for focused analysis with extended context (RECOMMENDED)
-cd src/auth && gemini "
+cd src/auth && gemini -p "
 PURPOSE: Analyze authentication with shared utilities context
 TASK: Review auth implementation and its dependencies
 MODE: analysis
@@ -247,7 +247,7 @@ RULES: Focus on integration patterns
 
 **Best Practices**:
 - **Recommended Pattern**: Use `cd` to navigate to primary focus directory, then use `--include-directories` for additional context
-  - Example: `cd src/auth && gemini "..." --include-directories ../shared,../types`
+  - Example: `cd src/auth && gemini -p "..." --include-directories ../shared,../types`
   - Benefits: More precise file references (relative to current directory), clearer intent, better context control
 - Use when `cd` alone limits necessary context visibility
 - Keep directory count ≤ 5 for optimal performance
@@ -286,7 +286,7 @@ mcp__code-index__search_code_advanced(pattern="interface.*Props", file_pattern="
 CONTEXT: @src/components/Auth.tsx @src/types/auth.d.ts @src/hooks/useAuth.ts
 
 # Step 3: Execute CLI with precise file references
-cd src && gemini "
+cd src && gemini -p "
 PURPOSE: Analyze authentication components
 TASK: Review auth component patterns and props interfaces
 MODE: analysis
@@ -389,7 +389,7 @@ tech-stacks/
 
 **Command Examples**:
 ```bash
-bash(gemini "prompt")  # Simple analysis: 20-40min
+bash(gemini -p "prompt")  # Simple analysis: 20-40min
 bash(codex -C directory --full-auto exec "task")  # Complex implementation: 90-180min
 ```
 
@@ -410,7 +410,7 @@ bash(codex -C directory --full-auto exec "task")  # Complex implementation: 90-1
 
 **Gemini/Qwen Write Access**:
 - Use `--approval-mode yolo` ONLY when MODE=write explicitly specified
-- **Parameter Position**: Place AFTER the prompt: `gemini "..." --approval-mode yolo`
+- **Parameter Position**: Place AFTER the prompt: `gemini -p "..." --approval-mode yolo`
 
 **Codex Write Access**:
 - Use `-s danger-full-access` and `--skip-git-repo-check` ONLY when MODE=auto explicitly specified
