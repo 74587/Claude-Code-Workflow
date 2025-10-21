@@ -214,17 +214,32 @@ RULES: [template reference and constraints]
 - **Path types**: Supports both relative (`../project`) and absolute (`/full/path`) paths
 - **Token analysis**: For Gemini/Qwen, token counting happens in current directory
 
+#### ⚠️ Critical Directory Scope Rules
+
+**Once `cd` to a directory**:
+- **@ references ONLY apply to current directory and its subdirectories**
+- `@**/*` = All files within current directory tree
+- `@*.ts` = TypeScript files in current directory tree
+- `@src/**/*` = Files within src subdirectory (if exists under current directory)
+- **CANNOT reference parent or sibling directories via @ alone**
+
+**To reference files outside current directory**:
+- **MUST use `--include-directories`** to explicitly add external directories
+- Example: `cd src/auth && gemini -p "..." --include-directories ../shared,../config`
+- After adding, @ patterns can then match files in included directories
+- Without `--include-directories`, parent/sibling files are INVISIBLE to @ patterns
+
 #### Multi-Directory Support (Gemini & Qwen)
 
 **Purpose**: For large projects requiring fine-grained access across multiple directories
 
-**Use Case**: When `cd` limits global visibility but you need to reference files from other folders
+**Use Case**: When `cd` limits scope but you need to reference files from parent/sibling folders
 
 **Parameter**: `--include-directories <dir1,dir2,...>`
-- Includes additional directories in the workspace
+- Includes additional directories in the workspace beyond current `cd` directory
 - Can be specified multiple times or as comma-separated values
 - Maximum 5 directories can be added
-- Particularly useful when working in a subdirectory but needing context from parent or sibling directories
+- **REQUIRED** when working in a subdirectory but needing context from parent or sibling directories
 
 **Syntax Options**:
 ```bash
