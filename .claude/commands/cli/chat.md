@@ -27,7 +27,6 @@ Direct Q&A interaction with CLI tools for codebase analysis. **Analysis only - d
 - `--agent` - Use cli-execution-agent for automated context discovery (5-phase intelligent mode)
 - `--tool <codex|gemini|qwen>` - Select CLI tool (default: gemini, ignored in agent mode)
 - `--enhance` - Enhance inquiry with `/enhance-prompt` first
-- `--all-files` - Include entire codebase in context
 - `--save-session` - Save interaction to workflow session
 
 ## Execution Flow
@@ -36,7 +35,7 @@ Direct Q&A interaction with CLI tools for codebase analysis. **Analysis only - d
 
 1. Parse tool selection (default: gemini)
 2. If `--enhance`: Execute `/enhance-prompt` to expand user intent
-3. Assemble context: `@{CLAUDE.md}` + user-specified files or `--all-files`
+3. Assemble context: `@CLAUDE.md` + user-specified files or `@**/*` for entire codebase
 4. Execute CLI tool with assembled context (read-only, analysis mode)
 5. Return explanations and insights (NO code changes)
 6. Optionally save to workflow session
@@ -54,7 +53,6 @@ Task(
     Task: ${inquiry}
     Mode: analyze (Q&A)
     Tool Preference: ${tool_flag || 'auto-select'}
-    ${all_files_flag ? 'Scope: all-files' : ''}
 
     Agent will autonomously:
     - Discover files relevant to the question
@@ -69,20 +67,20 @@ The agent handles all phases internally.
 
 ## Context Assembly
 
-**Always included**: `@{CLAUDE.md,**/*CLAUDE.md}` (project guidelines)
+**Always included**: `@CLAUDE.md @**/*CLAUDE.md` (project guidelines)
 
 **Optional**:
 - User-explicit files from inquiry keywords
-- `--all-files` flag includes entire codebase (`--all-files` wrapper parameter)
+- Use `@**/*` in CONTEXT for entire codebase
 
 For targeted analysis, use `rg` or MCP tools to discover relevant files first, then build precise CONTEXT field.
 
 ## Command Template
 
 ```bash
-cd . && ~/.claude/scripts/gemini-wrapper -p "
+cd . && gemini -p "
 INQUIRY: [user question]
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} [inferred or --all-files]
+CONTEXT: @CLAUDE.md,**/*CLAUDE.md [inferred files or @**/* for all files]
 MODE: analysis
 RESPONSE: Direct answer, explanation, insights (NO code modification)
 "
@@ -110,7 +108,7 @@ RESPONSE: Direct answer, explanation, insights (NO code modification)
 
 **Architecture Question**:
 ```bash
-/cli:chat --tool qwen "how does React component optimization work here"
+/cli:chat --tool qwen -p "how does React component optimization work here"
 # Executes: Qwen architecture analysis
 # Returns: Component structure explanation, optimization patterns used
 ```
@@ -128,13 +126,6 @@ RESPONSE: Direct answer, explanation, insights (NO code modification)
 # Step 1: Enhance to expand login context
 # Step 2: Analysis with expanded understanding
 # Returns: Detailed explanation of login flow and potential issues
-```
-
-**Broad Context**:
-```bash
-/cli:chat --all-files "find all API endpoints"
-# Executes: Analysis across entire codebase
-# Returns: List and explanation of API endpoints (NO code generation)
 ```
 
 ## Output Routing

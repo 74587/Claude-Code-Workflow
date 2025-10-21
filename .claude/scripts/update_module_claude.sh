@@ -88,8 +88,7 @@ update_module_claude() {
     
     # Use unified template for all modules
     local template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/claude-module-unified.txt"
-    local analysis_strategy="--all-files"
-    
+
     # Prepare logging info
     local module_name=$(basename "$module_path")
 
@@ -131,8 +130,10 @@ update_module_claude() {
 
     $template_content
 
-    $update_context"
-    
+    $update_context
+
+    CONTEXT: @**/*"
+
     # Execute update
     local start_time=$(date +%s)
     echo "   🔄 Starting update..."
@@ -146,10 +147,11 @@ update_module_claude() {
         - Path: $module_path
         - Tool: $tool"
 
-        # Execute with selected tool (always use --all-files)
+        # Execute with selected tool
+        # NOTE: Prompt is passed via -p flag for gemini/qwen, first parameter for codex
         case "$tool" in
             qwen)
-                qwen --all-files --yolo -p "$final_prompt" 2>&1
+                qwen -p "$final_prompt" --yolo 2>&1
                 tool_result=$?
                 ;;
             codex)
@@ -157,7 +159,7 @@ update_module_claude() {
                 tool_result=$?
                 ;;
             gemini|*)
-                gemini --all-files --yolo -p "$final_prompt" 2>&1
+                gemini -p "$final_prompt" --yolo 2>&1
                 tool_result=$?
                 ;;
         esac

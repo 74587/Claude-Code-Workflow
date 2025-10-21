@@ -130,7 +130,7 @@ git status --short
 codex -C [dir] --full-auto exec "
 PURPOSE: [group goal]
 TASK: [subtask description - first in group]
-CONTEXT: @{relevant_files} @{CLAUDE.md}
+CONTEXT: @{relevant_files} @CLAUDE.md
 EXPECTED: [specific deliverables]
 RULES: [constraints]
 Group [X]: [group name] - Subtask 1 of N in this group
@@ -164,7 +164,7 @@ git add -A
 codex -C [dir] --full-auto exec "
 PURPOSE: [new group goal]
 TASK: [subtask description - first in new group]
-CONTEXT: @{different_files} @{CLAUDE.md}
+CONTEXT: @{different_files} @CLAUDE.md
 EXPECTED: [specific deliverables]
 RULES: [constraints]
 Group [Y]: [new group name] - Subtask 1 of N in this group

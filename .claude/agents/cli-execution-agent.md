@@ -174,7 +174,7 @@ score = 0
 
 **2. Context Assembly**:
 ```bash
-CONTEXT: @{CLAUDE.md} @{discovered_file1} @{discovered_file2} ...
+CONTEXT: @CLAUDE.md @{discovered_file1} @{discovered_file2} ...
 
 ## Discovered Context
 - **Project Structure**: {module_summary}

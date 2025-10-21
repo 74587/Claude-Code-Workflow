@@ -152,7 +152,7 @@ All task files use this unified 5-field schema with optional artifacts enhanceme
       {
         "step": "analyze_architecture",
         "action": "Review system architecture",
-        "command": "~/.claude/scripts/gemini-wrapper -p \"analyze patterns: [patterns]\"",
+        "command": "gemini \"analyze patterns: [patterns]\"",
         "output_to": "design"
       },
       {
@@ -416,7 +416,7 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
 - **Bash commands**: `bash(command)` - Any shell command
 - **Tool calls**: `Read(file)`, `Glob(pattern)`, `Grep(pattern)`
 - **MCP tools**: `mcp__code-index__find_files()`, `mcp__exa__get_code_context_exa()`
-- **CLI wrappers**: `~/.claude/scripts/gemini-wrapper`, `codex --full-auto exec`
+- **CLI commands**: `gemini`, `qwen`, `codex --full-auto exec`
 
 **Example**:
 ```json
@@ -477,10 +477,10 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
 "command": "codex --full-auto exec \"task\" resume --last --skip-git-repo-check -s danger-full-access"
 
 // Gemini (user requested)
-"command": "~/.claude/scripts/gemini-wrapper -p \"analyze [context]\""
+"command": "gemini \"analyze [context]\""
 
 // Qwen (fallback for Gemini)
-"command": "~/.claude/scripts/qwen-wrapper -p \"analyze [context]\""
+"command": "qwen \"analyze [context]\""
 ```
 
 **Example Step**:
@@ -517,14 +517,14 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
 
 **Gemini CLI**:
 ```bash
-~/.claude/scripts/gemini-wrapper -p "prompt"
-~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "prompt"  # For write mode
+gemini "prompt"
+gemini --approval-mode yolo "prompt"  # For write mode
 ```
 
 **Qwen CLI** (Gemini fallback):
 ```bash
-~/.claude/scripts/qwen-wrapper -p "prompt"
-~/.claude/scripts/qwen-wrapper --approval-mode yolo -p "prompt"  # For write mode
+qwen "prompt"
+qwen --approval-mode yolo "prompt"  # For write mode
 ```
 
 **Codex CLI**:
@@ -892,13 +892,13 @@ fi
 - **Examples**: New features, API endpoints with integration, database schema changes
 - **Task Decomposition**: Two-level hierarchy when decomposition is needed
 - **Agent Coordination**: Context coordination between related tasks
-- **Tool Strategy**: `gemini-wrapper` for pattern analysis, `codex --full-auto` for implementation
+- **Tool Strategy**: `gemini` for pattern analysis, `codex --full-auto` for implementation
 
 #### Complex Workflows
 - **Examples**: Major features, architecture refactoring, security implementations, multi-service deployments
 - **Task Decomposition**: Frequent use of two-level hierarchy with dynamic subtask creation
 - **Agent Coordination**: Multi-agent orchestration with deep context analysis
-- **Tool Strategy**: `gemini-wrapper` for architecture analysis, `codex --full-auto` for complex problem solving, `bash()` commands for flexible analysis
+- **Tool Strategy**: `gemini` for architecture analysis, `codex --full-auto` for complex problem solving, `bash()` commands for flexible analysis
 
 ### Assessment & Upgrades
 - **During Creation**: System evaluates requirements and assigns complexity

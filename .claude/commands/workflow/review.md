@@ -99,10 +99,10 @@ After bash validation, the model takes control to:
      ```
    - Use Gemini for security analysis:
      ```bash
-     cd .workflow/${sessionId} && ~/.claude/scripts/gemini-wrapper -p "
+     cd .workflow/${sessionId} && gemini -p "
      PURPOSE: Security audit of completed implementation
      TASK: Review code for security vulnerabilities, insecure patterns, auth/authz issues
-     CONTEXT: @{.summaries/IMPL-*.md,../..,../../CLAUDE.md}
+     CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
      EXPECTED: Security findings report with severity levels
      RULES: Focus on OWASP Top 10, authentication, authorization, data validation, injection risks
      " --approval-mode yolo
@@ -111,10 +111,10 @@ After bash validation, the model takes control to:
    **Architecture Review** (`--type=architecture`):
    - Use Qwen for architecture analysis:
      ```bash
-     cd .workflow/${sessionId} && ~/.claude/scripts/qwen-wrapper -p "
+     cd .workflow/${sessionId} && qwen -p "
      PURPOSE: Architecture compliance review
      TASK: Evaluate adherence to architectural patterns, identify technical debt, review design decisions
-     CONTEXT: @{.summaries/IMPL-*.md,../..,../../CLAUDE.md}
+     CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
      EXPECTED: Architecture assessment with recommendations
      RULES: Check for patterns, separation of concerns, modularity, scalability
      " --approval-mode yolo
@@ -123,10 +123,10 @@ After bash validation, the model takes control to:
    **Quality Review** (`--type=quality`):
    - Use Gemini for code quality:
      ```bash
-     cd .workflow/${sessionId} && ~/.claude/scripts/gemini-wrapper -p "
+     cd .workflow/${sessionId} && gemini -p "
      PURPOSE: Code quality and best practices review
      TASK: Assess code readability, maintainability, adherence to best practices
-     CONTEXT: @{.summaries/IMPL-*.md,../..,../../CLAUDE.md}
+     CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
      EXPECTED: Quality assessment with improvement suggestions
      RULES: Check for code smells, duplication, complexity, naming conventions
      " --approval-mode yolo
@@ -143,10 +143,10 @@ After bash validation, the model takes control to:
      ' {} \;
 
      # Check implementation summaries against requirements
-     cd .workflow/${sessionId} && ~/.claude/scripts/gemini-wrapper -p "
+     cd .workflow/${sessionId} && gemini -p "
      PURPOSE: Verify all requirements and acceptance criteria are met
      TASK: Cross-check implementation summaries against original requirements
-     CONTEXT: @{.task/IMPL-*.json,.summaries/IMPL-*.md,../..,../../CLAUDE.md}
+     CONTEXT: @.task/IMPL-*.json,.summaries/IMPL-*.md,../.. @../../CLAUDE.md
      EXPECTED:
      - Requirements coverage matrix
      - Acceptance criteria verification

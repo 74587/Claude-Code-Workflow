@@ -148,10 +148,10 @@ bash(codex --full-auto exec "..." resume --last --skip-git-repo-check -s danger-
 
 ### Gemini/Qwen Commands (Analysis/Documentation)
 ```bash
-bash(~/.claude/scripts/gemini-wrapper -p "PURPOSE: {purpose} TASK: {task} MODE: analysis CONTEXT: @{{synthesis_spec_path}} EXPECTED: {expected} RULES: {rules}")
+bash(gemini "PURPOSE: {purpose} TASK: {task} MODE: analysis CONTEXT: @{synthesis_spec_path} EXPECTED: {expected} RULES: {rules}")
 
 # With write permission
-bash(~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "PURPOSE: {purpose} TASK: {task} MODE: write CONTEXT: @{{context}} EXPECTED: {expected} RULES: {rules}")
+bash(gemini --approval-mode yolo "PURPOSE: {purpose} TASK: {task} MODE: write CONTEXT: @{context} EXPECTED: {expected} RULES: {rules}")
 ```
 
 ## Field Descriptions
@@ -175,4 +175,4 @@ bash(~/.claude/scripts/gemini-wrapper --approval-mode yolo -p "PURPOSE: {purpose
 5. **Step Dependencies**: Use `depends_on: [1, 2]` to specify execution order
 6. **Parameter Position**:
    - Codex: `--skip-git-repo-check -s danger-full-access` at END
-   - Gemini/Qwen: `--approval-mode yolo` AFTER wrapper command, BEFORE -p
+   - Gemini/Qwen: `--approval-mode yolo` BEFORE the prompt

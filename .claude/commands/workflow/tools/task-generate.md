@@ -256,7 +256,7 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         "action": "Analyze existing code patterns and identify modification targets",
         "commands": [
           "bash(cd \"[focus_paths]\")",
-          "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Identify modification targets TASK: Analyze '[title]' and locate specific files/functions/lines to modify CONTEXT: [synthesis_specification] [individual_artifacts] EXPECTED: Code locations in format 'file:function:lines' RULES: Prioritize synthesis-specification.md, identify exact modification points\")"
+          "bash(gemini \"PURPOSE: Identify modification targets TASK: Analyze '[title]' and locate specific files/functions/lines to modify CONTEXT: [synthesis_specification] [individual_artifacts] EXPECTED: Code locations in format 'file:function:lines' RULES: Prioritize synthesis-specification.md, identify exact modification points\")"
         ],
         "output_to": "task_context_with_targets",
         "on_error": "fail"

@@ -69,11 +69,11 @@ Gemini analyzes the topic and proposes preliminary plan.
 ```bash
 # Round 1: CONTEXT_INPUT is the initial topic
 # Subsequent rounds: CONTEXT_INPUT is the synthesis from previous round
-~/.claude/scripts/gemini-wrapper -p "
+gemini -p "
 PURPOSE: Analyze and propose a plan for '[topic]'
 TASK: Provide initial analysis, identify key modules, and draft implementation plan
 MODE: analysis
-CONTEXT: @{CLAUDE.md} [auto-detected files]
+CONTEXT: @CLAUDE.md [auto-detected files]
 INPUT: [CONTEXT_INPUT]
 EXPECTED: Structured analysis and draft plan for discussion
 RULES: Focus on technical depth and practical considerations
@@ -90,7 +90,7 @@ codex --full-auto exec "
 PURPOSE: Critically review technical plan
 TASK: Review the provided plan, identify weaknesses, suggest alternatives, reason about trade-offs
 MODE: analysis
-CONTEXT: @{CLAUDE.md} [relevant files]
+CONTEXT: @CLAUDE.md [relevant files]
 INPUT_PLAN: [Output from Gemini's analysis]
 EXPECTED: Critical review with alternative ideas and risk analysis
 RULES: Focus on architectural soundness and implementation feasibility

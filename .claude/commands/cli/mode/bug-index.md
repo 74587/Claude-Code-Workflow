@@ -79,11 +79,11 @@ The agent handles all phases internally.
 ## Command Template
 
 ```bash
-cd [directory] && ~/.claude/scripts/gemini-wrapper --all-files -p "
+cd [directory] && gemini -p "
 PURPOSE: [bug analysis goal]
 TASK: Systematic bug analysis and fix recommendations
 MODE: analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md} [entire codebase in directory]
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md [entire codebase in directory]
 EXPECTED: Root cause analysis, code path tracing, targeted fix suggestions
 RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: [description]
 "
@@ -111,11 +111,11 @@ RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: [description]
 
 **Standard Template Example**:
 ```bash
-cd . && ~/.claude/scripts/gemini-wrapper --all-files -p "
+cd . && gemini -p "
 PURPOSE: Debug authentication null pointer error
 TASK: Identify root cause and provide fix recommendations
 MODE: analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md
 EXPECTED: Root cause, code path, minimal fix suggestion, impact assessment
 RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: null pointer in login flow
 "
@@ -123,11 +123,11 @@ RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: null pointer in login
 
 **Directory-Specific**:
 ```bash
-cd src/auth && ~/.claude/scripts/gemini-wrapper --all-files -p "
+cd src/auth && gemini -p "
 PURPOSE: Fix token validation failure
 TASK: Analyze token validation bug in auth module
 MODE: analysis
-CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}
+CONTEXT: @CLAUDE.md @**/*CLAUDE.md
 EXPECTED: Validation logic analysis, fix recommendation with minimal changes
 RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: token validation fails intermittently
 "
@@ -161,4 +161,4 @@ mcp__code-index__search_code_advanced(pattern="error|exception", file_pattern="*
 - Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
 - Scratchpad directory details: see workflow-architecture.md
 - Template path: `~/.claude/prompt-templates/bug-fix.md`
-- Always uses `--all-files` for comprehensive codebase context
+- Uses `@**/*` for in CONTEXT field for comprehensive codebase context

@@ -5,7 +5,7 @@ argument-hint: "[--tool gemini|qwen] \"task context description\""
 allowed-tools: Task(*), Bash(*)
 examples:
   - /memory:load "在当前前端基础上开发用户认证功能"
-  - /memory:load --tool qwen "重构支付模块API"
+  - /memory:load --tool qwen -p "重构支付模块API"
 ---
 
 # Memory Load Command (/memory:load)
@@ -140,7 +140,7 @@ cd . && ~/.claude/scripts/${tool}-wrapper -p "
 PURPOSE: Extract project core context for task: ${task_description}
 TASK: Analyze project architecture, tech stack, key patterns, relevant files
 MODE: analysis
-CONTEXT: @{CLAUDE.md,README.md,${discovered_files}}
+CONTEXT: @CLAUDE.md,README.md @${discovered_files}
 EXPECTED: Structured project summary and integration point analysis
 RULES:
 - Focus on task-relevant core information
@@ -212,7 +212,7 @@ Before returning:
 ### Example 2: Using Qwen Tool
 
 ```bash
-/memory:load --tool qwen "重构支付模块API"
+/memory:load --tool qwen -p "重构支付模块API"
 ```
 
 Agent uses Qwen CLI for analysis, returns same structured package.

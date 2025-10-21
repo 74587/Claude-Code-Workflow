@@ -394,7 +394,7 @@ bash(
       },
       {
         "step": "analyze_module_tree",
-        "command": "bash(cd src/modules && ~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze module structure\\nTASK: Generate documentation outline\\nMODE: analysis\\nCONTEXT: @{**/*} [target_folders]\\nEXPECTED: Structure outline\\nRULES: Analyze only\")",
+        "command": "bash(cd src/modules && gemini \"PURPOSE: Analyze module structure\\nTASK: Generate documentation outline\\nMODE: analysis\\nCONTEXT: @**/* [target_folders]\\nEXPECTED: Structure outline\\nRULES: Analyze only\")",
         "output_to": "tree_outline",
         "note": "CLI for analysis only"
       }
@@ -490,7 +490,7 @@ bash(
           "CLI writes documentation to .workflow/docs/src/modules/",
           "Maintains directory structure mirroring"
         ],
-        "command": "bash(cd src/modules && ~/.claude/scripts/gemini-wrapper --approval-mode yolo -p \"PURPOSE: Generate module docs\\nTASK: Create documentation files in .workflow/docs/src/modules/\\nMODE: write\\nCONTEXT: @{**/*} [target_folders] [existing_module_docs]\\nEXPECTED: API.md and README.md in .workflow/docs/src/modules/\\nRULES: Mirror source structure, generate complete docs\")",
+        "command": "bash(cd src/modules && gemini --approval-mode yolo \"PURPOSE: Generate module docs\\nTASK: Create documentation files in .workflow/docs/src/modules/\\nMODE: write\\nCONTEXT: @**/* [target_folders] [existing_module_docs]\\nEXPECTED: API.md and README.md in .workflow/docs/src/modules/\\nRULES: Mirror source structure, generate complete docs\")",
         "depends_on": [1],
         "output": "generated_docs"
       }
@@ -533,7 +533,7 @@ bash(
       },
       {
         "step": "analyze_project",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze project structure\\nTASK: Extract overview from modules\\nMODE: analysis\\nCONTEXT: [all_module_docs]\\nEXPECTED: Project outline\")",
+        "command": "bash(gemini \"PURPOSE: Analyze project structure\\nTASK: Extract overview from modules\\nMODE: analysis\\nCONTEXT: [all_module_docs]\\nEXPECTED: Project outline\")",
         "output_to": "project_outline"
       }
     ],
@@ -583,7 +583,7 @@ bash(
       },
       {
         "step": "analyze_architecture_and_examples",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Analyze system architecture and generate examples\\nTASK: Synthesize architectural overview and usage patterns\\nMODE: analysis\\nCONTEXT: [all_docs]\\nEXPECTED: Architecture outline + Examples outline\")",
+        "command": "bash(gemini \"PURPOSE: Analyze system architecture and generate examples\\nTASK: Synthesize architectural overview and usage patterns\\nMODE: analysis\\nCONTEXT: [all_docs]\\nEXPECTED: Architecture outline + Examples outline\")",
         "output_to": "arch_examples_outline"
       }
     ],
@@ -645,7 +645,7 @@ bash(
       },
       {
         "step": "analyze_api",
-        "command": "bash(~/.claude/scripts/gemini-wrapper -p \"PURPOSE: Document HTTP API\\nTASK: Analyze API endpoints\\nMODE: analysis\\nCONTEXT: @{src/api/**/*} [endpoint_discovery]\\nEXPECTED: API outline\")",
+        "command": "bash(gemini \"PURPOSE: Document HTTP API\\nTASK: Analyze API endpoints\\nMODE: analysis\\nCONTEXT: @src/api/**/* [endpoint_discovery]\\nEXPECTED: API outline\")",
         "output_to": "api_outline"
       }
     ],

@@ -198,7 +198,7 @@ Generate **TWO task JSON files**:
         "Codex generates comprehensive test suite",
         "Codex validates test syntax and executability"
       ],
-      "command": "bash(codex -C [focus_paths] --full-auto exec \"PURPOSE: Generate comprehensive test suite TASK: Create test files based on TEST_ANALYSIS_RESULTS.md section 5 MODE: write CONTEXT: @{.workflow/WFS-test-[session]/.process/TEST_ANALYSIS_RESULTS.md,.workflow/WFS-test-[session]/.process/test-context-package.json} EXPECTED: All test files with happy path, error handling, edge cases, integration tests RULES: Follow test framework conventions, ensure tests are executable\" --skip-git-repo-check -s danger-full-access)",
+      "command": "bash(codex -C [focus_paths] --full-auto exec \"PURPOSE: Generate comprehensive test suite TASK: Create test files based on TEST_ANALYSIS_RESULTS.md section 5 MODE: write CONTEXT: @.workflow/WFS-test-[session]/.process/TEST_ANALYSIS_RESULTS.md @.workflow/WFS-test-[session]/.process/test-context-package.json EXPECTED: All test files with happy path, error handling, edge cases, integration tests RULES: Follow test framework conventions, ensure tests are executable\" --skip-git-repo-check -s danger-full-access)",
       "depends_on": [],
       "output": "test_generation"
     }],
@@ -323,7 +323,7 @@ Generate **TWO task JSON files**:
           "cycle_pattern": "test → gemini_diagnose → manual_fix (or codex if needed) → retest",
           "tools": {
             "test_execution": "bash(test_command)",
-            "diagnosis": "gemini-wrapper (MODE: analysis, uses bug-fix template)",
+            "diagnosis": "gemini (MODE: analysis, uses bug-fix template)",
             "fix_application": "manual (default) or codex exec resume --last (if explicitly needed)",
             "verification": "bash(test_command) + regression_check"
           },
@@ -354,11 +354,11 @@ Generate **TWO task JSON files**:
         "      * Source files from focus_paths",
         "      * Implementation summaries from source session",
         "    - Execute Gemini analysis with bug-fix template:",
-        "      bash(cd .workflow/WFS-test-[session]/.process && ~/.claude/scripts/gemini-wrapper --all-files -p \"",
+        "      bash(cd .workflow/WFS-test-[session]/.process && gemini \"",
         "      PURPOSE: Diagnose test failure iteration [N] and propose minimal fix",
         "      TASK: Systematic bug analysis and fix recommendations for test failure",
         "      MODE: analysis",
-        "      CONTEXT: @{CLAUDE.md,**/*CLAUDE.md}",
+        "      CONTEXT: @CLAUDE.md,**/*CLAUDE.md",
         "               Test output: [test_failures]",
         "               Source files: [focus_paths]",
         "               Implementation: [implementation_context]",

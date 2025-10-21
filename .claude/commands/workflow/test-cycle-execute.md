@@ -226,11 +226,11 @@ Iteration N (managed by test-cycle-execute orchestrator):
 
 #### CLI Analysis Command (executed by orchestrator)
 ```bash
-cd {project_root} && ~/.claude/scripts/gemini-wrapper -p "
+cd {project_root} && gemini -p "
 PURPOSE: Analyze test failures and generate fix strategy
 TASK: Review test failures and identify root causes
 MODE: analysis
-CONTEXT: @{test files, implementation files}
+CONTEXT: @test files @ implementation files
 
 [Test failure context and requirements...]
 

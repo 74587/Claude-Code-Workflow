@@ -40,8 +40,8 @@ type: search-guideline
 ### Quick Command Reference
 ```bash
 # Semantic File Discovery (codebase-retrieval)
-~/.claude/scripts/gemini-wrapper --all-files -p "List all files relevant to: [task/feature description]"
-bash(~/.claude/scripts/gemini-wrapper --all-files -p "List all files relevant to: [task/feature description]")
+gemini "CONTEXT: @**/* List all files relevant to: [task/feature description]"
+bash(gemini "CONTEXT: @**/* List all files relevant to: [task/feature description]")
 
 # Program Architecture Analysis (MANDATORY FIRST)
 ~/.claude/scripts/get_modules_by_depth.sh  # Discover program architecture
@@ -65,7 +65,7 @@ grep -n -i "pattern" file.txt   # Line numbers, case-insensitive
 ### Workflow Integration Examples
 ```bash
 # Semantic Discovery → Content Search → Analysis (Recommended Pattern)
-~/.claude/scripts/gemini-wrapper --all-files -p "List all files relevant to: [task/feature]"  # Get relevant files
+gemini "CONTEXT: @**/* List all files relevant to: [task/feature]"  # Get relevant files
 rg "[pattern]" --type [filetype]  # Then search within discovered files
 
 # Program Architecture Analysis (MANDATORY BEFORE PLANNING)
