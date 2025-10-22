@@ -1,20 +1,32 @@
 #!/bin/bash
-# Update CLAUDE.md for a specific module with unified template
-# Usage: update_module_claude.sh <module_path> [tool] [model]
+# Update CLAUDE.md for modules with two strategies
+# Usage: update_module_claude.sh <strategy> <module_path> [tool] [model]
+#   strategy: single-layer|multi-layer
 #   module_path: Path to the module directory
 #   tool: gemini|qwen|codex (default: gemini)
-#   model: Model name (optional, uses tool defaults if not specified)
+#   model: Model name (optional, uses tool defaults)
 #
 # Default Models:
 #   gemini: gemini-2.5-flash
-#   qwen: coder-model (default, -m optional)
+#   qwen: coder-model
 #   codex: gpt5-codex
 #
+# Strategies:
+#   single-layer: Upward aggregation
+#     - Read: Current directory code + child CLAUDE.md files
+#     - Generate: Single ./CLAUDE.md in current directory
+#     - Use: Large projects, incremental bottom-up updates
+#
+#   multi-layer: Downward distribution
+#     - Read: All files in current and subdirectories
+#     - Generate: CLAUDE.md for each directory containing files
+#     - Use: Small projects, full documentation generation
+#
 # Features:
-# - Respects .gitignore patterns (current directory or git root)
-# - Unified template for all modules (folders and files)
-# - Template-based documentation generation
-# - Configurable model selection per tool
+#   - Minimal prompts based on unified template
+#   - Respects .gitignore patterns
+#   - Path-focused processing (script only cares about paths)
+#   - Template-driven generation
 
 # Build exclusion filters from .gitignore
 build_exclusion_filters() {
@@ -65,15 +77,84 @@ build_exclusion_filters() {
     echo "$filters"
 }
 
+# Scan directory structure and generate structured information
+scan_directory_structure() {
+    local target_path="$1"
+    local strategy="$2"
+
+    if [ ! -d "$target_path" ]; then
+        echo "Directory not found: $target_path"
+        return 1
+    fi
+
+    local exclusion_filters=$(build_exclusion_filters)
+    local structure_info=""
+
+    # Get basic directory info
+    local dir_name=$(basename "$target_path")
+    local total_files=$(eval "find \"$target_path\" -type f $exclusion_filters 2>/dev/null" | wc -l)
+    local total_dirs=$(eval "find \"$target_path\" -type d $exclusion_filters 2>/dev/null" | wc -l)
+
+    structure_info+="Directory: $dir_name\n"
+    structure_info+="Total files: $total_files\n"
+    structure_info+="Total directories: $total_dirs\n\n"
+
+    if [ "$strategy" = "multi-layer" ]; then
+        # For multi-layer: show all subdirectories with file counts
+        structure_info+="Subdirectories with files:\n"
+        while IFS= read -r dir; do
+            if [ -n "$dir" ] && [ "$dir" != "$target_path" ]; then
+                local rel_path=${dir#$target_path/}
+                local file_count=$(eval "find \"$dir\" -maxdepth 1 -type f $exclusion_filters 2>/dev/null" | wc -l)
+                if [ $file_count -gt 0 ]; then
+                    structure_info+="  - $rel_path/ ($file_count files)\n"
+                fi
+            fi
+        done < <(eval "find \"$target_path\" -type d $exclusion_filters 2>/dev/null")
+    else
+        # For single-layer: show direct children only
+        structure_info+="Direct subdirectories:\n"
+        while IFS= read -r dir; do
+            if [ -n "$dir" ]; then
+                local dir_name=$(basename "$dir")
+                local file_count=$(eval "find \"$dir\" -maxdepth 1 -type f $exclusion_filters 2>/dev/null" | wc -l)
+                local has_claude=$([ -f "$dir/CLAUDE.md" ] && echo " [has CLAUDE.md]" || echo "")
+                structure_info+="  - $dir_name/ ($file_count files)$has_claude\n"
+            fi
+        done < <(eval "find \"$target_path\" -maxdepth 1 -type d $exclusion_filters 2>/dev/null" | grep -v "^$target_path$")
+    fi
+
+    # Show main file types in current directory
+    structure_info+="\nCurrent directory files:\n"
+    local code_files=$(eval "find \"$target_path\" -maxdepth 1 -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.py' -o -name '*.sh' \\) $exclusion_filters 2>/dev/null" | wc -l)
+    local config_files=$(eval "find \"$target_path\" -maxdepth 1 -type f \\( -name '*.json' -o -name '*.yaml' -o -name '*.yml' -o -name '*.toml' \\) $exclusion_filters 2>/dev/null" | wc -l)
+    local doc_files=$(eval "find \"$target_path\" -maxdepth 1 -type f -name '*.md' $exclusion_filters 2>/dev/null" | wc -l)
+
+    structure_info+="  - Code files: $code_files\n"
+    structure_info+="  - Config files: $config_files\n"
+    structure_info+="  - Documentation: $doc_files\n"
+
+    printf "%b" "$structure_info"
+}
+
 update_module_claude() {
-    local module_path="$1"
-    local tool="${2:-gemini}"
-    local model="$3"
+    local strategy="$1"
+    local module_path="$2"
+    local tool="${3:-gemini}"
+    local model="$4"
 
     # Validate parameters
-    if [ -z "$module_path" ]; then
-        echo "❌ Error: Module path is required"
-        echo "Usage: update_module_claude.sh <module_path> [tool] [model]"
+    if [ -z "$strategy" ] || [ -z "$module_path" ]; then
+        echo "❌ Error: Strategy and module path are required"
+        echo "Usage: update_module_claude.sh <strategy> <module_path> [tool] [model]"
+        echo "Strategies: single-layer|multi-layer"
+        return 1
+    fi
+
+    # Validate strategy
+    if [ "$strategy" != "single-layer" ] && [ "$strategy" != "multi-layer" ]; then
+        echo "❌ Error: Invalid strategy '$strategy'"
+        echo "Valid strategies: single-layer, multi-layer"
         return 1
     fi
 
@@ -113,33 +194,70 @@ update_module_claude() {
     # Use unified template for all modules
     local template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/claude-module-unified.txt"
 
+    # Read template content directly
+    local template_content=""
+    if [ -f "$template_path" ]; then
+        template_content=$(cat "$template_path")
+        echo "   📋 Loaded template: $(wc -l < "$template_path") lines"
+    else
+        echo "   ⚠️  Template not found: $template_path"
+        echo "   Using fallback template..."
+        template_content="Create comprehensive CLAUDE.md documentation following standard structure with Purpose, Structure, Components, Dependencies, Integration, and Implementation sections."
+    fi
+
+    # Scan directory structure first
+    echo "   🔍 Scanning directory structure..."
+    local structure_info=$(scan_directory_structure "$module_path" "$strategy")
+
     # Prepare logging info
     local module_name=$(basename "$module_path")
 
     echo "⚡ Updating: $module_path"
-    echo "   Tool: $tool | Model: $model | Files: $file_count"
-    echo "   Template: $(basename "$template_path")"
+    echo "   Strategy: $strategy | Tool: $tool | Model: $model | Files: $file_count"
+    echo "   Template: $(basename "$template_path") ($(echo "$template_content" | wc -l) lines)"
+    echo "   Structure: Scanned $(echo "$structure_info" | wc -l) lines of structure info"
 
-    # Generate prompt with template injection
-    local template_content=""
-    if [ -f "$template_path" ]; then
-        template_content=$(cat "$template_path")
+    # Build minimal strategy-specific prompt with explicit paths and structure info
+    local final_prompt=""
+
+    if [ "$strategy" = "multi-layer" ]; then
+        # multi-layer strategy: read all, generate for each directory
+        final_prompt="Directory Structure Analysis:
+$structure_info
+
+Read: @**/*
+
+Generate CLAUDE.md files:
+- Primary: ./CLAUDE.md (current directory)
+- Additional: CLAUDE.md in each subdirectory containing files
+
+Template Guidelines:
+$template_content
+
+Instructions:
+- Work bottom-up: deepest directories first
+- Parent directories reference children
+- Each CLAUDE.md file must be in its respective directory
+- Follow the template guidelines above for consistent structure
+- Use the structure analysis to understand directory hierarchy"
     else
-        echo "   ⚠️  Template not found: $template_path, using fallback"
-        template_content="Update CLAUDE.md documentation for this module: document structure, key components, dependencies, and integration points."
+        # single-layer strategy: read current + child CLAUDE.md, generate current only
+        final_prompt="Directory Structure Analysis:
+$structure_info
+
+Read: @*/CLAUDE.md @*.ts @*.tsx @*.js @*.jsx @*.py @*.sh @*.md @*.json @*.yaml @*.yml
+
+Generate single file: ./CLAUDE.md
+
+Template Guidelines:
+$template_content
+
+Instructions:
+- Create exactly one CLAUDE.md file in the current directory
+- Reference child CLAUDE.md files, do not duplicate their content
+- Follow the template guidelines above for consistent structure
+- Use the structure analysis to understand the current directory context"
     fi
-
-    local base_prompt="
-    ⚠️ CRITICAL RULES - MUST FOLLOW:
-    1. Target file: ONLY create/update the file named 'CLAUDE.md' in current directory
-    2. File name: MUST be exactly 'CLAUDE.md' (not ToolSidebar.CLAUDE.md or any variant)
-    3. NEVER modify source code files
-    4. Focus exclusively on updating documentation
-    5. Follow the template guidelines exactly
-
-    $template_content
-
-    CONTEXT: @**/*"
 
     # Execute update
     local start_time=$(date +%s)
@@ -147,12 +265,6 @@ update_module_claude() {
 
     if cd "$module_path" 2>/dev/null; then
         local tool_result=0
-        local final_prompt="$base_prompt
-
-        Module Information:
-        - Name: $module_name
-        - Path: $module_path
-        - Tool: $tool"
 
         # Execute with selected tool
         # NOTE: Model parameter (-m) is placed AFTER the prompt
@@ -200,5 +312,22 @@ update_module_claude() {
 
 # Execute function if script is run directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Show help if no arguments or help requested
+    if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+        echo "Usage: update_module_claude.sh <strategy> <module_path> [tool] [model]"
+        echo ""
+        echo "Strategies:"
+        echo "  single-layer    - Read current dir code + child CLAUDE.md, generate ./CLAUDE.md"
+        echo "  multi-layer     - Read all files, generate CLAUDE.md for each directory"
+        echo ""
+        echo "Tools: gemini (default), qwen, codex"
+        echo "Models: Use tool defaults if not specified"
+        echo ""
+        echo "Examples:"
+        echo "  ./update_module_claude.sh single-layer ./src/auth"
+        echo "  ./update_module_claude.sh multi-layer ./components gemini gemini-2.5-flash"
+        exit 0
+    fi
+
     update_module_claude "$@"
 fi

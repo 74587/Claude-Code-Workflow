@@ -41,9 +41,13 @@ TodoWrite([
 # 2. Extract module paths for current depth
 # 3. Launch parallel jobs (max 4)
 
-# Depth 5 example:
-~/.claude/scripts/update_module_claude.sh "./.claude/workflows/cli-templates/prompts/analysis" "gemini" &
-~/.claude/scripts/update_module_claude.sh "./.claude/workflows/cli-templates/prompts/development" "gemini" &
+# Depth 5 example (Layer 3 - use multi-layer):
+~/.claude/scripts/update_module_claude.sh "multi-layer" "./.claude/workflows/cli-templates/prompts/analysis" "gemini" &
+~/.claude/scripts/update_module_claude.sh "multi-layer" "./.claude/workflows/cli-templates/prompts/development" "gemini" &
+
+# Depth 1 example (Layer 2 - use single-layer):
+~/.claude/scripts/update_module_claude.sh "single-layer" "./src/auth" "gemini" &
+~/.claude/scripts/update_module_claude.sh "single-layer" "./src/api" "gemini" &
 # ... up to 4 concurrent jobs
 
 # 4. Wait for all depth jobs to complete
@@ -62,21 +66,24 @@ git status --short
 
 ## Tool Parameter Flow
 
-**Command Format**: `update_module_claude.sh <path> <tool>`
+**Command Format**: `update_module_claude.sh <strategy> <path> <tool>`
 
 Examples:
-- Gemini: `update_module_claude.sh "./.claude/agents" "gemini" &`
-- Qwen: `update_module_claude.sh "./src/api" "qwen" &`
-- Codex: `update_module_claude.sh "./tests" "codex" &`
+- Layer 3 (depth ≥3): `update_module_claude.sh "multi-layer" "./.claude/agents" "gemini" &`
+- Layer 2 (depth 1-2): `update_module_claude.sh "single-layer" "./src/api" "qwen" &`
+- Layer 1 (depth 0): `update_module_claude.sh "single-layer" "./tests" "codex" &`
 
 ## Execution Rules
 
 1. **Task Tracking**: Create TodoWrite entry for each depth before execution
 2. **Parallelism**: Max 4 jobs per depth, sequential across depths
-3. **Tool Passing**: Always pass tool parameter as 2nd argument
-4. **Path Accuracy**: Extract exact path from `depth:N|path:X|...` format
-5. **Completion**: Mark todo completed only after all depth jobs finish
-6. **No Skipping**: Process every module from input list
+3. **Strategy Assignment**: Assign strategy based on depth:
+   - Depth ≥3 (Layer 3): Use "multi-layer" strategy
+   - Depth 0-2 (Layers 1-2): Use "single-layer" strategy
+4. **Tool Passing**: Always pass tool parameter as 3rd argument
+5. **Path Accuracy**: Extract exact path from `depth:N|path:X|...` format
+6. **Completion**: Mark todo completed only after all depth jobs finish
+7. **No Skipping**: Process every module from input list
 
 ## Concise Output
 
