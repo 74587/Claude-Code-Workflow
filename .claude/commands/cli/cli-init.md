@@ -32,7 +32,7 @@ Creates tool-specific configuration directories:
 - `.gemini/settings.json`:
 ```json
 {
-  "contextfilename": "CLAUDE.md"
+  "contextfilename": ["CLAUDE.md","GEMINI.md"]
 }
 ```
 
@@ -40,7 +40,7 @@ Creates tool-specific configuration directories:
 - `.qwen/settings.json`:
 ```json
 {
-  "contextfilename": "CLAUDE.md"
+  "contextfilename": ["CLAUDE.md","QWEN.md"]
 }
 ```
 
