@@ -156,65 +156,66 @@ END IF
 ### Task Agent Invocation Template
 
 
-```bash
+```python
 Task(subagent_type="conceptual-planning-agent",
-     prompt="Execute brainstorming analysis: {role-name} perspective for {topic}
+     prompt="""Execute brainstorming analysis: {role-name} perspective for {topic}
 
-     ## Role Assignment
-     **ASSIGNED_ROLE**: {role-name}
-     **TOPIC**: {user-provided-topic}
-     **OUTPUT_LOCATION**: .workflow/WFS-{topic}/.brainstorming/{role}/
+## Role Assignment
+**ASSIGNED_ROLE**: {role-name}
+**TOPIC**: {user-provided-topic}
+**OUTPUT_LOCATION**: .workflow/WFS-{topic}/.brainstorming/{role}/
 
-     ## Execution Instructions
-     [FLOW_CONTROL]
+## Execution Instructions
+[FLOW_CONTROL]
 
-     ### Flow Control Steps
-     **AGENT RESPONSIBILITY**: Execute these pre_analysis steps sequentially with context accumulation:
+### Flow Control Steps
+**AGENT RESPONSIBILITY**: Execute these pre_analysis steps sequentially with context accumulation:
 
-     1. **load_topic_framework**
-        - Action: Load structured topic discussion framework
-        - Command: bash(cat .workflow/WFS-{topic}/.brainstorming/topic-framework.md 2>/dev/null || echo 'Topic framework not found')
-        - Output: topic_framework
+1. **load_topic_framework**
+   - Action: Load structured topic discussion framework
+   - Command: Read(.workflow/WFS-{topic}/.brainstorming/topic-framework.md)
+   - Output: topic_framework
+   - Fallback: Continue with session metadata if file not found
 
-     2. **load_role_template**
-        - Action: Load {role-name} planning template
-        - Command: bash($(cat "~/.claude/workflows/cli-templates/planning-roles/{role}.md"))
-        - Output: role_template
+2. **load_role_template**
+   - Action: Load {role-name} planning template
+   - Command: Read(~/.claude/workflows/cli-templates/planning-roles/{role}.md)
+   - Output: role_template
 
-     3. **load_session_metadata**
-        - Action: Load session metadata and original user intent
-        - Command: bash(cat .workflow/WFS-{topic}/workflow-session.json 2>/dev/null || echo '{}')
-        - Output: session_metadata (contains original user prompt in 'project' or 'description' field)
+3. **load_session_metadata**
+   - Action: Load session metadata and original user intent
+   - Command: Read(.workflow/WFS-{topic}/workflow-session.json)
+   - Output: session_metadata (contains original user prompt in 'project' or 'description' field)
 
-     ### Implementation Context
-     **⚠️ User Intent Authority**: Original user prompt from session_metadata.project is PRIMARY reference
-     **Topic Framework**: Use loaded topic-framework.md for structured analysis
-     **Role Focus**: {role-name} domain expertise and perspective aligned with user intent
-     **Analysis Type**: Address framework discussion points from role perspective, filtered by user objectives
-     **Template Framework**: Combine role template with topic framework structure
-     **Structured Approach**: Create analysis.md addressing all topic framework points relevant to user's goals
+### Implementation Context
+**User Intent Authority**: Original user prompt from session_metadata.project is PRIMARY reference
+**Topic Framework**: Use loaded topic-framework.md for structured analysis
+**Role Focus**: {role-name} domain expertise and perspective aligned with user intent
+**Analysis Type**: Address framework discussion points from role perspective, filtered by user objectives
+**Template Framework**: Combine role template with topic framework structure
+**Structured Approach**: Create analysis.md addressing all topic framework points relevant to user's goals
 
-     ### Session Context
-     **Workflow Directory**: .workflow/WFS-{topic}/.brainstorming/
-     **Output Directory**: .workflow/WFS-{topic}/.brainstorming/{role}/
-     **Session JSON**: .workflow/WFS-{topic}/workflow-session.json
+### Session Context
+**Workflow Directory**: .workflow/WFS-{topic}/.brainstorming/
+**Output Directory**: .workflow/WFS-{topic}/.brainstorming/{role}/
+**Session JSON**: .workflow/WFS-{topic}/workflow-session.json
 
-     ### Dependencies & Context
-     **Topic**: {user-provided-topic}
-     **Role Template**: "~/.claude/workflows/cli-templates/planning-roles/{role}.md"
-     **User Requirements**: To be gathered through interactive questioning
+### Dependencies & Context
+**Topic**: {user-provided-topic}
+**Role Template**: ~/.claude/workflows/cli-templates/planning-roles/{role}.md
+**User Requirements**: To be gathered through interactive questioning
 
-     ## Completion Requirements
-     1. Execute all flow control steps in sequence (load topic framework, role template, session metadata with user intent)
-     2. **⚠️ User Intent Alignment**: Validate analysis aligns with original user objectives from session_metadata
-     3. **Address Topic Framework**: Respond to all discussion points in topic-framework.md from role perspective
-     4. **Filter by User Goals**: Prioritize insights directly relevant to user's stated objectives
-     5. Apply role template guidelines within topic framework structure
-     6. Generate structured role analysis addressing framework points aligned with user intent
-     7. Create single comprehensive deliverable in OUTPUT_LOCATION:
-        - analysis.md (structured analysis addressing all topic framework points with role-specific insights filtered by user goals)
-     8. Include framework reference: @../topic-framework.md in analysis.md
-     9. Update workflow-session.json with completion status",
+## Completion Requirements
+1. Execute all flow control steps in sequence (load topic framework, role template, session metadata with user intent)
+2. User Intent Alignment: Validate analysis aligns with original user objectives from session_metadata
+3. Address Topic Framework: Respond to all discussion points in topic-framework.md from role perspective
+4. Filter by User Goals: Prioritize insights directly relevant to user's stated objectives
+5. Apply role template guidelines within topic framework structure
+6. Generate structured role analysis addressing framework points aligned with user intent
+7. Create single comprehensive deliverable in OUTPUT_LOCATION:
+   - analysis.md (structured analysis addressing all topic framework points with role-specific insights filtered by user goals)
+8. Include framework reference: @../topic-framework.md in analysis.md
+9. Update workflow-session.json with completion status""",
      description="Execute {role-name} brainstorming analysis")
 ```
 
