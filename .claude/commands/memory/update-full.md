@@ -1,7 +1,7 @@
 ---
 name: update-full
 description: Complete project-wide CLAUDE.md documentation update with agent-based parallel execution and tool fallback
-argument-hint: "[--tool gemini|qwen|codex] [--path <directory>] [--strategy single-layer|multi-layer]"
+argument-hint: "[--tool gemini|qwen|codex] [--path <directory>]"
 ---
 
 # Full Documentation Update (/memory:update-full)
@@ -13,7 +13,6 @@ Orchestrates project-wide CLAUDE.md updates using batched agent execution with a
 **Parameters**:
 - `--tool <gemini|qwen|codex>`: Primary tool (default: gemini)
 - `--path <directory>`: Target specific directory (default: entire project)
-- `--strategy <single-layer|multi-layer>`: Update strategy (default: single-layer)
 
 **Execution Flow**:
 1. Discovery & Analysis → 2. Plan Presentation → 3. Batched Agent Execution → 4. Safety Verification
@@ -26,6 +25,11 @@ Orchestrates project-wide CLAUDE.md updates using batched agent execution with a
 - **Layer 1 (Top)**: depth 0 - Use single-layer strategy (aggregate from children)
 
 **Update Direction**: Layer 3 → Layer 2 → Layer 1 (bottom-up)
+
+**Strategy Auto-Selection**: Strategies are automatically determined by directory depth:
+- **Layer 3 (depth ≥3)**: Uses `multi-layer` strategy (handles unstructured files)
+- **Layer 2 (depth 1-2)**: Uses `single-layer` strategy (aggregates from children)
+- **Layer 1 (depth 0)**: Uses `single-layer` strategy (aggregates from children)
 
 ## Update Strategies
 
@@ -107,7 +111,7 @@ src/auth/handlers/ (depth 3) - MULTI-LAYER STRATEGY
 4. **Tool Fallback**: Auto-retry with fallback tools on failure
 5. **Layer Sequential**: Process layers 3→2→1 (bottom-up), parallel batches within layer
 6. **Safety Check**: Verify only CLAUDE.md files modified
-7. **Strategy Parameter**: Pass `--strategy` to update script for correct context selection
+7. **Strategy Auto-Selection**: Strategies determined by directory depth (multi-layer for depth ≥3, single-layer for depth 0-2)
 8. **Layer-based Grouping**: Group modules by LAYER (not depth) for execution
 
 ## Tool Fallback Hierarchy
@@ -142,20 +146,19 @@ bash(cd <target-path> && ~/.claude/scripts/get_modules_by_depth.sh list)
 ```
 Update Plan:
   Tool: gemini (fallback: qwen → codex)
-  Strategy: recursive-read
   Total: 7 modules
   Execution: Direct sequential (< 20 modules threshold)
 
   Will update:
-  - ./core/interfaces (12 files) - depth 2 [Layer 2]
-  - ./core (22 files) - depth 1 [Layer 2]
-  - ./models (9 files) - depth 1 [Layer 2]
-  - ./parametric (6 files) - depth 1 [Layer 2]
-  - ./results (7 files) - depth 1 [Layer 2]
-  - ./utils (12 files) - depth 1 [Layer 2]
-  - . (5 files) - depth 0 [Layer 1]
+  - ./core/interfaces (12 files) - depth 2 [Layer 2] - single-layer strategy
+  - ./core (22 files) - depth 1 [Layer 2] - single-layer strategy
+  - ./models (9 files) - depth 1 [Layer 2] - single-layer strategy
+  - ./parametric (6 files) - depth 1 [Layer 2] - single-layer strategy
+  - ./results (7 files) - depth 1 [Layer 2] - single-layer strategy
+  - ./utils (12 files) - depth 1 [Layer 2] - single-layer strategy
+  - . (5 files) - depth 0 [Layer 1] - single-layer strategy
 
-  Context Strategy:
+  Context Strategy (Auto-Selected):
   - Layer 2 (depth 1-2): @*/CLAUDE.md + current code files
   - Layer 1 (depth 0): @*/CLAUDE.md + current code files
 
@@ -178,20 +181,19 @@ Update Plan:
 ```
 Update Plan:
   Tool: gemini (fallback: qwen → codex)
-  Strategy: multi-layer
   Total: 31 modules
   Execution: Agent batch processing (4 modules/agent)
 
   Will update:
-  - ./src/features/auth (12 files) - depth 3 [Layer 3]
-  - ./.claude/commands/cli (6 files) - depth 3 [Layer 3]
-  - ./src/utils (8 files) - depth 2 [Layer 2]
+  - ./src/features/auth (12 files) - depth 3 [Layer 3] - multi-layer strategy
+  - ./.claude/commands/cli (6 files) - depth 3 [Layer 3] - multi-layer strategy
+  - ./src/utils (8 files) - depth 2 [Layer 2] - single-layer strategy
   ...
 
-  Context Strategy:
+  Context Strategy (Auto-Selected):
   - Layer 3 (depth ≥3): @**/* (all files)
-  - Layer 2 (depth 1-2): @**/CLAUDE.md + @**/* (all CLAUDE.md + all files)
-  - Layer 1 (depth 0): @**/CLAUDE.md + @**/* (all CLAUDE.md + all files)
+  - Layer 2 (depth 1-2): @*/CLAUDE.md + current code files
+  - Layer 1 (depth 0): @*/CLAUDE.md + current code files
 
   Auto-skipped (45 paths):
   - Tests: ./tests, ./src/**/*.test.ts (18 paths)
@@ -244,7 +246,6 @@ function group_by_layer(modules) {
 
 let modules_by_layer = group_by_layer(module_list);
 let tool_order = construct_tool_order(primary_tool);
-let strategy = get_strategy_parameter(); // single-layer or multi-layer
 
 // Process by LAYER (3 → 2 → 1), not by depth
 for (let layer of [3, 2, 1]) {
@@ -257,6 +258,8 @@ for (let layer of [3, 2, 1]) {
     let parallel_tasks = batch.map(module => {
       return async () => {
         let success = false;
+        // Auto-determine strategy based on depth
+        let strategy = module.depth >= 3 ? "multi-layer" : "single-layer";
         for (let tool of tool_order) {
           let exit_code = bash(cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "${strategy}" "." "${tool}");
           if (exit_code === 0) {
@@ -276,14 +279,14 @@ for (let layer of [3, 2, 1]) {
 }
 ```
 
-**Example execution (7 modules, recursive-read)**:
+**Example execution (7 modules with auto-strategy)**:
 ```bash
-# Layer 2 (1 module: depth 2)
-bash(cd ./core/interfaces && ~/.claude/scripts/update_module_claude.sh "multi-layer" "." "gemini")
+# Layer 2 (1 module: depth 2) - auto-selects single-layer strategy
+bash(cd ./core/interfaces && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "gemini")
 # → CONTEXT: @*/CLAUDE.md @*.ts @*.tsx... (direct children + current code)
 # → Success with gemini
 
-# Layer 2 (5 modules: depth 1 → 2 batches: [4, 1])
+# Layer 2 (5 modules: depth 1 → 2 batches: [4, 1]) - auto-selects single-layer strategy
 # Batch 1 (4 modules in parallel):
 bash(cd ./core && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "gemini") &
 bash(cd ./models && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "gemini") &
@@ -295,7 +298,7 @@ wait  # Wait for batch 1 to complete
 bash(cd ./utils && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "gemini")
 # → Success with gemini
 
-# Layer 1 (1 module: depth 0)
+# Layer 1 (1 module: depth 0) - auto-selects single-layer strategy
 bash(cd . && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "gemini")
 # → CONTEXT: @*/CLAUDE.md @*.ts... (direct children + current code)
 # → Success with gemini
@@ -365,7 +368,7 @@ for (let layer of [3, 2, 1]) {
       Task(
         subagent_type="memory-bridge",
         description=`Update ${batch.length} modules in Layer ${layer}`,
-        prompt=generate_batch_worker_prompt(batch, tool_order, strategy, layer)
+        prompt=generate_batch_worker_prompt(batch, tool_order, layer)
       )
     );
   }
@@ -377,13 +380,11 @@ for (let layer of [3, 2, 1]) {
 ### Batch Worker Prompt Template
 
 ```
-PURPOSE: Update CLAUDE.md for assigned modules with tool fallback and 3-layer architecture
+PURPOSE: Update CLAUDE.md for assigned modules with tool fallback and auto-strategy selection
 
 TASK:
 Update documentation for the following modules. For each module, try tools in order until success.
-Use the specified strategy for context selection.
-
-STRATEGY: {{strategy}}  # single-layer or multi-layer
+Strategy is automatically determined by directory depth.
 
 MODULES:
 {{module_path_1}} (depth: {{depth_1}}, layer: {{layer_1}})
@@ -399,27 +400,23 @@ TOOLS (try in order):
 EXECUTION:
 For each module above:
   1. cd "{{module_path}}"
-  2. Try tool 1:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "{{strategy}}" "." "{{tool_1}}")
+  2. Auto-determine strategy: strategy = (depth >= 3) ? "multi-layer" : "single-layer"
+  3. Try tool 1:
+     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "${strategy}" "." "{{tool_1}}")
      → Success: Report "✅ {{module_path}} updated with {{tool_1}}", proceed to next module
      → Failure: Try tool 2
-  3. Try tool 2:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "{{strategy}}" "." "{{tool_2}}")
+  4. Try tool 2:
+     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "${strategy}" "." "{{tool_2}}")
      → Success: Report "✅ {{module_path}} updated with {{tool_2}}", proceed to next module
      → Failure: Try tool 3
-  4. Try tool 3:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "{{strategy}}" "." "{{tool_3}}")
+  5. Try tool 3:
+     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "${strategy}" "." "{{tool_3}}")
      → Success: Report "✅ {{module_path}} updated with {{tool_3}}", proceed to next module
      → Failure: Report "❌ FAILED: {{module_path}} failed all tools", proceed to next module
 
-CONTEXT SELECTION (automated by script):
-- Layer 3 (depth ≥3): @**/* (all files)
-- Layer 2 (depth 1-2):
-  * recursive-read: @*/CLAUDE.md + current code files
-  * multi-layer: @**/CLAUDE.md + @**/*
-- Layer 1 (depth 0):
-  * recursive-read: @*/CLAUDE.md + current code files
-  * multi-layer: @**/CLAUDE.md + @**/*
+CONTEXT SELECTION (automatically handled by script based on strategy):
+- multi-layer strategy (depth ≥3): @**/* (all files)
+- single-layer strategy (depth 0-2): @*/CLAUDE.md + current code files
 
 REPORTING:
 Report final summary with:
@@ -520,22 +517,16 @@ Update Summary:
 ## Path Parameter Examples
 
 ```bash
-# Full project update with default strategy (single-layer)
+# Full project update (auto-strategy selection)
 /memory:update-full
 
-# Full project update with multi-layer strategy
-/memory:update-full --strategy multi-layer
-
-# Target specific directory with single-layer
-/memory:update-full --path .claude --strategy single-layer
+# Target specific directory
+/memory:update-full --path .claude
 /memory:update-full --path src/features/auth
 
-# Combine all parameters
-/memory:update-full --path .claude --tool qwen --strategy multi-layer
-
-# Strategy selection based on project size
-/memory:update-full --strategy single-layer  # Large projects (>50 modules)
-/memory:update-full --strategy multi-layer       # Small projects (<20 modules)
+# Use specific tool
+/memory:update-full --tool qwen
+/memory:update-full --path .claude --tool qwen
 ```
 
 ## Key Advantages
@@ -547,28 +538,25 @@ Update Summary:
 
 ## Coordinator Checklist
 
-- Parse `--tool` (default: gemini), `--path` (default: current dir), and `--strategy` (default: recursive-read)
+- Parse `--tool` (default: gemini) and `--path` (default: current dir)
 - Git cache + module discovery
 - **Smart filter modules** (auto-detect tech stack, skip tests/build/config/docs)
 - **Group modules by LAYER** (not depth):
-  - Layer 3: depth ≥3
-  - Layer 2: depth 1-2
-  - Layer 1: depth 0
+  - Layer 3: depth ≥3 (auto-select multi-layer strategy)
+  - Layer 2: depth 1-2 (auto-select single-layer strategy)
+  - Layer 1: depth 0 (auto-select single-layer strategy)
 - Construct tool fallback order
-- **Determine strategy** based on project size or user specification:
-  - <20 modules: Use depth-based strategy assignment (multi-layer for depth ≥3, single-layer for depth 0-2)
-  - ≥20 modules: Use depth-based strategy assignment (multi-layer for depth ≥3, single-layer for depth 0-2)
 - **Present filtered plan** with:
   - Execution strategy (<20: direct, ≥20: agent batch)
-  - Layer groupings (not depth groupings)
+  - Layer groupings with auto-selected strategies
   - Context strategy per layer
   - Agent allocation by LAYER
 - **Wait for y/n confirmation**
 - Determine execution mode:
   - **<20 modules**: Direct execution (Phase 3A)
-    - For each layer (3→2→1): Parallel module updates within layer (max 4 concurrent) with tool fallback and strategy parameter
+    - For each layer (3→2→1): Parallel module updates within layer (max 4 concurrent) with tool fallback and auto-strategy selection
   - **≥20 modules**: Agent batch execution (Phase 3B)
-    - For each layer (3→2→1): Batch modules (4 per batch), spawn batch workers in parallel with strategy parameter
+    - For each layer (3→2→1): Batch modules (4 per batch), spawn batch workers in parallel with auto-strategy selection
 - Wait for layer completion before moving to next layer
 - Aggregate results
 - Safety check (only CLAUDE.md modified)
