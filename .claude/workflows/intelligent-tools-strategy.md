@@ -155,11 +155,11 @@ codex --full-auto exec "Write auth tests" resume --last --skip-git-repo-check -s
 
 Every command MUST follow this structure:
 - [ ] **PURPOSE** - Clear goal and intent
-- [ ] **TASK** - Specific execution task
+- [ ] **TASK** - Specific execution task (use list format: • Task item 1 • Task item 2 • Task item 3)
 - [ ] **MODE** - Execution mode and permission level
 - [ ] **CONTEXT** - File references and memory context from previous sessions
 - [ ] **EXPECTED** - Clear expected results
-- [ ] **RULES** - Template reference and constraints
+- [ ] **RULES** - Template reference and constraints (include mode constraints: analysis=READ-ONLY | write=CREATE/MODIFY/DELETE | auto=FULL operations)
 
 ---
 

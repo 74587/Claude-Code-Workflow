@@ -17,28 +17,43 @@ EXPECTED: [deliverables]
 RULES: [templates | additional constraints]
 ```
 
-## MODE Definitions
+## MODE Definitions - STRICT OPERATION BOUNDARIES
 
-### MODE: analysis (default)
+### MODE: analysis (default) - READ-ONLY OPERATIONS
 
-**Permissions**:
-- Read all CONTEXT files
-- Create/modify documentation files
+**ALLOWED OPERATIONS**:
+- **READ**: All CONTEXT files and analyze content
+- **ANALYZE**: Code patterns, architecture, dependencies
+- **GENERATE**: Text output, insights, recommendations
+- **DOCUMENT**: Analysis results in output response only
+
+**FORBIDDEN OPERATIONS**:
+- **NO FILE CREATION**: Cannot create any files on disk
+- **NO FILE MODIFICATION**: Cannot modify existing files
+- **NO FILE DELETION**: Cannot delete any files
+- **NO DIRECTORY OPERATIONS**: Cannot create/modify directories
 
 **Execute**:
 1. Read and analyze CONTEXT files
 2. Identify patterns and issues
 3. Generate insights and recommendations
-4. Create documentation if needed
-5. Output structured analysis
+4. Output structured analysis (text response only)
 
-**Constraint**: Do NOT modify source code files
+**CRITICAL CONSTRAINT**: Absolutely NO file system operations - ANALYSIS OUTPUT ONLY
 
-### MODE: write
+### MODE: write - FILE CREATION/MODIFICATION OPERATIONS
 
-**Permissions**:
-- Full file operations
-- Create/modify any files
+**ALLOWED OPERATIONS**:
+- **READ**: All CONTEXT files and analyze content
+- **CREATE**: New files (documentation, code, configuration)
+- **MODIFY**: Existing files (update content, refactor code)
+- **DELETE**: Files when explicitly required
+- **ORGANIZE**: Directory structure operations
+
+**STILL RESTRICTED**:
+- Must follow project conventions and patterns
+- Cannot break existing functionality
+- Must validate changes before completion
 
 **Execute**:
 1. Read CONTEXT files
