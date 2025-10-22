@@ -324,44 +324,40 @@ Output a Markdown report (no file writes) with the following structure:
 
 **If CRITICAL Issues Exist**:
 - ❌ **BLOCK EXECUTION** - Resolve critical issues before proceeding
-- Use `/task:create` for missing requirements coverage
+- Use TodoWrite to track all required fixes
 - Fix broken dependencies and circular references
 
 **If Only HIGH/MEDIUM/LOW Issues**:
 - ⚠️ **PROCEED WITH CAUTION** - Fix high-priority issues first
-- Use batch replan mode to apply all task improvements systematically
+- Use TodoWrite to systematically track and complete all improvements
 
-#### Batch Remediation
+#### TodoWrite-Based Remediation Workflow
 
 **Report Location**: `.workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md`
 
-**Apply All Task Improvements** (Recommended):
-```bash
-# Batch process all task replan recommendations
-/task:replan --batch .workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md
+**Recommended Workflow**:
+1. **Create TodoWrite Task List**: Extract all findings from report
+2. **Process by Priority**: CRITICAL → HIGH → MEDIUM → LOW
+3. **Complete Each Fix**: Mark tasks as in_progress/completed as you work
+4. **Validate Changes**: Verify each modification against requirements
 
-# Or with auto-confirmation (no prompts)
-/task:replan --batch ACTION_PLAN_VERIFICATION.md --auto-confirm
-```
-
-**Manual Selective Fixes**:
-```bash
-# Fix critical coverage gaps first
-/task:create "Implement user authentication (FR-03)"
-/task:create "Add performance optimization (NFR-01)"
-
-# Then apply task refinements individually
-/task:replan IMPL-1.2 "Add context.artifacts and target_files"
+**TodoWrite Task Structure Example**:
+```markdown
+Priority Order:
+1. Fix coverage gaps (CRITICAL)
+2. Resolve consistency conflicts (CRITICAL/HIGH)
+3. Add missing specifications (MEDIUM)
+4. Improve task quality (LOW)
 ```
 
 **Notes**:
-- Batch mode extracts all `/task:replan` commands from report
-- Processes by priority: CRITICAL → HIGH → MEDIUM → LOW
-- Creates TodoWrite tracking for all modifications
+- TodoWrite provides real-time progress tracking
+- Each finding becomes a trackable todo item
+- User can monitor progress throughout remediation
 - Architecture drift in IMPL_PLAN requires manual editing
 ```
 
-### 7. Save Report and Provide Remediation Options
+### 7. Save Report and Execute TodoWrite-Based Remediation
 
 **Save Analysis Report**:
 ```bash
@@ -369,14 +365,53 @@ report_path = ".workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md"
 Write(report_path, full_report_content)
 ```
 
-At end of report, provide batch remediation guidance:
+**After Report Generation**:
+
+1. **Extract Findings**: Parse all issues by severity
+2. **Create TodoWrite Task List**: Convert findings to actionable todos
+3. **Execute Fixes**: Process each todo systematically
+4. **Update Task Files**: Apply modifications directly to task JSON files
+5. **Update IMPL_PLAN**: Apply strategic changes if needed
+
+At end of report, provide remediation guidance:
 
 ```markdown
-### 🔧 Remediation Options
+### 🔧 Remediation Workflow
 
-**Recommended Workflow**:
-1. **TodoWrite Tracking**: Create task list for all fixes
-2. **Agent-Based Fixes**: Call action-planning-agent to regenerate task files
-3. **User Confirmation**: Wait for approval before executing fixes
+**Recommended Approach**:
+1. **Initialize TodoWrite**: Create comprehensive task list from all findings
+2. **Process by Severity**: Start with CRITICAL, then HIGH, MEDIUM, LOW
+3. **Apply Fixes Directly**: Modify task.json files and IMPL_PLAN.md as needed
+4. **Track Progress**: Mark todos as completed after each fix
 
-**Note**: All fixes require explicit user confirmation.
+**TodoWrite Execution Pattern**:
+```bash
+# Step 1: Create task list from verification report
+TodoWrite([
+  { content: "Fix FR-03 coverage gap - add authentication task", status: "pending", activeForm: "Fixing FR-03 coverage gap" },
+  { content: "Fix IMPL-1.2 consistency - align with ADR-02", status: "pending", activeForm: "Fixing IMPL-1.2 consistency" },
+  { content: "Add context.artifacts to IMPL-1.2", status: "pending", activeForm: "Adding context.artifacts to IMPL-1.2" },
+  # ... additional todos for each finding
+])
+
+# Step 2: Process each todo systematically
+# Mark as in_progress when starting
+# Apply fix using Read/Edit tools
+# Mark as completed when done
+# Move to next priority item
+```
+
+**File Modification Workflow**:
+```bash
+# For task JSON modifications:
+1. Read(.workflow/WFS-{session}/.task/IMPL-X.Y.json)
+2. Edit() to apply fixes
+3. Mark todo as completed
+
+# For IMPL_PLAN modifications:
+1. Read(.workflow/WFS-{session}/IMPL_PLAN.md)
+2. Edit() to apply strategic changes
+3. Mark todo as completed
+```
+
+**Note**: All fixes execute immediately after user confirmation without additional commands.
