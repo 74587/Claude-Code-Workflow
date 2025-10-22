@@ -9,9 +9,10 @@ argument-hint: "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--c
 ## Overview
 Lightweight planner that analyzes project structure, decomposes documentation work into tasks, and generates execution plans. Does NOT generate documentation content itself - delegates to doc-generator agent.
 
-**Documentation Output**: All generated documentation is placed in `.workflow/docs/` directory with **mirrored project structure**. For example:
-- Source: `src/modules/auth/index.ts` → Docs: `.workflow/docs/src/modules/auth/API.md`
-- Source: `lib/core/utils.js` → Docs: `.workflow/docs/lib/core/README.md`
+**Documentation Output**: All generated documentation is placed in `.workflow/docs/{project_name}/` directory with **mirrored project structure**. For example:
+- Project: `my_app`
+- Source: `my_app/src/core/` → Docs: `.workflow/docs/my_app/src/core/API.md`
+- Source: `my_app/src/modules/auth/` → Docs: `.workflow/docs/my_app/src/modules/auth/API.md`
 
 **Two Execution Modes**:
 - **Default**: CLI analyzes in `pre_analysis` (MODE=analysis), agent writes docs in `implementation_approach`
@@ -19,14 +20,13 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 
 ## Path Mirroring Strategy
 
-**Principle**: Documentation structure **mirrors** source code structure.
+**Principle**: Documentation structure **mirrors** source code structure under project-specific directory.
 
-| Source Path | Documentation Path |
-|------------|-------------------|
-| `src/modules/auth/index.ts` | `.workflow/docs/src/modules/auth/API.md` |
-| `src/modules/auth/middleware/` | `.workflow/docs/src/modules/auth/middleware/README.md` |
-| `lib/core/utils.js` | `.workflow/docs/lib/core/API.md` |
-| `lib/core/helpers/` | `.workflow/docs/lib/core/helpers/README.md` |
+| Source Path | Project Name | Documentation Path |
+|------------|--------------|-------------------|
+| `my_app/src/core/` | `my_app` | `.workflow/docs/my_app/src/core/API.md` |
+| `my_app/src/modules/auth/` | `my_app` | `.workflow/docs/my_app/src/modules/auth/API.md` |
+| `another_project/lib/utils/` | `another_project` | `.workflow/docs/another_project/lib/utils/API.md` |
 
 **Benefits**:
 - Easy to locate documentation for any source file
@@ -92,6 +92,9 @@ bash(
     target_path=$(cd "$path" 2>/dev/null && pwd || echo "$PWD/$path")
   fi
 
+  # Extract project name from target_path
+  project_name=$(basename "$target_path")
+
   # Create session
   timestamp=$(date +%Y%m%d-%H%M%S)
   session="WFS-docs-${timestamp}"
@@ -106,6 +109,7 @@ bash(
   "path": "${path}",
   "target_path": "${target_path}",
   "project_root": "${project_root}",
+  "project_name": "${project_name}",
   "mode": "${mode}",
   "tool": "${tool}",
   "cli_generate": ${cli_generate}
@@ -191,41 +195,48 @@ bash(jq '. + {analysis: {total: "15", code: "8", navigation: "7", top_level: "3"
 
 ### Phase 3: Detect Update Mode
 
-#### Step 1: Count Existing Documentation in .workflow/docs/
+#### Step 1: Count Existing Documentation in .workflow/docs/{project_name}/
 ```bash
-# Check .workflow/docs/ directory and count existing files
-bash(if [[ -d ".workflow/docs" ]]; then
-  find .workflow/docs -name "*.md" 2>/dev/null | wc -l
-else
-  echo "0"
-fi)
+# Check .workflow/docs/{project_name}/ directory and count existing files
+bash(
+  project_name=$(jq -r '.project_name' .workflow/WFS-docs-20240120/.process/config.json)
+  if [[ -d ".workflow/docs/${project_name}" ]]; then
+    find .workflow/docs/${project_name} -name "*.md" 2>/dev/null | wc -l
+  else
+    echo "0"
+  fi
+)
 ```
 
-**Output**: `5` (existing docs in .workflow/docs/)
+**Output**: `5` (existing docs in .workflow/docs/{project_name}/)
 
 #### Step 2: List Existing Documentation
 ```bash
-# List existing files in .workflow/docs/ (for task context)
-bash(if [[ -d ".workflow/docs" ]]; then
-  find .workflow/docs -name "*.md" 2>/dev/null > .workflow/WFS-docs-20240120/.process/existing-docs.txt
-else
-  touch .workflow/WFS-docs-20240120/.process/existing-docs.txt
-fi)
+# List existing files in .workflow/docs/{project_name}/ (for task context)
+bash(
+  project_name=$(jq -r '.project_name' .workflow/WFS-docs-20240120/.process/config.json)
+  if [[ -d ".workflow/docs/${project_name}" ]]; then
+    find .workflow/docs/${project_name} -name "*.md" 2>/dev/null > .workflow/WFS-docs-20240120/.process/existing-docs.txt
+  else
+    touch .workflow/WFS-docs-20240120/.process/existing-docs.txt
+  fi
+)
 ```
 
 **Output** (existing-docs.txt):
 ```
-.workflow/docs/src/modules/auth/API.md
-.workflow/docs/src/modules/auth/README.md
-.workflow/docs/lib/core/README.md
-.workflow/docs/README.md
+.workflow/docs/my_app/src/modules/auth/API.md
+.workflow/docs/my_app/src/modules/auth/README.md
+.workflow/docs/my_app/lib/core/README.md
+.workflow/docs/my_app/README.md
 ```
 
 #### Step 3: Update Config with Update Status
 ```bash
 # Determine update status (create or update) and update config
 bash(
-  existing_count=$(find .workflow/docs -name "*.md" 2>/dev/null | wc -l)
+  project_name=$(jq -r '.project_name' .workflow/WFS-docs-20240120/.process/config.json)
+  existing_count=$(find .workflow/docs/${project_name} -name "*.md" 2>/dev/null | wc -l)
   if [[ $existing_count -gt 0 ]]; then
     jq ". + {update_mode: \"update\", existing_docs: $existing_count}" .workflow/WFS-docs-20240120/.process/config.json > .workflow/WFS-docs-20240120/.process/config.json.tmp && mv .workflow/WFS-docs-20240120/.process/config.json.tmp .workflow/WFS-docs-20240120/.process/config.json
   else
@@ -362,7 +373,10 @@ bash(
 
 ### Level 1: Module Tree Task
 
-**Path Mapping**: Source `src/modules/` → Output `.workflow/docs/src/modules/`
+**Path Mapping**:
+- Project: `{project_name}` (extracted from target_path)
+- Source: `{project_name}/src/modules/`
+- Output: `.workflow/docs/{project_name}/src/modules/`
 
 **Default Mode (cli_generate=false)**:
 ```json
@@ -376,12 +390,12 @@ bash(
     "tool": "gemini",
     "cli_generate": false,
     "source_path": "src/modules",
-    "output_path": ".workflow/docs/src/modules"
+    "output_path": ".workflow/docs/${project_name}/src/modules"
   },
   "context": {
     "requirements": [
       "Analyze source code in src/modules/",
-      "Generate docs to .workflow/docs/src/modules/ (mirrored structure)",
+      "Generate docs to .workflow/docs/${project_name}/src/modules/ (mirrored structure)",
       "For code folders: generate API.md + README.md",
       "For navigation folders: generate README.md only"
     ],
@@ -392,7 +406,7 @@ bash(
     "pre_analysis": [
       {
         "step": "load_existing_docs",
-        "command": "bash(find .workflow/docs/${top_dir} -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
+        "command": "bash(find .workflow/docs/${project_name}/${top_dir} -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
         "output_to": "existing_module_docs"
       },
       {
@@ -415,7 +429,7 @@ bash(
         "modification_points": [
           "Parse folder types from [target_folders]",
           "Parse structure from [tree_outline]",
-          "For src/modules/auth/ → write to .workflow/docs/src/modules/auth/",
+          "For src/modules/auth/ → write to .workflow/docs/${project_name}/src/modules/auth/",
           "Generate API.md for code folders",
           "Generate README.md for all folders"
         ],
@@ -423,7 +437,7 @@ bash(
           "Parse [target_folders] to get folder types",
           "Parse [tree_outline] for structure",
           "For each folder in source:",
-          "  - Map source_path to .workflow/docs/{source_path}",
+          "  - Map source_path to .workflow/docs/${project_name}/{source_path}",
           "  - If type == 'code': Generate API.md + README.md",
           "  - Elif type == 'navigation': Generate README.md only"
         ],
@@ -432,8 +446,8 @@ bash(
       }
     ],
     "target_files": [
-      ".workflow/docs/${top_dir}/*/API.md",
-      ".workflow/docs/${top_dir}/*/README.md"
+      ".workflow/docs/${project_name}/${top_dir}/*/API.md",
+      ".workflow/docs/${project_name}/${top_dir}/*/README.md"
     ]
   }
 }
@@ -451,12 +465,12 @@ bash(
     "tool": "gemini",
     "cli_generate": true,
     "source_path": "src/modules",
-    "output_path": ".workflow/docs/src/modules"
+    "output_path": ".workflow/docs/${project_name}/src/modules"
   },
   "context": {
     "requirements": [
       "Analyze source code in src/modules/",
-      "Generate docs to .workflow/docs/src/modules/ (mirrored structure)",
+      "Generate docs to .workflow/docs/${project_name}/src/modules/ (mirrored structure)",
       "CLI generates documentation files directly"
     ],
     "focus_paths": ["src/modules"]
@@ -465,7 +479,7 @@ bash(
     "pre_analysis": [
       {
         "step": "load_existing_docs",
-        "command": "bash(find .workflow/docs/${top_dir} -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
+        "command": "bash(find .workflow/docs/${project_name}/${top_dir} -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
         "output_to": "existing_module_docs"
       },
       {
@@ -490,22 +504,22 @@ bash(
         "description": "Call CLI to generate docs to .workflow/docs/ with mirrored structure using MODE=write",
         "modification_points": [
           "Execute CLI generation command",
-          "Generate files to .workflow/docs/src/modules/ (mirrored path)",
+          "Generate files to .workflow/docs/${project_name}/src/modules/ (mirrored path)",
           "Generate API.md and README.md files"
         ],
         "logic_flow": [
           "CLI analyzes source code in src/modules/",
-          "CLI writes documentation to .workflow/docs/src/modules/",
+          "CLI writes documentation to .workflow/docs/${project_name}/src/modules/",
           "Maintains directory structure mirroring"
         ],
-        "command": "bash(cd src/modules && gemini --approval-mode yolo \"PURPOSE: Generate module docs\\nTASK: Create documentation files in .workflow/docs/src/modules/\\nMODE: write\\nCONTEXT: @**/* [target_folders] [existing_module_docs]\\nEXPECTED: API.md and README.md in .workflow/docs/src/modules/\\nRULES: Mirror source structure, generate complete docs\")",
+        "command": "bash(cd src/modules && gemini --approval-mode yolo \"PURPOSE: Generate module docs\\nTASK: Create documentation files in .workflow/docs/${project_name}/src/modules/\\nMODE: write\\nCONTEXT: @**/* [target_folders] [existing_module_docs]\\nEXPECTED: API.md and README.md in .workflow/docs/${project_name}/src/modules/\\nRULES: Mirror source structure, generate complete docs\")",
         "depends_on": [1],
         "output": "generated_docs"
       }
     ],
     "target_files": [
-      ".workflow/docs/${top_dir}/*/API.md",
-      ".workflow/docs/${top_dir}/*/README.md"
+      ".workflow/docs/${project_name}/${top_dir}/*/API.md",
+      ".workflow/docs/${project_name}/${top_dir}/*/README.md"
     ]
   }
 }
@@ -530,12 +544,12 @@ bash(
     "pre_analysis": [
       {
         "step": "load_existing_readme",
-        "command": "bash(cat .workflow/docs/README.md 2>/dev/null || echo 'No existing README')",
+        "command": "bash(cat .workflow/docs/${project_name}/README.md 2>/dev/null || echo 'No existing README')",
         "output_to": "existing_readme"
       },
       {
         "step": "load_module_docs",
-        "command": "bash(find .workflow/docs -type f -name '*.md' ! -path '.workflow/docs/README.md' ! -path '.workflow/docs/ARCHITECTURE.md' ! -path '.workflow/docs/EXAMPLES.md' ! -path '.workflow/docs/api/*' | xargs cat)",
+        "command": "bash(find .workflow/docs/${project_name} -type f -name '*.md' ! -path '.workflow/docs/${project_name}/README.md' ! -path '.workflow/docs/${project_name}/ARCHITECTURE.md' ! -path '.workflow/docs/${project_name}/EXAMPLES.md' ! -path '.workflow/docs/${project_name}/api/*' | xargs cat)",
         "output_to": "all_module_docs",
         "note": "Load all module docs from mirrored structure"
       },
@@ -556,7 +570,7 @@ bash(
         "output": "project_readme"
       }
     ],
-    "target_files": [".workflow/docs/README.md"]
+    "target_files": [".workflow/docs/${project_name}/README.md"]
   }
 }
 ```
@@ -580,12 +594,12 @@ bash(
     "pre_analysis": [
       {
         "step": "load_existing_docs",
-        "command": "bash(cat .workflow/docs/ARCHITECTURE.md 2>/dev/null || echo 'No existing ARCHITECTURE'; echo '---SEPARATOR---'; cat .workflow/docs/EXAMPLES.md 2>/dev/null || echo 'No existing EXAMPLES')",
+        "command": "bash(cat .workflow/docs/${project_name}/ARCHITECTURE.md 2>/dev/null || echo 'No existing ARCHITECTURE'; echo '---SEPARATOR---'; cat .workflow/docs/${project_name}/EXAMPLES.md 2>/dev/null || echo 'No existing EXAMPLES')",
         "output_to": "existing_arch_examples"
       },
       {
         "step": "load_all_docs",
-        "command": "bash(cat .workflow/docs/README.md && find .workflow/docs -type f -name '*.md' ! -path '.workflow/docs/README.md' ! -path '.workflow/docs/ARCHITECTURE.md' ! -path '.workflow/docs/EXAMPLES.md' ! -path '.workflow/docs/api/*' | xargs cat)",
+        "command": "bash(cat .workflow/docs/${project_name}/README.md && find .workflow/docs/${project_name} -type f -name '*.md' ! -path '.workflow/docs/${project_name}/README.md' ! -path '.workflow/docs/${project_name}/ARCHITECTURE.md' ! -path '.workflow/docs/${project_name}/EXAMPLES.md' ! -path '.workflow/docs/${project_name}/api/*' | xargs cat)",
         "output_to": "all_docs",
         "note": "Load README + all module docs from mirrored structure"
       },
@@ -617,8 +631,8 @@ bash(
       }
     ],
     "target_files": [
-      ".workflow/docs/ARCHITECTURE.md",
-      ".workflow/docs/EXAMPLES.md"
+      ".workflow/docs/${project_name}/ARCHITECTURE.md",
+      ".workflow/docs/${project_name}/EXAMPLES.md"
     ]
   }
 }
@@ -648,7 +662,7 @@ bash(
       },
       {
         "step": "load_existing_api_docs",
-        "command": "bash(cat .workflow/docs/api/README.md 2>/dev/null || echo 'No existing API docs')",
+        "command": "bash(cat .workflow/docs/${project_name}/api/README.md 2>/dev/null || echo 'No existing API docs')",
         "output_to": "existing_api_docs"
       },
       {
@@ -668,7 +682,7 @@ bash(
         "output": "api_docs"
       }
     ],
-    "target_files": [".workflow/docs/api/README.md"]
+    "target_files": [".workflow/docs/${project_name}/api/README.md"]
   }
 }
 ```
@@ -701,8 +715,9 @@ bash(
   "session_id": "WFS-docs-20240120-143022",
   "timestamp": "2024-01-20T14:30:22+08:00",
   "path": ".",
-  "target_path": "/d/Claude_dms3",
-  "project_root": "/d/Claude_dms3",
+  "target_path": "/home/user/projects/my_app",
+  "project_root": "/home/user/projects",
+  "project_name": "my_app",
   "mode": "full",
   "tool": "gemini",
   "cli_generate": false,
@@ -719,33 +734,34 @@ bash(
 
 ## Generated Documentation
 
-**Structure mirrors project source directories**:
+**Structure mirrors project source directories under project-specific folder**:
 
 ```
 .workflow/docs/
-├── src/                               # Mirrors src/ directory
-│   ├── modules/                       # Level 1 output
-│   │   ├── README.md                  # Navigation for src/modules/
-│   │   ├── auth/
-│   │   │   ├── API.md                 # Auth module API signatures
-│   │   │   ├── README.md              # Auth module documentation
-│   │   │   └── middleware/
-│   │   │       ├── API.md             # Middleware API
-│   │   │       └── README.md          # Middleware docs
-│   │   └── api/
-│   │       ├── API.md                 # API module signatures
-│   │       └── README.md              # API module docs
-│   └── utils/                         # Level 1 output
-│       └── README.md                  # Utils navigation
-├── lib/                               # Mirrors lib/ directory
-│   └── core/
-│       ├── API.md
-│       └── README.md
-├── README.md                          # Level 2 output (root only)
-├── ARCHITECTURE.md                    # Level 3 output (root only)
-├── EXAMPLES.md                        # Level 3 output (root only)
-└── api/                               # Level 3 output (optional)
-    └── README.md                      # HTTP API reference
+└── {project_name}/                    # Project-specific root (e.g., my_app/)
+    ├── src/                           # Mirrors src/ directory
+    │   ├── modules/                   # Level 1 output
+    │   │   ├── README.md              # Navigation for src/modules/
+    │   │   ├── auth/
+    │   │   │   ├── API.md             # Auth module API signatures
+    │   │   │   ├── README.md          # Auth module documentation
+    │   │   │   └── middleware/
+    │   │   │       ├── API.md         # Middleware API
+    │   │   │       └── README.md      # Middleware docs
+    │   │   └── api/
+    │   │       ├── API.md             # API module signatures
+    │   │       └── README.md          # API module docs
+    │   └── utils/                     # Level 1 output
+    │       └── README.md              # Utils navigation
+    ├── lib/                           # Mirrors lib/ directory
+    │   └── core/
+    │       ├── API.md
+    │       └── README.md
+    ├── README.md                      # Level 2 output (project root only)
+    ├── ARCHITECTURE.md                # Level 3 output (project root only)
+    ├── EXAMPLES.md                    # Level 3 output (project root only)
+    └── api/                           # Level 3 output (optional)
+        └── README.md                  # HTTP API reference
 ```
 
 ## Execution Commands
@@ -792,11 +808,11 @@ bash(ls .workflow/WFS-docs-20240120/.task/*.json)
 # Discover and classify folders (scans project source)
 bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-folders.sh)
 
-# Count existing docs (in .workflow/docs/ directory)
-bash(if [[ -d ".workflow/docs" ]]; then find .workflow/docs -name "*.md" 2>/dev/null | wc -l; else echo "0"; fi)
+# Count existing docs (in .workflow/docs/{project_name}/ directory)
+bash(if [[ -d ".workflow/docs/${project_name}" ]]; then find .workflow/docs/${project_name} -name "*.md" 2>/dev/null | wc -l; else echo "0"; fi)
 
-# List existing documentation (in .workflow/docs/ directory)
-bash(if [[ -d ".workflow/docs" ]]; then find .workflow/docs -name "*.md" 2>/dev/null; fi)
+# List existing documentation (in .workflow/docs/{project_name}/ directory)
+bash(if [[ -d ".workflow/docs/${project_name}" ]]; then find .workflow/docs/${project_name} -name "*.md" 2>/dev/null; fi)
 ```
 
 ## Template Reference
