@@ -153,6 +153,10 @@ Update Plan:
   - Layer 3 (depth ≥3): @**/* (all files)
   - Layer 2 (depth 1-2): @*/CLAUDE.md + current code files
   - Layer 1 (depth 0): @*/CLAUDE.md + current code files
+  
+  Auto-skipped: ./tests, __pycache__, setup.py (15 paths)
+  Execution order: Layer 2 → Layer 1
+  Estimated time: ~5-10 minutes
 
   Agent allocation (by LAYER):
   - Layer 3 (14 modules, depth ≥3): 4 agents [4, 4, 4, 2]
