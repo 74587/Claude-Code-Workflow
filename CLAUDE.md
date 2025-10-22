@@ -72,6 +72,7 @@ For all CLI tool usage, command syntax, and integration guidelines:
 ## Platform-Specific Guidelines
 
 ### Windows Path Format Guidelines
+- always use complete absolute Windows paths with drive letters and backslashes for ALL file operations
 - **MCP Tools**: Use double backslash `D:\\path\\file.txt` (MCP doesn't support POSIX `/d/path`)
 - **Bash Commands**: Use forward slash `D:/path/file.txt` or POSIX `/d/path/file.txt`
 - **Relative Paths**: No conversion needed `./src`, `../config`

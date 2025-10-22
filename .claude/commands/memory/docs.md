@@ -364,7 +364,8 @@ bash(
   if [[ "$tool" == "codex" ]]; then
     echo "codex -C \${dir} --full-auto exec \"...\" --skip-git-repo-check -s danger-full-access"
   else
-    echo "bash(cd \${dir} && ~/.claude/scripts/${tool}-wrapper ${approval_flag} -p \"...\")"
+    echo "bash(cd \${dir} && ${tool} ${approval_flag} -p \"...\")"
+    # Direct CLI commands for gemini/qwen
   fi
 )
 ```

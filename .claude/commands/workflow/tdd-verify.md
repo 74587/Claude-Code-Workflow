@@ -237,7 +237,7 @@ Final Score: Max(0, Base Score - Deductions)
 
 ### Command Chain
 - **Called After**: `/workflow:execute` (when TDD tasks completed)
-- **Calls**: `/workflow:tools:tdd-coverage-analysis`, Gemini wrapper
+- **Calls**: `/workflow:tools:tdd-coverage-analysis`, Gemini CLI
 - **Related**: `/workflow:tdd-plan`, `/workflow:status`
 
 ### Basic Usage

@@ -250,7 +250,7 @@ TOOLS (try in order): {{tool_1}}, {{tool_2}}, {{tool_3}}
 
 EXECUTION SCRIPT: ~/.claude/scripts/update_module_claude.sh
   - Accepts strategy parameter: multi-layer | single-layer
-  - Tool execution via CLI wrapper (gemini/qwen/codex)
+  - Tool execution via direct CLI commands (gemini/qwen/codex)
 
 EXECUTION FLOW (for each module):
   1. Tool fallback loop (exit on first success):

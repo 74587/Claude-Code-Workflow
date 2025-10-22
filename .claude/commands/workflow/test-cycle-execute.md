@@ -219,7 +219,7 @@ Iteration N (managed by test-cycle-execute orchestrator):
 #### When Test Failures Occur
 1. **[Orchestrator]** Detects failures from agent output
 2. **[Orchestrator]** Collects failure context from `.process/test-results.json` and logs
-3. **[Orchestrator]** Runs Gemini/Qwen wrapper with failure context
+3. **[Orchestrator]** Runs Gemini/Qwen CLI with failure context
 4. **[CLI Tool]** Analyzes failures and generates fix strategy
 5. **[Orchestrator]** Saves analysis to `.process/iteration-N-analysis.md`
 6. **[Orchestrator]** Generates `IMPL-fix-N.json` with strategy content (not just path)

@@ -452,7 +452,7 @@ Update workflow-session.json with TDD metadata:
 
 ### Command Chain
 - **Called By**: `/workflow:tdd-plan` (Phase 4)
-- **Calls**: Gemini wrapper for TDD breakdown
+- **Calls**: Gemini CLI for TDD breakdown
 - **Followed By**: `/workflow:execute`, `/workflow:tdd-verify`
 
 ### Basic Usage

@@ -172,9 +172,17 @@ score = 0
 "analyze" → "Code understanding and pattern identification"
 ```
 
+
 **2. Context Assembly**:
 ```bash
+# Default: comprehensive context
+CONTEXT: @**/*
+
+# Or specific patterns
 CONTEXT: @CLAUDE.md @{discovered_file1} @{discovered_file2} ...
+
+# Cross-directory references (requires --include-directories)
+CONTEXT: @**/* @../shared/**/* @../types/**/*
 
 ## Discovered Context
 - **Project Structure**: {module_summary}
@@ -187,12 +195,26 @@ CONTEXT: @CLAUDE.md @{discovered_file1} @{discovered_file2} ...
 {optional_best_practices_from_exa}
 ```
 
+**Context Pattern Guidelines**:
+- **Default**: Use `@**/*` for comprehensive context
+- **Specific files**: `@src/**/*` or `@*.ts @*.tsx`
+- **With docs**: `@CLAUDE.md @**/*CLAUDE.md`
+- **Cross-directory**: Must use `--include-directories` parameter (see Command Construction)
+
 **3. Template Selection**:
 ```
 intent=analyze → ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt
 intent=execute + complex → ~/.claude/workflows/cli-templates/prompts/development/feature.txt
 intent=plan → ~/.claude/workflows/cli-templates/prompts/planning/task-breakdown.txt
 ```
+
+**3a. RULES Field Guidelines**:
+
+When using `$(cat ...)` for template loading:
+- **Template reference only**: Use `$(cat ...)` directly, do NOT read template content first
+- **NEVER use escape characters**: `\$`, `\"`, `\'` will break command substitution
+- **Correct**: `RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)`
+- **Wrong**: `RULES: \$(cat ...)` or `RULES: $(cat \"...\")`
 
 **4. Structured Prompt**:
 ```bash
@@ -234,35 +256,90 @@ ELSE IF intent = 'discuss':
 # User --tool flag overrides auto-selection
 ```
 
+### Model Selection
+
+**Gemini Models**:
+- `gemini-2.5-pro` - Analysis tasks (default)
+- `gemini-2.5-flash` - Documentation updates
+
+**Qwen Models**:
+- `coder-model` - Code analysis (default, -m optional)
+- `vision-model` - Image analysis (rare usage)
+
+**Codex Models**:
+- `gpt-5` - Analysis & execution (default)
+- `gpt5-codex` - Large context tasks
+
+**Parameter Position**: `-m` must be placed AFTER prompt string
+
 ### Command Construction
 
 **Gemini/Qwen (Analysis Mode)**:
 ```bash
-cd {directory} && ~/.claude/scripts/{tool}-wrapper -p "
+# Use 'gemini' (primary) or 'qwen' (fallback)
+cd {directory} && gemini -p "
 {enhanced_prompt}
 "
+
+# With model selection (NOTE: -m placed AFTER prompt)
+cd {directory} && gemini -p "{enhanced_prompt}" -m gemini-2.5-pro
+cd {directory} && qwen -p "{enhanced_prompt}"  # coder-model default
 ```
 
 **Gemini/Qwen (Write Mode)**:
 ```bash
-cd {directory} && ~/.claude/scripts/{tool}-wrapper --approval-mode yolo -p "
+# NOTE: --approval-mode yolo must be placed AFTER the prompt
+cd {directory} && gemini -p "
 {enhanced_prompt}
-"
+" -m gemini-2.5-flash --approval-mode yolo
+
+# Fallback to Qwen
+cd {directory} && qwen -p "{enhanced_prompt}" --approval-mode yolo
 ```
 
 **Codex (Auto Mode)**:
 ```bash
+# NOTE: -m, --skip-git-repo-check and -s danger-full-access must be placed at command END
 codex -C {directory} --full-auto exec "
 {enhanced_prompt}
-" --skip-git-repo-check -s danger-full-access
+" -m gpt-5 --skip-git-repo-check -s danger-full-access
 ```
 
 **Codex (Resume for Related Tasks)**:
 ```bash
+# Parameter Position: resume --last must be placed AFTER prompt at command END
 codex --full-auto exec "
 {continuation_prompt}
 " resume --last --skip-git-repo-check -s danger-full-access
 ```
+
+**Cross-Directory Context (Gemini/Qwen)**:
+```bash
+# When CONTEXT references external directories, use --include-directories
+# TWO-STEP REQUIREMENT: 
+# Step 1: Reference in CONTEXT (@../shared/**/*) 
+# Step 2: Add --include-directories parameter
+cd src/auth && gemini -p "
+PURPOSE: {goal}
+CONTEXT: @**/* @../shared/**/* @../types/**/*
+...
+" --include-directories ../shared,../types
+```
+
+### Directory Scope Rules
+
+**Once `cd` to a directory**:
+- **@ references ONLY apply to current directory and its subdirectories**
+- `@**/*` = All files within current directory tree
+- `@*.ts` = TypeScript files in current directory tree
+- `@src/**/*` = Files within src subdirectory (if exists)
+- **CANNOT reference parent or sibling directories via @ alone**
+
+**To reference files outside current directory**:
+- **Step 1**: Add `--include-directories` parameter
+- **Step 2**: Explicitly reference in CONTEXT field with @ patterns
+- **⚠️ BOTH steps are MANDATORY**
+- **Rule**: If CONTEXT contains `@../dir/**/*`, command MUST include `--include-directories ../dir`
 
 ### Timeout Configuration
 

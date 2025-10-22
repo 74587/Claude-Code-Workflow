@@ -136,7 +136,7 @@ Task(
 Execute Gemini/Qwen CLI for deep analysis (saves main thread tokens):
 
 \`\`\`bash
-cd . && ~/.claude/scripts/${tool}-wrapper -p "
+cd . && ${tool} -p "
 PURPOSE: Extract project core context for task: ${task_description}
 TASK: Analyze project architecture, tech stack, key patterns, relevant files
 MODE: analysis
