@@ -188,23 +188,26 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
     "shared_context": {"tech_stack": [], "conventions": []},
     "artifacts": [
       {
-        "type": "synthesis_specification",
-        "source": "brainstorm_synthesis",
         "path": ".workflow/WFS-[session]/.brainstorming/synthesis-specification.md",
         "priority": "highest",
         "usage": "Primary requirement source - use for consolidated requirements and cross-role alignment"
       },
       {
-        "type": "role_analysis",
-        "source": "brainstorm_roles",
-        "path": ".workflow/WFS-[session]/.brainstorming/[role-name]/analysis.md",
-        "priority": "high",
-        "usage": "Technical/design/business details from specific roles. Common roles: system-architect (ADRs, APIs, caching), ui-designer (design tokens, layouts), product-manager (user stories, metrics)",
-        "note": "Dynamically discovered - multiple role analysis files may be included based on brainstorming results"
+        "path": ".workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md",
+        "priority": "critical",
+        "usage": "Technical analysis and optimization strategies from planning phase. Use for: risk mitigation, performance optimization, architecture review, implementation patterns"
       },
       {
-        "type": "topic_framework",
-        "source": "brainstorm_framework",
+        "path": ".workflow/WFS-[session]/.process/context-package.json",
+        "priority": "critical",
+        "usage": "Smart context with focus paths, module structure, dependency graph, existing patterns. Use for: environment setup, dependency resolution, pattern discovery"
+      },
+      {
+        "path": ".workflow/WFS-[session]/.brainstorming/[role-name]/analysis.md",
+        "priority": "high",
+        "usage": "Technical/design/business details from specific roles. Common roles: system-architect (ADRs, APIs, caching), ui-designer (design tokens, layouts), product-manager (user stories, metrics)"
+      },
+      {
         "path": ".workflow/WFS-[session]/.brainstorming/topic-framework.md",
         "priority": "low",
         "usage": "Discussion context and framework structure"
@@ -238,12 +241,18 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
       },
       {
         "step": "load_planning_context",
-        "action": "Load plan-generated analysis",
+        "action": "Load plan-generated analysis and context intelligence",
+        "note": "CRITICAL: ANALYSIS_RESULTS.md provides technical guidance (optimization, risk mitigation, architecture review). context-package.json provides smart context (focus paths, dependencies, patterns).",
         "commands": [
           "Read(.workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md)",
           "Read(.workflow/WFS-[session]/.process/context-package.json)"
         ],
-        "output_to": "planning_context"
+        "output_to": "planning_context",
+        "on_error": "fail",
+        "usage_guidance": {
+          "ANALYSIS_RESULTS.md": "Reference for technical decisions, risk mitigation strategies, optimization patterns, architecture review insights from Gemini/Qwen/Codex parallel analysis",
+          "context-package.json": "Use for focus_paths validation, dependency resolution, existing pattern discovery, module structure understanding"
+        }
       },
       {
         "step": "mcp_codebase_exploration",
@@ -266,19 +275,24 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
       {
         "step": 1,
         "title": "Implement task following synthesis specification",
-        "description": "Implement '[title]' following synthesis specification. PRIORITY: Use synthesis-specification.md as primary requirement source. When implementation needs technical details (e.g., API schemas, caching configs, design tokens), refer to artifacts[] for detailed specifications from original role analyses.",
+        "description": "Implement '[title]' following this priority: 1) synthesis-specification.md (primary requirements), 2) ANALYSIS_RESULTS.md (technical guidance and risk mitigation from planning phase), 3) context-package.json (smart context and patterns), 4) role artifacts (detailed specs). Consult ANALYSIS_RESULTS.md for optimization strategies, performance considerations, and architecture review insights before implementation.",
         "modification_points": [
           "Apply consolidated requirements from synthesis-specification.md",
-          "Follow technical guidelines from synthesis",
-          "Consult artifacts for implementation details when needed",
+          "Follow technical guidelines from ANALYSIS_RESULTS.md",
+          "Use context-package.json for focus paths and dependency resolution",
+          "Consult role artifacts for implementation details when needed",
           "Integrate with existing patterns"
         ],
         "logic_flow": [
-          "Load synthesis specification",
-          "Extract requirements and design",
-          "Analyze existing patterns",
-          "Implement following specification",
-          "Consult artifacts for technical details when needed",
+          "Load synthesis specification (requirements baseline)",
+          "Load ANALYSIS_RESULTS.md (technical guidance and risk mitigation strategies)",
+          "Load context-package.json (smart context: focus paths, dependencies, existing patterns)",
+          "Extract requirements and design decisions",
+          "Review technical analysis and optimization strategies from ANALYSIS_RESULTS.md",
+          "Identify modification targets using context package",
+          "Implement following specification and technical guidance",
+          "Apply optimization patterns from ANALYSIS_RESULTS.md",
+          "Consult role artifacts for detailed specifications when needed",
           "Validate against acceptance criteria"
         ],
         "depends_on": [],
@@ -566,9 +580,11 @@ The command organizes outputs into a standard directory structure.
 The command intelligently detects and integrates artifacts from the `.brainstorming/` directory.
 
 #### Artifact Priority
-1.  **synthesis-specification.md** (highest): The complete, integrated specification that serves as the primary source of truth.
-2.  **topic-framework.md** (medium): The discussion framework that provides high-level structure.
-3.  **role/analysis.md** (low): Individual role-based analyses that offer detailed, perspective-specific insights.
+1.  **synthesis-specification.md** (highest): Comprehensive implementation blueprint from brainstorming synthesis
+2.  **ANALYSIS_RESULTS.md** (critical): Technical analysis, risk assessment, and optimization strategies from planning phase (generated by concept-enhanced)
+3.  **context-package.json** (critical): Smart context with focus paths, module structure, and dependency graph from planning phase (generated by context-gather)
+4.  **topic-framework.md** (medium): Discussion framework structure from brainstorming
+5.  **role/analysis.md** (low): Individual role-based analyses for detailed specifications
 
 #### Artifact-Task Mapping
 Artifacts are mapped to tasks based on their relevance to the task's domain.
