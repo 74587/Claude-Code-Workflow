@@ -233,28 +233,54 @@ for (let layer of [3, 2, 1]) {
 
 **Batch Worker Prompt Template**:
 ```
-PURPOSE: Update CLAUDE.md for assigned modules with tool fallback and auto-strategy selection
+PURPOSE: Update CLAUDE.md for assigned modules with tool fallback
 
-TASK: Update documentation for modules with auto-determined strategy based on directory depth.
+TASK: Update documentation for assigned modules using specified strategies.
 
 MODULES:
-{{module_path_1}} (depth: {{depth_1}}, layer: {{layer_1}})
-{{module_path_2}} (depth: {{depth_2}}, layer: {{layer_2}})
+{{module_path_1}} (strategy: {{strategy_1}})
+{{module_path_2}} (strategy: {{strategy_2}})
 ...
 
 TOOLS (try in order): {{tool_1}}, {{tool_2}}, {{tool_3}}
 
-EXECUTION:
-For each module:
-  1. Auto-determine strategy: strategy = (depth >= 3) ? "multi-layer" : "single-layer"
-  2. Try tools in order until success:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "${strategy}" "." "${tool}")
+EXECUTION SCRIPT: ~/.claude/scripts/update_module_claude.sh
+  - Accepts strategy parameter: multi-layer | single-layer
+  - Tool execution via CLI wrapper (gemini/qwen/codex)
 
-CONTEXT SELECTION (automatically handled by script):
-- multi-layer strategy (depth ≥3): @**/* (all files)
-- single-layer strategy (depth 0-2): @*/CLAUDE.md + current code files
+EXECUTION FLOW (for each module):
+  1. Tool fallback loop (exit on first success):
+     for tool in {{tool_1}} {{tool_2}} {{tool_3}}; do
+       bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "{{strategy}}" "." "${tool}")
+       exit_code=$?
+
+       if [ $exit_code -eq 0 ]; then
+         report "✅ {{module_path}} updated with $tool"
+         break
+       else
+         report "⚠️  {{module_path}} failed with $tool, trying next..."
+         continue
+       fi
+     done
+
+  2. Handle complete failure (all tools failed):
+     if [ $exit_code -ne 0 ]; then
+       report "❌ FAILED: {{module_path}} - all tools exhausted"
+       # Continue to next module (do not abort batch)
+     fi
+
+FAILURE HANDLING:
+  - Module-level isolation: One module's failure does not affect others
+  - Exit code detection: Non-zero exit code triggers next tool
+  - Exhaustion reporting: Log modules where all tools failed
+  - Batch continuation: Always process remaining modules
+
+REPORTING FORMAT:
+  Per-module status:
+    ✅ path/to/module updated with {tool}
+    ⚠️  path/to/module failed with {tool}, trying next...
+    ❌ FAILED: path/to/module - all tools exhausted
 ```
-
 ### Phase 4: Safety Verification
 
 ```bash
