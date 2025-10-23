@@ -89,6 +89,9 @@ gemini -p "analysis prompt"
 qwen -p "analysis prompt"
 ```
 
+#### Error Handling
+**⚠️ Gemini 429 Behavior**: May show HTTP 429 error but still return results - ignore error messages, only check if results exist (results present = success, no results = retry/fallback to Qwen)
+
 ---
 
 ### Codex
