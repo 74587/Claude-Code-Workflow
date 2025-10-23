@@ -10,6 +10,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ## Overview
 Orchestrates dynamic test-fix workflow execution through iterative cycles of testing, analysis, and fixing. **Unlike standard execute, this command dynamically generates intermediate tasks** during execution based on test results and CLI analysis, enabling adaptive problem-solving.
 
+**⚠️ CRITICAL - Orchestrator Boundary**:
+- This command is the **ONLY place** where test failures are handled
+- All CLI analysis (Gemini/Qwen), fix task generation (IMPL-fix-N.json), and iteration management happen HERE
+- Agents (@test-fix-agent) only execute single tasks and return results
+- **Do NOT handle test failures in main workflow or other commands** - always delegate to this orchestrator
+
 **Resume Mode**: When called with `--resume-session` flag, skips discovery and continues from interruption point.
 
 ## Core Philosophy
@@ -53,7 +59,7 @@ Orchestrates dynamic test-fix workflow execution through iterative cycles of tes
 
 ## Responsibility Matrix
 
-**Clear division of labor between orchestrator and agents:**
+**⚠️ CRITICAL - Clear division of labor between orchestrator and agents:**
 
 | Responsibility | test-cycle-execute (Orchestrator) | @test-fix-agent (Executor) |
 |----------------|----------------------------|---------------------------|
@@ -62,11 +68,13 @@ Orchestrates dynamic test-fix workflow execution through iterative cycles of tes
 | Generate IMPL-fix-N.json | ✅ Creates task files | ❌ Not involved |
 | Run tests | ❌ Delegates to agent | ✅ Executes test command |
 | Apply fixes | ❌ Delegates to agent | ✅ Modifies code |
-| Detect test failures | ✅ Analyzes agent output | ✅ Reports results |
+| Detect test failures | ✅ Analyzes results and decides next action | ✅ Executes tests and reports outcomes |
 | Add tasks to queue | ✅ Manages queue | ❌ Not involved |
-| Update iteration state | ✅ Maintains state files | ✅ Updates task status |
+| Update iteration state | ✅ Maintains overall iteration state | ✅ Updates individual task status only |
 
 **Key Principle**: Orchestrator manages the "what" and "when"; agents execute the "how".
+
+**⚠️ ENFORCEMENT**: If test failures occur outside this orchestrator, do NOT handle them inline - always call `/workflow:test-cycle-execute` instead.
 
 ## Execution Lifecycle
 
@@ -217,12 +225,14 @@ Iteration N (managed by test-cycle-execute orchestrator):
 **Orchestrator executes CLI analysis between agent tasks:**
 
 #### When Test Failures Occur
-1. **[Orchestrator]** Detects failures from agent output
+1. **[Orchestrator]** Detects failures from agent test execution output
 2. **[Orchestrator]** Collects failure context from `.process/test-results.json` and logs
-3. **[Orchestrator]** Runs Gemini/Qwen CLI with failure context
-4. **[CLI Tool]** Analyzes failures and generates fix strategy
+3. **[Orchestrator]** Executes Gemini/Qwen CLI tool with failure context
+4. **[Orchestrator]** Interprets CLI tool output to extract fix strategy
 5. **[Orchestrator]** Saves analysis to `.process/iteration-N-analysis.md`
 6. **[Orchestrator]** Generates `IMPL-fix-N.json` with strategy content (not just path)
+
+**Note**: The orchestrator executes CLI analysis tools and processes their output. CLI tools provide analysis, orchestrator manages the workflow.
 
 #### CLI Analysis Command (executed by orchestrator)
 ```bash
@@ -516,15 +526,16 @@ Task(subagent_type="{meta.agent}",
      ### For test-fix (IMPL-002):
      - Run test suite: {test_command}
      - Collect results to .process/test-results.json
-     - If failures: Save context, return to orchestrator
+     - Report results to orchestrator (do NOT analyze failures)
+     - Orchestrator will handle failure detection and iteration decisions
      - If success: Mark complete
 
      ### For test-fix-iteration (IMPL-fix-N):
      - Load fix strategy from context.fix_strategy (CONTENT, not path)
      - Apply surgical fixes to identified files
-     - Run tests to verify
-     - If still failures: Save context with new failure data
-     - Update iteration state
+     - Return results to orchestrator
+     - Do NOT run tests independently - orchestrator manages all test execution
+     - Do NOT handle failures - orchestrator analyzes and decides next iteration
 
      ## STEP 4: Implementation Context (From JSON)
      **Requirements**: {context.requirements}

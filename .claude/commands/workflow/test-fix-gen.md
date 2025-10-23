@@ -13,7 +13,11 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 This command creates an independent test-fix workflow session for existing code. It orchestrates a 5-phase process to analyze implementation, generate test requirements, and create executable test generation and fix tasks.
 
-**⚠️ Command Scope**: Prepares test workflow artifacts only. Task execution requires separate commands (`/workflow:test-cycle-execute` or `/workflow:execute`).
+**⚠️ CRITICAL - Command Scope**:
+- **This command ONLY generates task JSON files** (IMPL-001.json, IMPL-002.json)
+- **Does NOT execute tests or apply fixes** - all execution happens in separate orchestrator
+- **Must call `/workflow:test-cycle-execute`** after this command to actually run tests and fixes
+- **Test failure handling happens in test-cycle-execute**, not here
 
 ### Dual-Mode Support
 
@@ -44,12 +48,15 @@ fi
 
 ### Coordinator Role
 
-This command is a **pure orchestrator**:
+This command is a **pure planning coordinator**:
 - Does NOT analyze code directly
 - Does NOT generate tests or documentation
-- ONLY coordinates slash commands in sequence
+- Does NOT execute tests or apply fixes
+- Does NOT handle test failures or iterations
+- ONLY coordinates slash commands to generate task JSON files
 - Parses outputs to pass data between phases
 - Creates independent test workflow session
+- **All execution delegated to `/workflow:test-cycle-execute`**
 
 ---
 
@@ -267,14 +274,20 @@ Review artifacts:
 - Test plan: .workflow/[testSessionId]/IMPL_PLAN.md
 - Task list: .workflow/[testSessionId]/TODO_LIST.md
 
-Next Steps:
-- Review IMPL_PLAN.md
-- Execute: /workflow:test-cycle-execute [testSessionId]
+⚠️ CRITICAL - Next Steps:
+1. Review IMPL_PLAN.md
+2. **MUST execute: /workflow:test-cycle-execute**
+   - This command only generated task JSON files
+   - Test execution and fix iterations happen in test-cycle-execute
+   - Do NOT attempt to run tests or fixes in main workflow
 ```
 
 **TodoWrite**: Mark phase 5 completed
 
-**Note**: Command completes here. Task execution requires separate workflow commands.
+**⚠️ BOUNDARY NOTE**:
+- Command completes here - only task JSON files generated
+- All test execution, failure detection, CLI analysis, fix generation happens in `/workflow:test-cycle-execute`
+- This command does NOT handle test failures or apply fixes
 
 ---
 
@@ -329,7 +342,9 @@ Generates minimum 2 tasks (expandable for complex projects):
 
 **Agent**: `@test-fix-agent`
 
-**Purpose**: Execute tests and apply iterative fixes (max 5 iterations)
+**Purpose**: Execute initial tests and trigger orchestrator-managed fix cycles
+
+**Note**: This task executes tests and reports results. The test-cycle-execute orchestrator manages all fix iterations, CLI analysis, and fix task generation.
 
 **Task Configuration**:
 - Task ID: `IMPL-002`
@@ -340,11 +355,12 @@ Generates minimum 2 tasks (expandable for complex projects):
 - `context.requirements`: Execute and fix tests
 
 **Test-Fix Cycle Specification**:
-- **Cycle Pattern**: test → gemini_diagnose → manual_fix (or codex) → retest
-- **Tools Configuration**:
+**Note**: This specification describes what test-cycle-execute orchestrator will do. The agent only executes single tasks.
+- **Cycle Pattern** (orchestrator-managed): test → gemini_diagnose → manual_fix (or codex) → retest
+- **Tools Configuration** (orchestrator-controlled):
   - Gemini for analysis with bug-fix template → surgical fix suggestions
   - Manual fix application (default) OR Codex if `--use-codex` flag (resume mechanism)
-- **Exit Conditions**:
+- **Exit Conditions** (orchestrator-enforced):
   - Success: All tests pass
   - Failure: Max iterations reached (5)
 
