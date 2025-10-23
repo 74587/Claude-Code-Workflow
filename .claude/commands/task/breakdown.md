@@ -99,7 +99,7 @@ Files updated: .task/IMPL-1.json + 2 subtask files + TODO_LIST.md
 - **Implementation** → `@code-developer`
 - **Testing** → `@code-developer` (type: "test-gen")
 - **Test Validation** → `@test-fix-agent` (type: "test-fix")
-- **Review** → `@general-purpose` (optional)
+- **Review** → `@universal-executor` (optional)
 
 ### Context Inheritance
 - Subtasks inherit parent requirements

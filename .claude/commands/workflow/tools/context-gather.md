@@ -1,6 +1,6 @@
 ---
 name: gather
-description: Intelligently collect project context using general-purpose agent based on task description and package into standardized JSON
+description: Intelligently collect project context using universal-executor agent based on task description and package into standardized JSON
 argument-hint: "--session WFS-session-id \"task description\""
 examples:
   - /workflow:tools:context-gather --session WFS-user-auth "Implement user authentication system"
@@ -14,7 +14,7 @@ examples:
 Agent-driven intelligent context collector that gathers relevant information from project codebase, documentation, and dependencies based on task descriptions, generating standardized context packages.
 
 ## Core Philosophy
-- **Agent-Driven**: Delegate execution to general-purpose agent for autonomous operation
+- **Agent-Driven**: Delegate execution to universal-executor agent for autonomous operation
 - **Two-Phase Flow**: Discovery (context loading) → Execution (context gathering and packaging)
 - **Memory-First**: Reuse loaded documents from conversation memory
 - **MCP-Enhanced**: Use MCP tools for advanced code analysis and file discovery
@@ -62,7 +62,7 @@ Agent-driven intelligent context collector that gathers relevant information fro
 **Agent Invocation**:
 ```javascript
 Task(
-  subagent_type="general-purpose",
+  subagent_type="universal-executor",
   description="Gather project context and generate context package",
   prompt=`
 ## Execution Context

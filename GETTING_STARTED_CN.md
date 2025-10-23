@@ -3,6 +3,8 @@
 
 欢迎来到 Claude Code Workflow (CCW) v4.6.2！本指南将帮助您在 5 分钟内快速入门，体验由 AI 驱动的自动化软件开发流程，以及我们最新的工作流系统优化。
 
+**项目地址**：[catlog22/Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
+
 ---
 
 ## ⏱️ 5 分钟快速入门

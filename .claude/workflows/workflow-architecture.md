@@ -114,7 +114,7 @@ All task files use this unified 5-field schema with optional artifacts enhanceme
 
   "meta": {
     "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
-    "agent": "@code-developer|@action-planning-agent|@test-fix-agent|@general-purpose"
+    "agent": "@code-developer|@action-planning-agent|@test-fix-agent|@universal-executor"
   },
 
   "context": {
@@ -912,7 +912,7 @@ Based on task type and title keywords:
 - **Planning tasks** → @action-planning-agent
 - **Implementation** → @code-developer (code + tests)
 - **Test execution/fixing** → @test-fix-agent
-- **Review** → @general-purpose (optional, only when explicitly requested)
+- **Review** → @universal-executor (optional, only when explicitly requested)
 
 ### Execution Context
 Agents receive complete task JSON plus workflow context:

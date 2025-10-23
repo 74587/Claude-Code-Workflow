@@ -73,17 +73,17 @@ The best way to get started is to follow the 5-minute tutorial in the [**Getting
 
 Here is a quick example of a common development workflow:
 
-1.  **Start a Session**:
-    ```bash
-    /workflow:session:start "Implement user login feature"
-    ```
-2.  **Create a Plan**:
+1.  **Create a Plan** (automatically starts a session):
     ```bash
     /workflow:plan "Implement JWT-based user login and registration"
     ```
-3.  **Execute the Plan**:
+2.  **Execute the Plan**:
     ```bash
     /workflow:execute
+    ```
+3.  **Check Status** (optional):
+    ```bash
+    /workflow:status
     ```
 
 ---

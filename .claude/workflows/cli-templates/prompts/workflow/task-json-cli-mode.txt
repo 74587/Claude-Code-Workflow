@@ -9,7 +9,7 @@ Task JSON Schema - CLI Execute Mode (With Command Field)
   "status": "pending",
   "meta": {
     "type": "feature|bugfix|refactor|test|docs",
-    "agent": "@code-developer|@test-fix-agent|@general-purpose"
+    "agent": "@code-developer|@test-fix-agent|@universal-executor"
   },
   "context": {
     "requirements": ["extracted from analysis"],

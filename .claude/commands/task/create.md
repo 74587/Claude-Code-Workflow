@@ -104,7 +104,7 @@ Based on task type and title keywords:
 - **Design/Plan** → @planning-agent
 - **Test Generation** → @code-developer (type: "test-gen")
 - **Test Execution/Fix** → @test-fix-agent (type: "test-fix")
-- **Review/Audit** → @general-purpose (optional, only when explicitly requested)
+- **Review/Audit** → @universal-executor (optional, only when explicitly requested)
 
 ## Validation Rules
 

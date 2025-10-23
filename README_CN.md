@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.6.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v4.6.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 [![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
@@ -15,7 +15,7 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
 
-> **🎉 最新版本: v4.6.0** - 概念澄清与智能体驱动分析。详见 [CHANGELOG.md](CHANGELOG.md)。
+> **🎉 最新版本: v4.6.2** - 文档优化与 `/memory:load` 命令改进。详见 [CHANGELOG.md](CHANGELOG.md)。
 
 > 📚 **第一次使用 CCW？** 查看 [**快速上手指南**](GETTING_STARTED_CN.md) 获取新手友好的 5 分钟教程！
 
@@ -73,17 +73,17 @@ CCW 提供了一套丰富的命令，用于管理工作流、任务以及与 AI 
 
 以下是一个常见开发工作流的快速示例：
 
-1.  **启动会话**:
-    ```bash
-    /workflow:session:start "实现用户登录功能"
-    ```
-2.  **创建计划**:
+1.  **创建计划**（自动启动会话）:
     ```bash
     /workflow:plan "实现基于 JWT 的用户登录和注册"
     ```
-3.  **执行计划**:
+2.  **执行计划**:
     ```bash
     /workflow:execute
+    ```
+3.  **查看状态**（可选）:
+    ```bash
+    /workflow:status
     ```
 
 ---

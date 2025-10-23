@@ -19,7 +19,7 @@ argument-hint: "task-id"
     -   Executes step-by-step, requiring user confirmation at each checkpoint.
     -   Allows for dynamic adjustments and manual review during the process.
 -   **review**
-    -   Optional manual review using `@general-purpose`.
+    -   Optional manual review using `@universal-executor`.
     -   Used only when explicitly requested by user.
 
 ### 🤖 **Agent Selection Logic**
@@ -45,7 +45,7 @@ FUNCTION select_agent(task, agent_override):
             WHEN CONTAINS "Execute tests", "Fix tests", "Validate":
                 RETURN "@test-fix-agent" // type: test-fix
             WHEN CONTAINS "Review code":
-                RETURN "@general-purpose" // Optional manual review
+                RETURN "@universal-executor" // Optional manual review
             DEFAULT:
                 RETURN "@code-developer" // Default agent
         END CASE
@@ -236,7 +236,7 @@ Different agents receive context tailored to their function, including implement
 - Error conditions to validate from implementation.context_notes.error_handling
 - Performance requirements from implementation.context_notes.performance_considerations
 
-**`@general-purpose`**:
+**`@universal-executor`**:
 - Used for optional manual reviews when explicitly requested
 - Code quality standards and implementation patterns
 - Security considerations from implementation.context_notes.risks

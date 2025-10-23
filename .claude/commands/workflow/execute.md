@@ -466,7 +466,7 @@ Task(subagent_type="{meta.agent}",
   "status": "pending|active|completed|blocked",
   "meta": {
     "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
-    "agent": "@code-developer|@test-fix-agent|@general-purpose"
+    "agent": "@code-developer|@test-fix-agent|@universal-executor"
   },
   "context": {
     "requirements": ["req1", "req2"],
@@ -552,7 +552,7 @@ meta.agent missing → Infer from meta.type:
   - "feature" → @code-developer
   - "test-gen" → @code-developer
   - "test-fix" → @test-fix-agent
-  - "review" → @general-purpose
+  - "review" → @universal-executor
   - "docs" → @doc-generator
 ```
 

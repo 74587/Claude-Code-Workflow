@@ -12,10 +12,10 @@ examples:
 
 ## 1. Overview
 
-The `memory:load` command **delegates to a general-purpose agent** to analyze the project and return a structured "Core Content Pack". This pack is loaded into the main thread's memory, providing essential context for subsequent agent operations while minimizing token consumption.
+The `memory:load` command **delegates to a universal-executor agent** to analyze the project and return a structured "Core Content Pack". This pack is loaded into the main thread's memory, providing essential context for subsequent agent operations while minimizing token consumption.
 
 **Core Philosophy**:
-- **Agent-Driven**: Fully delegates execution to general-purpose agent
+- **Agent-Driven**: Fully delegates execution to universal-executor agent
 - **Read-Only Analysis**: Does not modify code, only extracts context
 - **Structured Output**: Returns standardized JSON content package
 - **Memory Optimization**: Package loaded directly into main thread memory
@@ -34,7 +34,7 @@ The `memory:load` command **delegates to a general-purpose agent** to analyze th
 
 ## 3. Agent-Driven Execution Flow
 
-The command fully delegates to **general-purpose agent**, which autonomously:
+The command fully delegates to **universal-executor agent**, which autonomously:
 
 1. **Analyzes Project Structure**: Executes `get_modules_by_depth.sh` to understand architecture
 2. **Loads Documentation**: Reads CLAUDE.md, README.md and other key docs
@@ -94,7 +94,7 @@ The command fully delegates to **general-purpose agent**, which autonomously:
 
 ```javascript
 Task(
-  subagent_type="general-purpose",
+  subagent_type="universal-executor",
   description="Load project memory: ${task_description}",
   prompt=`
 ## Mission: Load Project Memory Context

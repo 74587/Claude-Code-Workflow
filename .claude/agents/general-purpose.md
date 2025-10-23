@@ -1,5 +1,5 @@
 ---
-name: general-purpose
+name: universal-executor
 description: |
   Versatile execution agent for implementing any task efficiently. Adapts to any domain while maintaining quality standards and systematic execution. Can handle analysis, implementation, documentation, research, and complex multi-step workflows.
 

@@ -1,7 +1,9 @@
 
 # 🚀 Claude Code Workflow (CCW) - Getting Started Guide
 
-Welcome to Claude Code Workflow (CCW) v4.5.0! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development with our latest workflow system optimizations.
+Welcome to Claude Code Workflow (CCW) v4.6.2! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development with our latest workflow system optimizations.
+
+**Project Repository**: [catlog22/Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
 
 ---
 
@@ -13,17 +15,7 @@ Let's build a "Hello World" web application from scratch with a simple example.
 
 First, make sure you have installed CCW according to the [Installation Guide](INSTALL.md).
 
-### Step 2: Start a Workflow Session
-
-Think of a "session" as a dedicated project folder. CCW will store all files related to your current task here.
-
-```bash
-/workflow:session:start "My First Web App"
-```
-
-You will see that the system has created a new session, for example, `WFS-my-first-web-app`.
-
-### Step 3: Create an Execution Plan
+### Step 2: Create an Execution Plan (Automatically Starts a Session)
 
 Now, tell CCW what you want to do. CCW will analyze your request and automatically generate a detailed, executable task plan.
 
@@ -31,12 +23,14 @@ Now, tell CCW what you want to do. CCW will analyze your request and automatical
 /workflow:plan "Create a simple Express API that returns Hello World at the root path"
 ```
 
+> **💡 Note**: `/workflow:plan` automatically creates and starts a workflow session. No need to manually run `/workflow:session:start`. The session will be auto-named based on your task description, e.g., `WFS-create-a-simple-express-api`.
+
 This command kicks off a fully automated planning process, which includes:
 1.  **Context Gathering**: Analyzing your project environment.
 2.  **Agent Analysis**: AI agents think about the best implementation path.
 3.  **Task Generation**: Creating specific task files (in `.json` format).
 
-### Step 4: Execute the Plan
+### Step 3: Execute the Plan
 
 Once the plan is created, you can command the AI agents to start working.
 
@@ -46,7 +40,7 @@ Once the plan is created, you can command the AI agents to start working.
 
 You will see CCW's agents (like `@code-developer`) begin to execute tasks one by one. It will automatically create files, write code, and install dependencies.
 
-### Step 5: Check the Status
+### Step 4: Check the Status
 
 Want to know the progress? You can check the status of the current workflow at any time.
 

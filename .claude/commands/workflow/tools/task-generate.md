@@ -174,7 +174,7 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
   "status": "pending|active|completed|blocked|container",
   "meta": {
     "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
-    "agent": "@code-developer|@test-fix-agent|@general-purpose",
+    "agent": "@code-developer|@test-fix-agent|@universal-executor",
     "execution_group": "group-id|null",
     "context_signature": "hash-of-focus_paths-and-artifacts"
   },
