@@ -231,6 +231,7 @@ Generate documents according to loaded role template specifications:
 
 **Required Files**:
 - **analysis.md**: Main role perspective analysis incorporating user context and role template
+  - **Auto-split if large**: If content >800 lines, split to `analysis-1.md`, `analysis-2.md` (or `analysis-3.md` if >1600 lines, max 3 files)
 - **recommendations.md**: Role-specific strategic recommendations and action items
 - **[role-deliverables]/**: Directory for specialized role outputs as defined in planning role template
 
