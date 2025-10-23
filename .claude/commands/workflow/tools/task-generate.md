@@ -203,9 +203,9 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         "usage": "Smart context with focus paths, module structure, dependency graph, existing patterns. Use for: environment setup, dependency resolution, pattern discovery"
       },
       {
-        "path": ".workflow/WFS-[session]/.brainstorming/[role-name]/analysis.md",
+        "path": ".workflow/WFS-[session]/.brainstorming/[role-name]/analysis*.md",
         "priority": "high",
-        "usage": "Technical/design/business details from specific roles. Common roles: system-architect (ADRs, APIs, caching), ui-designer (design tokens, layouts), product-manager (user stories, metrics)"
+        "usage": "Technical/design/business details from specific roles (may have multiple files: analysis.md OR analysis-1/2/3.md). Common roles: system-architect (ADRs, APIs, caching), ui-designer (design tokens, layouts), product-manager (user stories, metrics)"
       },
       {
         "path": ".workflow/WFS-[session]/.brainstorming/topic-framework.md",
@@ -228,10 +228,10 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
       },
       {
         "step": "load_role_analysis_artifacts",
-        "action": "Load role-specific analysis documents for technical details",
-        "note": "These artifacts contain implementation details not in synthesis. Consult when needing: API schemas, caching configs, design tokens, ADRs, performance metrics.",
+        "action": "Load role-specific analysis documents for technical details (supports multiple files per role)",
+        "note": "These artifacts contain implementation details not in synthesis. Consult when needing: API schemas, caching configs, design tokens, ADRs, performance metrics. Each role may have analysis.md OR analysis-1/2/3.md.",
         "commands": [
-          "bash(find .workflow/WFS-[session]/.brainstorming/ -name 'analysis.md' 2>/dev/null | head -8)",
+          "bash(find .workflow/WFS-[session]/.brainstorming/ -name 'analysis*.md' 2>/dev/null | sort | head -24)",
           "Read(.workflow/WFS-[session]/.brainstorming/system-architect/analysis.md)",
           "Read(.workflow/WFS-[session]/.brainstorming/ui-designer/analysis.md)",
           "Read(.workflow/WFS-[session]/.brainstorming/product-manager/analysis.md)"

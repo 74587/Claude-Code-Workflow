@@ -87,7 +87,7 @@ IF NOT original_user_prompt:
 # Dynamically discover available role analyses
 SCAN_DIRECTORY: .workflow/WFS-{session}/.brainstorming/
 FIND_ANALYSES: [
-    Scan all subdirectories for */analysis.md files
+    Scan all subdirectories for */analysis*.md files (supports analysis.md, analysis-1.md, analysis-2.md, analysis-3.md)
     Extract role names from directory names
 ]
 
@@ -105,13 +105,14 @@ FIND_ANALYSES: [
 LOAD_DOCUMENTS: {
     "original_user_prompt": original_user_prompt (from session metadata),
     "topic_framework": topic-framework.md,
-    "role_analyses": [dynamically discovered analysis.md files],
+    "role_analyses": [dynamically discovered analysis*.md files],
     "participating_roles": [extract role names from discovered directories],
     "existing_synthesis": synthesis-specification.md (if exists)
 }
 
 # Note: Not all roles participate in every brainstorming session
-# Only synthesize roles that actually produced analysis.md files
+# Only synthesize roles that actually produced analysis*.md files
+# Each role may have 1-3 analysis files: analysis.md OR analysis-1.md, analysis-2.md, analysis-3.md
 # CRITICAL: Original user prompt MUST be primary reference for synthesis
 ```
 
@@ -165,9 +166,10 @@ All synthesis MUST align with user's original intent. Topic framework and role a
    - Note: Validate alignment with original_user_prompt
 
 3. **discover_role_analyses**
-   - Action: Dynamically discover all participating role analysis files
-   - Command: Glob(.workflow/WFS-{session}/.brainstorming/*/analysis.md)
+   - Action: Dynamically discover all participating role analysis files (supports multiple files per role)
+   - Command: Glob(.workflow/WFS-{session}/.brainstorming/*/analysis*.md)
    - Output: role_analysis_paths, participating_roles
+   - Note: Each role may have 1-3 files (analysis.md OR analysis-1.md, analysis-2.md, analysis-3.md)
 
 4. **load_role_analyses**
    - Action: Load all discovered role analysis documents
@@ -256,7 +258,7 @@ The synthesis process creates **one consolidated document** that integrates all 
 ```
 .workflow/WFS-{topic-slug}/.brainstorming/
 ├── topic-framework.md          # Input: Framework structure
-├── [role]/analysis.md          # Input: Role analyses (multiple)
+├── [role]/analysis*.md         # Input: Role analyses (supports analysis.md or analysis-1/2/3.md per role)
 └── synthesis-specification.md  # ★ OUTPUT: Complete integrated specification
 ```
 
