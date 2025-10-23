@@ -138,7 +138,69 @@ For complex features requiring thorough analysis, use the complete workflow: **b
 - Architectural decisions with significant impact
 - When you need thorough requirements before implementation
 
-### Scenario 4: Bug Fixing
+### Scenario 4: Quality Assurance - Concept Clarification
+
+Before generating tasks, ensure your requirements are clear and unambiguous:
+
+```bash
+# After brainstorming synthesis or planning analysis, verify conceptual clarity
+/workflow:concept-clarify
+
+# The command will:
+# 1. Analyze artifacts for ambiguities and missing details
+# 2. Ask up to 5 targeted questions to resolve critical gaps
+# 3. Update synthesis-specification.md or ANALYSIS_RESULTS.md with clarifications
+# 4. Recommend whether to proceed or address outstanding issues
+```
+
+**When to Use**:
+- After `/workflow:brainstorm:synthesis` (before `/workflow:plan`)
+- After Phase 3 of `/workflow:plan` (before task generation)
+- When you want to reduce planning errors and rework
+
+**Benefits**:
+- Detects underspecified requirements early
+- Prevents downstream implementation errors
+- Ensures team alignment on critical decisions
+- Reduces costly rework during execution
+
+### Scenario 5: Quality Assurance - Action Plan Verification
+
+After planning, validate your implementation plan for consistency and completeness:
+
+```bash
+# After /workflow:plan completes, verify task quality
+/workflow:action-plan-verify
+
+# The command will:
+# 1. Check requirements coverage (all requirements have tasks)
+# 2. Validate task dependencies (no circular or broken dependencies)
+# 3. Ensure synthesis alignment (tasks match architectural decisions)
+# 4. Assess task specification quality
+# 5. Generate detailed verification report with remediation todos
+```
+
+**The verification report includes**:
+- Requirements coverage analysis
+- Dependency graph validation
+- Synthesis alignment checks
+- Task specification quality assessment
+- Prioritized remediation recommendations
+
+**When to Use**:
+- After `/workflow:plan` generates IMPL_PLAN.md and task files
+- Before starting `/workflow:execute`
+- When working on complex projects with many dependencies
+- When you want to ensure high-quality task specifications
+
+**Benefits**:
+- Catches planning errors before execution
+- Ensures complete requirements coverage
+- Validates architectural consistency
+- Identifies resource conflicts and skill gaps
+- Provides actionable remediation plan with TodoWrite integration
+
+### Scenario 6: Bug Fixing
 
 Quick bug analysis and fix workflow:
 
