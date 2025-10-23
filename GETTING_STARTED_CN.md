@@ -146,8 +146,7 @@
 # 分析 Bug
 /cli:mode:bug-index "密码错误时仍显示成功消息"
 
-# 生成并执行修复计划
-/workflow:execute
+# Claude 会分析后直接根据分析结果实现修复
 ```
 
 ---

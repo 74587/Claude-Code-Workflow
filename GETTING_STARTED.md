@@ -146,8 +146,7 @@ Quick bug analysis and fix workflow:
 # Analyze the bug
 /cli:mode:bug-index "Incorrect success message with wrong password"
 
-# Generate and execute fix plan
-/workflow:execute
+# Claude will analyze and then directly implement the fix based on the analysis
 ```
 
 ---
