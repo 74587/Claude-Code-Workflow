@@ -74,7 +74,21 @@ function test_prerequisites() {
         write_color "✓ Network connection OK" "$COLOR_SUCCESS"
     else
         write_color "ERROR: Cannot connect to GitHub" "$COLOR_ERROR"
-        write_color "Please check your network connection" "$COLOR_ERROR"
+        write_color "Please check your network connection and try again." "$COLOR_ERROR"
+        echo ""
+        write_color "Common causes:" "$COLOR_INFO"
+        echo "  • Internet connection is down or unstable"
+        echo "  • Firewall or proxy is blocking GitHub access"
+        echo "  • DNS resolution issues"
+        echo "  • GitHub is temporarily unavailable"
+        echo ""
+        write_color "Troubleshooting steps:" "$COLOR_INFO"
+        echo "  1. Check your internet connection"
+        echo "  2. Try accessing https://github.com in your browser"
+        echo "  3. If using a proxy, configure it properly"
+        echo "  4. Check firewall settings"
+        echo "  5. Wait a few minutes and try again"
+        echo ""
         return 1
     fi
 
@@ -108,7 +122,8 @@ function get_latest_release() {
         fi
     fi
 
-    write_color "WARNING: Failed to fetch latest release, using 'main' branch" "$COLOR_WARNING" >&2
+    write_color "WARNING: Failed to fetch latest release" "$COLOR_WARNING" >&2
+    write_color "Falling back to 'main' branch" "$COLOR_INFO" >&2
     return 1
 }
 
@@ -163,11 +178,34 @@ function download_repository() {
     write_color "Type: $download_type" "$COLOR_INFO" >&2
 
     # Download with curl
-    if curl -fsSL -o "$zip_path" "$zip_url" 2>&1 >&2; then
+    local download_error=""
+    if download_error=$(curl -fsSL -o "$zip_path" "$zip_url" 2>&1); then
         # Verify the download
         if [ -f "$zip_path" ]; then
             local file_size
             file_size=$(du -h "$zip_path" 2>/dev/null | cut -f1)
+
+            # Check if file is empty
+            if [ ! -s "$zip_path" ]; then
+                echo "" >&2
+                write_color "ERROR: Downloaded file is empty (0 bytes)" "$COLOR_ERROR" >&2
+                echo "" >&2
+                write_color "Common causes:" "$COLOR_INFO" >&2
+                echo "  • Network connection was interrupted" >&2
+                echo "  • Invalid version tag or branch name" >&2
+                echo "  • GitHub API or server issues" >&2
+                echo "" >&2
+                write_color "Troubleshooting steps:" "$COLOR_INFO" >&2
+                echo "  1. Verify the version tag or branch name is correct" >&2
+                echo "  2. Wait a few minutes and try again" >&2
+                echo "  3. Try a different version (stable/latest)" >&2
+                echo "  4. Check GitHub status at https://www.githubstatus.com" >&2
+                echo "" >&2
+                write_color "Download URL: $zip_url" "$COLOR_INFO" >&2
+                echo "" >&2
+                return 1
+            fi
+
             write_color "✓ Download complete ($file_size)" "$COLOR_SUCCESS" >&2
 
             # Output path to stdout for capture
@@ -178,7 +216,29 @@ function download_repository() {
             return 1
         fi
     else
+        echo "" >&2
         write_color "ERROR: Download failed" "$COLOR_ERROR" >&2
+        echo "" >&2
+        write_color "Common causes:" "$COLOR_INFO" >&2
+        echo "  • Network connection interrupted during download" >&2
+        echo "  • GitHub API rate limit exceeded" >&2
+        echo "  • Invalid version tag or branch name" >&2
+        echo "  • Temporary GitHub service issues" >&2
+        echo "  • Firewall or proxy blocking the download" >&2
+        echo "" >&2
+        write_color "Troubleshooting steps:" "$COLOR_INFO" >&2
+        echo "  1. Check your internet connection stability" >&2
+        echo "  2. Wait a few minutes and try again (rate limit resets)" >&2
+        echo "  3. Verify the version tag or branch name is correct" >&2
+        echo "  4. Try a different version (stable/latest)" >&2
+        echo "  5. Check GitHub status at https://www.githubstatus.com" >&2
+        echo "  6. If using a proxy, verify it's configured correctly" >&2
+        echo "" >&2
+        write_color "Download URL: $zip_url" "$COLOR_INFO" >&2
+        if [ -n "$download_error" ]; then
+            write_color "Error details: $download_error" "$COLOR_ERROR" >&2
+        fi
+        echo "" >&2
         return 1
     fi
 }
@@ -195,8 +255,27 @@ function extract_repository() {
         return 1
     fi
 
+    # Verify zip file is not empty
+    if [ ! -s "$zip_path" ]; then
+        echo "" >&2
+        write_color "ERROR: ZIP file is empty (0 bytes)" "$COLOR_ERROR" >&2
+        echo "" >&2
+        write_color "Common causes:" "$COLOR_INFO" >&2
+        echo "  • Download was interrupted" >&2
+        echo "  • Network connection issues during download" >&2
+        echo "  • Server-side issues" >&2
+        echo "" >&2
+        write_color "Troubleshooting steps:" "$COLOR_INFO" >&2
+        echo "  1. Try downloading again" >&2
+        echo "  2. Check your network connection" >&2
+        echo "  3. Wait a few minutes and retry" >&2
+        echo "" >&2
+        return 1
+    fi
+
     # Extract with unzip
-    if unzip -q "$zip_path" -d "$temp_dir" >&2 2>&1; then
+    local extract_error=""
+    if extract_error=$(unzip -q "$zip_path" -d "$temp_dir" 2>&1); then
         # Find the extracted directory
         local repo_dir
         repo_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "Claude-Code-Workflow-*" 2>/dev/null | head -n 1)
@@ -207,13 +286,39 @@ function extract_repository() {
             echo "$repo_dir"
             return 0
         else
+            echo "" >&2
             write_color "ERROR: Could not find extracted repository directory" "$COLOR_ERROR" >&2
             write_color "Temp directory contents:" "$COLOR_INFO" >&2
             ls -la "$temp_dir" >&2
+            echo "" >&2
             return 1
         fi
     else
+        echo "" >&2
         write_color "ERROR: Extraction failed" "$COLOR_ERROR" >&2
+        echo "" >&2
+        write_color "Common causes:" "$COLOR_INFO" >&2
+        echo "  • Downloaded file is corrupted or incomplete" >&2
+        echo "  • ZIP file format is invalid" >&2
+        echo "  • Insufficient disk space" >&2
+        echo "  • Permission issues on temporary directory" >&2
+        echo "" >&2
+        write_color "Troubleshooting steps:" "$COLOR_INFO" >&2
+        echo "  1. Try downloading again (network may have interrupted)" >&2
+        echo "  2. Check available disk space: df -h" >&2
+        echo "  3. Verify temporary directory permissions" >&2
+        echo "  4. Check if 'unzip' command is working: unzip -v" >&2
+        echo "" >&2
+        write_color "ZIP file: $zip_path" "$COLOR_INFO" >&2
+        if [ -f "$zip_path" ]; then
+            local zip_size
+            zip_size=$(du -h "$zip_path" 2>/dev/null | cut -f1)
+            write_color "ZIP size: $zip_size" "$COLOR_INFO" >&2
+        fi
+        if [ -n "$extract_error" ]; then
+            write_color "Error details: $extract_error" "$COLOR_ERROR" >&2
+        fi
+        echo "" >&2
         return 1
     fi
 }

@@ -153,7 +153,22 @@ function Test-Prerequisites {
         Write-ColorOutput "✓ Network connection OK" $ColorSuccess
     } catch {
         Write-ColorOutput "ERROR: Cannot connect to GitHub" $ColorError
-        Write-ColorOutput "Please check your network connection: $($_.Exception.Message)" $ColorError
+        Write-ColorOutput "Please check your network connection and try again." $ColorError
+        Write-Host ""
+        Write-ColorOutput "Common causes:" $ColorInfo
+        Write-Host "  • Internet connection is down or unstable"
+        Write-Host "  • Firewall or proxy is blocking GitHub access"
+        Write-Host "  • DNS resolution issues"
+        Write-Host "  • GitHub is temporarily unavailable"
+        Write-Host ""
+        Write-ColorOutput "Troubleshooting steps:" $ColorInfo
+        Write-Host "  1. Check your internet connection"
+        Write-Host "  2. Try accessing https://github.com in your browser"
+        Write-Host "  3. If using a proxy, configure it properly"
+        Write-Host "  4. Check firewall settings"
+        Write-Host "  5. Wait a few minutes and try again"
+        Write-Host ""
+        Write-ColorOutput "Error details: $($_.Exception.Message)" $ColorError
         return $false
     }
 
@@ -172,10 +187,12 @@ function Get-TempDirectory {
 function Get-LatestRelease {
     try {
         $apiUrl = "https://api.github.com/repos/catlog22/Claude-Code-Workflow/releases/latest"
-        $response = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing
+        $response = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -TimeoutSec 10
         return $response.tag_name
     } catch {
-        Write-ColorOutput "WARNING: Failed to fetch latest release, using 'main' branch" $ColorWarning
+        Write-ColorOutput "WARNING: Failed to fetch latest release" $ColorWarning
+        Write-ColorOutput "Reason: $($_.Exception.Message)" $ColorWarning
+        Write-ColorOutput "Falling back to 'main' branch" $ColorInfo
         return $null
     }
 }
@@ -229,19 +246,40 @@ function Download-Repository {
         $progressPreference = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
 
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 300
 
         $ProgressPreference = $progressPreference
 
         if (Test-Path $zipPath) {
             $fileSize = (Get-Item $zipPath).Length
+            if ($fileSize -eq 0) {
+                throw "Downloaded file is empty (0 bytes)"
+            }
             Write-ColorOutput "Download complete ($([math]::Round($fileSize/1024/1024, 2)) MB)" $ColorSuccess
             return $zipPath
         } else {
             throw "Downloaded file does not exist"
         }
     } catch {
-        Write-ColorOutput "Download failed: $($_.Exception.Message)" $ColorError
+        Write-Host ""
+        Write-ColorOutput "ERROR: Download failed" $ColorError
+        Write-Host ""
+        Write-ColorOutput "Common causes:" $ColorInfo
+        Write-Host "  • Network connection interrupted during download"
+        Write-Host "  • GitHub API rate limit exceeded"
+        Write-Host "  • Invalid version tag or branch name"
+        Write-Host "  • Temporary GitHub service issues"
+        Write-Host ""
+        Write-ColorOutput "Troubleshooting steps:" $ColorInfo
+        Write-Host "  1. Check your internet connection stability"
+        Write-Host "  2. Wait a few minutes and try again (rate limit resets)"
+        Write-Host "  3. Verify the version tag or branch name is correct"
+        Write-Host "  4. Try a different version (stable/latest)"
+        Write-Host "  5. Check GitHub status at https://www.githubstatus.com"
+        Write-Host ""
+        Write-ColorOutput "Download URL: $zipUrl" $ColorInfo
+        Write-ColorOutput "Error details: $($_.Exception.Message)" $ColorError
+        Write-Host ""
         return $null
     }
 }
@@ -255,14 +293,24 @@ function Extract-Repository {
     Write-ColorOutput "Extracting files..." $ColorInfo
     
     try {
+        # Verify zip file exists and is not empty
+        if (-not (Test-Path $ZipPath)) {
+            throw "ZIP file not found: $ZipPath"
+        }
+
+        $zipSize = (Get-Item $ZipPath).Length
+        if ($zipSize -eq 0) {
+            throw "ZIP file is empty (0 bytes)"
+        }
+
         # Use .NET to extract zip
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipPath, $TempDir)
-        
+
         # Find the extracted directory (usually repo-name-branch)
         $extractedDirs = Get-ChildItem -Path $TempDir -Directory
         $repoDir = $extractedDirs | Where-Object { $_.Name -like "Claude-Code-Workflow-*" } | Select-Object -First 1
-        
+
         if ($repoDir) {
             Write-ColorOutput "Extraction complete: $($repoDir.FullName)" $ColorSuccess
             return $repoDir.FullName
@@ -270,7 +318,27 @@ function Extract-Repository {
             throw "Could not find extracted repository directory"
         }
     } catch {
-        Write-ColorOutput "Extraction failed: $($_.Exception.Message)" $ColorError
+        Write-Host ""
+        Write-ColorOutput "ERROR: Extraction failed" $ColorError
+        Write-Host ""
+        Write-ColorOutput "Common causes:" $ColorInfo
+        Write-Host "  • Downloaded file is corrupted or incomplete"
+        Write-Host "  • ZIP file format is invalid"
+        Write-Host "  • Insufficient disk space"
+        Write-Host "  • Permission issues on temporary directory"
+        Write-Host ""
+        Write-ColorOutput "Troubleshooting steps:" $ColorInfo
+        Write-Host "  1. Try downloading again (network may have interrupted)"
+        Write-Host "  2. Check available disk space"
+        Write-Host "  3. Verify temporary directory permissions"
+        Write-Host "  4. Try running as administrator"
+        Write-Host ""
+        Write-ColorOutput "ZIP file: $ZipPath" $ColorInfo
+        if (Test-Path $ZipPath) {
+            Write-ColorOutput "ZIP size: $([math]::Round($zipSize/1024/1024, 2)) MB" $ColorInfo
+        }
+        Write-ColorOutput "Error details: $($_.Exception.Message)" $ColorError
+        Write-Host ""
         return $null
     }
 }
