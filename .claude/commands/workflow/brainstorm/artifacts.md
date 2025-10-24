@@ -1,7 +1,7 @@
 ---
 name: artifacts
 description: Interactive clarification generating confirmed guidance specification
-argument-hint: "topic or challenge description"
+argument-hint: "topic or challenge description [--count N]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), AskUserQuestion(*), Glob(*)
 ---
 
@@ -9,19 +9,23 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), AskUserQuestion(*), Glob(*)
 
 Five-phase workflow: Extract topic challenges → Select roles → Generate task-specific questions → Detect conflicts → Generate confirmed guidance (declarative statements only).
 
-**Input**: `"GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]"`
+**Input**: `"GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]" [--count N]`
 **Output**: `.workflow/WFS-{topic}/.brainstorming/guidance-specification.md` (CONFIRMED/SELECTED format)
 **Core Principle**: Questions dynamically generated from topic keywords/challenges, NOT from generic templates
+
+**Parameters**:
+- `topic` (required): Topic or challenge description (structured format recommended)
+- `--count N` (optional): Target number of roles to select (system recommends count+2 roles for user to choose from, default: 3)
 
 ## Task Tracking
 
 ```json
 [
-  {"content": "Initialize session (.workflow/.active-* check)", "status": "pending", "activeForm": "Initializing"},
+  {"content": "Initialize session (.workflow/.active-* check, parse --count parameter)", "status": "pending", "activeForm": "Initializing"},
   {"content": "Phase 1: Extract challenges, generate 2-4 task-specific questions", "status": "pending", "activeForm": "Phase 1 topic analysis"},
-  {"content": "Phase 2: Recommend 3-5 roles based on challenges, collect selection", "status": "pending", "activeForm": "Phase 2 role selection"},
-  {"content": "Phase 3: Generate 3-5 task-specific questions per role", "status": "pending", "activeForm": "Phase 3 role questions"},
-  {"content": "Phase 4: Detect conflicts in Phase 3 answers, generate clarifications", "status": "pending", "activeForm": "Phase 4 conflict resolution"},
+  {"content": "Phase 2: Intelligently recommend count+2 roles, collect multiSelect", "status": "pending", "activeForm": "Phase 2 role selection"},
+  {"content": "Phase 3: Generate 3-4 task-specific questions per role (max 4 per round)", "status": "pending", "activeForm": "Phase 3 role questions"},
+  {"content": "Phase 4: Detect conflicts in Phase 3 answers, generate clarifications (max 4 per round)", "status": "pending", "activeForm": "Phase 4 conflict resolution"},
   {"content": "Phase 5: Transform Q&A to declarative statements, write guidance-specification.md", "status": "pending", "activeForm": "Phase 5 document generation"}
 ]
 ```
@@ -31,7 +35,8 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 ### Session Management
 - Check `.workflow/.active-*` markers first
 - Multiple sessions → Prompt selection | Single → Use it | None → Create `WFS-[topic-slug]`
-- Store decisions in `workflow-session.json`
+- Parse `--count N` parameter from user input (default: 3 if not specified)
+- Store decisions in `workflow-session.json` including count parameter
 
 ### Phase 1: Topic Analysis & Intent Classification
 
@@ -52,14 +57,35 @@ Topic: "Build real-time collaboration platform SCOPE: 100 users"
 
 ### Phase 2: Role Selection
 
+**Available Roles**:
+- data-architect (数据架构师)
+- product-manager (产品经理)
+- product-owner (产品负责人)
+- scrum-master (敏捷教练)
+- subject-matter-expert (领域专家)
+- system-architect (系统架构师)
+- test-strategist (测试策略师)
+- ui-designer (UI 设计师)
+- ux-expert (UX 专家)
+
 **Steps**:
-1. Recommend 3-5 roles based on Phase 1 keywords:
-   - **Technical** (architecture, system, database) → system-architect, data-architect
-   - **API/Backend** (api, service, graphql) → api-designer, system-architect
-   - **UX** (user, ui, design) → ui-designer, ux-expert, product-manager
-   - **Business** (business, workflow) → product-manager, product-owner
-   - **Agile** (sprint, scrum) → scrum-master, product-owner
-2. AskUserQuestion (multiSelect) → Store to `session.selected_roles`
+1. **Intelligent role recommendation based on topic analysis**:
+   - Analyze Phase 1 extracted keywords and challenges
+   - Use AI reasoning to determine most relevant roles for the specific topic
+   - Recommend count+2 roles (e.g., if user wants 3 roles, recommend 5 options)
+   - Provide clear rationale for each recommended role based on topic context
+
+2. **User selection via multiSelect**:
+   - Present recommended roles with context-specific rationales
+   - Allow user to select multiple roles (typically count roles, but flexible)
+   - Store selections to `session.selected_roles`
+
+**Role Recommendation Rules**:
+- NO hardcoded keyword-to-role mappings
+- Use intelligent analysis of topic, challenges, and requirements
+- Consider role synergies and coverage gaps
+- Explain WHY each role is relevant to THIS specific topic
+- Default recommendation: count+2 roles for user to choose from
 
 ### Phase 3: Role-Specific Questions (Dynamic Generation)
 
@@ -73,24 +99,36 @@ FOR each selected role:
      - "100 users" + system-architect → Communication protocol
      - "low latency" + system-architect → Conflict resolution
 
-  2. Generate 3-5 questions probing implementation depth, trade-offs, edge cases:
+  2. Generate 3-4 questions per role probing implementation depth, trade-offs, edge cases:
      Q: "How handle real-time state sync for 100+ users?" (explores approach)
      Q: "How resolve conflicts when 2 users edit simultaneously?" (explores edge case)
      Options: [Event Sourcing/Centralized/CRDT] (concrete, explain trade-offs for THIS use case)
 
-  3. AskUserQuestion → Store to session.role_decisions[role]
+  3. Ask questions in batches (max 4 questions per AskUserQuestion call):
+     - If role has 3-4 questions: Single AskUserQuestion call
+     - Store answers to session.role_decisions[role]
 ```
 
-**Rules**:
+**Question Batching Rules**:
+- ✅ Each role generates 3-4 questions
+- ✅ AskUserQuestion supports maximum 4 questions per call
+- ✅ Single round per role (all questions asked together)
 - ✅ Questions MUST be asked in Chinese (用中文提问) for better user understanding
 - ✅ Questions MUST reference Phase 1 keywords (e.g., "real-time", "100 users")
 - ✅ Options MUST be concrete approaches, explain relevance to topic
 - ❌ NEVER generic "Architecture style?" without task context
 
 **Examples by Role** (for "real-time collaboration platform"):
-- **system-architect**: "State sync for 100+ users?" → [Event Sourcing/Centralized/CRDT]
-- **ui-designer**: "How indicate real-time collaboration state?" → [Live cursors/Activity feed/Minimal indicators]
-- **data-architect**: "Storage for concurrent editing?" → [PostgreSQL+CRDT/Redis+pub-sub/Event store]
+- **system-architect** (4 questions in one round):
+  1. "100+ 用户实时状态同步方案?" → [Event Sourcing/集中式状态/CRDT]
+  2. "两个用户同时编辑冲突如何解决?" → [自动合并/手动解决/版本控制]
+  3. "低延迟通信协议选择?" → [WebSocket/SSE/轮询]
+  4. "系统扩展性架构方案?" → [微服务/单体+缓存/Serverless]
+
+- **ui-designer** (3 questions in one round):
+  1. "如何展示实时协作状态?" → [实时光标/活动流/最小化指示器]
+  2. "冲突时的用户界面反馈?" → [即时警告/合并界面/回滚选项]
+  3. "多用户在线状态展示?" → [头像列表/活动面板/状态栏]
 
 ### Phase 4: Cross-Role Clarification (Conflict Detection)
 
@@ -104,16 +142,25 @@ FOR each selected role:
    - Implicit dependencies: ui-designer "Live cursors" but no auth approach defined
 
 2. FOR each detected conflict:
-   Generate 1-3 clarification questions referencing SPECIFIC Phase 3 choices
+   Generate clarification questions referencing SPECIFIC Phase 3 choices
 
-3. AskUserQuestion → Store to session.cross_role_decisions
+3. Ask in batches (max 4 questions per AskUserQuestion call):
+   - If conflicts ≤ 4: Single round
+   - If conflicts > 4: Multiple rounds of max 4 questions each
+   - Store answers to session.cross_role_decisions
 
 4. If NO conflicts: Skip Phase 4 (inform user)
 ```
 
+**Batching Rules**:
+- ✅ Maximum 4 clarification questions per AskUserQuestion call
+- ✅ Multiple rounds if more than 4 conflicts detected
+- ✅ Prioritize most critical conflicts first
+- ✅ Questions in Chinese (用中文提问)
+
 **Example Conflict**:
 - Detect: system-architect "CRDT sync" (conflict-free) + ui-designer "Rollback on conflict" (expects conflicts)
-- Generate: "CRDT conflicts with UI rollback expectation. Resolve?" → [CRDTs auto-merge/Show merge UI/Switch to OT]
+- Generate: "CRDT 与 UI 回滚期望冲突,如何解决?" → [CRDT 自动合并/显示合并界面/切换到 OT]
 
 **⚠️ CRITICAL**: NEVER use static "Cross-Role Matrix". ALWAYS analyze actual Phase 3 answers.
 
