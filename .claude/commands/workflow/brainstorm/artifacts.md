@@ -15,7 +15,7 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 
 **Parameters**:
 - `topic` (required): Topic or challenge description (structured format recommended)
-- `--count N` (optional): Target number of roles to select (system recommends count+2 roles for user to choose from, default: 3)
+- `--count N` (optional): Number of roles user WANTS to select (system will recommend N+2 options via AskUserQuestion for user to choose from, default: 3)
 
 ## Task Tracking
 
@@ -23,7 +23,7 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 [
   {"content": "Initialize session (.workflow/.active-* check, parse --count parameter)", "status": "pending", "activeForm": "Initializing"},
   {"content": "Phase 1: Extract challenges, generate 2-4 task-specific questions", "status": "pending", "activeForm": "Phase 1 topic analysis"},
-  {"content": "Phase 2: Intelligently recommend count+2 roles, collect multiSelect", "status": "pending", "activeForm": "Phase 2 role selection"},
+  {"content": "Phase 2: Recommend count+2 roles, MUST collect user selection via AskUserQuestion (multiSelect)", "status": "pending", "activeForm": "Phase 2 role selection"},
   {"content": "Phase 3: Generate 3-4 task-specific questions per role (max 4 per round)", "status": "pending", "activeForm": "Phase 3 role questions"},
   {"content": "Phase 4: Detect conflicts in Phase 3 answers, generate clarifications (max 4 per round)", "status": "pending", "activeForm": "Phase 4 conflict resolution"},
   {"content": "Phase 5: Transform Q&A to declarative statements, write guidance-specification.md", "status": "pending", "activeForm": "Phase 5 document generation"}
@@ -58,6 +58,8 @@ Topic: "Build real-time collaboration platform SCOPE: 100 users"
 
 ### Phase 2: Role Selection
 
+**⚠️ CRITICAL**: This phase MUST use AskUserQuestion tool for user selection. NEVER auto-select roles without user interaction.
+
 **Available Roles**:
 - data-architect (数据架构师)
 - product-manager (产品经理)
@@ -70,13 +72,13 @@ Topic: "Build real-time collaboration platform SCOPE: 100 users"
 - ux-expert (UX 专家)
 
 **Steps**:
-1. **Intelligent role recommendation based on topic analysis**:
+1. **Intelligent role recommendation** (AI analysis, NO user interaction yet):
    - Analyze Phase 1 extracted keywords and challenges
    - Use AI reasoning to determine most relevant roles for the specific topic
    - Recommend count+2 roles (e.g., if user wants 3 roles, recommend 5 options)
    - Provide clear rationale for each recommended role based on topic context
 
-2. **User selection via AskUserQuestion tool (multiSelect mode)**:
+2. **User selection** (MANDATORY AskUserQuestion interaction):
    - **Tool**: `AskUserQuestion` with `multiSelect: true`
    - **Question format**: "请选择 {count} 个角色参与头脑风暴分析（可多选）："
    - **Options**: Each recommended role with label (role name) and description (relevance rationale)
