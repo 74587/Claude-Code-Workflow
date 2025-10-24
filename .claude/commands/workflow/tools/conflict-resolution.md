@@ -7,361 +7,382 @@ examples:
   - /workflow:tools:conflict-resolution --session WFS-payment --context .workflow/WFS-payment/.process/context-package.json
 ---
 
-# Conflict Resolution Command (/workflow:tools:conflict-resolution)
+# Conflict Resolution Command
 
-## Overview
-Analyzes potential conflicts between implementation plan and existing codebase, generating multiple resolution strategies for user selection.
+## Purpose
+Analyzes conflicts between implementation plans and existing codebase, generating multiple resolution strategies.
 
-**Trigger Condition**: Only execute when context-package.json indicates conflict_risk is "medium" or "high"
+**Scope**: Detection and strategy generation only - NO code modification or task creation.
 
-**Scope**: Conflict detection and resolution strategy generation only. Does NOT modify code or generate tasks.
+**Trigger**: Auto-executes in `/workflow:plan` Phase 3 when `conflict_risk ≥ medium`.
 
-**Usage**: Automatically triggered in `/workflow:plan` Phase 3 when conflict risk detected.
+## Core Responsibilities
 
-## Core Philosophy & Responsibilities
-- **Conflict Detection**: Analyze plan vs existing code architecture inconsistencies
-- **Multi-Strategy Generation**: Generate 2-4 resolution options per conflict
-- **CLI-Powered Analysis**: Use Gemini/Qwen/Codex for deep code analysis
-- **Graceful Fallback**: Use Claude analysis if CLI tools unavailable
-- **User Decision**: Present strategies for user selection, never auto-apply
-- **Single Output**: Generate CONFLICT_RESOLUTION.md with findings and options
+| Responsibility | Description |
+|---------------|-------------|
+| **Detect Conflicts** | Analyze plan vs existing code inconsistencies |
+| **Generate Strategies** | Provide 2-4 resolution options per conflict |
+| **CLI Analysis** | Use Gemini/Qwen (Claude fallback) |
+| **User Decision** | Present options, never auto-apply |
+| **Single Output** | `CONFLICT_RESOLUTION.md` with findings |
 
-## Conflict Detection Categories
+## Conflict Categories
 
-**Architecture Conflicts**:
-- New architecture incompatible with existing patterns
-- Module structure changes affecting existing components
-- Design pattern migrations required
+### 1. Architecture Conflicts
+- Incompatible design patterns
+- Module structure changes
+- Pattern migration requirements
 
-**API & Interface Conflicts**:
-- Breaking changes to existing API contracts
-- Function signature modifications
-- Public interface changes affecting dependents
+### 2. API Conflicts
+- Breaking contract changes
+- Signature modifications
+- Public interface impacts
 
-**Data Model Conflicts**:
-- Database schema modifications
-- Data type changes breaking compatibility
-- Migration requirements for existing data
+### 3. Data Model Conflicts
+- Schema modifications
+- Type breaking changes
+- Data migration needs
 
-**Dependency Conflicts**:
-- Version conflicts with existing dependencies
-- New dependencies incompatible with current setup
-- Breaking changes in dependency updates
+### 4. Dependency Conflicts
+- Version incompatibilities
+- Setup conflicts
+- Breaking updates
 
-## Execution Lifecycle
+## Execution Flow
 
-### Phase 1: Validation & Trigger Check
-1. **Session Validation**: Verify `.workflow/{session_id}/` exists
-2. **Context Package Loading**: Read and parse context-package.json
-3. **Conflict Risk Check**:
-   ```javascript
-   if (context_package.conflict_detection.conflict_risk in ["none", "low"]) {
-     SKIP: "No significant conflicts detected"
-     EXIT
-   }
-   ```
-4. **Agent Preparation**: Prepare agent task prompt with conflict analysis requirements
+### Phase 1: Validation
+```
+1. Verify session directory exists
+2. Load context-package.json
+3. Check conflict_risk (skip if none/low)
+4. Prepare agent task prompt
+```
 
-### Phase 2: Agent-Delegated Conflict Analysis
+### Phase 2: CLI-Powered Analysis
 
-**Agent Invocation**:
+**Agent Delegation**:
 ```javascript
-Task(
-  subagent_type="cli-execution-agent",
-  description="Detect and analyze code conflicts",
-  prompt=`
-## Execution Context
+Task(subagent_type="cli-execution-agent", prompt=`
+  ## Context
+  - Session: {session_id}
+  - Risk: {conflict_risk}
+  - Files: {existing_files_list}
 
-**Session ID**: {session_id}
-**Mode**: Conflict Detection and Resolution Strategy Generation
-**Conflict Risk**: {conflict_risk}
+  ## Analysis Steps
 
-## Input Context
+  ### 1. Load Context
+  - Read existing files from conflict_detection.existing_files
+  - Load plan from .workflow/{session_id}/.process/context-package.json
+  - Extract role analyses and requirements
 
-**Context Package**: {context_path}
-**Existing Files**: {existing_files_list}
-**Affected Modules**: {affected_modules}
+  ### 2. Execute CLI Analysis
 
-## Analysis Task
+  Primary (Gemini):
+  cd {project_root} && gemini -p "
+  PURPOSE: Detect conflicts between plan and codebase
+  TASK:
+  • Compare architectures
+  • Identify breaking API changes
+  • Detect data model incompatibilities
+  • Assess dependency conflicts
+  MODE: analysis
+  CONTEXT: @{existing_files} @.workflow/{session_id}/**/*
+  EXPECTED: Conflict list with severity ratings
+  RULES: Focus on breaking changes and migration needs
+  "
 
-### Step 1: Load Existing Codebase Context
-1. **Load Existing Files** (from context package existing_files)
-   - Read all files listed in conflict_detection.existing_files
-   - Analyze current architecture patterns
-   - Identify current API contracts and interfaces
+  Fallback: Qwen (same prompt) → Claude (manual analysis)
 
-2. **Load Plan Requirements** (from context-package.json)
-   - Read .workflow/{session_id}/.process/context-package.json
-   - Extract role analysis paths from brainstorm_artifacts.role_analyses[]
-   - Load each role analysis file
-   - Extract requirements and design decisions
-   - Identify planned changes
+  ### 3. Generate Strategies (2-4 per conflict)
 
-### Step 2: CLI-Powered Conflict Analysis
-Execute conflict analysis using CLI tools:
+  Template per conflict:
+  - Severity: Critical/High/Medium
+  - Category: Architecture/API/Data/Dependency
+  - Affected files + impact
+  - Options with pros/cons, effort, risk
+  - Recommended strategy + rationale
 
-**Primary Tool - Gemini Analysis**:
-```bash
-cd {project_root} && gemini -p "
-PURPOSE: Analyze conflicts between plan and existing code
-TASK:
-• Compare existing architecture with planned changes
-• Identify API contract breaking changes
-• Detect data model incompatibilities
-• Assess dependency conflicts
-MODE: analysis
-CONTEXT: @{existing_files_pattern} @.workflow/{session_id}/**/*
-EXPECTED: Conflict list with severity and affected areas
-RULES: Focus on breaking changes and migration complexity
-"
+  ### 4. Return Structured Conflict Data
+
+  ⚠️ DO NOT generate CONFLICT_RESOLUTION.md file
+
+  Return JSON format for programmatic processing:
+
+  \`\`\`json
+  {
+    "conflicts": [
+      {
+        "id": "CON-001",
+        "brief": "一行中文冲突摘要",
+        "severity": "Critical|High|Medium",
+        "category": "Architecture|API|Data|Dependency",
+        "affected_files": [
+          ".workflow/{session}/.brainstorm/guidance-specification.md",
+          ".workflow/{session}/.brainstorm/system-architect/analysis.md"
+        ],
+        "description": "详细描述冲突 - 什么不兼容",
+        "impact": {
+          "scope": "影响的模块/组件",
+          "compatibility": "Yes|No|Partial",
+          "migration_required": true|false,
+          "estimated_effort": "人天估计"
+        },
+        "strategies": [
+          {
+            "name": "策略名称（中文）",
+            "approach": "实现方法简述",
+            "complexity": "Low|Medium|High",
+            "risk": "Low|Medium|High",
+            "effort": "时间估计",
+            "pros": ["优点1", "优点2"],
+            "cons": ["缺点1", "缺点2"],
+            "modifications": [
+              {
+                "file": ".workflow/{session}/.brainstorm/guidance-specification.md",
+                "section": "## 2. System Architect Decisions",
+                "change_type": "update",
+                "old_content": "原始内容片段（用于定位）",
+                "new_content": "修改后的内容",
+                "rationale": "为什么这样改"
+              },
+              {
+                "file": ".workflow/{session}/.brainstorm/system-architect/analysis.md",
+                "section": "## Design Decisions",
+                "change_type": "update",
+                "old_content": "原始内容片段",
+                "new_content": "修改后的内容",
+                "rationale": "修改理由"
+              }
+            ]
+          },
+          {
+            "name": "策略2名称",
+            "approach": "...",
+            "complexity": "Medium",
+            "risk": "Low",
+            "effort": "1-2天",
+            "pros": ["优点"],
+            "cons": ["缺点"],
+            "modifications": [...]
+          }
+        ],
+        "recommended": 0
+      }
+    ],
+    "summary": {
+      "total": 2,
+      "critical": 1,
+      "high": 1,
+      "medium": 0
+    }
+  }
+  \`\`\`
+
+  ⚠️ CRITICAL Requirements for modifications field:
+  - old_content: Must be exact text from target file (20-100 chars for unique match)
+  - new_content: Complete replacement text (maintains formatting)
+  - change_type: "update" (replace), "add" (insert), "remove" (delete)
+  - file: Full path relative to project root
+  - section: Markdown heading for context (helps locate position)
+  - Minimum 2 strategies per conflict, max 4
+  - All text in Chinese for user-facing fields (brief, name, pros, cons)
+
+  Quality Standards:
+  - Each strategy must have actionable modifications
+  - old_content must be precise enough for Edit tool matching
+  - new_content preserves markdown formatting and structure
+  - Recommended strategy (index) based on lowest complexity + risk
+`)
 ```
 
-**Fallback - Qwen Analysis** (if Gemini unavailable):
-Same prompt structure, replace 'gemini' with 'qwen'
-
-**Fallback - Claude Analysis** (if CLI unavailable):
-- Manual file reading and comparison
-- Pattern matching for common conflict types
-- Heuristic-based conflict detection
-
-### Step 3: Generate Resolution Strategies
-For each detected conflict, generate 2-4 resolution options:
-
-**Strategy Template**:
-```markdown
-### Conflict: {conflict_name}
-**Severity**: Critical | High | Medium
-**Category**: Architecture | API | Data Model | Dependency
-**Affected Files**: {file_list}
-**Impact**: {impact_description}
-
-#### Option 1: {strategy_name}
-**Approach**: {brief_description}
-**Pros**:
-- {advantage_1}
-- {advantage_2}
-**Cons**:
-- {disadvantage_1}
-- {disadvantage_2}
-**Effort**: Low | Medium | High
-**Risk**: Low | Medium | High
-
-#### Option 2: {strategy_name}
-...
-
-**Recommended**: Option {N} - {rationale}
+**Agent Internal Flow**:
+```
+1. Load context package
+2. Check conflict_risk (exit if none/low)
+3. Read existing files + plan artifacts
+4. Run CLI analysis (Gemini→Qwen→Claude)
+5. Parse conflict findings
+6. Generate 2-4 strategies per conflict with modifications
+7. Return JSON to stdout (NOT file write)
+8. Return execution log path
 ```
 
-### Step 4: Generate CONFLICT_RESOLUTION.md
-Create comprehensive conflict resolution document:
+### Phase 3: User Confirmation via AskUserQuestion
 
-**Output Location**: `.workflow/{session_id}/.process/CONFLICT_RESOLUTION.md`
+**Command parses agent JSON output and presents conflicts to user**:
 
-**Required Structure**:
-1. **Executive Summary**: Total conflicts, severity distribution, overall risk
-2. **Conflict Analysis**: Detailed per-conflict analysis with categories
-3. **Resolution Strategies**: Multiple options per conflict with pros/cons
-4. **Recommended Actions**: Prioritized recommendations with rationale
-5. **Migration Considerations**: Data/API migration requirements if any
+```javascript
+// 1. Parse agent JSON output
+const conflictData = JSON.parse(agentOutput);
+const conflicts = conflictData.conflicts.slice(0, 4); // Max 4 (tool limit)
 
-### Output Requirements
+// 2. Build AskUserQuestion with all conflicts
+const questions = conflicts.map((conflict, idx) => ({
+  question: `${conflict.id}: ${conflict.brief} - 请选择解决方案`,
+  header: `冲突${idx + 1}`,
+  multiSelect: false,
+  options: [
+    ...conflict.strategies.map(s => ({
+      label: s.name,
+      description: `${s.approach} | 复杂度: ${s.complexity} | 风险: ${s.risk} | 工作量: ${s.effort}`
+    })),
+    {
+      label: "跳过此冲突",
+      description: "稍后手动处理，不应用任何修改"
+    }
+  ]
+}));
 
-**Quality Standards**:
-- Minimum 2 resolution options per conflict
-- Clear pros/cons for each strategy
-- Effort and risk estimates included
-- Recommended strategy with clear rationale
-- Actionable migration steps if required
+// 3. Call AskUserQuestion
+AskUserQuestion({questions});
 
-## Output
-Generate CONFLICT_RESOLUTION.md and report completion status:
-- Conflicts detected: {count}
-- Severity distribution: Critical: {N}, High: {N}, Medium: {N}
-- Resolution strategies: {total_options}
-- Output location: .workflow/{session_id}/.process/CONFLICT_RESOLUTION.md
-`
-)
+// 4. Parse user selections
+const selectedStrategies = parseUserAnswers(answers, conflicts);
 ```
 
-**Agent Execution Flow** (Internal to cli-execution-agent):
-1. Parse session ID and context path, load context-package.json
-2. Check conflict_risk, exit if none/low
-3. Load existing codebase files from conflict_detection.existing_files
-4. Load plan requirements from session brainstorming artifacts
-5. Execute CLI tool analysis (Gemini/Qwen/Claude fallback)
-6. Parse conflict findings from CLI output
-7. Generate resolution strategies (2-4 options per conflict)
-8. Create CONFLICT_RESOLUTION.md with structured findings
-9. Verify output file exists at correct path
-10. Return execution log path
-
-**Command Execution**: Launch agent via Task tool, wait for completion
-
-### Phase 3: Output Validation
-1. **File Verification**: Confirm `.workflow/{session_id}/.process/CONFLICT_RESOLUTION.md` exists
-2. **Content Validation**: Verify required sections present
-3. **Strategy Quality**: Ensure minimum 2 options per conflict
-4. **Agent Log**: Retrieve agent execution log from `.workflow/{session_id}/.chat/`
-5. **Success Criteria**: File exists, contains all required sections, strategies actionable
-
-## CONFLICT_RESOLUTION.md Format
-
-**Template Reference**: Resolution document focuses on **conflict identification, impact analysis, and strategic options** (NOT implementation).
-
-### Required Structure
-
-```markdown
-# Conflict Resolution Report
-
-**Session**: WFS-{session-id}
-**Generated**: {timestamp}
-**Conflict Risk**: {medium|high}
-**Total Conflicts**: {count}
-
-## Executive Summary
-
-**Overall Assessment**: {summary_paragraph}
-
-**Severity Distribution**:
-- Critical: {count} - Blocking issues requiring immediate resolution
-- High: {count} - Significant issues affecting core functionality
-- Medium: {count} - Moderate issues with workarounds available
-
-**Recommended Priority**: {conflict_id_1}, {conflict_id_2}, ...
-
----
-
-## Conflict Analysis
-
-### Conflict 1: {conflict_name}
-**ID**: CON-001
-**Severity**: Critical | High | Medium
-**Category**: Architecture | API | Data Model | Dependency
-**Affected Files**:
-- {file_1}
-- {file_2}
-
-**Description**: {detailed_conflict_description}
-
-**Impact Analysis**:
-- **Scope**: {which_modules_affected}
-- **Backward Compatibility**: {yes/no/partial}
-- **Migration Required**: {yes/no}
-- **Estimated Effort**: {person-days}
-
-#### Resolution Strategies
-
-##### Option 1: {strategy_name}
-**Approach**: {implementation_approach}
-
-**Pros**:
-- {advantage_1}
-- {advantage_2}
-
-**Cons**:
-- {disadvantage_1}
-- {disadvantage_2}
-
-**Implementation Complexity**: Low | Medium | High
-**Risk Level**: Low | Medium | High
-**Estimated Effort**: {time_estimate}
-
-##### Option 2: {strategy_name}
-...
-
-**Recommended Strategy**: Option {N}
-**Rationale**: {why_this_option_is_best}
-
----
-
-## Recommended Actions
-
-### Priority 1: Address Critical Conflicts
-1. {conflict_id}: {brief_action} - {recommended_strategy}
-2. ...
-
-### Priority 2: Resolve High-Severity Issues
-1. {conflict_id}: {brief_action} - {recommended_strategy}
-2. ...
-
-### Priority 3: Handle Medium Issues
-1. {conflict_id}: {brief_action} - {recommended_strategy}
-2. ...
-
-## Migration Considerations
-
-**Data Migration**:
-- {migration_task_1}
-- {migration_task_2}
-
-**API Versioning**:
-- {versioning_strategy}
-
-**Rollback Strategy**:
-- {rollback_plan}
-
----
-
-## Next Steps
-
-**Before Implementation**:
-1. Review and select resolution strategies
-2. Update IMPL_PLAN.md with conflict resolution decisions
-3. Validate migration requirements
-
-**Proceed to**:
-- /workflow:plan continue → Proceed with task generation
+**User Selection Examples**:
+```
+Question: "CON-001: 现有认证系统与计划不兼容 - 请选择解决方案"
+Options:
+  - "渐进式迁移" | 复杂度: Medium | 风险: Low | 工作量: 3-5天
+  - "完全重写" | 复杂度: High | 风险: Medium | 工作量: 7-10天
+  - "跳过此冲突"
 ```
 
-### Content Focus
-- ✅ Conflict detection with severity classification
-- ✅ Multiple resolution strategies per conflict
-- ✅ Pros/cons analysis for each strategy
-- ✅ Effort and risk estimates
-- ✅ Migration considerations
-- ❌ Direct code changes or patches
-- ❌ Implementation details (save for IMPL_PLAN)
-- ❌ Task breakdowns (handled by task generation)
+### Phase 4: Apply Modifications
 
-## Execution Management
+```javascript
+// 1. Extract modifications from selected strategies
+const modifications = [];
+selectedStrategies.forEach(strategy => {
+  if (strategy !== "skip") {
+    modifications.push(...strategy.modifications);
+  }
+});
 
-### Error Handling & Recovery
-1. **Pre-execution**: Verify conflict_risk warrants execution
-2. **Agent Monitoring**: Track agent execution status via Task tool
-3. **Validation**: Check CONFLICT_RESOLUTION.md generation on completion
-4. **Error Recovery**:
-   - Agent execution failure → report error, check agent logs
-   - Missing output file → retry agent execution once
-   - CLI tool failure → fallback to Claude analysis
-5. **Graceful Degradation**: If all analysis methods fail, generate basic conflict report from heuristics
+// 2. Apply each modification using Edit tool
+modifications.forEach(mod => {
+  if (mod.change_type === "update") {
+    Edit({
+      file_path: mod.file,
+      old_string: mod.old_content,
+      new_string: mod.new_content
+    });
+  }
+  // Handle "add" and "remove" similarly
+});
 
-## Integration & Success Criteria
+// 3. Update context-package.json
+const contextPackage = JSON.parse(Read(contextPath));
+contextPackage.conflict_detection.conflict_risk = "resolved";
+contextPackage.conflict_detection.resolved_conflicts = conflicts.map(c => c.id);
+contextPackage.conflict_detection.resolved_at = new Date().toISOString();
+Write(contextPath, JSON.stringify(contextPackage, null, 2));
 
-### Input/Output Interface
+// 4. Return summary
+return {
+  resolved: modifications.length,
+  skipped: selectedStrategies.filter(s => s === "skip").length,
+  modified_files: [...new Set(modifications.map(m => m.file))]
+};
+```
+
+**Validation**:
+```
+✓ Agent returns valid JSON structure
+✓ AskUserQuestion displays all conflicts (max 4)
+✓ User selections captured correctly
+✓ Edit tool successfully applies modifications
+✓ guidance-specification.md updated
+✓ Role analyses (*.md) updated
+✓ context-package.json marked as resolved
+✓ Agent log saved to .workflow/{session_id}/.chat/
+```
+
+## Output Format: Agent JSON Response
+
+**Focus**: Structured conflict data with actionable modifications for programmatic processing.
+
+**Format**: JSON to stdout (NO file generation)
+
+**Structure**: Defined in Phase 2, Step 4 (agent prompt)
+
+### Key Requirements
+| Requirement | Details |
+|------------|---------|
+| **Conflict limit** | Max 4 conflicts (AskUserQuestion tool limit) |
+| **Strategy count** | 2-4 strategies per conflict |
+| **Modifications** | Each strategy includes file paths, old_content, new_content |
+| **User-facing text** | Chinese (brief, strategy names, pros/cons) |
+| **Technical fields** | English (severity, category, complexity, risk) |
+| **old_content precision** | 20-100 chars for unique Edit tool matching |
+| **File targets** | guidance-specification.md, role analyses (*.md) |
+
+## Error Handling
+
+### Recovery Strategy
+```
+1. Pre-check: Verify conflict_risk ≥ medium
+2. Monitor: Track agent via Task tool
+3. Validate: Parse agent JSON output
+4. Recover:
+   - Agent failure → check logs + report error
+   - Invalid JSON → retry once with Claude fallback
+   - CLI failure → fallback to Claude analysis
+   - Edit tool failure → report affected files + rollback option
+   - User cancels → mark as "unresolved", continue to task-generate
+5. Degrade: If all fail, generate minimal conflict report and skip modifications
+```
+
+### Rollback Handling
+```
+If Edit tool fails mid-application:
+1. Log all successfully applied modifications
+2. Offer rollback option via AskUserQuestion
+3. If rollback selected: restore files from git or backups
+4. If continue: mark partial resolution in context-package.json
+```
+
+## Integration
+
+### Interface
 **Input**:
-- `--session` (required): Session ID (e.g., WFS-auth)
-- `--context` (required): Context package path
-- Context package must have conflict_risk ≥ medium
+- `--session` (required): WFS-{session-id}
+- `--context` (required): context-package.json path
+- Requires: `conflict_risk ≥ medium`
 
 **Output**:
-- Single file: `CONFLICT_RESOLUTION.md` at `.workflow/{session_id}/.process/`
-- No code modifications
+- Modified files:
+  - `.workflow/{session_id}/.brainstorm/guidance-specification.md`
+  - `.workflow/{session_id}/.brainstorm/{role}/analysis.md`
+  - `.workflow/{session_id}/.process/context-package.json` (conflict_risk → resolved)
+- NO report file generation
 
-### Quality & Success Validation
-**Quality Checks**: Completeness, strategy diversity, actionability
+**User Interaction**:
+- AskUserQuestion for strategy selection (max 4 conflicts)
+- Each conflict: 2-4 strategy options + "跳过" option
 
-**Success Criteria**:
-- ✅ Conflict detection complete (all categories scanned)
-- ✅ Minimum 2 resolution strategies per conflict
-- ✅ Clear pros/cons for each strategy
-- ✅ Effort and risk estimates provided
-- ✅ Recommended strategy with rationale
-- ✅ Migration considerations documented
-- ✅ CLI-powered analysis (with fallback handling)
-- ✅ Robust error handling (validation, retry, degradation)
-- ✅ Agent execution log saved to session chat directory
+### Success Criteria
+```
+✓ CLI analysis returns valid JSON structure
+✓ Max 4 conflicts presented (tool limit)
+✓ Min 2 strategies per conflict with modifications
+✓ AskUserQuestion displays all conflicts correctly
+✓ User selections captured and processed
+✓ Edit tool applies modifications successfully
+✓ guidance-specification.md updated with resolved conflicts
+✓ Role analyses (*.md) updated with resolved conflicts
+✓ context-package.json marked as "resolved"
+✓ No CONFLICT_RESOLUTION.md file generated
+✓ Modification summary returned to user
+✓ Agent log saved to .workflow/{session_id}/.chat/
+✓ Error handling robust (validate/retry/degrade)
+```
 
 ## Related Commands
-- `/context:gather` - Generates conflict_detection data required by this command
-- `/workflow:plan` - Automatically calls this command when conflict_risk ≥ medium
-- `/task:create` - Creates tasks based on selected resolution strategies
+| Command | Relationship |
+|---------|--------------|
+| `/workflow:tools:context-gather` | Generates input conflict_detection data |
+| `/workflow:plan` | Auto-triggers this when risk ≥ medium |
+| `/workflow:tools:task-generate` | Uses resolved conflicts from updated brainstorm files |
+| `/workflow:brainstorm:artifacts` | Generates guidance-specification.md (modified by this command) |

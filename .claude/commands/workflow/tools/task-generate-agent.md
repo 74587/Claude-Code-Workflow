@@ -149,9 +149,11 @@ Task(
 - Includes conflict_risk assessment
 
 ### Conflict Resolution (Conditional)
-{conflict_resolution_content}
-- Exists only if conflict_risk was medium/high
-- Contains conflict detection results and resolution strategies
+If conflict_risk was medium/high, modifications have been applied to:
+- **guidance-specification.md**: Design decisions updated to resolve conflicts
+- **Role analyses (*.md)**: Recommendations adjusted for compatibility
+- **context-package.json**: Marked as "resolved" with conflict IDs
+- NO separate CONFLICT_RESOLUTION.md file (conflicts resolved in-place)
 
 ### MCP Analysis Results (Optional)
 **Code Structure**: {mcp_code_index_results}

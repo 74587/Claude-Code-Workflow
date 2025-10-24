@@ -216,7 +216,7 @@ TodoWrite({todos: [
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute conflict resolution", "status": "in_progress", "activeForm": "Executing conflict resolution"},
+  {"content": "Resolve conflicts and apply fixes", "status": "in_progress", "activeForm": "Resolving conflicts"},
   {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
@@ -231,7 +231,7 @@ TodoWrite({todos: [
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute conflict resolution", "status": "completed", "activeForm": "Executing conflict resolution"},
+  {"content": "Resolve conflicts and apply fixes", "status": "completed", "activeForm": "Resolving conflicts"},
   {"content": "Execute task generation", "status": "in_progress", "activeForm": "Executing task generation"}
 ]})
 ```
@@ -286,12 +286,18 @@ Phase 2: context-gather --session sessionId "structured-description"
     ↓
 Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
     ↓ Input: sessionId + contextPath + conflict_risk
-    ↓ CLI-powered conflict detection and resolution strategy generation
-    ↓ Output: CONFLICT_RESOLUTION.md (if conflict_risk ≥ medium)
+    ↓ CLI-powered conflict detection (JSON output)
+    ↓ AskUserQuestion: Present conflicts + resolution strategies
+    ↓ User selects strategies (or skip)
+    ↓ Apply modifications via Edit tool:
+    ↓   - Update guidance-specification.md
+    ↓   - Update role analyses (*.md)
+    ↓   - Mark context-package.json as "resolved"
+    ↓ Output: Modified brainstorm artifacts (NO report file)
     ↓ Skip if conflict_risk is none/low → proceed directly to Phase 4
     ↓
 Phase 4: task-generate[--agent] --session sessionId
-    ↓ Input: sessionId + conflict resolution decisions (if exists) + session memory
+    ↓ Input: sessionId + resolved brainstorm artifacts + session memory
     ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
 Return summary to user
@@ -300,8 +306,7 @@ Return summary to user
 **Session Memory Flow**: Each phase receives session ID, which provides access to:
 - Previous task summaries
 - Existing context and analysis
-- Brainstorming artifacts
-- Conflict resolution decisions (if Phase 3 executed)
+- Brainstorming artifacts (potentially modified by Phase 3)
 - Session-specific configuration
 
 **Structured Description Benefits**:

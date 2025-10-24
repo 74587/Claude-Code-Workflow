@@ -199,14 +199,9 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         "usage": "Smart context with focus paths, module structure, dependency graph, existing patterns, tech stack. Use for: environment setup, dependency resolution, pattern discovery, conflict detection results"
       },
       {
-        "path": ".workflow/WFS-[session]/.process/CONFLICT_RESOLUTION.md",
-        "priority": "high",
-        "usage": "Conflict resolution strategies and selected approaches (conditional, exists only if conflict_risk was medium/high). Use for: understanding code conflicts, applying resolution strategies, migration planning"
-      },
-      {
         "path": ".workflow/WFS-[session]/.brainstorming/guidance-specification.md",
-        "priority": "medium",
-        "usage": "Discussion context and framework structure"
+        "priority": "high",
+        "usage": "Finalized design decisions (potentially modified by conflict resolution if conflict_risk was medium/high). Use for: understanding resolved requirements, design choices, conflict resolutions applied in-place"
       }
     ]
   },
@@ -235,17 +230,17 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
       },
       {
         "step": "load_planning_context",
-        "action": "Load plan-generated context intelligence and conflict resolution",
-        "note": "CRITICAL: context-package.json provides smart context (focus paths, dependencies, patterns). CONFLICT_RESOLUTION.md (if exists) provides conflict resolution strategies.",
+        "action": "Load plan-generated context intelligence with resolved conflicts",
+        "note": "CRITICAL: context-package.json provides smart context (focus paths, dependencies, patterns) and conflict resolution status. If conflict_risk was medium/high, conflicts have been resolved in guidance-specification.md and role analyses.",
         "commands": [
           "Read(.workflow/WFS-[session]/.process/context-package.json)",
-          "bash(test -f .workflow/WFS-[session]/.process/CONFLICT_RESOLUTION.md && cat .workflow/WFS-[session]/.process/CONFLICT_RESOLUTION.md || echo 'No conflicts detected')"
+          "Read(.workflow/WFS-[session]/.brainstorming/guidance-specification.md)"
         ],
         "output_to": "planning_context",
         "on_error": "fail",
         "usage_guidance": {
-          "context-package.json": "Use for focus_paths validation, dependency resolution, existing pattern discovery, module structure understanding, conflict_risk assessment",
-          "CONFLICT_RESOLUTION.md": "Apply selected conflict resolution strategies, understand migration requirements (conditional, may not exist if no conflicts)"
+          "context-package.json": "Use for focus_paths validation, dependency resolution, existing pattern discovery, module structure understanding, conflict_risk status (resolved/none/low)",
+          "guidance-specification.md": "Use for finalized design decisions (includes applied conflict resolutions if any)"
         }
       },
       {
@@ -269,22 +264,22 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
       {
         "step": 1,
         "title": "Implement task following role analyses and context",
-        "description": "Implement '[title]' following this priority: 1) role analysis.md files (requirements, design specs, enhancements from synthesis), 2) context-package.json (smart context, focus paths, patterns), 3) CONFLICT_RESOLUTION.md (if exists, conflict resolution strategies). Role analyses are enhanced by synthesis phase with concept improvements and clarifications.",
+        "description": "Implement '[title]' following this priority: 1) role analysis.md files (requirements, design specs, enhancements from synthesis), 2) guidance-specification.md (finalized decisions with resolved conflicts), 3) context-package.json (smart context, focus paths, patterns). Role analyses are enhanced by synthesis phase with concept improvements and clarifications. If conflict_risk was medium/high, conflict resolutions are already applied in-place.",
         "modification_points": [
           "Apply requirements and design specs from role analysis documents",
           "Use enhancements and clarifications from synthesis phase",
-          "Apply conflict resolution strategies (if conflicts were detected)",
+          "Use finalized decisions from guidance-specification.md (includes resolved conflicts)",
           "Use context-package.json for focus paths and dependency resolution",
           "Consult specific role artifacts for implementation details when needed",
           "Integrate with existing patterns"
         ],
         "logic_flow": [
           "Load role analyses (requirements, design, enhancements from synthesis)",
-          "Load context-package.json (smart context: focus paths, dependencies, patterns, conflict_risk)",
-          "Load CONFLICT_RESOLUTION.md (if exists, conflict resolution strategies)",
+          "Load guidance-specification.md (finalized decisions with resolved conflicts if any)",
+          "Load context-package.json (smart context: focus paths, dependencies, patterns, conflict_risk status)",
           "Extract requirements and design decisions from role documents",
           "Review synthesis enhancements and clarifications",
-          "Apply conflict resolution strategies (if applicable)",
+          "Use finalized decisions (conflicts already resolved if applicable)",
           "Identify modification targets using context package",
           "Implement following role requirements and design specs",
           "Consult role artifacts for detailed specifications when needed",
@@ -309,12 +304,13 @@ source: "User requirements" | "File: path" | "Issue: ISS-001"
 role_analyses: .workflow/{session-id}/.brainstorming/[role]/analysis*.md
 artifacts: .workflow/{session-id}/.brainstorming/
 context_package: .workflow/{session-id}/.process/context-package.json  # CCW smart context
-conflict_resolution: .workflow/{session-id}/.process/CONFLICT_RESOLUTION.md  # Conditional, if conflict_risk >= medium
+guidance_specification: .workflow/{session-id}/.brainstorming/guidance-specification.md  # Finalized decisions with resolved conflicts
 workflow_type: "standard | tdd | design"  # Indicates execution model
 verification_history:  # CCW quality gates
   synthesis_clarify: "passed | skipped | pending"  # Brainstorm phase clarification
   action_plan_verify: "pending"
-phase_progression: "brainstorm → synthesis → context → conflict_resolution → planning"  # CCW workflow phases
+  conflict_resolution: "resolved | none | low"  # Status from context-package.json
+phase_progression: "brainstorm → synthesis → context → conflict_resolution (if needed) → planning"  # CCW workflow phases
 ---
 
 # Implementation Plan: {Project Title}
@@ -383,15 +379,16 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
 **Context Intelligence (context-package.json)**:
 - **What**: Smart context gathered by CCW's context-gather phase
-- **Content**: Focus paths, dependency graph, existing patterns, module structure, tech stack, conflict_risk assessment
+- **Content**: Focus paths, dependency graph, existing patterns, module structure, tech stack, conflict_risk status
 - **Usage**: Tasks load this via `flow_control.preparatory_steps` for environment setup and conflict awareness
 - **CCW Value**: Automated intelligent context discovery replacing manual file exploration
 
-**Conflict Resolution (CONFLICT_RESOLUTION.md)**:
-- **What**: Conflict analysis and resolution strategies (conditional, exists only if conflict_risk >= medium)
-- **Content**: Conflict detection results, resolution options, selected strategies, migration requirements
-- **Usage**: Referenced in task planning for applying conflict resolution strategies and understanding code conflicts
-- **CCW Value**: CLI-powered conflict detection and strategic resolution guidance for complex codebases
+**Conflict Resolution Status**:
+- **What**: Conflict resolution applied in-place to brainstorm artifacts (if conflict_risk was >= medium)
+- **Location**: guidance-specification.md and role analyses (*.md) contain resolved conflicts
+- **Status**: Check context-package.json → conflict_detection.conflict_risk ("resolved" | "none" | "low")
+- **Usage**: Read finalized decisions from guidance-specification.md (includes applied resolutions)
+- **CCW Value**: Interactive conflict resolution with user confirmation, modifications applied automatically
 
 ### Role Analysis Documents (Highest Priority)
 Role analyses provide specialized perspectives on the implementation:
@@ -406,10 +403,9 @@ Role analyses provide specialized perspectives on the implementation:
 - **topic-framework.md**: Role-specific discussion points and analysis framework
 
 **Artifact Priority in Development**:
-1. context-package.json (primary source: smart context AND brainstorm artifact catalog in `brainstorm_artifacts`)
-2. role/analysis*.md (paths from context-package.json: requirements, design specs, enhanced by synthesis)
-3. CONFLICT_RESOLUTION.md (path from context-package.json: conflict strategies, if conflict_risk >= medium)
-4. guidance-specification.md (path from context-package.json: discussion framework)
+1. context-package.json (primary source: smart context AND brainstorm artifact catalog in `brainstorm_artifacts` + conflict_risk status)
+2. role/analysis*.md (paths from context-package.json: requirements, design specs, enhanced by synthesis, with resolved conflicts if any)
+3. guidance-specification.md (path from context-package.json: finalized decisions with resolved conflicts if any)
 
 ## 4. Implementation Strategy
 
@@ -566,21 +562,19 @@ The command organizes outputs into a standard directory structure.
 │   ├── IMPL-1.1.json                # Leaf task with flow_control
 │   └── IMPL-1.2.json                # Leaf task with flow_control
 ├── .brainstorming              # Input artifacts from brainstorm + synthesis
-│   ├── guidance-specification.md    # Discussion framework
-│   └── {role}/analysis*.md          # Role analyses (enhanced by synthesis, may have multiple files per role)
+│   ├── guidance-specification.md    # Finalized decisions (with resolved conflicts if any)
+│   └── {role}/analysis*.md          # Role analyses (enhanced by synthesis, with resolved conflicts if any)
 └── .process/
-    ├── context-package.json         # Input from context-gather (smart context + conflict_risk)
-    └── CONFLICT_RESOLUTION.md       # Input from conflict-resolution (conditional, if conflict_risk >= medium)
+    └── context-package.json         # Input from context-gather (smart context + conflict_risk status)
 ```
 
 ## 7. Artifact Integration
 The command intelligently detects and integrates artifacts from the `.brainstorming/` directory.
 
 #### Artifact Priority
-1.  **context-package.json** (critical): Primary source - smart context AND all brainstorm artifact paths in `brainstorm_artifacts` section
-2.  **role/analysis*.md** (highest): Paths from context-package.json → role-specific requirements, design specs, enhanced by synthesis
-3.  **CONFLICT_RESOLUTION.md** (high): Path from context-package.json → conflict strategies (conditional, if conflict_risk >= medium)
-4.  **guidance-specification.md** (medium): Path from context-package.json → discussion framework from brainstorming
+1.  **context-package.json** (critical): Primary source - smart context AND all brainstorm artifact paths in `brainstorm_artifacts` section + conflict_risk status
+2.  **role/analysis*.md** (highest): Paths from context-package.json → role-specific requirements, design specs, enhanced by synthesis, with resolved conflicts applied in-place
+3.  **guidance-specification.md** (high): Path from context-package.json → finalized decisions with resolved conflicts (if conflict_risk was >= medium)
 
 #### Artifact-Task Mapping
 Artifacts are mapped to tasks based on their relevance to the task's domain.
