@@ -135,7 +135,6 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **Purpose**: Optional quality gate before task generation - primarily handled by brainstorm synthesis phase
 
-**Note**: Concept enhancement and clarification are now handled in `/workflow:brainstorm:synthesis` Phase 2.5 during brainstorming. This phase is reserved for future validation extensions.
 
 **Current Behavior**: Auto-skip to Phase 4 (Task Generation)
 

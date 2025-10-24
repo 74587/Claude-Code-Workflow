@@ -90,8 +90,10 @@ Task(
    - Analyze current architecture patterns
    - Identify current API contracts and interfaces
 
-2. **Load Plan Requirements** (from session context)
-   - Read .workflow/{session_id}/.brainstorming/*/analysis.md (if exists)
+2. **Load Plan Requirements** (from context-package.json)
+   - Read .workflow/{session_id}/.process/context-package.json
+   - Extract role analysis paths from brainstorm_artifacts.role_analyses[]
+   - Load each role analysis file
    - Extract requirements and design decisions
    - Identify planned changes
 

@@ -68,6 +68,7 @@ When task JSON contains implementation_approach array:
 ### 1. Context Assessment & Test Discovery
 - Analyze task context to identify test files and source code paths
 - Load test framework configuration (Jest, Pytest, Mocha, etc.)
+- **context-package.json** (CCW Workflow): Extract artifact paths using `jq -r '.brainstorm_artifacts.role_analyses[].files[].path'`
 - Identify test command from project configuration
 
 ```bash

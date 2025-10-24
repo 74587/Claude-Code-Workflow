@@ -155,6 +155,11 @@ Task(
    - Identify inter-module dependencies
    - Determine core and optional dependencies
 
+#### Step 3.5: Brainstorm Artifacts Discovery
+Discover and catalog brainstorming documents (if `.brainstorming/` exists):
+- Guidance specification, role analyses (`*/analysis*.md`), synthesis output
+- Catalog role analyses by role with file type and timestamp
+
 #### Step 4: Context Packaging
 Generate standardized context-package.json following the format below
 
@@ -252,6 +257,31 @@ Generate standardized context-package.json following the format below
     "docs_files": 4,
     "config_files": 2,
     "test_files": 1
+  },
+  "brainstorm_artifacts": {
+    "guidance_specification": {
+      "path": ".workflow/WFS-user-auth/.brainstorming/guidance-specification.md",
+      "exists": true
+    },
+    "role_analyses": [
+      {
+        "role": "system-architect",
+        "files": [
+          {"path": ".workflow/WFS-user-auth/.brainstorming/system-architect/analysis.md", "type": "primary"},
+          {"path": ".workflow/WFS-user-auth/.brainstorming/system-architect/analysis-api.md", "type": "supplementary"}
+        ]
+      },
+      {
+        "role": "ui-designer",
+        "files": [
+          {"path": ".workflow/WFS-user-auth/.brainstorming/ui-designer/analysis.md", "type": "primary"}
+        ]
+      }
+    ],
+    "synthesis_output": {
+      "path": ".workflow/WFS-user-auth/.brainstorming/synthesis-specification.md",
+      "exists": true
+    }
   },
   "conflict_detection": {
     "conflict_risk": "medium",

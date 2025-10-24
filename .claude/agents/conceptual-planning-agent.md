@@ -14,11 +14,11 @@ description: |
   Examples:
   - Context: Auto brainstorm assigns system-architect role
     auto.md: Assigns dedicated agent with ASSIGNED_ROLE: system-architect
-    agent: "I'll execute system-architect analysis for this topic, creating architecture-focused conceptual analysis in .brainstorming/system-architect/ directory"
+    agent: "I'll execute system-architect analysis for this topic, creating architecture-focused conceptual analysis in OUTPUT_LOCATION"
 
   - Context: Auto brainstorm assigns ui-designer role
     auto.md: Assigns dedicated agent with ASSIGNED_ROLE: ui-designer
-    agent: "I'll execute ui-designer analysis for this topic, creating UX-focused conceptual analysis in .brainstorming/ui-designer/ directory"
+    agent: "I'll execute ui-designer analysis for this topic, creating UX-focused conceptual analysis in OUTPUT_LOCATION"
 
 color: purple
 ---
@@ -166,7 +166,7 @@ When called, you receive:
 - **User Context**: Specific requirements, constraints, and expectations from user discussion
 - **Output Location**: Directory path for generated analysis files
 - **Role Hint** (optional): Suggested role or role selection guidance
-- **GEMINI_ANALYSIS_REQUIRED** (optional): Flag to trigger Gemini CLI analysis
+- **context-package.json** (CCW Workflow): Artifact paths catalog - extract using `jq -r '.brainstorm_artifacts.role_analyses[].files[].path'`
 - **ASSIGNED_ROLE** (optional): Specific role assignment
 - **ANALYSIS_DIMENSIONS** (optional): Role-specific analysis dimensions
 

@@ -37,16 +37,17 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
     // If in memory: use cached content
     // Else: Load from .workflow/{session-id}/workflow-session.json
   },
-  "analysis_results": {
-    // If in memory: use cached content
-    // Else: Load from .workflow/{session-id}/.process/ANALYSIS_RESULTS.md
-  },
-  "artifacts_inventory": {
-    // If in memory: use cached list
-    // Else: Scan .workflow/{session-id}/.brainstorming/ directory
-    "synthesis_specification": "path or null",
-    "topic_framework": "path or null",
-    "role_analyses": ["paths"]
+  "brainstorm_artifacts": {
+    // Loaded from context-package.json → brainstorm_artifacts section
+    "role_analyses": [
+      {
+        "role": "system-architect",
+        "files": [{"path": "...", "type": "primary|supplementary"}]
+      }
+    ],
+    "guidance_specification": {"path": "...", "exists": true},
+    "synthesis_output": {"path": "...", "exists": true},
+    "conflict_resolution": {"path": "...", "exists": true}  // if conflict_risk >= medium
   },
   "context_package": {
     // If in memory: use cached content
@@ -68,21 +69,31 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
    }
    ```
 
-2. **Load Analysis Results** (if not in memory)
+2. **Load Context Package** (if not in memory)
    ```javascript
-   if (!memory.has("ANALYSIS_RESULTS.md")) {
-     Read(.workflow/{session-id}/.process/ANALYSIS_RESULTS.md)
+   if (!memory.has("context-package.json")) {
+     Read(.workflow/{session-id}/.process/context-package.json)
    }
    ```
 
-3. **Discover Artifacts** (if not in memory)
+3. **Extract & Load Role Analyses** (from context-package.json)
    ```javascript
-   if (!memory.has("artifacts_inventory")) {
-     bash(find .workflow/{session-id}/.brainstorming/ -name "*.md" -type f)
+   // Extract role analysis paths from context package
+   const roleAnalysisPaths = contextPackage.brainstorm_artifacts.role_analyses
+     .flatMap(role => role.files.map(f => f.path));
+
+   // Load each role analysis file
+   roleAnalysisPaths.forEach(path => Read(path));
+   ```
+
+4. **Load Conflict Resolution** (from context-package.json, if exists)
+   ```javascript
+   if (contextPackage.brainstorm_artifacts.conflict_resolution?.exists) {
+     Read(contextPackage.brainstorm_artifacts.conflict_resolution.path)
    }
    ```
 
-4. **MCP Code Analysis** (optional - enhance understanding)
+5. **MCP Code Analysis** (optional - enhance understanding)
    ```javascript
    // Find relevant files for task context
    mcp__code-index__find_files(pattern="*auth*")
@@ -92,7 +103,7 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
    )
    ```
 
-5. **MCP External Research** (optional - gather best practices)
+6. **MCP External Research** (optional - gather best practices)
    ```javascript
    // Get external examples for implementation
    mcp__exa__get_code_context_exa(
@@ -128,16 +139,22 @@ Task(
 ### Session Metadata
 {session_metadata_content}
 
-### Analysis Results
-{analysis_results_content}
+### Role Analyses (Enhanced by Synthesis)
+{role_analyses_content}
+- Includes requirements, design specs, enhancements, and clarifications from synthesis phase
 
 ### Artifacts Inventory
-- **Synthesis Specification**: {synthesis_spec_path}
-- **Topic Framework**: {topic_framework_path}
+- **Guidance Specification**: {guidance_spec_path}
 - **Role Analyses**: {role_analyses_list}
 
 ### Context Package
 {context_package_summary}
+- Includes conflict_risk assessment
+
+### Conflict Resolution (Conditional)
+{conflict_resolution_content}
+- Exists only if conflict_risk was medium/high
+- Contains conflict detection results and resolution strategies
 
 ### MCP Analysis Results (Optional)
 **Code Structure**: {mcp_code_index_results}
@@ -189,8 +206,9 @@ $(cat ~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
 - Use the template above for IMPL_PLAN.md generation
 - Replace all {placeholder} variables with actual session-specific values
 - Populate CCW Workflow Context based on actual phase progression
-- Extract content from ANALYSIS_RESULTS.md and context-package.json
-- List all detected brainstorming artifacts with correct paths
+- Extract content from role analyses and context-package.json
+- List all detected brainstorming artifacts with correct paths (role analyses, guidance-specification.md)
+- Include conflict resolution status if CONFLICT_RESOLUTION.md exists
 
 #### 3. TODO_LIST.md
 **Location**: .workflow/{session-id}/TODO_LIST.md
@@ -222,9 +240,11 @@ $(cat ~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
 - This template is already the correct one based on execution mode
 
 **Step 2: Extract and Decompose Tasks**
-- Parse ANALYSIS_RESULTS.md for task recommendations
+- Parse role analysis.md files for requirements, design specs, and task recommendations
+- Review synthesis enhancements and clarifications in role analyses
+- Apply conflict resolution strategies (if CONFLICT_RESOLUTION.md exists)
 - Apply task merging rules (merge when possible, decompose only when necessary)
-- Map artifacts to tasks based on domain (UI/Backend/Data)
+- Map artifacts to tasks based on domain (UI → ui-designer, Backend → system-architect, Data → data-architect)
 - Ensure task count ≤10
 
 **Step 3: Generate Task JSON Files**
@@ -322,17 +342,22 @@ const agentContext = {
     ? memory.get("workflow-session.json")
     : Read(.workflow/WFS-[id]/workflow-session.json),
 
-  analysis_results: memory.has("ANALYSIS_RESULTS.md")
-    ? memory.get("ANALYSIS_RESULTS.md")
-    : Read(.workflow/WFS-[id]/.process/ANALYSIS_RESULTS.md),
-
-  artifacts_inventory: memory.has("artifacts_inventory")
-    ? memory.get("artifacts_inventory")
-    : discoverArtifacts(),
-
   context_package: memory.has("context-package.json")
     ? memory.get("context-package.json")
     : Read(.workflow/WFS-[id]/.process/context-package.json),
+
+  // Extract brainstorm artifacts from context package
+  brainstorm_artifacts: extractBrainstormArtifacts(context_package),
+
+  // Load role analyses using paths from context package
+  role_analyses: brainstorm_artifacts.role_analyses
+    .flatMap(role => role.files)
+    .map(file => Read(file.path)),
+
+  // Load conflict resolution if exists (from context package)
+  conflict_resolution: brainstorm_artifacts.conflict_resolution?.exists
+    ? Read(brainstorm_artifacts.conflict_resolution.path)
+    : null,
 
   // Optional MCP enhancements
   mcp_analysis: executeMcpDiscovery()

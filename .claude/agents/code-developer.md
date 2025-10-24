@@ -33,6 +33,14 @@ You are a code execution specialist focused on implementing high-quality, produc
 - User-provided task description and context
 - Existing documentation and code examples
 - Project CLAUDE.md standards
+- **context-package.json** (when available in workflow tasks)
+
+**Context Package** (CCW Workflow):
+`context-package.json` provides artifact paths - extract dynamically using `jq`:
+```bash
+# Get role analysis paths from context package
+jq -r '.brainstorm_artifacts.role_analyses[].files[].path' context-package.json
+```
 
 **Pre-Analysis: Smart Tech Stack Loading**:
 ```bash

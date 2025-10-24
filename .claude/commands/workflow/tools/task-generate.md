@@ -10,7 +10,7 @@ examples:
 # Task Generation Command
 
 ## 1. Overview
-This command generates task JSON files and an `IMPL_PLAN.md` from `ANALYSIS_RESULTS.md`. It automatically detects and integrates brainstorming artifacts, creating a structured and context-rich plan for implementation. The command supports two primary execution modes: a default agent-based mode for seamless context handling and a `--cli-execute` mode that leverages the Codex CLI for complex, autonomous development tasks. Its core function is to translate analysis into actionable, executable tasks, ensuring all necessary context, dependencies, and implementation steps are defined upfront.
+This command generates task JSON files and an `IMPL_PLAN.md` from brainstorming role analyses. It automatically detects and integrates all brainstorming artifacts (role-specific `analysis.md` files and `guidance-specification.md`), creating a structured and context-rich plan for implementation. The command supports two primary execution modes: a default agent-based mode for seamless context handling and a `--cli-execute` mode that leverages the Codex CLI for complex, autonomous development tasks. Its core function is to translate requirements and design specifications from role analyses into actionable, executable tasks, ensuring all necessary context, dependencies, and implementation steps are defined upfront.
 
 ## 2. Execution Modes
 
@@ -37,8 +37,8 @@ When the `--cli-execute` flag is used, each step in `implementation_approach` **
 ## 3. Core Principles
 This command is built on a set of core principles to ensure efficient and reliable task generation.
 
-- **Analysis-Driven**: All generated tasks originate from `ANALYSIS_RESULTS.md`, ensuring a direct link between analysis and implementation
-- **Artifact-Aware**: Automatically detects and integrates brainstorming outputs (role analyses, guidance-specification.md) to enrich task context
+- **Role Analysis-Driven**: All generated tasks originate from role-specific `analysis.md` files (enhanced in synthesis phase), ensuring direct link between requirements/design and implementation
+- **Artifact-Aware**: Automatically detects and integrates all brainstorming outputs (role analyses, guidance-specification.md, enhancements) to enrich task context
 - **Context-Rich**: Embeds comprehensive context (requirements, focus paths, acceptance criteria, artifact references) directly into each task JSON
 - **Flow-Control Ready**: Pre-defines clear execution sequence (`pre_analysis`, `implementation_approach`) within each task
 - **Memory-First**: Prioritizes using documents already loaded in conversation memory to avoid redundant file operations
@@ -52,8 +52,9 @@ The command follows a streamlined, three-step process to convert analysis into e
 ### Step 1: Input & Discovery
 The process begins by gathering all necessary inputs. It follows a **Memory-First Rule**, skipping file reads if documents are already in the conversation memory.
 1.  **Session Validation**: Loads and validates the session from `.workflow/{session_id}/workflow-session.json`.
-2.  **Analysis Loading**: Reads the primary input, `.workflow/{session_id}/.process/ANALYSIS_RESULTS.md`.
-3.  **Artifact Discovery**: Scans the `.workflow/{session_id}/.brainstorming/` directory to find `guidance-specification.md` and various role analyses ([role]/analysis*.md).
+2.  **Context Package Loading** (primary source): Reads `.workflow/{session_id}/.process/context-package.json` for smart context and artifact catalog.
+3.  **Brainstorm Artifacts Extraction**: Extracts role analysis paths from `context-package.json` → `brainstorm_artifacts.role_analyses[]` (supports `analysis*.md` automatically).
+4.  **Document Loading**: Reads role analyses, guidance specification, synthesis output, and conflict resolution (if exists) using paths from context package.
 
 ### Step 2: Task Decomposition & Grouping
 Once all inputs are loaded, the command analyzes the tasks defined in the analysis results and groups them based on shared context.
@@ -188,19 +189,19 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
     "shared_context": {"tech_stack": [], "conventions": []},
     "artifacts": [
       {
-        "path": ".workflow/WFS-[session]/.brainstorming/[role-name]/analysis*.md",
+        "path": "{{from context-package.json → brainstorm_artifacts.role_analyses[].files[].path}}",
         "priority": "highest",
-        "usage": "Role-specific insights and requirements from brainstorming (may have multiple files per role: analysis.md OR analysis-1/2/3.md). Common roles: product-manager (user stories, business requirements), system-architect (ADRs, APIs, architecture), ui-designer (design tokens, layouts), data-architect (data models, schemas), ux-expert (user journeys)"
-      },
-      {
-        "path": ".workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md",
-        "priority": "critical",
-        "usage": "Technical analysis and optimization strategies from planning phase. Use for: risk mitigation, performance optimization, architecture review, implementation patterns"
+        "usage": "Role-specific requirements, design specs, enhanced by synthesis. Paths loaded dynamically from context-package.json (supports multiple files per role: analysis.md, analysis-01.md, analysis-api.md, etc.). Common roles: product-manager, system-architect, ui-designer, data-architect, ux-expert."
       },
       {
         "path": ".workflow/WFS-[session]/.process/context-package.json",
         "priority": "critical",
-        "usage": "Smart context with focus paths, module structure, dependency graph, existing patterns. Use for: environment setup, dependency resolution, pattern discovery"
+        "usage": "Smart context with focus paths, module structure, dependency graph, existing patterns, tech stack. Use for: environment setup, dependency resolution, pattern discovery, conflict detection results"
+      },
+      {
+        "path": ".workflow/WFS-[session]/.process/CONFLICT_RESOLUTION.md",
+        "priority": "high",
+        "usage": "Conflict resolution strategies and selected approaches (conditional, exists only if conflict_risk was medium/high). Use for: understanding code conflicts, applying resolution strategies, migration planning"
       },
       {
         "path": ".workflow/WFS-[session]/.brainstorming/guidance-specification.md",
@@ -212,42 +213,39 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_role_analyses",
-        "action": "Load role analysis documents from brainstorming",
+        "step": "load_context_package",
+        "action": "Load context package for artifact paths",
         "commands": [
-          "bash(ls .workflow/WFS-[session]/.brainstorming/*/analysis*.md 2>/dev/null || echo 'not found')",
-          "Glob(.workflow/WFS-[session]/.brainstorming/*/analysis*.md)",
-          "Read(each discovered role analysis file)"
+          "Read(.workflow/WFS-[session]/.process/context-package.json)"
         ],
-        "output_to": "role_analyses",
-        "on_error": "skip_optional"
+        "output_to": "context_package",
+        "on_error": "fail"
       },
       {
         "step": "load_role_analysis_artifacts",
-        "action": "Load role-specific analysis documents for technical details (supports multiple files per role)",
-        "note": "These artifacts contain role-specific implementation details. Consult when needing: API schemas, caching configs, design tokens, ADRs, performance metrics. Each role may have analysis.md OR analysis-1/2/3.md.",
+        "action": "Load role analyses from context-package.json (supports multiple files per role)",
+        "note": "Paths loaded from context-package.json → brainstorm_artifacts.role_analyses[]. Supports analysis*.md automatically.",
         "commands": [
-          "bash(find .workflow/WFS-[session]/.brainstorming/ -name 'analysis*.md' 2>/dev/null | sort | head -24)",
-          "Read(.workflow/WFS-[session]/.brainstorming/system-architect/analysis.md)",
-          "Read(.workflow/WFS-[session]/.brainstorming/ui-designer/analysis.md)",
-          "Read(.workflow/WFS-[session]/.brainstorming/product-manager/analysis.md)"
+          "Read(.workflow/WFS-[session]/.process/context-package.json)",
+          "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
+          "Read(each extracted path)"
         ],
         "output_to": "role_analysis_artifacts",
         "on_error": "skip_optional"
       },
       {
         "step": "load_planning_context",
-        "action": "Load plan-generated analysis and context intelligence",
-        "note": "CRITICAL: ANALYSIS_RESULTS.md provides technical guidance (optimization, risk mitigation, architecture review). context-package.json provides smart context (focus paths, dependencies, patterns).",
+        "action": "Load plan-generated context intelligence and conflict resolution",
+        "note": "CRITICAL: context-package.json provides smart context (focus paths, dependencies, patterns). CONFLICT_RESOLUTION.md (if exists) provides conflict resolution strategies.",
         "commands": [
-          "Read(.workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md)",
-          "Read(.workflow/WFS-[session]/.process/context-package.json)"
+          "Read(.workflow/WFS-[session]/.process/context-package.json)",
+          "bash(test -f .workflow/WFS-[session]/.process/CONFLICT_RESOLUTION.md && cat .workflow/WFS-[session]/.process/CONFLICT_RESOLUTION.md || echo 'No conflicts detected')"
         ],
         "output_to": "planning_context",
         "on_error": "fail",
         "usage_guidance": {
-          "ANALYSIS_RESULTS.md": "Reference for technical decisions, risk mitigation strategies, optimization patterns, architecture review insights from Gemini/Qwen/Codex parallel analysis",
-          "context-package.json": "Use for focus_paths validation, dependency resolution, existing pattern discovery, module structure understanding"
+          "context-package.json": "Use for focus_paths validation, dependency resolution, existing pattern discovery, module structure understanding, conflict_risk assessment",
+          "CONFLICT_RESOLUTION.md": "Apply selected conflict resolution strategies, understand migration requirements (conditional, may not exist if no conflicts)"
         }
       },
       {
@@ -270,24 +268,25 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Implement task following role analyses and technical guidance",
-        "description": "Implement '[title]' following this priority: 1) role analysis.md files (requirements and design specs from brainstorming), 2) ANALYSIS_RESULTS.md (technical guidance and risk mitigation from planning phase), 3) context-package.json (smart context and patterns). Consult ANALYSIS_RESULTS.md for optimization strategies, performance considerations, and architecture review insights before implementation.",
+        "title": "Implement task following role analyses and context",
+        "description": "Implement '[title]' following this priority: 1) role analysis.md files (requirements, design specs, enhancements from synthesis), 2) context-package.json (smart context, focus paths, patterns), 3) CONFLICT_RESOLUTION.md (if exists, conflict resolution strategies). Role analyses are enhanced by synthesis phase with concept improvements and clarifications.",
         "modification_points": [
-          "Apply requirements from role analysis documents",
-          "Follow technical guidelines from ANALYSIS_RESULTS.md",
+          "Apply requirements and design specs from role analysis documents",
+          "Use enhancements and clarifications from synthesis phase",
+          "Apply conflict resolution strategies (if conflicts were detected)",
           "Use context-package.json for focus paths and dependency resolution",
           "Consult specific role artifacts for implementation details when needed",
           "Integrate with existing patterns"
         ],
         "logic_flow": [
-          "Load role analyses (requirements and design decisions from brainstorming)",
-          "Load ANALYSIS_RESULTS.md (technical guidance and risk mitigation strategies)",
-          "Load context-package.json (smart context: focus paths, dependencies, existing patterns)",
+          "Load role analyses (requirements, design, enhancements from synthesis)",
+          "Load context-package.json (smart context: focus paths, dependencies, patterns, conflict_risk)",
+          "Load CONFLICT_RESOLUTION.md (if exists, conflict resolution strategies)",
           "Extract requirements and design decisions from role documents",
-          "Review technical analysis and optimization strategies from ANALYSIS_RESULTS.md",
+          "Review synthesis enhancements and clarifications",
+          "Apply conflict resolution strategies (if applicable)",
           "Identify modification targets using context package",
-          "Implement following role requirements and technical guidance",
-          "Apply optimization patterns from ANALYSIS_RESULTS.md",
+          "Implement following role requirements and design specs",
           "Consult role artifacts for detailed specifications when needed",
           "Validate against acceptance criteria"
         ],
@@ -307,14 +306,15 @@ This document provides a high-level overview of the entire implementation plan.
 ---
 identifier: WFS-{session-id}
 source: "User requirements" | "File: path" | "Issue: ISS-001"
-analysis: .workflow/{session-id}/.process/ANALYSIS_RESULTS.md
+role_analyses: .workflow/{session-id}/.brainstorming/[role]/analysis*.md
 artifacts: .workflow/{session-id}/.brainstorming/
 context_package: .workflow/{session-id}/.process/context-package.json  # CCW smart context
+conflict_resolution: .workflow/{session-id}/.process/CONFLICT_RESOLUTION.md  # Conditional, if conflict_risk >= medium
 workflow_type: "standard | tdd | design"  # Indicates execution model
 verification_history:  # CCW quality gates
-  concept_verify: "passed | skipped | pending"
+  synthesis_clarify: "passed | skipped | pending"  # Brainstorm phase clarification
   action_plan_verify: "pending"
-phase_progression: "brainstorm → context → analysis → concept_verify → planning"  # CCW workflow phases
+phase_progression: "brainstorm → synthesis → context → conflict_resolution → planning"  # CCW workflow phases
 ---
 
 # Implementation Plan: {Project Title}
@@ -333,14 +333,14 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
 ### CCW Workflow Context
 **Phase Progression**:
-- ✅ Phase 1: Brainstorming (role analyses clarified and refined)
-- ✅ Phase 2: Context Gathering (context-package.json: {N} files, {M} modules analyzed)
-- ✅ Phase 3: Enhanced Analysis (ANALYSIS_RESULTS.md: Gemini/Qwen/Codex parallel insights)
-- ✅ Phase 4: Concept Verification (integrated in brainstorming phase | skipped)
-- ⏳ Phase 5: Action Planning (current phase - generating IMPL_PLAN.md)
+- ✅ Phase 1: Brainstorming (role analyses generated by participating roles)
+- ✅ Phase 2: Synthesis (concept enhancement + clarification, {N} questions answered, role analyses refined)
+- ✅ Phase 3: Context Gathering (context-package.json: {N} files, {M} modules analyzed, conflict_risk: {level})
+- ✅ Phase 4: Conflict Resolution ({status}: {conflict_count} conflicts detected and resolved | skipped if no conflicts)
+- ⏳ Phase 5: Task Generation (current phase - generating IMPL_PLAN.md and task JSONs)
 
 **Quality Gates**:
-- concept-verify: ✅ Passed (0 ambiguities remaining) | ⏭️ Skipped (user decision) | ⏳ Pending
+- synthesis-clarify: ✅ Passed ({N} ambiguities resolved, {M} enhancements applied)
 - action-plan-verify: ⏳ Pending (recommended before /workflow:execute)
 
 **Context Package Summary**:
@@ -383,15 +383,15 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
 **Context Intelligence (context-package.json)**:
 - **What**: Smart context gathered by CCW's context-gather phase
-- **Content**: Focus paths, dependency graph, existing patterns, module structure
-- **Usage**: Tasks load this via `flow_control.preparatory_steps` for environment setup
+- **Content**: Focus paths, dependency graph, existing patterns, module structure, tech stack, conflict_risk assessment
+- **Usage**: Tasks load this via `flow_control.preparatory_steps` for environment setup and conflict awareness
 - **CCW Value**: Automated intelligent context discovery replacing manual file exploration
 
-**Technical Analysis (ANALYSIS_RESULTS.md)**:
-- **What**: Gemini/Qwen/Codex parallel analysis results
-- **Content**: Optimization strategies, risk assessment, architecture review, implementation patterns, cross-role synthesis
-- **Usage**: Referenced in task planning for technical guidance and risk mitigation
-- **CCW Value**: Multi-model parallel analysis providing comprehensive technical intelligence and cross-role integration
+**Conflict Resolution (CONFLICT_RESOLUTION.md)**:
+- **What**: Conflict analysis and resolution strategies (conditional, exists only if conflict_risk >= medium)
+- **Content**: Conflict detection results, resolution options, selected strategies, migration requirements
+- **Usage**: Referenced in task planning for applying conflict resolution strategies and understanding code conflicts
+- **CCW Value**: CLI-powered conflict detection and strategic resolution guidance for complex codebases
 
 ### Role Analysis Documents (Highest Priority)
 Role analyses provide specialized perspectives on the implementation:
@@ -406,10 +406,10 @@ Role analyses provide specialized perspectives on the implementation:
 - **topic-framework.md**: Role-specific discussion points and analysis framework
 
 **Artifact Priority in Development**:
-1. Role analysis.md files (primary requirements and design specs from brainstorming)
-2. ANALYSIS_RESULTS.md (technical analysis, optimization strategies, and cross-role synthesis from planning)
-3. context-package.json (smart context for execution environment)
-4. topic-framework.md (discussion framework structure)
+1. context-package.json (primary source: smart context AND brainstorm artifact catalog in `brainstorm_artifacts`)
+2. role/analysis*.md (paths from context-package.json: requirements, design specs, enhanced by synthesis)
+3. CONFLICT_RESOLUTION.md (path from context-package.json: conflict strategies, if conflict_risk >= medium)
+4. guidance-specification.md (path from context-package.json: discussion framework)
 
 ## 4. Implementation Strategy
 
@@ -565,22 +565,22 @@ The command organizes outputs into a standard directory structure.
 │   ├── IMPL-1.json                  # Container task
 │   ├── IMPL-1.1.json                # Leaf task with flow_control
 │   └── IMPL-1.2.json                # Leaf task with flow_control
-├── .braguidance-specification              # Input artifacts
-│   ├── topic-framework.md
-│   └── {role}/analysis*.md          # Role analyses (may have multiple files per role)
+├── .brainstorming              # Input artifacts from brainstorm + synthesis
+│   ├── guidance-specification.md    # Discussion framework
+│   └── {role}/analysis*.md          # Role analyses (enhanced by synthesis, may have multiple files per role)
 └── .process/
-    ├── ANALYSIS_RESULTS.md          # Input from concept-enhanced
-    └── context-package.json         # Input from context-gather
+    ├── context-package.json         # Input from context-gather (smart context + conflict_risk)
+    └── CONFLICT_RESOLUTION.md       # Input from conflict-resolution (conditional, if conflict_risk >= medium)
 ```
 
 ## 7. Artifact Integration
 The command intelligently detects and integrates artifacts from the `.brainstorming/` directory.
 
 #### Artifact Priority
-1.  **role/analysis*.md** (highest): Role-specific requirements and design specs from brainstorming (product-manager, system-architect, ui-designer, etc.)
-2.  **ANALYSIS_RESULTS.md** (critical): Technical analysis, risk assessment, optimization strategies, and cross-role synthesis from planning phase (generated by concept-enhanced)
-3.  **guidance-specification.json** (critical): Smart context with focus paths, module structure, and dependency graph from planning phase (generated by context-gather)
-4.  **topic-framework.md** (medium): Discussion framework structure from brainstorming
+1.  **context-package.json** (critical): Primary source - smart context AND all brainstorm artifact paths in `brainstorm_artifacts` section
+2.  **role/analysis*.md** (highest): Paths from context-package.json → role-specific requirements, design specs, enhanced by synthesis
+3.  **CONFLICT_RESOLUTION.md** (high): Path from context-package.json → conflict strategies (conditional, if conflict_risk >= medium)
+4.  **guidance-specification.md** (medium): Path from context-package.json → discussion framework from brainstorming
 
 #### Artifact-Task Mapping
 Artifacts are mapped to tasks based on their relevance to the task's domain.
@@ -598,7 +598,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
 
 **Key Points**:
 - **Sequential Steps**: Steps execute in order defined in `implementation_approach` array
-- **Context Delivery**: Each codex command receives context via CONTEXT field: `@{.workflow/{session}/.process/context-package.json}` and role analysis files from `.brainstorming/*/analysis*.md`
+- **Context Delivery**: Each codex command receives context via CONTEXT field: `@.workflow/WFS-session/.process/context-package.json` (role analyses loaded dynamically from context package)
 - **Multi-Step Tasks**: First step provides full context, subsequent steps use `resume --last` to maintain session continuity
 - **Step Dependencies**: Later steps reference outputs from earlier steps via `depends_on` field
 
@@ -621,8 +621,12 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
     "pre_analysis": [
       {
         "step": "load_role_analyses",
-        "action": "Load role analyses for requirements",
-        "commands": ["Read(.workflow/WFS-session/.brainstorming/*/analysis*.md)"],
+        "action": "Load role analyses from context-package.json",
+        "commands": [
+          "Read(.workflow/WFS-session/.process/context-package.json)",
+          "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
+          "Read(each extracted path)"
+        ],
         "output_to": "role_analyses",
         "on_error": "fail"
       },
@@ -674,8 +678,12 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
     "pre_analysis": [
       {
         "step": "load_role_analyses",
-        "action": "Load role analyses",
-        "commands": ["Read(.workflow/WFS-session/.brainstorming/*/analysis*.md)"],
+        "action": "Load role analyses from context-package.json",
+        "commands": [
+          "Read(.workflow/WFS-session/.process/context-package.json)",
+          "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
+          "Read(each extracted path)"
+        ],
         "output_to": "role_analyses",
         "on_error": "fail"
       }
@@ -685,7 +693,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
         "step": 1,
         "title": "Implement authentication with Codex",
         "description": "Create JWT-based authentication module",
-        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication TASK: JWT-based auth with login/registration MODE: auto CONTEXT: @{.workflow/WFS-session/.process/context-package.json} @{.workflow/WFS-session/.brainstorming/*/analysis*.md} EXPECTED: Complete auth module with tests RULES: Follow role analyses\" --skip-git-repo-check -s danger-full-access)",
+        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication TASK: JWT-based auth with login/registration MODE: auto CONTEXT: @.workflow/WFS-session/.process/context-package.json EXPECTED: Complete auth module with tests RULES: Load role analyses from context-package.json → brainstorm_artifacts\" --skip-git-repo-check -s danger-full-access)",
         "modification_points": ["Create auth service", "Implement endpoints", "Add JWT middleware"],
         "logic_flow": ["Validate credentials", "Generate JWT", "Return token"],
         "depends_on": [],
@@ -712,10 +720,11 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
     "pre_analysis": [
       {
         "step": "load_context",
-        "action": "Load context and role analyses",
+        "action": "Load context and role analyses from context-package.json",
         "commands": [
           "Read(.workflow/WFS-session/.process/context-package.json)",
-          "Read(.workflow/WFS-session/.brainstorming/*/analysis*.md)"
+          "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
+          "Read(each extracted path)"
         ],
         "output_to": "full_context",
         "on_error": "fail"
@@ -726,7 +735,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
         "step": 1,
         "title": "Create RBAC models",
         "description": "Define role and permission data models",
-        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Create RBAC models TASK: Role and permission models MODE: auto CONTEXT: @{.workflow/WFS-session/.process/context-package.json} @{.workflow/WFS-session/.brainstorming/*/analysis*.md} EXPECTED: Models with migrations RULES: Follow role analyses\" --skip-git-repo-check -s danger-full-access)",
+        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Create RBAC models TASK: Role and permission models MODE: auto CONTEXT: @.workflow/WFS-session/.process/context-package.json EXPECTED: Models with migrations RULES: Load role analyses from context-package.json → brainstorm_artifacts\" --skip-git-repo-check -s danger-full-access)",
         "modification_points": ["Define role model", "Define permission model", "Create migrations"],
         "logic_flow": ["Design schema", "Implement models", "Generate migrations"],
         "depends_on": [],

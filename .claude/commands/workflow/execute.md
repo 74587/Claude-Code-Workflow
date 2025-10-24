@@ -370,10 +370,10 @@ TodoWrite({
 {
   "task": { /* Complete task JSON with artifacts array */ },
   "artifacts": {
-    "synthesis_specification": { "path": ".workflow/WFS-session/.brainstorming/role analysis documents", "priority": "highest" },
-    "topic_framework": { "path": ".workflow/WFS-session/.brainstorming/guidance-specification.md", "priority": "medium" },
-    "role_analyses": [ /* Individual role analysis files */ ],
-    "available_artifacts": [ /* All detected brainstorming artifacts */ ]
+    "synthesis_specification": { "path": "{{from context-package.json → brainstorm_artifacts.synthesis_output.path}}", "priority": "highest" },
+    "guidance_specification": { "path": "{{from context-package.json → brainstorm_artifacts.guidance_specification.path}}", "priority": "medium" },
+    "role_analyses": [ /* From context-package.json → brainstorm_artifacts.role_analyses[] */ ],
+    "conflict_resolution": { "path": "{{from context-package.json → brainstorm_artifacts.conflict_resolution.path}}", "conditional": true }
   },
   "flow_context": {
     "step_outputs": {
@@ -385,7 +385,7 @@ TodoWrite({
   },
   "session": {
     "workflow_dir": ".workflow/WFS-session/",
-    "brainstorming_dir": ".workflow/WFS-session/.brainstorming/",
+    "context_package_path": ".workflow/WFS-session/.process/context-package.json",
     "todo_list_path": ".workflow/WFS-session/TODO_LIST.md",
     "summaries_dir": ".workflow/WFS-session/.summaries/",
     "task_json_path": ".workflow/WFS-session/.task/IMPL-1.1.json"
@@ -397,10 +397,10 @@ TodoWrite({
 
 #### Context Validation Rules
 - **Task JSON Complete**: All 5 fields present and valid, including artifacts array in context
-- **Artifacts Available**: Synthesis specifications and brainstorming outputs accessible
+- **Artifacts Available**: All artifacts loaded from context-package.json
 - **Flow Control Ready**: All pre_analysis steps completed including artifact loading steps
 - **Dependencies Loaded**: All depends_on summaries available
-- **Session Paths Valid**: All workflow paths exist and accessible, including .brainstorming directory
+- **Session Paths Valid**: All workflow paths exist and accessible (verified via context-package.json)
 - **Agent Assignment**: Valid agent type specified in meta.agent
 
 ### 4. Agent Execution Pattern
@@ -477,15 +477,16 @@ Task(subagent_type="{meta.agent}",
     "artifacts": [
       {
         "type": "synthesis_specification",
-        "source": "brainstorm_synthesis",
-        "path": ".workflow/WFS-[session]/.brainstorming/role analysis documents",
+        "source": "context-package.json → brainstorm_artifacts.synthesis_output",
+        "path": "{{loaded dynamically from context-package.json}}",
         "priority": "highest",
         "contains": "complete_integrated_specification"
       },
       {
         "type": "individual_role_analysis",
-        "source": "brainstorm_roles",
-        "path": ".workflow/WFS-[session]/.brainstorming/[role]/analysis.md",
+        "source": "context-package.json → brainstorm_artifacts.role_analyses[]",
+        "path": "{{loaded dynamically from context-package.json}}",
+        "note": "Supports analysis*.md pattern (analysis.md, analysis-01.md, analysis-api.md, etc.)",
         "priority": "low",
         "contains": "role_specific_analysis_fallback"
       }
@@ -495,10 +496,11 @@ Task(subagent_type="{meta.agent}",
     "pre_analysis": [
       {
         "step": "load_synthesis_specification",
-        "action": "Load consolidated role analyses from brainstorming",
+        "action": "Load synthesis specification from context-package.json",
         "commands": [
-          "bash(ls .workflow/WFS-[session]/.brainstorming/role analysis documents 2>/dev/null || echo 'role analyses not found')",
-          "Read(.workflow/WFS-[session]/.brainstorming/role analysis documents)"
+          "Read(.workflow/WFS-[session]/.process/context-package.json)",
+          "Extract(brainstorm_artifacts.synthesis_output.path)",
+          "Read(extracted path)"
         ],
         "output_to": "synthesis_specification",
         "on_error": "skip_optional"
