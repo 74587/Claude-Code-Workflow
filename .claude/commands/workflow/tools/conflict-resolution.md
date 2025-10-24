@@ -101,7 +101,7 @@ Task(
 Execute conflict analysis using CLI tools:
 
 **Primary Tool - Gemini Analysis**:
-\`\`\`bash
+```bash
 cd {project_root} && gemini -p "
 PURPOSE: Analyze conflicts between plan and existing code
 TASK:
@@ -114,7 +114,7 @@ CONTEXT: @{existing_files_pattern} @.workflow/{session_id}/**/*
 EXPECTED: Conflict list with severity and affected areas
 RULES: Focus on breaking changes and migration complexity
 "
-\`\`\`
+```
 
 **Fallback - Qwen Analysis** (if Gemini unavailable):
 Same prompt structure, replace 'gemini' with 'qwen'
@@ -155,7 +155,7 @@ For each detected conflict, generate 2-4 resolution options:
 ### Step 4: Generate CONFLICT_RESOLUTION.md
 Create comprehensive conflict resolution document:
 
-**Output Location**: \`.workflow/{session_id}/.process/CONFLICT_RESOLUTION.md\`
+**Output Location**: `.workflow/{session_id}/.process/CONFLICT_RESOLUTION.md`
 
 **Required Structure**:
 1. **Executive Summary**: Total conflicts, severity distribution, overall risk
@@ -179,7 +179,7 @@ Generate CONFLICT_RESOLUTION.md and report completion status:
 - Severity distribution: Critical: {N}, High: {N}, Medium: {N}
 - Resolution strategies: {total_options}
 - Output location: .workflow/{session_id}/.process/CONFLICT_RESOLUTION.md
-\`
+`
 )
 ```
 
