@@ -106,6 +106,7 @@ Topic: "Build real-time collaboration platform SCOPE: 100 users"
    - **Tool**: `AskUserQuestion` with `multiSelect: true`
    - **Question format**: "请选择 {count} 个角色参与头脑风暴分析（可多选）："
    - **Options**: Each recommended role with label (role name) and description (relevance rationale)
+   - **⚠️ Option Limit**: Maximum 4 options per AskUserQuestion call. If count+2 > 4, split into multiple rounds
    - **User interaction**: Allow user to select multiple roles (typically count roles, but flexible)
    - **Storage**: Store selections to `session.selected_roles`
 
