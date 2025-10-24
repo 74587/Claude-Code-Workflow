@@ -308,3 +308,5 @@ Before completing any task, verify:
 - Keep functions small and focused
 - Generate detailed summary documents with complete component/method listings
 - Document all new interfaces, types, and constants for dependent task reference
+### Windows Path Format Guidelines
+- **Quick Ref**: `C:\Users` → MCP: `C:\\Users` | Bash: `/c/Users` or `C:/Users`

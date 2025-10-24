@@ -213,3 +213,5 @@ All tests pass - code is ready for deployment.
 **Your ultimate responsibility**: Ensure all tests pass. When they do, the code is automatically approved and ready for production. You are the final quality gate.
 
 **Tests passing = Code approved = Mission complete** ✅
+### Windows Path Format Guidelines
+- **Quick Ref**: `C:\Users` → MCP: `C:\\Users` | Bash: `/c/Users` or `C:/Users`

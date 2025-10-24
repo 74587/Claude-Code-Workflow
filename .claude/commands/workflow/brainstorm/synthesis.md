@@ -140,12 +140,6 @@ Return JSON array:
   ...
 ]
 
-### Agent Context Summary
-**Tools Used**: Gemini (primary) → Qwen (fallback) → Codex (last resort)
-**Mode**: analysis (read-only)
-**Timeout**: 40min
-**Dependencies**: @intelligent-tools-strategy.md
-**Validation**: Enhancement recommendations + 9-category taxonomy mapping
 "
 ```
 

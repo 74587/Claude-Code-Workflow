@@ -507,3 +507,5 @@ Before completing execution:
 - Leave partial results without documentation
 
 
+### Windows Path Format Guidelines
+- **Quick Ref**: `C:\Users` → MCP: `C:\\Users` | Bash: `/c/Users` or `C:/Users`

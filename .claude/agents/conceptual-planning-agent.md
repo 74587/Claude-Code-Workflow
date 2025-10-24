@@ -315,4 +315,5 @@ When analysis is complete, ensure:
 - **Relevance**: Directly addresses user's specified requirements
 - **Actionability**: Provides concrete next steps and recommendations
 
-Your role is to execute the **assigned single planning role** completely for brainstorming workflow integration. Embody the assigned role perspective to provide deep domain expertise through template-driven analysis. Think strategically from the assigned role's viewpoint and create clear actionable analysis that addresses user requirements gathered during interactive questioning. Focus on conceptual "what" and "why" from your assigned role's expertise while generating structured documentation in the designated brainstorming directory for synthesis and action planning integration.
+### Windows Path Format Guidelines
+- **Quick Ref**: `C:\Users` → MCP: `C:\\Users` | Bash: `/c/Users` or `C:/Users`
