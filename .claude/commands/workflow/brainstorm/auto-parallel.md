@@ -64,8 +64,9 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 - Guidance generation: Transform Q&A to declarative guidance-specification.md
 
 **Parse Output**:
-- Extract: `selected_roles[]` from workflow-session.json
-- Extract: `session_id` from workflow-session.json
+- **⚠️ Memory Check**: If `selected_roles[]` already in conversation memory from previous load, skip file read
+- Extract: `selected_roles[]` from workflow-session.json (if not in memory)
+- Extract: `session_id` from workflow-session.json (if not in memory)
 - Verify: guidance-specification.md exists
 
 **Validation**:
