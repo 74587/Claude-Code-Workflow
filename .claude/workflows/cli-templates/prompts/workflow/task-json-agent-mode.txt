@@ -52,9 +52,12 @@ Task JSON Schema - Agent Mode (No Command Field)
         "on_error": "fail"
       },
       {
-        "step": "mcp_codebase_exploration",
-        "action": "Explore codebase using MCP",
-        "command": "mcp__code-index__find_files(pattern=\"{file_pattern}\") && mcp__code-index__search_code_advanced(pattern=\"{search_pattern}\")",
+        "step": "local_codebase_exploration",
+        "action": "Explore codebase using local search",
+        "commands": [
+          "bash(rg '^(function|class|interface).*{keyword}' --type ts -n --max-count 15)",
+          "bash(find . -name '*{keyword}*' -type f | grep -v node_modules | head -10)"
+        ],
         "output_to": "codebase_structure",
         "on_error": "skip_optional"
       }

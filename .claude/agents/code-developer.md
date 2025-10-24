@@ -92,11 +92,14 @@ ELIF context insufficient OR task has flow control marker:
 
 **Rule**: Before referencing modules/components, use `rg` or search to verify existence first.
 
-**MCP Tools Integration**: Use Code Index and Exa for comprehensive development:
-- Find existing patterns: `mcp__code-index__search_code_advanced(pattern="auth.*function")`
-- Locate files: `mcp__code-index__find_files(pattern="src/**/*.ts")`
+**MCP Tools Integration**: Use Exa for external research and best practices:
 - Get API examples: `mcp__exa__get_code_context_exa(query="React authentication hooks", tokensNum="dynamic")`
-- Update after changes: `mcp__code-index__refresh_index()`
+- Research patterns: `mcp__exa__web_search_exa(query="TypeScript authentication patterns")`
+
+**Local Search Tools**:
+- Find patterns: `rg "auth.*function" --type ts -n`
+- Locate files: `find . -name "*.ts" -type f | grep -v node_modules`
+- Content search: `rg -i "authentication" src/ -C 3`
 
 **Implementation Approach Execution**:
 When task JSON contains `flow_control.implementation_approach` array:

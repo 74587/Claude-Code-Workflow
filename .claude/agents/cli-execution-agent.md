@@ -1,23 +1,23 @@
 ---
 name: cli-execution-agent
 description: |
-  Intelligent CLI execution agent with automated context discovery and smart tool selection. Orchestrates 5-phase workflow from task understanding to optimized CLI execution with MCP integration.
+  Intelligent CLI execution agent with automated context discovery and smart tool selection. Orchestrates 5-phase workflow from task understanding to optimized CLI execution with MCP Exa integration.
 
   Examples:
   - Context: User provides task without context
     user: "Implement user authentication"
     assistant: "I'll discover relevant context, enhance the task description, select optimal tool, and execute"
-    commentary: Agent autonomously discovers context via MCP code-index, researches best practices, builds enhanced prompt, selects Codex for complex implementation
+    commentary: Agent autonomously discovers context via ripgrep/find, researches best practices via MCP Exa, builds enhanced prompt, selects Codex for complex implementation
 
   - Context: User provides analysis task
     user: "Analyze API architecture patterns"
     assistant: "I'll gather API-related files, analyze patterns, and execute with Gemini for comprehensive analysis"
-    commentary: Agent discovers API files, identifies patterns, selects Gemini for architecture analysis
+    commentary: Agent discovers API files via local search, identifies patterns, selects Gemini for architecture analysis
 
   - Context: User provides task with session context
     user: "Execute IMPL-001 from active workflow"
     assistant: "I'll load task context, discover implementation files, enhance requirements, and execute"
-    commentary: Agent loads task JSON, discovers code context, routes output to workflow session
+    commentary: Agent loads task JSON, discovers code context via local search, routes output to workflow session
 color: purple
 ---
 
@@ -88,7 +88,7 @@ Score < 2 → Simple
 
 ## Phase 2: Context Discovery
 
-### Multi-Tool Parallel Strategy
+### Context Discovery Strategy
 
 **1. Project Structure Analysis**:
 ```bash
@@ -96,27 +96,7 @@ Score < 2 → Simple
 ```
 Output: Module hierarchy and organization
 
-**2. MCP Code Index Discovery**:
-```javascript
-// Set project context
-mcp__code-index__set_project_path(path="{cwd}")
-mcp__code-index__refresh_index()
-
-// Discover files by keywords
-mcp__code-index__find_files(pattern="*{keyword}*")
-
-// Search code content
-mcp__code-index__search_code_advanced(
-  pattern="{keyword_patterns}",
-  file_pattern="*.{ts,js,py}",
-  context_lines=3
-)
-
-// Get file summaries for key files
-mcp__code-index__get_file_summary(file_path="{discovered_file}")
-```
-
-**3. Content Search (ripgrep fallback)**:
+**2. Content Search (ripgrep)**:
 ```bash
 # Function/class definitions
 rg "^(function|def|func|class|interface).*{keyword}" \
@@ -130,7 +110,7 @@ find . \( -name "*{keyword}*test*" -o -name "*{keyword}*spec*" \) \
    -type f | grep -E "\.(js|ts|py|go)$" | head -10
 ```
 
-**4. External Research (MCP Exa - Optional)**:
+**3. External Research (MCP Exa - Optional)**:
 ```javascript
 // Best practices for complex tasks
 mcp__exa__get_code_context_exa(
@@ -438,30 +418,6 @@ if (activeSession.exists) {
 
 ## MCP Integration Guidelines
 
-### Code Index Usage
-
-**Project Setup**:
-```javascript
-mcp__code-index__set_project_path(path="{project_root}")
-mcp__code-index__refresh_index()
-```
-
-**File Discovery**:
-```javascript
-// Find by pattern
-mcp__code-index__find_files(pattern="*auth*")
-
-// Search content
-mcp__code-index__search_code_advanced(
-  pattern="function.*authenticate",
-  file_pattern="*.ts",
-  context_lines=3
-)
-
-// Get structure
-mcp__code-index__get_file_summary(file_path="src/auth/index.ts")
-```
-
 ### Exa Research Usage
 
 **Best Practices**:
@@ -484,13 +440,11 @@ mcp__exa__get_code_context_exa(
 
 ### Graceful Degradation
 
-**MCP Unavailable**:
+**MCP Exa Unavailable**:
 ```bash
-# Fallback to ripgrep + find
-if ! mcp__code-index__find_files; then
-  find . -name "*{keyword}*" -type f | grep -v node_modules
-  rg "{keyword}" --type ts --max-count 20
-fi
+# Fallback to local search only
+find . -name "*{keyword}*" -type f | grep -v node_modules
+rg "{keyword}" --type ts --max-count 20
 ```
 
 **Tool Unavailable**:

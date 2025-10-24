@@ -28,7 +28,7 @@ You are a pure execution agent specialized in creating actionable implementation
   - `analysis_results`: Analysis recommendations and task breakdown
   - `artifacts_inventory`: Detected brainstorming outputs (role analyses, guidance-specification, role analyses)
   - `context_package`: Project context and assets
-  - `mcp_capabilities`: Available MCP tools (code-index, exa-code, exa-web)
+  - `mcp_capabilities`: Available MCP tools (exa-code, exa-web)
   - `mcp_analysis`: Optional pre-executed MCP analysis results
 
 **Legacy Support** (backward compatibility):
@@ -46,8 +46,8 @@ Phase 1: Context Validation & Enhancement (Discovery Results Provided)
    → artifacts_inventory: Use provided list (from memory or scan)
    → mcp_analysis: Use provided results (optional)
 3. Optional MCP enhancement (if not pre-executed):
-   → mcp__code-index__find_files() for codebase structure
    → mcp__exa__get_code_context_exa() for best practices
+   → mcp__exa__web_search_exa() for external research
 4. Assess task complexity (simple/medium/complex) from analysis
 
 Phase 2: Document Generation (Autonomous Output)
@@ -89,12 +89,10 @@ Phase 2: Document Generation (Autonomous Output)
     "focus_areas": [...]
   },
   "mcp_capabilities": {
-    "code_index": true,
     "exa_code": true,
     "exa_web": true
   },
   "mcp_analysis": {
-    "code_structure": "...",
     "external_research": "..."
   }
 }
@@ -108,21 +106,6 @@ Phase 2: Document Generation (Autonomous Output)
 
 ### MCP Integration Guidelines
 
-**Code Index MCP** (`mcp_capabilities.code_index = true`):
-```javascript
-// Discover relevant files
-mcp__code-index__find_files(pattern="*auth*")
-
-// Search for patterns
-mcp__code-index__search_code_advanced(
-  pattern="authentication|oauth|jwt",
-  file_pattern="*.{ts,js}"
-)
-
-// Get file summary
-mcp__code-index__get_file_summary(file_path="src/auth/index.ts")
-```
-
 **Exa Code Context** (`mcp_capabilities.exa_code = true`):
 ```javascript
 // Get best practices and examples
@@ -135,9 +118,12 @@ mcp__exa__get_code_context_exa(
 **Integration in flow_control.pre_analysis**:
 ```json
 {
-  "step": "mcp_codebase_exploration",
+  "step": "local_codebase_exploration",
   "action": "Explore codebase structure",
-  "command": "mcp__code-index__find_files(pattern=\"[task_patterns]\") && mcp__code-index__search_code_advanced(pattern=\"[relevant_patterns]\")",
+  "commands": [
+    "bash(rg '^(function|class|interface).*[task_keyword]' --type ts -n --max-count 15)",
+    "bash(find . -name '*[task_keyword]*' -type f | grep -v node_modules | head -10)"
+  ],
   "output_to": "codebase_structure"
 }
 ```

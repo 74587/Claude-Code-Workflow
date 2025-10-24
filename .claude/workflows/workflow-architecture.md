@@ -343,9 +343,12 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
       "on_error": "skip_optional"
     },
     {
-      "step": "mcp_codebase_exploration",
-      "action": "Explore codebase using MCP",
-      "command": "mcp__code-index__find_files(pattern=\"*.ts\") && mcp__code-index__search_code_advanced(pattern=\"auth\")",
+      "step": "local_codebase_exploration",
+      "action": "Explore codebase using local search",
+      "commands": [
+        "bash(rg '^(function|class|interface).*auth' --type ts -n --max-count 15)",
+        "bash(find . -name '*auth*' -type f | grep -v node_modules | head -10)"
+      ],
       "output_to": "codebase_structure"
     }
   ],
@@ -416,7 +419,7 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
 **Command Types Supported**:
 - **Bash commands**: `bash(command)` - Any shell command
 - **Tool calls**: `Read(file)`, `Glob(pattern)`, `Grep(pattern)`
-- **MCP tools**: `mcp__code-index__find_files()`, `mcp__exa__get_code_context_exa()`
+- **MCP tools**: `mcp__exa__get_code_context_exa()`, `mcp__exa__web_search_exa()`
 - **CLI commands**: `gemini`, `qwen`, `codex --full-auto exec`
 
 **Example**:
@@ -541,8 +544,6 @@ codex --full-auto exec "task" resume --last --skip-git-repo-check -s danger-full
 - `bash(command)` - Execute bash command
 
 **MCP Tools**:
-- `mcp__code-index__find_files(pattern="*.ts")` - Find files using code index
-- `mcp__code-index__search_code_advanced(pattern="auth")` - Search code patterns
 - `mcp__exa__get_code_context_exa(query="...")` - Get code context from Exa
 - `mcp__exa__web_search_exa(query="...")` - Web search via Exa
 
