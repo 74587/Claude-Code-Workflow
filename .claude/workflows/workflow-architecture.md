@@ -132,11 +132,11 @@ All task files use this unified 5-field schema with optional artifacts enhanceme
     },
     "artifacts": [
       {
-        "type": "synthesis_specification",
-        "source": "brainstorm_synthesis",
-        "path": ".workflow/WFS-session/.brainstorming/synthesis-specification.md",
+        "type": "role_analyses",
+        "source": "brainstorm_clarification",
+        "path": ".workflow/WFS-session/.brainstorming/*/analysis*.md",
         "priority": "highest",
-        "contains": "complete_integrated_specification"
+        "contains": "role_specific_requirements_and_design"
       }
     ]
   },
@@ -241,15 +241,15 @@ Optional field referencing brainstorming outputs for task execution:
 ```json
 "artifacts": [
   {
-    "type": "synthesis_specification|topic_framework|individual_role_analysis",
-    "source": "brainstorm_synthesis|brainstorm_framework|brainstorm_roles",
+    "type": "role_analyses|topic_framework|individual_role_analysis",
+    "source": "brainstorm_clarification|brainstorm_framework|brainstorm_roles",
     "path": ".workflow/WFS-session/.brainstorming/document.md",
     "priority": "highest|high|medium|low"
   }
 ]
 ```
 
-**Types & Priority**: synthesis_specification (highest) → topic_framework (medium) → individual_role_analysis (low)
+**Types & Priority**: role_analyses (highest) → topic_framework (medium) → individual_role_analysis (low)
 
 #### Flow Control Configuration
 The **flow_control** field manages task execution through structured sequential steps. For complete format specifications and usage guidelines, see [Flow Control Format Guide](#flow-control-format-guide) below.
@@ -296,7 +296,7 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
 
 1. **load_topic_framework**
    - Action: Load structured topic discussion framework
-   - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/guidance-specification.md)
    - Output: topic_framework
 
 2. **load_role_template**
@@ -332,13 +332,14 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
 "flow_control": {
   "pre_analysis": [
     {
-      "step": "load_synthesis_specification",
-      "action": "Load consolidated synthesis specification",
+      "step": "load_role_analyses",
+      "action": "Load role analysis documents from brainstorming",
       "commands": [
-        "bash(ls .workflow/WFS-{session}/.brainstorming/synthesis-specification.md 2>/dev/null || echo 'not found')",
-        "Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)"
+        "bash(ls .workflow/WFS-{session}/.brainstorming/*/analysis*.md 2>/dev/null || echo 'not found')",
+        "Glob(.workflow/WFS-{session}/.brainstorming/*/analysis*.md)",
+        "Read(each discovered role analysis file)"
       ],
-      "output_to": "synthesis_specification",
+      "output_to": "role_analyses",
       "on_error": "skip_optional"
     },
     {
@@ -352,14 +353,14 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
     {
       "step": 1,
       "title": "Setup infrastructure",
-      "description": "Install JWT library and create config following [synthesis_specification]",
+      "description": "Install JWT library and create config following [role_analyses]",
       "modification_points": [
         "Add JWT library dependencies to package.json",
         "Create auth configuration file"
       ],
       "logic_flow": [
         "Install jsonwebtoken library via npm",
-        "Configure JWT secret from [synthesis_specification]",
+        "Configure JWT secret from [role_analyses]",
         "Export auth config for use by [jwt_generator]"
       ],
       "depends_on": [],
@@ -406,7 +407,7 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
 **Structure**: Array of step objects with sequential execution
 
 **Step Fields**:
-- **step**: Step identifier (string, e.g., "load_synthesis_specification")
+- **step**: Step identifier (string, e.g., "load_role_analyses")
 - **action**: Human-readable description of the step
 - **command** or **commands**: Single command string or array of command strings
 - **output_to**: Variable name for storing step output
@@ -567,7 +568,7 @@ Both formats use `[variable_name]` syntax for referencing outputs from previous 
 **Examples**:
 ```json
 // Reference pre_analysis output
-"description": "Install JWT library following [synthesis_specification]"
+"description": "Install JWT library following [role_analyses]"
 
 // Reference previous step output
 "description": "Create middleware using [auth_config] and [jwt_generator]"
@@ -636,7 +637,7 @@ Both formats use `[variable_name]` syntax for referencing outputs:
 ```json
 {
   "step": 2,
-  "description": "Implement following [synthesis_specification] and [codebase_structure]",
+  "description": "Implement following [role_analyses] and [codebase_structure]",
   "depends_on": [1],
   "output": "implementation"
 }

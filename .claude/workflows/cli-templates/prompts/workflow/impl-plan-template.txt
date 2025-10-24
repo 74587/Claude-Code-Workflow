@@ -35,10 +35,10 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
 ### CCW Workflow Context
 **Phase Progression**:
-- ✅ Phase 1: Brainstorming (synthesis-specification.md generated)
+- ✅ Phase 1: Brainstorming (role analyses generated)
 - ✅ Phase 2: Context Gathering (context-package.json: {N} files, {M} modules analyzed)
 - ✅ Phase 3: Enhanced Analysis (ANALYSIS_RESULTS.md: Gemini/Qwen/Codex parallel insights)
-- ✅ Phase 4: Concept Verification ({X} clarifications answered, synthesis updated | skipped)
+- ✅ Phase 4: Concept Verification ({X} clarifications answered, role analyses updated | skipped)
 - ⏳ Phase 5: Action Planning (current phase - generating IMPL_PLAN.md)
 
 **Quality Gates**:
@@ -76,12 +76,12 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 ## 3. Brainstorming Artifacts Reference
 
 ### Artifact Usage Strategy
-**Primary Reference (synthesis-specification.md)**:
-- **What**: Comprehensive implementation blueprint from multi-role synthesis
-- **When**: Every task references this first for requirements and design decisions
-- **How**: Extract architecture decisions, UI/UX patterns, functional requirements, non-functional requirements
-- **Priority**: Authoritative - overrides role-specific analyses when conflicts arise
-- **CCW Value**: Consolidates insights from all brainstorming roles into single source of truth
+**Primary Reference (role analyses)**:
+- **What**: Role-specific analyses from brainstorming providing multi-perspective insights
+- **When**: Every task references relevant role analyses for requirements and design decisions
+- **How**: Extract requirements, architecture decisions, UI/UX patterns from applicable role documents
+- **Priority**: Collective authoritative source - multiple role perspectives provide comprehensive coverage
+- **CCW Value**: Maintains role-specific expertise while enabling cross-role integration during planning
 
 **Context Intelligence (context-package.json)**:
 - **What**: Smart context gathered by CCW's context-gather phase
@@ -96,17 +96,17 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 - **CCW Value**: Multi-model parallel analysis providing comprehensive technical intelligence
 
 ### Integrated Specifications (Highest Priority)
-- **synthesis-specification.md**: Comprehensive implementation blueprint
+- **role analyses**: Comprehensive implementation blueprint
   - Contains: Architecture design, UI/UX guidelines, functional/non-functional requirements, implementation roadmap, risk assessment
 
 ### Supporting Artifacts (Reference)
-- **topic-framework.md**: Role-specific discussion points and analysis framework
+- **guidance-specification.md**: Role-specific discussion points and analysis framework
 - **system-architect/analysis.md**: Detailed architecture specifications
 - **ui-designer/analysis.md**: Layout and component specifications
 - **product-manager/analysis.md**: Product vision and user stories
 
 **Artifact Priority in Development**:
-1. synthesis-specification.md (primary reference for all tasks)
+1. role analyses (primary reference for all tasks)
 2. context-package.json (smart context for execution environment)
 3. ANALYSIS_RESULTS.md (technical analysis and optimization strategies)
 4. Role-specific analyses (fallback for detailed specifications)
@@ -126,7 +126,7 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
 ### Architectural Approach
 **Key Architecture Decisions**:
-- [ADR references from synthesis]
+- [ADR references from role analyses]
 - [Justification for architecture patterns]
 
 **Integration Strategy**:
@@ -218,7 +218,7 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 ## 8. Success Criteria
 
 **Functional Completeness**:
-- [ ] All requirements from synthesis-specification.md implemented
+- [ ] All requirements from role analyses implemented
 - [ ] All acceptance criteria from task.json files met
 
 **Technical Quality**:
@@ -232,7 +232,7 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 - [ ] Documentation complete
 
 **Business Metrics**:
-- [ ] [Key business metrics from synthesis]
+- [ ] [Key business metrics from role analyses]
 
 ## Template Usage Guidelines
 
@@ -269,7 +269,7 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
    - Create dependency graph visualization
 
 7. **Set Success Criteria**:
-   - Extract from synthesis-specification.md
+   - Extract from role analyses
    - Include measurable metrics
    - Define quality gates
 

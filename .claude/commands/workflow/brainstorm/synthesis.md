@@ -1,55 +1,59 @@
 ---
 name: synthesis
-description: Generate synthesis-specification.md from topic-framework and role analyses with @ references using conceptual-planning-agent
+description: Analyze role analyses, identify ambiguities through clarification, and update role documents intelligently using conceptual-planning-agent
 argument-hint: "[optional: --session session-id]"
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
+allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*), Edit(*), Glob(*), AskUserQuestion(*)
 ---
 
-## 🧩 **Synthesis Document Generator**
+## 🧩 **Role Analysis Clarification & Refinement**
 
 ### Core Function
-**Specialized command for generating synthesis-specification.md** that integrates topic-framework.md and all role analysis.md files using @ reference system. Creates comprehensive implementation specification with cross-role insights.
+**Specialized command for analyzing and refining role analysis documents** through intelligent clarification. Agent performs cross-role integration analysis, identifies ambiguities and gaps, interacts with user to clarify uncertainties, and intelligently updates relevant role analysis.md files.
 
-**Dynamic Role Discovery**: Automatically detects which roles participated in brainstorming by scanning for `*/analysis.md` files. Synthesizes only actual participating roles, not predefined lists.
+**Dynamic Role Discovery**: Automatically detects which roles participated in brainstorming by scanning for `*/analysis.md` files. Analyzes only actual participating roles, not predefined lists.
 
 ### Primary Capabilities
 - **Dynamic Role Discovery**: Automatically identifies participating roles at runtime
-- **Framework Integration**: Reference topic-framework.md discussion points across all discovered roles
-- **Role Analysis Integration**: Consolidate all discovered role/analysis.md files using @ references
-- **Cross-Framework Comparison**: Compare how each participating role addressed framework discussion points
-- **@ Reference System**: Create structured references to source documents
-- **Update Detection**: Smart updates when new role analyses are added
-- **Flexible Participation**: Supports any subset of available roles (1 to 9+)
+- **Cross-Role Integration Analysis**: Internal analysis of consistency, conflicts, and gaps across roles
+- **Ambiguity Detection**: Systematic scanning using 8-category taxonomy (user intent, requirements, architecture, etc.)
+- **Interactive Clarification**: Priority-based question queue (max 5 questions) with user interaction
+- **Intelligent Document Update**: Agent autonomously determines which role documents to update based on clarification answers
+- **User Intent Validation**: Ensures role analyses align with user's original goals
 
 ### Document Integration Model
-**Three-Document Reference System**:
-1. **topic-framework.md** → Structured discussion framework (input)
-2. **[role]/analysis.md** → Role-specific analyses addressing framework (input)
-3. **synthesis-specification.md** → Complete integrated specification (output)
+**Role-Centric Architecture**:
+1. **[role]/analysis.md** → Individual role analyses (input & output)
+2. **guidance-specification.md** → Structured discussion framework (reference)
+3. **User's Original Intent** → Primary alignment reference (from session metadata)
+4. **Updated [role]/analysis.md** → Refined role analyses after clarification (output)
 
 ## ⚙️ **Execution Protocol**
 
-### ⚠️ Agent Execution with Flow Control
-**Execution Model**: Uses conceptual-planning-agent for synthesis generation with structured file loading.
+### ⚠️ Agent Execution with Interactive Clarification
+**Execution Model**: Uses conceptual-planning-agent for cross-role analysis, clarification generation, user interaction, and intelligent document updates.
 
 **Rationale**:
-- **Autonomous Execution**: Agent independently loads and processes all required documents
-- **Flow Control**: Structured document loading ensures systematic analysis
-- **Complex Cognitive Analysis**: Leverages agent's analytical capabilities for cross-role synthesis
+- **Autonomous Analysis**: Agent independently loads and analyzes all role documents
+- **Cognitive Complexity**: Leverages agent's capabilities for cross-role synthesis and ambiguity detection
+- **Interactive Intelligence**: Agent manages question prioritization and document update decisions
 - **Conceptual Focus**: Agent specializes in conceptual analysis and multi-perspective integration
 
-**Agent Responsibility**: All file reading and synthesis generation performed by conceptual-planning-agent with FLOW_CONTROL instructions.
+**Agent Responsibility**: All file reading, analysis, clarification interaction, and document updates performed by conceptual-planning-agent.
 
 ### 📋 Task Tracking Protocol
-Initialize synthesis task tracking using TodoWrite at command start:
+Initialize clarification task tracking using TodoWrite at command start:
 ```json
 [
-  {"content": "Detect active session and validate topic-framework.md existence", "status": "in_progress", "activeForm": "Detecting session and validating framework"},
+  {"content": "Detect active session and validate role analyses existence", "status": "in_progress", "activeForm": "Detecting session and validating analyses"},
   {"content": "Discover participating role analyses dynamically", "status": "pending", "activeForm": "Discovering role analyses"},
-  {"content": "Check existing synthesis and confirm user action", "status": "pending", "activeForm": "Checking update mechanism"},
-  {"content": "Execute synthesis generation using conceptual-planning-agent with FLOW_CONTROL", "status": "pending", "activeForm": "Executing agent-based synthesis generation"},
-  {"content": "Agent performs cross-role analysis and generates synthesis-specification.md", "status": "pending", "activeForm": "Agent analyzing and generating synthesis"},
-  {"content": "Update workflow-session.json with synthesis completion status", "status": "pending", "activeForm": "Updating session metadata"}
+  {"content": "Execute cross-role integration analysis using conceptual-planning-agent", "status": "pending", "activeForm": "Executing agent-based cross-role analysis"},
+  {"content": "Execute CLI-powered concept enhancement analysis", "status": "pending", "activeForm": "Executing concept enhancement analysis"},
+  {"content": "Present enhancement points and get user confirmation", "status": "pending", "activeForm": "Presenting enhancement points for user confirmation"},
+  {"content": "Apply selected enhancements to role analysis documents", "status": "pending", "activeForm": "Applying selected enhancements"},
+  {"content": "Agent performs ambiguity detection and generates clarification questions", "status": "pending", "activeForm": "Agent detecting ambiguities and generating questions"},
+  {"content": "Interactive clarification loop with user (max 5 questions)", "status": "pending", "activeForm": "Interactive clarification with user"},
+  {"content": "Agent intelligently updates relevant role analysis documents", "status": "pending", "activeForm": "Agent updating role documents"},
+  {"content": "Update workflow-session.json with clarification completion status", "status": "pending", "activeForm": "Updating session metadata"}
 ]
 ```
 
@@ -68,18 +72,23 @@ ELSE:
 
 brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
 
-# Validate required documents
-CHECK: brainstorm_dir/topic-framework.md
+# Validate topic framework (optional but recommended)
+CHECK: brainstorm_dir/guidance-specification.md
 IF NOT EXISTS:
-    ERROR: "topic-framework.md not found. Run /workflow:brainstorm:artifacts first"
+    WARN: "guidance-specification.md not found. Analysis will rely on role documents only."
+
+# Validate role analyses exist
+role_analyses = Glob(brainstorm_dir/*/analysis*.md)
+IF role_analyses is empty:
+    ERROR: "No role analysis files found. Run role brainstorming commands first."
     EXIT
 
 # Load user's original prompt from session metadata
 session_metadata = Read(.workflow/WFS-{session}/workflow-session.json)
-original_user_prompt = session_metadata.project || session_metadata.description
-IF NOT original_user_prompt:
-    WARN: "No original user prompt found in session metadata"
-    original_user_prompt = "Not available"
+original_user_intent = session_metadata.project || session_metadata.description
+IF NOT original_user_intent:
+    WARN: "No original user intent found in session metadata"
+    original_user_intent = "Not available"
 ```
 
 ### Phase 2: Role Analysis Discovery
@@ -101,69 +110,57 @@ FIND_ANALYSES: [
 # - data-architect
 # - subject-matter-expert
 # - test-strategist
+# - api-designer
 
 LOAD_DOCUMENTS: {
-    "original_user_prompt": original_user_prompt (from session metadata),
-    "topic_framework": topic-framework.md,
+    "original_user_intent": original_user_intent (from session metadata),
+    "topic_framework": guidance-specification.md (if exists),
     "role_analyses": [dynamically discovered analysis*.md files],
-    "participating_roles": [extract role names from discovered directories],
-    "existing_synthesis": synthesis-specification.md (if exists)
+    "participating_roles": [extract role names from discovered directories]
 }
 
 # Note: Not all roles participate in every brainstorming session
-# Only synthesize roles that actually produced analysis*.md files
+# Only analyze roles that actually produced analysis*.md files
 # Each role may have 1-3 analysis files: analysis.md OR analysis-1.md, analysis-2.md, analysis-3.md
-# CRITICAL: Original user prompt MUST be primary reference for synthesis
+# CRITICAL: Original user intent MUST be primary reference for validation
 ```
 
-### Phase 3: Update Mechanism Check
-```bash
-# Check for existing synthesis
-IF synthesis-specification.md EXISTS:
-    SHOW current synthesis summary to user
-    ASK: "Synthesis exists. Do you want to:"
-    OPTIONS:
-      1. "Regenerate completely" → Create new synthesis
-      2. "Update with new analyses" → Integrate new role analyses
-      3. "Preserve existing" → Exit without changes
-ELSE:
-    CREATE new synthesis
-```
+### Phase 3: Agent Execution with Interactive Clarification
+**Clarification & Update using conceptual-planning-agent**
 
-### Phase 4: Agent Execution with Flow Control
-**Synthesis Generation using conceptual-planning-agent**
-
-Delegate synthesis generation to conceptual-planning-agent with structured file loading:
+Delegate analysis, clarification, and update to conceptual-planning-agent:
 
 ```bash
 Task(conceptual-planning-agent): "
-[FLOW_CONTROL]
+[INTERACTIVE_CLARIFICATION_WORKFLOW]
 
-Execute comprehensive synthesis generation from topic framework and role analyses
+Execute comprehensive cross-role analysis, ambiguity detection, user clarification, and intelligent document updates
 
 ## Context Loading
-OUTPUT_FILE: synthesis-specification.md
-OUTPUT_PATH: .workflow/WFS-{session}/.brainstorming/synthesis-specification.md
 SESSION_ID: {session_id}
-ANALYSIS_MODE: cross_role_synthesis
+BRAINSTORM_DIR: .workflow/WFS-{session}/.brainstorming/
+ANALYSIS_MODE: cross_role_clarification_and_update
+MAX_QUESTIONS: 5
 
 ## ⚠️ CRITICAL: User Intent Authority
-**ORIGINAL USER PROMPT IS THE PRIMARY REFERENCE**: {original_user_prompt}
-All synthesis MUST align with user's original intent. Topic framework and role analyses are supplementary context.
+**ORIGINAL USER INTENT IS THE PRIMARY REFERENCE**: {original_user_intent}
+All analysis and updates MUST align with user's original intent. Topic framework and role analyses are supplementary context.
 
-## Flow Control Steps
-1. **load_original_user_prompt**
+## Workflow Steps
+
+### Step 1: Load All Context Documents
+1. **load_original_user_intent**
    - Action: Load user's original intent from session metadata
    - Command: Read(.workflow/WFS-{session}/workflow-session.json)
    - Extract: project field or description field
-   - Output: original_user_prompt (PRIMARY REFERENCE)
+   - Output: original_user_intent (PRIMARY REFERENCE)
    - Priority: HIGHEST - This is the authoritative source of user intent
 
 2. **load_topic_framework**
-   - Action: Load structured topic discussion framework
-   - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
+   - Action: Load structured topic discussion framework (optional)
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/guidance-specification.md) [if exists]
    - Output: topic_framework_content
-   - Note: Validate alignment with original_user_prompt
+   - Note: Validate alignment with original_user_intent
 
 3. **discover_role_analyses**
    - Action: Dynamically discover all participating role analysis files (supports multiple files per role)
@@ -174,78 +171,347 @@ All synthesis MUST align with user's original intent. Topic framework and role a
 4. **load_role_analyses**
    - Action: Load all discovered role analysis documents
    - Command: Read(each path from role_analysis_paths)
-   - Output: role_analyses_content
-   - Note: Filter insights relevant to original_user_prompt
+   - Output: role_analyses_content_map = {role_name: [analysis_content_1, analysis_content_2, ...]}
+   - Note: Maintain role-to-content mapping for intelligent updates
 
-5. **check_existing_synthesis**
-   - Action: Check if synthesis-specification.md already exists
-   - Command: Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md) [if exists]
-   - Output: existing_synthesis_content [optional]
+### Step 2: Cross-Role Integration Analysis (Internal)
+Perform internal cross-role analysis following these steps (DO NOT OUTPUT TO USER):
 
-6. **load_synthesis_template**
-   - Action: Load synthesis role template for structure and guidelines
-   - Command: Read(~/.claude/workflows/cli-templates/planning-roles/synthesis-role.md)
-   - Output: synthesis_template_guidelines
+1. **Consensus Identification**: Identify common themes and agreement areas across all participating roles
+2. **Conflict Detection**: Document conflicting views and track which specific roles disagree on each point
+3. **Gap Analysis**: Identify missing information, underspecified areas, and ambiguous points
+4. **User Intent Alignment Check**: Validate all role analyses align with user's original intent
+5. **Innovation Extraction**: Identify breakthrough ideas and cross-role synergy opportunities
 
-## Synthesis Requirements
+### Step 2.5: Concept Enhancement (CLI-Powered)
+Execute CLI-powered concept enhancement analysis to identify improvement opportunities:
 
-### ⚠️ PRIMARY REQUIREMENT: User Intent Alignment
-**User's Original Goal is Supreme**: Synthesis MUST directly address {original_user_prompt}
-**Intent Validation**: Every requirement, design decision, and recommendation must trace back to user's original intent
-**Deviation Detection**: Flag any role analysis points that drift from user's stated goals
-**Refocus Mechanism**: When role discussions diverge, explicitly refocus on original user prompt
-**Traceability**: Each section should reference how it fulfills user's original intent
+**Purpose**: Enhance role analyses with deeper architectural insights and best practices
 
-### Core Integration
-**Cross-Role Analysis**: Integrate all discovered role analyses with comprehensive coverage
-**Framework Integration**: Address how each role responded to topic-framework.md discussion points
-**User Intent Filter**: Prioritize insights that directly serve user's original prompt
-**Decision Transparency**: Document both adopted solutions and rejected alternatives with rationale
-**Process Integration**: Include team capability gaps, process risks, and collaboration patterns
-**Visual Documentation**: Include key diagrams (architecture, data model, user journey) via Mermaid
-**Priority Matrix**: Create quantified recommendation matrix aligned with user's goals
-**Actionable Plan**: Provide phased implementation roadmap addressing user's original objectives
+**CLI Execution**:
+\`\`\`bash
+cd .workflow/WFS-{session}/.brainstorming && gemini -p "
+PURPOSE: Analyze role analyses for concept enhancement opportunities
+TASK:
+• Review all role analysis documents for architectural depth
+• Identify underspecified design decisions
+• Suggest concrete improvements with rationale
+• Focus on technical feasibility and best practices
+MODE: analysis
+CONTEXT: @**/* @{session_metadata}
+EXPECTED: Enhancement points list with specific recommendations
+RULES: Focus on actionable improvements that add architectural value
+" -m gemini-2.5-pro
+\`\`\`
 
-### Cross-Role Analysis Process (Agent Internal Execution)
-Perform systematic cross-role analysis following these steps:
+**Fallback**: If CLI unavailable, use Claude analysis with Read tool
 
-1. **Data Collection**: Extract key insights, recommendations, concerns, and diagrams from each discovered role analysis
-2. **Consensus Identification**: Identify common themes and agreement areas across all participating roles
-3. **Disagreement Analysis**: Document conflicting views and track which specific roles disagree on each point
-4. **Innovation Extraction**: Identify breakthrough ideas and cross-role synergy opportunities
-5. **Priority Scoring**: Calculate multi-dimensional priority scores (impact, feasibility, effort, risk) for each recommendation
-6. **Decision Matrix**: Create comprehensive evaluation matrix and sort recommendations by priority
+**Enhancement Points Output**:
+Generate list of enhancement opportunities:
+\`\`\`markdown
+### Enhancement Points
 
-## Synthesis Quality Standards
-Follow synthesis-specification.md structure defined in synthesis-role.md template:
-- Use template structure for comprehensive document organization
-- Apply analysis guidelines for cross-role synthesis process
-- Include all required sections from template (Executive Summary, Key Designs, Requirements, etc.)
-- Follow @ reference system for traceability to source role analyses
-- Apply quality standards from template (completeness, visual clarity, decision transparency)
-- Validate output against template's output validation checklist
+**EP-001: {title}**
+- **Affected Roles**: {role_list}
+- **Category**: {Architecture | Design | Requirements | Risk}
+- **Current State**: {what_exists_now}
+- **Enhancement**: {what_to_add_or_improve}
+- **Rationale**: {why_this_improves_quality}
+- **Priority**: {Critical | High | Medium}
 
-## Expected Deliverables
-1. **synthesis-specification.md**: Complete integrated specification consolidating all role perspectives
-2. **@ References**: Include cross-references to source role analyses
-3. **Session Metadata Update**: Update workflow-session.json with synthesis completion status
+**EP-002: {title}**
+...
+\`\`\`
+
+**User Confirmation**:
+Present enhancement points to user using AskUserQuestion:
+- Show top 3-5 enhancement opportunities
+- User selects which enhancements to apply
+- User can skip all if satisfied with current analyses
+
+**Apply Selected Enhancements**:
+For each user-approved enhancement:
+1. Identify affected role analysis files
+2. Update relevant sections in analysis.md files
+3. Add enhancement record to "## Enhancements" section
+4. Maintain consistency across updated documents
+
+**Enhancement Record Format**:
+\`\`\`markdown
+## Enhancements
+
+### Session {date}
+- **EP-001**: {title} - Applied to {section_name}
+  - Enhancement: {brief_description}
+\`\`\`
+
+### Step 3: Ambiguity & Coverage Scan (Internal)
+Perform structured scan using this taxonomy. For each category, mark status: **Clear** / **Partial** / **Missing**.
+
+**⚠️ User Intent Alignment** (HIGHEST PRIORITY):
+- [ ] Role analyses alignment with original user intent
+- [ ] Goal consistency between analyses and user's stated objectives
+- [ ] Scope match with user's requirements
+- [ ] Success criteria reflects user's expectations
+- [ ] Any unexplained deviations from user intent
+
+**Requirements Clarity**:
+- [ ] Functional requirements specificity and measurability
+- [ ] Non-functional requirements with quantified targets
+- [ ] Business requirements with success metrics
+- [ ] Acceptance criteria completeness
+
+**Architecture & Design Clarity**:
+- [ ] Architecture decisions with rationale
+- [ ] Data model completeness (entities, relationships, constraints)
+- [ ] Technology stack justification
+- [ ] Integration points and API contracts
+
+**User Experience & Interface**:
+- [ ] User journey completeness
+- [ ] Critical interaction flows
+- [ ] Error/edge case handling
+- [ ] Accessibility and localization considerations
+
+**Implementation Feasibility**:
+- [ ] Team capability vs. required skills
+- [ ] External dependencies and failure modes
+- [ ] Resource constraints (timeline, personnel)
+- [ ] Technical constraints and tradeoffs
+
+**Risk & Mitigation**:
+- [ ] Critical risks identified
+- [ ] Mitigation strategies defined
+- [ ] Success factors clarity
+- [ ] Monitoring and quality gates
+
+**Process & Collaboration**:
+- [ ] Role responsibilities and handoffs
+- [ ] Collaboration patterns defined
+- [ ] Timeline and milestone clarity
+- [ ] Dependency management strategy
+
+**Decision Traceability**:
+- [ ] Controversial points documented
+- [ ] Alternatives considered and rejected
+- [ ] Decision rationale clarity
+- [ ] Consensus vs. dissent tracking
+
+**Terminology & Consistency**:
+- [ ] Canonical terms defined
+- [ ] Consistent naming across role analyses
+- [ ] No unresolved placeholders (TODO, TBD, ???)
+
+### Step 4: Generate Prioritized Question Queue (Internal)
+Internally generate prioritized queue of candidate questions (maximum 5):
+
+**Constraints**:
+- Maximum 5 questions per session
+- Each question must be answerable with:
+  * Multiple-choice (2-4 mutually exclusive options), OR
+  * Short answer (≤5 words)
+- Only include questions whose answers materially impact:
+  * Architecture decisions
+  * Data modeling
+  * Task decomposition
+  * Risk mitigation
+  * Success criteria
+- Ensure category coverage balance
+- Favor clarifications that reduce downstream rework risk
+
+**Prioritization Heuristic**:
+```
+priority_score = (impact_on_planning * 0.4) +
+                 (uncertainty_level * 0.3) +
+                 (risk_if_unresolved * 0.3)
+```
+
+**If zero high-impact ambiguities found**: Report success and proceed to Step 7 (Session Metadata Update).
+
+### Step 5: Sequential Clarification Loop (Interactive with User)
+Present **EXACTLY ONE** question at a time using AskUserQuestion tool:
+
+**Question Format Template**:
+```markdown
+**Question {N}/5**: {Question text}
+
+**Category**: {Category name from taxonomy}
+**Impact**: {Brief impact description}
+**Affects Roles**: {List of roles that will be updated based on answer}
+
+| Option | Description |
+|--------|-------------|
+| A | {Option A description} |
+| B | {Option B description} |
+| C | {Option C description} |
+| D | {Option D description} |
+```
+
+**Answer Handling**:
+- Record answer in working memory with metadata: {question, answer, affected_roles, category}
+- Store in clarification_results array for later batch processing
+- Proceed to next question immediately (DO NOT update documents yet)
+
+**Stop Conditions**:
+- All critical ambiguities resolved
+- User signals completion ("done", "no more", "proceed")
+- Reached 5 questions
+
+**Never reveal future queued questions in advance**.
+
+### Step 6: Intelligent Document Update (Batch Processing)
+After all questions answered, process all clarifications in batch:
+
+**For each clarification in clarification_results**:
+
+1. **Determine Affected Roles** (Intelligent Judgment):
+   - Analyze question category and answer content
+   - Determine which role documents need updates
+   - Example mapping:
+     * Architecture questions → system-architect, data-architect
+     * UX questions → ui-designer, ux-expert
+     * Requirements questions → product-manager, product-owner
+     * Process questions → scrum-master, product-manager
+   - Cross-cutting concerns may update multiple roles
+
+2. **Create Clarifications Section** (If Not Exists):
+   ```bash
+   FOR each affected role analysis file:
+       IF file NOT contains "## Clarifications":
+           Insert "## Clarifications" section after first heading
+
+       IF NOT contains "### Session YYYY-MM-DD":
+           Create "### Session {today's date}" under "## Clarifications"
+
+       APPEND: "- **Q**: {question} ({category})"
+       APPEND: "  **A**: {answer}"
+   ```
+
+3. **Apply Clarification to Relevant Sections**:
+   ```bash
+   CASE category:
+       User Intent Alignment → Update "## Overview" or "## Executive Summary"
+       Functional Requirements → Update "## Requirements" or "## Functional Specifications"
+       Architecture → Update "## Architecture" or "## Design" sections
+       User Experience → Update "## UI/UX" or "## User Experience" sections
+       Risk → Update "## Risks" or "## Risk Assessment" sections
+       Process → Update "## Process" or "## Implementation" sections
+       Data Model → Update "## Data Model" or "## Database" sections
+       Non-Functional → Update "## Non-Functional Requirements" or equivalent
+   ```
+
+4. **Remove Contradictions**:
+   ```bash
+   IF clarification invalidates existing statement:
+       Replace statement instead of duplicating
+       Mark removed content with comment: <!-- Superseded by clarification {date} -->
+   ```
+
+5. **Maintain Consistency**:
+   - Update terminology throughout document if clarification defines canonical terms
+   - Remove placeholders (TODO, TBD, ???) that were addressed
+   - Ensure no contradictory statements remain
+
+6. **Save Updates**:
+   ```bash
+   FOR each modified role analysis file:
+       Write(file_path, updated_content)
+   ```
+
+### Step 7: Validation After Updates
+Verify all updates meet quality standards:
+
+- [ ] Clarifications section contains exactly one bullet per question per affected role
+- [ ] Total asked questions ≤ 5
+- [ ] Updated sections contain no lingering placeholders
+- [ ] No contradictory earlier statements remain
+- [ ] Markdown structure valid in all updated files
+- [ ] Terminology consistent across all updated role analyses
+- [ ] User intent alignment explicitly validated in affected documents
+
+### Step 8: Completion Report
+Generate comprehensive completion report for user:
+
+```markdown
+## ✅ Role Analysis Clarification Complete
+
+**Session**: WFS-{session-id}
+**Questions Asked**: {count}/5
+**Role Documents Updated**: {list updated role names}
+**Categories Clarified**: {list category names}
+
+### Coverage Summary
+
+| Category | Status | Notes |
+|----------|--------|-------|
+| User Intent Alignment | ✅ Resolved | Clarified {specific points} |
+| Requirements Clarity | ✅ Clear | No ambiguities found |
+| Architecture & Design | ⚠️ Partial | {specific gaps if any} |
+| User Experience | ✅ Resolved | Updated UI/UX specs |
+| Implementation Feasibility | ✅ Clear | Team capabilities validated |
+| Risk & Mitigation | ✅ Resolved | Mitigation strategies defined |
+| Process & Collaboration | ✅ Clear | Role handoffs clarified |
+| Decision Traceability | ✅ Resolved | Alternatives documented |
+| Terminology & Consistency | ✅ Resolved | Canonical terms defined |
+
+**Legend**:
+- ✅ Resolved: Was Partial/Missing, now addressed
+- ✅ Clear: Already sufficient
+- ⚠️ Partial: Some gaps remain (details below)
+
+### Document Updates
+
+| Role | Files Updated | Sections Modified |
+|------|---------------|-------------------|
+{For each updated role}
+| {role_name} | {file_name} | {section_list} |
+
+### Clarification Details
+
+{For each clarification}
+**Q{N}**: {question}
+**A**: {answer}
+**Updated Roles**: {affected_roles}
+**Category**: {category}
+
+### Recommendations
+
+- ✅ **PROCEED to /workflow:plan**: Conceptual foundation is clear and refined
+- OR ⚠️ **Address Outstanding Items First**: {list critical outstanding items if any}
+- OR 🔄 **Run /workflow:brainstorm:synthesis Again**: If new information or roles added
+
+### Next Steps
+
+**Standard Workflow (Recommended)**:
+```bash
+/workflow:plan --session WFS-{session-id}  # Generate IMPL_PLAN.md and tasks from role analyses
+```
+
+**TDD Workflow**:
+```bash
+/workflow:tdd-plan --session WFS-{session-id} \"Feature description\"
+```
+```
 
 ## Completion Criteria
-- ⚠️ **USER INTENT ALIGNMENT**: Synthesis directly addresses user's original prompt
-- All discovered role analyses integrated without gaps
-- Framework discussion points addressed across all roles
-- **Intent traceability**: Each major section references user's original goals
-- Controversial points documented with dissenting roles identified
-- Process concerns (team capabilities, risks, collaboration) captured
-- Quantified priority recommendations aligned with user's objectives
-- Actionable implementation plan addressing user's stated goals
-- Comprehensive risk assessment with mitigation strategies
-- **Deviation warnings**: Any significant departures from user intent flagged explicitly
+- ⚠️ **USER INTENT ALIGNMENT**: Role analyses align with user's original intent
+- All participating role analyses loaded and analyzed
+- Cross-role integration analysis completed (consensus, conflicts, gaps identified)
+- Ambiguity scan completed across all 9 categories
+- Clarification questions prioritized (if needed)
+- User interaction completed (max 5 questions)
+- Affected role documents intelligently updated
+- Clarifications section added to updated documents
+- Contradictions removed, terminology consistent
+- Session metadata updated with clarification results
 
 ## Execution Notes
-- Dynamic role participation: Only synthesize roles that produced analysis.md files
-- Update mechanism: If synthesis exists, prompt user for regenerate/update/preserve decision
-- Timeout allocation: Complex synthesis task (60-90 min recommended)
+- Dynamic role participation: Only analyze roles that produced analysis.md files
+- Internal analysis: Cross-role synthesis performed internally, not shown to user
+- Interactive clarification: Present one question at a time
+- Intelligent updates: Agent determines affected roles based on answer context
+- Batch processing: Update all affected documents after all questions answered
+- Timeout allocation: Complex clarification task (60-90 min recommended)
 - Reference @intelligent-tools-strategy.md for timeout guidelines
 "
 ```
@@ -253,70 +519,65 @@ Follow synthesis-specification.md structure defined in synthesis-role.md templat
 ## 📊 **Output Specification**
 
 ### Output Location
-The synthesis process creates **one consolidated document** that integrates all role perspectives:
+The clarification process **refines existing role analysis documents** without creating new consolidated files:
 
 ```
 .workflow/WFS-{topic-slug}/.brainstorming/
-├── topic-framework.md          # Input: Framework structure
-├── [role]/analysis*.md         # Input: Role analyses (supports analysis.md or analysis-1/2/3.md per role)
-└── synthesis-specification.md  # ★ OUTPUT: Complete integrated specification
+├── guidance-specification.md              # Input: Framework structure (reference)
+├── [role]/analysis*.md             # Input & OUTPUT: Role analyses 
 ```
 
-#### synthesis-specification.md Structure
+#### Updated Role Analysis Structure
+Each updated role analysis.md will contain:
 
-**Document Purpose**: Defines **"WHAT"** to build - comprehensive requirements and design blueprint.
-**Scope**: High-level features, requirements, and design specifications. Does NOT include executable task breakdown (that's IMPL_PLAN.md's responsibility).
+**New Section - Clarifications**:
+```markdown
+## Clarifications
 
-**Template Reference**: Complete document structure and content guidelines available in `synthesis-role.md` template, including:
-- Executive Summary with strategic overview
-- Key Designs & Decisions (architecture diagrams, ADRs, user journeys)
-- Controversial Points & Alternatives (decision transparency)
-- Requirements & Acceptance Criteria (Functional, Non-Functional, Business)
-- Design Specifications (UI/UX, Architecture, Domain Expertise)
-- Process & Collaboration Concerns (team skills, risks, patterns, constraints)
-- Implementation Roadmap (high-level phases)
-- Risk Assessment & Mitigation strategies
+### Session 2025-01-15
+- **Q**: {Question text} (Category: {category})
+  **A**: {Answer}
+- **Q**: {Question text} (Category: {category})
+  **A**: {Answer}
+```
 
-**Agent Usage**: The conceptual-planning-agent loads this template to understand expected structure and quality standards.
+**Updated Sections**: Existing sections refined based on clarifications:
+- User intent alignment validated/corrected
+- Requirements made more specific and measurable
+- Architecture decisions clarified with rationale
+- Ambiguities resolved, placeholders removed
+- Terminology made consistent
+
+
 
 ## 🔄 **Session Integration**
 
 ### Streamlined Status Synchronization
 Upon completion, update `workflow-session.json`:
 
-**Dynamic Role Participation**: The `participating_roles` and `roles_synthesized` values are determined at runtime based on actual analysis.md files discovered.
+**Dynamic Role Participation**: The `participating_roles` and `roles_updated` values are determined at runtime based on actual analysis.md files and clarification results.
 
 ```json
 {
   "phases": {
     "BRAINSTORM": {
-      "status": "completed",
-      "synthesis_completed": true,
+      "status": "clarification_completed",
+      "clarification_completed": true,
       "completed_at": "timestamp",
       "participating_roles": ["<dynamically-discovered-role-1>", "<dynamically-discovered-role-2>", "..."],
-      "available_roles": ["product-manager", "product-owner", "scrum-master", "system-architect", "ui-designer", "ux-expert", "data-architect", "subject-matter-expert", "test-strategist"],
-      "consolidated_output": {
-        "synthesis_specification": ".workflow/WFS-{topic}/.brainstorming/synthesis-specification.md"
+      "available_roles": ["product-manager", "product-owner", "scrum-master", "system-architect", "ui-designer", "ux-expert", "data-architect", "subject-matter-expert", "test-strategist", "api-designer"],
+      "clarification_results": {
+        "questions_asked": <count>,
+        "categories_clarified": [<list of categories>],
+        "roles_updated": [<list of updated role names>],
+        "outstanding_items": []
       },
-      "synthesis_quality": {
-        "role_integration": "complete",
+      "quality_metrics": {
+        "user_intent_alignment": "validated",
         "requirement_coverage": "comprehensive",
-        "decision_transparency": "alternatives_documented",
-        "process_risks_identified": true,
-        "implementation_readiness": "ready"
-      },
-      "content_metrics": {
-        "roles_synthesized": "<COUNT(participating_roles)>",
-        "functional_requirements": "<dynamic-count>",
-        "non_functional_requirements": "<dynamic-count>",
-        "business_requirements": "<dynamic-count>",
-        "architecture_decisions": "<dynamic-count>",
-        "controversial_points": "<dynamic-count>",
-        "diagrams_included": "<dynamic-count>",
-        "process_risks": "<dynamic-count>",
-        "team_skill_gaps": "<dynamic-count>",
-        "implementation_phases": "<dynamic-count>",
-        "risk_factors_identified": "<dynamic-count>"
+        "ambiguity_resolution": "complete",
+        "terminology_consistency": "enforced",
+        "decision_transparency": "documented"
       }
     }
   }
@@ -328,12 +589,13 @@ Upon completion, update `workflow-session.json`:
 {
   "phases": {
     "BRAINSTORM": {
-      "status": "completed",
+      "status": "clarification_completed",
       "participating_roles": ["product-manager", "system-architect", "ui-designer", "ux-expert", "scrum-master"],
-      "content_metrics": {
-        "roles_synthesized": 5,
-        "functional_requirements": 18,
-        "controversial_points": 2
+      "clarification_results": {
+        "questions_asked": 3,
+        "categories_clarified": ["Architecture & Design", "User Experience", "Risk & Mitigation"],
+        "roles_updated": ["system-architect", "ui-designer", "ux-expert"],
+        "outstanding_items": []
       }
     }
   }
@@ -342,39 +604,45 @@ Upon completion, update `workflow-session.json`:
 
 ## ✅ **Quality Assurance**
 
-Verify synthesis output meets these standards (detailed criteria in `synthesis-role.md` template):
+Verify clarification output meets these standards:
 
 ### Content Completeness
-- [ ] All discovered role analyses integrated without gaps
-- [ ] Key designs documented (architecture diagrams, ADRs, user journeys via Mermaid)
-- [ ] Controversial points captured with alternatives and rationale
-- [ ] Process concerns included (team skills, risks, collaboration patterns)
-- [ ] Requirements documented (Functional, Non-Functional, Business) with sources
+- [ ] All participating role analyses loaded and analyzed
+- [ ] Cross-role integration analysis completed (consensus, conflicts, gaps)
+- [ ] Ambiguity scan completed across all 9 categories
+- [ ] Clarification questions prioritized appropriately
+- [ ] All clarifications documented in affected role documents
 
 ### Analysis Quality
+- [ ] User intent alignment validated across all roles
 - [ ] Cross-role synthesis identifies consensus and conflicts
-- [ ] Decision transparency documents both adopted and rejected alternatives
-- [ ] Priority recommendations with multi-dimensional evaluation
-- [ ] Implementation roadmap with phased approach
-- [ ] Risk assessment with mitigation strategies
-- [ ] @ references to source role analyses throughout
+- [ ] Ambiguities resolved through targeted clarification
+- [ ] Intelligent role update decisions (correct roles updated)
+- [ ] Terminology consistency enforced
+- [ ] Contradictions removed from updated documents
+
+### Document Quality
+- [ ] Clarifications section properly formatted
+- [ ] Updated sections reflect clarification answers
+- [ ] No placeholders remain (TODO, TBD, ???)
+- [ ] Markdown structure valid in all updated files
+- [ ] Cross-references maintained
 
 ## 🚀 **Recommended Next Steps**
 
-After synthesis completion, proceed to action planning:
+After clarification completion, proceed to planning:
 
 ### Standard Workflow (Recommended)
 ```bash
-/workflow:concept-clarify --session WFS-{session-id}  # Optional: Clarify ambiguities
-/workflow:plan --session WFS-{session-id}             # Generate IMPL_PLAN.md and tasks
+/workflow:plan --session WFS-{session-id}  # Generate IMPL_PLAN.md and tasks from refined role analyses
 /workflow:action-plan-verify --session WFS-{session-id}  # Optional: Verify plan quality
-/workflow:execute --session WFS-{session-id}          # Start implementation
+/workflow:execute --session WFS-{session-id}  # Start implementation
 ```
 
 ### TDD Workflow
 ```bash
-/workflow:concept-clarify --session WFS-{session-id}  # Optional: Clarify ambiguities
 /workflow:tdd-plan --session WFS-{session-id} "Feature description"
 /workflow:action-plan-verify --session WFS-{session-id}  # Optional: Verify plan quality
 /workflow:execute --session WFS-{session-id}
 ```
+

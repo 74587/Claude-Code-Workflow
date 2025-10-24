@@ -13,12 +13,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 **Execution Model - Auto-Continue Workflow with Quality Gate**:
 
-This workflow runs **mostly autonomously** once triggered, with one interactive quality gate (Phase 3.5). Phases 3 and 4 are delegated to specialized agents for complex analysis and task generation.
+This workflow runs **mostly autonomously** once triggered, with one interactive quality gate (Phase 3.5). Phase 3 (conflict resolution) and Phase 4 (task generation) are delegated to specialized agents.
 
 1. **User triggers**: `/workflow:plan "task"`
 2. **Phase 1 executes** → Session discovery → Auto-continues
 3. **Phase 2 executes** → Context gathering → Auto-continues
-4. **Phase 3 executes** (cli-execution-agent) → Intelligent analysis → Auto-continues
+4. **Phase 3 executes** (optional, if conflict_risk ≥ medium) → Conflict resolution → Auto-continues
 5. **Phase 3.5 executes** → **Pauses for user Q&A** → User answers clarification questions → Auto-continues
 6. **Phase 4 executes** (task-generate-agent if --agent) → Task generation → Reports final summary
 
@@ -96,23 +96,31 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 ---
 
-### Phase 3: Intelligent Analysis
+### Phase 3: Conflict Resolution (Optional - auto-triggered by conflict risk)
 
-**Command**: `SlashCommand(command="/workflow:tools:concept-enhanced --session [sessionId] --context [contextPath]")`
+**Trigger**: Only execute when context-package.json indicates conflict_risk is "medium" or "high"
 
-**Input**: `sessionId` from Phase 1, `contextPath` from Phase 2
+**Command**: `SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] --context [contextPath]")`
+
+**Input**:
+- sessionId from Phase 1
+- contextPath from Phase 2
+- conflict_risk from context-package.json
 
 **Parse Output**:
-- Extract: Execution status (success/failed)
-- Verify: ANALYSIS_RESULTS.md file path
+- Extract: Execution status (success/skipped/failed)
+- Verify: CONFLICT_RESOLUTION.md file path (if executed)
 
 **Validation**:
-- File `.workflow/[sessionId]/.process/ANALYSIS_RESULTS.md` exists
+- File `.workflow/[sessionId]/.process/CONFLICT_RESOLUTION.md` exists (if executed)
 
+**Skip Behavior**:
+- If conflict_risk is "none" or "low", skip directly to Phase 3.5
+- Display: "No significant conflicts detected, proceeding to clarification"
 
-**TodoWrite**: Mark phase 3 completed, phase 3.5 in_progress
+**TodoWrite**: Mark phase 3 completed (if executed) or skipped, phase 3.5 in_progress
 
-**After Phase 3**: Return to user showing Phase 3 results, then auto-continue to Phase 3.5
+**After Phase 3**: Return to user showing conflict resolution results (if executed) and selected strategies, then auto-continue to Phase 3.5
 
 **Memory State Check**:
 - Evaluate current context window usage and memory state
@@ -133,17 +141,17 @@ CONTEXT: Existing user database schema, REST API endpoints
 **Input**: `sessionId` from Phase 1
 
 **Behavior**:
-- Auto-detects plan mode (ANALYSIS_RESULTS.md exists)
+- Auto-detects plan mode (ANALYSIS_RESULTS.md exists if Phase 3 executed)
 - Interactively asks up to 5 targeted questions to resolve ambiguities
-- Updates ANALYSIS_RESULTS.md with clarifications
+- Updates ANALYSIS_RESULTS.md with clarifications (if file exists from Phase 3)
 - Pauses workflow for user input (breaks auto-continue temporarily)
 
 **Parse Output**:
-- Verify clarifications added to ANALYSIS_RESULTS.md
+- Verify clarifications added to ANALYSIS_RESULTS.md (if Phase 3 executed)
 - Check recommendation: "PROCEED" or "ADDRESS_OUTSTANDING"
 
 **Validation**:
-- ANALYSIS_RESULTS.md updated with `## Clarifications` section
+- If Phase 3 executed: ANALYSIS_RESULTS.md updated with `## Clarifications` section
 - All critical ambiguities resolved or documented as outstanding
 
 **TodoWrite**: Mark phase 3.5 completed, phase 4 in_progress
@@ -159,12 +167,12 @@ CONTEXT: Existing user database schema, REST API endpoints
 ### Phase 4: Task Generation
 
 **Relationship with Brainstorm Phase**:
-- If brainstorm synthesis exists (synthesis-specification.md), Phase 3 analysis incorporates it as input
-- **⚠️ User's original intent is ALWAYS primary**: New or refined user goals override synthesis recommendations
-- **synthesis-specification.md defines "WHAT"**: Requirements, design specs, high-level features
+- If brainstorm role analyses exist ([role]/analysis.md files), Phase 3 analysis incorporates them as input
+- **⚠️ User's original intent is ALWAYS primary**: New or refined user goals override brainstorm recommendations
+- **Role analysis.md files define "WHAT"**: Requirements, design specs, role-specific insights
 - **IMPL_PLAN.md defines "HOW"**: Executable task breakdown, dependencies, implementation sequence
-- Task generation translates high-level specifications into concrete, actionable work items
-- **Intent priority**: Current user prompt > synthesis-specification.md > topic-framework.md
+- Task generation translates high-level role analyses into concrete, actionable work items
+- **Intent priority**: Current user prompt > role analysis.md files > guidance-specification.md
 
 **Command Selection**:
 - Manual: `SlashCommand(command="/workflow:tools:task-generate --session [sessionId]")`
@@ -211,24 +219,33 @@ Plan: .workflow/[sessionId]/IMPL_PLAN.md
 
 ```javascript
 // Initialize (before Phase 1)
+// Note: Phase 3 todo only included when conflict_risk ≥ medium (determined after Phase 2)
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "in_progress", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "pending", "activeForm": "Executing context gathering"},
-  {"content": "Execute intelligent analysis", "status": "pending", "activeForm": "Executing intelligent analysis"},
+  // Phase 3 todo added dynamically after Phase 2 if conflict_risk ≥ medium
   {"content": "Execute concept clarification", "status": "pending", "activeForm": "Executing concept clarification"},
   {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
-// After Phase 1
+// After Phase 2 (if conflict_risk ≥ medium, insert Phase 3 todo)
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "in_progress", "activeForm": "Executing context gathering"},
-  {"content": "Execute intelligent analysis", "status": "pending", "activeForm": "Executing intelligent analysis"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute conflict resolution", "status": "in_progress", "activeForm": "Executing conflict resolution"},
   {"content": "Execute concept clarification", "status": "pending", "activeForm": "Executing concept clarification"},
   {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
-// Continue pattern for Phase 2, 3, 3.5, 4...
+// After Phase 2 (if conflict_risk is none/low, skip Phase 3)
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute concept clarification", "status": "in_progress", "activeForm": "Executing concept clarification"},
+  {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
+]})
+
+// Continue pattern for Phase 3 (if executed), 3.5, 4...
 ```
 
 ## Input Processing
@@ -277,20 +294,21 @@ Phase 1: session:start --auto "structured-description"
     ↓
 Phase 2: context-gather --session sessionId "structured-description"
     ↓ Input: sessionId + session memory + structured description
-    ↓ Output: contextPath (context-package.json)
+    ↓ Output: contextPath (context-package.json) + conflict_risk
     ↓
-Phase 3: cli-execution-agent (Intelligent Analysis)
-    ↓ Input: sessionId + contextPath + task description
-    ↓ Agent discovers context, enhances prompt, executes with Gemini
-    ↓ Output: ANALYSIS_RESULTS.md + execution log
+Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
+    ↓ Input: sessionId + contextPath + conflict_risk
+    ↓ CLI-powered conflict detection and resolution strategy generation
+    ↓ Output: CONFLICT_RESOLUTION.md (if conflict_risk ≥ medium)
+    ↓ Skip if conflict_risk is none/low
     ↓
 Phase 3.5: concept-clarify --session sessionId (Quality Gate)
-    ↓ Input: sessionId + ANALYSIS_RESULTS.md (auto-detected)
+    ↓ Input: sessionId + CONFLICT_RESOLUTION.md (if Phase 3 executed)
     ↓ Interactive: User answers clarification questions
-    ↓ Output: Updated ANALYSIS_RESULTS.md with clarifications
+    ↓ Output: Updated clarifications
     ↓
 Phase 4: task-generate[--agent] --session sessionId
-    ↓ Input: sessionId + clarified ANALYSIS_RESULTS.md + session memory
+    ↓ Input: sessionId + conflict resolution decisions (if exists) + session memory
     ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
 Return summary to user
@@ -300,6 +318,7 @@ Return summary to user
 - Previous task summaries
 - Existing context and analysis
 - Brainstorming artifacts
+- Conflict resolution decisions (if Phase 3 executed)
 - Session-specific configuration
 
 **Structured Description Benefits**:
@@ -317,17 +336,18 @@ Return summary to user
 ## Coordinator Checklist
 
 ✅ **Pre-Phase**: Convert user input to structured format (GOAL/SCOPE/CONTEXT)
-✅ Initialize TodoWrite before any command (include Phase 3.5)
+✅ Initialize TodoWrite before any command (Phase 3 added dynamically after Phase 2)
 ✅ Execute Phase 1 immediately with structured description
 ✅ Parse session ID from Phase 1 output, store in memory
 ✅ Pass session ID and structured description to Phase 2 command
 ✅ Parse context path from Phase 2 output, store in memory
-✅ **Launch Phase 3 agent**: Build Task prompt with sessionId and contextPath
-✅ Wait for agent completion, parse execution log path
-✅ Verify ANALYSIS_RESULTS.md created by agent
+✅ **Extract conflict_risk from context-package.json**: Determine Phase 3 execution
+✅ **If conflict_risk ≥ medium**: Launch Phase 3 conflict-resolution with sessionId and contextPath
+✅ Wait for Phase 3 completion (if executed), verify CONFLICT_RESOLUTION.md created
+✅ **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 3.5
 ✅ **Execute Phase 3.5**: Pass session ID to `/workflow:concept-clarify`
 ✅ Wait for user interaction (clarification Q&A)
-✅ Verify ANALYSIS_RESULTS.md updated with clarifications
+✅ Verify clarifications completed
 ✅ Check recommendation: proceed if "PROCEED", otherwise alert user
 ✅ **Build Phase 4 command** based on flags:
   - Base command: `/workflow:tools:task-generate` (or `-agent` if `--agent` flag)
@@ -335,7 +355,7 @@ Return summary to user
   - Add `--cli-execute` if flag present
 ✅ Pass session ID to Phase 4 command
 ✅ Verify all Phase 4 outputs
-✅ Update TodoWrite after each phase
+✅ Update TodoWrite after each phase (dynamically adjust for Phase 3 presence)
 ✅ After each phase, automatically continue to next phase based on TodoList status
 
 ## Structure Template Reference

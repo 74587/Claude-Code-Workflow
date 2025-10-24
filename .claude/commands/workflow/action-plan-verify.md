@@ -15,13 +15,13 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Goal
 
-Identify inconsistencies, duplications, ambiguities, and underspecified items between action planning artifacts (`IMPL_PLAN.md`, `task.json`) and brainstorming artifacts (`synthesis-specification.md`) before implementation. This command MUST run only after `/workflow:plan` has successfully produced complete `IMPL_PLAN.md` and task JSON files.
+Identify inconsistencies, duplications, ambiguities, and underspecified items between action planning artifacts (`IMPL_PLAN.md`, `task.json`) and brainstorming artifacts (`role analysis documents`) before implementation. This command MUST run only after `/workflow:plan` has successfully produced complete `IMPL_PLAN.md` and task JSON files.
 
 ## Operating Constraints
 
 **STRICTLY READ-ONLY**: Do **not** modify any files. Output a structured analysis report. Offer an optional remediation plan (user must explicitly approve before any follow-up editing commands).
 
-**Synthesis Authority**: The `synthesis-specification.md` is **authoritative** for requirements and design decisions. Any conflicts between IMPL_PLAN/tasks and synthesis are automatically CRITICAL and require adjustment of the plan/tasks—not reinterpretation of requirements.
+**Synthesis Authority**: The `role analysis documents` is **authoritative** for requirements and design decisions. Any conflicts between IMPL_PLAN/tasks and synthesis are automatically CRITICAL and require adjustment of the plan/tasks—not reinterpretation of requirements.
 
 ## Execution Steps
 
@@ -45,13 +45,13 @@ brainstorm_dir = session_dir/.brainstorming
 task_dir = session_dir/.task
 
 # Validate required artifacts
-SYNTHESIS = brainstorm_dir/synthesis-specification.md
+SYNTHESIS = brainstorm_dir/role analysis documents
 IMPL_PLAN = session_dir/IMPL_PLAN.md
 TASK_FILES = Glob(task_dir/*.json)
 
 # Abort if missing
 IF NOT EXISTS(SYNTHESIS):
-    ERROR: "synthesis-specification.md not found. Run /workflow:brainstorm:synthesis first"
+    ERROR: "role analysis documents not found. Run /workflow:brainstorm:synthesis first"
     EXIT
 
 IF NOT EXISTS(IMPL_PLAN):
@@ -72,7 +72,7 @@ Load only minimal necessary context from each artifact:
 - User's stated goals and objectives
 - User's scope definition
 
-**From synthesis-specification.md**:
+**From role analysis documents**:
 - Functional Requirements (IDs, descriptions, acceptance criteria)
 - Non-Functional Requirements (IDs, targets)
 - Business Requirements (IDs, success metrics)
@@ -210,7 +210,7 @@ Output a Markdown report (no file writes) with the following structure:
 
 **Session**: WFS-{session-id}
 **Generated**: {timestamp}
-**Artifacts Analyzed**: synthesis-specification.md, IMPL_PLAN.md, {N} task files
+**Artifacts Analyzed**: role analysis documents, IMPL_PLAN.md, {N} task files
 
 ---
 

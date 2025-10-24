@@ -15,7 +15,7 @@ Synchronize finalized design system references to brainstorming artifacts, prepa
 
 - **Reference-Only Updates**: Use @ references, no content duplication
 - **Main Claude Execution**: Direct updates by main Claude (no Agent handoff)
-- **Synthesis Alignment**: Update synthesis-specification.md UI/UX Guidelines section
+- **Synthesis Alignment**: Update role analysis documents UI/UX Guidelines section
 - **Plan-Ready Output**: Ensure design artifacts discoverable by task-generate
 - **Minimal Reading**: Verify file existence, don't read design content
 
@@ -50,8 +50,8 @@ REPORT: "Found {count} design artifacts, {prototype_count} prototypes"
 ### Phase 1.1: Memory Check (Skip if Already Updated)
 
 ```bash
-# Check if synthesis-specification.md contains current design run reference
-synthesis_spec_path = ".workflow/WFS-{session}/.brainstorming/synthesis-specification.md"
+# Check if role analysis documents contains current design run reference
+synthesis_spec_path = ".workflow/WFS-{session}/.brainstorming/role analysis documents"
 current_design_run = basename(latest_design)  # e.g., "design-run-20250109-143022"
 
 IF exists(synthesis_spec_path):
@@ -68,7 +68,7 @@ IF exists(synthesis_spec_path):
 
 ```bash
 # Load target brainstorming artifacts (files to be updated)
-Read(.workflow/WFS-{session}/.brainstorming/synthesis-specification.md)
+Read(.workflow/WFS-{session}/.brainstorming/role analysis documents)
 IF exists(.workflow/WFS-{session}/.brainstorming/ui-designer/analysis.md): Read(analysis.md)
 
 # Optional: Read prototype notes for descriptions (minimal context)
@@ -80,7 +80,7 @@ FOR each selected_prototype IN selected_list:
 
 ### Phase 3: Update Synthesis Specification
 
-Update `.brainstorming/synthesis-specification.md` with design system references.
+Update `.brainstorming/role analysis documents` with design system references.
 
 **Target Section**: `## UI/UX Guidelines`
 
@@ -113,7 +113,7 @@ Update `.brainstorming/synthesis-specification.md` with design system references
 **Implementation**:
 ```bash
 # Option 1: Edit existing section
-Edit(file_path=".workflow/WFS-{session}/.brainstorming/synthesis-specification.md",
+Edit(file_path=".workflow/WFS-{session}/.brainstorming/role analysis documents",
      old_string="## UI/UX Guidelines\n[existing content]",
      new_string="## UI/UX Guidelines\n\n[new design reference content]")
 
@@ -168,7 +168,7 @@ Write(file_path=".workflow/WFS-{session}/.brainstorming/ui-designer/style-guide.
 TodoWrite({todos: [
   {content: "Validate session and design system artifacts", status: "completed", activeForm: "Validating artifacts"},
   {content: "Load target brainstorming artifacts", status: "completed", activeForm: "Loading target files"},
-  {content: "Update synthesis-specification.md with design references", status: "completed", activeForm: "Updating synthesis spec"},
+  {content: "Update role analysis documents with design references", status: "completed", activeForm: "Updating synthesis spec"},
   {content: "Create/update ui-designer/style-guide.md", status: "completed", activeForm: "Updating UI designer guide"}
 ]});
 ```
@@ -178,7 +178,7 @@ TodoWrite({todos: [
 ✅ Design system references updated for session: WFS-{session}
 
 Updated artifacts:
-✓ synthesis-specification.md - UI/UX Guidelines section with @ references
+✓ role analysis documents - UI/UX Guidelines section with @ references
 ✓ ui-designer/style-guide.md - Design system reference guide
 
 Design system assets ready for /workflow:plan:
@@ -193,12 +193,12 @@ Next: /workflow:plan [--agent] "<task description>"
 **Updated Files**:
 ```
 .workflow/WFS-{session}/.brainstorming/
-├── synthesis-specification.md       # Updated with UI/UX Guidelines section
+├── role analysis documents       # Updated with UI/UX Guidelines section
 └── ui-designer/
     └── style-guide.md               # New or updated design reference guide
 ```
 
-**@ Reference Format** (synthesis-specification.md):
+**@ Reference Format** (role analysis documents):
 ```
 @../design-{run_id}/style-extraction/style-1/design-tokens.json
 @../design-{run_id}/style-extraction/style-1/style-guide.md
@@ -217,7 +217,7 @@ Next: /workflow:plan [--agent] "<task description>"
 After this update, `/workflow:plan` will discover design assets through:
 
 **Phase 3: Intelligent Analysis** (`/workflow:tools:concept-enhanced`)
-- Reads synthesis-specification.md → Discovers @ references → Includes design system context in ANALYSIS_RESULTS.md
+- Reads role analysis documents → Discovers @ references → Includes design system context in ANALYSIS_RESULTS.md
 
 **Phase 4: Task Generation** (`/workflow:tools:task-generate`)
 - Reads ANALYSIS_RESULTS.md → Discovers design assets → Includes design system paths in task JSON files
@@ -239,7 +239,7 @@ After this update, `/workflow:plan` will discover design assets through:
 ## Error Handling
 
 - **Missing design artifacts**: Error with message "Run /workflow:ui-design:style-extract and /workflow:ui-design:generate first"
-- **synthesis-specification.md not found**: Warning, create minimal version with just UI/UX Guidelines
+- **role analysis documents not found**: Warning, create minimal version with just UI/UX Guidelines
 - **ui-designer/ directory missing**: Create directory and file
 - **Edit conflicts**: Preserve existing content, append or replace only UI/UX Guidelines section
 - **Invalid prototype names**: Skip invalid entries, continue with valid ones
@@ -247,7 +247,7 @@ After this update, `/workflow:plan` will discover design assets through:
 ## Validation Checks
 
 After update, verify:
-- [ ] synthesis-specification.md contains UI/UX Guidelines section
+- [ ] role analysis documents contains UI/UX Guidelines section
 - [ ] UI/UX Guidelines include @ references (not content duplication)
 - [ ] ui-designer/style-guide.md created or updated
 - [ ] All @ referenced files exist and are accessible
@@ -264,7 +264,7 @@ After update, verify:
 ## Integration Points
 
 - **Input**: Design system artifacts from `/workflow:ui-design:style-extract` and `/workflow:ui-design:generate`
-- **Output**: Updated synthesis-specification.md, ui-designer/style-guide.md with @ references
+- **Output**: Updated role analysis documents, ui-designer/style-guide.md with @ references
 - **Next Phase**: `/workflow:plan` discovers and utilizes design system through @ references
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` workflow
 

@@ -1,38 +1,37 @@
 ---
 name: concept-enhanced
-description: Enhanced intelligent analysis with parallel CLI execution and design blueprint generation
+description: Architecture validation and implementation enhancement with CLI-powered analysis
 argument-hint: "--session WFS-session-id --context path/to/context-package.json"
 examples:
   - /workflow:tools:concept-enhanced --session WFS-auth --context .workflow/WFS-auth/.process/context-package.json
   - /workflow:tools:concept-enhanced --session WFS-payment --context .workflow/WFS-payment/.process/context-package.json
 ---
 
-# Enhanced Analysis Command (/workflow:tools:concept-enhanced)
+# Architecture Validation Command (/workflow:tools:concept-enhanced)
 
 ## Overview
-Advanced solution design and feasibility analysis engine with parallel CLI execution. Processes standardized context packages to produce ANALYSIS_RESULTS.md focused on solution improvements, key design decisions, and critical insights.
+Architecture validation and implementation enhancement engine with CLI-powered analysis. Validates existing architectural approaches and enhances implementation details through Gemini/Codex analysis.
 
-**Scope**: Solution-focused technical analysis only. Does NOT generate task breakdowns or implementation plans.
+**Scope**: Validation and enhancement only. Does NOT generate new designs, task breakdowns, or implementation plans.
 
-**Usage**: Standalone command or integrated into `/workflow:plan`. Accepts context packages and orchestrates Gemini/Codex for comprehensive analysis.
+**Usage**: Optional enhancement in `/workflow:plan` (requires `--cli-enhance` flag). Accepts context packages and validates architectural soundness.
 
 ## Core Philosophy & Responsibilities
-- **Agent Coordination**: Delegate analysis execution to specialized agent (cli-execution-agent)
-- **Solution-Focused Analysis**: Emphasize design decisions, architectural rationale, and critical insights (exclude task planning)
-- **Context-Driven**: Parse and validate context-package.json for precise analysis
-- **Agent-Driven Tool Selection**: Agent autonomously selects Gemini/Codex based on task complexity
-- **Solution Design**: Evaluate architecture, identify key design decisions with rationale
-- **Feasibility Assessment**: Analyze technical complexity, risks, implementation readiness
-- **Optimization Recommendations**: Performance, security, and code quality improvements
+- **Agent Coordination**: Delegate validation execution to specialized agent (cli-execution-agent)
+- **Validation-Focused**: Verify architectural soundness, identify risks and quality issues
+- **Context-Driven**: Parse and validate context-package.json for precise validation
+- **Agent-Driven Tool Selection**: Agent autonomously selects Gemini/Codex based on validation needs
+- **Architecture Validation**: Verify design decisions, assess technical feasibility and risks
+- **Implementation Enhancement**: Identify optimization opportunities for performance, security, and quality
 - **Output Validation**: Verify ANALYSIS_RESULTS.md generation and quality
-- **Single Output**: Generate only ANALYSIS_RESULTS.md with technical analysis
+- **Single Output**: Generate only ANALYSIS_RESULTS.md with validation findings and enhancement recommendations
 
 ## Analysis Strategy Selection
 
 **Agent-Driven Strategy**: cli-execution-agent autonomously determines tool selection based on:
 - **Task Complexity**: Number of modules, integration scope, technical depth
 - **Tech Stack**: Frontend (Gemini-focused), Backend (Codex-preferred), Fullstack (hybrid)
-- **Analysis Focus**: Architecture design (Gemini), Feasibility validation (Codex), Performance optimization (both)
+- **Validation Focus**: Architecture validation (Gemini), Feasibility verification (Codex), Quality assessment (both)
 
 **Complexity Tiers** (Agent decides internally):
 - **Simple (≤3 modules)**: Gemini-only analysis
@@ -140,16 +139,16 @@ Generate final ANALYSIS_RESULTS.md and report completion status:
 
 **Template Reference**: `~/.claude/workflows/cli-templates/prompts/workflow/analysis-results-structure.txt`
 
-Generated ANALYSIS_RESULTS.md focuses on **solution improvements, key design decisions, and critical insights** (NOT task planning).
+Generated ANALYSIS_RESULTS.md focuses on **validation findings, quality assessment, and enhancement recommendations** (NOT new designs or task planning).
 
 ### Required Structure (7 Sections)
 
-1. **Executive Summary**: Analysis focus, tools used, overall assessment (X/5), recommendation status
+1. **Executive Summary**: Validation focus, tools used, overall assessment (X/5), recommendation status
 2. **Current State Analysis**: Architecture overview, compatibility/dependencies, critical findings
-3. **Proposed Solution Design**: Core principles, system design, key decisions with rationale, technical specs
-4. **Implementation Strategy**: Development approach, code modification targets, feasibility assessment, risk mitigation
-5. **Solution Optimization**: Performance, security, code quality recommendations
-6. **Critical Success Factors**: Technical requirements, quality metrics, success validation
+3. **Architecture Validation**: Verify design soundness, assess feasibility, identify risks with rationale
+4. **Implementation Enhancement**: Code quality improvements, optimization opportunities, risk mitigation
+5. **Quality Optimization**: Performance, security, code quality recommendations
+6. **Critical Success Factors**: Technical requirements, quality metrics, validation criteria
 7. **Reference Information**: Tool analysis summary, context & resources
 
 ### Key Requirements
@@ -159,11 +158,11 @@ Generated ANALYSIS_RESULTS.md focuses on **solution improvements, key design dec
 - New files: `file` only (e.g., `src/auth/PasswordReset.ts`)
 - Unknown lines: `file:function:*`
 
-**Key Design Decisions** (minimum 2):
-- Decision statement
-- Rationale (why this approach)
-- Alternatives considered (tradeoffs)
-- Impact (implications on architecture)
+**Validation Findings** (minimum 2):
+- Finding statement (what was validated/discovered)
+- Assessment (risks, quality issues, improvement opportunities)
+- Recommendations (specific actions to address findings)
+- Impact (implications on implementation)
 
 **Assessment Scores** (1-5 scale):
 - Conceptual Integrity, Architectural Soundness, Technical Feasibility, Implementation Readiness
@@ -171,10 +170,11 @@ Generated ANALYSIS_RESULTS.md focuses on **solution improvements, key design dec
 - Final Recommendation: PROCEED | PROCEED_WITH_MODIFICATIONS | RECONSIDER | REJECT
 
 ### Content Focus
-- ✅ Solution improvements and architectural decisions
-- ✅ Design rationale, alternatives, and tradeoffs
-- ✅ Risk assessment with mitigation strategies
-- ✅ Optimization opportunities (performance, security, quality)
+- ✅ Validation findings and quality assessment
+- ✅ Enhancement opportunities with specific recommendations
+- ✅ Risk identification and mitigation strategies
+- ✅ Optimization recommendations (performance, security, quality)
+- ❌ New design proposals or architectural changes
 - ❌ Task lists or implementation steps
 - ❌ Code examples or snippets
 - ❌ Project management timelines
@@ -213,11 +213,11 @@ Generated ANALYSIS_RESULTS.md focuses on **solution improvements, key design dec
 **Quality Checks**: Completeness, consistency, feasibility validation
 
 **Success Criteria**:
-- ✅ Solution-focused analysis (design decisions, critical insights, NO task planning)
+- ✅ Validation-focused analysis (quality assessment, enhancement recommendations, NO new designs or task planning)
 - ✅ Single output file only (ANALYSIS_RESULTS.md)
-- ✅ Design decision depth with rationale/alternatives/tradeoffs
-- ✅ Feasibility assessment (complexity, risks, readiness)
-- ✅ Optimization strategies (performance, security, quality)
+- ✅ Validation findings depth with assessment/recommendations/impact
+- ✅ Quality assessment (risks, improvement opportunities, readiness)
+- ✅ Enhancement strategies (performance, security, quality optimization)
 - ✅ Agent-driven tool selection (autonomous Gemini/Codex execution)
 - ✅ Robust error handling (validation, retry, graceful degradation)
 - ✅ Confidence scoring with clear recommendation status
@@ -225,5 +225,5 @@ Generated ANALYSIS_RESULTS.md focuses on **solution improvements, key design dec
 
 ## Related Commands
 - `/context:gather` - Generate context packages required by this command
-- `/workflow:plan` - Call this command for analysis
-- `/task:create` - Create specific tasks based on analysis results
+- `/workflow:plan --cli-enhance` - Optionally call this command for validation enhancement
+- `/task:create` - Create specific tasks based on validation results

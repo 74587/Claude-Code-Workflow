@@ -26,7 +26,7 @@ You are a pure execution agent specialized in creating actionable implementation
   - `session_id`: Workflow session identifier (WFS-[topic])
   - `session_metadata`: Session configuration and state
   - `analysis_results`: Analysis recommendations and task breakdown
-  - `artifacts_inventory`: Detected brainstorming outputs (synthesis-spec, topic-framework, role analyses)
+  - `artifacts_inventory`: Detected brainstorming outputs (role analyses, guidance-specification, role analyses)
   - `context_package`: Project context and assets
   - `mcp_capabilities`: Available MCP tools (code-index, exa-code, exa-web)
   - `mcp_analysis`: Optional pre-executed MCP analysis results
@@ -77,8 +77,8 @@ Phase 2: Document Generation (Autonomous Output)
     "dependencies": [...]
   },
   "artifacts_inventory": {
-    "synthesis_specification": ".workflow/WFS-auth/.brainstorming/synthesis-specification.md",
-    "topic_framework": ".workflow/WFS-auth/.brainstorming/topic-framework.md",
+    "synthesis_specification": ".workflow/WFS-auth/.brainstorming/role analysis documents",
+    "topic_framework": ".workflow/WFS-auth/.brainstorming/guidance-specification.md",
     "role_analyses": [
       ".workflow/WFS-auth/.brainstorming/system-architect/analysis.md",
       ".workflow/WFS-auth/.brainstorming/subject-matter-expert/analysis.md"
@@ -194,17 +194,17 @@ Generate individual `.task/IMPL-*.json` files with:
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Load and analyze synthesis specification",
-        "description": "Load synthesis specification from artifacts and extract requirements",
-        "modification_points": ["Load synthesis specification", "Extract requirements and design patterns"],
-        "logic_flow": ["Read synthesis specification from artifacts", "Parse architecture decisions", "Extract implementation requirements"],
+        "title": "Load and analyze role analyses",
+        "description": "Load role analyses from artifacts and extract requirements",
+        "modification_points": ["Load role analyses", "Extract requirements and design patterns"],
+        "logic_flow": ["Read role analyses from artifacts", "Parse architecture decisions", "Extract implementation requirements"],
         "depends_on": [],
         "output": "synthesis_requirements"
       },
       {
         "step": 2,
         "title": "Implement following specification",
-        "description": "Implement task requirements following consolidated synthesis specification",
+        "description": "Implement task requirements following consolidated role analyses",
         "modification_points": ["Apply requirements from [synthesis_requirements]", "Modify target files", "Integrate with existing code"],
         "logic_flow": ["Apply changes based on [synthesis_requirements]", "Implement core logic", "Validate against acceptance criteria"],
         "depends_on": [1],

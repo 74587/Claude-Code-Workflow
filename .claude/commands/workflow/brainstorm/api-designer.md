@@ -1,6 +1,6 @@
 ---
 name: api-designer
-description: Generate or update api-designer/analysis.md addressing topic-framework discussion points
+description: Generate or update api-designer/analysis.md addressing guidance-specification discussion points
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
@@ -8,10 +8,10 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ## 🔌 **API Designer Analysis Generator**
 
 ### Purpose
-**Specialized command for generating api-designer/analysis.md** that addresses topic-framework.md discussion points from backend API design perspective. Creates or updates role-specific analysis with framework references.
+**Specialized command for generating api-designer/analysis.md** that addresses guidance-specification.md discussion points from backend API design perspective. Creates or updates role-specific analysis with framework references.
 
 ### Core Function
-- **Framework-based Analysis**: Address each discussion point in topic-framework.md
+- **Framework-based Analysis**: Address each discussion point in guidance-specification.md
 - **API Design Focus**: RESTful/GraphQL API design, endpoint structure, and contract definition
 - **Update Mechanism**: Create new or update existing analysis.md
 - **Agent Delegation**: Use conceptual-planning-agent for analysis generation
@@ -51,7 +51,7 @@ IF active_session EXISTS:
     session_id = get_active_session()
     brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
 
-    CHECK: brainstorm_dir/topic-framework.md
+    CHECK: brainstorm_dir/guidance-specification.md
     IF EXISTS:
         framework_mode = true
         load_framework = true
@@ -78,20 +78,20 @@ ELSE:
 ```
 
 ### Phase 3: Agent Task Generation
-**Framework-Based Analysis** (when topic-framework.md exists):
+**Framework-Based Analysis** (when guidance-specification.md exists):
 ```bash
 Task(subagent_type="conceptual-planning-agent",
      prompt="Generate API designer analysis addressing topic framework
 
      ## Framework Integration Required
-     **MANDATORY**: Load and address topic-framework.md discussion points
-     **Framework Reference**: @{session.brainstorm_dir}/topic-framework.md
+     **MANDATORY**: Load and address guidance-specification.md discussion points
+     **Framework Reference**: @{session.brainstorm_dir}/guidance-specification.md
      **Output Location**: {session.brainstorm_dir}/api-designer/analysis.md
 
      ## Analysis Requirements
-     1. **Load Topic Framework**: Read topic-framework.md completely
+     1. **Load Topic Framework**: Read guidance-specification.md completely
      2. **Address Each Discussion Point**: Respond to all 5 framework sections from API design perspective
-     3. **Include Framework Reference**: Start analysis.md with @../topic-framework.md
+     3. **Include Framework Reference**: Start analysis.md with @../guidance-specification.md
      4. **API Design Focus**: Emphasize endpoint structure, data contracts, versioning strategies
      5. **Structured Response**: Use framework structure for analysis organization
 
@@ -106,7 +106,7 @@ Task(subagent_type="conceptual-planning-agent",
      ```markdown
      # API Designer Analysis: [Topic]
 
-     **Framework Reference**: @../topic-framework.md
+     **Framework Reference**: @../guidance-specification.md
      **Role Focus**: Backend API Design and Contract Definition
 
      ## Core Requirements Analysis
@@ -140,14 +140,14 @@ IF update_mode = "incremental":
 
          ## Current Analysis Context
          **Existing Analysis**: @{session.brainstorm_dir}/api-designer/analysis.md
-         **Framework Reference**: @{session.brainstorm_dir}/topic-framework.md
+         **Framework Reference**: @{session.brainstorm_dir}/guidance-specification.md
 
          ## Update Requirements
          1. **Preserve Structure**: Maintain existing analysis structure
          2. **Add New Insights**: Integrate new API design insights and recommendations
          3. **Framework Alignment**: Ensure continued alignment with topic framework
          4. **API Updates**: Add new endpoint patterns, versioning strategies, documentation improvements
-         5. **Maintain References**: Keep @../topic-framework.md reference
+         5. **Maintain References**: Keep @../guidance-specification.md reference
 
          ## Update Instructions
          - Read existing analysis completely
@@ -163,14 +163,14 @@ IF update_mode = "incremental":
 ### Output Files
 ```
 .workflow/WFS-[topic]/.brainstorming/
-├── topic-framework.md          # Input: Framework (if exists)
+├── guidance-specification.md          # Input: Framework (if exists)
 └── api-designer/
     └── analysis.md            # ★ OUTPUT: Framework-based analysis
 ```
 
 ### Analysis Structure
 **Required Elements**:
-- **Framework Reference**: @../topic-framework.md (if framework exists)
+- **Framework Reference**: @../guidance-specification.md (if framework exists)
 - **Role Focus**: Backend API Design and Contract Definition perspective
 - **5 Framework Sections**: Address each framework discussion point
 - **API Design Recommendations**: Endpoint-specific insights and solutions

@@ -38,7 +38,7 @@ When the `--cli-execute` flag is used, each step in `implementation_approach` **
 This command is built on a set of core principles to ensure efficient and reliable task generation.
 
 - **Analysis-Driven**: All generated tasks originate from `ANALYSIS_RESULTS.md`, ensuring a direct link between analysis and implementation
-- **Artifact-Aware**: Automatically detects and integrates brainstorming outputs (`synthesis-specification.md`, role analyses) to enrich task context
+- **Artifact-Aware**: Automatically detects and integrates brainstorming outputs (role analyses, guidance-specification.md) to enrich task context
 - **Context-Rich**: Embeds comprehensive context (requirements, focus paths, acceptance criteria, artifact references) directly into each task JSON
 - **Flow-Control Ready**: Pre-defines clear execution sequence (`pre_analysis`, `implementation_approach`) within each task
 - **Memory-First**: Prioritizes using documents already loaded in conversation memory to avoid redundant file operations
@@ -53,7 +53,7 @@ The command follows a streamlined, three-step process to convert analysis into e
 The process begins by gathering all necessary inputs. It follows a **Memory-First Rule**, skipping file reads if documents are already in the conversation memory.
 1.  **Session Validation**: Loads and validates the session from `.workflow/{session_id}/workflow-session.json`.
 2.  **Analysis Loading**: Reads the primary input, `.workflow/{session_id}/.process/ANALYSIS_RESULTS.md`.
-3.  **Artifact Discovery**: Scans the `.workflow/{session_id}/.brainstorming/` directory to find `synthesis-specification.md`, `topic-framework.md`, and various role analyses.
+3.  **Artifact Discovery**: Scans the `.workflow/{session_id}/.brainstorming/` directory to find `guidance-specification.md` and various role analyses ([role]/analysis*.md).
 
 ### Step 2: Task Decomposition & Grouping
 Once all inputs are loaded, the command analyzes the tasks defined in the analysis results and groups them based on shared context.
@@ -188,9 +188,9 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
     "shared_context": {"tech_stack": [], "conventions": []},
     "artifacts": [
       {
-        "path": ".workflow/WFS-[session]/.brainstorming/synthesis-specification.md",
+        "path": ".workflow/WFS-[session]/.brainstorming/[role-name]/analysis*.md",
         "priority": "highest",
-        "usage": "Primary requirement source - use for consolidated requirements and cross-role alignment"
+        "usage": "Role-specific insights and requirements from brainstorming (may have multiple files per role: analysis.md OR analysis-1/2/3.md). Common roles: product-manager (user stories, business requirements), system-architect (ADRs, APIs, architecture), ui-designer (design tokens, layouts), data-architect (data models, schemas), ux-expert (user journeys)"
       },
       {
         "path": ".workflow/WFS-[session]/.process/ANALYSIS_RESULTS.md",
@@ -203,13 +203,8 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         "usage": "Smart context with focus paths, module structure, dependency graph, existing patterns. Use for: environment setup, dependency resolution, pattern discovery"
       },
       {
-        "path": ".workflow/WFS-[session]/.brainstorming/[role-name]/analysis*.md",
-        "priority": "high",
-        "usage": "Technical/design/business details from specific roles (may have multiple files: analysis.md OR analysis-1/2/3.md). Common roles: system-architect (ADRs, APIs, caching), ui-designer (design tokens, layouts), product-manager (user stories, metrics)"
-      },
-      {
-        "path": ".workflow/WFS-[session]/.brainstorming/topic-framework.md",
-        "priority": "low",
+        "path": ".workflow/WFS-[session]/.brainstorming/guidance-specification.md",
+        "priority": "medium",
         "usage": "Discussion context and framework structure"
       }
     ]
@@ -217,19 +212,20 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_synthesis_specification",
-        "action": "Load consolidated synthesis specification",
+        "step": "load_role_analyses",
+        "action": "Load role analysis documents from brainstorming",
         "commands": [
-          "bash(ls .workflow/WFS-[session]/.brainstorming/synthesis-specification.md 2>/dev/null || echo 'not found')",
-          "Read(.workflow/WFS-[session]/.brainstorming/synthesis-specification.md)"
+          "bash(ls .workflow/WFS-[session]/.brainstorming/*/analysis*.md 2>/dev/null || echo 'not found')",
+          "Glob(.workflow/WFS-[session]/.brainstorming/*/analysis*.md)",
+          "Read(each discovered role analysis file)"
         ],
-        "output_to": "synthesis_specification",
+        "output_to": "role_analyses",
         "on_error": "skip_optional"
       },
       {
         "step": "load_role_analysis_artifacts",
         "action": "Load role-specific analysis documents for technical details (supports multiple files per role)",
-        "note": "These artifacts contain implementation details not in synthesis. Consult when needing: API schemas, caching configs, design tokens, ADRs, performance metrics. Each role may have analysis.md OR analysis-1/2/3.md.",
+        "note": "These artifacts contain role-specific implementation details. Consult when needing: API schemas, caching configs, design tokens, ADRs, performance metrics. Each role may have analysis.md OR analysis-1/2/3.md.",
         "commands": [
           "bash(find .workflow/WFS-[session]/.brainstorming/ -name 'analysis*.md' 2>/dev/null | sort | head -24)",
           "Read(.workflow/WFS-[session]/.brainstorming/system-architect/analysis.md)",
@@ -265,7 +261,7 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         "action": "Analyze existing code patterns and identify modification targets",
         "commands": [
           "bash(cd \"[focus_paths]\")",
-          "bash(gemini \"PURPOSE: Identify modification targets TASK: Analyze '[title]' and locate specific files/functions/lines to modify CONTEXT: [synthesis_specification] [individual_artifacts] EXPECTED: Code locations in format 'file:function:lines' RULES: Prioritize synthesis-specification.md, identify exact modification points\")"
+          "bash(gemini \"PURPOSE: Identify modification targets TASK: Analyze '[title]' and locate specific files/functions/lines to modify CONTEXT: [role_analyses] [individual_artifacts] EXPECTED: Code locations in format 'file:function:lines' RULES: Consult role analyses for requirements, identify exact modification points\")"
         ],
         "output_to": "task_context_with_targets",
         "on_error": "fail"
@@ -274,23 +270,23 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Implement task following synthesis specification",
-        "description": "Implement '[title]' following this priority: 1) synthesis-specification.md (primary requirements), 2) ANALYSIS_RESULTS.md (technical guidance and risk mitigation from planning phase), 3) context-package.json (smart context and patterns), 4) role artifacts (detailed specs). Consult ANALYSIS_RESULTS.md for optimization strategies, performance considerations, and architecture review insights before implementation.",
+        "title": "Implement task following role analyses and technical guidance",
+        "description": "Implement '[title]' following this priority: 1) role analysis.md files (requirements and design specs from brainstorming), 2) ANALYSIS_RESULTS.md (technical guidance and risk mitigation from planning phase), 3) context-package.json (smart context and patterns). Consult ANALYSIS_RESULTS.md for optimization strategies, performance considerations, and architecture review insights before implementation.",
         "modification_points": [
-          "Apply consolidated requirements from synthesis-specification.md",
+          "Apply requirements from role analysis documents",
           "Follow technical guidelines from ANALYSIS_RESULTS.md",
           "Use context-package.json for focus paths and dependency resolution",
-          "Consult role artifacts for implementation details when needed",
+          "Consult specific role artifacts for implementation details when needed",
           "Integrate with existing patterns"
         ],
         "logic_flow": [
-          "Load synthesis specification (requirements baseline)",
+          "Load role analyses (requirements and design decisions from brainstorming)",
           "Load ANALYSIS_RESULTS.md (technical guidance and risk mitigation strategies)",
           "Load context-package.json (smart context: focus paths, dependencies, existing patterns)",
-          "Extract requirements and design decisions",
+          "Extract requirements and design decisions from role documents",
           "Review technical analysis and optimization strategies from ANALYSIS_RESULTS.md",
           "Identify modification targets using context package",
-          "Implement following specification and technical guidance",
+          "Implement following role requirements and technical guidance",
           "Apply optimization patterns from ANALYSIS_RESULTS.md",
           "Consult role artifacts for detailed specifications when needed",
           "Validate against acceptance criteria"
@@ -337,10 +333,10 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
 ### CCW Workflow Context
 **Phase Progression**:
-- ✅ Phase 1: Brainstorming (synthesis-specification.md generated)
+- ✅ Phase 1: Brainstorming (role analyses clarified and refined)
 - ✅ Phase 2: Context Gathering (context-package.json: {N} files, {M} modules analyzed)
 - ✅ Phase 3: Enhanced Analysis (ANALYSIS_RESULTS.md: Gemini/Qwen/Codex parallel insights)
-- ✅ Phase 4: Concept Verification ({X} clarifications answered, synthesis updated | skipped)
+- ✅ Phase 4: Concept Verification (integrated in brainstorming phase | skipped)
 - ⏳ Phase 5: Action Planning (current phase - generating IMPL_PLAN.md)
 
 **Quality Gates**:
@@ -378,12 +374,12 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 ## 3. Brainstorming Artifacts Reference
 
 ### Artifact Usage Strategy
-**Primary Reference (synthesis-specification.md)**:
-- **What**: Comprehensive implementation blueprint from multi-role synthesis
-- **When**: Every task references this first for requirements and design decisions
-- **How**: Extract architecture decisions, UI/UX patterns, functional requirements, non-functional requirements
-- **Priority**: Authoritative - overrides role-specific analyses when conflicts arise
-- **CCW Value**: Consolidates insights from all brainstorming roles into single source of truth
+**Primary Reference (Role Analyses)**:
+- **What**: Role-specific analyses from brainstorming phase providing multi-perspective insights
+- **When**: Every task references relevant role analyses for requirements and design decisions
+- **How**: Extract requirements, architecture decisions, UI/UX patterns from applicable role documents
+- **Priority**: Collective authoritative source - multiple role perspectives provide comprehensive coverage
+- **CCW Value**: Maintains role-specific expertise while enabling cross-role integration during planning
 
 **Context Intelligence (context-package.json)**:
 - **What**: Smart context gathered by CCW's context-gather phase
@@ -393,25 +389,27 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
 **Technical Analysis (ANALYSIS_RESULTS.md)**:
 - **What**: Gemini/Qwen/Codex parallel analysis results
-- **Content**: Optimization strategies, risk assessment, architecture review, implementation patterns
+- **Content**: Optimization strategies, risk assessment, architecture review, implementation patterns, cross-role synthesis
 - **Usage**: Referenced in task planning for technical guidance and risk mitigation
-- **CCW Value**: Multi-model parallel analysis providing comprehensive technical intelligence
+- **CCW Value**: Multi-model parallel analysis providing comprehensive technical intelligence and cross-role integration
 
-### Integrated Specifications (Highest Priority)
-- **synthesis-specification.md**: Comprehensive implementation blueprint
-  - Contains: Architecture design, UI/UX guidelines, functional/non-functional requirements, implementation roadmap, risk assessment
+### Role Analysis Documents (Highest Priority)
+Role analyses provide specialized perspectives on the implementation:
+- **system-architect/analysis.md**: Architecture design, ADRs, API specifications, caching strategies
+- **ui-designer/analysis.md**: Design tokens, layout specifications, component patterns
+- **ux-expert/analysis.md**: User journeys, interaction flows, accessibility requirements
+- **guidance-specification/analysis.md**: Product vision, user stories, business requirements, success metrics
+- **data-architect/analysis.md**: Data models, schemas, database design, migration strategies
+- **api-designer/analysis.md**: API contracts, endpoint specifications, integration patterns
 
 ### Supporting Artifacts (Reference)
 - **topic-framework.md**: Role-specific discussion points and analysis framework
-- **system-architect/analysis.md**: Detailed architecture specifications
-- **ui-designer/analysis.md**: Layout and component specifications
-- **product-manager/analysis.md**: Product vision and user stories
 
 **Artifact Priority in Development**:
-1. synthesis-specification.md (primary reference for all tasks)
-2. context-package.json (smart context for execution environment)
-3. ANALYSIS_RESULTS.md (technical analysis and optimization strategies)
-4. Role-specific analyses (fallback for detailed specifications)
+1. Role analysis.md files (primary requirements and design specs from brainstorming)
+2. ANALYSIS_RESULTS.md (technical analysis, optimization strategies, and cross-role synthesis from planning)
+3. context-package.json (smart context for execution environment)
+4. topic-framework.md (discussion framework structure)
 
 ## 4. Implementation Strategy
 
@@ -428,7 +426,7 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 
 ### Architectural Approach
 **Key Architecture Decisions**:
-- [ADR references from synthesis]
+- [ADR references from role analyses]
 - [Justification for architecture patterns]
 
 **Integration Strategy**:
@@ -520,7 +518,7 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 ## 8. Success Criteria
 
 **Functional Completeness**:
-- [ ] All requirements from synthesis-specification.md implemented
+- [ ] All requirements from role analysis documents implemented
 - [ ] All acceptance criteria from task.json files met
 
 **Technical Quality**:
@@ -534,7 +532,7 @@ Core requirements, objectives, technical approach summary (2-3 paragraphs max).
 - [ ] Documentation complete
 
 **Business Metrics**:
-- [ ] [Key business metrics from synthesis]
+- [ ] [Key business metrics from role analyses]
 ```
 
 ### 6.3. TODO_LIST.md Structure
@@ -567,10 +565,9 @@ The command organizes outputs into a standard directory structure.
 │   ├── IMPL-1.json                  # Container task
 │   ├── IMPL-1.1.json                # Leaf task with flow_control
 │   └── IMPL-1.2.json                # Leaf task with flow_control
-├── .brainstorming/                  # Input artifacts
-│   ├── synthesis-specification.md
+├── .braguidance-specification              # Input artifacts
 │   ├── topic-framework.md
-│   └── {role}/analysis.md
+│   └── {role}/analysis*.md          # Role analyses (may have multiple files per role)
 └── .process/
     ├── ANALYSIS_RESULTS.md          # Input from concept-enhanced
     └── context-package.json         # Input from context-gather
@@ -580,28 +577,28 @@ The command organizes outputs into a standard directory structure.
 The command intelligently detects and integrates artifacts from the `.brainstorming/` directory.
 
 #### Artifact Priority
-1.  **synthesis-specification.md** (highest): Comprehensive implementation blueprint from brainstorming synthesis
-2.  **ANALYSIS_RESULTS.md** (critical): Technical analysis, risk assessment, and optimization strategies from planning phase (generated by concept-enhanced)
-3.  **context-package.json** (critical): Smart context with focus paths, module structure, and dependency graph from planning phase (generated by context-gather)
+1.  **role/analysis*.md** (highest): Role-specific requirements and design specs from brainstorming (product-manager, system-architect, ui-designer, etc.)
+2.  **ANALYSIS_RESULTS.md** (critical): Technical analysis, risk assessment, optimization strategies, and cross-role synthesis from planning phase (generated by concept-enhanced)
+3.  **guidance-specification.json** (critical): Smart context with focus paths, module structure, and dependency graph from planning phase (generated by context-gather)
 4.  **topic-framework.md** (medium): Discussion framework structure from brainstorming
-5.  **role/analysis.md** (low): Individual role-based analyses for detailed specifications
 
 #### Artifact-Task Mapping
 Artifacts are mapped to tasks based on their relevance to the task's domain.
-- **synthesis-specification.md**: Included in all tasks as the primary reference.
-- **ui-designer/analysis.md**: Mapped to UI/Frontend tasks.
-- **system-architect/analysis.md**: Mapped to Architecture/Backend tasks.
-- **subject-matter-expert/analysis.md**: Mapped to tasks related to domain logic or standards.
-- **data-architect/analysis.md**: Mapped to tasks involving data models or APIs.
+- **Role analysis.md files**: Primary requirements source - all relevant role analyses included based on task type
+- **ui-designer/analysis.md**: Mapped to UI/Frontend tasks for design tokens, layouts, components
+- **system-architect/analysis.md**: Mapped to Architecture/Backend tasks for ADRs, APIs, patterns
+- **subject-matter-expert/analysis.md**: Mapped to tasks related to domain logic or standards
+- **data-architect/analysis.md**: Mapped to tasks involving data models, schemas, or APIs
+- **product-manager/analysis.md**: Mapped to all tasks for business requirements and user stories
 
-This ensures that each task has access to the most relevant and detailed specifications, from the high-level synthesis down to the role-specific details.
+This ensures that each task has access to the most relevant and detailed specifications from role-specific analyses.
 
 ## 8. CLI Execute Mode Details
 When using `--cli-execute`, each step in `implementation_approach` includes a `command` field with the execution command.
 
 **Key Points**:
 - **Sequential Steps**: Steps execute in order defined in `implementation_approach` array
-- **Context Delivery**: Each codex command receives context via CONTEXT field: `@{.workflow/{session}/.process/context-package.json}` and `@{.workflow/{session}/.brainstorming/synthesis-specification.md}`
+- **Context Delivery**: Each codex command receives context via CONTEXT field: `@{.workflow/{session}/.process/context-package.json}` and role analysis files from `.brainstorming/*/analysis*.md`
 - **Multi-Step Tasks**: First step provides full context, subsequent steps use `resume --last` to maintain session continuity
 - **Step Dependencies**: Later steps reference outputs from earlier steps via `depends_on` field
 
@@ -623,10 +620,10 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_synthesis",
-        "action": "Load synthesis specification for requirements",
-        "commands": ["Read(.workflow/WFS-session/.brainstorming/synthesis-specification.md)"],
-        "output_to": "synthesis_spec",
+        "step": "load_role_analyses",
+        "action": "Load role analyses for requirements",
+        "commands": ["Read(.workflow/WFS-session/.brainstorming/*/analysis*.md)"],
+        "output_to": "role_analyses",
         "on_error": "fail"
       },
       {
@@ -641,7 +638,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
       {
         "step": 1,
         "title": "Implement JWT-based authentication",
-        "description": "Create authentication module using JWT following [synthesis_spec] requirements and [context_pkg] patterns",
+        "description": "Create authentication module using JWT following [role_analyses] requirements and [context_pkg] patterns",
         "modification_points": [
           "Create auth service with JWT generation",
           "Implement login endpoint with credential validation",
@@ -676,10 +673,10 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_synthesis",
-        "action": "Load synthesis specification",
-        "commands": ["Read(.workflow/WFS-session/.brainstorming/synthesis-specification.md)"],
-        "output_to": "synthesis_spec",
+        "step": "load_role_analyses",
+        "action": "Load role analyses",
+        "commands": ["Read(.workflow/WFS-session/.brainstorming/*/analysis*.md)"],
+        "output_to": "role_analyses",
         "on_error": "fail"
       }
     ],
@@ -688,7 +685,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
         "step": 1,
         "title": "Implement authentication with Codex",
         "description": "Create JWT-based authentication module",
-        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication TASK: JWT-based auth with login/registration MODE: auto CONTEXT: @{.workflow/WFS-session/.process/context-package.json} @{.workflow/WFS-session/.brainstorming/synthesis-specification.md} EXPECTED: Complete auth module with tests RULES: Follow synthesis specification\" --skip-git-repo-check -s danger-full-access)",
+        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication TASK: JWT-based auth with login/registration MODE: auto CONTEXT: @{.workflow/WFS-session/.process/context-package.json} @{.workflow/WFS-session/.brainstorming/*/analysis*.md} EXPECTED: Complete auth module with tests RULES: Follow role analyses\" --skip-git-repo-check -s danger-full-access)",
         "modification_points": ["Create auth service", "Implement endpoints", "Add JWT middleware"],
         "logic_flow": ["Validate credentials", "Generate JWT", "Return token"],
         "depends_on": [],
@@ -715,10 +712,10 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
     "pre_analysis": [
       {
         "step": "load_context",
-        "action": "Load context and synthesis",
+        "action": "Load context and role analyses",
         "commands": [
           "Read(.workflow/WFS-session/.process/context-package.json)",
-          "Read(.workflow/WFS-session/.brainstorming/synthesis-specification.md)"
+          "Read(.workflow/WFS-session/.brainstorming/*/analysis*.md)"
         ],
         "output_to": "full_context",
         "on_error": "fail"
@@ -729,7 +726,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
         "step": 1,
         "title": "Create RBAC models",
         "description": "Define role and permission data models",
-        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Create RBAC models TASK: Role and permission models MODE: auto CONTEXT: @{.workflow/WFS-session/.process/context-package.json} @{.workflow/WFS-session/.brainstorming/synthesis-specification.md} EXPECTED: Models with migrations RULES: Follow synthesis spec\" --skip-git-repo-check -s danger-full-access)",
+        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Create RBAC models TASK: Role and permission models MODE: auto CONTEXT: @{.workflow/WFS-session/.process/context-package.json} @{.workflow/WFS-session/.brainstorming/*/analysis*.md} EXPECTED: Models with migrations RULES: Follow role analyses\" --skip-git-repo-check -s danger-full-access)",
         "modification_points": ["Define role model", "Define permission model", "Create migrations"],
         "logic_flow": ["Design schema", "Implement models", "Generate migrations"],
         "depends_on": [],

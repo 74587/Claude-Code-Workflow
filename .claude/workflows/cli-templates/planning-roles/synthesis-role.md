@@ -1,4 +1,25 @@
-# Synthesis Role Template
+# ⚠️ DEPRECATED: Synthesis Role Template
+
+## DEPRECATION NOTICE
+
+**This template is DEPRECATED and no longer used.**
+
+### Why Deprecated
+The `/workflow:brainstorm:synthesis` command has been redesigned:
+- **Old behavior**: Generated synthesis-specification.md consolidating all role analyses
+- **New behavior**: Performs cross-role analysis, identifies ambiguities, interacts with user for clarification, and updates role analysis.md files directly
+
+### Migration
+- **Role analyses are the source of truth**: Each role's analysis.md file is updated directly
+- **Planning reads role documents**: The planning phase dynamically reads all role analysis.md files
+- **No template needed**: The clarification workflow doesn't require a document template
+
+### Historical Context
+This template was used to guide the generation of synthesis-specification.md from multiple role perspectives. It is preserved for historical reference but should not be used in the new architecture.
+
+---
+
+# Original Template (Historical Reference)
 
 ## Purpose
 Generate comprehensive synthesis-specification.md that consolidates all role perspectives from brainstorming into actionable implementation specification.
@@ -18,7 +39,7 @@ Generate comprehensive synthesis-specification.md that consolidates all role per
 ```markdown
 # [Topic] - Integrated Implementation Specification
 
-**Framework Reference**: @topic-framework.md | **Generated**: [timestamp] | **Session**: WFS-[topic-slug]
+**Framework Reference**: @guidance-specification.md | **Generated**: [timestamp] | **Session**: WFS-[topic-slug]
 **Source Integration**: All brainstorming role perspectives consolidated
 **Document Type**: Requirements & Design Specification (WHAT to build)
 
@@ -344,7 +365,7 @@ Document known constraints that affect planning:
 
 ### Cross-Role Synthesis Process
 
-1. **Load All Role Analyses**: Read topic-framework.md and all discovered */analysis.md files
+1. **Load All Role Analyses**: Read guidance-specification.md and all discovered */analysis.md files
 2. **Extract Key Insights**: Identify main recommendations, concerns, and innovations from each role
 3. **Identify Consensus Areas**: Find common themes across multiple roles
 4. **Document Disagreements**: Capture controversial points where roles differ
@@ -371,7 +392,7 @@ Document known constraints that affect planning:
 Use @ references to link back to source role analyses:
 - `@role/analysis.md` - Reference entire role analysis
 - `@role/analysis.md#section` - Reference specific section
-- `@topic-framework.md#point-3` - Reference framework discussion point
+- `@guidance-specification.md#point-3` - Reference framework discussion point
 
 ### Dynamic Role Handling
 

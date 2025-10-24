@@ -45,18 +45,18 @@ These commands orchestrate complex, multi-phase development processes, from plan
 
 | Command | Description |
 |---|---|
-| `/workflow:brainstorm:artifacts` | Generate role-specific topic-framework.md dynamically based on selected roles. |
+| `/workflow:brainstorm:artifacts` | Generate role-specific guidance-specification.md dynamically based on selected roles. |
 | `/workflow:brainstorm:auto-parallel` | Parallel brainstorming automation with dynamic role selection and concurrent execution. |
-| `/workflow:brainstorm:synthesis` | Generate synthesis-specification.md from topic-framework and role analyses with @ references using conceptual-planning-agent. |
-| `/workflow:brainstorm:api-designer` | Generate or update api-designer/analysis.md addressing topic-framework discussion points. |
-| `/workflow:brainstorm:data-architect` | Generate or update data-architect/analysis.md addressing topic-framework discussion points. |
-| `/workflow:brainstorm:product-manager` | Generate or update product-manager/analysis.md addressing topic-framework discussion points. |
-| `/workflow:brainstorm:product-owner` | Generate or update product-owner/analysis.md addressing topic-framework discussion points. |
-| `/workflow:brainstorm:scrum-master` | Generate or update scrum-master/analysis.md addressing topic-framework discussion points. |
-| `/workflow:brainstorm:subject-matter-expert` | Generate or update subject-matter-expert/analysis.md addressing topic-framework discussion points. |
-| `/workflow:brainstorm:system-architect` | Generate or update system-architect/analysis.md addressing topic-framework discussion points. |
-| `/workflow:brainstorm:ui-designer` | Generate or update ui-designer/analysis.md addressing topic-framework discussion points. |
-| `/workflow:brainstorm:ux-expert` | Generate or update ux-expert/analysis.md addressing topic-framework discussion points. |
+| `/workflow:brainstorm:synthesis` | Generate synthesis-specification.md from guidance-specification and role analyses with @ references using conceptual-planning-agent. |
+| `/workflow:brainstorm:api-designer` | Generate or update api-designer/analysis.md addressing guidance-specification discussion points. |
+| `/workflow:brainstorm:data-architect` | Generate or update data-architect/analysis.md addressing guidance-specification discussion points. |
+| `/workflow:brainstorm:product-manager` | Generate or update product-manager/analysis.md addressing guidance-specification discussion points. |
+| `/workflow:brainstorm:product-owner` | Generate or update product-owner/analysis.md addressing guidance-specification discussion points. |
+| `/workflow:brainstorm:scrum-master` | Generate or update scrum-master/analysis.md addressing guidance-specification discussion points. |
+| `/workflow:brainstorm:subject-matter-expert` | Generate or update subject-matter-expert/analysis.md addressing guidance-specification discussion points. |
+| `/workflow:brainstorm:system-architect` | Generate or update system-architect/analysis.md addressing guidance-specification discussion points. |
+| `/workflow:brainstorm:ui-designer` | Generate or update ui-designer/analysis.md addressing guidance-specification discussion points. |
+| `/workflow:brainstorm:ux-expert` | Generate or update ux-expert/analysis.md addressing guidance-specification discussion points. |
 
 ### Quality & Verification
 
@@ -102,7 +102,8 @@ These commands are primarily used internally by other workflow commands but can 
 | Command | Description |
 |---|---|
 | `/workflow:tools:concept-enhanced` | Enhanced intelligent analysis with parallel CLI execution and design blueprint generation. |
-| `/workflow:tools:context-gather` | Intelligently collect project context using general-purpose agent based on task description and package into standardized JSON. |
+| `/workflow:tools:conflict-resolution` | Detect and resolve conflicts between plan and existing codebase using CLI-powered analysis. |
+| `/workflow:tools:context-gather` | Intelligently collect project context using universal-executor agent based on task description and package into standardized JSON. |
 | `/workflow:tools:task-generate` | Generate task JSON files and IMPL_PLAN.md from analysis results with artifacts integration. |
 | `/workflow:tools:task-generate-agent` | Autonomous task generation using action-planning-agent with discovery and output phases. |
 | `/workflow:tools:task-generate-tdd` | Generate TDD task chains with Red-Green-Refactor dependencies. |

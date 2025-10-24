@@ -187,8 +187,8 @@ Generate ANALYSIS_RESULTS.md with comprehensive solution design and technical an
 
 ### Analysis Priority Sources
 1. **PRIMARY**: Individual role analysis.md files (system-architect, ui-designer, etc.) - technical details, ADRs, decision context
-2. **SECONDARY**: synthesis-specification.md - integrated requirements, cross-role alignment
-3. **REFERENCE**: topic-framework.md - discussion context
+2. **SECONDARY**: role analysis documents - multi-perspective requirements and design specs
+3. **REFERENCE**: guidance-specification.md - discussion context
 
 ### Focus Areas
 - **SOLUTION IMPROVEMENTS**: How to enhance current design

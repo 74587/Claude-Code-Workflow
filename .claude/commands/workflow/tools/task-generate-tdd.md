@@ -79,7 +79,7 @@ Generate TDD-specific tasks from analysis results with complete Red-Green-Refact
 3. **Artifact Discovery**
    - If artifact inventory in memory → Skip scanning
    - Else: Scan `.workflow/{session_id}/.brainstorming/` directory
-   - Detect: synthesis-specification.md, topic-framework.md, role analyses
+   - Detect: role analysis documents, guidance-specification.md, role analyses
 
 ### Phase 2: TDD Task JSON Generation
 
@@ -283,7 +283,7 @@ tdd_workflow: true
 
 ## 3. Brainstorming Artifacts Reference
 - Artifact Usage Strategy
-  - synthesis-specification.md (primary reference)
+  - role analysis documents (primary reference)
   - test-context-package.json (test patterns)
   - context-package.json (smart context)
   - ANALYSIS_RESULTS.md (technical analysis)

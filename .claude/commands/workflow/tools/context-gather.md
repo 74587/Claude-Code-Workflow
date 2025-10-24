@@ -158,6 +158,36 @@ Task(
 #### Step 4: Context Packaging
 Generate standardized context-package.json following the format below
 
+#### Step 5: Conflict Detection & Risk Assessment
+**Purpose**: Analyze existing codebase to determine conflict risk level
+
+1. **Existing Code Detection**
+   - Count relevant existing source files discovered in Step 2
+   - Identify modules that overlap with task scope
+   - Flag existence of implementations related to task keywords
+
+2. **Architecture Analysis**
+   - Compare task requirements with existing architecture patterns
+   - Identify potential architectural changes required
+   - Detect breaking changes to current structure
+
+3. **API & Dependency Analysis**
+   - Check for existing API endpoints/contracts that may change
+   - Identify shared dependencies and interface changes
+   - Detect potential breaking changes to public APIs
+
+4. **Data Model Analysis**
+   - Identify existing data models/schemas in task scope
+   - Check for schema modification requirements
+   - Detect potential data migration needs
+
+5. **Risk Level Calculation**
+   Calculate conflict_risk based on:
+   - **none**: No existing code, new feature/module
+   - **low**: < 5 existing files, minimal changes
+   - **medium**: 5-15 existing files OR architectural changes OR API changes
+   - **high**: >15 existing files OR data model changes OR breaking changes
+
 ### Required Output
 
 **Output Location**: \`.workflow/{session-id}/.process/context-package.json\`
@@ -222,6 +252,23 @@ Generate standardized context-package.json following the format below
     "docs_files": 4,
     "config_files": 2,
     "test_files": 1
+  },
+  "conflict_detection": {
+    "conflict_risk": "medium",
+    "existing_files": [
+      "src/auth/AuthService.ts",
+      "src/models/User.ts",
+      "src/middleware/auth.ts"
+    ],
+    "has_existing_code": true,
+    "affected_modules": ["auth", "user-model"],
+    "detection_criteria": {
+      "existing_code_count": 8,
+      "architecture_changes": false,
+      "api_changes": true,
+      "data_model_changes": false
+    },
+    "risk_rationale": "Medium risk due to existing auth code and potential API changes"
   }
 }
 \`\`\`

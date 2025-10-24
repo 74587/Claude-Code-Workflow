@@ -205,7 +205,7 @@ ELSE IF --prompt:
     target_source = "prompt_analysis"
 
 # Step 4: Session synthesis
-ELSE IF --session AND exists(synthesis-specification.md):
+ELSE IF --session AND exists(role analysis documents):
     target_list = extract_targets_from_synthesis(); target_type = "page"; target_source = "synthesis"
 
 # Step 5: Fallback

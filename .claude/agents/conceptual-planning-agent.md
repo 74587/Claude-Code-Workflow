@@ -99,7 +99,7 @@ This agent processes **simplified inline [FLOW_CONTROL]** format from brainstorm
 ### Flow Control Steps
 1. **load_topic_framework**
    - Action: Load structured topic framework
-   - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/guidance-specification.md)
    - Output: topic_framework
 
 2. **load_role_template**

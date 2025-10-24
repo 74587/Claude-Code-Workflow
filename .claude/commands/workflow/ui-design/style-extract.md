@@ -154,7 +154,7 @@ IF exists: SKIP to completion
 ### Step 2: Load Project Context (Explore Mode)
 ```bash
 # Load brainstorming context if available
-bash(test -f {base_path}/.brainstorming/synthesis-specification.md && cat it)
+bash(test -f {base_path}/.brainstorming/role analysis documents && cat it)
 ```
 
 ### Step 3: Generate Design Direction Options (Agent Task 1)
@@ -541,7 +541,7 @@ bash(cat {base_path}/style-extraction/style-1/design-tokens.json | grep -q "colo
 ### File Operations
 ```bash
 # Load brainstorming context
-bash(test -f .brainstorming/synthesis-specification.md && cat it)
+bash(test -f .brainstorming/role analysis documents && cat it)
 
 # Create directories
 bash(mkdir -p {base_path}/style-extraction/style-{{1..3}})

@@ -34,8 +34,8 @@ Task JSON Schema - Agent Mode (No Command Field)
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_synthesis_specification",
-        "action": "Load consolidated synthesis specification",
+        "step": "load_role_analyses_specification",
+        "action": "Load consolidated role analyses",
         "commands": [
           "Read({synthesis_spec_path})"
         ],
@@ -62,16 +62,16 @@ Task JSON Schema - Agent Mode (No Command Field)
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Implement task following synthesis specification",
-        "description": "Implement '{title}' following [synthesis_specification] requirements and [context_pkg] patterns. Use synthesis-specification.md as primary source, consult artifacts for technical details.",
+        "title": "Implement task following role analyses",
+        "description": "Implement '{title}' following [synthesis_specification] requirements and [context_pkg] patterns. Use role analyses as primary source, consult artifacts for technical details.",
         "modification_points": [
-          "Apply consolidated requirements from synthesis-specification.md",
+          "Apply consolidated requirements from role analyses",
           "Follow technical guidelines from synthesis",
           "Consult artifacts for implementation details when needed",
           "Integrate with existing patterns"
         ],
         "logic_flow": [
-          "Load synthesis specification and context package",
+          "Load role analyses and context package",
           "Analyze existing patterns from [codebase_structure]",
           "Implement following specification",
           "Consult artifacts for technical details when needed",

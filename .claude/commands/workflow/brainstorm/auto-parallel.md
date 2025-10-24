@@ -173,7 +173,7 @@ Task(subagent_type="conceptual-planning-agent",
 
 1. **load_topic_framework**
    - Action: Load structured topic discussion framework
-   - Command: Read(.workflow/WFS-{topic}/.brainstorming/topic-framework.md)
+   - Command: Read(.workflow/WFS-{topic}/.brainstorming/guidance-specification.md)
    - Output: topic_framework
    - Fallback: Continue with session metadata if file not found
 
@@ -189,7 +189,7 @@ Task(subagent_type="conceptual-planning-agent",
 
 ### Implementation Context
 **User Intent Authority**: Original user prompt from session_metadata.project is PRIMARY reference
-**Topic Framework**: Use loaded topic-framework.md for structured analysis
+**Topic Framework**: Use loaded guidance-specification.md for structured analysis
 **Role Focus**: {role-name} domain expertise and perspective aligned with user intent
 **Analysis Type**: Address framework discussion points from role perspective, filtered by user objectives
 **Template Framework**: Combine role template with topic framework structure
@@ -208,13 +208,13 @@ Task(subagent_type="conceptual-planning-agent",
 ## Completion Requirements
 1. Execute all flow control steps in sequence (load topic framework, role template, session metadata with user intent)
 2. User Intent Alignment: Validate analysis aligns with original user objectives from session_metadata
-3. Address Topic Framework: Respond to all discussion points in topic-framework.md from role perspective
+3. Address Topic Framework: Respond to all discussion points in guidance-specification.md from role perspective
 4. Filter by User Goals: Prioritize insights directly relevant to user's stated objectives
 5. Apply role template guidelines within topic framework structure
 6. Generate structured role analysis addressing framework points aligned with user intent
 7. Create single comprehensive deliverable in OUTPUT_LOCATION:
    - analysis.md (structured analysis addressing all topic framework points with role-specific insights filtered by user goals)
-8. Include framework reference: @../topic-framework.md in analysis.md
+8. Include framework reference: @../guidance-specification.md in analysis.md
 9. Update workflow-session.json with completion status""",
      description="Execute {role-name} brainstorming analysis")
 ```

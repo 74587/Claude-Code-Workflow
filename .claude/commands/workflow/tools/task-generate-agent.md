@@ -301,7 +301,7 @@ Before completion, verify:
 
 Generate all three documents and report completion status:
 - Task JSON files created: N files
-- Artifacts integrated: synthesis-spec, topic-framework, N role analyses
+- Artifacts integrated: synthesis-spec, guidance-specification, N role analyses
 - MCP enhancements: code-index, exa-research
 - Session ready for execution: /workflow:execute
 `

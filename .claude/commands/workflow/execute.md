@@ -349,7 +349,7 @@ TodoWrite({
 
 #### Context Sources (Priority Order)
 1. **Complete Task JSON**: Full task definition including all fields and artifacts
-2. **Artifacts Context**: Brainstorming outputs and synthesis specifications from task.context.artifacts
+2. **Artifacts Context**: Brainstorming outputs and role analysess from task.context.artifacts
 3. **Flow Control Context**: Accumulated outputs from pre_analysis steps (including artifact loading)
 4. **Dependency Summaries**: Previous task completion summaries
 5. **Session Context**: Workflow paths and session metadata
@@ -370,8 +370,8 @@ TodoWrite({
 {
   "task": { /* Complete task JSON with artifacts array */ },
   "artifacts": {
-    "synthesis_specification": { "path": ".workflow/WFS-session/.brainstorming/synthesis-specification.md", "priority": "highest" },
-    "topic_framework": { "path": ".workflow/WFS-session/.brainstorming/topic-framework.md", "priority": "medium" },
+    "synthesis_specification": { "path": ".workflow/WFS-session/.brainstorming/role analysis documents", "priority": "highest" },
+    "topic_framework": { "path": ".workflow/WFS-session/.brainstorming/guidance-specification.md", "priority": "medium" },
     "role_analyses": [ /* Individual role analysis files */ ],
     "available_artifacts": [ /* All detected brainstorming artifacts */ ]
   },
@@ -417,7 +417,7 @@ Task(subagent_type="{meta.agent}",
      ## Instructions
      1. **Load Complete Task JSON**: Read and validate all fields (id, title, status, meta, context, flow_control)
      2. **Execute Flow Control**: If `flow_control.pre_analysis` exists, execute steps sequentially:
-        - Load artifacts (synthesis-specification.md, role analyses) using commands in each step
+        - Load artifacts (role analysis documents, role analyses) using commands in each step
         - Accumulate context from step outputs using variable substitution [variable_name]
         - Handle errors per step.on_error (skip_optional | fail | retry_once)
      3. **Implement Solution**: Follow `flow_control.implementation_approach` using accumulated context
@@ -478,7 +478,7 @@ Task(subagent_type="{meta.agent}",
       {
         "type": "synthesis_specification",
         "source": "brainstorm_synthesis",
-        "path": ".workflow/WFS-[session]/.brainstorming/synthesis-specification.md",
+        "path": ".workflow/WFS-[session]/.brainstorming/role analysis documents",
         "priority": "highest",
         "contains": "complete_integrated_specification"
       },
@@ -495,10 +495,10 @@ Task(subagent_type="{meta.agent}",
     "pre_analysis": [
       {
         "step": "load_synthesis_specification",
-        "action": "Load consolidated synthesis specification from brainstorming",
+        "action": "Load consolidated role analyses from brainstorming",
         "commands": [
-          "bash(ls .workflow/WFS-[session]/.brainstorming/synthesis-specification.md 2>/dev/null || echo 'synthesis specification not found')",
-          "Read(.workflow/WFS-[session]/.brainstorming/synthesis-specification.md)"
+          "bash(ls .workflow/WFS-[session]/.brainstorming/role analysis documents 2>/dev/null || echo 'role analyses not found')",
+          "Read(.workflow/WFS-[session]/.brainstorming/role analysis documents)"
         ],
         "output_to": "synthesis_specification",
         "on_error": "skip_optional"
@@ -513,16 +513,16 @@ Task(subagent_type="{meta.agent}",
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Implement task following synthesis specification",
-        "description": "Implement '[title]' following synthesis specification. PRIORITY: Use synthesis-specification.md as primary requirement source. When implementation needs technical details (e.g., API schemas, caching configs, design tokens), refer to artifacts[] for detailed specifications from original role analyses.",
+        "title": "Implement task following role analyses",
+        "description": "Implement '[title]' following role analyses. PRIORITY: Use role analysis documents as primary requirement source. When implementation needs technical details (e.g., API schemas, caching configs, design tokens), refer to artifacts[] for detailed specifications from original role analyses.",
         "modification_points": [
-          "Apply consolidated requirements from synthesis-specification.md",
+          "Apply consolidated requirements from role analysis documents",
           "Follow technical guidelines from synthesis",
           "Consult artifacts for implementation details when needed",
           "Integrate with existing patterns"
         ],
         "logic_flow": [
-          "Load synthesis specification",
+          "Load role analyses",
           "Parse architecture and requirements",
           "Implement following specification",
           "Consult artifacts for technical details when needed",

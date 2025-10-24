@@ -15,12 +15,12 @@ Analyze and design optimal solution with comprehensive architecture evaluation a
    - Architecture Decision Records (ADRs)
    - Design decision context and rationale
 
-2. **SECONDARY**: synthesis-specification.md
+2. **SECONDARY**: role analysis documents
    - Integrated requirements across roles
    - Cross-role alignment and dependencies
    - Unified feature specifications
 
-3. **REFERENCE**: topic-framework.md
+3. **REFERENCE**: guidance-specification.md
    - Discussion context and background
    - Initial problem framing
 
@@ -104,8 +104,8 @@ For each target:
 ### Brainstorm Context
 If brainstorming artifacts exist:
 - Prioritize individual role analysis.md files
-- Use synthesis-specification.md for integrated view
-- Reference topic-framework.md for context
+- Use role analysis documents for integrated view
+- Reference guidance-specification.md for context
 
 ### Codebase Context
 - Identify similar patterns in existing code

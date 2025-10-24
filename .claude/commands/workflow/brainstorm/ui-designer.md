@@ -1,6 +1,6 @@
 ---
 name: ui-designer
-description: Generate or update ui-designer/analysis.md addressing topic-framework discussion points
+description: Generate or update ui-designer/analysis.md addressing guidance-specification discussion points
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---
@@ -8,10 +8,10 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ## 🎨 **UI Designer Analysis Generator**
 
 ### Purpose
-**Specialized command for generating ui-designer/analysis.md** that addresses topic-framework.md discussion points from UI/UX design perspective. Creates or updates role-specific analysis with framework references.
+**Specialized command for generating ui-designer/analysis.md** that addresses guidance-specification.md discussion points from UI/UX design perspective. Creates or updates role-specific analysis with framework references.
 
 ### Core Function
-- **Framework-based Analysis**: Address each discussion point in topic-framework.md
+- **Framework-based Analysis**: Address each discussion point in guidance-specification.md
 - **UI/UX Focus**: User experience, interface design, and accessibility perspective
 - **Update Mechanism**: Create new or update existing analysis.md
 - **Agent Delegation**: Use conceptual-planning-agent for analysis generation
@@ -53,7 +53,7 @@ IF active_session EXISTS:
     session_id = get_active_session()
     brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
 
-    CHECK: brainstorm_dir/topic-framework.md
+    CHECK: brainstorm_dir/guidance-specification.md
     IF EXISTS:
         framework_mode = true
         load_framework = true
@@ -94,7 +94,7 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 ## Flow Control Steps
 1. **load_topic_framework**
    - Action: Load structured topic discussion framework
-   - Command: Read(.workflow/WFS-{session}/.brainstorming/topic-framework.md)
+   - Command: Read(.workflow/WFS-{session}/.brainstorming/guidance-specification.md)
    - Output: topic_framework_content
 
 2. **load_role_template**
@@ -108,17 +108,17 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
    - Output: session_context
 
 ## Analysis Requirements
-**Framework Reference**: Address all discussion points in topic-framework.md from UI/UX perspective
+**Framework Reference**: Address all discussion points in guidance-specification.md from UI/UX perspective
 **Role Focus**: User experience design, interface optimization, accessibility compliance
 **Structured Approach**: Create analysis.md addressing framework discussion points
 **Template Integration**: Apply role template guidelines within framework structure
 
 ## Expected Deliverables
 1. **analysis.md**: Comprehensive UI/UX analysis addressing all framework discussion points
-2. **Framework Reference**: Include @../topic-framework.md reference in analysis
+2. **Framework Reference**: Include @../guidance-specification.md reference in analysis
 
 ## Completion Criteria
-- Address each discussion point from topic-framework.md with UI/UX design expertise
+- Address each discussion point from guidance-specification.md with UI/UX design expertise
 - Provide actionable design recommendations and interface solutions
 - Include accessibility considerations and WCAG compliance planning
 - Reference framework document using @ notation for integration
@@ -137,7 +137,7 @@ TodoWrite({
       activeForm: "Detecting session and framework"
     },
     {
-      content: "Load topic-framework.md and session metadata for context",
+      content: "Load guidance-specification.md and session metadata for context",
       status: "pending",
       activeForm: "Loading framework and session context"
     },
@@ -165,7 +165,7 @@ TodoWrite({
 ### Framework-Based Analysis
 ```
 .workflow/WFS-{session}/.brainstorming/ui-designer/
-└── analysis.md    # Structured analysis addressing topic-framework.md discussion points
+└── analysis.md    # Structured analysis addressing guidance-specification.md discussion points
 ```
 
 ### Analysis Document Structure
@@ -173,11 +173,11 @@ TodoWrite({
 # UI Designer Analysis: [Topic from Framework]
 
 ## Framework Reference
-**Topic Framework**: @../topic-framework.md
+**Topic Framework**: @../guidance-specification.md
 **Role Focus**: UI/UX Design perspective
 
 ## Discussion Points Analysis
-[Address each point from topic-framework.md with UI/UX expertise]
+[Address each point from guidance-specification.md with UI/UX expertise]
 
 ### Core Requirements (from framework)
 [UI/UX perspective on requirements]
@@ -210,12 +210,12 @@ TodoWrite({
     "status": "completed",
     "framework_addressed": true,
     "output_location": ".workflow/WFS-{session}/.brainstorming/ui-designer/analysis.md",
-    "framework_reference": "@../topic-framework.md"
+    "framework_reference": "@../guidance-specification.md"
   }
 }
 ```
 
 ### Integration Points
-- **Framework Reference**: @../topic-framework.md for structured discussion points
+- **Framework Reference**: @../guidance-specification.md for structured discussion points
 - **Cross-Role Synthesis**: UI/UX insights available for synthesis-report.md integration
 - **Agent Autonomy**: Independent execution with framework guidance

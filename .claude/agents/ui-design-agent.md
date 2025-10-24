@@ -35,7 +35,7 @@ You are a specialized **UI Design Agent** that executes design generation tasks 
 ### 2. Layout Strategy Generation
 
 **Invoked by**: `consolidate.md` Phase 2.5
-**Input**: Project context from synthesis-specification.md
+**Input**: Project context from role analysis documents
 **Task**: Research and generate adaptive layout strategies via Exa MCP (2024-2025 trends)
 
 **Output**: layout-strategies.json with strategy definitions and rationale
