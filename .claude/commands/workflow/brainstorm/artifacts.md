@@ -7,490 +7,235 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), AskUserQuestion(*), Glob(*)
 
 ## Overview
 
-Five-phase interactive workflow collecting user decisions through intelligent questioning, generating **confirmed guidance specification** with declarative statements (no questions).
+Five-phase workflow: Extract topic challenges → Select roles → Generate task-specific questions → Detect conflicts → Generate confirmed guidance (declarative statements only).
 
-**Input**: User topic description
+**Input**: `"GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]"`
 **Output**: `.workflow/WFS-{topic}/.brainstorming/guidance-specification.md` (CONFIRMED/SELECTED format)
-**Key Process**: Intent classification → Role selection → Role questions → Cross-role clarification → Generate guidance document
-
-**User Intent Preservation**: Topic description stored in session metadata as authoritative reference throughout workflow lifecycle.
-
-## Usage
-
-### Basic Command
-```bash
-/workflow:brainstorm:artifacts "<topic>"
-```
-
-### Recommended Structured Format
-```bash
-/workflow:brainstorm:artifacts "GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]"
-```
-
-### Example
-```bash
-/workflow:brainstorm:artifacts "GOAL: Build real-time collaboration platform SCOPE: Support 100 concurrent users CONTEXT: Existing monolithic architecture needs refactoring"
-```
+**Core Principle**: Questions dynamically generated from topic keywords/challenges, NOT from generic templates
 
 ## Task Tracking
 
 ```json
 [
-  {"content": "Initialize session and check .workflow/.active-* markers", "status": "pending", "activeForm": "Initializing session"},
-  {"content": "Phase 1: Generate and ask intent classification questions (2-3 questions)", "status": "pending", "activeForm": "Collecting intent classification"},
-  {"content": "Phase 2: Recommend roles and collect user selection (3-5 roles, multiSelect)", "status": "pending", "activeForm": "Collecting role selection"},
-  {"content": "Phase 3: Generate and ask role-specific questions (3-5 questions per role)", "status": "pending", "activeForm": "Collecting role-specific decisions"},
-  {"content": "Phase 4: Generate and ask cross-role clarification questions (1-2 questions per role)", "status": "pending", "activeForm": "Collecting cross-role clarifications"},
-  {"content": "Phase 5: Transform all answers to declarative statements and generate guidance-specification.md", "status": "pending", "activeForm": "Generating guidance document"},
-  {"content": "Update workflow-session.json with all decisions and metadata", "status": "pending", "activeForm": "Updating session metadata"}
+  {"content": "Initialize session (.workflow/.active-* check)", "status": "pending", "activeForm": "Initializing"},
+  {"content": "Phase 1: Extract challenges, generate 2-4 task-specific questions", "status": "pending", "activeForm": "Phase 1 topic analysis"},
+  {"content": "Phase 2: Recommend 3-5 roles based on challenges, collect selection", "status": "pending", "activeForm": "Phase 2 role selection"},
+  {"content": "Phase 3: Generate 3-5 task-specific questions per role", "status": "pending", "activeForm": "Phase 3 role questions"},
+  {"content": "Phase 4: Detect conflicts in Phase 3 answers, generate clarifications", "status": "pending", "activeForm": "Phase 4 conflict resolution"},
+  {"content": "Phase 5: Transform Q&A to declarative statements, write guidance-specification.md", "status": "pending", "activeForm": "Phase 5 document generation"}
 ]
 ```
 
 ## Execution Phases
 
-### Session Management (First Step)
+### Session Management
+- Check `.workflow/.active-*` markers first
+- Multiple sessions → Prompt selection | Single → Use it | None → Create `WFS-[topic-slug]`
+- Store decisions in `workflow-session.json`
 
-**⚡ CRITICAL**: Check `.workflow/.active-*` markers before starting
+### Phase 1: Topic Analysis & Intent Classification
 
-**Logic**:
-- Multiple active sessions → Prompt user to select
-- Single active session → Use that session
-- No active session → Create new `WFS-[topic-slug]`
-
-**Session Storage**:
-- Decision data: `workflow-session.json`
-- Output file: `.brainstorming/guidance-specification.md`
-
-### Phase 1: Intent Classification
-
-**Purpose**: Understand project type and focus to customize subsequent questions
+**Goal**: Extract keywords/challenges to drive all subsequent question generation
 
 **Steps**:
-1. Generate 2-3 classification questions based on user topic
-2. Use AskUserQuestion to collect answers
-3. Store to `session.intent_context`
+1. **Deep topic analysis**: Extract technical entities, identify core challenges (what makes this hard?), constraints (timeline/budget/compliance), success metrics (what defines done?)
+2. **Generate 2-4 probing questions** targeting root challenges, trade-off priorities, and risk tolerance (NOT surface-level "Project Type")
+3. AskUserQuestion → Store to `session.intent_context` with `{extracted_keywords, identified_challenges, user_answers}`
 
-**Question Types** (intelligently generated):
-- **Project Type**: New feature / Optimization / Refactoring
-- **Value Focus**: UX-driven / Technical capability / Business value
-- **System Scale**: Small (MVP) / Medium / Large (Enterprise)
+**Example (Task-Specific)**:
+Topic: "Build real-time collaboration platform SCOPE: 100 users"
+→ Extract: ["real-time", "collaboration", "100 users"]
+→ Challenges: ["data sync", "scalability", "low latency"]
+→ Generate: "PRIMARY technical challenge?" → [Real-time data sync / Scalability to 100+ users / Conflict resolution]
 
-**Example**:
-```javascript
-AskUserQuestion({
-  questions: [{
-    question: "What is the project type?",
-    header: "Project Type",
-    multiSelect: false,
-    options: [
-      {label: "New Feature Development", description: "Build new features or products from scratch"},
-      {label: "System Optimization", description: "Improve performance, experience, or architecture"},
-      {label: "Architecture Migration", description: "Technology stack upgrade or system migration"}
-    ]
-  }]
-  // ... 2-3 questions total
-})
-```
+**⚠️ CRITICAL**: Questions MUST reference topic keywords. Generic "Project type?" violates dynamic generation.
 
 ### Phase 2: Role Selection
 
-**Purpose**: Determine which roles participate in analysis
-
 **Steps**:
-1. Analyze topic + Phase 1 results to recommend 3-5 relevant roles
-2. Use AskUserQuestion (multiSelect) to collect user selection
-3. Store to `session.selected_roles`
+1. Recommend 3-5 roles based on Phase 1 keywords:
+   - **Technical** (architecture, system, database) → system-architect, data-architect
+   - **API/Backend** (api, service, graphql) → api-designer, system-architect
+   - **UX** (user, ui, design) → ui-designer, ux-expert, product-manager
+   - **Business** (business, workflow) → product-manager, product-owner
+   - **Agile** (sprint, scrum) → scrum-master, product-owner
+2. AskUserQuestion (multiSelect) → Store to `session.selected_roles`
 
-**Role Recommendation Logic** (keyword-based):
-- **Technical**: architecture, system, performance, database → system-architect, data-architect, subject-matter-expert
-- **API/Backend**: api, endpoint, rest, graphql, service → api-designer, system-architect, data-architect
-- **UX**: user, ui, ux, design, experience → ui-designer, ux-expert, product-manager
-- **Business**: business, process, workflow, cost → product-manager, product-owner
-- **Agile**: sprint, scrum, team, delivery → scrum-master, product-owner
+### Phase 3: Role-Specific Questions (Dynamic Generation)
 
-**Available Roles**:
-- **Technical**: system-architect, data-architect, subject-matter-expert, api-designer
-- **Product & Design**: ui-designer, ux-expert, product-manager, product-owner
-- **Agile & Quality**: scrum-master, test-strategist
+**Goal**: Generate deep questions mapping role expertise to Phase 1 challenges
 
-### Phase 3: Role-Specific Questions
+**Algorithm**:
+```
+FOR each selected role:
+  1. Map Phase 1 challenges to role domain:
+     - "real-time sync" + system-architect → State management pattern
+     - "100 users" + system-architect → Communication protocol
+     - "low latency" + system-architect → Conflict resolution
 
-**Purpose**: Collect professional domain decisions for each role
+  2. Generate 3-5 questions probing implementation depth, trade-offs, edge cases:
+     Q: "How handle real-time state sync for 100+ users?" (explores approach)
+     Q: "How resolve conflicts when 2 users edit simultaneously?" (explores edge case)
+     Options: [Event Sourcing/Centralized/CRDT] (concrete, explain trade-offs for THIS use case)
 
-**Steps**:
-FOR each role in selected_roles:
-1. Generate 3-5 core questions based on (role + topic + intent_context)
-2. Use AskUserQuestion to collect answers
-3. Store to `session.role_decisions[role]`
-
-**Question Rules**:
-- Exactly 3 options per question (MECE principle)
-- Concrete and actionable options
-- Avoid vague options like "depends on situation"
-- Use multiSelect: false
-
-**Role Question Focus Areas**:
-
-**system-architect**:
-- Architecture style (microservices/monolith/hybrid)
-- Data consistency (strong/eventual/hybrid)
-- Performance priority (latency/throughput/resource)
-- Deployment model (cloud-native/VM/serverless)
-
-**ui-designer**:
-- Visual style (minimalist/rich/professional)
-- Component complexity (simple/moderate/complex)
-- Design system maturity (full/basic/lightweight)
-- Responsive strategy (mobile-first/desktop-first/adaptive)
-
-**ux-expert**:
-- User persona (novice/intermediate/expert)
-- Interaction complexity (simple/rich/professional)
-- Accessibility level (WCAG AA/AAA/basic)
-- Testing strategy (comprehensive/targeted/minimal)
-
-**product-manager**:
-- MVP scope (minimal core/core+hooks/full feature set)
-- Timeline expectation (fast iteration/standard/robust)
-- Priority strategy (user value/technical debt/innovation)
-- Success metrics (usage/satisfaction/revenue)
-
-**data-architect**:
-- Storage technology (relational/NoSQL/polyglot)
-- Data model complexity (simple/moderate/complex domain)
-- Analytics needs (basic/moderate/advanced)
-- Compliance requirements (GDPR/HIPAA/none)
-
-**Other roles** (api-designer, product-owner, scrum-master, subject-matter-expert, test-strategist): Similar 3-5 questions tailored to their domains.
-
-**Example** (system-architect for "Build real-time collaboration platform"):
-```javascript
-AskUserQuestion({
-  questions: [
-    {
-      question: "System architecture style preference?",
-      header: "Architecture Style",
-      multiSelect: false,
-      options: [
-        {label: "Microservices", description: "Independent service deployment, suitable for large teams"},
-        {label: "Modular Monolith", description: "Single deployment unit, suitable for small to medium teams"},
-        {label: "Hybrid Architecture", description: "Core monolith + partial microservices"}
-      ]
-    }
-    // ... 3-5 questions total
-  ]
-})
+  3. AskUserQuestion → Store to session.role_decisions[role]
 ```
 
-### Phase 4: Cross-Role Clarification
+**Rules**:
+- ✅ Questions MUST reference Phase 1 keywords (e.g., "real-time", "100 users")
+- ✅ Options MUST be concrete approaches, explain relevance to topic
+- ❌ NEVER generic "Architecture style?" without task context
 
-**Purpose**: Ensure consistency across roles and identify potential conflicts
+**Examples by Role** (for "real-time collaboration platform"):
+- **system-architect**: "State sync for 100+ users?" → [Event Sourcing/Centralized/CRDT]
+- **ui-designer**: "How indicate real-time collaboration state?" → [Live cursors/Activity feed/Minimal indicators]
+- **data-architect**: "Storage for concurrent editing?" → [PostgreSQL+CRDT/Redis+pub-sub/Event store]
 
-**Steps**:
-FOR each role in selected_roles:
-1. Generate 1-2 cross-role questions from perspectives of 2-3 related roles
-2. Use AskUserQuestion to collect answers
-3. Store to `session.cross_role_decisions[role]`
+### Phase 4: Cross-Role Clarification (Conflict Detection)
 
-**Cross-Role Relationship Matrix**:
+**Goal**: Resolve ACTUAL conflicts from Phase 3 answers, not pre-defined relationships
 
-| Current Role | Question from Perspectives | Topics |
-|--------------|---------------------------|--------|
-| system-architect | ui-designer, product-manager, data-architect | Frontend stack, MVP scope, storage choice |
-| ui-designer | ux-expert, system-architect, product-owner | Design system, technical constraints, feature priority |
-| product-manager | system-architect, ux-expert, scrum-master | Technical feasibility, user pain points, delivery rhythm |
-| ux-expert | ui-designer, product-manager, subject-matter-expert | Visual style, user goals, industry norms |
-| data-architect | system-architect, subject-matter-expert, api-designer | Integration patterns, compliance requirements, API design |
-
-**Example** (system-architect from ui-designer perspective):
-```javascript
-AskUserQuestion({
-  questions: [{
-    question: "Frontend technology stack choice? (Impacts frontend-backend separation strategy)",
-    header: "Frontend Stack",
-    multiSelect: false,
-    options: [
-      {label: "Modern Framework (React/Vue)", description: "Requires dedicated frontend team"},
-      {label: "Server-Side Rendering (Next.js)", description: "SEO-friendly"},
-      {label: "Lightweight (jQuery)", description: "Backend-driven"}
-    ]
-  }]
-  // ... 1-2 questions per role
-})
+**Algorithm**:
 ```
+1. Analyze Phase 3 answers for conflicts:
+   - Contradictory choices: product-manager "fast iteration" vs system-architect "complex Event Sourcing"
+   - Missing integration: ui-designer "Optimistic updates" but system-architect didn't address conflict handling
+   - Implicit dependencies: ui-designer "Live cursors" but no auth approach defined
+
+2. FOR each detected conflict:
+   Generate 1-3 clarification questions referencing SPECIFIC Phase 3 choices
+
+3. AskUserQuestion → Store to session.cross_role_decisions
+
+4. If NO conflicts: Skip Phase 4 (inform user)
+```
+
+**Example Conflict**:
+- Detect: system-architect "CRDT sync" (conflict-free) + ui-designer "Rollback on conflict" (expects conflicts)
+- Generate: "CRDT conflicts with UI rollback expectation. Resolve?" → [CRDTs auto-merge/Show merge UI/Switch to OT]
+
+**⚠️ CRITICAL**: NEVER use static "Cross-Role Matrix". ALWAYS analyze actual Phase 3 answers.
 
 ### Phase 5: Generate Guidance Specification
 
-**Purpose**: Transform all user choices into confirmed guidance document with declarative statements
-
 **Steps**:
-1. Load all decisions from session metadata:
-   - intent_context (Phase 1)
-   - selected_roles (Phase 2)
-   - role_decisions (Phase 3)
-   - cross_role_decisions (Phase 4)
+1. Load all decisions: `intent_context` + `selected_roles` + `role_decisions` + `cross_role_decisions`
+2. Transform Q&A pairs to declarative: Questions → Headers, Answers → CONFIRMED/SELECTED statements
+3. Generate guidance-specification.md (template below)
+4. Validate: No interrogative sentences, all decisions traceable
 
-2. Transform Q&A pairs to declarative statements:
-   - Questions → Section headers
-   - User answers → CONFIRMED/SELECTED statements
-   - Rationale from option descriptions
-
-3. Generate document structure (see Output Document Template below)
-
-4. Write to `.workflow/WFS-{topic}/.brainstorming/guidance-specification.md`
-
-5. Validate output (see Validation Checklist below)
-
-**⚠️ CRITICAL CONSTRAINTS**:
-- ❌ NEVER skip AskUserQuestion in Phase 1-4
-- ❌ NEVER generate guidance-specification.md before Phase 5
-- ❌ NEVER use interrogative sentences in guidance-specification.md
-- ✅ ALWAYS collect user decisions through AskUserQuestion
-- ✅ ALWAYS transform Q&A pairs to declarative statements
+**⚠️ CRITICAL**: NO questions in output. Use CONFIRMED/SELECTED format only.
 
 ## Output Document Template
 
 **File**: `.workflow/WFS-{topic}/.brainstorming/guidance-specification.md`
 
 ```markdown
-# [Project Name] - Confirmed Guidance Specification
+# [Project] - Confirmed Guidance Specification
 
-**Generated**: [timestamp]
-**Project Type**: [from Phase 1]
-**Value Focus**: [from Phase 1]
-**System Scale**: [from Phase 1]
-**Participating Roles**: [from Phase 2]
-
----
+**Metadata**: [timestamp, type, focus, roles]
 
 ## 1. Project Positioning & Goals
+**CONFIRMED Objectives**: [from topic + Phase 1]
+**CONFIRMED Success Criteria**: [from Phase 1 answers]
 
-**CONFIRMED Objectives**:
-- [Objective 1 from user topic + Phase 1 answers]
-- [Objective 2]
-- [Objective 3]
-
-**CONFIRMED Success Criteria**:
-- [Criterion 1 derived from Phase 1 answers]
-- [Criterion 2]
-
----
-
-## 2. [Role 1] Decisions
-
+## 2-N. [Role] Decisions
 ### SELECTED Choices
-
-**[Question 1 topic]**: [User's selected option]
-- **Rationale**: [From option description + Phase 1 context]
-- **Impact**: [Implications for project]
-
-**[Question 2 topic]**: [User's selected option]
+**[Question topic]**: [User's answer]
 - **Rationale**: [From option description]
-- **Constraints**: [Technical/business constraints]
-
-[... remaining role-specific questions]
+- **Impact**: [Implications]
 
 ### Cross-Role Considerations
-
-**[Cross-role question topic]**: [User's selected option]
-- **Affected Roles**: [Related roles from Phase 4]
-- **Dependencies**: [How this impacts other roles]
-
----
-
-## 3-N. [Role 2-N] Decisions
-
-[Same structure as Role 1 for each participating role]
-
----
+**[Conflict resolved]**: [Resolution from Phase 4]
+- **Affected Roles**: [Roles involved]
 
 ## Cross-Role Integration
-
-**CONFIRMED Integration Points**:
-- **API Style**: [Consolidated from api-designer + system-architect]
-- **Data Format**: [From data-architect + api-designer]
-- **Authentication**: [From system-architect + security considerations]
-- **Collaboration Model**: [From scrum-master + product-owner]
-
-**CONFIRMED Consistency Validations**:
-- [Consistency check 1 from Phase 4 cross-role questions]
-- [Consistency check 2]
-
----
+**CONFIRMED Integration Points**: [API/Data/Auth from multiple roles]
 
 ## Risks & Constraints
-
-**Identified Risks** (from user choices):
-- **[Risk 1]**: [From Phase 3/4 answers] → Mitigation: [Approach]
-- **[Risk 2]**: [From Phase 3/4 answers] → Mitigation: [Approach]
-
-**CONFIRMED Constraints**:
-- **Technical**: [From system-architect/data-architect answers]
-- **Business**: [From product-manager answers]
-- **Timeline**: [From Phase 1/product-manager answers]
-
----
+**Identified Risks**: [From answers] → Mitigation: [Approach]
 
 ## Next Steps
-
-**Immediate Actions**:
-1. [Action 1 derived from role decisions]
-2. [Action 2 derived from cross-role integration]
-3. [Action 3 for risk mitigation]
-
-**Role Assignments**:
-- **[Role 1]**: [Specific tasks from their decisions]
-- **[Role 2]**: [Specific tasks from their decisions]
-
+**Immediate Actions**: [Derived from decisions]
 **Recommended Workflow**:
+```bash
+/workflow:concept-clarify --session WFS-{id}  # Optional
+/workflow:plan --session WFS-{id}
 ```
-/workflow:concept-clarify --session WFS-{session-id}  # Optional: Further clarification
-/workflow:plan --session WFS-{session-id}             # Generate IMPL_PLAN.md and tasks
-/workflow:execute --session WFS-{session-id}          # Start implementation
-```
-
----
 
 ## Appendix: Decision Tracking
-
-| Decision ID | Category | Question | Selected Option | Phase | Rationale |
-|-------------|----------|----------|-----------------|-------|-----------|
-| D-001 | Intent | Project Type | [Answer] | Phase 1 | [Rationale] |
-| D-002 | Roles | Participating Roles | [Roles] | Phase 2 | [Rationale] |
-| D-003 | [Role] | [Question] | [Answer] | Phase 3 | [Rationale] |
-| ... | ... | ... | ... | ... | ... |
-
-**Open Items** (if any):
-- [Item 1 requiring follow-up]
-- [Item 2 requiring follow-up]
+| Decision ID | Category | Question | Selected | Phase | Rationale |
+|-------------|----------|----------|----------|-------|-----------|
+| D-001 | Intent | [Q] | [A] | 1 | [Why] |
+| D-002 | Roles | [Selected] | [Roles] | 2 | [Why] |
+| D-003+ | [Role] | [Q] | [A] | 3 | [Why] |
 ```
 
 ## Question Generation Guidelines
 
 ### Core Principle
-All questions **intelligently generated** by Claude based on:
-- Role professional domain
-- User's topic description
-- Previous decision context (Phase 1-4)
-- No template library required - dynamic generation
+**Dynamic Generation from Topic**: Extract keywords → Map to roles → Generate task-specific questions
 
-### Phase 3 Generation Pattern
-```
-INPUT: role + topic + intent_context
-OUTPUT: 3-5 questions, each with 3 MECE options
+**Process**:
+1. **Phase 1**: Extract challenges from topic → Generate questions about challenges (NOT "Project type?")
+2. **Phase 3**: Map challenges to role expertise → Generate questions addressing role's challenge solution
+3. **Phase 4**: Analyze Phase 3 answers → Detect conflicts → Generate resolution questions
 
-Example:
-- Role: system-architect
-- Topic: "Build real-time collaboration platform"
-- Intent: {type: "new_feature", scale: "medium", focus: "technical"}
+**Anti-Pattern**:
+```javascript
 
-Generated Questions:
-1. Architecture style? [Microservices/Modular Monolith/Hybrid]
-2. Real-time communication tech? [WebSocket/SSE/Polling]
-3. Data consistency? [Strong/Eventual/Hybrid]
-4. Deployment model? [Cloud-native/Traditional VM/Serverless]
+// ✅ CORRECT: Dynamic generation
+function generate(role, challenges) {
+  return challenges.map(c => mapChallengeToRoleQuestion(c, role, topic));
+}
 ```
 
-### Phase 4 Generation Pattern
-```
-INPUT: current_role + related_role + role_decisions + topic
-OUTPUT: 1-2 questions from related_role perspective
+**Quality Rules**:
+- ✅ Reference topic keywords in every question
+- ✅ Options are concrete technical choices (not abstract categories)
+- ✅ Descriptions explain relevance to topic
+- ❌ Generic questions that apply to any project
 
-Example:
-- Current: system-architect
-- Related: ui-designer
-- Topic: "Build real-time collaboration platform"
-- Context: ui-designer chose "Modern Framework (React)"
-
-Generated Question:
-"Frontend technology stack choice? (Impacts frontend-backend separation strategy)"
-[Modern Framework/Server-Side Rendering/Lightweight]
-```
+**Examples** (Topic: "real-time collaboration, 100 users"):
+- ❌ Generic: "Architecture style?" → [Microservices/Monolith/Hybrid]
+- ✅ Task-specific: "State sync for 100+ real-time users?" → [Event Sourcing/Centralized/CRDT]
 
 ## Validation Checklist
 
-The generated guidance-specification.md MUST pass these checks:
-
-✅ **No interrogative sentences**: Decision sections use CONFIRMED/SELECTED, not questions
-✅ **Clear decisions**: Every decision point has explicit choice (not "TBD"/"Pending")
-✅ **Traceable**: Every decision traces back to specific user answer
-✅ **Cross-role consistency**: Cross-role decisions ≥ number of selected roles
-✅ **Actionable**: Next steps are concrete and specific
-✅ **Complete metadata**: All Phase 1-4 decisions stored in session
-
-**Validation Process**: Execute checks after Phase 5, prompt user if issues found
+Generated guidance-specification.md MUST:
+- ✅ No interrogative sentences (use CONFIRMED/SELECTED)
+- ✅ Every decision traceable to user answer
+- ✅ Cross-role conflicts resolved or documented
+- ✅ Next steps concrete and specific
+- ✅ All Phase 1-4 decisions in session metadata
 
 ## Update Mechanism
 
-### Existing Guidance Update
-
 ```
 IF guidance-specification.md EXISTS:
-  SHOW current guidance summary to user
-  ASK: "Guidance exists. Do you want to:"
-  OPTIONS:
-    1. "Regenerate completely" → Backup existing → Full Phase 1-5 flow
-    2. "Update specific sections" → Target specific roles/decisions → Partial re-run
-    3. "Cancel" → Exit without changes
+  Prompt: "Regenerate completely / Update sections / Cancel"
 ELSE:
-  CREATE new guidance through full Phase 1-5 clarification
+  Run full Phase 1-5 flow
 ```
-
-**Update Strategies**:
-1. **Complete Regeneration**: Backup existing → Full clarification flow
-2. **Targeted Update**: Re-run Phase 3/4 for specific roles only
-3. **Incremental Addition**: Add new roles via Phase 2 → Phase 3 → Phase 4 for new roles
-
-## Error Handling
-
-| Error Type | Handling Strategy |
-|-----------|-------------------|
-| Session creation failed | Show error details + retry option + check .workflow/ permissions |
-| AskUserQuestion timeout | Save progress to session + allow resumption from last completed Phase |
-| Incomplete clarification | Mark open items in guidance document + suggest follow-up `/workflow:concept-clarify` |
-| Conflicting decisions | Highlight conflicts in guidance document + show disagreeing roles + suggest resolution questions |
 
 ## Governance Rules
 
-**GOVERNANCE_RULES** for guidance-specification.md output:
+**Output Requirements**:
+- All decisions MUST use CONFIRMED/SELECTED (NO "?" in decision sections)
+- Every decision MUST trace to user answer
+- Conflicts MUST be resolved (not marked "TBD")
+- Next steps MUST be actionable
+- Topic preserved as authoritative reference in session
 
-✅ **Declarative Statements Only**
-- All decisions MUST use CONFIRMED/SELECTED format
-- NO interrogative sentences (no "?" in decision sections)
-- NO open questions or TBD items in confirmed decisions
-
-✅ **Decision Traceability**
-- Every decision MUST trace back to specific user answer
-- Cross-reference to Phase 1-4 clarification responses
-- Document rationale for each confirmed choice
-
-✅ **Cross-Role Consistency**
-- Cross-role decisions count ≥ number of selected roles
-- Conflicts MUST be resolved or explicitly documented
-- Dependencies between roles clearly stated
-
-✅ **Actionability Requirements**
-- Next steps MUST be concrete and specific
-- Role assignments clearly defined
-- Success criteria measurable and verifiable
-
-✅ **Session Integrity**
-- All decisions stored in `workflow-session.json`
-- Topic description preserved as authoritative reference
-- Session lifecycle properly managed (active markers, metadata)
-
-**CRITICAL**: Generated guidance is the **single source of truth** for all downstream workflow phases. Any ambiguity violates governance rules and MUST be resolved before proceeding.
+**CRITICAL**: Guidance is single source of truth for downstream phases. Ambiguity violates governance.
 
 ## File Structure
 
 ```
 .workflow/WFS-[topic]/
-├── .active-brainstorming              # Active session marker
-├── workflow-session.json              # Session metadata with all decisions
+├── .active-brainstorming
+├── workflow-session.json              # All decisions
 └── .brainstorming/
-    ├── guidance-specification.md      # ★ PRIMARY OUTPUT (declarative statements)
-    └── [role]/                        # Role analysis directories (generated later by other commands)
-        └── analysis.md
+    └── guidance-specification.md      # Output
 ```
-
 
