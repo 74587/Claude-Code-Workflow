@@ -82,6 +82,7 @@ FOR each selected role:
 ```
 
 **Rules**:
+- ✅ Questions MUST be asked in Chinese (用中文提问) for better user understanding
 - ✅ Questions MUST reference Phase 1 keywords (e.g., "real-time", "100 users")
 - ✅ Options MUST be concrete approaches, explain relevance to topic
 - ❌ NEVER generic "Architecture style?" without task context
@@ -191,6 +192,7 @@ function generate(role, challenges) {
 ```
 
 **Quality Rules**:
+- ✅ ALL questions MUST be in Chinese (所有问题必须用中文)
 - ✅ Reference topic keywords in every question
 - ✅ Options are concrete technical choices (not abstract categories)
 - ✅ Descriptions explain relevance to topic

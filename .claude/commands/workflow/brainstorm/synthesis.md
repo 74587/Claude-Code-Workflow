@@ -153,6 +153,8 @@ Return JSON array:
 
 **Main flow handles all user interaction**:
 
+**⚠️ CRITICAL**: ALL AskUserQuestion calls MUST use Chinese (所有问题必须用中文) for better user understanding
+
 1. **Present Enhancement Options**:
 ```python
 AskUserQuestion(
@@ -170,6 +172,7 @@ AskUserQuestion(
 ```
 
 2. **Generate Clarification Questions** (based on analysis agent output):
+   - ✅ **ALL questions MUST be in Chinese (所有问题必须用中文)**
    - Use 9-category taxonomy scan results
    - Create max 5 prioritized questions
    - Each with 2-4 options + descriptions
