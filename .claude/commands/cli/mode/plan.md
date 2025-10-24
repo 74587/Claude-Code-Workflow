@@ -139,7 +139,7 @@ RULES: $(cat ~/.claude/prompt-templates/plan.md) | Maintain backward compatibili
 ```bash
 # 1. Discover project structure
 ~/.claude/scripts/get_modules_by_depth.sh
-mcp__code-index__find_files(pattern="*.ts")
+find . -name "*.ts" -type f
 
 # 2. Gather existing architecture info
 rg "architecture|design" --files-with-matches

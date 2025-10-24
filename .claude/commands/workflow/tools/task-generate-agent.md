@@ -93,14 +93,11 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
    }
    ```
 
-5. **MCP Code Analysis** (optional - enhance understanding)
-   ```javascript
-   // Find relevant files for task context
-   mcp__code-index__find_files(pattern="*auth*")
-   mcp__code-index__search_code_advanced(
-     pattern="authentication|oauth",
-     file_pattern="*.ts"
-   )
+5. **Code Analysis with Native Tools** (optional - enhance understanding)
+   ```bash
+   # Find relevant files for task context
+   find . -name "*auth*" -type f
+   rg "authentication|oauth" -g "*.ts"
    ```
 
 6. **MCP External Research** (optional - gather best practices)
@@ -274,18 +271,13 @@ $(cat ~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
 **Code Index Usage**:
 \`\`\`javascript
 // Discover authentication-related files
-mcp__code-index__find_files(pattern="*auth*")
+bash(find . -name "*auth*" -type f)
 
 // Search for OAuth patterns
-mcp__code-index__search_code_advanced(
-  pattern="oauth|jwt|authentication",
-  file_pattern="*.{ts,js}"
-)
+bash(rg "oauth|jwt|authentication" -g "*.{ts,js}")
 
 // Get file summary for key components
-mcp__code-index__get_file_summary(
-  file_path="src/auth/index.ts"
-)
+bash(rg "^(class|function|export|interface)" src/auth/index.ts)
 \`\`\`
 
 **Exa Research Usage**:

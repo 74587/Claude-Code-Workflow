@@ -40,10 +40,7 @@ Orchestrates context-aware CLAUDE.md updates for changed modules using batched a
 ## Phase 1: Change Detection & Analysis
 
 ```bash
-# Refresh code index
-bash(mcp__code-index__refresh_index)
-
-# Detect changed modules
+# Detect changed modules (no index refresh needed)
 bash(~/.claude/scripts/detect_changed_modules.sh list)
 
 # Cache git changes

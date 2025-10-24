@@ -141,7 +141,7 @@ RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on security
 ```bash
 # 1. Find entry points and related files
 rg "function.*authenticate|class.*AuthService" --files-with-matches
-mcp__code-index__search_code_advanced(pattern="authenticate|login", file_pattern="*.ts")
+rg "authenticate|login" -g "*.ts"
 
 # 2. Build call graph understanding
 # entry → middleware → service → repository

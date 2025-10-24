@@ -8,89 +8,61 @@ type: search-guideline
 
 ## ⚡ Execution Environment
 
-**CRITICAL**: All commands execute in **Bash environment** (Git Bash on Windows, Bash on Linux/macOS)
+**CRITICAL**: All commands execute in **Bash environment** (Git Bash on Windows)
 
-**❌ Forbidden**: Windows-specific commands (`findstr`, `dir`, `where`, `type`, `copy`, `del`) - Use Bash equivalents (`grep`, `find`, `which`, `cat`, `cp`, `rm`)
+**❌ Forbidden**: Windows commands (`findstr`, `dir`, `where`) - Use Bash (`grep`, `find`, `cat`)
 
 ## ⚡ Core Search Tools
 
 **codebase-retrieval**: Semantic file discovery via Gemini CLI with all files analysis
 **rg (ripgrep)**: Fast content search with regex support
 **find**: File/directory location by name patterns
-**grep**: Built-in pattern matching in files
-**get_modules_by_depth.sh**: Program architecture analysis and structural discovery
+**grep**: Built-in pattern matching (fallback when rg unavailable)
+**get_modules_by_depth.sh**: Program architecture analysis (MANDATORY before planning)
 
-### Decision Principles
-- **Use codebase-retrieval for semantic discovery** - Intelligent file discovery based on task context
-- **Use rg for content** - Fastest for searching within files
-- **Use find for files** - Locate files/directories by name
-- **Use grep sparingly** - Only when rg unavailable
-- **Use get_modules_by_depth.sh first** - MANDATORY for program architecture analysis before planning
-- **Always use Bash commands** - NEVER use Windows cmd/PowerShell commands
-
-### Tool Selection Matrix
+## 📋 Tool Selection Matrix
 
 | Need | Tool | Use Case |
 |------|------|----------|
-| **Semantic file discovery** | codebase-retrieval | Find files relevant to task/feature context |
+| **Semantic discovery** | codebase-retrieval | Find files relevant to task/feature context |
 | **Pattern matching** | rg | Search code content with regex |
 | **File name lookup** | find | Locate files by name patterns |
-| **Architecture analysis** | get_modules_by_depth.sh | Understand program structure |
+| **Architecture** | get_modules_by_depth.sh | Understand program structure |
 
-### Quick Command Reference
+## 🔧 Quick Command Reference
+
 ```bash
 # Semantic File Discovery (codebase-retrieval)
-gemini "CONTEXT: @**/* List all files relevant to: [task/feature description]"
-bash(gemini "CONTEXT: @**/* List all files relevant to: [task/feature description]")
+cd [directory] && gemini -p "
+PURPOSE: Discover files relevant to task/feature
+TASK: List all files related to [task/feature description]
+MODE: analysis
+CONTEXT: @**/*
+EXPECTED: Relevant file paths with relevance explanation
+RULES: Focus on direct relevance to task requirements
+"
 
-# Program Architecture Analysis (MANDATORY FIRST)
-~/.claude/scripts/get_modules_by_depth.sh  # Discover program architecture
-bash(~/.claude/scripts/get_modules_by_depth.sh)  # Analyze structural hierarchy
+# Program Architecture (MANDATORY FIRST)
+~/.claude/scripts/get_modules_by_depth.sh
 
 # Content Search (rg preferred)
-rg "pattern" --type js          # Search in JS files
-rg -i "case-insensitive"        # Ignore case
-rg -n "show-line-numbers"       # Show line numbers
-rg -A 3 -B 3 "context-lines"    # Show 3 lines before/after
+rg "pattern" --type js -n        # Search JS files with line numbers
+rg -i "case-insensitive"         # Ignore case
+rg -C 3 "context"                # Show 3 lines before/after
 
-# File Search (find)
-find . -name "*.ts" -type f     # Find TypeScript files
+# File Search
+find . -name "*.ts" -type f      # Find TypeScript files
 find . -path "*/node_modules" -prune -o -name "*.js" -print
 
-# Built-in alternatives
-grep -r "pattern" .             # Recursive search (slower)
-grep -n -i "pattern" file.txt   # Line numbers, case-insensitive
+# Workflow Examples
+rg "IMPL-\d+" .workflow/ --type json                    # Find task IDs
+find .workflow/ -name "*.json" -path "*/.task/*"        # Locate task files
+rg "status.*pending" .workflow/.task/                   # Find pending tasks
 ```
 
-### Workflow Integration Examples
-```bash
-# Semantic Discovery → Content Search → Analysis (Recommended Pattern)
-gemini "CONTEXT: @**/* List all files relevant to: [task/feature]"  # Get relevant files
-rg "[pattern]" --type [filetype]  # Then search within discovered files
+## ⚡ Performance Tips
 
-# Program Architecture Analysis (MANDATORY BEFORE PLANNING)
-~/.claude/scripts/get_modules_by_depth.sh  # Discover program architecture
-bash(~/.claude/scripts/get_modules_by_depth.sh)  # Analyze structural hierarchy
-
-# Search for task definitions
-rg "IMPL-\d+" .workflow/ --type json        # Find task IDs
-find .workflow/ -name "*.json" -path "*/.task/*"  # Locate task files
-
-# Analyze workflow structure
-rg "status.*pending" .workflow/.task/      # Find pending tasks
-rg "depends_on" .workflow/.task/ -A 2      # Show dependencies
-
-# Find workflow sessions
-find .workflow/ -name ".active-*"          # Active sessions
-rg "WFS-" .workflow/ --type json           # Session references
-
-# Content analysis for planning
-rg "flow_control" .workflow/ -B 2 -A 5     # Flow control patterns
-find . -name "IMPL_PLAN.md" -exec grep -l "requirements" {} \;
-```
-
-### Performance Tips
 - **rg > grep** for content search
 - **Use --type filters** to limit file types
-- **Exclude common dirs**: `--glob '!node_modules'`
-- **Use -F for literal** strings (no regex)
+- **Exclude dirs**: `--glob '!node_modules'`
+- **Use -F** for literal strings (no regex)

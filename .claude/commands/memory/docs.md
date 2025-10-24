@@ -658,7 +658,7 @@ bash(
     "pre_analysis": [
       {
         "step": "discover_api_endpoints",
-        "command": "mcp__code-index__search_code_advanced(pattern='router\\.|@(Get|Post)', file_pattern='*.{ts,js}')",
+        "command": "bash(rg 'router\\.| @(Get|Post)' -g '*.{ts,js}')",
         "output_to": "endpoint_discovery"
       },
       {

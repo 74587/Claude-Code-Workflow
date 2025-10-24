@@ -92,10 +92,10 @@ After bash validation, the model takes control to:
 2. **Perform Specialized Review**: Based on `review_type`
 
    **Security Review** (`--type=security`):
-   - Use MCP code search for security patterns:
+   - Use ripgrep for security patterns:
      ```bash
-     mcp__code-index__search_code_advanced(pattern="password|token|secret|auth", file_pattern="*.{ts,js,py}")
-     mcp__code-index__search_code_advanced(pattern="eval|exec|innerHTML|dangerouslySetInnerHTML", file_pattern="*.{ts,js,tsx}")
+     rg "password|token|secret|auth" -g "*.{ts,js,py}"
+     rg "eval|exec|innerHTML|dangerouslySetInnerHTML" -g "*.{ts,js,tsx}"
      ```
    - Use Gemini for security analysis:
      ```bash

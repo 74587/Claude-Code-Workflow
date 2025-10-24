@@ -121,14 +121,14 @@ Task(
 ### Step 2: Keyword Extraction & File Discovery
 
 1. Extract core keywords from task description
-2. Discover relevant files using MCP code-index or rg:
-   \`\`\`javascript
-   // Prefer MCP tools
-   mcp__code-index__find_files(pattern="*{keyword}*")
-   mcp__code-index__search_code_advanced(pattern="{keyword}", context_lines=2)
+2. Discover relevant files using ripgrep and find:
+   \`\`\`bash
+   # Find files by name
+   find . -name "*{keyword}*" -type f
 
-   // Fallback: use rg
-   bash(rg -l "{keyword}" --type ts --type md)
+   # Search content with ripgrep
+   rg "{keyword}" --type ts --type md -C 2
+   rg -l "{keyword}" --type ts --type md  # List files only
    \`\`\`
 
 ### Step 3: Deep Analysis via CLI

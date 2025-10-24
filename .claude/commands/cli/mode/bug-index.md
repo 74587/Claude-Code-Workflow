@@ -138,7 +138,7 @@ RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: token validation fail
 ```bash
 # 1. Find bug-related files
 rg "error_keyword" --files-with-matches
-mcp__code-index__search_code_advanced(pattern="error|exception", file_pattern="*.ts")
+rg "error|exception" -g "*.ts"
 
 # 2. Execute bug analysis with focused context (analysis only, no code changes)
 /cli:mode:bug-index --cd "src/module" "specific error description"

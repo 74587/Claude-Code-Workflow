@@ -17,11 +17,11 @@ Specialized context collector for test generation workflows that analyzes test c
 - **Gap Identification**: Locate implementation files without corresponding tests
 - **Source Context Loading**: Import implementation summaries from source session
 - **Framework Detection**: Auto-detect test framework and patterns
-- **MCP-Powered**: Leverage code-index tools for precise analysis
+- **Ripgrep-Powered**: Leverage ripgrep and native tools for precise analysis
 
 ## Core Responsibilities
 - Load source session implementation context
-- Analyze current test coverage using MCP tools
+- Analyze current test coverage using ripgrep
 - Identify files requiring test generation
 - Detect test framework and conventions
 - Package test context for analysis phase
@@ -41,21 +41,17 @@ Specialized context collector for test generation workflows that analyzes test c
    - Extract changed files and implementation scope
    - Identify implementation patterns and tech stack
 
-### Phase 2: Test Coverage Analysis (MCP Tools)
+### Phase 2: Test Coverage Analysis (Ripgrep)
 
 1. **Existing Test Discovery**
    ```bash
    # Find all test files
-   mcp__code-index__find_files(pattern="*.test.*")
-   mcp__code-index__find_files(pattern="*.spec.*")
-   mcp__code-index__find_files(pattern="*test_*.py")
+   find . -name "*.test.*" -type f
+   find . -name "*.spec.*" -type f
+   find . -name "*test_*.py" -type f
 
    # Search for test patterns
-   mcp__code-index__search_code_advanced(
-     pattern="describe|it|test|@Test",
-     file_pattern="*.test.*",
-     context_lines=0
-   )
+   rg "describe|it|test|@Test" -g "*.test.*"
    ```
 
 2. **Coverage Gap Analysis**
@@ -80,18 +76,10 @@ Specialized context collector for test generation workflows that analyzes test c
 1. **Framework Identification**
    ```bash
    # Check package.json or requirements.txt
-   mcp__code-index__search_code_advanced(
-     pattern="jest|mocha|jasmine|pytest|unittest|rspec",
-     file_pattern="package.json|requirements.txt|Gemfile",
-     context_lines=2
-   )
+   rg "jest|mocha|jasmine|pytest|unittest|rspec" -g "package.json" -g "requirements.txt" -g "Gemfile" -C 2
 
    # Analyze existing test patterns
-   mcp__code-index__search_code_advanced(
-     pattern="describe\\(|it\\(|test\\(|def test_",
-     file_pattern="*.test.*",
-     context_lines=3
-   )
+   rg "describe\(|it\(|test\(|def test_" -g "*.test.*" -C 3
    ```
 
 2. **Convention Analysis**
@@ -207,33 +195,26 @@ Generate `test-context-package.json`:
 .workflow/{test_session_id}/.process/test-context-package.json
 ```
 
-## MCP Tools Usage
+## Native Tools Usage
 
 ### File Discovery
 ```bash
 # Test files
-mcp__code-index__find_files(pattern="*.test.*")
-mcp__code-index__find_files(pattern="*.spec.*")
+find . -name "*.test.*" -type f
+find . -name "*.spec.*" -type f
 
 # Implementation files
-mcp__code-index__find_files(pattern="*.ts")
-mcp__code-index__find_files(pattern="*.js")
+find . -name "*.ts" -type f
+find . -name "*.js" -type f
 ```
 
 ### Content Search
 ```bash
 # Test framework detection
-mcp__code-index__search_code_advanced(
-  pattern="jest|mocha|pytest",
-  file_pattern="package.json|requirements.txt"
-)
+rg "jest|mocha|pytest" -g "package.json" -g "requirements.txt"
 
 # Test pattern analysis
-mcp__code-index__search_code_advanced(
-  pattern="describe|it|test",
-  file_pattern="*.test.*",
-  context_lines=2
-)
+rg "describe|it|test" -g "*.test.*" -C 2
 ```
 
 ### Coverage Analysis
@@ -249,7 +230,7 @@ test_file_patterns=(
 
 # Search for test file
 for pattern in "${test_file_patterns[@]}"; do
-  if mcp__code-index__find_files(pattern="$pattern") | grep -q .; then
+  if [ -f "$pattern" ]; then
     echo "✅ Test exists: $pattern"
     break
   fi
@@ -262,10 +243,9 @@ done
 |-------|-------|------------|
 | Source session not found | Invalid source_session reference | Verify test session metadata |
 | No implementation summaries | Source session incomplete | Complete source session first |
-| MCP tools unavailable | MCP not configured | Fallback to bash find/grep |
 | No test framework detected | Missing test dependencies | Request user to specify framework |
 
-## Fallback Strategy (No MCP)
+## Native Tools Implementation
 
 ```bash
 # File discovery
@@ -287,8 +267,8 @@ done
 - `/workflow:test-gen` (Phase 3: Context Gathering)
 
 ### Calls
-- MCP code-index tools for analysis
-- Bash file operations for fallback
+- Ripgrep and find for file analysis
+- Bash file operations for coverage analysis
 
 ### Followed By
 - `/workflow:tools:test-concept-enhanced` - Analyzes context and plans test generation
@@ -296,7 +276,7 @@ done
 ## Success Criteria
 
 - ✅ Source session context loaded successfully
-- ✅ Test coverage gaps identified with MCP tools
+- ✅ Test coverage gaps identified with ripgrep
 - ✅ Test framework detected and documented
 - ✅ Valid test-context-package.json generated
 - ✅ All missing tests catalogued with priority

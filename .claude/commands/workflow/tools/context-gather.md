@@ -17,7 +17,7 @@ Agent-driven intelligent context collector that gathers relevant information fro
 - **Agent-Driven**: Delegate execution to universal-executor agent for autonomous operation
 - **Two-Phase Flow**: Discovery (context loading) → Execution (context gathering and packaging)
 - **Memory-First**: Reuse loaded documents from conversation memory
-- **MCP-Enhanced**: Use MCP tools for advanced code analysis and file discovery
+- **Ripgrep-Enhanced**: Use ripgrep and native tools for code analysis and file discovery
 - **Intelligent Collection**: Auto-identify relevant resources based on keyword analysis
 - **Comprehensive Coverage**: Collect code, documentation, configurations, and dependencies
 - **Standardized Output**: Generate unified format context-package.json
@@ -36,9 +36,10 @@ Agent-driven intelligent context collector that gathers relevant information fro
     // If in memory: use cached content
     // Else: Load from .workflow/{session-id}/workflow-session.json
   },
-  "mcp_capabilities": {
-    // Agent will use these tools to discover project context
-    "code_index": true,
+  "search_tools": {
+    // Agent will use these native tools to discover project context
+    "ripgrep": true,
+    "find": true,
     "exa_code": true,
     "exa_web": true
   }
@@ -76,8 +77,9 @@ Task(
 ### Session Metadata
 {session_metadata_content}
 
-### MCP Capabilities
-- code-index: Available for file discovery and code search
+### Search Tools
+- ripgrep: Available for content search and pattern matching
+- find: Available for file discovery
 - exa-code: Available for external research
 - exa-web: Available for web search
 
@@ -87,7 +89,7 @@ Task(
 1. **Project Structure Analysis**: Execute get_modules_by_depth.sh for architecture overview
 2. **Documentation Loading**: Load CLAUDE.md, README.md and relevant documentation
 3. **Keyword Extraction**: Extract core keywords from task description
-4. **Smart File Discovery**: Use MCP code-index tools to locate relevant files
+4. **Smart File Discovery**: Use ripgrep and find to locate relevant files
 5. **Code Structure Analysis**: Analyze project structure to identify relevant modules
 6. **Dependency Discovery**: Identify tech stack and dependency relationships
 7. **Context Packaging**: Generate standardized JSON context package
@@ -120,22 +122,18 @@ Task(
    - Identify potentially involved modules and components
    - Set file type filters
 
-#### Step 2: MCP-Enhanced File Discovery
+#### Step 2: File Discovery with Native Tools
 1. **Code File Location**
-   Use MCP code-index tools:
-   \`\`\`javascript
-   // Find files by pattern
-   mcp__code-index__find_files(pattern="*{keyword}*")
+   Use ripgrep and find commands:
+   \`\`\`bash
+   # Find files by pattern
+   find . -name "*{keyword}*" -type f
 
-   // Search code content
-   mcp__code-index__search_code_advanced(
-     pattern="{keyword_patterns}",
-     file_pattern="*.{ts,js,py,go,md}",
-     context_lines=3
-   )
+   # Search code content with ripgrep
+   rg "{keyword_patterns}" --type-add 'custom:*.{ts,js,py,go,md}' -t custom -C 3
 
-   // Get file summaries
-   mcp__code-index__get_file_summary(file_path="relevant/file.ts")
+   # Get file summaries (find function/class definitions)
+   rg "^(class|function|export|def|interface)" relevant/file.ts
    \`\`\`
 
 2. **Configuration Files Discovery**
@@ -321,33 +319,26 @@ Before completion, verify:
 - File count limit: Maximum 50 files per type
 - Size filtering: Skip oversized files (>10MB)
 - Depth limit: Maximum search depth of 3 levels
-- Use MCP tools for efficient discovery
+- Use ripgrep for efficient discovery
 
-**MCP Tools Integration**:
-Agent should use MCP code-index tools when available:
-\`\`\`javascript
-// Set project path
-mcp__code-index__set_project_path(path="{current_project_path}")
+**Native Tools Integration**:
+Agent should use ripgrep and find commands:
+\`\`\`bash
+# Find files by pattern
+find . -name "*{keyword}*" -type f
 
-// Refresh index
-mcp__code-index__refresh_index()
+# Search code content with ripgrep
+rg "{keyword_patterns}" --type ts --type js --type py --type go --type md -C 3
 
-// Find files by pattern
-mcp__code-index__find_files(pattern="*{keyword}*")
+# Alternative: use glob patterns
+rg "{keyword_patterns}" -g "*.{ts,js,py,go,md}" -C 3
 
-// Search code content
-mcp__code-index__search_code_advanced(
-  pattern="{keyword_patterns}",
-  file_pattern="*.{ts,js,py,go,md}",
-  context_lines=3
-)
+# Count matches
+rg "{keyword_patterns}" -c
+
+# List files with matches
+rg "{keyword_patterns}" --files-with-matches
 \`\`\`
-
-**Fallback Strategy**:
-When MCP tools unavailable, agent should use traditional commands:
-- \`find\` for file discovery
-- \`rg\` or \`grep\` for content search
-- Bash commands from project structure analysis
 
 ## Output
 
@@ -391,9 +382,10 @@ const agentContext = {
     ? memory.get("workflow-session.json")
     : Read(.workflow/WFS-[id]/workflow-session.json),
 
-  // MCP capabilities - agent will use these tools
-  mcp_capabilities: {
-    code_index: true,
+  // Search tools - agent will use these native tools
+  search_tools: {
+    ripgrep: true,
+    find: true,
     exa_code: true,
     exa_web: true
   }

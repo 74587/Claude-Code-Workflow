@@ -146,9 +146,9 @@ Generate **TWO task JSON files**:
         "step": "load_existing_test_patterns",
         "action": "Study existing tests for pattern reference",
         "commands": [
-          "mcp__code-index__find_files(pattern=\"*.test.*\")",
+          "bash(find . -name \"*.test.*\" -type f)",
           "bash(# Read first 2 existing test files as examples)",
-          "bash(test_files=$(mcp__code-index__find_files(pattern=\"*.test.*\") | head -2))",
+          "bash(test_files=$(find . -name \"*.test.*\" -type f | head -2))",
           "bash(for f in $test_files; do echo \"=== $f ===\"&& cat \"$f\"; done)"
         ],
         "output_to": "existing_test_patterns",
@@ -282,11 +282,11 @@ Generate **TWO task JSON files**:
         "step": "analyze_test_coverage",
         "action": "Analyze test coverage and identify missing tests",
         "commands": [
-          "mcp__code-index__find_files(pattern=\"*.test.*\")",
-          "mcp__code-index__search_code_advanced(pattern=\"test|describe|it|def test_\", file_pattern=\"*.test.*\")",
+          "bash(find . -name \"*.test.*\" -type f)",
+          "bash(rg \"test|describe|it|def test_\" -g \"*.test.*\")",
           "bash(# Count implementation files vs test files)",
           "bash(impl_count=$(find [changed_files_dirs] -type f \\( -name '*.ts' -o -name '*.js' -o -name '*.py' \\) ! -name '*.test.*' 2>/dev/null | wc -l))",
-          "bash(test_count=$(mcp__code-index__find_files(pattern=\"*.test.*\") | wc -l))",
+          "bash(test_count=$(find . -name \"*.test.*\" -type f | wc -l))",
           "bash(echo \"Implementation files: $impl_count, Test files: $test_count\")"
         ],
         "output_to": "test_coverage_analysis",

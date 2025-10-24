@@ -249,9 +249,9 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         }
       },
       {
-        "step": "mcp_codebase_exploration",
-        "action": "Explore codebase using MCP tools",
-        "command": "mcp__code-index__find_files(pattern=\"[patterns]\") && mcp__code-index__search_code_advanced(pattern=\"[patterns]\")",
+        "step": "codebase_exploration",
+        "action": "Explore codebase using native tools",
+        "command": "bash(find . -name \"[patterns]\" -type f && rg \"[patterns]\")",
         "output_to": "codebase_structure"
       },
       {
