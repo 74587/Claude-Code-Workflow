@@ -19,6 +19,17 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 
 ## Task Tracking
 
+**⚠️ TodoWrite Rule**: EXTEND auto-parallel's task list (NOT replace/overwrite)
+
+**When called from auto-parallel**:
+- Find the artifacts parent task: "Execute artifacts command for interactive framework generation"
+- Mark parent task as "in_progress"
+- APPEND artifacts sub-tasks AFTER the parent task (Phase 1-5)
+- Mark each sub-task as it completes
+- When Phase 5 completes, mark parent task as "completed"
+- **PRESERVE all other auto-parallel tasks** (role agents, synthesis)
+
+**Standalone Mode**:
 ```json
 [
   {"content": "Initialize session (.workflow/.active-* check, parse --count parameter)", "status": "pending", "activeForm": "Initializing"},
@@ -31,6 +42,19 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 ```
 
 ## Execution Phases
+
+### Phase 0: User Mode Check (First Step)
+
+**Output to user**:
+```
+**⚠️ 请先启用 "CLAUDE accept edits on" 模式**
+
+本命令需要多轮交互问答（5个阶段，约10-15个问题）
+
+启用后回复继续。
+```
+
+**Wait for user confirmation** before proceeding to Phase 1.
 
 ### Session Management
 - Check `.workflow/.active-*` markers first
@@ -205,10 +229,20 @@ FOR each selected role:
 **Steps**:
 1. Load all decisions: `intent_context` + `selected_roles` + `role_decisions` + `cross_role_decisions`
 2. Transform Q&A pairs to declarative: Questions → Headers, Answers → CONFIRMED/SELECTED statements
-3. Generate guidance-specification.md (template below)
-4. Validate: No interrogative sentences, all decisions traceable
+3. Generate guidance-specification.md (template below) - **PRIMARY OUTPUT FILE**
+4. Update workflow-session.json with **METADATA ONLY**:
+   - session_id (e.g., "WFS-topic-slug")
+   - selected_roles[] (array of role names, e.g., ["system-architect", "ui-designer", "product-manager"])
+   - topic (original user input string)
+   - timestamp (ISO-8601 format)
+   - phase_completed: "artifacts"
+   - count_parameter (number from --count flag)
+5. Validate: No interrogative sentences in .md file, all decisions traceable, no content duplication in .json
 
-**⚠️ CRITICAL**: NO questions in output. Use CONFIRMED/SELECTED format only.
+**⚠️ CRITICAL OUTPUT SEPARATION**:
+- **guidance-specification.md**: Full guidance content (decisions, rationale, integration points)
+- **workflow-session.json**: Session metadata ONLY (no guidance content, no decisions, no Q&A pairs)
+- **NO content duplication**: Guidance stays in .md, metadata stays in .json
 
 ## Output Document Template
 
@@ -240,12 +274,10 @@ FOR each selected role:
 **Identified Risks**: [From answers] → Mitigation: [Approach]
 
 ## Next Steps
-**Immediate Actions**: [Derived from decisions]
-**Recommended Workflow**:
-```bash
-/workflow:concept-clarify --session WFS-{id}  # Optional
-/workflow:plan --session WFS-{id}
-```
+**⚠️ Automatic Continuation** (when called from auto-parallel):
+- auto-parallel will assign agents to generate role-specific analysis documents
+- Each selected role gets dedicated conceptual-planning-agent
+- Agents read this guidance-specification.md for framework context
 
 ## Appendix: Decision Tracking
 | Decision ID | Category | Question | Selected | Phase | Rationale |
@@ -369,13 +401,30 @@ ELSE:
 
 **CRITICAL**: Guidance is single source of truth for downstream phases. Ambiguity violates governance.
 
+## Storage Validation
+
+**workflow-session.json** (metadata only):
+```json
+{
+  "session_id": "WFS-{topic-slug}",
+  "type": "brainstorming",
+  "topic": "{original user input}",
+  "selected_roles": ["system-architect", "ui-designer", "product-manager"],
+  "phase_completed": "artifacts",
+  "timestamp": "2025-10-24T10:30:00Z",
+  "count_parameter": 3
+}
+```
+
+**⚠️ Rule**: Session JSON stores ONLY metadata (session_id, selected_roles[], topic, timestamps). All guidance content goes to guidance-specification.md.
+
 ## File Structure
 
 ```
 .workflow/WFS-[topic]/
 ├── .active-brainstorming
-├── workflow-session.json              # All decisions
+├── workflow-session.json              # Session metadata ONLY
 └── .brainstorming/
-    └── guidance-specification.md      # Output
+    └── guidance-specification.md      # Full guidance content
 ```
 
