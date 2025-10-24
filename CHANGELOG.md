@@ -5,7 +5,97 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-n## [4.6.2] - 2025-10-20
+## [5.0.0] - 2025-10-24
+
+### 🎉 Less is More - Simplified Architecture Release
+
+This major release embraces the "less is more" philosophy, removing external dependencies, streamlining workflows, and focusing on core functionality with standard, proven tools.
+
+#### 🚀 Breaking Changes
+
+**Removed Features**:
+- ❌ **`/workflow:concept-clarify`** - Concept enhancement feature removed for simplification
+- ❌ **MCP code-index dependency** - Replaced with standard `ripgrep` and `find` tools
+- ❌ **`synthesis-specification.md` workflow** - Replaced with direct role analysis approach
+
+**Command Changes**:
+- ⚠️ Memory commands renamed for consistency:
+  - `/update-memory-full` → `/memory:update-full`
+  - `/update-memory-related` → `/memory:update-related`
+
+#### ✅ Added
+
+**Standard Tool Integration**:
+- ✅ **ripgrep (rg)** - Fast content search replacing MCP code-index
+- ✅ **find** - Native filesystem discovery for better cross-platform compatibility
+- ✅ **Multi-tier fallback** - Graceful degradation when advanced tools unavailable
+
+**Enhanced TDD Workflow**:
+- ✅ **Conflict resolution mechanism** - Better handling of test-implementation conflicts
+- ✅ **Improved task generation** - Enhanced phase coordination and quality gates
+- ✅ **Updated workflow phases** - Clearer separation of concerns
+
+**Role-Based Planning**:
+- ✅ **Direct role analysis** - Simplified brainstorming focused on role documents
+- ✅ **Removed synthesis layer** - Less abstraction, clearer intent
+- ✅ **Better documentation flow** - From role analysis directly to action planning
+
+#### 📝 Changed
+
+**Documentation Updates**:
+- ✅ **All docs updated to v5.0.0** - Consistent versioning across all files
+- ✅ **Removed MCP badge** - No longer advertising experimental MCP features
+- ✅ **Clarified test workflows** - Better explanation of generate → execute pattern
+- ✅ **Fixed command references** - Corrected all memory command names
+- ✅ **Updated UI design notes** - Clarified MCP Chrome DevTools retention for UI workflows
+
+**File Discovery**:
+- ✅ **`/memory:load`** - Now uses ripgrep/find instead of MCP code-index
+- ✅ **Faster search** - Native tools provide better performance
+- ✅ **Better reliability** - No external service dependencies
+
+**UI Design Workflows**:
+- ℹ️ **MCP Chrome DevTools retained** - Specialized tool for browser automation
+- ℹ️ **Multi-tier fallback** - MCP → Playwright → Chrome → Manual
+- ℹ️ **Purpose-built integration** - UI workflows require browser control
+
+#### 🐛 Fixed
+
+**Documentation Inconsistencies**:
+- 🔧 Removed references to deprecated `/workflow:concept-clarify` command
+- 🔧 Fixed incorrect memory command names in getting started guides
+- 🔧 Clarified test workflow execution patterns
+- 🔧 Updated MCP dependency references throughout specs
+- 🔧 Corrected UI design tool descriptions
+
+#### 📦 Updated Files
+
+- `README.md` / `README_CN.md` - v5.0 version badge and core improvements
+- `COMMAND_REFERENCE.md` - Updated command descriptions, removed deprecated commands
+- `COMMAND_SPEC.md` - v5.0 technical specifications, clarified implementations
+- `GETTING_STARTED.md` / `GETTING_STARTED_CN.md` - v5.0 features, fixed command names
+- `INSTALL_CN.md` - v5.0 simplified installation notes
+
+#### 🔍 Technical Details
+
+**Performance Improvements**:
+- Faster file discovery using native ripgrep
+- Reduced external dependencies improves installation reliability
+- Better cross-platform compatibility with standard Unix tools
+
+**Architectural Benefits**:
+- Simpler dependency tree
+- Easier troubleshooting with standard tools
+- More predictable behavior without external services
+
+**Migration Notes**:
+- Update memory command usage (see command changes above)
+- Remove any usage of `/workflow:concept-clarify`
+- No changes needed for core workflow commands (`/workflow:plan`, `/workflow:execute`)
+
+---
+
+## [4.6.2] - 2025-10-20
 
 ### 📝 Documentation Optimization
 

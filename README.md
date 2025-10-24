@@ -2,10 +2,9 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v4.6.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
-[![MCP Tools](https://img.shields.io/badge/🔧_MCP_Tools-Experimental-orange.svg)](https://github.com/modelcontextprotocol)
 
 **Languages:** [English](README.md) | [中文](README_CN.md)
 
@@ -15,7 +14,14 @@
 
 **Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a robust, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
 
-> **🎉 Latest: v4.6.2** - Documentation Optimization & `/memory:load` Command Refinement. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **🎉 Version 5.0: Less is More**
+>
+> **Core Improvements**:
+> - ✅ **Removed External Dependencies** - Using standard ripgrep/find instead of MCP code-index for better stability
+> - ✅ **Streamlined Workflows** - Enhanced TDD workflow with conflict resolution mechanism
+> - ✅ **Focused on Role Analysis** - Simplified planning architecture centered on role documents
+>
+> See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 > 📚 **New to CCW?** Check out the [**Getting Started Guide**](GETTING_STARTED.md) for a beginner-friendly 5-minute tutorial!
 
