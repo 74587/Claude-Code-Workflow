@@ -45,7 +45,8 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 **Steps**:
 1. **Deep topic analysis**: Extract technical entities, identify core challenges (what makes this hard?), constraints (timeline/budget/compliance), success metrics (what defines done?)
 2. **Generate 2-4 probing questions** targeting root challenges, trade-off priorities, and risk tolerance (NOT surface-level "Project Type")
-3. AskUserQuestion → Store to `session.intent_context` with `{extracted_keywords, identified_challenges, user_answers}`
+3. **User interaction via AskUserQuestion tool**: Present 2-4 task-specific questions (multiSelect: false for single-choice questions)
+4. **Storage**: Store answers to `session.intent_context` with `{extracted_keywords, identified_challenges, user_answers}`
 
 **Example (Task-Specific)**:
 Topic: "Build real-time collaboration platform SCOPE: 100 users"
@@ -75,10 +76,27 @@ Topic: "Build real-time collaboration platform SCOPE: 100 users"
    - Recommend count+2 roles (e.g., if user wants 3 roles, recommend 5 options)
    - Provide clear rationale for each recommended role based on topic context
 
-2. **User selection via multiSelect**:
-   - Present recommended roles with context-specific rationales
-   - Allow user to select multiple roles (typically count roles, but flexible)
-   - Store selections to `session.selected_roles`
+2. **User selection via AskUserQuestion tool (multiSelect mode)**:
+   - **Tool**: `AskUserQuestion` with `multiSelect: true`
+   - **Question format**: "请选择 {count} 个角色参与头脑风暴分析（可多选）："
+   - **Options**: Each recommended role with label (role name) and description (relevance rationale)
+   - **User interaction**: Allow user to select multiple roles (typically count roles, but flexible)
+   - **Storage**: Store selections to `session.selected_roles`
+
+**AskUserQuestion Syntax**:
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: "请选择 {count} 个角色参与头脑风暴分析（可多选）：",
+    header: "角色选择",
+    multiSelect: true,  // Enable multiple selection
+    options: [
+      {label: "{role-name} ({中文名})", description: "{基于topic的相关性说明}"}
+      // count+2 recommended roles
+    ]
+  }]
+});
+```
 
 **Role Recommendation Rules**:
 - NO hardcoded keyword-to-role mappings
@@ -104,10 +122,18 @@ FOR each selected role:
      Q: "How resolve conflicts when 2 users edit simultaneously?" (explores edge case)
      Options: [Event Sourcing/Centralized/CRDT] (concrete, explain trade-offs for THIS use case)
 
-  3. Ask questions in batches (max 4 questions per AskUserQuestion call):
-     - If role has 3-4 questions: Single AskUserQuestion call
+  3. Ask questions via AskUserQuestion tool (max 4 questions per call):
+     - Tool: AskUserQuestion with questions array (1-4 questions)
+     - Each question: multiSelect: false (single-choice)
+     - If role has 3-4 questions: Single AskUserQuestion call with multiple questions
      - Store answers to session.role_decisions[role]
 ```
+
+**AskUserQuestion Tool Usage**:
+- **Batching**: Maximum 4 questions per AskUserQuestion call
+- **Mode**: `multiSelect: false` for each question (single-choice answers)
+- **Language**: Questions MUST be asked in Chinese (用中文提问)
+- **Format**: Each question includes header (short label), question text, and 2-4 options with descriptions
 
 **Question Batching Rules**:
 - ✅ Each role generates 3-4 questions
@@ -144,13 +170,21 @@ FOR each selected role:
 2. FOR each detected conflict:
    Generate clarification questions referencing SPECIFIC Phase 3 choices
 
-3. Ask in batches (max 4 questions per AskUserQuestion call):
-   - If conflicts ≤ 4: Single round
-   - If conflicts > 4: Multiple rounds of max 4 questions each
+3. Ask via AskUserQuestion tool in batches (max 4 questions per call):
+   - Tool: AskUserQuestion with questions array (1-4 questions)
+   - Each question: multiSelect: false (single-choice)
+   - If conflicts ≤ 4: Single AskUserQuestion call
+   - If conflicts > 4: Multiple AskUserQuestion calls (max 4 questions each)
    - Store answers to session.cross_role_decisions
 
 4. If NO conflicts: Skip Phase 4 (inform user)
 ```
+
+**AskUserQuestion Tool Usage**:
+- **Batching**: Maximum 4 questions per AskUserQuestion call
+- **Mode**: `multiSelect: false` for each question (single-choice answers)
+- **Language**: Questions in Chinese (用中文提问)
+- **Multiple rounds**: If conflicts > 4, call AskUserQuestion multiple times sequentially
 
 **Batching Rules**:
 - ✅ Maximum 4 clarification questions per AskUserQuestion call
@@ -219,35 +253,90 @@ FOR each selected role:
 | D-003+ | [Role] | [Q] | [A] | 3 | [Why] |
 ```
 
-## Question Generation Guidelines
+## AskUserQuestion Tool Reference
 
-### Core Principle
-**Dynamic Generation from Topic**: Extract keywords → Map to roles → Generate task-specific questions
-
-**Process**:
-1. **Phase 1**: Extract challenges from topic → Generate questions about challenges (NOT "Project type?")
-2. **Phase 3**: Map challenges to role expertise → Generate questions addressing role's challenge solution
-3. **Phase 4**: Analyze Phase 3 answers → Detect conflicts → Generate resolution questions
-
-**Anti-Pattern**:
+### Syntax Structure
 ```javascript
-
-// ✅ CORRECT: Dynamic generation
-function generate(role, challenges) {
-  return challenges.map(c => mapChallengeToRoleQuestion(c, role, topic));
-}
+AskUserQuestion({
+  questions: [
+    {
+      question: "{动态生成的问题文本}",
+      header: "{短标签,最多12字符}",
+      multiSelect: false,  // Phase 1,3,4: false | Phase 2: true
+      options: [
+        {label: "{选项标签}", description: "{选项说明}"},
+        // 2-4 options per question
+      ]
+    }
+    // Maximum 4 questions per call
+  ]
+});
 ```
 
-**Quality Rules**:
-- ✅ ALL questions MUST be in Chinese (所有问题必须用中文)
-- ✅ Reference topic keywords in every question
-- ✅ Options are concrete technical choices (not abstract categories)
-- ✅ Descriptions explain relevance to topic
-- ❌ Generic questions that apply to any project
+### Usage Rules
+- **Maximum**: 4 questions per AskUserQuestion call
+- **Language**: Questions in Chinese (用中文提问)
+- **multiSelect**:
+  - `false` (Phase 1, 3, 4): Single-choice
+  - `true` (Phase 2): Multiple role selection
+- **Options**: 2-4 options with label + description
+- **Multiple rounds**: Call tool multiple times if > 4 questions needed
 
-**Examples** (Topic: "real-time collaboration, 100 users"):
-- ❌ Generic: "Architecture style?" → [Microservices/Monolith/Hybrid]
-- ✅ Task-specific: "State sync for 100+ real-time users?" → [Event Sourcing/Centralized/CRDT]
+## Question Generation Guidelines
+
+### Core Principle: Developer-Facing Questions with User Context
+
+**Target Audience**: 开发者（理解技术但需要从用户需求出发）
+
+**Generation Philosophy**:
+1. **Phase 1**: 用户场景、业务约束、优先级（建立上下文）
+2. **Phase 2**: 基于话题分析的智能角色推荐（非关键词映射）
+3. **Phase 3**: 业务需求 + 技术选型（需求驱动的技术决策）
+4. **Phase 4**: 技术冲突的业务权衡（帮助开发者理解影响）
+
+### Question Quality Rules
+
+**Balanced Question Pattern** (需求 → 技术):
+```
+问题结构：[用户场景/业务需求] + [技术关注点]
+选项格式：[技术方案简称] + [业务影响说明]
+```
+
+**Phase 1 Focus**:
+- 用户使用场景（谁用？怎么用？多频繁？）
+- 业务约束（预算、时间、团队、合规）
+- 成功标准（性能指标、用户体验目标）
+- 优先级排序（MVP vs 长期规划）
+
+**Phase 3 Focus**:
+- 业务需求驱动的技术问题
+- 技术选项带业务影响说明
+- 包含量化指标（并发数、延迟、可用性）
+
+**Phase 4 Focus**:
+- 技术冲突的业务权衡
+- 帮助开发者理解不同选择的影响
+
+**Question Structure**:
+```
+[业务场景/需求前提] + [技术关注点]
+```
+
+**Option Structure**:
+```
+标签：[技术方案简称] + (业务特征)
+说明：[业务影响] + [技术权衡]
+```
+
+**MUST Include**:
+- 业务场景作为问题前提
+- 技术选项的业务影响说明
+- 量化指标和约束条件
+
+**MUST Avoid**:
+- 纯技术选型无业务上下文
+- 过度抽象的用户体验问题
+- 脱离话题的通用架构问题
 
 ## Validation Checklist
 

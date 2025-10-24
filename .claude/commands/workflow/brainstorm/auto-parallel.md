@@ -23,37 +23,26 @@ allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*
 
 **⚠️ User Intent Preservation**: Topic description is stored in session metadata as authoritative reference throughout entire brainstorming workflow and plan generation.
 
-## Role Selection Logic
-- **Technical & Architecture**: `architecture|system|performance|database|security` → system-architect, data-architect, security-expert, subject-matter-expert
-- **API & Backend**: `api|endpoint|rest|graphql|backend|interface|contract|service` → api-designer, system-architect, data-architect
-- **Product & UX**: `user|ui|ux|interface|design|product|feature|experience` → ui-designer, user-researcher, product-manager, ux-expert, product-owner
-- **Business & Process**: `business|process|workflow|cost|innovation|testing` → business-analyst, innovation-lead, test-strategist
-- **Agile & Delivery**: `agile|sprint|scrum|team|collaboration|delivery` → scrum-master, product-owner
-- **Domain Expertise**: `domain|standard|compliance|expertise|regulation` → subject-matter-expert
-- **Multi-role**: Complex topics automatically select N complementary roles (N specified by --count, default 3)
-- **Default**: `product-manager` if no clear match
-- **Count Parameter**: `--count N` determines number of roles to auto-select (default: 3, max: 9)
+## Role Selection Delegation
+- **Role selection**: Fully delegated to artifacts command (intelligent recommendation + user selection)
+- **Count parameter**: `--count N` passed to artifacts command (default: 3, max: 9)
+- **Available roles**: Defined in artifacts command specification
+- **Selection mechanism**: artifacts analyzes topic, recommends count+2 roles, user selects via multiSelect
 
-**Template Loading**: `bash($(cat "~/.claude/workflows/cli-templates/planning-roles/<role-name>.md"))`
+**Template Loading**: Handled by individual role agents during parallel execution
 **Template Source**: `.claude/workflows/cli-templates/planning-roles/`
-**Available Roles**: api-designer, data-architect, product-manager, product-owner, scrum-master, subject-matter-expert, system-architect, test-strategist, ui-designer, ux-expert
-
-**Example**:
-```bash
-bash($(cat "~/.claude/workflows/cli-templates/planning-roles/system-architect.md"))
-bash($(cat "~/.claude/workflows/cli-templates/planning-roles/ui-designer.md"))
-```
 
 ## Core Workflow
 
 ### Structured Topic Processing → Role Analysis → Synthesis
 The command follows a structured three-phase approach with dedicated document types:
 
-**Phase 1: Framework Generation** ⚠️ COMMAND EXECUTION
-- **Role selection**: Auto-select N roles based on topic keywords and --count parameter (default: 3, see Role Selection Logic)
-- **Call artifacts command**: Execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,...,roleN}"` using SlashCommand tool
-- **Role-specific framework**: Generate framework with sections tailored to selected roles
-- **⚠️ User intent storage**: Topic saved in workflow-session.json as primary reference for all downstream phases
+**Phase 1: Interactive Framework Generation** ⚠️ COMMAND EXECUTION
+- **Delegate to artifacts**: Execute `/workflow:brainstorm:artifacts "{topic}" --count N` using SlashCommand tool
+- **Role selection**: artifacts command handles intelligent recommendation and user selection
+- **Interactive flow**: artifacts executes Phase 1-5 (topic analysis, role recommendation, role questions, conflict resolution, guidance generation)
+- **Output**: guidance-specification.md with confirmed decisions and selected_roles stored in session
+- **⚠️ User intent storage**: Topic and all decisions saved in workflow-session.json as primary reference
 
 **Phase 2: Role Analysis Execution** ⚠️ PARALLEL AGENT ANALYSIS
 - **Parallel execution**: Multiple roles execute simultaneously for faster completion
@@ -73,24 +62,19 @@ The command follows a structured three-phase approach with dedicated document ty
 Auto command coordinates independent specialized commands:
 
 **Command Sequence**:
-1. **Role Selection**: Auto-select N relevant roles based on topic keywords and --count parameter (default: 3)
-2. **Generate Role-Specific Framework**: Use SlashCommand to execute `/workflow:brainstorm:artifacts "{topic}" --roles "{role1,role2,...,roleN}"` (stores user intent in session)
-3. **Parallel Role Analysis**: Execute selected role agents in parallel, each reading their specific framework section
-4. **Generate Synthesis**: Use SlashCommand to execute `/workflow:brainstorm:synthesis` (loads user intent from session as primary reference)
+1. **Parse Parameters**: Extract --count N from user input (default: 3)
+2. **Interactive Framework Generation**: Use SlashCommand to execute `/workflow:brainstorm:artifacts "{topic}" --count N`
+   - artifacts handles: topic analysis, role recommendation, user selection, role questions, conflict resolution
+   - Output: guidance-specification.md + session with selected_roles
+3. **Load Selected Roles**: Read selected_roles from workflow-session.json (generated by artifacts)
+4. **Parallel Role Analysis**: Execute selected role agents in parallel, each reading guidance-specification.md
+5. **Generate Synthesis**: Use SlashCommand to execute `/workflow:brainstorm:synthesis`
 
 **SlashCommand Integration**:
-1. **artifacts command**: Called via SlashCommand tool with `--roles` parameter for role-specific framework generation
-2. **role agents**: Each agent reads its dedicated section in the role-specific framework
-3. **synthesis command**: Called via SlashCommand tool for final integration with role-targeted insights
+1. **artifacts command**: Called via SlashCommand tool with `--count N` parameter for interactive framework generation
+2. **role agents**: Each agent reads guidance-specification.md for topic framework
+3. **synthesis command**: Called via SlashCommand tool for final integration
 4. **Command coordination**: SlashCommand handles execution and validation
-
-**Role Selection Logic**:
-- **Technical**: `architecture|system|performance|database` → system-architect, data-architect, subject-matter-expert
-- **API & Backend**: `api|endpoint|rest|graphql|backend|interface|contract|service` → api-designer, system-architect, data-architect
-- **Product & UX**: `user|ui|ux|interface|design|product|feature|experience` → ui-designer, ux-expert, product-manager, product-owner
-- **Agile & Delivery**: `agile|sprint|scrum|team|collaboration|delivery` → scrum-master, product-owner
-- **Domain Expertise**: `domain|standard|compliance|expertise|regulation` → subject-matter-expert
-- **Auto-select**: N most relevant roles based on topic analysis (N from --count parameter, default: 3)
 
 ### Parameter Parsing
 
@@ -105,14 +89,17 @@ IF user_input CONTAINS "--count":
 ELSE:
     count_value = 3  # Default to 3 roles
 END IF
+
+# Pass to artifacts command
+EXECUTE: /workflow:brainstorm:artifacts "{topic}" --count {count_value}
 ```
 
-**Role Selection with Count**:
-1. **Analyze topic keywords**: Identify relevant role categories
-2. **Rank roles by relevance**: Score based on keyword matches
-3. **Select top N roles**: Pick N most relevant roles (N = count_value)
-4. **Ensure diversity**: Balance across different expertise areas
-5. **Minimum guarantee**: Always include at least one role (default to product-manager if no matches)
+**Role Selection Mechanism** (delegated to artifacts):
+1. **artifacts analyzes topic**: Extract keywords and challenges
+2. **artifacts recommends roles**: Intelligent recommendation of count+2 roles
+3. **User selects**: multiSelect from recommended roles
+4. **Session stores**: selected_roles saved to workflow-session.json
+5. **auto-parallel reads**: Load selected_roles for parallel execution
 
 ### Simplified Processing Standards
 
@@ -124,7 +111,7 @@ END IF
 5. **TodoWrite control** - Progress tracking throughout all phases
 
 **Implementation Rules**:
-- **Role count**: N roles auto-selected based on --count parameter (default: 3, max: 9) and keyword mapping
+- **Role count**: N roles selected interactively via artifacts command (default: 3, max: 9)
 - **No upfront validation**: Agents handle their own context requirements
 - **Parallel execution**: Each agent operates concurrently without dependencies
 - **Synthesis at end**: Integration only after all agents complete
@@ -146,9 +133,15 @@ END IF
 
 ## Document Generation
 
-**Command Coordination Workflow**: artifacts → parallel role analysis → synthesis
+**Command Coordination Workflow**:
+1. artifacts (interactive: topic analysis → role selection → guidance generation)
+2. parallel role analysis (agents read guidance-specification.md)
+3. synthesis (integrates role analyses)
 
-**Output Structure**: Coordinated commands generate framework, role analyses, and synthesis documents as defined in their respective command specifications.
+**Output Structure**:
+- artifacts: guidance-specification.md (confirmed decisions + selected_roles)
+- role agents: role-specific analysis.md files
+- synthesis: synthesis-specification.md (integrated analysis)
 
 
 ## Agent Prompt Templates
@@ -258,14 +251,19 @@ TodoWrite({
       activeForm: "Initializing brainstorming session"
     },
     {
-      content: "Parse --count parameter and select N roles based on topic keyword analysis",
+      content: "Parse --count parameter from user input",
       status: "pending",
-      activeForm: "Parsing parameters and selecting roles for brainstorming"
+      activeForm: "Parsing count parameter"
     },
     {
-      content: "Execute artifacts command with selected roles for role-specific framework",
+      content: "Execute artifacts command for interactive framework generation (role selection + guidance)",
       status: "pending",
-      activeForm: "Generating role-specific topic framework"
+      activeForm: "Executing artifacts command for interactive framework"
+    },
+    {
+      content: "Load selected_roles from workflow-session.json (generated by artifacts)",
+      status: "pending",
+      activeForm: "Loading selected roles from session"
     },
     {
       content: "Execute [role-1] analysis [conceptual-planning-agent] [FLOW_CONTROL] addressing framework",
@@ -296,13 +294,18 @@ TodoWrite({
   todos: [
     {
       content: "Initialize brainstorming session and detect active sessions",
-      status: "completed",  // Mark completed preprocessing
+      status: "completed",
       activeForm: "Initializing brainstorming session"
     },
     {
-      content: "Select roles for topic analysis and create workflow-session.json",
-      status: "in_progress",  // Mark current task as in_progress
-      activeForm: "Selecting roles and creating session metadata"
+      content: "Parse --count parameter from user input",
+      status: "completed",
+      activeForm: "Parsing count parameter"
+    },
+    {
+      content: "Execute artifacts command for interactive framework generation (role selection + guidance)",
+      status: "in_progress",
+      activeForm: "Executing artifacts command for interactive framework"
     },
     // ... other tasks remain pending
   ]
