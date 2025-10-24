@@ -350,8 +350,8 @@ Each role processing follows structured framework pattern:
 - **output**: Role-specific analysis.md addressing topic framework structure
 
 ### File Structure Reference
-**Architecture**: @~/.claude/workflows/workflow-architecture.md
-**Role Templates**: @~/.claude/workflows/cli-templates/planning-roles/
+**Architecture**: ~/.claude/workflows/workflow-architecture.md
+**Role Templates**: ~/.claude/workflows/cli-templates/planning-roles/
 
 ### Execution Integration
 Command coordination model: artifacts command → parallel role analysis → synthesis command
