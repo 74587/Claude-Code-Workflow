@@ -13,20 +13,19 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 **Execution Model - Auto-Continue Workflow with Quality Gate**:
 
-This workflow runs **mostly autonomously** once triggered, with one interactive quality gate (Phase 3.5). Phase 3 (conflict resolution) and Phase 4 (task generation) are delegated to specialized agents.
+This workflow runs **fully autonomously** once triggered. Phase 3 (conflict resolution) and Phase 4 (task generation) are delegated to specialized agents.
+
 
 1. **User triggers**: `/workflow:plan "task"`
 2. **Phase 1 executes** → Session discovery → Auto-continues
 3. **Phase 2 executes** → Context gathering → Auto-continues
 4. **Phase 3 executes** (optional, if conflict_risk ≥ medium) → Conflict resolution → Auto-continues
-5. **Phase 3.5 executes** → **Pauses for user Q&A** → User answers clarification questions → Auto-continues
-6. **Phase 4 executes** (task-generate-agent if --agent) → Task generation → Reports final summary
+5. **Phase 4 executes** (task-generate-agent if --agent) → Task generation → Reports final summary
 
 **Auto-Continue Mechanism**:
 - TodoList tracks current phase status
 - After each phase completion, automatically executes next pending phase
-- **Phase 3.5 requires user interaction** - answers clarification questions (up to 5)
-- If no ambiguities found, Phase 3.5 auto-skips and continues to Phase 4
+- All phases run autonomously without user interaction (clarification handled in brainstorm phase)
 - Progress updates shown at each phase for visibility
 
 **Execution Modes**:
@@ -132,35 +131,22 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 ---
 
-### Phase 3.5: Concept Clarification (Quality Gate)
+### Phase 3.5: Pre-Task Generation Validation (Optional Quality Gate)
 
-**Command**: `SlashCommand(command="/workflow:concept-clarify --session [sessionId]")`
+**Purpose**: Optional quality gate before task generation - primarily handled by brainstorm synthesis phase
 
-**Purpose**: Quality gate to verify and clarify analysis results before task generation
+**Note**: Concept enhancement and clarification are now handled in `/workflow:brainstorm:synthesis` Phase 2.5 during brainstorming. This phase is reserved for future validation extensions.
 
-**Input**: `sessionId` from Phase 1
+**Current Behavior**: Auto-skip to Phase 4 (Task Generation)
 
-**Behavior**:
-- Auto-detects plan mode (ANALYSIS_RESULTS.md exists if Phase 3 executed)
-- Interactively asks up to 5 targeted questions to resolve ambiguities
-- Updates ANALYSIS_RESULTS.md with clarifications (if file exists from Phase 3)
-- Pauses workflow for user input (breaks auto-continue temporarily)
+**Future Enhancement**: Could add additional validation steps like:
+- Cross-reference checks between conflict resolution and brainstorm analyses
+- Final sanity checks before task generation
+- User confirmation prompt for proceeding
 
-**Parse Output**:
-- Verify clarifications added to ANALYSIS_RESULTS.md (if Phase 3 executed)
-- Check recommendation: "PROCEED" or "ADDRESS_OUTSTANDING"
+**TodoWrite**: Mark phase 3.5 completed (auto-skip), phase 4 in_progress
 
-**Validation**:
-- If Phase 3 executed: ANALYSIS_RESULTS.md updated with `## Clarifications` section
-- All critical ambiguities resolved or documented as outstanding
-
-**TodoWrite**: Mark phase 3.5 completed, phase 4 in_progress
-
-**After Phase 3.5**: Return to user showing clarification summary, then auto-continue to Phase 4
-
-**Skip Conditions**:
-- If `/workflow:concept-clarify` reports "No critical ambiguities detected", automatically proceed to Phase 4
-- User can skip by responding "skip" or "proceed" immediately
+**After Phase 3.5**: Auto-continue to Phase 4 immediately
 
 ---
 
@@ -219,12 +205,11 @@ Plan: .workflow/[sessionId]/IMPL_PLAN.md
 
 ```javascript
 // Initialize (before Phase 1)
-// Note: Phase 3 todo only included when conflict_risk ≥ medium (determined after Phase 2)
+// Note: Phase 3 todo only added dynamically after Phase 2 if conflict_risk ≥ medium
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "in_progress", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "pending", "activeForm": "Executing context gathering"},
   // Phase 3 todo added dynamically after Phase 2 if conflict_risk ≥ medium
-  {"content": "Execute concept clarification", "status": "pending", "activeForm": "Executing concept clarification"},
   {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
@@ -233,19 +218,23 @@ TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
   {"content": "Execute conflict resolution", "status": "in_progress", "activeForm": "Executing conflict resolution"},
-  {"content": "Execute concept clarification", "status": "pending", "activeForm": "Executing concept clarification"},
   {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
-// After Phase 2 (if conflict_risk is none/low, skip Phase 3)
+// After Phase 2 (if conflict_risk is none/low, skip Phase 3, go directly to Phase 4)
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute concept clarification", "status": "in_progress", "activeForm": "Executing concept clarification"},
-  {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
+  {"content": "Execute task generation", "status": "in_progress", "activeForm": "Executing task generation"}
 ]})
 
-// Continue pattern for Phase 3 (if executed), 3.5, 4...
+// After Phase 3 (if executed), continue to Phase 4
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute conflict resolution", "status": "completed", "activeForm": "Executing conflict resolution"},
+  {"content": "Execute task generation", "status": "in_progress", "activeForm": "Executing task generation"}
+]})
 ```
 
 ## Input Processing
@@ -300,12 +289,7 @@ Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
     ↓ Input: sessionId + contextPath + conflict_risk
     ↓ CLI-powered conflict detection and resolution strategy generation
     ↓ Output: CONFLICT_RESOLUTION.md (if conflict_risk ≥ medium)
-    ↓ Skip if conflict_risk is none/low
-    ↓
-Phase 3.5: concept-clarify --session sessionId (Quality Gate)
-    ↓ Input: sessionId + CONFLICT_RESOLUTION.md (if Phase 3 executed)
-    ↓ Interactive: User answers clarification questions
-    ↓ Output: Updated clarifications
+    ↓ Skip if conflict_risk is none/low → proceed directly to Phase 4
     ↓
 Phase 4: task-generate[--agent] --session sessionId
     ↓ Input: sessionId + conflict resolution decisions (if exists) + session memory
@@ -344,11 +328,7 @@ Return summary to user
 ✅ **Extract conflict_risk from context-package.json**: Determine Phase 3 execution
 ✅ **If conflict_risk ≥ medium**: Launch Phase 3 conflict-resolution with sessionId and contextPath
 ✅ Wait for Phase 3 completion (if executed), verify CONFLICT_RESOLUTION.md created
-✅ **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 3.5
-✅ **Execute Phase 3.5**: Pass session ID to `/workflow:concept-clarify`
-✅ Wait for user interaction (clarification Q&A)
-✅ Verify clarifications completed
-✅ Check recommendation: proceed if "PROCEED", otherwise alert user
+✅ **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 4
 ✅ **Build Phase 4 command** based on flags:
   - Base command: `/workflow:tools:task-generate` (or `-agent` if `--agent` flag)
   - Add `--session [sessionId]`
