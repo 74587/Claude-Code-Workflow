@@ -72,25 +72,35 @@ Generate TDD-specific tasks from analysis results with complete Red-Green-Refact
    - If session metadata in memory → Skip loading
    - Else: Load `.workflow/{session_id}/workflow-session.json`
 
-2. **Analysis Results Loading**
-   - If ANALYSIS_RESULTS.md in memory → Skip loading
-   - Else: Read `.workflow/{session_id}/.process/ANALYSIS_RESULTS.md`
+2. **Conflict Resolution Check** (NEW - Priority Input)
+   - If CONFLICT_RESOLUTION.md exists → Load selected strategies
+   - Else: Skip to brainstorming artifacts
+   - Path: `.workflow/{session_id}/.process/CONFLICT_RESOLUTION.md`
 
 3. **Artifact Discovery**
    - If artifact inventory in memory → Skip scanning
    - Else: Scan `.workflow/{session_id}/.brainstorming/` directory
    - Detect: role analysis documents, guidance-specification.md, role analyses
 
+4. **Context Package Loading**
+   - Load `.workflow/{session_id}/.process/context-package.json`
+   - Load `.workflow/{session_id}/.process/test-context-package.json` (if exists)
+
 ### Phase 2: TDD Task JSON Generation
 
-**Input**: Use `.process/ANALYSIS_RESULTS.md` directly (enhanced with TDD structure from concept-enhanced phase)
+**Input Sources** (priority order):
+1. **Conflict Resolution** (if exists): `.process/CONFLICT_RESOLUTION.md` - Selected resolution strategies
+2. **Brainstorming Artifacts**: Role analysis documents (system-architect, product-owner, etc.)
+3. **Context Package**: `.process/context-package.json` - Project structure and requirements
+4. **Test Context**: `.process/test-context-package.json` - Existing test patterns
 
-**ANALYSIS_RESULTS.md includes**:
+**TDD Task Structure includes**:
 - Feature list with testable requirements
 - Test cases for Red phase
-- Implementation requirements for Green phase
+- Implementation requirements for Green phase (with test-fix cycle)
 - Refactoring opportunities
 - Task dependencies and execution order
+- Conflict resolution decisions (if applicable)
 
 ### Phase 3: Task JSON & IMPL_PLAN.md Generation
 
@@ -247,13 +257,14 @@ Generate IMPL_PLAN.md with 8-section structure:
 ---
 identifier: WFS-{session-id}
 source: "User requirements" | "File: path"
-analysis: .workflow/{session-id}/.process/ANALYSIS_RESULTS.md
+conflict_resolution: .workflow/{session-id}/.process/CONFLICT_RESOLUTION.md  # if exists
 context_package: .workflow/{session-id}/.process/context-package.json
+test_context: .workflow/{session-id}/.process/test-context-package.json  # if exists
 workflow_type: "tdd"
 verification_history:
-  concept_verify: "passed | skipped | pending"
+  conflict_resolution: "executed | skipped" # based on conflict_risk
   action_plan_verify: "pending"
-phase_progression: "brainstorm → context → test_context → analysis → concept_verify → tdd_planning"
+phase_progression: "brainstorm → context → test_context → conflict_resolution → tdd_planning"
 feature_count: N
 task_count: N  # ≤10 total
 task_breakdown:
@@ -283,10 +294,10 @@ tdd_workflow: true
 
 ## 3. Brainstorming Artifacts Reference
 - Artifact Usage Strategy
+  - CONFLICT_RESOLUTION.md (if exists - selected resolution strategies)
   - role analysis documents (primary reference)
   - test-context-package.json (test patterns)
   - context-package.json (smart context)
-  - ANALYSIS_RESULTS.md (technical analysis)
 - Artifact Priority in Development
 
 ## 4. Implementation Strategy
@@ -397,7 +408,7 @@ Update workflow-session.json with TDD metadata:
 │   ├── IMPL-3.2.json                # Complex feature subtask (if needed)
 │   └── ...
 └── .process/
-    ├── ANALYSIS_RESULTS.md          # Enhanced with TDD breakdown from concept-enhanced
+    ├── CONFLICT_RESOLUTION.md       # Conflict resolution strategies (if conflict_risk ≥ medium)
     ├── test-context-package.json    # Test coverage analysis
     ├── context-package.json         # Input from context-gather
     └── green-fix-iteration-*.md     # Fix logs from Green phase test-fix cycles
@@ -438,7 +449,7 @@ Update workflow-session.json with TDD metadata:
 | Error | Cause | Resolution |
 |-------|-------|------------|
 | Session not found | Invalid session ID | Verify session exists |
-| Analysis missing | Incomplete planning | Run concept-enhanced first |
+| Context missing | Incomplete planning | Run context-gather first |
 
 ### TDD Generation Errors
 | Error | Cause | Resolution |

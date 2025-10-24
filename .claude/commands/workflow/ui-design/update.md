@@ -122,12 +122,77 @@ IF section not found:
     Edit(file_path="...", old_string="[end of document]", new_string="\n\n## UI/UX Guidelines\n\n[new design reference content]")
 ```
 
-### Phase 4: Update UI Designer Style Guide
+### Phase 4A: Update Relevant Role Analysis Documents
 
-Create or update `.brainstorming/ui-designer/style-guide.md`:
+**Discovery**: Find role analysis.md files affected by design outputs
+
+```bash
+# Always update ui-designer
+ui_designer_files = Glob(".workflow/WFS-{session}/.brainstorming/ui-designer/analysis*.md")
+
+# Conditionally update other roles
+has_animations = exists({latest_design}/animation-extraction/animation-tokens.json)
+has_layouts = exists({latest_design}/layout-extraction/layout-templates.json)
+
+IF has_animations: ux_expert_files = Glob(".workflow/WFS-{session}/.brainstorming/ux-expert/analysis*.md")
+IF has_layouts: architect_files = Glob(".workflow/WFS-{session}/.brainstorming/system-architect/analysis*.md")
+IF selected_list: pm_files = Glob(".workflow/WFS-{session}/.brainstorming/product-manager/analysis*.md")
+```
+
+**Content Templates**:
+
+**ui-designer/analysis.md** (append if not exists):
+```markdown
+## Design System Implementation Reference
+
+**Design Tokens**: @../../design-{run_id}/{design_tokens_path}
+**Style Guide**: @../../design-{run_id}/{style_guide_path}
+**Prototypes**: {FOR each: @../../design-{run_id}/prototypes/{prototype}.html}
+
+*Reference added by /workflow:ui-design:update*
+```
+
+**ux-expert/analysis.md** (if animations):
+```markdown
+## Animation & Interaction Reference
+
+**Animations**: @../../design-{run_id}/animation-extraction/animation-tokens.json
+**Prototypes**: {FOR each: @../../design-{run_id}/prototypes/{prototype}.html}
+
+*Reference added by /workflow:ui-design:update*
+```
+
+**system-architect/analysis.md** (if layouts):
+```markdown
+## Layout Structure Reference
+
+**Layout Templates**: @../../design-{run_id}/layout-extraction/layout-templates.json
+
+*Reference added by /workflow:ui-design:update*
+```
+
+**product-manager/analysis.md** (if prototypes):
+```markdown
+## Prototype Validation Reference
+
+**Prototypes**: {FOR each: @../../design-{run_id}/prototypes/{prototype}.html}
+
+*Reference added by /workflow:ui-design:update*
+```
+
+**Implementation**:
+```bash
+FOR file IN [ui_designer_files, ux_expert_files, architect_files, pm_files]:
+  IF file exists AND section_not_exists(file):
+    Edit(file, old_string="[end of document]", new_string="\n\n{role-specific section}")
+```
+
+### Phase 4B: Create UI Designer Design System Reference
+
+Create or update `.brainstorming/ui-designer/design-system-reference.md`:
 
 ```markdown
-# UI Designer Style Guide
+# UI Designer Design System Reference
 
 ## Design System Integration
 This style guide references the finalized design system from the design refinement phase.
@@ -158,7 +223,7 @@ For complete token definitions and usage examples, see:
 
 **Implementation**:
 ```bash
-Write(file_path=".workflow/WFS-{session}/.brainstorming/ui-designer/style-guide.md",
+Write(file_path=".workflow/WFS-{session}/.brainstorming/ui-designer/design-system-reference.md",
       content="[generated content with @ references]")
 ```
 
@@ -169,7 +234,8 @@ TodoWrite({todos: [
   {content: "Validate session and design system artifacts", status: "completed", activeForm: "Validating artifacts"},
   {content: "Load target brainstorming artifacts", status: "completed", activeForm: "Loading target files"},
   {content: "Update role analysis documents with design references", status: "completed", activeForm: "Updating synthesis spec"},
-  {content: "Create/update ui-designer/style-guide.md", status: "completed", activeForm: "Updating UI designer guide"}
+  {content: "Update relevant role analysis.md documents", status: "completed", activeForm: "Updating role analysis files"},
+  {content: "Create/update ui-designer/design-system-reference.md", status: "completed", activeForm: "Creating design system reference"}
 ]});
 ```
 
@@ -179,7 +245,8 @@ TodoWrite({todos: [
 
 Updated artifacts:
 ✓ role analysis documents - UI/UX Guidelines section with @ references
-✓ ui-designer/style-guide.md - Design system reference guide
+✓ {role_count} role analysis.md files - Design system references
+✓ ui-designer/design-system-reference.md - Design system reference guide
 
 Design system assets ready for /workflow:plan:
 - design-tokens.json | style-guide.md | {prototype_count} reference prototypes
@@ -193,9 +260,13 @@ Next: /workflow:plan [--agent] "<task description>"
 **Updated Files**:
 ```
 .workflow/WFS-{session}/.brainstorming/
-├── role analysis documents       # Updated with UI/UX Guidelines section
-└── ui-designer/
-    └── style-guide.md               # New or updated design reference guide
+├── role analysis documents              # Updated with UI/UX Guidelines section
+├── ui-designer/
+│   ├── analysis*.md                     # Updated with design system references
+│   └── design-system-reference.md       # New or updated design reference guide
+├── ux-expert/analysis*.md               # Updated if animations exist
+├── product-manager/analysis*.md         # Updated if prototypes exist
+└── system-architect/analysis*.md        # Updated if layouts exist
 ```
 
 **@ Reference Format** (role analysis documents):
@@ -205,10 +276,18 @@ Next: /workflow:plan [--agent] "<task description>"
 @../design-{run_id}/prototypes/{prototype}.html
 ```
 
-**@ Reference Format** (ui-designer/style-guide.md):
+**@ Reference Format** (ui-designer/design-system-reference.md):
 ```
 @../../design-{run_id}/style-extraction/style-1/design-tokens.json
 @../../design-{run_id}/style-extraction/style-1/style-guide.md
+@../../design-{run_id}/prototypes/{prototype}.html
+```
+
+**@ Reference Format** (role analysis.md files):
+```
+@../../design-{run_id}/style-extraction/style-1/design-tokens.json
+@../../design-{run_id}/animation-extraction/animation-tokens.json
+@../../design-{run_id}/layout-extraction/layout-templates.json
 @../../design-{run_id}/prototypes/{prototype}.html
 ```
 
@@ -249,7 +328,9 @@ After this update, `/workflow:plan` will discover design assets through:
 After update, verify:
 - [ ] role analysis documents contains UI/UX Guidelines section
 - [ ] UI/UX Guidelines include @ references (not content duplication)
-- [ ] ui-designer/style-guide.md created or updated
+- [ ] ui-designer/analysis*.md updated with design system references
+- [ ] ui-designer/design-system-reference.md created or updated
+- [ ] Relevant role analysis.md files updated (ux-expert, product-manager, system-architect)
 - [ ] All @ referenced files exist and are accessible
 - [ ] @ reference paths are relative and correct
 
@@ -264,7 +345,7 @@ After update, verify:
 ## Integration Points
 
 - **Input**: Design system artifacts from `/workflow:ui-design:style-extract` and `/workflow:ui-design:generate`
-- **Output**: Updated role analysis documents, ui-designer/style-guide.md with @ references
+- **Output**: Updated role analysis documents, role analysis.md files, ui-designer/design-system-reference.md with @ references
 - **Next Phase**: `/workflow:plan` discovers and utilizes design system through @ references
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` workflow
 

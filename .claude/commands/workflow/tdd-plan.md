@@ -20,12 +20,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 execution
 2. **No Preliminary Analysis**: Do not read files before Phase 1
 3. **Parse Every Output**: Extract required data for next phase
-4. **Sequential Execution**: Each phase depends on previous output
-5. **Complete All Phases**: Do not return until Phase 7 completes (with concept verification)
+4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
+5. **Track Progress**: Update TodoWrite after every phase completion
 6. **TDD Context**: All descriptions include "TDD:" prefix
-7. **Quality Gate**: Phase 5 concept verification ensures clarity before task generation
+7. **Quality Gate**: Phase 4 conflict resolution (optional, auto-triggered) validates compatibility before task generation
 
-## 7-Phase Execution (with Concept Verification)
+## 6-Phase Execution (with Conflict Resolution)
 
 ### Phase 1: Session Discovery
 **Command**: `/workflow:session:start --auto "TDD: [structured-description]"`
@@ -41,10 +41,32 @@ TEST_FOCUS: [Test scenarios]
 
 **Parse**: Extract sessionId
 
+**TodoWrite**: Mark phase 1 completed, phase 2 in_progress
+
+**After Phase 1**: Return to user showing Phase 1 results, then auto-continue to Phase 2
+
+---
+
 ### Phase 2: Context Gathering
 **Command**: `/workflow:tools:context-gather --session [sessionId] "TDD: [structured-description]"`
 
-**Parse**: Extract contextPath
+**Use Same Structured Description**: Pass the same structured format from Phase 1
+
+**Input**: `sessionId` from Phase 1
+
+**Parse Output**:
+- Extract: context-package.json path (store as `contextPath`)
+- Typical pattern: `.workflow/[sessionId]/.process/context-package.json`
+
+**Validation**:
+- Context package path extracted
+- File exists and is valid JSON
+
+**TodoWrite**: Mark phase 2 completed, phase 3 in_progress
+
+**After Phase 2**: Return to user showing Phase 2 results, then auto-continue to Phase 3
+
+---
 
 ### Phase 3: Test Coverage Analysis
 **Command**: `/workflow:tools:test-context-gather --session [sessionId]`
@@ -63,34 +85,49 @@ TEST_FOCUS: [Test scenarios]
 - Prevents duplicate test creation
 - Enables integration with existing tests
 
-### Phase 4: TDD Analysis
-**Command**: `/workflow:tools:concept-enhanced --session [sessionId] --context [contextPath]`
+**TodoWrite**: Mark phase 3 completed, phase 4 in_progress
 
-**Note**: Generates ANALYSIS_RESULTS.md with TDD-specific structure:
-- Feature list with testable requirements
-- Test cases for Red phase
-- Implementation requirements for Green phase
-- Refactoring opportunities
-- Task dependencies and execution order
+**After Phase 3**: Return to user showing test coverage results, then auto-continue to Phase 4
 
-**Parse**: Verify ANALYSIS_RESULTS.md contains TDD breakdown sections
+---
 
-### Phase 5: Concept Verification (NEW QUALITY GATE)
-**Command**: `/workflow:concept-verify --session [sessionId]`
+### Phase 4: Conflict Resolution (Optional - auto-triggered by conflict risk)
 
-**Purpose**: Verify conceptual clarity before TDD task generation
-- Clarify test requirements and acceptance criteria
-- Resolve ambiguities in expected behavior
-- Validate TDD approach is appropriate
+**Trigger**: Only execute when context-package.json indicates conflict_risk is "medium" or "high"
 
-**Behavior**:
-- If no ambiguities found → Auto-proceed to Phase 6
-- If ambiguities exist → Interactive clarification (up to 5 questions)
-- After clarifications → Auto-proceed to Phase 6
+**Command**: `SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] --context [contextPath]")`
 
-**Parse**: Verify concept verification completed (check for clarifications section in ANALYSIS_RESULTS.md or synthesis file if exists)
+**Input**:
+- sessionId from Phase 1
+- contextPath from Phase 2
+- conflict_risk from context-package.json
 
-### Phase 6: TDD Task Generation
+**Parse Output**:
+- Extract: Execution status (success/skipped/failed)
+- Verify: CONFLICT_RESOLUTION.md file path (if executed)
+
+**Validation**:
+- File `.workflow/[sessionId]/.process/CONFLICT_RESOLUTION.md` exists (if executed)
+
+**Skip Behavior**:
+- If conflict_risk is "none" or "low", skip directly to Phase 5
+- Display: "No significant conflicts detected, proceeding to TDD task generation"
+
+**TodoWrite**: Mark phase 4 completed (if executed) or skipped, phase 5 in_progress
+
+**After Phase 4**: Return to user showing conflict resolution results (if executed) and selected strategies, then auto-continue to Phase 5
+
+**Memory State Check**:
+- Evaluate current context window usage and memory state
+- If memory usage is high (>110K tokens or approaching context limits):
+  - **Command**: `SlashCommand(command="/compact")`
+  - This optimizes memory before proceeding to Phase 5
+- Memory compaction is particularly important after analysis phase which may generate extensive documentation
+- Ensures optimal performance and prevents context overflow
+
+---
+
+### Phase 5: TDD Task Generation
 **Command**:
 - Manual: `/workflow:tools:task-generate-tdd --session [sessionId]`
 - Agent: `/workflow:tools:task-generate-tdd --session [sessionId] --agent`
@@ -108,7 +145,7 @@ TEST_FOCUS: [Test scenarios]
 - IMPL_PLAN.md contains workflow_type: "tdd" in frontmatter
 - Task count ≤10 (compliance with task limit)
 
-### Phase 7: TDD Structure Validation & Action Plan Verification (RECOMMENDED)
+### Phase 6: TDD Structure Validation & Action Plan Verification (RECOMMENDED)
 **Internal validation first, then recommend external verification**
 
 **Internal Validation**:
@@ -166,18 +203,44 @@ TDD Configuration:
 ## TodoWrite Pattern
 
 ```javascript
-// Initialize (7 phases now with concept verification)
-[
-  {content: "Execute session discovery", status: "in_progress", activeForm: "Executing session discovery"},
-  {content: "Execute context gathering", status: "pending", activeForm": "Executing context gathering"},
-  {content: "Execute test coverage analysis", status: "pending", activeForm": "Executing test coverage analysis"},
-  {content: "Execute TDD analysis", status: "pending", activeForm": "Executing TDD analysis"},
-  {content: "Execute concept verification", status: "pending", activeForm": "Executing concept verification"},
-  {content: "Execute TDD task generation", status: "pending", activeForm: "Executing TDD task generation"},
-  {content: "Validate TDD structure", status: "pending", activeForm: "Validating TDD structure"}
-]
+// Initialize (Phase 4 added dynamically after Phase 3 if conflict_risk ≥ medium)
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "in_progress", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "pending", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "pending", "activeForm": "Executing test coverage analysis"},
+  // Phase 4 todo added dynamically after Phase 3 if conflict_risk ≥ medium
+  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]})
 
-// Update after each phase: mark current "completed", next "in_progress"
+// After Phase 3 (if conflict_risk ≥ medium, insert Phase 4 todo)
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Execute conflict resolution", "status": "in_progress", "activeForm": "Executing conflict resolution"},
+  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]})
+
+// After Phase 3 (if conflict_risk is none/low, skip Phase 4, go directly to Phase 5)
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Execute TDD task generation", "status": "in_progress", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]})
+
+// After Phase 4 (if executed), continue to Phase 5
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Execute conflict resolution", "status": "completed", "activeForm": "Executing conflict resolution"},
+  {"content": "Execute TDD task generation", "status": "in_progress", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]})
 ```
 
 ## Input Processing

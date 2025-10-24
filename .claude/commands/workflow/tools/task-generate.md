@@ -784,7 +784,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
 | Error | Cause | Resolution |
 |-------|-------|------------|
 | Session not found | Invalid session ID | Verify session exists |
-| Analysis missing | Incomplete planning | Run concept-enhanced first |
+| Context missing | Incomplete planning | Run context-gather first |
 | Invalid format | Corrupted results | Regenerate analysis |
 
 ### Task Generation Errors
@@ -817,5 +817,5 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
 - `/workflow:plan` - Orchestrates entire planning
 - `/workflow:plan --cli-execute` - Planning with CLI execution mode
 - `/workflow:tools:context-gather` - Provides context package
-- `/workflow:tools:concept-enhanced` - Provides analysis results
+- `/workflow:tools:conflict-resolution` - Provides conflict resolution strategies (optional)
 - `/workflow:execute` - Executes generated tasks
