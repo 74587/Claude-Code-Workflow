@@ -11,7 +11,7 @@ Three-phase workflow to eliminate ambiguities and enhance conceptual depth in ro
 
 **Phase 1-2 (Main Flow)**: Session detection → File discovery → Path preparation
 
-**Phase 3A (Analysis Agent)**: Cross-role analysis → CLI concept enhancement → Generate recommendations
+**Phase 3A (Analysis Agent)**: Cross-role analysis → Generate recommendations
 
 **Phase 4 (Main Flow)**: User selects enhancements → User answers clarifications → Build update plan
 
@@ -22,7 +22,6 @@ Three-phase workflow to eliminate ambiguities and enhance conceptual depth in ro
 **Key Features**:
 - Multi-agent architecture (analysis agent + parallel update agents)
 - Clear separation: Agent analysis vs Main flow interaction
-- CLI-powered concept enhancement (Gemini)
 - Parallel document updates (one agent per role)
 - User intent alignment validation
 
@@ -36,7 +35,7 @@ Three-phase workflow to eliminate ambiguities and enhance conceptual depth in ro
 [
   {"content": "Detect session and validate analyses", "status": "in_progress", "activeForm": "Detecting session"},
   {"content": "Discover role analysis file paths", "status": "pending", "activeForm": "Discovering paths"},
-  {"content": "Execute analysis agent (cross-role + CLI enhancement)", "status": "pending", "activeForm": "Executing analysis agent"},
+  {"content": "Execute analysis agent (cross-role analysis)", "status": "pending", "activeForm": "Executing analysis agent"},
   {"content": "Present enhancements for user selection", "status": "pending", "activeForm": "Presenting enhancements"},
   {"content": "Generate and present clarification questions", "status": "pending", "activeForm": "Clarifying with user"},
   {"content": "Build update plan from user input", "status": "pending", "activeForm": "Building update plan"},
@@ -110,15 +109,8 @@ Analyze role documents, identify conflicts/gaps, and generate enhancement recomm
    - Action: Identify consensus themes, conflicts, gaps, underspecified areas
    - Output: consensus_themes, conflicting_views, gaps_list, ambiguities
 
-4. **cli_concept_enhancement**
-   - Action: Execute intelligent CLI analysis with fallback chain
-   - Dynamic Prompt: \"PURPOSE: Cross-role synthesis | TASK: conflicts/gaps/enhancements | MODE: analysis | CONTEXT: @**/* | EXPECTED: EP-001,EP-002,... | RULES: Eliminate ambiguities\"
-   - Fallback Chain: `cd {brainstorm_dir} && gemini -p \"$PROMPT\" -m gemini-2.5-pro` → (if fail) `qwen -p \"$PROMPT\"` → (if fail) `codex -C {brainstorm_dir} --full-auto exec \"$PROMPT\" -m gpt-5`
-   - Error Handling: Gemini 429 OK if results exist | 40min timeout | One attempt per tool
-   - Output: cli_enhancement_points
-
-5. **generate_recommendations**
-   - Action: Combine cross-role analysis + CLI enhancements into structured recommendations
+4. **generate_recommendations**
+   - Action: Convert cross-role analysis findings into structured enhancement recommendations
    - Format: EP-001, EP-002, ... (sequential numbering)
    - Fields: id, title, affected_roles, category, current_state, enhancement, rationale, priority
    - Taxonomy: Map to 9 categories (User Intent, Requirements, Architecture, UX, Feasibility, Risk, Process, Decisions, Terminology)
@@ -150,7 +142,7 @@ Return JSON array:
 **⚠️ CRITICAL**: ALL AskUserQuestion calls MUST use Chinese (所有问题必须用中文) for better user understanding
 
 1. **Present Enhancement Options**:
-```python
+```
 AskUserQuestion(
   questions=[{
     "question": "Which enhancements would you like to apply?",
@@ -172,7 +164,7 @@ AskUserQuestion(
    - Each with 2-4 options + descriptions
 
 3. **Interactive Clarification Loop**:
-```python
+```
 # Present ONE question at a time
 FOR question in clarification_questions (max 5):
   AskUserQuestion(
@@ -192,7 +184,7 @@ FOR question in clarification_questions (max 5):
 ```
 
 4. **Build Update Plan**:
-```python
+``` 
 update_plan = {
   "role1": {
     "enhancements": [EP-001, EP-003],
@@ -430,19 +422,4 @@ Update `workflow-session.json`:
 - Valid Markdown
 - Cross-references maintained
 
-## Next Steps
-
-**Standard**:
-```bash
-/workflow:plan --session WFS-{session-id}
-/workflow:action-plan-verify --session WFS-{session-id}  # Optional
-/workflow:execute --session WFS-{session-id}
-```
-
-**TDD**:
-```bash
-/workflow:tdd-plan --session WFS-{session-id} "description"
-/workflow:action-plan-verify --session WFS-{session-id}  # Optional
-/workflow:execute --session WFS-{session-id}
-```
 
