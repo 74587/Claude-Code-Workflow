@@ -1,9 +1,11 @@
 
 # 🚀 Claude Code Workflow (CCW) - 快速上手指南
 
-欢迎来到 Claude Code Workflow (CCW) v4.6.2！本指南将帮助您在 5 分钟内快速入门，体验由 AI 驱动的自动化软件开发流程，以及我们最新的工作流系统优化。
+欢迎来到 Claude Code Workflow (CCW) v5.0！本指南将帮助您在 5 分钟内快速入门，体验由 AI 驱动的自动化软件开发流程，以及我们全新的精简化、零外部依赖的工作流系统。
 
 **项目地址**：[catlog22/Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
+
+> **🎉 v5.0 新特性：少即是多**！我们移除了外部 MCP 依赖，简化了工作流程。CCW 现在使用标准工具（ripgrep/find）以获得更好的稳定性和性能。头脑风暴工作流专注于角色分析，使规划更加清晰。
 
 ---
 
@@ -138,33 +140,7 @@
 - 具有重大影响的架构决策
 - 实现前需要详尽需求分析
 
-### 场景 4：质量保证 - 概念澄清
-
-在生成任务之前，确保您的需求清晰且无歧义：
-
-```bash
-# 在头脑风暴综合或规划分析后，验证概念清晰度
-/workflow:concept-clarify
-
-# 该命令将：
-# 1. 分析工件中的歧义和缺失细节
-# 2. 提出最多 5 个针对性问题以解决关键差距
-# 3. 使用澄清更新 synthesis-specification.md 或 ANALYSIS_RESULTS.md
-# 4. 建议是继续进行还是解决未完成的问题
-```
-
-**使用时机**：
-- 在 `/workflow:brainstorm:synthesis` 之后（在 `/workflow:plan` 之前）
-- 在 `/workflow:plan` 的第 3 阶段之后（在任务生成之前）
-- 当您想减少规划错误和返工时
-
-**优势**：
-- 及早检测未明确的需求
-- 防止下游实现错误
-- 确保团队在关键决策上保持一致
-- 减少执行期间的昂贵返工
-
-### 场景 5：质量保证 - 行动计划验证
+### 场景 4：质量保证 - 行动计划验证
 
 规划后，验证您的实现计划的一致性和完整性：
 
@@ -302,12 +278,12 @@ CCW 使用分层的 CLAUDE.md 文档系统维护项目上下文。定期更新�
 
 ```bash
 # 重建整个项目的文档索引
-/update-memory-full
+/memory:update-full
 
 # 使用特定工具进行索引
-/update-memory-full --tool gemini   # 全面分析（推荐）
-/update-memory-full --tool qwen     # 架构重点
-/update-memory-full --tool codex    # 实现细节
+/memory:update-full --tool gemini   # 全面分析（推荐）
+/memory:update-full --tool qwen     # 架构重点
+/memory:update-full --tool codex    # 实现细节
 ```
 
 **执行时机**：
@@ -347,10 +323,10 @@ CCW 使用分层的 CLAUDE.md 文档系统维护项目上下文。定期更新�
 
 ```bash
 # 更新最近修改相关的文档
-/update-memory-related
+/memory:update-related
 
 # 指定工具进行更新
-/update-memory-related --tool gemini
+/memory:update-related --tool gemini
 ```
 
 **执行时机**：

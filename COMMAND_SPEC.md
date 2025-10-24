@@ -1,12 +1,14 @@
 
 # Claude Code Workflow (CCW) - Command Specification
 
-**Version**: 4.6.0
-**Generated**: 2025年10月18日星期六
+**Version**: 5.0.0
+**Updated**: 2025年10月24日星期六
 
 ## 1. Introduction
 
 This document provides a detailed technical specification for every command available in the Claude Code Workflow (CCW) system. It is intended for advanced users and developers who wish to understand the inner workings of CCW, customize commands, or build new workflows.
+
+> **Version 5.0 Changes**: Removed MCP code-index dependency, streamlined TDD workflow with conflict resolution, and refocused brainstorming on role analysis instead of synthesis documents.
 
 For a user-friendly overview, please see [COMMAND_REFERENCE.md](COMMAND_REFERENCE.md).
 
@@ -308,7 +310,7 @@ Commands for managing individual tasks within a workflow session.
 - **Agent-Driven Execution**: Fully delegates to general-purpose agent which autonomously:
   1. Analyzes project structure and documentation
   2. Extracts keywords from task description
-  3. Discovers relevant files using MCP code-index or search tools
+  3. Discovers relevant files using ripgrep/find search tools
   4. Executes Gemini/Qwen CLI for deep analysis
   5. Generates structured JSON content package
 - **Core Philosophy**: Read-only analysis, token-efficient (CLI analysis in agent), structured output
@@ -384,8 +386,8 @@ Specialized workflow for UI/UX design, from style extraction to prototype genera
 
 ### **/workflow:ui-design:capture**
 - **Syntax**: `/workflow:ui-design:capture --url-map "target:url,..." ...`
-- **Responsibilities**: Batch screenshot capture tool with MCP-first strategy and local fallbacks.
-- **Agent Calls**: None directly, uses MCP tools.
+- **Responsibilities**: Batch screenshot capture tool using MCP Chrome DevTools with multi-tier fallback strategy (MCP → Playwright → Chrome → Manual).
+- **Agent Calls**: None directly, uses MCP Chrome DevTools or browser automation as fallback.
 - **Example**:
   ```bash
   /workflow:ui-design:capture --url-map "home:https://linear.app"
@@ -394,7 +396,7 @@ Specialized workflow for UI/UX design, from style extraction to prototype genera
 ### **/workflow:ui-design:explore-layers**
 - **Syntax**: `/workflow:ui-design:explore-layers --url <url> --depth <1-5> ...`
 - **Responsibilities**: Performs a deep, interactive UI capture of a single URL, exploring layers from the full page down to the Shadow DOM.
-- **Agent Calls**: None directly, uses MCP tools.
+- **Agent Calls**: None directly, uses MCP Chrome DevTools for layer exploration.
 - **Example**:
   ```bash
   /workflow:ui-design:explore-layers --url https://linear.app --depth 3
@@ -489,8 +491,9 @@ Workflows for Test-Driven Development (TDD) and post-implementation test generat
 
 ### **/workflow:test-cycle-execute**
 - **Syntax**: `/workflow:test-cycle-execute [--resume-session="session-id"] [--max-iterations=N]`
-- **Responsibilities**: Executes a dynamic test-fix workflow, creating intermediate fix tasks based on test results and analysis.
-- **Agent Calls**: `@code-developer`, `@test-fix-agent`.
+- **Responsibilities**: Executes a test-fix workflow by delegating to `/workflow:execute`. Generates test tasks dynamically and creates intermediate fix tasks based on test results.
+- **Agent Calls**: Delegates to `/workflow:execute` which invokes `@test-fix-agent` for task execution.
+- **Note**: This command generates tasks; actual execution is performed by `/workflow:execute`.
 - **Example**:
   ```bash
   /workflow:test-cycle-execute --resume-session="WFS-test-user-auth"

@@ -2,6 +2,8 @@
 
 This document provides a comprehensive reference for all commands available in the Claude Code Workflow (CCW) system.
 
+> **Version 5.0 Update**: Streamlined command structure focusing on essential tools. Removed MCP code-index dependency for better stability and performance.
+
 ## Unified CLI Commands (`/cli:*`)
 
 These commands provide direct access to AI tools for quick analysis and interaction without initiating a full workflow.
@@ -47,7 +49,7 @@ These commands orchestrate complex, multi-phase development processes, from plan
 |---|---|
 | `/workflow:brainstorm:artifacts` | Generate role-specific guidance-specification.md dynamically based on selected roles. |
 | `/workflow:brainstorm:auto-parallel` | Parallel brainstorming automation with dynamic role selection and concurrent execution. |
-| `/workflow:brainstorm:synthesis` | Generate synthesis-specification.md from guidance-specification and role analyses with @ references using conceptual-planning-agent. |
+| `/workflow:brainstorm:synthesis` | Clarify and refine role analyses through intelligent Q&A and targeted updates. |
 | `/workflow:brainstorm:api-designer` | Generate or update api-designer/analysis.md addressing guidance-specification discussion points. |
 | `/workflow:brainstorm:data-architect` | Generate or update data-architect/analysis.md addressing guidance-specification discussion points. |
 | `/workflow:brainstorm:product-manager` | Generate or update product-manager/analysis.md addressing guidance-specification discussion points. |
@@ -62,7 +64,6 @@ These commands orchestrate complex, multi-phase development processes, from plan
 
 | Command | Description |
 |---|---|
-| `/workflow:concept-clarify` | Identify underspecified areas in brainstorming artifacts through targeted clarification questions before action planning. |
 | `/workflow:action-plan-verify`| Perform non-destructive cross-artifact consistency and quality analysis of IMPL_PLAN.md and task.json before execution. |
 
 ### Test-Driven Development (TDD)
@@ -76,9 +77,9 @@ These commands orchestrate complex, multi-phase development processes, from plan
 
 | Command | Description |
 |---|---|
-| `/workflow:test-gen` | Create independent test-fix workflow session by analyzing completed implementation. |
-| `/workflow:test-fix-gen` | Create independent test-fix workflow session from existing implementation (session or prompt-based). |
-| `/workflow:test-cycle-execute` | Execute test-fix workflow with dynamic task generation and iterative fix cycles. |
+| `/workflow:test-gen` | Generate test plan and tasks by analyzing completed implementation. Use `/workflow:execute` to run generated tasks. |
+| `/workflow:test-fix-gen` | Generate test-fix plan and tasks from existing implementation or prompt. Use `/workflow:execute` to run generated tasks. |
+| `/workflow:test-cycle-execute` | Execute test-fix workflow with dynamic task generation and iterative fix cycles. Tasks are executed by `/workflow:execute`. |
 
 ### UI Design Workflow
 

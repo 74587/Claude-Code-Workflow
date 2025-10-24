@@ -1,9 +1,11 @@
 
 # 🚀 Claude Code Workflow (CCW) - Getting Started Guide
 
-Welcome to Claude Code Workflow (CCW) v4.6.2! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development with our latest workflow system optimizations.
+Welcome to Claude Code Workflow (CCW) v5.0! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development with our streamlined, dependency-free workflow system.
 
 **Project Repository**: [catlog22/Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
+
+> **🎉 What's New in v5.0**: Less is more! We've removed external MCP dependencies and simplified workflows. CCW now uses standard tools (ripgrep/find) for better stability and performance. The brainstorming workflow focuses on role analysis for clearer planning.
 
 ---
 
@@ -138,33 +140,7 @@ For complex features requiring thorough analysis, use the complete workflow: **b
 - Architectural decisions with significant impact
 - When you need thorough requirements before implementation
 
-### Scenario 4: Quality Assurance - Concept Clarification
-
-Before generating tasks, ensure your requirements are clear and unambiguous:
-
-```bash
-# After brainstorming synthesis or planning analysis, verify conceptual clarity
-/workflow:concept-clarify
-
-# The command will:
-# 1. Analyze artifacts for ambiguities and missing details
-# 2. Ask up to 5 targeted questions to resolve critical gaps
-# 3. Update synthesis-specification.md or ANALYSIS_RESULTS.md with clarifications
-# 4. Recommend whether to proceed or address outstanding issues
-```
-
-**When to Use**:
-- After `/workflow:brainstorm:synthesis` (before `/workflow:plan`)
-- After Phase 3 of `/workflow:plan` (before task generation)
-- When you want to reduce planning errors and rework
-
-**Benefits**:
-- Detects underspecified requirements early
-- Prevents downstream implementation errors
-- Ensures team alignment on critical decisions
-- Reduces costly rework during execution
-
-### Scenario 5: Quality Assurance - Action Plan Verification
+### Scenario 4: Quality Assurance - Action Plan Verification
 
 After planning, validate your implementation plan for consistency and completeness:
 
@@ -302,12 +278,12 @@ Suitable for large-scale refactoring, architectural changes, or first-time CCW u
 
 ```bash
 # Rebuild entire project documentation index
-/update-memory-full
+/memory:update-full
 
 # Use specific tool for indexing
-/update-memory-full --tool gemini   # Comprehensive analysis (recommended)
-/update-memory-full --tool qwen     # Architecture focus
-/update-memory-full --tool codex    # Implementation details
+/memory:update-full --tool gemini   # Comprehensive analysis (recommended)
+/memory:update-full --tool qwen     # Architecture focus
+/memory:update-full --tool codex    # Implementation details
 ```
 
 **When to Execute**:
@@ -347,10 +323,10 @@ Suitable for daily development, updating only modules affected by changes:
 
 ```bash
 # Update recently modified related documentation
-/update-memory-related
+/memory:update-related
 
 # Specify tool for update
-/update-memory-related --tool gemini
+/memory:update-related --tool gemini
 ```
 
 **When to Execute**:
