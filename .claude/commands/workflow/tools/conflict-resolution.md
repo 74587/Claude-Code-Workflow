@@ -166,7 +166,12 @@ Task(subagent_type="cli-execution-agent", prompt=`
             "modifications": [...]
           }
         ],
-        "recommended": 0
+        "recommended": 0,
+        "modification_suggestions": [
+          "建议1：具体的修改方向或注意事项",
+          "建议2：可能需要考虑的边界情况",
+          "建议3：相关的最佳实践或模式"
+        ]
       }
     ],
     "summary": {
@@ -186,12 +191,15 @@ Task(subagent_type="cli-execution-agent", prompt=`
   - section: Markdown heading for context (helps locate position)
   - Minimum 2 strategies per conflict, max 4
   - All text in Chinese for user-facing fields (brief, name, pros, cons)
+  - modification_suggestions: 2-5 actionable suggestions for custom handling (Chinese)
 
   Quality Standards:
   - Each strategy must have actionable modifications
   - old_content must be precise enough for Edit tool matching
   - new_content preserves markdown formatting and structure
   - Recommended strategy (index) based on lowest complexity + risk
+  - modification_suggestions must be specific, actionable, and context-aware
+  - Each suggestion should address a specific aspect (compatibility, migration, testing, etc.)
 `)
 ```
 
@@ -238,10 +246,19 @@ for (const [batchIdx, batch] of batches.entries()) {
       console.log(`   复杂度: ${strategy.complexity} | 风险: ${strategy.risk} | 工作量: ${strategy.effort}`);
     });
 
-    // Add skip option
-    const skipLetter = String.fromCharCode(97 + conflict.strategies.length);
-    console.log(`${skipLetter}) 跳过此冲突`);
-    console.log(`   说明：稍后手动处理，不应用任何修改\n`);
+    // Add custom option
+    const customLetter = String.fromCharCode(97 + conflict.strategies.length);
+    console.log(`${customLetter}) 自定义修改`);
+    console.log(`   说明：根据修改建议自行处理，不应用预设策略`);
+
+    // Show modification suggestions
+    if (conflict.modification_suggestions && conflict.modification_suggestions.length > 0) {
+      console.log(`   修改建议：`);
+      conflict.modification_suggestions.forEach(suggestion => {
+        console.log(`   - ${suggestion}`);
+      });
+    }
+    console.log();
   });
 
   console.log(`请回答 (格式: 1a 2b 3c...)：`);
@@ -253,38 +270,51 @@ for (const [batchIdx, batch] of batches.entries()) {
   const answers = parseUserAnswers(userInput, batch);
 }
 
-// 3. Build selected strategies
-const selectedStrategies = answers.filter(a => !a.isSkip).map(a => a.strategy);
+// 3. Build selected strategies (exclude custom selections)
+const selectedStrategies = answers.filter(a => !a.isCustom).map(a => a.strategy);
+const customConflicts = answers.filter(a => a.isCustom).map(a => ({
+  id: a.conflict.id,
+  brief: a.conflict.brief,
+  suggestions: a.conflict.modification_suggestions
+}));
 ```
 
 **Text Output Example**:
 ```markdown
 ===== 冲突解决 (第 1/1 轮) =====
 
-【问题1 - 认证系统】CON-001: 现有认证系统与计划不兼容
+【问题1 - Architecture】CON-001: 现有认证系统与计划不兼容
 a) 渐进式迁移
    说明：保留现有系统，逐步迁移到新方案
    复杂度: Medium | 风险: Low | 工作量: 3-5天
 b) 完全重写
    说明：废弃旧系统，从零实现新认证
    复杂度: High | 风险: Medium | 工作量: 7-10天
-c) 跳过此冲突
-   说明：稍后手动处理，不应用任何修改
+c) 自定义修改
+   说明：根据修改建议自行处理，不应用预设策略
+   修改建议：
+   - 评估现有认证系统的兼容性，考虑是否可以通过适配器模式桥接
+   - 检查JWT token格式和验证逻辑是否需要调整
+   - 确保用户会话管理与新架构保持一致
 
-【问题2 - 数据库】CON-002: 数据库 schema 冲突
+【问题2 - Data】CON-002: 数据库 schema 冲突
 a) 添加迁移脚本
    说明：创建数据库迁移脚本处理 schema 变更
    复杂度: Low | 风险: Low | 工作量: 1-2天
-b) 跳过此冲突
-   说明：稍后手动处理，不应用任何修改
+b) 自定义修改
+   说明：根据修改建议自行处理，不应用预设策略
+   修改建议：
+   - 检查现有表结构是否支持新增字段，避免破坏性变更
+   - 考虑使用数据库版本控制工具（如Flyway或Liquibase）
+   - 准备数据迁移和回滚策略
 
 请回答 (格式: 1a 2b)：
 ```
 
 **User Input Examples**:
 - `1a 2a` → Conflict 1: 渐进式迁移, Conflict 2: 添加迁移脚本
-- `1b 2b` → Conflict 1: 完全重写, Conflict 2: 跳过
-- `1c 2c` → Both skipped
+- `1b 2b` → Conflict 1: 完全重写, Conflict 2: 自定义修改
+- `1c 2c` → Both choose custom modification (user handles manually with suggestions)
 
 ### Phase 4: Apply Modifications
 
@@ -316,11 +346,25 @@ contextPackage.conflict_detection.resolved_conflicts = conflicts.map(c => c.id);
 contextPackage.conflict_detection.resolved_at = new Date().toISOString();
 Write(contextPath, JSON.stringify(contextPackage, null, 2));
 
-// 4. Return summary
+// 4. Output custom conflict summary (if any)
+if (customConflicts.length > 0) {
+  console.log("\n===== 需要自定义处理的冲突 =====\n");
+  customConflicts.forEach(conflict => {
+    console.log(`【${conflict.id}】${conflict.brief}`);
+    console.log("修改建议：");
+    conflict.suggestions.forEach(suggestion => {
+      console.log(`  - ${suggestion}`);
+    });
+    console.log();
+  });
+}
+
+// 5. Return summary
 return {
   resolved: modifications.length,
-  skipped: selectedStrategies.filter(s => s === "skip").length,
-  modified_files: [...new Set(modifications.map(m => m.file))]
+  custom: customConflicts.length,
+  modified_files: [...new Set(modifications.map(m => m.file))],
+  custom_conflicts: customConflicts
 };
 ```
 
@@ -397,21 +441,23 @@ If Edit tool fails mid-application:
 
 **User Interaction**:
 - Text-based strategy selection (max 10 conflicts per round)
-- Each conflict: 2-4 strategy options + "跳过" option
+- Each conflict: 2-4 strategy options + "自定义修改" option (with suggestions)
 
 ### Success Criteria
 ```
 ✓ CLI analysis returns valid JSON structure
 ✓ Conflicts presented in batches (max 10 per round)
 ✓ Min 2 strategies per conflict with modifications
-✓ Text output displays all conflicts correctly
+✓ Each conflict includes 2-5 modification_suggestions
+✓ Text output displays all conflicts correctly with suggestions
 ✓ User selections captured and processed
 ✓ Edit tool applies modifications successfully
+✓ Custom conflicts displayed with suggestions for manual handling
 ✓ guidance-specification.md updated with resolved conflicts
 ✓ Role analyses (*.md) updated with resolved conflicts
 ✓ context-package.json marked as "resolved"
 ✓ No CONFLICT_RESOLUTION.md file generated
-✓ Modification summary returned to user
+✓ Modification summary includes custom conflict count
 ✓ Agent log saved to .workflow/{session_id}/.chat/
 ✓ Error handling robust (validate/retry/degrade)
 ```
