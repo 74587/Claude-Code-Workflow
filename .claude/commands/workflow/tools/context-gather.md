@@ -122,25 +122,6 @@ const outputPath = `.workflow/${session_id}/.process/context-package.json`;
 if (!file_exists(outputPath)) {
   throw new Error("❌ Agent failed to generate context-package.json");
 }
-
-// Load and validate
-const contextPackage = Read(outputPath);
-if (!contextPackage?.metadata?.session_id) {
-  throw new Error("❌ Invalid context-package.json format");
-}
-
-// Report completion
-console.log("✅ Context gathering complete");
-console.log("📦 Package:", outputPath);
-console.log("📊 Stats:");
-console.log("  - Total files:", contextPackage.statistics.total_files);
-console.log("  - Source files:", contextPackage.statistics.source_files);
-console.log("  - Documentation:", contextPackage.statistics.docs_files);
-console.log("  - Tests:", contextPackage.statistics.test_files);
-console.log("⚠️  Conflict Risk:", contextPackage.conflict_detection.risk_level);
-console.log("🎯 Affected Modules:", contextPackage.conflict_detection.affected_modules.join(", "));
-
-return contextPackage;
 ```
 
 ## Parameter Reference
@@ -168,43 +149,6 @@ Refer to `context-search-agent.md` Phase 3.7 for complete `context-package.json`
 ```bash
 /workflow:tools:context-gather --session WFS-auth-feature "Implement JWT authentication with refresh tokens"
 ```
-
-### Called by /workflow:plan
-```bash
-# Plan command internally calls context-gather
-SlashCommand(command="/workflow:tools:context-gather --session ${session_id} \"${task_description}\"")
-```
-
-### Verify Existing Package
-```bash
-# If package exists and valid, returns immediately
-/workflow:tools:context-gather --session WFS-auth-feature "Implement JWT authentication"
-# Output: ✅ Valid context-package found for session: WFS-auth-feature
-```
-
-## Integration Points
-
-### Upstream Callers
-- `/workflow:plan` - Main entry point for planning workflow
-- `/workflow:brainstorm/artifacts` - Lightweight mode (skips this, uses direct agent call)
-
-### Downstream Consumers
-- `/workflow:tools:task-generate` - Reads context-package for task creation
-- `/workflow:tools:conflict-resolution` - Uses conflict_detection for resolution strategy
-- Task execution agents - Reference context-package via `context_package_path` field in task JSON
-
-## Mode Comparison: Plan vs Brainstorm
-
-| Aspect | Plan Mode (this command) | Brainstorm Mode (artifacts.md) |
-|--------|--------------------------|--------------------------------|
-| **Purpose** | Implementation planning | Question generation |
-| **Execution** | Full Phase 1-3 | Phase 1-2 only (lightweight) |
-| **Discovery** | All 3 tracks + deep analysis | Basic structure + tech stack |
-| **Output** | Comprehensive (deps, conflicts) | Lightweight (overview only) |
-| **Web Research** | ✅ Included | ❌ Skipped |
-| **Dependency Graph** | ✅ Full graph (2 levels) | ❌ Skipped |
-| **Conflict Detection** | ✅ Detailed with mitigation | ✅ Basic (file count only) |
-
 ## Success Criteria
 
 - ✅ Valid context-package.json generated in `.workflow/{session}/.process/`
