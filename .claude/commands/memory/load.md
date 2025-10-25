@@ -99,9 +99,9 @@ Task(
   prompt=`
 ## Mission: Load Project Memory Context
 
-**Task Context**: "${task_description}"
-**Mode**: Read-only analysis
-**Tool**: ${tool || 'gemini'}
+**Task**: Load project memory context for: "${task_description}"
+**Mode**: analysis
+**Tool Preference**: ${tool || 'gemini'}
 
 ## Execution Steps
 

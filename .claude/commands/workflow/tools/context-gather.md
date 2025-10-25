@@ -54,7 +54,7 @@ if (file_exists(contextPackagePath)) {
 
 ```javascript
 Task(
-  subagent_type="universal-executor",
+  subagent_type="context-search-agent",
   description="Gather comprehensive context for plan",
   prompt=`
 You are executing as context-search-agent (.claude/agents/context-search-agent.md).
