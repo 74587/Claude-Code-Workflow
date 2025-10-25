@@ -1,265 +1,188 @@
 ---
 name: test-context-gather
-description: Collect test coverage context and identify files requiring test generation
+description: Intelligently collect test coverage context using test-context-search-agent and package into standardized test-context JSON
 argument-hint: "--session WFS-test-session-id"
 examples:
   - /workflow:tools:test-context-gather --session WFS-test-auth
   - /workflow:tools:test-context-gather --session WFS-test-payment
+allowed-tools: Task(*), Read(*), Glob(*)
 ---
 
-# Test Context Gather Command
+# Test Context Gather Command (/workflow:tools:test-context-gather)
 
 ## Overview
-Specialized context collector for test generation workflows that analyzes test coverage, identifies missing tests, and packages implementation context from source sessions.
+
+Orchestrator command that invokes `test-context-search-agent` to gather comprehensive test coverage context for test generation workflows. Generates standardized `test-context-package.json` with coverage analysis, framework detection, and source implementation context.
+
+**Agent**: `test-context-search-agent` (`.claude/agents/test-context-search-agent.md`)
 
 ## Core Philosophy
-- **Coverage-First**: Analyze existing test coverage before planning
-- **Gap Identification**: Locate implementation files without corresponding tests
+
+- **Agent Delegation**: Delegate all test coverage analysis to `test-context-search-agent` for autonomous execution
+- **Detection-First**: Check for existing test-context-package before executing
+- **Coverage-First**: Analyze existing test coverage before planning new tests
 - **Source Context Loading**: Import implementation summaries from source session
-- **Framework Detection**: Auto-detect test framework and patterns
-- **Ripgrep-Powered**: Leverage ripgrep and native tools for precise analysis
+- **Standardized Output**: Generate `.workflow/{test_session_id}/.process/test-context-package.json`
 
-## Core Responsibilities
-- Load source session implementation context
-- Analyze current test coverage using ripgrep
-- Identify files requiring test generation
-- Detect test framework and conventions
-- Package test context for analysis phase
+## Execution Flow
 
-## Execution Lifecycle
+### Step 1: Test-Context-Package Detection
 
-### Phase 1: Session Validation & Source Loading
+**Execute First** - Check if valid package already exists:
 
-1. **Test Session Validation**
-   - Load `.workflow/{test_session_id}/workflow-session.json`
-   - Extract `meta.source_session` reference
-   - Validate test session type is "test-gen"
+```javascript
+const testContextPath = `.workflow/${test_session_id}/.process/test-context-package.json`;
 
-2. **Source Session Context Loading**
-   - Read `.workflow/{source_session_id}/workflow-session.json`
-   - Load implementation summaries from `.workflow/{source_session_id}/.summaries/`
-   - Extract changed files and implementation scope
-   - Identify implementation patterns and tech stack
+if (file_exists(testContextPath)) {
+  const existing = Read(testContextPath);
 
-### Phase 2: Test Coverage Analysis (Ripgrep)
-
-1. **Existing Test Discovery**
-   ```bash
-   # Find all test files
-   find . -name "*.test.*" -type f
-   find . -name "*.spec.*" -type f
-   find . -name "*test_*.py" -type f
-
-   # Search for test patterns
-   rg "describe|it|test|@Test" -g "*.test.*"
-   ```
-
-2. **Coverage Gap Analysis**
-   ```bash
-   # For each implementation file from source session
-   # Check if corresponding test file exists
-
-   # Example: src/auth/AuthService.ts -> tests/auth/AuthService.test.ts
-   #          src/utils/validator.py -> tests/test_validator.py
-
-   # Output: List of files without tests
-   ```
-
-3. **Test Statistics**
-   - Count total test files
-   - Count implementation files from source session
-   - Calculate coverage percentage
-   - Identify coverage gaps by module
-
-### Phase 3: Test Framework Detection
-
-1. **Framework Identification**
-   ```bash
-   # Check package.json or requirements.txt
-   rg "jest|mocha|jasmine|pytest|unittest|rspec" -g "package.json" -g "requirements.txt" -g "Gemfile" -C 2
-
-   # Analyze existing test patterns
-   rg "describe\(|it\(|test\(|def test_" -g "*.test.*" -C 3
-   ```
-
-2. **Convention Analysis**
-   - Test file naming patterns (*.test.ts vs *.spec.ts)
-   - Test directory structure (tests/ vs __tests__ vs src/**/*.test.*)
-   - Assertion library (expect, assert, should)
-   - Mocking framework (jest.fn, sinon, unittest.mock)
-
-### Phase 4: Context Packaging
-
-Generate `test-context-package.json`:
-
-```json
-{
-  "metadata": {
-    "test_session_id": "WFS-test-auth",
-    "source_session_id": "WFS-auth",
-    "timestamp": "2025-10-04T10:30:00Z",
-    "task_type": "test-generation",
-    "complexity": "medium"
-  },
-  "source_context": {
-    "implementation_summaries": [
-      {
-        "task_id": "IMPL-001",
-        "summary_path": ".workflow/WFS-auth/.summaries/IMPL-001-summary.md",
-        "changed_files": [
-          "src/auth/AuthService.ts",
-          "src/auth/TokenValidator.ts",
-          "src/middleware/auth.ts"
-        ],
-        "implementation_type": "feature"
-      }
-    ],
-    "tech_stack": ["typescript", "express", "jsonwebtoken"],
-    "project_patterns": {
-      "architecture": "layered",
-      "error_handling": "try-catch with custom errors",
-      "async_pattern": "async/await"
-    }
-  },
-  "test_coverage": {
-    "existing_tests": [
-      "tests/auth/AuthService.test.ts",
-      "tests/middleware/auth.test.ts"
-    ],
-    "missing_tests": [
-      {
-        "implementation_file": "src/auth/TokenValidator.ts",
-        "suggested_test_file": "tests/auth/TokenValidator.test.ts",
-        "priority": "high",
-        "reason": "New implementation without tests"
-      }
-    ],
-    "coverage_stats": {
-      "total_implementation_files": 3,
-      "files_with_tests": 2,
-      "files_without_tests": 1,
-      "coverage_percentage": 66.7
-    }
-  },
-  "test_framework": {
-    "framework": "jest",
-    "version": "^29.0.0",
-    "test_pattern": "**/*.test.ts",
-    "test_directory": "tests/",
-    "assertion_library": "expect",
-    "mocking_framework": "jest",
-    "conventions": {
-      "file_naming": "*.test.ts",
-      "test_structure": "describe/it blocks",
-      "setup_teardown": "beforeEach/afterEach"
-    }
-  },
-  "assets": [
-    {
-      "type": "implementation_summary",
-      "path": ".workflow/WFS-auth/.summaries/IMPL-001-summary.md",
-      "relevance": "Source implementation context",
-      "priority": "highest"
-    },
-    {
-      "type": "existing_test",
-      "path": "tests/auth/AuthService.test.ts",
-      "relevance": "Test pattern reference",
-      "priority": "high"
-    },
-    {
-      "type": "source_code",
-      "path": "src/auth/TokenValidator.ts",
-      "relevance": "Implementation requiring tests",
-      "priority": "high"
-    },
-    {
-      "type": "documentation",
-      "path": "CLAUDE.md",
-      "relevance": "Project conventions",
-      "priority": "medium"
-    }
-  ],
-  "focus_areas": [
-    "Generate comprehensive tests for TokenValidator",
-    "Follow existing Jest patterns from AuthService tests",
-    "Cover happy path, error cases, and edge cases",
-    "Include integration tests for middleware"
-  ]
+  // Validate package belongs to current test session
+  if (existing?.metadata?.test_session_id === test_session_id) {
+    console.log("✅ Valid test-context-package found for session:", test_session_id);
+    console.log("📊 Coverage Stats:", existing.test_coverage.coverage_stats);
+    console.log("🧪 Framework:", existing.test_framework.framework);
+    console.log("⚠️  Missing Tests:", existing.test_coverage.missing_tests.length);
+    return existing; // Skip execution, return existing
+  } else {
+    console.warn("⚠️ Invalid test_session_id in existing package, re-generating...");
+  }
 }
 ```
 
-## Output Location
+### Step 2: Invoke Test-Context-Search Agent
 
-```
-.workflow/{test_session_id}/.process/test-context-package.json
-```
+**Only execute if Step 1 finds no valid package**
 
-## Native Tools Usage
+```javascript
+Task(
+  subagent_type="test-context-search-agent",
+  description="Gather test coverage context",
+  prompt=`
+You are executing as test-context-search-agent (.claude/agents/test-context-search-agent.md).
 
-### File Discovery
-```bash
-# Test files
-find . -name "*.test.*" -type f
-find . -name "*.spec.*" -type f
+## Execution Mode
+**PLAN MODE** (Comprehensive) - Full Phase 1-3 execution
 
-# Implementation files
-find . -name "*.ts" -type f
-find . -name "*.js" -type f
-```
+## Session Information
+- **Test Session ID**: ${test_session_id}
+- **Output Path**: .workflow/${test_session_id}/.process/test-context-package.json
 
-### Content Search
-```bash
-# Test framework detection
-rg "jest|mocha|pytest" -g "package.json" -g "requirements.txt"
+## Mission
+Execute complete test-context-search-agent workflow for test generation planning:
 
-# Test pattern analysis
-rg "describe|it|test" -g "*.test.*" -C 2
-```
+### Phase 1: Session Validation & Source Context Loading
+1. **Detection**: Check for existing test-context-package (early exit if valid)
+2. **Test Session Validation**: Load test session metadata, extract source_session reference
+3. **Source Context Loading**: Load source session implementation summaries, changed files, tech stack
 
-### Coverage Analysis
-```bash
-# For each implementation file
-# Check if test exists
-implementation_file="src/auth/AuthService.ts"
-test_file_patterns=(
-  "tests/auth/AuthService.test.ts"
-  "src/auth/AuthService.test.ts"
-  "src/auth/__tests__/AuthService.test.ts"
+### Phase 2: Test Coverage Analysis
+Execute coverage discovery:
+- **Track 1**: Existing test discovery (find *.test.*, *.spec.* files)
+- **Track 2**: Coverage gap analysis (match implementation files to test files)
+- **Track 3**: Coverage statistics (calculate percentages, identify gaps by module)
+
+### Phase 3: Framework Detection & Packaging
+1. Framework identification from package.json/requirements.txt
+2. Convention analysis from existing test patterns
+3. Generate and validate test-context-package.json
+
+## Output Requirements
+Complete test-context-package.json with:
+- **metadata**: test_session_id, source_session_id, task_type, complexity
+- **source_context**: implementation_summaries, tech_stack, project_patterns
+- **test_coverage**: existing_tests[], missing_tests[], coverage_stats
+- **test_framework**: framework, version, test_pattern, conventions
+- **assets**: implementation_summary[], existing_test[], source_code[] with priorities
+- **focus_areas**: Test generation guidance based on coverage gaps
+
+## Quality Validation
+Before completion verify:
+- [ ] Valid JSON format with all required fields
+- [ ] Source session context loaded successfully
+- [ ] Test coverage gaps identified
+- [ ] Test framework detected (or marked as 'unknown')
+- [ ] Coverage percentage calculated correctly
+- [ ] Missing tests catalogued with priority
+- [ ] Execution time < 30 seconds (< 60s for large codebases)
+
+Execute autonomously following agent documentation.
+Report completion with coverage statistics.
+`
 )
-
-# Search for test file
-for pattern in "${test_file_patterns[@]}"; do
-  if [ -f "$pattern" ]; then
-    echo "✅ Test exists: $pattern"
-    break
-  fi
-done
 ```
+
+### Step 3: Output Verification
+
+After agent completes, verify output:
+
+```javascript
+// Verify file was created
+const outputPath = `.workflow/${test_session_id}/.process/test-context-package.json`;
+if (!file_exists(outputPath)) {
+  throw new Error("❌ Agent failed to generate test-context-package.json");
+}
+
+// Load and display summary
+const testContext = Read(outputPath);
+console.log("✅ Test context package generated successfully");
+console.log("📊 Coverage:", testContext.test_coverage.coverage_stats.coverage_percentage + "%");
+console.log("⚠️  Tests to generate:", testContext.test_coverage.missing_tests.length);
+```
+
+## Parameter Reference
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--session` | string | ✅ | Test workflow session ID (e.g., WFS-test-auth) |
+
+## Output Schema
+
+Refer to `test-context-search-agent.md` Phase 3.2 for complete `test-context-package.json` schema.
+
+**Key Sections**:
+- **metadata**: Test session info, source session reference, complexity
+- **source_context**: Implementation summaries with changed files and tech stack
+- **test_coverage**: Existing tests, missing tests with priorities, coverage statistics
+- **test_framework**: Framework name, version, patterns, conventions
+- **assets**: Categorized files with relevance (implementation_summary, existing_test, source_code)
+- **focus_areas**: Test generation guidance based on analysis
+
+## Usage Examples
+
+### Basic Usage
+```bash
+/workflow:tools:test-context-gather --session WFS-test-auth
+```
+
+### Expected Output
+```
+✅ Valid test-context-package found for session: WFS-test-auth
+📊 Coverage Stats: { total: 3, with_tests: 2, without_tests: 1, percentage: 66.7 }
+🧪 Framework: jest
+⚠️  Missing Tests: 1
+```
+
+## Success Criteria
+
+- ✅ Valid test-context-package.json generated in `.workflow/{test_session_id}/.process/`
+- ✅ Source session context loaded successfully
+- ✅ Test coverage gaps identified (>90% accuracy)
+- ✅ Test framework detected and documented
+- ✅ Execution completes within 30 seconds (60s for large codebases)
+- ✅ All required schema fields present and valid
+- ✅ Coverage statistics calculated correctly
+- ✅ Agent reports completion with statistics
 
 ## Error Handling
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
+| Package validation failed | Invalid test_session_id in existing package | Re-run agent to regenerate |
 | Source session not found | Invalid source_session reference | Verify test session metadata |
 | No implementation summaries | Source session incomplete | Complete source session first |
-| No test framework detected | Missing test dependencies | Request user to specify framework |
-
-## Native Tools Implementation
-
-```bash
-# File discovery
-find . -name "*.test.*" -o -name "*.spec.*" | grep -v node_modules
-
-# Framework detection
-grep -r "jest\|mocha\|pytest" package.json requirements.txt 2>/dev/null
-
-# Coverage analysis
-for impl_file in $(cat changed_files.txt); do
-  test_file=$(echo $impl_file | sed 's/src/tests/' | sed 's/\(.*\)\.\(ts\|js\|py\)$/\1.test.\2/')
-  [ ! -f "$test_file" ] && echo "$impl_file → MISSING TEST"
-done
-```
+| Agent execution timeout | Large codebase or slow analysis | Increase timeout, check file access |
+| Missing required fields | Agent incomplete execution | Check agent logs, verify schema compliance |
+| No test framework detected | Missing test dependencies | Agent marks as 'unknown', manual specification needed |
 
 ## Integration
 
@@ -267,20 +190,18 @@ done
 - `/workflow:test-gen` (Phase 3: Context Gathering)
 
 ### Calls
-- Ripgrep and find for file analysis
-- Bash file operations for coverage analysis
+- `test-context-search-agent` - Autonomous test coverage analysis
 
 ### Followed By
-- `/workflow:tools:test-concept-enhanced` - Analyzes context and plans test generation
+- `/workflow:tools:test-concept-enhanced` - Test generation analysis and planning
 
-## Success Criteria
+## Notes
 
-- ✅ Source session context loaded successfully
-- ✅ Test coverage gaps identified with ripgrep
-- ✅ Test framework detected and documented
-- ✅ Valid test-context-package.json generated
-- ✅ All missing tests catalogued with priority
-- ✅ Execution time < 20 seconds
+- **Detection-first**: Always check for existing test-context-package before invoking agent
+- **Agent autonomy**: Agent handles all coverage analysis logic per `.claude/agents/test-context-search-agent.md`
+- **No redundancy**: This command is a thin orchestrator, all logic in agent
+- **Framework agnostic**: Supports Jest, Mocha, pytest, RSpec, Go testing, etc.
+- **Coverage focus**: Primary goal is identifying implementation files without tests
 
 ## Related Commands
 
