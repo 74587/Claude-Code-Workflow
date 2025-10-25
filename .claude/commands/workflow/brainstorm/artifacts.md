@@ -166,33 +166,55 @@ Task(
   prompt=`
 You are executing as context-search-agent (.claude/agents/context-search-agent.md).
 
-## Session Info
-- Session ID: {session-id}
-- Topic: {topic}
-- Output: .workflow/WFS-{session-id}/.process/context-package.json
+## Execution Mode
+**BRAINSTORM MODE** (Lightweight) - Phase 1-2 only (skip deep analysis)
+
+## Session Information
+- **Session ID**: ${session_id}
+- **Task Description**: ${task_description}
+- **Output Path**: .workflow/${session_id}/.process/context-package.json
 
 ## Mission
-Gather lightweight project context for brainstorming questions:
-- Project structure (get_modules_by_depth.sh)
-- Tech stack (package.json/requirements.txt)
-- Architecture patterns (CLAUDE.md)
-- Existing related modules (keywords: {topic_keywords})
+Execute complete context-search-agent workflow for implementation planning:
 
-## Scope (for brainstorm)
-**LIGHTWEIGHT** - Focus on high-level context, NOT detailed implementation
-- Skip: Detailed dependency graphs, deep code analysis
-- Include: Architecture overview, tech stack, existing module names
-- Conflict risk: Basic detection only (file count, module overlap)
+### Phase 1: Initialization & Pre-Analysis
+1. **Detection**: Check for existing context-package (early exit if valid)
+2. **Foundation**: Initialize code-index, get project structure, load docs
+3. **Analysis**: Extract keywords, determine scope, classify complexity
 
-## Output Fields Required
-- metadata: {task_description, keywords, tech_stack, session_id}
-- project_context: {architecture_patterns, coding_conventions, tech_stack}
-- assets: {documentation[], source_code[] with high-level paths only}
-- conflict_detection: {risk_level, existing_files[], affected_modules[]}
-- brainstorm_artifacts: {empty initially, will be populated by synthesis}
+### Phase 2: Multi-Source Context Discovery
+Execute all 3 discovery tracks:
+- **Track 1**: Reference documentation (CLAUDE.md, architecture docs)
+- **Track 2**: Web examples (use Exa MCP for unfamiliar tech/APIs)
+- **Track 3**: Codebase analysis (5-layer discovery: files, content, patterns, deps, config/tests)
 
-Execute Phase 0-2 only (Foundation, Task Analysis, Basic Discovery).
-Skip deep dependency analysis and web research.
+### Phase 3: Synthesis, Assessment & Packaging
+1. Apply relevance scoring and build dependency graph
+2. Synthesize 3-source data (docs > code > web)
+3. Integrate brainstorm artifacts (if .brainstorming/ exists, read content)
+4. Perform conflict detection with risk assessment
+5. Generate and validate context-package.json
+
+## Output Requirements
+Complete context-package.json with:
+- **metadata**: task_description, keywords, complexity, tech_stack, session_id
+- **project_context**: architecture_patterns, coding_conventions, tech_stack
+- **assets**: {documentation[], source_code[], config[], tests[]} with relevance scores
+- **dependencies**: {internal[], external[]} with dependency graph
+- **brainstorm_artifacts**: {guidance_specification, role_analyses[], synthesis_output} with content
+- **conflict_detection**: {risk_level, risk_factors, affected_modules[], mitigation_strategy}
+
+## Quality Validation
+Before completion verify:
+- [ ] Valid JSON format with all required fields
+- [ ] File relevance accuracy >80%
+- [ ] Dependency graph complete (max 2 transitive levels)
+- [ ] Conflict risk level calculated correctly
+- [ ] No sensitive data exposed
+- [ ] Total files ≤50 (prioritize high-relevance)
+
+Execute autonomously following agent documentation.
+Report completion with statistics.
 `
 )
 ```
