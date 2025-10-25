@@ -49,6 +49,7 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
     "synthesis_output": {"path": "...", "exists": true},
     "conflict_resolution": {"path": "...", "exists": true}  // if conflict_risk >= medium
   },
+  "context_package_path": ".workflow/{session-id}/.process/context-package.json",
   "context_package": {
     // If in memory: use cached content
     // Else: Load from .workflow/{session-id}/.process/context-package.json
@@ -336,9 +337,11 @@ const agentContext = {
     ? memory.get("workflow-session.json")
     : Read(.workflow/WFS-[id]/workflow-session.json),
 
+  context_package_path: ".workflow/WFS-[id]/.process/context-package.json",
+
   context_package: memory.has("context-package.json")
     ? memory.get("context-package.json")
-    : Read(.workflow/WFS-[id]/.process/context-package.json),
+    : Read(".workflow/WFS-[id]/.process/context-package.json"),
 
   // Extract brainstorm artifacts from context package
   brainstorm_artifacts: extractBrainstormArtifacts(context_package),

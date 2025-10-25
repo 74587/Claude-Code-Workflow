@@ -173,6 +173,7 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
   "id": "IMPL-N[.M]",
   "title": "Descriptive task name",
   "status": "pending|active|completed|blocked|container",
+  "context_package_path": ".workflow/WFS-[session]/.process/context-package.json",
   "meta": {
     "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
     "agent": "@code-developer|@test-fix-agent|@universal-executor",
@@ -194,11 +195,6 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         "usage": "Role-specific requirements, design specs, enhanced by synthesis. Paths loaded dynamically from context-package.json (supports multiple files per role: analysis.md, analysis-01.md, analysis-api.md, etc.). Common roles: product-manager, system-architect, ui-designer, data-architect, ux-expert."
       },
       {
-        "path": ".workflow/WFS-[session]/.process/context-package.json",
-        "priority": "critical",
-        "usage": "Smart context with focus paths, module structure, dependency graph, existing patterns, tech stack. Use for: environment setup, dependency resolution, pattern discovery, conflict detection results"
-      },
-      {
         "path": ".workflow/WFS-[session]/.brainstorming/guidance-specification.md",
         "priority": "high",
         "usage": "Finalized design decisions (potentially modified by conflict resolution if conflict_risk was medium/high). Use for: understanding resolved requirements, design choices, conflict resolutions applied in-place"
@@ -210,8 +206,9 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
       {
         "step": "load_context_package",
         "action": "Load context package for artifact paths",
+        "note": "Context package path is now at top-level field: context_package_path",
         "commands": [
-          "Read(.workflow/WFS-[session]/.process/context-package.json)"
+          "Read({{context_package_path}})"
         ],
         "output_to": "context_package",
         "on_error": "fail"
@@ -221,7 +218,7 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         "action": "Load role analyses from context-package.json (supports multiple files per role)",
         "note": "Paths loaded from context-package.json → brainstorm_artifacts.role_analyses[]. Supports analysis*.md automatically.",
         "commands": [
-          "Read(.workflow/WFS-[session]/.process/context-package.json)",
+          "Read({{context_package_path}})",
           "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
           "Read(each extracted path)"
         ],
@@ -231,9 +228,9 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
       {
         "step": "load_planning_context",
         "action": "Load plan-generated context intelligence with resolved conflicts",
-        "note": "CRITICAL: context-package.json provides smart context (focus paths, dependencies, patterns) and conflict resolution status. If conflict_risk was medium/high, conflicts have been resolved in guidance-specification.md and role analyses.",
+        "note": "CRITICAL: context-package.json (from context_package_path) provides smart context (focus paths, dependencies, patterns) and conflict resolution status. If conflict_risk was medium/high, conflicts have been resolved in guidance-specification.md and role analyses.",
         "commands": [
-          "Read(.workflow/WFS-[session]/.process/context-package.json)",
+          "Read({{context_package_path}})",
           "Read(.workflow/WFS-[session]/.brainstorming/guidance-specification.md)"
         ],
         "output_to": "planning_context",
@@ -403,7 +400,7 @@ Role analyses provide specialized perspectives on the implementation:
 - **topic-framework.md**: Role-specific discussion points and analysis framework
 
 **Artifact Priority in Development**:
-1. context-package.json (primary source: smart context AND brainstorm artifact catalog in `brainstorm_artifacts` + conflict_risk status)
+1. {context_package_path} (primary source: smart context AND brainstorm artifact catalog in `brainstorm_artifacts` + conflict_risk status)
 2. role/analysis*.md (paths from context-package.json: requirements, design specs, enhanced by synthesis, with resolved conflicts if any)
 3. guidance-specification.md (path from context-package.json: finalized decisions with resolved conflicts if any)
 
@@ -592,8 +589,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
 
 **Key Points**:
 - **Sequential Steps**: Steps execute in order defined in `implementation_approach` array
-- **Context Delivery**: Each codex command receives context via CONTEXT field: `@.workflow/WFS-session/.process/context-package.json` (role analyses loaded dynamically from context package)
-- **Multi-Step Tasks**: First step provides full context, subsequent steps use `resume --last` to maintain session continuity
+    - **Context Delivery**: Each codex command receives context via CONTEXT field: `@{context_package_path}` (role analyses loaded dynamically from context package)- **Multi-Step Tasks**: First step provides full context, subsequent steps use `resume --last` to maintain session continuity
 - **Step Dependencies**: Later steps reference outputs from earlier steps via `depends_on` field
 
 ### Example 1: Agent Mode - Simple Task (Default, No Command)
@@ -601,6 +597,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
 {
   "id": "IMPL-001",
   "title": "Implement user authentication module",
+  "context_package_path": ".workflow/WFS-session/.process/context-package.json",
   "context": {
     "depends_on": [],
     "focus_paths": ["src/auth"],
@@ -617,7 +614,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
         "step": "load_role_analyses",
         "action": "Load role analyses from context-package.json",
         "commands": [
-          "Read(.workflow/WFS-session/.process/context-package.json)",
+          "Read({{context_package_path}})",
           "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
           "Read(each extracted path)"
         ],
@@ -627,7 +624,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
       {
         "step": "load_context",
         "action": "Load context package for project structure",
-        "commands": ["Read(.workflow/WFS-session/.process/context-package.json)"],
+        "commands": ["Read({{context_package_path}})"],
         "output_to": "context_pkg",
         "on_error": "fail"
       }
@@ -662,6 +659,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
 {
   "id": "IMPL-002",
   "title": "Implement user authentication module",
+  "context_package_path": ".workflow/WFS-session/.process/context-package.json",
   "context": {
     "depends_on": [],
     "focus_paths": ["src/auth"],
@@ -674,7 +672,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
         "step": "load_role_analyses",
         "action": "Load role analyses from context-package.json",
         "commands": [
-          "Read(.workflow/WFS-session/.process/context-package.json)",
+          "Read({{context_package_path}})",
           "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
           "Read(each extracted path)"
         ],
@@ -687,7 +685,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
         "step": 1,
         "title": "Implement authentication with Codex",
         "description": "Create JWT-based authentication module",
-        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication TASK: JWT-based auth with login/registration MODE: auto CONTEXT: @.workflow/WFS-session/.process/context-package.json EXPECTED: Complete auth module with tests RULES: Load role analyses from context-package.json → brainstorm_artifacts\" --skip-git-repo-check -s danger-full-access)",
+        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication TASK: JWT-based auth with login/registration MODE: auto CONTEXT: @{{context_package_path}} EXPECTED: Complete auth module with tests RULES: Load role analyses from context-package.json → brainstorm_artifacts\" --skip-git-repo-check -s danger-full-access)",
         "modification_points": ["Create auth service", "Implement endpoints", "Add JWT middleware"],
         "logic_flow": ["Validate credentials", "Generate JWT", "Return token"],
         "depends_on": [],
@@ -704,6 +702,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
 {
   "id": "IMPL-003",
   "title": "Implement role-based access control",
+  "context_package_path": ".workflow/WFS-session/.process/context-package.json",
   "context": {
     "depends_on": ["IMPL-002"],
     "focus_paths": ["src/auth", "src/middleware"],
@@ -716,7 +715,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
         "step": "load_context",
         "action": "Load context and role analyses from context-package.json",
         "commands": [
-          "Read(.workflow/WFS-session/.process/context-package.json)",
+          "Read({{context_package_path}})",
           "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
           "Read(each extracted path)"
         ],
@@ -729,7 +728,7 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
         "step": 1,
         "title": "Create RBAC models",
         "description": "Define role and permission data models",
-        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Create RBAC models TASK: Role and permission models MODE: auto CONTEXT: @.workflow/WFS-session/.process/context-package.json EXPECTED: Models with migrations RULES: Load role analyses from context-package.json → brainstorm_artifacts\" --skip-git-repo-check -s danger-full-access)",
+        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Create RBAC models TASK: Role and permission models MODE: auto CONTEXT: @{{context_package_path}} EXPECTED: Models with migrations RULES: Load role analyses from context-package.json → brainstorm_artifacts\" --skip-git-repo-check -s danger-full-access)",
         "modification_points": ["Define role model", "Define permission model", "Create migrations"],
         "logic_flow": ["Design schema", "Implement models", "Generate migrations"],
         "depends_on": [],

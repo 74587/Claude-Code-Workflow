@@ -2,7 +2,7 @@
 name: artifacts
 description: Interactive clarification generating confirmed guidance specification
 argument-hint: "topic or challenge description [--count N]"
-allowed-tools: TodoWrite(*), Read(*), Write(*), AskUserQuestion(*), Glob(*)
+allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 ---
 
 ## Overview
@@ -15,7 +15,7 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 
 **Parameters**:
 - `topic` (required): Topic or challenge description (structured format recommended)
-- `--count N` (optional): Number of roles user WANTS to select (system will recommend N+2 options via AskUserQuestion for user to choose from, default: 3)
+- `--count N` (optional): Number of roles user WANTS to select (system will recommend N+2 options for user to choose from, default: 3)
 
 ## Task Tracking
 
@@ -33,28 +33,103 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 ```json
 [
   {"content": "Initialize session (.workflow/.active-* check, parse --count parameter)", "status": "pending", "activeForm": "Initializing"},
-  {"content": "Phase 1: Extract challenges, generate 2-4 task-specific questions", "status": "pending", "activeForm": "Phase 1 topic analysis"},
-  {"content": "Phase 2: Recommend count+2 roles, MUST collect user selection via AskUserQuestion (multiSelect)", "status": "pending", "activeForm": "Phase 2 role selection"},
-  {"content": "Phase 3: Generate 3-4 task-specific questions per role (max 4 per round)", "status": "pending", "activeForm": "Phase 3 role questions"},
-  {"content": "Phase 4: Detect conflicts in Phase 3 answers, generate clarifications (max 4 per round)", "status": "pending", "activeForm": "Phase 4 conflict resolution"},
+  {"content": "Phase 1: Extract challenges, output 2-4 task-specific questions, wait for user input", "status": "pending", "activeForm": "Phase 1 topic analysis"},
+  {"content": "Phase 2: Recommend count+2 roles, output role selection, wait for user input", "status": "pending", "activeForm": "Phase 2 role selection"},
+  {"content": "Phase 3: Generate 3-4 questions per role, output and wait for answers (max 10 per round)", "status": "pending", "activeForm": "Phase 3 role questions"},
+  {"content": "Phase 4: Detect conflicts, output clarifications, wait for answers (max 10 per round)", "status": "pending", "activeForm": "Phase 4 conflict resolution"},
   {"content": "Phase 5: Transform Q&A to declarative statements, write guidance-specification.md", "status": "pending", "activeForm": "Phase 5 document generation"}
 ]
 ```
 
+## User Interaction Protocol
+
+### Question Output Format
+
+All questions output as structured text (detailed format with descriptions):
+
+```markdown
+【问题{N} - {短标签}】{问题文本}
+a) {选项标签}
+   说明：{选项说明和影响}
+b) {选项标签}
+   说明：{选项说明和影响}
+c) {选项标签}
+   说明：{选项说明和影响}
+
+请回答：{N}a 或 {N}b 或 {N}c
+```
+
+**Multi-select format** (Phase 2 role selection):
+```markdown
+【角色选择】请选择 {count} 个角色参与头脑风暴分析
+
+a) {role-name} ({中文名})
+   推荐理由：{基于topic的相关性说明}
+b) {role-name} ({中文名})
+   推荐理由：{基于topic的相关性说明}
+...
+
+支持格式：
+- 分别选择：2a 2c 2d (选择第2题的a、c、d选项)
+- 合并语法：2acd (选择a、c、d)
+- 逗号分隔：2a,c,d
+
+请输入选择：
+```
+
+### Input Parsing Rules
+
+**Supported formats** (intelligent parsing):
+
+1. **Space-separated**: `1a 2b 3c` → Q1:a, Q2:b, Q3:c
+2. **Comma-separated**: `1a,2b,3c` → Q1:a, Q2:b, Q3:c
+3. **Multi-select combined**: `2abc` → Q2: options a,b,c
+4. **Multi-select spaces**: `2 a b c` → Q2: options a,b,c
+5. **Multi-select comma**: `2a,b,c` → Q2: options a,b,c
+6. **Natural language**: `问题1选a` → 1a (fallback parsing)
+
+**Parsing algorithm**:
+- Extract question numbers and option letters
+- Validate question numbers match output
+- Validate option letters exist for each question
+- If ambiguous/invalid, output example format and request re-input
+
+**Error handling** (lenient):
+- Recognize common variations automatically
+- If parsing fails, show example and wait for clarification
+- Support re-input without penalty
+
+### Batching Strategy
+
+**Batch limits**:
+- **Default**: Maximum 10 questions per round
+- **Phase 2 (role selection)**: Display all recommended roles at once (count+2 roles)
+- **Auto-split**: If questions > 10, split into multiple rounds with clear round indicators
+
+**Round indicators**:
+```markdown
+===== 第 1 轮问题 (共2轮) =====
+【问题1 - ...】...
+【问题2 - ...】...
+...
+【问题10 - ...】...
+
+请回答 (格式: 1a 2b ... 10c)：
+```
+
+### Interaction Flow
+
+**Standard flow**:
+1. Output questions in formatted text
+2. Output expected input format example
+3. Wait for user input
+4. Parse input with intelligent matching
+5. If parsing succeeds → Store answers and continue
+6. If parsing fails → Show error, example, and wait for re-input
+
+**No question/option limits**: Text-based interaction removes previous 4-question and 4-option restrictions
+
 ## Execution Phases
-
-### Phase 0: User Mode Check (First Step)
-
-**Output to user**:
-```
-**⚠️ 请先启用 "CLAUDE accept edits on" 模式**
-
-本命令需要多轮交互问答（5个阶段，约10-15个问题）
-
-启用后回复继续。
-```
-
-**Wait for user confirmation** before proceeding to Phase 1.
 
 ### Session Management
 - Check `.workflow/.active-*` markers first
@@ -69,20 +144,42 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 **Steps**:
 1. **Deep topic analysis**: Extract technical entities, identify core challenges (what makes this hard?), constraints (timeline/budget/compliance), success metrics (what defines done?)
 2. **Generate 2-4 probing questions** targeting root challenges, trade-off priorities, and risk tolerance (NOT surface-level "Project Type")
-3. **User interaction via AskUserQuestion tool**: Present 2-4 task-specific questions (multiSelect: false for single-choice questions)
-4. **Storage**: Store answers to `session.intent_context` with `{extracted_keywords, identified_challenges, user_answers}`
+3. **User interaction**: Output questions using text format (see User Interaction Protocol), wait for user input
+4. **Parse user answers**: Use intelligent parsing to extract answers from user input (support multiple formats)
+5. **Storage**: Store answers to `session.intent_context` with `{extracted_keywords, identified_challenges, user_answers}`
 
-**Example (Task-Specific)**:
-Topic: "Build real-time collaboration platform SCOPE: 100 users"
-→ Extract: ["real-time", "collaboration", "100 users"]
-→ Challenges: ["data sync", "scalability", "low latency"]
-→ Generate: "PRIMARY technical challenge?" → [Real-time data sync / Scalability to 100+ users / Conflict resolution]
+**Example Output**:
+```markdown
+===== Phase 1: 项目意图分析 =====
+
+【问题1 - 核心挑战】实时协作平台的主要技术挑战？
+a) 实时数据同步
+   说明：100+用户同时在线，状态同步复杂度高
+b) 可扩展性架构
+   说明：用户规模增长时的系统扩展能力
+c) 冲突解决机制
+   说明：多用户同时编辑的冲突处理策略
+
+【问题2 - 优先级】MVP阶段最关注的指标？
+a) 功能完整性
+   说明：实现所有核心功能
+b) 用户体验
+   说明：流畅的交互体验和响应速度
+c) 系统稳定性
+   说明：高可用性和数据一致性
+
+请回答 (格式: 1a 2b)：
+```
+
+**User input examples**:
+- `1a 2c` → Q1:a, Q2:c
+- `1a,2c` → Q1:a, Q2:c
 
 **⚠️ CRITICAL**: Questions MUST reference topic keywords. Generic "Project type?" violates dynamic generation.
 
 ### Phase 2: Role Selection
 
-**⚠️ CRITICAL**: This phase MUST use AskUserQuestion tool for user selection. NEVER auto-select roles without user interaction.
+**⚠️ CRITICAL**: User MUST interact to select roles. NEVER auto-select without user confirmation.
 
 **Available Roles**:
 - data-architect (数据架构师)
@@ -96,34 +193,48 @@ Topic: "Build real-time collaboration platform SCOPE: 100 users"
 - ux-expert (UX 专家)
 
 **Steps**:
-1. **Intelligent role recommendation** (AI analysis, NO user interaction yet):
+1. **Intelligent role recommendation** (AI analysis):
    - Analyze Phase 1 extracted keywords and challenges
    - Use AI reasoning to determine most relevant roles for the specific topic
    - Recommend count+2 roles (e.g., if user wants 3 roles, recommend 5 options)
    - Provide clear rationale for each recommended role based on topic context
 
-2. **User selection** (MANDATORY AskUserQuestion interaction):
-   - **Tool**: `AskUserQuestion` with `multiSelect: true`
-   - **Question format**: "请选择 {count} 个角色参与头脑风暴分析（可多选）："
-   - **Options**: Each recommended role with label (role name) and description (relevance rationale)
-   - **⚠️ Option Limit**: Maximum 4 options per AskUserQuestion call. If count+2 > 4, split into multiple rounds
-   - **User interaction**: Allow user to select multiple roles (typically count roles, but flexible)
+2. **User selection** (text interaction):
+   - Output all recommended roles at once (no batching needed for count+2 roles)
+   - Display roles with labels and relevance rationale
+   - Wait for user input in multi-select format
+   - Parse user input (support multiple formats)
    - **Storage**: Store selections to `session.selected_roles`
 
-**AskUserQuestion Syntax**:
-```javascript
-AskUserQuestion({
-  questions: [{
-    question: "请选择 {count} 个角色参与头脑风暴分析（可多选）：",
-    header: "角色选择",
-    multiSelect: true,  // Enable multiple selection
-    options: [
-      {label: "{role-name} ({中文名})", description: "{基于topic的相关性说明}"}
-      // count+2 recommended roles
-    ]
-  }]
-});
+**Example Output**:
+```markdown
+===== Phase 2: 角色选择 =====
+
+【角色选择】请选择 3 个角色参与头脑风暴分析
+
+a) system-architect (系统架构师)
+   推荐理由：实时同步架构设计和技术选型的核心角色
+b) ui-designer (UI设计师)
+   推荐理由：协作界面用户体验和实时状态展示
+c) product-manager (产品经理)
+   推荐理由：功能优先级和MVP范围决策
+d) data-architect (数据架构师)
+   推荐理由：数据同步模型和存储方案设计
+e) ux-expert (UX专家)
+   推荐理由：多用户协作交互流程优化
+
+支持格式：
+- 分别选择：2a 2c 2d (选择a、c、d)
+- 合并语法：2acd (选择a、c、d)
+- 逗号分隔：2a,c,d (选择a、c、d)
+
+请输入选择：
 ```
+
+**User input examples**:
+- `2acd` → Roles: a, c, d (system-architect, product-manager, data-architect)
+- `2a 2c 2d` → Same result
+- `2a,c,d` → Same result
 
 **Role Recommendation Rules**:
 - NO hardcoded keyword-to-role mappings
@@ -149,39 +260,28 @@ FOR each selected role:
      Q: "How resolve conflicts when 2 users edit simultaneously?" (explores edge case)
      Options: [Event Sourcing/Centralized/CRDT] (concrete, explain trade-offs for THIS use case)
 
-  3. Ask questions via AskUserQuestion tool (max 4 questions per call):
-     - Tool: AskUserQuestion with questions array (1-4 questions)
-     - Each question: multiSelect: false (single-choice)
-     - If role has 3-4 questions: Single AskUserQuestion call with multiple questions
+  3. Output questions in text format per role:
+     - Display all questions for current role (3-4 questions, no 10-question limit)
+     - Questions in Chinese (用中文提问)
+     - Wait for user input
+     - Parse answers using intelligent parsing
      - Store answers to session.role_decisions[role]
 ```
 
-**AskUserQuestion Tool Usage**:
-- **Batching**: Maximum 4 questions per AskUserQuestion call
-- **Mode**: `multiSelect: false` for each question (single-choice answers)
-- **Language**: Questions MUST be asked in Chinese (用中文提问)
-- **Format**: Each question includes header (short label), question text, and 2-4 options with descriptions
+**Batching Strategy**:
+- Each role outputs all its questions at once (typically 3-4 questions)
+- No need to split per role (within 10-question batch limit)
+- Multiple roles processed sequentially (one role at a time for clarity)
 
-**Question Batching Rules**:
-- ✅ Each role generates 3-4 questions
-- ✅ AskUserQuestion supports maximum 4 questions per call
-- ✅ Single round per role (all questions asked together)
-- ✅ Questions MUST be asked in Chinese (用中文提问) for better user understanding
-- ✅ Questions MUST reference Phase 1 keywords (e.g., "real-time", "100 users")
-- ✅ Options MUST be concrete approaches, explain relevance to topic
-- ❌ NEVER generic "Architecture style?" without task context
+**Output Format**: Follow standard format from "User Interaction Protocol" section (single-choice question format)
 
-**Examples by Role** (for "real-time collaboration platform"):
-- **system-architect** (4 questions in one round):
-  1. "100+ 用户实时状态同步方案?" → [Event Sourcing/集中式状态/CRDT]
-  2. "两个用户同时编辑冲突如何解决?" → [自动合并/手动解决/版本控制]
-  3. "低延迟通信协议选择?" → [WebSocket/SSE/轮询]
-  4. "系统扩展性架构方案?" → [微服务/单体+缓存/Serverless]
+**Example Topic-Specific Questions** (system-architect role for "real-time collaboration platform"):
+- "100+ 用户实时状态同步方案?" → Options: Event Sourcing / 集中式状态管理 / CRDT
+- "两个用户同时编辑冲突如何解决?" → Options: 自动合并 / 手动解决 / 版本控制
+- "低延迟通信协议选择?" → Options: WebSocket / SSE / 轮询
+- "系统扩展性架构方案?" → Options: 微服务 / 单体+缓存 / Serverless
 
-- **ui-designer** (3 questions in one round):
-  1. "如何展示实时协作状态?" → [实时光标/活动流/最小化指示器]
-  2. "冲突时的用户界面反馈?" → [即时警告/合并界面/回滚选项]
-  3. "多用户在线状态展示?" → [头像列表/活动面板/状态栏]
+**Quality Requirements**: See "Question Generation Guidelines" section for detailed rules
 
 ### Phase 4: Cross-Role Clarification (Conflict Detection)
 
@@ -197,33 +297,33 @@ FOR each selected role:
 2. FOR each detected conflict:
    Generate clarification questions referencing SPECIFIC Phase 3 choices
 
-3. Ask via AskUserQuestion tool in batches (max 4 questions per call):
-   - Tool: AskUserQuestion with questions array (1-4 questions)
-   - Each question: multiSelect: false (single-choice)
-   - If conflicts ≤ 4: Single AskUserQuestion call
-   - If conflicts > 4: Multiple AskUserQuestion calls (max 4 questions each)
+3. Output clarification questions in text format:
+   - Batch conflicts into rounds (max 10 questions per round)
+   - Display questions with context from Phase 3 answers
+   - Questions in Chinese (用中文提问)
+   - Wait for user input
+   - Parse answers using intelligent parsing
    - Store answers to session.cross_role_decisions
 
-4. If NO conflicts: Skip Phase 4 (inform user)
+4. If NO conflicts: Skip Phase 4 (inform user: "未检测到跨角色冲突，跳过Phase 4")
 ```
 
-**AskUserQuestion Tool Usage**:
-- **Batching**: Maximum 4 questions per AskUserQuestion call
-- **Mode**: `multiSelect: false` for each question (single-choice answers)
-- **Language**: Questions in Chinese (用中文提问)
-- **Multiple rounds**: If conflicts > 4, call AskUserQuestion multiple times sequentially
+**Batching Strategy**:
+- Maximum 10 clarification questions per round
+- If conflicts > 10, split into multiple rounds
+- Prioritize most critical conflicts first
 
-**Batching Rules**:
-- ✅ Maximum 4 clarification questions per AskUserQuestion call
-- ✅ Multiple rounds if more than 4 conflicts detected
-- ✅ Prioritize most critical conflicts first
-- ✅ Questions in Chinese (用中文提问)
+**Output Format**: Follow standard format from "User Interaction Protocol" section (single-choice question format with background context)
 
-**Example Conflict**:
-- Detect: system-architect "CRDT sync" (conflict-free) + ui-designer "Rollback on conflict" (expects conflicts)
-- Generate: "CRDT 与 UI 回滚期望冲突,如何解决?" → [CRDT 自动合并/显示合并界面/切换到 OT]
+**Example Conflict Detection** (from Phase 3 answers):
+- **Architecture Conflict**: "CRDT 与 UI 回滚期望冲突，如何解决?"
+  - Background: system-architect chose CRDT, ui-designer expects rollback UI
+  - Options: 采用 CRDT / 显示合并界面 / 切换到 OT
+- **Integration Gap**: "实时光标功能缺少身份认证方案"
+  - Background: ui-designer chose live cursors, no auth defined
+  - Options: OAuth 2.0 / JWT Token / Session-based
 
-**⚠️ CRITICAL**: NEVER use static "Cross-Role Matrix". ALWAYS analyze actual Phase 3 answers.
+**Quality Requirements**: See "Question Generation Guidelines" section for conflict-specific rules
 
 ### Phase 5: Generate Guidance Specification
 
@@ -288,35 +388,6 @@ FOR each selected role:
 | D-003+ | [Role] | [Q] | [A] | 3 | [Why] |
 ```
 
-## AskUserQuestion Tool Reference
-
-### Syntax Structure
-```javascript
-AskUserQuestion({
-  questions: [
-    {
-      question: "{动态生成的问题文本}",
-      header: "{短标签,最多12字符}",
-      multiSelect: false,  // Phase 1,3,4: false | Phase 2: true
-      options: [
-        {label: "{选项标签}", description: "{选项说明}"},
-        // 2-4 options per question
-      ]
-    }
-    // Maximum 4 questions per call
-  ]
-});
-```
-
-### Usage Rules
-- **Maximum**: 4 questions per AskUserQuestion call
-- **Language**: Questions in Chinese (用中文提问)
-- **multiSelect**:
-  - `false` (Phase 1, 3, 4): Single-choice
-  - `true` (Phase 2): Multiple role selection
-- **Options**: 2-4 options with label + description
-- **Multiple rounds**: Call tool multiple times if > 4 questions needed
-
 ## Question Generation Guidelines
 
 ### Core Principle: Developer-Facing Questions with User Context
@@ -329,49 +400,50 @@ AskUserQuestion({
 3. **Phase 3**: 业务需求 + 技术选型（需求驱动的技术决策）
 4. **Phase 4**: 技术冲突的业务权衡（帮助开发者理解影响）
 
-### Question Quality Rules
+### Universal Quality Rules
 
-**Balanced Question Pattern** (需求 → 技术):
-```
-问题结构：[用户场景/业务需求] + [技术关注点]
-选项格式：[技术方案简称] + [业务影响说明]
-```
-
-**Phase 1 Focus**:
-- 用户使用场景（谁用？怎么用？多频繁？）
-- 业务约束（预算、时间、团队、合规）
-- 成功标准（性能指标、用户体验目标）
-- 优先级排序（MVP vs 长期规划）
-
-**Phase 3 Focus**:
-- 业务需求驱动的技术问题
-- 技术选项带业务影响说明
-- 包含量化指标（并发数、延迟、可用性）
-
-**Phase 4 Focus**:
-- 技术冲突的业务权衡
-- 帮助开发者理解不同选择的影响
-
-**Question Structure**:
+**Question Structure** (all phases):
 ```
 [业务场景/需求前提] + [技术关注点]
 ```
 
-**Option Structure**:
+**Option Structure** (all phases):
 ```
 标签：[技术方案简称] + (业务特征)
 说明：[业务影响] + [技术权衡]
 ```
 
-**MUST Include**:
-- 业务场景作为问题前提
-- 技术选项的业务影响说明
-- 量化指标和约束条件
+**MUST Include** (all phases):
+- ✅ All questions in Chinese (用中文提问)
+- ✅ 业务场景作为问题前提
+- ✅ 技术选项的业务影响说明
+- ✅ 量化指标和约束条件
 
-**MUST Avoid**:
-- 纯技术选型无业务上下文
-- 过度抽象的用户体验问题
-- 脱离话题的通用架构问题
+**MUST Avoid** (all phases):
+- ❌ 纯技术选型无业务上下文
+- ❌ 过度抽象的用户体验问题
+- ❌ 脱离话题的通用架构问题
+
+### Phase-Specific Requirements
+
+**Phase 1 Requirements**:
+- Questions MUST reference topic keywords (NOT generic "Project type?")
+- Focus: 用户使用场景（谁用？怎么用？多频繁？）、业务约束（预算、时间、团队、合规）
+- Success metrics: 性能指标、用户体验目标
+- Priority ranking: MVP vs 长期规划
+
+**Phase 3 Requirements**:
+- Questions MUST reference Phase 1 keywords (e.g., "real-time", "100 users")
+- Options MUST be concrete approaches with relevance to topic
+- Each option includes trade-offs specific to this use case
+- Include 业务需求驱动的技术问题、量化指标（并发数、延迟、可用性）
+
+**Phase 4 Requirements**:
+- Questions MUST reference SPECIFIC Phase 3 choices in background context
+- Options address the detected conflict directly
+- Each option explains impact on both conflicting roles
+- NEVER use static "Cross-Role Matrix" - ALWAYS analyze actual Phase 3 answers
+- Focus: 技术冲突的业务权衡、帮助开发者理解不同选择的影响
 
 ## Validation Checklist
 

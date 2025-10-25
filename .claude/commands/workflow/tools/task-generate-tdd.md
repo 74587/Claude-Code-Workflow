@@ -134,6 +134,7 @@ For each feature, generate task(s) with ID format:
   "id": "IMPL-N",                                  // Task identifier
   "title": "Feature description with TDD",         // Human-readable title
   "status": "pending",                             // pending | in_progress | completed | container
+  "context_package_path": ".workflow/{session-id}/.process/context-package.json", // Path to smart context package
   "meta": {
     "type": "feature",                             // Task type
     "agent": "@code-developer",                    // Assigned agent
@@ -259,6 +260,7 @@ identifier: WFS-{session-id}
 source: "User requirements" | "File: path"
 conflict_resolution: .workflow/{session-id}/.process/CONFLICT_RESOLUTION.md  # if exists
 context_package: .workflow/{session-id}/.process/context-package.json
+context_package_path: .workflow/{session-id}/.process/context-package.json
 test_context: .workflow/{session-id}/.process/test-context-package.json  # if exists
 workflow_type: "tdd"
 verification_history:
@@ -411,6 +413,7 @@ Update workflow-session.json with TDD metadata:
     ├── CONFLICT_RESOLUTION.md       # Conflict resolution strategies (if conflict_risk ≥ medium)
     ├── test-context-package.json    # Test coverage analysis
     ├── context-package.json         # Input from context-gather
+    ├── context_package_path         # Path to smart context package
     └── green-fix-iteration-*.md     # Fix logs from Green phase test-fix cycles
 ```
 

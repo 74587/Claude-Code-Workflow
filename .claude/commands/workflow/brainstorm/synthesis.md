@@ -2,7 +2,7 @@
 name: synthesis
 description: Clarify and refine role analyses through intelligent Q&A and targeted updates
 argument-hint: "[optional: --session session-id]"
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*), Edit(*), Glob(*), AskUserQuestion(*)
+allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*), Edit(*), Glob(*)
 ---
 
 ## Overview
@@ -137,54 +137,67 @@ Return JSON array:
 
 ### Phase 4: Main Flow User Interaction
 
-**Main flow handles all user interaction**:
+**Main flow handles all user interaction via text output**:
 
-**⚠️ CRITICAL**: ALL AskUserQuestion calls MUST use Chinese (所有问题必须用中文) for better user understanding
+**⚠️ CRITICAL**: ALL questions MUST use Chinese (所有问题必须用中文) for better user understanding
 
-1. **Present Enhancement Options**:
-```
-AskUserQuestion(
-  questions=[{
-    "question": "Which enhancements would you like to apply?",
-    "header": "Enhancements",
-    "multiSelect": true,
-    "options": [
-      {"label": "EP-001: ...", "description": "... (affects: role1, role2)"},
-      {"label": "EP-002: ...", "description": "..."},
-      ...
-    ]
-  }]
-)
+1. **Present Enhancement Options** (multi-select):
+```markdown
+===== Enhancement 选择 =====
+
+请选择要应用的改进建议（可多选）：
+
+a) EP-001: API Contract Specification
+   影响角色：system-architect, api-designer
+   说明：添加详细的请求/响应 schema 定义
+
+b) EP-002: User Intent Validation
+   影响角色：product-manager, ux-expert
+   说明：明确用户需求优先级和验收标准
+
+c) EP-003: Error Handling Strategy
+   影响角色：system-architect
+   说明：统一异常处理和降级方案
+
+支持格式：1abc 或 1a 1b 1c 或 1a,b,c
+请输入选择（可跳过输入 skip）：
 ```
 
 2. **Generate Clarification Questions** (based on analysis agent output):
-   - ✅ **ALL questions MUST be in Chinese (所有问题必须用中文)**
+   - ✅ **ALL questions in Chinese (所有问题必须用中文)**
    - Use 9-category taxonomy scan results
-   - Create max 5 prioritized questions
+   - Prioritize most critical questions (no hard limit)
    - Each with 2-4 options + descriptions
 
-3. **Interactive Clarification Loop**:
-```
-# Present ONE question at a time
-FOR question in clarification_questions (max 5):
-  AskUserQuestion(
-    questions=[{
-      "question": "Question {N}/5: {text}",
-      "header": "Clarification",
-      "multiSelect": false,
-      "options": [
-        {"label": "Option A", "description": "..."},
-        {"label": "Option B", "description": "..."},
-        ...
-      ]
-    }]
-  )
-  # Record answer
-  # Continue to next question
+3. **Interactive Clarification Loop** (max 10 questions per round):
+```markdown
+===== Clarification 问题 (第 1/2 轮) =====
+
+【问题1 - 用户意图】MVP 阶段的核心目标是什么？
+a) 快速验证市场需求
+   说明：最小功能集，快速上线获取反馈
+b) 建立技术壁垒
+   说明：完善架构，为长期发展打基础
+c) 实现功能完整性
+   说明：覆盖所有规划功能，延迟上线
+
+【问题2 - 架构决策】技术栈选择的优先考虑因素？
+a) 团队熟悉度
+   说明：使用现有技术栈，降低学习成本
+b) 技术先进性
+   说明：采用新技术，提升竞争力
+c) 生态成熟度
+   说明：选择成熟方案，保证稳定性
+
+...（最多10个问题）
+
+请回答 (格式: 1a 2b 3c...)：
 ```
 
+Wait for user input → Parse all answers in batch → Continue to next round if needed
+
 4. **Build Update Plan**:
-``` 
+```
 update_plan = {
   "role1": {
     "enhancements": [EP-001, EP-003],

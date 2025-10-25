@@ -207,47 +207,84 @@ Task(subagent_type="cli-execution-agent", prompt=`
 8. Return execution log path
 ```
 
-### Phase 3: User Confirmation via AskUserQuestion
+### Phase 3: User Confirmation via Text Interaction
 
-**Command parses agent JSON output and presents conflicts to user**:
+**Command parses agent JSON output and presents conflicts to user via text**:
 
 ```javascript
 // 1. Parse agent JSON output
 const conflictData = JSON.parse(agentOutput);
-const conflicts = conflictData.conflicts.slice(0, 4); // Max 4 (tool limit)
+const conflicts = conflictData.conflicts; // No 4-conflict limit
 
-// 2. Build AskUserQuestion with all conflicts
-const questions = conflicts.map((conflict, idx) => ({
-  question: `${conflict.id}: ${conflict.brief} - 请选择解决方案`,
-  header: `冲突${idx + 1}`,
-  multiSelect: false,
-  options: [
-    ...conflict.strategies.map(s => ({
-      label: s.name,
-      description: `${s.approach} | 复杂度: ${s.complexity} | 风险: ${s.risk} | 工作量: ${s.effort}`
-    })),
-    {
-      label: "跳过此冲突",
-      description: "稍后手动处理，不应用任何修改"
-    }
-  ]
-}));
+// 2. Format conflicts as text output (max 10 per round)
+const batchSize = 10;
+const batches = chunkArray(conflicts, batchSize);
 
-// 3. Call AskUserQuestion
-AskUserQuestion({questions});
+for (const [batchIdx, batch] of batches.entries()) {
+  const totalBatches = batches.length;
 
-// 4. Parse user selections
-const selectedStrategies = parseUserAnswers(answers, conflicts);
+  // Output batch header
+  console.log(`===== 冲突解决 (第 ${batchIdx + 1}/${totalBatches} 轮) =====\n`);
+
+  // Output each conflict in batch
+  batch.forEach((conflict, idx) => {
+    const questionNum = batchIdx * batchSize + idx + 1;
+    console.log(`【问题${questionNum} - ${conflict.category}】${conflict.id}: ${conflict.brief}`);
+
+    conflict.strategies.forEach((strategy, sIdx) => {
+      const optionLetter = String.fromCharCode(97 + sIdx); // a, b, c, ...
+      console.log(`${optionLetter}) ${strategy.name}`);
+      console.log(`   说明：${strategy.approach}`);
+      console.log(`   复杂度: ${strategy.complexity} | 风险: ${strategy.risk} | 工作量: ${strategy.effort}`);
+    });
+
+    // Add skip option
+    const skipLetter = String.fromCharCode(97 + conflict.strategies.length);
+    console.log(`${skipLetter}) 跳过此冲突`);
+    console.log(`   说明：稍后手动处理，不应用任何修改\n`);
+  });
+
+  console.log(`请回答 (格式: 1a 2b 3c...)：`);
+
+  // Wait for user input
+  const userInput = await readUserInput();
+
+  // Parse answers
+  const answers = parseUserAnswers(userInput, batch);
+}
+
+// 3. Build selected strategies
+const selectedStrategies = answers.filter(a => !a.isSkip).map(a => a.strategy);
 ```
 
-**User Selection Examples**:
+**Text Output Example**:
+```markdown
+===== 冲突解决 (第 1/1 轮) =====
+
+【问题1 - 认证系统】CON-001: 现有认证系统与计划不兼容
+a) 渐进式迁移
+   说明：保留现有系统，逐步迁移到新方案
+   复杂度: Medium | 风险: Low | 工作量: 3-5天
+b) 完全重写
+   说明：废弃旧系统，从零实现新认证
+   复杂度: High | 风险: Medium | 工作量: 7-10天
+c) 跳过此冲突
+   说明：稍后手动处理，不应用任何修改
+
+【问题2 - 数据库】CON-002: 数据库 schema 冲突
+a) 添加迁移脚本
+   说明：创建数据库迁移脚本处理 schema 变更
+   复杂度: Low | 风险: Low | 工作量: 1-2天
+b) 跳过此冲突
+   说明：稍后手动处理，不应用任何修改
+
+请回答 (格式: 1a 2b)：
 ```
-Question: "CON-001: 现有认证系统与计划不兼容 - 请选择解决方案"
-Options:
-  - "渐进式迁移" | 复杂度: Medium | 风险: Low | 工作量: 3-5天
-  - "完全重写" | 复杂度: High | 风险: Medium | 工作量: 7-10天
-  - "跳过此冲突"
-```
+
+**User Input Examples**:
+- `1a 2a` → Conflict 1: 渐进式迁移, Conflict 2: 添加迁移脚本
+- `1b 2b` → Conflict 1: 完全重写, Conflict 2: 跳过
+- `1c 2c` → Both skipped
 
 ### Phase 4: Apply Modifications
 
@@ -290,7 +327,7 @@ return {
 **Validation**:
 ```
 ✓ Agent returns valid JSON structure
-✓ AskUserQuestion displays all conflicts (max 4)
+✓ Text output displays all conflicts (max 10 per round)
 ✓ User selections captured correctly
 ✓ Edit tool successfully applies modifications
 ✓ guidance-specification.md updated
@@ -310,7 +347,7 @@ return {
 ### Key Requirements
 | Requirement | Details |
 |------------|---------|
-| **Conflict limit** | Max 4 conflicts (AskUserQuestion tool limit) |
+| **Conflict batching** | Max 10 conflicts per round (no total limit) |
 | **Strategy count** | 2-4 strategies per conflict |
 | **Modifications** | Each strategy includes file paths, old_content, new_content |
 | **User-facing text** | Chinese (brief, strategy names, pros/cons) |
@@ -338,7 +375,7 @@ return {
 ```
 If Edit tool fails mid-application:
 1. Log all successfully applied modifications
-2. Offer rollback option via AskUserQuestion
+2. Output rollback option via text interaction
 3. If rollback selected: restore files from git or backups
 4. If continue: mark partial resolution in context-package.json
 ```
@@ -359,15 +396,15 @@ If Edit tool fails mid-application:
 - NO report file generation
 
 **User Interaction**:
-- AskUserQuestion for strategy selection (max 4 conflicts)
+- Text-based strategy selection (max 10 conflicts per round)
 - Each conflict: 2-4 strategy options + "跳过" option
 
 ### Success Criteria
 ```
 ✓ CLI analysis returns valid JSON structure
-✓ Max 4 conflicts presented (tool limit)
+✓ Conflicts presented in batches (max 10 per round)
 ✓ Min 2 strategies per conflict with modifications
-✓ AskUserQuestion displays all conflicts correctly
+✓ Text output displays all conflicts correctly
 ✓ User selections captured and processed
 ✓ Edit tool applies modifications successfully
 ✓ guidance-specification.md updated with resolved conflicts
