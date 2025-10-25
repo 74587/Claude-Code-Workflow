@@ -231,19 +231,24 @@ Generate documents according to loaded role template specifications:
 
 **Required Files**:
 - **analysis.md**: Main role perspective analysis incorporating user context and role template
-  - **Auto-split if large**: If content >800 lines, split to `analysis-1.md`, `analysis-2.md` (or `analysis-3.md` if >1600 lines, max 3 files)
-- **recommendations.md**: Role-specific strategic recommendations and action items
-- **[role-deliverables]/**: Directory for specialized role outputs as defined in planning role template
+  - **File Naming**: MUST start with `analysis` prefix (e.g., `analysis.md`, `analysis-1.md`, `analysis-2.md`)
+  - **FORBIDDEN**: Never create `recommendations.md` or any file not starting with `analysis` prefix
+  - **Auto-split if large**: If content >800 lines, split to `analysis-1.md`, `analysis-2.md` (max 3 files: analysis.md, analysis-1.md, analysis-2.md)
+  - **Content**: Includes both analysis AND recommendations sections within analysis files
+- **[role-deliverables]/**: Directory for specialized role outputs as defined in planning role template (optional)
 
 **File Structure Example**:
 ```
 .workflow/WFS-[session]/.brainstorming/system-architect/
-├── analysis.md                    # Main system architecture analysis
-├── recommendations.md             # Architecture recommendations
-└── deliverables/
+├── analysis.md                    # Main system architecture analysis with recommendations
+├── analysis-1.md                  # (Optional) Continuation if content >800 lines
+└── deliverables/                  # (Optional) Additional role-specific outputs
     ├── technical-architecture.md  # System design specifications
     ├── technology-stack.md        # Technology selection rationale
     └── scalability-plan.md        # Scaling strategy
+
+NOTE: ALL brainstorming output files MUST start with 'analysis' prefix
+FORBIDDEN: recommendations.md, recommendations-*.md, or any non-'analysis' prefixed files
 ```
 
 ## Role-Specific Planning Process
@@ -264,9 +269,13 @@ Generate documents according to loaded role template specifications:
 
 ### 3. Brainstorming Documentation Phase
 - **Create analysis.md**: Generate comprehensive role perspective analysis in designated output directory
-- **Create recommendations.md**: Generate role-specific strategic recommendations and action items
-- **Generate Role Deliverables**: Create specialized outputs as defined in planning role template
+  - **File Naming**: MUST start with `analysis` prefix (e.g., `analysis.md`, `analysis-1.md`, `analysis-2.md`)
+  - **FORBIDDEN**: Never create `recommendations.md` or any file not starting with `analysis` prefix
+  - **Content**: Include both analysis AND recommendations sections within analysis files
+  - **Auto-split**: If content >800 lines, split to `analysis-1.md`, `analysis-2.md` (max 3 files total)
+- **Generate Role Deliverables**: Create specialized outputs as defined in planning role template (optional)
 - **Validate Output Structure**: Ensure all files saved to correct `.brainstorming/[role]/` directory
+- **Naming Validation**: Verify NO files with `recommendations` prefix exist
 - **Quality Review**: Ensure outputs meet role template standards and user requirements
 
 ## Role-Specific Analysis Framework

@@ -60,12 +60,17 @@ Agent-driven intelligent context collector that gathers relevant information fro
 
 ### Phase 2: Agent Execution (Context Gathering & Packaging)
 
+**Agent**: context-search-agent
+**Documentation**: `.claude/agents/context-search-agent.md`
+
 **Agent Invocation**:
 ```javascript
 Task(
   subagent_type="universal-executor",
   description="Gather project context and generate context package",
   prompt=`
+You are executing as the context-search-agent. Follow the complete execution process documented in .claude/agents/context-search-agent.md.
+
 ## Execution Context
 
 **Session ID**: WFS-{session-id}
@@ -77,13 +82,15 @@ Task(
 ### Session Metadata
 {session_metadata_content}
 
-### Search Tools
-- ripgrep: Available for content search and pattern matching
-- find: Available for file discovery
-- exa-code: Available for external research
-- exa-web: Available for web search
+### Search Tools Available
+- ripgrep: Content search and pattern matching
+- find: File discovery
+- exa-code: External research (MCP)
+- exa-web: Web search (MCP)
 
-## Phase 2: Context Gathering Task
+## Your Mission
+
+Execute the complete context-search-agent workflow documented in .claude/agents/context-search-agent.md. For detailed specifications, refer to the agent documentation which includes:
 
 ### Core Responsibilities
 1. **Project Structure Analysis**: Execute get_modules_by_depth.sh for architecture overview
@@ -419,4 +426,11 @@ if (!fs.existsSync(sessionPath)) {
 - Execution completes within reasonable time (<2 minutes)
 - All required fields present and properly formatted
 - Agent reports completion status with statistics
+
+## Agent Reference
+
+For complete execution details, refer to the context-search-agent documentation:
+- **Location**: `.claude/agents/context-search-agent.md`
+- **Capabilities**: Multi-layer discovery, intelligent filtering, dependency analysis, conflict detection
+- **Output Format**: Standardized context-package.json with metadata, assets, dependencies, and risk assessment
 

@@ -125,12 +125,17 @@ TOPIC: {user-provided-topic}
 
 ## Expected Deliverables
 1. **analysis.md**: Comprehensive {role-name} analysis addressing all framework discussion points
+   - **File Naming**: MUST start with `analysis` prefix (e.g., `analysis.md`, `analysis-1.md`, `analysis-2.md`)
+   - **FORBIDDEN**: Never use `recommendations.md` or any filename not starting with `analysis`
+   - **Auto-split if large**: If content >800 lines, split to `analysis-1.md`, `analysis-2.md` (max 3 files: analysis.md, analysis-1.md, analysis-2.md)
+   - **Content**: Includes both analysis AND recommendations sections within analysis files
 2. **Framework Reference**: Include @../guidance-specification.md reference in analysis
 3. **User Intent Alignment**: Validate analysis aligns with original user objectives from session_context
 
 ## Completion Criteria
 - Address each discussion point from guidance-specification.md with {role-name} expertise
-- Provide actionable recommendations from {role-name} perspective
+- Provide actionable recommendations from {role-name} perspective within analysis files
+- All output files MUST start with `analysis` prefix (no recommendations.md or other naming)
 - Reference framework document using @ notation for integration
 - Update workflow-session.json with completion status
 "
@@ -147,7 +152,10 @@ TOPIC: {user-provided-topic}
 - guidance-specification.md path
 
 **Validation**:
-- Each role creates `.workflow/WFS-{topic}/.brainstorming/{role}/analysis.md`
+- Each role creates `.workflow/WFS-{topic}/.brainstorming/{role}/analysis.md` (primary file)
+- If content is large (>800 lines), may split to `analysis-1.md`, `analysis-2.md` (max 3 files total)
+- **File naming pattern**: ALL files MUST start with `analysis` prefix (use `analysis*.md` for globbing)
+- **FORBIDDEN naming**: No `recommendations.md`, `recommendations-*.md`, or any non-`analysis` prefixed files
 - All N role analyses completed
 
 **TodoWrite**: Mark all N role agent tasks completed, phase 3 in_progress
