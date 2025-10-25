@@ -1,436 +1,231 @@
 ---
 name: gather
-description: Intelligently collect project context using universal-executor agent based on task description and package into standardized JSON
+description: Intelligently collect project context using context-search-agent based on task description and package into standardized JSON
 argument-hint: "--session WFS-session-id \"task description\""
 examples:
   - /workflow:tools:context-gather --session WFS-user-auth "Implement user authentication system"
   - /workflow:tools:context-gather --session WFS-payment "Refactor payment module API"
   - /workflow:tools:context-gather --session WFS-bugfix "Fix login validation error"
+allowed-tools: Task(*), Read(*), Glob(*)
 ---
 
 # Context Gather Command (/workflow:tools:context-gather)
 
 ## Overview
-Agent-driven intelligent context collector that gathers relevant information from project codebase, documentation, and dependencies based on task descriptions, generating standardized context packages.
+
+Orchestrator command that invokes `context-search-agent` to gather comprehensive project context for implementation planning. Generates standardized `context-package.json` with codebase analysis, dependencies, and conflict detection.
+
+**Agent**: `context-search-agent` (`.claude/agents/context-search-agent.md`)
 
 ## Core Philosophy
-- **Agent-Driven**: Delegate execution to universal-executor agent for autonomous operation
-- **Two-Phase Flow**: Discovery (context loading) → Execution (context gathering and packaging)
-- **Memory-First**: Reuse loaded documents from conversation memory
-- **Ripgrep-Enhanced**: Use ripgrep and native tools for code analysis and file discovery
-- **Intelligent Collection**: Auto-identify relevant resources based on keyword analysis
-- **Comprehensive Coverage**: Collect code, documentation, configurations, and dependencies
-- **Standardized Output**: Generate unified format context-package.json
 
-## Execution Lifecycle
+- **Agent Delegation**: Delegate all discovery to `context-search-agent` for autonomous execution
+- **Detection-First**: Check for existing context-package before executing
+- **Plan Mode**: Full comprehensive analysis (vs lightweight brainstorm mode)
+- **Standardized Output**: Generate `.workflow/{session}/.process/context-package.json`
 
-### Phase 1: Discovery & Context Loading
-**⚡ Memory-First Rule**: Skip file loading if documents already in conversation memory
+## Execution Flow
 
-**Agent Context Package**:
+### Step 1: Context-Package Detection
+
+**Execute First** - Check if valid package already exists:
+
 ```javascript
-{
-  "session_id": "WFS-[session-id]",
-  "task_description": "[user provided task description]",
-  "session_metadata": {
-    // If in memory: use cached content
-    // Else: Load from .workflow/{session-id}/workflow-session.json
-  },
-  "search_tools": {
-    // Agent will use these native tools to discover project context
-    "ripgrep": true,
-    "find": true,
-    "exa_code": true,
-    "exa_web": true
+const contextPackagePath = `.workflow/${session_id}/.process/context-package.json`;
+
+if (file_exists(contextPackagePath)) {
+  const existing = Read(contextPackagePath);
+
+  // Validate package belongs to current session
+  if (existing?.metadata?.session_id === session_id) {
+    console.log("✅ Valid context-package found for session:", session_id);
+    console.log("📊 Stats:", existing.statistics);
+    console.log("⚠️  Conflict Risk:", existing.conflict_detection.risk_level);
+    return existing; // Skip execution, return existing
+  } else {
+    console.warn("⚠️ Invalid session_id in existing package, re-generating...");
   }
 }
-
-// Agent will autonomously execute:
-// - Project structure analysis: bash(~/.claude/scripts/get_modules_by_depth.sh)
-// - Documentation loading: Read(CLAUDE.md), Read(README.md)
 ```
 
-**Discovery Actions**:
-1. **Load Session Context** (if not in memory)
-   ```javascript
-   if (!memory.has("workflow-session.json")) {
-     Read(.workflow/{session-id}/workflow-session.json)
-   }
-   ```
+### Step 2: Invoke Context-Search Agent
 
-### Phase 2: Agent Execution (Context Gathering & Packaging)
+**Only execute if Step 1 finds no valid package**
 
-**Agent**: context-search-agent
-**Documentation**: `.claude/agents/context-search-agent.md`
-
-**Agent Invocation**:
 ```javascript
 Task(
   subagent_type="universal-executor",
-  description="Gather project context and generate context package",
+  description="Gather comprehensive context for plan",
   prompt=`
-You are executing as the context-search-agent. Follow the complete execution process documented in .claude/agents/context-search-agent.md.
+You are executing as context-search-agent (.claude/agents/context-search-agent.md).
 
-## Execution Context
+## Execution Mode
+**PLAN MODE** (Comprehensive) - Full Phase 1-3 execution
 
-**Session ID**: WFS-{session-id}
-**Task Description**: {task_description}
-**Mode**: Agent-Driven Context Gathering
+## Session Information
+- **Session ID**: ${session_id}
+- **Task Description**: ${task_description}
+- **Output Path**: .workflow/${session_id}/.process/context-package.json
 
-## Phase 1: Discovery Results (Provided Context)
+## Mission
+Execute complete context-search-agent workflow for implementation planning:
 
-### Session Metadata
-{session_metadata_content}
+### Phase 1: Initialization & Pre-Analysis
+1. **Detection**: Check for existing context-package (early exit if valid)
+2. **Foundation**: Initialize code-index, get project structure, load docs
+3. **Analysis**: Extract keywords, determine scope, classify complexity
 
-### Search Tools Available
-- ripgrep: Content search and pattern matching
-- find: File discovery
-- exa-code: External research (MCP)
-- exa-web: Web search (MCP)
+### Phase 2: Multi-Source Context Discovery
+Execute all 3 discovery tracks:
+- **Track 1**: Reference documentation (CLAUDE.md, architecture docs)
+- **Track 2**: Web examples (use Exa MCP for unfamiliar tech/APIs)
+- **Track 3**: Codebase analysis (5-layer discovery: files, content, patterns, deps, config/tests)
 
-## Your Mission
+### Phase 3: Synthesis, Assessment & Packaging
+1. Apply relevance scoring and build dependency graph
+2. Synthesize 3-source data (docs > code > web)
+3. Integrate brainstorm artifacts (if .brainstorming/ exists, read content)
+4. Perform conflict detection with risk assessment
+5. Generate and validate context-package.json
 
-Execute the complete context-search-agent workflow documented in .claude/agents/context-search-agent.md. For detailed specifications, refer to the agent documentation which includes:
+## Output Requirements
+Complete context-package.json with:
+- **metadata**: task_description, keywords, complexity, tech_stack, session_id
+- **project_context**: architecture_patterns, coding_conventions, tech_stack
+- **assets**: {documentation[], source_code[], config[], tests[]} with relevance scores
+- **dependencies**: {internal[], external[]} with dependency graph
+- **brainstorm_artifacts**: {guidance_specification, role_analyses[], synthesis_output} with content
+- **conflict_detection**: {risk_level, risk_factors, affected_modules[], mitigation_strategy}
 
-### Core Responsibilities
-1. **Project Structure Analysis**: Execute get_modules_by_depth.sh for architecture overview
-2. **Documentation Loading**: Load CLAUDE.md, README.md and relevant documentation
-3. **Keyword Extraction**: Extract core keywords from task description
-4. **Smart File Discovery**: Use ripgrep and find to locate relevant files
-5. **Code Structure Analysis**: Analyze project structure to identify relevant modules
-6. **Dependency Discovery**: Identify tech stack and dependency relationships
-7. **Context Packaging**: Generate standardized JSON context package
-
-### Execution Process
-
-#### Step 0: Foundation Setup (Execute First)
-1. **Project Structure Analysis**
-   Execute to get comprehensive architecture overview:
-   \`\`\`javascript
-   bash(~/.claude/scripts/get_modules_by_depth.sh)
-   \`\`\`
-
-2. **Load Project Documentation** (if not in memory)
-   Load core project documentation:
-   \`\`\`javascript
-   Read(CLAUDE.md)
-   Read(README.md)
-   // Load other relevant documentation based on session context
-   \`\`\`
-
-#### Step 1: Task Analysis
-1. **Keyword Extraction**
-   - Parse task description to extract core keywords
-   - Identify technical domain (auth, API, frontend, backend, etc.)
-   - Determine complexity level (simple, medium, complex)
-
-2. **Scope Determination**
-   - Define collection scope based on keywords
-   - Identify potentially involved modules and components
-   - Set file type filters
-
-#### Step 2: File Discovery with Native Tools
-1. **Code File Location**
-   Use ripgrep and find commands:
-   \`\`\`bash
-   # Find files by pattern
-   find . -name "*{keyword}*" -type f
-
-   # Search code content with ripgrep
-   rg "{keyword_patterns}" --type-add 'custom:*.{ts,js,py,go,md}' -t custom -C 3
-
-   # Get file summaries (find function/class definitions)
-   rg "^(class|function|export|def|interface)" relevant/file.ts
-   \`\`\`
-
-2. **Configuration Files Discovery**
-   Locate: package.json, requirements.txt, Cargo.toml, tsconfig.json, etc.
-
-3. **Test Files Location**
-   Find test files related to task keywords
-
-#### Step 3: Intelligent Filtering & Association
-1. **Relevance Scoring**
-   - Score based on keyword match degree
-   - Score based on file path relevance
-   - Score based on code content relevance
-
-2. **Dependency Analysis**
-   - Analyze import/require statements
-   - Identify inter-module dependencies
-   - Determine core and optional dependencies
-
-#### Step 3.5: Brainstorm Artifacts Discovery
-Discover and catalog brainstorming documents (if `.brainstorming/` exists):
-- Guidance specification, role analyses (`*/analysis*.md`), synthesis output
-- Catalog role analyses by role with file type and timestamp
-
-#### Step 4: Context Packaging
-Generate standardized context-package.json following the format below
-
-#### Step 5: Conflict Detection & Risk Assessment
-**Purpose**: Analyze existing codebase to determine conflict risk level
-
-1. **Existing Code Detection**
-   - Count relevant existing source files discovered in Step 2
-   - Identify modules that overlap with task scope
-   - Flag existence of implementations related to task keywords
-
-2. **Architecture Analysis**
-   - Compare task requirements with existing architecture patterns
-   - Identify potential architectural changes required
-   - Detect breaking changes to current structure
-
-3. **API & Dependency Analysis**
-   - Check for existing API endpoints/contracts that may change
-   - Identify shared dependencies and interface changes
-   - Detect potential breaking changes to public APIs
-
-4. **Data Model Analysis**
-   - Identify existing data models/schemas in task scope
-   - Check for schema modification requirements
-   - Detect potential data migration needs
-
-5. **Risk Level Calculation**
-   Calculate conflict_risk based on:
-   - **none**: No existing code, new feature/module
-   - **low**: < 5 existing files, minimal changes
-   - **medium**: 5-15 existing files OR architectural changes OR API changes
-   - **high**: >15 existing files OR data model changes OR breaking changes
-
-### Required Output
-
-**Output Location**: \`.workflow/{session-id}/.process/context-package.json\`
-
-**Output Format**:
-\`\`\`json
-{
-  "metadata": {
-    "task_description": "Implement user authentication system",
-    "timestamp": "2025-09-29T10:30:00Z",
-    "keywords": ["user", "authentication", "JWT", "login"],
-    "complexity": "medium",
-    "tech_stack": ["typescript", "node.js", "express"],
-    "session_id": "WFS-user-auth"
-  },
-  "assets": [
-    {
-      "type": "documentation",
-      "path": "CLAUDE.md",
-      "relevance": "Project development standards and conventions",
-      "priority": "high"
-    },
-    {
-      "type": "documentation",
-      "path": ".workflow/docs/architecture/security.md",
-      "relevance": "Security architecture design guidance",
-      "priority": "high"
-    },
-    {
-      "type": "source_code",
-      "path": "src/auth/AuthService.ts",
-      "relevance": "Existing authentication service implementation",
-      "priority": "high"
-    },
-    {
-      "type": "source_code",
-      "path": "src/models/User.ts",
-      "relevance": "User data model definition",
-      "priority": "medium"
-    },
-    {
-      "type": "config",
-      "path": "package.json",
-      "relevance": "Project dependencies and tech stack",
-      "priority": "medium"
-    },
-    {
-      "type": "test",
-      "path": "tests/auth/*.test.ts",
-      "relevance": "Authentication related test cases",
-      "priority": "medium"
-    }
-  ],
-  "tech_stack": {
-    "frameworks": ["express", "typescript"],
-    "libraries": ["jsonwebtoken", "bcrypt"],
-    "testing": ["jest", "supertest"]
-  },
-  "statistics": {
-    "total_files": 15,
-    "source_files": 8,
-    "docs_files": 4,
-    "config_files": 2,
-    "test_files": 1
-  },
-  "brainstorm_artifacts": {
-    "guidance_specification": {
-      "path": ".workflow/WFS-user-auth/.brainstorming/guidance-specification.md",
-      "exists": true
-    },
-    "role_analyses": [
-      {
-        "role": "system-architect",
-        "files": [
-          {"path": ".workflow/WFS-user-auth/.brainstorming/system-architect/analysis.md", "type": "primary"},
-          {"path": ".workflow/WFS-user-auth/.brainstorming/system-architect/analysis-api.md", "type": "supplementary"}
-        ]
-      },
-      {
-        "role": "ui-designer",
-        "files": [
-          {"path": ".workflow/WFS-user-auth/.brainstorming/ui-designer/analysis.md", "type": "primary"}
-        ]
-      }
-    ],
-    "synthesis_output": {
-      "path": ".workflow/WFS-user-auth/.brainstorming/synthesis-specification.md",
-      "exists": true
-    }
-  },
-  "conflict_detection": {
-    "conflict_risk": "medium",
-    "existing_files": [
-      "src/auth/AuthService.ts",
-      "src/models/User.ts",
-      "src/middleware/auth.ts"
-    ],
-    "has_existing_code": true,
-    "affected_modules": ["auth", "user-model"],
-    "detection_criteria": {
-      "existing_code_count": 8,
-      "architecture_changes": false,
-      "api_changes": true,
-      "data_model_changes": false
-    },
-    "risk_rationale": "Medium risk due to existing auth code and potential API changes"
-  }
-}
-\`\`\`
-
-### Quality Validation
-
-Before completion, verify:
-- [ ] context-package.json created in correct location
+## Quality Validation
+Before completion verify:
 - [ ] Valid JSON format with all required fields
-- [ ] Metadata includes task description, keywords, complexity
-- [ ] Assets array contains relevant files with priorities
-- [ ] Tech stack accurately identified
-- [ ] Statistics section provides file counts
 - [ ] File relevance accuracy >80%
-- [ ] No sensitive information exposed
+- [ ] Dependency graph complete (max 2 transitive levels)
+- [ ] Conflict risk level calculated correctly
+- [ ] No sensitive data exposed
+- [ ] Total files ≤50 (prioritize high-relevance)
 
-### Performance Optimization
-
-**Large Project Optimization**:
-- File count limit: Maximum 50 files per type
-- Size filtering: Skip oversized files (>10MB)
-- Depth limit: Maximum search depth of 3 levels
-- Use ripgrep for efficient discovery
-
-**Native Tools Integration**:
-Agent should use ripgrep and find commands:
-\`\`\`bash
-# Find files by pattern
-find . -name "*{keyword}*" -type f
-
-# Search code content with ripgrep
-rg "{keyword_patterns}" --type ts --type js --type py --type go --type md -C 3
-
-# Alternative: use glob patterns
-rg "{keyword_patterns}" -g "*.{ts,js,py,go,md}" -C 3
-
-# Count matches
-rg "{keyword_patterns}" -c
-
-# List files with matches
-rg "{keyword_patterns}" --files-with-matches
-\`\`\`
-
-## Output
-
-Generate context-package.json and report completion:
-- Task description: {description}
-- Keywords extracted: {count}
-- Files collected: {total}
-  - Source files: {count}
-  - Documentation: {count}
-  - Configuration: {count}
-  - Tests: {count}
-- Tech stack identified: {frameworks/libraries}
-- Output location: .workflow/{session-id}/.process/context-package.json
-\`
+Execute autonomously following agent documentation.
+Report completion with statistics.
+`
 )
-\`\`\`
+```
 
-## Command Integration
+### Step 3: Output Verification
 
-### Usage
+After agent completes, verify output:
+
+```javascript
+// Verify file was created
+const outputPath = `.workflow/${session_id}/.process/context-package.json`;
+if (!file_exists(outputPath)) {
+  throw new Error("❌ Agent failed to generate context-package.json");
+}
+
+// Load and validate
+const contextPackage = Read(outputPath);
+if (!contextPackage?.metadata?.session_id) {
+  throw new Error("❌ Invalid context-package.json format");
+}
+
+// Report completion
+console.log("✅ Context gathering complete");
+console.log("📦 Package:", outputPath);
+console.log("📊 Stats:");
+console.log("  - Total files:", contextPackage.statistics.total_files);
+console.log("  - Source files:", contextPackage.statistics.source_files);
+console.log("  - Documentation:", contextPackage.statistics.docs_files);
+console.log("  - Tests:", contextPackage.statistics.test_files);
+console.log("⚠️  Conflict Risk:", contextPackage.conflict_detection.risk_level);
+console.log("🎯 Affected Modules:", contextPackage.conflict_detection.affected_modules.join(", "));
+
+return contextPackage;
+```
+
+## Parameter Reference
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--session` | string | ✅ | Workflow session ID (e.g., WFS-user-auth) |
+| `task_description` | string | ✅ | Detailed task description for context extraction |
+
+## Output Schema
+
+Refer to `context-search-agent.md` Phase 3.7 for complete `context-package.json` schema.
+
+**Key Sections**:
+- **metadata**: Session info, keywords, complexity, tech stack
+- **project_context**: Architecture patterns, conventions, tech stack
+- **assets**: Categorized files with relevance scores (documentation, source_code, config, tests)
+- **dependencies**: Internal and external dependency graphs
+- **brainstorm_artifacts**: Brainstorm documents with full content (if exists)
+- **conflict_detection**: Risk assessment with mitigation strategies
+
+## Usage Examples
+
+### Basic Usage
 ```bash
-# Basic usage
-/workflow:tools:context-gather --session WFS-auth "Implement JWT authentication"
-
-# Called by /workflow:plan
-SlashCommand(command="/workflow:tools:context-gather --session WFS-[id] \\"[task description]\\"")
+/workflow:tools:context-gather --session WFS-auth-feature "Implement JWT authentication with refresh tokens"
 ```
 
-### Agent Context Passing
-
-**Memory-Aware Context Assembly**:
-```javascript
-// Assemble minimal context package for agent
-// Agent will execute project structure analysis and documentation loading
-const agentContext = {
-  session_id: "WFS-[id]",
-  task_description: "[user provided task description]",
-
-  // Use memory if available, else load
-  session_metadata: memory.has("workflow-session.json")
-    ? memory.get("workflow-session.json")
-    : Read(.workflow/WFS-[id]/workflow-session.json),
-
-  // Search tools - agent will use these native tools
-  search_tools: {
-    ripgrep: true,
-    find: true,
-    exa_code: true,
-    exa_web: true
-  }
-}
-
-// Note: Agent will execute these steps autonomously:
-// - bash(~/.claude/scripts/get_modules_by_depth.sh) for project structure
-// - Read(CLAUDE.md) and Read(README.md) for documentation
+### Called by /workflow:plan
+```bash
+# Plan command internally calls context-gather
+SlashCommand(command="/workflow:tools:context-gather --session ${session_id} \"${task_description}\"")
 ```
 
-## Session ID Integration
-
-### Session ID Usage
-- **Required Parameter**: `--session WFS-session-id`
-- **Session Context Loading**: Load existing session state and metadata
-- **Session Continuity**: Maintain context across workflow pipeline phases
-
-### Session Validation
-```javascript
-// Validate session exists
-const sessionPath = `.workflow/${session_id}`;
-if (!fs.existsSync(sessionPath)) {
-  console.error(`❌ Session ${session_id} not found`);
-  process.exit(1);
-}
+### Verify Existing Package
+```bash
+# If package exists and valid, returns immediately
+/workflow:tools:context-gather --session WFS-auth-feature "Implement JWT authentication"
+# Output: ✅ Valid context-package found for session: WFS-auth-feature
 ```
+
+## Integration Points
+
+### Upstream Callers
+- `/workflow:plan` - Main entry point for planning workflow
+- `/workflow:brainstorm/artifacts` - Lightweight mode (skips this, uses direct agent call)
+
+### Downstream Consumers
+- `/workflow:tools:task-generate` - Reads context-package for task creation
+- `/workflow:tools:conflict-resolution` - Uses conflict_detection for resolution strategy
+- Task execution agents - Reference context-package via `context_package_path` field in task JSON
+
+## Mode Comparison: Plan vs Brainstorm
+
+| Aspect | Plan Mode (this command) | Brainstorm Mode (artifacts.md) |
+|--------|--------------------------|--------------------------------|
+| **Purpose** | Implementation planning | Question generation |
+| **Execution** | Full Phase 1-3 | Phase 1-2 only (lightweight) |
+| **Discovery** | All 3 tracks + deep analysis | Basic structure + tech stack |
+| **Output** | Comprehensive (deps, conflicts) | Lightweight (overview only) |
+| **Web Research** | ✅ Included | ❌ Skipped |
+| **Dependency Graph** | ✅ Full graph (2 levels) | ❌ Skipped |
+| **Conflict Detection** | ✅ Detailed with mitigation | ✅ Basic (file count only) |
 
 ## Success Criteria
-- Valid context-package.json generated in correct location
-- Contains sufficient relevant information (>80% relevance)
-- Execution completes within reasonable time (<2 minutes)
-- All required fields present and properly formatted
-- Agent reports completion status with statistics
 
-## Agent Reference
+- ✅ Valid context-package.json generated in `.workflow/{session}/.process/`
+- ✅ Contains >80% relevant files based on task keywords
+- ✅ Execution completes within 2 minutes
+- ✅ All required schema fields present and valid
+- ✅ Conflict risk accurately assessed
+- ✅ Agent reports completion with statistics
 
-For complete execution details, refer to the context-search-agent documentation:
-- **Location**: `.claude/agents/context-search-agent.md`
-- **Capabilities**: Multi-layer discovery, intelligent filtering, dependency analysis, conflict detection
-- **Output Format**: Standardized context-package.json with metadata, assets, dependencies, and risk assessment
+## Error Handling
 
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| Package validation failed | Invalid session_id in existing package | Re-run agent to regenerate |
+| Agent execution timeout | Large codebase or slow MCP | Increase timeout, check code-index status |
+| Missing required fields | Agent incomplete execution | Check agent logs, verify schema compliance |
+| File count exceeds limit | Too many relevant files | Agent should auto-prioritize top 50 by relevance |
+
+## Notes
+
+- **Detection-first**: Always check for existing package before invoking agent
+- **Agent autonomy**: Agent handles all discovery logic per `.claude/agents/context-search-agent.md`
+- **No redundancy**: This command is a thin orchestrator, all logic in agent
+- **Plan-specific**: Use this for implementation planning; brainstorm mode uses direct agent call

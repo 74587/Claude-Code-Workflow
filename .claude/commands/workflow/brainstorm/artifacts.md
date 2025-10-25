@@ -7,11 +7,11 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 
 ## Overview
 
-Five-phase workflow: Extract topic challenges → Select roles → Generate task-specific questions → Detect conflicts → Generate confirmed guidance (declarative statements only).
+Six-phase workflow: **Automatic project context collection** → Extract topic challenges → Select roles → Generate task-specific questions → Detect conflicts → Generate confirmed guidance (declarative statements only).
 
 **Input**: `"GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]" [--count N]`
 **Output**: `.workflow/WFS-{topic}/.brainstorming/guidance-specification.md` (CONFIRMED/SELECTED format)
-**Core Principle**: Questions dynamically generated from topic keywords/challenges, NOT from generic templates
+**Core Principle**: Questions dynamically generated from project context + topic keywords/challenges, NOT from generic templates
 
 **Parameters**:
 - `topic` (required): Topic or challenge description (structured format recommended)
@@ -24,7 +24,7 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 **When called from auto-parallel**:
 - Find the artifacts parent task: "Execute artifacts command for interactive framework generation"
 - Mark parent task as "in_progress"
-- APPEND artifacts sub-tasks AFTER the parent task (Phase 1-5)
+- APPEND artifacts sub-tasks AFTER the parent task (Phase 0-5)
 - Mark each sub-task as it completes
 - When Phase 5 completes, mark parent task as "completed"
 - **PRESERVE all other auto-parallel tasks** (role agents, synthesis)
@@ -33,6 +33,7 @@ Five-phase workflow: Extract topic challenges → Select roles → Generate task
 ```json
 [
   {"content": "Initialize session (.workflow/.active-* check, parse --count parameter)", "status": "pending", "activeForm": "Initializing"},
+  {"content": "Phase 0: Automatic project context collection (call context-gather)", "status": "pending", "activeForm": "Phase 0 context collection"},
   {"content": "Phase 1: Extract challenges, output 2-4 task-specific questions, wait for user input", "status": "pending", "activeForm": "Phase 1 topic analysis"},
   {"content": "Phase 2: Recommend count+2 roles, output role selection, wait for user input", "status": "pending", "activeForm": "Phase 2 role selection"},
   {"content": "Phase 3: Generate 3-4 questions per role, output and wait for answers (max 10 per round)", "status": "pending", "activeForm": "Phase 3 role questions"},
@@ -137,16 +138,95 @@ b) {role-name} ({中文名})
 - Parse `--count N` parameter from user input (default: 3 if not specified)
 - Store decisions in `workflow-session.json` including count parameter
 
+### Phase 0: Automatic Project Context Collection
+
+**Goal**: Gather project architecture, documentation, and relevant code context BEFORE user interaction
+
+**Detection Mechanism** (execute first):
+```javascript
+// Check if context-package already exists
+const contextPackagePath = `.workflow/WFS-{session-id}/.process/context-package.json`;
+
+if (file_exists(contextPackagePath)) {
+  // Validate package
+  const package = Read(contextPackagePath);
+  if (package.metadata.session_id === session_id) {
+    console.log("✅ Valid context-package found, skipping Phase 0");
+    return; // Skip to Phase 1
+  }
+}
+```
+
+**Implementation**: Invoke `context-search-agent` only if package doesn't exist
+
+```javascript
+Task(
+  subagent_type="universal-executor",
+  description="Gather project context for brainstorm",
+  prompt=`
+You are executing as context-search-agent (.claude/agents/context-search-agent.md).
+
+## Session Info
+- Session ID: {session-id}
+- Topic: {topic}
+- Output: .workflow/WFS-{session-id}/.process/context-package.json
+
+## Mission
+Gather lightweight project context for brainstorming questions:
+- Project structure (get_modules_by_depth.sh)
+- Tech stack (package.json/requirements.txt)
+- Architecture patterns (CLAUDE.md)
+- Existing related modules (keywords: {topic_keywords})
+
+## Scope (for brainstorm)
+**LIGHTWEIGHT** - Focus on high-level context, NOT detailed implementation
+- Skip: Detailed dependency graphs, deep code analysis
+- Include: Architecture overview, tech stack, existing module names
+- Conflict risk: Basic detection only (file count, module overlap)
+
+## Output Fields Required
+- metadata: {task_description, keywords, tech_stack, session_id}
+- project_context: {architecture_patterns, coding_conventions, tech_stack}
+- assets: {documentation[], source_code[] with high-level paths only}
+- conflict_detection: {risk_level, existing_files[], affected_modules[]}
+- brainstorm_artifacts: {empty initially, will be populated by synthesis}
+
+Execute Phase 0-2 only (Foundation, Task Analysis, Basic Discovery).
+Skip deep dependency analysis and web research.
+`
+)
+```
+
+**Graceful Degradation**:
+- If agent fails: Log warning, continue to Phase 1 without project context
+- If package invalid: Re-run context-search-agent
+
 ### Phase 1: Topic Analysis & Intent Classification
 
-**Goal**: Extract keywords/challenges to drive all subsequent question generation
+**Goal**: Extract keywords/challenges to drive all subsequent question generation, **enriched by Phase 0 project context**
 
 **Steps**:
-1. **Deep topic analysis**: Extract technical entities, identify core challenges (what makes this hard?), constraints (timeline/budget/compliance), success metrics (what defines done?)
-2. **Generate 2-4 probing questions** targeting root challenges, trade-off priorities, and risk tolerance (NOT surface-level "Project Type")
-3. **User interaction**: Output questions using text format (see User Interaction Protocol), wait for user input
-4. **Parse user answers**: Use intelligent parsing to extract answers from user input (support multiple formats)
-5. **Storage**: Store answers to `session.intent_context` with `{extracted_keywords, identified_challenges, user_answers}`
+1. **Load Phase 0 context** (if available):
+   - Read `.workflow/WFS-{session-id}/.process/context-package.json`
+   - Extract: tech_stack, existing modules, conflict_risk, relevant files
+
+2. **Deep topic analysis** (context-aware):
+   - Extract technical entities from topic + existing codebase
+   - Identify core challenges considering existing architecture
+   - Consider constraints (timeline/budget/compliance)
+   - Define success metrics based on current project state
+
+3. **Generate 2-4 context-aware probing questions**:
+   - Reference existing tech stack in questions
+   - Consider integration with existing modules
+   - Address identified conflict risks from Phase 0
+   - Target root challenges and trade-off priorities
+
+4. **User interaction**: Output questions using text format (see User Interaction Protocol), wait for user input
+
+5. **Parse user answers**: Use intelligent parsing to extract answers from user input (support multiple formats)
+
+6. **Storage**: Store answers to `session.intent_context` with `{extracted_keywords, identified_challenges, user_answers, project_context_used}`
 
 **Example Output**:
 ```markdown

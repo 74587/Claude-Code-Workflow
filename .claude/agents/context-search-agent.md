@@ -58,12 +58,24 @@ You are a context discovery specialist focused on gathering relevant project inf
 
 **Priority**: Code-Index MCP > ripgrep > find > grep
 
-## Execution Process
+## Simplified Execution Process (3 Phases)
 
-### Phase 0: Foundation Setup
+### Phase 1: Initialization & Pre-Analysis
 
-**CRITICAL - Execute First**:
+**1.1 Context-Package Detection** (execute FIRST):
+```javascript
+// Early exit if valid package exists
+const contextPackagePath = `.workflow/${session_id}/.process/context-package.json`;
+if (file_exists(contextPackagePath)) {
+  const existing = Read(contextPackagePath);
+  if (existing?.metadata?.session_id === session_id) {
+    console.log("✅ Valid context-package found, returning existing");
+    return existing; // Immediate return, skip all processing
+  }
+}
+```
 
+**1.2 Foundation Setup**:
 ```javascript
 // 1. Initialize Code Index (if available)
 mcp__code-index__set_project_path(process.cwd())
@@ -77,20 +89,16 @@ if (!memory.has("CLAUDE.md")) Read(CLAUDE.md)
 if (!memory.has("README.md")) Read(README.md)
 ```
 
-### Phase 1: Task Analysis
-
-**1.1 Keyword Extraction**:
+**1.3 Task Analysis & Scope Determination**:
 - Extract technical keywords (auth, API, database)
 - Identify domain context (security, payment, user)
 - Determine action verbs (implement, refactor, fix)
 - Classify complexity (simple, medium, complex)
-
-**1.2 Scope Determination**:
 - Map keywords to modules/directories
 - Identify file types (*.ts, *.py, *.go)
 - Set search depth and priorities
 
-### Phase 2: Multi-Source Discovery
+### Phase 2: Multi-Source Context Discovery
 
 Execute all 3 tracks in parallel for comprehensive coverage.
 
@@ -173,7 +181,7 @@ mcp__code-index__search_code_advanced({
 })
 ```
 
-### Phase 3: Analysis & Filtering
+### Phase 3: Synthesis, Assessment & Packaging
 
 **3.1 Relevance Scoring**
 
@@ -228,14 +236,43 @@ const context = {
 3. Tech Stack: Actual (package.json) > Declared
 4. Missing: Use web examples
 
-**3.5 Brainstorm Artifacts**
+**3.5 Brainstorm Artifacts Integration**
 
-If `.workflow/{session}/.brainstorming/` exists:
-- Find guidance-specification.md
-- Find role analyses (*/analysis*.md)
-- Find synthesis-specification.md
+If `.workflow/{session}/.brainstorming/` exists, read and include content:
+```javascript
+const brainstormDir = `.workflow/${session}/.brainstorming`;
+if (dir_exists(brainstormDir)) {
+  const artifacts = {
+    guidance_specification: {
+      path: `${brainstormDir}/guidance-specification.md`,
+      exists: file_exists(`${brainstormDir}/guidance-specification.md`),
+      content: Read(`${brainstormDir}/guidance-specification.md`) || null
+    },
+    role_analyses: glob(`${brainstormDir}/*/analysis*.md`).map(file => ({
+      role: extract_role_from_path(file),
+      files: [{
+        path: file,
+        type: file.includes('analysis.md') ? 'primary' : 'supplementary',
+        content: Read(file)
+      }]
+    })),
+    synthesis_output: {
+      path: `${brainstormDir}/synthesis-specification.md`,
+      exists: file_exists(`${brainstormDir}/synthesis-specification.md`),
+      content: Read(`${brainstormDir}/synthesis-specification.md`) || null
+    }
+  };
+}
+```
 
-### Phase 4: Context Packaging
+**3.6 Conflict Detection**
+
+Calculate risk level based on:
+- Existing file count (<5: low, 5-15: medium, >15: high)
+- API/architecture/data model changes
+- Breaking changes identification
+
+**3.7 Context Packaging & Output**
 
 **Output**: `.workflow/{session-id}/.process/context-package.json`
 
@@ -322,19 +359,25 @@ If `.workflow/{session}/.brainstorming/` exists:
   "brainstorm_artifacts": {
     "guidance_specification": {
       "path": ".workflow/WFS-xxx/.brainstorming/guidance-specification.md",
-      "exists": true
+      "exists": true,
+      "content": "# [Project] - Confirmed Guidance Specification\n\n**Metadata**: ...\n\n## 1. Project Positioning & Goals\n..."
     },
     "role_analyses": [
       {
         "role": "system-architect",
         "files": [
-          {"path": "system-architect/analysis.md", "type": "primary"}
+          {
+            "path": "system-architect/analysis.md",
+            "type": "primary",
+            "content": "# System Architecture Analysis\n\n## Overview\n..."
+          }
         ]
       }
     ],
     "synthesis_output": {
       "path": ".workflow/WFS-xxx/.brainstorming/synthesis-specification.md",
-      "exists": true
+      "exists": true,
+      "content": "# Synthesis Specification\n\n## Cross-Role Integration\n..."
     }
   },
   "conflict_detection": {
@@ -352,31 +395,29 @@ If `.workflow/{session}/.brainstorming/` exists:
 }
 ```
 
-### Phase 5: Conflict Detection
+## Execution Mode: Brainstorm vs Plan
 
-**5.1 Impact Analysis**:
-- Count existing files in scope
-- Identify overlapping modules
-- Map downstream consumers
+### Brainstorm Mode (Lightweight)
+**Purpose**: Provide high-level context for generating brainstorming questions
+**Execution**: Phase 1-2 only (skip deep analysis)
+**Output**:
+- Lightweight context-package with:
+  - Project structure overview
+  - Tech stack identification
+  - High-level existing module names
+  - Basic conflict risk (file count only)
+- Skip: Detailed dependency graphs, deep code analysis, web research
 
-**5.2 Change Classification**:
-- API changes (signatures, endpoints)
-- Architecture changes (patterns, layers)
-- Data model changes (schemas, migrations)
-- Breaking changes (incompatible modifications)
-
-**5.3 Risk Calculation**:
-```javascript
-if (existing_files === 0) risk = "none"
-else if (existing_files < 5 && !breaking && !api_changes) risk = "low"
-else if (existing_files <= 15 || api_changes || arch_changes) risk = "medium"
-else risk = "high"
-```
-
-**5.4 Mitigation Strategy**:
-- Low: Direct implementation with tests
-- Medium: Incremental refactoring with compatibility
-- High: Phased migration with feature flags
+### Plan Mode (Comprehensive)
+**Purpose**: Detailed implementation planning with conflict detection
+**Execution**: Full Phase 1-3 (complete discovery + analysis)
+**Output**:
+- Comprehensive context-package with:
+  - Detailed dependency graphs
+  - Deep code structure analysis
+  - Conflict detection with mitigation strategies
+  - Web research for unfamiliar tech
+- Include: All discovery tracks, relevance scoring, 3-source synthesis
 
 ## Quality Validation
 
