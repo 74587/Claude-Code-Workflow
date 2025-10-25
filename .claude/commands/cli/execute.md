@@ -218,5 +218,4 @@ The agent handles all phases internally, including complexity-based tool selecti
 ## Notes
 
 - Command templates, YOLO mode details, and session management: see intelligent-tools-strategy.md (loaded in memory)
-- Output routing and scratchpad details: see workflow-architecture.md
 - **⚠️ Code Modification**: This command modifies code - execution logs document changes made

@@ -317,5 +317,4 @@ Each round's output is structured as:
 -   **Priority System**: Ensures Gemini leads analysis, Codex provides critique, Claude synthesizes
 -   **Output Quality**: Multi-perspective discussion produces more robust plans than single-model analysis
 -   Command patterns and session management: see intelligent-tools-strategy.md (loaded in memory)
--   Output routing details: see workflow-architecture.md
 -   For implementation after discussion, use `/cli:execute` or `/cli:codex-execute` separately

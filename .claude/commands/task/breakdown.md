@@ -10,7 +10,6 @@ argument-hint: "task-id"
 Breaks down complex tasks into executable subtasks with context inheritance and agent assignment.
 
 ## Core Principles
-**Task System:** @~/.claude/workflows/workflow-architecture.md
 **File Cohesion:** Related files must stay in same task
 **10-Task Limit:** Total tasks cannot exceed 10 (triggers re-scoping)
 
@@ -138,7 +137,6 @@ Files updated: .task/IMPL-1.json + 2 subtask files + TODO_LIST.md
 
 ## Implementation Details
 
-See @~/.claude/workflows/workflow-architecture.md for:
 - Complete task JSON schema
 - Implementation field structure
 - Context inheritance rules

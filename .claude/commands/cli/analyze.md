@@ -147,5 +147,4 @@ RULES: [auto-selected template] | Focus on [analysis aspect]
 ## Notes
 
 - Command templates, file patterns, and best practices: see intelligent-tools-strategy.md (loaded in memory)
-- Scratchpad directory details: see workflow-architecture.md
 - Scratchpad files can be promoted to workflow sessions if analysis proves valuable

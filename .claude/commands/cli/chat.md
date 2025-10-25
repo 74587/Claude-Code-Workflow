@@ -145,5 +145,4 @@ RULES: Focus on clarity and accuracy
 ## Notes
 
 - Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
-- Scratchpad directory details: see workflow-architecture.md
 - Scratchpad conversations preserved for future reference

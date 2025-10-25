@@ -165,6 +165,5 @@ rg "authenticate|login" -g "*.ts"
 ## Notes
 
 - Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
-- Scratchpad directory details: see workflow-architecture.md
 - Template path: `~/.claude/prompt-templates/code-analysis.md`
 - Uses `@**/*` for in CONTEXT field for comprehensive code context

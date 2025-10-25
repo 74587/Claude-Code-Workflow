@@ -268,7 +268,7 @@ Generate `TODO_LIST.md` at `.workflow/{session_id}/TODO_LIST.md`:
 - Completed tasks → summaries: `[✅](./.summaries/IMPL-XXX-summary.md)`
 - Consistent ID schemes: IMPL-XXX, IMPL-XXX.Y (max 2 levels)
 
-**Format Specifications**: @~/.claude/workflows/workflow-architecture.md
+
 
 ### 5. Complexity Assessment & Document Structure
 Use `analysis_results.complexity` or task count to determine structure:
@@ -299,7 +299,6 @@ Use `analysis_results.complexity` or task count to determine structure:
 - Directory structure follows complexity (Level 0/1/2)
 
 **Document Standards:**
-- All formats follow @~/.claude/workflows/workflow-architecture.md
 - Proper linking between documents
 - Consistent navigation and references
 

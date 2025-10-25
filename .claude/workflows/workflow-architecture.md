@@ -104,13 +104,14 @@ IMPL-2.1            # Subtask of IMPL-2 (dynamically created)
 - **Status inheritance**: Parent status derived from subtask completion
 
 ### Enhanced Task JSON Schema
-All task files use this unified 5-field schema with optional artifacts enhancement:
+All task files use this unified 6-field schema with optional artifacts enhancement:
 
 ```json
 {
   "id": "IMPL-1.2",
   "title": "Implement JWT authentication",
   "status": "pending|active|completed|blocked|container",
+  "context_package_path": ".workflow/WFS-session/.process/context-package.json",
 
   "meta": {
     "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
@@ -227,6 +228,13 @@ All task files use this unified 5-field schema with optional artifacts enhanceme
 ```
 
 ### Focus Paths & Context Management
+
+#### Context Package Path (Top-Level Field)
+The **context_package_path** field provides the location of the smart context package:
+- **Location**: Top-level field (not in `artifacts` array)
+- **Path**: `.workflow/WFS-session/.process/context-package.json`
+- **Purpose**: References the comprehensive context package containing project structure, dependencies, and brainstorming artifacts catalog
+- **Usage**: Loaded in `pre_analysis` steps via `Read({{context_package_path}})`
 
 #### Focus Paths Format
 The **focus_paths** field specifies concrete project paths for task implementation:

@@ -337,4 +337,4 @@ EXECUTE: /workflow:brainstorm:artifacts "{topic}" --count {count_value}
 ```
 
 **Template Source**: `~/.claude/workflows/cli-templates/planning-roles/`
-**Architecture**: `~/.claude/workflows/workflow-architecture.md`
+

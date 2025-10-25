@@ -515,6 +515,5 @@ AskUserQuestion({
 **Context Window**: `codex exec "..." resume --last` maintains conversation history, ensuring consistency across subtasks without redundant context injection.
 
 **Output Details**:
-- Output routing and scratchpad details: see workflow-architecture.md
 - Session management: see intelligent-tools-strategy.md
 - **⚠️ Code Modification**: This command performs multi-stage code modifications - execution log tracks all changes

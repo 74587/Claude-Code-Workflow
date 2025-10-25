@@ -254,7 +254,7 @@ When step contains `command` field with Codex CLI, execute via Bash tool. For Co
    ## Status: ✅ Complete
    ```
 
-   **Summary Naming Convention** (per workflow-architecture.md):
+   **Summary Naming Convention**:
    - **Main tasks**: `IMPL-[task-id]-summary.md` (e.g., `IMPL-001-summary.md`)
    - **Subtasks**: `IMPL-[task-id].[subtask-id]-summary.md` (e.g., `IMPL-001.1-summary.md`)
    - **Location**: Always in `.summaries/` directory within session workflow folder

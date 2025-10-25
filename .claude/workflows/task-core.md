@@ -4,7 +4,7 @@
 Task commands provide single-execution workflow capabilities with full context awareness, hierarchical organization, and agent orchestration.
 
 ## Task JSON Schema
-All task files use this simplified 5-field schema (aligned with workflow-architecture.md):
+All task files use this simplified 5-field schema:
 
 ```json
 {
