@@ -151,8 +151,8 @@ While CCW works with Claude alone, installing these tools provides enhanced anal
 
 | Tool | Purpose | Installation |
 |------|---------|--------------|
-| **ripgrep (rg)** | Fast code search | `brew install ripgrep` (macOS), `apt install ripgrep` (Ubuntu), `winget install ripgrep` (Windows) |
-| **jq** | JSON processing | `brew install jq` (macOS), `apt install jq` (Ubuntu), `winget install jq` (Windows) |
+| **ripgrep (rg)** | Fast code search | **macOS**: `brew install ripgrep`<br>**Linux**: `apt install ripgrep` (Ubuntu) / `dnf install ripgrep` (Fedora)<br>**Windows**: `winget install ripgrep` / `choco install ripgrep` / `scoop install ripgrep`<br>**Verify**: `rg --version` |
+| **jq** | JSON processing | **macOS**: `brew install jq`<br>**Linux**: `apt install jq` (Ubuntu) / `dnf install jq` (Fedora)<br>**Windows**: `winget install jq` / `choco install jq` / `scoop install jq`<br>**Verify**: `jq --version` |
 
 #### External AI Tools
 

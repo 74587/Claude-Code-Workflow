@@ -175,13 +175,21 @@ cd Dmsflow
 这些工具增强了文件搜索和数据处理能力。
 
 -   **`ripgrep` (rg)**: 一款高速代码搜索工具。
-    -   **Windows**: `winget install BurntSushi.Ripper.MSVC` 或 `choco install ripgrep`
+    -   **Windows**:
+        -   **WinGet**: `winget install ripgrep` (推荐，自动选择 MSVC 版本)
+        -   **Chocolatey**: `choco install ripgrep`
+        -   **Scoop**: `scoop install ripgrep`
+        -   **手动下载**: 从 [GitHub Releases](https://github.com/BurntSushi/ripgrep/releases) 下载预编译二进制文件
     -   **macOS**: `brew install ripgrep`
     -   **Linux**: `sudo apt-get install ripgrep` (Debian/Ubuntu) 或 `sudo dnf install ripgrep` (Fedora)
     -   **验证**: `rg --version`
 
 -   **`jq`**: 一款命令行 JSON 处理器。
-    -   **Windows**: `winget install jqlang.jq` 或 `choco install jq`
+    -   **Windows**:
+        -   **WinGet**: `winget install jq` (推荐)
+        -   **Chocolatey**: `choco install jq`
+        -   **Scoop**: `scoop install jq`
+        -   **手动下载**: 从 [GitHub Releases](https://github.com/jqlang/jq/releases) 下载 `jq-windows-amd64.exe` 并重命名为 `jq.exe`
     -   **macOS**: `brew install jq`
     -   **Linux**: `sudo apt-get install jq` (Debian/Ubuntu) 或 `sudo dnf install jq` (Fedora)
     -   **验证**: `jq --version`
