@@ -9,161 +9,129 @@ allowed-tools: SlashCommand(*), Bash(*), Task(*)
 
 ## Purpose
 
-Systematic code analysis with execution path tracing template (`~/.claude/prompt-templates/code-analysis.md`).
+Systematic code analysis with execution path tracing template (`~/.claude/workflows/cli-templates/prompts/analysis/code-execution-tracing.txt`).
 
-**Supported Tools**: codex, gemini (default), qwen
+**Tool Selection**:
+- **gemini** (default) - Best for code analysis and tracing
+- **qwen** - Fallback when Gemini unavailable
+- **codex** - Alternative for complex analysis tasks
+
 **Key Feature**: `--cd` flag for directory-scoped analysis
 
 ## Parameters
 
-- `--agent` - Use cli-execution-agent for automated context discovery (5-phase intelligent mode)
-- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini, ignored in agent mode)
+- `--tool <gemini|qwen|codex>` - Tool selection (default: gemini)
+- `--agent` - Use cli-execution-agent for automated context discovery
 - `--enhance` - Enhance analysis target with `/enhance-prompt` first
 - `--cd "path"` - Target directory for focused analysis
 - `<analysis-target>` (Required) - Code analysis target or question
+
+## Tool Usage
+
+**Gemini** (Primary):
+```bash
+/cli:mode:code-analysis --tool gemini "trace auth flow"
+# OR (default)
+/cli:mode:code-analysis "trace auth flow"
+```
+
+**Qwen** (Fallback):
+```bash
+/cli:mode:code-analysis --tool qwen "trace auth flow"
+```
+
+**Codex** (Alternative):
+```bash
+/cli:mode:code-analysis --tool codex "trace auth flow"
+```
 
 ## Execution Flow
 
 ### Standard Mode (Default)
 
-1. **Parse tool selection**: Extract `--tool` flag (default: gemini)
-2. **If `--enhance` flag present**: Execute `/enhance-prompt "[analysis-target]"` first
-3. Parse analysis target (original or enhanced)
-4. Detect target directory (from `--cd` or auto-infer)
-5. Build command for selected tool with code-analysis template
-6. Execute deep analysis (read-only, no code modification)
-7. Save to `.workflow/WFS-[id]/.chat/code-analysis-[timestamp].md`
+1. Parse tool selection (default: gemini)
+2. Optional: enhance analysis target with `/enhance-prompt`
+3. Detect target directory from `--cd` or auto-infer
+4. Build command with execution-tracing template
+5. Execute analysis (read-only)
+6. Save to `.workflow/WFS-[id]/.chat/code-analysis-[timestamp].md`
 
 ### Agent Mode (`--agent` flag)
 
-Delegate code analysis to `cli-execution-agent` for intelligent execution path tracing with automated context discovery.
+Delegates to `cli-execution-agent` for intelligent context discovery and analysis.
 
-**Agent invocation**:
+## Core Rules
+
+- **Read-only**: Analyzes code, does NOT modify files
+- **Template**: Uses `code-execution-tracing.txt` for systematic analysis
+- **Output**: Saves to `.workflow/WFS-[id]/.chat/`
+
+## CLI Command Templates
+
+**Gemini/Qwen** (default, read-only analysis):
+```bash
+cd [dir] && gemini -p "
+PURPOSE: [goal]
+TASK: Execution path tracing
+MODE: analysis
+CONTEXT: @**/*
+EXPECTED: Trace, call diagram
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/code-execution-tracing.txt)
+"
+# Qwen: Replace 'gemini' with 'qwen'
+```
+
+**Codex** (analysis + optimization suggestions):
+```bash
+codex -C [dir] --full-auto exec "
+PURPOSE: [goal]
+TASK: Path analysis
+MODE: analysis
+CONTEXT: @**/*
+EXPECTED: Trace, optimization
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/code-execution-tracing.txt)
+" -m gpt-5 --skip-git-repo-check -s danger-full-access
+```
+
+## Agent Execution Context
+
+When `--agent` flag is used, delegate to agent:
+
 ```javascript
 Task(
   subagent_type="cli-execution-agent",
-  description="Analyze code execution paths with automated context discovery",
+  description="Code execution path analysis",
   prompt=`
     Task: ${analysis_target}
-    Mode: code-analysis (execution tracing)
-    Tool Preference: ${tool_flag || 'auto-select'}
-    ${cd_flag ? `Directory Scope: ${cd_path}` : ''}
-    Template: code-analysis
+    Mode: code-analysis
+    Tool: ${tool_flag || 'auto-select'}  // gemini|qwen|codex
+    Directory: ${cd_path || 'auto-detect'}
+    Template: code-execution-tracing
 
-    Agent will autonomously:
-    - Discover execution paths and call flows
-    - Build analysis prompt with code-analysis template
-    - Execute deep tracing analysis
-    - Generate call diagrams and save log
+    Agent responsibilities:
+    1. Context Discovery:
+       - Identify entry points and call chains
+       - Discover related files (MCP/ripgrep)
+       - Map execution flow paths
+
+    2. CLI Command Generation:
+       - Build Gemini/Qwen/Codex command
+       - Include discovered context
+       - Apply code-execution-tracing.txt template
+
+    3. Execution & Output:
+       - Execute analysis with selected tool
+       - Save to .workflow/WFS-[id]/.chat/
   `
 )
 ```
 
-The agent handles all phases internally.
+## Output
 
-## Core Rules
-
-1. **Analysis Only**: This command analyzes code and provides insights - it does NOT modify code
-2. **Tool Selection**: Use `--tool` value or default to gemini
-3. **Enhance First (if flagged)**: Execute `/enhance-prompt` before analysis
-4. **Directory Context**: Use `cd` when `--cd` provided or auto-detected
-5. **Template Required**: Always use code-analysis template
-6. **Session Output**: Save analysis results to session chat
-
-## Analysis Capabilities (via Template)
-
-- **Systematic Code Analysis**: Break down complex code into manageable parts
-- **Execution Path Tracing**: Track variable states and call stacks
-- **Control & Data Flow**: Understand code logic and data transformations
-- **Call Flow Visualization**: Diagram function calling sequences
-- **Logical Reasoning**: Explain "why" behind code behavior
-- **Debugging Insights**: Identify potential bugs or inefficiencies
-
-## Command Template
-
-```bash
-cd [directory] && gemini -p "
-PURPOSE: [analysis goal]
-TASK: Systematic code analysis and execution path tracing
-MODE: analysis
-CONTEXT: @CLAUDE.md @**/*CLAUDE.md [entire codebase in directory]
-EXPECTED: Execution trace, call flow diagram, debugging insights
-RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on [aspect]
-"
-```
-
-## Examples
-
-**Basic Code Analysis (Standard Mode)**:
-```bash
-/cli:mode:code-analysis "trace authentication execution flow"
-# Executes: Gemini with code-analysis template
-# Returns: Execution trace, call diagram, debugging insights
-```
-
-**Intelligent Code Analysis (Agent Mode)**:
-```bash
-/cli:mode:code-analysis --agent "trace JWT token validation from request to database"
-# Phase 1: Classifies as deep analysis, keywords ['jwt', 'token', 'validation', 'database']
-# Phase 2: MCP discovers request handler → middleware → service → repository chain
-# Phase 3: Builds analysis prompt with code-analysis template + complete call path
-# Phase 4: Executes Gemini with traced execution paths
-# Phase 5: Saves detailed analysis with call flow diagrams and variable states
-# Returns: Complete execution trace + call diagram + data flow analysis
-```
-
-**Standard Template Example**:
-```bash
-cd . && gemini -p "
-PURPOSE: Trace authentication execution flow
-TASK: Analyze complete auth flow from request to response
-MODE: analysis
-CONTEXT: @CLAUDE.md @**/*CLAUDE.md
-EXPECTED: Step-by-step execution trace with call diagram, variable states
-RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on control flow
-"
-```
-
-**Directory-Specific Analysis**:
-```bash
-cd src/auth && gemini -p "
-PURPOSE: Understand JWT token validation logic
-TASK: Trace JWT validation from middleware to service layer
-MODE: analysis
-CONTEXT: @CLAUDE.md @**/*CLAUDE.md
-EXPECTED: Validation flow diagram, token lifecycle analysis
-RULES: $(cat ~/.claude/prompt-templates/code-analysis.md) | Focus on security
-"
-```
-
-## Code Tracing Workflow
-
-```bash
-# 1. Find entry points and related files
-rg "function.*authenticate|class.*AuthService" --files-with-matches
-rg "authenticate|login" -g "*.ts"
-
-# 2. Build call graph understanding
-# entry → middleware → service → repository
-
-# 3. Execute deep analysis (analysis only, no code changes)
-/cli:mode:code-analysis --cd "src" "trace execution from entry point"
-```
-
-## Output Routing
-
-**Output Destination Logic**:
-- **Active session exists AND analysis is session-relevant**:
-  - Save to `.workflow/WFS-[id]/.chat/code-analysis-[timestamp].md`
-- **No active session OR standalone analysis**:
-  - Save to `.workflow/.scratchpad/code-analysis-[description]-[timestamp].md`
-
-**Examples**:
-- During active session `WFS-auth-refactor`, analyzing auth flow → `.chat/code-analysis-20250105-143022.md`
-- No session, tracing request lifecycle → `.scratchpad/code-analysis-request-flow-20250105-143045.md`
+- **With session**: `.workflow/WFS-[id]/.chat/code-analysis-[timestamp].md`
+- **No session**: `.workflow/.scratchpad/code-analysis-[desc]-[timestamp].md`
 
 ## Notes
 
-- Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
-- Template path: `~/.claude/prompt-templates/code-analysis.md`
-- Uses `@**/*` for in CONTEXT field for comprehensive code context
+- Template: `~/.claude/workflows/cli-templates/prompts/analysis/code-execution-tracing.txt`
+- See `intelligent-tools-strategy.md` for detailed tool usage

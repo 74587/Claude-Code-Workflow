@@ -363,7 +363,7 @@ Generate **TWO task JSON files**:
         "               Source files: [focus_paths]",
         "               Implementation: [implementation_context]",
         "      EXPECTED: Root cause analysis, code path tracing, targeted fixes",
-        "      RULES: $(cat ~/.claude/prompt-templates/bug-fix.md) | Bug: [test_failure_description]",
+        "      RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/bug-diagnosis.txt) | Bug: [test_failure_description]",
         "             Minimal surgical fixes only - no refactoring",
         "      \" > fix-iteration-[N]-diagnosis.md)",
         "    - Parse diagnosis → extract fix_suggestion and target_files",
@@ -690,6 +690,6 @@ The `@test-fix-agent` will execute the task by following the `flow_control.imple
 6. **Phase 3**: Generate summary and certify code
 7. **Error Recovery**: Revert changes if max iterations reached
 
-**Bug Diagnosis Template**: Uses bug-fix.md template as referenced in bug-index.md for systematic root cause analysis, code path tracing, and targeted fix recommendations.
+**Bug Diagnosis Template**: Uses `~/.claude/workflows/cli-templates/prompts/development/bug-diagnosis.txt` template for systematic root cause analysis, code path tracing, and targeted fix recommendations.
 
 **Codex Usage**: The agent uses `codex exec "..." resume --last` pattern ONLY when meta.use_codex=true (--use-codex flag present) to maintain conversation context across multiple fix iterations, ensuring consistency and learning from previous attempts.

@@ -9,159 +9,121 @@ allowed-tools: SlashCommand(*), Bash(*), Task(*)
 
 ## Purpose
 
-Comprehensive planning and architecture analysis with strategic planning template (`~/.claude/prompt-templates/plan.md`).
+Strategic software architecture planning template (`~/.claude/workflows/cli-templates/prompts/planning/architecture-planning.txt`).
 
-**Supported Tools**: codex, gemini (default), qwen
-**Key Feature**: `--cd` flag for directory-scoped planning
+**Tool Selection**:
+- **gemini** (default) - Best for architecture planning
+- **qwen** - Fallback when Gemini unavailable
+- **codex** - Alternative for implementation planning
 
 ## Parameters
 
-- `--agent` - Use cli-execution-agent for automated context discovery (5-phase intelligent mode)
-- `--tool <codex|gemini|qwen>` - Tool selection (default: gemini, ignored in agent mode)
-- `--enhance` - Enhance topic with `/enhance-prompt` first
+- `--tool <gemini|qwen|codex>` - Tool selection (default: gemini)
+- `--agent` - Use cli-execution-agent for automated context discovery
+- `--enhance` - Enhance task with `/enhance-prompt`
 - `--cd "path"` - Target directory for focused planning
-- `<topic>` (Required) - Planning topic or architectural question
+- `<planning-task>` (Required) - Architecture planning task or modification requirements
+
+## Tool Usage
+
+**Gemini** (Primary):
+```bash
+--tool gemini  # or omit (default)
+```
+
+**Qwen** (Fallback):
+```bash
+--tool qwen
+```
+
+**Codex** (Alternative):
+```bash
+--tool codex
+```
 
 ## Execution Flow
 
-### Standard Mode (Default)
+### Standard Mode
+1. Parse tool selection (default: gemini)
+2. Optional: enhance with `/enhance-prompt`
+3. Detect directory from `--cd` or auto-infer
+4. Build command with architecture-planning template
+5. Execute planning (read-only, no code generation)
+6. Save to `.workflow/WFS-[id]/.chat/`
 
-1. **Parse tool selection**: Extract `--tool` flag (default: gemini)
-2. **If `--enhance` flag present**: Execute `/enhance-prompt "[topic]"` first
-3. Parse topic (original or enhanced)
-4. Detect target directory (from `--cd` or auto-infer)
-5. Build command for selected tool with planning template
-6. Execute analysis (read-only, no code modification)
-7. Save to `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
+### Agent Mode (`--agent`)
 
-### Agent Mode (`--agent` flag)
+Delegates to agent for intelligent planning:
 
-Delegate planning to `cli-execution-agent` for intelligent strategic planning with automated architecture discovery.
-
-**Agent invocation**:
 ```javascript
 Task(
   subagent_type="cli-execution-agent",
-  description="Create strategic plan with automated architecture discovery",
+  description="Architecture modification planning",
   prompt=`
-    Task: ${planning_topic}
-    Mode: plan (strategic planning)
-    Tool Preference: ${tool_flag || 'auto-select'}
-    ${cd_flag ? `Directory Scope: ${cd_path}` : ''}
-    Template: plan
+    Task: ${planning_task}
+    Mode: architecture-planning
+    Tool: ${tool_flag || 'auto-select'}  // gemini|qwen|codex
+    Directory: ${cd_path || 'auto-detect'}
+    Template: architecture-planning
 
-    Agent will autonomously:
-    - Discover project structure and existing architecture
-    - Build planning prompt with plan template
-    - Execute strategic planning analysis
-    - Generate implementation roadmap and save
+    Agent responsibilities:
+    1. Context Discovery:
+       - Analyze current architecture
+       - Identify affected components
+       - Map dependencies and impacts
+
+    2. CLI Command Generation:
+       - Build Gemini/Qwen/Codex command
+       - Include architecture context
+       - Apply architecture-planning.txt template
+
+    3. Execution & Output:
+       - Execute strategic planning
+       - Generate modification plan
+       - Save to .workflow/.chat/
   `
 )
 ```
 
-The agent handles all phases internally.
-
 ## Core Rules
 
-1. **Analysis Only**: This command provides planning recommendations and insights - it does NOT modify code
-2. **Enhance First (if flagged)**: Execute `/enhance-prompt` before planning
-3. **Directory Context**: Use `cd` when `--cd` provided or auto-detected
-4. **Template Required**: Always use planning template
-5. **Session Output**: Save analysis results to session chat
+- **Planning only**: Creates modification plans, does NOT generate code
+- **Template**: Uses `architecture-planning.txt` for strategic planning
+- **Output**: Saves to `.workflow/WFS-[id]/.chat/`
 
-## Planning Capabilities (via Template)
+## CLI Command Templates
 
-- Strategic architecture insights and recommendations
-- Implementation roadmaps and suggestions
-- Key technical decisions analysis
-- Risk assessment
-- Resource planning
-
-## Command Template
-
+**Gemini/Qwen** (default, planning only):
 ```bash
-cd [directory] && gemini -p "
-PURPOSE: [planning goal from topic]
-TASK: Comprehensive planning and architecture analysis
+cd [dir] && gemini -p "
+PURPOSE: [goal]
+TASK: Architecture planning
 MODE: analysis
-CONTEXT: @CLAUDE.md @**/*CLAUDE.md [entire codebase in directory]
-EXPECTED: Strategic insights, implementation recommendations, key decisions
-RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on [topic area]
+CONTEXT: @**/*
+EXPECTED: Modification plan, impact analysis
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/architecture-planning.txt)
 "
+# Qwen: Replace 'gemini' with 'qwen'
 ```
 
-## Examples
-
-**Basic Planning Analysis (Standard Mode)**:
+**Codex** (planning + implementation guidance):
 ```bash
-/cli:mode:plan "design user dashboard architecture"
-# Executes: Gemini with planning template
-# Returns: Architecture recommendations, component design, roadmap
-```
-
-**Intelligent Planning (Agent Mode)**:
-```bash
-/cli:mode:plan --agent "design microservices architecture for payment system"
-# Phase 1: Classifies as architectural planning, keywords ['microservices', 'payment', 'architecture']
-# Phase 2: MCP discovers existing services, payment flows, integration patterns
-# Phase 3: Builds planning prompt with plan template + current architecture context
-# Phase 4: Executes Gemini with comprehensive project understanding
-# Phase 5: Saves planning document with implementation roadmap and migration strategy
-# Returns: Strategic architecture plan + implementation roadmap + risk assessment
-```
-
-**Standard Template Example**:
-```bash
-cd . && gemini -p "
-PURPOSE: Design user dashboard architecture
-TASK: Plan dashboard component structure and data flow
+codex -C [dir] --full-auto exec "
+PURPOSE: [goal]
+TASK: Architecture planning
 MODE: analysis
-CONTEXT: @CLAUDE.md @**/*CLAUDE.md
-EXPECTED: Architecture recommendations, component design, data flow diagram
-RULES: $(cat ~/.claude/prompt-templates/plan.md) | Focus on scalability
-"
+CONTEXT: @**/*
+EXPECTED: Plan, implementation roadmap
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/architecture-planning.txt)
+" -m gpt-5 --skip-git-repo-check -s danger-full-access
 ```
 
-**Directory-Specific Planning**:
-```bash
-cd src/api && gemini -p "
-PURPOSE: Plan API refactoring strategy
-TASK: Analyze current API structure and recommend improvements
-MODE: analysis
-CONTEXT: @CLAUDE.md @**/*CLAUDE.md
-EXPECTED: Refactoring roadmap, breaking change analysis, migration plan
-RULES: $(cat ~/.claude/prompt-templates/plan.md) | Maintain backward compatibility
-"
-```
+## Output
 
-## Planning Workflow
-
-```bash
-# 1. Discover project structure
-~/.claude/scripts/get_modules_by_depth.sh
-find . -name "*.ts" -type f
-
-# 2. Gather existing architecture info
-rg "architecture|design" --files-with-matches
-
-# 3. Execute planning analysis (analysis only, no code changes)
-/cli:mode:plan "topic for strategic planning"
-```
-
-## Output Routing
-
-**Output Destination Logic**:
-- **Active session exists AND planning is session-relevant**:
-  - Save to `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
-- **No active session OR exploratory planning**:
-  - Save to `.workflow/.scratchpad/plan-[description]-[timestamp].md`
-
-**Examples**:
-- During active session `WFS-dashboard`, planning dashboard architecture → `.chat/plan-20250105-143022.md`
-- No session, exploring new feature idea → `.scratchpad/plan-feature-idea-20250105-143045.md`
+- **With session**: `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
+- **No session**: `.workflow/.scratchpad/plan-[desc]-[timestamp].md`
 
 ## Notes
 
-- Command templates and file patterns: see intelligent-tools-strategy.md (loaded in memory)
-- Template path: `~/.claude/prompt-templates/plan.md`
-- Uses `@**/*` for in CONTEXT field for comprehensive project context
+- Template: `~/.claude/workflows/cli-templates/prompts/planning/architecture-planning.txt`
+- See `intelligent-tools-strategy.md` for detailed tool usage
