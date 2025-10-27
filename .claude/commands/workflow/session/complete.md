@@ -1,6 +1,6 @@
 ---
 name: complete
-description: Mark the active workflow session as complete and remove active flag
+description: Mark the active workflow session as complete, archive it with lessons learned, and remove active flag
 examples:
   - /workflow:session:complete
   - /workflow:session:complete --detailed
@@ -9,7 +9,7 @@ examples:
 # Complete Workflow Session (/workflow:session:complete)
 
 ## Overview
-Mark the currently active workflow session as complete, update its status, and remove the active flag marker.
+Mark the currently active workflow session as complete, analyze it for lessons learned, move it to the archive directory, and remove the active flag marker.
 
 ## Usage
 ```bash
@@ -19,87 +19,129 @@ Mark the currently active workflow session as complete, update its status, and r
 
 ## Implementation Flow
 
-### Step 1: Find Active Session
+### Phase 1: Prepare for Archival (Minimal Manual Operations)
+
+**Purpose**: Find active session, move to archive location, pass control to agent. Minimal operations.
+
+#### Step 1.1: Find Active Session and Get Name
 ```bash
-ls .workflow/.active-* 2>/dev/null | head -1
-```
+# Find active marker
+bash(find .workflow/ -name ".active-*" -type f | head -1)
 
-### Step 2: Get Session Name
+# Extract session name from marker path
+bash(basename .workflow/.active-WFS-session-name | sed 's/^\.active-//')
+```
+**Output**: Session name `WFS-session-name`
+
+#### Step 1.2: Move Session to Archive
 ```bash
-basename .workflow/.active-WFS-session-name | sed 's/^\.active-//'
+# Create archive directory if needed
+bash(mkdir -p .workflow/.archives/)
+
+# Move session to archive location
+bash(mv .workflow/WFS-session-name .workflow/.archives/WFS-session-name)
+```
+**Result**: Session now at `.workflow/.archives/WFS-session-name/`
+
+### Phase 2: Agent-Orchestrated Completion (All Data Processing)
+
+**Purpose**: Agent analyzes archived session, generates metadata, updates manifest, and removes active marker.
+
+#### Agent Invocation
+
+Invoke `universal-executor` agent to complete the archival process.
+
+**Agent Task**:
+```
+Task(
+  subagent_type="universal-executor",
+  description="Complete session archival",
+  prompt=`
+Complete workflow session archival. Session already moved to archive location.
+
+## Context
+- Session: .workflow/.archives/WFS-session-name/
+- Active marker: .workflow/.active-WFS-session-name
+
+## Tasks
+
+1. **Extract session data** from workflow-session.json (session_id, description/topic, started_at/timestamp, completed_at, status)
+   - If status != "completed", update it with timestamp
+
+2. **Count files**: tasks (.task/*.json) and summaries (.summaries/*.md)
+
+3. **Generate lessons**: Use gemini with ~/.claude/workflows/cli-templates/prompts/archive/analysis-simple.txt (fallback: analyze files directly)
+   - Return: {successes, challenges, watch_patterns}
+
+4. **Build archive entry**:
+   - Calculate: duration_hours, success_rate, tags (3-5 keywords)
+   - Construct complete JSON with session_id, description, archived_at, archive_path, metrics, tags, lessons
+
+5. **Update manifest**: Initialize .workflow/.archives/manifest.json if needed, append entry
+
+6. **Remove active marker**
+
+7. **Return result**: {"status": "success", "session_id": "...", "archived_at": "...", "metrics": {...}, "lessons_summary": {...}}
+
+## Error Handling
+- On failure: return {"status": "error", "task": "...", "message": "..."}
+- Do NOT remove marker if failed
+  `
+)
 ```
 
-### Step 3: Update Session Status
+**Expected Output**:
+- Agent returns JSON result confirming successful archival
+- Display completion summary to user based on agent response
+
+## Workflow Execution Strategy
+
+### Two-Phase Approach (Optimized)
+
+**Phase 1: Minimal Manual Setup** (2 simple operations)
+- Find active session and extract name
+- Move session to archive location
+- **No data extraction** - agent handles all data processing
+- **No counting** - agent does this from archive location
+- **Total**: 2 bash commands (find + move)
+
+**Phase 2: Agent-Driven Completion** (1 agent invocation)
+- Extract all session data from archived location
+- Count tasks and summaries
+- Generate lessons learned analysis
+- Build complete archive metadata
+- Update manifest
+- Remove active marker
+- Return success/error result
+
+## Quick Commands
+
 ```bash
-jq '.status = "completed"' .workflow/WFS-session/workflow-session.json > temp.json
-mv temp.json .workflow/WFS-session/workflow-session.json
+# Phase 1: Find and move
+bash(find .workflow/ -name ".active-*" -type f | head -1)
+bash(basename .workflow/.active-WFS-session-name | sed 's/^\.active-//')
+bash(mkdir -p .workflow/.archives/)
+bash(mv .workflow/WFS-session-name .workflow/.archives/WFS-session-name)
+
+# Phase 2: Agent completes archival
+Task(subagent_type="universal-executor", description="Complete session archival", prompt=`...`)
 ```
 
-### Step 4: Add Completion Timestamp
+## Archive Query Commands
+
+After archival, you can query the manifest:
+
 ```bash
-jq '.completed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' .workflow/WFS-session/workflow-session.json > temp.json
-mv temp.json .workflow/WFS-session/workflow-session.json
+# List all archived sessions
+jq '.archives[].session_id' .workflow/.archives/manifest.json
+
+# Find sessions by keyword
+jq '.archives[] | select(.description | test("auth"; "i"))' .workflow/.archives/manifest.json
+
+# Get specific session details
+jq '.archives[] | select(.session_id == "WFS-user-auth")' .workflow/.archives/manifest.json
+
+# List all watch patterns across sessions
+jq '.archives[].lessons.watch_patterns[]' .workflow/.archives/manifest.json
 ```
 
-### Step 5: Count Final Statistics
-```bash
-find .workflow/WFS-session/.task/ -name "*.json" -type f 2>/dev/null | wc -l
-find .workflow/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
-```
-
-### Step 6: Remove Active Marker
-```bash
-rm .workflow/.active-WFS-session-name
-```
-
-## Simple Bash Commands
-
-### Basic Operations
-- **Find active session**: `find .workflow/ -name ".active-*" -type f`
-- **Get session name**: `basename marker | sed 's/^\.active-//'`
-- **Update status**: `jq '.status = "completed"' session.json > temp.json`
-- **Add timestamp**: `jq '.completed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"'`
-- **Count tasks**: `find .task/ -name "*.json" -type f | wc -l`
-- **Count completed**: `find .summaries/ -name "*.md" -type f 2>/dev/null | wc -l`
-- **Remove marker**: `rm .workflow/.active-session`
-
-### Completion Result
-```
-Session WFS-user-auth completed
-- Status: completed
-- Started: 2025-09-15T10:00:00Z
-- Completed: 2025-09-15T16:30:00Z
-- Duration: 6h 30m
-- Total tasks: 8
-- Completed tasks: 8
-- Success rate: 100%
-```
-
-### Detailed Summary (--detailed flag)
-```
-Session Completion Summary:
-├── Session: WFS-user-auth
-├── Project: User authentication system
-├── Total time: 6h 30m
-├── Tasks completed: 8/8 (100%)
-├── Files generated: 24 files
-├── Summaries created: 8 summaries
-├── Status: All tasks completed successfully
-└── Location: .workflow/WFS-user-auth/
-```
-
-### Error Handling
-```bash
-# No active session
-find .workflow/ -name ".active-*" -type f 2>/dev/null || echo "No active session found"
-
-# Incomplete tasks
-task_count=$(find .task/ -name "*.json" -type f | wc -l)
-summary_count=$(find .summaries/ -name "*.md" -type f 2>/dev/null | wc -l)
-test $task_count -eq $summary_count || echo "Warning: Not all tasks completed"
-```
-
-## Related Commands
-- `/workflow:session:list` - View all sessions including completed
-- `/workflow:session:start` - Start new session
-- `/workflow:status` - Check completion status before completing
