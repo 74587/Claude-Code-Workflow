@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.1.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,12 +14,12 @@
 
 **Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a robust, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
 
-> **🎉 Version 5.0: Less is More**
+> **🎉 Version 5.1: Agent Architecture Consolidation**
 >
 > **Core Improvements**:
-> - ✅ **Removed External Dependencies** - Using standard ripgrep/find instead of MCP code-index for better stability
-> - ✅ **Streamlined Workflows** - Enhanced TDD workflow with conflict resolution mechanism
-> - ✅ **Focused on Role Analysis** - Simplified planning architecture centered on role documents
+> - ✅ **Universal Executor Agent** - Consolidated agent architecture for better clarity and specialization
+> - ✅ **Enhanced Workflow Commands** - Improved session management and context gathering capabilities
+> - ✅ **Better Code Organization** - Archived legacy templates and improved documentation consistency
 >
 > See [CHANGELOG.md](CHANGELOG.md) for full details.
 

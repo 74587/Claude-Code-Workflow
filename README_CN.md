@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.1.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,12 +14,12 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
 
-> **🎉 版本 5.0: 少即是多**
+> **🎉 版本 5.1: 智能体架构整合**
 >
 > **核心改进**:
-> - ✅ **移除外部依赖** - 使用标准 ripgrep/find 替代 MCP code-index，提升稳定性
-> - ✅ **简化工作流** - 优化 TDD 流程，引入冲突解决机制
-> - ✅ **专注角色分析** - 以角色文档为核心，简化规划架构
+> - ✅ **通用执行器智能体** - 整合智能体架构，提升清晰度和专业化程度
+> - ✅ **增强的工作流命令** - 改进会话管理和上下文收集能力
+> - ✅ **更好的代码组织** - 归档遗留模板，改进文档一致性
 >
 > 详见 [CHANGELOG.md](CHANGELOG.md)。
 

@@ -5,6 +5,47 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.0] - 2025-10-27
+
+### 🔄 Agent Architecture Consolidation
+
+This release consolidates the agent architecture and enhances workflow commands for better reliability and clarity.
+
+#### ✅ Added
+
+**Agent System**:
+- ✅ **Universal Executor Agent** - New consolidated agent replacing general-purpose agent
+- ✅ **Enhanced agent specialization** - Better separation of concerns across agent types
+
+**Workflow Improvements**:
+- ✅ **Advanced context filtering** - Context-gather command now supports more sophisticated validation
+- ✅ **Session state management** - Enhanced session completion with better cleanup logic
+
+#### 📝 Changed
+
+**Agent Architecture**:
+- 🔄 **Removed general-purpose agent** - Consolidated into universal-executor for clarity
+- 🔄 **Improved agent naming** - More descriptive agent names matching their specific roles
+
+**Command Enhancements**:
+- 🔄 **`/workflow:session:complete`** - Better state management and cleanup procedures
+- 🔄 **`/workflow:tools:context-gather`** - Enhanced filtering and validation capabilities
+
+#### 🗂️ Maintenance
+
+**Code Organization**:
+- 📦 **Archived legacy templates** - Moved outdated prompt templates to archive folder
+- 📦 **Documentation cleanup** - Improved consistency across workflow documentation
+
+#### 📦 Updated Files
+
+- `.claude/agents/universal-executor.md` - New consolidated agent definition
+- `.claude/commands/workflow/session/complete.md` - Enhanced session management
+- `.claude/commands/workflow/tools/context-gather.md` - Improved context filtering
+- `.claude/workflows/cli-templates/prompts/archive/` - Legacy template archive
+
+---
+
 ## [5.0.0] - 2025-10-24
 
 ### 🎉 Less is More - Simplified Architecture Release
