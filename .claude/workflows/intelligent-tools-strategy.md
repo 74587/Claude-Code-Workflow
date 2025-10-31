@@ -447,7 +447,7 @@ bash(codex -C directory --full-auto exec "task")  # Complex implementation: 90-1
 
 #### Write Operation Protection
 
-**⚠️ WRITE PROTECTION**: Local codebase write/modify requires EXPLICIT user confirmation
+**⚠️ CRITICAL: Single-Use Explicit Authorization**: Each CLI execution (Gemini/Qwen/Codex) requires explicit user command instruction - one command authorizes ONE execution only. Analysis does NOT authorize write operations. Previous authorization does NOT carry over to subsequent actions. Each operation needs NEW explicit user directive.
 
 **Mode Hierarchy**:
 - **Analysis Mode (default)**: Read-only, safe for auto-execution
