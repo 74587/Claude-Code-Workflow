@@ -197,11 +197,13 @@ bash(find .workflow/docs/{project_name} -name "*.md" | sed 's|.workflow/docs/{pr
 
 Extract from README + structure: Function (capabilities), Modules (names), Keywords (API/CLI/auth/etc.)
 
-**Format**: `{Project} {core capabilities}. Load this SKILL when analyzing, working with, or learning about {project_name} for comprehensive context.`
+**Format**: `{Project} {core capabilities} (located at {project_path}). Load this SKILL when analyzing, working with, or learning about {project_name} or files under this path for comprehensive context.`
 
-**Trigger Optimization**: Emphasize "Load this SKILL" pattern to improve sensitivity for context retrieval scenarios.
+**Path Reference**: Use `TARGET_PATH` from Phase 1 for precise location identification.
 
-**Example**: "Workflow orchestration system with CLI tools and documentation generation. Load this SKILL when analyzing, working with, or learning about workflow management for comprehensive context."
+**Trigger Optimization**: Include project path to improve triggering when users mention specific directories or file locations.
+
+**Example**: "Workflow orchestration system with CLI tools and documentation generation (located at /d/Claude_dms3). Load this SKILL when analyzing, working with, or learning about workflow management or files under this path for comprehensive context."
 
 **Step 4: Write SKILL.md** (Use Write tool)
 ```bash
