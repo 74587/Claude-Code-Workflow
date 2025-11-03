@@ -65,62 +65,42 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 
 ### Phase 1: Initialize Session
 
-#### Step 1: Create Session and Generate Config
+#### Step 1: Get Target Path and Project Name
 ```bash
-# Create session structure and initialize config in one step
-bash(
-  # Parse arguments
-  path="${1:-.}"
-  tool="gemini"
-  mode="full"
-  cli_generate=false
-  shift
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --tool) tool="$2"; shift 2 ;;
-      --mode) mode="$2"; shift 2 ;;
-      --cli-generate) cli_generate=true; shift ;;
-      *) shift ;;
-    esac
-  done
+# Get current directory as target path
+bash(pwd)
 
-  # Detect paths
-  project_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-  if [[ "$path" == /* ]] || [[ "$path" == [A-Z]:* ]]; then
-    target_path="$path"
-  else
-    target_path=$(cd "$path" 2>/dev/null && pwd || echo "$PWD/$path")
-  fi
+# Get project name from current directory
+bash(basename "$(pwd)")
 
-  # Extract project name from target_path
-  project_name=$(basename "$target_path")
+# Get project root from git
+bash(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
-  # Create session
-  timestamp=$(date +%Y%m%d-%H%M%S)
-  session="WFS-docs-${timestamp}"
-  mkdir -p ".workflow/${session}"/{.task,.process,.summaries}
-  touch ".workflow/.active-${session}"
+# Generate timestamp for session ID
+bash(date +%Y%m%d-%H%M%S)
+```
 
-  # Generate single config file with all info
-  cat > ".workflow/${session}/.process/config.json" <<EOF
-{
-  "session_id": "${session}",
-  "timestamp": "$(date -Iseconds)",
-  "path": "${path}",
-  "target_path": "${target_path}",
-  "project_root": "${project_root}",
-  "project_name": "${project_name}",
-  "mode": "${mode}",
-  "tool": "${tool}",
-  "cli_generate": ${cli_generate}
-}
-EOF
+**Output**:
+- `target_path`: `/d/Claude_dms3`
+- `project_name`: `Claude_dms3`
+- `project_root`: `/d/Claude_dms3`
+- `timestamp`: `20240120-143022`
 
-  echo "✓ Session initialized: ${session}"
-  echo "✓ Target: ${target_path}"
-  echo "✓ Mode: ${mode}"
-  echo "✓ Tool: ${tool}, CLI generate: ${cli_generate}"
-)
+#### Step 2: Create Session Structure
+```bash
+# Create session directories (replace timestamp with actual value)
+bash(mkdir -p .workflow/WFS-docs-20240120-143022/.task)
+bash(mkdir -p .workflow/WFS-docs-20240120-143022/.process)
+bash(mkdir -p .workflow/WFS-docs-20240120-143022/.summaries)
+
+# Mark session as active
+bash(touch .workflow/.active-WFS-docs-20240120-143022)
+```
+
+#### Step 3: Create Config File
+```bash
+# Create config.json with session info (replace values with actual data)
+bash(echo '{"session_id":"WFS-docs-20240120-143022","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/Claude_dms3","project_root":"/d/Claude_dms3","project_name":"Claude_dms3","mode":"full","tool":"gemini","cli_generate":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/.process/config.json)
 ```
 
 **Output**:
@@ -195,69 +175,57 @@ bash(jq '. + {analysis: {total: "15", code: "8", navigation: "7", top_level: "3"
 
 ### Phase 3: Detect Update Mode
 
-#### Step 1: Count Existing Documentation in .workflow/docs/{project_name}/
+#### Step 1: Get Project Name from Config
 ```bash
-# Check .workflow/docs/{project_name}/ directory and count existing files
-bash(
-  project_name=$(jq -r '.project_name' .workflow/WFS-docs-20240120/.process/config.json)
-  if [[ -d ".workflow/docs/${project_name}" ]]; then
-    find .workflow/docs/${project_name} -name "*.md" 2>/dev/null | wc -l
-  else
-    echo "0"
-  fi
-)
+# Read project name from config
+bash(jq -r '.project_name' .workflow/WFS-docs-20240120-143022/.process/config.json)
 ```
 
-**Output**: `5` (existing docs in .workflow/docs/{project_name}/)
+**Output**: `Claude_dms3`
 
-#### Step 2: List Existing Documentation
+#### Step 2: Count Existing Documentation
 ```bash
-# List existing files in .workflow/docs/{project_name}/ (for task context)
-bash(
-  project_name=$(jq -r '.project_name' .workflow/WFS-docs-20240120/.process/config.json)
-  if [[ -d ".workflow/docs/${project_name}" ]]; then
-    find .workflow/docs/${project_name} -name "*.md" 2>/dev/null > .workflow/WFS-docs-20240120/.process/existing-docs.txt
-  else
-    touch .workflow/WFS-docs-20240120/.process/existing-docs.txt
-  fi
-)
+# Count existing docs (replace project_name with actual value)
+bash(find .workflow/docs/Claude_dms3 -name "*.md" 2>/dev/null | wc -l || echo 0)
+```
+
+**Output**: `5` (existing docs) or `0` (no docs)
+
+#### Step 3: List Existing Documentation Files
+```bash
+# List existing docs to file (replace project_name and session)
+bash(find .workflow/docs/Claude_dms3 -name "*.md" 2>/dev/null > .workflow/WFS-docs-20240120-143022/.process/existing-docs.txt || touch .workflow/WFS-docs-20240120-143022/.process/existing-docs.txt)
+
+# Display existing docs
+bash(cat .workflow/WFS-docs-20240120-143022/.process/existing-docs.txt)
 ```
 
 **Output** (existing-docs.txt):
 ```
-.workflow/docs/my_app/src/modules/auth/API.md
-.workflow/docs/my_app/src/modules/auth/README.md
-.workflow/docs/my_app/lib/core/README.md
-.workflow/docs/my_app/README.md
+.workflow/docs/Claude_dms3/src/modules/auth/API.md
+.workflow/docs/Claude_dms3/src/modules/auth/README.md
+.workflow/docs/Claude_dms3/lib/core/README.md
+.workflow/docs/Claude_dms3/README.md
 ```
 
-#### Step 3: Update Config with Update Status
+#### Step 4: Update Config with Update Status
 ```bash
-# Determine update status (create or update) and update config
-bash(
-  project_name=$(jq -r '.project_name' .workflow/WFS-docs-20240120/.process/config.json)
-  existing_count=$(find .workflow/docs/${project_name} -name "*.md" 2>/dev/null | wc -l)
-  if [[ $existing_count -gt 0 ]]; then
-    jq ". + {update_mode: \"update\", existing_docs: $existing_count}" .workflow/WFS-docs-20240120/.process/config.json > .workflow/WFS-docs-20240120/.process/config.json.tmp && mv .workflow/WFS-docs-20240120/.process/config.json.tmp .workflow/WFS-docs-20240120/.process/config.json
-  else
-    jq '. + {update_mode: "create", existing_docs: 0}' .workflow/WFS-docs-20240120/.process/config.json > .workflow/WFS-docs-20240120/.process/config.json.tmp && mv .workflow/WFS-docs-20240120/.process/config.json.tmp .workflow/WFS-docs-20240120/.process/config.json
-  fi
-)
+# If existing_count > 0, update config with "update" mode (replace session and count)
+bash(jq '. + {update_mode: "update", existing_docs: 5}' .workflow/WFS-docs-20240120-143022/.process/config.json > .workflow/WFS-docs-20240120-143022/.process/config.json.tmp && mv .workflow/WFS-docs-20240120-143022/.process/config.json.tmp .workflow/WFS-docs-20240120-143022/.process/config.json)
 
-# Display strategy summary
-bash(
-  mode=$(jq -r '.mode' .workflow/WFS-docs-20240120/.process/config.json)
-  update_mode=$(jq -r '.update_mode' .workflow/WFS-docs-20240120/.process/config.json)
-  existing=$(jq -r '.existing_docs' .workflow/WFS-docs-20240120/.process/config.json)
-  tool=$(jq -r '.tool' .workflow/WFS-docs-20240120/.process/config.json)
-  cli_gen=$(jq -r '.cli_generate' .workflow/WFS-docs-20240120/.process/config.json)
+# Or if existing_count = 0, use "create" mode
+bash(jq '. + {update_mode: "create", existing_docs: 0}' .workflow/WFS-docs-20240120-143022/.process/config.json > .workflow/WFS-docs-20240120-143022/.process/config.json.tmp && mv .workflow/WFS-docs-20240120-143022/.process/config.json.tmp .workflow/WFS-docs-20240120-143022/.process/config.json)
+```
 
-  echo "📋 Documentation Strategy:"
-  echo "  - Path: $(jq -r '.target_path' .workflow/WFS-docs-20240120/.process/config.json)"
-  echo "  - Mode: $mode ($([ "$mode" = "full" ] && echo "complete docs" || echo "modules only"))"
-  echo "  - Update: $update_mode ($existing existing files)"
-  echo "  - Tool: $tool, CLI generate: $cli_gen"
-)
+#### Step 5: Display Strategy Summary
+```bash
+# Read config values
+bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.update_mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.existing_docs' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.target_path' .workflow/WFS-docs-20240120-143022/.process/config.json)
 ```
 
 ### Phase 4: Decompose Tasks
@@ -277,98 +245,92 @@ Level 3: Architecture & Examples (mode=full only, depends on Level 2)
   └─ IMPL-006: Generate HTTP API (optional)
 ```
 
-#### Step 1: Generate Level 1 Tasks (Module Trees)
+#### Step 1: Read Top-Level Directories
 ```bash
-# Read top-level directories and create tasks
-bash(
-  task_count=0
-  while read -r top_dir; do
-    task_count=$((task_count + 1))
-    task_id=$(printf "IMPL-%03d" $task_count)
-    echo "Creating $task_id for '$top_dir'"
-    # Generate task JSON (see Task Templates section)
-  done < .workflow/WFS-docs-20240120/.process/top-level-dirs.txt
-)
+# Read top-level directories list
+bash(cat .workflow/WFS-docs-20240120-143022/.process/top-level-dirs.txt)
 ```
 
 **Output**:
 ```
-Creating IMPL-001 for 'src/modules'
-Creating IMPL-002 for 'src/utils'
-Creating IMPL-003 for 'lib'
+src/modules
+src/utils
+lib
 ```
 
-#### Step 2: Generate Level 2-3 Tasks (Full Mode Only)
+#### Step 2: Count Directories for Task Generation
 ```bash
-# Check documentation mode
-bash(jq -r '.mode' .workflow/WFS-docs-20240120/.process/config.json)
-
-# If full mode, create project-level tasks
-bash(
-  mode=$(jq -r '.mode' .workflow/WFS-docs-20240120/.process/config.json)
-  if [[ "$mode" == "full" ]]; then
-    echo "Creating IMPL-004: Project README"
-    echo "Creating IMPL-005: ARCHITECTURE.md + EXAMPLES.md"
-    # Optional: Check for HTTP API endpoints
-    if grep -r "router\.|@Get\|@Post" src/ >/dev/null 2>&1; then
-      echo "Creating IMPL-006: HTTP API docs"
-    fi
-  else
-    echo "Partial mode: Skipping project-level tasks"
-  fi
-)
+# Count how many tasks to create
+bash(wc -l < .workflow/WFS-docs-20240120-143022/.process/top-level-dirs.txt)
 ```
+
+**Output**: `3` (will generate IMPL-001, IMPL-002, IMPL-003)
+
+#### Step 3: Check Documentation Mode
+```bash
+# Check if full or partial mode
+bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
+```
+
+**Output**: `full` or `partial`
+
+#### Step 4: Check for HTTP API Endpoints (Optional)
+```bash
+# Search for API endpoint patterns
+bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo "NO_API")
+```
+
+**Output**: `API_FOUND` or `NO_API`
+
+**Task Generation Summary**:
+- **Partial mode**: Generate only IMPL-001, IMPL-002, IMPL-003 (module trees)
+- **Full mode without API**: Generate IMPL-001 to IMPL-005
+- **Full mode with API**: Generate IMPL-001 to IMPL-006
 
 ### Phase 5: Generate Task JSONs
 
-#### Step 1: Extract Configuration
+#### Step 1: Read Configuration Values
 ```bash
-# Read config values from JSON
-bash(jq -r '.tool' .workflow/WFS-docs-20240120/.process/config.json)
-bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120/.process/config.json)
-```
+# Read tool selection
+bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/.process/config.json)
 
-**Output**: `tool=gemini`, `cli_generate=false`
+# Read cli_generate flag
+bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120-143022/.process/config.json)
 
-#### Step 2: Determine CLI Command Strategy
-```bash
-# Determine MODE and placement based on cli_generate flag
-bash(
-  cli_generate=$(jq -r '.cli_generate' .workflow/WFS-docs-20240120/.process/config.json)
-
-  if [[ "$cli_generate" == "true" ]]; then
-    echo "mode=write"
-    echo "placement=implementation_approach"
-    echo "approval_flag=--approval-mode yolo"
-  else
-    echo "mode=analysis"
-    echo "placement=pre_analysis"
-    echo "approval_flag="
-  fi
-)
+# Read mode
+bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
 ```
 
 **Output**:
-```
-mode=analysis
-placement=pre_analysis
-approval_flag=
-```
+- `tool`: `gemini`
+- `cli_generate`: `false`
+- `mode`: `full`
 
-#### Step 3: Build Tool-Specific Commands
-```bash
-# Generate command templates based on tool selection
-bash(
-  tool=$(jq -r '.tool' .workflow/WFS-docs-20240120/.process/config.json)
+#### Step 2: Determine CLI Strategy
 
-  if [[ "$tool" == "codex" ]]; then
-    echo "codex -C \${dir} --full-auto exec \"...\" --skip-git-repo-check -s danger-full-access"
-  else
-    echo "bash(cd \${dir} && ${tool} ${approval_flag} -p \"...\")"
-    # Direct CLI commands for gemini/qwen
-  fi
-)
-```
+**If cli_generate = false**:
+- MODE: `analysis`
+- Placement: `pre_analysis`
+- Approval flag: (none)
+- Command pattern: `cd dir && gemini -p "..."`
+
+**If cli_generate = true**:
+- MODE: `write`
+- Placement: `implementation_approach`
+- Approval flag: `--approval-mode yolo`
+- Command pattern: `cd dir && gemini --approval-mode yolo -p "..."`
+
+**If tool = codex**:
+- Command pattern: `codex -C dir --full-auto exec "..." --skip-git-repo-check -s danger-full-access`
+
+#### Step 3: Generate Task JSON Files
+
+Tasks are generated based on:
+- Top-level directories from Phase 4
+- Configuration from config.json
+- Task templates (see Task Templates section below)
+
+Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.json`
 
 ## Task Templates
 
@@ -782,38 +744,48 @@ bash(
 
 ### Session Management
 ```bash
-# Create session and initialize config (all in one)
-bash(
-  session="WFS-docs-$(date +%Y%m%d-%H%M%S)"
-  mkdir -p ".workflow/${session}"/{.task,.process,.summaries}
-  touch ".workflow/.active-${session}"
-  cat > ".workflow/${session}/.process/config.json" <<EOF
-{"session_id":"${session}","timestamp":"$(date -Iseconds)","path":".","mode":"full","tool":"gemini","cli_generate":false}
-EOF
-  echo "Session: ${session}"
-)
+# Generate timestamp
+bash(date +%Y%m%d-%H%M%S)
+
+# Create session directories (replace timestamp)
+bash(mkdir -p .workflow/WFS-docs-20240120-143022/.task)
+bash(mkdir -p .workflow/WFS-docs-20240120-143022/.process)
+bash(mkdir -p .workflow/WFS-docs-20240120-143022/.summaries)
+
+# Mark as active
+bash(touch .workflow/.active-WFS-docs-20240120-143022)
+
+# Get project name
+bash(basename "$(pwd)")
+
+# Create config (replace values)
+bash(echo '{"session_id":"WFS-docs-20240120-143022","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/project","project_name":"project","mode":"full","tool":"gemini","cli_generate":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/.process/config.json)
 
 # Read session config
-bash(cat .workflow/WFS-docs-20240120/.process/config.json)
+bash(cat .workflow/WFS-docs-20240120-143022/.process/config.json)
 
 # Extract config values
-bash(jq -r '.tool' .workflow/WFS-docs-20240120/.process/config.json)
-bash(jq -r '.mode' .workflow/WFS-docs-20240120/.process/config.json)
+bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.project_name' .workflow/WFS-docs-20240120-143022/.process/config.json)
 
 # List session tasks
-bash(ls .workflow/WFS-docs-20240120/.task/*.json)
+bash(ls .workflow/WFS-docs-20240120-143022/.task/*.json)
 ```
 
 ### Analysis Commands
 ```bash
-# Discover and classify folders (scans project source)
-bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-folders.sh)
+# Discover and classify folders
+bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-folders.sh > .workflow/WFS-docs-20240120-143022/.process/folder-analysis.txt)
 
-# Count existing docs (in .workflow/docs/{project_name}/ directory)
-bash(if [[ -d ".workflow/docs/${project_name}" ]]; then find .workflow/docs/${project_name} -name "*.md" 2>/dev/null | wc -l; else echo "0"; fi)
+# Count existing docs (replace project_name)
+bash(find .workflow/docs/my_project -name "*.md" 2>/dev/null | wc -l || echo 0)
 
-# List existing documentation (in .workflow/docs/{project_name}/ directory)
-bash(if [[ -d ".workflow/docs/${project_name}" ]]; then find .workflow/docs/${project_name} -name "*.md" 2>/dev/null; fi)
+# List existing documentation (replace project_name)
+bash(find .workflow/docs/my_project -name "*.md" 2>/dev/null || echo "No docs found")
+
+# Check if docs directory exists
+bash(test -d .workflow/docs/my_project && echo "exists" || echo "not exists")
 ```
 
 ## Template Reference

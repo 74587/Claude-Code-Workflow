@@ -40,77 +40,61 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 
 **Goal**: Parse command arguments and check existing documentation
 
-**Actions**:
+**Step 1: Get Target Path and Project Name**
 ```bash
-# Parse arguments
-bash(
-  path="${1:-.}"
-  tool="gemini"
-  regenerate=""
-  mode="full"
-  shift
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --tool) tool="$2"; shift 2 ;;
-      --regenerate) regenerate="--regenerate"; shift ;;
-      --mode) mode="$2"; shift 2 ;;
-      *) shift ;;
-    esac
-  done
+# Get current directory (or use provided path)
+bash(pwd)
 
-  # Detect paths
-  project_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-  if [[ "$path" == /* ]] || [[ "$path" == [A-Z]:* ]]; then
-    target_path="$path"
-  else
-    target_path=$(cd "$path" 2>/dev/null && pwd || echo "$PWD/$path")
-  fi
+# Get project name from directory
+bash(basename "$(pwd)")
 
-  project_name=$(basename "$target_path")
-  docs_path=".workflow/docs/${project_name}"
-
-  echo "PROJECT_NAME: ${project_name}"
-  echo "TARGET_PATH: ${target_path}"
-  echo "DOCS_PATH: ${docs_path}"
-  echo "TOOL: ${tool}"
-  echo "MODE: ${mode}"
-  echo "REGENERATE: ${regenerate}"
-)
-
-# Check existing documentation
-bash(
-  project_name="[from previous output]"
-  docs_path=".workflow/docs/${project_name}"
-  regenerate="[from previous output]"
-
-  if [[ -d "$docs_path" ]]; then
-    doc_count=$(find "$docs_path" -name "*.md" 2>/dev/null | wc -l)
-    echo "EXISTING_DOCS: $doc_count"
-
-    # Handle --regenerate flag: delete existing docs
-    if [[ -n "$regenerate" ]]; then
-      echo "REGENERATE: Deleting existing docs at ${docs_path}"
-      rm -rf "$docs_path"
-      echo "EXISTING_DOCS: 0 (after regenerate)"
-    fi
-  else
-    echo "EXISTING_DOCS: 0"
-  fi
-)
+# Get project root
+bash(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ```
 
-**Parse Output**:
-- `PROJECT_NAME`: Project name (store as `projectName`)
-- `TARGET_PATH`: Full target path (store as `targetPath`)
-- `DOCS_PATH`: Documentation path (store as `docsPath`)
-- `TOOL`: CLI tool selection (store as `tool`)
-- `MODE`: Documentation mode (store as `mode`)
-- `REGENERATE`: Regenerate flag (store as `regenerateFlag`)
-- `EXISTING_DOCS`: Existing doc count (store as `existingDocs`)
+**Output**:
+- `target_path`: `/d/my_project`
+- `project_name`: `my_project`
+- `project_root`: `/d/my_project`
 
-**Validation**:
-- Target path exists
-- Project name extracted
+**Step 2: Set Default Parameters**
+```bash
+# Default values (use these unless user specifies otherwise):
+# - tool: "gemini"
+# - mode: "full"
+# - regenerate: false (no --regenerate flag)
+```
+
+**Step 3: Check Existing Documentation**
+```bash
+# Check if docs directory exists (replace project_name with actual value)
+bash(test -d .workflow/docs/my_project && echo "exists" || echo "not_exists")
+
+# Count existing documentation files
+bash(find .workflow/docs/my_project -name "*.md" 2>/dev/null | wc -l || echo 0)
+```
+
+**Output**:
+- `docs_exists`: `exists` or `not_exists`
+- `existing_docs`: `5` (or `0` if no docs)
+
+**Step 4: Handle --regenerate Flag (If Specified)**
+```bash
+# If user specified --regenerate, delete existing docs directory
+bash(rm -rf .workflow/docs/my_project 2>/dev/null || true)
+
+# Verify deletion
+bash(test -d .workflow/docs/my_project && echo "still_exists" || echo "deleted")
+```
+
+**Summary**:
+- `PROJECT_NAME`: `my_project`
+- `TARGET_PATH`: `/d/my_project`
+- `DOCS_PATH`: `.workflow/docs/my_project`
+- `TOOL`: `gemini` (default) or user-specified
+- `MODE`: `full` (default) or user-specified
+- `REGENERATE`: `false` (default) or `true` if --regenerate flag
+- `EXISTING_DOCS`: `0` (after regenerate) or actual count
 
 **TodoWrite**: Mark phase 1 completed, phase 2 in_progress
 
@@ -178,38 +162,69 @@ SlashCommand(command="/workflow:execute")
 
 **Goal**: Create SKILL.md at `.claude/skills/{project_name}/SKILL.md`
 
-**Actions**:
-
-1. **Load project README for description**:
+**Step 1: Load Project README**
 ```bash
-bash(
-  project_name="[from Phase 1]"
-  cat .workflow/docs/${project_name}/README.md 2>/dev/null | head -50 || echo "No README found"
-)
+# Read README for project description (replace project_name)
+bash(cat .workflow/docs/my_project/README.md 2>/dev/null | head -50 || echo "No README found")
 ```
 
-2. **Discover documentation structure**:
+**Step 2: Discover All Documentation Files**
 ```bash
-bash(
-  project_name="[from Phase 1]"
-  find .workflow/docs/${project_name} -name "*.md" 2>/dev/null | sort
-)
+# List all documentation files (replace project_name)
+bash(find .workflow/docs/my_project -name "*.md" 2>/dev/null | sort)
 ```
 
-3. **Extract module directories**:
-```bash
-bash(
-  project_name="[from Phase 1]"
-  find .workflow/docs/${project_name} -mindepth 1 -maxdepth 2 -type d 2>/dev/null | sed "s|.workflow/docs/${project_name}/||" | sort -u
-)
+**Output**:
+```
+.workflow/docs/my_project/README.md
+.workflow/docs/my_project/ARCHITECTURE.md
+.workflow/docs/my_project/src/modules/auth/API.md
+.workflow/docs/my_project/src/modules/auth/README.md
 ```
 
-4. **Generate SKILL.md**:
+**Step 3: Count Documentation Files**
+```bash
+# Count total docs (replace project_name)
+bash(find .workflow/docs/my_project -name "*.md" 2>/dev/null | wc -l)
+```
 
-Use the `Write` tool to create `.claude/skills/{project_name}/SKILL.md` with:
+**Output**: `12` files
+
+**Step 4: Extract Module Directories**
+```bash
+# Find module directories (1-2 levels deep, replace project_name)
+bash(find .workflow/docs/my_project -mindepth 1 -maxdepth 2 -type d 2>/dev/null | sed 's|.workflow/docs/my_project/||' | sort -u)
+```
+
+**Output**:
+```
+src
+src/modules
+src/utils
+lib
+lib/core
+```
+
+**Step 5: Count Module Directories**
+```bash
+# Count modules (replace project_name)
+bash(find .workflow/docs/my_project -mindepth 1 -maxdepth 2 -type d 2>/dev/null | wc -l)
+```
+
+**Output**: `5` modules
+
+**Step 6: Create Skills Directory**
+```bash
+# Create directory for SKILL.md (replace project_name)
+bash(mkdir -p .claude/skills/my_project)
+```
+
+**Step 7: Generate SKILL.md**
+
+Use the `Write` tool to create `.claude/skills/my_project/SKILL.md` with:
 - YAML frontmatter (name, description from README)
 - Progressive loading guide (Level 0-3)
-- Module index with relative paths to `../../.workflow/docs/{project_name}/`
+- Module index with relative paths to `../../.workflow/docs/my_project/`
 
 **SKILL.md Structure**:
 ```markdown
