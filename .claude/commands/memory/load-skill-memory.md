@@ -1,7 +1,7 @@
 ---
 name: load-skill-memory
-description: Manually activate specified SKILL package and load documentation based on task intent
-argument-hint: "<skill_name> \"task intent description\""
+description: Activate SKILL package (auto-detect or manual) and load documentation based on task intent
+argument-hint: "[skill_name] \"task intent description\""
 allowed-tools: Bash(*), Read(*), Skill(*)
 ---
 
@@ -9,10 +9,10 @@ allowed-tools: Bash(*), Read(*), Skill(*)
 
 ## 1. Overview
 
-The `memory:load-skill-memory` command **manually activates a specified SKILL package** and intelligently loads documentation based on user's task intent. The system automatically determines which documentation files to read based on the intent description.
+The `memory:load-skill-memory` command **activates SKILL package** (auto-detect from task or manual specification) and intelligently loads documentation based on user's task intent. The system automatically determines which documentation files to read based on the intent description.
 
 **Core Philosophy**:
-- **Manual Activation**: User explicitly specifies which SKILL to activate
+- **Flexible Activation**: Auto-detect skill from task description/paths, or user explicitly specifies
 - **Intent-Driven Loading**: System analyzes task intent to determine documentation scope
 - **Intelligent Selection**: Automatically chooses appropriate documentation level and modules
 - **Direct Context Loading**: Loads selected documentation into conversation memory
@@ -26,22 +26,38 @@ The `memory:load-skill-memory` command **manually activates a specified SKILL pa
 
 ## 2. Parameters
 
-- `<skill_name>` (Required): Name of SKILL package to activate
+- `[skill_name]` (Optional): Name of SKILL package to activate
+  - If omitted: System auto-detects from task description or file paths
+  - If specified: Direct activation of named SKILL package
   - Example: `hydro_generator_module`, `Claude_dms3`
   - Must match directory name under `.claude/skills/`
 
 - `"task intent description"` (Required): Description of what you want to do
+  - Used for both: auto-detection (if skill_name omitted) and documentation scope selection
   - **Analysis tasks**: "分析builder pattern实现", "理解参数系统架构"
   - **Modification tasks**: "修改workflow逻辑", "增强thermal template功能"
   - **Learning tasks**: "学习接口设计模式", "了解测试框架使用"
+  - **With paths**: "修改D:\projects\my_project\src\auth.py的认证逻辑" (auto-extracts `my_project`)
 
 ## 3. Execution Flow
 
-### Step 1: Activate SKILL and Analyze Intent
+### Step 1: Determine SKILL Name (if not provided)
+
+**Auto-Detection Strategy** (when skill_name parameter is omitted):
+1. **Path Extraction**: Scan task description for file paths
+   - Extract potential project names from path segments
+   - Example: `"修改D:\projects\my_project\src\auth.py"` → extracts `my_project`
+2. **Keyword Matching**: Match task keywords against SKILL descriptions
+   - Search for project-specific terms, domain keywords
+3. **Validation**: Check if extracted name matches `.claude/skills/{skill_name}/`
+
+**Result**: Either uses provided skill_name or auto-detected name for activation
+
+### Step 2: Activate SKILL and Analyze Intent
 
 **Activate SKILL Package**:
 ```javascript
-Skill(command: "${skill_name}")
+Skill(command: "${skill_name}")  // Uses provided or auto-detected name
 ```
 
 **What Happens After Activation**:
@@ -57,7 +73,7 @@ Based on task intent description, system determines:
 - **Scope**: specific module, architecture overview, complete system
 - **Depth**: quick reference, detailed API, full documentation
 
-### Step 2: Intelligent Documentation Loading
+### Step 3: Intelligent Documentation Loading
 
 **Loading Strategy**:
 
@@ -86,7 +102,9 @@ The system automatically selects documentation based on intent keywords:
 **Documentation Loaded into Memory**:
 After loading, the selected documentation content is available in conversation memory for subsequent operations.
 
-## 4. Usage Example
+## 4. Usage Examples
+
+### Example 1: Manual Specification
 
 **User Command**:
 ```bash
@@ -95,18 +113,50 @@ After loading, the selected documentation content is available in conversation m
 
 **Execution**:
 ```javascript
-// Step 1: Activate SKILL
+// Step 1: Use provided skill_name
+skill_name = "my_project"  // Directly from parameter
+
+// Step 2: Activate SKILL
 Skill(command: "my_project")
 
-// Intent Analysis
+// Step 3: Intent Analysis
 Keywords: ["修改", "认证模块", "增加", "OAuth"]
 Action: modifying (implementation)
 Scope: auth module + examples
 
-// Step 2: Load documentation based on intent
+// Load documentation based on intent
 Read(.workflow/docs/my_project/auth/README.md)
 Read(.workflow/docs/my_project/auth/API.md)
 Read(.workflow/docs/my_project/EXAMPLES.md)
+```
+
+### Example 2: Auto-Detection from Path
+
+**User Command**:
+```bash
+/memory:load-skill-memory "修改D:\projects\hydro_generator_module\src\builders\base.py的构建逻辑"
+```
+
+**Execution**:
+```javascript
+// Step 1: Auto-detect skill_name from path
+Path detected: "D:\projects\hydro_generator_module\src\builders\base.py"
+Extracted: "hydro_generator_module"
+Validated: .claude/skills/hydro_generator_module/ exists ✓
+skill_name = "hydro_generator_module"
+
+// Step 2: Activate SKILL
+Skill(command: "hydro_generator_module")
+
+// Step 3: Intent Analysis
+Keywords: ["修改", "builders", "构建逻辑"]
+Action: modifying (implementation)
+Scope: builders module + examples
+
+// Load documentation based on intent
+Read(.workflow/docs/hydro_generator_module/builders/README.md)
+Read(.workflow/docs/hydro_generator_module/builders/API.md)
+Read(.workflow/docs/hydro_generator_module/EXAMPLES.md)
 ```
 
 ## 5. Intent Keyword Mapping
