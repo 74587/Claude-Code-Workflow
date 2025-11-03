@@ -214,17 +214,17 @@ version: 1.0.0
 ---
 # {Project Name} SKILL Package
 
-## Documentation: `../../.workflow/docs/{project_name}/`
+## Documentation: `../../../.workflow/docs/{project_name}/`
 
 ## Progressive Loading
 ### Level 0: Quick Start (~2K)
-- [README](../../.workflow/docs/{project_name}/README.md)
+- [README](../../../.workflow/docs/{project_name}/README.md)
 ### Level 1: Core Modules (~8K)
 {Module READMEs}
 ### Level 2: Complete (~25K)
-All modules + [Architecture](../../.workflow/docs/{project_name}/ARCHITECTURE.md)
+All modules + [Architecture](../../../.workflow/docs/{project_name}/ARCHITECTURE.md)
 ### Level 3: Deep Dive (~40K)
-Everything + [Examples](../../.workflow/docs/{project_name}/EXAMPLES.md)
+Everything + [Examples](../../../.workflow/docs/{project_name}/EXAMPLES.md)
 ```
 
 **Completion Criteria**:
