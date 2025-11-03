@@ -97,10 +97,10 @@ bash(mkdir -p .workflow/WFS-docs-20240120-143022/.summaries)
 bash(touch .workflow/.active-WFS-docs-20240120-143022)
 ```
 
-#### Step 3: Create Config File
+#### Step 3: Create Workflow Session Metadata
 ```bash
-# Create config.json with session info (replace values with actual data)
-bash(echo '{"session_id":"WFS-docs-20240120-143022","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/Claude_dms3","project_root":"/d/Claude_dms3","project_name":"Claude_dms3","mode":"full","tool":"gemini","cli_generate":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/.process/config.json)
+# Create workflow-session.json in session root (replace values with actual data)
+bash(echo '{"session_id":"WFS-docs-20240120-143022","project":"Claude_dms3 documentation","status":"planning","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/Claude_dms3","project_root":"/d/Claude_dms3","project_name":"Claude_dms3","mode":"full","tool":"gemini","cli_generate":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/workflow-session.json)
 ```
 
 **Output**:
@@ -136,14 +136,11 @@ bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-fold
 
 #### Step 2: Extract Top-Level Directories
 ```bash
-# Group folders by top-level directory
-bash(awk -F'|' '{
-  path = $1
-  gsub(/^\.\//, "", path)
-  split(path, parts, "/")
-  if (length(parts) >= 2) print parts[1] "/" parts[2]
-  else if (length(parts) == 1 && parts[1] != ".") print parts[1]
-}' .workflow/WFS-docs-20240120/.process/folder-analysis.txt | sort -u > .workflow/WFS-docs-20240120/.process/top-level-dirs.txt)
+# Extract first path component from each line
+bash(cat .workflow/WFS-docs-20240120-143022/.process/folder-analysis.txt | cut -d'|' -f1 | sed 's|^\./||' | grep -v '^$' > .workflow/WFS-docs-20240120-143022/.process/all-paths.txt)
+
+# Get first two path levels (e.g., src/modules)
+bash(cat .workflow/WFS-docs-20240120-143022/.process/all-paths.txt | cut -d'/' -f1-2 | sort -u > .workflow/WFS-docs-20240120-143022/.process/top-level-dirs.txt)
 ```
 
 **Output** (top-level-dirs.txt):
@@ -169,16 +166,16 @@ bash(
   echo "  - Top-level dirs: $top_dirs"
 )
 
-# Update config with statistics
-bash(jq '. + {analysis: {total: "15", code: "8", navigation: "7", top_level: "3"}}' .workflow/WFS-docs-20240120/.process/config.json > .workflow/WFS-docs-20240120/.process/config.json.tmp && mv .workflow/WFS-docs-20240120/.process/config.json.tmp .workflow/WFS-docs-20240120/.process/config.json)
+# Update workflow-session.json with statistics
+bash(jq '. + {analysis: {total: "15", code: "8", navigation: "7", top_level: "3"}}' .workflow/WFS-docs-20240120-143022/workflow-session.json > .workflow/WFS-docs-20240120-143022/workflow-session.json.tmp && mv .workflow/WFS-docs-20240120-143022/workflow-session.json.tmp .workflow/WFS-docs-20240120-143022/workflow-session.json)
 ```
 
 ### Phase 3: Detect Update Mode
 
-#### Step 1: Get Project Name from Config
+#### Step 1: Get Project Name from Workflow Session
 ```bash
-# Read project name from config
-bash(jq -r '.project_name' .workflow/WFS-docs-20240120-143022/.process/config.json)
+# Read project name from workflow-session.json
+bash(jq -r '.project_name' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 ```
 
 **Output**: `Claude_dms3`
@@ -208,24 +205,24 @@ bash(cat .workflow/WFS-docs-20240120-143022/.process/existing-docs.txt)
 .workflow/docs/Claude_dms3/README.md
 ```
 
-#### Step 4: Update Config with Update Status
+#### Step 4: Update Workflow Session with Update Status
 ```bash
-# If existing_count > 0, update config with "update" mode (replace session and count)
-bash(jq '. + {update_mode: "update", existing_docs: 5}' .workflow/WFS-docs-20240120-143022/.process/config.json > .workflow/WFS-docs-20240120-143022/.process/config.json.tmp && mv .workflow/WFS-docs-20240120-143022/.process/config.json.tmp .workflow/WFS-docs-20240120-143022/.process/config.json)
+# If existing_count > 0, update with "update" mode (replace session and count)
+bash(jq '. + {update_mode: "update", existing_docs: 5}' .workflow/WFS-docs-20240120-143022/workflow-session.json > .workflow/WFS-docs-20240120-143022/workflow-session.json.tmp && mv .workflow/WFS-docs-20240120-143022/workflow-session.json.tmp .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
 # Or if existing_count = 0, use "create" mode
-bash(jq '. + {update_mode: "create", existing_docs: 0}' .workflow/WFS-docs-20240120-143022/.process/config.json > .workflow/WFS-docs-20240120-143022/.process/config.json.tmp && mv .workflow/WFS-docs-20240120-143022/.process/config.json.tmp .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq '. + {update_mode: "create", existing_docs: 0}' .workflow/WFS-docs-20240120-143022/workflow-session.json > .workflow/WFS-docs-20240120-143022/workflow-session.json.tmp && mv .workflow/WFS-docs-20240120-143022/workflow-session.json.tmp .workflow/WFS-docs-20240120-143022/workflow-session.json)
 ```
 
 #### Step 5: Display Strategy Summary
 ```bash
-# Read config values
-bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
-bash(jq -r '.update_mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
-bash(jq -r '.existing_docs' .workflow/WFS-docs-20240120-143022/.process/config.json)
-bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/.process/config.json)
-bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120-143022/.process/config.json)
-bash(jq -r '.target_path' .workflow/WFS-docs-20240120-143022/.process/config.json)
+# Read session metadata
+bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(jq -r '.update_mode' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(jq -r '.existing_docs' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(jq -r '.target_path' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 ```
 
 ### Phase 4: Decompose Tasks
@@ -269,7 +266,7 @@ bash(wc -l < .workflow/WFS-docs-20240120-143022/.process/top-level-dirs.txt)
 #### Step 3: Check Documentation Mode
 ```bash
 # Check if full or partial mode
-bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 ```
 
 **Output**: `full` or `partial`
@@ -292,13 +289,13 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 #### Step 1: Read Configuration Values
 ```bash
 # Read tool selection
-bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
 # Read cli_generate flag
-bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
 # Read mode
-bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
+bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 ```
 
 **Output**:
@@ -327,7 +324,7 @@ bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
 
 Tasks are generated based on:
 - Top-level directories from Phase 4
-- Configuration from config.json
+- Configuration from workflow-session.json
 - Task templates (see Task Templates section below)
 
 Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.json`
@@ -656,10 +653,10 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 .workflow/
 ├── .active-WFS-docs-20240120-143022        # Active session marker
 └── WFS-docs-20240120-143022/
+    ├── workflow-session.json                # Session metadata (all settings + stats)
     ├── IMPL_PLAN.md                         # Implementation plan
     ├── TODO_LIST.md                         # Progress tracker
     ├── .process/
-    │   ├── config.json                      # Single config (all settings + stats)
     │   ├── folder-analysis.txt              # Folder classification results
     │   ├── top-level-dirs.txt               # Top-level directory list
     │   └── existing-docs.txt                # Existing documentation paths
@@ -672,10 +669,12 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
         └── IMPL-006.json                    # HTTP API docs (optional)
 ```
 
-**Config File Structure** (config.json):
+**Workflow Session Structure** (workflow-session.json):
 ```json
 {
   "session_id": "WFS-docs-20240120-143022",
+  "project": "my_app documentation",
+  "status": "planning",
   "timestamp": "2024-01-20T14:30:22+08:00",
   "path": ".",
   "target_path": "/home/user/projects/my_app",
@@ -758,16 +757,16 @@ bash(touch .workflow/.active-WFS-docs-20240120-143022)
 # Get project name
 bash(basename "$(pwd)")
 
-# Create config (replace values)
-bash(echo '{"session_id":"WFS-docs-20240120-143022","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/project","project_name":"project","mode":"full","tool":"gemini","cli_generate":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/.process/config.json)
+# Create workflow-session.json (replace values)
+bash(echo '{"session_id":"WFS-docs-20240120-143022","project":"project documentation","status":"planning","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/project","project_root":"/d/project","project_name":"project","mode":"full","tool":"gemini","cli_generate":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
-# Read session config
-bash(cat .workflow/WFS-docs-20240120-143022/.process/config.json)
+# Read workflow session metadata
+bash(cat .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
-# Extract config values
-bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/.process/config.json)
-bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/.process/config.json)
-bash(jq -r '.project_name' .workflow/WFS-docs-20240120-143022/.process/config.json)
+# Extract session values
+bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(jq -r '.project_name' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
 # List session tasks
 bash(ls .workflow/WFS-docs-20240120-143022/.task/*.json)
