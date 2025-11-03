@@ -1,7 +1,7 @@
 ---
 name: skill-memory
 description: Generate SKILL package index from project documentation
-argument-hint: "[path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>]"
+argument-hint: "[path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 ---
 
@@ -63,6 +63,7 @@ bash(git rev-parse --show-toplevel 2>/dev/null || pwd)
 # - tool: "gemini"
 # - mode: "full"
 # - regenerate: false (no --regenerate flag)
+# - cli_execute: false (no --cli-execute flag)
 ```
 
 **Step 3: Check Existing Documentation**
@@ -93,6 +94,7 @@ bash(test -d .workflow/docs/my_project && echo "still_exists" || echo "deleted")
 - `DOCS_PATH`: `.workflow/docs/my_project`
 - `TOOL`: `gemini` (default) or user-specified
 - `MODE`: `full` (default) or user-specified
+- `CLI_EXECUTE`: `false` (default) or `true` if --cli-execute flag
 - `REGENERATE`: `false` (default) or `true` if --regenerate flag
 - `EXISTING_DOCS`: `0` (after regenerate) or actual count
 
@@ -108,12 +110,13 @@ bash(test -d .workflow/docs/my_project && echo "still_exists" || echo "deleted")
 
 **Command**:
 ```bash
-SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode]")
+SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode] [--cli-execute]")
 ```
 
 **Example**:
 ```bash
 /memory:docs /d/my_app --tool gemini --mode full
+/memory:docs /d/my_app --tool gemini --mode full --cli-execute
 ```
 
 **Note**: The `--regenerate` flag is handled in Phase 1 by deleting existing documentation. This command always calls `/memory:docs` without the regenerate flag, relying on docs.md's built-in update detection.
@@ -122,6 +125,7 @@ SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode]")
 - `targetPath` from Phase 1
 - `tool` from Phase 1
 - `mode` from Phase 1
+- `cli_execute` from Phase 1 (optional)
 
 **Parse Output**:
 - Extract session ID pattern: `WFS-docs-[timestamp]` (store as `docsSessionId`)
@@ -331,7 +335,7 @@ TodoWrite({todos: [
 ## Parameters
 
 ```bash
-/memory:skill-memory [path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>]
+/memory:skill-memory [path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]
 ```
 
 - **path**: Target directory (default: current directory)
@@ -345,6 +349,9 @@ TodoWrite({todos: [
 - **--mode**: Documentation mode (default: full)
   - `full`: Complete docs (modules + README + ARCHITECTURE + EXAMPLES)
   - `partial`: Module docs only
+- **--cli-execute**: Enable CLI-based documentation generation (optional)
+  - When enabled: CLI generates docs directly in implementation_approach
+  - When disabled (default): Agent generates documentation content
 
 ## Examples
 
@@ -356,7 +363,7 @@ TodoWrite({todos: [
 
 **Workflow**:
 1. Phase 1: Detects current directory, checks existing docs
-2. Phase 2: Calls `/memory:docs . --tool gemini --mode full`
+2. Phase 2: Calls `/memory:docs . --tool gemini --mode full` (Agent Mode)
 3. Phase 3: Executes documentation generation via `/workflow:execute`
 4. Phase 4: Generates SKILL.md at `.claude/skills/{project_name}/SKILL.md`
 
@@ -368,7 +375,7 @@ TodoWrite({todos: [
 
 **Workflow**:
 1. Phase 1: Parses target path, detects regenerate flag
-2. Phase 2: Calls `/memory:docs /d/my_app --tool qwen --mode full --regenerate`
+2. Phase 2: Calls `/memory:docs /d/my_app --tool qwen --mode full` (regenerate handled in Phase 1)
 3. Phase 3: Executes documentation regeneration
 4. Phase 4: Generates updated SKILL.md
 
@@ -380,9 +387,21 @@ TodoWrite({todos: [
 
 **Workflow**:
 1. Phase 1: Detects partial mode
-2. Phase 2: Calls `/memory:docs . --tool gemini --mode partial`
+2. Phase 2: Calls `/memory:docs . --tool gemini --mode partial` (Agent Mode)
 3. Phase 3: Executes module documentation only
 4. Phase 4: Generates SKILL.md with module-only index
+
+### Example 4: CLI Execute Mode
+
+```bash
+/memory:skill-memory --cli-execute
+```
+
+**Workflow**:
+1. Phase 1: Detects CLI execute mode
+2. Phase 2: Calls `/memory:docs . --tool gemini --mode full --cli-execute` (CLI Mode)
+3. Phase 3: Executes CLI-based documentation generation
+4. Phase 4: Generates SKILL.md at `.claude/skills/{project_name}/SKILL.md`
 
 ## Benefits
 

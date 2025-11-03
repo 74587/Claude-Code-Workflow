@@ -1,7 +1,7 @@
 ---
 name: docs
 description: Documentation planning and orchestration - creates structured documentation tasks for execution
-argument-hint: "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-generate]"
+argument-hint: "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-execute]"
 ---
 
 # Documentation Workflow (/memory:docs)
@@ -15,8 +15,8 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 - Source: `my_app/src/modules/auth/` → Docs: `.workflow/docs/my_app/src/modules/auth/API.md`
 
 **Two Execution Modes**:
-- **Default**: CLI analyzes in `pre_analysis` (MODE=analysis), agent writes docs in `implementation_approach`
-- **--cli-generate**: CLI generates docs in `implementation_approach` (MODE=write)
+- **Default (Agent Mode)**: CLI analyzes in `pre_analysis` (MODE=analysis), agent writes docs in `implementation_approach`
+- **--cli-execute (CLI Mode)**: CLI generates docs in `implementation_approach` (MODE=write), agent executes CLI commands
 
 ## Path Mirroring Strategy
 
@@ -37,7 +37,7 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 ## Parameters
 
 ```bash
-/memory:docs [path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-generate]
+/memory:docs [path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-execute]
 ```
 
 - **path**: Target directory (default: current directory)
@@ -57,9 +57,9 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
   - `qwen`: Architecture analysis, system design focus
   - `codex`: Implementation validation, code quality
 
-- **--cli-generate**: Enable CLI-based documentation generation (optional)
-  - When enabled: CLI generates docs with MODE=write in implementation_approach
-  - When disabled (default): CLI analyzes with MODE=analysis in pre_analysis
+- **--cli-execute**: Enable CLI-based documentation generation (optional)
+  - When enabled: CLI generates docs with MODE=write in implementation_approach, agent executes CLI commands
+  - When disabled (default): CLI analyzes with MODE=analysis in pre_analysis, agent generates documentation content
 
 ## Planning Workflow
 
@@ -100,7 +100,7 @@ bash(touch .workflow/.active-WFS-docs-20240120-143022)
 #### Step 3: Create Workflow Session Metadata
 ```bash
 # Create workflow-session.json in session root (replace values with actual data)
-bash(echo '{"session_id":"WFS-docs-20240120-143022","project":"Claude_dms3 documentation","status":"planning","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/Claude_dms3","project_root":"/d/Claude_dms3","project_name":"Claude_dms3","mode":"full","tool":"gemini","cli_generate":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(echo '{"session_id":"WFS-docs-20240120-143022","project":"Claude_dms3 documentation","status":"planning","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/Claude_dms3","project_root":"/d/Claude_dms3","project_name":"Claude_dms3","mode":"full","tool":"gemini","cli_execute":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/workflow-session.json)
 ```
 
 **Output**:
@@ -108,7 +108,7 @@ bash(echo '{"session_id":"WFS-docs-20240120-143022","project":"Claude_dms3 docum
 ✓ Session initialized: WFS-docs-20240120-143022
 ✓ Target: /d/Claude_dms3
 ✓ Mode: full
-✓ Tool: gemini, CLI generate: false
+✓ Tool: gemini, CLI execute: false
 ```
 
 ### Phase 2: Analyze Structure
@@ -221,7 +221,7 @@ bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 bash(jq -r '.update_mode' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 bash(jq -r '.existing_docs' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/workflow-session.json)
-bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(jq -r '.cli_execute' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 bash(jq -r '.target_path' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 ```
 
@@ -291,8 +291,8 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 # Read tool selection
 bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
-# Read cli_generate flag
-bash(jq -r '.cli_generate' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+# Read cli_execute flag
+bash(jq -r '.cli_execute' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
 # Read mode
 bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/workflow-session.json)
@@ -300,22 +300,24 @@ bash(jq -r '.mode' .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
 **Output**:
 - `tool`: `gemini`
-- `cli_generate`: `false`
+- `cli_execute`: `false`
 - `mode`: `full`
 
 #### Step 2: Determine CLI Strategy
 
-**If cli_generate = false**:
+**If cli_execute = false (Agent Mode)**:
 - MODE: `analysis`
 - Placement: `pre_analysis`
 - Approval flag: (none)
 - Command pattern: `cd dir && gemini -p "..."`
+- Agent role: Generate documentation content in implementation_approach
 
-**If cli_generate = true**:
+**If cli_execute = true (CLI Mode)**:
 - MODE: `write`
 - Placement: `implementation_approach`
 - Approval flag: `--approval-mode yolo`
 - Command pattern: `cd dir && gemini --approval-mode yolo -p "..."`
+- Agent role: Execute CLI commands, validate output
 
 **If tool = codex**:
 - Command pattern: `codex -C dir --full-auto exec "..." --skip-git-repo-check -s danger-full-access`
@@ -338,7 +340,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 - Source: `{project_name}/src/modules/`
 - Output: `.workflow/docs/{project_name}/src/modules/`
 
-**Default Mode (cli_generate=false)**:
+**Agent Mode (cli_execute=false)**:
 ```json
 {
   "id": "IMPL-001",
@@ -348,7 +350,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
     "type": "docs-tree",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "cli_generate": false,
+    "cli_execute": false,
     "source_path": "src/modules",
     "output_path": ".workflow/docs/${project_name}/src/modules"
   },
@@ -413,7 +415,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 }
 ```
 
-**CLI Generate Mode (cli_generate=true)**:
+**CLI Execute Mode (cli_execute=true)**:
 ```json
 {
   "id": "IMPL-001",
@@ -423,7 +425,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
     "type": "docs-tree",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "cli_generate": true,
+    "cli_execute": true,
     "source_path": "src/modules",
     "output_path": ".workflow/docs/${project_name}/src/modules"
   },
@@ -487,7 +489,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 
 ### Level 2: Project README Task
 
-**Default Mode**:
+**Agent Mode**:
 ```json
 {
   "id": "IMPL-004",
@@ -498,7 +500,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
     "type": "docs",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "cli_generate": false
+    "cli_execute": false
   },
   "flow_control": {
     "pre_analysis": [
@@ -537,7 +539,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 
 ### Level 3: Architecture & Examples Documentation Task
 
-**Default Mode**:
+**Agent Mode**:
 ```json
 {
   "id": "IMPL-005",
@@ -548,7 +550,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
     "type": "docs",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "cli_generate": false
+    "cli_execute": false
   },
   "flow_control": {
     "pre_analysis": [
@@ -600,7 +602,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 
 ### Level 3: HTTP API Documentation Task (Optional)
 
-**Default Mode**:
+**Agent Mode**:
 ```json
 {
   "id": "IMPL-006",
@@ -611,7 +613,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
     "type": "docs",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "cli_generate": false
+    "cli_execute": false
   },
   "flow_control": {
     "pre_analysis": [
@@ -682,7 +684,7 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
   "project_name": "my_app",
   "mode": "full",
   "tool": "gemini",
-  "cli_generate": false,
+  "cli_execute": false,
   "update_mode": "update",
   "existing_docs": 5,
   "analysis": {
@@ -758,7 +760,7 @@ bash(touch .workflow/.active-WFS-docs-20240120-143022)
 bash(basename "$(pwd)")
 
 # Create workflow-session.json (replace values)
-bash(echo '{"session_id":"WFS-docs-20240120-143022","project":"project documentation","status":"planning","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/project","project_root":"/d/project","project_name":"project","mode":"full","tool":"gemini","cli_generate":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/workflow-session.json)
+bash(echo '{"session_id":"WFS-docs-20240120-143022","project":"project documentation","status":"planning","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"/d/project","project_root":"/d/project","project_name":"project","mode":"full","tool":"gemini","cli_execute":false}' | jq '.' > .workflow/WFS-docs-20240120-143022/workflow-session.json)
 
 # Read workflow session metadata
 bash(cat .workflow/WFS-docs-20240120-143022/workflow-session.json)
@@ -799,12 +801,12 @@ bash(test -d .workflow/docs/my_project && echo "exists" || echo "not exists")
 
 **Template Location**: `~/.claude/workflows/cli-templates/prompts/documentation/`
 
-## CLI Generate Mode Summary
+## Execution Mode Summary
 
 | Mode | CLI Placement | CLI MODE | Agent Role |
 |------|---------------|----------|------------|
-| **Default** | pre_analysis | analysis | Generates documentation files |
-| **--cli-generate** | implementation_approach | write | Validates and coordinates CLI output |
+| **Agent Mode (default)** | pre_analysis | analysis | Generates documentation files based on analysis |
+| **CLI Mode (--cli-execute)** | implementation_approach | write | Executes CLI commands to generate docs, validates output |
 
 ## Related Commands
 - `/workflow:execute` - Execute documentation tasks
