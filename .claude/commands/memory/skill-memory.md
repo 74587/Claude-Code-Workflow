@@ -197,8 +197,11 @@ bash(find .workflow/docs/{project_name} -name "*.md" | sed 's|.workflow/docs/{pr
 
 Extract from README + structure: Function (capabilities), Modules (names), Keywords (API/CLI/auth/etc.)
 
-**Format**: `{Function}. Use when {trigger conditions}.`
-**Example**: "Workflow management with CLI tools. Use when working with workflow orchestration or docs generation."
+**Format**: `{Project} {core capabilities}. Load this SKILL when analyzing, working with, or learning about {project_name} for comprehensive context.`
+
+**Trigger Optimization**: Emphasize "Load this SKILL" pattern to improve sensitivity for context retrieval scenarios.
+
+**Example**: "Workflow orchestration system with CLI tools and documentation generation. Load this SKILL when analyzing, working with, or learning about workflow management for comprehensive context."
 
 **Step 4: Write SKILL.md** (Use Write tool)
 ```bash
