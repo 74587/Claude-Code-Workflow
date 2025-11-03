@@ -29,7 +29,7 @@ The `memory:load-skill-memory` command **activates SKILL package** (auto-detect 
 - `[skill_name]` (Optional): Name of SKILL package to activate
   - If omitted: System auto-detects from task description or file paths
   - If specified: Direct activation of named SKILL package
-  - Example: `hydro_generator_module`, `Claude_dms3`
+  - Example: `my_project`, `api_service`
   - Must match directory name under `.claude/skills/`
 
 - `"task intent description"` (Required): Description of what you want to do
@@ -134,29 +134,29 @@ Read(.workflow/docs/my_project/EXAMPLES.md)
 
 **User Command**:
 ```bash
-/memory:load-skill-memory "修改D:\projects\hydro_generator_module\src\builders\base.py的构建逻辑"
+/memory:load-skill-memory "修改D:\projects\my_project\src\services\api.py的接口逻辑"
 ```
 
 **Execution**:
 ```javascript
 // Step 1: Auto-detect skill_name from path
-Path detected: "D:\projects\hydro_generator_module\src\builders\base.py"
-Extracted: "hydro_generator_module"
-Validated: .claude/skills/hydro_generator_module/ exists ✓
-skill_name = "hydro_generator_module"
+Path detected: "D:\projects\my_project\src\services\api.py"
+Extracted: "my_project"
+Validated: .claude/skills/my_project/ exists ✓
+skill_name = "my_project"
 
 // Step 2: Activate SKILL
-Skill(command: "hydro_generator_module")
+Skill(command: "my_project")
 
 // Step 3: Intent Analysis
-Keywords: ["修改", "builders", "构建逻辑"]
+Keywords: ["修改", "services", "接口逻辑"]
 Action: modifying (implementation)
-Scope: builders module + examples
+Scope: services module + examples
 
 // Load documentation based on intent
-Read(.workflow/docs/hydro_generator_module/builders/README.md)
-Read(.workflow/docs/hydro_generator_module/builders/API.md)
-Read(.workflow/docs/hydro_generator_module/EXAMPLES.md)
+Read(.workflow/docs/my_project/services/README.md)
+Read(.workflow/docs/my_project/services/API.md)
+Read(.workflow/docs/my_project/EXAMPLES.md)
 ```
 
 ## 5. Intent Keyword Mapping
