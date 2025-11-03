@@ -11,28 +11,36 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 
 **This command is a pure orchestrator**: Execute documentation generation workflow, then generate SKILL.md index. Does NOT create task JSON files.
 
-**Execution Model - 4-Phase Workflow**:
+**Execution Model - Auto-Continue Workflow**:
+
+This workflow runs **fully autonomously** once triggered. Each phase completes and automatically triggers the next phase.
 
 1. **User triggers**: `/memory:skill-memory [path] [options]`
-2. **Phase 1**: Parse arguments and prepare → Auto-continues
-3. **Phase 2**: Call `/memory:docs` to plan documentation → Auto-continues
-4. **Phase 3**: Call `/workflow:execute` to generate docs → Auto-continues
-5. **Phase 4**: Generate SKILL.md index → Reports completion
+2. **Phase 1 executes** → Parse arguments and prepare → Auto-continues
+3. **Phase 2 executes** → Call `/memory:docs` to plan documentation → Auto-continues
+4. **Phase 3 executes** → Call `/workflow:execute` to generate docs → Auto-continues
+5. **Phase 4 executes** → Generate SKILL.md index → Reports completion
 
 **Auto-Continue Mechanism**:
-- TodoList tracks current phase status
-- After each phase completion, automatically executes next phase
+- TodoList tracks current phase status (in_progress/completed)
+- After each phase completion, check TodoList and automatically execute next pending phase
 - All phases run autonomously without user interaction
-- Progress updates shown at each phase
+- Progress updates shown at each phase for visibility
+- Each phase MUST update TodoWrite before triggering next phase
 
 ## Core Rules
 
 1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 execution
 2. **No Task JSON**: This command does not create task JSON files - delegates to /memory:docs
-3. **Parse Every Output**: Extract required data from each command output
-4. **Auto-Continue via TodoList**: Check TodoList status to execute next phase automatically
-5. **Track Progress**: Update TodoWrite after every phase completion
+3. **Parse Every Output**: Extract required data from each command output (session_id, task_count, file paths)
+4. **Auto-Continue via TodoList**: After completing each phase:
+   - Update TodoWrite to mark current phase completed
+   - Mark next phase as in_progress
+   - Immediately execute next phase (no waiting for user input)
+   - Check TodoList to identify next pending phase automatically
+5. **Track Progress**: Update TodoWrite after EVERY phase completion before starting next phase
 6. **Direct Generation**: Phase 4 directly generates SKILL.md using Write tool
+7. **No Manual Steps**: User should never be prompted for decisions between phases - fully autonomous execution
 
 ## 4-Phase Execution
 
@@ -98,9 +106,23 @@ bash(test -d .workflow/docs/my_project && echo "still_exists" || echo "deleted")
 - `REGENERATE`: `false` (default) or `true` if --regenerate flag
 - `EXISTING_DOCS`: `0` (after regenerate) or actual count
 
-**TodoWrite**: Mark phase 1 completed, phase 2 in_progress
+**Completion Criteria**:
+- All parameters extracted and validated
+- Project name and paths confirmed
+- Existing docs count retrieved (or 0 after regenerate)
+- Default values set for unspecified parameters
 
-**After Phase 1**: Display preparation results, auto-continue to Phase 2
+**TodoWrite Update**:
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "in_progress", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
+]})
+```
+
+**After Phase 1**: Display preparation results → **Automatically continue to Phase 2** (no user input required)
 
 ---
 
@@ -131,13 +153,24 @@ SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode] [--c
 - Extract session ID pattern: `WFS-docs-[timestamp]` (store as `docsSessionId`)
 - Extract task count (store as `taskCount`)
 
-**Validation**:
-- Session ID extracted successfully
+**Completion Criteria**:
+- `/memory:docs` command executed successfully
+- Session ID extracted: `WFS-docs-[timestamp]`
+- Task count retrieved from output
 - Task files created in `.workflow/[docsSessionId]/.task/`
+- workflow-session.json exists in session directory
 
-**TodoWrite**: Mark phase 2 completed, phase 3 in_progress
+**TodoWrite Update**:
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "in_progress", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
+]})
+```
 
-**After Phase 2**: Display docs planning results, auto-continue to Phase 3
+**After Phase 2**: Display docs planning results (session ID, task count) → **Automatically continue to Phase 3** (no user input required)
 
 ---
 
@@ -152,13 +185,24 @@ SlashCommand(command="/workflow:execute")
 
 **Note**: `/workflow:execute` automatically discovers active session from Phase 2
 
-**Validation**:
+**Completion Criteria**:
+- `/workflow:execute` command executed successfully
 - Documentation files generated in `.workflow/docs/[projectName]/`
-- All tasks completed successfully
+- All tasks marked as completed in session
+- At minimum, module documentation files exist (API.md and/or README.md)
+- For full mode: Project README, ARCHITECTURE, EXAMPLES files generated
 
-**TodoWrite**: Mark phase 3 completed, phase 4 in_progress
+**TodoWrite Update**:
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "in_progress", "activeForm": "Generating SKILL.md"}
+]})
+```
 
-**After Phase 3**: Display execution results, auto-continue to Phase 4
+**After Phase 3**: Display execution results (file count, module count) → **Automatically continue to Phase 4** (no user input required)
 
 ---
 
@@ -207,7 +251,24 @@ All modules + [Architecture](../../.workflow/docs/{project_name}/ARCHITECTURE.md
 Everything + [Examples](../../.workflow/docs/{project_name}/EXAMPLES.md)
 ```
 
-**TodoWrite**: Mark phase 4 completed
+**Completion Criteria**:
+- SKILL.md file created at `.claude/skills/{project_name}/SKILL.md`
+- Intelligent description generated from documentation
+- Progressive loading levels (0-3) properly structured
+- Module index includes all documented modules
+- All file references use relative paths
+
+**TodoWrite Update**:
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "completed", "activeForm": "Generating SKILL.md"}
+]})
+```
+
+**After Phase 4**: Workflow complete → **Report final summary to user**
 
 **Return to User**:
 ```
@@ -233,39 +294,105 @@ Usage:
 
 ## TodoWrite Pattern
 
+**Auto-Continue Logic**: After updating TodoWrite at end of each phase, immediately check for next pending task and execute it.
+
 ```javascript
 // Initialize (before Phase 1)
+// FIRST ACTION: Create TodoList with all 4 phases
 TodoWrite({todos: [
   {"content": "Parse arguments and prepare", "status": "in_progress", "activeForm": "Parsing arguments"},
   {"content": "Call /memory:docs to plan documentation", "status": "pending", "activeForm": "Calling /memory:docs"},
   {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
   {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
 ]})
+// SECOND ACTION: Execute Phase 1 immediately
 
-// After Phase 1
+// After Phase 1 completes
+// Update TodoWrite: Mark Phase 1 completed, Phase 2 in_progress
 TodoWrite({todos: [
   {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
   {"content": "Call /memory:docs to plan documentation", "status": "in_progress", "activeForm": "Calling /memory:docs"},
   {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
   {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
 ]})
+// NEXT ACTION: Auto-continue to Phase 2 (execute /memory:docs command)
 
-// After Phase 2
+// After Phase 2 completes
+// Update TodoWrite: Mark Phase 2 completed, Phase 3 in_progress
 TodoWrite({todos: [
   {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
   {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
   {"content": "Execute documentation generation", "status": "in_progress", "activeForm": "Executing documentation"},
   {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
 ]})
+// NEXT ACTION: Auto-continue to Phase 3 (execute /workflow:execute command)
 
-// After Phase 3
+// After Phase 3 completes
+// Update TodoWrite: Mark Phase 3 completed, Phase 4 in_progress
 TodoWrite({todos: [
   {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
   {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
   {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
   {"content": "Generate SKILL.md index", "status": "in_progress", "activeForm": "Generating SKILL.md"}
 ]})
+// NEXT ACTION: Auto-continue to Phase 4 (generate SKILL.md)
+
+// After Phase 4 completes
+// Update TodoWrite: Mark Phase 4 completed
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "completed", "activeForm": "Generating SKILL.md"}
+]})
+// FINAL ACTION: Report completion summary to user
 ```
+
+## Auto-Continue Execution Flow
+
+**Critical Implementation Rules**:
+
+1. **No User Prompts Between Phases**: Never ask user questions or wait for input between phases
+2. **Immediate Phase Transition**: After TodoWrite update, immediately execute next phase command
+3. **Status-Driven Execution**: Check TodoList status after each phase:
+   - If next task is "pending" → Mark it "in_progress" and execute
+   - If all tasks are "completed" → Report final summary
+4. **Phase Completion Pattern**:
+   ```
+   Phase N completes → Update TodoWrite (N=completed, N+1=in_progress) → Execute Phase N+1
+   ```
+
+**Execution Sequence**:
+```
+User triggers command
+  ↓
+[TodoWrite] Initialize 4 phases (Phase 1 = in_progress)
+  ↓
+[Execute] Phase 1: Parse arguments
+  ↓
+[TodoWrite] Phase 1 = completed, Phase 2 = in_progress
+  ↓
+[Execute] Phase 2: Call /memory:docs
+  ↓
+[TodoWrite] Phase 2 = completed, Phase 3 = in_progress
+  ↓
+[Execute] Phase 3: Call /workflow:execute
+  ↓
+[TodoWrite] Phase 3 = completed, Phase 4 = in_progress
+  ↓
+[Execute] Phase 4: Generate SKILL.md
+  ↓
+[TodoWrite] Phase 4 = completed
+  ↓
+[Report] Display completion summary
+```
+
+**Error Handling**:
+- If any phase fails, mark it as "in_progress" (not completed)
+- Report error details to user
+- Do NOT auto-continue to next phase on failure
+
+---
 
 ## Parameters
 
