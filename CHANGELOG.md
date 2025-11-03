@@ -5,6 +5,55 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.0] - 2025-11-03
+
+### 🚀 Memory Commands Enhancement
+
+This release optimizes documentation workflow commands with batch processing, dual execution modes, and reduced redundancy for improved performance and flexibility.
+
+#### ✅ Added
+
+**Documentation Workflow**:
+- ✅ **Batch Processing** - `/memory:docs` now uses single Level 1 task for all module trees
+- ✅ **Dual Execution Modes** - Agent Mode (default) and CLI Mode (--cli-execute) support
+- ✅ **Pre-computed Analysis** - Phase 2 unified analysis eliminates redundant CLI calls
+- ✅ **CLI Execute Flag** - `/memory:skill-memory` now supports --cli-execute parameter
+
+**Agent Enhancements**:
+- ✅ **@doc-generator** - Mode-aware execution supporting both Agent and CLI modes
+- ✅ **Mode Detection** - Automatic strategy selection based on `cli_execute` flag
+- ✅ **CLI Integration** - Direct documentation generation via CLI tools (gemini/qwen/codex)
+
+#### 📝 Changed
+
+**Documentation Commands**:
+- 🔄 **`/memory:docs`** - Optimized task decomposition (N+3 tasks → 4 tasks)
+- 🔄 **Task Structure** - Reduced task count through batch processing strategy
+- 🔄 **File Operations** - One-time file reads in Phase 2, shared across tasks
+- 🔄 **CLI Calls** - Single unified analysis replaces per-task analysis
+
+**Execution Strategy**:
+- 🔄 **Level 1 Tasks** - All module trees handled by single IMPL-001 batch task
+- 🔄 **Context Reuse** - Pre-analyzed data stored in `.process/` directory
+- 🔄 **Agent Mode** - CLI analyzes in pre_analysis, agent generates docs
+- 🔄 **CLI Mode** - CLI generates docs directly in implementation_approach
+
+#### 🎯 Performance Improvements
+
+**Resource Optimization**:
+- ⚡ **67% fewer Level 1 tasks** - 3+ tasks consolidated into 1 batch task
+- ⚡ **67% fewer file reads** - Existing docs loaded once in Phase 2
+- ⚡ **67% fewer CLI calls** - Unified analysis replaces per-task analysis
+- ⚡ **33% fewer total tasks** - Example: 6 tasks → 4 tasks for 3-directory project
+
+#### 📦 Updated Files
+
+- `.claude/commands/memory/docs.md` - Batch processing and dual execution modes
+- `.claude/commands/memory/skill-memory.md` - CLI execute flag support
+- `.claude/agents/doc-generator.md` - Mode-aware execution implementation
+
+---
+
 ## [5.1.0] - 2025-10-27
 
 ### 🔄 Agent Architecture Consolidation

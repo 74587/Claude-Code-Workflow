@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.1.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,12 +14,13 @@
 
 **Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a robust, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
 
-> **🎉 Version 5.1: Agent Architecture Consolidation**
+> **🎉 Version 5.2: Memory Commands Enhancement**
 >
 > **Core Improvements**:
-> - ✅ **Universal Executor Agent** - Consolidated agent architecture for better clarity and specialization
-> - ✅ **Enhanced Workflow Commands** - Improved session management and context gathering capabilities
-> - ✅ **Better Code Organization** - Archived legacy templates and improved documentation consistency
+> - ✅ **Batch Processing** - Single Level 1 task handles all module trees (67% fewer tasks)
+> - ✅ **Dual Execution Modes** - Agent Mode and CLI Mode (--cli-execute) support
+> - ✅ **Pre-computed Analysis** - Unified analysis eliminates redundant CLI calls (67% reduction)
+> - ✅ **Performance Boost** - 67% fewer file reads, 33% fewer total tasks
 >
 > See [CHANGELOG.md](CHANGELOG.md) for full details.
 
