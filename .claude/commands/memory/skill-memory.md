@@ -112,15 +112,7 @@ bash(test -d .workflow/docs/my_project && echo "still_exists" || echo "deleted")
 - Existing docs count retrieved (or 0 after regenerate)
 - Default values set for unspecified parameters
 
-**TodoWrite Update**:
-```javascript
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "in_progress", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
-]})
-```
+**TodoWrite**: Mark phase 1 completed, phase 2 in_progress
 
 **After Phase 1**: Display preparation results → **Automatically continue to Phase 2** (no user input required)
 
@@ -160,15 +152,7 @@ SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode] [--c
 - Task files created in `.workflow/[docsSessionId]/.task/`
 - workflow-session.json exists in session directory
 
-**TodoWrite Update**:
-```javascript
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "in_progress", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
-]})
-```
+**TodoWrite**: Mark phase 2 completed, phase 3 in_progress
 
 **After Phase 2**: Display docs planning results (session ID, task count) → **Automatically continue to Phase 3** (no user input required)
 
@@ -192,15 +176,7 @@ SlashCommand(command="/workflow:execute")
 - At minimum, module documentation files exist (API.md and/or README.md)
 - For full mode: Project README, ARCHITECTURE, EXAMPLES files generated
 
-**TodoWrite Update**:
-```javascript
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "in_progress", "activeForm": "Generating SKILL.md"}
-]})
-```
+**TodoWrite**: Mark phase 3 completed, phase 4 in_progress
 
 **After Phase 3**: Display execution results (file count, module count) → **Automatically continue to Phase 4** (no user input required)
 
@@ -258,15 +234,7 @@ Everything + [Examples](../../.workflow/docs/{project_name}/EXAMPLES.md)
 - Module index includes all documented modules
 - All file references use relative paths
 
-**TodoWrite Update**:
-```javascript
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "completed", "activeForm": "Generating SKILL.md"}
-]})
-```
+**TodoWrite**: Mark phase 4 completed
 
 **After Phase 4**: Workflow complete → **Report final summary to user**
 
