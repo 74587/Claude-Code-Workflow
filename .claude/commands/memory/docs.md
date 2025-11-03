@@ -387,14 +387,14 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 
 ## Task Templates
 
-### Level 1: Batch Module Trees Task (Optimized)
+### Level 1: Batch Module Trees Task
 
 **Path Mapping**:
 - Project: `{project_name}` (extracted from target_path)
 - Sources: Multiple directories from `top-level-dirs.txt`
 - Output: `.workflow/docs/{project_name}/` (mirrored structure)
 
-**Key Optimization**: Single task processes all module trees by reading pre-analyzed data from Phase 2.
+**Execution Model**: Single task processes all module trees by reading pre-analyzed data from Phase 2.
 
 **Agent Mode (cli_execute=false)**:
 ```json
@@ -731,20 +731,15 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
     │   ├── folder-analysis.txt              # Folder classification results
     │   ├── top-level-dirs.txt               # Top-level directory list
     │   ├── all-paths.txt                    # All folder paths
-    │   ├── all-existing-module-docs.txt     # ⭐ All existing module docs (one-time read)
-    │   ├── unified-module-analysis.txt      # ⭐ Unified analysis for all modules (one-time CLI call)
+    │   ├── all-existing-module-docs.txt     # All existing module docs (loaded once)
+    │   ├── unified-module-analysis.txt      # Unified analysis for all modules
     │   └── existing-docs.txt                # Existing documentation paths
-    └── .task/                               # Task JSON files (optimized count)
-        ├── IMPL-001.json                    # ⭐ Batch module trees task (all directories)
+    └── .task/                               # Task JSON files
+        ├── IMPL-001.json                    # Batch module trees task (all directories)
         ├── IMPL-002.json                    # Project README (full mode)
         ├── IMPL-003.json                    # ARCHITECTURE.md + EXAMPLES.md (full mode)
         └── IMPL-004.json                    # HTTP API docs (optional)
 ```
-
-**⭐ Optimization Highlights**:
-- `all-existing-module-docs.txt`: Single file read replaces per-task reads
-- `unified-module-analysis.txt`: Single CLI call replaces per-task analysis
-- Task count reduced: 3+ tasks → 1 batch task for all module trees
 
 **Workflow Session Structure** (workflow-session.json):
 ```json
@@ -878,14 +873,15 @@ bash(test -d .workflow/docs/my_project && echo "exists" || echo "not exists")
 
 ## Execution Mode Summary
 
-| Mode | CLI Placement | CLI MODE | Agent Role | Optimization |
-|------|---------------|----------|------------|--------------|
-| **Agent Mode (default)** | pre_analysis (Phase 2 only) | analysis | Generates documentation files based on pre-analyzed data | Single CLI call in Phase 2, batch processing in IMPL-001 |
-| **CLI Mode (--cli-execute)** | implementation_approach | write | Executes CLI commands to generate docs, validates output | Batch CLI execution for all directories in IMPL-001 |
+| Mode | CLI Placement | CLI MODE | Agent Role |
+|------|---------------|----------|------------|
+| **Agent Mode (default)** | pre_analysis (Phase 2) | analysis | Generates documentation files based on pre-analyzed data |
+| **CLI Mode (--cli-execute)** | implementation_approach | write | Executes CLI commands to generate docs, validates output |
 
-**Key Differences from Previous Version**:
-- **Before**: Per-directory tasks, per-task CLI calls, redundant file reads
-- **After**: Single batch task, Phase 2 unified analysis, one-time file reads
+**Execution Flow**:
+- **Phase 2**: Unified analysis performed once, results stored in `.process/`
+- **IMPL-001**: Batch processing for all module trees using pre-analyzed data
+- **IMPL-002+**: Sequential execution for project-level documentation
 
 ## Related Commands
 - `/workflow:execute` - Execute documentation tasks
