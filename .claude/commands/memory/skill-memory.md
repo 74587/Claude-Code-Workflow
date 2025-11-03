@@ -1,7 +1,7 @@
 ---
 name: skill-memory
 description: Generate SKILL package index from project documentation
-argument-hint: "[path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]"
+argument-hint: "[path] [--tool <gemini|qwen|codex>] [--update] [--mode <full|partial>] [--cli-execute]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 ---
 
@@ -70,7 +70,7 @@ bash(git rev-parse --show-toplevel 2>/dev/null || pwd)
 # Default values (use these unless user specifies otherwise):
 # - tool: "gemini"
 # - mode: "full"
-# - regenerate: false (no --regenerate flag)
+# - update: false (no --update flag)
 # - cli_execute: false (no --cli-execute flag)
 ```
 
@@ -87,9 +87,9 @@ bash(find .workflow/docs/my_project -name "*.md" 2>/dev/null | wc -l || echo 0)
 - `docs_exists`: `exists` or `not_exists`
 - `existing_docs`: `5` (or `0` if no docs)
 
-**Step 4: Handle --regenerate Flag (If Specified)**
+**Step 4: Handle --update Flag (If Specified)**
 ```bash
-# If user specified --regenerate, delete existing docs directory
+# If user specified --update, delete existing docs directory
 bash(rm -rf .workflow/docs/my_project 2>/dev/null || true)
 
 # Verify deletion
@@ -103,8 +103,8 @@ bash(test -d .workflow/docs/my_project && echo "still_exists" || echo "deleted")
 - `TOOL`: `gemini` (default) or user-specified
 - `MODE`: `full` (default) or user-specified
 - `CLI_EXECUTE`: `false` (default) or `true` if --cli-execute flag
-- `REGENERATE`: `false` (default) or `true` if --regenerate flag
-- `EXISTING_DOCS`: `0` (after regenerate) or actual count
+- `UPDATE`: `false` (default) or `true` if --update flag
+- `EXISTING_DOCS`: `0` (after update) or actual count
 
 **Completion Criteria**:
 - All parameters extracted and validated
@@ -133,7 +133,7 @@ SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode] [--c
 /memory:docs /d/my_app --tool gemini --mode full --cli-execute
 ```
 
-**Note**: The `--regenerate` flag is handled in Phase 1 by deleting existing documentation. This command always calls `/memory:docs` without the regenerate flag, relying on docs.md's built-in update detection.
+**Note**: The `--update` flag is handled in Phase 1 by deleting existing documentation. This command always calls `/memory:docs` without the update flag, relying on docs.md's built-in update detection.
 
 **Input**:
 - `targetPath` from Phase 1
@@ -375,7 +375,7 @@ User triggers command
 ## Parameters
 
 ```bash
-/memory:skill-memory [path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]
+/memory:skill-memory [path] [--tool <gemini|qwen|codex>] [--update] [--mode <full|partial>] [--cli-execute]
 ```
 
 - **path**: Target directory (default: current directory)
@@ -383,7 +383,7 @@ User triggers command
   - `gemini`: Comprehensive documentation
   - `qwen`: Architecture analysis
   - `codex`: Implementation validation
-- **--regenerate**: Force regenerate all documentation
+- **--update**: Force update all documentation
   - When enabled: Deletes existing `.workflow/docs/{project_name}/` before regeneration
   - Ensures fresh documentation from source code
 - **--mode**: Documentation mode (default: full)
@@ -407,16 +407,16 @@ User triggers command
 3. Phase 3: Executes documentation generation via `/workflow:execute`
 4. Phase 4: Generates SKILL.md at `.claude/skills/{project_name}/SKILL.md`
 
-### Example 2: Regenerate with Qwen
+### Example 2: Update with Qwen
 
 ```bash
-/memory:skill-memory /d/my_app --tool qwen --regenerate
+/memory:skill-memory /d/my_app --tool qwen --update
 ```
 
 **Workflow**:
-1. Phase 1: Parses target path, detects regenerate flag
-2. Phase 2: Calls `/memory:docs /d/my_app --tool qwen --mode full` (regenerate handled in Phase 1)
-3. Phase 3: Executes documentation regeneration
+1. Phase 1: Parses target path, detects update flag
+2. Phase 2: Calls `/memory:docs /d/my_app --tool qwen --mode full` (update handled in Phase 1)
+3. Phase 3: Executes documentation update
 4. Phase 4: Generates updated SKILL.md
 
 ### Example 3: Partial Mode (Modules Only)
