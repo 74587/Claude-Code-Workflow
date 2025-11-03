@@ -10,7 +10,11 @@ argument-hint: "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--c
 Lightweight planner that analyzes project structure, decomposes documentation work into tasks, and generates execution plans. Does NOT generate documentation content itself - delegates to doc-generator agent.
 
 **Execution Strategy**:
-- **Dynamic Task Grouping**: Level 1 tasks dynamically grouped by directory count (max 2 dirs/task, ≤5 docs/task)
+- **Dynamic Task Grouping**: Level 1 tasks grouped by top-level directories with document count limit
+  - **Primary constraint**: Each task generates ≤7 documents (API.md + README.md count)
+  - **Optimization goal**: Prefer grouping 2 top-level directories per task for context sharing
+  - **Conflict resolution**: If 2 dirs exceed 7 docs, reduce to 1 dir/task; if 1 dir exceeds 7 docs, split by subdirectories
+  - **Context benefit**: Same-task directories analyzed together via single Gemini call
 - **Parallel Execution**: Multiple Level 1 tasks execute concurrently for faster completion
 - **Pre-computed Analysis**: Phase 2 performs unified analysis once, stored in `.process/` for reuse
 - **Efficient Data Loading**: All existing docs loaded once in Phase 2, shared across tasks
@@ -133,25 +137,47 @@ bash(cat .workflow/WFS-docs-{timestamp}/.process/phase2-analysis.json | jq '.exi
 
 ### Phase 4: Decompose Tasks
 
-**Task Hierarchy** (Dynamic based on directory count):
+**Task Hierarchy** (Dynamic based on document count):
 
 ```
-Small Projects (≤3 dirs):
-  Level 1: IMPL-001 (all directories, single task)
+Small Projects (total ≤7 docs):
+  Level 1: IMPL-001 (all directories in single task, shared context)
   Level 2: IMPL-002 (README, full mode only)
   Level 3: IMPL-003 (ARCHITECTURE+EXAMPLES), IMPL-004 (HTTP API, optional)
 
-Large Projects (≥4 dirs, Example: 7 dirs):
-  Level 1: IMPL-001 to IMPL-004 (parallel groups, 2 dirs/task)
-    ├─ IMPL-001: Group 1 (dirs 1-2)
-    ├─ IMPL-002: Group 2 (dirs 3-4)
-    ├─ IMPL-003: Group 3 (dirs 5-6)
-    └─ IMPL-004: Group 4 (dir 7)
-  Level 2: IMPL-005 (README, depends on Level 1, full mode only)
-  Level 3: IMPL-006 (ARCHITECTURE+EXAMPLES), IMPL-007 (HTTP API, optional)
+Medium Projects (Example: 7 top-level dirs, 12 total docs):
+  Step 1: Count docs per top-level dir
+    ├─ dir1: 2 docs, dir2: 3 docs → Group 1 (5 docs)
+    ├─ dir3: 4 docs, dir4: 2 docs → Group 2 (6 docs)
+    ├─ dir5: 1 doc → Group 3 (1 doc, can add more)
+
+  Step 2: Create tasks with ≤7 docs constraint
+  Level 1: IMPL-001 to IMPL-003 (parallel groups)
+    ├─ IMPL-001: Group 1 (dir1 + dir2, 5 docs, shared context)
+    ├─ IMPL-002: Group 2 (dir3 + dir4, 6 docs, shared context)
+    └─ IMPL-003: Group 3 (remaining dirs, ≤7 docs)
+  Level 2: IMPL-004 (README, depends on Level 1, full mode only)
+  Level 3: IMPL-005 (ARCHITECTURE+EXAMPLES), IMPL-006 (HTTP API, optional)
+
+Large Projects (single dir >7 docs):
+  Step 1: Detect oversized directory
+    └─ src/modules/: 12 subdirs → 24 docs (exceeds limit)
+
+  Step 2: Split by subdirectories
+  Level 1: IMPL-001 to IMPL-004 (split oversized dir)
+    ├─ IMPL-001: src/modules/ subdirs 1-3 (6 docs)
+    ├─ IMPL-002: src/modules/ subdirs 4-6 (6 docs)
+    └─ IMPL-003: src/modules/ subdirs 7-12 (12 docs) → further split
 ```
 
-**Benefits**: Parallel execution, failure isolation, progress visibility, load balancing (max 2 dirs/task).
+**Grouping Algorithm**:
+1. Count total docs for each top-level directory
+2. Try grouping 2 directories (optimization for context sharing)
+3. If group exceeds 7 docs, split to 1 dir/task
+4. If single dir exceeds 7 docs, split by subdirectories
+5. Create parallel Level 1 tasks with ≤7 docs each
+
+**Benefits**: Parallel execution, failure isolation, progress visibility, context sharing, document count control.
 
 **Commands**:
 
@@ -167,16 +193,22 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 ```
 
 **Data Processing**:
-1. Parse directory list and create groups (max 2 dirs/group):
-   - ≤3 dirs: Single group with all directories
-   - ≥4 dirs: Multiple groups, 2 dirs each
-2. Use **Edit tool** to update `phase2-analysis.json` adding groups field:
+1. Count documents for each top-level directory (from folder_analysis):
+   - Code folders: 2 docs each (API.md + README.md)
+   - Navigation folders: 1 doc each (README.md only)
+2. Apply grouping algorithm with ≤7 docs constraint:
+   - Try grouping 2 directories, calculate total docs
+   - If total ≤7 docs: create group
+   - If total >7 docs: split to 1 dir/group or subdivide
+   - If single dir >7 docs: split by subdirectories
+3. Use **Edit tool** to update `phase2-analysis.json` adding groups field:
    ```json
    "groups": {
-     "count": 2,
+     "count": 3,
      "assignments": [
-       {"group_id": "001", "directories": ["src/modules", "src/utils"]},
-       {"group_id": "002", "directories": ["lib/core"]}
+       {"group_id": "001", "directories": ["src/modules", "src/utils"], "doc_count": 5},
+       {"group_id": "002", "directories": ["lib/core"], "doc_count": 6},
+       {"group_id": "003", "directories": ["lib/helpers"], "doc_count": 3}
      ]
    }
    ```
@@ -465,8 +497,8 @@ api_id=$((group_count + 3))
   "groups": {
     "count": 4,
     "assignments": [
-      {"group_id": "001", "directories": ["src/modules", "src/utils"]},
-      {"group_id": "002", "directories": ["lib/core", "lib/helpers"]}
+      {"group_id": "001", "directories": ["src/modules", "src/utils"], "doc_count": 6},
+      {"group_id": "002", "directories": ["lib/core", "lib/helpers"], "doc_count": 7}
     ]
   },
   "statistics": {
