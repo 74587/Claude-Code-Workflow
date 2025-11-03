@@ -1,347 +1,132 @@
 ---
 name: load-skill-memory
-description: Automatically discover and activate SKILL packages based on task context with intelligent matching
-argument-hint: "\"task description or file path\""
-allowed-tools: Bash(*), Read(*), Glob(*), Skill(*)
-examples:
-  - /memory:load-skill-memory "分析热模型builder pattern实现"
-  - /memory:load-skill-memory "修改workflow文档生成逻辑"
-  - /memory:load-skill-memory "D:\dongdiankaifa9\hydro_generator_module\builders\base.py"
+description: Manually activate specified SKILL package and load documentation based on task intent
+argument-hint: "<skill_name> \"task intent description\""
+allowed-tools: Bash(*), Read(*), Skill(*)
 ---
 
 # Memory Load SKILL Command (/memory:load-skill-memory)
 
 ## 1. Overview
 
-The `memory:load-skill-memory` command **automatically discovers and activates** the most relevant SKILL package based on task description or file path. It dynamically matches user intent against available SKILL descriptions and activates the best match.
+The `memory:load-skill-memory` command **manually activates a specified SKILL package** and intelligently loads documentation based on user's task intent. The system automatically determines which documentation files to read based on the intent description.
 
 **Core Philosophy**:
-- **Dynamic SKILL Discovery**: Automatically finds relevant SKILL without manual specification
-- **Intelligent Matching**: Matches task keywords against SKILL descriptions
-- **Path-Based Detection**: Recognizes project paths and activates corresponding SKILL
-- **Automatic Activation**: Uses Skill() tool to load comprehensive context
+- **Manual Activation**: User explicitly specifies which SKILL to activate
+- **Intent-Driven Loading**: System analyzes task intent to determine documentation scope
+- **Intelligent Selection**: Automatically chooses appropriate documentation level and modules
+- **Direct Context Loading**: Loads selected documentation into conversation memory
+
+**When to Use**:
+- Manually activate a known SKILL package for a specific task
+- Load SKILL context when system hasn't auto-triggered it
+- Force reload SKILL documentation with specific intent focus
+
+**Note**: Normal SKILL activation happens automatically via description triggers. Use this command only when manual activation is needed.
 
 ## 2. Parameters
 
-- `"task description or file path"` (Required): Task context or file path for SKILL matching
-  - **Task description**: "分析热模型实现", "修改workflow逻辑", "学习参数系统"
-  - **File path**: "D:\dongdiankaifa9\hydro_generator_module\builders\base.py"
-  - **Domain keywords**: "thermal modeling", "workflow management", "multi-physics"
+- `<skill_name>` (Required): Name of SKILL package to activate
+  - Example: `hydro_generator_module`, `Claude_dms3`
+  - Must match directory name under `.claude/skills/`
+
+- `"task intent description"` (Required): Description of what you want to do
+  - **Analysis tasks**: "分析builder pattern实现", "理解参数系统架构"
+  - **Modification tasks**: "修改workflow逻辑", "增强thermal template功能"
+  - **Learning tasks**: "学习接口设计模式", "了解测试框架使用"
 
 ## 3. Execution Flow
 
-### Step 1: Discover Available SKILLs
+### Step 1: Activate SKILL and Analyze Intent
 
-**List All SKILL Packages**:
-```bash
-bash(ls -1 .claude/skills/ 2>/dev/null || echo "No SKILLs available")
-```
-
-**Read Each SKILL.md for Matching**:
-```bash
-# For each SKILL directory found
-for skill in $(ls -1 .claude/skills/); do
-  Read(.claude/skills/${skill}/SKILL.md)
-done
-```
-
-**Extract Matching Information**:
-- SKILL name
-- Description (with trigger keywords)
-- Location path (from description)
-- Domain keywords
-
-### Step 2: Match Most Relevant SKILL
-
-**Matching Algorithm**:
-
-1. **Path-Based Matching** (Highest Priority):
-   - Extract path from user input if provided
-   - Compare against SKILL location paths in descriptions
-   - Exact match: `D:\dongdiankaifa9\hydro_generator_module` → `hydro_generator_module` SKILL
-
-2. **Keyword Matching** (Secondary Priority):
-   - Extract keywords from task description
-   - Match against SKILL description keywords
-   - Score each SKILL by keyword overlap count
-
-3. **Action Matching** (Tertiary Priority):
-   - Detect action verbs: "分析", "修改", "学习", "实现"
-   - Match against SKILL description triggers
-   - Prefer SKILLs with matching action patterns
-
-**Scoring Example**:
+**Activate SKILL Package**:
 ```javascript
-Task: "分析热模型builder pattern实现"
-
-hydro_generator_module SKILL:
-- Path match: No
-- Keywords: "热模型"(1), "builder"(1), "实现"(1) = 3 points
-- Action match: "analyzing"(1) = 1 point
-- Total: 4 points [Winner]
-
-Claude_dms3 SKILL:
-- Path match: No
-- Keywords: "workflow"(0) = 0 points
-- Action match: "analyzing"(1) = 1 point
-- Total: 1 point
-```
-
-**No Match Handling**:
-```
-[Warning] No matching SKILL found for: "{task_description}"
-
-Available SKILLs:
-- hydro_generator_module - Hydro-generator thermal modeling
-- Claude_dms3 - Workflow orchestration system
-
-Generate SKILL for your project: /memory:skill-memory [path]
-```
-
-### Step 3: Activate Matched SKILL
-
-**Validation and Activation**:
-```javascript
-// Validate SKILL existence
-skill_path = `.claude/skills/${skill_name}/SKILL.md`
-if (!exists(skill_path)) {
-  list_available_skills()
-  return error_message
-}
-
-// Activate SKILL
-Skill(command: "{matched_skill_name}")
+Skill(command: "${skill_name}")
 ```
 
 **What Happens After Activation**:
-1. System reads `.claude/skills/{matched_skill_name}/SKILL.md`
-2. Automatically loads appropriate documentation based on:
-   - SKILL description triggers (analyzing, modifying, learning)
-   - Current conversation context
-   - Memory gaps detection
-3. Progressive loading levels (0-3) handled automatically
-4. Context loaded directly into conversation memory
+1. If SKILL exists in memory: System reads `.claude/skills/${skill_name}/SKILL.md`
+2. If SKILL not found in memory: Error - SKILL package doesn't exist
+3. SKILL description triggers are loaded into memory
+4. Progressive loading mechanism becomes available
+5. Documentation structure is now accessible
 
-**Confirmation Output**:
-```
-[OK] Matched and activated SKILL: {matched_skill_name}
-Match reason: {path/keyword/action match}
-Location: {project_path}
-Context loaded for: {domain_description}
-```
+**Intent Analysis**:
+Based on task intent description, system determines:
+- **Action type**: analyzing, modifying, learning
+- **Scope**: specific module, architecture overview, complete system
+- **Depth**: quick reference, detailed API, full documentation
 
-## 4. Matching Strategy
+### Step 2: Intelligent Documentation Loading
 
-**SKILL Trigger Patterns**:
+**Loading Strategy**:
 
-The SKILL.md description includes trigger patterns that automatically activate when:
+The system automatically selects documentation based on intent keywords:
 
-1. **Keyword Matching**:
-   - User mentions domain keywords (e.g., "热模型", "workflow", "多物理场")
-   - Description keywords match task requirements
+1. **Quick Understanding** ("了解", "快速理解", "什么是"):
+   - Load: Level 0 (README.md only, ~2K tokens)
+   - Use case: Quick overview of capabilities
 
-2. **Action Detection**:
-   - "analyzing" triggers for analysis tasks
-   - "modifying" triggers for code modification
-   - "learning" triggers for exploration
+2. **Specific Module Analysis** ("分析XXX模块", "理解XXX实现"):
+   - Load: Module-specific README.md + API.md (~5K tokens)
+   - Use case: Deep dive into specific component
 
-3. **Memory Gap Detection**:
-   - "especially when no relevant context exists in memory"
-   - System prioritizes SKILL loading when conversation lacks context
+3. **Architecture Review** ("架构", "设计模式", "整体结构"):
+   - Load: README.md + ARCHITECTURE.md (~10K tokens)
+   - Use case: System design understanding
 
-4. **Path-Based Triggering**:
-   - User mentions file paths matching SKILL location
-   - "files under this path" clause activates
+4. **Implementation/Modification** ("修改", "增强", "实现"):
+   - Load: Relevant module docs + EXAMPLES.md (~15K tokens)
+   - Use case: Code modification with examples
 
-**Progressive Loading (Automatic)**:
-- Level 0: ~2K tokens (Quick overview)
-- Level 1: ~10K tokens (Core modules)
-- Level 2: ~25K tokens (Complete system)
-- Level 3: ~40K tokens (Full documentation)
+5. **Comprehensive Learning** ("学习", "完整了解", "深入理解"):
+   - Load: Level 3 (All documentation, ~40K tokens)
+   - Use case: Complete system mastery
 
-System automatically selects appropriate level based on task complexity and context requirements.
+**Documentation Loaded into Memory**:
+After loading, the selected documentation content is available in conversation memory for subsequent operations.
 
-## 5. Usage Examples
-
-### Example 1: Task-Based Discovery (Keyword Matching)
+## 4. Usage Example
 
 **User Command**:
 ```bash
-/memory:load-skill-memory "分析热模型builder pattern实现"
+/memory:load-skill-memory my_project "修改认证模块增加OAuth支持"
 ```
 
-**Execution Flow**:
+**Execution**:
 ```javascript
-// Step 1: Discover available SKILLs
-bash(ls -1 .claude/skills/)
-// Output: hydro_generator_module, Claude_dms3
+// Step 1: Activate SKILL
+Skill(command: "my_project")
 
-// Read each SKILL.md
-Read(.claude/skills/hydro_generator_module/SKILL.md)
-Read(.claude/skills/Claude_dms3/SKILL.md)
+// Intent Analysis
+Keywords: ["修改", "认证模块", "增加", "OAuth"]
+Action: modifying (implementation)
+Scope: auth module + examples
 
-// Step 2: Match keywords
-Keywords extracted: ["热模型", "builder", "pattern", "实现", "分析"]
-
-Matching scores:
-- hydro_generator_module: 4 points (thermal modeling, builder, analyzing)
-- Claude_dms3: 1 point (analyzing only)
-
-Best match: hydro_generator_module
-
-// Step 3: Activate matched SKILL
-Skill(command: "hydro_generator_module")
+// Step 2: Load documentation based on intent
+Read(.workflow/docs/my_project/auth/README.md)
+Read(.workflow/docs/my_project/auth/API.md)
+Read(.workflow/docs/my_project/EXAMPLES.md)
 ```
 
-**Output**:
-```
-[OK] Matched and activated SKILL: hydro_generator_module
-Match reason: Keywords ["thermal", "builder"] + Action ["analyzing"]
-Location: D:\dongdiankaifa9\hydro_generator_module
-Context loaded for: hydro-generator thermal modeling
-```
+## 5. Intent Keyword Mapping
 
-### Example 2: Path-Based Discovery (Direct Path Match)
+**Quick Reference**:
+- **Triggers**: "了解", "快速", "什么是", "简介"
+- **Loads**: README.md only (~2K)
 
-**User Command**:
-```bash
-/memory:load-skill-memory "D:\dongdiankaifa9\hydro_generator_module\builders\base.py"
-```
+**Module-Specific**:
+- **Triggers**: "XXX模块", "XXX组件", "分析XXX"
+- **Loads**: Module README + API (~5K)
 
-**Execution Flow**:
-```javascript
-// Step 1: Discover SKILLs
-bash(ls -1 .claude/skills/)
+**Architecture**:
+- **Triggers**: "架构", "设计", "整体结构", "系统设计"
+- **Loads**: README + ARCHITECTURE (~10K)
 
-// Step 2: Match path
-Path extracted: "D:\dongdiankaifa9\hydro_generator_module"
+**Implementation**:
+- **Triggers**: "修改", "增强", "实现", "开发", "集成"
+- **Loads**: Relevant module + EXAMPLES (~15K)
 
-Matching:
-- hydro_generator_module location: "D:\dongdiankaifa9\hydro_generator_module" [Exact match]
-- Claude_dms3 location: "D:\Claude_dms3" [No match]
-
-Best match: hydro_generator_module (path match - highest priority)
-
-// Step 3: Activate
-Skill(command: "hydro_generator_module")
-```
-
-**Output**:
-```
-[OK] Matched and activated SKILL: hydro_generator_module
-Match reason: Path match (D:\dongdiankaifa9\hydro_generator_module)
-Location: D:\dongdiankaifa9\hydro_generator_module
-Context loaded for: hydro-generator thermal modeling
-```
-
-### Example 3: Domain Keyword Discovery
-
-**User Command**:
-```bash
-/memory:load-skill-memory "修改workflow文档生成调度逻辑"
-```
-
-**Execution Flow**:
-```javascript
-// Step 1: Discover SKILLs
-bash(ls -1 .claude/skills/)
-
-// Step 2: Match keywords
-Keywords: ["workflow", "文档生成", "调度", "修改"]
-
-Matching scores:
-- Claude_dms3: 3 points (workflow, docs generation, modifying)
-- hydro_generator_module: 1 point (modifying only)
-
-Best match: Claude_dms3
-
-// Step 3: Activate
-Skill(command: "Claude_dms3")
-```
-
-**Output**:
-```
-[OK] Matched and activated SKILL: Claude_dms3
-Match reason: Keywords ["workflow", "docs"] + Action ["modifying"]
-Location: D:\Claude_dms3
-Context loaded for: workflow orchestration and documentation
-```
-
-## 6. Integration & Token Optimization
-
-### Workflow Integration
-
-**Using SKILL Context for Planning**:
-```javascript
-// 1. Activate SKILL context
-Skill(command: "hydro_generator_module")
-
-// 2. Use loaded context for planning
-SlashCommand(command: "/workflow:plan \"增强thermal template支持动态阻抗\"")
-
-// 3. Execute implementation
-SlashCommand(command: "/workflow:execute")
-```
-
-**Memory Refresh Pattern**:
-```javascript
-// Refresh SKILL context after code changes
-Skill(command: "hydro_generator_module")
-// System automatically detects changes and loads updated documentation
-```
-
-### Token Optimization Strategy
-
-**Automatic Progressive Loading**:
-The SKILL system automatically handles token optimization:
-
-1. **Initial Load**: Starts with minimum required context
-2. **On-Demand Escalation**: Loads more documentation if needed
-3. **Task-Driven**: Adjusts depth based on task complexity
-4. **Memory-Aware**: Avoids loading redundant context
-
-**Token Budget (Automatic)**:
-- **Simple queries**: ~2-10K tokens
-- **Code analysis**: ~10-25K tokens
-- **Implementation**: ~25-40K tokens
-
-**Optimization Benefits**:
-- No manual level selection required
-- System learns from conversation context
-- Efficient memory usage
-- Automatic reload when context insufficient
-
-## 7. Error Handling
-
-### SKILL Not Found
-```
-[Error] SKILL 'unknown_module' not found.
-
-Available SKILLs:
-- hydro_generator_module (D:\dongdiankaifa9\hydro_generator_module)
-- Claude_dms3 (D:\Claude_dms3)
-
-Activate SKILL: Skill(command: "skill_name")
-Generate new SKILL: /memory:skill-memory [path]
-```
-
-### Documentation Missing
-```
-[Warning] SKILL 'hydro_generator_module' exists but documentation incomplete.
-
-Missing files:
-- .workflow/docs/hydro_generator_module/ARCHITECTURE.md
-
-Regenerate documentation: /memory:skill-memory --regenerate
-```
-
-## 8. Notes
-
-- **Validation First**: Always checks SKILL existence before activation
-- **Automatic Loading**: Skill tool handles all documentation reading
-- **Session-Scoped**: Activated SKILL context valid for current session
-- **Trigger-Based**: Description patterns drive automatic activation
-- **Path-Aware**: Triggers on project path mentions
-- **Memory-Smart**: Prioritizes loading when conversation lacks context
-- **Read-Only**: Does not modify SKILL files or documentation
-- **Reactivation**: Can re-activate SKILL to refresh context after changes
+**Comprehensive**:
+- **Triggers**: "完整", "深入", "全面", "学习整个"
+- **Loads**: All documentation (~40K)
