@@ -7,105 +7,141 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.2.0] - 2025-11-03
 
-### 🎉 New Command: `/memory:docs` - Intelligent Documentation Workflow
+### 🎉 New Command: `/memory:skill-memory` - SKILL Package Generator
 
-This release introduces a powerful new documentation command that revolutionizes project documentation generation with intelligent planning, parallel execution, and smart task grouping.
+This release introduces a powerful new command that automatically generates progressive-loading SKILL packages from project documentation with intelligent orchestration and path mirroring.
 
 #### ✅ Added
 
-**New `/memory:docs` Command**:
-- ✨ **Lightweight Documentation Planner** - Analyzes project structure and generates executable documentation tasks
-- ✨ **Smart Task Grouping** - Dynamic grouping algorithm with ≤7 documents per task constraint
-- ✨ **Context Sharing Optimization** - Prefer grouping 2 top-level directories for shared Gemini analysis
-- ✨ **Parallel Execution** - Multiple task groups execute concurrently for faster completion
-- ✨ **Path Mirroring Strategy** - Documentation structure mirrors source code hierarchy
-- ✨ **Two Execution Modes** - Agent Mode (default) and CLI Mode (--cli-execute)
-- ✨ **Two Documentation Modes** - Full mode (complete docs) and Partial mode (modules only)
-
-**Task Grouping Algorithm**:
-- 🎯 **Primary constraint**: Each task generates ≤7 documents (hard limit)
-- 🎯 **Optimization goal**: Group 2 directories when possible for context sharing
-- 🎯 **Conflict resolution**: Automatic splitting when exceeding document limit
-- 🎯 **Context benefit**: Same-task directories analyzed via single Gemini call
-
-**Workflow Phases**:
-- 📋 **Phase 1**: Initialize session and create directory structure
-- 📋 **Phase 2**: Pre-computed analysis (folder classification, structure analysis)
-- 📋 **Phase 3**: Detect update mode (create vs. update)
-- 📋 **Phase 4**: Smart task decomposition with document count control
-- 📋 **Phase 5**: Generate executable task JSONs with dependency chains
-
-**Documentation Types**:
-- 📚 **Module Documentation**: API.md (code folders) + README.md (all folders)
-- 📚 **Project Documentation**: README.md (overview and navigation)
-- 📚 **Architecture Documentation**: ARCHITECTURE.md + EXAMPLES.md
-- 📚 **API Documentation**: HTTP API reference (optional, auto-detected)
-
-**Intelligent Features**:
-- 🧠 **Auto-detection** - Skip tests/build/config/vendor directories automatically
-- 🧠 **Folder Classification** - Code folders vs. Navigation folders
-- 🧠 **Incremental Updates** - Preserve user modifications in existing docs
-- 🧠 **Pre-computed Analysis** - Phase 2 analysis stored in `.process/`, reused across tasks
-- 🧠 **Efficient Data Loading** - Existing docs loaded once, shared across all tasks
+**New `/memory:skill-memory` Command**:
+- ✨ **4-Phase Orchestrator** - Automated workflow from documentation to SKILL package
+  - Phase 1: Parse arguments and prepare environment
+  - Phase 2: Call `/memory:docs` to plan documentation
+  - Phase 3: Call `/workflow:execute` to generate documentation
+  - Phase 4: Generate SKILL.md index with progressive loading
+- ✨ **Auto-Continue Mechanism** - All phases run autonomously via TodoList tracking
+- ✨ **Path Mirroring** - SKILL knowledge structure mirrors source code hierarchy
+- ✨ **Progressive Loading** - 4-level token-budgeted documentation access
+  - Level 0: Quick Start (~2K tokens) - README only
+  - Level 1: Core Modules (~8K tokens) - Module READMEs
+  - Level 2: Complete (~25K tokens) - All modules + Architecture
+  - Level 3: Deep Dive (~40K tokens) - Everything + Examples
+- ✨ **Intelligent Description Generation** - Auto-extracts capabilities and triggers from documentation
+- ✨ **Regeneration Support** - `--regenerate` flag to force fresh documentation
+- ✨ **Multi-Tool Support** - Supports gemini, qwen, and codex for documentation generation
 
 **Command Parameters**:
 ```bash
-/memory:docs [path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-execute]
+/memory:skill-memory [path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]
 ```
 
-#### 🔧 Technical Highlights
+**Path Mirroring Strategy**:
+```
+Source: my_app/src/modules/auth/
+  ↓
+Docs: .workflow/docs/my_app/src/modules/auth/API.md
+  ↓
+SKILL: .claude/skills/my_app/knowledge/src/modules/auth/API.md
+```
 
-**Session Structure**:
-- `.workflow/WFS-docs-{timestamp}/` - Session root directory
-- `.process/phase2-analysis.json` - Single JSON with all pre-computed analysis
-- `.task/IMPL-*.json` - Executable task definitions with dependency chains
+**4-Phase Workflow**:
+1. **Prepare**: Parse arguments, check existing docs, handle --regenerate
+2. **Plan**: Call `/memory:docs` to create documentation tasks
+3. **Execute**: Call `/workflow:execute` to generate documentation files
+4. **Index**: Generate SKILL.md with progressive loading structure
 
-**Task Hierarchy** (Dynamic based on document count):
-- **Level 1**: Module tree groups (parallel execution, ≤7 docs each)
-- **Level 2**: Project README (depends on Level 1, full mode only)
-- **Level 3**: ARCHITECTURE + EXAMPLES (depends on Level 2, full mode only)
-- **Level 4**: HTTP API documentation (optional, auto-detected)
+**SKILL Package Output**:
+- `.claude/skills/{project_name}/SKILL.md` - Index with progressive loading levels
+- `.claude/skills/{project_name}/knowledge/` - Mirrored documentation structure
+- Automatic capability detection and trigger phrase generation
 
-**Grouping Examples**:
-- Small projects (≤7 docs): Single task with shared context
-- Medium projects (>7 docs): Multiple groups with 2 dirs each
-- Large projects (single dir >7 docs): Automatic subdirectory splitting
+#### 📝 Changed
 
-#### 🎯 Performance Benefits
+**Enhanced `/memory:docs` Command**:
+- 🔄 **Smart Task Grouping** - ≤7 documents per task (up from 5)
+- 🔄 **Context Sharing** - Prefer grouping 2 top-level directories for shared Gemini analysis
+- 🔄 **Batch Processing** - Reduced task count through intelligent grouping
+- 🔄 **Dual Execution Modes** - Agent Mode (default) and CLI Mode (--cli-execute)
+- 🔄 **Pre-computed Analysis** - Phase 2 unified analysis eliminates redundant CLI calls
+- 🔄 **Conflict Resolution** - Automatic splitting when exceeding document limit
 
-**Resource Optimization**:
+**Documentation Workflow Improvements**:
+- 🔄 **CLI Execute Support** - Direct documentation generation via CLI tools (gemini/qwen/codex)
+- 🔄 **workflow-session.json** - Unified session metadata storage
+- 🔄 **Improved Structure Quality** - Enhanced documentation generation guidelines
+
+#### 🎯 Benefits
+
+**SKILL Package Features**:
+- 📦 **Progressive Loading** - Load only what you need (2K → 40K tokens)
+- 📦 **Path Mirroring** - Easy navigation matching source structure
+- 📦 **Auto-Discovery** - Intelligent capability and trigger detection
+- 📦 **Regeneration** - Force fresh docs with single flag
+- 📦 **Zero Manual Steps** - Fully automated 4-phase workflow
+
+**Performance Optimization**:
 - ⚡ **Parallel Processing** - Multiple directory groups execute concurrently
 - ⚡ **Context Sharing** - Single Gemini call per task group (2 directories)
 - ⚡ **Efficient Analysis** - One-time analysis in Phase 2, reused by all tasks
 - ⚡ **Predictable Sizing** - ≤7 docs per task ensures reliable completion
 - ⚡ **Failure Isolation** - Task-level failures don't block entire workflow
 
-**Data Efficiency**:
-- 📊 Single `phase2-analysis.json` replaces 7+ temporary files
-- 📊 Existing docs loaded once, shared across all tasks
-- 📊 Pre-computed folder analysis eliminates redundant scanning
+**Workflow Integration**:
+- 🔗 Seamless integration with existing `/memory:docs` command
+- 🔗 Compatible with `/workflow:execute` system
+- 🔗 Auto-continue mechanism eliminates manual steps
+- 🔗 TodoList progress tracking throughout workflow
 
-#### 📦 New Files
+#### 📦 New/Modified Files
 
-- `.claude/commands/memory/docs.md` - Complete command specification and workflow
-- Integration with existing `@doc-generator` agent
-- Compatible with workflow execution system (`/workflow:execute`)
+**New**:
+- `.claude/commands/memory/skill-memory.md` - Complete command specification (822 lines)
 
-#### 🔗 Integration
+**Modified**:
+- `.claude/commands/memory/docs.md` - Enhanced with batch processing and smart grouping
+- `.claude/agents/doc-generator.md` - Mode-aware execution support
 
-**Execute documentation workflow**:
+#### 🔗 Usage Examples
+
+**Basic Usage**:
 ```bash
-/workflow:execute                                    # Auto-discover active session
-/workflow:execute --resume-session="WFS-docs-..."   # Specify session
-/task:execute IMPL-001                               # Execute individual task
+# Generate SKILL package for current project
+/memory:skill-memory
+
+# Specify target directory
+/memory:skill-memory /path/to/project
+
+# Force regeneration with Qwen
+/memory:skill-memory --tool qwen --regenerate
+
+# Partial mode (modules only)
+/memory:skill-memory --mode partial
+
+# CLI execution mode
+/memory:skill-memory --cli-execute
 ```
 
-**Related commands**:
-- `/workflow:status` - View task progress
-- `/workflow:session:complete` - Mark session complete
+**Output**:
+```
+✅ SKILL Package Generation Complete
+
+Project: my_project
+Documentation: .workflow/docs/my_project/ (15 files)
+SKILL Index: .claude/skills/my_project/SKILL.md
+
+Generated:
+- 4 documentation tasks completed
+- SKILL.md with progressive loading (4 levels)
+- Module index with 8 modules
+
+Usage:
+- Load Level 0: Quick project overview (~2K tokens)
+- Load Level 1: Core modules (~8K tokens)
+- Load Level 2: Complete docs (~25K tokens)
+- Load Level 3: Everything (~40K tokens)
+```
 
 ---
-
 ## [5.1.0] - 2025-10-27
 
 ### 🔄 Agent Architecture Consolidation
