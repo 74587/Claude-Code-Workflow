@@ -22,7 +22,7 @@ The `memory:load-skill-memory` command **manually activates a specified SKILL pa
 - Load SKILL context when system hasn't auto-triggered it
 - Force reload SKILL documentation with specific intent focus
 
-**Note**: Normal SKILL activation happens automatically via description triggers. Use this command only when manual activation is needed.
+**Note**: Normal SKILL activation happens automatically via description triggers or path mentions (e.g., mentioning files under SKILL's project path). Use this command only when manual activation is needed.
 
 ## 2. Parameters
 
