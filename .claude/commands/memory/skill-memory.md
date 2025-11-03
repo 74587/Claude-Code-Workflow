@@ -1,7 +1,7 @@
 ---
 name: skill-memory
 description: Generate SKILL package index from project documentation
-argument-hint: "[path] [--tool <gemini|qwen|codex>] [--update] [--mode <full|partial>] [--cli-execute]"
+argument-hint: "[path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 ---
 
@@ -70,7 +70,7 @@ bash(git rev-parse --show-toplevel 2>/dev/null || pwd)
 # Default values (use these unless user specifies otherwise):
 # - tool: "gemini"
 # - mode: "full"
-# - update: false (no --update flag)
+# - regenerate: false (no --regenerate flag)
 # - cli_execute: false (no --cli-execute flag)
 ```
 
@@ -87,13 +87,24 @@ bash(find .workflow/docs/my_project -name "*.md" 2>/dev/null | wc -l || echo 0)
 - `docs_exists`: `exists` or `not_exists`
 - `existing_docs`: `5` (or `0` if no docs)
 
-**Step 4: Handle --update Flag (If Specified)**
-```bash
-# If user specified --update, delete existing docs directory
-bash(rm -rf .workflow/docs/my_project 2>/dev/null || true)
+**Step 4: Determine Execution Path**
 
-# Verify deletion
-bash(test -d .workflow/docs/my_project && echo "still_exists" || echo "deleted")
+**Decision Logic**:
+```javascript
+if (existing_docs > 0 && !regenerate_flag) {
+  // Documentation exists and no regenerate flag
+  SKIP_DOCS_GENERATION = true
+  message = "Documentation already exists, skipping Phase 2 and Phase 3. Use --regenerate to force regeneration."
+} else if (regenerate_flag) {
+  // Force regeneration: delete existing docs
+  bash(rm -rf .workflow/docs/my_project 2>/dev/null || true)
+  SKIP_DOCS_GENERATION = false
+  message = "Regenerating documentation from scratch."
+} else {
+  // No existing docs
+  SKIP_DOCS_GENERATION = false
+  message = "No existing documentation found, generating new documentation."
+}
 ```
 
 **Summary**:
@@ -103,22 +114,30 @@ bash(test -d .workflow/docs/my_project && echo "still_exists" || echo "deleted")
 - `TOOL`: `gemini` (default) or user-specified
 - `MODE`: `full` (default) or user-specified
 - `CLI_EXECUTE`: `false` (default) or `true` if --cli-execute flag
-- `UPDATE`: `false` (default) or `true` if --update flag
-- `EXISTING_DOCS`: `0` (after update) or actual count
+- `REGENERATE`: `false` (default) or `true` if --regenerate flag
+- `EXISTING_DOCS`: Count of existing documentation files
+- `SKIP_DOCS_GENERATION`: `true` if skipping Phase 2/3, `false` otherwise
 
 **Completion Criteria**:
 - All parameters extracted and validated
 - Project name and paths confirmed
-- Existing docs count retrieved (or 0 after regenerate)
+- Existing docs count retrieved
+- Skip decision determined (SKIP_DOCS_GENERATION)
 - Default values set for unspecified parameters
 
-**TodoWrite**: Mark phase 1 completed, phase 2 in_progress
+**TodoWrite**:
+- If `SKIP_DOCS_GENERATION = true`: Mark phase 1 completed, phase 4 in_progress (skip phase 2 and 3)
+- If `SKIP_DOCS_GENERATION = false`: Mark phase 1 completed, phase 2 in_progress
 
-**After Phase 1**: Display preparation results → **Automatically continue to Phase 2** (no user input required)
+**After Phase 1**:
+- If skipping: Display skip message → **Jump to Phase 4** (SKILL.md generation)
+- If not skipping: Display preparation results → **Continue to Phase 2** (documentation planning)
 
 ---
 
 ### Phase 2: Call /memory:docs
+
+**Note**: This phase is **skipped if SKIP_DOCS_GENERATION = true** (documentation already exists without --regenerate flag)
 
 **Goal**: Trigger documentation generation workflow
 
@@ -133,7 +152,7 @@ SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode] [--c
 /memory:docs /d/my_app --tool gemini --mode full --cli-execute
 ```
 
-**Note**: The `--update` flag is handled in Phase 1 by deleting existing documentation. This command always calls `/memory:docs` without the update flag, relying on docs.md's built-in update detection.
+**Note**: The `--regenerate` flag is handled in Phase 1 by deleting existing documentation. This command always calls `/memory:docs` without the regenerate flag, relying on docs.md's built-in update detection.
 
 **Input**:
 - `targetPath` from Phase 1
@@ -159,6 +178,8 @@ SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode] [--c
 ---
 
 ### Phase 3: Execute Documentation Generation
+
+**Note**: This phase is **skipped if SKIP_DOCS_GENERATION = true** (documentation already exists without --regenerate flag)
 
 **Goal**: Execute documentation generation tasks
 
@@ -274,6 +295,12 @@ Usage:
 
 **Auto-Continue Logic**: After updating TodoWrite at end of each phase, immediately check for next pending task and execute it.
 
+**Two Execution Paths**:
+1. **Full Path**: All 4 phases (no existing docs or --regenerate specified)
+2. **Skip Path**: Phase 1 → Phase 4 (existing docs found, no --regenerate)
+
+### Full Path (SKIP_DOCS_GENERATION = false)
+
 ```javascript
 // Initialize (before Phase 1)
 // FIRST ACTION: Create TodoList with all 4 phases
@@ -285,7 +312,7 @@ TodoWrite({todos: [
 ]})
 // SECOND ACTION: Execute Phase 1 immediately
 
-// After Phase 1 completes
+// After Phase 1 completes (SKIP_DOCS_GENERATION = false)
 // Update TodoWrite: Mark Phase 1 completed, Phase 2 in_progress
 TodoWrite({todos: [
   {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
@@ -326,6 +353,43 @@ TodoWrite({todos: [
 // FINAL ACTION: Report completion summary to user
 ```
 
+### Skip Path (SKIP_DOCS_GENERATION = true)
+
+**Note**: Phase 4 (SKILL.md generation) is **NEVER skipped** - it always runs to generate or update the SKILL index.
+
+```javascript
+// Initialize (before Phase 1)
+// FIRST ACTION: Create TodoList with all 4 phases (same as Full Path)
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "in_progress", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "pending", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
+]})
+// SECOND ACTION: Execute Phase 1 immediately
+
+// After Phase 1 completes (SKIP_DOCS_GENERATION = true)
+// Update TodoWrite: Mark Phase 1 completed, Phase 2&3 skipped, Phase 4 in_progress
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "in_progress", "activeForm": "Generating SKILL.md"}
+]})
+// Display skip message: "Documentation already exists, skipping Phase 2 and Phase 3. Use --regenerate to force regeneration."
+// NEXT ACTION: Jump directly to Phase 4 (generate SKILL.md)
+
+// After Phase 4 completes
+// Update TodoWrite: Mark Phase 4 completed
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "completed", "activeForm": "Generating SKILL.md"}
+]})
+// FINAL ACTION: Report completion summary to user
+```
+
 ## Auto-Continue Execution Flow
 
 **Critical Implementation Rules**:
@@ -341,6 +405,8 @@ TodoWrite({todos: [
    ```
 
 **Execution Sequence**:
+
+**Full Path** (no existing docs OR --regenerate specified):
 ```
 User triggers command
   ↓
@@ -365,6 +431,27 @@ User triggers command
 [Report] Display completion summary
 ```
 
+**Skip Path** (existing docs found AND no --regenerate flag):
+```
+User triggers command
+  ↓
+[TodoWrite] Initialize 4 phases (Phase 1 = in_progress)
+  ↓
+[Execute] Phase 1: Parse arguments, detect existing docs
+  ↓
+[TodoWrite] Phase 1 = completed, Phase 2&3 = completed (skipped), Phase 4 = in_progress
+  ↓
+[Display] Skip message: "Documentation already exists, skipping Phase 2 and Phase 3"
+  ↓
+[Execute] Phase 4: Generate SKILL.md (always runs)
+  ↓
+[TodoWrite] Phase 4 = completed
+  ↓
+[Report] Display completion summary
+```
+
+**Note**: Phase 4 (SKILL.md generation) is **NEVER skipped** - it always executes to generate or update the index file.
+
 **Error Handling**:
 - If any phase fails, mark it as "in_progress" (not completed)
 - Report error details to user
@@ -375,7 +462,7 @@ User triggers command
 ## Parameters
 
 ```bash
-/memory:skill-memory [path] [--tool <gemini|qwen|codex>] [--update] [--mode <full|partial>] [--cli-execute]
+/memory:skill-memory [path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]
 ```
 
 - **path**: Target directory (default: current directory)
@@ -383,7 +470,7 @@ User triggers command
   - `gemini`: Comprehensive documentation
   - `qwen`: Architecture analysis
   - `codex`: Implementation validation
-- **--update**: Force update all documentation
+- **--regenerate**: Force regenerate all documentation
   - When enabled: Deletes existing `.workflow/docs/{project_name}/` before regeneration
   - Ensures fresh documentation from source code
 - **--mode**: Documentation mode (default: full)
@@ -407,16 +494,16 @@ User triggers command
 3. Phase 3: Executes documentation generation via `/workflow:execute`
 4. Phase 4: Generates SKILL.md at `.claude/skills/{project_name}/SKILL.md`
 
-### Example 2: Update with Qwen
+### Example 2: Regenerate with Qwen
 
 ```bash
-/memory:skill-memory /d/my_app --tool qwen --update
+/memory:skill-memory /d/my_app --tool qwen --regenerate
 ```
 
 **Workflow**:
-1. Phase 1: Parses target path, detects update flag
-2. Phase 2: Calls `/memory:docs /d/my_app --tool qwen --mode full` (update handled in Phase 1)
-3. Phase 3: Executes documentation update
+1. Phase 1: Parses target path, detects regenerate flag, deletes existing docs
+2. Phase 2: Calls `/memory:docs /d/my_app --tool qwen --mode full`
+3. Phase 3: Executes documentation regeneration
 4. Phase 4: Generates updated SKILL.md
 
 ### Example 3: Partial Mode (Modules Only)

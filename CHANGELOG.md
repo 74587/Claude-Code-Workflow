@@ -5,6 +5,57 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.2] - 2025-11-03
+
+### ✨ Added
+
+**`/memory:skill-memory` Intelligent Skip Logic**:
+- ✨ **Smart Documentation Generation** - Automatically detects existing documentation and skips regeneration
+  - If docs exist AND no `--regenerate` flag: Skip Phase 2 (planning) and Phase 3 (generation)
+  - Jump directly to Phase 4 (SKILL.md index generation) for fast SKILL updates
+  - If docs exist AND `--regenerate` flag: Delete existing docs and regenerate from scratch
+  - If no docs exist: Run full 4-phase workflow
+- ✨ **Phase 4 Always Executes** - SKILL.md index is never skipped, always generated or updated
+  - Ensures SKILL index stays synchronized with documentation structure
+  - Lightweight operation suitable for frequent execution
+- ✨ **Skip Path Documentation** - Added comprehensive TodoWrite patterns for both execution paths
+  - Full Path: All 4 phases (no existing docs or --regenerate specified)
+  - Skip Path: Phase 1 → Phase 4 (existing docs found, no --regenerate)
+  - Auto-Continue flow diagrams for both paths
+
+### 🔄 Changed
+
+**Parameter Naming Correction**:
+- 🔄 **`--regenerate` Flag** - Reverted `--update` back to `--regenerate` in `/memory:skill-memory`
+  - More accurate naming: "regenerate" means delete and recreate (destructive)
+  - "update" was misleading as it implied incremental update (not implemented)
+  - Fixed naming consistency across all documentation and examples
+
+**Phase 1 Enhancement**:
+- 🔄 **Step 4: Determine Execution Path** - Added decision logic to Phase 1
+  - Checks existing documentation count
+  - Evaluates --regenerate flag presence
+  - Sets SKIP_DOCS_GENERATION flag based on conditions
+  - Displays appropriate skip or regeneration messages
+
+### 🎯 Benefits
+
+**Performance Optimization**:
+- ⚡ **Faster SKILL Updates** - Skip documentation generation when docs already exist (~5-10x faster)
+- ⚡ **Always Fresh Index** - SKILL.md regenerated every time to reflect current documentation structure
+- ⚡ **Conditional Regeneration** - Explicit --regenerate flag for full documentation refresh
+
+**Workflow Efficiency**:
+- 🔗 Smart detection reduces unnecessary documentation regeneration
+- 🔗 Clear separation between SKILL index updates and documentation generation
+- 🔗 Explicit control via --regenerate flag when full refresh needed
+
+### 📦 Modified Files
+
+- `.claude/commands/memory/skill-memory.md` - Added skip logic, reverted parameter naming, comprehensive execution path documentation
+
+---
+
 ## [5.2.1] - 2025-11-03
 
 ### 🔄 Changed
