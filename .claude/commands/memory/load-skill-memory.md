@@ -28,7 +28,7 @@ The `memory:load-skill-memory` command **automatically discovers and activates**
   - **File path**: "D:\dongdiankaifa9\hydro_generator_module\builders\base.py"
   - **Domain keywords**: "thermal modeling", "workflow management", "multi-physics"
 
-## 3. Three-Step Execution Flow
+## 3. Execution Flow
 
 ### Step 1: Discover Available SKILLs
 
@@ -78,7 +78,7 @@ hydro_generator_module SKILL:
 - Path match: No
 - Keywords: "热模型"(1), "builder"(1), "实现"(1) = 3 points
 - Action match: "analyzing"(1) = 1 point
-- Total: 4 points ✅ Winner
+- Total: 4 points [Winner]
 
 Claude_dms3 SKILL:
 - Path match: No
@@ -89,7 +89,7 @@ Claude_dms3 SKILL:
 
 **No Match Handling**:
 ```
-⚠️  No matching SKILL found for: "{task_description}"
+[Warning] No matching SKILL found for: "{task_description}"
 
 Available SKILLs:
 - hydro_generator_module - Hydro-generator thermal modeling
@@ -100,12 +100,20 @@ Generate SKILL for your project: /memory:skill-memory [path]
 
 ### Step 3: Activate Matched SKILL
 
-**Activate Best Match**:
+**Validation and Activation**:
 ```javascript
+// Validate SKILL existence
+skill_path = `.claude/skills/${skill_name}/SKILL.md`
+if (!exists(skill_path)) {
+  list_available_skills()
+  return error_message
+}
+
+// Activate SKILL
 Skill(command: "{matched_skill_name}")
 ```
 
-**What Happens**:
+**What Happens After Activation**:
 1. System reads `.claude/skills/{matched_skill_name}/SKILL.md`
 2. Automatically loads appropriate documentation based on:
    - SKILL description triggers (analyzing, modifying, learning)
@@ -116,30 +124,42 @@ Skill(command: "{matched_skill_name}")
 
 **Confirmation Output**:
 ```
-✅ Matched and activated SKILL: {matched_skill_name}
-🎯 Match reason: {path/keyword/action match}
-📦 Location: {project_path}
-💡 Context loaded for: {domain_description}
+[OK] Matched and activated SKILL: {matched_skill_name}
+Match reason: {path/keyword/action match}
+Location: {project_path}
+Context loaded for: {domain_description}
 ```
 
-## 4. Output Format
+## 4. Matching Strategy
 
-**Success Output**:
-```
-✅ Activated SKILL: {skill_name}
+**SKILL Trigger Patterns**:
 
-📦 SKILL Package Information:
-- Location: {project_path}
-- Description: {description from SKILL.md}
-- Documentation: .workflow/docs/{skill_name}/
+The SKILL.md description includes trigger patterns that automatically activate when:
 
-💡 Context loaded automatically by SKILL system based on:
-- Current task requirements
-- Conversation memory gaps
-- SKILL description triggers
+1. **Keyword Matching**:
+   - User mentions domain keywords (e.g., "热模型", "workflow", "多物理场")
+   - Description keywords match task requirements
 
-🎯 Ready for: analyzing, modifying, or learning about {domain_description}
-```
+2. **Action Detection**:
+   - "analyzing" triggers for analysis tasks
+   - "modifying" triggers for code modification
+   - "learning" triggers for exploration
+
+3. **Memory Gap Detection**:
+   - "especially when no relevant context exists in memory"
+   - System prioritizes SKILL loading when conversation lacks context
+
+4. **Path-Based Triggering**:
+   - User mentions file paths matching SKILL location
+   - "files under this path" clause activates
+
+**Progressive Loading (Automatic)**:
+- Level 0: ~2K tokens (Quick overview)
+- Level 1: ~10K tokens (Core modules)
+- Level 2: ~25K tokens (Complete system)
+- Level 3: ~40K tokens (Full documentation)
+
+System automatically selects appropriate level based on task complexity and context requirements.
 
 ## 5. Usage Examples
 
@@ -175,10 +195,10 @@ Skill(command: "hydro_generator_module")
 
 **Output**:
 ```
-✅ Matched and activated SKILL: hydro_generator_module
-🎯 Match reason: Keywords ["thermal", "builder"] + Action ["analyzing"]
-📦 Location: D:\dongdiankaifa9\hydro_generator_module
-💡 Context loaded for: hydro-generator thermal modeling
+[OK] Matched and activated SKILL: hydro_generator_module
+Match reason: Keywords ["thermal", "builder"] + Action ["analyzing"]
+Location: D:\dongdiankaifa9\hydro_generator_module
+Context loaded for: hydro-generator thermal modeling
 ```
 
 ### Example 2: Path-Based Discovery (Direct Path Match)
@@ -197,8 +217,8 @@ bash(ls -1 .claude/skills/)
 Path extracted: "D:\dongdiankaifa9\hydro_generator_module"
 
 Matching:
-- hydro_generator_module location: "D:\dongdiankaifa9\hydro_generator_module" ✅ Exact match
-- Claude_dms3 location: "D:\Claude_dms3" ❌ No match
+- hydro_generator_module location: "D:\dongdiankaifa9\hydro_generator_module" [Exact match]
+- Claude_dms3 location: "D:\Claude_dms3" [No match]
 
 Best match: hydro_generator_module (path match - highest priority)
 
@@ -208,10 +228,10 @@ Skill(command: "hydro_generator_module")
 
 **Output**:
 ```
-✅ Matched and activated SKILL: hydro_generator_module
-🎯 Match reason: Path match (D:\dongdiankaifa9\hydro_generator_module)
-📦 Location: D:\dongdiankaifa9\hydro_generator_module
-💡 Context loaded for: hydro-generator thermal modeling
+[OK] Matched and activated SKILL: hydro_generator_module
+Match reason: Path match (D:\dongdiankaifa9\hydro_generator_module)
+Location: D:\dongdiankaifa9\hydro_generator_module
+Context loaded for: hydro-generator thermal modeling
 ```
 
 ### Example 3: Domain Keyword Discovery
@@ -241,95 +261,17 @@ Skill(command: "Claude_dms3")
 
 **Output**:
 ```
-✅ Matched and activated SKILL: Claude_dms3
-🎯 Match reason: Keywords ["workflow", "docs"] + Action ["modifying"]
-📦 Location: D:\Claude_dms3
-💡 Context loaded for: workflow orchestration and documentation
+[OK] Matched and activated SKILL: Claude_dms3
+Match reason: Keywords ["workflow", "docs"] + Action ["modifying"]
+Location: D:\Claude_dms3
+Context loaded for: workflow orchestration and documentation
 ```
 
-## 6. SKILL Trigger Mechanism
+## 6. Integration & Token Optimization
 
-**How SKILL System Determines Context Loading**:
+### Workflow Integration
 
-The SKILL.md description includes trigger patterns that automatically activate when:
-
-1. **Keyword Matching**:
-   - User mentions domain keywords (e.g., "热模型", "workflow", "多物理场")
-   - Description keywords match task requirements
-
-2. **Action Detection**:
-   - "analyzing" triggers for analysis tasks
-   - "modifying" triggers for code modification
-   - "learning" triggers for exploration
-
-3. **Memory Gap Detection**:
-   - "especially when no relevant context exists in memory"
-   - System prioritizes SKILL loading when conversation lacks context
-
-4. **Path-Based Triggering**:
-   - User mentions file paths matching SKILL location
-   - "files under this path" clause activates
-
-**Progressive Loading (Automatic)**:
-- Level 0: ~2K tokens (Quick overview)
-- Level 1: ~10K tokens (Core modules)
-- Level 2: ~25K tokens (Complete system)
-- Level 3: ~40K tokens (Full documentation)
-
-System automatically selects appropriate level based on task complexity and context requirements.
-
-## 7. Implementation Steps
-
-**Execution Logic**:
-
-```javascript
-// Step 1: Validate SKILL existence
-skill_path = `.claude/skills/${skill_name}/SKILL.md`
-if (!exists(skill_path)) {
-  list_available_skills()
-  return error_message
-}
-
-// Step 2: Activate SKILL
-Skill(command: skill_name)
-
-// Step 3: System handles automatically
-// - Reads SKILL.md description
-// - Matches triggers with task context
-// - Loads appropriate documentation level
-// - Injects context into conversation memory
-
-// Step 4: Confirm activation
-output_success_message(skill_name, project_path, description)
-```
-
-## 8. Error Handling
-
-### SKILL Not Found
-```
-❌ SKILL 'unknown_module' not found.
-
-Available SKILLs:
-- hydro_generator_module (D:\dongdiankaifa9\hydro_generator_module)
-- Claude_dms3 (D:\Claude_dms3)
-
-Activate SKILL: Skill(command: "skill_name")
-Generate new SKILL: /memory:skill-memory [path]
-```
-
-### Documentation Missing
-```
-⚠️  SKILL 'hydro_generator_module' exists but documentation incomplete.
-
-Missing files:
-- .workflow/docs/hydro_generator_module/ARCHITECTURE.md
-
-Regenerate documentation: /memory:skill-memory --regenerate
-```
-
-## 9. Integration with Other Commands
-
-**Workflow Integration**:
+**Using SKILL Context for Planning**:
 ```javascript
 // 1. Activate SKILL context
 Skill(command: "hydro_generator_module")
@@ -348,7 +290,7 @@ Skill(command: "hydro_generator_module")
 // System automatically detects changes and loads updated documentation
 ```
 
-## 10. Token Optimization Strategy
+### Token Optimization Strategy
 
 **Automatic Progressive Loading**:
 The SKILL system automatically handles token optimization:
@@ -369,7 +311,31 @@ The SKILL system automatically handles token optimization:
 - Efficient memory usage
 - Automatic reload when context insufficient
 
-## 11. Notes
+## 7. Error Handling
+
+### SKILL Not Found
+```
+[Error] SKILL 'unknown_module' not found.
+
+Available SKILLs:
+- hydro_generator_module (D:\dongdiankaifa9\hydro_generator_module)
+- Claude_dms3 (D:\Claude_dms3)
+
+Activate SKILL: Skill(command: "skill_name")
+Generate new SKILL: /memory:skill-memory [path]
+```
+
+### Documentation Missing
+```
+[Warning] SKILL 'hydro_generator_module' exists but documentation incomplete.
+
+Missing files:
+- .workflow/docs/hydro_generator_module/ARCHITECTURE.md
+
+Regenerate documentation: /memory:skill-memory --regenerate
+```
+
+## 8. Notes
 
 - **Validation First**: Always checks SKILL existence before activation
 - **Automatic Loading**: Skill tool handles all documentation reading
