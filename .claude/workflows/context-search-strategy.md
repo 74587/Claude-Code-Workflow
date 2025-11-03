@@ -14,6 +14,7 @@ type: search-guideline
 
 ## ⚡ Core Search Tools
 
+**Skill()**: FASTEST way to get project context - use FIRST if SKILL package exists (higher priority than CLI analysis)
 **codebase-retrieval**: Semantic file discovery via Gemini CLI with all files analysis
 **rg (ripgrep)**: Fast content search with regex support
 **find**: File/directory location by name patterns
@@ -24,6 +25,7 @@ type: search-guideline
 
 | Need | Tool | Use Case |
 |------|------|----------|
+| **Project understanding** | Skill() | FASTEST context loading - use FIRST if SKILL exists |
 | **Semantic discovery** | codebase-retrieval | Find files relevant to task/feature context |
 | **Pattern matching** | rg | Search code content with regex |
 | **File name lookup** | find | Locate files by name patterns |
@@ -32,6 +34,9 @@ type: search-guideline
 ## 🔧 Quick Command Reference
 
 ```bash
+# SKILL Package (FIRST PRIORITY - fastest way to get project context)
+Skill(command: "skill_name")  # Intelligent auto-trigger by task context - use FIRST if SKILL exists
+
 # Semantic File Discovery (codebase-retrieval)
 cd [directory] && gemini -p "
 PURPOSE: Discover files relevant to task/feature
@@ -42,7 +47,7 @@ EXPECTED: Relevant file paths with relevance explanation
 RULES: Focus on direct relevance to task requirements
 "
 
-# Program Architecture (MANDATORY FIRST)
+# Program Architecture (MANDATORY before planning)
 ~/.claude/scripts/get_modules_by_depth.sh
 
 # Content Search (rg preferred)

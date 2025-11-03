@@ -9,38 +9,26 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 
 ## Orchestrator Role
 
-**This command is a pure orchestrator**: Execute documentation generation workflow, then generate SKILL.md index. Does NOT create task JSON files.
+**Pure Orchestrator**: Execute documentation generation workflow, then generate SKILL.md index. Does NOT create task JSON files.
 
-**Execution Model - Auto-Continue Workflow**:
+**Auto-Continue Workflow**: This command runs **fully autonomously** once triggered. Each phase completes and automatically triggers the next phase without user interaction.
 
-This workflow runs **fully autonomously** once triggered. Each phase completes and automatically triggers the next phase.
-
-1. **User triggers**: `/memory:skill-memory [path] [options]`
-2. **Phase 1 executes** → Parse arguments and prepare → Auto-continues
-3. **Phase 2 executes** → Call `/memory:docs` to plan documentation → Auto-continues
-4. **Phase 3 executes** → Call `/workflow:execute` to generate docs → Auto-continues
-5. **Phase 4 executes** → Generate SKILL.md index → Reports completion
-
-**Auto-Continue Mechanism**:
-- TodoList tracks current phase status (in_progress/completed)
-- After each phase completion, check TodoList and automatically execute next pending phase
-- All phases run autonomously without user interaction
-- Progress updates shown at each phase for visibility
-- Each phase MUST update TodoWrite before triggering next phase
+**Execution Paths**:
+- **Full Path**: All 4 phases (no existing docs OR `--regenerate` specified)
+- **Skip Path**: Phase 1 → Phase 4 (existing docs found AND no `--regenerate` flag)
+- **Phase 4 Always Executes**: SKILL.md index is never skipped, always generated or updated
 
 ## Core Rules
 
 1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 execution
 2. **No Task JSON**: This command does not create task JSON files - delegates to /memory:docs
 3. **Parse Every Output**: Extract required data from each command output (session_id, task_count, file paths)
-4. **Auto-Continue via TodoList**: After completing each phase:
-   - Update TodoWrite to mark current phase completed
-   - Mark next phase as in_progress
-   - Immediately execute next phase (no waiting for user input)
-   - Check TodoList to identify next pending phase automatically
+4. **Auto-Continue**: After completing each phase, update TodoWrite and immediately execute next phase
 5. **Track Progress**: Update TodoWrite after EVERY phase completion before starting next phase
 6. **Direct Generation**: Phase 4 directly generates SKILL.md using Write tool
-7. **No Manual Steps**: User should never be prompted for decisions between phases - fully autonomous execution
+7. **No Manual Steps**: User should never be prompted for decisions between phases
+
+---
 
 ## 4-Phase Execution
 
@@ -76,7 +64,7 @@ bash(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
 **Step 3: Check Existing Documentation**
 ```bash
-# Check if docs directory exists (replace project_name with actual value)
+# Check if docs directory exists
 bash(test -d .workflow/docs/my_project && echo "exists" || echo "not_exists")
 
 # Count existing documentation files
@@ -107,7 +95,7 @@ if (existing_docs > 0 && !regenerate_flag) {
 }
 ```
 
-**Summary**:
+**Summary Variables**:
 - `PROJECT_NAME`: `my_project`
 - `TARGET_PATH`: `/d/my_project`
 - `DOCS_PATH`: `.workflow/docs/my_project`
@@ -118,26 +106,19 @@ if (existing_docs > 0 && !regenerate_flag) {
 - `EXISTING_DOCS`: Count of existing documentation files
 - `SKIP_DOCS_GENERATION`: `true` if skipping Phase 2/3, `false` otherwise
 
-**Completion Criteria**:
-- All parameters extracted and validated
-- Project name and paths confirmed
-- Existing docs count retrieved
-- Skip decision determined (SKIP_DOCS_GENERATION)
-- Default values set for unspecified parameters
-
-**TodoWrite**:
-- If `SKIP_DOCS_GENERATION = true`: Mark phase 1 completed, phase 4 in_progress (skip phase 2 and 3)
+**Completion & TodoWrite**:
+- If `SKIP_DOCS_GENERATION = true`: Mark phase 1 completed, phase 2&3 completed (skipped), phase 4 in_progress
 - If `SKIP_DOCS_GENERATION = false`: Mark phase 1 completed, phase 2 in_progress
 
-**After Phase 1**:
-- If skipping: Display skip message → **Jump to Phase 4** (SKILL.md generation)
-- If not skipping: Display preparation results → **Continue to Phase 2** (documentation planning)
+**Next Action**:
+- If skipping: Display skip message → Jump to Phase 4 (SKILL.md generation)
+- If not skipping: Display preparation results → Continue to Phase 2 (documentation planning)
 
 ---
 
 ### Phase 2: Call /memory:docs
 
-**Note**: This phase is **skipped if SKIP_DOCS_GENERATION = true** (documentation already exists without --regenerate flag)
+**Skip Condition**: This phase is **skipped if SKIP_DOCS_GENERATION = true** (documentation already exists without --regenerate flag)
 
 **Goal**: Trigger documentation generation workflow
 
@@ -154,32 +135,26 @@ SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode] [--c
 
 **Note**: The `--regenerate` flag is handled in Phase 1 by deleting existing documentation. This command always calls `/memory:docs` without the regenerate flag, relying on docs.md's built-in update detection.
 
-**Input**:
-- `targetPath` from Phase 1
-- `tool` from Phase 1
-- `mode` from Phase 1
-- `cli_execute` from Phase 1 (optional)
-
 **Parse Output**:
-- Extract session ID pattern: `WFS-docs-[timestamp]` (store as `docsSessionId`)
+- Extract session ID: `WFS-docs-[timestamp]` (store as `docsSessionId`)
 - Extract task count (store as `taskCount`)
 
 **Completion Criteria**:
 - `/memory:docs` command executed successfully
-- Session ID extracted: `WFS-docs-[timestamp]`
-- Task count retrieved from output
+- Session ID extracted and stored
+- Task count retrieved
 - Task files created in `.workflow/[docsSessionId]/.task/`
-- workflow-session.json exists in session directory
+- workflow-session.json exists
 
 **TodoWrite**: Mark phase 2 completed, phase 3 in_progress
 
-**After Phase 2**: Display docs planning results (session ID, task count) → **Automatically continue to Phase 3** (no user input required)
+**Next Action**: Display docs planning results (session ID, task count) → Auto-continue to Phase 3
 
 ---
 
 ### Phase 3: Execute Documentation Generation
 
-**Note**: This phase is **skipped if SKIP_DOCS_GENERATION = true** (documentation already exists without --regenerate flag)
+**Skip Condition**: This phase is **skipped if SKIP_DOCS_GENERATION = true** (documentation already exists without --regenerate flag)
 
 **Goal**: Execute documentation generation tasks
 
@@ -194,16 +169,18 @@ SlashCommand(command="/workflow:execute")
 - `/workflow:execute` command executed successfully
 - Documentation files generated in `.workflow/docs/[projectName]/`
 - All tasks marked as completed in session
-- At minimum, module documentation files exist (API.md and/or README.md)
+- At minimum: module documentation files exist (API.md and/or README.md)
 - For full mode: Project README, ARCHITECTURE, EXAMPLES files generated
 
 **TodoWrite**: Mark phase 3 completed, phase 4 in_progress
 
-**After Phase 3**: Display execution results (file count, module count) → **Automatically continue to Phase 4** (no user input required)
+**Next Action**: Display execution results (file count, module count) → Auto-continue to Phase 4
 
 ---
 
 ### Phase 4: Generate SKILL.md Index
+
+**Note**: This phase is **NEVER skipped** - it always executes to generate or update the SKILL index.
 
 **Step 1: Read Key Files** (Use Read tool)
 - `.workflow/docs/{project_name}/README.md` (required)
@@ -220,14 +197,11 @@ Extract from README + structure: Function (capabilities), Modules (names), Keywo
 
 **Format**: `{Project} {core capabilities} (located at {project_path}). Load this SKILL when analyzing, modifying, or learning about {domain_description} or files under this path, especially when no relevant context exists in memory.`
 
-**Path Reference**: Use `TARGET_PATH` from Phase 1 for precise location identification.
-
-**Domain Description**: Extract human-readable domain/feature area from README (e.g., "workflow management", "thermal modeling"), NOT the technical project_name.
-
-**Trigger Optimization**:
-- Include project path to improve triggering when users mention specific directories or file locations
-- Emphasize "especially when no relevant context exists in memory" to prioritize SKILL as primary context source
-- Cover three key actions: analyzing (分析), modifying (修改), learning (了解)
+**Key Elements**:
+- **Path Reference**: Use `TARGET_PATH` from Phase 1 for precise location identification
+- **Domain Description**: Extract human-readable domain/feature area from README (e.g., "workflow management", "thermal modeling")
+- **Trigger Optimization**: Include project path, emphasize "especially when no relevant context exists in memory"
+- **Action Coverage**: analyzing (分析), modifying (修改), learning (了解)
 
 **Example**: "Workflow orchestration system with CLI tools and documentation generation (located at /d/Claude_dms3). Load this SKILL when analyzing, modifying, or learning about workflow management or files under this path, especially when no relevant context exists in memory."
 
@@ -267,7 +241,7 @@ Everything + [Examples](../../../.workflow/docs/{project_name}/EXAMPLES.md)
 
 **TodoWrite**: Mark phase 4 completed
 
-**After Phase 4**: Workflow complete → **Report final summary to user**
+**Final Action**: Report completion summary to user
 
 **Return to User**:
 ```
@@ -291,108 +265,9 @@ Usage:
 
 ---
 
-## TodoWrite Pattern
+## Implementation Details
 
-**Auto-Continue Logic**: After updating TodoWrite at end of each phase, immediately check for next pending task and execute it.
-
-**Two Execution Paths**:
-1. **Full Path**: All 4 phases (no existing docs or --regenerate specified)
-2. **Skip Path**: Phase 1 → Phase 4 (existing docs found, no --regenerate)
-
-### Full Path (SKIP_DOCS_GENERATION = false)
-
-```javascript
-// Initialize (before Phase 1)
-// FIRST ACTION: Create TodoList with all 4 phases
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "in_progress", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "pending", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
-]})
-// SECOND ACTION: Execute Phase 1 immediately
-
-// After Phase 1 completes (SKIP_DOCS_GENERATION = false)
-// Update TodoWrite: Mark Phase 1 completed, Phase 2 in_progress
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "in_progress", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
-]})
-// NEXT ACTION: Auto-continue to Phase 2 (execute /memory:docs command)
-
-// After Phase 2 completes
-// Update TodoWrite: Mark Phase 2 completed, Phase 3 in_progress
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "in_progress", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
-]})
-// NEXT ACTION: Auto-continue to Phase 3 (execute /workflow:execute command)
-
-// After Phase 3 completes
-// Update TodoWrite: Mark Phase 3 completed, Phase 4 in_progress
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "in_progress", "activeForm": "Generating SKILL.md"}
-]})
-// NEXT ACTION: Auto-continue to Phase 4 (generate SKILL.md)
-
-// After Phase 4 completes
-// Update TodoWrite: Mark Phase 4 completed
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "completed", "activeForm": "Generating SKILL.md"}
-]})
-// FINAL ACTION: Report completion summary to user
-```
-
-### Skip Path (SKIP_DOCS_GENERATION = true)
-
-**Note**: Phase 4 (SKILL.md generation) is **NEVER skipped** - it always runs to generate or update the SKILL index.
-
-```javascript
-// Initialize (before Phase 1)
-// FIRST ACTION: Create TodoList with all 4 phases (same as Full Path)
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "in_progress", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "pending", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
-]})
-// SECOND ACTION: Execute Phase 1 immediately
-
-// After Phase 1 completes (SKIP_DOCS_GENERATION = true)
-// Update TodoWrite: Mark Phase 1 completed, Phase 2&3 skipped, Phase 4 in_progress
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "in_progress", "activeForm": "Generating SKILL.md"}
-]})
-// Display skip message: "Documentation already exists, skipping Phase 2 and Phase 3. Use --regenerate to force regeneration."
-// NEXT ACTION: Jump directly to Phase 4 (generate SKILL.md)
-
-// After Phase 4 completes
-// Update TodoWrite: Mark Phase 4 completed
-TodoWrite({todos: [
-  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
-  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
-  {"content": "Generate SKILL.md index", "status": "completed", "activeForm": "Generating SKILL.md"}
-]})
-// FINAL ACTION: Report completion summary to user
-```
-
-## Auto-Continue Execution Flow
-
-**Critical Implementation Rules**:
+### Critical Rules
 
 1. **No User Prompts Between Phases**: Never ask user questions or wait for input between phases
 2. **Immediate Phase Transition**: After TodoWrite update, immediately execute next phase command
@@ -404,9 +279,96 @@ TodoWrite({todos: [
    Phase N completes → Update TodoWrite (N=completed, N+1=in_progress) → Execute Phase N+1
    ```
 
-**Execution Sequence**:
+### TodoWrite Patterns
 
-**Full Path** (no existing docs OR --regenerate specified):
+#### Initialization (Before Phase 1)
+
+**FIRST ACTION**: Create TodoList with all 4 phases
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "in_progress", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "pending", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
+]})
+```
+
+**SECOND ACTION**: Execute Phase 1 immediately
+
+#### Full Path (SKIP_DOCS_GENERATION = false)
+
+**After Phase 1**:
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "in_progress", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "pending", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
+]})
+// Auto-continue to Phase 2
+```
+
+**After Phase 2**:
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "in_progress", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL.md"}
+]})
+// Auto-continue to Phase 3
+```
+
+**After Phase 3**:
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "in_progress", "activeForm": "Generating SKILL.md"}
+]})
+// Auto-continue to Phase 4
+```
+
+**After Phase 4**:
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "completed", "activeForm": "Generating SKILL.md"}
+]})
+// Report completion summary to user
+```
+
+#### Skip Path (SKIP_DOCS_GENERATION = true)
+
+**After Phase 1** (detects existing docs, skips Phase 2 & 3):
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "in_progress", "activeForm": "Generating SKILL.md"}
+]})
+// Display skip message: "Documentation already exists, skipping Phase 2 and Phase 3. Use --regenerate to force regeneration."
+// Jump directly to Phase 4
+```
+
+**After Phase 4**:
+```javascript
+TodoWrite({todos: [
+  {"content": "Parse arguments and prepare", "status": "completed", "activeForm": "Parsing arguments"},
+  {"content": "Call /memory:docs to plan documentation", "status": "completed", "activeForm": "Calling /memory:docs"},
+  {"content": "Execute documentation generation", "status": "completed", "activeForm": "Executing documentation"},
+  {"content": "Generate SKILL.md index", "status": "completed", "activeForm": "Generating SKILL.md"}
+]})
+// Report completion summary to user
+```
+
+### Execution Flow Diagrams
+
+#### Full Path Flow
 ```
 User triggers command
   ↓
@@ -431,7 +393,7 @@ User triggers command
 [Report] Display completion summary
 ```
 
-**Skip Path** (existing docs found AND no --regenerate flag):
+#### Skip Path Flow
 ```
 User triggers command
   ↓
@@ -450,9 +412,8 @@ User triggers command
 [Report] Display completion summary
 ```
 
-**Note**: Phase 4 (SKILL.md generation) is **NEVER skipped** - it always executes to generate or update the index file.
+### Error Handling
 
-**Error Handling**:
 - If any phase fails, mark it as "in_progress" (not completed)
 - Report error details to user
 - Do NOT auto-continue to next phase on failure
@@ -479,6 +440,8 @@ User triggers command
 - **--cli-execute**: Enable CLI-based documentation generation (optional)
   - When enabled: CLI generates docs directly in implementation_approach
   - When disabled (default): Agent generates documentation content
+
+---
 
 ## Examples
 
@@ -530,24 +493,42 @@ User triggers command
 3. Phase 3: Executes CLI-based documentation generation
 4. Phase 4: Generates SKILL.md at `.claude/skills/{project_name}/SKILL.md`
 
+### Example 5: Skip Path (Existing Docs)
+
+```bash
+/memory:skill-memory
+```
+
+**Scenario**: Documentation already exists in `.workflow/docs/{project_name}/`
+
+**Workflow**:
+1. Phase 1: Detects existing docs (5 files), sets SKIP_DOCS_GENERATION = true
+2. Display: "Documentation already exists, skipping Phase 2 and Phase 3. Use --regenerate to force regeneration."
+3. Phase 4: Generates or updates SKILL.md index only (~5-10x faster)
+
+---
+
 ## Benefits
 
 - ✅ **Pure Orchestrator**: No task JSON generation, delegates to /memory:docs
-- ✅ **Auto-Continue**: Autonomous 4-phase execution
+- ✅ **Auto-Continue**: Autonomous 4-phase execution without user interaction
+- ✅ **Intelligent Skip**: Detects existing docs and skips regeneration for fast SKILL updates
+- ✅ **Always Fresh Index**: Phase 4 always executes to ensure SKILL.md stays synchronized
 - ✅ **Simplified**: ~70% less code than previous version
 - ✅ **Maintainable**: Changes to /memory:docs automatically apply
 - ✅ **Direct Generation**: Phase 4 directly writes SKILL.md
-- ✅ **Flexible**: Supports all /memory:docs options
+- ✅ **Flexible**: Supports all /memory:docs options (tool, mode, cli-execute)
 
 ## Architecture
 
 ```
 skill-memory (orchestrator)
-  ├─ Phase 1: Prepare (bash commands)
-  ├─ Phase 2: /memory:docs (task planning)
-  ├─ Phase 3: /workflow:execute (task execution)
-  └─ Phase 4: Write SKILL.md (direct file generation)
+  ├─ Phase 1: Prepare (bash commands, skip decision)
+  ├─ Phase 2: /memory:docs (task planning, skippable)
+  ├─ Phase 3: /workflow:execute (task execution, skippable)
+  └─ Phase 4: Write SKILL.md (direct file generation, always runs)
 
 No task JSON created by this command
 All documentation tasks managed by /memory:docs
+Smart skip logic: 5-10x faster when docs exist
 ```
