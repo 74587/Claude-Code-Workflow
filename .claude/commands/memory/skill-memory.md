@@ -197,9 +197,11 @@ bash(find .workflow/docs/{project_name} -name "*.md" | sed 's|.workflow/docs/{pr
 
 Extract from README + structure: Function (capabilities), Modules (names), Keywords (API/CLI/auth/etc.)
 
-**Format**: `{Project} {core capabilities} (located at {project_path}). Load this SKILL when analyzing, working with, or learning about {project_name} or files under this path for comprehensive context.`
+**Format**: `{Project} {core capabilities} (located at {project_path}). Load this SKILL when analyzing, working with, or learning about {domain_description} or files under this path for comprehensive context.`
 
 **Path Reference**: Use `TARGET_PATH` from Phase 1 for precise location identification.
+
+**Domain Description**: Extract human-readable domain/feature area from README (e.g., "workflow management", "thermal modeling"), NOT the technical project_name.
 
 **Trigger Optimization**: Include project path to improve triggering when users mention specific directories or file locations.
 
