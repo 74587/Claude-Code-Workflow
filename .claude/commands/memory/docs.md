@@ -9,6 +9,11 @@ argument-hint: "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--c
 ## Overview
 Lightweight planner that analyzes project structure, decomposes documentation work into tasks, and generates execution plans. Does NOT generate documentation content itself - delegates to doc-generator agent.
 
+**Execution Strategy**:
+- **Batch Processing**: Single Level 1 task handles all module trees
+- **Pre-computed Analysis**: Phase 2 performs unified analysis once, stored in `.process/` for reuse
+- **Efficient Data Loading**: All existing docs loaded once in Phase 2, shared across tasks
+
 **Documentation Output**: All generated documentation is placed in `.workflow/docs/{project_name}/` directory with **mirrored project structure**. For example:
 - Project: `my_app`
 - Source: `my_app/src/core/` → Docs: `.workflow/docs/my_app/src/core/API.md`
@@ -150,7 +155,55 @@ src/utils
 lib/core
 ```
 
-#### Step 3: Generate Analysis Summary
+#### Step 3: Load All Existing Documentation (One-time Read)
+```bash
+# Read project name first
+bash(jq -r '.project_name' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+```
+
+**Output**: `Claude_dms3`
+
+```bash
+# Load ALL existing module docs at once (replace project_name)
+bash(find .workflow/docs/Claude_dms3 -type f -name '*.md' ! -path '*/README.md' ! -path '*/ARCHITECTURE.md' ! -path '*/EXAMPLES.md' ! -path '*/api/*' 2>/dev/null | xargs cat > .workflow/WFS-docs-20240120-143022/.process/all-existing-module-docs.txt 2>/dev/null || echo "No existing docs" > .workflow/WFS-docs-20240120-143022/.process/all-existing-module-docs.txt)
+
+# Count existing module docs
+bash(find .workflow/docs/Claude_dms3 -type f -name '*.md' ! -path '*/README.md' ! -path '*/ARCHITECTURE.md' ! -path '*/EXAMPLES.md' ! -path '*/api/*' 2>/dev/null | wc -l || echo 0)
+```
+
+**Output**: `8` (existing module docs) or `0` (no docs)
+
+#### Step 4: Unified Module Analysis (CLI - One-time Call)
+```bash
+# Get tool from workflow session
+bash(jq -r '.tool' .workflow/WFS-docs-20240120-143022/workflow-session.json)
+```
+
+**Output**: `gemini`
+
+```bash
+# Unified analysis for ALL modules (replace tool)
+bash(gemini -p "
+PURPOSE: Analyze all module structures for documentation planning
+TASK:
+• Parse folder-analysis.txt to identify all modules
+• For each module, generate documentation outline
+• Output structured analysis for all modules
+MODE: analysis
+CONTEXT: @.workflow/WFS-docs-20240120-143022/.process/folder-analysis.txt @.workflow/WFS-docs-20240120-143022/.process/all-existing-module-docs.txt
+EXPECTED: Structured analysis with module paths and outlines
+RULES: Output format: MODULE_PATH|outline_summary, one per line
+" > .workflow/WFS-docs-20240120-143022/.process/unified-module-analysis.txt)
+```
+
+**Output** (unified-module-analysis.txt):
+```
+src/modules|auth module with 3 handlers, api module with 2 routes
+src/utils|helper functions for validation and formatting
+lib/core|core interfaces and base classes
+```
+
+#### Step 5: Generate Analysis Summary
 ```bash
 # Calculate statistics
 bash(
@@ -229,18 +282,19 @@ bash(jq -r '.target_path' .workflow/WFS-docs-20240120-143022/workflow-session.js
 
 #### Task Hierarchy
 ```
-Level 1: Module Trees (always, parallel execution)
-  ├─ IMPL-001: Document 'src/modules/'
-  ├─ IMPL-002: Document 'src/utils/'
-  └─ IMPL-003: Document 'lib/'
+Level 1: Module Trees (always, single batch task)
+  └─ IMPL-001: Document All Module Trees (batch processing)
+      Includes: src/modules/, src/utils/, lib/, etc.
 
 Level 2: Project README (mode=full only, depends on Level 1)
-  └─ IMPL-004: Generate Project README
+  └─ IMPL-002: Generate Project README
 
 Level 3: Architecture & Examples (mode=full only, depends on Level 2)
-  ├─ IMPL-005: Generate ARCHITECTURE.md + EXAMPLES.md
-  └─ IMPL-006: Generate HTTP API (optional)
+  ├─ IMPL-003: Generate ARCHITECTURE.md + EXAMPLES.md
+  └─ IMPL-004: Generate HTTP API (optional)
 ```
+
+**Execution Model**: Single Level 1 task handles all module trees in batch for efficient processing.
 
 #### Step 1: Read Top-Level Directories
 ```bash
@@ -255,13 +309,13 @@ src/utils
 lib
 ```
 
-#### Step 2: Count Directories for Task Generation
+#### Step 2: Count Directories (for reporting only)
 ```bash
-# Count how many tasks to create
+# Count directories to document
 bash(wc -l < .workflow/WFS-docs-20240120-143022/.process/top-level-dirs.txt)
 ```
 
-**Output**: `3` (will generate IMPL-001, IMPL-002, IMPL-003)
+**Output**: `3` directories (all handled by IMPL-001)
 
 #### Step 3: Check Documentation Mode
 ```bash
@@ -280,9 +334,9 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 **Output**: `API_FOUND` or `NO_API`
 
 **Task Generation Summary**:
-- **Partial mode**: Generate only IMPL-001, IMPL-002, IMPL-003 (module trees)
-- **Full mode without API**: Generate IMPL-001 to IMPL-005
-- **Full mode with API**: Generate IMPL-001 to IMPL-006
+- **Partial mode**: Generate only IMPL-001 (all module trees in batch)
+- **Full mode without API**: Generate IMPL-001, IMPL-002, IMPL-003
+- **Full mode with API**: Generate IMPL-001, IMPL-002, IMPL-003, IMPL-004
 
 ### Phase 5: Generate Task JSONs
 
@@ -333,83 +387,91 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 
 ## Task Templates
 
-### Level 1: Module Tree Task
+### Level 1: Batch Module Trees Task (Optimized)
 
 **Path Mapping**:
 - Project: `{project_name}` (extracted from target_path)
-- Source: `{project_name}/src/modules/`
-- Output: `.workflow/docs/{project_name}/src/modules/`
+- Sources: Multiple directories from `top-level-dirs.txt`
+- Output: `.workflow/docs/{project_name}/` (mirrored structure)
+
+**Key Optimization**: Single task processes all module trees by reading pre-analyzed data from Phase 2.
 
 **Agent Mode (cli_execute=false)**:
 ```json
 {
   "id": "IMPL-001",
-  "title": "Document Module Tree: 'src/modules/'",
+  "title": "Document All Module Trees (Batch)",
   "status": "pending",
   "meta": {
-    "type": "docs-tree",
+    "type": "docs-tree-batch",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "cli_execute": false,
-    "source_path": "src/modules",
-    "output_path": ".workflow/docs/${project_name}/src/modules"
+    "cli_execute": false
   },
   "context": {
     "requirements": [
-      "Analyze source code in src/modules/",
-      "Generate docs to .workflow/docs/${project_name}/src/modules/ (mirrored structure)",
+      "Process all top-level directories from ${session_dir}/.process/top-level-dirs.txt",
+      "Generate docs to .workflow/docs/${project_name}/ (mirrored structure)",
       "For code folders: generate API.md + README.md",
-      "For navigation folders: generate README.md only"
+      "For navigation folders: generate README.md only",
+      "Use pre-analyzed data from Phase 2 (no redundant analysis)"
     ],
-    "focus_paths": ["src/modules"],
-    "folder_analysis_file": "${session_dir}/.process/folder-analysis.txt"
+    "focus_paths": ["${top_level_dirs_from_file}"],
+    "precomputed_data": {
+      "folder_analysis": "${session_dir}/.process/folder-analysis.txt",
+      "existing_docs": "${session_dir}/.process/all-existing-module-docs.txt",
+      "unified_analysis": "${session_dir}/.process/unified-module-analysis.txt",
+      "top_level_dirs": "${session_dir}/.process/top-level-dirs.txt"
+    }
   },
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_existing_docs",
-        "command": "bash(find .workflow/docs/${project_name}/${top_dir} -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
-        "output_to": "existing_module_docs"
-      },
-      {
-        "step": "load_folder_analysis",
-        "command": "bash(grep '^src/modules' ${session_dir}/.process/folder-analysis.txt)",
-        "output_to": "target_folders"
-      },
-      {
-        "step": "analyze_module_tree",
-        "command": "bash(cd src/modules && gemini \"PURPOSE: Analyze module structure\\nTASK: Generate documentation outline\\nMODE: analysis\\nCONTEXT: @**/* [target_folders]\\nEXPECTED: Structure outline\\nRULES: Analyze only\")",
-        "output_to": "tree_outline",
-        "note": "CLI for analysis only"
+        "step": "load_precomputed_data",
+        "action": "Load all pre-analyzed data from Phase 2",
+        "commands": [
+          "bash(cat ${session_dir}/.process/folder-analysis.txt)",
+          "bash(cat ${session_dir}/.process/all-existing-module-docs.txt)",
+          "bash(cat ${session_dir}/.process/unified-module-analysis.txt)",
+          "bash(cat ${session_dir}/.process/top-level-dirs.txt)"
+        ],
+        "output_to": "precomputed_context",
+        "note": "No redundant file reads - use Phase 2 results"
       }
     ],
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Generate module tree documentation",
-        "description": "Analyze source folders and generate docs to .workflow/docs/ with mirrored structure",
+        "title": "Generate documentation for all module trees",
+        "description": "Batch process all top-level directories using pre-analyzed data",
         "modification_points": [
-          "Parse folder types from [target_folders]",
-          "Parse structure from [tree_outline]",
-          "For src/modules/auth/ → write to .workflow/docs/${project_name}/src/modules/auth/",
-          "Generate API.md for code folders",
-          "Generate README.md for all folders"
+          "Read top-level directories from [precomputed_context]",
+          "For each directory in list:",
+          "  - Parse folder types from folder-analysis.txt",
+          "  - Parse structure from unified-module-analysis.txt",
+          "  - Map source_path to .workflow/docs/${project_name}/{source_path}",
+          "  - Generate API.md for code folders",
+          "  - Generate README.md for all folders",
+          "Use existing docs from all-existing-module-docs.txt to preserve user modifications"
         ],
         "logic_flow": [
-          "Parse [target_folders] to get folder types",
-          "Parse [tree_outline] for structure",
-          "For each folder in source:",
-          "  - Map source_path to .workflow/docs/${project_name}/{source_path}",
-          "  - If type == 'code': Generate API.md + README.md",
-          "  - Elif type == 'navigation': Generate README.md only"
+          "dirs = parse([precomputed_context].top_level_dirs)",
+          "for dir in dirs:",
+          "  folder_info = grep(dir, [precomputed_context].folder_analysis)",
+          "  outline = grep(dir, [precomputed_context].unified_analysis)",
+          "  if folder_info.type == 'code':",
+          "    generate API.md + README.md",
+          "  elif folder_info.type == 'navigation':",
+          "    generate README.md only",
+          "  write to .workflow/docs/${project_name}/{dir}/"
         ],
         "depends_on": [],
-        "output": "module_docs"
+        "output": "all_module_docs"
       }
     ],
     "target_files": [
-      ".workflow/docs/${project_name}/${top_dir}/*/API.md",
-      ".workflow/docs/${project_name}/${top_dir}/*/README.md"
+      ".workflow/docs/${project_name}/*/API.md",
+      ".workflow/docs/${project_name}/*/README.md"
     ]
   }
 }
@@ -419,69 +481,76 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 ```json
 {
   "id": "IMPL-001",
-  "title": "Document Module Tree: 'src/modules/'",
+  "title": "Document All Module Trees (Batch)",
   "status": "pending",
   "meta": {
-    "type": "docs-tree",
+    "type": "docs-tree-batch",
     "agent": "@doc-generator",
     "tool": "gemini",
-    "cli_execute": true,
-    "source_path": "src/modules",
-    "output_path": ".workflow/docs/${project_name}/src/modules"
+    "cli_execute": true
   },
   "context": {
     "requirements": [
-      "Analyze source code in src/modules/",
-      "Generate docs to .workflow/docs/${project_name}/src/modules/ (mirrored structure)",
-      "CLI generates documentation files directly"
+      "Process all top-level directories from ${session_dir}/.process/top-level-dirs.txt",
+      "CLI generates documentation files directly to .workflow/docs/${project_name}/ (mirrored structure)",
+      "Use pre-analyzed data from Phase 2 (no redundant analysis)"
     ],
-    "focus_paths": ["src/modules"]
+    "focus_paths": ["${top_level_dirs_from_file}"],
+    "precomputed_data": {
+      "folder_analysis": "${session_dir}/.process/folder-analysis.txt",
+      "existing_docs": "${session_dir}/.process/all-existing-module-docs.txt",
+      "unified_analysis": "${session_dir}/.process/unified-module-analysis.txt",
+      "top_level_dirs": "${session_dir}/.process/top-level-dirs.txt"
+    }
   },
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_existing_docs",
-        "command": "bash(find .workflow/docs/${project_name}/${top_dir} -name '*.md' 2>/dev/null | xargs cat || echo 'No existing docs')",
-        "output_to": "existing_module_docs"
-      },
-      {
-        "step": "load_folder_analysis",
-        "command": "bash(grep '^src/modules' ${session_dir}/.process/folder-analysis.txt)",
-        "output_to": "target_folders"
+        "step": "load_precomputed_data",
+        "action": "Load pre-analyzed data from Phase 2",
+        "commands": [
+          "bash(cat ${session_dir}/.process/folder-analysis.txt)",
+          "bash(cat ${session_dir}/.process/all-existing-module-docs.txt)",
+          "bash(cat ${session_dir}/.process/unified-module-analysis.txt)",
+          "bash(cat ${session_dir}/.process/top-level-dirs.txt)"
+        ],
+        "output_to": "precomputed_context",
+        "note": "No redundant file reads - use Phase 2 results"
       }
     ],
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Parse folder analysis",
-        "description": "Parse [target_folders] to get folder types and structure",
-        "modification_points": ["Extract folder types", "Identify code vs navigation folders"],
-        "logic_flow": ["Parse [target_folders] to get folder types", "Prepare folder list for CLI generation"],
+        "title": "Parse directories and prepare batch",
+        "description": "Read top-level directories and prepare for CLI batch execution",
+        "modification_points": ["Extract directory list", "Prepare CLI command parameters"],
+        "logic_flow": ["dirs = parse([precomputed_context].top_level_dirs)", "Prepare batch CLI execution"],
         "depends_on": [],
-        "output": "folder_types"
+        "output": "batch_params"
       },
       {
         "step": 2,
-        "title": "Generate documentation via CLI",
-        "description": "Call CLI to generate docs to .workflow/docs/ with mirrored structure using MODE=write",
+        "title": "Batch generate documentation via CLI",
+        "description": "Execute CLI commands for all directories in batch",
         "modification_points": [
-          "Execute CLI generation command",
-          "Generate files to .workflow/docs/${project_name}/src/modules/ (mirrored path)",
-          "Generate API.md and README.md files"
+          "For each directory, call CLI with MODE=write",
+          "CLI generates files to .workflow/docs/${project_name}/ (mirrored paths)",
+          "Use precomputed context to avoid redundant analysis"
         ],
         "logic_flow": [
-          "CLI analyzes source code in src/modules/",
-          "CLI writes documentation to .workflow/docs/${project_name}/src/modules/",
-          "Maintains directory structure mirroring"
+          "for dir in [batch_params].dirs:",
+          "  cd ${dir}",
+          "  gemini --approval-mode yolo -p 'PURPOSE: Generate module docs, TASK: Create documentation, MODE: write, CONTEXT: @**/* [precomputed_context], EXPECTED: API.md and README.md, RULES: Mirror structure'",
+          "  Validate generated files"
         ],
-        "command": "bash(cd src/modules && gemini --approval-mode yolo \"PURPOSE: Generate module docs\\nTASK: Create documentation files in .workflow/docs/${project_name}/src/modules/\\nMODE: write\\nCONTEXT: @**/* [target_folders] [existing_module_docs]\\nEXPECTED: API.md and README.md in .workflow/docs/${project_name}/src/modules/\\nRULES: Mirror source structure, generate complete docs\")",
+        "command": "bash(while IFS= read -r dir; do cd \"$dir\" && gemini --approval-mode yolo -p \"PURPOSE: Generate module docs\\nTASK: Create documentation files in .workflow/docs/${project_name}/$dir/\\nMODE: write\\nCONTEXT: @**/* [precomputed_context]\\nEXPECTED: API.md and README.md in mirrored structure\\nRULES: Mirror source structure, preserve existing docs\" || echo \"Failed: $dir\"; cd -; done < ${session_dir}/.process/top-level-dirs.txt)",
         "depends_on": [1],
         "output": "generated_docs"
       }
     ],
     "target_files": [
-      ".workflow/docs/${project_name}/${top_dir}/*/API.md",
-      ".workflow/docs/${project_name}/${top_dir}/*/README.md"
+      ".workflow/docs/${project_name}/*/API.md",
+      ".workflow/docs/${project_name}/*/README.md"
     ]
   }
 }
@@ -492,10 +561,10 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 **Agent Mode**:
 ```json
 {
-  "id": "IMPL-004",
+  "id": "IMPL-002",
   "title": "Generate Project README",
   "status": "pending",
-  "depends_on": ["IMPL-001", "IMPL-002", "IMPL-003"],
+  "depends_on": ["IMPL-001"],
   "meta": {
     "type": "docs",
     "agent": "@doc-generator",
@@ -542,10 +611,10 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 **Agent Mode**:
 ```json
 {
-  "id": "IMPL-005",
+  "id": "IMPL-003",
   "title": "Generate Architecture & Examples Documentation",
   "status": "pending",
-  "depends_on": ["IMPL-004"],
+  "depends_on": ["IMPL-002"],
   "meta": {
     "type": "docs",
     "agent": "@doc-generator",
@@ -605,10 +674,10 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
 **Agent Mode**:
 ```json
 {
-  "id": "IMPL-006",
+  "id": "IMPL-004",
   "title": "Generate HTTP API Documentation",
   "status": "pending",
-  "depends_on": ["IMPL-004"],
+  "depends_on": ["IMPL-002"],
   "meta": {
     "type": "docs",
     "agent": "@doc-generator",
@@ -658,18 +727,24 @@ Each task JSON is written to `.workflow/WFS-docs-20240120-143022/.task/IMPL-XXX.
     ├── workflow-session.json                # Session metadata (all settings + stats)
     ├── IMPL_PLAN.md                         # Implementation plan
     ├── TODO_LIST.md                         # Progress tracker
-    ├── .process/
+    ├── .process/                            # Pre-analyzed data (Phase 2)
     │   ├── folder-analysis.txt              # Folder classification results
     │   ├── top-level-dirs.txt               # Top-level directory list
+    │   ├── all-paths.txt                    # All folder paths
+    │   ├── all-existing-module-docs.txt     # ⭐ All existing module docs (one-time read)
+    │   ├── unified-module-analysis.txt      # ⭐ Unified analysis for all modules (one-time CLI call)
     │   └── existing-docs.txt                # Existing documentation paths
-    └── .task/
-        ├── IMPL-001.json                    # Module tree task
-        ├── IMPL-002.json                    # Module tree task
-        ├── IMPL-003.json                    # Module tree task
-        ├── IMPL-004.json                    # Project README (full mode)
-        ├── IMPL-005.json                    # ARCHITECTURE.md + EXAMPLES.md (full mode)
-        └── IMPL-006.json                    # HTTP API docs (optional)
+    └── .task/                               # Task JSON files (optimized count)
+        ├── IMPL-001.json                    # ⭐ Batch module trees task (all directories)
+        ├── IMPL-002.json                    # Project README (full mode)
+        ├── IMPL-003.json                    # ARCHITECTURE.md + EXAMPLES.md (full mode)
+        └── IMPL-004.json                    # HTTP API docs (optional)
 ```
+
+**⭐ Optimization Highlights**:
+- `all-existing-module-docs.txt`: Single file read replaces per-task reads
+- `unified-module-analysis.txt`: Single CLI call replaces per-task analysis
+- Task count reduced: 3+ tasks → 1 batch task for all module trees
 
 **Workflow Session Structure** (workflow-session.json):
 ```json
@@ -803,10 +878,14 @@ bash(test -d .workflow/docs/my_project && echo "exists" || echo "not exists")
 
 ## Execution Mode Summary
 
-| Mode | CLI Placement | CLI MODE | Agent Role |
-|------|---------------|----------|------------|
-| **Agent Mode (default)** | pre_analysis | analysis | Generates documentation files based on analysis |
-| **CLI Mode (--cli-execute)** | implementation_approach | write | Executes CLI commands to generate docs, validates output |
+| Mode | CLI Placement | CLI MODE | Agent Role | Optimization |
+|------|---------------|----------|------------|--------------|
+| **Agent Mode (default)** | pre_analysis (Phase 2 only) | analysis | Generates documentation files based on pre-analyzed data | Single CLI call in Phase 2, batch processing in IMPL-001 |
+| **CLI Mode (--cli-execute)** | implementation_approach | write | Executes CLI commands to generate docs, validates output | Batch CLI execution for all directories in IMPL-001 |
+
+**Key Differences from Previous Version**:
+- **Before**: Per-directory tasks, per-task CLI calls, redundant file reads
+- **After**: Single batch task, Phase 2 unified analysis, one-time file reads
 
 ## Related Commands
 - `/workflow:execute` - Execute documentation tasks

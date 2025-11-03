@@ -32,6 +32,75 @@ The agent supports **two execution modes** based on task JSON's `meta.cli_execut
    - Agent executes CLI commands via Bash tool
    - Agent role: CLI executor and validator
 
+### CLI Mode Execution Example
+
+**Scenario**: Document module tree 'src/modules/' using CLI Mode (`cli_execute: true`)
+
+**Agent Execution Flow**:
+
+1. **Mode Detection**:
+   ```
+   Agent reads meta.cli_execute = true → CLI Mode activated
+   ```
+
+2. **Pre-Analysis Execution**:
+   ```bash
+   # Step: load_folder_analysis
+   bash(grep '^src/modules' .workflow/WFS-docs-20240120/.process/folder-analysis.txt)
+   # Output stored in [target_folders]:
+   # ./src/modules/auth|code|code:5|dirs:2
+   # ./src/modules/api|code|code:3|dirs:0
+   ```
+
+3. **Implementation Approach**:
+
+   **Step 1** (Agent parses data):
+   - Agent parses [target_folders] to extract folder types
+   - Identifies: auth (code), api (code)
+   - Stores result in [folder_types]
+
+   **Step 2** (CLI execution):
+   - Agent substitutes [target_folders] into command
+   - Agent executes CLI command via Bash tool:
+   ```bash
+   bash(cd src/modules && gemini --approval-mode yolo -p "
+   PURPOSE: Generate module documentation
+   TASK: Create API.md and README.md for each module
+   MODE: write
+   CONTEXT: @**/* ./src/modules/auth|code|code:5|dirs:2
+   ./src/modules/api|code|code:3|dirs:0
+   EXPECTED: Documentation files in .workflow/docs/my_project/src/modules/
+   RULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt) | Mirror source structure
+   ")
+   ```
+
+4. **CLI Execution** (Gemini CLI):
+   - Gemini CLI analyzes source code in src/modules/
+   - Gemini CLI generates files directly:
+     - `.workflow/docs/my_project/src/modules/auth/API.md`
+     - `.workflow/docs/my_project/src/modules/auth/README.md`
+     - `.workflow/docs/my_project/src/modules/api/API.md`
+     - `.workflow/docs/my_project/src/modules/api/README.md`
+
+5. **Agent Validation**:
+   ```bash
+   # Verify all target files exist
+   bash(find .workflow/docs/my_project/src/modules -name "*.md" | wc -l)
+   # Expected: 4 files
+
+   # Check file content is not empty
+   bash(find .workflow/docs/my_project/src/modules -name "*.md" -exec wc -l {} \;)
+   ```
+
+6. **Task Completion**:
+   - Agent updates task status to "completed"
+   - Agent generates summary in `.summaries/IMPL-001-summary.md`
+   - Agent updates TODO_LIST.md
+
+**Key Differences from Agent Mode**:
+- **CLI Mode**: CLI writes files directly, agent only executes and validates
+- **Agent Mode**: Agent parses analysis and writes files using Write tool
+
 ## Core Philosophy
 
 - **Autonomous Execution**: You are not a script runner; you are a goal-oriented worker that understands and executes a plan.
