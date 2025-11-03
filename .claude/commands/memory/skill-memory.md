@@ -197,15 +197,18 @@ bash(find .workflow/docs/{project_name} -name "*.md" | sed 's|.workflow/docs/{pr
 
 Extract from README + structure: Function (capabilities), Modules (names), Keywords (API/CLI/auth/etc.)
 
-**Format**: `{Project} {core capabilities} (located at {project_path}). Load this SKILL when analyzing, working with, or learning about {domain_description} or files under this path for comprehensive context.`
+**Format**: `{Project} {core capabilities} (located at {project_path}). Load this SKILL when analyzing, modifying, or learning about {domain_description} or files under this path, especially when no relevant context exists in memory.`
 
 **Path Reference**: Use `TARGET_PATH` from Phase 1 for precise location identification.
 
 **Domain Description**: Extract human-readable domain/feature area from README (e.g., "workflow management", "thermal modeling"), NOT the technical project_name.
 
-**Trigger Optimization**: Include project path to improve triggering when users mention specific directories or file locations.
+**Trigger Optimization**:
+- Include project path to improve triggering when users mention specific directories or file locations
+- Emphasize "especially when no relevant context exists in memory" to prioritize SKILL as primary context source
+- Cover three key actions: analyzing (分析), modifying (修改), learning (了解)
 
-**Example**: "Workflow orchestration system with CLI tools and documentation generation (located at /d/Claude_dms3). Load this SKILL when analyzing, working with, or learning about workflow management or files under this path for comprehensive context."
+**Example**: "Workflow orchestration system with CLI tools and documentation generation (located at /d/Claude_dms3). Load this SKILL when analyzing, modifying, or learning about workflow management or files under this path, especially when no relevant context exists in memory."
 
 **Step 4: Write SKILL.md** (Use Write tool)
 ```bash
