@@ -164,113 +164,48 @@ SlashCommand(command="/workflow:execute")
 
 ### Phase 4: Generate SKILL.md Index
 
-**Goal**: Create SKILL.md at `.claude/skills/{project_name}/SKILL.md`
+**Step 1: Read Key Files** (Use Read tool)
+- `.workflow/docs/{project_name}/README.md` (required)
+- `.workflow/docs/{project_name}/ARCHITECTURE.md` (optional)
 
-**Step 1: Load Project README**
+**Step 2: Discover Structure**
 ```bash
-# Read README for project description (replace project_name)
-bash(cat .workflow/docs/my_project/README.md 2>/dev/null | head -50 || echo "No README found")
+bash(find .workflow/docs/{project_name} -name "*.md" | sed 's|.workflow/docs/{project_name}/||' | awk -F'/' '{if(NF>=2) print $1"/"$2}' | sort -u)
 ```
 
-**Step 2: Discover All Documentation Files**
+**Step 3: Generate Intelligent Description**
+
+Extract from README + structure: Function (capabilities), Modules (names), Keywords (API/CLI/auth/etc.)
+
+**Format**: `{Function}. Use when {trigger conditions}.`
+**Example**: "Workflow management with CLI tools. Use when working with workflow orchestration or docs generation."
+
+**Step 4: Write SKILL.md** (Use Write tool)
 ```bash
-# List all documentation files (replace project_name)
-bash(find .workflow/docs/my_project -name "*.md" 2>/dev/null | sort)
+bash(mkdir -p .claude/skills/{project_name})
 ```
 
-**Output**:
-```
-.workflow/docs/my_project/README.md
-.workflow/docs/my_project/ARCHITECTURE.md
-.workflow/docs/my_project/src/modules/auth/API.md
-.workflow/docs/my_project/src/modules/auth/README.md
-```
-
-**Step 3: Count Documentation Files**
-```bash
-# Count total docs (replace project_name)
-bash(find .workflow/docs/my_project -name "*.md" 2>/dev/null | wc -l)
-```
-
-**Output**: `12` files
-
-**Step 4: Extract Module Directories**
-```bash
-# Find module directories (1-2 levels deep, replace project_name)
-bash(find .workflow/docs/my_project -mindepth 1 -maxdepth 2 -type d 2>/dev/null | sed 's|.workflow/docs/my_project/||' | sort -u)
-```
-
-**Output**:
-```
-src
-src/modules
-src/utils
-lib
-lib/core
-```
-
-**Step 5: Count Module Directories**
-```bash
-# Count modules (replace project_name)
-bash(find .workflow/docs/my_project -mindepth 1 -maxdepth 2 -type d 2>/dev/null | wc -l)
-```
-
-**Output**: `5` modules
-
-**Step 6: Create Skills Directory**
-```bash
-# Create directory for SKILL.md (replace project_name)
-bash(mkdir -p .claude/skills/my_project)
-```
-
-**Step 7: Generate SKILL.md**
-
-Use the `Write` tool to create `.claude/skills/my_project/SKILL.md` with:
-- YAML frontmatter (name, description from README)
-- Progressive loading guide (Level 0-3)
-- Module index with relative paths to `../../.workflow/docs/my_project/`
-
-**SKILL.md Structure**:
-```markdown
+`.claude/skills/{project_name}/SKILL.md`:
+```yaml
 ---
 name: {project_name}
-description: {extracted from README}
+description: {intelligent description from Step 3}
 version: 1.0.0
 ---
-
 # {Project Name} SKILL Package
 
-Progressive documentation loading guide.
+## Documentation: `../../.workflow/docs/{project_name}/`
 
-## Documentation Location
-
-All documentation: `../../.workflow/docs/{project_name}/`
-
-## Progressive Loading Guide
-
-### Level 0: Quick Start (Minimal Context ~2K tokens)
-- [Project Overview](../../.workflow/docs/{project_name}/README.md#overview)
-- [Getting Started](../../.workflow/docs/{project_name}/README.md#getting-started)
-
-### Level 1: Core Modules (Essential Context ~8K tokens)
-- [Module 1](../../.workflow/docs/{project_name}/path/to/module1/README.md)
-- [Module 2](../../.workflow/docs/{project_name}/path/to/module2/README.md)
-
-### Level 2: Complete (Full Context ~25K tokens)
-- All modules + [Architecture](../../.workflow/docs/{project_name}/ARCHITECTURE.md)
-
-### Level 3: Deep Dive (Maximum Context ~40K tokens)
-- All docs + [Examples](../../.workflow/docs/{project_name}/EXAMPLES.md)
-
-## Module Index
-
-{Generated from discovered structure}
+## Progressive Loading
+### Level 0: Quick Start (~2K)
+- [README](../../.workflow/docs/{project_name}/README.md)
+### Level 1: Core Modules (~8K)
+{Module READMEs}
+### Level 2: Complete (~25K)
+All modules + [Architecture](../../.workflow/docs/{project_name}/ARCHITECTURE.md)
+### Level 3: Deep Dive (~40K)
+Everything + [Examples](../../.workflow/docs/{project_name}/EXAMPLES.md)
 ```
-
-**Validation**:
-- SKILL.md created at `.claude/skills/{project_name}/SKILL.md`
-- File contains valid YAML frontmatter
-- All links reference correct paths
 
 **TodoWrite**: Mark phase 4 completed
 
