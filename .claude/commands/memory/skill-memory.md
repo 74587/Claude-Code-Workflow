@@ -1,29 +1,27 @@
 ---
 name: skill-memory
-description: Generate progressive project SKILL package from documentation with path mirroring
-argument-hint: "[path] [--tool <gemini|qwen>] [--regenerate] [--skip-docs]"
+description: Generate progressive project SKILL package from source code with embedded documentation generation
+argument-hint: "[path] [--tool <gemini|qwen>] [--regenerate]"
 ---
 
 # Memory SKILL Package Generator
 
 ## Overview
 
-Lightweight planner that analyzes documentation structure, decomposes SKILL package work into tasks, and generates execution plans. Transforms project documentation into reusable SKILL package with **mirrored source structure**.
+Analyzes project structure, generates documentation (if needed), and creates reusable SKILL package with **path-mirrored knowledge structure**. Embeds documentation generation logic internally instead of calling external commands.
 
-**SKILL Package Output**: All knowledge files are placed in `.claude/skills/{project_name}/knowledge/` directory with **mirrored project structure**. For example:
-- Project: `my_app`
-- Source: `my_app/src/modules/auth/` → SKILL: `.claude/skills/my_app/knowledge/src/modules/auth/API.md`
-- Source: `my_app/lib/core/` → SKILL: `.claude/skills/my_app/knowledge/lib/core/README.md`
+**SKILL Package Output**: Knowledge files mirror source structure under `.claude/skills/{project_name}/knowledge/`
+
+**Documentation Source**: All docs generated to `.workflow/docs/{project_name}/` with mirrored structure
 
 ## Path Mirroring Strategy
 
-**Principle**: SKILL knowledge structure **mirrors** source code structure under project-specific directory.
+**Principle**: SKILL knowledge structure **mirrors** source code structure.
 
-| Source Path | Project Name | SKILL Knowledge Path |
-|------------|--------------|---------------------|
+| Source Path | Project | SKILL Knowledge Path |
+|------------|---------|---------------------|
 | `my_app/src/modules/auth/` | `my_app` | `.claude/skills/my_app/knowledge/src/modules/auth/API.md` |
 | `my_app/lib/core/` | `my_app` | `.claude/skills/my_app/knowledge/lib/core/README.md` |
-| `another_project/src/api/` | `another_project` | `.claude/skills/another_project/knowledge/src/api/API.md` |
 
 **Benefits**:
 - Easy to locate SKILL docs for any source file
@@ -39,7 +37,7 @@ Lightweight planner that analyzes documentation structure, decomposes SKILL pack
 .claude/skills/{project}/
 ├── SKILL.md                    # Entry point with progressive references
 └── knowledge/
-    ├── OVERVIEW.md             # Project overview + quickstart + module index (合并)
+    ├── OVERVIEW.md             # Project overview + quickstart + module index (merged)
     └── [mirrored source structure]
         ├── src/
         │   ├── modules/
@@ -60,7 +58,7 @@ Lightweight planner that analyzes documentation structure, decomposes SKILL pack
 ## Parameters
 
 ```bash
-/memory:skill-memory [path] [--tool <gemini|qwen>] [--regenerate] [--skip-docs]
+/memory:skill-memory [path] [--tool <gemini|qwen>] [--regenerate]
 ```
 
 - **path**: Target directory (default: current directory)
@@ -70,32 +68,26 @@ Lightweight planner that analyzes documentation structure, decomposes SKILL pack
   - `gemini`: Comprehensive documentation, pattern recognition
   - `qwen`: Architecture analysis, system design focus
 
-- **--regenerate**: Force regenerate docs from source code (optional)
-  - When enabled: Runs `/memory:docs --mode full` first
-  - When disabled: Uses existing docs from `.workflow/docs/{project}`
-
-- **--skip-docs**: Skip documentation generation phase (optional)
-  - Uses existing docs in `.workflow/docs/{project}` directly
-  - Fails if no existing docs found
+- **--regenerate**: Force regenerate documentation from source code (optional)
+  - When enabled: Regenerates all documentation from source
+  - When disabled: Uses existing docs from `.workflow/docs/{project}` if available
 
 ## Planning Workflow
 
 ### Phase 1: Initialize Session
 
-#### Step 1: Create Session and Generate Config
+#### Step 1: Create Session Structure
 ```bash
-# Parse arguments
+# Parse arguments and create unified workflow session
 bash(
   path="${1:-.}"
   tool="gemini"
   regenerate=false
-  skip_docs=false
   shift
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --tool) tool="$2"; shift 2 ;;
       --regenerate) regenerate=true; shift ;;
-      --skip-docs) skip_docs=true; shift ;;
       *) shift ;;
     esac
   done
@@ -111,205 +103,391 @@ bash(
   # Extract project name from target_path
   project_name=$(basename "$target_path")
 
-  # Paths
-  docs_path=".workflow/docs/${project_name}"
-  skill_path=".claude/skills/${project_name}"
-
-  # Create session
+  # Create session (following workflow-architecture.md)
   timestamp=$(date +%Y%m%d-%H%M%S)
   session="WFS-skill-${timestamp}"
-  mkdir -p ".workflow/${session}"/{.task,.process,.summaries}
+
+  # Create unified workflow structure
+  mkdir -p ".workflow/${session}"/{.task,.process}
   touch ".workflow/.active-${session}"
 
-  # Generate config
-  cat > ".workflow/${session}/.process/config.json" <<EOF
+  # Generate workflow-session.json (unified session state)
+  cat > ".workflow/${session}/workflow-session.json" <<EOF
 {
   "session_id": "${session}",
-  "timestamp": "$(date -Iseconds)",
-  "path": "${path}",
-  "target_path": "${target_path}",
-  "project_root": "${project_root}",
-  "project_name": "${project_name}",
-  "tool": "${tool}",
-  "regenerate": ${regenerate},
-  "skip_docs": ${skip_docs},
-  "docs_path": "${docs_path}",
-  "skill_path": "${skill_path}"
+  "project": "Generate SKILL package for ${project_name}",
+  "type": "simple",
+  "current_phase": "PLAN",
+  "status": "active",
+  "created": "$(date -Iseconds)",
+  "config": {
+    "project_name": "${project_name}",
+    "target_path": "${target_path}",
+    "project_root": "${project_root}",
+    "tool": "${tool}",
+    "regenerate": ${regenerate},
+    "docs_path": ".workflow/docs/${project_name}",
+    "skill_path": ".claude/skills/${project_name}"
+  },
+  "progress": {
+    "completed_phases": [],
+    "current_tasks": []
+  }
 }
 EOF
 
+  # Create required documents
+  cat > ".workflow/${session}/IMPL_PLAN.md" <<'PLANEOF'
+# SKILL Package Generation Plan
+
+## Objective
+Analyze project structure, generate/verify documentation, and create progressive SKILL package.
+
+## Approach
+1. Analyze project structure (modules, directories)
+2. Generate/verify documentation in .workflow/docs/
+3. Generate SKILL.md entry point
+4. Create OVERVIEW.md (merged index)
+5. Mirror documentation to .claude/skills/{project}/knowledge/
+PLANEOF
+
+  cat > ".workflow/${session}/TODO_LIST.md" <<'TODOEOF'
+# Task Checklist
+
+- [ ] IMPL-001: Generate/verify documentation
+- [ ] IMPL-002: Generate SKILL.md entry point
+- [ ] IMPL-003: Generate OVERVIEW.md
+- [ ] IMPL-004: Mirror docs to SKILL knowledge/
+TODOEOF
+
   echo "✓ Session initialized: ${session}"
   echo "✓ Project: ${project_name}"
-  echo "✓ Tool: ${tool}"
-  echo "✓ Regenerate: ${regenerate}, Skip docs: ${skip_docs}"
+  echo "✓ Target: ${target_path}"
+  echo "✓ Tool: ${tool}, Regenerate: ${regenerate}"
 )
 ```
 
 **Output**:
 ```
-✓ Session initialized: WFS-skill-20240120-143022
+✓ Session initialized: WFS-skill-20250103-143022
 ✓ Project: my_app
-✓ Tool: gemini
-✓ Regenerate: false, Skip docs: false
+✓ Target: /d/my_app
+✓ Tool: gemini, Regenerate: false
 ```
 
-### Phase 2: Documentation Check
+### Phase 2: Analyze Structure
 
-**Goal**: Verify documentation exists or trigger generation
-
-#### Step 1: Check Existing Documentation
+#### Step 1: Discover and Classify Folders
 ```bash
-# Check if documentation exists
+# Run analysis pipeline (module discovery + folder classification)
 bash(
-  project_name=$(jq -r '.project_name' .workflow/WFS-skill-20240120/.process/config.json)
-  docs_path=".workflow/docs/${project_name}"
+  session=$(ls -t .workflow/.active-* 2>/dev/null | head -1 | sed 's/.*active-//')
+  target_path=$(jq -r '.config.target_path' .workflow/${session}/workflow-session.json)
 
-  if [[ -d "${docs_path}" ]]; then
-    doc_count=$(find "${docs_path}" -name "*.md" 2>/dev/null | wc -l)
-    echo "${doc_count}"
-  else
-    echo "0"
-  fi
+  # Discover modules and classify folders
+  cd "${target_path}"
+  ~/.claude/scripts/get_modules_by_depth.sh | \
+    ~/.claude/scripts/classify-folders.sh > \
+    .workflow/${session}/.process/folder-analysis.txt
+
+  # Count results
+  total=$(wc -l < .workflow/${session}/.process/folder-analysis.txt)
+  code_count=$(grep '|code|' .workflow/${session}/.process/folder-analysis.txt | wc -l)
+  nav_count=$(grep '|navigation|' .workflow/${session}/.process/folder-analysis.txt | wc -l)
+
+  echo "📊 Folder Analysis Complete:"
+  echo "  - Total folders: $total"
+  echo "  - Code folders: $code_count (will get API.md + README.md)"
+  echo "  - Navigation folders: $nav_count (will get README.md only)"
 )
 ```
 
-**Output**: `15` (existing docs found) or `0` (no docs)
+**Output** (folder-analysis.txt):
+```
+./src/modules/auth|code|code:5|dirs:2
+./src/modules/api|code|code:3|dirs:0
+./src/utils|navigation|code:0|dirs:4
+./lib/core|code|code:8|dirs:1
+```
 
-#### Step 2: Trigger Documentation Generation (if needed)
+#### Step 2: Extract Top-Level Directories
 ```bash
-# Generate docs if needed
+# Group folders by top-level directory
 bash(
-  skip_docs=$(jq -r '.skip_docs' .workflow/WFS-skill-20240120/.process/config.json)
-  regenerate=$(jq -r '.regenerate' .workflow/WFS-skill-20240120/.process/config.json)
-  doc_count=$(jq -r '.existing_docs // 0' .workflow/WFS-skill-20240120/.process/config.json)
+  session=$(ls -t .workflow/.active-* 2>/dev/null | head -1 | sed 's/.*active-//')
 
-  if [[ "$skip_docs" == "true" ]]; then
-    if [[ $doc_count -eq 0 ]]; then
-      echo "❌ Error: --skip-docs specified but no documentation found"
-      exit 1
-    else
-      echo "📄 Using existing documentation (${doc_count} files)"
-    fi
-  elif [[ "$regenerate" == "true" ]] || [[ $doc_count -eq 0 ]]; then
-    echo "📝 Generating documentation..."
-    # Will trigger /memory:docs via SlashCommand
-  else
-    echo "📄 Using existing documentation (${doc_count} files)"
-  fi
-)
+  awk -F'|' '{
+    path = $1
+    gsub(/^\.\//, "", path)
+    split(path, parts, "/")
+    if (length(parts) >= 2) print parts[1] "/" parts[2]
+    else if (length(parts) == 1 && parts[1] != ".") print parts[1]
+  }' .workflow/${session}/.process/folder-analysis.txt | \
+    sort -u > .workflow/${session}/.process/top-level-dirs.txt
 
-# Update config with docs status
-bash(
-  jq '. + {existing_docs: 15, docs_status: "ready"}' .workflow/WFS-skill-20240120/.process/config.json > .workflow/WFS-skill-20240120/.process/config.json.tmp && mv .workflow/WFS-skill-20240120/.process/config.json.tmp .workflow/WFS-skill-20240120/.process/config.json
+  echo "📁 Top-level directories:"
+  cat .workflow/${session}/.process/top-level-dirs.txt
 )
 ```
 
-**If documentation needed**:
-```bash
-# Call /memory:docs
-SlashCommand("/memory:docs --mode full --tool gemini")
-
-# Wait for docs completion (manual or via /workflow:execute)
-# Then continue...
+**Output** (top-level-dirs.txt):
 ```
-
-### Phase 3: Analyze Documentation Structure
-
-**Goal**: Analyze existing documentation to prepare for SKILL package generation
-
-#### Step 1: List Documentation Files
-```bash
-# Find all documentation files (excluding project-level files)
-bash(
-  docs_path=$(jq -r '.docs_path' .workflow/WFS-skill-20240120/.process/config.json)
-
-  find "${docs_path}" -type f -name "*.md" \
-    ! -path "${docs_path}/README.md" \
-    ! -path "${docs_path}/ARCHITECTURE.md" \
-    ! -path "${docs_path}/EXAMPLES.md" \
-    ! -path "${docs_path}/api/*" \
-    > .workflow/WFS-skill-20240120/.process/module-docs.txt
-
-  cat .workflow/WFS-skill-20240120/.process/module-docs.txt
-)
-```
-
-**Output** (module-docs.txt):
-```
-.workflow/docs/my_app/src/modules/auth/API.md
-.workflow/docs/my_app/src/modules/auth/README.md
-.workflow/docs/my_app/src/modules/api/API.md
-.workflow/docs/my_app/src/modules/api/README.md
-.workflow/docs/my_app/lib/core/API.md
-.workflow/docs/my_app/lib/core/README.md
-```
-
-#### Step 2: Extract Directory Structure
-```bash
-# Extract unique directories from module docs
-bash(
-  docs_path=$(jq -r '.docs_path' .workflow/WFS-skill-20240120/.process/config.json)
-
-  # Get unique directory paths
-  cat .workflow/WFS-skill-20240120/.process/module-docs.txt | \
-    xargs -n 1 dirname | \
-    sort -u | \
-    sed "s|^${docs_path}/||" \
-    > .workflow/WFS-skill-20240120/.process/doc-dirs.txt
-
-  cat .workflow/WFS-skill-20240120/.process/doc-dirs.txt
-)
-```
-
-**Output** (doc-dirs.txt):
-```
-src/modules/auth
-src/modules/api
+src/modules
+src/utils
 lib/core
 ```
 
-#### Step 3: Count Statistics
+#### Step 3: Update Session with Analysis Statistics
 ```bash
-# Calculate statistics
+# Calculate statistics and update workflow-session.json
 bash(
-  total_docs=$(wc -l < .workflow/WFS-skill-20240120/.process/module-docs.txt)
-  total_dirs=$(wc -l < .workflow/WFS-skill-20240120/.process/doc-dirs.txt)
+  session=$(ls -t .workflow/.active-* 2>/dev/null | head -1 | sed 's/.*active-//')
 
-  echo "📊 Documentation Analysis:"
-  echo "  - Module docs: ${total_docs}"
-  echo "  - Directories: ${total_dirs}"
+  total=$(wc -l < .workflow/${session}/.process/folder-analysis.txt)
+  code_count=$(grep '|code|' .workflow/${session}/.process/folder-analysis.txt | wc -l)
+  nav_count=$(grep '|navigation|' .workflow/${session}/.process/folder-analysis.txt | wc -l)
+  top_dirs=$(wc -l < .workflow/${session}/.process/top-level-dirs.txt)
+
+  # Update workflow-session.json with analysis results
+  jq ".config.analysis = {
+    \"total_folders\": $total,
+    \"code_folders\": $code_count,
+    \"navigation_folders\": $nav_count,
+    \"top_level_dirs\": $top_dirs
+  }" .workflow/${session}/workflow-session.json > temp.json && \
+    mv temp.json .workflow/${session}/workflow-session.json
 )
+```
 
-# Update config
+### Phase 3: Check/Generate Documentation
+
+#### Step 1: Check Existing Documentation
+```bash
+# Check if documentation exists in .workflow/docs/{project_name}/
 bash(
-  jq '. + {analysis: {total_docs: "12", total_dirs: "3"}}' .workflow/WFS-skill-20240120/.process/config.json > .workflow/WFS-skill-20240120/.process/config.json.tmp && mv .workflow/WFS-skill-20240120/.process/config.json.tmp .workflow/WFS-skill-20240120/.process/config.json
+  session=$(ls -t .workflow/.active-* 2>/dev/null | head -1 | sed 's/.*active-//')
+  docs_path=$(jq -r '.config.docs_path' .workflow/${session}/workflow-session.json)
+  regenerate=$(jq -r '.config.regenerate' .workflow/${session}/workflow-session.json)
+
+  if [[ -d "${docs_path}" ]]; then
+    doc_count=$(find ${docs_path} -name "*.md" 2>/dev/null | wc -l)
+    echo "📄 Found ${doc_count} existing documentation files"
+
+    if [[ "${regenerate}" == "true" ]]; then
+      echo "⚠️  --regenerate flag set, will regenerate all documentation"
+      needs_generation=true
+    else
+      echo "✓ Using existing documentation"
+      needs_generation=false
+    fi
+  else
+    echo "📄 No existing documentation found, will generate"
+    needs_generation=true
+  fi
+
+  # Update workflow-session.json
+  jq ".config.docs_status = \"$(if [[ ${needs_generation} == true ]]; then echo 'needs_generation'; else echo 'ready'; fi)\" | \
+      .config.existing_docs = ${doc_count:-0}" \
+    .workflow/${session}/workflow-session.json > temp.json && \
+    mv temp.json .workflow/${session}/workflow-session.json
+
+  echo "${needs_generation}"
 )
 ```
 
-### Phase 4: Generate Tasks
-
-**Goal**: Create task JSONs for SKILL package generation
-
-**Task Structure**:
+**Output**:
 ```
-IMPL-001: Generate SKILL.md entry point
-IMPL-002: Generate OVERVIEW.md (合并 README + EXAMPLES + module index)
-IMPL-003: Mirror module documentation structure
+📄 Found 15 existing documentation files
+✓ Using existing documentation
+false
 ```
 
-#### Task 1: Generate SKILL.md Entry Point
+#### Step 2: Generate Documentation (If Needed)
+```bash
+# Generate documentation if needed
+bash(
+  session=$(ls -t .workflow/.active-* 2>/dev/null | head -1 | sed 's/.*active-//')
+  needs_generation=$(jq -r '.config.docs_status == "needs_generation"' .workflow/${session}/workflow-session.json)
 
-**Goal**: Create SKILL.md with YAML frontmatter and progressive references
+  if [[ "${needs_generation}" == "true" ]]; then
+    echo "🔧 Generating documentation..."
+
+    # Generate task JSON for documentation generation
+    # This will be IMPL-001: Generate Documentation
+    # See Task Templates section for full JSON structure
+
+    echo "✓ Documentation generation task created (IMPL-001)"
+  else
+    echo "✓ Skipping documentation generation (using existing docs)"
+  fi
+)
+```
+
+### Phase 4: Generate SKILL Package Tasks
+
+#### Step 1: Determine Task List
+```bash
+# Determine which tasks to create based on docs_status
+bash(
+  session=$(ls -t .workflow/.active-* 2>/dev/null | head -1 | sed 's/.*active-//')
+  docs_status=$(jq -r '.config.docs_status' .workflow/${session}/workflow-session.json)
+
+  if [[ "${docs_status}" == "needs_generation" ]]; then
+    echo "📋 Task list:"
+    echo "  - IMPL-001: Generate documentation"
+    echo "  - IMPL-002: Generate SKILL.md entry point"
+    echo "  - IMPL-003: Generate OVERVIEW.md"
+    echo "  - IMPL-004: Mirror docs to SKILL knowledge/"
+    task_ids=("IMPL-001" "IMPL-002" "IMPL-003" "IMPL-004")
+  else
+    echo "📋 Task list (docs exist):"
+    echo "  - IMPL-001: Generate SKILL.md entry point"
+    echo "  - IMPL-002: Generate OVERVIEW.md"
+    echo "  - IMPL-003: Mirror docs to SKILL knowledge/"
+    task_ids=("IMPL-001" "IMPL-002" "IMPL-003")
+  fi
+
+  # Update workflow-session.json with task list
+  task_json=$(printf '%s\n' "${task_ids[@]}" | jq -R . | jq -s .)
+  jq ".progress.current_tasks = ${task_json}" \
+    .workflow/${session}/workflow-session.json > temp.json && \
+    mv temp.json .workflow/${session}/workflow-session.json
+)
+```
+
+#### Step 2: Generate Task JSONs
+```bash
+# Generate task JSON files based on docs_status
+# See Task Templates section for full JSON structures
+bash(
+  session=$(ls -t .workflow/.active-* 2>/dev/null | head -1 | sed 's/.*active-//')
+  docs_status=$(jq -r '.config.docs_status' .workflow/${session}/workflow-session.json)
+
+  # Create tasks based on docs_status
+  # If docs need generation: IMPL-001 (docs) + IMPL-002 (SKILL.md) + IMPL-003 (OVERVIEW) + IMPL-004 (mirror)
+  # If docs exist: IMPL-001 (SKILL.md) + IMPL-002 (OVERVIEW) + IMPL-003 (mirror)
+
+  echo "✅ Tasks generated successfully"
+)
+```
+
+## Task Templates
+
+### Task 1: Generate Documentation (If Needed)
+
+**Condition**: Only created when `docs_status == "needs_generation"`
+
+**Goal**: Generate module and project documentation to .workflow/docs/{project}/ with path mirroring
 
 ```json
 {
   "id": "IMPL-001",
-  "title": "Generate SKILL.md Entry Point",
+  "title": "Generate Project Documentation",
   "status": "pending",
   "meta": {
-    "type": "skill-entry",
+    "type": "docs",
     "agent": "@doc-generator",
     "tool": "gemini"
+  },
+  "context": {
+    "requirements": [
+      "Analyze source code structure",
+      "Generate module docs (API.md + README.md for code folders, README.md for navigation)",
+      "Generate project docs (README.md, ARCHITECTURE.md, EXAMPLES.md)",
+      "Output to .workflow/docs/${project_name}/ with mirrored structure"
+    ],
+    "focus_paths": ["all analyzed folders from folder-analysis.txt"]
+  },
+  "flow_control": {
+    "pre_analysis": [
+      {
+        "step": "load_session_config",
+        "action": "Load session configuration",
+        "command": "bash(cat $(ls -t .workflow/.active-* | head -1 | sed 's/.active-//')/workflow-session.json)",
+        "output_to": "session_config"
+      },
+      {
+        "step": "load_folder_analysis",
+        "action": "Load folder analysis results",
+        "command": "bash(session=$(ls -t .workflow/.active-* | head -1 | sed 's/.*active-//'); cat .workflow/${session}/.process/folder-analysis.txt)",
+        "output_to": "folder_analysis"
+      },
+      {
+        "step": "load_top_level_dirs",
+        "action": "Load top-level directories",
+        "command": "bash(session=$(ls -t .workflow/.active-* | head -1 | sed 's/.*active-//'); cat .workflow/${session}/.process/top-level-dirs.txt)",
+        "output_to": "top_level_dirs"
+      }
+    ],
+    "implementation_approach": [
+      {
+        "step": 1,
+        "title": "Generate module documentation",
+        "description": "For each folder in [folder_analysis], generate docs to .workflow/docs/${project_name}/ with mirrored paths",
+        "modification_points": [
+          "Parse [folder_analysis] to get folder types",
+          "For each code folder: generate API.md + README.md",
+          "For each navigation folder: generate README.md only",
+          "Mirror source structure to .workflow/docs/${project_name}/"
+        ],
+        "logic_flow": [
+          "Parse [folder_analysis] to extract folders and types",
+          "For folder './src/modules/auth|code|...':",
+          "  - Create .workflow/docs/${project_name}/src/modules/auth/",
+          "  - Generate API.md (public API documentation)",
+          "  - Generate README.md (module overview)",
+          "For folder './src/utils|navigation|...':",
+          "  - Create .workflow/docs/${project_name}/src/utils/",
+          "  - Generate README.md (directory guide)"
+        ],
+        "depends_on": [],
+        "output": "module_docs"
+      },
+      {
+        "step": 2,
+        "title": "Generate project documentation",
+        "description": "Generate README.md, ARCHITECTURE.md, EXAMPLES.md at project root",
+        "modification_points": [
+          "Synthesize from [module_docs]",
+          "Generate README.md (project overview)",
+          "Generate ARCHITECTURE.md (system design)",
+          "Generate EXAMPLES.md (usage examples)"
+        ],
+        "logic_flow": [
+          "Read all module docs from step 1",
+          "Generate .workflow/docs/${project_name}/README.md (overview)",
+          "Generate .workflow/docs/${project_name}/ARCHITECTURE.md (design)",
+          "Generate .workflow/docs/${project_name}/EXAMPLES.md (examples)"
+        ],
+        "depends_on": [1],
+        "output": "project_docs"
+      }
+    ],
+    "target_files": [
+      ".workflow/docs/${project_name}/**/API.md",
+      ".workflow/docs/${project_name}/**/README.md",
+      ".workflow/docs/${project_name}/ARCHITECTURE.md",
+      ".workflow/docs/${project_name}/EXAMPLES.md"
+    ]
+  }
+}
+```
+
+### Task 2 (or IMPL-001 if docs exist): Generate SKILL.md Entry Point
+
+**Goal**: Create SKILL.md with YAML frontmatter and progressive references
+
+**Task ID**: IMPL-002 (if docs generated) or IMPL-001 (if docs exist)
+
+```json
+{
+  "id": "IMPL-002",
+  "title": "Generate SKILL.md Entry Point",
+  "status": "pending",
+  "depends_on": ["IMPL-001"],
+  "meta": {
+    "type": "docs",
+    "agent": "@doc-generator"
   },
   "context": {
     "requirements": [
@@ -317,21 +495,27 @@ IMPL-003: Mirror module documentation structure
       "Add progressive loading guide",
       "Reference OVERVIEW.md for project overview",
       "Reference mirrored module paths"
-    ],
-    "project_name": "${project_name}",
-    "skill_path": "${skill_path}"
+    ]
   },
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_project_info",
-        "command": "bash(cat ${docs_path}/README.md 2>/dev/null || echo 'No README')",
+        "step": "load_session_config",
+        "action": "Load session configuration",
+        "command": "bash(cat $(ls -t .workflow/.active-* | head -1 | sed 's/.active-//')/workflow-session.json)",
+        "output_to": "session_config"
+      },
+      {
+        "step": "load_project_readme",
+        "action": "Load project README for description",
+        "command": "bash(docs_path=$(jq -r '.config.docs_path' <<< '[session_config]'); cat ${docs_path}/README.md 2>/dev/null || echo 'No README')",
         "output_to": "project_readme"
       },
       {
-        "step": "list_modules",
-        "command": "bash(cat ${session_dir}/.process/doc-dirs.txt)",
-        "output_to": "module_list"
+        "step": "load_top_level_dirs",
+        "action": "Load top-level directories",
+        "command": "bash(session=$(ls -t .workflow/.active-* | head -1 | sed 's/.*active-//'); cat .workflow/${session}/.process/top-level-dirs.txt)",
+        "output_to": "top_level_dirs"
       }
     ],
     "implementation_approach": [
@@ -340,20 +524,22 @@ IMPL-003: Mirror module documentation structure
         "title": "Generate SKILL.md",
         "description": "Create SKILL.md entry point with YAML frontmatter and progressive references",
         "modification_points": [
-          "Create ${skill_path}/SKILL.md",
-          "Add YAML frontmatter (name, description)",
+          "Extract project_name and skill_path from [session_config]",
+          "Parse [project_readme] for project description",
+          "Parse [top_level_dirs] for available modules",
+          "Create ${skill_path}/SKILL.md with YAML frontmatter",
           "Add progressive loading guide (Level 0-3)",
           "Reference OVERVIEW.md for minimal context",
-          "List available modules from [module_list]"
+          "List available modules with mirrored paths"
         ],
         "logic_flow": [
-          "Parse [project_readme] for project description",
-          "Parse [module_list] for available modules",
+          "Parse [session_config] to get skill_path and project_name",
           "Generate SKILL.md with structure:",
-          "  - YAML frontmatter",
+          "  - YAML frontmatter (name, description from [project_readme])",
           "  - Progressive loading guide",
-          "  - Level 0: [OVERVIEW.md](knowledge/OVERVIEW.md)",
-          "  - Level 1-3: Module references with mirrored paths"
+          "  - Level 0: [OVERVIEW.md](knowledge/OVERVIEW.md#project-overview)",
+          "  - Level 1-3: Module references with mirrored paths from [top_level_dirs]",
+          "Write to skill_path/SKILL.md"
         ],
         "depends_on": [],
         "output": "skill_entry"
@@ -364,93 +550,73 @@ IMPL-003: Mirror module documentation structure
 }
 ```
 
-#### Task 2: Generate OVERVIEW.md (Merged Index)
+### Task 3 (or IMPL-002): Generate OVERVIEW.md (Merged Index)
 
 **Goal**: Merge project README + EXAMPLES + module index into single OVERVIEW.md
 
+**Task ID**: IMPL-003 (if docs generated) or IMPL-002 (if docs exist)
+
 ```json
 {
-  "id": "IMPL-002",
+  "id": "IMPL-003",
   "title": "Generate OVERVIEW.md (Merged Index)",
   "status": "pending",
+  "depends_on": ["IMPL-002"],
   "meta": {
-    "type": "skill-overview",
-    "agent": "@doc-generator",
-    "tool": "gemini"
+    "type": "docs",
+    "agent": "@doc-generator"
   },
   "context": {
     "requirements": [
       "Merge README.md, EXAMPLES.md, and module index into OVERVIEW.md",
       "Include project overview, quickstart, and module list",
       "Add statistics and token estimates"
-    ],
-    "docs_path": "${docs_path}",
-    "skill_path": "${skill_path}"
+    ]
   },
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_readme",
-        "command": "bash(cat ${docs_path}/README.md 2>/dev/null || echo 'No README')",
-        "output_to": "readme_content"
+        "step": "load_session_config",
+        "action": "Load session configuration",
+        "command": "bash(cat $(ls -t .workflow/.active-* | head -1 | sed 's/.active-//')/workflow-session.json)",
+        "output_to": "session_config"
       },
       {
-        "step": "load_examples",
-        "command": "bash(cat ${docs_path}/EXAMPLES.md 2>/dev/null || echo 'No examples')",
-        "output_to": "examples_content"
-      },
-      {
-        "step": "load_architecture",
-        "command": "bash(cat ${docs_path}/ARCHITECTURE.md 2>/dev/null || echo 'No architecture')",
-        "output_to": "architecture_content"
+        "step": "load_project_docs",
+        "action": "Load project README, ARCHITECTURE, EXAMPLES",
+        "command": "bash(docs_path=$(jq -r '.config.docs_path' <<< '[session_config]'); cat ${docs_path}/README.md ${docs_path}/ARCHITECTURE.md ${docs_path}/EXAMPLES.md 2>/dev/null || echo 'No project docs')",
+        "output_to": "project_docs"
       },
       {
         "step": "load_module_list",
-        "command": "bash(cat ${session_dir}/.process/doc-dirs.txt)",
-        "output_to": "module_dirs"
-      },
-      {
-        "step": "calculate_stats",
-        "command": "bash(find ${docs_path} -name '*.md' | wc -l; find ${docs_path} -name '*.md' -exec wc -c {} + | tail -1 | awk '{print int($1/4)}')",
-        "output_to": "stats"
+        "action": "Load module list for index",
+        "command": "bash(docs_path=$(jq -r '.config.docs_path' <<< '[session_config]'); find ${docs_path} -name 'README.md' ! -path \"${docs_path}/README.md\" ! -path \"${docs_path}/ARCHITECTURE.md\" ! -path \"${docs_path}/EXAMPLES.md\" | sort)",
+        "output_to": "module_files"
       }
     ],
     "implementation_approach": [
       {
         "step": 1,
         "title": "Generate OVERVIEW.md",
-        "description": "Merge project overview, quickstart, architecture, and module index into single OVERVIEW.md",
+        "description": "Merge project docs and module index into single OVERVIEW.md",
         "modification_points": [
-          "Parse [readme_content], [examples_content], [architecture_content]",
-          "Parse [module_dirs] for module list",
-          "Calculate [stats] for token estimates",
-          "Create ${skill_path}/knowledge/OVERVIEW.md with sections:",
-          "  1. Project Overview (from README)",
-          "  2. Quick Start (from EXAMPLES)",
-          "  3. Architecture (from ARCHITECTURE)",
-          "  4. Module Index (from module_dirs with links)",
-          "  5. Statistics (files, tokens, generated date)"
+          "Extract project overview from [project_docs]",
+          "Extract quickstart from [project_docs]",
+          "Build module index from [module_files] with mirrored paths",
+          "Calculate statistics (total modules, files, estimated tokens)",
+          "Merge into OVERVIEW.md structure"
         ],
         "logic_flow": [
-          "Create directory: ${skill_path}/knowledge/",
-          "Merge content sections:",
-          "  # Project Overview",
-          "  [readme_content summary]",
-          "  ",
-          "  ## Quick Start",
-          "  [examples_content key examples]",
-          "  ",
-          "  ## Architecture",
-          "  [architecture_content summary]",
-          "  ",
-          "  ## Module Index",
-          "  [For each dir in module_dirs:",
-          "   - [module_name](src/modules/auth/README.md)]",
-          "  ",
-          "  ## Statistics",
-          "  - Modules: X",
-          "  - Files: Y",
-          "  - Estimated Tokens: Z"
+          "Parse [project_docs] to extract sections",
+          "Parse [module_files] to build module index:",
+          "  - .workflow/docs/my_app/src/modules/auth/README.md → src/modules/auth",
+          "Build OVERVIEW.md with sections:",
+          "  # Project Overview (from README)",
+          "  # Quick Start (from EXAMPLES)",
+          "  # Architecture (from ARCHITECTURE)",
+          "  # Module Index (from module_files with links)",
+          "  # Statistics (files, modules, tokens, timestamp)",
+          "Write to ${skill_path}/knowledge/OVERVIEW.md"
         ],
         "depends_on": [],
         "output": "overview_doc"
@@ -461,70 +627,66 @@ IMPL-003: Mirror module documentation structure
 }
 ```
 
-#### Task 3: Mirror Module Documentation
+### Task 4 (or IMPL-003): Mirror Documentation to SKILL Knowledge
 
-**Goal**: Copy all module documentation with mirrored path structure
+**Goal**: Copy documentation from .workflow/docs/ to .claude/skills/{project}/knowledge/ with path mirroring
+
+**Task ID**: IMPL-004 (if docs generated) or IMPL-003 (if docs exist)
 
 ```json
 {
-  "id": "IMPL-003",
-  "title": "Mirror Module Documentation Structure",
+  "id": "IMPL-004",
+  "title": "Mirror Documentation to SKILL Knowledge",
   "status": "pending",
-  "depends_on": ["IMPL-001", "IMPL-002"],
+  "depends_on": ["IMPL-003"],
   "meta": {
-    "type": "skill-mirror",
-    "agent": "@doc-generator",
-    "tool": "gemini"
+    "type": "file-operation",
+    "agent": "@doc-generator"
   },
   "context": {
     "requirements": [
-      "Mirror all module documentation from ${docs_path} to ${skill_path}/knowledge/",
-      "Preserve directory structure exactly",
-      "Copy API.md and README.md files",
-      "Maintain path mapping (src/modules/auth/ → knowledge/src/modules/auth/)"
-    ],
-    "docs_path": "${docs_path}",
-    "skill_path": "${skill_path}"
+      "Copy docs from .workflow/docs/${project_name}/ to ${skill_path}/knowledge/",
+      "Maintain exact directory structure (path mirroring)",
+      "Exclude project-level docs (README, ARCHITECTURE, EXAMPLES) - already in OVERVIEW.md"
+    ]
   },
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_module_docs",
-        "command": "bash(cat ${session_dir}/.process/module-docs.txt)",
-        "output_to": "all_module_docs"
+        "step": "load_session_config",
+        "action": "Load session configuration",
+        "command": "bash(cat $(ls -t .workflow/.active-* | head -1 | sed 's/.active-//')/workflow-session.json)",
+        "output_to": "session_config"
       },
       {
-        "step": "load_doc_dirs",
-        "command": "bash(cat ${session_dir}/.process/doc-dirs.txt)",
-        "output_to": "doc_directories"
+        "step": "list_module_docs",
+        "action": "List all module documentation files",
+        "command": "bash(docs_path=$(jq -r '.config.docs_path' <<< '[session_config]'); find ${docs_path} -name '*.md' ! -path \"${docs_path}/README.md\" ! -path \"${docs_path}/ARCHITECTURE.md\" ! -path \"${docs_path}/EXAMPLES.md\" | sort)",
+        "output_to": "doc_files"
       }
     ],
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Mirror documentation structure",
-        "description": "Copy all module documentation with exact path mirroring",
+        "title": "Mirror documentation files",
+        "description": "Copy module docs to SKILL knowledge/ with path mirroring",
         "modification_points": [
-          "Parse [all_module_docs] for file list",
-          "Parse [doc_directories] for directory structure",
-          "For each file in ${docs_path}:",
-          "  - Extract relative path from ${docs_path}",
-          "  - Create mirrored directory in ${skill_path}/knowledge/",
-          "  - Copy file to mirrored location",
-          "Example: ${docs_path}/src/modules/auth/API.md",
-          "      → ${skill_path}/knowledge/src/modules/auth/API.md"
+          "Parse [doc_files] to get source file paths",
+          "For each file, compute mirrored destination path",
+          "Create destination directories if needed",
+          "Copy files maintaining structure"
         ],
         "logic_flow": [
-          "Create base directory: ${skill_path}/knowledge/",
-          "For each directory in [doc_directories]:",
-          "  - Create ${skill_path}/knowledge/{dir}/",
-          "For each file in [all_module_docs]:",
-          "  - Get relative_path from ${docs_path}",
-          "  - Copy to ${skill_path}/knowledge/{relative_path}",
-          "Verify all files copied successfully"
+          "Parse [session_config] to get docs_path and skill_path",
+          "For each file in [doc_files]:",
+          "  - Source: .workflow/docs/my_app/src/modules/auth/API.md",
+          "  - Destination: .claude/skills/my_app/knowledge/src/modules/auth/API.md",
+          "  - Create parent directory if not exists",
+          "  - Copy file to destination",
+          "Report total files copied"
         ],
         "depends_on": [],
-        "output": "mirrored_docs"
+        "output": "mirrored_knowledge"
       }
     ],
     "target_files": ["${skill_path}/knowledge/**/*.md"]
@@ -534,41 +696,54 @@ IMPL-003: Mirror module documentation structure
 
 ## Session Structure
 
+Following unified workflow architecture from `workflow-architecture.md`:
+
 ```
 .workflow/
-├── .active-WFS-skill-20240120-143022        # Active session marker
-└── WFS-skill-20240120-143022/
-    ├── IMPL_PLAN.md                         # Implementation plan
-    ├── TODO_LIST.md                         # Progress tracker
-    ├── .process/
-    │   ├── config.json                      # Session config
-    │   ├── module-docs.txt                  # Module documentation paths
-    │   └── doc-dirs.txt                     # Documentation directories
-    └── .task/
-        ├── IMPL-001.json                    # SKILL.md generation
-        ├── IMPL-002.json                    # OVERVIEW.md generation
-        └── IMPL-003.json                    # Mirror documentation
+├── .active-WFS-skill-20250103-143022        # Active session marker
+└── WFS-skill-20250103-143022/
+    ├── workflow-session.json                # Unified session state (REQUIRED)
+    ├── IMPL_PLAN.md                         # Implementation plan (REQUIRED)
+    ├── TODO_LIST.md                         # Progress tracker (REQUIRED)
+    ├── .process/                            # Analysis artifacts (created on-demand)
+    │   ├── folder-analysis.txt              # Folder classification results
+    │   └── top-level-dirs.txt               # Top-level directory list
+    └── .task/                               # Task definitions (REQUIRED)
+        ├── IMPL-001.json                    # Documentation generation (if needed)
+        ├── IMPL-002.json                    # SKILL.md generation
+        ├── IMPL-003.json                    # OVERVIEW.md generation
+        └── IMPL-004.json                    # Mirror documentation
 ```
 
-**Config File Structure** (config.json):
+**Workflow Session Structure** (workflow-session.json):
 ```json
 {
-  "session_id": "WFS-skill-20240120-143022",
-  "timestamp": "2024-01-20T14:30:22+08:00",
-  "path": ".",
-  "target_path": "/home/user/projects/my_app",
-  "project_root": "/home/user/projects",
-  "project_name": "my_app",
-  "tool": "gemini",
-  "regenerate": false,
-  "skip_docs": false,
-  "docs_path": ".workflow/docs/my_app",
-  "skill_path": ".claude/skills/my_app",
-  "existing_docs": 15,
-  "docs_status": "ready",
-  "analysis": {
-    "total_docs": "12",
-    "total_dirs": "3"
+  "session_id": "WFS-skill-20250103-143022",
+  "project": "Generate SKILL package for my_app",
+  "type": "simple",
+  "current_phase": "PLAN",
+  "status": "active",
+  "created": "2025-01-03T14:30:22+08:00",
+  "config": {
+    "project_name": "my_app",
+    "target_path": "/home/user/projects/my_app",
+    "project_root": "/home/user/projects",
+    "tool": "gemini",
+    "regenerate": false,
+    "docs_path": ".workflow/docs/my_app",
+    "skill_path": ".claude/skills/my_app",
+    "docs_status": "ready",
+    "existing_docs": 15,
+    "analysis": {
+      "total_folders": 15,
+      "code_folders": 8,
+      "navigation_folders": 7,
+      "top_level_dirs": 3
+    }
+  },
+  "progress": {
+    "completed_phases": [],
+    "current_tasks": ["IMPL-001", "IMPL-002", "IMPL-003"]
   }
 }
 ```
@@ -580,10 +755,10 @@ IMPL-003: Mirror module documentation structure
 ```
 .claude/skills/
 └── {project_name}/                    # Project-specific root (e.g., my_app/)
-    ├── SKILL.md                       # Entry point (IMPL-001)
+    ├── SKILL.md                       # Entry point (IMPL-002 or IMPL-001)
     └── knowledge/
-        ├── OVERVIEW.md                # Merged index (IMPL-002)
-        └── [mirrored structure]       # Mirrored docs (IMPL-003)
+        ├── OVERVIEW.md                # Merged index (IMPL-003 or IMPL-002)
+        └── [mirrored structure]       # Mirrored docs (IMPL-004 or IMPL-003)
             ├── src/
             │   ├── modules/
             │   │   ├── auth/
@@ -604,219 +779,102 @@ IMPL-003: Mirror module documentation structure
 
 ```bash
 # Plan SKILL package generation
-/memory:skill-memory [path] [--tool gemini|qwen] [--regenerate] [--skip-docs]
+/memory:skill-memory [path] [--tool gemini|qwen] [--regenerate]
 
 # Execute tasks
 /workflow:execute
 ```
 
 **Common Usage**:
-- `/memory:skill-memory` - Auto-detect project, use existing docs
-- `/memory:skill-memory --regenerate` - Force regenerate docs first
-- `/memory:skill-memory --skip-docs` - Use existing docs only
+- `/memory:skill-memory` - Auto-detect project, use existing docs or generate if needed
+- `/memory:skill-memory --regenerate` - Force regenerate all documentation
+- `/memory:skill-memory --tool qwen` - Use qwen instead of gemini
 
 ## Examples
 
-### Example 1: First-time SKILL Package Generation
+### Example 1: First-time SKILL Package Generation (No Existing Docs)
 
 ```bash
 # Step 1: Plan (this command)
 /memory:skill-memory
 
 # Output:
-# ✓ Session initialized: WFS-skill-20240120-143022
+# ✓ Session initialized: WFS-skill-20250103-143022
 # ✓ Project: my_app
-# 📄 Using existing documentation (15 files)
-# 📊 Documentation Analysis:
-#   - Module docs: 12
-#   - Directories: 3
-# ✅ Tasks generated: IMPL-001, IMPL-002, IMPL-003
+# 📊 Folder Analysis Complete:
+#   - Total folders: 15
+#   - Code folders: 8
+#   - Navigation folders: 7
+# 📄 No existing documentation found, will generate
+# 🔧 Generating documentation...
+# ✓ Documentation generation task created (IMPL-001)
+# 📋 Task list:
+#   - IMPL-001: Generate documentation
+#   - IMPL-002: Generate SKILL.md entry point
+#   - IMPL-003: Generate OVERVIEW.md
+#   - IMPL-004: Mirror docs to SKILL knowledge/
+# ✅ Tasks generated successfully
 
 # Step 2: Execute
 /workflow:execute
-
-# Result: .claude/skills/my_app/ created with mirrored structure
 ```
 
-### Example 2: Update Existing SKILL Package
+### Example 2: SKILL Package from Existing Documentation
 
 ```bash
-# Regenerate docs and update SKILL
-/memory:skill-memory --regenerate
+# Step 1: Plan (this command)
+/memory:skill-memory
 
-# Execute
+# Output:
+# ✓ Session initialized: WFS-skill-20250103-143022
+# ✓ Project: my_app
+# 📊 Folder Analysis Complete:
+#   - Total folders: 15
+#   - Code folders: 8
+# 📄 Found 15 existing documentation files
+# ✓ Using existing documentation
+# 📋 Task list (docs exist):
+#   - IMPL-001: Generate SKILL.md entry point
+#   - IMPL-002: Generate OVERVIEW.md
+#   - IMPL-003: Mirror docs to SKILL knowledge/
+# ✅ Tasks generated successfully
+
+# Step 2: Execute
 /workflow:execute
 ```
 
-### Example 3: SKILL Package Only (No Docs Generation)
+### Example 3: Force Regenerate Documentation
 
 ```bash
-# Use existing docs
-/memory:skill-memory --skip-docs
+# Step 1: Plan with regenerate flag
+/memory:skill-memory --regenerate
 
-# Execute
+# Output:
+# ✓ Session initialized: WFS-skill-20250103-143500
+# ✓ Project: my_app
+# 📊 Folder Analysis Complete:
+#   - Total folders: 15
+# 📄 Found 15 existing documentation files
+# ⚠️  --regenerate flag set, will regenerate all documentation
+# 🔧 Generating documentation...
+# ✓ Documentation generation task created (IMPL-001)
+# 📋 Task list:
+#   - IMPL-001: Generate documentation
+#   - IMPL-002: Generate SKILL.md entry point
+#   - IMPL-003: Generate OVERVIEW.md
+#   - IMPL-004: Mirror docs to SKILL knowledge/
+
+# Step 2: Execute
 /workflow:execute
 ```
 
-## SKILL.md Template (Generated by IMPL-001)
+## Key Features
 
-```markdown
----
-name: ${project_name}
-description: Progressive knowledge base for ${project_name} project. Load project context at appropriate detail level based on task requirements.
----
-
-# ${project_name} Knowledge
-
-Progressive project knowledge with path-mirrored structure. See [OVERVIEW.md](knowledge/OVERVIEW.md) for complete module index.
-
-## Progressive Loading Guide
-
-### Level 0: Minimal Context (~500 tokens)
-
-**Use for**: Quick queries, code reviews, bug fixes
-
-**Load**: [Project Overview](knowledge/OVERVIEW.md#project-overview)
-
-### Level 1: Standard Context (~2000 tokens)
-
-**Use for**: Feature implementation, refactoring
-
-**Load**: [Complete Overview](knowledge/OVERVIEW.md) (includes architecture and module index)
-
-### Level 2: Module-Focused (~1500 tokens per module)
-
-**Use for**: Working on specific module
-
-**Available Modules** (see [OVERVIEW.md](knowledge/OVERVIEW.md#module-index) for full list):
-
-- [auth module](knowledge/src/modules/auth/README.md)
-- [api module](knowledge/src/modules/api/README.md)
-- [core library](knowledge/lib/core/README.md)
-
-**Example**: To work on auth module, load:
-- [auth/README.md](knowledge/src/modules/auth/README.md)
-- [auth/API.md](knowledge/src/modules/auth/API.md)
-
-### Level 3: Full Context (⚠️ High token usage)
-
-**Use for**: Architecture changes, major refactoring
-
-**Load**: Start with OVERVIEW.md, then progressively load modules as needed.
-
-## Path Mapping
-
-Knowledge structure mirrors source code:
-- Source: `src/modules/auth/` → Knowledge: `knowledge/src/modules/auth/`
-- Source: `lib/core/` → Knowledge: `knowledge/lib/core/`
-
-## Quick Start
-
-1. **Understand project**: Read [OVERVIEW.md](knowledge/OVERVIEW.md)
-2. **Explore modules**: See module index in OVERVIEW.md
-3. **Deep dive**: Load specific module documentation using mirrored paths
-
-## Updates
-
-Regenerate SKILL package after major code changes:
-\`\`\`bash
-/memory:skill-memory --regenerate
-\`\`\`
-
-**Generated**: ${timestamp}
-```
-
-## OVERVIEW.md Template (Generated by IMPL-002)
-
-```markdown
-# ${project_name} - Project Overview
-
-**Generated**: ${timestamp}
-**Modules**: ${module_count}
-**Files**: ${file_count}
-**Estimated Tokens**: ${token_estimate}
-
----
-
-## 📋 Project Overview
-
-${readme_summary}
-
-## 🚀 Quick Start
-
-${examples_key_sections}
-
-## 🏗️ Architecture
-
-${architecture_summary}
-
-## 📦 Module Index
-
-${module_list_with_links}
-
-### src/modules/auth
-**Path**: `knowledge/src/modules/auth/`
-**Files**: [README.md](src/modules/auth/README.md), [API.md](src/modules/auth/API.md)
-**Description**: Authentication and authorization module
-
-### src/modules/api
-**Path**: `knowledge/src/modules/api/`
-**Files**: [README.md](src/modules/api/README.md), [API.md](src/modules/api/API.md)
-**Description**: REST API endpoints and handlers
-
-### lib/core
-**Path**: `knowledge/lib/core/`
-**Files**: [README.md](lib/core/README.md), [API.md](lib/core/API.md)
-**Description**: Core library utilities
-
-## 📊 Statistics
-
-- **Total Modules**: ${module_count}
-- **Documentation Files**: ${file_count}
-- **Estimated Total Tokens**: ${token_estimate}
-- **Structure**: Path-mirrored to source code
-
-## 🔗 Navigation
-
-All module documentation uses mirrored source paths:
-- `knowledge/src/modules/auth/` ← mirrors → `src/modules/auth/`
-- `knowledge/lib/core/` ← mirrors → `lib/core/`
-
-See [SKILL.md](../SKILL.md) for progressive loading guide.
-
----
-
-**Version**: 5.0.0
-**Last Updated**: ${timestamp}
-```
-
-## Design Philosophy
-
-**Path Mirroring**:
-- ✅ Knowledge structure mirrors source code exactly
-- ✅ Easy to locate docs for any source file
-- ✅ Maintains logical organization
-- ✅ Supports any project structure
-
-**Single Overview File**:
-- ✅ OVERVIEW.md merges: README + EXAMPLES + Architecture + Module Index
-- ✅ Single file for quick project understanding (~2000 tokens)
-- ✅ Includes all navigation links to mirrored modules
-
-**SKILL-Native Design**:
-- ✅ SKILL.md as entry point (required by Claude Code)
-- ✅ Standard Markdown links for progressive loading
-- ✅ Claude loads referenced files on-demand
-- ✅ Human-readable OVERVIEW.md for module discovery
-
-**Progressive Loading**:
-- Level 0: OVERVIEW.md#project-overview (~500 tokens)
-- Level 1: Full OVERVIEW.md (~2000 tokens)
-- Level 2: Specific modules (~1500/module)
-- Level 3: Full context (load progressively as needed)
-
----
-
-**Version**: 5.0.0 (Path-Mirrored)
-**Last Updated**: 2025-01-03
-**Dependencies**: `/memory:docs`, `/workflow:execute`, `gemini` CLI
+- ✅ Path mirroring for intuitive navigation
+- ✅ Embedded documentation generation (no external command dependencies)
+- ✅ Progressive SKILL loading (Level 0-3)
+- ✅ Merged OVERVIEW.md for quick reference
+- ✅ Smart folder classification (code vs navigation)
+- ✅ Reuses existing docs or regenerates on demand
+- ✅ workflow-session.json for session state
+- ✅ Compatible with workflow-architecture.md conventions
