@@ -1,7 +1,7 @@
 ---
 name: skill-memory
 description: Generate SKILL package index from project documentation
-argument-hint: "[path] [--tool <gemini|qwen>] [--regenerate] [--mode <full|partial>]"
+argument-hint: "[path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 ---
 
@@ -81,10 +81,18 @@ bash(
 bash(
   project_name="[from previous output]"
   docs_path=".workflow/docs/${project_name}"
+  regenerate="[from previous output]"
 
   if [[ -d "$docs_path" ]]; then
     doc_count=$(find "$docs_path" -name "*.md" 2>/dev/null | wc -l)
     echo "EXISTING_DOCS: $doc_count"
+
+    # Handle --regenerate flag: delete existing docs
+    if [[ -n "$regenerate" ]]; then
+      echo "REGENERATE: Deleting existing docs at ${docs_path}"
+      rm -rf "$docs_path"
+      echo "EXISTING_DOCS: 0 (after regenerate)"
+    fi
   else
     echo "EXISTING_DOCS: 0"
   fi
@@ -116,21 +124,20 @@ bash(
 
 **Command**:
 ```bash
-SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode] [regenerateFlag]")
+SlashCommand(command="/memory:docs [targetPath] --tool [tool] --mode [mode]")
 ```
 
 **Example**:
 ```bash
 /memory:docs /d/my_app --tool gemini --mode full
-# or with regenerate:
-/memory:docs /d/my_app --tool gemini --mode full --regenerate
 ```
+
+**Note**: The `--regenerate` flag is handled in Phase 1 by deleting existing documentation. This command always calls `/memory:docs` without the regenerate flag, relying on docs.md's built-in update detection.
 
 **Input**:
 - `targetPath` from Phase 1
 - `tool` from Phase 1
 - `mode` from Phase 1
-- `regenerateFlag` from Phase 1
 
 **Parse Output**:
 - Extract session ID pattern: `WFS-docs-[timestamp]` (store as `docsSessionId`)
@@ -309,14 +316,17 @@ TodoWrite({todos: [
 ## Parameters
 
 ```bash
-/memory:skill-memory [path] [--tool <gemini|qwen>] [--regenerate] [--mode <full|partial>]
+/memory:skill-memory [path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>]
 ```
 
 - **path**: Target directory (default: current directory)
 - **--tool**: CLI tool for documentation (default: gemini)
   - `gemini`: Comprehensive documentation
   - `qwen`: Architecture analysis
+  - `codex`: Implementation validation
 - **--regenerate**: Force regenerate all documentation
+  - When enabled: Deletes existing `.workflow/docs/{project_name}/` before regeneration
+  - Ensures fresh documentation from source code
 - **--mode**: Documentation mode (default: full)
   - `full`: Complete docs (modules + README + ARCHITECTURE + EXAMPLES)
   - `partial`: Module docs only
