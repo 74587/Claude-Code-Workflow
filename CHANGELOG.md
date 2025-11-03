@@ -7,50 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.2.0] - 2025-11-03
 
-### 🚀 Memory Commands Enhancement
+### 🎉 New Command: `/memory:docs` - Intelligent Documentation Workflow
 
-This release optimizes documentation workflow commands with batch processing, dual execution modes, and reduced redundancy for improved performance and flexibility.
+This release introduces a powerful new documentation command that revolutionizes project documentation generation with intelligent planning, parallel execution, and smart task grouping.
 
 #### ✅ Added
 
-**Documentation Workflow**:
-- ✅ **Batch Processing** - `/memory:docs` now uses single Level 1 task for all module trees
-- ✅ **Dual Execution Modes** - Agent Mode (default) and CLI Mode (--cli-execute) support
-- ✅ **Pre-computed Analysis** - Phase 2 unified analysis eliminates redundant CLI calls
-- ✅ **CLI Execute Flag** - `/memory:skill-memory` now supports --cli-execute parameter
+**New `/memory:docs` Command**:
+- ✨ **Lightweight Documentation Planner** - Analyzes project structure and generates executable documentation tasks
+- ✨ **Smart Task Grouping** - Dynamic grouping algorithm with ≤7 documents per task constraint
+- ✨ **Context Sharing Optimization** - Prefer grouping 2 top-level directories for shared Gemini analysis
+- ✨ **Parallel Execution** - Multiple task groups execute concurrently for faster completion
+- ✨ **Path Mirroring Strategy** - Documentation structure mirrors source code hierarchy
+- ✨ **Two Execution Modes** - Agent Mode (default) and CLI Mode (--cli-execute)
+- ✨ **Two Documentation Modes** - Full mode (complete docs) and Partial mode (modules only)
 
-**Agent Enhancements**:
-- ✅ **@doc-generator** - Mode-aware execution supporting both Agent and CLI modes
-- ✅ **Mode Detection** - Automatic strategy selection based on `cli_execute` flag
-- ✅ **CLI Integration** - Direct documentation generation via CLI tools (gemini/qwen/codex)
+**Task Grouping Algorithm**:
+- 🎯 **Primary constraint**: Each task generates ≤7 documents (hard limit)
+- 🎯 **Optimization goal**: Group 2 directories when possible for context sharing
+- 🎯 **Conflict resolution**: Automatic splitting when exceeding document limit
+- 🎯 **Context benefit**: Same-task directories analyzed via single Gemini call
 
-#### 📝 Changed
+**Workflow Phases**:
+- 📋 **Phase 1**: Initialize session and create directory structure
+- 📋 **Phase 2**: Pre-computed analysis (folder classification, structure analysis)
+- 📋 **Phase 3**: Detect update mode (create vs. update)
+- 📋 **Phase 4**: Smart task decomposition with document count control
+- 📋 **Phase 5**: Generate executable task JSONs with dependency chains
 
-**Documentation Commands**:
-- 🔄 **`/memory:docs`** - Optimized task decomposition (N+3 tasks → 4 tasks)
-- 🔄 **Task Structure** - Reduced task count through batch processing strategy
-- 🔄 **File Operations** - One-time file reads in Phase 2, shared across tasks
-- 🔄 **CLI Calls** - Single unified analysis replaces per-task analysis
+**Documentation Types**:
+- 📚 **Module Documentation**: API.md (code folders) + README.md (all folders)
+- 📚 **Project Documentation**: README.md (overview and navigation)
+- 📚 **Architecture Documentation**: ARCHITECTURE.md + EXAMPLES.md
+- 📚 **API Documentation**: HTTP API reference (optional, auto-detected)
 
-**Execution Strategy**:
-- 🔄 **Level 1 Tasks** - All module trees handled by single IMPL-001 batch task
-- 🔄 **Context Reuse** - Pre-analyzed data stored in `.process/` directory
-- 🔄 **Agent Mode** - CLI analyzes in pre_analysis, agent generates docs
-- 🔄 **CLI Mode** - CLI generates docs directly in implementation_approach
+**Intelligent Features**:
+- 🧠 **Auto-detection** - Skip tests/build/config/vendor directories automatically
+- 🧠 **Folder Classification** - Code folders vs. Navigation folders
+- 🧠 **Incremental Updates** - Preserve user modifications in existing docs
+- 🧠 **Pre-computed Analysis** - Phase 2 analysis stored in `.process/`, reused across tasks
+- 🧠 **Efficient Data Loading** - Existing docs loaded once, shared across all tasks
 
-#### 🎯 Performance Improvements
+**Command Parameters**:
+```bash
+/memory:docs [path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-execute]
+```
+
+#### 🔧 Technical Highlights
+
+**Session Structure**:
+- `.workflow/WFS-docs-{timestamp}/` - Session root directory
+- `.process/phase2-analysis.json` - Single JSON with all pre-computed analysis
+- `.task/IMPL-*.json` - Executable task definitions with dependency chains
+
+**Task Hierarchy** (Dynamic based on document count):
+- **Level 1**: Module tree groups (parallel execution, ≤7 docs each)
+- **Level 2**: Project README (depends on Level 1, full mode only)
+- **Level 3**: ARCHITECTURE + EXAMPLES (depends on Level 2, full mode only)
+- **Level 4**: HTTP API documentation (optional, auto-detected)
+
+**Grouping Examples**:
+- Small projects (≤7 docs): Single task with shared context
+- Medium projects (>7 docs): Multiple groups with 2 dirs each
+- Large projects (single dir >7 docs): Automatic subdirectory splitting
+
+#### 🎯 Performance Benefits
 
 **Resource Optimization**:
-- ⚡ **67% fewer Level 1 tasks** - 3+ tasks consolidated into 1 batch task
-- ⚡ **67% fewer file reads** - Existing docs loaded once in Phase 2
-- ⚡ **67% fewer CLI calls** - Unified analysis replaces per-task analysis
-- ⚡ **33% fewer total tasks** - Example: 6 tasks → 4 tasks for 3-directory project
+- ⚡ **Parallel Processing** - Multiple directory groups execute concurrently
+- ⚡ **Context Sharing** - Single Gemini call per task group (2 directories)
+- ⚡ **Efficient Analysis** - One-time analysis in Phase 2, reused by all tasks
+- ⚡ **Predictable Sizing** - ≤7 docs per task ensures reliable completion
+- ⚡ **Failure Isolation** - Task-level failures don't block entire workflow
 
-#### 📦 Updated Files
+**Data Efficiency**:
+- 📊 Single `phase2-analysis.json` replaces 7+ temporary files
+- 📊 Existing docs loaded once, shared across all tasks
+- 📊 Pre-computed folder analysis eliminates redundant scanning
 
-- `.claude/commands/memory/docs.md` - Batch processing and dual execution modes
-- `.claude/commands/memory/skill-memory.md` - CLI execute flag support
-- `.claude/agents/doc-generator.md` - Mode-aware execution implementation
+#### 📦 New Files
+
+- `.claude/commands/memory/docs.md` - Complete command specification and workflow
+- Integration with existing `@doc-generator` agent
+- Compatible with workflow execution system (`/workflow:execute`)
+
+#### 🔗 Integration
+
+**Execute documentation workflow**:
+```bash
+/workflow:execute                                    # Auto-discover active session
+/workflow:execute --resume-session="WFS-docs-..."   # Specify session
+/task:execute IMPL-001                               # Execute individual task
+```
+
+**Related commands**:
+- `/workflow:status` - View task progress
+- `/workflow:session:complete` - Mark session complete
 
 ---
 
