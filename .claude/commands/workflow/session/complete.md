@@ -4,17 +4,19 @@ description: Mark the active workflow session as complete, archive it with lesso
 examples:
   - /workflow:session:complete
   - /workflow:session:complete --detailed
+  - /workflow:session:complete --skip-skill
 ---
 
 # Complete Workflow Session (/workflow:session:complete)
 
 ## Overview
-Mark the currently active workflow session as complete, analyze it for lessons learned, move it to the archive directory, and remove the active flag marker.
+Mark the currently active workflow session as complete, analyze it for lessons learned, move it to the archive directory, remove the active flag marker, and optionally update the workflow SKILL package.
 
 ## Usage
 ```bash
-/workflow:session:complete           # Complete current active session
-/workflow:session:complete --detailed # Show detailed completion summary
+/workflow:session:complete                  # Complete current active session
+/workflow:session:complete --detailed       # Show detailed completion summary
+/workflow:session:complete --skip-skill     # Complete without updating SKILL package
 ```
 
 ## Implementation Flow
@@ -94,9 +96,43 @@ Complete workflow session archival. Session already moved to archive location.
 - Agent returns JSON result confirming successful archival
 - Display completion summary to user based on agent response
 
+### Phase 3: Auto-Generate SKILL Package (Optional)
+
+**Purpose**: Automatically update workflow progress SKILL package with newly archived session.
+
+**Note**: This phase can be skipped with `--skip-skill` flag.
+
+#### Command Invocation
+
+After Phase 2 completes successfully, invoke workflow SKILL memory generator in incremental mode:
+
+```bash
+SlashCommand(command="/memory:workflow-skill-memory --incremental")
+```
+
+**What This Does**:
+- Reads updated manifest.json with new archived session
+- Incrementally updates SKILL package files
+- Fast execution (~5-10x faster than full regeneration)
+- Updates sessions-timeline.md, lessons-learned.md, conflict-patterns.md
+- Regenerates SKILL.md with latest session information
+
+**Skip Condition**:
+- If user provides `--skip-skill` flag, skip this phase entirely
+- Useful when batching multiple session completions
+
+**Error Handling**:
+- If SKILL generation fails, log warning but do NOT fail the completion
+- Session is still marked as completed and archived
+- User can manually run `/memory:workflow-skill-memory` later
+
+**Expected Output**:
+- SKILL package updated with new session
+- Confirmation message: "Workflow SKILL package updated"
+
 ## Workflow Execution Strategy
 
-### Two-Phase Approach (Optimized)
+### Three-Phase Approach (Optimized)
 
 **Phase 1: Minimal Manual Setup** (2 simple operations)
 - Find active session and extract name
@@ -114,6 +150,12 @@ Complete workflow session archival. Session already moved to archive location.
 - Remove active marker
 - Return success/error result
 
+**Phase 3: SKILL Package Update** (1 slash command, optional)
+- Invoke `/memory:workflow-skill-memory --incremental`
+- Update workflow progress SKILL package with new session
+- Fast incremental update using existing aggregations
+- Can be skipped with `--skip-skill` flag
+
 ## Quick Commands
 
 ```bash
@@ -125,6 +167,9 @@ bash(mv .workflow/WFS-session-name .workflow/.archives/WFS-session-name)
 
 # Phase 2: Agent completes archival
 Task(subagent_type="universal-executor", description="Complete session archival", prompt=`...`)
+
+# Phase 3: Update SKILL package (optional)
+SlashCommand(command="/memory:workflow-skill-memory --incremental")
 ```
 
 ## Archive Query Commands
@@ -144,4 +189,3 @@ jq '.archives[] | select(.session_id == "WFS-user-auth")' .workflow/.archives/ma
 # List all watch patterns across sessions
 jq '.archives[].lessons.watch_patterns[]' .workflow/.archives/manifest.json
 ```
-
