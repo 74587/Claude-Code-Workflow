@@ -11,11 +11,13 @@ allowed-tools: Task(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 
 Generate SKILL package from archived workflow sessions using agent-driven analysis. Supports single-session incremental updates or parallel processing of all sessions.
 
+**Scope**: Only processes WFS-* workflow sessions. Other session types (e.g., doc sessions) are automatically ignored.
+
 ## Usage
 
 ```bash
-/memory:workflow-skill-memory session <session-id>   # Process single session
-/memory:workflow-skill-memory all                    # Process all sessions in parallel
+/memory:workflow-skill-memory session WFS-<session-id>   # Process single WFS session
+/memory:workflow-skill-memory all                        # Process all WFS sessions in parallel
 ```
 
 ## Execution Modes
@@ -112,6 +114,12 @@ If missing, report error and exit.
 
 **Single Session Mode**:
 ```bash
+# Validate session ID format (must start with WFS-)
+if [[ ! "$session_id" =~ ^WFS- ]]; then
+  ERROR = "Invalid session ID format. Only WFS-* sessions are supported"
+  EXIT
+fi
+
 # Check if session exists
 bash(test -d .workflow/.archives/{session_id} && echo "exists" || echo "missing")
 ```
@@ -120,11 +128,11 @@ If missing, report error: "Session {session_id} not found in archives"
 
 **All Sessions Mode**:
 ```bash
-# Read manifest to get session list
-bash(cat .workflow/.archives/manifest.json | jq -r '.archives[].session_id')
+# Read manifest and filter only WFS- sessions
+bash(cat .workflow/.archives/manifest.json | jq -r '.archives[].session_id | select(startswith("WFS-"))')
 ```
 
-Store session IDs in array.
+Store filtered session IDs in array. Ignore doc sessions and other non-WFS sessions.
 
 **Step 1.4: TodoWrite Initialization**
 
@@ -441,8 +449,9 @@ All templates located in: `~/.claude/workflows/cli-templates/prompts/workflow/`
 
 ### Validation Errors
 - **No archives directory**: "Error: No workflow archives found at .workflow/.archives/"
+- **Invalid session ID format**: "Error: Invalid session ID format. Only WFS-* sessions are supported"
 - **Session not found**: "Error: Session {session_id} not found in archives"
-- **No sessions in manifest**: "Error: No archived sessions found in manifest.json"
+- **No WFS sessions in manifest**: "Error: No WFS-* workflow sessions found in manifest.json"
 
 ### Agent Errors
 - If agent fails, report error message from agent result
