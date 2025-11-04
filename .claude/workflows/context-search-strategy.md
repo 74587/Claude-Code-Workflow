@@ -14,7 +14,7 @@ type: search-guideline
 
 ## ⚡ Core Search Tools
 
-**Skill()**: FASTEST way to get project context - use FIRST if SKILL package exists (higher priority than CLI analysis)
+**Skill()**: FASTEST way to get context - use FIRST if SKILL exists. Three types: (1) `workflow-progress` for WFS sessions (2) tech SKILLs for stack docs (3) `{project-name}` for project docs
 **codebase-retrieval**: Semantic file discovery via Gemini CLI with all files analysis
 **rg (ripgrep)**: Fast content search with regex support
 **find**: File/directory location by name patterns
@@ -25,7 +25,9 @@ type: search-guideline
 
 | Need | Tool | Use Case |
 |------|------|----------|
-| **Project understanding** | Skill() | FASTEST context loading - use FIRST if SKILL exists |
+| **Workflow history** | Skill(workflow-progress) | WFS sessions lessons/conflicts - `/memory:workflow-skill-memory` |
+| **Tech stack docs** | Skill({tech-name}) | Stack APIs/guides - `/memory:tech-research` |
+| **Project docs** | Skill({project-name}) | Project modules/architecture - `/memory:skill-memory` |
 | **Semantic discovery** | codebase-retrieval | Find files relevant to task/feature context |
 | **Pattern matching** | rg | Search code content with regex |
 | **File name lookup** | find | Locate files by name patterns |
@@ -34,8 +36,10 @@ type: search-guideline
 ## 🔧 Quick Command Reference
 
 ```bash
-# SKILL Package (FIRST PRIORITY - fastest way to get project context)
-Skill(command: "skill_name")  # Intelligent auto-trigger by task context - use FIRST if SKILL exists
+# SKILL Packages (FIRST PRIORITY - fastest context loading)
+Skill(command: "workflow-progress")  # Workflow: WFS sessions history, lessons, conflicts
+Skill(command: "react-dev")          # Tech: React APIs, patterns, best practices
+Skill(command: "claude_dms3")        # Project: Project modules, architecture, examples
 
 # Semantic File Discovery (codebase-retrieval)
 cd [directory] && gemini -p "
