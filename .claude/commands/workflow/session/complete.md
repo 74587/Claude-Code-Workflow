@@ -104,18 +104,18 @@ Complete workflow session archival. Session already moved to archive location.
 
 #### Command Invocation
 
-After Phase 2 completes successfully, invoke workflow SKILL memory generator in incremental mode:
+After Phase 2 completes successfully, invoke workflow SKILL memory generator with session ID:
 
 ```bash
-SlashCommand(command="/memory:workflow-skill-memory --incremental")
+SlashCommand(command="/memory:workflow-skill-memory session WFS-session-name")
 ```
 
 **What This Does**:
-- Reads updated manifest.json with new archived session
-- Incrementally updates SKILL package files
-- Fast execution (~5-10x faster than full regeneration)
-- Updates sessions-timeline.md, lessons-learned.md, conflict-patterns.md
-- Regenerates SKILL.md with latest session information
+- Processes single archived session incrementally
+- Agent analyzes session data and uses Gemini for intelligent aggregation
+- Updates SKILL package files: sessions-timeline.md, lessons-learned.md, conflict-patterns.md
+- Regenerates SKILL.md index with latest session
+- Fast execution through agent-driven incremental update
 
 **Skip Condition**:
 - If user provides `--skip-skill` flag, skip this phase entirely
@@ -151,9 +151,9 @@ SlashCommand(command="/memory:workflow-skill-memory --incremental")
 - Return success/error result
 
 **Phase 3: SKILL Package Update** (1 slash command, optional)
-- Invoke `/memory:workflow-skill-memory --incremental`
+- Invoke `/memory:workflow-skill-memory session {session_id}`
 - Update workflow progress SKILL package with new session
-- Fast incremental update using existing aggregations
+- Agent-driven incremental update with intelligent aggregation
 - Can be skipped with `--skip-skill` flag
 
 ## Quick Commands
@@ -169,7 +169,7 @@ bash(mv .workflow/WFS-session-name .workflow/.archives/WFS-session-name)
 Task(subagent_type="universal-executor", description="Complete session archival", prompt=`...`)
 
 # Phase 3: Update SKILL package (optional)
-SlashCommand(command="/memory:workflow-skill-memory --incremental")
+SlashCommand(command="/memory:workflow-skill-memory session WFS-session-name")
 ```
 
 ## Archive Query Commands

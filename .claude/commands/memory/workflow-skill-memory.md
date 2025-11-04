@@ -1,739 +1,512 @@
 ---
 name: workflow-skill-memory
 description: Generate SKILL package from archived workflow sessions for progressive context loading
-argument-hint: "[--regenerate] [--incremental] [--filter <topic>]"
-allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*)
+argument-hint: "session <session-id> | all"
+allowed-tools: Task(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 ---
 
 # Workflow SKILL Memory Generator
 
-## Orchestrator Role
+## Overview
 
-**Pure Orchestrator**: Extract and aggregate workflow session history to generate SKILL package for progressive context loading.
+Generate SKILL package from archived workflow sessions using agent-driven analysis. Supports single-session incremental updates or parallel processing of all sessions.
 
-**Auto-Continue Workflow**: This command runs **fully autonomously** once triggered. Each phase completes and automatically triggers the next phase without user interaction.
+## Usage
 
-**Execution Paths**:
-- **Full Path**: All 4 phases (no existing SKILL OR `--regenerate` specified)
-- **Incremental Path**: Phase 1 → Phase 2 → Phase 4 (existing SKILL found AND `--incremental` flag)
-- **Phase 4 Always Executes**: SKILL.md index is never skipped, always generated or updated
+```bash
+/memory:workflow-skill-memory session <session-id>   # Process single session
+/memory:workflow-skill-memory all                    # Process all sessions in parallel
+```
 
-## Core Rules
+## Execution Modes
 
-1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 execution
-2. **No Task JSON**: This command does not create task JSON files
-3. **Parse Every Output**: Extract required data from each command output (session count, file paths)
-4. **Auto-Continue**: After completing each phase, update TodoWrite and immediately execute next phase
-5. **Track Progress**: Update TodoWrite after EVERY phase completion before starting next phase
-6. **Direct Generation**: Phase 4 directly generates SKILL.md using Write tool
-7. **No Manual Steps**: User should never be prompted for decisions between phases
+### Mode 1: Single Session (`session <session-id>`)
+
+**Purpose**: Incremental update - process one archived session and merge into existing SKILL package
+
+**Workflow**:
+1. **Validate session**: Check if session exists in `.workflow/.archives/{session-id}/`
+2. **Invoke agent**: Call `universal-executor` to analyze session and update SKILL documents
+3. **Agent tasks**:
+   - Read session data from `.workflow/.archives/{session-id}/`
+   - Extract lessons, conflicts, and outcomes
+   - Use Gemini for intelligent aggregation (optional)
+   - Update or create SKILL documents using templates
+   - Regenerate SKILL.md index
+
+**Command Example**:
+```bash
+/memory:workflow-skill-memory session WFS-user-auth
+```
+
+**Expected Output**:
+```
+✅ Session WFS-user-auth processed
+Updated:
+- sessions-timeline.md (1 session added)
+- lessons-learned.md (3 lessons merged)
+- conflict-patterns.md (1 conflict added)
+- SKILL.md (index regenerated)
+```
 
 ---
 
-## 4-Phase Execution
+### Mode 2: All Sessions (`all`)
 
-### Phase 1: Read Archived Sessions
+**Purpose**: Full regeneration - process all archived sessions in parallel for complete SKILL package
 
-**Goal**: Read manifest.json and list all archived workflow sessions
+**Workflow**:
+1. **List sessions**: Read manifest.json to get all archived session IDs
+2. **Parallel invocation**: Launch multiple `universal-executor` agents in parallel (one per session)
+3. **Agent coordination**:
+   - Each agent processes one session independently
+   - Agents use Gemini for analysis
+   - Agents collect data into JSON (no direct file writes)
+   - Final aggregator agent merges results and generates SKILL documents
 
-**Step 1.1: Check Archive Directory**
+**Command Example**:
 ```bash
-bash(test -d .workflow/.archives && echo "exists" || echo "not_exists")
+/memory:workflow-skill-memory all
 ```
 
-**Step 1.2: Read Manifest**
-```bash
-bash(test -f .workflow/.archives/manifest.json && cat .workflow/.archives/manifest.json || echo "{}")
+**Expected Output**:
+```
+✅ All sessions processed in parallel
+Sessions: 8 total
+Updated:
+- sessions-timeline.md (8 sessions)
+- lessons-learned.md (24 lessons aggregated)
+- conflict-patterns.md (12 conflicts documented)
+- SKILL.md (index regenerated)
 ```
 
-**Output**:
-- `archive_exists`: `exists` or `not_exists`
-- `manifest_content`: JSON content or empty object
-- `session_count`: Number of archived sessions
+---
 
-**Step 1.3: Parse Session List**
+## Implementation Flow
 
-Extract from manifest:
-- Session IDs
-- Descriptions
-- Archived dates
-- Tags
-- Metrics (task_count, success_rate, duration_hours)
+### Phase 1: Validation and Setup
 
-**Step 1.4: Apply Filters (if --filter specified)**
+**Step 1.1: Parse Command Arguments**
 
-If user provided `--filter <topic>`:
-- Filter sessions by description/tags matching topic
-- Update session list to only include filtered sessions
-
-**Step 1.5: Determine Execution Path**
-
-**Decision Logic**:
+Extract mode and session ID:
 ```javascript
-if (session_count === 0) {
-  // No archived sessions
-  ERROR = "No archived workflow sessions found"
-  SKIP_ALL = true
-} else if (existing_SKILL && incremental_flag) {
-  // Incremental update: skip full aggregation
-  SKIP_AGGREGATION = true
-  message = "Incremental update mode, reusing existing aggregations."
-} else if (regenerate_flag) {
-  // Force regeneration: delete existing SKILL
-  bash(rm -rf .claude/skills/workflow-progress 2>/dev/null || true)
-  SKIP_AGGREGATION = false
-  message = "Regenerating SKILL package from scratch."
+if (args === "all") {
+  mode = "all"
+} else if (args.startsWith("session ")) {
+  mode = "session"
+  session_id = args.replace("session ", "").trim()
 } else {
-  // No existing SKILL or full generation
-  SKIP_AGGREGATION = false
-  message = "Generating new SKILL package."
+  ERROR = "Invalid arguments. Usage: session <session-id> | all"
+  EXIT
 }
 ```
 
-**Summary Variables**:
-- `SESSION_COUNT`: Total archived sessions (or filtered count)
-- `SESSION_LIST`: Array of session objects [{id, description, archived_at, tags, metrics}]
-- `FILTER_TOPIC`: Filter keyword (if specified)
-- `INCREMENTAL`: `true` if --incremental flag
-- `REGENERATE`: `true` if --regenerate flag
-- `SKIP_AGGREGATION`: `true` if incremental update
-- `SKIP_ALL`: `true` if no sessions found
-
-**Completion & TodoWrite**:
-- If `SKIP_ALL = true`: Mark all phases completed (error), report error
-- If `SKIP_AGGREGATION = true`: Mark phase 1 completed, phase 2&3 completed (skipped), phase 4 in_progress
-- If `SKIP_AGGREGATION = false`: Mark phase 1 completed, phase 2 in_progress
-
-**Next Action**:
-- If error: Display error message → Exit
-- If skipping aggregation: Display skip message → Jump to Phase 4
-- Otherwise: Display session list → Continue to Phase 2
-
----
-
-### Phase 2: Extract Session Data
-
-**Skip Condition**: This phase is **skipped if SKIP_AGGREGATION = true** (incremental mode with existing aggregations)
-
-**Goal**: Traverse archived sessions and extract key data
-
-**For Each Session**:
-
-**Step 2.1: Read Session Metadata**
+**Step 1.2: Validate Archive Directory**
 ```bash
-bash(cat .workflow/.archives/WFS-{session_id}/workflow-session.json)
+bash(test -d .workflow/.archives && echo "exists" || echo "missing")
 ```
 
-**Step 2.2: Check for Key Files**
+If missing, report error and exit.
+
+**Step 1.3: Mode-Specific Validation**
+
+**Single Session Mode**:
 ```bash
-# Context package path (reference only, don't read content)
-bash(test -f .workflow/.archives/WFS-{session_id}/.process/context-package.json && echo "exists" || echo "missing")
-
-# IMPL_PLAN
-bash(test -f .workflow/.archives/WFS-{session_id}/IMPL_PLAN.md && cat .workflow/.archives/WFS-{session_id}/IMPL_PLAN.md || echo "")
-
-# TODO_LIST
-bash(test -f .workflow/.archives/WFS-{session_id}/TODO_LIST.md && cat .workflow/.archives/WFS-{session_id}/TODO_LIST.md || echo "")
-
-# Count tasks and summaries
-bash(find .workflow/.archives/WFS-{session_id}/.task -name "*.json" 2>/dev/null | wc -l || echo 0)
-bash(find .workflow/.archives/WFS-{session_id}/.summaries -name "*.md" 2>/dev/null | wc -l || echo 0)
+# Check if session exists
+bash(test -d .workflow/.archives/{session_id} && echo "exists" || echo "missing")
 ```
 
-**Step 2.3: Extract from Manifest Entry**
+If missing, report error: "Session {session_id} not found in archives"
 
-For each session, extract from manifest.json:
-- `lessons.successes` - Success patterns
-- `lessons.challenges` - Challenges encountered
-- `lessons.watch_patterns` - Things to watch for
-- `tags` - Functional domain tags
-- `metrics` - Task count, success rate, duration
+**All Sessions Mode**:
+```bash
+# Read manifest to get session list
+bash(cat .workflow/.archives/manifest.json | jq -r '.archives[].session_id')
+```
 
-**Aggregated Data Structure**:
+Store session IDs in array.
+
+**Step 1.4: TodoWrite Initialization**
+
+**Single Session Mode**:
 ```javascript
-{
-  "sessions": [
-    {
-      "session_id": "WFS-user-auth",
-      "description": "User authentication implementation",
-      "archived_at": "2025-11-03T12:00:00Z",
-      "tags": ["auth", "security", "jwt"],
-      "metrics": {
-        "task_count": 5,
-        "completed_tasks": 5,
-        "success_rate": 100,
-        "duration_hours": 4.5
-      },
-      "context_package_path": ".workflow/.archives/WFS-user-auth/.process/context-package.json",
-      "impl_plan_summary": "First 200 chars of IMPL_PLAN.md...",
-      "lessons": {
-        "successes": ["JWT implementation worked well", "..."],
-        "challenges": ["Token refresh edge cases", "..."],
-        "watch_patterns": ["Concurrent token validation", "..."]
-      }
-    }
-  ],
-  "aggregated_lessons": {
-    "successes_by_category": {
-      "auth": ["JWT implementation", "..."],
-      "testing": ["Coverage reached 90%", "..."]
-    },
-    "challenges_by_severity": {
-      "high": ["Performance bottleneck in token validation", "..."],
-      "medium": ["Edge case handling", "..."]
-    },
-    "watch_patterns": ["Token concurrency", "State management", "..."]
-  },
-  "conflict_patterns": {
-    "architecture": [
-      {
-        "pattern": "Multiple authentication strategies conflict",
-        "sessions": ["WFS-user-auth", "WFS-oauth"],
-        "resolution": "Unified auth interface"
-      }
-    ],
-    "dependencies": [
-      {
-        "pattern": "Version mismatch in JWT libraries",
-        "sessions": ["WFS-user-auth"],
-        "resolution": "Lock to compatible version"
-      }
-    ]
-  }
-}
+TodoWrite({todos: [
+  {"content": "Validate session existence", "status": "completed", "activeForm": "Validating session"},
+  {"content": "Invoke agent to process session", "status": "in_progress", "activeForm": "Invoking agent"},
+  {"content": "Verify SKILL package updated", "status": "pending", "activeForm": "Verifying update"}
+]})
 ```
 
-**Completion Criteria**:
-- All sessions traversed
-- Data structure populated
-- Aggregations computed (lessons by category, conflicts by type)
-
-**TodoWrite**: Mark phase 2 completed, phase 3 in_progress
-
-**Next Action**: Display extraction summary (sessions processed, lessons extracted) → Auto-continue to Phase 3
-
----
-
-### Phase 3: Classify and Organize Data
-
-**Skip Condition**: This phase is **skipped if SKIP_AGGREGATION = true** (incremental mode)
-
-**Goal**: Organize extracted data by functional domains, timeline, and patterns
-
-**Step 3.1: Group Sessions by Tags**
-
-Organize sessions into functional domains:
+**All Sessions Mode**:
 ```javascript
-{
-  "auth": [session_objects],
-  "payment": [session_objects],
-  "ui": [session_objects],
-  "testing": [session_objects],
-  "other": [session_objects]
-}
+TodoWrite({todos: [
+  {"content": "Read manifest and list sessions", "status": "completed", "activeForm": "Reading manifest"},
+  {"content": "Invoke agents in parallel", "status": "in_progress", "activeForm": "Invoking agents"},
+  {"content": "Verify SKILL package regenerated", "status": "pending", "activeForm": "Verifying regeneration"}
+]})
 ```
-
-**Step 3.2: Sort by Timeline**
-
-Create chronological timeline:
-- Sort sessions by `archived_at` (newest first)
-- Group by month/quarter for large histories
-
-**Step 3.3: Identify Recurring Patterns**
-
-**Lessons Analysis**:
-- Successes that appear in multiple sessions → "Best Practices"
-- Challenges that repeat → "Known Issues"
-- Watch patterns with high frequency → "High Priority Warnings"
-
-**Conflict Analysis**:
-- Group conflicts by type (architecture, dependencies, testing)
-- Mark conflicts that occurred in multiple sessions
-- Link resolutions to specific sessions
-
-**Step 3.4: Build Progressive Loading Structure**
-
-Organize data for 4 levels:
-- **Level 0**: Top 5 recent sessions + Top 3 conflict patterns
-- **Level 1**: Top 10 sessions + Lessons by category
-- **Level 2**: All sessions + Full conflict analysis + IMPL_PLAN summaries
-- **Level 3**: All sessions + Full IMPL_PLAN + TODO_LIST + Context package references
-
-**Completion Criteria**:
-- Sessions grouped by domain
-- Timeline structure created
-- Recurring patterns identified
-- Progressive loading structure built
-
-**TodoWrite**: Mark phase 3 completed, phase 4 in_progress
-
-**Next Action**: Display organization summary → Auto-continue to Phase 4
 
 ---
 
-### Phase 4: Generate SKILL Package
+### Phase 2: Agent Invocation
 
-**Note**: This phase is **NEVER skipped** - it always executes to generate or update the SKILL package.
+#### Single Session Mode - Agent Task
 
-**Step 4.1: Create SKILL Directory**
+Invoke `universal-executor` with session-specific task:
+
+**Agent Prompt Structure**:
+```
+Task: Process Workflow Session for SKILL Package
+
+Context:
+- Session ID: {session_id}
+- Session Path: .workflow/.archives/{session_id}/
+- Mode: Incremental update
+
+Objectives:
+
+1. Read session data:
+   - workflow-session.json (metadata)
+   - IMPL_PLAN.md (implementation summary)
+   - TODO_LIST.md (if exists)
+   - manifest.json entry for lessons
+
+2. Extract key information:
+   - Description, tags, metrics
+   - Lessons (successes, challenges, watch_patterns)
+   - Context package path (reference only)
+   - Key outcomes from IMPL_PLAN
+
+3. Use Gemini for aggregation (optional):
+   Command pattern:
+   cd .workflow/.archives/{session_id} && gemini -p "
+   PURPOSE: Extract lessons and conflicts from workflow session
+   TASK:
+   • Analyze IMPL_PLAN and lessons from manifest
+   • Identify success patterns and challenges
+   • Extract conflict patterns with resolutions
+   • Categorize by functional domain
+   MODE: analysis
+   CONTEXT: @IMPL_PLAN.md @workflow-session.json
+   EXPECTED: Structured lessons and conflicts in JSON format
+   RULES: Template reference from skill-aggregation.txt
+   "
+
+4. Read templates for formatting guidance:
+   - ~/.claude/workflows/cli-templates/prompts/workflow/skill-sessions-timeline.txt
+   - ~/.claude/workflows/cli-templates/prompts/workflow/skill-lessons-learned.txt
+   - ~/.claude/workflows/cli-templates/prompts/workflow/skill-conflict-patterns.txt
+   - ~/.claude/workflows/cli-templates/prompts/workflow/skill-index.txt
+
+5. Update SKILL documents:
+   - sessions-timeline.md: Append new session, update domain grouping
+   - lessons-learned.md: Merge lessons into categories, update frequencies
+   - conflict-patterns.md: Add conflicts, update recurring pattern frequencies
+   - SKILL.md: Regenerate index with updated counts
+
+6. Return result JSON:
+   {
+     "status": "success",
+     "session_id": "{session_id}",
+     "updates": {
+       "sessions_added": 1,
+       "lessons_merged": count,
+       "conflicts_added": count
+     }
+   }
+```
+
+---
+
+#### All Sessions Mode - Parallel Agent Tasks
+
+**Step 2.1: Launch parallel session analyzers**
+
+Invoke multiple agents in parallel (one message with multiple Task calls):
+
+**Per-Session Agent Prompt**:
+```
+Task: Extract Session Data for SKILL Package
+
+Context:
+- Session ID: {session_id}
+- Mode: Parallel analysis (no direct file writes)
+
+Objectives:
+
+1. Read session data (same as single mode)
+
+2. Extract key information (same as single mode)
+
+3. Use Gemini for analysis (same as single mode)
+
+4. Return structured data JSON:
+   {
+     "status": "success",
+     "session_id": "{session_id}",
+     "data": {
+       "metadata": {
+         "description": "...",
+         "archived_at": "...",
+         "tags": [...],
+         "metrics": {...}
+       },
+       "lessons": {
+         "successes": [...],
+         "challenges": [...],
+         "watch_patterns": [...]
+       },
+       "conflicts": [
+         {
+           "type": "architecture|dependencies|testing|performance",
+           "pattern": "...",
+           "resolution": "...",
+           "code_impact": [...]
+         }
+       ],
+       "impl_summary": "First 200 chars of IMPL_PLAN",
+       "context_package_path": "..."
+     }
+   }
+```
+
+**Step 2.2: Aggregate results**
+
+After all session agents complete, invoke aggregator agent:
+
+**Aggregator Agent Prompt**:
+```
+Task: Aggregate Session Results and Generate SKILL Package
+
+Context:
+- Mode: Full regeneration
+- Input: JSON results from {session_count} session agents
+
+Objectives:
+
+1. Aggregate all session data:
+   - Collect metadata from all sessions
+   - Merge lessons by category
+   - Group conflicts by type
+   - Sort sessions by date
+
+2. Use Gemini for final aggregation:
+   gemini -p "
+   PURPOSE: Aggregate lessons and conflicts from all workflow sessions
+   TASK:
+   • Group successes by functional domain
+   • Categorize challenges by severity (HIGH/MEDIUM/LOW)
+   • Identify recurring conflict patterns
+   • Calculate frequencies and prioritize
+   MODE: analysis
+   CONTEXT: [Provide aggregated JSON data]
+   EXPECTED: Final aggregated structure for SKILL documents
+   RULES: Template reference from skill-aggregation.txt
+   "
+
+3. Read templates for formatting (same 4 templates as single mode)
+
+4. Generate all SKILL documents:
+   - sessions-timeline.md (all sessions, sorted by date)
+   - lessons-learned.md (aggregated lessons with frequencies)
+   - conflict-patterns.md (recurring patterns with resolutions)
+   - SKILL.md (index with progressive loading)
+
+5. Write files to .claude/skills/workflow-progress/
+
+6. Return result JSON:
+   {
+     "status": "success",
+     "sessions_processed": count,
+     "files_generated": ["SKILL.md", "sessions-timeline.md", ...],
+     "summary": {
+       "total_sessions": count,
+       "functional_domains": [...],
+       "date_range": "...",
+       "lessons_count": count,
+       "conflicts_count": count
+     }
+   }
+```
+
+---
+
+### Phase 3: Verification
+
+**Step 3.1: Check SKILL Package Files**
 ```bash
-bash(mkdir -p .claude/skills/workflow-progress)
+bash(ls -lh .claude/skills/workflow-progress/)
 ```
 
-**Step 4.2: Generate sessions-timeline.md**
+Verify all 4 files exist:
+- SKILL.md
+- sessions-timeline.md
+- lessons-learned.md
+- conflict-patterns.md
 
-Create timeline document:
-```markdown
-# Workflow Sessions Timeline
+**Step 3.2: TodoWrite Completion**
 
-## Recent Sessions (Last 5)
+Mark all tasks as completed.
 
-### WFS-user-auth (2025-11-03)
-**Description**: User authentication implementation
-**Tags**: auth, security, jwt
-**Metrics**: 5 tasks, 100% success, 4.5 hours
-**Context Package**: [.workflow/.archives/WFS-user-auth/.process/context-package.json](.workflow/.archives/WFS-user-auth/.process/context-package.json)
+**Step 3.3: Display Summary**
 
-**Key Outcomes**:
-- ✅ JWT implementation with refresh tokens
-- ✅ Secure password hashing
-- ⚠️ Watch: Token concurrency edge cases
-
-...
-
-## By Functional Domain
-
-### Authentication (3 sessions)
-- WFS-user-auth (2025-11-03)
-- WFS-oauth (2025-10-15)
-- WFS-jwt-refresh (2025-09-20)
-
-### Payment (2 sessions)
-- WFS-stripe-integration (2025-10-28)
-- WFS-payment-webhooks (2025-09-10)
-
-...
+**Single Session Mode**:
 ```
+✅ Session {session_id} processed successfully
 
-**Step 4.3: Generate lessons-learned.md**
+Updated:
+- sessions-timeline.md
+- lessons-learned.md
+- conflict-patterns.md
+- SKILL.md
 
-Create lessons document:
-```markdown
-# Workflow Lessons Learned
-
-## Best Practices (Successes)
-
-### Authentication
-- JWT implementation with refresh tokens works reliably
-- Use bcrypt for password hashing (sessions: WFS-user-auth, WFS-oauth)
-
-### Testing
-- TDD approach reduced bugs by 60% (sessions: WFS-user-auth, WFS-payment)
-- Mocking external APIs saves development time
-
-...
-
-## Known Challenges
-
-### High Priority
-- **Token refresh edge cases**: Concurrent requests can invalidate tokens prematurely
-  - Affected sessions: WFS-user-auth, WFS-jwt-refresh
-  - Resolution: Implement token refresh queue
-
-### Medium Priority
-- **Performance bottlenecks**: Large payload serialization
-  - Affected sessions: WFS-payment-webhooks
-  - Resolution: Implement streaming responses
-
-...
-
-## Watch Patterns
-
-### Critical
-1. **Token concurrency**: Always test concurrent token operations
-2. **State management**: Redux state can become stale in async workflows
-3. **Database migrations**: Always backup before schema changes
-
-...
-```
-
-**Step 4.4: Generate conflict-patterns.md**
-
-Create conflict patterns document:
-```markdown
-# Workflow Conflict Patterns
-
-## Architecture Conflicts
-
-### Multiple Authentication Strategies
-**Pattern**: Different parts of system use incompatible auth methods
-**Sessions**: WFS-user-auth, WFS-oauth
-**Resolution**: Unified auth interface with strategy pattern
-
-**Code Impact**:
-- Modified: src/auth/interface.ts, src/auth/jwt.ts, src/auth/oauth.ts
-- Tests: src/auth/__tests__/
-
-...
-
-## Dependency Conflicts
-
-### JWT Library Version Mismatch
-**Pattern**: jsonwebtoken v8 vs v9 incompatibility
-**Sessions**: WFS-user-auth
-**Resolution**: Lock to jsonwebtoken@^9.0.0, update all imports
-
-...
-
-## Testing Conflicts
-
-### Mock Data Inconsistencies
-**Pattern**: Different test suites use different user fixtures
-**Sessions**: WFS-user-auth, WFS-payment
-**Resolution**: Centralized test fixtures in tests/fixtures/
-
-...
-```
-
-**Step 4.5: Generate SKILL.md**
-
-Create main SKILL index:
-```yaml
----
-name: workflow-progress
-description: Progressive workflow development history (located at {project_root}). Load this SKILL when continuing development, analyzing past implementations, or learning from workflow history, especially when no relevant context exists in memory.
-version: 1.0.0
----
-# Workflow Progress SKILL Package
-
-## Documentation: `../../../.workflow/.archives/`
-
-**Total Sessions**: {session_count}
-**Functional Domains**: {domain_list}
-**Date Range**: {earliest_date} - {latest_date}
-
-## Progressive Loading
-
-### Level 0: Quick Overview (~2K tokens)
-- [Sessions Timeline](sessions-timeline.md#recent-sessions-last-5) - Recent 5 sessions
-- [Top Conflict Patterns](conflict-patterns.md#top-patterns) - Top 3 recurring conflicts
-- Quick reference for last completed work
-
-**Use Case**: Quick context refresh before starting new task
-
-### Level 1: Core History (~8K tokens)
-- [Sessions Timeline](sessions-timeline.md) - Recent 10 sessions with details
-- [Lessons Learned](lessons-learned.md#best-practices) - Success patterns by category
-- [Conflict Patterns](conflict-patterns.md) - Known conflict types and resolutions
-- Context package references (metadata only)
-
-**Use Case**: Understanding recent development patterns and avoiding known pitfalls
-
-### Level 2: Complete History (~25K tokens)
-- All archived sessions with metadata
-- Full lessons learned (successes, challenges, watch patterns)
-- Complete conflict analysis with resolutions
-- IMPL_PLAN summaries from all sessions
-- Context package paths for on-demand loading
-
-**Use Case**: Comprehensive review before major refactoring or architecture changes
-
-### Level 3: Deep Dive (~40K tokens)
-- Full IMPL_PLAN.md and TODO_LIST.md from all sessions
-- Detailed task completion summaries
-- Cross-session dependency analysis
-- Direct context package file references
-
-**Use Case**: Investigating specific implementation details or debugging historical decisions
-
----
-
-## Quick Access
-
-### Recent Sessions
-{list of 5 most recent sessions with one-line descriptions}
-
-### By Domain
-- **Authentication**: {count} sessions
-- **Payment**: {count} sessions
-- **UI/UX**: {count} sessions
-- **Testing**: {count} sessions
-- **Other**: {count} sessions
-
-### Top Watch Patterns
-1. {most frequent watch pattern}
-2. {second most frequent}
-3. {third most frequent}
-
----
-
-## Session Index
-
-### Authentication Sessions
-- [WFS-user-auth](../../../.workflow/.archives/WFS-user-auth/) - JWT authentication (2025-11-03)
-  - Context: [context-package.json](../../../.workflow/.archives/WFS-user-auth/.process/context-package.json)
-  - Plan: [IMPL_PLAN.md](../../../.workflow/.archives/WFS-user-auth/IMPL_PLAN.md)
-  - Tags: auth, security, jwt
-
-...
-
----
-
-## Usage Examples
-
-### Loading Quick Context
-```markdown
-Load Level 0 from workflow-progress SKILL for overview of recent work
-```
-
-### Investigating Auth History
-```markdown
-Load Level 2 from workflow-progress SKILL, filter by "auth" tag
-```
-
-### Full Historical Analysis
-```markdown
-Load Level 3 from workflow-progress SKILL for complete development history
-```
-```
-
-**Step 4.6: Write All Files**
-
-Use Write tool to create:
-1. `.claude/skills/workflow-progress/SKILL.md`
-2. `.claude/skills/workflow-progress/sessions-timeline.md`
-3. `.claude/skills/workflow-progress/lessons-learned.md`
-4. `.claude/skills/workflow-progress/conflict-patterns.md`
-
-**Completion Criteria**:
-- SKILL.md file created
-- All support documents created
-- Progressive loading structure verified
-- File references use relative paths
-
-**TodoWrite**: Mark phase 4 completed
-
-**Final Action**: Report completion summary to user
-
-**Return to User**:
-```
-✅ Workflow SKILL Package Generation Complete
-
-Sessions Processed: {session_count}
-Functional Domains: {domain_count}
 SKILL Location: .claude/skills/workflow-progress/SKILL.md
+```
+
+**All Sessions Mode**:
+```
+✅ All sessions processed in parallel
+
+Sessions: {count} total
+Functional Domains: {domain_list}
+Date Range: {earliest} - {latest}
 
 Generated:
-- sessions-timeline.md - {session_count} sessions organized chronologically
-- lessons-learned.md - {success_count} successes, {challenge_count} challenges
-- conflict-patterns.md - {conflict_count} conflict patterns documented
-- SKILL.md with progressive loading (4 levels)
+- sessions-timeline.md ({count} sessions)
+- lessons-learned.md ({lessons_count} lessons)
+- conflict-patterns.md ({conflicts_count} conflicts)
+- SKILL.md (4-level progressive loading)
+
+SKILL Location: .claude/skills/workflow-progress/SKILL.md
 
 Usage:
 - Level 0: Quick refresh (~2K tokens)
 - Level 1: Recent history (~8K tokens)
 - Level 2: Complete analysis (~25K tokens)
 - Level 3: Deep dive (~40K tokens)
-
-Trigger: Skill() will auto-load when continuing workflow development
 ```
 
 ---
 
-## Implementation Details
+## Agent Guidelines
 
-### Critical Rules
+### Agent Capabilities
 
-1. **No User Prompts Between Phases**: Never ask user questions or wait for input between phases
-2. **Immediate Phase Transition**: After TodoWrite update, immediately execute next phase command
-3. **Status-Driven Execution**: Check TodoList status after each phase:
-   - If next task is "pending" → Mark it "in_progress" and execute
-   - If all tasks are "completed" → Report final summary
-4. **Phase Completion Pattern**:
-   ```
-   Phase N completes → Update TodoWrite (N=completed, N+1=in_progress) → Execute Phase N+1
-   ```
+**universal-executor agents can**:
+- Read files from `.workflow/.archives/`
+- Execute bash commands
+- Call Gemini CLI for intelligent analysis
+- Read template files for formatting guidance
+- Write SKILL package files (single mode) or return JSON (parallel mode)
+- Return structured results
 
-### TodoWrite Patterns
+### Gemini Usage Pattern
 
-#### Initialization (Before Phase 1)
+**When to use Gemini**:
+- Aggregating lessons from multiple sources
+- Identifying recurring patterns
+- Classifying conflicts by type and severity
+- Extracting structured data from IMPL_PLAN
 
-**FIRST ACTION**: Create TodoList with all 4 phases
-```javascript
-TodoWrite({todos: [
-  {"content": "Read archived sessions from manifest", "status": "in_progress", "activeForm": "Reading archived sessions"},
-  {"content": "Extract session data and lessons", "status": "pending", "activeForm": "Extracting session data"},
-  {"content": "Classify and organize data by domains", "status": "pending", "activeForm": "Classifying data"},
-  {"content": "Generate SKILL package files", "status": "pending", "activeForm": "Generating SKILL files"}
-]})
-```
-
-**SECOND ACTION**: Execute Phase 1 immediately
-
-#### Full Path (SKIP_AGGREGATION = false)
-
-**After Phase 1**:
-```javascript
-TodoWrite({todos: [
-  {"content": "Read archived sessions from manifest", "status": "completed", "activeForm": "Reading archived sessions"},
-  {"content": "Extract session data and lessons", "status": "in_progress", "activeForm": "Extracting session data"},
-  {"content": "Classify and organize data by domains", "status": "pending", "activeForm": "Classifying data"},
-  {"content": "Generate SKILL package files", "status": "pending", "activeForm": "Generating SKILL files"}
-]})
-// Auto-continue to Phase 2
-```
-
-**After Phase 2**:
-```javascript
-TodoWrite({todos: [
-  {"content": "Read archived sessions from manifest", "status": "completed", "activeForm": "Reading archived sessions"},
-  {"content": "Extract session data and lessons", "status": "completed", "activeForm": "Extracting session data"},
-  {"content": "Classify and organize data by domains", "status": "in_progress", "activeForm": "Classifying data"},
-  {"content": "Generate SKILL package files", "status": "pending", "activeForm": "Generating SKILL files"}
-]})
-// Auto-continue to Phase 3
-```
-
-**After Phase 3**:
-```javascript
-TodoWrite({todos: [
-  {"content": "Read archived sessions from manifest", "status": "completed", "activeForm": "Reading archived sessions"},
-  {"content": "Extract session data and lessons", "status": "completed", "activeForm": "Extracting session data"},
-  {"content": "Classify and organize data by domains", "status": "completed", "activeForm": "Classifying data"},
-  {"content": "Generate SKILL package files", "status": "in_progress", "activeForm": "Generating SKILL files"}
-]})
-// Auto-continue to Phase 4
-```
-
-**After Phase 4**:
-```javascript
-TodoWrite({todos: [
-  {"content": "Read archived sessions from manifest", "status": "completed", "activeForm": "Reading archived sessions"},
-  {"content": "Extract session data and lessons", "status": "completed", "activeForm": "Extracting session data"},
-  {"content": "Classify and organize data by domains", "status": "completed", "activeForm": "Classifying data"},
-  {"content": "Generate SKILL package files", "status": "completed", "activeForm": "Generating SKILL files"}
-]})
-// Report completion summary to user
-```
-
-#### Incremental Path (SKIP_AGGREGATION = true)
-
-**After Phase 1** (detects incremental mode, skips Phase 2 & 3):
-```javascript
-TodoWrite({todos: [
-  {"content": "Read archived sessions from manifest", "status": "completed", "activeForm": "Reading archived sessions"},
-  {"content": "Extract session data and lessons", "status": "completed", "activeForm": "Extracting session data"},
-  {"content": "Classify and organize data by domains", "status": "completed", "activeForm": "Classifying data"},
-  {"content": "Generate SKILL package files", "status": "in_progress", "activeForm": "Generating SKILL files"}
-]})
-// Display skip message: "Incremental update mode, reusing existing aggregations."
-// Jump directly to Phase 4
-```
-
-**After Phase 4**:
-```javascript
-TodoWrite({todos: [
-  {"content": "Read archived sessions from manifest", "status": "completed", "activeForm": "Reading archived sessions"},
-  {"content": "Extract session data and lessons", "status": "completed", "activeForm": "Extracting session data"},
-  {"content": "Classify and organize data by domains", "status": "completed", "activeForm": "Classifying data"},
-  {"content": "Generate SKILL package files", "status": "completed", "activeForm": "Generating SKILL files"}
-]})
-// Report completion summary to user
-```
-
-### Error Handling
-
-- If no archived sessions found, mark all tasks completed and report error
-- If any phase fails, mark it as "in_progress" (not completed)
-- Report error details to user
-- Do NOT auto-continue to next phase on failure
+**Fallback Strategy**: If Gemini fails or times out, use direct file parsing with structured extraction logic.
 
 ---
 
-## Parameters
+## Template System
 
-```bash
-/memory:workflow-skill-memory [--regenerate] [--incremental] [--filter <topic>]
-```
+### Template Files
 
-- **--regenerate**: Force regenerate all SKILL files from scratch
-  - When enabled: Deletes existing `.claude/skills/workflow-progress/` before regeneration
-  - Ensures fresh SKILL package from archived sessions
-- **--incremental**: Incremental update mode (skip Phase 2 & 3 if existing SKILL found)
-  - When enabled: Reuses existing aggregations, only updates SKILL files
-  - Faster execution for adding new sessions
-- **--filter <topic>**: Filter sessions by topic/tag
-  - Example: `--filter auth` only processes auth-related sessions
-  - Uses description and tags for matching
+All templates located in: `~/.claude/workflows/cli-templates/prompts/workflow/`
+
+1. **skill-sessions-timeline.txt**: Format for sessions-timeline.md
+2. **skill-lessons-learned.txt**: Format for lessons-learned.md
+3. **skill-conflict-patterns.txt**: Format for conflict-patterns.md
+4. **skill-index.txt**: Format for SKILL.md index
+5. **skill-aggregation.txt**: Rules for Gemini aggregation (existing)
+
+### Template Usage in Agent
+
+**Agents read templates to understand**:
+- File structure and markdown format
+- Data sources (which files to read)
+- Update strategy (incremental vs full)
+- Formatting rules and conventions
+- Aggregation logic (for Gemini)
+
+**Templates are NOT shown in this command documentation** - agents read them directly as needed.
 
 ---
 
-## Examples
+## Error Handling
 
-### Example 1: Generate SKILL Package (Default)
+### Validation Errors
+- **No archives directory**: "Error: No workflow archives found at .workflow/.archives/"
+- **Session not found**: "Error: Session {session_id} not found in archives"
+- **No sessions in manifest**: "Error: No archived sessions found in manifest.json"
 
-```bash
-/memory:workflow-skill-memory
-```
+### Agent Errors
+- If agent fails, report error message from agent result
+- If Gemini times out, agents use fallback direct parsing
+- If template read fails, agents use inline format
 
-**Workflow**:
-1. Phase 1: Reads manifest.json, gets all archived sessions
-2. Phase 2: Extracts lessons, conflicts, and summaries from all sessions
-3. Phase 3: Organizes data by domain and timeline
-4. Phase 4: Generates SKILL.md at `.claude/skills/workflow-progress/SKILL.md`
-
-### Example 2: Regenerate SKILL Package
-
-```bash
-/memory:workflow-skill-memory --regenerate
-```
-
-**Workflow**:
-1. Phase 1: Deletes existing SKILL package, reads manifest
-2. Phase 2-4: Full regeneration from archived sessions
-
-### Example 3: Incremental Update (Fast)
-
-```bash
-/memory:workflow-skill-memory --incremental
-```
-
-**Workflow**:
-1. Phase 1: Reads manifest, detects incremental mode
-2. Display: "Incremental update mode, reusing existing aggregations."
-3. Phase 4: Updates SKILL.md only (~5-10x faster)
-
-### Example 4: Filter by Topic
-
-```bash
-/memory:workflow-skill-memory --filter auth
-```
-
-**Workflow**:
-1. Phase 1: Reads manifest, filters sessions with "auth" in description/tags
-2. Phase 2-4: Processes only auth-related sessions
+### Recovery
+- Single session mode: Can be retried without affecting other sessions
+- All sessions mode: If one agent fails, others continue; retry failed sessions individually
 
 ---
 
 ## Benefits
 
-- ✅ **Progressive Context Loading**: 4 levels (2K → 8K → 25K → 40K tokens)
-- ✅ **Historical Wisdom**: Lessons learned and conflict patterns accumulated
-- ✅ **Auto-Generated**: Called automatically by `/workflow:session:complete`
-- ✅ **Incremental Updates**: Fast updates when adding new sessions
-- ✅ **Intelligent Filtering**: Focus on specific functional domains
-- ✅ **Reference-Based**: Context packages referenced by path, not duplicated
-- ✅ **Lightweight**: Only aggregates lessons/conflicts, keeps original files
+- ✅ **Agent-Driven**: Autonomous analysis and document generation
+- ✅ **Intelligent Aggregation**: Uses Gemini for pattern recognition
+- ✅ **Template-Based**: Consistent formatting across updates
+- ✅ **Incremental Updates**: Fast single-session processing
+- ✅ **Parallel Processing**: Efficient full regeneration
+- ✅ **Reference-Only**: Context packages referenced by path, not duplicated
+- ✅ **Progressive Loading**: 4-level context depth (2K → 8K → 25K → 40K tokens)
+
+---
+
+## Integration
+
+### Called by `/workflow:session:complete`
+
+Automatically invoked after session archival:
+```bash
+SlashCommand(command="/memory:workflow-skill-memory session {session_id}")
+```
+
+### Manual Invocation
+
+Users can manually process sessions:
+```bash
+/memory:workflow-skill-memory session WFS-custom-feature  # Single session
+/memory:workflow-skill-memory all                         # Full regeneration
+```
+
+---
 
 ## Architecture
 
 ```
 workflow-skill-memory (orchestrator)
-  ├─ Phase 1: Read manifest and sessions (bash commands)
-  ├─ Phase 2: Extract data (bash + Read, skippable)
-  ├─ Phase 3: Organize data (in-memory, skippable)
-  └─ Phase 4: Write SKILL files (Write tool, always runs)
+  ├─ Mode 1: Single Session
+  │   └─ Agent: universal-executor
+  │       ├─ Read session files
+  │       ├─ Gemini analysis (optional)
+  │       ├─ Read templates
+  │       └─ Update SKILL documents
+  │
+  └─ Mode 2: All Sessions
+      ├─ Agents: N x universal-executor (parallel)
+      │   ├─ Each processes one session
+      │   └─ Returns structured JSON
+      └─ Agent: universal-executor (aggregator)
+          ├─ Collect results from all agents
+          ├─ Gemini final aggregation
+          ├─ Read templates
+          └─ Generate all SKILL documents
 
+Templates: 5 files with structure, rules, and formatting guidance
 No task JSON created by this command
-Smart skip logic: 5-10x faster in incremental mode
 ```
