@@ -453,19 +453,7 @@ All templates located in: `~/.claude/workflows/cli-templates/prompts/workflow/`
 - Single session mode: Can be retried without affecting other sessions
 - All sessions mode: If one agent fails, others continue; retry failed sessions individually
 
----
 
-## Benefits
-
-- ✅ **Agent-Driven**: Autonomous analysis and document generation
-- ✅ **Intelligent Aggregation**: Uses Gemini for pattern recognition
-- ✅ **Template-Based**: Consistent formatting across updates
-- ✅ **Incremental Updates**: Fast single-session processing
-- ✅ **Parallel Processing**: Efficient full regeneration
-- ✅ **Reference-Only**: Context packages referenced by path, not duplicated
-- ✅ **Progressive Loading**: 4-level context depth (2K → 8K → 25K → 40K tokens)
-
----
 
 ## Integration
 
@@ -482,31 +470,4 @@ Users can manually process sessions:
 ```bash
 /memory:workflow-skill-memory session WFS-custom-feature  # Single session
 /memory:workflow-skill-memory all                         # Full regeneration
-```
-
----
-
-## Architecture
-
-```
-workflow-skill-memory (orchestrator)
-  ├─ Mode 1: Single Session
-  │   └─ Agent: universal-executor
-  │       ├─ Read session files
-  │       ├─ Gemini analysis (optional)
-  │       ├─ Read templates
-  │       └─ Update SKILL documents
-  │
-  └─ Mode 2: All Sessions
-      ├─ Agents: N x universal-executor (parallel)
-      │   ├─ Each processes one session
-      │   └─ Returns structured JSON
-      └─ Agent: universal-executor (aggregator)
-          ├─ Collect results from all agents
-          ├─ Gemini final aggregation
-          ├─ Read templates
-          └─ Generate all SKILL documents
-
-Templates: 5 files with structure, rules, and formatting guidance
-No task JSON created by this command
 ```
