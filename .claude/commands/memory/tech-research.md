@@ -119,6 +119,10 @@ Generate a complete tech stack SKILL package with Exa research.
 - Mode: {MODE}
 - Context Path: {CONTEXT_PATH}
 
+**Templates Available**:
+- Module Format: ~/.claude/workflows/cli-templates/prompts/tech/tech-module-format.txt
+- SKILL Index: ~/.claude/workflows/cli-templates/prompts/tech/tech-skill-index.txt
+
 **Your Responsibilities**:
 
 1. **Extract Tech Stack Information**:
@@ -147,16 +151,16 @@ Generate a complete tech stack SKILL package with Exa research.
    - For each additional component:
      mcp__exa__get_code_context_exa(query: \"{main_tech} {component} integration\", tokensNum: 5000)
 
-3. **Synthesize Content into 6 Modules**:
+3. **Read Module Format Template**:
 
-   Structure each module with:
-   - Frontmatter (module name, tech stack)
-   - Main sections with headings
-   - Code examples from Exa research
-   - Best practices / do's and don'ts
-   - References to Exa sources
+   Read template for structure guidance:
+   ```bash
+   Read(~/.claude/workflows/cli-templates/prompts/tech/tech-module-format.txt)
+   ```
 
-   **Module Files**:
+4. **Synthesize Content into 6 Modules**:
+
+   Follow template structure from tech-module-format.txt:
    - **principles.md** - Core concepts, philosophies (~3K tokens)
    - **patterns.md** - Implementation patterns with code examples (~5K tokens)
    - **practices.md** - Best practices, anti-patterns, pitfalls (~4K tokens)
@@ -164,7 +168,14 @@ Generate a complete tech stack SKILL package with Exa research.
    - **config.md** - Setup, configuration, tooling (~3K tokens)
    - **frameworks.md** - Framework integration (only if composite, ~4K tokens)
 
-4. **Write Files Directly**:
+   Each module follows template format:
+   - Frontmatter (YAML)
+   - Main sections with clear headings
+   - Code examples from Exa research
+   - Best practices sections
+   - References to Exa sources
+
+5. **Write Files Directly**:
 
    ```javascript
    // Create directory
@@ -192,7 +203,7 @@ Generate a complete tech stack SKILL package with Exa research.
    })
    ```
 
-5. **Report Completion**:
+6. **Report Completion**:
 
    Provide summary:
    - Tech stack name
@@ -201,9 +212,10 @@ Generate a complete tech stack SKILL package with Exa research.
    - Sources consulted
 
 **CRITICAL**:
+- MUST read external template files before generating content (step 3 for modules, step 4 for index)
 - You have FULL autonomy - read files, execute Exa, synthesize content, write files
 - Do NOT return JSON or structured data - produce actual .md files
-- Handle errors gracefully (Exa failures, missing files)
+- Handle errors gracefully (Exa failures, missing files, template read failures)
 - If tech stack cannot be determined, ask orchestrator to clarify
   "
 )
@@ -244,56 +256,31 @@ Generate a complete tech stack SKILL package with Exa research.
    // Repeat for other modules
    ```
 
-4. **Generate SKILL.md Index**:
+4. **Read SKILL Index Template**:
 
-   **Template Structure**:
-   ```markdown
-   ---
-   name: {TECH_STACK_NAME}
-   description: {MAIN_TECH} development guidelines from industry standards (Exa research)
-   version: 1.0.0
-   generated: {timestamp}
-   source: exa-research
-   ---
-   # {TechStack} SKILL Package
-
-   ## Overview
-   {Brief description}
-
-   ## Modular Documentation
-
-   ### Core Understanding (~8K tokens)
-   - [Principles](./principles.md) - Core concepts and philosophies
-   - [Patterns](./patterns.md) - Implementation patterns with examples
-
-   ### Practical Guidance (~7K tokens)
-   - [Best Practices](./practices.md) - Do's, don'ts, anti-patterns
-   - [Testing](./testing.md) - Testing strategies and frameworks
-
-   ### Configuration & Integration (~7K tokens)
-   - [Configuration](./config.md) - Setup, tooling, configuration
-   {if composite: "- [Frameworks](./frameworks.md) - Integration patterns"}
-
-   ## Loading Recommendations
-   - **Quick**: principles.md + practices.md (~7K)
-   - **Implementation**: patterns.md + config.md (~8K)
-   - **Complete**: All modules (~22K)
-
-   ## Usage
-   Load when: starting {TECH_STACK} projects, reviewing code, learning best practices
-
-   ## Research Metadata
-   - Generated: {timestamp}
-   - Source: Exa Research
-   - Queries: {count}
-   - Sources: {count}
-
-   ## Tech Stack
-   Primary: {MAIN_TECH}
-   {if composite: "Frameworks: {COMPONENTS}"}
+   ```javascript
+   Read(~/.claude/workflows/cli-templates/prompts/tech/tech-skill-index.txt)
    ```
 
-5. **Write SKILL.md**:
+5. **Generate SKILL.md Index**:
+
+   Follow template from tech-skill-index.txt with variable substitutions:
+   - `{TECH_STACK_NAME}`: From metadata.json
+   - `{MAIN_TECH}`: Primary technology
+   - `{ISO_TIMESTAMP}`: Current timestamp
+   - `{QUERY_COUNT}`: From research_summary
+   - `{SOURCE_COUNT}`: From research_summary
+   - Conditional sections for composite tech stacks
+
+   Template provides structure for:
+   - Frontmatter with metadata
+   - Overview and tech stack description
+   - Module organization (Core/Practical/Config sections)
+   - Loading recommendations (Quick/Implementation/Complete)
+   - Usage guidelines and auto-trigger keywords
+   - Research metadata and version history
+
+6. **Write SKILL.md**:
    ```javascript
    Write({
      file_path: `.claude/skills/${TECH_STACK_NAME}/SKILL.md`,
