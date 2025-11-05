@@ -40,6 +40,7 @@ This command is built on a set of core principles to ensure efficient and reliab
 - **Role Analysis-Driven**: All generated tasks originate from role-specific `analysis.md` files (enhanced in synthesis phase), ensuring direct link between requirements/design and implementation
 - **Artifact-Aware**: Automatically detects and integrates all brainstorming outputs (role analyses, guidance-specification.md, enhancements) to enrich task context
 - **Context-Rich**: Embeds comprehensive context (requirements, focus paths, acceptance criteria, artifact references) directly into each task JSON
+- **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
 - **Flow-Control Ready**: Pre-defines clear execution sequence (`pre_analysis`, `implementation_approach`) within each task
 - **Memory-First**: Prioritizes using documents already loaded in conversation memory to avoid redundant file operations
 - **Mode-Flexible**: Supports both agent-driven execution (default) and CLI tool execution (with `--cli-execute` flag)
@@ -182,7 +183,7 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
   },
   "context": {
     "requirements": ["Clear requirement from analysis"],
-    "focus_paths": ["src/module/path", "tests/module/path"],
+    "focus_paths": ["D:\\project\\src\\module\\path", "./tests/module/path"],
     "acceptance": ["Measurable acceptance criterion"],
     "parent": "IMPL-N",
     "depends_on": ["IMPL-N.M"],

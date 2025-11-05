@@ -19,6 +19,7 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
 - **MCP-Enhanced**: Use MCP tools for advanced code analysis and research
 - **Pre-Selected Templates**: Command selects correct template based on `--cli-execute` flag **before** invoking agent
 - **Agent Simplicity**: Agent receives pre-selected template and focuses only on content generation
+- **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
 
 ## Execution Lifecycle
 

@@ -49,6 +49,7 @@ Generate TDD-specific tasks from analysis results with complete Red-Green-Refact
 - **Feature-Complete Tasks**: Each task contains complete Red-Green-Refactor cycle
 - **Phase-Explicit**: Internal phases clearly marked in flow_control.implementation_approach
 - **Task Merging**: Prefer single task per feature over decomposition
+- **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
 - **Artifact-Aware**: Integrates brainstorming outputs
 - **Memory-First**: Reuse loaded documents from memory
 - **Context-Aware**: Analyzes existing codebase and test patterns
@@ -157,7 +158,7 @@ For each feature, generate task(s) with ID format:
         "expected_failure": "Why test should fail initially"
       }
     ],
-    "focus_paths": ["src/path/", "tests/path/"],  // Files to modify
+    "focus_paths": ["D:\\project\\src\\path", "./tests/path"],  // Absolute or clear relative paths from project root
     "acceptance": [                                // Success criteria
       "All tests pass (Red → Green)",
       "Code refactored (Refactor complete)",
