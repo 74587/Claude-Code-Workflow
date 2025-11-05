@@ -129,7 +129,10 @@ Task(ui-design-agent): `
   ## Reference
   - Layout inspiration: Read("{base_path}/.intermediates/layout-analysis/inspirations/{target}-layout-ideas.txt")
   - Design tokens: Read("{base_path}/style-extraction/style-{style_id}/design-tokens.json")
-    Parse ALL token values (colors, typography, spacing, borders, shadows, breakpoints)
+    Parse ALL token values including:
+    * colors, typography (with combinations), spacing, opacity
+    * border_radius, shadows, breakpoints
+    * component_styles (button, card, input variants)
   ${design_attributes ? "- Adapt DOM to: density, visual_weight, formality, organic_vs_geometric" : ""}
 
   ## Generation
@@ -152,14 +155,16 @@ Task(ui-design-agent): `
 
   2. CSS: {base_path}/prototypes/{target}-style-{style_id}-layout-N.css
      - Self-contained: Direct token VALUES (no var())
-     - Use tokens: colors, fonts, spacing, borders, shadows
+     - Use tokens: colors, fonts, spacing, opacity, borders, shadows
+     - IF tokens.component_styles exists: Use component presets for buttons, cards, inputs
+     - IF tokens.typography.combinations exists: Use typography presets for headings and body text
      - Device-optimized: {device_type} styles
      ${device_type === 'responsive' ? '- Responsive: Mobile-first @media' : '- Fixed: ' + device_type}
      ${design_attributes ? `
      - Token selection: density → spacing, visual_weight → shadows` : ""}
 
   ## Notes
-  - ✅ Token VALUES directly from design-tokens.json
+  - ✅ Token VALUES directly from design-tokens.json (with typography.combinations, opacity, component_styles support)
   - ✅ Follow prompt requirements for {target}
   - ✅ Optimize for {device_type}
   - ❌ NO var() refs, NO external deps

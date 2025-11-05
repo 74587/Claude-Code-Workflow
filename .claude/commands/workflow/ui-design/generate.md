@@ -99,7 +99,11 @@ Task(ui-design-agent): `
 
   2. Design Tokens:
      Read("{base_path}/style-extraction/style-{style_id}/design-tokens.json")
-     Extract: ALL token values (colors, typography, spacing, borders, shadows, breakpoints)
+     Extract: ALL token values including:
+       * colors, typography (with combinations), spacing, opacity
+       * border_radius, shadows, breakpoints
+       * component_styles (button, card, input variants)
+     Note: typography.combinations, opacity, and component_styles fields contain preset configurations using var() references
 
   3. Animation Tokens (OPTIONAL):
      IF exists("{base_path}/animation-extraction/animation-tokens.json"):
@@ -133,11 +137,21 @@ Task(ui-design-agent): `
      - Replace ALL var(--*) with actual token values from design-tokens.json
        Example: var(--spacing-4) → 1rem (from tokens.spacing.4)
        Example: var(--breakpoint-md) → 768px (from tokens.breakpoints.md)
+       Example: var(--opacity-80) → 0.8 (from tokens.opacity.80)
      - Add visual styling using design tokens:
        * Colors: tokens.colors.*
-       * Typography: tokens.typography.*
+       * Typography: tokens.typography.* (including combinations)
+       * Opacity: tokens.opacity.*
        * Shadows: tokens.shadows.*
        * Border radius: tokens.border_radius.*
+     - IF tokens.component_styles exists: Add component style classes
+       * Generate classes for button variants (.btn-primary, .btn-secondary)
+       * Generate classes for card variants (.card-default, .card-interactive)
+       * Generate classes for input variants (.input-default, .input-focus, .input-error)
+       * Use var() references that resolve to actual token values
+     - IF tokens.typography.combinations exists: Add typography preset classes
+       * Generate classes for typography presets (.text-heading-primary, .text-body-regular, .text-caption)
+       * Use var() references for family, size, weight, line-height, letter-spacing
      - IF has_animations == true: Inject animation tokens
        * Add CSS Custom Properties for animations at :root level:
          --duration-instant, --duration-fast, --duration-normal, etc.

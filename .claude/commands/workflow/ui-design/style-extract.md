@@ -418,17 +418,33 @@ Task(ui-design-agent): `
   Create complete design system in {base_path}/style-extraction/style-1/
 
   1. **design-tokens.json**:
-     - Complete token structure: colors (brand, surface, semantic, text, border), typography (families, sizes, weights, line heights, letter spacing), spacing (0-24 scale), border_radius (none to full), shadows (sm to xl), breakpoints (sm to 2xl)
+     - Complete token structure with ALL fields:
+       * colors (brand, surface, semantic, text, border) - OKLCH format
+       * typography (families, sizes, weights, line heights, letter spacing, combinations)
+       * typography.combinations: Predefined typography presets (heading-primary, heading-secondary, body-regular, body-emphasis, caption, label) using var() references
+       * spacing (0-24 scale)
+       * opacity (0, 10, 20, 40, 60, 80, 90, 100)
+       * border_radius (none to full)
+       * shadows (sm to xl)
+       * component_styles (button, card, input variants) - component presets using var() references
+       * breakpoints (sm to 2xl)
      - All colors in OKLCH format
      ${extraction_mode == "explore" ? "- Start from preview colors and expand to full palette" : ""}
      ${extraction_mode == "explore" && refinements.enabled ? "- Apply user refinements where specified" : ""}
+     - Common Tailwind CSS usage patterns in project (if extracting from existing project)
 
   2. **style-guide.md**:
      - Design philosophy (${extraction_mode == "explore" ? "expand on: " + selected_direction.philosophy_name : "describe the reference design"})
      - Complete color system documentation with accessibility notes
      - Typography scale and usage guidelines
+     - Typography Combinations section: Document each preset (heading-primary, heading-secondary, body-regular, body-emphasis, caption, label) with usage context and code examples
      - Spacing system explanation
+     - Opacity & Transparency section: Opacity scale usage, common use cases (disabled states, overlays, hover effects), accessibility considerations
+     - Shadows & Elevation section: Shadow hierarchy and semantic usage
+     - Component Styles section: Document button, card, and input variants with code examples and visual descriptions
+     - Border Radius system and semantic usage
      - Component examples and usage patterns
+     - Common Tailwind CSS patterns (if applicable)
 
   ## Critical Requirements
   - ✅ Use Write() tool immediately for each file
@@ -577,15 +593,46 @@ bash(test -f {base_path}/.intermediates/style-analysis/analysis-options.json && 
     "text": {"primary": "oklch(...)", "secondary": "oklch(...)", "tertiary": "oklch(...)", "inverse": "oklch(...)"},
     "border": {"default": "oklch(...)", "strong": "oklch(...)", "subtle": "oklch(...)"}
   },
-  "typography": {"font_family": {...}, "font_size": {...}, "font_weight": {...}, "line_height": {...}, "letter_spacing": {...}},
+  "typography": {
+    "font_family": {...},
+    "font_size": {...},
+    "font_weight": {...},
+    "line_height": {...},
+    "letter_spacing": {...},
+    "combinations": {
+      "heading-primary": {"family": "var(--font-family-heading)", "size": "var(--font-size-3xl)", "weight": "var(--font-weight-bold)", "line_height": "var(--line-height-tight)", "letter_spacing": "var(--letter-spacing-tight)"},
+      "heading-secondary": {...},
+      "body-regular": {...},
+      "body-emphasis": {...},
+      "caption": {...},
+      "label": {...}
+    }
+  },
   "spacing": {"0": "0", "1": "0.25rem", ..., "24": "6rem"},
+  "opacity": {"0": "0", "10": "0.1", "20": "0.2", "40": "0.4", "60": "0.6", "80": "0.8", "90": "0.9", "100": "1"},
   "border_radius": {"none": "0", "sm": "0.25rem", ..., "full": "9999px"},
   "shadows": {"sm": "...", "md": "...", "lg": "...", "xl": "..."},
+  "component_styles": {
+    "button": {
+      "primary": {"background": "var(--color-brand-primary)", "color": "var(--color-text-inverse)", "padding": "var(--spacing-3) var(--spacing-6)", "border_radius": "var(--border-radius-md)", "font_weight": "var(--font-weight-semibold)"},
+      "secondary": {...},
+      "tertiary": {...}
+    },
+    "card": {
+      "default": {"background": "var(--color-surface-elevated)", "padding": "var(--spacing-6)", "border_radius": "var(--border-radius-lg)", "shadow": "var(--shadow-md)"},
+      "interactive": {...}
+    },
+    "input": {
+      "default": {"border": "1px solid var(--color-border-default)", "padding": "var(--spacing-3)", "border_radius": "var(--border-radius-md)", "background": "var(--color-surface-background)"},
+      "focus": {...},
+      "error": {...}
+    }
+  },
   "breakpoints": {"sm": "640px", ..., "2xl": "1536px"}
 }
 ```
 
-**Requirements**: OKLCH colors, complete coverage, semantic naming, WCAG AA compliance
+**Requirements**: OKLCH colors, complete coverage, semantic naming, WCAG AA compliance, typography combinations, component style presets, opacity scale
 
 ## Error Handling
 

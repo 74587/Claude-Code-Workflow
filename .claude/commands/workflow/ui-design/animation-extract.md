@@ -170,127 +170,317 @@ ELSE:
     extraction_insufficient = true
 ```
 
-### Step 2: Interactive Question Workflow (Agent)
+### Step 2: Generate Animation Questions (Main Flow)
 
 ```bash
 # If extraction failed or insufficient, use interactive questioning
 IF extraction_insufficient OR extraction_mode == "interactive":
-    REPORT: "🤔 Launching interactive animation specification mode"
+    REPORT: "🤔 Interactive animation specification mode"
+    REPORT: "   Context: {has_design_context ? 'Aligning with design tokens' : 'Standalone animation system'}"
+    REPORT: "   Focus: {focus_types}"
 
-    # Launch ui-design-agent for interactive questioning
-    Task(ui-design-agent): `
-      [ANIMATION_SPECIFICATION_TASK]
-      Guide user through animation design decisions via structured questions
+    # Determine question categories based on focus_types
+    question_categories = []
+    IF "all" IN focus_types OR "transitions" IN focus_types:
+        question_categories.append("timing_scale")
+        question_categories.append("easing_philosophy")
 
-      SESSION: {session_id} | MODE: interactive | BASE_PATH: {base_path}
+    IF "all" IN focus_types OR "interactions" IN focus_types OR "hover" IN focus_types:
+        question_categories.append("button_interactions")
+        question_categories.append("card_interactions")
+        question_categories.append("input_interactions")
 
-      ## Context
-      - Design tokens available: {has_design_context}
-      - Focus areas: {focus_types}
-      - Extracted data: {animations_extracted ? "Partial CSS data available" : "No CSS data"}
+    IF "all" IN focus_types OR "page" IN focus_types:
+        question_categories.append("page_transitions")
 
-      ## Interactive Workflow
+    IF "all" IN focus_types OR "loading" IN focus_types:
+        question_categories.append("loading_states")
 
-      For each animation category, ASK user and WAIT for response:
+    IF "all" IN focus_types OR "scroll" IN focus_types:
+        question_categories.append("scroll_animations")
+```
 
-      ### 1. Transition Duration Scale
-      QUESTION: "What timing scale feels right for your design?"
-      OPTIONS:
-        - "Fast & Snappy" (100-200ms transitions)
-        - "Balanced" (200-400ms transitions)
-        - "Smooth & Deliberate" (400-600ms transitions)
-        - "Custom" (specify values)
+### Step 3: Output Questions in Text Format (Main Flow)
 
-      ### 2. Easing Philosophy
-      QUESTION: "What easing style matches your brand?"
-      OPTIONS:
-        - "Linear" (constant speed, technical feel)
-        - "Ease-Out" (fast start, natural feel)
-        - "Ease-In-Out" (balanced, polished feel)
-        - "Spring/Bounce" (playful, modern feel)
-        - "Custom" (specify cubic-bezier)
+```markdown
+# Generate and output structured questions
+REPORT: ""
+REPORT: "===== 动画规格交互式配置 ====="
+REPORT: ""
 
-      ### 3. Common Interactions (Ask for each)
-      FOR interaction IN ["button-hover", "link-hover", "card-hover", "modal-open", "dropdown-toggle"]:
-        QUESTION: "How should {interaction} animate?"
-        OPTIONS:
-          - "Subtle" (color/opacity change only)
-          - "Lift" (scale + shadow increase)
-          - "Slide" (transform translateY)
-          - "Fade" (opacity transition)
-          - "None" (no animation)
-          - "Custom" (describe behavior)
+question_number = 1
+questions_output = []
 
-      ### 4. Page Transitions
-      QUESTION: "Should page/route changes have animations?"
-      IF YES:
-        ASK: "What style?"
-        OPTIONS:
-          - "Fade" (crossfade between views)
-          - "Slide" (swipe left/right)
-          - "Zoom" (scale in/out)
-          - "None"
+# Q1: Timing Scale (if included)
+IF "timing_scale" IN question_categories:
+    REPORT: "【问题{question_number} - 时间尺度】您的设计需要什么样的过渡速度？"
+    REPORT: "a) 快速敏捷"
+    REPORT: "   说明：100-200ms 过渡，适合工具型应用和即时反馈场景"
+    REPORT: "b) 平衡适中"
+    REPORT: "   说明：200-400ms 过渡，通用选择，符合多数用户预期"
+    REPORT: "c) 流畅舒缓"
+    REPORT: "   说明：400-600ms 过渡，适合品牌展示和沉浸式体验"
+    REPORT: "d) 自定义"
+    REPORT: "   说明：需要指定具体数值和使用场景"
+    REPORT: ""
+    questions_output.append({id: question_number, category: "timing_scale", options: ["a", "b", "c", "d"]})
+    question_number += 1
 
-      ### 5. Loading States
-      QUESTION: "What loading animation style?"
-      OPTIONS:
-        - "Spinner" (rotating circle)
-        - "Pulse" (opacity pulse)
-        - "Skeleton" (shimmer effect)
-        - "Progress Bar" (linear fill)
-        - "Custom" (describe)
+# Q2: Easing Philosophy (if included)
+IF "easing_philosophy" IN question_categories:
+    REPORT: "【问题{question_number} - 缓动风格】哪种缓动曲线符合您的品牌调性？"
+    REPORT: "a) 线性匀速"
+    REPORT: "   说明：恒定速度，技术感和精确性，适合数据可视化"
+    REPORT: "b) 快入慢出"
+    REPORT: "   说明：快速启动自然减速，最接近物理世界，通用推荐"
+    REPORT: "c) 慢入慢出"
+    REPORT: "   说明：平滑对称，精致优雅，适合高端品牌"
+    REPORT: "d) 弹性效果"
+    REPORT: "   说明：Spring/Bounce 回弹，活泼现代，适合互动性强的应用"
+    REPORT: ""
+    questions_output.append({id: question_number, category: "easing_philosophy", options: ["a", "b", "c", "d"]})
+    question_number += 1
 
-      ### 6. Micro-interactions
-      QUESTION: "Should form inputs have micro-interactions?"
-      IF YES:
-        ASK: "What interactions?"
-        OPTIONS:
-          - "Focus state animation" (border/shadow transition)
-          - "Error shake" (horizontal shake on error)
-          - "Success check" (checkmark animation)
-          - "All of the above"
+# Q3-5: Interaction Animations (button, card, input - if included)
+IF "button_interactions" IN question_categories:
+    REPORT: "【问题{question_number} - 按钮交互】按钮悬停/点击时如何反馈？"
+    REPORT: "a) 微妙变化"
+    REPORT: "   说明：仅颜色/透明度变化，适合简约设计"
+    REPORT: "b) 抬升效果"
+    REPORT: "   说明：轻微缩放+阴影加深，增强物理感知"
+    REPORT: "c) 滑动移位"
+    REPORT: "   说明：Transform translateY，视觉引导明显"
+    REPORT: "d) 无动画"
+    REPORT: "   说明：静态交互，性能优先或特定品牌要求"
+    REPORT: ""
+    questions_output.append({id: question_number, category: "button_interactions", options: ["a", "b", "c", "d"]})
+    question_number += 1
 
-      ### 7. Scroll Animations
-      QUESTION: "Should elements animate on scroll?"
-      IF YES:
-        ASK: "What scroll animation style?"
-        OPTIONS:
-          - "Fade In" (opacity 0→1)
-          - "Slide Up" (translateY + fade)
-          - "Scale In" (scale 0.9→1 + fade)
-          - "Stagger" (sequential delays)
-          - "None"
+IF "card_interactions" IN question_categories:
+    REPORT: "【问题{question_number} - 卡片交互】卡片悬停时的动画效果？"
+    REPORT: "a) 阴影加深"
+    REPORT: "   说明：Box-shadow 变化，层次感增强"
+    REPORT: "b) 上浮效果"
+    REPORT: "   说明：Transform translateY(-4px)，明显的空间层次"
+    REPORT: "c) 缩放放大"
+    REPORT: "   说明：Scale(1.02)，突出焦点内容"
+    REPORT: "d) 无动画"
+    REPORT: "   说明：静态卡片，性能或设计考量"
+    REPORT: ""
+    questions_output.append({id: question_number, category: "card_interactions", options: ["a", "b", "c", "d"]})
+    question_number += 1
 
-      ## Output Generation
+IF "input_interactions" IN question_categories:
+    REPORT: "【问题{question_number} - 表单交互】输入框是否需要微交互反馈？"
+    REPORT: "a) 聚焦动画"
+    REPORT: "   说明：边框/阴影过渡，清晰的状态指示"
+    REPORT: "b) 错误抖动"
+    REPORT: "   说明：水平shake动画，错误提示更明显"
+    REPORT: "c) 成功勾选"
+    REPORT: "   说明：Checkmark 动画，完成反馈"
+    REPORT: "d) 全部包含"
+    REPORT: "   说明：聚焦+错误+成功的完整反馈体系"
+    REPORT: "e) 无微交互"
+    REPORT: "   说明：标准表单，无额外动画"
+    REPORT: ""
+    questions_output.append({id: question_number, category: "input_interactions", options: ["a", "b", "c", "d", "e"]})
+    question_number += 1
 
-      Based on user responses, generate structured data:
+# Q6: Page Transitions (if included)
+IF "page_transitions" IN question_categories:
+    REPORT: "【问题{question_number} - 页面过渡】页面/路由切换是否需要过渡动画？"
+    REPORT: "a) 淡入淡出"
+    REPORT: "   说明：Crossfade 效果，平滑过渡不突兀"
+    REPORT: "b) 滑动切换"
+    REPORT: "   说明：Swipe left/right，方向性导航"
+    REPORT: "c) 缩放过渡"
+    REPORT: "   说明：Scale in/out，空间层次感"
+    REPORT: "d) 无过渡"
+    REPORT: "   说明：即时切换，性能优先"
+    REPORT: ""
+    questions_output.append({id: question_number, category: "page_transitions", options: ["a", "b", "c", "d"]})
+    question_number += 1
 
-      1. Create animation-specification.json with user choices:
-         - timing_scale (fast/balanced/slow/custom)
-         - easing_philosophy (linear/ease-out/ease-in-out/spring)
-         - interactions: {interaction_name: {type, properties, timing}}
-         - page_transitions: {enabled, style, duration}
-         - loading_animations: {style, duration}
-         - scroll_animations: {enabled, style, stagger_delay}
+# Q7: Loading States (if included)
+IF "loading_states" IN question_categories:
+    REPORT: "【问题{question_number} - 加载状态】加载时使用何种动画风格？"
+    REPORT: "a) 旋转加载器"
+    REPORT: "   说明：Spinner 圆形旋转，通用加载指示"
+    REPORT: "b) 脉冲闪烁"
+    REPORT: "   说明：Opacity pulse，轻量级反馈"
+    REPORT: "c) 骨架屏"
+    REPORT: "   说明：Shimmer effect，内容占位预览"
+    REPORT: "d) 进度条"
+    REPORT: "   说明：Linear fill，进度量化展示"
+    REPORT: ""
+    questions_output.append({id: question_number, category: "loading_states", options: ["a", "b", "c", "d"]})
+    question_number += 1
 
-      2. Write to {base_path}/.intermediates/animation-analysis/animation-specification.json
+# Q8: Scroll Animations (if included)
+IF "scroll_animations" IN question_categories:
+    REPORT: "【问题{question_number} - 滚动动画】元素是否在滚动时触发动画？"
+    REPORT: "a) 淡入出现"
+    REPORT: "   说明：Opacity 0→1，渐进式内容呈现"
+    REPORT: "b) 上滑出现"
+    REPORT: "   说明：TranslateY + fade，方向性引导"
+    REPORT: "c) 缩放淡入"
+    REPORT: "   说明：Scale 0.9→1 + fade，聚焦效果"
+    REPORT: "d) 交错延迟"
+    REPORT: "   说明：Stagger 序列动画，列表渐次呈现"
+    REPORT: "e) 无滚动动画"
+    REPORT: "   说明：静态内容，性能或可访问性考量"
+    REPORT: ""
+    questions_output.append({id: question_number, category: "scroll_animations", options: ["a", "b", "c", "d", "e"]})
+    question_number += 1
 
-      ## Critical Requirements
-      - ✅ Use Write() tool immediately for specification file
-      - ✅ Wait for user response after EACH question before proceeding
-      - ✅ Validate responses and ask for clarification if needed
-      - ✅ Provide sensible defaults if user skips questions
-      - ❌ NO external research or MCP calls
-    `
+REPORT: "支持格式："
+REPORT: "- 空格分隔：1a 2b 3c"
+REPORT: "- 逗号分隔：1a,2b,3c"
+REPORT: "- 自由组合：1a 2b,3c"
+REPORT: ""
+REPORT: "请输入您的选择："
+```
+
+### Step 4: Wait for User Input (Main Flow)
+
+```javascript
+# Wait for user input
+user_raw_input = WAIT_FOR_USER_INPUT()
+
+# Store raw input for debugging
+REPORT: "收到输入: {user_raw_input}"
+```
+
+### Step 5: Parse User Answers (Main Flow)
+
+```javascript
+# Intelligent input parsing (support multiple formats)
+answers = {}
+
+# Parse input using intelligent matching
+# Support formats: "1a 2b 3c", "1a,2b,3c", "1a 2b,3c"
+parsed_responses = PARSE_USER_INPUT(user_raw_input, questions_output)
+
+# Validate parsing
+IF parsed_responses.is_valid:
+    # Map question numbers to categories
+    FOR response IN parsed_responses.answers:
+        question_id = response.question_id
+        selected_option = response.option
+
+        # Find category for this question
+        FOR question IN questions_output:
+            IF question.id == question_id:
+                category = question.category
+                answers[category] = selected_option
+                REPORT: "✅ 问题{question_id} ({category}): 选择 {selected_option}"
+                break
+ELSE:
+    REPORT: "❌ 输入格式无法识别，请参考格式示例重新输入："
+    REPORT: "   示例：1a 2b 3c 4d"
+    # Return to Step 3 for re-input
+    GOTO Step 3
+```
+
+### Step 6: Write Animation Specification (Main Flow)
+
+```javascript
+# Map user choices to specification structure
+specification = {
+    "metadata": {
+        "source": "interactive",
+        "timestamp": NOW(),
+        "focus_types": focus_types,
+        "has_design_context": has_design_context
+    },
+    "timing_scale": MAP_TIMING_SCALE(answers.timing_scale),
+    "easing_philosophy": MAP_EASING_PHILOSOPHY(answers.easing_philosophy),
+    "interactions": {
+        "button": MAP_BUTTON_INTERACTION(answers.button_interactions),
+        "card": MAP_CARD_INTERACTION(answers.card_interactions),
+        "input": MAP_INPUT_INTERACTION(answers.input_interactions)
+    },
+    "page_transitions": MAP_PAGE_TRANSITIONS(answers.page_transitions),
+    "loading_animations": MAP_LOADING_STATES(answers.loading_states),
+    "scroll_animations": MAP_SCROLL_ANIMATIONS(answers.scroll_animations)
+}
+
+# Mapping functions (inline logic)
+FUNCTION MAP_TIMING_SCALE(option):
+    SWITCH option:
+        CASE "a": RETURN {scale: "fast", base_duration: "150ms", range: "100-200ms"}
+        CASE "b": RETURN {scale: "balanced", base_duration: "300ms", range: "200-400ms"}
+        CASE "c": RETURN {scale: "smooth", base_duration: "500ms", range: "400-600ms"}
+        CASE "d": RETURN {scale: "custom", base_duration: "300ms", note: "User to provide values"}
+
+FUNCTION MAP_EASING_PHILOSOPHY(option):
+    SWITCH option:
+        CASE "a": RETURN {style: "linear", curve: "linear"}
+        CASE "b": RETURN {style: "ease-out", curve: "cubic-bezier(0, 0, 0.2, 1)"}
+        CASE "c": RETURN {style: "ease-in-out", curve: "cubic-bezier(0.4, 0, 0.2, 1)"}
+        CASE "d": RETURN {style: "spring", curve: "cubic-bezier(0.34, 1.56, 0.64, 1)"}
+
+FUNCTION MAP_BUTTON_INTERACTION(option):
+    SWITCH option:
+        CASE "a": RETURN {type: "subtle", properties: ["color", "background-color", "opacity"]}
+        CASE "b": RETURN {type: "lift", properties: ["transform", "box-shadow"], transform: "scale(1.02)"}
+        CASE "c": RETURN {type: "slide", properties: ["transform"], transform: "translateY(-2px)"}
+        CASE "d": RETURN {type: "none", properties: []}
+
+FUNCTION MAP_CARD_INTERACTION(option):
+    SWITCH option:
+        CASE "a": RETURN {type: "shadow", properties: ["box-shadow"]}
+        CASE "b": RETURN {type: "float", properties: ["transform", "box-shadow"], transform: "translateY(-4px)"}
+        CASE "c": RETURN {type: "scale", properties: ["transform"], transform: "scale(1.02)"}
+        CASE "d": RETURN {type: "none", properties: []}
+
+FUNCTION MAP_INPUT_INTERACTION(option):
+    SWITCH option:
+        CASE "a": RETURN {enabled: ["focus"], focus: {properties: ["border-color", "box-shadow"]}}
+        CASE "b": RETURN {enabled: ["error"], error: {animation: "shake", keyframes: "translateX"}}
+        CASE "c": RETURN {enabled: ["success"], success: {animation: "checkmark", keyframes: "draw"}}
+        CASE "d": RETURN {enabled: ["focus", "error", "success"]}
+        CASE "e": RETURN {enabled: []}
+
+FUNCTION MAP_PAGE_TRANSITIONS(option):
+    SWITCH option:
+        CASE "a": RETURN {enabled: true, style: "fade", animation: "fadeIn/fadeOut"}
+        CASE "b": RETURN {enabled: true, style: "slide", animation: "slideLeft/slideRight"}
+        CASE "c": RETURN {enabled: true, style: "zoom", animation: "zoomIn/zoomOut"}
+        CASE "d": RETURN {enabled: false}
+
+FUNCTION MAP_LOADING_STATES(option):
+    SWITCH option:
+        CASE "a": RETURN {style: "spinner", animation: "rotate", keyframes: "360deg"}
+        CASE "b": RETURN {style: "pulse", animation: "pulse", keyframes: "opacity"}
+        CASE "c": RETURN {style: "skeleton", animation: "shimmer", keyframes: "gradient-shift"}
+        CASE "d": RETURN {style: "progress", animation: "fill", keyframes: "width"}
+
+FUNCTION MAP_SCROLL_ANIMATIONS(option):
+    SWITCH option:
+        CASE "a": RETURN {enabled: true, style: "fade", animation: "fadeIn"}
+        CASE "b": RETURN {enabled: true, style: "slideUp", animation: "slideUp", transform: "translateY(20px)"}
+        CASE "c": RETURN {enabled: true, style: "scaleIn", animation: "scaleIn", transform: "scale(0.9)"}
+        CASE "d": RETURN {enabled: true, style: "stagger", animation: "fadeIn", stagger_delay: "100ms"}
+        CASE "e": RETURN {enabled: false}
+
+# Write specification file
+output_path = "{base_path}/.intermediates/animation-analysis/animation-specification.json"
+Write(output_path, JSON.stringify(specification, indent=2))
+
+REPORT: "✅ Animation specification saved to {output_path}"
+REPORT: "   Proceeding to token synthesis..."
 ```
 
 ---
 
 **Phase 2 Output**: `animation-specification.json` (user preferences)
 
-## Phase 3: Animation Token Synthesis (Agent)
+## Phase 3: Animation Token Synthesis (Agent - No User Interaction)
 
 **Executor**: `Task(ui-design-agent)` for token generation
+
+**⚠️ CRITICAL**: This phase has NO user interaction. Agent only reads existing data and generates tokens.
 
 ### Step 1: Load All Input Sources
 
@@ -305,61 +495,96 @@ IF animations_extracted:
 user_specification = null
 IF exists({base_path}/.intermediates/animation-analysis/animation-specification.json):
     user_specification = Read(file)
+    REPORT: "✅ Loaded user specification from Phase 2"
+ELSE:
+    REPORT: "⚠️ No user specification found - using extracted CSS only"
 
 design_tokens = null
 IF has_design_context:
     design_tokens = Read({base_path}/style-extraction/style-1/design-tokens.json)
 ```
 
-### Step 2: Launch Token Generation Task
+### Step 2: Launch Token Generation Task (Pure Synthesis)
 
 ```javascript
 Task(ui-design-agent): `
   [ANIMATION_TOKEN_GENERATION_TASK]
-  Synthesize all animation data into production-ready animation tokens
+  Synthesize animation data into production-ready tokens - NO user interaction
 
   SESSION: {session_id} | BASE_PATH: {base_path}
 
-  ## Input Sources
-  1. Extracted CSS Animations: {JSON.stringify(extracted_animations) OR "None"}
-  2. User Specification: {JSON.stringify(user_specification) OR "None"}
-  3. Design Tokens Context: {JSON.stringify(design_tokens) OR "None"}
+  ## ⚠️ CRITICAL: Pure Synthesis Task
+  - NO user questions or interaction
+  - READ existing specification files ONLY
+  - Generate tokens based on available data
+
+  ## Input Sources (Read-Only)
+  1. **Extracted CSS Animations** (if available):
+     ${extracted_animations.length > 0 ? JSON.stringify(extracted_animations) : "None - skip CSS data"}
+
+  2. **User Specification** (REQUIRED if Phase 2 ran):
+     File: {base_path}/.intermediates/animation-analysis/animation-specification.json
+     ${user_specification ? "Status: ✅ Found - READ this file for user choices" : "Status: ⚠️ Not found - use CSS extraction only"}
+
+  3. **Design Tokens Context** (for alignment):
+     ${design_tokens ? JSON.stringify(design_tokens) : "None - standalone animation system"}
 
   ## Synthesis Rules
 
   ### Priority System
-  1. User specification (highest priority)
-  2. Extracted CSS values (medium priority)
+  1. User specification from animation-specification.json (highest priority)
+  2. Extracted CSS values from animations-*.json (medium priority)
   3. Industry best practices (fallback)
 
   ### Duration Normalization
-  - Analyze all extracted durations
-  - Cluster into 3-5 semantic scales: instant, fast, normal, slow, very-slow
+  - IF user_specification.timing_scale EXISTS:
+      Use user's chosen scale (fast/balanced/smooth/custom)
+  - ELSE IF extracted CSS durations available:
+      Cluster extracted durations into 3-5 semantic scales
+  - ELSE:
+      Use standard scale (instant:0ms, fast:150ms, normal:300ms, slow:500ms, very-slow:800ms)
   - Align with design token spacing scale if available
 
   ### Easing Standardization
-  - Identify common easing functions from extracted data
-  - Map to semantic names: linear, ease-in, ease-out, ease-in-out, spring
-  - Convert all cubic-bezier values to standard format
+  - IF user_specification.easing_philosophy EXISTS:
+      Use user's chosen philosophy (linear/ease-out/ease-in-out/spring)
+  - ELSE IF extracted CSS easings available:
+      Identify common easing functions from CSS
+  - ELSE:
+      Use standard easings
+  - Map to semantic names and convert to cubic-bezier format
 
   ### Animation Categorization
   Organize into:
-  - transitions: Property-specific transitions (color, transform, opacity)
-  - keyframe_animations: Named @keyframe animations
-  - interactions: Interaction-specific presets (hover, focus, active)
-  - micro_interactions: Small feedback animations
-  - page_transitions: Route/view change animations
-  - scroll_animations: Scroll-triggered animations
+  - **duration**: Timing scale (instant, fast, normal, slow, very-slow)
+  - **easing**: Easing functions (linear, ease-in, ease-out, ease-in-out, spring)
+  - **transitions**: Property-specific transitions (color, transform, opacity, etc.)
+  - **keyframes**: Named @keyframe animations (fadeIn, slideInUp, pulse, etc.)
+  - **interactions**: Interaction-specific presets (button-hover, card-hover, input-focus, etc.)
+  - **page_transitions**: Route/view change animations (if user enabled)
+  - **scroll_animations**: Scroll-triggered animations (if user enabled)
+
+  ### User Specification Integration
+  IF user_specification EXISTS:
+    - Map user choices to token values:
+      * timing_scale → duration values
+      * easing_philosophy → easing curves
+      * interactions.button → interactions.button-hover token
+      * interactions.card → interactions.card-hover token
+      * interactions.input → micro-interaction tokens
+      * page_transitions → page_transitions tokens
+      * loading_animations → loading state tokens
+      * scroll_animations → scroll_animations tokens
 
   ## Generate Files
 
   ### 1. animation-tokens.json
-  Complete animation token structure:
+  Complete animation token structure using var() references:
 
   {
     "duration": {
       "instant": "0ms",
-      "fast": "150ms",
+      "fast": "150ms",      # Adjust based on user_specification.timing_scale
       "normal": "300ms",
       "slow": "500ms",
       "very-slow": "800ms"
@@ -367,7 +592,7 @@ Task(ui-design-agent): `
     "easing": {
       "linear": "linear",
       "ease-in": "cubic-bezier(0.4, 0, 1, 1)",
-      "ease-out": "cubic-bezier(0, 0, 0.2, 1)",
+      "ease-out": "cubic-bezier(0, 0, 0.2, 1)",      # Adjust based on user_specification.easing_philosophy
       "ease-in-out": "cubic-bezier(0.4, 0, 0.2, 1)",
       "spring": "cubic-bezier(0.34, 1.56, 0.64, 1)"
     },
@@ -389,66 +614,74 @@ Task(ui-design-agent): `
       }
     },
     "keyframes": {
-      "fadeIn": {
-        "0%": {"opacity": "0"},
-        "100%": {"opacity": "1"}
-      },
-      "slideInUp": {
-        "0%": {"transform": "translateY(20px)", "opacity": "0"},
-        "100%": {"transform": "translateY(0)", "opacity": "1"}
-      },
-      "pulse": {
-        "0%, 100%": {"opacity": "1"},
-        "50%": {"opacity": "0.7"}
-      }
+      "fadeIn": {"0%": {"opacity": "0"}, "100%": {"opacity": "1"}},
+      "slideInUp": {"0%": {"transform": "translateY(20px)", "opacity": "0"}, "100%": {"transform": "translateY(0)", "opacity": "1"}},
+      "pulse": {"0%, 100%": {"opacity": "1"}, "50%": {"opacity": "0.7"}},
+      # Add more keyframes based on user_specification choices
     },
     "interactions": {
       "button-hover": {
+        # Map from user_specification.interactions.button
         "properties": ["background-color", "transform"],
         "duration": "var(--duration-fast)",
         "easing": "var(--easing-ease-out)",
         "transform": "scale(1.02)"
       },
       "card-hover": {
+        # Map from user_specification.interactions.card
         "properties": ["box-shadow", "transform"],
         "duration": "var(--duration-normal)",
         "easing": "var(--easing-ease-out)",
         "transform": "translateY(-4px)"
       }
+      # Add input-focus, modal-open, dropdown-toggle based on user choices
     },
     "page_transitions": {
+      # IF user_specification.page_transitions.enabled == true
       "fade": {
         "duration": "var(--duration-normal)",
         "enter": "fadeIn",
         "exit": "fadeOut"
       }
+      # Add slide, zoom based on user_specification.page_transitions.style
     },
     "scroll_animations": {
+      # IF user_specification.scroll_animations.enabled == true
       "default": {
-        "animation": "fadeInUp",
+        "animation": "fadeIn",  # From user_specification.scroll_animations.style
         "duration": "var(--duration-slow)",
         "easing": "var(--easing-ease-out)",
         "threshold": "0.1",
-        "stagger_delay": "100ms"
+        "stagger_delay": "100ms"  # From user_specification if stagger chosen
       }
     }
   }
 
   ### 2. animation-guide.md
-  Comprehensive usage guide:
-  - Animation philosophy and rationale
-  - Duration scale explanation
-  - Easing function usage guidelines
-  - Interaction animation patterns
-  - Implementation examples (CSS and JS)
-  - Accessibility considerations (prefers-reduced-motion)
-  - Performance best practices
+  Comprehensive usage guide with sections:
+  - **Animation Philosophy**: Rationale from user choices and CSS analysis
+  - **Duration Scale**: Explanation of timing values and usage contexts
+  - **Easing Functions**: When to use each easing curve
+  - **Transition Presets**: Property-specific transition guidelines
+  - **Keyframe Animations**: Available animations and use cases
+  - **Interaction Patterns**: Button, card, input animation examples
+  - **Page Transitions**: Route change animation implementation (if enabled)
+  - **Scroll Animations**: Scroll-trigger setup and configuration (if enabled)
+  - **Implementation Examples**: CSS and JavaScript code samples
+  - **Accessibility**: prefers-reduced-motion media query setup
+  - **Performance Best Practices**: Hardware acceleration, will-change usage
+
+  ## Output File Paths
+  - animation-tokens.json: {base_path}/animation-extraction/animation-tokens.json
+  - animation-guide.md: {base_path}/animation-extraction/animation-guide.md
 
   ## Critical Requirements
+  - ✅ READ animation-specification.json if it exists (from Phase 2)
   - ✅ Use Write() tool immediately for both files
-  - ✅ Ensure all tokens use CSS Custom Property format: var(--duration-fast)
+  - ✅ All tokens use CSS Custom Property format: var(--duration-fast)
   - ✅ Include prefers-reduced-motion media query guidance
-  - ✅ Validate all cubic-bezier values are valid
+  - ✅ Validate all cubic-bezier values are valid (4 numbers between 0-1)
+  - ❌ NO user questions or interaction in this phase
   - ❌ NO external research or MCP calls
 `
 ```
@@ -487,8 +720,8 @@ bash(ls -lh {base_path}/animation-extraction/)
 TodoWrite({todos: [
   {content: "Setup and input validation", status: "completed", activeForm: "Validating inputs"},
   {content: "CSS animation extraction (auto mode)", status: "completed", activeForm: "Extracting from CSS"},
-  {content: "Interactive specification (fallback)", status: "completed", activeForm: "Collecting user input"},
-  {content: "Animation token synthesis (agent)", status: "completed", activeForm: "Generating tokens"},
+  {content: "Interactive specification (main flow)", status: "completed", activeForm: "Collecting user input in main flow"},
+  {content: "Animation token synthesis (agent - no interaction)", status: "completed", activeForm: "Generating tokens via agent"},
   {content: "Verify output files", status: "completed", activeForm: "Verifying files"}
 ]});
 ```
@@ -506,7 +739,7 @@ Configuration:
   - ✅ CSS extracted from {len(url_list)} URL(s)
   }
   {IF user_specification:
-  - ✅ User specification via interactive mode
+  - ✅ User specification via interactive mode (main flow)
   }
   {IF has_design_context:
   - ✅ Aligned with existing design tokens
@@ -652,11 +885,12 @@ ERROR: Invalid cubic-bezier values
 
 - **Auto-Trigger CSS Extraction** - Automatically extracts animations when --urls provided
 - **Hybrid Strategy** - Combines CSS extraction with interactive specification
+- **Main Flow Interaction** - User questions in main flow, agent only for token synthesis
 - **Intelligent Fallback** - Gracefully handles extraction failures
 - **Context-Aware** - Aligns with existing design tokens
 - **Production-Ready** - CSS var() format, accessibility support
 - **Comprehensive Coverage** - Transitions, keyframes, interactions, scroll animations
-- **Agent-Driven** - Autonomous token generation with ui-design-agent
+- **Separated Concerns** - User decisions (Phase 2 main flow) → Token generation (Phase 3 agent)
 
 ## Integration
 
