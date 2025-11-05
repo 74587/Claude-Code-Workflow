@@ -59,19 +59,19 @@ jq -r '.created_at // "unknown"' .workflow/WFS-session/workflow-session.json
 ```
 Workflow Sessions:
 
-✅ WFS-oauth-integration (ACTIVE)
+[ACTIVE] WFS-oauth-integration
    Project: OAuth2 authentication system
    Status: active
    Progress: 3/8 tasks completed
    Created: 2025-09-15T10:30:00Z
 
-⏸️ WFS-user-profile (PAUSED)
+[PAUSED] WFS-user-profile
    Project: User profile management
    Status: paused
    Progress: 1/5 tasks completed
    Created: 2025-09-14T14:15:00Z
 
-📁 WFS-database-migration (COMPLETED)
+[COMPLETED] WFS-database-migration
    Project: Database schema migration
    Status: completed
    Progress: 4/4 tasks completed
@@ -81,10 +81,10 @@ Total: 3 sessions (1 active, 1 paused, 1 completed)
 ```
 
 ### Status Indicators
-- **✅**: Active session
-- **⏸️**: Paused session
-- **📁**: Completed session
-- **❌**: Error/corrupted session
+- **[ACTIVE]**: Active session
+- **[PAUSED]**: Paused session
+- **[COMPLETED]**: Completed session
+- **[ERROR]**: Error/corrupted session
 
 ### Quick Commands
 ```bash
@@ -97,8 +97,3 @@ ls .workflow/.active-* | basename | sed 's/^\.active-//'
 # Show recent sessions
 ls -t .workflow/WFS-*/workflow-session.json | head -3
 ```
-
-## Related Commands
-- `/workflow:session:start` - Create new session
-- `/workflow:session:switch` - Switch to different session
-- `/workflow:session:status` - Detailed session info

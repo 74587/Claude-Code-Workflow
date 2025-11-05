@@ -213,8 +213,3 @@ bash(echo '{"session_id":"WFS-test","project":"test project","status":"planning"
 - Characters: `a-z`, `0-9`, `-` only
 - Max length: 50 characters
 - Uniqueness: Add numeric suffix if collision (`WFS-auth-2`, `WFS-auth-3`)
-
-## Related Commands
-- `/workflow:plan` - Uses `--auto` mode for session management
-- `/workflow:execute` - Uses discovery mode for session selection
-- `/workflow:session:status` - Shows detailed session information

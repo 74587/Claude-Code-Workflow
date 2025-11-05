@@ -65,8 +65,3 @@ Session WFS-user-auth resumed
 - Resumed at: 2025-09-15T15:45:00Z
 - Ready for: /workflow:execute
 ```
-
-## Related Commands
-- `/workflow:session:pause` - Pause current session
-- `/workflow:execute` - Continue workflow execution
-- `/workflow:session:list` - Show all sessions

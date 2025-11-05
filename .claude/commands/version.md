@@ -152,12 +152,12 @@ bash(printf "%s\n%s" "3.2.1" "3.2.2" | sort -V | tail -n 1)
 
 **Scenario 1: Up to date**
 ```
-✅ You are on the latest stable version (3.2.1)
+You are on the latest stable version (3.2.1)
 ```
 
 **Scenario 2: Upgrade available**
 ```
-⬆️ A newer stable version is available: v3.2.2
+A newer stable version is available: v3.2.2
 Your version: 3.2.1
 
 To upgrade:
@@ -167,7 +167,7 @@ Bash: bash <(curl -fsSL https://raw.githubusercontent.com/catlog22/Claude-Code-W
 
 **Scenario 3: Development version**
 ```
-✨ You are running a development version (3.4.0-dev)
+You are running a development version (3.4.0-dev)
 This is newer than the latest stable release (v3.3.0)
 ```
 
@@ -252,7 +252,3 @@ ERROR: version.json is invalid or corrupted
 
 ### Timeout Configuration
 All network calls should use `timeout: 30000` (30 seconds) to handle slow connections.
-
-## Related Commands
-- `/cli:cli-init` - Initialize CLI configurations
-- `/workflow:session:list` - List workflow sessions
