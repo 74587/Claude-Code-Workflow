@@ -1,3 +1,23 @@
+# SKILL.md Index Generation Context
+
+## Description Field Requirements
+
+When generating final aggregated output, remember to prepare data for SKILL.md description field:
+
+**Required Data Points**:
+- Project root path (to be obtained via git command)
+- Use cases: "continuing development", "analyzing past implementations", "learning from workflow history"
+- Trigger phrase: "especially when no relevant context exists in memory"
+
+**Description Format**:
+```
+Progressive workflow development history (located at {project_root}).
+Load this SKILL when continuing development, analyzing past implementations,
+or learning from workflow history, especially when no relevant context exists in memory.
+```
+
+---
+
 You are aggregating workflow session history to generate a progressive SKILL package.
 
 ## Your Task

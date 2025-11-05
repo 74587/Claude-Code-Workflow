@@ -123,3 +123,102 @@ Load Level 3 from workflow-progress SKILL for complete development history
 - Group sessions by primary tag
 - Include only top 5 recent sessions in Quick Access
 - Include top 3 watch patterns
+
+---
+
+## Variable Substitution Guide
+
+### Required Variables
+- `{project_root}`: Absolute project path from git root (e.g., "/d/Claude_dms3")
+- `{semantic_version}`: Version string (e.g., "1.0.0", increment patch for each update)
+- `{session_count}`: Total number of archived sessions
+- `{domain_list}`: Comma-separated unique tags sorted by frequency
+- `{earliest_date}`: Earliest session archived_at timestamp
+- `{latest_date}`: Most recent session archived_at timestamp
+
+### Generated Variables
+- `{one_line_description}`: Extract from session description (first sentence, max 80 chars)
+- `{domain_category}`: Primary tag from session metadata
+- `{most_frequent_watch_pattern}`: Top recurring watch pattern across sessions
+- `{date}`: Session archived_at in YYYY-MM-DD format
+
+### Description Field Generation
+
+**Format Template**:
+```
+Progressive workflow development history (located at {project_root}).
+Load this SKILL when continuing development, analyzing past implementations,
+or learning from workflow history, especially when no relevant context exists in memory.
+```
+
+**Generation Rules**:
+1. **Project Root**: Use `git rev-parse --show-toplevel` to get absolute path
+2. **Use Cases**: ALWAYS include these trigger phrases:
+   - "continuing development" (开发延续)
+   - "analyzing past implementations" (分析历史)
+   - "learning from workflow history" (学习历史)
+3. **Trigger Optimization**: MUST include "especially when no relevant context exists in memory"
+4. **Path Format**: Use forward slashes for cross-platform compatibility (e.g., "/d/project")
+
+**Why This Matters**:
+- **Auto-loading precision**: Path reference ensures Claude loads correct project's SKILL
+- **Context awareness**: "when no relevant context exists" prevents redundant loading
+- **Action coverage**: Three use cases cover all workflow scenarios
+
+---
+
+## Generation Instructions
+
+### Step 1: Get Project Root
+```bash
+git rev-parse --show-toplevel  # Returns: /d/Claude_dms3
+```
+
+### Step 2: Read Manifest
+```bash
+cat .workflow/.archives/manifest.json
+```
+
+Extract:
+- Total session count
+- All session tags (for domain list)
+- Date range (earliest/latest archived_at)
+
+### Step 3: Aggregate Session Data
+- Count sessions per domain
+- Extract top 5 recent sessions
+- Identify top 3 watch patterns from lessons
+
+### Step 4: Generate Description
+Apply format template with project_root from Step 1.
+
+### Step 5: Calculate Version
+- Read existing SKILL.md version (if exists)
+- Increment patch version (e.g., 1.0.5 → 1.0.6)
+- Use 1.0.0 for new SKILL package
+
+### Step 6: Build Progressive Loading Sections
+- Level 0: Recent 5 sessions + Top 3 conflicts
+- Level 1: Recent 10 sessions + Best practices
+- Level 2: All sessions + Full lessons + Full conflicts
+- Level 3: Include IMPL_PLAN and TODO_LIST references
+
+### Step 7: Write SKILL.md
+- Apply all variable substitutions
+- Use relative paths: `../../../.workflow/.archives/`
+- Validate all referenced files exist
+
+---
+
+## Validation Checklist
+
+- [ ] `{project_root}` uses absolute path with forward slashes
+- [ ] Description includes all three use cases
+- [ ] Description includes trigger optimization phrase
+- [ ] Version incremented correctly
+- [ ] All session references use relative paths
+- [ ] Domain list sorted by frequency
+- [ ] Date range matches manifest
+- [ ] Quick Access section has exactly 5 recent sessions
+- [ ] Top Watch Patterns section has exactly 3 items
+- [ ] All referenced files exist in archives

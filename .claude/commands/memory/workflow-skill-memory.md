@@ -200,17 +200,52 @@ Objectives:
    RULES: Template reference from skill-aggregation.txt
    "
 
+3.5. **Generate SKILL.md Description** (CRITICAL for auto-loading):
+
+   Read skill-index.txt template Section: "Description Field Generation"
+
+   Execute command to get project root:
+   ```bash
+   git rev-parse --show-toplevel  # Example output: /d/Claude_dms3
+   ```
+
+   Apply description format:
+   ```
+   Progressive workflow development history (located at {project_root}).
+   Load this SKILL when continuing development, analyzing past implementations,
+   or learning from workflow history, especially when no relevant context exists in memory.
+   ```
+
+   **Validation**:
+   - [ ] Path uses forward slashes (not backslashes)
+   - [ ] All three use cases present
+   - [ ] Trigger optimization phrase included
+   - [ ] Path is absolute (starts with / or drive letter)
+
 4. Read templates for formatting guidance:
    - ~/.claude/workflows/cli-templates/prompts/workflow/skill-sessions-timeline.txt
    - ~/.claude/workflows/cli-templates/prompts/workflow/skill-lessons-learned.txt
    - ~/.claude/workflows/cli-templates/prompts/workflow/skill-conflict-patterns.txt
    - ~/.claude/workflows/cli-templates/prompts/workflow/skill-index.txt
 
+   **CRITICAL**: From skill-index.txt, read these sections:
+   - "Description Field Generation" - Rules for generating description
+   - "Variable Substitution Guide" - All required variables
+   - "Generation Instructions" - Step-by-step generation process
+   - "Validation Checklist" - Final validation steps
+
 5. Update SKILL documents:
    - sessions-timeline.md: Append new session, update domain grouping
    - lessons-learned.md: Merge lessons into categories, update frequencies
    - conflict-patterns.md: Add conflicts, update recurring pattern frequencies
    - SKILL.md: Regenerate index with updated counts
+
+   **For SKILL.md generation**:
+   - Follow "Generation Instructions" from skill-index.txt (Steps 1-7)
+   - Use git command for project_root: `git rev-parse --show-toplevel`
+   - Apply "Description Field Generation" rules
+   - Validate using "Validation Checklist"
+   - Increment version (patch level)
 
 6. Return result JSON:
    {
