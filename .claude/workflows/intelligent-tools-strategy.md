@@ -44,6 +44,7 @@ type: strategic-guideline
 |----------|------|-----------------|
 | **Exploring/Understanding** | Gemini → Qwen | `cd [dir] && gemini -p "PURPOSE:... CONTEXT: @**/*"` |
 | **Architecture/Analysis** | Gemini → Qwen | `cd [dir] && gemini -p "PURPOSE:... CONTEXT: @**/*"` |
+| **Multi-directory Analysis** | Gemini → Qwen | `cd [main-dir] && gemini -p "CONTEXT: @**/* @../dep/**/*" --include-directories ../dep` (reduces noise) |
 | **Building/Fixing** | Codex | `codex -C [dir] --full-auto exec "PURPOSE:... MODE: auto"` |
 | **Not sure?** | Multiple | Use tools in parallel |
 | **Small task?** | Still use tools | Tools are faster than manual work |
@@ -53,6 +54,7 @@ type: strategic-guideline
 - **When in doubt, use both** - Parallel usage provides comprehensive coverage
 - **Default to tools** - Use specialized tools for most coding tasks, no matter how small
 - **Lower barriers** - Engage tools immediately when encountering any complexity
+- **Minimize context noise** - Use `cd` + `--include-directories` to focus on relevant files, exclude unrelated directories
 - **⚠️ Write operation protection** - For local codebase write/modify operations, require EXPLICIT user confirmation unless user provides clear instructions containing MODE=write or MODE=auto
 
 ---
@@ -262,7 +264,7 @@ RULES: [template reference and constraints]
 
 #### Multi-Directory Support (Gemini & Qwen)
 
-**Purpose**: For large projects requiring fine-grained access across multiple directories
+**Purpose**: Reduce irrelevant file noise by focusing analysis on specific directories while maintaining necessary cross-directory context
 
 **Use Case**: When `cd` limits scope but you need to reference files from parent/sibling folders
 
@@ -281,6 +283,7 @@ gemini -p "prompt" --include-directories /path/to/project1,/path/to/project2
 gemini -p "prompt" --include-directories /path/to/project1 --include-directories /path/to/project2
 
 # Combined with cd for focused analysis with extended context (RECOMMENDED)
+# This pattern minimizes irrelevant files by focusing on src/auth while only including necessary dependencies
 cd src/auth && gemini -p "
 PURPOSE: Analyze authentication with shared utilities context
 TASK: Review auth implementation and its dependencies
@@ -289,13 +292,14 @@ CONTEXT: @**/* @../shared/**/* @../types/**/*
 EXPECTED: Complete analysis with cross-directory dependencies
 RULES: Focus on integration patterns
 " --include-directories ../shared,../types
+# Result: Only src/auth/**, ../shared/**, ../types/** are analyzed, other project files excluded
 ```
 
 **Best Practices**:
 - **Recommended Pattern**: Use `cd` to navigate to primary focus directory, then use `--include-directories` for additional context
   - Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" --include-directories ../shared,../types`
   - **⚠️ CRITICAL**: CONTEXT must explicitly list external files (e.g., `@../shared/**/*`), AND command must include `--include-directories ../shared`
-  - Benefits: More precise file references (relative to current directory), clearer intent, better context control
+  - Benefits: **Minimizes irrelevant file interference** (only includes specified directories), more precise file references (relative to current directory), clearer intent, better context control
 - **Enforcement Rule**: When CONTEXT references external directories, ALWAYS add corresponding `--include-directories`
 - Use when `cd` alone limits necessary context visibility
 - Keep directory count ≤ 5 for optimal performance
@@ -334,6 +338,7 @@ mcp__code-index__search_code_advanced(pattern="interface.*Props", file_pattern="
 CONTEXT: @src/components/Auth.tsx @src/types/auth.d.ts @src/hooks/useAuth.ts
 
 # Step 3: Execute CLI with precise file references
+# cd to src/ reduces scope; specific files further minimize context to only relevant files
 cd src && gemini -p "
 PURPOSE: Analyze authentication components
 TASK: Review auth component patterns and props interfaces
@@ -342,6 +347,7 @@ CONTEXT: @components/Auth.tsx @types/auth.d.ts @hooks/useAuth.ts
 EXPECTED: Pattern analysis and improvement suggestions
 RULES: Focus on type safety and component composition
 "
+# Result: Only 3 specific files analyzed instead of entire src/ tree
 ```
 
 ---
@@ -497,6 +503,7 @@ bash(codex -C directory --full-auto exec "task")  # Complex implementation: 90-1
 - Working in subdirectory but need parent/sibling context
 - Cross-directory dependency analysis required
 - Multiple related modules need simultaneous access
+- **Key benefit**: Excludes unrelated directories, reducing token usage and improving analysis precision
 
 ---
 
