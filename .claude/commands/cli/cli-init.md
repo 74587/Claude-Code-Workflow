@@ -209,7 +209,7 @@ bash(find . -name "Dockerfile" | head -1)
 ```bash
 # Create .gemini/ directory and settings.json
 mkdir -p .gemini
-echo '{"contextfilename": "CLAUDE.md"}' > .gemini/settings.json
+Write({file_path: '.gemini/settings.json', content: '{"contextfilename": "CLAUDE.md"}'})
 
 # Create .geminiignore file with detected technology rules
 # Backup existing files if present
@@ -219,7 +219,7 @@ echo '{"contextfilename": "CLAUDE.md"}' > .gemini/settings.json
 ```bash
 # Create .qwen/ directory and settings.json
 mkdir -p .qwen
-echo '{"contextfilename": "CLAUDE.md"}' > .qwen/settings.json
+Write({file_path: '.qwen/settings.json', content: '{"contextfilename": "CLAUDE.md"}'})
 
 # Create .qwenignore file with detected technology rules
 # Backup existing files if present
