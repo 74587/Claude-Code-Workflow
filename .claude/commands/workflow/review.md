@@ -4,17 +4,17 @@ description: Optional specialized review (security, architecture, docs) for comp
 argument-hint: "[--type=security|architecture|action-items|quality] [optional: session-id]"
 ---
 
-### 🚀 Command Overview: `/workflow:review`
+## Command Overview: /workflow:review
 
 **Optional specialized review** for completed implementations. In the standard workflow, **passing tests = approved code**. Use this command only when specialized review is required (security, architecture, compliance, docs).
 
 ## Philosophy: "Tests Are the Review"
 
-- ✅ **Default**: All tests pass → Code approved
-- 🔍 **Optional**: Specialized reviews for:
-  - 🔒 Security audits (vulnerabilities, auth/authz)
-  - 🏗️ Architecture compliance (patterns, technical debt)
-  - 📋 Action items verification (requirements met, acceptance criteria)
+- **Default**: All tests pass -> Code approved
+- **Optional**: Specialized reviews for:
+  - Security audits (vulnerabilities, auth/authz)
+  - Architecture compliance (patterns, technical debt)
+  - Action items verification (requirements met, acceptance criteria)
 
 ## Review Types
 
@@ -44,13 +44,13 @@ fi
 
 # Step 2: Validation
 if [ ! -d ".workflow/${sessionId}" ]; then
-    echo "❌ Session ${sessionId} not found"
+    echo "Session ${sessionId} not found"
     exit 1
 fi
 
 # Check for completed tasks
 if [ ! -d ".workflow/${sessionId}/.summaries" ] || [ -z "$(find .workflow/${sessionId}/.summaries/ -name "IMPL-*.md" -type f 2>/dev/null)" ]; then
-    echo "❌ No completed implementation found. Complete implementation first"
+    echo "No completed implementation found. Complete implementation first"
     exit 1
 fi
 
@@ -59,7 +59,7 @@ review_type="${TYPE_ARG:-quality}"
 
 # Redirect docs review to specialized command
 if [ "$review_type" = "docs" ]; then
-    echo "💡 For documentation generation, please use:"
+    echo "For documentation generation, please use:"
     echo "   /workflow:tools:docs"
     echo ""
     echo "The docs command provides:"
@@ -73,7 +73,7 @@ fi
 # BASH_EXECUTION_STOPS → MODEL_ANALYSIS_BEGINS
 ```
 
-### 🧠 Model Analysis Phase
+### Model Analysis Phase
 
 After bash validation, the model takes control to:
 
@@ -205,7 +205,7 @@ After bash validation, the model takes control to:
    ```bash
    # If architecture or quality issues found, suggest memory update
    if [ "$review_type" = "architecture" ] || [ "$review_type" = "quality" ]; then
-       echo "💡 Consider updating project documentation:"
+       echo "Consider updating project documentation:"
        echo "   /update-memory-related"
    fi
    ```
@@ -226,7 +226,7 @@ After bash validation, the model takes control to:
 /workflow:review --type=docs
 ```
 
-## ✨ Features
+## Features
 
 - **Simple Validation**: Check session exists and has completed tasks
 - **No Complex Orchestration**: Direct analysis, no multi-phase pipeline
@@ -240,10 +240,10 @@ After bash validation, the model takes control to:
 
 ```
 Standard Workflow:
-  plan → execute → test-gen → execute ✅
+  plan -> execute -> test-gen -> execute (complete)
 
 Optional Review (when needed):
-  plan → execute → test-gen → execute → review (security/architecture/docs)
+  plan -> execute -> test-gen -> execute -> review (security/architecture/docs)
 ```
 
 **When to Use**:
@@ -256,11 +256,3 @@ Optional Review (when needed):
 - Regular development (tests are sufficient)
 - Simple bug fixes (test-fix-agent handles it)
 - Minor changes (update-memory-related is enough)
-
-## Related Commands
-
-- `/workflow:execute` - Must complete implementation first
-- `/workflow:test-gen` - Primary quality gate (tests)
-- `/workflow:tools:docs` - Generate hierarchical documentation (use instead of `--type=docs`)
-- `/update-memory-related` - Update CLAUDE.md docs after architecture findings
-- `/workflow:status` - Check session status

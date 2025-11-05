@@ -118,14 +118,14 @@ RULES: Focus on TDD best practices and workflow adherence. Be specific about vio
 TDD Verification Report - Session: {sessionId}
 
 ## Chain Validation
-✅ Feature 1: TEST-1.1 → IMPL-1.1 → REFACTOR-1.1 (Complete)
-✅ Feature 2: TEST-2.1 → IMPL-2.1 → REFACTOR-2.1 (Complete)
-⚠️  Feature 3: TEST-3.1 → IMPL-3.1 (Missing REFACTOR phase)
+[COMPLETE] Feature 1: TEST-1.1 → IMPL-1.1 → REFACTOR-1.1 (Complete)
+[COMPLETE] Feature 2: TEST-2.1 → IMPL-2.1 → REFACTOR-2.1 (Complete)
+[INCOMPLETE] Feature 3: TEST-3.1 → IMPL-3.1 (Missing REFACTOR phase)
 
 ## Test Execution
-✅ All TEST tasks produced failing tests
-✅ All IMPL tasks made tests pass
-✅ All REFACTOR tasks maintained green tests
+All TEST tasks produced failing tests
+All IMPL tasks made tests pass
+All REFACTOR tasks maintained green tests
 
 ## Coverage Metrics
 Line Coverage: {percentage}%
@@ -271,20 +271,20 @@ Status: {EXCELLENT | GOOD | NEEDS IMPROVEMENT | FAILED}
 ## Chain Analysis
 
 ### Feature 1: {Feature Name}
-**Status**: ✅ Complete
+**Status**: Complete
 **Chain**: TEST-1.1 → IMPL-1.1 → REFACTOR-1.1
 
-- ✅ **Red Phase**: Test created and failed with clear message
-- ✅ **Green Phase**: Minimal implementation made test pass
-- ✅ **Refactor Phase**: Code improved, tests remained green
+- **Red Phase**: Test created and failed with clear message
+- **Green Phase**: Minimal implementation made test pass
+- **Refactor Phase**: Code improved, tests remained green
 
 ### Feature 2: {Feature Name}
-**Status**: ⚠️ Incomplete
+**Status**: Incomplete
 **Chain**: TEST-2.1 → IMPL-2.1 (Missing REFACTOR-2.1)
 
-- ✅ **Red Phase**: Test created and failed
-- ⚠️ **Green Phase**: Implementation seems over-engineered
-- ❌ **Refactor Phase**: Missing
+- **Red Phase**: Test created and failed
+- **Green Phase**: Implementation seems over-engineered
+- **Refactor Phase**: Missing
 
 **Issues**:
 - REFACTOR-2.1 task not completed
@@ -306,16 +306,16 @@ Status: {EXCELLENT | GOOD | NEEDS IMPROVEMENT | FAILED}
 ## TDD Cycle Validation
 
 ### Red Phase (Write Failing Test)
-- ✅ {N}/{total} features had failing tests initially
-- ⚠️ Feature 3: No evidence of initial test failure
+- {N}/{total} features had failing tests initially
+- Feature 3: No evidence of initial test failure
 
 ### Green Phase (Make Test Pass)
-- ✅ {N}/{total} implementations made tests pass
-- ✅ All implementations minimal and focused
+- {N}/{total} implementations made tests pass
+- All implementations minimal and focused
 
 ### Refactor Phase (Improve Quality)
-- ⚠️ {N}/{total} features completed refactoring
-- ❌ Feature 2, 4: Refactoring step skipped
+- {N}/{total} features completed refactoring
+- Feature 2, 4: Refactoring step skipped
 
 ## Best Practices Assessment
 
@@ -351,8 +351,3 @@ Status: {EXCELLENT | GOOD | NEEDS IMPROVEMENT | FAILED}
 {Summary of compliance status and next steps}
 ```
 
-## Related Commands
-- `/workflow:tdd-plan` - Creates TDD workflow
-- `/workflow:execute` - Executes TDD tasks
-- `/workflow:tools:tdd-coverage-analysis` - Analyzes test coverage
-- `/workflow:status` - Views workflow progress

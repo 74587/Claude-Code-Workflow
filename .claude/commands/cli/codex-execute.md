@@ -257,12 +257,12 @@ TodoWrite({
 
 **When to Resume vs New Session**:
 ```
-✅ RESUME (same group):
+RESUME (same group):
   - Subtasks share files/modules
   - Logical continuation of previous work
   - Same architectural domain
 
-❌ NEW SESSION (different group):
+NEW SESSION (different group):
   - Independent task area
   - Different files/modules
   - Switching architectural domains
@@ -318,7 +318,7 @@ AskUserQuestion({
 
 **During Execution**:
 ```
-📊 Task Flow Diagram:
+Task Flow Diagram:
 [Group A: Auth Core]
   A1: Create user model ──┐
   A2: Add validation     ─┤─► [resume] ─► A3: Database schema
@@ -331,7 +331,7 @@ AskUserQuestion({
   C1: Unit tests ─────────────► [new session]
   C2: Integration tests ──────► [resume]
 
-📋 Task Decomposition:
+Task Decomposition:
   [Group A] 1. Create user model
   [Group A] 2. Add validation logic [resume]
   [Group A] 3. Implement database schema [resume]
@@ -341,28 +341,28 @@ AskUserQuestion({
   [Group C] 7. Unit tests [new session]
   [Group C] 8. Integration tests [resume]
 
-▶️  [Group A] Executing Subtask 1/8: Create user model
+[Group A] Executing Subtask 1/8: Create user model
   Starting new Codex session for Group A...
   [Codex output]
-  ✅ Subtask 1 completed
+  Subtask 1 completed
 
-🔍 Git Verification:
+Git Verification:
   M  src/models/user.ts
-  ✅ Changes verified
+  Changes verified
 
-▶️  [Group A] Executing Subtask 2/8: Add validation logic
+[Group A] Executing Subtask 2/8: Add validation logic
   Resuming Codex session (same group)...
   [Codex output]
-  ✅ Subtask 2 completed
+  Subtask 2 completed
 
-▶️  [Group B] Executing Subtask 4/8: Create auth endpoints
+[Group B] Executing Subtask 4/8: Create auth endpoints
   Starting NEW Codex session for Group B...
   [Codex output]
-  ✅ Subtask 4 completed
+  Subtask 4 completed
 ...
 
-✅ All Subtasks Completed
-📊 Summary: [file references, changes, next steps]
+All Subtasks Completed
+Summary: [file references, changes, next steps]
 ```
 
 **Final Summary**:
@@ -370,8 +370,8 @@ AskUserQuestion({
 # Task Execution Summary: [Task Description]
 
 ## Subtasks Completed
-1. ✅ [Subtask 1]: [files modified]
-2. ✅ [Subtask 2]: [files modified]
+1. [Subtask 1]: [files modified]
+2. [Subtask 2]: [files modified]
 ...
 
 ## Files Modified

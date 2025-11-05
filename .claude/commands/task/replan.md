@@ -24,7 +24,7 @@ Replans individual tasks or batch processes multiple tasks with change tracking 
 - **Change Documentation**: Track all modifications
 - **Progress Tracking**: TodoWrite integration for batch operations
 
-⚠️ **CRITICAL**: Validates active session before replanning
+**CRITICAL**: Validates active session before replanning
 
 ## Operation Modes
 
@@ -189,7 +189,7 @@ AskUserQuestion({
 
 User selected: "Yes, rollback"
 
-✅ Task rolled back to version 1.1
+Task rolled back to version 1.1
 ```
 
 ## Batch Processing with TodoWrite
@@ -201,7 +201,7 @@ When processing multiple tasks, automatically creates TodoWrite task list:
 **Batch Replan Progress**:
 - [x] IMPL-002: Add FR-12 draft saving acceptance criteria
 - [x] IMPL-003: Add FR-14 history tracking acceptance criteria
-- [⧗] IMPL-004: Add FR-09 response surface explicit coverage
+- [ ] IMPL-004: Add FR-09 response surface explicit coverage
 - [ ] IMPL-008: Add NFR performance validation steps
 ```
 
@@ -255,9 +255,9 @@ AskUserQuestion({
 
 User selected: "Yes, apply"
 
-✓ Version 1.2 created
-✓ Context updated
-✓ Backup saved to .task/backup/IMPL-1-v1.1.json
+Version 1.2 created
+Context updated
+Backup saved to .task/backup/IMPL-1-v1.1.json
 ```
 
 ### Single Task - File Input
@@ -267,9 +267,9 @@ User selected: "Yes, apply"
 Loading requirements.md...
 Applying specification changes...
 
-✓ Task updated with new requirements
-✓ Version 1.1 created
-✓ Backup saved to .task/backup/IMPL-2-v1.0.json
+Task updated with new requirements
+Version 1.1 created
+Backup saved to .task/backup/IMPL-2-v1.0.json
 ```
 
 ### Batch Mode - From Verification Report
@@ -286,23 +286,23 @@ Found 4 tasks requiring replanning:
 Creating task tracking list...
 
 Processing IMPL-002...
-✓ Backup created: .task/backup/IMPL-002-v1.0.json
-✓ Updated to v1.1
+Backup created: .task/backup/IMPL-002-v1.0.json
+Updated to v1.1
 
 Processing IMPL-003...
-✓ Backup created: .task/backup/IMPL-003-v1.0.json
-✓ Updated to v1.1
+Backup created: .task/backup/IMPL-003-v1.0.json
+Updated to v1.1
 
 Processing IMPL-004...
-✓ Backup created: .task/backup/IMPL-004-v1.0.json
-✓ Updated to v1.1
+Backup created: .task/backup/IMPL-004-v1.0.json
+Updated to v1.1
 
 Processing IMPL-008...
-✓ Backup created: .task/backup/IMPL-008-v1.0.json
-✓ Updated to v1.1
+Backup created: .task/backup/IMPL-008-v1.0.json
+Updated to v1.1
 
-✅ Batch replan completed: 4/4 successful
-📋 Summary report saved
+Batch replan completed: 4/4 successful
+Summary report saved
 ```
 
 ### Batch Mode - Auto-detection
@@ -320,35 +320,35 @@ Entering batch mode...
 ### Single Task Errors
 ```bash
 # Task not found
-❌ Task IMPL-5 not found
-→ Check task ID with /workflow:status
+Task IMPL-5 not found
+Check task ID with /workflow:status
 
 # Task completed
-⚠️ Task IMPL-1 is completed (cannot replan)
-→ Create new task for additional work
+Task IMPL-1 is completed (cannot replan)
+Create new task for additional work
 
 # File not found
-❌ File requirements.md not found
-→ Check file path
+File requirements.md not found
+Check file path
 
 # No input provided
-❌ Please specify changes needed
-→ Provide text, file, or verification report
+Please specify changes needed
+Provide text, file, or verification report
 ```
 
 ### Batch Mode Errors
 ```bash
 # Invalid verification report
-❌ File does not contain valid verification report format
-→ Check report structure or use single task mode
+File does not contain valid verification report format
+Check report structure or use single task mode
 
 # Partial failures
-⚠️ Batch completed with errors: 3/4 successful
-→ Review error details in summary report
+Batch completed with errors: 3/4 successful
+Review error details in summary report
 
 # No replan recommendations found
-❌ Verification report contains no replan recommendations
-→ Check report content or use /workflow:action-plan-verify first
+Verification report contains no replan recommendations
+Check report content or use /workflow:action-plan-verify first
 ```
 
 ## Batch Mode Integration
@@ -430,15 +430,3 @@ TodoWrite({
   todos: updateTaskStatus(taskId, "completed")
 });
 ```
-
-## Related Commands
-
-- `/workflow:status` - View task structure and versions
-- `/workflow:action-plan-verify` - Generate verification report for batch mode
-- `/task:execute` - Execute replanned task
-- `/task:create` - Create new tasks
-- `/task:breakdown` - Break down complex tasks
-
-## Context
-
-$ARGUMENTS

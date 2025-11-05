@@ -24,7 +24,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 3. Analyze implementation with concept-enhanced → Parse ANALYSIS_RESULTS.md
 4. Generate test task from analysis → Return summary
 
-**⚠️ Command Scope**: This command ONLY prepares test workflow artifacts. It does NOT execute tests or implementation. Task execution requires separate user action.
+**Command Scope**: This command ONLY prepares test workflow artifacts. It does NOT execute tests or implementation. Task execution requires separate user action.
 
 ## Core Rules
 
@@ -36,7 +36,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 6. **Track Progress**: Update TodoWrite after every phase completion
 7. **Automatic Detection**: context-gather auto-detects test session and gathers source session context
 8. **Parse --use-codex Flag**: Extract flag from arguments and pass to Phase 4 (test-task-generate)
-9. **⚠️ Command Boundary**: This command ends at Phase 5 summary. Test execution is NOT part of this command.
+9. **Command Boundary**: This command ends at Phase 5 summary. Test execution is NOT part of this command.
 
 ## 5-Phase Execution
 
@@ -177,13 +177,13 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 ---
 
-### Phase 5: Return Summary (⚠️ Command Ends Here)
+### Phase 5: Return Summary (Command Ends Here)
 
-**⚠️ Important**: This is the final phase of `/workflow:test-gen`. The command completes and returns control to the user. No automatic execution occurs.
+**Important**: This is the final phase of `/workflow:test-gen`. The command completes and returns control to the user. No automatic execution occurs.
 
 **Return to User**:
 ```
-✅ Test workflow preparation complete!
+Test workflow preparation complete!
 
 Source Session: [sourceSessionId]
 Test Session: [testSessionId]
@@ -198,17 +198,17 @@ Test Framework: [detected framework]
 Test Files to Generate: [count]
 Fix Mode: [Manual|Codex Automated] (based on --use-codex flag)
 
-📋 Review Generated Artifacts:
+Review Generated Artifacts:
 - Test plan: .workflow/[testSessionId]/IMPL_PLAN.md
 - Task list: .workflow/[testSessionId]/TODO_LIST.md
 - Analysis: .workflow/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md
 
-⚠️ Ready for execution. Use appropriate workflow commands to proceed.
+Ready for execution. Use appropriate workflow commands to proceed.
 ```
 
 **TodoWrite**: Mark phase 5 completed
 
-**⚠️ Command Boundary**: After this phase, the command terminates and returns to user prompt.
+**Command Boundary**: After this phase, the command terminates and returns to user prompt.
 
 ---
 
@@ -244,7 +244,7 @@ Update status to `in_progress` when starting each phase, mark `completed` when d
 │   ↓                                                     │
 │ Phase 5: Return summary                                │
 └─────────────────────────────────────────────────────────┘
-         ⚠️ COMMAND ENDS - Control returns to user
+         COMMAND ENDS - Control returns to user
 
 Artifacts Created:
 ├── .workflow/WFS-test-[session]/
@@ -330,8 +330,18 @@ See `/workflow:tools:test-task-generate` for complete JSON schemas.
 
 ## Related Commands
 
-- `/workflow:tools:test-context-gather` - Phase 2 (coverage analysis)
-- `/workflow:tools:test-concept-enhanced` - Phase 3 (Gemini test analysis)
-- `/workflow:tools:test-task-generate` - Phase 4 (task generation)
-- `/workflow:execute` - Execute workflow
-- `/workflow:status` - Check progress
+**Prerequisite Commands**:
+- `/workflow:plan` or `/workflow:execute` - Complete implementation session that needs test validation
+
+**Called by This Command** (5 phases):
+- `/workflow:session:start` - Phase 1: Create independent test workflow session
+- `/workflow:tools:test-context-gather` - Phase 2: Analyze test coverage and gather source session context
+- `/workflow:tools:test-concept-enhanced` - Phase 3: Generate test requirements and strategy using Gemini
+- `/workflow:tools:test-task-generate` - Phase 4: Generate test generation and execution task JSONs
+- `/workflow:tools:test-task-generate --use-codex` - Phase 4: With automated Codex fixes (when `--use-codex` flag used)
+- `/workflow:tools:test-task-generate --cli-execute` - Phase 4: With CLI execution mode (when `--cli-execute` flag used)
+
+**Follow-up Commands**:
+- `/workflow:status` - Review generated test tasks
+- `/workflow:test-cycle-execute` - Execute test generation and fix cycles
+- `/workflow:execute` - Execute generated test tasks

@@ -15,7 +15,7 @@ Breaks down complex tasks into executable subtasks with context inheritance and 
 
 ## Core Features
 
-⚠️ **CRITICAL**: Manual breakdown with safety controls to prevent file conflicts and task limit violations.
+**CRITICAL**: Manual breakdown with safety controls to prevent file conflicts and task limit violations.
 
 ### Breakdown Process
 1. **Session Check**: Verify active session contains parent task
@@ -50,7 +50,7 @@ Interactive process:
 Task: Build authentication module
 Current total tasks: 6/10
 
-⚠️  MANUAL BREAKDOWN REQUIRED
+MANUAL BREAKDOWN REQUIRED
 Define subtasks manually (remaining capacity: 4 tasks):
 
 1. Enter subtask title: User authentication core
@@ -59,11 +59,11 @@ Define subtasks manually (remaining capacity: 4 tasks):
 2. Enter subtask title: OAuth integration
    Focus files: services/OAuthService.js, routes/oauth.js
 
-⚠️  FILE CONFLICT DETECTED:
+FILE CONFLICT DETECTED:
    - routes/auth.js appears in multiple subtasks
    - Recommendation: Merge related authentication routes
 
-⚠️  SIMILAR FUNCTIONALITY WARNING:
+SIMILAR FUNCTIONALITY WARNING:
    - "User authentication" and "OAuth integration" both handle auth
    - Consider combining into single task
 
@@ -83,10 +83,10 @@ AskUserQuestion({
 
 User selected: "Proceed with breakdown"
 
-✅ Task IMPL-1 broken down:
-▸ IMPL-1: Build authentication module (container)
-  ├── IMPL-1.1: User authentication core → @code-developer
-  └── IMPL-1.2: OAuth integration → @code-developer
+Task IMPL-1 broken down:
+IMPL-1: Build authentication module (container)
+  ├── IMPL-1.1: User authentication core -> @code-developer
+  └── IMPL-1.2: OAuth integration -> @code-developer
 
 Files updated: .task/IMPL-1.json + 2 subtask files + TODO_LIST.md
 ```
@@ -167,45 +167,38 @@ Files updated: .task/IMPL-1.json + 2 subtask files + TODO_LIST.md
 ```bash
 /task:breakdown impl-1
 
-▸ impl-1: Build authentication (container)
-  ├── impl-1.1: Design schema → @planning-agent
-  ├── impl-1.2: Implement logic + tests → @code-developer
-  └── impl-1.3: Execute & fix tests → @test-fix-agent
+impl-1: Build authentication (container)
+  ├── impl-1.1: Design schema -> @planning-agent
+  ├── impl-1.2: Implement logic + tests -> @code-developer
+  └── impl-1.3: Execute & fix tests -> @test-fix-agent
 ```
 
 ## Error Handling
 
 ```bash
 # Task not found
-❌ Task IMPL-5 not found
+Task IMPL-5 not found
 
 # Already broken down
-⚠️ Task IMPL-1 already has subtasks
+Task IMPL-1 already has subtasks
 
 # Wrong status
-❌ Cannot breakdown completed task IMPL-2
+Cannot breakdown completed task IMPL-2
 
 # 10-task limit exceeded
-❌ Breakdown would exceed 10-task limit (current: 8, proposed: 4)
-   Suggestion: Re-scope project into smaller iterations
+Breakdown would exceed 10-task limit (current: 8, proposed: 4)
+Suggestion: Re-scope project into smaller iterations
 
 # File conflicts detected
-⚠️ File conflict: routes/auth.js appears in IMPL-1.1 and IMPL-1.2
-   Recommendation: Merge subtasks or redistribute files
+File conflict: routes/auth.js appears in IMPL-1.1 and IMPL-1.2
+Recommendation: Merge subtasks or redistribute files
 
 # Similar functionality warning
-⚠️ Similar functions detected: "user login" and "authentication"
-   Consider consolidating related functionality
+Similar functions detected: "user login" and "authentication"
+Consider consolidating related functionality
 
 # Manual breakdown required
-❌ Automatic breakdown disabled. Use manual breakdown process.
+Automatic breakdown disabled. Use manual breakdown process.
 ```
-
-## Related Commands
-
-- `/task:create` - Create new tasks
-- `/task:execute` - Execute subtasks
-- `/workflow:status` - View task hierarchy
-- `/workflow:plan` - Plan within 10-task limit
 
 **System ensures**: Manual breakdown control with file cohesion enforcement, similar functionality detection, and 10-task limit compliance

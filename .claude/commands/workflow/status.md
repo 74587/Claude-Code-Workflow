@@ -51,11 +51,11 @@ find .workflow/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
 **Progress**: 3/8 tasks completed
 
 ## Active Tasks
-- [⚠️] impl-1: Current task in progress
+- [IN PROGRESS] impl-1: Current task in progress
 - [ ] impl-2: Next pending task
 
 ## Completed Tasks
-- [✅] impl-0: Setup completed
+- [COMPLETED] impl-0: Setup completed
 ```
 
 ## Simple Bash Commands
@@ -112,13 +112,8 @@ Summary: .summaries/impl-1-summary.md
 
 ### Validation Results
 ```
-✅ Session file valid
-✅ 8 task files found
-✅ 3 summaries found
-⚠️ 5 tasks pending completion
+Session file valid
+8 task files found
+3 summaries found
+5 tasks pending completion
 ```
-
-## Related Commands
-- `/workflow:execute` - Uses this for task discovery
-- `/workflow:resume` - Uses this for progress analysis
-- `/workflow:session:status` - Shows session metadata

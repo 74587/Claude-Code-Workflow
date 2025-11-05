@@ -297,7 +297,7 @@ Generate a complete tech stack SKILL package with Exa research.
 
 **Final Report**:
 ```
-✅ Tech Stack SKILL Package Complete
+Tech Stack SKILL Package Complete
 
 Tech Stack: {TECH_STACK_NAME}
 Location: .claude/skills/{TECH_STACK_NAME}/

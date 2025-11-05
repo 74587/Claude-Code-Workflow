@@ -37,7 +37,7 @@ Creates new implementation tasks with automatic context awareness and ID generat
 
 Output:
 ```
-✅ Task created: IMPL-1
+Task created: IMPL-1
 Title: Build authentication module
 Type: feature
 Agent: code-developer
@@ -73,7 +73,7 @@ Status: pending
 ### Analysis Triggers
 When implementation details incomplete:
 ```bash
-⚠️ Task requires analysis for implementation details
+Task requires analysis for implementation details
 Suggest running: gemini analysis for file locations and dependencies
 ```
 
@@ -117,16 +117,16 @@ Based on task type and title keywords:
 
 ```bash
 # No workflow session
-❌ No active workflow found
-→ Use: /workflow init "project name"
+No active workflow found
+Use: /workflow init "project name"
 
 # Duplicate task
-⚠️ Similar task exists: IMPL-3
-→ Continue anyway? (y/n)
+Similar task exists: IMPL-3
+Continue anyway? (y/n)
 
 # Max depth exceeded
-❌ Cannot create IMPL-1.2.1 (max 2 levels)
-→ Use: IMPL-2 for new main task
+Cannot create IMPL-1.2.1 (max 2 levels)
+Use: IMPL-2 for new main task
 ```
 
 ## Examples
@@ -135,7 +135,7 @@ Based on task type and title keywords:
 ```bash
 /task:create "Implement user authentication"
 
-✅ Created IMPL-1: Implement user authentication
+Created IMPL-1: Implement user authentication
 Type: feature
 Agent: code-developer
 Status: pending
@@ -145,14 +145,8 @@ Status: pending
 ```bash
 /task:create "Fix login validation bug" --type=bugfix
 
-✅ Created IMPL-2: Fix login validation bug
+Created IMPL-2: Fix login validation bug
 Type: bugfix
 Agent: code-developer
 Status: pending
 ```
-
-## Related Commands
-
-- `/task:breakdown` - Break into subtasks
-- `/task:execute` - Execute with agent
-- `/context` - View task details

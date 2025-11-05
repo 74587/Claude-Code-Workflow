@@ -171,14 +171,14 @@ Total tasks: [M] (1 task per simple feature + subtasks for complex features)
 Task breakdown:
 - Simple features: [K] tasks (IMPL-1 to IMPL-K)
 - Complex features: [L] features with [P] subtasks
-- Total task count: [M] (within 10-task limit ✅)
+- Total task count: [M] (within 10-task limit)
 
 Structure:
-- IMPL-1: {Feature 1 Name} (Internal: 🔴 Red → 🟢 Green → 🔵 Refactor)
-- IMPL-2: {Feature 2 Name} (Internal: 🔴 Red → 🟢 Green → 🔵 Refactor)
+- IMPL-1: {Feature 1 Name} (Internal: Red → Green → Refactor)
+- IMPL-2: {Feature 2 Name} (Internal: Red → Green → Refactor)
 - IMPL-3: {Complex Feature} (Container)
-  - IMPL-3.1: {Sub-feature A} (Internal: 🔴 Red → 🟢 Green → 🔵 Refactor)
-  - IMPL-3.2: {Sub-feature B} (Internal: 🔴 Red → 🟢 Green → 🔵 Refactor)
+  - IMPL-3.1: {Sub-feature A} (Internal: Red → Green → Refactor)
+  - IMPL-3.2: {Sub-feature B} (Internal: Red → Green → Refactor)
 [...]
 
 Plans generated:
@@ -192,12 +192,12 @@ TDD Configuration:
 - Green phase includes test-fix cycle (max 3 iterations)
 - Auto-revert on max iterations reached
 
-✅ Recommended Next Steps:
+Recommended Next Steps:
 1. /workflow:action-plan-verify --session [sessionId]  # Verify TDD plan quality and dependencies
 2. /workflow:execute --session [sessionId]  # Start TDD execution
 3. /workflow:tdd-verify [sessionId]  # Post-execution TDD compliance check
 
-⚠️ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task structure and dependencies
+Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task structure and dependencies
 ```
 
 ## TodoWrite Pattern
@@ -258,11 +258,6 @@ Convert user input to TDD-structured format:
 - **Command failure**: Keep phase in_progress, report error
 - **TDD validation failure**: Report incomplete chains or wrong dependencies
 
-## Related Commands
-- `/workflow:plan` - Standard (non-TDD) planning
-- `/workflow:execute` - Execute TDD tasks
-- `/workflow:tdd-verify` - Verify TDD compliance
-- `/workflow:status` - View progress
 ## TDD Workflow Enhancements
 
 ### Overview
@@ -294,7 +289,7 @@ IMPL (Green phase) tasks now include automatic test-fix cycle for resilient impl
 ```
 1. Write minimal implementation code
 2. Execute test suite
-3. IF tests pass → Complete task ✅
+3. IF tests pass → Complete task
 4. IF tests fail → Enter fix cycle:
    a. Gemini diagnoses with bug-fix template
    b. Apply fix (manual or Codex)
@@ -304,10 +299,10 @@ IMPL (Green phase) tasks now include automatic test-fix cycle for resilient impl
 ```
 
 **Benefits**:
-- ✅ Faster feedback within Green phase
-- ✅ Autonomous recovery from implementation errors
-- ✅ Systematic debugging with Gemini
-- ✅ Safe rollback prevents broken state
+- Faster feedback within Green phase
+- Autonomous recovery from implementation errors
+- Systematic debugging with Gemini
+- Safe rollback prevents broken state
 
 #### 3. Agent-Driven Planning
 **From plan --agent workflow**
@@ -335,7 +330,7 @@ Supports action-planning-agent for more autonomous TDD planning with:
 
 ### Migration Notes
 
-**Backward Compatibility**: ✅ Fully compatible
+**Backward Compatibility**: Fully compatible
 - Existing TDD workflows continue to work
 - New features are additive, not breaking
 - Phase 3 can be skipped if test-context-gather not available
@@ -366,4 +361,24 @@ Supports action-planning-agent for more autonomous TDD planning with:
 **Configuration Options** (in IMPL tasks):
 - `meta.max_iterations`: Fix attempts (default: 3)
 - `meta.use_codex`: Auto-fix mode (default: false)
+
+## Related Commands
+
+**Prerequisite Commands**:
+- None - TDD planning is self-contained (can optionally run brainstorm commands before)
+
+**Called by This Command** (6 phases):
+- `/workflow:session:start` - Phase 1: Create or discover TDD workflow session
+- `/workflow:tools:context-gather` - Phase 2: Gather project context and analyze codebase
+- `/workflow:tools:test-context-gather` - Phase 3: Analyze existing test patterns and coverage
+- `/workflow:tools:conflict-resolution` - Phase 4: Detect and resolve conflicts (auto-triggered if conflict_risk ≥ medium)
+- `/compact` - Phase 4: Memory optimization (if context approaching limits)
+- `/workflow:tools:task-generate-tdd` - Phase 5: Generate TDD task chains with Red-Green-Refactor cycles
+- `/workflow:tools:task-generate-tdd --agent` - Phase 5: Generate TDD tasks with agent-driven approach (when `--agent` flag used)
+
+**Follow-up Commands**:
+- `/workflow:action-plan-verify` - Recommended: Verify TDD plan quality and structure before execution
+- `/workflow:status` - Review TDD task breakdown
+- `/workflow:execute` - Begin TDD implementation
+- `/workflow:tdd-verify` - Post-execution: Verify TDD compliance and generate quality report
 

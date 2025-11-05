@@ -279,11 +279,11 @@ Each round's output is structured as:
 
 | Command | Models | Rounds | Discussion | Implementation | Use Case |
 |---------|--------|--------|------------|----------------|----------|
-| `/cli:mode:plan` | Gemini | 1 | ❌ NO | ❌ NO | Single-model planning |
-| `/cli:analyze` | Gemini/Qwen | 1 | ❌ NO | ❌ NO | Code analysis |
-| `/cli:execute` | Any | 1 | ❌ NO | ✅ YES | Direct implementation |
-| `/cli:codex-execute` | Codex | 1 | ❌ NO | ✅ YES | Multi-stage implementation |
-| `/cli:discuss-plan` | **Gemini+Codex+Claude** | **Multiple** | ✅ **YES** | ❌ **NO** | **Multi-perspective planning** |
+| `/cli:mode:plan` | Gemini | 1 | NO | NO | Single-model planning |
+| `/cli:analyze` | Gemini/Qwen | 1 | NO | NO | Code analysis |
+| `/cli:execute` | Any | 1 | NO | YES | Direct implementation |
+| `/cli:codex-execute` | Codex | 1 | NO | YES | Multi-stage implementation |
+| `/cli:discuss-plan` | **Gemini+Codex+Claude** | **Multiple** | **YES** | **NO** | **Multi-perspective planning** |
 
 ## Best Practices
 

@@ -153,7 +153,7 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **Relationship with Brainstorm Phase**:
 - If brainstorm role analyses exist ([role]/analysis.md files), Phase 3 analysis incorporates them as input
-- **⚠️ User's original intent is ALWAYS primary**: New or refined user goals override brainstorm recommendations
+- **User's original intent is ALWAYS primary**: New or refined user goals override brainstorm recommendations
 - **Role analysis.md files define "WHAT"**: Requirements, design specs, role-specific insights
 - **IMPL_PLAN.md defines "HOW"**: Executable task breakdown, dependencies, implementation sequence
 - Task generation translates high-level role analyses into concrete, actionable work items
@@ -192,12 +192,12 @@ Planning complete for session: [sessionId]
 Tasks generated: [count]
 Plan: .workflow/[sessionId]/IMPL_PLAN.md
 
-✅ Recommended Next Steps:
+Recommended Next Steps:
 1. /workflow:action-plan-verify --session [sessionId]  # Verify plan quality before execution
 2. /workflow:status  # Review task breakdown
 3. /workflow:execute  # Start implementation (after verification)
 
-⚠️ Quality Gate: Consider running /workflow:action-plan-verify to catch issues early
+Quality Gate: Consider running /workflow:action-plan-verify to catch issues early
 ```
 
 ## TodoWrite Pattern
@@ -323,24 +323,24 @@ Return summary to user
 
 ## Coordinator Checklist
 
-✅ **Pre-Phase**: Convert user input to structured format (GOAL/SCOPE/CONTEXT)
-✅ Initialize TodoWrite before any command (Phase 3 added dynamically after Phase 2)
-✅ Execute Phase 1 immediately with structured description
-✅ Parse session ID from Phase 1 output, store in memory
-✅ Pass session ID and structured description to Phase 2 command
-✅ Parse context path from Phase 2 output, store in memory
-✅ **Extract conflict_risk from context-package.json**: Determine Phase 3 execution
-✅ **If conflict_risk ≥ medium**: Launch Phase 3 conflict-resolution with sessionId and contextPath
-✅ Wait for Phase 3 completion (if executed), verify CONFLICT_RESOLUTION.md created
-✅ **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 4
-✅ **Build Phase 4 command** based on flags:
+- **Pre-Phase**: Convert user input to structured format (GOAL/SCOPE/CONTEXT)
+- Initialize TodoWrite before any command (Phase 3 added dynamically after Phase 2)
+- Execute Phase 1 immediately with structured description
+- Parse session ID from Phase 1 output, store in memory
+- Pass session ID and structured description to Phase 2 command
+- Parse context path from Phase 2 output, store in memory
+- **Extract conflict_risk from context-package.json**: Determine Phase 3 execution
+- **If conflict_risk ≥ medium**: Launch Phase 3 conflict-resolution with sessionId and contextPath
+- Wait for Phase 3 completion (if executed), verify CONFLICT_RESOLUTION.md created
+- **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 4
+- **Build Phase 4 command** based on flags:
   - Base command: `/workflow:tools:task-generate` (or `-agent` if `--agent` flag)
   - Add `--session [sessionId]`
   - Add `--cli-execute` if flag present
-✅ Pass session ID to Phase 4 command
-✅ Verify all Phase 4 outputs
-✅ Update TodoWrite after each phase (dynamically adjust for Phase 3 presence)
-✅ After each phase, automatically continue to next phase based on TodoList status
+- Pass session ID to Phase 4 command
+- Verify all Phase 4 outputs
+- Update TodoWrite after each phase (dynamically adjust for Phase 3 presence)
+- After each phase, automatically continue to next phase based on TodoList status
 
 ## Structure Template Reference
 
@@ -368,3 +368,22 @@ CONSTRAINTS: [Limitations or boundaries]
 # Phase 2
 /workflow:tools:context-gather --session WFS-123 "GOAL: Build authentication\nSCOPE: JWT, login, registration\nCONTEXT: REST API"
 ```
+
+## Related Commands
+
+**Prerequisite Commands**:
+- `/workflow:brainstorm:artifacts` - Optional: Generate role-based analyses before planning (if complex requirements need multiple perspectives)
+- `/workflow:brainstorm:synthesis` - Optional: Refine brainstorm analyses with clarifications
+
+**Called by This Command** (5 phases):
+- `/workflow:session:start` - Phase 1: Create or discover workflow session
+- `/workflow:tools:context-gather` - Phase 2: Gather project context and analyze codebase
+- `/workflow:tools:conflict-resolution` - Phase 3: Detect and resolve conflicts (auto-triggered if conflict_risk ≥ medium)
+- `/compact` - Phase 3: Memory optimization (if context approaching limits)
+- `/workflow:tools:task-generate` - Phase 4: Generate task JSON files with manual approach
+- `/workflow:tools:task-generate-agent` - Phase 4: Generate task JSON files with agent-driven approach (when `--agent` flag used)
+
+**Follow-up Commands**:
+- `/workflow:action-plan-verify` - Recommended: Verify plan quality and catch issues before execution
+- `/workflow:status` - Review task breakdown and current progress
+- `/workflow:execute` - Begin implementation of generated tasks

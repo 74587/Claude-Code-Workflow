@@ -43,7 +43,7 @@ Generate SKILL package from archived workflow sessions using agent-driven analys
 
 **Expected Output**:
 ```
-✅ Session WFS-user-auth processed
+Session WFS-user-auth processed
 Updated:
 - sessions-timeline.md (1 session added)
 - lessons-learned.md (3 lessons merged)
@@ -73,7 +73,7 @@ Updated:
 
 **Expected Output**:
 ```
-✅ All sessions processed in parallel
+All sessions processed in parallel
 Sessions: 8 total
 Updated:
 - sessions-timeline.md (8 sessions)
@@ -395,7 +395,7 @@ Mark all tasks as completed.
 
 **Single Session Mode**:
 ```
-✅ Session {session_id} processed successfully
+Session {session_id} processed successfully
 
 Updated:
 - sessions-timeline.md
@@ -408,7 +408,7 @@ SKILL Location: .claude/skills/workflow-progress/SKILL.md
 
 **All Sessions Mode**:
 ```
-✅ All sessions processed in parallel
+All sessions processed in parallel
 
 Sessions: {count} total
 Functional Domains: {domain_list}

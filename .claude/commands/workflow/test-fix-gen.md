@@ -13,7 +13,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 This command creates an independent test-fix workflow session for existing code. It orchestrates a 5-phase process to analyze implementation, generate test requirements, and create executable test generation and fix tasks.
 
-**⚠️ CRITICAL - Command Scope**:
+**CRITICAL - Command Scope**:
 - **This command ONLY generates task JSON files** (IMPL-001.json, IMPL-002.json)
 - **Does NOT execute tests or apply fixes** - all execution happens in separate orchestrator
 - **Must call `/workflow:test-cycle-execute`** after this command to actually run tests and fixes
@@ -274,7 +274,7 @@ Review artifacts:
 - Test plan: .workflow/[testSessionId]/IMPL_PLAN.md
 - Task list: .workflow/[testSessionId]/TODO_LIST.md
 
-⚠️ CRITICAL - Next Steps:
+CRITICAL - Next Steps:
 1. Review IMPL_PLAN.md
 2. **MUST execute: /workflow:test-cycle-execute**
    - This command only generated task JSON files
@@ -284,7 +284,7 @@ Review artifacts:
 
 **TodoWrite**: Mark phase 5 completed
 
-**⚠️ BOUNDARY NOTE**:
+**BOUNDARY NOTE**:
 - Command completes here - only task JSON files generated
 - All test execution, failure detection, CLI analysis, fix generation happens in `/workflow:test-cycle-execute`
 - This command does NOT handle test failures or apply fixes
@@ -462,25 +462,23 @@ WFS-test-[session]/
    - Use `--use-codex` for autonomous fix application
    - Use `--cli-execute` for enhanced generation capabilities
 
-### Related Commands
+## Related Commands
 
-**Planning Phase**:
-- `/workflow:plan` - Create implementation workflow
-- `/workflow:session:start` - Initialize workflow session
+**Prerequisite Commands**:
+- `/workflow:plan` or `/workflow:execute` - Complete implementation session (for Session Mode)
+- None for Prompt Mode (ad-hoc test generation)
 
-**Context Gathering**:
-- `/workflow:tools:test-context-gather` - Session-based context (Phase 2 for session mode)
-- `/workflow:tools:context-gather` - Prompt-based context (Phase 2 for prompt mode)
+**Called by This Command** (5 phases):
+- `/workflow:session:start` - Phase 1: Create independent test workflow session
+- `/workflow:tools:test-context-gather` - Phase 2 (Session Mode): Gather source session context
+- `/workflow:tools:context-gather` - Phase 2 (Prompt Mode): Analyze codebase directly
+- `/workflow:tools:test-concept-enhanced` - Phase 3: Generate test requirements using Gemini
+- `/workflow:tools:test-task-generate` - Phase 4: Generate test task JSONs with fix cycle specification
+- `/workflow:tools:test-task-generate --use-codex` - Phase 4: With automated Codex fixes (when `--use-codex` flag used)
+- `/workflow:tools:test-task-generate --cli-execute` - Phase 4: With CLI execution mode (when `--cli-execute` flag used)
 
-**Analysis & Task Generation**:
-- `/workflow:tools:test-concept-enhanced` - Gemini test analysis (Phase 3)
-- `/workflow:tools:test-task-generate` - Generate test tasks (Phase 4)
+**Follow-up Commands**:
+- `/workflow:status` - Review generated test tasks
+- `/workflow:test-cycle-execute` - Execute test generation and iterative fix cycles
+- `/workflow:execute` - Standard execution of generated test tasks
 
-**Execution**:
-- `/workflow:test-cycle-execute` - Execute test-fix workflow (recommended for IMPL-002)
-- `/workflow:execute` - Execute standard workflow tasks
-- `/workflow:status` - Check task progress
-
-**Review & Management**:
-- `/workflow:review` - Review workflow results
-- `/workflow:session:complete` - Mark session complete

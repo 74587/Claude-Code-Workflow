@@ -10,7 +10,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ## Overview
 Orchestrates dynamic test-fix workflow execution through iterative cycles of testing, analysis, and fixing. **Unlike standard execute, this command dynamically generates intermediate tasks** during execution based on test results and CLI analysis, enabling adaptive problem-solving.
 
-**⚠️ CRITICAL - Orchestrator Boundary**:
+**CRITICAL - Orchestrator Boundary**:
 - This command is the **ONLY place** where test failures are handled
 - All CLI analysis (Gemini/Qwen), fix task generation (IMPL-fix-N.json), and iteration management happen HERE
 - Agents (@test-fix-agent) only execute single tasks and return results
@@ -59,22 +59,22 @@ Orchestrates dynamic test-fix workflow execution through iterative cycles of tes
 
 ## Responsibility Matrix
 
-**⚠️ CRITICAL - Clear division of labor between orchestrator and agents:**
+**CRITICAL - Clear division of labor between orchestrator and agents:**
 
 | Responsibility | test-cycle-execute (Orchestrator) | @test-fix-agent (Executor) |
 |----------------|----------------------------|---------------------------|
-| Manage iteration loop | ✅ Controls loop flow | ❌ Executes single task |
-| Run CLI analysis (Gemini/Qwen) | ✅ Runs between agent tasks | ❌ Not involved |
-| Generate IMPL-fix-N.json | ✅ Creates task files | ❌ Not involved |
-| Run tests | ❌ Delegates to agent | ✅ Executes test command |
-| Apply fixes | ❌ Delegates to agent | ✅ Modifies code |
-| Detect test failures | ✅ Analyzes results and decides next action | ✅ Executes tests and reports outcomes |
-| Add tasks to queue | ✅ Manages queue | ❌ Not involved |
-| Update iteration state | ✅ Maintains overall iteration state | ✅ Updates individual task status only |
+| Manage iteration loop | Yes - Controls loop flow | No - Executes single task |
+| Run CLI analysis (Gemini/Qwen) | Yes - Runs between agent tasks | No - Not involved |
+| Generate IMPL-fix-N.json | Yes - Creates task files | No - Not involved |
+| Run tests | No - Delegates to agent | Yes - Executes test command |
+| Apply fixes | No - Delegates to agent | Yes - Modifies code |
+| Detect test failures | Yes - Analyzes results and decides next action | Yes - Executes tests and reports outcomes |
+| Add tasks to queue | Yes - Manages queue | No - Not involved |
+| Update iteration state | Yes - Maintains overall iteration state | Yes - Updates individual task status only |
 
 **Key Principle**: Orchestrator manages the "what" and "when"; agents execute the "how".
 
-**⚠️ ENFORCEMENT**: If test failures occur outside this orchestrator, do NOT handle them inline - always call `/workflow:test-cycle-execute` instead.
+**ENFORCEMENT**: If test failures occur outside this orchestrator, do NOT handle them inline - always call `/workflow:test-cycle-execute` instead.
 
 ## Execution Lifecycle
 
@@ -653,10 +653,3 @@ mv temp.json iteration-state.json
 5. **Verify No Regressions**: Check all tests pass, not just previously failing ones
 6. **Preserve Context**: All iteration artifacts saved for debugging
 
-## Related Commands
-
-- `/workflow:test-fix-gen` - Planning phase (creates initial tasks)
-- `/workflow:execute` - Standard workflow execution (no dynamic iteration)
-- `/workflow:status` - Check progress and iteration state
-- `/workflow:session:complete` - Mark session complete (auto-called on success)
-- `/task:create` - Manually create additional tasks if needed

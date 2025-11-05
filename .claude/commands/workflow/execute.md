@@ -406,8 +406,8 @@ TodoWrite({
 #### TODO_LIST.md Update Timing
 **Single source of truth for task status** - enables lazy loading by providing task metadata without reading JSONs
 
-- **Before Agent Launch**: Mark task as `in_progress` (⚠️)
-- **After Task Complete**: Mark as `completed` (✅), advance to next
+- **Before Agent Launch**: Mark task as `in_progress`
+- **After Task Complete**: Mark as `completed`, advance to next
 - **On Error**: Keep as `in_progress`, add error note
 - **Workflow Complete**: Call `/workflow:session:complete`
 

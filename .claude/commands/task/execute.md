@@ -4,12 +4,12 @@ description: Execute tasks with appropriate agents and context-aware orchestrati
 argument-hint: "task-id"
 ---
 
-### 🚀 **Command Overview: `/task:execute`**
+## Command Overview: /task:execute
 
--   **Purpose**: Executes tasks using intelligent agent selection, context preparation, and progress tracking.
+**Purpose**: Executes tasks using intelligent agent selection, context preparation, and progress tracking.
 
 
-### ⚙️ **Execution Modes**
+## Execution Modes
 
 -   **auto (Default)**
     -   Fully autonomous execution with automatic agent selection.
@@ -22,7 +22,7 @@ argument-hint: "task-id"
     -   Optional manual review using `@universal-executor`.
     -   Used only when explicitly requested by user.
 
-### 🤖 **Agent Selection Logic**
+## Agent Selection Logic
 
 The system determines the appropriate agent for a task using the following logic.
 
@@ -52,11 +52,11 @@ FUNCTION select_agent(task, agent_override):
 END FUNCTION
 ```
 
-### 🔄 **Core Execution Protocol**
+## Core Execution Protocol
 
-`Pre-Execution` **->** `Execution` **->** `Post-Execution`
+`Pre-Execution` -> `Execution` -> `Post-Execution`
 
-### ✅ **Pre-Execution Protocol**
+### Pre-Execution Protocol
 
 `Validate Task & Dependencies` **->** `Prepare Execution Context` **->** `Coordinate with TodoWrite`
 
@@ -65,7 +65,7 @@ END FUNCTION
 -   **Session Context Injection**: Provides workflow directory paths to agents for TODO_LIST.md and summary management.
 -   **TodoWrite Coordination**: Generates execution Todos and checkpoints, syncing with `TODO_LIST.md`.
 
-### 🏁 **Post-Execution Protocol**
+### Post-Execution Protocol
 
 `Update Task Status` **->** `Generate Summary` **->** `Save Artifacts` **->** `Sync All Progress` **->** `Validate File Integrity`
 
@@ -73,7 +73,7 @@ END FUNCTION
 -   Creates a summary in `.summaries/`.
 -   Stores outputs and syncs progress across the entire workflow session.
 
-### 🧠 **Task & Subtask Execution Logic**
+### Task & Subtask Execution Logic
 
 This logic defines how single, multiple, or parent tasks are handled.
 
@@ -99,7 +99,7 @@ FUNCTION execute_task_command(task_id, mode, parallel_flag):
 END FUNCTION
 ```
 
-### 🛡️ **Error Handling & Recovery Logic**
+### Error Handling & Recovery Logic
 
 ```pseudo
 FUNCTION pre_execution_check(task):
@@ -124,7 +124,7 @@ END FUNCTION
 ```
 
 
-### 📄 **Simplified Context Structure (JSON)**
+### Simplified Context Structure (JSON)
 
 This is the simplified data structure loaded to provide context for task execution.
 
@@ -213,7 +213,7 @@ This is the simplified data structure loaded to provide context for task executi
 }
 ```
 
-### 🎯 **Agent-Specific Context**
+### Agent-Specific Context
 
 Different agents receive context tailored to their function, including implementation details:
 
@@ -243,13 +243,13 @@ Different agents receive context tailored to their function, including implement
 - Dependency validation from implementation.context_notes.dependencies
 - Architecture compliance checks
 
-### 🗃️ **Simplified File Output**
+### Simplified File Output
 
 -   **Task JSON File (`.task/<task-id>.json`)**: Updated with status and last attempt time only.
 -   **Session File (`workflow-session.json`)**: Updated task stats (completed count).
 -   **Summary File**: Generated in `.summaries/` upon completion (optional).
 
-### 📝 **Simplified Summary Template**
+### Simplified Summary Template
 
 Optional summary file generated at `.summaries/IMPL-[task-id]-summary.md`.
 

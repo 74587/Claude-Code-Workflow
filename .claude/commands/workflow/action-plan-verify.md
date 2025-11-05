@@ -242,10 +242,10 @@ Output a Markdown report (no file writes) with the following structure:
 
 | Requirement ID | Requirement Summary | Has Task? | Task IDs | Priority Match | Notes |
 |----------------|---------------------|-----------|----------|----------------|-------|
-| FR-01 | User authentication | ✅ Yes | IMPL-1.1, IMPL-1.2 | ✅ Match | Complete |
-| FR-02 | Data export | ✅ Yes | IMPL-2.3 | ⚠️ Mismatch | High req → Med priority task |
-| FR-03 | Profile management | ❌ No | - | - | **CRITICAL: Zero coverage** |
-| NFR-01 | Response time <200ms | ❌ No | - | - | **HIGH: No performance tasks** |
+| FR-01 | User authentication | Yes | IMPL-1.1, IMPL-1.2 | Match | Complete |
+| FR-02 | Data export | Yes | IMPL-2.3 | Mismatch | High req → Med priority task |
+| FR-03 | Profile management | No | - | - | **CRITICAL: Zero coverage** |
+| NFR-01 | Response time <200ms | No | - | - | **HIGH: No performance tasks** |
 
 **Coverage Metrics**:
 - Functional Requirements: 85% (17/20 covered)
@@ -264,7 +264,7 @@ Output a Markdown report (no file writes) with the following structure:
 
 ### Dependency Graph Issues
 
-**Circular Dependencies**: None detected ✅
+**Circular Dependencies**: None detected
 
 **Broken Dependencies**:
 - IMPL-2.3 depends on "IMPL-2.4" (non-existent)
@@ -323,12 +323,12 @@ Output a Markdown report (no file writes) with the following structure:
 #### Action Recommendations
 
 **If CRITICAL Issues Exist**:
-- ❌ **BLOCK EXECUTION** - Resolve critical issues before proceeding
+- **BLOCK EXECUTION** - Resolve critical issues before proceeding
 - Use TodoWrite to track all required fixes
 - Fix broken dependencies and circular references
 
 **If Only HIGH/MEDIUM/LOW Issues**:
-- ⚠️ **PROCEED WITH CAUTION** - Fix high-priority issues first
+- **PROCEED WITH CAUTION** - Fix high-priority issues first
 - Use TodoWrite to systematically track and complete all improvements
 
 #### TodoWrite-Based Remediation Workflow

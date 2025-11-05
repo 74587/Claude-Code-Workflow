@@ -27,7 +27,7 @@ Execute implementation tasks with **YOLO permissions** (auto-approves all confir
 ### YOLO Permissions
 Auto-approves: file pattern inference, execution, **file modifications**, summary generation
 
-**⚠️ WARNING**: This command will make actual code changes without manual confirmation
+**WARNING**: This command will make actual code changes without manual confirmation
 
 ### Execution Modes
 
@@ -158,14 +158,14 @@ The agent handles all phases internally, including complexity-based tool selecti
 
 ## Examples
 
-**Basic Implementation (Standard Mode)** (⚠️ modifies code):
+**Basic Implementation (Standard Mode)** (modifies code):
 ```bash
 /cli:execute "implement JWT authentication with middleware"
 # Executes: Creates auth middleware, updates routes, modifies config
 # Result: NEW/MODIFIED code files with JWT implementation
 ```
 
-**Intelligent Implementation (Agent Mode)** (⚠️ modifies code):
+**Intelligent Implementation (Agent Mode)** (modifies code):
 ```bash
 /cli:execute --agent "implement OAuth2 authentication with token refresh"
 # Phase 1: Classifies intent=execute, complexity=complex, keywords=['oauth2', 'auth', 'token', 'refresh']
@@ -176,7 +176,7 @@ The agent handles all phases internally, including complexity-based tool selecti
 # Result: Complete OAuth2 implementation + detailed execution log
 ```
 
-**Enhanced Implementation** (⚠️ modifies code):
+**Enhanced Implementation** (modifies code):
 ```bash
 /cli:execute --enhance "implement JWT authentication"
 # Step 1: Enhance to expand requirements
@@ -184,7 +184,7 @@ The agent handles all phases internally, including complexity-based tool selecti
 # Result: Complete auth system with MODIFIED code files
 ```
 
-**Task Execution** (⚠️ modifies code):
+**Task Execution** (modifies code):
 ```bash
 /cli:execute IMPL-001
 # Reads: .task/IMPL-001.json for requirements
@@ -192,14 +192,14 @@ The agent handles all phases internally, including complexity-based tool selecti
 # Result: Code changes per task definition
 ```
 
-**Codex Implementation** (⚠️ modifies code):
+**Codex Implementation** (modifies code):
 ```bash
 /cli:execute --tool codex "optimize database queries"
 # Executes: Codex with full file access
 # Result: MODIFIED query code, new indexes, updated tests
 ```
 
-**Qwen Code Generation** (⚠️ modifies code):
+**Qwen Code Generation** (modifies code):
 ```bash
 /cli:execute --tool qwen --enhance "refactor auth module"
 # Step 1: Enhanced refactoring plan
@@ -211,11 +211,11 @@ The agent handles all phases internally, including complexity-based tool selecti
 
 | Command | Intent | Code Changes | Auto-Approve |
 |---------|--------|--------------|--------------|
-| `/cli:analyze` | Understand code | ❌ NO | N/A |
-| `/cli:chat` | Ask questions | ❌ NO | N/A |
-| `/cli:execute` | **Implement** | ✅ **YES** | ✅ **YES** |
+| `/cli:analyze` | Understand code | NO | N/A |
+| `/cli:chat` | Ask questions | NO | N/A |
+| `/cli:execute` | **Implement** | **YES** | **YES** |
 
 ## Notes
 
 - Command templates, YOLO mode details, and session management: see intelligent-tools-strategy.md (loaded in memory)
-- **⚠️ Code Modification**: This command modifies code - execution logs document changes made
+- **Code Modification**: This command modifies code - execution logs document changes made

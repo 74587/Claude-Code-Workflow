@@ -178,7 +178,7 @@ target/
 /cli:cli-init --tool all --output=.config/
 ```
 
-## EXECUTION INSTRUCTIONS ⚡ START HERE
+## EXECUTION INSTRUCTIONS - START HERE
 
 **When this command is triggered, follow these exact steps:**
 

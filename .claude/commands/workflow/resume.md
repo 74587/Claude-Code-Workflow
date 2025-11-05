@@ -89,5 +89,17 @@ The special `--resume-session` flag tells `/workflow:execute`:
 3. **Agent coordination**: TodoWrite and agent execution initiated successfully
 4. **Context preservation**: Session state and progress properly maintained
 
+## Related Commands
+
+**Prerequisite Commands**:
+- `/workflow:plan` or `/workflow:execute` - Workflow must be in progress or paused
+
+**Called by This Command** (2 phases):
+- `/workflow:status` - Phase 1: Analyze current session status and identify resume point
+- `/workflow:execute` - Phase 2: Resume execution with `--resume-session` flag
+
+**Follow-up Commands**:
+- None - Workflow continues automatically via `/workflow:execute`
+
 ---
 *Sequential command coordination for workflow session resumption*
