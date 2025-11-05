@@ -21,3 +21,6 @@ settings.local.json
 .workflow
 version.json
 ref
+COMMAND_FLOW_STANDARD.md
+COMMAND_TEMPLATE_EXECUTOR.md
+COMMAND_TEMPLATE_ORCHESTRATOR.md
