@@ -235,24 +235,55 @@ IF design_source == "hybrid":
         design_source = "web"
 
     IF design_source == "hybrid":
-        # Read completeness reports
-        style_report = Read("{base_path}/style-completeness-report.json")
-        animation_report = Read("{base_path}/animation-completeness-report.json")
-        layout_report = Read("{base_path}/layout-completeness-report.json")
+        # Check file existence and assess completeness
+        style_exists = exists("{base_path}/style-extraction/style-1/design-tokens.json")
+        animation_exists = exists("{base_path}/animation-extraction/animation-tokens.json")
+        layout_exists = exists("{base_path}/layout-extraction/layout-templates.json")
 
-        # Assess overall completeness
-        style_complete = style_report.status == "complete"
-        animation_complete = animation_report.status == "complete"
-        layout_complete = layout_report.status == "complete"
-
-        # Aggregate missing content
+        style_complete = false
+        animation_complete = false
+        layout_complete = false
         missing_categories = []
-        IF NOT style_complete:
-            missing_categories.extend(style_report.missing.keys())
-        IF NOT animation_complete:
-            missing_categories.extend(animation_report.missing.keys())
-        IF NOT layout_complete:
-            missing_categories.extend(layout_report.missing.keys())
+
+        # Style completeness check
+        IF style_exists:
+            tokens = Read("{base_path}/style-extraction/style-1/design-tokens.json")
+            style_complete = (
+                tokens.colors?.brand && tokens.colors?.surface &&
+                tokens.typography?.font_family && tokens.spacing &&
+                Object.keys(tokens.colors.brand || {}).length >= 3 &&
+                Object.keys(tokens.spacing || {}).length >= 8
+            )
+            IF NOT style_complete AND tokens._metadata?.completeness?.missing_categories:
+                missing_categories.extend(tokens._metadata.completeness.missing_categories)
+        ELSE:
+            missing_categories.push("style tokens")
+
+        # Animation completeness check
+        IF animation_exists:
+            anim = Read("{base_path}/animation-extraction/animation-tokens.json")
+            animation_complete = (
+                anim.duration && anim.easing &&
+                Object.keys(anim.duration || {}).length >= 3 &&
+                Object.keys(anim.easing || {}).length >= 3
+            )
+            IF NOT animation_complete AND anim._metadata?.completeness?.missing_items:
+                missing_categories.extend(anim._metadata.completeness.missing_items)
+        ELSE:
+            missing_categories.push("animation tokens")
+
+        # Layout completeness check
+        IF layout_exists:
+            layouts = Read("{base_path}/layout-extraction/layout-templates.json")
+            layout_complete = (
+                layouts.layout_templates?.length >= 3 &&
+                layouts.extraction_metadata?.layout_system?.type &&
+                layouts.extraction_metadata?.responsive?.breakpoints
+            )
+            IF NOT layout_complete AND layouts.extraction_metadata?.completeness?.missing_items:
+                missing_categories.extend(layouts.extraction_metadata.completeness.missing_items)
+        ELSE:
+            missing_categories.push("layout templates")
 
         # Report code analysis results
         IF len(missing_categories) > 0:

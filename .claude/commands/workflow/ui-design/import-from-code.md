@@ -208,87 +208,145 @@ Task(ui-design-agent): `
 
   ## Output Requirements
 
-  Generate 1 file: ${base_path}/style-completeness-report.json
+  Generate 2 files in ${base_path}/style-extraction/style-1/:
+  1. design-tokens.json (production-ready design tokens)
+  2. style-guide.md (design philosophy and usage guide)
 
-  ### Structure:
+  ### design-tokens.json Structure:
   {
-    "agent": "style-agent",
-    "status": "complete" | "partial" | "failed",
-    "analysis_time": "ISO8601 timestamp",
-    "files_analyzed": {
-      "css": ["list of CSS/SCSS files read"],
-      "js": ["list of JS/TS files read"],
-      "html": ["list of HTML files read"]
-    },
-    "found": {
-      "colors": {
-        "count": 12,
-        "tokens": [
-          {"value": "#0066cc", "variable": "--color-primary", "source": "file.css:23", "type": "brand"}
-        ],
-        "categories": {
-          "brand": 3,
-          "semantic": 4,
-          "surface": 2,
-          "text": 2,
-          "border": 1
-        }
+    "colors": {
+      "brand": {
+        "primary": {"value": "#0066cc", "source": "file.css:23"},
+        "secondary": {"value": "#6c757d", "source": "file.css:24"}
       },
-      "typography": {
-        "count": 8,
-        "font_families": [
-          {"value": "system-ui, sans-serif", "variable": "--font-base", "source": "theme.js:12"}
-        ],
-        "font_sizes": [...],
-        "font_weights": [...],
-        "line_heights": [...],
-        "letter_spacing": [...]
+      "surface": {
+        "background": {"value": "#ffffff", "source": "file.css:10"},
+        "card": {"value": "#f8f9fa", "source": "file.css:11"}
       },
-      "spacing": {
-        "count": 12,
-        "tokens": [
-          {"value": "0.25rem", "variable": "--spacing-1", "source": "styles.css:5"}
-        ],
-        "system_type": "8px-grid | 4px-grid | custom | none"
+      "semantic": {
+        "success": {"value": "#28a745", "source": "file.css:30"},
+        "warning": {"value": "#ffc107", "source": "file.css:31"},
+        "error": {"value": "#dc3545", "source": "file.css:32"}
       },
-      "shadows": {
-        "count": 4,
-        "tokens": [
-          {"value": "0 1px 2px rgba(0,0,0,0.05)", "variable": "--shadow-sm", "source": "theme.css:45"}
-        ]
+      "text": {
+        "primary": {"value": "#212529", "source": "file.css:15"},
+        "secondary": {"value": "#6c757d", "source": "file.css:16"}
       },
-      "borders": {
-        "radius": [...],
-        "width": [...],
-        "colors": [...]
-      },
-      "breakpoints": {
-        "count": 5,
-        "tokens": [
-          {"value": "640px", "variable": "$breakpoint-sm", "source": "media.scss:3"}
-        ]
+      "border": {
+        "default": {"value": "#dee2e6", "source": "file.css:20"}
       }
     },
-    "missing": {
-      "colors": {
-        "categories": ["accent", "warning"],
-        "reason": "No accent or warning colors found in any file type"
+    "typography": {
+      "font_family": {
+        "base": {"value": "system-ui, sans-serif", "source": "theme.js:12"},
+        "heading": {"value": "Georgia, serif", "source": "theme.js:13"}
       },
-      "typography": {
-        "items": ["letter-spacing scale"],
-        "reason": "No letter-spacing tokens found"
+      "font_size": {
+        "xs": {"value": "0.75rem", "source": "styles.css:5"},
+        "sm": {"value": "0.875rem", "source": "styles.css:6"},
+        "base": {"value": "1rem", "source": "styles.css:7"},
+        "lg": {"value": "1.125rem", "source": "styles.css:8"},
+        "xl": {"value": "1.25rem", "source": "styles.css:9"}
       },
-      "spacing": {
-        "items": ["negative spacing"],
-        "reason": "No negative spacing tokens found"
+      "font_weight": {
+        "normal": {"value": "400", "source": "styles.css:12"},
+        "medium": {"value": "500", "source": "styles.css:13"},
+        "bold": {"value": "700", "source": "styles.css:14"}
+      },
+      "line_height": {
+        "tight": {"value": "1.25", "source": "styles.css:18"},
+        "normal": {"value": "1.5", "source": "styles.css:19"},
+        "relaxed": {"value": "1.75", "source": "styles.css:20"}
+      },
+      "letter_spacing": {
+        "tight": {"value": "-0.025em", "source": "styles.css:24"},
+        "normal": {"value": "0", "source": "styles.css:25"},
+        "wide": {"value": "0.025em", "source": "styles.css:26"}
       }
     },
-    "recommendations": [
-      "Define accent color for interactive elements",
-      "Add semantic colors (warning, error, success)",
-      "Complete letter-spacing scale for typography system"
-    ]
+    "spacing": {
+      "0": {"value": "0", "source": "styles.css:30"},
+      "1": {"value": "0.25rem", "source": "styles.css:31"},
+      "2": {"value": "0.5rem", "source": "styles.css:32"},
+      "3": {"value": "0.75rem", "source": "styles.css:33"},
+      "4": {"value": "1rem", "source": "styles.css:34"},
+      "6": {"value": "1.5rem", "source": "styles.css:35"},
+      "8": {"value": "2rem", "source": "styles.css:36"},
+      "12": {"value": "3rem", "source": "styles.css:37"}
+    },
+    "opacity": {
+      "0": {"value": "0", "source": "styles.css:40"},
+      "50": {"value": "0.5", "source": "styles.css:41"},
+      "100": {"value": "1", "source": "styles.css:42"}
+    },
+    "border_radius": {
+      "none": {"value": "0", "source": "styles.css:45"},
+      "sm": {"value": "0.125rem", "source": "styles.css:46"},
+      "base": {"value": "0.25rem", "source": "styles.css:47"},
+      "lg": {"value": "0.5rem", "source": "styles.css:48"},
+      "full": {"value": "9999px", "source": "styles.css:49"}
+    },
+    "shadows": {
+      "sm": {"value": "0 1px 2px rgba(0,0,0,0.05)", "source": "theme.css:45"},
+      "base": {"value": "0 1px 3px rgba(0,0,0,0.1)", "source": "theme.css:46"},
+      "md": {"value": "0 4px 6px rgba(0,0,0,0.1)", "source": "theme.css:47"},
+      "lg": {"value": "0 10px 15px rgba(0,0,0,0.1)", "source": "theme.css:48"}
+    },
+    "breakpoints": {
+      "sm": {"value": "640px", "source": "media.scss:3"},
+      "md": {"value": "768px", "source": "media.scss:4"},
+      "lg": {"value": "1024px", "source": "media.scss:5"},
+      "xl": {"value": "1280px", "source": "media.scss:6"}
+    },
+    "_metadata": {
+      "extraction_source": "code_import",
+      "files_analyzed": {
+        "css": ["list of CSS/SCSS files read"],
+        "js": ["list of JS/TS files read"],
+        "html": ["list of HTML files read"]
+      },
+      "completeness": {
+        "colors": "complete | partial | minimal",
+        "typography": "complete | partial | minimal",
+        "spacing": "complete | partial | minimal",
+        "missing_categories": ["accent", "warning"],
+        "recommendations": [
+          "Define accent color for interactive elements",
+          "Add semantic colors (warning, error, success)"
+        ]
+      }
+    }
   }
+
+  ### style-guide.md Structure:
+ 
+  # Design System Style Guide
+
+  ## Overview
+  Extracted from code files: [list of source files]
+
+  ## Colors
+  - **Brand**: Primary, Secondary
+  - **Surface**: Background, Card
+  - **Semantic**: Success, Warning, Error
+  - **Text**: Primary, Secondary
+  - **Border**: Default
+
+  ## Typography
+  - **Font Families**: Base (system-ui), Heading (Georgia)
+  - **Font Sizes**: xs to xl (0.75rem - 1.25rem)
+  - **Font Weights**: Normal (400), Medium (500), Bold (700)
+
+  ## Spacing
+  System: 8px-grid (0, 0.25rem, 0.5rem, ..., 3rem)
+
+  ## Missing Elements
+  - Accent colors for interactive elements
+  - Extended shadow scale
+
+  ## Usage
+  All tokens are production-ready and can be used with CSS variables.
+  
 
   ## Completeness Criteria
   - **colors**: ≥5 categories (brand, semantic, surface, text, border), ≥10 tokens
@@ -302,14 +360,16 @@ Task(ui-design-agent): `
   - ✅ Use Read() tool for each file you want to analyze
   - ✅ Cross-reference between file types for better extraction
   - ✅ Extract all visual token types systematically
-  - ✅ Report MISSING content with specific reasons
-  - ✅ Use Write() immediately to save: ${base_path}/style-completeness-report.json
-  - ✅ If no data found, report as "failed" with detailed missing analysis
+  - ✅ Create style-extraction/style-1/ directory first: Bash(mkdir -p "${base_path}/style-extraction/style-1")
+  - ✅ Use Write() to save both files:
+    - ${base_path}/style-extraction/style-1/design-tokens.json
+    - ${base_path}/style-extraction/style-1/style-guide.md
+  - ✅ Include _metadata.completeness field to track missing content
   - ❌ NO external research or MCP calls
 `
 ```
 
-#### Animation Agent Task (animation-completeness-report.json)
+#### Animation Agent Task
 
 **Agent Task**:
 
@@ -345,63 +405,122 @@ Task(ui-design-agent): `
 
   ## Output Requirements
 
-  Generate 1 file: ${base_path}/animation-completeness-report.json
+  Generate 2 files in ${base_path}/animation-extraction/:
+  1. animation-tokens.json (production-ready animation tokens)
+  2. animation-guide.md (animation usage guide)
 
-  ### Structure:
+  ### animation-tokens.json Structure:
   {
-    "agent": "animation-agent",
-    "status": "complete" | "partial" | "failed",
-    "analysis_time": "ISO8601 timestamp",
-    "files_analyzed": {
-      "css": ["list of CSS/SCSS files read"],
-      "js": ["list of JS/TS files read"],
-      "html": ["list of HTML files read"]
+    "duration": {
+      "instant": {"value": "0ms", "source": "animations.css:10"},
+      "fast": {"value": "150ms", "source": "animations.css:12"},
+      "base": {"value": "250ms", "source": "animations.css:13"},
+      "slow": {"value": "500ms", "source": "animations.css:14"}
     },
-    "framework_detected": "framer-motion | gsap | css-animations | react-spring | none",
-    "found": {
-      "durations": {
-        "count": 3,
-        "tokens": [
-          {"value": "150ms", "variable": "--duration-fast", "source": "animations.css:12"}
-        ]
+    "easing": {
+      "linear": {"value": "linear", "source": "animations.css:20"},
+      "ease-in": {"value": "cubic-bezier(0.4, 0, 1, 1)", "source": "theme.js:45"},
+      "ease-out": {"value": "cubic-bezier(0, 0, 0.2, 1)", "source": "theme.js:46"},
+      "ease-in-out": {"value": "cubic-bezier(0.4, 0, 0.2, 1)", "source": "theme.js:47"}
+    },
+    "transitions": {
+      "color": {
+        "property": "color",
+        "duration": "var(--duration-fast)",
+        "easing": "var(--ease-out)",
+        "source": "transitions.css:30"
       },
-      "easing": {
-        "count": 4,
-        "tokens": [
-          {"value": "cubic-bezier(0.4, 0, 0.2, 1)", "variable": "--ease-in-out", "source": "theme.js:45"}
-        ]
+      "transform": {
+        "property": "transform",
+        "duration": "var(--duration-base)",
+        "easing": "var(--ease-in-out)",
+        "source": "transitions.css:35"
       },
-      "keyframes": {
-        "count": 5,
-        "animations": [
-          {"name": "fadeIn", "keyframes": {...}, "source": "styles.css:67"}
-        ]
-      },
-      "transitions": {
-        "count": 8,
-        "properties": ["opacity", "transform", "background-color"]
+      "opacity": {
+        "property": "opacity",
+        "duration": "var(--duration-fast)",
+        "easing": "var(--ease-out)",
+        "source": "transitions.css:40"
       }
     },
-    "missing": {
-      "durations": {
-        "items": ["slow duration (>500ms)"],
-        "reason": "No slow animation durations found"
+    "keyframes": {
+      "fadeIn": {
+        "name": "fadeIn",
+        "keyframes": {
+          "0%": {"opacity": "0"},
+          "100%": {"opacity": "1"}
+        },
+        "source": "styles.css:67"
       },
-      "easing": {
-        "items": ["bounce easing"],
-        "reason": "No bounce or spring easing functions"
-      },
-      "keyframes": {
-        "items": ["slide animations"],
-        "reason": "No slide-in/slide-out keyframes found"
+      "slideInUp": {
+        "name": "slideInUp",
+        "keyframes": {
+          "0%": {"transform": "translateY(20px)", "opacity": "0"},
+          "100%": {"transform": "translateY(0)", "opacity": "1"}
+        },
+        "source": "styles.css:75"
       }
     },
-    "recommendations": [
-      "Add slow duration for complex animations",
-      "Define spring/bounce easing for interactive feedback",
-      "Create slide animations for drawer/modal transitions"
-    ]
+    "interactions": {
+      "button-hover": {
+        "trigger": "hover",
+        "properties": ["background-color", "transform"],
+        "duration": "var(--duration-fast)",
+        "easing": "var(--ease-out)",
+        "source": "button.css:45"
+      }
+    },
+    "_metadata": {
+      "extraction_source": "code_import",
+      "framework_detected": "css-animations | framer-motion | gsap | none",
+      "files_analyzed": {
+        "css": ["list of CSS/SCSS files read"],
+        "js": ["list of JS/TS files read"],
+        "html": ["list of HTML files read"]
+      },
+      "completeness": {
+        "durations": "complete | partial | minimal",
+        "easing": "complete | partial | minimal",
+        "keyframes": "complete | partial | minimal",
+        "missing_items": ["bounce easing", "slide animations"],
+        "recommendations": [
+          "Add slow duration for complex animations",
+          "Define spring/bounce easing for interactive feedback"
+        ]
+      }
+    }
   }
+
+  ### animation-guide.md Structure:
+  
+  # Animation System Guide
+
+  ## Overview
+  Extracted from code files: [list of source files]
+  Framework detected: [css-animations | framer-motion | gsap | none]
+
+  ## Durations
+  - **Instant**: 0ms
+  - **Fast**: 150ms (UI feedback)
+  - **Base**: 250ms (standard transitions)
+  - **Slow**: 500ms (complex animations)
+
+  ## Easing Functions
+  - **Linear**: Constant speed
+  - **Ease-out**: Fast start, slow end (entering elements)
+  - **Ease-in-out**: Smooth acceleration and deceleration
+
+  ## Keyframe Animations
+  - **fadeIn**: Opacity 0 → 1
+  - **slideInUp**: Slide from bottom with fade
+
+  ## Missing Elements
+  - Bounce/spring easing for playful interactions
+  - Slide-out animations
+
+  ## Usage
+  All animation tokens use CSS variables and can be referenced in transitions.
+
 
   ## Completeness Criteria
   - **durations**: ≥3 (fast, medium, slow)
@@ -414,14 +533,16 @@ Task(ui-design-agent): `
   - ✅ Use Read() tool for each file you want to analyze
   - ✅ Detect animation framework if used
   - ✅ Extract all animation-related tokens
-  - ✅ Report MISSING content with specific reasons
-  - ✅ Use Write() immediately to save: ${base_path}/animation-completeness-report.json
-  - ✅ If no data found, report as "failed" with detailed missing analysis
+  - ✅ Create animation-extraction/ directory first: Bash(mkdir -p "${base_path}/animation-extraction")
+  - ✅ Use Write() to save both files:
+    - ${base_path}/animation-extraction/animation-tokens.json
+    - ${base_path}/animation-extraction/animation-guide.md
+  - ✅ Include _metadata.completeness field to track missing content
   - ❌ NO external research or MCP calls
 `
 ```
 
-#### Layout Agent Task (layout-completeness-report.json)
+#### Layout Agent Task
 
 **Agent Task**:
 
@@ -457,20 +578,19 @@ Task(ui-design-agent): `
 
   ## Output Requirements
 
-  Generate 1 file: ${base_path}/layout-completeness-report.json
+  Generate 1 file: ${base_path}/layout-extraction/layout-templates.json
 
-  ### Structure:
+  ### layout-templates.json Structure:
   {
-    "agent": "layout-agent",
-    "status": "complete" | "partial" | "failed",
-    "analysis_time": "ISO8601 timestamp",
-    "files_analyzed": {
-      "css": ["list of CSS/SCSS files read"],
-      "js": ["list of JS/TS files read"],
-      "html": ["list of HTML files read"]
-    },
-    "naming_convention": "BEM | SMACSS | utility-first | css-modules | custom",
-    "found": {
+    "extraction_metadata": {
+      "extraction_source": "code_import",
+      "analysis_time": "ISO8601 timestamp",
+      "files_analyzed": {
+        "css": ["list of CSS/SCSS files read"],
+        "js": ["list of JS/TS files read"],
+        "html": ["list of HTML files read"]
+      },
+      "naming_convention": "BEM | SMACSS | utility-first | css-modules | custom",
       "layout_system": {
         "type": "12-column | flexbox | css-grid | custom",
         "confidence": "high | medium | low",
@@ -479,44 +599,71 @@ Task(ui-design-agent): `
         "column_classes": ["col-1", "col-md-6"],
         "source_files": ["grid.css", "Layout.jsx"]
       },
-      "components": {
-        "count": 5,
-        "patterns": {
-          "button": {
-            "base_class": "btn",
-            "variants": ["btn-primary", "btn-secondary"],
-            "sizes": ["btn-sm", "btn-lg"],
-            "states": ["hover", "active", "disabled"],
-            "source": "button.css:12"
-          },
-          "card": {...},
-          "input": {...}
-        }
-      },
       "responsive": {
         "breakpoint_prefixes": ["sm:", "md:", "lg:", "xl:"],
         "mobile_first": true,
+        "breakpoints": {
+          "sm": "640px",
+          "md": "768px",
+          "lg": "1024px",
+          "xl": "1280px"
+        },
         "source": "responsive.scss:5"
+      },
+      "completeness": {
+        "layout_system": "complete | partial | minimal",
+        "components": "complete | partial | minimal",
+        "responsive": "complete | partial | minimal",
+        "missing_items": ["gap utilities", "modal", "dropdown"],
+        "recommendations": [
+          "Add gap utilities for consistent spacing in grid layouts",
+          "Define modal/dropdown/tabs component patterns"
+        ]
       }
     },
-    "missing": {
-      "layout_system": {
-        "items": ["gap utilities"],
-        "reason": "No gap/gutter utilities found in grid system"
+    "layout_templates": [
+      {
+        "target": "button",
+        "variant_id": "layout-1",
+        "device_type": "responsive",
+        "component_type": "component",
+        "dom_structure": {
+          "tag": "button",
+          "classes": ["btn", "btn-primary"],
+          "children": [
+            {"tag": "span", "classes": ["btn-text"], "content": "{{text}}"}
+          ],
+          "variants": {
+            "primary": {"classes": ["btn", "btn-primary"]},
+            "secondary": {"classes": ["btn", "btn-secondary"]}
+          },
+          "sizes": {
+            "sm": {"classes": ["btn-sm"]},
+            "base": {"classes": []},
+            "lg": {"classes": ["btn-lg"]}
+          },
+          "states": ["hover", "active", "disabled"]
+        },
+        "css_layout_rules": "display: inline-flex; align-items: center; justify-content: center; padding: var(--spacing-2) var(--spacing-4); border-radius: var(--radius-base);",
+        "source": "button.css:12"
       },
-      "components": {
-        "items": ["modal", "dropdown", "tabs"],
-        "reason": "Common interactive components not found"
-      },
-      "responsive": {
-        "items": ["container queries"],
-        "reason": "Only media queries found, no container queries"
+      {
+        "target": "card",
+        "variant_id": "layout-1",
+        "device_type": "responsive",
+        "component_type": "component",
+        "dom_structure": {
+          "tag": "div",
+          "classes": ["card"],
+          "children": [
+            {"tag": "div", "classes": ["card-header"], "content": "{{title}}"},
+            {"tag": "div", "classes": ["card-body"], "content": "{{content}}"},
+            {"tag": "div", "classes": ["card-footer"], "content": "{{footer}}"}
+          ]
+        },
+        "css_layout_rules": "display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--spacing-4); background: var(--color-surface-card);",
+        "source": "card.css:25"
       }
-    },
-    "recommendations": [
-      "Add gap utilities for consistent spacing in grid layouts",
-      "Define modal/dropdown/tabs component patterns",
-      "Consider container queries for component-level responsiveness"
     ]
   }
 
@@ -531,9 +678,9 @@ Task(ui-design-agent): `
   - ✅ Use Read() tool for each file you want to analyze
   - ✅ Identify naming conventions and layout systems
   - ✅ Extract component patterns with variants and states
-  - ✅ Report MISSING content with specific reasons
-  - ✅ Use Write() immediately to save: ${base_path}/layout-completeness-report.json
-  - ✅ If no data found, report as "failed" with detailed missing analysis
+  - ✅ Create layout-extraction/ directory first: Bash(mkdir -p "${base_path}/layout-extraction")
+  - ✅ Use Write() to save: ${base_path}/layout-extraction/layout-templates.json
+  - ✅ Include extraction_metadata.completeness field to track missing content
   - ❌ NO external research or MCP calls
 `
 ```
@@ -565,24 +712,49 @@ echo "[Phase 1] Parallel agent analysis complete"
 
 **Location**: `${base_path}/`
 
+**Directory Structure**:
+```
+${base_path}/
+├── style-extraction/
+│   └── style-1/
+│       ├── design-tokens.json       # Production-ready design tokens
+│       └── style-guide.md           # Design philosophy and usage
+├── animation-extraction/
+│   ├── animation-tokens.json        # Animation/transition tokens
+│   └── animation-guide.md           # Animation usage guide
+├── layout-extraction/
+│   └── layout-templates.json        # Layout patterns and component structures
+└── .intermediates/
+    └── import-analysis/
+        ├── css-files.txt            # Discovered CSS/SCSS files
+        ├── js-files.txt             # Discovered JS/TS files
+        └── html-files.txt           # Discovered HTML files
+```
+
 **Files**:
-1. **style-completeness-report.json**
-   - Style agent analysis results
-   - Found tokens: colors, typography, spacing, shadows, borders
-   - Missing content: specific gaps with reasons
-   - Recommendations: actionable improvement suggestions
+1. **style-extraction/style-1/design-tokens.json**
+   - Production-ready design tokens
+   - Categories: colors, typography, spacing, opacity, border_radius, shadows, breakpoints
+   - Metadata: extraction_source, files_analyzed, completeness assessment
 
-2. **animation-completeness-report.json**
-   - Animation agent analysis results
-   - Found tokens: durations, easing, keyframes, transitions
-   - Framework detection: framer-motion, gsap, css-animations, etc.
-   - Missing content: animation gaps with reasons
+2. **style-extraction/style-1/style-guide.md**
+   - Design system overview
+   - Token categories and usage
+   - Missing elements and recommendations
 
-3. **layout-completeness-report.json**
-   - Layout agent analysis results
-   - Found patterns: layout system, components, responsive design
-   - Naming convention: BEM, SMACSS, utility-first, etc.
-   - Missing content: layout/component gaps with reasons
+3. **animation-extraction/animation-tokens.json**
+   - Animation tokens: duration, easing, transitions, keyframes, interactions
+   - Framework detection: css-animations, framer-motion, gsap, etc.
+   - Metadata: extraction_source, completeness assessment
+
+4. **animation-extraction/animation-guide.md**
+   - Animation system overview
+   - Usage guidelines and examples
+
+5. **layout-extraction/layout-templates.json**
+   - Layout templates for each discovered component
+   - Extraction metadata: naming_convention, layout_system, responsive strategy
+   - Component patterns with DOM structure and CSS rules
 
 **Intermediate Files**: `.intermediates/import-analysis/`
 - `css-files.txt` - Discovered CSS/SCSS files
