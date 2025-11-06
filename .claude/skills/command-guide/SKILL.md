@@ -101,6 +101,63 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 
 ---
 
+### Mode 6: Deep Command Analysis 🔬
+
+**When**: User asks detailed questions about specific commands or agents
+
+**Triggers**: "详细说明", "命令原理", "agent 如何工作", "实现细节", specific command/agent name mentioned
+
+**Data Sources**:
+- `reference/agents/*.md` - All agent documentation (11 agents)
+- `reference/commands/**/*.md` - All command documentation (69 commands)
+
+**Process**:
+
+**Simple Query** (direct documentation lookup):
+1. Identify target command/agent from user query
+2. Locate corresponding markdown file in `reference/`
+3. Read and extract relevant sections
+4. Present formatted response with examples
+
+**Complex Query** (CLI-assisted analysis):
+1. Detect complexity indicators (多个命令对比、工作流程分析、最佳实践)
+2. Construct analysis prompt for gemini/qwen:
+   ```bash
+   cd reference && gemini -p "
+   PURPOSE: Analyze command documentation to answer user query
+   TASK: [extracted user question with context]
+   MODE: analysis
+   CONTEXT: @agents/**/* @commands/**/*
+   EXPECTED: Comprehensive answer with examples and recommendations
+   RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on practical usage | analysis=READ-ONLY
+   " -m gemini-3-pro-preview-11-2025
+   ```
+3. Return CLI analysis results to user
+
+**Query Classification**:
+- **Simple**: Single command explanation, parameter list, basic usage
+- **Complex**: Cross-command workflows, performance comparison, architectural analysis, best practices across multiple commands
+
+**Examples**:
+
+*Simple Query*:
+```
+User: "action-planning-agent 如何工作？"
+→ Read reference/agents/action-planning-agent.md
+→ Extract workflow, capabilities, examples
+→ Present structured response
+```
+
+*Complex Query*:
+```
+User: "对比 workflow:plan 和 workflow:tdd-plan 的使用场景和最佳实践"
+→ Detect: 多命令对比 + 最佳实践
+→ Use gemini analysis on reference/commands/workflow/
+→ Return comprehensive comparison with workflow examples
+```
+
+---
+
 ## 📚 Index Files
 
 All command metadata is stored in JSON indexes for fast querying:
@@ -123,6 +180,19 @@ All command metadata is stored in JSON indexes for fast querying:
 - **[Troubleshooting](guides/troubleshooting.md)** - Common issues and solutions
 - **[Implementation Details](guides/implementation-details.md)** - Detailed logic for each mode
 - **[Usage Examples](guides/examples.md)** - Example dialogues and edge cases
+
+## 📦 Reference Documentation
+
+Complete backup of all command and agent documentation for deep analysis:
+
+- **[reference/agents/](reference/agents/)** - 11 agent markdown files with implementation details
+- **[reference/commands/](reference/commands/)** - 69 command markdown files organized by category
+  - `cli/` - CLI tool commands (9 files)
+  - `memory/` - Memory management commands (8 files)
+  - `task/` - Task management commands (4 files)
+  - `workflow/` - Workflow commands (46 files)
+
+**Usage**: Mode 6 queries these files directly for detailed command/agent analysis, or uses CLI tools (gemini/qwen) for complex cross-command analysis.
 
 ---
 
@@ -148,10 +218,12 @@ Templates are auto-populated during Mode 5 (Issue Reporting) interaction.
 ## 📊 System Statistics
 
 - **Total Commands**: 69
+- **Total Agents**: 11
 - **Categories**: 4 (workflow: 46, cli: 9, memory: 8, task: 4, general: 2)
 - **Use Cases**: 5 (planning, implementation, testing, documentation, session-management)
 - **Difficulty Levels**: 3 (Beginner, Intermediate, Advanced)
 - **Essential Commands**: 14
+- **Reference Docs**: 80 markdown files (11 agents + 69 commands)
 
 ---
 
@@ -192,9 +264,15 @@ Team members get latest indexes via `git pull`.
 
 ---
 
-**Version**: 1.2.0 (Issue templates enhanced with execution flow emphasis)
+**Version**: 1.3.0 (Deep command analysis with reference documentation backup)
 **Last Updated**: 2025-11-06
 **Maintainer**: Claude DMS3 Team
+
+**Changelog v1.3.0**:
+- ✅ Added Mode 6: Deep Command Analysis with CLI-assisted queries
+- ✅ Created reference documentation backup (80 files: 11 agents + 69 commands)
+- ✅ Support simple queries (direct file lookup) and complex queries (CLI analysis)
+- ✅ Integrated gemini/qwen for cross-command analysis and best practices
 
 **Changelog v1.2.0**:
 - ✅ Added Interactive Diagnosis template with decision tree
