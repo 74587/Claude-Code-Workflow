@@ -1,6 +1,6 @@
 ---
 name: command-guide
-description: Workflow command guide for Claude DMS3 (69 commands). Search/browse commands, get next-step recommendations, view documentation, report issues. Triggers "CCW-help", "CCW-issue", "how to use", "search commands", "what's next", beginner onboarding questions
+description: Workflow command guide for Claude DMS3 (69 commands). Search/browse commands, get next-step recommendations, view documentation, report issues. Triggers "CCW-help", "CCW-issue", "ccw-help", "ccw-issue", "ccw"
 allowed-tools: Read, Grep, Glob, AskUserQuestion
 ---
 
@@ -78,7 +78,7 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 
 **When**: User wants to report issue or request feature
 
-**Triggers**: **"CCW-issue"**, **"CCW-help"**, "报告 bug", "功能建议", "问题咨询", "交互式诊断"
+**Triggers**: **"CCW-issue"**, **"CCW-help"**, **"ccw-issue"**, **"ccw-help"**, **"ccw"**, "报告 bug", "功能建议", "问题咨询", "交互式诊断"
 
 **Process**:
 1. Use AskUserQuestion to confirm type (diagnosis/bug/feature/question)
