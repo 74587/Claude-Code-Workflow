@@ -25,7 +25,8 @@ type: strategic-guideline
 ### Model Selection (-m parameter)
 
 **Gemini Models**:
-- `gemini-2.5-pro` - Analysis tasks (default)
+- `gemini-3-pro-preview-11-2025` - Analysis tasks (default, preferred)
+- `gemini-2.5-pro` - Analysis tasks (alternative)
 - `gemini-2.5-flash` - Documentation updates
 
 **Qwen Models**:
@@ -159,12 +160,55 @@ codex --full-auto exec "Write auth tests" resume --last --skip-git-repo-check -s
 ### Universal Template Structure
 
 Every command MUST follow this structure:
+
 - [ ] **PURPOSE** - Clear goal and intent
+  - State the high-level objective of this execution
+  - Explain why this task is needed
+  - Define success criteria
+  - Example: "Analyze authentication module to identify security vulnerabilities"
+
 - [ ] **TASK** - Specific execution task (use list format: • Task item 1 • Task item 2 • Task item 3)
+  - Break down PURPOSE into concrete, actionable steps
+  - Use bullet points (•) for multiple sub-tasks
+  - Order tasks by execution sequence
+  - Example: "• Review auth implementation patterns • Identify potential security risks • Document findings with recommendations"
+
 - [ ] **MODE** - Execution mode and permission level
+  - `analysis` (default): Read-only operations, no file modifications
+  - `write`: File creation/modification/deletion allowed (requires explicit specification)
+  - `auto`: Full autonomous development operations (Codex only, requires explicit specification)
+  - Example: "MODE: analysis" or "MODE: write"
+
 - [ ] **CONTEXT** - File references and memory context from previous sessions
+  - **File Patterns**: Use @ syntax for file references (default: `@**/*` for all files)
+    - `@**/*` - All files in current directory tree
+    - `@src/**/*.ts` - TypeScript files in src directory
+    - `@../shared/**/*` - Files from sibling directory (requires `--include-directories`)
+  - **Memory Context**: Reference previous session findings and context
+    - Workflow sessions: `Previous WFS-session-id findings: [key insights]`
+    - Related tasks: `Building on previous analysis from [session/commit]`
+    - Tech stack: `Using patterns from [tech-stack-name] documentation`
+    - Cross-reference: `Related to implementation in [module/file]`
+  - **Memory Sources**: Include relevant memory packages
+    - SKILL packages: `Skill(workflow-progress)`, `Skill(react-dev)`, `Skill(project-name)`
+    - Session artifacts: `.workflow/[session-id]/artifacts/`
+    - Documentation: `CLAUDE.md`, module-specific docs
+  - Example: "CONTEXT: @src/auth/**/* @CLAUDE.md | Memory: Previous WFS-20241105-001 identified JWT validation gap"
+
 - [ ] **EXPECTED** - Clear expected results
+  - Specify deliverable format (report, code, documentation, list)
+  - Define quality criteria
+  - State output structure requirements
+  - Example: "Comprehensive security report with categorized findings, risk levels, and actionable recommendations"
+
 - [ ] **RULES** - Template reference and constraints (include mode constraints: analysis=READ-ONLY | write=CREATE/MODIFY/DELETE | auto=FULL operations)
+  - Reference templates: `$(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt)`
+  - Specify constraints and boundaries
+  - Include mode-specific constraints:
+    - `analysis=READ-ONLY` - No file modifications
+    - `write=CREATE/MODIFY/DELETE` - File operations allowed
+    - `auto=FULL operations` - Autonomous development
+  - Example: "$(cat ~/.claude/workflows/cli-templates/prompts/analysis/security.txt) | Focus on authentication flows only | analysis=READ-ONLY"
 
 ---
 
@@ -176,16 +220,20 @@ Every command MUST follow this structure:
 # Analysis Mode (read-only, default)
 # Use 'gemini' (primary) or 'qwen' (fallback)
 cd [directory] && gemini -p "
-PURPOSE: [clear analysis goal]
-TASK: [specific analysis task]
+PURPOSE: [clear analysis goal - state objective, why needed, success criteria]
+TASK:
+• [specific analysis task - actionable step 1]
+• [specific analysis task - actionable step 2]
+• [specific analysis task - actionable step 3]
 MODE: analysis
-CONTEXT: @**/* [default: all files, or specify file patterns]
-EXPECTED: [expected output]
-RULES: [template reference and constraints]
+CONTEXT: @**/* [default: all files, or specify file patterns] | Memory: [previous session findings, related implementations, tech stack patterns]
+EXPECTED: [deliverable format, quality criteria, output structure]
+RULES: [template reference and constraints] | analysis=READ-ONLY
 "
 
 # Model Selection Examples (NOTE: -m placed AFTER prompt)
-cd [directory] && gemini -p "..." -m gemini-2.5-pro      # Analysis (default)
+cd [directory] && gemini -p "..." -m gemini-3-pro-preview-11-2025      # Analysis (default, preferred)
+cd [directory] && gemini -p "..." -m gemini-2.5-pro      # Analysis (alternative)
 cd [directory] && gemini -p "..." -m gemini-2.5-flash    # Documentation updates
 cd [directory] && qwen -p "..."                          # coder-model (default, -m optional)
 cd [directory] && qwen -p "..." -m vision-model           # Image analysis (rare)
@@ -193,12 +241,15 @@ cd [directory] && qwen -p "..." -m vision-model           # Image analysis (rare
 # Write Mode (requires explicit MODE=write)
 # NOTE: --approval-mode yolo must be placed AFTER the prompt
 cd [directory] && gemini -p "
-PURPOSE: [clear goal]
-TASK: [specific task]
+PURPOSE: [clear goal - state objective, why needed, success criteria]
+TASK:
+• [specific task - actionable step 1]
+• [specific task - actionable step 2]
+• [specific task - actionable step 3]
 MODE: write
-CONTEXT: @**/* [default: all files, or specify file patterns]
-EXPECTED: [expected output]
-RULES: [template reference and constraints]
+CONTEXT: @**/* [default: all files, or specify file patterns] | Memory: [previous session findings, related implementations, tech stack patterns]
+EXPECTED: [deliverable format, quality criteria, output structure]
+RULES: [template reference and constraints] | write=CREATE/MODIFY/DELETE
 " -m gemini-2.5-flash --approval-mode yolo
 
 # Fallback: Replace 'gemini' with 'qwen' if Gemini unavailable
@@ -211,12 +262,15 @@ cd [directory] && qwen -p "..." # coder-model default (-m optional)
 # Codex Development (requires explicit MODE=auto)
 # NOTE: -m, --skip-git-repo-check and -s danger-full-access must be placed at command END
 codex -C [directory] --full-auto exec "
-PURPOSE: [clear development goal]
-TASK: [specific development task]
+PURPOSE: [clear development goal - state objective, why needed, success criteria]
+TASK:
+• [specific development task - actionable step 1]
+• [specific development task - actionable step 2]
+• [specific development task - actionable step 3]
 MODE: auto
-CONTEXT: @**/* [default: all files, or specify file patterns and memory context]
-EXPECTED: [expected deliverables]
-RULES: [template reference and constraints]
+CONTEXT: @**/* [default: all files, or specify file patterns] | Memory: [previous session findings, related implementations, tech stack patterns, workflow context]
+EXPECTED: [deliverable format, quality criteria, output structure, testing requirements]
+RULES: [template reference and constraints] | auto=FULL operations
 " -m gpt-5 --skip-git-repo-check -s danger-full-access
 
 # Model Selection Examples (NOTE: -m placed AFTER prompt, BEFORE flags)
@@ -226,12 +280,15 @@ codex -C [directory] --full-auto exec "..." -m gpt5-codex --skip-git-repo-check 
 # Codex Test/Write Mode (requires explicit MODE=write)
 # NOTE: -m, --skip-git-repo-check and -s danger-full-access must be placed at command END
 codex -C [directory] --full-auto exec "
-PURPOSE: [clear goal]
-TASK: [specific task]
+PURPOSE: [clear goal - state objective, why needed, success criteria]
+TASK:
+• [specific task - actionable step 1]
+• [specific task - actionable step 2]
+• [specific task - actionable step 3]
 MODE: write
-CONTEXT: @**/* [default: all files, or specify file patterns and memory context]
-EXPECTED: [expected deliverables]
-RULES: [template reference and constraints]
+CONTEXT: @**/* [default: all files, or specify file patterns] | Memory: [previous session findings, related implementations, tech stack patterns, workflow context]
+EXPECTED: [deliverable format, quality criteria, output structure, testing requirements]
+RULES: [template reference and constraints] | write=CREATE/MODIFY/DELETE
 " -m gpt-5 --skip-git-repo-check -s danger-full-access
 ```
 
@@ -310,6 +367,8 @@ RULES: Focus on integration patterns
 
 ### CONTEXT Field Configuration
 
+CONTEXT field consists of two main components: **File Patterns** and **Memory Context**
+
 #### File Pattern Reference
 
 **Default Pattern**:
@@ -321,6 +380,87 @@ RULES: Focus on integration patterns
 - With docs: `@CLAUDE.md @**/*CLAUDE.md` (multiple @ for multiple patterns)
 - Tests: `@src/**/*.test.*`
 
+#### Memory Context Integration
+
+**Purpose**: Leverage previous session findings, related implementations, and established patterns to provide continuity and avoid repeating analysis
+
+**Format**: `CONTEXT: [file patterns] | Memory: [memory context]`
+
+**Memory Sources**:
+1. **Workflow Sessions** - Previous WFS session findings and artifacts
+   - Format: `WFS-[session-id]: [key findings]`
+   - Artifact paths: `.workflow/WFS-[session-id]/artifacts/[artifact-name].md`
+   - Common artifacts:
+     - Analysis results: `.workflow/WFS-[session-id]/artifacts/analysis.md`
+     - Implementation plans: `.workflow/WFS-[session-id]/artifacts/IMPL_PLAN.md`
+     - Task definitions: `.workflow/WFS-[session-id]/.task/task.json`
+     - Lessons learned: `.workflow/WFS-[session-id]/artifacts/lessons.md`
+   - Examples:
+     - `WFS-20241105-001: JWT validation gap identified in .workflow/WFS-20241105-001/artifacts/analysis.md`
+     - `WFS-20241103-002: Auth refactor documented in .workflow/WFS-20241103-002/artifacts/IMPL_PLAN.md`
+
+2. **SKILL Packages** - Structured knowledge packages (⚠️ MUST load BEFORE CLI execution)
+   - **CRITICAL**: SKILL packages MUST be loaded using `Skill()` tool BEFORE executing CLI commands
+   - CLI tools (Gemini/Qwen/Codex) do NOT support loading SKILL packages during execution
+   - Workflow: Load SKILL → Extract content → Reference in Memory context → Execute CLI
+   - Workflow progress: `Skill(workflow-progress)` for session history
+   - Tech stacks: `Skill(react-dev)`, `Skill(typescript-dev)` for framework patterns
+   - Project docs: `Skill(project-name)` for codebase architecture
+
+3. **Related Tasks** - Cross-task context
+   - `Related to previous refactoring in module X (commit abc123)`
+   - `Extends implementation from task IMPL-001`
+   - `Addresses conflict identified in previous analysis`
+
+4. **Tech Stack Patterns** - Framework and library conventions
+   - `Following React hooks patterns from tech stack docs`
+   - `Using TypeScript utility types from project standards`
+   - `Applying authentication patterns from security guidelines`
+
+5. **Cross-Module References** - Inter-module dependencies
+   - `Integration point with payment module analyzed in WFS-20241101-003`
+   - `Shares utilities with shared/utils documented in CLAUDE.md`
+   - `Depends on types defined in @types/core`
+
+**Memory Context Examples**:
+```bash
+# Example 1: Building on previous session with explicit artifact paths
+# Step 1: Load workflow SKILL package BEFORE CLI execution
+Skill(command: "workflow-progress")  # Extract previous session findings
+# Step 2: Load tech stack SKILL package
+Skill(command: "react-dev")  # Extract React patterns and conventions
+# Step 3: Execute CLI with memory context referencing specific artifact paths
+CONTEXT: @src/auth/**/* @CLAUDE.md | Memory: WFS-20241105-001 identified JWT validation gap (see .workflow/WFS-20241105-001/artifacts/analysis.md line 45-67), implementing refresh token mechanism following React hooks patterns (loaded from react-dev SKILL)
+
+# Example 2: Cross-module integration with artifact references
+CONTEXT: @src/payment/**/* @src/shared/types/**/* | Memory: Integration with auth module from WFS-20241103-002 (implementation plan: .workflow/WFS-20241103-002/artifacts/IMPL_PLAN.md section 3.2), using shared error handling patterns from @shared/utils/errors.ts (established in WFS-20241101-001)
+
+# Example 3: Tech stack patterns with SKILL pre-loaded
+# Step 1: Load SKILL package BEFORE CLI execution
+Skill(command: "react-dev")  # Extract React custom hooks patterns
+# Step 2: Execute CLI with memory context
+CONTEXT: @src/hooks/**/* | Memory: Following React custom hooks patterns (loaded from react-dev SKILL), previous analysis in .workflow/WFS-20241102-003/artifacts/analysis.md showed need for useAuth refactor (commit abc123, see src/hooks/useAuth.ts:23-45)
+
+# Example 4: Workflow continuity with specific artifact paths
+# Step 1: Load workflow SKILL package BEFORE CLI execution
+Skill(command: "workflow-progress")  # Extract previous session findings
+# Step 2: Execute CLI with memory context referencing specific artifacts
+CONTEXT: @**/* | Memory: Continuing from WFS-20241104-005 API refactor (findings from workflow-progress SKILL, detailed analysis: .workflow/WFS-20241104-005/artifacts/analysis.md, implementation plan: .workflow/WFS-20241104-005/artifacts/IMPL_PLAN.md), applying RESTful patterns documented in section 2.1
+```
+
+**Best Practices**:
+- **Always include memory context** when building on previous work
+- **Reference specific session IDs** with format `WFS-[session-id]` for traceability
+- **Specify artifact paths** explicitly: `.workflow/WFS-[session-id]/artifacts/[artifact-name].md`
+- **Include line numbers/sections** when referencing specific findings: `(line 45-67)` or `(section 3.2)`
+- **Load SKILL packages BEFORE CLI execution** - CLI tools do not support loading SKILL during execution
+  - Workflow: `Skill(command: "workflow-progress")` → Extract findings → Reference in Memory
+  - Tech stacks: `Skill(command: "tech-name")` → Extract patterns → Reference in Memory
+  - Project docs: `Skill(command: "project-name")` → Extract architecture → Reference in Memory
+- **Cross-reference artifacts** with full paths for detailed context
+- **Document dependencies** between sessions and modules with explicit file references
+- **Use consistent format**: `CONTEXT: [file patterns] | Memory: [memory context with paths]`
+
 #### Complex Pattern Discovery
 
 For complex file pattern requirements, use semantic discovery tools BEFORE CLI execution:
@@ -330,24 +470,31 @@ For complex file pattern requirements, use semantic discovery tools BEFORE CLI e
 
 **Example**:
 ```bash
-# Step 1: Discover files semantically
+# Step 1: Load SKILL packages BEFORE CLI execution (CRITICAL - CLI cannot load SKILL)
+Skill(command: "workflow-progress")  # Extract previous session findings
+Skill(command: "react-dev")          # Extract React patterns and conventions
+
+# Step 2: Discover files semantically
 rg "export.*Component" --files-with-matches --type ts  # Find component files
 mcp__code-index__search_code_advanced(pattern="interface.*Props", file_pattern="*.tsx")  # Find interface files
 
-# Step 2: Build precise CONTEXT from discovery results
-CONTEXT: @src/components/Auth.tsx @src/types/auth.d.ts @src/hooks/useAuth.ts
+# Step 3: Build precise CONTEXT with both file patterns and memory context (with explicit paths)
+CONTEXT: @src/components/Auth.tsx @src/types/auth.d.ts @src/hooks/useAuth.ts | Memory: WFS-20241103-002 identified type inconsistencies (see .workflow/WFS-20241103-002/artifacts/analysis.md line 34-56, section 2.3), following React hooks patterns (loaded from react-dev SKILL)
 
-# Step 3: Execute CLI with precise file references
+# Step 4: Execute CLI with precise file references and memory context with explicit artifact paths
 # cd to src/ reduces scope; specific files further minimize context to only relevant files
 cd src && gemini -p "
-PURPOSE: Analyze authentication components
-TASK: Review auth component patterns and props interfaces
+PURPOSE: Analyze authentication components for type safety improvements based on previous WFS findings
+TASK:
+• Review auth component patterns and props interfaces
+• Identify type inconsistencies documented in WFS-20241103-002 (line 34-56)
+• Recommend improvements following React best practices (loaded from react-dev SKILL)
 MODE: analysis
-CONTEXT: @components/Auth.tsx @types/auth.d.ts @hooks/useAuth.ts
-EXPECTED: Pattern analysis and improvement suggestions
-RULES: Focus on type safety and component composition
+CONTEXT: @components/Auth.tsx @types/auth.d.ts @hooks/useAuth.ts | Memory: WFS-20241103-002 identified type inconsistencies (detailed analysis: .workflow/WFS-20241103-002/artifacts/analysis.md line 34-56, section 2.3 'Type Safety Issues'), following React hooks patterns (loaded from react-dev SKILL), related implementation in @hooks/useAuth.ts (commit abc123)
+EXPECTED: Comprehensive analysis report with type safety recommendations, code examples, and references to previous findings
+RULES: Focus on type safety and component composition | analysis=READ-ONLY
 "
-# Result: Only 3 specific files analyzed instead of entire src/ tree
+# Result: Only 3 specific files analyzed with historical context and explicit artifact paths, instead of entire src/ tree
 ```
 
 ---
@@ -480,11 +627,23 @@ bash(codex -C directory --full-auto exec "task")  # Complex implementation: 90-1
 
 **Workflow Principles**:
 - **Start with templates** - Use predefined templates for consistency
-- **Be specific** - Clear PURPOSE, TASK, and EXPECTED fields
+- **Be specific** - Clear PURPOSE, TASK, and EXPECTED fields with detailed descriptions
 - **Include constraints** - File patterns, scope, requirements in RULES
+- **Leverage memory context** - ALWAYS include Memory field when building on previous work
+  - Reference previous WFS session findings with explicit paths: `.workflow/WFS-[session-id]/artifacts/[artifact-name].md`
+  - Include specific line numbers or sections: `(line 45-67)` or `(section 3.2)`
+  - Load SKILL packages BEFORE CLI execution (CLI tools cannot load SKILL during execution):
+    - Workflow sessions: `Skill(command: "workflow-progress")` → Extract → Reference in Memory
+    - Tech stacks: `Skill(command: "tech-name")` → Extract → Reference in Memory
+    - Project docs: `Skill(command: "project-name")` → Extract → Reference in Memory
+  - Cross-reference related tasks with file paths and commit hashes
+  - Document dependencies between sessions and modules with explicit file references
 - **Discover patterns first** - Use rg/MCP for complex file discovery before CLI execution
-- **Build precise CONTEXT** - Convert discovery results to explicit file references
-- **Document context** - Always reference CLAUDE.md for context
+- **Build precise CONTEXT** - Convert discovery results to explicit file references with memory context
+  - Format: `CONTEXT: [file patterns] | Memory: [memory context]`
+  - File patterns: `@**/*` (default), or specific patterns
+  - Memory context: Previous sessions, tech stack patterns, cross-references
+- **Document context** - Always reference CLAUDE.md and relevant documentation
 - **Default to full context** - Use `@**/*` in CONTEXT for comprehensive analysis unless specific files needed
 - **⚠️ No escape characters in CLI commands** - NEVER use `\$`, `\"`, `\'` in actual CLI execution (breaks command substitution and path expansion)
 
