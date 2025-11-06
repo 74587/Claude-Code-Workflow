@@ -5,6 +5,141 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.4.0] - 2025-11-06
+
+### 🎯 CLI Template System Reorganization
+
+This release introduces a comprehensive reorganization of the CLI template system with priority-based naming and enhanced error handling for Gemini models.
+
+#### ✨ Added
+
+**Template Priority System**:
+- ✨ **Priority-Based Naming** - All templates now use priority prefixes for better organization
+  - `01-*` prefix: Universal, high-frequency templates (e.g., trace-code-execution, diagnose-bug-root-cause)
+  - `02-*` prefix: Common specialized templates (e.g., implement-feature, analyze-code-patterns)
+  - `03-*` prefix: Domain-specific, less frequent templates (e.g., assess-security-risks, debug-runtime-issues)
+- ✨ **19 Templates Reorganized** - Complete template system restructure across 4 directories
+  - analysis/ (8 templates): Code analysis, bug diagnosis, architecture review, security assessment
+  - development/ (5 templates): Feature implementation, refactoring, testing, UI components
+  - planning/ (5 templates): Architecture design, task breakdown, component specs, migration
+  - memory/ (1 template): Module documentation
+- ✨ **Template Selection Guidance** - Choose templates based on task needs, not sequence numbers
+
+**Error Handling Enhancement**:
+- ✨ **Gemini 404 Fallback Strategy** - Automatic model fallback for improved reliability
+  - If `gemini-3-pro-preview-11-2025` returns 404 error, automatically fallback to `gemini-2.5-pro`
+  - Comprehensive error handling documentation for HTTP 429 and HTTP 404 errors
+  - Added to both Model Selection and Tool Specifications sections
+
+#### 🔄 Changed
+
+**Template File Reorganization** (19 files):
+
+*Analysis Templates*:
+- `code-execution-tracing.txt` → `01-trace-code-execution.txt`
+- `bug-diagnosis.txt` → `01-diagnose-bug-root-cause.txt` (moved from development/)
+- `pattern.txt` → `02-analyze-code-patterns.txt`
+- `architecture.txt` → `02-review-architecture.txt`
+- `code-review.txt` → `02-review-code-quality.txt` (moved from review/)
+- `performance.txt` → `03-analyze-performance.txt`
+- `security.txt` → `03-assess-security-risks.txt`
+- `quality.txt` → `03-review-quality-standards.txt`
+
+*Development Templates*:
+- `feature.txt` → `02-implement-feature.txt`
+- `refactor.txt` → `02-refactor-codebase.txt`
+- `testing.txt` → `02-generate-tests.txt`
+- `component.txt` → `02-implement-component-ui.txt`
+- `debugging.txt` → `03-debug-runtime-issues.txt`
+
+*Planning Templates*:
+- `architecture-planning.txt` → `01-plan-architecture-design.txt`
+- `task-breakdown.txt` → `02-breakdown-task-steps.txt`
+- `component.txt` → `02-design-component-spec.txt` (moved from implementation/)
+- `concept-eval.txt` → `03-evaluate-concept-feasibility.txt`
+- `migration.txt` → `03-plan-migration-strategy.txt`
+
+*Memory Templates*:
+- `claude-module-unified.txt` → `02-document-module-structure.txt`
+
+**Directory Structure Optimization**:
+- 🔄 **Bug Diagnosis Reclassified** - Moved from development/ to analysis/ (diagnostic work, not implementation)
+- 🔄 **Removed Redundant Directories** - Eliminated implementation/ and review/ folders
+- 🔄 **Unified Path References** - All command files now use full path format
+
+**Command File Updates** (21 references across 5 files):
+- `cli/mode/bug-diagnosis.md` - 6 template references updated
+- `cli/mode/code-analysis.md` - 6 template references updated
+- `cli/mode/plan.md` - 6 template references updated
+- `task/execute.md` - 1 template reference updated
+- `workflow/tools/test-task-generate.md` - 2 template references updated
+
+#### 📝 Documentation
+
+**Updated Files**:
+- 🔄 **intelligent-tools-strategy.md** - Complete template system guide with new naming convention
+  - Updated Available Templates section with all new template names
+  - Enhanced Task-Template Matrix with priority-based organization
+  - Added Gemini error handling documentation (404 and 429)
+  - Removed star symbols (⭐) - redundant with priority numbers
+- ✨ **command-template-update-summary.md** - New file documenting all template reference changes
+
+#### 🎯 Benefits
+
+**Template System Improvements**:
+- 📦 **Better Discoverability** - Priority prefixes make it easy to find appropriate templates
+- 📦 **Clearer Organization** - Templates grouped by usage frequency and specialization
+- 📦 **Consistent Naming** - Descriptive names following `[Priority]-[Action]-[Object]-[Context].txt` pattern
+- 📦 **No Breaking Changes** - All command references updated, backward compatible
+
+**Error Handling Enhancements**:
+- ⚡ **Improved Reliability** - Automatic fallback prevents workflow interruption
+- ⚡ **Better Documentation** - Clear guidance for both HTTP 429 and 404 errors
+- ⚡ **User-Friendly** - Transparent error handling without manual intervention
+
+**Workflow Integration**:
+- 🔗 All 5 command files seamlessly updated with new template paths
+- 🔗 Full path references ensure clarity and maintainability
+- 🔗 No user action required - all updates applied systematically
+
+#### 📦 Modified Files
+
+**Templates** (19 renames, 2 directory removals):
+- `.claude/workflows/cli-templates/prompts/analysis/` - 8 templates reorganized
+- `.claude/workflows/cli-templates/prompts/development/` - 5 templates reorganized
+- `.claude/workflows/cli-templates/prompts/planning/` - 5 templates reorganized
+- `.claude/workflows/cli-templates/prompts/memory/` - 1 template reorganized
+- Removed: `implementation/`, `review/` directories
+
+**Commands** (5 files, 21 references):
+- `.claude/commands/cli/mode/bug-diagnosis.md`
+- `.claude/commands/cli/mode/code-analysis.md`
+- `.claude/commands/cli/mode/plan.md`
+- `.claude/commands/task/execute.md`
+- `.claude/commands/workflow/tools/test-task-generate.md`
+
+**Documentation**:
+- `.claude/workflows/intelligent-tools-strategy.md`
+- `.claude/workflows/command-template-update-summary.md` (new)
+
+#### 🔗 Upgrade Notes
+
+**No User Action Required**:
+- All template references automatically updated
+- Commands work with new template paths
+- No breaking changes to existing workflows
+
+**Template Selection**:
+- Use priority prefix as a guide, not a requirement
+- Choose templates based on your specific task needs
+- Number indicates category and frequency, not usage order
+
+**Error Handling**:
+- Gemini 404 errors now automatically fallback to `gemini-2.5-pro`
+- HTTP 429 errors continue with existing handling (check results existence)
+
+---
+
 ## [5.2.2] - 2025-11-03
 
 ### ✨ Added

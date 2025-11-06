@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.2.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,13 +14,13 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
 
-> **🎉 版本 5.2: 内存命令增强**
+> **🎉 版本 5.4: CLI 模板系统重组**
 >
 > **核心改进**:
-> - ✅ **批量处理** - 单个 Level 1 任务处理所有模块树（减少 67% 任务）
-> - ✅ **双执行模式** - 支持 Agent 模式和 CLI 模式（--cli-execute）
-> - ✅ **预计算分析** - 统一分析消除冗余 CLI 调用（减少 67%）
-> - ✅ **性能提升** - 文件读取减少 67%，总任务数减少 33%
+> - ✅ **优先级模板** - 19个模板重组，采用清晰的优先级前缀（01-通用，02-专用，03-领域）
+> - ✅ **增强错误处理** - Gemini 404 错误自动回退到 gemini-2.5-pro
+> - ✅ **统一引用** - 5个命令文件中的21处模板引用全部更新
+> - ✅ **优化组织** - Bug诊断移至analysis/，移除冗余目录
 >
 > 详见 [CHANGELOG.md](CHANGELOG.md)。
 
