@@ -9,7 +9,7 @@ allowed-tools: SlashCommand(*), Bash(*), Task(*)
 
 ## Purpose
 
-Systematic bug diagnosis with root cause analysis template (`~/.claude/workflows/cli-templates/prompts/development/bug-diagnosis.txt`).
+Systematic bug diagnosis with root cause analysis template (`~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt`).
 
 **Tool Selection**:
 - **gemini** (default) - Best for bug diagnosis
@@ -48,7 +48,7 @@ Systematic bug diagnosis with root cause analysis template (`~/.claude/workflows
 1. Parse tool selection (default: gemini)
 2. Optional: enhance with `/enhance-prompt`
 3. Detect directory from `--cd` or auto-infer
-4. Build command with bug-diagnosis template
+4. Build command with template
 5. Execute diagnosis (read-only)
 6. Save to `.workflow/WFS-[id]/.chat/`
 
@@ -65,7 +65,7 @@ Task(
     Mode: bug-diagnosis
     Tool: ${tool_flag || 'auto-select'}  // gemini|qwen|codex
     Directory: ${cd_path || 'auto-detect'}
-    Template: bug-diagnosis
+    Template: ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
 
     Agent responsibilities:
     1. Context Discovery:
@@ -76,7 +76,7 @@ Task(
     2. CLI Command Generation:
        - Build Gemini/Qwen/Codex command
        - Include diagnostic context
-       - Apply bug-diagnosis.txt template
+       - Apply ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt template
 
     3. Execution & Output:
        - Execute root cause analysis
@@ -89,7 +89,7 @@ Task(
 ## Core Rules
 
 - **Read-only**: Diagnoses bugs, does NOT modify code
-- **Template**: Uses `bug-diagnosis.txt` for root cause analysis
+- **Template**: Uses `~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt` for root cause analysis
 - **Output**: Saves to `.workflow/WFS-[id]/.chat/`
 
 ## CLI Command Templates
@@ -102,7 +102,7 @@ TASK: Root cause analysis
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: Diagnosis, fix plan
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/bug-diagnosis.txt)
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt)
 "
 # Qwen: Replace 'gemini' with 'qwen'
 ```
@@ -115,7 +115,7 @@ TASK: Bug diagnosis
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: Diagnosis, fix suggestions
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/bug-diagnosis.txt)
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt)
 " -m gpt-5 --skip-git-repo-check -s danger-full-access
 ```
 
@@ -126,5 +126,5 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/bug-diagnosis
 
 ## Notes
 
-- Template: `~/.claude/workflows/cli-templates/prompts/development/bug-diagnosis.txt`
+- Template: `~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt`
 - See `intelligent-tools-strategy.md` for detailed tool usage

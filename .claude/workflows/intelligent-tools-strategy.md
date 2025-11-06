@@ -31,14 +31,12 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | [
 
 ### Quick Command Syntax
 
-**⚠️ Always specify model (`-m`) and analysis template in RULES field**
-
 ```bash
 # Gemini/Qwen
-cd [dir] && gemini -p "[prompt]" -m gemini-3-pro-preview-11-2025 [--approval-mode yolo]
+cd [dir] && gemini -p "[prompt]" [-m model] [--approval-mode yolo]
 
 # Codex
-codex -C [dir] --full-auto exec "[prompt]" -m gpt-5 [--skip-git-repo-check -s danger-full-access]
+codex -C [dir] --full-auto exec "[prompt]" [-m model] [--skip-git-repo-check -s danger-full-access]
 ```
 
 ### Model Selection
@@ -60,13 +58,17 @@ codex -C [dir] --full-auto exec "[prompt]" -m gpt-5 [--skip-git-repo-check -s da
 
 ### Quick Decision Matrix
 
-| Scenario | Tool | MODE |
-|----------|------|------|
-| Exploring/Understanding | Gemini → Qwen | analysis |
-| Architecture/Analysis | Gemini → Qwen | analysis |
-| Building/Fixing | Codex | auto |
-| Documentation Generation | Gemini/Qwen | write |
-| Test Generation | Codex | write |
+| Scenario | Tool | MODE | Template |
+|----------|------|------|----------|
+| Execution Tracing | Gemini → Qwen | analysis | `analysis/01-trace-code-execution.txt` |
+| Bug Diagnosis | Gemini → Qwen | analysis | `analysis/01-diagnose-bug-root-cause.txt` |
+| Architecture Planning | Gemini → Qwen | analysis | `planning/01-plan-architecture-design.txt` |
+| Code Pattern Analysis | Gemini → Qwen | analysis | `analysis/02-analyze-code-patterns.txt` |
+| Architecture Review | Gemini → Qwen | analysis | `analysis/02-review-architecture.txt` |
+| Feature Implementation | Codex | auto | `development/02-implement-feature.txt` |
+| Component Development | Codex | auto | `development/02-implement-component-ui.txt` |
+| Documentation | Gemini/Qwen | write | `memory/02-document-module-structure.txt` |
+| Test Generation | Codex | write | `development/02-generate-tests.txt` |
 
 ### Core Principles
 
@@ -74,8 +76,11 @@ codex -C [dir] --full-auto exec "[prompt]" -m gpt-5 [--skip-git-repo-check -s da
 - **When in doubt, use both** - Parallel usage provides comprehensive coverage
 - **Default to tools** - Use for most coding tasks, no matter how small
 - **Minimize context noise** - Use `cd` + `--include-directories` to focus on relevant files
-- **⚠️ Always specify model** - REQUIRED: `-m gemini-3-pro-preview-11-2025` for Gemini, `-m gpt-5` for Codex
-- **⚠️ Always use analysis template** - REQUIRED: Include `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)` in RULES field
+- **⚠️ Choose templates by need** - Select templates based on task requirements:
+  - `01-*` for general exploratory/diagnostic work
+  - `02-*` for common implementation/analysis tasks
+  - `03-*` for specialized domains
+- **⚠️ Always specify templates** - Include appropriate template in RULES field via `$(cat ~/.claude/workflows/cli-templates/prompts/.../...txt)`
 - **⚠️ Write protection** - Require EXPLICIT MODE=write or MODE=auto specification
 
 ---
@@ -210,8 +215,14 @@ TASK:
 MODE: [analysis|write|auto]
 CONTEXT: @**/* | Memory: [previous session findings, related implementations, tech stack patterns, workflow context]
 EXPECTED: [deliverable format, quality criteria, output structure, testing requirements (if applicable)]
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | [additional constraints] | [MODE]=[READ-ONLY|CREATE/MODIFY/DELETE|FULL operations]
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[0X-template-name].txt) | [additional constraints] | [MODE]=[READ-ONLY|CREATE/MODIFY/DELETE|FULL operations]
 ```
+
+**Template Selection Guide**:
+- Choose template based on your specific task, not by sequence number
+- `01-*` templates: General-purpose, broad applicability
+- `02-*` templates: Common specialized scenarios
+- `03-*` templates: Domain-specific needs
 
 ### Tool-Specific Configuration
 
@@ -225,7 +236,7 @@ Use the **[Standard Prompt Template](#standard-prompt-template)** for all tools.
 - **Directory**: `cd [directory] &&` (navigate to target directory)
 - **Tool**: `gemini` (primary) | `qwen` (fallback)
 - **Prompt**: `-p "[Standard Prompt Template]"` (prompt BEFORE options)
-- **Model**: `-m [model-name]` (REQUIRED, placed AFTER prompt)
+- **Model**: `-m [model-name]` (optional, placed AFTER prompt)
   - Gemini: `gemini-3-pro-preview-11-2025` (default) | `gemini-2.5-pro` | `gemini-2.5-flash`
   - Qwen: `coder-model` (default) | `vision-model`
 - **Write Permission**: `--approval-mode yolo` (ONLY for MODE=write, placed AFTER prompt)
@@ -253,7 +264,7 @@ cd [directory] && gemini -p "[Standard Prompt Template]" -m gemini-3-pro-preview
 - **Directory**: `-C [directory]` (target directory parameter)
 - **Execution Mode**: `--full-auto exec` (required for autonomous execution)
 - **Prompt**: `exec "[Standard Prompt Template]"` (prompt BEFORE options)
-- **Model**: `-m [model-name]` (REQUIRED, placed AFTER prompt, BEFORE flags)
+- **Model**: `-m [model-name]` (optional, placed AFTER prompt, BEFORE flags)
   - `gpt-5` (default) | `gpt5-codex` (large context)
 - **Write Permission**: `--skip-git-repo-check -s danger-full-access` (ONLY for MODE=auto or MODE=write, placed at command END)
 - **Session Resume**: `resume --last` (placed AFTER prompt, BEFORE flags)
@@ -287,7 +298,7 @@ TASK: • Create auth service • Add user validation • Setup JWT tokens
 MODE: auto
 CONTEXT: @**/* | Memory: Following security patterns from project standards
 EXPECTED: Complete auth module with tests
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/feature.txt) | Follow existing patterns | auto=FULL operations
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow existing patterns | auto=FULL operations
 " -m gpt-5 --skip-git-repo-check -s danger-full-access
 
 # Subsequent tasks - brief description with resume
@@ -342,7 +353,7 @@ TASK: Review auth implementation and its dependencies
 MODE: analysis
 CONTEXT: @**/* @../shared/**/* @../types/**/*
 EXPECTED: Complete analysis with cross-directory dependencies
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | Focus on integration patterns | analysis=READ-ONLY
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on integration patterns | analysis=READ-ONLY
 " -m gemini-3-pro-preview-11-2025 --include-directories ../shared,../types
 ```
 
@@ -430,7 +441,7 @@ TASK:
 MODE: analysis
 CONTEXT: @components/Auth.tsx @types/auth.d.ts @hooks/useAuth.ts | Memory: Previous refactoring identified type inconsistencies, following React hooks patterns, related implementation in @hooks/useAuth.ts (commit abc123)
 EXPECTED: Comprehensive analysis report with type safety recommendations, code examples, and references to previous findings
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | Focus on type safety and component composition | analysis=READ-ONLY
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on type safety and component composition | analysis=READ-ONLY
 " -m gemini-3-pro-preview-11-2025
 ```
 
@@ -442,12 +453,13 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | F
 - **Template reference only, never read**: Use `$(cat ...)` directly, do NOT read template content first
 - **NEVER use escape characters**: `\$`, `\"`, `\'` will break command substitution
 - **In prompt context**: Path needs NO quotes (tilde expands correctly)
-- **Correct**: `RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)`
+- **Correct**: `RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt)`
 - **WRONG**: `RULES: \$(cat ...)` or `RULES: $(cat \"...\")`
 - **Why**: Shell executes `$(...)` in subshell where path is safe
 
 **Examples**:
-- Single: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | Focus on security`
+- General template: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on authentication module`
+- Specialized template: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | React hooks only`
 - Multiple: `$(cat template1.txt) $(cat template2.txt) | Enterprise standards`
 - No template: `Focus on security patterns, include dependency analysis`
 
@@ -455,46 +467,64 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | F
 
 **Base**: `~/.claude/workflows/cli-templates/`
 
+**Naming Convention**:
+- `01-*` - Universal, high-frequency templates
+- `02-*` - Common specialized templates
+- `03-*` - Domain-specific, less frequent templates
+
+**Note**: Number prefix indicates category and frequency, not required usage order. Choose based on task needs.
+
 **Available Templates**:
 ```
 prompts/
 ├── analysis/
-│   ├── pattern.txt      - Code pattern analysis
-│   ├── architecture.txt - System architecture review
-│   ├── security.txt     - Security assessment
-│   └── quality.txt      - Code quality review
+│   ├── 01-trace-code-execution.txt
+│   ├── 01-diagnose-bug-root-cause.txt
+│   ├── 02-analyze-code-patterns.txt
+│   ├── 02-review-architecture.txt
+│   ├── 02-review-code-quality.txt
+│   ├── 03-analyze-performance.txt
+│   ├── 03-assess-security-risks.txt
+│   └── 03-review-quality-standards.txt
 ├── development/
-│   ├── feature.txt      - Feature implementation
-│   ├── refactor.txt     - Refactoring tasks
-│   └── testing.txt      - Test generation
+│   ├── 02-implement-feature.txt
+│   ├── 02-refactor-codebase.txt
+│   ├── 02-generate-tests.txt
+│   ├── 02-implement-component-ui.txt
+│   └── 03-debug-runtime-issues.txt
 ├── memory/
-│   └── claude-module-unified.txt  - Universal module/file documentation
+│   └── 02-document-module-structure.txt
 └── planning/
-    └── task-breakdown.txt - Task decomposition
-
-planning-roles/
-├── system-architect.md  - System design perspective
-├── security-expert.md   - Security architecture
-└── feature-planner.md   - Feature specification
-
-tech-stacks/
-├── typescript-dev.md    - TypeScript guidelines
-├── python-dev.md        - Python conventions
-└── react-dev.md         - React architecture
+    ├── 01-plan-architecture-design.txt
+    ├── 02-breakdown-task-steps.txt
+    ├── 02-design-component-spec.txt
+    ├── 03-evaluate-concept-feasibility.txt
+    └── 03-plan-migration-strategy.txt
 ```
 
 **Task-Template Matrix**:
 
 | Task Type | Tool | Template |
 |-----------|------|----------|
-| Analysis | Gemini (Qwen fallback) | `analysis/pattern.txt` |
-| Architecture | Gemini (Qwen fallback) | `analysis/architecture.txt` |
-| Documentation | Gemini (Qwen fallback) | `analysis/quality.txt` |
-| Development | Codex | `development/feature.txt` |
-| Planning | Gemini/Qwen | `planning/task-breakdown.txt` |
-| Security | Codex | `analysis/security.txt` |
-| Refactoring | Multiple | `development/refactor.txt` |
-| Module Documentation | Gemini (Qwen fallback) | `memory/claude-module-unified.txt` |
+| Execution Tracing | Gemini (Qwen fallback) | `analysis/01-trace-code-execution.txt` |
+| Bug Diagnosis | Gemini (Qwen fallback) | `analysis/01-diagnose-bug-root-cause.txt` |
+| Code Pattern Analysis | Gemini (Qwen fallback) | `analysis/02-analyze-code-patterns.txt` |
+| Architecture Review | Gemini (Qwen fallback) | `analysis/02-review-architecture.txt` |
+| Code Review | Gemini (Qwen fallback) | `analysis/02-review-code-quality.txt` |
+| Performance Analysis | Gemini (Qwen fallback) | `analysis/03-analyze-performance.txt` |
+| Security Assessment | Gemini (Qwen fallback) | `analysis/03-assess-security-risks.txt` |
+| Quality Standards | Gemini (Qwen fallback) | `analysis/03-review-quality-standards.txt` |
+| Architecture Planning | Gemini (Qwen fallback) | `planning/01-plan-architecture-design.txt` |
+| Task Breakdown | Gemini (Qwen fallback) | `planning/02-breakdown-task-steps.txt` |
+| Component Design | Gemini (Qwen fallback) | `planning/02-design-component-spec.txt` |
+| Concept Evaluation | Gemini (Qwen fallback) | `planning/03-evaluate-concept-feasibility.txt` |
+| Migration Planning | Gemini (Qwen fallback) | `planning/03-plan-migration-strategy.txt` |
+| Feature Development | Codex | `development/02-implement-feature.txt` |
+| Refactoring | Codex | `development/02-refactor-codebase.txt` |
+| Test Generation | Codex | `development/02-generate-tests.txt` |
+| Component Implementation | Codex | `development/02-implement-component-ui.txt` |
+| Debugging | Codex | `development/03-debug-runtime-issues.txt` |
+| Module Documentation | Gemini (Qwen fallback) | `memory/02-document-module-structure.txt` |
 
 ---
 

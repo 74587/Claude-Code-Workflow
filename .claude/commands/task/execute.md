@@ -189,7 +189,7 @@ This is the simplified data structure loaded to provide context for task executi
       "pre_analysis": [
         {
           "action": "analyze patterns",
-          "template": "~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt",
+          "template": "~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt",
           "method": "gemini"
         }
       ]

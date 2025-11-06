@@ -9,7 +9,7 @@ allowed-tools: SlashCommand(*), Bash(*), Task(*)
 
 ## Purpose
 
-Systematic code analysis with execution path tracing template (`~/.claude/workflows/cli-templates/prompts/analysis/code-execution-tracing.txt`).
+Systematic code analysis with execution path tracing template (`~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt`).
 
 **Tool Selection**:
 - **gemini** (default) - Best for code analysis and tracing
@@ -52,7 +52,7 @@ Systematic code analysis with execution path tracing template (`~/.claude/workfl
 1. Parse tool selection (default: gemini)
 2. Optional: enhance analysis target with `/enhance-prompt`
 3. Detect target directory from `--cd` or auto-infer
-4. Build command with execution-tracing template
+4. Build command with template
 5. Execute analysis (read-only)
 6. Save to `.workflow/WFS-[id]/.chat/code-analysis-[timestamp].md`
 
@@ -63,7 +63,7 @@ Delegates to `cli-execution-agent` for intelligent context discovery and analysi
 ## Core Rules
 
 - **Read-only**: Analyzes code, does NOT modify files
-- **Template**: Uses `code-execution-tracing.txt` for systematic analysis
+- **Template**: Uses `~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt` for systematic analysis
 - **Output**: Saves to `.workflow/WFS-[id]/.chat/`
 
 ## CLI Command Templates
@@ -76,7 +76,7 @@ TASK: Execution path tracing
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: Trace, call diagram
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/code-execution-tracing.txt)
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt)
 "
 # Qwen: Replace 'gemini' with 'qwen'
 ```
@@ -89,7 +89,7 @@ TASK: Path analysis
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: Trace, optimization
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/code-execution-tracing.txt)
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt)
 " -m gpt-5 --skip-git-repo-check -s danger-full-access
 ```
 
@@ -106,7 +106,7 @@ Task(
     Mode: code-analysis
     Tool: ${tool_flag || 'auto-select'}  // gemini|qwen|codex
     Directory: ${cd_path || 'auto-detect'}
-    Template: code-execution-tracing
+    Template: ~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt
 
     Agent responsibilities:
     1. Context Discovery:
@@ -117,7 +117,7 @@ Task(
     2. CLI Command Generation:
        - Build Gemini/Qwen/Codex command
        - Include discovered context
-       - Apply code-execution-tracing.txt template
+       - Apply ~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt template
 
     3. Execution & Output:
        - Execute analysis with selected tool
@@ -133,5 +133,5 @@ Task(
 
 ## Notes
 
-- Template: `~/.claude/workflows/cli-templates/prompts/analysis/code-execution-tracing.txt`
+- Template: `~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt`
 - See `intelligent-tools-strategy.md` for detailed tool usage

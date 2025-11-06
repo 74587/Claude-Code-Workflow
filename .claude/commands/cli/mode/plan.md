@@ -9,7 +9,7 @@ allowed-tools: SlashCommand(*), Bash(*), Task(*)
 
 ## Purpose
 
-Strategic software architecture planning template (`~/.claude/workflows/cli-templates/prompts/planning/architecture-planning.txt`).
+Strategic software architecture planning template (`~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt`).
 
 **Tool Selection**:
 - **gemini** (default) - Best for architecture planning
@@ -47,7 +47,7 @@ Strategic software architecture planning template (`~/.claude/workflows/cli-temp
 1. Parse tool selection (default: gemini)
 2. Optional: enhance with `/enhance-prompt`
 3. Detect directory from `--cd` or auto-infer
-4. Build command with architecture-planning template
+4. Build command with template
 5. Execute planning (read-only, no code generation)
 6. Save to `.workflow/WFS-[id]/.chat/`
 
@@ -64,7 +64,7 @@ Task(
     Mode: architecture-planning
     Tool: ${tool_flag || 'auto-select'}  // gemini|qwen|codex
     Directory: ${cd_path || 'auto-detect'}
-    Template: architecture-planning
+    Template: ~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt
 
     Agent responsibilities:
     1. Context Discovery:
@@ -75,7 +75,7 @@ Task(
     2. CLI Command Generation:
        - Build Gemini/Qwen/Codex command
        - Include architecture context
-       - Apply architecture-planning.txt template
+       - Apply ~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt template
 
     3. Execution & Output:
        - Execute strategic planning
@@ -88,7 +88,7 @@ Task(
 ## Core Rules
 
 - **Planning only**: Creates modification plans, does NOT generate code
-- **Template**: Uses `architecture-planning.txt` for strategic planning
+- **Template**: Uses `~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt` for strategic planning
 - **Output**: Saves to `.workflow/WFS-[id]/.chat/`
 
 ## CLI Command Templates
@@ -101,7 +101,7 @@ TASK: Architecture planning
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: Modification plan, impact analysis
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/architecture-planning.txt)
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt)
 "
 # Qwen: Replace 'gemini' with 'qwen'
 ```
@@ -114,7 +114,7 @@ TASK: Architecture planning
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: Plan, implementation roadmap
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/architecture-planning.txt)
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt)
 " -m gpt-5 --skip-git-repo-check -s danger-full-access
 ```
 
@@ -125,5 +125,5 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/architecture-pla
 
 ## Notes
 
-- Template: `~/.claude/workflows/cli-templates/prompts/planning/architecture-planning.txt`
+- Template: `~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt`
 - See `intelligent-tools-strategy.md` for detailed tool usage
