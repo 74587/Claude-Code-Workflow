@@ -91,16 +91,23 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 
 **When**: New user needs guidance
 
-**Triggers**: "新手", "getting started", "如何开始", "常用命令"
+**Triggers**: "新手", "getting started", "如何开始", "常用命令", **"从0到1"**, **"全新项目"**
 
 **Process**:
 1. **Assess user background** - Ask clarifying questions if needed (coding experience? project type?)
-2. **Design personalized learning path** based on their goals
-3. **Curate essential commands** from `index/essential-commands.json` - Select 3-5 most relevant for their use case
-4. **Provide guided first example** - Walk through ONE complete workflow with explanation
-5. **Set clear next steps** - What to try next, where to get help
+2. **⚠️ Identify project stage** - FROM-ZERO-TO-ONE vs FEATURE-ADDITION:
+   - **从0到1场景** (全新项目/产品/架构决策) → **MUST START with brainstorming workflow**
+   - **功能新增场景** (已有项目中添加功能) → Start with planning workflow
+3. **Design personalized learning path** based on their goals and stage
+4. **Curate essential commands** from `index/essential-commands.json` - Select 3-5 most relevant for their use case
+5. **Provide guided first example** - Walk through ONE complete workflow with explanation, **emphasizing brainstorming for 0-to-1 scenarios**
+6. **Set clear next steps** - What to try next, where to get help
 
-**Example**: "我是新手，如何开始？" → Detect if they have a specific task OR just exploring → For specific task: provide laser-focused 3-step guide; For exploring: progressive learning path starting with simplest workflow, NOT overwhelming 14-command list
+**Example 1 (从0到1)**: "我是新手，如何开始全新项目？" → Identify as FROM-ZERO-TO-ONE → Emphasize brainstorming workflow (`/workflow:brainstorm:artifacts`) as mandatory first step → Explain brainstorm → plan → execute flow
+
+**Example 2 (功能新增)**: "我是新手，如何在已有项目中添加功能？" → Identify as FEATURE-ADDITION → Guide to planning workflow (`/workflow:plan`) → Explain plan → execute → test flow
+
+**Example 3 (探索)**: "我是新手，如何开始？" → Ask clarifying question: "是全新项目启动（从0到1）还是在已有项目中添加功能？" → Based on answer, route to appropriate workflow
 
 ---
 

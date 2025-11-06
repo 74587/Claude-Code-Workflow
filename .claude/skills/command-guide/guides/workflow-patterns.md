@@ -14,6 +14,173 @@
 
 ---
 
+## 💡 Pattern 0: 头脑风暴（从0到1的第一步）
+
+**⚠️ 重要**：这是**从0到1开发的起点**！在开始编码之前，通过多角色头脑风暴明确需求、技术选型和架构决策。
+
+**适用场景**：
+- 全新项目启动，需求和技术方案不明确
+- 重大功能开发，涉及多个技术领域和权衡
+- 架构决策，需要多角色视角分析
+
+**流程**：话题分析 → 角色选择 → 角色问答 → 冲突解决 → 生成指导文档
+
+### 模式 A：交互式头脑风暴（推荐）
+
+**特点**：通过问答交互，逐步明确需求和决策
+
+```bash
+# 步骤 1：启动头脑风暴
+/workflow:brainstorm:artifacts "
+GOAL: 实现实时协作编辑平台
+SCOPE: 支持100+用户同时在线，低延迟(<100ms)，冲突自动解决
+CONTEXT: MVP阶段，3个月上线，团队5人（2前端+2后端+1全栈）
+" --count 3
+
+# 系统输出 Phase 0：自动收集项目上下文
+# ✅ 分析现有代码库结构
+# ✅ 加载相关文档
+# ✅ 识别技术栈和依赖
+
+# 系统输出 Phase 1：意图分析（2-4个问题）
+# 【问题1 - 核心挑战】实时协作的主要技术挑战？
+# a) 实时数据同步
+# b) 可扩展性架构
+# c) 冲突解决机制
+# 【问题2 - 优先级】MVP阶段最关注？
+# a) 功能完整性
+# b) 用户体验
+# c) 系统稳定性
+# 请回答 (格式: 1a 2c)：
+
+# 用户输入：1c 2b
+
+# 系统输出 Phase 2：角色选择（推荐 count+2 个角色）
+# 【角色选择】请选择 3 个角色参与头脑风暴
+# a) system-architect (系统架构师) - 实时同步架构设计
+# b) ui-designer (UI设计师) - 协作界面用户体验
+# c) product-manager (产品经理) - 功能优先级决策
+# d) data-architect (数据架构师) - 数据同步模型设计
+# e) ux-expert (UX专家) - 多用户协作交互流程
+# 请输入选择 (格式: 2acd 或 2a 2c 2d)：
+
+# 用户输入：2acd
+
+# 系统输出 Phase 3：角色问题（每个角色 3-4 个问题）
+# ===== system-architect 问题 =====
+# 【问题1】100+ 用户实时状态同步方案？
+# a) Event Sourcing - 完整事件历史，易于回溯
+# b) 集中式状态管理 - 简单直接，适合MVP
+# c) CRDT - 自动冲突解决，分布式友好
+# 【问题2】低延迟通信协议选择？
+# ...
+# 请回答：
+
+# 用户输入：1c 2a 3b 4c
+
+# 系统输出 Phase 4：冲突检测和解决
+# 【冲突1】CRDT 与 UI 回滚期望冲突
+# Background: system-architect 选择 CRDT，但 ui-designer 期望回滚UI
+# a) 采用 CRDT，显示合并状态
+# b) 切换到 OT 算法支持回滚
+# c) 混合方案：CRDT + 本地撤销栈
+# ...
+
+# 系统输出 Phase 5：生成指导文档
+# ✅ 生成 guidance-specification.md
+# ✅ 记录所有决策和理由
+# ✅ 标注冲突解决方案
+# 📁 文件位置：.workflow/WFS-realtime-collab/.brainstorming/guidance-specification.md
+
+# 步骤 2：查看生成的指导文档
+cat .workflow/WFS-*//.brainstorming/guidance-specification.md
+```
+
+### 模式 B：自动并行头脑风暴（快速）
+
+**特点**：自动选择角色，并行执行，快速生成多角色分析
+
+```bash
+# 步骤 1：一键启动并行头脑风暴
+/workflow:brainstorm:auto-parallel "
+GOAL: 实现支付处理模块
+SCOPE: 支持微信/支付宝/银行卡，日交易10万笔，99.99%可用性
+CONTEXT: 金融合规要求，PCI DSS认证，风控系统集成
+" --count 4
+
+# 系统输出：
+# ✅ Phase 0: 收集项目上下文
+# ✅ Phase 1-2: artifacts 交互式框架生成
+# ⏳ Phase 3: 4个角色并行分析
+#   - system-architect → 分析中...
+#   - data-architect → 分析中...
+#   - product-manager → 分析中...
+#   - subject-matter-expert → 分析中...
+# ✅ Phase 4: synthesis 综合分析
+# 📁 输出文件：
+#   - .brainstorming/guidance-specification.md (框架)
+#   - system-architect/analysis.md
+#   - data-architect/analysis.md
+#   - product-manager/analysis.md
+#   - subject-matter-expert/analysis.md
+#   - synthesis/final-recommendations.md
+
+# 步骤 2：查看综合建议
+cat .workflow/WFS-*//.brainstorming/synthesis/final-recommendations.md
+```
+
+### 模式 C：单角色深度分析（特定领域）
+
+**特点**：针对特定领域问题，调用单个角色深度分析
+
+```bash
+# 系统架构分析
+/workflow:brainstorm:system-architect "API 网关架构设计，支持10万QPS，微服务集成"
+
+# UI 设计分析
+/workflow:brainstorm:ui-designer "管理后台界面设计，复杂数据展示，操作效率优先"
+
+# 数据架构分析
+/workflow:brainstorm:data-architect "分布式数据存储方案，MySQL+Redis+ES 组合"
+```
+
+### 关键点
+
+1. **Phase 0 自动上下文收集**：
+   - 自动分析现有代码库、文档、技术栈
+   - 识别潜在冲突和集成点
+   - 为后续问题生成提供上下文
+
+2. **动态问题生成**：
+   - 基于话题关键词和项目上下文生成问题
+   - 不使用预定义模板
+   - 问题直接针对你的具体场景
+
+3. **智能角色推荐**：
+   - 基于话题分析推荐最相关的角色
+   - 推荐 count+2 个角色供选择
+   - 每个角色都有基于话题的推荐理由
+
+4. **输出物**：
+   - `guidance-specification.md` - 确认的指导规范（决策、理由、集成点）
+   - `{role}/analysis.md` - 各角色详细分析（仅 auto-parallel 模式）
+   - `synthesis/final-recommendations.md` - 综合建议（仅 auto-parallel 模式）
+
+5. **下一步**：
+   - 头脑风暴完成后，使用 `/workflow:plan` 基于指导文档生成实施计划
+   - 指导文档作为规划和实现的权威参考
+
+### 使用场景对比
+
+| 场景 | 推荐模式 | 原因 |
+|------|---------|------|
+| 全新项目启动 | 交互式 (artifacts) | 需要充分澄清需求和约束 |
+| 重大架构决策 | 交互式 (artifacts) | 需要深入讨论权衡 |
+| 快速原型验证 | 自动并行 (auto-parallel) | 快速获得多角色建议 |
+| 特定技术问题 | 单角色 (specific role) | 专注某个领域深度分析 |
+
+---
+
 ## 📋 Pattern 1: 规划→执行（最常用）
 
 **适用场景**：实现新功能、新模块
@@ -389,28 +556,43 @@
 
 ## 📊 工作流选择指南
 
+**核心区分**：从0到1 vs 功能新增
+- **从0到1**：全新项目、新产品、重大架构决策 → **必须头脑风暴**
+- **功能新增**：已有项目中添加功能 → **可直接规划**
+
 ```mermaid
 graph TD
-    A[我要做什么?] --> B{任务类型?}
+    A[我要做什么?] --> B{项目阶段?}
 
-    B -->|新功能| C[规划→执行]
-    B -->|需要测试| D{代码是否存在?}
-    B -->|UI开发| E[UI设计工作流]
-    B -->|代码优化| F[分析→重构]
-    B -->|生成文档| G[文档生成]
-    B -->|快速实现| H[Codex YOLO]
+    B -->|从0到1<br/>全新项目/产品| Z[💡头脑风暴<br/>必经阶段]
+    B -->|功能新增<br/>已有项目| C{任务类型?}
 
-    D -->|不存在| I[TDD工作流]
-    D -->|已存在| J[测试生成]
+    Z --> Z1[/workflow:brainstorm:artifacts<br/>或<br/>/workflow:brainstorm:auto-parallel]
+    Z1 --> Z2[⬇️ 生成指导文档]
+    Z2 --> C
 
-    C --> K[/workflow:plan<br/>↓<br/>/workflow:execute]
-    I --> L[/workflow:tdd-plan<br/>↓<br/>/workflow:execute]
-    J --> M[/workflow:test-gen<br/>↓<br/>/workflow:test-cycle-execute]
-    E --> N[/workflow:ui-design:*]
-    F --> O[/cli:analyze<br/>↓<br/>/cli:mode:plan<br/>↓<br/>/cli:execute]
-    G --> P[/memory:docs]
-    H --> Q[/cli:codex-execute]
+    C -->|新功能| D[规划→执行]
+    C -->|需要测试| E{代码是否存在?}
+    C -->|UI开发| F[UI设计工作流]
+    C -->|代码优化| G[分析→重构]
+    C -->|生成文档| H[文档生成]
+    C -->|快速实现| I[Codex YOLO]
+
+    E -->|不存在| J[TDD工作流]
+    E -->|已存在| K[测试生成]
+
+    D --> L[/workflow:plan<br/>↓<br/>/workflow:execute]
+    J --> M[/workflow:tdd-plan<br/>↓<br/>/workflow:execute]
+    K --> N[/workflow:test-gen<br/>↓<br/>/workflow:test-cycle-execute]
+    F --> O[/workflow:ui-design:*]
+    G --> P[/cli:analyze<br/>↓<br/>/cli:mode:plan<br/>↓<br/>/cli:execute]
+    H --> Q[/memory:docs]
+    I --> R[/cli:codex-execute]
 ```
+
+**说明**：
+- **从0到1场景**：创业项目、新产品线、系统重构 → 头脑风暴明确方向后再规划
+- **功能新增场景**：现有系统添加模块、优化现有功能 → 直接进入规划或分析
 
 ---
 
@@ -447,76 +629,21 @@ graph TD
 
 ### ❌ 避免做法
 
-1. **不要跳过规划直接执行复杂任务**
+1. **⚠️ 不要在从0到1场景跳过头脑风暴**
+   - ❌ 全新项目直接 `/workflow:plan`
+   - ✅ 先 `/workflow:brainstorm:artifacts` 明确方向再规划
+
+2. **不要跳过规划直接执行复杂任务**
    - ❌ 直接 `/cli:execute` 实现复杂功能
    - ✅ 先 `/workflow:plan` 再 `/workflow:execute`
 
-2. **不要忽略测试**
+3. **不要忽略测试**
    - ❌ 实现完成后不生成测试
    - ✅ 使用 `/workflow:test-gen` 生成测试
 
-3. **不要遗忘文档**
+4. **不要遗忘文档**
    - ❌ 代码实现后忘记更新文档
    - ✅ 使用 `/memory:update-related` 自动更新
-
----
-
-## 🎨 Pattern 7: UI设计工作流
-
-**适用场景**：前端UI设计和原型开发
-
-**流程**：探索设计 / 模仿设计 / 代码导入 → 生成原型 → 集成
-
-### 三种子模式
-
-#### 7.1 探索式设计（新概念）
-
-```bash
-# 从提示词创建多个设计方案
-/workflow:ui-design:explore-auto \
-  --prompt "现代化SaaS着陆页，包含英雄区、特性、定价" \
-  --style-variants 3 \
-  --layout-variants 2
-
-# 输出：
-# - 3个风格变体 × 2个布局变体 = 6个原型
-# - design-tokens-v1/v2/v3.json
-# - layout-templates-v1/v2.json
-# - compare.html（对比页面）
-```
-
-#### 7.2 模仿式设计（复制现有网站）
-
-```bash
-# 高保真克隆目标网站
-/workflow:ui-design:imitate-auto \
-  --url-map "首页:https://example.com, 定价:https://example.com/pricing"
-
-# 输出：
-# - 统一的设计系统（design-tokens.json）
-# - 页面结构（layout-templates.json）
-# - 重建的HTML原型
-```
-
-#### 7.3 代码优先导入
-
-```bash
-# 从现有代码库提取设计系统
-/workflow:ui-design:import-from-code \
-  --base-path ./src/components
-
-# 输出：
-# - 提取的设计令牌
-# - 完整性报告
-# - 改进建议
-```
-
-**关键概念**：
-- **关注点分离**：样式（design-tokens）、结构（layout-templates）、动画（animation-tokens）独立
-- **令牌优先**：使用CSS变量而非硬编码
-- **可重用性**：设计系统可跨项目复用
-
-**详细指南**：参见 [UI Design Workflow Guide](ui-design-workflow-guide.md)
 
 ---
 
