@@ -115,6 +115,23 @@ ELSE:
 # Create base directory
 Bash(mkdir -p "{base_path}")
 
+# Step 0.1: Intelligent Path Detection
+code_files_detected = false
+code_base_path = null
+design_source = "web"  # Default for imitate-auto
+
+IF --prompt:
+    # Extract potential file paths from prompt
+    potential_paths = extract_paths_from_text(--prompt)
+    FOR path IN potential_paths:
+        IF file_or_directory_exists(path):
+            code_files_detected = true
+            code_base_path = path
+            design_source = "hybrid"  # Web + Code
+            BREAK
+
+STORE: design_source, code_base_path
+
 # Parse url-map
 url_map_string = {--url-map}
 VALIDATE: url_map_string is not empty, "--url-map parameter is required"
@@ -196,11 +213,79 @@ TodoWrite({todos: [
 ]})
 ```
 
+### Phase 0.5: Code Import & Completeness Assessment (Conditional)
+
+```bash
+# Only execute if code files detected
+IF design_source == "hybrid":
+    REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    REPORT: "🔍 Phase 0.5: Code Import & Analysis"
+    REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    REPORT: "   → Source: {code_base_path}"
+    REPORT: "   → Mode: Hybrid (Web + Code)"
+
+    command = "/workflow:ui-design:import-from-code --base-path \"{base_path}\" " +
+              "--base-path \"{code_base_path}\""
+
+    TRY:
+        SlashCommand(command)
+    CATCH error:
+        WARN: "Code import failed: {error}"
+        WARN: "Falling back to web-only mode"
+        design_source = "web"
+
+    IF design_source == "hybrid":
+        # Read completeness reports
+        style_report = Read("{base_path}/style-completeness-report.json")
+        animation_report = Read("{base_path}/animation-completeness-report.json")
+        layout_report = Read("{base_path}/layout-completeness-report.json")
+
+        # Assess overall completeness
+        style_complete = style_report.status == "complete"
+        animation_complete = animation_report.status == "complete"
+        layout_complete = layout_report.status == "complete"
+
+        # Aggregate missing content
+        missing_categories = []
+        IF NOT style_complete:
+            missing_categories.extend(style_report.missing.keys())
+        IF NOT animation_complete:
+            missing_categories.extend(animation_report.missing.keys())
+        IF NOT layout_complete:
+            missing_categories.extend(layout_report.missing.keys())
+
+        # Report code analysis results
+        IF len(missing_categories) > 0:
+            REPORT: ""
+            REPORT: "⚠️  Code Analysis Partial"
+            REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            REPORT: "Missing Design Elements:"
+            FOR category IN missing_categories:
+                REPORT: "  • {category}"
+            REPORT: ""
+            REPORT: "Web screenshots will supplement missing elements"
+            REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        ELSE:
+            REPORT: ""
+            REPORT: "✅ Code Analysis Complete"
+            REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            REPORT: "All design elements extracted from code"
+            REPORT: "Web screenshots will verify and enhance findings"
+            REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+        STORE: style_complete, animation_complete, layout_complete
+
+TodoWrite(mark_completed: "Initialize and parse url-map",
+          mark_in_progress: capture_mode == "batch" ? f"Batch screenshot capture ({len(target_names)} targets)" : f"Deep exploration (depth {depth})")
+```
+
 ### Phase 1: Screenshot Capture (Dual Mode)
 
 ```bash
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 REPORT: "🚀 Phase 1: Screenshot Capture"
+IF design_source == "hybrid":
+    REPORT: "   → Purpose: Verify and supplement code analysis"
 REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 IF capture_mode == "batch":
@@ -264,161 +349,84 @@ TodoWrite(mark_completed: f"Batch screenshot capture ({len(target_names)} target
           mark_in_progress: "Extract style (visual tokens)")
 ```
 
-### Phase 2: Style Extraction (Visual Tokens)
+### Phase 2: Style Extraction
 
 ```bash
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 2: Style Extraction"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# Determine if style extraction needed
+skip_style = (design_source == "hybrid" AND style_complete)
 
-# Use all screenshots as input to extract single design system
-IF capture_mode == "batch":
-    images_glob = f"{base_path}/screenshots/*.{{png,jpg,jpeg,webp}}"
-ELSE:  # deep mode
-    images_glob = f"{base_path}/screenshots/**/*.{{png,jpg,jpeg,webp}}"
-
-# Build extraction prompt
-IF --prompt:
-    user_guidance = {--prompt}
-    extraction_prompt = f"Extract visual style tokens from '{primary_target}'. User guidance: {user_guidance}"
+IF skip_style:
+    REPORT: "✅ Phase 2: Style (Using Code Import)"
 ELSE:
-    extraction_prompt = f"Extract visual style tokens from '{primary_target}' with consistency across all pages."
+    REPORT: "🚀 Phase 2: Style Extraction"
+    IF capture_mode == "batch":
+        images_glob = f"{base_path}/screenshots/*.{{png,jpg,jpeg,webp}}"
+    ELSE:
+        images_glob = f"{base_path}/screenshots/**/*.{{png,jpg,jpeg,webp}}"
 
-# Build url-map string for style-extract (enables computed styles extraction)
-url_map_for_extract = ",".join([f"{name}:{url}" for name, url in url_map.items()])
+    IF --prompt:
+        extraction_prompt = f"Extract visual style tokens from '{primary_target}'. {--prompt}"
+    ELSE:
+        IF design_source == "hybrid":
+            extraction_prompt = f"Extract visual style tokens from '{primary_target}' to supplement code-imported design tokens."
+        ELSE:
+            extraction_prompt = f"Extract visual style tokens from '{primary_target}' with consistency across all pages."
 
-# Call style-extract command (imitate mode, automatically uses single variant)
-# Pass --urls to enable auto-trigger of computed styles extraction
-extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --mode imitate"
-
-TRY:
+    url_map_for_extract = ",".join([f"{name}:{url}" for name, url in url_map.items()])
+    extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --mode imitate"
     SlashCommand(extract_command)
-CATCH error:
-    ERROR: "Style extraction failed: {error}"
-    ERROR: "Cannot proceed without visual tokens"
-    EXIT 1
 
-# Verify extraction results
-design_tokens_path = "{base_path}/style-extraction/style-1/design-tokens.json"
-style_guide_path = "{base_path}/style-extraction/style-1/style-guide.md"
-
-IF NOT exists(design_tokens_path) OR NOT exists(style_guide_path):
-    ERROR: "style-extract did not generate required files"
-    EXIT 1
-
-TodoWrite(mark_completed: "Extract style (complete design systems)",
-          mark_in_progress: "Extract animation (CSS auto mode)")
+TodoWrite(mark_completed: "Extract style", mark_in_progress: "Extract animation")
 ```
 
-### Phase 2.3: Animation Extraction (CSS Auto Mode)
+### Phase 2.3: Animation Extraction
 
 ```bash
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 2.3: Animation Extraction"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+skip_animation = (design_source == "hybrid" AND animation_complete)
 
-# Build URL list for animation-extract (auto mode for CSS extraction)
-url_map_for_animation = ",".join([f"{target}:{url}" for target, url in url_map.items()])
-
-# Call animation-extract command (auto mode for CSS animation extraction)
-# Pass --urls to auto-trigger CSS animation/transition extraction via Chrome DevTools
-animation_extract_command = f"/workflow:ui-design:animation-extract --base-path \"{base_path}\" --urls \"{url_map_for_animation}\" --mode auto"
-
-TRY:
+IF skip_animation:
+    REPORT: "✅ Phase 2.3: Animation (Using Code Import)"
+ELSE:
+    REPORT: "🚀 Phase 2.3: Animation Extraction"
+    url_map_for_animation = ",".join([f"{target}:{url}" for target, url in url_map.items()])
+    animation_extract_command = f"/workflow:ui-design:animation-extract --base-path \"{base_path}\" --urls \"{url_map_for_animation}\" --mode auto"
     SlashCommand(animation_extract_command)
-CATCH error:
-    ERROR: "Animation extraction failed: {error}"
-    ERROR: "Cannot proceed without animation tokens"
-    EXIT 1
 
-# Verify animation extraction results
-animation_tokens_path = "{base_path}/animation-extraction/animation-tokens.json"
-animation_guide_path = "{base_path}/animation-extraction/animation-guide.md"
-
-IF NOT exists(animation_tokens_path) OR NOT exists(animation_guide_path):
-    ERROR: "animation-extract did not generate required files"
-    EXIT 1
-
-TodoWrite(mark_completed: "Extract animation (CSS auto mode)",
-          mark_in_progress: "Extract layout (structure templates)")
 ```
 
-### Phase 2.5: Layout Extraction (Structure Templates)
+### Phase 2.5: Layout Extraction
 
 ```bash
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 2.5: Layout Extraction"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+skip_layout = (design_source == "hybrid" AND layout_complete)
 
-# Build URL map for layout-extract
-url_map_for_layout = ",".join([f"{target}:{url}" for target, url in url_map.items()])
-
-# Call layout-extract command (imitate mode for structure replication)
-# Pass --urls to enable auto-trigger of DOM structure extraction
-layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --mode imitate"
-
-TRY:
+IF skip_layout:
+    REPORT: "✅ Phase 2.5: Layout (Using Code Import)"
+ELSE:
+    REPORT: "🚀 Phase 2.5: Layout Extraction"
+    url_map_for_layout = ",".join([f"{target}:{url}" for target, url in url_map.items()])
+    layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --mode imitate"
     SlashCommand(layout_extract_command)
-CATCH error:
-    ERROR: "Layout extraction failed: {error}"
-    ERROR: "Cannot proceed without layout templates"
-    EXIT 1
 
-# Verify layout extraction results
-layout_templates_path = "{base_path}/layout-extraction/layout-templates.json"
-
-IF NOT exists(layout_templates_path):
-    ERROR: "layout-extract did not generate layout-templates.json"
-    EXIT 1
-
-TodoWrite(mark_completed: "Extract layout (structure templates)",
-          mark_in_progress: f"Assemble UI for {len(target_names)} targets")
+TodoWrite(mark_completed: "Extract layout", mark_in_progress: "Assemble UI")
 ```
 
-### Phase 3: Batch UI Assembly
+### Phase 3: UI Assembly
 
 ```bash
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 REPORT: "🚀 Phase 3: UI Assembly"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# Call generate command (pure assembler - combines layout templates + design tokens)
 generate_command = f"/workflow:ui-design:generate --base-path \"{base_path}\" --style-variants 1 --layout-variants 1"
+SlashCommand(generate_command)
 
-TRY:
-    SlashCommand(generate_command)
-CATCH error:
-    ERROR: "UI assembly failed: {error}"
-    ERROR: "Layout templates or design tokens may be invalid"
-    EXIT 1
-
-# Verify assembly results
-prototypes_dir = "{base_path}/prototypes"
-generated_html_files = Glob(f"{prototypes_dir}/*-style-1-layout-1.html")
-generated_count = len(generated_html_files)
-
-IF generated_count < len(target_names):
-    WARN: "⚠️ Expected {len(target_names)} prototypes, assembled {generated_count}"
-
-TodoWrite(mark_completed: f"Assemble UI for {len(target_names)} targets",
-          mark_in_progress: session_id ? "Integrate design system" : "Standalone completion")
+TodoWrite(mark_completed: "Assemble UI", mark_in_progress: session_id ? "Integrate design system" : "Completion")
 ```
 
 ### Phase 4: Design System Integration
 
 ```bash
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 4: Design System Integration"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
 IF session_id:
+    REPORT: "🚀 Phase 4: Design System Integration"
     update_command = f"/workflow:ui-design:update --session {session_id}"
-
-    TRY:
-        SlashCommand(update_command)
-    CATCH error:
-        WARN: "⚠️ Design system integration failed: {error}"
-        WARN: "Prototypes available at {base_path}/prototypes/"
+    SlashCommand(update_command)
 
 # Update metadata
 metadata = Read("{base_path}/.run-metadata.json")
