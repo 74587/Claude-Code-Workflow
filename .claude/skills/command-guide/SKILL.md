@@ -174,6 +174,6 @@ Team members get latest indexes via `git pull`.
 
 ---
 
-**Version**: 1.0.0
-**Last Updated**: 2025-01-06
+**Version**: 1.1.0
+**Last Updated**: 2025-11-06
 **Maintainer**: Claude DMS3 Team

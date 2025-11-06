@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.4.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.5.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,13 +14,13 @@
 
 **Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a robust, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
 
-> **🎉 Version 5.4: CLI Template System Reorganization**
+> **🎉 Version 5.5: Interactive Command Guide & Enhanced Documentation**
 >
 > **Core Improvements**:
-> - ✅ **Priority-Based Templates** - 19 templates reorganized with clear priority prefixes (01-universal, 02-specialized, 03-domain)
-> - ✅ **Enhanced Error Handling** - Automatic Gemini 404 fallback to gemini-2.5-pro
-> - ✅ **Unified References** - All 21 template references updated across 5 command files
-> - ✅ **Better Organization** - Bug diagnosis moved to analysis/, redundant directories removed
+> - ✨ **Command-Guide Skill** - Interactive help system with CCW-help and CCW-issue triggers
+> - ✨ **Enhanced Command Descriptions** - All 69 commands updated with detailed functionality descriptions
+> - ✨ **5-Index Command System** - Organized by category, use-case, relationships, and essentials
+> - ✨ **Smart Recommendations** - Context-aware next-step suggestions for workflow guidance
 >
 > See [CHANGELOG.md](CHANGELOG.md) for full details.
 
@@ -71,6 +71,34 @@ If the slash commands (e.g., `/workflow:*`) are recognized, the installation was
 CCW provides a rich set of commands for managing workflows, tasks, and interacting with AI tools. For a complete list and detailed descriptions of all available commands, please see the [**COMMAND_REFERENCE.md**](COMMAND_REFERENCE.md) file.
 
 For a detailed technical specification of every command, see the [**COMMAND_SPEC.md**](COMMAND_SPEC.md).
+
+---
+
+### 💡 **Need Help? Use the Interactive Command Guide**
+
+CCW includes a built-in **command-guide skill** to help you discover and use commands effectively:
+
+- **`CCW-help`** - Get interactive help and command recommendations
+- **`CCW-issue`** - Report bugs or request features with guided templates
+
+The command guide provides:
+- 🔍 **Smart Command Search** - Find commands by keyword, category, or use-case
+- 🤖 **Next-Step Recommendations** - Get suggestions for what to do after any command
+- 📖 **Detailed Documentation** - View parameters, examples, and best practices
+- 🎓 **Beginner Onboarding** - Learn the top 14 essential commands with a guided learning path
+- 📝 **Issue Reporting** - Generate standardized bug reports and feature requests
+
+**Example Usage**:
+```
+User: "CCW-help"
+→ Interactive menu with command search, recommendations, and documentation
+
+User: "What's next after /workflow:plan?"
+→ Recommends /workflow:execute, /workflow:action-plan-verify, with workflow patterns
+
+User: "CCW-issue"
+→ Guided template generation for bugs, features, or questions
+```
 
 ---
 

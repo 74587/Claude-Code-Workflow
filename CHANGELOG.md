@@ -5,6 +5,104 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [5.5.0] - 2025-11-06
+
+### 🎯 Interactive Command Guide & Enhanced Documentation
+
+This release introduces a comprehensive command-guide skill with interactive help, enhanced command descriptions, and an organized 5-index command system for better discoverability and workflow guidance.
+
+#### ✨ Added
+
+**Command-Guide Skill**:
+- ✨ **Interactive Help System** - New command-guide skill activated by CCW-help and CCW-issue keywords
+  - 🔍 Mode 1: Command Search - Find commands by keyword, category, or use-case
+  - 🤖 Mode 2: Smart Recommendations - Context-aware next-step suggestions
+  - 📖 Mode 3: Full Documentation - Detailed parameter info, examples, best practices
+  - 🎓 Mode 4: Beginner Onboarding - Top 14 essential commands with learning path
+  - 📝 Mode 5: Issue Reporting - Guided bug report and feature request templates
+
+**5-Index Command System**:
+- ✨ **all-commands.json** (30KB) - Complete catalog of 69 commands with full metadata
+- ✨ **by-category.json** (33KB) - Hierarchical organization (workflow/cli/memory/task/general)
+- ✨ **by-use-case.json** (32KB) - Grouped by 10 usage scenarios
+- ✨ **essential-commands.json** (5.8KB) - Top 14 most-used commands for quick reference
+- ✨ **command-relationships.json** (13KB) - Workflow guidance with next-steps and dependencies
+
+**Issue Templates**:
+- ✨ **Bug Report Template** - Standardized bug reporting with environment info
+- ✨ **Feature Request Template** - Structured feature proposals with use cases
+- ✨ **Question Template** - Help request format for user support
+
+#### 🔄 Changed
+
+**Command Descriptions Enhanced** (69 files):
+- 🔄 **Detailed Functionality** - All command descriptions updated from basic to comprehensive
+  - Includes tools used (Gemini/Qwen/Codex)
+  - Specifies agents invoked
+  - Lists workflow phases
+  - Documents output files
+  - Mentions key flags and modes
+- 🔄 **Example Updates**:
+  - `workflow:plan`: "5-phase planning workflow with Gemini analysis and action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs with optional CLI auto-execution"
+  - `cli:execute`: "Autonomous code implementation with YOLO auto-approval using Gemini/Qwen/Codex, supports task ID or description input with automatic file pattern detection"
+  - `memory:update-related`: "Update CLAUDE.md for git-changed modules using batched agent execution (4 modules/agent) with gemini→qwen→codex fallback"
+
+**Index Organization**:
+- 🔄 **Use-Case Categories Expanded** - From 2 to 10 distinct scenarios
+  - session-management, implementation, documentation, planning, ui-design, testing, brainstorming, analysis, monitoring, utilities
+- 🔄 **Command Relationships Comprehensive** - All 69 commands mapped with:
+  - `calls_internally` - Commands auto-invoked (built-in)
+  - `next_steps` - User-executed next commands (sequential)
+  - `prerequisites` - Commands to run before
+  - `alternatives` - Similar-purpose commands
+
+**Maintenance Tools**:
+- 🔄 **analyze_commands.py** - Moved to scripts/ directory
+  - Auto-generates all 5 index files from command frontmatter
+  - Validates JSON syntax
+  - Provides statistical reports
+
+#### 📝 Documentation
+
+**New Files**:
+- ✨ **guides/index-structure.md** - Complete index file schema documentation
+- ✨ **guides/implementation-details.md** - 5-mode implementation logic
+- ✨ **guides/examples.md** - Usage examples for all modes
+- ✨ **guides/getting-started.md** - 5-minute quickstart guide
+- ✨ **guides/workflow-patterns.md** - Common workflow examples
+- ✨ **guides/cli-tools-guide.md** - Gemini/Qwen/Codex usage
+- ✨ **guides/troubleshooting.md** - Common issues and solutions
+
+**Updated Files**:
+- 🔄 **README.md** - Added "Need Help?" section with CCW-help/CCW-issue usage
+- 🔄 **README_CN.md** - Chinese version of help documentation
+- 🔄 **SKILL.md** - Optimized to 179 lines (from 412, 56.6% reduction)
+  - Clear 5-mode operation structure
+  - Explicit CCW-help and CCW-issue triggers
+  - Progressive disclosure pattern
+
+#### 🎯 Benefits
+
+**User Experience**:
+- 📦 **Easier Discovery** - CCW-help provides instant command search and recommendations
+- 📦 **Better Guidance** - Smart next-step suggestions based on workflow context
+- 📦 **Faster Onboarding** - Essential commands list gets beginners started quickly
+- 📦 **Simplified Reporting** - CCW-issue generates proper bug/feature templates
+
+**Developer Experience**:
+- ⚡ **Comprehensive Metadata** - All 69 commands fully documented with tools, agents, phases
+- ⚡ **Workflow Clarity** - Command relationships show built-in vs sequential execution
+- ⚡ **Automated Maintenance** - analyze_commands.py regenerates indexes from source
+- ⚡ **Quality Documentation** - 7 guide files cover all aspects of the system
+
+**System Organization**:
+- 🏗️ **Structured Indexes** - 5 JSON files provide multiple access patterns
+- 🏗️ **Clear Relationships** - Distinguish built-in calls from user workflows
+- 🏗️ **Scalable Architecture** - Easy to add new commands with auto-indexing
+
+---
+
 ## [5.4.0] - 2025-11-06
 
 ### 🎯 CLI Template System Reorganization
