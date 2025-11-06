@@ -8,6 +8,29 @@ allowed-tools: Read, Grep, Glob, AskUserQuestion
 
 Comprehensive command guide for Claude DMS3 workflow system covering 69 commands across 4 categories (workflow, cli, memory, task).
 
+## 🧠 Core Principle: Intelligent Integration
+
+**⚠️ IMPORTANT**: This SKILL provides **reference materials** for intelligent integration, NOT templates for direct copying.
+
+**Response Strategy**:
+1. **Analyze user's specific context** - Understand their exact need, workflow stage, and technical level
+2. **Extract relevant information** - Select only the pertinent parts from reference guides
+3. **Synthesize and customize** - Combine multiple sources, add context-specific examples
+4. **Deliver targeted response** - Provide concise, actionable guidance tailored to the user's situation
+
+**Never**:
+- ❌ Copy-paste entire template sections verbatim
+- ❌ Return raw reference documentation without processing
+- ❌ Provide generic responses that ignore user context
+
+**Always**:
+- ✅ Understand the user's specific situation first
+- ✅ Integrate information from multiple sources (indexes, guides, reference docs)
+- ✅ Customize examples and explanations to match user's use case
+- ✅ Provide progressive depth - brief answers with "more detail available" prompts
+
+---
+
 ## 🎯 Operation Modes
 
 ### Mode 1: Command Search 🔍
@@ -19,10 +42,11 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 **Process**:
 1. Identify search type (keyword/category/use-case)
 2. Query appropriate index (all-commands/by-category/by-use-case)
-3. Return matching commands with metadata
-4. Suggest related commands
+3. **Intelligently filter and rank** results based on user's implied context
+4. **Synthesize concise response** with command names, brief descriptions, and use-case fit
+5. **Suggest next steps** - related commands or workflow patterns
 
-**Example**: "搜索 planning 命令" → Lists planning commands from `index/by-use-case.json`
+**Example**: "搜索 planning 命令" → Analyze user's likely goal → Present top 3-5 most relevant planning commands with context-specific usage hints, NOT raw JSON dump
 
 ---
 
@@ -33,12 +57,16 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 **Triggers**: "下一步", "what's next", "after /workflow:plan", "推荐"
 
 **Process**:
-1. Parse current context (last command/workflow state)
-2. Query `index/command-relationships.json`
-3. Return recommended next commands with rationale
-4. Show common workflow patterns
+1. **Analyze workflow context** - Understand where user is in their development cycle
+2. Query `index/command-relationships.json` for possible next commands
+3. **Evaluate and prioritize** recommendations based on:
+   - User's stated goals
+   - Common workflow patterns
+   - Project complexity indicators
+4. **Craft contextual guidance** - Explain WHY each recommendation fits, not just WHAT to run
+5. **Provide workflow examples** - Show complete flow, not isolated commands
 
-**Example**: "执行完 /workflow:plan 后做什么？" → Recommends /workflow:execute or /workflow:action-plan-verify
+**Example**: "执行完 /workflow:plan 后做什么？" → Analyze plan output quality → Recommend `/workflow:action-plan-verify` (if complex) OR `/workflow:execute` (if straightforward) with reasoning for each choice
 
 ---
 
@@ -51,10 +79,11 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 **Process**:
 1. Locate command in `index/all-commands.json`
 2. Read original command file for full details
-3. Present parameters, arguments, examples
-4. Link to related commands
+3. **Extract user-relevant sections** - Focus on what they asked about (parameters OR examples OR workflow)
+4. **Enhance with context** - Add use-case specific examples if user's scenario is clear
+5. **Progressive disclosure** - Provide core info first, offer "need more details?" prompts
 
-**Example**: "/workflow:plan 的参数是什么？" → Shows full parameter list and usage examples
+**Example**: "/workflow:plan 的参数是什么？" → Identify user's experience level → Present parameters with context-appropriate explanations (beginner: verbose + examples; advanced: concise + edge cases), NOT raw documentation dump
 
 ---
 
@@ -65,12 +94,13 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 **Triggers**: "新手", "getting started", "如何开始", "常用命令"
 
 **Process**:
-1. Present progressive learning path
-2. Show `index/essential-commands.json` (Top 14 commands)
-3. Link to getting-started guide
-4. Provide first workflow example
+1. **Assess user background** - Ask clarifying questions if needed (coding experience? project type?)
+2. **Design personalized learning path** based on their goals
+3. **Curate essential commands** from `index/essential-commands.json` - Select 3-5 most relevant for their use case
+4. **Provide guided first example** - Walk through ONE complete workflow with explanation
+5. **Set clear next steps** - What to try next, where to get help
 
-**Example**: "我是新手，如何开始？" → Learning path + Top 14 commands + quick start guide
+**Example**: "我是新手，如何开始？" → Detect if they have a specific task OR just exploring → For specific task: provide laser-focused 3-step guide; For exploring: progressive learning path starting with simplest workflow, NOT overwhelming 14-command list
 
 ---
 
@@ -81,17 +111,21 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 **Triggers**: **"CCW-issue"**, **"CCW-help"**, **"ccw-issue"**, **"ccw-help"**, **"ccw"**, "报告 bug", "功能建议", "问题咨询", "交互式诊断"
 
 **Process**:
-1. Use AskUserQuestion to confirm type (diagnosis/bug/feature/question)
-2. Collect required information interactively with **execution flow emphasis**
-3. Select appropriate template:
-   - `issue-diagnosis.md` - Full diagnostic workflow with decision tree
-   - `issue-bug.md` - Bug report with complete command history
-   - `issue-feature.md` - Feature request with current workflow analysis
-   - `issue-question.md` - Question with detailed attempt history
-4. Generate filled template with privacy-protected command history
-5. Save/display with troubleshooting guidance
+1. **Understand issue context** - Use AskUserQuestion to confirm type AND gather initial context
+2. **Intelligently guide information collection**:
+   - Adapt questions based on previous answers
+   - Skip irrelevant sections
+   - Probe for missing critical details
+3. **Select and customize template**:
+   - `issue-diagnosis.md`, `issue-bug.md`, `issue-feature.md`, or `issue-question.md`
+   - **Adapt template sections** to match user's specific scenario
+4. **Synthesize coherent issue report**:
+   - Integrate collected information with appropriate template sections
+   - **Highlight key details** - Don't bury critical info in boilerplate
+   - Add privacy-protected command history
+5. **Provide actionable next steps** - Immediate troubleshooting OR submission guidance
 
-**Example**: "CCW-issue" → Interactive Q&A → Generates GitHub issue template with full execution context
+**Example**: "CCW-issue" → Detect user frustration level → For urgent: fast-track to critical info collection; For exploratory: comprehensive diagnostic flow, NOT one-size-fits-all questionnaire
 
 **🆕 Enhanced Features**:
 - Complete command history with privacy protection
@@ -116,12 +150,19 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 **Simple Query** (direct documentation lookup):
 1. Identify target command/agent from user query
 2. Locate corresponding markdown file in `reference/`
-3. Read and extract relevant sections
-4. Present formatted response with examples
+3. **Extract contextually relevant sections** - Not entire document
+4. **Synthesize focused explanation**:
+   - Address user's specific question
+   - Add context-appropriate examples
+   - Link related concepts
+5. **Offer progressive depth** - "Want to know more about X?"
 
 **Complex Query** (CLI-assisted analysis):
-1. Detect complexity indicators (多个命令对比、工作流程分析、最佳实践)
-2. Construct analysis prompt for gemini/qwen:
+1. **Detect complexity indicators** (多个命令对比、工作流程分析、最佳实践)
+2. **Design targeted analysis prompt** for gemini/qwen:
+   - Frame user's question precisely
+   - Specify required analysis depth
+   - Request structured comparison/synthesis
    ```bash
    gemini -p "
    PURPOSE: Analyze command documentation to answer user query
@@ -133,7 +174,11 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
    " -m gemini-3-pro-preview-11-2025 --include-directories ~/.claude/skills/command-guide/reference
    ```
    Note: Use absolute path `~/.claude/skills/command-guide/reference` for reference documentation access
-3. Return CLI analysis results to user
+3. **Process and integrate CLI analysis**:
+   - Extract key insights from CLI output
+   - Add context-specific examples
+   - Synthesize actionable recommendations
+4. **Deliver tailored response** - Not raw CLI output
 
 **Query Classification**:
 - **Simple**: Single command explanation, parameter list, basic usage
@@ -145,16 +190,20 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 ```
 User: "action-planning-agent 如何工作？"
 → Read reference/agents/action-planning-agent.md
-→ Extract workflow, capabilities, examples
-→ Present structured response
+→ **Identify user's knowledge gap** (mechanism? inputs/outputs? when to use?)
+→ **Extract relevant sections** addressing their need
+→ **Synthesize focused explanation** with examples
+→ NOT: Dump entire agent documentation
 ```
 
 *Complex Query*:
 ```
 User: "对比 workflow:plan 和 workflow:tdd-plan 的使用场景和最佳实践"
 → Detect: 多命令对比 + 最佳实践
-→ Use gemini analysis on reference/commands/workflow/
-→ Return comprehensive comparison with workflow examples
+→ **Design comparison framework** (when to use, trade-offs, workflow integration)
+→ Use gemini to analyze both commands with structured comparison prompt
+→ **Synthesize insights** into decision matrix and usage guidelines
+→ NOT: Raw command documentation side-by-side
 ```
 
 ---
