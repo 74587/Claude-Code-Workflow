@@ -1,12 +1,21 @@
 # CLI 工具使用指南
 
-> 从用户视角理解和使用 Gemini、Qwen、Codex 三大 CLI 工具
+> **SKILL 参考文档**：用于回答用户关于 CLI 工具（Gemini、Qwen、Codex）的使用问题
+>
+> **用途**：当用户询问 CLI 工具的能力、使用方法、调用方式时，从本文档中提取相关信息，根据用户具体需求加工后返回
 
 ## 🎯 快速理解：CLI 工具是什么？
 
-CLI 工具是集成在 Claude DMS3 中的**智能分析和执行助手**。你不需要记忆复杂的命令格式，只需用自然语言描述你想做什么，工具会自动完成。
+CLI 工具是集成在 Claude DMS3 中的**智能分析和执行助手**。
 
-**核心理念**：用自然语言描述需求 → CLI 工具理解并执行 → 返回结果
+**工作流程**：
+1. **用户** → 用自然语言向 Claude Code 描述需求（如"分析认证模块的安全性"）
+2. **Claude Code** → 识别用户意图，决定使用哪种方式：
+   - **CLI 工具语义调用**：生成并执行 `gemini`/`qwen`/`codex` 命令
+   - **Slash 命令调用**：执行预定义的工作流命令（如 `/workflow:plan`）
+3. **工具** → 自动完成任务并返回结果
+
+**核心理念**：用户用自然语言描述需求 → Claude Code 选择最佳方式 → 工具执行 → 返回结果
 
 ---
 
@@ -24,191 +33,239 @@ CLI 工具是集成在 Claude DMS3 中的**智能分析和执行助手**。你�
 
 ---
 
-## 🚀 如何调用：两种方式
+## 🚀 Claude Code 的两种响应方式
 
-### 方式 1：语义调用（推荐，最优雅）
+当用户用自然语言描述需求时，Claude Code 会根据任务特性选择最佳方式：
 
-**通过 workflow 命令**，用自然语言描述需求，系统自动选择合适的 CLI 工具：
+### 方式 1：CLI 工具语义调用（灵活、强大）
 
+**用户明确指示使用 CLI 工具**，Claude Code 生成并执行相应命令。
+
+#### 示例 1：Gemini 语义分析
+
+**用户输入**（必须明确提到工具）：
+```
+使用 gemini 分析认证模块的安全性，识别潜在的安全漏洞，
+关注 JWT 令牌处理、密码存储、会话管理等方面，
+提供具体的修复建议
+```
+
+**Claude Code 生成并执行**（CLI 命令）：
 ```bash
-# 自动规划和分析
-/workflow:plan "实现用户认证功能"
+cd src/auth && gemini -p "
+分析认证模块的安全性，识别潜在的安全漏洞，
+关注 JWT 令牌处理、密码存储、会话管理等方面，
+提供具体的修复建议
+" -m gemini-3-pro-preview-11-2025
+```
 
-# 自动执行实现
+**工具输出**：Gemini 自动理解任务，组合多个分析步骤，返回结构化报告
+
+---
+
+#### 示例 2：Qwen 语义分析（Gemini 的备选）
+
+**用户输入**：
+```
+用 qwen 追踪用户登录的完整执行流程，
+从 API 入口到数据库查询，
+列出所有调用的函数和依赖关系
+```
+
+**Claude Code 生成并执行**：
+```bash
+cd src/auth && qwen -p "
+追踪用户登录的完整执行流程，
+从 API 入口到数据库查询，
+列出所有调用的函数和依赖关系
+" -m coder-model
+```
+
+**工具输出**：Qwen 理解需求，自动追踪执行路径
+
+---
+
+#### 示例 3：Codex 语义实现
+
+**用户输入**：
+```
+让 codex 实现 JWT 令牌刷新机制：
+1. 添加 refreshToken 端点
+2. 验证旧令牌的有效性
+3. 生成新的访问令牌
+4. 确保安全性（防重放攻击）
+```
+
+**Claude Code 生成并执行**：
+```bash
+codex -C src/auth --full-auto exec "
+实现 JWT 令牌刷新机制：
+1. 添加 refreshToken 端点
+2. 验证旧令牌的有效性
+3. 生成新的访问令牌
+4. 确保安全性（防重放攻击）
+" -m gpt-5 --skip-git-repo-check -s danger-full-access
+```
+
+**工具输出**：Codex 理解需求，自动生成代码并集成到现有系统
+
+---
+
+**核心特点**：
+- ✅ **用户明确指定工具**：必须说"使用 gemini"、"用 qwen"、"让 codex"等触发工具调用
+- ✅ **Claude 生成命令**：识别工具名称后，自动构造最优的 CLI 工具调用
+- ✅ **工具自动理解**：CLI 工具解析需求，组合分析/实现步骤
+- ✅ **灵活强大**：不受预定义工作流限制
+- ✅ **精确控制**：Claude 可指定工作目录、文件范围、模型参数
+
+**触发方式**：
+- "使用 gemini ..."
+- "用 qwen ..."
+- "让 codex ..."
+- "通过 gemini 工具..."
+
+**Claude Code 何时选择此方式**：
+- 用户明确指定使用某个 CLI 工具
+- 复杂分析任务（跨模块、多维度）
+- 自定义工作流需求
+- 需要精确控制上下文范围
+
+---
+
+### 方式 2：Slash 命令调用（标准工作流）
+
+**用户直接输入 Slash 命令**，或 **Claude Code 建议使用 Slash 命令**，系统执行预定义工作流（内部调用 CLI 工具）。
+
+#### Workflow 类命令（系统自动选择工具）
+
+**示例 1：规划任务**
+
+**用户输入**：
+```
+/workflow:plan --agent "实现用户认证功能"
+```
+
+**系统执行**：内部调用 gemini/qwen 分析 + action-planning-agent 生成任务
+
+---
+
+**示例 2：执行任务**
+
+**用户输入**：
+```
 /workflow:execute
+```
 
-# 自动生成测试
+**系统执行**：内部调用 codex 实现代码
+
+---
+
+**示例 3：生成测试**
+
+**用户输入**：
+```
 /workflow:test-gen WFS-xxx
 ```
 
-**优点**：
-- ✅ 无需指定工具，系统自动选择
-- ✅ 自然语言描述，无需记忆格式
-- ✅ 集成完整工作流
-
-**适用场景**：日常开发任务、标准工作流
+**系统执行**：内部调用 gemini 分析 + codex 生成测试
 
 ---
 
-### 方式 2：直接命令调用（精确控制）
+#### CLI 类命令（指定工具）
 
-**直接调用特定 CLI 工具**，适合需要精确控制的场景：
+**示例 1：封装的分析命令**
 
-#### Gemini/Qwen（分析类）
-
-```bash
-# 基础格式
-/cli:analyze --tool gemini "分析认证模块的安全性"
-
-# 带增强模式
-/cli:analyze --tool gemini --enhance "代码执行流程追踪"
-
-# 指定工作目录
-/cli:analyze --tool gemini --cd src/auth "分析当前模块"
+**用户输入**：
+```
+/cli:analyze --tool gemini "分析认证模块"
 ```
 
-#### Codex（实现类）
-
-```bash
-# 基础执行
-/cli:execute --tool codex "实现 JWT 令牌刷新机制"
-
-# 自动化执行（YOLO 模式）
-/cli:codex-execute "实现用户登录功能"
-
-# 使用 agent 模式
-/cli:execute --agent --tool codex "重构认证服务"
-```
-
-**优点**：
-- ✅ 精确指定工具和模式
-- ✅ 灵活的参数控制
-- ✅ 适合高级用户
-
-**适用场景**：特定工具需求、自定义参数、高级控制
+**系统执行**：使用 gemini 工具进行分析
 
 ---
 
-## 💡 能力特性清单
+**示例 2：封装的执行命令**
 
-### Gemini 能力
-
-**🔍 深度分析**
-- 执行流程追踪
-- 依赖关系分析
-- 代码模式识别
-- 架构评审
-
-**🎯 规划设计**
-- 架构设计
-- 技术方案评估
-- 任务分解
-- 迁移策略
-
-**📚 文档生成**
-- API 文档
-- 模块说明
-- 使用指南
-
-**使用示例**：
-```bash
-# 追踪代码执行流程
-/cli:analyze --tool gemini "追踪用户登录的完整流程"
-
-# 架构设计
-/cli:mode:plan --tool gemini "设计微服务通信架构"
-
-# 代码模式分析
-/cli:analyze --tool gemini "识别项目中的设计模式"
+**用户输入**：
 ```
+/cli:execute --tool codex "实现 JWT 刷新"
+```
+
+**系统执行**：使用 codex 工具实现功能
 
 ---
 
-### Qwen 能力
+**示例 3：快速执行（YOLO 模式）**
 
-**作为 Gemini 的备选方案**，能力基本相同：
-- 代码分析
-- 模式识别
-- 架构评审
-
-**何时使用**：
-- Gemini 不可用
-- 需要第二意见
-- 特定领域分析
-
-**使用示例**：
-```bash
-# Gemini 不可用时的备选
-/cli:analyze --tool qwen "分析数据处理模块"
-
-# 并行使用获取多角度分析
-/cli:analyze --tool gemini "分析认证模块" &
-/cli:analyze --tool qwen "分析认证模块"
+**用户输入**：
 ```
+/cli:codex-execute "添加用户头像上传"
+```
+
+**系统执行**：使用 codex 快速实现
 
 ---
 
-### Codex 能力
+**核心特点**：
+- ✅ **用户可直接输入**：Slash 命令格式固定，用户可以直接输入（如 `/workflow:plan`）
+- ✅ **Claude 可建议**：Claude Code 也可以识别需求后建议或执行 Slash 命令
+- ✅ **预定义流程**：标准化的工作流模板
+- ✅ **自动工具选择**：workflow 命令内部自动选择合适的 CLI 工具
+- ✅ **集成完整**：包含规划、执行、测试、文档等环节
+- ✅ **简单易用**：无需了解底层 CLI 工具细节
 
-**⚡ 代码实现**
-- 功能开发
-- 组件实现
-- API 创建
-- UI 组件
-
-**🧪 测试生成**
-- 单元测试
-- 集成测试
-- 测试用例
-- TDD 支持
-
-**🔧 代码重构**
-- 结构优化
-- 性能改进
-- 代码清理
-
-**🤖 自动化执行**
-- 完整功能实现
-- Bug 修复
-- 批量操作
-
-**使用示例**：
-```bash
-# 功能实现
-/cli:execute --tool codex "实现用户注册功能，包含邮箱验证"
-
-# 测试生成
-/workflow:test-gen WFS-session-id
-
-# 自动化执行（YOLO 模式）
-/cli:codex-execute --verify-git "重构认证服务，使用依赖注入"
-
-# Bug 修复
-/cli:mode:bug-diagnosis --tool codex "修复登录超时问题"
-```
+**Claude Code 何时选择此方式**：
+- 标准开发任务（功能开发、测试、重构）
+- 团队协作（统一工作流）
+- 适合新手（降低学习曲线）
+- 快速开发（减少配置时间）
 
 ---
 
-## 🎓 使用场景决策树
+## 🔄 两种方式对比
 
-```mermaid
-graph TD
-    A[我想...] --> B{是分析还是实现?}
-    B -->|分析理解| C[使用 Gemini/Qwen]
-    B -->|实现开发| D[使用 Codex]
+| 维度 | CLI 工具语义调用 | Slash 命令调用 |
+|------|------------------|----------------|
+| **用户输入** | 纯自然语言描述需求 | `/` 开头的固定命令格式 |
+| **Claude Code 行为** | 生成并执行 `gemini`/`qwen`/`codex` 命令 | 执行预定义工作流（内部调用 CLI 工具） |
+| **灵活性** | 完全自定义任务和执行方式 | 固定工作流模板 |
+| **学习曲线** | 用户无需学习（纯自然语言） | 需要知道 Slash 命令名称 |
+| **适用复杂度** | 复杂、探索性、定制化任务 | 标准、重复性、工作流化任务 |
+| **工具选择** | Claude 自动选择最佳 CLI 工具 | 系统自动选择（workflow 类）<br>或用户指定（cli 类） |
+| **典型场景** | 深度分析、自定义流程、探索研究 | 日常开发、团队协作、标准流程 |
 
-    C --> C1{具体需求?}
-    C1 -->|理解代码流程| C2[/cli:mode:code-analysis]
-    C1 -->|诊断bug| C3[/cli:mode:bug-diagnosis]
-    C1 -->|设计架构| C4[/cli:mode:plan]
-    C1 -->|一般分析| C5[/cli:analyze]
+**使用建议**：
+- **日常开发** → 优先使用 Slash 命令（标准化、快速）
+- **复杂分析** → Claude 自动选择 CLI 工具语义调用（灵活、强大）
+- **用户角度** → 只需用自然语言描述需求，Claude Code 会选择最佳方式
 
-    D --> D1{具体需求?}
-    D1 -->|完整功能| D2[/cli:codex-execute]
-    D1 -->|精确控制| D3[/cli:execute]
-    D1 -->|生成测试| D4[/workflow:test-gen]
-    D1 -->|标准流程| D5[/workflow:execute]
-```
+---
+
+## 💡 工具能力速查
+
+### Gemini - 分析与规划
+- 执行流程追踪、依赖分析、代码模式识别
+- 架构设计、技术方案评估、任务分解
+- 文档生成（API 文档、模块说明）
+
+**触发示例**：`使用 gemini 追踪用户登录的完整流程`
+
+---
+
+### Qwen - Gemini 的备选
+- 代码分析、模式识别、架构评审
+- 作为 Gemini 不可用时的备选方案
+
+**触发示例**：`用 qwen 分析数据处理模块`
+
+---
+
+### Codex - 实现与执行
+- 功能开发、组件实现、API 创建
+- 单元测试、集成测试、TDD 支持
+- 代码重构、性能改进、Bug 修复
+
+**触发示例**：`让 codex 实现用户注册功能，包含邮箱验证`
 
 ---
 
@@ -218,17 +275,13 @@ graph TD
 
 **需求**：接手新项目，需要快速理解代码结构
 
-**推荐方式**：
-```bash
-# 1. 整体架构分析
-/cli:analyze --tool gemini "分析整个项目的架构设计和模块关系"
+**方式 1：CLI 工具语义调用**（推荐，灵活）
 
-# 2. 关键流程追踪
-/cli:mode:code-analysis --tool gemini "追踪用户注册的完整流程"
+- **用户输入**：`使用 gemini 分析这个项目的架构设计，识别主要模块、依赖关系和架构模式`
+- **Claude Code 生成并执行**：`cd project-root && gemini -p "..." -m gemini-3-pro-preview-11-2025`
 
-# 3. 识别技术栈
-/cli:analyze --tool gemini "识别项目使用的技术栈和设计模式"
-```
+**方式 2：Slash 命令**
+- **用户输入**：`/cli:analyze --tool gemini "分析项目架构"`
 
 ---
 
@@ -236,24 +289,12 @@ graph TD
 
 **需求**：实现用户认证功能
 
-**推荐方式**（语义调用）：
-```bash
-# 完整工作流
-/workflow:plan --agent "实现用户认证功能，包括注册、登录、JWT 令牌"
-/workflow:execute
-/workflow:test-gen WFS-xxx
-```
+**方式 1：CLI 工具语义调用**
+- **用户输入**：`让 codex 实现用户认证功能：注册（邮箱+密码+验证）、登录（JWT token）、刷新令牌，技术栈 Node.js + Express`
+- **Claude Code 生成并执行**：`codex -C src/auth --full-auto exec "..." -m gpt-5 --skip-git-repo-check -s danger-full-access`
 
-**或直接调用**（精确控制）：
-```bash
-# 直接实现
-/cli:codex-execute "实现用户认证功能：
-- 用户注册（邮箱+密码）
-- 登录验证
-- JWT 令牌生成和刷新
-- 密码加密存储
-"
-```
+**方式 2：Slash 命令**（工作流化）
+- **用户输入**：`/workflow:plan --agent "实现用户认证功能"` → `/workflow:execute`
 
 ---
 
@@ -261,227 +302,108 @@ graph TD
 
 **需求**：登录功能偶尔超时
 
-**推荐方式**：
-```bash
-# 1. 诊断问题
-/cli:mode:bug-diagnosis --tool gemini "诊断登录超时问题"
+**方式 1：CLI 工具语义调用**
+- **用户输入**：`使用 gemini 诊断登录超时问题，分析处理流程、性能瓶颈、数据库查询效率`
+- **Claude Code 生成并执行**：`cd src/auth && gemini -p "..." -m gemini-3-pro-preview-11-2025`
+- **用户输入**：`让 codex 根据上述分析修复登录超时，优化查询、添加缓存`
+- **Claude Code 生成并执行**：`codex -C src/auth --full-auto exec "..." -m gpt-5 --skip-git-repo-check -s danger-full-access`
 
-# 2. 分析执行流程
-/cli:mode:code-analysis --tool gemini "追踪登录请求的完整执行路径"
+**方式 2：Slash 命令**
+- **用户输入**：`/cli:mode:bug-diagnosis --tool gemini "诊断登录超时"` → `/cli:execute --tool codex "修复登录超时"`
 
-# 3. 修复问题（如果需要）
-/cli:execute --tool codex "修复登录超时问题，基于上述分析结果"
+---
+
+### 场景 4：生成文档
+
+**需求**：为 API 模块生成完整文档
+
+**方式 1：CLI 工具语义调用**
+- **用户输入**：`使用 gemini 为 API 模块生成技术文档，包含端点说明、数据模型、使用示例`
+- **Claude Code 生成并执行**：`cd src/api && gemini -p "..." -m gemini-3-pro-preview-11-2025 --approval-mode yolo`
+
+**方式 2：Slash 命令**
+- **用户输入**：`/memory:docs src/api --tool gemini --mode full`
+
+---
+
+## 🎯 常用工作流程
+
+### 简单 Bug 修复
+```
+使用 gemini 诊断问题（可选其他 cli 工具）
+→ Claude 分析
+→ Claude 直接执行修复
+```
+
+### 复杂 Bug 修复
+```
+/cli:mode:plan 或 /cli:mode:bug-diagnosis
+→ Claude 分析
+→ Claude 执行修复
+```
+
+### 简单功能增加
+```
+/cli:mode:plan
+→ Claude 执行
+```
+
+### 复杂功能增加
+```
+/cli:mode:plan --agent
+→ Claude 执行 或 /cli:codex-execute
+
+或
+
+/cli:mode:plan
+→ 进入工作流模式（/workflow:execute）
+```
+
+### 项目内存管理
+
+**建立技术栈文档**（为项目提供技术参考）
+```
+/memory:tech-research [session-id | tech-stack-name]
+```
+
+**为项目重建多级结构的 CLAUDE.md 内存**
+```
+/memory:docs [path] [--tool gemini|qwen|codex] [--mode full|partial]
 ```
 
 ---
 
-### 场景 4：代码重构
+## 📚 常用命令速查
 
-**需求**：重构认证模块，提高可维护性
-
-**推荐方式**：
-```bash
-# 1. 分析现状
-/cli:analyze --tool gemini "评估当前认证模块的代码质量和可维护性"
-
-# 2. 制定计划
-/cli:mode:plan --tool gemini "制定认证模块重构方案"
-
-# 3. 执行重构
-/cli:execute --tool codex "重构认证模块，按照上述计划执行"
-
-# 4. 生成测试
-/workflow:test-gen WFS-xxx
-```
+| 需求 | 推荐命令 |
+|------|----------|
+| **代码分析** | `使用 gemini 分析...` 或 `/cli:analyze --tool gemini` |
+| **Bug 诊断** | `/cli:mode:bug-diagnosis` |
+| **功能实现** | `/cli:codex-execute` 或 `让 codex 实现...` |
+| **架构规划** | `/cli:mode:plan` |
+| **生成测试** | `/workflow:test-gen WFS-xxx` |
+| **完整工作流** | `/workflow:plan` → `/workflow:execute` |
+| **技术文档** | `/memory:tech-research [tech-name]` |
+| **项目文档** | `/memory:docs [path]` |
 
 ---
 
-### 场景 5：生成文档
+## 🆘 快速提示
 
-**需求**：为 API 模块生成文档
+**触发 CLI 工具语义调用**：
+- "使用 gemini ..."
+- "用 qwen ..."
+- "让 codex ..."
 
-**推荐方式**：
-```bash
-# 自动生成文档
-/memory:docs src/api --tool gemini --mode full
-```
+**选择工具**：
+- **理解/分析/规划** → Gemini
+- **实现/测试/执行** → Codex
+- **不确定** → 使用 Slash 命令让系统选择
 
----
-
-## 🎯 最佳实践
-
-### ✅ 推荐做法
-
-1. **默认使用语义调用**
-   - 通过 `/workflow:*` 命令描述需求
-   - 让系统自动选择合适的工具
-
-2. **分析用 Gemini，实现用 Codex**
-   - 理解问题 → Gemini
-   - 解决问题 → Codex
-
-3. **善用 --enhance 参数**
-   - 让提示自动优化，提高结果质量
-   ```bash
-   /cli:analyze --enhance "分析认证模块"
-   ```
-
-4. **指定工作目录减少噪音**
-   ```bash
-   /cli:analyze --cd src/auth "分析当前模块"
-   ```
-
-5. **并行使用获得多角度**
-   ```bash
-   /cli:analyze --tool gemini "分析方案A"
-   /cli:analyze --tool qwen "分析方案A"  # 对比结果
-   ```
-
----
-
-### ❌ 避免做法
-
-1. **不要混淆工具职责**
-   - ❌ 用 Gemini 实现功能
-   - ❌ 用 Codex 做架构分析
-
-2. **不要忽略工作目录**
-   - ❌ 在项目根目录分析单个模块
-   - ✅ 使用 `--cd` 切换到目标目录
-
-3. **不要直接编写技术规范**
-   - ❌ 手动构造复杂的 RULES 模板
-   - ✅ 使用 `--enhance` 让系统优化
-
----
-
-## 🔍 进阶技巧
-
-### 技巧 1：链式分析
-
-```bash
-# 步骤 1：理解现状
-/cli:analyze --tool gemini "分析当前认证实现" > analysis.md
-
-# 步骤 2：基于分析结果制定计划
-/cli:mode:plan --tool gemini "基于 analysis.md，制定改进方案"
-
-# 步骤 3：执行改进
-/cli:execute --tool codex "按照改进方案执行"
-```
-
----
-
-### 技巧 2：使用 Agent 模式
-
-Agent 模式让 CLI 工具更自主地执行任务：
-
-```bash
-# 标准模式（需要明确指令）
-/cli:execute --tool codex "实现用户登录"
-
-# Agent 模式（更自主，可自行决策）
-/cli:execute --agent --tool codex "实现用户认证系统"
-```
-
-**何时使用 Agent**：
-- 任务复杂，需要多步决策
-- 需要工具自主探索代码库
-- 信任工具的判断
-
----
-
-### 技巧 3：自定义提示增强
-
-```bash
-# 使用预定义模板增强
-/cli:analyze --enhance "分析认证模块安全性"
-
-# 系统会自动：
-# 1. 识别任务类型（安全分析）
-# 2. 选择合适模板
-# 3. 优化提示词
-# 4. 执行分析
-```
-
----
-
-## 📚 快速参考
-
-### 常用命令速查
-
-| 需求 | 命令 | 示例 |
-|------|------|------|
-| 代码分析 | `/cli:analyze` | `/cli:analyze --tool gemini "分析auth模块"` |
-| Bug 诊断 | `/cli:mode:bug-diagnosis` | `/cli:mode:bug-diagnosis "登录超时"` |
-| 功能实现 | `/cli:codex-execute` | `/cli:codex-execute "实现用户注册"` |
-| 架构规划 | `/cli:mode:plan` | `/cli:mode:plan "设计微服务架构"` |
-| 生成测试 | `/workflow:test-gen` | `/workflow:test-gen WFS-xxx` |
-| 完整工作流 | `/workflow:plan` + `/workflow:execute` | 最推荐的标准流程 |
-
----
-
-### 参数速查
-
-| 参数 | 作用 | 示例 |
-|------|------|------|
-| `--tool <gemini\|qwen\|codex>` | 指定CLI工具 | `--tool gemini` |
-| `--enhance` | 自动优化提示 | `--enhance` |
-| `--agent` | 启用Agent模式 | `--agent` |
-| `--cd <路径>` | 切换工作目录 | `--cd src/auth` |
-| `--verify-git` | Git状态验证 | `--verify-git` |
-
----
-
-## 🆘 常见问题
-
-### Q: 我该用哪个工具？
-
-**A**: 记住简单规则：
-- 想**理解/分析/规划** → Gemini
-- 想**实现/测试/执行** → Codex
-- 不确定 → 用 `/workflow:*` 让系统选
-
----
-
-### Q: 语义调用和命令调用有什么区别？
-
-**A**:
-- **语义调用**（`/workflow:*`）：自然语言描述，系统自动选工具，适合日常
-- **命令调用**（`/cli:*`）：手动指定工具和参数，适合高级控制
-
----
-
-### Q: 什么时候用 Agent 模式？
-
-**A**: Agent 模式更自主，适合：
-- 复杂任务需要多步决策
-- 信任工具的判断
-- 想让工具自主探索
-
-**不适合**：
-- 精确控制每一步
-- 不确定工具行为
-- 简单任务
-
----
-
-### Q: 如何提高结果质量？
-
-**A**:
-1. 使用 `--enhance` 自动优化提示
-2. 明确描述需求和期望
-3. 指定工作目录减少噪音（`--cd`）
-4. 提供上下文（已有的分析、相关代码）
-
----
-
-## 📖 相关文档
-
-- [Intelligent Tools Strategy](../../workflows/intelligent-tools-strategy.md) - 技术规范和高级配置
-- [Workflow Patterns](workflow-patterns.md) - 标准工作流模式
-- [Getting Started](getting-started.md) - 快速入门指南
-- [Troubleshooting](troubleshooting.md) - 问题排查
+**提升质量**：
+- 清晰描述需求和期望
+- 提供上下文信息
+- 使用 `--agent` 处理复杂任务
 
 ---
 
