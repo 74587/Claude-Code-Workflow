@@ -192,7 +192,7 @@ update_module_claude() {
     fi
 
     # Use unified template for all modules
-    local template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/claude-module-unified.txt"
+    local template_path="$HOME/.claude/workflows/cli-templates/prompts/memory/02-document-module-structure.txt"
 
     # Read template content directly
     local template_content=""

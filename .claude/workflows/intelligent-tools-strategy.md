@@ -69,7 +69,6 @@ codex -C [dir] --full-auto exec "[prompt]" [-m model] [--skip-git-repo-check -s 
 | Architecture Review | Gemini → Qwen | analysis | `analysis/02-review-architecture.txt` |
 | Feature Implementation | Codex | auto | `development/02-implement-feature.txt` |
 | Component Development | Codex | auto | `development/02-implement-component-ui.txt` |
-| Documentation | Gemini/Qwen | write | `memory/02-document-module-structure.txt` |
 | Test Generation | Codex | write | `development/02-generate-tests.txt` |
 
 ### Core Principles
@@ -79,10 +78,14 @@ codex -C [dir] --full-auto exec "[prompt]" [-m model] [--skip-git-repo-check -s 
 - **Default to tools** - Use for most coding tasks, no matter how small
 - **Minimize context noise** - Use `cd` + `--include-directories` to focus on relevant files
 - **⚠️ Choose templates by need** - Select templates based on task requirements:
+  - `00-*` for universal fallback when no specific template matches
   - `01-*` for general exploratory/diagnostic work
   - `02-*` for common implementation/analysis tasks
   - `03-*` for specialized domains
 - **⚠️ Always specify templates** - Include appropriate template in RULES field via `$(cat ~/.claude/workflows/cli-templates/prompts/.../...txt)`
+- **⚠️ Universal templates as fallback** - Use universal templates when no specific template matches your needs:
+  - `universal/00-universal-rigorous-style.txt` for precision-critical tasks
+  - `universal/00-universal-creative-style.txt` for exploratory/innovative tasks
 - **⚠️ Write protection** - Require EXPLICIT MODE=write or MODE=auto specification
 
 ---
@@ -462,6 +465,8 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-
 - **Why**: Shell executes `$(...)` in subshell where path is safe
 
 **Examples**:
+- Universal rigorous: `$(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Critical production refactoring`
+- Universal creative: `$(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-creative-style.txt) | Explore alternative architecture approaches`
 - General template: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on authentication module`
 - Specialized template: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | React hooks only`
 - Multiple: `$(cat template1.txt) $(cat template2.txt) | Enterprise standards`
@@ -472,15 +477,48 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-
 **Base**: `~/.claude/workflows/cli-templates/`
 
 **Naming Convention**:
+- `00-*` - **Universal fallback templates** (use when no specific template matches)
 - `01-*` - Universal, high-frequency templates
 - `02-*` - Common specialized templates
 - `03-*` - Domain-specific, less frequent templates
 
 **Note**: Number prefix indicates category and frequency, not required usage order. Choose based on task needs.
 
+**Universal Templates (Fallback)**:
+
+When no specific template matches your task requirements, use one of these universal templates based on the desired execution style:
+
+1. **Rigorous Style** (`universal/00-universal-rigorous-style.txt`)
+   - **Use for**: Precision-critical tasks requiring systematic methodology
+   - **Characteristics**:
+     - Strict adherence to standards and specifications
+     - Comprehensive validation and edge case handling
+     - Defensive programming and error prevention
+     - Full documentation and traceability
+   - **Best for**: Production code, critical systems, refactoring, compliance tasks
+   - **Thinking mode**: Systematic, methodical, standards-driven
+
+2. **Creative Style** (`universal/00-universal-creative-style.txt`)
+   - **Use for**: Exploratory tasks requiring innovative solutions
+   - **Characteristics**:
+     - Multi-perspective problem exploration
+     - Pattern synthesis from different domains
+     - Alternative approach generation
+     - Elegant simplicity pursuit
+   - **Best for**: New feature design, architecture exploration, optimization, problem-solving
+   - **Thinking mode**: Exploratory, synthesis-driven, innovation-focused
+
+**Selection Guide**:
+- **Rigorous**: When correctness, reliability, and compliance are paramount
+- **Creative**: When innovation, flexibility, and elegant solutions are needed
+- **Specific template**: When task matches predefined category (analysis, development, planning, etc.)
+
 **Available Templates**:
 ```
 prompts/
+├── universal/                          # ← NEW: Universal fallback templates
+│   ├── 00-universal-rigorous-style.txt # Precision & standards-driven
+│   └── 00-universal-creative-style.txt # Innovation & exploration-focused
 ├── analysis/
 │   ├── 01-trace-code-execution.txt
 │   ├── 01-diagnose-bug-root-cause.txt
@@ -496,8 +534,6 @@ prompts/
 │   ├── 02-generate-tests.txt
 │   ├── 02-implement-component-ui.txt
 │   └── 03-debug-runtime-issues.txt
-├── memory/
-│   └── 02-document-module-structure.txt
 └── planning/
     ├── 01-plan-architecture-design.txt
     ├── 02-breakdown-task-steps.txt
@@ -510,6 +546,10 @@ prompts/
 
 | Task Type | Tool | Template |
 |-----------|------|----------|
+| **Universal Fallbacks** | | |
+| Precision-Critical Tasks | Gemini/Qwen/Codex | `universal/00-universal-rigorous-style.txt` |
+| Exploratory/Innovative Tasks | Gemini/Qwen/Codex | `universal/00-universal-creative-style.txt` |
+| **Analysis Tasks** | | |
 | Execution Tracing | Gemini (Qwen fallback) | `analysis/01-trace-code-execution.txt` |
 | Bug Diagnosis | Gemini (Qwen fallback) | `analysis/01-diagnose-bug-root-cause.txt` |
 | Code Pattern Analysis | Gemini (Qwen fallback) | `analysis/02-analyze-code-patterns.txt` |
@@ -518,17 +558,18 @@ prompts/
 | Performance Analysis | Gemini (Qwen fallback) | `analysis/03-analyze-performance.txt` |
 | Security Assessment | Gemini (Qwen fallback) | `analysis/03-assess-security-risks.txt` |
 | Quality Standards | Gemini (Qwen fallback) | `analysis/03-review-quality-standards.txt` |
+| **Planning Tasks** | | |
 | Architecture Planning | Gemini (Qwen fallback) | `planning/01-plan-architecture-design.txt` |
 | Task Breakdown | Gemini (Qwen fallback) | `planning/02-breakdown-task-steps.txt` |
 | Component Design | Gemini (Qwen fallback) | `planning/02-design-component-spec.txt` |
 | Concept Evaluation | Gemini (Qwen fallback) | `planning/03-evaluate-concept-feasibility.txt` |
 | Migration Planning | Gemini (Qwen fallback) | `planning/03-plan-migration-strategy.txt` |
+| **Development Tasks** | | |
 | Feature Development | Codex | `development/02-implement-feature.txt` |
 | Refactoring | Codex | `development/02-refactor-codebase.txt` |
 | Test Generation | Codex | `development/02-generate-tests.txt` |
 | Component Implementation | Codex | `development/02-implement-component-ui.txt` |
 | Debugging | Codex | `development/03-debug-runtime-issues.txt` |
-| Module Documentation | Gemini (Qwen fallback) | `memory/02-document-module-structure.txt` |
 
 ---
 
