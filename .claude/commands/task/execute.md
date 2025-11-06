@@ -1,6 +1,6 @@
 ---
 name: execute
-description: Execute tasks with appropriate agents and context-aware orchestration
+description: Execute task JSON using appropriate agent (@doc-generator/@implementation-agent/@test-agent) with pre-analysis context loading and status tracking
 argument-hint: "task-id"
 ---
 

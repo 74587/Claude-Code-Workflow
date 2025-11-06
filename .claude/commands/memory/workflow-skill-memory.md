@@ -1,6 +1,6 @@
 ---
 name: workflow-skill-memory
-description: Generate SKILL package from archived workflow sessions for progressive context loading
+description: Process WFS-* archived sessions using universal-executor agents with Gemini analysis to generate workflow-progress SKILL package (sessions-timeline, lessons, conflicts)
 argument-hint: "session <session-id> | all"
 allowed-tools: Task(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 ---

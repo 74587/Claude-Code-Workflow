@@ -1,6 +1,6 @@
 ---
 name: action-plan-verify
-description: Perform non-destructive cross-artifact consistency and quality analysis of IMPL_PLAN.md and task.json before execution
+description: Perform non-destructive cross-artifact consistency analysis between IMPL_PLAN.md and task JSONs with quality gate validation
 argument-hint: "[optional: --session session-id]"
 allowed-tools: Read(*), TodoWrite(*), Glob(*), Bash(*)
 ---

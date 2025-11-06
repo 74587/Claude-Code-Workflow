@@ -1,6 +1,6 @@
 ---
 name: list
-description: List all workflow sessions with status
+description: List all workflow sessions with status filtering, shows session metadata and progress information
 examples:
   - /workflow:session:list
 ---

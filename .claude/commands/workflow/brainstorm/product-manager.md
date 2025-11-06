@@ -1,6 +1,6 @@
 ---
 name: product-manager
-description: Generate or update product-manager/analysis.md addressing guidance-specification discussion points
+description: Generate or update product-manager/analysis.md addressing guidance-specification discussion points for product management perspective
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---

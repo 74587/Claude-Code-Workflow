@@ -1,6 +1,6 @@
 ---
 name: explore-auto
-description: Exploratory UI design workflow with style-centric batch generation
+description: Exploratory UI design workflow with style-centric batch generation, creates design variants from prompts/images with parallel execution
 argument-hint: "[--prompt "<desc>"] [--images "<glob>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]""
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*), Task(conceptual-planning-agent)
 ---

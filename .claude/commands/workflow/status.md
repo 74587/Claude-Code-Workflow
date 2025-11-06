@@ -1,6 +1,6 @@
 ---
 name: workflow:status
-description: Generate on-demand views from JSON task data
+description: Generate on-demand task status views from JSON task data with optional task-id filtering for detailed view
 argument-hint: "[optional: task-id]"
 ---
 

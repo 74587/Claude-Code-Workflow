@@ -1,6 +1,6 @@
 ---
 name: ux-expert
-description: Generate or update ux-expert/analysis.md addressing guidance-specification discussion points
+description: Generate or update ux-expert/analysis.md addressing guidance-specification discussion points for UX perspective
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---

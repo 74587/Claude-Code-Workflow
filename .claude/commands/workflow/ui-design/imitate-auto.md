@@ -1,6 +1,6 @@
 ---
 name: imitate-auto
-description: High-speed multi-page UI replication with batch screenshot capture
+description: High-speed multi-page UI replication with batch screenshot capture and design token extraction
 argument-hint: --url-map "<map>" [--capture-mode <batch|deep>] [--depth <1-5>] [--session <id>] [--prompt "<desc>"]
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 ---

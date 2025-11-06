@@ -1,6 +1,6 @@
 ---
 name: test-context-gather
-description: Intelligently collect test coverage context using test-context-search-agent and package into standardized test-context JSON
+description: Collect test coverage context using test-context-search-agent and package into standardized test-context JSON
 argument-hint: "--session WFS-test-session-id"
 examples:
   - /workflow:tools:test-context-gather --session WFS-test-auth

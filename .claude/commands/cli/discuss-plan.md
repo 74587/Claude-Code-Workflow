@@ -1,6 +1,6 @@
 ---
 name: discuss-plan
-description: Orchestrates an iterative, multi-model discussion for planning and analysis without implementation.
+description: Multi-round collaborative planning using Gemini, Codex, and Claude synthesis with iterative discussion cycles (read-only, no code changes)
 argument-hint: "[--topic '...'] [--task-id '...'] [--rounds N]"
 allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*)
 ---

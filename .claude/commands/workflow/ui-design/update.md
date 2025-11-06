@@ -1,6 +1,6 @@
 ---
 name: update
-description: Update brainstorming artifacts with finalized design system references
+description: Update brainstorming artifacts with finalized design system references from selected prototypes
 argument-hint: --session <session_id> [--selected-prototypes "<list>"]
 allowed-tools: Read(*), Write(*), Edit(*), TodoWrite(*), Glob(*), Bash(*)
 ---

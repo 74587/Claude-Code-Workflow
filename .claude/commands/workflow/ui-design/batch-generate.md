@@ -1,6 +1,6 @@
 ---
 name: batch-generate
-description: Prompt-driven batch UI generation using target-style-centric parallel execution
+description: Prompt-driven batch UI generation using target-style-centric parallel execution with design token application
 argument-hint: [--targets "<list>"] [--target-type "page|component"] [--device-type "desktop|mobile|tablet|responsive"] [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*), mcp__exa__web_search_exa(*)
 ---

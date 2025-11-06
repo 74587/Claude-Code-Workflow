@@ -1,6 +1,6 @@
 ---
 name: tdd-verify
-description: Verify TDD workflow compliance and generate quality report
+description: Verify TDD workflow compliance against Red-Green-Refactor cycles, generate quality report with coverage analysis
 
 argument-hint: "[optional: WFS-session-id]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(gemini:*)

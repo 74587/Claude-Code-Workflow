@@ -1,457 +1,616 @@
 {
-  "analyze": [
-    "enhance-prompt"
-  ],
-  "chat": [
-    "enhance-prompt"
-  ],
-  "cli-init": [
-    "analyze"
-  ],
-  "codex-execute": [
-    "chat"
-  ],
-  "discuss-plan": [
-    "version",
-    "chat",
-    "codex-execute",
-    "analyze"
-  ],
-  "execute": [
-    "create",
-    "plan",
-    "load",
-    "breakdown",
-    "docs"
-  ],
-  "bug-diagnosis": [
-    "enhance-prompt",
-    "chat"
-  ],
-  "code-analysis": [
-    "enhance-prompt",
-    "chat"
-  ],
-  "plan": [
-    "action-plan-verify",
-    "create",
-    "execute",
-    "analyze",
-    "breakdown"
-  ],
-  "docs": [
-    "plan",
-    "execute",
-    "analyze"
-  ],
-  "load-skill-memory": [
-    "docs",
-    "analyze"
-  ],
-  "load": [
-    "execute",
-    "docs",
-    "analyze"
-  ],
-  "skill-memory": [
-    "version",
-    "execute",
-    "plan",
-    "load",
-    "docs"
-  ],
-  "tech-research": [
-    "version",
-    "load",
-    "execute"
-  ],
-  "update-full": [
-    "plan",
-    "docs",
-    "execute"
-  ],
-  "update-related": [
-    "plan",
-    "docs",
-    "execute"
-  ],
-  "workflow-skill-memory": [
-    "version",
-    "skill-memory",
-    "load",
-    "analyze"
-  ],
-  "breakdown": [
-    "plan"
-  ],
-  "create": [
-    "plan",
-    "docs"
-  ],
-  "replan": [
-    "version",
-    "plan",
-    "create"
-  ],
-  "action-plan-verify": [
-    "plan",
-    "execute"
-  ],
-  "resume": [
-    "execute"
-  ],
-  "review": [
-    "plan",
-    "create",
-    "docs",
-    "execute"
-  ],
-  "tdd-plan": [
-    "action-plan-verify",
-    "workflow:status",
-    "execute",
-    "analyze",
-    "plan",
-    "breakdown"
-  ],
-  "tdd-verify": [
-    "create",
-    "workflow:status",
-    "tdd-plan",
-    "execute",
-    "plan",
-    "review"
-  ],
-  "test-cycle-execute": [
-    "resume",
-    "workflow:status",
-    "execute",
-    "analyze",
-    "plan",
-    "load"
-  ],
-  "test-fix-gen": [
-    "create",
-    "resume",
-    "workflow:status",
-    "test-cycle-execute",
-    "execute",
-    "analyze",
-    "plan",
-    "docs"
-  ],
-  "test-gen": [
-    "create",
-    "workflow:status",
-    "test-cycle-execute",
-    "execute",
-    "analyze",
-    "plan"
-  ],
-  "api-designer": [
-    "version",
-    "plan",
-    "create",
-    "load"
-  ],
-  "artifacts": [
-    "execute",
-    "analyze",
-    "plan",
-    "load",
-    "docs"
-  ],
-  "auto-parallel": [
-    "create",
-    "execute",
-    "analyze",
-    "plan",
-    "artifacts",
-    "load"
-  ],
-  "data-architect": [
-    "plan",
-    "load"
-  ],
-  "product-manager": [
-    "plan",
-    "load"
-  ],
-  "product-owner": [
-    "plan",
-    "load"
-  ],
-  "scrum-master": [
-    "plan",
-    "breakdown",
-    "load"
-  ],
-  "subject-matter-expert": [
-    "plan",
-    "load"
-  ],
-  "synthesis": [
-    "analyze",
-    "plan",
-    "product-manager",
-    "load",
-    "api-designer"
-  ],
-  "system-architect": [
-    "version",
-    "plan",
-    "create",
-    "load"
-  ],
-  "ui-designer": [
-    "synthesis",
-    "plan",
-    "load"
-  ],
-  "ux-expert": [
-    "synthesis",
-    "plan",
-    "load"
-  ],
-  "complete": [
-    "analyze"
-  ],
-  "list": [
-    "complete",
-    "create"
-  ],
-  "start": [
-    "plan",
-    "create"
-  ],
-  "conflict-resolution": [
-    "chat",
-    "list",
-    "execute",
-    "artifacts",
-    "plan",
-    "system-architect"
-  ],
-  "gather": [
-    "complete",
-    "create",
-    "synthesis",
-    "execute",
-    "artifacts",
-    "plan",
-    "load",
-    "docs"
-  ],
-  "task-generate-agent": [
-    "list",
-    "create",
-    "synthesis",
-    "gather",
-    "execute",
-    "artifacts",
-    "plan",
-    "load",
-    "ui-designer",
-    "system-architect",
-    "data-architect"
-  ],
-  "task-generate-tdd": [
-    "complete",
-    "create",
-    "action-plan-verify",
-    "system-architect",
-    "list",
-    "test-gen",
-    "gather",
-    "start",
-    "tdd-plan",
-    "execute",
-    "analyze",
-    "plan",
-    "artifacts",
-    "load",
-    "product-owner",
-    "breakdown",
-    "tdd-verify"
-  ],
-  "task-generate": [
-    "resume",
-    "test-gen",
-    "synthesis",
-    "analyze",
-    "artifacts",
-    "plan",
-    "conflict-resolution",
-    "system-architect",
-    "ux-expert",
-    "create",
-    "action-plan-verify",
-    "docs",
-    "data-architect",
-    "list",
-    "gather",
-    "subject-matter-expert",
-    "execute",
-    "load",
-    "api-designer",
-    "complete",
-    "workflow:status",
-    "start",
-    "product-manager",
-    "ui-designer"
-  ],
-  "tdd-coverage-analysis": [
-    "task-generate",
-    "complete",
-    "create",
-    "task-generate-tdd",
-    "execute",
-    "analyze",
-    "tdd-verify"
-  ],
-  "test-concept-enhanced": [
-    "version",
-    "complete",
-    "create",
-    "list",
-    "task-generate",
-    "test-gen",
-    "gather",
-    "analyze",
-    "plan",
-    "review",
-    "docs"
-  ],
-  "test-context-gather": [
-    "version",
-    "complete",
-    "create",
-    "task-generate",
-    "test-concept-enhanced",
-    "test-gen",
-    "gather",
-    "execute",
-    "plan",
-    "load"
-  ],
-  "test-task-generate": [
-    "task-generate",
-    "complete",
-    "create",
-    "resume",
-    "list",
-    "test-concept-enhanced",
-    "test-gen",
-    "gather",
-    "execute",
-    "analyze",
-    "plan",
-    "load"
-  ],
-  "animation-extract": [
-    "complete",
-    "create",
-    "list",
-    "synthesis",
-    "execute",
-    "plan",
-    "load"
-  ],
-  "batch-generate": [
-    "list",
-    "complete",
-    "create",
-    "review"
-  ],
-  "capture": [
-    "list",
-    "complete",
-    "create",
-    "start"
-  ],
-  "explore-auto": [
-    "complete",
-    "create",
-    "list",
-    "animation-extract",
-    "synthesis",
-    "execute",
-    "analyze",
-    "plan",
-    "artifacts",
-    "review"
-  ],
-  "explore-layers": [
-    "complete",
-    "list",
-    "start",
-    "execute",
-    "review",
-    "load",
-    "capture"
-  ],
-  "generate": [
-    "list",
-    "complete",
-    "animation-extract",
-    "explore-auto",
-    "review"
-  ],
-  "imitate-auto": [
-    "complete",
-    "list",
-    "animation-extract",
-    "test-gen",
-    "start",
-    "generate",
-    "explore-layers",
-    "execute",
-    "artifacts",
-    "plan",
-    "review",
-    "capture"
-  ],
-  "layout-extract": [
-    "version",
-    "complete",
-    "create",
-    "list",
-    "synthesis",
-    "generate",
-    "execute",
-    "review",
-    "load",
-    "capture"
-  ],
-  "style-extract": [
-    "complete",
-    "create",
-    "list",
-    "generate",
-    "execute",
-    "plan",
-    "review",
-    "load",
-    "capture",
-    "layout-extract"
-  ],
-  "update": [
-    "version",
-    "complete",
-    "create",
-    "list",
-    "task-generate",
-    "animation-extract",
-    "synthesis",
-    "generate",
-    "execute",
-    "artifacts",
-    "plan",
-    "style-extract",
-    "product-manager",
-    "ui-designer",
-    "system-architect",
-    "ux-expert",
-    "layout-extract"
-  ]
+  "cli:analyze": {
+    "related_commands": [
+      "cli:chat",
+      "cli:mode:code-analysis"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "cli:chat": {
+    "related_commands": [
+      "cli:analyze",
+      "memory:load"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "cli:cli-init": {
+    "related_commands": [],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "cli:codex-execute": {
+    "related_commands": [
+      "cli:execute",
+      "task:execute"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "cli:discuss-plan": {
+    "related_commands": [],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "cli:execute": {
+    "related_commands": [
+      "cli:codex-execute",
+      "task:execute"
+    ],
+    "next_steps": [
+      "workflow:status"
+    ],
+    "prerequisites": []
+  },
+  "cli:mode:bug-diagnosis": {
+    "related_commands": [
+      "cli:mode:code-analysis",
+      "cli:execute"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "cli:mode:code-analysis": {
+    "related_commands": [
+      "cli:analyze",
+      "cli:mode:bug-diagnosis"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "cli:mode:plan": {
+    "related_commands": [
+      "workflow:plan",
+      "cli:analyze"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "enhance-prompt": {
+    "related_commands": [
+      "workflow:plan",
+      "cli:execute"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "memory:docs": {
+    "related_commands": [
+      "memory:update-full",
+      "memory:update-related"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "memory:load-skill-memory": {
+    "related_commands": [
+      "memory:load"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "memory:skill-memory"
+    ]
+  },
+  "memory:load": {
+    "related_commands": [
+      "memory:skill-memory",
+      "memory:load-skill-memory"
+    ],
+    "next_steps": [
+      "workflow:plan",
+      "cli:execute"
+    ],
+    "prerequisites": []
+  },
+  "memory:skill-memory": {
+    "related_commands": [
+      "memory:docs",
+      "memory:update-full"
+    ],
+    "next_steps": [
+      "memory:load-skill-memory"
+    ],
+    "prerequisites": []
+  },
+  "memory:tech-research": {
+    "related_commands": [],
+    "next_steps": [
+      "memory:load-skill-memory"
+    ],
+    "prerequisites": []
+  },
+  "memory:update-full": {
+    "related_commands": [
+      "memory:update-related"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "memory:docs"
+    ]
+  },
+  "memory:update-related": {
+    "related_commands": [
+      "memory:update-full",
+      "memory:docs"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "memory:workflow-skill-memory": {
+    "related_commands": [
+      "memory:skill-memory",
+      "workflow:session:list"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "task:breakdown": {
+    "related_commands": [],
+    "next_steps": [
+      "task:execute"
+    ],
+    "prerequisites": [
+      "task:create"
+    ]
+  },
+  "task:create": {
+    "related_commands": [
+      "task:breakdown",
+      "workflow:plan"
+    ],
+    "next_steps": [
+      "task:execute"
+    ],
+    "prerequisites": []
+  },
+  "task:execute": {
+    "related_commands": [
+      "workflow:execute",
+      "workflow:status",
+      "task:create"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "task:replan": {
+    "related_commands": [
+      "task:execute",
+      "workflow:action-plan-verify"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "version": {
+    "related_commands": [],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:action-plan-verify": {
+    "related_commands": [
+      "workflow:status"
+    ],
+    "next_steps": [
+      "workflow:execute"
+    ],
+    "prerequisites": [
+      "workflow:plan"
+    ]
+  },
+  "workflow:brainstorm:api-designer": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:artifacts": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [
+      "workflow:plan"
+    ],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:auto-parallel": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [
+      "workflow:brainstorm:synthesis"
+    ],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:data-architect": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:product-manager": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:product-owner": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:scrum-master": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:subject-matter-expert": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:synthesis": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan",
+      "workflow:brainstorm:artifacts"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:system-architect": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:ui-designer": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:brainstorm:ux-expert": {
+    "related_commands": [
+      "workflow:brainstorm:synthesis",
+      "workflow:plan"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:execute": {
+    "related_commands": [
+      "workflow:status",
+      "task:execute",
+      "workflow:session:start"
+    ],
+    "next_steps": [
+      "workflow:review",
+      "workflow:test-cycle-execute"
+    ],
+    "prerequisites": [
+      "workflow:plan"
+    ]
+  },
+  "workflow:plan": {
+    "related_commands": [
+      "workflow:status",
+      "workflow:tdd-plan",
+      "workflow:session:start"
+    ],
+    "next_steps": [
+      "workflow:action-plan-verify",
+      "workflow:execute"
+    ],
+    "prerequisites": []
+  },
+  "workflow:resume": {
+    "related_commands": [
+      "workflow:session:start",
+      "workflow:status",
+      "workflow:execute"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:review": {
+    "related_commands": [
+      "workflow:status"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:execute"
+    ]
+  },
+  "workflow:session:complete": {
+    "related_commands": [
+      "workflow:review",
+      "workflow:session:list"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:execute"
+    ]
+  },
+  "workflow:session:list": {
+    "related_commands": [
+      "workflow:session:start",
+      "workflow:session:resume"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:session:resume": {
+    "related_commands": [
+      "workflow:resume",
+      "workflow:status"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:session:start"
+    ]
+  },
+  "workflow:session:start": {
+    "related_commands": [
+      "workflow:session:list",
+      "workflow:session:resume"
+    ],
+    "next_steps": [
+      "workflow:plan",
+      "workflow:execute"
+    ],
+    "prerequisites": []
+  },
+  "workflow:status": {
+    "related_commands": [
+      "workflow:execute",
+      "workflow:plan",
+      "task:execute"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:tdd-plan": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:test-cycle-execute"
+    ],
+    "next_steps": [
+      "workflow:execute",
+      "workflow:tdd-verify"
+    ],
+    "prerequisites": []
+  },
+  "workflow:tdd-verify": {
+    "related_commands": [
+      "workflow:test-cycle-execute",
+      "workflow:review"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:tdd-plan"
+    ]
+  },
+  "workflow:test-cycle-execute": {
+    "related_commands": [
+      "workflow:tdd-verify",
+      "workflow:execute"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:test-gen",
+      "workflow:test-fix-gen"
+    ]
+  },
+  "workflow:test-fix-gen": {
+    "related_commands": [],
+    "next_steps": [
+      "workflow:test-cycle-execute"
+    ],
+    "prerequisites": []
+  },
+  "workflow:test-gen": {
+    "related_commands": [],
+    "next_steps": [
+      "workflow:test-cycle-execute"
+    ],
+    "prerequisites": [
+      "workflow:execute"
+    ]
+  },
+  "workflow:tools:conflict-resolution": {
+    "related_commands": [],
+    "next_steps": [
+      "workflow:tools:task-generate"
+    ],
+    "prerequisites": [
+      "workflow:tools:context-gather"
+    ]
+  },
+  "workflow:tools:context-gather": {
+    "related_commands": [
+      "memory:load",
+      "workflow:tools:conflict-resolution"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:plan"
+    ]
+  },
+  "workflow:tools:task-generate-agent": {
+    "related_commands": [
+      "workflow:tools:task-generate"
+    ],
+    "next_steps": [
+      "workflow:execute"
+    ],
+    "prerequisites": [
+      "workflow:plan"
+    ]
+  },
+  "workflow:tools:task-generate-tdd": {
+    "related_commands": [
+      "workflow:tools:task-generate"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:tdd-plan"
+    ]
+  },
+  "workflow:tools:task-generate": {
+    "related_commands": [],
+    "next_steps": [
+      "workflow:execute"
+    ],
+    "prerequisites": [
+      "workflow:plan"
+    ]
+  },
+  "workflow:tools:tdd-coverage-analysis": {
+    "related_commands": [
+      "workflow:tdd-verify"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:tdd-plan"
+    ]
+  },
+  "workflow:tools:test-concept-enhanced": {
+    "related_commands": [],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:tools:test-context-gather"
+    ]
+  },
+  "workflow:tools:test-context-gather": {
+    "related_commands": [
+      "workflow:tools:context-gather"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:test-gen"
+    ]
+  },
+  "workflow:tools:test-task-generate": {
+    "related_commands": [
+      "workflow:tools:task-generate"
+    ],
+    "next_steps": [],
+    "prerequisites": [
+      "workflow:test-gen"
+    ]
+  },
+  "workflow:ui-design:animation-extract": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:ui-design:batch-generate": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:ui-design:capture": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [
+      "workflow:ui-design:layout-extract",
+      "workflow:ui-design:style-extract"
+    ],
+    "prerequisites": []
+  },
+  "workflow:ui-design:explore-auto": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [
+      "workflow:ui-design:generate",
+      "workflow:ui-design:update"
+    ],
+    "prerequisites": []
+  },
+  "workflow:ui-design:explore-layers": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:ui-design:generate": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [
+      "workflow:ui-design:update",
+      "workflow:plan"
+    ],
+    "prerequisites": []
+  },
+  "workflow:ui-design:imitate-auto": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  },
+  "workflow:ui-design:layout-extract": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [
+      "workflow:ui-design:generate"
+    ],
+    "prerequisites": []
+  },
+  "workflow:ui-design:style-extract": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [
+      "workflow:ui-design:generate"
+    ],
+    "prerequisites": []
+  },
+  "workflow:ui-design:update": {
+    "related_commands": [
+      "workflow:plan",
+      "workflow:brainstorm:ui-designer"
+    ],
+    "next_steps": [],
+    "prerequisites": []
+  }
 }

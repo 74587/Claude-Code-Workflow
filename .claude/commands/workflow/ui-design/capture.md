@@ -1,6 +1,6 @@
 ---
 name: capture
-description: Batch screenshot capture for UI design workflows using MCP or local fallback
+description: Batch screenshot capture for UI design workflows using MCP puppeteer or local fallback with URL mapping
 argument-hint: --url-map "target:url,..." [--base-path path] [--session id]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*), ListMcpResourcesTool(*), mcp__chrome-devtools__*, mcp__playwright__*
 ---

@@ -1,6 +1,6 @@
 ---
 name: load-skill-memory
-description: Activate SKILL package (auto-detect or manual) and load documentation based on task intent
+description: Activate SKILL package (auto-detect from paths/keywords or manual) and intelligently load documentation based on task intent keywords
 argument-hint: "[skill_name] \"task intent description\""
 allowed-tools: Bash(*), Read(*), Skill(*)
 ---

@@ -1,6 +1,6 @@
 ---
 name: resume
-description: Intelligent workflow session resumption with automatic progress analysis
+description: Resume paused workflow session with automatic progress analysis, pending task identification, and conflict detection
 argument-hint: "session-id for workflow session to resume"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---

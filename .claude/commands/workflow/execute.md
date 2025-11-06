@@ -1,6 +1,6 @@
 ---
 name: execute
-description: Coordinate agents for existing workflow tasks with automatic discovery
+description: Coordinate agent execution for workflow tasks with automatic session discovery, parallel task processing, and status tracking
 argument-hint: "[--resume-session=\"session-id\"]"
 ---
 

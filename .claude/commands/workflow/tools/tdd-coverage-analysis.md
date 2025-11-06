@@ -1,6 +1,6 @@
 ---
 name: tdd-coverage-analysis
-description: Analyze test coverage and TDD cycle execution
+description: Analyze test coverage and TDD cycle execution with Red-Green-Refactor compliance verification
 argument-hint: "--session WFS-session-id"
 allowed-tools: Read(*), Write(*), Bash(*)
 ---

@@ -1,6 +1,6 @@
 ---
 name: update-related
-description: Context-aware CLAUDE.md documentation updates based on recent changes with agent-based execution and tool fallback
+description: Update CLAUDE.md for git-changed modules using batched agent execution (4 modules/agent) with gemini→qwen→codex fallback, <15 modules uses direct execution
 argument-hint: "[--tool gemini|qwen|codex]"
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: animation-extract
-description: Extract animation and transition patterns from URLs, CSS, or interactive questioning
+description: Extract animation and transition patterns from URLs, CSS, or interactive questioning for design system documentation
 argument-hint: "[--base-path <path>] [--session <id>] [--urls "<list>"] [--mode <auto|interactive>] [--focus "<types>"]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), Task(ui-design-agent), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
 ---

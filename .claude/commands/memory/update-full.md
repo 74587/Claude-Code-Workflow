@@ -1,6 +1,6 @@
 ---
 name: update-full
-description: Complete project-wide CLAUDE.md documentation update with agent-based parallel execution and tool fallback
+description: Update all CLAUDE.md files using layer-based execution (Layer 3→1) with batched agents (4 modules/agent) and gemini→qwen→codex fallback, <20 modules uses direct parallel
 argument-hint: "[--tool gemini|qwen|codex] [--path <directory>]"
 ---
 

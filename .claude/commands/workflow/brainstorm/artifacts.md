@@ -1,6 +1,6 @@
 ---
 name: artifacts
-description: Interactive clarification generating confirmed guidance specification
+description: Interactive clarification generating confirmed guidance specification through role-based analysis and synthesis
 argument-hint: "topic or challenge description [--count N]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 ---

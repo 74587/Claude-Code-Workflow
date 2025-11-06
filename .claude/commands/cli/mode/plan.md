@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Project planning and architecture analysis using CLI tools
+description: Read-only architecture planning using Gemini/Qwen/Codex with strategic planning template for modification plans and impact analysis
 argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] [--cd path] topic"
 allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---

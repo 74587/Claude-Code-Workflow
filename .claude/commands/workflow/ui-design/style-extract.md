@@ -1,6 +1,6 @@
 ---
 name: style-extract
-description: Extract design style from reference images or text prompts using Claude's analysis
+description: Extract design style from reference images or text prompts using Claude analysis with variant generation
 argument-hint: "[--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--mode <imitate|explore>] [--variants <count>]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
 ---

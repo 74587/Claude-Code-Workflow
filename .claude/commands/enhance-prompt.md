@@ -1,6 +1,6 @@
 ---
 name: enhance-prompt
-description: Context-aware prompt enhancement using session memory and codebase analysis
+description: Enhanced prompt transformation using session memory and codebase analysis with --enhance flag detection
 argument-hint: "user input to enhance"
 ---
 

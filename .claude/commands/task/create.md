@@ -1,6 +1,6 @@
 ---
 name: create
-description: Create implementation tasks with automatic context awareness
+description: Generate task JSON from natural language description with automatic file pattern detection, scope inference, and dependency analysis
 argument-hint: "\"task title\""
 ---
 

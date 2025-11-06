@@ -1,6 +1,6 @@
 ---
 name: analyze
-description: Quick codebase analysis using CLI tools (codex/gemini/qwen)
+description: Read-only codebase analysis using Gemini (default), Qwen, or Codex with auto-pattern detection and template selection
 argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] analysis target"
 allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*), Task(*)
 ---

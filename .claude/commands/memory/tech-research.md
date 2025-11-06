@@ -1,6 +1,6 @@
 ---
 name: tech-research
-description: Generate tech stack SKILL packages using Exa research via agent delegation
+description: 3-phase orchestrator: extract tech stack from session/name → delegate to agent for Exa research and module generation → generate SKILL.md index (skips phase 2 if exists)
 argument-hint: "[session-id | tech-stack-name] [--regenerate] [--tool <gemini|qwen>]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*), Task(*)
 ---

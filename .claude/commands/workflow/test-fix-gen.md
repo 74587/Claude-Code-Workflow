@@ -1,6 +1,6 @@
 ---
 name: test-fix-gen
-description: Create independent test-fix workflow session from existing implementation (session or prompt-based)
+description: Create test-fix workflow session from session ID, description, or file path with test strategy generation and task planning
 argument-hint: "[--use-codex] [--cli-execute] (source-session-id | \"feature description\" | /path/to/file.md)"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---

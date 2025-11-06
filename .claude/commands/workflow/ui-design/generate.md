@@ -1,6 +1,6 @@
 ---
 name: generate
-description: Assemble UI prototypes by combining layout templates with design tokens (pure assembler)
+description: Assemble UI prototypes by combining layout templates with design tokens, pure assembler without new content generation
 argument-hint: [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 ---

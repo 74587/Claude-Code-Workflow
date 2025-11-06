@@ -1,6 +1,6 @@
 ---
 name: docs
-description: Documentation planning and orchestration - creates structured documentation tasks for execution
+description: Plan documentation workflow with dynamic grouping (≤10 docs/task), generates IMPL tasks for parallel module trees, README, ARCHITECTURE, and HTTP API docs
 argument-hint: "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-execute]"
 ---
 

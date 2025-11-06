@@ -1,6 +1,6 @@
 ---
 name: bug-diagnosis
-description: Bug diagnosis and fix suggestions using CLI tools with specialized template
+description: Read-only bug root cause analysis using Gemini/Qwen/Codex with systematic diagnosis template for fix suggestions
 argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] [--cd path] bug description"
 allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---

@@ -1,6 +1,6 @@
 ---
 name: tdd-plan
-description: Orchestrate TDD workflow planning with Red-Green-Refactor task chains
+description: TDD workflow planning with Red-Green-Refactor task chain generation, test-first development structure, and cycle tracking
 argument-hint: "[--agent] \"feature description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---

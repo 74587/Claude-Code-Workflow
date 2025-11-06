@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Orchestrate 5-phase planning workflow with quality gate, executing commands and passing context between phases
+description: 5-phase planning workflow with Gemini analysis and action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs with optional CLI auto-execution
 argument-hint: "[--agent] [--cli-execute] \"text description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---

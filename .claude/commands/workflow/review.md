@@ -1,6 +1,6 @@
 ---
 name: review
-description: Optional specialized review (security, architecture, docs) for completed implementation
+description: Post-implementation review with specialized types (security/architecture/action-items/quality) using analysis agents and Gemini
 argument-hint: "[--type=security|architecture|action-items|quality] [optional: session-id]"
 ---
 

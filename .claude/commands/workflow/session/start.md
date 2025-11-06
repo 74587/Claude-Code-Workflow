@@ -1,6 +1,6 @@
 ---
 name: start
-description: Discover existing sessions or start a new workflow session with intelligent session management
+description: Discover existing sessions or start new workflow session with intelligent session management and conflict detection
 argument-hint: [--auto|--new] [optional: task description for new session]
 examples:
   - /workflow:session:start

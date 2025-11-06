@@ -1,6 +1,6 @@
 ---
 name: load
-description: Load project memory by delegating to agent, returns structured core content package for subsequent operations
+description: Delegate to universal-executor agent to analyze project via Gemini/Qwen CLI and return JSON core content package for task context
 argument-hint: "[--tool gemini|qwen] \"task context description\""
 allowed-tools: Task(*), Bash(*)
 examples:

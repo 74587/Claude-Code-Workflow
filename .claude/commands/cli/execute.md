@@ -1,6 +1,6 @@
 ---
 name: execute
-description: Auto-execution of implementation tasks with YOLO permissions and intelligent context inference
+description: Autonomous code implementation with YOLO auto-approval using Gemini/Qwen/Codex, supports task ID or description input with automatic file pattern detection
 argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] description or task-id"
 allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---

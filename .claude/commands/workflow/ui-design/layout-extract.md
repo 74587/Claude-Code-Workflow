@@ -1,6 +1,6 @@
 ---
 name: layout-extract
-description: Extract structural layout information from reference images, URLs, or text prompts
+description: Extract structural layout information from reference images, URLs, or text prompts using Claude analysis
 argument-hint: [--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--targets "<list>"] [--mode <imitate|explore>] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), Task(ui-design-agent), mcp__exa__web_search_exa(*)
 ---

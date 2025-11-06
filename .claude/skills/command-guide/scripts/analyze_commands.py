@@ -107,13 +107,17 @@ def analyze_command_file(file_path: Path) -> Dict[str, Any]:
     difficulty = determine_difficulty(name, description, category)
 
     # Build relative path
-    rel_path = str(file_path.relative_to(COMMANDS_DIR))
+    rel_path = str(file_path.relative_to(COMMANDS_DIR)).replace('\\', '/')
 
-    # Build full command name
-    if category == "general":
+    # Build full command name from frontmatter name or construct it
+    # If name already contains colons (e.g., "workflow:status"), use it directly
+    if ':' in name:
+        command_name = f"/{name}"
+    elif category == "general":
         command_name = f"/{name}"
     else:
-        if subcategory and subcategory not in name:
+        # For subcategorized commands, build the full path
+        if subcategory:
             command_name = f"/{category}:{subcategory}:{name}"
         else:
             command_name = f"/{category}:{name}"
@@ -134,53 +138,59 @@ def build_command_relationships() -> Dict[str, Any]:
     """Build command relationship mappings."""
     relationships = {
         # Workflow planning commands
-        "plan": {
+        "workflow:plan": {
             "calls_internally": [
-                "session:start",
-                "tools:context-gather",
-                "tools:conflict-resolution",
-                "tools:task-generate",
-                "tools:task-generate-agent"
+                "workflow:session:start",
+                "workflow:tools:context-gather",
+                "workflow:tools:conflict-resolution",
+                "workflow:tools:task-generate",
+                "workflow:tools:task-generate-agent"
             ],
-            "next_steps": ["action-plan-verify", "status", "execute"],
-            "alternatives": ["tdd-plan"]
+            "next_steps": ["workflow:action-plan-verify", "workflow:status", "workflow:execute"],
+            "alternatives": ["workflow:tdd-plan"],
+            "prerequisites": []
         },
-        "tdd-plan": {
+        "workflow:tdd-plan": {
             "calls_internally": [
-                "session:start",
-                "tools:context-gather",
-                "tools:task-generate-tdd"
+                "workflow:session:start",
+                "workflow:tools:context-gather",
+                "workflow:tools:task-generate-tdd"
             ],
-            "next_steps": ["tdd-verify", "status", "execute"],
-            "alternatives": ["plan"]
+            "next_steps": ["workflow:tdd-verify", "workflow:status", "workflow:execute"],
+            "alternatives": ["workflow:plan"],
+            "prerequisites": []
         },
 
         # Execution commands
-        "execute": {
-            "prerequisites": ["plan", "tdd-plan"],
-            "related": ["status", "resume"],
-            "next_steps": ["review", "tdd-verify"]
+        "workflow:execute": {
+            "prerequisites": ["workflow:plan", "workflow:tdd-plan"],
+            "related": ["workflow:status", "workflow:resume"],
+            "next_steps": ["workflow:review", "workflow:tdd-verify"]
         },
 
         # Verification commands
-        "action-plan-verify": {
-            "prerequisites": ["plan"],
-            "next_steps": ["execute"],
-            "related": ["status"]
+        "workflow:action-plan-verify": {
+            "prerequisites": ["workflow:plan"],
+            "next_steps": ["workflow:execute"],
+            "related": ["workflow:status"]
         },
-        "tdd-verify": {
-            "prerequisites": ["execute"],
-            "related": ["tools:tdd-coverage-analysis"]
+        "workflow:tdd-verify": {
+            "prerequisites": ["workflow:execute"],
+            "related": ["workflow:tools:tdd-coverage-analysis"]
         },
 
         # Session management
-        "session:start": {
-            "next_steps": ["plan", "execute"],
-            "related": ["session:list", "session:resume"]
+        "workflow:session:start": {
+            "next_steps": ["workflow:plan", "workflow:execute"],
+            "related": ["workflow:session:list", "workflow:session:resume"]
         },
-        "session:resume": {
-            "alternatives": ["resume"],
-            "related": ["session:list", "status"]
+        "workflow:session:resume": {
+            "alternatives": ["workflow:resume"],
+            "related": ["workflow:session:list", "workflow:status"]
+        },
+        "workflow:resume": {
+            "alternatives": ["workflow:session:resume"],
+            "related": ["workflow:status"]
         },
 
         # Task management
@@ -193,17 +203,29 @@ def build_command_relationships() -> Dict[str, Any]:
             "related": ["task:create"]
         },
         "task:replan": {
-            "prerequisites": ["plan"],
-            "related": ["action-plan-verify"]
+            "prerequisites": ["workflow:plan"],
+            "related": ["workflow:action-plan-verify"]
+        },
+        "task:execute": {
+            "prerequisites": ["task:create", "task:breakdown", "workflow:plan"],
+            "related": ["workflow:status"]
         },
 
         # Memory/Documentation
         "memory:docs": {
             "calls_internally": [
-                "session:start",
-                "tools:context-gather"
+                "workflow:session:start",
+                "workflow:tools:context-gather"
             ],
-            "next_steps": ["execute"]
+            "next_steps": ["workflow:execute"]
+        },
+        "memory:skill-memory": {
+            "next_steps": ["workflow:plan", "cli:analyze"],
+            "related": ["memory:load-skill-memory"]
+        },
+        "memory:workflow-skill-memory": {
+            "related": ["memory:skill-memory"],
+            "next_steps": ["workflow:plan"]
         },
 
         # CLI modes
@@ -211,15 +233,47 @@ def build_command_relationships() -> Dict[str, Any]:
             "alternatives": ["cli:codex-execute"],
             "related": ["cli:analyze", "cli:chat"]
         },
+        "cli:analyze": {
+            "related": ["cli:chat", "cli:mode:code-analysis"],
+            "next_steps": ["cli:execute"]
+        },
 
         # Brainstorming
-        "brainstorm:artifacts": {
-            "next_steps": ["brainstorm:synthesis", "plan"],
-            "related": ["brainstorm:auto-parallel"]
+        "workflow:brainstorm:artifacts": {
+            "next_steps": ["workflow:brainstorm:synthesis", "workflow:plan"],
+            "related": ["workflow:brainstorm:auto-parallel"]
         },
-        "brainstorm:synthesis": {
-            "prerequisites": ["brainstorm:artifacts"],
-            "next_steps": ["plan"]
+        "workflow:brainstorm:synthesis": {
+            "prerequisites": ["workflow:brainstorm:artifacts"],
+            "next_steps": ["workflow:plan"]
+        },
+        "workflow:brainstorm:auto-parallel": {
+            "next_steps": ["workflow:brainstorm:synthesis", "workflow:plan"],
+            "related": ["workflow:brainstorm:artifacts"]
+        },
+
+        # Test workflows
+        "workflow:test-gen": {
+            "prerequisites": ["workflow:execute"],
+            "next_steps": ["workflow:test-cycle-execute"]
+        },
+        "workflow:test-fix-gen": {
+            "alternatives": ["workflow:test-gen"],
+            "next_steps": ["workflow:test-cycle-execute"]
+        },
+        "workflow:test-cycle-execute": {
+            "prerequisites": ["workflow:test-gen", "workflow:test-fix-gen"],
+            "related": ["workflow:tdd-verify"]
+        },
+
+        # UI Design workflows
+        "workflow:ui-design:explore-auto": {
+            "calls_internally": ["workflow:ui-design:capture", "workflow:ui-design:style-extract", "workflow:ui-design:layout-extract"],
+            "next_steps": ["workflow:ui-design:generate"]
+        },
+        "workflow:ui-design:imitate-auto": {
+            "calls_internally": ["workflow:ui-design:capture"],
+            "next_steps": ["workflow:ui-design:generate"]
         }
     }
 
@@ -227,30 +281,33 @@ def build_command_relationships() -> Dict[str, Any]:
 
 def identify_essential_commands(all_commands: List[Dict]) -> List[Dict]:
     """Identify the most essential commands for beginners."""
-    # Essential command names (14 most important)
+    # Essential command names (14 most important) - use full command paths
     essential_names = [
-        "plan",
-        "execute",
-        "status",
-        "session:start",
+        "workflow:plan",
+        "workflow:execute",
+        "workflow:status",
+        "workflow:session:start",
         "task:execute",
         "cli:analyze",
         "cli:chat",
         "memory:docs",
-        "brainstorm:artifacts",
-        "action-plan-verify",
-        "resume",
-        "review",
+        "workflow:brainstorm:artifacts",
+        "workflow:action-plan-verify",
+        "workflow:resume",
+        "workflow:review",
         "version",
         "enhance-prompt"
     ]
 
     essential = []
     for cmd in all_commands:
-        # Check both command name and simple name
-        cmd_simple = cmd['command'].lstrip('/')
-        if cmd_simple in essential_names or cmd['name'] in essential_names:
+        # Check command name without leading slash
+        cmd_name = cmd['command'].lstrip('/')
+        if cmd_name in essential_names:
             essential.append(cmd)
+
+    # Sort by order in essential_names
+    essential.sort(key=lambda x: essential_names.index(x['command'].lstrip('/')))
 
     return essential[:14]  # Limit to 14
 

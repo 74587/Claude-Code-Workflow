@@ -1,6 +1,6 @@
 ---
 name: task-generate-tdd
-description: Generate TDD task chains with Red-Green-Refactor dependencies
+description: Generate TDD task chains with Red-Green-Refactor dependencies, test-first structure, and cycle validation
 argument-hint: "--session WFS-session-id [--agent]"
 allowed-tools: Read(*), Write(*), Bash(gemini:*), TodoWrite(*)
 ---

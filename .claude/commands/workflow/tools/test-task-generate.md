@@ -1,6 +1,6 @@
 ---
 name: test-task-generate
-description: Generate test-fix task JSON with iterative test-fix-retest cycle specification
+description: Generate test-fix task JSON with iterative test-fix-retest cycle specification using Gemini/Qwen/Codex
 argument-hint: "[--use-codex] [--cli-execute] --session WFS-test-session-id"
 examples:
   - /workflow:tools:test-task-generate --session WFS-test-auth

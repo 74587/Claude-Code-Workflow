@@ -1,6 +1,6 @@
 ---
 name: resume
-description: Resume the most recently paused workflow session
+description: Resume the most recently paused workflow session with automatic session discovery and status update
 ---
 
 # Resume Workflow Session (/workflow:session:resume)

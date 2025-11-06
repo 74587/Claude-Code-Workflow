@@ -1,6 +1,6 @@
 ---
 name: breakdown
-description: Intelligent task decomposition with context-aware subtask generation
+description: Decompose complex task into subtasks with dependency mapping, creates child task JSONs with parent references and execution order
 argument-hint: "task-id"
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: code-analysis
-description: Deep code analysis and debugging using CLI tools with specialized template
+description: Read-only execution path tracing using Gemini/Qwen/Codex with specialized analysis template for call flow and optimization
 argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] [--cd path] analysis target"
 allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---

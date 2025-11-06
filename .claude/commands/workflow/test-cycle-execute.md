@@ -1,6 +1,6 @@
 ---
 name: test-cycle-execute
-description: Execute test-fix workflow with dynamic task generation and iterative fix cycles
+description: Execute test-fix workflow with dynamic task generation and iterative fix cycles until all tests pass or max iterations reached
 argument-hint: "[--resume-session=\"session-id\"] [--max-iterations=N]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---

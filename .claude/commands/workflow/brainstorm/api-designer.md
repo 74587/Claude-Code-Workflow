@@ -1,6 +1,6 @@
 ---
 name: api-designer
-description: Generate or update api-designer/analysis.md addressing guidance-specification discussion points
+description: Generate or update api-designer/analysis.md addressing guidance-specification discussion points for API design perspective
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---

@@ -1,6 +1,6 @@
 ---
 name: synthesis
-description: Clarify and refine role analyses through intelligent Q&A and targeted updates
+description: Clarify and refine role analyses through intelligent Q&A and targeted updates with synthesis agent
 argument-hint: "[optional: --session session-id]"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*), Edit(*), Glob(*)
 ---

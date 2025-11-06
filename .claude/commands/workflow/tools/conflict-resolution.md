@@ -1,6 +1,6 @@
 ---
 name: conflict-resolution
-description: Detect and resolve conflicts between plan and existing codebase using CLI-powered analysis
+description: Detect and resolve conflicts between plan and existing codebase using CLI-powered analysis with Gemini/Qwen
 argument-hint: "--session WFS-session-id --context path/to/context-package.json"
 examples:
   - /workflow:tools:conflict-resolution --session WFS-auth --context .workflow/WFS-auth/.process/context-package.json

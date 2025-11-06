@@ -1,6 +1,6 @@
 ---
 name: skill-memory
-description: Generate SKILL package index from project documentation
+description: 4-phase autonomous orchestrator: check docs → /memory:docs planning → /workflow:execute → generate SKILL.md with progressive loading index (skips phases 2-3 if docs exist)
 argument-hint: "[path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*)
 ---

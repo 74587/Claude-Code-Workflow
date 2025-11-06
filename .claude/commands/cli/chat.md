@@ -1,6 +1,6 @@
 ---
 name: chat
-description: Simple CLI interaction command for direct codebase analysis
+description: Read-only Q&A interaction with Gemini/Qwen/Codex for codebase questions with automatic context inference
 argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] inquiry"
 allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---

@@ -1,6 +1,6 @@
 ---
 name: ui-designer
-description: Generate or update ui-designer/analysis.md addressing guidance-specification discussion points
+description: Generate or update ui-designer/analysis.md addressing guidance-specification discussion points for UI design perspective
 argument-hint: "optional topic - uses existing framework if available"
 allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ---

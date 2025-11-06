@@ -1,6 +1,6 @@
 ---
 name: complete
-description: Mark the active workflow session as complete, archive it with lessons learned, and remove active flag
+description: Mark active workflow session as complete, archive with lessons learned, update manifest, remove active flag
 examples:
   - /workflow:session:complete
   - /workflow:session:complete --detailed

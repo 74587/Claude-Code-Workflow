@@ -1,6 +1,6 @@
 ---
 name: test-gen
-description: Create independent test-fix workflow session by analyzing completed implementation
+description: Create independent test-fix workflow session from completed implementation session, analyzes code to generate test tasks
 argument-hint: "[--use-codex] [--cli-execute] source-session-id"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---

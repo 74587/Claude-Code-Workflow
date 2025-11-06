@@ -1,6 +1,6 @@
 ---
 name: version
-description: Display version information and check for updates
+description: Display Claude Code version information and check for updates
 allowed-tools: Bash(*)
 ---
 
