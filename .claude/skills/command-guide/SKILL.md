@@ -78,15 +78,26 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 
 **When**: User wants to report issue or request feature
 
-**Triggers**: **"CCW-issue"**, **"CCW-help"**, "报告 bug", "功能建议", "问题咨询"
+**Triggers**: **"CCW-issue"**, **"CCW-help"**, "报告 bug", "功能建议", "问题咨询", "交互式诊断"
 
 **Process**:
-1. Use AskUserQuestion to confirm type (bug/feature/question)
-2. Collect required information interactively
-3. Select appropriate template (`templates/issue-{type}.md`)
-4. Generate filled template and save/display
+1. Use AskUserQuestion to confirm type (diagnosis/bug/feature/question)
+2. Collect required information interactively with **execution flow emphasis**
+3. Select appropriate template:
+   - `issue-diagnosis.md` - Full diagnostic workflow with decision tree
+   - `issue-bug.md` - Bug report with complete command history
+   - `issue-feature.md` - Feature request with current workflow analysis
+   - `issue-question.md` - Question with detailed attempt history
+4. Generate filled template with privacy-protected command history
+5. Save/display with troubleshooting guidance
 
-**Example**: "CCW-issue" → Interactive Q&A → Generates GitHub issue template
+**Example**: "CCW-issue" → Interactive Q&A → Generates GitHub issue template with full execution context
+
+**🆕 Enhanced Features**:
+- Complete command history with privacy protection
+- Interactive diagnostic checklists
+- Decision tree navigation (diagnosis template)
+- Execution environment capture
 
 ---
 
@@ -117,11 +128,18 @@ All command metadata is stored in JSON indexes for fast querying:
 
 ## 🛠️ Issue Templates
 
-Generate standardized GitHub issue templates:
+Generate standardized GitHub issue templates with **execution flow emphasis**:
 
-- **[Bug Report](templates/issue-bug.md)** - Report command errors or system bugs
-- **[Feature Request](templates/issue-feature.md)** - Suggest new features or improvements
-- **[Question](templates/issue-question.md)** - Ask usage questions or request help
+- **[Interactive Diagnosis](templates/issue-diagnosis.md)** - 🆕 Comprehensive diagnostic workflow with decision tree, checklists, and full command history
+- **[Bug Report](templates/issue-bug.md)** - Report command errors with complete execution flow and environment details
+- **[Feature Request](templates/issue-feature.md)** - Suggest improvements with current workflow analysis and pain points
+- **[Question](templates/issue-question.md)** - Ask usage questions with detailed attempt history and context
+
+**All templates now include**:
+- ✅ Complete command history sections (with privacy protection)
+- ✅ Execution environment details
+- ✅ Interactive problem-locating checklists
+- ✅ Structured troubleshooting guidance
 
 Templates are auto-populated during Mode 5 (Issue Reporting) interaction.
 
@@ -174,6 +192,12 @@ Team members get latest indexes via `git pull`.
 
 ---
 
-**Version**: 1.1.0
+**Version**: 1.2.0 (Issue templates enhanced with execution flow emphasis)
 **Last Updated**: 2025-11-06
 **Maintainer**: Claude DMS3 Team
+
+**Changelog v1.2.0**:
+- ✅ Added Interactive Diagnosis template with decision tree
+- ✅ Enhanced all templates with complete command history sections
+- ✅ Added privacy protection guidelines for sensitive information
+- ✅ Integrated execution flow emphasis across all issue templates
