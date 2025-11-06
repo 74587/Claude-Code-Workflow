@@ -123,15 +123,16 @@ Comprehensive command guide for Claude DMS3 workflow system covering 69 commands
 1. Detect complexity indicators (多个命令对比、工作流程分析、最佳实践)
 2. Construct analysis prompt for gemini/qwen:
    ```bash
-   cd reference && gemini -p "
+   gemini -p "
    PURPOSE: Analyze command documentation to answer user query
    TASK: [extracted user question with context]
    MODE: analysis
-   CONTEXT: @agents/**/* @commands/**/*
+   CONTEXT: @**/*
    EXPECTED: Comprehensive answer with examples and recommendations
    RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on practical usage | analysis=READ-ONLY
-   " -m gemini-3-pro-preview-11-2025
+   " -m gemini-3-pro-preview-11-2025 --include-directories ~/.claude/skills/command-guide/reference
    ```
+   Note: Use absolute path `~/.claude/skills/command-guide/reference` for reference documentation access
 3. Return CLI analysis results to user
 
 **Query Classification**:
@@ -192,7 +193,11 @@ Complete backup of all command and agent documentation for deep analysis:
   - `task/` - Task management commands (4 files)
   - `workflow/` - Workflow commands (46 files)
 
-**Usage**: Mode 6 queries these files directly for detailed command/agent analysis, or uses CLI tools (gemini/qwen) for complex cross-command analysis.
+**Installation Path**: `~/.claude/skills/command-guide/` (skill designed for global installation)
+
+**Absolute Reference Path**: `~/.claude/skills/command-guide/reference/`
+
+**Usage**: Mode 6 queries these files directly for detailed command/agent analysis, or uses CLI tools (gemini/qwen) with absolute paths for complex cross-command analysis.
 
 ---
 
@@ -264,9 +269,14 @@ Team members get latest indexes via `git pull`.
 
 ---
 
-**Version**: 1.3.0 (Deep command analysis with reference documentation backup)
+**Version**: 1.3.1 (Path configuration for global installation)
 **Last Updated**: 2025-11-06
 **Maintainer**: Claude DMS3 Team
+
+**Changelog v1.3.1**:
+- ✅ Updated all paths to use absolute paths (`~/.claude/skills/command-guide/`)
+- ✅ CLI commands now use `--include-directories` with absolute reference path
+- ✅ Ensures skill works correctly when installed in `~/.claude/skills/`
 
 **Changelog v1.3.0**:
 - ✅ Added Mode 6: Deep Command Analysis with CLI-assisted queries

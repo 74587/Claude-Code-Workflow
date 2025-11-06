@@ -518,6 +518,9 @@ async function reportIssue(issueType) {
 
 ## Mode 6: Deep Command Analysis 🔬
 
+**Path Configuration Note**:
+This mode uses absolute paths (`~/.claude/skills/command-guide/reference`) to ensure the skill works correctly regardless of where it's installed. The skill is designed to be installed in `~/.claude/skills/` (user's global Claude configuration directory).
+
 ### Trigger Analysis
 
 **Keywords**: 详细说明, 命令原理, agent 如何工作, 实现细节, 对比命令, 最佳实践
@@ -591,15 +594,18 @@ async function handleSimpleQuery(query) {
   const isAgent = entityName.includes('-agent') || entityName.includes('agent');
   const isCommand = entityName.includes(':') || entityName.startsWith('/');
 
+  // Base path for reference documentation
+  const basePath = '~/.claude/skills/command-guide/reference';
+
   let filePath;
   if (isAgent) {
-    // Agent query
+    // Agent query - use absolute path
     const agentFileName = entityName.replace(/^\//, '').replace(/-agent$/, '-agent');
-    filePath = `reference/agents/${agentFileName}.md`;
+    filePath = `${basePath}/agents/${agentFileName}.md`;
   } else if (isCommand) {
     // Command query - need to find in command hierarchy
     const cmdName = entityName.replace(/^\//, '');
-    filePath = await locateCommandFile(cmdName);
+    filePath = await locateCommandFile(cmdName, basePath);
   }
 
   // Read documentation
@@ -618,16 +624,16 @@ async function handleSimpleQuery(query) {
   };
 }
 
-async function locateCommandFile(commandName) {
+async function locateCommandFile(commandName, basePath) {
   // Parse command category from name
-  // e.g., "workflow:plan" → "reference/commands/workflow/plan.md"
+  // e.g., "workflow:plan" → "~/.claude/skills/command-guide/reference/commands/workflow/plan.md"
   const [category, name] = commandName.split(':');
 
-  // Search in reference/commands hierarchy
+  // Search in reference/commands hierarchy using absolute paths
   const possiblePaths = [
-    `reference/commands/${category}/${name}.md`,
-    `reference/commands/${category}/${name}/*.md`,
-    `reference/commands/${name}.md`
+    `${basePath}/commands/${category}/${name}.md`,
+    `${basePath}/commands/${category}/${name}/*.md`,
+    `${basePath}/commands/${name}.md`
   ];
 
   for (const path of possiblePaths) {
@@ -737,11 +743,12 @@ function buildCLIPrompt(userQuery, classification, contextPaths) {
   }
 
   // Construct full prompt using Standard Template
+  // Note: CONTEXT uses @**/* because we'll use --include-directories to specify the reference path
   return `PURPOSE: Analyze command/agent documentation to provide comprehensive answer to user query
 TASK:
 ${taskDescription}
 MODE: analysis
-CONTEXT: ${contextRef}
+CONTEXT: @**/*
 EXPECTED: Comprehensive answer with examples, comparisons, and recommendations in markdown format
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on practical usage and real-world scenarios | analysis=READ-ONLY
 
@@ -749,11 +756,13 @@ User Question: ${question}`;
 }
 
 async function executeCLIAnalysis(prompt) {
-  // Change to reference directory for correct file context
-  const cwd = 'reference';
+  // Use absolute path for reference directory
+  // This ensures the command works regardless of where the skill is installed
+  const referencePath = '~/.claude/skills/command-guide/reference';
 
-  // Execute gemini with analysis prompt
-  const command = `cd ${cwd} && gemini -p "${escapePrompt(prompt)}" -m gemini-3-pro-preview-11-2025`;
+  // Execute gemini with analysis prompt using --include-directories
+  // This allows gemini to access reference docs while maintaining correct file context
+  const command = `gemini -p "${escapePrompt(prompt)}" -m gemini-3-pro-preview-11-2025 --include-directories ${referencePath}`;
 
   try {
     const result = await execBash(command, { timeout: 120000 }); // 2 min timeout
@@ -761,7 +770,7 @@ async function executeCLIAnalysis(prompt) {
   } catch (error) {
     // Fallback to qwen if gemini fails
     console.warn('Gemini failed, falling back to qwen');
-    const fallbackCmd = `cd ${cwd} && qwen -p "${escapePrompt(prompt)}" -m coder-model`;
+    const fallbackCmd = `qwen -p "${escapePrompt(prompt)}" -m coder-model --include-directories ${referencePath}`;
     const result = await execBash(fallbackCmd, { timeout: 120000 });
     return parseAnalysisResult(result.stdout);
   }
@@ -816,17 +825,21 @@ function extractAllEntities(query) {
 }
 
 async function resolveEntityPath(entityName) {
+  // Base path for reference documentation
+  const basePath = '~/.claude/skills/command-guide/reference';
   const isAgent = entityName.includes('-agent');
 
   if (isAgent) {
+    // Return relative path within reference directory (used for @context in CLI)
     return `agents/${entityName}.md`;
   } else {
     // Command - need to find in hierarchy
     const [category] = entityName.split(':');
-    // Use glob to find the file
-    const matches = await glob(`commands/${category}/**/${entityName.split(':')[1]}.md`);
+    // Use glob to find the file (glob pattern uses absolute path)
+    const matches = await glob(`${basePath}/commands/${category}/**/${entityName.split(':')[1]}.md`);
     if (matches.length > 0) {
-      return matches[0];
+      // Return relative path within reference directory
+      return matches[0].replace(`${basePath}/`, '');
     }
     throw new Error(`Entity file not found: ${entityName}`);
   }
@@ -870,7 +883,7 @@ function escapePrompt(prompt) {
     workflow: "## Workflow\n1. Analyze requirements\n2. Break down into tasks...",
     examples: "## Examples\n```bash\n/workflow:plan --agent \"feature\"\n```"
   },
-  full_path: "reference/agents/action-planning-agent.md",
+  full_path: "~/.claude/skills/command-guide/reference/agents/action-planning-agent.md",
   related: ["workflow:plan", "task:create", "conceptual-planning-agent"]
 }
 ```
@@ -921,8 +934,8 @@ function escapePrompt(prompt) {
     format: "markdown"
   },
   source_files: [
-    "commands/workflow/plan.md",
-    "commands/workflow/tdd-plan.md"
+    "~/.claude/skills/command-guide/reference/commands/workflow/plan.md",
+    "~/.claude/skills/command-guide/reference/commands/workflow/tdd-plan.md"
   ]
 }
 ```
