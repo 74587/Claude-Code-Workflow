@@ -46,6 +46,8 @@ codex -C [dir] --full-auto exec "[prompt]" [-m model] [--skip-git-repo-check -s 
 - `gemini-2.5-pro` - Analysis (alternative)
 - `gemini-2.5-flash` - Documentation updates
 
+**Error Handling**: If `gemini-3-pro-preview-11-2025` returns 404 error, fallback to `gemini-2.5-pro`
+
 **Qwen**:
 - `coder-model` - Code analysis (default)
 - `vision-model` - Image analysis (rare)
@@ -121,7 +123,9 @@ codex -C [dir] --full-auto exec "[prompt]" [-m model] [--skip-git-repo-check -s 
 
 **Priority**: Prefer Gemini; use Qwen as fallback when Gemini unavailable
 
-**Error Handling**: Gemini may show HTTP 429 error but still return results - check if results exist (results present = success, no results = retry/fallback to Qwen)
+**Error Handling**:
+- **HTTP 429**: May show error but still return results - check if results exist (results present = success, no results = retry/fallback to Qwen)
+- **HTTP 404**: If `gemini-3-pro-preview-11-2025` returns 404, fallback to `gemini-2.5-pro`
 
 ### Codex
 
