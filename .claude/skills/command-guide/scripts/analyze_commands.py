@@ -6,13 +6,18 @@ Analyze all command files and generate index files for command-guide skill.
 import os
 import re
 import json
+import shutil
 from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Any
 
 # Base paths
-COMMANDS_DIR = Path("D:/Claude_dms3/.claude/commands")
-INDEX_DIR = Path("D:/Claude_dms3/.claude/skills/command-guide/index")
+BASE_DIR = Path("D:/Claude_dms3/.claude")
+COMMANDS_DIR = BASE_DIR / "commands"
+AGENTS_DIR = BASE_DIR / "agents"
+SKILL_DIR = BASE_DIR / "skills" / "command-guide"
+REFERENCE_DIR = SKILL_DIR / "reference"
+INDEX_DIR = SKILL_DIR / "index"
 
 def parse_frontmatter(content: str) -> Dict[str, Any]:
     """Extract YAML frontmatter from markdown content."""
@@ -279,6 +284,41 @@ def build_command_relationships() -> Dict[str, Any]:
 
     return relationships
 
+def sync_reference_directory():
+    """Sync reference directory with source directories."""
+    print("\n=== Syncing Reference Directory ===")
+
+    # Step 1: Delete all files in reference directory
+    if REFERENCE_DIR.exists():
+        print(f"Deleting existing reference directory: {REFERENCE_DIR}")
+        shutil.rmtree(REFERENCE_DIR)
+
+    # Step 2: Create reference directory structure
+    REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"Created reference directory: {REFERENCE_DIR}")
+
+    # Step 3: Copy agents directory
+    agents_target = REFERENCE_DIR / "agents"
+    if AGENTS_DIR.exists():
+        print(f"Copying {AGENTS_DIR} -> {agents_target}")
+        shutil.copytree(AGENTS_DIR, agents_target)
+        agent_files = list(agents_target.rglob("*.md"))
+        print(f"  Copied {len(agent_files)} agent files")
+    else:
+        print(f"  WARNING: Source directory not found: {AGENTS_DIR}")
+
+    # Step 4: Copy commands directory
+    commands_target = REFERENCE_DIR / "commands"
+    if COMMANDS_DIR.exists():
+        print(f"Copying {COMMANDS_DIR} -> {commands_target}")
+        shutil.copytree(COMMANDS_DIR, commands_target)
+        command_files = list(commands_target.rglob("*.md"))
+        print(f"  Copied {len(command_files)} command files")
+    else:
+        print(f"  WARNING: Source directory not found: {COMMANDS_DIR}")
+
+    print("Reference directory sync completed\n")
+
 def identify_essential_commands(all_commands: List[Dict]) -> List[Dict]:
     """Identify the most essential commands for beginners."""
     # Essential command names (14 most important) - use full command paths
@@ -320,7 +360,13 @@ def main():
     if sys.platform == 'win32':
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-    print("Analyzing command files...")
+    print("=== Command Guide Index Rebuild ===\n")
+
+    # Step 1: Sync reference directory
+    sync_reference_directory()
+
+    # Step 2: Analyze command files
+    print("=== Analyzing Command Files ===")
 
     # Find all command files
     command_files = list(COMMANDS_DIR.rglob("*.md"))
@@ -385,7 +431,17 @@ def main():
 
     # Print summary statistics
     print("\n=== Summary Statistics ===")
-    print(f"Total commands: {len(all_commands)}")
+
+    # Reference directory statistics
+    if REFERENCE_DIR.exists():
+        ref_agents = list((REFERENCE_DIR / "agents").rglob("*.md")) if (REFERENCE_DIR / "agents").exists() else []
+        ref_commands = list((REFERENCE_DIR / "commands").rglob("*.md")) if (REFERENCE_DIR / "commands").exists() else []
+        print(f"\nReference directory:")
+        print(f"  Agents: {len(ref_agents)} files")
+        print(f"  Commands: {len(ref_commands)} files")
+        print(f"  Total: {len(ref_agents) + len(ref_commands)} files")
+
+    print(f"\nTotal commands indexed: {len(all_commands)}")
     print(f"\nBy category:")
     for cat in sorted(by_category.keys()):
         total = sum(len(cmds) for cmds in by_category[cat].values())
@@ -406,6 +462,10 @@ def main():
         print(f"  {difficulty}: {difficulty_counts[difficulty]}")
 
     print(f"\nEssential commands: {len(essential)}")
+
+    print("\n=== Index Rebuild Complete ===")
+    print(f"Reference: {REFERENCE_DIR}")
+    print(f"Index: {INDEX_DIR}")
 
 if __name__ == '__main__':
     main()

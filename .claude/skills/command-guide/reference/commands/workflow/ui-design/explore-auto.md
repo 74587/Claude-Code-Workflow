@@ -107,7 +107,43 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 ## 6-Phase Execution
 
-### Phase 0a: Intelligent Prompt Parsing
+### Phase 0a: Intelligent Path Detection & Source Selection
+```bash
+# Step 1: Detect if prompt/images contain existing file paths
+code_files_detected = false
+code_base_path = null
+has_visual_input = false
+
+IF --prompt:
+    # Extract potential file paths from prompt
+    potential_paths = extract_paths_from_text(--prompt)
+    FOR path IN potential_paths:
+        IF file_or_directory_exists(path):
+            code_files_detected = true
+            code_base_path = path
+            BREAK
+
+IF --images:
+    # Check if images parameter points to existing files
+    IF glob_matches_files(--images):
+        has_visual_input = true
+
+# Step 2: Determine design source strategy
+design_source = "unknown"
+IF code_files_detected AND has_visual_input:
+    design_source = "hybrid"  # Both code and visual
+ELSE IF code_files_detected:
+    design_source = "code_only"  # Only code files
+ELSE IF has_visual_input OR --prompt:
+    design_source = "visual_only"  # Only visual/prompt
+ELSE:
+    ERROR: "No design source provided (code files, images, or prompt required)"
+    EXIT 1
+
+STORE: design_source, code_base_path, has_visual_input
+```
+
+### Phase 0a-2: Intelligent Prompt Parsing
 ```bash
 # Parse variant counts from prompt or use explicit/default values
 IF --prompt AND (NOT --style-variants OR NOT --layout-variants):
@@ -267,29 +303,101 @@ detect_target_type(target_list):
     RETURN "component" IF component_matches > page_matches ELSE "page"
 ```
 
-### Phase 1: Style Extraction
+### Phase 0d: Code Import & Completeness Assessment (Conditional)
 ```bash
-command = "/workflow:ui-design:style-extract --base-path \"{base_path}\" " +
-          (--images ? "--images \"{images}\" " : "") +
-          (--prompt ? "--prompt \"{prompt}\" " : "") +
-          "--mode explore --variants {style_variants}"
-SlashCommand(command)
+IF design_source IN ["code_only", "hybrid"]:
+    REPORT: "🔍 Phase 0d: Code Import ({design_source})"
+    command = "/workflow:ui-design:import-from-code --base-path \"{base_path}\" --base-path \"{code_base_path}\""
+    SlashCommand(command)
 
-# Output: {style_variants} style cards with design_attributes
-# SlashCommand blocks until phase complete
-# Upon completion, IMMEDIATELY execute Phase 2.3 (auto-continue)
+    # Check file existence and assess completeness
+    style_exists = exists("{base_path}/style-extraction/style-1/design-tokens.json")
+    animation_exists = exists("{base_path}/animation-extraction/animation-tokens.json")
+    layout_exists = exists("{base_path}/layout-extraction/layout-templates.json")
+
+    style_complete = false
+    animation_complete = false
+    layout_complete = false
+    missing_categories = []
+
+    # Style completeness check
+    IF style_exists:
+        tokens = Read("{base_path}/style-extraction/style-1/design-tokens.json")
+        style_complete = (
+            tokens.colors?.brand && tokens.colors?.surface &&
+            tokens.typography?.font_family && tokens.spacing &&
+            Object.keys(tokens.colors.brand || {}).length >= 3 &&
+            Object.keys(tokens.spacing || {}).length >= 8
+        )
+        IF NOT style_complete AND tokens._metadata?.completeness?.missing_categories:
+            missing_categories.extend(tokens._metadata.completeness.missing_categories)
+    ELSE:
+        missing_categories.push("style tokens")
+
+    # Animation completeness check
+    IF animation_exists:
+        anim = Read("{base_path}/animation-extraction/animation-tokens.json")
+        animation_complete = (
+            anim.duration && anim.easing &&
+            Object.keys(anim.duration || {}).length >= 3 &&
+            Object.keys(anim.easing || {}).length >= 3
+        )
+        IF NOT animation_complete AND anim._metadata?.completeness?.missing_items:
+            missing_categories.extend(anim._metadata.completeness.missing_items)
+    ELSE:
+        missing_categories.push("animation tokens")
+
+    # Layout completeness check
+    IF layout_exists:
+        layouts = Read("{base_path}/layout-extraction/layout-templates.json")
+        layout_complete = (
+            layouts.layout_templates?.length >= 3 &&
+            layouts.extraction_metadata?.layout_system?.type &&
+            layouts.extraction_metadata?.responsive?.breakpoints
+        )
+        IF NOT layout_complete AND layouts.extraction_metadata?.completeness?.missing_items:
+            missing_categories.extend(layouts.extraction_metadata.completeness.missing_items)
+    ELSE:
+        missing_categories.push("layout templates")
+
+    needs_visual_supplement = false
+
+    IF design_source == "code_only" AND NOT (style_complete AND layout_complete):
+        REPORT: "⚠️  Missing: {', '.join(missing_categories)}"
+        REPORT: "Options: 'continue' | 'supplement: <images>' | 'cancel'"
+        user_response = WAIT_FOR_USER_INPUT()
+        MATCH user_response:
+            "continue" → needs_visual_supplement = false
+            "supplement: ..." → needs_visual_supplement = true; --images = extract_path(user_response)
+            "cancel" → EXIT 0
+            default → needs_visual_supplement = false
+    ELSE IF design_source == "hybrid":
+        needs_visual_supplement = true
+
+    STORE: needs_visual_supplement, style_complete, animation_complete, layout_complete
 ```
 
-### Phase 2.3: Animation Extraction (Optional - Interactive Mode)
+### Phase 1: Style Extraction
 ```bash
-# Animation extraction for motion design patterns
-REPORT: "🚀 Phase 2.3: Animation Extraction (interactive mode)"
-REPORT: "   → Mode: Interactive specification"
-REPORT: "   → Purpose: Define motion design patterns"
+IF design_source == "visual_only" OR needs_visual_supplement:
+    REPORT: "🎨 Phase 1: Style Extraction (variants: {style_variants})"
+    command = "/workflow:ui-design:style-extract --base-path \"{base_path}\" " +
+              (--images ? "--images \"{images}\" " : "") +
+              (--prompt ? "--prompt \"{prompt}\" " : "") +
+              "--mode explore --variants {style_variants}"
+    SlashCommand(command)
+ELSE:
+    REPORT: "✅ Phase 1: Style (Using Code Import)"
+```
 
-command = "/workflow:ui-design:animation-extract --base-path \"{base_path}\" --mode interactive"
-
-SlashCommand(command)
+### Phase 2.3: Animation Extraction
+```bash
+IF design_source == "visual_only" OR NOT animation_complete:
+    REPORT: "🚀 Phase 2.3: Animation Extraction"
+    command = "/workflow:ui-design:animation-extract --base-path \"{base_path}\" --mode interactive"
+    SlashCommand(command)
+ELSE:
+    REPORT: "✅ Phase 2.3: Animation (Using Code Import)"
 
 # Output: animation-tokens.json + animation-guide.md
 # SlashCommand blocks until phase complete
@@ -299,23 +407,16 @@ SlashCommand(command)
 ### Phase 2.5: Layout Extraction
 ```bash
 targets_string = ",".join(inferred_target_list)
-command = "/workflow:ui-design:layout-extract --base-path \"{base_path}\" " +
-          (--images ? "--images \"{images}\" " : "") +
-          (--prompt ? "--prompt \"{prompt}\" " : "") +
-          "--targets \"{targets_string}\" " +
-          "--mode explore --variants {layout_variants} " +
-          "--device-type \"{device_type}\""
 
-REPORT: "🚀 Phase 2.5: Layout Extraction (explore mode)"
-REPORT: "   → Targets: {targets_string}"
-REPORT: "   → Layout variants: {layout_variants}"
-REPORT: "   → Device: {device_type}"
-
-SlashCommand(command)
-
-# Output: layout-templates.json with {targets × layout_variants} layout structures
-# SlashCommand blocks until phase complete
-# Upon completion, IMMEDIATELY execute Phase 3 (auto-continue)
+IF (design_source == "visual_only" OR needs_visual_supplement) OR (NOT layout_complete):
+    REPORT: "🚀 Phase 2.5: Layout Extraction ({targets_string}, variants: {layout_variants}, device: {device_type})"
+    command = "/workflow:ui-design:layout-extract --base-path \"{base_path}\" " +
+              (--images ? "--images \"{images}\" " : "") +
+              (--prompt ? "--prompt \"{prompt}\" " : "") +
+              "--targets \"{targets_string}\" --mode explore --variants {layout_variants} --device-type \"{device_type}\""
+    SlashCommand(command)
+ELSE:
+    REPORT: "✅ Phase 2.5: Layout (Using Code Import)"
 ```
 
 ### Phase 3: UI Assembly

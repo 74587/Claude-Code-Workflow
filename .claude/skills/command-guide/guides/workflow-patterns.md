@@ -461,10 +461,70 @@ graph TD
 
 ---
 
+## 🎨 Pattern 7: UI设计工作流
+
+**适用场景**：前端UI设计和原型开发
+
+**流程**：探索设计 / 模仿设计 / 代码导入 → 生成原型 → 集成
+
+### 三种子模式
+
+#### 7.1 探索式设计（新概念）
+
+```bash
+# 从提示词创建多个设计方案
+/workflow:ui-design:explore-auto \
+  --prompt "现代化SaaS着陆页，包含英雄区、特性、定价" \
+  --style-variants 3 \
+  --layout-variants 2
+
+# 输出：
+# - 3个风格变体 × 2个布局变体 = 6个原型
+# - design-tokens-v1/v2/v3.json
+# - layout-templates-v1/v2.json
+# - compare.html（对比页面）
+```
+
+#### 7.2 模仿式设计（复制现有网站）
+
+```bash
+# 高保真克隆目标网站
+/workflow:ui-design:imitate-auto \
+  --url-map "首页:https://example.com, 定价:https://example.com/pricing"
+
+# 输出：
+# - 统一的设计系统（design-tokens.json）
+# - 页面结构（layout-templates.json）
+# - 重建的HTML原型
+```
+
+#### 7.3 代码优先导入
+
+```bash
+# 从现有代码库提取设计系统
+/workflow:ui-design:import-from-code \
+  --base-path ./src/components
+
+# 输出：
+# - 提取的设计令牌
+# - 完整性报告
+# - 改进建议
+```
+
+**关键概念**：
+- **关注点分离**：样式（design-tokens）、结构（layout-templates）、动画（animation-tokens）独立
+- **令牌优先**：使用CSS变量而非硬编码
+- **可重用性**：设计系统可跨项目复用
+
+**详细指南**：参见 [UI Design Workflow Guide](ui-design-workflow-guide.md)
+
+---
+
 ## 🔗 相关资源
 
 - **快速入门**：[Getting Started](getting-started.md) - 5分钟上手
 - **CLI 工具**：[CLI Tools Guide](cli-tools-guide.md) - Gemini/Qwen/Codex 详解
+- **UI设计工作流**：[UI Design Workflow Guide](ui-design-workflow-guide.md) - UI设计完整指南
 - **问题排查**：[Troubleshooting](troubleshooting.md) - 常见问题解决
 - **完整命令列表**：查看 `index/all-commands.json`
 
