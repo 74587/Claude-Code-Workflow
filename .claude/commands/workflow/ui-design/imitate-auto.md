@@ -225,8 +225,8 @@ IF design_source == "hybrid":
     REPORT: "   → Source: {code_base_path}"
     REPORT: "   → Mode: Hybrid (Web + Code)"
 
-    command = "/workflow:ui-design:import-from-code --base-path \"{base_path}\" " +
-              "--base-path \"{code_base_path}\""
+    command = "/workflow:ui-design:import-from-code --output-path \"{base_path}\" " +
+              "--source-path \"{code_base_path}\""
 
     TRY:
         SlashCommand(command)
@@ -239,7 +239,8 @@ IF design_source == "hybrid":
         # Check file existence and assess completeness
         style_exists = exists("{base_path}/style-extraction/style-1/design-tokens.json")
         animation_exists = exists("{base_path}/animation-extraction/animation-tokens.json")
-        layout_exists = exists("{base_path}/layout-extraction/layout-templates.json")
+        layout_count = bash(ls {base_path}/layout-extraction/layout-*.json 2>/dev/null | wc -l)
+        layout_exists = (layout_count > 0)
 
         style_complete = false
         animation_complete = false
@@ -275,14 +276,16 @@ IF design_source == "hybrid":
 
         # Layout completeness check
         IF layout_exists:
-            layouts = Read("{base_path}/layout-extraction/layout-templates.json")
+            # Read first layout file to verify structure
+            first_layout = bash(ls {base_path}/layout-extraction/layout-*.json 2>/dev/null | head -1)
+            layout_data = Read(first_layout)
             layout_complete = (
-                layouts.layout_templates?.length >= 3 &&
-                layouts.extraction_metadata?.layout_system?.type &&
-                layouts.extraction_metadata?.responsive?.breakpoints
+                layout_count >= 1 &&
+                layout_data.template?.dom_structure &&
+                layout_data.template?.css_layout_rules
             )
-            IF NOT layout_complete AND layouts.extraction_metadata?.completeness?.missing_items:
-                missing_categories.extend(layouts.extraction_metadata.completeness.missing_items)
+            IF NOT layout_complete:
+                missing_categories.push("complete layout structure")
         ELSE:
             missing_categories.push("layout templates")
 
@@ -405,7 +408,7 @@ ELSE:
             extraction_prompt = f"Extract visual style tokens from '{primary_target}' with consistency across all pages."
 
     url_map_for_extract = ",".join([f"{name}:{url}" for name, url in url_map.items()])
-    extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --mode imitate"
+    extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --variants 1"
     SlashCommand(extract_command)
 
 TodoWrite(mark_completed: "Extract style", mark_in_progress: "Extract animation")
@@ -436,7 +439,7 @@ IF skip_layout:
 ELSE:
     REPORT: "🚀 Phase 2.5: Layout Extraction"
     url_map_for_layout = ",".join([f"{target}:{url}" for target, url in url_map.items()])
-    layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --mode imitate"
+    layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --variants 1"
     SlashCommand(layout_extract_command)
 
 TodoWrite(mark_completed: "Extract layout", mark_in_progress: "Assemble UI")
@@ -546,7 +549,7 @@ ELSE:
 │   ├── animation-tokens.json
 │   └── animation-guide.md
 ├── layout-extraction/              # Structure templates
-│   └── layout-templates.json
+│   └── layout-{target}-1.json      # One file per target
 └── prototypes/                     # {generated_count} HTML/CSS files
     ├── {target1}-style-1-layout-1.html + .css
     ├── {target2}-style-1-layout-1.html + .css

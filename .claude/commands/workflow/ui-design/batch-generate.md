@@ -70,31 +70,24 @@ IF exists({base_path}/.intermediates/style-analysis/design-space-analysis.json):
 
 **Output**: `design_tokens_valid`, `design_space_analysis`
 
-### Step 3: Gather Layout Inspiration (Reuse or Create)
+### Step 3: Gather Layout Inspiration (Direct MCP Search)
 ```bash
-# Check if layout inspirations already exist from layout-extract phase
-inspiration_source = "{base_path}/.intermediates/layout-analysis/inspirations"
+# Gather layout inspiration via MCP for each target
+layout_inspiration_map = {}
 
 FOR target IN target_list:
-    # Priority 1: Reuse existing inspiration from layout-extract
-    IF exists({inspiration_source}/{target}-layout-ideas.txt):
-        # Reuse existing inspiration (no action needed)
-        REPORT: "Using existing layout inspiration for {target}"
-    ELSE:
-        # Priority 2: Generate new inspiration via MCP
-        bash(mkdir -p {inspiration_source})
-        search_query = "{target} {target_type} layout patterns variations"
-        mcp__exa__web_search_exa(query=search_query, numResults=5)
+    search_query = "{target} {target_type} layout patterns variations"
+    search_results = mcp__exa__web_search_exa(query=search_query, numResults=5)
 
-        # Extract context from prompt for this target
-        target_requirements = extract_relevant_context_from_prompt(prompt_text, target)
+    # Extract context from prompt for this target
+    target_requirements = extract_relevant_context_from_prompt(prompt_text, target)
 
-        # Write inspiration file to centralized location
-        Write({inspiration_source}/{target}-layout-ideas.txt, inspiration_content)
-        REPORT: "Created new layout inspiration for {target}"
+    # Store inspiration in memory (no file write needed)
+    layout_inspiration_map[target] = format_inspiration_from_search(search_results, target_requirements)
+    REPORT: "Gathered layout inspiration for {target}"
 ```
 
-**Output**: `T` inspiration text files (reused or created in `.intermediates/layout-analysis/inspirations/`)
+**Output**: `layout_inspiration_map` (in-memory, passed to agents)
 
 ## Phase 2: Target-Style-Centric Batch Generation (Agent)
 
@@ -132,7 +125,7 @@ Task(ui-design-agent): `
   ${design_attributes ? "DESIGN_ATTRIBUTES: " + JSON.stringify(design_attributes) : ""}
 
   ## Reference
-  - Layout inspiration: Read("{base_path}/.intermediates/layout-analysis/inspirations/{target}-layout-ideas.txt")
+  - Layout inspiration: {layout_inspiration_map[target]}
   - Design tokens: Read("{base_path}/style-extraction/style-{style_id}/design-tokens.json")
     Parse ALL token values including:
     * colors, typography (with combinations), spacing, opacity
@@ -315,8 +308,6 @@ bash(~/.claude/scripts/ui-generate-preview.sh "{base_path}/prototypes")
 {base_path}/
 ├── .intermediates/
 │   └── layout-analysis/
-│       └── inspirations/
-│           └── {target}-layout-ideas.txt  # Layout inspiration (reused or created)
 ├── prototypes/
 │   ├── {target}-style-{s}-layout-{l}.html  # Final prototypes
 │   ├── {target}-style-{s}-layout-{l}.css

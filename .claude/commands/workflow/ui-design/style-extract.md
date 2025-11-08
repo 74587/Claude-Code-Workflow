@@ -1,7 +1,7 @@
 ---
 name: style-extract
 description: Extract design style from reference images or text prompts using Claude analysis with variant generation
-argument-hint: "[--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--mode <imitate|explore>] [--variants <count>]"
+argument-hint: "[--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--variants <count>]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
 ---
 
@@ -40,16 +40,10 @@ IF --urls:
 ELSE:
     has_urls = false
 
-# Determine extraction mode
-# Priority: --mode parameter → default "imitate"
-extraction_mode = --mode OR "imitate"  # "imitate" or "explore"
-
-# Set variants count based on mode
-IF extraction_mode == "imitate":
-    variants_count = 1  # Force single variant for imitate mode (ignore --variants)
-ELSE IF extraction_mode == "explore":
-    variants_count = --variants OR 3  # Default to 3 for explore mode
-    VALIDATE: 1 <= variants_count <= 5
+# Set variants count (default: 3, range: 1-5)
+# Behavior: Generate N design directions → User multi-select → Generate selected variants
+variants_count = --variants OR 3
+VALIDATE: 1 <= variants_count <= 5
 
 # Determine base path (auto-detect and convert to absolute)
 relative_path=$(find .workflow -type d -name "design-run-*" | head -1)
@@ -142,24 +136,15 @@ IF exists: SKIP to completion
 
 **Phase 0 Output**: `input_mode`, `base_path`, `extraction_mode`, `variants_count`, `loaded_images[]` or `prompt_guidance`, `has_urls`, `url_list[]`, `computed_styles_available`
 
-## Phase 1: Design Direction Generation (Explore Mode Only)
+## Phase 1: Design Direction Generation
 
-### Step 1: Check Extraction Mode
-```bash
-# Check extraction mode
-# extraction_mode == "imitate" → skip this phase
-# extraction_mode == "explore" → execute this phase
-```
-
-**If imitate mode**: Skip to Phase 2
-
-### Step 2: Load Project Context (Explore Mode)
+### Step 1: Load Project Context
 ```bash
 # Load brainstorming context if available
 bash(test -f {base_path}/.brainstorming/role analysis documents && cat it)
 ```
 
-### Step 3: Generate Design Direction Options (Agent Task 1)
+### Step 2: Generate Design Direction Options (Agent Task 1)
 **Executor**: `Task(ui-design-agent)`
 
 Launch agent to generate `variants_count` design direction options with previews:
@@ -207,7 +192,7 @@ Task(ui-design-agent): `
 `
 ```
 
-### Step 4: Verify Options File Created
+### Step 3: Verify Options File Created
 ```bash
 bash(test -f {base_path}/.intermediates/style-analysis/analysis-options.json && echo "created")
 
@@ -267,12 +252,12 @@ Please select the direction(s) you'd like to develop into complete design system
 
 ### Step 3: Capture User Selection
 ```javascript
-// Use AskUserQuestion tool for selection
+// Use AskUserQuestion tool for multi-selection
 AskUserQuestion({
   questions: [{
-    question: "Which design direction would you like to develop into a complete design system?",
+    question: "Which design direction(s) would you like to develop into complete design systems?",
     header: "Style Choice",
-    multiSelect: false,  // Single selection for Phase 1
+    multiSelect: true,  // Multi-selection enabled (default behavior)
     options: [
       {FOR each direction:
         label: "Option {direction.index}: {direction.philosophy_name}",
@@ -282,21 +267,25 @@ AskUserQuestion({
   }]
 })
 
-// Parse user response (e.g., "Option 1: Minimalist & Airy")
-selected_option_text = user_answer
+// Parse user response (array of selections, e.g., ["Option 1: ...", "Option 3: ..."])
+selected_options = user_answer
 
 // Check for user cancellation
-IF selected_option_text == null OR selected_option_text == "":
+IF selected_options == null OR selected_options.length == 0:
     REPORT: "⚠️ User canceled selection. Workflow terminated."
     EXIT workflow
 
-// Extract option index from response format "Option N: Name"
-match = selected_option_text.match(/Option (\d+):/)
-IF match:
-    selected_index = parseInt(match[1])
-ELSE:
-    ERROR: "Invalid selection format. Expected 'Option N: ...' format"
-    EXIT workflow
+// Extract option indices from array
+selected_indices = []
+FOR each selected_option_text IN selected_options:
+    match = selected_option_text.match(/Option (\d+):/)
+    IF match:
+        selected_indices.push(parseInt(match[1]))
+    ELSE:
+        ERROR: "Invalid selection format. Expected 'Option N: ...' format"
+        EXIT workflow
+
+REPORT: "✅ Selected {selected_indices.length} design direction(s)"
 ```
 
 ### Step 4: Write User Selection File
@@ -305,10 +294,11 @@ ELSE:
 selection_data = {
   "metadata": {
     "selected_at": "{current_timestamp}",
-    "selection_type": "single",
-    "session_id": "{session_id}"
+    "selection_type": "multi",
+    "session_id": "{session_id}",
+    "selection_count": selected_indices.length
   },
-  "selected_indices": [selected_index],
+  "selected_indices": selected_indices,  // Array of selected indices
   "refinements": {
     "enabled": false
   }
@@ -325,99 +315,87 @@ bash(test -f {base_path}/.intermediates/style-analysis/user-selection.json && ec
 ```
 ✅ Selection recorded!
 
-You selected: Option {selected_index} - {selected_direction.philosophy_name}
+You selected {selected_indices.length} design direction(s):
+{FOR each index IN selected_indices:
+  • Option {index} - {design_directions[index-1].philosophy_name}
+}
 
-Proceeding to generate complete design system based on your selection...
+Proceeding to generate {selected_indices.length} complete design system(s)...
 ```
 
-**Output**: `user-selection.json` with user's choice
+**Output**: `user-selection.json` with user's multi-selection
 
 ## Phase 2: Design System Generation (Agent Task 2)
 
 **Executor**: `Task(ui-design-agent)` for selected variant(s)
 
-### Step 1: Load User Selection (Explore Mode)
+### Step 1: Load User Selection
 ```bash
-# For explore mode, read user selection
-IF extraction_mode == "explore":
-    selection = Read({base_path}/.intermediates/style-analysis/user-selection.json)
-    selected_indices = selection.selected_indices
-    refinements = selection.refinements
+# Read user selection
+selection = Read({base_path}/.intermediates/style-analysis/user-selection.json)
+selected_indices = selection.selected_indices  # Array of selected indices
 
-    # Also read the selected direction details from options
-    options = Read({base_path}/.intermediates/style-analysis/analysis-options.json)
-    selected_directions = [options.design_directions[i-1] for i in selected_indices]  # 0-indexed
+# Read the selected direction details from options
+options = Read({base_path}/.intermediates/style-analysis/analysis-options.json)
+selected_directions = [options.design_directions[i-1] for i in selected_indices]  # 0-indexed array
 
-    # For Phase 1, we only allow single selection
-    selected_direction = selected_directions[0]
-    actual_variants_count = 1
-ELSE:
-    # Imitate mode - generate single variant without selection
-    selected_direction = null
-    actual_variants_count = 1
+actual_variants_count = selected_indices.length
+REPORT: "📦 Generating {actual_variants_count} design system(s)..."
 ```
 
-### Step 2: Create Output Directory
+### Step 2: Create Output Directories
 ```bash
-# Create directory for selected variant only
-bash(mkdir -p {base_path}/style-extraction/style-1)
+# Create directories for each selected variant
+FOR index IN 1..actual_variants_count:
+    bash(mkdir -p {base_path}/style-extraction/style-{index})
 ```
 
-### Step 3: Launch Agent Task
-Generate design system for selected direction:
+### Step 3: Launch Agent Tasks (Parallel)
+Generate design systems for ALL selected directions in parallel (max 5 concurrent):
+
 ```javascript
-Task(ui-design-agent): `
-  [DESIGN_SYSTEM_GENERATION_TASK]
-  Generate production-ready design system based on user-selected direction
+// Launch parallel tasks, one for each selected direction
+FOR variant_index IN 1..actual_variants_count:
+    selected_direction = selected_directions[variant_index - 1]  // 0-indexed
 
-  SESSION: {session_id} | MODE: {extraction_mode} | BASE_PATH: {base_path}
+    Task(ui-design-agent): `
+      [DESIGN_SYSTEM_GENERATION_TASK #{variant_index}/{actual_variants_count}]
+      Generate production-ready design system based on user-selected direction
 
-  ${extraction_mode == "explore" ? `
-  USER SELECTION:
-  - Selected Direction: ${selected_direction.philosophy_name}
-  - Design Attributes: ${JSON.stringify(selected_direction.design_attributes)}
-  - Search Keywords: ${selected_direction.search_keywords.join(", ")}
-  - Anti-keywords: ${selected_direction.anti_keywords.join(", ")}
-  - Rationale: ${selected_direction.rationale}
-  - Preview Colors: Primary=${selected_direction.preview.primary_color}, Accent=${selected_direction.preview.accent_color}
-  - Preview Typography: Heading=${selected_direction.preview.font_family_heading}, Body=${selected_direction.preview.font_family_body}
-  - Preview Border Radius: ${selected_direction.preview.border_radius_base}
+      SESSION: {session_id} | VARIANT: {variant_index}/{actual_variants_count} | BASE_PATH: {base_path}
 
-  ${refinements.enabled ? `
-  USER REFINEMENTS:
-  ${refinements.primary_color ? "- Primary Color Override: " + refinements.primary_color : ""}
-  ${refinements.font_family_heading ? "- Heading Font Override: " + refinements.font_family_heading : ""}
-  ${refinements.font_family_body ? "- Body Font Override: " + refinements.font_family_body : ""}
-  ` : ""}
-  ` : ""}
+      USER SELECTION:
+      - Selected Direction: ${selected_direction.philosophy_name}
+      - Design Attributes: ${JSON.stringify(selected_direction.design_attributes)}
+      - Search Keywords: ${selected_direction.search_keywords.join(", ")}
+      - Anti-keywords: ${selected_direction.anti_keywords.join(", ")}
+      - Rationale: ${selected_direction.rationale}
+      - Preview Colors: Primary=${selected_direction.preview.primary_color}, Accent=${selected_direction.preview.accent_color}
+      - Preview Typography: Heading=${selected_direction.preview.font_family_heading}, Body=${selected_direction.preview.font_family_body}
+      - Preview Border Radius: ${selected_direction.preview.border_radius_base}
 
-  ## Input Analysis
-  - Input mode: {input_mode} (image/text/hybrid${has_urls ? "/url" : ""})
-  - Visual references: {loaded_images OR prompt_guidance}
-  ${computed_styles_available ? "- Computed styles: Use as ground truth (Read from .intermediates/style-analysis/computed-styles.json)" : ""}
+      ## Input Analysis
+      - Input mode: {input_mode} (image/text/hybrid${has_urls ? "/url" : ""})
+      - Visual references: {loaded_images OR prompt_guidance}
+      ${computed_styles_available ? "- Computed styles: Use as ground truth (Read from .intermediates/style-analysis/computed-styles.json)" : ""}
 
-  ## Generation Rules
-  ${extraction_mode == "explore" ? `
-  - **Explore Mode**: Develop the selected design direction into a complete design system
-  - Use preview elements as foundation and expand with full token coverage
-  - Apply design_attributes to all token values:
-    * color_saturation → OKLCH chroma values
-    * visual_weight → font weights, shadow depths
-    * density → spacing scale compression/expansion
-    * formality → typography choices, border radius
-    * organic_geometric → border radius, shape patterns
-    * innovation → token naming, experimental values
-  - Honor search_keywords for design inspiration
-  - Avoid anti_keywords patterns
-  ` : `
-  - **Imitate Mode**: High-fidelity replication of reference design
-  ${computed_styles_available ? "- Use computed styles as ground truth for all measurements" : "- Use visual inference for measurements"}
-  `}
-  - All colors in OKLCH format ${computed_styles_available ? "(convert from computed RGB)" : ""}
-  - WCAG AA compliance: 4.5:1 text contrast, 3:1 UI contrast
+      ## Generation Rules
+      - Develop the selected design direction into a complete design system
+      - Use preview elements as foundation and expand with full token coverage
+      - Apply design_attributes to all token values:
+        * color_saturation → OKLCH chroma values
+        * visual_weight → font weights, shadow depths
+        * density → spacing scale compression/expansion
+        * formality → typography choices, border radius
+        * organic_geometric → border radius, shape patterns
+        * innovation → token naming, experimental values
+      - Honor search_keywords for design inspiration
+      - Avoid anti_keywords patterns
+      - All colors in OKLCH format ${computed_styles_available ? "(convert from computed RGB)" : ""}
+      - WCAG AA compliance: 4.5:1 text contrast, 3:1 UI contrast
 
-  ## Generate
-  Create complete design system in {base_path}/style-extraction/style-1/
+      ## Generate
+      Create complete design system in {base_path}/style-extraction/style-{variant_index}/
 
   1. **design-tokens.json**:
      - Complete token structure with ALL fields:
@@ -450,14 +428,13 @@ Task(ui-design-agent): `
 
   ## Critical Requirements
   - ✅ Use Write() tool immediately for each file
-  - ✅ Write to style-1/ directory (single output)
+  - ✅ Write to style-{variant_index}/ directory
   - ❌ NO external research or MCP calls (pure AI generation)
   - ✅ Maintain consistency with user-selected direction
-  ${refinements.enabled ? "- ✅ Apply user refinements precisely" : ""}
-`
+    `
 ```
 
-**Output**: Agent generates 2 files (design-tokens.json, style-guide.md) for selected direction
+**Output**: {actual_variants_count} parallel agent tasks generate 2 files each (design-tokens.json, style-guide.md)
 
 ## Phase 3: Verify Output
 
@@ -561,8 +538,10 @@ bash(cat {base_path}/style-extraction/style-1/design-tokens.json | grep -q "colo
 # Load brainstorming context
 bash(test -f .brainstorming/role analysis documents && cat it)
 
-# Create directories
-bash(mkdir -p {base_path}/style-extraction/style-{{1..3}})
+# Create directories (example for multiple variants)
+bash(mkdir -p {base_path}/style-extraction/style-1)
+bash(mkdir -p {base_path}/style-extraction/style-2)
+bash(mkdir -p {base_path}/style-extraction/style-3)
 
 # Verify output
 bash(ls {base_path}/style-extraction/style-1/)
