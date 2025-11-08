@@ -337,9 +337,9 @@ See `/workflow:tools:test-task-generate` for complete JSON schemas.
 - `/workflow:session:start` - Phase 1: Create independent test workflow session
 - `/workflow:tools:test-context-gather` - Phase 2: Analyze test coverage and gather source session context
 - `/workflow:tools:test-concept-enhanced` - Phase 3: Generate test requirements and strategy using Gemini
-- `/workflow:tools:test-task-generate` - Phase 4: Generate test generation and execution task JSONs
-- `/workflow:tools:test-task-generate --use-codex` - Phase 4: With automated Codex fixes (when `--use-codex` flag used)
-- `/workflow:tools:test-task-generate --cli-execute` - Phase 4: With CLI execution mode (when `--cli-execute` flag used)
+- `/workflow:tools:test-task-generate` - Phase 4: Generate test task JSONs using action-planning-agent (autonomous, default)
+- `/workflow:tools:test-task-generate --use-codex` - Phase 4: With automated Codex fixes for IMPL-002 (when `--use-codex` flag used)
+- `/workflow:tools:test-task-generate --cli-execute` - Phase 4: With CLI execution mode for IMPL-001 test generation (when `--cli-execute` flag used)
 
 **Follow-up Commands**:
 - `/workflow:status` - Review generated test tasks
