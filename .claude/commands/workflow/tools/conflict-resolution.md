@@ -24,6 +24,7 @@ Analyzes conflicts between implementation plans and existing codebase, generatin
 | **Generate Strategies** | Provide 2-4 resolution options per conflict |
 | **CLI Analysis** | Use Gemini/Qwen (Claude fallback) |
 | **User Decision** | Present options, never auto-apply |
+| **Direct Text Output** | Output questions via text directly, NEVER use bash echo/printf |
 | **Single Output** | `CONFLICT_RESOLUTION.md` with findings |
 
 ## Conflict Categories
