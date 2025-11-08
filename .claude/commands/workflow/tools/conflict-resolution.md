@@ -463,10 +463,3 @@ If Edit tool fails mid-application:
 ✓ Error handling robust (validate/retry/degrade)
 ```
 
-## Related Commands
-| Command | Relationship |
-|---------|--------------|
-| `/workflow:tools:context-gather` | Generates input conflict_detection data |
-| `/workflow:plan` | Auto-triggers this when risk ≥ medium |
-| `/workflow:tools:task-generate` | Uses resolved conflicts from updated brainstorm files |
-| `/workflow:brainstorm:artifacts` | Generates guidance-specification.md (modified by this command) |

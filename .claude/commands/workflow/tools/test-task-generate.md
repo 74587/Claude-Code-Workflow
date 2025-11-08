@@ -393,16 +393,6 @@ This section provides quick reference for test task JSON structure. For complete
 - Session state updated with test metadata
 - MCP enhancements integrated (if available)
 
-## Related Commands
-- `/workflow:test-gen` - Creates test session and calls this tool (Phase 4)
-- `/workflow:test-fix-gen` - Creates test-fix session and calls this tool (Phase 4)
-- `/workflow:tools:test-context-gather` - Gathers test coverage context
-- `/workflow:tools:test-concept-enhanced` - Generates test strategy analysis (TEST_ANALYSIS_RESULTS.md)
-- `/workflow:execute` - Executes the generated test-fix tasks
-- `/workflow:test-cycle-execute` - Executes test-fix cycle with iteration management
-- `@code-developer` - Agent that executes IMPL-001 (test generation)
-- `@test-fix-agent` - Agent that executes IMPL-002 (test execution & fix)
-
 ## Agent Execution Notes
 
 The `@test-fix-agent` will execute the task by following the `flow_control.implementation_approach` specification:

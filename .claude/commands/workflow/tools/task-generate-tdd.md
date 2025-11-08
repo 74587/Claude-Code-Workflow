@@ -509,9 +509,3 @@ IMPL (Green phase) tasks include automatic test-fix cycle:
 - **meta.max_iterations**: Number of fix attempts (default: 3 for TDD, 5 for test-gen)
 - **meta.use_codex**: Enable Codex automated fixes (default: false, manual)
 
-## Related Commands
-- `/workflow:tdd-plan` - Orchestrates TDD workflow planning (6 phases)
-- `/workflow:tools:test-context-gather` - Analyzes test coverage
-- `/workflow:execute` - Executes TDD tasks in order
-- `/workflow:tdd-verify` - Verifies TDD compliance
-- `/workflow:test-gen` - Post-implementation test generation

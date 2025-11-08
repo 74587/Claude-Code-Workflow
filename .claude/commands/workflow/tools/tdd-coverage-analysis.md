@@ -275,7 +275,3 @@ Overall Compliance: 93/100
 Detailed report: .workflow/WFS-auth/.process/tdd-cycle-report.md
 ```
 
-## Related Commands
-- `/workflow:tdd-verify` - Uses this tool for verification
-- `/workflow:tools:task-generate-tdd` - Generates tasks this tool analyzes
-- `/workflow:execute` - Executes tasks before analysis
