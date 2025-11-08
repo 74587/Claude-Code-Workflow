@@ -1,7 +1,7 @@
 ---
 name: plan
-description: 5-phase planning workflow with Gemini analysis and action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs with optional CLI auto-execution
-argument-hint: "[--agent] [--cli-execute] \"text description\"|file.md"
+description: 5-phase planning workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs with optional CLI auto-execution
+argument-hint: "[--cli-execute] \"text description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -20,18 +20,13 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (conflict reso
 2. **Phase 1 executes** → Session discovery → Auto-continues
 3. **Phase 2 executes** → Context gathering → Auto-continues
 4. **Phase 3 executes** (optional, if conflict_risk ≥ medium) → Conflict resolution → Auto-continues
-5. **Phase 4 executes** (task-generate-agent if --agent) → Task generation → Reports final summary
+5. **Phase 4 executes** → Task generation (task-generate-agent) → Reports final summary
 
 **Auto-Continue Mechanism**:
 - TodoList tracks current phase status
 - After each phase completion, automatically executes next pending phase
 - All phases run autonomously without user interaction (clarification handled in brainstorm phase)
 - Progress updates shown at each phase for visibility
-
-**Execution Modes**:
-- **Manual Mode** (default): Use `/workflow:tools:task-generate`
-- **Agent Mode** (`--agent`): Use `/workflow:tools:task-generate-agent`
-- **CLI Execute Mode** (`--cli-execute`): Generate tasks with Codex execution commands
 
 ## Core Rules
 
@@ -159,23 +154,17 @@ CONTEXT: Existing user database schema, REST API endpoints
 - Task generation translates high-level role analyses into concrete, actionable work items
 - **Intent priority**: Current user prompt > role analysis.md files > guidance-specification.md
 
-**Command Selection**:
-- Manual: `SlashCommand(command="/workflow:tools:task-generate --session [sessionId]")`
-- Agent: `SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId]")`
-- CLI Execute: Add `--cli-execute` flag to either command
-
-**Flag Combination**:
-- `--cli-execute` alone: Manual task generation with CLI execution
-- `--agent --cli-execute`: Agent task generation with CLI execution
-
-**Command Examples**:
+**Command**:
 ```bash
-# Manual with CLI execution
-/workflow:tools:task-generate --session WFS-auth --cli-execute
+# Default (agent mode)
+SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId]")
 
-# Agent with CLI execution
-/workflow:tools:task-generate-agent --session WFS-auth --cli-execute
+# With CLI execution
+SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId] --cli-execute")
 ```
+
+**Flag**:
+- `--cli-execute`: Generate tasks with Codex execution commands
 
 **Input**: `sessionId` from Phase 1
 
@@ -296,7 +285,7 @@ Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
     ↓ Output: Modified brainstorm artifacts (NO report file)
     ↓ Skip if conflict_risk is none/low → proceed directly to Phase 4
     ↓
-Phase 4: task-generate[--agent] --session sessionId
+Phase 4: task-generate-agent --session sessionId [--cli-execute]
     ↓ Input: sessionId + resolved brainstorm artifacts + session memory
     ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
@@ -333,9 +322,8 @@ Return summary to user
 - **If conflict_risk ≥ medium**: Launch Phase 3 conflict-resolution with sessionId and contextPath
 - Wait for Phase 3 completion (if executed), verify CONFLICT_RESOLUTION.md created
 - **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 4
-- **Build Phase 4 command** based on flags:
-  - Base command: `/workflow:tools:task-generate` (or `-agent` if `--agent` flag)
-  - Add `--session [sessionId]`
+- **Build Phase 4 command**:
+  - Base command: `/workflow:tools:task-generate-agent --session [sessionId]`
   - Add `--cli-execute` if flag present
 - Pass session ID to Phase 4 command
 - Verify all Phase 4 outputs
@@ -380,8 +368,7 @@ CONSTRAINTS: [Limitations or boundaries]
 - `/workflow:tools:context-gather` - Phase 2: Gather project context and analyze codebase
 - `/workflow:tools:conflict-resolution` - Phase 3: Detect and resolve conflicts (auto-triggered if conflict_risk ≥ medium)
 - `/compact` - Phase 3: Memory optimization (if context approaching limits)
-- `/workflow:tools:task-generate` - Phase 4: Generate task JSON files with manual approach
-- `/workflow:tools:task-generate-agent` - Phase 4: Generate task JSON files with agent-driven approach (when `--agent` flag used)
+- `/workflow:tools:task-generate-agent` - Phase 4: Generate task JSON files with agent-driven approach
 
 **Follow-up Commands**:
 - `/workflow:action-plan-verify` - Recommended: Verify plan quality and catch issues before execution

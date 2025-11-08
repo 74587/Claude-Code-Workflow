@@ -163,168 +163,50 @@ If conflict_risk was medium/high, modifications have been applied to:
 
 ## Phase 2: Document Generation Task
 
-### Task Decomposition Standards
-**Core Principle**: Task Merging Over Decomposition
-- **Merge Rule**: Execute together when possible
-- **Decompose Only When**:
-  - Excessive workload (>2500 lines or >6 files)
-  - Different tech stacks or domains
-  - Sequential dependency blocking
-  - Parallel execution needed
+**Agent Configuration Reference**: All task generation rules, quantification requirements, quality standards, and execution details are defined in action-planning-agent.
 
-**Task Limits**:
-- **Maximum 10 tasks** (hard limit)
-- **Function-based**: Complete units (logic + UI + tests + config)
-- **Hierarchy**: Flat (≤5) | Two-level (6-10) | Re-scope (>10)
+Refer to: @.claude/agents/action-planning-agent.md for:
+- Task Decomposition Standards
+- Quantification Requirements (MANDATORY)
+- 5-Field Task JSON Schema
+- IMPL_PLAN.md Structure
+- TODO_LIST.md Format
+- Execution Flow & Quality Validation
 
-### Quantification Requirements (MANDATORY)
-
-**Purpose**: Eliminate ambiguity by enforcing explicit counts and enumerations in all task specifications.
-
-**Core Rules**:
-1. **Extract Counts from Analysis**: Search for HOW MANY items and list them explicitly
-2. **Enforce Explicit Lists**: Every deliverable uses format `{count} {type}: [{explicit_list}]`
-3. **Make Acceptance Measurable**: Include verification commands (e.g., `ls ... | wc -l = N`)
-4. **Quantify Modification Points**: Specify exact targets (files, functions with line numbers)
-5. **Avoid Vague Language**: Replace "complete", "comprehensive", "reorganize" with quantified statements
-
-**Standard Formats**:
-- **Requirements**: `"Implement N items: [item1, item2, ...]"` or `"Modify N files: [file1:func:lines, ...]"`
-- **Acceptance**: `"N items exist: verify by [command]"` or `"Coverage >= X%: verify by [test command]"`
-- **Modification Points**: `"Create N files: [list]"` or `"Modify N functions: [func() in file lines X-Y]"`
-
-**Validation Checklist**:
-- [ ] Every requirement contains explicit count or enumerated list
-- [ ] Every acceptance criterion is measurable with verification command
-- [ ] Every modification_point specifies exact targets (files/functions/lines)
-- [ ] No vague language ("complete", "comprehensive", "reorganize" without counts)
-- [ ] Each implementation step has its own acceptance criteria
-
-### Required Outputs
+### Required Outputs Summary
 
 #### 1. Task JSON Files (.task/IMPL-*.json)
-
-**Location**: `.workflow/{session-id}/.task/`
-**Template Path**: Provided by command (agent-mode or cli-mode template)
-
-**Key Responsibilities**:
-- Read template from provided path: `Read({template_path})`
-- Replace placeholder variables with session-specific paths
-- Include MCP tool integration in `pre_analysis` steps
-- Map artifacts based on task domain (UI → ui-designer, Backend → system-architect)
-- Apply quantification requirements to all task fields
-- Ensure all tasks follow template structure exactly
-
-**Template Selection** (Pre-selected by command):
-- **Agent Mode**: `~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt`
-- **CLI Mode**: `~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt`
-
-**Note**: Agent does NOT choose template - it's pre-selected based on `--cli-execute` flag and provided in context
+- **Location**: `.workflow/{session-id}/.task/`
+- **Template**: Read from `{template_path}` (pre-selected by command based on `--cli-execute` flag)
+- **Schema**: 5-field structure (id, title, status, meta, context, flow_control) with artifacts integration
+- **Details**: See action-planning-agent.md § Task JSON Generation
 
 #### 2. IMPL_PLAN.md
-**Location**: .workflow/{session-id}/IMPL_PLAN.md
-
-**IMPL_PLAN Template**:
-\`\`\`
-$(cat ~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
-\`\`\`
-
-**Important**:
-- Use the template above for IMPL_PLAN.md generation
-- Replace all {placeholder} variables with actual session-specific values
-- Populate CCW Workflow Context based on actual phase progression
-- Extract content from role analyses and context-package.json
-- List all detected brainstorming artifacts with correct paths (role analyses, guidance-specification.md)
-- Include conflict resolution status if CONFLICT_RESOLUTION.md exists
+- **Location**: `.workflow/{session-id}/IMPL_PLAN.md`
+- **Template**: `~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
+- **Details**: See action-planning-agent.md § Implementation Plan Creation
 
 #### 3. TODO_LIST.md
-**Location**: .workflow/{session-id}/TODO_LIST.md
-**Structure**:
-\`\`\`markdown
-# Tasks: {Session Topic}
+- **Location**: `.workflow/{session-id}/TODO_LIST.md`
+- **Format**: Hierarchical task list with status indicators (▸, [ ], [x]) and JSON links
+- **Details**: See action-planning-agent.md § TODO List Generation
 
-## Task Progress
-▸ **IMPL-001**: [Main Task Group] → [📋](./.task/IMPL-001.json)
-  - [ ] **IMPL-001.1**: [Subtask] → [📋](./.task/IMPL-001.1.json)
-  - [ ] **IMPL-001.2**: [Subtask] → [📋](./.task/IMPL-001.2.json)
+### Agent Execution Summary
 
-- [ ] **IMPL-002**: [Simple Task] → [📋](./.task/IMPL-002.json)
+**Key Steps** (Detailed instructions in action-planning-agent.md):
+1. Load task JSON template from provided path
+2. Extract and decompose tasks with quantification
+3. Generate task JSON files enforcing quantification requirements
+4. Create IMPL_PLAN.md using template
+5. Generate TODO_LIST.md matching task JSONs
+6. Update session state
 
-## Status Legend
-- \`▸\` = Container task (has subtasks)
-- \`- [ ]\` = Pending leaf task
-- \`- [x]\` = Completed leaf task
-\`\`\`
-
-### Execution Instructions for Agent
-
-**Agent Task**: Generate task JSON files, IMPL_PLAN.md, and TODO_LIST.md based on analysis results
-
-**Note**: The correct task JSON template path has been pre-selected by the command based on the `--cli-execute` flag and is provided in the context as `{template_path}`.
-
-**Step 1: Load Task JSON Template**
-- Read template from the provided path: `Read({template_path})`
-- This template is already the correct one based on execution mode
-
-**Step 2: Extract and Decompose Tasks (WITH QUANTIFICATION)**
-- Parse role analysis.md files for requirements, design specs, and task recommendations
-- **CRITICAL: Apply Quantification Extraction Process**:
-  - Scan for counts: numbers + nouns (e.g., "5 files", "17 commands", "3 features")
-  - Build explicit lists for each deliverable (no "..." unless list >20 items)
-  - Flag vague language ("complete", "comprehensive", "reorganize") for replacement
-  - Extract verification methods for each deliverable
-- Review synthesis enhancements and clarifications in role analyses
-- Apply conflict resolution strategies (if CONFLICT_RESOLUTION.md exists)
-- Apply task merging rules (merge when possible, decompose only when necessary)
-- Map artifacts to tasks based on domain (UI → ui-designer, Backend → system-architect, Data → data-architect)
-- Ensure task count ≤10
-
-**Step 3: Generate Task JSON Files (ENFORCE QUANTIFICATION)**
-- Use the template structure from Step 1
-- Create .task/IMPL-*.json files with proper structure
-- **MANDATORY: Apply Quantification Formats**:
-  - Every requirement: \`{count} {type}: [{explicit_list}]\`
-  - Every acceptance: Measurable with verification command
-  - Every modification_point: Exact targets (files/functions/lines)
-  - NO vague language in any field
-- Replace all {placeholder} variables with actual session paths
-- Embed artifacts array with brainstorming outputs
-- Include MCP tool integration in pre_analysis steps
-- **Validation**: Run checklist from Quantification Requirements section before writing files
-
-**Step 4: Create IMPL_PLAN.md**
-- Use IMPL_PLAN template
-- Populate all sections with session-specific content
-- List artifacts with priorities and usage guidelines
-- Document execution strategy and dependencies
-
-**Step 5: Generate TODO_LIST.md**
-- Create task progress checklist matching generated JSONs
-- Use proper status indicators (▸, [ ], [x])
-- Link to task JSON files
-
-**Step 6: Update Session State**
-- Update workflow-session.json with task count and artifact inventory
-- Mark session ready for execution
-
-### MCP Enhancement (Optional)
-
-**Code Analysis**: Use `find`, `rg` for file discovery and pattern search
-**External Research**: Use `mcp__exa__get_code_context_exa` for best practices and API examples
-
-### Quality Validation
-
-Before completion, verify:
-- [ ] All task JSON files created in .task/ directory
-- [ ] Each task JSON has 5 required fields
-- [ ] Artifact references correctly mapped
-- [ ] Flow control includes artifact loading steps
-- [ ] MCP tool integration added where appropriate
-- [ ] IMPL_PLAN.md follows required structure
-- [ ] TODO_LIST.md matches task JSONs
-- [ ] Dependency graph is acyclic
-- [ ] Task count within limits (≤10)
-- [ ] Session state updated
+**Quality Gates** (Full checklist in action-planning-agent.md):
+- ✓ Quantification requirements enforced (explicit counts, measurable acceptance, exact targets)
+- ✓ Task count ≤10 (hard limit)
+- ✓ Artifact references mapped correctly
+- ✓ MCP tool integration added
+- ✓ Documents follow template structure
 
 ## Output
 
