@@ -45,7 +45,65 @@ This command is built on a set of core principles to ensure efficient and reliab
 - **Memory-First**: Prioritizes using documents already loaded in conversation memory to avoid redundant file operations
 - **Mode-Flexible**: Supports both agent-driven execution (default) and CLI tool execution (with `--cli-execute` flag)
 - **Multi-Step Support**: Complex tasks can use multiple sequential steps in `implementation_approach` with codex resume mechanism
+- **Quantification-Enforced**: **NEW** - All requirements, acceptance criteria, and modification points MUST include explicit counts and enumerations to prevent ambiguity (e.g., "17 commands: [list]" not "implement commands")
 - **Responsibility**: Parses analysis, detects artifacts, generates enhanced task JSONs, creates `IMPL_PLAN.md` and `TODO_LIST.md`, updates session state
+
+## 3.5. Quantification Requirements (MANDATORY)
+
+**Purpose**: Eliminate ambiguity by enforcing explicit counts and enumerations in all task specifications.
+
+**Core Rules**:
+1. **Extract Counts from Analysis**: If analysis mentions "implement commands", search for HOW MANY and list them explicitly
+2. **Enforce Explicit Lists**: Every deliverable MUST use format `{count} {type}: [{explicit_list}]`
+3. **Make Acceptance Measurable**: Replace vague terms ("complete", "comprehensive") with verifiable criteria
+4. **Quantify Modification Points**: Each point must specify exact targets (files, functions, features)
+5. **Step-Level Verification**: Each implementation step includes its own verification criteria
+
+**Mandatory Formats**:
+
+**Requirements Format**:
+```
+"requirements": [
+  "GOOD: Implement 17 commands: [literature:add, literature:search, ..., context:synthesize]",
+  "GOOD: Create 5 directories: [literature/, experiment/, data-analysis/, visualization/, context/]",
+  "BAD: Implement new commands for material management",
+  "BAD: Reorganize command structure"
+]
+```
+
+**Acceptance Format**:
+```
+"acceptance": [
+  "GOOD: 17 commands implemented: verify by ls .claude/commands/*/*.md | wc -l = 17",
+  "GOOD: 5 directories created: verify by ls .claude/commands/ | grep -E '(lit|exp|...)' | wc -l = 5",
+  "GOOD: Each command file contains: usage section, 3+ examples, parameter documentation",
+  "BAD: All commands implemented successfully",
+  "BAD: Command structure reorganized logically"
+]
+```
+
+**Modification Points Format**:
+```
+"modification_points": [
+  "GOOD: Create 5 files: [session-start.md, session-resume.md, session-list.md, session-complete.md, session-archive.md]",
+  "GOOD: Modify 3 functions: [parseConfig() lines 15-30, validateInput() lines 45-60, executeTask() lines 80-120]",
+  "BAD: Apply requirements from role analysis",
+  "BAD: Implement feature following specifications"
+]
+```
+
+**Forbidden Language Patterns**:
+- BAD: "Implement feature" -> GOOD: "Implement 3 features: [auth, validation, logging]"
+- BAD: "Complete refactoring" -> GOOD: "Refactor 5 files: [file1.ts, file2.ts, ...] (total 800 lines)"
+- BAD: "Reorganize structure" -> GOOD: "Move 12 files from old/ to new/ directory structure"
+- BAD: "Comprehensive tests" -> GOOD: "Write 25 test cases covering: [scenario1, scenario2, ...] (>=80% coverage)"
+
+**Validation Checklist** (Run before task generation):
+- [ ] Every requirement contains explicit count or enumerated list
+- [ ] Every acceptance criterion is measurable with verification command
+- [ ] Every modification_point specifies exact targets (files/functions/lines)
+- [ ] No vague language ("complete", "comprehensive", "reorganize", "refactor")
+- [ ] Each implementation step has its own acceptance criteria
 
 ## 4. Execution Flow
 The command follows a streamlined, three-step process to convert analysis into executable tasks.
@@ -59,13 +117,39 @@ The process begins by gathering all necessary inputs. It follows a **Memory-Firs
 
 ### Step 2: Task Decomposition & Grouping
 Once all inputs are loaded, the command analyzes the tasks defined in the analysis results and groups them based on shared context.
-1.  **Task Definition Parsing**: Extracts task definitions, requirements, and dependencies.
-2.  **Context Signature Analysis**: Computes a unique hash (`context_signature`) for each task based on its `focus_paths` and referenced `artifacts`.
+
+**Phase 2.1: Quantification Extraction (NEW - CRITICAL)**
+1. **Count Extraction**: Scan analysis documents for quantifiable information:
+   - Search for numbers + nouns (e.g., "5 files", "17 commands", "3 features")
+   - Identify enumerated lists (bullet points, numbered lists, comma-separated items)
+   - Extract explicit counts from tables, diagrams, or structured data
+   - Store extracted counts with their context (what is being counted)
+
+2. **List Enumeration**: Build explicit lists for each deliverable:
+   - If analysis says "implement session commands", enumerate ALL commands: [start, resume, list, complete, archive]
+   - If analysis mentions "create categories", list ALL categories: [literature, experiment, data-analysis, visualization, context]
+   - If analysis describes "modify functions", list ALL functions with line numbers
+   - Maintain full enumerations (no "..." unless list exceeds 20 items)
+
+3. **Verification Method Assignment**: For each deliverable, determine verification approach:
+   - File count: `ls {path}/*.{ext} | wc -l = {count}`
+   - Directory existence: `ls {parent}/ | grep -E '(name1|name2|...)' | wc -l = {count}`
+   - Test coverage: `pytest --cov={module} --cov-report=term | grep TOTAL | awk '{print $4}' >= {percentage}`
+   - Function existence: `grep -E '(func1|func2|...)' {file} | wc -l = {count}`
+
+4. **Ambiguity Detection**: Flag vague language for replacement:
+   - Detect words: "complete", "comprehensive", "reorganize", "refactor", "implement", "create" without counts
+   - Require quantification: "implement" → "implement {N} {items}: [{list}]"
+   - Reject unquantified deliverables
+
+**Phase 2.2: Task Definition & Grouping**
+1.  **Task Definition Parsing**: Extracts task definitions, requirements, and dependencies from quantified analysis
+2.  **Context Signature Analysis**: Computes a unique hash (`context_signature`) for each task based on its `focus_paths` and referenced `artifacts`
 3.  **Task Grouping**:
-    *   Tasks with the **same signature** are candidates for merging, as they operate on the same context.
-    *   Tasks with **different signatures** and no dependencies are grouped for parallel execution.
-    *   Tasks with `depends_on` relationships are marked for sequential execution.
-4.  **Modification Target Determination**: Extracts specific code locations (`file:function:lines`) from the analysis to populate the `target_files` field.
+    *   Tasks with the **same signature** are candidates for merging, as they operate on the same context
+    *   Tasks with **different signatures** and no dependencies are grouped for parallel execution
+    *   Tasks with `depends_on` relationships are marked for sequential execution
+4.  **Modification Target Determination**: Extracts specific code locations (`file:function:lines`) from the analysis to populate the `target_files` field
 
 ### Step 3: Output Generation
 Finally, the command generates all the necessary output files.
@@ -182,9 +266,18 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
     "context_signature": "hash-of-focus_paths-and-artifacts"
   },
   "context": {
-    "requirements": ["Clear requirement from analysis"],
+    "requirements": [
+      "Implement 5 session commands: [session-start, session-resume, session-list, session-complete, session-archive]",
+      "Create 3 directories: [.workflow/, .task/, .summaries/]",
+      "Modify 2 functions: [executeTask() in executor.ts lines 45-120, validateSession() in validator.ts lines 30-55]"
+    ],
     "focus_paths": ["D:\\project\\src\\module\\path", "./tests/module/path"],
-    "acceptance": ["Measurable acceptance criterion"],
+    "acceptance": [
+      "5 command files created: verify by ls .claude/commands/workflow/session/*.md | wc -l = 5",
+      "3 directories exist: verify by ls .workflow/ | grep -E '(task|summaries|process)' | wc -l = 3",
+      "Each command file contains: usage section + 3 examples + parameter docs + agent invocation",
+      "All tests pass: pytest tests/workflow/session/ --cov=src/workflow/session --cov-report=term (>=85% coverage)"
+    ],
     "parent": "IMPL-N",
     "depends_on": ["IMPL-N.M"],
     "inherited": {"shared_patterns": [], "common_dependencies": []},
@@ -264,12 +357,12 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         "title": "Implement task following role analyses and context",
         "description": "Implement '[title]' following this priority: 1) role analysis.md files (requirements, design specs, enhancements from synthesis), 2) guidance-specification.md (finalized decisions with resolved conflicts), 3) context-package.json (smart context, focus paths, patterns). Role analyses are enhanced by synthesis phase with concept improvements and clarifications. If conflict_risk was medium/high, conflict resolutions are already applied in-place.",
         "modification_points": [
-          "Apply requirements and design specs from role analysis documents",
-          "Use enhancements and clarifications from synthesis phase",
-          "Use finalized decisions from guidance-specification.md (includes resolved conflicts)",
-          "Use context-package.json for focus paths and dependency resolution",
-          "Consult specific role artifacts for implementation details when needed",
-          "Integrate with existing patterns"
+          "Create 5 command files in .claude/commands/workflow/session/: [start.md, resume.md, list.md, complete.md, archive.md]",
+          "Modify 2 functions following role analysis requirements: [executeTask() in src/workflow/executor.ts lines 45-120, validateSession() in src/workflow/validator.ts lines 30-55]",
+          "Implement 3 features from synthesis enhancements: [session lifecycle hooks, automatic status tracking, rollback on error]",
+          "Apply 2 design decisions from guidance-specification.md: [use Git-based versioning for sessions, integrate with MaterialDB for context persistence]",
+          "Follow 4 existing patterns from context-package.json: [SlashCommand structure, agent invocation via Task tool, TodoWrite for progress tracking, conventional commit messages]",
+          "Add 8 test cases covering: [start workflow, resume existing, list all sessions, complete session, archive session, error handling, validation checks, integration with MaterialDB]"
         ],
         "logic_flow": [
           "Load role analyses (requirements, design, enhancements from synthesis)",

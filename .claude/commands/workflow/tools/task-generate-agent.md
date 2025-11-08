@@ -177,6 +177,69 @@ If conflict_risk was medium/high, modifications have been applied to:
 - **Function-based**: Complete units (logic + UI + tests + config)
 - **Hierarchy**: Flat (≤5) | Two-level (6-10) | Re-scope (>10)
 
+### Quantification Requirements (MANDATORY)
+
+**CRITICAL**: All task specifications MUST include explicit counts and enumerations to eliminate ambiguity.
+
+**Core Rules**:
+1. **Extract Counts from Analysis**: If analysis mentions "implement features", search for HOW MANY and list them explicitly
+2. **Enforce Explicit Lists**: Every deliverable MUST use format \`{count} {type}: [{explicit_list}]\`
+3. **Make Acceptance Measurable**: Replace vague terms ("complete", "comprehensive") with verifiable criteria
+4. **Quantify Modification Points**: Each point must specify exact targets (files, functions, features with line counts)
+5. **Step-Level Verification**: Each implementation step includes its own verification criteria
+
+**Mandatory Task JSON Formats**:
+
+**Requirements Format**:
+\`\`\`
+"requirements": [
+  "GOOD: Implement 5 session commands: [session-start, session-resume, session-list, session-complete, session-archive]",
+  "GOOD: Create 3 directories: [.workflow/, .task/, .summaries/]",
+  "BAD: Implement session management system",
+  "BAD: Complete workflow infrastructure"
+]
+\`\`\`
+
+**Acceptance Format**:
+\`\`\`
+"acceptance": [
+  "GOOD: 5 command files created: verify by ls .claude/commands/workflow/session/*.md | wc -l = 5",
+  "GOOD: 3 directories exist: verify by ls .workflow/ | grep -E '(task|summaries|process)' | wc -l = 3",
+  "GOOD: Each command contains: usage section + 3 examples + parameter docs",
+  "BAD: All session commands implemented successfully",
+  "BAD: Workflow infrastructure complete"
+]
+\`\`\`
+
+**Modification Points Format**:
+\`\`\`
+"modification_points": [
+  "GOOD: Create 5 command files in .claude/commands/workflow/session/: [start.md, resume.md, list.md, complete.md, archive.md]",
+  "GOOD: Modify 2 functions: [executeTask() in executor.ts lines 45-120, validateSession() in validator.ts lines 30-55]",
+  "BAD: Apply requirements from role analysis",
+  "BAD: Implement features following specifications"
+]
+\`\`\`
+
+**Forbidden Language Patterns** (REJECT these during generation):
+- BAD: "Implement feature" -> GOOD: "Implement 3 features: [auth, validation, logging]"
+- BAD: "Complete refactoring" -> GOOD: "Refactor 5 files: [file1.ts, file2.ts, ...] (total 800 lines)"
+- BAD: "Reorganize structure" -> GOOD: "Move 12 files from old/ to new/ directory structure"
+- BAD: "Comprehensive tests" -> GOOD: "Write 25 test cases covering: [scenario1, scenario2, ...] (>=80% coverage)"
+
+**Quantification Extraction Process** (Apply during Step 2):
+1. **Scan Analysis Documents**: Search for numbers + nouns (e.g., "5 files", "17 commands", "3 features")
+2. **Enumerate Lists**: Build explicit lists for each deliverable (no "..." unless list >20 items)
+3. **Assign Verification Methods**: For each deliverable, specify how to verify (bash command, count check, coverage metric)
+4. **Flag Ambiguity**: Detect vague language ("complete", "comprehensive", "reorganize") and require quantification
+
+**Validation Checklist** (Run before generating task JSON):
+- [ ] Every requirement contains explicit count or enumerated list
+- [ ] Every acceptance criterion is measurable with verification command
+- [ ] Every modification_point specifies exact targets (files/functions/lines)
+- [ ] No vague language in requirements, acceptance, or modification_points
+- [ ] Each implementation step has its own acceptance criteria
+
 ### Required Outputs
 
 #### 1. Task JSON Files (.task/IMPL-*.json)
@@ -240,20 +303,31 @@ $(cat ~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
 - Read template from the provided path: `Read({template_path})`
 - This template is already the correct one based on execution mode
 
-**Step 2: Extract and Decompose Tasks**
+**Step 2: Extract and Decompose Tasks (WITH QUANTIFICATION)**
 - Parse role analysis.md files for requirements, design specs, and task recommendations
+- **CRITICAL: Apply Quantification Extraction Process**:
+  - Scan for counts: numbers + nouns (e.g., "5 files", "17 commands", "3 features")
+  - Build explicit lists for each deliverable (no "..." unless list >20 items)
+  - Flag vague language ("complete", "comprehensive", "reorganize") for replacement
+  - Extract verification methods for each deliverable
 - Review synthesis enhancements and clarifications in role analyses
 - Apply conflict resolution strategies (if CONFLICT_RESOLUTION.md exists)
 - Apply task merging rules (merge when possible, decompose only when necessary)
 - Map artifacts to tasks based on domain (UI → ui-designer, Backend → system-architect, Data → data-architect)
 - Ensure task count ≤10
 
-**Step 3: Generate Task JSON Files**
+**Step 3: Generate Task JSON Files (ENFORCE QUANTIFICATION)**
 - Use the template structure from Step 1
 - Create .task/IMPL-*.json files with proper structure
+- **MANDATORY: Apply Quantification Formats**:
+  - Every requirement: \`{count} {type}: [{explicit_list}]\`
+  - Every acceptance: Measurable with verification command
+  - Every modification_point: Exact targets (files/functions/lines)
+  - NO vague language in any field
 - Replace all {placeholder} variables with actual session paths
 - Embed artifacts array with brainstorming outputs
 - Include MCP tool integration in pre_analysis steps
+- **Validation**: Run checklist from Quantification Requirements section before writing files
 
 **Step 4: Create IMPL_PLAN.md**
 - Use IMPL_PLAN template

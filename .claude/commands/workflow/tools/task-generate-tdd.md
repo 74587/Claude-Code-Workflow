@@ -55,6 +55,97 @@ Generate TDD-specific tasks from analysis results with complete Red-Green-Refact
 - **Context-Aware**: Analyzes existing codebase and test patterns
 - **Iterative Green Phase**: Auto-diagnose and fix test failures with Gemini + optional Codex
 - **Safety-First**: Auto-revert on max iterations to prevent broken state
+- **Quantification-Enforced**: All test cases, coverage requirements, and implementation scope MUST include explicit counts and enumerations (e.g., "15 test cases: [test1, test2, ...]" not "comprehensive tests")
+
+## Quantification Requirements for TDD (MANDATORY)
+
+**Purpose**: Eliminate ambiguity in TDD task generation by enforcing explicit test case counts, coverage metrics, and implementation scope.
+
+**Core Rules**:
+1. **Explicit Test Case Counts**: Red phase MUST specify exact number of test cases with enumerated list
+2. **Quantified Coverage**: Acceptance criteria MUST include measurable coverage percentage (e.g., ">=85%")
+3. **Detailed Implementation Scope**: Green phase MUST enumerate exact files, functions, and line counts
+4. **Enumerated Refactoring Targets**: Refactor phase MUST list specific improvements with counts
+
+**Test Case Format (Red Phase)**:
+```
+"requirements": [
+  "GOOD: Red Phase - Write 15 test cases: [test_user_auth_success, test_user_auth_invalid_password, test_user_auth_missing_token, test_session_create, test_session_resume, test_session_expire, test_api_post_valid, test_api_post_invalid, test_api_get_list, test_api_get_item, test_validation_required_fields, test_validation_type_checking, test_error_404, test_error_500, test_integration_full_flow]",
+  "BAD: Red Phase - Write comprehensive test suite covering all scenarios"
+]
+```
+
+**Coverage Format (Acceptance)**:
+```
+"acceptance": [
+  "GOOD: All 15 tests pass with >=85% coverage: verify by pytest --cov=src/auth --cov-report=term | grep TOTAL",
+  "GOOD: Test 5 functions: [authenticate(), createSession(), validateToken(), refreshSession(), revokeSession()]",
+  "BAD: All tests pass with good coverage",
+  "BAD: Test suite complete"
+]
+```
+
+**Implementation Scope Format (Green Phase)**:
+```
+"modification_points": [
+  "GOOD: Implement 5 functions in src/auth/service.ts lines 20-180: [authenticate() 20-45, createSession() 50-75, validateToken() 80-100, refreshSession() 105-135, revokeSession() 140-160]",
+  "GOOD: Create 3 files: [src/auth/service.ts (180 lines), src/auth/models.ts (50 lines), src/auth/utils.ts (30 lines)]",
+  "BAD: Implement authentication service following requirements",
+  "BAD: Create necessary files for feature"
+]
+```
+
+**Refactoring Targets Format (Refactor Phase)**:
+```
+"modification_points": [
+  "GOOD: Apply 4 refactorings: [extract validateInput() helper (15 lines), merge duplicate error handlers (3 occurrences), rename confusing variables (token->authToken in 8 locations), add JSDoc to 5 public functions]",
+  "BAD: Improve code quality and maintainability",
+  "BAD: Refactor implementation"
+]
+```
+
+**TDD Cycles Array Format**:
+```
+"tdd_cycles": [
+  {
+    "cycle": 1,
+    "feature": "User authentication with password validation",
+    "test_count": 5,
+    "test_cases": [
+      "test_auth_valid_credentials",
+      "test_auth_invalid_password",
+      "test_auth_missing_username",
+      "test_auth_account_locked",
+      "test_auth_password_expired"
+    ],
+    "implementation_scope": "Implement authenticate() function in src/auth/service.ts lines 20-65 (45 lines)",
+    "expected_coverage": ">=90%"
+  },
+  {
+    "cycle": 2,
+    "feature": "Session management lifecycle",
+    "test_count": 6,
+    "test_cases": [
+      "test_session_create",
+      "test_session_resume",
+      "test_session_expire",
+      "test_session_refresh",
+      "test_session_revoke",
+      "test_session_concurrent_limit"
+    ],
+    "implementation_scope": "Implement 3 functions in src/auth/service.ts lines 70-150: [createSession() 70-95, resumeSession() 100-125, revokeSession() 130-150]",
+    "expected_coverage": ">=85%"
+  }
+]
+```
+
+**Validation Checklist** (Run before TDD task generation):
+- [ ] Every Red phase specifies exact test case count with enumerated list
+- [ ] Every Green phase enumerates files, functions, and estimated line counts
+- [ ] Every Refactor phase lists specific improvements with counts
+- [ ] Every acceptance criterion includes measurable coverage percentage
+- [ ] tdd_cycles array contains test_count and test_cases for each cycle
+- [ ] No vague language ("comprehensive", "complete", "thorough")
 
 ## Core Responsibilities
 - Parse analysis results and identify testable features
@@ -144,25 +235,49 @@ For each feature, generate task(s) with ID format:
     "use_codex": false                             // false=manual fixes, true=Codex automated fixes
   },
   "context": {
-    "requirements": [                              // Feature requirements with TDD phases
-      "Feature description",
-      "Red: Test scenarios to write",
-      "Green: Implementation approach with test-fix cycle",
-      "Refactor: Code quality improvements"
+    "requirements": [                              // Feature requirements with TDD phases (QUANTIFIED)
+      "Implement user authentication with session management",
+      "Red: Write 11 test cases: [test_auth_valid, test_auth_invalid_pwd, test_auth_missing_user, test_session_create, test_session_resume, test_session_expire, test_session_refresh, test_session_revoke, test_validation_required, test_error_401, test_integration_full_auth_flow]",
+      "Green: Implement 5 functions in src/auth/service.ts (160 lines total): [authenticate() 20-50, createSession() 55-80, validateToken() 85-105, refreshSession() 110-135, revokeSession() 140-160]",
+      "Refactor: Apply 3 improvements: [extract validateInput() helper (12 lines), merge 2 duplicate error handlers, add JSDoc to 5 public functions]"
     ],
-    "tdd_cycles": [                                // OPTIONAL: Detailed test cycles
+    "tdd_cycles": [                                // REQUIRED: Detailed test cycles with counts
       {
         "cycle": 1,
-        "feature": "Specific functionality",
-        "test_focus": "What to test",
-        "expected_failure": "Why test should fail initially"
+        "feature": "User authentication with password validation",
+        "test_count": 5,
+        "test_cases": [
+          "test_auth_valid_credentials",
+          "test_auth_invalid_password",
+          "test_auth_missing_username",
+          "test_auth_account_locked",
+          "test_auth_session_created"
+        ],
+        "implementation_scope": "Implement authenticate() function in src/auth/service.ts lines 20-50 (30 lines)",
+        "expected_coverage": ">=90%"
+      },
+      {
+        "cycle": 2,
+        "feature": "Session lifecycle management",
+        "test_count": 6,
+        "test_cases": [
+          "test_session_create",
+          "test_session_resume_valid",
+          "test_session_expire_timeout",
+          "test_session_refresh_extend",
+          "test_session_revoke_immediate",
+          "test_session_concurrent_limit"
+        ],
+        "implementation_scope": "Implement 3 functions in src/auth/service.ts lines 55-160: [createSession() 55-80, validateToken() 85-105, refreshSession() 110-135, revokeSession() 140-160]",
+        "expected_coverage": ">=85%"
       }
     ],
     "focus_paths": ["D:\\project\\src\\path", "./tests/path"],  // Absolute or clear relative paths from project root
-    "acceptance": [                                // Success criteria
-      "All tests pass (Red → Green)",
-      "Code refactored (Refactor complete)",
-      "Test coverage ≥80%"
+    "acceptance": [                                // Success criteria (QUANTIFIED)
+      "All 11 tests pass: verify by npm test -- tests/auth/ (exit code 0)",
+      "Test coverage >=85%: verify by npm test -- --coverage | grep TOTAL | awk '{print $4}' >= 85",
+      "5 functions implemented with proper error handling",
+      "3 refactoring improvements applied: code passes npm run lint with 0 warnings"
     ],
     "depends_on": []                               // Task dependencies
   },
@@ -181,10 +296,22 @@ For each feature, generate task(s) with ID format:
         "step": 1,
         "title": "RED Phase: Write failing tests",
         "tdd_phase": "red",                        // REQUIRED: Phase identifier
-        "description": "Write comprehensive failing tests",
-        "modification_points": ["Files/changes to make"],
-        "logic_flow": ["Step-by-step process"],
-        "acceptance": ["Phase success criteria"],
+        "description": "Write 11 failing test cases for authentication and session management",
+        "modification_points": [
+          "Create tests/auth/authentication.test.ts with 5 test cases: [test_auth_valid_credentials, test_auth_invalid_password, test_auth_missing_username, test_auth_account_locked, test_auth_session_created]",
+          "Create tests/auth/session.test.ts with 6 test cases: [test_session_create, test_session_resume_valid, test_session_expire_timeout, test_session_refresh_extend, test_session_revoke_immediate, test_session_concurrent_limit]"
+        ],
+        "logic_flow": [
+          "Create test file structure: tests/auth/ directory",
+          "Write 5 authentication test cases in authentication.test.ts",
+          "Write 6 session management test cases in session.test.ts",
+          "Verify all 11 tests fail with expected errors"
+        ],
+        "acceptance": [
+          "11 test cases written: verify by grep -E 'test_.*\\(' tests/auth/*.test.ts | wc -l = 11",
+          "All tests fail: npm test -- tests/auth/ exits with non-zero status",
+          "Each test has clear assertion and expected failure reason"
+        ],
         "depends_on": [],
         "output": "failing_tests"
       },
@@ -192,20 +319,28 @@ For each feature, generate task(s) with ID format:
         "step": 2,
         "title": "GREEN Phase: Implement to pass tests",
         "tdd_phase": "green",                      // REQUIRED: Phase identifier
-        "description": "Minimal implementation with test-fix cycle",
-        "modification_points": ["Implementation files"],
-        "logic_flow": [
-          "Implement minimal code",
-          "Run tests",
-          "If fail → Enter iteration loop (max 3):",
-          "  1. Extract failure messages",
-          "  2. Gemini bug-fix diagnosis",
-          "  3. Apply fixes",
-          "  4. Rerun tests",
-          "If max_iterations → Auto-revert"
+        "description": "Implement 5 functions (160 lines) in src/auth/service.ts with test-fix cycle",
+        "modification_points": [
+          "Create src/auth/service.ts implementing 5 functions (160 lines total): [authenticate() 20-50, createSession() 55-80, validateToken() 85-105, refreshSession() 110-135, revokeSession() 140-160]",
+          "Create src/auth/models.ts with 2 interfaces: [User, Session]",
+          "Create src/auth/utils.ts with 2 helper functions: [hashPassword(), generateToken()]"
         ],
-        "acceptance": ["All tests pass"],
-        "command": "bash(npm test -- tests/path/)",
+        "logic_flow": [
+          "Implement minimal code for 5 functions",
+          "Run tests: npm test -- tests/auth/",
+          "If fail -> Enter iteration loop (max 3):",
+          "  1. Extract failure messages from test output",
+          "  2. Use Gemini for bug-fix diagnosis",
+          "  3. Apply fixes to failing functions",
+          "  4. Rerun tests",
+          "If max_iterations reached -> Auto-revert via git reset --hard HEAD"
+        ],
+        "acceptance": [
+          "All 11 tests pass: npm test -- tests/auth/ exits with status 0",
+          "5 functions implemented: grep -E '^(export )?function ' src/auth/service.ts | wc -l = 5",
+          "Test coverage >=85%: npm test -- --coverage | grep TOTAL | awk '{print $4}' >= 85"
+        ],
+        "command": "bash(npm test -- tests/auth/)",
         "depends_on": [1],
         "output": "passing_implementation"
       },
@@ -213,10 +348,25 @@ For each feature, generate task(s) with ID format:
         "step": 3,
         "title": "REFACTOR Phase: Improve code quality",
         "tdd_phase": "refactor",                   // REQUIRED: Phase identifier
-        "description": "Refactor while keeping tests green",
-        "modification_points": ["Quality improvements"],
-        "logic_flow": ["Incremental refactoring with test verification"],
-        "acceptance": ["Tests still pass", "Code quality improved"],
+        "description": "Apply 3 refactoring improvements while maintaining test coverage",
+        "modification_points": [
+          "Extract validateInput() helper function (12 lines) from authenticate() and createSession()",
+          "Merge 2 duplicate error handlers in session.ts into single handleSessionError() function",
+          "Add JSDoc comments to 5 public functions: [authenticate(), createSession(), validateToken(), refreshSession(), revokeSession()]"
+        ],
+        "logic_flow": [
+          "Extract validateInput() helper, update 2 call sites",
+          "Merge duplicate error handlers, verify 2 usages updated",
+          "Add JSDoc to 5 functions with @param, @returns, @throws",
+          "Run tests after each refactoring to ensure green state",
+          "Run linter: npm run lint (expect 0 warnings)"
+        ],
+        "acceptance": [
+          "All 11 tests still pass: npm test -- tests/auth/ exits with status 0",
+          "3 refactorings applied: validateInput() extracted + error handlers merged + 5 JSDoc added",
+          "Lint passes: npm run lint exits with 0 warnings",
+          "Test coverage maintained >=85%"
+        ],
         "command": "bash(npm run lint && npm test)",
         "depends_on": [2],
         "output": "refactored_implementation"
