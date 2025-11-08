@@ -1,8 +1,8 @@
 ---
 name: layout-extract
 description: Extract structural layout information from reference images, URLs, or text prompts using Claude analysis
-argument-hint: [--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--targets "<list>"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>]
-allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), Task(ui-design-agent), mcp__exa__web_search_exa(*)
+argument-hint: [--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--targets "<list>"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive]
+allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent), mcp__exa__web_search_exa(*)
 ---
 
 # Layout Extraction Command
@@ -66,7 +66,7 @@ ELSE:
 device_type = --device-type OR "responsive"  # desktop|mobile|tablet|responsive
 
 # Determine base path (auto-detect and convert to absolute)
-relative_path=$(find .workflow -type d -name "design-run-*" | head -1)
+relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
 base_path=$(cd "$relative_path" && pwd)
 bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
 # OR use --base-path / --session parameters
@@ -260,11 +260,23 @@ bash(cat {base_path}/.intermediates/layout-analysis/analysis-options.json | grep
 
 ---
 
-## Phase 1.5: User Confirmation (Explore Mode Only - INTERACTIVE)
+## Phase 1.5: User Confirmation (Optional - Triggered by --interactive)
 
 **Purpose**: Allow user to select preferred layout concept(s) for each target before generating detailed templates
 
-### Step 1: Load and Present Options
+**Trigger Condition**: Execute this phase ONLY if `--interactive` flag is present
+
+### Step 1: Check Interactive Flag
+```bash
+# Skip this entire phase if --interactive flag is not present
+IF NOT --interactive:
+    SKIP to Phase 2
+
+# Interactive mode enabled
+REPORT: "🎯 Interactive mode: User selection required for {targets.length} target(s)"
+```
+
+### Step 2: Load and Present Options
 ```bash
 # Read options file
 options = Read({base_path}/.intermediates/layout-analysis/analysis-options.json)
@@ -354,6 +366,9 @@ FOR each target:
 
 ### Step 4: Write User Selection File
 ```bash
+# Create user-selections directory
+bash(mkdir -p {base_path}/.intermediates/user-selections)
+
 # Calculate total selections across all targets
 total_selections = sum([len(selections[t].selected_indices) for t in targets])
 
@@ -365,14 +380,14 @@ selection_data = {
     "session_id": "{session_id}",
     "total_selections": total_selections
   },
-  "selections": selections  // {target: {selected_indices: [...], concept_names: [...]}}
+  "selected_variants": selections  // {target: {selected_indices: [...], concept_names: [...]}}
 }
 
-# Write to file
-bash(echo '{selection_data}' > {base_path}/.intermediates/layout-analysis/user-selection.json)
+# Write to standardized selection file
+bash(echo '{selection_data}' > {base_path}/.intermediates/user-selections/layout-extract-selection.json)
 
 # Verify
-bash(test -f {base_path}/.intermediates/layout-analysis/user-selection.json && echo "saved")
+bash(test -f {base_path}/.intermediates/user-selections/layout-extract-selection.json && echo "saved")
 ```
 
 ### Step 5: Confirmation Message
@@ -395,11 +410,27 @@ Proceeding to generate {total_selections} detailed layout template(s)...
 
 **Executor**: `Task(ui-design-agent)` × `Total_Selected_Templates` in **parallel**
 
-### Step 1: Load User Selections and Build Task List
+### Step 1: Load User Selections or Default to All
 ```bash
-# Read user selections
-selection = Read({base_path}/.intermediates/layout-analysis/user-selection.json)
-selections_per_target = selection.selections
+# Check if user selection file exists (interactive mode)
+IF exists({base_path}/.intermediates/user-selections/layout-extract-selection.json):
+    # Interactive mode: Use user-selected variants
+    selection = Read({base_path}/.intermediates/user-selections/layout-extract-selection.json)
+    selections_per_target = selection.selected_variants
+
+    # Calculate total selections
+    total_selections = selection.metadata.total_selections
+ELSE:
+    # Non-interactive mode: Generate ALL variants for ALL targets (default behavior)
+    selections_per_target = {}
+    total_selections = 0
+
+    FOR each target in targets:
+        selections_per_target[target] = {
+            "selected_indices": [1, 2, ..., variants_count],  # All indices
+            "concept_names": []  # Will be filled from options
+        }
+        total_selections += variants_count
 
 # Read concept details
 options = Read({base_path}/.intermediates/layout-analysis/analysis-options.json)

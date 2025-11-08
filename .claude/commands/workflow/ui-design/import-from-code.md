@@ -1,7 +1,7 @@
 ---
 name: workflow:ui-design:import-from-code
 description: Import design system from code files (CSS/JS/HTML/SCSS) using parallel agent analysis with final synthesis
-argument-hint: "[--source-path <path>] [--output-path <path>] [--css \"<glob>\"] [--js \"<glob>\"] [--scss \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"] [--session <id>]"
+argument-hint: "[--base-path <path>] [--source <path>] [--css \"<glob>\"] [--js \"<glob>\"] [--scss \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"] [--session <id>]"
 allowed-tools: Read,Write,Bash,Glob,Grep,Task,TodoWrite
 auto-continue: true
 ---
@@ -34,8 +34,8 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 /workflow:ui-design:import-from-code [FLAGS]
 
 # Flags
---source-path <path>    Source code directory to analyze (default: current directory)
---output-path <path>    Output directory for extracted design tokens (default: current directory)
+--base-path <path>      Output directory for extracted design tokens (default: current directory)
+--source <path>         Source code directory to analyze (default: base-path)
 --css "<glob>"          CSS file glob pattern (e.g., "theme/*.css")
 --scss "<glob>"         SCSS file glob pattern (e.g., "styles/*.scss")
 --js "<glob>"           JavaScript file glob pattern (e.g., "theme/*.js")
@@ -48,19 +48,19 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 
 ```bash
 # Basic usage - auto-discover all files
-/workflow:ui-design:import-from-code --source-path ./src --output-path ./design-system
+/workflow:ui-design:import-from-code --base-path ./design-system --source ./src
 
 # Target specific directories
-/workflow:ui-design:import-from-code --source-path ./src --output-path ./design-system --css "theme/*.css" --js "theme/*.js"
+/workflow:ui-design:import-from-code --base-path ./design-system --source ./src --css "theme/*.css" --js "theme/*.js"
 
 # Tailwind config only (output to current directory)
-/workflow:ui-design:import-from-code --source-path ./ --js "tailwind.config.js"
+/workflow:ui-design:import-from-code --source ./ --js "tailwind.config.js"
 
 # CSS framework import
-/workflow:ui-design:import-from-code --source-path ./src --output-path ./design-system --css "styles/**/*.scss" --html "components/**/*.html"
+/workflow:ui-design:import-from-code --base-path ./design-system --source ./src --css "styles/**/*.scss" --html "components/**/*.html"
 
 # Universal style files
-/workflow:ui-design:import-from-code --source-path ./src --output-path ./design-system --style-files "**/theme.*"
+/workflow:ui-design:import-from-code --base-path ./design-system --source ./src --style-files "**/theme.*"
 ```
 
 ---
@@ -75,12 +75,12 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 
 ```bash
 # 1. Initialize directories
-source_path="${source_path:-.}"
-output_path="${output_path:-.}"
-intermediates_dir="${output_path}/.intermediates/import-analysis"
+base_path="${base_path:-.}"
+source="${source:-$base_path}"
+intermediates_dir="${base_path}/.intermediates/import-analysis"
 mkdir -p "$intermediates_dir"
 
-echo "[Phase 0] File Discovery Started (source: $source_path, output: $output_path)"
+echo "[Phase 0] File Discovery Started (source: $source, output: $base_path)"
 ```
 
 <!-- TodoWrite: Initialize todo list -->
@@ -97,7 +97,7 @@ echo "[Phase 0] File Discovery Started (source: $source_path, output: $output_pa
 
 ```bash
 # 2. Discover files by type
-cd "$source_path" || exit 1
+cd "$source" || exit 1
 
 # CSS files
 if [ -n "$css" ]; then
@@ -183,7 +183,7 @@ Task(ui-design-agent): `
   [STYLE_TOKENS_EXTRACTION]
   Extract visual design tokens (colors, typography, spacing, shadows, borders) from ALL file types
 
-  MODE: style-extraction | SOURCE_PATH: ${source_path} | OUTPUT_PATH: ${output_path}
+  MODE: style-extraction | SOURCE: ${source} | BASE_PATH: ${base_path}
 
   ## Input Files (Can reference ANY file type)
 
@@ -210,7 +210,7 @@ Task(ui-design-agent): `
 
   ## Output Requirements
 
-  Generate 2 files in ${output_path}/style-extraction/style-1/:
+  Generate 2 files in ${base_path}/style-extraction/style-1/:
   1. design-tokens.json (production-ready design tokens)
   2. style-guide.md (design philosophy and usage guide)
 
@@ -359,13 +359,13 @@ Task(ui-design-agent): `
 
   ## Critical Requirements
   - ✅ Can read ANY file type (CSS/SCSS/JS/TS/HTML) - not restricted to CSS only
-  - ✅ Use Read() tool for each file you want to analyze (files are in SOURCE_PATH: ${source_path})
+  - ✅ Use Read() tool for each file you want to analyze (files are in SOURCE: ${source})
   - ✅ Cross-reference between file types for better extraction
   - ✅ Extract all visual token types systematically
-  - ✅ Create style-extraction/style-1/ directory first: Bash(mkdir -p "${output_path}/style-extraction/style-1")
+  - ✅ Create style-extraction/style-1/ directory first: Bash(mkdir -p "${base_path}/style-extraction/style-1")
   - ✅ Use Write() to save both files:
-    - ${output_path}/style-extraction/style-1/design-tokens.json
-    - ${output_path}/style-extraction/style-1/style-guide.md
+    - ${base_path}/style-extraction/style-1/design-tokens.json
+    - ${base_path}/style-extraction/style-1/style-guide.md
   - ✅ Include _metadata.completeness field to track missing content
   - ❌ NO external research or MCP calls
 `
@@ -380,7 +380,7 @@ Task(ui-design-agent): `
   [ANIMATION_TOKENS_EXTRACTION]
   Extract animation/transition tokens from ALL file types
 
-  MODE: animation-extraction | SOURCE_PATH: ${source_path} | OUTPUT_PATH: ${output_path}
+  MODE: animation-extraction | SOURCE: ${source} | BASE_PATH: ${base_path}
 
   ## Input Files (Can reference ANY file type)
 
@@ -407,7 +407,7 @@ Task(ui-design-agent): `
 
   ## Output Requirements
 
-  Generate 2 files in ${output_path}/animation-extraction/:
+  Generate 2 files in ${base_path}/animation-extraction/:
   1. animation-tokens.json (production-ready animation tokens)
   2. animation-guide.md (animation usage guide)
 
@@ -532,13 +532,13 @@ Task(ui-design-agent): `
 
   ## Critical Requirements
   - ✅ Can read ANY file type (CSS/SCSS/JS/TS/HTML)
-  - ✅ Use Read() tool for each file you want to analyze (files are in SOURCE_PATH: ${source_path})
+  - ✅ Use Read() tool for each file you want to analyze (files are in SOURCE: ${source})
   - ✅ Detect animation framework if used
   - ✅ Extract all animation-related tokens
-  - ✅ Create animation-extraction/ directory first: Bash(mkdir -p "${output_path}/animation-extraction")
+  - ✅ Create animation-extraction/ directory first: Bash(mkdir -p "${base_path}/animation-extraction")
   - ✅ Use Write() to save both files:
-    - ${output_path}/animation-extraction/animation-tokens.json
-    - ${output_path}/animation-extraction/animation-guide.md
+    - ${base_path}/animation-extraction/animation-tokens.json
+    - ${base_path}/animation-extraction/animation-guide.md
   - ✅ Include _metadata.completeness field to track missing content
   - ❌ NO external research or MCP calls
 `
@@ -553,7 +553,7 @@ Task(ui-design-agent): `
   [LAYOUT_PATTERNS_EXTRACTION]
   Extract layout patterns and component structures from ALL file types
 
-  MODE: layout-extraction | SOURCE_PATH: ${source_path} | OUTPUT_PATH: ${output_path}
+  MODE: layout-extraction | SOURCE: ${source} | BASE_PATH: ${base_path}
 
   ## Input Files (Can reference ANY file type)
 
@@ -580,7 +580,7 @@ Task(ui-design-agent): `
 
   ## Output Requirements
 
-  Generate 1 file: ${output_path}/layout-extraction/layout-templates.json
+  Generate 1 file: ${base_path}/layout-extraction/layout-templates.json
 
   ### layout-templates.json Structure:
   {
@@ -677,11 +677,11 @@ Task(ui-design-agent): `
 
   ## Critical Requirements
   - ✅ Can read ANY file type (CSS/SCSS/JS/TS/HTML)
-  - ✅ Use Read() tool for each file you want to analyze (files are in SOURCE_PATH: ${source_path})
+  - ✅ Use Read() tool for each file you want to analyze (files are in SOURCE: ${source})
   - ✅ Identify naming conventions and layout systems
   - ✅ Extract component patterns with variants and states
-  - ✅ Create layout-extraction/ directory first: Bash(mkdir -p "${output_path}/layout-extraction")
-  - ✅ Use Write() to save: ${output_path}/layout-extraction/layout-templates.json
+  - ✅ Create layout-extraction/ directory first: Bash(mkdir -p "${base_path}/layout-extraction")
+  - ✅ Use Write() to save: ${base_path}/layout-extraction/layout-templates.json
   - ✅ Include extraction_metadata.completeness field to track missing content
   - ❌ NO external research or MCP calls
 `
@@ -712,11 +712,11 @@ echo "[Phase 1] Parallel agent analysis complete"
 
 ### Generated Files
 
-**Location**: `${output_path}/`
+**Location**: `${base_path}/`
 
 **Directory Structure**:
 ```
-${output_path}/
+${base_path}/
 ├── style-extraction/
 │   └── style-1/
 │       ├── design-tokens.json       # Production-ready design tokens
@@ -771,7 +771,7 @@ ${output_path}/
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| No files discovered | Glob patterns too restrictive or wrong source-path | Check glob patterns and source-path, verify file locations |
+| No files discovered | Glob patterns too restrictive or wrong --source path | Check glob patterns and --source parameter, verify file locations |
 | Agent reports "failed" status | No tokens found in any file | Review file content, check if files contain design tokens |
 | Empty completeness reports | Files exist but contain no extractable tokens | Manually verify token definitions in source files |
 | Missing file type | Specific file type not discovered | Use explicit glob flags (--css, --js, --html, --scss) |
@@ -781,8 +781,8 @@ ${output_path}/
 ## Best Practices
 
 1. **Use auto-discovery for full projects**: Omit glob flags to discover all files automatically
-2. **Target specific directories for speed**: Use `--source-path` to target source code and `--output-path` for extracted tokens, combined with specific globs for focused analysis
-3. **Separate source and output**: Always use distinct `--source-path` (where source code lives) and `--output-path` (where design tokens are generated) to avoid polluting source code directory
+2. **Target specific directories for speed**: Use `--source` to specify source code location and `--base-path` for extracted tokens output, combined with specific globs for focused analysis
+3. **Separate source and output**: When analyzing external codebases, use `--source` to point to source code and `--base-path` for design tokens output directory (default: --source uses --base-path if not specified)
 4. **Cross-reference agent reports**: Compare all three completeness reports to identify gaps
 5. **Review missing content**: Check `missing` field in reports for actionable improvements
-6. **Verify file discovery**: Check `${output_path}/.intermediates/import-analysis/*-files.txt` if agents report no data
+6. **Verify file discovery**: Check `${base_path}/.intermediates/import-analysis/*-files.txt` if agents report no data
