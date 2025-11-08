@@ -18,16 +18,18 @@ Batch screenshot tool with MCP-first strategy and multi-tier fallback. Processes
 ### Step 1: Determine Base Path
 ```bash
 # Priority: --base-path > session > standalone
-bash(if [ -n "$BASE_PATH" ]; then
+relative_path=$(if [ -n "$BASE_PATH" ]; then
   echo "$BASE_PATH"
 elif [ -n "$SESSION_ID" ]; then
   find .workflow/WFS-$SESSION_ID/design-* -type d | head -1 || \
-  echo ".workflow/WFS-$SESSION_ID/design-run-$(date +%Y%m%d-%H%M%S)"
+  echo ".workflow/WFS-$SESSION_ID/design-run-$(date +%Y%m%d)-$RANDOM"
 else
-  echo ".workflow/.design/run-$(date +%Y%m%d-%H%M%S)"
+  echo ".workflow/.design/design-run-$(date +%Y%m%d)-$RANDOM"
 fi)
 
-bash(mkdir -p $BASE_PATH/screenshots)
+# Create directory and convert to absolute path
+bash(mkdir -p "$relative_path"/screenshots)
+base_path=$(cd "$relative_path" && pwd)
 ```
 
 ### Step 2: Parse URL Map
@@ -187,7 +189,7 @@ bash($chrome --headless --screenshot="$output_file" --window-size=1920,1080 "$ur
 
 Failed URLs:
   home: https://linear.app
-  Save to: .workflow/.design/run-20250110/screenshots/home.png
+  Save to: .workflow/.design/design-run-20250110/screenshots/home.png
 
 Steps:
   1. Visit URL in browser
@@ -270,7 +272,7 @@ Next: /workflow:ui-design:extract --images "screenshots/*.png"
 ### Path Operations
 ```bash
 # Find design directory
-bash(find .workflow -type d -name "design-*" | head -1)
+bash(find .workflow -type d -name "design-run-*" | head -1)
 
 # Create screenshot directory
 bash(mkdir -p $BASE_PATH/screenshots)

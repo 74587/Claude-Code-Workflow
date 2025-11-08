@@ -38,17 +38,21 @@ IF depth NOT IN [1, 2, 3, 4, 5]:
 
 ### Step 2: Determine Base Path
 ```bash
-bash(if [ -n "$BASE_PATH" ]; then
+relative_path=$(if [ -n "$BASE_PATH" ]; then
   echo "$BASE_PATH"
 elif [ -n "$SESSION_ID" ]; then
   find .workflow/WFS-$SESSION_ID/design-* -type d | head -1 || \
-  echo ".workflow/WFS-$SESSION_ID/design-layers-$(date +%Y%m%d-%H%M%S)"
+  echo ".workflow/WFS-$SESSION_ID/design-run-$(date +%Y%m%d)-$RANDOM"
 else
-  echo ".workflow/.design/layers-$(date +%Y%m%d-%H%M%S)"
+  echo ".workflow/.design/design-run-$(date +%Y%m%d)-$RANDOM"
 fi)
 
+# Create directory structure and convert to absolute path
+bash(mkdir -p "$relative_path")
+base_path=$(cd "$relative_path" && pwd)
+
 # Create depth directories
-bash(for i in $(seq 1 $depth); do mkdir -p $BASE_PATH/screenshots/depth-$i; done)
+bash(for i in $(seq 1 $depth); do mkdir -p "$base_path"/screenshots/depth-$i; done)
 ```
 
 **Output**: `url`, `depth`, `base_path`

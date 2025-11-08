@@ -51,8 +51,10 @@ ELSE IF extraction_mode == "explore":
     variants_count = --variants OR 3  # Default to 3 for explore mode
     VALIDATE: 1 <= variants_count <= 5
 
-# Determine base path
-bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
+# Determine base path (auto-detect and convert to absolute)
+relative_path=$(find .workflow -type d -name "design-run-*" | head -1)
+base_path=$(cd "$relative_path" && pwd)
+bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
 # OR use --base-path / --session parameters
 ```
 
@@ -533,7 +535,7 @@ Next: /workflow:ui-design:layout-extract --session {session_id} --targets "..."
 ### Path Operations
 ```bash
 # Find design directory
-bash(find .workflow -type d -name "design-*" | head -1)
+bash(find .workflow -type d -name "design-run-*" | head -1)
 
 # Expand image pattern
 bash(ls {images_pattern})

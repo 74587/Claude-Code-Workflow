@@ -100,20 +100,21 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 
 ```bash
 # Generate run ID
-run_id = "run-$(date +%Y%m%d-%H%M%S)"
+run_id = "run-$(date +%Y%m%d)-$RANDOM"
 
 # Determine base path and session mode
 IF --session:
     session_id = {provided_session}
-    base_path = ".workflow/WFS-{session_id}/design-{run_id}"
+    relative_base_path = ".workflow/WFS-{session_id}/design-{run_id}"
     session_mode = "integrated"
 ELSE:
     session_id = null
-    base_path = ".workflow/.design/{run_id}"
+    relative_base_path = ".workflow/.design/design-{run_id}"
     session_mode = "standalone"
 
-# Create base directory
-Bash(mkdir -p "{base_path}")
+# Create base directory and convert to absolute path
+Bash(mkdir -p "{relative_base_path}")
+base_path=$(cd "{relative_base_path}" && pwd)
 
 # Step 0.1: Intelligent Path Detection
 code_files_detected = false

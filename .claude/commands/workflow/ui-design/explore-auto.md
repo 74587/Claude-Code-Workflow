@@ -203,10 +203,12 @@ STORE: device_type, device_source
 
 ### Phase 0b: Run Initialization & Directory Setup
 ```bash
-run_id = "run-$(date +%Y%m%d-%H%M%S)"
-base_path = --session ? ".workflow/WFS-{session}/design-${run_id}" : ".workflow/.design/${run_id}"
+run_id = "run-$(date +%Y%m%d)-$RANDOM"
+relative_base_path = --session ? ".workflow/WFS-{session}/design-${run_id}" : ".workflow/.design/design-${run_id}"
 
-Bash(mkdir -p "${base_path}/{style-extraction,style-consolidation,prototypes}")
+# Create directory and convert to absolute path
+Bash(mkdir -p "${relative_base_path}/{style-extraction,prototypes}")
+base_path=$(cd "${relative_base_path}" && pwd)
 
 Write({base_path}/.run-metadata.json): {
   "run_id": "${run_id}", "session_id": "${session_id}", "timestamp": "...",

@@ -69,8 +69,10 @@ ELSE:
 # Resolve device type
 device_type = --device-type OR "responsive"  # desktop|mobile|tablet|responsive
 
-# Determine base path
-bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
+# Determine base path (auto-detect and convert to absolute)
+relative_path=$(find .workflow -type d -name "design-run-*" | head -1)
+base_path=$(cd "$relative_path" && pwd)
+bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
 # OR use --base-path / --session parameters
 ```
 
@@ -589,7 +591,7 @@ Next: /workflow:ui-design:generate will combine these structural templates with 
 ### Path Operations
 ```bash
 # Find design directory
-bash(find .workflow -type d -name "design-*" | head -1)
+bash(find .workflow -type d -name "design-run-*" | head -1)
 
 # Create output directories
 bash(mkdir -p {base_path}/layout-extraction)

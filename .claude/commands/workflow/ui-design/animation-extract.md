@@ -50,8 +50,10 @@ IF --focus:
 ELSE:
     focus_types = ["all"]  # Extract all animation types
 
-# Determine base path
-bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
+# Determine base path (auto-detect and convert to absolute)
+relative_path=$(find .workflow -type d -name "design-run-*" | head -1)
+base_path=$(cd "$relative_path" && pwd)
+bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
 # OR use --base-path / --session parameters
 ```
 
@@ -777,7 +779,7 @@ Next: Animation tokens ready for integration
 
 ```bash
 # Find design directory
-bash(find .workflow -type d -name "design-*" | head -1)
+bash(find .workflow -type d -name "design-run-*" | head -1)
 
 # Create output directories
 bash(mkdir -p {base_path}/animation-extraction)

@@ -42,9 +42,14 @@ target_type = --target-type OR detect_target_type(target_list)
 IF --base-path:
     base_path = --base-path
 ELSE IF --session:
-    bash(find .workflow/WFS-{session} -type d -name "design-*" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2)
+    relative_path=$(find .workflow/WFS-{session} -type d -name "design-run-*" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2)
+    base_path=$(cd "$relative_path" && pwd)
 ELSE:
-    bash(find .workflow -type d -name "design-*" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2)
+    relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2)
+    base_path=$(cd "$relative_path" && pwd)
+
+# Verify absolute path
+bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
 
 # Get variant counts
 style_variants = --style-variants OR bash(ls {base_path}/style-extraction/style-* -d | wc -l)
@@ -274,7 +279,7 @@ Next: /workflow:ui-design:update
 ### Path Operations
 ```bash
 # Find design directory
-bash(find .workflow -type d -name "design-*" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2)
+bash(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2)
 
 # Count style variants
 bash(ls {base_path}/style-extraction/style-* -d | wc -l)

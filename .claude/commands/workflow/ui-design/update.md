@@ -28,7 +28,7 @@ Synchronize finalized design system references to brainstorming artifacts, prepa
 CHECK: .workflow/.active-* marker files; VALIDATE: session_id matches active session
 
 # Verify design artifacts in latest design run
-latest_design = find_latest_path_matching(".workflow/WFS-{session}/design-*")
+latest_design = find_latest_path_matching(".workflow/WFS-{session}/design-run-*")
 
 # Detect design system structure
 IF exists({latest_design}/style-extraction/style-1/design-tokens.json):
