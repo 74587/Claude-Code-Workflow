@@ -59,87 +59,23 @@ Generate TDD-specific tasks from analysis results with complete Red-Green-Refact
 
 ## Quantification Requirements for TDD (MANDATORY)
 
-**Purpose**: Eliminate ambiguity in TDD task generation by enforcing explicit test case counts, coverage metrics, and implementation scope.
+**Purpose**: Eliminate ambiguity by enforcing explicit test case counts, coverage metrics, and implementation scope.
 
 **Core Rules**:
-1. **Explicit Test Case Counts**: Red phase MUST specify exact number of test cases with enumerated list
-2. **Quantified Coverage**: Acceptance criteria MUST include measurable coverage percentage (e.g., ">=85%")
-3. **Detailed Implementation Scope**: Green phase MUST enumerate exact files, functions, and line counts
-4. **Enumerated Refactoring Targets**: Refactor phase MUST list specific improvements with counts
+1. **Explicit Test Case Counts**: Red phase specifies exact number with enumerated list
+2. **Quantified Coverage**: Acceptance includes measurable percentage (e.g., ">=85%")
+3. **Detailed Implementation Scope**: Green phase enumerates files, functions, line counts
+4. **Enumerated Refactoring Targets**: Refactor phase lists specific improvements with counts
 
-**Test Case Format (Red Phase)**:
-```
-"requirements": [
-  "GOOD: Red Phase - Write 15 test cases: [test_user_auth_success, test_user_auth_invalid_password, test_user_auth_missing_token, test_session_create, test_session_resume, test_session_expire, test_api_post_valid, test_api_post_invalid, test_api_get_list, test_api_get_item, test_validation_required_fields, test_validation_type_checking, test_error_404, test_error_500, test_integration_full_flow]",
-  "BAD: Red Phase - Write comprehensive test suite covering all scenarios"
-]
-```
+**TDD Phase Formats**:
+- **Red Phase**: `"Write N test cases: [test1, test2, ...]"`
+- **Green Phase**: `"Implement N functions in file lines X-Y: [func1() X1-Y1, func2() X2-Y2, ...]"`
+- **Refactor Phase**: `"Apply N refactorings: [improvement1 (details), improvement2 (details), ...]"`
+- **Acceptance**: `"All N tests pass with >=X% coverage: verify by [test command]"`
 
-**Coverage Format (Acceptance)**:
-```
-"acceptance": [
-  "GOOD: All 15 tests pass with >=85% coverage: verify by pytest --cov=src/auth --cov-report=term | grep TOTAL",
-  "GOOD: Test 5 functions: [authenticate(), createSession(), validateToken(), refreshSession(), revokeSession()]",
-  "BAD: All tests pass with good coverage",
-  "BAD: Test suite complete"
-]
-```
+**TDD Cycles Array**: Each cycle must include `test_count`, `test_cases` array, `implementation_scope`, and `expected_coverage`
 
-**Implementation Scope Format (Green Phase)**:
-```
-"modification_points": [
-  "GOOD: Implement 5 functions in src/auth/service.ts lines 20-180: [authenticate() 20-45, createSession() 50-75, validateToken() 80-100, refreshSession() 105-135, revokeSession() 140-160]",
-  "GOOD: Create 3 files: [src/auth/service.ts (180 lines), src/auth/models.ts (50 lines), src/auth/utils.ts (30 lines)]",
-  "BAD: Implement authentication service following requirements",
-  "BAD: Create necessary files for feature"
-]
-```
-
-**Refactoring Targets Format (Refactor Phase)**:
-```
-"modification_points": [
-  "GOOD: Apply 4 refactorings: [extract validateInput() helper (15 lines), merge duplicate error handlers (3 occurrences), rename confusing variables (token->authToken in 8 locations), add JSDoc to 5 public functions]",
-  "BAD: Improve code quality and maintainability",
-  "BAD: Refactor implementation"
-]
-```
-
-**TDD Cycles Array Format**:
-```
-"tdd_cycles": [
-  {
-    "cycle": 1,
-    "feature": "User authentication with password validation",
-    "test_count": 5,
-    "test_cases": [
-      "test_auth_valid_credentials",
-      "test_auth_invalid_password",
-      "test_auth_missing_username",
-      "test_auth_account_locked",
-      "test_auth_password_expired"
-    ],
-    "implementation_scope": "Implement authenticate() function in src/auth/service.ts lines 20-65 (45 lines)",
-    "expected_coverage": ">=90%"
-  },
-  {
-    "cycle": 2,
-    "feature": "Session management lifecycle",
-    "test_count": 6,
-    "test_cases": [
-      "test_session_create",
-      "test_session_resume",
-      "test_session_expire",
-      "test_session_refresh",
-      "test_session_revoke",
-      "test_session_concurrent_limit"
-    ],
-    "implementation_scope": "Implement 3 functions in src/auth/service.ts lines 70-150: [createSession() 70-95, resumeSession() 100-125, revokeSession() 130-150]",
-    "expected_coverage": ">=85%"
-  }
-]
-```
-
-**Validation Checklist** (Run before TDD task generation):
+**Validation Checklist**:
 - [ ] Every Red phase specifies exact test case count with enumerated list
 - [ ] Every Green phase enumerates files, functions, and estimated line counts
 - [ ] Every Refactor phase lists specific improvements with counts
@@ -220,309 +156,87 @@ For each feature, generate task(s) with ID format:
 
 #### Task JSON Structure Reference
 
-**Simple Feature Task (IMPL-N.json)** - Recommended for most features:
-```json
-{
-  "id": "IMPL-N",                                  // Task identifier
-  "title": "Feature description with TDD",         // Human-readable title
-  "status": "pending",                             // pending | in_progress | completed | container
-  "context_package_path": ".workflow/{session-id}/.process/context-package.json", // Path to smart context package
-  "meta": {
-    "type": "feature",                             // Task type
-    "agent": "@code-developer",                    // Assigned agent
-    "tdd_workflow": true,                          // REQUIRED: Enables TDD flow
-    "max_iterations": 3,                           // Green phase test-fix cycle limit
-    "use_codex": false                             // false=manual fixes, true=Codex automated fixes
-  },
-  "context": {
-    "requirements": [                              // Feature requirements with TDD phases (QUANTIFIED)
-      "Implement user authentication with session management",
-      "Red: Write 11 test cases: [test_auth_valid, test_auth_invalid_pwd, test_auth_missing_user, test_session_create, test_session_resume, test_session_expire, test_session_refresh, test_session_revoke, test_validation_required, test_error_401, test_integration_full_auth_flow]",
-      "Green: Implement 5 functions in src/auth/service.ts (160 lines total): [authenticate() 20-50, createSession() 55-80, validateToken() 85-105, refreshSession() 110-135, revokeSession() 140-160]",
-      "Refactor: Apply 3 improvements: [extract validateInput() helper (12 lines), merge 2 duplicate error handlers, add JSDoc to 5 public functions]"
-    ],
-    "tdd_cycles": [                                // REQUIRED: Detailed test cycles with counts
-      {
-        "cycle": 1,
-        "feature": "User authentication with password validation",
-        "test_count": 5,
-        "test_cases": [
-          "test_auth_valid_credentials",
-          "test_auth_invalid_password",
-          "test_auth_missing_username",
-          "test_auth_account_locked",
-          "test_auth_session_created"
-        ],
-        "implementation_scope": "Implement authenticate() function in src/auth/service.ts lines 20-50 (30 lines)",
-        "expected_coverage": ">=90%"
-      },
-      {
-        "cycle": 2,
-        "feature": "Session lifecycle management",
-        "test_count": 6,
-        "test_cases": [
-          "test_session_create",
-          "test_session_resume_valid",
-          "test_session_expire_timeout",
-          "test_session_refresh_extend",
-          "test_session_revoke_immediate",
-          "test_session_concurrent_limit"
-        ],
-        "implementation_scope": "Implement 3 functions in src/auth/service.ts lines 55-160: [createSession() 55-80, validateToken() 85-105, refreshSession() 110-135, revokeSession() 140-160]",
-        "expected_coverage": ">=85%"
-      }
-    ],
-    "focus_paths": ["D:\\project\\src\\path", "./tests/path"],  // Absolute or clear relative paths from project root
-    "acceptance": [                                // Success criteria (QUANTIFIED)
-      "All 11 tests pass: verify by npm test -- tests/auth/ (exit code 0)",
-      "Test coverage >=85%: verify by npm test -- --coverage | grep TOTAL | awk '{print $4}' >= 85",
-      "5 functions implemented with proper error handling",
-      "3 refactoring improvements applied: code passes npm run lint with 0 warnings"
-    ],
-    "depends_on": []                               // Task dependencies
-  },
-  "flow_control": {
-    "pre_analysis": [                              // OPTIONAL: Pre-execution checks
-      {
-        "step": "check_test_framework",
-        "action": "Verify test framework",
-        "command": "bash(npm list jest)",
-        "output_to": "test_framework_info",
-        "on_error": "warn"
-      }
-    ],
-    "implementation_approach": [                   // REQUIRED: 3 TDD phases
-      {
-        "step": 1,
-        "title": "RED Phase: Write failing tests",
-        "tdd_phase": "red",                        // REQUIRED: Phase identifier
-        "description": "Write 11 failing test cases for authentication and session management",
-        "modification_points": [
-          "Create tests/auth/authentication.test.ts with 5 test cases: [test_auth_valid_credentials, test_auth_invalid_password, test_auth_missing_username, test_auth_account_locked, test_auth_session_created]",
-          "Create tests/auth/session.test.ts with 6 test cases: [test_session_create, test_session_resume_valid, test_session_expire_timeout, test_session_refresh_extend, test_session_revoke_immediate, test_session_concurrent_limit]"
-        ],
-        "logic_flow": [
-          "Create test file structure: tests/auth/ directory",
-          "Write 5 authentication test cases in authentication.test.ts",
-          "Write 6 session management test cases in session.test.ts",
-          "Verify all 11 tests fail with expected errors"
-        ],
-        "acceptance": [
-          "11 test cases written: verify by grep -E 'test_.*\\(' tests/auth/*.test.ts | wc -l = 11",
-          "All tests fail: npm test -- tests/auth/ exits with non-zero status",
-          "Each test has clear assertion and expected failure reason"
-        ],
-        "depends_on": [],
-        "output": "failing_tests"
-      },
-      {
-        "step": 2,
-        "title": "GREEN Phase: Implement to pass tests",
-        "tdd_phase": "green",                      // REQUIRED: Phase identifier
-        "description": "Implement 5 functions (160 lines) in src/auth/service.ts with test-fix cycle",
-        "modification_points": [
-          "Create src/auth/service.ts implementing 5 functions (160 lines total): [authenticate() 20-50, createSession() 55-80, validateToken() 85-105, refreshSession() 110-135, revokeSession() 140-160]",
-          "Create src/auth/models.ts with 2 interfaces: [User, Session]",
-          "Create src/auth/utils.ts with 2 helper functions: [hashPassword(), generateToken()]"
-        ],
-        "logic_flow": [
-          "Implement minimal code for 5 functions",
-          "Run tests: npm test -- tests/auth/",
-          "If fail -> Enter iteration loop (max 3):",
-          "  1. Extract failure messages from test output",
-          "  2. Use Gemini for bug-fix diagnosis",
-          "  3. Apply fixes to failing functions",
-          "  4. Rerun tests",
-          "If max_iterations reached -> Auto-revert via git reset --hard HEAD"
-        ],
-        "acceptance": [
-          "All 11 tests pass: npm test -- tests/auth/ exits with status 0",
-          "5 functions implemented: grep -E '^(export )?function ' src/auth/service.ts | wc -l = 5",
-          "Test coverage >=85%: npm test -- --coverage | grep TOTAL | awk '{print $4}' >= 85"
-        ],
-        "command": "bash(npm test -- tests/auth/)",
-        "depends_on": [1],
-        "output": "passing_implementation"
-      },
-      {
-        "step": 3,
-        "title": "REFACTOR Phase: Improve code quality",
-        "tdd_phase": "refactor",                   // REQUIRED: Phase identifier
-        "description": "Apply 3 refactoring improvements while maintaining test coverage",
-        "modification_points": [
-          "Extract validateInput() helper function (12 lines) from authenticate() and createSession()",
-          "Merge 2 duplicate error handlers in session.ts into single handleSessionError() function",
-          "Add JSDoc comments to 5 public functions: [authenticate(), createSession(), validateToken(), refreshSession(), revokeSession()]"
-        ],
-        "logic_flow": [
-          "Extract validateInput() helper, update 2 call sites",
-          "Merge duplicate error handlers, verify 2 usages updated",
-          "Add JSDoc to 5 functions with @param, @returns, @throws",
-          "Run tests after each refactoring to ensure green state",
-          "Run linter: npm run lint (expect 0 warnings)"
-        ],
-        "acceptance": [
-          "All 11 tests still pass: npm test -- tests/auth/ exits with status 0",
-          "3 refactorings applied: validateInput() extracted + error handlers merged + 5 JSDoc added",
-          "Lint passes: npm run lint exits with 0 warnings",
-          "Test coverage maintained >=85%"
-        ],
-        "command": "bash(npm run lint && npm test)",
-        "depends_on": [2],
-        "output": "refactored_implementation"
-      }
-    ],
-    "post_completion": [                           // OPTIONAL: Final verification
-      {
-        "step": "verify_full_tdd_cycle",
-        "action": "Confirm complete TDD cycle",
-        "command": "bash(npm test && echo 'TDD complete')",
-        "output_to": "final_validation",
-        "on_error": "fail"
-      }
-    ],
-    "error_handling": {                            // OPTIONAL: Error recovery
-      "green_phase_max_iterations": {
-        "action": "revert_all_changes",
-        "commands": ["bash(git reset --hard HEAD)"],
-        "report": "Generate failure report"
-      }
-    }
-  }
-}
-```
+Each TDD task JSON contains complete Red-Green-Refactor cycle with these key fields:
 
-**Key JSON Fields Summary**:
-- `meta.tdd_workflow`: Must be `true`
-- `meta.max_iterations`: Green phase fix cycle limit (default: 3)
-- `meta.use_codex`: Automated fixes (false=manual, true=Codex)
-- `flow_control.implementation_approach`: Exactly 3 steps with `tdd_phase`: "red", "green", "refactor"
-- `context.tdd_cycles`: Optional detailed test cycle specifications
-- `context.parent`: Required for subtasks (IMPL-N.M)
+**Top-Level Fields**:
+- `id`: Task identifier (`IMPL-N` or `IMPL-N.M` for subtasks)
+- `title`: Feature description with TDD
+- `status`: `pending | in_progress | completed | container`
+- `context_package_path`: Path to context package
+- `meta`: TDD-specific metadata
+- `context`: Requirements, cycles, paths, acceptance
+- `flow_control`: Pre-analysis, 3 TDD phases, post-completion, error handling
+
+**Meta Object (TDD-Specific)**:
+- `type`: "feature"
+- `agent`: "@code-developer"
+- `tdd_workflow`: `true` (REQUIRED - enables TDD flow)
+- `max_iterations`: Green phase test-fix cycle limit (default: 3)
+- `use_codex`: `false` (manual fixes) or `true` (Codex automated fixes)
+
+**Context Object**:
+- `requirements`: Quantified feature requirements with TDD phase details
+- `tdd_cycles`: Array of test cycles (each with `test_count`, `test_cases`, `implementation_scope`, `expected_coverage`)
+- `focus_paths`: Target directories (absolute or relative from project root)
+- `acceptance`: Measurable success criteria with verification commands
+- `depends_on`: Task dependencies
+- `parent`: Parent task ID (for subtasks only)
+
+**Flow Control Object**:
+- `pre_analysis`: Optional pre-execution checks
+- `implementation_approach`: Exactly 3 steps with `tdd_phase` field:
+  1. **Red Phase** (`tdd_phase: "red"`): Write failing tests
+  2. **Green Phase** (`tdd_phase: "green"`): Implement to pass tests (includes test-fix cycle)
+  3. **Refactor Phase** (`tdd_phase: "refactor"`): Improve code quality
+- `post_completion`: Optional final verification
+- `error_handling`: Error recovery strategies (e.g., auto-revert on max iterations)
+
+**Implementation Approach Step Structure**:
+Each step includes:
+- `step`: Step number
+- `title`: Phase description
+- `tdd_phase`: Phase identifier ("red" | "green" | "refactor")
+- `description`: Detailed phase description
+- `modification_points`: Quantified changes to make
+- `logic_flow`: Step-by-step execution logic
+- `acceptance`: Phase-specific acceptance criteria
+- `command`: Test/verification command (optional)
+- `depends_on`: Previous step dependencies
+- `output`: Step output identifier
 
 #### IMPL_PLAN.md Structure
 
-Generate IMPL_PLAN.md with 8-section structure:
+**Frontmatter** (TDD-specific fields):
+- `workflow_type`: "tdd"
+- `tdd_workflow`: true
+- `feature_count`, `task_count` (≤10 total)
+- `task_breakdown`: simple_features, complex_features, total_subtasks
+- `test_context`: Path to test-context-package.json (if exists)
+- `conflict_resolution`: Path to CONFLICT_RESOLUTION.md (if exists)
+- `verification_history`, `phase_progression`
 
-**Frontmatter** (required fields):
-```yaml
----
-identifier: WFS-{session-id}
-source: "User requirements" | "File: path"
-conflict_resolution: .workflow/{session-id}/.process/CONFLICT_RESOLUTION.md  # if exists
-context_package: .workflow/{session-id}/.process/context-package.json
-context_package_path: .workflow/{session-id}/.process/context-package.json
-test_context: .workflow/{session-id}/.process/test-context-package.json  # if exists
-workflow_type: "tdd"
-verification_history:
-  conflict_resolution: "executed | skipped" # based on conflict_risk
-  action_plan_verify: "pending"
-phase_progression: "brainstorm → context → test_context → conflict_resolution → tdd_planning"
-feature_count: N
-task_count: N  # ≤10 total
-task_breakdown:
-  simple_features: K
-  complex_features: L
-  total_subtasks: M
-tdd_workflow: true
----
-```
-
-**8 Sections Structure**:
-
-```markdown
-# Implementation Plan: {Project Title}
-
-## 1. Summary
-- Core requirements and objectives (2-3 paragraphs)
-- TDD-specific technical approach
-
-## 2. Context Analysis
-- CCW Workflow Context (Phase progression, Quality gates)
-- Context Package Summary (Focus paths, Test context)
-- Project Profile (Type, Scale, Tech Stack, Timeline)
-- Module Structure (Directory tree)
-- Dependencies (Primary, Testing, Development)
-- Patterns & Conventions
-
-## 3. Brainstorming Artifacts Reference
-- Artifact Usage Strategy
-  - CONFLICT_RESOLUTION.md (if exists - selected resolution strategies)
-  - role analysis documents (primary reference)
-  - test-context-package.json (test patterns)
-  - context-package.json (smart context)
-- Artifact Priority in Development
-
-## 4. Implementation Strategy
-- Execution Strategy (TDD Cycles: Red-Green-Refactor)
-- Architectural Approach
-- Key Dependencies (Task dependency graph)
-- Testing Strategy (Coverage targets, Quality gates)
-
-## 5. TDD Implementation Tasks
-- Feature-by-Feature TDD Tasks
-  - Each task: IMPL-N with internal Red → Green → Refactor
-  - Dependencies and complexity metrics
-- Complex Feature Examples (when subtasks needed)
-- TDD Task Breakdown Summary
-
-## 6. Implementation Plan (Detailed Phased Breakdown)
-- Execution Strategy (feature-by-feature sequential)
-- Phase breakdown (Phase 1, Phase 2, etc.)
-- Resource Requirements (Team, Dependencies, Infrastructure)
-
-## 7. Risk Assessment & Mitigation
-- Risk table (Risk, Impact, Probability, Mitigation, Owner)
-- Critical Risks (TDD-specific)
-- Monitoring Strategy
-
-## 8. Success Criteria
-- Functional Completeness
-- Technical Quality (Test coverage ≥80%)
-- Operational Readiness
-- TDD Compliance
-```
+**8 Sections**:
+1. **Summary**: Core requirements, TDD-specific approach
+2. **Context Analysis**: CCW workflow context, project profile, module structure, dependencies
+3. **Brainstorming Artifacts Reference**: Artifact usage strategy, priority order
+4. **Implementation Strategy**: TDD cycles (Red-Green-Refactor), architectural approach, testing strategy
+5. **TDD Implementation Tasks**: Feature-by-feature tasks with internal TDD cycles, dependencies
+6. **Implementation Plan**: Phased breakdown, resource requirements
+7. **Risk Assessment & Mitigation**: Risk table, TDD-specific risks, monitoring
+8. **Success Criteria**: Functional completeness, technical quality (≥80% coverage), TDD compliance
 
 ### Phase 4: TODO_LIST.md Generation
 
 Generate task list with internal TDD phase indicators:
 
-**For Simple Features (1 task per feature)**:
-```markdown
-## TDD Implementation Tasks
-
-### Feature 1: {Feature Name}
-- [ ] **IMPL-1**: Implement {feature} with TDD → [Task](./.task/IMPL-1.json)
-  - Internal phases: Red → Green → Refactor
-  - Dependencies: None
-
-### Feature 2: {Feature Name}
-- [ ] **IMPL-2**: Implement {feature} with TDD → [Task](./.task/IMPL-2.json)
-  - Internal phases: Red → Green → Refactor
-  - Dependencies: IMPL-1
-```
-
-**For Complex Features (with subtasks)**:
-```markdown
-### Feature 3: {Complex Feature Name}
-▸ **IMPL-3**: Implement {complex feature} with TDD → [Task](./.task/IMPL-3.json)
-  - [ ] **IMPL-3.1**: {Sub-feature A} with TDD → [Task](./.task/IMPL-3.1.json)
-    - Internal phases: Red → Green → Refactor
-  - [ ] **IMPL-3.2**: {Sub-feature B} with TDD → [Task](./.task/IMPL-3.2.json)
-    - Internal phases: Red → Green → Refactor
-    - Dependencies: IMPL-3.1
-```
+**Structure**:
+- Simple features: `- [ ] **IMPL-N**: Feature with TDD` (Internal phases: Red → Green → Refactor)
+- Complex features: `▸ **IMPL-N**: Container` with subtasks `- [ ] **IMPL-N.M**: Sub-feature`
 
 **Status Legend**:
-```markdown
-## Status Legend
-- ▸ = Container task (has subtasks)
-- [ ] = Pending task
-- [x] = Completed task
-- Red = Write failing tests
-- Green = Implement to pass tests (with test-fix cycle)
-- Refactor = Improve code quality
-```
+- `▸` = Container task (has subtasks)
+- `[ ]` = Pending | `[x]` = Completed
+- Red → Green → Refactor = TDD phases
 
 ### Phase 5: Session State Update
 
@@ -615,12 +329,12 @@ Update workflow-session.json with TDD metadata:
 
 ## Integration & Usage
 
-### Command Chain
-- **Called By**: `/workflow:tdd-plan` (Phase 4)
-- **Calls**: Gemini CLI for TDD breakdown
-- **Followed By**: `/workflow:execute`, `/workflow:tdd-verify`
+**Command Chain**:
+- Called by: `/workflow:tdd-plan` (Phase 4)
+- Calls: Gemini CLI for TDD breakdown
+- Followed by: `/workflow:execute`, `/workflow:tdd-verify`
 
-### Basic Usage
+**Basic Usage**:
 ```bash
 # Manual mode (default)
 /workflow:tools:task-generate-tdd --session WFS-auth
@@ -629,38 +343,11 @@ Update workflow-session.json with TDD metadata:
 /workflow:tools:task-generate-tdd --session WFS-auth --agent
 ```
 
-### Expected Output
-```
-TDD task generation complete for session: WFS-auth
-
-Features analyzed: 5
-Total tasks: 5 (1 task per feature with internal TDD cycles)
-
-Task breakdown:
-- Simple features: 4 tasks (IMPL-1 to IMPL-4)
-- Complex features: 1 task with 2 subtasks (IMPL-5, IMPL-5.1, IMPL-5.2)
-- Total task count: 6 (within 10-task limit)
-
-Structure:
-- IMPL-1: User Authentication (Internal: Red → Green → Refactor)
-- IMPL-2: Password Reset (Internal: Red → Green → Refactor)
-- IMPL-3: Email Verification (Internal: Red → Green → Refactor)
-- IMPL-4: Role Management (Internal: Red → Green → Refactor)
-- IMPL-5: Payment System (Container)
-  - IMPL-5.1: Gateway Integration (Internal: Red → Green → Refactor)
-  - IMPL-5.2: Transaction Management (Internal: Red → Green → Refactor)
-
-Plans generated:
-- Unified Plan: .workflow/WFS-auth/IMPL_PLAN.md (includes TDD Implementation Tasks section)
-- Task List: .workflow/WFS-auth/TODO_LIST.md (with internal TDD phase indicators)
-
-TDD Configuration:
-- Each task contains complete Red-Green-Refactor cycle
-- Green phase includes test-fix cycle (max 3 iterations)
-- Auto-revert on max iterations reached
-
-Next: /workflow:action-plan-verify --session WFS-auth (recommended) or /workflow:execute --session WFS-auth
-```
+**Output**:
+- Task JSON files in `.task/` directory (IMPL-N.json format)
+- IMPL_PLAN.md with TDD Implementation Tasks section
+- TODO_LIST.md with internal TDD phase indicators
+- Session state updated with task count and TDD metadata
 
 ## Test Coverage Analysis Integration
 

@@ -179,84 +179,47 @@ If conflict_risk was medium/high, modifications have been applied to:
 
 ### Quantification Requirements (MANDATORY)
 
-**CRITICAL**: All task specifications MUST include explicit counts and enumerations to eliminate ambiguity.
+**Purpose**: Eliminate ambiguity by enforcing explicit counts and enumerations in all task specifications.
 
 **Core Rules**:
-1. **Extract Counts from Analysis**: If analysis mentions "implement features", search for HOW MANY and list them explicitly
-2. **Enforce Explicit Lists**: Every deliverable MUST use format \`{count} {type}: [{explicit_list}]\`
-3. **Make Acceptance Measurable**: Replace vague terms ("complete", "comprehensive") with verifiable criteria
-4. **Quantify Modification Points**: Each point must specify exact targets (files, functions, features with line counts)
-5. **Step-Level Verification**: Each implementation step includes its own verification criteria
+1. **Extract Counts from Analysis**: Search for HOW MANY items and list them explicitly
+2. **Enforce Explicit Lists**: Every deliverable uses format `{count} {type}: [{explicit_list}]`
+3. **Make Acceptance Measurable**: Include verification commands (e.g., `ls ... | wc -l = N`)
+4. **Quantify Modification Points**: Specify exact targets (files, functions with line numbers)
+5. **Avoid Vague Language**: Replace "complete", "comprehensive", "reorganize" with quantified statements
 
-**Mandatory Task JSON Formats**:
+**Standard Formats**:
+- **Requirements**: `"Implement N items: [item1, item2, ...]"` or `"Modify N files: [file1:func:lines, ...]"`
+- **Acceptance**: `"N items exist: verify by [command]"` or `"Coverage >= X%: verify by [test command]"`
+- **Modification Points**: `"Create N files: [list]"` or `"Modify N functions: [func() in file lines X-Y]"`
 
-**Requirements Format**:
-\`\`\`
-"requirements": [
-  "GOOD: Implement 5 session commands: [session-start, session-resume, session-list, session-complete, session-archive]",
-  "GOOD: Create 3 directories: [.workflow/, .task/, .summaries/]",
-  "BAD: Implement session management system",
-  "BAD: Complete workflow infrastructure"
-]
-\`\`\`
-
-**Acceptance Format**:
-\`\`\`
-"acceptance": [
-  "GOOD: 5 command files created: verify by ls .claude/commands/workflow/session/*.md | wc -l = 5",
-  "GOOD: 3 directories exist: verify by ls .workflow/ | grep -E '(task|summaries|process)' | wc -l = 3",
-  "GOOD: Each command contains: usage section + 3 examples + parameter docs",
-  "BAD: All session commands implemented successfully",
-  "BAD: Workflow infrastructure complete"
-]
-\`\`\`
-
-**Modification Points Format**:
-\`\`\`
-"modification_points": [
-  "GOOD: Create 5 command files in .claude/commands/workflow/session/: [start.md, resume.md, list.md, complete.md, archive.md]",
-  "GOOD: Modify 2 functions: [executeTask() in executor.ts lines 45-120, validateSession() in validator.ts lines 30-55]",
-  "BAD: Apply requirements from role analysis",
-  "BAD: Implement features following specifications"
-]
-\`\`\`
-
-**Forbidden Language Patterns** (REJECT these during generation):
-- BAD: "Implement feature" -> GOOD: "Implement 3 features: [auth, validation, logging]"
-- BAD: "Complete refactoring" -> GOOD: "Refactor 5 files: [file1.ts, file2.ts, ...] (total 800 lines)"
-- BAD: "Reorganize structure" -> GOOD: "Move 12 files from old/ to new/ directory structure"
-- BAD: "Comprehensive tests" -> GOOD: "Write 25 test cases covering: [scenario1, scenario2, ...] (>=80% coverage)"
-
-**Quantification Extraction Process** (Apply during Step 2):
-1. **Scan Analysis Documents**: Search for numbers + nouns (e.g., "5 files", "17 commands", "3 features")
-2. **Enumerate Lists**: Build explicit lists for each deliverable (no "..." unless list >20 items)
-3. **Assign Verification Methods**: For each deliverable, specify how to verify (bash command, count check, coverage metric)
-4. **Flag Ambiguity**: Detect vague language ("complete", "comprehensive", "reorganize") and require quantification
-
-**Validation Checklist** (Run before generating task JSON):
+**Validation Checklist**:
 - [ ] Every requirement contains explicit count or enumerated list
 - [ ] Every acceptance criterion is measurable with verification command
 - [ ] Every modification_point specifies exact targets (files/functions/lines)
-- [ ] No vague language in requirements, acceptance, or modification_points
+- [ ] No vague language ("complete", "comprehensive", "reorganize" without counts)
 - [ ] Each implementation step has its own acceptance criteria
 
 ### Required Outputs
 
 #### 1. Task JSON Files (.task/IMPL-*.json)
-**Location**: .workflow/{session-id}/.task/
-**Template**: Read from the template path provided above
 
-**Task JSON Template Loading**:
-\`\`\`
-Read({template_path})
-\`\`\`
+**Location**: `.workflow/{session-id}/.task/`
+**Template Path**: Provided by command (agent-mode or cli-mode template)
 
-**Important**:
-- Read the template from the path provided in context
-- Use the template structure exactly as written
-- Replace placeholder variables ({synthesis_spec_path}, {role_analysis_path}, etc.) with actual session-specific paths
-- Include MCP tool integration in pre_analysis steps
+**Key Responsibilities**:
+- Read template from provided path: `Read({template_path})`
+- Replace placeholder variables with session-specific paths
+- Include MCP tool integration in `pre_analysis` steps
 - Map artifacts based on task domain (UI → ui-designer, Backend → system-architect)
+- Apply quantification requirements to all task fields
+- Ensure all tasks follow template structure exactly
+
+**Template Selection** (Pre-selected by command):
+- **Agent Mode**: `~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt`
+- **CLI Mode**: `~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt`
+
+**Note**: Agent does NOT choose template - it's pre-selected based on `--cli-execute` flag and provided in context
 
 #### 2. IMPL_PLAN.md
 **Location**: .workflow/{session-id}/IMPL_PLAN.md
@@ -344,34 +307,10 @@ $(cat ~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
 - Update workflow-session.json with task count and artifact inventory
 - Mark session ready for execution
 
-### MCP Enhancement Examples
+### MCP Enhancement (Optional)
 
-**Code Index Usage**:
-\`\`\`javascript
-// Discover authentication-related files
-bash(find . -name "*auth*" -type f)
-
-// Search for OAuth patterns
-bash(rg "oauth|jwt|authentication" -g "*.{ts,js}")
-
-// Get file summary for key components
-bash(rg "^(class|function|export|interface)" src/auth/index.ts)
-\`\`\`
-
-**Exa Research Usage**:
-\`\`\`javascript
-// Get best practices for task implementation
-mcp__exa__get_code_context_exa(
-  query="TypeScript OAuth2 implementation patterns",
-  tokensNum="dynamic"
-)
-
-// Research specific API usage
-mcp__exa__get_code_context_exa(
-  query="Express.js JWT middleware examples",
-  tokensNum=5000
-)
-\`\`\`
+**Code Analysis**: Use `find`, `rg` for file discovery and pattern search
+**External Research**: Use `mcp__exa__get_code_context_exa` for best practices and API examples
 
 ### Quality Validation
 
