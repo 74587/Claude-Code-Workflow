@@ -19,11 +19,13 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 **Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
 1. User triggers: `/workflow:ui-design:explore-auto [params]`
 2. Phase 0c: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 1**
-3. Phase 1 (style-extract) → **Execute phase (blocks until finished)** → Auto-continues
-4. Phase 2.3 (animation-extract, optional) → **Execute phase (blocks until finished)** → Auto-continues
-5. Phase 2.5 (layout-extract) → **Execute phase (blocks until finished)** → Auto-continues
-6. **Phase 3 (ui-assembly)** → **Execute phase (blocks until finished)** → Auto-continues
-7. Phase 4 (design-update) → **Execute phase (blocks until finished)** → Auto-continues
+3. Phase 1 (style-extract) → **Execute phase (blocks until finished)** → Auto-continues to Phase 2.3
+4. Phase 2.3 (animation-extract, conditional):
+   - **IF should_extract_animation**: Execute animation extraction → Auto-continues to Phase 2.5
+   - **ELSE**: Skip (use code import) → Auto-continues to Phase 2.5
+5. Phase 2.5 (layout-extract) → **Execute phase (blocks until finished)** → Auto-continues to Phase 3
+6. **Phase 3 (ui-assembly)** → **Execute phase (blocks until finished)** → Auto-continues to Phase 4
+7. Phase 4 (design-update) → **Execute phase (blocks until finished)** → Auto-continues to Phase 5 (if --batch-plan)
 8. Phase 5 (batch-plan, optional) → Reports completion
 
 **Phase Transition Mechanism**:
@@ -225,6 +227,11 @@ Write({base_path}/.run-metadata.json): {
   "status": "in_progress",
   "performance_mode": "optimized"
 }
+
+# Initialize default flags for animation extraction logic
+animation_complete = false  # Default: always extract animations unless code import proves complete
+needs_visual_supplement = false  # Will be set to true in hybrid mode
+skip_animation_extraction = false  # User preference for code import scenario
 ```
 
 ### Phase 0c: Unified Target Inference with Intelligent Type Detection
@@ -396,7 +403,23 @@ IF design_source IN ["code_only", "hybrid"]:
     ELSE IF design_source == "hybrid":
         needs_visual_supplement = true
 
-    STORE: needs_visual_supplement, style_complete, animation_complete, layout_complete
+    # Animation reuse confirmation (code import with complete animations)
+    IF design_source == "code_only" AND animation_complete:
+        REPORT: "✅ 检测到完整的动画系统（来自代码导入）"
+        REPORT: "   Duration scales: {duration_count} | Easing functions: {easing_count}"
+        REPORT: ""
+        REPORT: "Options:"
+        REPORT: "  • 'reuse' (默认) - 复用已有动画系统"
+        REPORT: "  • 'regenerate' - 重新生成动画系统（交互式）"
+        REPORT: "  • 'cancel' - 取消工作流"
+        user_response = WAIT_FOR_USER_INPUT()
+        MATCH user_response:
+            "reuse" → skip_animation_extraction = true
+            "regenerate" → skip_animation_extraction = false
+            "cancel" → EXIT 0
+            default → skip_animation_extraction = true  # Default: reuse
+
+    STORE: needs_visual_supplement, style_complete, animation_complete, layout_complete, skip_animation_extraction
 ```
 
 ### Phase 1: Style Extraction
@@ -414,9 +437,22 @@ ELSE:
 
 ### Phase 2.3: Animation Extraction
 ```bash
-IF design_source == "visual_only" OR NOT animation_complete:
+# Determine if animation extraction is needed
+should_extract_animation = false
+
+IF (design_source == "visual_only" OR needs_visual_supplement):
+    # Pure visual input or hybrid mode requiring visual supplement
+    should_extract_animation = true
+ELSE IF NOT animation_complete:
+    # Code import but animations are incomplete
+    should_extract_animation = true
+ELSE IF design_source == "code_only" AND animation_complete AND NOT skip_animation_extraction:
+    # Code import with complete animations, but user chose to regenerate
+    should_extract_animation = true
+
+IF should_extract_animation:
     REPORT: "🚀 Phase 2.3: Animation Extraction"
-    command = "/workflow:ui-design:animation-extract --design-id \"{design_id}\" --mode interactive"
+    command = "/workflow:ui-design:animation-extract --design-id \"{design_id}\" --interactive"
     SlashCommand(command)
 ELSE:
     REPORT: "✅ Phase 2.3: Animation (Using Code Import)"
@@ -486,10 +522,11 @@ IF --batch-plan:
 ```javascript
 // Initialize IMMEDIATELY after Phase 0c user confirmation to track multi-phase execution
 TodoWrite({todos: [
-  {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing..."},
-  {"content": "Execute layout extraction", "status": "pending", "activeForm": "Executing..."},
-  {"content": "Execute UI assembly", "status": "pending", "activeForm": "Executing..."},
-  {"content": "Execute design integration", "status": "pending", "activeForm": "Executing..."}
+  {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing style extraction"},
+  {"content": "Execute animation extraction", "status": "pending", "activeForm": "Executing animation extraction"},
+  {"content": "Execute layout extraction", "status": "pending", "activeForm": "Executing layout extraction"},
+  {"content": "Execute UI assembly", "status": "pending", "activeForm": "Executing UI assembly"},
+  {"content": "Execute design integration", "status": "pending", "activeForm": "Executing design integration"}
 ]})
 
 // ⚠️ CRITICAL: When each SlashCommand execution finishes (Phase 1-5), you MUST:

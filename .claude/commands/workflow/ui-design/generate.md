@@ -101,31 +101,70 @@ ELSE:
 
 **Executor**: `Task(ui-design-agent)` grouped by `target × style` (max 10 layouts per agent, max 6 concurrent agents)
 
+**⚠️ Core Principle**: **Each agent processes ONLY ONE style** (but can process multiple layouts for that style)
+
+### Agent Grouping Strategy
+
+**Grouping Rules**:
+1. **Style Isolation**: Each agent processes ONLY ONE style (never mixed)
+2. **Balanced Distribution**: Layouts evenly split (e.g., 12→6+6, not 10+2)
+3. **Target Separation**: Different targets use different agents
+
+**Distribution Formula**:
+```
+agents_needed = ceil(layout_count / MAX_LAYOUTS_PER_AGENT)
+base_count = floor(layout_count / agents_needed)
+remainder = layout_count % agents_needed
+# First 'remainder' agents get (base_count + 1), others get base_count
+```
+
+**Examples** (MAX=10):
+
+| Scenario | Result | Explanation |
+|----------|--------|-------------|
+| 3 styles × 3 layouts | 3 agents | Each style: 1 agent (3 layouts) |
+| 3 styles × 12 layouts | 6 agents | Each style: 2 agents (6+6 layouts) |
+| 2 styles × 5 layouts × 2 targets | 4 agents | Each (target, style): 1 agent (5 layouts) |
+
 ### Step 1: Calculate Agent Grouping Plan
 ```bash
 bash(mkdir -p {base_path}/prototypes)
 
-# Build agent groups: Group by target × style, max 10 layouts per agent
 MAX_LAYOUTS_PER_AGENT = 10
 MAX_PARALLEL = 6
 
 agent_groups = []
 FOR each target in targets:
   FOR each style_id in [1..S]:
-    layouts_for_group = all L layouts
-    # Split into chunks of max 10 layouts
-    layout_chunks = split(layouts_for_group, MAX_LAYOUTS_PER_AGENT)
+    layouts_for_this_target_style = filter layouts by current target
+    layout_count = len(layouts_for_this_target_style)
+
+    # Balanced distribution (e.g., 12 layouts → 6+6)
+    agents_needed = ceil(layout_count / MAX_LAYOUTS_PER_AGENT)
+    base_count = floor(layout_count / agents_needed)
+    remainder = layout_count % agents_needed
+
+    layout_chunks = []
+    start_idx = 0
+    FOR i in range(agents_needed):
+      chunk_size = base_count + 1 if i < remainder else base_count
+      layout_chunks.append(layouts[start_idx : start_idx + chunk_size])
+      start_idx += chunk_size
+
     FOR each chunk in layout_chunks:
-      agent_groups.append({target, style_id, layout_ids: chunk})
+      agent_groups.append({
+        target: target,           # Single target
+        style_id: style_id,       # Single style
+        layout_ids: chunk         # Balanced layouts (≤10)
+      })
 
 total_agents = len(agent_groups)
 total_batches = ceil(total_agents / MAX_PARALLEL)
 
-# Initialize batch tracking
 TodoWrite({todos: [
   {content: "Setup and validation", status: "completed", activeForm: "Loading design systems"},
-  {content: "Batch 1/{total_batches}: Assemble 6 agent groups", status: "in_progress", activeForm: "Assembling batch 1"},
-  {content: "Batch 2/{total_batches}: Assemble 6 agent groups", status: "pending", activeForm: "Assembling batch 2"},
+  {content: "Batch 1/{total_batches}: Assemble up to 6 agent groups", status: "in_progress", activeForm: "Assembling batch 1"},
+  {content: "Batch 2/{total_batches}: Assemble up to 6 agent groups", status: "pending", activeForm: "Assembling batch 2"},
   ... (continue for all batches)
 ]})
 ```
@@ -137,10 +176,10 @@ For each agent group `{target, style_id, layout_ids[]}` in current batch:
 ```javascript
 Task(ui-design-agent): `
   [LAYOUT_STYLE_ASSEMBLY]
-  🎯 Assembly task: {target} × Style-{style_id} × Layouts-{layout_ids}
-  Combine: Pre-extracted layout structure + design tokens → Final HTML/CSS
+  🎯 {target} × Style-{style_id} × Layouts-{layout_ids}
+  ⚠️ CONSTRAINT: Use ONLY style-{style_id}/design-tokens.json (never mix styles)
 
-  TARGET: {target} | STYLE: {style_id} | LAYOUTS: {layout_ids} (array, max 10)
+  TARGET: {target} | STYLE: {style_id} | LAYOUTS: {layout_ids} (max 10)
   BASE_PATH: {base_path}
 
   ## Inputs (READ ONLY - NO DESIGN DECISIONS)
@@ -220,13 +259,10 @@ Task(ui-design-agent): `
     3. Write files IMMEDIATELY after each layout completes
 
   ## Assembly Rules
-  - ✅ Pure assembly: Combine existing structure + existing style
-  - ❌ NO layout design decisions (structure pre-defined)
-  - ❌ NO style design decisions (tokens pre-defined)
-  - ✅ Process layouts sequentially within this agent task
-  - ✅ Design tokens and animation tokens read ONCE, shared across all layouts
-  - ✅ Replace var() with actual values for each layout
-  - ✅ Add placeholder content only
+  - ✅ Pure assembly: Combine pre-extracted structure + tokens
+  - ❌ NO design decisions (layout/style pre-defined)
+  - ✅ Read tokens ONCE, apply to all layouts in this batch
+  - ✅ Replace var() with actual values
   - ✅ CSS filename MUST match HTML <link href="...">
 
   ## Output
@@ -297,14 +333,13 @@ Configuration:
 
 Assembly Process:
 - Pure assembly: Combined pre-extracted layouts + design tokens
-- No design decisions: All structure and style pre-defined
-- Agent grouping: Grouped by target × style (max 10 layouts per agent)
+- Agent grouping: target × style (max 10 layouts per agent)
+- Balanced distribution: Layouts evenly split (e.g., 12 → 6+6, not 10+2)
 
 Batch Execution:
-- Total agents: {total_agents} (each processes multiple layouts)
-- Batches: {total_batches} (max 6 agents parallel per batch)
-- Agent isolation: Different targets use different agents
-- Efficiency: Shared token loading within agent (read once, use for all layouts)
+- Total agents: {total_agents} (each processes ONE style only)
+- Batches: {total_batches} (max 6 agents parallel)
+- Token efficiency: Read once per agent, apply to all layouts
 
 Quality:
 - Structure: From layout-extract (DOM, CSS layout rules)
@@ -423,14 +458,9 @@ ERROR: Script permission denied
 ## Key Features
 
 - **Pure Assembly**: No design decisions, only combination
-- **Separation of Concerns**: Layout (structure) + Style (tokens) kept separate until final assembly
-- **Token Resolution**: var() placeholders replaced with actual values
-- **Pre-validated**: Inputs already validated by extract/consolidate
-- **Efficient Grouping**:
-  - Grouped by target × style (max 10 layouts per agent)
-  - Shared token loading within agent (read once, apply to all layouts)
-  - Reduced agent overhead vs one-layout-per-agent approach
-- **Agent Isolation**: Different targets always use different agents
+- **Token Resolution**: var() → actual values
+- **Efficient Grouping**: target × style (max 10 layouts/agent, balanced split)
+- **Style Isolation**: Each agent processes ONE style only
 - **Production-Ready**: Semantic, accessible, token-driven
 
 ## Integration
