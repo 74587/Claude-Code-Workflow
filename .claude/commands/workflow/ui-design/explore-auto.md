@@ -60,6 +60,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 - `--prompt "<description>"`: Design style and target description
 - `--style-variants <count>`: Style variants (default: inferred from prompt or 3, range: 1-5)
 - `--layout-variants <count>`: Layout variants per style (default: inferred or 3, range: 1-5)
+- `--interactive`: Enable interactive multi-selection mode for variants (default: false - non-interactive batch generation)
 - `--batch-plan`: Auto-generate implementation tasks after design-update
 
 **Legacy Parameters** (maintained for backward compatibility):
@@ -155,8 +156,8 @@ ELSE:
 
 VALIDATE: 1 <= style_variants <= 5, 1 <= layout_variants <= 5
 
-# Interactive mode (default: enabled for multi-selection)
-interactive_mode = --interactive !== undefined ? --interactive : true  # Default to true
+# Interactive mode (default: disabled - non-interactive batch generation)
+interactive_mode = --interactive !== undefined ? --interactive : false  # Default to false
 
 REPORT: "🎯 Interactive mode: {interactive_mode ? 'enabled' : 'disabled'}"
 ```
