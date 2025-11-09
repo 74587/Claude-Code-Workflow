@@ -262,7 +262,23 @@ Please select the direction(s) you'd like to develop into complete design system
 ═══════════════════════════════════════════════════
 ```
 
-### Step 3: Capture User Selection
+### Step 3: Capture User Selection and Update Analysis JSON
+
+**Interaction Strategy**: If variants > 4, use batch text format:
+
+```
+【选项[N]】[philosophy_name]
+[rationale]
+...
+请选择 (格式: 1 2 3 多选，或 1 单选)：
+
+User input:
+  "[N1]" → Single selection
+  "[N1] [N2] [N3] ..." → Multi-selection
+```
+
+Otherwise, use `AskUserQuestion` below.
+
 ```javascript
 // Use AskUserQuestion tool for multi-selection
 AskUserQuestion({
@@ -298,35 +314,22 @@ FOR each selected_option_text IN selected_options:
         EXIT workflow
 
 REPORT: "✅ Selected {selected_indices.length} design direction(s)"
-```
 
-### Step 4: Write User Selection File
-```bash
-# Create user-selections directory
-bash(mkdir -p {base_path}/.intermediates/user-selections)
-
-# Create user selection JSON
-selection_data = {
-  "metadata": {
-    "selected_at": "{current_timestamp}",
-    "selection_type": "multi",
-    "session_id": "{session_id}",
-    "selection_count": selected_indices.length
-  },
-  "selected_variants": selected_indices,  // Array of selected indices (e.g., [1, 3])
-  "refinements": {
-    "enabled": false
-  }
+// Update analysis-options.json with user selection
+options_file = Read({base_path}/.intermediates/style-analysis/analysis-options.json)
+options_file.user_selection = {
+  "selected_at": NOW(),
+  "selected_indices": selected_indices,
+  "selection_count": selected_indices.length
 }
 
-# Write to standardized selection file
-bash(echo '{selection_data}' > {base_path}/.intermediates/user-selections/style-extract-selection.json)
+// Write updated file back
+Write({base_path}/.intermediates/style-analysis/analysis-options.json, JSON.stringify(options_file, indent=2))
 
-# Verify
-bash(test -f {base_path}/.intermediates/user-selections/style-extract-selection.json && echo "saved")
+REPORT: "✅ Updated analysis-options.json with user selection"
 ```
 
-### Step 5: Confirmation Message
+### Step 4: Confirmation Message
 ```
 ✅ Selection recorded!
 
@@ -338,7 +341,7 @@ You selected {selected_indices.length} design direction(s):
 Proceeding to generate {selected_indices.length} complete design system(s)...
 ```
 
-**Output**: `user-selection.json` with user's multi-selection
+**Output**: Updated `analysis-options.json` with user's multi-selection embedded
 
 ## Phase 2: Design System Generation (Agent Task 2)
 
@@ -346,11 +349,13 @@ Proceeding to generate {selected_indices.length} complete design system(s)...
 
 ### Step 1: Load User Selection or Default to All
 ```bash
-# Check if user selection file exists (interactive mode)
-IF exists({base_path}/.intermediates/user-selections/style-extract-selection.json):
+# Read analysis-options.json which may contain user_selection
+options = Read({base_path}/.intermediates/style-analysis/analysis-options.json)
+
+# Check if user_selection field exists (interactive mode)
+IF options.user_selection AND options.user_selection.selected_indices:
     # Interactive mode: Use user-selected variants
-    selection = Read({base_path}/.intermediates/user-selections/style-extract-selection.json)
-    selected_indices = selection.selected_variants  # Array of selected indices (e.g., [1, 3])
+    selected_indices = options.user_selection.selected_indices  # Array of selected indices (e.g., [1, 3])
 
     REPORT: "🎯 Interactive mode: Using {selected_indices.length} user-selected variant(s)"
 ELSE:
@@ -359,8 +364,7 @@ ELSE:
 
     REPORT: "ℹ️ Non-interactive mode: Generating all {variants_count} variant(s)"
 
-# Read the selected direction details from options
-options = Read({base_path}/.intermediates/style-analysis/analysis-options.json)
+# Extract the selected direction details from options
 selected_directions = [options.design_directions[i-1] for i in selected_indices]  # 0-indexed array
 
 actual_variants_count = selected_indices.length
@@ -523,8 +527,7 @@ Intermediate Analysis:
 {base_path}/.intermediates/style-analysis/computed-styles.json (extracted from {primary_url})
 }
 {IF extraction_mode == "explore":
-{base_path}/.intermediates/style-analysis/analysis-options.json (design direction options)
-{base_path}/.intermediates/style-analysis/user-selection.json (your selection)
+{base_path}/.intermediates/style-analysis/analysis-options.json (design direction options + user selection)
 }
 
 Next: /workflow:ui-design:layout-extract --session {session_id} --targets "..."
@@ -579,8 +582,7 @@ bash(test -f {base_path}/.intermediates/style-analysis/analysis-options.json && 
 ├── .intermediates/                  # Intermediate analysis files
 │   └── style-analysis/
 │       ├── computed-styles.json     # Extracted CSS values from DOM (if URL available)
-│       ├── analysis-options.json    # Design direction options (explore mode only)
-│       └── user-selection.json      # User's selected direction (explore mode only)
+│       └── analysis-options.json    # Design direction options + user selection (explore mode only)
 └── style-extraction/                # Final design system
     └── style-1/
         ├── design-tokens.json       # Production-ready design tokens
@@ -667,10 +669,4 @@ ERROR: Claude JSON parsing error
 - **Production-Ready** - OKLCH colors, WCAG AA compliance, semantic naming
 - **Agent-Driven** - Autonomous multi-file generation with ui-design-agent
 
-## Integration
 
-**Input**: Reference images or text prompts
-**Output**: `style-extraction/style-{N}/` with design-tokens.json + style-guide.md
-**Next**: `/workflow:ui-design:layout-extract --session {session_id}` OR `/workflow:ui-design:generate --session {session_id}`
-
-**Note**: This command extracts visual style (colors, typography, spacing) and generates production-ready design systems. For layout structure extraction, use `/workflow:ui-design:layout-extract`.

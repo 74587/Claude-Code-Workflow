@@ -320,6 +320,25 @@ Please select your preferred concept for this target.
 ```
 
 ### Step 3: Capture User Selection and Update Options File (Per Target)
+
+**Interaction Strategy**: If total concepts > 4 OR any target has > 3 concepts, use batch text format:
+
+```
+【目标[N] - [target]】选择布局方案
+[key]) Concept [index]: [concept_name]
+   [design_philosophy]
+[key]) Concept [index]: [concept_name]
+   [design_philosophy]
+...
+请回答 (格式: 1a 2b 或 1a,b 2c 多选)：
+
+User input:
+  "[N][key] [N][key] ..." → Single selection per target
+  "[N][key1,key2] [N][key3] ..." → Multi-selection per target
+```
+
+Otherwise, use `AskUserQuestion` below.
+
 ```javascript
 // Use AskUserQuestion tool for each target (multi-select enabled)
 FOR each target:
@@ -735,22 +754,4 @@ ERROR: MCP search failed
 - **Foundation for Assembly** - Provides structural blueprint for prototype generation
 - **Agent-Powered** - Deep structural analysis with AI
 
-## Integration
 
-**Workflow Position**: Between style extraction and prototype generation
-
-**New Workflow**:
-1. `/workflow:ui-design:style-extract` → Multiple `style-N/design-tokens.json` files (Complete design systems)
-2. `/workflow:ui-design:layout-extract` → Multiple `layout-{target}-{variant}.json` files (Structural templates)
-3. `/workflow:ui-design:generate` (Assembler):
-   - **Reads**: All `design-tokens.json` files + all `layout-{target}-{variant}.json` files
-   - **Action**: For each style × layout combination:
-     1. Build HTML from `dom_structure`
-     2. Create layout CSS from `css_layout_rules`
-     3. Apply design tokens to CSS
-     4. Generate complete prototypes
-   - **Output**: Complete token-driven HTML/CSS prototypes
-
-**Input**: Reference images, URLs, or text prompts
-**Output**: `layout-{target}-{variant}.json` files for downstream generation commands
-**Next**: `/workflow:ui-design:generate`

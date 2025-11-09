@@ -1,7 +1,7 @@
 ---
 name: animation-extract
 description: Extract animation and transition patterns from URLs, CSS, or interactive questioning for design system documentation
-argument-hint: "[--base-path <path>] [--session <id>] [--urls "<list>"] [--mode <auto|interactive>] [--focus "<types>"]"
+argument-hint: "[--base-path <path>] [--session <id>] [--urls "<list>"] [--focus "<types>"] [--interactive]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
 ---
 
@@ -9,14 +9,17 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestio
 
 ## Overview
 
-Extract animation and transition patterns from web pages using CSS extraction, visual analysis, or interactive questioning. This command generates production-ready animation tokens and guidelines that integrate with design systems.
+Extract animation and transition patterns from URLs or interactive questioning using AI analysis. Directly generates production-ready animation systems with complete `animation-tokens.json` and `animation-guide.md`.
 
-**Strategy**: Hybrid Extraction with Interactive Fallback
+**Strategy**: AI-Driven Animation Specification with Visual Previews
 
-- **Auto Mode (Priority 1)**: Extract from CSS via Chrome DevTools when URLs provided
-- **Visual Mode (Priority 2)**: Analyze screenshots for motion cues (blur, position changes)
-- **Interactive Mode (Priority 3)**: Guided questioning when extraction insufficient
-- **Output**: `animation-tokens.json` + `animation-guide.md`
+- **CSS Extraction**: Automatic CSS animation/transition extraction from URLs via Chrome DevTools
+- **Question Generation**: Agent generates context-aware specification questions with visual previews
+- **Visual Previews**: Timeline representations, easing curve ASCII art, and animation sequence diagrams
+- **Flexible Input**: URLs for CSS extraction, or standalone question-based specification
+- **Optional Interaction**: User answers questions only when `--interactive` flag present
+- **Production-Ready**: CSS var() format, WCAG-compliant, semantic naming
+- **Default Behavior**: Non-interactive mode uses CSS data + best practices
 
 ## Phase 0: Setup & Input Validation
 
@@ -24,7 +27,7 @@ Extract animation and transition patterns from web pages using CSS extraction, v
 
 ```bash
 # Detect input source
-# Priority: --urls → url mode | --mode interactive → question mode
+# Priority: --urls → CSS extraction available | no --urls → question-only mode
 
 # Parse URLs if provided (format: "target:url,target:url,...")
 IF --urls:
@@ -34,6 +37,7 @@ IF --urls:
             target, url = pair.split(":", 1)
             url_list.append({target: target.strip(), url: url.strip()})
         ELSE:
+            # Single URL without target
             url_list.append({target: "page", url: pair.strip()})
 
     has_urls = true
@@ -41,14 +45,14 @@ IF --urls:
 ELSE:
     has_urls = false
 
-# Determine extraction mode
-extraction_mode = --mode OR (has_urls ? "auto" : "interactive")
-
 # Parse animation focus (if provided)
 IF --focus:
     focus_types = split(--focus, ",")  # e.g., "transitions,hover,scroll"
 ELSE:
     focus_types = ["all"]  # Extract all animation types
+
+# Check interactive mode flag
+interactive_mode = --interactive OR false
 
 # Determine base path (auto-detect and convert to absolute)
 relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
@@ -57,47 +61,20 @@ bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path 
 # OR use --base-path / --session parameters
 ```
 
-### Step 2: Load Design Tokens Context
+### Step 2: Extract Computed Animations (URL Mode - Auto-Trigger)
 
 ```bash
-# Load existing design tokens for duration/easing alignment
-IF exists({base_path}/style-extraction/style-1/design-tokens.json):
-    design_tokens = Read({base_path}/style-extraction/style-1/design-tokens.json)
-    has_design_context = true
-ELSE:
-    has_design_context = false
-    WARN: "⚠️ No design tokens found - animation tokens will use standalone values"
-
-# Create output directory
-bash(mkdir -p {base_path}/animation-extraction)
-bash(mkdir -p {base_path}/.intermediates/animation-analysis)
-```
-
----
-
-**Phase 0 Output**: `extraction_mode`, `base_path`, `has_urls`, `url_list[]`, `focus_types[]`, `has_design_context`
-
-## Phase 1: CSS Animation Extraction (Auto Mode - URL Required)
-
-### Step 1: Check Extraction Mode
-
-```bash
-# extraction_mode == "interactive" → skip to Phase 2
-# extraction_mode == "auto" AND has_urls → execute this phase
-```
-
-**If interactive mode**: Skip to Phase 2
-
-### Step 2: Extract Computed Animations (Auto-Trigger)
-
-```bash
-# AUTO-TRIGGER: If URLs are available, automatically extract CSS animations/transitions
+# AUTO-TRIGGER: If URLs are available (from --urls parameter), automatically extract real CSS values
+# This provides accurate animation data to supplement specification
 
 IF has_urls AND mcp_chrome_devtools_available:
-    REPORT: "🔍 Auto-triggering URL mode: Extracting CSS animations and transitions"
+    REPORT: "🔍 Auto-triggering URL mode: Extracting computed animations from --urls parameter"
+    REPORT: "   URL: {primary_url}"
 
     # Read extraction script
     script_content = Read(~/.claude/scripts/extract-animations.js)
+
+    bash(mkdir -p {base_path}/.intermediates/animation-analysis)
 
     # For each URL:
     FOR url_info IN url_list:
@@ -112,20 +89,19 @@ IF has_urls AND mcp_chrome_devtools_available:
         # Wait for page to fully load and animations to initialize
         bash(sleep 2)
 
-        # Execute extraction script
+        # Execute extraction script directly
         result = mcp__chrome-devtools__evaluate_script(function=script_content)
 
-        # Save raw animation data
+        # Save computed animations to intermediates directory
         Write({base_path}/.intermediates/animation-analysis/animations-{target}.json, result)
 
         REPORT: "   ✅ Extracted: {result.summary.total_animations} animations, {result.summary.total_transitions} transitions"
 
     animations_extracted = true
-    REPORT: "   ✅ CSS animation extraction complete"
+    REPORT: "   ✅ Computed animations extracted and saved"
 ELSE IF has_urls AND NOT mcp_chrome_devtools_available:
     animations_extracted = false
-    REPORT: "⚠️ Chrome DevTools MCP not available"
-    REPORT: "   Falling back to interactive mode for animation guidance"
+    REPORT: "⚠️ Chrome DevTools MCP not available, falling back to specification mode"
 ELSE:
     animations_extracted = false
 ```
@@ -147,58 +123,77 @@ ELSE:
 - ✅ Identifies common easing functions and durations
 - ✅ Maps animations to element selectors
 
----
-
-**Phase 1 Output**: `animations-{target}.json` (intermediate files)
-
-## Phase 2: Animation Question Generation (Agent Task 1)
-
-### Step 1: Check if Extraction Sufficient
+### Step 3: Load Design Tokens Context
 
 ```bash
-# If animations extracted from CSS, check coverage
-IF animations_extracted:
-    total_animations = sum([data.summary.total_animations for data in all_extracted])
-    total_transitions = sum([data.summary.total_transitions for data in all_extracted])
-
-    # If sufficient data found, skip interactive mode
-    IF total_animations >= 3 OR total_transitions >= 5:
-        REPORT: "✅ Sufficient animation data extracted from CSS"
-        SKIP to Phase 4
-    ELSE:
-        REPORT: "⚠️ Limited animation data found - launching interactive mode"
-        extraction_insufficient = true
+# Load existing design tokens for duration/easing alignment
+IF exists({base_path}/style-extraction/style-1/design-tokens.json):
+    design_tokens = Read({base_path}/style-extraction/style-1/design-tokens.json)
+    has_design_context = true
 ELSE:
-    extraction_insufficient = true
+    has_design_context = false
+    REPORT: "ℹ️ No design tokens found - animation tokens will use standalone values"
+
+# Create output directory
+bash(mkdir -p {base_path}/animation-extraction)
 ```
 
-### Step 2: Generate Animation Questions Using Agent
+### Step 4: Memory Check
+
+```bash
+# Check if output already exists
+bash(test -f {base_path}/animation-extraction/animation-tokens.json && echo "exists")
+IF exists: SKIP to completion
+```
+
+---
+
+**Phase 0 Output**: `input_mode`, `base_path`, `has_urls`, `url_list[]`, `focus_types[]`, `has_design_context`, `interactive_mode`, `animations_extracted`
+
+## Phase 1: Animation Specification Generation
+
+### Step 1: Load Project Context
+
+```bash
+# Load brainstorming context if available
+bash(test -f {base_path}/.brainstorming/role-analysis.md && cat it)
+
+# Load extracted animations if available
+IF animations_extracted:
+    FOR target IN url_list:
+        extracted_data = Read({base_path}/.intermediates/animation-analysis/animations-{target.target}.json)
+```
+
+### Step 2: Generate Animation Specification Options (Agent Task 1)
 
 **Executor**: `Task(ui-design-agent)`
 
-Launch agent to generate context-aware animation questions based on project needs:
+Launch agent to generate animation specification options with previews:
 
 ```javascript
 Task(ui-design-agent): `
-  [ANIMATION_QUESTION_GENERATION_TASK]
-  Generate contextual animation questions based on project context and focus types
+  [ANIMATION_SPECIFICATION_GENERATION_TASK]
+  Generate context-aware animation specification questions
 
-  SESSION: {session_id} | MODE: interactive | BASE_PATH: {base_path}
+  SESSION: {session_id} | MODE: explore | BASE_PATH: {base_path}
 
-  ## Context Analysis
-  - Focus types: {focus_types}
-  - Design context: {has_design_context}
+  ## Input Analysis
+  - Focus types: {focus_types.join(", ")}
+  - Design context: {has_design_context ? "Available" : "None"}
   - Extracted animations: {animations_extracted ? "Available" : "None"}
+  ${animations_extracted ? "- CSS Data: Read from .intermediates/animation-analysis/animations-*.json" : ""}
 
-  ## Question Categories to Consider
-  Based on focus_types, include relevant categories:
-  - "all" or "transitions": timing_scale, easing_philosophy
-  - "all" or "interactions" or "hover": button_interactions, card_interactions, input_interactions
-  - "all" or "page": page_transitions
-  - "all" or "loading": loading_states
-  - "all" or "scroll": scroll_animations
+  ## Analysis Rules
+  - Analyze CSS extraction data (if available) to inform question generation
+  - Generate questions covering timing, easing, interactions, and motion patterns
+  - Based on focus_types, include relevant categories:
+    * "all" or "transitions": timing_scale, easing_philosophy
+    * "all" or "interactions" or "hover": button_interactions, card_interactions, input_interactions
+    * "all" or "page": page_transitions
+    * "all" or "loading": loading_states
+    * "all" or "scroll": scroll_animations
 
-  ## Generate Question Structure
+  ## Generate Questions
   For each applicable category, create question with:
   1. **Category ID** (e.g., "timing_scale", "button_interactions")
   2. **Question text** (in Chinese, clear and concise)
@@ -206,19 +201,21 @@ Task(ui-design-agent): `
      - Option key (a, b, c, d, e)
      - Option label (brief description)
      - Option details (detailed explanation with technical specs)
-     - Recommended scenarios (when to use this option)
+     - Technical specs (duration values, easing curves, transform values)
+     - Visual preview (timeline representation or easing curve ASCII art)
 
   ## Output
-  Write single JSON file: {base_path}/.intermediates/animation-analysis/question-options.json
+  Write single JSON file: {base_path}/.intermediates/animation-analysis/analysis-options.json
 
   Use schema:
   {
     "metadata": {
       "generated_at": "<timestamp>",
-      "focus_types": ["..."],
-      "total_questions": <count>
+      "focus_types": [...],
+      "total_questions": <count>,
+      "has_css_data": <boolean>
     },
-    "questions": [
+    "specification_options": [
       {
         "id": 1,
         "category": "timing_scale",
@@ -228,7 +225,33 @@ Task(ui-design-agent): `
             "key": "a",
             "label": "快速敏捷",
             "details": "100-200ms 过渡，适合工具型应用和即时反馈场景",
-            "duration_range": "100-200ms"
+            "duration_values": {"fast": "100ms", "normal": "150ms", "slow": "200ms"},
+            "visual_preview": {
+              "timeline": "0ms ━━━━━━━━━━ 150ms",
+              "description": "快速完成，几乎瞬时反馈"
+            }
+          },
+          ...
+        ]
+      },
+      {
+        "id": 2,
+        "category": "easing_philosophy",
+        "question": "您偏好什么样的动画缓动曲线？",
+        "options": [
+          {
+            "key": "a",
+            "label": "自然缓动",
+            "details": "标准 ease-out，模拟自然减速",
+            "easing_curves": {
+              "ease-in": "cubic-bezier(0.4, 0, 1, 1)",
+              "ease-out": "cubic-bezier(0, 0, 0.2, 1)",
+              "ease-in-out": "cubic-bezier(0.4, 0, 0.2, 1)"
+            },
+            "visual_preview": {
+              "curve_art": "│      ╱─\n│    ╱\n│  ╱\n│╱\n└─────",
+              "description": "快速启动，平滑减速"
+            }
           },
           ...
         ]
@@ -241,198 +264,273 @@ Task(ui-design-agent): `
 `
 ```
 
-### Step 3: Verify Question File Created
+### Step 3: Verify Options File Created
 
 ```bash
-bash(test -f {base_path}/.intermediates/animation-analysis/question-options.json && echo "created")
+bash(test -f {base_path}/.intermediates/animation-analysis/analysis-options.json && echo "created")
 
 # Quick validation
-bash(cat {base_path}/.intermediates/animation-analysis/question-options.json | grep -q "questions" && echo "valid")
+bash(cat {base_path}/.intermediates/animation-analysis/analysis-options.json | grep -q "specification_options" && echo "valid")
 ```
 
-**Output**: `question-options.json` with context-aware questions
+**Output**: `analysis-options.json` with animation specification questions
 
 ---
 
-## Phase 3: Interactive Animation Specification (User Interaction)
+**Phase 1 Output**: `analysis-options.json` with generated specification questions
 
-### Step 1: Load Generated Questions
+## Phase 1.5: User Confirmation (Optional - Triggered by --interactive)
+
+**Purpose**: Allow user to answer animation specification questions before generating tokens
+
+**Trigger Condition**: Execute this phase ONLY if `--interactive` flag is present
+
+### Step 1: Check Interactive Flag
 
 ```bash
-# Read generated questions from JSON file
-question_data = Read({base_path}/.intermediates/animation-analysis/question-options.json)
+# Skip this entire phase if --interactive flag is not present
+IF NOT --interactive:
+    SKIP to Phase 2
+    REPORT: "ℹ️ Non-interactive mode: Using CSS extraction + default animation preferences"
 
-REPORT: "🤔 Interactive animation specification mode"
-REPORT: "   Context: {has_design_context ? 'Aligning with design tokens' : 'Standalone animation system'}"
-REPORT: "   Questions: {question_data.metadata.total_questions} questions loaded"
-REPORT: "   Focus: {question_data.metadata.focus_types}"
+REPORT: "🎯 Interactive mode enabled: User answers required"
 ```
 
-### Step 2: Present Questions to User
+### Step 2: Load and Present Options
 
-```markdown
-# Display questions from loaded JSON
-REPORT: ""
-REPORT: "===== 动画规格交互式配置 ====="
-REPORT: ""
+```bash
+# Read options file
+options = Read({base_path}/.intermediates/animation-analysis/analysis-options.json)
 
-FOR each question IN question_data.questions:
-    REPORT: "【问题{question.id} - {question.category}】{question.question}"
-
-    FOR each option IN question.options:
-        REPORT: "{option.key}) {option.label}"
-        REPORT: "   说明：{option.details}"
-
-    REPORT: ""
-
-REPORT: "支持格式："
-REPORT: "- 空格分隔：1a 2b 3c"
-REPORT: "- 逗号分隔：1a,2b,3c"
-REPORT: "- 自由组合：1a 2b,3c"
-REPORT: ""
-REPORT: "请输入您的选择："
+# Parse specification questions
+specification_options = options.specification_options
 ```
 
-### Step 3: Wait for User Input (Main Flow)
+### Step 3: Present Options to User
+
+```
+📋 Animation Specification Questions
+
+We've generated {options.metadata.total_questions} questions to define your animation system.
+Please answer each question to customize the animation behavior.
+
+{FOR each question in specification_options:
+  ═══════════════════════════════════════════════════
+  Question {question.id}: {question.question}
+  Category: {question.category}
+  ═══════════════════════════════════════════════════
+
+  {FOR each option in question.options:
+    {option.key}) {option.label}
+       {option.details}
+
+       ${option.visual_preview ? "Preview:\n       " + option.visual_preview.timeline || option.visual_preview.curve_art || option.visual_preview.animation_sequence : ""}
+       ${option.visual_preview ? "       " + option.visual_preview.description : ""}
+
+       ${option.duration_values ? "Durations: " + JSON.stringify(option.duration_values) : ""}
+       ${option.easing_curves ? "Easing: " + JSON.stringify(option.easing_curves) : ""}
+       ${option.transform_value ? "Transform: " + option.transform_value : ""}
+  }
+
+  ═══════════════════════════════════════════════════
+}
+```
+
+### Step 4: Capture User Selection
+
+**Interaction Strategy**: If questions > 4 OR any question has > 3 options, use batch text format:
+
+```
+【问题[N] - [category]】[question_text]
+[key]) [label]
+   [details]
+[key]) [label]
+   [details]
+...
+请回答 (格式: 1a 2b 3c...)：
+
+User input: "[N][key] [N][key] ..." → Parse answer pairs (single selection per question)
+```
+
+Otherwise, use `AskUserQuestion` below.
 
 ```javascript
-# Wait for user input
-user_raw_input = WAIT_FOR_USER_INPUT()
+// Use AskUserQuestion tool for each question (single selection)
+user_answers = {}
 
-# Store raw input for debugging
-REPORT: "收到输入: {user_raw_input}"
+FOR each question IN specification_options:
+  AskUserQuestion({
+    questions: [{
+      question: question.question,
+      header: question.category,
+      multiSelect: false,  // Single selection per question
+      options: [
+        {FOR each option IN question.options:
+          label: "{option.key}) {option.label}",
+          description: option.details
+        }
+      ]
+    }]
+  })
+
+  // Parse user response (single selection, e.g., "a) Fast & Snappy")
+  selected_option_text = user_answer
+
+  // Check for user cancellation
+  IF selected_option_text == null:
+      REPORT: "⚠️ User canceled selection. Using default animation preferences."
+      EXIT Phase 1.5
+
+  // Extract option key from selection text
+  match = selected_option_text.match(/^([a-e])\)/)
+  IF match:
+      selected_key = match[1]
+      user_answers[question.category] = selected_key
+      REPORT: "✅ {question.category}: Selected option {selected_key}"
+  ELSE:
+      ERROR: "Invalid selection format. Expected 'a) ...' format"
+      EXIT workflow
+
+REPORT: "✅ Collected {Object.keys(user_answers).length} animation preferences"
 ```
 
-### Step 4: Parse User Answers and Update JSON
+### Step 5: Update Options File with User Selection
 
-```javascript
-# Intelligent input parsing (support multiple formats)
-answers = {}
-
-# Parse input using intelligent matching
-# Support formats: "1a 2b 3c", "1a,2b,3c", "1a 2b,3c"
-parsed_responses = PARSE_USER_INPUT(user_raw_input, question_data.questions)
-
-# Validate parsing
-IF parsed_responses.is_valid:
-    # Map question numbers to categories
-    FOR response IN parsed_responses.answers:
-        question_id = response.question_id
-        selected_option = response.option
-
-        # Find category for this question
-        FOR question IN question_data.questions:
-            IF question.id == question_id:
-                category = question.category
-                answers[category] = selected_option
-                REPORT: "✅ 问题{question_id} ({category}): 选择 {selected_option}"
-                break
-ELSE:
-    REPORT: "❌ 输入格式无法识别，请参考格式示例重新输入："
-    REPORT: "   示例：1a 2b 3c 4d"
-    # Return to Step 2 for re-input
-    GOTO Step 2
-
-// Update question-options.json with user selection
-question_data.user_selection = {
-  "selected_at": NOW(),
-  "answers": answers
+```bash
+# Update analysis-options.json with user selection (embedded)
+options.user_selection = {
+  "selected_at": "{current_timestamp}",
+  "session_id": "{session_id}",
+  "answers": user_answers  // {category: selected_key}
 }
 
-// Write updated file back
-Write({base_path}/.intermediates/animation-analysis/question-options.json, JSON.stringify(question_data, indent=2))
+# Write updated file back
+Write({base_path}/.intermediates/animation-analysis/analysis-options.json, JSON.stringify(options, indent=2))
 
-REPORT: "✅ Updated question-options.json with user selection"
+# Verify
+bash(test -f {base_path}/.intermediates/animation-analysis/analysis-options.json && echo "saved")
 ```
 
----
+### Step 6: Confirmation Message
 
-**Phase 3 Output**: Updated `question-options.json` with user answers embedded
+```
+✅ Animation preferences recorded!
 
-## Phase 4: Animation Token Synthesis (Agent - No User Interaction)
+You selected:
+{FOR each category, selected_key IN user_answers:
+    question = find(specification_options, q => q.category == category)
+    option = find(question.options, o => o.key == selected_key)
+    • {category}: {option.label}
+      ({option.details})
+}
 
-**Executor**: `Task(ui-design-agent)` for token generation
+Proceeding to generate animation system with your preferences...
+```
 
-**⚠️ CRITICAL**: This phase has NO user interaction. Agent only reads existing data and generates tokens.
+**Output**: Updated `analysis-options.json` with embedded `user_selection` field
 
-### Step 1: Load All Input Sources
+## Phase 2: Animation System Generation (Agent Task 2)
+
+**Executor**: `Task(ui-design-agent)` for animation token generation
+
+### Step 1: Load User Selection or Use Defaults
 
 ```bash
-# Gather all available animation data
+# Read analysis-options.json which may contain user_selection
+options = Read({base_path}/.intermediates/animation-analysis/analysis-options.json)
+specification_options = options.specification_options
+
+# Check if user_selection field exists (interactive mode)
+IF options.user_selection AND options.user_selection.answers:
+    # Interactive mode: Use user-selected preferences
+    user_answers = options.user_selection.answers
+
+    REPORT: "🎯 Interactive mode: Using user-selected animation preferences"
+ELSE:
+    # Non-interactive mode: Use defaults (first option for each question)
+    user_answers = null
+
+    REPORT: "ℹ️ Non-interactive mode: Using default animation preferences"
+
+# Load extracted animations if available
 extracted_animations = []
 IF animations_extracted:
-    FOR target IN target_list:
+    FOR url_info IN url_list:
+        target = url_info.target
         IF exists({base_path}/.intermediates/animation-analysis/animations-{target}.json):
-            extracted_animations.append(Read(file))
-
-# Read user answers from question-options.json
-question_data = null
-IF exists({base_path}/.intermediates/animation-analysis/question-options.json):
-    question_data = Read({base_path}/.intermediates/animation-analysis/question-options.json)
-    IF question_data.user_selection:
-        REPORT: "✅ Loaded user answers from question-options.json"
-    ELSE:
-        REPORT: "⚠️ No user selection found in question-options.json"
-        question_data = null
-ELSE:
-    REPORT: "⚠️ No question-options.json found - using extracted CSS only"
-
-design_tokens = null
-IF has_design_context:
-    design_tokens = Read({base_path}/style-extraction/style-1/design-tokens.json)
+            data = Read({base_path}/.intermediates/animation-analysis/animations-{target}.json)
+            extracted_animations.push(data)
 ```
 
-### Step 2: Launch Token Generation Task (Pure Synthesis)
+### Step 2: Create Output Directory
+
+```bash
+# Create directory for animation system
+bash(mkdir -p {base_path}/animation-extraction)
+```
+
+### Step 3: Launch Animation Generation Task
+
+Generate animation system based on user preferences (or defaults) + CSS extraction:
 
 ```javascript
 Task(ui-design-agent): `
-  [ANIMATION_TOKEN_GENERATION_TASK]
-  Synthesize animation data into production-ready tokens - NO user interaction
+  [ANIMATION_SYSTEM_GENERATION_TASK]
+  Generate production-ready animation system based on user preferences and CSS extraction
 
   SESSION: {session_id} | BASE_PATH: {base_path}
 
-  ## ⚠️ CRITICAL: Pure Synthesis Task
-  - NO user questions or interaction
-  - READ existing specification files ONLY
-  - Generate tokens based on available data
+  USER PREFERENCES:
+  ${user_answers ? "- User Selection: " + JSON.stringify(user_answers) : "- Using Defaults: First option for each category"}
+  ${user_answers ? "- Specification Options: Read from .intermediates/animation-analysis/analysis-options.json for detailed specs" : ""}
 
-  ## Input Sources (Read-Only)
-  1. **Extracted CSS Animations** (if available):
-     ${extracted_animations.length > 0 ? JSON.stringify(extracted_animations) : "None - skip CSS data"}
+  ## Input Analysis
+  - Interactive mode: {user_answers ? "Yes (user preferences available)" : "No (using defaults)"}
+  - CSS extraction: {extracted_animations.length > 0 ? "Available" : "None"}
+  ${extracted_animations.length > 0 ? "- CSS Data: " + JSON.stringify(extracted_animations) : ""}
+  - Design context: {has_design_context ? "Available" : "None"}
+  ${has_design_context ? "- Design Tokens: Read from style-extraction/style-1/design-tokens.json" : ""}
 
-  2. **User Answers** (REQUIRED if Phase 2-3 ran):
-     File: {base_path}/.intermediates/animation-analysis/question-options.json
-     ${question_data ? "Status: ✅ Found - READ this file for user choices in user_selection field" : "Status: ⚠️ Not found - use CSS extraction only"}
+  ## Generation Rules
+  ${user_answers ? `
+  - Read analysis-options.json to get user_selection.answers
+  - For each category in user_selection.answers, find the selected option
+  - Use the selected option's technical specs (duration_values, easing_curves, transform_value, etc.)
+  - Apply these specs to generate animation tokens
+  ` : `
+  - Use first option (key "a") from each question in specification_options as default
+  - Extract technical specs from default options
+  `}
+  - Combine user preferences with CSS extraction data (if available)
+  - Align with design tokens (spacing, colors) if available
+  - All tokens use CSS Custom Property format: var(--duration-fast)
+  - WCAG-compliant: Respect prefers-reduced-motion
+  - Semantic naming for all animation values
 
-  3. **Design Tokens Context** (for alignment):
-     ${design_tokens ? JSON.stringify(design_tokens) : "None - standalone animation system"}
-
-  ## Synthesis Rules
-
-  ### Priority System
-  1. User answers from question-options.json user_selection field (highest priority)
+  ## Synthesis Priority
+  1. User answers from analysis-options.json user_selection field (highest priority)
   2. Extracted CSS values from animations-*.json (medium priority)
   3. Industry best practices (fallback)
 
-  ### Duration Normalization
-  - IF question_data.user_selection.answers.timing_scale EXISTS:
-      Map user's answer to duration scale using question_data.questions definitions
+  ## Duration Normalization
+  - IF user_selection.answers.timing_scale EXISTS:
+      Find selected option in specification_options
+      Use option's duration_values for token generation
   - ELSE IF extracted CSS durations available:
       Cluster extracted durations into 3-5 semantic scales
   - ELSE:
       Use standard scale (instant:0ms, fast:150ms, normal:300ms, slow:500ms, very-slow:800ms)
-  - Align with design token spacing scale if available
 
-  ### Easing Standardization
-  - IF question_data.user_selection.answers.easing_philosophy EXISTS:
-      Map user's answer to easing curve using question_data.questions definitions
+  ## Easing Standardization
+  - IF user_selection.answers.easing_philosophy EXISTS:
+      Find selected option in specification_options
+      Use option's easing_curves for token generation
   - ELSE IF extracted CSS easings available:
       Identify common easing functions from CSS
   - ELSE:
-      Use standard easings
-  - Map to semantic names and convert to cubic-bezier format
+      Use standard easings (linear, ease-in, ease-out, ease-in-out, spring)
 
-  ### Animation Categorization
+  ## Animation Categorization
   Organize into:
   - **duration**: Timing scale (instant, fast, normal, slow, very-slow)
   - **easing**: Easing functions (linear, ease-in, ease-out, ease-in-out, spring)
@@ -442,18 +540,6 @@ Task(ui-design-agent): `
   - **page_transitions**: Route/view change animations (if user enabled)
   - **scroll_animations**: Scroll-triggered animations (if user enabled)
 
-  ### User Answers Integration
-  IF question_data.user_selection EXISTS:
-    - Map user answers to token values using question definitions:
-      * answers.timing_scale → duration values (use question options for specs)
-      * answers.easing_philosophy → easing curves (use question options for specs)
-      * answers.button_interactions → interactions.button-hover token
-      * answers.card_interactions → interactions.card-hover token
-      * answers.input_interactions → micro-interaction tokens
-      * answers.page_transitions → page_transitions tokens
-      * answers.loading_states → loading state tokens
-      * answers.scroll_animations → scroll_animations tokens
-
   ## Generate Files
 
   ### 1. animation-tokens.json
@@ -462,7 +548,7 @@ Task(ui-design-agent): `
   {
     "duration": {
       "instant": "0ms",
-      "fast": "150ms",      # Adjust based on user_specification.timing_scale
+      "fast": "150ms",      # From user_selection or CSS extraction or default
       "normal": "300ms",
       "slow": "500ms",
       "very-slow": "800ms"
@@ -470,7 +556,7 @@ Task(ui-design-agent): `
     "easing": {
       "linear": "linear",
       "ease-in": "cubic-bezier(0.4, 0, 1, 1)",
-      "ease-out": "cubic-bezier(0, 0, 0.2, 1)",      # Adjust based on user_specification.easing_philosophy
+      "ease-out": "cubic-bezier(0, 0, 0.2, 1)",      # From user_selection or CSS extraction or default
       "ease-in-out": "cubic-bezier(0.4, 0, 0.2, 1)",
       "spring": "cubic-bezier(0.34, 1.56, 0.64, 1)"
     },
@@ -494,43 +580,39 @@ Task(ui-design-agent): `
     "keyframes": {
       "fadeIn": {"0%": {"opacity": "0"}, "100%": {"opacity": "1"}},
       "slideInUp": {"0%": {"transform": "translateY(20px)", "opacity": "0"}, "100%": {"transform": "translateY(0)", "opacity": "1"}},
-      "pulse": {"0%, 100%": {"opacity": "1"}, "50%": {"opacity": "0.7"}},
-      # Add more keyframes based on user_specification choices
+      "pulse": {"0%, 100%": {"opacity": "1"}, "50%": {"opacity": "0.7"}}
     },
     "interactions": {
       "button-hover": {
-        # Map from user_specification.interactions.button
+        # From user_selection.answers.button_interactions or CSS extraction or default
         "properties": ["background-color", "transform"],
         "duration": "var(--duration-fast)",
         "easing": "var(--easing-ease-out)",
         "transform": "scale(1.02)"
       },
       "card-hover": {
-        # Map from user_specification.interactions.card
+        # From user_selection.answers.card_interactions or CSS extraction or default
         "properties": ["box-shadow", "transform"],
         "duration": "var(--duration-normal)",
         "easing": "var(--easing-ease-out)",
         "transform": "translateY(-4px)"
       }
-      # Add input-focus, modal-open, dropdown-toggle based on user choices
     },
     "page_transitions": {
-      # IF user_specification.page_transitions.enabled == true
+      # IF user_selection.answers.page_transitions enabled
       "fade": {
         "duration": "var(--duration-normal)",
         "enter": "fadeIn",
         "exit": "fadeOut"
       }
-      # Add slide, zoom based on user_specification.page_transitions.style
     },
     "scroll_animations": {
-      # IF user_specification.scroll_animations.enabled == true
+      # IF user_selection.answers.scroll_animations enabled
       "default": {
-        "animation": "fadeIn",  # From user_specification.scroll_animations.style
+        "animation": "fadeIn",
         "duration": "var(--duration-slow)",
         "easing": "var(--easing-ease-out)",
-        "threshold": "0.1",
-        "stagger_delay": "100ms"  # From user_specification if stagger chosen
+        "threshold": "0.1"
       }
     }
   }
@@ -554,26 +636,24 @@ Task(ui-design-agent): `
   - animation-guide.md: {base_path}/animation-extraction/animation-guide.md
 
   ## Critical Requirements
-  - ✅ READ question-options.json if it exists (from Phase 2-3)
   - ✅ Use Write() tool immediately for both files
   - ✅ All tokens use CSS Custom Property format: var(--duration-fast)
   - ✅ Include prefers-reduced-motion media query guidance
   - ✅ Validate all cubic-bezier values are valid (4 numbers between 0-1)
+  - ${user_answers ? "✅ READ analysis-options.json for user_selection field" : "✅ Use first option from each question as default"}
   - ❌ NO user questions or interaction in this phase
   - ❌ NO external research or MCP calls
 `
 ```
 
----
+**Output**: Agent generates 2 files (animation-tokens.json, animation-guide.md)
 
-**Phase 4 Output**: `animation-tokens.json` + `animation-guide.md`
-
-## Phase 5: Verify Output
+## Phase 3: Verify Output
 
 ### Step 1: Check Files Created
 
 ```bash
-# Verify animation tokens created
+# Verify animation system created
 bash(test -f {base_path}/animation-extraction/animation-tokens.json && echo "exists")
 bash(test -f {base_path}/animation-extraction/animation-guide.md && echo "exists")
 
@@ -597,11 +677,11 @@ bash(ls -lh {base_path}/animation-extraction/)
 ```javascript
 TodoWrite({todos: [
   {content: "Setup and input validation", status: "completed", activeForm: "Validating inputs"},
-  {content: "CSS animation extraction (auto mode)", status: "completed", activeForm: "Extracting from CSS"},
-  {content: "Question generation (agent)", status: "completed", activeForm: "Generating questions"},
-  {content: "Interactive specification (user input)", status: "completed", activeForm: "Collecting user answers"},
-  {content: "Animation token synthesis (agent - no interaction)", status: "completed", activeForm: "Generating tokens via agent"},
-  {content: "Verify output files", status: "completed", activeForm: "Verifying files"}
+  {content: "CSS animation extraction (Phase 1)", status: "completed", activeForm: "Extracting from CSS"},
+  {content: "Specification generation (Phase 1 - Agent)", status: "completed", activeForm: "Generating questions"},
+  {content: "User confirmation (Phase 1.5 - Optional)", status: "completed", activeForm: "Collecting user answers"},
+  {content: "Animation system generation (Phase 2 - Agent)", status: "completed", activeForm: "Generating animation system"},
+  {content: "Verify output files (Phase 3)", status: "completed", activeForm: "Verifying files"}
 ]});
 ```
 
@@ -612,13 +692,16 @@ TodoWrite({todos: [
 
 Configuration:
 - Session: {session_id}
-- Extraction Mode: {extraction_mode} (auto/interactive)
+- Interactive Mode: {interactive_mode ? "Enabled (user preferences collected)" : "Disabled (default preferences)"}
 - Input Sources:
   {IF animations_extracted:
   - ✅ CSS extracted from {len(url_list)} URL(s)
   }
-  {IF question_data AND question_data.user_selection:
-  - ✅ User answers via interactive mode (agent-generated questions)
+  {IF interactive_mode AND options.user_selection:
+  - ✅ User preferences collected via interactive mode
+  }
+  {IF NOT interactive_mode:
+  - ℹ️ Using default animation preferences (no user interaction)
   }
   {IF has_design_context:
   - ✅ Aligned with existing design tokens
@@ -629,15 +712,13 @@ Generated Files:
 ├── animation-tokens.json      # Production-ready animation tokens
 └── animation-guide.md          # Usage guidelines and examples
 
-{IF animations_extracted OR question_data:
+{IF animations_extracted OR options.user_selection:
 Intermediate Analysis:
 {base_path}/.intermediates/animation-analysis/
 {IF animations_extracted:
 ├── animations-*.json           # Extracted CSS data ({len(url_list)} files)
 }
-{IF question_data:
-└── question-options.json       # Generated questions + user answers
-}
+├── analysis-options.json       # Generated questions{options.user_selection ? " + user answers" : ""}
 }
 
 Extracted Data Summary:
@@ -694,9 +775,9 @@ bash(ls {base_path}/animation-extraction/)
 {base_path}/
 ├── .intermediates/                  # Intermediate analysis files
 │   └── animation-analysis/
-│       ├── animations-{target}.json      # Extracted CSS (auto mode)
-│       └── question-options.json         # Generated questions + user answers (interactive mode)
-└── animation-extraction/            # Final animation tokens
+│       ├── animations-{target}.json      # Extracted CSS (URL mode only)
+│       └── analysis-options.json         # Generated questions + user answers (embedded)
+└── animation-extraction/            # Final animation system
     ├── animation-tokens.json        # Production-ready animation tokens
     └── animation-guide.md            # Usage guide and examples
 ```
@@ -744,13 +825,10 @@ bash(ls {base_path}/animation-extraction/)
 
 ```
 ERROR: No URL or interactive mode specified
-→ Provide --urls for auto mode or use --mode interactive
+→ Provide --urls for CSS extraction or use --interactive for specification
 
 ERROR: Chrome DevTools unavailable
-→ Automatically falls back to interactive mode
-
-ERROR: Insufficient animation data extracted
-→ Launches interactive mode for supplemental input
+→ Automatically falls back to specification mode
 
 ERROR: Invalid cubic-bezier values
 → Validates and corrects to nearest standard easing
@@ -758,36 +836,22 @@ ERROR: Invalid cubic-bezier values
 
 ### Recovery Strategies
 
-- **CSS extraction failure**: Falls back to interactive mode
-- **Partial extraction**: Supplements with interactive questioning
+- **CSS extraction failure**: Falls back to specification mode
+- **Partial extraction**: Supplements with default values
 - **Invalid data**: Validates and uses fallback values
 
 ## Key Features
 
-- **Auto-Trigger CSS Extraction** - Automatically extracts animations when --urls provided
-- **Hybrid Strategy** - Combines CSS extraction with interactive specification
-- **Agent-Generated Questions** - Context-aware questions generated by agent (Phase 2)
-- **User Interaction** - User answers questions in main flow (Phase 3)
+- **Auto-Trigger CSS Extraction** - Automatically extracts animations when --urls provided (Phase 0)
+- **Agent-Generated Questions** - Context-aware specification questions with visual previews (Phase 1)
+- **Visual Previews** - Timeline representations, easing curve ASCII art, and animation sequences for each option
+- **Optional User Interaction** - User answers questions only when `--interactive` flag present (Phase 1.5)
+- **Non-Interactive Mode** - Default behavior uses CSS data + best practices (no user questions)
+- **Hybrid Strategy** - Combines CSS extraction with user preferences (when interactive)
 - **Intelligent Fallback** - Gracefully handles extraction failures
 - **Context-Aware** - Aligns with existing design tokens
 - **Production-Ready** - CSS var() format, accessibility support
 - **Comprehensive Coverage** - Transitions, keyframes, interactions, scroll animations
-- **Separated Concerns** - Question generation (Phase 2 agent) → User answers (Phase 3) → Token generation (Phase 4 agent)
+- **Clear Phase Separation** - Question generation (Agent) → User confirmation (Optional) → Token synthesis (Agent)
 
-## Integration
 
-**Workflow Position**: Between style extraction and layout extraction (or parallel)
-
-**New Workflow**:
-1. `/workflow:ui-design:style-extract` → `design-tokens.json` + `style-guide.md`
-2. **`/workflow:ui-design:animation-extract`** → `animation-tokens.json` + `animation-guide.md` (NEW)
-3. `/workflow:ui-design:layout-extract` → `layout-templates.json`
-4. `/workflow:ui-design:generate`:
-   - Reads: design-tokens.json + animation-tokens.json + layout-templates.json
-   - Generates: Prototypes with animation CSS included
-
-**Input**: URLs (auto mode) or interactive questioning
-**Output**: `animation-tokens.json` + `animation-guide.md`
-**Next**: `/workflow:ui-design:layout-extract` OR `/workflow:ui-design:generate`
-
-**Note**: This command extracts motion design patterns (animations, transitions) to complement visual style tokens. Can run in parallel with layout-extract.
