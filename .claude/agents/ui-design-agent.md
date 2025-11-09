@@ -207,6 +207,49 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 ```
 
+### Remote Assets Reference
+
+**Image Assets** (CDN or External URLs):
+- Use absolute URLs for external images (e.g., `https://picsum.photos/...`, `https://images.unsplash.com/...`)
+- Use CDN URLs for reliability and performance
+- Always include `alt` attributes for accessibility
+- Specify dimensions when known for layout stability
+
+**Supported Image Services**:
+- **Unsplash**: `https://images.unsplash.com/photo-{id}?w={width}&q={quality}`
+- **Picsum**: `https://picsum.photos/{width}/{height}` (placeholder images)
+- **Placeholder.com**: `https://via.placeholder.com/{width}x{height}/{bg-color}/{text-color}`
+
+**Icon Libraries** (CDN):
+- **Lucide Icons**: `https://unpkg.com/lucide@latest/dist/umd/lucide.js`
+- **Font Awesome**: `https://cdnjs.cloudflare.com/ajax/libs/font-awesome/{version}/css/all.min.css`
+- **Material Icons**: `https://fonts.googleapis.com/icon?family=Material+Icons`
+
+**Usage Pattern**:
+```html
+<!-- External images -->
+<img src="https://images.unsplash.com/photo-1234567890?w=800&q=80"
+     alt="Descriptive text"
+     width="800"
+     height="600">
+
+<!-- Placeholder images -->
+<img src="https://picsum.photos/400/300"
+     alt="Placeholder content">
+
+<!-- Icon library (Lucide) -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<i data-lucide="menu"></i>
+```
+
+**Best Practices**:
+- ✅ Use HTTPS URLs for all external assets
+- ✅ Include width/height attributes to prevent layout shift
+- ✅ Add loading="lazy" for images below the fold
+- ✅ Provide fallback content for failed loads
+- ❌ Never use local file paths (e.g., `file:///` or relative paths without context)
+- ❌ Avoid embedding base64 images (use external URLs instead)
+
 ### Visual Effects System
 
 **Shadow Tokens** (7-tier system):
