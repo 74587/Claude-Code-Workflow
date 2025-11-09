@@ -1,7 +1,7 @@
 ---
 name: generate
 description: Assemble UI prototypes by combining layout templates with design tokens, pure assembler without new content generation
-argument-hint: [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
+argument-hint: [--base-path <path>] [--session <id>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 ---
 
@@ -11,7 +11,7 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 Pure assembler that combines pre-extracted layout templates with design tokens to generate UI prototypes (`style × layout × targets`). No layout design logic - purely combines existing components.
 
 **Strategy**: Pure Assembly
-- **Input**: `layout-templates.json` + `design-tokens.json` (+ reference images if available)
+- **Input**: `layout-*.json` files + `design-tokens.json` (+ reference images if available)
 - **Process**: Combine structure (DOM) with style (tokens)
 - **Output**: Complete HTML/CSS prototypes
 - **No Design Logic**: All layout and style decisions already made
@@ -25,8 +25,8 @@ Pure assembler that combines pre-extracted layout templates with design tokens t
 
 ### Step 1: Resolve Base Path & Parse Configuration
 ```bash
-# Determine working directory (relative path)
-relative_path=$(find .workflow -type d -name "design-run-*" | head -1)
+# Determine working directory (relative path - finds latest)
+relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
 
 # Convert to absolute path
 base_path=$(cd "$relative_path" && pwd)
@@ -42,12 +42,18 @@ bash(ls "$base_path"/style-extraction/style-* -d | wc -l)
 
 ### Step 2: Load Layout Templates
 ```bash
-# Check layout templates exist
-bash(test -f {base_path}/layout-extraction/layout-templates.json && echo "exists")
+# Check layout templates exist (multi-file pattern)
+bash(find {base_path}/layout-extraction -name "layout-*.json" -print -quit | grep -q . && echo "exists")
 
-# Load layout templates
-Read({base_path}/layout-extraction/layout-templates.json)
-# Extract: targets, layout_variants count, device_type, template structures
+# Get list of all layout files
+bash(ls {base_path}/layout-extraction/layout-*.json 2>/dev/null)
+
+# Load each layout template file
+FOR each layout_file in layout_files:
+    template_data = Read(layout_file)
+    # Extract: target, variant_id, device_type, dom_structure, css_layout_rules
+
+# Aggregate: targets[], layout_variants count, device_type, all template structures
 ```
 
 **Output**: `base_path`, `style_variants`, `layout_templates[]`, `targets[]`, `device_type`
@@ -99,9 +105,9 @@ Task(ui-design-agent): `
 
   ## Inputs (READ ONLY - NO DESIGN DECISIONS)
   1. Layout Template:
-     Read("{base_path}/layout-extraction/layout-templates.json")
-     Find template where: target={target} AND variant_id="layout-{layout_id}"
-     Extract: dom_structure, css_layout_rules, device_type, source_image_path
+     Read("{base_path}/layout-extraction/layout-{target}-{layout_id}.json")
+     This file contains the specific layout template for this target and variant.
+     Extract: dom_structure, css_layout_rules, device_type, source_image_path (from template field)
 
   2. Design Tokens:
      Read("{base_path}/style-extraction/style-{style_id}/design-tokens.json")
@@ -229,7 +235,7 @@ TodoWrite({todos: [
 
 Configuration:
 - Style Variants: {style_variants}
-- Layout Variants: {layout_variants} (from layout-templates.json)
+- Layout Variants: {layout_variants} (from layout-*.json files)
 - Device Type: {device_type}
 - Targets: {targets}
 - Total Prototypes: {S × L × T}
@@ -248,13 +254,14 @@ Quality:
 
 Generated Files:
 {base_path}/prototypes/
-├── _templates/
-│   └── layout-templates.json (input, pre-extracted)
 ├── {target}-style-{s}-layout-{l}.html ({S×L×T} prototypes)
 ├── {target}-style-{s}-layout-{l}.css
 ├── compare.html (interactive matrix)
 ├── index.html (navigation)
 └── PREVIEW.md (instructions)
+
+Input Files (from layout-extraction/):
+├── layout-{target}-{variant}.json (multiple files, one per target-variant combination)
 
 Preview:
 1. Open compare.html (recommended)
@@ -277,8 +284,11 @@ bash(ls {base_path}/style-extraction/style-* -d | wc -l)
 
 ### Validation Commands
 ```bash
-# Check layout templates exist
-bash(test -f {base_path}/layout-extraction/layout-templates.json && echo "exists")
+# Check layout templates exist (multi-file pattern)
+bash(find {base_path}/layout-extraction -name "layout-*.json" -print -quit | grep -q . && echo "exists")
+
+# Count layout files
+bash(ls {base_path}/layout-extraction/layout-*.json 2>/dev/null | wc -l)
 
 # Check design tokens exist
 bash(test -f {base_path}/style-extraction/style-1/design-tokens.json && echo "valid")
@@ -304,10 +314,10 @@ bash(~/.claude/scripts/ui-generate-preview.sh "{base_path}/prototypes")
 ```
 {base_path}/
 ├── layout-extraction/
-│   └── layout-templates.json      # Input (from layout-extract)
+│   └── layout-{target}-{variant}.json  # Input (multiple files from layout-extract)
 ├── style-extraction/
 │   └── style-{s}/
-│       ├── design-tokens.json     # Input (from style-extract)
+│       ├── design-tokens.json          # Input (from style-extract)
 │       └── style-guide.md
 └── prototypes/
     ├── {target}-style-{s}-layout-{l}.html  # Assembled prototypes
@@ -336,7 +346,7 @@ ERROR: Script permission denied
 
 ### Recovery Strategies
 - **Partial success**: Keep successful assembly combinations
-- **Invalid template structure**: Validate layout-templates.json
+- **Invalid template structure**: Validate layout-*.json files
 - **Invalid tokens**: Validate design-tokens.json structure
 
 ## Quality Checklist
@@ -362,8 +372,8 @@ ERROR: Script permission denied
 
 **Prerequisites**:
 - `/workflow:ui-design:style-extract` → `design-tokens.json` + `style-guide.md`
-- `/workflow:ui-design:layout-extract` → `layout-templates.json`
+- `/workflow:ui-design:layout-extract` → `layout-{target}-{variant}.json` files
 
-**Input**: `layout-templates.json` + `design-tokens.json`
+**Input**: `layout-*.json` files + `design-tokens.json`
 **Output**: S×L×T prototypes for `/workflow:ui-design:update`
 **Called by**: `/workflow:ui-design:explore-auto`, `/workflow:ui-design:imitate-auto`

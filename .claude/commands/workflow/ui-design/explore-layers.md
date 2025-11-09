@@ -41,7 +41,7 @@ IF depth NOT IN [1, 2, 3, 4, 5]:
 relative_path=$(if [ -n "$BASE_PATH" ]; then
   echo "$BASE_PATH"
 elif [ -n "$SESSION_ID" ]; then
-  find .workflow/WFS-$SESSION_ID/design-* -type d | head -1 || \
+  find .workflow/WFS-$SESSION_ID/design-* -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2 || \
   echo ".workflow/WFS-$SESSION_ID/design-run-$(date +%Y%m%d)-$RANDOM"
 else
   echo ".workflow/.design/design-run-$(date +%Y%m%d)-$RANDOM"

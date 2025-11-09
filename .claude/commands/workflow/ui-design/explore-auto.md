@@ -1,7 +1,7 @@
 ---
 name: explore-auto
 description: Exploratory UI design workflow with style-centric batch generation, creates design variants from prompts/images with parallel execution
-argument-hint: "[--prompt "<desc>"] [--images "<glob>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]""
+argument-hint: "[--prompt "<desc>"] [--images "<glob>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--interactive] [--batch-plan]""
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*), Task(conceptual-planning-agent)
 ---
 
@@ -154,6 +154,11 @@ ELSE:
     layout_variants = --layout-variants OR 3
 
 VALIDATE: 1 <= style_variants <= 5, 1 <= layout_variants <= 5
+
+# Interactive mode (default: enabled for multi-selection)
+interactive_mode = --interactive !== undefined ? --interactive : true  # Default to true
+
+REPORT: "🎯 Interactive mode: {interactive_mode ? 'enabled' : 'disabled'}"
 ```
 
 ### Phase 0a-2: Device Type Inference
@@ -310,7 +315,7 @@ detect_target_type(target_list):
 ```bash
 IF design_source IN ["code_only", "hybrid"]:
     REPORT: "🔍 Phase 0d: Code Import ({design_source})"
-    command = "/workflow:ui-design:import-from-code --base-path \"{base_path}\" --base-path \"{code_base_path}\""
+    command = "/workflow:ui-design:import-from-code --base-path \"{base_path}\" --source \"{code_base_path}\""
     SlashCommand(command)
 
     # Check file existence and assess completeness
@@ -390,7 +395,8 @@ IF design_source == "visual_only" OR needs_visual_supplement:
     command = "/workflow:ui-design:style-extract --base-path \"{base_path}\" " +
               (--images ? "--images \"{images}\" " : "") +
               (--prompt ? "--prompt \"{prompt}\" " : "") +
-              "--variants {style_variants}"
+              "--variants {style_variants}" +
+              (interactive_mode ? " --interactive" : "")
     SlashCommand(command)
 ELSE:
     REPORT: "✅ Phase 1: Style (Using Code Import)"
@@ -419,7 +425,8 @@ IF (design_source == "visual_only" OR needs_visual_supplement) OR (NOT layout_co
     command = "/workflow:ui-design:layout-extract --base-path \"{base_path}\" " +
               (--images ? "--images \"{images}\" " : "") +
               (--prompt ? "--prompt \"{prompt}\" " : "") +
-              "--targets \"{targets_string}\" --variants {layout_variants} --device-type \"{device_type}\""
+              "--targets \"{targets_string}\" --variants {layout_variants} --device-type \"{device_type}\"" +
+              (interactive_mode ? " --interactive" : "")
     SlashCommand(command)
 ELSE:
     REPORT: "✅ Phase 2.5: Layout (Using Code Import)"
@@ -427,8 +434,7 @@ ELSE:
 
 ### Phase 3: UI Assembly
 ```bash
-command = "/workflow:ui-design:generate --base-path \"{base_path}\" " +
-          "--style-variants {style_variants} --layout-variants {layout_variants}"
+command = "/workflow:ui-design:generate --base-path \"{base_path}\""
 
 total = style_variants × layout_variants × len(inferred_target_list)
 
