@@ -1,6 +1,6 @@
 ---
 name: generate
-description: Assemble UI prototypes by combining layout templates with design tokens, pure assembler without new content generation
+description: Assemble UI prototypes by combining layout templates with design tokens (default animation support), pure assembler without new content generation
 argument-hint: [--base-path <path>] [--session <id>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 ---
@@ -86,14 +86,30 @@ ELSE:
 
 ## Phase 2: Assembly (Agent)
 
-**Executor**: `Task(ui-design-agent)` × `T × S × L` tasks (can be batched)
+**Executor**: `Task(ui-design-agent)` × `T × S × L` tasks in **batched parallel** (max 6 concurrent)
 
-### Step 1: Launch Assembly Tasks
+### Step 1: Calculate Batch Execution Plan
 ```bash
 bash(mkdir -p {base_path}/prototypes)
+
+# Build task list: T × S × L combinations
+MAX_PARALLEL = 6
+total_tasks = T × S × L
+total_batches = ceil(total_tasks / MAX_PARALLEL)
+
+# Initialize batch tracking
+TodoWrite({todos: [
+  {content: "Setup and validation", status: "completed", activeForm: "Loading design systems"},
+  {content: "Batch 1/{total_batches}: Assemble 6 tasks", status: "in_progress", activeForm: "Assembling batch 1"},
+  {content: "Batch 2/{total_batches}: Assemble 6 tasks", status: "pending", activeForm: "Assembling batch 2"},
+  ... (continue for all batches)
+]})
 ```
 
-For each `target × style_id × layout_id`:
+### Step 2: Launch Batched Assembly Tasks
+
+For each batch (up to 6 parallel tasks per batch):
+For each `target × style_id × layout_id` in current batch:
 ```javascript
 Task(ui-design-agent): `
   [LAYOUT_STYLE_ASSEMBLY]
@@ -183,9 +199,12 @@ Task(ui-design-agent): `
   - Write files IMMEDIATELY
   - CSS filename MUST match HTML <link href="...">
 `
+
+# After each batch completes
+TodoWrite: Mark current batch completed, next batch in_progress
 ```
 
-### Step 2: Verify Generated Files
+### Step 3: Verify Generated Files
 ```bash
 # Count expected vs found
 bash(ls {base_path}/prototypes/{target}-style-*-layout-*.html | wc -l)
@@ -222,10 +241,10 @@ bash(ls {base_path}/prototypes/compare.html {base_path}/prototypes/index.html {b
 ```javascript
 TodoWrite({todos: [
   {content: "Setup and validation", status: "completed", activeForm: "Loading design systems"},
-  {content: "Load layout templates", status: "completed", activeForm: "Reading layout templates"},
-  {content: "Assembly (agent)", status: "completed", activeForm: "Assembling prototypes"},
-  {content: "Verify files", status: "completed", activeForm: "Validating output"},
-  {content: "Generate previews", status: "completed", activeForm: "Creating preview files"}
+  {content: "Batch 1/{total_batches}: Assemble 6 tasks", status: "completed", activeForm: "Assembling batch 1"},
+  {content: "Batch 2/{total_batches}: Assemble 6 tasks", status: "completed", activeForm: "Assembling batch 2"},
+  ... (all batches completed)
+  {content: "Verify files & generate previews", status: "completed", activeForm: "Creating previews"}
 ]});
 ```
 
@@ -240,17 +259,24 @@ Configuration:
 - Targets: {targets}
 - Total Prototypes: {S × L × T}
 - Image Reference: Auto-detected (uses source images when available in layout templates)
+- Animation Support: {has_animations ? 'Enabled (animation-tokens.json loaded)' : 'Not available'}
 
 Assembly Process:
 - Pure assembly: Combined pre-extracted layouts + design tokens
 - No design decisions: All structure and style pre-defined
 - Assembly tasks: T×S×L = {T}×{S}×{L} = {T×S×L} combinations
 
+Batch Execution:
+- Total tasks: {T × S × L} assembly combinations
+- Batches: {total_batches} (max 6 parallel per batch)
+- Component isolation: Complete task independence
+
 Quality:
 - Structure: From layout-extract (DOM, CSS layout rules)
 - Style: From style-extract (design tokens)
 - CSS: Token values directly applied (var() replaced)
 - Device-optimized: Layouts match device_type from templates
+- Animations: {has_animations ? 'CSS custom properties and @keyframes injected' : 'Static styles only'}
 
 Generated Files:
 {base_path}/prototypes/

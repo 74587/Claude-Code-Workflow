@@ -87,7 +87,6 @@ These commands orchestrate complex, multi-phase development processes, from plan
 |---|---|
 | `/workflow:ui-design:explore-auto` | Exploratory UI design workflow with style-centric batch generation. |
 | `/workflow:ui-design:imitate-auto` | High-speed multi-page UI replication with batch screenshot capture. |
-| `/workflow:ui-design:batch-generate` | Prompt-driven batch UI generation using target-style-centric parallel execution. |
 | `/workflow:ui-design:capture` | Batch screenshot capture for UI design workflows using MCP or local fallback. |
 | `/workflow:ui-design:explore-layers` | Interactive deep UI capture with depth-controlled layer exploration. |
 | `/workflow:ui-design:style-extract` | Extract design style from reference images or text prompts using Claude's analysis. |

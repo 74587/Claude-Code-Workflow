@@ -660,17 +660,6 @@
     "file_path": "workflow/ui-design/animation-extract.md"
   },
   {
-    "name": "batch-generate",
-    "command": "/workflow:ui-design:batch-generate",
-    "description": "Prompt-driven batch UI generation using target-style-centric parallel execution with design token application",
-    "arguments": "[--targets \"<list>\"] [--target-type \"page|component\"] [--device-type \"desktop|mobile|tablet|responsive\"] [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]",
-    "category": "workflow",
-    "subcategory": "ui-design",
-    "usage_scenario": "implementation",
-    "difficulty": "Intermediate",
-    "file_path": "workflow/ui-design/batch-generate.md"
-  },
-  {
     "name": "capture",
     "command": "/workflow:ui-design:capture",
     "description": "Batch screenshot capture for UI design workflows using MCP puppeteer or local fallback with URL mapping",

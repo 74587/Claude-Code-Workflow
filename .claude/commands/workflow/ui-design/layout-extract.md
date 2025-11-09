@@ -319,7 +319,7 @@ Please select your preferred concept for this target.
 }
 ```
 
-### Step 3: Capture User Selection (Per Target)
+### Step 3: Capture User Selection and Update Options File (Per Target)
 ```javascript
 // Use AskUserQuestion tool for each target (multi-select enabled)
 FOR each target:
@@ -362,35 +362,25 @@ FOR each target:
   }
 
   REPORT: "✅ Selected {selected_indices.length} layout(s) for {target}"
-```
 
-### Step 4: Write User Selection File
-```bash
-# Create user-selections directory
-bash(mkdir -p {base_path}/.intermediates/user-selections)
-
-# Calculate total selections across all targets
+// Calculate total selections across all targets
 total_selections = sum([len(selections[t].selected_indices) for t in targets])
 
-# Create user selection JSON
-selection_data = {
-  "metadata": {
-    "selected_at": "{current_timestamp}",
-    "selection_type": "per_target_multi",
-    "session_id": "{session_id}",
-    "total_selections": total_selections
-  },
+// Update analysis-options.json with user selection (embedded in same file)
+options_file = Read({base_path}/.intermediates/layout-analysis/analysis-options.json)
+options_file.user_selection = {
+  "selected_at": "{current_timestamp}",
+  "selection_type": "per_target_multi",
+  "session_id": "{session_id}",
+  "total_selections": total_selections,
   "selected_variants": selections  // {target: {selected_indices: [...], concept_names: [...]}}
 }
 
-# Write to standardized selection file
-bash(echo '{selection_data}' > {base_path}/.intermediates/user-selections/layout-extract-selection.json)
-
-# Verify
-bash(test -f {base_path}/.intermediates/user-selections/layout-extract-selection.json && echo "saved")
+// Write updated file back
+Write({base_path}/.intermediates/layout-analysis/analysis-options.json, JSON.stringify(options_file, indent=2))
 ```
 
-### Step 5: Confirmation Message
+### Step 4: Confirmation Message
 ```
 ✅ Selections recorded! Total: {total_selections} layout(s)
 
@@ -404,7 +394,7 @@ bash(test -f {base_path}/.intermediates/user-selections/layout-extract-selection
 Proceeding to generate {total_selections} detailed layout template(s)...
 ```
 
-**Output**: `user-selection.json` with user's multi-selections for all targets
+**Output**: `analysis-options.json` updated with embedded `user_selection` field
 
 ## Phase 2: Layout Template Generation (Agent Task 2)
 
@@ -412,14 +402,15 @@ Proceeding to generate {total_selections} detailed layout template(s)...
 
 ### Step 1: Load User Selections or Default to All
 ```bash
-# Check if user selection file exists (interactive mode)
-IF exists({base_path}/.intermediates/user-selections/layout-extract-selection.json):
-    # Interactive mode: Use user-selected variants
-    selection = Read({base_path}/.intermediates/user-selections/layout-extract-selection.json)
-    selections_per_target = selection.selected_variants
+# Read analysis-options.json which may contain user_selection
+options = Read({base_path}/.intermediates/layout-analysis/analysis-options.json)
+layout_concepts = options.layout_concepts
 
-    # Calculate total selections
-    total_selections = selection.metadata.total_selections
+# Check if user_selection field exists (interactive mode)
+IF options.user_selection AND options.user_selection.selected_variants:
+    # Interactive mode: Use user-selected variants
+    selections_per_target = options.user_selection.selected_variants
+    total_selections = options.user_selection.total_selections
 ELSE:
     # Non-interactive mode: Generate ALL variants for ALL targets (default behavior)
     selections_per_target = {}
@@ -431,10 +422,6 @@ ELSE:
             "concept_names": []  # Will be filled from options
         }
         total_selections += variants_count
-
-# Read concept details
-options = Read({base_path}/.intermediates/layout-analysis/analysis-options.json)
-layout_concepts = options.layout_concepts
 
 # Build task list for all selected concepts across all targets
 task_list = []
@@ -603,13 +590,12 @@ Generated Templates:
 
 Intermediate Files:
 - {base_path}/.intermediates/layout-analysis/
-  ├── analysis-options.json (concept proposals)
-  ├── user-selection.json (multi-selections per target)
+  ├── analysis-options.json (concept proposals + user selections embedded)
   {IF dom_structure_available:
   ├── dom-structure-*.json ({len(url_list)} DOM extracts)
   }
 
-Next: /workflow:ui-design:generate or /workflow:ui-design:batch-generate will combine these structural templates with design systems to produce final prototypes.
+Next: /workflow:ui-design:generate will combine these structural templates with design systems to produce final prototypes.
 ```
 
 ## Simple Bash Commands
@@ -651,8 +637,7 @@ bash(echo '{json}' > {base_path}/layout-extraction/layout-templates.json)
 {base_path}/
 ├── .intermediates/                    # Intermediate analysis files
 │   └── layout-analysis/
-│       ├── analysis-options.json      # Generated layout concepts
-│       ├── user-selection.json        # User's multi-selections per target
+│       ├── analysis-options.json      # Generated layout concepts + user selections (embedded)
 │       └── dom-structure-{target}.json   # Extracted DOM structure (URL mode only)
 └── layout-extraction/                 # Final layout templates
     └── layout-{target}-{variant}.json # Structural layout templates (one per selected concept)
@@ -757,7 +742,7 @@ ERROR: MCP search failed
 **New Workflow**:
 1. `/workflow:ui-design:style-extract` → Multiple `style-N/design-tokens.json` files (Complete design systems)
 2. `/workflow:ui-design:layout-extract` → Multiple `layout-{target}-{variant}.json` files (Structural templates)
-3. `/workflow:ui-design:generate` or `/workflow:ui-design:batch-generate` (Assembler):
+3. `/workflow:ui-design:generate` (Assembler):
    - **Reads**: All `design-tokens.json` files + all `layout-{target}-{variant}.json` files
    - **Action**: For each style × layout combination:
      1. Build HTML from `dom_structure`
@@ -768,4 +753,4 @@ ERROR: MCP search failed
 
 **Input**: Reference images, URLs, or text prompts
 **Output**: `layout-{target}-{variant}.json` files for downstream generation commands
-**Next**: `/workflow:ui-design:generate` or `/workflow:ui-design:batch-generate`
+**Next**: `/workflow:ui-design:generate`

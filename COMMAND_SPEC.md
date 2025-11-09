@@ -375,15 +375,6 @@ Specialized workflow for UI/UX design, from style extraction to prototype genera
   /workflow:ui-design:imitate-auto --url-map "home:https://linear.app, features:https://linear.app/features"
   ```
 
-### **/workflow:ui-design:batch-generate**
-- **Syntax**: `/workflow:ui-design:batch-generate [--prompt "..."] [--targets "..."] ...`
-- **Responsibilities**: Prompt-driven batch UI generation with parallel execution for multiple targets and styles.
-- **Agent Calls**: `@ui-design-agent`.
-- **Example**:
-  ```bash
-  /workflow:ui-design:batch-generate --prompt "Dashboard with metric cards and charts"
-  ```
-
 ### **/workflow:ui-design:capture**
 - **Syntax**: `/workflow:ui-design:capture --url-map "target:url,..." ...`
 - **Responsibilities**: Batch screenshot capture tool using MCP Chrome DevTools with multi-tier fallback strategy (MCP → Playwright → Chrome → Manual).

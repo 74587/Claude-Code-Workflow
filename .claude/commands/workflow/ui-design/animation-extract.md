@@ -151,7 +151,7 @@ ELSE:
 
 **Phase 1 Output**: `animations-{target}.json` (intermediate files)
 
-## Phase 2: Interactive Animation Specification (Interactive/Fallback Mode)
+## Phase 2: Animation Question Generation (Agent Task 1)
 
 ### Step 1: Check if Extraction Sufficient
 
@@ -164,7 +164,7 @@ IF animations_extracted:
     # If sufficient data found, skip interactive mode
     IF total_animations >= 3 OR total_transitions >= 5:
         REPORT: "✅ Sufficient animation data extracted from CSS"
-        SKIP to Phase 3
+        SKIP to Phase 4
     ELSE:
         REPORT: "⚠️ Limited animation data found - launching interactive mode"
         extraction_insufficient = true
@@ -172,168 +172,118 @@ ELSE:
     extraction_insufficient = true
 ```
 
-### Step 2: Generate Animation Questions (Main Flow)
+### Step 2: Generate Animation Questions Using Agent
 
-```bash
-# If extraction failed or insufficient, use interactive questioning
-IF extraction_insufficient OR extraction_mode == "interactive":
-    REPORT: "🤔 Interactive animation specification mode"
-    REPORT: "   Context: {has_design_context ? 'Aligning with design tokens' : 'Standalone animation system'}"
-    REPORT: "   Focus: {focus_types}"
+**Executor**: `Task(ui-design-agent)`
 
-    # Determine question categories based on focus_types
-    question_categories = []
-    IF "all" IN focus_types OR "transitions" IN focus_types:
-        question_categories.append("timing_scale")
-        question_categories.append("easing_philosophy")
+Launch agent to generate context-aware animation questions based on project needs:
 
-    IF "all" IN focus_types OR "interactions" IN focus_types OR "hover" IN focus_types:
-        question_categories.append("button_interactions")
-        question_categories.append("card_interactions")
-        question_categories.append("input_interactions")
+```javascript
+Task(ui-design-agent): `
+  [ANIMATION_QUESTION_GENERATION_TASK]
+  Generate contextual animation questions based on project context and focus types
 
-    IF "all" IN focus_types OR "page" IN focus_types:
-        question_categories.append("page_transitions")
+  SESSION: {session_id} | MODE: interactive | BASE_PATH: {base_path}
 
-    IF "all" IN focus_types OR "loading" IN focus_types:
-        question_categories.append("loading_states")
+  ## Context Analysis
+  - Focus types: {focus_types}
+  - Design context: {has_design_context}
+  - Extracted animations: {animations_extracted ? "Available" : "None"}
 
-    IF "all" IN focus_types OR "scroll" IN focus_types:
-        question_categories.append("scroll_animations")
+  ## Question Categories to Consider
+  Based on focus_types, include relevant categories:
+  - "all" or "transitions": timing_scale, easing_philosophy
+  - "all" or "interactions" or "hover": button_interactions, card_interactions, input_interactions
+  - "all" or "page": page_transitions
+  - "all" or "loading": loading_states
+  - "all" or "scroll": scroll_animations
+
+  ## Generate Question Structure
+  For each applicable category, create question with:
+  1. **Category ID** (e.g., "timing_scale", "button_interactions")
+  2. **Question text** (in Chinese, clear and concise)
+  3. **Options** (2-5 options per question):
+     - Option key (a, b, c, d, e)
+     - Option label (brief description)
+     - Option details (detailed explanation with technical specs)
+     - Recommended scenarios (when to use this option)
+
+  ## Output
+  Write single JSON file: {base_path}/.intermediates/animation-analysis/question-options.json
+
+  Use schema:
+  {
+    "metadata": {
+      "generated_at": "<timestamp>",
+      "focus_types": ["..."],
+      "total_questions": <count>
+    },
+    "questions": [
+      {
+        "id": 1,
+        "category": "timing_scale",
+        "question": "您的设计需要什么样的过渡速度？",
+        "options": [
+          {
+            "key": "a",
+            "label": "快速敏捷",
+            "details": "100-200ms 过渡，适合工具型应用和即时反馈场景",
+            "duration_range": "100-200ms"
+          },
+          ...
+        ]
+      },
+      ...
+    ]
+  }
+
+  CRITICAL: Use Write() tool immediately after generating complete JSON
+`
 ```
 
-### Step 3: Output Questions in Text Format (Main Flow)
+### Step 3: Verify Question File Created
+
+```bash
+bash(test -f {base_path}/.intermediates/animation-analysis/question-options.json && echo "created")
+
+# Quick validation
+bash(cat {base_path}/.intermediates/animation-analysis/question-options.json | grep -q "questions" && echo "valid")
+```
+
+**Output**: `question-options.json` with context-aware questions
+
+---
+
+## Phase 3: Interactive Animation Specification (User Interaction)
+
+### Step 1: Load Generated Questions
+
+```bash
+# Read generated questions from JSON file
+question_data = Read({base_path}/.intermediates/animation-analysis/question-options.json)
+
+REPORT: "🤔 Interactive animation specification mode"
+REPORT: "   Context: {has_design_context ? 'Aligning with design tokens' : 'Standalone animation system'}"
+REPORT: "   Questions: {question_data.metadata.total_questions} questions loaded"
+REPORT: "   Focus: {question_data.metadata.focus_types}"
+```
+
+### Step 2: Present Questions to User
 
 ```markdown
-# Generate and output structured questions
+# Display questions from loaded JSON
 REPORT: ""
 REPORT: "===== 动画规格交互式配置 ====="
 REPORT: ""
 
-question_number = 1
-questions_output = []
+FOR each question IN question_data.questions:
+    REPORT: "【问题{question.id} - {question.category}】{question.question}"
 
-# Q1: Timing Scale (if included)
-IF "timing_scale" IN question_categories:
-    REPORT: "【问题{question_number} - 时间尺度】您的设计需要什么样的过渡速度？"
-    REPORT: "a) 快速敏捷"
-    REPORT: "   说明：100-200ms 过渡，适合工具型应用和即时反馈场景"
-    REPORT: "b) 平衡适中"
-    REPORT: "   说明：200-400ms 过渡，通用选择，符合多数用户预期"
-    REPORT: "c) 流畅舒缓"
-    REPORT: "   说明：400-600ms 过渡，适合品牌展示和沉浸式体验"
-    REPORT: "d) 自定义"
-    REPORT: "   说明：需要指定具体数值和使用场景"
-    REPORT: ""
-    questions_output.append({id: question_number, category: "timing_scale", options: ["a", "b", "c", "d"]})
-    question_number += 1
+    FOR each option IN question.options:
+        REPORT: "{option.key}) {option.label}"
+        REPORT: "   说明：{option.details}"
 
-# Q2: Easing Philosophy (if included)
-IF "easing_philosophy" IN question_categories:
-    REPORT: "【问题{question_number} - 缓动风格】哪种缓动曲线符合您的品牌调性？"
-    REPORT: "a) 线性匀速"
-    REPORT: "   说明：恒定速度，技术感和精确性，适合数据可视化"
-    REPORT: "b) 快入慢出"
-    REPORT: "   说明：快速启动自然减速，最接近物理世界，通用推荐"
-    REPORT: "c) 慢入慢出"
-    REPORT: "   说明：平滑对称，精致优雅，适合高端品牌"
-    REPORT: "d) 弹性效果"
-    REPORT: "   说明：Spring/Bounce 回弹，活泼现代，适合互动性强的应用"
     REPORT: ""
-    questions_output.append({id: question_number, category: "easing_philosophy", options: ["a", "b", "c", "d"]})
-    question_number += 1
-
-# Q3-5: Interaction Animations (button, card, input - if included)
-IF "button_interactions" IN question_categories:
-    REPORT: "【问题{question_number} - 按钮交互】按钮悬停/点击时如何反馈？"
-    REPORT: "a) 微妙变化"
-    REPORT: "   说明：仅颜色/透明度变化，适合简约设计"
-    REPORT: "b) 抬升效果"
-    REPORT: "   说明：轻微缩放+阴影加深，增强物理感知"
-    REPORT: "c) 滑动移位"
-    REPORT: "   说明：Transform translateY，视觉引导明显"
-    REPORT: "d) 无动画"
-    REPORT: "   说明：静态交互，性能优先或特定品牌要求"
-    REPORT: ""
-    questions_output.append({id: question_number, category: "button_interactions", options: ["a", "b", "c", "d"]})
-    question_number += 1
-
-IF "card_interactions" IN question_categories:
-    REPORT: "【问题{question_number} - 卡片交互】卡片悬停时的动画效果？"
-    REPORT: "a) 阴影加深"
-    REPORT: "   说明：Box-shadow 变化，层次感增强"
-    REPORT: "b) 上浮效果"
-    REPORT: "   说明：Transform translateY(-4px)，明显的空间层次"
-    REPORT: "c) 缩放放大"
-    REPORT: "   说明：Scale(1.02)，突出焦点内容"
-    REPORT: "d) 无动画"
-    REPORT: "   说明：静态卡片，性能或设计考量"
-    REPORT: ""
-    questions_output.append({id: question_number, category: "card_interactions", options: ["a", "b", "c", "d"]})
-    question_number += 1
-
-IF "input_interactions" IN question_categories:
-    REPORT: "【问题{question_number} - 表单交互】输入框是否需要微交互反馈？"
-    REPORT: "a) 聚焦动画"
-    REPORT: "   说明：边框/阴影过渡，清晰的状态指示"
-    REPORT: "b) 错误抖动"
-    REPORT: "   说明：水平shake动画，错误提示更明显"
-    REPORT: "c) 成功勾选"
-    REPORT: "   说明：Checkmark 动画，完成反馈"
-    REPORT: "d) 全部包含"
-    REPORT: "   说明：聚焦+错误+成功的完整反馈体系"
-    REPORT: "e) 无微交互"
-    REPORT: "   说明：标准表单，无额外动画"
-    REPORT: ""
-    questions_output.append({id: question_number, category: "input_interactions", options: ["a", "b", "c", "d", "e"]})
-    question_number += 1
-
-# Q6: Page Transitions (if included)
-IF "page_transitions" IN question_categories:
-    REPORT: "【问题{question_number} - 页面过渡】页面/路由切换是否需要过渡动画？"
-    REPORT: "a) 淡入淡出"
-    REPORT: "   说明：Crossfade 效果，平滑过渡不突兀"
-    REPORT: "b) 滑动切换"
-    REPORT: "   说明：Swipe left/right，方向性导航"
-    REPORT: "c) 缩放过渡"
-    REPORT: "   说明：Scale in/out，空间层次感"
-    REPORT: "d) 无过渡"
-    REPORT: "   说明：即时切换，性能优先"
-    REPORT: ""
-    questions_output.append({id: question_number, category: "page_transitions", options: ["a", "b", "c", "d"]})
-    question_number += 1
-
-# Q7: Loading States (if included)
-IF "loading_states" IN question_categories:
-    REPORT: "【问题{question_number} - 加载状态】加载时使用何种动画风格？"
-    REPORT: "a) 旋转加载器"
-    REPORT: "   说明：Spinner 圆形旋转，通用加载指示"
-    REPORT: "b) 脉冲闪烁"
-    REPORT: "   说明：Opacity pulse，轻量级反馈"
-    REPORT: "c) 骨架屏"
-    REPORT: "   说明：Shimmer effect，内容占位预览"
-    REPORT: "d) 进度条"
-    REPORT: "   说明：Linear fill，进度量化展示"
-    REPORT: ""
-    questions_output.append({id: question_number, category: "loading_states", options: ["a", "b", "c", "d"]})
-    question_number += 1
-
-# Q8: Scroll Animations (if included)
-IF "scroll_animations" IN question_categories:
-    REPORT: "【问题{question_number} - 滚动动画】元素是否在滚动时触发动画？"
-    REPORT: "a) 淡入出现"
-    REPORT: "   说明：Opacity 0→1，渐进式内容呈现"
-    REPORT: "b) 上滑出现"
-    REPORT: "   说明：TranslateY + fade，方向性引导"
-    REPORT: "c) 缩放淡入"
-    REPORT: "   说明：Scale 0.9→1 + fade，聚焦效果"
-    REPORT: "d) 交错延迟"
-    REPORT: "   说明：Stagger 序列动画，列表渐次呈现"
-    REPORT: "e) 无滚动动画"
-    REPORT: "   说明：静态内容，性能或可访问性考量"
-    REPORT: ""
-    questions_output.append({id: question_number, category: "scroll_animations", options: ["a", "b", "c", "d", "e"]})
-    question_number += 1
 
 REPORT: "支持格式："
 REPORT: "- 空格分隔：1a 2b 3c"
@@ -343,7 +293,7 @@ REPORT: ""
 REPORT: "请输入您的选择："
 ```
 
-### Step 4: Wait for User Input (Main Flow)
+### Step 3: Wait for User Input (Main Flow)
 
 ```javascript
 # Wait for user input
@@ -353,7 +303,7 @@ user_raw_input = WAIT_FOR_USER_INPUT()
 REPORT: "收到输入: {user_raw_input}"
 ```
 
-### Step 5: Parse User Answers (Main Flow)
+### Step 4: Parse User Answers and Update JSON
 
 ```javascript
 # Intelligent input parsing (support multiple formats)
@@ -361,7 +311,7 @@ answers = {}
 
 # Parse input using intelligent matching
 # Support formats: "1a 2b 3c", "1a,2b,3c", "1a 2b,3c"
-parsed_responses = PARSE_USER_INPUT(user_raw_input, questions_output)
+parsed_responses = PARSE_USER_INPUT(user_raw_input, question_data.questions)
 
 # Validate parsing
 IF parsed_responses.is_valid:
@@ -371,7 +321,7 @@ IF parsed_responses.is_valid:
         selected_option = response.option
 
         # Find category for this question
-        FOR question IN questions_output:
+        FOR question IN question_data.questions:
             IF question.id == question_id:
                 category = question.category
                 answers[category] = selected_option
@@ -380,105 +330,26 @@ IF parsed_responses.is_valid:
 ELSE:
     REPORT: "❌ 输入格式无法识别，请参考格式示例重新输入："
     REPORT: "   示例：1a 2b 3c 4d"
-    # Return to Step 3 for re-input
-    GOTO Step 3
-```
+    # Return to Step 2 for re-input
+    GOTO Step 2
 
-### Step 6: Write Animation Specification (Main Flow)
-
-```javascript
-# Map user choices to specification structure
-specification = {
-    "metadata": {
-        "source": "interactive",
-        "timestamp": NOW(),
-        "focus_types": focus_types,
-        "has_design_context": has_design_context
-    },
-    "timing_scale": MAP_TIMING_SCALE(answers.timing_scale),
-    "easing_philosophy": MAP_EASING_PHILOSOPHY(answers.easing_philosophy),
-    "interactions": {
-        "button": MAP_BUTTON_INTERACTION(answers.button_interactions),
-        "card": MAP_CARD_INTERACTION(answers.card_interactions),
-        "input": MAP_INPUT_INTERACTION(answers.input_interactions)
-    },
-    "page_transitions": MAP_PAGE_TRANSITIONS(answers.page_transitions),
-    "loading_animations": MAP_LOADING_STATES(answers.loading_states),
-    "scroll_animations": MAP_SCROLL_ANIMATIONS(answers.scroll_animations)
+// Update question-options.json with user selection
+question_data.user_selection = {
+  "selected_at": NOW(),
+  "answers": answers
 }
 
-# Mapping functions (inline logic)
-FUNCTION MAP_TIMING_SCALE(option):
-    SWITCH option:
-        CASE "a": RETURN {scale: "fast", base_duration: "150ms", range: "100-200ms"}
-        CASE "b": RETURN {scale: "balanced", base_duration: "300ms", range: "200-400ms"}
-        CASE "c": RETURN {scale: "smooth", base_duration: "500ms", range: "400-600ms"}
-        CASE "d": RETURN {scale: "custom", base_duration: "300ms", note: "User to provide values"}
+// Write updated file back
+Write({base_path}/.intermediates/animation-analysis/question-options.json, JSON.stringify(question_data, indent=2))
 
-FUNCTION MAP_EASING_PHILOSOPHY(option):
-    SWITCH option:
-        CASE "a": RETURN {style: "linear", curve: "linear"}
-        CASE "b": RETURN {style: "ease-out", curve: "cubic-bezier(0, 0, 0.2, 1)"}
-        CASE "c": RETURN {style: "ease-in-out", curve: "cubic-bezier(0.4, 0, 0.2, 1)"}
-        CASE "d": RETURN {style: "spring", curve: "cubic-bezier(0.34, 1.56, 0.64, 1)"}
-
-FUNCTION MAP_BUTTON_INTERACTION(option):
-    SWITCH option:
-        CASE "a": RETURN {type: "subtle", properties: ["color", "background-color", "opacity"]}
-        CASE "b": RETURN {type: "lift", properties: ["transform", "box-shadow"], transform: "scale(1.02)"}
-        CASE "c": RETURN {type: "slide", properties: ["transform"], transform: "translateY(-2px)"}
-        CASE "d": RETURN {type: "none", properties: []}
-
-FUNCTION MAP_CARD_INTERACTION(option):
-    SWITCH option:
-        CASE "a": RETURN {type: "shadow", properties: ["box-shadow"]}
-        CASE "b": RETURN {type: "float", properties: ["transform", "box-shadow"], transform: "translateY(-4px)"}
-        CASE "c": RETURN {type: "scale", properties: ["transform"], transform: "scale(1.02)"}
-        CASE "d": RETURN {type: "none", properties: []}
-
-FUNCTION MAP_INPUT_INTERACTION(option):
-    SWITCH option:
-        CASE "a": RETURN {enabled: ["focus"], focus: {properties: ["border-color", "box-shadow"]}}
-        CASE "b": RETURN {enabled: ["error"], error: {animation: "shake", keyframes: "translateX"}}
-        CASE "c": RETURN {enabled: ["success"], success: {animation: "checkmark", keyframes: "draw"}}
-        CASE "d": RETURN {enabled: ["focus", "error", "success"]}
-        CASE "e": RETURN {enabled: []}
-
-FUNCTION MAP_PAGE_TRANSITIONS(option):
-    SWITCH option:
-        CASE "a": RETURN {enabled: true, style: "fade", animation: "fadeIn/fadeOut"}
-        CASE "b": RETURN {enabled: true, style: "slide", animation: "slideLeft/slideRight"}
-        CASE "c": RETURN {enabled: true, style: "zoom", animation: "zoomIn/zoomOut"}
-        CASE "d": RETURN {enabled: false}
-
-FUNCTION MAP_LOADING_STATES(option):
-    SWITCH option:
-        CASE "a": RETURN {style: "spinner", animation: "rotate", keyframes: "360deg"}
-        CASE "b": RETURN {style: "pulse", animation: "pulse", keyframes: "opacity"}
-        CASE "c": RETURN {style: "skeleton", animation: "shimmer", keyframes: "gradient-shift"}
-        CASE "d": RETURN {style: "progress", animation: "fill", keyframes: "width"}
-
-FUNCTION MAP_SCROLL_ANIMATIONS(option):
-    SWITCH option:
-        CASE "a": RETURN {enabled: true, style: "fade", animation: "fadeIn"}
-        CASE "b": RETURN {enabled: true, style: "slideUp", animation: "slideUp", transform: "translateY(20px)"}
-        CASE "c": RETURN {enabled: true, style: "scaleIn", animation: "scaleIn", transform: "scale(0.9)"}
-        CASE "d": RETURN {enabled: true, style: "stagger", animation: "fadeIn", stagger_delay: "100ms"}
-        CASE "e": RETURN {enabled: false}
-
-# Write specification file
-output_path = "{base_path}/.intermediates/animation-analysis/animation-specification.json"
-Write(output_path, JSON.stringify(specification, indent=2))
-
-REPORT: "✅ Animation specification saved to {output_path}"
-REPORT: "   Proceeding to token synthesis..."
+REPORT: "✅ Updated question-options.json with user selection"
 ```
 
 ---
 
-**Phase 2 Output**: `animation-specification.json` (user preferences)
+**Phase 3 Output**: Updated `question-options.json` with user answers embedded
 
-## Phase 3: Animation Token Synthesis (Agent - No User Interaction)
+## Phase 4: Animation Token Synthesis (Agent - No User Interaction)
 
 **Executor**: `Task(ui-design-agent)` for token generation
 
@@ -494,12 +365,17 @@ IF animations_extracted:
         IF exists({base_path}/.intermediates/animation-analysis/animations-{target}.json):
             extracted_animations.append(Read(file))
 
-user_specification = null
-IF exists({base_path}/.intermediates/animation-analysis/animation-specification.json):
-    user_specification = Read(file)
-    REPORT: "✅ Loaded user specification from Phase 2"
+# Read user answers from question-options.json
+question_data = null
+IF exists({base_path}/.intermediates/animation-analysis/question-options.json):
+    question_data = Read({base_path}/.intermediates/animation-analysis/question-options.json)
+    IF question_data.user_selection:
+        REPORT: "✅ Loaded user answers from question-options.json"
+    ELSE:
+        REPORT: "⚠️ No user selection found in question-options.json"
+        question_data = null
 ELSE:
-    REPORT: "⚠️ No user specification found - using extracted CSS only"
+    REPORT: "⚠️ No question-options.json found - using extracted CSS only"
 
 design_tokens = null
 IF has_design_context:
@@ -524,9 +400,9 @@ Task(ui-design-agent): `
   1. **Extracted CSS Animations** (if available):
      ${extracted_animations.length > 0 ? JSON.stringify(extracted_animations) : "None - skip CSS data"}
 
-  2. **User Specification** (REQUIRED if Phase 2 ran):
-     File: {base_path}/.intermediates/animation-analysis/animation-specification.json
-     ${user_specification ? "Status: ✅ Found - READ this file for user choices" : "Status: ⚠️ Not found - use CSS extraction only"}
+  2. **User Answers** (REQUIRED if Phase 2-3 ran):
+     File: {base_path}/.intermediates/animation-analysis/question-options.json
+     ${question_data ? "Status: ✅ Found - READ this file for user choices in user_selection field" : "Status: ⚠️ Not found - use CSS extraction only"}
 
   3. **Design Tokens Context** (for alignment):
      ${design_tokens ? JSON.stringify(design_tokens) : "None - standalone animation system"}
@@ -534,13 +410,13 @@ Task(ui-design-agent): `
   ## Synthesis Rules
 
   ### Priority System
-  1. User specification from animation-specification.json (highest priority)
+  1. User answers from question-options.json user_selection field (highest priority)
   2. Extracted CSS values from animations-*.json (medium priority)
   3. Industry best practices (fallback)
 
   ### Duration Normalization
-  - IF user_specification.timing_scale EXISTS:
-      Use user's chosen scale (fast/balanced/smooth/custom)
+  - IF question_data.user_selection.answers.timing_scale EXISTS:
+      Map user's answer to duration scale using question_data.questions definitions
   - ELSE IF extracted CSS durations available:
       Cluster extracted durations into 3-5 semantic scales
   - ELSE:
@@ -548,8 +424,8 @@ Task(ui-design-agent): `
   - Align with design token spacing scale if available
 
   ### Easing Standardization
-  - IF user_specification.easing_philosophy EXISTS:
-      Use user's chosen philosophy (linear/ease-out/ease-in-out/spring)
+  - IF question_data.user_selection.answers.easing_philosophy EXISTS:
+      Map user's answer to easing curve using question_data.questions definitions
   - ELSE IF extracted CSS easings available:
       Identify common easing functions from CSS
   - ELSE:
@@ -566,17 +442,17 @@ Task(ui-design-agent): `
   - **page_transitions**: Route/view change animations (if user enabled)
   - **scroll_animations**: Scroll-triggered animations (if user enabled)
 
-  ### User Specification Integration
-  IF user_specification EXISTS:
-    - Map user choices to token values:
-      * timing_scale → duration values
-      * easing_philosophy → easing curves
-      * interactions.button → interactions.button-hover token
-      * interactions.card → interactions.card-hover token
-      * interactions.input → micro-interaction tokens
-      * page_transitions → page_transitions tokens
-      * loading_animations → loading state tokens
-      * scroll_animations → scroll_animations tokens
+  ### User Answers Integration
+  IF question_data.user_selection EXISTS:
+    - Map user answers to token values using question definitions:
+      * answers.timing_scale → duration values (use question options for specs)
+      * answers.easing_philosophy → easing curves (use question options for specs)
+      * answers.button_interactions → interactions.button-hover token
+      * answers.card_interactions → interactions.card-hover token
+      * answers.input_interactions → micro-interaction tokens
+      * answers.page_transitions → page_transitions tokens
+      * answers.loading_states → loading state tokens
+      * answers.scroll_animations → scroll_animations tokens
 
   ## Generate Files
 
@@ -678,7 +554,7 @@ Task(ui-design-agent): `
   - animation-guide.md: {base_path}/animation-extraction/animation-guide.md
 
   ## Critical Requirements
-  - ✅ READ animation-specification.json if it exists (from Phase 2)
+  - ✅ READ question-options.json if it exists (from Phase 2-3)
   - ✅ Use Write() tool immediately for both files
   - ✅ All tokens use CSS Custom Property format: var(--duration-fast)
   - ✅ Include prefers-reduced-motion media query guidance
@@ -690,35 +566,9 @@ Task(ui-design-agent): `
 
 ---
 
-**Phase 3 Output**: `animation-tokens.json` + `animation-guide.md`
+**Phase 4 Output**: `animation-tokens.json` + `animation-guide.md`
 
-### Step 3: Store User Selection Metadata (If Interactive Mode Used)
-
-```bash
-# If interactive mode was used, save selection metadata for orchestrator
-IF extraction_mode == "interactive" AND exists({base_path}/.intermediates/animation-analysis/animation-specification.json):
-    # Create user-selections directory
-    bash(mkdir -p {base_path}/.intermediates/user-selections)
-
-    # Read specification to extract metadata
-    specification = Read({base_path}/.intermediates/animation-analysis/animation-specification.json)
-
-    # Create selection metadata (for orchestrator compatibility)
-    selection_metadata = {
-        "metadata": {
-            "selected_at": NOW(),
-            "selection_type": "interactive_questionnaire",
-            "mode": "interactive"
-        },
-        "selected_variants": [1],  // Always 1 for interactive mode (single result)
-        "specification": specification.metadata
-    }
-
-    # Write to standardized selection file
-    Write({base_path}/.intermediates/user-selections/animation-extract-selection.json, JSON.stringify(selection_metadata, indent=2))
-```
-
-## Phase 4: Verify Output
+## Phase 5: Verify Output
 
 ### Step 1: Check Files Created
 
@@ -748,7 +598,8 @@ bash(ls -lh {base_path}/animation-extraction/)
 TodoWrite({todos: [
   {content: "Setup and input validation", status: "completed", activeForm: "Validating inputs"},
   {content: "CSS animation extraction (auto mode)", status: "completed", activeForm: "Extracting from CSS"},
-  {content: "Interactive specification (main flow)", status: "completed", activeForm: "Collecting user input in main flow"},
+  {content: "Question generation (agent)", status: "completed", activeForm: "Generating questions"},
+  {content: "Interactive specification (user input)", status: "completed", activeForm: "Collecting user answers"},
   {content: "Animation token synthesis (agent - no interaction)", status: "completed", activeForm: "Generating tokens via agent"},
   {content: "Verify output files", status: "completed", activeForm: "Verifying files"}
 ]});
@@ -766,8 +617,8 @@ Configuration:
   {IF animations_extracted:
   - ✅ CSS extracted from {len(url_list)} URL(s)
   }
-  {IF user_specification:
-  - ✅ User specification via interactive mode (main flow)
+  {IF question_data AND question_data.user_selection:
+  - ✅ User answers via interactive mode (agent-generated questions)
   }
   {IF has_design_context:
   - ✅ Aligned with existing design tokens
@@ -778,13 +629,15 @@ Generated Files:
 ├── animation-tokens.json      # Production-ready animation tokens
 └── animation-guide.md          # Usage guidelines and examples
 
-{IF animations_extracted:
+{IF animations_extracted OR question_data:
 Intermediate Analysis:
 {base_path}/.intermediates/animation-analysis/
+{IF animations_extracted:
 ├── animations-*.json           # Extracted CSS data ({len(url_list)} files)
 }
-{IF user_specification:
-└── animation-specification.json # User preferences
+{IF question_data:
+└── question-options.json       # Generated questions + user answers
+}
 }
 
 Extracted Data Summary:
@@ -842,7 +695,7 @@ bash(ls {base_path}/animation-extraction/)
 ├── .intermediates/                  # Intermediate analysis files
 │   └── animation-analysis/
 │       ├── animations-{target}.json      # Extracted CSS (auto mode)
-│       └── animation-specification.json  # User input (interactive mode)
+│       └── question-options.json         # Generated questions + user answers (interactive mode)
 └── animation-extraction/            # Final animation tokens
     ├── animation-tokens.json        # Production-ready animation tokens
     └── animation-guide.md            # Usage guide and examples
@@ -913,12 +766,13 @@ ERROR: Invalid cubic-bezier values
 
 - **Auto-Trigger CSS Extraction** - Automatically extracts animations when --urls provided
 - **Hybrid Strategy** - Combines CSS extraction with interactive specification
-- **Main Flow Interaction** - User questions in main flow, agent only for token synthesis
+- **Agent-Generated Questions** - Context-aware questions generated by agent (Phase 2)
+- **User Interaction** - User answers questions in main flow (Phase 3)
 - **Intelligent Fallback** - Gracefully handles extraction failures
 - **Context-Aware** - Aligns with existing design tokens
 - **Production-Ready** - CSS var() format, accessibility support
 - **Comprehensive Coverage** - Transitions, keyframes, interactions, scroll animations
-- **Separated Concerns** - User decisions (Phase 2 main flow) → Token generation (Phase 3 agent)
+- **Separated Concerns** - Question generation (Phase 2 agent) → User answers (Phase 3) → Token generation (Phase 4 agent)
 
 ## Integration
 

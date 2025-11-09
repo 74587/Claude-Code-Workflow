@@ -489,17 +489,6 @@
       "file_path": "workflow/tools/test-task-generate.md"
     },
     {
-      "name": "batch-generate",
-      "command": "/workflow:ui-design:batch-generate",
-      "description": "Prompt-driven batch UI generation using target-style-centric parallel execution with design token application",
-      "arguments": "[--targets \"<list>\"] [--target-type \"page|component\"] [--device-type \"desktop|mobile|tablet|responsive\"] [--base-path <path>] [--session <id>] [--style-variants <count>] [--layout-variants <count>]",
-      "category": "workflow",
-      "subcategory": "ui-design",
-      "usage_scenario": "implementation",
-      "difficulty": "Intermediate",
-      "file_path": "workflow/ui-design/batch-generate.md"
-    },
-    {
       "name": "generate",
       "command": "/workflow:ui-design:generate",
       "description": "Assemble UI prototypes by combining layout templates with design tokens, pure assembler without new content generation",

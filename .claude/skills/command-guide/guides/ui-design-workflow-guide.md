@@ -12,7 +12,6 @@ These commands automate end-to-end processes by chaining specialized sub-command
 
 - **`/workflow:ui-design:explore-auto`**: For creating *new* designs. Generates multiple style and layout variants from a prompt to explore design directions.
 - **`/workflow:ui-design:imitate-auto`**: For *replicating* existing designs. High-fidelity cloning of target URLs into a reusable design system.
-- **`/workflow:ui-design:batch-generate`**: For rapid, high-volume prototype generation based on established design tokens.
 
 ### 2. Core Extractors (Specialized Analysis)
 
@@ -156,36 +155,6 @@ Tools for combining components and integrating results.
 
 ---
 
-### Workflow D: Batch Generation (High Volume)
-
-**Goal:** Generate multiple UI prototypes based on established design tokens.
-
-**Primary Command:** `batch-generate`
-
-**Steps:**
-
-1. **Prerequisites**: Have `design-tokens.json` ready (from previous extraction or manual creation)
-2. **Initiate**: User runs `/workflow:ui-design:batch-generate --targets "dashboard,settings,profile" --style-variants 2`
-3. **Parallel Generation**: System generates all targets in parallel, applying style variants
-4. **Review**: User reviews generated prototypes
-
-**Example:**
-
-```bash
-/workflow:ui-design:batch-generate \
-  --targets "login-page,dashboard,settings,profile,notifications" \
-  --target-type page \
-  --style-variants 2 \
-  --device-type responsive \
-  --session WFS-004
-```
-
-**Output:**
-- 10 HTML prototypes (5 targets × 2 styles)
-- All using the same design system for consistency
-
----
-
 ## Architecture & Best Practices
 
 ### Separation of Concerns
@@ -225,7 +194,7 @@ Generated CSS should primarily use CSS custom properties:
 
 For high-volume generation:
 - Group tasks by style to minimize context switching
-- Use `batch-generate` with multiple targets
+- Use parallel generation with multiple targets
 - Reuse existing layout inspirations
 
 ### Input Quality Guidelines
@@ -261,14 +230,15 @@ You can run UI design workflows within an existing workflow session:
 
 ### Combining Workflows
 
-**Example: Imitation + Custom Variants**
+**Example: Imitation + Custom Extraction**
 
 ```bash
 # 1. Replicate existing design
 /workflow:ui-design:imitate-auto --url-map "ref:https://example.com"
 
-# 2. Generate additional variants with batch-generate
-/workflow:ui-design:batch-generate --targets "new-page-1,new-page-2" --style-variants 1
+# 2. Extract additional layouts and generate prototypes
+/workflow:ui-design:layout-extract --targets "new-page-1,new-page-2"
+/workflow:ui-design:generate
 ```
 
 ### Deep Interactive Capture
@@ -303,7 +273,6 @@ For complex UIs with overlays, modals, or dynamic content:
 ### Orchestrators
 - `/workflow:ui-design:explore-auto` - Create new designs from prompts
 - `/workflow:ui-design:imitate-auto` - Replicate existing designs
-- `/workflow:ui-design:batch-generate` - High-volume prototype generation
 
 ### Extractors
 - `/workflow:ui-design:style-extract` - Extract visual design tokens
@@ -330,7 +299,7 @@ The system is designed to run extraction phases in parallel:
 
 ### Reuse Intermediates
 
-- `batch-generate` reuses existing layout inspirations
+- Generation commands reuse existing layout inspirations
 - Cached screenshots avoid redundant captures
 - Token files can be versioned and reused
 
