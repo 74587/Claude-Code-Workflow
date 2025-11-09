@@ -33,7 +33,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 3. **Parse Every Output**: Extract required data from each phase for next phase
 4. **Sequential Execution**: Each phase depends on previous phase's output
 5. **Complete All Phases**: Do not return to user until Phase 5 completes (summary returned)
-6. **Track Progress**: Update TodoWrite after every phase completion
+6. **Track Progress**: Update TodoWrite when each phase finishes executing
 7. **Automatic Detection**: context-gather auto-detects test session and gathers source session context
 8. **Parse --use-codex Flag**: Extract flag from arguments and pass to Phase 4 (test-task-generate)
 9. **Command Boundary**: This command ends at Phase 5 summary. Test execution is NOT part of this command.

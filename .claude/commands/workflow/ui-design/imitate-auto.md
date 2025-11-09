@@ -18,19 +18,19 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 **Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
 1. User triggers: `/workflow:ui-design:imitate-auto --url-map "..."`
 2. Phase 0: Initialize and parse parameters
-3. Phase 1: Screenshot capture (batch or deep mode) → **WAIT for completion** → Auto-continues
-4. Phase 2: Style extraction (complete design systems) → **WAIT for completion** → Auto-continues
-5. Phase 2.3: Animation extraction (CSS auto mode) → **WAIT for completion** → Auto-continues
-6. Phase 2.5: Layout extraction (structure templates) → **WAIT for completion** → Auto-continues
-7. Phase 3: Batch UI assembly → **WAIT for completion** → Auto-continues
+3. Phase 1: Screenshot capture (batch or deep mode) → **Execute phase (blocks until finished)** → Auto-continues
+4. Phase 2: Style extraction (complete design systems) → **Execute phase (blocks until finished)** → Auto-continues
+5. Phase 2.3: Animation extraction (CSS auto mode) → **Execute phase (blocks until finished)** → Auto-continues
+6. Phase 2.5: Layout extraction (structure templates) → **Execute phase (blocks until finished)** → Auto-continues
+7. Phase 3: Batch UI assembly → **Execute phase (blocks until finished)** → Auto-continues
 8. Phase 4: Design system integration → Reports completion
 
 **Phase Transition Mechanism**:
-- `SlashCommand` is BLOCKING - execution pauses until completion
-- Upon each phase completion: Automatically process output and execute next phase
+- `SlashCommand` is BLOCKING - execution pauses until the command finishes
+- When each phase finishes executing: Automatically process output and execute next phase
 - No user interaction required after initial parameter parsing
 
-**Auto-Continue Mechanism**: TodoWrite tracks phase status. Upon each phase completion, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 5.
+**Auto-Continue Mechanism**: TodoWrite tracks phase status. When each phase finishes executing, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 5.
 
 ## Core Rules
 
@@ -38,7 +38,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 2. **No Preliminary Validation**: Sub-commands handle their own validation
 3. **Parse & Pass**: Extract data from each output for next phase
 4. **Track Progress**: Update TodoWrite after each phase
-5. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After each SlashCommand completes, you MUST wait for completion, then immediately execute the next phase. Workflow is NOT complete until Phase 5.
+5. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. Each SlashCommand execution blocks until finished, then you MUST immediately execute the next phase. Workflow is NOT complete until Phase 5.
 
 ## Parameter Requirements
 
@@ -600,8 +600,8 @@ TodoWrite({todos: [
   {content: "Integrate design system", status: "pending", activeForm: "Integrating"}
 ]})
 
-// ⚠️ CRITICAL: After EACH SlashCommand completion (Phase 1-5), you MUST:
-// 1. SlashCommand blocks and returns when phase is complete
+// ⚠️ CRITICAL: When each SlashCommand execution finishes (Phase 1-5), you MUST:
+// 1. SlashCommand blocks and returns when phase finishes executing
 // 2. Update current phase: status → "completed"
 // 3. Update next phase: status → "in_progress"
 // 4. IMMEDIATELY execute next phase SlashCommand (auto-continue)

@@ -24,7 +24,7 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (conflict reso
 
 **Auto-Continue Mechanism**:
 - TodoList tracks current phase status
-- After each phase completion, automatically executes next pending phase
+- When each phase finishes executing, automatically execute next pending phase
 - All phases run autonomously without user interaction (clarification handled in brainstorm phase)
 - Progress updates shown at each phase for visibility
 
@@ -34,7 +34,7 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (conflict reso
 2. **No Preliminary Analysis**: Do not read files, analyze structure, or gather context before Phase 1
 3. **Parse Every Output**: Extract required data from each command/agent output for next phase
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
-5. **Track Progress**: Update TodoWrite after every phase completion
+5. **Track Progress**: Update TodoWrite when each phase finishes executing
 6. **Agent Delegation**: Phase 3 uses cli-execution-agent for autonomous intelligent analysis
 
 ## 5-Phase Execution
@@ -320,7 +320,7 @@ Return summary to user
 - Parse context path from Phase 2 output, store in memory
 - **Extract conflict_risk from context-package.json**: Determine Phase 3 execution
 - **If conflict_risk ≥ medium**: Launch Phase 3 conflict-resolution with sessionId and contextPath
-- Wait for Phase 3 completion (if executed), verify CONFLICT_RESOLUTION.md created
+- Wait for Phase 3 to finish executing (if executed), verify CONFLICT_RESOLUTION.md created
 - **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 4
 - **Build Phase 4 command**:
   - Base command: `/workflow:tools:task-generate-agent --session [sessionId]`

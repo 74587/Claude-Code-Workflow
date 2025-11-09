@@ -19,20 +19,20 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 **Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
 1. User triggers: `/workflow:ui-design:explore-auto [params]`
 2. Phase 0c: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 1**
-3. Phase 1 (style-extract) → **WAIT for completion** → Auto-continues
-4. Phase 2.3 (animation-extract, optional) → **WAIT for completion** → Auto-continues
-5. Phase 2.5 (layout-extract) → **WAIT for completion** → Auto-continues
-6. **Phase 3 (ui-assembly)** → **WAIT for completion** → Auto-continues
-7. Phase 4 (design-update) → **WAIT for completion** → Auto-continues
+3. Phase 1 (style-extract) → **Execute phase (blocks until finished)** → Auto-continues
+4. Phase 2.3 (animation-extract, optional) → **Execute phase (blocks until finished)** → Auto-continues
+5. Phase 2.5 (layout-extract) → **Execute phase (blocks until finished)** → Auto-continues
+6. **Phase 3 (ui-assembly)** → **Execute phase (blocks until finished)** → Auto-continues
+7. Phase 4 (design-update) → **Execute phase (blocks until finished)** → Auto-continues
 8. Phase 5 (batch-plan, optional) → Reports completion
 
 **Phase Transition Mechanism**:
 - **Phase 0c (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 1
-- **Phase 1-5 (Autonomous)**: `SlashCommand` is BLOCKING - execution pauses until completion
-- Upon each phase completion: Automatically process output and execute next phase
+- **Phase 1-5 (Autonomous)**: `SlashCommand` is BLOCKING - execution pauses until the command finishes
+- When each phase finishes executing: Automatically process output and execute next phase
 - No additional user interaction after Phase 0c confirmation
 
-**Auto-Continue Mechanism**: TodoWrite tracks phase status. Upon each phase completion, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 4 (or Phase 5 if --batch-plan).
+**Auto-Continue Mechanism**: TodoWrite tracks phase status. When each phase finishes executing, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 4 (or Phase 5 if --batch-plan).
 
 **Target Type Detection**: Automatically inferred from prompt/targets, or explicitly set via `--target-type`.
 
@@ -43,7 +43,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 3. **Parse & Pass**: Extract data from each output for next phase
 4. **Default to All**: When selecting variants/prototypes, use ALL generated items
 5. **Track Progress**: Update TodoWrite after each phase
-6. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After each SlashCommand completes, you MUST wait for completion, then immediately execute the next phase. Workflow is NOT complete until Phase 4 (or Phase 5 if --batch-plan).
+6. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. Each SlashCommand execution blocks until finished, then you MUST immediately execute the next phase. Workflow is NOT complete until Phase 4 (or Phase 5 if --batch-plan).
 
 ## Parameter Requirements
 
@@ -409,8 +409,8 @@ ELSE:
     REPORT: "✅ Phase 2.3: Animation (Using Code Import)"
 
 # Output: animation-tokens.json + animation-guide.md
-# SlashCommand blocks until phase complete
-# Upon completion, IMMEDIATELY execute Phase 2.5 (auto-continue)
+# SlashCommand blocks until phase finishes executing
+# When phase finishes, IMMEDIATELY execute Phase 2.5 (auto-continue)
 ```
 
 ### Phase 2.5: Layout Extraction
@@ -441,8 +441,8 @@ REPORT: "   → Assembly tasks: {total} combinations"
 
 SlashCommand(command)
 
-# SlashCommand blocks until phase complete
-# Upon completion, IMMEDIATELY execute Phase 4 (auto-continue)
+# SlashCommand blocks until phase finishes executing
+# When phase finishes, IMMEDIATELY execute Phase 4 (auto-continue)
 # Output:
 # - {target}-style-{s}-layout-{l}.html (assembled prototypes)
 # - {target}-style-{s}-layout-{l}.css
@@ -455,8 +455,8 @@ SlashCommand(command)
 command = "/workflow:ui-design:update" + (--session ? " --session {session_id}" : "")
 SlashCommand(command)
 
-# SlashCommand blocks until phase complete
-# Upon completion:
+# SlashCommand blocks until phase finishes executing
+# When phase finishes:
 #   - If --batch-plan flag present: IMMEDIATELY execute Phase 5 (auto-continue)
 #   - If no --batch-plan: Workflow complete, display final report
 ```
@@ -479,8 +479,8 @@ TodoWrite({todos: [
   {"content": "Execute design integration", "status": "pending", "activeForm": "Executing..."}
 ]})
 
-// ⚠️ CRITICAL: After EACH SlashCommand completion (Phase 1-5), you MUST:
-// 1. SlashCommand blocks and returns when phase is complete
+// ⚠️ CRITICAL: When each SlashCommand execution finishes (Phase 1-5), you MUST:
+// 1. SlashCommand blocks and returns when phase finishes executing
 // 2. Update current phase: status → "completed"
 // 3. Update next phase: status → "in_progress"
 // 4. IMMEDIATELY execute next phase SlashCommand (auto-continue)

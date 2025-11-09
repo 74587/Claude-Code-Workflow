@@ -21,7 +21,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 2. **No Preliminary Analysis**: Do not read files before Phase 1
 3. **Parse Every Output**: Extract required data for next phase
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
-5. **Track Progress**: Update TodoWrite after every phase completion
+5. **Track Progress**: Update TodoWrite when each phase finishes executing
 6. **TDD Context**: All descriptions include "TDD:" prefix
 7. **Quality Gate**: Phase 4 conflict resolution (optional, auto-triggered) validates compatibility before task generation
 

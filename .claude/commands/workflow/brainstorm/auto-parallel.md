@@ -22,8 +22,8 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 
 **Auto-Continue Mechanism**:
 - TodoList tracks current phase status
-- After Phase 1 (artifacts) completion, automatically load roles and launch Phase 2 agents
-- After Phase 2 (all agents) completion, automatically execute Phase 3 synthesis
+- When Phase 1 (artifacts) finishes executing, automatically load roles and launch Phase 2 agents
+- When Phase 2 (all agents) finishes executing, automatically execute Phase 3 synthesis
 - Progress updates shown at each phase for visibility
 
 ## Core Rules
@@ -32,7 +32,7 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 2. **No Preliminary Analysis**: Do not analyze topic before Phase 1 - artifacts handles all analysis
 3. **Parse Every Output**: Extract selected_roles from workflow-session.json after Phase 1
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
-5. **Track Progress**: Update TodoWrite after every phase completion
+5. **Track Progress**: Update TodoWrite when each phase finishes executing
 6. **TodoWrite Extension**: artifacts command EXTENDS parent TodoList (NOT replaces)
 
 ## Usage
