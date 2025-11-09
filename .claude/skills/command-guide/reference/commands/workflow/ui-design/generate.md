@@ -25,11 +25,17 @@ Pure assembler that combines pre-extracted layout templates with design tokens t
 
 ### Step 1: Resolve Base Path & Parse Configuration
 ```bash
-# Determine working directory
-bash(find .workflow -type d -name "design-*" | head -1)  # Auto-detect
+# Determine working directory (relative path)
+relative_path=$(find .workflow -type d -name "design-run-*" | head -1)
+
+# Convert to absolute path
+base_path=$(cd "$relative_path" && pwd)
+
+# Verify absolute path
+bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
 
 # Get style count
-bash(ls {base_path}/style-extraction/style-* -d | wc -l)
+bash(ls "$base_path"/style-extraction/style-* -d | wc -l)
 
 # Image reference auto-detected from layout template source_image_path
 ```
@@ -263,7 +269,7 @@ Next: /workflow:ui-design:update
 ### Path Operations
 ```bash
 # Find design directory
-bash(find .workflow -type d -name "design-*" | head -1)
+bash(find .workflow -type d -name "design-run-*" | head -1)
 
 # Count style variants
 bash(ls {base_path}/style-extraction/style-* -d | wc -l)

@@ -203,8 +203,3 @@ Refer to `test-context-search-agent.md` Phase 3.2 for complete `test-context-pac
 - **Framework agnostic**: Supports Jest, Mocha, pytest, RSpec, Go testing, etc.
 - **Coverage focus**: Primary goal is identifying implementation files without tests
 
-## Related Commands
-
-- `/workflow:test-gen` - Main test generation workflow
-- `/workflow:tools:test-concept-enhanced` - Test generation analysis
-- `/workflow:tools:test-task-generate` - Test task JSON generation

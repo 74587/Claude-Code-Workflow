@@ -1,14 +1,28 @@
 ---
 name: task-generate-tdd
-description: Generate TDD task chains with Red-Green-Refactor dependencies, test-first structure, and cycle validation
-argument-hint: "--session WFS-session-id [--agent]"
-allowed-tools: Read(*), Write(*), Bash(gemini:*), TodoWrite(*)
+description: Autonomous TDD task generation using action-planning-agent with Red-Green-Refactor cycles, test-first structure, and cycle validation
+argument-hint: "--session WFS-session-id [--cli-execute]"
+examples:
+  - /workflow:tools:task-generate-tdd --session WFS-auth
+  - /workflow:tools:task-generate-tdd --session WFS-auth --cli-execute
 ---
 
-# TDD Task Generation Command
+# Autonomous TDD Task Generation Command
 
 ## Overview
-Generate TDD-specific tasks from analysis results with complete Red-Green-Refactor cycles contained within each task.
+Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent with two-phase execution: discovery and document generation. Supports both agent-driven execution (default) and CLI tool execution modes. Generates complete Red-Green-Refactor cycles contained within each task.
+
+## Core Philosophy
+- **Agent-Driven**: Delegate execution to action-planning-agent for autonomous operation
+- **Two-Phase Flow**: Discovery (context gathering) → Output (document generation)
+- **Memory-First**: Reuse loaded documents from conversation memory
+- **MCP-Enhanced**: Use MCP tools for advanced code analysis and research
+- **Pre-Selected Templates**: Command selects correct TDD template based on `--cli-execute` flag **before** invoking agent
+- **Agent Simplicity**: Agent receives pre-selected template and focuses only on content generation
+- **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
+- **TDD-First**: Every feature starts with a failing test (Red phase)
+- **Feature-Complete Tasks**: Each task contains complete Red-Green-Refactor cycle
+- **Quantification-Enforced**: All test cases, coverage requirements, and implementation scope MUST include explicit counts and enumerations
 
 ## Task Strategy & Philosophy
 
@@ -44,359 +58,329 @@ Generate TDD-specific tasks from analysis results with complete Red-Green-Refact
 - **Current approach**: 1 feature = 1 task (IMPL-N with internal Red-Green-Refactor phases)
 - **Complex features**: 1 container (IMPL-N) + subtasks (IMPL-N.M) when necessary
 
-### Core Principles
-- **TDD-First**: Every feature starts with a failing test (Red phase)
-- **Feature-Complete Tasks**: Each task contains complete Red-Green-Refactor cycle
-- **Phase-Explicit**: Internal phases clearly marked in flow_control.implementation_approach
-- **Task Merging**: Prefer single task per feature over decomposition
-- **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
-- **Artifact-Aware**: Integrates brainstorming outputs
-- **Memory-First**: Reuse loaded documents from memory
-- **Context-Aware**: Analyzes existing codebase and test patterns
-- **Iterative Green Phase**: Auto-diagnose and fix test failures with Gemini + optional Codex
-- **Safety-First**: Auto-revert on max iterations to prevent broken state
-
-## Core Responsibilities
-- Parse analysis results and identify testable features
-- Generate feature-complete tasks with internal TDD cycles (1 task per simple feature)
-- Apply task merging strategy by default, create subtasks only when complexity requires
-- Generate IMPL_PLAN.md with TDD Implementation Tasks section
-- Generate TODO_LIST.md with internal TDD phase indicators
-- Update session state for TDD execution with task count compliance
-
 ## Execution Lifecycle
 
-### Phase 1: Input Validation & Discovery
-**Memory-First Rule**: Skip file loading if documents already in conversation memory
+### Phase 1: Discovery & Context Loading
+**⚡ Memory-First Rule**: Skip file loading if documents already in conversation memory
 
-1. **Session Validation**
-   - If session metadata in memory → Skip loading
-   - Else: Load `.workflow/{session_id}/workflow-session.json`
-
-2. **Conflict Resolution Check** (NEW - Priority Input)
-   - If CONFLICT_RESOLUTION.md exists → Load selected strategies
-   - Else: Skip to brainstorming artifacts
-   - Path: `.workflow/{session_id}/.process/CONFLICT_RESOLUTION.md`
-
-3. **Artifact Discovery**
-   - If artifact inventory in memory → Skip scanning
-   - Else: Scan `.workflow/{session_id}/.brainstorming/` directory
-   - Detect: role analysis documents, guidance-specification.md, role analyses
-
-4. **Context Package Loading**
-   - Load `.workflow/{session_id}/.process/context-package.json`
-   - Load `.workflow/{session_id}/.process/test-context-package.json` (if exists)
-
-### Phase 2: TDD Task JSON Generation
-
-**Input Sources** (priority order):
-1. **Conflict Resolution** (if exists): `.process/CONFLICT_RESOLUTION.md` - Selected resolution strategies
-2. **Brainstorming Artifacts**: Role analysis documents (system-architect, product-owner, etc.)
-3. **Context Package**: `.process/context-package.json` - Project structure and requirements
-4. **Test Context**: `.process/test-context-package.json` - Existing test patterns
-
-**TDD Task Structure includes**:
-- Feature list with testable requirements
-- Test cases for Red phase
-- Implementation requirements for Green phase (with test-fix cycle)
-- Refactoring opportunities
-- Task dependencies and execution order
-- Conflict resolution decisions (if applicable)
-
-### Phase 3: Task JSON & IMPL_PLAN.md Generation
-
-#### Task Structure (Feature-Complete with Internal TDD)
-For each feature, generate task(s) with ID format:
-- **IMPL-N** - Single task containing complete TDD cycle (Red-Green-Refactor)
-- **IMPL-N.M** - Sub-tasks only when feature is complex (>2500 lines or technical blocking)
-
-**Task Dependency Rules**:
-- **Sequential features**: IMPL-2 depends_on ["IMPL-1"] if Feature 2 needs Feature 1
-- **Independent features**: No dependencies, can execute in parallel
-- **Complex features**: IMPL-N.2 depends_on ["IMPL-N.1"] for subtask ordering
-
-**Agent Assignment**:
-- **All IMPL tasks** → `@code-developer` (handles full TDD cycle)
-- Agent executes Red, Green, Refactor phases sequentially within task
-
-**Meta Fields**:
-- `meta.type`: "feature" (TDD-driven feature implementation)
-- `meta.agent`: "@code-developer"
-- `meta.tdd_workflow`: true (enables TDD-specific flow)
-- `meta.tdd_phase`: Not used (phases are in flow_control.implementation_approach)
-- `meta.max_iterations`: 3 (for Green phase test-fix cycle)
-- `meta.use_codex`: false (manual fixes by default)
-
-#### Task JSON Structure Reference
-
-**Simple Feature Task (IMPL-N.json)** - Recommended for most features:
-```json
+**Agent Context Package**:
+```javascript
 {
-  "id": "IMPL-N",                                  // Task identifier
-  "title": "Feature description with TDD",         // Human-readable title
-  "status": "pending",                             // pending | in_progress | completed | container
-  "context_package_path": ".workflow/{session-id}/.process/context-package.json", // Path to smart context package
-  "meta": {
-    "type": "feature",                             // Task type
-    "agent": "@code-developer",                    // Assigned agent
-    "tdd_workflow": true,                          // REQUIRED: Enables TDD flow
-    "max_iterations": 3,                           // Green phase test-fix cycle limit
-    "use_codex": false                             // false=manual fixes, true=Codex automated fixes
+  "session_id": "WFS-[session-id]",
+  "execution_mode": "agent-mode" | "cli-execute-mode",  // Determined by flag
+  "task_json_template_path": "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt"
+                           | "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt",
+  // Path selected by command based on --cli-execute flag, agent reads it
+  "workflow_type": "tdd",
+  "session_metadata": {
+    // If in memory: use cached content
+    // Else: Load from .workflow/{session-id}/workflow-session.json
   },
-  "context": {
-    "requirements": [                              // Feature requirements with TDD phases
-      "Feature description",
-      "Red: Test scenarios to write",
-      "Green: Implementation approach with test-fix cycle",
-      "Refactor: Code quality improvements"
-    ],
-    "tdd_cycles": [                                // OPTIONAL: Detailed test cycles
+  "brainstorm_artifacts": {
+    // Loaded from context-package.json → brainstorm_artifacts section
+    "role_analyses": [
       {
-        "cycle": 1,
-        "feature": "Specific functionality",
-        "test_focus": "What to test",
-        "expected_failure": "Why test should fail initially"
+        "role": "system-architect",
+        "files": [{"path": "...", "type": "primary|supplementary"}]
       }
     ],
-    "focus_paths": ["D:\\project\\src\\path", "./tests/path"],  // Absolute or clear relative paths from project root
-    "acceptance": [                                // Success criteria
-      "All tests pass (Red → Green)",
-      "Code refactored (Refactor complete)",
-      "Test coverage ≥80%"
-    ],
-    "depends_on": []                               // Task dependencies
+    "guidance_specification": {"path": "...", "exists": true},
+    "synthesis_output": {"path": "...", "exists": true},
+    "conflict_resolution": {"path": "...", "exists": true}  // if conflict_risk >= medium
   },
-  "flow_control": {
-    "pre_analysis": [                              // OPTIONAL: Pre-execution checks
-      {
-        "step": "check_test_framework",
-        "action": "Verify test framework",
-        "command": "bash(npm list jest)",
-        "output_to": "test_framework_info",
-        "on_error": "warn"
-      }
-    ],
-    "implementation_approach": [                   // REQUIRED: 3 TDD phases
-      {
-        "step": 1,
-        "title": "RED Phase: Write failing tests",
-        "tdd_phase": "red",                        // REQUIRED: Phase identifier
-        "description": "Write comprehensive failing tests",
-        "modification_points": ["Files/changes to make"],
-        "logic_flow": ["Step-by-step process"],
-        "acceptance": ["Phase success criteria"],
-        "depends_on": [],
-        "output": "failing_tests"
-      },
-      {
-        "step": 2,
-        "title": "GREEN Phase: Implement to pass tests",
-        "tdd_phase": "green",                      // REQUIRED: Phase identifier
-        "description": "Minimal implementation with test-fix cycle",
-        "modification_points": ["Implementation files"],
-        "logic_flow": [
-          "Implement minimal code",
-          "Run tests",
-          "If fail → Enter iteration loop (max 3):",
-          "  1. Extract failure messages",
-          "  2. Gemini bug-fix diagnosis",
-          "  3. Apply fixes",
-          "  4. Rerun tests",
-          "If max_iterations → Auto-revert"
-        ],
-        "acceptance": ["All tests pass"],
-        "command": "bash(npm test -- tests/path/)",
-        "depends_on": [1],
-        "output": "passing_implementation"
-      },
-      {
-        "step": 3,
-        "title": "REFACTOR Phase: Improve code quality",
-        "tdd_phase": "refactor",                   // REQUIRED: Phase identifier
-        "description": "Refactor while keeping tests green",
-        "modification_points": ["Quality improvements"],
-        "logic_flow": ["Incremental refactoring with test verification"],
-        "acceptance": ["Tests still pass", "Code quality improved"],
-        "command": "bash(npm run lint && npm test)",
-        "depends_on": [2],
-        "output": "refactored_implementation"
-      }
-    ],
-    "post_completion": [                           // OPTIONAL: Final verification
-      {
-        "step": "verify_full_tdd_cycle",
-        "action": "Confirm complete TDD cycle",
-        "command": "bash(npm test && echo 'TDD complete')",
-        "output_to": "final_validation",
-        "on_error": "fail"
-      }
-    ],
-    "error_handling": {                            // OPTIONAL: Error recovery
-      "green_phase_max_iterations": {
-        "action": "revert_all_changes",
-        "commands": ["bash(git reset --hard HEAD)"],
-        "report": "Generate failure report"
-      }
-    }
+  "context_package_path": ".workflow/{session-id}/.process/context-package.json",
+  "context_package": {
+    // If in memory: use cached content
+    // Else: Load from .workflow/{session-id}/.process/context-package.json
+  },
+  "test_context_package_path": ".workflow/{session-id}/.process/test-context-package.json",
+  "test_context_package": {
+    // Existing test patterns and coverage analysis
+  },
+  "mcp_capabilities": {
+    "code_index": true,
+    "exa_code": true,
+    "exa_web": true
   }
 }
 ```
 
-**Key JSON Fields Summary**:
-- `meta.tdd_workflow`: Must be `true`
-- `meta.max_iterations`: Green phase fix cycle limit (default: 3)
-- `meta.use_codex`: Automated fixes (false=manual, true=Codex)
-- `flow_control.implementation_approach`: Exactly 3 steps with `tdd_phase`: "red", "green", "refactor"
-- `context.tdd_cycles`: Optional detailed test cycle specifications
-- `context.parent`: Required for subtasks (IMPL-N.M)
+**Discovery Actions**:
+1. **Load Session Context** (if not in memory)
+   ```javascript
+   if (!memory.has("workflow-session.json")) {
+     Read(.workflow/{session-id}/workflow-session.json)
+   }
+   ```
 
-#### IMPL_PLAN.md Structure
+2. **Load Context Package** (if not in memory)
+   ```javascript
+   if (!memory.has("context-package.json")) {
+     Read(.workflow/{session-id}/.process/context-package.json)
+   }
+   ```
 
-Generate IMPL_PLAN.md with 8-section structure:
+3. **Load Test Context Package** (if not in memory)
+   ```javascript
+   if (!memory.has("test-context-package.json")) {
+     Read(.workflow/{session-id}/.process/test-context-package.json)
+   }
+   ```
 
-**Frontmatter** (required fields):
-```yaml
----
-identifier: WFS-{session-id}
-source: "User requirements" | "File: path"
-conflict_resolution: .workflow/{session-id}/.process/CONFLICT_RESOLUTION.md  # if exists
-context_package: .workflow/{session-id}/.process/context-package.json
-context_package_path: .workflow/{session-id}/.process/context-package.json
-test_context: .workflow/{session-id}/.process/test-context-package.json  # if exists
-workflow_type: "tdd"
-verification_history:
-  conflict_resolution: "executed | skipped" # based on conflict_risk
-  action_plan_verify: "pending"
-phase_progression: "brainstorm → context → test_context → conflict_resolution → tdd_planning"
-feature_count: N
-task_count: N  # ≤10 total
-task_breakdown:
-  simple_features: K
-  complex_features: L
-  total_subtasks: M
-tdd_workflow: true
----
+4. **Extract & Load Role Analyses** (from context-package.json)
+   ```javascript
+   // Extract role analysis paths from context package
+   const roleAnalysisPaths = contextPackage.brainstorm_artifacts.role_analyses
+     .flatMap(role => role.files.map(f => f.path));
+
+   // Load each role analysis file
+   roleAnalysisPaths.forEach(path => Read(path));
+   ```
+
+5. **Load Conflict Resolution** (from context-package.json, if exists)
+   ```javascript
+   if (contextPackage.brainstorm_artifacts.conflict_resolution?.exists) {
+     Read(contextPackage.brainstorm_artifacts.conflict_resolution.path)
+   }
+   ```
+
+6. **Code Analysis with Native Tools** (optional - enhance understanding)
+   ```bash
+   # Find relevant test files and patterns
+   find . -name "*test*" -type f
+   rg "describe|it\(|test\(" -g "*.ts"
+   ```
+
+7. **MCP External Research** (optional - gather TDD best practices)
+   ```javascript
+   // Get external TDD examples and patterns
+   mcp__exa__get_code_context_exa(
+     query="TypeScript TDD best practices Red-Green-Refactor",
+     tokensNum="dynamic"
+   )
+   ```
+
+### Phase 2: Agent Execution (Document Generation)
+
+**Pre-Agent Template Selection** (Command decides path before invoking agent):
+```javascript
+// Command checks flag and selects template PATH (not content)
+const templatePath = hasCliExecuteFlag
+  ? "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt"
+  : "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt";
 ```
 
-**8 Sections Structure**:
+**Agent Invocation**:
+```javascript
+Task(
+  subagent_type="action-planning-agent",
+  description="Generate TDD task JSON and implementation plan",
+  prompt=`
+## Execution Context
 
-```markdown
-# Implementation Plan: {Project Title}
+**Session ID**: WFS-{session-id}
+**Workflow Type**: TDD
+**Execution Mode**: {agent-mode | cli-execute-mode}
+**Task JSON Template Path**: {template_path}
 
-## 1. Summary
-- Core requirements and objectives (2-3 paragraphs)
-- TDD-specific technical approach
+## Phase 1: Discovery Results (Provided Context)
 
-## 2. Context Analysis
-- CCW Workflow Context (Phase progression, Quality gates)
-- Context Package Summary (Focus paths, Test context)
-- Project Profile (Type, Scale, Tech Stack, Timeline)
-- Module Structure (Directory tree)
-- Dependencies (Primary, Testing, Development)
-- Patterns & Conventions
+### Session Metadata
+{session_metadata_content}
 
-## 3. Brainstorming Artifacts Reference
-- Artifact Usage Strategy
-  - CONFLICT_RESOLUTION.md (if exists - selected resolution strategies)
-  - role analysis documents (primary reference)
-  - test-context-package.json (test patterns)
-  - context-package.json (smart context)
-- Artifact Priority in Development
+### Role Analyses (Enhanced by Synthesis)
+{role_analyses_content}
+- Includes requirements, design specs, enhancements, and clarifications from synthesis phase
 
-## 4. Implementation Strategy
-- Execution Strategy (TDD Cycles: Red-Green-Refactor)
-- Architectural Approach
-- Key Dependencies (Task dependency graph)
-- Testing Strategy (Coverage targets, Quality gates)
+### Artifacts Inventory
+- **Guidance Specification**: {guidance_spec_path}
+- **Role Analyses**: {role_analyses_list}
 
-## 5. TDD Implementation Tasks
-- Feature-by-Feature TDD Tasks
-  - Each task: IMPL-N with internal Red → Green → Refactor
-  - Dependencies and complexity metrics
-- Complex Feature Examples (when subtasks needed)
-- TDD Task Breakdown Summary
+### Context Package
+{context_package_summary}
+- Includes conflict_risk assessment
 
-## 6. Implementation Plan (Detailed Phased Breakdown)
-- Execution Strategy (feature-by-feature sequential)
-- Phase breakdown (Phase 1, Phase 2, etc.)
-- Resource Requirements (Team, Dependencies, Infrastructure)
+### Test Context Package
+{test_context_package_summary}
+- Existing test patterns, framework config, coverage analysis
 
-## 7. Risk Assessment & Mitigation
-- Risk table (Risk, Impact, Probability, Mitigation, Owner)
-- Critical Risks (TDD-specific)
-- Monitoring Strategy
+### Conflict Resolution (Conditional)
+If conflict_risk was medium/high, modifications have been applied to:
+- **guidance-specification.md**: Design decisions updated to resolve conflicts
+- **Role analyses (*.md)**: Recommendations adjusted for compatibility
+- **context-package.json**: Marked as "resolved" with conflict IDs
+- NO separate CONFLICT_RESOLUTION.md file (conflicts resolved in-place)
 
-## 8. Success Criteria
-- Functional Completeness
-- Technical Quality (Test coverage ≥80%)
-- Operational Readiness
-- TDD Compliance
+### MCP Analysis Results (Optional)
+**Code Structure**: {mcp_code_index_results}
+**External Research**: {mcp_exa_research_results}
+
+## Phase 2: TDD Document Generation Task
+
+**Agent Configuration Reference**: All TDD task generation rules, quantification requirements, Red-Green-Refactor cycle structure, quality standards, and execution details are defined in action-planning-agent.
+
+Refer to: @.claude/agents/action-planning-agent.md for:
+- TDD Task Decomposition Standards
+- Red-Green-Refactor Cycle Requirements
+- Quantification Requirements (MANDATORY)
+- 5-Field Task JSON Schema
+- IMPL_PLAN.md Structure (TDD variant)
+- TODO_LIST.md Format
+- TDD Execution Flow & Quality Validation
+
+### TDD-Specific Requirements Summary
+
+#### Task Structure Philosophy
+- **1 feature = 1 task** containing complete TDD cycle internally
+- Each task executes Red-Green-Refactor phases sequentially
+- Task count = Feature count (typically 5 features = 5 tasks)
+- Subtasks only when complexity >2500 lines or >6 files per cycle
+- **Maximum 10 tasks** (hard limit for TDD workflows)
+
+#### TDD Cycle Mapping
+- **Simple features**: IMPL-N with internal Red-Green-Refactor phases
+- **Complex features**: IMPL-N (container) + IMPL-N.M (subtasks)
+- Each cycle includes: test_count, test_cases array, implementation_scope, expected_coverage
+
+#### Required Outputs Summary
+
+##### 1. TDD Task JSON Files (.task/IMPL-*.json)
+- **Location**: `.workflow/{session-id}/.task/`
+- **Template**: Read from `{template_path}` (pre-selected by command based on `--cli-execute` flag)
+- **Schema**: 5-field structure with TDD-specific metadata
+  - `meta.tdd_workflow`: true (REQUIRED)
+  - `meta.max_iterations`: 3 (Green phase test-fix cycle limit)
+  - `meta.use_codex`: false (manual fixes by default)
+  - `context.tdd_cycles`: Array with quantified test cases and coverage
+  - `flow_control.implementation_approach`: Exactly 3 steps with `tdd_phase` field
+    1. Red Phase (`tdd_phase: "red"`): Write failing tests
+    2. Green Phase (`tdd_phase: "green"`): Implement to pass tests
+    3. Refactor Phase (`tdd_phase: "refactor"`): Improve code quality
+- **Details**: See action-planning-agent.md § TDD Task JSON Generation
+
+##### 2. IMPL_PLAN.md (TDD Variant)
+- **Location**: `.workflow/{session-id}/IMPL_PLAN.md`
+- **Template**: `~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
+- **TDD-Specific Frontmatter**: workflow_type="tdd", tdd_workflow=true, feature_count, task_breakdown
+- **TDD Implementation Tasks Section**: Feature-by-feature with internal Red-Green-Refactor cycles
+- **Details**: See action-planning-agent.md § TDD Implementation Plan Creation
+
+##### 3. TODO_LIST.md
+- **Location**: `.workflow/{session-id}/TODO_LIST.md`
+- **Format**: Hierarchical task list with internal TDD phase indicators (Red → Green → Refactor)
+- **Status**: ▸ (container), [ ] (pending), [x] (completed)
+- **Details**: See action-planning-agent.md § TODO List Generation
+
+### Quantification Requirements (MANDATORY)
+
+**Core Rules**:
+1. **Explicit Test Case Counts**: Red phase specifies exact number with enumerated list
+2. **Quantified Coverage**: Acceptance includes measurable percentage (e.g., ">=85%")
+3. **Detailed Implementation Scope**: Green phase enumerates files, functions, line counts
+4. **Enumerated Refactoring Targets**: Refactor phase lists specific improvements with counts
+
+**TDD Phase Formats**:
+- **Red Phase**: "Write N test cases: [test1, test2, ...]"
+- **Green Phase**: "Implement N functions in file lines X-Y: [func1() X1-Y1, func2() X2-Y2, ...]"
+- **Refactor Phase**: "Apply N refactorings: [improvement1 (details), improvement2 (details), ...]"
+- **Acceptance**: "All N tests pass with >=X% coverage: verify by [test command]"
+
+**Validation Checklist**:
+- [ ] Every Red phase specifies exact test case count with enumerated list
+- [ ] Every Green phase enumerates files, functions, and estimated line counts
+- [ ] Every Refactor phase lists specific improvements with counts
+- [ ] Every acceptance criterion includes measurable coverage percentage
+- [ ] tdd_cycles array contains test_count and test_cases for each cycle
+- [ ] No vague language ("comprehensive", "complete", "thorough")
+
+### Agent Execution Summary
+
+**Key Steps** (Detailed instructions in action-planning-agent.md):
+1. Load task JSON template from provided path
+2. Extract and decompose features with TDD cycles
+3. Generate TDD task JSON files enforcing quantification requirements
+4. Create IMPL_PLAN.md using TDD template variant
+5. Generate TODO_LIST.md with TDD phase indicators
+6. Update session state with TDD metadata
+
+**Quality Gates** (Full checklist in action-planning-agent.md):
+- ✓ Quantification requirements enforced (explicit counts, measurable acceptance, exact targets)
+- ✓ Task count ≤10 (hard limit)
+- ✓ Each task has meta.tdd_workflow: true
+- ✓ Each task has exactly 3 implementation steps with tdd_phase field
+- ✓ Green phase includes test-fix cycle logic
+- ✓ Artifact references mapped correctly
+- ✓ MCP tool integration added
+- ✓ Documents follow TDD template structure
+
+## Output
+
+Generate all three documents and report completion status:
+- TDD task JSON files created: N files (IMPL-*.json)
+- TDD cycles configured: N cycles with quantified test cases
+- Artifacts integrated: synthesis-spec, guidance-specification, N role analyses
+- Test context integrated: existing patterns and coverage
+- MCP enhancements: code-index, exa-research
+- Session ready for TDD execution: /workflow:execute
+`
+)
 ```
 
-### Phase 4: TODO_LIST.md Generation
+### Agent Context Passing
 
-Generate task list with internal TDD phase indicators:
+**Memory-Aware Context Assembly**:
+```javascript
+// Assemble context package for agent
+const agentContext = {
+  session_id: "WFS-[id]",
+  workflow_type: "tdd",
 
-**For Simple Features (1 task per feature)**:
-```markdown
-## TDD Implementation Tasks
+  // Use memory if available, else load
+  session_metadata: memory.has("workflow-session.json")
+    ? memory.get("workflow-session.json")
+    : Read(.workflow/WFS-[id]/workflow-session.json),
 
-### Feature 1: {Feature Name}
-- [ ] **IMPL-1**: Implement {feature} with TDD → [Task](./.task/IMPL-1.json)
-  - Internal phases: Red → Green → Refactor
-  - Dependencies: None
+  context_package_path: ".workflow/WFS-[id]/.process/context-package.json",
 
-### Feature 2: {Feature Name}
-- [ ] **IMPL-2**: Implement {feature} with TDD → [Task](./.task/IMPL-2.json)
-  - Internal phases: Red → Green → Refactor
-  - Dependencies: IMPL-1
-```
+  context_package: memory.has("context-package.json")
+    ? memory.get("context-package.json")
+    : Read(".workflow/WFS-[id]/.process/context-package.json"),
 
-**For Complex Features (with subtasks)**:
-```markdown
-### Feature 3: {Complex Feature Name}
-▸ **IMPL-3**: Implement {complex feature} with TDD → [Task](./.task/IMPL-3.json)
-  - [ ] **IMPL-3.1**: {Sub-feature A} with TDD → [Task](./.task/IMPL-3.1.json)
-    - Internal phases: Red → Green → Refactor
-  - [ ] **IMPL-3.2**: {Sub-feature B} with TDD → [Task](./.task/IMPL-3.2.json)
-    - Internal phases: Red → Green → Refactor
-    - Dependencies: IMPL-3.1
-```
+  test_context_package_path: ".workflow/WFS-[id]/.process/test-context-package.json",
 
-**Status Legend**:
-```markdown
-## Status Legend
-- ▸ = Container task (has subtasks)
-- [ ] = Pending task
-- [x] = Completed task
-- Red = Write failing tests
-- Green = Implement to pass tests (with test-fix cycle)
-- Refactor = Improve code quality
-```
+  test_context_package: memory.has("test-context-package.json")
+    ? memory.get("test-context-package.json")
+    : Read(".workflow/WFS-[id]/.process/test-context-package.json"),
 
-### Phase 5: Session State Update
+  // Extract brainstorm artifacts from context package
+  brainstorm_artifacts: extractBrainstormArtifacts(context_package),
 
-Update workflow-session.json with TDD metadata:
-```json
-{
-  "workflow_type": "tdd",
-  "feature_count": 5,
-  "task_count": 5,
-  "task_breakdown": {
-    "simple_features": 4,
-    "complex_features": 1,
-    "total_subtasks": 2
-  },
-  "tdd_workflow": true,
-  "task_limit_compliance": true
+  // Load role analyses using paths from context package
+  role_analyses: brainstorm_artifacts.role_analyses
+    .flatMap(role => role.files)
+    .map(file => Read(file.path)),
+
+  // Load conflict resolution if exists (from context package)
+  conflict_resolution: brainstorm_artifacts.conflict_resolution?.exists
+    ? Read(brainstorm_artifacts.conflict_resolution.path)
+    : null,
+
+  // Optional MCP enhancements
+  mcp_analysis: executeMcpDiscovery()
 }
 ```
 
-**Task Count Calculation**:
-- **Simple features**: 1 task each (IMPL-N with internal TDD cycle)
-- **Complex features**: 1 container + M subtasks (IMPL-N + IMPL-N.M)
-- **Total**: Simple feature count + Complex feature subtask count
-- **Example**: 4 simple + 1 complex (with 2 subtasks) = 6 total tasks (not 15)
+## TDD Task Structure Reference
+
+This section provides quick reference for TDD task JSON structure. For complete implementation details, see the agent invocation prompt in Phase 2 above.
+
+**Quick Reference**:
+- Each TDD task contains complete Red-Green-Refactor cycle
+- Task ID format: `IMPL-N` (simple) or `IMPL-N.M` (complex subtasks)
+- Required metadata: `meta.tdd_workflow: true`, `meta.max_iterations: 3`
+- Flow control: Exactly 3 steps with `tdd_phase` field (red, green, refactor)
+- Context: `tdd_cycles` array with quantified test cases and coverage
+- See Phase 2 agent prompt for full schema and requirements
 
 ## Output Files Structure
 ```
@@ -465,52 +449,30 @@ Update workflow-session.json with TDD metadata:
 
 ## Integration & Usage
 
-### Command Chain
-- **Called By**: `/workflow:tdd-plan` (Phase 4)
-- **Calls**: Gemini CLI for TDD breakdown
-- **Followed By**: `/workflow:execute`, `/workflow:tdd-verify`
+**Command Chain**:
+- Called by: `/workflow:tdd-plan` (Phase 4)
+- Invokes: `action-planning-agent` for autonomous task generation
+- Followed by: `/workflow:execute`, `/workflow:tdd-verify`
 
-### Basic Usage
+**Basic Usage**:
 ```bash
-# Manual mode (default)
+# Agent mode (default, autonomous execution)
 /workflow:tools:task-generate-tdd --session WFS-auth
 
-# Agent mode (autonomous task generation)
-/workflow:tools:task-generate-tdd --session WFS-auth --agent
+# CLI tool mode (use Gemini/Qwen for generation)
+/workflow:tools:task-generate-tdd --session WFS-auth --cli-execute
 ```
 
-### Expected Output
-```
-TDD task generation complete for session: WFS-auth
+**Execution Modes**:
+- **Agent mode** (default): Uses `action-planning-agent` with agent-mode task template
+- **CLI mode** (`--cli-execute`): Uses Gemini/Qwen with cli-mode task template
 
-Features analyzed: 5
-Total tasks: 5 (1 task per feature with internal TDD cycles)
-
-Task breakdown:
-- Simple features: 4 tasks (IMPL-1 to IMPL-4)
-- Complex features: 1 task with 2 subtasks (IMPL-5, IMPL-5.1, IMPL-5.2)
-- Total task count: 6 (within 10-task limit)
-
-Structure:
-- IMPL-1: User Authentication (Internal: Red → Green → Refactor)
-- IMPL-2: Password Reset (Internal: Red → Green → Refactor)
-- IMPL-3: Email Verification (Internal: Red → Green → Refactor)
-- IMPL-4: Role Management (Internal: Red → Green → Refactor)
-- IMPL-5: Payment System (Container)
-  - IMPL-5.1: Gateway Integration (Internal: Red → Green → Refactor)
-  - IMPL-5.2: Transaction Management (Internal: Red → Green → Refactor)
-
-Plans generated:
-- Unified Plan: .workflow/WFS-auth/IMPL_PLAN.md (includes TDD Implementation Tasks section)
-- Task List: .workflow/WFS-auth/TODO_LIST.md (with internal TDD phase indicators)
-
-TDD Configuration:
-- Each task contains complete Red-Green-Refactor cycle
-- Green phase includes test-fix cycle (max 3 iterations)
-- Auto-revert on max iterations reached
-
-Next: /workflow:action-plan-verify --session WFS-auth (recommended) or /workflow:execute --session WFS-auth
-```
+**Output**:
+- TDD task JSON files in `.task/` directory (IMPL-N.json format)
+- IMPL_PLAN.md with TDD Implementation Tasks section
+- TODO_LIST.md with internal TDD phase indicators
+- Session state updated with task count and TDD metadata
+- MCP enhancements integrated (if available)
 
 ## Test Coverage Analysis Integration
 
@@ -547,9 +509,3 @@ IMPL (Green phase) tasks include automatic test-fix cycle:
 - **meta.max_iterations**: Number of fix attempts (default: 3 for TDD, 5 for test-gen)
 - **meta.use_codex**: Enable Codex automated fixes (default: false, manual)
 
-## Related Commands
-- `/workflow:tdd-plan` - Orchestrates TDD workflow planning (6 phases)
-- `/workflow:tools:test-context-gather` - Analyzes test coverage
-- `/workflow:execute` - Executes TDD tasks in order
-- `/workflow:tdd-verify` - Verifies TDD compliance
-- `/workflow:test-gen` - Post-implementation test generation

@@ -1,7 +1,7 @@
 ---
 name: tdd-plan
 description: TDD workflow planning with Red-Green-Refactor task chain generation, test-first development structure, and cycle tracking
-argument-hint: "[--agent] \"feature description\"|file.md"
+argument-hint: "[--cli-execute] \"feature description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -12,8 +12,8 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 **This command is a pure orchestrator**: Execute 5 slash commands in sequence, parse outputs, pass context, and ensure complete TDD workflow creation.
 
 **Execution Modes**:
-- **Manual Mode** (default): Use `/workflow:tools:task-generate-tdd`
-- **Agent Mode** (`--agent`): Use `/workflow:tools:task-generate-tdd --agent`
+- **Agent Mode** (default): Use `/workflow:tools:task-generate-tdd` (autonomous agent-driven)
+- **CLI Mode** (`--cli-execute`): Use `/workflow:tools:task-generate-tdd --cli-execute` (Gemini/Qwen)
 
 ## Core Rules
 
@@ -129,8 +129,8 @@ TEST_FOCUS: [Test scenarios]
 
 ### Phase 5: TDD Task Generation
 **Command**:
-- Manual: `/workflow:tools:task-generate-tdd --session [sessionId]`
-- Agent: `/workflow:tools:task-generate-tdd --session [sessionId] --agent`
+- Agent Mode (default): `/workflow:tools:task-generate-tdd --session [sessionId]`
+- CLI Mode (`--cli-execute`): `/workflow:tools:task-generate-tdd --session [sessionId] --cli-execute`
 
 **Parse**: Extract feature count, task count (not chain count - tasks now contain internal TDD cycles)
 
@@ -373,8 +373,8 @@ Supports action-planning-agent for more autonomous TDD planning with:
 - `/workflow:tools:test-context-gather` - Phase 3: Analyze existing test patterns and coverage
 - `/workflow:tools:conflict-resolution` - Phase 4: Detect and resolve conflicts (auto-triggered if conflict_risk ≥ medium)
 - `/compact` - Phase 4: Memory optimization (if context approaching limits)
-- `/workflow:tools:task-generate-tdd` - Phase 5: Generate TDD task chains with Red-Green-Refactor cycles
-- `/workflow:tools:task-generate-tdd --agent` - Phase 5: Generate TDD tasks with agent-driven approach (when `--agent` flag used)
+- `/workflow:tools:task-generate-tdd` - Phase 5: Generate TDD tasks with agent-driven approach (default, autonomous)
+- `/workflow:tools:task-generate-tdd --cli-execute` - Phase 5: Generate TDD tasks with CLI tools (Gemini/Qwen, when `--cli-execute` flag used)
 
 **Follow-up Commands**:
 - `/workflow:action-plan-verify` - Recommended: Verify TDD plan quality and structure before execution

@@ -24,6 +24,7 @@ Analyzes conflicts between implementation plans and existing codebase, generatin
 | **Generate Strategies** | Provide 2-4 resolution options per conflict |
 | **CLI Analysis** | Use Gemini/Qwen (Claude fallback) |
 | **User Decision** | Present options, never auto-apply |
+| **Direct Text Output** | Output questions via text directly, NEVER use bash echo/printf |
 | **Single Output** | `CONFLICT_RESOLUTION.md` with findings |
 
 ## Conflict Categories
@@ -462,10 +463,3 @@ If Edit tool fails mid-application:
 ✓ Error handling robust (validate/retry/degrade)
 ```
 
-## Related Commands
-| Command | Relationship |
-|---------|--------------|
-| `/workflow:tools:context-gather` | Generates input conflict_detection data |
-| `/workflow:plan` | Auto-triggers this when risk ≥ medium |
-| `/workflow:tools:task-generate` | Uses resolved conflicts from updated brainstorm files |
-| `/workflow:brainstorm:artifacts` | Generates guidance-specification.md (modified by this command) |

@@ -2,8 +2,8 @@
   {
     "name": "plan",
     "command": "/workflow:plan",
-    "description": "5-phase planning workflow with Gemini analysis and action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs with optional CLI auto-execution",
-    "arguments": "[--agent] [--cli-execute] \\\"text description\\\"|file.md",
+    "description": "5-phase planning workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs with optional CLI auto-execution",
+    "arguments": "[--cli-execute] \\\"text description\\\"|file.md",
     "category": "workflow",
     "subcategory": null,
     "usage_scenario": "planning",

@@ -460,8 +460,3 @@ Synthesize Gemini analysis into standardized format:
 - ✅ Execution time < 20 minutes
 - ✅ Output follows existing test conventions
 
-## Related Commands
-
-- `/workflow:tools:test-context-gather` - Provides input context
-- `/workflow:tools:test-task-generate` - Consumes analysis results
-- `/workflow:test-gen` - Main test generation workflow

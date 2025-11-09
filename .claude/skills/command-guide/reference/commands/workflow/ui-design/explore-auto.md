@@ -203,10 +203,13 @@ STORE: device_type, device_source
 
 ### Phase 0b: Run Initialization & Directory Setup
 ```bash
-run_id = "run-$(date +%Y%m%d-%H%M%S)"
-base_path = --session ? ".workflow/WFS-{session}/design-${run_id}" : ".workflow/.design/${run_id}"
+run_id = "run-$(date +%Y%m%d)-$RANDOM"
+relative_base_path = --session ? ".workflow/WFS-{session}/design-${run_id}" : ".workflow/.design/design-${run_id}"
 
-Bash(mkdir -p "${base_path}/{style-extraction,style-consolidation,prototypes}")
+# Create directory and convert to absolute path
+Bash(mkdir -p "${relative_base_path}/style-extraction")
+Bash(mkdir -p "${relative_base_path}/prototypes")
+base_path=$(cd "${relative_base_path}" && pwd)
 
 Write({base_path}/.run-metadata.json): {
   "run_id": "${run_id}", "session_id": "${session_id}", "timestamp": "...",
@@ -313,7 +316,8 @@ IF design_source IN ["code_only", "hybrid"]:
     # Check file existence and assess completeness
     style_exists = exists("{base_path}/style-extraction/style-1/design-tokens.json")
     animation_exists = exists("{base_path}/animation-extraction/animation-tokens.json")
-    layout_exists = exists("{base_path}/layout-extraction/layout-templates.json")
+    layout_count = bash(ls {base_path}/layout-extraction/layout-*.json 2>/dev/null | wc -l)
+    layout_exists = (layout_count > 0)
 
     style_complete = false
     animation_complete = false
@@ -349,14 +353,16 @@ IF design_source IN ["code_only", "hybrid"]:
 
     # Layout completeness check
     IF layout_exists:
-        layouts = Read("{base_path}/layout-extraction/layout-templates.json")
+        # Read first layout file to verify structure
+        first_layout = bash(ls {base_path}/layout-extraction/layout-*.json 2>/dev/null | head -1)
+        layout_data = Read(first_layout)
         layout_complete = (
-            layouts.layout_templates?.length >= 3 &&
-            layouts.extraction_metadata?.layout_system?.type &&
-            layouts.extraction_metadata?.responsive?.breakpoints
+            layout_count >= 1 &&
+            layout_data.template?.dom_structure &&
+            layout_data.template?.css_layout_rules
         )
-        IF NOT layout_complete AND layouts.extraction_metadata?.completeness?.missing_items:
-            missing_categories.extend(layouts.extraction_metadata.completeness.missing_items)
+        IF NOT layout_complete:
+            missing_categories.push("complete layout structure")
     ELSE:
         missing_categories.push("layout templates")
 
@@ -384,7 +390,7 @@ IF design_source == "visual_only" OR needs_visual_supplement:
     command = "/workflow:ui-design:style-extract --base-path \"{base_path}\" " +
               (--images ? "--images \"{images}\" " : "") +
               (--prompt ? "--prompt \"{prompt}\" " : "") +
-              "--mode explore --variants {style_variants}"
+              "--variants {style_variants}"
     SlashCommand(command)
 ELSE:
     REPORT: "✅ Phase 1: Style (Using Code Import)"
@@ -413,7 +419,7 @@ IF (design_source == "visual_only" OR needs_visual_supplement) OR (NOT layout_co
     command = "/workflow:ui-design:layout-extract --base-path \"{base_path}\" " +
               (--images ? "--images \"{images}\" " : "") +
               (--prompt ? "--prompt \"{prompt}\" " : "") +
-              "--targets \"{targets_string}\" --mode explore --variants {layout_variants} --device-type \"{device_type}\""
+              "--targets \"{targets_string}\" --variants {layout_variants} --device-type \"{device_type}\""
     SlashCommand(command)
 ELSE:
     REPORT: "✅ Phase 2.5: Layout (Using Code Import)"
@@ -547,10 +553,11 @@ Architecture: Style-Centric Batch Generation
 Run ID: {run_id} | Session: {session_id or "standalone"}
 Type: {icon} {target_type} | Device: {device_type} | Matrix: {s}×{l}×{n} = {total} prototypes
 
-Phase 1: {s} complete design systems (style-extract)
-Phase 2: {n×l} layout templates (layout-extract explore mode)
+Phase 1: {s} complete design systems (style-extract with multi-select)
+Phase 2: {n×l} layout templates (layout-extract with multi-select)
   - Device: {device_type} layouts
   - {n} targets × {l} layout variants = {n×l} structural templates
+  - User-selected concepts generated in parallel
 Phase 3: UI Assembly (generate)
   - Pure assembly: layout templates + design tokens
   - {s}×{l}×{n} = {total} final prototypes
@@ -560,21 +567,22 @@ Phase 4: Brainstorming artifacts updated
 Assembly Process:
 ✅ Separation of Concerns: Layout (structure) + Style (tokens) kept separate
 ✅ Layout Extraction: {n×l} reusable structural templates
+✅ Multi-Selection Workflow: User selects multiple variants from generated options
 ✅ Pure Assembly: No design decisions in generate phase
 ✅ Device-Optimized: Layouts designed for {device_type}
 
 Design Quality:
 ✅ Token-Driven Styling: 100% var() usage
-✅ Structural Variety: {l} distinct layouts per target
-✅ Style Variety: {s} independent design systems
+✅ Structural Variety: {l} distinct layouts per target (user-selected)
+✅ Style Variety: {s} independent design systems (user-selected)
 ✅ Device-Optimized: Layouts designed for {device_type}
 
 📂 {base_path}/
   ├── .intermediates/          (Intermediate analysis files)
   │   ├── style-analysis/      (computed-styles.json, design-space-analysis.json)
-  │   └── layout-analysis/     (dom-structure-*.json, inspirations/*.txt)
+  │   └── layout-analysis/     (analysis-options.json, user-selection.json, dom-structure-*.json)
   ├── style-extraction/        ({s} complete design systems)
-  ├── layout-extraction/       ({n×l} layout templates + layout-space-analysis.json)
+  ├── layout-extraction/       ({n×l} layout template files: layout-{target}-{variant}.json)
   ├── prototypes/              ({total} assembled prototypes)
   └── .run-metadata.json       (includes device type)
 

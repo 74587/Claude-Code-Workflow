@@ -151,9 +151,17 @@ Generate individual `.task/IMPL-*.json` files with:
     "agent": "@code-developer"
   },
   "context": {
-    "requirements": ["from analysis_results"],
-    "focus_paths": ["src/paths"],
-    "acceptance": ["measurable criteria"],
+    "requirements": [
+      "Implement 3 features: [authentication, authorization, session management]",
+      "Create 5 files: [auth.service.ts, auth.controller.ts, auth.middleware.ts, auth.types.ts, auth.test.ts]",
+      "Modify 2 existing functions: [validateUser() in users.service.ts lines 45-60, hashPassword() in utils.ts lines 120-135]"
+    ],
+    "focus_paths": ["src/auth", "tests/auth"],
+    "acceptance": [
+      "3 features implemented: verify by npm test -- auth (exit code 0)",
+      "5 files created: verify by ls src/auth/*.ts | wc -l = 5",
+      "Test coverage >=80%: verify by npm test -- --coverage | grep auth"
+    ],
     "depends_on": ["IMPL-N"],
     "artifacts": [
       {
@@ -181,23 +189,50 @@ Generate individual `.task/IMPL-*.json` files with:
       {
         "step": 1,
         "title": "Load and analyze role analyses",
-        "description": "Load role analyses from artifacts and extract requirements",
-        "modification_points": ["Load role analyses", "Extract requirements and design patterns"],
-        "logic_flow": ["Read role analyses from artifacts", "Parse architecture decisions", "Extract implementation requirements"],
+        "description": "Load 3 role analysis files and extract quantified requirements",
+        "modification_points": [
+          "Load 3 role analysis files: [system-architect/analysis.md, product-manager/analysis.md, ui-designer/analysis.md]",
+          "Extract 15 requirements from role analyses",
+          "Parse 8 architecture decisions from system-architect analysis"
+        ],
+        "logic_flow": [
+          "Read 3 role analyses from artifacts inventory",
+          "Parse architecture decisions (8 total)",
+          "Extract implementation requirements (15 total)",
+          "Build consolidated requirements list"
+        ],
         "depends_on": [],
         "output": "synthesis_requirements"
       },
       {
         "step": 2,
         "title": "Implement following specification",
-        "description": "Implement task requirements following consolidated role analyses",
-        "modification_points": ["Apply requirements from [synthesis_requirements]", "Modify target files", "Integrate with existing code"],
-        "logic_flow": ["Apply changes based on [synthesis_requirements]", "Implement core logic", "Validate against acceptance criteria"],
+        "description": "Implement 3 features across 5 files following consolidated role analyses",
+        "modification_points": [
+          "Create 5 new files in src/auth/: [auth.service.ts (180 lines), auth.controller.ts (120 lines), auth.middleware.ts (60 lines), auth.types.ts (40 lines), auth.test.ts (200 lines)]",
+          "Modify 2 functions: [validateUser() in users.service.ts lines 45-60, hashPassword() in utils.ts lines 120-135]",
+          "Implement 3 core features: [JWT authentication, role-based authorization, session management]"
+        ],
+        "logic_flow": [
+          "Apply 15 requirements from [synthesis_requirements]",
+          "Implement 3 features across 5 new files (600 total lines)",
+          "Modify 2 existing functions (30 lines total)",
+          "Write 25 test cases covering all features",
+          "Validate against 3 acceptance criteria"
+        ],
         "depends_on": [1],
         "output": "implementation"
       }
     ],
-    "target_files": ["file:function:lines", "path/to/NewFile.ts"]
+    "target_files": [
+      "src/auth/auth.service.ts",
+      "src/auth/auth.controller.ts",
+      "src/auth/auth.middleware.ts",
+      "src/auth/auth.types.ts",
+      "tests/auth/auth.test.ts",
+      "src/users/users.service.ts:validateUser:45-60",
+      "src/utils/utils.ts:hashPassword:120-135"
+    ]
   }
 }
 ```
@@ -285,6 +320,35 @@ Use `analysis_results.complexity` or task count to determine structure:
 - **Re-scope required**: Maximum 10 tasks hard limit
 - If analysis_results contains >10 tasks, consolidate or request re-scoping
 
+## Quantification Requirements (MANDATORY)
+
+**Purpose**: Eliminate ambiguity by enforcing explicit counts and enumerations in all task specifications.
+
+**Core Rules**:
+1. **Extract Counts from Analysis**: Search for HOW MANY items and list them explicitly
+2. **Enforce Explicit Lists**: Every deliverable uses format `{count} {type}: [{explicit_list}]`
+3. **Make Acceptance Measurable**: Include verification commands (e.g., `ls ... | wc -l = N`)
+4. **Quantify Modification Points**: Specify exact targets (files, functions with line numbers)
+5. **Avoid Vague Language**: Replace "complete", "comprehensive", "reorganize" with quantified statements
+
+**Standard Formats**:
+- **Requirements**: `"Implement N items: [item1, item2, ...]"` or `"Modify N files: [file1:func:lines, ...]"`
+- **Acceptance**: `"N items exist: verify by [command]"` or `"Coverage >= X%: verify by [test command]"`
+- **Modification Points**: `"Create N files: [list]"` or `"Modify N functions: [func() in file lines X-Y]"`
+
+**Validation Checklist** (Apply to every generated task JSON):
+- [ ] Every requirement contains explicit count or enumerated list
+- [ ] Every acceptance criterion is measurable with verification command
+- [ ] Every modification_point specifies exact targets (files/functions/lines)
+- [ ] No vague language ("complete", "comprehensive", "reorganize" without counts)
+- [ ] Each implementation step has its own acceptance criteria
+
+**Examples**:
+- ✅ GOOD: `"Implement 5 commands: [cmd1, cmd2, cmd3, cmd4, cmd5]"`
+- ❌ BAD: `"Implement new commands"`
+- ✅ GOOD: `"5 files created: verify by ls .claude/commands/*.md | wc -l = 5"`
+- ❌ BAD: `"All commands implemented successfully"`
+
 ## Quality Standards
 
 **Planning Principles:**
@@ -305,6 +369,7 @@ Use `analysis_results.complexity` or task count to determine structure:
 ## Key Reminders
 
 **ALWAYS:**
+- **Apply Quantification Requirements**: All requirements, acceptance criteria, and modification points MUST include explicit counts and enumerations
 - **Use provided context package**: Extract all information from structured context
 - **Respect memory-first rule**: Use provided content (already loaded from memory/file)
 - **Follow 5-field schema**: All task JSONs must have id, title, status, meta, context, flow_control
@@ -313,6 +378,7 @@ Use `analysis_results.complexity` or task count to determine structure:
 - **Validate task count**: Maximum 10 tasks hard limit, request re-scope if exceeded
 - **Use session paths**: Construct all paths using provided session_id
 - **Link documents properly**: Use correct linking format (📋 for JSON, ✅ for summaries)
+- **Run validation checklist**: Verify all quantification requirements before finalizing task JSONs
 
 **NEVER:**
 - Load files directly (use provided context package instead)

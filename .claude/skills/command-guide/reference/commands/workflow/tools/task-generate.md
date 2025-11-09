@@ -45,7 +45,32 @@ This command is built on a set of core principles to ensure efficient and reliab
 - **Memory-First**: Prioritizes using documents already loaded in conversation memory to avoid redundant file operations
 - **Mode-Flexible**: Supports both agent-driven execution (default) and CLI tool execution (with `--cli-execute` flag)
 - **Multi-Step Support**: Complex tasks can use multiple sequential steps in `implementation_approach` with codex resume mechanism
+- **Quantification-Enforced**: **NEW** - All requirements, acceptance criteria, and modification points MUST include explicit counts and enumerations to prevent ambiguity (e.g., "17 commands: [list]" not "implement commands")
 - **Responsibility**: Parses analysis, detects artifacts, generates enhanced task JSONs, creates `IMPL_PLAN.md` and `TODO_LIST.md`, updates session state
+
+## 3.5. Quantification Requirements (MANDATORY)
+
+**Purpose**: Eliminate ambiguity by enforcing explicit counts and enumerations in all task specifications.
+
+**Core Rules**:
+1. **Extract Counts from Analysis**: Search for HOW MANY items and list them explicitly
+2. **Enforce Explicit Lists**: Every deliverable uses format `{count} {type}: [{explicit_list}]`
+3. **Make Acceptance Measurable**: Include verification commands (e.g., `ls ... | wc -l = N`)
+4. **Quantify Modification Points**: Specify exact targets (files, functions with line numbers)
+5. **Avoid Vague Language**: Replace "complete", "comprehensive", "reorganize" with quantified statements
+
+**Standard Formats**:
+
+- **Requirements**: `"Implement N items: [item1, item2, ...]"` or `"Modify N files: [file1:func:lines, ...]"`
+- **Acceptance**: `"N items exist: verify by [command]"` or `"Coverage >= X%: verify by [test command]"`
+- **Modification Points**: `"Create N files: [list]"` or `"Modify N functions: [func() in file lines X-Y]"`
+
+**Validation Checklist**:
+- [ ] Every requirement contains explicit count or enumerated list
+- [ ] Every acceptance criterion is measurable with verification command
+- [ ] Every modification_point specifies exact targets (files/functions/lines)
+- [ ] No vague language ("complete", "comprehensive", "reorganize" without counts)
+- [ ] Each implementation step has its own acceptance criteria
 
 ## 4. Execution Flow
 The command follows a streamlined, three-step process to convert analysis into executable tasks.
@@ -59,13 +84,39 @@ The process begins by gathering all necessary inputs. It follows a **Memory-Firs
 
 ### Step 2: Task Decomposition & Grouping
 Once all inputs are loaded, the command analyzes the tasks defined in the analysis results and groups them based on shared context.
-1.  **Task Definition Parsing**: Extracts task definitions, requirements, and dependencies.
-2.  **Context Signature Analysis**: Computes a unique hash (`context_signature`) for each task based on its `focus_paths` and referenced `artifacts`.
+
+**Phase 2.1: Quantification Extraction (NEW - CRITICAL)**
+1. **Count Extraction**: Scan analysis documents for quantifiable information:
+   - Search for numbers + nouns (e.g., "5 files", "17 commands", "3 features")
+   - Identify enumerated lists (bullet points, numbered lists, comma-separated items)
+   - Extract explicit counts from tables, diagrams, or structured data
+   - Store extracted counts with their context (what is being counted)
+
+2. **List Enumeration**: Build explicit lists for each deliverable:
+   - If analysis says "implement session commands", enumerate ALL commands: [start, resume, list, complete, archive]
+   - If analysis mentions "create categories", list ALL categories: [literature, experiment, data-analysis, visualization, context]
+   - If analysis describes "modify functions", list ALL functions with line numbers
+   - Maintain full enumerations (no "..." unless list exceeds 20 items)
+
+3. **Verification Method Assignment**: For each deliverable, determine verification approach:
+   - File count: `ls {path}/*.{ext} | wc -l = {count}`
+   - Directory existence: `ls {parent}/ | grep -E '(name1|name2|...)' | wc -l = {count}`
+   - Test coverage: `pytest --cov={module} --cov-report=term | grep TOTAL | awk '{print $4}' >= {percentage}`
+   - Function existence: `grep -E '(func1|func2|...)' {file} | wc -l = {count}`
+
+4. **Ambiguity Detection**: Flag vague language for replacement:
+   - Detect words: "complete", "comprehensive", "reorganize", "refactor", "implement", "create" without counts
+   - Require quantification: "implement" → "implement {N} {items}: [{list}]"
+   - Reject unquantified deliverables
+
+**Phase 2.2: Task Definition & Grouping**
+1.  **Task Definition Parsing**: Extracts task definitions, requirements, and dependencies from quantified analysis
+2.  **Context Signature Analysis**: Computes a unique hash (`context_signature`) for each task based on its `focus_paths` and referenced `artifacts`
 3.  **Task Grouping**:
-    *   Tasks with the **same signature** are candidates for merging, as they operate on the same context.
-    *   Tasks with **different signatures** and no dependencies are grouped for parallel execution.
-    *   Tasks with `depends_on` relationships are marked for sequential execution.
-4.  **Modification Target Determination**: Extracts specific code locations (`file:function:lines`) from the analysis to populate the `target_files` field.
+    *   Tasks with the **same signature** are candidates for merging, as they operate on the same context
+    *   Tasks with **different signatures** and no dependencies are grouped for parallel execution
+    *   Tasks with `depends_on` relationships are marked for sequential execution
+4.  **Modification Target Determination**: Extracts specific code locations (`file:function:lines`) from the analysis to populate the `target_files` field
 
 ### Step 3: Output Generation
 Finally, the command generates all the necessary output files.
@@ -167,38 +218,82 @@ function assignExecutionGroups(tasks) {
 The command produces three key documents and a directory of task files.
 
 ### 6.1. Task JSON Schema (`.task/IMPL-*.json`)
-This enhanced 5-field schema embeds all necessary context, artifacts, and execution steps.
+Each task JSON embeds all necessary context, artifacts, and execution steps using this schema:
 
+**Top-Level Fields**:
+- `id`: Task identifier (format: `IMPL-N` or `IMPL-N.M` for subtasks)
+- `title`: Descriptive task name
+- `status`: Task state (`pending|active|completed|blocked|container`)
+- `context_package_path`: Path to context package (`.workflow/WFS-[session]/.process/context-package.json`)
+- `meta`: Task metadata
+- `context`: Task-specific context and requirements
+- `flow_control`: Execution steps and workflow
+
+**Meta Object**:
+- `type`: Task category (`feature|bugfix|refactor|test-gen|test-fix|docs`)
+- `agent`: Assigned agent (`@code-developer|@test-fix-agent|@universal-executor`)
+- `execution_group`: Parallelization group ID or null
+- `context_signature`: Hash for context-based grouping
+
+**Context Object**:
+- `requirements`: Quantified implementation requirements (with counts and explicit lists)
+- `focus_paths`: Target directories/files (absolute or relative paths)
+- `acceptance`: Measurable acceptance criteria (with verification commands)
+- `parent`: Parent task ID for subtasks
+- `depends_on`: Prerequisite task IDs
+- `inherited`: Shared patterns and dependencies from parent
+- `shared_context`: Tech stack and conventions
+- `artifacts`: Referenced brainstorm artifacts with paths, priority, and usage
+
+**Flow Control Object**:
+- `pre_analysis`: Context loading and preparation steps
+  - `load_context_package`: Load smart context and artifact catalog
+  - `load_role_analysis_artifacts`: Load role analyses dynamically from context package
+  - `load_planning_context`: Load finalized decisions with resolved conflicts
+  - `codebase_exploration`: Discover existing patterns
+  - `analyze_task_patterns`: Identify modification targets
+- `implementation_approach`: Execution steps
+  - **Agent Mode**: Steps contain `modification_points` and `logic_flow` (agent executes autonomously)
+  - **CLI Mode**: Steps include `command` field with CLI tool invocation
+- `target_files`: Specific files/functions/lines to modify
+
+**Key Characteristics**:
+- **Quantification**: All requirements/acceptance use explicit counts and enumerations
+- **Mode Flexibility**: Supports both agent execution (default) and CLI tool execution (`--cli-execute`)
+- **Context Intelligence**: References context-package.json for smart context and artifact paths
+- **Artifact Integration**: Dynamically loads role analyses and brainstorm artifacts
+
+**Example Task JSON**:
 ```json
 {
-  "id": "IMPL-N[.M]",
-  "title": "Descriptive task name",
-  "status": "pending|active|completed|blocked|container",
-  "context_package_path": ".workflow/WFS-[session]/.process/context-package.json",
+  "id": "IMPL-1",
+  "title": "Implement feature X with Y components",
+  "status": "pending",
+  "context_package_path": ".workflow/WFS-session/.process/context-package.json",
   "meta": {
-    "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
-    "agent": "@code-developer|@test-fix-agent|@universal-executor",
-    "execution_group": "group-id|null",
-    "context_signature": "hash-of-focus_paths-and-artifacts"
+    "type": "feature",
+    "agent": "@code-developer",
+    "execution_group": "parallel-abc123",
+    "context_signature": "hash-value"
   },
   "context": {
-    "requirements": ["Clear requirement from analysis"],
-    "focus_paths": ["D:\\project\\src\\module\\path", "./tests/module/path"],
-    "acceptance": ["Measurable acceptance criterion"],
-    "parent": "IMPL-N",
-    "depends_on": ["IMPL-N.M"],
-    "inherited": {"shared_patterns": [], "common_dependencies": []},
-    "shared_context": {"tech_stack": [], "conventions": []},
+    "requirements": [
+      "Implement 5 commands: [cmd1, cmd2, cmd3, cmd4, cmd5]",
+      "Create 3 directories: [dir1/, dir2/, dir3/]",
+      "Modify 2 functions: [funcA() in file1.ts lines 10-25, funcB() in file2.ts lines 40-60]"
+    ],
+    "focus_paths": ["D:\\project\\src\\module", "./tests/module"],
+    "acceptance": [
+      "5 command files created: verify by ls .claude/commands/*/*.md | wc -l = 5",
+      "3 directories exist: verify by ls -d dir*/ | wc -l = 3",
+      "All tests pass: pytest tests/ --cov=src/module (>=80% coverage)"
+    ],
+    "depends_on": [],
     "artifacts": [
       {
-        "path": "{{from context-package.json → brainstorm_artifacts.role_analyses[].files[].path}}",
+        "path": ".workflow/WFS-session/.brainstorming/system-architect/analysis.md",
         "priority": "highest",
-        "usage": "Role-specific requirements, design specs, enhanced by synthesis. Paths loaded dynamically from context-package.json (supports multiple files per role: analysis.md, analysis-01.md, analysis-api.md, etc.). Common roles: product-manager, system-architect, ui-designer, data-architect, ux-expert."
-      },
-      {
-        "path": ".workflow/WFS-[session]/.brainstorming/guidance-specification.md",
-        "priority": "high",
-        "usage": "Finalized design decisions (potentially modified by conflict resolution if conflict_risk was medium/high). Use for: understanding resolved requirements, design choices, conflict resolutions applied in-place"
+        "usage": "Architecture decisions and API specifications"
       }
     ]
   },
@@ -206,18 +301,14 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
     "pre_analysis": [
       {
         "step": "load_context_package",
-        "action": "Load context package for artifact paths",
-        "note": "Context package path is now at top-level field: context_package_path",
-        "commands": [
-          "Read({{context_package_path}})"
-        ],
+        "action": "Load context package for artifact paths and smart context",
+        "commands": ["Read({{context_package_path}})"],
         "output_to": "context_package",
         "on_error": "fail"
       },
       {
         "step": "load_role_analysis_artifacts",
-        "action": "Load role analyses from context-package.json (supports multiple files per role)",
-        "note": "Paths loaded from context-package.json → brainstorm_artifacts.role_analyses[]. Supports analysis*.md automatically.",
+        "action": "Load role analyses from context-package.json",
         "commands": [
           "Read({{context_package_path}})",
           "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
@@ -225,72 +316,35 @@ This enhanced 5-field schema embeds all necessary context, artifacts, and execut
         ],
         "output_to": "role_analysis_artifacts",
         "on_error": "skip_optional"
-      },
-      {
-        "step": "load_planning_context",
-        "action": "Load plan-generated context intelligence with resolved conflicts",
-        "note": "CRITICAL: context-package.json (from context_package_path) provides smart context (focus paths, dependencies, patterns) and conflict resolution status. If conflict_risk was medium/high, conflicts have been resolved in guidance-specification.md and role analyses.",
-        "commands": [
-          "Read({{context_package_path}})",
-          "Read(.workflow/WFS-[session]/.brainstorming/guidance-specification.md)"
-        ],
-        "output_to": "planning_context",
-        "on_error": "fail",
-        "usage_guidance": {
-          "context-package.json": "Use for focus_paths validation, dependency resolution, existing pattern discovery, module structure understanding, conflict_risk status (resolved/none/low)",
-          "guidance-specification.md": "Use for finalized design decisions (includes applied conflict resolutions if any)"
-        }
-      },
-      {
-        "step": "codebase_exploration",
-        "action": "Explore codebase using native tools",
-        "command": "bash(find . -name \"[patterns]\" -type f && rg \"[patterns]\")",
-        "output_to": "codebase_structure"
-      },
-      {
-        "step": "analyze_task_patterns",
-        "action": "Analyze existing code patterns and identify modification targets",
-        "commands": [
-          "bash(cd \"[focus_paths]\")",
-          "bash(gemini \"PURPOSE: Identify modification targets TASK: Analyze '[title]' and locate specific files/functions/lines to modify CONTEXT: [role_analyses] [individual_artifacts] EXPECTED: Code locations in format 'file:function:lines' RULES: Consult role analyses for requirements, identify exact modification points\")"
-        ],
-        "output_to": "task_context_with_targets",
-        "on_error": "fail"
       }
     ],
     "implementation_approach": [
       {
         "step": 1,
-        "title": "Implement task following role analyses and context",
-        "description": "Implement '[title]' following this priority: 1) role analysis.md files (requirements, design specs, enhancements from synthesis), 2) guidance-specification.md (finalized decisions with resolved conflicts), 3) context-package.json (smart context, focus paths, patterns). Role analyses are enhanced by synthesis phase with concept improvements and clarifications. If conflict_risk was medium/high, conflict resolutions are already applied in-place.",
+        "title": "Implement feature following role analyses",
+        "description": "Implement feature X using requirements from role analyses and context package",
         "modification_points": [
-          "Apply requirements and design specs from role analysis documents",
-          "Use enhancements and clarifications from synthesis phase",
-          "Use finalized decisions from guidance-specification.md (includes resolved conflicts)",
-          "Use context-package.json for focus paths and dependency resolution",
-          "Consult specific role artifacts for implementation details when needed",
-          "Integrate with existing patterns"
+          "Create 5 command files: [cmd1.md, cmd2.md, cmd3.md, cmd4.md, cmd5.md]",
+          "Modify funcA() in file1.ts lines 10-25: add validation logic",
+          "Modify funcB() in file2.ts lines 40-60: integrate with new API"
         ],
         "logic_flow": [
-          "Load role analyses (requirements, design, enhancements from synthesis)",
-          "Load guidance-specification.md (finalized decisions with resolved conflicts if any)",
-          "Load context-package.json (smart context: focus paths, dependencies, patterns, conflict_risk status)",
-          "Extract requirements and design decisions from role documents",
-          "Review synthesis enhancements and clarifications",
-          "Use finalized decisions (conflicts already resolved if applicable)",
-          "Identify modification targets using context package",
-          "Implement following role requirements and design specs",
-          "Consult role artifacts for detailed specifications when needed",
+          "Load role analyses and context package",
+          "Extract requirements and design decisions",
+          "Implement commands following existing patterns",
+          "Update functions with new logic",
           "Validate against acceptance criteria"
         ],
         "depends_on": [],
         "output": "implementation"
       }
     ],
-    "target_files": ["file:function:lines"]
+    "target_files": ["file1.ts:funcA:10-25", "file2.ts:funcB:40-60"]
   }
 }
 ```
+
+**Note**: In CLI Execute Mode (`--cli-execute`), `implementation_approach` steps include a `command` field with the CLI tool invocation (e.g., `bash(codex ...)`).
 
 ### 6.2. IMPL_PLAN.md Structure
 This document provides a high-level overview of the entire implementation plan.
@@ -585,194 +639,7 @@ Artifacts are mapped to tasks based on their relevance to the task's domain.
 
 This ensures that each task has access to the most relevant and detailed specifications from role-specific analyses.
 
-## 8. CLI Execute Mode Details
-When using `--cli-execute`, each step in `implementation_approach` includes a `command` field with the execution command.
-
-**Key Points**:
-- **Sequential Steps**: Steps execute in order defined in `implementation_approach` array
-    - **Context Delivery**: Each codex command receives context via CONTEXT field: `@{context_package_path}` (role analyses loaded dynamically from context package)- **Multi-Step Tasks**: First step provides full context, subsequent steps use `resume --last` to maintain session continuity
-- **Step Dependencies**: Later steps reference outputs from earlier steps via `depends_on` field
-
-### Example 1: Agent Mode - Simple Task (Default, No Command)
-```json
-{
-  "id": "IMPL-001",
-  "title": "Implement user authentication module",
-  "context_package_path": ".workflow/WFS-session/.process/context-package.json",
-  "context": {
-    "depends_on": [],
-    "focus_paths": ["src/auth"],
-    "requirements": ["JWT-based authentication", "Login and registration endpoints"],
-    "acceptance": [
-      "JWT token generation working",
-      "Login and registration endpoints implemented",
-      "Tests passing with >70% coverage"
-    ]
-  },
-  "flow_control": {
-    "pre_analysis": [
-      {
-        "step": "load_role_analyses",
-        "action": "Load role analyses from context-package.json",
-        "commands": [
-          "Read({{context_package_path}})",
-          "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
-          "Read(each extracted path)"
-        ],
-        "output_to": "role_analyses",
-        "on_error": "fail"
-      },
-      {
-        "step": "load_context",
-        "action": "Load context package for project structure",
-        "commands": ["Read({{context_package_path}})"],
-        "output_to": "context_pkg",
-        "on_error": "fail"
-      }
-    ],
-    "implementation_approach": [
-      {
-        "step": 1,
-        "title": "Implement JWT-based authentication",
-        "description": "Create authentication module using JWT following [role_analyses] requirements and [context_pkg] patterns",
-        "modification_points": [
-          "Create auth service with JWT generation",
-          "Implement login endpoint with credential validation",
-          "Implement registration endpoint with user creation",
-          "Add JWT middleware for route protection"
-        ],
-        "logic_flow": [
-          "User registers → validate input → hash password → create user",
-          "User logs in → validate credentials → generate JWT → return token",
-          "Protected routes → validate JWT → extract user → allow access"
-        ],
-        "depends_on": [],
-        "output": "auth_implementation"
-      }
-    ],
-    "target_files": ["src/auth/service.ts", "src/auth/middleware.ts", "src/routes/auth.ts"]
-  }
-}
-```
-
-### Example 2: CLI Execute Mode - Single Codex Step
-```json
-{
-  "id": "IMPL-002",
-  "title": "Implement user authentication module",
-  "context_package_path": ".workflow/WFS-session/.process/context-package.json",
-  "context": {
-    "depends_on": [],
-    "focus_paths": ["src/auth"],
-    "requirements": ["JWT-based authentication", "Login and registration endpoints"],
-    "acceptance": ["JWT generation working", "Endpoints implemented", "Tests passing"]
-  },
-  "flow_control": {
-    "pre_analysis": [
-      {
-        "step": "load_role_analyses",
-        "action": "Load role analyses from context-package.json",
-        "commands": [
-          "Read({{context_package_path}})",
-          "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
-          "Read(each extracted path)"
-        ],
-        "output_to": "role_analyses",
-        "on_error": "fail"
-      }
-    ],
-    "implementation_approach": [
-      {
-        "step": 1,
-        "title": "Implement authentication with Codex",
-        "description": "Create JWT-based authentication module",
-        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Implement user authentication TASK: JWT-based auth with login/registration MODE: auto CONTEXT: @{{context_package_path}} EXPECTED: Complete auth module with tests RULES: Load role analyses from context-package.json → brainstorm_artifacts\" --skip-git-repo-check -s danger-full-access)",
-        "modification_points": ["Create auth service", "Implement endpoints", "Add JWT middleware"],
-        "logic_flow": ["Validate credentials", "Generate JWT", "Return token"],
-        "depends_on": [],
-        "output": "auth_implementation"
-      }
-    ],
-    "target_files": ["src/auth/service.ts", "src/auth/middleware.ts"]
-  }
-}
-```
-
-### Example 3: CLI Execute Mode - Multi-Step with Resume
-```json
-{
-  "id": "IMPL-003",
-  "title": "Implement role-based access control",
-  "context_package_path": ".workflow/WFS-session/.process/context-package.json",
-  "context": {
-    "depends_on": ["IMPL-002"],
-    "focus_paths": ["src/auth", "src/middleware"],
-    "requirements": ["User roles and permissions", "Route protection middleware"],
-    "acceptance": ["RBAC models created", "Middleware working", "Management API complete"]
-  },
-  "flow_control": {
-    "pre_analysis": [
-      {
-        "step": "load_context",
-        "action": "Load context and role analyses from context-package.json",
-        "commands": [
-          "Read({{context_package_path}})",
-          "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
-          "Read(each extracted path)"
-        ],
-        "output_to": "full_context",
-        "on_error": "fail"
-      }
-    ],
-    "implementation_approach": [
-      {
-        "step": 1,
-        "title": "Create RBAC models",
-        "description": "Define role and permission data models",
-        "command": "bash(codex -C src/auth --full-auto exec \"PURPOSE: Create RBAC models TASK: Role and permission models MODE: auto CONTEXT: @{{context_package_path}} EXPECTED: Models with migrations RULES: Load role analyses from context-package.json → brainstorm_artifacts\" --skip-git-repo-check -s danger-full-access)",
-        "modification_points": ["Define role model", "Define permission model", "Create migrations"],
-        "logic_flow": ["Design schema", "Implement models", "Generate migrations"],
-        "depends_on": [],
-        "output": "rbac_models"
-      },
-      {
-        "step": 2,
-        "title": "Implement RBAC middleware",
-        "description": "Create route protection middleware using models from step 1",
-        "command": "bash(codex --full-auto exec \"PURPOSE: Create RBAC middleware TASK: Route protection middleware MODE: auto CONTEXT: RBAC models from step 1 EXPECTED: Middleware for route protection RULES: Use session patterns\" resume --last --skip-git-repo-check -s danger-full-access)",
-        "modification_points": ["Create permission checker", "Add route decorators", "Integrate with auth"],
-        "logic_flow": ["Check user role", "Validate permissions", "Allow/deny access"],
-        "depends_on": [1],
-        "output": "rbac_middleware"
-      },
-      {
-        "step": 3,
-        "title": "Add role management API",
-        "description": "Create CRUD endpoints for roles and permissions",
-        "command": "bash(codex --full-auto exec \"PURPOSE: Role management API TASK: CRUD endpoints for roles/permissions MODE: auto CONTEXT: Models and middleware from previous steps EXPECTED: Complete API with validation RULES: Maintain consistency\" resume --last --skip-git-repo-check -s danger-full-access)",
-        "modification_points": ["Create role endpoints", "Create permission endpoints", "Add validation"],
-        "logic_flow": ["Define routes", "Implement controllers", "Add authorization"],
-        "depends_on": [2],
-        "output": "role_management_api"
-      }
-    ],
-    "target_files": [
-      "src/models/Role.ts",
-      "src/models/Permission.ts",
-      "src/middleware/rbac.ts",
-      "src/routes/roles.ts"
-    ]
-  }
-}
-```
-
-**Pattern Summary**:
-- **Agent Mode (Example 1)**: No `command` field - agent executes via `modification_points` and `logic_flow`
-- **CLI Mode Single-Step (Example 2)**: One `command` field with full context package
-- **CLI Mode Multi-Step (Example 3)**: First step uses full context, subsequent steps use `resume --last`
-- **Context Delivery**: Context package provided via `@{...}` references in CONTEXT field
-
-## 9. Error Handling
+## 8. Error Handling
 
 ### Input Validation Errors
 | Error | Cause | Resolution |
@@ -795,21 +662,19 @@ When using `--cli-execute`, each step in `implementation_approach` includes a `c
 | Invalid format | Corrupted file | Skip artifact loading |
 | Path invalid | Moved/deleted | Update references |
 
-## 10. Integration & Usage
+## 10. Usage & Related Commands
 
-### Command Chain
-- **Called By**: `/workflow:plan` (Phase 4)
-- **Calls**: None (terminal command)
-- **Followed By**: `/workflow:execute`, `/workflow:status`
-
-### Basic Usage
+**Basic Usage**:
 ```bash
-/workflow:tools:task-generate --session WFS-auth
+/workflow:tools:task-generate --session WFS-auth [--cli-execute]
 ```
 
-## 11. Related Commands
-- `/workflow:plan` - Orchestrates entire planning
-- `/workflow:plan --cli-execute` - Planning with CLI execution mode
-- `/workflow:tools:context-gather` - Provides context package
-- `/workflow:tools:conflict-resolution` - Provides conflict resolution strategies (optional)
+**Workflow Integration**:
+- Called by: `/workflow:plan` (task generation phase)
+- Followed by: `/workflow:execute`, `/workflow:status`
+
+**Related Commands**:
+- `/workflow:plan` - Orchestrates entire planning workflow
+- `/workflow:tools:context-gather` - Provides context package input
+- `/workflow:tools:conflict-resolution` - Provides conflict resolution (if needed)
 - `/workflow:execute` - Executes generated tasks
