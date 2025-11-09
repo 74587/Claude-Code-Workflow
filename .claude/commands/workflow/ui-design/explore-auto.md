@@ -487,66 +487,6 @@ TodoWrite({todos: [
 // This ensures continuous workflow tracking and prevents premature stopping
 ```
 
-## Key Features
-
-- **🚀 Performance**: Style-centric batch generation with S agent calls
-- **🎨 Style-Aware**: HTML structure adapts to design_attributes
-- **✅ Perfect Consistency**: Each style by single agent
-- **📦 Autonomous**: No user intervention required between phases
-- **🧠 Intelligent**: Parses natural language, infers targets/types
-- **🔄 Reproducible**: Deterministic flow with isolated run directories
-- **🎯 Flexible**: Supports pages, components, or mixed targets
-
-## Examples
-
-### 1. Page Mode (Prompt Inference)
-```bash
-/workflow:ui-design:explore-auto --prompt "Modern blog: home, article, author"
-# Result: 27 prototypes (3×3×3) - responsive layouts (default)
-```
-
-### 2. Mobile-First Design
-```bash
-/workflow:ui-design:explore-auto --prompt "Mobile shopping app: home, product, cart" --device-type mobile
-# Result: 27 prototypes (3×3×3) - mobile layouts (375×812px)
-```
-
-### 3. Desktop Application
-```bash
-/workflow:ui-design:explore-auto --targets "dashboard,analytics,settings" --device-type desktop --style-variants 2 --layout-variants 2
-# Result: 12 prototypes (2×2×3) - desktop layouts (1920×1080px)
-```
-
-### 4. Tablet Interface
-```bash
-/workflow:ui-design:explore-auto --prompt "Educational app for tablets" --device-type tablet --targets "courses,lessons,profile"
-# Result: 27 prototypes (3×3×3) - tablet layouts (768×1024px)
-```
-
-### 5. Custom Matrix with Session
-```bash
-/workflow:ui-design:explore-auto --session WFS-ecommerce --images "refs/*.png" --style-variants 2 --layout-variants 2
-# Result: 2×2×N prototypes - device type inferred from session
-```
-
-### 6. Component Mode (Desktop)
-```bash
-/workflow:ui-design:explore-auto --targets "navbar,hero" --target-type "component" --device-type desktop --style-variants 3 --layout-variants 2
-# Result: 12 prototypes (3×2×2) - desktop components
-```
-
-### 7. Intelligent Parsing + Batch Planning
-```bash
-/workflow:ui-design:explore-auto --prompt "Create 4 styles with 2 layouts for mobile dashboard and settings" --batch-plan
-# Result: 16 prototypes (4×2×2) + auto-generated tasks - mobile-optimized (inferred from prompt)
-```
-
-### 8. Large Scale Responsive
-```bash
-/workflow:ui-design:explore-auto --targets "home,dashboard,settings,profile" --device-type responsive --style-variants 3 --layout-variants 3
-# Result: 36 prototypes (3×3×4) - responsive layouts
-```
-
 ## Completion Output
 ```
 ✅ UI Design Explore-Auto Workflow Complete!
