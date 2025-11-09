@@ -1,7 +1,7 @@
 ---
 name: workflow:ui-design:import-from-code
 description: Import design system from code files (CSS/JS/HTML/SCSS) using parallel agent analysis with final synthesis
-argument-hint: "[--base-path <path>] [--source <path>] [--css \"<glob>\"] [--js \"<glob>\"] [--scss \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"] [--session <id>]"
+argument-hint: "[--design-id <id>] [--session <id>] [--source <path>] [--css \"<glob>\"] [--js \"<glob>\"] [--scss \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"]"
 allowed-tools: Read,Write,Bash,Glob,Grep,Task,TodoWrite
 auto-continue: true
 ---
@@ -34,33 +34,36 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 /workflow:ui-design:import-from-code [FLAGS]
 
 # Flags
---base-path <path>      Output directory for extracted design tokens (default: current directory)
---source <path>         Source code directory to analyze (default: base-path)
+--design-id <id>        Design run ID to import into (must exist)
+--session <id>          Session ID (uses latest design run in session)
+--source <path>         Source code directory to analyze (required)
 --css "<glob>"          CSS file glob pattern (e.g., "theme/*.css")
 --scss "<glob>"         SCSS file glob pattern (e.g., "styles/*.scss")
 --js "<glob>"           JavaScript file glob pattern (e.g., "theme/*.js")
 --html "<glob>"         HTML file glob pattern (e.g., "pages/*.html")
 --style-files "<glob>"  Universal style file glob (applies to CSS/SCSS/JS)
---session <id>          Session identifier for workflow tracking
 ```
 
 ### Usage Examples
 
 ```bash
-# Basic usage - auto-discover all files
-/workflow:ui-design:import-from-code --base-path ./design-system --source ./src
+# Import into specific design run
+/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./src
+
+# Import into session's latest design run
+/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src
 
 # Target specific directories
-/workflow:ui-design:import-from-code --base-path ./design-system --source ./src --css "theme/*.css" --js "theme/*.js"
+/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src --css "theme/*.css" --js "theme/*.js"
 
-# Tailwind config only (output to current directory)
-/workflow:ui-design:import-from-code --source ./ --js "tailwind.config.js"
+# Tailwind config only
+/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./ --js "tailwind.config.js"
 
 # CSS framework import
-/workflow:ui-design:import-from-code --base-path ./design-system --source ./src --css "styles/**/*.scss" --html "components/**/*.html"
+/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src --css "styles/**/*.scss" --html "components/**/*.html"
 
 # Universal style files
-/workflow:ui-design:import-from-code --base-path ./design-system --source ./src --style-files "**/theme.*"
+/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./src --style-files "**/theme.*"
 ```
 
 ---
@@ -74,13 +77,40 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 **Operations**:
 
 ```bash
-# 1. Initialize directories
-base_path="${base_path:-.}"
-source="${source:-$base_path}"
+# 1. Determine base path with priority: --design-id > --session > error
+if [ -n "$DESIGN_ID" ]; then
+  # Exact match by design ID
+  relative_path=$(find .workflow -name "${DESIGN_ID}" -type d -print -quit)
+  if [ -z "$relative_path" ]; then
+    echo "ERROR: Design run not found: $DESIGN_ID"
+    echo "HINT: Run '/workflow:ui-design:list' to see available design runs"
+    exit 1
+  fi
+elif [ -n "$SESSION_ID" ]; then
+  # Latest in session
+  relative_path=$(find .workflow/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+  if [ -z "$relative_path" ]; then
+    echo "ERROR: No design run found in session: $SESSION_ID"
+    echo "HINT: Create a design run first or provide --design-id"
+    exit 1
+  fi
+else
+  echo "ERROR: Must provide --design-id or --session parameter"
+  exit 1
+fi
+
+base_path=$(cd "$relative_path" && pwd)
+design_id=$(basename "$base_path")
+
+# 2. Initialize directories
+source="${source:-.}"
 intermediates_dir="${base_path}/.intermediates/import-analysis"
 mkdir -p "$intermediates_dir"
 
-echo "[Phase 0] File Discovery Started (source: $source, output: $base_path)"
+echo "[Phase 0] File Discovery Started"
+echo "  Design ID: $design_id"
+echo "  Source: $source"
+echo "  Output: $base_path"
 ```
 
 <!-- TodoWrite: Initialize todo list -->
@@ -781,8 +811,8 @@ ${base_path}/
 ## Best Practices
 
 1. **Use auto-discovery for full projects**: Omit glob flags to discover all files automatically
-2. **Target specific directories for speed**: Use `--source` to specify source code location and `--base-path` for extracted tokens output, combined with specific globs for focused analysis
-3. **Separate source and output**: When analyzing external codebases, use `--source` to point to source code and `--base-path` for design tokens output directory (default: --source uses --base-path if not specified)
+2. **Target specific directories for speed**: Use `--source` to specify source code location and `--design-id` or `--session` to target design run, combined with specific globs for focused analysis
+3. **Specify target design run**: Use `--design-id` for existing design run or `--session` to use session's latest design run (one of these is required)
 4. **Cross-reference agent reports**: Compare all three completeness reports to identify gaps
 5. **Review missing content**: Check `missing` field in reports for actionable improvements
 6. **Verify file discovery**: Check `${base_path}/.intermediates/import-analysis/*-files.txt` if agents report no data

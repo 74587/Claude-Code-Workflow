@@ -99,17 +99,17 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 ### Phase 0: Initialization and Target Parsing
 
 ```bash
-# Generate run ID
-run_id = "run-$(date +%Y%m%d)-$RANDOM"
+# Generate design ID (ID = directory name)
+design_id = "design-run-$(date +%Y%m%d)-$RANDOM"
 
 # Determine base path and session mode
 IF --session:
     session_id = {provided_session}
-    relative_base_path = ".workflow/WFS-{session_id}/design-{run_id}"
+    relative_base_path = ".workflow/WFS-{session_id}/{design_id}"
     session_mode = "integrated"
 ELSE:
     session_id = null
-    relative_base_path = ".workflow/.design/design-{run_id}"
+    relative_base_path = ".workflow/.design/{design_id}"
     session_mode = "standalone"
 
 # Create base directory and convert to absolute path
@@ -225,7 +225,7 @@ IF design_source == "hybrid":
     REPORT: "   → Source: {code_base_path}"
     REPORT: "   → Mode: Hybrid (Web + Code)"
 
-    command = "/workflow:ui-design:import-from-code --base-path \"{base_path}\" " +
+    command = "/workflow:ui-design:import-from-code --design-id \"{design_id}\" " +
               "--source \"{code_base_path}\""
 
     TRY:
@@ -326,7 +326,7 @@ REPORT: "━━━━━━━━━━━━━━━━━━━━━━━�
 IF capture_mode == "batch":
     # Mode A: Batch Multi-URL Capture
     url_map_command_string = ",".join([f"{name}:{url}" for name, url in url_map.items()])
-    capture_command = f"/workflow:ui-design:capture --base-path \"{base_path}\" --url-map \"{url_map_command_string}\""
+    capture_command = f"/workflow:ui-design:capture --design-id \"{design_id}\" --url-map \"{url_map_command_string}\""
 
     TRY:
         SlashCommand(capture_command)
@@ -359,7 +359,7 @@ IF capture_mode == "batch":
 ELSE:  # capture_mode == "deep"
     # Mode B: Deep Interactive Layer Exploration
     primary_url = url_map[primary_target]
-    explore_command = f"/workflow:ui-design:explore-layers --url \"{primary_url}\" --depth {depth} --base-path \"{base_path}\""
+    explore_command = f"/workflow:ui-design:explore-layers --url \"{primary_url}\" --depth {depth} --design-id \"{design_id}\""
 
     TRY:
         SlashCommand(explore_command)
@@ -408,7 +408,7 @@ ELSE:
             extraction_prompt = f"Extract visual style tokens from '{primary_target}' with consistency across all pages."
 
     url_map_for_extract = ",".join([f"{name}:{url}" for name, url in url_map.items()])
-    extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --variants 1 --interactive"
+    extract_command = f"/workflow:ui-design:style-extract --design-id \"{design_id}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --variants 1 --interactive"
     SlashCommand(extract_command)
 
 TodoWrite(mark_completed: "Extract style", mark_in_progress: "Extract animation")
@@ -424,7 +424,7 @@ IF skip_animation:
 ELSE:
     REPORT: "🚀 Phase 2.3: Animation Extraction"
     url_map_for_animation = ",".join([f"{target}:{url}" for target, url in url_map.items()])
-    animation_extract_command = f"/workflow:ui-design:animation-extract --base-path \"{base_path}\" --urls \"{url_map_for_animation}\" --mode auto"
+    animation_extract_command = f"/workflow:ui-design:animation-extract --design-id \"{design_id}\" --urls \"{url_map_for_animation}\" --mode auto"
     SlashCommand(animation_extract_command)
 
 ```
@@ -439,7 +439,7 @@ IF skip_layout:
 ELSE:
     REPORT: "🚀 Phase 2.5: Layout Extraction"
     url_map_for_layout = ",".join([f"{target}:{url}" for target, url in url_map.items()])
-    layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --variants 1 --interactive"
+    layout_extract_command = f"/workflow:ui-design:layout-extract --design-id \"{design_id}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --variants 1 --interactive"
     SlashCommand(layout_extract_command)
 
 TodoWrite(mark_completed: "Extract layout", mark_in_progress: "Assemble UI")
@@ -449,7 +449,7 @@ TodoWrite(mark_completed: "Extract layout", mark_in_progress: "Assemble UI")
 
 ```bash
 REPORT: "🚀 Phase 3: UI Assembly"
-generate_command = f"/workflow:ui-design:generate --base-path \"{base_path}\" --style-variants 1 --layout-variants 1"
+generate_command = f"/workflow:ui-design:generate --design-id \"{design_id}\" --style-variants 1 --layout-variants 1"
 SlashCommand(generate_command)
 
 TodoWrite(mark_completed: "Assemble UI", mark_in_progress: session_id ? "Integrate design system" : "Completion")

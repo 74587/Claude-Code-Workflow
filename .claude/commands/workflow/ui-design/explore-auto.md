@@ -206,8 +206,8 @@ STORE: device_type, device_source
 
 ### Phase 0b: Run Initialization & Directory Setup
 ```bash
-run_id = "run-$(date +%Y%m%d)-$RANDOM"
-relative_base_path = --session ? ".workflow/WFS-{session}/design-${run_id}" : ".workflow/.design/design-${run_id}"
+design_id = "design-run-$(date +%Y%m%d)-$RANDOM"
+relative_base_path = --session ? ".workflow/WFS-{session}/${design_id}" : ".workflow/.design/${design_id}"
 
 # Create directory and convert to absolute path
 Bash(mkdir -p "${relative_base_path}/style-extraction")
@@ -215,7 +215,7 @@ Bash(mkdir -p "${relative_base_path}/prototypes")
 base_path=$(cd "${relative_base_path}" && pwd)
 
 Write({base_path}/.run-metadata.json): {
-  "run_id": "${run_id}", "session_id": "${session_id}", "timestamp": "...",
+  "design_id": "${design_id}", "session_id": "${session_id}", "timestamp": "...",
   "workflow": "ui-design:auto",
   "architecture": "style-centric-batch-generation",
   "parameters": { "style_variants": ${style_variants}, "layout_variants": ${layout_variants},
@@ -313,8 +313,21 @@ detect_target_type(target_list):
 ```bash
 IF design_source IN ["code_only", "hybrid"]:
     REPORT: "🔍 Phase 0d: Code Import ({design_source})"
-    command = "/workflow:ui-design:import-from-code --base-path \"{base_path}\" --source \"{code_base_path}\""
-    SlashCommand(command)
+    command = "/workflow:ui-design:import-from-code --design-id \"{design_id}\" --source \"{code_base_path}\""
+
+    TRY:
+        SlashCommand(command)
+    CATCH error:
+        WARN: "⚠️ Code import failed: {error}"
+        WARN: "Cleaning up incomplete import directories"
+        Bash(rm -rf "{base_path}/style-extraction" "{base_path}/animation-extraction" "{base_path}/layout-extraction" 2>/dev/null)
+
+        IF design_source == "code_only":
+            REPORT: "Cannot proceed with code-only mode after import failure"
+            EXIT 1
+        ELSE:  # hybrid mode
+            WARN: "Continuing with visual-only mode"
+            design_source = "visual_only"
 
     # Check file existence and assess completeness
     style_exists = exists("{base_path}/style-extraction/style-1/design-tokens.json")
@@ -390,7 +403,7 @@ IF design_source IN ["code_only", "hybrid"]:
 ```bash
 IF design_source == "visual_only" OR needs_visual_supplement:
     REPORT: "🎨 Phase 1: Style Extraction (variants: {style_variants})"
-    command = "/workflow:ui-design:style-extract --base-path \"{base_path}\" " +
+    command = "/workflow:ui-design:style-extract --design-id \"{design_id}\" " +
               (--images ? "--images \"{images}\" " : "") +
               (--prompt ? "--prompt \"{prompt}\" " : "") +
               "--variants {style_variants} --interactive"
@@ -403,7 +416,7 @@ ELSE:
 ```bash
 IF design_source == "visual_only" OR NOT animation_complete:
     REPORT: "🚀 Phase 2.3: Animation Extraction"
-    command = "/workflow:ui-design:animation-extract --base-path \"{base_path}\" --mode interactive"
+    command = "/workflow:ui-design:animation-extract --design-id \"{design_id}\" --mode interactive"
     SlashCommand(command)
 ELSE:
     REPORT: "✅ Phase 2.3: Animation (Using Code Import)"
@@ -419,7 +432,7 @@ targets_string = ",".join(inferred_target_list)
 
 IF (design_source == "visual_only" OR needs_visual_supplement) OR (NOT layout_complete):
     REPORT: "🚀 Phase 2.5: Layout Extraction ({targets_string}, variants: {layout_variants}, device: {device_type})"
-    command = "/workflow:ui-design:layout-extract --base-path \"{base_path}\" " +
+    command = "/workflow:ui-design:layout-extract --design-id \"{design_id}\" " +
               (--images ? "--images \"{images}\" " : "") +
               (--prompt ? "--prompt \"{prompt}\" " : "") +
               "--targets \"{targets_string}\" --variants {layout_variants} --device-type \"{device_type}\" --interactive"
@@ -430,7 +443,7 @@ ELSE:
 
 ### Phase 3: UI Assembly
 ```bash
-command = "/workflow:ui-design:generate --base-path \"{base_path}\""
+command = "/workflow:ui-design:generate --design-id \"{design_id}\""
 
 total = style_variants × layout_variants × len(inferred_target_list)
 

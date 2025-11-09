@@ -1,7 +1,7 @@
 ---
 name: generate
 description: Assemble UI prototypes by combining layout templates with design tokens (default animation support), pure assembler without new content generation
-argument-hint: [--base-path <path>] [--session <id>]
+argument-hint: [--design-id <id>] [--session <id>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 ---
 
@@ -25,14 +25,27 @@ Pure assembler that combines pre-extracted layout templates with design tokens t
 
 ### Step 1: Resolve Base Path & Parse Configuration
 ```bash
-# Determine working directory (relative path - finds latest)
-relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+# Determine base path with priority: --design-id > --session > auto-detect
+if [ -n "$DESIGN_ID" ]; then
+  # Exact match by design ID
+  relative_path=$(find .workflow -name "${DESIGN_ID}" -type d -print -quit)
+elif [ -n "$SESSION_ID" ]; then
+  # Latest in session
+  relative_path=$(find .workflow/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+else
+  # Latest globally
+  relative_path=$(find .workflow -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+fi
 
-# Convert to absolute path
+# Validate and convert to absolute path
+if [ -z "$relative_path" ] || [ ! -d "$relative_path" ]; then
+  echo "❌ ERROR: Design run not found"
+  echo "💡 HINT: Run '/workflow:ui-design:list' to see available design runs"
+  exit 1
+fi
+
 base_path=$(cd "$relative_path" && pwd)
-
-# Verify absolute path
-bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
+bash(echo "✓ Base path: $base_path")
 
 # Get style count
 bash(ls "$base_path"/style-extraction/style-* -d | wc -l)

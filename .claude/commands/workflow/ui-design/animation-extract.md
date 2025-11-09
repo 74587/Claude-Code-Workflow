@@ -1,7 +1,7 @@
 ---
 name: animation-extract
 description: Extract animation and transition patterns from URLs, CSS, or interactive questioning for design system documentation
-argument-hint: "[--base-path <path>] [--session <id>] [--urls "<list>"] [--focus "<types>"] [--interactive]"
+argument-hint: "[--design-id <id>] [--session <id>] [--urls "<list>"] [--focus "<types>"] [--interactive]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
 ---
 
@@ -54,11 +54,27 @@ ELSE:
 # Check interactive mode flag
 interactive_mode = --interactive OR false
 
-# Determine base path (auto-detect and convert to absolute)
-relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+# Determine base path with priority: --design-id > --session > auto-detect
+if [ -n "$DESIGN_ID" ]; then
+  # Exact match by design ID
+  relative_path=$(find .workflow -name "${DESIGN_ID}" -type d -print -quit)
+elif [ -n "$SESSION_ID" ]; then
+  # Latest in session
+  relative_path=$(find .workflow/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+else
+  # Latest globally
+  relative_path=$(find .workflow -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+fi
+
+# Validate and convert to absolute path
+if [ -z "$relative_path" ] || [ ! -d "$relative_path" ]; then
+  echo "❌ ERROR: Design run not found"
+  echo "💡 HINT: Run '/workflow:ui-design:list' to see available design runs"
+  exit 1
+fi
+
 base_path=$(cd "$relative_path" && pwd)
-bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
-# OR use --base-path / --session parameters
+bash(echo "✓ Base path: $base_path")
 ```
 
 ### Step 2: Extract Computed Animations (URL Mode - Auto-Trigger)
