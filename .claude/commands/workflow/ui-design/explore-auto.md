@@ -582,8 +582,10 @@ Design Quality:
 📂 {base_path}/
   ├── .intermediates/          (Intermediate analysis files)
   │   ├── style-analysis/      (analysis-options.json with embedded user_selection, computed-styles.json if URL mode)
+  │   ├── animation-analysis/  (analysis-options.json with embedded user_selection, animations-*.json if URL mode)
   │   └── layout-analysis/     (analysis-options.json with embedded user_selection, dom-structure-*.json if URL mode)
   ├── style-extraction/        ({s} complete design systems)
+  ├── animation-extraction/    (animation-tokens.json, animation-guide.md)
   ├── layout-extraction/       ({n×l} layout template files: layout-{target}-{variant}.json)
   ├── prototypes/              ({total} assembled prototypes)
   └── .run-metadata.json       (includes device type)
