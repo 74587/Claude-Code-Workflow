@@ -1,8 +1,8 @@
 ---
 name: style-extract
 description: Extract design style from reference images or text prompts using Claude analysis with variant generation
-argument-hint: "[--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--variants <count>]"
-allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
+argument-hint: "[--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--variants <count>] [--interactive]"
+allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), AskUserQuestion(*), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
 ---
 
 # Style Extraction Command
@@ -46,7 +46,7 @@ variants_count = --variants OR 3
 VALIDATE: 1 <= variants_count <= 5
 
 # Determine base path (auto-detect and convert to absolute)
-relative_path=$(find .workflow -type d -name "design-run-*" | head -1)
+relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
 base_path=$(cd "$relative_path" && pwd)
 bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
 # OR use --base-path / --session parameters
@@ -204,11 +204,23 @@ bash(cat {base_path}/.intermediates/style-analysis/analysis-options.json | grep 
 
 ---
 
-## Phase 1.5: User Confirmation (Explore Mode Only - INTERACTIVE)
+## Phase 1.5: User Confirmation (Optional - Triggered by --interactive)
 
 **Purpose**: Allow user to select preferred design direction(s) before generating full design systems
 
-### Step 1: Load and Present Options
+**Trigger Condition**: Execute this phase ONLY if `--interactive` flag is present
+
+### Step 1: Check Interactive Flag
+```bash
+# Skip this entire phase if --interactive flag is not present
+IF NOT --interactive:
+    SKIP to Phase 2
+    REPORT: "ℹ️ Non-interactive mode: Will generate all {variants_count} variants"
+
+REPORT: "🎯 Interactive mode enabled: User selection required"
+```
+
+### Step 2: Load and Present Options
 ```bash
 # Read options file
 options = Read({base_path}/.intermediates/style-analysis/analysis-options.json)
@@ -290,6 +302,9 @@ REPORT: "✅ Selected {selected_indices.length} design direction(s)"
 
 ### Step 4: Write User Selection File
 ```bash
+# Create user-selections directory
+bash(mkdir -p {base_path}/.intermediates/user-selections)
+
 # Create user selection JSON
 selection_data = {
   "metadata": {
@@ -298,17 +313,17 @@ selection_data = {
     "session_id": "{session_id}",
     "selection_count": selected_indices.length
   },
-  "selected_indices": selected_indices,  // Array of selected indices
+  "selected_variants": selected_indices,  // Array of selected indices (e.g., [1, 3])
   "refinements": {
     "enabled": false
   }
 }
 
-# Write to file
-bash(echo '{selection_data}' > {base_path}/.intermediates/style-analysis/user-selection.json)
+# Write to standardized selection file
+bash(echo '{selection_data}' > {base_path}/.intermediates/user-selections/style-extract-selection.json)
 
 # Verify
-bash(test -f {base_path}/.intermediates/style-analysis/user-selection.json && echo "saved")
+bash(test -f {base_path}/.intermediates/user-selections/style-extract-selection.json && echo "saved")
 ```
 
 ### Step 5: Confirmation Message
@@ -329,11 +344,20 @@ Proceeding to generate {selected_indices.length} complete design system(s)...
 
 **Executor**: `Task(ui-design-agent)` for selected variant(s)
 
-### Step 1: Load User Selection
+### Step 1: Load User Selection or Default to All
 ```bash
-# Read user selection
-selection = Read({base_path}/.intermediates/style-analysis/user-selection.json)
-selected_indices = selection.selected_indices  # Array of selected indices
+# Check if user selection file exists (interactive mode)
+IF exists({base_path}/.intermediates/user-selections/style-extract-selection.json):
+    # Interactive mode: Use user-selected variants
+    selection = Read({base_path}/.intermediates/user-selections/style-extract-selection.json)
+    selected_indices = selection.selected_variants  # Array of selected indices (e.g., [1, 3])
+
+    REPORT: "🎯 Interactive mode: Using {selected_indices.length} user-selected variant(s)"
+ELSE:
+    # Non-interactive mode: Generate ALL variants (default behavior)
+    selected_indices = [1, 2, ..., variants_count]  # All indices from 1 to variants_count
+
+    REPORT: "ℹ️ Non-interactive mode: Generating all {variants_count} variant(s)"
 
 # Read the selected direction details from options
 options = Read({base_path}/.intermediates/style-analysis/analysis-options.json)

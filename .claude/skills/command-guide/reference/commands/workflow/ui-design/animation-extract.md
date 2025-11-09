@@ -2,7 +2,7 @@
 name: animation-extract
 description: Extract animation and transition patterns from URLs, CSS, or interactive questioning for design system documentation
 argument-hint: "[--base-path <path>] [--session <id>] [--urls "<list>"] [--mode <auto|interactive>] [--focus "<types>"]"
-allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), Task(ui-design-agent), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
+allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
 ---
 
 # Animation Extraction Command
@@ -51,7 +51,7 @@ ELSE:
     focus_types = ["all"]  # Extract all animation types
 
 # Determine base path (auto-detect and convert to absolute)
-relative_path=$(find .workflow -type d -name "design-run-*" | head -1)
+relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
 base_path=$(cd "$relative_path" && pwd)
 bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
 # OR use --base-path / --session parameters
@@ -691,6 +691,32 @@ Task(ui-design-agent): `
 ---
 
 **Phase 3 Output**: `animation-tokens.json` + `animation-guide.md`
+
+### Step 3: Store User Selection Metadata (If Interactive Mode Used)
+
+```bash
+# If interactive mode was used, save selection metadata for orchestrator
+IF extraction_mode == "interactive" AND exists({base_path}/.intermediates/animation-analysis/animation-specification.json):
+    # Create user-selections directory
+    bash(mkdir -p {base_path}/.intermediates/user-selections)
+
+    # Read specification to extract metadata
+    specification = Read({base_path}/.intermediates/animation-analysis/animation-specification.json)
+
+    # Create selection metadata (for orchestrator compatibility)
+    selection_metadata = {
+        "metadata": {
+            "selected_at": NOW(),
+            "selection_type": "interactive_questionnaire",
+            "mode": "interactive"
+        },
+        "selected_variants": [1],  // Always 1 for interactive mode (single result)
+        "specification": specification.metadata
+    }
+
+    # Write to standardized selection file
+    Write({base_path}/.intermediates/user-selections/animation-extract-selection.json, JSON.stringify(selection_metadata, indent=2))
+```
 
 ## Phase 4: Verify Output
 

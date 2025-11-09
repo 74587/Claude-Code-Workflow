@@ -55,7 +55,7 @@ Tools for combining components and integrating results.
 4. **Assembly**: System generates a matrix of prototypes (3 styles × 1 layout = 3 prototypes).
 5. **Review**: User views `compare.html` to select the best direction.
 
-**Example:**
+**Example (Non-Interactive - Default):**
 
 ```bash
 /workflow:ui-design:explore-auto \
@@ -70,6 +70,30 @@ Tools for combining components and integrating results.
 - `layout-templates-v1.json`, `layout-templates-v2.json` (2 layout variants)
 - 6 HTML prototypes (3 × 2 combinations)
 - `compare.html` for side-by-side comparison
+
+**Example (Interactive Mode):**
+
+```bash
+/workflow:ui-design:explore-auto \
+  --prompt "Modern SaaS landing page with hero, features, pricing sections" \
+  --style-variants 5 \
+  --layout-variants 4 \
+  --interactive \
+  --session WFS-001
+```
+
+**Interactive Flow:**
+1. System generates 5 style concepts
+2. **User selects** 2-3 preferred styles (multi-select)
+3. System generates 4 layout concepts
+4. **User selects** 2 preferred layouts (multi-select)
+5. System generates only 4-6 final prototypes (selected combinations)
+
+**Benefits:**
+- Reduces unnecessary generation (from 20 to 4-6 prototypes)
+- Focuses resources on preferred design directions
+- Saves 70-80% computation time
+- Better exploration quality
 
 ---
 

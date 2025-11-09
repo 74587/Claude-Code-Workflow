@@ -225,8 +225,8 @@ IF design_source == "hybrid":
     REPORT: "   → Source: {code_base_path}"
     REPORT: "   → Mode: Hybrid (Web + Code)"
 
-    command = "/workflow:ui-design:import-from-code --output-path \"{base_path}\" " +
-              "--source-path \"{code_base_path}\""
+    command = "/workflow:ui-design:import-from-code --base-path \"{base_path}\" " +
+              "--source \"{code_base_path}\""
 
     TRY:
         SlashCommand(command)
@@ -408,7 +408,7 @@ ELSE:
             extraction_prompt = f"Extract visual style tokens from '{primary_target}' with consistency across all pages."
 
     url_map_for_extract = ",".join([f"{name}:{url}" for name, url in url_map.items()])
-    extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --variants 1"
+    extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --variants 1 --interactive"
     SlashCommand(extract_command)
 
 TodoWrite(mark_completed: "Extract style", mark_in_progress: "Extract animation")
@@ -439,7 +439,7 @@ IF skip_layout:
 ELSE:
     REPORT: "🚀 Phase 2.5: Layout Extraction"
     url_map_for_layout = ",".join([f"{target}:{url}" for target, url in url_map.items()])
-    layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --variants 1"
+    layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --variants 1 --interactive"
     SlashCommand(layout_extract_command)
 
 TodoWrite(mark_completed: "Extract layout", mark_in_progress: "Assemble UI")

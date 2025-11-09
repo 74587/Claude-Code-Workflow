@@ -295,7 +295,8 @@ Templates are auto-populated during Mode 5 (Issue Reporting) interaction.
 When commands are added/modified/removed:
 
 ```bash
-bash scripts/update-index.sh
+cd /d/Claude_dms3/.claude/skills/command-guide
+python scripts/analyze_commands.py
 ```
 
 This script:
@@ -307,7 +308,7 @@ This script:
 ### Committing Updates
 
 ```bash
-git add .claude/skills/command-guide/index/
+git add .claude/skills/command-guide/
 git commit -m "docs: update command indexes"
 git push
 ```
@@ -325,23 +326,28 @@ Team members get latest indexes via `git pull`.
 
 ---
 
-**Version**: 1.3.1 (Path configuration for global installation)
-**Last Updated**: 2025-11-06
+## 🔄 Maintenance
+
+### Documentation Updates
+
+This SKILL documentation is kept in sync with command implementations through a standardized update process.
+
+**Update Guideline**: See [UPDATE-GUIDELINE.md](UPDATE-GUIDELINE.md) for the complete documentation maintenance process.
+
+**Update Process**:
+1. **Analyze**: Identify changed commands/agents from git commits
+2. **Extract**: Gather change information and impact assessment
+3. **Update**: Sync reference docs, guides, and examples
+4. **Regenerate**: Run `scripts/analyze_commands.py` to rebuild indexes
+5. **Validate**: Test examples and verify consistency
+6. **Commit**: Follow standardized commit message format
+
+**Key Capabilities**:
+- 6 operation modes (Search, Recommendations, Full Docs, Onboarding, Issue Reporting, Deep Analysis)
+- 80 reference documentation files (11 agents + 69 commands)
+- 5 JSON indexes for fast command lookup
+- 8 comprehensive guides covering all workflow patterns
+- 4 issue templates for standardized problem reporting
+- CLI-assisted complex query analysis with gemini/qwen integration
+
 **Maintainer**: Claude DMS3 Team
-
-**Changelog v1.3.1**:
-- ✅ Updated all paths to use absolute paths (`~/.claude/skills/command-guide/`)
-- ✅ CLI commands now use `--include-directories` with absolute reference path
-- ✅ Ensures skill works correctly when installed in `~/.claude/skills/`
-
-**Changelog v1.3.0**:
-- ✅ Added Mode 6: Deep Command Analysis with CLI-assisted queries
-- ✅ Created reference documentation backup (80 files: 11 agents + 69 commands)
-- ✅ Support simple queries (direct file lookup) and complex queries (CLI analysis)
-- ✅ Integrated gemini/qwen for cross-command analysis and best practices
-
-**Changelog v1.2.0**:
-- ✅ Added Interactive Diagnosis template with decision tree
-- ✅ Enhanced all templates with complete command history sections
-- ✅ Added privacy protection guidelines for sensitive information
-- ✅ Integrated execution flow emphasis across all issue templates
