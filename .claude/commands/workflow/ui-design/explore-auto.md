@@ -452,7 +452,19 @@ ELSE IF design_source == "code_only" AND animation_complete AND NOT skip_animati
 
 IF should_extract_animation:
     REPORT: "🚀 Phase 2.3: Animation Extraction"
-    command = "/workflow:ui-design:animation-extract --design-id \"{design_id}\" --interactive"
+
+    # Build command with available inputs
+    command_parts = [f"/workflow:ui-design:animation-extract --design-id \"{design_id}\""]
+
+    IF --images:
+        command_parts.append(f"--images \"{--images}\"")
+
+    IF --prompt:
+        command_parts.append(f"--prompt \"{--prompt}\"")
+
+    command_parts.append("--interactive")
+
+    command = " ".join(command_parts)
     SlashCommand(command)
 ELSE:
     REPORT: "✅ Phase 2.3: Animation (Using Code Import)"

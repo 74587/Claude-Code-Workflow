@@ -298,7 +298,7 @@ ELSE:
             extraction_prompt = f"{--prompt} (supplement code-imported tokens)"
         command_parts.append(f"--prompt \"{extraction_prompt}\"")
 
-    command_parts.extend(["--variants 1", "--interactive"])
+    command_parts.extend(["--variants 1", "--refine", "--interactive"])
 
     extract_command = " ".join(command_parts)
     SlashCommand(extract_command)
@@ -315,7 +315,19 @@ IF skip_animation:
     REPORT: "✅ Phase 2.3: Animation (Using Code Import)"
 ELSE:
     REPORT: "🚀 Phase 2.3: Animation Extraction"
-    animation_extract_command = f"/workflow:ui-design:animation-extract --design-id \"{design_id}\" --interactive"
+
+    # Build command with available inputs
+    command_parts = [f"/workflow:ui-design:animation-extract --design-id \"{design_id}\""]
+
+    IF --images:
+        command_parts.append(f"--images \"{--images}\"")
+
+    IF --prompt:
+        command_parts.append(f"--prompt \"{--prompt}\"")
+
+    command_parts.extend(["--refine", "--interactive"])
+
+    animation_extract_command = " ".join(command_parts)
     SlashCommand(animation_extract_command)
 
 TodoWrite(mark_completed: "Extract animation", mark_in_progress: "Extract layout")
@@ -342,7 +354,7 @@ ELSE:
 
     # Default target if not specified
     command_parts.append("--targets \"home\"")
-    command_parts.extend(["--variants 1", "--interactive"])
+    command_parts.extend(["--variants 1", "--refine", "--interactive"])
 
     layout_extract_command = " ".join(command_parts)
     SlashCommand(layout_extract_command)

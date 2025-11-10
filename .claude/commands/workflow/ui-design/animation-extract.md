@@ -1,27 +1,27 @@
 ---
 name: animation-extract
-description: Extract animation and transition patterns from URLs, CSS, or interactive questioning for design system documentation
-argument-hint: "[--design-id <id>] [--session <id>] [--urls "<list>"] [--focus "<types>"] [--interactive] [--refine]"
-allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
+description: Extract animation and transition patterns from prompt inference and image references for design system documentation
+argument-hint: "[--design-id <id>] [--session <id>] [--images "<glob>"] [--focus "<types>"] [--interactive] [--refine]"
+allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent)
 ---
 
 # Animation Extraction Command
 
 ## Overview
 
-Extract animation and transition patterns from URLs or interactive questioning using AI analysis. Directly generates production-ready animation systems with complete `animation-tokens.json` and `animation-guide.md`.
+Extract animation and transition patterns from prompt inference and image references using AI analysis. Directly generates production-ready animation systems with complete `animation-tokens.json` and `animation-guide.md`.
 
 **Strategy**: AI-Driven Animation Specification with Visual Previews
 
 - **Dual Modes**: Exploration mode (generate from scratch) or Refinement mode (fine-tune existing)
-- **CSS Extraction**: Automatic CSS animation/transition extraction from URLs via Chrome DevTools
+- **Prompt Inference**: AI analyzes design intent from textual descriptions and image references
 - **Question Generation**: Agent generates context-aware specification questions with visual previews
 - **Refinement Options**: Fine-tune timing, easing, context variations, and interaction intensity
 - **Visual Previews**: Timeline representations, easing curve ASCII art, and animation sequence diagrams
-- **Flexible Input**: URLs for CSS extraction, or standalone question-based specification
+- **Flexible Input**: Image references and prompts for animation specification
 - **Optional Interaction**: User answers questions only when `--interactive` flag present
 - **Production-Ready**: CSS var() format, WCAG-compliant, semantic naming
-- **Default Behavior**: Non-interactive mode uses CSS data + best practices
+- **Default Behavior**: Non-interactive mode uses inferred patterns + best practices
 
 ## Phase 0: Setup & Input Validation
 
@@ -29,23 +29,20 @@ Extract animation and transition patterns from URLs or interactive questioning u
 
 ```bash
 # Detect input source
-# Priority: --urls → CSS extraction available | no --urls → question-only mode
+# Priority: --images → visual references available | no --images → prompt-only mode
 
-# Parse URLs if provided (format: "target:url,target:url,...")
-IF --urls:
-    url_list = []
-    FOR pair IN split(--urls, ","):
-        IF ":" IN pair:
-            target, url = pair.split(":", 1)
-            url_list.append({target: target.strip(), url: url.strip()})
-        ELSE:
-            # Single URL without target
-            url_list.append({target: "page", url: pair.strip()})
-
-    has_urls = true
-    primary_url = url_list[0].url
+# Parse images if provided (glob pattern)
+IF --images:
+    # Check if glob pattern matches any files
+    image_files = bash(find . -path "{--images}" -type f 2>/dev/null | head -10)
+    IF image_files:
+        has_images = true
+        image_count = bash(find . -path "{--images}" -type f 2>/dev/null | wc -l)
+    ELSE:
+        has_images = false
+        REPORT: "⚠️ No image files found matching pattern: {--images}"
 ELSE:
-    has_urls = false
+    has_images = false
 
 # Parse animation focus (if provided)
 IF --focus:
@@ -87,67 +84,47 @@ base_path=$(cd "$relative_path" && pwd)
 bash(echo "✓ Base path: $base_path")
 ```
 
-### Step 2: Extract Computed Animations (URL Mode - Auto-Trigger)
+### Step 2: Prepare Image References (If Available)
 
 ```bash
-# AUTO-TRIGGER: If URLs are available (from --urls parameter), automatically extract real CSS values
-# This provides accurate animation data to supplement specification
-
-IF has_urls AND mcp_chrome_devtools_available:
-    REPORT: "🔍 Auto-triggering URL mode: Extracting computed animations from --urls parameter"
-    REPORT: "   URL: {primary_url}"
-
-    # Read extraction script
-    script_content = Read(~/.claude/scripts/extract-animations.js)
+# Load image references if provided
+IF has_images:
+    REPORT: "🔍 Loading image references for animation analysis"
+    REPORT: "   Pattern: {--images}"
+    REPORT: "   Found: {image_count} image(s)"
 
     bash(mkdir -p {base_path}/.intermediates/animation-analysis)
 
-    # For each URL:
-    FOR url_info IN url_list:
-        target = url_info.target
-        url = url_info.url
+    # Store image paths for agent reference
+    image_list = []
+    FOR image_file IN image_files:
+        image_list.append(image_file)
+        REPORT: "   • {image_file}"
 
-        REPORT: "   Processing: {target} ({url})"
+    # Save image references metadata
+    image_metadata = {
+        "pattern": --images,
+        "count": image_count,
+        "files": image_list,
+        "timestamp": current_timestamp()
+    }
+    Write({base_path}/.intermediates/animation-analysis/image-references.json, JSON.stringify(image_metadata, indent=2))
 
-        # Open page in Chrome DevTools
-        mcp__chrome-devtools__navigate_page(url=url)
-
-        # Wait for page to fully load and animations to initialize
-        bash(sleep 2)
-
-        # Execute extraction script directly
-        result = mcp__chrome-devtools__evaluate_script(function=script_content)
-
-        # Save computed animations to intermediates directory
-        Write({base_path}/.intermediates/animation-analysis/animations-{target}.json, result)
-
-        REPORT: "   ✅ Extracted: {result.summary.total_animations} animations, {result.summary.total_transitions} transitions"
-
-    animations_extracted = true
-    REPORT: "   ✅ Computed animations extracted and saved"
-ELSE IF has_urls AND NOT mcp_chrome_devtools_available:
-    animations_extracted = false
-    REPORT: "⚠️ Chrome DevTools MCP not available, falling back to specification mode"
+    REPORT: "   ✅ Image references prepared for AI analysis"
 ELSE:
-    animations_extracted = false
+    REPORT: "ℹ️ No image references provided - using prompt-only mode"
 ```
 
-**Extraction Script Reference**: `~/.claude/scripts/extract-animations.js`
-
-**Usage**: Read the script file and use content directly in `mcp__chrome-devtools__evaluate_script()`
-
-**Script returns**:
-- `metadata`: Extraction timestamp, URL, method
-- `transitions`: Array of transition definitions (property, duration, easing, delay)
-- `animations`: Array of keyframe animations (name, duration, easing, keyframes)
-- `transforms`: Common transform patterns
-- `summary`: Statistics (total_animations, total_transitions, unique_easings)
+**Image Analysis Strategy**:
+- Agent analyzes visual motion cues from reference images
+- Infers animation patterns from UI element positioning and design style
+- Generates context-aware animation specifications based on visual analysis
 
 **Benefits**:
-- ✅ Real animation values from production sites
-- ✅ Captures all CSS transitions and @keyframes rules
-- ✅ Identifies common easing functions and durations
-- ✅ Maps animations to element selectors
+- ✅ Flexible input - works with screenshots, mockups, or design files
+- ✅ AI-driven inference from visual cues
+- ✅ No external dependencies on MCP tools
+- ✅ Combines visual analysis with industry best practices
 
 ### Step 3: Load Design Tokens Context
 
@@ -174,7 +151,7 @@ IF exists: SKIP to completion
 
 ---
 
-**Phase 0 Output**: `input_mode`, `base_path`, `has_urls`, `url_list[]`, `focus_types[]`, `has_design_context`, `interactive_mode`, `refine_mode`, `animations_extracted`
+**Phase 0 Output**: `input_mode`, `base_path`, `has_images`, `image_list[]`, `focus_types[]`, `has_design_context`, `interactive_mode`, `refine_mode`
 
 ## Phase 1: Animation Specification Generation
 
@@ -184,10 +161,10 @@ IF exists: SKIP to completion
 # Load brainstorming context if available
 bash(test -f {base_path}/.brainstorming/role-analysis.md && cat it)
 
-# Load extracted animations if available
-IF animations_extracted:
-    FOR target IN url_list:
-        extracted_data = Read({base_path}/.intermediates/animation-analysis/animations-{target.target}.json)
+# Load image references if available
+IF has_images:
+    image_references = Read({base_path}/.intermediates/animation-analysis/image-references.json)
+    REPORT: "📸 Image references loaded: {image_references.count} file(s)"
 ```
 
 ### Step 2: Generate Animation Specification Options (Agent Task 1)
@@ -208,11 +185,11 @@ IF NOT refine_mode:
   ## Input Analysis
   - Focus types: {focus_types.join(", ")}
   - Design context: {has_design_context ? "Available" : "None"}
-  - Extracted animations: {animations_extracted ? "Available" : "None"}
-  ${animations_extracted ? "- CSS Data: Read from .intermediates/animation-analysis/animations-*.json" : ""}
+  - Image references: {has_images ? "Available (" + image_count + " files)" : "None"}
+  ${has_images ? "- Image Data: Read from .intermediates/animation-analysis/image-references.json" : ""}
 
   ## Analysis Rules
-  - Analyze CSS extraction data (if available) to inform question generation
+  - Analyze image references (if available) to infer animation patterns from visual cues
   - Generate questions covering timing, easing, interactions, and motion patterns
   - Based on focus_types, include relevant categories:
     * "all" or "transitions": timing_scale, easing_philosophy
@@ -303,7 +280,7 @@ ELSE:
       - Existing tokens: Read from {base_path}/animation-extraction/animation-tokens.json
       - Focus types: {focus_types.join(", ")}
       - Design context: {has_design_context ? "Available" : "None"}
-      ${animations_extracted ? "- CSS Data: Read from .intermediates/animation-analysis/animations-*.json" : ""}
+      ${has_images ? "- Image Data: Read from .intermediates/animation-analysis/image-references.json" : ""}
 
       ## Refinement Categories
       Generate 8-12 refinement options across these categories:
@@ -676,14 +653,12 @@ ELSE:
         selected_refinements = null
         REPORT: "ℹ️ Non-interactive mode: Applying all refinements"
 
-# Load extracted animations if available
-extracted_animations = []
-IF animations_extracted:
-    FOR url_info IN url_list:
-        target = url_info.target
-        IF exists({base_path}/.intermediates/animation-analysis/animations-{target}.json):
-            data = Read({base_path}/.intermediates/animation-analysis/animations-{target}.json)
-            extracted_animations.push(data)
+# Load image references if available for agent context
+image_context = null
+IF has_images:
+    IF exists({base_path}/.intermediates/animation-analysis/image-references.json):
+        image_context = Read({base_path}/.intermediates/animation-analysis/image-references.json)
+        REPORT: "📸 Using {image_context.count} image reference(s) for animation inference"
 ```
 
 ### Step 2: Create Output Directory
@@ -712,8 +687,8 @@ IF NOT refine_mode:
 
   ## Input Analysis
   - Interactive mode: {user_answers ? "Yes (user preferences available)" : "No (using defaults)"}
-  - CSS extraction: {extracted_animations.length > 0 ? "Available" : "None"}
-  ${extracted_animations.length > 0 ? "- CSS Data: " + JSON.stringify(extracted_animations) : ""}
+  - Image references: {image_context ? "Available (" + image_context.count + " files)" : "None"}
+  ${image_context ? "- Image Data: " + JSON.stringify(image_context) : ""}
   - Design context: {has_design_context ? "Available" : "None"}
   ${has_design_context ? "- Design Tokens: Read from style-extraction/style-1/design-tokens.json" : ""}
 
@@ -727,7 +702,7 @@ IF NOT refine_mode:
   - Use first option (key "a") from each question in specification_options as default
   - Extract technical specs from default options
   `}
-  - Combine user preferences with CSS extraction data (if available)
+  - Infer animation patterns from image references (if available)
   - Align with design tokens (spacing, colors) if available
   - All tokens use CSS Custom Property format: var(--duration-fast)
   - WCAG-compliant: Respect prefers-reduced-motion
@@ -735,15 +710,15 @@ IF NOT refine_mode:
 
   ## Synthesis Priority
   1. User answers from analysis-options.json user_selection field (highest priority)
-  2. Extracted CSS values from animations-*.json (medium priority)
+  2. Inferred patterns from image references (medium priority)
   3. Industry best practices (fallback)
 
   ## Duration Normalization
   - IF user_selection.answers.timing_scale EXISTS:
       Find selected option in specification_options
       Use option's duration_values for token generation
-  - ELSE IF extracted CSS durations available:
-      Cluster extracted durations into 3-5 semantic scales
+  - ELSE IF image references available:
+      Infer timing patterns from visual design style (minimalist → faster, ornate → slower)
   - ELSE:
       Use standard scale (instant:0ms, fast:150ms, normal:300ms, slow:500ms, very-slow:800ms)
 
@@ -751,8 +726,8 @@ IF NOT refine_mode:
   - IF user_selection.answers.easing_philosophy EXISTS:
       Find selected option in specification_options
       Use option's easing_curves for token generation
-  - ELSE IF extracted CSS easings available:
-      Identify common easing functions from CSS
+  - ELSE IF image references available:
+      Infer easing preferences from visual style (sharp edges → snappy, soft curves → smooth)
   - ELSE:
       Use standard easings (linear, ease-in, ease-out, ease-in-out, spring)
 
@@ -897,8 +872,8 @@ ELSE:
       `}
 
       ## Input Analysis
-      - CSS extraction: {extracted_animations.length > 0 ? "Available" : "None"}
-      ${extracted_animations.length > 0 ? "- CSS Data: " + JSON.stringify(extracted_animations) : ""}
+      - Image references: {image_context ? "Available (" + image_context.count + " files)" : "None"}
+      ${image_context ? "- Image Data: " + JSON.stringify(image_context) : ""}
       - Design context: {has_design_context ? "Available" : "None"}
       ${has_design_context ? "- Design Tokens: Read from style-extraction/style-1/design-tokens.json" : ""}
 
@@ -1008,8 +983,8 @@ Configuration:
 - Session: {session_id}
 - Interactive Mode: {interactive_mode ? "Enabled (user preferences collected)" : "Disabled (default preferences)"}
 - Input Sources:
-  {IF animations_extracted:
-  - ✅ CSS extracted from {len(url_list)} URL(s)
+  {IF has_images:
+  - ✅ Image references analyzed ({image_count} file(s))
   }
   {IF interactive_mode AND options.user_selection:
   - ✅ User preferences collected via interactive mode
@@ -1026,11 +1001,11 @@ Generated Files:
 ├── animation-tokens.json      # Production-ready animation tokens
 └── animation-guide.md          # Usage guidelines and examples
 
-{IF animations_extracted OR options.user_selection:
+{IF has_images OR options.user_selection:
 Intermediate Analysis:
 {base_path}/.intermediates/animation-analysis/
-{IF animations_extracted:
-├── animations-*.json           # Extracted CSS data ({len(url_list)} files)
+{IF has_images:
+├── image-references.json       # Image reference metadata ({image_count} files)
 }
 ├── analysis-options.json       # Generated questions{options.user_selection ? " + user answers" : ""}
 }
@@ -1138,11 +1113,11 @@ bash(ls {base_path}/animation-extraction/)
 ### Common Errors
 
 ```
-ERROR: No URL or interactive mode specified
-→ Provide --urls for CSS extraction or use --interactive for specification
+ERROR: No image references found
+→ Provide valid --images glob pattern or proceed with prompt-only mode
 
-ERROR: Chrome DevTools unavailable
-→ Automatically falls back to specification mode
+ERROR: Invalid image format
+→ Skips unsupported files, continues with valid images
 
 ERROR: Invalid cubic-bezier values
 → Validates and corrects to nearest standard easing
@@ -1150,19 +1125,19 @@ ERROR: Invalid cubic-bezier values
 
 ### Recovery Strategies
 
-- **CSS extraction failure**: Falls back to specification mode
-- **Partial extraction**: Supplements with default values
+- **Image loading failure**: Falls back to prompt-only specification mode
+- **Partial image set**: Supplements with default values and best practices
 - **Invalid data**: Validates and uses fallback values
 
 ## Key Features
 
-- **Auto-Trigger CSS Extraction** - Automatically extracts animations when --urls provided (Phase 0)
+- **Prompt & Image Inference** - Analyzes design intent from textual descriptions and visual references (Phase 0)
 - **Agent-Generated Questions** - Context-aware specification questions with visual previews (Phase 1)
 - **Visual Previews** - Timeline representations, easing curve ASCII art, and animation sequences for each option
 - **Optional User Interaction** - User answers questions only when `--interactive` flag present (Phase 1.5)
-- **Non-Interactive Mode** - Default behavior uses CSS data + best practices (no user questions)
-- **Hybrid Strategy** - Combines CSS extraction with user preferences (when interactive)
-- **Intelligent Fallback** - Gracefully handles extraction failures
+- **Non-Interactive Mode** - Default behavior uses inferred patterns + best practices (no user questions)
+- **Hybrid Strategy** - Combines image analysis with user preferences (when interactive)
+- **No MCP Dependencies** - Pure AI-driven inference from visual and textual inputs
 - **Context-Aware** - Aligns with existing design tokens
 - **Production-Ready** - CSS var() format, accessibility support
 - **Comprehensive Coverage** - Transitions, keyframes, interactions, scroll animations
