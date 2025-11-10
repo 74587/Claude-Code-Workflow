@@ -1,7 +1,7 @@
 ---
 name: execute
 description: Autonomous code implementation with YOLO auto-approval using Gemini/Qwen/Codex, supports task ID or description input with automatic file pattern detection
-argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] description or task-id"
+argument-hint: "[--tool codex|gemini|qwen] [--enhance] description or task-id"
 allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---
 
@@ -39,7 +39,7 @@ Auto-approves: file pattern inference, execution, **file modifications**, summar
 - Input: Workflow task identifier (e.g., `IMPL-001`)
 - Process: Task JSON parsing → Scope analysis → Execute
 
-**3. Agent Mode** (`--agent` flag):
+**3. Agent Mode** (default):
 - Input: Description or task-id
 - Process: 5-Phase Workflow → Context Discovery → Optimal Tool Selection → Execute
 
@@ -68,8 +68,7 @@ Use `resume --last` when current task extends/relates to previous execution. See
 
 ## Parameters
 
-- `--agent` - Use cli-execution-agent for automated context discovery (5-phase intelligent mode)
-- `--tool <codex|gemini|qwen>` - Select CLI tool (default: gemini, ignored in agent mode unless specified)
+- `--tool <codex|gemini|qwen>` - Select CLI tool (default: auto-select by agent based on complexity)
 - `--enhance` - Enhance input with `/enhance-prompt` first (Description Mode only)
 - `<description|task-id>` - Natural language description or task identifier
 - `--debug` - Verbose logging
@@ -83,96 +82,83 @@ Use `resume --last` when current task extends/relates to previous execution. See
 
 **Task Integration**: Load from `.task/[TASK-ID].json`, update status, generate summary
 
-## Output Routing
+## Execution Flow
 
-**Execution Log Destination**:
-- **IF** active workflow session exists:
-  - Save to `.workflow/WFS-[id]/.chat/execute-[timestamp].md`
-  - Update task status in `.task/[TASK-ID].json` (if task ID provided)
-  - Generate summary in `.workflow/WFS-[id]/.summaries/[TASK-ID]-summary.md`
-- **ELSE** (no active session):
-  - **Option 1**: Create new workflow session for task
-  - **Option 2**: Save to `.workflow/.scratchpad/execute-[description]-[timestamp].md`
+Uses **cli-execution-agent** (default) for automated implementation:
 
-**Output Files** (when active session exists):
-- Execution log: `.workflow/WFS-[id]/.chat/execute-[timestamp].md`
-- Task summary: `.workflow/WFS-[id]/.summaries/[TASK-ID]-summary.md` (if task ID)
-- Modified code: Project files per implementation
-
-**Examples**:
-- During session `WFS-auth-system`, executing `IMPL-001`:
-  - Log: `.workflow/WFS-auth-system/.chat/execute-20250105-143022.md`
-  - Summary: `.workflow/WFS-auth-system/.summaries/IMPL-001-summary.md`
-- No session, ad-hoc implementation:
-  - Log: `.workflow/.scratchpad/execute-jwt-auth-20250105-143045.md`
-
-## Execution Modes
-
-### Standard Mode (Default)
-```bash
-# Gemini/Qwen: MODE=write with --approval-mode yolo
-cd . && gemini --approval-mode yolo "
-PURPOSE: [implementation goal]
-TASK: [specific implementation]
-MODE: write
-CONTEXT: @CLAUDE.md [auto-detected files]
-EXPECTED: Working implementation with code changes
-RULES: [constraints] | Auto-approve all changes
-"
-
-# Codex: MODE=auto with danger-full-access
-codex -C . --full-auto exec "
-PURPOSE: [implementation goal]
-TASK: [specific implementation]
-MODE: auto
-CONTEXT: [auto-detected files]
-EXPECTED: Complete implementation with tests
-" --skip-git-repo-check -s danger-full-access
-```
-
-### Agent Mode (`--agent` flag)
-
-Delegate implementation to `cli-execution-agent` for intelligent execution with automated context discovery.
-
-**Agent invocation**:
 ```javascript
 Task(
   subagent_type="cli-execution-agent",
-  description="Implement with automated context discovery and optimal tool selection",
+  description="Autonomous code implementation with YOLO auto-approval",
   prompt=`
     Task: ${description_or_task_id}
     Mode: execute
-    Tool Preference: ${tool_flag || 'auto-select'}
-    ${enhance_flag ? 'Enhance: true' : ''}
+    Tool: ${tool_flag || 'auto-select'}
+    Enhance: ${enhance_flag}
+    Task-ID: ${task_id}
 
-    Agent will autonomously:
-    - Discover implementation files and dependencies
-    - Assess complexity and select optimal tool
-    - Execute with YOLO permissions (auto-approve)
-    - Generate task summary if task-id provided
+    Execute autonomous code implementation with full modification permissions:
+
+    1. Task Analysis:
+       ${task_id ? '- Load task spec from .task/' + task_id + '.json' : ''}
+       - Parse requirements and implementation scope
+       - Classify complexity (simple/medium/complex)
+       - Extract keywords for context discovery
+
+    2. Context Discovery:
+       - Discover implementation files using MCP/ripgrep
+       - Identify existing patterns and conventions (CLAUDE.md)
+       - Map dependencies and integration points
+       - Gather related tests and documentation
+       - Auto-detect file patterns from keywords
+
+    3. Tool Selection & Execution:
+       - Complexity assessment:
+         * Simple/Medium → Gemini/Qwen (MODE=write, --approval-mode yolo)
+         * Complex → Codex (MODE=auto, --skip-git-repo-check -s danger-full-access)
+       - Tool preference: ${tool_flag || 'auto-select based on complexity'}
+       - Apply appropriate implementation template
+       - Execute with YOLO auto-approval (bypasses all confirmations)
+
+    4. Implementation:
+       - Modify/create/delete code files per requirements
+       - Follow existing code patterns and conventions
+       - Include comprehensive context in CLI command
+       - Ensure working implementation with proper error handling
+
+    5. Output & Documentation:
+       - Save execution log: .workflow/WFS-[id]/.chat/execute-[timestamp].md
+       ${task_id ? '- Generate task summary: .workflow/WFS-[id]/.summaries/' + task_id + '-summary.md' : ''}
+       ${task_id ? '- Update task status in .task/' + task_id + '.json' : ''}
+       - Document all code changes made
+
+    ⚠️ YOLO Mode: All file operations auto-approved without confirmation
   `
 )
 ```
 
-The agent handles all phases internally, including complexity-based tool selection.
+**Output**: `.workflow/WFS-[id]/.chat/execute-[timestamp].md` + `.summaries/[TASK-ID]-summary.md` (or `.scratchpad/` if no session)
 
 ## Examples
 
-**Basic Implementation (Standard Mode)** (modifies code):
+**Basic Implementation** (modifies code):
 ```bash
 /cli:execute "implement JWT authentication with middleware"
-# Executes: Creates auth middleware, updates routes, modifies config
+# Agent Phase 1: Classifies intent=execute, complexity=medium, keywords=['jwt', 'auth', 'middleware']
+# Agent Phase 2: Discovers auth patterns, existing middleware structure
+# Agent Phase 3: Selects Gemini (medium complexity)
+# Agent Phase 4: Executes with auto-approval
 # Result: NEW/MODIFIED code files with JWT implementation
 ```
 
-**Intelligent Implementation (Agent Mode)** (modifies code):
+**Complex Implementation** (modifies code):
 ```bash
-/cli:execute --agent "implement OAuth2 authentication with token refresh"
-# Phase 1: Classifies intent=execute, complexity=complex, keywords=['oauth2', 'auth', 'token', 'refresh']
-# Phase 2: MCP discovers auth patterns, existing middleware, JWT dependencies
-# Phase 3: Enhances prompt with discovered patterns and best practices
-# Phase 4: Selects Codex (complex task), executes with comprehensive context
-# Phase 5: Saves execution log + generates implementation summary
+/cli:execute "implement OAuth2 authentication with token refresh"
+# Agent Phase 1: Classifies intent=execute, complexity=complex, keywords=['oauth2', 'auth', 'token', 'refresh']
+# Agent Phase 2: MCP discovers auth patterns, existing middleware, JWT dependencies
+# Agent Phase 3: Enhances prompt with discovered patterns and best practices
+# Agent Phase 4: Selects Codex (complex task), executes with comprehensive context
+# Agent Phase 5: Saves execution log + generates implementation summary
 # Result: Complete OAuth2 implementation + detailed execution log
 ```
 
@@ -214,8 +200,3 @@ The agent handles all phases internally, including complexity-based tool selecti
 | `/cli:analyze` | Understand code | NO | N/A |
 | `/cli:chat` | Ask questions | NO | N/A |
 | `/cli:execute` | **Implement** | **YES** | **YES** |
-
-## Notes
-
-- Command templates, YOLO mode details, and session management: see intelligent-tools-strategy.md (loaded in memory)
-- **Code Modification**: This command modifies code - execution logs document changes made
