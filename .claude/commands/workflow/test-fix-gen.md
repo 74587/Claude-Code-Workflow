@@ -202,9 +202,25 @@ This command is a **pure planning coordinator**:
 **Expected Behavior**:
 - Use Gemini to analyze coverage gaps and implementation
 - Study existing test patterns and conventions
-- Generate test requirements for missing test files
-- Design test generation strategy
-- Generate `TEST_ANALYSIS_RESULTS.md`
+- Generate **multi-layered test requirements** (L0: Static Analysis, L1: Unit, L2: Integration, L3: E2E)
+- Design test generation strategy with quality assurance criteria
+- Generate `TEST_ANALYSIS_RESULTS.md` with structured test layers
+
+**Enhanced Test Requirements**:
+For each targeted file/function, Gemini MUST generate:
+1. **L0: Static Analysis Requirements**:
+   - Linting rules to enforce (ESLint, Prettier)
+   - Type checking requirements (TypeScript)
+   - Anti-pattern detection rules
+2. **L1: Unit Test Requirements**:
+   - Happy path scenarios (valid inputs → expected outputs)
+   - Negative path scenarios (invalid inputs → error handling)
+   - Edge cases (null, undefined, 0, empty strings/arrays)
+3. **L2: Integration Test Requirements**:
+   - Successful component interactions
+   - Failure handling scenarios (service unavailable, timeout)
+4. **L3: E2E Test Requirements** (if applicable):
+   - Key user journeys from start to finish
 
 **Parse Output**:
 - Verify `.workflow/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md` created
@@ -213,9 +229,18 @@ This command is a **pure planning coordinator**:
 - TEST_ANALYSIS_RESULTS.md exists with complete sections:
   - Coverage Assessment
   - Test Framework & Conventions
-  - Test Requirements by File
+  - **Multi-Layered Test Plan** (NEW):
+    - L0: Static Analysis Plan
+    - L1: Unit Test Plan
+    - L2: Integration Test Plan
+    - L3: E2E Test Plan (if applicable)
+  - Test Requirements by File (with layer annotations)
   - Test Generation Strategy
   - Implementation Targets
+  - Quality Assurance Criteria (NEW):
+    - Minimum coverage thresholds
+    - Required test types per function
+    - Acceptance criteria for test quality
   - Success Criteria
 
 **TodoWrite**: Mark phase 3 completed, phase 4 in_progress
@@ -232,16 +257,18 @@ This command is a **pure planning coordinator**:
 - `--cli-execute` flag (if present) - Controls IMPL-001 generation mode
 
 **Expected Behavior**:
-- Parse TEST_ANALYSIS_RESULTS.md from Phase 3
-- Generate **minimum 2 task JSON files** (expandable based on complexity):
+- Parse TEST_ANALYSIS_RESULTS.md from Phase 3 (multi-layered test plan)
+- Generate **minimum 3 task JSON files** (expandable based on complexity):
   - **IMPL-001.json**: Test Understanding & Generation (`@code-developer`)
+  - **IMPL-001.5-review.json**: Test Quality Gate (`@test-fix-agent`) ← **NEW**
   - **IMPL-002.json**: Test Execution & Fix Cycle (`@test-fix-agent`)
   - **IMPL-003+**: Additional tasks if needed for complex projects
-- Generate `IMPL_PLAN.md` with test strategy
+- Generate `IMPL_PLAN.md` with multi-layered test strategy
 - Generate `TODO_LIST.md` with task checklist
 
 **Parse Output**:
 - Verify `.workflow/[testSessionId]/.task/IMPL-001.json` exists
+- Verify `.workflow/[testSessionId]/.task/IMPL-001.5-review.json` exists ← **NEW**
 - Verify `.workflow/[testSessionId]/.task/IMPL-002.json` exists
 - Verify additional `.task/IMPL-*.json` if applicable
 - Verify `IMPL_PLAN.md` and `TODO_LIST.md` created
@@ -262,11 +289,16 @@ Test Session: [testSessionId]
 
 Tasks Created:
 - IMPL-001: Test Understanding & Generation (@code-developer)
+- IMPL-001.5: Test Quality Gate - Static Analysis & Coverage (@test-fix-agent) ← NEW
 - IMPL-002: Test Execution & Fix Cycle (@test-fix-agent)
 [- IMPL-003+: Additional tasks if applicable]
 
+Test Strategy: Multi-Layered (L0: Static, L1: Unit, L2: Integration, L3: E2E)
 Test Framework: [detected framework]
 Test Files to Generate: [count]
+Quality Thresholds:
+- Minimum Coverage: 80%
+- Static Analysis: Zero critical issues
 Max Fix Iterations: 5
 Fix Mode: [Manual|Codex Automated]
 
@@ -275,11 +307,12 @@ Review artifacts:
 - Task list: .workflow/[testSessionId]/TODO_LIST.md
 
 CRITICAL - Next Steps:
-1. Review IMPL_PLAN.md
+1. Review IMPL_PLAN.md (now includes multi-layered test strategy)
 2. **MUST execute: /workflow:test-cycle-execute**
    - This command only generated task JSON files
    - Test execution and fix iterations happen in test-cycle-execute
    - Do NOT attempt to run tests or fixes in main workflow
+3. IMPL-001.5 will validate test quality before fix cycle begins
 ```
 
 **TodoWrite**: Mark phase 5 completed
@@ -311,32 +344,85 @@ Update status to `in_progress` when starting each phase, `completed` when done.
 
 ## Task Specifications
 
-Generates minimum 2 tasks (expandable for complex projects):
+Generates minimum 3 tasks (expandable for complex projects):
 
 ### IMPL-001: Test Understanding & Generation
 
 **Agent**: `@code-developer`
 
-**Purpose**: Understand source implementation and generate test files
+**Purpose**: Understand source implementation and generate test files following multi-layered test strategy
 
 **Task Configuration**:
 - Task ID: `IMPL-001`
 - `meta.type: "test-gen"`
 - `meta.agent: "@code-developer"`
-- `context.requirements`: Understand source implementation and generate tests
+- `context.requirements`: Understand source implementation and generate tests across all layers (L0-L3)
 - `flow_control.target_files`: Test files to create from TEST_ANALYSIS_RESULTS.md section 5
 
 **Execution Flow**:
 1. **Understand Phase**:
    - Load TEST_ANALYSIS_RESULTS.md and test context
    - Understand source code implementation patterns
-   - Analyze test requirements and conventions
-   - Identify test scenarios and edge cases
+   - Analyze multi-layered test requirements (L0: Static, L1: Unit, L2: Integration, L3: E2E)
+   - Identify test scenarios, edge cases, and error paths
 2. **Generation Phase**:
-   - Generate test files following existing patterns
-   - Ensure test coverage aligns with requirements
+   - Generate L1 unit test files following existing patterns
+   - Generate L2 integration test files (if applicable)
+   - Generate L3 E2E test files (if applicable)
+   - Ensure test coverage aligns with multi-layered requirements
+   - Include both positive and negative test cases
 3. **Verification Phase**:
    - Verify test completeness and correctness
+   - Ensure each test has meaningful assertions
+   - Check for test anti-patterns (tests without assertions, overly broad mocks)
+
+### IMPL-001.5: Test Quality Gate ← **NEW**
+
+**Agent**: `@test-fix-agent`
+
+**Purpose**: Validate test quality before entering fix cycle - prevent "hollow tests" from becoming the source of truth
+
+**Task Configuration**:
+- Task ID: `IMPL-001.5-review`
+- `meta.type: "test-quality-review"`
+- `meta.agent: "@test-fix-agent"`
+- `context.depends_on: ["IMPL-001"]`
+- `context.requirements`: Validate generated tests meet quality standards
+- `context.quality_config`: Load from `.claude/workflows/test-quality-config.json`
+
+**Execution Flow**:
+1. **L0: Static Analysis**:
+   - Run linting on test files (ESLint, Prettier)
+   - Check for test anti-patterns:
+     - Tests without assertions (`expect()` missing)
+     - Empty test bodies (`it('should...', () => {})`)
+     - Disabled tests without justification (`it.skip`, `xit`)
+   - Verify TypeScript type safety (if applicable)
+2. **Coverage Analysis**:
+   - Run coverage analysis on generated tests
+   - Calculate coverage percentage for target source files
+   - Identify uncovered branches and edge cases
+3. **Test Quality Metrics**:
+   - Verify minimum coverage threshold met (default: 80%)
+   - Verify all critical functions have negative test cases
+   - Verify integration tests cover key component interactions
+4. **Quality Gate Decision**:
+   - **PASS**: Coverage ≥ 80%, zero critical anti-patterns → Proceed to IMPL-002
+   - **FAIL**: Coverage < 80% OR critical anti-patterns found → Loop back to IMPL-001 with feedback
+
+**Acceptance Criteria**:
+- Static analysis: Zero critical issues
+- Test coverage: ≥ 80% for target files
+- Test completeness: All targeted functions have unit tests
+- Negative test coverage: Each public API has at least one error handling test
+- Integration coverage: Key component interactions have integration tests (if applicable)
+
+**Failure Handling**:
+If quality gate fails:
+1. Generate detailed feedback report (`.process/test-quality-report.md`)
+2. Update IMPL-001 task with specific improvement requirements
+3. Trigger IMPL-001 re-execution with enhanced context
+4. Maximum 2 quality gate retries before escalating to user
 
 ### IMPL-002: Test Execution & Fix Cycle
 
