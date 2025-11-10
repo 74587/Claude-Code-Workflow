@@ -1,7 +1,7 @@
 ---
 name: animation-extract
 description: Extract animation and transition patterns from URLs, CSS, or interactive questioning for design system documentation
-argument-hint: "[--design-id <id>] [--session <id>] [--urls "<list>"] [--focus "<types>"] [--interactive]"
+argument-hint: "[--design-id <id>] [--session <id>] [--urls "<list>"] [--focus "<types>"] [--interactive] [--refine]"
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent), mcp__chrome-devtools__navigate_page(*), mcp__chrome-devtools__evaluate_script(*)
 ---
 
@@ -13,8 +13,10 @@ Extract animation and transition patterns from URLs or interactive questioning u
 
 **Strategy**: AI-Driven Animation Specification with Visual Previews
 
+- **Dual Modes**: Exploration mode (generate from scratch) or Refinement mode (fine-tune existing)
 - **CSS Extraction**: Automatic CSS animation/transition extraction from URLs via Chrome DevTools
 - **Question Generation**: Agent generates context-aware specification questions with visual previews
+- **Refinement Options**: Fine-tune timing, easing, context variations, and interaction intensity
 - **Visual Previews**: Timeline representations, easing curve ASCII art, and animation sequence diagrams
 - **Flexible Input**: URLs for CSS extraction, or standalone question-based specification
 - **Optional Interaction**: User answers questions only when `--interactive` flag present
@@ -53,6 +55,14 @@ ELSE:
 
 # Check interactive mode flag
 interactive_mode = --interactive OR false
+
+# Check refinement mode flag
+refine_mode = --refine OR false
+
+IF refine_mode:
+    REPORT: "🔧 Refinement mode enabled: Will refine existing animation system"
+ELSE:
+    REPORT: "✨ Exploration mode: Will generate animation system from scratch"
 
 # Determine base path with priority: --design-id > --session > auto-detect
 if [ -n "$DESIGN_ID" ]; then
@@ -164,7 +174,7 @@ IF exists: SKIP to completion
 
 ---
 
-**Phase 0 Output**: `input_mode`, `base_path`, `has_urls`, `url_list[]`, `focus_types[]`, `has_design_context`, `interactive_mode`, `animations_extracted`
+**Phase 0 Output**: `input_mode`, `base_path`, `has_urls`, `url_list[]`, `focus_types[]`, `has_design_context`, `interactive_mode`, `refine_mode`, `animations_extracted`
 
 ## Phase 1: Animation Specification Generation
 
@@ -184,14 +194,16 @@ IF animations_extracted:
 
 **Executor**: `Task(ui-design-agent)`
 
-Launch agent to generate animation specification options with previews:
+**Conditional Logic**: Branch based on `refine_mode` flag
 
 ```javascript
-Task(ui-design-agent): `
-  [ANIMATION_SPECIFICATION_GENERATION_TASK]
-  Generate context-aware animation specification questions
+IF NOT refine_mode:
+    // EXPLORATION MODE (default)
+    Task(ui-design-agent): `
+      [ANIMATION_SPECIFICATION_GENERATION_TASK]
+      Generate context-aware animation specification questions
 
-  SESSION: {session_id} | MODE: explore | BASE_PATH: {base_path}
+      SESSION: {session_id} | MODE: explore | BASE_PATH: {base_path}
 
   ## Input Analysis
   - Focus types: {focus_types.join(", ")}
@@ -277,27 +289,120 @@ Task(ui-design-agent): `
   }
 
   CRITICAL: Use Write() tool immediately after generating complete JSON
-`
+    `
+
+ELSE:
+    // REFINEMENT MODE
+    Task(ui-design-agent): `
+      [ANIMATION_REFINEMENT_OPTIONS_TASK]
+      Generate refinement options for existing animation system
+
+      SESSION: {session_id} | MODE: refine | BASE_PATH: {base_path}
+
+      ## Load Existing Animation System
+      - Existing tokens: Read from {base_path}/animation-extraction/animation-tokens.json
+      - Focus types: {focus_types.join(", ")}
+      - Design context: {has_design_context ? "Available" : "None"}
+      ${animations_extracted ? "- CSS Data: Read from .intermediates/animation-analysis/animations-*.json" : ""}
+
+      ## Refinement Categories
+      Generate 8-12 refinement options across these categories:
+
+      1. **Timing Adjustments** (2-3 options):
+         - Duration scale: Faster timing across the board ↔ Slower, more deliberate timing
+         - Specific categories: Accelerate interactions only ↔ Extend page transitions
+         - Micro-timing: Adjust stagger delays ↔ Sequential animation gaps
+
+      2. **Easing Fine-Tuning** (2-3 options):
+         - Curve intensity: Sharper, snappier curves ↔ Softer, smoother curves
+         - Category-specific: Bouncier interactions ↔ Linear state changes
+         - Spring physics: Adjust bounce/damping parameters
+
+      3. **Context-Specific Variations** (2-3 options):
+         - Reduced motion: Adjust reduced-motion fallbacks
+         - Mobile optimization: Shorter durations for touch interactions
+         - Component-specific: Different hover styles for buttons vs cards
+
+      4. **Interaction Intensity** (1-2 options):
+         - Transform magnitude: Subtle movements (2-4px) ↔ Dramatic movements (8-12px)
+         - Scale adjustments: Minimal scale changes ↔ Bold scale emphasis
+         - Opacity ranges: Partial fades ↔ Full visibility transitions
+
+      ## Generate Refinement Options
+      For each category, create option with:
+      1. **Option ID** (sequential number)
+      2. **Category** (timing_adjustments, easing_tuning, context_variations, interaction_intensity)
+      3. **Label** (brief Chinese description, e.g., "加快整体节奏")
+      4. **Description** (detailed explanation of changes)
+      5. **Impact Scope** (which tokens will be modified)
+      6. **Technical Changes** (specific value adjustments)
+      7. **Before/After Preview** (show current vs proposed values)
+
+      ## Output
+      Write single JSON file: {base_path}/.intermediates/animation-analysis/refinement-options.json
+
+      Use schema:
+      {
+        "metadata": {
+          "generated_at": "<timestamp>",
+          "mode": "refinement",
+          "existing_tokens_loaded": true,
+          "total_refinements": <count>
+        },
+        "current_animation_system": {
+          // Copy from animation-tokens.json for reference
+        },
+        "refinement_options": [
+          {
+            "id": 1,
+            "category": "timing_adjustments",
+            "label": "加快整体动画节奏",
+            "description": "将所有 duration 值减少 30%，使界面响应更快速",
+            "impact_scope": "duration.fast, duration.normal, duration.slow",
+            "technical_changes": {
+              "duration.fast": {"from": "150ms", "to": "105ms"},
+              "duration.normal": {"from": "300ms", "to": "210ms"},
+              "duration.slow": {"from": "500ms", "to": "350ms"}
+            },
+            "preview": {
+              "before": "Normal button hover: 150ms",
+              "after": "Faster button hover: 105ms"
+            }
+          },
+          ...
+        ]
+      }
+
+      CRITICAL: Use Write() tool immediately after generating complete JSON
+    `
 ```
 
 ### Step 3: Verify Options File Created
 
 ```bash
-bash(test -f {base_path}/.intermediates/animation-analysis/analysis-options.json && echo "created")
-
-# Quick validation
-bash(cat {base_path}/.intermediates/animation-analysis/analysis-options.json | grep -q "specification_options" && echo "valid")
+IF NOT refine_mode:
+    # Exploration mode: Check for analysis-options.json
+    bash(test -f {base_path}/.intermediates/animation-analysis/analysis-options.json && echo "created")
+    bash(cat {base_path}/.intermediates/animation-analysis/analysis-options.json | grep -q "specification_options" && echo "valid")
+ELSE:
+    # Refinement mode: Check for refinement-options.json
+    bash(test -f {base_path}/.intermediates/animation-analysis/refinement-options.json && echo "created")
+    bash(cat {base_path}/.intermediates/animation-analysis/refinement-options.json | grep -q "refinement_options" && echo "valid")
 ```
 
-**Output**: `analysis-options.json` with animation specification questions
+**Output**:
+- Exploration mode: `analysis-options.json` with animation specification questions
+- Refinement mode: `refinement-options.json` with refinement options
 
 ---
 
-**Phase 1 Output**: `analysis-options.json` with generated specification questions
+**Phase 1 Output**:
+- Exploration mode: `analysis-options.json` with generated specification questions
+- Refinement mode: `refinement-options.json` with refinement options
 
 ## Phase 1.5: User Confirmation (Optional - Triggered by --interactive)
 
-**Purpose**: Allow user to answer animation specification questions before generating tokens
+**Purpose**: Allow user to answer animation specification questions (exploration) or select refinement options (refinement) before generating tokens
 
 **Trigger Condition**: Execute this phase ONLY if `--interactive` flag is present
 
@@ -315,135 +420,224 @@ REPORT: "🎯 Interactive mode enabled: User answers required"
 ### Step 2: Load and Present Options
 
 ```bash
-# Read options file
-options = Read({base_path}/.intermediates/animation-analysis/analysis-options.json)
-
-# Parse specification questions
-specification_options = options.specification_options
+# Read options file based on mode
+IF NOT refine_mode:
+    # Exploration mode
+    options = Read({base_path}/.intermediates/animation-analysis/analysis-options.json)
+    specification_options = options.specification_options
+ELSE:
+    # Refinement mode
+    options = Read({base_path}/.intermediates/animation-analysis/refinement-options.json)
+    refinement_options = options.refinement_options
 ```
 
 ### Step 3: Present Options to User
 
+**Conditional Display**: Branch based on `refine_mode` flag
+
 ```
-📋 Animation Specification Questions
+IF NOT refine_mode:
+    // EXPLORATION MODE
+    📋 Animation Specification Questions
 
-We've generated {options.metadata.total_questions} questions to define your animation system.
-Please answer each question to customize the animation behavior.
+    We've generated {options.metadata.total_questions} questions to define your animation system.
+    Please answer each question to customize the animation behavior.
 
-{FOR each question in specification_options:
-  ═══════════════════════════════════════════════════
-  Question {question.id}: {question.question}
-  Category: {question.category}
-  ═══════════════════════════════════════════════════
+    {FOR each question in specification_options:
+      ═══════════════════════════════════════════════════
+      Question {question.id}: {question.question}
+      Category: {question.category}
+      ═══════════════════════════════════════════════════
 
-  {FOR each option in question.options:
-    {option.key}) {option.label}
-       {option.details}
+      {FOR each option in question.options:
+        {option.key}) {option.label}
+           {option.details}
 
-       ${option.visual_preview ? "Preview:\n       " + option.visual_preview.timeline || option.visual_preview.curve_art || option.visual_preview.animation_sequence : ""}
-       ${option.visual_preview ? "       " + option.visual_preview.description : ""}
+           ${option.visual_preview ? "Preview:\n       " + option.visual_preview.timeline || option.visual_preview.curve_art || option.visual_preview.animation_sequence : ""}
+           ${option.visual_preview ? "       " + option.visual_preview.description : ""}
 
-       ${option.duration_values ? "Durations: " + JSON.stringify(option.duration_values) : ""}
-       ${option.easing_curves ? "Easing: " + JSON.stringify(option.easing_curves) : ""}
-       ${option.transform_value ? "Transform: " + option.transform_value : ""}
-  }
+           ${option.duration_values ? "Durations: " + JSON.stringify(option.duration_values) : ""}
+           ${option.easing_curves ? "Easing: " + JSON.stringify(option.easing_curves) : ""}
+           ${option.transform_value ? "Transform: " + option.transform_value : ""}
+      }
 
-  ═══════════════════════════════════════════════════
-}
+      ═══════════════════════════════════════════════════
+    }
+
+ELSE:
+    // REFINEMENT MODE
+    🔧 Animation System Refinement Options
+
+    We've generated {options.metadata.total_refinements} refinement options to fine-tune your animation system.
+    Select which refinements to apply (can select multiple).
+
+    {FOR each refinement in refinement_options:
+      ═══════════════════════════════════════════════════
+      Option {refinement.id}: {refinement.label}
+      Category: {refinement.category}
+      ═══════════════════════════════════════════════════
+
+      Description: {refinement.description}
+      Impact Scope: {refinement.impact_scope}
+
+      Technical Changes:
+      {FOR each token, changes IN refinement.technical_changes:
+        • {token}:
+          Before: {changes.from}
+          After:  {changes.to}
+      }
+
+      Preview:
+      {refinement.preview.before} → {refinement.preview.after}
+
+      ═══════════════════════════════════════════════════
+    }
 ```
 
 ### Step 4: Capture User Selection
 
-**Interaction Strategy**: If questions > 4 OR any question has > 3 options, use batch text format:
-
-```
-【问题[N] - [category]】[question_text]
-[key]) [label]
-   [details]
-[key]) [label]
-   [details]
-...
-请回答 (格式: 1a 2b 3c...)：
-
-User input: "[N][key] [N][key] ..." → Parse answer pairs (single selection per question)
-```
-
-Otherwise, use `AskUserQuestion` below.
+**Conditional Interaction**: Branch based on `refine_mode` flag
 
 ```javascript
-// Use AskUserQuestion tool for each question (single selection)
-user_answers = {}
+IF NOT refine_mode:
+    // EXPLORATION MODE - Single selection per question
+    user_answers = {}
 
-FOR each question IN specification_options:
-  AskUserQuestion({
-    questions: [{
-      question: question.question,
-      header: question.category,
-      multiSelect: false,  // Single selection per question
-      options: [
-        {FOR each option IN question.options:
-          label: "{option.key}) {option.label}",
-          description: option.details
-        }
-      ]
-    }]
-  })
+    FOR each question IN specification_options:
+      AskUserQuestion({
+        questions: [{
+          question: question.question,
+          header: question.category,
+          multiSelect: false,  // Single selection per question
+          options: [
+            {FOR each option IN question.options:
+              label: "{option.key}) {option.label}",
+              description: option.details
+            }
+          ]
+        }]
+      })
 
-  // Parse user response (single selection, e.g., "a) Fast & Snappy")
-  selected_option_text = user_answer
+      // Parse user response (single selection, e.g., "a) Fast & Snappy")
+      selected_option_text = user_answer
 
-  // Check for user cancellation
-  IF selected_option_text == null:
-      REPORT: "⚠️ User canceled selection. Using default animation preferences."
-      EXIT Phase 1.5
+      // Check for user cancellation
+      IF selected_option_text == null:
+          REPORT: "⚠️ User canceled selection. Using default animation preferences."
+          EXIT Phase 1.5
 
-  // Extract option key from selection text
-  match = selected_option_text.match(/^([a-e])\)/)
-  IF match:
-      selected_key = match[1]
-      user_answers[question.category] = selected_key
-      REPORT: "✅ {question.category}: Selected option {selected_key}"
-  ELSE:
-      ERROR: "Invalid selection format. Expected 'a) ...' format"
-      EXIT workflow
+      // Extract option key from selection text
+      match = selected_option_text.match(/^([a-e])\)/)
+      IF match:
+          selected_key = match[1]
+          user_answers[question.category] = selected_key
+          REPORT: "✅ {question.category}: Selected option {selected_key}"
+      ELSE:
+          ERROR: "Invalid selection format. Expected 'a) ...' format"
+          EXIT workflow
 
-REPORT: "✅ Collected {Object.keys(user_answers).length} animation preferences"
+    REPORT: "✅ Collected {Object.keys(user_answers).length} animation preferences"
+
+ELSE:
+    // REFINEMENT MODE - Multi-selection of refinements
+    AskUserQuestion({
+      questions: [{
+        question: "Which refinement(s) would you like to apply to your animation system?",
+        header: "Refinements",
+        multiSelect: true,  // Can select multiple refinements
+        options: [
+          {FOR each refinement IN refinement_options:
+            label: "{refinement.id}. {refinement.label}",
+            description: "{refinement.description} (Affects: {refinement.impact_scope})"
+          }
+        ]
+      }]
+    })
+
+    // Parse user response (multi-selection)
+    selected_refinements = user_answer
+
+    // Check for user cancellation
+    IF selected_refinements == null:
+        REPORT: "⚠️ User canceled selection. No refinements will be applied."
+        EXIT Phase 1.5
+
+    // Extract refinement IDs
+    selected_ids = []
+    FOR each selection IN selected_refinements:
+        match = selection.match(/^(\d+)\./)
+        IF match:
+            selected_ids.push(parseInt(match[1]))
+
+    REPORT: "✅ Selected {selected_ids.length} refinement(s) to apply"
 ```
 
 ### Step 5: Update Options File with User Selection
 
 ```bash
-# Update analysis-options.json with user selection (embedded)
-options.user_selection = {
-  "selected_at": "{current_timestamp}",
-  "session_id": "{session_id}",
-  "answers": user_answers  // {category: selected_key}
-}
+IF NOT refine_mode:
+    # EXPLORATION MODE - Update analysis-options.json
+    options.user_selection = {
+      "selected_at": "{current_timestamp}",
+      "session_id": "{session_id}",
+      "answers": user_answers  // {category: selected_key}
+    }
 
-# Write updated file back
-Write({base_path}/.intermediates/animation-analysis/analysis-options.json, JSON.stringify(options, indent=2))
+    # Write updated file back
+    Write({base_path}/.intermediates/animation-analysis/analysis-options.json, JSON.stringify(options, indent=2))
 
-# Verify
-bash(test -f {base_path}/.intermediates/animation-analysis/analysis-options.json && echo "saved")
+    # Verify
+    bash(test -f {base_path}/.intermediates/animation-analysis/analysis-options.json && echo "saved")
+
+ELSE:
+    # REFINEMENT MODE - Update refinement-options.json
+    options.user_selection = {
+      "selected_at": "{current_timestamp}",
+      "session_id": "{session_id}",
+      "selected_refinements": selected_ids  // Array of refinement IDs
+    }
+
+    # Write updated file back
+    Write({base_path}/.intermediates/animation-analysis/refinement-options.json, JSON.stringify(options, indent=2))
+
+    # Verify
+    bash(test -f {base_path}/.intermediates/animation-analysis/refinement-options.json && echo "saved")
 ```
 
 ### Step 6: Confirmation Message
 
 ```
-✅ Animation preferences recorded!
+IF NOT refine_mode:
+    // EXPLORATION MODE
+    ✅ Animation preferences recorded!
 
-You selected:
-{FOR each category, selected_key IN user_answers:
-    question = find(specification_options, q => q.category == category)
-    option = find(question.options, o => o.key == selected_key)
-    • {category}: {option.label}
-      ({option.details})
-}
+    You selected:
+    {FOR each category, selected_key IN user_answers:
+        question = find(specification_options, q => q.category == category)
+        option = find(question.options, o => o.key == selected_key)
+        • {category}: {option.label}
+          ({option.details})
+    }
 
-Proceeding to generate animation system with your preferences...
+    Proceeding to generate animation system with your preferences...
+
+ELSE:
+    // REFINEMENT MODE
+    ✅ Refinement selections recorded!
+
+    You selected {selected_ids.length} refinement(s):
+    {FOR each id IN selected_ids:
+        refinement = find(refinement_options, r => r.id == id)
+        • {refinement.label} ({refinement.category})
+          Impact: {refinement.impact_scope}
+    }
+
+    Proceeding to apply refinements to animation system...
 ```
 
-**Output**: Updated `analysis-options.json` with embedded `user_selection` field
+**Output**:
+- Exploration mode: Updated `analysis-options.json` with embedded `user_selection` field
+- Refinement mode: Updated `refinement-options.json` with `user_selection.selected_refinements` array
 
 ## Phase 2: Animation System Generation (Agent Task 2)
 
@@ -452,21 +646,35 @@ Proceeding to generate animation system with your preferences...
 ### Step 1: Load User Selection or Use Defaults
 
 ```bash
-# Read analysis-options.json which may contain user_selection
-options = Read({base_path}/.intermediates/animation-analysis/analysis-options.json)
-specification_options = options.specification_options
+IF NOT refine_mode:
+    # EXPLORATION MODE - Read analysis-options.json
+    options = Read({base_path}/.intermediates/animation-analysis/analysis-options.json)
+    specification_options = options.specification_options
 
-# Check if user_selection field exists (interactive mode)
-IF options.user_selection AND options.user_selection.answers:
-    # Interactive mode: Use user-selected preferences
-    user_answers = options.user_selection.answers
+    # Check if user_selection field exists (interactive mode)
+    IF options.user_selection AND options.user_selection.answers:
+        # Interactive mode: Use user-selected preferences
+        user_answers = options.user_selection.answers
+        REPORT: "🎯 Interactive mode: Using user-selected animation preferences"
+    ELSE:
+        # Non-interactive mode: Use defaults (first option for each question)
+        user_answers = null
+        REPORT: "ℹ️ Non-interactive mode: Using default animation preferences"
 
-    REPORT: "🎯 Interactive mode: Using user-selected animation preferences"
 ELSE:
-    # Non-interactive mode: Use defaults (first option for each question)
-    user_answers = null
+    # REFINEMENT MODE - Read refinement-options.json
+    options = Read({base_path}/.intermediates/animation-analysis/refinement-options.json)
+    refinement_options = options.refinement_options
 
-    REPORT: "ℹ️ Non-interactive mode: Using default animation preferences"
+    # Check if user_selection field exists (interactive mode)
+    IF options.user_selection AND options.user_selection.selected_refinements:
+        # Interactive mode: Use user-selected refinements
+        selected_refinements = options.user_selection.selected_refinements
+        REPORT: "🎯 Interactive mode: Applying {selected_refinements.length} selected refinement(s)"
+    ELSE:
+        # Non-interactive mode: Apply all refinements
+        selected_refinements = null
+        REPORT: "ℹ️ Non-interactive mode: Applying all refinements"
 
 # Load extracted animations if available
 extracted_animations = []
@@ -487,14 +695,16 @@ bash(mkdir -p {base_path}/animation-extraction)
 
 ### Step 3: Launch Animation Generation Task
 
-Generate animation system based on user preferences (or defaults) + CSS extraction:
+**Conditional Task**: Branch based on `refine_mode` flag
 
 ```javascript
-Task(ui-design-agent): `
-  [ANIMATION_SYSTEM_GENERATION_TASK]
-  Generate production-ready animation system based on user preferences and CSS extraction
+IF NOT refine_mode:
+    // EXPLORATION MODE
+    Task(ui-design-agent): `
+      [ANIMATION_SYSTEM_GENERATION_TASK]
+      Generate production-ready animation system based on user preferences and CSS extraction
 
-  SESSION: {session_id} | BASE_PATH: {base_path}
+      SESSION: {session_id} | MODE: explore | BASE_PATH: {base_path}
 
   USER PREFERENCES:
   ${user_answers ? "- User Selection: " + JSON.stringify(user_answers) : "- Using Defaults: First option for each category"}
@@ -659,10 +869,98 @@ Task(ui-design-agent): `
   - ${user_answers ? "✅ READ analysis-options.json for user_selection field" : "✅ Use first option from each question as default"}
   - ❌ NO user questions or interaction in this phase
   - ❌ NO external research or MCP calls
-`
+    `
+
+ELSE:
+    // REFINEMENT MODE
+    Task(ui-design-agent): `
+      [ANIMATION_SYSTEM_REFINEMENT_TASK]
+      Apply selected refinements to existing animation system
+
+      SESSION: {session_id} | MODE: refine | BASE_PATH: {base_path}
+
+      ## Load Existing Animation System
+      - Current tokens: Read from {base_path}/animation-extraction/animation-tokens.json
+      - Refinement options: Read from .intermediates/animation-analysis/refinement-options.json
+
+      REFINEMENT SELECTION:
+      ${selected_refinements ? `
+      - Interactive mode: Apply selected refinements
+      - Selected IDs: ${JSON.stringify(selected_refinements)}
+      - For each ID in selected_refinements:
+          * Find refinement in refinement_options by id
+          * Apply technical_changes to corresponding tokens
+      ` : `
+      - Non-interactive mode: Apply ALL refinements
+      - For each refinement in refinement_options:
+          * Apply technical_changes to corresponding tokens
+      `}
+
+      ## Input Analysis
+      - CSS extraction: {extracted_animations.length > 0 ? "Available" : "None"}
+      ${extracted_animations.length > 0 ? "- CSS Data: " + JSON.stringify(extracted_animations) : ""}
+      - Design context: {has_design_context ? "Available" : "None"}
+      ${has_design_context ? "- Design Tokens: Read from style-extraction/style-1/design-tokens.json" : ""}
+
+      ## Refinement Application Rules
+      ${selected_refinements ? `
+      - ONLY apply refinements with IDs in selected_refinements array
+      - Skip refinements not selected by user
+      ` : `
+      - Apply ALL refinements from refinement_options
+      - Combine multiple refinements that affect same token
+      `}
+      - Load current animation-tokens.json
+      - For each applicable refinement:
+          * Parse technical_changes field
+          * Apply "to" values to replace "from" values in tokens
+          * Preserve structure and var() references
+      - If multiple refinements affect same token, apply in sequence
+      - Maintain WCAG compliance and semantic naming
+      - All tokens use CSS Custom Property format: var(--duration-fast)
+
+      ## Conflict Resolution
+      - If multiple selected refinements modify same token:
+          * Apply refinements in ID order (lowest first)
+          * Later refinements override earlier ones
+          * Document conflicts in animation-guide.md
+
+      ## Generate Updated Files
+
+      ### 1. animation-tokens.json
+      Updated animation token structure with refinements applied:
+      - Load existing structure
+      - Apply technical_changes from selected/all refinements
+      - Maintain var() references and semantic naming
+      - Validate all cubic-bezier values
+
+      ### 2. animation-guide.md
+      Updated usage guide with refinement documentation:
+      - Original sections (Animation Philosophy, Duration Scale, etc.)
+      - **NEW: Refinement History** section:
+          * Applied refinements list
+          * Before/after comparisons
+          * Rationale for changes
+          * Migration notes if needed
+
+      ## Output File Paths
+      - animation-tokens.json: {base_path}/animation-extraction/animation-tokens.json (OVERWRITE)
+      - animation-guide.md: {base_path}/animation-extraction/animation-guide.md (UPDATE with refinement history)
+
+      ## Critical Requirements
+      - ✅ Use Write() tool immediately for both files
+      - ✅ OVERWRITE existing animation-tokens.json with refined version
+      - ✅ UPDATE animation-guide.md (don't overwrite, add refinement history section)
+      - ✅ All tokens use CSS Custom Property format: var(--duration-fast)
+      - ✅ Include prefers-reduced-motion media query guidance
+      - ✅ Validate all cubic-bezier values are valid (4 numbers between 0-1)
+      - ${selected_refinements ? "✅ READ refinement-options.json for user_selection.selected_refinements" : "✅ Apply ALL refinements from refinement_options"}
+      - ❌ NO user questions or interaction in this phase
+      - ❌ NO external research or MCP calls
+    `
 ```
 
-**Output**: Agent generates 2 files (animation-tokens.json, animation-guide.md)
+**Output**: Agent generates/updates 2 files (animation-tokens.json, animation-guide.md)
 
 ## Phase 3: Verify Output
 
