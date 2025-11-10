@@ -42,11 +42,8 @@ codex -C [dir] --full-auto exec "[prompt]" [-m model] [--skip-git-repo-check -s 
 ### Model Selection
 
 **Gemini**:
-- `gemini-3-pro-preview-11-2025` - Analysis (default, preferred)
-- `gemini-2.5-pro` - Analysis (alternative)
+- `gemini-2.5-pro` - Analysis (default)
 - `gemini-2.5-flash` - Documentation updates
-
-**Error Handling**: If `gemini-3-pro-preview-11-2025` returns 404 error, fallback to `gemini-2.5-pro`
 
 **Qwen**:
 - `coder-model` - Code analysis (default)
@@ -128,7 +125,6 @@ codex -C [dir] --full-auto exec "[prompt]" [-m model] [--skip-git-repo-check -s 
 
 **Error Handling**:
 - **HTTP 429**: May show error but still return results - check if results exist (results present = success, no results = retry/fallback to Qwen)
-- **HTTP 404**: If `gemini-3-pro-preview-11-2025` returns 404, fallback to `gemini-2.5-pro`
 
 ### Codex
 
@@ -244,14 +240,14 @@ Use the **[Standard Prompt Template](#standard-prompt-template)** for all tools.
 - **Tool**: `gemini` (primary) | `qwen` (fallback)
 - **Prompt**: `-p "[Standard Prompt Template]"` (prompt BEFORE options)
 - **Model**: `-m [model-name]` (optional, placed AFTER prompt)
-  - Gemini: `gemini-3-pro-preview-11-2025` (default) | `gemini-2.5-pro` | `gemini-2.5-flash`
+  - Gemini: `gemini-2.5-pro` (default) | `gemini-2.5-flash`
   - Qwen: `coder-model` (default) | `vision-model`
 - **Write Permission**: `--approval-mode yolo` (ONLY for MODE=write, placed AFTER prompt)
 
 **Command Examples**:
 ```bash
 # Analysis Mode (default, read-only)
-cd [directory] && gemini -p "[Standard Prompt Template]" -m gemini-3-pro-preview-11-2025
+cd [directory] && gemini -p "[Standard Prompt Template]" -m gemini-2.5-pro
 
 # Write Mode (requires MODE=write in template + --approval-mode yolo)
 cd [directory] && gemini -p "[Standard Prompt Template with MODE: write]" -m gemini-2.5-flash --approval-mode yolo
@@ -260,7 +256,7 @@ cd [directory] && gemini -p "[Standard Prompt Template with MODE: write]" -m gem
 cd [directory] && qwen -p "[Standard Prompt Template]" -m coder-model
 
 # Multi-directory support
-cd [directory] && gemini -p "[Standard Prompt Template]" -m gemini-3-pro-preview-11-2025 --include-directories ../shared,../types
+cd [directory] && gemini -p "[Standard Prompt Template]" -m gemini-2.5-pro --include-directories ../shared,../types
 ```
 
 #### Codex
@@ -333,7 +329,7 @@ codex --full-auto exec "Add JWT refresh token validation" resume --last --skip-g
 2. Explicitly reference external files in CONTEXT field with @ patterns
 3. ⚠️ BOTH steps are MANDATORY
 
-Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" -m gemini-3-pro-preview-11-2025 --include-directories ../shared`
+Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" -m gemini-2.5-pro --include-directories ../shared`
 
 **Rule**: If CONTEXT contains `@../dir/**/*`, command MUST include `--include-directories ../dir`
 
@@ -348,10 +344,10 @@ Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" -m gemini-3-
 **Syntax**:
 ```bash
 # Comma-separated format
-gemini -p "prompt" -m gemini-3-pro-preview-11-2025 --include-directories /path/to/project1,/path/to/project2
+gemini -p "prompt" -m gemini-2.5-pro --include-directories /path/to/project1,/path/to/project2
 
 # Multiple flags format
-gemini -p "prompt" -m gemini-3-pro-preview-11-2025 --include-directories /path/to/project1 --include-directories /path/to/project2
+gemini -p "prompt" -m gemini-2.5-pro --include-directories /path/to/project1 --include-directories /path/to/project2
 
 # Recommended: cd + --include-directories
 cd src/auth && gemini -p "
@@ -361,7 +357,7 @@ MODE: analysis
 CONTEXT: @**/* @../shared/**/* @../types/**/*
 EXPECTED: Complete analysis with cross-directory dependencies
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on integration patterns | analysis=READ-ONLY
-" -m gemini-3-pro-preview-11-2025 --include-directories ../shared,../types
+" -m gemini-2.5-pro --include-directories ../shared,../types
 ```
 
 **Best Practices**:
@@ -449,7 +445,7 @@ MODE: analysis
 CONTEXT: @components/Auth.tsx @types/auth.d.ts @hooks/useAuth.ts | Memory: Previous refactoring identified type inconsistencies, following React hooks patterns, related implementation in @hooks/useAuth.ts (commit abc123)
 EXPECTED: Comprehensive analysis report with type safety recommendations, code examples, and references to previous findings
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on type safety and component composition | analysis=READ-ONLY
-" -m gemini-3-pro-preview-11-2025
+" -m gemini-2.5-pro
 ```
 
 ### RULES Field Configuration
