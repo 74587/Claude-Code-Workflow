@@ -57,7 +57,7 @@ package-name    Style reference package name (required)
 ```json
 [
   {"content": "Validate style reference package", "status": "in_progress", "activeForm": "Validating package"},
-  {"content": "Read package metadata and documentation", "status": "pending", "activeForm": "Reading metadata"},
+  {"content": "Read package data and count components", "status": "pending", "activeForm": "Reading package data"},
   {"content": "Generate SKILL.md with progressive loading", "status": "pending", "activeForm": "Generating SKILL.md"}
 ]
 ```
@@ -117,7 +117,7 @@ if (regenerate_flag && skill_exists) {
 ```json
 [
   {"content": "Validate style reference package", "status": "completed", "activeForm": "Validating package"},
-  {"content": "Read package metadata and documentation", "status": "in_progress", "activeForm": "Reading metadata"}
+  {"content": "Read package data and count components", "status": "in_progress", "activeForm": "Reading package data"}
 ]
 ```
 
@@ -125,61 +125,53 @@ if (regenerate_flag && skill_exists) {
 
 ---
 
-### Phase 2: Read Package Metadata
+### Phase 2: Read Package Data
 
-**Purpose**: Extract metadata and documentation for SKILL description generation
+**Purpose**: Extract package information for SKILL description generation
 
-**Step 1: Read metadata.json**
-
-```bash
-Read(file_path=".workflow/reference_style/${package_name}/metadata.json")
-```
-
-**Extract Fields**:
-- `packageName`
-- `version`
-- `generatedAt`
-- `description`
-- `source.design_run`
-- `files` (count available files)
-
-**Step 2: Read README.md**
+**Step 1: Count Components**
 
 ```bash
-Read(file_path=".workflow/reference_style/${package_name}/README.md")
-```
-
-**Extract Information**:
-- Package overview
-- Component catalog reference
-- Design token categories
-
-**Step 3: Count Components**
-
-```bash
-bash(test -f .workflow/reference_style/${package_name}/component-patterns.json && jq '.extraction_metadata.component_count' .workflow/reference_style/${package_name}/component-patterns.json 2>/dev/null || grep -c '"button"\|"input"\|"card"\|"badge"\|"alert"' .workflow/reference_style/${package_name}/component-patterns.json 2>/dev/null || echo 0)
+bash(jq '.layout_templates | length' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null || echo 0)
 ```
 
 Store result as `component_count`
 
-**Step 4: Check Available Files**
+**Step 2: Read Design Tokens Summary**
 
 ```bash
-bash(cd .workflow/reference_style/${package_name} && ls -1 *.json *.md *.html *.css 2>/dev/null | wc -l)
+Read(file_path=".workflow/reference_style/${package_name}/design-tokens.json")
+```
+
+**Extract Information**:
+- Available token categories (colors, typography, spacing, etc.)
+- Token count per category
+
+**Step 3: Check Available Files**
+
+```bash
+bash(cd .workflow/reference_style/${package_name} && ls -1 *.json *.html *.css 2>/dev/null | wc -l)
 ```
 
 Store result as `file_count`
 
+**Step 4: Check Optional Animation Tokens**
+
+```bash
+bash(test -f .workflow/reference_style/${package_name}/animation-tokens.json && echo "available" || echo "not_available")
+```
+
+Store result as `has_animations`
+
 **Summary Data**:
-- `COMPONENT_COUNT`: Number of components in catalog
+- `COMPONENT_COUNT`: Number of components in layout templates
 - `FILE_COUNT`: Total files in package
-- `VERSION`: Package version (from metadata.json)
-- `DESCRIPTION`: Package description (from metadata.json)
+- `HAS_ANIMATIONS`: Whether animation tokens are available
 
 **TodoWrite Update**:
 ```json
 [
-  {"content": "Read package metadata and documentation", "status": "completed", "activeForm": "Reading metadata"},
+  {"content": "Read package data and count components", "status": "completed", "activeForm": "Reading package data"},
   {"content": "Generate SKILL.md with progressive loading", "status": "in_progress", "activeForm": "Generating SKILL.md"}
 ]
 ```
@@ -202,18 +194,18 @@ bash(mkdir -p .claude/skills/style-${package_name})
 
 **Format**:
 ```
-{Package Name} design system with {component_count} components and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with UI components, design tokens, style guidelines, analyzing design patterns, or implementing visual consistency.
+{package_name} design system with {component_count} layout templates and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with UI components, design tokens, layout patterns, analyzing component structures, or implementing visual consistency.
 ```
 
 **Key Elements**:
-- **Component Count**: Emphasize available component catalog
+- **Component Count**: Emphasize available layout templates
 - **Path Reference**: Precise package location
-- **Trigger Keywords**: UI components, design tokens, style guidelines, design patterns
+- **Trigger Keywords**: UI components, design tokens, layout patterns, component structures
 - **Action Coverage**: working with, analyzing, implementing
 
 **Example**:
 ```
-main-app-style-v1 design system with 8 components and interactive preview (located at .workflow/reference_style/main-app-style-v1). Load when working with UI components, design tokens, style guidelines, analyzing design patterns, or implementing visual consistency.
+main-app-style-v1 design system with 8 layout templates and interactive preview (located at .workflow/reference_style/main-app-style-v1). Load when working with UI components, design tokens, layout patterns, analyzing component structures, or implementing visual consistency.
 ```
 
 **Step 3: Write SKILL.md** (Use Write tool)
@@ -222,7 +214,6 @@ main-app-style-v1 design system with 8 components and interactive preview (locat
 ---
 name: style-{package_name}
 description: {intelligent description from Step 2}
-version: {version from metadata.json}
 ---
 
 # {Package Name} Style SKILL Package
@@ -231,64 +222,50 @@ version: {version from metadata.json}
 
 ## Package Overview
 
-Style reference package with comprehensive design system documentation and interactive component preview.
+Style reference package extracted from codebase with layout templates, design tokens, and interactive preview.
 
 **Package Details**:
 - Package: {package_name}
-- Version: {version}
-- Components: {component_count}
+- Layout Templates: {component_count}
 - Files: {file_count}
-- Generated: {generatedAt}
+- Animation Tokens: {has_animations ? "✓ Available" : "Not available"}
 
 ## Progressive Loading
 
-### Level 0: Quick Start (~2K tokens)
+### Level 0: Design Tokens (~5K tokens)
 
-Essential overview and package information.
+Essential design token system for consistent styling.
 
 **Files**:
-- [README](../../../.workflow/reference_style/{package_name}/README.md) - Package overview and usage
-- [Metadata](../../../.workflow/reference_style/{package_name}/metadata.json) - Source and package info
+- [Design Tokens](../../../.workflow/reference_style/{package_name}/design-tokens.json) - Colors, typography, spacing, shadows, borders
 
-**Use when**: Quick reference, understanding package structure
+**Use when**: Quick token reference, applying consistent styles, color/typography queries
 
 ---
 
-### Level 1: Design Tokens (~8K tokens)
+### Level 1: Layout Templates (~12K tokens)
 
-Complete design token system with style guidelines.
+Component layout patterns extracted from codebase.
 
 **Files**:
-- [Design Tokens](../../../.workflow/reference_style/{package_name}/design-tokens.json) - Colors, typography, spacing, shadows
-- [Style Guide](../../../.workflow/reference_style/{package_name}/style-guide.md) - Design philosophy and usage guidelines
+- Level 0 files
+- [Layout Templates](../../../.workflow/reference_style/{package_name}/layout-templates.json) - Component structures with HTML/CSS patterns
 
-**Use when**: Implementing UI, applying design tokens, style consistency
+**Use when**: Building components, understanding component architecture, implementing layouts
 
 ---
 
-### Level 2: Components & Patterns (~15K tokens)
+### Level 2: Complete System (~20K tokens)
 
-Full component catalog with patterns, variants, and states.
+Full design system with animations and interactive preview.
 
 **Files**:
-- Level 1 files
-- [Component Patterns](../../../.workflow/reference_style/{package_name}/component-patterns.json) - Component catalog with DOM structures and CSS classes
+- All Level 1 files
 - [Animation Tokens](../../../.workflow/reference_style/{package_name}/animation-tokens.json) - Animation durations, easing, transitions _(if available)_
-
-**Use when**: Building components, implementing interactions, animation development
-
----
-
-### Level 3: Complete Reference (~25K tokens)
-
-Everything including interactive preview reference and full documentation.
-
-**Files**:
-- All Level 2 files
-- [Preview HTML](../../../.workflow/reference_style/{package_name}/preview.html) - Interactive component showcase (reference only)
+- [Preview HTML](../../../.workflow/reference_style/{package_name}/preview.html) - Interactive showcase (reference only)
 - [Preview CSS](../../../.workflow/reference_style/{package_name}/preview.css) - Showcase styling (reference only)
 
-**Use when**: Comprehensive analysis, complete design system understanding, implementation validation
+**Use when**: Comprehensive analysis, animation development, complete design system understanding
 
 ---
 
@@ -317,45 +294,40 @@ python -m http.server 8080
 
 ### Loading Levels
 
-**Level 0** (2K): Quick reference when you need basic package info
+**Level 0** (5K): Design tokens only
 ```
-Load Level 0 for package overview
-```
-
-**Level 1** (8K): Design token implementation
-```
-Load Level 1 for design tokens and style guide
+Load Level 0 for design token reference
 ```
 
-**Level 2** (15K): Component development
+**Level 1** (12K): Tokens + layout templates
 ```
-Load Level 2 for component patterns and animations
+Load Level 1 for layout templates and design tokens
 ```
 
-**Level 3** (25K): Comprehensive understanding
+**Level 2** (20K): Complete system with animations and preview
 ```
-Load Level 3 for complete design system reference
+Load Level 2 for complete design system with preview reference
 ```
 
 ### Common Use Cases
 
 **Implementing UI Components**:
-- Load Level 2 for component patterns
-- Reference component-patterns.json for DOM structure and CSS classes
+- Load Level 1 for layout templates
+- Reference layout-templates.json for component structures
 - Apply design tokens from design-tokens.json
 
 **Ensuring Style Consistency**:
-- Load Level 1 for design tokens
-- Use style-guide.md for design philosophy
+- Load Level 0 for design tokens
+- Use design-tokens.json for colors, typography, spacing
 - Check preview.html for visual reference
 
-**Analyzing Design Patterns**:
-- Load Level 3 for complete analysis
-- Review component-patterns.json for architecture
+**Analyzing Component Patterns**:
+- Load Level 2 for complete analysis
+- Review layout-templates.json for component architecture
 - Check preview.html for implementation examples
 
 **Animation Development**:
-- Load Level 2 for animation tokens
+- Load Level 2 for animation tokens (if available)
 - Reference animation-tokens.json for durations and easing
 - Apply consistent timing and transitions
 
@@ -365,14 +337,11 @@ Load Level 3 for complete design system reference
 
 ```
 .workflow/reference_style/{package_name}/
-├── README.md                 # Package overview
-├── metadata.json            # Package metadata
-├── design-tokens.json       # Design token system
-├── style-guide.md          # Style guide documentation
-├── component-patterns.json # Component catalog
-├── animation-tokens.json   # Animation tokens (optional)
-├── preview.html           # Interactive showcase
-└── preview.css            # Showcase styling
+├── layout-templates.json   # Layout templates from codebase
+├── design-tokens.json     # Design token system
+├── animation-tokens.json  # Animation tokens (optional)
+├── preview.html          # Interactive showcase
+└── preview.css           # Showcase styling
 ```
 
 ---
@@ -408,7 +377,7 @@ bash(test -f .claude/skills/style-${package_name}/SKILL.md && echo "success" || 
 ```json
 [
   {"content": "Validate style reference package", "status": "completed", "activeForm": "Validating package"},
-  {"content": "Read package metadata and documentation", "status": "completed", "activeForm": "Reading metadata"},
+  {"content": "Read package data and count components", "status": "completed", "activeForm": "Reading package data"},
   {"content": "Generate SKILL.md with progressive loading", "status": "completed", "activeForm": "Generating SKILL.md"}
 ]
 ```
@@ -426,22 +395,21 @@ Package: {package_name}
 SKILL Location: .claude/skills/style-{package_name}/SKILL.md
 
 Package Details:
-- Components: {component_count}
+- Layout Templates: {component_count}
 - Files: {file_count}
-- Version: {version}
+- Animation Tokens: {has_animations ? "✓ Available" : "Not available"}
 
 Progressive Loading Levels:
-- Level 0: Quick Start (~2K tokens)
-- Level 1: Design Tokens (~8K tokens)
-- Level 2: Components & Patterns (~15K tokens)
-- Level 3: Complete Reference (~25K tokens)
+- Level 0: Design Tokens (~5K tokens)
+- Level 1: Tokens + Layout Templates (~12K tokens)
+- Level 2: Complete System (~20K tokens)
 
 Usage:
 Load design system context when working with:
 - UI component implementation
+- Layout pattern analysis
 - Design token application
 - Style consistency validation
-- Design pattern analysis
 
 Preview:
 Open interactive showcase:
@@ -449,7 +417,7 @@ Open interactive showcase:
 
 Next Steps:
 1. Load appropriate level based on your task
-2. Reference component-patterns.json for implementation
+2. Reference layout-templates.json for component structures
 3. Use design-tokens.json for consistent styling
 ```
 
@@ -463,8 +431,8 @@ Next Steps:
 |-------|-------|------------|
 | Package not found | Invalid package name or package doesn't exist | Run codify-style first to create package |
 | SKILL already exists | SKILL.md already generated | Use --regenerate to force regeneration |
-| Missing metadata.json | Incomplete package | Verify package integrity, re-run codify-style |
-| Invalid metadata format | Corrupted metadata.json | Regenerate package with codify-style |
+| Missing layout-templates.json | Incomplete package | Verify package integrity, re-run codify-style |
+| Invalid JSON format | Corrupted package files | Regenerate package with codify-style |
 
 ---
 
@@ -481,34 +449,30 @@ Next Steps:
 
 **Template**:
 ```
-{package_name} design system with {component_count} components and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with UI components, design tokens, style guidelines, analyzing design patterns, or implementing visual consistency.
+{package_name} design system with {component_count} layout templates and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with UI components, design tokens, layout patterns, analyzing component structures, or implementing visual consistency.
 ```
 
 **Required Elements**:
 - Package name
-- Component count
+- Layout template count
 - Location (full path)
-- Trigger keywords (UI components, design tokens, style guidelines, design patterns)
+- Trigger keywords (UI components, design tokens, layout patterns, component structures)
 - Action verbs (working with, analyzing, implementing)
 
 ### Progressive Loading Structure
 
-**Level 0** (~2K tokens):
-- README.md
-- metadata.json
-
-**Level 1** (~8K tokens):
-- Level 0 files
+**Level 0** (~5K tokens):
 - design-tokens.json
-- style-guide.md
 
-**Level 2** (~15K tokens):
+**Level 1** (~12K tokens):
+- Level 0 files
+- layout-templates.json
+
+**Level 2** (~20K tokens):
 - Level 1 files
-- component-patterns.json
 - animation-tokens.json (if exists)
-
-**Level 3** (~25K tokens):
-- All files including preview.html/css
+- preview.html
+- preview.css
 
 ---
 
@@ -525,10 +489,10 @@ Next Steps:
 ```
 style-skill-memory
   ├─ Phase 1: Validate (check package exists, check SKILL exists)
-  ├─ Phase 2: Read Metadata (extract metadata.json, README.md, count components)
+  ├─ Phase 2: Read Package Data (count components from layout-templates.json, check animations)
   └─ Phase 3: Generate SKILL.md (write SKILL with progressive loading)
 
 No external commands called
 Direct file reading and writing
-Smart description generation from metadata
+Smart description generation from package data
 ```
