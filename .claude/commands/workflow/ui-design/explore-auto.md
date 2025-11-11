@@ -18,25 +18,25 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 **Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
 1. User triggers: `/workflow:ui-design:explore-auto [params]`
-2. Phase 0c: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 1**
-3. Phase 1 (style-extract) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 2.3
-4. Phase 2.3 (animation-extract, conditional):
-   - **IF should_extract_animation**: **Attach tasks → Execute → Collapse** → Auto-continues to Phase 2.5
-   - **ELSE**: Skip (use code import) → Auto-continues to Phase 2.5
-5. Phase 2.5 (layout-extract) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 3
-6. **Phase 3 (ui-assembly)** → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 4
-7. Phase 4 (design-update) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 5 (if --batch-plan)
-8. Phase 5 (batch-plan, optional) → Reports completion
+2. Phase 5: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 7**
+3. Phase 7 (style-extract) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 8
+4. Phase 8 (animation-extract, conditional):
+   - **IF should_extract_animation**: **Attach tasks → Execute → Collapse** → Auto-continues to Phase 9
+   - **ELSE**: Skip (use code import) → Auto-continues to Phase 9
+5. Phase 9 (layout-extract) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 10
+6. **Phase 10 (ui-assembly)** → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 11
+7. Phase 11 (design-update) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 12 (if --batch-plan)
+8. Phase 12 (batch-plan, optional) → Reports completion
 
 **Phase Transition Mechanism**:
-- **Phase 0c (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 1
-- **Phase 1-5 (Autonomous)**: `SlashCommand` invocation **ATTACHES** tasks to current workflow
+- **Phase 5 (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 7
+- **Phase 7-12 (Autonomous)**: `SlashCommand` invocation **ATTACHES** tasks to current workflow
 - **Task Execution**: Orchestrator **EXECUTES** these attached tasks itself
 - **Task Collapse**: After tasks complete, collapse them into phase summary
 - **Phase Transition**: Automatically execute next phase after collapsing
-- No additional user interaction after Phase 0c confirmation
+- No additional user interaction after Phase 5 confirmation
 
-**Auto-Continue Mechanism**: TodoWrite tracks phase status with dynamic task attachment/collapse. After executing all attached tasks, you MUST immediately collapse them, restore phase summary, and execute the next phase. No user intervention required. The workflow is NOT complete until reaching Phase 4 (or Phase 5 if --batch-plan).
+**Auto-Continue Mechanism**: TodoWrite tracks phase status with dynamic task attachment/collapse. After executing all attached tasks, you MUST immediately collapse them, restore phase summary, and execute the next phase. No user intervention required. The workflow is NOT complete until reaching Phase 11 (or Phase 12 if --batch-plan).
 
 **Task Attachment Model**: SlashCommand invocation is NOT delegation - it's task expansion. The orchestrator executes these attached tasks itself, not waiting for external completion.
 
@@ -44,13 +44,13 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 ## Core Rules
 
-1. **Start Immediately**: TodoWrite initialization → Phase 1 execution
+1. **Start Immediately**: TodoWrite initialization → Phase 7 execution
 2. **No Preliminary Validation**: Sub-commands handle their own validation
 3. **Parse & Pass**: Extract data from each output for next phase
 4. **Default to All**: When selecting variants/prototypes, use ALL generated items
 5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 6. **⚠️ CRITICAL: Task Attachment Model** - SlashCommand invocation **ATTACHES** tasks to current workflow. Orchestrator **EXECUTES** these attached tasks itself, not waiting for external completion. This is NOT delegation - it's task expansion.
-7. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After executing all attached tasks, you MUST immediately collapse them and execute the next phase. Workflow is NOT complete until Phase 4 (or Phase 5 if --batch-plan).
+7. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After executing all attached tasks, you MUST immediately collapse them and execute the next phase. Workflow is NOT complete until Phase 11 (or Phase 12 if --batch-plan).
 
 ## Parameter Requirements
 
@@ -128,9 +128,9 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 **Integrated vs. Standalone**:
 - `--session` flag determines session integration or standalone execution
 
-## 6-Phase Execution
+## 12-Phase Execution
 
-### Phase 0a: Parameter Parsing & Input Detection
+### Phase 1: Parameter Parsing & Input Detection
 ```bash
 # Step 0: Parse and normalize parameters
 images_input = null
@@ -202,7 +202,7 @@ ELSE:
 STORE: design_source, code_base_path, has_visual_input
 ```
 
-### Phase 0a-2: Intelligent Prompt Parsing
+### Phase 2: Intelligent Prompt Parsing
 ```bash
 # Parse variant counts from prompt or use explicit/default values
 IF prompt_text AND (NOT --style-variants OR NOT --layout-variants):
@@ -218,7 +218,7 @@ VALIDATE: 1 <= style_variants <= 5, 1 <= layout_variants <= 5
 interactive_mode = true  # Always use interactive mode
 ```
 
-### Phase 0a-2: Device Type Inference
+### Phase 3: Device Type Inference
 ```bash
 # Device type inference
 device_type = "auto"
@@ -263,7 +263,7 @@ STORE: device_type, device_source
 - Prompt contains "responsive", "adaptive" → responsive
 - Otherwise: Inferred from target type (components→desktop, pages→responsive)
 
-### Phase 0b: Run Initialization & Directory Setup
+### Phase 4: Run Initialization & Directory Setup
 ```bash
 design_id = "design-run-$(date +%Y%m%d)-$RANDOM"
 relative_base_path = --session ? ".workflow/WFS-{session}/${design_id}" : ".workflow/.design/${design_id}"
@@ -292,7 +292,7 @@ needs_visual_supplement = false  # Will be set to true in hybrid mode
 skip_animation_extraction = false  # User preference for code import scenario
 ```
 
-### Phase 0c: Unified Target Inference with Intelligent Type Detection
+### Phase 5: Unified Target Inference with Intelligent Type Detection
 ```bash
 # Priority: --pages/--components (legacy) → --targets → --prompt analysis → synthesis → default
 target_list = []; target_type = "auto"; target_source = "none"
@@ -357,7 +357,7 @@ MATCH user_input:
 
 STORE: inferred_target_list, target_type, target_inference_source
 
-# ⚠️ CRITICAL: User confirmation complete, IMMEDIATELY initialize TodoWrite and execute Phase 1
+# ⚠️ CRITICAL: User confirmation complete, IMMEDIATELY initialize TodoWrite and execute Phase 7
 # This is the only user interaction point in the workflow
 # After this point, all subsequent phases execute automatically without user intervention
 ```
@@ -374,10 +374,10 @@ detect_target_type(target_list):
     RETURN "component" IF component_matches > page_matches ELSE "page"
 ```
 
-### Phase 0d: Code Import & Completeness Assessment (Conditional)
+### Phase 6: Code Import & Completeness Assessment (Conditional)
 ```bash
 IF design_source IN ["code_only", "hybrid"]:
-    REPORT: "🔍 Phase 0d: Code Import ({design_source})"
+    REPORT: "🔍 Phase 6: Code Import ({design_source})"
     command = "/workflow:ui-design:import-from-code --design-id \"{design_id}\" --source \"{code_base_path}\""
 
     TRY:
@@ -484,10 +484,10 @@ IF design_source IN ["code_only", "hybrid"]:
     STORE: needs_visual_supplement, style_complete, animation_complete, layout_complete, skip_animation_extraction
 ```
 
-### Phase 1: Style Extraction
+### Phase 7: Style Extraction
 ```bash
 IF design_source == "visual_only" OR needs_visual_supplement:
-    REPORT: "🎨 Phase 1: Style Extraction (variants: {style_variants})"
+    REPORT: "🎨 Phase 7: Style Extraction (variants: {style_variants})"
     command = "/workflow:ui-design:style-extract --design-id \"{design_id}\" " +
               (images_input ? "--images \"{images_input}\" " : "") +
               (prompt_text ? "--prompt \"{prompt_text}\" " : "") +
@@ -499,10 +499,10 @@ IF design_source == "visual_only" OR needs_visual_supplement:
 
     # After executing all attached tasks, collapse them into phase summary
 ELSE:
-    REPORT: "✅ Phase 1: Style (Using Code Import)"
+    REPORT: "✅ Phase 7: Style (Using Code Import)"
 ```
 
-### Phase 2.3: Animation Extraction
+### Phase 8: Animation Extraction
 ```bash
 # Determine if animation extraction is needed
 should_extract_animation = false
@@ -518,7 +518,7 @@ ELSE IF design_source == "code_only" AND animation_complete AND NOT skip_animati
     should_extract_animation = true
 
 IF should_extract_animation:
-    REPORT: "🚀 Phase 2.3: Animation Extraction"
+    REPORT: "🚀 Phase 8: Animation Extraction"
 
     # Build command with available inputs
     command_parts = [f"/workflow:ui-design:animation-extract --design-id \"{design_id}\""]
@@ -539,18 +539,18 @@ IF should_extract_animation:
 
     # After executing all attached tasks, collapse them into phase summary
 ELSE:
-    REPORT: "✅ Phase 2.3: Animation (Using Code Import)"
+    REPORT: "✅ Phase 8: Animation (Using Code Import)"
 
 # Output: animation-tokens.json + animation-guide.md
-# When phase finishes, IMMEDIATELY execute Phase 2.5 (auto-continue)
+# When phase finishes, IMMEDIATELY execute Phase 9 (auto-continue)
 ```
 
-### Phase 2.5: Layout Extraction
+### Phase 9: Layout Extraction
 ```bash
 targets_string = ",".join(inferred_target_list)
 
 IF (design_source == "visual_only" OR needs_visual_supplement) OR (NOT layout_complete):
-    REPORT: "🚀 Phase 2.5: Layout Extraction ({targets_string}, variants: {layout_variants}, device: {device_type})"
+    REPORT: "🚀 Phase 9: Layout Extraction ({targets_string}, variants: {layout_variants}, device: {device_type})"
     command = "/workflow:ui-design:layout-extract --design-id \"{design_id}\" " +
               (images_input ? "--images \"{images_input}\" " : "") +
               (prompt_text ? "--prompt \"{prompt_text}\" " : "") +
@@ -562,16 +562,16 @@ IF (design_source == "visual_only" OR needs_visual_supplement) OR (NOT layout_co
 
     # After executing all attached tasks, collapse them into phase summary
 ELSE:
-    REPORT: "✅ Phase 2.5: Layout (Using Code Import)"
+    REPORT: "✅ Phase 9: Layout (Using Code Import)"
 ```
 
-### Phase 3: UI Assembly
+### Phase 10: UI Assembly
 ```bash
 command = "/workflow:ui-design:generate --design-id \"{design_id}\"" + (--session ? " --session {session_id}" : "")
 
 total = style_variants × layout_variants × len(inferred_target_list)
 
-REPORT: "🚀 Phase 3: UI Assembly | Matrix: {s}×{l}×{n} = {total} prototypes"
+REPORT: "🚀 Phase 10: UI Assembly | Matrix: {s}×{l}×{n} = {total} prototypes"
 REPORT: "   → Pure assembly: Combining layout templates + design tokens"
 REPORT: "   → Device: {device_type} (from layout templates)"
 REPORT: "   → Assembly tasks: {total} combinations"
@@ -581,7 +581,7 @@ REPORT: "   → Assembly tasks: {total} combinations"
 SlashCommand(command)
 
 # After executing all attached tasks, collapse them into phase summary
-# When phase finishes, IMMEDIATELY execute Phase 4 (auto-continue)
+# When phase finishes, IMMEDIATELY execute Phase 11 (auto-continue)
 # Output:
 # - {target}-style-{s}-layout-{l}.html (assembled prototypes)
 # - {target}-style-{s}-layout-{l}.css
@@ -589,7 +589,7 @@ SlashCommand(command)
 # - PREVIEW.md (usage instructions)
 ```
 
-### Phase 4: Design System Integration
+### Phase 11: Design System Integration
 ```bash
 command = "/workflow:ui-design:update" + (--session ? " --session {session_id}" : "")
 
@@ -599,11 +599,11 @@ SlashCommand(command)
 
 # After executing all attached tasks, collapse them into phase summary
 # When phase finishes:
-#   - If --batch-plan flag present: IMMEDIATELY execute Phase 5 (auto-continue)
+#   - If --batch-plan flag present: IMMEDIATELY execute Phase 12 (auto-continue)
 #   - If no --batch-plan: Workflow complete, display final report
 ```
 
-### Phase 5: Batch Task Generation (Optional)
+### Phase 12: Batch Task Generation (Optional)
 ```bash
 IF --batch-plan:
     FOR target IN inferred_target_list:
@@ -616,7 +616,7 @@ IF --batch-plan:
 
 ## TodoWrite Pattern
 ```javascript
-// Initialize IMMEDIATELY after Phase 0c user confirmation to track multi-phase execution (5 orchestrator-level tasks)
+// Initialize IMMEDIATELY after Phase 5 user confirmation to track multi-phase execution (5 orchestrator-level tasks)
 TodoWrite({todos: [
   {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing style extraction"},
   {"content": "Execute animation extraction", "status": "pending", "activeForm": "Executing animation extraction"},
@@ -630,7 +630,7 @@ TodoWrite({todos: [
 // **Key Concept**: SlashCommand invocation ATTACHES tasks to current workflow.
 // Orchestrator EXECUTES these attached tasks itself, not waiting for external completion.
 //
-// Phase 1-5 SlashCommand Invocation Pattern:
+// Phase 7-12 SlashCommand Invocation Pattern:
 // 1. SlashCommand invocation ATTACHES sub-command tasks to TodoWrite
 // 2. TodoWrite expands to include attached tasks
 // 3. Orchestrator EXECUTES attached tasks sequentially
@@ -653,16 +653,16 @@ Architecture: Style-Centric Batch Generation
 Run ID: {run_id} | Session: {session_id or "standalone"}
 Type: {icon} {target_type} | Device: {device_type} | Matrix: {s}×{l}×{n} = {total} prototypes
 
-Phase 1: {s} complete design systems (style-extract with multi-select)
-Phase 2: {n×l} layout templates (layout-extract with multi-select)
+Phase 7: {s} complete design systems (style-extract with multi-select)
+Phase 9: {n×l} layout templates (layout-extract with multi-select)
   - Device: {device_type} layouts
   - {n} targets × {l} layout variants = {n×l} structural templates
   - User-selected concepts generated in parallel
-Phase 3: UI Assembly (generate)
+Phase 10: UI Assembly (generate)
   - Pure assembly: layout templates + design tokens
   - {s}×{l}×{n} = {total} final prototypes
-Phase 4: Brainstorming artifacts updated
-[Phase 5: {n} implementation tasks created]  # if --batch-plan
+Phase 11: Brainstorming artifacts updated
+[Phase 12: {n} implementation tasks created]  # if --batch-plan
 
 Assembly Process:
 ✅ Separation of Concerns: Layout (structure) + Style (tokens) kept separate

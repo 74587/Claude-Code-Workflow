@@ -87,7 +87,7 @@ echo "  Output: $base_path"
 
 # 3. Discover files using script
 discovery_file="${intermediates_dir}/discovered-files.json"
-Bash(~/.claude/scripts/discover-design-files.sh "$source" "$discovery_file")
+~/.claude/scripts/discover-design-files.sh "$source" "$discovery_file"
 
 echo "  Output: $discovery_file"
 ```
@@ -141,8 +141,8 @@ echo "[Phase 1] Starting parallel agent analysis (3 agents)"
 **Agent Task**:
 
 ```javascript
-Task(ui-design-agent): `
-  [STYLE_TOKENS_EXTRACTION]
+Task(subagent_type="ui-design-agent",
+     prompt="[STYLE_TOKENS_EXTRACTION]
   Extract visual design tokens from code files using code import extraction pattern.
 
   MODE: style-extraction | SOURCE: ${source} | BASE_PATH: ${base_path}
@@ -150,7 +150,7 @@ Task(ui-design-agent): `
   ## Input Files
 
   **Discovered Files**: ${intermediates_dir}/discovered-files.json
-  $(cat "${intermediates_dir}/discovered-files.json" 2>/dev/null | grep -E '(count|files)' | head -30)
+  $(cat \"${intermediates_dir}/discovered-files.json\" 2>/dev/null | grep -E '(count|files)' | head -30)
 
   ## Code Import Extraction Strategy
 
@@ -175,25 +175,25 @@ Task(ui-design-agent): `
   **Files to Generate**:
   1. **design-tokens.json**
      - Follow [DESIGN_SYSTEM_GENERATION_TASK] standard token structure
-     - Add "_metadata.extraction_source": "code_import"
-     - Add "_metadata.files_analyzed": {css, js, html file lists}
-     - Add "_metadata.completeness": {status, missing_categories, recommendations}
-     - Add "_metadata.code_snippets": Map of code snippets (see below)
-     - Include "source" field for each token (e.g., "file.css:23")
+     - Add \"_metadata.extraction_source\": \"code_import\"
+     - Add \"_metadata.files_analyzed\": {css, js, html file lists}
+     - Add \"_metadata.completeness\": {status, missing_categories, recommendations}
+     - Add \"_metadata.code_snippets\": Map of code snippets (see below)
+     - Include \"source\" field for each token (e.g., \"file.css:23\")
 
   **Code Snippet Recording**:
   - For each extracted token, record the actual code snippet in `_metadata.code_snippets`
   - Structure:
     ```json
-    "code_snippets": {
-      "file.css:23": {
-        "lines": "23-27",
-        "snippet": ":root {\n  --color-primary: oklch(0.5555 0.15 270);\n  /* Primary brand color */\n  --color-primary-hover: oklch(0.6 0.15 270);\n}",
-        "context": "css-variable"
+    \"code_snippets\": {
+      \"file.css:23\": {
+        \"lines\": \"23-27\",
+        \"snippet\": \":root {\\n  --color-primary: oklch(0.5555 0.15 270);\\n  /* Primary brand color */\\n  --color-primary-hover: oklch(0.6 0.15 270);\\n}\",
+        \"context\": \"css-variable\"
       }
     }
     ```
-  - Context types: "css-variable" | "css-class" | "js-object" | "js-theme-config" | "inline-style"
+  - Context types: \"css-variable\" | \"css-class\" | \"js-object\" | \"js-theme-config\" | \"inline-style\"
   - Record complete code blocks with all dependencies and relevant comments
   - Typical ranges: Simple declarations (1-5 lines), Utility classes (5-15 lines), Complete configs (15-50 lines)
   - Preserve original formatting and indentation
@@ -205,7 +205,7 @@ Task(ui-design-agent): `
   - ✅ Include completeness assessment in _metadata
   - ✅ Normalize inconsistent values into systematic scales
   - ❌ NO external research or web searches (code-only extraction)
-`
+")
 ```
 
 #### Animation Agent Task (animation-tokens.json, animation-guide.md)
@@ -213,8 +213,8 @@ Task(ui-design-agent): `
 **Agent Task**:
 
 ```javascript
-Task(ui-design-agent): `
-  [ANIMATION_TOKEN_GENERATION_TASK]
+Task(subagent_type="ui-design-agent",
+     prompt="[ANIMATION_TOKEN_GENERATION_TASK]
   Extract animation tokens from code files using code import extraction pattern.
 
   MODE: animation-extraction | SOURCE: ${source} | BASE_PATH: ${base_path}
@@ -222,7 +222,7 @@ Task(ui-design-agent): `
   ## Input Files
 
   **Discovered Files**: ${intermediates_dir}/discovered-files.json
-  $(cat "${intermediates_dir}/discovered-files.json" 2>/dev/null | grep -E '(count|files)' | head -30)
+  $(cat \"${intermediates_dir}/discovered-files.json\" 2>/dev/null | grep -E '(count|files)' | head -30)
 
   ## Code Import Extraction Strategy
 
@@ -247,15 +247,15 @@ Task(ui-design-agent): `
   **Files to Generate**:
   1. **animation-tokens.json**
      - Follow [ANIMATION_TOKEN_GENERATION_TASK] standard structure
-     - Add "_metadata.framework_detected"
-     - Add "_metadata.files_analyzed"
-     - Add "_metadata.completeness"
-     - Add "_metadata.code_snippets": Map of code snippets (same format as Style Agent)
-     - Include "source" field for each token
+     - Add \"_metadata.framework_detected\"
+     - Add \"_metadata.files_analyzed\"
+     - Add \"_metadata.completeness\"
+     - Add \"_metadata.code_snippets\": Map of code snippets (same format as Style Agent)
+     - Include \"source\" field for each token
 
   **Code Snippet Recording**:
   - Record actual animation/transition code in `_metadata.code_snippets`
-  - Context types: "css-keyframes" | "css-transition" | "js-animation" | "framer-motion" | "gsap"
+  - Context types: \"css-keyframes\" | \"css-transition\" | \"js-animation\" | \"framer-motion\" | \"gsap\"
   - Record complete blocks: @keyframes animations (10-30 lines), transition configs (5-15 lines), JS animation objects (15-50 lines)
   - Include all animation steps, timing functions, and related comments
   - Preserve original formatting and framework-specific syntax
@@ -267,7 +267,7 @@ Task(ui-design-agent): `
   - ✅ Record complete code snippets in _metadata.code_snippets (complete animation blocks with all steps/timing)
   - ✅ Normalize framework-specific syntax into standard tokens
   - ❌ NO external research or web searches (code-only extraction)
-`
+")
 ```
 
 #### Layout Agent Task (layout-templates.json, layout-guide.md)
@@ -275,8 +275,8 @@ Task(ui-design-agent): `
 **Agent Task**:
 
 ```javascript
-Task(ui-design-agent): `
-  [LAYOUT_TEMPLATE_GENERATION_TASK]
+Task(subagent_type="ui-design-agent",
+     prompt="[LAYOUT_TEMPLATE_GENERATION_TASK]
   Extract layout patterns from code files using code import extraction pattern.
 
   MODE: layout-extraction | SOURCE: ${source} | BASE_PATH: ${base_path}
@@ -284,7 +284,7 @@ Task(ui-design-agent): `
   ## Input Files
 
   **Discovered Files**: ${intermediates_dir}/discovered-files.json
-  $(cat "${intermediates_dir}/discovered-files.json" 2>/dev/null | grep -E '(count|files)' | head -30)
+  $(cat \"${intermediates_dir}/discovered-files.json\" 2>/dev/null | grep -E '(count|files)' | head -30)
 
   ## Code Import Extraction Strategy
 
@@ -314,23 +314,23 @@ Task(ui-design-agent): `
 
   1. **layout-templates.json**
      - Follow [LAYOUT_TEMPLATE_GENERATION_TASK] standard structure
-     - Add "extraction_metadata" section:
-       * extraction_source: "code_import"
+     - Add \"extraction_metadata\" section:
+       * extraction_source: \"code_import\"
        * naming_convention: detected convention
        * layout_system: {type, confidence, source_files}
        * responsive: {breakpoints, mobile_first, source}
        * completeness: {status, missing_items, recommendations}
        * code_snippets: Map of code snippets (same format as Style Agent)
-     - For each component in "layout_templates":
-       * Include "source" field (file:line)
-       * **Include "component_type" field: "universal" | "specialized"**
+     - For each component in \"layout_templates\":
+       * Include \"source\" field (file:line)
+       * **Include \"component_type\" field: \"universal\" | \"specialized\"**
        * dom_structure with semantic HTML5
        * css_layout_rules using var() placeholders
-       * Add "description" field explaining component purpose and classification rationale
+       * Add \"description\" field explaining component purpose and classification rationale
 
   **Code Snippet Recording**:
   - Record actual layout/component code in `extraction_metadata.code_snippets`
-  - Context types: "css-grid" | "css-flexbox" | "css-utility" | "html-structure" | "react-component"
+  - Context types: \"css-grid\" | \"css-flexbox\" | \"css-utility\" | \"html-structure\" | \"react-component\"
   - Record complete blocks: Utility classes (5-15 lines), HTML structures (10-30 lines), React components (20-100 lines)
   - For components: include HTML structure + associated CSS rules + component logic
   - Preserve original formatting and framework-specific syntax
@@ -340,13 +340,13 @@ Task(ui-design-agent): `
   - ✅ Detect and document naming conventions
   - ✅ Identify layout system with confidence level
   - ✅ Extract component variants and states from usage patterns
-  - ✅ **Classify each component as "universal" or "specialized"** based on:
+  - ✅ **Classify each component as \"universal\" or \"specialized\"** based on:
     * Universal: Reusable across multiple features (buttons, inputs, cards, modals)
     * Specialized: Feature-specific or domain-specific (checkout form, dashboard widget)
   - ✅ Record complete code snippets in extraction_metadata.code_snippets (complete components/structures)
   - ✅ **Document classification rationale** in component description
   - ❌ NO external research or web searches (code-only extraction)
-`
+")
 ```
 
 **Wait for All Agents**:
