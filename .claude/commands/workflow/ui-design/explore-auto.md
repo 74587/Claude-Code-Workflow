@@ -1,7 +1,7 @@
 ---
 name: explore-auto
 description: Interactive exploratory UI design workflow with style-centric batch generation, creates design variants from prompts/images with parallel execution and user selection
-argument-hint: "[--prompt "<desc>"] [--images "<glob>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]""
+argument-hint: "[--input "<value>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*), Task(conceptual-planning-agent)
 ---
 
@@ -49,6 +49,24 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 ## Parameter Requirements
 
+**Recommended Parameter**:
+- `--input "<value>"`: Unified input source (auto-detects type)
+  - **Glob pattern** (images): `"design-refs/*"`, `"screenshots/*.png"`
+  - **File/directory path** (code): `"./src/components"`, `"/path/to/styles"`
+  - **Text description** (prompt): `"modern dashboard with 3 styles"`, `"minimalist design"`
+  - **Combination**: `"design-refs/* modern dashboard"` (glob + description)
+  - Multiple inputs: Separate with `|` → `"design-refs/*|modern style"`
+
+**Detection Logic**:
+- Contains `*` or matches existing files → **glob pattern** (images)
+- Existing file/directory path → **code import**
+- Pure text without paths → **design prompt**
+- Contains `|` separator → **multiple inputs** (glob|prompt or path|prompt)
+
+**Legacy Parameters** (deprecated, use `--input` instead):
+- `--images "<glob>"`: Reference image paths (shows deprecation warning)
+- `--prompt "<description>"`: Design description (shows deprecation warning)
+
 **Optional Parameters** (all have smart defaults):
 - `--targets "<list>"`: Comma-separated targets (pages/components) to generate (inferred from prompt/session if omitted)
 - `--target-type "page|component|auto"`: Explicitly set target type (default: `auto` - intelligent detection)
@@ -58,19 +76,17 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
   - **Tablet**: 768×1024px - Hybrid touch/mouse layouts
   - **Responsive**: 1920×1080px base with mobile-first breakpoints
 - `--session <id>`: Workflow session ID (standalone mode if omitted)
-- `--images "<glob>"`: Reference image paths (default: `design-refs/*`)
-- `--prompt "<description>"`: Design style and target description
 - `--style-variants <count>`: Style variants (default: inferred from prompt or 3, range: 1-5)
 - `--layout-variants <count>`: Layout variants per style (default: inferred or 3, range: 1-5)
 - `--batch-plan`: Auto-generate implementation tasks after design-update
 
-**Legacy Parameters** (maintained for backward compatibility):
+**Legacy Target Parameters** (maintained for backward compatibility):
 - `--pages "<list>"`: Alias for `--targets` with `--target-type page`
 - `--components "<list>"`: Alias for `--targets` with `--target-type component`
 
 **Input Rules**:
-- Must provide at least one: `--images` or `--prompt` or `--targets`
-- Multiple parameters can be combined for guided analysis
+- Must provide: `--input` OR (legacy: `--images`/`--prompt`) OR `--targets`
+- `--input` can combine multiple input types
 - If `--targets` not provided, intelligently inferred from prompt/session
 
 **Supported Target Types**:
@@ -109,25 +125,61 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 ## 6-Phase Execution
 
-### Phase 0a: Intelligent Path Detection & Source Selection
+### Phase 0a: Parameter Parsing & Input Detection
 ```bash
-# Step 1: Detect if prompt/images contain existing file paths
+# Step 0: Parse and normalize parameters
+images_input = null
+prompt_text = null
+
+# Handle legacy parameters with deprecation warning
+IF --images OR --prompt:
+    WARN: "⚠️  DEPRECATION: --images and --prompt are deprecated. Use --input instead."
+    WARN: "   Example: --input \"design-refs/*\" or --input \"modern dashboard\""
+    images_input = --images
+    prompt_text = --prompt
+
+# Parse unified --input parameter
+IF --input:
+    # Split by | separator for multiple inputs
+    input_parts = split(--input, "|")
+
+    FOR part IN input_parts:
+        part = trim(part)
+
+        # Detection logic
+        IF contains(part, "*") OR glob_matches_files(part):
+            # Glob pattern detected → images
+            images_input = part
+        ELSE IF file_or_directory_exists(part):
+            # File/directory path → will be handled in code detection
+            IF NOT prompt_text:
+                prompt_text = part
+            ELSE:
+                prompt_text = prompt_text + " " + part
+        ELSE:
+            # Pure text → prompt
+            IF NOT prompt_text:
+                prompt_text = part
+            ELSE:
+                prompt_text = prompt_text + " " + part
+
+# Step 1: Detect design source from parsed inputs
 code_files_detected = false
 code_base_path = null
 has_visual_input = false
 
-IF --prompt:
+IF prompt_text:
     # Extract potential file paths from prompt
-    potential_paths = extract_paths_from_text(--prompt)
+    potential_paths = extract_paths_from_text(prompt_text)
     FOR path IN potential_paths:
         IF file_or_directory_exists(path):
             code_files_detected = true
             code_base_path = path
             BREAK
 
-IF --images:
+IF images_input:
     # Check if images parameter points to existing files
-    IF glob_matches_files(--images):
+    IF glob_matches_files(images_input):
         has_visual_input = true
 
 # Step 2: Determine design source strategy
@@ -148,9 +200,9 @@ STORE: design_source, code_base_path, has_visual_input
 ### Phase 0a-2: Intelligent Prompt Parsing
 ```bash
 # Parse variant counts from prompt or use explicit/default values
-IF --prompt AND (NOT --style-variants OR NOT --layout-variants):
-    style_variants = regex_extract(prompt, r"(\d+)\s*style") OR --style-variants OR 3
-    layout_variants = regex_extract(prompt, r"(\d+)\s*layout") OR --layout-variants OR 3
+IF prompt_text AND (NOT --style-variants OR NOT --layout-variants):
+    style_variants = regex_extract(prompt_text, r"(\d+)\s*style") OR --style-variants OR 3
+    layout_variants = regex_extract(prompt_text, r"(\d+)\s*layout") OR --layout-variants OR 3
 ELSE:
     style_variants = --style-variants OR 3
     layout_variants = --layout-variants OR 3
@@ -172,14 +224,14 @@ IF --device-type AND --device-type != "auto":
     device_source = "explicit"
 ELSE:
     # Step 2: Prompt analysis
-    IF --prompt:
+    IF prompt_text:
         device_keywords = {
             "desktop": ["desktop", "web", "laptop", "widescreen", "large screen"],
             "mobile": ["mobile", "phone", "smartphone", "ios", "android"],
             "tablet": ["tablet", "ipad", "medium screen"],
             "responsive": ["responsive", "adaptive", "multi-device", "cross-platform"]
         }
-        detected_device = detect_device_from_prompt(--prompt, device_keywords)
+        detected_device = detect_device_from_prompt(prompt_text, device_keywords)
         IF detected_device:
             device_type = detected_device
             device_source = "prompt_inference"
@@ -222,7 +274,8 @@ Write({base_path}/.run-metadata.json): {
   "architecture": "style-centric-batch-generation",
   "parameters": { "style_variants": ${style_variants}, "layout_variants": ${layout_variants},
                   "targets": "${inferred_target_list}", "target_type": "${target_type}",
-                  "prompt": "${prompt_text}", "images": "${images_pattern}",
+                  "prompt": "${prompt_text}", "images": "${images_input}",
+                  "input": "${--input}",
                   "device_type": "${device_type}", "device_source": "${device_source}" },
   "status": "in_progress",
   "performance_mode": "optimized"
@@ -247,8 +300,8 @@ ELSE IF --targets:
     target_type = --target-type != "auto" ? --target-type : detect_target_type(target_list)
 
 # Step 3: Prompt analysis (Claude internal analysis)
-ELSE IF --prompt:
-    analysis_result = analyze_prompt("{prompt_text}")  # Extract targets, types, purpose
+ELSE IF prompt_text:
+    analysis_result = analyze_prompt(prompt_text)  # Extract targets, types, purpose
     target_list = analysis_result.targets
     target_type = analysis_result.primary_type OR detect_target_type(target_list)
     target_source = "prompt_analysis"
@@ -427,8 +480,8 @@ IF design_source IN ["code_only", "hybrid"]:
 IF design_source == "visual_only" OR needs_visual_supplement:
     REPORT: "🎨 Phase 1: Style Extraction (variants: {style_variants})"
     command = "/workflow:ui-design:style-extract --design-id \"{design_id}\" " +
-              (--images ? "--images \"{images}\" " : "") +
-              (--prompt ? "--prompt \"{prompt}\" " : "") +
+              (images_input ? "--images \"{images_input}\" " : "") +
+              (prompt_text ? "--prompt \"{prompt_text}\" " : "") +
               "--variants {style_variants} --interactive"
     SlashCommand(command)
 ELSE:
@@ -456,11 +509,11 @@ IF should_extract_animation:
     # Build command with available inputs
     command_parts = [f"/workflow:ui-design:animation-extract --design-id \"{design_id}\""]
 
-    IF --images:
-        command_parts.append(f"--images \"{--images}\"")
+    IF images_input:
+        command_parts.append(f"--images \"{images_input}\"")
 
-    IF --prompt:
-        command_parts.append(f"--prompt \"{--prompt}\"")
+    IF prompt_text:
+        command_parts.append(f"--prompt \"{prompt_text}\"")
 
     command_parts.append("--interactive")
 
@@ -481,8 +534,8 @@ targets_string = ",".join(inferred_target_list)
 IF (design_source == "visual_only" OR needs_visual_supplement) OR (NOT layout_complete):
     REPORT: "🚀 Phase 2.5: Layout Extraction ({targets_string}, variants: {layout_variants}, device: {device_type})"
     command = "/workflow:ui-design:layout-extract --design-id \"{design_id}\" " +
-              (--images ? "--images \"{images}\" " : "") +
-              (--prompt ? "--prompt \"{prompt}\" " : "") +
+              (images_input ? "--images \"{images_input}\" " : "") +
+              (prompt_text ? "--prompt \"{prompt_text}\" " : "") +
               "--targets \"{targets_string}\" --variants {layout_variants} --device-type \"{device_type}\" --interactive"
     SlashCommand(command)
 ELSE:

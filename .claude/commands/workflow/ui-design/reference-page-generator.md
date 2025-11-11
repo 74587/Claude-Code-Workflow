@@ -85,37 +85,26 @@ for file in "${required_files[@]}"; do
   fi
 done
 
-# 5. Setup output directory
+# 5. Setup output directory and validate
 output_dir="${output_dir:-.workflow/reference_style}"
 package_dir="${output_dir}/${package_name}"
 
-mkdir -p "$package_dir"
-
-# 6. Validate existing package (if any)
+# Check if package directory exists and is not empty
 if [ -d "$package_dir" ] && [ "$(ls -A $package_dir 2>/dev/null)" ]; then
-  # Directory exists and is not empty
+  # Directory exists - check if it's a valid package or just a directory
   if [ -f "$package_dir/metadata.json" ]; then
     # Valid package - safe to overwrite
-    echo "INFO: Valid package '$package_name' found at $package_dir"
-    echo "This will overwrite existing package contents."
-
-    # Read existing package version for logging
     existing_version=$(jq -r '.version // "unknown"' "$package_dir/metadata.json" 2>/dev/null || echo "unknown")
-    echo "  Existing version: $existing_version"
+    echo "INFO: Overwriting existing package '$package_name' (version: $existing_version)"
   else
-    # Directory exists but not a valid package - risk of data loss
-    echo "ERROR: Directory '$package_dir' exists but is not a valid style package"
-    echo "HINT: Directory exists but missing metadata.json"
-    echo "HINT: This may not be a style reference package"
-    echo "Directory contents:"
-    ls -1 "$package_dir" 2>/dev/null | head -10
-    echo ""
-    echo "To proceed, either:"
-    echo "  1. Remove the directory: rm -rf $package_dir"
-    echo "  2. Choose a different package name"
+    # Directory exists but not a valid package
+    echo "ERROR: Directory '$package_dir' exists but is not a valid package"
+    echo "Use a different package name or remove the directory manually"
     exit 1
   fi
 fi
+
+mkdir -p "$package_dir"
 
 echo "[Phase 0] Setup Complete"
 echo "  Design Run: $design_run"

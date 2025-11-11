@@ -1,7 +1,7 @@
 ---
 name: imitate-auto
 description: UI design workflow with direct code/image input for design token extraction and prototype generation
-argument-hint: "[--images "<glob>"] [--prompt "<desc>"] [--session <id>]"
+argument-hint: "[--input "<value>"] [--session <id>]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 ---
 
@@ -42,26 +42,34 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 
 ## Parameter Requirements
 
-**Optional Parameters** (at least one of --images or --prompt required):
-- `--images "<glob>"`: Reference image paths (e.g., `"design-refs/*"`, `"screenshots/*.png"`)
-  - Glob patterns supported
-  - Multiple images can be matched
+**Recommended Parameter**:
+- `--input "<value>"`: Unified input source (auto-detects type)
+  - **Glob pattern** (images): `"design-refs/*"`, `"screenshots/*.png"`
+  - **File/directory path** (code): `"./src/components"`, `"/path/to/styles"`
+  - **Text description** (prompt): `"Focus on dark mode"`, `"Emphasize minimalist design"`
+  - **Combination**: `"design-refs/* modern dashboard style"` (glob + description)
+  - Multiple inputs: Separate with `|` → `"design-refs/*|modern style"`
 
-- `--prompt "<desc>"`: Design description or file path
-  - Can contain file paths (automatically detected)
-  - Influences extract command analysis focus
-  - Example: `"Focus on dark mode"`, `"Emphasize minimalist design"`
-  - Example with path: `"Use design from ./src/components"`
+**Detection Logic**:
+- Contains `*` or matches existing files → **glob pattern** (images)
+- Existing file/directory path → **code import**
+- Pure text without paths → **design prompt**
+- Contains `|` separator → **multiple inputs** (glob|prompt or path|prompt)
 
-- `--session <id>` (Optional): Workflow session ID
+**Legacy Parameters** (deprecated, use `--input` instead):
+- `--images "<glob>"`: Reference image paths (shows deprecation warning)
+- `--prompt "<desc>"`: Design description (shows deprecation warning)
+
+**Optional Parameters**:
+- `--session <id>`: Workflow session ID
   - Integrate into existing session (`.workflow/WFS-{session}/`)
   - Enable automatic design system integration (Phase 4)
   - If not provided: standalone mode (`.workflow/.design/`)
 
 **Input Rules**:
-- Must provide at least one: `--images` or `--prompt`
-- Multiple parameters can be combined for guided analysis
-- File paths in `--prompt` are automatically detected and imported
+- Must provide: `--input` OR (legacy: `--images`/`--prompt`)
+- `--input` can combine multiple input types
+- File paths are automatically detected and trigger code import
 
 ## Execution Modes
 
@@ -89,26 +97,67 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 
 ## 5-Phase Execution
 
-### Phase 0: Intelligent Path Detection & Initialization
+### Phase 0: Parameter Parsing & Input Detection
 
 ```bash
-# Step 1: Detect design source from inputs
+# Step 0: Parse and normalize parameters
+images_input = null
+prompt_text = null
+
+# Handle legacy parameters with deprecation warning
+IF --images OR --prompt:
+    WARN: "⚠️  DEPRECATION: --images and --prompt are deprecated. Use --input instead."
+    WARN: "   Example: --input \"design-refs/*\" or --input \"modern dashboard\""
+    images_input = --images
+    prompt_text = --prompt
+
+# Parse unified --input parameter
+IF --input:
+    # Split by | separator for multiple inputs
+    input_parts = split(--input, "|")
+
+    FOR part IN input_parts:
+        part = trim(part)
+
+        # Detection logic
+        IF contains(part, "*") OR glob_matches_files(part):
+            # Glob pattern detected → images
+            images_input = part
+        ELSE IF file_or_directory_exists(part):
+            # File/directory path → will be handled in code detection
+            IF NOT prompt_text:
+                prompt_text = part
+            ELSE:
+                prompt_text = prompt_text + " " + part
+        ELSE:
+            # Pure text → prompt
+            IF NOT prompt_text:
+                prompt_text = part
+            ELSE:
+                prompt_text = prompt_text + " " + part
+
+# Validation
+IF NOT images_input AND NOT prompt_text:
+    ERROR: "No input provided. Use --input with glob pattern, file path, or text description"
+    EXIT 1
+
+# Step 1: Detect design source from parsed inputs
 code_files_detected = false
 code_base_path = null
 has_visual_input = false
 
-IF --prompt:
+IF prompt_text:
     # Extract potential file paths from prompt
-    potential_paths = extract_paths_from_text(--prompt)
+    potential_paths = extract_paths_from_text(prompt_text)
     FOR path IN potential_paths:
         IF file_or_directory_exists(path):
             code_files_detected = true
             code_base_path = path
             BREAK
 
-IF --images:
+IF images_input:
     # Check if images parameter points to existing files
-    IF glob_matches_files(--images):
+    IF glob_matches_files(images_input):
         has_visual_input = true
 
 # Step 2: Determine design source strategy
@@ -150,8 +199,9 @@ metadata = {
     "parameters": {
         "design_source": design_source,
         "code_base_path": code_base_path,
-        "images": --images OR null,
-        "prompt": --prompt OR null
+        "images": images_input OR null,
+        "prompt": prompt_text OR null,
+        "input": --input OR null  # Store original --input for reference
     },
     "status": "in_progress"
 }
@@ -289,13 +339,13 @@ ELSE:
     # Build command with available inputs
     command_parts = [f"/workflow:ui-design:style-extract --design-id \"{design_id}\""]
 
-    IF --images:
-        command_parts.append(f"--images \"{--images}\"")
+    IF images_input:
+        command_parts.append(f"--images \"{images_input}\"")
 
-    IF --prompt:
-        extraction_prompt = --prompt
+    IF prompt_text:
+        extraction_prompt = prompt_text
         IF design_source == "hybrid":
-            extraction_prompt = f"{--prompt} (supplement code-imported tokens)"
+            extraction_prompt = f"{prompt_text} (supplement code-imported tokens)"
         command_parts.append(f"--prompt \"{extraction_prompt}\"")
 
     command_parts.extend(["--variants 1", "--refine", "--interactive"])
@@ -319,11 +369,11 @@ ELSE:
     # Build command with available inputs
     command_parts = [f"/workflow:ui-design:animation-extract --design-id \"{design_id}\""]
 
-    IF --images:
-        command_parts.append(f"--images \"{--images}\"")
+    IF images_input:
+        command_parts.append(f"--images \"{images_input}\"")
 
-    IF --prompt:
-        command_parts.append(f"--prompt \"{--prompt}\"")
+    IF prompt_text:
+        command_parts.append(f"--prompt \"{prompt_text}\"")
 
     command_parts.extend(["--refine", "--interactive"])
 
@@ -346,11 +396,11 @@ ELSE:
     # Build command with available inputs
     command_parts = [f"/workflow:ui-design:layout-extract --design-id \"{design_id}\""]
 
-    IF --images:
-        command_parts.append(f"--images \"{--images}\"")
+    IF images_input:
+        command_parts.append(f"--images \"{images_input}\"")
 
-    IF --prompt:
-        command_parts.append(f"--prompt \"{--prompt}\"")
+    IF prompt_text:
+        command_parts.append(f"--prompt \"{prompt_text}\"")
 
     # Default target if not specified
     command_parts.append("--targets \"home\"")

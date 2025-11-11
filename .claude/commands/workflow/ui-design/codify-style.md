@@ -1,34 +1,47 @@
 ---
 name: workflow:ui-design:codify-style
 description: Orchestrator to extract styles from code and generate shareable reference package with preview
-argument-hint: "[--source <path>] [--package-name <name>] [--css \"<glob>\"] [--scss \"<glob>\"] [--js \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"] [--output-dir <path>]"
+argument-hint: "<path> [--package-name <name>] [--css \"<glob>\"] [--scss \"<glob>\"] [--js \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"] [--output-dir <path>]"
 allowed-tools: SlashCommand,Bash,Read,TodoWrite
 auto-continue: true
 ---
 
 # UI Design: Codify Style (Orchestrator)
 
-## Overview
+## Overview & Execution Model
 
-**Pure Orchestrator**: Coordinates style extraction and reference package generation workflow.
+**Fully autonomous orchestrator**: Coordinates style extraction from codebase and generates shareable reference packages.
 
-**Role**: Does NOT directly execute agent tasks. Delegates to specialized commands:
-1. `/workflow:ui-design:import-from-code` - Extract styles from code
-2. `/workflow:ui-design:reference-page-generator` - Generate reference package with preview
+**Pure Orchestrator Pattern**: Does NOT directly execute agent tasks. Delegates to specialized commands:
+1. `/workflow:ui-design:import-from-code` - Extract styles from source code
+2. `/workflow:ui-design:reference-page-generator` - Generate versioned reference package with interactive preview
 
 **Output**: Shareable, versioned style reference package at `.workflow/reference_style/{package-name}/`
 
-## Auto-Continue Workflow
+**Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
+1. User triggers: `/workflow:ui-design:codify-style <path> --package-name <name>`
+2. Phase 0: Parameter validation & preparation → **IMMEDIATELY triggers Phase 1**
+3. Phase 1 (import-from-code) → **Execute phase (blocks until finished)** → Auto-continues to Phase 2
+4. Phase 2 (reference-page-generator) → **Execute phase (blocks until finished)** → Auto-continues to Phase 3
+5. Phase 3 (cleanup & verification) → Reports completion
 
-This command runs **fully autonomously** once triggered. Each phase completes and automatically triggers the next phase without user interaction.
+**Phase Transition Mechanism**:
+- **Phase 0 (Validation)**: Validate parameters, prepare workspace → IMMEDIATELY triggers Phase 1
+- **Phase 1-3 (Autonomous)**: `SlashCommand` is BLOCKING - execution pauses until the command finishes
+- When each phase finishes executing: Automatically process output and execute next phase
+- No user interaction required after initial command
+
+**Auto-Continue Mechanism**: TodoWrite tracks phase status. When each phase finishes executing, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 3.
 
 ## Core Rules
 
-1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 execution
-2. **No Task JSON**: This command does not create task JSON files - delegates to sub-commands
-3. **Parse Every Output**: Extract required data from each command output (design run path, session ID)
-4. **Auto-Continue**: After completing each phase, update TodoWrite and immediately execute next phase
-5. **Track Progress**: Update TodoWrite after EVERY phase completion before starting next phase
+1. **Start Immediately**: TodoWrite initialization → Phase 0 validation → Phase 1 execution
+2. **No Task JSON**: This command does not create task JSON files - pure orchestrator pattern
+3. **Parse & Pass**: Extract required data from each command output (design run path, metadata)
+4. **Intelligent Validation**: Smart parameter validation with user-friendly error messages
+5. **Safety First**: Package overwrite protection, existence checks, fallback error handling
+6. **Track Progress**: Update TodoWrite after EVERY phase completion before starting next phase
+7. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. Each SlashCommand execution blocks until finished, then you MUST immediately execute the next phase. Workflow is NOT complete until Phase 3.
 
 ---
 
@@ -37,329 +50,529 @@ This command runs **fully autonomously** once triggered. Each phase completes an
 ### Command Syntax
 
 ```bash
-/workflow:ui-design:codify-style [FLAGS]
+/workflow:ui-design:codify-style <path> [OPTIONS]
 
-# Flags
---source <path>         Source code directory to analyze (required)
---package-name <name>   Name for the style reference package (required)
---css "<glob>"          CSS file glob pattern (optional)
---scss "<glob>"         SCSS file glob pattern (optional)
---js "<glob>"           JavaScript file glob pattern (optional)
---html "<glob>"         HTML file glob pattern (optional)
---style-files "<glob>"  Universal style file glob (optional)
+# Required
+<path>                  Source code directory or file to analyze
+
+# Optional
+--package-name <name>   Custom name for the style reference package
+                        (default: auto-generated from directory name)
+--css "<glob>"          CSS file glob pattern
+--scss "<glob>"         SCSS file glob pattern
+--js "<glob>"           JavaScript file glob pattern
+--html "<glob>"         HTML file glob pattern
+--style-files "<glob>"  Universal style file glob (matches all style files)
 --output-dir <path>     Output directory (default: .workflow/reference_style)
---overwrite             Overwrite existing package without prompting (optional)
+--overwrite             Overwrite existing package without prompting
 ```
 
 ### Usage Examples
 
 ```bash
-# Basic usage - analyze entire src directory
-/workflow:ui-design:codify-style --source ./src --package-name main-app-style-v1
+# Simplest usage - single path parameter
+/workflow:ui-design:codify-style ./src
+# Auto-generates package name: "src-style-v1"
 
-# Specific directories
-/workflow:ui-design:codify-style --source ./app --package-name design-system-v2 --css "styles/**/*.scss" --js "theme/*.js"
+# With custom package name
+/workflow:ui-design:codify-style ./app --package-name design-system-v2
+
+# Specific file patterns
+/workflow:ui-design:codify-style ./app --css "styles/**/*.scss" --js "theme/*.js"
 
 # Tailwind config extraction
-/workflow:ui-design:codify-style --source ./ --package-name tailwind-theme-v1 --js "tailwind.config.js"
+/workflow:ui-design:codify-style ./ --js "tailwind.config.js" --package-name tailwind-theme-v1
 
 # Custom output directory
-/workflow:ui-design:codify-style --source ./src --package-name component-lib-v1 --output-dir ./style-references
+/workflow:ui-design:codify-style ./src --package-name component-lib-v1 --output-dir ./style-references
+
+# Overwrite existing package
+/workflow:ui-design:codify-style ./src --overwrite
 ```
 
 ---
 
 ## 4-Phase Execution
 
-### Phase 1: Prepare Arguments
+### Phase 0: Intelligent Parameter Validation & Session Preparation
 
-**Goal**: Parse command arguments and prepare session
+**Goal**: Validate parameters, check safety constraints, prepare session, and get user confirmation
 
 **TodoWrite** (First Action):
 ```json
 [
-  {"content": "Parse arguments and prepare session", "status": "in_progress", "activeForm": "Parsing arguments"},
-  {"content": "Call import-from-code to extract styles", "status": "pending", "activeForm": "Extracting styles"},
-  {"content": "Generate reference pages and documentation", "status": "pending", "activeForm": "Generating reference"},
-  {"content": "Cleanup temporary files", "status": "pending", "activeForm": "Cleanup"}
+  {"content": "Validate parameters and prepare session", "status": "in_progress", "activeForm": "Validating parameters"},
+  {"content": "Extract styles from source code", "status": "pending", "activeForm": "Extracting styles"},
+  {"content": "Generate reference package with preview", "status": "pending", "activeForm": "Generating reference"},
+  {"content": "Cleanup and verify package", "status": "pending", "activeForm": "Cleanup and verification"}
 ]
 ```
 
-**Step 1: Validate Required Parameters**
+**Step 0a: Parse and Validate Required Parameters**
 
 ```bash
-bash(test)
+# Parse positional path parameter (first non-flag argument)
+source_path = FIRST_POSITIONAL_ARG
+
+# Validate source path
+IF NOT source_path:
+    REPORT: "❌ ERROR: Missing required parameter: <path>"
+    REPORT: "USAGE: /workflow:ui-design:codify-style <path> [OPTIONS]"
+    REPORT: "EXAMPLE: /workflow:ui-design:codify-style ./src"
+    REPORT: "EXAMPLE: /workflow:ui-design:codify-style ./app --package-name design-system-v2"
+    EXIT 1
+
+# Validate source path existence
+TRY:
+    source_exists = Bash(test -d "${source_path}" && echo "exists" || echo "not_exists")
+    IF source_exists != "exists":
+        REPORT: "❌ ERROR: Source directory not found: ${source_path}"
+        REPORT: "Please provide a valid directory path."
+        EXIT 1
+CATCH error:
+    REPORT: "❌ ERROR: Cannot validate source path: ${error}"
+    EXIT 1
+
+source = source_path
+STORE: source
+
+# Auto-generate package name if not provided
+IF NOT --package-name:
+    # Extract directory name from path
+    dir_name = Bash(basename "${source}")
+    # Normalize to package name format (lowercase, replace special chars with hyphens)
+    normalized_name = dir_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    # Add version suffix
+    package_name = "${normalized_name}-style-v1"
+
+    REPORT: "📋 Auto-generated package name: ${package_name}"
+    REPORT: "   (from directory: ${dir_name})"
+ELSE:
+    package_name = --package-name
+
+    # Validate custom package name format (lowercase, alphanumeric, hyphens only)
+    IF NOT package_name MATCHES /^[a-z0-9][a-z0-9-]*$/:
+        REPORT: "❌ ERROR: Invalid package name format: ${package_name}"
+        REPORT: "Requirements:"
+        REPORT: "  • Must start with lowercase letter or number"
+        REPORT: "  • Only lowercase letters, numbers, and hyphens allowed"
+        REPORT: "  • No spaces or special characters"
+        REPORT: "EXAMPLES: main-app-style-v1, design-system-v2, component-lib-v1"
+        EXIT 1
+
+STORE: package_name, output_dir (default: ".workflow/reference_style"), overwrite_flag
 ```
 
-Operations:
-```javascript
-// Validate required parameters
-if (!source || !package_name) {
-  error("ERROR: --source and --package-name are required")
-  error("USAGE: /workflow:ui-design:codify-style --source <path> --package-name <name>")
-  exit(1)
-}
-
-// Validate package name format (lowercase, alphanumeric, hyphens only)
-if (!package_name.match(/^[a-z0-9][a-z0-9-]*$/)) {
-  error("ERROR: Invalid package name. Use lowercase, alphanumeric, and hyphens only.")
-  error("EXAMPLE: main-app-style-v1")
-  exit(1)
-}
-```
-
-**Step 2: Check Package Overwrite Protection**
+**Step 0b: Intelligent Package Safety Check**
 
 ```bash
-bash(test -d ${output_dir:-".workflow/reference_style"}/${package_name} && echo "exists" || echo "not_exists")
+# Set default output directory
+output_dir = --output-dir OR ".workflow/reference_style"
+package_path = "${output_dir}/${package_name}"
+
+TRY:
+    package_exists = Bash(test -d "${package_path}" && echo "exists" || echo "not_exists")
+
+    IF package_exists == "exists":
+        IF NOT --overwrite:
+            REPORT: "❌ ERROR: Package '${package_name}' already exists at ${package_path}/"
+            REPORT: "Use --overwrite flag to replace, or choose a different package name"
+            EXIT 1
+        ELSE:
+            REPORT: "⚠️  Overwriting existing package: ${package_name}"
+
+CATCH error:
+    REPORT: "⚠️  Warning: Cannot check package existence: ${error}"
+    REPORT: "Continuing with package creation..."
 ```
 
-**Overwrite Protection Logic**:
-```javascript
-// Check if package already exists
-if (package_exists && !overwrite_flag) {
-  error("ERROR: Package '${package_name}' already exists at ${output_dir}/${package_name}")
-  error("HINT: To overwrite, use --overwrite flag")
-  error("HINT: Or choose a different package name")
-  error("Existing package contents:")
-  bash(ls -1 ${output_dir}/${package_name}/ 2>/dev/null | head -10)
-  exit(1)
-}
-
-if (overwrite_flag && package_exists) {
-  echo("WARNING: Overwriting existing package: ${package_name}")
-}
-```
-
-**Step 3: Create Temporary Session**
+**Step 0c: Session Preparation**
 
 ```bash
-bash(mkdir -p .workflow && echo "WFS-codify-$(date +%Y%m%d-%H%M%S)")
+# Create temporary session for processing
+TRY:
+    temp_session_id = Bash(mkdir -p .workflow && echo "WFS-codify-$(date +%Y%m%d-%H%M%S)")
+    temp_design_run_id = Bash(mkdir -p .workflow/${temp_session_id} && echo "design-run-$(date +%Y%m%d-%H%M%S)")
+
+    # Create design run directory and get absolute path
+    Bash(mkdir -p .workflow/${temp_session_id}/${temp_design_run_id})
+    design_run_path = Bash(cd .workflow/${temp_session_id}/${temp_design_run_id} && pwd)
+
+    REPORT: "📦 Temporary workspace created: ${design_run_path}"
+
+CATCH error:
+    REPORT: "❌ ERROR: Failed to create temporary workspace: ${error}"
+    EXIT 1
+
+STORE: temp_session_id, temp_design_run_id, design_run_path
+
+# Display configuration summary (informational only, no user prompt)
+REPORT: ""
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "📋 Starting Style Codification"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "Source: ${source}"
+REPORT: "Package: ${package_name}"
+REPORT: "Output: ${package_path}/"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: ""
 ```
-
-Store result as `temp_session_id`
-
-**Step 4: Create Temporary Design Run**
-
-```bash
-bash(mkdir -p .workflow/${temp_session_id} && echo "design-run-$(date +%Y%m%d-%H%M%S)")
-```
-
-Store result as `temp_design_run_id`
-
-**Step 5: Prepare Full Design Run Path**
-
-```bash
-bash(cd .workflow/${temp_session_id} && mkdir -p ${temp_design_run_id} && pwd)/${temp_design_run_id}
-```
-
-Store result as `design_run_path`
 
 **Summary Variables**:
-- `SOURCE`: User-provided source path
-- `PACKAGE_NAME`: User-provided package name
+- `SOURCE`: Validated source directory path
+- `PACKAGE_NAME`: Validated package name (lowercase, alphanumeric, hyphens)
+- `PACKAGE_PATH`: Full output path `${output_dir}/${package_name}`
 - `OUTPUT_DIR`: `.workflow/reference_style` (default) or user-specified
-- `OVERWRITE`: `true` if --overwrite flag, `false` otherwise
-- `CSS`: CSS glob pattern (optional)
-- `SCSS`: SCSS glob pattern (optional)
-- `JS`: JS glob pattern (optional)
-- `HTML`: HTML glob pattern (optional)
-- `STYLE_FILES`: Universal style files glob (optional)
+- `OVERWRITE`: `true` if --overwrite flag present
+- `CSS/SCSS/JS/HTML/STYLE_FILES`: Optional glob patterns
 - `TEMP_SESSION_ID`: `WFS-codify-{timestamp}`
 - `TEMP_DESIGN_RUN_ID`: `design-run-{timestamp}`
-- `DESIGN_RUN_PATH`: `.workflow/{temp_session_id}/{temp_design_run_id}`
+- `DESIGN_RUN_PATH`: Absolute path to temporary workspace
 
 **TodoWrite Update**:
 ```json
 [
-  {"content": "Parse arguments and prepare session", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call import-from-code to extract styles", "status": "in_progress", "activeForm": "Extracting styles"}
+  {"content": "Validate parameters and prepare session", "status": "completed", "activeForm": "Validating parameters"},
+  {"content": "Extract styles from source code", "status": "in_progress", "activeForm": "Extracting styles"}
 ]
 ```
 
-**Next Action**: Display preparation results → Continue to Phase 2
+**Next Action**: Validation complete → **IMMEDIATELY execute Phase 1** (auto-continue)
 
 ---
 
-### Phase 2: Call import-from-code
+### Phase 1: Style Extraction from Source Code
 
-**Goal**: Extract styles from source code using import-from-code command
+**Goal**: Extract design tokens, style patterns, and component styles from codebase
 
 **Command Construction**:
 
-Build command string with all parameters:
-```javascript
-let cmd = `/workflow:ui-design:import-from-code --design-id ${temp_design_run_id} --source ${source}`;
+```bash
+# Build command with all parameters
+command_parts = ["/workflow:ui-design:import-from-code"]
+command_parts.append("--design-id \"${temp_design_run_id}\"")
+command_parts.append("--source \"${source}\"")
 
-// Add optional glob patterns if provided
-if (css) cmd += ` --css "${css}"`;
-if (scss) cmd += ` --scss "${scss}"`;
-if (js) cmd += ` --js "${js}"`;
-if (html) cmd += ` --html "${html}"`;
-if (style_files) cmd += ` --style-files "${style_files}"`;
+# Add optional glob patterns
+IF --css:
+    command_parts.append("--css \"${css}\"")
+IF --scss:
+    command_parts.append("--scss \"${scss}\"")
+IF --js:
+    command_parts.append("--js \"${js}\"")
+IF --html:
+    command_parts.append("--html \"${html}\"")
+IF --style-files:
+    command_parts.append("--style-files \"${style_files}\"")
+
+command = " ".join(command_parts)
+
+REPORT: ""
+REPORT: "🎨 Phase 1: Style Extraction"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "Analyzing source code for design patterns..."
+REPORT: "Source: ${source}"
+IF glob_patterns:
+    REPORT: "Patterns: ${', '.join(glob_patterns)}"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ```
 
 **Execute Command**:
 
 ```bash
-SlashCommand(command="${cmd}")
+TRY:
+    SlashCommand(command)
+
+    # Verify extraction outputs
+    tokens_path = "${design_run_path}/style-extraction/style-1/design-tokens.json"
+    guide_path = "${design_run_path}/style-extraction/style-1/style-guide.md"
+
+    tokens_exists = Bash(test -f "${tokens_path}" && echo "exists" || echo "missing")
+    guide_exists = Bash(test -f "${guide_path}" && echo "exists" || echo "missing")
+
+    IF tokens_exists != "exists" OR guide_exists != "exists":
+        REPORT: "⚠️  WARNING: Expected extraction files not found"
+        REPORT: "Tokens: ${tokens_exists} | Guide: ${guide_exists}"
+        REPORT: "Continuing with available outputs..."
+    ELSE:
+        REPORT: ""
+        REPORT: "✅ Phase 1 Complete: Style extraction successful"
+        REPORT: "   → Design tokens: ${tokens_path}"
+        REPORT: "   → Style guide: ${guide_path}"
+
+        # Optional: Check for animation tokens
+        anim_path = "${design_run_path}/animation-extraction/animation-tokens.json"
+        anim_exists = Bash(test -f "${anim_path}" && echo "exists" || echo "missing")
+        IF anim_exists == "exists":
+            REPORT: "   → Animation tokens: ${anim_path}"
+
+CATCH error:
+    REPORT: "❌ ERROR: Style extraction failed"
+    REPORT: "Error: ${error}"
+    REPORT: ""
+    REPORT: "Possible causes:"
+    REPORT: "  • Source directory contains no style files"
+    REPORT: "  • Glob patterns don't match any files"
+    REPORT: "  • Invalid file formats in source directory"
+    REPORT: ""
+    REPORT: "Cleaning up temporary workspace..."
+    Bash(rm -rf .workflow/${temp_session_id})
+    EXIT 1
 ```
 
 **Example Commands**:
 ```bash
-# Basic
+# Basic extraction
 /workflow:ui-design:import-from-code --design-id design-run-20250111-123456 --source ./src
 
-# With glob patterns
+# With specific file patterns
 /workflow:ui-design:import-from-code --design-id design-run-20250111-123456 --source ./src --css "theme/*.css" --js "theme/*.js"
 
-# With style-files
+# Universal style files
 /workflow:ui-design:import-from-code --design-id design-run-20250111-123456 --source ./src --style-files "**/theme.*"
 ```
 
-**Parse Output**:
-
-The import-from-code command will output design run path. Extract it if needed, or use the pre-constructed path from Phase 1.
-
 **Completion Criteria**:
-- `import-from-code` command executed successfully
-- Design run created at `${design_run_path}`
-- Style extraction files exist:
-  - `${design_run_path}/style-extraction/style-1/design-tokens.json`
-  - `${design_run_path}/style-extraction/style-1/style-guide.md`
-  - `${design_run_path}/animation-extraction/` (optional)
+- ✅ `import-from-code` command executed successfully
+- ✅ Design run created at `${design_run_path}`
+- ✅ Required files exist:
+  - `design-tokens.json` - Complete design token system
+  - `style-guide.md` - Style documentation
+- ⭕ Optional files:
+  - `animation-tokens.json` - Animation specifications
+  - `component-patterns.json` - Component catalog
 
 **TodoWrite Update**:
 ```json
 [
-  {"content": "Call import-from-code to extract styles", "status": "completed", "activeForm": "Extracting styles"},
-  {"content": "Generate reference pages and documentation", "status": "in_progress", "activeForm": "Generating reference"}
+  {"content": "Validate parameters and prepare session", "status": "completed", "activeForm": "Validating parameters"},
+  {"content": "Extract styles from source code", "status": "completed", "activeForm": "Extracting styles"},
+  {"content": "Generate reference package with preview", "status": "in_progress", "activeForm": "Generating reference"}
 ]
 ```
 
-**Next Action**: Display extraction results → Auto-continue to Phase 3
+**Next Action**: Extraction verified → **IMMEDIATELY execute Phase 2** (auto-continue)
+**⚠️ CRITICAL**: SlashCommand blocks until import-from-code finishes. When it returns, IMMEDIATELY update TodoWrite and execute Phase 2.
 
 ---
 
-### Phase 3: Generate Reference Package
+### Phase 2: Reference Package Generation
 
-**Goal**: Generate reference pages and package documentation
+**Goal**: Generate shareable reference package with interactive preview and documentation
 
-**Command**:
+**Command Construction**:
 
 ```bash
-SlashCommand(command="/workflow:ui-design:reference-page-generator --design-run ${design_run_path} --package-name ${package_name} --output-dir ${output_dir}")
+command = "/workflow:ui-design:reference-page-generator " +
+          "--design-run \"${design_run_path}\" " +
+          "--package-name \"${package_name}\" " +
+          "--output-dir \"${output_dir}\""
+
+REPORT: ""
+REPORT: "📦 Phase 2: Reference Package Generation"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+REPORT: "Creating shareable reference package..."
+REPORT: "Package: ${package_name}"
+REPORT: "Output: ${package_path}/"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ```
 
-**Example**:
+**Execute Command**:
+
 ```bash
-/workflow:ui-design:reference-page-generator --design-run .workflow/WFS-codify-20250111-123456/design-run-20250111-123456 --package-name main-app-style-v1 --output-dir .workflow/reference_style
+TRY:
+    SlashCommand(command)
+
+    # Verify package outputs
+    required_files = [
+        "design-tokens.json",
+        "component-patterns.json",
+        "preview.html",
+        "preview.css",
+        "metadata.json",
+        "README.md"
+    ]
+
+    missing_files = []
+    FOR file IN required_files:
+        file_path = "${package_path}/${file}"
+        exists = Bash(test -f "${file_path}" && echo "exists" || echo "missing")
+        IF exists != "exists":
+            missing_files.append(file)
+
+    IF missing_files.length > 0:
+        REPORT: "⚠️  WARNING: Some expected files are missing:"
+        FOR file IN missing_files:
+            REPORT: "   ✗ ${file}"
+        REPORT: ""
+        REPORT: "Package may be incomplete. Continuing with cleanup..."
+    ELSE:
+        REPORT: ""
+        REPORT: "✅ Phase 2 Complete: Reference package generated"
+        REPORT: "   → Design tokens: design-tokens.json"
+        REPORT: "   → Component patterns: component-patterns.json"
+        REPORT: "   → Interactive preview: preview.html"
+        REPORT: "   → Documentation: README.md"
+        REPORT: "   → Metadata: metadata.json"
+
+CATCH error:
+    REPORT: "❌ ERROR: Reference package generation failed"
+    REPORT: "Error: ${error}"
+    REPORT: ""
+    REPORT: "This may indicate:"
+    REPORT: "  • Incomplete style extraction in Phase 1"
+    REPORT: "  • Invalid design-run path"
+    REPORT: "  • Insufficient permissions for output directory"
+    REPORT: ""
+    REPORT: "Cleaning up temporary workspace..."
+    Bash(rm -rf .workflow/${temp_session_id})
+    EXIT 1
+```
+
+**Example Command**:
+```bash
+/workflow:ui-design:reference-page-generator \
+  --design-run .workflow/WFS-codify-20250111-123456/design-run-20250111-123456 \
+  --package-name main-app-style-v1 \
+  --output-dir .workflow/reference_style
 ```
 
 **Completion Criteria**:
-- `reference-page-generator` command executed successfully
-- Reference package created at `${output_dir}/${package_name}/`
-- Required files exist:
-  - `design-tokens.json`
-  - `component-patterns.json`
-  - `preview.html`
-  - `preview.css`
-  - `metadata.json`
-  - `README.md`
+- ✅ `reference-page-generator` executed successfully
+- ✅ Reference package created at `${package_path}/`
+- ✅ All required files present:
+  - `design-tokens.json` - Complete design token system
+  - `component-patterns.json` - Component catalog
+  - `preview.html` - Interactive multi-component showcase
+  - `preview.css` - Showcase styling
+  - `metadata.json` - Package metadata and version info
+  - `README.md` - Package documentation and usage guide
+- ⭕ Optional files:
+  - `animation-tokens.json` - Animation specifications (if available from extraction)
 
 **TodoWrite Update**:
 ```json
 [
-  {"content": "Generate reference pages and documentation", "status": "completed", "activeForm": "Generating reference"},
-  {"content": "Cleanup temporary files", "status": "in_progress", "activeForm": "Cleanup"}
+  {"content": "Validate parameters and prepare session", "status": "completed", "activeForm": "Validating parameters"},
+  {"content": "Extract styles from source code", "status": "completed", "activeForm": "Extracting styles"},
+  {"content": "Generate reference package with preview", "status": "completed", "activeForm": "Generating reference"},
+  {"content": "Cleanup and verify package", "status": "in_progress", "activeForm": "Cleanup and verification"}
 ]
 ```
 
-**Next Action**: Display generation results → Auto-continue to Phase 4
+**Next Action**: Package verified → **IMMEDIATELY execute Phase 3** (auto-continue)
+**⚠️ CRITICAL**: SlashCommand blocks until reference-page-generator finishes. When it returns, IMMEDIATELY update TodoWrite and execute Phase 3.
 
 ---
 
-### Phase 4: Cleanup & Report
+### Phase 3: Cleanup & Verification
 
-**Goal**: Clean up temporary design run and report completion
+**Goal**: Clean up temporary workspace and report completion
 
-**Step 1: Cleanup Temporary Design Run** (Optional)
-
-```bash
-bash(rm -rf .workflow/${temp_session_id})
-```
-
-Note: Temporary design run is removed as reference package has all needed files.
-
-**Step 2: Verify Package**
+**Operations**:
 
 ```bash
-bash(test -d ${output_dir}/${package_name} && echo "exists" || echo "missing")
-```
+REPORT: ""
+REPORT: "🧹 Phase 3: Cleanup & Verification"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-**Step 3: Count Components**
+# Cleanup temporary workspace
+TRY:
+    Bash(rm -rf .workflow/${temp_session_id})
+    REPORT: "✅ Temporary workspace cleaned"
+CATCH error:
+    REPORT: "⚠️  Warning: Failed to cleanup temporary files: ${error}"
 
-```bash
-bash(jq -r '.extraction_metadata.component_count // 0' ${output_dir}/${package_name}/component-patterns.json 2>/dev/null || echo 0)
-```
+# Quick verification (reference-page-generator already validated outputs)
+package_exists = Bash(test -d "${package_path}" && echo "exists" || echo "missing")
 
-**Fallback** (if jq not available):
-```bash
-bash(grep -c '"button"\|"input"\|"card"\|"badge"\|"alert"' ${output_dir}/${package_name}/component-patterns.json 2>/dev/null || echo 0)
+IF package_exists != "exists":
+    REPORT: "❌ ERROR: Package generation failed - directory not found"
+    EXIT 1
+
+# Get absolute path and component count for final report
+absolute_package_path = Bash(cd "${package_path}" && pwd 2>/dev/null || echo "${package_path}")
+component_count = Bash(jq -r '.extraction_metadata.component_count // "unknown"' "${package_path}/component-patterns.json" 2>/dev/null || echo "unknown")
+anim_exists = Bash(test -f "${package_path}/animation-tokens.json" && echo "✓" || echo "○")
+
+REPORT: "✅ Package verified: ${package_path}/"
+REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ```
 
 **TodoWrite Update**:
 ```json
 [
-  {"content": "Parse arguments and prepare session", "status": "completed", "activeForm": "Parsing arguments"},
-  {"content": "Call import-from-code to extract styles", "status": "completed", "activeForm": "Extracting styles"},
-  {"content": "Generate reference pages and documentation", "status": "completed", "activeForm": "Generating reference"},
-  {"content": "Cleanup temporary files", "status": "completed", "activeForm": "Cleanup"}
+  {"content": "Validate parameters and prepare session", "status": "completed", "activeForm": "Validating parameters"},
+  {"content": "Extract styles from source code", "status": "completed", "activeForm": "Extracting styles"},
+  {"content": "Generate reference package with preview", "status": "completed", "activeForm": "Generating reference"},
+  {"content": "Cleanup and verify package", "status": "completed", "activeForm": "Cleanup and verification"}
 ]
 ```
 
-**Final Action**: Report completion summary to user
+**Final Action**: Display completion summary to user
 
 ---
 
 ## Completion Message
 
 ```
-✅ Style reference package codified successfully!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ STYLE REFERENCE PACKAGE GENERATED SUCCESSFULLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Package: {package_name}
-Location: {output_dir}/{package_name}/
+📦 Package: {package_name}
+📂 Location: {absolute_package_path}/
+📄 Source: {source}
 
 Generated Files:
-✓ design-tokens.json       Complete design token system
-✓ style-guide.md          Detailed style guide
-✓ component-patterns.json  Component catalog ({component_count} components)
-✓ preview.html            Interactive multi-component showcase
-✓ preview.css             Showcase styling
-✓ animation-tokens.json   Animation tokens {if exists: "✓" else: "○ (not found)"}
-✓ metadata.json           Package metadata
-✓ README.md               Package documentation
+  ✓ design-tokens.json       Design token system
+  ✓ style-guide.md          Style documentation
+  ✓ component-patterns.json  Component catalog ({component_count} components)
+  ✓ preview.html            Interactive showcase
+  ✓ preview.css             Showcase styling
+  {anim_exists} animation-tokens.json   Animation tokens
+  ✓ metadata.json           Package metadata
+  ✓ README.md               Documentation
 
-Source Analysis:
-- Source path: {source}
-- Extraction complete via import-from-code
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌐 Preview Package
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Preview Package:
-Open the interactive showcase:
-  file://{absolute_path_to_package}/preview.html
+  file://{absolute_package_path}/preview.html
 
-Or use a local server:
-  cd {output_dir}/{package_name}
-  python -m http.server 8080
-  # Then open http://localhost:8080/preview.html
+  Or use local server:
+  cd {package_path} && python -m http.server 8080
 
-Next Steps:
-1. Review preview.html to verify extracted components
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 Next Steps
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Review preview.html to verify components and design tokens
 2. Generate SKILL memory: /memory:style-skill-memory {package_name}
-3. Use package as design reference in future workflows
+3. Use in workflows: /workflow:ui-design:explore-auto --prompt "Use {package_name} style"
 
-Cleanup:
-✓ Temporary design run removed (all files copied to reference package)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## TodoWrite Pattern
+
+```javascript
+// Initialize IMMEDIATELY after user confirms in Phase 0 to track multi-phase execution
+TodoWrite({todos: [
+  {"content": "Validate parameters and prepare session", "status": "in_progress", "activeForm": "Validating parameters"},
+  {"content": "Extract styles from source code", "status": "pending", "activeForm": "Extracting styles"},
+  {"content": "Generate reference package with preview", "status": "pending", "activeForm": "Generating reference"},
+  {"content": "Cleanup and verify package", "status": "pending", "activeForm": "Cleanup and verification"}
+]})
+
+// ⚠️ CRITICAL: When each phase finishes, you MUST:
+// 1. SlashCommand blocks and returns when phase finishes executing
+// 2. Update current phase: status → "completed"
+// 3. Update next phase: status → "in_progress"
+// 4. IMMEDIATELY execute next phase command (auto-continue)
+// This ensures continuous workflow tracking and prevents premature stopping
 ```
 
 ---
@@ -367,27 +580,46 @@ Cleanup:
 ## Execution Flow Diagram
 
 ```
-User triggers: /workflow:ui-design:codify-style --source ./src --package-name my-style-v1
+User triggers: /workflow:ui-design:codify-style ./src --package-name my-style-v1
   ↓
-[TodoWrite] Initialize 4 phases (Phase 1 = in_progress)
+[Phase 0] TodoWrite initialization (4 phases)
   ↓
-[Execute] Phase 1: Parse arguments, create temp session/design run
+[Phase 0] Parameter validation & preparation
+  ├─ Parse positional path parameter
+  ├─ Validate source directory exists
+  ├─ Auto-generate or validate package name
+  │  • If --package-name provided: validate format
+  │  • If not provided: auto-generate from directory name
+  ├─ Check package overwrite protection (fail if exists without --overwrite)
+  ├─ Create temporary workspace
+  └─ Display configuration summary
   ↓
-[TodoWrite] Phase 1 = completed, Phase 2 = in_progress
+[Phase 0 Complete] → TodoWrite(Phase 0 = completed, Phase 1 = in_progress)
+  ↓ (IMMEDIATELY auto-continue)
+[Phase 1] SlashCommand(/workflow:ui-design:import-from-code ...)
+  ├─ Extract design tokens from source code
+  ├─ Generate style guide
+  ├─ Extract component patterns
+  └─ Verify extraction outputs
+  ↓ (blocks until finished)
+[Phase 1 Complete] → TodoWrite(Phase 1 = completed, Phase 2 = in_progress)
+  ↓ (IMMEDIATELY auto-continue)
+[Phase 2] SlashCommand(/workflow:ui-design:reference-page-generator ...)
+  ├─ Generate design-tokens.json
+  ├─ Generate component-patterns.json
+  ├─ Create preview.html + preview.css
+  ├─ Generate metadata.json
+  └─ Create README.md
+  ↓ (blocks until finished)
+[Phase 2 Complete] → TodoWrite(Phase 2 = completed, Phase 3 = in_progress)
+  ↓ (IMMEDIATELY auto-continue)
+[Phase 3] Cleanup & Verification
+  ├─ Remove temporary workspace
+  ├─ Verify package directory
+  ├─ Extract component count
+  └─ Display completion summary
   ↓
-[Execute] Phase 2: SlashCommand(/workflow:ui-design:import-from-code ...)
-  ↓
-[TodoWrite] Phase 2 = completed, Phase 3 = in_progress
-  ↓
-[Execute] Phase 3: SlashCommand(/workflow:ui-design:reference-page-generator ...)
-  ↓
-[TodoWrite] Phase 3 = completed, Phase 4 = in_progress
-  ↓
-[Execute] Phase 4: Cleanup temp files, verify package
-  ↓
-[TodoWrite] Phase 4 = completed
-  ↓
-[Report] Display completion summary
+[Phase 3 Complete] → TodoWrite(Phase 3 = completed)
 ```
 
 ---
@@ -456,23 +688,42 @@ All glob parameters are passed through to `import-from-code`:
 
 ## Benefits
 
+- **Simplified Interface**: Single path parameter with intelligent defaults
+- **Auto-Generation**: Package names auto-generated from directory names
 - **Pure Orchestrator**: No direct agent execution, delegates to specialized commands
 - **Auto-Continue**: Autonomous 4-phase execution without user interaction
-- **Code Reuse**: Leverages existing `import-from-code` command
+- **Safety First**: Overwrite protection, validation checks, error handling
+- **Code Reuse**: Leverages existing `import-from-code` and `reference-page-generator` commands
 - **Clean Separation**: Each command has single responsibility
 - **Easy Maintenance**: Changes to sub-commands automatically apply
-- **Flexible**: Supports all import-from-code glob parameters
+- **Flexible**: Supports all import-from-code glob parameters for custom file patterns
 
 ## Architecture
 
 ```
-codify-style (orchestrator)
-  ├─ Phase 1: Prepare (bash commands, parameter validation)
-  ├─ Phase 2: /workflow:ui-design:import-from-code (style extraction)
-  ├─ Phase 3: /workflow:ui-design:reference-page-generator (reference package)
-  └─ Phase 4: Cleanup (remove temp files, report)
+codify-style (orchestrator - simplified interface)
+  ├─ Phase 0: Intelligent Validation
+  │   ├─ Parse positional path parameter
+  │   ├─ Auto-generate package name (if not provided)
+  │   ├─ Safety checks (overwrite protection)
+  │   └─ User confirmation
+  ├─ Phase 1: /workflow:ui-design:import-from-code (style extraction)
+  │   ├─ Extract design tokens from source code
+  │   ├─ Generate style guide
+  │   └─ Extract component patterns
+  ├─ Phase 2: /workflow:ui-design:reference-page-generator (reference package)
+  │   ├─ Generate shareable package
+  │   ├─ Create interactive preview
+  │   └─ Generate documentation
+  └─ Phase 3: Cleanup & Verification
+      ├─ Remove temporary workspace
+      ├─ Verify package integrity
+      └─ Report completion
 
-No task JSON created by this command
-All extraction delegated to import-from-code
-All packaging delegated to reference-page-generator
+Design Principles:
+✓ No task JSON created by this command
+✓ All extraction delegated to import-from-code
+✓ All packaging delegated to reference-page-generator
+✓ Pure orchestration with intelligent defaults
+✓ Single path parameter for maximum simplicity
 ```

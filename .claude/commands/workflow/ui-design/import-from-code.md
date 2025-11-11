@@ -1,7 +1,7 @@
 ---
 name: workflow:ui-design:import-from-code
 description: Import design system from code files (CSS/JS/HTML/SCSS) using parallel agent analysis with final synthesis
-argument-hint: "[--design-id <id>] [--session <id>] [--source <path>] [--css \"<glob>\"] [--js \"<glob>\"] [--scss \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"]"
+argument-hint: "[--design-id <id>] [--session <id>] [--source <path>] [--files \"<glob>\"] [--css \"<glob>\"] [--js \"<glob>\"] [--scss \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"]"
 allowed-tools: Read,Write,Bash,Glob,Grep,Task,TodoWrite
 auto-continue: true
 ---
@@ -37,6 +37,9 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 --design-id <id>        Design run ID to import into (must exist)
 --session <id>          Session ID (uses latest design run in session)
 --source <path>         Source code directory to analyze (required)
+--files "<glob>"        Universal file glob pattern (recommended, replaces all below)
+
+# Legacy parameters (deprecated, use --files instead)
 --css "<glob>"          CSS file glob pattern (e.g., "theme/*.css")
 --scss "<glob>"         SCSS file glob pattern (e.g., "styles/*.scss")
 --js "<glob>"           JavaScript file glob pattern (e.g., "theme/*.js")
@@ -47,23 +50,20 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 ### Usage Examples
 
 ```bash
-# Import into specific design run
+# Simple usage - auto-discover all style files
 /workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./src
 
-# Import into session's latest design run
-/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src
+# Recommended: Use --files for custom patterns
+/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src --files "**/theme.*"
 
-# Target specific directories
-/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src --css "theme/*.css" --js "theme/*.js"
+# Target specific file patterns
+/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./src --files "**/{theme,style,color}.*"
 
 # Tailwind config only
-/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./ --js "tailwind.config.js"
+/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./ --files "tailwind.config.js"
 
-# CSS framework import
-/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src --css "styles/**/*.scss" --html "components/**/*.html"
-
-# Universal style files
-/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./src --style-files "**/theme.*"
+# Legacy syntax (still supported, but --files recommended)
+/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src --css "theme/*.css" --js "theme/*.js"
 ```
 
 ---
@@ -123,56 +123,13 @@ echo "  Output: $base_path"
 ]
 ```
 
-**File Discovery Logic**:
+**File Discovery Behavior**:
 
-```bash
-# 2. Discover files by type
-cd "$source" || exit 1
-
-# CSS files
-if [ -n "$css" ]; then
-  find . -type f -name "*.css" | grep -E "$css" > "$intermediates_dir/css-files.txt"
-elif [ -n "$style_files" ]; then
-  find . -type f -name "*.css" | grep -E "$style_files" > "$intermediates_dir/css-files.txt"
-else
-  find . -type f -name "*.css" -not -path "*/node_modules/*" -not -path "*/dist/*" > "$intermediates_dir/css-files.txt"
-fi
-
-# SCSS files
-if [ -n "$scss" ]; then
-  find . -type f \( -name "*.scss" -o -name "*.sass" \) | grep -E "$scss" > "$intermediates_dir/scss-files.txt"
-elif [ -n "$style_files" ]; then
-  find . -type f \( -name "*.scss" -o -name "*.sass" \) | grep -E "$style_files" > "$intermediates_dir/scss-files.txt"
-else
-  find . -type f \( -name "*.scss" -o -name "*.sass" \) -not -path "*/node_modules/*" -not -path "*/dist/*" > "$intermediates_dir/scss-files.txt"
-fi
-
-# JavaScript files (theme/style related)
-if [ -n "$js" ]; then
-  find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" \) | grep -E "$js" > "$intermediates_dir/js-files.txt"
-elif [ -n "$style_files" ]; then
-  find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" \) | grep -E "$style_files" > "$intermediates_dir/js-files.txt"
-else
-  # Look for common theme/style file patterns
-  find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" \) -not -path "*/node_modules/*" -not -path "*/dist/*" | \
-    grep -iE "(theme|style|color|token|design)" > "$intermediates_dir/js-files.txt" || touch "$intermediates_dir/js-files.txt"
-fi
-
-# HTML files
-if [ -n "$html" ]; then
-  find . -type f \( -name "*.html" -o -name "*.htm" \) | grep -E "$html" > "$intermediates_dir/html-files.txt"
-else
-  find . -type f \( -name "*.html" -o -name "*.htm" \) -not -path "*/node_modules/*" -not -path "*/dist/*" > "$intermediates_dir/html-files.txt"
-fi
-
-# 3. Count discovered files
-css_count=$(wc -l < "$intermediates_dir/css-files.txt" 2>/dev/null || echo 0)
-scss_count=$(wc -l < "$intermediates_dir/scss-files.txt" 2>/dev/null || echo 0)
-js_count=$(wc -l < "$intermediates_dir/js-files.txt" 2>/dev/null || echo 0)
-html_count=$(wc -l < "$intermediates_dir/html-files.txt" 2>/dev/null || echo 0)
-
-echo "[Phase 0] Discovered: CSS=$css_count, SCSS=$scss_count, JS=$js_count, HTML=$html_count"
-```
+- **With `--files`**: Discovers all files matching the glob pattern, then categorizes by extension
+- **With legacy parameters**: Uses individual globs for CSS/SCSS/JS/HTML (shows deprecation warning)
+- **Auto-discover (default)**: Finds all CSS/SCSS/HTML files and theme-related JS/TS files
+- **Exclusions**: Automatically excludes `node_modules/` and `dist/` directories
+- **Output**: Categorized file lists saved to `.intermediates/import-analysis/`
 
 <!-- TodoWrite: Mark Phase 0 complete, start Phase 1 -->
 
