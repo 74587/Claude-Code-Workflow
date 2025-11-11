@@ -209,13 +209,7 @@ STORE: temp_session_id, temp_design_run_id, design_run_path
 - `TEMP_DESIGN_RUN_ID`: `design-run-{timestamp}`
 - `DESIGN_RUN_PATH`: Absolute path to temporary workspace
 
-**TodoWrite Update**:
-```json
-[
-  {"content": "Validate parameters and prepare session", "status": "completed", "activeForm": "Validating parameters"},
-  {"content": "Extract styles from source code", "status": "in_progress", "activeForm": "Extracting styles"}
-]
-```
+**TodoWrite Update**: Mark Phase 0 completed, Phase 1 in_progress
 
 **Next Action**: Validation complete → **IMMEDIATELY execute Phase 1** (auto-continue)
 
@@ -275,17 +269,9 @@ CATCH error:
   - `animation-tokens.json` - Animation specifications
   - `component-patterns.json` - Component catalog
 
-**TodoWrite Update**:
-```json
-[
-  {"content": "Validate parameters and prepare session", "status": "completed", "activeForm": "Validating parameters"},
-  {"content": "Extract styles from source code", "status": "completed", "activeForm": "Extracting styles"},
-  {"content": "Generate reference package with preview", "status": "in_progress", "activeForm": "Generating reference"}
-]
-```
+**TodoWrite Update**: Mark Phase 1 completed, Phase 2 in_progress
 
 **Next Action**: Extraction verified → **IMMEDIATELY execute Phase 2** (auto-continue)
-**⚠️ CRITICAL**: SlashCommand blocks until import-from-code finishes. When it returns, IMMEDIATELY update TodoWrite and execute Phase 2.
 
 ---
 
@@ -357,18 +343,9 @@ CATCH error:
 - ⭕ Optional files:
   - `animation-tokens.json` - Animation specifications (if available from extraction)
 
-**TodoWrite Update**:
-```json
-[
-  {"content": "Validate parameters and prepare session", "status": "completed", "activeForm": "Validating parameters"},
-  {"content": "Extract styles from source code", "status": "completed", "activeForm": "Extracting styles"},
-  {"content": "Generate reference package with preview", "status": "completed", "activeForm": "Generating reference"},
-  {"content": "Cleanup and verify package", "status": "in_progress", "activeForm": "Cleanup and verification"}
-]
-```
+**TodoWrite Update**: Mark Phase 2 completed, Phase 3 in_progress
 
 **Next Action**: Package verified → **IMMEDIATELY execute Phase 3** (auto-continue)
-**⚠️ CRITICAL**: SlashCommand blocks until reference-page-generator finishes. When it returns, IMMEDIATELY update TodoWrite and execute Phase 3.
 
 ---
 
@@ -398,15 +375,7 @@ component_count = Bash(jq -r '.extraction_metadata.component_count // "unknown"'
 anim_exists = Bash(test -f "${package_path}/animation-tokens.json" && echo "✓" || echo "○")
 ```
 
-**TodoWrite Update**:
-```json
-[
-  {"content": "Validate parameters and prepare session", "status": "completed", "activeForm": "Validating parameters"},
-  {"content": "Extract styles from source code", "status": "completed", "activeForm": "Extracting styles"},
-  {"content": "Generate reference package with preview", "status": "completed", "activeForm": "Generating reference"},
-  {"content": "Cleanup and verify package", "status": "completed", "activeForm": "Cleanup and verification"}
-]
-```
+**TodoWrite Update**: Mark Phase 3 completed
 
 **Final Action**: Display completion summary to user
 
@@ -415,42 +384,18 @@ anim_exists = Bash(test -f "${package_path}/animation-tokens.json" && echo "✓"
 ## Completion Message
 
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ STYLE REFERENCE PACKAGE GENERATED SUCCESSFULLY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Style reference package generated successfully
 
 📦 Package: {package_name}
 📂 Location: {absolute_package_path}/
 📄 Source: {source}
+📊 Components: {component_count}
 
-Generated Files:
-  ✓ design-tokens.json       Design token system
-  ✓ style-guide.md          Style documentation
-  ✓ component-patterns.json  Component catalog ({component_count} components)
-  ✓ preview.html            Interactive showcase
-  ✓ preview.css             Showcase styling
-  {anim_exists} animation-tokens.json   Animation tokens
-  ✓ metadata.json           Package metadata
-  ✓ README.md               Documentation
+Files: design-tokens.json, style-guide.md, component-patterns.json, preview.html, preview.css, metadata.json, README.md
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌐 Preview Package
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Preview: file://{absolute_package_path}/preview.html
 
-  file://{absolute_package_path}/preview.html
-
-  Or use local server:
-  cd {package_path} && python -m http.server 8080
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 Next Steps
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. Review preview.html to verify components and design tokens
-2. Generate SKILL memory: /memory:style-skill-memory {package_name}
-3. Use in workflows: /workflow:ui-design:explore-auto --prompt "Use {package_name} style"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Next: /memory:style-skill-memory {package_name}
 ```
 
 ---

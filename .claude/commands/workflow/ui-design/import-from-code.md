@@ -157,7 +157,7 @@ echo "  Output: $discovery_file"
 echo "[Phase 1] Starting parallel agent analysis (3 agents)"
 ```
 
-#### Style Agent Task (style-completeness-report.json)
+#### Style Agent Task (design-tokens.json, style-guide.md)
 
 **Agent Task**:
 
@@ -215,7 +215,7 @@ Task(ui-design-agent): `
 `
 ```
 
-#### Animation Agent Task
+#### Animation Agent Task (animation-tokens.json, animation-guide.md)
 
 **Agent Task**:
 
@@ -272,7 +272,7 @@ Task(ui-design-agent): `
 `
 ```
 
-#### Layout Agent Task
+#### Layout Agent Task (layout-templates.json, layout-guide.md)
 
 **Agent Task**:
 
