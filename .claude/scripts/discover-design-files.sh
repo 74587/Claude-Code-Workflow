@@ -75,4 +75,9 @@ cat > "$output_json" << EOF
 }
 EOF
 
+# Ensure file is fully written and synchronized to disk
+# This prevents race conditions when the file is immediately read by another process
+sync "$output_json" 2>/dev/null || sync  # Sync specific file, fallback to full sync
+sleep 0.1  # Additional safety: 100ms delay for filesystem metadata update
+
 echo "Discovered: CSS=$css_count, JS=$js_count, HTML=$html_count (Total: $total_count)" >&2
