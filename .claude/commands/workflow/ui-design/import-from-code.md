@@ -163,10 +163,11 @@ Task(subagent_type="ui-design-agent",
   - JavaScript/TypeScript: Theme configs (Tailwind, styled-components, CSS-in-JS)
   - HTML: Inline styles, usage patterns
 
-  **Step 3: Smart inference for gaps**
-  - Infer missing tokens from existing patterns
-  - Normalize inconsistent values into systematic scales
-  - Fill missing categories from cross-file references
+  **Step 3: Validation and Conflict Detection**
+  - Report missing tokens WITHOUT inference (mark as "missing" in _metadata.completeness)
+  - Detect and report inconsistent values across files (list ALL variants with file:line sources)
+  - Report missing categories WITHOUT auto-filling (document gaps for manual review)
+  - CRITICAL: Verify core tokens (primary, secondary, accent) against semantic comments in source code
 
   ## Output Files
 
@@ -178,6 +179,7 @@ Task(subagent_type="ui-design-agent",
      - Add \"_metadata.extraction_source\": \"code_import\"
      - Add \"_metadata.files_analyzed\": {css, js, html file lists}
      - Add \"_metadata.completeness\": {status, missing_categories, recommendations}
+     - Add \"_metadata.conflicts\": Array of conflicting definitions (MANDATORY if conflicts exist)
      - Add \"_metadata.code_snippets\": Map of code snippets (see below)
      - Include \"source\" field for each token (e.g., \"file.css:23\")
 
@@ -198,12 +200,24 @@ Task(subagent_type="ui-design-agent",
   - Typical ranges: Simple declarations (1-5 lines), Utility classes (5-15 lines), Complete configs (15-50 lines)
   - Preserve original formatting and indentation
 
+  **Conflict Detection and Reporting**:
+  - When the same token is defined differently across multiple files, record in `_metadata.conflicts`
+  - Follow Agent schema for conflicts array structure (see ui-design-agent.md)
+  - Each conflict MUST include: token_name, category, all definitions with context, selected_value, selection_reason
+  - Selection priority:
+    1. Definitions with semantic comments explaining intent (/* Blue theme */, /* Primary brand color */)
+    2. Definitions that align with overall color scheme described in comments
+    3. When in doubt, report ALL variants and flag for manual review in completeness.recommendations
+
   ## Code Import Specific Requirements
   - ✅ Read discovered-files.json FIRST to get file paths
   - ✅ Track extraction source for each token (file:line)
   - ✅ Record complete code snippets in _metadata.code_snippets (complete blocks with dependencies/comments)
   - ✅ Include completeness assessment in _metadata
-  - ✅ Normalize inconsistent values into systematic scales
+  - ✅ Report inconsistent values with ALL source locations in _metadata.conflicts (DO NOT auto-normalize or choose)
+  - ✅ CRITICAL: Verify core theme tokens (primary, secondary, accent) match source code semantic intent
+  - ✅ When conflicts exist, prefer definitions with semantic comments explaining intent
+  - ❌ NO inference, NO smart filling, NO automatic conflict resolution
   - ❌ NO external research or web searches (code-only extraction)
 ")
 ```

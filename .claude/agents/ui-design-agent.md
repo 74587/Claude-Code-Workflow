@@ -65,8 +65,19 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
    - Data Source: Existing source code files (CSS/SCSS/JS/TS/HTML)
    - Code Snippets: Extract complete code blocks from source files
    - MCP: ❌ NO research (extract only)
-   - Process: Read discovered-files.json → Read source files → Extract tokens with code snippets
-   - Record in: `_metadata.code_snippets` or `extraction_metadata.code_snippets` with source location, line numbers, context type
+   - Process: Read discovered-files.json → Read source files → Detect conflicts → Extract tokens with conflict resolution
+   - Record in: `_metadata.code_snippets` with source location, line numbers, context type
+   - CRITICAL Validation:
+     * Detect conflicting token definitions across multiple files
+     * Read and analyze semantic comments (/* ... */) to understand intent
+     * For core tokens (primary, secondary, accent): Verify against overall color scheme
+     * Report conflicts in `_metadata.conflicts` with all definitions and selection reasoning
+     * NO inference, NO normalization - faithful extraction with explicit conflict resolution
+   - Fast Conflict Detection (Use Bash/Grep):
+     * Quick scan: `rg --color=never -n "^\s*--primary:" <files>` to find all primary color definitions
+     * Semantic search: `rg --color=never -B2 -A0 "^\s*--primary:" <files>` to capture comments
+     * Multi-file comparison: Compare definitions across discovered CSS/JS files
+     * Pattern: Search → Compare values → If different → Read full context → Record conflict
 
 2. **Explore/Text Mode** (Source: `style-extract`, `layout-extract`, `animation-extract`)
    - Data Source: User prompts, visual references, images, URLs
@@ -299,6 +310,23 @@ body {
     "version": "string - W3C version",
     "created": "ISO timestamp",
     "source": "string - code-import|explore|text",
+    "conflicts": [
+      {
+        "token_name": "string - which token has conflicts",
+        "category": "string - colors|typography|etc",
+        "definitions": [
+          {
+            "value": "string - token value",
+            "source_file": "string - absolute path",
+            "line_number": "number",
+            "context": "string - surrounding comment or null",
+            "semantic_intent": "string - interpretation of definition"
+          }
+        ],
+        "selected_value": "string - final chosen value",
+        "selection_reason": "string - why this value was chosen"
+      }
+    ],
     "code_snippets": [
       {
         "category": "string - colors|typography|spacing|etc",
@@ -318,8 +346,17 @@ body {
 - All color values MUST use OKLCH format
 - Typography font_families MUST include Google Fonts with fallback stacks
 - Spacing MUST use systematic scale (multiples of base unit)
+- _metadata.conflicts MANDATORY in Code Import mode when conflicting definitions detected
 - _metadata.code_snippets ONLY present in Code Import mode
 - component_styles is optional but recommended
+
+**Conflict Resolution Rules** (Code Import Mode):
+- MUST detect when same token has different values across files
+- MUST read semantic comments (/* ... */) surrounding definitions
+- MUST prioritize definitions with semantic intent over bare values
+- MUST record ALL definitions in conflicts array, not just selected one
+- MUST explain selection_reason referencing semantic context
+- For core theme tokens (primary, secondary, accent): MUST verify selected value aligns with overall color scheme described in comments
 
 ### layout-templates.json
 
