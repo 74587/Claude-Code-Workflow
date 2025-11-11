@@ -644,19 +644,32 @@ FOR each task in task_list:
          - Device-specific styles (mobile-first @media for responsive)
          - NO colors, NO fonts, NO shadows - layout structure only
 
-      ## Output Format
-      Write single-template JSON object with:
-      - target: "{task.target}"
-      - variant_id: "layout-{task.variant_id}"
-      - source_image_path (string): Reference image path
-      - device_type: "{device_type}"
-      - design_philosophy (string from selected concept)
-      - dom_structure (JSON object)
-      - component_hierarchy (array of strings)
-      - css_layout_rules (string)
+      ## Output Files
+
+      Generate 2 files:
+
+      1. **layout-templates.json** - {task.output_file}
+         Write single-template JSON object with:
+         - target: "{task.target}"
+         - variant_id: "layout-{task.variant_id}"
+         - source_image_path (string): Reference image path
+         - device_type: "{device_type}"
+         - design_philosophy (string from selected concept)
+         - dom_structure (JSON object)
+         - component_hierarchy (array of strings)
+         - css_layout_rules (string)
+
+      2. **layout-guide.md** - {task.output_file.replace('.json', '-guide.md')}
+         Write layout system guide with:
+         - Layout Philosophy: Design philosophy from selected concept
+         - Component Hierarchy: Description of layout regions and their purpose
+         - Layout Pattern: Explanation of grid/flexbox structure
+         - Responsive Strategy: Breakpoint behavior and device optimizations
+         - Usage Guidelines: How to implement and customize the layout
+         - Accessibility Notes: ARIA roles and semantic HTML structure
 
       ## Critical Requirements
-      - ✅ Use Write() tool for {task.output_file}
+      - ✅ Use Write() tool for BOTH files (JSON + MD)
       - ✅ Single template for {task.target} variant {task.variant_id}
       - ✅ Structure only, no visual styling
       - ✅ Token-based CSS (var())
@@ -724,6 +737,7 @@ Generated Templates:
 {FOR each target in targets:
   {FOR each variant_id in range(1, selections_per_target[target].selected_indices.length + 1):
     ├── layout-{target}-{variant_id}.json
+    └── layout-{target}-{variant_id}-guide.md
   }
 }
 
@@ -779,7 +793,8 @@ bash(echo '{json}' > {base_path}/layout-extraction/layout-templates.json)
 │       ├── analysis-options.json      # Generated layout concepts + user selections (embedded)
 │       └── dom-structure-{target}.json   # Extracted DOM structure (URL mode only)
 └── layout-extraction/                 # Final layout templates
-    └── layout-{target}-{variant}.json # Structural layout templates (one per selected concept)
+    ├── layout-{target}-{variant}.json # Structural layout template JSON
+    └── layout-{target}-{variant}-guide.md # Layout system usage guide
 ```
 
 ## Layout Template File Format

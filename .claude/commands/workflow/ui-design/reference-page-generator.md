@@ -626,21 +626,3 @@ Next Steps:
 
 ---
 
-## Integration with Workflow
-
-This command is typically called by the `codify-style` orchestrator, but can also be run standalone:
-
-**Standalone Usage**:
-```bash
-# Step 1: Extract styles from code
-/workflow:ui-design:import-from-code --design-id design-run-123 --source ./src
-
-# Step 2: Generate reference package
-/workflow:ui-design:reference-page-generator --design-run .workflow/WFS-xxx/design-run-123 --package-name main-app-style-v1
-```
-
-**Orchestrator Usage** (via codify-style):
-```bash
-# Orchestrator handles both steps automatically
-/workflow:ui-design:codify-style --source ./src --package-name main-app-style-v1
-```

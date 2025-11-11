@@ -308,25 +308,35 @@ Task(ui-design-agent): `
 
   **Target Directory**: ${base_path}/layout-extraction/
 
-  **File to Generate**:
-  **layout-templates.json**
-  - Follow [LAYOUT_TEMPLATE_GENERATION_TASK] standard structure
-  - Add "extraction_metadata" section:
-    * extraction_source: "code_import"
-    * naming_convention: detected convention
-    * layout_system: {type, confidence, source_files}
-    * responsive: {breakpoints, mobile_first, source}
-    * completeness: {status, missing_items, recommendations}
-  - For each component in "layout_templates":
-    * Include "source" field (file:line)
-    * dom_structure with semantic HTML5
-    * css_layout_rules using var() placeholders
+  **Files to Generate**:
+
+  1. **layout-templates.json**
+     - Follow [LAYOUT_TEMPLATE_GENERATION_TASK] standard structure
+     - Add "extraction_metadata" section:
+       * extraction_source: "code_import"
+       * naming_convention: detected convention
+       * layout_system: {type, confidence, source_files}
+       * responsive: {breakpoints, mobile_first, source}
+       * completeness: {status, missing_items, recommendations}
+     - For each component in "layout_templates":
+       * Include "source" field (file:line)
+       * dom_structure with semantic HTML5
+       * css_layout_rules using var() placeholders
+
+  2. **layout-guide.md**
+     - Layout System Overview: Document detected naming convention and layout system
+     - Component Patterns: List extracted components with variants and states
+     - Responsive Strategy: Explain breakpoint system and mobile-first approach
+     - Usage Guidelines: How to use the extracted patterns
+     - Code Examples: Show actual usage from source files
+     - Missing Patterns: Document gaps and recommendations
 
   ## Code Import Specific Requirements
   - ✅ Read discovered-files.json FIRST to get file paths
   - ✅ Detect and document naming conventions
   - ✅ Identify layout system with confidence level
   - ✅ Extract component variants and states from usage patterns
+  - ✅ Generate BOTH JSON + MD files for complete documentation
   - ❌ NO external research or MCP calls (code-only extraction)
 `
 ```
@@ -369,7 +379,8 @@ ${base_path}/
 │   ├── animation-tokens.json        # Animation/transition tokens
 │   └── animation-guide.md           # Animation usage guide
 ├── layout-extraction/
-│   └── layout-templates.json        # Layout patterns and component structures
+│   ├── layout-templates.json        # Layout patterns and component structures
+│   └── layout-guide.md              # Layout system usage guide
 └── .intermediates/
     └── import-analysis/
         └── discovered-files.json    # All discovered files (JSON format)
@@ -399,6 +410,12 @@ ${base_path}/
    - Layout templates for each discovered component
    - Extraction metadata: naming_convention, layout_system, responsive strategy
    - Component patterns with DOM structure and CSS rules
+
+6. **layout-extraction/layout-guide.md**
+   - Layout system overview and detected conventions
+   - Component patterns documentation
+   - Responsive strategy and breakpoint usage
+   - Code examples from source files
 
 **Intermediate Files**: `.intermediates/import-analysis/`
 - `discovered-files.json` - All discovered files in JSON format with counts and metadata
