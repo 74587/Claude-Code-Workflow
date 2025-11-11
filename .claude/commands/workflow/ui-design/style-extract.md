@@ -14,7 +14,7 @@ Extract design style from reference images or text prompts using Claude's built-
 
 **Strategy**: AI-Driven Design Space Exploration
 - **Claude-Native**: 100% Claude analysis, no external tools
-- **Direct Output**: Complete design systems (design-tokens.json + style-guide.md)
+- **Direct Output**: Complete design systems (design-tokens.json)
 - **Flexible Input**: Images, text prompts, or both (hybrid mode)
 - **Dual Mode**: Exploration (multiple contrasting variants) or Refinement (single design fine-tuning)
 - **Production-Ready**: WCAG AA compliant, OKLCH colors, semantic naming
@@ -173,7 +173,6 @@ bash(test -f {base_path}/.brainstorming/role analysis documents && cat it)
 # Load existing design system if refinement mode
 IF refine_mode:
     existing_tokens = Read({base_path}/style-extraction/style-1/design-tokens.json)
-    existing_guide = Read({base_path}/style-extraction/style-1/style-guide.md)
 ```
 
 ### Step 2: Generate Options (Agent Task 1 - Mode-Specific)
@@ -236,7 +235,6 @@ ELSE:
 
       ## Existing Design System
       - design-tokens.json: {existing_tokens}
-      - style-guide.md: {existing_guide}
 
       ## Input Guidance
       - User prompt: {prompt_guidance}
@@ -611,28 +609,15 @@ FOR variant_index IN 1..actual_variants_count:
      ${extraction_mode == "explore" && refinements.enabled ? "- Apply user refinements where specified" : ""}
      - Common Tailwind CSS usage patterns in project (if extracting from existing project)
 
-  2. **style-guide.md**:
-     - Design philosophy (${extraction_mode == "explore" ? "expand on: " + selected_direction.philosophy_name : "describe the reference design"})
-     - Complete color system documentation with accessibility notes
-     - Typography scale and usage guidelines
-     - Typography Combinations section: Document each preset (heading-primary, heading-secondary, body-regular, body-emphasis, caption, label) with usage context and code examples
-     - Spacing system explanation
-     - Opacity & Transparency section: Opacity scale usage, common use cases (disabled states, overlays, hover effects), accessibility considerations
-     - Shadows & Elevation section: Shadow hierarchy and semantic usage
-     - Component Styles section: Document button, card, and input variants with code examples and visual descriptions
-     - Border Radius system and semantic usage
-     - Component examples and usage patterns
-     - Common Tailwind CSS patterns (if applicable)
-
   ## Critical Requirements
   - ✅ Use Write() tool immediately for each file
   - ✅ Write to style-{variant_index}/ directory
-  - ❌ NO external research or MCP calls (pure AI generation)
+  - ✅ Can use Exa MCP to research modern design patterns and obtain code examples (Explore/Text mode)
   - ✅ Maintain consistency with user-selected direction
     `
 ```
 
-**Output**: {actual_variants_count} parallel agent tasks generate 2 files each (design-tokens.json, style-guide.md)
+**Output**: {actual_variants_count} parallel agent tasks generate design-tokens.json for each variant
 
 ## Phase 3: Verify Output
 
@@ -690,7 +675,7 @@ Design Direction Selection:
 
 Generated Files:
 {base_path}/style-extraction/
-└── style-1/ (design-tokens.json, style-guide.md)
+└── style-1/design-tokens.json
 
 {IF computed_styles_available:
 Intermediate Analysis:
@@ -755,8 +740,7 @@ bash(test -f {base_path}/.intermediates/style-analysis/analysis-options.json && 
 │       └── analysis-options.json    # Design direction options + user selection (explore mode only)
 └── style-extraction/                # Final design system
     └── style-1/
-        ├── design-tokens.json       # Production-ready design tokens
-        └── style-guide.md           # Design philosophy and usage guide
+        └── design-tokens.json       # Production-ready design tokens
 ```
 
 ## design-tokens.json Format

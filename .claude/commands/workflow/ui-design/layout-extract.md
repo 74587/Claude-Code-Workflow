@@ -659,20 +659,12 @@ FOR each task in task_list:
          - component_hierarchy (array of strings)
          - css_layout_rules (string)
 
-      2. **layout-guide.md** - {task.output_file.replace('.json', '-guide.md')}
-         Write layout system guide with:
-         - Layout Philosophy: Design philosophy from selected concept
-         - Component Hierarchy: Description of layout regions and their purpose
-         - Layout Pattern: Explanation of grid/flexbox structure
-         - Responsive Strategy: Breakpoint behavior and device optimizations
-         - Usage Guidelines: How to implement and customize the layout
-         - Accessibility Notes: ARIA roles and semantic HTML structure
-
       ## Critical Requirements
-      - ✅ Use Write() tool for BOTH files (JSON + MD)
+      - ✅ Use Write() tool to generate JSON file
       - ✅ Single template for {task.target} variant {task.variant_id}
       - ✅ Structure only, no visual styling
       - ✅ Token-based CSS (var())
+      - ✅ Can use Exa MCP to research modern layout patterns and obtain code examples (Explore/Text mode)
       - ✅ Maintain consistency with selected concept
     `
 ```
@@ -736,8 +728,7 @@ Generated Templates:
 {base_path}/layout-extraction/
 {FOR each target in targets:
   {FOR each variant_id in range(1, selections_per_target[target].selected_indices.length + 1):
-    ├── layout-{target}-{variant_id}.json
-    └── layout-{target}-{variant_id}-guide.md
+    └── layout-{target}-{variant_id}.json
   }
 }
 
@@ -793,8 +784,7 @@ bash(echo '{json}' > {base_path}/layout-extraction/layout-templates.json)
 │       ├── analysis-options.json      # Generated layout concepts + user selections (embedded)
 │       └── dom-structure-{target}.json   # Extracted DOM structure (URL mode only)
 └── layout-extraction/                 # Final layout templates
-    ├── layout-{target}-{variant}.json # Structural layout template JSON
-    └── layout-{target}-{variant}-guide.md # Layout system usage guide
+    └── layout-{target}-{variant}.json # Structural layout template JSON
 ```
 
 ## Layout Template File Format

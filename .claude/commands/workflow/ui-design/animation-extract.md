@@ -9,7 +9,7 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestio
 
 ## Overview
 
-Extract animation and transition patterns from prompt inference and image references using AI analysis. Directly generates production-ready animation systems with complete `animation-tokens.json` and `animation-guide.md`.
+Extract animation and transition patterns from prompt inference and image references using AI analysis. Directly generates production-ready animation systems with complete `animation-tokens.json`.
 
 **Strategy**: AI-Driven Animation Specification with Visual Previews
 
@@ -818,32 +818,17 @@ IF NOT refine_mode:
     }
   }
 
-  ### 2. animation-guide.md
-  Comprehensive usage guide with sections:
-  - **Animation Philosophy**: Rationale from user choices and CSS analysis
-  - **Duration Scale**: Explanation of timing values and usage contexts
-  - **Easing Functions**: When to use each easing curve
-  - **Transition Presets**: Property-specific transition guidelines
-  - **Keyframe Animations**: Available animations and use cases
-  - **Interaction Patterns**: Button, card, input animation examples
-  - **Page Transitions**: Route change animation implementation (if enabled)
-  - **Scroll Animations**: Scroll-trigger setup and configuration (if enabled)
-  - **Implementation Examples**: CSS and JavaScript code samples
-  - **Accessibility**: prefers-reduced-motion media query setup
-  - **Performance Best Practices**: Hardware acceleration, will-change usage
-
   ## Output File Paths
   - animation-tokens.json: {base_path}/animation-extraction/animation-tokens.json
-  - animation-guide.md: {base_path}/animation-extraction/animation-guide.md
 
   ## Critical Requirements
-  - ✅ Use Write() tool immediately for both files
+  - ✅ Use Write() tool immediately to generate JSON file
   - ✅ All tokens use CSS Custom Property format: var(--duration-fast)
   - ✅ Include prefers-reduced-motion media query guidance
   - ✅ Validate all cubic-bezier values are valid (4 numbers between 0-1)
   - ${user_answers ? "✅ READ analysis-options.json for user_selection field" : "✅ Use first option from each question as default"}
   - ❌ NO user questions or interaction in this phase
-  - ❌ NO external research or MCP calls
+  - ✅ Can use Exa MCP to research modern animation patterns and obtain code examples (Explore/Text mode)
     `
 
 ELSE:
@@ -898,7 +883,6 @@ ELSE:
       - If multiple selected refinements modify same token:
           * Apply refinements in ID order (lowest first)
           * Later refinements override earlier ones
-          * Document conflicts in animation-guide.md
 
       ## Generate Updated Files
 
@@ -909,33 +893,22 @@ ELSE:
       - Maintain var() references and semantic naming
       - Validate all cubic-bezier values
 
-      ### 2. animation-guide.md
-      Updated usage guide with refinement documentation:
-      - Original sections (Animation Philosophy, Duration Scale, etc.)
-      - **NEW: Refinement History** section:
-          * Applied refinements list
-          * Before/after comparisons
-          * Rationale for changes
-          * Migration notes if needed
-
       ## Output File Paths
       - animation-tokens.json: {base_path}/animation-extraction/animation-tokens.json (OVERWRITE)
-      - animation-guide.md: {base_path}/animation-extraction/animation-guide.md (UPDATE with refinement history)
 
       ## Critical Requirements
-      - ✅ Use Write() tool immediately for both files
+      - ✅ Use Write() tool immediately to generate JSON file
       - ✅ OVERWRITE existing animation-tokens.json with refined version
-      - ✅ UPDATE animation-guide.md (don't overwrite, add refinement history section)
       - ✅ All tokens use CSS Custom Property format: var(--duration-fast)
       - ✅ Include prefers-reduced-motion media query guidance
       - ✅ Validate all cubic-bezier values are valid (4 numbers between 0-1)
       - ${selected_refinements ? "✅ READ refinement-options.json for user_selection.selected_refinements" : "✅ Apply ALL refinements from refinement_options"}
       - ❌ NO user questions or interaction in this phase
-      - ❌ NO external research or MCP calls
+      - ✅ Can use Exa MCP to research modern animation patterns and obtain code examples (Explore/Text mode)
     `
 ```
 
-**Output**: Agent generates/updates 2 files (animation-tokens.json, animation-guide.md)
+**Output**: Agent generates/updates animation-tokens.json
 
 ## Phase 3: Verify Output
 
@@ -944,7 +917,6 @@ ELSE:
 ```bash
 # Verify animation system created
 bash(test -f {base_path}/animation-extraction/animation-tokens.json && echo "exists")
-bash(test -f {base_path}/animation-extraction/animation-guide.md && echo "exists")
 
 # Validate structure
 bash(cat {base_path}/animation-extraction/animation-tokens.json | grep -q "duration" && echo "valid")
@@ -957,7 +929,7 @@ bash(cat {base_path}/animation-extraction/animation-tokens.json | grep -q "easin
 bash(ls -lh {base_path}/animation-extraction/)
 ```
 
-**Output**: 2 files verified (animation-tokens.json, animation-guide.md)
+**Output**: animation-tokens.json verified
 
 ## Completion
 
@@ -998,8 +970,7 @@ Configuration:
 
 Generated Files:
 {base_path}/animation-extraction/
-├── animation-tokens.json      # Production-ready animation tokens
-└── animation-guide.md          # Usage guidelines and examples
+└── animation-tokens.json      # Production-ready animation tokens
 
 {IF has_images OR options.user_selection:
 Intermediate Analysis:
@@ -1067,8 +1038,7 @@ bash(ls {base_path}/animation-extraction/)
 │       ├── animations-{target}.json      # Extracted CSS (URL mode only)
 │       └── analysis-options.json         # Generated questions + user answers (embedded)
 └── animation-extraction/            # Final animation system
-    ├── animation-tokens.json        # Production-ready animation tokens
-    └── animation-guide.md            # Usage guide and examples
+    └── animation-tokens.json        # Production-ready animation tokens
 ```
 
 ## animation-tokens.json Format

@@ -71,13 +71,37 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 5. **Record Code Snippets**: When in code import mode, capture complete code blocks with context
 6. **Write Files Immediately**: JSON files with embedded code snippets (when applicable)
 
+**Execution Modes**:
+
+Pattern 2 has two distinct execution modes that determine how code snippets and design patterns are obtained:
+
+1. **Code Import Mode** (Source: `import-from-code` command)
+   - **Data Source**: Existing source code files (CSS/SCSS/JS/TS/HTML)
+   - **Code Snippet Strategy**: Directly read source files and extract complete code blocks
+   - **MCP Usage**: ❌ NO Exa MCP research (only extract from provided code)
+   - **Process**: Read discovered-files.json → Read source files → Extract tokens with code snippets
+   - **Code Snippets**: Record actual code from source files in `_metadata.code_snippets` or `extraction_metadata.code_snippets`
+   - **Example Context Types**: css-variable, css-class, js-object, css-keyframes, react-component
+
+2. **Explore/Text Mode** (Source: `style-extract`, `layout-extract`, `animation-extract` commands)
+   - **Data Source**: User prompts, visual references, images, URLs
+   - **Code Snippet Strategy**: Creative generation based on research and best practices
+   - **MCP Usage**: ✅ YES - Use Exa MCP to research design patterns and obtain code examples
+   - **Process**: Analyze inputs → Research patterns via Exa → Generate tokens with example code
+   - **Code Snippets**: Generate example implementations based on modern patterns and best practices
+   - **MCP Queries**: "modern [pattern] implementation", "best practices for [feature]", "code examples for [component]"
+
+**Mode Detection**: Check task prompt for MODE field or extraction strategy indicators:
+- `MODE: style-extraction` or `MODE: animation-extraction` or `MODE: layout-extraction` with `SOURCE: [path]` → Code Import Mode
+- `MODE: style-generation` or prompt-based generation → Explore/Text Mode
+
 **Design System Generation**:
 - **Input**: Selected design direction OR visual references, computed styles (if available), user refinements
 - **Output**:
   - `{base_path}/style-extraction/style-{id}/design-tokens.json` (W3C format, OKLCH colors)
 - **Content**: Complete token system (colors, typography, spacing, opacity, shadows, border_radius, breakpoints, component_styles, typography.combinations)
 - **Code Snippets** (when in code import mode): Record complete code blocks in `_metadata.code_snippets` with source location, line numbers, and context type
-- **MCP Use**: Research modern color palettes, typography trends, design system patterns
+- **MCP Use** (Explore/Text mode only): Research modern color palettes, typography trends, design system patterns
 
 **Layout Template Generation**:
 - **Input**: Selected layout concepts OR visual references, device type, DOM structure data (if available)
@@ -446,6 +470,8 @@ STEP 5: Final Verification
 
 ### MCP Integration
 
+**⚠️ Mode-Specific Usage**: MCP tools are ONLY used in **Explore/Text Mode**. In **Code Import Mode**, extract directly from source files without MCP research.
+
 **Exa MCP: Design Research & Trends**
 
 *Use Cases*:
@@ -600,7 +626,7 @@ layout_results = mcp__exa__web_search_exa(
 - ✅ Include Google Fonts imports with fallback stacks (Pattern 2 & 3)
 - ✅ Use mobile-first responsive design with token-based breakpoints
 - ✅ Implement semantic HTML5 with ARIA attributes (Pattern 2 & 3)
-- ✅ Execute MCP research for modern patterns (Pattern 1 & 2 when applicable)
+- ✅ Execute MCP research for modern patterns (Pattern 1 & Pattern 2 Explore/Text mode only)
 - ✅ Record complete code snippets when in code import mode (_metadata.code_snippets with location, lines, snippet, context)
 
 **Target Independence**:
