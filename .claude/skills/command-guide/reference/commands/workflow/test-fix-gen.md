@@ -58,6 +58,19 @@ This command is a **pure planning coordinator**:
 - Creates independent test workflow session
 - **All execution delegated to `/workflow:test-cycle-execute`**
 
+**Task Attachment Model**:
+- SlashCommand invocation **expands workflow** by attaching sub-tasks to current TodoWrite
+- When a sub-command is invoked (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
+- Orchestrator **executes these attached tasks** sequentially
+- After completion, attached tasks are **collapsed** back to high-level phase summary
+- This is **task expansion**, not external delegation
+
+**Auto-Continue Mechanism**:
+- TodoList tracks current phase status and dynamically manages task attachment/collapse
+- When each phase finishes executing, automatically execute next pending phase
+- All phases run autonomously without user interaction
+- **⚠️ CONTINUOUS EXECUTION** - Do not stop until all phases complete
+
 ---
 
 ## Usage
@@ -128,9 +141,11 @@ This command is a **pure planning coordinator**:
 3. **Parse Every Output**: Extract required data from each phase for next phase
 4. **Sequential Execution**: Each phase depends on previous phase's output
 5. **Complete All Phases**: Do not return until Phase 5 completes
-6. **Track Progress**: Update TodoWrite after every phase
+6. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 7. **Automatic Detection**: Mode auto-detected from input pattern
 8. **Parse Flags**: Extract `--use-codex` and `--cli-execute` flags for Phase 4
+9. **Task Attachment Model**: SlashCommand invocation **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+10. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ### 5-Phase Execution
 
@@ -202,9 +217,25 @@ This command is a **pure planning coordinator**:
 **Expected Behavior**:
 - Use Gemini to analyze coverage gaps and implementation
 - Study existing test patterns and conventions
-- Generate test requirements for missing test files
-- Design test generation strategy
-- Generate `TEST_ANALYSIS_RESULTS.md`
+- Generate **multi-layered test requirements** (L0: Static Analysis, L1: Unit, L2: Integration, L3: E2E)
+- Design test generation strategy with quality assurance criteria
+- Generate `TEST_ANALYSIS_RESULTS.md` with structured test layers
+
+**Enhanced Test Requirements**:
+For each targeted file/function, Gemini MUST generate:
+1. **L0: Static Analysis Requirements**:
+   - Linting rules to enforce (ESLint, Prettier)
+   - Type checking requirements (TypeScript)
+   - Anti-pattern detection rules
+2. **L1: Unit Test Requirements**:
+   - Happy path scenarios (valid inputs → expected outputs)
+   - Negative path scenarios (invalid inputs → error handling)
+   - Edge cases (null, undefined, 0, empty strings/arrays)
+3. **L2: Integration Test Requirements**:
+   - Successful component interactions
+   - Failure handling scenarios (service unavailable, timeout)
+4. **L3: E2E Test Requirements** (if applicable):
+   - Key user journeys from start to finish
 
 **Parse Output**:
 - Verify `.workflow/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md` created
@@ -213,9 +244,18 @@ This command is a **pure planning coordinator**:
 - TEST_ANALYSIS_RESULTS.md exists with complete sections:
   - Coverage Assessment
   - Test Framework & Conventions
-  - Test Requirements by File
+  - **Multi-Layered Test Plan** (NEW):
+    - L0: Static Analysis Plan
+    - L1: Unit Test Plan
+    - L2: Integration Test Plan
+    - L3: E2E Test Plan (if applicable)
+  - Test Requirements by File (with layer annotations)
   - Test Generation Strategy
   - Implementation Targets
+  - Quality Assurance Criteria (NEW):
+    - Minimum coverage thresholds
+    - Required test types per function
+    - Acceptance criteria for test quality
   - Success Criteria
 
 **TodoWrite**: Mark phase 3 completed, phase 4 in_progress
@@ -232,16 +272,18 @@ This command is a **pure planning coordinator**:
 - `--cli-execute` flag (if present) - Controls IMPL-001 generation mode
 
 **Expected Behavior**:
-- Parse TEST_ANALYSIS_RESULTS.md from Phase 3
-- Generate **minimum 2 task JSON files** (expandable based on complexity):
+- Parse TEST_ANALYSIS_RESULTS.md from Phase 3 (multi-layered test plan)
+- Generate **minimum 3 task JSON files** (expandable based on complexity):
   - **IMPL-001.json**: Test Understanding & Generation (`@code-developer`)
+  - **IMPL-001.5-review.json**: Test Quality Gate (`@test-fix-agent`) ← **NEW**
   - **IMPL-002.json**: Test Execution & Fix Cycle (`@test-fix-agent`)
   - **IMPL-003+**: Additional tasks if needed for complex projects
-- Generate `IMPL_PLAN.md` with test strategy
+- Generate `IMPL_PLAN.md` with multi-layered test strategy
 - Generate `TODO_LIST.md` with task checklist
 
 **Parse Output**:
 - Verify `.workflow/[testSessionId]/.task/IMPL-001.json` exists
+- Verify `.workflow/[testSessionId]/.task/IMPL-001.5-review.json` exists ← **NEW**
 - Verify `.workflow/[testSessionId]/.task/IMPL-002.json` exists
 - Verify additional `.task/IMPL-*.json` if applicable
 - Verify `IMPL_PLAN.md` and `TODO_LIST.md` created
@@ -262,11 +304,16 @@ Test Session: [testSessionId]
 
 Tasks Created:
 - IMPL-001: Test Understanding & Generation (@code-developer)
+- IMPL-001.5: Test Quality Gate - Static Analysis & Coverage (@test-fix-agent) ← NEW
 - IMPL-002: Test Execution & Fix Cycle (@test-fix-agent)
 [- IMPL-003+: Additional tasks if applicable]
 
+Test Strategy: Multi-Layered (L0: Static, L1: Unit, L2: Integration, L3: E2E)
 Test Framework: [detected framework]
 Test Files to Generate: [count]
+Quality Thresholds:
+- Minimum Coverage: 80%
+- Static Analysis: Zero critical issues
 Max Fix Iterations: 5
 Fix Mode: [Manual|Codex Automated]
 
@@ -275,11 +322,12 @@ Review artifacts:
 - Task list: .workflow/[testSessionId]/TODO_LIST.md
 
 CRITICAL - Next Steps:
-1. Review IMPL_PLAN.md
+1. Review IMPL_PLAN.md (now includes multi-layered test strategy)
 2. **MUST execute: /workflow:test-cycle-execute**
    - This command only generated task JSON files
    - Test execution and fix iterations happen in test-cycle-execute
    - Do NOT attempt to run tests or fixes in main workflow
+3. IMPL-001.5 will validate test quality before fix cycle begins
 ```
 
 **TodoWrite**: Mark phase 5 completed
@@ -291,52 +339,133 @@ CRITICAL - Next Steps:
 
 ---
 
-### TodoWrite Progress Tracking
+### TodoWrite Pattern
 
-Track all 5 phases:
+**Core Concept**: Dynamic task attachment and collapse for test-fix-gen workflow with dual-mode support (Session Mode and Prompt Mode).
 
-```javascript
-TodoWrite({todos: [
-  {"content": "Create independent test session", "status": "in_progress|completed", "activeForm": "Creating test session"},
-  {"content": "Gather test coverage context", "status": "pending|in_progress|completed", "activeForm": "Gathering test coverage context"},
-  {"content": "Analyze test requirements with Gemini", "status": "pending|in_progress|completed", "activeForm": "Analyzing test requirements"},
-  {"content": "Generate test generation and execution tasks", "status": "pending|in_progress|completed", "activeForm": "Generating test tasks"},
-  {"content": "Return workflow summary", "status": "pending|in_progress|completed", "activeForm": "Returning workflow summary"}
-]})
-```
+#### Key Principles
 
-Update status to `in_progress` when starting each phase, `completed` when done.
+1. **Task Attachment** (when SlashCommand invoked):
+   - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
+   - Example: `/workflow:tools:test-context-gather` (Session Mode) or `/workflow:tools:context-gather` (Prompt Mode) attaches 3 sub-tasks (Phase 2.1, 2.2, 2.3)
+   - First attached task marked as `in_progress`, others as `pending`
+   - Orchestrator **executes** these attached tasks sequentially
+
+2. **Task Collapse** (after sub-tasks complete):
+   - Remove detailed sub-tasks from TodoWrite
+   - **Collapse** to high-level phase summary
+   - Example: Phase 2.1-2.3 collapse to "Gather test coverage context: completed"
+   - Maintains clean orchestrator-level view
+
+3. **Continuous Execution**:
+   - After collapse, automatically proceed to next pending phase
+   - No user intervention required between phases
+   - TodoWrite dynamically reflects current execution state
+
+**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED with mode-specific context gathering) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
+
+#### Test-Fix-Gen Specific Features
+
+- **Dual-Mode Support**: Automatic mode detection based on input pattern
+  - **Session Mode**: Input pattern `WFS-*` → uses `test-context-gather` for cross-session context
+  - **Prompt Mode**: Text or file path → uses `context-gather` for direct codebase analysis
+- **Phase 2**: Mode-specific context gathering (session summaries vs codebase analysis)
+- **Phase 3**: Multi-layered test requirements analysis (L0: Static, L1: Unit, L2: Integration, L3: E2E)
+- **Phase 4**: Multi-task generation with quality gate (IMPL-001, IMPL-001.5-review, IMPL-002)
+- **Fix Mode Configuration**: `--use-codex` flag controls IMPL-002 fix mode (manual vs automated)
+
+**Benefits**:
+- Real-time visibility into attached tasks during execution
+- Clean orchestrator-level summary after tasks complete
+- Clear mental model: SlashCommand = attach tasks, not delegate work
+- Dual-mode support: Both Session Mode and Prompt Mode use same attachment pattern
+- Dynamic attachment/collapse maintains clarity
+
+**Note**: Unlike other workflow orchestrators, this file consolidates TodoWrite examples in this section rather than distributing them across Phase descriptions for better dual-mode clarity.
 
 ---
 
 ## Task Specifications
 
-Generates minimum 2 tasks (expandable for complex projects):
+Generates minimum 3 tasks (expandable for complex projects):
 
 ### IMPL-001: Test Understanding & Generation
 
 **Agent**: `@code-developer`
 
-**Purpose**: Understand source implementation and generate test files
+**Purpose**: Understand source implementation and generate test files following multi-layered test strategy
 
 **Task Configuration**:
 - Task ID: `IMPL-001`
 - `meta.type: "test-gen"`
 - `meta.agent: "@code-developer"`
-- `context.requirements`: Understand source implementation and generate tests
+- `context.requirements`: Understand source implementation and generate tests across all layers (L0-L3)
 - `flow_control.target_files`: Test files to create from TEST_ANALYSIS_RESULTS.md section 5
 
 **Execution Flow**:
 1. **Understand Phase**:
    - Load TEST_ANALYSIS_RESULTS.md and test context
    - Understand source code implementation patterns
-   - Analyze test requirements and conventions
-   - Identify test scenarios and edge cases
+   - Analyze multi-layered test requirements (L0: Static, L1: Unit, L2: Integration, L3: E2E)
+   - Identify test scenarios, edge cases, and error paths
 2. **Generation Phase**:
-   - Generate test files following existing patterns
-   - Ensure test coverage aligns with requirements
+   - Generate L1 unit test files following existing patterns
+   - Generate L2 integration test files (if applicable)
+   - Generate L3 E2E test files (if applicable)
+   - Ensure test coverage aligns with multi-layered requirements
+   - Include both positive and negative test cases
 3. **Verification Phase**:
    - Verify test completeness and correctness
+   - Ensure each test has meaningful assertions
+   - Check for test anti-patterns (tests without assertions, overly broad mocks)
+
+### IMPL-001.5: Test Quality Gate ← **NEW**
+
+**Agent**: `@test-fix-agent`
+
+**Purpose**: Validate test quality before entering fix cycle - prevent "hollow tests" from becoming the source of truth
+
+**Task Configuration**:
+- Task ID: `IMPL-001.5-review`
+- `meta.type: "test-quality-review"`
+- `meta.agent: "@test-fix-agent"`
+- `context.depends_on: ["IMPL-001"]`
+- `context.requirements`: Validate generated tests meet quality standards
+- `context.quality_config`: Load from `.claude/workflows/test-quality-config.json`
+
+**Execution Flow**:
+1. **L0: Static Analysis**:
+   - Run linting on test files (ESLint, Prettier)
+   - Check for test anti-patterns:
+     - Tests without assertions (`expect()` missing)
+     - Empty test bodies (`it('should...', () => {})`)
+     - Disabled tests without justification (`it.skip`, `xit`)
+   - Verify TypeScript type safety (if applicable)
+2. **Coverage Analysis**:
+   - Run coverage analysis on generated tests
+   - Calculate coverage percentage for target source files
+   - Identify uncovered branches and edge cases
+3. **Test Quality Metrics**:
+   - Verify minimum coverage threshold met (default: 80%)
+   - Verify all critical functions have negative test cases
+   - Verify integration tests cover key component interactions
+4. **Quality Gate Decision**:
+   - **PASS**: Coverage ≥ 80%, zero critical anti-patterns → Proceed to IMPL-002
+   - **FAIL**: Coverage < 80% OR critical anti-patterns found → Loop back to IMPL-001 with feedback
+
+**Acceptance Criteria**:
+- Static analysis: Zero critical issues
+- Test coverage: ≥ 80% for target files
+- Test completeness: All targeted functions have unit tests
+- Negative test coverage: Each public API has at least one error handling test
+- Integration coverage: Key component interactions have integration tests (if applicable)
+
+**Failure Handling**:
+If quality gate fails:
+1. Generate detailed feedback report (`.process/test-quality-report.md`)
+2. Update IMPL-001 task with specific improvement requirements
+3. Trigger IMPL-001 re-execution with enhanced context
+4. Maximum 2 quality gate retries before escalating to user
 
 ### IMPL-002: Test Execution & Fix Cycle
 
@@ -412,18 +541,62 @@ WFS-test-[session]/
 - `workflow_type: "test_session"`
 - No `source_session_id` field
 
-### Complete Data Flow
+### Execution Flow Diagram
 
-**Example Command**: `/workflow:test-fix-gen WFS-user-auth`
+```
+Test-Fix-Gen Workflow Orchestrator (Dual-Mode Support)
+│
+├─ Phase 1: Create Test Session
+│  ├─ Session Mode: /workflow:session:start --new (with source_session_id)
+│  └─ Prompt Mode: /workflow:session:start --new (without source_session_id)
+│     └─ Returns: testSessionId (WFS-test-[slug])
+│
+├─ Phase 2: Gather Context                                   ← ATTACHED (3 tasks)
+│  ├─ Session Mode: /workflow:tools:test-context-gather
+│  │  └─ Load source session summaries + analyze coverage
+│  └─ Prompt Mode: /workflow:tools:context-gather
+│     └─ Analyze codebase from description
+│     ├─ Phase 2.1: Load context and analyze coverage
+│     ├─ Phase 2.2: Detect test framework and conventions
+│     └─ Phase 2.3: Generate context package
+│     └─ Returns: [test-]context-package.json                ← COLLAPSED
+│
+├─ Phase 3: Test Generation Analysis                         ← ATTACHED (3 tasks)
+│  └─ /workflow:tools:test-concept-enhanced
+│     ├─ Phase 3.1: Analyze coverage gaps with Gemini
+│     ├─ Phase 3.2: Study existing test patterns
+│     └─ Phase 3.3: Generate test generation strategy
+│     └─ Returns: TEST_ANALYSIS_RESULTS.md                   ← COLLAPSED
+│
+├─ Phase 4: Generate Test Tasks                              ← ATTACHED (3 tasks)
+│  └─ /workflow:tools:test-task-generate
+│     ├─ Phase 4.1: Parse TEST_ANALYSIS_RESULTS.md
+│     ├─ Phase 4.2: Generate task JSONs (IMPL-001, IMPL-002)
+│     └─ Phase 4.3: Generate IMPL_PLAN.md and TODO_LIST.md
+│     └─ Returns: Task JSONs and plans                       ← COLLAPSED
+│
+└─ Phase 5: Return Summary
+   └─ Command ends, control returns to user
 
-**Phase Execution Chain**:
-1. Phase 1: `session-start` → `WFS-test-user-auth`
-2. Phase 2: `test-context-gather` → `test-context-package.json`
-3. Phase 3: `test-concept-enhanced` → `TEST_ANALYSIS_RESULTS.md`
-4. Phase 4: `test-task-generate` → `IMPL-001.json` + `IMPL-002.json` (+ additional if needed)
-5. Phase 5: Return summary
+Artifacts Created:
+├── .workflow/WFS-test-[session]/
+│   ├── workflow-session.json
+│   ├── IMPL_PLAN.md
+│   ├── TODO_LIST.md
+│   ├── .task/
+│   │   ├── IMPL-001.json (test understanding & generation)
+│   │   ├── IMPL-002.json (test execution & fix cycle)
+│   │   └── IMPL-003.json (optional: test review & certification)
+│   └── .process/
+│       ├── [test-]context-package.json
+│       └── TEST_ANALYSIS_RESULTS.md
 
-**Command completes after Phase 5**
+Key Points:
+• ← ATTACHED: SlashCommand attaches sub-tasks to orchestrator TodoWrite
+• ← COLLAPSED: Sub-tasks executed and collapsed to phase summary
+• Dual-Mode: Session Mode and Prompt Mode share same attachment pattern
+• Command Boundary: Execution delegated to /workflow:test-cycle-execute
+```
 
 ---
 

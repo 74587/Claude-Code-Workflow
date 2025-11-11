@@ -1,6 +1,6 @@
 ---
 name: test-cycle-execute
-description: Execute test-fix workflow with dynamic task generation and iterative fix cycles until all tests pass or max iterations reached
+description: Execute test-fix workflow with dynamic task generation and iterative fix cycles until test pass rate >= 95% or max iterations reached. Uses @cli-planning-agent for failure analysis and task generation.
 argument-hint: "[--resume-session=\"session-id\"] [--max-iterations=N]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---
@@ -10,10 +10,13 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ## Overview
 Orchestrates dynamic test-fix workflow execution through iterative cycles of testing, analysis, and fixing. **Unlike standard execute, this command dynamically generates intermediate tasks** during execution based on test results and CLI analysis, enabling adaptive problem-solving.
 
+**Quality Gate**: Iterates until test pass rate >= 95% (with criticality assessment) or 100% for full approval.
+
 **CRITICAL - Orchestrator Boundary**:
 - This command is the **ONLY place** where test failures are handled
-- All CLI analysis (Gemini/Qwen), fix task generation (IMPL-fix-N.json), and iteration management happen HERE
-- Agents (@test-fix-agent) only execute single tasks and return results
+- All failure analysis and fix task generation delegated to **@cli-planning-agent**
+- Orchestrator calculates pass rate, assesses criticality, and manages iteration loop
+- @test-fix-agent executes tests and applies fixes, reports results back
 - **Do NOT handle test failures in main workflow or other commands** - always delegate to this orchestrator
 
 **Resume Mode**: When called with `--resume-session` flag, skips discovery and continues from interruption point.
@@ -35,44 +38,53 @@ Orchestrates dynamic test-fix workflow execution through iterative cycles of tes
 
 ### Agent Coordination
 - **@code-developer**: Understands requirements, generates implementations
-- **@test-fix-agent**: Executes tests, applies fixes, validates results
-- **CLI Tools (Gemini/Qwen)**: Analyzes failures, suggests fix strategies
+- **@test-fix-agent**: Executes tests, applies fixes, validates results, assigns criticality
+- **@cli-planning-agent**: Executes CLI analysis (Gemini/Qwen), parses results, generates fix task JSONs
 
 ## Core Rules
-1. **Dynamic Task Generation**: Create intermediate fix tasks based on test failures
-2. **Iterative Execution**: Repeat test-fix cycles until success or max iterations
-3. **CLI-Driven Analysis**: Use Gemini/Qwen to analyze failures and plan fixes
-4. **Agent Delegation**: All execution delegated to specialized agents
-5. **Context Accumulation**: Each iteration builds on previous attempt context
-6. **Autonomous Completion**: Continue until all tests pass without user interruption
+1. **Dynamic Task Generation**: Create intermediate fix tasks via @cli-planning-agent based on test failures
+2. **Iterative Execution**: Repeat test-fix cycles until pass rate >= 95% (with criticality assessment) or max iterations
+3. **Pass Rate Threshold**: Target 95%+ pass rate; 100% for full approval; assess criticality for 95-100% range
+4. **Agent-Based Analysis**: Delegate CLI execution and task generation to @cli-planning-agent
+5. **Agent Delegation**: All execution delegated to specialized agents (@cli-planning-agent, @test-fix-agent)
+6. **Context Accumulation**: Each iteration builds on previous attempt context
+7. **Autonomous Completion**: Continue until pass rate >= 95% without user interruption
 
 ## Core Responsibilities
 - **Session Discovery**: Identify test-fix workflow sessions
 - **Task Queue Management**: Maintain dynamic task queue with runtime additions
 - **Test Execution**: Run tests through @test-fix-agent
-- **Failure Analysis**: Use CLI tools to diagnose test failures
-- **Fix Task Generation**: Create intermediate fix tasks dynamically
-- **Iteration Control**: Manage fix cycles with max iteration limits
-- **Context Propagation**: Pass failure context and fix history between iterations
+- **Pass Rate Calculation**: Calculate test pass rate from test-results.json (passed/total * 100)
+- **Criticality Assessment**: Evaluate failure severity using test-results.json criticality field
+- **Threshold Decision**: Determine if pass rate >= 95% with criticality consideration
+- **Failure Analysis Delegation**: Invoke @cli-planning-agent for CLI analysis and task generation
+- **Iteration Control**: Manage fix cycles with max iteration limits (5 default)
+- **Context Propagation**: Pass failure context and fix history to @cli-planning-agent
 - **Progress Tracking**: TodoWrite updates for entire iteration cycle
-- **Session Auto-Complete**: Call `/workflow:session:complete` when all tests pass
+- **Session Auto-Complete**: Call `/workflow:session:complete` when pass rate >= 95% (or 100%)
 
 ## Responsibility Matrix
 
 **CRITICAL - Clear division of labor between orchestrator and agents:**
 
-| Responsibility | test-cycle-execute (Orchestrator) | @test-fix-agent (Executor) |
-|----------------|----------------------------|---------------------------|
-| Manage iteration loop | Yes - Controls loop flow | No - Executes single task |
-| Run CLI analysis (Gemini/Qwen) | Yes - Runs between agent tasks | No - Not involved |
-| Generate IMPL-fix-N.json | Yes - Creates task files | No - Not involved |
-| Run tests | No - Delegates to agent | Yes - Executes test command |
-| Apply fixes | No - Delegates to agent | Yes - Modifies code |
-| Detect test failures | Yes - Analyzes results and decides next action | Yes - Executes tests and reports outcomes |
-| Add tasks to queue | Yes - Manages queue | No - Not involved |
-| Update iteration state | Yes - Maintains overall iteration state | Yes - Updates individual task status only |
+| Responsibility | test-cycle-execute (Orchestrator) | @cli-planning-agent | @test-fix-agent (Executor) |
+|----------------|----------------------------|---------------------|---------------------------|
+| Manage iteration loop | Yes - Controls loop flow | No - Not involved | No - Executes single task |
+| Calculate pass rate | Yes - From test-results.json | No - Not involved | No - Reports test results |
+| Assess criticality | Yes - From test-results.json | No - Not involved | Yes - Assigns criticality in test results |
+| Run CLI analysis (Gemini/Qwen) | No - Delegates to cli-planning-agent | Yes - Executes CLI internally | No - Not involved |
+| Parse CLI output | No - Delegated | Yes - Extracts fix strategy | No - Not involved |
+| Generate IMPL-fix-N.json | No - Delegated | Yes - Creates task files | No - Not involved |
+| Run tests | No - Delegates to agent | No - Not involved | Yes - Executes test command |
+| Apply fixes | No - Delegates to agent | No - Not involved | Yes - Modifies code |
+| Detect test failures | Yes - Analyzes pass rate and decides next action | No - Not involved | Yes - Executes tests and reports outcomes |
+| Add tasks to queue | Yes - Manages queue | No - Returns task ID | No - Not involved |
+| Update iteration state | Yes - Maintains overall iteration state | No - Not involved | Yes - Updates individual task status only |
 
-**Key Principle**: Orchestrator manages the "what" and "when"; agents execute the "how".
+**Key Principles**:
+- Orchestrator manages the "what" (iteration flow, threshold decisions) and "when" (task scheduling)
+- @cli-planning-agent executes the "analysis" (CLI execution, result parsing, task generation)
+- @test-fix-agent executes the "how" (run tests, apply fixes)
 
 **ENFORCEMENT**: If test failures occur outside this orchestrator, do NOT handle them inline - always call `/workflow:test-cycle-execute` instead.
 
@@ -97,17 +109,29 @@ For each task in queue:
   1. [Orchestrator] Load task JSON and context
   2. [Orchestrator] Determine task type (test-gen, test-fix, fix-iteration)
   3. [Orchestrator] Execute task through appropriate agent
-  4. [Orchestrator] Collect agent results and check exit conditions
-  5. If test failures detected:
-     a. [Orchestrator] Run CLI analysis (Gemini/Qwen)
-     b. [Orchestrator] Generate fix task JSON (IMPL-fix-N.json)
+  4. [Orchestrator] Collect agent results from .process/test-results.json
+  5. [Orchestrator] Calculate test pass rate:
+     a. Parse test-results.json: passRate = (passed / total) * 100
+     b. Assess failure criticality (from test-results.json)
+     c. Evaluate fix effectiveness (NEW):
+        - Compare passRate with previous iteration
+        - If passRate decreased by >10%: REGRESSION detected
+        - If regression: Rollback last fix, skip to next strategy
+  6. [Orchestrator] Make threshold decision:
+     IF passRate === 100%:
+       → SUCCESS: Mark task complete, update TodoWrite, continue
+     ELSE IF passRate >= 95%:
+       → REVIEW: Check failure criticality
+       → If all failures are "low" criticality: PARTIAL SUCCESS (approve with note)
+       → If any "high" or "medium" criticality: Enter fix loop (step 7)
+     ELSE IF passRate < 95%:
+       → FAILED: Enter fix loop (step 7)
+  7. If entering fix loop (pass rate < 95% OR critical failures exist):
+     a. [Orchestrator] Invoke @cli-planning-agent with failure context
+     b. [Agent] Executes CLI analysis + generates IMPL-fix-N.json
      c. [Orchestrator] Insert fix task at front of queue
      d. [Orchestrator] Continue loop
-  6. If test success:
-     a. [Orchestrator] Mark task complete
-     b. [Orchestrator] Update TodoWrite
-     c. [Orchestrator] Continue to next task
-  7. [Orchestrator] Check max iterations limit
+  8. [Orchestrator] Check max iterations limit (abort if exceeded)
 ```
 
 **Note**: The orchestrator controls the loop. Agents execute individual tasks and return results.
@@ -119,33 +143,33 @@ For each task in queue:
 #### Iteration Structure
 ```
 Iteration N (managed by test-cycle-execute orchestrator):
-├── 1. Test Execution
+├── 1. Test Execution & Pass Rate Validation
 │   ├── [Orchestrator] Launch @test-fix-agent with test task
-│   ├── [Agent] Run test suite
-│   ├── [Agent] Collect failures and report back
-│   └── [Orchestrator] Receive failure report
-├── 2. Failure Analysis
-│   ├── [Orchestrator] Run CLI tool (Gemini/Qwen)
-│   ├── [CLI Tool] Analyze error messages and failure context
-│   ├── [CLI Tool] Identify root causes
-│   └── [CLI Tool] Generate fix strategy → saved to iteration-N-analysis.md
-├── 3. Fix Task Generation
-│   ├── [Orchestrator] Parse CLI analysis results
-│   ├── [Orchestrator] Create IMPL-fix-N.json with:
-│   │   ├── meta.agent: "@test-fix-agent"
-│   │   ├── Failure context (content, not just path)
-│   │   └── Fix strategy from CLI analysis
-│   └── [Orchestrator] Insert into task queue (front position)
-├── 4. Fix Execution
-│   ├── [Orchestrator] Launch @test-fix-agent with fix task
-│   ├── [Agent] Load fix strategy from task context
-│   ├── [Agent] Apply fixes to code/tests
+│   ├── [Agent] Run test suite and save results to test-results.json
+│   ├── [Agent] Report completion back to orchestrator
+│   ├── [Orchestrator] Calculate pass rate: (passed / total) * 100
+│   └── [Orchestrator] Assess failure criticality from test-results.json
+├── 2. Failure Analysis & Task Generation (via @cli-planning-agent)
+│   ├── [Orchestrator] Assemble failure context package (tests, errors, pass_rate)
+│   ├── [Orchestrator] Invoke @cli-planning-agent with context
+│   ├── [@cli-planning-agent] Execute CLI tool (Gemini/Qwen) internally
+│   ├── [@cli-planning-agent] Parse CLI output for root causes and fix strategy
+│   ├── [@cli-planning-agent] Generate IMPL-fix-N.json with structured task
+│   ├── [@cli-planning-agent] Save analysis to iteration-N-analysis.md
+│   └── [Orchestrator] Receive task ID and insert into queue (front position)
+├── 3. Fix Execution
+│   ├── [Orchestrator] Launch @test-fix-agent with IMPL-fix-N task
+│   ├── [Agent] Load fix strategy from task.context.fix_strategy
+│   ├── [Agent] Apply surgical fixes to identified files
 │   └── [Agent] Report completion
-└── 5. Re-test
+└── 4. Re-test
     └── [Orchestrator] Return to step 1 with updated code
 ```
 
-**Key**: Orchestrator runs CLI analysis between agent tasks, then generates new fix tasks.
+**Key Changes**:
+- CLI analysis + task generation encapsulated in @cli-planning-agent
+- Pass rate calculation added to test execution step
+- Orchestrator only assembles context and invokes agent
 
 #### Iteration Task JSON Template
 ```json
@@ -220,74 +244,139 @@ Iteration N (managed by test-cycle-execute orchestrator):
 }
 ```
 
-### Phase 4: CLI Analysis Integration
+### Phase 4: Agent-Based Failure Analysis & Task Generation
 
-**Orchestrator executes CLI analysis between agent tasks:**
+**Orchestrator delegates CLI analysis and task generation to @cli-planning-agent:**
 
-#### When Test Failures Occur
-1. **[Orchestrator]** Detects failures from agent test execution output
-2. **[Orchestrator]** Collects failure context from `.process/test-results.json` and logs
-3. **[Orchestrator]** Executes Gemini/Qwen CLI tool with failure context
-4. **[Orchestrator]** Interprets CLI tool output to extract fix strategy
-5. **[Orchestrator]** Saves analysis to `.process/iteration-N-analysis.md`
-6. **[Orchestrator]** Generates `IMPL-fix-N.json` with strategy content (not just path)
+#### When Test Failures Occur (Pass Rate < 95% OR Critical Failures)
+1. **[Orchestrator]** Detects failures from test-results.json
+2. **[Orchestrator]** Check for repeated failures (NEW):
+   - Compare failed_tests with previous 2 iterations
+   - If same test failed 3 times consecutively: Mark as "stuck"
+   - If >50% of failures are "stuck": Switch analysis strategy or abort
+3. **[Orchestrator]** Extracts failure context:
+   - Failed tests with criticality assessment
+   - Error messages and stack traces
+   - Current pass rate
+   - Previous iteration attempts (if any)
+   - Stuck test markers (NEW)
+4. **[Orchestrator]** Assembles context package for @cli-planning-agent
+5. **[Orchestrator]** Invokes @cli-planning-agent via Task tool
+6. **[@cli-planning-agent]** Executes internally:
+   - Runs Gemini/Qwen CLI analysis with bug diagnosis template
+   - Parses CLI output to extract root causes and fix strategy
+   - Generates `IMPL-fix-N.json` with structured task definition
+   - Saves analysis report to `.process/iteration-N-analysis.md`
+   - Saves raw CLI output to `.process/iteration-N-cli-output.txt`
+7. **[Orchestrator]** Receives task ID from agent and inserts into queue
 
-**Note**: The orchestrator executes CLI analysis tools and processes their output. CLI tools provide analysis, orchestrator manages the workflow.
+**Key Change**: CLI execution + result parsing + task generation are now encapsulated in @cli-planning-agent, simplifying orchestrator logic.
 
-#### CLI Analysis Command (executed by orchestrator)
-```bash
-cd {project_root} && gemini -p "
-PURPOSE: Analyze test failures and generate fix strategy
-TASK: Review test failures and identify root causes
-MODE: analysis
-CONTEXT: @test files @ implementation files
+#### Agent Invocation Pattern (executed by orchestrator)
+```javascript
+Task(
+  subagent_type="cli-planning-agent",
+  description=`Analyze test failures and generate fix task (iteration ${currentIteration})`,
+  prompt=`
+    ## Context Package
+    {
+      "session_id": "${sessionId}",
+      "iteration": ${currentIteration},
+      "analysis_type": "test-failure",
+      "failure_context": {
+        "failed_tests": ${JSON.stringify(failedTests)},
+        "error_messages": ${JSON.stringify(errorMessages)},
+        "test_output": "${testOutputPath}",
+        "pass_rate": ${passRate},
+        "previous_attempts": ${JSON.stringify(previousAttempts)}
+      },
+      "cli_config": {
+        "tool": "gemini",
+        "model": "gemini-3-pro-preview-11-2025",
+        "template": "01-diagnose-bug-root-cause.txt",
+        "timeout": 2400000,
+        "fallback": "qwen"
+      },
+      "task_config": {
+        "agent": "@test-fix-agent",
+        "type": "test-fix-iteration",
+        "max_iterations": ${maxIterations},
+        "use_codex": false
+      }
+    }
 
-[Test failure context and requirements...]
-
-EXPECTED: Detailed fix strategy in markdown format
-RULES: Focus on minimal changes, avoid over-engineering
-"
+    ## Your Task
+    1. Execute CLI analysis using Gemini (fallback to Qwen if needed)
+    2. Parse CLI output and extract fix strategy with specific modification points
+    3. Generate IMPL-fix-${currentIteration}.json using your internal task template
+    4. Save analysis report to .process/iteration-${currentIteration}-analysis.md
+    5. Report success and task ID back to orchestrator
+  `
+)
 ```
 
-#### Analysis Output Structure
+#### Agent Response
+```javascript
+{
+  "status": "success",
+  "task_id": "IMPL-fix-${iteration}",
+  "task_path": ".workflow/${session}/.task/IMPL-fix-${iteration}.json",
+  "analysis_report": ".process/iteration-${iteration}-analysis.md",
+  "cli_output": ".process/iteration-${iteration}-cli-output.txt",
+  "summary": "Fix authentication token validation and null check issues",
+  "modification_points_count": 2,
+  "estimated_complexity": "low"
+}
+```
+
+#### Generated Analysis Report Structure
+The @cli-planning-agent generates `.process/iteration-N-analysis.md`:
+
 ```markdown
-# Test Failure Analysis - Iteration {N}
+---
+iteration: N
+analysis_type: test-failure
+cli_tool: gemini
+model: gemini-3-pro-preview-11-2025
+timestamp: 2025-11-10T10:00:00Z
+pass_rate: 85.0%
+---
+
+# Test Failure Analysis - Iteration N
+
+## Summary
+- **Failed Tests**: 2
+- **Pass Rate**: 85.0% (Target: 95%+)
+- **Root Causes Identified**: 2
+- **Modification Points**: 2
+
+## Failed Tests Details
+
+### test_auth_flow
+- **Error**: Expected 200, got 401
+- **File**: tests/test_auth.test.ts:45
+- **Criticality**: high
+
+### test_data_validation
+- **Error**: TypeError: Cannot read property 'name' of undefined
+- **File**: tests/test_validators.test.ts:23
+- **Criticality**: medium
 
 ## Root Cause Analysis
-1. **Test: test_auth_flow**
-   - Error: `Expected 200, got 401`
-   - Root Cause: Missing authentication token in request headers
-   - Affected Code: `src/auth/client.ts:45`
-
-2. **Test: test_data_validation**
-   - Error: `TypeError: Cannot read property 'name' of undefined`
-   - Root Cause: Null check missing before property access
-   - Affected Code: `src/validators/user.ts:23`
+[CLI output: 根本原因分析 section]
 
 ## Fix Strategy
+[CLI output: 详细修复建议 section]
 
-### Priority 1: Authentication Issue
-- **File**: src/auth/client.ts
-- **Function**: sendRequest (line 45)
-- **Change**: Add token header: `headers['Authorization'] = 'Bearer ' + token`
-- **Verification**: Run test_auth_flow
+## Modification Points
+- `src/auth/client.ts:sendRequest:45-50` - Add authentication token header
+- `src/validators/user.ts:validateUser:23-25` - Add null check before property access
 
-### Priority 2: Null Check
-- **File**: src/validators/user.ts
-- **Function**: validateUser (line 23)
-- **Change**: Add check: `if (!user?.name) return false`
-- **Verification**: Run test_data_validation
+## Expected Outcome
+[CLI output: 验证建议 section]
 
-## Verification Plan
-1. Apply fixes in order
-2. Run test suite after each fix
-3. Check for regressions
-4. Validate all tests pass
-
-## Risk Assessment
-- Low risk: Changes are surgical and isolated
-- No breaking changes expected
-- Existing tests should remain green
+## CLI Raw Output
+See: `.process/iteration-N-cli-output.txt`
 ```
 
 ### Phase 5: Task Queue Management
@@ -321,27 +410,56 @@ After IMPL-fix-2 execution (success):
 #### Success Conditions
 - All initial tasks completed
 - All generated fix tasks completed
-- All tests passing
+- **Test pass rate === 100%** (all tests passing)
 - No pending tasks in queue
+
+#### Partial Success Conditions (NEW)
+- All initial tasks completed
+- Test pass rate >= 95% AND < 100%
+- All failures are "low" criticality (flaky tests, env-specific issues)
+- **Automatic Approval with Warning**: System auto-approves but marks session with review flag
+- Note: Generate completion summary with detailed warnings about low-criticality failures
 
 #### Completion Steps
 1. **Final Validation**: Run full test suite one more time
-2. **Update Session State**: Mark all tasks completed
-3. **Generate Summary**: Create session completion summary
-4. **Update TodoWrite**: Mark all items completed
-5. **Auto-Complete**: Call `/workflow:session:complete`
+2. **Calculate Final Pass Rate**: Parse test-results.json
+3. **Assess Completion Status**:
+   - If pass_rate === 100% → Full Success
+   - If pass_rate >= 95% + all "low" criticality → Partial Success (add review note)
+   - If pass_rate >= 95% + any "high"/"medium" criticality → Continue iteration
+   - If pass_rate < 95% → Failure
+4. **Update Session State**: Mark all tasks completed (or blocked if failure)
+5. **Generate Summary**: Create session completion summary with pass rate metrics
+6. **Update TodoWrite**: Mark all items completed
+7. **Auto-Complete**: Call `/workflow:session:complete` (for Full or Partial Success)
 
 #### Failure Conditions
-- Max iterations reached without success
-- Unrecoverable test failures
+- Max iterations (5) reached without achieving 95% pass rate
+- **Test pass rate < 95% after max iterations** (NEW)
+- Pass rate >= 95% but critical failures exist and max iterations reached
+- Unrecoverable test failures (infinite loop detection)
 - Agent execution errors
 
 #### Failure Handling
-1. **Document State**: Save current iteration context
-2. **Generate Report**: Create failure analysis report
-3. **Preserve Context**: Keep all iteration logs
+1. **Document State**: Save current iteration context with final pass rate
+2. **Generate Failure Report**: Include:
+   - Final pass rate (e.g., "85% after 5 iterations")
+   - Remaining failures with criticality assessment
+   - Iteration history and attempted fixes
+   - CLI analysis quality (normal/degraded)
+   - Recommendations for manual intervention
+3. **Preserve Context**: Keep all iteration logs and analysis reports
 4. **Mark Blocked**: Update task status to blocked
-5. **Return Control**: Return to user with detailed report
+5. **Return Control**: Return to user with detailed failure report
+
+#### Degraded Analysis Handling (NEW)
+When @cli-planning-agent returns `status: "degraded"` (both Gemini and Qwen failed):
+1. **Log Warning**: Record CLI analysis failure in iteration-state.json
+2. **Assess Risk**: Check if degraded analysis is acceptable:
+   - If iteration < 3 AND pass_rate improved: Accept degraded analysis, continue
+   - If iteration >= 3 OR pass_rate stagnant: Skip iteration, mark as blocked
+3. **User Notification**: Include CLI failure in completion summary
+4. **Fallback Strategy**: Use basic pattern matching from fix-history.json
 
 ## TodoWrite Coordination
 

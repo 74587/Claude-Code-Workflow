@@ -126,13 +126,13 @@ Options:
 
 Examples:
   # Simple usage (auto-detect everything)
-  ui-instantiate-prototypes.sh .design/prototypes
+  ui-instantiate-prototypes.sh .workflow/design-run-*/prototypes
 
   # With options
-  ui-instantiate-prototypes.sh .design/prototypes --session-id WFS-auth
+  ui-instantiate-prototypes.sh .workflow/design-run-*/prototypes --session-id WFS-auth
 
   # Full manual mode
-  ui-instantiate-prototypes.sh .design/prototypes "login,dashboard" 3 3 --session-id WFS-auth
+  ui-instantiate-prototypes.sh .workflow/design-run-*/prototypes "login,dashboard" 3 3 --session-id WFS-auth
 EOF
 }
 

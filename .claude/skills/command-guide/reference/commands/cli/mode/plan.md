@@ -1,7 +1,7 @@
 ---
 name: plan
 description: Read-only architecture planning using Gemini/Qwen/Codex with strategic planning template for modification plans and impact analysis
-argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] [--cd path] topic"
+argument-hint: "[--tool codex|gemini|qwen] [--enhance] [--cd path] topic"
 allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---
 
@@ -19,7 +19,6 @@ Strategic software architecture planning template (`~/.claude/workflows/cli-temp
 ## Parameters
 
 - `--tool <gemini|qwen|codex>` - Tool selection (default: gemini)
-- `--agent` - Use cli-execution-agent for automated context discovery
 - `--enhance` - Enhance task with `/enhance-prompt`
 - `--cd "path"` - Target directory for focused planning
 - `<planning-task>` (Required) - Architecture planning task or modification requirements
@@ -43,87 +42,52 @@ Strategic software architecture planning template (`~/.claude/workflows/cli-temp
 
 ## Execution Flow
 
-### Standard Mode
-1. Parse tool selection (default: gemini)
-2. Optional: enhance with `/enhance-prompt`
-3. Detect directory from `--cd` or auto-infer
-4. Build command with template
-5. Execute planning (read-only, no code generation)
-6. Save to `.workflow/WFS-[id]/.chat/`
-
-### Agent Mode (`--agent`)
-
-Delegates to agent for intelligent planning:
+Uses **cli-execution-agent** (default) for automated planning:
 
 ```javascript
 Task(
   subagent_type="cli-execution-agent",
-  description="Architecture modification planning",
+  description="Architecture planning with impact analysis",
   prompt=`
     Task: ${planning_task}
-    Mode: architecture-planning
-    Tool: ${tool_flag || 'auto-select'}  // gemini|qwen|codex
-    Directory: ${cd_path || 'auto-detect'}
+    Mode: plan
+    Tool: ${tool_flag || 'gemini'}
+    Directory: ${cd_path || '.'}
+    Enhance: ${enhance_flag}
     Template: ~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt
 
-    Agent responsibilities:
+    Execute strategic architecture planning:
+
     1. Context Discovery:
-       - Analyze current architecture
-       - Identify affected components
-       - Map dependencies and impacts
+       - Analyze current architecture structure
+       - Identify affected components and modules
+       - Map dependencies and integration points
+       - Assess modification impacts (scope, complexity, risks)
 
-    2. CLI Command Generation:
-       - Build Gemini/Qwen/Codex command
-       - Include architecture context
-       - Apply ~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt template
+    2. Planning Analysis:
+       - Apply strategic planning template
+       - Generate modification plan with phases
+       - Document architectural decisions and rationale
+       - Identify potential conflicts and mitigation strategies
 
-    3. Execution & Output:
-       - Execute strategic planning
-       - Generate modification plan
-       - Save to .workflow/.chat/
+    3. CLI Command Construction:
+       - Tool: ${tool_flag || 'gemini'} (qwen fallback, codex for implementation guidance)
+       - Directory: cd ${cd_path || '.'} &&
+       - Context: @**/* (full architecture context)
+       - Mode: analysis (read-only, no code generation)
+       - Template: planning/01-plan-architecture-design.txt
+
+    4. Output Generation:
+       - Strategic modification plan
+       - Impact analysis and risk assessment
+       - Implementation roadmap
+       - Save to .workflow/WFS-[id]/.chat/plan-[timestamp].md (or .scratchpad/)
   `
 )
 ```
 
 ## Core Rules
 
-- **Planning only**: Creates modification plans, does NOT generate code
-- **Template**: Uses `~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt` for strategic planning
-- **Output**: Saves to `.workflow/WFS-[id]/.chat/`
-
-## CLI Command Templates
-
-**Gemini/Qwen** (default, planning only):
-```bash
-cd [dir] && gemini -p "
-PURPOSE: [goal]
-TASK: Architecture planning
-MODE: analysis
-CONTEXT: @**/*
-EXPECTED: Modification plan, impact analysis
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt)
-"
-# Qwen: Replace 'gemini' with 'qwen'
-```
-
-**Codex** (planning + implementation guidance):
-```bash
-codex -C [dir] --full-auto exec "
-PURPOSE: [goal]
-TASK: Architecture planning
-MODE: analysis
-CONTEXT: @**/*
-EXPECTED: Plan, implementation roadmap
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt)
-" -m gpt-5 --skip-git-repo-check -s danger-full-access
-```
-
-## Output
-
-- **With session**: `.workflow/WFS-[id]/.chat/plan-[timestamp].md`
-- **No session**: `.workflow/.scratchpad/plan-[desc]-[timestamp].md`
-
-## Notes
-
-- Template: `~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt`
-- See `intelligent-tools-strategy.md` for detailed tool usage
+- **Read-only**: Creates modification plans, does NOT generate code
+- **Template**: `~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt`
+- **Output**: `.workflow/WFS-[id]/.chat/plan-[timestamp].md` (or `.scratchpad/` if no session)

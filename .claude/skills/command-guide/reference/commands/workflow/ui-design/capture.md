@@ -1,7 +1,7 @@
 ---
 name: capture
 description: Batch screenshot capture for UI design workflows using MCP puppeteer or local fallback with URL mapping
-argument-hint: --url-map "target:url,..." [--base-path path] [--session id]
+argument-hint: --url-map "target:url,..." [--design-id <id>] [--session <id>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*), ListMcpResourcesTool(*), mcp__chrome-devtools__*, mcp__playwright__*
 ---
 
@@ -15,21 +15,38 @@ Batch screenshot tool with MCP-first strategy and multi-tier fallback. Processes
 
 ## Phase 1: Initialize & Parse
 
-### Step 1: Determine Base Path
+### Step 1: Determine Base Path & Generate Design ID
 ```bash
-# Priority: --base-path > session > standalone
-relative_path=$(if [ -n "$BASE_PATH" ]; then
-  echo "$BASE_PATH"
+# Priority: --design-id > session (latest) > standalone (create new)
+if [ -n "$DESIGN_ID" ]; then
+  # Use provided design ID
+  relative_path=$(find .workflow -name "${DESIGN_ID}" -type d -print -quit)
+  if [ -z "$relative_path" ]; then
+    echo "ERROR: Design run not found: $DESIGN_ID"
+    echo "HINT: Run '/workflow:ui-design:list' to see available design runs"
+    exit 1
+  fi
 elif [ -n "$SESSION_ID" ]; then
-  find .workflow/WFS-$SESSION_ID/design-* -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2 || \
-  echo ".workflow/WFS-$SESSION_ID/design-run-$(date +%Y%m%d)-$RANDOM"
+  # Find latest in session or create new
+  relative_path=$(find .workflow/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+  if [ -z "$relative_path" ]; then
+    design_id="design-run-$(date +%Y%m%d)-$RANDOM"
+    relative_path=".workflow/WFS-$SESSION_ID/${design_id}"
+  fi
 else
-  echo ".workflow/.design/design-run-$(date +%Y%m%d)-$RANDOM"
-fi)
+  # Create new standalone design run
+  design_id="design-run-$(date +%Y%m%d)-$RANDOM"
+  relative_path=".workflow/${design_id}"
+fi
 
 # Create directory and convert to absolute path
 bash(mkdir -p "$relative_path"/screenshots)
 base_path=$(cd "$relative_path" && pwd)
+
+# Extract and display design_id
+design_id=$(basename "$base_path")
+echo "✓ Design ID: $design_id"
+echo "✓ Base path: $base_path"
 ```
 
 ### Step 2: Parse URL Map
@@ -189,7 +206,7 @@ bash($chrome --headless --screenshot="$output_file" --window-size=1920,1080 "$ur
 
 Failed URLs:
   home: https://linear.app
-  Save to: .workflow/.design/design-run-20250110/screenshots/home.png
+  Save to: .workflow/design-run-20250110/screenshots/home.png
 
 Steps:
   1. Visit URL in browser

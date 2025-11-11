@@ -18,6 +18,19 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 - **Parameter Simplification**: Tools auto-detect test session type via metadata, no manual cross-session parameters needed
 - **Manual First**: Default to manual fixes, use `--use-codex` flag for automated Codex fix application
 
+**Task Attachment Model**:
+- SlashCommand invocation **expands workflow** by attaching sub-tasks to current TodoWrite
+- When a sub-command is invoked (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
+- Orchestrator **executes these attached tasks** sequentially
+- After completion, attached tasks are **collapsed** back to high-level phase summary
+- This is **task expansion**, not external delegation
+
+**Auto-Continue Mechanism**:
+- TodoList tracks current phase status and dynamically manages task attachment/collapse
+- When each phase finishes executing, automatically execute next pending phase
+- All phases run autonomously without user interaction
+- **⚠️ CONTINUOUS EXECUTION** - Do not stop until all phases complete
+
 **Execution Flow**:
 1. Initialize TodoWrite → Create test session → Parse session ID
 2. Gather cross-session context (automatic) → Parse context path
@@ -33,10 +46,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 3. **Parse Every Output**: Extract required data from each phase for next phase
 4. **Sequential Execution**: Each phase depends on previous phase's output
 5. **Complete All Phases**: Do not return to user until Phase 5 completes (summary returned)
-6. **Track Progress**: Update TodoWrite after every phase completion
+6. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 7. **Automatic Detection**: context-gather auto-detects test session and gathers source session context
 8. **Parse --use-codex Flag**: Extract flag from arguments and pass to Phase 4 (test-task-generate)
 9. **Command Boundary**: This command ends at Phase 5 summary. Test execution is NOT part of this command.
+10. **Task Attachment Model**: SlashCommand invocation **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+11. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ## 5-Phase Execution
 
@@ -89,7 +104,39 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 - Test framework detected
 - Test conventions documented
 
-**TodoWrite**: Mark phase 2 completed, phase 3 in_progress
+<!-- TodoWrite: When test-context-gather invoked, INSERT 3 test-context-gather tasks -->
+
+**TodoWrite Update (Phase 2 SlashCommand invoked - tasks attached)**:
+```json
+[
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Phase 2.1: Load source session summaries (test-context-gather)", "status": "in_progress", "activeForm": "Loading source session summaries"},
+  {"content": "Phase 2.2: Analyze test coverage with MCP tools (test-context-gather)", "status": "pending", "activeForm": "Analyzing test coverage"},
+  {"content": "Phase 2.3: Identify coverage gaps and framework (test-context-gather)", "status": "pending", "activeForm": "Identifying coverage gaps"},
+  {"content": "Analyze test requirements with Gemini", "status": "pending", "activeForm": "Analyzing test requirements"},
+  {"content": "Generate test generation and execution tasks", "status": "pending", "activeForm": "Generating test tasks"},
+  {"content": "Return workflow summary", "status": "pending", "activeForm": "Returning workflow summary"}
+]
+```
+
+**Note**: SlashCommand invocation **attaches** test-context-gather's 3 tasks. Orchestrator **executes** these tasks.
+
+**Next Action**: Tasks attached → **Execute Phase 2.1-2.3** sequentially
+
+<!-- TodoWrite: After Phase 2 tasks complete, REMOVE Phase 2.1-2.3, restore to orchestrator view -->
+
+**TodoWrite Update (Phase 2 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Gather test coverage context", "status": "completed", "activeForm": "Gathering test coverage context"},
+  {"content": "Analyze test requirements with Gemini", "status": "pending", "activeForm": "Analyzing test requirements"},
+  {"content": "Generate test generation and execution tasks", "status": "pending", "activeForm": "Generating test tasks"},
+  {"content": "Return workflow summary", "status": "pending", "activeForm": "Returning workflow summary"}
+]
+```
+
+**Note**: Phase 2 tasks completed and collapsed to summary.
 
 ---
 
@@ -121,7 +168,39 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
   - Implementation Targets (test files to create)
   - Success Criteria
 
-**TodoWrite**: Mark phase 3 completed, phase 4 in_progress
+<!-- TodoWrite: When test-concept-enhanced invoked, INSERT 3 concept-enhanced tasks -->
+
+**TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached)**:
+```json
+[
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Gather test coverage context", "status": "completed", "activeForm": "Gathering test coverage context"},
+  {"content": "Phase 3.1: Analyze coverage gaps with Gemini (test-concept-enhanced)", "status": "in_progress", "activeForm": "Analyzing coverage gaps"},
+  {"content": "Phase 3.2: Study existing test patterns (test-concept-enhanced)", "status": "pending", "activeForm": "Studying test patterns"},
+  {"content": "Phase 3.3: Generate test generation strategy (test-concept-enhanced)", "status": "pending", "activeForm": "Generating test strategy"},
+  {"content": "Generate test generation and execution tasks", "status": "pending", "activeForm": "Generating test tasks"},
+  {"content": "Return workflow summary", "status": "pending", "activeForm": "Returning workflow summary"}
+]
+```
+
+**Note**: SlashCommand invocation **attaches** test-concept-enhanced's 3 tasks. Orchestrator **executes** these tasks.
+
+**Next Action**: Tasks attached → **Execute Phase 3.1-3.3** sequentially
+
+<!-- TodoWrite: After Phase 3 tasks complete, REMOVE Phase 3.1-3.3, restore to orchestrator view -->
+
+**TodoWrite Update (Phase 3 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Gather test coverage context", "status": "completed", "activeForm": "Gathering test coverage context"},
+  {"content": "Analyze test requirements with Gemini", "status": "completed", "activeForm": "Analyzing test requirements"},
+  {"content": "Generate test generation and execution tasks", "status": "pending", "activeForm": "Generating test tasks"},
+  {"content": "Return workflow summary", "status": "pending", "activeForm": "Returning workflow summary"}
+]
+```
+
+**Note**: Phase 3 tasks completed and collapsed to summary.
 
 ---
 
@@ -173,7 +252,39 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
   - Phase 2: Iterative Gemini diagnosis + manual/Codex fixes (based on flag)
   - Phase 3: Final validation and certification
 
-**TodoWrite**: Mark phase 4 completed, phase 5 in_progress
+<!-- TodoWrite: When test-task-generate invoked, INSERT 3 test-task-generate tasks -->
+
+**TodoWrite Update (Phase 4 SlashCommand invoked - tasks attached)**:
+```json
+[
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Gather test coverage context", "status": "completed", "activeForm": "Gathering test coverage context"},
+  {"content": "Analyze test requirements with Gemini", "status": "completed", "activeForm": "Analyzing test requirements"},
+  {"content": "Phase 4.1: Parse TEST_ANALYSIS_RESULTS.md (test-task-generate)", "status": "in_progress", "activeForm": "Parsing test analysis"},
+  {"content": "Phase 4.2: Generate IMPL-001.json and IMPL-002.json (test-task-generate)", "status": "pending", "activeForm": "Generating task JSONs"},
+  {"content": "Phase 4.3: Generate IMPL_PLAN.md and TODO_LIST.md (test-task-generate)", "status": "pending", "activeForm": "Generating plan documents"},
+  {"content": "Return workflow summary", "status": "pending", "activeForm": "Returning workflow summary"}
+]
+```
+
+**Note**: SlashCommand invocation **attaches** test-task-generate's 3 tasks. Orchestrator **executes** these tasks.
+
+**Next Action**: Tasks attached → **Execute Phase 4.1-4.3** sequentially
+
+<!-- TodoWrite: After Phase 4 tasks complete, REMOVE Phase 4.1-4.3, restore to orchestrator view -->
+
+**TodoWrite Update (Phase 4 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
+  {"content": "Gather test coverage context", "status": "completed", "activeForm": "Gathering test coverage context"},
+  {"content": "Analyze test requirements with Gemini", "status": "completed", "activeForm": "Analyzing test requirements"},
+  {"content": "Generate test generation and execution tasks", "status": "completed", "activeForm": "Generating test tasks"},
+  {"content": "Return workflow summary", "status": "in_progress", "activeForm": "Returning workflow summary"}
+]
+```
+
+**Note**: Phase 4 tasks completed and collapsed to summary.
 
 ---
 
@@ -214,37 +325,76 @@ Ready for execution. Use appropriate workflow commands to proceed.
 
 ## TodoWrite Pattern
 
-Track progress through 5 phases:
+**Core Concept**: Dynamic task attachment and collapse for test-gen workflow with cross-session context gathering and test generation strategy.
 
-```javascript
-TodoWrite({todos: [
-  {"content": "Create independent test session", "status": "in_progress|completed", "activeForm": "Creating test session"},
-  {"content": "Gather test coverage context", "status": "pending|in_progress|completed", "activeForm": "Gathering test coverage context"},
-  {"content": "Analyze test requirements with Gemini", "status": "pending|in_progress|completed", "activeForm": "Analyzing test requirements"},
-  {"content": "Generate test generation and execution tasks", "status": "pending|in_progress|completed", "activeForm": "Generating test tasks"},
-  {"content": "Return workflow summary", "status": "pending|in_progress|completed", "activeForm": "Returning workflow summary"}
-]})
+### Key Principles
+
+1. **Task Attachment** (when SlashCommand invoked):
+   - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
+   - Example: `/workflow:tools:test-context-gather` attaches 3 sub-tasks (Phase 2.1, 2.2, 2.3)
+   - First attached task marked as `in_progress`, others as `pending`
+   - Orchestrator **executes** these attached tasks sequentially
+
+2. **Task Collapse** (after sub-tasks complete):
+   - Remove detailed sub-tasks from TodoWrite
+   - **Collapse** to high-level phase summary
+   - Example: Phase 2.1-2.3 collapse to "Gather test coverage context: completed"
+   - Maintains clean orchestrator-level view
+
+3. **Continuous Execution**:
+   - After collapse, automatically proceed to next pending phase
+   - No user intervention required between phases
+   - TodoWrite dynamically reflects current execution state
+
+**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
+
+### Test-Gen Specific Features
+
+- **Phase 2**: Cross-session context gathering from source implementation session
+- **Phase 3**: Test requirements analysis with Gemini for generation strategy
+- **Phase 4**: Dual-task generation (IMPL-001 for test generation, IMPL-002 for test execution)
+- **Fix Mode Configuration**: `--use-codex` flag controls IMPL-002 fix mode (manual vs automated)
+
+**Benefits**:
+- Real-time visibility into attached tasks during execution
+- Clean orchestrator-level summary after tasks complete
+- Clear mental model: SlashCommand = attach tasks, not delegate work
+- Dynamic attachment/collapse maintains clarity
+
+**Note**: See individual Phase descriptions (Phase 2, 3, 4) for detailed TodoWrite Update examples with full JSON structures.
+
+## Execution Flow Diagram
+
 ```
-
-Update status to `in_progress` when starting each phase, mark `completed` when done.
-
-## Data Flow
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ /workflow:test-gen WFS-user-auth                        │
-├─────────────────────────────────────────────────────────┤
-│ Phase 1: session-start → WFS-test-user-auth            │
-│   ↓                                                     │
-│ Phase 2: test-context-gather → test-context-package.json│
-│   ↓                                                     │
-│ Phase 3: test-concept-enhanced → TEST_ANALYSIS_RESULTS.md│
-│   ↓                                                     │
-│ Phase 4: test-task-generate → IMPL-001.json + IMPL-002.json│
-│   ↓                                                     │
-│ Phase 5: Return summary                                │
-└─────────────────────────────────────────────────────────┘
-         COMMAND ENDS - Control returns to user
+Test-Gen Workflow Orchestrator
+│
+├─ Phase 1: Create Test Session
+│  └─ /workflow:session:start --new
+│     └─ Returns: testSessionId (WFS-test-[source])
+│
+├─ Phase 2: Gather Test Context                           ← ATTACHED (3 tasks)
+│  └─ /workflow:tools:test-context-gather
+│     ├─ Phase 2.1: Load source session summaries
+│     ├─ Phase 2.2: Analyze test coverage with MCP tools
+│     └─ Phase 2.3: Identify coverage gaps and framework
+│     └─ Returns: test-context-package.json               ← COLLAPSED
+│
+├─ Phase 3: Test Generation Analysis                      ← ATTACHED (3 tasks)
+│  └─ /workflow:tools:test-concept-enhanced
+│     ├─ Phase 3.1: Analyze coverage gaps with Gemini
+│     ├─ Phase 3.2: Study existing test patterns
+│     └─ Phase 3.3: Generate test generation strategy
+│     └─ Returns: TEST_ANALYSIS_RESULTS.md                ← COLLAPSED
+│
+├─ Phase 4: Generate Test Tasks                           ← ATTACHED (3 tasks)
+│  └─ /workflow:tools:test-task-generate
+│     ├─ Phase 4.1: Parse TEST_ANALYSIS_RESULTS.md
+│     ├─ Phase 4.2: Generate IMPL-001.json and IMPL-002.json
+│     └─ Phase 4.3: Generate IMPL_PLAN.md and TODO_LIST.md
+│     └─ Returns: Task JSONs and plans                    ← COLLAPSED
+│
+└─ Phase 5: Return Summary
+   └─ Command ends, control returns to user
 
 Artifacts Created:
 ├── .workflow/WFS-test-[session]/
@@ -257,6 +407,10 @@ Artifacts Created:
 │   └── .process/
 │       ├── test-context-package.json
 │       └── TEST_ANALYSIS_RESULTS.md
+
+Key Points:
+• ← ATTACHED: SlashCommand attaches sub-tasks to orchestrator TodoWrite
+• ← COLLAPSED: Sub-tasks executed and collapsed to phase summary
 ```
 
 ## Session Metadata

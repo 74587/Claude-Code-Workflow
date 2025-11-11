@@ -1,7 +1,7 @@
 ---
 name: imitate-auto
-description: High-speed multi-page UI replication with batch screenshot capture and design token extraction
-argument-hint: --url-map "<map>" [--capture-mode <batch|deep>] [--depth <1-5>] [--session <id>] [--prompt "<desc>"]
+description: UI design workflow with direct code/image input for design token extraction and prototype generation
+argument-hint: "[--input "<value>"] [--session <id>]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 ---
 
@@ -9,79 +9,85 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 
 ## Overview & Execution Model
 
-**Fully autonomous replication orchestrator**: Efficiently replicate multiple web pages through sequential execution from screenshot capture to design integration.
+**Fully autonomous design orchestrator**: Efficiently create UI prototypes through sequential execution from design token extraction to system integration.
 
-**Dual Capture Strategy**: Supports two capture modes for different use cases:
-- **Batch Mode** (default): Fast multi-URL screenshot capture via `/workflow:ui-design:capture`
-- **Deep Mode**: Interactive layer exploration for single URL via `/workflow:ui-design:explore-layers`
+**Direct Input Strategy**: Accepts local code files and images:
+- **Code Files**: Detect file paths in `--prompt` parameter
+- **Images**: Reference images via `--images` glob pattern
+- **Hybrid**: Combine both code and visual inputs
 
 **Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
-1. User triggers: `/workflow:ui-design:imitate-auto --url-map "..."`
-2. Phase 0: Initialize and parse parameters
-3. Phase 1: Screenshot capture (batch or deep mode) → **WAIT for completion** → Auto-continues
-4. Phase 2: Style extraction (complete design systems) → **WAIT for completion** → Auto-continues
-5. Phase 2.3: Animation extraction (CSS auto mode) → **WAIT for completion** → Auto-continues
-6. Phase 2.5: Layout extraction (structure templates) → **WAIT for completion** → Auto-continues
-7. Phase 3: Batch UI assembly → **WAIT for completion** → Auto-continues
-8. Phase 4: Design system integration → Reports completion
+1. User triggers: `/workflow:ui-design:imitate-auto [--input "..."]`
+2. Phase 0: Initialize and detect input sources
+3. Phase 2: Style extraction → **Attach tasks → Execute → Collapse** → Auto-continues
+4. Phase 2.3: Animation extraction → **Attach tasks → Execute → Collapse** → Auto-continues
+5. Phase 2.5: Layout extraction → **Attach tasks → Execute → Collapse** → Auto-continues
+6. Phase 3: Batch UI assembly → **Attach tasks → Execute → Collapse** → Auto-continues
+7. Phase 4: Design system integration → **Execute orchestrator task** → Reports completion
 
 **Phase Transition Mechanism**:
-- `SlashCommand` is BLOCKING - execution pauses until completion
-- Upon each phase completion: Automatically process output and execute next phase
+- **Task Attachment**: `SlashCommand` invocation **ATTACHES** tasks to current workflow
+- **Task Execution**: Orchestrator **EXECUTES** these attached tasks itself
+- **Task Collapse**: After tasks complete, collapse them into phase summary
+- **Phase Transition**: Automatically execute next phase after collapsing
 - No user interaction required after initial parameter parsing
 
-**Auto-Continue Mechanism**: TodoWrite tracks phase status. Upon each phase completion, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 5.
+**Auto-Continue Mechanism**: TodoWrite tracks phase status with dynamic task attachment/collapse. After executing all attached tasks, you MUST immediately collapse them, restore phase summary, and execute the next phase. No user intervention required. The workflow is NOT complete until reaching Phase 4.
+
+**Task Attachment Model**: SlashCommand invocation is NOT delegation - it's task expansion. The orchestrator executes these attached tasks itself, not waiting for external completion.
 
 ## Core Rules
 
-1. **Start Immediately**: TodoWrite initialization → Phase 1 execution
+1. **Start Immediately**: TodoWrite initialization → Phase 2 execution
 2. **No Preliminary Validation**: Sub-commands handle their own validation
 3. **Parse & Pass**: Extract data from each output for next phase
-4. **Track Progress**: Update TodoWrite after each phase
-5. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After each SlashCommand completes, you MUST wait for completion, then immediately execute the next phase. Workflow is NOT complete until Phase 5.
+4. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
+5. **⚠️ CRITICAL: Task Attachment Model** - SlashCommand invocation **ATTACHES** tasks to current workflow. Orchestrator **EXECUTES** these attached tasks itself, not waiting for external completion. This is NOT delegation - it's task expansion.
+6. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After executing all attached tasks, you MUST immediately collapse them and execute the next phase. Workflow is NOT complete until Phase 4.
 
 ## Parameter Requirements
 
-**Required Parameters**:
-- `--url-map "<map>"`: Target page mapping
-  - Format: `"target1:url1, target2:url2, ..."`
-  - Example: `"home:https://linear.app, pricing:https://linear.app/pricing"`
-  - First target serves as primary style source
+**Recommended Parameter**:
+- `--input "<value>"`: Unified input source (auto-detects type)
+  - **Glob pattern** (images): `"design-refs/*"`, `"screenshots/*.png"`
+  - **File/directory path** (code): `"./src/components"`, `"/path/to/styles"`
+  - **Text description** (prompt): `"Focus on dark mode"`, `"Emphasize minimalist design"`
+  - **Combination**: `"design-refs/* modern dashboard style"` (glob + description)
+  - Multiple inputs: Separate with `|` → `"design-refs/*|modern style"`
+
+**Detection Logic**:
+- Contains `*` or matches existing files → **glob pattern** (images)
+- Existing file/directory path → **code import**
+- Pure text without paths → **design prompt**
+- Contains `|` separator → **multiple inputs** (glob|prompt or path|prompt)
+
+**Legacy Parameters** (deprecated, use `--input` instead):
+- `--images "<glob>"`: Reference image paths (shows deprecation warning)
+- `--prompt "<desc>"`: Design description (shows deprecation warning)
 
 **Optional Parameters**:
-- `--capture-mode <batch|deep>` (Optional, default: batch): Screenshot capture strategy
-  - `batch` (default): Multi-URL fast batch capture via `/workflow:ui-design:capture`
-  - `deep`: Single-URL interactive depth exploration via `/workflow:ui-design:explore-layers`
-  - **Note**: `deep` mode only uses first URL from url-map
-
-- `--depth <1-5>` (Optional, default: 3): Capture depth for deep mode
-  - `1`: Page level (full-page screenshot)
-  - `2`: Element level (+ key components)
-  - `3`: Interaction level (+ modals, dropdowns)
-  - `4`: Embedded level (+ iframes)
-  - `5`: Shadow DOM (+ web components)
-  - **Only applies when** `--capture-mode deep`
-
-- `--session <id>` (Optional): Workflow session ID
+- `--session <id>`: Workflow session ID
   - Integrate into existing session (`.workflow/WFS-{session}/`)
-  - Enable automatic design system integration (Phase 5)
-  - If not provided: standalone mode (`.workflow/.design/`)
+  - Enable automatic design system integration (Phase 4)
+  - If not provided: standalone mode (`.workflow/`)
 
-- `--prompt "<desc>"` (Optional): Style extraction guidance
-  - Influences extract command analysis focus
-  - Example: `"Focus on dark mode"`, `"Emphasize minimalist design"`
-  - **Note**: Design systems are now production-ready by default (no separate consolidate step)
+**Input Rules**:
+- Must provide: `--input` OR (legacy: `--images`/`--prompt`)
+- `--input` can combine multiple input types
+- File paths are automatically detected and trigger code import
 
 ## Execution Modes
 
-**Capture Modes**:
-- **Batch Mode** (default): Multi-URL screenshot capture for fast replication
-  - Uses `/workflow:ui-design:capture` for parallel screenshot capture
-  - Optimized for replicating multiple pages efficiently
-- **Deep Mode**: Single-URL layer exploration for detailed analysis
-  - Uses `/workflow:ui-design:explore-layers` for interactive depth traversal
-  - Captures page layers at different depths (1-5)
-  - Only processes first URL from url-map
+**Input Sources**:
+- **Code Files**: Automatically detected from `--prompt` file paths
+  - Triggers `/workflow:ui-design:import-from-code` for token extraction
+  - Analyzes existing CSS/JS/HTML files
+- **Visual Input**: Images via `--images` glob pattern
+  - Reference images for style extraction
+  - Screenshots or design mockups
+- **Hybrid Mode**: Combines code import with visual supplements
+  - Code provides base tokens
+  - Images supplement missing design elements
 
 **Token Processing**:
 - **Direct Generation**: Complete design systems generated in style-extract phase
@@ -92,124 +98,134 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 **Session Integration**:
 - `--session` flag determines session integration or standalone execution
 - Integrated: Design system automatically added to session artifacts
-- Standalone: Output in `.workflow/.design/{run_id}/`
+- Standalone: Output in `.workflow/{run_id}/`
 
-## 6-Phase Execution
+## 5-Phase Execution
 
-### Phase 0: Initialization and Target Parsing
+### Phase 0: Parameter Parsing & Input Detection
 
 ```bash
-# Generate run ID
-run_id = "run-$(date +%Y%m%d)-$RANDOM"
+# Step 0: Parse and normalize parameters
+images_input = null
+prompt_text = null
 
-# Determine base path and session mode
+# Handle legacy parameters with deprecation warning
+IF --images OR --prompt:
+    WARN: "⚠️  DEPRECATION: --images and --prompt are deprecated. Use --input instead."
+    WARN: "   Example: --input \"design-refs/*\" or --input \"modern dashboard\""
+    images_input = --images
+    prompt_text = --prompt
+
+# Parse unified --input parameter
+IF --input:
+    # Split by | separator for multiple inputs
+    input_parts = split(--input, "|")
+
+    FOR part IN input_parts:
+        part = trim(part)
+
+        # Detection logic
+        IF contains(part, "*") OR glob_matches_files(part):
+            # Glob pattern detected → images
+            images_input = part
+        ELSE IF file_or_directory_exists(part):
+            # File/directory path → will be handled in code detection
+            IF NOT prompt_text:
+                prompt_text = part
+            ELSE:
+                prompt_text = prompt_text + " " + part
+        ELSE:
+            # Pure text → prompt
+            IF NOT prompt_text:
+                prompt_text = part
+            ELSE:
+                prompt_text = prompt_text + " " + part
+
+# Validation
+IF NOT images_input AND NOT prompt_text:
+    ERROR: "No input provided. Use --input with glob pattern, file path, or text description"
+    EXIT 1
+
+# Step 1: Detect design source from parsed inputs
+code_files_detected = false
+code_base_path = null
+has_visual_input = false
+
+IF prompt_text:
+    # Extract potential file paths from prompt
+    potential_paths = extract_paths_from_text(prompt_text)
+    FOR path IN potential_paths:
+        IF file_or_directory_exists(path):
+            code_files_detected = true
+            code_base_path = path
+            BREAK
+
+IF images_input:
+    # Check if images parameter points to existing files
+    IF glob_matches_files(images_input):
+        has_visual_input = true
+
+# Step 2: Determine design source strategy
+design_source = "unknown"
+IF code_files_detected AND has_visual_input:
+    design_source = "hybrid"  # Both code and visual
+ELSE IF code_files_detected:
+    design_source = "code_only"  # Only code files
+ELSE IF has_visual_input OR --prompt:
+    design_source = "visual_only"  # Only visual/prompt
+ELSE:
+    ERROR: "No design source provided (code files, images, or prompt required)"
+    EXIT 1
+
+STORE: design_source, code_base_path, has_visual_input
+
+# Step 3: Initialize directories
+design_id = "design-run-$(date +%Y%m%d)-$RANDOM"
+
 IF --session:
     session_id = {provided_session}
-    relative_base_path = ".workflow/WFS-{session_id}/design-{run_id}"
+    relative_base_path = ".workflow/WFS-{session_id}/{design_id}"
     session_mode = "integrated"
 ELSE:
     session_id = null
-    relative_base_path = ".workflow/.design/design-{run_id}"
+    relative_base_path = ".workflow/{design_id}"
     session_mode = "standalone"
 
 # Create base directory and convert to absolute path
 Bash(mkdir -p "{relative_base_path}")
 base_path=$(cd "{relative_base_path}" && pwd)
 
-# Step 0.1: Intelligent Path Detection
-code_files_detected = false
-code_base_path = null
-design_source = "web"  # Default for imitate-auto
-
-IF --prompt:
-    # Extract potential file paths from prompt
-    potential_paths = extract_paths_from_text(--prompt)
-    FOR path IN potential_paths:
-        IF file_or_directory_exists(path):
-            code_files_detected = true
-            code_base_path = path
-            design_source = "hybrid"  # Web + Code
-            BREAK
-
-STORE: design_source, code_base_path
-
-# Parse url-map
-url_map_string = {--url-map}
-VALIDATE: url_map_string is not empty, "--url-map parameter is required"
-
-# Parse target:url pairs
-url_map = {}  # {target_name: url}
-target_names = []
-
-FOR pair IN split(url_map_string, ","):
-    pair = pair.strip()
-
-    IF ":" NOT IN pair:
-        ERROR: "Invalid url-map format: '{pair}'"
-        ERROR: "Expected format: 'target:url'"
-        ERROR: "Example: 'home:https://example.com, pricing:https://example.com/pricing'"
-        EXIT 1
-
-    target, url = pair.split(":", 1)
-    target = target.strip().lower().replace(" ", "-")
-    url = url.strip()
-
-    url_map[target] = url
-    target_names.append(target)
-
-VALIDATE: len(target_names) > 0, "url-map must contain at least one target:url pair"
-
-primary_target = target_names[0]  # First target as primary style source
-
-# Parse capture mode
-capture_mode = --capture-mode OR "batch"
-depth = int(--depth OR 3)
-
-# Validate capture mode
-IF capture_mode NOT IN ["batch", "deep"]:
-    ERROR: "Invalid --capture-mode: {capture_mode}"
-    ERROR: "Valid options: batch, deep"
-    EXIT 1
-
-# Validate depth (only for deep mode)
-IF capture_mode == "deep":
-    IF depth NOT IN [1, 2, 3, 4, 5]:
-        ERROR: "Invalid --depth: {depth}"
-        ERROR: "Valid range: 1-5"
-        EXIT 1
-
-    # Warn if multiple URLs in deep mode
-    IF len(target_names) > 1:
-        WARN: "⚠️ Deep mode only uses first URL: '{primary_target}'"
-        WARN: "   Other URLs will be ignored: {', '.join(target_names[1:])}"
-        WARN: "   For multi-URL, use --capture-mode batch"
-
 # Write metadata
 metadata = {
     "workflow": "imitate-auto",
-    "run_id": run_id,
+    "run_id": design_id,
     "session_id": session_id,
     "timestamp": current_timestamp(),
     "parameters": {
-        "url_map": url_map,
-        "capture_mode": capture_mode,
-        "depth": depth IF capture_mode == "deep" ELSE null,
-        "prompt": --prompt OR null
+        "design_source": design_source,
+        "code_base_path": code_base_path,
+        "images": images_input OR null,
+        "prompt": prompt_text OR null,
+        "input": --input OR null  # Store original --input for reference
     },
-    "targets": target_names,
     "status": "in_progress"
 }
 
 Write("{base_path}/.run-metadata.json", JSON.stringify(metadata, null, 2))
 
+# Initialize default flags
+animation_complete = false
+needs_visual_supplement = false
+style_complete = false
+layout_complete = false
+
 # Initialize TodoWrite
 TodoWrite({todos: [
-  {content: "Initialize and parse url-map", status: "completed", activeForm: "Initializing"},
-  {content: capture_mode == "batch" ? f"Batch screenshot capture ({len(target_names)} targets)" : f"Deep exploration (depth {depth})", status: "pending", activeForm: "Capturing screenshots"},
+  {content: "Initialize and detect design source", status: "completed", activeForm: "Initializing"},
   {content: "Extract style (complete design systems)", status: "pending", activeForm: "Extracting style"},
   {content: "Extract animation (CSS auto mode)", status: "pending", activeForm: "Extracting animation"},
   {content: "Extract layout (structure templates)", status: "pending", activeForm: "Extracting layout"},
-  {content: f"Assemble UI for {len(target_names)} targets", status: "pending", activeForm: "Assembling UI"},
+  {content: "Assemble UI prototypes", status: "pending", activeForm: "Assembling UI"},
   {content: session_id ? "Integrate design system" : "Standalone completion", status: "pending", activeForm: "Completing"}
 ]})
 ```
@@ -225,10 +241,14 @@ IF design_source == "hybrid":
     REPORT: "   → Source: {code_base_path}"
     REPORT: "   → Mode: Hybrid (Web + Code)"
 
-    command = "/workflow:ui-design:import-from-code --base-path \"{base_path}\" " +
+    command = "/workflow:ui-design:import-from-code --design-id \"{design_id}\" " +
               "--source \"{code_base_path}\""
 
     TRY:
+        # SlashCommand invocation ATTACHES import-from-code's tasks to current workflow
+        # Orchestrator will EXECUTE these attached tasks itself:
+        #   - Phase 0: Discover and categorize code files
+        #   - Phase 1.1-1.3: Style/Animation/Layout Agent extraction
         SlashCommand(command)
     CATCH error:
         WARN: "Code import failed: {error}"
@@ -310,148 +330,120 @@ IF design_source == "hybrid":
 
         STORE: style_complete, animation_complete, layout_complete
 
-TodoWrite(mark_completed: "Initialize and parse url-map",
-          mark_in_progress: capture_mode == "batch" ? f"Batch screenshot capture ({len(target_names)} targets)" : f"Deep exploration (depth {depth})")
-```
-
-### Phase 1: Screenshot Capture (Dual Mode)
-
-```bash
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "🚀 Phase 1: Screenshot Capture"
-IF design_source == "hybrid":
-    REPORT: "   → Purpose: Verify and supplement code analysis"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-IF capture_mode == "batch":
-    # Mode A: Batch Multi-URL Capture
-    url_map_command_string = ",".join([f"{name}:{url}" for name, url in url_map.items()])
-    capture_command = f"/workflow:ui-design:capture --base-path \"{base_path}\" --url-map \"{url_map_command_string}\""
-
-    TRY:
-        SlashCommand(capture_command)
-    CATCH error:
-        ERROR: "Batch capture failed: {error}"
-        ERROR: "Cannot proceed without screenshots"
-        EXIT 1
-
-    # Verify batch capture results
-    screenshot_metadata_path = "{base_path}/screenshots/capture-metadata.json"
-
-    IF NOT exists(screenshot_metadata_path):
-        ERROR: "capture command did not generate metadata file"
-        ERROR: "Expected: {screenshot_metadata_path}"
-        EXIT 1
-
-    screenshot_metadata = Read(screenshot_metadata_path)
-    captured_count = screenshot_metadata.total_captured
-    total_requested = screenshot_metadata.total_requested
-    missing_count = total_requested - captured_count
-
-    IF missing_count > 0:
-        missing_targets = [s.target for s in screenshot_metadata.screenshots if not s.captured]
-        WARN: "⚠️ Missing {missing_count} screenshots: {', '.join(missing_targets)}"
-
-    IF captured_count == 0:
-        ERROR: "No screenshots captured - cannot proceed"
-        EXIT 1
-
-ELSE:  # capture_mode == "deep"
-    # Mode B: Deep Interactive Layer Exploration
-    primary_url = url_map[primary_target]
-    explore_command = f"/workflow:ui-design:explore-layers --url \"{primary_url}\" --depth {depth} --base-path \"{base_path}\""
-
-    TRY:
-        SlashCommand(explore_command)
-    CATCH error:
-        ERROR: "Deep exploration failed: {error}"
-        ERROR: "Cannot proceed without screenshots"
-        EXIT 1
-
-    # Verify deep exploration results
-    layer_map_path = "{base_path}/screenshots/layer-map.json"
-
-    IF NOT exists(layer_map_path):
-        ERROR: "explore-layers did not generate layer-map.json"
-        ERROR: "Expected: {layer_map_path}"
-        EXIT 1
-
-    layer_map = Read(layer_map_path)
-    captured_count = layer_map.summary.total_captures
-    total_requested = captured_count  # For consistency with batch mode
-
-TodoWrite(mark_completed: f"Batch screenshot capture ({len(target_names)} targets)" IF capture_mode == "batch" ELSE f"Deep exploration (depth {depth})",
-          mark_in_progress: "Extract style (visual tokens)")
+TodoWrite(mark_completed: "Initialize and detect design source",
+          mark_in_progress: "Extract style (complete design systems)")
 ```
 
 ### Phase 2: Style Extraction
 
 ```bash
 # Determine if style extraction needed
-skip_style = (design_source == "hybrid" AND style_complete)
+skip_style = (design_source == "code_only" AND style_complete)
 
 IF skip_style:
     REPORT: "✅ Phase 2: Style (Using Code Import)"
 ELSE:
     REPORT: "🚀 Phase 2: Style Extraction"
-    IF capture_mode == "batch":
-        images_glob = f"{base_path}/screenshots/*.{{png,jpg,jpeg,webp}}"
-    ELSE:
-        images_glob = f"{base_path}/screenshots/**/*.{{png,jpg,jpeg,webp}}"
 
-    IF --prompt:
-        extraction_prompt = f"Extract visual style tokens from '{primary_target}'. {--prompt}"
-    ELSE:
+    # Build command with available inputs
+    command_parts = [f"/workflow:ui-design:style-extract --design-id \"{design_id}\""]
+
+    IF images_input:
+        command_parts.append(f"--images \"{images_input}\"")
+
+    IF prompt_text:
+        extraction_prompt = prompt_text
         IF design_source == "hybrid":
-            extraction_prompt = f"Extract visual style tokens from '{primary_target}' to supplement code-imported design tokens."
-        ELSE:
-            extraction_prompt = f"Extract visual style tokens from '{primary_target}' with consistency across all pages."
+            extraction_prompt = f"{prompt_text} (supplement code-imported tokens)"
+        command_parts.append(f"--prompt \"{extraction_prompt}\"")
 
-    url_map_for_extract = ",".join([f"{name}:{url}" for name, url in url_map.items()])
-    extract_command = f"/workflow:ui-design:style-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_extract}\" --prompt \"{extraction_prompt}\" --variants 1 --interactive"
+    command_parts.extend(["--variants 1", "--refine", "--interactive"])
+
+    extract_command = " ".join(command_parts)
+
+    # SlashCommand invocation ATTACHES style-extract's tasks to current workflow
+    # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(extract_command)
 
-TodoWrite(mark_completed: "Extract style", mark_in_progress: "Extract animation")
+    # After executing all attached tasks, collapse them into phase summary
+    TodoWrite(mark_completed: "Extract style", mark_in_progress: "Extract animation")
 ```
 
 ### Phase 2.3: Animation Extraction
 
 ```bash
-skip_animation = (design_source == "hybrid" AND animation_complete)
+skip_animation = (design_source == "code_only" AND animation_complete)
 
 IF skip_animation:
     REPORT: "✅ Phase 2.3: Animation (Using Code Import)"
 ELSE:
     REPORT: "🚀 Phase 2.3: Animation Extraction"
-    url_map_for_animation = ",".join([f"{target}:{url}" for target, url in url_map.items()])
-    animation_extract_command = f"/workflow:ui-design:animation-extract --base-path \"{base_path}\" --urls \"{url_map_for_animation}\" --mode auto"
+
+    # Build command with available inputs
+    command_parts = [f"/workflow:ui-design:animation-extract --design-id \"{design_id}\""]
+
+    IF images_input:
+        command_parts.append(f"--images \"{images_input}\"")
+
+    IF prompt_text:
+        command_parts.append(f"--prompt \"{prompt_text}\"")
+
+    command_parts.extend(["--refine", "--interactive"])
+
+    animation_extract_command = " ".join(command_parts)
+
+    # SlashCommand invocation ATTACHES animation-extract's tasks to current workflow
+    # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(animation_extract_command)
 
+    # After executing all attached tasks, collapse them into phase summary
+    TodoWrite(mark_completed: "Extract animation", mark_in_progress: "Extract layout")
 ```
 
 ### Phase 2.5: Layout Extraction
 
 ```bash
-skip_layout = (design_source == "hybrid" AND layout_complete)
+skip_layout = (design_source == "code_only" AND layout_complete)
 
 IF skip_layout:
     REPORT: "✅ Phase 2.5: Layout (Using Code Import)"
 ELSE:
     REPORT: "🚀 Phase 2.5: Layout Extraction"
-    url_map_for_layout = ",".join([f"{target}:{url}" for target, url in url_map.items()])
-    layout_extract_command = f"/workflow:ui-design:layout-extract --base-path \"{base_path}\" --images \"{images_glob}\" --urls \"{url_map_for_layout}\" --targets \"{','.join(target_names)}\" --variants 1 --interactive"
+
+    # Build command with available inputs
+    command_parts = [f"/workflow:ui-design:layout-extract --design-id \"{design_id}\""]
+
+    IF images_input:
+        command_parts.append(f"--images \"{images_input}\"")
+
+    IF prompt_text:
+        command_parts.append(f"--prompt \"{prompt_text}\"")
+
+    # Default target if not specified
+    command_parts.append("--targets \"home\"")
+    command_parts.extend(["--variants 1", "--refine", "--interactive"])
+
+    layout_extract_command = " ".join(command_parts)
+
+    # SlashCommand invocation ATTACHES layout-extract's tasks to current workflow
+    # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(layout_extract_command)
 
-TodoWrite(mark_completed: "Extract layout", mark_in_progress: "Assemble UI")
+    # After executing all attached tasks, collapse them into phase summary
+    TodoWrite(mark_completed: "Extract layout", mark_in_progress: "Assemble UI")
 ```
 
 ### Phase 3: UI Assembly
 
 ```bash
 REPORT: "🚀 Phase 3: UI Assembly"
-generate_command = f"/workflow:ui-design:generate --base-path \"{base_path}\" --style-variants 1 --layout-variants 1"
+generate_command = f"/workflow:ui-design:generate --design-id \"{design_id}\""
+
+# SlashCommand invocation ATTACHES generate's tasks to current workflow
+# Orchestrator will EXECUTE these attached tasks itself
 SlashCommand(generate_command)
 
+# After executing all attached tasks, collapse them into phase summary
 TodoWrite(mark_completed: "Assemble UI", mark_in_progress: session_id ? "Integrate design system" : "Completion")
 ```
 
@@ -461,6 +453,9 @@ TodoWrite(mark_completed: "Assemble UI", mark_in_progress: session_id ? "Integra
 IF session_id:
     REPORT: "🚀 Phase 4: Design System Integration"
     update_command = f"/workflow:ui-design:update --session {session_id}"
+
+    # SlashCommand invocation ATTACHES update's tasks to current workflow
+    # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(update_command)
 
 # Update metadata
@@ -490,7 +485,7 @@ TodoWrite({todos: [
 ]})
 ```
 
-### Phase 6: Completion Report
+### Phase 4: Completion Report
 
 **Completion Message**:
 ```
@@ -500,26 +495,24 @@ TodoWrite({todos: [
 
 ━━━ 📊 Workflow Summary ━━━
 
-Mode: {capture_mode == "batch" ? "Batch Multi-Page Replication" : f"Deep Interactive Exploration (depth {depth})"}
+Mode: Direct Input ({design_source})
 Session: {session_id or "standalone"}
 Run ID: {run_id}
 
-Phase 1 - Screenshot Capture: ✅ {IF capture_mode == "batch": f"{captured_count}/{total_requested} screenshots" ELSE: f"{captured_count} screenshots ({total_layers} layers)"}
-  {IF capture_mode == "batch" AND captured_count < total_requested: f"⚠️ {total_requested - captured_count} missing" ELSE: "All targets captured"}
+Phase 0 - Input Detection: ✅ {design_source} mode
+  {IF design_source == "code_only": "Code files imported" ELSE IF design_source == "hybrid": "Code + visual inputs" ELSE: "Visual inputs"}
 
 Phase 2 - Style Extraction: ✅ Production-ready design systems
   Output: style-extraction/style-1/ (design-tokens.json + style-guide.md)
   Quality: WCAG AA compliant, OKLCH colors
 
-Phase 2.3 - Animation Extraction: ✅ CSS animations and transitions
+Phase 2.3 - Animation Extraction: ✅ Animation tokens
   Output: animation-extraction/ (animation-tokens.json + animation-guide.md)
-  Method: Auto-extracted from live URLs via Chrome DevTools
 
 Phase 2.5 - Layout Extraction: ✅ Structure templates
   Templates: {template_count} layout structures
 
-Phase 3 - UI Assembly: ✅ {generated_count} pages assembled
-  Targets: {', '.join(target_names)}
+Phase 3 - UI Assembly: ✅ {generated_count} prototypes assembled
   Configuration: 1 style × 1 layout × {generated_count} pages
 
 Phase 4 - Integration: {IF session_id: "✅ Integrated into session" ELSE: "⏭️ Standalone mode"}
@@ -527,20 +520,6 @@ Phase 4 - Integration: {IF session_id: "✅ Integrated into session" ELSE: "⏭�
 ━━━ 📂 Output Structure ━━━
 
 {base_path}/
-├── screenshots/                    # {captured_count} screenshots
-{IF capture_mode == "batch":
-│   ├── {target1}.png
-│   ├── {target2}.png
-│   └── capture-metadata.json
-ELSE:
-│   ├── depth-1/
-│   │   └── full-page.png
-│   ├── depth-2/
-│   │   └── {elements}.png
-│   ├── depth-{depth}/
-│   │   └── {layers}.png
-│   └── layer-map.json
-}
 ├── style-extraction/               # Production-ready design systems
 │   └── style-1/
 │       ├── design-tokens.json
@@ -549,19 +528,18 @@ ELSE:
 │   ├── animation-tokens.json
 │   └── animation-guide.md
 ├── layout-extraction/              # Structure templates
-│   └── layout-{target}-1.json      # One file per target
+│   └── layout-home-1.json          # Layout templates
 └── prototypes/                     # {generated_count} HTML/CSS files
-    ├── {target1}-style-1-layout-1.html + .css
-    ├── {target2}-style-1-layout-1.html + .css
+    ├── home-style-1-layout-1.html + .css
     ├── compare.html                # Interactive preview
     └── index.html                  # Quick navigation
 
 ━━━ ⚡ Performance ━━━
 
 Total workflow time: ~{estimate_total_time()} minutes
-  Screenshot capture: ~{capture_time}
   Style extraction: ~{extract_time}
-  Token processing: ~{token_processing_time}
+  Animation extraction: ~{animation_time}
+  Layout extraction: ~{layout_time}
   UI generation: ~{generate_time}
 
 ━━━ 🌐 Next Steps ━━━
@@ -590,103 +568,81 @@ ELSE:
 ## TodoWrite Pattern
 
 ```javascript
-// Initialize IMMEDIATELY at start of Phase 0 to track multi-phase execution
+// Initialize IMMEDIATELY at start of Phase 0 to track multi-phase execution (6 orchestrator-level tasks)
 TodoWrite({todos: [
-  {content: "Initialize and parse url-map", status: "in_progress", activeForm: "Initializing"},
-  {content: "Batch screenshot capture", status: "pending", activeForm: "Capturing screenshots"},
+  {content: "Initialize and detect design source", status: "in_progress", activeForm: "Initializing"},
   {content: "Extract style (complete design systems)", status: "pending", activeForm: "Extracting style"},
+  {content: "Extract animation (CSS auto mode)", status: "pending", activeForm: "Extracting animation"},
   {content: "Extract layout (structure templates)", status: "pending", activeForm: "Extracting layout"},
-  {content: "Assemble UI for all targets", status: "pending", activeForm: "Assembling UI"},
+  {content: "Assemble UI prototypes", status: "pending", activeForm: "Assembling UI"},
   {content: "Integrate design system", status: "pending", activeForm: "Integrating"}
 ]})
 
-// ⚠️ CRITICAL: After EACH SlashCommand completion (Phase 1-5), you MUST:
-// 1. SlashCommand blocks and returns when phase is complete
-// 2. Update current phase: status → "completed"
-// 3. Update next phase: status → "in_progress"
-// 4. IMMEDIATELY execute next phase SlashCommand (auto-continue)
-// This ensures continuous workflow tracking and prevents premature stopping
+// ⚠️ CRITICAL: Dynamic TodoWrite task attachment strategy:
+//
+// **Key Concept**: SlashCommand invocation ATTACHES tasks to current workflow.
+// Orchestrator EXECUTES these attached tasks itself, not waiting for external completion.
+//
+// Phase 2-4 SlashCommand Invocation Pattern:
+// 1. SlashCommand invocation ATTACHES sub-command tasks to TodoWrite
+// 2. TodoWrite expands to include attached tasks
+// 3. Orchestrator EXECUTES attached tasks sequentially
+// 4. After all attached tasks complete, COLLAPSE them into phase summary
+// 5. Update next phase to in_progress
+// 6. IMMEDIATELY execute next phase SlashCommand (auto-continue)
+//
+// Benefits:
+// ✓ Real-time visibility into sub-command task progress
+// ✓ Clean orchestrator-level summary after each phase
+// ✓ Clear mental model: SlashCommand = attach tasks, not delegate work
+// ✓ Dynamic attachment/collapse maintains clarity
 ```
 
 ## Error Handling
 
 ### Pre-execution Checks
-- **url-map format validation**: Clear error message with format example
-- **Empty url-map**: Error and exit
-- **Invalid target names**: Regex validation with suggestions
+- **Input validation**: Must provide at least one of --images or --prompt
+- **Design source detection**: Error if no valid inputs found
+- **Code import failure**: Fallback to visual-only mode in hybrid, error in code-only mode
 
 ### Phase-Specific Errors
-- **Screenshot capture failure (Phase 1)**:
-  - If total_captured == 0: Terminate workflow
-  - If partial failure: Warn but continue with available screenshots
+- **Code import failure (Phase 0.5)**:
+  - code_only mode: Terminate with clear error
+  - hybrid mode: Warn and fallback to visual-only mode
 
 - **Style extraction failure (Phase 2)**:
   - If extract fails: Terminate with clear error
-  - If style-cards.json missing: Terminate with debugging info
+  - If design-tokens.json missing: Terminate with debugging info
 
-- **Token processing failure (Phase 3)**:
-  - Consolidate mode: Terminate if consolidate fails
-  - Fast mode: Validate proposed_tokens exist before copying
+- **Animation extraction failure (Phase 2.3)**:
+  - Non-critical: Warn but continue
+  - Can proceed without animation tokens
 
-- **UI generation failure (Phase 4)**:
+- **Layout extraction failure (Phase 2.5)**:
+  - If extract fails: Terminate with error
+  - Need layout templates for assembly
+
+- **UI generation failure (Phase 3)**:
   - If generate fails: Terminate with error
-  - If generated_count < target_count: Warn but proceed
+  - If generated_count < expected: Warn but proceed
 
-- **Integration failure (Phase 5)**:
+- **Integration failure (Phase 4)**:
   - Non-blocking: Warn but don't terminate
   - Prototypes already available
 
 ### Recovery Strategies
-- **Partial screenshot failure**: Continue with available screenshots, list missing in warning
-- **Generate failure**: Report specific target failures, user can re-generate individually
+- **Code import failure**: Automatic fallback to visual-only in hybrid mode
+- **Generate failure**: Report specific failures, user can re-generate individually
 - **Integration failure**: Prototypes still usable, can integrate manually
-
-
-## Key Features
-
-- **🚀 Dual Capture**: Batch mode for speed, deep mode for detail
-- **⚡ Production-Ready**: Complete design systems generated directly (~30-60s faster)
-- **🎨 High-Fidelity**: Single unified design system from primary target
-- **📦 Autonomous**: No user intervention required between phases
-- **🔄 Reproducible**: Deterministic flow with isolated run directories
-- **🎯 Flexible**: Standalone or session-integrated modes
-
-## Examples
-
-### 1. Basic Multi-Page Replication
-```bash
-/workflow:ui-design:imitate-auto --url-map "home:https://linear.app, features:https://linear.app/features"
-# Result: 2 prototypes with fast-track tokens
-```
-
-### 2. Session Integration
-```bash
-/workflow:ui-design:imitate-auto --session WFS-payment --url-map "pricing:https://stripe.com/pricing"
-# Result: 1 prototype with production-ready design system, integrated into session
-```
-
-### 3. Deep Exploration Mode
-```bash
-/workflow:ui-design:imitate-auto --url-map "app:https://app.com" --capture-mode deep --depth 3
-# Result: Interactive layer capture + prototype
-```
-
-### 4. Guided Style Extraction
-```bash
-/workflow:ui-design:imitate-auto --url-map "home:https://example.com, about:https://example.com/about" --prompt "Focus on minimalist design"
-# Result: 2 prototypes with minimalist style focus
-```
 
 ## Integration Points
 
-- **Input**: `--url-map` (multiple target:url pairs) + optional `--capture-mode`, `--depth`, `--session`, `--prompt`
-- **Output**: Complete design system in `{base_path}/` (screenshots, style-extraction, layout-extraction, prototypes)
+- **Input**: `--images` (glob pattern) and/or `--prompt` (text/file paths) + optional `--session`
+- **Output**: Complete design system in `{base_path}/` (style-extraction, layout-extraction, prototypes)
 - **Sub-commands Called**:
-  1. Phase 1 (conditional):
-     - `--capture-mode batch`: `/workflow:ui-design:capture` (multi-URL batch)
-     - `--capture-mode deep`: `/workflow:ui-design:explore-layers` (single-URL depth exploration)
+  1. `/workflow:ui-design:import-from-code` (Phase 0.5, conditional - if code files detected)
   2. `/workflow:ui-design:style-extract` (Phase 2 - complete design systems)
-  3. `/workflow:ui-design:animation-extract` (Phase 2.3 - CSS animations and transitions)
+  3. `/workflow:ui-design:animation-extract` (Phase 2.3 - animation tokens)
   4. `/workflow:ui-design:layout-extract` (Phase 2.5 - structure templates)
   5. `/workflow:ui-design:generate` (Phase 3 - pure assembly)
   6. `/workflow:ui-design:update` (Phase 4, if --session)
@@ -696,30 +652,31 @@ TodoWrite({todos: [
 ```
 ✅ UI Design Imitate-Auto Workflow Complete!
 
-Mode: {capture_mode} | Session: {session_id or "standalone"}
+Mode: Direct Input ({design_source}) | Session: {session_id or "standalone"}
 Run ID: {run_id}
 
-Phase 1 - Screenshot Capture: ✅ {captured_count} screenshots
+Phase 0 - Input Detection: ✅ {design_source} mode
 Phase 2 - Style Extraction: ✅ Production-ready design systems
+Phase 2.3 - Animation Extraction: ✅ Animation tokens
 Phase 2.5 - Layout Extraction: ✅ Structure templates
-Phase 3 - UI Assembly: ✅ {generated_count} pages assembled
+Phase 3 - UI Assembly: ✅ {generated_count} prototypes assembled
 Phase 4 - Integration: {IF session_id: "✅ Integrated" ELSE: "⏭️ Standalone"}
 
 Design Quality:
-✅ High-Fidelity Replication: Accurate style from primary target
 ✅ Token-Driven Styling: 100% var() usage
 ✅ Production-Ready: WCAG AA compliant, OKLCH colors
+✅ Multi-Source: Code import + visual extraction
 
 📂 {base_path}/
-  ├── screenshots/                  # {captured_count} screenshots
   ├── style-extraction/style-1/     # Production-ready design system
+  ├── animation-extraction/         # Animation tokens
   ├── layout-extraction/            # Structure templates
   └── prototypes/                   # {generated_count} HTML/CSS files
 
 🌐 Preview: {base_path}/prototypes/compare.html
   - Interactive preview
-  - Side-by-side comparison
-  - {generated_count} replicated pages
+  - Design token driven
+  - {generated_count} assembled prototypes
 
 Next: [/workflow:execute] OR [Open compare.html → /workflow:plan]
 ```

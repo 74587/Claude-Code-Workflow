@@ -57,7 +57,7 @@ elif [ -n "$SESSION_ID" ]; then
 else
   # Create new standalone design run
   design_id="design-run-$(date +%Y%m%d)-$RANDOM"
-  relative_path=".workflow/.design/${design_id}"
+  relative_path=".workflow/${design_id}"
 fi
 
 # Create directory structure and convert to absolute path

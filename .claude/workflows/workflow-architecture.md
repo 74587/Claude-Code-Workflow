@@ -686,8 +686,8 @@ All workflows use the same file structure definition regardless of complexity. *
 │   ├── execute-*-[timestamp].md        # Ad-hoc implementation logs
 │   └── codex-execute-*-[timestamp].md  # Multi-stage execution logs
 │
-├── [.design/]                  # Standalone UI design outputs (created when needed)
-│   └── run-[timestamp]/        # Timestamped design runs without session
+├── [design-run-*/]             # Standalone UI design outputs (created when needed)
+│   └── (timestamped)/          # Timestamped design runs without session
 │       ├── .intermediates/     # Intermediate analysis files
 │       │   ├── style-analysis/ # Style analysis data
 │       │   │   ├── computed-styles.json        # Extracted CSS values
@@ -749,7 +749,7 @@ All workflows use the same file structure definition regardless of complexity. *
 - **On-Demand Creation**: Other directories created when first needed
 - **Dynamic Files**: Subtask JSON files created during task decomposition
 - **Scratchpad Usage**: `.scratchpad/` created when CLI commands run without active session
-- **Design Usage**: `design-{timestamp}/` created by UI design workflows, `.design/` for standalone design runs
+- **Design Usage**: `design-{timestamp}/` created by UI design workflows in `.workflow/` directly for standalone design runs
 - **Intermediate Files**: `.intermediates/` contains analysis data (style/layout) separate from final deliverables
 - **Layout Templates**: `layout-extraction/layout-templates.json` contains structural templates for UI assembly
 

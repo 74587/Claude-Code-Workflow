@@ -36,7 +36,7 @@ elif [ -n "$SESSION_ID" ]; then
 else
   # Create new standalone design run
   design_id="design-run-$(date +%Y%m%d)-$RANDOM"
-  relative_path=".workflow/.design/${design_id}"
+  relative_path=".workflow/${design_id}"
 fi
 
 # Create directory and convert to absolute path
@@ -206,7 +206,7 @@ bash($chrome --headless --screenshot="$output_file" --window-size=1920,1080 "$ur
 
 Failed URLs:
   home: https://linear.app
-  Save to: .workflow/.design/design-run-20250110/screenshots/home.png
+  Save to: .workflow/design-run-20250110/screenshots/home.png
 
 Steps:
   1. Visit URL in browser

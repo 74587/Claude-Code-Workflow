@@ -1,7 +1,7 @@
 ---
 name: explore-layers
 description: Interactive deep UI capture with depth-controlled layer exploration using MCP puppeteer
-argument-hint: --url <url> --depth <1-5> [--session id] [--base-path path]
+argument-hint: --url <url> --depth <1-5> [--design-id <id>] [--session <id>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*), mcp__chrome-devtools__*
 ---
 
@@ -38,18 +38,36 @@ IF depth NOT IN [1, 2, 3, 4, 5]:
 
 ### Step 2: Determine Base Path
 ```bash
-relative_path=$(if [ -n "$BASE_PATH" ]; then
-  echo "$BASE_PATH"
+# Priority: --design-id > --session > create new
+if [ -n "$DESIGN_ID" ]; then
+  # Exact match by design ID
+  relative_path=$(find .workflow -name "${DESIGN_ID}" -type d -print -quit)
+  if [ -z "$relative_path" ]; then
+    echo "ERROR: Design run not found: $DESIGN_ID"
+    echo "HINT: Run '/workflow:ui-design:list' to see available design runs"
+    exit 1
+  fi
 elif [ -n "$SESSION_ID" ]; then
-  find .workflow/WFS-$SESSION_ID/design-* -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2 || \
-  echo ".workflow/WFS-$SESSION_ID/design-run-$(date +%Y%m%d)-$RANDOM"
+  # Find latest in session or create new
+  relative_path=$(find .workflow/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+  if [ -z "$relative_path" ]; then
+    design_id="design-run-$(date +%Y%m%d)-$RANDOM"
+    relative_path=".workflow/WFS-$SESSION_ID/${design_id}"
+  fi
 else
-  echo ".workflow/.design/design-run-$(date +%Y%m%d)-$RANDOM"
-fi)
+  # Create new standalone design run
+  design_id="design-run-$(date +%Y%m%d)-$RANDOM"
+  relative_path=".workflow/${design_id}"
+fi
 
 # Create directory structure and convert to absolute path
 bash(mkdir -p "$relative_path")
 base_path=$(cd "$relative_path" && pwd)
+
+# Extract and display design_id
+design_id=$(basename "$base_path")
+echo "✓ Design ID: $design_id"
+echo "✓ Base path: $base_path"
 
 # Create depth directories
 bash(for i in $(seq 1 $depth); do mkdir -p "$base_path"/screenshots/depth-$i; done)

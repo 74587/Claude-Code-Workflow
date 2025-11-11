@@ -1,7 +1,7 @@
 ---
 name: layout-extract
-description: Extract structural layout information from reference images, URLs, or text prompts using Claude analysis
-argument-hint: [--base-path <path>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--targets "<list>"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive]
+description: Extract structural layout information from reference images, URLs, or text prompts using Claude analysis with variant generation or refinement mode
+argument-hint: [--design-id <id>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--targets "<list>"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive] [--refine]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent), mcp__exa__web_search_exa(*)
 ---
 
@@ -9,12 +9,16 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestio
 
 ## Overview
 
-Extract structural layout information from reference images, URLs, or text prompts using AI analysis. This command separates the "scaffolding" (HTML structure and CSS layout) from the "paint" (visual tokens handled by `style-extract`).
+Extract structural layout information from reference images, URLs, or text prompts using AI analysis. Supports two modes:
+1. **Exploration Mode** (default): Generate multiple contrasting layout variants
+2. **Refinement Mode** (`--refine`): Refine a single existing layout through detailed adjustments
+
+This command separates the "scaffolding" (HTML structure and CSS layout) from the "paint" (visual tokens handled by `style-extract`).
 
 **Strategy**: AI-Driven Structural Analysis
 
 - **Agent-Powered**: Uses `ui-design-agent` for deep structural analysis
-- **Behavior**: Generate N layout concepts → User multi-select → Generate selected templates
+- **Dual Mode**: Exploration (multiple contrasting variants) or Refinement (single layout fine-tuning)
 - **Output**: `layout-templates.json` with DOM structure, component hierarchy, and CSS layout rules
 - **Device-Aware**: Optimized for specific device types (desktop, mobile, tablet, responsive)
 - **Token-Based**: CSS uses `var()` placeholders for spacing and breakpoints
@@ -43,10 +47,19 @@ ELSE:
     has_urls = false
     url_list = []
 
-# Set variants count (default: 3, range: 1-5)
-# Behavior: Generate N layout concepts per target → User multi-select → Generate selected templates
-variants_count = --variants OR 3
-VALIDATE: 1 <= variants_count <= 5
+# Detect refinement mode
+refine_mode = --refine OR false
+
+# Set variants count
+# Refinement mode: Force variants_count = 1 (ignore user-provided --variants)
+# Exploration mode: Use --variants or default to 3 (range: 1-5)
+IF refine_mode:
+    variants_count = 1
+    REPORT: "🔧 Refinement mode enabled: Will generate 1 refined layout per target"
+ELSE:
+    variants_count = --variants OR 3
+    VALIDATE: 1 <= variants_count <= 5
+    REPORT: "🔍 Exploration mode: Will generate {variants_count} contrasting layout concepts per target"
 
 # Resolve targets
 # Priority: --targets → url_list targets → prompt analysis → default ["page"]
@@ -65,11 +78,27 @@ ELSE:
 # Resolve device type
 device_type = --device-type OR "responsive"  # desktop|mobile|tablet|responsive
 
-# Determine base path (auto-detect and convert to absolute)
-relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+# Determine base path with priority: --design-id > --session > auto-detect
+if [ -n "$DESIGN_ID" ]; then
+  # Exact match by design ID
+  relative_path=$(find .workflow -name "${DESIGN_ID}" -type d -print -quit)
+elif [ -n "$SESSION_ID" ]; then
+  # Latest in session
+  relative_path=$(find .workflow/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+else
+  # Latest globally
+  relative_path=$(find .workflow -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+fi
+
+# Validate and convert to absolute path
+if [ -z "$relative_path" ] || [ ! -d "$relative_path" ]; then
+  echo "❌ ERROR: Design run not found"
+  echo "💡 HINT: Run '/workflow:ui-design:list' to see available design runs"
+  exit 1
+fi
+
 base_path=$(cd "$relative_path" && pwd)
-bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
-# OR use --base-path / --session parameters
+bash(echo "✓ Base path: $base_path")
 ```
 
 ### Step 2: Load Inputs & Create Directories
@@ -194,30 +223,46 @@ IF exists: SKIP to completion
 
 **Phase 0 Output**: `input_mode`, `base_path`, `variants_count`, `targets[]`, `device_type`, loaded inputs
 
-## Phase 1: Layout Concept Generation
+## Phase 1: Layout Concept or Refinement Options Generation
 
-### Step 1: Generate Layout Concept Options (Agent Task 1)
+### Step 0.5: Load Existing Layout (Refinement Mode)
+```bash
+IF refine_mode:
+    # Load existing layout for refinement
+    existing_layouts = {}
+    FOR target IN targets:
+        layout_files = bash(find {base_path}/layout-extraction -name "layout-{target}-*.json" -print)
+        IF layout_files:
+            # Use first/latest layout file for this target
+            existing_layouts[target] = Read(first_layout_file)
+```
+
+### Step 1: Generate Options (Agent Task 1 - Mode-Specific)
 **Executor**: `Task(ui-design-agent)`
 
-Launch agent to generate `variants_count` layout concept options for each target:
+**Exploration Mode** (default): Generate contrasting layout concepts
+**Refinement Mode** (`--refine`): Generate refinement options for existing layouts
 
 ```javascript
-Task(ui-design-agent): `
-  [LAYOUT_CONCEPT_GENERATION_TASK]
-  Generate {variants_count} structurally distinct layout concepts for each target
+// Conditional agent task based on refine_mode
+IF NOT refine_mode:
+    // EXPLORATION MODE
+    Task(ui-design-agent): `
+      [LAYOUT_CONCEPT_GENERATION_TASK]
+      Generate {variants_count} structurally distinct layout concepts for each target
 
-  SESSION: {session_id} | MODE: explore | BASE_PATH: {base_path}
-  TARGETS: {targets} | DEVICE_TYPE: {device_type}
+      SESSION: {session_id} | MODE: explore | BASE_PATH: {base_path}
+      TARGETS: {targets} | DEVICE_TYPE: {device_type}
 
-  ## Input Analysis
-  - Targets: {targets.join(", ")}
-  - Device type: {device_type}
-  - Visual references: {loaded_images if available}
-  ${dom_structure_available ? "- DOM Structure: Read from .intermediates/layout-analysis/dom-structure-*.json" : ""}
+      ## Input Analysis
+      - Targets: {targets.join(", ")}
+      - Device type: {device_type}
+      - Visual references: {loaded_images if available}
+      ${dom_structure_available ? "- DOM Structure: Read from .intermediates/layout-analysis/dom-structure-*.json" : ""}
 
-  ## Analysis Rules
-  - For EACH target, generate {variants_count} structurally DIFFERENT layout concepts
-  - Concepts must differ in: grid structure, component arrangement, visual hierarchy
+      ## Analysis Rules
+      - For EACH target, generate {variants_count} structurally DIFFERENT layout concepts
+      - Concepts must differ in: grid structure, component arrangement, visual hierarchy
   - Each concept should have distinct navigation pattern, content flow, and responsive behavior
 
   ## Generate for EACH Target
@@ -245,7 +290,71 @@ Task(ui-design-agent): `
   Use schema from INTERACTIVE-DATA-SPEC.md (Layout Extract: analysis-options.json)
 
   CRITICAL: Use Write() tool immediately after generating complete JSON
-`
+    `
+ELSE:
+    // REFINEMENT MODE
+    Task(ui-design-agent): `
+      [LAYOUT_REFINEMENT_OPTIONS_TASK]
+      Generate refinement options for existing layout(s)
+
+      SESSION: {session_id} | MODE: refine | BASE_PATH: {base_path}
+      TARGETS: {targets} | DEVICE_TYPE: {device_type}
+
+      ## Existing Layouts
+      ${FOR target IN targets: "- {target}: {existing_layouts[target]}"}
+
+      ## Input Guidance
+      - User prompt: {prompt_guidance if available}
+      - Visual references: {loaded_images if available}
+
+      ## Refinement Categories
+      Generate 8-12 refinement options per target across these categories:
+
+      1. **Density Adjustments** (2-3 options per target):
+         - More compact: Tighter spacing, reduced whitespace
+         - More spacious: Increased margins, breathing room
+         - Balanced: Moderate adjustments
+
+      2. **Responsiveness Tuning** (2-3 options per target):
+         - Breakpoint behavior: Earlier/later column stacking
+         - Mobile layout: Different navigation/content priority
+         - Tablet optimization: Hybrid desktop/mobile approach
+
+      3. **Grid/Flex Specifics** (2-3 options per target):
+         - Column counts: 2-col ↔ 3-col ↔ 4-col
+         - Gap sizes: Tighter ↔ wider gutters
+         - Alignment: Different flex/grid justification
+
+      4. **Component Arrangement** (1-2 options per target):
+         - Navigation placement: Top ↔ side ↔ bottom
+         - Sidebar position: Left ↔ right ↔ none
+         - Content hierarchy: Different section ordering
+
+      ## Output Format
+      Each option (per target):
+      - target: Which target this refinement applies to
+      - category: "density|responsiveness|grid|arrangement"
+      - option_id: unique identifier
+      - label: Short descriptive name (e.g., "More Compact Spacing")
+      - description: What changes (2-3 sentences)
+      - preview_changes: Key structural adjustments
+      - impact_scope: Which layout regions affected
+
+      ## Output
+      Write single JSON file: {base_path}/.intermediates/layout-analysis/analysis-options.json
+
+      Use refinement schema:
+      {
+        "mode": "refinement",
+        "device_type": "{device_type}",
+        "refinement_options": {
+          "{target1}": [array of refinement options],
+          "{target2}": [array of refinement options]
+        }
+      }
+
+      CRITICAL: Use Write() tool immediately after generating complete JSON
+    `
 ```
 
 ### Step 2: Verify Options File Created
@@ -262,7 +371,9 @@ bash(cat {base_path}/.intermediates/layout-analysis/analysis-options.json | grep
 
 ## Phase 1.5: User Confirmation (Optional - Triggered by --interactive)
 
-**Purpose**: Allow user to select preferred layout concept(s) for each target before generating detailed templates
+**Purpose**:
+- **Exploration Mode**: Allow user to select preferred layout concept(s) per target
+- **Refinement Mode**: Allow user to select refinement options to apply per target
 
 **Trigger Condition**: Execute this phase ONLY if `--interactive` flag is present
 
@@ -271,18 +382,27 @@ bash(cat {base_path}/.intermediates/layout-analysis/analysis-options.json | grep
 # Skip this entire phase if --interactive flag is not present
 IF NOT --interactive:
     SKIP to Phase 2
+    IF refine_mode:
+        REPORT: "ℹ️ Non-interactive refinement mode: Will apply all suggested refinements"
+    ELSE:
+        REPORT: "ℹ️ Non-interactive mode: Will generate all {variants_count} variants per target"
 
 # Interactive mode enabled
 REPORT: "🎯 Interactive mode: User selection required for {targets.length} target(s)"
 ```
 
-### Step 2: Load and Present Options
+### Step 2: Load and Present Options (Mode-Specific)
 ```bash
 # Read options file
 options = Read({base_path}/.intermediates/layout-analysis/analysis-options.json)
 
-# Parse layout concepts
-layout_concepts = options.layout_concepts
+# Branch based on mode
+IF NOT refine_mode:
+    # EXPLORATION MODE
+    layout_concepts = options.layout_concepts
+ELSE:
+    # REFINEMENT MODE
+    refinement_options = options.refinement_options
 ```
 
 ### Step 2: Present Options to User (Per Target)
@@ -320,6 +440,25 @@ Please select your preferred concept for this target.
 ```
 
 ### Step 3: Capture User Selection and Update Options File (Per Target)
+
+**Interaction Strategy**: If total concepts > 4 OR any target has > 3 concepts, use batch text format:
+
+```
+【目标[N] - [target]】选择布局方案
+[key]) Concept [index]: [concept_name]
+   [design_philosophy]
+[key]) Concept [index]: [concept_name]
+   [design_philosophy]
+...
+请回答 (格式: 1a 2b 或 1a,b 2c 多选)：
+
+User input:
+  "[N][key] [N][key] ..." → Single selection per target
+  "[N][key1,key2] [N][key3] ..." → Multi-selection per target
+```
+
+Otherwise, use `AskUserQuestion` below.
+
 ```javascript
 // Use AskUserQuestion tool for each target (multi-select enabled)
 FOR each target:
@@ -505,22 +644,27 @@ FOR each task in task_list:
          - Device-specific styles (mobile-first @media for responsive)
          - NO colors, NO fonts, NO shadows - layout structure only
 
-      ## Output Format
-      Write single-template JSON object with:
-      - target: "{task.target}"
-      - variant_id: "layout-{task.variant_id}"
-      - source_image_path (string): Reference image path
-      - device_type: "{device_type}"
-      - design_philosophy (string from selected concept)
-      - dom_structure (JSON object)
-      - component_hierarchy (array of strings)
-      - css_layout_rules (string)
+      ## Output Files
+
+      Generate 2 files:
+
+      1. **layout-templates.json** - {task.output_file}
+         Write single-template JSON object with:
+         - target: "{task.target}"
+         - variant_id: "layout-{task.variant_id}"
+         - source_image_path (string): Reference image path
+         - device_type: "{device_type}"
+         - design_philosophy (string from selected concept)
+         - dom_structure (JSON object)
+         - component_hierarchy (array of strings)
+         - css_layout_rules (string)
 
       ## Critical Requirements
-      - ✅ Use Write() tool for {task.output_file}
+      - ✅ Use Write() tool to generate JSON file
       - ✅ Single template for {task.target} variant {task.variant_id}
       - ✅ Structure only, no visual styling
       - ✅ Token-based CSS (var())
+      - ✅ Can use Exa MCP to research modern layout patterns and obtain code examples (Explore/Text mode)
       - ✅ Maintain consistency with selected concept
     `
 ```
@@ -584,7 +728,7 @@ Generated Templates:
 {base_path}/layout-extraction/
 {FOR each target in targets:
   {FOR each variant_id in range(1, selections_per_target[target].selected_indices.length + 1):
-    ├── layout-{target}-{variant_id}.json
+    └── layout-{target}-{variant_id}.json
   }
 }
 
@@ -640,7 +784,7 @@ bash(echo '{json}' > {base_path}/layout-extraction/layout-templates.json)
 │       ├── analysis-options.json      # Generated layout concepts + user selections (embedded)
 │       └── dom-structure-{target}.json   # Extracted DOM structure (URL mode only)
 └── layout-extraction/                 # Final layout templates
-    └── layout-{target}-{variant}.json # Structural layout templates (one per selected concept)
+    └── layout-{target}-{variant}.json # Structural layout template JSON
 ```
 
 ## Layout Template File Format
@@ -735,22 +879,4 @@ ERROR: MCP search failed
 - **Foundation for Assembly** - Provides structural blueprint for prototype generation
 - **Agent-Powered** - Deep structural analysis with AI
 
-## Integration
 
-**Workflow Position**: Between style extraction and prototype generation
-
-**New Workflow**:
-1. `/workflow:ui-design:style-extract` → Multiple `style-N/design-tokens.json` files (Complete design systems)
-2. `/workflow:ui-design:layout-extract` → Multiple `layout-{target}-{variant}.json` files (Structural templates)
-3. `/workflow:ui-design:generate` (Assembler):
-   - **Reads**: All `design-tokens.json` files + all `layout-{target}-{variant}.json` files
-   - **Action**: For each style × layout combination:
-     1. Build HTML from `dom_structure`
-     2. Create layout CSS from `css_layout_rules`
-     3. Apply design tokens to CSS
-     4. Generate complete prototypes
-   - **Output**: Complete token-driven HTML/CSS prototypes
-
-**Input**: Reference images, URLs, or text prompts
-**Output**: `layout-{target}-{variant}.json` files for downstream generation commands
-**Next**: `/workflow:ui-design:generate`

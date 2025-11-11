@@ -1,7 +1,7 @@
 ---
 name: generate
-description: Assemble UI prototypes by combining layout templates with design tokens, pure assembler without new content generation
-argument-hint: [--base-path <path>] [--session <id>]
+description: Assemble UI prototypes by combining layout templates with design tokens (default animation support), pure assembler without new content generation
+argument-hint: [--design-id <id>] [--session <id>]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Task(ui-design-agent), Bash(*)
 ---
 
@@ -25,14 +25,27 @@ Pure assembler that combines pre-extracted layout templates with design tokens t
 
 ### Step 1: Resolve Base Path & Parse Configuration
 ```bash
-# Determine working directory (relative path - finds latest)
-relative_path=$(find .workflow -type d -name "design-run-*" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+# Determine base path with priority: --design-id > --session > auto-detect
+if [ -n "$DESIGN_ID" ]; then
+  # Exact match by design ID
+  relative_path=$(find .workflow -name "${DESIGN_ID}" -type d -print -quit)
+elif [ -n "$SESSION_ID" ]; then
+  # Latest in session
+  relative_path=$(find .workflow/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+else
+  # Latest globally
+  relative_path=$(find .workflow -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+fi
 
-# Convert to absolute path
+# Validate and convert to absolute path
+if [ -z "$relative_path" ] || [ ! -d "$relative_path" ]; then
+  echo "❌ ERROR: Design run not found"
+  echo "💡 HINT: Run '/workflow:ui-design:list' to see available design runs"
+  exit 1
+fi
+
 base_path=$(cd "$relative_path" && pwd)
-
-# Verify absolute path
-bash(test -d "$base_path" && echo "✓ Base path: $base_path" || echo "✗ Path not found")
+bash(echo "✓ Base path: $base_path")
 
 # Get style count
 bash(ls "$base_path"/style-extraction/style-* -d | wc -l)
@@ -86,30 +99,97 @@ ELSE:
 
 ## Phase 2: Assembly (Agent)
 
-**Executor**: `Task(ui-design-agent)` × `T × S × L` tasks (can be batched)
+**Executor**: `Task(ui-design-agent)` grouped by `target × style` (max 10 layouts per agent, max 6 concurrent agents)
 
-### Step 1: Launch Assembly Tasks
-```bash
-bash(mkdir -p {base_path}/prototypes)
+**⚠️ Core Principle**: **Each agent processes ONLY ONE style** (but can process multiple layouts for that style)
+
+### Agent Grouping Strategy
+
+**Grouping Rules**:
+1. **Style Isolation**: Each agent processes ONLY ONE style (never mixed)
+2. **Balanced Distribution**: Layouts evenly split (e.g., 12→6+6, not 10+2)
+3. **Target Separation**: Different targets use different agents
+
+**Distribution Formula**:
+```
+agents_needed = ceil(layout_count / MAX_LAYOUTS_PER_AGENT)
+base_count = floor(layout_count / agents_needed)
+remainder = layout_count % agents_needed
+# First 'remainder' agents get (base_count + 1), others get base_count
 ```
 
-For each `target × style_id × layout_id`:
+**Examples** (MAX=10):
+
+| Scenario | Result | Explanation |
+|----------|--------|-------------|
+| 3 styles × 3 layouts | 3 agents | Each style: 1 agent (3 layouts) |
+| 3 styles × 12 layouts | 6 agents | Each style: 2 agents (6+6 layouts) |
+| 2 styles × 5 layouts × 2 targets | 4 agents | Each (target, style): 1 agent (5 layouts) |
+
+### Step 1: Calculate Agent Grouping Plan
+```bash
+bash(mkdir -p {base_path}/prototypes)
+
+MAX_LAYOUTS_PER_AGENT = 10
+MAX_PARALLEL = 6
+
+agent_groups = []
+FOR each target in targets:
+  FOR each style_id in [1..S]:
+    layouts_for_this_target_style = filter layouts by current target
+    layout_count = len(layouts_for_this_target_style)
+
+    # Balanced distribution (e.g., 12 layouts → 6+6)
+    agents_needed = ceil(layout_count / MAX_LAYOUTS_PER_AGENT)
+    base_count = floor(layout_count / agents_needed)
+    remainder = layout_count % agents_needed
+
+    layout_chunks = []
+    start_idx = 0
+    FOR i in range(agents_needed):
+      chunk_size = base_count + 1 if i < remainder else base_count
+      layout_chunks.append(layouts[start_idx : start_idx + chunk_size])
+      start_idx += chunk_size
+
+    FOR each chunk in layout_chunks:
+      agent_groups.append({
+        target: target,           # Single target
+        style_id: style_id,       # Single style
+        layout_ids: chunk         # Balanced layouts (≤10)
+      })
+
+total_agents = len(agent_groups)
+total_batches = ceil(total_agents / MAX_PARALLEL)
+
+TodoWrite({todos: [
+  {content: "Setup and validation", status: "completed", activeForm: "Loading design systems"},
+  {content: "Batch 1/{total_batches}: Assemble up to 6 agent groups", status: "in_progress", activeForm: "Assembling batch 1"},
+  {content: "Batch 2/{total_batches}: Assemble up to 6 agent groups", status: "pending", activeForm: "Assembling batch 2"},
+  ... (continue for all batches)
+]})
+```
+
+### Step 2: Launch Batched Assembly Tasks
+
+For each batch (up to 6 parallel agents per batch):
+For each agent group `{target, style_id, layout_ids[]}` in current batch:
 ```javascript
 Task(ui-design-agent): `
   [LAYOUT_STYLE_ASSEMBLY]
-  🎯 Assembly task: {target} × Style-{style_id} × Layout-{layout_id}
-  Combine: Pre-extracted layout structure + design tokens → Final HTML/CSS
+  🎯 {target} × Style-{style_id} × Layouts-{layout_ids}
+  ⚠️ CONSTRAINT: Use ONLY style-{style_id}/design-tokens.json (never mix styles)
 
-  TARGET: {target} | STYLE: {style_id} | LAYOUT: {layout_id}
+  TARGET: {target} | STYLE: {style_id} | LAYOUTS: {layout_ids} (max 10)
   BASE_PATH: {base_path}
 
   ## Inputs (READ ONLY - NO DESIGN DECISIONS)
-  1. Layout Template:
-     Read("{base_path}/layout-extraction/layout-{target}-{layout_id}.json")
-     This file contains the specific layout template for this target and variant.
-     Extract: dom_structure, css_layout_rules, device_type, source_image_path (from template field)
+  1. Layout Templates (LOOP THROUGH):
+     FOR each layout_id in layout_ids:
+       Read("{base_path}/layout-extraction/layout-{target}-{layout_id}.json")
+       This file contains the specific layout template for this target and variant.
+       Extract: dom_structure, css_layout_rules, device_type, source_image_path (from template field)
 
-  2. Design Tokens:
+  2. Design Tokens (SHARED - READ ONCE):
      Read("{base_path}/style-extraction/style-{style_id}/design-tokens.json")
      Extract: ALL token values including:
        * colors, typography (with combinations), spacing, opacity
@@ -133,61 +213,70 @@ Task(ui-design-agent): `
      ELSE:
        Use generic placeholder content
 
-  ## Assembly Process
-  1. Build HTML: {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.html
-     - Recursively build from template.dom_structure
-     - Add: <!DOCTYPE html>, <head>, <meta viewport>
-     - CSS link: <link href="{target}-style-{style_id}-layout-{layout_id}.css">
-     - Inject placeholder content:
-       * Default: Use Lorem ipsum, generic sample data
-       * If reference image available: Generate more contextually appropriate placeholders
-         (e.g., realistic headings, meaningful text snippets that match the visual context)
-     - Preserve all attributes from dom_structure
+  ## Assembly Process (LOOP FOR EACH LAYOUT)
+  FOR each layout_id in layout_ids:
 
-  2. Build CSS: {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.css
-     - Start with template.css_layout_rules
-     - Replace ALL var(--*) with actual token values from design-tokens.json
-       Example: var(--spacing-4) → 1rem (from tokens.spacing.4)
-       Example: var(--breakpoint-md) → 768px (from tokens.breakpoints.md)
-       Example: var(--opacity-80) → 0.8 (from tokens.opacity.80)
-     - Add visual styling using design tokens:
-       * Colors: tokens.colors.*
-       * Typography: tokens.typography.* (including combinations)
-       * Opacity: tokens.opacity.*
-       * Shadows: tokens.shadows.*
-       * Border radius: tokens.border_radius.*
-     - IF tokens.component_styles exists: Add component style classes
-       * Generate classes for button variants (.btn-primary, .btn-secondary)
-       * Generate classes for card variants (.card-default, .card-interactive)
-       * Generate classes for input variants (.input-default, .input-focus, .input-error)
-       * Use var() references that resolve to actual token values
-     - IF tokens.typography.combinations exists: Add typography preset classes
-       * Generate classes for typography presets (.text-heading-primary, .text-body-regular, .text-caption)
-       * Use var() references for family, size, weight, line-height, letter-spacing
-     - IF has_animations == true: Inject animation tokens
-       * Add CSS Custom Properties for animations at :root level:
-         --duration-instant, --duration-fast, --duration-normal, etc.
-         --easing-linear, --easing-ease-out, etc.
-       * Add @keyframes rules from animation_tokens.keyframes
-       * Add interaction classes (.button-hover, .card-hover) from animation_tokens.interactions
-       * Add utility classes (.transition-color, .transition-transform) from animation_tokens.transitions
-       * Include prefers-reduced-motion media query for accessibility
-     - Device-optimized for template.device_type
+    1. Build HTML: {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.html
+       - Recursively build from template.dom_structure
+       - Add: <!DOCTYPE html>, <head>, <meta viewport>
+       - CSS link: <link href="{target}-style-{style_id}-layout-{layout_id}.css">
+       - Inject placeholder content:
+         * Default: Use Lorem ipsum, generic sample data
+         * If reference image available: Generate more contextually appropriate placeholders
+           (e.g., realistic headings, meaningful text snippets that match the visual context)
+       - Preserve all attributes from dom_structure
+
+    2. Build CSS: {base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.css
+       - Start with template.css_layout_rules
+       - Replace ALL var(--*) with actual token values from design-tokens.json
+         Example: var(--spacing-4) → 1rem (from tokens.spacing.4)
+         Example: var(--breakpoint-md) → 768px (from tokens.breakpoints.md)
+         Example: var(--opacity-80) → 0.8 (from tokens.opacity.80)
+       - Add visual styling using design tokens:
+         * Colors: tokens.colors.*
+         * Typography: tokens.typography.* (including combinations)
+         * Opacity: tokens.opacity.*
+         * Shadows: tokens.shadows.*
+         * Border radius: tokens.border_radius.*
+       - IF tokens.component_styles exists: Add component style classes
+         * Generate classes for button variants (.btn-primary, .btn-secondary)
+         * Generate classes for card variants (.card-default, .card-interactive)
+         * Generate classes for input variants (.input-default, .input-focus, .input-error)
+         * Use var() references that resolve to actual token values
+       - IF tokens.typography.combinations exists: Add typography preset classes
+         * Generate classes for typography presets (.text-heading-primary, .text-body-regular, .text-caption)
+         * Use var() references for family, size, weight, line-height, letter-spacing
+       - IF has_animations == true: Inject animation tokens (ONCE, shared across layouts)
+         * Add CSS Custom Properties for animations at :root level:
+           --duration-instant, --duration-fast, --duration-normal, etc.
+           --easing-linear, --easing-ease-out, etc.
+         * Add @keyframes rules from animation_tokens.keyframes
+         * Add interaction classes (.button-hover, .card-hover) from animation_tokens.interactions
+         * Add utility classes (.transition-color, .transition-transform) from animation_tokens.transitions
+         * Include prefers-reduced-motion media query for accessibility
+       - Device-optimized for template.device_type
+
+    3. Write files IMMEDIATELY after each layout completes
 
   ## Assembly Rules
-  - ✅ Pure assembly: Combine existing structure + existing style
-  - ❌ NO layout design decisions (structure pre-defined)
-  - ❌ NO style design decisions (tokens pre-defined)
+  - ✅ Pure assembly: Combine pre-extracted structure + tokens
+  - ❌ NO design decisions (layout/style pre-defined)
+  - ✅ Read tokens ONCE, apply to all layouts in this batch
   - ✅ Replace var() with actual values
-  - ✅ Add placeholder content only
-  - Write files IMMEDIATELY
-  - CSS filename MUST match HTML <link href="...">
+  - ✅ CSS filename MUST match HTML <link href="...">
+
+  ## Output
+  - Files: {len(layout_ids) × 2} (HTML + CSS pairs)
+  - Each layout generates 2 files independently
 `
+
+# After each batch completes
+TodoWrite: Mark current batch completed, next batch in_progress
 ```
 
-### Step 2: Verify Generated Files
+### Step 3: Verify Generated Files
 ```bash
-# Count expected vs found
+# Count expected vs found (should equal S × L × T)
 bash(ls {base_path}/prototypes/{target}-style-*-layout-*.html | wc -l)
 
 # Validate samples
@@ -195,7 +284,7 @@ Read({base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.html)
 # Check: <!DOCTYPE html>, correct CSS href, sufficient CSS length
 ```
 
-**Output**: `S × L × T × 2` files verified
+**Output**: `total_files = S × L × T × 2` files verified (HTML + CSS pairs)
 
 ## Phase 3: Generate Preview Files
 
@@ -222,10 +311,10 @@ bash(ls {base_path}/prototypes/compare.html {base_path}/prototypes/index.html {b
 ```javascript
 TodoWrite({todos: [
   {content: "Setup and validation", status: "completed", activeForm: "Loading design systems"},
-  {content: "Load layout templates", status: "completed", activeForm: "Reading layout templates"},
-  {content: "Assembly (agent)", status: "completed", activeForm: "Assembling prototypes"},
-  {content: "Verify files", status: "completed", activeForm: "Validating output"},
-  {content: "Generate previews", status: "completed", activeForm: "Creating preview files"}
+  {content: "Batch 1/{total_batches}: Assemble 6 tasks", status: "completed", activeForm: "Assembling batch 1"},
+  {content: "Batch 2/{total_batches}: Assemble 6 tasks", status: "completed", activeForm: "Assembling batch 2"},
+  ... (all batches completed)
+  {content: "Verify files & generate previews", status: "completed", activeForm: "Creating previews"}
 ]});
 ```
 
@@ -240,17 +329,24 @@ Configuration:
 - Targets: {targets}
 - Total Prototypes: {S × L × T}
 - Image Reference: Auto-detected (uses source images when available in layout templates)
+- Animation Support: {has_animations ? 'Enabled (animation-tokens.json loaded)' : 'Not available'}
 
 Assembly Process:
 - Pure assembly: Combined pre-extracted layouts + design tokens
-- No design decisions: All structure and style pre-defined
-- Assembly tasks: T×S×L = {T}×{S}×{L} = {T×S×L} combinations
+- Agent grouping: target × style (max 10 layouts per agent)
+- Balanced distribution: Layouts evenly split (e.g., 12 → 6+6, not 10+2)
+
+Batch Execution:
+- Total agents: {total_agents} (each processes ONE style only)
+- Batches: {total_batches} (max 6 agents parallel)
+- Token efficiency: Read once per agent, apply to all layouts
 
 Quality:
 - Structure: From layout-extract (DOM, CSS layout rules)
 - Style: From style-extract (design tokens)
 - CSS: Token values directly applied (var() replaced)
 - Device-optimized: Layouts match device_type from templates
+- Animations: {has_animations ? 'CSS custom properties and @keyframes injected' : 'Static styles only'}
 
 Generated Files:
 {base_path}/prototypes/
@@ -362,10 +458,9 @@ ERROR: Script permission denied
 ## Key Features
 
 - **Pure Assembly**: No design decisions, only combination
-- **Separation of Concerns**: Layout (structure) + Style (tokens) kept separate until final assembly
-- **Token Resolution**: var() placeholders replaced with actual values
-- **Pre-validated**: Inputs already validated by extract/consolidate
-- **Efficient**: Simple assembly vs complex generation
+- **Token Resolution**: var() → actual values
+- **Efficient Grouping**: target × style (max 10 layouts/agent, balanced split)
+- **Style Isolation**: Each agent processes ONE style only
 - **Production-Ready**: Semantic, accessible, token-driven
 
 ## Integration

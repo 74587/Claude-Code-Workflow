@@ -1,7 +1,7 @@
 ---
 name: chat
 description: Read-only Q&A interaction with Gemini/Qwen/Codex for codebase questions with automatic context inference
-argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] inquiry"
+argument-hint: "[--tool codex|gemini|qwen] [--enhance] inquiry"
 allowed-tools: SlashCommand(*), Bash(*), Task(*)
 ---
 
@@ -19,7 +19,6 @@ Direct Q&A interaction with CLI tools for codebase analysis. **Read-only - does 
 ## Parameters
 
 - `--tool <gemini|qwen|codex>` - Tool selection (default: gemini)
-- `--agent` - Use cli-execution-agent for automated context discovery
 - `--enhance` - Enhance inquiry with `/enhance-prompt`
 - `<inquiry>` (Required) - Question or analysis request
 
@@ -42,42 +41,36 @@ Direct Q&A interaction with CLI tools for codebase analysis. **Read-only - does 
 
 ## Execution Flow
 
-### Standard Mode
-1. Parse tool selection (default: gemini)
-2. Optional: enhance with `/enhance-prompt`
-3. Assemble context: `@CLAUDE.md` + inferred files
-4. Execute Q&A (read-only)
-5. Return answer
-
-### Agent Mode (`--agent`)
-
-Delegates to agent for intelligent Q&A:
+Uses **cli-execution-agent** (default) for automated Q&A:
 
 ```javascript
 Task(
   subagent_type="cli-execution-agent",
-  description="Codebase Q&A",
+  description="Codebase Q&A with intelligent context discovery",
   prompt=`
     Task: ${inquiry}
-    Mode: chat (Q&A)
-    Tool: ${tool_flag || 'auto-select'}  // gemini|qwen|codex
-    Enhance: ${enhance_flag || false}
+    Mode: chat
+    Tool: ${tool_flag || 'gemini'}
+    Enhance: ${enhance_flag}
 
-    Agent responsibilities:
+    Execute codebase Q&A with intelligent context discovery:
+
     1. Context Discovery:
-       - Discover files relevant to question
-       - Identify key code sections
-       - Build precise context
+       - Parse inquiry to identify relevant topics/keywords
+       - Discover related files using MCP/ripgrep (prioritize precision)
+       - Include @CLAUDE.md + discovered files
+       - Validate context relevance to question
 
-    2. CLI Command Generation:
-       - Build Gemini/Qwen/Codex command
-       - Include discovered context
-       - Apply Q&A template
+    2. CLI Command Construction:
+       - Tool: ${tool_flag || 'gemini'} (qwen fallback, codex for deep dives)
+       - Context: @CLAUDE.md + discovered file patterns
+       - Mode: analysis (read-only)
+       - Expected: Clear, accurate answer with code references
 
     3. Execution & Output:
-       - Execute Q&A analysis
-       - Generate detailed answer
-       - Save to .workflow/.chat/ or .scratchpad/
+       - Execute CLI tool with assembled context
+       - Validate answer completeness
+       - Save to .workflow/WFS-[id]/.chat/chat-[timestamp].md (or .scratchpad/)
   `
 )
 ```
@@ -86,40 +79,4 @@ Task(
 
 - **Read-only**: Provides answers, does NOT modify code
 - **Context**: `@CLAUDE.md` + inferred or all files (`@**/*`)
-- **Output**: Saves to `.workflow/WFS-[id]/.chat/` or `.scratchpad/`
-
-## CLI Command Templates
-
-**Gemini/Qwen**:
-```bash
-cd . && gemini -p "
-PURPOSE: Answer question
-TASK: [inquiry]
-MODE: analysis
-CONTEXT: @CLAUDE.md [inferred or @**/*]
-EXPECTED: Clear answer
-RULES: Focus on accuracy
-"
-# Qwen: Replace 'gemini' with 'qwen'
-```
-
-**Codex**:
-```bash
-codex -C . --full-auto exec "
-PURPOSE: Answer question
-TASK: [inquiry]
-MODE: analysis
-CONTEXT: @CLAUDE.md [inferred or @**/*]
-EXPECTED: Detailed answer
-RULES: Technical depth
-" -m gpt-5 --skip-git-repo-check -s danger-full-access
-```
-
-## Output
-
-- **With session**: `.workflow/WFS-[id]/.chat/chat-[timestamp].md`
-- **No session**: `.workflow/.scratchpad/chat-[desc]-[timestamp].md`
-
-## Notes
-
-- See `intelligent-tools-strategy.md` for detailed tool usage and templates
+- **Output**: `.workflow/WFS-[id]/.chat/chat-[timestamp].md` (or `.scratchpad/` if no session)

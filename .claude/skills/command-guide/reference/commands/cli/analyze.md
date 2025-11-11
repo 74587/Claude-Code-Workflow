@@ -1,7 +1,7 @@
 ---
 name: analyze
 description: Read-only codebase analysis using Gemini (default), Qwen, or Codex with auto-pattern detection and template selection
-argument-hint: "[--agent] [--tool codex|gemini|qwen] [--enhance] analysis target"
+argument-hint: "[--tool codex|gemini|qwen] [--enhance] analysis target"
 allowed-tools: SlashCommand(*), Bash(*), TodoWrite(*), Read(*), Glob(*), Task(*)
 ---
 
@@ -19,7 +19,6 @@ Quick codebase analysis using CLI tools. **Read-only - does NOT modify code**.
 ## Parameters
 
 - `--tool <gemini|qwen|codex>` - Tool selection (default: gemini)
-- `--agent` - Use cli-execution-agent for automated context discovery
 - `--enhance` - Use `/enhance-prompt` for context-aware enhancement
 - `<analysis-target>` - Description of what to analyze
 
@@ -42,43 +41,41 @@ Quick codebase analysis using CLI tools. **Read-only - does NOT modify code**.
 
 ## Execution Flow
 
-### Standard Mode
-1. Parse tool selection (default: gemini)
-2. Optional: enhance with `/enhance-prompt`
-3. Auto-detect file patterns from keywords
-4. Build command with analysis template
-5. Execute analysis (read-only)
-6. Save results
-
-### Agent Mode (`--agent`)
-
-Delegates to agent for intelligent analysis:
+Uses **cli-execution-agent** (default) for automated analysis:
 
 ```javascript
 Task(
   subagent_type="cli-execution-agent",
-  description="Codebase analysis",
+  description="Codebase analysis with pattern detection",
   prompt=`
     Task: ${analysis_target}
     Mode: analyze
-    Tool: ${tool_flag || 'auto-select'}  // gemini|qwen|codex
-    Enhance: ${enhance_flag || false}
+    Tool: ${tool_flag || 'gemini'}
+    Enhance: ${enhance_flag}
 
-    Agent responsibilities:
+    Execute codebase analysis with auto-pattern detection:
+
     1. Context Discovery:
-       - Discover relevant files/patterns
-       - Identify analysis scope
-       - Build file context
+       - Extract keywords from analysis target
+       - Auto-detect file patterns (auth→auth files, component→components, etc.)
+       - Discover additional relevant files using MCP
+       - Build comprehensive file context
 
-    2. CLI Command Generation:
-       - Build Gemini/Qwen/Codex command
-       - Apply analysis template
-       - Include discovered files
+    2. Template Selection:
+       - Auto-select analysis template based on keywords
+       - Apply appropriate analysis methodology
+       - Include @CLAUDE.md for project context
 
-    3. Execution & Output:
-       - Execute analysis
-       - Generate insights report
-       - Save to .workflow/.chat/ or .scratchpad/
+    3. CLI Command Construction:
+       - Tool: ${tool_flag || 'gemini'} (qwen fallback, codex for deep analysis)
+       - Context: @CLAUDE.md + auto-detected patterns + discovered files
+       - Mode: analysis (read-only)
+       - Expected: Insights, recommendations, pattern analysis
+
+    4. Execution & Output:
+       - Execute CLI tool with assembled context
+       - Generate comprehensive analysis report
+       - Save to .workflow/WFS-[id]/.chat/analyze-[timestamp].md (or .scratchpad/)
   `
 )
 ```
@@ -86,51 +83,5 @@ Task(
 ## Core Rules
 
 - **Read-only**: Analyzes code, does NOT modify files
-- **Auto-pattern**: Detects file patterns from keywords
-- **Template-based**: Auto-selects analysis template
-- **Output**: Saves to `.workflow/WFS-[id]/.chat/` or `.scratchpad/`
-
-## File Pattern Auto-Detection
-
-Keywords → file patterns:
-- "auth" → `@**/*auth* @**/*user*`
-- "component" → `@src/components/**/*`
-- "API" → `@**/api/**/* @**/routes/**/*`
-- "test" → `@**/*.test.* @**/*.spec.*`
-- Generic → `@src/**/*`
-
-## CLI Command Templates
-
-**Gemini/Qwen**:
-```bash
-cd . && gemini -p "
-PURPOSE: [goal]
-TASK: [analysis type]
-MODE: analysis
-CONTEXT: @CLAUDE.md [auto-detected patterns]
-EXPECTED: Insights, recommendations
-RULES: [auto-selected template]
-"
-# Qwen: Replace 'gemini' with 'qwen'
-```
-
-**Codex**:
-```bash
-codex -C . --full-auto exec "
-PURPOSE: [goal]
-TASK: [analysis type]
-MODE: analysis
-CONTEXT: @CLAUDE.md [patterns]
-EXPECTED: Deep insights
-RULES: [template]
-" -m gpt-5 --skip-git-repo-check -s danger-full-access
-```
-
-## Output
-
-- **With session**: `.workflow/WFS-[id]/.chat/analyze-[timestamp].md`
-- **No session**: `.workflow/.scratchpad/analyze-[desc]-[timestamp].md`
-
-## Notes
-
-- See `intelligent-tools-strategy.md` for detailed tool usage and templates
+- **Auto-pattern**: Detects file patterns from keywords (auth→auth files, component→components, API→api/routes, test→test files)
+- **Output**: `.workflow/WFS-[id]/.chat/analyze-[timestamp].md` (or `.scratchpad/` if no session)

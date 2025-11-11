@@ -9,22 +9,32 @@ allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*
 
 ## Coordinator Role
 
-**This command is a pure orchestrator**: Execute 3 phases in sequence (interactive framework → parallel role analysis → synthesis), delegate to specialized commands/agents, and ensure complete execution through **automatic continuation**.
+**This command is a pure orchestrator**: Execute 3 phases in sequence (interactive framework → parallel role analysis → synthesis), coordinating specialized commands/agents through task attachment model.
+
+**Task Attachment Model**:
+- SlashCommand invocation **expands workflow** by attaching sub-tasks to current TodoWrite
+- Task agent execution **attaches analysis tasks** to orchestrator's TodoWrite
+- Phase 1: artifacts command attaches its internal tasks (Phase 1-5)
+- Phase 2: N conceptual-planning-agent tasks attached in parallel
+- Phase 3: synthesis command attaches its internal tasks
+- Orchestrator **executes these attached tasks** sequentially (Phase 1, 3) or in parallel (Phase 2)
+- After completion, attached tasks are **collapsed** back to high-level phase summary
+- This is **task expansion**, not external delegation
 
 **Execution Model - Auto-Continue Workflow**:
 
 This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) handles user interaction, Phase 2 (role agents) runs in parallel.
 
 1. **User triggers**: `/workflow:brainstorm:auto-parallel "topic" [--count N]`
-2. **Phase 1 executes** → artifacts command (interactive framework) → Auto-continues
-3. **Phase 2 executes** → Parallel role agents (N agents run concurrently) → Auto-continues
-4. **Phase 3 executes** → Synthesis command → Reports final summary
+2. **Phase 1 executes** → artifacts command (tasks ATTACHED) → Auto-continues
+3. **Phase 2 executes** → Parallel role agents (N tasks ATTACHED concurrently) → Auto-continues
+4. **Phase 3 executes** → Synthesis command (tasks ATTACHED) → Reports final summary
 
 **Auto-Continue Mechanism**:
-- TodoList tracks current phase status
-- After Phase 1 (artifacts) completion, automatically load roles and launch Phase 2 agents
-- After Phase 2 (all agents) completion, automatically execute Phase 3 synthesis
-- Progress updates shown at each phase for visibility
+- TodoList tracks current phase status and dynamically manages task attachment/collapse
+- When Phase 1 (artifacts) finishes executing, automatically load roles and launch Phase 2 agents
+- When Phase 2 (all agents) finishes executing, automatically execute Phase 3 synthesis
+- **⚠️ CONTINUOUS EXECUTION** - Do not stop until all phases complete
 
 ## Core Rules
 
@@ -32,8 +42,10 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 2. **No Preliminary Analysis**: Do not analyze topic before Phase 1 - artifacts handles all analysis
 3. **Parse Every Output**: Extract selected_roles from workflow-session.json after Phase 1
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
-5. **Track Progress**: Update TodoWrite after every phase completion
-6. **TodoWrite Extension**: artifacts command EXTENDS parent TodoList (NOT replaces)
+5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
+6. **Task Attachment Model**: SlashCommand and Task invocations **attach** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+7. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
+8. **Parallel Execution**: Phase 2 attaches multiple agent tasks simultaneously for concurrent execution
 
 ## Usage
 
@@ -74,15 +86,37 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 - workflow-session.json contains selected_roles[] (metadata only, no content duplication)
 - Session directory `.workflow/WFS-{topic}/.brainstorming/` exists
 
-**TodoWrite**: Mark phase 1 completed, phase 2 in_progress
+**TodoWrite Update (Phase 1 SlashCommand invoked - tasks attached)**:
+```json
+[
+  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Phase 1.1: Topic analysis and question generation (artifacts)", "status": "in_progress", "activeForm": "Analyzing topic"},
+  {"content": "Phase 1.2: Role selection and user confirmation (artifacts)", "status": "pending", "activeForm": "Selecting roles"},
+  {"content": "Phase 1.3: Role questions and user decisions (artifacts)", "status": "pending", "activeForm": "Collecting role questions"},
+  {"content": "Phase 1.4: Conflict detection and resolution (artifacts)", "status": "pending", "activeForm": "Resolving conflicts"},
+  {"content": "Phase 1.5: Guidance specification generation (artifacts)", "status": "pending", "activeForm": "Generating guidance"},
+  {"content": "Execute parallel role analysis", "status": "pending", "activeForm": "Executing parallel role analysis"},
+  {"content": "Execute synthesis integration", "status": "pending", "activeForm": "Executing synthesis integration"}
+]
+```
 
-**After Phase 1**: Auto-continue to Phase 2 (role agent assignment)
+**Note**: SlashCommand invocation **attaches** artifacts' 5 internal tasks. Orchestrator **executes** these tasks sequentially.
 
-**⚠️ TodoWrite Coordination**: artifacts EXTENDS parent TodoList by:
-- Marking parent task "Execute artifacts..." as in_progress
-- APPENDING artifacts sub-tasks (Phase 1-5) after parent task
-- PRESERVING all other auto-parallel tasks (role agents, synthesis)
-- When artifacts Phase 5 completes, marking parent task as completed
+**Next Action**: Tasks attached → **Execute Phase 1.1-1.5** sequentially
+
+**TodoWrite Update (Phase 1 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Execute parallel role analysis", "status": "pending", "activeForm": "Executing parallel role analysis"},
+  {"content": "Execute synthesis integration", "status": "pending", "activeForm": "Executing synthesis integration"}
+]
+```
+
+**Note**: Phase 1 tasks completed and collapsed to summary.
+
+**After Phase 1**: Auto-continue to Phase 2 (parallel role agent execution)
 
 ---
 
@@ -143,8 +177,9 @@ TOPIC: {user-provided-topic}
 
 **Parallel Execution**:
 - Launch N agents simultaneously (one message with multiple Task calls)
+- Each agent task **attached** to orchestrator's TodoWrite
+- All agents execute concurrently, each attaching their own analysis sub-tasks
 - Each agent operates independently reading same guidance-specification.md
-- All agents update progress concurrently
 
 **Input**:
 - `selected_roles[]` from Phase 1
@@ -158,7 +193,33 @@ TOPIC: {user-provided-topic}
 - **FORBIDDEN naming**: No `recommendations.md`, `recommendations-*.md`, or any non-`analysis` prefixed files
 - All N role analyses completed
 
-**TodoWrite**: Mark all N role agent tasks completed, phase 3 in_progress
+**TodoWrite Update (Phase 2 agents invoked - tasks attached in parallel)**:
+```json
+[
+  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Phase 2.1: Execute system-architect analysis [conceptual-planning-agent]", "status": "in_progress", "activeForm": "Executing system-architect analysis"},
+  {"content": "Phase 2.2: Execute ui-designer analysis [conceptual-planning-agent]", "status": "in_progress", "activeForm": "Executing ui-designer analysis"},
+  {"content": "Phase 2.3: Execute product-manager analysis [conceptual-planning-agent]", "status": "in_progress", "activeForm": "Executing product-manager analysis"},
+  {"content": "Execute synthesis integration", "status": "pending", "activeForm": "Executing synthesis integration"}
+]
+```
+
+**Note**: Multiple Task invocations **attach** N role analysis tasks simultaneously. Orchestrator **executes** these tasks in parallel.
+
+**Next Action**: Tasks attached → **Execute Phase 2.1-2.N** concurrently
+
+**TodoWrite Update (Phase 2 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Execute parallel role analysis", "status": "completed", "activeForm": "Executing parallel role analysis"},
+  {"content": "Execute synthesis integration", "status": "pending", "activeForm": "Executing synthesis integration"}
+]
+```
+
+**Note**: Phase 2 parallel tasks completed and collapsed to summary.
 
 **After Phase 2**: Auto-continue to Phase 3 (synthesis)
 
@@ -180,7 +241,33 @@ TOPIC: {user-provided-topic}
 - `.workflow/WFS-{topic}/.brainstorming/synthesis-specification.md` exists
 - Synthesis references all role analyses
 
-**TodoWrite**: Mark phase 3 completed
+**TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached)**:
+```json
+[
+  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Execute parallel role analysis", "status": "completed", "activeForm": "Executing parallel role analysis"},
+  {"content": "Phase 3.1: Load role analysis files (synthesis)", "status": "in_progress", "activeForm": "Loading role analyses"},
+  {"content": "Phase 3.2: Integrate insights across roles (synthesis)", "status": "pending", "activeForm": "Integrating insights"},
+  {"content": "Phase 3.3: Generate synthesis specification (synthesis)", "status": "pending", "activeForm": "Generating synthesis"}
+]
+```
+
+**Note**: SlashCommand invocation **attaches** synthesis' internal tasks. Orchestrator **executes** these tasks sequentially.
+
+**Next Action**: Tasks attached → **Execute Phase 3.1-3.3** sequentially
+
+**TodoWrite Update (Phase 3 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Execute parallel role analysis", "status": "completed", "activeForm": "Executing parallel role analysis"},
+  {"content": "Execute synthesis integration", "status": "completed", "activeForm": "Executing synthesis integration"}
+]
+```
+
+**Note**: Phase 3 tasks completed and collapsed to summary.
 
 **Return to User**:
 ```
@@ -195,49 +282,49 @@ Synthesis: .workflow/WFS-{topic}/.brainstorming/synthesis-specification.md
 
 ## TodoWrite Pattern
 
-```javascript
-// Initialize (before Phase 1)
-TodoWrite({todos: [
-  {"content": "Parse --count parameter from user input", "status": "in_progress", "activeForm": "Parsing count parameter"},
-  {"content": "Execute artifacts command for interactive framework generation", "status": "pending", "activeForm": "Executing artifacts interactive framework"},
-  {"content": "Load selected_roles from workflow-session.json", "status": "pending", "activeForm": "Loading selected roles"},
-  // Role agent tasks added dynamically after Phase 1 based on selected_roles count
-  {"content": "Execute synthesis command for final integration", "status": "pending", "activeForm": "Executing synthesis integration"}
-]})
+**Core Concept**: Dynamic task attachment and collapse for parallel brainstorming workflow with interactive framework generation and concurrent role analysis.
 
-// After Phase 1 (artifacts completes, roles loaded)
-// Note: artifacts EXTENDS this list by appending its Phase 1-5 sub-tasks
-TodoWrite({todos: [
-  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
-  {"content": "Execute artifacts command for interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
-  {"content": "Load selected_roles from workflow-session.json", "status": "in_progress", "activeForm": "Loading selected roles"},
-  {"content": "Execute system-architect analysis [conceptual-planning-agent]", "status": "pending", "activeForm": "Executing system-architect analysis"},
-  {"content": "Execute ui-designer analysis [conceptual-planning-agent]", "status": "pending", "activeForm": "Executing ui-designer analysis"},
-  {"content": "Execute product-manager analysis [conceptual-planning-agent]", "status": "pending", "activeForm": "Executing product-manager analysis"},
-  // ... (N role tasks based on --count parameter)
-  {"content": "Execute synthesis command for final integration", "status": "pending", "activeForm": "Executing synthesis integration"}
-]})
+### Key Principles
 
-// After Phase 2 (all agents launched in parallel)
-TodoWrite({todos: [
-  // ... previous completed tasks
-  {"content": "Load selected_roles from workflow-session.json", "status": "completed", "activeForm": "Loading selected roles"},
-  {"content": "Execute system-architect analysis [conceptual-planning-agent]", "status": "in_progress", "activeForm": "Executing system-architect analysis"},
-  {"content": "Execute ui-designer analysis [conceptual-planning-agent]", "status": "in_progress", "activeForm": "Executing ui-designer analysis"},
-  {"content": "Execute product-manager analysis [conceptual-planning-agent]", "status": "in_progress", "activeForm": "Executing product-manager analysis"},
-  // ... (all N agents in_progress simultaneously)
-  {"content": "Execute synthesis command for final integration", "status": "pending", "activeForm": "Executing synthesis integration"}
-]})
+1. **Task Attachment** (when SlashCommand/Task invoked):
+   - Sub-command's or agent's internal tasks are **attached** to orchestrator's TodoWrite
+   - Phase 1: `/workflow:brainstorm:artifacts` attaches 5 internal tasks (Phase 1.1-1.5)
+   - Phase 2: Multiple `Task(conceptual-planning-agent)` calls attach N role analysis tasks simultaneously
+   - Phase 3: `/workflow:brainstorm:synthesis` attaches 3 internal tasks (Phase 3.1-3.3)
+   - First attached task marked as `in_progress`, others as `pending`
+   - Orchestrator **executes** these attached tasks (sequentially for Phase 1, 3; in parallel for Phase 2)
 
-// After Phase 2 (all agents complete)
-TodoWrite({todos: [
-  // ... previous completed tasks
-  {"content": "Execute system-architect analysis [conceptual-planning-agent]", "status": "completed", "activeForm": "Executing system-architect analysis"},
-  {"content": "Execute ui-designer analysis [conceptual-planning-agent]", "status": "completed", "activeForm": "Executing ui-designer analysis"},
-  {"content": "Execute product-manager analysis [conceptual-planning-agent]", "status": "completed", "activeForm": "Executing product-manager analysis"},
-  {"content": "Execute synthesis command for final integration", "status": "in_progress", "activeForm": "Executing synthesis integration"}
-]})
-```
+2. **Task Collapse** (after sub-tasks complete):
+   - Remove detailed sub-tasks from TodoWrite
+   - **Collapse** to high-level phase summary
+   - Example: Phase 1.1-1.5 collapse to "Execute artifacts interactive framework generation: completed"
+   - Phase 2: Multiple role tasks collapse to "Execute parallel role analysis: completed"
+   - Phase 3: Synthesis tasks collapse to "Execute synthesis integration: completed"
+   - Maintains clean orchestrator-level view
+
+3. **Continuous Execution**:
+   - After collapse, automatically proceed to next pending phase
+   - No user intervention required between phases
+   - TodoWrite dynamically reflects current execution state
+
+**Lifecycle Summary**: Initial pending tasks → Phase 1 invoked (artifacts tasks ATTACHED) → Artifacts sub-tasks executed → Phase 1 completed (tasks COLLAPSED) → Phase 2 invoked (N role tasks ATTACHED in parallel) → Role analyses executed concurrently → Phase 2 completed (tasks COLLAPSED) → Phase 3 invoked (synthesis tasks ATTACHED) → Synthesis sub-tasks executed → Phase 3 completed (tasks COLLAPSED) → Workflow complete.
+
+### Brainstorming Workflow Specific Features
+
+- **Phase 1**: Interactive framework generation with user Q&A (SlashCommand attachment)
+- **Phase 2**: Parallel role analysis execution with N concurrent agents (Task agent attachments)
+- **Phase 3**: Cross-role synthesis integration (SlashCommand attachment)
+- **Dynamic Role Count**: `--count N` parameter determines number of Phase 2 parallel tasks (default: 3, max: 9)
+- **Mixed Execution**: Sequential (Phase 1, 3) and Parallel (Phase 2) task execution
+
+**Benefits**:
+- Real-time visibility into attached tasks during execution
+- Clean orchestrator-level summary after tasks complete
+- Clear mental model: SlashCommand/Task = attach tasks, not delegate work
+- Parallel execution support for concurrent role analysis
+- Dynamic attachment/collapse maintains clarity
+
+**Note**: See individual Phase descriptions (Phase 1, 2, 3) for detailed TodoWrite Update examples with full JSON structures.
 
 ## Input Processing
 
