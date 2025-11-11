@@ -181,6 +181,7 @@ Task(subagent_type="ui-design-agent",
      - Add \"_metadata.completeness\": {status, missing_categories, recommendations}
      - Add \"_metadata.conflicts\": Array of conflicting definitions (MANDATORY if conflicts exist)
      - Add \"_metadata.code_snippets\": Map of code snippets (see below)
+     - Add \"_metadata.usage_recommendations\": Usage patterns from code (see below)
      - Include \"source\" field for each token (e.g., \"file.css:23\")
 
   **Code Snippet Recording**:
@@ -208,6 +209,17 @@ Task(subagent_type="ui-design-agent",
     1. Definitions with semantic comments explaining intent (/* Blue theme */, /* Primary brand color */)
     2. Definitions that align with overall color scheme described in comments
     3. When in doubt, report ALL variants and flag for manual review in completeness.recommendations
+
+  **Usage Recommendations Generation**:
+  - Analyze code usage patterns to extract `_metadata.usage_recommendations` (see ui-design-agent.md schema)
+  - **Typography recommendations**:
+    * `common_sizes`: Identify most frequent font size usage (e.g., \"body_text\": \"base (1rem)\")
+    * `common_combinations`: Extract heading+body pairings from actual usage (e.g., h1 with p tags)
+  - **Spacing recommendations**:
+    * `size_guide`: Categorize spacing values into tight/normal/loose based on frequency
+    * `common_patterns`: Extract frequent padding/margin combinations from components
+  - Analysis method: Scan code for class/style usage frequency, extract patterns from component implementations
+  - Optional: If insufficient usage data, mark fields as empty arrays/objects with note in completeness.recommendations
 
   ## Code Import Specific Requirements
   - ✅ Read discovered-files.json FIRST to get file paths
@@ -341,6 +353,11 @@ Task(subagent_type="ui-design-agent",
        * dom_structure with semantic HTML5
        * css_layout_rules using var() placeholders
        * Add \"description\" field explaining component purpose and classification rationale
+       * **Add \"usage_guide\" field for universal components** (see ui-design-agent.md schema):
+         - common_sizes: Extract size variants (small/medium/large) from code
+         - variant_recommendations: Document when to use each variant (primary/secondary/etc)
+         - usage_context: List typical usage scenarios from actual implementation
+         - accessibility_tips: Extract ARIA patterns and a11y notes from code
 
   **Code Snippet Recording**:
   - Record actual layout/component code in `extraction_metadata.code_snippets`
@@ -359,6 +376,12 @@ Task(subagent_type="ui-design-agent",
     * Specialized: Feature-specific or domain-specific (checkout form, dashboard widget)
   - ✅ Record complete code snippets in extraction_metadata.code_snippets (complete components/structures)
   - ✅ **Document classification rationale** in component description
+  - ✅ **Generate usage_guide for universal components** (REQUIRED):
+    * Analyze code to extract size variants (scan for size-related classes/props)
+    * Document variant usage from code comments and implementation patterns
+    * List usage contexts from component instances in codebase
+    * Extract accessibility patterns from ARIA attributes and a11y comments
+    * If insufficient data, populate with minimal valid structure and note in completeness
   - ❌ NO external research or web searches (code-only extraction)
 ")
 ```

@@ -25,8 +25,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
    - **ELSE**: Skip (use code import) → Auto-continues to Phase 9
 5. Phase 9 (layout-extract) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 10
 6. **Phase 10 (ui-assembly)** → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 11
-7. Phase 11 (design-update) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 12 (if --batch-plan)
-8. Phase 12 (batch-plan, optional) → Reports completion
+7. **Phase 11 (preview-generation)** → **Execute script → Generate preview files** → Reports completion
 
 **Phase Transition Mechanism**:
 - **Phase 5 (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 7

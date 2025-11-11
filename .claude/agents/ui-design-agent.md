@@ -349,7 +349,38 @@ body {
         "snippet": "string - complete code block",
         "context_type": "string - css-variable|css-class|js-object|etc"
       }
-    ]
+    ],
+    "usage_recommendations": {
+      "typography": {
+        "common_sizes": {
+          "small_text": "string - e.g., sm (0.875rem)",
+          "body_text": "string - e.g., base (1rem)",
+          "heading": "string - e.g., 2xl-4xl"
+        },
+        "common_combinations": [
+          {
+            "name": "string - e.g., 标题+正文",
+            "heading": "string - size name",
+            "body": "string - size name",
+            "use_case": "string - typical usage scenario"
+          }
+        ]
+      },
+      "spacing": {
+        "size_guide": {
+          "tight": "string - e.g., 1-2 (0.25rem-0.5rem)",
+          "normal": "string - e.g., 4-6 (1rem-1.5rem)",
+          "loose": "string - e.g., 8-12 (2rem-3rem)"
+        },
+        "common_patterns": [
+          {
+            "pattern": "string - e.g., padding-4 margin-bottom-6",
+            "use_case": "string - typical usage",
+            "pixel_value": "string - converted values"
+          }
+        ]
+      }
+    }
   }
 }
 ```
@@ -360,6 +391,7 @@ body {
 - Spacing MUST use systematic scale (multiples of base unit)
 - _metadata.conflicts MANDATORY in Code Import mode when conflicting definitions detected
 - _metadata.code_snippets ONLY present in Code Import mode
+- _metadata.usage_recommendations RECOMMENDED for universal components (buttons, inputs, cards, etc.)
 - component_styles is optional but recommended
 
 **Conflict Resolution Rules** (Code Import Mode):
@@ -379,6 +411,7 @@ body {
     {
       "target": "string - page/component name",
       "description": "string - layout description",
+      "component_type": "string - universal|specialized",
       "device_type": "string - mobile|tablet|desktop|responsive",
       "layout_strategy": "string - grid-3col|flex-row|etc",
       "dom_structure": {
@@ -417,6 +450,34 @@ body {
         "string - ARIA patterns used",
         "string - keyboard navigation notes"
       ],
+      "usage_guide": {
+        "common_sizes": {
+          "small": {
+            "dimensions": "string - e.g., px-3 py-1.5 (height: ~32px)",
+            "use_case": "string - typical usage"
+          },
+          "medium": {
+            "dimensions": "string - e.g., px-4 py-2 (height: ~40px)",
+            "use_case": "string - typical usage"
+          },
+          "large": {
+            "dimensions": "string - e.g., px-6 py-3 (height: ~48px)",
+            "use_case": "string - typical usage"
+          }
+        },
+        "variant_recommendations": {
+          "variant_name": {
+            "description": "string - when to use this variant",
+            "typical_actions": ["string - action examples"]
+          }
+        },
+        "usage_context": [
+          "string - typical usage scenarios"
+        ],
+        "accessibility_tips": [
+          "string - accessibility best practices"
+        ]
+      },
       "extraction_metadata": {
         "source": "string - code-import|explore|text",
         "created": "ISO timestamp",
@@ -442,6 +503,13 @@ body {
 - css_layout_rules MUST use var() placeholders for token values (spacing, breakpoints)
 - css_layout_rules MUST NOT include visual styling (colors, fonts - those belong in design-tokens)
 - responsive_breakpoints MUST match breakpoint tokens
+- component_type MUST be specified as "universal" or "specialized"
+- usage_guide REQUIRED for universal components (buttons, inputs, forms, cards, navigation, etc.)
+- usage_guide OPTIONAL for specialized components (can be simplified or omitted)
+- usage_guide.common_sizes SHOULD include at least small, medium, large variants
+- usage_guide.variant_recommendations SHOULD explain when to use each variant
+- usage_guide.usage_context SHOULD list typical usage scenarios
+- usage_guide.accessibility_tips SHOULD include WCAG compliance notes
 - extraction_metadata.code_snippets ONLY present in Code Import mode
 
 ### animation-tokens.json
