@@ -29,16 +29,6 @@ Converts design run extraction results into shareable reference package with:
 --output-dir <path>      Output directory (default: .workflow/reference_style)
 ```
 
-### Usage Examples
-
-```bash
-# Basic usage
-/workflow:ui-design:reference-page-generator --design-run .workflow/WFS-123/design-run-456 --package-name main-app-style-v1
-
-# Custom output directory
-/workflow:ui-design:reference-page-generator --design-run .workflow/WFS-123/design-run-456 --package-name main-app-style-v1 --output-dir ./style-references
-```
-
 ---
 
 ## Execution Process
