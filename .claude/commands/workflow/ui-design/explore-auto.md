@@ -19,22 +19,26 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 **Autonomous Flow** (⚠️ CONTINUOUS EXECUTION - DO NOT STOP):
 1. User triggers: `/workflow:ui-design:explore-auto [params]`
 2. Phase 0c: Target confirmation → User confirms → **IMMEDIATELY triggers Phase 1**
-3. Phase 1 (style-extract) → **Execute phase (blocks until finished)** → Auto-continues to Phase 2.3
+3. Phase 1 (style-extract) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 2.3
 4. Phase 2.3 (animation-extract, conditional):
-   - **IF should_extract_animation**: Execute animation extraction → Auto-continues to Phase 2.5
+   - **IF should_extract_animation**: **Attach tasks → Execute → Collapse** → Auto-continues to Phase 2.5
    - **ELSE**: Skip (use code import) → Auto-continues to Phase 2.5
-5. Phase 2.5 (layout-extract) → **Execute phase (blocks until finished)** → Auto-continues to Phase 3
-6. **Phase 3 (ui-assembly)** → **Execute phase (blocks until finished)** → Auto-continues to Phase 4
-7. Phase 4 (design-update) → **Execute phase (blocks until finished)** → Auto-continues to Phase 5 (if --batch-plan)
+5. Phase 2.5 (layout-extract) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 3
+6. **Phase 3 (ui-assembly)** → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 4
+7. Phase 4 (design-update) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 5 (if --batch-plan)
 8. Phase 5 (batch-plan, optional) → Reports completion
 
 **Phase Transition Mechanism**:
 - **Phase 0c (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 1
-- **Phase 1-5 (Autonomous)**: `SlashCommand` is BLOCKING - execution pauses until the command finishes
-- When each phase finishes executing: Automatically process output and execute next phase
+- **Phase 1-5 (Autonomous)**: `SlashCommand` invocation **ATTACHES** tasks to current workflow
+- **Task Execution**: Orchestrator **EXECUTES** these attached tasks itself
+- **Task Collapse**: After tasks complete, collapse them into phase summary
+- **Phase Transition**: Automatically execute next phase after collapsing
 - No additional user interaction after Phase 0c confirmation
 
-**Auto-Continue Mechanism**: TodoWrite tracks phase status. When each phase finishes executing, you MUST immediately construct and execute the next phase command. No user intervention required. The workflow is NOT complete until reaching Phase 4 (or Phase 5 if --batch-plan).
+**Auto-Continue Mechanism**: TodoWrite tracks phase status with dynamic task attachment/collapse. After executing all attached tasks, you MUST immediately collapse them, restore phase summary, and execute the next phase. No user intervention required. The workflow is NOT complete until reaching Phase 4 (or Phase 5 if --batch-plan).
+
+**Task Attachment Model**: SlashCommand invocation is NOT delegation - it's task expansion. The orchestrator executes these attached tasks itself, not waiting for external completion.
 
 **Target Type Detection**: Automatically inferred from prompt/targets, or explicitly set via `--target-type`.
 
@@ -44,8 +48,9 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 2. **No Preliminary Validation**: Sub-commands handle their own validation
 3. **Parse & Pass**: Extract data from each output for next phase
 4. **Default to All**: When selecting variants/prototypes, use ALL generated items
-5. **Track Progress**: Update TodoWrite after each phase
-6. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. Each SlashCommand execution blocks until finished, then you MUST immediately execute the next phase. Workflow is NOT complete until Phase 4 (or Phase 5 if --batch-plan).
+5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
+6. **⚠️ CRITICAL: Task Attachment Model** - SlashCommand invocation **ATTACHES** tasks to current workflow. Orchestrator **EXECUTES** these attached tasks itself, not waiting for external completion. This is NOT delegation - it's task expansion.
+7. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After executing all attached tasks, you MUST immediately collapse them and execute the next phase. Workflow is NOT complete until Phase 4 (or Phase 5 if --batch-plan).
 
 ## Parameter Requirements
 
@@ -376,6 +381,10 @@ IF design_source IN ["code_only", "hybrid"]:
     command = "/workflow:ui-design:import-from-code --design-id \"{design_id}\" --source \"{code_base_path}\""
 
     TRY:
+        # SlashCommand invocation ATTACHES import-from-code's tasks to current workflow
+        # Orchestrator will EXECUTE these attached tasks itself:
+        #   - Phase 0: Discover and categorize code files
+        #   - Phase 1.1-1.3: Style/Animation/Layout Agent extraction
         SlashCommand(command)
     CATCH error:
         WARN: "⚠️ Code import failed: {error}"
@@ -483,7 +492,12 @@ IF design_source == "visual_only" OR needs_visual_supplement:
               (images_input ? "--images \"{images_input}\" " : "") +
               (prompt_text ? "--prompt \"{prompt_text}\" " : "") +
               "--variants {style_variants} --interactive"
+
+    # SlashCommand invocation ATTACHES style-extract's tasks to current workflow
+    # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(command)
+
+    # After executing all attached tasks, collapse them into phase summary
 ELSE:
     REPORT: "✅ Phase 1: Style (Using Code Import)"
 ```
@@ -518,12 +532,16 @@ IF should_extract_animation:
     command_parts.append("--interactive")
 
     command = " ".join(command_parts)
+
+    # SlashCommand invocation ATTACHES animation-extract's tasks to current workflow
+    # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(command)
+
+    # After executing all attached tasks, collapse them into phase summary
 ELSE:
     REPORT: "✅ Phase 2.3: Animation (Using Code Import)"
 
 # Output: animation-tokens.json + animation-guide.md
-# SlashCommand blocks until phase finishes executing
 # When phase finishes, IMMEDIATELY execute Phase 2.5 (auto-continue)
 ```
 
@@ -537,7 +555,12 @@ IF (design_source == "visual_only" OR needs_visual_supplement) OR (NOT layout_co
               (images_input ? "--images \"{images_input}\" " : "") +
               (prompt_text ? "--prompt \"{prompt_text}\" " : "") +
               "--targets \"{targets_string}\" --variants {layout_variants} --device-type \"{device_type}\" --interactive"
+
+    # SlashCommand invocation ATTACHES layout-extract's tasks to current workflow
+    # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(command)
+
+    # After executing all attached tasks, collapse them into phase summary
 ELSE:
     REPORT: "✅ Phase 2.5: Layout (Using Code Import)"
 ```
@@ -553,9 +576,11 @@ REPORT: "   → Pure assembly: Combining layout templates + design tokens"
 REPORT: "   → Device: {device_type} (from layout templates)"
 REPORT: "   → Assembly tasks: {total} combinations"
 
+# SlashCommand invocation ATTACHES generate's tasks to current workflow
+# Orchestrator will EXECUTE these attached tasks itself
 SlashCommand(command)
 
-# SlashCommand blocks until phase finishes executing
+# After executing all attached tasks, collapse them into phase summary
 # When phase finishes, IMMEDIATELY execute Phase 4 (auto-continue)
 # Output:
 # - {target}-style-{s}-layout-{l}.html (assembled prototypes)
@@ -567,9 +592,12 @@ SlashCommand(command)
 ### Phase 4: Design System Integration
 ```bash
 command = "/workflow:ui-design:update" + (--session ? " --session {session_id}" : "")
+
+# SlashCommand invocation ATTACHES update's tasks to current workflow
+# Orchestrator will EXECUTE these attached tasks itself
 SlashCommand(command)
 
-# SlashCommand blocks until phase finishes executing
+# After executing all attached tasks, collapse them into phase summary
 # When phase finishes:
 #   - If --batch-plan flag present: IMMEDIATELY execute Phase 5 (auto-continue)
 #   - If no --batch-plan: Workflow complete, display final report
@@ -580,12 +608,15 @@ SlashCommand(command)
 IF --batch-plan:
     FOR target IN inferred_target_list:
         task_desc = "Implement {target} {target_type} based on design system"
+
+        # SlashCommand invocation ATTACHES plan's tasks to current workflow
+        # Orchestrator will EXECUTE these attached tasks itself
         SlashCommand("/workflow:plan --agent \"{task_desc}\"")
 ```
 
 ## TodoWrite Pattern
 ```javascript
-// Initialize IMMEDIATELY after Phase 0c user confirmation to track multi-phase execution
+// Initialize IMMEDIATELY after Phase 0c user confirmation to track multi-phase execution (5 orchestrator-level tasks)
 TodoWrite({todos: [
   {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing style extraction"},
   {"content": "Execute animation extraction", "status": "pending", "activeForm": "Executing animation extraction"},
@@ -594,12 +625,24 @@ TodoWrite({todos: [
   {"content": "Execute design integration", "status": "pending", "activeForm": "Executing design integration"}
 ]})
 
-// ⚠️ CRITICAL: When each SlashCommand execution finishes (Phase 1-5), you MUST:
-// 1. SlashCommand blocks and returns when phase finishes executing
-// 2. Update current phase: status → "completed"
-// 3. Update next phase: status → "in_progress"
-// 4. IMMEDIATELY execute next phase SlashCommand (auto-continue)
-// This ensures continuous workflow tracking and prevents premature stopping
+// ⚠️ CRITICAL: Dynamic TodoWrite task attachment strategy:
+//
+// **Key Concept**: SlashCommand invocation ATTACHES tasks to current workflow.
+// Orchestrator EXECUTES these attached tasks itself, not waiting for external completion.
+//
+// Phase 1-5 SlashCommand Invocation Pattern:
+// 1. SlashCommand invocation ATTACHES sub-command tasks to TodoWrite
+// 2. TodoWrite expands to include attached tasks
+// 3. Orchestrator EXECUTES attached tasks sequentially
+// 4. After all attached tasks complete, COLLAPSE them into phase summary
+// 5. Update next phase to in_progress
+// 6. IMMEDIATELY execute next phase SlashCommand (auto-continue)
+//
+// Benefits:
+// ✓ Real-time visibility into sub-command task progress
+// ✓ Clean orchestrator-level summary after each phase
+// ✓ Clear mental model: SlashCommand = attach tasks, not delegate work
+// ✓ Dynamic attachment/collapse maintains clarity
 ```
 
 ## Completion Output

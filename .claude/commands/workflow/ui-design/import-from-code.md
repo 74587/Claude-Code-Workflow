@@ -113,7 +113,9 @@ echo "  Output: $discovery_file"
 ```json
 [
   {"content": "Phase 0: 发现和分类代码文件", "status": "in_progress", "activeForm": "发现代码文件"},
-  {"content": "Phase 1: 并行Agent分析并生成completeness-report.json", "status": "pending", "activeForm": "生成design system"}
+  {"content": "Phase 1.1: Style Agent - 提取视觉token (design-tokens.json, style-guide.md)", "status": "pending", "activeForm": "提取视觉token"},
+  {"content": "Phase 1.2: Animation Agent - 提取动画token (animation-tokens.json, animation-guide.md)", "status": "pending", "activeForm": "提取动画token"},
+  {"content": "Phase 1.3: Layout Agent - 提取布局模式 (layout-templates.json, layout-guide.md)", "status": "pending", "activeForm": "提取布局模式"}
 ]
 ```
 
@@ -127,15 +129,7 @@ echo "  Output: $discovery_file"
   - Structure: `{ "css": [...], "js": [...], "html": [...], "counts": {...}, "discovery_time": "..." }`
   - Generated via bash commands using `find` + JSON formatting
 
-<!-- TodoWrite: Mark Phase 0 complete, start Phase 1 -->
-
-**TodoWrite**:
-```json
-[
-  {"content": "Phase 0: 发现和分类代码文件", "status": "completed", "activeForm": "发现代码文件"},
-  {"content": "Phase 1: 并行Agent分析并生成completeness-report.json", "status": "in_progress", "activeForm": "生成design system"}
-]
-```
+<!-- TodoWrite: Update Phase 0 → completed, Phase 1.1-1.3 → in_progress (all 3 agents in parallel) -->
 
 ---
 
@@ -401,15 +395,7 @@ Task(ui-design-agent): `
 echo "[Phase 1] Parallel agent analysis complete"
 ```
 
-<!-- TodoWrite: Mark all complete -->
-
-**TodoWrite**:
-```json
-[
-  {"content": "Phase 0: 发现和分类代码文件", "status": "completed", "activeForm": "发现代码文件"},
-  {"content": "Phase 1: 并行Agent分析并生成completeness-report.json", "status": "completed", "activeForm": "生成design system"}
-]
-```
+<!-- TodoWrite: Update Phase 1.1-1.3 → completed (all 3 agents complete together) -->
 
 ---
 
