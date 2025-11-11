@@ -69,27 +69,6 @@ auto-continue: true
 
 **Note**: File discovery is fully automatic. The command will scan the source directory and find all style-related files (CSS, SCSS, JS, HTML) automatically.
 
-### Usage Examples
-
-```bash
-# Simplest usage - single path parameter
-/workflow:ui-design:codify-style ./src
-# Auto-generates package name: "src-style-v1"
-# Auto-discovers all style files in ./src
-
-# With custom package name
-/workflow:ui-design:codify-style ./app --package-name design-system-v2
-
-# Root directory analysis (e.g., for Tailwind config)
-/workflow:ui-design:codify-style ./ --package-name tailwind-theme-v1
-
-# Custom output directory
-/workflow:ui-design:codify-style ./src --package-name component-lib-v1 --output-dir ./style-references
-
-# Overwrite existing package
-/workflow:ui-design:codify-style ./src --overwrite
-```
-
 ---
 
 ## 4-Phase Execution
@@ -189,20 +168,23 @@ CATCH error:
 **Step 0c: Session Preparation**
 
 ```bash
-# Create temporary session for processing
+# Create temporary workspace for processing
 TRY:
-    temp_session_id = Bash(mkdir -p .workflow && echo "WFS-codify-$(date +%Y%m%d-%H%M%S)")
-    temp_design_run_id = Bash(mkdir -p .workflow/${temp_session_id} && echo "design-run-$(date +%Y%m%d-%H%M%S)")
+    # Step 1: Ensure .workflow directory exists and generate unique ID
+    Bash(mkdir -p .workflow)
+    temp_id = Bash(echo "codify-temp-$(date +%Y%m%d-%H%M%S)")
 
-    # Create design run directory and get absolute path
-    Bash(mkdir -p .workflow/${temp_session_id}/${temp_design_run_id})
-    design_run_path = Bash(cd .workflow/${temp_session_id}/${temp_design_run_id} && pwd)
+    # Step 2: Create temporary directory
+    Bash(mkdir -p ".workflow/${temp_id}")
+
+    # Step 3: Get absolute path using bash
+    design_run_path = Bash(cd ".workflow/${temp_id}" && pwd)
 
 CATCH error:
     REPORT: "❌ ERROR: Failed to create temporary workspace: ${error}"
     EXIT 1
 
-STORE: temp_session_id, temp_design_run_id, design_run_path
+STORE: temp_id, design_run_path
 ```
 
 **Summary Variables**:
@@ -212,8 +194,7 @@ STORE: temp_session_id, temp_design_run_id, design_run_path
 - `OUTPUT_DIR`: `.workflow/reference_style` (default) or user-specified
 - `OVERWRITE`: `true` if --overwrite flag present
 - `CSS/SCSS/JS/HTML/STYLE_FILES`: Optional glob patterns
-- `TEMP_SESSION_ID`: `WFS-codify-{timestamp}`
-- `TEMP_DESIGN_RUN_ID`: `design-run-{timestamp}`
+- `TEMP_ID`: `codify-temp-{timestamp}` (temporary workspace identifier)
 - `DESIGN_RUN_PATH`: Absolute path to temporary workspace
 
 <!-- TodoWrite: Update Phase 0 → completed, Phase 1 → in_progress, INSERT import-from-code tasks -->
@@ -245,8 +226,9 @@ STORE: temp_session_id, temp_design_run_id, design_run_path
 
 ```bash
 # Build command with required parameters only
+# Use temp_id as design-id since it's the workspace directory name
 command = "/workflow:ui-design:import-from-code" +
-          " --design-id \"${temp_design_run_id}\"" +
+          " --design-id \"${temp_id}\"" +
           " --source \"${source}\""
 ```
 
@@ -277,14 +259,14 @@ CATCH error:
     REPORT: "❌ ERROR: Style extraction failed"
     REPORT: "Error: ${error}"
     REPORT: "Possible cause: Source directory contains no style files"
-    Bash(rm -rf .workflow/${temp_session_id})
+    Bash(rm -rf .workflow/${temp_id})
     EXIT 1
 ```
 
 **Example Command**:
 ```bash
 # Automatic file discovery
-/workflow:ui-design:import-from-code --design-id design-run-20250111-123456 --source ./src
+/workflow:ui-design:import-from-code --design-id codify-temp-20250111-123456 --source ./src
 ```
 
 **Completion Criteria**:
@@ -367,14 +349,14 @@ TRY:
 CATCH error:
     REPORT: "❌ ERROR: Reference package generation failed"
     REPORT: "Error: ${error}"
-    Bash(rm -rf .workflow/${temp_session_id})
+    Bash(rm -rf .workflow/${temp_id})
     EXIT 1
 ```
 
 **Example Command**:
 ```bash
 /workflow:ui-design:reference-page-generator \
-  --design-run .workflow/WFS-codify-20250111-123456/design-run-20250111-123456 \
+  --design-run .workflow/codify-temp-20250111-123456 \
   --package-name main-app-style-v1 \
   --output-dir .workflow/reference_style
 ```
@@ -419,7 +401,7 @@ CATCH error:
 ```bash
 # Cleanup temporary workspace
 TRY:
-    Bash(rm -rf .workflow/${temp_session_id})
+    Bash(rm -rf .workflow/${temp_id})
 CATCH error:
     # Silent failure - not critical
 
@@ -576,7 +558,7 @@ User triggers: /workflow:ui-design:codify-style ./src --package-name my-style-v1
   └─ Phase 3: Cleanup and verify package (in_progress)
   ↓
 [Execute Phase 3] → Orchestrator's own task (no attachment needed)
-  ├─ Remove temporary workspace
+  ├─ Remove temporary workspace (.workflow/codify-temp-{timestamp}/)
   ├─ Verify package directory
   ├─ Extract component count
   └─ Display completion summary
@@ -645,8 +627,10 @@ File discovery is fully automatic - no glob patterns needed.
 │       ├── metadata.json
 │       └── README.md
 │
-└── WFS-codify-{timestamp}/       # Temporary session (cleaned up)
-    └── design-run-{timestamp}/   # Temporary design run (cleaned up)
+└── codify-temp-{timestamp}/      # Temporary workspace (cleaned up after completion)
+    ├── style-extraction/
+    ├── animation-extraction/
+    └── layout-extraction/
 ```
 
 ---

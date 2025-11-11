@@ -41,21 +41,6 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 
 **Note**: All file discovery is automatic. The command will scan the source directory and find all relevant style files (CSS, SCSS, JS, HTML) automatically.
 
-### Usage Examples
-
-```bash
-# Basic usage - auto-discover all style files
-/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./src
-
-# With session ID (uses latest design run in session)
-/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src
-
-# Root directory analysis
-/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./
-```
-
----
-
 ## Execution Process
 
 ### Step 1: Setup & File Discovery
@@ -102,7 +87,7 @@ echo "  Output: $base_path"
 
 # 3. Discover files using script
 discovery_file="${intermediates_dir}/discovered-files.json"
-~/.claude/scripts/discover-design-files.sh "$source" "$discovery_file"
+Bash(~/.claude/scripts/discover-design-files.sh "$source" "$discovery_file")
 
 echo "  Output: $discovery_file"
 ```
