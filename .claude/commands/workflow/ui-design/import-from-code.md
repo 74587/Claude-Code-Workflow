@@ -98,9 +98,9 @@ echo "  Output: $discovery_file"
 ```json
 [
   {"content": "Phase 0: 发现和分类代码文件", "status": "in_progress", "activeForm": "发现代码文件"},
-  {"content": "Phase 1.1: Style Agent - 提取视觉token (design-tokens.json, style-guide.md)", "status": "pending", "activeForm": "提取视觉token"},
-  {"content": "Phase 1.2: Animation Agent - 提取动画token (animation-tokens.json, animation-guide.md)", "status": "pending", "activeForm": "提取动画token"},
-  {"content": "Phase 1.3: Layout Agent - 提取布局模式 (layout-templates.json, layout-guide.md)", "status": "pending", "activeForm": "提取布局模式"}
+  {"content": "Phase 1.1: Style Agent - 提取视觉token及代码片段 (design-tokens.json + code_snippets)", "status": "pending", "activeForm": "提取视觉token"},
+  {"content": "Phase 1.2: Animation Agent - 提取动画token及代码片段 (animation-tokens.json + code_snippets)", "status": "pending", "activeForm": "提取动画token"},
+  {"content": "Phase 1.3: Layout Agent - 提取布局模式及代码片段 (layout-templates.json + code_snippets)", "status": "pending", "activeForm": "提取布局模式"}
 ]
 ```
 
@@ -163,23 +163,7 @@ Task(ui-design-agent): `
   - JavaScript/TypeScript: Theme configs (Tailwind, styled-components, CSS-in-JS)
   - HTML: Inline styles, usage patterns
 
-  **Step 3: CLI-Assisted Analysis (Optional)**
-  - **When to use**: Large codebases (>20 files), complex framework detection, or ambiguous patterns
-  - **Tools available**: gemini, qwen (use gemini first, qwen as fallback)
-  - **Usage pattern**:
-    \`\`\`bash
-    cd ${source} && gemini -p "
-    PURPOSE: Analyze style system in codebase
-    TASK: • Identify design token patterns • Extract color/typography scales • Detect framework usage
-    MODE: analysis
-    CONTEXT: @**/*.{css,scss,ts,tsx,js,jsx}
-    EXPECTED: Design token patterns with file references
-    RULES: Focus on systematic patterns, include source file locations | analysis=READ-ONLY
-    "
-    \`\`\`
-  - **Integration**: Use CLI output to guide file reading and token extraction
-
-  **Step 4: Smart inference for gaps**
+  **Step 3: Smart inference for gaps**
   - Infer missing tokens from existing patterns
   - Normalize inconsistent values into systematic scales
   - Fill missing categories from cross-file references
@@ -194,19 +178,32 @@ Task(ui-design-agent): `
      - Add "_metadata.extraction_source": "code_import"
      - Add "_metadata.files_analyzed": {css, js, html file lists}
      - Add "_metadata.completeness": {status, missing_categories, recommendations}
+     - Add "_metadata.code_snippets": Map of code snippets (see below)
      - Include "source" field for each token (e.g., "file.css:23")
 
-  2. **style-guide.md**
-     - Design philosophy and usage guide
-     - List extracted tokens by category
-     - Document missing elements and recommendations
+  **Code Snippet Recording**:
+  - For each extracted token, record the actual code snippet in `_metadata.code_snippets`
+  - Structure:
+    ```json
+    "code_snippets": {
+      "file.css:23": {
+        "lines": "23-27",
+        "snippet": ":root {\n  --color-primary: oklch(0.5555 0.15 270);\n  /* Primary brand color */\n  --color-primary-hover: oklch(0.6 0.15 270);\n}",
+        "context": "css-variable"
+      }
+    }
+    ```
+  - Context types: "css-variable" | "css-class" | "js-object" | "js-theme-config" | "inline-style"
+  - Record complete code blocks with all dependencies and relevant comments
+  - Typical ranges: Simple declarations (1-5 lines), Utility classes (5-15 lines), Complete configs (15-50 lines)
+  - Preserve original formatting and indentation
 
   ## Code Import Specific Requirements
   - ✅ Read discovered-files.json FIRST to get file paths
   - ✅ Track extraction source for each token (file:line)
+  - ✅ Record complete code snippets in _metadata.code_snippets (complete blocks with dependencies/comments)
   - ✅ Include completeness assessment in _metadata
   - ✅ Normalize inconsistent values into systematic scales
-  - ✅ May use gemini/qwen CLI for analysis assistance (optional, for complex cases)
   - ❌ NO external research or web searches (code-only extraction)
 `
 ```
@@ -238,23 +235,7 @@ Task(ui-design-agent): `
   - JavaScript/TypeScript: Animation frameworks (Framer Motion, GSAP), CSS-in-JS
   - HTML: Inline styles, data-animation attributes
 
-  **Step 3: CLI-Assisted Analysis (Optional)**
-  - **When to use**: Framework detection, complex animation configs, or large file sets
-  - **Tools available**: gemini, qwen (use gemini first, qwen as fallback)
-  - **Usage pattern**:
-    \`\`\`bash
-    cd ${source} && gemini -p "
-    PURPOSE: Detect animation framework and extract animation tokens
-    TASK: • Identify animation framework (Framer Motion, GSAP, CSS) • Extract keyframes and transitions • Find animation timing functions
-    MODE: analysis
-    CONTEXT: @**/*.{css,scss,ts,tsx,js,jsx}
-    EXPECTED: Framework name, animation patterns with file references
-    RULES: Focus on animation-specific code, include source locations | analysis=READ-ONLY
-    "
-    \`\`\`
-  - **Integration**: Use CLI output to identify framework and guide extraction
-
-  **Step 4: Framework detection & normalization**
+  **Step 3: Framework detection & normalization**
   - Detect animation frameworks used (css-animations | framer-motion | gsap | none)
   - Normalize into semantic token system
   - Cross-reference CSS animations with JS configs
@@ -269,18 +250,22 @@ Task(ui-design-agent): `
      - Add "_metadata.framework_detected"
      - Add "_metadata.files_analyzed"
      - Add "_metadata.completeness"
+     - Add "_metadata.code_snippets": Map of code snippets (same format as Style Agent)
      - Include "source" field for each token
 
-  2. **animation-guide.md**
-     - Animation system overview
-     - Framework-specific usage guidelines
+  **Code Snippet Recording**:
+  - Record actual animation/transition code in `_metadata.code_snippets`
+  - Context types: "css-keyframes" | "css-transition" | "js-animation" | "framer-motion" | "gsap"
+  - Record complete blocks: @keyframes animations (10-30 lines), transition configs (5-15 lines), JS animation objects (15-50 lines)
+  - Include all animation steps, timing functions, and related comments
+  - Preserve original formatting and framework-specific syntax
 
   ## Code Import Specific Requirements
   - ✅ Read discovered-files.json FIRST to get file paths
   - ✅ Detect animation framework if present
   - ✅ Track extraction source for each token (file:line)
+  - ✅ Record complete code snippets in _metadata.code_snippets (complete animation blocks with all steps/timing)
   - ✅ Normalize framework-specific syntax into standard tokens
-  - ✅ May use gemini/qwen CLI for framework detection (optional, for complex cases)
   - ❌ NO external research or web searches (code-only extraction)
 `
 ```
@@ -312,23 +297,7 @@ Task(ui-design-agent): `
   - JavaScript/TypeScript: Layout components (React/Vue), grid configs
   - HTML: Semantic structure, component hierarchies
 
-  **Step 3: CLI-Assisted Analysis (Optional)**
-  - **When to use**: Complex component hierarchies, framework detection, or large component sets
-  - **Tools available**: gemini, qwen (use gemini first, qwen as fallback)
-  - **Usage pattern**:
-    \`\`\`bash
-    cd ${source} && gemini -p "
-    PURPOSE: Analyze layout system and component structure
-    TASK: • Detect naming convention (BEM/utility-first/css-modules) • Identify layout system (grid/flexbox) • Extract component patterns and responsive breakpoints
-    MODE: analysis
-    CONTEXT: @**/*.{css,scss,ts,tsx,js,jsx}
-    EXPECTED: Layout system type, naming convention, component patterns with file references
-    RULES: Focus on structural patterns, include breakpoints and responsive strategy | analysis=READ-ONLY
-    "
-    \`\`\`
-  - **Integration**: Use CLI output to identify conventions and guide component extraction
-
-  **Step 4: System identification**
+  **Step 3: System identification**
   - Detect naming convention (BEM | SMACSS | utility-first | css-modules)
   - Identify layout system (12-column | flexbox | css-grid | custom)
   - Extract responsive strategy and breakpoints
@@ -347,26 +316,25 @@ Task(ui-design-agent): `
        * layout_system: {type, confidence, source_files}
        * responsive: {breakpoints, mobile_first, source}
        * completeness: {status, missing_items, recommendations}
+       * code_snippets: Map of code snippets (same format as Style Agent)
      - For each component in "layout_templates":
        * Include "source" field (file:line)
        * dom_structure with semantic HTML5
        * css_layout_rules using var() placeholders
 
-  2. **layout-guide.md**
-     - Layout System Overview: Document detected naming convention and layout system
-     - Component Patterns: List extracted components with variants and states
-     - Responsive Strategy: Explain breakpoint system and mobile-first approach
-     - Usage Guidelines: How to use the extracted patterns
-     - Code Examples: Show actual usage from source files
-     - Missing Patterns: Document gaps and recommendations
+  **Code Snippet Recording**:
+  - Record actual layout/component code in `extraction_metadata.code_snippets`
+  - Context types: "css-grid" | "css-flexbox" | "css-utility" | "html-structure" | "react-component"
+  - Record complete blocks: Utility classes (5-15 lines), HTML structures (10-30 lines), React components (20-100 lines)
+  - For components: include HTML structure + associated CSS rules + component logic
+  - Preserve original formatting and framework-specific syntax
 
   ## Code Import Specific Requirements
   - ✅ Read discovered-files.json FIRST to get file paths
   - ✅ Detect and document naming conventions
   - ✅ Identify layout system with confidence level
   - ✅ Extract component variants and states from usage patterns
-  - ✅ Generate BOTH JSON + MD files for complete documentation
-  - ✅ May use gemini/qwen CLI for system detection (optional, for complex cases)
+  - ✅ Record complete code snippets in extraction_metadata.code_snippets (complete components/structures)
   - ❌ NO external research or web searches (code-only extraction)
 `
 ```
@@ -395,14 +363,11 @@ echo "[Phase 1] Parallel agent analysis complete"
 ${base_path}/
 ├── style-extraction/
 │   └── style-1/
-│       ├── design-tokens.json       # Production-ready design tokens
-│       └── style-guide.md           # Design philosophy and usage
+│       └── design-tokens.json       # Production-ready design tokens with code snippets
 ├── animation-extraction/
-│   ├── animation-tokens.json        # Animation/transition tokens
-│   └── animation-guide.md           # Animation usage guide
+│   └── animation-tokens.json        # Animation/transition tokens with code snippets
 ├── layout-extraction/
-│   ├── layout-templates.json        # Layout patterns and component structures
-│   └── layout-guide.md              # Layout system usage guide
+│   └── layout-templates.json        # Layout patterns with code snippets
 └── .intermediates/
     └── import-analysis/
         └── discovered-files.json    # All discovered files (JSON format)
@@ -412,32 +377,20 @@ ${base_path}/
 1. **style-extraction/style-1/design-tokens.json**
    - Production-ready design tokens
    - Categories: colors, typography, spacing, opacity, border_radius, shadows, breakpoints
-   - Metadata: extraction_source, files_analyzed, completeness assessment
+   - Metadata: extraction_source, files_analyzed, completeness assessment, **code_snippets**
+   - **Code snippets**: Complete code blocks from source files (CSS variables, theme configs, inline styles)
 
-2. **style-extraction/style-1/style-guide.md**
-   - Design system overview
-   - Token categories and usage
-   - Missing elements and recommendations
-
-3. **animation-extraction/animation-tokens.json**
+2. **animation-extraction/animation-tokens.json**
    - Animation tokens: duration, easing, transitions, keyframes, interactions
    - Framework detection: css-animations, framer-motion, gsap, etc.
-   - Metadata: extraction_source, completeness assessment
+   - Metadata: extraction_source, completeness assessment, **code_snippets**
+   - **Code snippets**: Complete animation blocks (@keyframes, transition configs, JS animations)
 
-4. **animation-extraction/animation-guide.md**
-   - Animation system overview
-   - Usage guidelines and examples
-
-5. **layout-extraction/layout-templates.json**
+3. **layout-extraction/layout-templates.json**
    - Layout templates for each discovered component
-   - Extraction metadata: naming_convention, layout_system, responsive strategy
+   - Extraction metadata: naming_convention, layout_system, responsive strategy, **code_snippets**
    - Component patterns with DOM structure and CSS rules
-
-6. **layout-extraction/layout-guide.md**
-   - Layout system overview and detected conventions
-   - Component patterns documentation
-   - Responsive strategy and breakpoint usage
-   - Code examples from source files
+   - **Code snippets**: Complete component/structure code (HTML, CSS utilities, React components)
 
 **Intermediate Files**: `.intermediates/import-analysis/`
 - `discovered-files.json` - All discovered files in JSON format with counts and metadata

@@ -59,37 +59,39 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 **Purpose**: Generate complete design system components (execution phase)
 
 **Task Types**:
-- `[DESIGN_SYSTEM_GENERATION_TASK]` - Generate design tokens + style guide
-- `[LAYOUT_TEMPLATE_GENERATION_TASK]` - Generate layout templates with DOM structure
-- `[ANIMATION_TOKEN_GENERATION_TASK]` - Generate animation tokens + guide
+- `[DESIGN_SYSTEM_GENERATION_TASK]` - Generate design tokens with code snippets
+- `[LAYOUT_TEMPLATE_GENERATION_TASK]` - Generate layout templates with DOM structure and code snippets
+- `[ANIMATION_TOKEN_GENERATION_TASK]` - Generate animation tokens with code snippets
 
 **Common Process**:
 1. **Load Context**: User selections (from Pattern 1) OR reference materials OR computed styles
 2. **Apply Standards**: WCAG AA, OKLCH, semantic naming, accessibility
 3. **MCP Research**: Query Exa for modern patterns and best practices (when applicable)
 4. **Generate System**: Complete token/template system following specifications
-5. **Write Files Immediately**: JSON + Markdown documentation
+5. **Record Code Snippets**: When in code import mode, capture complete code blocks with context
+6. **Write Files Immediately**: JSON files with embedded code snippets (when applicable)
 
 **Design System Generation**:
 - **Input**: Selected design direction OR visual references, computed styles (if available), user refinements
 - **Output**:
   - `{base_path}/style-extraction/style-{id}/design-tokens.json` (W3C format, OKLCH colors)
-  - `{base_path}/style-extraction/style-{id}/style-guide.md`
 - **Content**: Complete token system (colors, typography, spacing, opacity, shadows, border_radius, breakpoints, component_styles, typography.combinations)
+- **Code Snippets** (when in code import mode): Record complete code blocks in `_metadata.code_snippets` with source location, line numbers, and context type
 - **MCP Use**: Research modern color palettes, typography trends, design system patterns
 
 **Layout Template Generation**:
 - **Input**: Selected layout concepts OR visual references, device type, DOM structure data (if available)
 - **Output**: `{base_path}/layout-extraction/layout-templates.json`
 - **Content**: For each target - semantic DOM structure (HTML5 + ARIA), CSS layout rules using var() placeholders, device optimizations, responsive breakpoints
+- **Code Snippets** (when in code import mode): Record complete component/structure code in `extraction_metadata.code_snippets` (HTML, CSS utilities, React components)
 - **Focus**: Structure ONLY - no visual styling (colors, fonts belong in design tokens)
 
 **Animation Token Generation**:
 - **Input**: Extracted CSS animations, user specification (if available), design tokens context
 - **Output**:
   - `{base_path}/animation-extraction/animation-tokens.json`
-  - `{base_path}/animation-extraction/animation-guide.md`
 - **Content**: Duration scales, easing functions, keyframes, interaction patterns, transition utilities
+- **Code Snippets** (when in code import mode): Record complete animation blocks in `_metadata.code_snippets` (@keyframes, transition configs, JS animations)
 - **Synthesis**: Normalize CSS extractions into semantic token system
 
 **Key Principles**:
@@ -481,13 +483,16 @@ layout_results = mcp__exa__web_search_exa(
 ### Tool Operations
 
 **File Operations**:
-- **Read**: Load design tokens, layout strategies, project artifacts
+- **Read**: Load design tokens, layout strategies, project artifacts, source code files (for code import)
+  - When reading source code for extraction, capture complete code blocks with context
+  - Record file paths and line numbers for snippet tracking
 - **Write**: **PRIMARY RESPONSIBILITY** - Generate and write files directly to the file system
   - Agent MUST use Write() tool to create all output files
   - Agent receives ABSOLUTE file paths from orchestrator (e.g., `{base_path}/style-consolidation/style-1/design-tokens.json`)
   - Agent MUST create directories if they don't exist (use Bash `mkdir -p` if needed)
   - Agent MUST verify each file write operation succeeds
   - Agent does NOT return file contents as text with labeled sections
+  - When in code import mode, embed code snippets in `_metadata.code_snippets` or `extraction_metadata.code_snippets`
 - **Edit**: Update token definitions, refine layout strategies when files already exist
 
 **Path Handling**:
@@ -503,8 +508,8 @@ layout_results = mcp__exa__web_search_exa(
 - If write fails, report error immediately with details
 - Example completion report:
   ```
-  ✅ Written: style-1/design-tokens.json (12.5 KB)
-  ✅ Written: style-1/style-guide.md (8.3 KB)
+  ✅ Written: style-1/design-tokens.json (18.7 KB)
+  ✅ Recorded: 47 code snippets in _metadata.code_snippets
   ```
 
 ## Quality Assurance
@@ -596,6 +601,7 @@ layout_results = mcp__exa__web_search_exa(
 - ✅ Use mobile-first responsive design with token-based breakpoints
 - ✅ Implement semantic HTML5 with ARIA attributes (Pattern 2 & 3)
 - ✅ Execute MCP research for modern patterns (Pattern 1 & 2 when applicable)
+- ✅ Record complete code snippets when in code import mode (_metadata.code_snippets with location, lines, snippet, context)
 
 **Target Independence**:
 - ✅ Process EXACTLY ONE target per task

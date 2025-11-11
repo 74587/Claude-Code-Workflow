@@ -127,17 +127,16 @@ echo "  Output: $package_dir"
 
 ### Phase 1: Prepare Component Data
 
-**Purpose**: Copy layout templates to package directory (used as component reference)
+**Purpose**: Copy required files from design run to package directory
 
 **Operations**:
 
 ```bash
 echo "[Phase 1] Preparing component data from design run"
 
-# Copy layout templates as component patterns
+# 1. Copy layout templates as component patterns
 cp "${design_run}/layout-extraction/layout-templates.json" "${package_dir}/layout-templates.json"
 
-# Verify copy
 if [ ! -f "${package_dir}/layout-templates.json" ]; then
   echo "ERROR: Failed to copy layout templates"
   exit 1
@@ -145,8 +144,25 @@ fi
 
 # Count components from layout templates
 component_count=$(jq -r '.layout_templates | length // 0' "${package_dir}/layout-templates.json" 2>/dev/null || echo 0)
-
 echo "  ✓ Layout templates copied (${component_count} components)"
+
+# 2. Copy design tokens (required for preview generation)
+cp "${design_run}/style-extraction/style-1/design-tokens.json" "${package_dir}/design-tokens.json"
+
+if [ ! -f "${package_dir}/design-tokens.json" ]; then
+  echo "ERROR: Failed to copy design tokens"
+  exit 1
+fi
+echo "  ✓ Design tokens copied"
+
+# 3. Copy animation tokens if exists (optional)
+if [ -f "${design_run}/animation-extraction/animation-tokens.json" ]; then
+  cp "${design_run}/animation-extraction/animation-tokens.json" "${package_dir}/animation-tokens.json"
+  echo "  ✓ Animation tokens copied"
+else
+  echo "  ○ Animation tokens not found (optional)"
+fi
+
 echo "[Phase 1] Component data preparation complete"
 ```
 
@@ -178,8 +194,8 @@ Task(ui-design-agent): `
   ## Input Files (MUST READ ALL)
 
   1. ${package_dir}/layout-templates.json (component layout patterns - REQUIRED)
-  2. ${design_run}/style-extraction/style-1/design-tokens.json (design tokens - REQUIRED)
-  3. ${design_run}/animation-extraction/animation-tokens.json (optional, if exists)
+  2. ${package_dir}/design-tokens.json (design tokens - REQUIRED)
+  3. ${package_dir}/animation-tokens.json (optional, if exists)
 
   ## Generation Task
 
@@ -264,6 +280,8 @@ Task(ui-design-agent): `
 ${output_dir}/
 └── ${package_name}/
     ├── layout-templates.json    # Layout templates (copied from design run)
+    ├── design-tokens.json       # Design tokens (copied from design run)
+    ├── animation-tokens.json    # Animation tokens (copied from design run, optional)
     ├── preview.html             # Interactive showcase (NEW)
     └── preview.css              # Showcase styling (NEW)
 ```
@@ -278,8 +296,10 @@ Location: {package_dir}
 
 Files:
 ✓ layout-templates.json    {component_count} components
-✓ preview.html            Interactive showcase
-✓ preview.css             Showcase styling
+✓ design-tokens.json       Design tokens
+✓ animation-tokens.json    Animation tokens {if exists: "✓" else: "○ (not found)"}
+✓ preview.html             Interactive showcase
+✓ preview.css              Showcase styling
 
 Open preview:
   file://{absolute_path_to_package_dir}/preview.html
