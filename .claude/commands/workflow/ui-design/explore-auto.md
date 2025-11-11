@@ -544,7 +544,7 @@ ELSE:
 
 ### Phase 3: UI Assembly
 ```bash
-command = "/workflow:ui-design:generate --design-id \"{design_id}\""
+command = "/workflow:ui-design:generate --design-id \"{design_id}\"" + (--session ? " --session {session_id}" : "")
 
 total = style_variants × layout_variants × len(inferred_target_list)
 

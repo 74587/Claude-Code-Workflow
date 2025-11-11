@@ -416,7 +416,7 @@ TodoWrite(mark_completed: "Extract layout", mark_in_progress: "Assemble UI")
 
 ```bash
 REPORT: "🚀 Phase 3: UI Assembly"
-generate_command = f"/workflow:ui-design:generate --design-id \"{design_id}\" --style-variants 1 --layout-variants 1"
+generate_command = f"/workflow:ui-design:generate --design-id \"{design_id}\""
 SlashCommand(generate_command)
 
 TodoWrite(mark_completed: "Assemble UI", mark_in_progress: session_id ? "Integrate design system" : "Completion")

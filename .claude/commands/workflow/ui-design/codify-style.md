@@ -1,7 +1,7 @@
 ---
 name: workflow:ui-design:codify-style
-description: Orchestrator to extract styles from code and generate shareable reference package with preview
-argument-hint: "<path> [--package-name <name>] [--css \"<glob>\"] [--scss \"<glob>\"] [--js \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"] [--output-dir <path>]"
+description: Orchestrator to extract styles from code and generate shareable reference package with preview (automatic file discovery)
+argument-hint: "<path> [--package-name <name>] [--output-dir <path>] [--overwrite]"
 allowed-tools: SlashCommand,Bash,Read,TodoWrite
 auto-continue: true
 ---
@@ -53,19 +53,16 @@ auto-continue: true
 /workflow:ui-design:codify-style <path> [OPTIONS]
 
 # Required
-<path>                  Source code directory or file to analyze
+<path>                  Source code directory to analyze
 
 # Optional
 --package-name <name>   Custom name for the style reference package
                         (default: auto-generated from directory name)
---css "<glob>"          CSS file glob pattern
---scss "<glob>"         SCSS file glob pattern
---js "<glob>"           JavaScript file glob pattern
---html "<glob>"         HTML file glob pattern
---style-files "<glob>"  Universal style file glob (matches all style files)
 --output-dir <path>     Output directory (default: .workflow/reference_style)
 --overwrite             Overwrite existing package without prompting
 ```
+
+**Note**: File discovery is fully automatic. The command will scan the source directory and find all style-related files (CSS, SCSS, JS, HTML) automatically.
 
 ### Usage Examples
 
@@ -73,15 +70,13 @@ auto-continue: true
 # Simplest usage - single path parameter
 /workflow:ui-design:codify-style ./src
 # Auto-generates package name: "src-style-v1"
+# Auto-discovers all style files in ./src
 
 # With custom package name
 /workflow:ui-design:codify-style ./app --package-name design-system-v2
 
-# Specific file patterns
-/workflow:ui-design:codify-style ./app --css "styles/**/*.scss" --js "theme/*.js"
-
-# Tailwind config extraction
-/workflow:ui-design:codify-style ./ --js "tailwind.config.js" --package-name tailwind-theme-v1
+# Root directory analysis (e.g., for Tailwind config)
+/workflow:ui-design:codify-style ./ --package-name tailwind-theme-v1
 
 # Custom output directory
 /workflow:ui-design:codify-style ./src --package-name component-lib-v1 --output-dir ./style-references
@@ -145,9 +140,7 @@ IF NOT --package-name:
     # Add version suffix
     package_name = "${normalized_name}-style-v1"
 
-    REPORT: "📋 Auto-generated package name: ${package_name}"
-    REPORT: "   (from directory: ${dir_name})"
-ELSE:
+    ELSE:
     package_name = --package-name
 
     # Validate custom package name format (lowercase, alphanumeric, hyphens only)
@@ -198,24 +191,11 @@ TRY:
     Bash(mkdir -p .workflow/${temp_session_id}/${temp_design_run_id})
     design_run_path = Bash(cd .workflow/${temp_session_id}/${temp_design_run_id} && pwd)
 
-    REPORT: "📦 Temporary workspace created: ${design_run_path}"
-
 CATCH error:
     REPORT: "❌ ERROR: Failed to create temporary workspace: ${error}"
     EXIT 1
 
 STORE: temp_session_id, temp_design_run_id, design_run_path
-
-# Display configuration summary (informational only, no user prompt)
-REPORT: ""
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "📋 Starting Style Codification"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "Source: ${source}"
-REPORT: "Package: ${package_name}"
-REPORT: "Output: ${package_path}/"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: ""
 ```
 
 **Summary Variables**:
@@ -248,33 +228,10 @@ REPORT: ""
 **Command Construction**:
 
 ```bash
-# Build command with all parameters
-command_parts = ["/workflow:ui-design:import-from-code"]
-command_parts.append("--design-id \"${temp_design_run_id}\"")
-command_parts.append("--source \"${source}\"")
-
-# Add optional glob patterns
-IF --css:
-    command_parts.append("--css \"${css}\"")
-IF --scss:
-    command_parts.append("--scss \"${scss}\"")
-IF --js:
-    command_parts.append("--js \"${js}\"")
-IF --html:
-    command_parts.append("--html \"${html}\"")
-IF --style-files:
-    command_parts.append("--style-files \"${style_files}\"")
-
-command = " ".join(command_parts)
-
-REPORT: ""
-REPORT: "🎨 Phase 1: Style Extraction"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "Analyzing source code for design patterns..."
-REPORT: "Source: ${source}"
-IF glob_patterns:
-    REPORT: "Patterns: ${', '.join(glob_patterns)}"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# Build command with required parameters only
+command = "/workflow:ui-design:import-from-code" +
+          " --design-id \"${temp_design_run_id}\"" +
+          " --source \"${source}\""
 ```
 
 **Execute Command**:
@@ -292,44 +249,20 @@ TRY:
 
     IF tokens_exists != "exists" OR guide_exists != "exists":
         REPORT: "⚠️  WARNING: Expected extraction files not found"
-        REPORT: "Tokens: ${tokens_exists} | Guide: ${guide_exists}"
         REPORT: "Continuing with available outputs..."
-    ELSE:
-        REPORT: ""
-        REPORT: "✅ Phase 1 Complete: Style extraction successful"
-        REPORT: "   → Design tokens: ${tokens_path}"
-        REPORT: "   → Style guide: ${guide_path}"
-
-        # Optional: Check for animation tokens
-        anim_path = "${design_run_path}/animation-extraction/animation-tokens.json"
-        anim_exists = Bash(test -f "${anim_path}" && echo "exists" || echo "missing")
-        IF anim_exists == "exists":
-            REPORT: "   → Animation tokens: ${anim_path}"
 
 CATCH error:
     REPORT: "❌ ERROR: Style extraction failed"
     REPORT: "Error: ${error}"
-    REPORT: ""
-    REPORT: "Possible causes:"
-    REPORT: "  • Source directory contains no style files"
-    REPORT: "  • Glob patterns don't match any files"
-    REPORT: "  • Invalid file formats in source directory"
-    REPORT: ""
-    REPORT: "Cleaning up temporary workspace..."
+    REPORT: "Possible cause: Source directory contains no style files"
     Bash(rm -rf .workflow/${temp_session_id})
     EXIT 1
 ```
 
-**Example Commands**:
+**Example Command**:
 ```bash
-# Basic extraction
+# Automatic file discovery
 /workflow:ui-design:import-from-code --design-id design-run-20250111-123456 --source ./src
-
-# With specific file patterns
-/workflow:ui-design:import-from-code --design-id design-run-20250111-123456 --source ./src --css "theme/*.css" --js "theme/*.js"
-
-# Universal style files
-/workflow:ui-design:import-from-code --design-id design-run-20250111-123456 --source ./src --style-files "**/theme.*"
 ```
 
 **Completion Criteria**:
@@ -367,14 +300,6 @@ command = "/workflow:ui-design:reference-page-generator " +
           "--design-run \"${design_run_path}\" " +
           "--package-name \"${package_name}\" " +
           "--output-dir \"${output_dir}\""
-
-REPORT: ""
-REPORT: "📦 Phase 2: Reference Package Generation"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-REPORT: "Creating shareable reference package..."
-REPORT: "Package: ${package_name}"
-REPORT: "Output: ${package_path}/"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ```
 
 **Execute Command**:
@@ -401,30 +326,12 @@ TRY:
             missing_files.append(file)
 
     IF missing_files.length > 0:
-        REPORT: "⚠️  WARNING: Some expected files are missing:"
-        FOR file IN missing_files:
-            REPORT: "   ✗ ${file}"
-        REPORT: ""
+        REPORT: "⚠️  WARNING: Some expected files are missing"
         REPORT: "Package may be incomplete. Continuing with cleanup..."
-    ELSE:
-        REPORT: ""
-        REPORT: "✅ Phase 2 Complete: Reference package generated"
-        REPORT: "   → Design tokens: design-tokens.json"
-        REPORT: "   → Component patterns: component-patterns.json"
-        REPORT: "   → Interactive preview: preview.html"
-        REPORT: "   → Documentation: README.md"
-        REPORT: "   → Metadata: metadata.json"
 
 CATCH error:
     REPORT: "❌ ERROR: Reference package generation failed"
     REPORT: "Error: ${error}"
-    REPORT: ""
-    REPORT: "This may indicate:"
-    REPORT: "  • Incomplete style extraction in Phase 1"
-    REPORT: "  • Invalid design-run path"
-    REPORT: "  • Insufficient permissions for output directory"
-    REPORT: ""
-    REPORT: "Cleaning up temporary workspace..."
     Bash(rm -rf .workflow/${temp_session_id})
     EXIT 1
 ```
@@ -472,18 +379,13 @@ CATCH error:
 **Operations**:
 
 ```bash
-REPORT: ""
-REPORT: "🧹 Phase 3: Cleanup & Verification"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
 # Cleanup temporary workspace
 TRY:
     Bash(rm -rf .workflow/${temp_session_id})
-    REPORT: "✅ Temporary workspace cleaned"
 CATCH error:
-    REPORT: "⚠️  Warning: Failed to cleanup temporary files: ${error}"
+    # Silent failure - not critical
 
-# Quick verification (reference-page-generator already validated outputs)
+# Quick verification
 package_exists = Bash(test -d "${package_path}" && echo "exists" || echo "missing")
 
 IF package_exists != "exists":
@@ -494,9 +396,6 @@ IF package_exists != "exists":
 absolute_package_path = Bash(cd "${package_path}" && pwd 2>/dev/null || echo "${package_path}")
 component_count = Bash(jq -r '.extraction_metadata.component_count // "unknown"' "${package_path}/component-patterns.json" 2>/dev/null || echo "unknown")
 anim_exists = Bash(test -f "${package_path}/animation-tokens.json" && echo "✓" || echo "○")
-
-REPORT: "✅ Package verified: ${package_path}/"
-REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ```
 
 **TodoWrite Update**:
@@ -658,12 +557,11 @@ User triggers: /workflow:ui-design:codify-style ./src --package-name my-style-v1
 
 ### Parameter Pass-Through
 
-All glob parameters are passed through to `import-from-code`:
-- `--css` → passed to import-from-code
-- `--scss` → passed to import-from-code
-- `--js` → passed to import-from-code
-- `--html` → passed to import-from-code
-- `--style-files` → passed to import-from-code
+Only essential parameters are passed to `import-from-code`:
+- `--design-id` → temporary design run ID (auto-generated)
+- `--source` → user-specified source directory
+
+File discovery is fully automatic - no glob patterns needed.
 
 ### Output Directory Structure
 
@@ -690,13 +588,13 @@ All glob parameters are passed through to `import-from-code`:
 
 - **Simplified Interface**: Single path parameter with intelligent defaults
 - **Auto-Generation**: Package names auto-generated from directory names
+- **Automatic Discovery**: No need to specify file patterns - finds all style files automatically
 - **Pure Orchestrator**: No direct agent execution, delegates to specialized commands
 - **Auto-Continue**: Autonomous 4-phase execution without user interaction
 - **Safety First**: Overwrite protection, validation checks, error handling
 - **Code Reuse**: Leverages existing `import-from-code` and `reference-page-generator` commands
 - **Clean Separation**: Each command has single responsibility
 - **Easy Maintenance**: Changes to sub-commands automatically apply
-- **Flexible**: Supports all import-from-code glob parameters for custom file patterns
 
 ## Architecture
 

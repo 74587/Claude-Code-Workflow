@@ -1,7 +1,7 @@
 ---
 name: workflow:ui-design:import-from-code
-description: Import design system from code files (CSS/JS/HTML/SCSS) using parallel agent analysis with final synthesis
-argument-hint: "[--design-id <id>] [--session <id>] [--source <path>] [--files \"<glob>\"] [--css \"<glob>\"] [--js \"<glob>\"] [--scss \"<glob>\"] [--html \"<glob>\"] [--style-files \"<glob>\"]"
+description: Import design system from code files (CSS/JS/HTML/SCSS) with automatic file discovery and parallel agent analysis
+argument-hint: "[--design-id <id>] [--session <id>] [--source <path>]"
 allowed-tools: Read,Write,Bash,Glob,Grep,Task,TodoWrite
 auto-continue: true
 ---
@@ -37,33 +37,21 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 --design-id <id>        Design run ID to import into (must exist)
 --session <id>          Session ID (uses latest design run in session)
 --source <path>         Source code directory to analyze (required)
---files "<glob>"        Universal file glob pattern (recommended, replaces all below)
-
-# Legacy parameters (deprecated, use --files instead)
---css "<glob>"          CSS file glob pattern (e.g., "theme/*.css")
---scss "<glob>"         SCSS file glob pattern (e.g., "styles/*.scss")
---js "<glob>"           JavaScript file glob pattern (e.g., "theme/*.js")
---html "<glob>"         HTML file glob pattern (e.g., "pages/*.html")
---style-files "<glob>"  Universal style file glob (applies to CSS/SCSS/JS)
 ```
+
+**Note**: All file discovery is automatic. The command will scan the source directory and find all relevant style files (CSS, SCSS, JS, HTML) automatically.
 
 ### Usage Examples
 
 ```bash
-# Simple usage - auto-discover all style files
+# Basic usage - auto-discover all style files
 /workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./src
 
-# Recommended: Use --files for custom patterns
-/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src --files "**/theme.*"
+# With session ID (uses latest design run in session)
+/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src
 
-# Target specific file patterns
-/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./src --files "**/{theme,style,color}.*"
-
-# Tailwind config only
-/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./ --files "tailwind.config.js"
-
-# Legacy syntax (still supported, but --files recommended)
-/workflow:ui-design:import-from-code --session WFS-20250109-12345 --source ./src --css "theme/*.css" --js "theme/*.js"
+# Root directory analysis
+/workflow:ui-design:import-from-code --design-id design-run-20250109-12345 --source ./
 ```
 
 ---
@@ -125,11 +113,14 @@ echo "  Output: $base_path"
 
 **File Discovery Behavior**:
 
-- **With `--files`**: Discovers all files matching the glob pattern, then categorizes by extension
-- **With legacy parameters**: Uses individual globs for CSS/SCSS/JS/HTML (shows deprecation warning)
-- **Auto-discover (default)**: Finds all CSS/SCSS/HTML files and theme-related JS/TS files
-- **Exclusions**: Automatically excludes `node_modules/` and `dist/` directories
+- **Automatic discovery**: Intelligently scans source directory for all style-related files
+- **Supported file types**: CSS, SCSS, JavaScript, TypeScript, HTML
+- **Smart filtering**: Finds theme-related JS/TS files (e.g., tailwind.config.js, theme.js, styled-components)
+- **Exclusions**: Automatically excludes `node_modules/`, `dist/`, `.git/`, and build directories
 - **Output**: Categorized file lists saved to `.intermediates/import-analysis/`
+  - `css-files.txt` - CSS and SCSS files
+  - `js-files.txt` - JavaScript and TypeScript files with theme/style content
+  - `html-files.txt` - HTML files
 
 <!-- TodoWrite: Mark Phase 0 complete, start Phase 1 -->
 
@@ -758,18 +749,18 @@ ${base_path}/
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| No files discovered | Glob patterns too restrictive or wrong --source path | Check glob patterns and --source parameter, verify file locations |
+| No files discovered | Wrong --source path or no style files in directory | Verify --source parameter points to correct directory with style files |
 | Agent reports "failed" status | No tokens found in any file | Review file content, check if files contain design tokens |
 | Empty completeness reports | Files exist but contain no extractable tokens | Manually verify token definitions in source files |
-| Missing file type | Specific file type not discovered | Use explicit glob flags (--css, --js, --html, --scss) |
+| Missing file type | File extensions not recognized | Check that files use standard extensions (.css, .scss, .js, .ts, .html) |
 
 ---
 
 ## Best Practices
 
-1. **Use auto-discovery for full projects**: Omit glob flags to discover all files automatically
-2. **Target specific directories for speed**: Use `--source` to specify source code location and `--design-id` or `--session` to target design run, combined with specific globs for focused analysis
+1. **Point to the right directory**: Use `--source` to specify the directory containing your style files (e.g., `./src`, `./app`, `./styles`)
+2. **Let automatic discovery work**: The command will find all relevant files - no need to specify patterns
 3. **Specify target design run**: Use `--design-id` for existing design run or `--session` to use session's latest design run (one of these is required)
-4. **Cross-reference agent reports**: Compare all three completeness reports to identify gaps
-5. **Review missing content**: Check `missing` field in reports for actionable improvements
+4. **Cross-reference agent reports**: Compare all three completeness reports (style, animation, layout) to identify gaps
+5. **Review missing content**: Check `_metadata.completeness` field in reports for actionable improvements
 6. **Verify file discovery**: Check `${base_path}/.intermediates/import-analysis/*-files.txt` if agents report no data
