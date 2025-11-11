@@ -362,25 +362,7 @@ CRITICAL - Next Steps:
    - No user intervention required between phases
    - TodoWrite dynamically reflects current execution state
 
-#### Lifecycle Pattern
-
-```
-Initial: [Phase 1: pending] [Phase 2: pending] [Phase 3: pending] [Phase 4: pending] [Phase 5: pending]
-         ↓
-Phase 2 Invoked (ATTACHED - mode-specific context gathering):
-         [Phase 1: completed] [Phase 2.1: in_progress] [Phase 2.2: pending] [Phase 2.3: pending] [Phase 3: pending] [Phase 4: pending] [Phase 5: pending]
-         ↓
-Phase 2 Completed (COLLAPSED):
-         [Phase 1: completed] [Phase 2: completed] [Phase 3: pending] [Phase 4: pending] [Phase 5: pending]
-         ↓
-Phase 3 Invoked (ATTACHED):
-         [Phase 1: completed] [Phase 2: completed] [Phase 3.1: in_progress] [Phase 3.2: pending] [Phase 3.3: pending] [Phase 4: pending] [Phase 5: pending]
-         ↓
-Phase 3 Completed (COLLAPSED):
-         [Phase 1: completed] [Phase 2: completed] [Phase 3: completed] [Phase 4: pending] [Phase 5: pending]
-         ↓
-[Continue pattern through Phase 4 and Phase 5...]
-```
+**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED with mode-specific context gathering) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
 
 #### Test-Fix-Gen Specific Features
 

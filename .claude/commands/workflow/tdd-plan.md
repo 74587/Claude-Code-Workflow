@@ -337,23 +337,7 @@ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task
    - No user intervention required between phases
    - TodoWrite dynamically reflects current execution state
 
-### Lifecycle Pattern
-
-```
-Initial: [Phase 1: pending] [Phase 2: pending] [Phase 3: pending] [Phase 5: pending]
-         ↓
-Phase 3 Invoked (ATTACHED):
-         [Phase 1-2: completed] [Phase 3.1: in_progress] [Phase 3.2: pending] [Phase 3.3: pending] [Phase 5: pending]
-         ↓
-Phase 3 Completed (COLLAPSED):
-         [Phase 1-2: completed] [Phase 3: completed] [Phase 5: pending]
-         ↓
-Phase 5 Invoked (ATTACHED, generates TDD tasks):
-         [Phase 1-3: completed] [Phase 5.1: in_progress] [Phase 5.2: pending] [Phase 5.3: pending]
-         ↓
-Phase 5 Completed (COLLAPSED, each IMPL task contains Red-Green-Refactor cycle):
-         [Phase 1-3: completed] [Phase 5: completed] [Phase 6: in_progress]
-```
+**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins (conditional Phase 4 if conflict_risk ≥ medium) → Repeat until all phases complete.
 
 ### TDD-Specific Features
 

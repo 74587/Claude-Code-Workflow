@@ -303,17 +303,7 @@ Quality Gate: Consider running /workflow:action-plan-verify to catch issues earl
    - No user intervention required between phases
    - TodoWrite dynamically reflects current execution state
 
-### Lifecycle Pattern
-
-```
-Initial: [Phase 1: pending] [Phase 2: pending] [Phase 3: pending]
-         ↓
-Phase 2 Invoked (ATTACHED):
-         [Phase 1: completed] [Phase 2.1: in_progress] [Phase 2.2: pending] [Phase 2.3: pending] [Phase 3: pending]
-         ↓
-Phase 2 Completed (COLLAPSED):
-         [Phase 1: completed] [Phase 2: completed] [Phase 3: pending]
-```
+**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
 
 ### Benefits
 
