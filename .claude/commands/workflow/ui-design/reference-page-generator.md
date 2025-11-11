@@ -213,9 +213,12 @@ Task(ui-design-agent): `
 
   ### Section 3: Components
   - Render all components from layout-templates.json (use layout_templates field)
+  - **Universal Components**: Display reusable multi-component showcases (buttons, inputs, cards, etc.)
+  - **Specialized Components**: Display module-specific components from code (feature-specific layouts, custom widgets)
   - Display all variants side-by-side
   - Show DOM structure with proper styling
   - Include usage code snippets in <details> tags
+  - Clearly label component types (universal vs specialized)
 
   ### Section 4: Spacing & Layout
   - Visual spacing scale
@@ -252,8 +255,10 @@ Task(ui-design-agent): `
   - ✅ Generate complete, interactive showcase HTML
   - ✅ All CSS uses var() references to design tokens
   - ✅ Display ALL components from layout-templates.json
+  - ✅ **Separate universal components from specialized components** in the showcase
   - ✅ Display component DOM structures with proper styling
   - ✅ Include usage code snippets
+  - ✅ Label each component type clearly (Universal / Specialized)
   - ✅ Use Write() to save both files:
     - ${package_dir}/preview.html
     - ${package_dir}/preview.css

@@ -297,6 +297,10 @@ Task(ui-design-agent): `
   - JavaScript/TypeScript: Layout components (React/Vue), grid configs
   - HTML: Semantic structure, component hierarchies
 
+  **Component Classification** (MUST annotate in extraction):
+  - **Universal Components**: Reusable multi-component templates (buttons, inputs, cards, modals, etc.)
+  - **Specialized Components**: Module-specific components from code (feature-specific layouts, custom widgets, domain components)
+
   **Step 3: System identification**
   - Detect naming convention (BEM | SMACSS | utility-first | css-modules)
   - Identify layout system (12-column | flexbox | css-grid | custom)
@@ -319,8 +323,10 @@ Task(ui-design-agent): `
        * code_snippets: Map of code snippets (same format as Style Agent)
      - For each component in "layout_templates":
        * Include "source" field (file:line)
+       * **Include "component_type" field: "universal" | "specialized"**
        * dom_structure with semantic HTML5
        * css_layout_rules using var() placeholders
+       * Add "description" field explaining component purpose and classification rationale
 
   **Code Snippet Recording**:
   - Record actual layout/component code in `extraction_metadata.code_snippets`
@@ -334,7 +340,11 @@ Task(ui-design-agent): `
   - ✅ Detect and document naming conventions
   - ✅ Identify layout system with confidence level
   - ✅ Extract component variants and states from usage patterns
+  - ✅ **Classify each component as "universal" or "specialized"** based on:
+    * Universal: Reusable across multiple features (buttons, inputs, cards, modals)
+    * Specialized: Feature-specific or domain-specific (checkout form, dashboard widget)
   - ✅ Record complete code snippets in extraction_metadata.code_snippets (complete components/structures)
+  - ✅ **Document classification rationale** in component description
   - ❌ NO external research or web searches (code-only extraction)
 `
 ```
