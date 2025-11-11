@@ -11,18 +11,23 @@ output_json="${2:-discovered-files.json}"
 find_files() {
   local pattern="$1"
   local files
-  files=$(find "$source_dir" -type f $pattern \
-    ! -path "*/node_modules/*" \
-    ! -path "*/dist/*" \
-    ! -path "*/.git/*" \
-    ! -path "*/build/*" \
-    ! -path "*/coverage/*" \
-    2>/dev/null | sort || true)
+  files=$(eval "find \"$source_dir\" -type f $pattern \
+    ! -path \"*/node_modules/*\" \
+    ! -path \"*/dist/*\" \
+    ! -path \"*/.git/*\" \
+    ! -path \"*/build/*\" \
+    ! -path \"*/coverage/*\" \
+    2>/dev/null | sort || true")
 
-  local count=$(echo "$files" | grep -c . || echo 0)
+  local count
+  if [ -z "$files" ]; then
+    count=0
+  else
+    count=$(echo "$files" | grep -c . || echo 0)
+  fi
   local json_files=""
 
-  if [ $count -gt 0 ]; then
+  if [ "$count" -gt 0 ]; then
     json_files=$(echo "$files" | awk '{printf "\"%s\"%s\n", $0, (NR<'$count'?",":"")}' | tr '\n' ' ')
   fi
 
@@ -34,8 +39,8 @@ css_result=$(find_files '\( -name "*.css" -o -name "*.scss" \)')
 css_count=${css_result%%|*}
 css_files=${css_result#*|}
 
-# Discover JS/TS theme files
-js_result=$(find_files '\( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" \) -a \( -name "*theme*" -o -name "*config*" -o -name "*style*" -o -name "*color*" \)')
+# Discover JS/TS files (all framework files)
+js_result=$(find_files '\( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.mjs" -o -name "*.cjs" -o -name "*.vue" -o -name "*.svelte" \)')
 js_count=${js_result%%|*}
 js_files=${js_result#*|}
 

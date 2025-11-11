@@ -184,7 +184,23 @@ Task(ui-design-agent): `
   - JavaScript/TypeScript: Theme configs (Tailwind, styled-components, CSS-in-JS)
   - HTML: Inline styles, usage patterns
 
-  **Step 3: Smart inference for gaps**
+  **Step 3: CLI-Assisted Analysis (Optional)**
+  - **When to use**: Large codebases (>20 files), complex framework detection, or ambiguous patterns
+  - **Tools available**: gemini, qwen (use gemini first, qwen as fallback)
+  - **Usage pattern**:
+    \`\`\`bash
+    cd ${source} && gemini -p "
+    PURPOSE: Analyze style system in codebase
+    TASK: • Identify design token patterns • Extract color/typography scales • Detect framework usage
+    MODE: analysis
+    CONTEXT: @**/*.{css,scss,ts,tsx,js,jsx}
+    EXPECTED: Design token patterns with file references
+    RULES: Focus on systematic patterns, include source file locations | analysis=READ-ONLY
+    "
+    \`\`\`
+  - **Integration**: Use CLI output to guide file reading and token extraction
+
+  **Step 4: Smart inference for gaps**
   - Infer missing tokens from existing patterns
   - Normalize inconsistent values into systematic scales
   - Fill missing categories from cross-file references
@@ -211,7 +227,8 @@ Task(ui-design-agent): `
   - ✅ Track extraction source for each token (file:line)
   - ✅ Include completeness assessment in _metadata
   - ✅ Normalize inconsistent values into systematic scales
-  - ❌ NO external research or MCP calls (code-only extraction)
+  - ✅ May use gemini/qwen CLI for analysis assistance (optional, for complex cases)
+  - ❌ NO external research or web searches (code-only extraction)
 `
 ```
 
@@ -242,7 +259,23 @@ Task(ui-design-agent): `
   - JavaScript/TypeScript: Animation frameworks (Framer Motion, GSAP), CSS-in-JS
   - HTML: Inline styles, data-animation attributes
 
-  **Step 3: Framework detection & normalization**
+  **Step 3: CLI-Assisted Analysis (Optional)**
+  - **When to use**: Framework detection, complex animation configs, or large file sets
+  - **Tools available**: gemini, qwen (use gemini first, qwen as fallback)
+  - **Usage pattern**:
+    \`\`\`bash
+    cd ${source} && gemini -p "
+    PURPOSE: Detect animation framework and extract animation tokens
+    TASK: • Identify animation framework (Framer Motion, GSAP, CSS) • Extract keyframes and transitions • Find animation timing functions
+    MODE: analysis
+    CONTEXT: @**/*.{css,scss,ts,tsx,js,jsx}
+    EXPECTED: Framework name, animation patterns with file references
+    RULES: Focus on animation-specific code, include source locations | analysis=READ-ONLY
+    "
+    \`\`\`
+  - **Integration**: Use CLI output to identify framework and guide extraction
+
+  **Step 4: Framework detection & normalization**
   - Detect animation frameworks used (css-animations | framer-motion | gsap | none)
   - Normalize into semantic token system
   - Cross-reference CSS animations with JS configs
@@ -268,7 +301,8 @@ Task(ui-design-agent): `
   - ✅ Detect animation framework if present
   - ✅ Track extraction source for each token (file:line)
   - ✅ Normalize framework-specific syntax into standard tokens
-  - ❌ NO external research or MCP calls (code-only extraction)
+  - ✅ May use gemini/qwen CLI for framework detection (optional, for complex cases)
+  - ❌ NO external research or web searches (code-only extraction)
 `
 ```
 
@@ -299,7 +333,23 @@ Task(ui-design-agent): `
   - JavaScript/TypeScript: Layout components (React/Vue), grid configs
   - HTML: Semantic structure, component hierarchies
 
-  **Step 3: System identification**
+  **Step 3: CLI-Assisted Analysis (Optional)**
+  - **When to use**: Complex component hierarchies, framework detection, or large component sets
+  - **Tools available**: gemini, qwen (use gemini first, qwen as fallback)
+  - **Usage pattern**:
+    \`\`\`bash
+    cd ${source} && gemini -p "
+    PURPOSE: Analyze layout system and component structure
+    TASK: • Detect naming convention (BEM/utility-first/css-modules) • Identify layout system (grid/flexbox) • Extract component patterns and responsive breakpoints
+    MODE: analysis
+    CONTEXT: @**/*.{css,scss,ts,tsx,js,jsx}
+    EXPECTED: Layout system type, naming convention, component patterns with file references
+    RULES: Focus on structural patterns, include breakpoints and responsive strategy | analysis=READ-ONLY
+    "
+    \`\`\`
+  - **Integration**: Use CLI output to identify conventions and guide component extraction
+
+  **Step 4: System identification**
   - Detect naming convention (BEM | SMACSS | utility-first | css-modules)
   - Identify layout system (12-column | flexbox | css-grid | custom)
   - Extract responsive strategy and breakpoints
@@ -337,7 +387,8 @@ Task(ui-design-agent): `
   - ✅ Identify layout system with confidence level
   - ✅ Extract component variants and states from usage patterns
   - ✅ Generate BOTH JSON + MD files for complete documentation
-  - ❌ NO external research or MCP calls (code-only extraction)
+  - ✅ May use gemini/qwen CLI for system detection (optional, for complex cases)
+  - ❌ NO external research or web searches (code-only extraction)
 `
 ```
 
