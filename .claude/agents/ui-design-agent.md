@@ -74,10 +74,22 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
      * Report conflicts in `_metadata.conflicts` with all definitions and selection reasoning
      * NO inference, NO normalization - faithful extraction with explicit conflict resolution
    - Fast Conflict Detection (Use Bash/Grep):
-     * Quick scan: `rg --color=never -n "^\s*--primary:" <files>` to find all primary color definitions
-     * Semantic search: `rg --color=never -B2 -A0 "^\s*--primary:" <files>` to capture comments
-     * Multi-file comparison: Compare definitions across discovered CSS/JS files
-     * Pattern: Search → Compare values → If different → Read full context → Record conflict
+     * Quick scan: `rg --color=never -n "^\s*--primary:" --type css` to find all primary color definitions with line numbers
+     * Semantic search: `rg --color=never -B3 -A1 "^\s*--primary:" --type css` to capture surrounding context and comments
+     * Per-file comparison: `rg --color=never -B3 -A1 "^\s*--primary:" file1.css && rg --color=never -B3 -A1 "^\s*--primary:" file2.css` to compare specific files
+     * Core token scan: Search for --primary, --secondary, --accent, --background patterns to detect all theme-critical definitions
+     * Pattern: `rg → Extract values → Compare → If different → Read full context with comments → Record conflict`
+     * Example workflow:
+       ```bash
+       # Step 1: Find all primary definitions
+       rg --color=never -n "^\s*--primary:" --type css
+
+       # Step 2: Get semantic context for each
+       rg --color=never -B5 -A2 "^\s*--primary:" file.css
+
+       # Step 3: Look for top-level scheme comments
+       rg --color=never -B10 "^\s*:root" file.css | grep -i "color scheme\|theme"
+       ```
 
 2. **Explore/Text Mode** (Source: `style-extract`, `layout-extract`, `animation-extract`)
    - Data Source: User prompts, visual references, images, URLs
