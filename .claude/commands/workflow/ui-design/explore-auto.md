@@ -601,8 +601,7 @@ TodoWrite({todos: [
 ]})
 
 # Execute preview generation script
-script_path = "~/.claude/scripts/ui-design/generate-preview-files.sh"
-Bash(bash ${script_path} "${base_path}" "${design_id}" "${style_variants}" "${layout_variants}" "${inferred_target_list}")
+Bash(~/.claude/scripts/ui-generate-preview.sh "${base_path}/prototypes")
 
 # Verify output files
 IF NOT exists("${base_path}/prototypes/compare.html"):
