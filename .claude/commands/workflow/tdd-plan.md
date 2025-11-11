@@ -9,11 +9,24 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 ## Coordinator Role
 
-**This command is a pure orchestrator**: Execute 5 slash commands in sequence, parse outputs, pass context, and ensure complete TDD workflow creation.
+**This command is a pure orchestrator**: Execute 6 slash commands in sequence, parse outputs, pass context, and ensure complete TDD workflow creation with Red-Green-Refactor task generation.
 
 **Execution Modes**:
 - **Agent Mode** (default): Use `/workflow:tools:task-generate-tdd` (autonomous agent-driven)
 - **CLI Mode** (`--cli-execute`): Use `/workflow:tools:task-generate-tdd --cli-execute` (Gemini/Qwen)
+
+**Task Attachment Model**:
+- SlashCommand invocation **expands workflow** by attaching sub-tasks to current TodoWrite
+- When a sub-command is invoked (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
+- Orchestrator **executes these attached tasks** sequentially
+- After completion, attached tasks are **collapsed** back to high-level phase summary
+- This is **task expansion**, not external delegation
+
+**Auto-Continue Mechanism**:
+- TodoList tracks current phase status and dynamically manages task attachment/collapse
+- When each phase finishes executing, automatically execute next pending phase
+- All phases run autonomously without user interaction
+- **⚠️ CONTINUOUS EXECUTION** - Do not stop until all phases complete
 
 ## Core Rules
 
@@ -21,9 +34,10 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 2. **No Preliminary Analysis**: Do not read files before Phase 1
 3. **Parse Every Output**: Extract required data for next phase
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
-5. **Track Progress**: Update TodoWrite when each phase finishes executing
+5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 6. **TDD Context**: All descriptions include "TDD:" prefix
-7. **Quality Gate**: Phase 4 conflict resolution (optional, auto-triggered) validates compatibility before task generation
+7. **Task Attachment Model**: SlashCommand invocation **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+8. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ## 6-Phase Execution (with Conflict Resolution)
 
@@ -85,9 +99,41 @@ TEST_FOCUS: [Test scenarios]
 - Prevents duplicate test creation
 - Enables integration with existing tests
 
-**TodoWrite**: Mark phase 3 completed, phase 4 in_progress
+<!-- TodoWrite: When test-context-gather invoked, INSERT 3 test-context-gather tasks -->
 
-**After Phase 3**: Return to user showing test coverage results, then auto-continue to Phase 4
+**TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached)**:
+```json
+[
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3.1: Detect test framework and conventions (test-context-gather)", "status": "in_progress", "activeForm": "Detecting test framework"},
+  {"content": "Phase 3.2: Analyze existing test coverage (test-context-gather)", "status": "pending", "activeForm": "Analyzing test coverage"},
+  {"content": "Phase 3.3: Identify coverage gaps (test-context-gather)", "status": "pending", "activeForm": "Identifying coverage gaps"},
+  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]
+```
+
+**Note**: SlashCommand invocation **attaches** test-context-gather's 3 tasks. Orchestrator **executes** these tasks.
+
+**Next Action**: Tasks attached → **Execute Phase 3.1-3.3** sequentially
+
+<!-- TodoWrite: After Phase 3 tasks complete, REMOVE Phase 3.1-3.3, restore to orchestrator view -->
+
+**TodoWrite Update (Phase 3 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]
+```
+
+**Note**: Phase 3 tasks completed and collapsed to summary.
+
+**After Phase 3**: Return to user showing test coverage results, then auto-continue to Phase 4/5 (depending on conflict_risk)
 
 ---
 
@@ -113,7 +159,41 @@ TEST_FOCUS: [Test scenarios]
 - If conflict_risk is "none" or "low", skip directly to Phase 5
 - Display: "No significant conflicts detected, proceeding to TDD task generation"
 
-**TodoWrite**: Mark phase 4 completed (if executed) or skipped, phase 5 in_progress
+<!-- TodoWrite: If conflict_risk ≥ medium, INSERT 3 conflict-resolution tasks -->
+
+**TodoWrite Update (Phase 4 SlashCommand invoked - tasks attached, if conflict_risk ≥ medium)**:
+```json
+[
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Phase 4.1: Detect conflicts with CLI analysis (conflict-resolution)", "status": "in_progress", "activeForm": "Detecting conflicts"},
+  {"content": "Phase 4.2: Present conflicts to user (conflict-resolution)", "status": "pending", "activeForm": "Presenting conflicts"},
+  {"content": "Phase 4.3: Apply resolution strategies (conflict-resolution)", "status": "pending", "activeForm": "Applying resolution strategies"},
+  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]
+```
+
+**Note**: SlashCommand invocation **attaches** conflict-resolution's 3 tasks. Orchestrator **executes** these tasks.
+
+**Next Action**: Tasks attached → **Execute Phase 4.1-4.3** sequentially
+
+<!-- TodoWrite: After Phase 4 tasks complete, REMOVE Phase 4.1-4.3, restore to orchestrator view -->
+
+**TodoWrite Update (Phase 4 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Execute conflict resolution", "status": "completed", "activeForm": "Executing conflict resolution"},
+  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]
+```
+
+**Note**: Phase 4 tasks completed and collapsed to summary.
 
 **After Phase 4**: Return to user showing conflict resolution results (if executed) and selected strategies, then auto-continue to Phase 5
 
@@ -144,6 +224,40 @@ TEST_FOCUS: [Test scenarios]
   - Green phase includes test-fix-cycle configuration
 - IMPL_PLAN.md contains workflow_type: "tdd" in frontmatter
 - Task count ≤10 (compliance with task limit)
+
+<!-- TodoWrite: When task-generate-tdd invoked, INSERT 3 task-generate-tdd tasks -->
+
+**TodoWrite Update (Phase 5 SlashCommand invoked - tasks attached)**:
+```json
+[
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Phase 5.1: Discovery - analyze TDD requirements (task-generate-tdd)", "status": "in_progress", "activeForm": "Analyzing TDD requirements"},
+  {"content": "Phase 5.2: Planning - design Red-Green-Refactor cycles (task-generate-tdd)", "status": "pending", "activeForm": "Designing TDD cycles"},
+  {"content": "Phase 5.3: Output - generate IMPL tasks with internal TDD phases (task-generate-tdd)", "status": "pending", "activeForm": "Generating TDD tasks"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]
+```
+
+**Note**: SlashCommand invocation **attaches** task-generate-tdd's 3 tasks. Orchestrator **executes** these tasks. Each generated IMPL task will contain internal Red-Green-Refactor cycle.
+
+**Next Action**: Tasks attached → **Execute Phase 5.1-5.3** sequentially
+
+<!-- TodoWrite: After Phase 5 tasks complete, REMOVE Phase 5.1-5.3, restore to orchestrator view -->
+
+**TodoWrite Update (Phase 5 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Execute TDD task generation", "status": "completed", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "in_progress", "activeForm": "Validating TDD structure"}
+]
+```
+
+**Note**: Phase 5 tasks completed and collapsed to summary. Each generated IMPL task contains complete Red-Green-Refactor cycle internally.
 
 ### Phase 6: TDD Structure Validation & Action Plan Verification (RECOMMENDED)
 **Internal validation first, then recommend external verification**
@@ -203,44 +317,146 @@ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task
 ## TodoWrite Pattern
 
 ```javascript
-// Initialize (Phase 4 added dynamically after Phase 3 if conflict_risk ≥ medium)
+// ⚠️ CRITICAL: Dynamic TodoWrite task attachment strategy for TDD workflow:
+//
+// **Key Concept**: SlashCommand invocation ATTACHES tasks to current workflow.
+// Orchestrator EXECUTES these attached tasks itself, then COLLAPSES them.
+// TDD-specific: Generated IMPL tasks contain internal Red-Green-Refactor cycles.
+//
+// 1. INITIAL STATE: 5 orchestrator-level tasks (or 6 if conflict_risk ≥ medium added later)
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "in_progress", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "pending", "activeForm": "Executing context gathering"},
   {"content": "Execute test coverage analysis", "status": "pending", "activeForm": "Executing test coverage analysis"},
-  // Phase 4 todo added dynamically after Phase 3 if conflict_risk ≥ medium
   {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
   {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
 ]})
 
-// After Phase 3 (if conflict_risk ≥ medium, insert Phase 4 todo)
+// 2. PHASE 3 SlashCommand INVOCATION (test-context-gather):
+//    - SlashCommand(/workflow:tools:test-context-gather) ATTACHES 3 tasks
+//    - Orchestrator EXECUTES these 3 tasks sequentially
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
-  {"content": "Execute conflict resolution", "status": "in_progress", "activeForm": "Executing conflict resolution"},
+  {"content": "Phase 3.1: Detect test framework and conventions (test-context-gather)", "status": "in_progress", "activeForm": "Detecting test framework"},
+  {"content": "Phase 3.2: Analyze existing test coverage (test-context-gather)", "status": "pending", "activeForm": "Analyzing test coverage"},
+  {"content": "Phase 3.3: Identify coverage gaps (test-context-gather)", "status": "pending", "activeForm": "Identifying coverage gaps"},
   {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
   {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
 ]})
 
-// After Phase 3 (if conflict_risk is none/low, skip Phase 4, go directly to Phase 5)
+// 3. PHASE 3 TASKS COMPLETED:
+//    - COLLAPSE completed tasks into Phase 3 summary
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
   {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
-  {"content": "Execute TDD task generation", "status": "in_progress", "activeForm": "Executing TDD task generation"},
+  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
   {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
 ]})
 
-// After Phase 4 (if executed), continue to Phase 5
+// 4. CONDITIONAL: IF conflict_risk ≥ medium → PHASE 4 SlashCommand INVOCATION:
+//    - SlashCommand(/workflow:tools:conflict-resolution) ATTACHES 3 tasks
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Phase 4.1: Detect conflicts with CLI analysis (conflict-resolution)", "status": "in_progress", "activeForm": "Detecting conflicts"},
+  {"content": "Phase 4.2: Present conflicts to user (conflict-resolution)", "status": "pending", "activeForm": "Presenting conflicts"},
+  {"content": "Phase 4.3: Apply resolution strategies (conflict-resolution)", "status": "pending", "activeForm": "Applying resolution strategies"},
+  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]})
+
+// 5. PHASE 4 TASKS COMPLETED (if executed):
+//    - COLLAPSE completed tasks into Phase 4 summary
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
   {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
   {"content": "Execute conflict resolution", "status": "completed", "activeForm": "Executing conflict resolution"},
-  {"content": "Execute TDD task generation", "status": "in_progress", "activeForm": "Executing TDD task generation"},
+  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
   {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
 ]})
+
+// 6. PHASE 5 SlashCommand INVOCATION (task-generate-tdd):
+//    - SlashCommand(/workflow:tools:task-generate-tdd) ATTACHES 3 tasks
+//    - Generates IMPL tasks with internal Red-Green-Refactor cycles
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Phase 5.1: Discovery - analyze TDD requirements (task-generate-tdd)", "status": "in_progress", "activeForm": "Analyzing TDD requirements"},
+  {"content": "Phase 5.2: Planning - design Red-Green-Refactor cycles (task-generate-tdd)", "status": "pending", "activeForm": "Designing TDD cycles"},
+  {"content": "Phase 5.3: Output - generate IMPL tasks with internal TDD phases (task-generate-tdd)", "status": "pending", "activeForm": "Generating TDD tasks"},
+  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+]})
+
+// 7. PHASE 5 TASKS COMPLETED:
+//    - COLLAPSE completed tasks into Phase 5 summary
+//    - Each generated IMPL task contains internal Red-Green-Refactor cycle
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Execute TDD task generation", "status": "completed", "activeForm": "Executing TDD task generation"},
+  {"content": "Validate TDD structure", "status": "in_progress", "activeForm": "Validating TDD structure"}
+]})
+
+// Benefits:
+// ✓ Real-time visibility into attached tasks during execution
+// ✓ Clean orchestrator-level summary after tasks complete
+// ✓ Clear mental model: SlashCommand = attach tasks, not delegate work
+// ✓ TDD-specific: Shows Red-Green-Refactor cycle generation in Phase 5
+// ✓ Dynamic attachment/collapse maintains clarity
+```
+
+## Execution Flow Diagram
+
+```
+TDD Workflow Orchestrator
+│
+├─ Phase 1: Session Discovery
+│  └─ /workflow:session:start --auto
+│     └─ Returns: sessionId
+│
+├─ Phase 2: Context Gathering
+│  └─ /workflow:tools:context-gather
+│     └─ Returns: context-package.json path
+│
+├─ Phase 3: Test Coverage Analysis                    ← ATTACHED (3 tasks)
+│  └─ /workflow:tools:test-context-gather
+│     ├─ Phase 3.1: Detect test framework
+│     ├─ Phase 3.2: Analyze existing test coverage
+│     └─ Phase 3.3: Identify coverage gaps
+│     └─ Returns: test-context-package.json           ← COLLAPSED
+│
+├─ Phase 4: Conflict Resolution (conditional)
+│  IF conflict_risk ≥ medium:
+│  └─ /workflow:tools:conflict-resolution             ← ATTACHED (3 tasks)
+│     ├─ Phase 4.1: Detect conflicts with CLI
+│     ├─ Phase 4.2: Present conflicts to user
+│     └─ Phase 4.3: Apply resolution strategies
+│     └─ Returns: CONFLICT_RESOLUTION.md              ← COLLAPSED
+│  ELSE:
+│  └─ Skip to Phase 5
+│
+├─ Phase 5: TDD Task Generation                       ← ATTACHED (3 tasks)
+│  └─ /workflow:tools:task-generate-tdd
+│     ├─ Phase 5.1: Discovery - analyze TDD requirements
+│     ├─ Phase 5.2: Planning - design Red-Green-Refactor cycles
+│     └─ Phase 5.3: Output - generate IMPL tasks with internal TDD phases
+│     └─ Returns: IMPL-*.json, IMPL_PLAN.md           ← COLLAPSED
+│        (Each IMPL task contains internal Red-Green-Refactor cycle)
+│
+└─ Phase 6: TDD Structure Validation
+   └─ Internal validation + summary returned
+   └─ Recommend: /workflow:action-plan-verify
+
+Key Points:
+• ← ATTACHED: SlashCommand attaches sub-tasks to orchestrator TodoWrite
+• ← COLLAPSED: Sub-tasks executed and collapsed to phase summary
+• TDD-specific: Each generated IMPL task contains complete Red-Green-Refactor cycle
 ```
 
 ## Input Processing

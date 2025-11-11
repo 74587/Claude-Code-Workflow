@@ -22,11 +22,19 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (conflict reso
 4. **Phase 3 executes** (optional, if conflict_risk ≥ medium) → Conflict resolution → Auto-continues
 5. **Phase 4 executes** → Task generation (task-generate-agent) → Reports final summary
 
+**Task Attachment Model**:
+- SlashCommand invocation **expands workflow** by attaching sub-tasks to current TodoWrite
+- When a sub-command is invoked (e.g., `/workflow:tools:context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
+- Orchestrator **executes these attached tasks** sequentially
+- After completion, attached tasks are **collapsed** back to high-level phase summary
+- This is **task expansion**, not external delegation
+
 **Auto-Continue Mechanism**:
-- TodoList tracks current phase status
+- TodoList tracks current phase status and dynamically manages task attachment/collapse
 - When each phase finishes executing, automatically execute next pending phase
 - All phases run autonomously without user interaction (clarification handled in brainstorm phase)
 - Progress updates shown at each phase for visibility
+- **⚠️ CONTINUOUS EXECUTION** - Do not stop until all phases complete
 
 ## Core Rules
 
@@ -34,8 +42,9 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (conflict reso
 2. **No Preliminary Analysis**: Do not read files, analyze structure, or gather context before Phase 1
 3. **Parse Every Output**: Extract required data from each command/agent output for next phase
 4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
-5. **Track Progress**: Update TodoWrite when each phase finishes executing
-6. **Agent Delegation**: Phase 3 uses cli-execution-agent for autonomous intelligent analysis
+5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
+6. **Task Attachment Model**: SlashCommand invocation **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+7. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ## 5-Phase Execution
 
@@ -84,9 +93,11 @@ CONTEXT: Existing user database schema, REST API endpoints
 - Context package path extracted
 - File exists and is valid JSON
 
-**TodoWrite**: Mark phase 2 completed, phase 3 in_progress
+**TodoWrite**: Mark phase 2 completed, phase 3/4 in_progress (depending on conflict_risk)
 
-**After Phase 2**: Return to user showing Phase 2 results, then auto-continue to Phase 3
+**Task Attachment**: SlashCommand invocation attaches 3 context-gather sub-tasks, executes them, then collapses to phase summary (see TodoWrite Pattern section for details)
+
+**After Phase 2**: Return to user showing Phase 2 results, then auto-continue to Phase 3/4 (depending on conflict_risk)
 
 ---
 
@@ -112,7 +123,9 @@ CONTEXT: Existing user database schema, REST API endpoints
 - If conflict_risk is "none" or "low", skip directly to Phase 3.5
 - Display: "No significant conflicts detected, proceeding to clarification"
 
-**TodoWrite**: Mark phase 3 completed (if executed) or skipped, phase 3.5 in_progress
+**TodoWrite**: If executed, mark phase 3 completed, phase 3.5/4 in_progress
+
+**Task Attachment**: If conflict_risk ≥ medium, SlashCommand invocation attaches 3 conflict-resolution sub-tasks, executes them, then collapses to phase summary (see TodoWrite Pattern section for details)
 
 **After Phase 3**: Return to user showing conflict resolution results (if executed) and selected strategies, then auto-continue to Phase 3.5
 
@@ -173,7 +186,35 @@ SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId] 
 - `.workflow/[sessionId]/.task/IMPL-*.json` exists (at least one)
 - `.workflow/[sessionId]/TODO_LIST.md` exists
 
-**TodoWrite**: Mark phase 4 completed
+<!-- TodoWrite: When task-generate-agent invoked, INSERT 3 task-generate-agent tasks -->
+
+**TodoWrite Update (Phase 4 SlashCommand invoked - tasks attached)**:
+```json
+[
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 4.1: Discovery - analyze requirements (task-generate-agent)", "status": "in_progress", "activeForm": "Analyzing requirements"},
+  {"content": "Phase 4.2: Planning - design tasks (task-generate-agent)", "status": "pending", "activeForm": "Designing tasks"},
+  {"content": "Phase 4.3: Output - generate JSONs (task-generate-agent)", "status": "pending", "activeForm": "Generating task JSONs"}
+]
+```
+
+**Note**: SlashCommand invocation **attaches** task-generate-agent's 3 tasks. Orchestrator **executes** these tasks.
+
+**Next Action**: Tasks attached → **Execute Phase 4.1-4.3** sequentially
+
+<!-- TodoWrite: After Phase 4 tasks complete, REMOVE Phase 4.1-4.3, restore to orchestrator view -->
+
+**TodoWrite Update (Phase 4 completed - tasks collapsed)**:
+```json
+[
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute task generation", "status": "completed", "activeForm": "Executing task generation"}
+]
+```
+
+**Note**: Phase 4 tasks completed and collapsed to summary.
 
 **Return to User**:
 ```
@@ -192,37 +233,92 @@ Quality Gate: Consider running /workflow:action-plan-verify to catch issues earl
 ## TodoWrite Pattern
 
 ```javascript
-// Initialize (before Phase 1)
-// Note: Phase 3 todo only added dynamically after Phase 2 if conflict_risk ≥ medium
+// ⚠️ CRITICAL: Dynamic TodoWrite task attachment strategy:
+//
+// **Key Concept**: SlashCommand invocation ATTACHES tasks to current workflow.
+// Orchestrator EXECUTES these attached tasks itself, then COLLAPSES them.
+//
+// 1. INITIAL STATE: 3 orchestrator-level tasks (or 4 if conflict_risk ≥ medium added later)
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "in_progress", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "pending", "activeForm": "Executing context gathering"},
-  // Phase 3 todo added dynamically after Phase 2 if conflict_risk ≥ medium
   {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
-// After Phase 2 (if conflict_risk ≥ medium, insert Phase 3 todo)
+// 2. PHASE 2 SlashCommand INVOCATION:
+//    - SlashCommand(/workflow:tools:context-gather) ATTACHES 3 tasks
+//    - TodoWrite expands to: Phase 1 (completed) + 3 context-gather tasks + Phase 4
+//    - Orchestrator EXECUTES these 3 tasks sequentially (Phase 2.1 → 2.2 → 2.3)
+//    - First attached task marked as in_progress
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Resolve conflicts and apply fixes", "status": "in_progress", "activeForm": "Resolving conflicts"},
+  {"content": "Phase 2.1: Analyze codebase structure (context-gather)", "status": "in_progress", "activeForm": "Analyzing codebase structure"},
+  {"content": "Phase 2.2: Identify integration points (context-gather)", "status": "pending", "activeForm": "Identifying integration points"},
+  {"content": "Phase 2.3: Generate context package (context-gather)", "status": "pending", "activeForm": "Generating context package"},
   {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
-// After Phase 2 (if conflict_risk is none/low, skip Phase 3, go directly to Phase 4)
+// 3. PHASE 2 TASKS COMPLETED:
+//    - All 3 context-gather tasks executed and completed
+//    - COLLAPSE completed tasks into Phase 2 summary
+//    - TodoWrite becomes: Phase 1-2 (completed) + Phase 4
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute task generation", "status": "in_progress", "activeForm": "Executing task generation"}
+  {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
 
-// After Phase 3 (if executed), continue to Phase 4
+// 4. CONDITIONAL: IF conflict_risk ≥ medium → PHASE 3 SlashCommand INVOCATION:
+//    - SlashCommand(/workflow:tools:conflict-resolution) ATTACHES 3 tasks
+//    - TodoWrite expands to: Phase 1-2 (completed) + 3 conflict-resolution tasks + Phase 4
+//    - Orchestrator EXECUTES these 3 tasks sequentially (Phase 3.1 → 3.2 → 3.3)
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3.1: Detect conflicts with CLI analysis (conflict-resolution)", "status": "in_progress", "activeForm": "Detecting conflicts"},
+  {"content": "Phase 3.2: Present conflicts to user (conflict-resolution)", "status": "pending", "activeForm": "Presenting conflicts"},
+  {"content": "Phase 3.3: Apply resolution strategies (conflict-resolution)", "status": "pending", "activeForm": "Applying resolution strategies"},
+  {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
+]})
+
+// 5. PHASE 3 TASKS COMPLETED (if executed):
+//    - All 3 conflict-resolution tasks executed and completed
+//    - COLLAPSE completed tasks into Phase 3 summary
+//    - TodoWrite returns to: Phase 1-3 (completed) + Phase 4
 TodoWrite({todos: [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
   {"content": "Resolve conflicts and apply fixes", "status": "completed", "activeForm": "Resolving conflicts"},
-  {"content": "Execute task generation", "status": "in_progress", "activeForm": "Executing task generation"}
+  {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
 ]})
+
+// 6. PHASE 4 SlashCommand INVOCATION:
+//    - SlashCommand(/workflow:tools:task-generate-agent) ATTACHES 3 tasks
+//    - TodoWrite expands to: Phase 1-2-3 (completed) + 3 task-generate-agent tasks
+//    - Orchestrator EXECUTES these 3 tasks sequentially (Phase 4.1 → 4.2 → 4.3)
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 4.1: Discovery - analyze requirements (task-generate-agent)", "status": "in_progress", "activeForm": "Analyzing requirements"},
+  {"content": "Phase 4.2: Planning - design tasks (task-generate-agent)", "status": "pending", "activeForm": "Designing tasks"},
+  {"content": "Phase 4.3: Output - generate JSONs (task-generate-agent)", "status": "pending", "activeForm": "Generating task JSONs"}
+]})
+
+// 7. PHASE 4 TASKS COMPLETED:
+//    - All 3 task-generate-agent tasks executed and completed
+//    - COLLAPSE completed tasks into Phase 4 summary
+//    - Final state: All orchestrator tasks completed
+TodoWrite({todos: [
+  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Execute task generation", "status": "completed", "activeForm": "Executing task generation"}
+]})
+
+// Benefits:
+// ✓ Real-time visibility into attached tasks during execution
+// ✓ Clean orchestrator-level summary after tasks complete
+// ✓ Clear mental model: SlashCommand = attach tasks, not delegate work
+// ✓ Dynamic attachment/collapse maintains clarity
 ```
 
 ## Input Processing
@@ -303,6 +399,55 @@ Return summary to user
 - **Consistency**: Same format across all phases
 - **Traceability**: Easy to track what was requested
 - **Precision**: Better context gathering and analysis
+
+## Execution Flow Diagram
+
+```
+User triggers: /workflow:plan "Build authentication system"
+  ↓
+[TodoWrite Init] 3 orchestrator-level tasks
+  ↓
+Phase 1: Session Discovery
+  → sessionId extracted
+  ↓
+Phase 2: Context Gathering (SlashCommand invoked)
+  → ATTACH 3 tasks: ← ATTACHED
+    - Phase 2.1: Analyze codebase structure
+    - Phase 2.2: Identify integration points
+    - Phase 2.3: Generate context package
+  → Execute Phase 2.1-2.3
+  → COLLAPSE tasks ← COLLAPSED
+  → contextPath + conflict_risk extracted
+  ↓
+Conditional Branch: Check conflict_risk
+  ├─ IF conflict_risk ≥ medium:
+  │   Phase 3: Conflict Resolution (SlashCommand invoked)
+  │     → ATTACH 3 tasks: ← ATTACHED
+  │       - Phase 3.1: Detect conflicts with CLI analysis
+  │       - Phase 3.2: Present conflicts to user
+  │       - Phase 3.3: Apply resolution strategies
+  │     → Execute Phase 3.1-3.3
+  │     → COLLAPSE tasks ← COLLAPSED
+  │
+  └─ ELSE: Skip Phase 3, proceed to Phase 4
+  ↓
+Phase 4: Task Generation (SlashCommand invoked)
+  → ATTACH 3 tasks: ← ATTACHED
+    - Phase 4.1: Discovery - analyze requirements
+    - Phase 4.2: Planning - design tasks
+    - Phase 4.3: Output - generate JSONs
+  → Execute Phase 4.1-4.3
+  → COLLAPSE tasks ← COLLAPSED
+  → Outputs: IMPL_PLAN.md, IMPL-*.json, TODO_LIST.md
+  ↓
+Return summary to user
+```
+
+**Key Points**:
+- **← ATTACHED**: Sub-tasks attached to TodoWrite when SlashCommand invoked
+- **← COLLAPSED**: Sub-tasks collapsed to summary after completion
+- **Conditional Branch**: Phase 3 only executes if conflict_risk ≥ medium
+- **Continuous Flow**: No user intervention between phases
 
 ## Error Handling
 
