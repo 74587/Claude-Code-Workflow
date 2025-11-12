@@ -314,7 +314,7 @@
       "name": "explore-auto",
       "command": "/workflow:ui-design:explore-auto",
       "description": "Interactive exploratory UI design workflow with style-centric batch generation, creates design variants from prompts/images with parallel execution and user selection",
-      "arguments": "[--input \"<value>\"] [--targets \"<list>\"] [--target-type \"page|component\"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]",
+      "arguments": "[--input \"<value>\"] [--targets \"<list>\"] [--target-type \"page|component\"] [--session <id>] [--style-variants <count>] [--layout-variants <count>]",
       "category": "workflow",
       "subcategory": "ui-design",
       "usage_scenario": "general",
@@ -590,6 +590,17 @@
       "file_path": "workflow/brainstorm/ui-designer.md"
     },
     {
+      "name": "lite-plan",
+      "command": "/workflow:lite-plan",
+      "description": "Lightweight interactive planning and execution workflow with in-memory planning, code exploration, and immediate execution after user confirmation",
+      "arguments": "[--tool claude|gemini|qwen|codex] [--quick] \\\"task description\\\"|file.md",
+      "category": "workflow",
+      "subcategory": null,
+      "usage_scenario": "planning",
+      "difficulty": "Intermediate",
+      "file_path": "workflow/lite-plan.md"
+    },
+    {
       "name": "plan",
       "command": "/workflow:plan",
       "description": "5-phase planning workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs with optional CLI auto-execution",
@@ -647,6 +658,17 @@
   ],
   "documentation": [
     {
+      "name": "code-map-memory",
+      "command": "/memory:code-map-memory",
+      "description": "3-phase orchestrator: parse feature keyword → cli-explore-agent analyzes (Deep Scan dual-source) → orchestrator generates Mermaid docs + SKILL package (skips phase 2 if exists)",
+      "arguments": "\\\"feature-keyword\\\" [--regenerate] [--tool <gemini|qwen>]",
+      "category": "memory",
+      "subcategory": null,
+      "usage_scenario": "documentation",
+      "difficulty": "Intermediate",
+      "file_path": "memory/code-map-memory.md"
+    },
+    {
       "name": "docs",
       "command": "/memory:docs",
       "description": "Plan documentation workflow with dynamic grouping (≤10 docs/task), generates IMPL tasks for parallel module trees, README, ARCHITECTURE, and HTTP API docs",
@@ -680,7 +702,7 @@
       "file_path": "memory/skill-memory.md"
     },
     {
-      "name": "memory:style-skill-memory",
+      "name": "style-skill-memory",
       "command": "/memory:style-skill-memory",
       "description": "Generate SKILL memory package from style reference for easy loading and consistent design system usage",
       "arguments": "[package-name] [--regenerate]",

@@ -1,7 +1,7 @@
 ---
 name: explore-auto
 description: Interactive exploratory UI design workflow with style-centric batch generation, creates design variants from prompts/images with parallel execution and user selection
-argument-hint: "[--input "<value>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>] [--batch-plan]"
+argument-hint: "[--input "<value>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*), Task(conceptual-planning-agent)
 ---
 
@@ -25,18 +25,18 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
    - **ELSE**: Skip (use code import) → Auto-continues to Phase 9
 5. Phase 9 (layout-extract) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 10
 6. **Phase 10 (ui-assembly)** → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 11
-7. Phase 11 (design-update) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 12 (if --batch-plan)
-8. Phase 12 (batch-plan, optional) → Reports completion
+7. **Phase 11 (preview-generation)** → **Execute script → Generate preview files** → Reports completion
 
 **Phase Transition Mechanism**:
 - **Phase 5 (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 7
-- **Phase 7-12 (Autonomous)**: `SlashCommand` invocation **ATTACHES** tasks to current workflow
+- **Phase 7-10 (Autonomous)**: `SlashCommand` invocation **ATTACHES** tasks to current workflow
 - **Task Execution**: Orchestrator **EXECUTES** these attached tasks itself
 - **Task Collapse**: After tasks complete, collapse them into phase summary
 - **Phase Transition**: Automatically execute next phase after collapsing
+- **Phase 11 (Script Execution)**: Execute preview generation script
 - No additional user interaction after Phase 5 confirmation
 
-**Auto-Continue Mechanism**: TodoWrite tracks phase status with dynamic task attachment/collapse. After executing all attached tasks, you MUST immediately collapse them, restore phase summary, and execute the next phase. No user intervention required. The workflow is NOT complete until reaching Phase 11 (or Phase 12 if --batch-plan).
+**Auto-Continue Mechanism**: TodoWrite tracks phase status with dynamic task attachment/collapse. After executing all attached tasks, you MUST immediately collapse them, restore phase summary, and execute the next phase. No user intervention required. The workflow is NOT complete until reaching Phase 11 (preview generation).
 
 **Task Attachment Model**: SlashCommand invocation is NOT delegation - it's task expansion. The orchestrator executes these attached tasks itself, not waiting for external completion.
 
@@ -50,7 +50,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 4. **Default to All**: When selecting variants/prototypes, use ALL generated items
 5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 6. **⚠️ CRITICAL: Task Attachment Model** - SlashCommand invocation **ATTACHES** tasks to current workflow. Orchestrator **EXECUTES** these attached tasks itself, not waiting for external completion. This is NOT delegation - it's task expansion.
-7. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After executing all attached tasks, you MUST immediately collapse them and execute the next phase. Workflow is NOT complete until Phase 11 (or Phase 12 if --batch-plan).
+7. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After executing all attached tasks, you MUST immediately collapse them and execute the next phase. Workflow is NOT complete until Phase 11 (preview generation).
 
 ## Parameter Requirements
 
@@ -83,7 +83,6 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 - `--session <id>`: Workflow session ID (standalone mode if omitted)
 - `--style-variants <count>`: Style variants (default: inferred from prompt or 3, range: 1-5)
 - `--layout-variants <count>`: Layout variants per style (default: inferred or 3, range: 1-5)
-- `--batch-plan`: Auto-generate implementation tasks after design-update
 
 **Legacy Target Parameters** (maintained for backward compatibility):
 - `--pages "<list>"`: Alias for `--targets` with `--target-type page`
@@ -128,7 +127,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 **Integrated vs. Standalone**:
 - `--session` flag determines session integration or standalone execution
 
-## 12-Phase Execution
+## 11-Phase Execution
 
 ### Phase 1: Parameter Parsing & Input Detection
 ```bash
@@ -585,33 +584,48 @@ SlashCommand(command)
 # Output:
 # - {target}-style-{s}-layout-{l}.html (assembled prototypes)
 # - {target}-style-{s}-layout-{l}.css
-# - compare.html (interactive matrix view)
-# - PREVIEW.md (usage instructions)
+# Note: compare.html and PREVIEW.md will be generated in Phase 11
 ```
 
-### Phase 11: Design System Integration
+### Phase 11: Generate Preview Files
 ```bash
-command = "/workflow:ui-design:update" + (--session ? " --session {session_id}" : "")
+REPORT: "🚀 Phase 11: Generate Preview Files"
 
-# SlashCommand invocation ATTACHES update's tasks to current workflow
-# Orchestrator will EXECUTE these attached tasks itself
-SlashCommand(command)
+# Update TodoWrite to reflect preview generation phase
+TodoWrite({todos: [
+  {"content": "Execute style extraction", "status": "completed", "activeForm": "Executing style extraction"},
+  {"content": "Execute animation extraction", "status": "completed", "activeForm": "Executing animation extraction"},
+  {"content": "Execute layout extraction", "status": "completed", "activeForm": "Executing layout extraction"},
+  {"content": "Execute UI assembly", "status": "completed", "activeForm": "Executing UI assembly"},
+  {"content": "Generate preview files", "status": "in_progress", "activeForm": "Generating preview files"}
+]})
 
-# After executing all attached tasks, collapse them into phase summary
-# When phase finishes:
-#   - If --batch-plan flag present: IMMEDIATELY execute Phase 12 (auto-continue)
-#   - If no --batch-plan: Workflow complete, display final report
-```
+# Execute preview generation script
+Bash(~/.claude/scripts/ui-generate-preview.sh "${base_path}/prototypes")
 
-### Phase 12: Batch Task Generation (Optional)
-```bash
-IF --batch-plan:
-    FOR target IN inferred_target_list:
-        task_desc = "Implement {target} {target_type} based on design system"
+# Verify output files
+IF NOT exists("${base_path}/prototypes/compare.html"):
+    ERROR: "Preview generation failed: compare.html not found"
+    EXIT 1
 
-        # SlashCommand invocation ATTACHES plan's tasks to current workflow
-        # Orchestrator will EXECUTE these attached tasks itself
-        SlashCommand("/workflow:plan --agent \"{task_desc}\"")
+IF NOT exists("${base_path}/prototypes/PREVIEW.md"):
+    ERROR: "Preview generation failed: PREVIEW.md not found"
+    EXIT 1
+
+# Mark preview generation as complete
+TodoWrite({todos: [
+  {"content": "Execute style extraction", "status": "completed", "activeForm": "Executing style extraction"},
+  {"content": "Execute animation extraction", "status": "completed", "activeForm": "Executing animation extraction"},
+  {"content": "Execute layout extraction", "status": "completed", "activeForm": "Executing layout extraction"},
+  {"content": "Execute UI assembly", "status": "completed", "activeForm": "Executing UI assembly"},
+  {"content": "Generate preview files", "status": "completed", "activeForm": "Generating preview files"}
+]})
+
+REPORT: "✅ Preview files generated successfully"
+REPORT: "   → compare.html (interactive matrix view)"
+REPORT: "   → PREVIEW.md (usage instructions)"
+
+# Workflow complete, display final report
 ```
 
 ## TodoWrite Pattern
@@ -622,7 +636,7 @@ TodoWrite({todos: [
   {"content": "Execute animation extraction", "status": "pending", "activeForm": "Executing animation extraction"},
   {"content": "Execute layout extraction", "status": "pending", "activeForm": "Executing layout extraction"},
   {"content": "Execute UI assembly", "status": "pending", "activeForm": "Executing UI assembly"},
-  {"content": "Execute design integration", "status": "pending", "activeForm": "Executing design integration"}
+  {"content": "Generate preview files", "status": "pending", "activeForm": "Generating preview files"}
 ]})
 
 // ⚠️ CRITICAL: Dynamic TodoWrite task attachment strategy:
@@ -630,18 +644,25 @@ TodoWrite({todos: [
 // **Key Concept**: SlashCommand invocation ATTACHES tasks to current workflow.
 // Orchestrator EXECUTES these attached tasks itself, not waiting for external completion.
 //
-// Phase 7-12 SlashCommand Invocation Pattern:
+// Phase 7-10 SlashCommand Invocation Pattern:
 // 1. SlashCommand invocation ATTACHES sub-command tasks to TodoWrite
 // 2. TodoWrite expands to include attached tasks
 // 3. Orchestrator EXECUTES attached tasks sequentially
 // 4. After all attached tasks complete, COLLAPSE them into phase summary
 // 5. Update next phase to in_progress
-// 6. IMMEDIATELY execute next phase SlashCommand (auto-continue)
+// 6. IMMEDIATELY execute next phase (auto-continue)
+//
+// Phase 11 Script Execution Pattern:
+// 1. Mark "Generate preview files" as in_progress
+// 2. Execute preview generation script via Bash tool
+// 3. Verify output files (compare.html, PREVIEW.md)
+// 4. Mark "Generate preview files" as completed
 //
 // Benefits:
 // ✓ Real-time visibility into sub-command task progress
 // ✓ Clean orchestrator-level summary after each phase
 // ✓ Clear mental model: SlashCommand = attach tasks, not delegate work
+// ✓ Script execution for preview generation (no delegation)
 // ✓ Dynamic attachment/collapse maintains clarity
 ```
 
@@ -661,8 +682,7 @@ Phase 9: {n×l} layout templates (layout-extract with multi-select)
 Phase 10: UI Assembly (generate)
   - Pure assembly: layout templates + design tokens
   - {s}×{l}×{n} = {total} final prototypes
-Phase 11: Brainstorming artifacts updated
-[Phase 12: {n} implementation tasks created]  # if --batch-plan
+Phase 11: Preview files generated (compare.html, PREVIEW.md)
 
 Assembly Process:
 ✅ Separation of Concerns: Layout (structure) + Style (tokens) kept separate
@@ -700,6 +720,6 @@ Design Quality:
   - Layout plans stored as structured JSON
   - Optimized for {device_type} viewing
 
-Next: [/workflow:execute] OR [Open compare.html → Select → /workflow:plan]
+Next: Open compare.html to preview all design variants
 ```
 

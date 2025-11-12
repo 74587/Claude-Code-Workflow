@@ -29,16 +29,6 @@ Converts design run extraction results into shareable reference package with:
 --output-dir <path>      Output directory (default: .workflow/reference_style)
 ```
 
-### Usage Examples
-
-```bash
-# Basic usage
-/workflow:ui-design:reference-page-generator --design-run .workflow/WFS-123/design-run-456 --package-name main-app-style-v1
-
-# Custom output directory
-/workflow:ui-design:reference-page-generator --design-run .workflow/WFS-123/design-run-456 --package-name main-app-style-v1 --output-dir ./style-references
-```
-
 ---
 
 ## Execution Process
@@ -210,10 +200,18 @@ Task(ui-design-agent): `
   - Display typography scale (font sizes, weights)
   - Show typography combinations if available
   - Include font family examples
+  - **Display usage recommendations** (from design-tokens.json _metadata.usage_recommendations.typography):
+    * Common sizes table (small_text, body_text, heading)
+    * Common combinations with use cases
 
   ### Section 3: Components
   - Render all components from layout-templates.json (use layout_templates field)
   - **Universal Components**: Display reusable multi-component showcases (buttons, inputs, cards, etc.)
+    * **Display usage_guide** (from layout-templates.json):
+      - Common sizes table with dimensions and use cases
+      - Variant recommendations (when to use primary/secondary/etc)
+      - Usage context list (typical scenarios)
+      - Accessibility tips checklist
   - **Specialized Components**: Display module-specific components from code (feature-specific layouts, custom widgets)
   - Display all variants side-by-side
   - Show DOM structure with proper styling
@@ -224,6 +222,9 @@ Task(ui-design-agent): `
   - Visual spacing scale
   - Border radius examples
   - Shadow depth examples
+  - **Display spacing recommendations** (from design-tokens.json _metadata.usage_recommendations.spacing):
+    * Size guide table (tight/normal/loose categories)
+    * Common patterns with use cases and pixel values
 
   ### Section 5: Animations (if available)
   - Animation duration examples
@@ -259,6 +260,11 @@ Task(ui-design-agent): `
   - ✅ Display component DOM structures with proper styling
   - ✅ Include usage code snippets
   - ✅ Label each component type clearly (Universal / Specialized)
+  - ✅ **Display usage recommendations** when available:
+    - Typography: common_sizes, common_combinations (from _metadata.usage_recommendations)
+    - Components: usage_guide for universal components (from layout-templates)
+    - Spacing: size_guide, common_patterns (from _metadata.usage_recommendations)
+  - ✅ Gracefully handle missing usage data (display sections only if data exists)
   - ✅ Use Write() to save both files:
     - ${package_dir}/preview.html
     - ${package_dir}/preview.css

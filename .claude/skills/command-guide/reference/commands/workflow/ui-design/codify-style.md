@@ -286,17 +286,16 @@ CATCH error:
 [
   {"content": "Phase 0: Validate parameters and prepare session", "status": "completed", "activeForm": "Validating parameters"},
   {"content": "Phase 1: Style extraction from source code (import-from-code)", "status": "completed", "activeForm": "Extracting styles"},
-  {"content": "Phase 2.1: Validation and preparation (reference-page-generator)", "status": "in_progress", "activeForm": "Validating parameters"},
-  {"content": "Phase 2.2: Component pattern extraction (reference-page-generator)", "status": "pending", "activeForm": "Extracting component patterns"},
-  {"content": "Phase 2.3: Generate preview pages (reference-page-generator)", "status": "pending", "activeForm": "Generating preview"},
-  {"content": "Phase 2.4: Generate metadata and documentation (reference-page-generator)", "status": "pending", "activeForm": "Generating documentation"},
+  {"content": "Phase 2.0: Setup and validation (reference-page-generator)", "status": "in_progress", "activeForm": "Validating parameters"},
+  {"content": "Phase 2.1: Prepare component data (reference-page-generator)", "status": "pending", "activeForm": "Copying layout templates"},
+  {"content": "Phase 2.2: Generate preview pages (reference-page-generator)", "status": "pending", "activeForm": "Generating preview"},
   {"content": "Phase 3: Cleanup and verify package", "status": "pending", "activeForm": "Cleanup and verification"}
 ]
 ```
 
-**Note**: Phase 1 tasks completed and collapsed. SlashCommand invocation **attaches** reference-page-generator's 4 tasks. Orchestrator **executes** these tasks itself.
+**Note**: Phase 1 tasks completed and collapsed. SlashCommand invocation **attaches** reference-page-generator's 3 tasks. Orchestrator **executes** these tasks itself.
 
-**Next Action**: Tasks attached → **Execute Phase 2.1-2.4** sequentially
+**Next Action**: Tasks attached → **Execute Phase 2.0-2.2** sequentially
 
 ---
 
@@ -317,22 +316,19 @@ command = "/workflow:ui-design:reference-page-generator " +
 
 ```bash
 TRY:
-    # SlashCommand invocation ATTACHES reference-page-generator's 4 tasks to current workflow
+    # SlashCommand invocation ATTACHES reference-page-generator's 3 tasks to current workflow
     # Orchestrator will EXECUTE these attached tasks itself:
-    #   1. Phase 2.1: Validation and preparation
-    #   2. Phase 2.2: Component pattern extraction
-    #   3. Phase 2.3: Generate preview pages
-    #   4. Phase 2.4: Generate metadata and documentation
+    #   1. Phase 2.0: Setup and validation
+    #   2. Phase 2.1: Prepare component data
+    #   3. Phase 2.2: Generate preview pages
     SlashCommand(command)
 
     # After executing all attached tasks, verify package outputs
     required_files = [
+        "layout-templates.json",
         "design-tokens.json",
-        "component-patterns.json",
         "preview.html",
-        "preview.css",
-        "metadata.json",
-        "README.md"
+        "preview.css"
     ]
 
     missing_files = []
@@ -365,16 +361,14 @@ CATCH error:
 - ✅ `reference-page-generator` executed successfully
 - ✅ Reference package created at `${package_path}/`
 - ✅ All required files present:
+  - `layout-templates.json` - Layout templates from design run
   - `design-tokens.json` - Complete design token system
-  - `component-patterns.json` - Component catalog
   - `preview.html` - Interactive multi-component showcase
   - `preview.css` - Showcase styling
-  - `metadata.json` - Package metadata and version info
-  - `README.md` - Package documentation and usage guide
 - ⭕ Optional files:
   - `animation-tokens.json` - Animation specifications (if available from extraction)
 
-<!-- TodoWrite: REMOVE Phase 2.1-2.4 tasks, restore to orchestrator view -->
+<!-- TodoWrite: REMOVE Phase 2.0-2.2 tasks, restore to orchestrator view -->
 
 **TodoWrite Update (Phase 2 completed - tasks collapsed)**:
 ```json
@@ -414,7 +408,7 @@ IF package_exists != "exists":
 
 # Get absolute path and component count for final report
 absolute_package_path = Bash(cd "${package_path}" && pwd 2>/dev/null || echo "${package_path}")
-component_count = Bash(jq -r '.extraction_metadata.component_count // "unknown"' "${package_path}/component-patterns.json" 2>/dev/null || echo "unknown")
+component_count = Bash(jq -r '.layout_templates | length // "unknown"' "${package_path}/layout-templates.json" 2>/dev/null || echo "unknown")
 anim_exists = Bash(test -f "${package_path}/animation-tokens.json" && echo "✓" || echo "○")
 ```
 
@@ -434,7 +428,7 @@ anim_exists = Bash(test -f "${package_path}/animation-tokens.json" && echo "✓"
 📄 Source: {source}
 📊 Components: {component_count}
 
-Files: design-tokens.json, style-guide.md, component-patterns.json, preview.html, preview.css, metadata.json, README.md
+Files: layout-templates.json, design-tokens.json, animation-tokens.json (optional), preview.html, preview.css
 
 Preview: file://{absolute_package_path}/preview.html
 
@@ -473,12 +467,12 @@ TodoWrite({todos: [
 //    - TodoWrite becomes: Phase 0-1 (completed) + Phase 2 + Phase 3
 //
 // 4. PHASE 2 SlashCommand INVOCATION:
-//    - SlashCommand(/workflow:ui-design:reference-page-generator) ATTACHES 4 tasks
-//    - TodoWrite expands to: Phase 0-1 (completed) + 4 reference-page-generator tasks + Phase 3
-//    - Orchestrator EXECUTES these 4 tasks sequentially (Phase 2.1 → 2.2 → 2.3 → 2.4)
+//    - SlashCommand(/workflow:ui-design:reference-page-generator) ATTACHES 3 tasks
+//    - TodoWrite expands to: Phase 0-1 (completed) + 3 reference-page-generator tasks + Phase 3
+//    - Orchestrator EXECUTES these 3 tasks sequentially (Phase 2.0 → 2.1 → 2.2)
 //
 // 5. PHASE 2 TASKS COMPLETED:
-//    - All 4 reference-page-generator tasks executed and completed
+//    - All 3 reference-page-generator tasks executed and completed
 //    - COLLAPSE completed tasks into Phase 2 summary
 //    - TodoWrite returns to: Phase 0-2 (completed) + Phase 3 (in_progress)
 //
@@ -533,25 +527,22 @@ User triggers: /workflow:ui-design:codify-style ./src --package-name my-style-v1
   ↓
 [Phase 1 Complete] → TodoWrite: COLLAPSE Phase 1.0-1.3 into Phase 1 summary
   ↓
-[Phase 2 Invoke] → SlashCommand(/workflow:ui-design:reference-page-generator) ATTACHES 4 tasks
+[Phase 2 Invoke] → SlashCommand(/workflow:ui-design:reference-page-generator) ATTACHES 3 tasks
   ├─ Phase 0 (completed)
   ├─ Phase 1: Style extraction from source code (completed)        ← COLLAPSED
-  ├─ Phase 2.1: Validation and preparation (in_progress)           ← ATTACHED
-  ├─ Phase 2.2: Component pattern extraction (pending)             ← ATTACHED
-  ├─ Phase 2.3: Generate preview pages (pending)                   ← ATTACHED
-  ├─ Phase 2.4: Generate metadata and documentation (pending)      ← ATTACHED
+  ├─ Phase 2.0: Setup and validation (in_progress)                 ← ATTACHED
+  ├─ Phase 2.1: Prepare component data (pending)                   ← ATTACHED
+  ├─ Phase 2.2: Generate preview pages (pending)                   ← ATTACHED
   └─ Phase 3: Cleanup and verify package (pending)
   ↓
-[Execute Phase 2.1] → Validate parameters (orchestrator executes this)
+[Execute Phase 2.0] → Setup and validation (orchestrator executes this)
   ↓
-[Execute Phase 2.2] → Extract component patterns (orchestrator executes this)
+[Execute Phase 2.1] → Prepare component data (orchestrator executes this)
   ↓
-[Execute Phase 2.3] → Generate preview pages (orchestrator executes this)
+[Execute Phase 2.2] → Generate preview pages (orchestrator executes this)
+  └─ Outputs: layout-templates.json, design-tokens.json, animation-tokens.json (optional), preview.html, preview.css
   ↓
-[Execute Phase 2.4] → Generate metadata and docs (orchestrator executes this)
-  └─ Outputs: component-patterns.json, preview.html, preview.css, metadata.json, README.md
-  ↓
-[Phase 2 Complete] → TodoWrite: COLLAPSE Phase 2.1-2.4 into Phase 2 summary
+[Phase 2 Complete] → TodoWrite: COLLAPSE Phase 2.0-2.2 into Phase 2 summary
   ├─ Phase 0 (completed)
   ├─ Phase 1: Style extraction from source code (completed)
   ├─ Phase 2: Reference package generation (completed)             ← COLLAPSED
@@ -618,14 +609,11 @@ File discovery is fully automatic - no glob patterns needed.
 .workflow/
 ├── reference_style/              # Default output directory
 │   └── {package-name}/
+│       ├── layout-templates.json
 │       ├── design-tokens.json
-│       ├── style-guide.md
-│       ├── component-patterns.json
 │       ├── animation-tokens.json (optional)
 │       ├── preview.html
-│       ├── preview.css
-│       ├── metadata.json
-│       └── README.md
+│       └── preview.css
 │
 └── codify-temp-{timestamp}/      # Temporary workspace (cleaned up after completion)
     ├── style-extraction/

@@ -1,12 +1,47 @@
 ---
 name: command-guide
-description: Workflow command guide for Claude DMS3 (69 commands). Search/browse commands, get next-step recommendations, view documentation, report issues. Triggers "CCW-help", "CCW-issue", "ccw-help", "ccw-issue", "ccw"
+description: Workflow command guide for Claude DMS3 (75 commands). Search/browse commands, get next-step recommendations, view documentation, report issues. Triggers "CCW-help", "CCW-issue", "ccw-help", "ccw-issue", "ccw"
 allowed-tools: Read, Grep, Glob, AskUserQuestion
+version: 5.8.0
 ---
 
 # Command Guide Skill
 
-Comprehensive command guide for Claude DMS3 workflow system covering 69 commands across 4 categories (workflow, cli, memory, task).
+Comprehensive command guide for Claude DMS3 workflow system covering 75 commands across 4 categories (workflow, cli, memory, task).
+
+## 🆕 What's New in v5.8.0
+
+### Major Features
+
+**🎨 UI Design Style Memory Workflow** (Primary Focus)
+- **`/memory:style-skill-memory`** - Generate reusable SKILL packages from design systems
+- **`/workflow:ui-design:codify-style`** - Extract design tokens from code with automatic file discovery
+- **`/workflow:ui-design:reference-page-generator`** - Generate multi-component reference pages
+- **Workflow**: Design extraction → Token documentation → SKILL package → Easy loading
+- **Benefits**: Consistent design system usage, shareable style references, progressive loading
+
+**⚡ `/workflow:lite-plan`** - Intelligent Planning & Execution (Testing Phase)
+- Dynamic workflow adaptation (smart exploration, adaptive planning, progressive clarification)
+- Two-dimensional confirmation (task approval + execution method selection)
+- Direct execution with live TodoWrite progress tracking
+- Faster than `/workflow:plan` (1-3 min vs 5-10 min) for simple to medium tasks
+
+**🗺️ `/memory:code-map-memory`** - Code Flow Mapping Generator (Testing Phase)
+- Uses cli-explore-agent for deep code flow analysis with dual-source strategy
+- Generates Mermaid diagrams for architecture, functions, data flow, conditional paths
+- Creates feature-specific SKILL packages for code understanding
+- Progressive loading (2K → 30K tokens) for efficient context management
+
+### Agent Enhancements
+
+- **cli-explore-agent** (New) - Specialized code exploration with Deep Scan mode (Bash + Gemini)
+- **cli-planning-agent** - Enhanced task generation with improved context handling
+- **ui-design-agent** - Major refactoring for better design system extraction
+
+### Additional Improvements
+- Enhanced brainstorming workflows with parallel execution
+- Improved test workflow documentation and task attachment models
+- Updated CLI tool default models (Gemini 2.5-pro)
 
 ## 🧠 Core Principle: Intelligent Integration
 
@@ -242,12 +277,13 @@ All command metadata is stored in JSON indexes for fast querying:
 
 Complete backup of all command and agent documentation for deep analysis:
 
-- **[reference/agents/](reference/agents/)** - 11 agent markdown files with implementation details
-- **[reference/commands/](reference/commands/)** - 69 command markdown files organized by category
+- **[reference/agents/](reference/agents/)** - 13 agent markdown files with implementation details
+  - **New in v5.8**: cli-explore-agent (code exploration), cli-planning-agent (enhanced)
+- **[reference/commands/](reference/commands/)** - 75 command markdown files organized by category
   - `cli/` - CLI tool commands (9 files)
-  - `memory/` - Memory management commands (8 files)
+  - `memory/` - Memory management commands (10 files) - **New**: code-map-memory, style-skill-memory
   - `task/` - Task management commands (4 files)
-  - `workflow/` - Workflow commands (46 files)
+  - `workflow/` - Workflow commands (50 files) - **New**: lite-plan, ui-design enhancements
 
 **Installation Path**: `~/.claude/skills/command-guide/` (skill designed for global installation)
 
@@ -278,13 +314,13 @@ Templates are auto-populated during Mode 5 (Issue Reporting) interaction.
 
 ## 📊 System Statistics
 
-- **Total Commands**: 69
-- **Total Agents**: 11
-- **Categories**: 4 (workflow: 46, cli: 9, memory: 8, task: 4, general: 2)
-- **Use Cases**: 5 (planning, implementation, testing, documentation, session-management)
+- **Total Commands**: 75
+- **Total Agents**: 13
+- **Categories**: 4 (workflow: 50, cli: 9, memory: 10, task: 4, general: 2)
+- **Use Cases**: 7 (planning, implementation, testing, documentation, session-management, analysis, ui-design)
 - **Difficulty Levels**: 3 (Beginner, Intermediate, Advanced)
 - **Essential Commands**: 14
-- **Reference Docs**: 80 markdown files (11 agents + 69 commands)
+- **Reference Docs**: 88 markdown files (13 agents + 75 commands)
 
 ---
 

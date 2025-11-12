@@ -50,17 +50,18 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 ## Usage
 
 ```bash
-/workflow:brainstorm:auto-parallel "<topic>" [--count N]
+/workflow:brainstorm:auto-parallel "<topic>" [--count N] [--style-skill package-name]
 ```
 
 **Recommended Structured Format**:
 ```bash
-/workflow:brainstorm:auto-parallel "GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]" [--count N]
+/workflow:brainstorm:auto-parallel "GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]" [--count N] [--style-skill package-name]
 ```
 
 **Parameters**:
 - `topic` (required): Topic or challenge description (structured format recommended)
 - `--count N` (optional): Number of roles to select (default: 3, max: 9)
+- `--style-skill package-name` (optional): Style SKILL package to load for UI design (located at `.claude/skills/style-{package-name}/`)
 
 ## 3-Phase Execution
 
@@ -149,6 +150,12 @@ TOPIC: {user-provided-topic}
    - Action: Load session metadata and original user intent
    - Command: Read(.workflow/WFS-{session}/workflow-session.json)
    - Output: session_context (contains original user prompt as PRIMARY reference)
+
+4. **load_style_skill** (ONLY for ui-designer role when style_skill_package exists)
+   - Action: Load style SKILL package for design system reference
+   - Command: Read(.claude/skills/style-{style_skill_package}/SKILL.md) AND Read(.workflow/reference_style/{style_skill_package}/design-tokens.json)
+   - Output: style_skill_content, design_tokens
+   - Usage: Apply design tokens in ui-designer analysis and artifacts
 
 ## Analysis Requirements
 **Primary Reference**: Original user prompt from workflow-session.json is authoritative
@@ -342,6 +349,34 @@ ELSE:
 EXECUTE: /workflow:brainstorm:artifacts "{topic}" --count {count_value}
 ```
 
+**Style-Skill Parameter Parsing**:
+```javascript
+// Extract --style-skill from user input
+IF user_input CONTAINS "--style-skill":
+    EXTRACT style_skill_name FROM "--style-skill package-name" pattern
+
+    // Validate SKILL package exists
+    skill_path = ".claude/skills/style-{style_skill_name}/SKILL.md"
+    IF file_exists(skill_path):
+        style_skill_package = style_skill_name
+        style_reference_path = ".workflow/reference_style/{style_skill_name}"
+        echo("✓ Style SKILL package found: style-{style_skill_name}")
+        echo("  Design reference: {style_reference_path}")
+    ELSE:
+        echo("⚠ WARNING: Style SKILL package not found: {style_skill_name}")
+        echo("  Expected location: {skill_path}")
+        echo("  Continuing without style reference...")
+        style_skill_package = null
+ELSE:
+    style_skill_package = null
+    echo("No style-skill specified, ui-designer will use default workflow")
+
+// Store for Phase 2 ui-designer context
+CONTEXT_VARS:
+    - style_skill_package: {style_skill_package}
+    - style_reference_path: {style_reference_path}
+```
+
 **Topic Structuring**:
 1. **Already Structured** → Pass directly to artifacts
    ```
@@ -374,15 +409,17 @@ EXECUTE: /workflow:brainstorm:artifacts "{topic}" --count {count_value}
 
 **Phase 1 Output**:
 - `.workflow/WFS-{topic}/.brainstorming/guidance-specification.md` (framework content)
-- `.workflow/WFS-{topic}/workflow-session.json` (metadata: selected_roles[], topic, timestamps)
+- `.workflow/WFS-{topic}/workflow-session.json` (metadata: selected_roles[], topic, timestamps, style_skill_package)
 
 **Phase 2 Output**:
 - `.workflow/WFS-{topic}/.brainstorming/{role}/analysis.md` (one per role)
+- `.superdesign/design_iterations/` (ui-designer artifacts, if --style-skill provided)
 
 **Phase 3 Output**:
 - `.workflow/WFS-{topic}/.brainstorming/synthesis-specification.md` (integrated analysis)
 
 **⚠️ Storage Separation**: Guidance content in .md files, metadata in .json (no duplication)
+**⚠️ Style References**: When --style-skill provided, workflow-session.json stores style_skill_package name, ui-designer loads from `.claude/skills/style-{package-name}/`
 
 ## Available Roles
 

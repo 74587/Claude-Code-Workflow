@@ -154,6 +154,23 @@ Task(subagent_type="ui-design-agent",
 
   ## Code Import Extraction Strategy
 
+  **Step 0: Fast Conflict Detection** (Use Bash/Grep for quick global scan)
+  - Quick scan: \`rg --color=never -n "^\\s*--primary:|^\\s*--secondary:|^\\s*--accent:" --type css ${source}\` to find core color definitions with line numbers
+  - Semantic search: \`rg --color=never -B3 -A1 "^\\s*--primary:" --type css ${source}\` to capture surrounding context and comments
+  - Core token scan: Search for --primary, --secondary, --accent, --background patterns to detect all theme-critical definitions
+  - Pattern: rg → Extract values → Compare → If different → Read full context with comments → Record conflict
+  - Alternative (if many files): Execute CLI analysis for comprehensive report:
+    \`\`\`bash
+    cd ${source} && gemini -p \"
+    PURPOSE: Detect color token conflicts across all CSS/SCSS/JS files
+    TASK: • Scan all files for color definitions • Identify conflicting values • Extract semantic comments
+    MODE: analysis
+    CONTEXT: @**/*.css @**/*.scss @**/*.js @**/*.ts
+    EXPECTED: JSON report listing conflicts with file:line, values, semantic context
+    RULES: Focus on core tokens | Report ALL variants | analysis=READ-ONLY
+    \"
+    \`\`\`
+
   **Step 1: Load file list**
   - Read(${intermediates_dir}/discovered-files.json)
   - Extract: file_types.css.files, file_types.js.files, file_types.html.files
@@ -163,10 +180,11 @@ Task(subagent_type="ui-design-agent",
   - JavaScript/TypeScript: Theme configs (Tailwind, styled-components, CSS-in-JS)
   - HTML: Inline styles, usage patterns
 
-  **Step 3: Smart inference for gaps**
-  - Infer missing tokens from existing patterns
-  - Normalize inconsistent values into systematic scales
-  - Fill missing categories from cross-file references
+  **Step 3: Validation and Conflict Detection**
+  - Report missing tokens WITHOUT inference (mark as "missing" in _metadata.completeness)
+  - Detect and report inconsistent values across files (list ALL variants with file:line sources)
+  - Report missing categories WITHOUT auto-filling (document gaps for manual review)
+  - CRITICAL: Verify core tokens (primary, secondary, accent) against semantic comments in source code
 
   ## Output Files
 
@@ -178,7 +196,9 @@ Task(subagent_type="ui-design-agent",
      - Add \"_metadata.extraction_source\": \"code_import\"
      - Add \"_metadata.files_analyzed\": {css, js, html file lists}
      - Add \"_metadata.completeness\": {status, missing_categories, recommendations}
+     - Add \"_metadata.conflicts\": Array of conflicting definitions (MANDATORY if conflicts exist)
      - Add \"_metadata.code_snippets\": Map of code snippets (see below)
+     - Add \"_metadata.usage_recommendations\": Usage patterns from code (see below)
      - Include \"source\" field for each token (e.g., \"file.css:23\")
 
   **Code Snippet Recording**:
@@ -198,12 +218,35 @@ Task(subagent_type="ui-design-agent",
   - Typical ranges: Simple declarations (1-5 lines), Utility classes (5-15 lines), Complete configs (15-50 lines)
   - Preserve original formatting and indentation
 
+  **Conflict Detection and Reporting**:
+  - When the same token is defined differently across multiple files, record in `_metadata.conflicts`
+  - Follow Agent schema for conflicts array structure (see ui-design-agent.md)
+  - Each conflict MUST include: token_name, category, all definitions with context, selected_value, selection_reason
+  - Selection priority:
+    1. Definitions with semantic comments explaining intent (/* Blue theme */, /* Primary brand color */)
+    2. Definitions that align with overall color scheme described in comments
+    3. When in doubt, report ALL variants and flag for manual review in completeness.recommendations
+
+  **Usage Recommendations Generation**:
+  - Analyze code usage patterns to extract `_metadata.usage_recommendations` (see ui-design-agent.md schema)
+  - **Typography recommendations**:
+    * `common_sizes`: Identify most frequent font size usage (e.g., \"body_text\": \"base (1rem)\")
+    * `common_combinations`: Extract heading+body pairings from actual usage (e.g., h1 with p tags)
+  - **Spacing recommendations**:
+    * `size_guide`: Categorize spacing values into tight/normal/loose based on frequency
+    * `common_patterns`: Extract frequent padding/margin combinations from components
+  - Analysis method: Scan code for class/style usage frequency, extract patterns from component implementations
+  - Optional: If insufficient usage data, mark fields as empty arrays/objects with note in completeness.recommendations
+
   ## Code Import Specific Requirements
   - ✅ Read discovered-files.json FIRST to get file paths
   - ✅ Track extraction source for each token (file:line)
   - ✅ Record complete code snippets in _metadata.code_snippets (complete blocks with dependencies/comments)
   - ✅ Include completeness assessment in _metadata
-  - ✅ Normalize inconsistent values into systematic scales
+  - ✅ Report inconsistent values with ALL source locations in _metadata.conflicts (DO NOT auto-normalize or choose)
+  - ✅ CRITICAL: Verify core theme tokens (primary, secondary, accent) match source code semantic intent
+  - ✅ When conflicts exist, prefer definitions with semantic comments explaining intent
+  - ❌ NO inference, NO smart filling, NO automatic conflict resolution
   - ❌ NO external research or web searches (code-only extraction)
 ")
 ```
@@ -225,6 +268,23 @@ Task(subagent_type="ui-design-agent",
   $(cat \"${intermediates_dir}/discovered-files.json\" 2>/dev/null | grep -E '(count|files)' | head -30)
 
   ## Code Import Extraction Strategy
+
+  **Step 0: Fast Animation Discovery** (Use Bash/Grep for quick pattern detection)
+  - Quick scan: \`rg --color=never -n "@keyframes|animation:|transition:" --type css ${source}\` to find animation definitions with line numbers
+  - Framework detection: \`rg --color=never "framer-motion|gsap|@react-spring|react-spring" --type js --type ts ${source}\` to detect animation frameworks
+  - Pattern categorization: \`rg --color=never -B2 -A5 "@keyframes" --type css ${source}\` to extract keyframe animations with context
+  - Pattern: rg → Identify animation types → Map framework usage → Prioritize extraction targets
+  - Alternative (if complex framework mix): Execute CLI analysis for comprehensive report:
+    \`\`\`bash
+    cd ${source} && gemini -p \"
+    PURPOSE: Detect animation frameworks and patterns
+    TASK: • Identify frameworks • Map animation patterns • Categorize by complexity
+    MODE: analysis
+    CONTEXT: @**/*.css @**/*.scss @**/*.js @**/*.ts
+    EXPECTED: JSON report listing frameworks, animation types, file locations
+    RULES: Focus on framework consistency | Map all animations | analysis=READ-ONLY
+    \"
+    \`\`\`
 
   **Step 1: Load file list**
   - Read(${intermediates_dir}/discovered-files.json)
@@ -288,6 +348,23 @@ Task(subagent_type="ui-design-agent",
 
   ## Code Import Extraction Strategy
 
+  **Step 0: Fast Component Discovery** (Use Bash/Grep for quick component scan)
+  - Layout pattern scan: \`rg --color=never -n "display:\\s*(grid|flex)|grid-template" --type css ${source}\` to find layout systems
+  - Component class scan: \`rg --color=never "class.*=.*\\"[^\"]*\\b(btn|button|card|input|modal|dialog|dropdown)" --type html --type js --type ts ${source}\` to identify UI components
+  - Universal component heuristic: Components appearing in 3+ files = universal, <3 files = specialized
+  - Pattern: rg → Count occurrences → Classify by frequency → Prioritize universal components
+  - Alternative (if large codebase): Execute CLI analysis for comprehensive categorization:
+    \`\`\`bash
+    cd ${source} && gemini -p \"
+    PURPOSE: Classify components as universal vs specialized
+    TASK: • Identify UI components • Classify reusability • Map layout systems
+    MODE: analysis
+    CONTEXT: @**/*.css @**/*.scss @**/*.js @**/*.ts @**/*.html
+    EXPECTED: JSON report categorizing components, layout patterns, naming conventions
+    RULES: Focus on component reusability | Identify layout systems | analysis=READ-ONLY
+    \"
+    \`\`\`
+
   **Step 1: Load file list**
   - Read(${intermediates_dir}/discovered-files.json)
   - Extract: file_types.css.files, file_types.js.files, file_types.html.files
@@ -327,6 +404,11 @@ Task(subagent_type="ui-design-agent",
        * dom_structure with semantic HTML5
        * css_layout_rules using var() placeholders
        * Add \"description\" field explaining component purpose and classification rationale
+       * **Add \"usage_guide\" field for universal components** (see ui-design-agent.md schema):
+         - common_sizes: Extract size variants (small/medium/large) from code
+         - variant_recommendations: Document when to use each variant (primary/secondary/etc)
+         - usage_context: List typical usage scenarios from actual implementation
+         - accessibility_tips: Extract ARIA patterns and a11y notes from code
 
   **Code Snippet Recording**:
   - Record actual layout/component code in `extraction_metadata.code_snippets`
@@ -345,6 +427,12 @@ Task(subagent_type="ui-design-agent",
     * Specialized: Feature-specific or domain-specific (checkout form, dashboard widget)
   - ✅ Record complete code snippets in extraction_metadata.code_snippets (complete components/structures)
   - ✅ **Document classification rationale** in component description
+  - ✅ **Generate usage_guide for universal components** (REQUIRED):
+    * Analyze code to extract size variants (scan for size-related classes/props)
+    * Document variant usage from code comments and implementation patterns
+    * List usage contexts from component instances in codebase
+    * Extract accessibility patterns from ARIA attributes and a11y comments
+    * If insufficient data, populate with minimal valid structure and note in completeness
   - ❌ NO external research or web searches (code-only extraction)
 ")
 ```
