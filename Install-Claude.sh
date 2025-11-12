@@ -344,6 +344,36 @@ function copy_file_to_destination() {
     fi
 }
 
+function backup_critical_config_files() {
+    local target_directory="$1"
+    local backup_folder="$2"
+    shift 2
+    local file_names=("$@")
+
+    if [ "$NO_BACKUP" = true ] || [ -z "$backup_folder" ]; then
+        return 0
+    fi
+
+    if [ ! -d "$target_directory" ]; then
+        return 0
+    fi
+
+    local backed_up_count=0
+    for file_name in "${file_names[@]}"; do
+        local file_path="${target_directory}/${file_name}"
+        if [ -f "$file_path" ]; then
+            if backup_file_to_folder "$file_path" "$backup_folder"; then
+                write_color "Critical config backed up: $file_name" "$COLOR_SUCCESS"
+                ((backed_up_count++))
+            fi
+        fi
+    done
+
+    if [ "$backed_up_count" -gt 0 ]; then
+        write_color "Backed up $backed_up_count critical configuration file(s)" "$COLOR_INFO"
+    fi
+}
+
 function backup_and_replace_directory() {
     local source="$1"
     local destination="$2"
@@ -512,9 +542,9 @@ function install_global() {
         fi
     fi
 
-    # Replace .claude directory (backup → clear conflicting → copy)
-    write_color "Installing .claude directory..." "$COLOR_INFO"
-    if backup_and_replace_directory "$source_claude_dir" "$global_claude_dir" ".claude directory" "$backup_folder"; then
+    # Merge .claude directory (incremental overlay - preserves user files)
+    write_color "Installing .claude directory (incremental merge)..." "$COLOR_INFO"
+    if merge_directory_contents "$source_claude_dir" "$global_claude_dir" ".claude directory" "$backup_folder"; then
         # Track .claude directory in manifest
         add_manifest_entry "$manifest_file" "$global_claude_dir" "Directory"
 
@@ -533,9 +563,12 @@ function install_global() {
         add_manifest_entry "$manifest_file" "$global_claude_md" "File"
     fi
 
-    # Replace .codex directory (backup → clear conflicting → copy)
-    write_color "Installing .codex directory..." "$COLOR_INFO"
-    if backup_and_replace_directory "$source_codex_dir" "$global_codex_dir" ".codex directory" "$backup_folder"; then
+    # Backup critical config files in .codex directory before installation
+    backup_critical_config_files "$global_codex_dir" "$backup_folder" "AGENTS.md"
+
+    # Merge .codex directory (incremental overlay - preserves user files)
+    write_color "Installing .codex directory (incremental merge)..." "$COLOR_INFO"
+    if merge_directory_contents "$source_codex_dir" "$global_codex_dir" ".codex directory" "$backup_folder"; then
         # Track .codex directory in manifest
         add_manifest_entry "$manifest_file" "$global_codex_dir" "Directory"
 
@@ -547,9 +580,12 @@ function install_global() {
         done < <(find "$source_codex_dir" -type f -print0)
     fi
 
-    # Replace .gemini directory (backup → clear conflicting → copy)
-    write_color "Installing .gemini directory..." "$COLOR_INFO"
-    if backup_and_replace_directory "$source_gemini_dir" "$global_gemini_dir" ".gemini directory" "$backup_folder"; then
+    # Backup critical config files in .gemini directory before installation
+    backup_critical_config_files "$global_gemini_dir" "$backup_folder" "GEMINI.md" "CLAUDE.md"
+
+    # Merge .gemini directory (incremental overlay - preserves user files)
+    write_color "Installing .gemini directory (incremental merge)..." "$COLOR_INFO"
+    if merge_directory_contents "$source_gemini_dir" "$global_gemini_dir" ".gemini directory" "$backup_folder"; then
         # Track .gemini directory in manifest
         add_manifest_entry "$manifest_file" "$global_gemini_dir" "Directory"
 
@@ -561,9 +597,12 @@ function install_global() {
         done < <(find "$source_gemini_dir" -type f -print0)
     fi
 
-    # Replace .qwen directory (backup → clear conflicting → copy)
-    write_color "Installing .qwen directory..." "$COLOR_INFO"
-    if backup_and_replace_directory "$source_qwen_dir" "$global_qwen_dir" ".qwen directory" "$backup_folder"; then
+    # Backup critical config files in .qwen directory before installation
+    backup_critical_config_files "$global_qwen_dir" "$backup_folder" "QWEN.md"
+
+    # Merge .qwen directory (incremental overlay - preserves user files)
+    write_color "Installing .qwen directory (incremental merge)..." "$COLOR_INFO"
+    if merge_directory_contents "$source_qwen_dir" "$global_qwen_dir" ".qwen directory" "$backup_folder"; then
         # Track .qwen directory in manifest
         add_manifest_entry "$manifest_file" "$global_qwen_dir" "Directory"
 
@@ -642,9 +681,9 @@ function install_path() {
         local dest_folder="${local_claude_dir}/${folder}"
 
         if [ -d "$source_folder" ]; then
-            # Use new backup and replace logic for local folders
-            write_color "Installing local folder: $folder..." "$COLOR_INFO"
-            if backup_and_replace_directory "$source_folder" "$dest_folder" "$folder folder" "$backup_folder"; then
+            # Use incremental merge for local folders (preserves user customizations)
+            write_color "Installing local folder: $folder (incremental merge)..." "$COLOR_INFO"
+            if merge_directory_contents "$source_folder" "$dest_folder" "$folder folder" "$backup_folder"; then
                 # Track local folder in manifest
                 add_manifest_entry "$manifest_file" "$dest_folder" "Directory"
 
@@ -715,9 +754,12 @@ function install_path() {
         add_manifest_entry "$manifest_file" "$global_claude_md" "File"
     fi
 
-    # Replace .codex directory to local location (backup → clear conflicting → copy)
-    write_color "Installing .codex directory to local location..." "$COLOR_INFO"
-    if backup_and_replace_directory "$source_codex_dir" "$local_codex_dir" ".codex directory" "$backup_folder"; then
+    # Backup critical config files in .codex directory before installation
+    backup_critical_config_files "$local_codex_dir" "$backup_folder" "AGENTS.md"
+
+    # Merge .codex directory to local location (incremental overlay - preserves user files)
+    write_color "Installing .codex directory to local location (incremental merge)..." "$COLOR_INFO"
+    if merge_directory_contents "$source_codex_dir" "$local_codex_dir" ".codex directory" "$backup_folder"; then
         # Track .codex directory in manifest
         add_manifest_entry "$manifest_file" "$local_codex_dir" "Directory"
 
@@ -729,9 +771,12 @@ function install_path() {
         done < <(find "$source_codex_dir" -type f -print0)
     fi
 
-    # Replace .gemini directory to local location (backup → clear conflicting → copy)
-    write_color "Installing .gemini directory to local location..." "$COLOR_INFO"
-    if backup_and_replace_directory "$source_gemini_dir" "$local_gemini_dir" ".gemini directory" "$backup_folder"; then
+    # Backup critical config files in .gemini directory before installation
+    backup_critical_config_files "$local_gemini_dir" "$backup_folder" "GEMINI.md" "CLAUDE.md"
+
+    # Merge .gemini directory to local location (incremental overlay - preserves user files)
+    write_color "Installing .gemini directory to local location (incremental merge)..." "$COLOR_INFO"
+    if merge_directory_contents "$source_gemini_dir" "$local_gemini_dir" ".gemini directory" "$backup_folder"; then
         # Track .gemini directory in manifest
         add_manifest_entry "$manifest_file" "$local_gemini_dir" "Directory"
 
@@ -743,9 +788,12 @@ function install_path() {
         done < <(find "$source_gemini_dir" -type f -print0)
     fi
 
-    # Replace .qwen directory to local location (backup → clear conflicting → copy)
-    write_color "Installing .qwen directory to local location..." "$COLOR_INFO"
-    if backup_and_replace_directory "$source_qwen_dir" "$local_qwen_dir" ".qwen directory" "$backup_folder"; then
+    # Backup critical config files in .qwen directory before installation
+    backup_critical_config_files "$local_qwen_dir" "$backup_folder" "QWEN.md"
+
+    # Merge .qwen directory to local location (incremental overlay - preserves user files)
+    write_color "Installing .qwen directory to local location (incremental merge)..." "$COLOR_INFO"
+    if merge_directory_contents "$source_qwen_dir" "$local_qwen_dir" ".qwen directory" "$backup_folder"; then
         # Track .qwen directory in manifest
         add_manifest_entry "$manifest_file" "$local_qwen_dir" "Directory"
 

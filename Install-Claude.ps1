@@ -646,6 +646,37 @@ function Backup-AndReplaceDirectory {
     return $true
 }
 
+function Backup-CriticalConfigFiles {
+    param(
+        [string]$TargetDirectory,
+        [string]$BackupFolder,
+        [string[]]$FileNames
+    )
+
+    if (-not $BackupFolder -or $NoBackup) {
+        return
+    }
+
+    if (-not (Test-Path $TargetDirectory)) {
+        return
+    }
+
+    $backedUpCount = 0
+    foreach ($fileName in $FileNames) {
+        $filePath = Join-Path $TargetDirectory $fileName
+        if (Test-Path $filePath) {
+            if (Backup-FileToFolder -FilePath $filePath -BackupFolder $BackupFolder) {
+                Write-ColorOutput "Critical config backed up: $fileName" $ColorSuccess
+                $backedUpCount++
+            }
+        }
+    }
+
+    if ($backedUpCount -gt 0) {
+        Write-ColorOutput "Backed up $backedUpCount critical configuration file(s)" $ColorInfo
+    }
+}
+
 function Merge-DirectoryContents {
     param(
         [string]$Source,
@@ -1227,9 +1258,9 @@ function Install-Global {
         }
     }
 
-    # Replace .claude directory (backup → clear → copy entire folder)
-    Write-ColorOutput "Installing .claude directory..." $ColorInfo
-    $claudeInstalled = Backup-AndReplaceDirectory -Source $sourceClaudeDir -Destination $globalClaudeDir -Description ".claude directory" -BackupFolder $backupFolder
+    # Merge .claude directory (incremental overlay - preserves user files)
+    Write-ColorOutput "Installing .claude directory (incremental merge)..." $ColorInfo
+    $claudeInstalled = Merge-DirectoryContents -Source $sourceClaudeDir -Destination $globalClaudeDir -Description ".claude directory" -BackupFolder $backupFolder
 
     # Track .claude directory in manifest
     if ($claudeInstalled) {
@@ -1253,9 +1284,12 @@ function Install-Global {
         Add-ManifestEntry -Manifest $manifest -Path $globalClaudeMd -Type "File"
     }
 
-    # Replace .codex directory (backup → clear → copy entire folder)
-    Write-ColorOutput "Installing .codex directory..." $ColorInfo
-    $codexInstalled = Backup-AndReplaceDirectory -Source $sourceCodexDir -Destination $globalCodexDir -Description ".codex directory" -BackupFolder $backupFolder
+    # Backup critical config files in .codex directory before installation
+    Backup-CriticalConfigFiles -TargetDirectory $globalCodexDir -BackupFolder $backupFolder -FileNames @("AGENTS.md")
+
+    # Merge .codex directory (incremental overlay - preserves user files)
+    Write-ColorOutput "Installing .codex directory (incremental merge)..." $ColorInfo
+    $codexInstalled = Merge-DirectoryContents -Source $sourceCodexDir -Destination $globalCodexDir -Description ".codex directory" -BackupFolder $backupFolder
 
     # Track .codex directory in manifest
     if ($codexInstalled) {
@@ -1268,9 +1302,12 @@ function Install-Global {
         }
     }
 
-    # Replace .gemini directory (backup → clear → copy entire folder)
-    Write-ColorOutput "Installing .gemini directory..." $ColorInfo
-    $geminiInstalled = Backup-AndReplaceDirectory -Source $sourceGeminiDir -Destination $globalGeminiDir -Description ".gemini directory" -BackupFolder $backupFolder
+    # Backup critical config files in .gemini directory before installation
+    Backup-CriticalConfigFiles -TargetDirectory $globalGeminiDir -BackupFolder $backupFolder -FileNames @("GEMINI.md", "CLAUDE.md")
+
+    # Merge .gemini directory (incremental overlay - preserves user files)
+    Write-ColorOutput "Installing .gemini directory (incremental merge)..." $ColorInfo
+    $geminiInstalled = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $globalGeminiDir -Description ".gemini directory" -BackupFolder $backupFolder
 
     # Track .gemini directory in manifest
     if ($geminiInstalled) {
@@ -1283,9 +1320,12 @@ function Install-Global {
         }
     }
 
-    # Replace .qwen directory (backup → clear → copy entire folder)
-    Write-ColorOutput "Installing .qwen directory..." $ColorInfo
-    $qwenInstalled = Backup-AndReplaceDirectory -Source $sourceQwenDir -Destination $globalQwenDir -Description ".qwen directory" -BackupFolder $backupFolder
+    # Backup critical config files in .qwen directory before installation
+    Backup-CriticalConfigFiles -TargetDirectory $globalQwenDir -BackupFolder $backupFolder -FileNames @("QWEN.md")
+
+    # Merge .qwen directory (incremental overlay - preserves user files)
+    Write-ColorOutput "Installing .qwen directory (incremental merge)..." $ColorInfo
+    $qwenInstalled = Merge-DirectoryContents -Source $sourceQwenDir -Destination $globalQwenDir -Description ".qwen directory" -BackupFolder $backupFolder
 
     # Track .qwen directory in manifest
     if ($qwenInstalled) {
@@ -1372,9 +1412,9 @@ function Install-Path {
         $destFolderPath = Join-Path $localClaudeDir $folder
 
         if (Test-Path $sourceFolderPath) {
-            # Use new backup and replace logic for local folders
-            Write-ColorOutput "Installing local folder: $folder..." $ColorInfo
-            $folderInstalled = Backup-AndReplaceDirectory -Source $sourceFolderPath -Destination $destFolderPath -Description "$folder folder" -BackupFolder $backupFolder
+            # Use incremental merge for local folders (preserves user customizations)
+            Write-ColorOutput "Installing local folder: $folder (incremental merge)..." $ColorInfo
+            $folderInstalled = Merge-DirectoryContents -Source $sourceFolderPath -Destination $destFolderPath -Description "$folder folder" -BackupFolder $backupFolder
             Write-ColorOutput "Installed local folder: $folder" $ColorSuccess
 
             # Track local folder in manifest
@@ -1461,9 +1501,12 @@ function Install-Path {
         Add-ManifestEntry -Manifest $manifest -Path $globalClaudeMd -Type "File"
     }
 
-    # Replace .codex directory to local location (backup → clear → copy entire folder)
-    Write-ColorOutput "Installing .codex directory to local location..." $ColorInfo
-    $codexInstalled = Backup-AndReplaceDirectory -Source $sourceCodexDir -Destination $localCodexDir -Description ".codex directory" -BackupFolder $backupFolder
+    # Backup critical config files in .codex directory before installation
+    Backup-CriticalConfigFiles -TargetDirectory $localCodexDir -BackupFolder $backupFolder -FileNames @("AGENTS.md")
+
+    # Merge .codex directory to local location (incremental overlay - preserves user files)
+    Write-ColorOutput "Installing .codex directory to local location (incremental merge)..." $ColorInfo
+    $codexInstalled = Merge-DirectoryContents -Source $sourceCodexDir -Destination $localCodexDir -Description ".codex directory" -BackupFolder $backupFolder
 
     # Track .codex directory in manifest
     if ($codexInstalled) {
@@ -1476,9 +1519,12 @@ function Install-Path {
         }
     }
 
-    # Replace .gemini directory to local location (backup → clear → copy entire folder)
-    Write-ColorOutput "Installing .gemini directory to local location..." $ColorInfo
-    $geminiInstalled = Backup-AndReplaceDirectory -Source $sourceGeminiDir -Destination $localGeminiDir -Description ".gemini directory" -BackupFolder $backupFolder
+    # Backup critical config files in .gemini directory before installation
+    Backup-CriticalConfigFiles -TargetDirectory $localGeminiDir -BackupFolder $backupFolder -FileNames @("GEMINI.md", "CLAUDE.md")
+
+    # Merge .gemini directory to local location (incremental overlay - preserves user files)
+    Write-ColorOutput "Installing .gemini directory to local location (incremental merge)..." $ColorInfo
+    $geminiInstalled = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $localGeminiDir -Description ".gemini directory" -BackupFolder $backupFolder
 
     # Track .gemini directory in manifest
     if ($geminiInstalled) {
@@ -1491,9 +1537,12 @@ function Install-Path {
         }
     }
 
-    # Replace .qwen directory to local location (backup → clear → copy entire folder)
-    Write-ColorOutput "Installing .qwen directory to local location..." $ColorInfo
-    $qwenInstalled = Backup-AndReplaceDirectory -Source $sourceQwenDir -Destination $localQwenDir -Description ".qwen directory" -BackupFolder $backupFolder
+    # Backup critical config files in .qwen directory before installation
+    Backup-CriticalConfigFiles -TargetDirectory $localQwenDir -BackupFolder $backupFolder -FileNames @("QWEN.md")
+
+    # Merge .qwen directory to local location (incremental overlay - preserves user files)
+    Write-ColorOutput "Installing .qwen directory to local location (incremental merge)..." $ColorInfo
+    $qwenInstalled = Merge-DirectoryContents -Source $sourceQwenDir -Destination $localQwenDir -Description ".qwen directory" -BackupFolder $backupFolder
 
     # Track .qwen directory in manifest
     if ($qwenInstalled) {
