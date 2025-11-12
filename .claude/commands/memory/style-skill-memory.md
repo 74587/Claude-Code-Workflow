@@ -141,14 +141,25 @@ bash(jq '.layout_templates | length' .workflow/reference_style/${package_name}/l
 
 Store result as `component_count`
 
-**Step 2: Extract Component Types**
+**Step 2: Extract Component Types and Classification**
 
 ```bash
 # Extract component names from layout templates
 bash(jq -r '.layout_templates | keys[]' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null | head -10)
+
+# Count universal vs specialized components
+bash(jq '[.layout_templates[] | select(.component_type == "universal")] | length' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null || echo 0)
+bash(jq '[.layout_templates[] | select(.component_type == "specialized")] | length' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null || echo 0)
+
+# Extract universal component names only
+bash(jq -r '.layout_templates | to_entries | map(select(.value.component_type == "universal")) | .[].key' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null | head -10)
 ```
 
-Store as `COMPONENT_TYPES`: List of available component types
+Store as:
+- `COMPONENT_TYPES`: List of available component types (all)
+- `UNIVERSAL_COUNT`: Number of universal (reusable) components
+- `SPECIALIZED_COUNT`: Number of specialized (project-specific) components
+- `UNIVERSAL_COMPONENTS`: List of universal component names
 
 **Step 3: Read Design Tokens**
 
@@ -220,7 +231,10 @@ Store result as `file_count`
 
 **Summary Data Collected**:
 - `COMPONENT_COUNT`: Number of components in layout templates
+- `UNIVERSAL_COUNT`: Number of universal (reusable) components
+- `SPECIALIZED_COUNT`: Number of specialized (project-specific) components
 - `COMPONENT_TYPES`: List of component types (first 10)
+- `UNIVERSAL_COMPONENTS`: List of universal component names (first 10)
 - `FILE_COUNT`: Total files in package
 - `HAS_ANIMATIONS`: Whether animation tokens are available
 - `PRIMARY_COLORS`: Primary color tokens with values
@@ -255,18 +269,20 @@ bash(mkdir -p .claude/skills/style-${package_name})
 
 **Format**:
 ```
-{package_name} design system with {component_count} layout templates and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with UI components, design tokens, layout patterns, analyzing component structures, or implementing visual consistency.
+{package_name} project-independent design system with {universal_count} universal layout templates and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with reusable UI components, design tokens, layout patterns, or implementing visual consistency. Excludes {specialized_count} project-specific components.
 ```
 
 **Key Elements**:
-- **Component Count**: Emphasize available layout templates
+- **Universal Count**: Emphasize available reusable layout templates
+- **Project Independence**: Clearly state project-independent nature
+- **Specialized Exclusion**: Mention excluded project-specific components
 - **Path Reference**: Precise package location
-- **Trigger Keywords**: UI components, design tokens, layout patterns, component structures
+- **Trigger Keywords**: reusable UI components, design tokens, layout patterns, visual consistency
 - **Action Coverage**: working with, analyzing, implementing
 
 **Example**:
 ```
-main-app-style-v1 design system with 8 layout templates and interactive preview (located at .workflow/reference_style/main-app-style-v1). Load when working with UI components, design tokens, layout patterns, analyzing component structures, or implementing visual consistency.
+main-app-style-v1 project-independent design system with 5 universal layout templates and interactive preview (located at .workflow/reference_style/main-app-style-v1). Load when working with reusable UI components, design tokens, layout patterns, or implementing visual consistency. Excludes 3 project-specific components.
 ```
 
 **Step 3: Write SKILL.md**
@@ -285,14 +301,23 @@ description: {intelligent description from Step 2}
 
 ## Package Overview
 
-Style reference package extracted from codebase with layout templates, design tokens, and interactive preview.
+**Project-independent style reference package** extracted from codebase with reusable design patterns, tokens, and interactive preview.
 
 **Package Details**:
 - Package: {package_name}
-- Layout Templates: {component_count}
-- Component Types: {comma-separated list of COMPONENT_TYPES}
+- Layout Templates: {component_count} total
+  - **Universal Components**: {universal_count} (reusable, project-independent)
+  - **Specialized Components**: {specialized_count} (project-specific, excluded from reference)
+- Universal Component Types: {comma-separated list of UNIVERSAL_COMPONENTS}
 - Files: {file_count}
 - Animation Tokens: {has_animations ? "✓ Available" : "Not available"}
+
+**⚠️ IMPORTANT - Project Independence**:
+This SKILL package represents a **pure style system** independent of any specific project implementation:
+- **Universal components** are generic, reusable patterns (buttons, inputs, cards, navigation)
+- **Specialized components** are project-specific implementations (excluded from this reference)
+- All design tokens and layout patterns are extracted for **reference purposes only**
+- Adapt and customize these references based on your project's specific requirements
 
 ---
 
@@ -440,13 +465,19 @@ Essential design token system for consistent styling.
 
 ---
 
-### Level 1: Layout Templates (~12K tokens)
+### Level 1: Universal Layout Templates (~12K tokens)
 
-Component layout patterns extracted from codebase.
+**Project-independent** component layout patterns for reusable UI elements.
 
 **Files**:
 - Level 0 files
 - [Layout Templates](../../../.workflow/reference_style/{package_name}/layout-templates.json) - Component structures with HTML/CSS patterns
+
+**⚠️ Reference Strategy**:
+- **Only reference components with `component_type: "universal"`** - these are reusable, project-independent patterns
+- **Ignore components with `component_type: "specialized"`** - these are project-specific implementations
+- Universal components include: buttons, inputs, forms, cards, navigation, modals, etc.
+- Use universal patterns as **reference templates** to adapt for your specific project needs
 
 **Use when**: Building components, understanding component architecture, implementing layouts
 
@@ -509,24 +540,32 @@ Load Level 2 for complete design system with preview reference
 ### Common Use Cases
 
 **Implementing UI Components**:
-- Load Level 1 for layout templates
-- Reference layout-templates.json for component structures
+- Load Level 1 for universal layout templates
+- **Only reference components with `component_type: "universal"`** in layout-templates.json
 - Apply design tokens from design-tokens.json
+- Adapt patterns to your project's specific requirements
 
 **Ensuring Style Consistency**:
 - Load Level 0 for design tokens
 - Use design-tokens.json for colors, typography, spacing
-- Check preview.html for visual reference
+- Check preview.html for visual reference (universal components only)
 
 **Analyzing Component Patterns**:
 - Load Level 2 for complete analysis
 - Review layout-templates.json for component architecture
+- **Filter for `component_type: "universal"` to exclude project-specific implementations**
 - Check preview.html for implementation examples
 
 **Animation Development**:
 - Load Level 2 for animation tokens (if available)
 - Reference animation-tokens.json for durations and easing
 - Apply consistent timing and transitions
+
+**⚠️ Critical Usage Rule**:
+This is a **project-independent style reference system**. When working with layout-templates.json:
+- **USE**: Components marked `component_type: "universal"` as reusable reference patterns
+- **IGNORE**: Components marked `component_type: "specialized"` (project-specific implementations)
+- **ADAPT**: All patterns should be customized for your specific project needs
 
 ---
 
@@ -594,8 +633,10 @@ Package: {package_name}
 SKILL Location: .claude/skills/style-{package_name}/SKILL.md
 
 📦 Package Details:
-- Layout Templates: {component_count}
-- Component Types: {show first 5 COMPONENT_TYPES, then "+ X more"}
+- Layout Templates: {component_count} total
+  - Universal (reusable): {universal_count}
+  - Specialized (project-specific): {specialized_count}
+- Universal Component Types: {show first 5 UNIVERSAL_COMPONENTS, then "+ X more"}
 - Files: {file_count}
 - Animation Tokens: {has_animations ? "✓ Available" : "Not available"}
 
@@ -640,15 +681,18 @@ Load design system context when working with:
 - Design token application
 - Style consistency validation
 
-⚠️ IMPORTANT:
-The extracted design references are REFERENCE VALUES, not fixed constraints.
-Dynamically adjust colors, spacing, typography, and other tokens based on:
-- Brand requirements and accessibility needs
-- Platform-specific conventions and optimizations
-- Context (light/dark mode, responsive breakpoints)
-- User feedback and testing results
+⚠️ IMPORTANT - Project Independence:
+This is a **project-independent style reference system**:
+- Only use universal components (component_type: "universal") as reference patterns
+- Ignore specialized components (component_type: "specialized") - they are project-specific
+- The extracted design references are REFERENCE VALUES, not fixed constraints
+- Dynamically adjust colors, spacing, typography, and other tokens based on:
+  - Brand requirements and accessibility needs
+  - Platform-specific conventions and optimizations
+  - Context (light/dark mode, responsive breakpoints)
+  - User feedback and testing results
 
-See SKILL.md for detailed adjustment guidelines and best practices.
+See SKILL.md for detailed adjustment guidelines and component filtering instructions.
 
 🎯 Preview:
 Open interactive showcase:
@@ -692,14 +736,16 @@ Open interactive showcase:
 
 **Template**:
 ```
-{package_name} design system with {component_count} layout templates and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with UI components, design tokens, layout patterns, analyzing component structures, or implementing visual consistency.
+{package_name} project-independent design system with {universal_count} universal layout templates and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with reusable UI components, design tokens, layout patterns, or implementing visual consistency. Excludes {specialized_count} project-specific components.
 ```
 
 **Required Elements**:
 - Package name
-- Layout template count
+- Universal layout template count (emphasize reusability)
+- Project independence statement
+- Specialized component exclusion notice
 - Location (full path)
-- Trigger keywords (UI components, design tokens, layout patterns, component structures)
+- Trigger keywords (reusable UI components, design tokens, layout patterns, visual consistency)
 - Action verbs (working with, analyzing, implementing)
 
 ### Primary Design References Extraction
@@ -711,12 +757,18 @@ Open interactive showcase:
 - Border Radius: All radius tokens
 - Shadows: Shadow definitions (top 3 elevation levels)
 
+**Component Classification Extraction** (from layout-templates.json):
+- Universal Count: Number of components with `component_type: "universal"`
+- Specialized Count: Number of components with `component_type: "specialized"`
+- Universal Component Names: List of universal component names (first 10)
+
 **Optional Data Extraction** (from animation-tokens.json if available):
 - Animation Durations: All duration tokens
 - Easing Functions: Top 3 easing functions
 
 **Extraction Format**:
 Use `jq` to extract tokens from JSON files. Each token should include key and value.
+For component classification, filter by `component_type` field.
 
 ### Dynamic Adjustment Guidelines
 
@@ -745,14 +797,16 @@ Use `jq` to extract tokens from JSON files. Each token should include key and va
 
 ## Benefits
 
+- **Project Independence**: Clear separation between universal (reusable) and specialized (project-specific) components
+- **Component Filtering**: Automatic classification helps identify which patterns are truly reusable
 - **Fast Context Loading**: Progressive levels for efficient token usage
 - **Primary Design References**: Extracted key design values (colors, typography, spacing, etc.) displayed prominently
 - **Dynamic Adjustment Guidance**: Clear instructions on when and how to adjust design tokens
 - **Intelligent Triggering**: Keywords optimize SKILL activation
 - **Complete Reference**: All package files accessible through SKILL
 - **Easy Regeneration**: Simple --regenerate flag for updates
-- **Clear Structure**: Organized levels by use case
-- **Practical Usage Guidelines**: Context-specific adjustment strategies for different scenarios
+- **Clear Structure**: Organized levels by use case with component type filtering
+- **Practical Usage Guidelines**: Context-specific adjustment strategies and component selection criteria
 
 ---
 
@@ -804,9 +858,13 @@ Data Flow:
   design-tokens.json → jq extraction → PRIMARY_COLORS, TYPOGRAPHY_FONTS,
                                        SPACING_SCALE, BORDER_RADIUS, SHADOWS
   animation-tokens.json → jq extraction → ANIMATION_DURATIONS, EASING_FUNCTIONS
-  layout-templates.json → jq extraction → COMPONENT_TYPES, COMPONENT_COUNT
+  layout-templates.json → jq extraction → COMPONENT_COUNT, UNIVERSAL_COUNT,
+                                         SPECIALIZED_COUNT, UNIVERSAL_COMPONENTS
+                       → component_type filtering → Universal vs Specialized classification
 
   Extracted data → SKILL.md generation → Primary Design References section
+                                      → Component Classification section
                                       → Dynamic Adjustment Guidelines
+                                      → Project Independence warnings
                                       → Completion message display
 ```
