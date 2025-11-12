@@ -176,22 +176,48 @@ Execution Complete
     prompt=`
     Task: ${task_description}
 
-    Analyze:
-    - Relevant files and modules
-    - Current implementation patterns
-    - Dependencies and integration points
-    - Architecture constraints
+    Analyze and return the following information in structured format:
+    1. Project Structure: Overall architecture and module organization
+    2. Relevant Files: List of files that will be affected by this task (with paths)
+    3. Current Implementation Patterns: Existing code patterns, conventions, and styles
+    4. Dependencies: External dependencies and internal module dependencies
+    5. Integration Points: Where this task connects with existing code
+    6. Architecture Constraints: Technical limitations or requirements
+    7. Clarification Needs: Ambiguities or missing information requiring user input
 
     Time Limit: 60 seconds
-    Output: Findings summary + clarification needs
+
+    Output Format: Return a JSON-like structured object with the above fields populated.
+    Include specific file paths, pattern examples, and clear questions for clarifications.
     `
   )
   ```
 
+**Expected Return Structure**:
+```javascript
+explorationContext = {
+  project_structure: "Description of overall architecture",
+  relevant_files: ["src/auth/service.ts", "src/middleware/auth.ts", ...],
+  patterns: "Description of existing patterns (e.g., 'Uses dependency injection pattern', 'React hooks convention')",
+  dependencies: "List of dependencies and integration points",
+  integration_points: "Where this connects with existing code",
+  constraints: "Technical constraints (e.g., 'Must use existing auth library', 'No breaking changes')",
+  clarification_needs: [
+    {
+      question: "Which authentication method to use?",
+      context: "Found both JWT and Session patterns",
+      options: ["JWT tokens", "Session-based", "Hybrid approach"]
+    },
+    // ... more clarification questions
+  ]
+}
+```
+
 **Output Processing**:
 - Store exploration findings in `explorationContext`
-- Identify clarification needs (ambiguities, missing info, assumptions)
-- Set `needsClarification` flag if questions exist
+- Extract `clarification_needs` array from exploration results
+- Set `needsClarification = (clarification_needs.length > 0)`
+- Use clarification_needs to generate Phase 2 questions
 
 **Progress Tracking**:
 - Mark Phase 1 as completed
@@ -207,44 +233,30 @@ Execution Complete
 **Skip Condition**: Only run if Phase 1 set `needsClarification = true`
 
 **Operations**:
-- Review exploration findings for ambiguities
-- Generate clarification questions based on:
-  - Missing requirements
-  - Ambiguous specifications
-  - Multiple implementation options
-  - Unclear dependencies or constraints
-  - Assumptions that need confirmation
+- Review `explorationContext.clarification_needs` from Phase 1
+- Generate AskUserQuestion based on exploration findings
+- Focus on ambiguities that affect implementation approach
 
-**AskUserQuestion Format**:
+**AskUserQuestion Call** (simplified reference):
 ```javascript
+// Use clarification_needs from exploration to build questions
 AskUserQuestion({
-  questions: [
-    {
-      question: "Based on code exploration, I need clarification on: ...",
-      header: "Clarify Requirements",
-      multiSelect: false,
-      options: [
-        // Dynamic options based on exploration findings
-        // Example: "Which authentication method?" -> Options: JWT, OAuth2, Session
-      ]
-    }
-  ]
+  questions: explorationContext.clarification_needs.map(need => ({
+    question: `${need.context}\n\n${need.question}`,
+    header: "Clarification",
+    multiSelect: false,
+    options: need.options.map(opt => ({
+      label: opt,
+      description: `Use ${opt} approach`
+    }))
+  }))
 })
 ```
 
-**Example Clarification Scenarios**:
-
-| Exploration Finding | Clarification Question | Options |
-|---------------------|------------------------|---------|
-| "Found 2 auth patterns: JWT and Session" | "Which authentication approach to use?" | JWT / Session-based / Hybrid |
-| "API uses both REST and GraphQL" | "Which API style for new endpoints?" | REST / GraphQL / Both |
-| "No existing test framework found" | "Which test framework to set up?" | Jest / Vitest / Mocha |
-| "Multiple state management libraries" | "Which state manager to use?" | Redux / Zustand / Context |
-
 **Output Processing**:
-- Collect user responses
-- Update task context with clarifications
-- Store in `clarificationContext` variable
+- Collect user responses and store in `clarificationContext`
+- Format: `{ question_id: selected_answer, ... }`
+- This context will be passed to Phase 3 planning
 
 **Progress Tracking**:
 - Mark Phase 2 as completed
@@ -314,26 +326,70 @@ Task(
   Task: ${task_description}
 
   Exploration Context:
-  ${explorationContext}
+  ${JSON.stringify(explorationContext, null, 2)}
 
-  Clarifications:
-  ${clarificationContext || "None"}
+  User Clarifications:
+  ${JSON.stringify(clarificationContext, null, 2) || "None provided"}
 
-  Complexity: ${complexity}
+  Complexity Level: ${complexity}
 
-  Generate detailed task breakdown with:
-  - Clear task dependencies
-  - Specific file modifications
-  - Test requirements
-  - Rollback considerations (if High complexity)
-  - Risk assessment
+  Generate a detailed implementation plan with the following components:
 
-  Output: Structured task list (5-10 tasks)
+  1. Summary: 2-3 sentence overview of the implementation
+  2. Approach: High-level implementation strategy
+  3. Task Breakdown: 5-10 specific, actionable tasks
+     - Each task should specify:
+       * What to do
+       * Which files to modify/create
+       * Dependencies on other tasks (if any)
+  4. Task Dependencies: Explicit ordering requirements (e.g., "Task 2 depends on Task 1")
+  5. Risks: Potential issues and mitigation strategies (for Medium/High complexity)
+  6. Estimated Time: Total implementation time estimate
+  7. Recommended Execution: "Direct" (agent) or "CLI" (autonomous tool)
+
+  Output Format: Return a structured object with these fields:
+  {
+    summary: string,
+    approach: string,
+    tasks: string[],
+    dependencies: string[] (optional),
+    risks: string[] (optional),
+    estimated_time: string,
+    recommended_execution: "Direct" | "CLI"
+  }
+
+  Ensure tasks are specific, with file paths and clear acceptance criteria.
   `
 )
 
 // Agent returns detailed plan
 planObject = agent_output.parse()
+```
+
+**Expected Return Structure**:
+```javascript
+planObject = {
+  summary: "Implement JWT-based authentication system with middleware integration",
+  approach: "Create auth service layer, implement JWT utilities, add middleware, update routes",
+  tasks: [
+    "Create authentication service in src/auth/service.ts with login/logout/verify methods",
+    "Implement JWT token utilities in src/auth/jwt.ts (generate, verify, refresh)",
+    "Add authentication middleware to src/middleware/auth.ts",
+    "Update API routes in src/routes/*.ts to use auth middleware",
+    "Add integration tests for auth flow in tests/auth.test.ts"
+  ],
+  dependencies: [
+    "Task 3 depends on Task 2 (middleware needs JWT utilities)",
+    "Task 4 depends on Task 3 (routes need middleware)",
+    "Task 5 depends on Tasks 1-4 (tests need complete implementation)"
+  ],
+  risks: [
+    "Token refresh timing may conflict with existing session logic - test thoroughly",
+    "Breaking change if existing auth is in use - plan migration strategy"
+  ],
+  estimated_time: "30-45 minutes",
+  recommended_execution: "CLI"  // Based on clear requirements and straightforward implementation
+}
 ```
 
 **Output Structure**:
@@ -370,120 +426,54 @@ planObject = {
 
 **Operations**:
 - Display plan summary with full task breakdown
-- Two-dimensional user input: Task confirmation + Execution method selection
+- Collect two-dimensional user input: Task confirmation + Execution method selection
 - Support modification flow if user requests changes
 
-**AskUserQuestion Format** (Two questions):
-
 **Question 1: Task Confirmation**
+
+Display plan to user and ask for confirmation:
+- Show: summary, approach, task breakdown, dependencies, risks, complexity, estimated time
+- Options: "Confirm" / "Modify" / "Cancel"
+- If Modify: Collect feedback via "Other" option, re-run Phase 3 with modifications
+- If Cancel: Exit workflow
+- If Confirm: Proceed to Question 2
+
+**Question 2: Execution Method Selection** (Only if task confirmed)
+
+Ask user to select execution method:
+- Show recommendation from `planObject.recommended_execution`
+- Options:
+  - "Direct - Execute with Agent" (@code-developer)
+  - "CLI - Gemini" (gemini-2.5-pro)
+  - "CLI - Codex" (gpt-5)
+  - "CLI - Qwen" (coder-model)
+- Store selection for Phase 5 execution
+
+**Simplified AskUserQuestion Reference**:
 ```javascript
+// Question 1: Task Confirmation
 AskUserQuestion({
   questions: [{
-    question: `
-Implementation Plan:
-
-Summary: ${planObject.summary}
-
-Approach: ${planObject.approach}
-
-Task Breakdown (${planObject.tasks.length} tasks):
-${planObject.tasks.map((t, i) => `  ${i+1}. ${t}`).join('\n')}
-
-${planObject.dependencies ? `\nDependencies:\n${planObject.dependencies.join('\n')}` : ''}
-${planObject.risks ? `\nRisks:\n${planObject.risks.join('\n')}` : ''}
-
-Complexity: ${planObject.complexity}
-Estimated Time: ${planObject.estimated_time}
-
-Do you confirm this implementation plan?`,
-    header: "Confirm Tasks",
-    multiSelect: false,
+    question: `[Display plan with all details]\n\nDo you confirm this plan?`,
+    header: "Confirm Plan",
     options: [
-      {
-        label: "Confirm - Proceed to execution",
-        description: "Tasks look good, ready to execute"
-      },
-      {
-        label: "Modify - Adjust plan",
-        description: "Need to adjust tasks or approach"
-      },
-      {
-        label: "Cancel - Abort",
-        description: "Don't execute, abort this planning session"
-      }
+      { label: "Confirm", description: "Proceed to execution" },
+      { label: "Modify", description: "Adjust plan" },
+      { label: "Cancel", description: "Abort" }
     ]
   }]
 })
-```
 
-**If Confirm**: Proceed to Question 2
-**If Modify**:
-```javascript
+// Question 2: Execution Method (if confirmed)
 AskUserQuestion({
   questions: [{
-    question: "What would you like to modify about the plan?",
-    header: "Plan Modifications",
-    multiSelect: false,
-    options: [
-      {
-        label: "Add specific requirements",
-        description: "Provide additional requirements or constraints"
-      },
-      {
-        label: "Remove/simplify tasks",
-        description: "Some tasks are unnecessary or too detailed"
-      },
-      {
-        label: "Change approach",
-        description: "Different implementation strategy needed"
-      },
-      {
-        label: "Clarify ambiguities",
-        description: "Tasks are unclear or ambiguous"
-      }
-    ]
-  }]
-})
-// After modification input, re-run Phase 3 with user feedback
-```
-
-**Question 2: Execution Method Selection** (Only if confirmed)
-```javascript
-AskUserQuestion({
-  questions: [{
-    question: `
-Select execution method:
-
-${planObject.recommended_execution === "Direct" ? "[Recommended] " : ""}Direct Execution (Agent):
-- Current Claude agent executes tasks with full context
-- Interactive progress tracking
-- Best for: Complex logic, iterative development
-
-${planObject.recommended_execution === "CLI" ? "[Recommended] " : ""}CLI Execution:
-- External CLI tool (Gemini/Codex/Qwen) executes tasks
-- Autonomous execution, faster for straightforward tasks
-- Best for: Clear requirements, bulk operations
-
-Choose execution method:`,
+    question: `Select execution method:\n[Show recommendation and tool descriptions]`,
     header: "Execution Method",
-    multiSelect: false,
     options: [
-      {
-        label: "Direct - Execute with Agent",
-        description: "Use @code-developer agent (interactive, recommended for ${planObject.complexity})"
-      },
-      {
-        label: "CLI - Gemini",
-        description: "Fast semantic analysis (gemini-2.5-pro)"
-      },
-      {
-        label: "CLI - Codex",
-        description: "Autonomous development (gpt-5)"
-      },
-      {
-        label: "CLI - Qwen",
-        description: "Code analysis specialist (coder-model)"
-      }
+      { label: "Direct - Agent", description: "Interactive execution" },
+      { label: "CLI - Gemini", description: "gemini-2.5-pro" },
+      { label: "CLI - Codex", description: "gpt-5" },
+      { label: "CLI - Qwen", description: "coder-model" }
     ]
   }]
 })

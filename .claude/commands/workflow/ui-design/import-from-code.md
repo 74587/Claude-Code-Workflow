@@ -154,6 +154,23 @@ Task(subagent_type="ui-design-agent",
 
   ## Code Import Extraction Strategy
 
+  **Step 0: Fast Conflict Detection** (Use Bash/Grep for quick global scan)
+  - Quick scan: \`rg --color=never -n "^\\s*--primary:|^\\s*--secondary:|^\\s*--accent:" --type css ${source}\` to find core color definitions with line numbers
+  - Semantic search: \`rg --color=never -B3 -A1 "^\\s*--primary:" --type css ${source}\` to capture surrounding context and comments
+  - Core token scan: Search for --primary, --secondary, --accent, --background patterns to detect all theme-critical definitions
+  - Pattern: rg → Extract values → Compare → If different → Read full context with comments → Record conflict
+  - Alternative (if many files): Execute CLI analysis for comprehensive report:
+    \`\`\`bash
+    cd ${source} && gemini -p \"
+    PURPOSE: Detect color token conflicts across all CSS/SCSS/JS files
+    TASK: • Scan all files for color definitions • Identify conflicting values • Extract semantic comments
+    MODE: analysis
+    CONTEXT: @**/*.css @**/*.scss @**/*.js @**/*.ts
+    EXPECTED: JSON report listing conflicts with file:line, values, semantic context
+    RULES: Focus on core tokens | Report ALL variants | analysis=READ-ONLY
+    \"
+    \`\`\`
+
   **Step 1: Load file list**
   - Read(${intermediates_dir}/discovered-files.json)
   - Extract: file_types.css.files, file_types.js.files, file_types.html.files
@@ -252,6 +269,23 @@ Task(subagent_type="ui-design-agent",
 
   ## Code Import Extraction Strategy
 
+  **Step 0: Fast Animation Discovery** (Use Bash/Grep for quick pattern detection)
+  - Quick scan: \`rg --color=never -n "@keyframes|animation:|transition:" --type css ${source}\` to find animation definitions with line numbers
+  - Framework detection: \`rg --color=never "framer-motion|gsap|@react-spring|react-spring" --type js --type ts ${source}\` to detect animation frameworks
+  - Pattern categorization: \`rg --color=never -B2 -A5 "@keyframes" --type css ${source}\` to extract keyframe animations with context
+  - Pattern: rg → Identify animation types → Map framework usage → Prioritize extraction targets
+  - Alternative (if complex framework mix): Execute CLI analysis for comprehensive report:
+    \`\`\`bash
+    cd ${source} && gemini -p \"
+    PURPOSE: Detect animation frameworks and patterns
+    TASK: • Identify frameworks • Map animation patterns • Categorize by complexity
+    MODE: analysis
+    CONTEXT: @**/*.css @**/*.scss @**/*.js @**/*.ts
+    EXPECTED: JSON report listing frameworks, animation types, file locations
+    RULES: Focus on framework consistency | Map all animations | analysis=READ-ONLY
+    \"
+    \`\`\`
+
   **Step 1: Load file list**
   - Read(${intermediates_dir}/discovered-files.json)
   - Extract: file_types.css.files, file_types.js.files, file_types.html.files
@@ -313,6 +347,23 @@ Task(subagent_type="ui-design-agent",
   $(cat \"${intermediates_dir}/discovered-files.json\" 2>/dev/null | grep -E '(count|files)' | head -30)
 
   ## Code Import Extraction Strategy
+
+  **Step 0: Fast Component Discovery** (Use Bash/Grep for quick component scan)
+  - Layout pattern scan: \`rg --color=never -n "display:\\s*(grid|flex)|grid-template" --type css ${source}\` to find layout systems
+  - Component class scan: \`rg --color=never "class.*=.*\\"[^\"]*\\b(btn|button|card|input|modal|dialog|dropdown)" --type html --type js --type ts ${source}\` to identify UI components
+  - Universal component heuristic: Components appearing in 3+ files = universal, <3 files = specialized
+  - Pattern: rg → Count occurrences → Classify by frequency → Prioritize universal components
+  - Alternative (if large codebase): Execute CLI analysis for comprehensive categorization:
+    \`\`\`bash
+    cd ${source} && gemini -p \"
+    PURPOSE: Classify components as universal vs specialized
+    TASK: • Identify UI components • Classify reusability • Map layout systems
+    MODE: analysis
+    CONTEXT: @**/*.css @**/*.scss @**/*.js @**/*.ts @**/*.html
+    EXPECTED: JSON report categorizing components, layout patterns, naming conventions
+    RULES: Focus on component reusability | Identify layout systems | analysis=READ-ONLY
+    \"
+    \`\`\`
 
   **Step 1: Load file list**
   - Read(${intermediates_dir}/discovered-files.json)

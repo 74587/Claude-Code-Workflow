@@ -121,12 +121,7 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
      * For core tokens (primary, secondary, accent): Verify against overall color scheme
      * Report conflicts in `_metadata.conflicts` with all definitions and selection reasoning
      * NO inference, NO normalization - faithful extraction with explicit conflict resolution
-   - Fast Conflict Detection (Use Bash/Grep):
-     * Quick scan: `rg --color=never -n "^\s*--primary:" --type css` to find all primary color definitions with line numbers
-     * Semantic search: `rg --color=never -B3 -A1 "^\s*--primary:" --type css` to capture surrounding context and comments
-     * Per-file comparison: `rg --color=never -B3 -A1 "^\s*--primary:" file1.css && rg --color=never -B3 -A1 "^\s*--primary:" file2.css` to compare specific files
-     * Core token scan: Search for --primary, --secondary, --accent, --background patterns to detect all theme-critical definitions
-     * Pattern: `rg → Extract values → Compare → If different → Read full context with comments → Record conflict`
+   - Analysis Methods: See specific detection steps in task prompt (Fast Conflict Detection for Style, Fast Animation Discovery for Animation, Fast Component Discovery for Layout)
 
 2. **Explore/Text Mode** (Source: `style-extract`, `layout-extract`, `animation-extract`)
    - Data Source: User prompts, visual references, images, URLs
@@ -506,6 +501,30 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
     "version": "string - W3C version or custom version",
     "created": "ISO timestamp - 2024-01-01T00:00:00Z",
     "source": "code-import|explore|text",
+    "theme_colors_guide": {
+      "description": "Theme colors are the core brand identity colors that define the visual hierarchy and emotional tone of the design system",
+      "primary": {
+        "role": "Main brand color",
+        "usage": "Primary actions (CTAs, key interactive elements, navigation highlights, primary buttons)",
+        "contrast_requirement": "WCAG AA - 4.5:1 for text, 3:1 for UI components"
+      },
+      "secondary": {
+        "role": "Supporting brand color",
+        "usage": "Secondary actions and complementary elements (less prominent buttons, secondary navigation, supporting features)",
+        "principle": "Should complement primary without competing for attention"
+      },
+      "accent": {
+        "role": "Highlight color for emphasis",
+        "usage": "Attention-grabbing elements used sparingly (badges, notifications, special promotions, highlights)",
+        "principle": "Should create strong visual contrast to draw focus"
+      },
+      "destructive": {
+        "role": "Error and destructive action color",
+        "usage": "Delete buttons, error messages, critical warnings",
+        "principle": "Must signal danger or caution clearly"
+      },
+      "harmony_note": "All theme colors must work harmoniously together and align with brand identity. In multi-file extraction, prioritize definitions with semantic comments explaining brand intent."
+    },
     "conflicts": [
       {
         "token_name": "string - which token has conflicts",
@@ -593,6 +612,7 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 - Component definitions MUST be structured objects referencing other tokens via {token.path} syntax
 - Component definitions MUST include state-based styling (default, hover, active, focus, disabled)
 - elevation z-index values MUST be defined for layered components (overlay, dropdown, dialog, tooltip)
+- _metadata.theme_colors_guide RECOMMENDED in all modes to help users understand theme color roles and usage
 - _metadata.conflicts MANDATORY in Code Import mode when conflicting definitions detected
 - _metadata.code_snippets ONLY present in Code Import mode
 - _metadata.usage_recommendations RECOMMENDED for universal components
