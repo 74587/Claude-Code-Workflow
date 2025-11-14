@@ -63,8 +63,8 @@ package-name    Style reference package name (required)
 ```json
 [
   {"content": "Validate style reference package", "status": "in_progress", "activeForm": "Validating package"},
-  {"content": "Read package data and extract design references", "status": "pending", "activeForm": "Reading package data"},
-  {"content": "Generate SKILL.md with progressive loading", "status": "pending", "activeForm": "Generating SKILL.md"}
+  {"content": "Read package data", "status": "pending", "activeForm": "Reading package data"},
+  {"content": "Generate SKILL.md with design references", "status": "pending", "activeForm": "Generating SKILL.md"}
 ]
 ```
 
@@ -129,127 +129,53 @@ if (regenerate_flag && skill_exists) {
 
 ---
 
-### Phase 2: Read Package Data & Extract Design References
+### Phase 2: Read Package Data
 
-**Purpose**: Extract package information and primary design references for SKILL description generation
+**Purpose**: Read all package files for SKILL description generation
 
-**Step 1: Count Components**
-
-```bash
-bash(jq '.layout_templates | length' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null || echo 0)
-```
-
-Store result as `component_count`
-
-**Step 2: Extract Component Types and Classification**
+**Step 1: Read All JSON Files**
 
 ```bash
-# Extract component names from layout templates
-bash(jq -r '.layout_templates | keys[]' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null | head -10)
+# Read layout templates
+Read(file_path=".workflow/reference_style/${package_name}/layout-templates.json")
 
-# Count universal vs specialized components
-bash(jq '[.layout_templates[] | select(.component_type == "universal")] | length' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null || echo 0)
-bash(jq '[.layout_templates[] | select(.component_type == "specialized")] | length' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null || echo 0)
-
-# Extract universal component names only
-bash(jq -r '.layout_templates | to_entries | map(select(.value.component_type == "universal")) | .[].key' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null | head -10)
-```
-
-Store as:
-- `COMPONENT_TYPES`: List of available component types (all)
-- `UNIVERSAL_COUNT`: Number of universal (reusable) components
-- `SPECIALIZED_COUNT`: Number of specialized (project-specific) components
-- `UNIVERSAL_COMPONENTS`: List of universal component names
-
-**Step 3: Read Design Tokens**
-
-```bash
+# Read design tokens
 Read(file_path=".workflow/reference_style/${package_name}/design-tokens.json")
+
+# Read animation tokens (if exists)
+bash(test -f .workflow/reference_style/${package_name}/animation-tokens.json && echo "exists" || echo "missing")
+Read(file_path=".workflow/reference_style/${package_name}/animation-tokens.json")  # if exists
 ```
 
-**Extract Primary Design References**:
+**Step 2: Extract Metadata for Description**
 
-**Colors** (top 3-5 most important):
-```bash
-bash(jq -r '.colors | to_entries | .[0:5] | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null | head -5)
-```
-
-**Typography** (heading and body fonts):
-```bash
-bash(jq -r '.typography | to_entries | select(.key | contains("family")) | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null)
-```
-
-**Spacing Scale** (base spacing values):
-```bash
-bash(jq -r '.spacing | to_entries | .[0:5] | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null)
-```
-
-**Border Radius** (base radius values):
-```bash
-bash(jq -r '.border_radius | to_entries | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null)
-```
-
-**Shadows** (elevation levels):
-```bash
-bash(jq -r '.shadows | to_entries | .[0:3] | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null)
-```
-
-Store extracted references as:
-- `PRIMARY_COLORS`: List of primary color tokens
-- `TYPOGRAPHY_FONTS`: Font family tokens
-- `SPACING_SCALE`: Base spacing values
-- `BORDER_RADIUS`: Radius values
-- `SHADOWS`: Shadow definitions
-
-**Step 4: Read Animation Tokens (if available)**
+Only extract minimal metadata needed for intelligent SKILL description:
 
 ```bash
-# Check if animation tokens exist
-bash(test -f .workflow/reference_style/${package_name}/animation-tokens.json && echo "available" || echo "not_available")
+# Count components and classify by type
+bash(jq '.layout_templates | length' layout-templates.json)
+bash(jq '[.layout_templates[] | select(.component_type == "universal")] | length' layout-templates.json)
+bash(jq '[.layout_templates[] | select(.component_type == "specialized")] | length' layout-templates.json)
+bash(jq -r '.layout_templates | to_entries[] | select(.value.component_type == "universal") | .key' layout-templates.json | head -5)
 ```
 
-If available, extract:
-```bash
-Read(file_path=".workflow/reference_style/${package_name}/animation-tokens.json")
+**Summary Variables**:
+- `COMPONENT_COUNT`: Total components
+- `UNIVERSAL_COUNT`: Universal components count
+- `SPECIALIZED_COUNT`: Specialized components count
+- `UNIVERSAL_COMPONENTS`: Universal component names (first 5 for description)
+- `HAS_ANIMATIONS`: Whether animation-tokens.json exists
+- `DESIGN_TOKENS_DATA`: Complete design-tokens.json content (from Read)
+- `LAYOUT_TEMPLATES_DATA`: Complete layout-templates.json content (from Read)
+- `ANIMATION_TOKENS_DATA`: Complete animation-tokens.json content (from Read, if available)
 
-# Extract primary animation values
-bash(jq -r '.duration | to_entries | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/animation-tokens.json 2>/dev/null)
-bash(jq -r '.easing | to_entries | .[0:3] | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/animation-tokens.json 2>/dev/null)
-```
-
-Store as:
-- `ANIMATION_DURATIONS`: Animation duration tokens
-- `EASING_FUNCTIONS`: Easing function tokens
-
-**Step 5: Count Files**
-
-```bash
-bash(cd .workflow/reference_style/${package_name} && ls -1 *.json *.html *.css 2>/dev/null | wc -l)
-```
-
-Store result as `file_count`
-
-**Summary Data Collected**:
-- `COMPONENT_COUNT`: Number of components in layout templates
-- `UNIVERSAL_COUNT`: Number of universal (reusable) components
-- `SPECIALIZED_COUNT`: Number of specialized (project-specific) components
-- `COMPONENT_TYPES`: List of component types (first 10)
-- `UNIVERSAL_COMPONENTS`: List of universal component names (first 10)
-- `FILE_COUNT`: Total files in package
-- `HAS_ANIMATIONS`: Whether animation tokens are available
-- `PRIMARY_COLORS`: Primary color tokens with values
-- `TYPOGRAPHY_FONTS`: Font family tokens
-- `SPACING_SCALE`: Base spacing scale
-- `BORDER_RADIUS`: Border radius values
-- `SHADOWS`: Shadow definitions
-- `ANIMATION_DURATIONS`: Animation durations (if available)
-- `EASING_FUNCTIONS`: Easing functions (if available)
+**Note**: All design token extraction (colors, typography, spacing, etc.) is performed directly in Phase 3 during SKILL.md generation using the read file contents, not through separate jq commands.
 
 **TodoWrite Update**:
 ```json
 [
-  {"content": "Read package data and extract design references", "status": "completed", "activeForm": "Reading package data"},
-  {"content": "Generate SKILL.md with progressive loading", "status": "in_progress", "activeForm": "Generating SKILL.md"}
+  {"content": "Read package data", "status": "completed", "activeForm": "Reading package data"},
+  {"content": "Generate SKILL.md with design references", "status": "in_progress", "activeForm": "Generating SKILL.md"}
 ]
 ```
 
@@ -287,7 +213,9 @@ main-app-style-v1 project-independent design system with 5 universal layout temp
 
 **Step 3: Write SKILL.md**
 
-Use Write tool to generate SKILL.md with the following optimized content:
+Use Write tool to generate SKILL.md with the following optimized content.
+
+**Data Source**: All design token values (colors, typography, spacing, etc.) are extracted directly from the read JSON file contents (`DESIGN_TOKENS_DATA`, `LAYOUT_TEMPLATES_DATA`, `ANIMATION_TOKENS_DATA`) during SKILL.md generation. Template variables like `{FOR each color in ...}` iterate over the read data structure, not pre-extracted lists.
 
 ```markdown
 ---
@@ -299,7 +227,12 @@ description: {intelligent description from Step 2}
 
 ## Package Overview
 
-**Location**: `../../../.workflow/reference_style/{package_name}/`
+**Base Location**: `.workflow/reference_style/{package_name}/`
+
+**JSON Files**:
+- **Design Tokens**: `.workflow/reference_style/{package_name}/design-tokens.json`
+- **Layout Templates**: `.workflow/reference_style/{package_name}/layout-templates.json`
+- **Animation Tokens**: `.workflow/reference_style/{package_name}/animation-tokens.json` {has_animations ? "(available)" : "(not available)"}
 
 **Package Details**:
 - Package: {package_name}
@@ -307,8 +240,7 @@ description: {intelligent description from Step 2}
   - **Universal Components**: {universal_count} (reusable, project-independent)
   - **Specialized Components**: {specialized_count} (project-specific, excluded)
 - Universal Component Types: {comma-separated list of UNIVERSAL_COMPONENTS}
-- Animation Tokens: {has_animations ? "✓ Available" : "Not available"}
-- Preview: `../../../.workflow/reference_style/{package_name}/preview.html`
+- Preview: `.workflow/reference_style/{package_name}/preview.html`
 
 ---
 
@@ -326,33 +258,33 @@ description: {intelligent description from Step 2}
 
 ---
 
-## 🎨 样式理解及设计参考 (Style Understanding & Design References)
+## 🎨 Style Understanding & Design References
 
 **IMPORTANT**: Reference values extracted from codebase. Dynamically adjust based on specific design needs.
 
-### 艺术规则与设计原则 (Design Principles)
+### Design Principles
 
-**视觉层次 (Visual Hierarchy)**
+**Visual Hierarchy**
 - Use scale, color, and spacing to establish clear information hierarchy
 - Primary actions and content should be immediately recognizable
 - Guide user attention through deliberate contrast and emphasis
 
-**一致性原则 (Consistency)**
+**Consistency**
 - Maintain consistent token usage across components (spacing, colors, typography)
 - Repeated patterns create familiarity and reduce cognitive load
 - Systematic application builds trust and predictability
 
-**对比与平衡 (Contrast & Balance)**
+**Contrast & Balance**
 - High contrast for critical actions and accessibility (WCAG AA/AAA)
 - Balance visual weight through size, color intensity, and whitespace
 - Harmonious color relationships using systematic palette
 
-**节奏与韵律 (Rhythm & Flow)**
+**Rhythm & Flow**
 - Progressive spacing scale creates natural visual rhythm (e.g., 4px base × 2^n)
 - Typography scale establishes typographic rhythm and readability
 - Animation easing creates natural, fluid motion feeling
 
-**可读性与可访问性 (Readability & Accessibility)**
+**Readability & Accessibility**
 - Minimum 4.5:1 contrast for text (WCAG AA)
 - Clear typographic hierarchy with adequate line-height
 - Touch targets ≥44px for mobile, adequate spacing for interaction
@@ -407,9 +339,9 @@ description: {intelligent description from Step 2}
 
 ---
 
-## 🔍 快速索引 (Quick Index)
+## 🔍 Quick Index
 
-### JSON 中已有字段 (Available JSON Fields)
+### Available JSON Fields
 
 **High-level structure overview for quick understanding**
 
@@ -448,18 +380,18 @@ description: {intelligent description from Step 2}
 
 ---
 
-### jq 索引示例 (Progressive jq Usage Guide)
+### Progressive jq Usage Guide
 
-#### 🔰 Level 0: 基础查询 (~5K tokens)
+#### 🔰 Level 0: Basic Queries (~5K tokens)
 
 ```bash
-# 查看完整文件 | View entire file
+# View entire file
 jq '.' <file>.json
 
-# 查看顶层字段 | List top-level keys
+# List top-level keys
 jq 'keys' <file>.json
 
-# 提取特定字段 | Extract specific field
+# Extract specific field
 jq '.<field_name>' <file>.json
 ```
 
@@ -467,19 +399,19 @@ jq '.<field_name>' <file>.json
 
 ---
 
-#### 🎯 Level 1: 筛选与提取 (~12K tokens)
+#### 🎯 Level 1: Filter & Extract (~12K tokens)
 
 ```bash
-# 统计数量 | Count items
+# Count items
 jq '.<field> | length' <file>.json
 
-# 筛选条件 | Filter by condition
+# Filter by condition
 jq '[.<field>[] | select(.<key> == "<value>")]' <file>.json
 
-# 提取名称列表 | Extract names
+# Extract names
 jq -r '.<field> | to_entries[] | select(<condition>) | .key' <file>.json
 
-# 格式化输出 | Formatted output
+# Formatted output
 jq -r '.<field> | to_entries[] | "\(.key): \(.value)"' <file>.json
 ```
 
@@ -489,22 +421,22 @@ jq -r '.<field> | to_entries[] | "\(.key): \(.value)"' <file>.json
 
 ---
 
-#### 🚀 Level 2: 组合与转换 (~20K tokens)
+#### 🚀 Level 2: Combine & Transform (~20K tokens)
 
 ```bash
-# 模糊搜索 | Pattern search
+# Pattern search
 jq '.<field> | keys[] | select(. | contains("<pattern>"))' <file>.json
 
-# 正则匹配 | Regex match
+# Regex match
 jq -r '.<field> | to_entries[] | select(.key | test("<regex>"; "i"))' <file>.json
 
-# 多文件合并 | Multi-file query
+# Multi-file query
 jq '.' file1.json && jq '.' file2.json
 
-# 嵌套提取 | Nested extraction
+# Nested extraction
 jq '.<field>["<name>"].<nested_field>' <file>.json
 
-# 预览服务 | Preview server
+# Preview server
 cd .workflow/reference_style/{package_name} && python -m http.server 8080
 ```
 
@@ -512,7 +444,7 @@ cd .workflow/reference_style/{package_name} && python -m http.server 8080
 
 ---
 
-### 常用查询速查表 (Common Query Cheatsheet)
+### Common Query Cheatsheet
 
 | Task | Pattern |
 |------|---------|
@@ -554,8 +486,8 @@ bash(test -f .claude/skills/style-${package_name}/SKILL.md && echo "success" || 
 ```json
 [
   {"content": "Validate style reference package", "status": "completed", "activeForm": "Validating package"},
-  {"content": "Read package data and extract design references", "status": "completed", "activeForm": "Reading package data"},
-  {"content": "Generate SKILL.md with progressive loading", "status": "completed", "activeForm": "Generating SKILL.md"}
+  {"content": "Read package data", "status": "completed", "activeForm": "Reading package data"},
+  {"content": "Generate SKILL.md with design references", "status": "completed", "activeForm": "Generating SKILL.md"}
 ]
 ```
 
@@ -598,10 +530,10 @@ SKILL Location: .claude/skills/style-{package_name}/SKILL.md
   - Animation: {count ANIMATION_DURATIONS} durations, {count EASING_FUNCTIONS} easing functions
 }
 
-⚡ 快速索引 (Quick Index):
-- Level 0: 基础查询 (~5K) - View structure, extract categories
-- Level 1: 筛选与提取 (~12K) - Filter universal components, format output
-- Level 2: 组合与转换 (~20K) - Search patterns, combine queries, preview
+⚡ Quick Index:
+- Level 0: Basic Queries (~5K) - View structure, extract categories
+- Level 1: Filter & Extract (~12K) - Filter universal components, format output
+- Level 2: Combine & Transform (~20K) - Search patterns, combine queries, preview
 
 💡 Quick Start:
 ```bash
@@ -667,27 +599,24 @@ See SKILL.md for detailed commands and usage examples.
 - Trigger keywords (reusable UI components, design tokens, layout patterns, visual consistency)
 - Action verbs (working with, analyzing, implementing)
 
-### Primary Design References Extraction
+### Design Token Display in SKILL.md
 
-**Required Data Extraction** (from design-tokens.json):
-- Colors: Primary, secondary, accent colors (top 5)
-- Typography: Font families for headings and body text
-- Spacing Scale: Base spacing values (first 5)
-- Border Radius: All radius tokens
-- Shadows: Shadow definitions (top 3 elevation levels)
+**No Pre-Extraction Required**: Design token values (colors, typography, spacing, etc.) are NOT extracted in Phase 2. Instead, they are directly accessed from the read file contents during SKILL.md generation in Phase 3.
 
-**Component Classification Extraction** (from layout-templates.json):
-- Universal Count: Number of components with `component_type: "universal"`
-- Specialized Count: Number of components with `component_type: "specialized"`
-- Universal Component Names: List of universal component names (first 10)
+**Display Strategy**:
+- **Colors**: Iterate `DESIGN_TOKENS_DATA.colors` and display all key-value pairs
+- **Typography**: Iterate `DESIGN_TOKENS_DATA.typography` and display all key-value pairs
+- **Spacing**: Iterate `DESIGN_TOKENS_DATA.spacing` and display all key-value pairs
+- **Border Radius**: Iterate `DESIGN_TOKENS_DATA.border_radius` and display all key-value pairs
+- **Shadows**: Iterate `DESIGN_TOKENS_DATA.shadows` and display all key-value pairs
+- **Animations** (if available): Iterate `ANIMATION_TOKENS_DATA.duration` and `ANIMATION_TOKENS_DATA.easing`
 
-**Optional Data Extraction** (from animation-tokens.json if available):
-- Animation Durations: All duration tokens
-- Easing Functions: All easing functions
+**Component Classification** (minimal extraction for description only):
+- Universal Count: `jq '[.layout_templates[] | select(.component_type == "universal")] | length'`
+- Specialized Count: `jq '[.layout_templates[] | select(.component_type == "specialized")] | length'`
+- Universal Component Names: `jq -r '.layout_templates | to_entries[] | select(.value.component_type == "universal") | .key' | head -5`
 
-**Extraction Format**:
-Use `jq` to extract tokens from JSON files. Display key and value only, no verbose usage guidelines.
-For component classification, filter by `component_type` field.
+**Benefit**: Eliminates 10+ separate jq extraction commands in Phase 2, simplifies data flow.
 
 ### Progressive Loading Structure with Embedded Commands
 
@@ -733,6 +662,7 @@ Regenerate command
 
 ## Benefits
 
+- **Simplified Data Flow**: Read complete JSON files once, iterate during generation (eliminates 10+ jq extraction commands)
 - **Enhanced Design Understanding**: 5 art principles (hierarchy, consistency, contrast, rhythm, accessibility) provide design context
 - **Cleaner Structure**: Organized into Core Rules + Style Understanding (principles + tokens) + Quick Index
 - **No Content Overlap**: Single Core Rules section + focused Design Principles section
@@ -754,17 +684,14 @@ style-skill-memory (Optimized)
   │   ├─ Check package exists in .workflow/reference_style/
   │   └─ Check if SKILL already exists (skip if exists and no --regenerate)
   │
-  ├─ Phase 2: Read Package Data & Extract Primary References
-  │   ├─ Count components from layout-templates.json
-  │   ├─ Extract universal/specialized counts (component_type filtering)
-  │   ├─ Extract universal component names (first 10)
-  │   ├─ Extract primary colors (top 5, key:value only)
-  │   ├─ Extract typography (font families, key:value only)
-  │   ├─ Extract spacing scale (first 5, key:value only)
-  │   ├─ Extract border radius tokens (all, key:value only)
-  │   ├─ Extract shadow definitions (top 3, key:value only)
-  │   ├─ Extract animation tokens (if available, key:value only)
-  │   └─ Count total files in package
+  ├─ Phase 2: Read Package Data
+  │   ├─ Read design-tokens.json (complete content)
+  │   ├─ Read layout-templates.json (complete content)
+  │   ├─ Read animation-tokens.json (if exists, complete content)
+  │   └─ Extract minimal metadata for description:
+  │       ├─ Component count
+  │       ├─ Universal/specialized counts
+  │       └─ Universal component names (first 5)
   │
   └─ Phase 3: Generate Optimized SKILL.md
       ├─ Create SKILL directory
@@ -785,26 +712,29 @@ style-skill-memory (Optimized)
       └─ Display concise completion message
 
 Data Flow:
-  design-tokens.json → jq extraction → PRIMARY_COLORS, TYPOGRAPHY_FONTS,
-                                       SPACING_SCALE, BORDER_RADIUS, SHADOWS
-                                       (values only, no guidelines)
-  animation-tokens.json → jq extraction → ANIMATION_DURATIONS, EASING_FUNCTIONS
-                                         (if available)
-  layout-templates.json → jq extraction → COMPONENT_COUNT, UNIVERSAL_COUNT,
-                                         SPECIALIZED_COUNT, UNIVERSAL_COMPONENTS
-                       → component_type filtering → Universal vs Specialized
+  Read Files:
+    design-tokens.json → DESIGN_TOKENS_DATA (complete)
+    layout-templates.json → LAYOUT_TEMPLATES_DATA (complete)
+    animation-tokens.json → ANIMATION_TOKENS_DATA (if available, complete)
 
-  Extracted data → SKILL.md generation → Package Overview
-                                      → Core Rules (consolidated warnings)
-                                      → Design Principles (static art rules)
-                                      → Design Token Values (extracted data)
-                                      → Quick Index (JSON fields + jq guide + cheatsheet)
-                                      → Concise completion message
+  Minimal Extraction (for description only):
+    layout-templates.json → jq → COMPONENT_COUNT, UNIVERSAL_COUNT,
+                                  SPECIALIZED_COUNT, UNIVERSAL_COMPONENTS (first 5)
+
+  SKILL.md Generation:
+    Read file contents → Direct iteration during Write → Package Overview
+                                                       → Core Rules
+                                                       → Design Principles (static)
+                                                       → Design Token Values (iterate DESIGN_TOKENS_DATA)
+                                                       → Quick Index
+                                                       → Completion message
 
 Optimization Impact:
+  ✅ Simplified Phase 2 (Read files once instead of 10+ jq extractions)
   ✅ Cleaner structure with art principles (~250 → ~280 lines with design rules)
   ✅ Zero content overlap (1 Core Rules + 1 Design Principles section)
   ✅ Enhanced understanding (5 art rules for design context)
+  ✅ Direct iteration (generate SKILL.md from read data, not pre-extracted variables)
   ✅ Embedded commands (no external script dependencies)
   ✅ Package-specific queries (exact paths in jq commands)
   ✅ Self-contained loading (all logic in SKILL.md)
