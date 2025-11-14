@@ -326,42 +326,73 @@ description: {intelligent description from Step 2}
 
 ---
 
-## 🎨 Primary Design References
+## 🎨 样式理解及设计参考 (Style Understanding & Design References)
 
 **IMPORTANT**: Reference values extracted from codebase. Dynamically adjust based on specific design needs.
 
-### Colors
+### 艺术规则与设计原则 (Design Principles)
+
+**视觉层次 (Visual Hierarchy)**
+- Use scale, color, and spacing to establish clear information hierarchy
+- Primary actions and content should be immediately recognizable
+- Guide user attention through deliberate contrast and emphasis
+
+**一致性原则 (Consistency)**
+- Maintain consistent token usage across components (spacing, colors, typography)
+- Repeated patterns create familiarity and reduce cognitive load
+- Systematic application builds trust and predictability
+
+**对比与平衡 (Contrast & Balance)**
+- High contrast for critical actions and accessibility (WCAG AA/AAA)
+- Balance visual weight through size, color intensity, and whitespace
+- Harmonious color relationships using systematic palette
+
+**节奏与韵律 (Rhythm & Flow)**
+- Progressive spacing scale creates natural visual rhythm (e.g., 4px base × 2^n)
+- Typography scale establishes typographic rhythm and readability
+- Animation easing creates natural, fluid motion feeling
+
+**可读性与可访问性 (Readability & Accessibility)**
+- Minimum 4.5:1 contrast for text (WCAG AA)
+- Clear typographic hierarchy with adequate line-height
+- Touch targets ≥44px for mobile, adequate spacing for interaction
+
+---
+
+### Design Token Values
+
+#### Colors
 
 {FOR each color in PRIMARY_COLORS:
   - **{color.key}**: `{color.value}`
 }
 
-### Typography
+#### Typography
 
 {FOR each font in TYPOGRAPHY_FONTS:
   - **{font.key}**: `{font.value}`
 }
 
-### Spacing Scale
+#### Spacing Scale
 
 {FOR each spacing in SPACING_SCALE:
   - **{spacing.key}**: `{spacing.value}`
 }
 
-### Border Radius
+#### Border Radius
 
 {FOR each radius in BORDER_RADIUS:
   - **{radius.key}**: `{radius.value}`
 }
 
-### Shadows
+#### Shadows
 
 {FOR each shadow in SHADOWS:
   - **{shadow.key}**: `{shadow.value}`
 }
 
 {IF HAS_ANIMATIONS:
-### Animation & Timing
+#### Animation & Timing
 
 **Durations**:
 {FOR each duration in ANIMATION_DURATIONS:
@@ -376,120 +407,120 @@ description: {intelligent description from Step 2}
 
 ---
 
-## Progressive Loading
+## 🔍 快速索引 (Quick Index)
 
-### Level 0: Design Tokens (~5K tokens)
+### JSON 中已有字段 (Available JSON Fields)
 
-Essential design token system for consistent styling.
+**High-level structure overview for quick understanding**
 
-**Load Command**:
-```bash
-# Display design tokens
-jq '.' .workflow/reference_style/{package_name}/design-tokens.json
-
-# Extract specific categories
-jq '.colors' .workflow/reference_style/{package_name}/design-tokens.json
-jq '.typography' .workflow/reference_style/{package_name}/design-tokens.json
-jq '.spacing' .workflow/reference_style/{package_name}/design-tokens.json
+#### design-tokens.json
+```
+.colors             # Color palette (brand, semantic, surface, text, border)
+.typography         # Font families, sizes, weights, line heights
+.spacing            # Spacing scale (xs, sm, md, lg, xl, etc.)
+.border_radius      # Border radius tokens (sm, md, lg, etc.)
+.shadows            # Shadow definitions (elevation levels)
+._metadata          # Usage recommendations and guidelines
+  ├─ .usage_recommendations.typography
+  ├─ .usage_recommendations.spacing
+  └─ ...
 ```
 
-**Use when**: Quick token reference, applying consistent styles, color/typography queries
+#### layout-templates.json
+```
+.layout_templates                    # Component layout patterns
+  ├─ .<component_name>
+  │   ├─ .component_type            # "universal" or "specialized"
+  │   ├─ .variants                  # Component variants array
+  │   ├─ .usage_guide               # Usage guidelines
+  │   │   ├─ .common_sizes
+  │   │   ├─ .variant_recommendations
+  │   │   ├─ .usage_context
+  │   │   └─ .accessibility_tips
+  │   └─ ...
+```
+
+#### animation-tokens.json (if available)
+```
+.duration           # Animation duration tokens
+.easing            # Easing function tokens
+```
 
 ---
 
-### Level 1: Universal Layout Templates (~12K tokens)
+### jq 索引示例 (Progressive jq Usage Guide)
 
-Project-independent component layout patterns for reusable UI elements.
+#### 🔰 Level 0: 基础查询 (~5K tokens)
 
-**Load Command**:
 ```bash
-# Load Level 0 + layout templates
-jq '.' .workflow/reference_style/{package_name}/design-tokens.json
-jq '.' .workflow/reference_style/{package_name}/layout-templates.json
+# 查看完整文件 | View entire file
+jq '.' <file>.json
 
-# Filter universal components only
-jq '.layout_templates | to_entries[] | select(.value.component_type == "universal")' \
-  .workflow/reference_style/{package_name}/layout-templates.json
+# 查看顶层字段 | List top-level keys
+jq 'keys' <file>.json
 
-# List universal component names
-jq -r '.layout_templates | to_entries[] | select(.value.component_type == "universal") | .key' \
-  .workflow/reference_style/{package_name}/layout-templates.json
-
-# Get specific universal component
-jq '.layout_templates["button"] | select(.component_type == "universal")' \
-  .workflow/reference_style/{package_name}/layout-templates.json
+# 提取特定字段 | Extract specific field
+jq '.<field_name>' <file>.json
 ```
 
-**Use when**: Building components, understanding component architecture, implementing layouts
+**Use when:** Quick reference, first-time exploration
 
 ---
 
-### Level 2: Complete System (~20K tokens)
+#### 🎯 Level 1: 筛选与提取 (~12K tokens)
 
-Full design system with animations and interactive preview.
-
-**Load Command**:
 ```bash
-# Load Level 1 + animation tokens + preview
-jq '.' .workflow/reference_style/{package_name}/design-tokens.json
-jq '.' .workflow/reference_style/{package_name}/layout-templates.json
-jq '.' .workflow/reference_style/{package_name}/animation-tokens.json  # if available
+# 统计数量 | Count items
+jq '.<field> | length' <file>.json
 
-# View interactive preview
-cd .workflow/reference_style/{package_name}
-python -m http.server 8080
-# Open http://localhost:8080/preview.html
+# 筛选条件 | Filter by condition
+jq '[.<field>[] | select(.<key> == "<value>")]' <file>.json
+
+# 提取名称列表 | Extract names
+jq -r '.<field> | to_entries[] | select(<condition>) | .key' <file>.json
+
+# 格式化输出 | Formatted output
+jq -r '.<field> | to_entries[] | "\(.key): \(.value)"' <file>.json
 ```
 
-**Use when**: Comprehensive analysis, animation development, complete design system understanding
+**Universal components filter:** `select(.component_type == "universal")`
+
+**Use when:** Building components, filtering data
 
 ---
 
-## Quick Reference
+#### 🚀 Level 2: 组合与转换 (~20K tokens)
 
-### Common Query Commands
-
-**Count Components by Type**:
 ```bash
-# Universal components
-jq '[.layout_templates[] | select(.component_type == "universal")] | length' \
-  .workflow/reference_style/{package_name}/layout-templates.json
+# 模糊搜索 | Pattern search
+jq '.<field> | keys[] | select(. | contains("<pattern>"))' <file>.json
 
-# Specialized components
-jq '[.layout_templates[] | select(.component_type == "specialized")] | length' \
-  .workflow/reference_style/{package_name}/layout-templates.json
+# 正则匹配 | Regex match
+jq -r '.<field> | to_entries[] | select(.key | test("<regex>"; "i"))' <file>.json
+
+# 多文件合并 | Multi-file query
+jq '.' file1.json && jq '.' file2.json
+
+# 嵌套提取 | Nested extraction
+jq '.<field>["<name>"].<nested_field>' <file>.json
+
+# 预览服务 | Preview server
+cd .workflow/reference_style/{package_name} && python -m http.server 8080
 ```
 
-**Extract Color Palette**:
-```bash
-# All colors with values
-jq -r '.colors | to_entries[] | "\(.key): \(.value)"' \
-  .workflow/reference_style/{package_name}/design-tokens.json
+**Use when:** Complex queries, comprehensive analysis
 
-# Primary colors only
-jq -r '.colors | to_entries[] | select(.key | contains("Primary")) | "\(.key): \(.value)"' \
-  .workflow/reference_style/{package_name}/design-tokens.json
-```
+---
 
-**Find Specific Component**:
-```bash
-# Search by component name
-jq '.layout_templates | keys[] | select(. | contains("button"))' \
-  .workflow/reference_style/{package_name}/layout-templates.json
+### 常用查询速查表 (Common Query Cheatsheet)
 
-# Get component structure
-jq '.layout_templates["card"]' \
-  .workflow/reference_style/{package_name}/layout-templates.json
-```
-
-**Animation Tokens** (if available):
-```bash
-# List all durations
-jq '.duration' .workflow/reference_style/{package_name}/animation-tokens.json
-
-# List easing functions
-jq '.easing' .workflow/reference_style/{package_name}/animation-tokens.json
-```
+| Task | Pattern |
+|------|---------|
+| View field | `jq '.<field>' <file>.json` |
+| List names | `jq -r '.<field> \| keys[]' <file>.json` |
+| Count items | `jq '.<field> \| length' <file>.json` |
+| Filter universal | `jq '[.<field>[] \| select(.component_type == "universal")]' <file>.json` |
+| Preview | `cd .workflow/reference_style/{package_name} && python -m http.server 8080` |
 
 ---
 
@@ -567,10 +598,10 @@ SKILL Location: .claude/skills/style-{package_name}/SKILL.md
   - Animation: {count ANIMATION_DURATIONS} durations, {count EASING_FUNCTIONS} easing functions
 }
 
-⚡ Progressive Loading:
-- Level 0: Design Tokens (~5K) - Use jq commands for token queries
-- Level 1: + Universal Layouts (~12K) - Filter component_type: "universal"
-- Level 2: + Complete System (~20K) - Includes animations and preview
+⚡ 快速索引 (Quick Index):
+- Level 0: 基础查询 (~5K) - View structure, extract categories
+- Level 1: 筛选与提取 (~12K) - Filter universal components, format output
+- Level 2: 组合与转换 (~20K) - Search patterns, combine queries, preview
 
 💡 Quick Start:
 ```bash
@@ -679,9 +710,13 @@ For component classification, filter by `component_type` field.
 ```
 Package Overview (concise)
 Core Rules (3 rules, consolidated from all previous warnings)
-Primary Design References (values only, no usage guidelines)
-Progressive Loading (with embedded jq commands per level)
-Quick Reference (common query commands)
+Style Understanding & Design References
+  ├─ Design Principles (5 art rules: hierarchy, consistency, contrast, rhythm, accessibility)
+  └─ Design Token Values (colors, typography, spacing, radius, shadows, animations)
+Quick Index
+  ├─ Available JSON Fields (high-level structure)
+  ├─ Progressive jq Usage Guide (Level 0-2)
+  └─ Common Query Cheatsheet
 Package Structure
 Regenerate command
 ```
@@ -698,13 +733,12 @@ Regenerate command
 
 ## Benefits
 
-- **60%+ Content Reduction**: Optimized from ~870 to ~250 lines, eliminating all redundant content
-- **No Content Overlap**: Single Core Rules section replaces 4+ repeated warnings
-- **Embedded Commands**: jq commands in SKILL.md enable dynamic loading without external scripts
-- **Package-Specific**: Each SKILL contains exact commands for its package structure
-- **Fast Context Loading**: Progressive levels (5K/12K/20K tokens) with precise jq queries
+- **Enhanced Design Understanding**: 5 art principles (hierarchy, consistency, contrast, rhythm, accessibility) provide design context
+- **Cleaner Structure**: Organized into Core Rules + Style Understanding (principles + tokens) + Quick Index
+- **No Content Overlap**: Single Core Rules section + focused Design Principles section
+- **Universal jq Patterns**: Generic patterns with placeholders for flexible querying
+- **Fast Context Loading**: Progressive levels (5K/12K/20K tokens) with concise jq guide
 - **Component Filtering**: Clear universal/specialized distinction with filtering commands
-- **Primary Design References**: Key design values displayed without verbose usage guidelines
 - **Self-Contained**: All loading logic embedded, no dependencies on external scripts
 - **Intelligent Triggering**: Keywords optimize SKILL activation
 - **Easy Regeneration**: Simple --regenerate flag for updates
@@ -738,12 +772,13 @@ style-skill-memory (Optimized)
       ├─ Write SKILL.md with optimized structure:
       │   ├─ Package Overview (concise)
       │   ├─ Core Rules (3 rules, single consolidated section)
-      │   ├─ Primary Design References (values only, no usage guidelines)
-      │   ├─ Progressive Loading (3 levels with embedded jq commands)
-      │   │   ├─ Level 0: jq commands for design-tokens.json
-      │   │   ├─ Level 1: jq commands for universal component filtering
-      │   │   └─ Level 2: jq commands for animation tokens + preview
-      │   ├─ Quick Reference (common jq query commands)
+      │   ├─ Style Understanding & Design References
+      │   │   ├─ Design Principles (5 art rules: hierarchy, consistency, contrast, rhythm, accessibility)
+      │   │   └─ Design Token Values (colors, typography, spacing, radius, shadows, animations)
+      │   ├─ Quick Index
+      │   │   ├─ Available JSON Fields (high-level structure)
+      │   │   ├─ Progressive jq Usage Guide (Level 0-2)
+      │   │   └─ Common Query Cheatsheet
       │   ├─ Package Structure
       │   └─ Regenerate command
       ├─ Verify SKILL.md created successfully
@@ -761,14 +796,15 @@ Data Flow:
 
   Extracted data → SKILL.md generation → Package Overview
                                       → Core Rules (consolidated warnings)
-                                      → Primary Design References (concise)
-                                      → Embedded jq commands (per level)
-                                      → Quick Reference commands
+                                      → Design Principles (static art rules)
+                                      → Design Token Values (extracted data)
+                                      → Quick Index (JSON fields + jq guide + cheatsheet)
                                       → Concise completion message
 
 Optimization Impact:
-  ✅ 60%+ content reduction (~870 → ~250 lines)
-  ✅ Zero content overlap (1 Core Rules section vs 4+ repeated warnings)
+  ✅ Cleaner structure with art principles (~250 → ~280 lines with design rules)
+  ✅ Zero content overlap (1 Core Rules + 1 Design Principles section)
+  ✅ Enhanced understanding (5 art rules for design context)
   ✅ Embedded commands (no external script dependencies)
   ✅ Package-specific queries (exact paths in jq commands)
   ✅ Self-contained loading (all logic in SKILL.md)
