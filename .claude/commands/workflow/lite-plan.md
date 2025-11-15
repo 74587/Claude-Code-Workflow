@@ -21,7 +21,7 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
 - **Adaptive Planning**:
   - Simple tasks: Direct planning by current Claude
   - Complex tasks: Delegates to cli-planning-agent for detailed breakdown
-- **Three-Dimensional Confirmation**: Single user interaction for task approval + execution method selection + code review tool selection
+- **Three-Dimensional Confirmation**: Multi-select interaction for task approval + execution method selection + code review tool selection
 - **Direct Execution**: Immediate dispatch to selected execution method (agent or CLI)
 - **Live Progress Tracking**: Real-time TodoWrite updates during execution
 - **Optional Code Review**: Post-execution quality analysis with claude/gemini/qwen/codex (user selectable)
@@ -74,12 +74,11 @@ User Input ("/workflow:lite-plan \"task\"")
     v
 [Phase 4] Task Confirmation & Execution Selection (User interaction)
     -> Display task breakdown and approach
-    -> AskUserQuestion: Three dimensions
-       1. Confirm task (Yes/Modify/Cancel)
-       2. Execution method (Direct/CLI)
-       3. Code review tool (No/Claude/Gemini/Qwen/Codex)
-    -> If confirmed: Proceed to Phase 5
-    -> If modify: Re-run planning with feedback
+    -> AskUserQuestion: Three dimensions (all multi-select)
+       1. Confirm task: Allow/Modify/Cancel (can supplement via Other)
+       2. Execution method: Agent/Provide Plan/CLI (input CLI tool in Other)
+       3. Code review: No/Claude/Gemini/Qwen/Codex
+    -> Process selections and proceed to Phase 5
     -> If cancel: Exit
     |
     v
@@ -392,58 +391,58 @@ planObject = {
 
 ### Phase 4: Task Confirmation & Execution Selection
 
-**User Interaction Flow**: Three-dimensional confirmation (task + execution method + code review)
+**User Interaction Flow**: Three-dimensional multi-select confirmation
 
 **Operations**:
 - Display plan summary with full task breakdown
-- Collect three-dimensional user input: Task confirmation + Execution method selection + Code review tool selection
-- Support modification flow if user requests changes
+- Collect three multi-select inputs:
+  1. Task confirmation (Allow/Modify/Cancel + optional supplements)
+  2. Execution method (Agent/Provide Plan/CLI + CLI tool specification)
+  3. Code review tool (No/Claude/Gemini/Qwen/Codex)
+- Support plan supplements and modifications via "Other" input
 
-**Question 1: Task Confirmation**
+**Question 1: Task Confirmation (Multi-select)**
 
 Display plan to user and ask for confirmation:
 - Show: summary, approach, task breakdown, dependencies, risks, complexity, estimated time
-- Options: "Confirm" / "Modify" / "Cancel"
-- If Modify: Collect feedback via "Other" option, re-run Phase 3 with modifications
-- If Cancel: Exit workflow
-- If Confirm: Proceed to Question 2
+- Options: "Allow" / "Modify" / "Cancel" (multi-select enabled)
+- User can input plan supplements via "Other" option
+- If Cancel selected: Exit workflow
+- Otherwise: Proceed to Question 2
 
-**Question 2: Execution Method Selection** (Only if task confirmed)
+**Question 2: Execution Method Selection (Multi-select)**
 
 Ask user to select execution method:
-- Show recommendation from `planObject.recommended_execution`
-- Options:
-  - "Direct - Execute with Agent" (@code-developer)
-  - "CLI - Gemini" (gemini-2.5-pro)
-  - "CLI - Codex" (gpt-5)
-  - "CLI - Qwen" (coder-model)
+- Options: "Agent Execution" / "Provide Plan" / "CLI Execution" (multi-select enabled)
+- User inputs CLI tool choice (gemini/qwen/codex) via "Other" option if "CLI Execution" selected
 - Store selection for Phase 5 execution
 
 **Simplified AskUserQuestion Reference**:
 ```javascript
-// Question 1: Task Confirmation
+// Question 1: Task Confirmation (Multi-select)
 AskUserQuestion({
   questions: [{
-    question: `[Display plan with all details]\n\nDo you confirm this plan?`,
+    question: `[Display plan with all details]\n\nConfirm this plan?`,
     header: "Confirm Plan",
+    multiSelect: true,
     options: [
-      { label: "Confirm", description: "Proceed to execution" },
+      { label: "Allow", description: "Proceed with plan" },
       { label: "Modify", description: "Adjust plan" },
       { label: "Cancel", description: "Abort" }
     ]
   }]
 })
 
-// Question 2: Execution Method (if confirmed)
+// Question 2: Execution Method (Multi-select)
 AskUserQuestion({
   questions: [{
-    question: `Select execution method:\n[Show recommendation and tool descriptions]`,
+    question: `Select execution method (input CLI tool in Other if choosing CLI):`,
     header: "Execution Method",
+    multiSelect: true,
     options: [
-      { label: "Direct - Agent", description: "Interactive execution" },
-      { label: "CLI - Gemini", description: "gemini-2.5-pro" },
-      { label: "CLI - Codex", description: "gpt-5" },
-      { label: "CLI - Qwen", description: "coder-model" }
+      { label: "Agent Execution", description: "Execute with @code-developer" },
+      { label: "Provide Plan", description: "Return plan only" },
+      { label: "CLI Execution", description: "Execute with CLI tool (specify in Other)" }
     ]
   }]
 })
@@ -466,16 +465,15 @@ AskUserQuestion({
 
 **Decision Flow**:
 ```
-Task Confirmation:
-  ├─ Confirm → Execution Method Selection → Code Review Selection → Phase 5
-  ├─ Modify → Collect feedback → Re-run Phase 3
+Task Confirmation (Multi-select):
+  ├─ Allow (+ optional supplements in Other) → Proceed to Execution Method Selection
+  ├─ Modify (+ optional supplements in Other) → Re-run Phase 3 with modifications
   └─ Cancel → Exit (no execution)
 
-Execution Method Selection:
-  ├─ Direct - Execute with Agent → Launch @code-developer
-  ├─ CLI - Gemini → Build and execute Gemini command
-  ├─ CLI - Codex → Build and execute Codex command
-  └─ CLI - Qwen → Build and execute Qwen command
+Execution Method Selection (Multi-select):
+  ├─ Agent Execution → Launch @code-developer
+  ├─ Provide Plan → Return plan JSON, skip execution
+  └─ CLI Execution (+ tool name in Other: gemini/qwen/codex) → Build and execute CLI command
 
 Code Review Selection (after execution):
   ├─ No → Skip review, workflow complete
@@ -524,6 +522,8 @@ TodoWrite({
 ```
 
 **Step 5.2: Launch Execution**
+
+**IMPORTANT**: CLI execution MUST run in foreground (no background execution)
 
 Based on user selection in Phase 4, execute appropriate method:
 
@@ -763,11 +763,10 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-
 
 **Execution with Progress Tracking**:
 ```javascript
-// Launch CLI in background
+// Launch CLI in foreground (NOT background - avoid )
 bash_result = Bash(
   command=cli_command,
-  timeout=600000,  // 10 minutes
-  run_in_background=true
+  timeout=600000  // 10 minutes
 )
 
 // Monitor output and update TodoWrite
