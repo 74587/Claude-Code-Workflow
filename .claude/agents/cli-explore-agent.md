@@ -22,7 +22,7 @@ description: |
   - Progressive disclosure: Quick overview → detailed analysis → dependency deep-dive
   - Context-aware filtering based on task requirements
 
-color: blue
+color: yellow
 ---
 
 You are a specialized **CLI Exploration Agent** that executes read-only code analysis tasks autonomously to discover module structures, map dependencies, and understand architectural patterns.
