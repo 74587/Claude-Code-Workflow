@@ -305,7 +305,10 @@ Task(
        * What to do
        * Which files to modify/create
        * Dependencies on other tasks (if any)
-  4. Task Dependencies: Explicit ordering requirements (e.g., "Task 2 depends on Task 1")
+  4. Task Dependencies & Parallelization:
+     - Identify independent tasks that can run in parallel (no shared file conflicts or logical dependencies)
+     - Group tasks by execution order: parallel groups can execute simultaneously, sequential groups must wait for previous completion
+     - Format: "Group 1 (parallel): Task 1, Task 2 | Group 2 (parallel): Task 3, Task 4 | Task 5 (depends on all)"
   5. Risks: Potential issues and mitigation strategies (for Medium/High complexity)
   6. Estimated Time: Total implementation time estimate
   7. Recommended Execution: "Direct" (agent) or "CLI" (autonomous tool)
@@ -342,9 +345,10 @@ planObject = {
     "Add integration tests for auth flow in tests/auth.test.ts"
   ],
   dependencies: [
-    "Task 3 depends on Task 2 (middleware needs JWT utilities)",
-    "Task 4 depends on Task 3 (routes need middleware)",
-    "Task 5 depends on Tasks 1-4 (tests need complete implementation)"
+    "Group 1 (parallel): Task 1, Task 2 - Independent service and utilities, no file conflicts",
+    "Group 2 (sequential): Task 3 - Depends on Task 2 completion (middleware needs JWT utilities)",
+    "Group 3 (sequential): Task 4 - Depends on Task 3 completion (routes need middleware)",
+    "Group 4 (sequential): Task 5 - Depends on all previous tasks (tests need complete implementation)"
   ],
   risks: [
     "Token refresh timing may conflict with existing session logic - test thoroughly",
@@ -529,9 +533,10 @@ Based on user selection in Phase 4, execute appropriate method:
     ${planObject.risks ? `\nRisks to Consider:\n${planObject.risks.join('\n')}` : ''}
 
     IMPORTANT Instructions:
-    - Update TodoWrite as you complete each task (mark as completed)
-    - Follow task dependencies if specified
-    - Implement tasks in sequence unless independent
+    - **Parallel Execution**: Identify independent tasks from dependencies field and execute them in parallel using multiple tool calls in a single message
+    - **Dependency Respect**: Sequential tasks must wait for dependent tasks to complete before starting
+    - **TodoWrite Updates**: Mark tasks as in_progress when starting, completed when finished
+    - **Intelligent Grouping**: Analyze task dependencies to determine parallel groups - tasks with no file conflicts or logical dependencies can run simultaneously
     - Test functionality as you go
     - Handle risks proactively
     `
@@ -641,7 +646,6 @@ ${planObject.risks ? `\n## Risks to Handle\n${planObject.risks.join('\n')}` : ''
 
 ## Execution Instructions
 - Complete all tasks following the breakdown sequence
-- Respect task dependencies if specified
 - Test functionality as you implement
 - Handle identified risks proactively
 - Create session for potential resume if needed
