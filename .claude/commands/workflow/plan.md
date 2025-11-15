@@ -236,35 +236,31 @@ SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId] 
 - `.workflow/[sessionId]/.task/IMPL-*.json` exists (at least one)
 - `.workflow/[sessionId]/TODO_LIST.md` exists
 
-<!-- TodoWrite: When task-generate-agent invoked, INSERT 3 task-generate-agent tasks -->
+<!-- TodoWrite: When task-generate-agent invoked, ATTACH 1 agent task -->
 
-**TodoWrite Update (Phase 4 SlashCommand invoked - tasks attached)**:
+**TodoWrite Update (Phase 4 SlashCommand invoked - agent task attached)**:
 ```json
 [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Phase 4.1: Discovery - analyze requirements (task-generate-agent)", "status": "in_progress", "activeForm": "Analyzing requirements"},
-  {"content": "Phase 4.2: Planning - design tasks (task-generate-agent)", "status": "pending", "activeForm": "Designing tasks"},
-  {"content": "Phase 4.3: Output - generate JSONs (task-generate-agent)", "status": "pending", "activeForm": "Generating task JSONs"}
+  {"content": "Execute task-generate-agent", "status": "in_progress", "activeForm": "Executing task-generate-agent"}
 ]
 ```
 
-**Note**: SlashCommand invocation **attaches** task-generate-agent's 3 tasks. Orchestrator **executes** these tasks.
+**Note**: Single agent task attached. Agent autonomously completes discovery, planning, and output generation internally.
 
-**Next Action**: Tasks attached → **Execute Phase 4.1-4.3** sequentially
+<!-- TodoWrite: After agent completes, mark task as completed -->
 
-<!-- TodoWrite: After Phase 4 tasks complete, REMOVE Phase 4.1-4.3, restore to orchestrator view -->
-
-**TodoWrite Update (Phase 4 completed - tasks collapsed)**:
+**TodoWrite Update (Phase 4 completed)**:
 ```json
 [
   {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
   {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute task generation", "status": "completed", "activeForm": "Executing task generation"}
+  {"content": "Execute task-generate-agent", "status": "completed", "activeForm": "Executing task-generate-agent"}
 ]
 ```
 
-**Note**: Phase 4 tasks completed and collapsed to summary.
+**Note**: Agent task completed. No collapse needed (single task).
 
 **Return to User**:
 ```
@@ -288,31 +284,35 @@ Quality Gate: Consider running /workflow:action-plan-verify to catch issues earl
 
 1. **Task Attachment** (when SlashCommand invoked):
    - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
-   - Example: `/workflow:tools:context-gather` attaches 3 sub-tasks (Phase 2.1, 2.2, 2.3)
+   - **Phase 2, 3**: Multiple sub-tasks attached (e.g., Phase 2.1, 2.2, 2.3)
+   - **Phase 4**: Single agent task attached (e.g., "Execute task-generate-agent")
    - First attached task marked as `in_progress`, others as `pending`
    - Orchestrator **executes** these attached tasks sequentially
 
 2. **Task Collapse** (after sub-tasks complete):
-   - Remove detailed sub-tasks from TodoWrite
+   - **Applies to Phase 2, 3**: Remove detailed sub-tasks from TodoWrite
    - **Collapse** to high-level phase summary
    - Example: Phase 2.1-2.3 collapse to "Execute context gathering: completed"
+   - **Phase 4**: No collapse needed (single task, just mark completed)
    - Maintains clean orchestrator-level view
 
 3. **Continuous Execution**:
-   - After collapse, automatically proceed to next pending phase
+   - After completion, automatically proceed to next pending phase
    - No user intervention required between phases
    - TodoWrite dynamically reflects current execution state
 
-**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
+**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary for Phase 2/3, or marked completed for Phase 4) → Next phase begins → Repeat until all phases complete.
 
 ### Benefits
 
 - ✓ Real-time visibility into sub-task execution
-- ✓ Clear mental model: SlashCommand = attach → execute → collapse
+- ✓ Clear mental model: SlashCommand = attach → execute → collapse (Phase 2/3) or complete (Phase 4)
 - ✓ Clean summary after completion
 - ✓ Easy to track workflow progress
 
-**Note**: See individual Phase descriptions (Phase 2, 3, 4) for detailed TodoWrite Update examples with full JSON structures.
+**Note**: See individual Phase descriptions for detailed TodoWrite Update examples:
+- **Phase 2, 3**: Multiple sub-tasks with attach/collapse pattern
+- **Phase 4**: Single agent task (no collapse needed)
 
 ## Input Processing
 
@@ -425,20 +425,21 @@ Conditional Branch: Check conflict_risk
   └─ ELSE: Skip Phase 3, proceed to Phase 4
   ↓
 Phase 4: Task Generation (SlashCommand invoked)
-  → ATTACH 3 tasks: ← ATTACHED
-    - Phase 4.1: Discovery - analyze requirements
-    - Phase 4.2: Planning - design tasks
-    - Phase 4.3: Output - generate JSONs
-  → Execute Phase 4.1-4.3
-  → COLLAPSE tasks ← COLLAPSED
+  → ATTACH 1 agent task: ← ATTACHED
+    - Execute task-generate-agent
+  → Agent autonomously completes internally:
+    (discovery → planning → output)
   → Outputs: IMPL_PLAN.md, IMPL-*.json, TODO_LIST.md
   ↓
 Return summary to user
 ```
 
 **Key Points**:
-- **← ATTACHED**: Sub-tasks attached to TodoWrite when SlashCommand invoked
-- **← COLLAPSED**: Sub-tasks collapsed to summary after completion
+- **← ATTACHED**: Tasks attached to TodoWrite when SlashCommand invoked
+  - Phase 2, 3: Multiple sub-tasks
+  - Phase 4: Single agent task
+- **← COLLAPSED**: Sub-tasks collapsed to summary after completion (Phase 2, 3 only)
+- **Phase 4**: Single agent task, no collapse (just mark completed)
 - **Conditional Branch**: Phase 3 only executes if conflict_risk ≥ medium
 - **Continuous Flow**: No user intervention between phases
 

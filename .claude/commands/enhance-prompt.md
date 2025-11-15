@@ -1,37 +1,22 @@
 ---
 name: enhance-prompt
-description: Enhanced prompt transformation using session memory and codebase analysis with --enhance flag detection
+description: Enhanced prompt transformation using session memory and intent analysis with --enhance flag detection
 argument-hint: "user input to enhance"
 ---
 
 ## Overview
 
-Systematically enhances user prompts by combining session memory context with codebase patterns, translating ambiguous requests into actionable specifications.
+Systematically enhances user prompts by leveraging session memory context and intent analysis, translating ambiguous requests into actionable specifications.
 
 ## Core Protocol
 
 **Enhancement Pipeline:**
-`Intent Translation` → `Context Integration` → `Gemini Analysis (if needed)` → `Structured Output`
+`Intent Translation` → `Context Integration` → `Structured Output`
 
 **Context Sources:**
 - Session memory (conversation history, previous analysis)
-- Codebase patterns (via Gemini when triggered)
 - Implicit technical requirements
-
-## Gemini Trigger Logic
-
-```pseudo
-FUNCTION should_use_gemini(user_prompt):
-  critical_keywords = ["refactor", "migrate", "redesign", "auth", "payment", "security"]
-
-  RETURN (
-    prompt_affects_multiple_modules(user_prompt, threshold=3) OR
-    any_keyword_in_prompt(critical_keywords, user_prompt)
-  )
-END
-```
-
-**Gemini Integration:** ~/.claude/workflows/intelligent-tools-strategy.md
+- User intent patterns
 
 ## Enhancement Rules
 
@@ -47,22 +32,18 @@ END
 
 ### Context Integration Strategy
 
-**Session Memory First:**
+**Session Memory:**
 - Reference recent conversation context
 - Reuse previously identified patterns
 - Build on established understanding
-
-**Codebase Analysis (via Gemini):**
-- Only when complexity requires it
-- Focus on integration points
-- Identify existing patterns
+- Infer technical requirements from discussion
 
 **Example:**
 ```bash
 # User: "add login"
 # Session Memory: Previous auth discussion, JWT mentioned
 # Inferred: JWT-based auth, integrate with existing session management
-# Gemini (if multi-module): Analyze AuthService patterns, middleware structure
+# Action: Implement JWT authentication with session persistence
 ```
 
 ## Output Structure
@@ -76,7 +57,7 @@ ATTENTION: [Critical constraints]
 
 ### Output Examples
 
-**Simple (no Gemini):**
+**Example 1:**
 ```bash
 # Input: "fix login button"
 INTENT: Debug non-functional login button
@@ -85,28 +66,28 @@ ACTION: Check event binding → verify state updates → test auth flow
 ATTENTION: Preserve existing OAuth integration
 ```
 
-**Complex (with Gemini):**
+**Example 2:**
 ```bash
 # Input: "refactor payment code"
 INTENT: Restructure payment module for maintainability
-CONTEXT: Session memory - PCI compliance requirements
-         Gemini - PaymentService → StripeAdapter pattern identified
-ACTION: Extract reusable validators → isolate payment gateway logic
+CONTEXT: Session memory - PCI compliance requirements, Stripe integration patterns
+ACTION: Extract reusable validators → isolate payment gateway logic → maintain adapter pattern
 ATTENTION: Zero behavior change, maintain PCI compliance, full test coverage
 ```
 
-## Automatic Triggers
+## Enhancement Triggers
 
 - Ambiguous language: "fix", "improve", "clean up"
-- Multi-module impact (>3 modules)
+- Vague requests requiring clarification
+- Complex technical requirements
 - Architecture changes
 - Critical systems: auth, payment, security
-- Complex refactoring
+- Multi-step refactoring
 
 ## Key Principles
 
-1. **Memory First**: Leverage session context before analysis
-2. **Minimal Gemini**: Only when complexity demands it
-3. **Context Reuse**: Build on previous understanding
-4. **Clear Output**: Structured, actionable specifications
+1. **Session Memory First**: Leverage conversation context and established understanding
+2. **Context Reuse**: Build on previous discussions and decisions
+3. **Clear Output**: Structured, actionable specifications
+4. **Intent Clarification**: Transform vague requests into specific technical goals
 5. **Avoid Duplication**: Reference existing context, don't repeat
