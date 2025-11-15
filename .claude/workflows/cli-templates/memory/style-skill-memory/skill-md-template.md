@@ -48,7 +48,22 @@ description: {intelligent_description}
 
 ---
 
+
 ### Progressive jq Usage Guide
+
+#### 📦 Package Overview
+
+**Base Location**: `.workflow/reference_style/{package_name}/`
+
+**JSON Files**:
+- **Design Tokens**: `.workflow/reference_style/{package_name}/design-tokens.json`
+- **Layout Templates**: `.workflow/reference_style/{package_name}/layout-templates.json`
+- **Animation Tokens**: `.workflow/reference_style/{package_name}/animation-tokens.json` {has_animations ? "(available)" : "(not available)"}
+
+**⚠️ Usage Note**: All jq commands below should be executed with directory context. Use the pattern:
+```bash
+cd .workflow/reference_style/{package_name} && jq '<query>' <file>.json
+```
 
 #### 🔰 Level 0: Basic Queries (~5K tokens)
 
@@ -104,7 +119,7 @@ jq '.' file1.json && jq '.' file2.json
 # Nested extraction
 jq '.<field>["<name>"].<nested_field>' <file>.json
 
-# Preview server
+# Preview server (requires directory context)
 cd .workflow/reference_style/{package_name} && python -m http.server 8080
 ```
 
@@ -294,64 +309,3 @@ Sometimes you need unique values for special contexts:
 }
 
 ---
-
-### Design Token Values
-
-#### Colors
-
-{ITERATE DESIGN_TOKENS_DATA.colors:
-  - **{color.key}**: `{color.value}`
-}
-
-#### Typography
-
-{ITERATE DESIGN_TOKENS_DATA.typography:
-  - **{font.key}**: `{font.value}`
-}
-
-#### Spacing Scale
-
-{ITERATE DESIGN_TOKENS_DATA.spacing:
-  - **{spacing.key}**: `{spacing.value}`
-}
-
-#### Border Radius
-
-{ITERATE DESIGN_TOKENS_DATA.border_radius:
-  - **{radius.key}**: `{radius.value}`
-}
-
-#### Shadows
-
-{ITERATE DESIGN_TOKENS_DATA.shadows:
-  - **{shadow.key}**: `{shadow.value}` {shadow.key == "DEFAULT" ? "# Default shadow, matches specific variant for framework compatibility" : ""}
-}
-
-{IF HAS_ANIMATIONS:
-#### Animation & Timing
-
-**Durations**:
-{ITERATE ANIMATION_TOKENS_DATA.duration:
-  - {duration.key}: `{duration.value}`
-}
-
-**Easing Functions**:
-{ITERATE ANIMATION_TOKENS_DATA.easing:
-  - {easing.key}: `{easing.value}`
-}
-}
-
----
-
-## 📦 Package Overview
-
-**Base Location**: `.workflow/reference_style/{package_name}/`
-
-**JSON Files**:
-- **Design Tokens**: `.workflow/reference_style/{package_name}/design-tokens.json`
-- **Layout Templates**: `.workflow/reference_style/{package_name}/layout-templates.json`
-- **Animation Tokens**: `.workflow/reference_style/{package_name}/animation-tokens.json` {has_animations ? "(available)" : "(not available)"}
-
-
-
-
