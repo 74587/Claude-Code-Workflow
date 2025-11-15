@@ -7,7 +7,7 @@ argument-hint: "[--resume-session=\"session-id\"]"
 # Workflow Execute Command
 
 ## Overview
-Orchestrates autonomous workflow execution through systematic task discovery, agent coordination, and progress tracking. **Executes entire workflow without user interruption**, providing complete context to agents and ensuring proper flow control execution with comprehensive TodoWrite tracking.
+Orchestrates autonomous workflow execution through systematic task discovery, agent coordination, and progress tracking. **Executes entire workflow without user interruption** (except initial session selection if multiple active sessions exist), providing complete context to agents and ensuring proper flow control execution with comprehensive TodoWrite tracking.
 
 **Resume Mode**: When called with `--resume-session` flag, skips discovery phase and directly enters TodoWrite generation and agent execution for the specified session.
 
@@ -75,7 +75,7 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 
 **Key Optimization**: Use IMPL_PLAN.md (existence check only) and TODO_LIST.md as primary sources instead of reading all task JSONs
 
-**Resume Mode**: This phase is skipped as session analysis was already completed by `/workflow:status`.
+**Resume Mode**: This phase is skipped when `--resume-session` flag is provided (session already known).
 
 ### Phase 3: TodoWrite Generation
 **Applies to**: Both normal and resume modes (resume mode entry point)
@@ -538,7 +538,7 @@ meta.agent missing → Infer from meta.type:
 | **Discovery Errors** |
 | No active session | No `.active-*` markers found | Create or resume session: `/workflow:plan "project"` | N/A |
 | Multiple sessions | Multiple `.active-*` markers | Prompt user selection | N/A |
-| Corrupted session | Invalid JSON files | Recreate session structure: `/workflow:session:status --validate` | N/A |
+| Corrupted session | Invalid JSON files | Recreate session structure or validate files | N/A |
 | **Execution Errors** |
 | Agent failure | Agent crash/timeout | Retry with simplified context | 2 |
 | Flow control error | Command failure | Skip optional, fail critical | 1 per step |
