@@ -1,7 +1,7 @@
 ---
 name: lite-plan
 description: Lightweight interactive planning and execution workflow with in-memory planning, code exploration, and immediate execution after user confirmation
-argument-hint: "[--tool claude|gemini|qwen|codex] [--quick] \"task description\"|file.md"
+argument-hint: "[--tool claude|gemini|qwen|codex] [-e|--explore] \"task description\"|file.md"
 allowed-tools: TodoWrite(*), Task(*), Bash(*), AskUserQuestion(*)
 timeout: 180000
 color: cyan
@@ -34,7 +34,7 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
 
 # Flags
 --tool <tool-name>         Preset CLI tool (claude|gemini|qwen|codex); if not provided, user selects during confirmation
---quick                    Skip code exploration phase (fast mode, completes within 60 seconds)
+-e, --explore              Force code exploration phase (overrides auto-detection logic)
 
 # Arguments
 <task-description>         Task description or path to .md file (required)
@@ -51,7 +51,7 @@ User Input ("/workflow:lite-plan \"task\"")
     v
 [Phase 1] Task Analysis & Exploration Decision (10-20 seconds)
     -> Analyze task description
-    -> Decision: Need exploration? (Yes/No/--quick override)
+    -> Decision: Need exploration? (Yes/No)
     -> If Yes: Launch cli-explore-agent
     -> Output: exploration findings (if performed)
     |
@@ -107,17 +107,21 @@ Execution Complete
 - Decision logic:
   ```javascript
   needsExploration = (
-    task.mentions_specific_files ||
-    task.requires_codebase_context ||
-    task.needs_architecture_understanding ||
-    task.modifies_existing_code
-  ) && !flags.includes('--quick')
+    flags.includes('--explore') || flags.includes('-e') ||  // Force exploration if flag present
+    (
+      task.mentions_specific_files ||
+      task.requires_codebase_context ||
+      task.needs_architecture_understanding ||
+      task.modifies_existing_code
+    )
+  )
   ```
 
 **Decision Criteria**:
 
 | Task Type | Needs Exploration | Reason |
 |-----------|-------------------|--------|
+| Any task with `-e` or `--explore` flag | **Yes (forced)** | **Flag overrides auto-detection logic** |
 | "Implement new feature X" | Maybe | Depends on integration with existing code |
 | "Refactor module Y" | Yes | Needs understanding of current implementation |
 | "Add tests for Z" | Yes | Needs to understand code structure |
@@ -800,6 +804,11 @@ TodoWrite({
    - Adaptive planning: Simple tasks get direct planning, complex tasks use specialized agent
    - Context-aware clarification: Only asks questions when truly needed
    - Reduces unnecessary steps while maintaining thoroughness
+   - **Flag-Based Control**:
+     - Use `-e` or `--explore` to force exploration when:
+       - Task appears simple but you know it requires codebase context
+       - Auto-detection might miss subtle integration points
+       - You want comprehensive code understanding before planning
 
 2. **Progressive Clarification**: Gather information at the right time
    - Phase 1: Explore codebase to understand current state
@@ -893,7 +902,7 @@ TodoWrite({
     - "Add unit tests for authentication service"
 - Flags (optional):
   - `--tool <name>`: Preset execution tool (claude|gemini|codex|qwen)
-  - `--quick`: Skip code exploration phase
+  - `-e` or `--explore`: Force code exploration phase (overrides auto-detection)
 
 ### Output Format
 
