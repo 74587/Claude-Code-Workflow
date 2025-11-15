@@ -13,15 +13,6 @@ color: cyan
 
 Intelligent lightweight planning and execution command with dynamic workflow adaptation based on task complexity.
 
-**Key Characteristics**:
-- Dynamic Workflow: Automatically decides whether to use exploration, clarification, and detailed planning
-- Smart Exploration: Calls cli-explore-agent only when task requires codebase context
-- Interactive Clarification: Asks user for more information after exploration if needed
-- Adaptive Planning: Simple tasks get direct planning, complex tasks use cli-planning-agent
-- Two-Dimensional Confirmation: User confirms task + selects execution method in one step
-- Direct Execution: Immediately starts execution (agent or CLI) after confirmation
-- Live Progress Tracking: Uses TodoWrite to track execution progress in real-time
-
 ## Core Functionality
 
 - **Intelligent Task Analysis**: Automatically determines if exploration/planning agents are needed
@@ -34,20 +25,6 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
 - **Direct Execution**: Immediate dispatch to selected execution method (agent or CLI)
 - **Live Progress Tracking**: Real-time TodoWrite updates during execution
 
-## Comparison with Other Commands
-
-| Feature | lite-plan | /cli:mode:plan | /workflow:plan |
-|---------|-----------|----------------|----------------|
-| Workflow Adaptation | Dynamic (intelligent) | Fixed | Fixed |
-| Code Exploration | Smart (when needed) | No | Always (context-search) |
-| Clarification | Yes (interactive) | No | No |
-| Planning Strategy | Adaptive (simple/complex) | Fixed template | Agent-based |
-| User Interaction | Two-dimensional | No | Minimal |
-| Direct Execution | Yes (immediate) | Yes (immediate) | No (requires /workflow:execute) |
-| Progress Tracking | Yes (TodoWrite live) | No | Yes (session-based) |
-| Execution Time | Fast (1-3 min) | Fast (2-5 min) | Slow (5-10 min) |
-| Tool Selection | User choice | --tool flag | Fixed (agent only) |
-| File Artifacts | No | No | Yes (IMPL_PLAN.md + JSON) |
 
 ## Usage
 
@@ -63,24 +40,6 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
 <task-description>         Task description or path to .md file (required)
 ```
 
-### Usage Examples
-```bash
-# Standard planning with full interaction
-/workflow:lite-plan "Implement user authentication with JWT tokens"
-# -> Shows plan, user confirms, selects tool, immediate execution
-
-# Quick mode with preset tool
-/workflow:lite-plan --quick --tool gemini "Refactor logging module for better performance"
-# -> Skips exploration, user confirms plan, executes with Gemini
-
-# Codex direct execution preset
-/workflow:lite-plan --tool codex "Add unit tests for authentication service"
-# -> User only confirms plan, executes with Codex immediately
-
-# Agent mode with Claude
-/workflow:lite-plan "Design new API endpoints for payment processing"
-# -> User selects Claude agent, immediate execution
-```
 
 ## Execution Process
 
