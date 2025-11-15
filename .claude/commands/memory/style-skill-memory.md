@@ -271,7 +271,7 @@ bash(mkdir -p .claude/skills/style-${package_name})
 
 **⚠️ CRITICAL - Execute First**:
 ```bash
-bash(cat .claude/workflows/cli-templates/memory/style-skill-memory/skill-md-template.md)
+bash(cat ~/.claude/workflows/cli-templates/memory/style-skill-memory/skill-md-template.md)
 ```
 
 **Template Processing**:
