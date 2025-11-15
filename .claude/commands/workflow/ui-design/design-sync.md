@@ -1,11 +1,11 @@
 ---
-name: update
-description: Update brainstorming artifacts with finalized design system references from selected prototypes
+name: design-sync
+description: Synchronize finalized design system references to brainstorming artifacts, preparing them for /workflow:plan consumption
 argument-hint: --session <session_id> [--selected-prototypes "<list>"]
 allowed-tools: Read(*), Write(*), Edit(*), TodoWrite(*), Glob(*), Bash(*)
 ---
 
-# Design Update Command
+# Design Sync Command
 
 ## Overview
 
@@ -349,15 +349,3 @@ After update, verify:
 - **Next Phase**: `/workflow:plan` discovers and utilizes design system through @ references
 - **Auto Integration**: Automatically triggered by `/workflow:ui-design:auto` workflow
 
-## Why Main Claude Execution?
-
-This command is executed directly by main Claude (not delegated to an Agent) because:
-
-1. **Simple Reference Generation**: Only generating file paths, not complex synthesis
-2. **Context Preservation**: Main Claude has full session and conversation context
-3. **Minimal Transformation**: Primarily updating references, not analyzing content
-4. **Path Resolution**: Requires precise relative path calculation
-5. **Edit Operations**: Better error recovery for Edit conflicts
-6. **Synthesis Pattern**: Follows same direct-execution pattern as other reference updates
-
-This ensures reliable, lightweight integration without Agent handoff overhead.

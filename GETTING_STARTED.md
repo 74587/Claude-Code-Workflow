@@ -100,8 +100,8 @@ For UI-focused projects, start with design exploration before implementation: **
 # Step 1: Generate UI design variations (auto-creates session)
 /workflow:ui-design:explore-auto --prompt "A modern, clean admin dashboard login page"
 
-# Step 2: Review designs in compare.html, then update brainstorming artifacts
-/workflow:ui-design:update --session <session-id> --selected-prototypes "login-v1,login-v2"
+# Step 2: Review designs in compare.html, then sync design system to brainstorming artifacts
+/workflow:ui-design:design-sync --session <session-id> --selected-prototypes "login-v1,login-v2"
 
 # Step 3: Generate implementation plan with design references
 /workflow:plan

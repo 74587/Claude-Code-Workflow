@@ -92,7 +92,7 @@ These commands orchestrate complex, multi-phase development processes, from plan
 | `/workflow:ui-design:style-extract` | Extract design style from reference images or text prompts using Claude's analysis. |
 | `/workflow:ui-design:layout-extract` | Extract structural layout information from reference images, URLs, or text prompts. |
 | `/workflow:ui-design:generate` | Assemble UI prototypes by combining layout templates with design tokens (pure assembler). |
-| `/workflow:ui-design:update` | Update brainstorming artifacts with finalized design system references. |
+| `/workflow:ui-design:design-sync` | Synchronize finalized design system references to brainstorming artifacts. |
 | `/workflow:ui-design:animation-extract` | Extract animation and transition patterns from URLs, CSS, or interactive questioning. |
 
 ### Internal Tools

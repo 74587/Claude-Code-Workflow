@@ -420,13 +420,13 @@ Specialized workflow for UI/UX design, from style extraction to prototype genera
   /workflow:ui-design:generate --session WFS-design-run
   ```
 
-### **/workflow:ui-design:update**
-- **Syntax**: `/workflow:ui-design:update --session <session_id> ...`
-- **Responsibilities**: Synchronizes the finalized design system references into the core brainstorming artifacts (`synthesis-specification.md`) to make them available for the planning phase.
+### **/workflow:ui-design:design-sync**
+- **Syntax**: `/workflow:ui-design:design-sync --session <session_id> [--selected-prototypes "<list>"]`
+- **Responsibilities**: Synchronizes the finalized design system references into the core brainstorming artifacts (`role analysis documents`) to make them available for the planning phase.
 - **Agent Calls**: None.
 - **Example**:
   ```bash
-  /workflow:ui-design:update --session WFS-my-app
+  /workflow:ui-design:design-sync --session WFS-my-app
   ```
 
 ### **/workflow:ui-design:animation-extract**

@@ -100,8 +100,8 @@
 # 第 1 步：生成 UI 设计变体（自动创建会话）
 /workflow:ui-design:explore-auto --prompt "一个现代、简洁的管理后台登录页面"
 
-# 第 2 步：在 compare.html 中审查设计，然后更新头脑风暴工件
-/workflow:ui-design:update --session <session-id> --selected-prototypes "login-v1,login-v2"
+# 第 2 步：在 compare.html 中审查设计，然后同步设计系统到头脑风暴工件
+/workflow:ui-design:design-sync --session <session-id> --selected-prototypes "login-v1,login-v2"
 
 # 第 3 步：使用设计引用生成实现计划
 /workflow:plan
