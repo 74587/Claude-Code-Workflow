@@ -370,14 +370,6 @@ Variables: `{package_name}`, `{component_count}`, `{universal_count}`, `{special
 
 ### Template Files Location
 
-```
-.claude/workflows/cli-templates/memory/style-skill-memory/
-├── skill-md-template.md        # SKILL.md structure template
-├── completion-message.txt      # Completion message template
-└── todowrite-initial.json      # Initial TodoWrite state
-```
-
-### Data Flow
 
 ```
 Phase 1: Validate
@@ -402,7 +394,3 @@ Phase 3: Generate
   ├─ Load completion message template (cat command)
   └─ Display completion message
 ```
-
----
-
-
