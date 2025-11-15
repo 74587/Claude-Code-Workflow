@@ -139,15 +139,13 @@ cd .workflow/reference_style/{package_name} && python -m http.server 8080
 
 ---
 
-
-
 ## 📖 How to Use This SKILL
 
 ### Quick Access Pattern
 
 **This SKILL provides design references, NOT executable code.** To use the design system:
 
-1. **Query JSON files with jq commands** (see [Quick Index](#-quick-index) for detailed commands)
+1. **Query JSON files with jq commands** 
 2. **Extract relevant tokens** for your implementation
 3. **Adapt values** based on your specific design needs
 
@@ -158,14 +156,7 @@ cd .workflow/reference_style/{package_name} && python -m http.server 8080
 - **Level 1** (~12K tokens): Component filtering with `select(.component_type == "universal")`
 - **Level 2** (~20K tokens): Complex queries, animations, and preview
 
-**See [Quick Index](#-quick-index) section above for comprehensive jq command guide.**
-
-### Complete Implementation Example
-
-**Scenario**: Building a primary button component for a React application
-
 ---
-
 ## ⚡ Core Rules
 
 1. **Reference, Not Requirements**: This is a design reference system for inspiration and guidance. **DO NOT rigidly copy values.** Analyze the patterns and principles, then adapt creatively to build the optimal design for your specific requirements. Your project's unique needs, brand identity, and user context should drive the final design decisions.
@@ -206,7 +197,6 @@ cd .workflow/reference_style/{package_name} && python -m http.server 8080
 - ✅ Special context requires unique treatment (hero sections, landing pages, data visualization)
 - ✅ Target device/platform has different constraints (mobile vs desktop)
 
-**Critical Rule**: **Extend by pattern, not by random values.**
 
 
 ### Integration Guidelines
@@ -238,8 +228,6 @@ Sometimes you need unique values for special contexts:
 **For these cases**: Create standalone tokens with clear naming (`hero-title-size`, `chart-accent-color`) rather than forcing into standard scale.
 
 ---
-
-
 
 ## 🎨 Style Understanding & Design References
 
