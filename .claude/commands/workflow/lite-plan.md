@@ -21,9 +21,10 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
 - **Adaptive Planning**:
   - Simple tasks: Direct planning by current Claude
   - Complex tasks: Delegates to cli-planning-agent for detailed breakdown
-- **Two-Dimensional Confirmation**: Single user interaction for task approval + execution method selection
+- **Three-Dimensional Confirmation**: Single user interaction for task approval + execution method selection + code review tool selection
 - **Direct Execution**: Immediate dispatch to selected execution method (agent or CLI)
 - **Live Progress Tracking**: Real-time TodoWrite updates during execution
+- **Optional Code Review**: Post-execution quality analysis with claude/gemini/qwen/codex (user selectable)
 
 
 ## Usage
@@ -73,9 +74,10 @@ User Input ("/workflow:lite-plan \"task\"")
     v
 [Phase 4] Task Confirmation & Execution Selection (User interaction)
     -> Display task breakdown and approach
-    -> AskUserQuestion: Two dimensions
+    -> AskUserQuestion: Three dimensions
        1. Confirm task (Yes/Modify/Cancel)
        2. Execution method (Direct/CLI)
+       3. Code review tool (No/Claude/Gemini/Qwen/Codex)
     -> If confirmed: Proceed to Phase 5
     -> If modify: Re-run planning with feedback
     -> If cancel: Exit
@@ -86,6 +88,7 @@ User Input ("/workflow:lite-plan \"task\"")
     -> Launch selected execution (agent or CLI)
     -> Track progress with TodoWrite updates
     -> Real-time status displayed to user
+    -> If code review enabled: Run selected CLI analysis
     |
     v
 Execution Complete
@@ -389,11 +392,11 @@ planObject = {
 
 ### Phase 4: Task Confirmation & Execution Selection
 
-**User Interaction Flow**: Two-dimensional confirmation (task + execution method)
+**User Interaction Flow**: Three-dimensional confirmation (task + execution method + code review)
 
 **Operations**:
 - Display plan summary with full task breakdown
-- Collect two-dimensional user input: Task confirmation + Execution method selection
+- Collect three-dimensional user input: Task confirmation + Execution method selection + Code review tool selection
 - Support modification flow if user requests changes
 
 **Question 1: Task Confirmation**
@@ -444,12 +447,27 @@ AskUserQuestion({
     ]
   }]
 })
+
+// Question 3: Code Review Tool Selection
+AskUserQuestion({
+  questions: [{
+    question: `Enable code review after execution?`,
+    header: "Code Review",
+    options: [
+      { label: "No", description: "Skip code review" },
+      { label: "Claude (default)", description: "Current Claude agent review" },
+      { label: "Gemini", description: "gemini-2.5-pro analysis" },
+      { label: "Qwen", description: "coder-model analysis" },
+      { label: "Codex", description: "gpt-5 analysis" }
+    ]
+  }]
+})
 ```
 
 **Decision Flow**:
 ```
 Task Confirmation:
-  ├─ Confirm → Execution Method Selection → Phase 5
+  ├─ Confirm → Execution Method Selection → Code Review Selection → Phase 5
   ├─ Modify → Collect feedback → Re-run Phase 3
   └─ Cancel → Exit (no execution)
 
@@ -458,6 +476,13 @@ Execution Method Selection:
   ├─ CLI - Gemini → Build and execute Gemini command
   ├─ CLI - Codex → Build and execute Codex command
   └─ CLI - Qwen → Build and execute Qwen command
+
+Code Review Selection (after execution):
+  ├─ No → Skip review, workflow complete
+  ├─ Claude (default) → Current Claude agent review
+  ├─ Gemini → Run gemini code analysis
+  ├─ Qwen → Run qwen code analysis
+  └─ Codex → Run codex code analysis
 ```
 
 **Progress Tracking**:
@@ -792,10 +817,37 @@ TodoWrite({
 - Mark Phase 5 as completed when all tasks done
 - Final status summary displayed to user
 
+**Step 5.4: Code Review (Optional)**
+
+**Skip Condition**: Only run if user selected review tool in Phase 4 (not "No")
+
+**Operations**:
+- If Claude: Current agent performs direct code review analysis
+- If CLI tool (gemini/qwen/codex): Execute CLI with code review analysis prompt
+- Review all modified files from execution
+- Generate quality assessment and improvement recommendations
+
+**Command Format**:
+```bash
+# Claude (default): Direct agent review (no CLI command needed)
+# Uses analysis prompt and TodoWrite tools directly
+
+# CLI Tools (gemini/qwen/codex): Execute analysis command
+{selected_tool} -p "
+PURPOSE: Code review for implemented changes
+TASK: • Analyze code quality • Identify potential issues • Suggest improvements
+MODE: analysis
+CONTEXT: @**/* | Memory: Review changes from lite-plan execution
+EXPECTED: Quality assessment with actionable recommendations
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes | analysis=READ-ONLY
+" -m {model}
+```
+
 **Expected Duration**: Varies by task complexity and execution method
 - Low complexity: 5-15 minutes
 - Medium complexity: 15-45 minutes
 - High complexity: 45-120 minutes
+- Code review (if enabled): +2-5 minutes
 
 ---
 
