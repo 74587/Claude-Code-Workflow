@@ -265,36 +265,25 @@ else complexity = "High"
 **Planning Execution**:
 
 **Option A: Direct Planning (Low Complexity)**
-```javascript
-// Current Claude generates plan directly
-planObject = {
-  summary: "Brief overview of what needs to be done",
-  approach: "Step-by-step implementation strategy",
-  tasks: [
-    "Task 1: Specific action with file references",
-    "Task 2: Specific action with file references",
-    // ... 3-5 tasks
-  ],
-  complexity: "Low",
-  estimated_time: "15-30 minutes"
-}
-```
+
+Current Claude generates plan directly following these guidelines:
+- **Summary**: 2-3 sentence overview of the implementation
+- **Approach**: High-level implementation strategy
+- **Task Breakdown**: 3-5 specific, actionable tasks with file paths
+- **Estimated Time**: Total implementation time estimate
+- **Recommended Execution**: "Agent" (for Low complexity tasks)
 
 **Option B: Agent-Based Planning (Medium/High Complexity)**
+
+Delegate to cli-planning-agent with detailed requirements:
 ```javascript
-// Delegate to cli-planning-agent
 Task(
   subagent_type="cli-planning-agent",
   description="Generate detailed implementation plan",
   prompt=`
   Task: ${task_description}
-
-  Exploration Context:
-  ${JSON.stringify(explorationContext, null, 2)}
-
-  User Clarifications:
-  ${JSON.stringify(clarificationContext, null, 2) || "None provided"}
-
+  Exploration Context: ${JSON.stringify(explorationContext, null, 2)}
+  User Clarifications: ${JSON.stringify(clarificationContext, null, 2) || "None provided"}
   Complexity Level: ${complexity}
 
   Generate a detailed implementation plan with the following components:
@@ -302,10 +291,7 @@ Task(
   1. Summary: 2-3 sentence overview of the implementation
   2. Approach: High-level implementation strategy
   3. Task Breakdown: 5-10 specific, actionable tasks
-     - Each task should specify:
-       * What to do
-       * Which files to modify/create
-       * Dependencies on other tasks (if any)
+     - Each task should specify: What to do, Which files to modify/create, Dependencies on other tasks (if any)
   4. Task Dependencies & Parallelization:
      - Identify independent tasks that can run in parallel (no shared file conflicts or logical dependencies)
      - Group tasks by execution order: parallel groups can execute simultaneously, sequential groups must wait for previous completion
@@ -314,67 +300,22 @@ Task(
   6. Estimated Time: Total implementation time estimate
   7. Recommended Execution: "Agent" or "Codex" based on task complexity
 
-  Output Format: Return a structured object with these fields:
-  {
-    summary: string,
-    approach: string,
-    tasks: string[],
-    dependencies: string[] (optional),
-    risks: string[] (optional),
-    estimated_time: string,
-    recommended_execution: "Agent" | "Codex"
-  }
-
   Ensure tasks are specific, with file paths and clear acceptance criteria.
   `
 )
-
-// Agent returns detailed plan
-planObject = agent_output.parse()
 ```
 
-**Expected Return Structure**:
+**Expected Return Structure (Both Options)**:
 ```javascript
 planObject = {
-  summary: "Implement JWT-based authentication system with middleware integration",
-  approach: "Create auth service layer, implement JWT utilities, add middleware, update routes",
-  tasks: [
-    "Create authentication service in src/auth/service.ts with login/logout/verify methods",
-    "Implement JWT token utilities in src/auth/jwt.ts (generate, verify, refresh)",
-    "Add authentication middleware to src/middleware/auth.ts",
-    "Update API routes in src/routes/*.ts to use auth middleware",
-    "Add integration tests for auth flow in tests/auth.test.ts"
-  ],
-  dependencies: [
-    "Group 1 (parallel): Task 1, Task 2 - Independent service and utilities, no file conflicts",
-    "Group 2 (sequential): Task 3 - Depends on Task 2 completion (middleware needs JWT utilities)",
-    "Group 3 (sequential): Task 4 - Depends on Task 3 completion (routes need middleware)",
-    "Group 4 (sequential): Task 5 - Depends on all previous tasks (tests need complete implementation)"
-  ],
-  risks: [
-    "Token refresh timing may conflict with existing session logic - test thoroughly",
-    "Breaking change if existing auth is in use - plan migration strategy"
-  ],
-  estimated_time: "30-45 minutes",
-  recommended_execution: "Codex"  // Based on Medium/High complexity
-}
-```
-
-**Output Structure**:
-```javascript
-planObject = {
-  summary: "2-3 sentence overview",
-  approach: "Implementation strategy",
-  tasks: [
-    "Task 1: ...",
-    "Task 2: ...",
-    // ... 3-10 tasks based on complexity
-  ],
-  complexity: "Low|Medium|High",
-  dependencies: ["task1 -> task2", ...],  // if Medium/High
-  risks: ["risk1", "risk2", ...],         // if High
-  estimated_time: "X minutes",
-  recommended_execution: "Agent|Codex"  // Based on complexity: Low→Agent, Medium/High→Codex
+  summary: string,              // 2-3 sentence overview
+  approach: string,             // High-level implementation strategy
+  tasks: string[],              // 3-5 tasks (Low) or 5-10 tasks (Medium/High) with file paths
+  dependencies: string[],       // Task execution order: parallel groups and sequential dependencies (Medium/High only)
+  risks: string[],              // Potential issues and mitigation strategies (Medium/High only)
+  estimated_time: string,       // Total implementation time estimate
+  recommended_execution: string, // "Agent" (Low) or "Codex" (Medium/High)
+  complexity: string            // "Low" | "Medium" | "High"
 }
 ```
 
@@ -403,69 +344,65 @@ planObject = {
   3. Code review tool (No/Claude/Gemini/Qwen/Codex)
 - Support plan supplements and modifications via "Other" input
 
-**Question 1: Task Confirmation (Multi-select)**
+**Combined Three Questions in Single Call**:
+- Question 1: Display full plan + task confirmation (multi-select: Allow/Modify/Cancel)
+- Question 2: Execution method selection (single-select: Agent/Codex/Auto)
+- Question 3: Code review tool selection (single-select: Gemini/Qwen/Agent/Skip)
 
-Display plan to user and ask for confirmation:
-- Show: summary, approach, task breakdown, dependencies, risks, complexity, estimated time
-- Options: "Allow" / "Modify" / "Cancel" (multi-select enabled)
-- User can input plan supplements via "Other" option
-- If Cancel selected: Exit workflow
-- Otherwise: Proceed to Question 2
-
-**Question 2: Execution Method Selection (Single-select)**
-
-Ask user to select execution method:
-- Options: "Agent" / "Codex" / "Auto" (single-select)
-  - Agent: Direct execution with @code-developer agent
-  - Codex: Execution with codex CLI tool
-  - Auto: Automatic selection based on task complexity
-    - Low complexity → Agent execution
-    - Medium/High complexity → Codex execution
-- Store selection for Phase 5 execution
-
-**Simplified AskUserQuestion Reference**:
+**Combined AskUserQuestion (Single Call)**:
 ```javascript
-// Question 1: Task Confirmation (Multi-select)
 AskUserQuestion({
-  questions: [{
-    question: `[Display plan with all details]\n\nConfirm this plan?`,
-    header: "Confirm Plan",
-    multiSelect: true,
-    options: [
-      { label: "Allow", description: "Proceed with plan" },
-      { label: "Modify", description: "Adjust plan" },
-      { label: "Cancel", description: "Abort" }
-    ]
-  }]
-})
+  questions: [
+    {
+      question: `## Plan Summary
 
-// Question 2: Execution Method (Single-select)
-AskUserQuestion({
-  questions: [{
-    question: `Select execution method:`,
-    header: "Execution Method",
-    multiSelect: false,
-    options: [
-      { label: "Agent", description: "Execute with @code-developer agent" },
-      { label: "Codex", description: "Execute with codex CLI tool" },
-      { label: "Auto", description: `Auto-select: ${planObject.complexity === 'Low' ? 'Agent (Low complexity)' : 'Codex (Medium/High complexity)'}` }
-    ]
-  }]
-})
+**Summary**: ${planObject.summary}
 
-// Question 3: Code Review Tool Selection
-AskUserQuestion({
-  questions: [{
-    question: `Enable code review after execution?`,
-    header: "Code Review",
-    options: [
-      { label: "No", description: "Skip code review" },
-      { label: "Claude (default)", description: "Current Claude agent review" },
-      { label: "Gemini", description: "gemini-2.5-pro analysis" },
-      { label: "Qwen", description: "coder-model analysis" },
-      { label: "Codex", description: "gpt-5 analysis" }
-    ]
-  }]
+**Approach**: ${planObject.approach}
+
+**Task Breakdown**:
+${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
+
+${planObject.dependencies ? `\n**Dependencies**:\n${planObject.dependencies.join('\n')}` : ''}
+
+${planObject.risks ? `\n**Risks**:\n${planObject.risks.join('\n')}` : ''}
+
+**Complexity**: ${planObject.complexity}
+**Estimated Time**: ${planObject.estimated_time}
+
+---
+
+Confirm this plan? (Multi-select enabled - you can select multiple options and add supplements via "Other")`,
+      header: "Confirm Plan",
+      multiSelect: true,
+      options: [
+        { label: "Allow", description: "Proceed with plan as-is" },
+        { label: "Modify", description: "Adjust plan before execution" },
+        { label: "Cancel", description: "Abort workflow" }
+      ]
+    },
+    {
+      question: `Select execution method:`,
+      header: "Execution",
+      multiSelect: false,
+      options: [
+        { label: "Agent", description: "Execute with @code-developer agent" },
+        { label: "Codex", description: "Execute with codex CLI tool" },
+        { label: "Auto", description: `Auto-select: ${planObject.complexity === 'Low' ? 'Agent (Low complexity)' : 'Codex (Medium/High complexity)'}` }
+      ]
+    },
+    {
+      question: `Enable code review after execution?`,
+      header: "Code Review",
+      multiSelect: false,
+      options: [
+        { label: "Gemini Review", description: "Review with Gemini CLI tool (gemini-2.5-pro)" },
+        { label: "Qwen Review", description: "Review with Qwen CLI tool (coder-model)" },
+        { label: "Agent Review", description: "Review with @code-reviewer agent" },
+        { label: "Skip", description: "No review needed" }
+      ]
+    }
+  ]
 })
 ```
 
