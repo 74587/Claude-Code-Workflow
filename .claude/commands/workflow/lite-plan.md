@@ -638,12 +638,10 @@ Estimated Time: ${planObject.estimated_time}
 EXPECTED: All tasks implemented following the plan approach, with proper error handling and testing
 
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow implementation approach exactly | Handle identified risks proactively | write=CREATE/MODIFY/DELETE
-" -m gemini-2.5-pro --approval-mode yolo
+" --approval-mode yolo
 ```
 
-**Command Format (Codex)** - Session-based with resume support:
-
-**First Execution (Establish Session)**:
+**Command Format (Codex)** - Single execution with full context:
 ```bash
 codex --full-auto exec "
 TASK: ${planObject.summary}
@@ -670,33 +668,15 @@ ${clarificationContext ? `\n## User Clarifications\n${Object.entries(clarificati
 ${planObject.risks ? `\n## Risks to Handle\n${planObject.risks.join('\n')}` : ''}
 
 ## Execution Instructions
-- Complete all tasks following the breakdown sequence
+- Complete all tasks in single execution
 - Test functionality as you implement
 - Handle identified risks proactively
-- Create session for potential resume if needed
 
 Complexity: ${planObject.complexity}
-" -m gpt-5 --skip-git-repo-check -s danger-full-access
+" --skip-git-repo-check -s danger-full-access
 ```
 
-**Subsequent Executions (Resume if needed)**:
-```bash
-# If first execution fails or is interrupted, can resume:
-codex --full-auto exec "
-Continue implementation from previous session.
-
-Remaining tasks:
-${remaining_tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
-
-Maintain context from previous execution.
-" resume --last -m gpt-5 --skip-git-repo-check -s danger-full-access
-```
-
-**Codex Session Strategy**:
-- First execution establishes full context and creates session
-- If execution is interrupted or fails, use `resume --last` to continue
-- Resume inherits all context from original execution
-- Useful for complex tasks that may hit timeouts or require iteration
+**Note**: Avoid `resume --last` unless task is exceptionally complex or hits timeout. Optimize task breakdown for full completion in single execution.
 
 **Command Format (Qwen)** - Full context similar to Gemini:
 ```bash
@@ -758,7 +738,7 @@ Time Estimate: ${planObject.estimated_time}
 EXPECTED: Complete implementation with tests and proper error handling
 
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow approach strictly | Test thoroughly | write=CREATE/MODIFY/DELETE
-" -m coder-model --approval-mode yolo
+" --approval-mode yolo
 ```
 
 **Execution with Progress Tracking**:
