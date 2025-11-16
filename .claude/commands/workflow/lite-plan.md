@@ -462,17 +462,26 @@ Code Review Selection (after execution):
 
 **Step 5.1: Create TodoWrite Execution List**
 
-**Before execution starts**, create execution call list (not individual tasks):
+**Before execution starts**, initialize tracking variables and create execution call list:
+```javascript
+// Initialize result tracking for multi-execution scenarios
+previousExecutionResults = []
+```
+
+Create execution call list (not individual tasks):
 ```javascript
 // Group tasks based on dependencies and execution strategy
 // Each execution call handles multiple related tasks
-executionCalls = groupTasksByExecution(planObject.tasks, planObject.dependencies)
+executionCalls = groupTasksByExecution(planObject.tasks, planObject.dependencies).map((call, index) => ({
+  ...call,
+  id: `[${call.method}-${index+1}]`  // Store ID for result collection
+}))
 
 TodoWrite({
-  todos: executionCalls.map((call, index) => ({
-    content: `[${call.method}-${index+1}] (${call.taskSummary})`,
+  todos: executionCalls.map(call => ({
+    content: `${call.id} (${call.taskSummary})`,
     status: "pending",
-    activeForm: `Executing [${call.method}-${index+1}] (${call.taskSummary})`
+    activeForm: `Executing ${call.id} (${call.taskSummary})`
   }))
 })
 ```
@@ -492,6 +501,19 @@ TodoWrite({
 **Step 5.2: Launch Execution**
 
 **IMPORTANT**: CLI execution MUST run in foreground (no background execution)
+
+**Execution Loop**:
+```javascript
+// Execute each call in the execution list sequentially
+for (currentIndex = 0; currentIndex < executionCalls.length; currentIndex++) {
+  const currentCall = executionCalls[currentIndex]
+
+  // Update TodoWrite: mark current call as in_progress
+  // Launch execution with previousExecutionResults context
+  // After completion, collect result and add to previousExecutionResults
+  // Update TodoWrite: mark current call as completed
+}
+```
 
 Based on user selection in Phase 4, execute appropriate method:
 - **Agent**: Launch @code-developer agent
@@ -563,7 +585,7 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
 - After each execution completes, collect result summary:
   ```javascript
   executionResult = {
-    executionId: "[Agent-1]" or "[Codex-1]",
+    executionId: executionCalls[currentIndex].id, // e.g., "[Agent-1]", "[Codex-1]" from Step 5.1 TodoWrite list
     status: "completed" or "partial" or "failed",
     tasksSummary: "Brief description of tasks handled",
     completionSummary: "What was completed",
@@ -572,6 +594,7 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
   }
   previousExecutionResults.push(executionResult)
   ```
+- The `executionId` comes from the execution call ID created in Step 5.1 (format: `[Method-Index]`)
 - Pass `previousExecutionResults` to subsequent executions for context continuity
 
 #### Option B: CLI Execution (Codex)
