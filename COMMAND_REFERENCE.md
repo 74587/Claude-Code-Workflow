@@ -38,6 +38,7 @@ These commands orchestrate complex, multi-phase development processes, from plan
 | Command | Description |
 |---|---|
 | `/workflow:plan` | Orchestrate 5-phase planning workflow with quality gate, executing commands and passing context between phases. |
+| `/workflow:lite-plan` | ⚡ **NEW** Lightweight interactive planning and execution workflow with in-memory planning, smart code exploration, three-dimensional multi-select confirmation (task approval + execution method + code review), and parallel task execution support. |
 | `/workflow:execute` | Coordinate agents for existing workflow tasks with automatic discovery. |
 | `/workflow:resume` | Intelligent workflow session resumption with automatic progress analysis. |
 | `/workflow:review` | Optional specialized review (security, architecture, docs) for completed implementation. |

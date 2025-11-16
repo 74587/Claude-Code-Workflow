@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.5.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.8.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,13 +14,20 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
 
-> **🎉 版本 5.5: 交互式命令指南与增强文档**
+> **🎉 版本 5.8.1: Lite-Plan 工作流与 CLI 工具增强**
 >
 > **核心改进**:
-> - ✨ **命令指南技能** - 交互式帮助系统，支持 CCW-help 和 CCW-issue 触发
-> - ✨ **增强命令描述** - 所有 69 个命令更新了详细功能描述
-> - ✨ **5 索引命令系统** - 按分类、使用场景、关系和核心命令组织
-> - ✨ **智能推荐** - 基于上下文的工作流引导建议
+> - ✨ **Lite-Plan 工作流** (`/workflow:lite-plan`) - 轻量级交互式规划与智能自动化
+>   - **三维多选确认**: 任务批准 + 执行方法 + 代码审查工具
+>   - **智能代码探索**: 自动检测何时需要代码库上下文（使用 `-e` 标志强制探索）
+>   - **并行任务执行**: 识别独立任务以实现并发执行
+>   - **灵活执行**: 选择智能体（@code-developer）或 CLI（Gemini/Qwen/Codex）
+>   - **可选后置审查**: 内置代码质量分析，可选择 AI 工具
+> - ✨ **CLI 工具优化** - 简化命令语法，自动模型选择
+>   - 移除 Gemini、Qwen 和 Codex 的 `-m` 参数要求（自动选择最佳模型）
+>   - 更清晰的命令结构和改进的文档
+> - 🔄 **执行工作流增强** - 简化阶段，采用延迟加载策略
+> - 🎨 **CLI Explore Agent** - 改进可见性，采用黄色配色方案
 >
 > 详见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -107,6 +114,35 @@ CCW 包含内置的**命令指南技能**，帮助您有效地发现和使用命
 开始使用的最佳方式是遵循 [**快速上手指南**](GETTING_STARTED_CN.md) 中的 5 分钟教程。
 
 以下是一个常见开发工作流的快速示例：
+
+### **选项 1: Lite-Plan 工作流** (⚡ 推荐用于快速任务)
+
+轻量级交互式工作流，内存中规划并立即执行：
+
+```bash
+# 基本用法，自动检测
+/workflow:lite-plan "为用户登录添加 JWT 认证"
+
+# 强制代码探索
+/workflow:lite-plan -e "重构日志模块以提高性能"
+
+# 预设 CLI 工具
+/workflow:lite-plan --tool codex "为认证服务添加单元测试"
+```
+
+**交互流程**:
+1. **阶段 1**: 自动任务分析和智能代码探索（如需要）
+2. **阶段 2**: 回答澄清问题（如有）
+3. **阶段 3**: 查看生成的计划和任务分解
+4. **阶段 4**: 三维确认:
+   - ✅ 确认/修改/取消任务
+   - 🔧 选择执行方式: 智能体 / 仅提供计划 / CLI（Gemini/Qwen/Codex）
+   - 🔍 可选代码审查: 否 / Claude / Gemini / Qwen / Codex
+5. **阶段 5**: 观察实时执行和任务跟踪
+
+### **选项 2: 完整工作流** (综合规划)
+
+适用于复杂项目的传统多阶段工作流：
 
 1.  **创建计划**（自动启动会话）:
     ```bash

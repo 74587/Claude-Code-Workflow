@@ -45,6 +45,44 @@ High-level orchestrators for complex, multi-phase development processes.
   /workflow:plan "Create a simple Express API that returns Hello World"
   ```
 
+### **/workflow:lite-plan** ⚡ NEW
+
+- **Syntax**: `/workflow:lite-plan [--tool claude|gemini|qwen|codex] [-e|--explore] "task description"|file.md`
+- **Parameters**:
+  - `--tool` (Optional, String): Preset CLI tool for execution (claude|gemini|qwen|codex). If not provided, user selects during confirmation.
+  - `-e, --explore` (Optional, Flag): Force code exploration phase (overrides auto-detection logic).
+  - `task description|file.md` (Required, String): Task description or path to .md file.
+- **Responsibilities**: Lightweight interactive planning and execution workflow with 5 phases:
+  1. **Task Analysis & Exploration**: Auto-detects need for codebase context, optionally launches `@cli-explore-agent` (30-90s)
+  2. **Clarification**: Interactive Q&A based on exploration findings (user-dependent)
+  3. **Planning**: Adaptive planning strategy - direct (Low complexity) or delegate to `@cli-planning-agent` (Medium/High complexity) (20-60s)
+  4. **Three-Dimensional Confirmation**: Multi-select interaction for task approval + execution method + code review tool (user-dependent)
+  5. **Execution & Tracking**: Live TodoWrite progress updates with selected method (5-120min)
+- **Key Features**:
+  - **Smart Code Exploration**: Auto-detects when codebase context is needed (use `-e` to force)
+  - **In-Memory Planning**: No file artifacts generated during planning phase
+  - **Three-Dimensional Multi-Select**: Task approval (Allow/Modify/Cancel) + Execution method (Agent/Provide Plan/CLI) + Code review (No/Claude/Gemini/Qwen/Codex)
+  - **Parallel Task Execution**: Identifies independent tasks for concurrent execution
+  - **Flexible Execution**: Choose between Agent (@code-developer) or CLI (Gemini/Qwen/Codex)
+  - **Optional Post-Review**: Built-in code quality analysis with user-selectable AI tool
+- **Agent Calls**:
+  - `@cli-explore-agent` (conditional, Phase 1)
+  - `@cli-planning-agent` (conditional, Phase 3 for Medium/High complexity)
+  - `@code-developer` (conditional, Phase 5 if Agent execution selected)
+- **Skill Invocation**: None directly, but agents may invoke skills.
+- **Integration**: Standalone workflow for quick tasks. Alternative to `/workflow:plan` + `/workflow:execute` pattern.
+- **Example**:
+  ```bash
+  # Basic usage with auto-detection
+  /workflow:lite-plan "Add JWT authentication to user login"
+
+  # Force code exploration
+  /workflow:lite-plan -e "Refactor logging module for better performance"
+
+  # Preset CLI tool
+  /workflow:lite-plan --tool codex "Add unit tests for auth service"
+  ```
+
 ### **/workflow:execute**
 
 - **Syntax**: `/workflow:execute [--resume-session="session-id"]`

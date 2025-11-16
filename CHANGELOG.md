@@ -6,6 +6,71 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [5.8.1] - 2025-01-16
+
+### ⚡ Lite-Plan Workflow & CLI Tools Enhancement
+
+This release introduces a powerful new lightweight planning workflow with intelligent automation and optimized CLI tool usage.
+
+#### ✨ Added
+
+**Lite-Plan Workflow** (`/workflow:lite-plan`):
+- ✨ **Interactive Lightweight Workflow** - Fast, in-memory planning and execution
+  - **Phase 1: Task Analysis & Smart Exploration** (30-90s)
+    - Auto-detects when codebase context is needed
+    - Optional `@cli-explore-agent` for code understanding
+    - Force exploration with `-e` or `--explore` flag
+  - **Phase 2: Interactive Clarification** (user-dependent)
+    - Ask follow-up questions based on exploration findings
+    - Gather missing information before planning
+  - **Phase 3: Adaptive Planning** (20-60s)
+    - Low complexity: Direct planning by Claude
+    - Medium/High complexity: Delegate to `@cli-planning-agent`
+  - **Phase 4: Three-Dimensional Multi-Select Confirmation** (user-dependent)
+    - ✅ **Task Approval**: Allow / Modify / Cancel (with optional supplements)
+    - 🔧 **Execution Method**: Agent / Provide Plan / CLI (Gemini/Qwen/Codex)
+    - 🔍 **Code Review**: No / Claude / Gemini / Qwen / Codex
+  - **Phase 5: Live Execution & Tracking** (5-120min)
+    - Real-time TodoWrite progress updates
+    - Parallel task execution for independent tasks
+    - Optional post-execution code review
+- ✨ **Parallel Task Execution** - Identifies independent tasks for concurrent execution
+- ✨ **Flexible Tool Selection** - Preset with `--tool` flag or choose during confirmation
+- ✨ **No File Artifacts** - All planning stays in memory for faster workflow
+
+#### 🔄 Changed
+
+**CLI Tools Optimization**:
+- 🔄 **Simplified Command Syntax** - Removed `-m` parameter requirement
+  - Gemini: Auto-selects `gemini-2.5-pro` (default) or `gemini-2.5-flash`
+  - Qwen: Auto-selects `coder-model` (default) or `vision-model`
+  - Codex: Auto-selects `gpt-5.1` (default), `gpt-5.1-codex`, or `gpt-5.1-codex-mini`
+- 🔄 **Improved Model Selection** - Tools now auto-select best model for task
+- 🔄 **Updated Documentation** - Clearer guidelines in `intelligent-tools-strategy.md`
+
+**Execution Workflow Enhancement**:
+- 🔄 **Streamlined Phases** - Simplified execution phases with lazy loading strategy
+- 🔄 **Enhanced Error Handling** - Improved error messages and recovery options
+- 🔄 **Clarified Resume Mode** - Better documentation for workflow resumption
+
+**CLI Explore Agent**:
+- 🎨 **Improved Visibility** - Changed color scheme from blue to yellow
+
+#### 📝 Documentation
+
+**Updated Files**:
+- 🔄 **README.md / README_CN.md** - Added Lite-Plan workflow usage examples
+- 🔄 **COMMAND_REFERENCE.md** - Added `/workflow:lite-plan` entry
+- 🔄 **COMMAND_SPEC.md** - Added detailed technical specification for Lite-Plan
+- 🔄 **intelligent-tools-strategy.md** - Updated model selection guidelines
+
+#### 🐛 Bug Fixes
+
+- Fixed command syntax inconsistencies in CLI tool documentation
+- Improved task dependency detection for parallel execution
+
+---
+
 ## [5.5.0] - 2025-11-06
 
 ### 🎯 Interactive Command Guide & Enhanced Documentation
