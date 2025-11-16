@@ -23,8 +23,8 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
   - Complex tasks: Delegates to cli-planning-agent for detailed breakdown
 - **Three-Dimensional Confirmation**: Multi-select interaction for task approval + execution method selection + code review tool selection
 - **Direct Execution**: Immediate dispatch to selected execution method (agent/codex/auto)
-- **Live Progress Tracking**: Real-time TodoWrite updates during execution
-- **Optional Code Review**: Post-execution quality analysis with claude/gemini/qwen/codex (user selectable)
+- **Live Progress Tracking**: Real-time TodoWrite updates at execution call level ([Agent-1], [Codex-1], etc.) during execution
+- **Optional Code Review**: Post-execution quality analysis with gemini/agent or custom tools via "Other" option (e.g., qwen, codex)
 
 
 ## Usage
@@ -73,19 +73,19 @@ User Input ("/workflow:lite-plan \"task\"")
     v
 [Phase 4] Task Confirmation & Execution Selection (User interaction)
     -> Display task breakdown and approach
-    -> AskUserQuestion: Three dimensions (all multi-select)
-       1. Confirm task: Allow/Modify/Cancel (can supplement via Other)
-       2. Execution method: Agent/Codex/Auto (auto: simple→agent, complex→codex)
-       3. Code review: No/Claude/Gemini/Qwen/Codex
+    -> AskUserQuestion: Three dimensions
+       1. Confirm task: Allow/Modify/Cancel (multi-select, can supplement via Other)
+       2. Execution method: Agent/Codex/Auto (single-select, auto: simple→agent, complex→codex)
+       3. Code review: Skip/Gemini/Agent/Other (single-select, can specify custom tool via Other)
     -> Process selections and proceed to Phase 5
     -> If cancel: Exit
     |
     v
 [Phase 5] Execution & Progress Tracking
-    -> Create TodoWrite task list from breakdown
+    -> Create TodoWrite execution call list (grouped tasks)
     -> Launch selected execution (agent or CLI)
-    -> Track progress with TodoWrite updates
-    -> Real-time status displayed to user
+    -> Track execution call progress with TodoWrite updates
+    -> Real-time call status displayed to user (e.g., "[Agent-1] (Task A + Task B)")
     -> If code review enabled: Run selected CLI analysis
     |
     v
@@ -94,9 +94,10 @@ Execution Complete
 
 ### Task Management Pattern
 
-- TodoWrite creates task list before execution starts (Phase 5)
-- Tasks marked as in_progress/completed during execution
-- Real-time progress updates visible to user
+- TodoWrite creates execution call list before execution starts (Phase 5)
+- Execution calls ([Agent-1], [Codex-1], etc.) marked as in_progress/completed during execution
+- Each execution call handles multiple related tasks
+- Real-time progress updates visible at call level (not individual task level)
 - No intermediate file artifacts generated
 
 ## Detailed Phase Execution
@@ -335,19 +336,22 @@ planObject = {
 
 **Operations**:
 - Display plan summary with full task breakdown
-- Collect three multi-select inputs:
-  1. Task confirmation (Allow/Modify/Cancel + optional supplements)
-  2. Execution method (Agent/Codex/Auto)
+- Collect three inputs:
+  1. Task confirmation (multi-select: Allow/Modify/Cancel + optional supplements via "Other")
+  2. Execution method (single-select: Agent/Codex/Auto)
      - Agent: Execute with @code-developer
      - Codex: Execute with codex CLI tool
      - Auto: Simple tasks (Low complexity) → Agent, Complex tasks (Medium/High) → Codex
-  3. Code review tool (No/Claude/Gemini/Qwen/Codex)
-- Support plan supplements and modifications via "Other" input
+  3. Code review tool (single-select: Skip/Gemini/Agent + custom tools via "Other")
+     - Gemini Review: Use gemini CLI for code analysis
+     - Agent Review: Use @code-reviewer agent
+     - Other: Specify custom tool (e.g., "qwen", "codex") via text input
+- Support plan supplements and custom tool specification via "Other" input
 
 **Combined Three Questions in Single Call**:
 - Question 1: Display full plan + task confirmation (multi-select: Allow/Modify/Cancel)
 - Question 2: Execution method selection (single-select: Agent/Codex/Auto)
-- Question 3: Code review tool selection (single-select: Gemini/Qwen/Agent/Skip)
+- Question 3: Code review tool selection (single-select: Skip/Gemini/Agent, custom via "Other")
 
 **Combined AskUserQuestion (Single Call)**:
 ```javascript
@@ -392,12 +396,13 @@ Confirm this plan? (Multi-select enabled - you can select multiple options and a
       ]
     },
     {
-      question: `Enable code review after execution?`,
+      question: `Enable code review after execution?
+
+(You can specify other tools like "qwen" or "codex" via "Other" option)`,
       header: "Code Review",
       multiSelect: false,
       options: [
         { label: "Gemini Review", description: "Review with Gemini CLI tool (gemini-2.5-pro)" },
-        { label: "Qwen Review", description: "Review with Qwen CLI tool (coder-model)" },
         { label: "Agent Review", description: "Review with @code-reviewer agent" },
         { label: "Skip", description: "No review needed" }
       ]
@@ -421,11 +426,10 @@ Execution Method Selection (Single-select):
       └─ If complexity = Medium/High → Execute with codex CLI tool
 
 Code Review Selection (after execution):
-  ├─ No → Skip review, workflow complete
-  ├─ Claude (default) → Current Claude agent review
-  ├─ Gemini → Run gemini code analysis
-  ├─ Qwen → Run qwen code analysis
-  └─ Codex → Run codex code analysis
+  ├─ Skip → Skip review, workflow complete
+  ├─ Gemini Review → Run gemini code analysis (gemini-2.5-pro)
+  ├─ Agent Review → Current Claude agent review
+  └─ Other → Specify custom tool (e.g., "qwen", "codex") via text input
 ```
 
 **Progress Tracking**:
@@ -439,32 +443,39 @@ Code Review Selection (after execution):
 ### Phase 5: Execution & Progress Tracking
 
 **Operations**:
-- Create TodoWrite task list from plan breakdown
+- Create TodoWrite execution call list (grouped tasks by dependencies)
 - Launch selected execution method (agent or CLI)
-- Track execution progress with real-time TodoWrite updates
-- Display status to user
+- Track execution call progress with real-time TodoWrite updates (not individual tasks)
+- Display execution status to user
 
-**Step 5.1: Create TodoWrite Task List**
+**Step 5.1: Create TodoWrite Execution List**
 
-**Before execution starts**, create task list:
+**Before execution starts**, create execution call list (not individual tasks):
 ```javascript
+// Group tasks based on dependencies and execution strategy
+// Each execution call handles multiple related tasks
+executionCalls = groupTasksByExecution(planObject.tasks, planObject.dependencies)
+
 TodoWrite({
-  todos: planObject.tasks.map((task, index) => ({
-    content: task,
+  todos: executionCalls.map((call, index) => ({
+    content: `[${call.method}-${index+1}] (${call.taskSummary})`,
     status: "pending",
-    activeForm: task.replace(/^(.*?):/, "$1ing:")  // "Implement X" -> "Implementing X"
+    activeForm: `Executing [${call.method}-${index+1}] (${call.taskSummary})`
   }))
 })
 ```
 
-**Example Task List**:
+**Example Execution List**:
 ```
-[ ] Implement authentication service in src/auth/service.ts
-[ ] Create JWT token utilities in src/auth/jwt.ts
-[ ] Add authentication middleware to src/middleware/auth.ts
-[ ] Update API routes to use authentication
-[ ] Add integration tests for auth flow
+[ ] [Agent-1] (Implement auth service + Create JWT utilities)
+[ ] [Agent-2] (Add middleware + Update routes)
+[ ] [Codex-1] (Add integration tests for auth flow)
 ```
+
+**Task Grouping Logic**:
+- Parallel tasks → Single execution call
+- Sequential tasks → Separate execution calls
+- Complex tasks → May split into multiple calls based on file scope
 
 **Step 5.2: Launch Execution**
 
@@ -510,18 +521,19 @@ Based on user selection in Phase 4, execute appropriate method:
     IMPORTANT Instructions:
     - **Parallel Execution**: Identify independent tasks from dependencies field and execute them in parallel using multiple tool calls in a single message
     - **Dependency Respect**: Sequential tasks must wait for dependent tasks to complete before starting
-    - **TodoWrite Updates**: Mark tasks as in_progress when starting, completed when finished
     - **Intelligent Grouping**: Analyze task dependencies to determine parallel groups - tasks with no file conflicts or logical dependencies can run simultaneously
     - Test functionality as you go
     - Handle risks proactively
+
+    Note: This agent call handles multiple tasks. TodoWrite tracking is managed at call level by orchestrator.
     `
   )
   ```
 
 **Agent Responsibilities**:
-- Mark tasks as in_progress when starting
-- Mark tasks as completed when finished
-- Update TodoWrite in real-time for user visibility
+- Each agent call handles multiple tasks (grouped by dependencies)
+- Agent updates TodoWrite at **call level** (not individual task level)
+- Mark execution call as in_progress when starting, completed when all assigned tasks finished
 
 #### Option B: CLI Execution (Codex)
 
@@ -570,75 +582,76 @@ Complexity: ${planObject.complexity}
 
 **Execution with Progress Tracking**:
 ```javascript
-// Launch CLI in foreground (NOT background - avoid )
+// Launch CLI in foreground (NOT background)
 bash_result = Bash(
   command=cli_command,
   timeout=600000  // 10 minutes
 )
 
-// Monitor output and update TodoWrite
-// Parse CLI output for task completion indicators
-// Update TodoWrite when tasks complete
-// Example: When CLI outputs "✓ Task 1 complete" -> Mark task 1 as completed
+// Update TodoWrite when CLI execution call completes
+// Mark execution call (e.g., "[Codex-1]") as completed when CLI finishes
+// One CLI call may handle multiple tasks - track at call level, not task level
 ```
 
 **CLI Progress Monitoring**:
-- Parse CLI output for completion keywords ("done", "complete", "✓", etc.)
-- Update corresponding TodoWrite tasks based on progress
-- Provide real-time visibility to user
+- Monitor CLI execution at **call level** (not individual task level)
+- Update TodoWrite when CLI execution call completes (all assigned tasks done)
+- Provide real-time visibility of execution call progress to user
 
 **Step 5.3: Track Execution Progress**
 
+Track **agent/CLI call level** (not individual tasks):
+
 **Real-time TodoWrite Updates**:
 ```javascript
-// As execution progresses, update task status:
-
-// Task started
+// When execution call starts
 TodoWrite({
   todos: [
-    { content: "Implement auth service", status: "in_progress", activeForm: "Implementing auth service" },
-    { content: "Create JWT utilities", status: "pending", activeForm: "Creating JWT utilities" },
-    // ...
+    { content: "[Agent-1] (Implement auth service + Create JWT utilities)", status: "in_progress", activeForm: "Executing [Agent-1] (Implement auth service + Create JWT utilities)" },
+    { content: "[Agent-2] (Add middleware + Update routes)", status: "pending", activeForm: "Executing [Agent-2] (Add middleware + Update routes)" },
+    { content: "[Codex-1] (Add integration tests)", status: "pending", activeForm: "Executing [Codex-1] (Add integration tests)" }
   ]
 })
 
-// Task completed
+// When execution call completes
 TodoWrite({
   todos: [
-    { content: "Implement auth service", status: "completed", activeForm: "Implementing auth service" },
-    { content: "Create JWT utilities", status: "in_progress", activeForm: "Creating JWT utilities" },
-    // ...
+    { content: "[Agent-1] (Implement auth service + Create JWT utilities)", status: "completed", activeForm: "Executing [Agent-1] (Implement auth service + Create JWT utilities)" },
+    { content: "[Agent-2] (Add middleware + Update routes)", status: "in_progress", activeForm: "Executing [Agent-2] (Add middleware + Update routes)" },
+    { content: "[Codex-1] (Add integration tests)", status: "pending", activeForm: "Executing [Codex-1] (Add integration tests)" }
   ]
 })
 ```
 
 **User Visibility**:
-- User sees real-time task progress
-- Current task highlighted as "in_progress"
-- Completed tasks marked with checkmark
-- Pending tasks remain unchecked
+- User sees **execution call progress** (not individual task progress)
+- Current execution highlighted as "in_progress" (e.g., "[Agent-1] (Task A + Task B)")
+- Completed executions marked with checkmark
+- Pending executions remain unchecked
+- Each execution shows **task summary** for context
 
 **Progress Tracking**:
-- Mark Phase 5 as in_progress throughout execution
-- Mark Phase 5 as completed when all tasks done
-- Final status summary displayed to user
+- Track agent/CLI call completion (not task completion)
+- One execution call may handle multiple tasks simultaneously
+- Mark Phase 5 as completed when all execution calls done
 
 **Step 5.4: Code Review (Optional)**
 
-**Skip Condition**: Only run if user selected review tool in Phase 4 (not "No")
+**Skip Condition**: Only run if user selected review tool in Phase 4 (not "Skip")
 
 **Operations**:
-- If Claude: Current agent performs direct code review analysis
-- If CLI tool (gemini/qwen/codex): Execute CLI with code review analysis prompt
+- If "Agent Review": Current agent performs direct code review analysis
+- If "Gemini Review": Execute gemini CLI with code review analysis prompt
+- If "Other" (custom tool specified): Execute specified CLI tool (e.g., qwen, codex)
 - Review all modified files from execution
 - Generate quality assessment and improvement recommendations
 
 **Command Format**:
 ```bash
-# Claude (default): Direct agent review (no CLI command needed)
+# Agent Review: Direct agent review (no CLI command needed)
 # Uses analysis prompt and TodoWrite tools directly
 
-# CLI Tools (gemini/qwen/codex): Execute analysis command
+# Gemini Review / Custom Tool (qwen, codex, etc.): Execute analysis command
 {selected_tool} -p "
 PURPOSE: Code review for implemented changes
 TASK: • Analyze code quality • Identify potential issues • Suggest improvements
@@ -685,20 +698,22 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
    - Balances speed and thoroughness appropriately
 
 4. **Three-Dimensional Confirmation**: Comprehensive task approval and execution control
-   - First dimension: Confirm/Modify/Cancel plan
+   - First dimension: Confirm/Modify/Cancel plan (multi-select with supplement via "Other")
    - Second dimension: Execution method selection (Agent/Codex/Auto)
-   - Third dimension: Code review tool selection (No/Claude/Gemini/Qwen/Codex)
+   - Third dimension: Code review tool selection (Skip/Gemini/Agent, custom via "Other")
    - Allows plan refinement without re-selecting execution method
    - Supports iterative planning with user feedback
    - Auto mode intelligently selects execution method based on complexity
+   - Custom code review tools (qwen, codex, etc.) can be specified via "Other" option
 
 ### Task Management
 
-1. **Live Progress Tracking**: TodoWrite provides real-time execution visibility
-   - Tasks created before execution starts
-   - Updated in real-time as work progresses
-   - User sees current task being worked on
-   - Clear completion status throughout execution
+1. **Live Progress Tracking**: TodoWrite provides real-time execution call visibility
+   - Execution calls ([Agent-1], [Codex-1], etc.) created before execution starts
+   - Updated in real-time as execution calls progress
+   - User sees current execution call being worked on (e.g., "[Agent-1] (Task A + Task B)")
+   - Each execution call shows task summary for context
+   - Clear completion status at call level (not individual task level)
 
 2. **Phase-Based Organization**: 5 distinct phases with clear transitions
    - Phase 1: Task Analysis & Exploration (automatic)
