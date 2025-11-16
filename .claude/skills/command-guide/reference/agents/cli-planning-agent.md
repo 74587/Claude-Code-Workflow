@@ -136,7 +136,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/{template}) |
 - Consider previous iteration failures
 - Validate fix doesn't introduce new vulnerabilities
 - analysis=READ-ONLY
-" -m {model} {timeout_flag}
+" {timeout_flag}
 ```
 
 **Layer-Specific Guidance Injection**:

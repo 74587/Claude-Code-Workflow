@@ -333,7 +333,7 @@ codex --full-auto exec "Add JWT refresh token validation" resume --last --skip-g
 2. Explicitly reference external files in CONTEXT field with @ patterns
 3. ⚠️ BOTH steps are MANDATORY
 
-Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" -m gemini-2.5-pro --include-directories ../shared`
+Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" --include-directories ../shared`
 
 **Rule**: If CONTEXT contains `@../dir/**/*`, command MUST include `--include-directories ../dir`
 

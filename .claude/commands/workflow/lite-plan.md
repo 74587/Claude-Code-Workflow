@@ -709,7 +709,7 @@ MODE: analysis
 CONTEXT: @**/* | Memory: Review changes from lite-plan execution
 EXPECTED: Quality assessment with actionable recommendations
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes | analysis=READ-ONLY
-" -m {model}
+"
 ```
 
 **Expected Duration**: Varies by task complexity and execution method

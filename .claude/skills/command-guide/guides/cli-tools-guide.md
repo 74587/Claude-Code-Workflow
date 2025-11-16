@@ -78,7 +78,7 @@ cd src/auth && qwen -p "
 追踪用户登录的完整执行流程，
 从 API 入口到数据库查询，
 列出所有调用的函数和依赖关系
-" -m coder-model
+"
 ```
 
 **工具输出**：Qwen 理解需求，自动追踪执行路径
@@ -278,7 +278,7 @@ codex -C src/auth --full-auto exec "
 **方式 1：CLI 工具语义调用**（推荐，灵活）
 
 - **用户输入**：`使用 gemini 分析这个项目的架构设计，识别主要模块、依赖关系和架构模式`
-- **Claude Code 生成并执行**：`cd project-root && gemini -p "..." -m gemini-3-pro-preview-11-2025`
+- **Claude Code 生成并执行**：`cd project-root && gemini -p "..."`
 
 **方式 2：Slash 命令**
 - **用户输入**：`/cli:analyze --tool gemini "分析项目架构"`
@@ -291,7 +291,7 @@ codex -C src/auth --full-auto exec "
 
 **方式 1：CLI 工具语义调用**
 - **用户输入**：`让 codex 实现用户认证功能：注册（邮箱+密码+验证）、登录（JWT token）、刷新令牌，技术栈 Node.js + Express`
-- **Claude Code 生成并执行**：`codex -C src/auth --full-auto exec "..." -m gpt-5 --skip-git-repo-check -s danger-full-access`
+- **Claude Code 生成并执行**：`codex -C src/auth --full-auto exec "..." --skip-git-repo-check -s danger-full-access`
 
 **方式 2：Slash 命令**（工作流化）
 - **用户输入**：`/workflow:plan --agent "实现用户认证功能"` → `/workflow:execute`
@@ -304,9 +304,9 @@ codex -C src/auth --full-auto exec "
 
 **方式 1：CLI 工具语义调用**
 - **用户输入**：`使用 gemini 诊断登录超时问题，分析处理流程、性能瓶颈、数据库查询效率`
-- **Claude Code 生成并执行**：`cd src/auth && gemini -p "..." -m gemini-3-pro-preview-11-2025`
+- **Claude Code 生成并执行**：`cd src/auth && gemini -p "..."`
 - **用户输入**：`让 codex 根据上述分析修复登录超时，优化查询、添加缓存`
-- **Claude Code 生成并执行**：`codex -C src/auth --full-auto exec "..." -m gpt-5 --skip-git-repo-check -s danger-full-access`
+- **Claude Code 生成并执行**：`codex -C src/auth --full-auto exec "..." --skip-git-repo-check -s danger-full-access`
 
 **方式 2：Slash 命令**
 - **用户输入**：`/cli:mode:bug-diagnosis --tool gemini "诊断登录超时"` → `/cli:execute --tool codex "修复登录超时"`
@@ -319,7 +319,7 @@ codex -C src/auth --full-auto exec "
 
 **方式 1：CLI 工具语义调用**
 - **用户输入**：`使用 gemini 为 API 模块生成技术文档，包含端点说明、数据模型、使用示例`
-- **Claude Code 生成并执行**：`cd src/api && gemini -p "..." -m gemini-3-pro-preview-11-2025 --approval-mode yolo`
+- **Claude Code 生成并执行**：`cd src/api && gemini -p "..." --approval-mode yolo`
 
 **方式 2：Slash 命令**
 - **用户输入**：`/memory:docs src/api --tool gemini --mode full`

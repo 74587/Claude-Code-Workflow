@@ -762,7 +762,7 @@ async function executeCLIAnalysis(prompt) {
 
   // Execute gemini with analysis prompt using --include-directories
   // This allows gemini to access reference docs while maintaining correct file context
-  const command = `gemini -p "${escapePrompt(prompt)}" -m gemini-3-pro-preview-11-2025 --include-directories ${referencePath}`;
+  const command = `gemini -p "${escapePrompt(prompt)}" --include-directories ${referencePath}`;
 
   try {
     const result = await execBash(command, { timeout: 120000 }); // 2 min timeout
@@ -770,7 +770,7 @@ async function executeCLIAnalysis(prompt) {
   } catch (error) {
     // Fallback to qwen if gemini fails
     console.warn('Gemini failed, falling back to qwen');
-    const fallbackCmd = `qwen -p "${escapePrompt(prompt)}" -m coder-model --include-directories ${referencePath}`;
+    const fallbackCmd = `qwen -p "${escapePrompt(prompt)}" --include-directories ${referencePath}`;
     const result = await execBash(fallbackCmd, { timeout: 120000 });
     return parseAnalysisResult(result.stdout);
   }

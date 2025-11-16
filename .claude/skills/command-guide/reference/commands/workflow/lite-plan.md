@@ -766,7 +766,7 @@ Time Estimate: ${planObject.estimated_time}
 EXPECTED: Complete implementation with tests and proper error handling
 
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow approach strictly | Test thoroughly | write=CREATE/MODIFY/DELETE
-" -m coder-model --approval-mode yolo
+" --approval-mode yolo
 ```
 
 **Execution with Progress Tracking**:

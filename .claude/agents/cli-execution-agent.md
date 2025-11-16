@@ -162,15 +162,15 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
 
 **Gemini/Qwen (Write)**:
 ```bash
-cd {dir} && gemini -p "..." -m gemini-2.5-flash --approval-mode yolo
+cd {dir} && gemini -p "..." --approval-mode yolo
 ```
 
 **Codex (Auto)**:
 ```bash
-codex -C {dir} --full-auto exec "..." -m gpt-5 --skip-git-repo-check -s danger-full-access
+codex -C {dir} --full-auto exec "..." --skip-git-repo-check -s danger-full-access
 
 # Resume: Add 'resume --last' after prompt
-codex --full-auto exec "..." resume --last -m gpt-5 --skip-git-repo-check -s danger-full-access
+codex --full-auto exec "..." resume --last --skip-git-repo-check -s danger-full-access
 ```
 
 **Cross-Directory** (Gemini/Qwen):
