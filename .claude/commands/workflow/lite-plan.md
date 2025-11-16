@@ -384,7 +384,11 @@ After displaying the plan, collect three inputs via AskUserQuestion:
 AskUserQuestion({
   questions: [
     {
-      question: `Confirm this plan? (Multi-select enabled - you can select multiple options and add supplements via "Other")`,
+      question: `**Plan Summary**: ${planObject.summary}
+
+**Tasks**: ${planObject.tasks.length} tasks | **Complexity**: ${planObject.complexity} | **Estimated Time**: ${planObject.estimated_time}
+
+Confirm this plan? (Multi-select enabled - you can select multiple options and add supplements via "Other")`,
       header: "Confirm Plan",
       multiSelect: true,
       options: [
@@ -501,6 +505,7 @@ Based on user selection in Phase 4, execute appropriate method:
 **Operations**:
 - Launch @code-developer agent with full plan context
 - Agent receives exploration findings, clarifications, and task breakdown
+- **For subsequent executions**: Include previous execution results to maintain context continuity
 - Agent call format:
   ```javascript
   Task(
@@ -516,6 +521,14 @@ Based on user selection in Phase 4, execute appropriate method:
 
     ${planObject.dependencies ? `\nTask Dependencies:\n${planObject.dependencies.join('\n')}` : ''}
 
+    ${previousExecutionResults ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
+[${result.executionId}] ${result.status}
+Tasks handled: ${result.tasksSummary}
+Completion status: ${result.completionSummary}
+Key outputs: ${result.keyOutputs || 'See git diff for details'}
+${result.notes ? `Notes: ${result.notes}` : ''}
+    `).join('\n---\n')}` : ''}
+
     Implementation Approach:
     ${planObject.approach}
 
@@ -527,6 +540,9 @@ Based on user selection in Phase 4, execute appropriate method:
     ${planObject.risks ? `\nRisks to Consider:\n${planObject.risks.join('\n')}` : ''}
 
     IMPORTANT Instructions:
+    - **Context Continuity**: Review previous execution results above to understand what's already completed
+    - **Build on Previous Work**: Ensure your work integrates with previously completed tasks
+    - **Avoid Duplication**: Don't redo tasks that are already completed in previous executions
     - **Parallel Execution**: Identify independent tasks from dependencies field and execute them in parallel using multiple tool calls in a single message
     - **Dependency Respect**: Sequential tasks must wait for dependent tasks to complete before starting
     - **Intelligent Grouping**: Analyze task dependencies to determine parallel groups - tasks with no file conflicts or logical dependencies can run simultaneously
@@ -543,10 +559,26 @@ Based on user selection in Phase 4, execute appropriate method:
 - Agent updates TodoWrite at **call level** (not individual task level)
 - Mark execution call as in_progress when starting, completed when all assigned tasks finished
 
+**Execution Result Collection** (for multi-execution scenarios):
+- After each execution completes, collect result summary:
+  ```javascript
+  executionResult = {
+    executionId: "[Agent-1]" or "[Codex-1]",
+    status: "completed" or "partial" or "failed",
+    tasksSummary: "Brief description of tasks handled",
+    completionSummary: "What was completed",
+    keyOutputs: "Files created/modified, key changes",
+    notes: "Any important context for next execution"
+  }
+  previousExecutionResults.push(executionResult)
+  ```
+- Pass `previousExecutionResults` to subsequent executions for context continuity
+
 #### Option B: CLI Execution (Codex)
 
 **Operations**:
 - Build codex CLI command with comprehensive context
+- **For subsequent executions**: Include previous execution results summary
 - Execute codex tool with write permissions
 - Monitor CLI output and update TodoWrite based on progress indicators
 - Parse CLI completion signals to mark tasks as done
@@ -560,6 +592,17 @@ TASK: ${planObject.summary}
 ${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
 ${planObject.dependencies ? `\n## Task Dependencies\n${planObject.dependencies.join('\n')}` : ''}
+
+${previousExecutionResults ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
+[${result.executionId}] ${result.status}
+Tasks: ${result.tasksSummary}
+Status: ${result.completionSummary}
+Outputs: ${result.keyOutputs || 'See git diff'}
+${result.notes ? `Notes: ${result.notes}` : ''}
+`).join('\n---\n')}
+
+IMPORTANT: Review previous results above. Build on completed work. Avoid duplication.
+` : ''}
 
 ## Implementation Approach
 ${planObject.approach}
@@ -578,7 +621,9 @@ ${clarificationContext ? `\n## User Clarifications\n${Object.entries(clarificati
 ${planObject.risks ? `\n## Risks to Handle\n${planObject.risks.join('\n')}` : ''}
 
 ## Execution Instructions
-- Complete all tasks in single execution
+- Review previous execution results for context continuity
+- Build on previous work, don't duplicate completed tasks
+- Complete all assigned tasks in single execution
 - Test functionality as you implement
 - Handle identified risks proactively
 
@@ -587,6 +632,12 @@ Complexity: ${planObject.complexity}
 ```
 
 **Note**: Avoid `resume --last` unless task is exceptionally complex or hits timeout. Optimize task breakdown for full completion in single execution.
+
+**Execution Result Collection** (for multi-execution scenarios):
+- After CLI execution completes, analyze output and collect result summary
+- Extract key information: modified files, completion status, important notes
+- Store in `previousExecutionResults` array for subsequent executions
+- Result structure same as Agent execution (see Option A above)
 
 **Execution with Progress Tracking**:
 ```javascript
