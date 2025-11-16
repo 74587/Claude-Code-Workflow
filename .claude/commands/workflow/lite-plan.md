@@ -22,7 +22,7 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
   - Simple tasks: Direct planning by current Claude
   - Complex tasks: Delegates to cli-planning-agent for detailed breakdown
 - **Three-Dimensional Confirmation**: Multi-select interaction for task approval + execution method selection + code review tool selection
-- **Direct Execution**: Immediate dispatch to selected execution method (agent or CLI)
+- **Direct Execution**: Immediate dispatch to selected execution method (agent/codex/auto)
 - **Live Progress Tracking**: Real-time TodoWrite updates during execution
 - **Optional Code Review**: Post-execution quality analysis with claude/gemini/qwen/codex (user selectable)
 
@@ -34,7 +34,6 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
 /workflow:lite-plan [FLAGS] <TASK_DESCRIPTION>
 
 # Flags
---tool <tool-name>         Preset CLI tool (claude|gemini|qwen|codex); if not provided, user selects during confirmation
 -e, --explore              Force code exploration phase (overrides auto-detection logic)
 
 # Arguments
@@ -76,7 +75,7 @@ User Input ("/workflow:lite-plan \"task\"")
     -> Display task breakdown and approach
     -> AskUserQuestion: Three dimensions (all multi-select)
        1. Confirm task: Allow/Modify/Cancel (can supplement via Other)
-       2. Execution method: Agent/Provide Plan/CLI (input CLI tool in Other)
+       2. Execution method: Agent/Codex/Auto (auto: simple→agent, complex→codex)
        3. Code review: No/Claude/Gemini/Qwen/Codex
     -> Process selections and proceed to Phase 5
     -> If cancel: Exit
@@ -313,7 +312,7 @@ Task(
      - Format: "Group 1 (parallel): Task 1, Task 2 | Group 2 (parallel): Task 3, Task 4 | Task 5 (depends on all)"
   5. Risks: Potential issues and mitigation strategies (for Medium/High complexity)
   6. Estimated Time: Total implementation time estimate
-  7. Recommended Execution: "Direct" (agent) or "CLI" (autonomous tool)
+  7. Recommended Execution: "Agent" or "Codex" based on task complexity
 
   Output Format: Return a structured object with these fields:
   {
@@ -323,7 +322,7 @@ Task(
     dependencies: string[] (optional),
     risks: string[] (optional),
     estimated_time: string,
-    recommended_execution: "Direct" | "CLI"
+    recommended_execution: "Agent" | "Codex"
   }
 
   Ensure tasks are specific, with file paths and clear acceptance criteria.
@@ -357,7 +356,7 @@ planObject = {
     "Breaking change if existing auth is in use - plan migration strategy"
   ],
   estimated_time: "30-45 minutes",
-  recommended_execution: "CLI"  // Based on clear requirements and straightforward implementation
+  recommended_execution: "Codex"  // Based on Medium/High complexity
 }
 ```
 
@@ -375,7 +374,7 @@ planObject = {
   dependencies: ["task1 -> task2", ...],  // if Medium/High
   risks: ["risk1", "risk2", ...],         // if High
   estimated_time: "X minutes",
-  recommended_execution: "Direct|CLI"
+  recommended_execution: "Agent|Codex"  // Based on complexity: Low→Agent, Medium/High→Codex
 }
 ```
 
@@ -397,7 +396,10 @@ planObject = {
 - Display plan summary with full task breakdown
 - Collect three multi-select inputs:
   1. Task confirmation (Allow/Modify/Cancel + optional supplements)
-  2. Execution method (Agent/Provide Plan/CLI + CLI tool specification)
+  2. Execution method (Agent/Codex/Auto)
+     - Agent: Execute with @code-developer
+     - Codex: Execute with codex CLI tool
+     - Auto: Simple tasks (Low complexity) → Agent, Complex tasks (Medium/High) → Codex
   3. Code review tool (No/Claude/Gemini/Qwen/Codex)
 - Support plan supplements and modifications via "Other" input
 
@@ -410,11 +412,15 @@ Display plan to user and ask for confirmation:
 - If Cancel selected: Exit workflow
 - Otherwise: Proceed to Question 2
 
-**Question 2: Execution Method Selection (Multi-select)**
+**Question 2: Execution Method Selection (Single-select)**
 
 Ask user to select execution method:
-- Options: "Agent Execution" / "Provide Plan" / "CLI Execution" (multi-select enabled)
-- User inputs CLI tool choice (gemini/qwen/codex) via "Other" option if "CLI Execution" selected
+- Options: "Agent" / "Codex" / "Auto" (single-select)
+  - Agent: Direct execution with @code-developer agent
+  - Codex: Execution with codex CLI tool
+  - Auto: Automatic selection based on task complexity
+    - Low complexity → Agent execution
+    - Medium/High complexity → Codex execution
 - Store selection for Phase 5 execution
 
 **Simplified AskUserQuestion Reference**:
@@ -433,16 +439,16 @@ AskUserQuestion({
   }]
 })
 
-// Question 2: Execution Method (Multi-select)
+// Question 2: Execution Method (Single-select)
 AskUserQuestion({
   questions: [{
-    question: `Select execution method (input CLI tool in Other if choosing CLI):`,
+    question: `Select execution method:`,
     header: "Execution Method",
-    multiSelect: true,
+    multiSelect: false,
     options: [
-      { label: "Agent Execution", description: "Execute with @code-developer" },
-      { label: "Provide Plan", description: "Return plan only" },
-      { label: "CLI Execution", description: "Execute with CLI tool (specify in Other)" }
+      { label: "Agent", description: "Execute with @code-developer agent" },
+      { label: "Codex", description: "Execute with codex CLI tool" },
+      { label: "Auto", description: `Auto-select: ${planObject.complexity === 'Low' ? 'Agent (Low complexity)' : 'Codex (Medium/High complexity)'}` }
     ]
   }]
 })
@@ -470,10 +476,12 @@ Task Confirmation (Multi-select):
   ├─ Modify (+ optional supplements in Other) → Re-run Phase 3 with modifications
   └─ Cancel → Exit (no execution)
 
-Execution Method Selection (Multi-select):
-  ├─ Agent Execution → Launch @code-developer
-  ├─ Provide Plan → Return plan JSON, skip execution
-  └─ CLI Execution (+ tool name in Other: gemini/qwen/codex) → Build and execute CLI command
+Execution Method Selection (Single-select):
+  ├─ Agent → Launch @code-developer agent
+  ├─ Codex → Execute with codex CLI tool
+  └─ Auto → Automatic selection:
+      ├─ If complexity = Low → Launch @code-developer agent
+      └─ If complexity = Medium/High → Execute with codex CLI tool
 
 Code Review Selection (after execution):
   ├─ No → Skip review, workflow complete
@@ -526,6 +534,11 @@ TodoWrite({
 **IMPORTANT**: CLI execution MUST run in foreground (no background execution)
 
 Based on user selection in Phase 4, execute appropriate method:
+- **Agent**: Launch @code-developer agent
+- **Codex**: Execute with codex CLI tool
+- **Auto**: Automatic selection based on complexity
+  - Low complexity → Agent execution
+  - Medium/High complexity → Codex execution
 
 #### Option A: Direct Execution with Agent
 
@@ -573,73 +586,13 @@ Based on user selection in Phase 4, execute appropriate method:
 - Mark tasks as completed when finished
 - Update TodoWrite in real-time for user visibility
 
-#### Option B: CLI Execution (Gemini/Codex/Qwen)
+#### Option B: CLI Execution (Codex)
 
 **Operations**:
-- Build CLI command with comprehensive context
-- Execute CLI tool with write permissions
+- Build codex CLI command with comprehensive context
+- Execute codex tool with write permissions
 - Monitor CLI output and update TodoWrite based on progress indicators
 - Parse CLI completion signals to mark tasks as done
-
-**Command Format (Gemini)** - Full context with exploration and clarifications:
-```bash
-gemini -p "
-PURPOSE: Implement planned tasks with full context from exploration and planning
-TASK:
-${planObject.tasks.map((t, i) => `• ${t}`).join('\n')}
-
-MODE: write
-
-CONTEXT: @**/* | Memory: Implementation plan from lite-plan workflow
-
-## Exploration Findings
-${explorationContext ? `
-Project Structure:
-${explorationContext.project_structure || 'Not available'}
-
-Relevant Files:
-${explorationContext.relevant_files?.join('\n') || 'Not specified'}
-
-Current Implementation Patterns:
-${explorationContext.patterns || 'Not analyzed'}
-
-Dependencies and Integration Points:
-${explorationContext.dependencies || 'Not specified'}
-
-Architecture Constraints:
-${explorationContext.constraints || 'None identified'}
-` : 'No exploration performed (task did not require codebase context)'}
-
-## User Clarifications
-${clarificationContext ? `
-The following clarifications were provided by the user after exploration:
-${Object.entries(clarificationContext).map(([q, a]) => `Q: ${q}\nA: ${a}`).join('\n\n')}
-` : 'No clarifications needed'}
-
-## Implementation Plan Context
-Task Summary: ${planObject.summary}
-
-Implementation Approach:
-${planObject.approach}
-
-${planObject.dependencies ? `
-Task Dependencies (execute in order):
-${planObject.dependencies.join('\n')}
-` : ''}
-
-${planObject.risks ? `
-Identified Risks:
-${planObject.risks.join('\n')}
-` : ''}
-
-Complexity Level: ${planObject.complexity}
-Estimated Time: ${planObject.estimated_time}
-
-EXPECTED: All tasks implemented following the plan approach, with proper error handling and testing
-
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow implementation approach exactly | Handle identified risks proactively | write=CREATE/MODIFY/DELETE
-" --approval-mode yolo
-```
 
 **Command Format (Codex)** - Single execution with full context:
 ```bash
@@ -677,69 +630,6 @@ Complexity: ${planObject.complexity}
 ```
 
 **Note**: Avoid `resume --last` unless task is exceptionally complex or hits timeout. Optimize task breakdown for full completion in single execution.
-
-**Command Format (Qwen)** - Full context similar to Gemini:
-```bash
-qwen -p "
-PURPOSE: Implement planned tasks with comprehensive context
-
-TASK:
-${planObject.tasks.map((t, i) => `• ${t}`).join('\n')}
-
-MODE: write
-
-CONTEXT: @**/* | Memory: Full implementation context from lite-plan
-
-## Code Exploration Results
-${explorationContext ? `
-Analyzed Project Structure:
-${explorationContext.project_structure || 'Standard structure'}
-
-Key Files to Modify:
-${explorationContext.relevant_files?.join('\n') || 'To be determined during implementation'}
-
-Existing Code Patterns:
-${explorationContext.patterns || 'Follow codebase conventions'}
-
-Dependencies:
-${explorationContext.dependencies || 'None specified'}
-
-Constraints:
-${explorationContext.constraints || 'None identified'}
-` : 'No exploration performed - analyze codebase patterns as you implement'}
-
-## Clarifications from User
-${clarificationContext ? `
-${Object.entries(clarificationContext).map(([question, answer]) => `
-Question: ${question}
-Answer: ${answer}
-`).join('\n')}
-` : 'No additional clarifications provided'}
-
-## Implementation Strategy
-Summary: ${planObject.summary}
-
-Approach:
-${planObject.approach}
-
-${planObject.dependencies ? `
-Task Order (follow sequence):
-${planObject.dependencies.join('\n')}
-` : ''}
-
-${planObject.risks ? `
-Risk Mitigation:
-${planObject.risks.join('\n')}
-` : ''}
-
-Task Complexity: ${planObject.complexity}
-Time Estimate: ${planObject.estimated_time}
-
-EXPECTED: Complete implementation with tests and proper error handling
-
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow approach strictly | Test thoroughly | write=CREATE/MODIFY/DELETE
-" --approval-mode yolo
-```
 
 **Execution with Progress Tracking**:
 ```javascript
@@ -857,11 +747,13 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
    - High complexity (6+ files): CLI planning agent with risk analysis (thorough, 50-60s)
    - Balances speed and thoroughness appropriately
 
-4. **Two-Dimensional Confirmation**: Separate task approval from execution method
+4. **Three-Dimensional Confirmation**: Comprehensive task approval and execution control
    - First dimension: Confirm/Modify/Cancel plan
-   - Second dimension: Direct execution vs CLI execution
+   - Second dimension: Execution method selection (Agent/Codex/Auto)
+   - Third dimension: Code review tool selection (No/Claude/Gemini/Qwen/Codex)
    - Allows plan refinement without re-selecting execution method
    - Supports iterative planning with user feedback
+   - Auto mode intelligently selects execution method based on complexity
 
 ### Task Management
 
@@ -922,8 +814,8 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
 | Phase 3 Planning Timeout | Planning takes > 90 seconds | Generate simplified direct plan, mark as "Quick Plan", continue to Phase 4 with reduced detail |
 | Phase 4 Confirmation Timeout | User no response > 5 minutes | Save plan context to temporary var, display resume instructions, exit gracefully |
 | Phase 4 Modification Loop | User requests modify > 3 times | Suggest breaking task into smaller pieces or using /workflow:plan for comprehensive planning |
-| Phase 5 CLI Tool Unavailable | Selected CLI tool not installed | Show installation instructions, offer to re-select (Direct execution or different CLI) |
-| Phase 5 Execution Failure | Agent/CLI crashes or errors | Display error details, save partial progress from TodoWrite, suggest manual recovery or retry |
+| Phase 5 Codex Unavailable | Codex tool not installed | Show installation instructions, offer to re-select (Agent execution or Auto mode) |
+| Phase 5 Execution Failure | Agent/Codex crashes or errors | Display error details, save partial progress from TodoWrite, suggest manual recovery or retry |
 
 ## Input/Output
 
@@ -936,7 +828,6 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
     - "Refactor logging module for better performance"
     - "Add unit tests for authentication service"
 - Flags (optional):
-  - `--tool <name>`: Preset execution tool (claude|gemini|codex|qwen)
   - `-e` or `--explore`: Force code exploration phase (overrides auto-detection)
 
 ### Output Format
@@ -952,7 +843,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
     // ... 3-7 tasks total
   ],
   complexity: "Low|Medium|High",
-  recommended_tool: "Claude|Gemini|Codex|Qwen",
+  recommended_execution: "Agent|Codex",  // Based on complexity
   estimated_time: "X minutes"
 }
 ```
