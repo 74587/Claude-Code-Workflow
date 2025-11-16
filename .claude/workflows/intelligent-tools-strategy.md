@@ -273,8 +273,11 @@ cd [directory] && gemini -p "[Standard Prompt Template]" --include-directories .
 - **Model**: `-m [model-name]` (optional, NOT recommended - Codex auto-selects best model)
   - Available: `gpt-5.1` | `gpt-5.1-codex` | `gpt-5.1-codex-mini`
   - **Best practice**: Omit `-m` parameter for optimal model selection
-- **Write Permission**: `--skip-git-repo-check -s danger-full-access` (ONLY for MODE=auto or MODE=write, placed at command END)
-- **Session Resume**: `resume --last` (placed AFTER prompt, BEFORE flags)
+- **Write Permission**: `--skip-git-repo-check -s danger-full-access`
+  - **⚠️ CRITICAL**: MUST be placed at **command END** (AFTER prompt and all other parameters)
+  - **ONLY use for**: MODE=auto or MODE=write
+  - **NEVER place before prompt** - command will fail
+- **Session Resume**: `resume --last` (placed AFTER prompt, BEFORE permission flags)
 
 **Command Examples**:
 ```bash
