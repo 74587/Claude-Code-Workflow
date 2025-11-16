@@ -21,7 +21,7 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
 - **Adaptive Planning**:
   - Simple tasks: Direct planning by current Claude
   - Complex tasks: Delegates to cli-planning-agent for detailed breakdown
-- **Three-Dimensional Confirmation**: Multi-select interaction for task approval + execution method selection + code review tool selection
+- **Two-Step Confirmation**: First display complete plan as text, then collect three-dimensional input (task approval + execution method + code review tool)
 - **Direct Execution**: Immediate dispatch to selected execution method (agent/codex/auto)
 - **Live Progress Tracking**: Real-time TodoWrite updates at execution call level ([Agent-1], [Codex-1], etc.) during execution
 - **Optional Code Review**: Post-execution quality analysis with gemini/agent or custom tools via "Other" option (e.g., qwen, codex)
@@ -72,8 +72,8 @@ User Input ("/workflow:lite-plan \"task\"")
     |
     v
 [Phase 4] Task Confirmation & Execution Selection (User interaction)
-    -> Display task breakdown and approach
-    -> AskUserQuestion: Three dimensions
+    -> Step 4.1: Output complete plan as text to user
+    -> Step 4.2: AskUserQuestion with three dimensions
        1. Confirm task: Allow/Modify/Cancel (multi-select, can supplement via Other)
        2. Execution method: Agent/Codex/Auto (single-select, auto: simple→agent, complex→codex)
        3. Code review: Skip/Gemini/Agent/Other (single-select, can specify custom tool via Other)
@@ -332,33 +332,14 @@ planObject = {
 
 ### Phase 4: Task Confirmation & Execution Selection
 
-**User Interaction Flow**: Three-dimensional multi-select confirmation
+**User Interaction Flow**: Two-step confirmation process
 
-**Operations**:
-- Display plan summary with full task breakdown
-- Collect three inputs:
-  1. Task confirmation (multi-select: Allow/Modify/Cancel + optional supplements via "Other")
-  2. Execution method (single-select: Agent/Codex/Auto)
-     - Agent: Execute with @code-developer
-     - Codex: Execute with codex CLI tool
-     - Auto: Simple tasks (Low complexity) → Agent, Complex tasks (Medium/High) → Codex
-  3. Code review tool (single-select: Skip/Gemini/Agent + custom tools via "Other")
-     - Gemini Review: Use gemini CLI for code analysis
-     - Agent Review: Use @code-reviewer agent
-     - Other: Specify custom tool (e.g., "qwen", "codex") via text input
-- Support plan supplements and custom tool specification via "Other" input
+**Step 4.1: Display Plan Summary**
 
-**Combined Three Questions in Single Call**:
-- Question 1: Display full plan + task confirmation (multi-select: Allow/Modify/Cancel)
-- Question 2: Execution method selection (single-select: Agent/Codex/Auto)
-- Question 3: Code review tool selection (single-select: Skip/Gemini/Agent, custom via "Other")
+First, output the complete plan to the user as regular text:
 
-**Combined AskUserQuestion (Single Call)**:
-```javascript
-AskUserQuestion({
-  questions: [
-    {
-      question: `## Plan Summary
+```
+## Implementation Plan
 
 **Summary**: ${planObject.summary}
 
@@ -373,10 +354,37 @@ ${planObject.risks ? `\n**Risks**:\n${planObject.risks.join('\n')}` : ''}
 
 **Complexity**: ${planObject.complexity}
 **Estimated Time**: ${planObject.estimated_time}
+**Recommended Execution**: ${planObject.recommended_execution}
+```
 
----
+**Step 4.2: Collect User Confirmation**
 
-Confirm this plan? (Multi-select enabled - you can select multiple options and add supplements via "Other")`,
+After displaying the plan, collect three inputs via AskUserQuestion:
+
+**Operations**:
+- Collect three inputs:
+  1. Task confirmation (multi-select: Allow/Modify/Cancel + optional supplements via "Other")
+  2. Execution method (single-select: Agent/Codex/Auto)
+     - Agent: Execute with @code-developer
+     - Codex: Execute with codex CLI tool
+     - Auto: Simple tasks (Low complexity) → Agent, Complex tasks (Medium/High) → Codex
+  3. Code review tool (single-select: Skip/Gemini/Agent + custom tools via "Other")
+     - Gemini Review: Use gemini CLI for code analysis
+     - Agent Review: Use @code-reviewer agent
+     - Other: Specify custom tool (e.g., "qwen", "codex") via text input
+- Support plan supplements and custom tool specification via "Other" input
+
+**Three Questions in Single AskUserQuestion Call**:
+- Question 1: Task confirmation (multi-select: Allow/Modify/Cancel)
+- Question 2: Execution method selection (single-select: Agent/Codex/Auto)
+- Question 3: Code review tool selection (single-select: Skip/Gemini/Agent, custom via "Other")
+
+**AskUserQuestion Call**:
+```javascript
+AskUserQuestion({
+  questions: [
+    {
+      question: `Confirm this plan? (Multi-select enabled - you can select multiple options and add supplements via "Other")`,
       header: "Confirm Plan",
       multiSelect: true,
       options: [
@@ -697,10 +705,14 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
    - High complexity (6+ files): CLI planning agent with risk analysis (thorough, 50-60s)
    - Balances speed and thoroughness appropriately
 
-4. **Three-Dimensional Confirmation**: Comprehensive task approval and execution control
-   - First dimension: Confirm/Modify/Cancel plan (multi-select with supplement via "Other")
-   - Second dimension: Execution method selection (Agent/Codex/Auto)
-   - Third dimension: Code review tool selection (Skip/Gemini/Agent, custom via "Other")
+4. **Two-Step Confirmation Process**: Clear plan presentation followed by comprehensive control
+   - **Step 1**: Display complete plan as readable text output (not embedded in question)
+     - Shows summary, approach, tasks, dependencies, risks, complexity, time estimate
+     - Clear separation between plan content and user interaction
+   - **Step 2**: Collect three-dimensional input via AskUserQuestion
+     - First dimension: Confirm/Modify/Cancel plan (multi-select with supplement via "Other")
+     - Second dimension: Execution method selection (Agent/Codex/Auto)
+     - Third dimension: Code review tool selection (Skip/Gemini/Agent, custom via "Other")
    - Allows plan refinement without re-selecting execution method
    - Supports iterative planning with user feedback
    - Auto mode intelligently selects execution method based on complexity
