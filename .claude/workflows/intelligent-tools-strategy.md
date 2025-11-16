@@ -33,27 +33,28 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | [
 
 ```bash
 # Gemini/Qwen
-cd [dir] && gemini -p "[prompt]" [-m model] [--approval-mode yolo]
+cd [dir] && gemini -p "[prompt]" [--approval-mode yolo]
 
 # Codex
-codex -C [dir] --full-auto exec "[prompt]" [-m model] [--skip-git-repo-check -s danger-full-access]
+codex -C [dir] --full-auto exec "[prompt]" [--skip-git-repo-check -s danger-full-access]
 ```
 
 ### Model Selection
 
 **Gemini**:
-- `gemini-2.5-pro` - Analysis (default)
-- `gemini-2.5-flash` - Documentation updates
+- `gemini-2.5-pro` - Default model (auto-selected)
+- `gemini-2.5-flash` - Fast processing
 
 **Qwen**:
-- `coder-model` - Code analysis (default)
+- `coder-model` - Default model (auto-selected)
 - `vision-model` - Image analysis (rare)
 
 **Codex**:
-- `gpt-5` - Analysis & execution (default)
-- `gpt5-codex` - Large context tasks
+- `gpt-5.1` - Default model (auto-selected)
+- `gpt-5.1-codex` - Extended capabilities
+- `gpt-5.1-codex-mini` - Lightweight tasks
 
-**Note**: `-m` parameter placed AFTER prompt
+**Note**: All tools auto-select appropriate models. `-m` parameter rarely needed; omit for best results
 
 ### Quick Decision Matrix
 
@@ -239,24 +240,26 @@ Use the **[Standard Prompt Template](#standard-prompt-template)** for all tools.
 - **Directory**: `cd [directory] &&` (navigate to target directory)
 - **Tool**: `gemini` (primary) | `qwen` (fallback)
 - **Prompt**: `-p "[Standard Prompt Template]"` (prompt BEFORE options)
-- **Model**: `-m [model-name]` (optional, placed AFTER prompt)
+- **Model**: `-m [model-name]` (optional, NOT recommended - tools auto-select best model)
   - Gemini: `gemini-2.5-pro` (default) | `gemini-2.5-flash`
   - Qwen: `coder-model` (default) | `vision-model`
+  - **Best practice**: Omit `-m` parameter for optimal model selection
+  - **Position**: If used, place AFTER `-p "prompt"`
 - **Write Permission**: `--approval-mode yolo` (ONLY for MODE=write, placed AFTER prompt)
 
 **Command Examples**:
 ```bash
 # Analysis Mode (default, read-only)
-cd [directory] && gemini -p "[Standard Prompt Template]" -m gemini-2.5-pro
+cd [directory] && gemini -p "[Standard Prompt Template]"
 
 # Write Mode (requires MODE=write in template + --approval-mode yolo)
-cd [directory] && gemini -p "[Standard Prompt Template with MODE: write]" -m gemini-2.5-flash --approval-mode yolo
+cd [directory] && gemini -p "[Standard Prompt Template with MODE: write]" --approval-mode yolo
 
 # Fallback to Qwen
-cd [directory] && qwen -p "[Standard Prompt Template]" -m coder-model
+cd [directory] && qwen -p "[Standard Prompt Template]"
 
 # Multi-directory support
-cd [directory] && gemini -p "[Standard Prompt Template]" -m gemini-2.5-pro --include-directories ../shared,../types
+cd [directory] && gemini -p "[Standard Prompt Template]" --include-directories ../shared,../types
 ```
 
 #### Codex
@@ -267,29 +270,30 @@ cd [directory] && gemini -p "[Standard Prompt Template]" -m gemini-2.5-pro --inc
 - **Directory**: `-C [directory]` (target directory parameter)
 - **Execution Mode**: `--full-auto exec` (required for autonomous execution)
 - **Prompt**: `exec "[Standard Prompt Template]"` (prompt BEFORE options)
-- **Model**: `-m [model-name]` (optional, placed AFTER prompt, BEFORE flags)
-  - `gpt-5` (default) | `gpt5-codex` (large context)
+- **Model**: `-m [model-name]` (optional, NOT recommended - Codex auto-selects best model)
+  - Available: `gpt-5.1` | `gpt-5.1-codex` | `gpt-5.1-codex-mini`
+  - **Best practice**: Omit `-m` parameter for optimal model selection
 - **Write Permission**: `--skip-git-repo-check -s danger-full-access` (ONLY for MODE=auto or MODE=write, placed at command END)
 - **Session Resume**: `resume --last` (placed AFTER prompt, BEFORE flags)
 
 **Command Examples**:
 ```bash
 # Auto Mode (requires MODE=auto in template + permission flags)
-codex -C [directory] --full-auto exec "[Standard Prompt Template with MODE: auto]" -m gpt-5 --skip-git-repo-check -s danger-full-access
+codex -C [directory] --full-auto exec "[Standard Prompt Template with MODE: auto]" --skip-git-repo-check -s danger-full-access
 
 # Write Mode (requires MODE=write in template + permission flags)
-codex -C [directory] --full-auto exec "[Standard Prompt Template with MODE: write]" -m gpt-5 --skip-git-repo-check -s danger-full-access
+codex -C [directory] --full-auto exec "[Standard Prompt Template with MODE: write]" --skip-git-repo-check -s danger-full-access
 
 # Session continuity
 # First task - MUST use full Standard Prompt Template to establish context
-codex -C project --full-auto exec "[Standard Prompt Template with MODE: auto]" -m gpt-5 --skip-git-repo-check -s danger-full-access
+codex -C project --full-auto exec "[Standard Prompt Template with MODE: auto]" --skip-git-repo-check -s danger-full-access
 
 # Subsequent tasks - Can use brief prompt ONLY when using 'resume --last'
 # (inherits full context from previous session, no need to repeat template)
 codex --full-auto exec "Add JWT refresh token validation" resume --last --skip-git-repo-check -s danger-full-access
 
 # With image attachment
-codex -C [directory] -i design.png --full-auto exec "[Standard Prompt Template]" -m gpt-5 --skip-git-repo-check -s danger-full-access
+codex -C [directory] -i design.png --full-auto exec "[Standard Prompt Template]" --skip-git-repo-check -s danger-full-access
 ```
 
 **Complete Example (Codex with full template)**:
@@ -302,7 +306,7 @@ MODE: auto
 CONTEXT: @**/* | Memory: Following security patterns from project standards
 EXPECTED: Complete auth module with tests
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow existing patterns | auto=FULL operations
-" -m gpt-5 --skip-git-repo-check -s danger-full-access
+" --skip-git-repo-check -s danger-full-access
 
 # Subsequent tasks - brief description with resume
 codex --full-auto exec "Add JWT refresh token validation" resume --last --skip-git-repo-check -s danger-full-access
@@ -344,10 +348,10 @@ Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" -m gemini-2.
 **Syntax**:
 ```bash
 # Comma-separated format
-gemini -p "prompt" -m gemini-2.5-pro --include-directories /path/to/project1,/path/to/project2
+gemini -p "prompt" --include-directories /path/to/project1,/path/to/project2
 
 # Multiple flags format
-gemini -p "prompt" -m gemini-2.5-pro --include-directories /path/to/project1 --include-directories /path/to/project2
+gemini -p "prompt" --include-directories /path/to/project1 --include-directories /path/to/project2
 
 # Recommended: cd + --include-directories
 cd src/auth && gemini -p "
@@ -357,7 +361,7 @@ MODE: analysis
 CONTEXT: @**/* @../shared/**/* @../types/**/*
 EXPECTED: Complete analysis with cross-directory dependencies
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on integration patterns | analysis=READ-ONLY
-" -m gemini-2.5-pro --include-directories ../shared,../types
+" --include-directories ../shared,../types
 ```
 
 **Best Practices**:
@@ -445,7 +449,7 @@ MODE: analysis
 CONTEXT: @components/Auth.tsx @types/auth.d.ts @hooks/useAuth.ts | Memory: Previous refactoring identified type inconsistencies, following React hooks patterns, related implementation in @hooks/useAuth.ts (commit abc123)
 EXPECTED: Comprehensive analysis report with type safety recommendations, code examples, and references to previous findings
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on type safety and component composition | analysis=READ-ONLY
-" -m gemini-2.5-pro
+"
 ```
 
 ### RULES Field Configuration
