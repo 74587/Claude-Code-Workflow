@@ -627,7 +627,7 @@ function install_global() {
     create_version_json "$global_claude_dir" "Global"
 
     # Save installation manifest
-    save_install_manifest "$manifest_file"
+    save_install_manifest "$manifest_file" "$user_home"
 
     return 0
 }
@@ -822,7 +822,7 @@ function install_path() {
     create_version_json "$global_claude_dir" "Global"
 
     # Save installation manifest
-    save_install_manifest "$manifest_file"
+    save_install_manifest "$manifest_file" "$target_dir"
 
     return 0
 }
@@ -974,8 +974,49 @@ EOF
     mv "$temp_file" "$manifest_file"
 }
 
+function remove_old_manifests_for_path() {
+    local installation_path="$1"
+
+    if [ ! -d "$MANIFEST_DIR" ]; then
+        return 0
+    fi
+
+    # Normalize paths for comparison (lowercase, remove trailing slashes)
+    local target_path=$(echo "$installation_path" | sed 's:/*$::' | tr '[:upper:]' '[:lower:]')
+    local removed_count=0
+
+    # Find and remove old manifests for the same installation path
+    while IFS= read -r -d '' file; do
+        local manifest_path=$(jq -r '.installation_path // ""' "$file" 2>/dev/null)
+
+        if [ -n "$manifest_path" ]; then
+            # Normalize manifest path
+            local normalized_manifest_path=$(echo "$manifest_path" | sed 's:/*$::' | tr '[:upper:]' '[:lower:]')
+
+            # If paths match, remove this old manifest
+            if [ "$normalized_manifest_path" = "$target_path" ]; then
+                rm -f "$file"
+                write_color "Removed old manifest: $(basename "$file")" "$COLOR_INFO"
+                ((removed_count++))
+            fi
+        fi
+    done < <(find "$MANIFEST_DIR" -name "install-*.json" -type f -print0 2>/dev/null)
+
+    if [ "$removed_count" -gt 0 ]; then
+        write_color "Removed $removed_count old manifest(s) for installation path: $installation_path" "$COLOR_SUCCESS"
+    fi
+
+    return 0
+}
+
 function save_install_manifest() {
     local manifest_file="$1"
+    local installation_path="$2"
+
+    # Remove old manifests for the same installation path
+    if [ -n "$installation_path" ]; then
+        remove_old_manifests_for_path "$installation_path"
+    fi
 
     if [ -f "$manifest_file" ]; then
         write_color "Installation manifest saved: $manifest_file" "$COLOR_SUCCESS"
@@ -1034,14 +1075,14 @@ function get_all_install_manifests() {
     fi
 
     # Collect all manifests into JSON array
-    local manifests="["
+    local all_manifests="["
     local first=true
 
     while IFS= read -r -d '' file; do
         if [ "$first" = true ]; then
             first=false
         else
-            manifests+=","
+            all_manifests+=","
         fi
 
         # Add manifest_file field
@@ -1054,12 +1095,31 @@ function get_all_install_manifests() {
         # Add counts to manifest
         manifest_content=$(echo "$manifest_content" | jq --argjson fc "$files_count" --argjson dc "$dirs_count" '. + {files_count: $fc, directories_count: $dc}')
 
-        manifests+="$manifest_content"
+        all_manifests+="$manifest_content"
     done < <(find "$MANIFEST_DIR" -name "install-*.json" -type f -print0 | sort -z)
 
-    manifests+="]"
+    all_manifests+="]"
 
-    echo "$manifests"
+    # Group by installation_path (normalized) and keep only the latest per path
+    # Use jq to process the array and keep only the latest manifest for each unique path
+    local latest_manifests=$(echo "$all_manifests" | jq '
+        # Normalize paths and add normalized_path field
+        map(. + {
+            normalized_path: (.installation_path // "" | ascii_downcase | sub("/+$"; ""))
+        })
+        # Group by normalized_path
+        | group_by(.normalized_path)
+        # For each group, sort by installation_date descending and take the first (latest)
+        | map(
+            sort_by(.installation_date) | reverse | .[0]
+        )
+        # Remove the temporary normalized_path field
+        | map(del(.normalized_path))
+        # Sort final results by installation_date descending
+        | sort_by(.installation_date) | reverse
+    ')
+
+    echo "$latest_manifests"
 }
 
 # ============================================================================

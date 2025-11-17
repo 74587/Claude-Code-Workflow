@@ -818,6 +818,56 @@ function Add-ManifestEntry {
     }
 }
 
+function Remove-OldManifestsForPath {
+    <#
+    .SYNOPSIS
+        Remove old manifest files for the same installation path
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$InstallationPath
+    )
+
+    if (-not (Test-Path $script:ManifestDir)) {
+        return
+    }
+
+    try {
+        $manifestFiles = Get-ChildItem -Path $script:ManifestDir -Filter "install-*.json" -File
+        $removedCount = 0
+
+        foreach ($file in $manifestFiles) {
+            try {
+                $manifestJson = Get-Content -Path $file.FullName -Raw -Encoding utf8
+                $manifest = $manifestJson | ConvertFrom-Json
+
+                # Normalize paths for comparison (case-insensitive, handle trailing slashes)
+                $manifestPath = if ($manifest.installation_path) {
+                    $manifest.installation_path.TrimEnd('\', '/').ToLower()
+                } else {
+                    ""
+                }
+                $targetPath = $InstallationPath.TrimEnd('\', '/').ToLower()
+
+                # If paths match, remove this old manifest
+                if ($manifestPath -eq $targetPath) {
+                    Remove-Item -Path $file.FullName -Force
+                    Write-ColorOutput "Removed old manifest: $($file.Name)" $ColorInfo
+                    $removedCount++
+                }
+            } catch {
+                Write-ColorOutput "WARNING: Failed to process manifest $($file.Name): $($_.Exception.Message)" $ColorWarning
+            }
+        }
+
+        if ($removedCount -gt 0) {
+            Write-ColorOutput "Removed $removedCount old manifest(s) for installation path: $InstallationPath" $ColorSuccess
+        }
+    } catch {
+        Write-ColorOutput "WARNING: Failed to clean old manifests: $($_.Exception.Message)" $ColorWarning
+    }
+}
+
 function Save-InstallManifest {
     <#
     .SYNOPSIS
@@ -829,6 +879,11 @@ function Save-InstallManifest {
     )
 
     try {
+        # Remove old manifests for the same installation path
+        if ($Manifest.installation_path) {
+            Remove-OldManifestsForPath -InstallationPath $Manifest.installation_path
+        }
+
         # Use manifest ID to create unique file name
         $manifestFileName = "$($Manifest.manifest_id).json"
         $manifestPath = Join-Path $script:ManifestDir $manifestFileName
@@ -901,7 +956,7 @@ function Migrate-LegacyManifest {
 function Get-AllInstallManifests {
     <#
     .SYNOPSIS
-        Get all installation manifests
+        Get all installation manifests (only latest per installation path)
     #>
 
     # Migrate legacy manifest if exists
@@ -913,7 +968,7 @@ function Get-AllInstallManifests {
 
     try {
         $manifestFiles = Get-ChildItem -Path $script:ManifestDir -Filter "install-*.json" -File | Sort-Object LastWriteTime -Descending
-        $manifests = [System.Collections.ArrayList]::new()
+        $allManifests = [System.Collections.ArrayList]::new()
 
         foreach ($file in $manifestFiles) {
             try {
@@ -957,13 +1012,52 @@ function Get-AllInstallManifests {
                     directories_count = $dirsCount
                 }
 
-                $null = $manifests.Add($manifestHash)
+                $null = $allManifests.Add($manifestHash)
             } catch {
                 Write-ColorOutput "WARNING: Failed to load manifest $($file.Name): $($_.Exception.Message)" $ColorWarning
             }
         }
 
-        return ,$manifests.ToArray()
+        # Group by installation_path (normalized) and keep only the latest per path
+        $pathGroups = @{}
+        foreach ($manifest in $allManifests) {
+            $normalizedPath = $manifest.installation_path.TrimEnd('\', '/').ToLower()
+
+            if (-not $pathGroups.ContainsKey($normalizedPath)) {
+                $pathGroups[$normalizedPath] = @()
+            }
+            $pathGroups[$normalizedPath] += $manifest
+        }
+
+        # Select the latest manifest for each path (based on installation_date)
+        $latestManifests = [System.Collections.ArrayList]::new()
+        foreach ($pathKey in $pathGroups.Keys) {
+            $groupManifests = $pathGroups[$pathKey]
+
+            # Sort by installation_date descending and take the first (latest)
+            $latest = $groupManifests | Sort-Object {
+                try {
+                    [DateTime]::Parse($_.installation_date)
+                } catch {
+                    [DateTime]::MinValue
+                }
+            } -Descending | Select-Object -First 1
+
+            if ($latest) {
+                $null = $latestManifests.Add($latest)
+            }
+        }
+
+        # Sort final results by installation_date descending
+        $sortedManifests = $latestManifests | Sort-Object {
+            try {
+                [DateTime]::Parse($_.installation_date)
+            } catch {
+                [DateTime]::MinValue
+            }
+        } -Descending
+
+        return ,$sortedManifests
     } catch {
         Write-ColorOutput "ERROR: Failed to list installation manifests: $($_.Exception.Message)" $ColorError
         return @()
