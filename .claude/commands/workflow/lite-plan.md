@@ -532,7 +532,8 @@ executionContext = {
   explorationContext: explorationContext || null,  // From Phase 1
   clarificationContext: clarificationContext || null, // From Phase 2
   executionMethod: userSelection.execution_method,    // From Phase 4
-  codeReviewTool: userSelection.code_review_tool     // From Phase 4
+  codeReviewTool: userSelection.code_review_tool,    // From Phase 4
+  originalUserInput: original_task_description        // Original user input
 }
 ```
 
@@ -550,7 +551,8 @@ executionContext = {
   explorationContext: {...} | null,
   clarificationContext: {...} | null,
   executionMethod: "Agent" | "Codex" | "Auto",
-  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string
+  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
+  originalUserInput: string  // User's original task description
 }
 ```
 

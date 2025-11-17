@@ -56,7 +56,8 @@ executionContext = {
   explorationContext: {...} | null,
   clarificationContext: {...} | null,
   executionMethod: "Agent" | "Codex" | "Auto",
-  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string
+  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
+  originalUserInput: string | null  // User's original task description
 }
 ```
 
@@ -71,10 +72,11 @@ executionContext = {
 **Input**: Simple task description (e.g., "Add unit tests for auth module")
 
 **Behavior**:
+- Store user's prompt as `originalUserInput`
 - Create simple execution plan from prompt
 - Ask user to select execution method (Agent/Codex/Auto)
 - Ask user about code review preference
-- Proceed to execution
+- Proceed to execution with `originalUserInput` included
 
 **AskUserQuestion Call**:
 ```javascript
@@ -111,11 +113,11 @@ AskUserQuestion({
 **Input**: Path to file containing task description or plan
 
 **Behavior**:
-- Read file content
+- Read file content and store as `originalUserInput`
 - Use file content as task prompt (equivalent to Mode 2)
 - Ask user to select execution method (Agent/Codex/Auto)
 - Ask user about code review preference
-- Proceed to execution
+- Proceed to execution with `originalUserInput` included
 
 **Note**: File content is treated as prompt text, no special format parsing required. Any file format can be used as long as it contains readable task description.
 
@@ -228,7 +230,9 @@ Task(
   subagent_type="code-developer",
   description="Implement planned tasks with progress tracking",
   prompt=`
-  Implement the following tasks:
+  ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
+
+  ## Implementation Plan
 
   Summary: ${planObject.summary}
 
@@ -243,15 +247,16 @@ Key outputs: ${result.keyOutputs || 'See git diff for details'}
 ${result.notes ? `Notes: ${result.notes}` : ''}
   `).join('\n---\n')}` : ''}
 
-  Implementation Approach:
+  ## Implementation Approach
   ${planObject.approach}
 
-  Code Context:
+  ## Code Context
   ${explorationContext || "No exploration performed"}
 
-  ${clarificationContext ? `\nClarifications:\n${JSON.stringify(clarificationContext, null, 2)}` : ''}
+  ${clarificationContext ? `\n## Clarifications\n${JSON.stringify(clarificationContext, null, 2)}` : ''}
 
-  IMPORTANT Instructions:
+  ## Instructions
+  - Reference the original user request above to ensure alignment with user intent
   - Review previous execution results to understand what's already completed
   - Build on previous work and avoid duplication
   - Test functionality as you go
@@ -259,6 +264,8 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
   `
 )
 ```
+
+**Note**: `originalUserInput` is the user's original prompt (Mode 2) or file content (Mode 3). For Mode 1 (--in-memory), this may be null if not provided by lite-plan.
 
 **Execution Result Collection**:
 After agent execution completes:
@@ -283,12 +290,16 @@ previousExecutionResults.push(executionResult)
 **Command Format**:
 ```bash
 codex --full-auto exec "
+${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
+
+## Implementation Plan
+
 TASK: ${planObject.summary}
 
-## Task Breakdown
+### Task Breakdown
 ${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
-${previousExecutionResults.length > 0 ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
+${previousExecutionResults.length > 0 ? `\n### Previous Execution Results\n${previousExecutionResults.map(result => `
 [${result.executionId}] ${result.status}
 Tasks: ${result.tasksSummary}
 Status: ${result.completionSummary}
@@ -299,10 +310,10 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
 IMPORTANT: Review previous results above. Build on completed work. Avoid duplication.
 ` : ''}
 
-## Implementation Approach
+### Implementation Approach
 ${planObject.approach}
 
-## Code Context from Exploration
+### Code Context from Exploration
 ${explorationContext ? `
 Project Structure: ${explorationContext.project_structure || 'Standard structure'}
 Relevant Files: ${explorationContext.relevant_files?.join(', ') || 'TBD'}
@@ -311,9 +322,10 @@ Integration Points: ${explorationContext.dependencies || 'None specified'}
 Constraints: ${explorationContext.constraints || 'None'}
 ` : 'No prior exploration - analyze codebase as needed'}
 
-${clarificationContext ? `\n## User Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `${q}: ${a}`).join('\n')}` : ''}
+${clarificationContext ? `\n### User Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `${q}: ${a}`).join('\n')}` : ''}
 
 ## Execution Instructions
+- Reference the original user request above to ensure alignment with user intent
 - Review previous execution results for context continuity
 - Build on previous work, don't duplicate completed tasks
 - Complete all assigned tasks in single execution
@@ -322,6 +334,8 @@ ${clarificationContext ? `\n## User Clarifications\n${Object.entries(clarificati
 Complexity: ${planObject.complexity}
 " --skip-git-repo-check -s danger-full-access
 ```
+
+**Note**: `originalUserInput` is the user's original prompt (Mode 2) or file content (Mode 3). For Mode 1 (--in-memory), this may be null if not provided by lite-plan.
 
 **Execution with Progress Tracking**:
 ```javascript
