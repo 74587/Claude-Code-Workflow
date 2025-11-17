@@ -434,7 +434,7 @@ ${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
 **Step 4.2: Collect User Confirmation**
 
-After displaying the plan, collect three inputs via AskUserQuestion:
+After displaying the plan, collect four inputs via AskUserQuestion:
 
 **Operations**:
 - Collect four inputs:
