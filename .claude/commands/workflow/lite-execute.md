@@ -9,17 +9,15 @@ allowed-tools: TodoWrite(*), Task(*), Bash(*)
 
 ## Overview
 
-Flexible task execution command supporting three input modes: in-memory plan (from lite-plan), direct prompt description, or file content (file input is equivalent to prompt). Handles execution orchestration, progress tracking, and optional code review.
+Flexible task execution command supporting three input modes: in-memory plan (from lite-plan), direct prompt description, or file content. Handles execution orchestration, progress tracking, and optional code review.
 
-## Core Functionality
-
-- **Multi-Mode Input**: Three ways to specify what to execute
-  - `--in-memory`: Use plan from memory (called by lite-plan)
-  - Prompt description: Direct task execution with simple planning
-  - File path: Read file content as prompt (equivalent to Mode 2)
-- **Execution Orchestration**: Launch Agent or Codex with full context
-- **Live Progress Tracking**: Real-time TodoWrite updates at execution call level
-- **Optional Code Review**: Post-execution quality analysis with selected tool
+**Core capabilities:**
+- Multi-mode input (in-memory plan, prompt description, or file path)
+- Execution orchestration (Agent or Codex) with full context
+- Live progress tracking via TodoWrite at execution call level
+- Optional code review with selected tool (Gemini, Agent, or custom)
+- Context continuity across multiple executions
+- Intelligent format detection (Enhanced Task JSON vs plain text)
 
 ## Usage
 
@@ -31,79 +29,49 @@ Flexible task execution command supporting three input modes: in-memory plan (fr
 --in-memory                Use plan from memory (called by lite-plan)
 
 # Arguments
-<input>                    Task description string, or path to file containing task description or Enhanced Task JSON (required)
+<input>                    Task description string, or path to file (required)
 ```
-
-## Data Structures
-
-### Input Data (from lite-plan)
-
-**executionContext** (Mode 1: --in-memory):
-- Passed from lite-plan via global variable
-- Contains: `planObject`, `explorationContext`, `clarificationContext`, `executionMethod`, `codeReviewTool`, `originalUserInput`
-
-**Enhanced Task JSON file parsing** (Mode 3: file input):
-- **When detected**: File is valid JSON with `meta.workflow === "lite-plan"` (exported by lite-plan)
-- **Extracted fields**: `planObject` (from `context.plan`), `explorationContext` (from `context.exploration`), `clarificationContext` (from `context.clarifications`), `originalUserInput` (from `title`)
-- **Otherwise**: File content treated as plain text prompt
-
-### Output Data (produced by lite-execute)
-
-**executionResult**:
-```javascript
-{
-  executionId: string,                 // e.g., "[Agent-1]", "[Codex-1]"
-  status: "completed" | "partial" | "failed",
-  tasksSummary: string,                // Brief description of tasks handled
-  completionSummary: string,           // What was completed
-  keyOutputs: string,                  // Files created/modified, key changes
-  notes: string                        // Any important context for next execution
-}
-```
-
-Collected after each execution call completes and appended to `previousExecutionResults` array for context continuity in multi-execution scenarios.
-
----
 
 ## Input Modes
 
-#### Mode 1: In-Memory Plan
+### Mode 1: In-Memory Plan
 
-**Trigger**: Called by lite-plan after Phase 4 approval
+**Trigger**: Called by lite-plan after Phase 4 approval with `--in-memory` flag
 
 **Input Source**: `executionContext` global variable set by lite-plan
 
-**Expected Structure**: See [executionContext](#executioncontext) in Data Structures section
+**Content**: Complete execution context (see Data Structures section)
 
 **Behavior**:
-- Skip execution method selection (already set)
+- Skip execution method selection (already set by lite-plan)
 - Directly proceed to execution with full context
+- All planning artifacts available (exploration, clarifications, plan)
 
-#### Mode 2: Prompt Description
+### Mode 2: Prompt Description
 
 **Trigger**: User calls with task description string
 
 **Input**: Simple task description (e.g., "Add unit tests for auth module")
 
 **Behavior**:
-- Store user's prompt as `originalUserInput`
+- Store prompt as `originalUserInput`
 - Create simple execution plan from prompt
-- Ask user to select execution method (Agent/Codex/Auto)
-- Ask user about code review preference
+- AskUserQuestion: Select execution method (Agent/Codex/Auto)
+- AskUserQuestion: Select code review tool (Skip/Gemini/Agent/Other)
 - Proceed to execution with `originalUserInput` included
 
-**AskUserQuestion Call**:
+**User Interaction**:
 ```javascript
 AskUserQuestion({
   questions: [
     {
-      question: "Select execution method for this task:",
+      question: "Select execution method:",
       header: "Execution",
       multiSelect: false,
       options: [
-        { label: "Agent", description: "Execute with @code-developer agent" },
-        { label: "Codex", description: "Execute with codex CLI tool" },
-        { label: "Auto", description: "Auto-select based on task complexity" }
+        { label: "Agent", description: "@code-developer agent" },
+        { label: "Codex", description: "codex CLI tool" },
+        { label: "Auto", description: "Auto-select based on complexity" }
       ]
     },
     {
@@ -111,34 +79,33 @@ AskUserQuestion({
       header: "Code Review",
       multiSelect: false,
       options: [
-        { label: "Skip", description: "No review needed" },
-        { label: "Gemini Review", description: "Review with Gemini CLI tool" },
-        { label: "Agent Review", description: "Review with current agent" }
+        { label: "Skip", description: "No review" },
+        { label: "Gemini Review", description: "Gemini CLI tool" },
+        { label: "Agent Review", description: "Current agent review" }
       ]
     }
   ]
 })
 ```
 
-#### Mode 3: File Content
+### Mode 3: File Content
 
 **Trigger**: User calls with file path
 
-**Input**: Path to file containing task description, plan, or Enhanced Task JSON
+**Input**: Path to file containing task description or Enhanced Task JSON
 
-**Behavior**:
+**Step 1: Read and Detect Format**
 
-**Step 3.1: Read and Detect File Format**
 ```javascript
 fileContent = Read(filePath)
 
-// Attempt to parse as JSON
+// Attempt JSON parsing
 try {
   jsonData = JSON.parse(fileContent)
 
-  // Check if it's Enhanced Task JSON from lite-plan
+  // Check if Enhanced Task JSON from lite-plan
   if (jsonData.meta?.workflow === "lite-plan") {
-    // Extract plan data from Enhanced Task JSON
+    // Extract plan data
     planObject = {
       summary: jsonData.context.plan.summary,
       approach: jsonData.context.plan.approach,
@@ -149,9 +116,8 @@ try {
     }
     explorationContext = jsonData.context.exploration || null
     clarificationContext = jsonData.context.clarifications || null
-    originalUserInput = jsonData.title  // Original task description
+    originalUserInput = jsonData.title
 
-    // Set detected format flag
     isEnhancedTaskJson = true
   } else {
     // Valid JSON but not Enhanced Task JSON - treat as plain text
@@ -165,7 +131,7 @@ try {
 }
 ```
 
-**Step 3.2: Create Execution Plan**
+**Step 2: Create Execution Plan**
 
 If `isEnhancedTaskJson === true`:
 - Use extracted `planObject` directly
@@ -173,41 +139,29 @@ If `isEnhancedTaskJson === true`:
 - User still selects execution method and code review
 
 If `isEnhancedTaskJson === false`:
-- Create simple execution plan from file content (treated as prompt)
-- Same behavior as Mode 2
+- Treat file content as prompt (same behavior as Mode 2)
+- Create simple execution plan from content
 
-**Step 3.3: User Interaction**
-- Ask user to select execution method (Agent/Codex/Auto)
-- Ask user about code review preference
+**Step 3: User Interaction**
+
+- AskUserQuestion: Select execution method (Agent/Codex/Auto)
+- AskUserQuestion: Select code review tool
 - Proceed to execution with full context
-
-**Note**:
-- Enhanced Task JSON format from lite-plan is automatically recognized and parsed
-- Other file formats (plain text, markdown, etc.) are treated as prompts
-- All extracted data stored in `originalUserInput` for execution reference
 
 ## Execution Process
 
 ### Workflow Overview
 
 ```
-Input Processing
+Input Processing → Mode Detection
     |
     v
-[Mode Detection]
-    ├─ --in-memory → Load from executionContext variable
-    ├─ File path → Read and detect format
-    │   ├─ Enhanced Task JSON (lite-plan export) → Extract plan data
-    │   └─ Plain text/other → Use as prompt
-    └─ String → Use as prompt directly
+[Mode 1] --in-memory: Load executionContext → Skip selection
+[Mode 2] Prompt: Create plan → User selects method + review
+[Mode 3] File: Detect format → Extract plan OR treat as prompt → User selects
     |
     v
-[Execution Method Selection]
-    ├─ --in-memory: Already set (skip)
-    └─ Others (file/prompt): AskUserQuestion for method + review
-    |
-    v
-[Execution & Progress Tracking]
+Execution & Progress Tracking
     ├─ Step 1: Initialize execution tracking
     ├─ Step 2: Create TodoWrite execution list
     ├─ Step 3: Launch execution (Agent or Codex)
@@ -224,7 +178,7 @@ Execution Complete
 
 **Operations**:
 - Initialize result tracking for multi-execution scenarios
-- Set up previousExecutionResults array
+- Set up `previousExecutionResults` array for context continuity
 
 ```javascript
 // Initialize result tracking
@@ -236,15 +190,14 @@ previousExecutionResults = []
 **Operations**:
 - Create execution tracking from task list
 - Typically single execution call for all tasks
-- May split into multiple calls if task list is very large (>10 tasks)
+- Split into multiple calls if task list very large (>10 tasks)
 
+**Execution Call Creation**:
 ```javascript
-// Function to create execution calls from structured task objects
 function createExecutionCalls(tasks) {
-  // For structured task objects, create summary from task titles
-  const taskTitles = tasks.map(t => t.title || t)  // Support both old and new format
+  const taskTitles = tasks.map(t => t.title || t)
 
-  // Single execution call for all tasks (most common)
+  // Single call for ≤10 tasks (most common)
   if (tasks.length <= 10) {
     return [{
       method: executionMethod === "Codex" ? "Codex" : "Agent",
@@ -255,7 +208,7 @@ function createExecutionCalls(tasks) {
     }]
   }
 
-  // Split into multiple calls for large task sets (>10 tasks)
+  // Split into multiple calls for >10 tasks
   const callSize = 5
   const calls = []
   for (let i = 0; i < tasks.length; i += callSize) {
@@ -263,20 +216,20 @@ function createExecutionCalls(tasks) {
     const batchTitles = batchTasks.map(t => t.title || t)
     calls.push({
       method: executionMethod === "Codex" ? "Codex" : "Agent",
-      taskSummary: `Tasks ${i + 1}-${Math.min(i + callSize, tasks.length)}: ${batchTitles[0]}${batchTitles.length > 1 ? ', ...' : ''}`,
+      taskSummary: `Tasks ${i + 1}-${Math.min(i + callSize, tasks.length)}: ${batchTitles[0]}...`,
       tasks: batchTasks
     })
   }
   return calls
 }
 
-// Create execution calls (usually 1-2 calls total)
+// Create execution calls with IDs
 executionCalls = createExecutionCalls(planObject.tasks).map((call, index) => ({
   ...call,
-  id: `[${call.method}-${index+1}]`  // Store ID for result collection
+  id: `[${call.method}-${index+1}]`
 }))
 
-// Create TodoWrite execution list
+// Create TodoWrite list
 TodoWrite({
   todos: executionCalls.map(call => ({
     content: `${call.id} (${call.taskSummary})`,
@@ -286,20 +239,17 @@ TodoWrite({
 })
 ```
 
-**Example Execution List**:
+**Example Execution Lists**:
 ```
-[ ] [Agent-1] (Create AuthService, Add JWT utilities, Implement auth middleware)
-```
+Single call (typical):
+[ ] [Agent-1] (Create AuthService, Add JWT utilities, Implement middleware)
 
-Or for large task sets (>10 tasks):
-```
-[ ] [Agent-1] (Tasks 1-5: Create AuthService, Add JWT utilities, ...)
-[ ] [Agent-2] (Tasks 6-10: Create tests, Update documentation, ...)
-```
-
-Or when only a few tasks:
-```
+Few tasks:
 [ ] [Codex-1] (Create AuthService, Add JWT utilities, and 3 more)
+
+Large task sets (>10):
+[ ] [Agent-1] (Tasks 1-5: Create AuthService, Add JWT utilities, ...)
+[ ] [Agent-2] (Tasks 6-10: Create tests, Update docs, ...)
 ```
 
 ### Step 3: Launch Execution
@@ -308,28 +258,24 @@ Or when only a few tasks:
 
 **Execution Loop**:
 ```javascript
-// Execute each call in the execution list sequentially
 for (currentIndex = 0; currentIndex < executionCalls.length; currentIndex++) {
   const currentCall = executionCalls[currentIndex]
 
-  // Update TodoWrite: mark current call as in_progress
+  // Update TodoWrite: mark current call in_progress
   // Launch execution with previousExecutionResults context
-  // After completion, collect result and add to previousExecutionResults
-  // Update TodoWrite: mark current call as completed
+  // After completion: collect result, add to previousExecutionResults
+  // Update TodoWrite: mark current call completed
 }
 ```
 
-Based on execution method selection, launch appropriate execution:
+**Option A: Agent Execution**
 
-#### Option A: Agent Execution
+When to use:
+- `executionMethod = "Agent"`
+- `executionMethod = "Auto" AND complexity = "Low"`
 
-**When to use**:
-- executionMethod = "Agent"
-- executionMethod = "Auto" AND complexity = "Low"
-
-**Agent Call**:
+Agent call format:
 ```javascript
-// Format structured task objects for display
 function formatTaskForAgent(task, index) {
   return `
 ### Task ${index + 1}: ${task.title}
@@ -352,14 +298,13 @@ ${task.acceptance.map((criterion, i) => `${i + 1}. ${criterion}`).join('\n')}
 
 Task(
   subagent_type="code-developer",
-  description="Implement planned tasks with progress tracking",
+  description="Implement planned tasks",
   prompt=`
   ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
 
   ## Implementation Plan
 
   **Summary**: ${planObject.summary}
-
   **Approach**: ${planObject.approach}
 
   ## Task Breakdown (${planObject.tasks.length} tasks)
@@ -367,9 +312,9 @@ Task(
 
   ${previousExecutionResults.length > 0 ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
 [${result.executionId}] ${result.status}
-Tasks handled: ${result.tasksSummary}
-Completion status: ${result.completionSummary}
-Key outputs: ${result.keyOutputs || 'See git diff for details'}
+Tasks: ${result.tasksSummary}
+Completion: ${result.completionSummary}
+Outputs: ${result.keyOutputs || 'See git diff'}
 ${result.notes ? `Notes: ${result.notes}` : ''}
   `).join('\n---\n')}` : ''}
 
@@ -379,28 +324,25 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
   ${clarificationContext ? `\n## Clarifications\n${JSON.stringify(clarificationContext, null, 2)}` : ''}
 
   ## Instructions
-  - Reference the original user request above to ensure alignment with user intent
-  - Review previous execution results to understand what's already completed
-  - Build on previous work and avoid duplication
-  - Test functionality as you go
-  - Complete all tasks listed above
+  - Reference original request to ensure alignment
+  - Review previous results to understand completed work
+  - Build on previous work, avoid duplication
+  - Test functionality as you implement
+  - Complete all assigned tasks
   `
 )
 ```
 
-**Note**: `originalUserInput` is the user's original prompt (Mode 2), file content (Mode 3 plain text), or task title (Mode 3 Enhanced Task JSON). For Mode 1 (--in-memory), this may be null if not provided by lite-plan.
+**Result Collection**: After completion, collect result following `executionResult` structure (see Data Structures section)
 
-**Execution Result Collection**: After agent execution completes, collect result following [executionResult](#executionresult) structure in Data Structures section and append to `previousExecutionResults` array
+**Option B: CLI Execution (Codex)**
 
-#### Option B: CLI Execution (Codex)
+When to use:
+- `executionMethod = "Codex"`
+- `executionMethod = "Auto" AND complexity = "Medium" or "High"`
 
-**When to use**:
-- executionMethod = "Codex"
-- executionMethod = "Auto" AND complexity = "Medium" or "High"
-
-**Command Format**:
+Command format:
 ```bash
-# Format structured task objects for Codex
 function formatTaskForCodex(task, index) {
   return `
 ${index + 1}. ${task.title} (${task.file})
@@ -421,7 +363,6 @@ ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
 ## Implementation Plan
 
 TASK: ${planObject.summary}
-
 APPROACH: ${planObject.approach}
 
 ### Task Breakdown (${planObject.tasks.length} tasks)
@@ -435,7 +376,7 @@ Outputs: ${result.keyOutputs || 'See git diff'}
 ${result.notes ? `Notes: ${result.notes}` : ''}
 `).join('\n---\n')}
 
-IMPORTANT: Review previous results above. Build on completed work. Avoid duplication.
+IMPORTANT: Review previous results. Build on completed work. Avoid duplication.
 ` : ''}
 
 ### Code Context from Exploration
@@ -450,8 +391,8 @@ Constraints: ${explorationContext.constraints || 'None'}
 ${clarificationContext ? `\n### User Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `${q}: ${a}`).join('\n')}` : ''}
 
 ## Execution Instructions
-- Reference the original user request above to ensure alignment with user intent
-- Review previous execution results for context continuity
+- Reference original request to ensure alignment
+- Review previous results for context continuity
 - Build on previous work, don't duplicate completed tasks
 - Complete all assigned tasks in single execution
 - Test functionality as you implement
@@ -460,9 +401,7 @@ Complexity: ${planObject.complexity}
 " --skip-git-repo-check -s danger-full-access
 ```
 
-**Note**: `originalUserInput` is the user's original prompt (Mode 2), file content (Mode 3 plain text), or task title (Mode 3 Enhanced Task JSON). For Mode 1 (--in-memory), this may be null if not provided by lite-plan.
-
-**Execution with Progress Tracking**:
+**Execution with tracking**:
 ```javascript
 // Launch CLI in foreground (NOT background)
 bash_result = Bash(
@@ -470,83 +409,76 @@ bash_result = Bash(
   timeout=600000  // 10 minutes
 )
 
-// Update TodoWrite when CLI execution call completes
+// Update TodoWrite when execution completes
 ```
 
-**Execution Result Collection**: After CLI execution completes, analyze output and collect result following [executionResult](#executionresult) structure in Data Structures section
+**Result Collection**: After completion, analyze output and collect result following `executionResult` structure
 
 ### Step 4: Track Execution Progress
 
-**Real-time TodoWrite Updates**:
-
-Track at **execution call level** (not individual tasks):
+**Real-time TodoWrite Updates** at execution call level:
 
 ```javascript
-// When execution call starts
+// When call starts
 TodoWrite({
   todos: [
-    { content: "[Agent-1] (Implement auth service + Create JWT utilities)", status: "in_progress", activeForm: "Executing [Agent-1] (Implement auth service + Create JWT utilities)" },
-    { content: "[Agent-2] (Add middleware + Update routes)", status: "pending", activeForm: "Executing [Agent-2] (Add middleware + Update routes)" },
-    { content: "[Codex-1] (Add integration tests)", status: "pending", activeForm: "Executing [Codex-1] (Add integration tests)" }
+    { content: "[Agent-1] (Implement auth + Create JWT utils)", status: "in_progress", activeForm: "..." },
+    { content: "[Agent-2] (Add middleware + Update routes)", status: "pending", activeForm: "..." }
   ]
 })
 
-// When execution call completes
+// When call completes
 TodoWrite({
   todos: [
-    { content: "[Agent-1] (Implement auth service + Create JWT utilities)", status: "completed", activeForm: "Executing [Agent-1] (Implement auth service + Create JWT utilities)" },
-    { content: "[Agent-2] (Add middleware + Update routes)", status: "in_progress", activeForm: "Executing [Agent-2] (Add middleware + Update routes)" },
-    { content: "[Codex-1] (Add integration tests)", status: "pending", activeForm: "Executing [Codex-1] (Add integration tests)" }
+    { content: "[Agent-1] (Implement auth + Create JWT utils)", status: "completed", activeForm: "..." },
+    { content: "[Agent-2] (Add middleware + Update routes)", status: "in_progress", activeForm: "..." }
   ]
 })
 ```
 
 **User Visibility**:
-- User sees **execution call progress** (not individual task progress)
+- User sees execution call progress (not individual task progress)
 - Current execution highlighted as "in_progress"
 - Completed executions marked with checkmark
-- Pending executions remain unchecked
-- Each execution shows **task summary** for context
+- Each execution shows task summary for context
 
 ### Step 5: Code Review (Optional)
 
-**Skip Condition**: Only run if codeReviewTool ≠ "Skip"
+**Skip Condition**: Only run if `codeReviewTool ≠ "Skip"`
 
 **Operations**:
-- If "Agent Review": Current agent performs direct code review analysis
-- If "Gemini Review": Execute gemini CLI with code review analysis prompt
-- If custom tool (via "Other"): Execute specified CLI tool (e.g., qwen, codex)
-- Review all modified files from execution
-- Generate quality assessment and improvement recommendations
+- Agent Review: Current agent performs direct review
+- Gemini Review: Execute gemini CLI with review prompt
+- Custom tool: Execute specified CLI tool (qwen, codex, etc.)
 
-**Command Format**:
+**Command Formats**:
 
 ```bash
-# Agent Review: Direct agent review (no CLI command needed)
+# Agent Review: Direct agent review (no CLI)
 # Uses analysis prompt and TodoWrite tools directly
 
 # Gemini Review:
 gemini -p "
 PURPOSE: Code review for implemented changes
-TASK: • Analyze code quality • Identify potential issues • Suggest improvements
+TASK: • Analyze quality • Identify issues • Suggest improvements
 MODE: analysis
-CONTEXT: @**/* | Memory: Review changes from lite-execute execution
-EXPECTED: Quality assessment with actionable recommendations
+CONTEXT: @**/* | Memory: Review lite-execute changes
+EXPECTED: Quality assessment with recommendations
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes | analysis=READ-ONLY
 "
 
 # Qwen Review (custom tool via "Other"):
 qwen -p "
 PURPOSE: Code review for implemented changes
-TASK: • Analyze code quality • Identify potential issues • Suggest improvements
+TASK: • Analyze quality • Identify issues • Suggest improvements
 MODE: analysis
-CONTEXT: @**/* | Memory: Review changes from lite-execute execution
-EXPECTED: Quality assessment with actionable recommendations
+CONTEXT: @**/* | Memory: Review lite-execute changes
+EXPECTED: Quality assessment with recommendations
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes | analysis=READ-ONLY
 "
 
 # Codex Review (custom tool via "Other"):
-codex --full-auto exec "Review the recent code changes for quality, potential issues, and improvements" --skip-git-repo-check -s danger-full-access
+codex --full-auto exec "Review recent code changes for quality, potential issues, and improvements" --skip-git-repo-check -s danger-full-access
 ```
 
 ## Best Practices
@@ -563,12 +495,12 @@ codex --full-auto exec "Review the recent code changes for quality, potential is
    - Clear visibility of current execution
    - Simple progress updates
 
-3. **Flexible Execution**: Supports multiple input modes
-   - In-memory: Seamless integration with lite-plan
+3. **Flexible Execution**: Multiple input modes supported
+   - In-memory: Seamless lite-plan integration
    - Prompt: Quick standalone execution
    - File: Intelligent format detection
-     - Enhanced Task JSON (lite-plan export): Extracts full plan context
-     - Plain text: Uses as prompt for execution
+     - Enhanced Task JSON (lite-plan export): Full plan extraction
+     - Plain text: Uses as prompt
 
 ### Task Management
 
@@ -578,19 +510,59 @@ codex --full-auto exec "Review the recent code changes for quality, potential is
    - Clear completion status
 
 2. **Simple Execution**: Straightforward task handling
-   - All tasks in single execution call (typical)
-   - Split only for very large task sets (>10 tasks)
+   - All tasks in single call (typical)
+   - Split only for very large task sets (>10)
    - Agent/Codex determines optimal execution order
 
 ## Error Handling
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Missing executionContext | --in-memory called without context | Display error: "No execution context found. This mode is only available when called by lite-plan." |
-| File not found | File path doesn't exist | Display error: "File not found: {path}. Please check the file path." |
-| Empty file | File exists but has no content | Display error: "File is empty: {path}. Please provide task description." |
-| Invalid Enhanced Task JSON | JSON parsing succeeds but missing required fields | Display warning: "File appears to be Enhanced Task JSON but missing required fields. Treating as plain text prompt." |
-| Malformed JSON | JSON parsing fails | Treat as plain text prompt, no error displayed (expected behavior for non-JSON files) |
-| Execution failure | Agent/Codex crashes or errors | Display error details, save partial progress, suggest retry |
-| Codex unavailable | Codex tool not installed | Show installation instructions, offer Agent execution |
+| Missing executionContext | --in-memory without context | Error: "No execution context found. Only available when called by lite-plan." |
+| File not found | File path doesn't exist | Error: "File not found: {path}. Check file path." |
+| Empty file | File exists but no content | Error: "File is empty: {path}. Provide task description." |
+| Invalid Enhanced Task JSON | JSON missing required fields | Warning: "Missing required fields. Treating as plain text." |
+| Malformed JSON | JSON parsing fails | Treat as plain text (expected for non-JSON files) |
+| Execution failure | Agent/Codex crashes | Display error, save partial progress, suggest retry |
+| Codex unavailable | Codex not installed | Show installation instructions, offer Agent execution |
 
+## Data Structures
+
+### executionContext (Input - Mode 1)
+
+Passed from lite-plan via global variable:
+
+```javascript
+{
+  planObject: {
+    summary: string,
+    approach: string,
+    tasks: [...],
+    estimated_time: string,
+    recommended_execution: string,
+    complexity: string
+  },
+  explorationContext: {...} | null,
+  clarificationContext: {...} | null,
+  executionMethod: "Agent" | "Codex" | "Auto",
+  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
+  originalUserInput: string
+}
+```
+
+### executionResult (Output)
+
+Collected after each execution call completes:
+
+```javascript
+{
+  executionId: string,                 // e.g., "[Agent-1]", "[Codex-1]"
+  status: "completed" | "partial" | "failed",
+  tasksSummary: string,                // Brief description of tasks handled
+  completionSummary: string,           // What was completed
+  keyOutputs: string,                  // Files created/modified, key changes
+  notes: string                        // Important context for next execution
+}
+```
+
+Appended to `previousExecutionResults` array for context continuity in multi-execution scenarios.
