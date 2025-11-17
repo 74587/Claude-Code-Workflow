@@ -47,15 +47,6 @@ Clear description of what this command does and its purpose.
 <arg2>         Description (optional)
 ```
 
-### Usage Examples
-```bash
-# Basic usage
-/category:command-name arg1
-
-# With flags
-/category:command-name --flag1 --flag2 arg1
-```
-
 ## Execution Process
 
 ### Step 1: Step Name

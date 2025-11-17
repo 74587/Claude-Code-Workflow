@@ -3,8 +3,6 @@ name: lite-plan
 description: Lightweight interactive planning workflow with in-memory planning, code exploration, and execution dispatch to lite-execute after user confirmation
 argument-hint: "[-e|--explore] \"task description\"|file.md"
 allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*)
-timeout: 180000
-color: cyan
 ---
 
 # Workflow Lite-Plan Command (/workflow:lite-plan)
