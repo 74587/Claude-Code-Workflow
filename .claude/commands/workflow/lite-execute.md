@@ -239,6 +239,37 @@ previousExecutionResults = []
 - May split into multiple calls if task list is very large (>10 tasks)
 
 ```javascript
+// Function to create execution calls from structured task objects
+function createExecutionCalls(tasks) {
+  // For structured task objects, create summary from task titles
+  const taskTitles = tasks.map(t => t.title || t)  // Support both old and new format
+
+  // Single execution call for all tasks (most common)
+  if (tasks.length <= 10) {
+    return [{
+      method: executionMethod === "Codex" ? "Codex" : "Agent",
+      taskSummary: taskTitles.length <= 3
+        ? taskTitles.join(', ')
+        : `${taskTitles.slice(0, 2).join(', ')}, and ${taskTitles.length - 2} more`,
+      tasks: tasks
+    }]
+  }
+
+  // Split into multiple calls for large task sets (>10 tasks)
+  const callSize = 5
+  const calls = []
+  for (let i = 0; i < tasks.length; i += callSize) {
+    const batchTasks = tasks.slice(i, i + callSize)
+    const batchTitles = batchTasks.map(t => t.title || t)
+    calls.push({
+      method: executionMethod === "Codex" ? "Codex" : "Agent",
+      taskSummary: `Tasks ${i + 1}-${Math.min(i + callSize, tasks.length)}: ${batchTitles[0]}${batchTitles.length > 1 ? ', ...' : ''}`,
+      tasks: batchTasks
+    })
+  }
+  return calls
+}
+
 // Create execution calls (usually 1-2 calls total)
 executionCalls = createExecutionCalls(planObject.tasks).map((call, index) => ({
   ...call,
@@ -257,13 +288,18 @@ TodoWrite({
 
 **Example Execution List**:
 ```
-[ ] [Agent-1] (Implement all planned tasks)
+[ ] [Agent-1] (Create AuthService, Add JWT utilities, Implement auth middleware)
 ```
 
-Or for large task sets:
+Or for large task sets (>10 tasks):
 ```
-[ ] [Agent-1] (Tasks 1-5: Core implementation)
-[ ] [Agent-2] (Tasks 6-10: Tests and documentation)
+[ ] [Agent-1] (Tasks 1-5: Create AuthService, Add JWT utilities, ...)
+[ ] [Agent-2] (Tasks 6-10: Create tests, Update documentation, ...)
+```
+
+Or when only a few tasks:
+```
+[ ] [Codex-1] (Create AuthService, Add JWT utilities, and 3 more)
 ```
 
 ### Step 3: Launch Execution
@@ -293,6 +329,27 @@ Based on execution method selection, launch appropriate execution:
 
 **Agent Call**:
 ```javascript
+// Format structured task objects for display
+function formatTaskForAgent(task, index) {
+  return `
+### Task ${index + 1}: ${task.title}
+**File**: ${task.file}
+**Action**: ${task.action}
+**Description**: ${task.description}
+
+**Implementation Steps**:
+${task.implementation.map((step, i) => `${i + 1}. ${step}`).join('\n')}
+
+**Reference**:
+- Pattern: ${task.reference.pattern}
+- Example Files: ${task.reference.files.join(', ')}
+- Guidance: ${task.reference.examples}
+
+**Acceptance Criteria**:
+${task.acceptance.map((criterion, i) => `${i + 1}. ${criterion}`).join('\n')}
+`
+}
+
 Task(
   subagent_type="code-developer",
   description="Implement planned tasks with progress tracking",
@@ -301,10 +358,12 @@ Task(
 
   ## Implementation Plan
 
-  Summary: ${planObject.summary}
+  **Summary**: ${planObject.summary}
 
-  Task Breakdown:
-  ${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
+  **Approach**: ${planObject.approach}
+
+  ## Task Breakdown (${planObject.tasks.length} tasks)
+  ${planObject.tasks.map((task, i) => formatTaskForAgent(task, i)).join('\n')}
 
   ${previousExecutionResults.length > 0 ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
 [${result.executionId}] ${result.status}
@@ -313,9 +372,6 @@ Completion status: ${result.completionSummary}
 Key outputs: ${result.keyOutputs || 'See git diff for details'}
 ${result.notes ? `Notes: ${result.notes}` : ''}
   `).join('\n---\n')}` : ''}
-
-  ## Implementation Approach
-  ${planObject.approach}
 
   ## Code Context
   ${explorationContext || "No exploration performed"}
@@ -344,6 +400,21 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
 
 **Command Format**:
 ```bash
+# Format structured task objects for Codex
+function formatTaskForCodex(task, index) {
+  return `
+${index + 1}. ${task.title} (${task.file})
+   Action: ${task.action}
+   What: ${task.description}
+   How:
+${task.implementation.map((step, i) => `   ${i + 1}. ${step}`).join('\n')}
+   Reference: ${task.reference.pattern} (see ${task.reference.files.join(', ')})
+   Guidance: ${task.reference.examples}
+   Verify:
+${task.acceptance.map((criterion, i) => `   - ${criterion}`).join('\n')}
+`
+}
+
 codex --full-auto exec "
 ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
 
@@ -351,8 +422,10 @@ ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
 
 TASK: ${planObject.summary}
 
-### Task Breakdown
-${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
+APPROACH: ${planObject.approach}
+
+### Task Breakdown (${planObject.tasks.length} tasks)
+${planObject.tasks.map((task, i) => formatTaskForCodex(task, i)).join('\n')}
 
 ${previousExecutionResults.length > 0 ? `\n### Previous Execution Results\n${previousExecutionResults.map(result => `
 [${result.executionId}] ${result.status}
@@ -364,9 +437,6 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
 
 IMPORTANT: Review previous results above. Build on completed work. Avoid duplication.
 ` : ''}
-
-### Implementation Approach
-${planObject.approach}
 
 ### Code Context from Exploration
 ${explorationContext ? `

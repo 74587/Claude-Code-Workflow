@@ -468,42 +468,6 @@ See: `.process/iteration-{iteration}-cli-output.txt`
 }
 ```
 
-## Integration with test-cycle-execute
-
-**Orchestrator Call Pattern**:
-```javascript
-// When pass_rate < 95%
-Task(
-  subagent_type="cli-planning-agent",
-  description=`Analyze test failures and generate fix task (iteration ${iteration})`,
-  prompt=`
-    ## Context Package
-    ${JSON.stringify(contextPackage, null, 2)}
-
-    ## Your Task
-    1. Execute CLI analysis using ${cli_config.tool}
-    2. Parse CLI output and extract fix strategy
-    3. Generate IMPL-fix-${iteration}.json with structured task definition
-    4. Save analysis report to .process/iteration-${iteration}-analysis.md
-    5. Report success and task ID back to orchestrator
-  `
-)
-```
-
-**Agent Response**:
-```javascript
-{
-  "status": "success",
-  "task_id": "IMPL-fix-{iteration}",
-  "task_path": ".workflow/{session}/.task/IMPL-fix-{iteration}.json",
-  "analysis_report": ".process/iteration-{iteration}-analysis.md",
-  "cli_output": ".process/iteration-{iteration}-cli-output.txt",
-  "summary": "{fix_strategy.approach first 100 chars}",
-  "modification_points_count": {count},
-  "estimated_complexity": "low|medium|high"
-}
-```
-
 ## Example Execution
 
 **Input Context**:
@@ -550,4 +514,16 @@ Task(
    - fix_strategy.quality_assurance: {avoids_symptom_fix: true, addresses_root_cause: true}
    - **NO failure_context object** - full context available via analysis_report reference
 5. Save: iteration-1-analysis.md with full CLI output, layer context, failed_tests details, previous_attempts
-6. Return: task_id="IMPL-fix-1", test_layer="integration", status="success"
+6. **Return**:
+   ```javascript
+   {
+     status: "success",
+     task_id: "IMPL-fix-1",
+     task_path: ".workflow/WFS-test-session-001/.task/IMPL-fix-1.json",
+     analysis_report: ".process/iteration-1-analysis.md",
+     cli_output: ".process/iteration-1-cli-output.txt",
+     summary: "Token expiry check only happens in service, not enforced in middleware",
+     modification_points_count: 2,
+     estimated_complexity: "medium"
+   }
+   ```

@@ -513,37 +513,19 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-
    - Use Gemini semantic analysis as tiebreaker
    - Document uncertainty in report with attribution
 
-## Integration with Other Agents
+## Available Tools & Services
 
-### As Service Provider (Called by Others)
-
-**Planning Agents** (`action-planning-agent`, `conceptual-planning-agent`):
-- **Use Case**: Pre-planning reconnaissance to understand existing code
-- **Input**: Task description + focus areas
-- **Output**: Structural overview + dependency analysis
-- **Flow**: Planning agent → CLI explore agent (quick-scan) → Context for planning
-
-**Execution Agents** (`code-developer`, `cli-execution-agent`):
-- **Use Case**: Refactoring impact analysis before code modifications
-- **Input**: Target files/functions to modify
-- **Output**: Dependency map + risk assessment
-- **Flow**: Execution agent → CLI explore agent (dependency-map) → Safe modification strategy
-
-**UI Design Agent** (`ui-design-agent`):
-- **Use Case**: Discover existing UI components and design tokens
-- **Input**: Component directory + file patterns
-- **Output**: Component inventory + styling patterns
-- **Flow**: UI agent delegates structure analysis to CLI explore agent
-
-### As Consumer (Calls Others)
+This agent can leverage the following tools to enhance analysis:
 
 **Context Search Agent** (`context-search-agent`):
 - **Use Case**: Get project-wide context before analysis
-- **Flow**: CLI explore agent → Context search agent → Enhanced analysis with full context
+- **When to use**: Need comprehensive project understanding beyond file structure
+- **Integration**: Call context-search-agent first, then use results to guide exploration
 
-**MCP Tools**:
+**MCP Tools** (Code Index):
 - **Use Case**: Enhanced file discovery and search capabilities
-- **Flow**: CLI explore agent → Code Index MCP → Faster pattern discovery
+- **When to use**: Large codebases requiring fast pattern discovery
+- **Integration**: Prefer Code Index MCP when available, fallback to rg/bash tools
 
 ## Key Reminders
 

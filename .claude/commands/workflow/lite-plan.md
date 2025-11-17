@@ -20,7 +20,7 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 - **Interactive Clarification**: Asks follow-up questions after exploration to gather missing information
 - **Adaptive Planning**:
   - Simple tasks: Direct planning by current Claude
-  - Complex tasks: Delegates to cli-planning-agent for detailed breakdown
+  - Complex tasks: Delegates to cli-lite-planning-agent for detailed breakdown
 - **Two-Step Confirmation**: First display complete plan as text, then collect three-dimensional input (task approval + execution method + code review tool)
 - **Execution Dispatch**: Stores execution context in memory and calls `/workflow:lite-execute --in-memory` for actual implementation
 
@@ -73,7 +73,21 @@ Implementation plan from Phase 3:
 {
   summary: string,                     // 2-3 sentence overview
   approach: string,                    // High-level implementation strategy
-  tasks: string[],                     // 3-10 tasks with file paths
+  tasks: [                             // 3-10 structured task objects
+    {
+      title: string,                   // Task title (e.g., "Create AuthService")
+      file: string,                    // Target file path
+      action: string,                  // Action type: Create|Update|Implement|Refactor|Add|Delete
+      description: string,             // What to implement (1-2 sentences)
+      implementation: string[],        // Step-by-step how to do it (3-7 steps)
+      reference: {                     // What to reference
+        pattern: string,               // Pattern name (e.g., "UserService pattern")
+        files: string[],               // Reference file paths
+        examples: string               // Specific guidance on what to copy/follow
+      },
+      acceptance: string[]             // Verification criteria (2-4 items)
+    }
+  ],
   estimated_time: string,              // Total implementation time estimate
   recommended_execution: string,       // "Agent" (Low) or "Codex" (Medium/High)
   complexity: string                   // "Low" | "Medium" | "High"
@@ -126,7 +140,21 @@ When user selects "Export JSON", lite-plan exports an enhanced structure aligned
     "plan": {
       "summary": "2-3 sentence overview",
       "approach": "High-level implementation strategy",
-      "tasks": ["Task 1", "Task 2", "..."]
+      "tasks": [
+        {
+          "title": "Task 1 title",
+          "file": "src/path/to/file.ts",
+          "action": "Create|Update|Implement|...",
+          "description": "What to implement",
+          "implementation": ["Step 1", "Step 2", "..."],
+          "reference": {
+            "pattern": "Pattern name",
+            "files": ["ref/file1.ts", "ref/file2.ts"],
+            "examples": "Specific guidance"
+          },
+          "acceptance": ["Criterion 1", "Criterion 2", "..."]
+        }
+      ]
     },
     "exploration": {
       "project_structure": "...",
@@ -181,7 +209,7 @@ User Input ("/workflow:lite-plan \"task\"")
     -> Assess task complexity (Low/Medium/High)
     -> Decision: Planning strategy
        - Low: Direct planning (current Claude)
-       - Medium/High: Delegate to cli-planning-agent
+       - Medium/High: Delegate to cli-lite-planning-agent
     -> Output: planObject
     |
     v
@@ -356,8 +384,8 @@ else complexity = "High"
 | Level | Characteristics | Planning Strategy |
 |-------|----------------|-------------------|
 | Low | 1-2 files, simple changes, clear requirements | Direct planning (current Claude) |
-| Medium | 3-5 files, moderate integration, some ambiguity | Delegate to cli-planning-agent |
-| High | 6+ files, complex architecture, high uncertainty | Delegate to cli-planning-agent with detailed analysis |
+| Medium | 3-5 files, moderate integration, some ambiguity | Delegate to cli-lite-planning-agent |
+| High | 6+ files, complex architecture, high uncertainty | Delegate to cli-lite-planning-agent with detailed analysis |
 
 **Planning Execution**:
 
@@ -372,27 +400,44 @@ Current Claude generates plan directly following these guidelines:
 
 **Option B: Agent-Based Planning (Medium/High Complexity)**
 
-Delegate to cli-planning-agent with detailed requirements:
+Delegate to cli-lite-planning-agent with detailed requirements:
 ```javascript
 Task(
-  subagent_type="cli-planning-agent",
+  subagent_type="cli-lite-planning-agent",
   description="Generate detailed implementation plan",
   prompt=`
-  Task: ${task_description}
-  Exploration Context: ${JSON.stringify(explorationContext, null, 2)}
-  User Clarifications: ${JSON.stringify(clarificationContext, null, 2) || "None provided"}
-  Complexity Level: ${complexity}
+  ## Task Description
+  ${task_description}
 
-  Generate a detailed implementation plan with the following components:
+  ## Exploration Context
+  ${JSON.stringify(explorationContext, null, 2) || "No exploration performed"}
 
-  1. Summary: 2-3 sentence overview of the implementation
-  2. Approach: High-level implementation strategy
-  3. Task Breakdown: 3-10 specific, actionable tasks
-     - Each task should specify: What to do, Which files to modify/create
-  4. Estimated Time: Total implementation time estimate
-  5. Recommended Execution: "Agent" or "Codex" based on task complexity
+  ## User Clarifications
+  ${JSON.stringify(clarificationContext, null, 2) || "None provided"}
 
-  Ensure tasks are specific, with file paths and clear acceptance criteria.
+  ## Complexity Level
+  ${complexity}
+
+  ## Your Task
+  1. Execute CLI planning analysis using Gemini (Qwen as fallback)
+  2. Parse CLI output and extract structured plan
+  3. Enhance tasks to be actionable with file paths and pattern references
+  4. Generate planObject with:
+     - Summary (2-3 sentences)
+     - Approach (high-level strategy)
+     - Tasks (3-10 actionable steps with file paths)
+     - Estimated time (with breakdown if available)
+     - Recommended execution method (Agent for Low, Codex for Medium/High)
+  5. Return planObject (no file writes)
+
+  ## Quality Requirements
+  Each task MUST include:
+  - Action verb (Create, Update, Add, Implement, Refactor)
+  - Specific file path
+  - Detailed changes
+  - Pattern reference from exploration context
+
+  Format: "{Action} in {file_path}: {specific_details} following {pattern}"
   `
 )
 ```
@@ -424,8 +469,14 @@ First, output the complete plan to the user as regular text:
 
 **Approach**: ${planObject.approach}
 
-**Task Breakdown**:
-${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
+**Task Breakdown** (${planObject.tasks.length} tasks):
+${planObject.tasks.map((task, i) => `
+${i+1}. **${task.title}** (${task.file})
+   - What: ${task.description}
+   - How: ${task.implementation.length} steps
+   - Reference: ${task.reference.pattern}
+   - Verification: ${task.acceptance.length} criteria
+`).join('')}
 
 **Complexity**: ${planObject.complexity}
 **Estimated Time**: ${planObject.estimated_time}
@@ -591,12 +642,12 @@ if (userSelection.export_task_json === "Yes") {
       plan: {
         summary: planObject.summary,
         approach: planObject.approach,
-        tasks: planObject.tasks
+        tasks: planObject.tasks  // Array of structured task objects
       },
       exploration: explorationContext || null,
       clarifications: clarificationContext || null,
       focus_paths: explorationContext?.relevant_files || [],
-      acceptance: planObject.tasks  // Tasks serve as acceptance criteria
+      acceptance: planObject.tasks.flatMap(t => t.acceptance)  // Collect all acceptance criteria from tasks
     }
   }
 
@@ -745,7 +796,7 @@ SlashCommand(command="/workflow:lite-execute --in-memory")
 |-------|-------|------------|
 | Phase 1 Exploration Failure | cli-explore-agent unavailable or timeout | Skip exploration, set `explorationContext = null`, log warning, continue to Phase 2/3 with task description only |
 | Phase 2 Clarification Timeout | User no response > 5 minutes | Use exploration findings as-is without clarification, proceed to Phase 3 with warning |
-| Phase 3 Planning Agent Failure | cli-planning-agent unavailable or timeout | Fallback to direct planning by current Claude (simplified plan), continue to Phase 4 |
+| Phase 3 Planning Agent Failure | cli-lite-planning-agent unavailable or timeout | Fallback to direct planning by current Claude (simplified plan), continue to Phase 4 |
 | Phase 3 Planning Timeout | Planning takes > 90 seconds | Generate simplified direct plan, mark as "Quick Plan", continue to Phase 4 with reduced detail |
 | Phase 4 Confirmation Timeout | User no response > 5 minutes | Save plan context to temporary var, display resume instructions, exit gracefully |
 | Phase 4 Modification Loop | User requests modify > 3 times | Suggest breaking task into smaller pieces or using /workflow:plan for comprehensive planning |
