@@ -31,10 +31,41 @@ Flexible task execution command supporting three input modes: in-memory plan (fr
 --in-memory                Use plan from memory (called by lite-plan)
 
 # Arguments
-<input>                    Task description string, or path to file containing task description (required)
+<input>                    Task description string, or path to file containing task description or Enhanced Task JSON (required)
 ```
 
-### Input Modes
+## Data Structures
+
+### Input Data (from lite-plan)
+
+**executionContext** (Mode 1: --in-memory):
+- Passed from lite-plan via global variable
+- Contains: `planObject`, `explorationContext`, `clarificationContext`, `executionMethod`, `codeReviewTool`, `originalUserInput`
+
+**Enhanced Task JSON file parsing** (Mode 3: file input):
+- **When detected**: File is valid JSON with `meta.workflow === "lite-plan"` (exported by lite-plan)
+- **Extracted fields**: `planObject` (from `context.plan`), `explorationContext` (from `context.exploration`), `clarificationContext` (from `context.clarifications`), `originalUserInput` (from `title`)
+- **Otherwise**: File content treated as plain text prompt
+
+### Output Data (produced by lite-execute)
+
+**executionResult**:
+```javascript
+{
+  executionId: string,                 // e.g., "[Agent-1]", "[Codex-1]"
+  status: "completed" | "partial" | "failed",
+  tasksSummary: string,                // Brief description of tasks handled
+  completionSummary: string,           // What was completed
+  keyOutputs: string,                  // Files created/modified, key changes
+  notes: string                        // Any important context for next execution
+}
+```
+
+Collected after each execution call completes and appended to `previousExecutionResults` array for context continuity in multi-execution scenarios.
+
+---
+
+## Input Modes
 
 #### Mode 1: In-Memory Plan
 
@@ -42,24 +73,7 @@ Flexible task execution command supporting three input modes: in-memory plan (fr
 
 **Input Source**: `executionContext` global variable set by lite-plan
 
-**Expected Structure**:
-```javascript
-executionContext = {
-  planObject: {
-    summary: string,
-    approach: string,
-    tasks: string[],
-    estimated_time: string,
-    recommended_execution: string,
-    complexity: string
-  },
-  explorationContext: {...} | null,
-  clarificationContext: {...} | null,
-  executionMethod: "Agent" | "Codex" | "Auto",
-  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
-  originalUserInput: string | null  // User's original task description
-}
-```
+**Expected Structure**: See [executionContext](#executioncontext) in Data Structures section
 
 **Behavior**:
 - Skip execution method selection (already set)
@@ -110,16 +124,67 @@ AskUserQuestion({
 
 **Trigger**: User calls with file path
 
-**Input**: Path to file containing task description or plan
+**Input**: Path to file containing task description, plan, or Enhanced Task JSON
 
 **Behavior**:
-- Read file content and store as `originalUserInput`
-- Use file content as task prompt (equivalent to Mode 2)
+
+**Step 3.1: Read and Detect File Format**
+```javascript
+fileContent = Read(filePath)
+
+// Attempt to parse as JSON
+try {
+  jsonData = JSON.parse(fileContent)
+
+  // Check if it's Enhanced Task JSON from lite-plan
+  if (jsonData.meta?.workflow === "lite-plan") {
+    // Extract plan data from Enhanced Task JSON
+    planObject = {
+      summary: jsonData.context.plan.summary,
+      approach: jsonData.context.plan.approach,
+      tasks: jsonData.context.plan.tasks,
+      estimated_time: jsonData.meta.estimated_time,
+      recommended_execution: jsonData.meta.recommended_execution,
+      complexity: jsonData.meta.complexity
+    }
+    explorationContext = jsonData.context.exploration || null
+    clarificationContext = jsonData.context.clarifications || null
+    originalUserInput = jsonData.title  // Original task description
+
+    // Set detected format flag
+    isEnhancedTaskJson = true
+  } else {
+    // Valid JSON but not Enhanced Task JSON - treat as plain text
+    originalUserInput = fileContent
+    isEnhancedTaskJson = false
+  }
+} catch {
+  // Not valid JSON - treat as plain text prompt
+  originalUserInput = fileContent
+  isEnhancedTaskJson = false
+}
+```
+
+**Step 3.2: Create Execution Plan**
+
+If `isEnhancedTaskJson === true`:
+- Use extracted `planObject` directly
+- Skip planning, use lite-plan's existing plan
+- User still selects execution method and code review
+
+If `isEnhancedTaskJson === false`:
+- Create simple execution plan from file content (treated as prompt)
+- Same behavior as Mode 2
+
+**Step 3.3: User Interaction**
 - Ask user to select execution method (Agent/Codex/Auto)
 - Ask user about code review preference
-- Proceed to execution with `originalUserInput` included
+- Proceed to execution with full context
 
-**Note**: File content is treated as prompt text, no special format parsing required. Any file format can be used as long as it contains readable task description.
+**Note**:
+- Enhanced Task JSON format from lite-plan is automatically recognized and parsed
+- Other file formats (plain text, markdown, etc.) are treated as prompts
+- All extracted data stored in `originalUserInput` for execution reference
 
 ## Execution Process
 
@@ -131,7 +196,9 @@ Input Processing
     v
 [Mode Detection]
     ├─ --in-memory → Load from executionContext variable
-    ├─ File path → Read file content as prompt
+    ├─ File path → Read and detect format
+    │   ├─ Enhanced Task JSON (lite-plan export) → Extract plan data
+    │   └─ Plain text/other → Use as prompt
     └─ String → Use as prompt directly
     |
     v
@@ -265,21 +332,9 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
 )
 ```
 
-**Note**: `originalUserInput` is the user's original prompt (Mode 2) or file content (Mode 3). For Mode 1 (--in-memory), this may be null if not provided by lite-plan.
+**Note**: `originalUserInput` is the user's original prompt (Mode 2), file content (Mode 3 plain text), or task title (Mode 3 Enhanced Task JSON). For Mode 1 (--in-memory), this may be null if not provided by lite-plan.
 
-**Execution Result Collection**:
-After agent execution completes:
-```javascript
-executionResult = {
-  executionId: executionCalls[currentIndex].id, // e.g., "[Agent-1]"
-  status: "completed" | "partial" | "failed",
-  tasksSummary: "Brief description of tasks handled",
-  completionSummary: "What was completed",
-  keyOutputs: "Files created/modified, key changes",
-  notes: "Any important context for next execution"
-}
-previousExecutionResults.push(executionResult)
-```
+**Execution Result Collection**: After agent execution completes, collect result following [executionResult](#executionresult) structure in Data Structures section and append to `previousExecutionResults` array
 
 #### Option B: CLI Execution (Codex)
 
@@ -335,7 +390,7 @@ Complexity: ${planObject.complexity}
 " --skip-git-repo-check -s danger-full-access
 ```
 
-**Note**: `originalUserInput` is the user's original prompt (Mode 2) or file content (Mode 3). For Mode 1 (--in-memory), this may be null if not provided by lite-plan.
+**Note**: `originalUserInput` is the user's original prompt (Mode 2), file content (Mode 3 plain text), or task title (Mode 3 Enhanced Task JSON). For Mode 1 (--in-memory), this may be null if not provided by lite-plan.
 
 **Execution with Progress Tracking**:
 ```javascript
@@ -348,8 +403,7 @@ bash_result = Bash(
 // Update TodoWrite when CLI execution call completes
 ```
 
-**Execution Result Collection**:
-After CLI execution completes, analyze output and collect result summary with same structure as Agent execution.
+**Execution Result Collection**: After CLI execution completes, analyze output and collect result following [executionResult](#executionresult) structure in Data Structures section
 
 ### Step 4: Track Execution Progress
 
@@ -442,7 +496,9 @@ codex --full-auto exec "Review the recent code changes for quality, potential is
 3. **Flexible Execution**: Supports multiple input modes
    - In-memory: Seamless integration with lite-plan
    - Prompt: Quick standalone execution
-   - File: Read file content as prompt for execution
+   - File: Intelligent format detection
+     - Enhanced Task JSON (lite-plan export): Extracts full plan context
+     - Plain text: Uses as prompt for execution
 
 ### Task Management
 
@@ -463,6 +519,8 @@ codex --full-auto exec "Review the recent code changes for quality, potential is
 | Missing executionContext | --in-memory called without context | Display error: "No execution context found. This mode is only available when called by lite-plan." |
 | File not found | File path doesn't exist | Display error: "File not found: {path}. Please check the file path." |
 | Empty file | File exists but has no content | Display error: "File is empty: {path}. Please provide task description." |
+| Invalid Enhanced Task JSON | JSON parsing succeeds but missing required fields | Display warning: "File appears to be Enhanced Task JSON but missing required fields. Treating as plain text prompt." |
+| Malformed JSON | JSON parsing fails | Treat as plain text prompt, no error displayed (expected behavior for non-JSON files) |
 | Execution failure | Agent/Codex crashes or errors | Display error details, save partial progress, suggest retry |
 | Codex unavailable | Codex tool not installed | Show installation instructions, offer Agent execution |
 

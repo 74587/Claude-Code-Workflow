@@ -39,6 +39,122 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 ```
 
 
+## Data Structures
+
+All workflow phases use these standardized data structures:
+
+### explorationContext
+
+Exploration findings from cli-explore-agent (Phase 1):
+
+```javascript
+{
+  project_structure: string,           // Overall architecture description
+  relevant_files: string[],            // File paths to be modified/referenced
+  patterns: string,                    // Existing patterns and conventions
+  dependencies: string,                // Dependencies and integration points
+  integration_points: string,          // Where this connects with existing code
+  constraints: string,                 // Technical constraints
+  clarification_needs: [               // Questions requiring user input
+    {
+      question: string,
+      context: string,
+      options: string[]
+    }
+  ]
+}
+```
+
+### planObject
+
+Implementation plan from Phase 3:
+
+```javascript
+{
+  summary: string,                     // 2-3 sentence overview
+  approach: string,                    // High-level implementation strategy
+  tasks: string[],                     // 3-10 tasks with file paths
+  estimated_time: string,              // Total implementation time estimate
+  recommended_execution: string,       // "Agent" (Low) or "Codex" (Medium/High)
+  complexity: string                   // "Low" | "Medium" | "High"
+}
+```
+
+### executionContext
+
+Context passed to lite-execute via --in-memory (Phase 5):
+
+```javascript
+{
+  planObject: {                        // See planObject structure above
+    summary: string,
+    approach: string,
+    tasks: string[],
+    estimated_time: string,
+    recommended_execution: string,
+    complexity: string
+  },
+  explorationContext: {...} | null,    // See explorationContext structure above
+  clarificationContext: {...} | null,  // User responses from Phase 2
+  executionMethod: "Agent" | "Codex" | "Auto",
+  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
+  originalUserInput: string            // User's original task description
+}
+```
+
+### Enhanced Task JSON Export
+
+When user selects "Export JSON", lite-plan exports an enhanced structure aligned with Enhanced Task JSON Schema:
+
+```json
+{
+  "id": "LP-{timestamp}",
+  "title": "Original task description",
+  "status": "pending",
+
+  "meta": {
+    "type": "planning",
+    "created_at": "ISO timestamp",
+    "complexity": "Low|Medium|High",
+    "estimated_time": "X minutes",
+    "recommended_execution": "Agent|Codex",
+    "workflow": "lite-plan"
+  },
+
+  "context": {
+    "requirements": ["Original task description"],
+    "plan": {
+      "summary": "2-3 sentence overview",
+      "approach": "High-level implementation strategy",
+      "tasks": ["Task 1", "Task 2", "..."]
+    },
+    "exploration": {
+      "project_structure": "...",
+      "relevant_files": ["file1.ts", "file2.ts"],
+      "patterns": "...",
+      "dependencies": "...",
+      "integration_points": "...",
+      "constraints": "..."
+    } | null,
+    "clarifications": {
+      "question1": "answer1",
+      "question2": "answer2"
+    } | null,
+    "focus_paths": ["src/auth", "tests/auth"],
+    "acceptance": ["Task completion criteria from plan.tasks"]
+  }
+}
+```
+
+**Schema Alignment Notes**:
+- Aligns with Enhanced Task JSON Schema (6-field structure)
+- `context_package_path` omitted (lite-plan doesn't use context packages)
+- `flow_control` omitted (execution handled by lite-execute)
+- `focus_paths` derived from `exploration.relevant_files`
+- `acceptance` derived from `plan.tasks`
+
+---
+
 ## Execution Process
 
 ### Workflow Overview
@@ -51,7 +167,7 @@ User Input ("/workflow:lite-plan \"task\"")
     -> Analyze task description
     -> Decision: Need exploration? (Yes/No)
     -> If Yes: Launch cli-explore-agent
-    -> Output: exploration findings (if performed)
+    -> Output: explorationContext (if performed)
     |
     v
 [Phase 2] Clarification (Optional, user interaction)
@@ -66,21 +182,23 @@ User Input ("/workflow:lite-plan \"task\"")
     -> Decision: Planning strategy
        - Low: Direct planning (current Claude)
        - Medium/High: Delegate to cli-planning-agent
-    -> Output: Task breakdown with execution approach
+    -> Output: planObject
     |
     v
 [Phase 4] Task Confirmation & Execution Selection (User interaction)
     -> Step 4.1: Output complete plan as text to user
-    -> Step 4.2: AskUserQuestion with three dimensions
+    -> Step 4.2: AskUserQuestion with four dimensions
        1. Confirm task: Allow/Modify/Cancel (multi-select, can supplement via Other)
        2. Execution method: Agent/Codex/Auto (single-select, auto: simple→agent, complex→codex)
        3. Code review: Skip/Gemini/Agent/Other (single-select, can specify custom tool via Other)
+       4. Export JSON: Yes/No (single-select, export enhanced task JSON)
     -> Process selections and proceed to Phase 5
     -> If cancel: Exit
     |
     v
 [Phase 5] Dispatch to Execution
-    -> Store execution context (plan, exploration, clarifications, selections)
+    -> Export enhanced task JSON (optional, if user selected "Yes")
+    -> Store executionContext in memory
     -> Call /workflow:lite-execute --in-memory
     -> Execution delegated to lite-execute command
     |
@@ -93,7 +211,7 @@ Planning Complete (Execution continues in lite-execute)
 - lite-plan focuses on planning phases (1-4) with TodoWrite tracking
 - Phase 5 stores execution context and dispatches to lite-execute
 - Execution tracking (TodoWrite updates, progress monitoring) handled by lite-execute
-- No intermediate file artifacts generated (all planning in-memory)
+- Optional enhanced task JSON export aligned with Enhanced Task JSON Schema
 - Execution artifacts (code changes, test results) managed by lite-execute
 
 ## Detailed Phase Execution
@@ -154,25 +272,7 @@ Planning Complete (Execution continues in lite-execute)
   )
   ```
 
-**Expected Return Structure**:
-```javascript
-explorationContext = {
-  project_structure: "Description of overall architecture",
-  relevant_files: ["src/auth/service.ts", "src/middleware/auth.ts", ...],
-  patterns: "Description of existing patterns (e.g., 'Uses dependency injection pattern', 'React hooks convention')",
-  dependencies: "List of dependencies and integration points",
-  integration_points: "Where this connects with existing code",
-  constraints: "Technical constraints (e.g., 'Must use existing auth library', 'No breaking changes')",
-  clarification_needs: [
-    {
-      question: "Which authentication method to use?",
-      context: "Found both JWT and Session patterns",
-      options: ["JWT tokens", "Session-based", "Hybrid approach"]
-    },
-    // ... more clarification questions
-  ]
-}
-```
+**Expected Return Structure**: See [explorationContext](#explorationcontext) in Data Structures section
 
 **Output Processing**:
 - Store exploration findings in `explorationContext`
@@ -297,17 +397,7 @@ Task(
 )
 ```
 
-**Expected Return Structure (Both Options)**:
-```javascript
-planObject = {
-  summary: string,              // 2-3 sentence overview
-  approach: string,             // High-level implementation strategy
-  tasks: string[],              // 3-10 tasks with file paths
-  estimated_time: string,       // Total implementation time estimate
-  recommended_execution: string, // "Agent" (Low) or "Codex" (Medium/High)
-  complexity: string            // "Low" | "Medium" | "High"
-}
-```
+**Expected Return Structure (Both Options)**: See [planObject](#planobject) in Data Structures section
 
 **Progress Tracking**:
 - Mark Phase 3 as completed
@@ -473,58 +563,57 @@ Task JSON Export:
 **Operations**:
 - Create `.workflow/lite-plans/` directory if not exists
 - Generate timestamp-based filename
-- Export complete plan context to JSON file
+- Export enhanced task JSON aligned with Enhanced Task JSON Schema
 
 ```javascript
 // Only execute if userSelection.export_task_json === "Yes"
 if (userSelection.export_task_json === "Yes") {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const filename = `.workflow/lite-plans/plan-${timestamp}.json`
+  const taskId = `LP-${timestamp}`
+  const filename = `.workflow/lite-plans/${taskId}.json`
 
-  const planExport = {
-    metadata: {
+  const enhancedTaskJson = {
+    id: taskId,
+    title: original_task_description,
+    status: "pending",
+
+    meta: {
+      type: "planning",
       created_at: new Date().toISOString(),
-      task_description: original_task_description,
       complexity: planObject.complexity,
-      estimated_time: planObject.estimated_time
+      estimated_time: planObject.estimated_time,
+      recommended_execution: planObject.recommended_execution,
+      workflow: "lite-plan"
     },
-    plan: planObject,
-    exploration: explorationContext || null,
-    clarifications: clarificationContext || null
+
+    context: {
+      requirements: [original_task_description],
+      plan: {
+        summary: planObject.summary,
+        approach: planObject.approach,
+        tasks: planObject.tasks
+      },
+      exploration: explorationContext || null,
+      clarifications: clarificationContext || null,
+      focus_paths: explorationContext?.relevant_files || [],
+      acceptance: planObject.tasks  // Tasks serve as acceptance criteria
+    }
   }
 
-  Write(filename, JSON.stringify(planExport, null, 2))
+  Write(filename, JSON.stringify(enhancedTaskJson, null, 2))
 
   // Display export confirmation to user
-  console.log(`Plan exported to: ${filename}`)
+  console.log(`Enhanced task JSON exported to: ${filename}`)
   console.log(`You can reuse this plan with: /workflow:lite-execute ${filename}`)
 }
 ```
 
-**Export File Format**:
-```json
-{
-  "metadata": {
-    "created_at": "2025-01-17T10:30:00.000Z",
-    "task_description": "Original task description",
-    "complexity": "Medium",
-    "estimated_time": "30 minutes"
-  },
-  "plan": {
-    "summary": "...",
-    "approach": "...",
-    "tasks": [...],
-    "recommended_execution": "Agent|Codex",
-    "complexity": "Low|Medium|High"
-  },
-  "exploration": {...} or null,
-  "clarifications": {...} or null
-}
-```
+**Export File Format**: See [Enhanced Task JSON Export](#enhanced-task-json-export) in Data Structures section
 
 **Step 5.2: Store Execution Context**
 
 Create execution context variable with all necessary information:
+
 ```javascript
 // Create execution context for lite-execute
 executionContext = {
@@ -537,24 +626,7 @@ executionContext = {
 }
 ```
 
-**Context Structure**:
-```javascript
-{
-  planObject: {
-    summary: string,
-    approach: string,
-    tasks: string[],
-    estimated_time: string,
-    recommended_execution: string,
-    complexity: string
-  },
-  explorationContext: {...} | null,
-  clarificationContext: {...} | null,
-  executionMethod: "Agent" | "Codex" | "Auto",
-  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
-  originalUserInput: string  // User's original task description
-}
-```
+**Context Structure**: See [executionContext](#executioncontext) in Data Structures section
 
 **Step 5.3: Call lite-execute**
 
@@ -693,25 +765,16 @@ SlashCommand(command="/workflow:lite-execute --in-memory")
 
 ### Output Format
 
-**In-Memory Plan Object**:
-```javascript
-{
-  summary: "2-3 sentence overview of implementation",
-  approach: "High-level implementation strategy",
-  tasks: [
-    "Task 1: Specific action with file locations",
-    "Task 2: Specific action with file locations",
-    // ... 3-7 tasks total
-  ],
-  complexity: "Low|Medium|High",
-  recommended_execution: "Agent|Codex",  // Based on complexity
-  estimated_time: "X minutes"
-}
-```
+**In-Memory Plan Object**: See [planObject](#planobject) in Data Structures section
+
+**Optional Enhanced Task JSON Export**: See [Enhanced Task JSON Export](#enhanced-task-json-export) in Data Structures section (when user selects "Export JSON")
+
+**Execution Context**: See [executionContext](#executioncontext) in Data Structures section (passed to lite-execute)
 
 **Execution Result**:
-- Immediate dispatch to selected tool/agent with plan context
-- No file artifacts generated during planning phase
-- Execution starts immediately after user confirmation
+- Immediate dispatch to lite-execute with executionContext
+- Optional enhanced task JSON file export aligned with Enhanced Task JSON Schema
+- No other file artifacts generated during planning phase
+- Execution starts immediately in lite-execute after context handoff
 - Tool/agent handles implementation and any necessary file operations
 
