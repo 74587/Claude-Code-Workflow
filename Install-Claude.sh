@@ -976,6 +976,7 @@ EOF
 
 function remove_old_manifests_for_path() {
     local installation_path="$1"
+    local current_manifest_file="$2"  # Optional: exclude this file from deletion
 
     if [ ! -d "$MANIFEST_DIR" ]; then
         return 0
@@ -987,6 +988,11 @@ function remove_old_manifests_for_path() {
 
     # Find and remove old manifests for the same installation path
     while IFS= read -r -d '' file; do
+        # Skip the current manifest file if specified
+        if [ -n "$current_manifest_file" ] && [ "$file" = "$current_manifest_file" ]; then
+            continue
+        fi
+
         local manifest_path=$(jq -r '.installation_path // ""' "$file" 2>/dev/null)
 
         if [ -n "$manifest_path" ]; then
@@ -1013,9 +1019,9 @@ function save_install_manifest() {
     local manifest_file="$1"
     local installation_path="$2"
 
-    # Remove old manifests for the same installation path
+    # Remove old manifests for the same installation path (excluding current one)
     if [ -n "$installation_path" ]; then
-        remove_old_manifests_for_path "$installation_path"
+        remove_old_manifests_for_path "$installation_path" "$manifest_file"
     fi
 
     if [ -f "$manifest_file" ]; then
