@@ -100,10 +100,24 @@ Context passed to lite-execute via --in-memory (Phase 5):
 
 ```javascript
 {
-  planObject: {                        // See planObject structure above
+  planObject: {                        // Complete planObject structure (see above)
     summary: string,
     approach: string,
-    tasks: string[],
+    tasks: [                           // Array of structured task objects (7 fields each)
+      {
+        title: string,
+        file: string,
+        action: string,
+        description: string,
+        implementation: string[],
+        reference: {
+          pattern: string,
+          files: string[],
+          examples: string
+        },
+        acceptance: string[]
+      }
+    ],
     estimated_time: string,
     recommended_execution: string,
     complexity: string
