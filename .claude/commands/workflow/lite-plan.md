@@ -1,8 +1,8 @@
 ---
 name: lite-plan
-description: Lightweight interactive planning and execution workflow with in-memory planning, code exploration, and immediate execution after user confirmation
-argument-hint: "[--tool claude|gemini|qwen|codex] [-e|--explore] \"task description\"|file.md"
-allowed-tools: TodoWrite(*), Task(*), Bash(*), AskUserQuestion(*)
+description: Lightweight interactive planning workflow with in-memory planning, code exploration, and execution dispatch to lite-execute after user confirmation
+argument-hint: "[-e|--explore] \"task description\"|file.md"
+allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*)
 timeout: 180000
 color: cyan
 ---
@@ -11,7 +11,7 @@ color: cyan
 
 ## Overview
 
-Intelligent lightweight planning and execution command with dynamic workflow adaptation based on task complexity.
+Intelligent lightweight planning command with dynamic workflow adaptation based on task complexity. Focuses on planning phases (exploration, clarification, planning, confirmation) and delegates execution to `/workflow:lite-execute`.
 
 ## Core Functionality
 
@@ -22,9 +22,7 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
   - Simple tasks: Direct planning by current Claude
   - Complex tasks: Delegates to cli-planning-agent for detailed breakdown
 - **Two-Step Confirmation**: First display complete plan as text, then collect three-dimensional input (task approval + execution method + code review tool)
-- **Direct Execution**: Immediate dispatch to selected execution method (agent/codex/auto)
-- **Live Progress Tracking**: Real-time TodoWrite updates at execution call level ([Agent-1], [Codex-1], etc.) during execution
-- **Optional Code Review**: Post-execution quality analysis with gemini/agent or custom tools via "Other" option (e.g., qwen, codex)
+- **Execution Dispatch**: Stores execution context in memory and calls `/workflow:lite-execute --in-memory` for actual implementation
 
 
 ## Usage
@@ -81,24 +79,22 @@ User Input ("/workflow:lite-plan \"task\"")
     -> If cancel: Exit
     |
     v
-[Phase 5] Execution & Progress Tracking
-    -> Create TodoWrite execution call list (grouped tasks)
-    -> Launch selected execution (agent or CLI)
-    -> Track execution call progress with TodoWrite updates
-    -> Real-time call status displayed to user (e.g., "[Agent-1] (Task A + Task B)")
-    -> If code review enabled: Run selected CLI analysis
+[Phase 5] Dispatch to Execution
+    -> Store execution context (plan, exploration, clarifications, selections)
+    -> Call /workflow:lite-execute --in-memory
+    -> Execution delegated to lite-execute command
     |
     v
-Execution Complete
+Planning Complete (Execution continues in lite-execute)
 ```
 
 ### Task Management Pattern
 
-- TodoWrite creates execution call list before execution starts (Phase 5)
-- Execution calls ([Agent-1], [Codex-1], etc.) marked as in_progress/completed during execution
-- Each execution call handles multiple related tasks
-- Real-time progress updates visible at call level (not individual task level)
-- No intermediate file artifacts generated
+- lite-plan focuses on planning phases (1-4) with TodoWrite tracking
+- Phase 5 stores execution context and dispatches to lite-execute
+- Execution tracking (TodoWrite updates, progress monitoring) handled by lite-execute
+- No intermediate file artifacts generated (all planning in-memory)
+- Execution artifacts (code changes, test results) managed by lite-execute
 
 ## Detailed Phase Execution
 
@@ -291,15 +287,10 @@ Task(
 
   1. Summary: 2-3 sentence overview of the implementation
   2. Approach: High-level implementation strategy
-  3. Task Breakdown: 5-10 specific, actionable tasks
-     - Each task should specify: What to do, Which files to modify/create, Dependencies on other tasks (if any)
-  4. Task Dependencies & Parallelization:
-     - Identify independent tasks that can run in parallel (no shared file conflicts or logical dependencies)
-     - Group tasks by execution order: parallel groups can execute simultaneously, sequential groups must wait for previous completion
-     - Format: "Group 1 (parallel): Task 1, Task 2 | Group 2 (parallel): Task 3, Task 4 | Task 5 (depends on all)"
-  5. Risks: Potential issues and mitigation strategies (for Medium/High complexity)
-  6. Estimated Time: Total implementation time estimate
-  7. Recommended Execution: "Agent" or "Codex" based on task complexity
+  3. Task Breakdown: 3-10 specific, actionable tasks
+     - Each task should specify: What to do, Which files to modify/create
+  4. Estimated Time: Total implementation time estimate
+  5. Recommended Execution: "Agent" or "Codex" based on task complexity
 
   Ensure tasks are specific, with file paths and clear acceptance criteria.
   `
@@ -311,9 +302,7 @@ Task(
 planObject = {
   summary: string,              // 2-3 sentence overview
   approach: string,             // High-level implementation strategy
-  tasks: string[],              // 3-5 tasks (Low) or 5-10 tasks (Medium/High) with file paths
-  dependencies: string[],       // Task execution order: parallel groups and sequential dependencies (Medium/High only)
-  risks: string[],              // Potential issues and mitigation strategies (Medium/High only)
+  tasks: string[],              // 3-10 tasks with file paths
   estimated_time: string,       // Total implementation time estimate
   recommended_execution: string, // "Agent" (Low) or "Codex" (Medium/High)
   complexity: string            // "Low" | "Medium" | "High"
@@ -348,10 +337,6 @@ First, output the complete plan to the user as regular text:
 **Task Breakdown**:
 ${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
-${planObject.dependencies ? `\n**Dependencies**:\n${planObject.dependencies.join('\n')}` : ''}
-
-${planObject.risks ? `\n**Risks**:\n${planObject.risks.join('\n')}` : ''}
-
 **Complexity**: ${planObject.complexity}
 **Estimated Time**: ${planObject.estimated_time}
 **Recommended Execution**: ${planObject.recommended_execution}
@@ -362,7 +347,7 @@ ${planObject.risks ? `\n**Risks**:\n${planObject.risks.join('\n')}` : ''}
 After displaying the plan, collect three inputs via AskUserQuestion:
 
 **Operations**:
-- Collect three inputs:
+- Collect four inputs:
   1. Task confirmation (multi-select: Allow/Modify/Cancel + optional supplements via "Other")
   2. Execution method (single-select: Agent/Codex/Auto)
      - Agent: Execute with @code-developer
@@ -372,12 +357,16 @@ After displaying the plan, collect three inputs via AskUserQuestion:
      - Gemini Review: Use gemini CLI for code analysis
      - Agent Review: Use @code-reviewer agent
      - Other: Specify custom tool (e.g., "qwen", "codex") via text input
+  4. Task JSON output (single-select: Yes/No)
+     - Yes: Export plan to task JSON file for reuse or documentation
+     - No: Keep plan in-memory only
 - Support plan supplements and custom tool specification via "Other" input
 
-**Three Questions in Single AskUserQuestion Call**:
+**Four Questions in Single AskUserQuestion Call**:
 - Question 1: Task confirmation (multi-select: Allow/Modify/Cancel)
 - Question 2: Execution method selection (single-select: Agent/Codex/Auto)
 - Question 3: Code review tool selection (single-select: Skip/Gemini/Agent, custom via "Other")
+- Question 4: Task JSON output (single-select: Yes/No)
 
 **AskUserQuestion Call**:
 ```javascript
@@ -418,6 +407,17 @@ Confirm this plan? (Multi-select enabled - you can select multiple options and a
         { label: "Agent Review", description: "Review with @code-reviewer agent" },
         { label: "Skip", description: "No review needed" }
       ]
+    },
+    {
+      question: `Export plan to task JSON file?
+
+This allows you to reuse the plan or use it with lite-execute later.`,
+      header: "Export JSON",
+      multiSelect: false,
+      options: [
+        { label: "Yes", description: "Export plan to JSON file (recommended for complex tasks)" },
+        { label: "No", description: "Keep plan in-memory only" }
+      ]
     }
   ]
 })
@@ -442,6 +442,12 @@ Code Review Selection (after execution):
   ├─ Gemini Review → Run gemini code analysis (gemini-2.5-pro)
   ├─ Agent Review → Current Claude agent review
   └─ Other → Specify custom tool (e.g., "qwen", "codex") via text input
+
+Task JSON Export:
+  ├─ Yes → Export plan to JSON file before execution
+  │        Format: .workflow/lite-plans/plan-{timestamp}.json
+  │        Contains: planObject + explorationContext + clarificationContext
+  └─ No → Keep plan in-memory only, no file export
 ```
 
 **Progress Tracking**:
@@ -452,303 +458,120 @@ Code Review Selection (after execution):
 
 ---
 
-### Phase 5: Execution & Progress Tracking
+### Phase 5: Dispatch to Execution
 
 **Operations**:
-- Create TodoWrite execution call list (grouped tasks by dependencies)
-- Launch selected execution method (agent or CLI)
-- Track execution call progress with real-time TodoWrite updates (not individual tasks)
-- Display execution status to user
+- Export plan to task JSON file (if user selected "Yes")
+- Store execution context in memory variable
+- Call lite-execute command with --in-memory flag
+- Execution tracking delegated to lite-execute
 
-**Step 5.1: Create TodoWrite Execution List**
+**Step 5.1: Export Task JSON (Optional)**
 
-**Before execution starts**, initialize tracking variables and create execution call list:
+**Skip Condition**: Only run if user selected "Yes" for Task JSON Export in Phase 4
+
+**Operations**:
+- Create `.workflow/lite-plans/` directory if not exists
+- Generate timestamp-based filename
+- Export complete plan context to JSON file
+
 ```javascript
-// Initialize result tracking for multi-execution scenarios
-previousExecutionResults = []
-```
+// Only execute if userSelection.export_task_json === "Yes"
+if (userSelection.export_task_json === "Yes") {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const filename = `.workflow/lite-plans/plan-${timestamp}.json`
 
-Create execution call list (not individual tasks):
-```javascript
-// Group tasks based on dependencies and execution strategy
-// Each execution call handles multiple related tasks
-executionCalls = groupTasksByExecution(planObject.tasks, planObject.dependencies).map((call, index) => ({
-  ...call,
-  id: `[${call.method}-${index+1}]`  // Store ID for result collection
-}))
+  const planExport = {
+    metadata: {
+      created_at: new Date().toISOString(),
+      task_description: original_task_description,
+      complexity: planObject.complexity,
+      estimated_time: planObject.estimated_time
+    },
+    plan: planObject,
+    exploration: explorationContext || null,
+    clarifications: clarificationContext || null
+  }
 
-TodoWrite({
-  todos: executionCalls.map(call => ({
-    content: `${call.id} (${call.taskSummary})`,
-    status: "pending",
-    activeForm: `Executing ${call.id} (${call.taskSummary})`
-  }))
-})
-```
+  Write(filename, JSON.stringify(planExport, null, 2))
 
-**Example Execution List**:
-```
-[ ] [Agent-1] (Implement auth service + Create JWT utilities)
-[ ] [Agent-2] (Add middleware + Update routes)
-[ ] [Codex-1] (Add integration tests for auth flow)
-```
-
-**Task Grouping Logic**:
-- Parallel tasks → Single execution call
-- Sequential tasks → Separate execution calls
-- Complex tasks → May split into multiple calls based on file scope
-
-**Step 5.2: Launch Execution**
-
-**IMPORTANT**: CLI execution MUST run in foreground (no background execution)
-
-**Execution Loop**:
-```javascript
-// Execute each call in the execution list sequentially
-for (currentIndex = 0; currentIndex < executionCalls.length; currentIndex++) {
-  const currentCall = executionCalls[currentIndex]
-
-  // Update TodoWrite: mark current call as in_progress
-  // Launch execution with previousExecutionResults context
-  // After completion, collect result and add to previousExecutionResults
-  // Update TodoWrite: mark current call as completed
+  // Display export confirmation to user
+  console.log(`Plan exported to: ${filename}`)
+  console.log(`You can reuse this plan with: /workflow:lite-execute ${filename}`)
 }
 ```
 
-Based on user selection in Phase 4, execute appropriate method:
-- **Agent**: Launch @code-developer agent
-- **Codex**: Execute with codex CLI tool
-- **Auto**: Automatic selection based on complexity
-  - Low complexity → Agent execution
-  - Medium/High complexity → Codex execution
-
-#### Option A: Direct Execution with Agent
-
-**Operations**:
-- Launch @code-developer agent with full plan context
-- Agent receives exploration findings, clarifications, and task breakdown
-- **For subsequent executions**: Include previous execution results to maintain context continuity
-- Agent call format:
-  ```javascript
-  Task(
-    subagent_type="code-developer",
-    description="Implement planned tasks with progress tracking",
-    prompt=`
-    Implement the following tasks with TodoWrite progress updates:
-
-    Summary: ${planObject.summary}
-
-    Task Breakdown:
-    ${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
-
-    ${planObject.dependencies ? `\nTask Dependencies:\n${planObject.dependencies.join('\n')}` : ''}
-
-    ${previousExecutionResults ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
-[${result.executionId}] ${result.status}
-Tasks handled: ${result.tasksSummary}
-Completion status: ${result.completionSummary}
-Key outputs: ${result.keyOutputs || 'See git diff for details'}
-${result.notes ? `Notes: ${result.notes}` : ''}
-    `).join('\n---\n')}` : ''}
-
-    Implementation Approach:
-    ${planObject.approach}
-
-    Code Context:
-    ${explorationContext || "No exploration performed"}
-
-    ${clarificationContext ? `\nClarifications:\n${clarificationContext}` : ''}
-
-    ${planObject.risks ? `\nRisks to Consider:\n${planObject.risks.join('\n')}` : ''}
-
-    IMPORTANT Instructions:
-    - **Context Continuity**: Review previous execution results above to understand what's already completed
-    - **Build on Previous Work**: Ensure your work integrates with previously completed tasks
-    - **Avoid Duplication**: Don't redo tasks that are already completed in previous executions
-    - **Parallel Execution**: Identify independent tasks from dependencies field and execute them in parallel using multiple tool calls in a single message
-    - **Dependency Respect**: Sequential tasks must wait for dependent tasks to complete before starting
-    - **Intelligent Grouping**: Analyze task dependencies to determine parallel groups - tasks with no file conflicts or logical dependencies can run simultaneously
-    - Test functionality as you go
-    - Handle risks proactively
-
-    Note: This agent call handles multiple tasks. TodoWrite tracking is managed at call level by orchestrator.
-    `
-  )
-  ```
-
-**Agent Responsibilities**:
-- Each agent call handles multiple tasks (grouped by dependencies)
-- Agent updates TodoWrite at **call level** (not individual task level)
-- Mark execution call as in_progress when starting, completed when all assigned tasks finished
-
-**Execution Result Collection** (for multi-execution scenarios):
-- After each execution completes, collect result summary:
-  ```javascript
-  executionResult = {
-    executionId: executionCalls[currentIndex].id, // e.g., "[Agent-1]", "[Codex-1]" from Step 5.1 TodoWrite list
-    status: "completed" or "partial" or "failed",
-    tasksSummary: "Brief description of tasks handled",
-    completionSummary: "What was completed",
-    keyOutputs: "Files created/modified, key changes",
-    notes: "Any important context for next execution"
-  }
-  previousExecutionResults.push(executionResult)
-  ```
-- The `executionId` comes from the execution call ID created in Step 5.1 (format: `[Method-Index]`)
-- Pass `previousExecutionResults` to subsequent executions for context continuity
-
-#### Option B: CLI Execution (Codex)
-
-**Operations**:
-- Build codex CLI command with comprehensive context
-- **For subsequent executions**: Include previous execution results summary
-- Execute codex tool with write permissions
-- Monitor CLI output and update TodoWrite based on progress indicators
-- Parse CLI completion signals to mark tasks as done
-
-**Command Format (Codex)** - Single execution with full context:
-```bash
-codex --full-auto exec "
-TASK: ${planObject.summary}
-
-## Task Breakdown
-${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
-
-${planObject.dependencies ? `\n## Task Dependencies\n${planObject.dependencies.join('\n')}` : ''}
-
-${previousExecutionResults ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
-[${result.executionId}] ${result.status}
-Tasks: ${result.tasksSummary}
-Status: ${result.completionSummary}
-Outputs: ${result.keyOutputs || 'See git diff'}
-${result.notes ? `Notes: ${result.notes}` : ''}
-`).join('\n---\n')}
-
-IMPORTANT: Review previous results above. Build on completed work. Avoid duplication.
-` : ''}
-
-## Implementation Approach
-${planObject.approach}
-
-## Code Context from Exploration
-${explorationContext ? `
-Project Structure: ${explorationContext.project_structure || 'Standard structure'}
-Relevant Files: ${explorationContext.relevant_files?.join(', ') || 'TBD'}
-Current Patterns: ${explorationContext.patterns || 'Follow existing conventions'}
-Integration Points: ${explorationContext.dependencies || 'None specified'}
-Constraints: ${explorationContext.constraints || 'None'}
-` : 'No prior exploration - analyze codebase as needed'}
-
-${clarificationContext ? `\n## User Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `${q}: ${a}`).join('\n')}` : ''}
-
-${planObject.risks ? `\n## Risks to Handle\n${planObject.risks.join('\n')}` : ''}
-
-## Execution Instructions
-- Review previous execution results for context continuity
-- Build on previous work, don't duplicate completed tasks
-- Complete all assigned tasks in single execution
-- Test functionality as you implement
-- Handle identified risks proactively
-
-Complexity: ${planObject.complexity}
-" --skip-git-repo-check -s danger-full-access
+**Export File Format**:
+```json
+{
+  "metadata": {
+    "created_at": "2025-01-17T10:30:00.000Z",
+    "task_description": "Original task description",
+    "complexity": "Medium",
+    "estimated_time": "30 minutes"
+  },
+  "plan": {
+    "summary": "...",
+    "approach": "...",
+    "tasks": [...],
+    "recommended_execution": "Agent|Codex",
+    "complexity": "Low|Medium|High"
+  },
+  "exploration": {...} or null,
+  "clarifications": {...} or null
+}
 ```
 
-**Note**: Avoid `resume --last` unless task is exceptionally complex or hits timeout. Optimize task breakdown for full completion in single execution.
+**Step 5.2: Store Execution Context**
 
-**Execution Result Collection** (for multi-execution scenarios):
-- After CLI execution completes, analyze output and collect result summary
-- Extract key information: modified files, completion status, important notes
-- Store in `previousExecutionResults` array for subsequent executions
-- Result structure same as Agent execution (see Option A above)
-
-**Execution with Progress Tracking**:
+Create execution context variable with all necessary information:
 ```javascript
-// Launch CLI in foreground (NOT background)
-bash_result = Bash(
-  command=cli_command,
-  timeout=600000  // 10 minutes
-)
-
-// Update TodoWrite when CLI execution call completes
-// Mark execution call (e.g., "[Codex-1]") as completed when CLI finishes
-// One CLI call may handle multiple tasks - track at call level, not task level
+// Create execution context for lite-execute
+executionContext = {
+  planObject: planObject,              // From Phase 3
+  explorationContext: explorationContext || null,  // From Phase 1
+  clarificationContext: clarificationContext || null, // From Phase 2
+  executionMethod: userSelection.execution_method,    // From Phase 4
+  codeReviewTool: userSelection.code_review_tool     // From Phase 4
+}
 ```
 
-**CLI Progress Monitoring**:
-- Monitor CLI execution at **call level** (not individual task level)
-- Update TodoWrite when CLI execution call completes (all assigned tasks done)
-- Provide real-time visibility of execution call progress to user
-
-**Step 5.3: Track Execution Progress**
-
-Track **agent/CLI call level** (not individual tasks):
-
-**Real-time TodoWrite Updates**:
+**Context Structure**:
 ```javascript
-// When execution call starts
-TodoWrite({
-  todos: [
-    { content: "[Agent-1] (Implement auth service + Create JWT utilities)", status: "in_progress", activeForm: "Executing [Agent-1] (Implement auth service + Create JWT utilities)" },
-    { content: "[Agent-2] (Add middleware + Update routes)", status: "pending", activeForm: "Executing [Agent-2] (Add middleware + Update routes)" },
-    { content: "[Codex-1] (Add integration tests)", status: "pending", activeForm: "Executing [Codex-1] (Add integration tests)" }
-  ]
-})
-
-// When execution call completes
-TodoWrite({
-  todos: [
-    { content: "[Agent-1] (Implement auth service + Create JWT utilities)", status: "completed", activeForm: "Executing [Agent-1] (Implement auth service + Create JWT utilities)" },
-    { content: "[Agent-2] (Add middleware + Update routes)", status: "in_progress", activeForm: "Executing [Agent-2] (Add middleware + Update routes)" },
-    { content: "[Codex-1] (Add integration tests)", status: "pending", activeForm: "Executing [Codex-1] (Add integration tests)" }
-  ]
-})
+{
+  planObject: {
+    summary: string,
+    approach: string,
+    tasks: string[],
+    estimated_time: string,
+    recommended_execution: string,
+    complexity: string
+  },
+  explorationContext: {...} | null,
+  clarificationContext: {...} | null,
+  executionMethod: "Agent" | "Codex" | "Auto",
+  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string
+}
 ```
 
-**User Visibility**:
-- User sees **execution call progress** (not individual task progress)
-- Current execution highlighted as "in_progress" (e.g., "[Agent-1] (Task A + Task B)")
-- Completed executions marked with checkmark
-- Pending executions remain unchecked
-- Each execution shows **task summary** for context
+**Step 5.3: Call lite-execute**
+
+Dispatch execution to lite-execute command:
+```javascript
+SlashCommand(command="/workflow:lite-execute --in-memory")
+```
+
+**Execution Handoff**:
+- lite-execute reads executionContext variable
+- All execution logic (TodoWrite tracking, Agent/Codex calls, code review) handled by lite-execute
+- lite-plan completes after successful handoff
 
 **Progress Tracking**:
-- Track agent/CLI call completion (not task completion)
-- One execution call may handle multiple tasks simultaneously
-- Mark Phase 5 as completed when all execution calls done
+- Mark Phase 5 as completed
+- Execution tracking handed over to lite-execute
+- User sees execution progress from lite-execute TodoWrite updates
 
-**Step 5.4: Code Review (Optional)**
-
-**Skip Condition**: Only run if user selected review tool in Phase 4 (not "Skip")
-
-**Operations**:
-- If "Agent Review": Current agent performs direct code review analysis
-- If "Gemini Review": Execute gemini CLI with code review analysis prompt
-- If "Other" (custom tool specified): Execute specified CLI tool (e.g., qwen, codex)
-- Review all modified files from execution
-- Generate quality assessment and improvement recommendations
-
-**Command Format**:
-```bash
-# Agent Review: Direct agent review (no CLI command needed)
-# Uses analysis prompt and TodoWrite tools directly
-
-# Gemini Review / Custom Tool (qwen, codex, etc.): Execute analysis command
-{selected_tool} -p "
-PURPOSE: Code review for implemented changes
-TASK: • Analyze code quality • Identify potential issues • Suggest improvements
-MODE: analysis
-CONTEXT: @**/* | Memory: Review changes from lite-plan execution
-EXPECTED: Quality assessment with actionable recommendations
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes | analysis=READ-ONLY
-"
-```
-
-**Expected Duration**: Varies by task complexity and execution method
-- Low complexity: 5-15 minutes
-- Medium complexity: 15-45 minutes
-- High complexity: 45-120 minutes
-- Code review (if enabled): +2-5 minutes
+**Expected Duration**: < 1 second (dispatch only, actual execution in lite-execute)
 
 ---
 
@@ -852,8 +675,6 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
 | Phase 3 Planning Timeout | Planning takes > 90 seconds | Generate simplified direct plan, mark as "Quick Plan", continue to Phase 4 with reduced detail |
 | Phase 4 Confirmation Timeout | User no response > 5 minutes | Save plan context to temporary var, display resume instructions, exit gracefully |
 | Phase 4 Modification Loop | User requests modify > 3 times | Suggest breaking task into smaller pieces or using /workflow:plan for comprehensive planning |
-| Phase 5 Codex Unavailable | Codex tool not installed | Show installation instructions, offer to re-select (Agent execution or Auto mode) |
-| Phase 5 Execution Failure | Agent/Codex crashes or errors | Display error details, save partial progress from TodoWrite, suggest manual recovery or retry |
 
 ## Input/Output
 
