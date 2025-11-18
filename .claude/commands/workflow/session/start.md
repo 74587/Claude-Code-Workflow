@@ -13,6 +13,35 @@ examples:
 ## Overview
 Manages workflow sessions with three operation modes: discovery (manual), auto (intelligent), and force-new.
 
+**Dual Responsibility**:
+1. **Project-level initialization** (first-time only): Creates `.workflow/project.json` for feature registry
+2. **Session-level initialization** (always): Creates session directory structure
+
+## Step 0: Initialize Project State (First-time Only)
+
+**Executed before all modes** - Ensures project-level state file exists by calling `/workflow:init`.
+
+### Check and Initialize
+```bash
+# Check if project state exists
+bash(test -f .workflow/project.json && echo "EXISTS" || echo "NOT_FOUND")
+```
+
+**If NOT_FOUND**, delegate to `/workflow:init`:
+```javascript
+// Call workflow:init for intelligent project analysis
+SlashCommand({command: "/workflow:init"});
+
+// Wait for init completion
+// project.json will be created with comprehensive project overview
+```
+
+**Output**:
+- If EXISTS: `PROJECT_STATE: initialized`
+- If NOT_FOUND: Calls `/workflow:init` → creates `.workflow/project.json` with full project analysis
+
+**Note**: `/workflow:init` uses cli-explore-agent to build comprehensive project understanding (technology stack, architecture, key components). This step runs once per project. Subsequent executions skip initialization.
+
 ## Mode 1: Discovery Mode (Default)
 
 ### Usage
