@@ -272,6 +272,6 @@ Function Coverage: 91%
 
 Overall Compliance: 93/100
 
-Detailed report: .workflow/WFS-auth/.process/tdd-cycle-report.md
+Detailed report: .workflow/sessions/WFS-auth/.process/tdd-cycle-report.md
 ```
 

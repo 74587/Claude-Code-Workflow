@@ -156,7 +156,7 @@ The context-search-agent MUST perform historical archive analysis as Track 1 in 
 **Step 1: Check for Archive Manifest**
 ```bash
 # Check if archive manifest exists
-if [[ -f .workflow/.archives/manifest.json ]]; then
+if [[ -f .workflow/archives/manifest.json ]]; then
   # Manifest available for querying
 fi
 ```
@@ -235,7 +235,7 @@ if (historicalConflicts.length > 0 && currentRisk === "low") {
 ### Archive Query Algorithm
 
 ```markdown
-1. IF .workflow/.archives/manifest.json does NOT exist → Skip Track 1, continue to Track 2
+1. IF .workflow/archives/manifest.json does NOT exist → Skip Track 1, continue to Track 2
 2. IF manifest exists:
    a. Load manifest.json
    b. Extract keywords from task_description (nouns, verbs, technical terms)

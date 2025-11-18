@@ -513,7 +513,7 @@ If quality gate fails:
 
 ### Output Files Structure
 
-Created in `.workflow/WFS-test-[session]/`:
+Created in `.workflow/sessions/WFS-test-[session]/`:
 
 ```
 WFS-test-[session]/
@@ -579,7 +579,7 @@ Test-Fix-Gen Workflow Orchestrator (Dual-Mode Support)
    └─ Command ends, control returns to user
 
 Artifacts Created:
-├── .workflow/WFS-test-[session]/
+├── .workflow/sessions/WFS-test-[session]/
 │   ├── workflow-session.json
 │   ├── IMPL_PLAN.md
 │   ├── TODO_LIST.md

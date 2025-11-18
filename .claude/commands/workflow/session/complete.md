@@ -19,9 +19,9 @@ Mark the currently active workflow session as complete, analyze it for lessons l
 
 ## Implementation Flow
 
-### Phase 1: Prepare for Archival (Minimal Manual Operations)
+### Phase 1: Pre-Archival Preparation (Transactional Setup)
 
-**Purpose**: Find active session, move to archive location, pass control to agent. Minimal operations.
+**Purpose**: Find active session, create archiving marker to prevent concurrent operations. Session remains in active location for agent processing.
 
 #### Step 1.1: Find Active Session and Get Name
 ```bash
@@ -33,129 +33,202 @@ bash(basename .workflow/sessions/WFS-session-name)
 ```
 **Output**: Session name `WFS-session-name`
 
-#### Step 1.2: Move Session to Archive
+#### Step 1.2: Check for Existing Archiving Marker (Resume Detection)
 ```bash
-# Create archive directory if needed
-bash(mkdir -p .workflow/archives/)
-
-# Move session to archive location
-bash(mv .workflow/sessions/WFS-session-name .workflow/archives/WFS-session-name)
+# Check if session is already being archived
+bash(test -f .workflow/sessions/WFS-session-name/.archiving && echo "RESUMING" || echo "NEW")
 ```
-**Result**: Session now at `.workflow/archives/WFS-session-name/`
 
-### Phase 2: Agent-Orchestrated Completion (All Data Processing)
+**If RESUMING**:
+- Previous archival attempt was interrupted
+- Skip to Phase 2 to resume agent analysis
 
-**Purpose**: Agent analyzes archived session, generates metadata, updates manifest, and removes active marker.
+**If NEW**:
+- Continue to Step 1.3
+
+#### Step 1.3: Create Archiving Marker
+```bash
+# Mark session as "archiving in progress"
+bash(touch .workflow/sessions/WFS-session-name/.archiving)
+```
+**Purpose**:
+- Prevents concurrent operations on this session
+- Enables recovery if archival fails
+- Session remains in `.workflow/sessions/` for agent analysis
+
+**Result**: Session still at `.workflow/sessions/WFS-session-name/` with `.archiving` marker
+
+### Phase 2: Agent Analysis (In-Place Processing)
+
+**Purpose**: Agent analyzes session WHILE STILL IN ACTIVE LOCATION. Generates metadata but does NOT move files or update manifest.
 
 #### Agent Invocation
 
-Invoke `universal-executor` agent to complete the archival process.
+Invoke `universal-executor` agent to analyze session and prepare archive metadata.
 
 **Agent Task**:
 ```
 Task(
   subagent_type="universal-executor",
-  description="Complete session archival",
+  description="Analyze session for archival",
   prompt=`
-Complete workflow session archival. Session already moved to archive location.
+Analyze workflow session for archival preparation. Session is STILL in active location.
 
 ## Context
-- Session: .workflow/archives/WFS-session-name/
+- Session: .workflow/sessions/WFS-session-name/
+- Status: Marked as archiving (.archiving marker present)
+- Location: Active sessions directory (NOT archived yet)
 
 ## Tasks
 
-1. **Extract session data** from workflow-session.json (session_id, description/topic, started_at/timestamp, completed_at, status)
+1. **Extract session data** from workflow-session.json
+   - session_id, description/topic, started_at, completed_at, status
    - If status != "completed", update it with timestamp
 
 2. **Count files**: tasks (.task/*.json) and summaries (.summaries/*.md)
 
-3. **Generate lessons**: Use gemini with ~/.claude/workflows/cli-templates/prompts/archive/analysis-simple.txt (fallback: analyze files directly)
+3. **Generate lessons**: Use gemini with ~/.claude/workflows/cli-templates/prompts/archive/analysis-simple.txt
    - Return: {successes, challenges, watch_patterns}
 
 4. **Build archive entry**:
    - Calculate: duration_hours, success_rate, tags (3-5 keywords)
-   - Construct complete JSON with session_id, description, archived_at, archive_path, metrics, tags, lessons
+   - Construct complete JSON with session_id, description, archived_at, metrics, tags, lessons
+   - Include archive_path: ".workflow/archives/WFS-session-name" (future location)
 
-5. **Update manifest**: Initialize .workflow/archives/manifest.json if needed, append entry
+5. **Extract feature metadata** (for Phase 4):
+   - Parse IMPL_PLAN.md for title (first # heading)
+   - Extract description (first paragraph, max 200 chars)
+   - Generate feature tags (3-5 keywords from content)
 
-6. **Return result**: {"status": "success", "session_id": "...", "archived_at": "...", "metrics": {...}, "lessons_summary": {...}}
+6. **Return result**: Complete metadata package for atomic commit
+   {
+     "status": "success",
+     "session_id": "WFS-session-name",
+     "archive_entry": {
+       "session_id": "...",
+       "description": "...",
+       "archived_at": "...",
+       "archive_path": ".workflow/archives/WFS-session-name",
+       "metrics": {...},
+       "tags": [...],
+       "lessons": {...}
+     },
+     "feature_metadata": {
+       "title": "...",
+       "description": "...",
+       "tags": [...]
+     }
+   }
+
+## Important Constraints
+- DO NOT move or delete any files
+- DO NOT update manifest.json yet
+- Session remains in .workflow/sessions/ during analysis
+- Return complete metadata package for orchestrator to commit atomically
 
 ## Error Handling
 - On failure: return {"status": "error", "task": "...", "message": "..."}
+- Do NOT modify any files on error
   `
 )
 ```
 
 **Expected Output**:
-- Agent returns JSON result confirming successful archival
-- Display completion summary to user based on agent response
+- Agent returns complete metadata package
+- Session remains in `.workflow/sessions/` with `.archiving` marker
+- No files moved or manifests updated yet
 
-## Workflow Execution Strategy
+### Phase 3: Atomic Commit (Transactional File Operations)
 
-### Two-Phase Approach (Optimized)
+**Purpose**: Atomically commit all changes. Only execute if Phase 2 succeeds.
 
-**Phase 1: Minimal Manual Setup** (2 simple operations)
-- Find active session and extract name
-- Move session to archive location
-- **No data extraction** - agent handles all data processing
-- **No counting** - agent does this from archive location
-- **Total**: 2 bash commands (find + move)
+#### Step 3.1: Create Archive Directory
+```bash
+bash(mkdir -p .workflow/archives/)
+```
 
-**Phase 2: Agent-Driven Completion** (1 agent invocation)
-- Extract all session data from archived location
-- Count tasks and summaries
-- Generate lessons learned analysis
-- Build complete archive metadata
-- Update manifest
-- Return success/error result
+#### Step 3.2: Move Session to Archive
+```bash
+bash(mv .workflow/sessions/WFS-session-name .workflow/archives/WFS-session-name)
+```
+**Result**: Session now at `.workflow/archives/WFS-session-name/`
 
-### Phase 3: Update Project Feature Registry
+#### Step 3.3: Update Manifest
+```bash
+# Read current manifest (or create empty array if not exists)
+bash(test -f .workflow/archives/manifest.json && cat .workflow/archives/manifest.json || echo "[]")
+```
+
+**JSON Update Logic**:
+```javascript
+// Read agent result from Phase 2
+const agentResult = JSON.parse(agentOutput);
+const archiveEntry = agentResult.archive_entry;
+
+// Read existing manifest
+let manifest = [];
+try {
+  const manifestContent = Read('.workflow/archives/manifest.json');
+  manifest = JSON.parse(manifestContent);
+} catch {
+  manifest = []; // Initialize if not exists
+}
+
+// Append new entry
+manifest.push(archiveEntry);
+
+// Write back
+Write('.workflow/archives/manifest.json', JSON.stringify(manifest, null, 2));
+```
+
+#### Step 3.4: Remove Archiving Marker
+```bash
+bash(rm .workflow/archives/WFS-session-name/.archiving)
+```
+**Result**: Clean archived session without temporary markers
+
+**Output Confirmation**:
+```
+✓ Session "${sessionId}" archived successfully
+  Location: .workflow/archives/WFS-session-name/
+  Lessons: ${archiveEntry.lessons.successes.length} successes, ${archiveEntry.lessons.challenges.length} challenges
+  Manifest: Updated with ${manifest.length} total sessions
+```
+
+### Phase 4: Update Project Feature Registry
 
 **Purpose**: Record completed session as a project feature in `.workflow/project.json`.
 
-**Execution**: After agent successfully completes archival, extract feature information and update project registry.
+**Execution**: Uses feature metadata from Phase 2 agent result to update project registry.
 
-#### Step 3.1: Check Project State Exists
+#### Step 4.1: Check Project State Exists
 ```bash
 bash(test -f .workflow/project.json && echo "EXISTS" || echo "SKIP")
 ```
 
-**If SKIP**: Output warning and skip Phase 3
+**If SKIP**: Output warning and skip Phase 4
 ```
 WARNING: No project.json found. Run /workflow:session:start to initialize.
 ```
 
-#### Step 3.2: Extract Feature Information (Simple Text Processing)
+#### Step 4.2: Extract Feature Information from Agent Result
 
-```bash
-# Read archived IMPL_PLAN.md
-bash(cat .workflow/archives/WFS-session-name/IMPL_PLAN.md | head -20)
-```
-
-**Data Processing** (No agent needed):
-1. Extract feature title: First `#` heading line
-2. Extract description: First paragraph after heading (max 200 chars)
-3. Get session_id from archive path
-4. Get completion timestamp
-
-**Extraction Logic**:
+**Data Processing** (Uses Phase 2 agent output):
 ```javascript
-// Read IMPL_PLAN.md
-const planContent = Read(`${archivePath}/IMPL_PLAN.md`);
+// Extract feature metadata from agent result
+const agentResult = JSON.parse(agentOutput);
+const featureMeta = agentResult.feature_metadata;
 
-// Extract title (first # heading)
-const titleMatch = planContent.match(/^#\s+(.+)$/m);
-const title = titleMatch ? titleMatch[1].trim() : sessionId.replace('WFS-', '');
-
-// Extract description (first paragraph, max 200 chars)
-const descMatch = planContent.match(/^#[^\n]+\n\n([^\n]+)/m);
-const description = descMatch ? descMatch[1].substring(0, 200).trim() : '';
+// Data already prepared by agent:
+const title = featureMeta.title;
+const description = featureMeta.description;
+const tags = featureMeta.tags;
 
 // Create feature ID (lowercase slug)
 const featureId = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 50);
 ```
 
-#### Step 3.3: Update project.json
+#### Step 4.3: Update project.json
 
 ```bash
 # Read current project state
@@ -245,7 +318,7 @@ function getLatestCommitHash() {
 }
 ```
 
-#### Step 3.4: Output Confirmation
+#### Step 4.4: Output Confirmation
 
 ```
 ✓ Feature "${title}" added to project registry
@@ -256,7 +329,162 @@ function getLatestCommitHash() {
 
 **Error Handling**:
 - If project.json malformed: Output error, skip update
-- If IMPL_PLAN.md missing: Use session_id as title
+- If feature_metadata missing from agent result: Skip Phase 4
 - If extraction fails: Use minimal defaults
 
-**Phase 3 Total Commands**: 2 bash reads + JSON manipulation
+**Phase 4 Total Commands**: 1 bash read + JSON manipulation
+
+## Error Recovery
+
+### If Agent Fails (Phase 2)
+
+**Symptoms**:
+- Agent returns `{"status": "error", ...}`
+- Agent crashes or times out
+- Analysis incomplete
+
+**Recovery Steps**:
+```bash
+# Session still in .workflow/sessions/WFS-session-name
+# Remove archiving marker
+bash(rm .workflow/sessions/WFS-session-name/.archiving)
+```
+
+**User Notification**:
+```
+ERROR: Session archival failed during analysis phase
+Reason: [error message from agent]
+Session remains active in: .workflow/sessions/WFS-session-name
+
+Recovery:
+1. Fix any issues identified in error message
+2. Retry: /workflow:session:complete
+
+Session state: SAFE (no changes committed)
+```
+
+### If Move Fails (Phase 3)
+
+**Symptoms**:
+- `mv` command fails
+- Permission denied
+- Disk full
+
+**Recovery Steps**:
+```bash
+# Archiving marker still present
+# Session still in .workflow/sessions/ (move failed)
+# No manifest updated yet
+```
+
+**User Notification**:
+```
+ERROR: Session archival failed during move operation
+Reason: [mv error message]
+Session remains in: .workflow/sessions/WFS-session-name
+
+Recovery:
+1. Fix filesystem issues (permissions, disk space)
+2. Retry: /workflow:session:complete
+   - System will detect .archiving marker
+   - Will resume from Phase 2 (agent analysis)
+
+Session state: SAFE (analysis complete, ready to retry move)
+```
+
+### If Manifest Update Fails (Phase 3)
+
+**Symptoms**:
+- JSON parsing error
+- Write permission denied
+- Session moved but manifest not updated
+
+**Recovery Steps**:
+```bash
+# Session moved to .workflow/archives/WFS-session-name
+# Manifest NOT updated
+# Archiving marker still present in archived location
+```
+
+**User Notification**:
+```
+ERROR: Session archived but manifest update failed
+Reason: [error message]
+Session location: .workflow/archives/WFS-session-name
+
+Recovery:
+1. Fix manifest.json issues (syntax, permissions)
+2. Manual manifest update:
+   - Add archive entry from agent output
+   - Remove .archiving marker: rm .workflow/archives/WFS-session-name/.archiving
+
+Session state: PARTIALLY COMPLETE (session archived, manifest needs update)
+```
+
+## Workflow Execution Strategy
+
+### Transactional Four-Phase Approach
+
+**Phase 1: Pre-Archival Preparation** (Marker creation)
+- Find active session and extract name
+- Check for existing `.archiving` marker (resume detection)
+- Create `.archiving` marker if new
+- **No data processing** - just state tracking
+- **Total**: 2-3 bash commands (find + marker check/create)
+
+**Phase 2: Agent Analysis** (Read-only data processing)
+- Extract all session data from active location
+- Count tasks and summaries
+- Generate lessons learned analysis
+- Extract feature metadata from IMPL_PLAN.md
+- Build complete archive + feature metadata package
+- **No file modifications** - pure analysis
+- **Total**: 1 agent invocation
+
+**Phase 3: Atomic Commit** (Transactional file operations)
+- Create archive directory
+- Move session to archive location
+- Update manifest.json with archive entry
+- Remove `.archiving` marker
+- **All-or-nothing**: Either all succeed or session remains in safe state
+- **Total**: 4 bash commands + JSON manipulation
+
+**Phase 4: Project Registry Update** (Optional feature tracking)
+- Check project.json exists
+- Use feature metadata from Phase 2 agent result
+- Build feature object with complete traceability
+- Update project statistics
+- **Independent**: Can fail without affecting archival
+- **Total**: 1 bash read + JSON manipulation
+
+### Transactional Guarantees
+
+**State Consistency**:
+- Session NEVER in inconsistent state
+- `.archiving` marker enables safe resume
+- Agent failure leaves session in recoverable state
+- Move/manifest operations grouped in Phase 3
+
+**Failure Isolation**:
+- Phase 1 failure: No changes made
+- Phase 2 failure: Session still active, can retry
+- Phase 3 failure: Clear error state, manual recovery documented
+- Phase 4 failure: Does not affect archival success
+
+**Resume Capability**:
+- Detect interrupted archival via `.archiving` marker
+- Resume from Phase 2 (skip marker creation)
+- Idempotent operations (safe to retry)
+
+### Benefits Over Previous Design
+
+**Old Design Weakness**:
+- Move first → agent second
+- Agent failure → session moved but metadata incomplete
+- Inconsistent state requires manual cleanup
+
+**New Design Strengths**:
+- Agent first → move second
+- Agent failure → session still active, safe to retry
+- Transactional commit → all-or-nothing file operations
+- Marker-based state → resume capability

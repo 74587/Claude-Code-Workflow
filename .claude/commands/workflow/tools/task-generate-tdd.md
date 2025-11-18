@@ -338,19 +338,19 @@ const agentContext = {
   // Use memory if available, else load
   session_metadata: memory.has("workflow-session.json")
     ? memory.get("workflow-session.json")
-    : Read(.workflow/WFS-[id]/workflow-session.json),
+    : Read(.workflow/sessions/WFS-[id]/workflow-session.json),
 
-  context_package_path: ".workflow/WFS-[id]/.process/context-package.json",
+  context_package_path: ".workflow/sessions/WFS-[id]/.process/context-package.json",
 
   context_package: memory.has("context-package.json")
     ? memory.get("context-package.json")
-    : Read(".workflow/WFS-[id]/.process/context-package.json"),
+    : Read(".workflow/sessions/WFS-[id]/.process/context-package.json"),
 
-  test_context_package_path: ".workflow/WFS-[id]/.process/test-context-package.json",
+  test_context_package_path: ".workflow/sessions/WFS-[id]/.process/test-context-package.json",
 
   test_context_package: memory.has("test-context-package.json")
     ? memory.get("test-context-package.json")
-    : Read(".workflow/WFS-[id]/.process/test-context-package.json"),
+    : Read(".workflow/sessions/WFS-[id]/.process/test-context-package.json"),
 
   // Extract brainstorm artifacts from context package
   brainstorm_artifacts: extractBrainstormArtifacts(context_package),

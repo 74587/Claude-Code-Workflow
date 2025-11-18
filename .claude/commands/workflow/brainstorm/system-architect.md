@@ -46,10 +46,10 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ### Phase 1: Session & Framework Detection
 ```bash
 # Check active session and framework
-CHECK: .workflow/.active-* marker files
+CHECK: find .workflow/sessions/ -name "WFS-*" -type d
 IF active_session EXISTS:
     session_id = get_active_session()
-    brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
+    brainstorm_dir = .workflow/sessions/WFS-{session}/.brainstorming/
 
     CHECK: brainstorm_dir/guidance-specification.md
     IF EXISTS:
@@ -162,7 +162,7 @@ IF update_mode = "incremental":
 
 ### Output Files
 ```
-.workflow/WFS-[topic]/.brainstorming/
+.workflow/sessions/WFS-[topic]/.brainstorming/
 ├── guidance-specification.md          # Input: Framework (if exists)
 └── system-architect/
     └── analysis.md            # ★ OUTPUT: Framework-based analysis
@@ -279,7 +279,7 @@ TodoWrite tracking for two-step process:
 
 ### Output Location
 ```
-.workflow/WFS-{topic-slug}/.brainstorming/system-architect/
+.workflow/sessions/WFS-{topic-slug}/.brainstorming/system-architect/
 ├── analysis.md                 # Primary architecture analysis
 ├── architecture-design.md      # Detailed system design and diagrams
 ├── technology-stack.md         # Technology stack recommendations and justifications
@@ -340,7 +340,7 @@ Upon completion, update `workflow-session.json`:
       "system_architect": {
         "status": "completed",
         "completed_at": "timestamp",
-        "output_directory": ".workflow/WFS-{topic}/.brainstorming/system-architect/",
+        "output_directory": ".workflow/sessions/WFS-{topic}/.brainstorming/system-architect/",
         "key_insights": ["scalability_bottleneck", "architecture_pattern", "technology_recommendation"]
       }
     }

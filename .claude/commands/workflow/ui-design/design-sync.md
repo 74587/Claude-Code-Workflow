@@ -25,10 +25,10 @@ Synchronize finalized design system references to brainstorming artifacts, prepa
 
 ```bash
 # Validate session
-CHECK: .workflow/.active-* marker files; VALIDATE: session_id matches active session
+CHECK: find .workflow/sessions/ -name "WFS-*" -type d; VALIDATE: session_id matches active session
 
 # Verify design artifacts in latest design run
-latest_design = find_latest_path_matching(".workflow/WFS-{session}/design-run-*")
+latest_design = find_latest_path_matching(".workflow/sessions/WFS-{session}/design-run-*")
 
 # Detect design system structure
 IF exists({latest_design}/style-extraction/style-1/design-tokens.json):
@@ -51,7 +51,7 @@ REPORT: "Found {count} design artifacts, {prototype_count} prototypes"
 
 ```bash
 # Check if role analysis documents contains current design run reference
-synthesis_spec_path = ".workflow/WFS-{session}/.brainstorming/role analysis documents"
+synthesis_spec_path = ".workflow/sessions/WFS-{session}/.brainstorming/role analysis documents"
 current_design_run = basename(latest_design)  # e.g., "design-run-20250109-143022"
 
 IF exists(synthesis_spec_path):
@@ -68,8 +68,8 @@ IF exists(synthesis_spec_path):
 
 ```bash
 # Load target brainstorming artifacts (files to be updated)
-Read(.workflow/WFS-{session}/.brainstorming/role analysis documents)
-IF exists(.workflow/WFS-{session}/.brainstorming/ui-designer/analysis.md): Read(analysis.md)
+Read(.workflow/sessions/WFS-{session}/.brainstorming/role analysis documents)
+IF exists(.workflow/sessions/WFS-{session}/.brainstorming/ui-designer/analysis.md): Read(analysis.md)
 
 # Optional: Read prototype notes for descriptions (minimal context)
 FOR each selected_prototype IN selected_list:
@@ -113,7 +113,7 @@ Update `.brainstorming/role analysis documents` with design system references.
 **Implementation**:
 ```bash
 # Option 1: Edit existing section
-Edit(file_path=".workflow/WFS-{session}/.brainstorming/role analysis documents",
+Edit(file_path=".workflow/sessions/WFS-{session}/.brainstorming/role analysis documents",
      old_string="## UI/UX Guidelines\n[existing content]",
      new_string="## UI/UX Guidelines\n\n[new design reference content]")
 
@@ -128,15 +128,15 @@ IF section not found:
 
 ```bash
 # Always update ui-designer
-ui_designer_files = Glob(".workflow/WFS-{session}/.brainstorming/ui-designer/analysis*.md")
+ui_designer_files = Glob(".workflow/sessions/WFS-{session}/.brainstorming/ui-designer/analysis*.md")
 
 # Conditionally update other roles
 has_animations = exists({latest_design}/animation-extraction/animation-tokens.json)
 has_layouts = exists({latest_design}/layout-extraction/layout-templates.json)
 
-IF has_animations: ux_expert_files = Glob(".workflow/WFS-{session}/.brainstorming/ux-expert/analysis*.md")
-IF has_layouts: architect_files = Glob(".workflow/WFS-{session}/.brainstorming/system-architect/analysis*.md")
-IF selected_list: pm_files = Glob(".workflow/WFS-{session}/.brainstorming/product-manager/analysis*.md")
+IF has_animations: ux_expert_files = Glob(".workflow/sessions/WFS-{session}/.brainstorming/ux-expert/analysis*.md")
+IF has_layouts: architect_files = Glob(".workflow/sessions/WFS-{session}/.brainstorming/system-architect/analysis*.md")
+IF selected_list: pm_files = Glob(".workflow/sessions/WFS-{session}/.brainstorming/product-manager/analysis*.md")
 ```
 
 **Content Templates**:
@@ -223,7 +223,7 @@ For complete token definitions and usage examples, see:
 
 **Implementation**:
 ```bash
-Write(file_path=".workflow/WFS-{session}/.brainstorming/ui-designer/design-system-reference.md",
+Write(file_path=".workflow/sessions/WFS-{session}/.brainstorming/ui-designer/design-system-reference.md",
       content="[generated content with @ references]")
 ```
 
@@ -259,7 +259,7 @@ Next: /workflow:plan [--agent] "<task description>"
 
 **Updated Files**:
 ```
-.workflow/WFS-{session}/.brainstorming/
+.workflow/sessions/WFS-{session}/.brainstorming/
 ├── role analysis documents              # Updated with UI/UX Guidelines section
 ├── ui-designer/
 │   ├── analysis*.md                     # Updated with design system references

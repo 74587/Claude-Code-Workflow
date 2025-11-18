@@ -3,7 +3,7 @@ name: test-concept-enhanced
 description: Analyze test requirements and generate test generation strategy using Gemini with test-context package
 argument-hint: "--session WFS-test-session-id --context path/to/test-context-package.json"
 examples:
-  - /workflow:tools:test-concept-enhanced --session WFS-test-auth --context .workflow/WFS-test-auth/.process/test-context-package.json
+  - /workflow:tools:test-concept-enhanced --session WFS-test-auth --context .workflow/sessions/WFS-test-auth/.process/test-context-package.json
 ---
 
 # Test Concept Enhanced Command

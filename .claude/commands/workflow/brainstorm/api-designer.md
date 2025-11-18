@@ -46,10 +46,10 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ### Phase 1: Session & Framework Detection
 ```bash
 # Check active session and framework
-CHECK: .workflow/.active-* marker files
+CHECK: find .workflow/sessions/ -name "WFS-*" -type d
 IF active_session EXISTS:
     session_id = get_active_session()
-    brainstorm_dir = .workflow/WFS-{session}/.brainstorming/
+    brainstorm_dir = .workflow/sessions/WFS-{session}/.brainstorming/
 
     CHECK: brainstorm_dir/guidance-specification.md
     IF EXISTS:
@@ -162,7 +162,7 @@ IF update_mode = "incremental":
 
 ### Output Files
 ```
-.workflow/WFS-[topic]/.brainstorming/
+.workflow/sessions/WFS-[topic]/.brainstorming/
 ├── guidance-specification.md          # Input: Framework (if exists)
 └── api-designer/
     └── analysis.md            # ★ OUTPUT: Framework-based analysis
@@ -181,7 +181,7 @@ IF update_mode = "incremental":
 Session detection and selection:
 ```bash
 # Check for active sessions
-active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+active_sessions=$(find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null)
 if [ multiple_sessions ]; then
   prompt_user_to_select_session()
 else
@@ -280,7 +280,7 @@ TodoWrite tracking for two-step process:
 
 ### Output Location
 ```
-.workflow/WFS-{topic-slug}/.brainstorming/api-designer/
+.workflow/sessions/WFS-{topic-slug}/.brainstorming/api-designer/
 ├── analysis.md                 # Primary API design analysis
 ├── api-specification.md        # Detailed endpoint specifications (OpenAPI/Swagger)
 ├── data-contracts.md           # Request/response schemas and validation rules
@@ -531,7 +531,7 @@ Upon completion, update `workflow-session.json`:
       "api_designer": {
         "status": "completed",
         "completed_at": "timestamp",
-        "output_directory": ".workflow/WFS-{topic}/.brainstorming/api-designer/",
+        "output_directory": ".workflow/sessions/WFS-{topic}/.brainstorming/api-designer/",
         "key_insights": ["endpoint_design", "versioning_strategy", "data_contracts"]
       }
     }

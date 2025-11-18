@@ -85,7 +85,7 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 **Validation**:
 - guidance-specification.md created with confirmed decisions
 - workflow-session.json contains selected_roles[] (metadata only, no content duplication)
-- Session directory `.workflow/WFS-{topic}/.brainstorming/` exists
+- Session directory `.workflow/sessions/WFS-{topic}/.brainstorming/` exists
 
 **TodoWrite Update (Phase 1 SlashCommand invoked - tasks attached)**:
 ```json
@@ -132,13 +132,13 @@ Execute {role-name} analysis for existing topic framework
 
 ## Context Loading
 ASSIGNED_ROLE: {role-name}
-OUTPUT_LOCATION: .workflow/WFS-{session}/.brainstorming/{role}/
+OUTPUT_LOCATION: .workflow/sessions/WFS-{session}/.brainstorming/{role}/
 TOPIC: {user-provided-topic}
 
 ## Flow Control Steps
 1. **load_topic_framework**
    - Action: Load structured topic discussion framework
-   - Command: Read(.workflow/WFS-{session}/.brainstorming/guidance-specification.md)
+   - Command: Read(.workflow/sessions/WFS-{session}/.brainstorming/guidance-specification.md)
    - Output: topic_framework_content
 
 2. **load_role_template**
@@ -148,7 +148,7 @@ TOPIC: {user-provided-topic}
 
 3. **load_session_metadata**
    - Action: Load session metadata and original user intent
-   - Command: Read(.workflow/WFS-{session}/workflow-session.json)
+   - Command: Read(.workflow/sessions/WFS-{session}/workflow-session.json)
    - Output: session_context (contains original user prompt as PRIMARY reference)
 
 4. **load_style_skill** (ONLY for ui-designer role when style_skill_package exists)
@@ -194,7 +194,7 @@ TOPIC: {user-provided-topic}
 - guidance-specification.md path
 
 **Validation**:
-- Each role creates `.workflow/WFS-{topic}/.brainstorming/{role}/analysis.md` (primary file)
+- Each role creates `.workflow/sessions/WFS-{topic}/.brainstorming/{role}/analysis.md` (primary file)
 - If content is large (>800 lines), may split to `analysis-1.md`, `analysis-2.md` (max 3 files total)
 - **File naming pattern**: ALL files MUST start with `analysis` prefix (use `analysis*.md` for globbing)
 - **FORBIDDEN naming**: No `recommendations.md`, `recommendations-*.md`, or any non-`analysis` prefixed files
@@ -245,7 +245,7 @@ TOPIC: {user-provided-topic}
 **Input**: `sessionId` from Phase 1
 
 **Validation**:
-- `.workflow/WFS-{topic}/.brainstorming/synthesis-specification.md` exists
+- `.workflow/sessions/WFS-{topic}/.brainstorming/synthesis-specification.md` exists
 - Synthesis references all role analyses
 
 **TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached)**:
@@ -280,7 +280,7 @@ TOPIC: {user-provided-topic}
 ```
 Brainstorming complete for session: {sessionId}
 Roles analyzed: {count}
-Synthesis: .workflow/WFS-{topic}/.brainstorming/synthesis-specification.md
+Synthesis: .workflow/sessions/WFS-{topic}/.brainstorming/synthesis-specification.md
 
 ✅ Next Steps:
 1. /workflow:concept-clarify --session {sessionId}  # Optional refinement
@@ -392,7 +392,7 @@ CONTEXT_VARS:
 
 ## Session Management
 
-**⚡ FIRST ACTION**: Check for `.workflow/.active-*` markers before Phase 1
+**⚡ FIRST ACTION**: Check `.workflow/sessions/` for active sessions before Phase 1
 
 **Multiple Sessions Support**:
 - Different Claude instances can have different active brainstorming sessions
@@ -408,15 +408,15 @@ CONTEXT_VARS:
 ## Output Structure
 
 **Phase 1 Output**:
-- `.workflow/WFS-{topic}/.brainstorming/guidance-specification.md` (framework content)
-- `.workflow/WFS-{topic}/workflow-session.json` (metadata: selected_roles[], topic, timestamps, style_skill_package)
+- `.workflow/sessions/WFS-{topic}/.brainstorming/guidance-specification.md` (framework content)
+- `.workflow/sessions/WFS-{topic}/workflow-session.json` (metadata: selected_roles[], topic, timestamps, style_skill_package)
 
 **Phase 2 Output**:
-- `.workflow/WFS-{topic}/.brainstorming/{role}/analysis.md` (one per role)
+- `.workflow/sessions/WFS-{topic}/.brainstorming/{role}/analysis.md` (one per role)
 - `.superdesign/design_iterations/` (ui-designer artifacts, if --style-skill provided)
 
 **Phase 3 Output**:
-- `.workflow/WFS-{topic}/.brainstorming/synthesis-specification.md` (integrated analysis)
+- `.workflow/sessions/WFS-{topic}/.brainstorming/synthesis-specification.md` (integrated analysis)
 
 **⚠️ Storage Separation**: Guidance content in .md files, metadata in .json (no duplication)
 **⚠️ Style References**: When --style-skill provided, workflow-session.json stores style_skill_package name, ui-designer loads from `.claude/skills/style-{package-name}/`
@@ -446,7 +446,7 @@ CONTEXT_VARS:
 
 **File Structure**:
 ```
-.workflow/WFS-[topic]/
+.workflow/sessions/WFS-[topic]/
 ├── .active-brainstorming
 ├── workflow-session.json              # Session metadata ONLY
 └── .brainstorming/

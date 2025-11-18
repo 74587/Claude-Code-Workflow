@@ -32,7 +32,7 @@ Identify inconsistencies, duplications, ambiguities, and underspecified items be
 IF --session parameter provided:
     session_id = provided session
 ELSE:
-    CHECK: .workflow/.active-* marker files
+    CHECK: find .workflow/sessions/ -name "WFS-*" -type d
     IF active_session EXISTS:
         session_id = get_active_session()
     ELSE:
@@ -40,7 +40,7 @@ ELSE:
         EXIT
 
 # Derive absolute paths
-session_dir = .workflow/WFS-{session}
+session_dir = .workflow/sessions/WFS-{session}
 brainstorm_dir = session_dir/.brainstorming
 task_dir = session_dir/.task
 
@@ -333,7 +333,7 @@ Output a Markdown report (no file writes) with the following structure:
 
 #### TodoWrite-Based Remediation Workflow
 
-**Report Location**: `.workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md`
+**Report Location**: `.workflow/sessions/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md`
 
 **Recommended Workflow**:
 1. **Create TodoWrite Task List**: Extract all findings from report
@@ -361,7 +361,7 @@ Priority Order:
 
 **Save Analysis Report**:
 ```bash
-report_path = ".workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md"
+report_path = ".workflow/sessions/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md"
 Write(report_path, full_report_content)
 ```
 
@@ -404,12 +404,12 @@ TodoWrite([
 **File Modification Workflow**:
 ```bash
 # For task JSON modifications:
-1. Read(.workflow/WFS-{session}/.task/IMPL-X.Y.json)
+1. Read(.workflow/sessions/WFS-{session}/.task/IMPL-X.Y.json)
 2. Edit() to apply fixes
 3. Mark todo as completed
 
 # For IMPL_PLAN modifications:
-1. Read(.workflow/WFS-{session}/IMPL_PLAN.md)
+1. Read(.workflow/sessions/WFS-{session}/IMPL_PLAN.md)
 2. Edit() to apply strategic changes
 3. Mark todo as completed
 ```

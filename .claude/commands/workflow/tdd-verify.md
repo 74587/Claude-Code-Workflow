@@ -28,7 +28,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(gemini:*)
 sessionId = argument
 
 # Else auto-detect active session
-find .workflow/ -name '.active-*' | head -1 | sed 's/.*active-//'
+find .workflow/sessions/ -name "WFS-*" -type d | head -1 | sed 's/.*\///'
 ```
 
 **Extract**: sessionId
@@ -44,18 +44,18 @@ find .workflow/ -name '.active-*' | head -1 | sed 's/.*active-//'
 
 ```bash
 # Load all task JSONs
-find .workflow/{sessionId}/.task/ -name '*.json'
+find .workflow/sessions/{sessionId}/.task/ -name '*.json'
 
 # Extract task IDs
-find .workflow/{sessionId}/.task/ -name '*.json' -exec jq -r '.id' {} \;
+find .workflow/sessions/{sessionId}/.task/ -name '*.json' -exec jq -r '.id' {} \;
 
 # Check dependencies
-find .workflow/{sessionId}/.task/ -name 'IMPL-*.json' -exec jq -r '.context.depends_on[]?' {} \;
-find .workflow/{sessionId}/.task/ -name 'REFACTOR-*.json' -exec jq -r '.context.depends_on[]?' {} \;
+find .workflow/sessions/{sessionId}/.task/ -name 'IMPL-*.json' -exec jq -r '.context.depends_on[]?' {} \;
+find .workflow/sessions/{sessionId}/.task/ -name 'REFACTOR-*.json' -exec jq -r '.context.depends_on[]?' {} \;
 
 # Check meta fields
-find .workflow/{sessionId}/.task/ -name '*.json' -exec jq -r '.meta.tdd_phase' {} \;
-find .workflow/{sessionId}/.task/ -name '*.json' -exec jq -r '.meta.agent' {} \;
+find .workflow/sessions/{sessionId}/.task/ -name '*.json' -exec jq -r '.meta.tdd_phase' {} \;
+find .workflow/sessions/{sessionId}/.task/ -name '*.json' -exec jq -r '.meta.agent' {} \;
 ```
 
 **Validation**:
@@ -82,9 +82,9 @@ find .workflow/{sessionId}/.task/ -name '*.json' -exec jq -r '.meta.agent' {} \;
 - Compliance score
 
 **Validation**:
-- `.workflow/{sessionId}/.process/test-results.json` exists
-- `.workflow/{sessionId}/.process/coverage-report.json` exists
-- `.workflow/{sessionId}/.process/tdd-cycle-report.md` exists
+- `.workflow/sessions/{sessionId}/.process/test-results.json` exists
+- `.workflow/sessions/{sessionId}/.process/coverage-report.json` exists
+- `.workflow/sessions/{sessionId}/.process/tdd-cycle-report.md` exists
 
 **TodoWrite**: Mark phase 3 completed, phase 4 in_progress
 
@@ -97,7 +97,7 @@ find .workflow/{sessionId}/.task/ -name '*.json' -exec jq -r '.meta.agent' {} \;
 cd project-root && gemini -p "
 PURPOSE: Generate TDD compliance report
 TASK: Analyze TDD workflow execution and generate quality report
-CONTEXT: @{.workflow/{sessionId}/.task/*.json,.workflow/{sessionId}/.summaries/*,.workflow/{sessionId}/.process/tdd-cycle-report.md}
+CONTEXT: @{.workflow/sessions/{sessionId}/.task/*.json,.workflow/sessions/{sessionId}/.summaries/*,.workflow/sessions/{sessionId}/.process/tdd-cycle-report.md}
 EXPECTED:
 - TDD compliance score (0-100)
 - Chain completeness verification
@@ -106,7 +106,7 @@ EXPECTED:
 - Red-Green-Refactor cycle validation
 - Best practices adherence assessment
 RULES: Focus on TDD best practices and workflow adherence. Be specific about violations and improvements.
-" > .workflow/{sessionId}/TDD_COMPLIANCE_REPORT.md
+" > .workflow/sessions/{sessionId}/TDD_COMPLIANCE_REPORT.md
 ```
 
 **Output**: TDD_COMPLIANCE_REPORT.md
@@ -134,7 +134,7 @@ Function Coverage: {percentage}%
 
 ## Compliance Score: {score}/100
 
-Detailed report: .workflow/{sessionId}/TDD_COMPLIANCE_REPORT.md
+Detailed report: .workflow/sessions/{sessionId}/TDD_COMPLIANCE_REPORT.md
 
 Recommendations:
 - Complete missing REFACTOR-3.1 task
@@ -168,7 +168,7 @@ TodoWrite({todos: [
 
 ### Chain Validation Algorithm
 ```
-1. Load all task JSONs from .workflow/{sessionId}/.task/
+1. Load all task JSONs from .workflow/sessions/{sessionId}/.task/
 2. Extract task IDs and group by feature number
 3. For each feature:
    - Check TEST-N.M exists
@@ -202,7 +202,7 @@ Final Score: Max(0, Base Score - Deductions)
 
 ## Output Files
 ```
-.workflow/{session-id}/
+.workflow/sessions/{session-id}/
 ├── TDD_COMPLIANCE_REPORT.md     # Comprehensive compliance report ⭐
 └── .process/
     ├── test-results.json         # From tdd-coverage-analysis
@@ -215,8 +215,8 @@ Final Score: Max(0, Base Score - Deductions)
 ### Session Discovery Errors
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| No active session | No .active-* file | Provide session-id explicitly |
-| Multiple active sessions | Multiple .active-* files | Provide session-id explicitly |
+| No active session | No WFS-* directories | Provide session-id explicitly |
+| Multiple active sessions | Multiple WFS-* directories | Provide session-id explicitly |
 | Session not found | Invalid session-id | Check available sessions |
 
 ### Validation Errors

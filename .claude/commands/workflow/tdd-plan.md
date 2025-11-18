@@ -496,7 +496,7 @@ Supports action-planning-agent for more autonomous TDD planning with:
 
 **Session Structure**:
 ```
-.workflow/WFS-xxx/
+.workflow/sessions/WFS-xxx/
 ├── IMPL_PLAN.md (unified plan with TDD Implementation Tasks section)
 ├── TODO_LIST.md (with internal TDD phase indicators)
 ├── .process/
