@@ -114,19 +114,6 @@ Complete workflow session archival. Session already moved to archive location.
 - Remove active marker
 - Return success/error result
 
-## Quick Commands
-
-```bash
-# Phase 1: Find and move
-bash(find .workflow/ -name ".active-*" -type f | head -1)
-bash(basename .workflow/.active-WFS-session-name | sed 's/^\.active-//')
-bash(mkdir -p .workflow/.archives/)
-bash(mv .workflow/WFS-session-name .workflow/.archives/WFS-session-name)
-
-# Phase 2: Agent completes archival
-Task(subagent_type="universal-executor", description="Complete session archival", prompt=`...`)
-```
-
 ### Phase 3: Update Project Feature Registry
 
 **Purpose**: Record completed session as a project feature in `.workflow/project.json`.
@@ -278,22 +265,3 @@ function getLatestCommitHash() {
 - If extraction fails: Use minimal defaults
 
 **Phase 3 Total Commands**: 2 bash reads + JSON manipulation
-
-## Archive Query Commands
-
-After archival, you can query the manifest:
-
-```bash
-# List all archived sessions
-jq '.archives[].session_id' .workflow/.archives/manifest.json
-
-# Find sessions by keyword
-jq '.archives[] | select(.description | test("auth"; "i"))' .workflow/.archives/manifest.json
-
-# Get specific session details
-jq '.archives[] | select(.session_id == "WFS-user-auth")' .workflow/.archives/manifest.json
-
-# List all watch patterns across sessions
-jq '.archives[].lessons.watch_patterns[]' .workflow/.archives/manifest.json
-```
-

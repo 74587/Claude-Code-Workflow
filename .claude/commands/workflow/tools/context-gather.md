@@ -252,30 +252,6 @@ if (historicalConflicts.length > 0 && currentRisk === "low") {
 3. Continue to Track 2 (reference documentation)
 ```
 
-## Usage Examples
-
-### Basic Usage
-```bash
-/workflow:tools:context-gather --session WFS-auth-feature "Implement JWT authentication with refresh tokens"
-```
-## Success Criteria
-
-- ✅ Valid context-package.json generated in `.workflow/{session}/.process/`
-- ✅ Contains >80% relevant files based on task keywords
-- ✅ Execution completes within 2 minutes
-- ✅ All required schema fields present and valid
-- ✅ Conflict risk accurately assessed
-- ✅ Agent reports completion with statistics
-
-## Error Handling
-
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Package validation failed | Invalid session_id in existing package | Re-run agent to regenerate |
-| Agent execution timeout | Large codebase or slow MCP | Increase timeout, check code-index status |
-| Missing required fields | Agent incomplete execution | Check agent logs, verify schema compliance |
-| File count exceeds limit | Too many relevant files | Agent should auto-prioritize top 50 by relevance |
-
 ## Notes
 
 - **Detection-first**: Always check for existing package before invoking agent

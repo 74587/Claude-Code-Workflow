@@ -202,41 +202,6 @@ SlashCommand(command="/workflow:session:start")
 SlashCommand(command="/workflow:session:start --new \"experimental feature\"")
 ```
 
-## Simple Bash Commands
-
-### Basic Operations
-```bash
-# Check active sessions
-bash(ls .workflow/.active-*)
-
-# List all sessions
-bash(ls .workflow/WFS-*)
-
-# Read session metadata
-bash(cat .workflow/WFS-[session-id]/workflow-session.json)
-
-# Create session directories
-bash(mkdir -p .workflow/WFS-[session-id]/.process)
-bash(mkdir -p .workflow/WFS-[session-id]/.task)
-bash(mkdir -p .workflow/WFS-[session-id]/.summaries)
-
-# Mark session as active
-bash(touch .workflow/.active-WFS-[session-id])
-
-# Clean active markers
-bash(rm .workflow/.active-*)
-```
-
-### Generate Session Slug
-```bash
-bash(echo "Task Description" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]' | cut -c1-50)
-```
-
-### Create Metadata JSON
-```bash
-bash(echo '{"session_id":"WFS-test","project":"test project","status":"planning"}' > .workflow/WFS-test/workflow-session.json)
-```
-
 ## Session ID Format
 - Pattern: `WFS-[lowercase-slug]`
 - Characters: `a-z`, `0-9`, `-` only
