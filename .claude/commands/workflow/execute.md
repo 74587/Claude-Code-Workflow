@@ -55,7 +55,7 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 **Applies to**: Normal mode only (skipped in resume mode)
 
 **Process**:
-1. **Check Active Sessions**: Find `.workflow/.active-*` markers
+1. **Check Active Sessions**: Find sessions in `.workflow/sessions/` directory
 2. **Select Session**: If multiple found, prompt user selection
 3. **Load Session Metadata**: Read `workflow-session.json` ONLY (minimal context)
 4. **DO NOT read task JSONs yet** - defer until execution phase
@@ -322,11 +322,11 @@ TodoWrite({
     }
   },
   "session": {
-    "workflow_dir": ".workflow/WFS-session/",
-    "context_package_path": ".workflow/WFS-session/.process/context-package.json",
-    "todo_list_path": ".workflow/WFS-session/TODO_LIST.md",
-    "summaries_dir": ".workflow/WFS-session/.summaries/",
-    "task_json_path": ".workflow/WFS-session/.task/IMPL-1.1.json"
+    "workflow_dir": ".workflow/sessions/WFS-session/",
+    "context_package_path": ".workflow/sessions/WFS-session/.process/context-package.json",
+    "todo_list_path": ".workflow/sessions/WFS-session/TODO_LIST.md",
+    "summaries_dir": ".workflow/sessions/WFS-session/.summaries/",
+    "task_json_path": ".workflow/sessions/WFS-session/.task/IMPL-1.1.json"
   },
   "dependencies": [ /* Task summaries from depends_on */ ],
   "inherited": { /* Parent task context */ }
@@ -452,7 +452,7 @@ Task(subagent_type="{meta.agent}",
         "step": "load_synthesis_specification",
         "action": "Load synthesis specification from context-package.json",
         "commands": [
-          "Read(.workflow/WFS-[session]/.process/context-package.json)",
+          "Read(.workflow/sessions/WFS-[session]/.process/context-package.json)",
           "Extract(brainstorm_artifacts.synthesis_output.path)",
           "Read(extracted path)"
         ],
@@ -514,7 +514,7 @@ meta.agent missing → Infer from meta.type:
 
 ## Workflow File Structure Reference
 ```
-.workflow/WFS-[topic-slug]/
+.workflow/sessions/WFS-[topic-slug]/
 ├── workflow-session.json     # Session state and metadata
 ├── IMPL_PLAN.md             # Planning document and requirements
 ├── TODO_LIST.md             # Progress tracking (auto-updated)
@@ -536,8 +536,8 @@ meta.agent missing → Infer from meta.type:
 | Error Type | Cause | Recovery Strategy | Max Attempts |
 |-----------|-------|------------------|--------------|
 | **Discovery Errors** |
-| No active session | No `.active-*` markers found | Create or resume session: `/workflow:plan "project"` | N/A |
-| Multiple sessions | Multiple `.active-*` markers | Prompt user selection | N/A |
+| No active session | No sessions in `.workflow/sessions/` | Create or resume session: `/workflow:plan "project"` | N/A |
+| Multiple sessions | Multiple sessions in `.workflow/sessions/` | Prompt user selection | N/A |
 | Corrupted session | Invalid JSON files | Recreate session structure or validate files | N/A |
 | **Execution Errors** |
 | Agent failure | Agent crash/timeout | Retry with simplified context | 2 |
@@ -557,26 +557,23 @@ meta.agent missing → Infer from meta.type:
 **Session Recovery**:
 ```bash
 # Check session integrity
-find .workflow -name ".active-*" | while read marker; do
-  session=$(basename "$marker" | sed 's/^\.active-//')
-  [ ! -d ".workflow/$session" ] && rm "$marker"
+find .workflow/sessions/ -name "WFS-*" -type d | while read session_dir; do
+  session=$(basename "$session_dir")
+  [ ! -f "$session_dir/workflow-session.json" ] && \
+    echo '{"session_id":"'$session'","status":"active"}' > "$session_dir/workflow-session.json"
 done
-
-# Recreate corrupted session files
-[ ! -f ".workflow/$session/workflow-session.json" ] && \
-  echo '{"session_id":"'$session'","status":"active"}' > ".workflow/$session/workflow-session.json"
 ```
 
 **Task Recovery**:
 ```bash
 # Validate task JSON integrity
-for task_file in .workflow/$session/.task/*.json; do
+for task_file in .workflow/sessions/$session/.task/*.json; do
   jq empty "$task_file" 2>/dev/null || echo "Corrupted: $task_file"
 done
 
 # Fix missing dependencies
-missing_deps=$(jq -r '.context.depends_on[]?' .workflow/$session/.task/*.json | sort -u)
+missing_deps=$(jq -r '.context.depends_on[]?' .workflow/sessions/$session/.task/*.json | sort -u)
 for dep in $missing_deps; do
-  [ ! -f ".workflow/$session/.task/$dep.json" ] && echo "Missing dependency: $dep"
+  [ ! -f ".workflow/sessions/$session/.task/$dep.json" ] && echo "Missing dependency: $dep"
 done
 ```

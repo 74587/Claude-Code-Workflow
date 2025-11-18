@@ -108,7 +108,7 @@ ${sortedFeatures.map(f => `
 
 ### Quick Access
 - View session details: /workflow:status
-- Archive query: jq '.archives[] | select(.session_id == "SESSION_ID")' .workflow/.archives/manifest.json
+- Archive query: jq '.archives[] | select(.session_id == "SESSION_ID")' .workflow/archives/manifest.json
 - Documentation: .workflow/docs/${projectData.project_name}/
 
 ### Query Commands
@@ -139,7 +139,7 @@ Complete your first workflow session to add features:
 
 ```bash
 # List 5 most recent archived sessions
-bash(ls -1t .workflow/.archives/WFS-* 2>/dev/null | head -5 | xargs -I {} basename {})
+bash(ls -1t .workflow/archives/WFS-* 2>/dev/null | head -5 | xargs -I {} basename {})
 ```
 
 **Output**:
@@ -156,28 +156,28 @@ Use /workflow:session:complete to archive current session.
 
 ### Step 1: Find Active Session
 ```bash
-find .workflow/ -name ".active-*" -type f 2>/dev/null | head -1
+find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null | head -1
 ```
 
 ### Step 2: Load Session Data
 ```bash
-cat .workflow/WFS-session/workflow-session.json
+cat .workflow/sessions/WFS-session/workflow-session.json
 ```
 
 ### Step 3: Scan Task Files
 ```bash
-find .workflow/WFS-session/.task/ -name "*.json" -type f 2>/dev/null
+find .workflow/sessions/WFS-session/.task/ -name "*.json" -type f 2>/dev/null
 ```
 
 ### Step 4: Generate Task Status
 ```bash
-cat .workflow/WFS-session/.task/impl-1.json | jq -r '.status'
+cat .workflow/sessions/WFS-session/.task/impl-1.json | jq -r '.status'
 ```
 
 ### Step 5: Count Task Progress
 ```bash
-find .workflow/WFS-session/.task/ -name "*.json" -type f | wc -l
-find .workflow/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
+find .workflow/sessions/WFS-session/.task/ -name "*.json" -type f | wc -l
+find .workflow/sessions/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
 ```
 
 ### Step 6: Display Overview

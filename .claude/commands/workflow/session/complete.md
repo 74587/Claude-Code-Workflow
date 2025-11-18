@@ -25,23 +25,23 @@ Mark the currently active workflow session as complete, analyze it for lessons l
 
 #### Step 1.1: Find Active Session and Get Name
 ```bash
-# Find active marker
-bash(find .workflow/ -name ".active-*" -type f | head -1)
+# Find active session directory
+bash(find .workflow/sessions/ -name "WFS-*" -type d | head -1)
 
-# Extract session name from marker path
-bash(basename .workflow/.active-WFS-session-name | sed 's/^\.active-//')
+# Extract session name from directory path
+bash(basename .workflow/sessions/WFS-session-name)
 ```
 **Output**: Session name `WFS-session-name`
 
 #### Step 1.2: Move Session to Archive
 ```bash
 # Create archive directory if needed
-bash(mkdir -p .workflow/.archives/)
+bash(mkdir -p .workflow/archives/)
 
 # Move session to archive location
-bash(mv .workflow/WFS-session-name .workflow/.archives/WFS-session-name)
+bash(mv .workflow/sessions/WFS-session-name .workflow/archives/WFS-session-name)
 ```
-**Result**: Session now at `.workflow/.archives/WFS-session-name/`
+**Result**: Session now at `.workflow/archives/WFS-session-name/`
 
 ### Phase 2: Agent-Orchestrated Completion (All Data Processing)
 
@@ -60,8 +60,7 @@ Task(
 Complete workflow session archival. Session already moved to archive location.
 
 ## Context
-- Session: .workflow/.archives/WFS-session-name/
-- Active marker: .workflow/.active-WFS-session-name
+- Session: .workflow/archives/WFS-session-name/
 
 ## Tasks
 
@@ -77,15 +76,12 @@ Complete workflow session archival. Session already moved to archive location.
    - Calculate: duration_hours, success_rate, tags (3-5 keywords)
    - Construct complete JSON with session_id, description, archived_at, archive_path, metrics, tags, lessons
 
-5. **Update manifest**: Initialize .workflow/.archives/manifest.json if needed, append entry
+5. **Update manifest**: Initialize .workflow/archives/manifest.json if needed, append entry
 
-6. **Remove active marker**
-
-7. **Return result**: {"status": "success", "session_id": "...", "archived_at": "...", "metrics": {...}, "lessons_summary": {...}}
+6. **Return result**: {"status": "success", "session_id": "...", "archived_at": "...", "metrics": {...}, "lessons_summary": {...}}
 
 ## Error Handling
 - On failure: return {"status": "error", "task": "...", "message": "..."}
-- Do NOT remove marker if failed
   `
 )
 ```
@@ -111,7 +107,6 @@ Complete workflow session archival. Session already moved to archive location.
 - Generate lessons learned analysis
 - Build complete archive metadata
 - Update manifest
-- Remove active marker
 - Return success/error result
 
 ### Phase 3: Update Project Feature Registry
@@ -134,7 +129,7 @@ WARNING: No project.json found. Run /workflow:session:start to initialize.
 
 ```bash
 # Read archived IMPL_PLAN.md
-bash(cat .workflow/.archives/WFS-session-name/IMPL_PLAN.md | head -20)
+bash(cat .workflow/archives/WFS-session-name/IMPL_PLAN.md | head -20)
 ```
 
 **Data Processing** (No agent needed):
@@ -192,7 +187,7 @@ const newFeature = {
   },
   traceability: {
     session_id: sessionId,
-    archive_path: archivePath, // e.g., ".workflow/.archives/WFS-auth-system"
+    archive_path: archivePath, // e.g., ".workflow/archives/WFS-auth-system"
     commit_hash: getLatestCommitHash() || "" // Optional: git rev-parse HEAD
   },
   docs: [],      // Placeholder for future doc links
