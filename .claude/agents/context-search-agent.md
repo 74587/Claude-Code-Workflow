@@ -432,25 +432,6 @@ Before completion verify:
 - [ ] File relevance >80%
 - [ ] No sensitive data exposed
 
-## Performance Limits
-
-**File Counts**:
-- Max 30 high-priority (score >0.8)
-- Max 20 medium-priority (score 0.5-0.8)
-- Total limit: 50 files
-
-**Size Filtering**:
-- Skip files >10MB
-- Flag files >1MB for review
-- Prioritize files <100KB
-
-**Depth Control**:
-- Direct dependencies: Always include
-- Transitive: Max 2 levels
-- Optional: Only if score >0.7
-
-**Tool Priority**: Code-Index > ripgrep > find > grep
-
 ## Output Report
 
 ```
