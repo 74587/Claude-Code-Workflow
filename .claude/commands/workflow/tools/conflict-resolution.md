@@ -10,7 +10,12 @@ examples:
 # Conflict Resolution Command
 
 ## Purpose
-Analyzes conflicts between implementation plans and existing codebase, generating multiple resolution strategies.
+Analyzes conflicts between implementation plans and existing codebase, **including module scenario uniqueness detection**, generating multiple resolution strategies with **iterative clarification until boundaries are clear**.
+
+**Key Enhancements**:
+- **Scenario Uniqueness Detection**: Agent searches all existing modules to identify functional overlaps
+- **Iterative Clarification Loop**: Unlimited questions per conflict until scenario boundaries are uniquely defined (max 10 rounds)
+- **Dynamic Re-analysis**: Agent updates strategies based on user clarifications
 
 **Scope**: Detection and strategy generation only - NO code modification or task creation.
 
@@ -21,11 +26,14 @@ Analyzes conflicts between implementation plans and existing codebase, generatin
 | Responsibility | Description |
 |---------------|-------------|
 | **Detect Conflicts** | Analyze plan vs existing code inconsistencies |
+| **Scenario Uniqueness** | **NEW**: Search and compare new modules with existing modules for functional overlaps |
 | **Generate Strategies** | Provide 2-4 resolution options per conflict |
+| **Iterative Clarification** | **NEW**: Ask unlimited questions until scenario boundaries are clear and unique |
+| **Agent Re-analysis** | **NEW**: Dynamically update strategies based on user clarifications |
 | **CLI Analysis** | Use Gemini/Qwen (Claude fallback) |
-| **User Decision** | Present options, never auto-apply |
+| **User Decision** | Present options ONE BY ONE, never auto-apply |
 | **Direct Text Output** | Output questions via text directly, NEVER use bash echo/printf |
-| **Single Output** | `CONFLICT_RESOLUTION.md` with findings |
+| **Structured Data** | JSON output for programmatic processing, NO file generation |
 
 ## Conflict Categories
 
@@ -48,6 +56,13 @@ Analyzes conflicts between implementation plans and existing codebase, generatin
 - Version incompatibilities
 - Setup conflicts
 - Breaking updates
+
+### 5. Module Scenario Overlap
+- **NEW**: Functional overlap between new and existing modules
+- Scenario boundary ambiguity
+- Duplicate responsibility detection
+- Module merge/split decisions
+- **Requires iterative clarification until uniqueness confirmed**
 
 ## Execution Flow
 
@@ -73,23 +88,31 @@ Task(subagent_type="cli-execution-agent", prompt=`
 
   ### 1. Load Context
   - Read existing files from conflict_detection.existing_files
-  - Load plan from .workflow/{session_id}/.process/context-package.json
+  - Load plan from .workflow/sessions/{session_id}/.process/context-package.json
   - Extract role analyses and requirements
 
-  ### 2. Execute CLI Analysis
+  ### 2. Execute CLI Analysis (Enhanced with Scenario Uniqueness Detection)
 
   Primary (Gemini):
   cd {project_root} && gemini -p "
-  PURPOSE: Detect conflicts between plan and codebase
+  PURPOSE: Detect conflicts between plan and codebase, including module scenario overlaps
   TASK:
   • Compare architectures
   • Identify breaking API changes
   • Detect data model incompatibilities
   • Assess dependency conflicts
+  • **NEW: Analyze module scenario uniqueness**
+    - Extract new module functionality from plan
+    - Search all existing modules with similar functionality
+    - Compare scenario coverage and identify overlaps
+    - Generate clarification questions for boundary definition
   MODE: analysis
-  CONTEXT: @{existing_files} @.workflow/{session_id}/**/*
-  EXPECTED: Conflict list with severity ratings
-  RULES: Focus on breaking changes and migration needs
+  CONTEXT: @**/*.ts @**/*.js @**/*.tsx @**/*.jsx @.workflow/sessions/{session_id}/**/*
+  EXPECTED: Conflict list with severity ratings, including ModuleOverlap conflicts with:
+    - Existing module list with scenarios
+    - Overlap analysis matrix
+    - Targeted clarification questions
+  RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on breaking changes, migration needs, and functional overlaps | analysis=READ-ONLY
   "
 
   Fallback: Qwen (same prompt) → Claude (manual analysis)
@@ -98,9 +121,11 @@ Task(subagent_type="cli-execution-agent", prompt=`
 
   Template per conflict:
   - Severity: Critical/High/Medium
-  - Category: Architecture/API/Data/Dependency
+  - Category: Architecture/API/Data/Dependency/ModuleOverlap
   - Affected files + impact
+  - **For ModuleOverlap**: Include overlap_analysis with existing modules and scenarios
   - Options with pros/cons, effort, risk
+  - **For ModuleOverlap strategies**: Add clarification_needed questions for boundary definition
   - Recommended strategy + rationale
 
   ### 4. Return Structured Conflict Data
@@ -116,10 +141,10 @@ Task(subagent_type="cli-execution-agent", prompt=`
         "id": "CON-001",
         "brief": "一行中文冲突摘要",
         "severity": "Critical|High|Medium",
-        "category": "Architecture|API|Data|Dependency",
+        "category": "Architecture|API|Data|Dependency|ModuleOverlap",
         "affected_files": [
-          ".workflow/{session}/.brainstorm/guidance-specification.md",
-          ".workflow/{session}/.brainstorm/system-architect/analysis.md"
+          ".workflow/sessions/{session}/.brainstorm/guidance-specification.md",
+          ".workflow/sessions/{session}/.brainstorm/system-architect/analysis.md"
         ],
         "description": "详细描述冲突 - 什么不兼容",
         "impact": {
@@ -127,6 +152,23 @@ Task(subagent_type="cli-execution-agent", prompt=`
           "compatibility": "Yes|No|Partial",
           "migration_required": true|false,
           "estimated_effort": "人天估计"
+        },
+        "overlap_analysis": {
+          "// NOTE": "仅当 category=ModuleOverlap 时需要此字段",
+          "new_module": {
+            "name": "新模块名称",
+            "scenarios": ["场景1", "场景2", "场景3"],
+            "responsibilities": "职责描述"
+          },
+          "existing_modules": [
+            {
+              "file": "src/existing/module.ts",
+              "name": "现有模块名称",
+              "scenarios": ["场景A", "场景B"],
+              "overlap_scenarios": ["重叠场景1", "重叠场景2"],
+              "responsibilities": "现有模块职责"
+            }
+          ]
         },
         "strategies": [
           {
@@ -137,9 +179,15 @@ Task(subagent_type="cli-execution-agent", prompt=`
             "effort": "时间估计",
             "pros": ["优点1", "优点2"],
             "cons": ["缺点1", "缺点2"],
+            "clarification_needed": [
+              "// NOTE: 仅当需要用户进一步澄清时需要此字段（尤其是 ModuleOverlap）",
+              "新模块的核心职责边界是什么？",
+              "如何与现有模块 X 协作？",
+              "哪些场景应该由新模块处理？"
+            ],
             "modifications": [
               {
-                "file": ".workflow/{session}/.brainstorm/guidance-specification.md",
+                "file": ".workflow/sessions/{session}/.brainstorm/guidance-specification.md",
                 "section": "## 2. System Architect Decisions",
                 "change_type": "update",
                 "old_content": "原始内容片段（用于定位）",
@@ -147,7 +195,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
                 "rationale": "为什么这样改"
               },
               {
-                "file": ".workflow/{session}/.brainstorm/system-architect/analysis.md",
+                "file": ".workflow/sessions/{session}/.brainstorm/system-architect/analysis.md",
                 "section": "## Design Decisions",
                 "change_type": "update",
                 "old_content": "原始内容片段",
@@ -204,155 +252,251 @@ Task(subagent_type="cli-execution-agent", prompt=`
 `)
 ```
 
-**Agent Internal Flow**:
+**Agent Internal Flow** (Enhanced):
 ```
 1. Load context package
 2. Check conflict_risk (exit if none/low)
 3. Read existing files + plan artifacts
-4. Run CLI analysis (Gemini→Qwen→Claude)
-5. Parse conflict findings
-6. Generate 2-4 strategies per conflict with modifications
+4. Run CLI analysis (Gemini→Qwen→Claude) with enhanced tasks:
+   - Standard conflict detection (Architecture/API/Data/Dependency)
+   - **NEW: Module scenario uniqueness detection**
+     * Extract new module functionality from plan
+     * Search all existing modules with similar keywords/functionality
+     * Compare scenario coverage and responsibilities
+     * Identify functional overlaps and boundary ambiguities
+     * Generate ModuleOverlap conflicts with overlap_analysis
+5. Parse conflict findings (including ModuleOverlap category)
+6. Generate 2-4 strategies per conflict:
+   - Include modifications for each strategy
+   - **For ModuleOverlap**: Add clarification_needed questions for boundary definition
 7. Return JSON to stdout (NOT file write)
 8. Return execution log path
 ```
 
-### Phase 3: User Confirmation via Text Interaction
+### Phase 3: Iterative User Interaction with Clarification Loop
 
-**Command parses agent JSON output and presents conflicts to user via text**:
+**Execution Flow**:
+```
+FOR each conflict (逐个处理，无数量限制):
+  clarified = false
+  round = 0
+  userClarifications = []
+
+  WHILE (!clarified && round < 10):
+    round++
+
+    // 1. Display conflict (包含所有关键字段)
+    - category, id, brief, severity, description
+    - IF ModuleOverlap: 展示 overlap_analysis
+      * new_module: {name, scenarios, responsibilities}
+      * existing_modules[]: {file, name, scenarios, overlap_scenarios, responsibilities}
+
+    // 2. Display strategies (2-4个策略 + 自定义选项)
+    - FOR each strategy: {name, approach, complexity, risk, effort, pros, cons}
+      * IF clarification_needed: 展示待澄清问题列表
+    - 自定义选项: {suggestions: modification_suggestions[]}
+
+    // 3. User selects strategy
+    userChoice = readInput()
+
+    IF userChoice == "自定义":
+      customConflicts.push({id, brief, category, suggestions, overlap_analysis})
+      clarified = true
+      BREAK
+
+    selectedStrategy = strategies[userChoice]
+
+    // 4. Clarification loop
+    IF selectedStrategy.clarification_needed.length > 0:
+      // 收集澄清答案
+      FOR each question:
+        answer = readInput()
+        userClarifications.push({question, answer})
+
+      // Agent 重新分析
+      reanalysisResult = Task(cli-execution-agent, prompt={
+        冲突信息: {id, brief, category, 策略}
+        用户澄清: userClarifications[]
+        场景分析: overlap_analysis (if ModuleOverlap)
+
+        输出: {
+          uniqueness_confirmed: bool,
+          rationale: string,
+          updated_strategy: {name, approach, complexity, risk, effort, modifications[]},
+          remaining_questions: [] (如果仍有歧义)
+        }
+      })
+
+      IF reanalysisResult.uniqueness_confirmed:
+        selectedStrategy = updated_strategy
+        selectedStrategy.clarifications = userClarifications
+        clarified = true
+      ELSE:
+        // 更新澄清问题，继续下一轮
+        selectedStrategy.clarification_needed = remaining_questions
+    ELSE:
+      clarified = true
+
+    resolvedConflicts.push({conflict, strategy: selectedStrategy})
+  END WHILE
+END FOR
+
+// Build output
+selectedStrategies = resolvedConflicts.map(r => ({
+  conflict_id, strategy, clarifications[]
+}))
+```
+
+**Key Data Structures**:
 
 ```javascript
-// 1. Parse agent JSON output
-const conflictData = JSON.parse(agentOutput);
-const conflicts = conflictData.conflicts; // No 4-conflict limit
-
-// 2. Format conflicts as text output (max 10 per round)
-const batchSize = 10;
-const batches = chunkArray(conflicts, batchSize);
-
-for (const [batchIdx, batch] of batches.entries()) {
-  const totalBatches = batches.length;
-
-  // Output batch header
-  console.log(`===== 冲突解决 (第 ${batchIdx + 1}/${totalBatches} 轮) =====\n`);
-
-  // Output each conflict in batch
-  batch.forEach((conflict, idx) => {
-    const questionNum = batchIdx * batchSize + idx + 1;
-    console.log(`【问题${questionNum} - ${conflict.category}】${conflict.id}: ${conflict.brief}`);
-
-    conflict.strategies.forEach((strategy, sIdx) => {
-      const optionLetter = String.fromCharCode(97 + sIdx); // a, b, c, ...
-      console.log(`${optionLetter}) ${strategy.name}`);
-      console.log(`   说明：${strategy.approach}`);
-      console.log(`   复杂度: ${strategy.complexity} | 风险: ${strategy.risk} | 工作量: ${strategy.effort}`);
-    });
-
-    // Add custom option
-    const customLetter = String.fromCharCode(97 + conflict.strategies.length);
-    console.log(`${customLetter}) 自定义修改`);
-    console.log(`   说明：根据修改建议自行处理，不应用预设策略`);
-
-    // Show modification suggestions
-    if (conflict.modification_suggestions && conflict.modification_suggestions.length > 0) {
-      console.log(`   修改建议：`);
-      conflict.modification_suggestions.forEach(suggestion => {
-        console.log(`   - ${suggestion}`);
-      });
-    }
-    console.log();
-  });
-
-  console.log(`请回答 (格式: 1a 2b 3c...)：`);
-
-  // Wait for user input
-  const userInput = await readUserInput();
-
-  // Parse answers
-  const answers = parseUserAnswers(userInput, batch);
+// Custom conflict tracking
+customConflicts[] = {
+  id, brief, category,
+  suggestions: modification_suggestions[],
+  overlap_analysis: { new_module{}, existing_modules[] }  // ModuleOverlap only
 }
 
-// 3. Build selected strategies (exclude custom selections)
-const selectedStrategies = answers.filter(a => !a.isCustom).map(a => a.strategy);
-const customConflicts = answers.filter(a => a.isCustom).map(a => ({
-  id: a.conflict.id,
-  brief: a.conflict.brief,
-  suggestions: a.conflict.modification_suggestions
-}));
+// Agent re-analysis prompt output
+{
+  uniqueness_confirmed: bool,
+  rationale: string,
+  updated_strategy: {
+    name, approach, complexity, risk, effort,
+    modifications: [{file, section, change_type, old_content, new_content, rationale}]
+  },
+  remaining_questions: string[]
+}
 ```
 
-**Text Output Example**:
+**Text Output Example** (展示关键字段):
+
 ```markdown
-===== 冲突解决 (第 1/1 轮) =====
+============================================================
+冲突 1/3 - 第 1 轮
+============================================================
+【ModuleOverlap】CON-001: 新增用户认证服务与现有模块功能重叠
+严重程度: High | 描述: 计划中的 UserAuthService 与现有 AuthManager 场景重叠
 
-【问题1 - Architecture】CON-001: 现有认证系统与计划不兼容
-a) 渐进式迁移
-   说明：保留现有系统，逐步迁移到新方案
-   复杂度: Medium | 风险: Low | 工作量: 3-5天
-b) 完全重写
-   说明：废弃旧系统，从零实现新认证
-   复杂度: High | 风险: Medium | 工作量: 7-10天
-c) 自定义修改
-   说明：根据修改建议自行处理，不应用预设策略
-   修改建议：
-   - 评估现有认证系统的兼容性，考虑是否可以通过适配器模式桥接
-   - 检查JWT token格式和验证逻辑是否需要调整
-   - 确保用户会话管理与新架构保持一致
+--- 场景重叠分析 ---
+新模块: UserAuthService | 场景: 登录, Token验证, 权限, MFA
+现有模块: AuthManager (src/auth/AuthManager.ts) | 重叠: 登录, Token验证
 
-【问题2 - Data】CON-002: 数据库 schema 冲突
-a) 添加迁移脚本
-   说明：创建数据库迁移脚本处理 schema 变更
-   复杂度: Low | 风险: Low | 工作量: 1-2天
-b) 自定义修改
-   说明：根据修改建议自行处理，不应用预设策略
-   修改建议：
-   - 检查现有表结构是否支持新增字段，避免破坏性变更
-   - 考虑使用数据库版本控制工具（如Flyway或Liquibase）
-   - 准备数据迁移和回滚策略
+--- 解决策略 ---
+1) 合并 (Low复杂度 | Low风险 | 2-3天)
+   ⚠️ 需澄清: AuthManager是否能承担MFA？
 
-请回答 (格式: 1a 2b)：
+2) 拆分边界 (Medium复杂度 | Medium风险 | 4-5天)
+   ⚠️ 需澄清: 基础/高级认证边界? Token验证归谁?
+
+3) 自定义修改
+   建议: 评估扩展性; 策略模式分离; 定义接口边界
+
+请选择 (1-3): > 2
+
+--- 澄清问答 (第1轮) ---
+Q: 基础/高级认证边界?
+A: 基础=密码登录+token验证, 高级=MFA+OAuth+SSO
+
+Q: Token验证归谁?
+A: 统一由 AuthManager 负责
+
+🔄 重新分析...
+✅ 唯一性已确认 | 理由: 边界清晰 - AuthManager(基础+token), UserAuthService(MFA+OAuth+SSO)
+
+============================================================
+冲突 2/3 - 第 1 轮 [下一个冲突]
+============================================================
 ```
 
-**User Input Examples**:
-- `1a 2a` → Conflict 1: 渐进式迁移, Conflict 2: 添加迁移脚本
-- `1b 2b` → Conflict 1: 完全重写, Conflict 2: 自定义修改
-- `1c 2c` → Both choose custom modification (user handles manually with suggestions)
+**Loop Characteristics**: 逐个处理 | 无限轮次(max 10) | 动态问题生成 | Agent重新分析判断唯一性 | ModuleOverlap场景边界澄清
 
 ### Phase 4: Apply Modifications
 
 ```javascript
-// 1. Extract modifications from selected strategies
+// 1. Extract modifications from resolved strategies
 const modifications = [];
-selectedStrategies.forEach(strategy => {
-  if (strategy !== "skip") {
-    modifications.push(...strategy.modifications);
+selectedStrategies.forEach(item => {
+  if (item.strategy && item.strategy.modifications) {
+    modifications.push(...item.strategy.modifications.map(mod => ({
+      ...mod,
+      conflict_id: item.conflict_id,
+      clarifications: item.clarifications
+    })));
   }
 });
+
+console.log(`\n正在应用 ${modifications.length} 个修改...`);
 
 // 2. Apply each modification using Edit tool
-modifications.forEach(mod => {
-  if (mod.change_type === "update") {
-    Edit({
-      file_path: mod.file,
-      old_string: mod.old_content,
-      new_string: mod.new_content
-    });
+const appliedModifications = [];
+const failedModifications = [];
+
+modifications.forEach((mod, idx) => {
+  try {
+    console.log(`[${idx + 1}/${modifications.length}] 修改 ${mod.file}...`);
+
+    if (mod.change_type === "update") {
+      Edit({
+        file_path: mod.file,
+        old_string: mod.old_content,
+        new_string: mod.new_content
+      });
+    } else if (mod.change_type === "add") {
+      // Handle addition - append or insert based on section
+      const fileContent = Read(mod.file);
+      const updated = insertContentAfterSection(fileContent, mod.section, mod.new_content);
+      Write(mod.file, updated);
+    } else if (mod.change_type === "remove") {
+      Edit({
+        file_path: mod.file,
+        old_string: mod.old_content,
+        new_string: ""
+      });
+    }
+
+    appliedModifications.push(mod);
+    console.log(`  ✓ 成功`);
+  } catch (error) {
+    console.log(`  ✗ 失败: ${error.message}`);
+    failedModifications.push({ ...mod, error: error.message });
   }
-  // Handle "add" and "remove" similarly
 });
 
-// 3. Update context-package.json
+// 3. Update context-package.json with resolution details
 const contextPackage = JSON.parse(Read(contextPath));
 contextPackage.conflict_detection.conflict_risk = "resolved";
-contextPackage.conflict_detection.resolved_conflicts = conflicts.map(c => c.id);
+contextPackage.conflict_detection.resolved_conflicts = selectedStrategies.map(s => ({
+  conflict_id: s.conflict_id,
+  strategy_name: s.strategy.name,
+  clarifications: s.clarifications
+}));
+contextPackage.conflict_detection.custom_conflicts = customConflicts.map(c => c.id);
 contextPackage.conflict_detection.resolved_at = new Date().toISOString();
 Write(contextPath, JSON.stringify(contextPackage, null, 2));
 
-// 4. Output custom conflict summary (if any)
+// 4. Output custom conflict summary with overlap analysis (if any)
 if (customConflicts.length > 0) {
-  console.log("\n===== 需要自定义处理的冲突 =====\n");
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`需要自定义处理的冲突 (${customConflicts.length})`);
+  console.log(`${'='.repeat(60)}\n`);
+
   customConflicts.forEach(conflict => {
-    console.log(`【${conflict.id}】${conflict.brief}`);
-    console.log("修改建议：");
+    console.log(`【${conflict.category}】${conflict.id}: ${conflict.brief}`);
+
+    // Show overlap analysis for ModuleOverlap conflicts
+    if (conflict.category === 'ModuleOverlap' && conflict.overlap_analysis) {
+      console.log(`\n场景重叠信息:`);
+      console.log(`  新模块: ${conflict.overlap_analysis.new_module.name}`);
+      console.log(`  场景: ${conflict.overlap_analysis.new_module.scenarios.join(', ')}`);
+      console.log(`\n  与以下模块重叠:`);
+      conflict.overlap_analysis.existing_modules.forEach(mod => {
+        console.log(`    - ${mod.name} (${mod.file})`);
+        console.log(`      重叠场景: ${mod.overlap_scenarios.join(', ')}`);
+      });
+    }
+
+    console.log(`\n修改建议:`);
     conflict.suggestions.forEach(suggestion => {
       console.log(`  - ${suggestion}`);
     });
@@ -360,25 +504,43 @@ if (customConflicts.length > 0) {
   });
 }
 
-// 5. Return summary
+// 5. Output failure summary (if any)
+if (failedModifications.length > 0) {
+  console.log(`\n⚠️ 部分修改失败 (${failedModifications.length}):`);
+  failedModifications.forEach(mod => {
+    console.log(`  - ${mod.file}: ${mod.error}`);
+  });
+}
+
+// 6. Return summary
 return {
-  resolved: modifications.length,
-  custom: customConflicts.length,
-  modified_files: [...new Set(modifications.map(m => m.file))],
-  custom_conflicts: customConflicts
+  total_conflicts: conflicts.length,
+  resolved_with_strategy: selectedStrategies.length,
+  custom_handling: customConflicts.length,
+  modifications_applied: appliedModifications.length,
+  modifications_failed: failedModifications.length,
+  modified_files: [...new Set(appliedModifications.map(m => m.file))],
+  custom_conflicts: customConflicts,
+  clarification_records: selectedStrategies.filter(s => s.clarifications.length > 0)
 };
 ```
 
 **Validation**:
 ```
-✓ Agent returns valid JSON structure
-✓ Text output displays all conflicts (max 10 per round)
-✓ User selections captured correctly
+✓ Agent returns valid JSON structure with ModuleOverlap conflicts
+✓ Conflicts processed ONE BY ONE (not in batches)
+✓ ModuleOverlap conflicts include overlap_analysis field
+✓ Strategies with clarification_needed display questions
+✓ User selections captured correctly per conflict
+✓ Clarification loop continues until uniqueness confirmed
+✓ Agent re-analysis returns uniqueness_confirmed and updated_strategy
+✓ Maximum 10 rounds per conflict safety limit enforced
 ✓ Edit tool successfully applies modifications
 ✓ guidance-specification.md updated
 ✓ Role analyses (*.md) updated
-✓ context-package.json marked as resolved
-✓ Agent log saved to .workflow/{session_id}/.chat/
+✓ context-package.json marked as resolved with clarification records
+✓ Custom conflicts display overlap_analysis for manual handling
+✓ Agent log saved to .workflow/sessions/{session_id}/.chat/
 ```
 
 ## Output Format: Agent JSON Response
@@ -435,31 +597,45 @@ If Edit tool fails mid-application:
 
 **Output**:
 - Modified files:
-  - `.workflow/{session_id}/.brainstorm/guidance-specification.md`
-  - `.workflow/{session_id}/.brainstorm/{role}/analysis.md`
-  - `.workflow/{session_id}/.process/context-package.json` (conflict_risk → resolved)
+  - `.workflow/sessions/{session_id}/.brainstorm/guidance-specification.md`
+  - `.workflow/sessions/{session_id}/.brainstorm/{role}/analysis.md`
+  - `.workflow/sessions/{session_id}/.process/context-package.json` (conflict_risk → resolved)
 - NO report file generation
 
 **User Interaction**:
-- Text-based strategy selection (max 10 conflicts per round)
+- **Iterative conflict processing**: One conflict at a time, not in batches
 - Each conflict: 2-4 strategy options + "自定义修改" option (with suggestions)
+- **Clarification loop**: Unlimited questions per conflict until uniqueness confirmed (max 10 rounds)
+- **ModuleOverlap conflicts**: Display overlap_analysis with existing modules
+- **Agent re-analysis**: Dynamic strategy updates based on user clarifications
 
 ### Success Criteria
 ```
-✓ CLI analysis returns valid JSON structure
-✓ Conflicts presented in batches (max 10 per round)
+✓ CLI analysis returns valid JSON structure with ModuleOverlap category
+✓ Agent performs scenario uniqueness detection (searches existing modules)
+✓ Conflicts processed ONE BY ONE with iterative clarification
 ✓ Min 2 strategies per conflict with modifications
+✓ ModuleOverlap conflicts include overlap_analysis with existing modules
+✓ Strategies requiring clarification include clarification_needed questions
 ✓ Each conflict includes 2-5 modification_suggestions
-✓ Text output displays all conflicts correctly with suggestions
-✓ User selections captured and processed
+✓ Text output displays conflict with overlap analysis (if ModuleOverlap)
+✓ User selections captured per conflict
+✓ Clarification loop continues until uniqueness confirmed (unlimited rounds, max 10)
+✓ Agent re-analysis with user clarifications updates strategy
+✓ Uniqueness confirmation based on clear scenario boundaries
 ✓ Edit tool applies modifications successfully
-✓ Custom conflicts displayed with suggestions for manual handling
+✓ Custom conflicts displayed with overlap_analysis for manual handling
 ✓ guidance-specification.md updated with resolved conflicts
 ✓ Role analyses (*.md) updated with resolved conflicts
-✓ context-package.json marked as "resolved"
+✓ context-package.json marked as "resolved" with clarification records
 ✓ No CONFLICT_RESOLUTION.md file generated
-✓ Modification summary includes custom conflict count
-✓ Agent log saved to .workflow/{session_id}/.chat/
+✓ Modification summary includes:
+  - Total conflicts
+  - Resolved with strategy (count)
+  - Custom handling (count)
+  - Clarification records
+  - Overlap analysis for custom ModuleOverlap conflicts
+✓ Agent log saved to .workflow/sessions/{session_id}/.chat/
 ✓ Error handling robust (validate/retry/degrade)
 ```
 

@@ -238,7 +238,7 @@ const context = {
 
 **3.5 Brainstorm Artifacts Integration**
 
-If `.workflow/{session}/.brainstorming/` exists, read and include content:
+If `.workflow/session/{session}/.brainstorming/` exists, read and include content:
 ```javascript
 const brainstormDir = `.workflow/${session}/.brainstorming`;
 if (dir_exists(brainstormDir)) {
@@ -274,7 +274,7 @@ Calculate risk level based on:
 
 **3.7 Context Packaging & Output**
 
-**Output**: `.workflow/{session-id}/.process/context-package.json`
+**Output**: `.workflow/sessions//{session-id}/.process/context-package.json`
 
 **Note**: Task JSONs reference via `context_package_path` field (not in `artifacts`)
 
@@ -422,7 +422,7 @@ Calculate risk level based on:
 ## Quality Validation
 
 Before completion verify:
-- [ ] context-package.json in `.workflow/{session}/.process/`
+- [ ] context-package.json in `.workflow/session/{session}/.process/`
 - [ ] Valid JSON with all required fields
 - [ ] Metadata complete (description, keywords, complexity)
 - [ ] Project context documented (patterns, conventions, tech stack)
@@ -456,7 +456,7 @@ Conflict Detection:
 - Affected: {modules}
 - Mitigation: {strategy}
 
-Output: .workflow/{session}/.process/context-package.json
+Output: .workflow/session/{session}/.process/context-package.json
 (Referenced in task JSONs via top-level `context_package_path` field)
 ```
 

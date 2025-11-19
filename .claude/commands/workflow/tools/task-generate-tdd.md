@@ -74,7 +74,7 @@ Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent
   "workflow_type": "tdd",
   "session_metadata": {
     // If in memory: use cached content
-    // Else: Load from .workflow/{session-id}/workflow-session.json
+    // Else: Load from .workflow/sessions//{session-id}/workflow-session.json
   },
   "brainstorm_artifacts": {
     // Loaded from context-package.json → brainstorm_artifacts section
@@ -88,12 +88,12 @@ Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent
     "synthesis_output": {"path": "...", "exists": true},
     "conflict_resolution": {"path": "...", "exists": true}  // if conflict_risk >= medium
   },
-  "context_package_path": ".workflow/{session-id}/.process/context-package.json",
+  "context_package_path": ".workflow/sessions//{session-id}/.process/context-package.json",
   "context_package": {
     // If in memory: use cached content
-    // Else: Load from .workflow/{session-id}/.process/context-package.json
+    // Else: Load from .workflow/sessions//{session-id}/.process/context-package.json
   },
-  "test_context_package_path": ".workflow/{session-id}/.process/test-context-package.json",
+  "test_context_package_path": ".workflow/sessions//{session-id}/.process/test-context-package.json",
   "test_context_package": {
     // Existing test patterns and coverage analysis
   },
@@ -109,21 +109,21 @@ Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent
 1. **Load Session Context** (if not in memory)
    ```javascript
    if (!memory.has("workflow-session.json")) {
-     Read(.workflow/{session-id}/workflow-session.json)
+     Read(.workflow/sessions//{session-id}/workflow-session.json)
    }
    ```
 
 2. **Load Context Package** (if not in memory)
    ```javascript
    if (!memory.has("context-package.json")) {
-     Read(.workflow/{session-id}/.process/context-package.json)
+     Read(.workflow/sessions//{session-id}/.process/context-package.json)
    }
    ```
 
 3. **Load Test Context Package** (if not in memory)
    ```javascript
    if (!memory.has("test-context-package.json")) {
-     Read(.workflow/{session-id}/.process/test-context-package.json)
+     Read(.workflow/sessions//{session-id}/.process/test-context-package.json)
    }
    ```
 
@@ -245,7 +245,7 @@ Refer to: @.claude/agents/action-planning-agent.md for:
 #### Required Outputs Summary
 
 ##### 1. TDD Task JSON Files (.task/IMPL-*.json)
-- **Location**: `.workflow/{session-id}/.task/`
+- **Location**: `.workflow/sessions//{session-id}/.task/`
 - **Template**: Read from `{template_path}` (pre-selected by command based on `--cli-execute` flag)
 - **Schema**: 5-field structure with TDD-specific metadata
   - `meta.tdd_workflow`: true (REQUIRED)
@@ -259,14 +259,14 @@ Refer to: @.claude/agents/action-planning-agent.md for:
 - **Details**: See action-planning-agent.md § TDD Task JSON Generation
 
 ##### 2. IMPL_PLAN.md (TDD Variant)
-- **Location**: `.workflow/{session-id}/IMPL_PLAN.md`
+- **Location**: `.workflow/sessions//{session-id}/IMPL_PLAN.md`
 - **Template**: `~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
 - **TDD-Specific Frontmatter**: workflow_type="tdd", tdd_workflow=true, feature_count, task_breakdown
 - **TDD Implementation Tasks Section**: Feature-by-feature with internal Red-Green-Refactor cycles
 - **Details**: See action-planning-agent.md § TDD Implementation Plan Creation
 
 ##### 3. TODO_LIST.md
-- **Location**: `.workflow/{session-id}/TODO_LIST.md`
+- **Location**: `.workflow/sessions//{session-id}/TODO_LIST.md`
 - **Format**: Hierarchical task list with internal TDD phase indicators (Red → Green → Refactor)
 - **Status**: ▸ (container), [ ] (pending), [x] (completed)
 - **Details**: See action-planning-agent.md § TODO List Generation
@@ -384,7 +384,7 @@ This section provides quick reference for TDD task JSON structure. For complete 
 
 ## Output Files Structure
 ```
-.workflow/{session-id}/
+.workflow/sessions//{session-id}/
 ├── IMPL_PLAN.md                     # Unified plan with TDD Implementation Tasks section
 ├── TODO_LIST.md                     # Progress tracking with internal TDD phase indicators
 ├── .task/

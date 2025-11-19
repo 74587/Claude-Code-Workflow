@@ -98,7 +98,7 @@ Phase 3: Task JSON Generation
 1. Load task JSON template
 2. Populate template with parsed CLI results
 3. Add iteration context and previous attempts
-4. Write task JSON to .workflow/{session}/.task/IMPL-fix-N.json
+4. Write task JSON to .workflow/session/{session}/.task/IMPL-fix-N.json
 5. Return success status and task ID to orchestrator
 ```
 

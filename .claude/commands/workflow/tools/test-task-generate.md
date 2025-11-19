@@ -54,14 +54,14 @@ Autonomous test-fix task JSON generation using action-planning-agent with two-ph
   "use_codex": true | false,  // Determined by --use-codex flag
   "session_metadata": {
     // If in memory: use cached content
-    // Else: Load from .workflow/{test-session-id}/workflow-session.json
+    // Else: Load from .workflow/sessions/{test-session-id}/workflow-session.json
   },
-  "test_analysis_results_path": ".workflow/{test-session-id}/.process/TEST_ANALYSIS_RESULTS.md",
+  "test_analysis_results_path": ".workflow/sessions/{test-session-id}/.process/TEST_ANALYSIS_RESULTS.md",
   "test_analysis_results": {
     // If in memory: use cached content
     // Else: Load from TEST_ANALYSIS_RESULTS.md
   },
-  "test_context_package_path": ".workflow/{test-session-id}/.process/test-context-package.json",
+  "test_context_package_path": ".workflow/sessions/{test-session-id}/.process/test-context-package.json",
   "test_context_package": {
     // Existing test patterns and coverage analysis
   },
@@ -81,28 +81,28 @@ Autonomous test-fix task JSON generation using action-planning-agent with two-ph
 1. **Load Test Session Context** (if not in memory)
    ```javascript
    if (!memory.has("workflow-session.json")) {
-     Read(.workflow/{test-session-id}/workflow-session.json)
+     Read(.workflow/sessions/{test-session-id}/workflow-session.json)
    }
    ```
 
 2. **Load TEST_ANALYSIS_RESULTS.md** (if not in memory, REQUIRED)
    ```javascript
    if (!memory.has("TEST_ANALYSIS_RESULTS.md")) {
-     Read(.workflow/{test-session-id}/.process/TEST_ANALYSIS_RESULTS.md)
+     Read(.workflow/sessions/{test-session-id}/.process/TEST_ANALYSIS_RESULTS.md)
    }
    ```
 
 3. **Load Test Context Package** (if not in memory)
    ```javascript
    if (!memory.has("test-context-package.json")) {
-     Read(.workflow/{test-session-id}/.process/test-context-package.json)
+     Read(.workflow/sessions/{test-session-id}/.process/test-context-package.json)
    }
    ```
 
 4. **Load Source Session Summaries** (if source_session_id exists)
    ```javascript
    if (sessionMetadata.source_session_id) {
-     const summaryFiles = Bash("find .workflow/{source-session-id}/.summaries/ -name 'IMPL-*-summary.md'")
+     const summaryFiles = Bash("find .workflow/sessions/{source-session-id}/.summaries/ -name 'IMPL-*-summary.md'")
      summaryFiles.forEach(file => Read(file))
    }
    ```
@@ -205,7 +205,7 @@ Refer to: @.claude/agents/action-planning-agent.md for:
 #### Required Outputs Summary
 
 ##### 1. Test Task JSON Files (.task/IMPL-*.json)
-- **Location**: `.workflow/{test-session-id}/.task/`
+- **Location**: `.workflow/sessions/{test-session-id}/.task/`
 - **Template**: Read from `{template_path}` (pre-selected by command based on `--cli-execute` flag)
 - **Schema**: 5-field structure with test-specific metadata
   - IMPL-001: `meta.type: "test-gen"`, `meta.agent: "@code-developer"`
@@ -214,14 +214,14 @@ Refer to: @.claude/agents/action-planning-agent.md for:
 - **Details**: See action-planning-agent.md § Test Task JSON Generation
 
 ##### 2. IMPL_PLAN.md (Test Variant)
-- **Location**: `.workflow/{test-session-id}/IMPL_PLAN.md`
+- **Location**: `.workflow/sessions/{test-session-id}/IMPL_PLAN.md`
 - **Template**: `~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
 - **Test-Specific Frontmatter**: workflow_type="test_session", test_framework, source_session_id
 - **Test-Fix-Retest Cycle Section**: Iterative fix cycle with Gemini diagnosis
 - **Details**: See action-planning-agent.md § Test Implementation Plan Creation
 
 ##### 3. TODO_LIST.md
-- **Location**: `.workflow/{test-session-id}/TODO_LIST.md`
+- **Location**: `.workflow/sessions/{test-session-id}/TODO_LIST.md`
 - **Format**: Task list with test generation and execution phases
 - **Status**: [ ] (pending), [x] (completed)
 - **Details**: See action-planning-agent.md § TODO List Generation

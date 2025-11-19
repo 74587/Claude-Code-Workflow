@@ -73,7 +73,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
 
   ### 1. Load Context
   - Read existing files from conflict_detection.existing_files
-  - Load plan from .workflow/{session_id}/.process/context-package.json
+  - Load plan from .workflow/sessions/{session_id}/.process/context-package.json
   - Extract role analyses and requirements
 
   ### 2. Execute CLI Analysis
@@ -87,7 +87,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
   • Detect data model incompatibilities
   • Assess dependency conflicts
   MODE: analysis
-  CONTEXT: @{existing_files} @.workflow/{session_id}/**/*
+  CONTEXT: @{existing_files} @.workflow/sessions/{session_id}/**/*
   EXPECTED: Conflict list with severity ratings
   RULES: Focus on breaking changes and migration needs
   "
@@ -118,8 +118,8 @@ Task(subagent_type="cli-execution-agent", prompt=`
         "severity": "Critical|High|Medium",
         "category": "Architecture|API|Data|Dependency",
         "affected_files": [
-          ".workflow/{session}/.brainstorm/guidance-specification.md",
-          ".workflow/{session}/.brainstorm/system-architect/analysis.md"
+          ".workflow/session/{session}/.brainstorm/guidance-specification.md",
+          ".workflow/session/{session}/.brainstorm/system-architect/analysis.md"
         ],
         "description": "详细描述冲突 - 什么不兼容",
         "impact": {
@@ -139,7 +139,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
             "cons": ["缺点1", "缺点2"],
             "modifications": [
               {
-                "file": ".workflow/{session}/.brainstorm/guidance-specification.md",
+                "file": ".workflow/session/{session}/.brainstorm/guidance-specification.md",
                 "section": "## 2. System Architect Decisions",
                 "change_type": "update",
                 "old_content": "原始内容片段（用于定位）",
@@ -147,7 +147,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
                 "rationale": "为什么这样改"
               },
               {
-                "file": ".workflow/{session}/.brainstorm/system-architect/analysis.md",
+                "file": ".workflow/session/{session}/.brainstorm/system-architect/analysis.md",
                 "section": "## Design Decisions",
                 "change_type": "update",
                 "old_content": "原始内容片段",
@@ -378,7 +378,7 @@ return {
 ✓ guidance-specification.md updated
 ✓ Role analyses (*.md) updated
 ✓ context-package.json marked as resolved
-✓ Agent log saved to .workflow/{session_id}/.chat/
+✓ Agent log saved to .workflow/sessions/{session_id}/.chat/
 ```
 
 ## Output Format: Agent JSON Response
@@ -435,9 +435,9 @@ If Edit tool fails mid-application:
 
 **Output**:
 - Modified files:
-  - `.workflow/{session_id}/.brainstorm/guidance-specification.md`
-  - `.workflow/{session_id}/.brainstorm/{role}/analysis.md`
-  - `.workflow/{session_id}/.process/context-package.json` (conflict_risk → resolved)
+  - `.workflow/sessions/{session_id}/.brainstorm/guidance-specification.md`
+  - `.workflow/sessions/{session_id}/.brainstorm/{role}/analysis.md`
+  - `.workflow/sessions/{session_id}/.process/context-package.json` (conflict_risk → resolved)
 - NO report file generation
 
 **User Interaction**:
@@ -459,7 +459,7 @@ If Edit tool fails mid-application:
 ✓ context-package.json marked as "resolved"
 ✓ No CONFLICT_RESOLUTION.md file generated
 ✓ Modification summary includes custom conflict count
-✓ Agent log saved to .workflow/{session_id}/.chat/
+✓ Agent log saved to .workflow/sessions/{session_id}/.chat/
 ✓ Error handling robust (validate/retry/degrade)
 ```
 

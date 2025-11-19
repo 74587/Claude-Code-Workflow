@@ -209,13 +209,13 @@ Iteration N (managed by test-cycle-execute orchestrator):
     "pre_analysis": [
       {
         "step": "load_failure_context",
-        "command": "Read(.workflow/{session}/.process/iteration-{N-1}-failures.json)",
+        "command": "Read(.workflow/session/{session}/.process/iteration-{N-1}-failures.json)",
         "output_to": "previous_failures",
         "on_error": "skip_optional"
       },
       {
         "step": "load_fix_strategy",
-        "command": "Read(.workflow/{session}/.process/iteration-{N}-strategy.md)",
+        "command": "Read(.workflow/session/{session}/.process/iteration-{N}-strategy.md)",
         "output_to": "fix_strategy",
         "on_error": "fail"
       }
@@ -704,7 +704,7 @@ Task(subagent_type="{meta.agent}",
 #### Resume from Interruption
 ```bash
 # Load iteration state
-iteration_state=$(cat .workflow/{session}/.process/iteration-state.json)
+iteration_state=$(cat .workflow/session/{session}/.process/iteration-state.json)
 current_iteration=$(jq -r '.current_iteration' <<< "$iteration_state")
 
 # Determine resume point
@@ -723,7 +723,7 @@ fi
 git revert HEAD
 
 # Remove failed fix task
-rm .workflow/{session}/.task/IMPL-fix-{N}.json
+rm .workflow/session/{session}/.task/IMPL-fix-{N}.json
 
 # Restore iteration state
 jq '.current_iteration -= 1' iteration-state.json > temp.json

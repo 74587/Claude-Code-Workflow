@@ -92,7 +92,7 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 4. **Validate Prerequisites**: Ensure IMPL_PLAN.md and TODO_LIST.md exist and are valid
 
 **Resume Mode Behavior**:
-- Load existing TODO_LIST.md directly from `.workflow/{session-id}/`
+- Load existing TODO_LIST.md directly from `.workflow/sessions//{session-id}/`
 - Extract current progress from TODO_LIST.md
 - Generate TodoWrite from TODO_LIST.md state
 - Proceed immediately to agent execution (Phase 4)
@@ -118,7 +118,7 @@ If IMPL_PLAN.md lacks execution strategy, use intelligent fallback (analyze task
 ```
 while (TODO_LIST.md has pending tasks) {
   next_task_id = getTodoWriteInProgressTask()
-  task_json = Read(.workflow/{session}/.task/{next_task_id}.json)  // Lazy load
+  task_json = Read(.workflow/session/{session}/.task/{next_task_id}.json)  // Lazy load
   executeTaskWithAgent(task_json)
   updateTodoListMarkCompleted(next_task_id)
   advanceTodoWriteToNextTask()

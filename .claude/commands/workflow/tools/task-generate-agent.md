@@ -36,7 +36,7 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
   // Path selected by command based on --cli-execute flag, agent reads it
   "session_metadata": {
     // If in memory: use cached content
-    // Else: Load from .workflow/{session-id}/workflow-session.json
+    // Else: Load from .workflow/sessions//{session-id}/workflow-session.json
   },
   "brainstorm_artifacts": {
     // Loaded from context-package.json → brainstorm_artifacts section
@@ -50,10 +50,10 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
     "synthesis_output": {"path": "...", "exists": true},
     "conflict_resolution": {"path": "...", "exists": true}  // if conflict_risk >= medium
   },
-  "context_package_path": ".workflow/{session-id}/.process/context-package.json",
+  "context_package_path": ".workflow/sessions//{session-id}/.process/context-package.json",
   "context_package": {
     // If in memory: use cached content
-    // Else: Load from .workflow/{session-id}/.process/context-package.json
+    // Else: Load from .workflow/sessions//{session-id}/.process/context-package.json
   },
   "mcp_capabilities": {
     "code_index": true,
@@ -67,14 +67,14 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
 1. **Load Session Context** (if not in memory)
    ```javascript
    if (!memory.has("workflow-session.json")) {
-     Read(.workflow/{session-id}/workflow-session.json)
+     Read(.workflow/sessions//{session-id}/workflow-session.json)
    }
    ```
 
 2. **Load Context Package** (if not in memory)
    ```javascript
    if (!memory.has("context-package.json")) {
-     Read(.workflow/{session-id}/.process/context-package.json)
+     Read(.workflow/sessions//{session-id}/.process/context-package.json)
    }
    ```
 
@@ -176,18 +176,18 @@ Refer to: @.claude/agents/action-planning-agent.md for:
 ### Required Outputs Summary
 
 #### 1. Task JSON Files (.task/IMPL-*.json)
-- **Location**: `.workflow/{session-id}/.task/`
+- **Location**: `.workflow/sessions//{session-id}/.task/`
 - **Template**: Read from `{template_path}` (pre-selected by command based on `--cli-execute` flag)
 - **Schema**: 5-field structure (id, title, status, meta, context, flow_control) with artifacts integration
 - **Details**: See action-planning-agent.md § Task JSON Generation
 
 #### 2. IMPL_PLAN.md
-- **Location**: `.workflow/{session-id}/IMPL_PLAN.md`
+- **Location**: `.workflow/sessions//{session-id}/IMPL_PLAN.md`
 - **Template**: `~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
 - **Details**: See action-planning-agent.md § Implementation Plan Creation
 
 #### 3. TODO_LIST.md
-- **Location**: `.workflow/{session-id}/TODO_LIST.md`
+- **Location**: `.workflow/sessions//{session-id}/TODO_LIST.md`
 - **Format**: Hierarchical task list with status indicators (▸, [ ], [x]) and JSON links
 - **Details**: See action-planning-agent.md § TODO List Generation
 
