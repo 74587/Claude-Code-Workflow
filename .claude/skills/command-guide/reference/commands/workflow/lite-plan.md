@@ -1,53 +1,23 @@
 ---
 name: lite-plan
-description: Lightweight interactive planning and execution workflow with in-memory planning, code exploration, and immediate execution after user confirmation
-argument-hint: "[--tool claude|gemini|qwen|codex] [--quick] \"task description\"|file.md"
-allowed-tools: TodoWrite(*), Task(*), Bash(*), AskUserQuestion(*)
-timeout: 180000
-color: cyan
+description: Lightweight interactive planning workflow with in-memory planning, code exploration, and execution dispatch to lite-execute after user confirmation
+argument-hint: "[-e|--explore] \"task description\"|file.md"
+allowed-tools: TodoWrite(*), Task(*), SlashCommand(*), AskUserQuestion(*)
 ---
 
 # Workflow Lite-Plan Command (/workflow:lite-plan)
 
 ## Overview
 
-Intelligent lightweight planning and execution command with dynamic workflow adaptation based on task complexity.
+Intelligent lightweight planning command with dynamic workflow adaptation based on task complexity. Focuses on planning phases (exploration, clarification, planning, confirmation) and delegates execution to `/workflow:lite-execute`.
 
-**Key Characteristics**:
-- Dynamic Workflow: Automatically decides whether to use exploration, clarification, and detailed planning
-- Smart Exploration: Calls cli-explore-agent only when task requires codebase context
-- Interactive Clarification: Asks user for more information after exploration if needed
-- Adaptive Planning: Simple tasks get direct planning, complex tasks use cli-planning-agent
-- Two-Dimensional Confirmation: User confirms task + selects execution method in one step
-- Direct Execution: Immediately starts execution (agent or CLI) after confirmation
-- Live Progress Tracking: Uses TodoWrite to track execution progress in real-time
-
-## Core Functionality
-
-- **Intelligent Task Analysis**: Automatically determines if exploration/planning agents are needed
-- **Dynamic Exploration**: Calls cli-explore-agent only when task requires codebase understanding
-- **Interactive Clarification**: Asks follow-up questions after exploration to gather missing information
-- **Adaptive Planning**:
-  - Simple tasks: Direct planning by current Claude
-  - Complex tasks: Delegates to cli-planning-agent for detailed breakdown
-- **Two-Dimensional Confirmation**: Single user interaction for task approval + execution method selection
-- **Direct Execution**: Immediate dispatch to selected execution method (agent or CLI)
-- **Live Progress Tracking**: Real-time TodoWrite updates during execution
-
-## Comparison with Other Commands
-
-| Feature | lite-plan | /cli:mode:plan | /workflow:plan |
-|---------|-----------|----------------|----------------|
-| Workflow Adaptation | Dynamic (intelligent) | Fixed | Fixed |
-| Code Exploration | Smart (when needed) | No | Always (context-search) |
-| Clarification | Yes (interactive) | No | No |
-| Planning Strategy | Adaptive (simple/complex) | Fixed template | Agent-based |
-| User Interaction | Two-dimensional | No | Minimal |
-| Direct Execution | Yes (immediate) | Yes (immediate) | No (requires /workflow:execute) |
-| Progress Tracking | Yes (TodoWrite live) | No | Yes (session-based) |
-| Execution Time | Fast (1-3 min) | Fast (2-5 min) | Slow (5-10 min) |
-| Tool Selection | User choice | --tool flag | Fixed (agent only) |
-| File Artifacts | No | No | Yes (IMPL_PLAN.md + JSON) |
+**Core capabilities:**
+- Intelligent task analysis with automatic exploration detection
+- Dynamic code exploration (cli-explore-agent) when codebase understanding needed
+- Interactive clarification after exploration to gather missing information
+- Adaptive planning strategy (direct Claude vs cli-lite-planning-agent) based on complexity
+- Two-step confirmation: plan display → multi-dimensional input collection
+- Execution dispatch with complete context handoff to lite-execute
 
 ## Usage
 
@@ -56,190 +26,151 @@ Intelligent lightweight planning and execution command with dynamic workflow ada
 /workflow:lite-plan [FLAGS] <TASK_DESCRIPTION>
 
 # Flags
---tool <tool-name>         Preset CLI tool (claude|gemini|qwen|codex); if not provided, user selects during confirmation
---quick                    Skip code exploration phase (fast mode, completes within 60 seconds)
+-e, --explore              Force code exploration phase (overrides auto-detection)
 
 # Arguments
 <task-description>         Task description or path to .md file (required)
 ```
 
-### Usage Examples
-```bash
-# Standard planning with full interaction
-/workflow:lite-plan "Implement user authentication with JWT tokens"
-# -> Shows plan, user confirms, selects tool, immediate execution
-
-# Quick mode with preset tool
-/workflow:lite-plan --quick --tool gemini "Refactor logging module for better performance"
-# -> Skips exploration, user confirms plan, executes with Gemini
-
-# Codex direct execution preset
-/workflow:lite-plan --tool codex "Add unit tests for authentication service"
-# -> User only confirms plan, executes with Codex immediately
-
-# Agent mode with Claude
-/workflow:lite-plan "Design new API endpoints for payment processing"
-# -> User selects Claude agent, immediate execution
-```
+### Input Requirements
+- **Task description**: String or path to .md file (required)
+  - Should be specific and concrete
+  - Can include context about existing code or requirements
+  - Examples:
+    - "Implement user authentication with JWT tokens"
+    - "Refactor logging module for better performance"
+    - "Add unit tests for authentication service"
+- **Flags** (optional):
+  - `-e` or `--explore`: Force exploration when:
+    - Task appears simple but requires codebase context
+    - Auto-detection might miss integration points
+    - Comprehensive code understanding needed before planning
 
 ## Execution Process
 
 ### Workflow Overview
 
 ```
-User Input ("/workflow:lite-plan \"task\"")
-    |
-    v
-[Phase 1] Task Analysis & Exploration Decision (10-20 seconds)
-    -> Analyze task description
-    -> Decision: Need exploration? (Yes/No/--quick override)
-    -> If Yes: Launch cli-explore-agent
-    -> Output: exploration findings (if performed)
-    |
-    v
-[Phase 2] Clarification (Optional, user interaction)
-    -> If exploration revealed ambiguities or missing info
-    -> AskUserQuestion: Gather clarifications
-    -> Update task context with user responses
-    -> If no clarification needed: Skip to Phase 3
-    |
-    v
-[Phase 3] Complexity Assessment & Planning (20-60 seconds)
-    -> Assess task complexity (Low/Medium/High)
-    -> Decision: Planning strategy
-       - Low: Direct planning (current Claude)
-       - Medium/High: Delegate to cli-planning-agent
-    -> Output: Task breakdown with execution approach
-    |
-    v
-[Phase 4] Task Confirmation & Execution Selection (User interaction)
-    -> Display task breakdown and approach
-    -> AskUserQuestion: Two dimensions
-       1. Confirm task (Yes/Modify/Cancel)
-       2. Execution method (Direct/CLI)
-    -> If confirmed: Proceed to Phase 5
-    -> If modify: Re-run planning with feedback
-    -> If cancel: Exit
-    |
-    v
-[Phase 5] Execution & Progress Tracking
-    -> Create TodoWrite task list from breakdown
-    -> Launch selected execution (agent or CLI)
-    -> Track progress with TodoWrite updates
-    -> Real-time status displayed to user
-    |
-    v
-Execution Complete
+User Input → Task Analysis & Exploration Decision (Phase 1)
+          ↓
+     Clarification (Phase 2, optional)
+          ↓
+     Complexity Assessment & Planning (Phase 3)
+          ↓
+     Task Confirmation & Execution Selection (Phase 4)
+          ↓
+     Dispatch to Execution (Phase 5)
+          ↓
+     Planning Complete (lite-execute continues)
 ```
 
-### Task Management Pattern
+### Phase Summary
 
-- TodoWrite creates task list before execution starts (Phase 5)
-- Tasks marked as in_progress/completed during execution
-- Real-time progress updates visible to user
-- No intermediate file artifacts generated
+**Phase 1: Task Analysis & Exploration Decision** (10-60 seconds)
+- Analyze task to determine exploration needs
+- Decision logic: `--explore` flag OR requires codebase context
+- If needed: Launch cli-explore-agent for code analysis
+- Output: `explorationContext` with relevant files, patterns, constraints
+
+**Phase 2: Clarification** (30-60 seconds, optional)
+- Skip if no ambiguities found in Phase 1
+- Use exploration findings to generate targeted questions
+- AskUserQuestion based on `clarification_needs` from exploration
+- Output: `clarificationContext` with user responses
+
+**Phase 3: Complexity Assessment & Planning** (20-60 seconds)
+- Assess complexity (Low/Medium/High) from multiple factors
+- Strategy selection:
+  - Low: Direct planning by current Claude (fast, 20-30s)
+  - Medium/High: Delegate to cli-lite-planning-agent (detailed, 40-60s)
+- Output: `planObject` with tasks, time estimates, recommendations
+
+**Phase 4: Task Confirmation & Execution Selection** (user interaction)
+- Step 1: Display complete plan as text to user
+- Step 2: Collect four inputs via AskUserQuestion:
+  1. Confirm plan (Allow/Modify/Cancel + supplements via "Other")
+  2. Execution method (Agent/Codex/Auto)
+  3. Code review tool (Skip/Gemini/Agent + custom via "Other")
+  4. Export JSON (Yes/No for Enhanced Task JSON export)
+
+**Phase 5: Dispatch to Execution** (<1 second)
+- Export Enhanced Task JSON (optional, if user selected "Yes")
+- Store `executionContext` in memory with full plan + context
+- Call `/workflow:lite-execute --in-memory`
+- Execution tracking delegated to lite-execute
 
 ## Detailed Phase Execution
 
 ### Phase 1: Task Analysis & Exploration Decision
 
-**Operations**:
-- Analyze task description to determine if code exploration is needed
-- Decision logic:
-  ```javascript
-  needsExploration = (
+**Decision Logic**:
+```javascript
+needsExploration = (
+  flags.includes('--explore') || flags.includes('-e') ||  // Force if flag present
+  (
     task.mentions_specific_files ||
     task.requires_codebase_context ||
     task.needs_architecture_understanding ||
     task.modifies_existing_code
-  ) && !flags.includes('--quick')
-  ```
+  )
+)
+```
 
 **Decision Criteria**:
 
 | Task Type | Needs Exploration | Reason |
 |-----------|-------------------|--------|
-| "Implement new feature X" | Maybe | Depends on integration with existing code |
-| "Refactor module Y" | Yes | Needs understanding of current implementation |
-| "Add tests for Z" | Yes | Needs to understand code structure |
-| "Create new standalone utility" | No | Self-contained, no existing code context |
+| Any task with `-e`/`--explore` flag | **Yes (forced)** | **Flag overrides auto-detection** |
+| "Implement new feature X" | Maybe | Depends on integration needs |
+| "Refactor module Y" | Yes | Needs current implementation understanding |
+| "Add tests for Z" | Yes | Needs code structure understanding |
+| "Create standalone utility" | No | Self-contained, no existing context |
 | "Update documentation" | No | Doesn't require code exploration |
-| "Fix bug in function F" | Yes | Needs to understand implementation |
+| "Fix bug in function F" | Yes | Needs implementation understanding |
 
-**If Exploration Needed**:
-- Launch cli-explore-agent with task-specific focus
-- Agent call format:
-  ```javascript
-  Task(
-    subagent_type="cli-explore-agent",
-    description="Analyze codebase for task context",
-    prompt=`
-    Task: ${task_description}
-
-    Analyze and return the following information in structured format:
-    1. Project Structure: Overall architecture and module organization
-    2. Relevant Files: List of files that will be affected by this task (with paths)
-    3. Current Implementation Patterns: Existing code patterns, conventions, and styles
-    4. Dependencies: External dependencies and internal module dependencies
-    5. Integration Points: Where this task connects with existing code
-    6. Architecture Constraints: Technical limitations or requirements
-    7. Clarification Needs: Ambiguities or missing information requiring user input
-
-    Time Limit: 60 seconds
-
-    Output Format: Return a JSON-like structured object with the above fields populated.
-    Include specific file paths, pattern examples, and clear questions for clarifications.
-    `
-  )
-  ```
-
-**Expected Return Structure**:
+**Exploration Execution** (if needed):
 ```javascript
-explorationContext = {
-  project_structure: "Description of overall architecture",
-  relevant_files: ["src/auth/service.ts", "src/middleware/auth.ts", ...],
-  patterns: "Description of existing patterns (e.g., 'Uses dependency injection pattern', 'React hooks convention')",
-  dependencies: "List of dependencies and integration points",
-  integration_points: "Where this connects with existing code",
-  constraints: "Technical constraints (e.g., 'Must use existing auth library', 'No breaking changes')",
-  clarification_needs: [
-    {
-      question: "Which authentication method to use?",
-      context: "Found both JWT and Session patterns",
-      options: ["JWT tokens", "Session-based", "Hybrid approach"]
-    },
-    // ... more clarification questions
-  ]
-}
+Task(
+  subagent_type="cli-explore-agent",
+  description="Analyze codebase for task context",
+  prompt=`
+  Task: ${task_description}
+
+  Analyze and return structured information:
+  1. Project Structure: Architecture and module organization
+  2. Relevant Files: Files to be affected (with paths)
+  3. Current Patterns: Code patterns, conventions, styles
+  4. Dependencies: External/internal module dependencies
+  5. Integration Points: Task connections with existing code
+  6. Architecture Constraints: Technical limitations/requirements
+  7. Clarification Needs: Ambiguities requiring user input
+
+  Time Limit: 60 seconds
+  Output Format: JSON-like structured object
+  `
+)
 ```
 
-**Output Processing**:
-- Store exploration findings in `explorationContext`
-- Extract `clarification_needs` array from exploration results
-- Set `needsClarification = (clarification_needs.length > 0)`
-- Use clarification_needs to generate Phase 2 questions
+**Output**: `explorationContext` (see Data Structures section)
 
 **Progress Tracking**:
-- Mark Phase 1 as completed
-- If needsClarification: Mark Phase 2 as in_progress
+- Mark Phase 1 completed
+- If `clarification_needs.length > 0`: Mark Phase 2 in_progress
 - Else: Skip to Phase 3
-
-**Expected Duration**: 10-20 seconds (analysis) + 30-60 seconds (exploration if needed)
 
 ---
 
 ### Phase 2: Clarification (Optional)
 
-**Skip Condition**: Only run if Phase 1 set `needsClarification = true`
+**Skip Condition**: Only run if `needsClarification = true` from Phase 1
 
 **Operations**:
-- Review `explorationContext.clarification_needs` from Phase 1
-- Generate AskUserQuestion based on exploration findings
-- Focus on ambiguities that affect implementation approach
+- Review `explorationContext.clarification_needs`
+- Generate AskUserQuestion from exploration findings
+- Focus on ambiguities affecting implementation approach
 
-**AskUserQuestion Call** (simplified reference):
+**Question Generation**:
 ```javascript
-// Use clarification_needs from exploration to build questions
 AskUserQuestion({
   questions: explorationContext.clarification_needs.map(need => ({
     question: `${need.context}\n\n${need.question}`,
@@ -253,27 +184,17 @@ AskUserQuestion({
 })
 ```
 
-**Output Processing**:
-- Collect user responses and store in `clarificationContext`
-- Format: `{ question_id: selected_answer, ... }`
-- This context will be passed to Phase 3 planning
+**Output**: `clarificationContext` in format `{ question_id: selected_answer }`
 
 **Progress Tracking**:
-- Mark Phase 2 as completed
-- Mark Phase 3 as in_progress
-
-**Expected Duration**: User-dependent (typically 30-60 seconds)
+- Mark Phase 2 completed
+- Mark Phase 3 in_progress
 
 ---
 
 ### Phase 3: Complexity Assessment & Planning
 
-**Operations**:
-- Assess task complexity based on multiple factors
-- Select appropriate planning strategy
-- Generate task breakdown using selected method
-
-**Complexity Assessment Factors**:
+**Complexity Assessment**:
 ```javascript
 complexityScore = {
   file_count: exploration.files_to_modify.length,
@@ -295,668 +216,452 @@ else complexity = "High"
 | Level | Characteristics | Planning Strategy |
 |-------|----------------|-------------------|
 | Low | 1-2 files, simple changes, clear requirements | Direct planning (current Claude) |
-| Medium | 3-5 files, moderate integration, some ambiguity | Delegate to cli-planning-agent |
-| High | 6+ files, complex architecture, high uncertainty | Delegate to cli-planning-agent with detailed analysis |
-
-**Planning Execution**:
+| Medium | 3-5 files, moderate integration, some ambiguity | cli-lite-planning-agent |
+| High | 6+ files, complex architecture, high uncertainty | cli-lite-planning-agent with detailed analysis |
 
 **Option A: Direct Planning (Low Complexity)**
-```javascript
-// Current Claude generates plan directly
-planObject = {
-  summary: "Brief overview of what needs to be done",
-  approach: "Step-by-step implementation strategy",
-  tasks: [
-    "Task 1: Specific action with file references",
-    "Task 2: Specific action with file references",
-    // ... 3-5 tasks
-  ],
-  complexity: "Low",
-  estimated_time: "15-30 minutes"
-}
-```
+
+Current Claude generates plan directly:
+- Summary: 2-3 sentence overview
+- Approach: High-level implementation strategy
+- Task Breakdown: 3-5 specific, actionable tasks with file paths
+- Estimated Time: Total implementation time
+- Recommended Execution: "Agent"
 
 **Option B: Agent-Based Planning (Medium/High Complexity)**
+
+Delegate to cli-lite-planning-agent:
 ```javascript
-// Delegate to cli-planning-agent
 Task(
-  subagent_type="cli-planning-agent",
+  subagent_type="cli-lite-planning-agent",
   description="Generate detailed implementation plan",
   prompt=`
-  Task: ${task_description}
+  ## Task Description
+  ${task_description}
 
-  Exploration Context:
-  ${JSON.stringify(explorationContext, null, 2)}
+  ## Exploration Context
+  ${JSON.stringify(explorationContext, null, 2) || "No exploration performed"}
 
-  User Clarifications:
+  ## User Clarifications
   ${JSON.stringify(clarificationContext, null, 2) || "None provided"}
 
-  Complexity Level: ${complexity}
+  ## Complexity Level
+  ${complexity}
 
-  Generate a detailed implementation plan with the following components:
+  ## Your Task
+  1. Execute CLI planning using Gemini (Qwen fallback)
+  2. Parse CLI output and extract structured plan
+  3. Enhance tasks with file paths and pattern references
+  4. Generate planObject with:
+     - Summary (2-3 sentences)
+     - Approach (high-level strategy)
+     - Tasks (3-10 actionable steps)
+     - Estimated time (with breakdown)
+     - Recommended execution (Agent for Low, Codex for Medium/High)
+  5. Return planObject (no file writes)
 
-  1. Summary: 2-3 sentence overview of the implementation
-  2. Approach: High-level implementation strategy
-  3. Task Breakdown: 5-10 specific, actionable tasks
-     - Each task should specify:
-       * What to do
-       * Which files to modify/create
-       * Dependencies on other tasks (if any)
-  4. Task Dependencies: Explicit ordering requirements (e.g., "Task 2 depends on Task 1")
-  5. Risks: Potential issues and mitigation strategies (for Medium/High complexity)
-  6. Estimated Time: Total implementation time estimate
-  7. Recommended Execution: "Direct" (agent) or "CLI" (autonomous tool)
+  ## Quality Requirements
+  Each task MUST include:
+  - Action verb (Create/Update/Add/Implement/Refactor)
+  - Specific file path
+  - Detailed changes
+  - Pattern reference from exploration
 
-  Output Format: Return a structured object with these fields:
-  {
-    summary: string,
-    approach: string,
-    tasks: string[],
-    dependencies: string[] (optional),
-    risks: string[] (optional),
-    estimated_time: string,
-    recommended_execution: "Direct" | "CLI"
-  }
-
-  Ensure tasks are specific, with file paths and clear acceptance criteria.
+  Format: "{Action} in {file_path}: {details} following {pattern}"
   `
 )
-
-// Agent returns detailed plan
-planObject = agent_output.parse()
 ```
 
-**Expected Return Structure**:
-```javascript
-planObject = {
-  summary: "Implement JWT-based authentication system with middleware integration",
-  approach: "Create auth service layer, implement JWT utilities, add middleware, update routes",
-  tasks: [
-    "Create authentication service in src/auth/service.ts with login/logout/verify methods",
-    "Implement JWT token utilities in src/auth/jwt.ts (generate, verify, refresh)",
-    "Add authentication middleware to src/middleware/auth.ts",
-    "Update API routes in src/routes/*.ts to use auth middleware",
-    "Add integration tests for auth flow in tests/auth.test.ts"
-  ],
-  dependencies: [
-    "Task 3 depends on Task 2 (middleware needs JWT utilities)",
-    "Task 4 depends on Task 3 (routes need middleware)",
-    "Task 5 depends on Tasks 1-4 (tests need complete implementation)"
-  ],
-  risks: [
-    "Token refresh timing may conflict with existing session logic - test thoroughly",
-    "Breaking change if existing auth is in use - plan migration strategy"
-  ],
-  estimated_time: "30-45 minutes",
-  recommended_execution: "CLI"  // Based on clear requirements and straightforward implementation
-}
-```
-
-**Output Structure**:
-```javascript
-planObject = {
-  summary: "2-3 sentence overview",
-  approach: "Implementation strategy",
-  tasks: [
-    "Task 1: ...",
-    "Task 2: ...",
-    // ... 3-10 tasks based on complexity
-  ],
-  complexity: "Low|Medium|High",
-  dependencies: ["task1 -> task2", ...],  // if Medium/High
-  risks: ["risk1", "risk2", ...],         // if High
-  estimated_time: "X minutes",
-  recommended_execution: "Direct|CLI"
-}
-```
+**Output**: `planObject` (see Data Structures section)
 
 **Progress Tracking**:
-- Mark Phase 3 as completed
-- Mark Phase 4 as in_progress
+- Mark Phase 3 completed
+- Mark Phase 4 in_progress
 
 **Expected Duration**:
-- Low complexity: 20-30 seconds (direct)
-- Medium/High complexity: 40-60 seconds (agent-based)
+- Low: 20-30 seconds (direct)
+- Medium/High: 40-60 seconds (agent-based)
 
 ---
 
 ### Phase 4: Task Confirmation & Execution Selection
 
-**User Interaction Flow**: Two-dimensional confirmation (task + execution method)
+**Two-Step Confirmation Process**
 
-**Operations**:
-- Display plan summary with full task breakdown
-- Collect two-dimensional user input: Task confirmation + Execution method selection
-- Support modification flow if user requests changes
+**Step 4.1: Display Plan Summary**
 
-**Question 1: Task Confirmation**
+Output complete plan as regular text:
 
-Display plan to user and ask for confirmation:
-- Show: summary, approach, task breakdown, dependencies, risks, complexity, estimated time
-- Options: "Confirm" / "Modify" / "Cancel"
-- If Modify: Collect feedback via "Other" option, re-run Phase 3 with modifications
-- If Cancel: Exit workflow
-- If Confirm: Proceed to Question 2
+```
+## Implementation Plan
 
-**Question 2: Execution Method Selection** (Only if task confirmed)
+**Summary**: ${planObject.summary}
 
-Ask user to select execution method:
-- Show recommendation from `planObject.recommended_execution`
-- Options:
-  - "Direct - Execute with Agent" (@code-developer)
-  - "CLI - Gemini" (gemini-2.5-pro)
-  - "CLI - Codex" (gpt-5)
-  - "CLI - Qwen" (coder-model)
-- Store selection for Phase 5 execution
+**Approach**: ${planObject.approach}
 
-**Simplified AskUserQuestion Reference**:
+**Task Breakdown** (${planObject.tasks.length} tasks):
+${planObject.tasks.map((task, i) => `
+${i+1}. **${task.title}** (${task.file})
+   - What: ${task.description}
+   - How: ${task.implementation.length} steps
+   - Reference: ${task.reference.pattern}
+   - Verification: ${task.acceptance.length} criteria
+`).join('')}
+
+**Complexity**: ${planObject.complexity}
+**Estimated Time**: ${planObject.estimated_time}
+**Recommended Execution**: ${planObject.recommended_execution}
+```
+
+**Step 4.2: Collect User Confirmation**
+
+Four questions via single AskUserQuestion call:
+
 ```javascript
-// Question 1: Task Confirmation
 AskUserQuestion({
-  questions: [{
-    question: `[Display plan with all details]\n\nDo you confirm this plan?`,
-    header: "Confirm Plan",
-    options: [
-      { label: "Confirm", description: "Proceed to execution" },
-      { label: "Modify", description: "Adjust plan" },
-      { label: "Cancel", description: "Abort" }
-    ]
-  }]
-})
+  questions: [
+    {
+      question: `**Plan Summary**: ${planObject.summary}
 
-// Question 2: Execution Method (if confirmed)
-AskUserQuestion({
-  questions: [{
-    question: `Select execution method:\n[Show recommendation and tool descriptions]`,
-    header: "Execution Method",
-    options: [
-      { label: "Direct - Agent", description: "Interactive execution" },
-      { label: "CLI - Gemini", description: "gemini-2.5-pro" },
-      { label: "CLI - Codex", description: "gpt-5" },
-      { label: "CLI - Qwen", description: "coder-model" }
-    ]
-  }]
+**Tasks**: ${planObject.tasks.length} | **Complexity**: ${planObject.complexity} | **Time**: ${planObject.estimated_time}
+
+Confirm plan? (Multi-select: can supplement via "Other")`,
+      header: "Confirm Plan",
+      multiSelect: true,
+      options: [
+        { label: "Allow", description: "Proceed as-is" },
+        { label: "Modify", description: "Adjust before execution" },
+        { label: "Cancel", description: "Abort workflow" }
+      ]
+    },
+    {
+      question: "Select execution method:",
+      header: "Execution",
+      multiSelect: false,
+      options: [
+        { label: "Agent", description: "@code-developer agent" },
+        { label: "Codex", description: "codex CLI tool" },
+        { label: "Auto", description: `Auto: ${planObject.complexity === 'Low' ? 'Agent' : 'Codex'}` }
+      ]
+    },
+    {
+      question: "Enable code review after execution?\n\n(Custom tools via \"Other\": qwen, codex, etc.)",
+      header: "Code Review",
+      multiSelect: false,
+      options: [
+        { label: "Gemini Review", description: "Gemini CLI (gemini-2.5-pro)" },
+        { label: "Agent Review", description: "@code-reviewer agent" },
+        { label: "Skip", description: "No review" }
+      ]
+    },
+    {
+      question: "Export plan to Enhanced Task JSON file?\n\nAllows reuse with lite-execute later.",
+      header: "Export JSON",
+      multiSelect: false,
+      options: [
+        { label: "Yes", description: "Export to JSON (recommended for complex tasks)" },
+        { label: "No", description: "Keep in-memory only" }
+      ]
+    }
+  ]
 })
 ```
 
 **Decision Flow**:
 ```
-Task Confirmation:
-  ├─ Confirm → Execution Method Selection → Phase 5
-  ├─ Modify → Collect feedback → Re-run Phase 3
-  └─ Cancel → Exit (no execution)
+Task Confirmation (Multi-select):
+  ├─ Allow (+ supplements) → Execution Method Selection
+  ├─ Modify (+ supplements) → Re-run Phase 3
+  └─ Cancel → Exit
 
-Execution Method Selection:
-  ├─ Direct - Execute with Agent → Launch @code-developer
-  ├─ CLI - Gemini → Build and execute Gemini command
-  ├─ CLI - Codex → Build and execute Codex command
-  └─ CLI - Qwen → Build and execute Qwen command
+Execution Method (Single-select):
+  ├─ Agent → Launch @code-developer
+  ├─ Codex → Execute with codex CLI
+  └─ Auto → Low complexity: Agent | Medium/High: Codex
+
+Code Review (after execution):
+  ├─ Skip → No review
+  ├─ Gemini Review → gemini CLI analysis
+  ├─ Agent Review → Current Claude review
+  └─ Other → Custom tool (e.g., qwen, codex)
+
+Export JSON:
+  ├─ Yes → Export to .workflow/lite-plans/plan-{timestamp}.json
+  └─ No → In-memory only
 ```
 
 **Progress Tracking**:
-- Mark Phase 4 as completed
-- Mark Phase 5 as in_progress
-
-**Expected Duration**: User-dependent (1-3 minutes typical)
+- Mark Phase 4 completed
+- Mark Phase 5 in_progress
 
 ---
 
-### Phase 5: Execution & Progress Tracking
+### Phase 5: Dispatch to Execution
 
-**Operations**:
-- Create TodoWrite task list from plan breakdown
-- Launch selected execution method (agent or CLI)
-- Track execution progress with real-time TodoWrite updates
-- Display status to user
+**Step 5.1: Export Enhanced Task JSON (Optional)**
 
-**Step 5.1: Create TodoWrite Task List**
+Only execute if `userSelection.export_task_json === "Yes"`:
 
-**Before execution starts**, create task list:
 ```javascript
-TodoWrite({
-  todos: planObject.tasks.map((task, index) => ({
-    content: task,
+if (userSelection.export_task_json === "Yes") {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const taskId = `LP-${timestamp}`
+  const filename = `.workflow/lite-plans/${taskId}.json`
+
+  const enhancedTaskJson = {
+    id: taskId,
+    title: original_task_description,
     status: "pending",
-    activeForm: task.replace(/^(.*?):/, "$1ing:")  // "Implement X" -> "Implementing X"
-  }))
-})
+
+    meta: {
+      type: "planning",
+      created_at: new Date().toISOString(),
+      complexity: planObject.complexity,
+      estimated_time: planObject.estimated_time,
+      recommended_execution: planObject.recommended_execution,
+      workflow: "lite-plan"
+    },
+
+    context: {
+      requirements: [original_task_description],
+      plan: {
+        summary: planObject.summary,
+        approach: planObject.approach,
+        tasks: planObject.tasks
+      },
+      exploration: explorationContext || null,
+      clarifications: clarificationContext || null,
+      focus_paths: explorationContext?.relevant_files || [],
+      acceptance: planObject.tasks.flatMap(t => t.acceptance)
+    }
+  }
+
+  Write(filename, JSON.stringify(enhancedTaskJson, null, 2))
+  console.log(`Enhanced Task JSON exported to: ${filename}`)
+  console.log(`Reuse with: /workflow:lite-execute ${filename}`)
+}
 ```
 
-**Example Task List**:
-```
-[ ] Implement authentication service in src/auth/service.ts
-[ ] Create JWT token utilities in src/auth/jwt.ts
-[ ] Add authentication middleware to src/middleware/auth.ts
-[ ] Update API routes to use authentication
-[ ] Add integration tests for auth flow
-```
+**Step 5.2: Store Execution Context**
 
-**Step 5.2: Launch Execution**
-
-Based on user selection in Phase 4, execute appropriate method:
-
-#### Option A: Direct Execution with Agent
-
-**Operations**:
-- Launch @code-developer agent with full plan context
-- Agent receives exploration findings, clarifications, and task breakdown
-- Agent call format:
-  ```javascript
-  Task(
-    subagent_type="code-developer",
-    description="Implement planned tasks with progress tracking",
-    prompt=`
-    Implement the following tasks with TodoWrite progress updates:
-
-    Summary: ${planObject.summary}
-
-    Task Breakdown:
-    ${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
-
-    ${planObject.dependencies ? `\nTask Dependencies:\n${planObject.dependencies.join('\n')}` : ''}
-
-    Implementation Approach:
-    ${planObject.approach}
-
-    Code Context:
-    ${explorationContext || "No exploration performed"}
-
-    ${clarificationContext ? `\nClarifications:\n${clarificationContext}` : ''}
-
-    ${planObject.risks ? `\nRisks to Consider:\n${planObject.risks.join('\n')}` : ''}
-
-    IMPORTANT Instructions:
-    - Update TodoWrite as you complete each task (mark as completed)
-    - Follow task dependencies if specified
-    - Implement tasks in sequence unless independent
-    - Test functionality as you go
-    - Handle risks proactively
-    `
-  )
-  ```
-
-**Agent Responsibilities**:
-- Mark tasks as in_progress when starting
-- Mark tasks as completed when finished
-- Update TodoWrite in real-time for user visibility
-
-#### Option B: CLI Execution (Gemini/Codex/Qwen)
-
-**Operations**:
-- Build CLI command with comprehensive context
-- Execute CLI tool with write permissions
-- Monitor CLI output and update TodoWrite based on progress indicators
-- Parse CLI completion signals to mark tasks as done
-
-**Command Format (Gemini)** - Full context with exploration and clarifications:
-```bash
-gemini -p "
-PURPOSE: Implement planned tasks with full context from exploration and planning
-TASK:
-${planObject.tasks.map((t, i) => `• ${t}`).join('\n')}
-
-MODE: write
-
-CONTEXT: @**/* | Memory: Implementation plan from lite-plan workflow
-
-## Exploration Findings
-${explorationContext ? `
-Project Structure:
-${explorationContext.project_structure || 'Not available'}
-
-Relevant Files:
-${explorationContext.relevant_files?.join('\n') || 'Not specified'}
-
-Current Implementation Patterns:
-${explorationContext.patterns || 'Not analyzed'}
-
-Dependencies and Integration Points:
-${explorationContext.dependencies || 'Not specified'}
-
-Architecture Constraints:
-${explorationContext.constraints || 'None identified'}
-` : 'No exploration performed (task did not require codebase context)'}
-
-## User Clarifications
-${clarificationContext ? `
-The following clarifications were provided by the user after exploration:
-${Object.entries(clarificationContext).map(([q, a]) => `Q: ${q}\nA: ${a}`).join('\n\n')}
-` : 'No clarifications needed'}
-
-## Implementation Plan Context
-Task Summary: ${planObject.summary}
-
-Implementation Approach:
-${planObject.approach}
-
-${planObject.dependencies ? `
-Task Dependencies (execute in order):
-${planObject.dependencies.join('\n')}
-` : ''}
-
-${planObject.risks ? `
-Identified Risks:
-${planObject.risks.join('\n')}
-` : ''}
-
-Complexity Level: ${planObject.complexity}
-Estimated Time: ${planObject.estimated_time}
-
-EXPECTED: All tasks implemented following the plan approach, with proper error handling and testing
-
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow implementation approach exactly | Handle identified risks proactively | write=CREATE/MODIFY/DELETE
-" -m gemini-2.5-pro --approval-mode yolo
-```
-
-**Command Format (Codex)** - Session-based with resume support:
-
-**First Execution (Establish Session)**:
-```bash
-codex --full-auto exec "
-TASK: ${planObject.summary}
-
-## Task Breakdown
-${planObject.tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
-
-${planObject.dependencies ? `\n## Task Dependencies\n${planObject.dependencies.join('\n')}` : ''}
-
-## Implementation Approach
-${planObject.approach}
-
-## Code Context from Exploration
-${explorationContext ? `
-Project Structure: ${explorationContext.project_structure || 'Standard structure'}
-Relevant Files: ${explorationContext.relevant_files?.join(', ') || 'TBD'}
-Current Patterns: ${explorationContext.patterns || 'Follow existing conventions'}
-Integration Points: ${explorationContext.dependencies || 'None specified'}
-Constraints: ${explorationContext.constraints || 'None'}
-` : 'No prior exploration - analyze codebase as needed'}
-
-${clarificationContext ? `\n## User Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `${q}: ${a}`).join('\n')}` : ''}
-
-${planObject.risks ? `\n## Risks to Handle\n${planObject.risks.join('\n')}` : ''}
-
-## Execution Instructions
-- Complete all tasks following the breakdown sequence
-- Respect task dependencies if specified
-- Test functionality as you implement
-- Handle identified risks proactively
-- Create session for potential resume if needed
-
-Complexity: ${planObject.complexity}
-" -m gpt-5 --skip-git-repo-check -s danger-full-access
-```
-
-**Subsequent Executions (Resume if needed)**:
-```bash
-# If first execution fails or is interrupted, can resume:
-codex --full-auto exec "
-Continue implementation from previous session.
-
-Remaining tasks:
-${remaining_tasks.map((t, i) => `${i+1}. ${t}`).join('\n')}
-
-Maintain context from previous execution.
-" resume --last -m gpt-5 --skip-git-repo-check -s danger-full-access
-```
-
-**Codex Session Strategy**:
-- First execution establishes full context and creates session
-- If execution is interrupted or fails, use `resume --last` to continue
-- Resume inherits all context from original execution
-- Useful for complex tasks that may hit timeouts or require iteration
-
-**Command Format (Qwen)** - Full context similar to Gemini:
-```bash
-qwen -p "
-PURPOSE: Implement planned tasks with comprehensive context
-
-TASK:
-${planObject.tasks.map((t, i) => `• ${t}`).join('\n')}
-
-MODE: write
-
-CONTEXT: @**/* | Memory: Full implementation context from lite-plan
-
-## Code Exploration Results
-${explorationContext ? `
-Analyzed Project Structure:
-${explorationContext.project_structure || 'Standard structure'}
-
-Key Files to Modify:
-${explorationContext.relevant_files?.join('\n') || 'To be determined during implementation'}
-
-Existing Code Patterns:
-${explorationContext.patterns || 'Follow codebase conventions'}
-
-Dependencies:
-${explorationContext.dependencies || 'None specified'}
-
-Constraints:
-${explorationContext.constraints || 'None identified'}
-` : 'No exploration performed - analyze codebase patterns as you implement'}
-
-## Clarifications from User
-${clarificationContext ? `
-${Object.entries(clarificationContext).map(([question, answer]) => `
-Question: ${question}
-Answer: ${answer}
-`).join('\n')}
-` : 'No additional clarifications provided'}
-
-## Implementation Strategy
-Summary: ${planObject.summary}
-
-Approach:
-${planObject.approach}
-
-${planObject.dependencies ? `
-Task Order (follow sequence):
-${planObject.dependencies.join('\n')}
-` : ''}
-
-${planObject.risks ? `
-Risk Mitigation:
-${planObject.risks.join('\n')}
-` : ''}
-
-Task Complexity: ${planObject.complexity}
-Time Estimate: ${planObject.estimated_time}
-
-EXPECTED: Complete implementation with tests and proper error handling
-
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow approach strictly | Test thoroughly | write=CREATE/MODIFY/DELETE
-" --approval-mode yolo
-```
-
-**Execution with Progress Tracking**:
 ```javascript
-// Launch CLI in background
-bash_result = Bash(
-  command=cli_command,
-  timeout=600000,  // 10 minutes
-  run_in_background=true
-)
-
-// Monitor output and update TodoWrite
-// Parse CLI output for task completion indicators
-// Update TodoWrite when tasks complete
-// Example: When CLI outputs "✓ Task 1 complete" -> Mark task 1 as completed
+executionContext = {
+  planObject: planObject,
+  explorationContext: explorationContext || null,
+  clarificationContext: clarificationContext || null,
+  executionMethod: userSelection.execution_method,
+  codeReviewTool: userSelection.code_review_tool,
+  originalUserInput: original_task_description
+}
 ```
 
-**CLI Progress Monitoring**:
-- Parse CLI output for completion keywords ("done", "complete", "✓", etc.)
-- Update corresponding TodoWrite tasks based on progress
-- Provide real-time visibility to user
+**Step 5.3: Call lite-execute**
 
-**Step 5.3: Track Execution Progress**
-
-**Real-time TodoWrite Updates**:
 ```javascript
-// As execution progresses, update task status:
-
-// Task started
-TodoWrite({
-  todos: [
-    { content: "Implement auth service", status: "in_progress", activeForm: "Implementing auth service" },
-    { content: "Create JWT utilities", status: "pending", activeForm: "Creating JWT utilities" },
-    // ...
-  ]
-})
-
-// Task completed
-TodoWrite({
-  todos: [
-    { content: "Implement auth service", status: "completed", activeForm: "Implementing auth service" },
-    { content: "Create JWT utilities", status: "in_progress", activeForm: "Creating JWT utilities" },
-    // ...
-  ]
-})
+SlashCommand(command="/workflow:lite-execute --in-memory")
 ```
 
-**User Visibility**:
-- User sees real-time task progress
-- Current task highlighted as "in_progress"
-- Completed tasks marked with checkmark
-- Pending tasks remain unchecked
+**Execution Handoff**:
+- lite-execute reads `executionContext` variable
+- All execution logic handled by lite-execute
+- lite-plan completes after successful handoff
 
 **Progress Tracking**:
-- Mark Phase 5 as in_progress throughout execution
-- Mark Phase 5 as completed when all tasks done
-- Final status summary displayed to user
-
-**Expected Duration**: Varies by task complexity and execution method
-- Low complexity: 5-15 minutes
-- Medium complexity: 15-45 minutes
-- High complexity: 45-120 minutes
-
----
+- Mark Phase 5 completed
+- Execution tracking delegated to lite-execute
 
 ## Best Practices
 
 ### Workflow Intelligence
 
-1. **Dynamic Adaptation**: Workflow automatically adjusts based on task characteristics
-   - Smart exploration: Only runs when task requires codebase context
-   - Adaptive planning: Simple tasks get direct planning, complex tasks use specialized agent
-   - Context-aware clarification: Only asks questions when truly needed
+1. **Dynamic Adaptation**: Workflow adjusts based on task characteristics
+   - Smart exploration: Only when codebase context needed
+   - Adaptive planning: Simple → direct, complex → specialized agent
+   - Context-aware clarification: Only when truly needed
    - Reduces unnecessary steps while maintaining thoroughness
 
-2. **Progressive Clarification**: Gather information at the right time
-   - Phase 1: Explore codebase to understand current state
-   - Phase 2: Ask clarifying questions based on exploration findings
-   - Phase 3: Plan with complete context (task + exploration + clarifications)
-   - Avoids premature assumptions and reduces rework
+2. **Flag-Based Control**: Use `-e`/`--explore` to force exploration when:
+   - Task appears simple but requires codebase context
+   - Auto-detection might miss subtle integration points
+   - Comprehensive code understanding needed
 
-3. **Complexity-Aware Planning**: Planning strategy matches task complexity
-   - Low complexity (1-2 files): Direct planning by current Claude (fast, 20-30s)
-   - Medium complexity (3-5 files): CLI planning agent (detailed, 40-50s)
-   - High complexity (6+ files): CLI planning agent with risk analysis (thorough, 50-60s)
-   - Balances speed and thoroughness appropriately
+3. **Progressive Clarification**: Information gathered at right time
+   - Phase 1: Explore codebase (current state)
+   - Phase 2: Ask questions (based on findings)
+   - Phase 3: Plan with complete context
+   - Avoids premature assumptions, reduces rework
 
-4. **Two-Dimensional Confirmation**: Separate task approval from execution method
-   - First dimension: Confirm/Modify/Cancel plan
-   - Second dimension: Direct execution vs CLI execution
+4. **Complexity-Aware Planning**: Strategy matches task complexity
+   - Low (1-2 files): Direct planning (fast, 20-30s)
+   - Medium (3-5 files): CLI planning (detailed, 40-50s)
+   - High (6+ files): CLI planning with risk analysis (thorough, 50-60s)
+
+5. **Two-Step Confirmation**: Clear separation between plan and control
+   - Step 1: Display plan as readable text (not in question)
+   - Step 2: Collect multi-dimensional input
+     - Plan confirmation (multi-select with supplements)
+     - Execution method selection
+     - Code review tool selection (custom via "Other")
+     - JSON export option
    - Allows plan refinement without re-selecting execution method
-   - Supports iterative planning with user feedback
 
 ### Task Management
 
-1. **Live Progress Tracking**: TodoWrite provides real-time execution visibility
-   - Tasks created before execution starts
-   - Updated in real-time as work progresses
-   - User sees current task being worked on
-   - Clear completion status throughout execution
-
-2. **Phase-Based Organization**: 5 distinct phases with clear transitions
-   - Phase 1: Task Analysis & Exploration (automatic)
+1. **Phase-Based Organization**: 5 distinct phases with clear transitions
+   - Phase 1: Analysis & Exploration (automatic)
    - Phase 2: Clarification (conditional, interactive)
    - Phase 3: Planning (automatic, adaptive)
-   - Phase 4: Confirmation (interactive, two-dimensional)
-   - Phase 5: Execution & Tracking (automatic with live updates)
+   - Phase 4: Confirmation (interactive, multi-dimensional)
+   - Phase 5: Execution Dispatch (automatic)
 
-3. **Flexible Task Counts**: Task breakdown adapts to complexity
-   - Low complexity: 3-5 tasks (focused)
-   - Medium complexity: 5-7 tasks (detailed)
-   - High complexity: 7-10 tasks (comprehensive)
-   - Avoids artificial constraints while maintaining focus
+2. **Flexible Task Counts**: Adapts to complexity
+   - Low: 3-5 tasks (focused)
+   - Medium: 5-7 tasks (detailed)
+   - High: 7-10 tasks (comprehensive)
 
-4. **Dependency Tracking**: Medium/High complexity tasks include dependencies
-   - Explicit task ordering when sequence matters
-   - Parallel execution hints when tasks are independent
-   - Risk flagging for complex interactions
-   - Helps agent/CLI execute correctly
+3. **No File Artifacts During Planning**:
+   - All planning stays in memory
+   - Optional Enhanced Task JSON export (user choice)
+   - Faster workflow, cleaner workspace
+   - Plan context passed directly to execution
 
 ### Planning Standards
 
 1. **Context-Rich Planning**: Plans include all relevant context
-   - Exploration findings (code structure, patterns, constraints)
+   - Exploration findings (structure, patterns, constraints)
    - User clarifications (requirements, preferences, decisions)
-   - Complexity assessment (risks, dependencies, time estimates)
+   - Complexity assessment (risks, dependencies, estimates)
    - Execution recommendations (Direct vs CLI, specific tool)
 
-2. **Modification Support**: Plans can be iteratively refined
-   - User can request plan modifications in Phase 4
+2. **Modification Support**: Iterative refinement
+   - User can request modifications in Phase 4
    - Feedback incorporated into re-planning
-   - No need to restart from scratch
-   - Supports collaborative planning workflow
-
-3. **No File Artifacts**: All planning stays in memory
-   - Faster workflow without I/O overhead
-   - Cleaner workspace
-   - Plan context passed directly to execution
-   - Reduces complexity and maintenance
+   - No restart from scratch
+   - Collaborative planning workflow
 
 ## Error Handling
 
-### Common Errors
-
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Phase 1 Exploration Failure | cli-explore-agent unavailable or timeout | Skip exploration, set `explorationContext = null`, log warning, continue to Phase 2/3 with task description only |
-| Phase 2 Clarification Timeout | User no response > 5 minutes | Use exploration findings as-is without clarification, proceed to Phase 3 with warning |
-| Phase 3 Planning Agent Failure | cli-planning-agent unavailable or timeout | Fallback to direct planning by current Claude (simplified plan), continue to Phase 4 |
-| Phase 3 Planning Timeout | Planning takes > 90 seconds | Generate simplified direct plan, mark as "Quick Plan", continue to Phase 4 with reduced detail |
-| Phase 4 Confirmation Timeout | User no response > 5 minutes | Save plan context to temporary var, display resume instructions, exit gracefully |
-| Phase 4 Modification Loop | User requests modify > 3 times | Suggest breaking task into smaller pieces or using /workflow:plan for comprehensive planning |
-| Phase 5 CLI Tool Unavailable | Selected CLI tool not installed | Show installation instructions, offer to re-select (Direct execution or different CLI) |
-| Phase 5 Execution Failure | Agent/CLI crashes or errors | Display error details, save partial progress from TodoWrite, suggest manual recovery or retry |
+| Phase 1 Exploration Failure | cli-explore-agent unavailable/timeout | Skip exploration, set `explorationContext = null`, continue with task description only |
+| Phase 2 Clarification Timeout | User no response > 5 minutes | Use exploration findings as-is, proceed to Phase 3 with warning |
+| Phase 3 Planning Agent Failure | cli-lite-planning-agent unavailable/timeout | Fallback to direct planning by current Claude |
+| Phase 3 Planning Timeout | Planning > 90 seconds | Generate simplified plan, mark as "Quick Plan", continue |
+| Phase 4 Confirmation Timeout | User no response > 5 minutes | Save context to temp var, display resume instructions, exit gracefully |
+| Phase 4 Modification Loop | User requests modify > 3 times | Suggest breaking task into smaller pieces or using `/workflow:plan` |
 
-## Input/Output
+## Data Structures
 
-### Input Requirements
-- Task description: String or path to .md file (required)
-  - Should be specific and concrete
-  - Can include context about existing code or requirements
-  - Examples:
-    - "Implement user authentication with JWT tokens"
-    - "Refactor logging module for better performance"
-    - "Add unit tests for authentication service"
-- Flags (optional):
-  - `--tool <name>`: Preset execution tool (claude|gemini|codex|qwen)
-  - `--quick`: Skip code exploration phase
+### explorationContext
 
-### Output Format
+Exploration findings from cli-explore-agent (Phase 1):
 
-**In-Memory Plan Object**:
 ```javascript
 {
-  summary: "2-3 sentence overview of implementation",
-  approach: "High-level implementation strategy",
-  tasks: [
-    "Task 1: Specific action with file locations",
-    "Task 2: Specific action with file locations",
-    // ... 3-7 tasks total
-  ],
-  complexity: "Low|Medium|High",
-  recommended_tool: "Claude|Gemini|Codex|Qwen",
-  estimated_time: "X minutes"
+  project_structure: string,           // Overall architecture description
+  relevant_files: string[],            // File paths to be modified/referenced
+  patterns: string,                    // Existing patterns and conventions
+  dependencies: string,                // Dependencies and integration points
+  integration_points: string,          // Where this connects with existing code
+  constraints: string,                 // Technical constraints
+  clarification_needs: [               // Questions requiring user input
+    {
+      question: string,
+      context: string,
+      options: string[]
+    }
+  ]
 }
 ```
 
-**Execution Result**:
-- Immediate dispatch to selected tool/agent with plan context
-- No file artifacts generated during planning phase
-- Execution starts immediately after user confirmation
-- Tool/agent handles implementation and any necessary file operations
+### planObject
 
+Implementation plan from Phase 3:
+
+```javascript
+{
+  summary: string,                     // 2-3 sentence overview
+  approach: string,                    // High-level implementation strategy
+  tasks: [                             // 3-10 structured task objects
+    {
+      title: string,                   // Task title
+      file: string,                    // Target file path
+      action: string,                  // Create|Update|Implement|Refactor|Add|Delete
+      description: string,             // What to implement (1-2 sentences)
+      implementation: string[],        // Step-by-step how-to (3-7 steps)
+      reference: {                     // What to reference
+        pattern: string,               // Pattern name
+        files: string[],               // Reference file paths
+        examples: string               // Specific guidance
+      },
+      acceptance: string[]             // Verification criteria (2-4 items)
+    }
+  ],
+  estimated_time: string,              // Total implementation time
+  recommended_execution: string,       // "Agent" (Low) or "Codex" (Medium/High)
+  complexity: string                   // "Low" | "Medium" | "High"
+}
+```
+
+### executionContext
+
+Context passed to lite-execute via --in-memory (Phase 5):
+
+```javascript
+{
+  planObject: {                        // Complete planObject (see above)
+    summary: string,
+    approach: string,
+    tasks: [...],
+    estimated_time: string,
+    recommended_execution: string,
+    complexity: string
+  },
+  explorationContext: {...} | null,    // See explorationContext above
+  clarificationContext: {...} | null,  // User responses from Phase 2
+  executionMethod: "Agent" | "Codex" | "Auto",
+  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
+  originalUserInput: string            // User's original task description
+}
+```
+
+### Enhanced Task JSON Export
+
+When user selects "Export JSON", lite-plan exports this structure:
+
+```json
+{
+  "id": "LP-{timestamp}",
+  "title": "Original task description",
+  "status": "pending",
+
+  "meta": {
+    "type": "planning",
+    "created_at": "ISO timestamp",
+    "complexity": "Low|Medium|High",
+    "estimated_time": "X minutes",
+    "recommended_execution": "Agent|Codex",
+    "workflow": "lite-plan"
+  },
+
+  "context": {
+    "requirements": ["Original task description"],
+    "plan": {
+      "summary": "2-3 sentence overview",
+      "approach": "High-level strategy",
+      "tasks": [/* Array of task objects */]
+    },
+    "exploration": {/* explorationContext */} | null,
+    "clarifications": {/* clarificationContext */} | null,
+    "focus_paths": ["src/auth", "tests/auth"],
+    "acceptance": ["Criteria from plan.tasks"]
+  }
+}
+```
+
+**Schema Notes**:
+- Aligns with Enhanced Task JSON Schema (6-field structure)
+- `context_package_path` omitted (not used by lite-plan)
+- `flow_control` omitted (handled by lite-execute)
+- `focus_paths` derived from `exploration.relevant_files`
+- `acceptance` derived from `plan.tasks`

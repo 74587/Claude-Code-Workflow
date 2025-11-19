@@ -101,7 +101,7 @@
   {
     "name": "enhance-prompt",
     "command": "/enhance-prompt",
-    "description": "Enhanced prompt transformation using session memory and codebase analysis with --enhance flag detection",
+    "description": "Enhanced prompt transformation using session memory and intent analysis with --enhance flag detection",
     "arguments": "user input to enhance",
     "category": "general",
     "subcategory": null,
@@ -429,10 +429,32 @@
     "file_path": "workflow/execute.md"
   },
   {
+    "name": "init",
+    "command": "/workflow:init",
+    "description": "Initialize project-level state with intelligent project analysis using cli-explore-agent",
+    "arguments": "[--regenerate]",
+    "category": "workflow",
+    "subcategory": null,
+    "usage_scenario": "general",
+    "difficulty": "Intermediate",
+    "file_path": "workflow/init.md"
+  },
+  {
+    "name": "lite-execute",
+    "command": "/workflow:lite-execute",
+    "description": "Execute tasks based on in-memory plan, prompt description, or file content",
+    "arguments": "[--in-memory] [\\\"task description\\\"|file-path]",
+    "category": "workflow",
+    "subcategory": null,
+    "usage_scenario": "implementation",
+    "difficulty": "Intermediate",
+    "file_path": "workflow/lite-execute.md"
+  },
+  {
     "name": "lite-plan",
     "command": "/workflow:lite-plan",
-    "description": "Lightweight interactive planning and execution workflow with in-memory planning, code exploration, and immediate execution after user confirmation",
-    "arguments": "[--tool claude|gemini|qwen|codex] [--quick] \\\"task description\\\"|file.md",
+    "description": "Lightweight interactive planning workflow with in-memory planning, code exploration, and execution dispatch to lite-execute after user confirmation",
+    "arguments": "[-e|--explore] \\\"task description\\\"|file.md",
     "category": "workflow",
     "subcategory": null,
     "usage_scenario": "planning",
@@ -449,17 +471,6 @@
     "usage_scenario": "planning",
     "difficulty": "Intermediate",
     "file_path": "workflow/plan.md"
-  },
-  {
-    "name": "resume",
-    "command": "/workflow:resume",
-    "description": "Resume paused workflow session with automatic progress analysis, pending task identification, and conflict detection",
-    "arguments": "session-id for workflow session to resume",
-    "category": "workflow",
-    "subcategory": null,
-    "usage_scenario": "session-management",
-    "difficulty": "Intermediate",
-    "file_path": "workflow/resume.md"
   },
   {
     "name": "review",
@@ -519,8 +530,8 @@
   {
     "name": "workflow:status",
     "command": "/workflow:status",
-    "description": "Generate on-demand task status views from JSON task data with optional task-id filtering for detailed view",
-    "arguments": "[optional: task-id]",
+    "description": "Generate on-demand views for project overview and workflow tasks with optional task-id filtering for detailed view",
+    "arguments": "[optional: --project|task-id|--validate]",
     "category": "workflow",
     "subcategory": null,
     "usage_scenario": "session-management",
@@ -693,17 +704,6 @@
     "file_path": "workflow/ui-design/animation-extract.md"
   },
   {
-    "name": "capture",
-    "command": "/workflow:ui-design:capture",
-    "description": "Batch screenshot capture for UI design workflows using MCP puppeteer or local fallback with URL mapping",
-    "arguments": "--url-map \"target:url,...\" [--design-id <id>] [--session <id>]",
-    "category": "workflow",
-    "subcategory": "ui-design",
-    "usage_scenario": "general",
-    "difficulty": "Intermediate",
-    "file_path": "workflow/ui-design/capture.md"
-  },
-  {
     "name": "workflow:ui-design:codify-style",
     "command": "/workflow:ui-design:codify-style",
     "description": "Orchestrator to extract styles from code and generate shareable reference package with preview (automatic file discovery)",
@@ -715,6 +715,17 @@
     "file_path": "workflow/ui-design/codify-style.md"
   },
   {
+    "name": "design-sync",
+    "command": "/workflow:ui-design:design-sync",
+    "description": "Synchronize finalized design system references to brainstorming artifacts, preparing them for /workflow:plan consumption",
+    "arguments": "--session <session_id> [--selected-prototypes \"<list>\"]",
+    "category": "workflow",
+    "subcategory": "ui-design",
+    "usage_scenario": "planning",
+    "difficulty": "Intermediate",
+    "file_path": "workflow/ui-design/design-sync.md"
+  },
+  {
     "name": "explore-auto",
     "command": "/workflow:ui-design:explore-auto",
     "description": "Interactive exploratory UI design workflow with style-centric batch generation, creates design variants from prompts/images with parallel execution and user selection",
@@ -724,17 +735,6 @@
     "usage_scenario": "general",
     "difficulty": "Intermediate",
     "file_path": "workflow/ui-design/explore-auto.md"
-  },
-  {
-    "name": "explore-layers",
-    "command": "/workflow:ui-design:explore-layers",
-    "description": "Interactive deep UI capture with depth-controlled layer exploration using MCP puppeteer",
-    "arguments": "--url <url> --depth <1-5> [--design-id <id>] [--session <id>]",
-    "category": "workflow",
-    "subcategory": "ui-design",
-    "usage_scenario": "general",
-    "difficulty": "Intermediate",
-    "file_path": "workflow/ui-design/explore-layers.md"
   },
   {
     "name": "generate",
@@ -781,17 +781,6 @@
     "file_path": "workflow/ui-design/layout-extract.md"
   },
   {
-    "name": "list",
-    "command": "/workflow:ui-design:list",
-    "description": "List all available design runs with metadata (session, created time, prototype count)",
-    "arguments": "[--session <id>]",
-    "category": "workflow",
-    "subcategory": "ui-design",
-    "usage_scenario": "general",
-    "difficulty": "Beginner",
-    "file_path": "workflow/ui-design/list.md"
-  },
-  {
     "name": "workflow:ui-design:reference-page-generator",
     "command": "/workflow:ui-design:reference-page-generator",
     "description": "Generate multi-component reference pages and documentation from design run extraction",
@@ -812,16 +801,5 @@
     "usage_scenario": "general",
     "difficulty": "Intermediate",
     "file_path": "workflow/ui-design/style-extract.md"
-  },
-  {
-    "name": "update",
-    "command": "/workflow:ui-design:update",
-    "description": "Update brainstorming artifacts with finalized design system references from selected prototypes",
-    "arguments": "--session <session_id> [--selected-prototypes \"<list>\"]",
-    "category": "workflow",
-    "subcategory": "ui-design",
-    "usage_scenario": "general",
-    "difficulty": "Intermediate",
-    "file_path": "workflow/ui-design/update.md"
   }
 ]

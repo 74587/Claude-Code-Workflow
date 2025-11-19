@@ -31,7 +31,7 @@ if [ -n "$DESIGN_ID" ]; then
   relative_path=$(find .workflow -name "${DESIGN_ID}" -type d -print -quit)
 elif [ -n "$SESSION_ID" ]; then
   # Latest in session
-  relative_path=$(find .workflow/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+  relative_path=$(find .workflow/sessions/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
 else
   # Latest globally
   relative_path=$(find .workflow -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)

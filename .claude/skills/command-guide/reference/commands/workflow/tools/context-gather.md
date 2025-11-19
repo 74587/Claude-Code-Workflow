@@ -71,9 +71,10 @@ You are executing as context-search-agent (.claude/agents/context-search-agent.m
 Execute complete context-search-agent workflow for implementation planning:
 
 ### Phase 1: Initialization & Pre-Analysis
-1. **Detection**: Check for existing context-package (early exit if valid)
-2. **Foundation**: Initialize code-index, get project structure, load docs
-3. **Analysis**: Extract keywords, determine scope, classify complexity
+1. **Project State Loading**: Read and parse `.workflow/project.json`. Use its `overview` section as the foundational `project_context`. This is your primary source for architecture, tech stack, and key components. If file doesn't exist, proceed with fresh analysis.
+2. **Detection**: Check for existing context-package (early exit if valid)
+3. **Foundation**: Initialize code-index, get project structure, load docs
+4. **Analysis**: Extract keywords, determine scope, classify complexity based on task description and project state
 
 ### Phase 2: Multi-Source Context Discovery
 Execute all 4 discovery tracks:
@@ -84,16 +85,17 @@ Execute all 4 discovery tracks:
 
 ### Phase 3: Synthesis, Assessment & Packaging
 1. Apply relevance scoring and build dependency graph
-2. Synthesize 4-source data (archive > docs > code > web)
-3. Integrate brainstorm artifacts (if .brainstorming/ exists, read content)
-4. Perform conflict detection with risk assessment
-5. **Inject historical conflicts** from archive analysis into conflict_detection
-6. Generate and validate context-package.json
+2. **Synthesize 4-source data**: Merge findings from all sources (archive > docs > code > web). **Prioritize the context from `project.json`** for architecture and tech stack unless code analysis reveals it's outdated.
+3. **Populate `project_context`**: Directly use the `overview` from `project.json` to fill the `project_context` section of the output `context-package.json`. Include technology_stack, architecture, key_components, and entry_points.
+4. Integrate brainstorm artifacts (if .brainstorming/ exists, read content)
+5. Perform conflict detection with risk assessment
+6. **Inject historical conflicts** from archive analysis into conflict_detection
+7. Generate and validate context-package.json
 
 ## Output Requirements
 Complete context-package.json with:
 - **metadata**: task_description, keywords, complexity, tech_stack, session_id
-- **project_context**: architecture_patterns, coding_conventions, tech_stack
+- **project_context**: architecture_patterns, coding_conventions, tech_stack (sourced from `project.json` overview)
 - **assets**: {documentation[], source_code[], config[], tests[]} with relevance scores
 - **dependencies**: {internal[], external[]} with dependency graph
 - **brainstorm_artifacts**: {guidance_specification, role_analyses[], synthesis_output} with content
@@ -139,7 +141,7 @@ Refer to `context-search-agent.md` Phase 3.7 for complete `context-package.json`
 
 **Key Sections**:
 - **metadata**: Session info, keywords, complexity, tech stack
-- **project_context**: Architecture patterns, conventions, tech stack
+- **project_context**: Architecture patterns, conventions, tech stack (populated from `project.json` overview)
 - **assets**: Categorized files with relevance scores (documentation, source_code, config, tests)
 - **dependencies**: Internal and external dependency graphs
 - **brainstorm_artifacts**: Brainstorm documents with full content (if exists)
@@ -154,7 +156,7 @@ The context-search-agent MUST perform historical archive analysis as Track 1 in 
 **Step 1: Check for Archive Manifest**
 ```bash
 # Check if archive manifest exists
-if [[ -f .workflow/.archives/manifest.json ]]; then
+if [[ -f .workflow/archives/manifest.json ]]; then
   # Manifest available for querying
 fi
 ```
@@ -233,7 +235,7 @@ if (historicalConflicts.length > 0 && currentRisk === "low") {
 ### Archive Query Algorithm
 
 ```markdown
-1. IF .workflow/.archives/manifest.json does NOT exist → Skip Track 1, continue to Track 2
+1. IF .workflow/archives/manifest.json does NOT exist → Skip Track 1, continue to Track 2
 2. IF manifest exists:
    a. Load manifest.json
    b. Extract keywords from task_description (nouns, verbs, technical terms)
@@ -250,33 +252,10 @@ if (historicalConflicts.length > 0 && currentRisk === "low") {
 3. Continue to Track 2 (reference documentation)
 ```
 
-## Usage Examples
-
-### Basic Usage
-```bash
-/workflow:tools:context-gather --session WFS-auth-feature "Implement JWT authentication with refresh tokens"
-```
-## Success Criteria
-
-- ✅ Valid context-package.json generated in `.workflow/{session}/.process/`
-- ✅ Contains >80% relevant files based on task keywords
-- ✅ Execution completes within 2 minutes
-- ✅ All required schema fields present and valid
-- ✅ Conflict risk accurately assessed
-- ✅ Agent reports completion with statistics
-
-## Error Handling
-
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Package validation failed | Invalid session_id in existing package | Re-run agent to regenerate |
-| Agent execution timeout | Large codebase or slow MCP | Increase timeout, check code-index status |
-| Missing required fields | Agent incomplete execution | Check agent logs, verify schema compliance |
-| File count exceeds limit | Too many relevant files | Agent should auto-prioritize top 50 by relevance |
-
 ## Notes
 
 - **Detection-first**: Always check for existing package before invoking agent
+- **Project.json integration**: Agent reads `.workflow/project.json` as primary source for project context, avoiding redundant analysis
 - **Agent autonomy**: Agent handles all discovery logic per `.claude/agents/context-search-agent.md`
 - **No redundancy**: This command is a thin orchestrator, all logic in agent
 - **Plan-specific**: Use this for implementation planning; brainstorm mode uses direct agent call

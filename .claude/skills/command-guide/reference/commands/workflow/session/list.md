@@ -19,35 +19,35 @@ Display all workflow sessions with their current status, progress, and metadata.
 
 ### Step 1: Find All Sessions
 ```bash
-ls .workflow/WFS-* 2>/dev/null
+ls .workflow/sessions/WFS-* 2>/dev/null
 ```
 
 ### Step 2: Check Active Session
 ```bash
-ls .workflow/.active-* 2>/dev/null | head -1
+find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null | head -1
 ```
 
 ### Step 3: Read Session Metadata
 ```bash
-jq -r '.session_id, .status, .project' .workflow/WFS-session/workflow-session.json
+jq -r '.session_id, .status, .project' .workflow/sessions/WFS-session/workflow-session.json
 ```
 
 ### Step 4: Count Task Progress
 ```bash
-find .workflow/WFS-session/.task/ -name "*.json" -type f 2>/dev/null | wc -l
-find .workflow/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
+find .workflow/sessions/WFS-session/.task/ -name "*.json" -type f 2>/dev/null | wc -l
+find .workflow/sessions/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
 ```
 
 ### Step 5: Get Creation Time
 ```bash
-jq -r '.created_at // "unknown"' .workflow/WFS-session/workflow-session.json
+jq -r '.created_at // "unknown"' .workflow/sessions/WFS-session/workflow-session.json
 ```
 
 ## Simple Bash Commands
 
 ### Basic Operations
-- **List sessions**: `find .workflow/ -maxdepth 1 -type d -name "WFS-*"`
-- **Find active**: `find .workflow/ -name ".active-*" -type f`
+- **List sessions**: `find .workflow/sessions/ -name "WFS-*" -type d`
+- **Find active**: `find .workflow/sessions/ -name "WFS-*" -type d`
 - **Read session data**: `jq -r '.session_id, .status' session.json`
 - **Count tasks**: `find .task/ -name "*.json" -type f | wc -l`
 - **Count completed**: `find .summaries/ -name "*.md" -type f 2>/dev/null | wc -l`
@@ -89,11 +89,8 @@ Total: 3 sessions (1 active, 1 paused, 1 completed)
 ### Quick Commands
 ```bash
 # Count all sessions
-ls .workflow/WFS-* | wc -l
-
-# Show only active
-ls .workflow/.active-* | basename | sed 's/^\.active-//'
+ls .workflow/sessions/WFS-* | wc -l
 
 # Show recent sessions
-ls -t .workflow/WFS-*/workflow-session.json | head -3
+ls -t .workflow/sessions/WFS-*/workflow-session.json | head -3
 ```

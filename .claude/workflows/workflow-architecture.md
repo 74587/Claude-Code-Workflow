@@ -24,48 +24,50 @@ This document defines the complete workflow system architecture using a **JSON-o
 
 ## Session Management
 
-### Active Session Marker System
-**Ultra-Simple Active Tracking**: `.workflow/.active-[session-name]`
+### Directory-Based Session Management
+**Simple Location-Based Tracking**: Sessions in `.workflow/sessions/` directory
 
 ```bash
 .workflow/
-├── WFS-oauth-integration/         # Session directory (paused)
-├── WFS-user-profile/             # Session directory (paused)
-├── WFS-bug-fix-123/              # Session directory (completed)
-└── .active-WFS-user-profile      # Marker file (indicates active session)
+├── sessions/
+│   ├── WFS-oauth-integration/         # Session directory (active or paused)
+│   ├── WFS-user-profile/             # Session directory (active or paused)
+│   └── WFS-bug-fix-123/              # Session directory (completed)
+└── archives/
+    └── WFS-old-feature/              # Archived session (completed)
 ```
 
-**Marker File Benefits**:
-- **Zero Parsing**: File existence check is atomic and instant
-- **Atomic Operations**: File creation/deletion is naturally atomic
-- **Visual Discovery**: `ls .workflow/.active-*` shows active session immediately
-- **Simple Switching**: Delete old marker + create new marker = session switch
+**Directory-Based Benefits**:
+- **Simple Discovery**: Session location determines state (sessions/ = active/paused, archives/ = completed)
+- **No Marker Files**: Location is the state
+- **Clean Structure**: Clear separation between active and completed sessions
+- **Easy Migration**: Move between sessions/ and archives/ to change state
 
 ### Session Operations
 
 #### Detect Active Session(s)
 ```bash
-active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+active_sessions=$(find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null)
 count=$(echo "$active_sessions" | wc -l)
 
 if [ -z "$active_sessions" ]; then
   echo "No active session"
 elif [ "$count" -eq 1 ]; then
-  session_name=$(basename "$active_sessions" | sed 's/^\.active-//')
+  session_name=$(basename "$active_sessions")
   echo "Active session: $session_name"
 else
-  echo "Multiple active sessions found:"
-  echo "$active_sessions" | while read marker; do
-    session=$(basename "$marker" | sed 's/^\.active-//')
+  echo "Multiple sessions found:"
+  echo "$active_sessions" | while read session_dir; do
+    session=$(basename "$session_dir")
     echo "  - $session"
   done
   echo "Please specify which session to work with"
 fi
 ```
 
-#### Switch Session
+#### Archive Session
 ```bash
-find .workflow -name ".active-*" -delete && touch .workflow/.active-WFS-new-feature
+mv .workflow/sessions/WFS-feature .workflow/archives/WFS-feature
 ```
 
 ### Session State Tracking
@@ -707,41 +709,44 @@ All workflows use the same file structure definition regardless of complexity. *
 │       │   └── index.html      # Navigation page
 │       └── .run-metadata.json  # Run configuration
 │
-└── WFS-[topic-slug]/
-    ├── workflow-session.json        # Session metadata and state (REQUIRED)
-    ├── [.brainstorming/]           # Optional brainstorming phase (created when needed)
-    ├── [.chat/]                    # CLI interaction sessions (created when analysis is run)
-    │   ├── chat-*.md              # Saved chat sessions
-    │   └── analysis-*.md          # Analysis results
-    ├── [.process/]                 # Planning analysis results (created by /workflow:plan)
-    │   └── ANALYSIS_RESULTS.md    # Analysis results and planning artifacts
-    ├── IMPL_PLAN.md                # Planning document (REQUIRED)
-    ├── TODO_LIST.md                # Progress tracking (REQUIRED)
-    ├── [.summaries/]               # Task completion summaries (created when tasks complete)
-    │   ├── IMPL-*-summary.md      # Main task summaries
-    │   └── IMPL-*.*-summary.md    # Subtask summaries
-    ├── [design-*/]                 # UI design outputs (created by ui-design workflows)
-    │   ├── .intermediates/         # Intermediate analysis files
-    │   │   ├── style-analysis/     # Style analysis data
-    │   │   │   ├── computed-styles.json        # Extracted CSS values
-    │   │   │   └── design-space-analysis.json  # Design directions
-    │   │   └── layout-analysis/    # Layout analysis data
-    │   │       ├── dom-structure-{target}.json # DOM extraction
-    │   │       └── inspirations/               # Layout research
-    │   │           └── {target}-layout-ideas.txt
-    │   ├── style-extraction/       # Final design systems
-    │   │   ├── style-1/            # design-tokens.json, style-guide.md
-    │   │   └── style-N/
-    │   ├── layout-extraction/      # Layout templates
-    │   │   └── layout-templates.json
-    │   ├── prototypes/             # Generated HTML/CSS prototypes
-    │   │   ├── {target}-style-{s}-layout-{l}.html  # Final prototypes
-    │   │   ├── compare.html        # Interactive matrix view
-    │   │   └── index.html          # Navigation page
-    │   └── .run-metadata.json      # Run configuration
-    └── .task/                      # Task definitions (REQUIRED)
-        ├── IMPL-*.json             # Main task definitions
-        └── IMPL-*.*.json           # Subtask definitions (created dynamically)
+├── sessions/                        # Active/paused workflow sessions
+│   └── WFS-[topic-slug]/
+│       ├── workflow-session.json        # Session metadata and state (REQUIRED)
+│       ├── [.brainstorming/]           # Optional brainstorming phase (created when needed)
+│       ├── [.chat/]                    # CLI interaction sessions (created when analysis is run)
+│       │   ├── chat-*.md              # Saved chat sessions
+│       │   └── analysis-*.md          # Analysis results
+│       ├── [.process/]                 # Planning analysis results (created by /workflow:plan)
+│       │   └── ANALYSIS_RESULTS.md    # Analysis results and planning artifacts
+│       ├── IMPL_PLAN.md                # Planning document (REQUIRED)
+│       ├── TODO_LIST.md                # Progress tracking (REQUIRED)
+│       ├── [.summaries/]               # Task completion summaries (created when tasks complete)
+│       │   ├── IMPL-*-summary.md      # Main task summaries
+│       │   └── IMPL-*.*-summary.md    # Subtask summaries
+│       ├── [design-*/]                 # UI design outputs (created by ui-design workflows)
+│       │   ├── .intermediates/         # Intermediate analysis files
+│       │   │   ├── style-analysis/     # Style analysis data
+│       │   │   │   ├── computed-styles.json        # Extracted CSS values
+│       │   │   │   └── design-space-analysis.json  # Design directions
+│       │   │   └── layout-analysis/    # Layout analysis data
+│       │   │       ├── dom-structure-{target}.json # DOM extraction
+│       │   │       └── inspirations/               # Layout research
+│       │   │           └── {target}-layout-ideas.txt
+│       │   ├── style-extraction/       # Final design systems
+│       │   │   ├── style-1/            # design-tokens.json, style-guide.md
+│       │   │   └── style-N/
+│       │   ├── layout-extraction/      # Layout templates
+│       │   │   └── layout-templates.json
+│       │   ├── prototypes/             # Generated HTML/CSS prototypes
+│       │   │   ├── {target}-style-{s}-layout-{l}.html  # Final prototypes
+│       │   │   ├── compare.html        # Interactive matrix view
+│       │   │   └── index.html          # Navigation page
+│       │   └── .run-metadata.json      # Run configuration
+│       └── .task/                      # Task definitions (REQUIRED)
+│           ├── IMPL-*.json             # Main task definitions
+│           └── IMPL-*.*.json           # Subtask definitions (created dynamically)
+└── archives/                       # Completed workflow sessions
+    └── WFS-[completed-topic]/      # Archived session directories
 ```
 
 #### Creation Strategy
@@ -763,8 +768,8 @@ All workflows use the same file structure definition regardless of complexity. *
 4. **One-Off Queries**: Standalone questions or debugging without workflow context
 
 **Output Routing Logic**:
-- **IF** active session exists AND command is session-relevant:
-  - Save to `.workflow/WFS-[id]/.chat/[command]-[timestamp].md`
+- **IF** active session exists in `.workflow/sessions/` AND command is session-relevant:
+  - Save to `.workflow/sessions/WFS-[id]/.chat/[command]-[timestamp].md`
 - **ELSE** (no session OR one-off analysis):
   - Save to `.workflow/.scratchpad/[command]-[description]-[timestamp].md`
 
@@ -834,10 +839,10 @@ All workflows use the same file structure definition regardless of complexity. *
 ### Session Management
 ```bash
 # Create minimal required structure
-mkdir -p .workflow/WFS-topic-slug/.task
-echo '{"session_id":"WFS-topic-slug",...}' > .workflow/WFS-topic-slug/workflow-session.json
-echo '# Implementation Plan' > .workflow/WFS-topic-slug/IMPL_PLAN.md
-echo '# Tasks' > .workflow/WFS-topic-slug/TODO_LIST.md
+mkdir -p .workflow/sessions/WFS-topic-slug/.task
+echo '{"session_id":"WFS-topic-slug",...}' > .workflow/sessions/WFS-topic-slug/workflow-session.json
+echo '# Implementation Plan' > .workflow/sessions/WFS-topic-slug/IMPL_PLAN.md
+echo '# Tasks' > .workflow/sessions/WFS-topic-slug/TODO_LIST.md
 ```
 
 ### Task Operations
@@ -861,23 +866,21 @@ mkdir -p .summaries         # When first task completes
 
 ### Session Consistency Checks & Recovery
 ```bash
-# Validate active session integrity
-active_marker=$(find .workflow -name ".active-*" | head -1)
-if [ -n "$active_marker" ]; then
-  session_name=$(basename "$active_marker" | sed 's/^\.active-//')
-  session_dir=".workflow/$session_name"
-  if [ ! -d "$session_dir" ]; then
-    echo "⚠️ Orphaned active marker, removing..."
-    rm "$active_marker"
-  fi
+# Validate session directory structure
+if [ -d ".workflow/sessions/" ]; then
+  for session_dir in .workflow/sessions/WFS-*; do
+    if [ ! -f "$session_dir/workflow-session.json" ]; then
+      echo "⚠️ Missing workflow-session.json in $session_dir"
+    fi
+  done
 fi
 ```
 
 **Recovery Strategies**:
-- **Missing Session Directory**: Remove orphaned active marker
-- **Multiple Active Markers**: Keep newest, remove others
-- **Corrupted Session File**: Recreate from template
-- **Broken Task Hierarchy**: Reconstruct parent-child relationships
+- **Missing Session File**: Recreate workflow-session.json from template
+- **Corrupted Session File**: Restore from template with basic metadata
+- **Broken Task Hierarchy**: Reconstruct parent-child relationships from task JSON files
+- **Orphaned Sessions**: Move incomplete sessions to archives/
 
 ## Complexity Classification
 

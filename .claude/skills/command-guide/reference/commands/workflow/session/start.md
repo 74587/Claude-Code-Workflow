@@ -13,6 +13,35 @@ examples:
 ## Overview
 Manages workflow sessions with three operation modes: discovery (manual), auto (intelligent), and force-new.
 
+**Dual Responsibility**:
+1. **Project-level initialization** (first-time only): Creates `.workflow/project.json` for feature registry
+2. **Session-level initialization** (always): Creates session directory structure
+
+## Step 0: Initialize Project State (First-time Only)
+
+**Executed before all modes** - Ensures project-level state file exists by calling `/workflow:init`.
+
+### Check and Initialize
+```bash
+# Check if project state exists
+bash(test -f .workflow/project.json && echo "EXISTS" || echo "NOT_FOUND")
+```
+
+**If NOT_FOUND**, delegate to `/workflow:init`:
+```javascript
+// Call workflow:init for intelligent project analysis
+SlashCommand({command: "/workflow:init"});
+
+// Wait for init completion
+// project.json will be created with comprehensive project overview
+```
+
+**Output**:
+- If EXISTS: `PROJECT_STATE: initialized`
+- If NOT_FOUND: Calls `/workflow:init` → creates `.workflow/project.json` with full project analysis
+
+**Note**: `/workflow:init` uses cli-explore-agent to build comprehensive project understanding (technology stack, architecture, key components). This step runs once per project. Subsequent executions skip initialization.
+
 ## Mode 1: Discovery Mode (Default)
 
 ### Usage
@@ -20,19 +49,14 @@ Manages workflow sessions with three operation modes: discovery (manual), auto (
 /workflow:session:start
 ```
 
-### Step 1: Check Active Sessions
+### Step 1: List Active Sessions
 ```bash
-bash(ls .workflow/.active-* 2>/dev/null)
+bash(ls -1 .workflow/sessions/ 2>/dev/null | head -5)
 ```
 
-### Step 2: List All Sessions
+### Step 2: Display Session Metadata
 ```bash
-bash(ls -1 .workflow/WFS-* 2>/dev/null | head -5)
-```
-
-### Step 3: Display Session Metadata
-```bash
-bash(cat .workflow/WFS-promptmaster-platform/workflow-session.json)
+bash(cat .workflow/sessions/WFS-promptmaster-platform/workflow-session.json)
 ```
 
 ### Step 4: User Decision
@@ -49,7 +73,7 @@ Present session information and wait for user to select or create session.
 
 ### Step 1: Check Active Sessions Count
 ```bash
-bash(ls .workflow/.active-* 2>/dev/null | wc -l)
+bash(find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null | wc -l)
 ```
 
 ### Step 2a: No Active Sessions → Create New
@@ -58,15 +82,12 @@ bash(ls .workflow/.active-* 2>/dev/null | wc -l)
 bash(echo "implement OAuth2 auth" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]' | cut -c1-50)
 
 # Create directory structure
-bash(mkdir -p .workflow/WFS-implement-oauth2-auth/.process)
-bash(mkdir -p .workflow/WFS-implement-oauth2-auth/.task)
-bash(mkdir -p .workflow/WFS-implement-oauth2-auth/.summaries)
+bash(mkdir -p .workflow/sessions/WFS-implement-oauth2-auth/.process)
+bash(mkdir -p .workflow/sessions/WFS-implement-oauth2-auth/.task)
+bash(mkdir -p .workflow/sessions/WFS-implement-oauth2-auth/.summaries)
 
 # Create metadata
-bash(echo '{"session_id":"WFS-implement-oauth2-auth","project":"implement OAuth2 auth","status":"planning"}' > .workflow/WFS-implement-oauth2-auth/workflow-session.json)
-
-# Mark as active
-bash(touch .workflow/.active-WFS-implement-oauth2-auth)
+bash(echo '{"session_id":"WFS-implement-oauth2-auth","project":"implement OAuth2 auth","status":"planning"}' > .workflow/sessions/WFS-implement-oauth2-auth/workflow-session.json)
 ```
 
 **Output**: `SESSION_ID: WFS-implement-oauth2-auth`
@@ -74,10 +95,10 @@ bash(touch .workflow/.active-WFS-implement-oauth2-auth)
 ### Step 2b: Single Active Session → Check Relevance
 ```bash
 # Extract session ID
-bash(ls .workflow/.active-* 2>/dev/null | head -1 | xargs basename | sed 's/^\.active-//')
+bash(find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null | head -1 | xargs basename)
 
 # Read project name from metadata
-bash(cat .workflow/WFS-promptmaster-platform/workflow-session.json | grep -o '"project":"[^"]*"' | cut -d'"' -f4)
+bash(cat .workflow/sessions/WFS-promptmaster-platform/workflow-session.json | grep -o '"project":"[^"]*"' | cut -d'"' -f4)
 
 # Check keyword match (manual comparison)
 # If task contains project keywords → Reuse session
@@ -90,7 +111,7 @@ bash(cat .workflow/WFS-promptmaster-platform/workflow-session.json | grep -o '"p
 ### Step 2c: Multiple Active Sessions → Use First
 ```bash
 # Get first active session
-bash(ls .workflow/.active-* 2>/dev/null | head -1 | xargs basename | sed 's/^\.active-//')
+bash(find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null | head -1 | xargs basename)
 
 # Output warning and session ID
 # WARNING: Multiple active sessions detected
@@ -110,25 +131,19 @@ bash(ls .workflow/.active-* 2>/dev/null | head -1 | xargs basename | sed 's/^\.a
 bash(echo "fix login bug" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]' | cut -c1-50)
 
 # Check if exists, add counter if needed
-bash(ls .workflow/WFS-fix-login-bug 2>/dev/null && echo "WFS-fix-login-bug-2" || echo "WFS-fix-login-bug")
+bash(ls .workflow/sessions/WFS-fix-login-bug 2>/dev/null && echo "WFS-fix-login-bug-2" || echo "WFS-fix-login-bug")
 ```
 
 ### Step 2: Create Session Structure
 ```bash
-bash(mkdir -p .workflow/WFS-fix-login-bug/.process)
-bash(mkdir -p .workflow/WFS-fix-login-bug/.task)
-bash(mkdir -p .workflow/WFS-fix-login-bug/.summaries)
+bash(mkdir -p .workflow/sessions/WFS-fix-login-bug/.process)
+bash(mkdir -p .workflow/sessions/WFS-fix-login-bug/.task)
+bash(mkdir -p .workflow/sessions/WFS-fix-login-bug/.summaries)
 ```
 
 ### Step 3: Create Metadata
 ```bash
-bash(echo '{"session_id":"WFS-fix-login-bug","project":"fix login bug","status":"planning"}' > .workflow/WFS-fix-login-bug/workflow-session.json)
-```
-
-### Step 4: Mark Active and Clean Old Markers
-```bash
-bash(rm .workflow/.active-* 2>/dev/null)
-bash(touch .workflow/.active-WFS-fix-login-bug)
+bash(echo '{"session_id":"WFS-fix-login-bug","project":"fix login bug","status":"planning"}' > .workflow/sessions/WFS-fix-login-bug/workflow-session.json)
 ```
 
 **Output**: `SESSION_ID: WFS-fix-login-bug`
@@ -171,41 +186,6 @@ SlashCommand(command="/workflow:session:start")
 ### For New Isolated Work (Use Force New Mode)
 ```bash
 SlashCommand(command="/workflow:session:start --new \"experimental feature\"")
-```
-
-## Simple Bash Commands
-
-### Basic Operations
-```bash
-# Check active sessions
-bash(ls .workflow/.active-*)
-
-# List all sessions
-bash(ls .workflow/WFS-*)
-
-# Read session metadata
-bash(cat .workflow/WFS-[session-id]/workflow-session.json)
-
-# Create session directories
-bash(mkdir -p .workflow/WFS-[session-id]/.process)
-bash(mkdir -p .workflow/WFS-[session-id]/.task)
-bash(mkdir -p .workflow/WFS-[session-id]/.summaries)
-
-# Mark session as active
-bash(touch .workflow/.active-WFS-[session-id])
-
-# Clean active markers
-bash(rm .workflow/.active-*)
-```
-
-### Generate Session Slug
-```bash
-bash(echo "Task Description" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]' | cut -c1-50)
-```
-
-### Create Metadata JSON
-```bash
-bash(echo '{"session_id":"WFS-test","project":"test project","status":"planning"}' > .workflow/WFS-test/workflow-session.json)
 ```
 
 ## Session ID Format

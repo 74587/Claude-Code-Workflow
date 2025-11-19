@@ -67,7 +67,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 
 **Optional Parameters**:
 - `--session <id>`: Workflow session ID
-  - Integrate into existing session (`.workflow/WFS-{session}/`)
+  - Integrate into existing session (`.workflow/sessions/WFS-{session}/`)
   - Enable automatic design system integration (Phase 4)
   - If not provided: standalone mode (`.workflow/`)
 
@@ -184,7 +184,7 @@ design_id = "design-run-$(date +%Y%m%d)-$RANDOM"
 
 IF --session:
     session_id = {provided_session}
-    relative_base_path = ".workflow/WFS-{session_id}/{design_id}"
+    relative_base_path = ".workflow/sessions/WFS-{session_id}/{design_id}"
     session_mode = "integrated"
 ELSE:
     session_id = null

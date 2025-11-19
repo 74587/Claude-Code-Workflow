@@ -190,11 +190,11 @@ cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" --include-directories 
 
 **Session Detection**:
 ```bash
-find .workflow/ -name '.active-*' -type f
+find .workflow/sessions/ -name 'WFS-*' -type d
 ```
 
 **Output Paths**:
-- **With session**: `.workflow/WFS-{id}/.chat/{agent}-{timestamp}.md`
+- **With session**: `.workflow/sessions/WFS-{id}/.chat/{agent}-{timestamp}.md`
 - **No session**: `.workflow/.scratchpad/{agent}-{description}-{timestamp}.md`
 
 **Log Structure**:

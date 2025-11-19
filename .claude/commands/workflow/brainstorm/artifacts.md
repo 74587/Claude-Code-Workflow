@@ -133,7 +133,7 @@ b) {role-name} ({中文名})
 ## Execution Phases
 
 ### Session Management
-- Check `.workflow/sessions/` for active sessions first
+- Check `.workflow/sessions/` for existing sessions
 - Multiple sessions → Prompt selection | Single → Use it | None → Create `WFS-[topic-slug]`
 - Parse `--count N` parameter from user input (default: 3 if not specified)
 - Store decisions in `workflow-session.json` including count parameter
@@ -597,7 +597,6 @@ ELSE:
 
 ```
 .workflow/sessions/WFS-[topic]/
-├── .active-brainstorming
 ├── workflow-session.json              # Session metadata ONLY
 └── .brainstorming/
     └── guidance-specification.md      # Full guidance content

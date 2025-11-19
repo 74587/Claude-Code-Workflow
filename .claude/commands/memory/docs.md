@@ -63,10 +63,10 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 bash(pwd && basename "$(pwd)" && git rev-parse --show-toplevel 2>/dev/null || pwd && date +%Y%m%d-%H%M%S)
 
 # Create session directories (replace timestamp)
-bash(mkdir -p .workflow/WFS-docs-{timestamp}/.{task,process,summaries} && touch .workflow/.active-WFS-docs-{timestamp})
+bash(mkdir -p .workflow/sessions/WFS-docs-{timestamp}/.{task,process,summaries})
 
 # Create workflow-session.json (replace values)
-bash(echo '{"session_id":"WFS-docs-{timestamp}","project":"{project} documentation","status":"planning","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}' | jq '.' > .workflow/WFS-docs-{timestamp}/workflow-session.json)
+bash(echo '{"session_id":"WFS-docs-{timestamp}","project":"{project} documentation","status":"planning","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}' | jq '.' > .workflow/sessions/WFS-docs-{timestamp}/workflow-session.json)
 ```
 
 ### Phase 2: Analyze Structure
@@ -458,8 +458,7 @@ api_id=$((group_count + 3))
 **Unified Structure** (single JSON replaces multiple text files):
 
 ```
-.workflow/
-├── .active-WFS-docs-{timestamp}
+.workflow/sessions/
 └── WFS-docs-{timestamp}/
     ├── workflow-session.json            # Session metadata
     ├── IMPL_PLAN.md

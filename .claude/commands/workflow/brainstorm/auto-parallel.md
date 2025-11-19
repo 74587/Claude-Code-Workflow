@@ -392,16 +392,16 @@ CONTEXT_VARS:
 
 ## Session Management
 
-**⚡ FIRST ACTION**: Check `.workflow/sessions/` for active sessions before Phase 1
+**⚡ FIRST ACTION**: Check `.workflow/sessions/` for existing sessions before Phase 1
 
 **Multiple Sessions Support**:
-- Different Claude instances can have different active brainstorming sessions
-- If multiple active sessions found, prompt user to select
-- If single active session found, use it
-- If no active session exists, create `WFS-[topic-slug]`
+- Different Claude instances can have different brainstorming sessions
+- If multiple sessions found, prompt user to select
+- If single session found, use it
+- If no session exists, create `WFS-[topic-slug]`
 
 **Session Continuity**:
-- MUST use selected active session for all phases
+- MUST use selected session for all phases
 - Each role's context stored in session directory
 - Session isolation: Each session maintains independent state
 
@@ -447,7 +447,6 @@ CONTEXT_VARS:
 **File Structure**:
 ```
 .workflow/sessions/WFS-[topic]/
-├── .active-brainstorming
 ├── workflow-session.json              # Session metadata ONLY
 └── .brainstorming/
     ├── guidance-specification.md      # Framework (Phase 1)

@@ -273,19 +273,19 @@ const agentContext = {
   // Use memory if available, else load
   session_metadata: memory.has("workflow-session.json")
     ? memory.get("workflow-session.json")
-    : Read(.workflow/WFS-test-[id]/workflow-session.json),
+    : Read(.workflow/sessions/WFS-test-[id]/workflow-session.json),
 
-  test_analysis_results_path: ".workflow/WFS-test-[id]/.process/TEST_ANALYSIS_RESULTS.md",
+  test_analysis_results_path: ".workflow/sessions/WFS-test-[id]/.process/TEST_ANALYSIS_RESULTS.md",
 
   test_analysis_results: memory.has("TEST_ANALYSIS_RESULTS.md")
     ? memory.get("TEST_ANALYSIS_RESULTS.md")
-    : Read(".workflow/WFS-test-[id]/.process/TEST_ANALYSIS_RESULTS.md"),
+    : Read(".workflow/sessions/WFS-test-[id]/.process/TEST_ANALYSIS_RESULTS.md"),
 
-  test_context_package_path: ".workflow/WFS-test-[id]/.process/test-context-package.json",
+  test_context_package_path: ".workflow/sessions/WFS-test-[id]/.process/test-context-package.json",
 
   test_context_package: memory.has("test-context-package.json")
     ? memory.get("test-context-package.json")
-    : Read(".workflow/WFS-test-[id]/.process/test-context-package.json"),
+    : Read(".workflow/sessions/WFS-test-[id]/.process/test-context-package.json"),
 
   // Load source session summaries if exists
   source_session_id: session_metadata.source_session_id || null,
@@ -312,7 +312,7 @@ This section provides quick reference for test task JSON structure. For complete
 
 ## Output Files Structure
 ```
-.workflow/WFS-test-[session]/
+.workflow/sessions/WFS-test-[session]/
 ├── workflow-session.json           # Test session metadata
 ├── IMPL_PLAN.md                    # Test validation plan
 ├── TODO_LIST.md                    # Progress tracking

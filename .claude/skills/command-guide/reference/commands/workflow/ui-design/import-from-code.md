@@ -61,7 +61,7 @@ if [ -n "$DESIGN_ID" ]; then
   fi
 elif [ -n "$SESSION_ID" ]; then
   # Latest in session
-  relative_path=$(find .workflow/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
+  relative_path=$(find .workflow/sessions/WFS-$SESSION_ID -name "design-run-*" -type d -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2)
   if [ -z "$relative_path" ]; then
     echo "ERROR: No design run found in session: $SESSION_ID"
     echo "HINT: Create a design run first or provide --design-id"

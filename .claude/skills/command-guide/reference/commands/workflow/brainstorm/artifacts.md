@@ -10,7 +10,7 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*)
 Six-phase workflow: **Automatic project context collection** → Extract topic challenges → Select roles → Generate task-specific questions → Detect conflicts → Generate confirmed guidance (declarative statements only).
 
 **Input**: `"GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]" [--count N]`
-**Output**: `.workflow/WFS-{topic}/.brainstorming/guidance-specification.md` (CONFIRMED/SELECTED format)
+**Output**: `.workflow/sessions/WFS-{topic}/.brainstorming/guidance-specification.md` (CONFIRMED/SELECTED format)
 **Core Principle**: Questions dynamically generated from project context + topic keywords/challenges, NOT from generic templates
 
 **Parameters**:
@@ -32,7 +32,7 @@ Six-phase workflow: **Automatic project context collection** → Extract topic c
 **Standalone Mode**:
 ```json
 [
-  {"content": "Initialize session (.workflow/.active-* check, parse --count parameter)", "status": "pending", "activeForm": "Initializing"},
+  {"content": "Initialize session (.workflow/sessions/ session check, parse --count parameter)", "status": "pending", "activeForm": "Initializing"},
   {"content": "Phase 0: Automatic project context collection (call context-gather)", "status": "pending", "activeForm": "Phase 0 context collection"},
   {"content": "Phase 1: Extract challenges, output 2-4 task-specific questions, wait for user input", "status": "pending", "activeForm": "Phase 1 topic analysis"},
   {"content": "Phase 2: Recommend count+2 roles, output role selection, wait for user input", "status": "pending", "activeForm": "Phase 2 role selection"},
@@ -133,7 +133,7 @@ b) {role-name} ({中文名})
 ## Execution Phases
 
 ### Session Management
-- Check `.workflow/.active-*` markers first
+- Check `.workflow/sessions/` for existing sessions
 - Multiple sessions → Prompt selection | Single → Use it | None → Create `WFS-[topic-slug]`
 - Parse `--count N` parameter from user input (default: 3 if not specified)
 - Store decisions in `workflow-session.json` including count parameter
@@ -145,7 +145,7 @@ b) {role-name} ({中文名})
 **Detection Mechanism** (execute first):
 ```javascript
 // Check if context-package already exists
-const contextPackagePath = `.workflow/WFS-{session-id}/.process/context-package.json`;
+const contextPackagePath = `.workflow/sessions/WFS-{session-id}/.process/context-package.json`;
 
 if (file_exists(contextPackagePath)) {
   // Validate package
@@ -229,7 +229,7 @@ Report completion with statistics.
 
 **Steps**:
 1. **Load Phase 0 context** (if available):
-   - Read `.workflow/WFS-{session-id}/.process/context-package.json`
+   - Read `.workflow/sessions/WFS-{session-id}/.process/context-package.json`
    - Extract: tech_stack, existing modules, conflict_risk, relevant files
 
 2. **Deep topic analysis** (context-aware):
@@ -449,7 +449,7 @@ FOR each selected role:
 
 ## Output Document Template
 
-**File**: `.workflow/WFS-{topic}/.brainstorming/guidance-specification.md`
+**File**: `.workflow/sessions/WFS-{topic}/.brainstorming/guidance-specification.md`
 
 ```markdown
 # [Project] - Confirmed Guidance Specification
@@ -596,8 +596,7 @@ ELSE:
 ## File Structure
 
 ```
-.workflow/WFS-[topic]/
-├── .active-brainstorming
+.workflow/sessions/WFS-[topic]/
 ├── workflow-session.json              # Session metadata ONLY
 └── .brainstorming/
     └── guidance-specification.md      # Full guidance content

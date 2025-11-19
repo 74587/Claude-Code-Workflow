@@ -21,12 +21,14 @@ auto-continue: true
 **Key Features**:
 - Extracts primary design references (colors, typography, spacing, etc.)
 - Provides dynamic adjustment guidelines for design tokens
+- Includes prerequisites and tooling requirements (browsers, PostCSS, dark mode)
 - Progressive loading structure for efficient token usage
+- Complete implementation examples with React components
 - Interactive preview showcase
 
 ---
 
-## Usage
+## Quick Reference
 
 ### Command Syntax
 
@@ -51,20 +53,77 @@ package-name    Style reference package name (required)
 /memory:style-skill-memory
 ```
 
+### Key Variables
+
+**Input Variables**:
+- `PACKAGE_NAME`: Style reference package name
+- `PACKAGE_DIR`: `.workflow/reference_style/${package_name}`
+- `SKILL_DIR`: `.claude/skills/style-${package_name}`
+- `REGENERATE`: `true` if --regenerate flag, `false` otherwise
+
+**Data Sources** (Phase 2):
+- `DESIGN_TOKENS_DATA`: Complete design-tokens.json content (from Read)
+- `LAYOUT_TEMPLATES_DATA`: Complete layout-templates.json content (from Read)
+- `ANIMATION_TOKENS_DATA`: Complete animation-tokens.json content (from Read, if exists)
+
+**Metadata** (Phase 2):
+- `COMPONENT_COUNT`: Total components
+- `UNIVERSAL_COUNT`: Universal components count
+- `SPECIALIZED_COUNT`: Specialized components count
+- `UNIVERSAL_COMPONENTS`: Universal component names (first 5)
+- `HAS_ANIMATIONS`: Whether animation-tokens.json exists
+
+**Analysis Output** (`DESIGN_ANALYSIS` - Phase 2):
+- `has_colors`: Colors exist
+- `color_semantic`: Has semantic naming (primary/secondary/accent)
+- `uses_oklch`: Uses modern color spaces (oklch, lab, etc.)
+- `has_dark_mode`: Has separate light/dark mode color tokens
+- `spacing_pattern`: Pattern type ("linear", "geometric", "custom")
+- `spacing_scale`: Actual scale values (e.g., [4, 8, 16, 32, 64])
+- `has_typography`: Typography system exists
+- `typography_hierarchy`: Has size scale for hierarchy
+- `uses_calc`: Uses calc() expressions in token values
+- `has_radius`: Border radius exists
+- `radius_style`: Style characteristic ("sharp" <4px, "moderate" 4-8px, "rounded" >8px)
+- `has_shadows`: Shadow system exists
+- `shadow_pattern`: Elevation naming pattern
+- `has_animations`: Animation tokens exist
+- `animation_range`: Duration range (fast to slow)
+- `easing_variety`: Types of easing functions
+
+### Common Errors
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| Package not found | Invalid package name or doesn't exist | Run `/workflow:ui-design:codify-style` first |
+| SKILL already exists | SKILL.md already generated | Use `--regenerate` flag |
+| Missing layout-templates.json | Incomplete package | Verify package integrity, re-run codify-style |
+| Invalid JSON format | Corrupted package files | Regenerate package with codify-style |
+
 ---
 
 ## Execution Process
 
 ### Phase 1: Validate Package
 
-**Purpose**: Check if style reference package exists
-
 **TodoWrite** (First Action):
 ```json
 [
-  {"content": "Validate style reference package", "status": "in_progress", "activeForm": "Validating package"},
-  {"content": "Read package data and extract design references", "status": "pending", "activeForm": "Reading package data"},
-  {"content": "Generate SKILL.md with progressive loading", "status": "pending", "activeForm": "Generating SKILL.md"}
+  {
+    "content": "Validate package exists and check SKILL status",
+    "activeForm": "Validating package and SKILL status",
+    "status": "in_progress"
+  },
+  {
+    "content": "Read package data and analyze design system",
+    "activeForm": "Reading package data and analyzing design system",
+    "status": "pending"
+  },
+  {
+    "content": "Generate SKILL.md with design principles and token values",
+    "activeForm": "Generating SKILL.md with design principles and token values",
+    "status": "pending"
+  }
 ]
 ```
 
@@ -74,8 +133,6 @@ package-name    Style reference package name (required)
 # Get package name from argument or auto-detect
 bash(echo "${package_name}" || basename "$(pwd)" | sed 's/^style-//')
 ```
-
-Store result as `package_name`
 
 **Step 2: Validate Package Exists**
 
@@ -113,151 +170,89 @@ if (regenerate_flag && skill_exists) {
 }
 ```
 
-**Summary Variables**:
-- `PACKAGE_NAME`: Style reference package name
-- `PACKAGE_DIR`: `.workflow/reference_style/${package_name}`
-- `SKILL_DIR`: `.claude/skills/style-${package_name}`
-- `REGENERATE`: `true` if --regenerate flag, `false` otherwise
-
-**TodoWrite Update**:
-```json
-[
-  {"content": "Validate style reference package", "status": "completed", "activeForm": "Validating package"},
-  {"content": "Read package data and extract design references", "status": "in_progress", "activeForm": "Reading package data"}
-]
-```
+**TodoWrite Update**: Mark "Validate" as completed, "Read package data" as in_progress
 
 ---
 
-### Phase 2: Read Package Data & Extract Design References
+### Phase 2: Read Package Data & Analyze Design System
 
-**Purpose**: Extract package information and primary design references for SKILL description generation
-
-**Step 1: Count Components**
+**Step 1: Read All JSON Files**
 
 ```bash
-bash(jq '.layout_templates | length' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null || echo 0)
-```
+# Read layout templates
+Read(file_path=".workflow/reference_style/${package_name}/layout-templates.json")
 
-Store result as `component_count`
-
-**Step 2: Extract Component Types and Classification**
-
-```bash
-# Extract component names from layout templates
-bash(jq -r '.layout_templates | keys[]' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null | head -10)
-
-# Count universal vs specialized components
-bash(jq '[.layout_templates[] | select(.component_type == "universal")] | length' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null || echo 0)
-bash(jq '[.layout_templates[] | select(.component_type == "specialized")] | length' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null || echo 0)
-
-# Extract universal component names only
-bash(jq -r '.layout_templates | to_entries | map(select(.value.component_type == "universal")) | .[].key' .workflow/reference_style/${package_name}/layout-templates.json 2>/dev/null | head -10)
-```
-
-Store as:
-- `COMPONENT_TYPES`: List of available component types (all)
-- `UNIVERSAL_COUNT`: Number of universal (reusable) components
-- `SPECIALIZED_COUNT`: Number of specialized (project-specific) components
-- `UNIVERSAL_COMPONENTS`: List of universal component names
-
-**Step 3: Read Design Tokens**
-
-```bash
+# Read design tokens
 Read(file_path=".workflow/reference_style/${package_name}/design-tokens.json")
+
+# Read animation tokens (if exists)
+bash(test -f .workflow/reference_style/${package_name}/animation-tokens.json && echo "exists" || echo "missing")
+Read(file_path=".workflow/reference_style/${package_name}/animation-tokens.json")  # if exists
 ```
 
-**Extract Primary Design References**:
-
-**Colors** (top 3-5 most important):
-```bash
-bash(jq -r '.colors | to_entries | .[0:5] | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null | head -5)
-```
-
-**Typography** (heading and body fonts):
-```bash
-bash(jq -r '.typography | to_entries | select(.key | contains("family")) | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null)
-```
-
-**Spacing Scale** (base spacing values):
-```bash
-bash(jq -r '.spacing | to_entries | .[0:5] | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null)
-```
-
-**Border Radius** (base radius values):
-```bash
-bash(jq -r '.border_radius | to_entries | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null)
-```
-
-**Shadows** (elevation levels):
-```bash
-bash(jq -r '.shadows | to_entries | .[0:3] | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/design-tokens.json 2>/dev/null)
-```
-
-Store extracted references as:
-- `PRIMARY_COLORS`: List of primary color tokens
-- `TYPOGRAPHY_FONTS`: Font family tokens
-- `SPACING_SCALE`: Base spacing values
-- `BORDER_RADIUS`: Radius values
-- `SHADOWS`: Shadow definitions
-
-**Step 4: Read Animation Tokens (if available)**
+**Step 2: Extract Metadata for Description**
 
 ```bash
-# Check if animation tokens exist
-bash(test -f .workflow/reference_style/${package_name}/animation-tokens.json && echo "available" || echo "not_available")
+# Count components and classify by type
+bash(jq '.layout_templates | length' layout-templates.json)
+bash(jq '[.layout_templates[] | select(.component_type == "universal")] | length' layout-templates.json)
+bash(jq '[.layout_templates[] | select(.component_type == "specialized")] | length' layout-templates.json)
+bash(jq -r '.layout_templates | to_entries[] | select(.value.component_type == "universal") | .key' layout-templates.json | head -5)
 ```
 
-If available, extract:
-```bash
-Read(file_path=".workflow/reference_style/${package_name}/animation-tokens.json")
+Store results in metadata variables (see [Key Variables](#key-variables))
 
-# Extract primary animation values
-bash(jq -r '.duration | to_entries | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/animation-tokens.json 2>/dev/null)
-bash(jq -r '.easing | to_entries | .[0:3] | .[] | "\(.key): \(.value)"' .workflow/reference_style/${package_name}/animation-tokens.json 2>/dev/null)
-```
+**Step 3: Analyze Design System for Dynamic Principles**
 
-Store as:
-- `ANIMATION_DURATIONS`: Animation duration tokens
-- `EASING_FUNCTIONS`: Easing function tokens
-
-**Step 5: Count Files**
+Analyze design-tokens.json to extract characteristics and patterns:
 
 ```bash
-bash(cd .workflow/reference_style/${package_name} && ls -1 *.json *.html *.css 2>/dev/null | wc -l)
+# Color system characteristics
+bash(jq '.colors | keys' design-tokens.json)
+bash(jq '.colors | to_entries[0:2] | map(.value)' design-tokens.json)
+# Check for modern color spaces
+bash(jq '.colors | to_entries[] | .value | test("oklch|lab|lch")' design-tokens.json)
+# Check for dark mode variants
+bash(jq '.colors | keys | map(select(contains("dark") or contains("light")))' design-tokens.json)
+# → Store: has_colors, color_semantic, uses_oklch, has_dark_mode
+
+# Spacing pattern detection
+bash(jq '.spacing | to_entries | map(.value) | map(gsub("[^0-9.]"; "") | tonumber)' design-tokens.json)
+# Analyze pattern: linear (4-8-12-16) vs geometric (4-8-16-32) vs custom
+# → Store: spacing_pattern, spacing_scale
+
+# Typography characteristics
+bash(jq '.typography | keys | map(select(contains("family") or contains("weight")))' design-tokens.json)
+bash(jq '.typography | to_entries | map(select(.key | contains("size"))) | .[].value' design-tokens.json)
+# Check for calc() usage
+bash(jq '. | tostring | test("calc\\(")' design-tokens.json)
+# → Store: has_typography, typography_hierarchy, uses_calc
+
+# Border radius style
+bash(jq '.border_radius | to_entries | map(.value)' design-tokens.json)
+# Check range: small (sharp <4px) vs moderate (4-8px) vs large (rounded >8px)
+# → Store: has_radius, radius_style
+
+# Shadow characteristics
+bash(jq '.shadows | keys' design-tokens.json)
+bash(jq '.shadows | to_entries[0].value' design-tokens.json)
+# → Store: has_shadows, shadow_pattern
+
+# Animations (if available)
+bash(jq '.duration | to_entries | map(.value)' animation-tokens.json)
+bash(jq '.easing | keys' animation-tokens.json)
+# → Store: has_animations, animation_range, easing_variety
 ```
 
-Store result as `file_count`
+Store analysis results in `DESIGN_ANALYSIS` (see [Key Variables](#key-variables))
 
-**Summary Data Collected**:
-- `COMPONENT_COUNT`: Number of components in layout templates
-- `UNIVERSAL_COUNT`: Number of universal (reusable) components
-- `SPECIALIZED_COUNT`: Number of specialized (project-specific) components
-- `COMPONENT_TYPES`: List of component types (first 10)
-- `UNIVERSAL_COMPONENTS`: List of universal component names (first 10)
-- `FILE_COUNT`: Total files in package
-- `HAS_ANIMATIONS`: Whether animation tokens are available
-- `PRIMARY_COLORS`: Primary color tokens with values
-- `TYPOGRAPHY_FONTS`: Font family tokens
-- `SPACING_SCALE`: Base spacing scale
-- `BORDER_RADIUS`: Border radius values
-- `SHADOWS`: Shadow definitions
-- `ANIMATION_DURATIONS`: Animation durations (if available)
-- `EASING_FUNCTIONS`: Easing functions (if available)
+**Note**: Analysis focuses on characteristics and patterns, not counts. Include technical feature detection (oklch, calc, dark mode) for Prerequisites section.
 
-**TodoWrite Update**:
-```json
-[
-  {"content": "Read package data and extract design references", "status": "completed", "activeForm": "Reading package data"},
-  {"content": "Generate SKILL.md with progressive loading", "status": "in_progress", "activeForm": "Generating SKILL.md"}
-]
-```
+**TodoWrite Update**: Mark "Read package data" as completed, "Generate SKILL.md" as in_progress
 
 ---
 
 ### Phase 3: Generate SKILL.md
-
-**Purpose**: Create SKILL memory index with progressive loading structure and design references
 
 **Step 1: Create SKILL Directory**
 
@@ -272,336 +267,57 @@ bash(mkdir -p .claude/skills/style-${package_name})
 {package_name} project-independent design system with {universal_count} universal layout templates and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with reusable UI components, design tokens, layout patterns, or implementing visual consistency. Excludes {specialized_count} project-specific components.
 ```
 
-**Key Elements**:
-- **Universal Count**: Emphasize available reusable layout templates
-- **Project Independence**: Clearly state project-independent nature
-- **Specialized Exclusion**: Mention excluded project-specific components
-- **Path Reference**: Precise package location
-- **Trigger Keywords**: reusable UI components, design tokens, layout patterns, visual consistency
-- **Action Coverage**: working with, analyzing, implementing
+**Step 3: Load and Process SKILL.md Template**
 
-**Example**:
-```
-main-app-style-v1 project-independent design system with 5 universal layout templates and interactive preview (located at .workflow/reference_style/main-app-style-v1). Load when working with reusable UI components, design tokens, layout patterns, or implementing visual consistency. Excludes 3 project-specific components.
-```
-
-**Step 3: Write SKILL.md**
-
-Use Write tool to generate SKILL.md with the following complete content:
-
-```markdown
----
-name: style-{package_name}
-description: {intelligent description from Step 2}
----
-
-# {Package Name} Style SKILL Package
-
-## Documentation: `../../../.workflow/reference_style/{package_name}/`
-
-## Package Overview
-
-**Project-independent style reference package** extracted from codebase with reusable design patterns, tokens, and interactive preview.
-
-**Package Details**:
-- Package: {package_name}
-- Layout Templates: {component_count} total
-  - **Universal Components**: {universal_count} (reusable, project-independent)
-  - **Specialized Components**: {specialized_count} (project-specific, excluded from reference)
-- Universal Component Types: {comma-separated list of UNIVERSAL_COMPONENTS}
-- Files: {file_count}
-- Animation Tokens: {has_animations ? "✓ Available" : "Not available"}
-
-**⚠️ IMPORTANT - Project Independence**:
-This SKILL package represents a **pure style system** independent of any specific project implementation:
-- **Universal components** are generic, reusable patterns (buttons, inputs, cards, navigation)
-- **Specialized components** are project-specific implementations (excluded from this reference)
-- All design tokens and layout patterns are extracted for **reference purposes only**
-- Adapt and customize these references based on your project's specific requirements
-
----
-
-## ⚡ Primary Design References
-
-**IMPORTANT**: These are **reference values** extracted from the codebase. They should be **dynamically adjusted** based on your specific design needs, not treated as fixed constraints.
-
-### 🎨 Colors
-
-{FOR each color in PRIMARY_COLORS:
-  - **{color.key}**: `{color.value}`
-}
-
-**Usage Guidelines**:
-- These colors establish the foundation of the design system
-- Adjust saturation, lightness, or hue based on:
-  - Brand requirements and accessibility needs
-  - Context (light/dark mode, high-contrast themes)
-  - User feedback and A/B testing results
-- Use color theory principles to maintain harmony when modifying
-
-### 📝 Typography
-
-{FOR each font in TYPOGRAPHY_FONTS:
-  - **{font.key}**: `{font.value}`
-}
-
-**Usage Guidelines**:
-- Font families can be substituted based on:
-  - Brand identity and design language
-  - Performance requirements (web fonts vs. system fonts)
-  - Accessibility and readability considerations
-  - Platform-specific availability
-- Maintain hierarchy and scale relationships when changing fonts
-
-### 📏 Spacing Scale
-
-{FOR each spacing in SPACING_SCALE:
-  - **{spacing.key}**: `{spacing.value}`
-}
-
-**Usage Guidelines**:
-- Spacing values form a consistent rhythm system
-- Adjust scale based on:
-  - Target device (mobile vs. desktop vs. tablet)
-  - Content density requirements
-  - Component-specific needs (compact vs. comfortable layouts)
-- Maintain proportional relationships when scaling
-
-### 🔲 Border Radius
-
-{FOR each radius in BORDER_RADIUS:
-  - **{radius.key}**: `{radius.value}`
-}
-
-**Usage Guidelines**:
-- Border radius affects visual softness and modernity
-- Adjust based on:
-  - Design aesthetic (sharp vs. rounded vs. pill-shaped)
-  - Component type (buttons, cards, inputs have different needs)
-  - Platform conventions (iOS vs. Android vs. Web)
-
-### 🌫️ Shadows
-
-{FOR each shadow in SHADOWS:
-  - **{shadow.key}**: `{shadow.value}`
-}
-
-**Usage Guidelines**:
-- Shadows create elevation and depth perception
-- Adjust based on:
-  - Material design depth levels
-  - Light/dark mode contexts
-  - Performance considerations (complex shadows impact rendering)
-  - Visual hierarchy needs
-
-{IF HAS_ANIMATIONS:
-### ⏱️ Animation & Timing
-
-**Durations**:
-{FOR each duration in ANIMATION_DURATIONS:
-  - **{duration.key}**: `{duration.value}`
-}
-
-**Easing Functions**:
-{FOR each easing in EASING_FUNCTIONS:
-  - **{easing.key}**: `{easing.value}`
-}
-
-**Usage Guidelines**:
-- Animation timing affects perceived responsiveness and polish
-- Adjust based on:
-  - User expectations and platform conventions
-  - Accessibility preferences (reduced motion)
-  - Animation type (micro-interactions vs. page transitions)
-  - Performance constraints (mobile vs. desktop)
-}
-
----
-
-## 🎯 Design Adaptation Strategies
-
-### When to Adjust Design References
-
-**Brand Alignment**:
-- Modify colors to match brand identity and guidelines
-- Adjust typography to reflect brand personality
-- Tune spacing and radius to align with brand aesthetic
-
-**Accessibility Requirements**:
-- Increase color contrast ratios for WCAG compliance
-- Adjust font sizes and spacing for readability
-- Modify animation durations for reduced-motion preferences
-
-**Platform Optimization**:
-- Adapt spacing for mobile touch targets (min 44x44px)
-- Adjust shadows and radius for platform conventions
-- Optimize animation performance for target devices
-
-**Context-Specific Needs**:
-- Dark mode: Adjust colors, shadows, and contrasts
-- High-density displays: Fine-tune spacing and sizing
-- Responsive design: Scale tokens across breakpoints
-
-### How to Apply Adjustments
-
-1. **Identify Need**: Determine which tokens need adjustment based on your specific requirements
-2. **Maintain Relationships**: Preserve proportional relationships between related tokens
-3. **Test Thoroughly**: Validate changes across components and use cases
-4. **Document Changes**: Track modifications and rationale for team alignment
-5. **Iterate**: Refine based on user feedback and testing results
-
----
-
-## Progressive Loading
-
-### Level 0: Design Tokens (~5K tokens)
-
-Essential design token system for consistent styling.
-
-**Files**:
-- [Design Tokens](../../../.workflow/reference_style/{package_name}/design-tokens.json) - Colors, typography, spacing, shadows, borders
-
-**Use when**: Quick token reference, applying consistent styles, color/typography queries
-
----
-
-### Level 1: Universal Layout Templates (~12K tokens)
-
-**Project-independent** component layout patterns for reusable UI elements.
-
-**Files**:
-- Level 0 files
-- [Layout Templates](../../../.workflow/reference_style/{package_name}/layout-templates.json) - Component structures with HTML/CSS patterns
-
-**⚠️ Reference Strategy**:
-- **Only reference components with `component_type: "universal"`** - these are reusable, project-independent patterns
-- **Ignore components with `component_type: "specialized"`** - these are project-specific implementations
-- Universal components include: buttons, inputs, forms, cards, navigation, modals, etc.
-- Use universal patterns as **reference templates** to adapt for your specific project needs
-
-**Use when**: Building components, understanding component architecture, implementing layouts
-
----
-
-### Level 2: Complete System (~20K tokens)
-
-Full design system with animations and interactive preview.
-
-**Files**:
-- All Level 1 files
-- [Animation Tokens](../../../.workflow/reference_style/{package_name}/animation-tokens.json) - Animation durations, easing, transitions _(if available)_
-- [Preview HTML](../../../.workflow/reference_style/{package_name}/preview.html) - Interactive showcase (reference only)
-- [Preview CSS](../../../.workflow/reference_style/{package_name}/preview.css) - Showcase styling (reference only)
-
-**Use when**: Comprehensive analysis, animation development, complete design system understanding
-
----
-
-## Interactive Preview
-
-**Location**: `.workflow/reference_style/{package_name}/preview.html`
-
-**View in Browser**:
+**⚠️ CRITICAL - Execute First**:
 ```bash
-cd .workflow/reference_style/{package_name}
-python -m http.server 8080
-# Open http://localhost:8080/preview.html
+bash(cat ~/.claude/workflows/cli-templates/memory/style-skill-memory/skill-md-template.md)
 ```
 
-**Features**:
-- Color palette swatches with values
-- Typography scale and combinations
-- All components with variants and states
-- Spacing, radius, shadow visual examples
-- Interactive state demonstrations
-- Usage code snippets
+**Template Processing**:
+1. **Replace variables**: Substitute all `{variable}` placeholders with actual values from Phase 2
+2. **Generate dynamic sections**:
+   - **Prerequisites & Tooling**: Generate based on `DESIGN_ANALYSIS` technical features (oklch, calc, dark mode)
+   - **Design Principles**: Generate based on `DESIGN_ANALYSIS` characteristics
+   - **Complete Implementation Example**: Include React component example with token adaptation
+   - **Design Token Values**: Iterate `DESIGN_TOKENS_DATA`, `ANIMATION_TOKENS_DATA` and display all key-value pairs with DEFAULT annotations
+3. **Write to file**: Use Write tool to save to `.claude/skills/style-{package_name}/SKILL.md`
 
----
+**Variable Replacement Map**:
+- `{package_name}` → PACKAGE_NAME
+- `{intelligent_description}` → Generated description from Step 2
+- `{component_count}` → COMPONENT_COUNT
+- `{universal_count}` → UNIVERSAL_COUNT
+- `{specialized_count}` → SPECIALIZED_COUNT
+- `{universal_components_list}` → UNIVERSAL_COMPONENTS (comma-separated)
+- `{has_animations}` → HAS_ANIMATIONS
 
-## Usage Guidelines
+**Dynamic Content Generation**:
 
-### Loading Levels
+See template file for complete structure. Key dynamic sections:
 
-**Level 0** (5K): Design tokens only
-```
-Load Level 0 for design token reference
-```
+1. **Prerequisites & Tooling** (based on DESIGN_ANALYSIS technical features):
+   - IF uses_oklch → Include PostCSS plugin requirement (`postcss-oklab-function`)
+   - IF uses_calc → Include preprocessor requirement for calc() expressions
+   - IF has_dark_mode → Include dark mode implementation mechanism (class or media query)
+   - ALWAYS include browser support, jq installation, and local server setup
 
-**Level 1** (12K): Tokens + layout templates
-```
-Load Level 1 for layout templates and design tokens
-```
+2. **Design Principles** (based on DESIGN_ANALYSIS):
+   - IF has_colors → Include "Color System" principle with semantic pattern
+   - IF spacing_pattern detected → Include "Spatial Rhythm" with unified scale description (actual token values)
+   - IF has_typography_hierarchy → Include "Typographic System" with scale examples
+   - IF has_radius → Include "Shape Language" with style characteristic
+   - IF has_shadows → Include "Depth & Elevation" with elevation pattern
+   - IF has_animations → Include "Motion & Timing" with duration range
+   - ALWAYS include "Accessibility First" principle
 
-**Level 2** (20K): Complete system with animations and preview
-```
-Load Level 2 for complete design system with preview reference
-```
-
-### Common Use Cases
-
-**Implementing UI Components**:
-- Load Level 1 for universal layout templates
-- **Only reference components with `component_type: "universal"`** in layout-templates.json
-- Apply design tokens from design-tokens.json
-- Adapt patterns to your project's specific requirements
-
-**Ensuring Style Consistency**:
-- Load Level 0 for design tokens
-- Use design-tokens.json for colors, typography, spacing
-- Check preview.html for visual reference (universal components only)
-
-**Analyzing Component Patterns**:
-- Load Level 2 for complete analysis
-- Review layout-templates.json for component architecture
-- **Filter for `component_type: "universal"` to exclude project-specific implementations**
-- Check preview.html for implementation examples
-
-**Animation Development**:
-- Load Level 2 for animation tokens (if available)
-- Reference animation-tokens.json for durations and easing
-- Apply consistent timing and transitions
-
-**⚠️ Critical Usage Rule**:
-This is a **project-independent style reference system**. When working with layout-templates.json:
-- **USE**: Components marked `component_type: "universal"` as reusable reference patterns
-- **IGNORE**: Components marked `component_type: "specialized"` (project-specific implementations)
-- **ADAPT**: All patterns should be customized for your specific project needs
-
----
-
-## Package Structure
-
-```
-.workflow/reference_style/{package_name}/
-├── layout-templates.json   # Layout templates from codebase
-├── design-tokens.json     # Design token system
-├── animation-tokens.json  # Animation tokens (optional)
-├── preview.html          # Interactive showcase
-└── preview.css           # Showcase styling
-```
-
----
-
-## Regeneration
-
-To update this SKILL memory after package changes:
-
-```bash
-/memory:style-skill-memory {package_name} --regenerate
-```
-
----
-
-## Related Commands
-
-**Generate Package**:
-```bash
-/workflow:ui-design:codify-style --source ./src --package-name {package_name}
-```
-
-**Update Package**:
-Re-run codify-style with same package name to update extraction.
-```
+3. **Design Token Values** (iterate from read data):
+   - Colors: Iterate `DESIGN_TOKENS_DATA.colors`
+   - Typography: Iterate `DESIGN_TOKENS_DATA.typography`
+   - Spacing: Iterate `DESIGN_TOKENS_DATA.spacing`
+   - Border Radius: Iterate `DESIGN_TOKENS_DATA.border_radius` with calc() explanations
+   - Shadows: Iterate `DESIGN_TOKENS_DATA.shadows` with DEFAULT token annotations
+   - Animations (if available): Iterate `ANIMATION_TOKENS_DATA.duration` and `ANIMATION_TOKENS_DATA.easing`
 
 **Step 4: Verify SKILL.md Created**
 
@@ -609,115 +325,27 @@ Re-run codify-style with same package name to update extraction.
 bash(test -f .claude/skills/style-${package_name}/SKILL.md && echo "success" || echo "failed")
 ```
 
-**TodoWrite Update**:
-```json
-[
-  {"content": "Validate style reference package", "status": "completed", "activeForm": "Validating package"},
-  {"content": "Read package data and extract design references", "status": "completed", "activeForm": "Reading package data"},
-  {"content": "Generate SKILL.md with progressive loading", "status": "completed", "activeForm": "Generating SKILL.md"}
-]
-```
-
-**Final Action**: Report completion summary to user
+**TodoWrite Update**: Mark all todos as completed
 
 ---
 
-## Completion Message
+### Completion Message
 
-Display extracted primary design references to user:
+Display a simple completion message with key information:
 
 ```
-✅ SKILL memory generated successfully!
+✅ SKILL memory generated for style package: {package_name}
 
-Package: {package_name}
-SKILL Location: .claude/skills/style-{package_name}/SKILL.md
+📁 Location: .claude/skills/style-{package_name}/SKILL.md
 
-📦 Package Details:
-- Layout Templates: {component_count} total
-  - Universal (reusable): {universal_count}
-  - Specialized (project-specific): {specialized_count}
-- Universal Component Types: {show first 5 UNIVERSAL_COMPONENTS, then "+ X more"}
-- Files: {file_count}
-- Animation Tokens: {has_animations ? "✓ Available" : "Not available"}
+📊 Package Summary:
+   - {component_count} components ({universal_count} universal, {specialized_count} specialized)
+   - Design tokens: colors, typography, spacing, shadows{animations_note}
 
-🎨 Primary Design References Extracted:
-{IF PRIMARY_COLORS exists:
-Colors:
-  {show first 3 PRIMARY_COLORS with key: value}
-  {if more than 3: + X more colors}
-}
-
-{IF TYPOGRAPHY_FONTS exists:
-Typography:
-  {show all TYPOGRAPHY_FONTS}
-}
-
-{IF SPACING_SCALE exists:
-Spacing Scale:
-  {show first 3 SPACING_SCALE items}
-  {if more than 3: + X more spacing tokens}
-}
-
-{IF BORDER_RADIUS exists:
-Border Radius:
-  {show all BORDER_RADIUS}
-}
-
-{IF HAS_ANIMATIONS:
-Animation:
-  Durations: {count ANIMATION_DURATIONS} tokens
-  Easing: {count EASING_FUNCTIONS} functions
-}
-
-⚡ Progressive Loading Levels:
-- Level 0: Design Tokens (~5K tokens)
-- Level 1: Tokens + Layout Templates (~12K tokens)
-- Level 2: Complete System (~20K tokens)
-
-💡 Usage:
-Load design system context when working with:
-- UI component implementation
-- Layout pattern analysis
-- Design token application
-- Style consistency validation
-
-⚠️ IMPORTANT - Project Independence:
-This is a **project-independent style reference system**:
-- Only use universal components (component_type: "universal") as reference patterns
-- Ignore specialized components (component_type: "specialized") - they are project-specific
-- The extracted design references are REFERENCE VALUES, not fixed constraints
-- Dynamically adjust colors, spacing, typography, and other tokens based on:
-  - Brand requirements and accessibility needs
-  - Platform-specific conventions and optimizations
-  - Context (light/dark mode, responsive breakpoints)
-  - User feedback and testing results
-
-See SKILL.md for detailed adjustment guidelines and component filtering instructions.
-
-🎯 Preview:
-Open interactive showcase:
-  file://{absolute_path}/.workflow/reference_style/{package_name}/preview.html
-
-📋 Next Steps:
-1. Load appropriate level based on your task context
-2. Review Primary Design References section for key design tokens
-3. Apply design tokens with dynamic adjustments as needed
-4. Reference layout-templates.json for component structures
-5. Use Design Adaptation Strategies when modifying tokens
+💡 Usage: /memory:load-skill-memory style-{package_name} "your task description"
 ```
 
----
-
-## Error Handling
-
-### Common Errors
-
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Package not found | Invalid package name or package doesn't exist | Run codify-style first to create package |
-| SKILL already exists | SKILL.md already generated | Use --regenerate to force regeneration |
-| Missing layout-templates.json | Incomplete package | Verify package integrity, re-run codify-style |
-| Invalid JSON format | Corrupted package files | Regenerate package with codify-style |
+Variables: `{package_name}`, `{component_count}`, `{universal_count}`, `{specialized_count}`, `{animations_note}` (", animations" if exists)
 
 ---
 
@@ -727,144 +355,42 @@ Open interactive showcase:
 
 1. **Check Before Generate**: Verify package exists before attempting SKILL generation
 2. **Respect Existing SKILL**: Don't overwrite unless --regenerate flag provided
-3. **Extract Primary References**: Always extract and display key design values (colors, typography, spacing, border radius, shadows, animations)
-4. **Include Adjustment Guidance**: Provide clear guidelines on when and how to dynamically adjust design tokens
-5. **Progressive Loading**: Always include all 3 levels (0-2) with clear token estimates
-6. **Intelligent Description**: Extract component count and key features from metadata
+3. **Load Templates via cat**: Use `cat ~/.claude/workflows/cli-templates/memory/style-skill-memory/{template}` to load templates
+4. **Variable Substitution**: Replace all `{variable}` placeholders with actual values
+5. **Technical Feature Detection**: Analyze tokens for modern features (oklch, calc, dark mode) and generate appropriate Prerequisites section
+6. **Dynamic Content Generation**: Generate sections based on DESIGN_ANALYSIS characteristics
+7. **Unified Spacing Scale**: Use actual token values as primary scale reference, avoid contradictory pattern descriptions
+8. **Direct Iteration**: Iterate data structures (DESIGN_TOKENS_DATA, etc.) for token values
+9. **Annotate Special Tokens**: Add comments for DEFAULT tokens and calc() expressions
+10. **Embed jq Commands**: Include bash/jq commands in SKILL.md for dynamic loading
+11. **Progressive Loading**: Include all 3 levels (0-2) with specific jq commands
+12. **Complete Examples**: Include end-to-end implementation examples (React components)
+13. **Intelligent Description**: Extract component count and key features from metadata
+14. **Emphasize Flexibility**: Strongly warn against rigid copying - values are references for creative adaptation
 
-### SKILL Description Format
+### Template Files Location
 
-**Template**:
-```
-{package_name} project-independent design system with {universal_count} universal layout templates and interactive preview (located at .workflow/reference_style/{package_name}). Load when working with reusable UI components, design tokens, layout patterns, or implementing visual consistency. Excludes {specialized_count} project-specific components.
-```
-
-**Required Elements**:
-- Package name
-- Universal layout template count (emphasize reusability)
-- Project independence statement
-- Specialized component exclusion notice
-- Location (full path)
-- Trigger keywords (reusable UI components, design tokens, layout patterns, visual consistency)
-- Action verbs (working with, analyzing, implementing)
-
-### Primary Design References Extraction
-
-**Required Data Extraction** (from design-tokens.json):
-- Colors: Primary, secondary, accent colors (top 3-5)
-- Typography: Font families for headings and body text
-- Spacing Scale: Base spacing values (xs, sm, md, lg, xl)
-- Border Radius: All radius tokens
-- Shadows: Shadow definitions (top 3 elevation levels)
-
-**Component Classification Extraction** (from layout-templates.json):
-- Universal Count: Number of components with `component_type: "universal"`
-- Specialized Count: Number of components with `component_type: "specialized"`
-- Universal Component Names: List of universal component names (first 10)
-
-**Optional Data Extraction** (from animation-tokens.json if available):
-- Animation Durations: All duration tokens
-- Easing Functions: Top 3 easing functions
-
-**Extraction Format**:
-Use `jq` to extract tokens from JSON files. Each token should include key and value.
-For component classification, filter by `component_type` field.
-
-### Dynamic Adjustment Guidelines
-
-**Include in SKILL.md**:
-1. **Usage Guidelines per Category**: Specific guidance for each token category
-2. **Adjustment Strategies**: When to adjust design references
-3. **Practical Examples**: Context-specific adaptation scenarios
-4. **Best Practices**: How to maintain design system coherence while adjusting
-
-### Progressive Loading Structure
-
-**Level 0** (~5K tokens):
-- design-tokens.json
-
-**Level 1** (~12K tokens):
-- Level 0 files
-- layout-templates.json
-
-**Level 2** (~20K tokens):
-- Level 1 files
-- animation-tokens.json (if exists)
-- preview.html
-- preview.css
-
----
-
-## Benefits
-
-- **Project Independence**: Clear separation between universal (reusable) and specialized (project-specific) components
-- **Component Filtering**: Automatic classification helps identify which patterns are truly reusable
-- **Fast Context Loading**: Progressive levels for efficient token usage
-- **Primary Design References**: Extracted key design values (colors, typography, spacing, etc.) displayed prominently
-- **Dynamic Adjustment Guidance**: Clear instructions on when and how to adjust design tokens
-- **Intelligent Triggering**: Keywords optimize SKILL activation
-- **Complete Reference**: All package files accessible through SKILL
-- **Easy Regeneration**: Simple --regenerate flag for updates
-- **Clear Structure**: Organized levels by use case with component type filtering
-- **Practical Usage Guidelines**: Context-specific adjustment strategies and component selection criteria
-
----
-
-## Architecture
 
 ```
-style-skill-memory
-  ├─ Phase 1: Validate
-  │   ├─ Parse package name from argument or auto-detect
-  │   ├─ Check package exists in .workflow/reference_style/
-  │   └─ Check if SKILL already exists (skip if exists and no --regenerate)
-  │
-  ├─ Phase 2: Read Package Data & Extract Primary References
-  │   ├─ Count components from layout-templates.json
-  │   ├─ Extract component types list
-  │   ├─ Extract primary colors from design-tokens.json (top 3-5)
-  │   ├─ Extract typography (font families)
-  │   ├─ Extract spacing scale (base values)
-  │   ├─ Extract border radius tokens
-  │   ├─ Extract shadow definitions (top 3)
-  │   ├─ Extract animation tokens (if available)
-  │   └─ Count total files in package
-  │
-  └─ Phase 3: Generate SKILL.md
-      ├─ Create SKILL directory
-      ├─ Generate intelligent description with keywords
-      ├─ Write SKILL.md with complete structure:
-      │   ├─ Package Overview
-      │   ├─ Primary Design References
-      │   │   ├─ Colors with usage guidelines
-      │   │   ├─ Typography with usage guidelines
-      │   │   ├─ Spacing with usage guidelines
-      │   │   ├─ Border Radius with usage guidelines
-      │   │   ├─ Shadows with usage guidelines
-      │   │   └─ Animation & Timing (if available)
-      │   ├─ Design Adaptation Strategies
-      │   │   ├─ When to adjust design references
-      │   │   └─ How to apply adjustments
-      │   ├─ Progressive Loading (3 levels)
-      │   ├─ Interactive Preview
-      │   ├─ Usage Guidelines
-      │   ├─ Package Structure
-      │   ├─ Regeneration
-      │   └─ Related Commands
-      ├─ Verify SKILL.md created successfully
-      └─ Display completion message with extracted design references
+Phase 1: Validate
+  ├─ Parse package_name
+  ├─ Check PACKAGE_DIR exists
+  └─ Check SKILL_DIR exists (skip if exists and no --regenerate)
 
-Data Flow:
-  design-tokens.json → jq extraction → PRIMARY_COLORS, TYPOGRAPHY_FONTS,
-                                       SPACING_SCALE, BORDER_RADIUS, SHADOWS
-  animation-tokens.json → jq extraction → ANIMATION_DURATIONS, EASING_FUNCTIONS
-  layout-templates.json → jq extraction → COMPONENT_COUNT, UNIVERSAL_COUNT,
-                                         SPECIALIZED_COUNT, UNIVERSAL_COMPONENTS
-                       → component_type filtering → Universal vs Specialized classification
+Phase 2: Read & Analyze
+  ├─ Read design-tokens.json → DESIGN_TOKENS_DATA
+  ├─ Read layout-templates.json → LAYOUT_TEMPLATES_DATA
+  ├─ Read animation-tokens.json → ANIMATION_TOKENS_DATA (if exists)
+  ├─ Extract Metadata → COMPONENT_COUNT, UNIVERSAL_COUNT, etc.
+  └─ Analyze Design System → DESIGN_ANALYSIS (characteristics)
 
-  Extracted data → SKILL.md generation → Primary Design References section
-                                      → Component Classification section
-                                      → Dynamic Adjustment Guidelines
-                                      → Project Independence warnings
-                                      → Completion message display
+Phase 3: Generate
+  ├─ Create SKILL directory
+  ├─ Generate intelligent description
+  ├─ Load SKILL.md template (cat command)
+  ├─ Replace variables and generate dynamic content
+  ├─ Write SKILL.md
+  ├─ Verify creation
+  ├─ Load completion message template (cat command)
+  └─ Display completion message
 ```

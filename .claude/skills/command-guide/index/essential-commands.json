@@ -24,8 +24,8 @@
   {
     "name": "workflow:status",
     "command": "/workflow:status",
-    "description": "Generate on-demand task status views from JSON task data with optional task-id filtering for detailed view",
-    "arguments": "[optional: task-id]",
+    "description": "Generate on-demand views for project overview and workflow tasks with optional task-id filtering for detailed view",
+    "arguments": "[optional: --project|task-id|--validate]",
     "category": "workflow",
     "subcategory": null,
     "usage_scenario": "session-management",
@@ -110,17 +110,6 @@
     "file_path": "workflow/action-plan-verify.md"
   },
   {
-    "name": "resume",
-    "command": "/workflow:resume",
-    "description": "Resume paused workflow session with automatic progress analysis, pending task identification, and conflict detection",
-    "arguments": "session-id for workflow session to resume",
-    "category": "workflow",
-    "subcategory": null,
-    "usage_scenario": "session-management",
-    "difficulty": "Intermediate",
-    "file_path": "workflow/resume.md"
-  },
-  {
     "name": "review",
     "command": "/workflow:review",
     "description": "Post-implementation review with specialized types (security/architecture/action-items/quality) using analysis agents and Gemini",
@@ -145,7 +134,7 @@
   {
     "name": "enhance-prompt",
     "command": "/enhance-prompt",
-    "description": "Enhanced prompt transformation using session memory and codebase analysis with --enhance flag detection",
+    "description": "Enhanced prompt transformation using session memory and intent analysis with --enhance flag detection",
     "arguments": "user input to enhance",
     "category": "general",
     "subcategory": null,

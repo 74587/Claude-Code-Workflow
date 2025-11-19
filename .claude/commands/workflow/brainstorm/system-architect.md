@@ -186,8 +186,8 @@ IF update_mode = "incremental":
 ### ⚠️ Session Management - FIRST STEP
 Session detection and selection:
 ```bash
-# Check for active sessions
-active_sessions=$(find .workflow -name ".active-*" 2>/dev/null)
+# Check for existing sessions
+existing_sessions=$(find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null)
 if [ multiple_sessions ]; then
   prompt_user_to_select_session()
 else

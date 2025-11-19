@@ -543,7 +543,7 @@ This package is passed to agents via the Task tool's prompt context.
     "coverage_target": 80
   },
   "session": {
-    "workflow_dir": ".workflow/WFS-test-{session}/",
+    "workflow_dir": ".workflow/sessions/WFS-test-{session}/",
     "iteration_state_file": ".process/iteration-state.json",
     "test_results_file": ".process/test-results.json",
     "fix_history_file": ".process/fix-history.json"
@@ -555,7 +555,7 @@ This package is passed to agents via the Task tool's prompt context.
 
 ### Test-Fix Session Files
 ```
-.workflow/WFS-test-{session}/
+.workflow/sessions/WFS-test-{session}/
 ├── workflow-session.json          # Session metadata with workflow_type
 ├── IMPL_PLAN.md                   # Test plan
 ├── TODO_LIST.md                   # Progress tracking

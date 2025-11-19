@@ -224,7 +224,7 @@ Each task JSON embeds all necessary context, artifacts, and execution steps usin
 - `id`: Task identifier (format: `IMPL-N` or `IMPL-N.M` for subtasks)
 - `title`: Descriptive task name
 - `status`: Task state (`pending|active|completed|blocked|container`)
-- `context_package_path`: Path to context package (`.workflow/WFS-[session]/.process/context-package.json`)
+- `context_package_path`: Path to context package (`.workflow/sessions/WFS-[session]/.process/context-package.json`)
 - `meta`: Task metadata
 - `context`: Task-specific context and requirements
 - `flow_control`: Execution steps and workflow
@@ -269,7 +269,7 @@ Each task JSON embeds all necessary context, artifacts, and execution steps usin
   "id": "IMPL-1",
   "title": "Implement feature X with Y components",
   "status": "pending",
-  "context_package_path": ".workflow/WFS-session/.process/context-package.json",
+  "context_package_path": ".workflow/sessions/WFS-session/.process/context-package.json",
   "meta": {
     "type": "feature",
     "agent": "@code-developer",
@@ -291,7 +291,7 @@ Each task JSON embeds all necessary context, artifacts, and execution steps usin
     "depends_on": [],
     "artifacts": [
       {
-        "path": ".workflow/WFS-session/.brainstorming/system-architect/analysis.md",
+        "path": ".workflow/sessions/WFS-session/.brainstorming/system-architect/analysis.md",
         "priority": "highest",
         "usage": "Architecture decisions and API specifications"
       }

@@ -265,7 +265,7 @@ STORE: device_type, device_source
 ### Phase 4: Run Initialization & Directory Setup
 ```bash
 design_id = "design-run-$(date +%Y%m%d)-$RANDOM"
-relative_base_path = --session ? ".workflow/WFS-{session}/${design_id}" : ".workflow/${design_id}"
+relative_base_path = --session ? ".workflow/sessions/WFS-{session}/${design_id}" : ".workflow/${design_id}"
 
 # Create directory and convert to absolute path
 Bash(mkdir -p "${relative_base_path}/style-extraction")

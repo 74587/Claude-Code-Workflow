@@ -39,17 +39,17 @@ argument-hint: "[--type=security|architecture|action-items|quality] [optional: s
 if [ -n "$SESSION_ARG" ]; then
     sessionId="$SESSION_ARG"
 else
-    sessionId=$(find .workflow/ -name '.active-*' | head -1 | sed 's/.*active-//')
+    sessionId=$(find .workflow/sessions/ -name "WFS-*" -type d | head -1 | xargs basename)
 fi
 
 # Step 2: Validation
-if [ ! -d ".workflow/${sessionId}" ]; then
+if [ ! -d ".workflow/sessions/${sessionId}" ]; then
     echo "Session ${sessionId} not found"
     exit 1
 fi
 
 # Check for completed tasks
-if [ ! -d ".workflow/${sessionId}/.summaries" ] || [ -z "$(find .workflow/${sessionId}/.summaries/ -name "IMPL-*.md" -type f 2>/dev/null)" ]; then
+if [ ! -d ".workflow/sessions/${sessionId}/.summaries" ] || [ -z "$(find .workflow/sessions/${sessionId}/.summaries/ -name "IMPL-*.md" -type f 2>/dev/null)" ]; then
     echo "No completed implementation found. Complete implementation first"
     exit 1
 fi
@@ -80,13 +80,13 @@ After bash validation, the model takes control to:
 1. **Load Context**: Read completed task summaries and changed files
    ```bash
    # Load implementation summaries
-   cat .workflow/${sessionId}/.summaries/IMPL-*.md
+   cat .workflow/sessions/${sessionId}/.summaries/IMPL-*.md
 
    # Load test results (if available)
-   cat .workflow/${sessionId}/.summaries/TEST-FIX-*.md 2>/dev/null
+   cat .workflow/sessions/${sessionId}/.summaries/TEST-FIX-*.md 2>/dev/null
 
    # Get changed files
-   git log --since="$(cat .workflow/${sessionId}/workflow-session.json | jq -r .created_at)" --name-only --pretty=format: | sort -u
+   git log --since="$(cat .workflow/sessions/${sessionId}/workflow-session.json | jq -r .created_at)" --name-only --pretty=format: | sort -u
    ```
 
 2. **Perform Specialized Review**: Based on `review_type`
@@ -99,7 +99,7 @@ After bash validation, the model takes control to:
      ```
    - Use Gemini for security analysis:
      ```bash
-     cd .workflow/${sessionId} && gemini -p "
+     cd .workflow/sessions/${sessionId} && gemini -p "
      PURPOSE: Security audit of completed implementation
      TASK: Review code for security vulnerabilities, insecure patterns, auth/authz issues
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
@@ -111,7 +111,7 @@ After bash validation, the model takes control to:
    **Architecture Review** (`--type=architecture`):
    - Use Qwen for architecture analysis:
      ```bash
-     cd .workflow/${sessionId} && qwen -p "
+     cd .workflow/sessions/${sessionId} && qwen -p "
      PURPOSE: Architecture compliance review
      TASK: Evaluate adherence to architectural patterns, identify technical debt, review design decisions
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
@@ -123,7 +123,7 @@ After bash validation, the model takes control to:
    **Quality Review** (`--type=quality`):
    - Use Gemini for code quality:
      ```bash
-     cd .workflow/${sessionId} && gemini -p "
+     cd .workflow/sessions/${sessionId} && gemini -p "
      PURPOSE: Code quality and best practices review
      TASK: Assess code readability, maintainability, adherence to best practices
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
@@ -136,14 +136,14 @@ After bash validation, the model takes control to:
    - Verify all requirements and acceptance criteria met:
      ```bash
      # Load task requirements and acceptance criteria
-     find .workflow/${sessionId}/.task -name "IMPL-*.json" -exec jq -r '
+     find .workflow/sessions/${sessionId}/.task -name "IMPL-*.json" -exec jq -r '
        "Task: " + .id + "\n" +
        "Requirements: " + (.context.requirements | join(", ")) + "\n" +
        "Acceptance: " + (.context.acceptance | join(", "))
      ' {} \;
 
      # Check implementation summaries against requirements
-     cd .workflow/${sessionId} && gemini -p "
+     cd .workflow/sessions/${sessionId} && gemini -p "
      PURPOSE: Verify all requirements and acceptance criteria are met
      TASK: Cross-check implementation summaries against original requirements
      CONTEXT: @.task/IMPL-*.json,.summaries/IMPL-*.md,../.. @../../CLAUDE.md
@@ -195,7 +195,7 @@ After bash validation, the model takes control to:
 4. **Output Files**:
    ```bash
    # Save review report
-   Write(.workflow/${sessionId}/REVIEW-${review_type}.md)
+   Write(.workflow/sessions/${sessionId}/REVIEW-${review_type}.md)
 
    # Update session metadata
    # (optional) Update workflow-session.json with review status
