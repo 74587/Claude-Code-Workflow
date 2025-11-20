@@ -93,7 +93,7 @@ bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${proj
 bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${project_name} -type f -name "*.md" ! -path "*/README.md" ! -path "*/ARCHITECTURE.md" ! -path "*/EXAMPLES.md" ! -path "*/api/*" 2>/dev/null | xargs cat 2>/dev/null; fi)
 ```
 
-**Data Processing**: Parse bash outputs, calculate statistics, use **Write tool** to create `${session_dir}/.process/phase2-analysis.json` with structure:
+**Data Processing**: Parse bash outputs, calculate statistics, use **Write tool** to create `${session_dir}/.process/doc-planning-data.json` with structure:
 
 ```json
 {
@@ -122,7 +122,7 @@ bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${proj
 
 **Then** use **Edit tool** to update `workflow-session.json` adding analysis field.
 
-**Output**: Single `phase2-analysis.json` with all analysis data (no temp files or Python scripts).
+**Output**: Single `doc-planning-data.json` with all analysis data (no temp files or Python scripts).
 
 **Auto-skipped**: Tests (`**/test/**`, `**/*.test.*`), Build (`**/node_modules/**`, `**/dist/**`), Config (root-level files), Vendor directories.
 
@@ -131,8 +131,8 @@ bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${proj
 **Commands**:
 
 ```bash
-# Count existing docs from phase2-analysis.json
-bash(cat .workflow/active/WFS-docs-{timestamp}/.process/phase2-analysis.json | jq '.existing_docs.file_list | length')
+# Count existing docs from doc-planning-data.json
+bash(cat .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq '.existing_docs.file_list | length')
 ```
 
 **Data Processing**: Use count result, then use **Edit tool** to update `workflow-session.json`:
@@ -186,8 +186,8 @@ Large Projects (single dir >10 docs):
 **Commands**:
 
 ```bash
-# 1. Get top-level directories from phase2-analysis.json
-bash(cat .workflow/active/WFS-docs-{timestamp}/.process/phase2-analysis.json | jq -r '.top_level_dirs[]')
+# 1. Get top-level directories from doc-planning-data.json
+bash(cat .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq -r '.top_level_dirs[]')
 
 # 2. Get mode from workflow-session.json
 bash(cat .workflow/active/WFS-docs-{timestamp}/workflow-session.json | jq -r '.mode // "full"')
@@ -205,7 +205,7 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
    - If total ≤10 docs: create group
    - If total >10 docs: split to 1 dir/group or subdivide
    - If single dir >10 docs: split by subdirectories
-3. Use **Edit tool** to update `phase2-analysis.json` adding groups field:
+3. Use **Edit tool** to update `doc-planning-data.json` adding groups field:
    ```json
    "groups": {
      "count": 3,
@@ -219,7 +219,7 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 
 **Task ID Calculation**:
 ```bash
-group_count=$(jq '.groups.count' .workflow/active/WFS-docs-{timestamp}/.process/phase2-analysis.json)
+group_count=$(jq '.groups.count' .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json)
 readme_id=$((group_count + 1))   # Next ID after groups
 arch_id=$((group_count + 2))
 api_id=$((group_count + 3))
@@ -241,7 +241,7 @@ api_id=$((group_count + 3))
 
 **Generation Process**:
 1. Read configuration values (tool, cli_execute, mode) from workflow-session.json
-2. Read group assignments from phase2-analysis.json
+2. Read group assignments from doc-planning-data.json
 3. Generate Level 1 tasks (IMPL-001 to IMPL-N, one per group)
 4. Generate Level 2+ tasks if mode=full (README, ARCHITECTURE, HTTP API)
 
@@ -266,14 +266,14 @@ api_id=$((group_count + 3))
   },
   "context": {
     "requirements": [
-      "Process directories from group ${group_number} in phase2-analysis.json",
+      "Process directories from group ${group_number} in doc-planning-data.json",
       "Generate docs to .workflow/docs/${project_name}/ (mirrored structure)",
       "Code folders: API.md + README.md; Navigation folders: README.md only",
       "Use pre-analyzed data from Phase 2 (no redundant analysis)"
     ],
     "focus_paths": ["${group_dirs_from_json}"],
     "precomputed_data": {
-      "phase2_analysis": "${session_dir}/.process/phase2-analysis.json"
+      "phase2_analysis": "${session_dir}/.process/doc-planning-data.json"
     }
   },
   "flow_control": {
@@ -282,8 +282,8 @@ api_id=$((group_count + 3))
         "step": "load_precomputed_data",
         "action": "Load Phase 2 analysis and extract group directories",
         "commands": [
-          "bash(cat ${session_dir}/.process/phase2-analysis.json)",
-          "bash(jq '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories' ${session_dir}/.process/phase2-analysis.json)"
+          "bash(cat ${session_dir}/.process/doc-planning-data.json)",
+          "bash(jq '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories' ${session_dir}/.process/doc-planning-data.json)"
         ],
         "output_to": "phase2_context",
         "note": "Single JSON file contains all Phase 2 analysis results"
@@ -328,7 +328,7 @@ api_id=$((group_count + 3))
 {
   "step": 2,
   "title": "Batch generate documentation via CLI",
-  "command": "bash(dirs=$(jq -r '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories[]' ${session_dir}/.process/phase2-analysis.json); for dir in $dirs; do cd \"$dir\" && gemini --approval-mode yolo -p \"PURPOSE: Generate module docs\\nTASK: Create documentation\\nMODE: write\\nCONTEXT: @**/* [phase2_context]\\nEXPECTED: API.md and README.md\\nRULES: Mirror structure\" || echo \"Failed: $dir\"; cd -; done)",
+  "command": "bash(dirs=$(jq -r '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories[]' ${session_dir}/.process/doc-planning-data.json); for dir in $dirs; do cd \"$dir\" && gemini --approval-mode yolo -p \"PURPOSE: Generate module docs\\nTASK: Create documentation\\nMODE: write\\nCONTEXT: @**/* [phase2_context]\\nEXPECTED: API.md and README.md\\nRULES: Mirror structure\" || echo \"Failed: $dir\"; cd -; done)",
   "depends_on": [1],
   "output": "generated_docs"
 }
@@ -468,7 +468,7 @@ api_id=$((group_count + 3))
     ├── IMPL_PLAN.md
     ├── TODO_LIST.md
     ├── .process/
-    │   └── phase2-analysis.json         # All Phase 2 analysis data (replaces 7+ files)
+    │   └── doc-planning-data.json       # All Phase 2 analysis data (replaces 7+ files)
     └── .task/
         ├── IMPL-001.json                # Small: all modules | Large: group 1
         ├── IMPL-00N.json                # (Large only: groups 2-N)
@@ -477,7 +477,7 @@ api_id=$((group_count + 3))
         └── IMPL-{N+3}.json              # HTTP API (optional)
 ```
 
-**phase2-analysis.json Structure**:
+**doc-planning-data.json Structure**:
 ```json
 {
   "metadata": {
