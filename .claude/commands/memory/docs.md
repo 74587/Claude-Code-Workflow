@@ -44,7 +44,11 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 /memory:docs [path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-execute]
 ```
 
-- **path**: Target directory (default: current directory)
+- **path**: Source directory to analyze (default: current directory)
+  - Specifies the source code directory to be documented
+  - Documentation is generated in a separate `.workflow/docs/{project_name}/` directory at the workspace root, **not** within the source `path` itself
+  - The source path's structure is mirrored within the project-specific documentation folder
+  - Example: analyzing `src/modules` produces documentation at `.workflow/docs/{project_name}/src/modules/`
 - **--mode**: Documentation generation mode (default: full)
   - `full`: Complete documentation (modules + README + ARCHITECTURE + EXAMPLES + HTTP API)
   - `partial`: Module documentation only (API.md + README.md)
