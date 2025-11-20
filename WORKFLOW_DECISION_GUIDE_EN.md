@@ -253,6 +253,300 @@ flowchart TD
 
 ---
 
+### 7️⃣ **CLI Tools Collaboration Mode - Multi-Model Intelligent Coordination**
+
+This project integrates three CLI tools supporting flexible serial, parallel, and hybrid execution:
+
+| Tool | Core Capabilities | Context Length | Use Cases |
+|------|------------------|----------------|-----------|
+| **Gemini** | Deep analysis, architecture design, planning | Ultra-long context | Code understanding, execution flow tracing, technical solution evaluation |
+| **Qwen** | Code review, pattern recognition | Ultra-long context | Gemini alternative, multi-dimensional analysis |
+| **Codex** | Precise code writing, bug location | Standard context | Feature implementation, test generation, code refactoring |
+
+#### 📋 Three Execution Modes
+
+**1. Serial Execution** - Sequential dependency
+
+Use case: Subsequent tasks depend on previous results
+
+```bash
+# Example: Analyze then implement
+# Step 1: Gemini analyzes architecture
+Use gemini to analyze the authentication module's architecture design, identify key components and data flow
+
+# Step 2: Codex implements based on analysis
+Have codex implement JWT authentication middleware based on the above architecture analysis
+```
+
+**Execution flow**:
+```
+Gemini analysis → Output architecture report → Codex reads report → Implement code
+```
+
+---
+
+**2. Parallel Execution** - Concurrent processing
+
+Use case: Multiple independent tasks with no dependencies
+
+```bash
+# Example: Multi-dimensional analysis
+Use gemini to analyze authentication module security, focus on JWT, password storage, session management
+Use qwen to analyze authentication module performance bottlenecks, identify slow queries and optimization points
+Have codex generate unit tests for authentication module, covering all core features
+```
+
+**Execution flow**:
+```
+        ┌─ Gemini: Security analysis ─┐
+Parallel ┼─ Qwen: Performance analysis ┼─→ Aggregate results
+        └─ Codex: Test generation ────┘
+```
+
+---
+
+**3. Hybrid Execution** - Combined serial and parallel
+
+Use case: Complex tasks with both parallel and serial phases
+
+```bash
+# Example: Complete feature development
+# Phase 1: Parallel analysis (independent tasks)
+Use gemini to analyze existing authentication system architecture patterns
+Use qwen to evaluate OAuth2 integration technical solutions
+
+# Phase 2: Serial implementation (depends on Phase 1)
+Have codex implement OAuth2 authentication flow based on above analysis
+
+# Phase 3: Parallel optimization (independent tasks)
+Use gemini to review code quality and security
+Have codex generate integration tests
+```
+
+**Execution flow**:
+```
+Phase 1: Gemini analysis ──┐
+         Qwen evaluation ──┼─→ Phase 2: Codex implementation ──→ Phase 3: Gemini review ──┐
+                           │                                              Codex tests ───┼─→ Complete
+                           └──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 🎯 Semantic Invocation vs Command Invocation
+
+**Method 1: Natural Language Semantic Invocation** (Recommended)
+
+```bash
+# Users simply describe naturally, Claude Code auto-invokes tools
+"Use gemini to analyze this module's dependencies"
+→ Claude Code auto-generates: cd src && gemini -p "Analyze dependencies"
+
+"Have codex implement user registration feature"
+→ Claude Code auto-generates: codex -C src/auth --full-auto exec "Implement registration"
+```
+
+**Method 2: Direct Command Invocation**
+
+```bash
+# Precise invocation via Slash commands
+/cli:chat --tool gemini "Explain this algorithm"
+/cli:analyze --tool qwen "Analyze performance bottlenecks"
+/cli:execute --tool codex "Optimize query performance"
+```
+
+---
+
+#### 🔗 CLI Results as Context (Memory)
+
+CLI tool analysis results can be saved and used as context (memory) for subsequent operations, enabling intelligent workflows:
+
+**1. Result Persistence**
+
+```bash
+# CLI execution results automatically saved to session directory
+/cli:chat --tool gemini "Analyze authentication module architecture"
+→ Saved to: .workflow/active/WFS-xxx/.chat/chat-[timestamp].md
+
+/cli:analyze --tool qwen "Evaluate performance bottlenecks"
+→ Saved to: .workflow/active/WFS-xxx/.chat/analyze-[timestamp].md
+
+/cli:execute --tool codex "Implement feature"
+→ Saved to: .workflow/active/WFS-xxx/.chat/execute-[timestamp].md
+```
+
+**2. Results as Planning Basis**
+
+```bash
+# Step 1: Analyze current state (generate memory)
+Use gemini to deeply analyze authentication system architecture, security, and performance issues
+→ Output: Detailed analysis report (auto-saved)
+
+# Step 2: Plan based on analysis results
+/workflow:plan "Refactor authentication system based on above Gemini analysis report"
+→ System automatically reads analysis reports from .chat/ as context
+→ Generate precise implementation plan
+```
+
+**3. Results as Implementation Basis**
+
+```bash
+# Step 1: Parallel analysis (generate multiple memories)
+Use gemini to analyze existing code structure
+Use qwen to evaluate technical solution feasibility
+→ Output: Multiple analysis reports
+
+# Step 2: Implement based on all analysis results
+Have codex synthesize above Gemini and Qwen analyses to implement optimal solution
+→ Codex automatically reads prior analysis results
+→ Generate code conforming to architecture design
+```
+
+**4. Cross-Session References**
+
+```bash
+# Reference historical session analysis results
+/cli:execute --tool codex "Refer to architecture analysis in WFS-2024-001, implement new payment module"
+→ System automatically loads specified session context
+→ Implement based on historical analysis
+```
+
+**5. Memory Update Loop**
+
+```bash
+# Iterative optimization flow
+Use gemini to analyze problems in current implementation
+→ Generate problem report (memory)
+
+Have codex optimize code based on problem report
+→ Implement improvements (update memory)
+
+Use qwen to verify optimization effectiveness
+→ Verification report (append to memory)
+
+# All results accumulate as complete project memory
+→ Support subsequent decisions and implementation
+```
+
+**Memory Flow Example**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 1: Analysis Phase (Generate Memory)                   │
+├─────────────────────────────────────────────────────────────┤
+│  Gemini analysis  →  Architecture report (.chat/analyze-001.md)│
+│  Qwen evaluation  →  Solution report (.chat/analyze-002.md)   │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ As Memory Input
+                      ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 2: Planning Phase (Use Memory)                        │
+├─────────────────────────────────────────────────────────────┤
+│  /workflow:plan  →  Read analysis reports  →  Generate plan   │
+│                     (.task/IMPL-*.json)                      │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ As Memory Input
+                      ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 3: Implementation Phase (Use Memory)                   │
+├─────────────────────────────────────────────────────────────┤
+│  Codex implement  →  Read plan+analysis  →  Generate code     │
+│                     (.chat/execute-001.md)                   │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ As Memory Input
+                      ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 4: Verification Phase (Use Memory)                     │
+├─────────────────────────────────────────────────────────────┤
+│  Gemini review   →  Read implementation code  →  Quality report│
+│                     (.chat/review-001.md)                    │
+└─────────────────────────────────────────────────────────────┘
+                      │
+                      ↓
+            Complete Project Memory Library
+          Supporting All Future Decisions and Implementation
+```
+
+**Best Practices**:
+
+1. **Maintain Continuity**: Execute related tasks in the same session to automatically share memory
+2. **Explicit References**: Explicitly reference historical analyses when crossing sessions (e.g., "Refer to WFS-xxx analysis")
+3. **Incremental Updates**: Each analysis and implementation appends to memory, forming complete decision chain
+4. **Regular Organization**: Use `/memory:update-related` to consolidate CLI results into CLAUDE.md
+5. **Quality First**: High-quality analysis memory significantly improves subsequent implementation quality
+
+---
+
+#### 🔄 Workflow Integration Examples
+
+**Integration with Lite Workflow**:
+
+```bash
+# 1. Planning phase: Gemini analysis
+/workflow:lite-plan -e "Refactor payment module"
+→ Three-dimensional confirmation selects "CLI Tools execution"
+
+# 2. Execution phase: Choose execution method
+# Option A: Serial execution
+→ "Use gemini to analyze payment flow" → "Have codex refactor code"
+
+# Option B: Parallel analysis + Serial implementation
+→ "Use gemini to analyze architecture" + "Use qwen to evaluate solution"
+→ "Have codex refactor based on analysis results"
+```
+
+**Integration with Full Workflow**:
+
+```bash
+# 1. Planning phase
+/workflow:plan "Implement distributed cache"
+/workflow:action-plan-verify
+
+# 2. Analysis phase (parallel)
+Use gemini to analyze existing cache architecture
+Use qwen to evaluate Redis cluster solution
+
+# 3. Implementation phase (serial)
+/workflow:execute  # Or use CLI
+Have codex implement Redis cluster integration
+
+# 4. Testing phase (parallel)
+/workflow:test-gen WFS-cache
+→ Internally uses gemini analysis + codex test generation
+
+# 5. Review phase (serial)
+Use gemini to review code quality
+/workflow:review --type architecture
+```
+
+---
+
+#### 💡 Best Practices
+
+**When to use serial**:
+- Implementation depends on design solution
+- Testing depends on code implementation
+- Optimization depends on performance analysis
+
+**When to use parallel**:
+- Multi-dimensional analysis (security + performance + architecture)
+- Multi-module independent development
+- Simultaneous code and test generation
+
+**When to use hybrid**:
+- Complex feature development (analysis → design → implementation → testing)
+- Large-scale refactoring (evaluation → planning → execution → verification)
+- Tech stack migration (research → solution → implementation → optimization)
+
+**Tool selection guidelines**:
+1. **Need to understand code** → Gemini (preferred) or Qwen
+2. **Need to write code** → Codex
+3. **Complex analysis** → Gemini + Qwen parallel (complementary verification)
+4. **Precise implementation** → Codex (based on Gemini analysis)
+5. **Quick prototype** → Direct Codex usage
+
+---
+
 ## 🔄 Complete Flow for Typical Scenarios
 
 ### Scenario A: New Feature Development (Know How to Build)
