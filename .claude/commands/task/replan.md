@@ -274,7 +274,7 @@ Backup saved to .task/backup/IMPL-2-v1.0.json
 
 ### Batch Mode - From Verification Report
 ```bash
-/task:replan --batch .workflow/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md
+/task:replan --batch .workflow/active/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md
 
 Parsing verification report...
 Found 4 tasks requiring replanning:

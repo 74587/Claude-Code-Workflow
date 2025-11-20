@@ -81,7 +81,7 @@ Task(
        - Strategic modification plan
        - Impact analysis and risk assessment
        - Implementation roadmap
-       - Save to .workflow/WFS-[id]/.chat/plan-[timestamp].md (or .scratchpad/)
+       - Save to .workflow/active/WFS-[id]/.chat/plan-[timestamp].md (or .scratchpad/)
   `
 )
 ```
@@ -90,4 +90,4 @@ Task(
 
 - **Read-only**: Creates modification plans, does NOT generate code
 - **Template**: `~/.claude/workflows/cli-templates/prompts/planning/01-plan-architecture-design.txt`
-- **Output**: `.workflow/WFS-[id]/.chat/plan-[timestamp].md` (or `.scratchpad/` if no session)
+- **Output**: `.workflow/active/WFS-[id]/.chat/plan-[timestamp].md` (or `.scratchpad/` if no session)

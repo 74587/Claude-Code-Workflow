@@ -199,10 +199,10 @@ This is the simplified data structure loaded to provide context for task executi
     "session": "WFS-user-auth",
     "phase": "IMPLEMENT",
     "session_context": {
-      "workflow_directory": ".workflow/WFS-user-auth/",
-      "todo_list_location": ".workflow/WFS-user-auth/TODO_LIST.md",
-      "summaries_directory": ".workflow/WFS-user-auth/.summaries/",
-      "task_json_location": ".workflow/WFS-user-auth/.task/"
+      "workflow_directory": ".workflow/active/WFS-user-auth/",
+      "todo_list_location": ".workflow/active/WFS-user-auth/TODO_LIST.md",
+      "summaries_directory": ".workflow/active/WFS-user-auth/.summaries/",
+      "task_json_location": ".workflow/active/WFS-user-auth/.task/"
     }
   },
   "execution": {

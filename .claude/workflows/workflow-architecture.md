@@ -29,19 +29,19 @@ This document defines the complete workflow system architecture using a **JSON-o
 
 ```bash
 .workflow/
-├── sessions/
-│   ├── WFS-oauth-integration/         # Session directory (active or paused)
-│   ├── WFS-user-profile/             # Session directory (active or paused)
-│   └── WFS-bug-fix-123/              # Session directory (completed)
+├── active/
+│   ├── WFS-oauth-integration/         # Active session directory
+│   ├── WFS-user-profile/             # Active session directory
+│   └── WFS-bug-fix-123/              # Active session directory
 └── archives/
     └── WFS-old-feature/              # Archived session (completed)
 ```
 
 **Directory-Based Benefits**:
-- **Simple Discovery**: Session location determines state (sessions/ = active/paused, archives/ = completed)
+- **Simple Discovery**: Session location determines state (active/ = active sessions, archives/ = completed)
 - **No Marker Files**: Location is the state
 - **Clean Structure**: Clear separation between active and completed sessions
-- **Easy Migration**: Move between sessions/ and archives/ to change state
+- **Easy Migration**: Move between active/ and archives/ to change state
 
 ### Session Operations
 
@@ -709,7 +709,7 @@ All workflows use the same file structure definition regardless of complexity. *
 │       │   └── index.html      # Navigation page
 │       └── .run-metadata.json  # Run configuration
 │
-├── sessions/                        # Active/paused workflow sessions
+├── active/                          # Active workflow sessions
 │   └── WFS-[topic-slug]/
 │       ├── workflow-session.json        # Session metadata and state (REQUIRED)
 │       ├── [.brainstorming/]           # Optional brainstorming phase (created when needed)

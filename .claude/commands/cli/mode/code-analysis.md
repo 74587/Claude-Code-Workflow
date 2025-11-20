@@ -86,7 +86,7 @@ Task(
        - Execution trace documentation
        - Call flow analysis with diagrams
        - Performance and optimization insights
-       - Save to .workflow/WFS-[id]/.chat/code-analysis-[timestamp].md (or .scratchpad/)
+       - Save to .workflow/active/WFS-[id]/.chat/code-analysis-[timestamp].md (or .scratchpad/)
   `
 )
 ```
@@ -95,4 +95,4 @@ Task(
 
 - **Read-only**: Analyzes code, does NOT modify files
 - **Template**: `~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt`
-- **Output**: `.workflow/WFS-[id]/.chat/code-analysis-[timestamp].md` (or `.scratchpad/` if no session)
+- **Output**: `.workflow/active/WFS-[id]/.chat/code-analysis-[timestamp].md` (or `.scratchpad/` if no session)

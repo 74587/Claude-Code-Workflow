@@ -75,7 +75,7 @@ Task(
     4. Execution & Output:
        - Execute CLI tool with assembled context
        - Generate comprehensive analysis report
-       - Save to .workflow/WFS-[id]/.chat/analyze-[timestamp].md (or .scratchpad/)
+       - Save to .workflow/active/WFS-[id]/.chat/analyze-[timestamp].md (or .scratchpad/)
   `
 )
 ```
@@ -84,4 +84,4 @@ Task(
 
 - **Read-only**: Analyzes code, does NOT modify files
 - **Auto-pattern**: Detects file patterns from keywords (auth→auth files, component→components, API→api/routes, test→test files)
-- **Output**: `.workflow/WFS-[id]/.chat/analyze-[timestamp].md` (or `.scratchpad/` if no session)
+- **Output**: `.workflow/active/WFS-[id]/.chat/analyze-[timestamp].md` (or `.scratchpad/` if no session)

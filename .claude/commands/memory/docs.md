@@ -128,7 +128,7 @@ bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${proj
 
 ```bash
 # Count existing docs from phase2-analysis.json
-bash(cat .workflow/WFS-docs-{timestamp}/.process/phase2-analysis.json | jq '.existing_docs.file_list | length')
+bash(cat .workflow/active/WFS-docs-{timestamp}/.process/phase2-analysis.json | jq '.existing_docs.file_list | length')
 ```
 
 **Data Processing**: Use count result, then use **Edit tool** to update `workflow-session.json`:
@@ -183,10 +183,10 @@ Large Projects (single dir >10 docs):
 
 ```bash
 # 1. Get top-level directories from phase2-analysis.json
-bash(cat .workflow/WFS-docs-{timestamp}/.process/phase2-analysis.json | jq -r '.top_level_dirs[]')
+bash(cat .workflow/active/WFS-docs-{timestamp}/.process/phase2-analysis.json | jq -r '.top_level_dirs[]')
 
 # 2. Get mode from workflow-session.json
-bash(cat .workflow/WFS-docs-{timestamp}/workflow-session.json | jq -r '.mode // "full"')
+bash(cat .workflow/active/WFS-docs-{timestamp}/workflow-session.json | jq -r '.mode // "full"')
 
 # 3. Check for HTTP API
 bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo "NO_API")
@@ -215,7 +215,7 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 
 **Task ID Calculation**:
 ```bash
-group_count=$(jq '.groups.count' .workflow/WFS-docs-{timestamp}/.process/phase2-analysis.json)
+group_count=$(jq '.groups.count' .workflow/active/WFS-docs-{timestamp}/.process/phase2-analysis.json)
 readme_id=$((group_count + 1))   # Next ID after groups
 arch_id=$((group_count + 2))
 api_id=$((group_count + 3))
