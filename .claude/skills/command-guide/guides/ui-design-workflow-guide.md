@@ -11,7 +11,7 @@ The UI Design Workflow System is a comprehensive suite of 11 autonomous commands
 These commands automate end-to-end processes by chaining specialized sub-commands.
 
 - **`/workflow:ui-design:explore-auto`**: For creating *new* designs. Generates multiple style and layout variants from a prompt to explore design directions.
-- **`/workflow:ui-design:imitate-auto`**: For *replicating* existing designs. High-fidelity cloning of target URLs into a reusable design system.
+- **`/workflow:ui-design:imitate-auto`**: For *replicating* existing designs. Creates design systems from local reference files (images, code) or text prompts.
 
 ### 2. Core Extractors (Specialized Analysis)
 
@@ -98,31 +98,35 @@ Tools for combining components and integrating results.
 
 ### Workflow B: Design Replication (Imitation)
 
-**Goal:** Create a design system and prototypes based on existing reference sites.
+**Goal:** Create a design system and prototypes based on existing local references.
 
 **Primary Command:** `imitate-auto`
 
 **Steps:**
 
-1. **Initiate**: User runs `/workflow:ui-design:imitate-auto --url-map "home:https://example.com, pricing:https://example.com/pricing"`
-2. **Capture**: System screenshots all provided URLs.
-3. **Extraction**: System extracts a unified design system (style, layout, animation) from the primary URL.
-4. **Assembly**: System recreates all target pages using the extracted system.
+1. **Initiate**: User runs `/workflow:ui-design:imitate-auto --input "design-refs/*.png"` with local reference files
+2. **Input Detection**: System detects input type (images, code files, or text)
+3. **Extraction**: System extracts a unified design system (style, layout, animation) from the references.
+4. **Assembly**: System creates prototypes using the extracted system.
 
 **Example:**
 
 ```bash
+# Using reference images
 /workflow:ui-design:imitate-auto \
-  --url-map "landing:https://stripe.com, pricing:https://stripe.com/pricing, docs:https://stripe.com/docs" \
-  --capture-mode batch \
+  --input "design-refs/*.png" \
+  --session WFS-002
+
+# Or importing from existing code
+/workflow:ui-design:imitate-auto \
+  --input "./src/components" \
   --session WFS-002
 ```
 
 **Output:**
-- Screenshots of all URLs
 - `design-tokens.json` (unified style system)
 - `layout-templates.json` (page structures)
-- 3 HTML prototypes matching the captured pages
+- HTML prototypes based on the input references
 
 ---
 
@@ -204,10 +208,10 @@ For high-volume generation:
 - Specify the *targets* (e.g., "dashboard, settings page")
 - Include functional requirements (e.g., "responsive, mobile-first")
 
-**For URL Mapping:**
-- First URL is treated as primary source of truth
-- Use descriptive keys in `--url-map`
-- Ensure URLs are accessible (no authentication walls)
+**For Local References:**
+- Use high-quality reference images (PNG, JPG)
+- Organize files in accessible directories
+- For code imports, ensure files are properly structured (CSS, JS, HTML)
 
 ---
 
@@ -233,8 +237,8 @@ You can run UI design workflows within an existing workflow session:
 **Example: Imitation + Custom Extraction**
 
 ```bash
-# 1. Replicate existing design
-/workflow:ui-design:imitate-auto --url-map "ref:https://example.com"
+# 1. Import design from local references
+/workflow:ui-design:imitate-auto --input "design-refs/*.png"
 
 # 2. Extract additional layouts and generate prototypes
 /workflow:ui-design:layout-extract --targets "new-page-1,new-page-2"

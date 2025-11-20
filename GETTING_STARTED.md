@@ -408,7 +408,7 @@ CCW includes a powerful, multi-phase workflow for UI design and prototyping, cap
 ### Key Commands
 
 -   `/workflow:ui-design:explore-auto`: An exploratory workflow that generates multiple, distinct design variations based on a prompt.
--   `/workflow:ui-design:imitate-auto`: A replication workflow that creates high-fidelity prototypes from reference URLs.
+-   `/workflow:ui-design:imitate-auto`: A design workflow that creates prototypes from local reference files (images, code) or text prompts.
 
 ### Example: Generating a UI from a Prompt
 

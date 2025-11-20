@@ -405,12 +405,19 @@ Specialized workflow for UI/UX design, from style extraction to prototype genera
   ```
 
 ### **/workflow:ui-design:imitate-auto**
-- **Syntax**: `/workflow:ui-design:imitate-auto --url-map "<map>" [--capture-mode <batch|deep>] ...`
-- **Responsibilities**: High-speed, multi-page UI replication workflow that captures screenshots and orchestrates the full design pipeline.
+- **Syntax**: `/workflow:ui-design:imitate-auto --input "<value>" [--session <id>]`
+- **Responsibilities**: UI design workflow with direct code/image input for design token extraction and prototype generation. Accepts local code files, images (glob patterns), or text descriptions.
 - **Agent Calls**: `@ui-design-agent`.
 - **Example**:
   ```bash
-  /workflow:ui-design:imitate-auto --url-map "home:https://linear.app, features:https://linear.app/features"
+  # Image reference
+  /workflow:ui-design:imitate-auto --input "design-refs/*.png"
+
+  # Code import
+  /workflow:ui-design:imitate-auto --input "./src/components"
+
+  # Text prompt
+  /workflow:ui-design:imitate-auto --input "Modern minimalist design"
   ```
 
 ### **/workflow:ui-design:capture**
