@@ -13,21 +13,21 @@ flowchart TD
     Q1 -->|不知道| Ideation[💡 构思阶段<br>需求探索]
     Q1 -->|知道| Q2{知道怎么做吗?}
 
-    Ideation --> BrainIdea[/workflow:brainstorm:auto-parallel<br>"探索产品方向和功能定位"]
+    Ideation --> BrainIdea[/workflow:brainstorm:auto-parallel<br>探索产品方向和功能定位]
     BrainIdea --> Q2
 
     Q2 -->|不知道| Design[🏗️ 设计探索阶段<br>架构方案探索]
     Q2 -->|知道| Q3{需要UI设计吗?}
 
-    Design --> BrainDesign[/workflow:brainstorm:auto-parallel<br>"探索技术方案和架构"]
+    Design --> BrainDesign[/workflow:brainstorm:auto-parallel<br>探索技术方案和架构]
     BrainDesign --> Q3
 
     Q3 -->|需要| UIDesign[🎨 UI设计阶段]
     Q3 -->|不需要| Q4{任务复杂度?}
 
     UIDesign --> Q3a{有参考设计吗?}
-    Q3a -->|有| UIImitate[/workflow:ui-design:imitate-auto<br>--input "参考URL"]
-    Q3a -->|无| UIExplore[/workflow:ui-design:explore-auto<br>--prompt "设计描述"]
+    Q3a -->|有| UIImitate[/workflow:ui-design:imitate-auto<br>--input 参考URL]
+    Q3a -->|无| UIExplore[/workflow:ui-design:explore-auto<br>--prompt 设计描述]
 
     UIImitate --> UISync[/workflow:ui-design:design-sync<br>同步设计系统]
     UIExplore --> UISync
@@ -37,8 +37,8 @@ flowchart TD
     Q4 -->|复杂完整| FullPlan[📋 完整规划<br>/workflow:plan]
 
     LitePlan --> Q5{需要代码探索?}
-    Q5 -->|需要| LitePlanE[/workflow:lite-plan -e<br>"任务描述"]
-    Q5 -->|不需要| LitePlanNormal[/workflow:lite-plan<br>"任务描述"]
+    Q5 -->|需要| LitePlanE[/workflow:lite-plan -e<br>任务描述]
+    Q5 -->|不需要| LitePlanNormal[/workflow:lite-plan<br>任务描述]
 
     LitePlanE --> LiteConfirm[三维确认:<br>1️⃣ 任务批准<br>2️⃣ 执行方式<br>3️⃣ 代码审查]
     LitePlanNormal --> LiteConfirm
