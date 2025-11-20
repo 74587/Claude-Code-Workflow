@@ -65,68 +65,43 @@ bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | wc -l)
 
 #### Step 1.2: Handle Session Selection
 
-**Case A: No Active Sessions (count = 0)**
+**Case A: No Sessions** (count = 0)
 ```
 ERROR: No active workflow sessions found
-SOLUTION: Run /workflow:plan "task description" to create a session
+Run /workflow:plan "task description" to create a session
 ```
-Stop execution and return error to user.
 
-**Case B: Single Active Session (count = 1)**
+**Case B: Single Session** (count = 1)
 ```bash
 bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | head -1 | xargs basename)
 ```
-Store as `sessionId` and continue to Phase 2 (no user interaction needed).
+Auto-select and continue to Phase 2.
 
-**Case C: Multiple Active Sessions (count > 1)**
+**Case C: Multiple Sessions** (count > 1)
 
-1. **List sessions with rich metadata**:
+List sessions with metadata and prompt user selection:
 ```bash
 bash(for dir in .workflow/active/WFS-*/; do
   session=$(basename "$dir")
   project=$(jq -r '.project // "Unknown"' "$dir/workflow-session.json" 2>/dev/null)
   total=$(grep -c "^- \[" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
   completed=$(grep -c "^- \[x\]" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
-
-  if [ "$total" -gt 0 ]; then
-    progress=$((completed * 100 / total))
-  else
-    progress=0
-  fi
-
+  [ "$total" -gt 0 ] && progress=$((completed * 100 / total)) || progress=0
   echo "${session} | ${project} | ${completed}/${total} tasks (${progress}%)"
 done)
 ```
 
-2. **Present options to user** (using AskUserQuestion tool):
-
-Format output into numbered list:
+Use AskUserQuestion to present formatted options:
 ```
 Multiple active workflow sessions detected. Please select one:
 
 1. WFS-auth-system | Authentication System | 3/5 tasks (60%)
 2. WFS-payment-module | Payment Integration | 0/8 tasks (0%)
-3. WFS-ui-redesign | UI Redesign | 7/10 tasks (70%)
 
-Which session do you want to execute?
+Enter number, full session ID, or partial match:
 ```
 
-Use AskUserQuestion tool to get user selection. User can provide:
-- Session number (e.g., "1", "2", "3")
-- Full session ID (e.g., "WFS-auth-system")
-- Partial session ID (e.g., "auth-system")
-
-3. **Parse user response**:
-- Extract session ID from user input by matching against the session list
-- Validate the selection exists
-
-4. **Confirm selection** to user:
-```
-✓ Selected session: WFS-auth-system (Authentication System)
-  Progress: 3/5 tasks (60%)
-```
-
-Continue to Phase 2.
+Parse user input (supports: number "1", full ID "WFS-auth-system", or partial "auth"), validate selection, and continue to Phase 2.
 
 #### Step 1.3: Load Session Metadata
 ```bash
