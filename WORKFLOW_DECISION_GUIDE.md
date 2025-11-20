@@ -10,42 +10,42 @@
 flowchart TD
     Start([开始新功能/项目]) --> Q1{知道要做什么吗?}
 
-    Q1 -->|不知道| Ideation[💡 构思阶段<br/>需求探索]
+    Q1 -->|不知道| Ideation[💡 构思阶段<br>需求探索]
     Q1 -->|知道| Q2{知道怎么做吗?}
 
-    Ideation --> BrainIdea[/workflow:brainstorm:auto-parallel<br/>"探索产品方向和功能定位"]
+    Ideation --> BrainIdea[/workflow:brainstorm:auto-parallel<br>"探索产品方向和功能定位"]
     BrainIdea --> Q2
 
-    Q2 -->|不知道| Design[🏗️ 设计探索阶段<br/>架构方案探索]
+    Q2 -->|不知道| Design[🏗️ 设计探索阶段<br>架构方案探索]
     Q2 -->|知道| Q3{需要UI设计吗?}
 
-    Design --> BrainDesign[/workflow:brainstorm:auto-parallel<br/>"探索技术方案和架构"]
+    Design --> BrainDesign[/workflow:brainstorm:auto-parallel<br>"探索技术方案和架构"]
     BrainDesign --> Q3
 
     Q3 -->|需要| UIDesign[🎨 UI设计阶段]
     Q3 -->|不需要| Q4{任务复杂度?}
 
     UIDesign --> Q3a{有参考设计吗?}
-    Q3a -->|有| UIImitate[/workflow:ui-design:imitate-auto<br/>--input "参考URL"]
-    Q3a -->|无| UIExplore[/workflow:ui-design:explore-auto<br/>--prompt "设计描述"]
+    Q3a -->|有| UIImitate[/workflow:ui-design:imitate-auto<br>--input "参考URL"]
+    Q3a -->|无| UIExplore[/workflow:ui-design:explore-auto<br>--prompt "设计描述"]
 
-    UIImitate --> UISync[/workflow:ui-design:design-sync<br/>同步设计系统]
+    UIImitate --> UISync[/workflow:ui-design:design-sync<br>同步设计系统]
     UIExplore --> UISync
     UISync --> Q4
 
-    Q4 -->|简单快速| LitePlan[⚡ 轻量规划<br/>/workflow:lite-plan]
-    Q4 -->|复杂完整| FullPlan[📋 完整规划<br/>/workflow:plan]
+    Q4 -->|简单快速| LitePlan[⚡ 轻量规划<br>/workflow:lite-plan]
+    Q4 -->|复杂完整| FullPlan[📋 完整规划<br>/workflow:plan]
 
     LitePlan --> Q5{需要代码探索?}
-    Q5 -->|需要| LitePlanE[/workflow:lite-plan -e<br/>"任务描述"]
-    Q5 -->|不需要| LitePlanNormal[/workflow:lite-plan<br/>"任务描述"]
+    Q5 -->|需要| LitePlanE[/workflow:lite-plan -e<br>"任务描述"]
+    Q5 -->|不需要| LitePlanNormal[/workflow:lite-plan<br>"任务描述"]
 
-    LitePlanE --> LiteConfirm[三维确认:<br/>1️⃣ 任务批准<br/>2️⃣ 执行方式<br/>3️⃣ 代码审查]
+    LitePlanE --> LiteConfirm[三维确认:<br>1️⃣ 任务批准<br>2️⃣ 执行方式<br>3️⃣ 代码审查]
     LitePlanNormal --> LiteConfirm
 
     LiteConfirm --> Q6{选择执行方式}
-    Q6 -->|Agent| LiteAgent[/workflow:lite-execute<br/>使用@code-developer]
-    Q6 -->|CLI工具| LiteCLI[CLI执行<br/>Gemini/Qwen/Codex]
+    Q6 -->|Agent| LiteAgent[/workflow:lite-execute<br>使用@code-developer]
+    Q6 -->|CLI工具| LiteCLI[CLI执行<br>Gemini/Qwen/Codex]
     Q6 -->|仅计划| UserImpl[用户手动实现]
 
     FullPlan --> PlanVerify{验证计划质量?}
@@ -56,23 +56,23 @@ flowchart TD
     Q7 -->|是| Execute
     FixPlan --> Execute
 
-    Execute[🚀 执行阶段<br/>/workflow:execute]
+    Execute[🚀 执行阶段<br>/workflow:execute]
     LiteAgent --> TestDecision
     LiteCLI --> TestDecision
     UserImpl --> TestDecision
     Execute --> TestDecision
 
     TestDecision{需要测试吗?}
-    TestDecision -->|TDD模式| TDD[/workflow:tdd-plan<br/>测试驱动开发]
-    TestDecision -->|后置测试| TestGen[/workflow:test-gen<br/>生成测试]
-    TestDecision -->|已有测试| TestCycle[/workflow:test-cycle-execute<br/>测试修复循环]
+    TestDecision -->|TDD模式| TDD[/workflow:tdd-plan<br>测试驱动开发]
+    TestDecision -->|后置测试| TestGen[/workflow:test-gen<br>生成测试]
+    TestDecision -->|已有测试| TestCycle[/workflow:test-cycle-execute<br>测试修复循环]
     TestDecision -->|不需要| Review
 
-    TDD --> TDDExecute[/workflow:execute<br/>Red-Green-Refactor]
-    TDDExecute --> TDDVerify[/workflow:tdd-verify<br/>验证TDD合规]
+    TDD --> TDDExecute[/workflow:execute<br>Red-Green-Refactor]
+    TDDExecute --> TDDVerify[/workflow:tdd-verify<br>验证TDD合规]
     TDDVerify --> Review
 
-    TestGen --> TestExecute[/workflow:execute<br/>执行测试任务]
+    TestGen --> TestExecute[/workflow:execute<br>执行测试任务]
     TestExecute --> TestResult{测试通过?}
     TestResult -->|否| TestCycle
     TestResult -->|是| Review
@@ -83,10 +83,10 @@ flowchart TD
 
     Review[📝 审查阶段]
     Review --> Q8{需要专项审查?}
-    Q8 -->|安全| SecurityReview[/workflow:review<br/>--type security]
-    Q8 -->|架构| ArchReview[/workflow:review<br/>--type architecture]
-    Q8 -->|质量| QualityReview[/workflow:review<br/>--type quality]
-    Q8 -->|综合| GeneralReview[/workflow:review<br/>综合审查]
+    Q8 -->|安全| SecurityReview[/workflow:review<br>--type security]
+    Q8 -->|架构| ArchReview[/workflow:review<br>--type architecture]
+    Q8 -->|质量| QualityReview[/workflow:review<br>--type quality]
+    Q8 -->|综合| GeneralReview[/workflow:review<br>综合审查]
     Q8 -->|不需要| Complete
 
     SecurityReview --> Complete
@@ -94,7 +94,7 @@ flowchart TD
     QualityReview --> Complete
     GeneralReview --> Complete
 
-    Complete[✅ 完成阶段<br/>/workflow:session:complete]
+    Complete[✅ 完成阶段<br>/workflow:session:complete]
     Complete --> End([项目完成])
 
     style Start fill:#e1f5ff
