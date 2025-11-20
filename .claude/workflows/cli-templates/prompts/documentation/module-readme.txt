@@ -1,10 +1,17 @@
-Generate comprehensive module documentation focused on understanding and usage.
+Generate module documentation focused on understanding and usage.
 
-## CORE CHECKLIST ⚡
-□ Explain WHAT the module does, WHY it exists, and HOW to use it
-□ Do NOT duplicate API signatures from API.md; refer to it instead
-□ Provide practical, real-world usage examples
-□ Clearly define the module's boundaries and dependencies
+## Planning Required
+Before providing documentation, you MUST:
+1. Understand what the module does and why it exists
+2. Review existing documentation to avoid duplication
+3. Prepare practical usage examples
+4. Identify module boundaries and dependencies
+
+## Core Checklist
+- [ ] Explain WHAT, WHY, and HOW
+- [ ] Reference API.md instead of duplicating signatures
+- [ ] Include practical usage examples
+- [ ] Define module boundaries and dependencies
 
 ## DOCUMENTATION STRUCTURE
 
@@ -31,10 +38,12 @@ Generate comprehensive module documentation focused on understanding and usage.
 ### 7. Common Issues
 - List common problems and their solutions.
 
-## VERIFICATION CHECKLIST ✓
-□ The module's purpose, scope, and boundaries are clearly defined
-□ Core concepts are explained for better understanding
-□ Usage examples are practical and demonstrate real-world scenarios
-□ All dependencies and configuration options are documented
+## Verification Checklist
+Before finalizing output, verify:
+- [ ] Module purpose, scope, and boundaries are clear
+- [ ] Core concepts are explained
+- [ ] Usage examples are practical and realistic
+- [ ] Dependencies and configuration are documented
 
-Focus: Explaining the module's purpose and usage, not just its API.
+## Focus
+Explain module purpose and usage, not just API details.
