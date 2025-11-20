@@ -405,34 +405,23 @@ Specialized workflow for UI/UX design, from style extraction to prototype genera
   ```
 
 ### **/workflow:ui-design:imitate-auto**
-- **Syntax**: `/workflow:ui-design:imitate-auto --url-map "<map>" [--capture-mode <batch|deep>] ...`
-- **Responsibilities**: High-speed, multi-page UI replication workflow that captures screenshots and orchestrates the full design pipeline.
+- **Syntax**: `/workflow:ui-design:imitate-auto --input "<value>" [--session <id>]`
+- **Responsibilities**: UI design workflow with direct code/image input for design token extraction and prototype generation. Accepts local code files, images (glob patterns), or text descriptions.
 - **Agent Calls**: `@ui-design-agent`.
 - **Example**:
   ```bash
-  /workflow:ui-design:imitate-auto --url-map "home:https://linear.app, features:https://linear.app/features"
-  ```
+  # Image reference
+  /workflow:ui-design:imitate-auto --input "design-refs/*.png"
 
-### **/workflow:ui-design:capture**
-- **Syntax**: `/workflow:ui-design:capture --url-map "target:url,..." ...`
-- **Responsibilities**: Batch screenshot capture tool using MCP Chrome DevTools with multi-tier fallback strategy (MCP → Playwright → Chrome → Manual).
-- **Agent Calls**: None directly, uses MCP Chrome DevTools or browser automation as fallback.
-- **Example**:
-  ```bash
-  /workflow:ui-design:capture --url-map "home:https://linear.app"
-  ```
+  # Code import
+  /workflow:ui-design:imitate-auto --input "./src/components"
 
-### **/workflow:ui-design:explore-layers**
-- **Syntax**: `/workflow:ui-design:explore-layers --url <url> --depth <1-5> ...`
-- **Responsibilities**: Performs a deep, interactive UI capture of a single URL, exploring layers from the full page down to the Shadow DOM.
-- **Agent Calls**: None directly, uses MCP Chrome DevTools for layer exploration.
-- **Example**:
-  ```bash
-  /workflow:ui-design:explore-layers --url https://linear.app --depth 3
+  # Text prompt
+  /workflow:ui-design:imitate-auto --input "Modern minimalist design"
   ```
 
 ### **/workflow:ui-design:style-extract**
-- **Syntax**: `/workflow:ui-design:style-extract [--images "..."] [--prompt "..."] ...`
+- **Syntax**: `/workflow:ui-design:style-extract [--images "<glob>"] [--prompt "<desc>"] [--variants <count>] ...`
 - **Responsibilities**: Extracts design styles from images or text prompts and generates production-ready design systems (`design-tokens.json`, `style-guide.md`).
 - **Agent Calls**: `@ui-design-agent`.
 - **Example**:
@@ -441,12 +430,12 @@ Specialized workflow for UI/UX design, from style extraction to prototype genera
   ```
 
 ### **/workflow:ui-design:layout-extract**
-- **Syntax**: `/workflow:ui-design:layout-extract [--images "..."] [--urls "..."] ...`
-- **Responsibilities**: Extracts structural layout information (HTML structure, CSS layout rules) separately from visual style.
+- **Syntax**: `/workflow:ui-design:layout-extract [--images "<glob>"] [--prompt "<desc>"] [--targets "<list>"] ...`
+- **Responsibilities**: Extracts structural layout information (HTML structure, CSS layout rules) from images or text prompts.
 - **Agent Calls**: `@ui-design-agent`.
 - **Example**:
   ```bash
-  /workflow:ui-design:layout-extract --urls "home:https://linear.app" --mode imitate
+  /workflow:ui-design:layout-extract --images "design-refs/*.png" --targets "home,dashboard"
   ```
 
 ### **/workflow:ui-design:generate**

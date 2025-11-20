@@ -434,8 +434,11 @@ services/
 **Objective**: Create a complete design system for a SaaS application
 
 ```bash
-# Extract design from reference
-/workflow:ui-design:imitate-auto --input "https://example-saas.com"
+# Extract design from local reference images
+/workflow:ui-design:imitate-auto --input "design-refs/*.png"
+
+# Or import from existing code
+/workflow:ui-design:imitate-auto --input "./src/components"
 
 # Or create from scratch
 /workflow:ui-design:explore-auto --prompt "Modern SaaS design system with primary components: buttons, inputs, cards, modals, navigation" --targets "button,input,card,modal,navbar" --style-variants 3

@@ -408,7 +408,7 @@ CCW 包含强大的多阶段 UI 设计和原型制作工作流,能够从简单�
 ### 核心命令
 
 -   `/workflow:ui-design:explore-auto`: 探索性工作流,基于提示词生成多种不同的设计变体。
--   `/workflow:ui-design:imitate-auto`: 复制工作流,从参考 URL 创建高保真原型。
+-   `/workflow:ui-design:imitate-auto`: 设计工作流,从本地参考文件(图片、代码)或文本提示创建原型。
 
 ### 示例：从提示词生成 UI
 
