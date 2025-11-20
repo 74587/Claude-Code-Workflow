@@ -14,9 +14,10 @@ graph TB
     end
 
     subgraph "Session Management"
-        MARKER[".active-session marker"]
         SESSION["workflow-session.json"]
         WDIR[".workflow/ directories"]
+        ACTIVE_DIR[".workflow/active/"]
+        ARCHIVE_DIR[".workflow/archives/"]
     end
 
     subgraph "Task System"
@@ -124,9 +125,7 @@ stateDiagram-v2
     CreateStructure --> CreateJSON: Create workflow-session.json
     CreateJSON --> CreatePlan: Create IMPL_PLAN.md
     CreatePlan --> CreateTasks: Create .task/ directory
-    CreateTasks --> SetActive: touch .active-session-name
-
-    SetActive --> Active: Session Ready
+    CreateTasks --> Active: Session Ready in .workflow/active/
 
     Active --> Paused: Switch to Another Session
     Active --> Working: Execute Tasks
