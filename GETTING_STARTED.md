@@ -114,7 +114,7 @@ For UI-focused projects, start with design exploration before implementation: **
 
 ### Scenario 3: Complex Feature with Multi-Agent Brainstorming
 
-For complex features requiring thorough analysis, use the complete workflow: **brainstorm → plan → execute**
+**Use brainstorming when you know WHAT to build, but don't know HOW to build it.** The complete workflow: **brainstorm → plan → execute**
 
 ```bash
 # Step 1: Multi-agent brainstorming (auto-creates session)
@@ -136,9 +136,16 @@ For complex features requiring thorough analysis, use the complete workflow: **b
 - **Comprehensive specification**: Generates integrated requirements and design document
 
 **When to Use Brainstorming**:
-- Complex features requiring multiple perspectives
-- Architectural decisions with significant impact
-- When you need thorough requirements before implementation
+- **You know WHAT to build, but NOT HOW** - Need to explore solution approaches
+- **Multiple solution paths exist** - Need expert analysis to choose the best approach
+- **Unclear technical requirements** - Need to clarify architecture, data models, APIs
+- **Significant architectural decisions** - Need multi-perspective analysis before committing
+
+**When to Skip Brainstorming** (use `/workflow:plan` directly):
+- You already know the implementation approach
+- Clear technical requirements from the start
+- Simple, straightforward features
+- Similar to existing implementations in your codebase
 
 ### Scenario 4: Quality Assurance - Action Plan Verification
 

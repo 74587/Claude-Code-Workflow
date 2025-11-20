@@ -166,6 +166,7 @@ CCW 提供全面的文档，帮助您快速上手并掌握高级功能：
 ### 📖 **快速入门**
 - [**快速上手指南**](GETTING_STARTED_CN.md) - 5 分钟快速入门教程
 - [**安装指南**](INSTALL_CN.md) - 详细安装说明 ([English](INSTALL.md))
+- [**工作流决策指南**](WORKFLOW_DECISION_GUIDE.md) - 🌳 交互式流程图帮助选择正确的命令
 - [**示例**](EXAMPLES.md) - 真实世界用例和实践示例 (English)
 - [**常见问题**](FAQ.md) - 常见问题和故障排除 (English)
 
