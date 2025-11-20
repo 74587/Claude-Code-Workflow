@@ -26,7 +26,7 @@ flowchart TD
     Q3 -->|不需要| Q4{任务复杂度?}
 
     UIDesign --> Q3a{有参考设计吗?}
-    Q3a -->|有| UIImitate[/ /workflow:ui-design:imitate-auto<br>--input 参考URL /]
+    Q3a -->|有| UIImitate[/ /workflow:ui-design:imitate-auto<br>--input 本地文件/图片 /]
     Q3a -->|无| UIExplore[/ /workflow:ui-design:explore-auto<br>--prompt 设计描述 /]
 
     UIImitate --> UISync[/ /workflow:ui-design:design-sync<br>同步设计系统 /]
@@ -158,14 +158,16 @@ flowchart TD
 
 | 情况 | 命令 | 说明 |
 |------|------|------|
-| 🎨 有参考设计 | `/workflow:ui-design:imitate-auto --input "URL"` | 基于现有设计复制 |
+| 🎨 有参考设计 | `/workflow:ui-design:imitate-auto --input "本地文件/图片"` | 基于本地参考文件/图片复制设计 |
 | 🎨 从零设计 | `/workflow:ui-design:explore-auto --prompt "描述"` | 生成多个设计变体 |
 | ⏭️ 后端/无UI | 跳过 | 纯后端API、CLI工具等 |
 
 **示例**：
 ```bash
-# 有参考：模仿Google Docs的协作界面
-/workflow:ui-design:imitate-auto --input "https://docs.google.com"
+# 有参考：使用本地截图或代码文件
+/workflow:ui-design:imitate-auto --input "design-refs/*.png"
+# 或从现有代码导入
+/workflow:ui-design:imitate-auto --input "./src/components"
 
 # 无参考：从零设计
 /workflow:ui-design:explore-auto --prompt "现代简洁的文档协作编辑界面" --style-variants 3

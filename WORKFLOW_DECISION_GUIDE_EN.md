@@ -26,7 +26,7 @@ flowchart TD
     Q3 -->|No| Q4{Task complexity?}
 
     UIDesign --> Q3a{Have reference design?}
-    Q3a -->|Yes| UIImitate[/ /workflow:ui-design:imitate-auto<br>--input reference URL /]
+    Q3a -->|Yes| UIImitate[/ /workflow:ui-design:imitate-auto<br>--input local files/images /]
     Q3a -->|No| UIExplore[/ /workflow:ui-design:explore-auto<br>--prompt design description /]
 
     UIImitate --> UISync[/ /workflow:ui-design:design-sync<br>Sync design system /]
@@ -158,14 +158,16 @@ flowchart TD
 
 | Situation | Command | Description |
 |-----------|---------|-------------|
-| 🎨 Have reference design | `/workflow:ui-design:imitate-auto --input "URL"` | Copy from existing design |
+| 🎨 Have reference design | `/workflow:ui-design:imitate-auto --input "local files/images"` | Copy design from local reference files/images |
 | 🎨 Design from scratch | `/workflow:ui-design:explore-auto --prompt "description"` | Generate multiple design variants |
 | ⏭️ Backend/No UI | Skip | Pure backend API, CLI tools, etc. |
 
 **Examples**:
 ```bash
-# Have reference: Imitate Google Docs collaboration interface
-/workflow:ui-design:imitate-auto --input "https://docs.google.com"
+# Have reference: Use local screenshots or code files
+/workflow:ui-design:imitate-auto --input "design-refs/*.png"
+# Or import from existing code
+/workflow:ui-design:imitate-auto --input "./src/components"
 
 # No reference: Design from scratch
 /workflow:ui-design:explore-auto --prompt "Modern minimalist document collaboration editing interface" --style-variants 3
