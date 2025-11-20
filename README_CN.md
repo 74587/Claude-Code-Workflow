@@ -126,8 +126,8 @@ CCW 包含内置的**命令指南技能**，帮助您有效地发现和使用命
 # 强制代码探索
 /workflow:lite-plan -e "重构日志模块以提高性能"
 
-# 预设 CLI 工具
-/workflow:lite-plan --tool codex "为认证服务添加单元测试"
+# 基本用法
+/workflow:lite-plan "为认证服务添加单元测试"
 ```
 
 **交互流程**:
@@ -159,11 +159,38 @@ CCW 包含内置的**命令指南技能**，帮助您有效地发现和使用命
 
 ---
 
+## 📚 文档
+
+CCW 提供全面的文档，帮助您快速上手并掌握高级功能：
+
+### 📖 **快速入门**
+- [**快速上手指南**](GETTING_STARTED_CN.md) - 5 分钟快速入门教程
+- [**安装指南**](INSTALL_CN.md) - 详细安装说明 ([English](INSTALL.md))
+- [**示例**](EXAMPLES.md) - 真实世界用例和实践示例 (English)
+- [**常见问题**](FAQ.md) - 常见问题和故障排除 (English)
+
+### 🏗️ **架构与设计**
+- [**架构概览**](ARCHITECTURE.md) - 系统设计和核心组件 (English)
+- [**项目介绍**](PROJECT_INTRODUCTION.md) - 详细项目概览
+- [**工作流图示**](WORKFLOW_DIAGRAMS.md) - 可视化工作流表示 (English)
+
+### 📋 **命令参考**
+- [**命令参考**](COMMAND_REFERENCE.md) - 所有命令的完整列表 (English)
+- [**命令规范**](COMMAND_SPEC.md) - 详细技术规范 (English)
+- [**命令流程标准**](COMMAND_FLOW_STANDARD.md) - 命令设计模式 (English)
+
+### 🤝 **贡献**
+- [**贡献指南**](CONTRIBUTING.md) - 如何为 CCW 做贡献 (English)
+- [**更新日志**](CHANGELOG.md) - 版本历史和发布说明
+
+---
+
 ## 🤝 贡献与支持
 
 - **仓库**: [GitHub - Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
 - **问题**: 在 [GitHub Issues](https://github.com/catlog22/Claude-Code-Workflow/issues) 上报告错误或请求功能。
 - **讨论**: 加入 [社区论坛](https://github.com/catlog22/Claude-Code-Workflow/discussions)。
+- **贡献**: 查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解贡献指南。
 
 ## 📄 许可证
 

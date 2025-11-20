@@ -182,7 +182,7 @@
 
 ```bash
 # 分析 Bug
-/cli:mode:bug-index "密码错误时仍显示成功消息"
+/cli:mode:bug-diagnosis "密码错误时仍显示成功消息"
 
 # Claude 会分析后直接根据分析结果实现修复
 ```
@@ -233,7 +233,7 @@ CCW 支持通过统一的 CLI 接口直接调用外部 AI 工具（Gemini、Qwen
 /cli:mode:code-analysis --tool qwen "分析 src/utils/ 目录下的工具函数"
 
 # Bug 分析模式
-/cli:mode:bug-index --tool gemini "分析内存泄漏问题的可能原因"
+/cli:mode:bug-diagnosis --tool gemini "分析内存泄漏问题的可能原因"
 ```
 
 ### 工具语义调用
