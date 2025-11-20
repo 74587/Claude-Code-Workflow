@@ -285,7 +285,7 @@ for each archived_session in archived_sessions:
 **Load template and inject data**:
 ```javascript
 // Read the HTML template
-const template = Read(".claude/templates/workflow-dashboard.html");
+const template = Read("~/.claude/templates/workflow-dashboard.html");
 
 // Prepare data for injection
 const dataJson = JSON.stringify(dashboardData, null, 2);
