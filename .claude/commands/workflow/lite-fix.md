@@ -36,23 +36,23 @@ Fast-track bug fixing workflow optimized for quick diagnosis, targeted fixes, an
 
 ### Severity Modes
 
-| Mode | Time Budget |适用场景 | 流程特点 |
-|------|-------------|---------|---------|
-| **Regular** (default) | 2-4 hours | 非阻塞bug，<20%用户影响 | 完整诊断 + 全量测试 |
-| **Critical** (`--critical`) | 30-60 min | 核心功能受损，20-50%用户影响 | 聚焦诊断 + 关键测试 |
-| **Hotfix** (`--hotfix`) | 15-30 min | 生产故障，100%用户影响 | 最小诊断 + Smoke测试 + 自动跟进 |
+| Mode | Time Budget | Use Case | Workflow Characteristics |
+|------|-------------|----------|--------------------------|
+| **Regular** (default) | 2-4 hours | Non-blocking bugs, <20% user impact | Full diagnosis + comprehensive testing |
+| **Critical** (`--critical`) | 30-60 min | Core feature degraded, 20-50% user impact | Focused diagnosis + key scenario testing |
+| **Hotfix** (`--hotfix`) | 15-30 min | Production outage, 100% user impact | Minimal diagnosis + smoke testing + auto follow-up |
 
 ### Examples
 
 ```bash
-# Regular mode: 一般bug修复
-/workflow:lite-fix "用户头像上传失败，返回413错误"
+# Regular mode: Standard bug fix
+/workflow:lite-fix "User avatar upload fails with 413 error"
 
-# Critical mode: 紧急但非致命
-/workflow:lite-fix --critical "购物车结算时随机丢失商品"
+# Critical mode: Urgent but not fatal
+/workflow:lite-fix --critical "Shopping cart randomly loses items at checkout"
 
-# Hotfix mode: 生产环境故障
-/workflow:lite-fix --hotfix --incident INC-2024-1015 "支付网关5xx错误"
+# Hotfix mode: Production incident
+/workflow:lite-fix --hotfix --incident INC-2024-1015 "Payment gateway 5xx errors"
 ```
 
 ## Execution Process
