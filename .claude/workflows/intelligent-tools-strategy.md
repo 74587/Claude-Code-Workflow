@@ -65,6 +65,7 @@ codex -C [dir] --full-auto exec "[prompt]" [--skip-git-repo-check -s danger-full
 | Architecture Planning | Gemini → Qwen | analysis | `planning/01-plan-architecture-design.txt` |
 | Code Pattern Analysis | Gemini → Qwen | analysis | `analysis/02-analyze-code-patterns.txt` |
 | Architecture Review | Gemini → Qwen | analysis | `analysis/02-review-architecture.txt` |
+| Document Analysis | Gemini → Qwen | analysis | `analysis/02-analyze-technical-document.txt` |
 | Feature Implementation | Codex | auto | `development/02-implement-feature.txt` |
 | Component Development | Codex | auto | `development/02-implement-component-ui.txt` |
 | Test Generation | Codex | write | `development/02-generate-tests.txt` |
@@ -519,13 +520,14 @@ When no specific template matches your task requirements, use one of these unive
 **Available Templates**:
 ```
 prompts/
-├── universal/                          # ← NEW: Universal fallback templates
+├── universal/                          # ← Universal fallback templates
 │   ├── 00-universal-rigorous-style.txt # Precision & standards-driven
 │   └── 00-universal-creative-style.txt # Innovation & exploration-focused
 ├── analysis/
 │   ├── 01-trace-code-execution.txt
 │   ├── 01-diagnose-bug-root-cause.txt
 │   ├── 02-analyze-code-patterns.txt
+│   ├── 02-analyze-technical-document.txt
 │   ├── 02-review-architecture.txt
 │   ├── 02-review-code-quality.txt
 │   ├── 03-analyze-performance.txt
@@ -556,6 +558,7 @@ prompts/
 | Execution Tracing | Gemini (Qwen fallback) | `analysis/01-trace-code-execution.txt` |
 | Bug Diagnosis | Gemini (Qwen fallback) | `analysis/01-diagnose-bug-root-cause.txt` |
 | Code Pattern Analysis | Gemini (Qwen fallback) | `analysis/02-analyze-code-patterns.txt` |
+| Document Analysis | Gemini (Qwen fallback) | `analysis/02-analyze-technical-document.txt` |
 | Architecture Review | Gemini (Qwen fallback) | `analysis/02-review-architecture.txt` |
 | Code Review | Gemini (Qwen fallback) | `analysis/02-review-code-quality.txt` |
 | Performance Analysis | Gemini (Qwen fallback) | `analysis/03-analyze-performance.txt` |
