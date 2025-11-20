@@ -166,7 +166,7 @@ CCW provides comprehensive documentation to help you get started and master adva
 ### 📖 **Getting Started**
 - [**Getting Started Guide**](GETTING_STARTED.md) - 5-minute quick start tutorial
 - [**Installation Guide**](INSTALL.md) - Detailed installation instructions ([中文](INSTALL_CN.md))
-- [**Workflow Decision Guide**](WORKFLOW_DECISION_GUIDE.md) - 🌳 Interactive flowchart for choosing the right commands
+- [**Workflow Decision Guide**](WORKFLOW_DECISION_GUIDE_EN.md) - 🌳 Interactive flowchart for choosing the right commands
 - [**Examples**](EXAMPLES.md) - Real-world use cases and practical examples
 - [**FAQ**](FAQ.md) - Frequently asked questions and troubleshooting
 
