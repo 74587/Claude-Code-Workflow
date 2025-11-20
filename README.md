@@ -159,11 +159,38 @@ Traditional multi-phase workflow for complex projects:
 
 ---
 
+## 📚 Documentation
+
+CCW provides comprehensive documentation to help you get started and master advanced features:
+
+### 📖 **Getting Started**
+- [**Getting Started Guide**](GETTING_STARTED.md) - 5-minute quick start tutorial
+- [**Installation Guide**](INSTALL.md) - Detailed installation instructions ([中文](INSTALL_CN.md))
+- [**Examples**](EXAMPLES.md) - Real-world use cases and practical examples
+- [**FAQ**](FAQ.md) - Frequently asked questions and troubleshooting
+
+### 🏗️ **Architecture & Design**
+- [**Architecture Overview**](ARCHITECTURE.md) - System design and core components
+- [**Project Introduction**](PROJECT_INTRODUCTION.md) - Detailed project overview (中文)
+- [**Workflow Diagrams**](WORKFLOW_DIAGRAMS.md) - Visual workflow representations
+
+### 📋 **Command Reference**
+- [**Command Reference**](COMMAND_REFERENCE.md) - Complete list of all commands
+- [**Command Specification**](COMMAND_SPEC.md) - Detailed technical specifications
+- [**Command Flow Standard**](COMMAND_FLOW_STANDARD.md) - Command design patterns
+
+### 🤝 **Contributing**
+- [**Contributing Guide**](CONTRIBUTING.md) - How to contribute to CCW
+- [**Changelog**](CHANGELOG.md) - Version history and release notes
+
+---
+
 ## 🤝 Contributing & Support
 
 - **Repository**: [GitHub - Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
 - **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/catlog22/Claude-Code-Workflow/issues).
 - **Discussions**: Join the [Community Forum](https://github.com/catlog22/Claude-Code-Workflow/discussions).
+- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## 📄 License
 
