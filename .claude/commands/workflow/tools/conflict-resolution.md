@@ -3,8 +3,8 @@ name: conflict-resolution
 description: Detect and resolve conflicts between plan and existing codebase using CLI-powered analysis with Gemini/Qwen
 argument-hint: "--session WFS-session-id --context path/to/context-package.json"
 examples:
-  - /workflow:tools:conflict-resolution --session WFS-auth --context .workflow/sessions/WFS-auth/.process/context-package.json
-  - /workflow:tools:conflict-resolution --session WFS-payment --context .workflow/sessions/WFS-payment/.process/context-package.json
+  - /workflow:tools:conflict-resolution --session WFS-auth --context .workflow/active/WFS-auth/.process/context-package.json
+  - /workflow:tools:conflict-resolution --session WFS-payment --context .workflow/active/WFS-payment/.process/context-package.json
 ---
 
 # Conflict Resolution Command
@@ -88,7 +88,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
 
   ### 1. Load Context
   - Read existing files from conflict_detection.existing_files
-  - Load plan from .workflow/sessions/{session_id}/.process/context-package.json
+  - Load plan from .workflow/active/{session_id}/.process/context-package.json
   - Extract role analyses and requirements
 
   ### 2. Execute CLI Analysis (Enhanced with Scenario Uniqueness Detection)
@@ -107,7 +107,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
     - Compare scenario coverage and identify overlaps
     - Generate clarification questions for boundary definition
   MODE: analysis
-  CONTEXT: @**/*.ts @**/*.js @**/*.tsx @**/*.jsx @.workflow/sessions/{session_id}/**/*
+  CONTEXT: @**/*.ts @**/*.js @**/*.tsx @**/*.jsx @.workflow/active/{session_id}/**/*
   EXPECTED: Conflict list with severity ratings, including ModuleOverlap conflicts with:
     - Existing module list with scenarios
     - Overlap analysis matrix
@@ -143,8 +143,8 @@ Task(subagent_type="cli-execution-agent", prompt=`
         "severity": "Critical|High|Medium",
         "category": "Architecture|API|Data|Dependency|ModuleOverlap",
         "affected_files": [
-          ".workflow/sessions/{session}/.brainstorm/guidance-specification.md",
-          ".workflow/sessions/{session}/.brainstorm/system-architect/analysis.md"
+          ".workflow/active/{session}/.brainstorm/guidance-specification.md",
+          ".workflow/active/{session}/.brainstorm/system-architect/analysis.md"
         ],
         "description": "详细描述冲突 - 什么不兼容",
         "impact": {
@@ -187,7 +187,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
             ],
             "modifications": [
               {
-                "file": ".workflow/sessions/{session}/.brainstorm/guidance-specification.md",
+                "file": ".workflow/active/{session}/.brainstorm/guidance-specification.md",
                 "section": "## 2. System Architect Decisions",
                 "change_type": "update",
                 "old_content": "原始内容片段（用于定位）",
@@ -195,7 +195,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
                 "rationale": "为什么这样改"
               },
               {
-                "file": ".workflow/sessions/{session}/.brainstorm/system-architect/analysis.md",
+                "file": ".workflow/active/{session}/.brainstorm/system-architect/analysis.md",
                 "section": "## Design Decisions",
                 "change_type": "update",
                 "old_content": "原始内容片段",
@@ -540,7 +540,7 @@ return {
 ✓ Role analyses (*.md) updated
 ✓ context-package.json marked as resolved with clarification records
 ✓ Custom conflicts display overlap_analysis for manual handling
-✓ Agent log saved to .workflow/sessions/{session_id}/.chat/
+✓ Agent log saved to .workflow/active/{session_id}/.chat/
 ```
 
 ## Output Format: Agent JSON Response
@@ -597,9 +597,9 @@ If Edit tool fails mid-application:
 
 **Output**:
 - Modified files:
-  - `.workflow/sessions/{session_id}/.brainstorm/guidance-specification.md`
-  - `.workflow/sessions/{session_id}/.brainstorm/{role}/analysis.md`
-  - `.workflow/sessions/{session_id}/.process/context-package.json` (conflict_risk → resolved)
+  - `.workflow/active/{session_id}/.brainstorm/guidance-specification.md`
+  - `.workflow/active/{session_id}/.brainstorm/{role}/analysis.md`
+  - `.workflow/active/{session_id}/.process/context-package.json` (conflict_risk → resolved)
 - NO report file generation
 
 **User Interaction**:
@@ -635,7 +635,7 @@ If Edit tool fails mid-application:
   - Custom handling (count)
   - Clarification records
   - Overlap analysis for custom ModuleOverlap conflicts
-✓ Agent log saved to .workflow/sessions/{session_id}/.chat/
+✓ Agent log saved to .workflow/active/{session_id}/.chat/
 ✓ Error handling robust (validate/retry/degrade)
 ```
 

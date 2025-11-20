@@ -397,7 +397,7 @@ Test-Gen Workflow Orchestrator
    └─ Command ends, control returns to user
 
 Artifacts Created:
-├── .workflow/sessions/WFS-test-[session]/
+├── .workflow/active/WFS-test-[session]/
 │   ├── workflow-session.json
 │   ├── IMPL_PLAN.md
 │   ├── TODO_LIST.md
@@ -444,7 +444,7 @@ See `/workflow:tools:test-task-generate` for complete task JSON schemas.
 
 ## Output Files
 
-Created in `.workflow/sessions/WFS-test-[session]/`:
+Created in `.workflow/active/WFS-test-[session]/`:
 - `workflow-session.json` - Session metadata
 - `.process/test-context-package.json` - Coverage analysis
 - `.process/TEST_ANALYSIS_RESULTS.md` - Test requirements

@@ -25,7 +25,7 @@ This document defines the complete workflow system architecture using a **JSON-o
 ## Session Management
 
 ### Directory-Based Session Management
-**Simple Location-Based Tracking**: Sessions in `.workflow/sessions/` directory
+**Simple Location-Based Tracking**: Sessions in `.workflow/active/` directory
 
 ```bash
 .workflow/
@@ -47,7 +47,7 @@ This document defines the complete workflow system architecture using a **JSON-o
 
 #### Detect Active Session(s)
 ```bash
-active_sessions=$(find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null)
+active_sessions=$(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null)
 count=$(echo "$active_sessions" | wc -l)
 
 if [ -z "$active_sessions" ]; then
@@ -67,7 +67,7 @@ fi
 
 #### Archive Session
 ```bash
-mv .workflow/sessions/WFS-feature .workflow/archives/WFS-feature
+mv .workflow/active/WFS-feature .workflow/archives/WFS-feature
 ```
 
 ### Session State Tracking
@@ -768,8 +768,8 @@ All workflows use the same file structure definition regardless of complexity. *
 4. **One-Off Queries**: Standalone questions or debugging without workflow context
 
 **Output Routing Logic**:
-- **IF** active session exists in `.workflow/sessions/` AND command is session-relevant:
-  - Save to `.workflow/sessions/WFS-[id]/.chat/[command]-[timestamp].md`
+- **IF** active session exists in `.workflow/active/` AND command is session-relevant:
+  - Save to `.workflow/active/WFS-[id]/.chat/[command]-[timestamp].md`
 - **ELSE** (no session OR one-off analysis):
   - Save to `.workflow/.scratchpad/[command]-[description]-[timestamp].md`
 
@@ -839,10 +839,10 @@ All workflows use the same file structure definition regardless of complexity. *
 ### Session Management
 ```bash
 # Create minimal required structure
-mkdir -p .workflow/sessions/WFS-topic-slug/.task
-echo '{"session_id":"WFS-topic-slug",...}' > .workflow/sessions/WFS-topic-slug/workflow-session.json
-echo '# Implementation Plan' > .workflow/sessions/WFS-topic-slug/IMPL_PLAN.md
-echo '# Tasks' > .workflow/sessions/WFS-topic-slug/TODO_LIST.md
+mkdir -p .workflow/active/WFS-topic-slug/.task
+echo '{"session_id":"WFS-topic-slug",...}' > .workflow/active/WFS-topic-slug/workflow-session.json
+echo '# Implementation Plan' > .workflow/active/WFS-topic-slug/IMPL_PLAN.md
+echo '# Tasks' > .workflow/active/WFS-topic-slug/TODO_LIST.md
 ```
 
 ### Task Operations
@@ -867,8 +867,8 @@ mkdir -p .summaries         # When first task completes
 ### Session Consistency Checks & Recovery
 ```bash
 # Validate session directory structure
-if [ -d ".workflow/sessions/" ]; then
-  for session_dir in .workflow/sessions/WFS-*; do
+if [ -d ".workflow/active/" ]; then
+  for session_dir in .workflow/active/WFS-*; do
     if [ ! -f "$session_dir/workflow-session.json" ]; then
       echo "⚠️ Missing workflow-session.json in $session_dir"
     fi

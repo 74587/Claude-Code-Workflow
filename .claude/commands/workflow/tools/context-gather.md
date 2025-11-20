@@ -22,7 +22,7 @@ Orchestrator command that invokes `context-search-agent` to gather comprehensive
 - **Agent Delegation**: Delegate all discovery to `context-search-agent` for autonomous execution
 - **Detection-First**: Check for existing context-package before executing
 - **Plan Mode**: Full comprehensive analysis (vs lightweight brainstorm mode)
-- **Standardized Output**: Generate `.workflow/sessions/{session}/.process/context-package.json`
+- **Standardized Output**: Generate `.workflow/active/{session}/.process/context-package.json`
 
 ## Execution Flow
 

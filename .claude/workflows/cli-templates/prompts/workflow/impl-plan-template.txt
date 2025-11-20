@@ -6,9 +6,9 @@ IMPL_PLAN.md Template - Implementation Plan Document Structure
 ---
 identifier: WFS-{session-id}
 source: "User requirements" | "File: path" | "Issue: ISS-001"
-analysis: .workflow/sessions//{session-id}/.process/ANALYSIS_RESULTS.md
-artifacts: .workflow/sessions//{session-id}/.brainstorming/
-context_package: .workflow/sessions//{session-id}/.process/context-package.json  # CCW smart context
+analysis: .workflow/active//{session-id}/.process/ANALYSIS_RESULTS.md
+artifacts: .workflow/active//{session-id}/.brainstorming/
+context_package: .workflow/active//{session-id}/.process/context-package.json  # CCW smart context
 workflow_type: "standard | tdd | design"  # Indicates execution model
 verification_history:  # CCW quality gates
   concept_verify: "passed | skipped | pending"

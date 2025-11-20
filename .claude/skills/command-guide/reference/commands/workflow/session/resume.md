@@ -17,37 +17,37 @@ Resume the most recently paused workflow session, restoring all context and stat
 
 ### Step 1: Find Paused Sessions
 ```bash
-ls .workflow/sessions/WFS-* 2>/dev/null
+ls .workflow/active/WFS-* 2>/dev/null
 ```
 
 ### Step 2: Check Session Status
 ```bash
-jq -r '.status' .workflow/sessions/WFS-session/workflow-session.json
+jq -r '.status' .workflow/active/WFS-session/workflow-session.json
 ```
 
 ### Step 3: Find Most Recent Paused
 ```bash
-ls -t .workflow/sessions/WFS-*/workflow-session.json | head -1
+ls -t .workflow/active/WFS-*/workflow-session.json | head -1
 ```
 
 ### Step 4: Update Session Status
 ```bash
-jq '.status = "active"' .workflow/sessions/WFS-session/workflow-session.json > temp.json
-mv temp.json .workflow/sessions/WFS-session/workflow-session.json
+jq '.status = "active"' .workflow/active/WFS-session/workflow-session.json > temp.json
+mv temp.json .workflow/active/WFS-session/workflow-session.json
 ```
 
 ### Step 5: Add Resume Timestamp
 ```bash
-jq '.resumed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' .workflow/sessions/WFS-session/workflow-session.json > temp.json
-mv temp.json .workflow/sessions/WFS-session/workflow-session.json
+jq '.resumed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' .workflow/active/WFS-session/workflow-session.json > temp.json
+mv temp.json .workflow/active/WFS-session/workflow-session.json
 ```
 
 ## Simple Bash Commands
 
 ### Basic Operations
-- **List sessions**: `ls .workflow/sessions/WFS-*`
+- **List sessions**: `ls .workflow/active/WFS-*`
 - **Check status**: `jq -r '.status' session.json`
-- **Find recent**: `ls -t .workflow/sessions/*/workflow-session.json | head -1`
+- **Find recent**: `ls -t .workflow/active/*/workflow-session.json | head -1`
 - **Update status**: `jq '.status = "active"' session.json > temp.json`
 - **Add timestamp**: `jq '.resumed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"'`
 

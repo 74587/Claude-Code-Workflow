@@ -304,7 +304,7 @@ if (!validation.all_passed()) {
 ## Output Location
 
 ```
-.workflow/sessions/{test_session_id}/.process/test-context-package.json
+.workflow/active/{test_session_id}/.process/test-context-package.json
 ```
 
 ## Helper Functions Reference

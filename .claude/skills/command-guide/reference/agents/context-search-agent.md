@@ -274,7 +274,7 @@ Calculate risk level based on:
 
 **3.7 Context Packaging & Output**
 
-**Output**: `.workflow/sessions//{session-id}/.process/context-package.json`
+**Output**: `.workflow/active//{session-id}/.process/context-package.json`
 
 **Note**: Task JSONs reference via `context_package_path` field (not in `artifacts`)
 

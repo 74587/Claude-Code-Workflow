@@ -5,7 +5,7 @@ Validate technical feasibility and identify implementation risks for proposed so
 □ Assess complexity, validate technology choices
 □ Evaluate performance and security implications
 □ Focus on TECHNICAL FEASIBILITY and RISK ASSESSMENT
-□ Write output to specified .workflow/sessions/{session_id}/.process/ path
+□ Write output to specified .workflow/active/{session_id}/.process/ path
 
 ## PREREQUISITE ANALYSIS
 
@@ -94,7 +94,7 @@ Review Gemini's proposed code targets:
 ## OUTPUT REQUIREMENTS
 
 ### Output File
-**Path**: `.workflow/sessions/{session_id}/.process/codex-feasibility-validation.md`
+**Path**: `.workflow/active/{session_id}/.process/codex-feasibility-validation.md`
 **Format**: Follow structure from `~/.claude/workflows/cli-templates/prompts/workflow/analysis-results-structure.txt`
 
 ### Required Sections
@@ -171,6 +171,6 @@ Rate each aspect on 1-5 scale:
 □ Risk mitigation strategies provided
 □ Resource requirements estimated
 □ Final feasibility judgment (PROCEED/RECONSIDER/REJECT)
-□ Output written to .workflow/sessions/{session_id}/.process/codex-feasibility-validation.md
+□ Output written to .workflow/active/{session_id}/.process/codex-feasibility-validation.md
 
 Focus: Technical feasibility validation with realistic risk assessment and mitigation strategies.

@@ -128,8 +128,8 @@ Generate a complete tech stack SKILL package with Exa research.
 1. **Extract Tech Stack Information**:
 
    IF MODE == 'session':
-     - Read `.workflow/sessions/{session_id}/workflow-session.json`
-     - Read `.workflow/sessions/{session_id}/.process/context-package.json`
+     - Read `.workflow/active/{session_id}/workflow-session.json`
+     - Read `.workflow/active/{session_id}/.process/context-package.json`
      - Extract tech_stack: {language, frameworks, libraries}
      - Build tech stack name: \"{language}-{framework1}-{framework2}\"
      - Example: \"typescript-react-nextjs\"

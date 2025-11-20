@@ -48,7 +48,7 @@ Three-phase workflow to eliminate ambiguities and enhance conceptual depth in ro
 
 ### Phase 1: Discovery & Validation
 
-1. **Detect Session**: Use `--session` parameter or find `.workflow/sessions/WFS-*` directories
+1. **Detect Session**: Use `--session` parameter or find `.workflow/active/WFS-*` directories
 2. **Validate Files**:
    - `guidance-specification.md` (optional, warn if missing)
    - `*/analysis*.md` (required, error if empty)
@@ -59,7 +59,7 @@ Three-phase workflow to eliminate ambiguities and enhance conceptual depth in ro
 **Main flow prepares file paths for Agent**:
 
 1. **Discover Analysis Files**:
-   - Glob(.workflow/sessions/WFS-{session}/.brainstorming/*/analysis*.md)
+   - Glob(.workflow/active/WFS-{session}/.brainstorming/*/analysis*.md)
    - Supports: analysis.md, analysis-1.md, analysis-2.md, analysis-3.md
    - Validate: At least one file exists (error if empty)
 
@@ -69,7 +69,7 @@ Three-phase workflow to eliminate ambiguities and enhance conceptual depth in ro
 
 3. **Pass to Agent** (Phase 3):
    - `session_id`
-   - `brainstorm_dir`: .workflow/sessions/WFS-{session}/.brainstorming/
+   - `brainstorm_dir`: .workflow/active/WFS-{session}/.brainstorming/
    - `role_analysis_paths`: ["product-manager/analysis.md", "system-architect/analysis-1.md", ...]
    - `participating_roles`: ["product-manager", "system-architect", ...]
 
@@ -361,7 +361,7 @@ Updated {role2}/analysis.md with Clarifications section + enhanced content
 
 ## Output
 
-**Location**: `.workflow/sessions/WFS-{session}/.brainstorming/[role]/analysis*.md` (in-place updates)
+**Location**: `.workflow/active/WFS-{session}/.brainstorming/[role]/analysis*.md` (in-place updates)
 
 **Updated Structure**:
 ```markdown

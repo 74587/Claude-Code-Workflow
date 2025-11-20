@@ -76,8 +76,8 @@ Use `resume --last` when current task extends/relates to previous execution. See
 
 ## Workflow Integration
 
-**Session Management**: Auto-detects active session from `.workflow/sessions/` directory
-- Active session: Save to `.workflow/sessions/WFS-[id]/.chat/execute-[timestamp].md`
+**Session Management**: Auto-detects active session from `.workflow/active/` directory
+- Active session: Save to `.workflow/active/WFS-[id]/.chat/execute-[timestamp].md`
 - No session: Create new session or save to scratchpad
 
 **Task Integration**: Load from `.task/[TASK-ID].json`, update status, generate summary

@@ -77,8 +77,8 @@ The command follows a streamlined, three-step process to convert analysis into e
 
 ### Step 1: Input & Discovery
 The process begins by gathering all necessary inputs. It follows a **Memory-First Rule**, skipping file reads if documents are already in the conversation memory.
-1.  **Session Validation**: Loads and validates the session from `.workflow/sessions/{session_id}/workflow-session.json`.
-2.  **Context Package Loading** (primary source): Reads `.workflow/sessions/{session_id}/.process/context-package.json` for smart context and artifact catalog.
+1.  **Session Validation**: Loads and validates the session from `.workflow/active/{session_id}/workflow-session.json`.
+2.  **Context Package Loading** (primary source): Reads `.workflow/active/{session_id}/.process/context-package.json` for smart context and artifact catalog.
 3.  **Brainstorm Artifacts Extraction**: Extracts role analysis paths from `context-package.json` → `brainstorm_artifacts.role_analyses[]` (supports `analysis*.md` automatically).
 4.  **Document Loading**: Reads role analyses, guidance specification, synthesis output, and conflict resolution (if exists) using paths from context package.
 
@@ -224,7 +224,7 @@ Each task JSON embeds all necessary context, artifacts, and execution steps usin
 - `id`: Task identifier (format: `IMPL-N` or `IMPL-N.M` for subtasks)
 - `title`: Descriptive task name
 - `status`: Task state (`pending|active|completed|blocked|container`)
-- `context_package_path`: Path to context package (`.workflow/sessions/WFS-[session]/.process/context-package.json`)
+- `context_package_path`: Path to context package (`.workflow/active/WFS-[session]/.process/context-package.json`)
 - `meta`: Task metadata
 - `context`: Task-specific context and requirements
 - `flow_control`: Execution steps and workflow
@@ -269,7 +269,7 @@ Each task JSON embeds all necessary context, artifacts, and execution steps usin
   "id": "IMPL-1",
   "title": "Implement feature X with Y components",
   "status": "pending",
-  "context_package_path": ".workflow/sessions/WFS-session/.process/context-package.json",
+  "context_package_path": ".workflow/active/WFS-session/.process/context-package.json",
   "meta": {
     "type": "feature",
     "agent": "@code-developer",
@@ -291,7 +291,7 @@ Each task JSON embeds all necessary context, artifacts, and execution steps usin
     "depends_on": [],
     "artifacts": [
       {
-        "path": ".workflow/sessions/WFS-session/.brainstorming/system-architect/analysis.md",
+        "path": ".workflow/active/WFS-session/.brainstorming/system-architect/analysis.md",
         "priority": "highest",
         "usage": "Architecture decisions and API specifications"
       }
@@ -353,10 +353,10 @@ This document provides a high-level overview of the entire implementation plan.
 ---
 identifier: WFS-{session-id}
 source: "User requirements" | "File: path" | "Issue: ISS-001"
-role_analyses: .workflow/sessions//{session-id}/.brainstorming/[role]/analysis*.md
-artifacts: .workflow/sessions//{session-id}/.brainstorming/
-context_package: .workflow/sessions//{session-id}/.process/context-package.json  # CCW smart context
-guidance_specification: .workflow/sessions//{session-id}/.brainstorming/guidance-specification.md  # Finalized decisions with resolved conflicts
+role_analyses: .workflow/active//{session-id}/.brainstorming/[role]/analysis*.md
+artifacts: .workflow/active//{session-id}/.brainstorming/
+context_package: .workflow/active//{session-id}/.process/context-package.json  # CCW smart context
+guidance_specification: .workflow/active//{session-id}/.brainstorming/guidance-specification.md  # Finalized decisions with resolved conflicts
 workflow_type: "standard | tdd | design"  # Indicates execution model
 verification_history:  # CCW quality gates
   synthesis_clarify: "passed | skipped | pending"  # Brainstorm phase clarification
@@ -606,7 +606,7 @@ A simple Markdown file for tracking the status of each task.
 ### 6.4. Output Files Diagram
 The command organizes outputs into a standard directory structure.
 ```
-.workflow/sessions//{session-id}/
+.workflow/active//{session-id}/
 ├── IMPL_PLAN.md                     # Implementation plan
 ├── TODO_LIST.md                     # Progress tracking
 ├── .task/

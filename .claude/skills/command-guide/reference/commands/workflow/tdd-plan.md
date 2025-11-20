@@ -70,7 +70,7 @@ TEST_FOCUS: [Test scenarios]
 
 **Parse Output**:
 - Extract: context-package.json path (store as `contextPath`)
-- Typical pattern: `.workflow/[sessionId]/.process/context-package.json`
+- Typical pattern: `.workflow/active/[sessionId]/.process/context-package.json`
 
 **Validation**:
 - Context package path extracted
@@ -91,7 +91,7 @@ TEST_FOCUS: [Test scenarios]
 - Related components and integration points
 - Test framework detection
 
-**Parse**: Extract testContextPath (`.workflow/[sessionId]/.process/test-context-package.json`)
+**Parse**: Extract testContextPath (`.workflow/active/[sessionId]/.process/test-context-package.json`)
 
 **Benefits**:
 - Makes TDD aware of existing environment
@@ -153,7 +153,7 @@ TEST_FOCUS: [Test scenarios]
 - Verify: CONFLICT_RESOLUTION.md file path (if executed)
 
 **Validation**:
-- File `.workflow/[sessionId]/.process/CONFLICT_RESOLUTION.md` exists (if executed)
+- File `.workflow/active/[sessionId]/.process/CONFLICT_RESOLUTION.md` exists (if executed)
 
 **Skip Behavior**:
 - If conflict_risk is "none" or "low", skip directly to Phase 5
@@ -296,9 +296,9 @@ Structure:
 [...]
 
 Plans generated:
-- Unified Implementation Plan: .workflow/[sessionId]/IMPL_PLAN.md
+- Unified Implementation Plan: .workflow/active/[sessionId]/IMPL_PLAN.md
   (includes TDD Implementation Tasks section with workflow_type: "tdd")
-- Task List: .workflow/[sessionId]/TODO_LIST.md
+- Task List: .workflow/active/[sessionId]/TODO_LIST.md
   (with internal TDD phase indicators)
 
 TDD Configuration:
@@ -496,7 +496,7 @@ Supports action-planning-agent for more autonomous TDD planning with:
 
 **Session Structure**:
 ```
-.workflow/sessions/WFS-xxx/
+.workflow/active/WFS-xxx/
 ├── IMPL_PLAN.md (unified plan with TDD Implementation Tasks section)
 ├── TODO_LIST.md (with internal TDD phase indicators)
 ├── .process/

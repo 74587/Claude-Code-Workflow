@@ -3,7 +3,7 @@ name: test-concept-enhanced
 description: Analyze test requirements and generate test generation strategy using Gemini with test-context package
 argument-hint: "--session WFS-test-session-id --context path/to/test-context-package.json"
 examples:
-  - /workflow:tools:test-concept-enhanced --session WFS-test-auth --context .workflow/sessions/WFS-test-auth/.process/test-context-package.json
+  - /workflow:tools:test-concept-enhanced --session WFS-test-auth --context .workflow/active/WFS-test-auth/.process/test-context-package.json
 ---
 
 # Test Concept Enhanced Command
@@ -30,7 +30,7 @@ Specialized analysis tool for test generation workflows that uses Gemini to anal
 ### Phase 1: Validation & Preparation
 
 1. **Session Validation**
-   - Load `.workflow/sessions/{test_session_id}/workflow-session.json`
+   - Load `.workflow/active/{test_session_id}/workflow-session.json`
    - Verify test session type is "test-gen"
    - Extract source session reference
 
@@ -48,11 +48,11 @@ Specialized analysis tool for test generation workflows that uses Gemini to anal
 
 **Tool Configuration**:
 ```bash
-cd .workflow/sessions/{test_session_id}/.process && gemini -p "
+cd .workflow/active/{test_session_id}/.process && gemini -p "
 PURPOSE: Analyze test coverage gaps and design comprehensive test generation strategy
 TASK: Study implementation context, existing tests, and generate test requirements for missing coverage
 MODE: analysis
-CONTEXT: @{.workflow/sessions/{test_session_id}/.process/test-context-package.json}
+CONTEXT: @{.workflow/active/{test_session_id}/.process/test-context-package.json}
 
 **MANDATORY FIRST STEP**: Read and analyze test-context-package.json to understand:
 - Test coverage gaps from test_coverage.missing_tests[]
@@ -226,13 +226,13 @@ RULES:
 - Prioritize critical business logic tests
 - Specify clear test scenarios and coverage targets
 - Identify all dependencies requiring mocks
-- **MUST write output to .workflow/sessions/{test_session_id}/.process/gemini-test-analysis.md**
+- **MUST write output to .workflow/active/{test_session_id}/.process/gemini-test-analysis.md**
 - Do NOT generate actual test code or implementation
 - Output ONLY test analysis and generation strategy
 " --approval-mode yolo
 ```
 
-**Output Location**: `.workflow/sessions/{test_session_id}/.process/gemini-test-analysis.md`
+**Output Location**: `.workflow/active/{test_session_id}/.process/gemini-test-analysis.md`
 
 ### Phase 3: Results Synthesis
 
@@ -408,7 +408,7 @@ Synthesize Gemini analysis into standardized format:
 - **Coverage Tools**: {coverage_tool_if_detected}
 ```
 
-**Output Location**: `.workflow/sessions/{test_session_id}/.process/TEST_ANALYSIS_RESULTS.md`
+**Output Location**: `.workflow/active/{test_session_id}/.process/TEST_ANALYSIS_RESULTS.md`
 
 ## Error Handling
 

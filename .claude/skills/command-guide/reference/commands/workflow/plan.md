@@ -70,7 +70,7 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **Validation**:
 - Session ID successfully extracted
-- Session directory `.workflow/[sessionId]/` exists
+- Session directory `.workflow/active/[sessionId]/` exists
 
 **TodoWrite**: Mark phase 1 completed, phase 2 in_progress
 
@@ -87,7 +87,7 @@ CONTEXT: Existing user database schema, REST API endpoints
 
 **Parse Output**:
 - Extract: context-package.json path (store as `contextPath`)
-- Typical pattern: `.workflow/[sessionId]/.process/context-package.json`
+- Typical pattern: `.workflow/active/[sessionId]/.process/context-package.json`
 
 **Validation**:
 - Context package path extracted
@@ -141,7 +141,7 @@ CONTEXT: Existing user database schema, REST API endpoints
 - Verify: CONFLICT_RESOLUTION.md file path (if executed)
 
 **Validation**:
-- File `.workflow/[sessionId]/.process/CONFLICT_RESOLUTION.md` exists (if executed)
+- File `.workflow/active/[sessionId]/.process/CONFLICT_RESOLUTION.md` exists (if executed)
 
 **Skip Behavior**:
 - If conflict_risk is "none" or "low", skip directly to Phase 3.5
@@ -232,9 +232,9 @@ SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId] 
 **Input**: `sessionId` from Phase 1
 
 **Validation**:
-- `.workflow/[sessionId]/IMPL_PLAN.md` exists
-- `.workflow/[sessionId]/.task/IMPL-*.json` exists (at least one)
-- `.workflow/[sessionId]/TODO_LIST.md` exists
+- `.workflow/active/[sessionId]/IMPL_PLAN.md` exists
+- `.workflow/active/[sessionId]/.task/IMPL-*.json` exists (at least one)
+- `.workflow/active/[sessionId]/TODO_LIST.md` exists
 
 <!-- TodoWrite: When task-generate-agent invoked, ATTACH 1 agent task -->
 
@@ -266,7 +266,7 @@ SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId] 
 ```
 Planning complete for session: [sessionId]
 Tasks generated: [count]
-Plan: .workflow/[sessionId]/IMPL_PLAN.md
+Plan: .workflow/active/[sessionId]/IMPL_PLAN.md
 
 Recommended Next Steps:
 1. /workflow:action-plan-verify --session [sessionId]  # Verify plan quality before execution

@@ -102,7 +102,7 @@ Phase 2: Document Generation (Autonomous Output)
 1. **Extract Tasks**: Parse `analysis_results.tasks` array
 2. **Map Artifacts**: Use `artifacts_inventory` to add artifact references to task.context
 3. **Assess Complexity**: Use `analysis_results.complexity` for document structure decision
-4. **Session Paths**: Use `session_id` to construct output paths (.workflow/sessions/{session_id}/)
+4. **Session Paths**: Use `session_id` to construct output paths (.workflow/active/{session_id}/)
 
 ### MCP Integration Guidelines
 
@@ -244,14 +244,14 @@ Generate individual `.task/IMPL-*.json` files with:
 - Low priority: role_analyses
 
 ### 3. Implementation Plan Creation
-Generate `IMPL_PLAN.md` at `.workflow/sessions/{session_id}/IMPL_PLAN.md`:
+Generate `IMPL_PLAN.md` at `.workflow/active/{session_id}/IMPL_PLAN.md`:
 
 **Structure**:
 ```markdown
 ---
 identifier: {session_id}
 source: "User requirements"
-analysis: .workflow/sessions/{session_id}/.process/ANALYSIS_RESULTS.md
+analysis: .workflow/active/{session_id}/.process/ANALYSIS_RESULTS.md
 ---
 
 # Implementation Plan: {Project Title}
@@ -280,7 +280,7 @@ analysis: .workflow/sessions/{session_id}/.process/ANALYSIS_RESULTS.md
 ```
 
 ### 4. TODO List Generation
-Generate `TODO_LIST.md` at `.workflow/sessions/{session_id}/TODO_LIST.md`:
+Generate `TODO_LIST.md` at `.workflow/active/{session_id}/TODO_LIST.md`:
 
 **Structure**:
 ```markdown

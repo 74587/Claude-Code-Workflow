@@ -156,28 +156,28 @@ Use /workflow:session:complete to archive current session.
 
 ### Step 1: Find Active Session
 ```bash
-find .workflow/sessions/ -name "WFS-*" -type d 2>/dev/null | head -1
+find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | head -1
 ```
 
 ### Step 2: Load Session Data
 ```bash
-cat .workflow/sessions/WFS-session/workflow-session.json
+cat .workflow/active/WFS-session/workflow-session.json
 ```
 
 ### Step 3: Scan Task Files
 ```bash
-find .workflow/sessions/WFS-session/.task/ -name "*.json" -type f 2>/dev/null
+find .workflow/active/WFS-session/.task/ -name "*.json" -type f 2>/dev/null
 ```
 
 ### Step 4: Generate Task Status
 ```bash
-cat .workflow/sessions/WFS-session/.task/impl-1.json | jq -r '.status'
+cat .workflow/active/WFS-session/.task/impl-1.json | jq -r '.status'
 ```
 
 ### Step 5: Count Task Progress
 ```bash
-find .workflow/sessions/WFS-session/.task/ -name "*.json" -type f | wc -l
-find .workflow/sessions/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
+find .workflow/active/WFS-session/.task/ -name "*.json" -type f | wc -l
+find .workflow/active/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
 ```
 
 ### Step 6: Display Overview

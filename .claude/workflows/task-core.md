@@ -134,7 +134,7 @@ All task files use this simplified 5-field schema:
 ### Active Session Detection
 ```bash
 # Check for active session in sessions directory
-active_session=$(find .workflow/sessions/ -name 'WFS-*' -type d 2>/dev/null | head -1)
+active_session=$(find .workflow/active/ -name 'WFS-*' -type d 2>/dev/null | head -1)
 ```
 
 ### Workflow Context Inheritance
@@ -144,10 +144,10 @@ Tasks inherit from:
 3. `IMPL_PLAN.md` - Planning document
 
 ### File Locations
-- **Task JSON**: `.workflow/sessions/WFS-[topic]/.task/IMPL-*.json` (uppercase required)
-- **Session State**: `.workflow/sessions/WFS-[topic]/workflow-session.json`
-- **Planning Doc**: `.workflow/sessions/WFS-[topic]/IMPL_PLAN.md`
-- **Progress**: `.workflow/sessions/WFS-[topic]/TODO_LIST.md`
+- **Task JSON**: `.workflow/active/WFS-[topic]/.task/IMPL-*.json` (uppercase required)
+- **Session State**: `.workflow/active/WFS-[topic]/workflow-session.json`
+- **Planning Doc**: `.workflow/active/WFS-[topic]/IMPL_PLAN.md`
+- **Progress**: `.workflow/active/WFS-[topic]/TODO_LIST.md`
 
 ## Agent Mapping
 

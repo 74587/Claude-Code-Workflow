@@ -22,7 +22,7 @@ Orchestrator command that invokes `test-context-search-agent` to gather comprehe
 - **Detection-First**: Check for existing test-context-package before executing
 - **Coverage-First**: Analyze existing test coverage before planning new tests
 - **Source Context Loading**: Import implementation summaries from source session
-- **Standardized Output**: Generate `.workflow/sessions/{test_session_id}/.process/test-context-package.json`
+- **Standardized Output**: Generate `.workflow/active/{test_session_id}/.process/test-context-package.json`
 
 ## Execution Flow
 
@@ -164,7 +164,7 @@ Refer to `test-context-search-agent.md` Phase 3.2 for complete `test-context-pac
 
 ## Success Criteria
 
-- ✅ Valid test-context-package.json generated in `.workflow/sessions/{test_session_id}/.process/`
+- ✅ Valid test-context-package.json generated in `.workflow/active/{test_session_id}/.process/`
 - ✅ Source session context loaded successfully
 - ✅ Test coverage gaps identified (>90% accuracy)
 - ✅ Test framework detected and documented

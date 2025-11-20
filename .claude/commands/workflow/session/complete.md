@@ -26,17 +26,17 @@ Mark the currently active workflow session as complete, analyze it for lessons l
 #### Step 1.1: Find Active Session and Get Name
 ```bash
 # Find active session directory
-bash(find .workflow/sessions/ -name "WFS-*" -type d | head -1)
+bash(find .workflow/active/ -name "WFS-*" -type d | head -1)
 
 # Extract session name from directory path
-bash(basename .workflow/sessions/WFS-session-name)
+bash(basename .workflow/active/WFS-session-name)
 ```
 **Output**: Session name `WFS-session-name`
 
 #### Step 1.2: Check for Existing Archiving Marker (Resume Detection)
 ```bash
 # Check if session is already being archived
-bash(test -f .workflow/sessions/WFS-session-name/.archiving && echo "RESUMING" || echo "NEW")
+bash(test -f .workflow/active/WFS-session-name/.archiving && echo "RESUMING" || echo "NEW")
 ```
 
 **If RESUMING**:
@@ -49,14 +49,14 @@ bash(test -f .workflow/sessions/WFS-session-name/.archiving && echo "RESUMING" |
 #### Step 1.3: Create Archiving Marker
 ```bash
 # Mark session as "archiving in progress"
-bash(touch .workflow/sessions/WFS-session-name/.archiving)
+bash(touch .workflow/active/WFS-session-name/.archiving)
 ```
 **Purpose**:
 - Prevents concurrent operations on this session
 - Enables recovery if archival fails
-- Session remains in `.workflow/sessions/` for agent analysis
+- Session remains in `.workflow/active/` for agent analysis
 
-**Result**: Session still at `.workflow/sessions/WFS-session-name/` with `.archiving` marker
+**Result**: Session still at `.workflow/active/WFS-session-name/` with `.archiving` marker
 
 ### Phase 2: Agent Analysis (In-Place Processing)
 
@@ -75,7 +75,7 @@ Task(
 Analyze workflow session for archival preparation. Session is STILL in active location.
 
 ## Context
-- Session: .workflow/sessions/WFS-session-name/
+- Session: .workflow/active/WFS-session-name/
 - Status: Marked as archiving (.archiving marker present)
 - Location: Active sessions directory (NOT archived yet)
 
@@ -123,7 +123,7 @@ Analyze workflow session for archival preparation. Session is STILL in active lo
 ## Important Constraints
 - DO NOT move or delete any files
 - DO NOT update manifest.json yet
-- Session remains in .workflow/sessions/ during analysis
+- Session remains in .workflow/active/ during analysis
 - Return complete metadata package for orchestrator to commit atomically
 
 ## Error Handling
@@ -135,7 +135,7 @@ Analyze workflow session for archival preparation. Session is STILL in active lo
 
 **Expected Output**:
 - Agent returns complete metadata package
-- Session remains in `.workflow/sessions/` with `.archiving` marker
+- Session remains in `.workflow/active/` with `.archiving` marker
 - No files moved or manifests updated yet
 
 ### Phase 3: Atomic Commit (Transactional File Operations)
@@ -149,7 +149,7 @@ bash(mkdir -p .workflow/archives/)
 
 #### Step 3.2: Move Session to Archive
 ```bash
-bash(mv .workflow/sessions/WFS-session-name .workflow/archives/WFS-session-name)
+bash(mv .workflow/active/WFS-session-name .workflow/archives/WFS-session-name)
 ```
 **Result**: Session now at `.workflow/archives/WFS-session-name/`
 
@@ -345,16 +345,16 @@ function getLatestCommitHash() {
 
 **Recovery Steps**:
 ```bash
-# Session still in .workflow/sessions/WFS-session-name
+# Session still in .workflow/active/WFS-session-name
 # Remove archiving marker
-bash(rm .workflow/sessions/WFS-session-name/.archiving)
+bash(rm .workflow/active/WFS-session-name/.archiving)
 ```
 
 **User Notification**:
 ```
 ERROR: Session archival failed during analysis phase
 Reason: [error message from agent]
-Session remains active in: .workflow/sessions/WFS-session-name
+Session remains active in: .workflow/active/WFS-session-name
 
 Recovery:
 1. Fix any issues identified in error message
@@ -373,7 +373,7 @@ Session state: SAFE (no changes committed)
 **Recovery Steps**:
 ```bash
 # Archiving marker still present
-# Session still in .workflow/sessions/ (move failed)
+# Session still in .workflow/active/ (move failed)
 # No manifest updated yet
 ```
 
@@ -381,7 +381,7 @@ Session state: SAFE (no changes committed)
 ```
 ERROR: Session archival failed during move operation
 Reason: [mv error message]
-Session remains in: .workflow/sessions/WFS-session-name
+Session remains in: .workflow/active/WFS-session-name
 
 Recovery:
 1. Fix filesystem issues (permissions, disk space)

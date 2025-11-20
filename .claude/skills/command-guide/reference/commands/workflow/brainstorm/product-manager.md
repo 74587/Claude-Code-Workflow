@@ -27,10 +27,10 @@ allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*)
 ### Phase 1: Session & Framework Detection
 ```bash
 # Check active session and framework
-CHECK: find .workflow/sessions/ -name "WFS-*" -type d
+CHECK: find .workflow/active/ -name "WFS-*" -type d
 IF active_session EXISTS:
     session_id = get_active_session()
-    brainstorm_dir = .workflow/sessions/WFS-{session}/.brainstorming/
+    brainstorm_dir = .workflow/active/WFS-{session}/.brainstorming/
 
     CHECK: brainstorm_dir/guidance-specification.md
     IF EXISTS:
@@ -67,13 +67,13 @@ Execute product-manager analysis for existing topic framework
 
 ## Context Loading
 ASSIGNED_ROLE: product-manager
-OUTPUT_LOCATION: .workflow/sessions/WFS-{session}/.brainstorming/product-manager/
+OUTPUT_LOCATION: .workflow/active/WFS-{session}/.brainstorming/product-manager/
 ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 
 ## Flow Control Steps
 1. **load_topic_framework**
    - Action: Load structured topic discussion framework
-   - Command: Read(.workflow/sessions/WFS-{session}/.brainstorming/guidance-specification.md)
+   - Command: Read(.workflow/active/WFS-{session}/.brainstorming/guidance-specification.md)
    - Output: topic_framework_content
 
 2. **load_role_template**
@@ -83,7 +83,7 @@ ANALYSIS_MODE: {framework_mode ? "framework_based" : "standalone"}
 
 3. **load_session_metadata**
    - Action: Load session metadata and existing context
-   - Command: Read(.workflow/sessions/WFS-{session}/workflow-session.json)
+   - Command: Read(.workflow/active/WFS-{session}/workflow-session.json)
    - Output: session_context
 
 ## Analysis Requirements
@@ -143,7 +143,7 @@ TodoWrite({
 
 ### Framework-Based Analysis
 ```
-.workflow/sessions/WFS-{session}/.brainstorming/product-manager/
+.workflow/active/WFS-{session}/.brainstorming/product-manager/
 └── analysis.md    # Structured analysis addressing guidance-specification.md discussion points
 ```
 
@@ -188,7 +188,7 @@ TodoWrite({
   "product_manager": {
     "status": "completed",
     "framework_addressed": true,
-    "output_location": ".workflow/sessions/WFS-{session}/.brainstorming/product-manager/analysis.md",
+    "output_location": ".workflow/active/WFS-{session}/.brainstorming/product-manager/analysis.md",
     "framework_reference": "@../guidance-specification.md"
   }
 }

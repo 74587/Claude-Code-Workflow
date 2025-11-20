@@ -67,7 +67,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 
 **Optional Parameters**:
 - `--session <id>`: Workflow session ID
-  - Integrate into existing session (`.workflow/sessions/WFS-{session}/`)
+  - Integrate into existing session (`.workflow/active/WFS-{session}/`)
   - Enable automatic design system integration (Phase 4)
   - If not provided: standalone mode (`.workflow/`)
 
@@ -98,7 +98,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 **Session Integration**:
 - `--session` flag determines session integration or standalone execution
 - Integrated: Design system automatically added to session artifacts
-- Standalone: Output in `.workflow/sessions/{run_id}/`
+- Standalone: Output in `.workflow/active/{run_id}/`
 
 ## 5-Phase Execution
 
@@ -184,11 +184,11 @@ design_id = "design-run-$(date +%Y%m%d)-$RANDOM"
 
 IF --session:
     session_id = {provided_session}
-    relative_base_path = ".workflow/sessions/WFS-{session_id}/{design_id}"
+    relative_base_path = ".workflow/active/WFS-{session_id}/{design_id}"
     session_mode = "integrated"
 ELSE:
     session_id = null
-    relative_base_path = ".workflow/sessions/{design_id}"
+    relative_base_path = ".workflow/active/{design_id}"
     session_mode = "standalone"
 
 # Create base directory and convert to absolute path
