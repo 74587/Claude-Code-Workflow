@@ -54,13 +54,64 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 ### Phase 1: Discovery
 **Applies to**: Normal mode only (skipped in resume mode)
 
-**Process**:
-1. **Check Active Sessions**: Find sessions in `.workflow/active/` directory
-2. **Select Session**: If multiple found, prompt user selection
-3. **Load Session Metadata**: Read `workflow-session.json` ONLY (minimal context)
-4. **DO NOT read task JSONs yet** - defer until execution phase
+**Purpose**: Find and select active workflow session with user confirmation when multiple sessions exist
 
-**Resume Mode**: This phase is completely skipped when `--resume-session="session-id"` flag is provided.
+**Process**:
+
+#### Step 1.1: Count Active Sessions
+```bash
+bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | wc -l)
+```
+
+#### Step 1.2: Handle Session Selection
+
+**Case A: No Sessions** (count = 0)
+```
+ERROR: No active workflow sessions found
+Run /workflow:plan "task description" to create a session
+```
+
+**Case B: Single Session** (count = 1)
+```bash
+bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | head -1 | xargs basename)
+```
+Auto-select and continue to Phase 2.
+
+**Case C: Multiple Sessions** (count > 1)
+
+List sessions with metadata and prompt user selection:
+```bash
+bash(for dir in .workflow/active/WFS-*/; do
+  session=$(basename "$dir")
+  project=$(jq -r '.project // "Unknown"' "$dir/workflow-session.json" 2>/dev/null)
+  total=$(grep -c "^- \[" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
+  completed=$(grep -c "^- \[x\]" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
+  [ "$total" -gt 0 ] && progress=$((completed * 100 / total)) || progress=0
+  echo "${session} | ${project} | ${completed}/${total} tasks (${progress}%)"
+done)
+```
+
+Use AskUserQuestion to present formatted options:
+```
+Multiple active workflow sessions detected. Please select one:
+
+1. WFS-auth-system | Authentication System | 3/5 tasks (60%)
+2. WFS-payment-module | Payment Integration | 0/8 tasks (0%)
+
+Enter number, full session ID, or partial match:
+```
+
+Parse user input (supports: number "1", full ID "WFS-auth-system", or partial "auth"), validate selection, and continue to Phase 2.
+
+#### Step 1.3: Load Session Metadata
+```bash
+bash(cat .workflow/active/${sessionId}/workflow-session.json)
+```
+
+**Output**: Store session metadata in memory
+**DO NOT read task JSONs yet** - defer until execution phase (lazy loading)
+
+**Resume Mode**: This entire phase is skipped when `--resume-session="session-id"` flag is provided.
 
 ### Phase 2: Planning Document Analysis
 **Applies to**: Normal mode only (skipped in resume mode)
