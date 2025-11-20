@@ -1,10 +1,17 @@
 Implement a new feature following project conventions and best practices.
 
-## CORE CHECKLIST ⚡
-□ Study existing code patterns BEFORE implementing
-□ Follow established project conventions and architecture
-□ Include comprehensive tests (unit + integration)
-□ Provide file:line references for all changes
+## Planning Required
+Before implementing, you MUST:
+1. Study existing code patterns and conventions
+2. Review project architecture and design principles
+3. Plan implementation with error handling and tests
+4. Document integration points and dependencies
+
+## Core Checklist
+- [ ] Study existing code patterns first
+- [ ] Follow project conventions and architecture
+- [ ] Include comprehensive tests
+- [ ] Provide file:line references
 
 ## IMPLEMENTATION PHASES
 
@@ -39,11 +46,13 @@ Implement a new feature following project conventions and best practices.
 - Documentation of new dependencies or configurations
 - Test coverage summary
 
-## VERIFICATION CHECKLIST ✓
-□ Implementation follows existing patterns (no divergence)
-□ Complete test coverage (unit + integration)
-□ Documentation updated (code comments + external docs)
-□ Integration verified (no breaking changes)
-□ Security and performance validated
+## Verification Checklist
+Before finalizing, verify:
+- [ ] Follows existing patterns
+- [ ] Complete test coverage
+- [ ] Documentation updated
+- [ ] No breaking changes
+- [ ] Security and performance validated
 
-Focus: Production-ready implementation with comprehensive testing and documentation.
+## Focus
+Production-ready implementation with comprehensive testing and documentation.

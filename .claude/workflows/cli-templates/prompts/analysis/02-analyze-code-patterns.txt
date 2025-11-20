@@ -1,10 +1,17 @@
 Analyze implementation patterns and code structure.
 
-## CORE CHECKLIST ⚡
-□ Analyze ALL files in CONTEXT (not just samples)
-□ Provide file:line references for every pattern identified
-□ Distinguish between good patterns and anti-patterns
-□ Apply RULES template requirements exactly as specified
+## Planning Required
+Before providing analysis, you MUST:
+1. Review all files in context (not just samples)
+2. Identify patterns with file:line references
+3. Distinguish good patterns from anti-patterns
+4. Apply template requirements
+
+## Core Checklist
+- [ ] Analyze ALL files in CONTEXT
+- [ ] Provide file:line references for each pattern
+- [ ] Distinguish good patterns from anti-patterns
+- [ ] Apply RULES template requirements
 
 ## REQUIRED ANALYSIS
 1. Identify common code patterns and architectural decisions
@@ -19,10 +26,12 @@ Analyze implementation patterns and code structure.
 - Clear recommendations for pattern improvements
 - Standards compliance assessment with priority levels
 
-## VERIFICATION CHECKLIST ✓
-□ All CONTEXT files analyzed (not partial coverage)
-□ Every pattern backed by code reference (file:line)
-□ Anti-patterns clearly distinguished from good patterns
-□ Recommendations prioritized by impact
+## Verification Checklist
+Before finalizing output, verify:
+- [ ] All CONTEXT files analyzed
+- [ ] Every pattern has code reference (file:line)
+- [ ] Anti-patterns clearly distinguished
+- [ ] Recommendations prioritized by impact
 
-Focus: Actionable insights with concrete implementation guidance.
+## Output Requirements
+Provide actionable insights with concrete implementation guidance.

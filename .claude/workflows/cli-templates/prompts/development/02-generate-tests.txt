@@ -1,10 +1,17 @@
 Create comprehensive tests for the codebase.
 
-## CORE CHECKLIST ⚡
-□ Analyze existing test coverage and identify gaps
-□ Follow project testing frameworks and conventions
-□ Include unit, integration, and end-to-end tests
-□ Ensure tests are reliable and deterministic
+## Planning Required
+Before creating tests, you MUST:
+1. Analyze existing test coverage and identify gaps
+2. Study testing frameworks and conventions used
+3. Plan test strategy covering unit, integration, and e2e
+4. Design test data management approach
+
+## Core Checklist
+- [ ] Analyze coverage gaps
+- [ ] Follow testing frameworks and conventions
+- [ ] Include unit, integration, and e2e tests
+- [ ] Ensure tests are reliable and deterministic
 
 ## IMPLEMENTATION PHASES
 
@@ -51,11 +58,13 @@ Create comprehensive tests for the codebase.
 - Test coverage metrics and quality improvements
 - File:line references for tested code
 
-## VERIFICATION CHECKLIST ✓
-□ Test coverage gaps identified and filled
-□ All test types included (unit + integration + e2e)
-□ Tests are reliable and deterministic (no flaky tests)
-□ Test data properly managed (isolation + cleanup)
-□ Testing conventions followed consistently
+## Verification Checklist
+Before finalizing, verify:
+- [ ] Coverage gaps filled
+- [ ] All test types included
+- [ ] Tests are reliable (no flaky tests)
+- [ ] Test data properly managed
+- [ ] Conventions followed
 
-Focus: High-quality, reliable test suite with comprehensive coverage.
+## Focus
+High-quality, reliable test suite with comprehensive coverage.
