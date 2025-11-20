@@ -357,6 +357,126 @@ Phase 1: Gemini analysis ──┐
 
 ---
 
+#### 🔗 CLI Results as Context (Memory)
+
+CLI tool analysis results can be saved and used as context (memory) for subsequent operations, enabling intelligent workflows:
+
+**1. Result Persistence**
+
+```bash
+# CLI execution results automatically saved to session directory
+/cli:chat --tool gemini "Analyze authentication module architecture"
+→ Saved to: .workflow/active/WFS-xxx/.chat/chat-[timestamp].md
+
+/cli:analyze --tool qwen "Evaluate performance bottlenecks"
+→ Saved to: .workflow/active/WFS-xxx/.chat/analyze-[timestamp].md
+
+/cli:execute --tool codex "Implement feature"
+→ Saved to: .workflow/active/WFS-xxx/.chat/execute-[timestamp].md
+```
+
+**2. Results as Planning Basis**
+
+```bash
+# Step 1: Analyze current state (generate memory)
+Use gemini to deeply analyze authentication system architecture, security, and performance issues
+→ Output: Detailed analysis report (auto-saved)
+
+# Step 2: Plan based on analysis results
+/workflow:plan "Refactor authentication system based on above Gemini analysis report"
+→ System automatically reads analysis reports from .chat/ as context
+→ Generate precise implementation plan
+```
+
+**3. Results as Implementation Basis**
+
+```bash
+# Step 1: Parallel analysis (generate multiple memories)
+Use gemini to analyze existing code structure
+Use qwen to evaluate technical solution feasibility
+→ Output: Multiple analysis reports
+
+# Step 2: Implement based on all analysis results
+Have codex synthesize above Gemini and Qwen analyses to implement optimal solution
+→ Codex automatically reads prior analysis results
+→ Generate code conforming to architecture design
+```
+
+**4. Cross-Session References**
+
+```bash
+# Reference historical session analysis results
+/cli:execute --tool codex "Refer to architecture analysis in WFS-2024-001, implement new payment module"
+→ System automatically loads specified session context
+→ Implement based on historical analysis
+```
+
+**5. Memory Update Loop**
+
+```bash
+# Iterative optimization flow
+Use gemini to analyze problems in current implementation
+→ Generate problem report (memory)
+
+Have codex optimize code based on problem report
+→ Implement improvements (update memory)
+
+Use qwen to verify optimization effectiveness
+→ Verification report (append to memory)
+
+# All results accumulate as complete project memory
+→ Support subsequent decisions and implementation
+```
+
+**Memory Flow Example**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 1: Analysis Phase (Generate Memory)                   │
+├─────────────────────────────────────────────────────────────┤
+│  Gemini analysis  →  Architecture report (.chat/analyze-001.md)│
+│  Qwen evaluation  →  Solution report (.chat/analyze-002.md)   │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ As Memory Input
+                      ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 2: Planning Phase (Use Memory)                        │
+├─────────────────────────────────────────────────────────────┤
+│  /workflow:plan  →  Read analysis reports  →  Generate plan   │
+│                     (.task/IMPL-*.json)                      │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ As Memory Input
+                      ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 3: Implementation Phase (Use Memory)                   │
+├─────────────────────────────────────────────────────────────┤
+│  Codex implement  →  Read plan+analysis  →  Generate code     │
+│                     (.chat/execute-001.md)                   │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ As Memory Input
+                      ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 4: Verification Phase (Use Memory)                     │
+├─────────────────────────────────────────────────────────────┤
+│  Gemini review   →  Read implementation code  →  Quality report│
+│                     (.chat/review-001.md)                    │
+└─────────────────────────────────────────────────────────────┘
+                      │
+                      ↓
+            Complete Project Memory Library
+          Supporting All Future Decisions and Implementation
+```
+
+**Best Practices**:
+
+1. **Maintain Continuity**: Execute related tasks in the same session to automatically share memory
+2. **Explicit References**: Explicitly reference historical analyses when crossing sessions (e.g., "Refer to WFS-xxx analysis")
+3. **Incremental Updates**: Each analysis and implementation appends to memory, forming complete decision chain
+4. **Regular Organization**: Use `/memory:update-related` to consolidate CLI results into CLAUDE.md
+5. **Quality First**: High-quality analysis memory significantly improves subsequent implementation quality
+
+---
+
 #### 🔄 Workflow Integration Examples
 
 **Integration with Lite Workflow**:
