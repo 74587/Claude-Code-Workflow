@@ -7,6 +7,14 @@ allowed-tools: Read(*), Write(*), Edit(*), TodoWrite(*), Glob(*), Bash(*)
 
 # Task Replan Command (/task:replan)
 
+> **⚠️ DEPRECATION NOTICE**: This command is maintained for backward compatibility. For new workflows, use `/workflow:replan` which provides:
+> - Session-level replanning with comprehensive artifact updates
+> - Interactive boundary clarification
+> - Updates to IMPL_PLAN.md, TODO_LIST.md, and session metadata
+> - Better integration with workflow sessions
+>
+> **Migration**: Replace `/task:replan IMPL-1 "changes"` with `/workflow:replan IMPL-1 "changes"`
+
 ## Overview
 Replans individual tasks or batch processes multiple tasks with change tracking and backup management.
 

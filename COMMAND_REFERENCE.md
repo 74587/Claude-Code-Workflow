@@ -39,6 +39,7 @@ These commands orchestrate complex, multi-phase development processes, from plan
 |---|---|
 | `/workflow:plan` | Orchestrate 5-phase planning workflow with quality gate, executing commands and passing context between phases. |
 | `/workflow:lite-plan` | ⚡ **NEW** Lightweight interactive planning and execution workflow with in-memory planning, smart code exploration, three-dimensional multi-select confirmation (task approval + execution method + code review), and parallel task execution support. |
+| `/workflow:replan` | ⚡ **NEW** Interactive workflow replanning with session-level artifact updates and boundary clarification through guided questioning. Supports both session-wide and task-specific modifications. |
 | `/workflow:execute` | Coordinate agents for existing workflow tasks with automatic discovery. |
 | `/workflow:resume` | Intelligent workflow session resumption with automatic progress analysis. |
 | `/workflow:review` | Optional specialized review (security, architecture, docs) for completed implementation. |
@@ -122,7 +123,7 @@ Commands for managing individual tasks within a workflow session.
 | `/task:create` | Create implementation tasks with automatic context awareness. |
 | `/task:breakdown` | Intelligent task decomposition with context-aware subtask generation. |
 | `/task:execute` | Execute tasks with appropriate agents and context-aware orchestration. |
-| `/task:replan` | Replan individual tasks with detailed user input and change tracking. |
+| `/task:replan` | ⚠️ **DEPRECATED** Use `/workflow:replan` instead. Legacy command for task replanning (maintained for backward compatibility). |
 
 ## Memory and Versioning Commands
 
