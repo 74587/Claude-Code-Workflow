@@ -22,9 +22,6 @@ Replans individual tasks or batch processes multiple tasks with change tracking 
 - **Single Task Mode**: Replan one task with specific changes
 - **Batch Mode**: Process multiple tasks from action-plan verification report
 
-## Core Principles
-**Task System:** @~/.claude/workflows/task-core.md
-
 ## Key Features
 - **Single/Batch Operations**: Single task or multiple tasks from verification report
 - **Multiple Input Sources**: Text, files, or verification report

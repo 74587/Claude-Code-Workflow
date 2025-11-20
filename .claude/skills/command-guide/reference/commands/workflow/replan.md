@@ -17,10 +17,6 @@ Intelligently replans workflow sessions or individual tasks with interactive bou
 - **Impact Analysis**: Automatic detection of affected files and dependencies
 - **Backup Management**: Preserves previous versions with restore capability
 
-## Core Principles
-**Task System**: @~/.claude/workflows/task-core.md
-**Workflow Architecture**: @~/.claude/workflows/workflow-architecture.md
-
 ## Operation Modes
 
 ### Session Replan Mode
