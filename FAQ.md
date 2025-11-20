@@ -164,14 +164,31 @@ That's it! CCW handles planning, task generation, and implementation.
 
 ### When should I use brainstorming workflows?
 
-Use `/workflow:brainstorm:auto-parallel` when:
-- Feature requires multiple perspectives (architecture, security, UX, etc.)
-- You need thorough requirements analysis
-- Architecture decisions have significant impact
-- Starting a complex project from scratch
+**Use `/workflow:brainstorm:auto-parallel` when you know WHAT to build, but NOT HOW to build it.**
+
+**Brainstorming scenarios**:
+- 🤔 **Unclear solution approach** - Multiple ways to solve the problem, need expert analysis
+- 🏗️ **Architectural exploration** - Need to explore different architectural patterns
+- 📋 **Requirements clarification** - High-level goal is clear, but technical details are not
+- 🔀 **Multiple trade-offs** - Need to analyze pros/cons of different approaches
+- 🆕 **Unfamiliar domain** - Building something new without clear implementation path
+
+**Skip brainstorming, use `/workflow:plan` directly when**:
+- ✅ **Clear implementation approach** - You already know how to build it
+- ✅ **Similar to existing code** - Following established patterns in your codebase
+- ✅ **Well-defined requirements** - Technical specs are clear from the start
+- ✅ **Simple features** - Straightforward implementation, no architectural decisions
+
+**Workflow comparison**:
+
+| Know what + Know how | Know what, NOT how |
+|---------------------|-------------------|
+| `/workflow:plan "Add JWT auth"` | `/workflow:brainstorm:auto-parallel "Design auth system"` → `/workflow:plan` |
+| Plan generates tasks directly | Brainstorm explores solutions → Plan generates tasks |
 
 **Example**:
 ```bash
+# When you DON'T know how to build it
 /workflow:brainstorm:auto-parallel "Build real-time collaborative document editing system"
 /workflow:plan
 /workflow:execute
