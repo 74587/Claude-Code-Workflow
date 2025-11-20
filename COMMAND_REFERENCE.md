@@ -16,7 +16,7 @@ These commands provide direct access to AI tools for quick analysis and interact
 | `/cli:codex-execute` | Automated task decomposition and execution with Codex using resume mechanism. |
 | `/cli:discuss-plan` | Orchestrates an iterative, multi-model discussion for planning and analysis without implementation. |
 | `/cli:execute` | Auto-execution of implementation tasks with YOLO permissions and intelligent context inference. |
-| `/cli:mode:bug-index` | Bug analysis and fix suggestions using CLI tools. |
+| `/cli:mode:bug-diagnosis` | Bug analysis and fix suggestions using CLI tools. |
 | `/cli:mode:code-analysis` | Deep code analysis and debugging using CLI tools with specialized template. |
 | `/cli:mode:plan` | Project planning and architecture analysis using CLI tools. |
 

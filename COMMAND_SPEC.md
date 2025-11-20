@@ -79,8 +79,8 @@ High-level orchestrators for complex, multi-phase development processes.
   # Force code exploration
   /workflow:lite-plan -e "Refactor logging module for better performance"
 
-  # Preset CLI tool
-  /workflow:lite-plan --tool codex "Add unit tests for auth service"
+  # Basic usage
+  /workflow:lite-plan "Add unit tests for auth service"
   ```
 
 ### **/workflow:execute**
@@ -247,13 +247,13 @@ Direct access to AI tools for analysis and code interaction without a full workf
   /cli:execute "implement JWT authentication with middleware"
   ```
 
-### **/cli:mode:bug-index**
-- **Syntax**: `/cli:mode:bug-index [--agent] [--tool ...] [--enhance] [--cd path] <bug description>`
+### **/cli:mode:bug-diagnosis**
+- **Syntax**: `/cli:mode:bug-diagnosis [--tool ...] [--enhance] [--cd path] <bug description>`
 - **Responsibilities**: Performs systematic bug analysis using the `bug-fix.md` template. Read-only.
-- **Agent Calls**: `@cli-execution-agent` (if `--agent` is used).
+- **Agent Calls**: `@cli-execution-agent` (default).
 - **Example**:
   ```bash
-  /cli:mode:bug-index "null pointer error in login flow"
+  /cli:mode:bug-diagnosis "null pointer error in login flow"
   ```
 
 ### **/cli:mode:code-analysis**

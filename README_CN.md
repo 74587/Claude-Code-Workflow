@@ -126,8 +126,8 @@ CCW 包含内置的**命令指南技能**，帮助您有效地发现和使用命
 # 强制代码探索
 /workflow:lite-plan -e "重构日志模块以提高性能"
 
-# 预设 CLI 工具
-/workflow:lite-plan --tool codex "为认证服务添加单元测试"
+# 基本用法
+/workflow:lite-plan "为认证服务添加单元测试"
 ```
 
 **交互流程**:

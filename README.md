@@ -126,8 +126,8 @@ Lightweight interactive workflow with in-memory planning and immediate execution
 # Force code exploration
 /workflow:lite-plan -e "Refactor logging module for better performance"
 
-# Preset CLI tool
-/workflow:lite-plan --tool codex "Add unit tests for auth service"
+# Basic usage
+/workflow:lite-plan "Add unit tests for auth service"
 ```
 
 **Interactive Flow**:

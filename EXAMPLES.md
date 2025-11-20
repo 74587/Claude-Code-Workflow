@@ -505,7 +505,7 @@ design-system/
 
 ```bash
 # Analyze bug
-/cli:mode:bug-index "Login button click event not firing on mobile Safari"
+/cli:mode:bug-diagnosis "Login button click event not firing on mobile Safari"
 
 # Claude analyzes and implements fix
 ```
@@ -533,8 +533,8 @@ button.addEventListener('touchend', (e) => {
 # Start session for thorough investigation
 /workflow:session:start "Memory Leak Investigation"
 
-# Deep code analysis
-/cli:mode:code-analysis --tool gemini "Analyze React component lifecycle and event listener management for potential memory leaks"
+# Deep bug analysis
+/cli:mode:bug-diagnosis --tool gemini "Memory leak in React components - event listeners not cleaned up"
 
 # Create fix plan
 /workflow:plan "Fix memory leaks in React components: cleanup event listeners and cancel subscriptions"

@@ -200,13 +200,13 @@ CCW 基于任务类型自动选择最适合的工具：
 
 ```bash
 # 探索和理解阶段
-/gemini:analyze "认证系统架构模式"
+/cli:analyze --tool gemini "认证系统架构模式"
 
 # 设计和规划阶段
-/qwen:mode:plan "微服务认证架构设计"
+/cli:mode:plan --tool qwen "微服务认证架构设计"
 
 # 实现和开发阶段
-/codex:mode:auto "实现 JWT 认证系统"
+/cli:execute --tool codex "实现 JWT 认证系统"
 ```
 
 ### 🔄 完整开发生命周期
@@ -304,8 +304,8 @@ CCW 基于任务类型自动选择最适合的工具：
 ```bash
 # 快速错误解决工作流
 /workflow:session:start "支付验证修复"
-/gemini:mode:bug-index "并发请求时支付验证失败"
-/codex:mode:bug-index "修复支付验证竞态条件"
+/cli:mode:bug-diagnosis --tool gemini "并发请求时支付验证失败"
+/cli:execute --tool codex "修复支付验证竞态条件"
 /workflow:review
 ```
 
@@ -313,9 +313,9 @@ CCW 基于任务类型自动选择最适合的工具：
 ```bash
 # 深度架构分析和重构
 /workflow:session:start "微服务重构"
-/gemini:analyze "当前单体架构的技术债务"
-/workflow:plan-deep "单体到微服务的迁移策略"
-/qwen:mode:auto "重构用户服务为微服务架构"
+/cli:analyze --tool gemini "当前单体架构的技术债务"
+/workflow:plan "单体到微服务的迁移策略"
+/workflow:execute
 /workflow:test-gen WFS-microservice-refactoring
 ```
 

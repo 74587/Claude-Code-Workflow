@@ -182,7 +182,7 @@ Quick bug analysis and fix workflow:
 
 ```bash
 # Analyze the bug
-/cli:mode:bug-index "Incorrect success message with wrong password"
+/cli:mode:bug-diagnosis "Incorrect success message with wrong password"
 
 # Claude will analyze and then directly implement the fix based on the analysis
 ```
