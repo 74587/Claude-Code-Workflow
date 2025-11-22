@@ -185,88 +185,275 @@ Execution Complete
 previousExecutionResults = []
 ```
 
-### Step 2: Create TodoWrite Execution List
+### Step 2: Intelligent Task Grouping & Execution Planning
 
 **Operations**:
-- Create execution tracking from task list
-- Typically single execution call for all tasks
-- Split into multiple calls if task list very large (>10 tasks)
+- Analyze task dependencies and file targets
+- Group tasks based on context similarity and dependencies
+- Support parallel execution for independent tasks
+- Respect task limits per execution (Agent: 7 tasks, CLI: 4 tasks)
 
-**Execution Call Creation**:
+**Task Analysis & Grouping**:
 ```javascript
-function createExecutionCalls(tasks) {
-  const taskTitles = tasks.map(t => t.title || t)
+// Extract file path from task for dependency analysis
+function getTaskFile(task) {
+  return task.file || task.title.match(/in\s+([^\s:]+)/)?.[1] || null
+}
 
-  // Single call for ≤10 tasks (most common)
-  if (tasks.length <= 10) {
-    return [{
-      method: executionMethod === "Codex" ? "Codex" : "Agent",
-      taskSummary: taskTitles.length <= 3
-        ? taskTitles.join(', ')
-        : `${taskTitles.slice(0, 2).join(', ')}, and ${taskTitles.length - 2} more`,
-      tasks: tasks
-    }]
+// Infer dependencies from task descriptions and file paths
+function inferDependencies(tasks) {
+  return tasks.map((task, index) => {
+    const dependencies = []
+    const taskFile = getTaskFile(task)
+    const keywords = task.description?.toLowerCase() || task.title.toLowerCase()
+
+    // Check previous tasks for dependencies
+    for (let i = 0; i < index; i++) {
+      const prevTask = tasks[i]
+      const prevFile = getTaskFile(prevTask)
+
+      // Same file modification → sequential dependency
+      if (taskFile && prevFile === taskFile) {
+        dependencies.push(i)
+        continue
+      }
+
+      // Keyword-based dependency detection
+      if (keywords.includes('use') || keywords.includes('integrate') ||
+          keywords.includes('call') || keywords.includes('import')) {
+        const prevTitle = prevTask.title.toLowerCase()
+        if (keywords.includes(prevTitle.split(' ')[0])) {
+          dependencies.push(i)
+        }
+      }
+    }
+
+    return { ...task, taskIndex: index, dependencies }
+  })
+}
+
+// Group tasks into execution batches
+function createExecutionCalls(tasks, executionMethod) {
+  const tasksWithDeps = inferDependencies(tasks)
+  const maxTasksPerCall = executionMethod === "Codex" ? 4 : 7
+  const calls = []
+  const processed = new Set()
+
+  // Phase 1: Group independent tasks for parallel execution
+  const parallelGroups = []
+  tasksWithDeps.forEach(task => {
+    if (task.dependencies.length === 0 && !processed.has(task.taskIndex)) {
+      const group = [task]
+      processed.add(task.taskIndex)
+
+      // Find other independent tasks with different files for parallel batch
+      const taskFile = getTaskFile(task)
+      tasksWithDeps.forEach(other => {
+        if (other.dependencies.length === 0 &&
+            !processed.has(other.taskIndex) &&
+            group.length < maxTasksPerCall) {
+          const otherFile = getTaskFile(other)
+          // Only group if different files (avoid conflicts)
+          if (!taskFile || !otherFile || taskFile !== otherFile) {
+            group.push(other)
+            processed.add(other.taskIndex)
+          }
+        }
+      })
+
+      parallelGroups.push(group)
+    }
+  })
+
+  // Phase 2: Group dependent tasks sequentially
+  const dependentTasks = tasksWithDeps.filter(t => !processed.has(t.taskIndex))
+  const sequentialBatches = []
+  while (dependentTasks.length > 0) {
+    const batch = []
+    const batchIndices = new Set()
+
+    for (const task of dependentTasks) {
+      // Can add to batch if dependencies are already processed
+      const depsProcessed = task.dependencies.every(dep =>
+        processed.has(dep) || batchIndices.has(dep)
+      )
+
+      if (depsProcessed && batch.length < maxTasksPerCall) {
+        batch.push(task)
+        batchIndices.add(task.taskIndex)
+        processed.add(task.taskIndex)
+      }
+    }
+
+    if (batch.length === 0) break // Prevent infinite loop
+    sequentialBatches.push(batch)
+    dependentTasks.splice(0, dependentTasks.length,
+      ...dependentTasks.filter(t => !processed.has(t.taskIndex))
+    )
   }
 
-  // Split into multiple calls for >10 tasks
-  const callSize = 5
-  const calls = []
-  for (let i = 0; i < tasks.length; i += callSize) {
-    const batchTasks = tasks.slice(i, i + callSize)
-    const batchTitles = batchTasks.map(t => t.title || t)
+  // Combine parallel and sequential batches
+  parallelGroups.forEach((group, i) => {
     calls.push({
       method: executionMethod === "Codex" ? "Codex" : "Agent",
-      taskSummary: `Tasks ${i + 1}-${Math.min(i + callSize, tasks.length)}: ${batchTitles[0]}...`,
-      tasks: batchTasks
+      executionType: "parallel",
+      groupId: `P${i + 1}`,
+      taskSummary: group.map(t => t.title).join(' | '),
+      tasks: group
     })
-  }
+  })
+
+  sequentialBatches.forEach((batch, i) => {
+    calls.push({
+      method: executionMethod === "Codex" ? "Codex" : "Agent",
+      executionType: "sequential",
+      groupId: `S${i + 1}`,
+      taskSummary: batch.map(t => t.title).join(' → '),
+      tasks: batch
+    })
+  })
+
   return calls
 }
 
-// Create execution calls with IDs
-executionCalls = createExecutionCalls(planObject.tasks).map((call, index) => ({
+// Create execution calls with IDs and execution method
+executionCalls = createExecutionCalls(planObject.tasks, executionMethod).map((call, index) => ({
   ...call,
-  id: `[${call.method}-${index+1}]`
+  id: `[${call.groupId}]`
 }))
 
-// Create TodoWrite list
+// Create TodoWrite list with execution type indicators
 TodoWrite({
-  todos: executionCalls.map(call => ({
-    content: `${call.id} (${call.taskSummary})`,
-    status: "pending",
-    activeForm: `Executing ${call.id} (${call.taskSummary})`
-  }))
+  todos: executionCalls.map(call => {
+    const typeIcon = call.executionType === "parallel" ? "⚡" : "→"
+    const typeLabel = call.executionType === "parallel" ? "Parallel" : "Sequential"
+    return {
+      content: `${typeIcon} ${call.id} [${typeLabel}] (${call.tasks.length} tasks: ${call.taskSummary})`,
+      status: "pending",
+      activeForm: `Executing ${call.id} - ${typeLabel} batch (${call.tasks.length} tasks)`
+    }
+  })
 })
 ```
 
-**Example Execution Lists**:
+**Grouping Strategy Examples**:
+
+```javascript
+// Example 1: Independent tasks, different files → Parallel groups
+Tasks: [
+  { title: "Create auth.ts", file: "src/auth.ts" },
+  { title: "Create utils.ts", file: "src/utils.ts" },
+  { title: "Create types.ts", file: "src/types.ts" }
+]
+Result: [P1] ⚡ Parallel (3 tasks)
+
+// Example 2: Same file modifications → Sequential batch
+Tasks: [
+  { title: "Add function in auth.ts", file: "src/auth.ts" },
+  { title: "Update function in auth.ts", file: "src/auth.ts" }
+]
+Result: [S1] → Sequential (2 tasks)
+
+// Example 3: Mixed dependencies → Multiple batches
+Tasks: [
+  { title: "Create base.ts", file: "src/base.ts" },          // No deps
+  { title: "Create helper.ts", file: "src/helper.ts" },      // No deps
+  { title: "Use base in main.ts", file: "src/main.ts" },     // Depends on base.ts
+  { title: "Use helper in app.ts", file: "src/app.ts" }      // Depends on helper.ts
+]
+Result:
+  [P1] ⚡ Parallel (2 tasks: base.ts | helper.ts)
+  [P2] ⚡ Parallel (2 tasks: main.ts | app.ts)
+
+// Example 4: Exceeds batch limit → Multiple batches
+Agent (7 tasks max): 10 tasks → [P1: 7 tasks] + [P2: 3 tasks]
+Codex (4 tasks max): 10 tasks → [P1: 4 tasks] + [P2: 4 tasks] + [P3: 2 tasks]
 ```
-Single call (typical):
-[ ] [Agent-1] (Create AuthService, Add JWT utilities, Implement middleware)
 
-Few tasks:
-[ ] [Codex-1] (Create AuthService, Add JWT utilities, and 3 more)
+**TodoWrite Display Examples**:
+```
+Parallel execution (independent files):
+[ ] ⚡ [P1] [Parallel] (3 tasks: Create auth.ts | Create utils.ts | Create types.ts)
 
-Large task sets (>10):
-[ ] [Agent-1] (Tasks 1-5: Create AuthService, Add JWT utilities, ...)
-[ ] [Agent-2] (Tasks 6-10: Create tests, Update docs, ...)
+Sequential execution (same file or dependencies):
+[ ] → [S1] [Sequential] (2 tasks: Add function in auth.ts → Update function in auth.ts)
+
+Mixed execution (multiple batches):
+[ ] ⚡ [P1] [Parallel] (4 tasks: Create base.ts | Create helper.ts | Create config.ts | Create types.ts)
+[ ] ⚡ [P2] [Parallel] (3 tasks: Use base in main.ts | Use helper in app.ts | Use config in index.ts)
+[ ] → [S1] [Sequential] (2 tasks: Integrate components → Add tests)
 ```
 
 ### Step 3: Launch Execution
 
-**IMPORTANT**: CLI execution MUST run in foreground (no background execution)
+**Execution Strategy**:
+- **Parallel batches**: Launch all parallel batches simultaneously (CLI has no concurrency limit)
+- **Sequential batches**: Execute in order, waiting for previous completion
+- **Mixed workflow**: Process parallel groups first, then sequential groups
 
 **Execution Loop**:
 ```javascript
-for (currentIndex = 0; currentIndex < executionCalls.length; currentIndex++) {
-  const currentCall = executionCalls[currentIndex]
+// Phase 1: Launch all parallel batches concurrently
+const parallelCalls = executionCalls.filter(c => c.executionType === "parallel")
+const sequentialCalls = executionCalls.filter(c => c.executionType === "sequential")
 
-  // Update TodoWrite: mark current call in_progress
-  // Launch execution with previousExecutionResults context
-  // After completion: collect result, add to previousExecutionResults
-  // Update TodoWrite: mark current call completed
+if (parallelCalls.length > 0) {
+  // Mark all parallel calls as in_progress
+  TodoWrite({
+    todos: executionCalls.map(call => ({
+      content: `${call.executionType === "parallel" ? "⚡" : "→"} ${call.id} [${call.executionType}] (${call.tasks.length} tasks)`,
+      status: call.executionType === "parallel" ? "in_progress" : "pending",
+      activeForm: `Executing ${call.id}`
+    }))
+  })
+
+  // Launch all parallel batches using single message with multiple tool calls
+  // Use Task tool or Bash tool to launch each parallel execution
+  // Collect results as they complete
+
+  parallelResults = await Promise.all(parallelCalls.map(call => executeBatch(call)))
+  previousExecutionResults.push(...parallelResults)
+
+  // Mark parallel calls as completed
+  TodoWrite({
+    todos: executionCalls.map(call => ({
+      content: `${call.executionType === "parallel" ? "⚡" : "→"} ${call.id} [${call.executionType}] (${call.tasks.length} tasks)`,
+      status: parallelCalls.includes(call) ? "completed" : "pending",
+      activeForm: `Executing ${call.id}`
+    }))
+  })
+}
+
+// Phase 2: Execute sequential batches in order
+for (const call of sequentialCalls) {
+  // Update TodoWrite: mark current sequential call in_progress
+  TodoWrite({
+    todos: executionCalls.map(c => ({
+      content: `${c.executionType === "parallel" ? "⚡" : "→"} ${c.id} [${c.executionType}] (${c.tasks.length} tasks)`,
+      status: c === call ? "in_progress" : (parallelCalls.includes(c) ? "completed" : "pending"),
+      activeForm: `Executing ${c.id}`
+    }))
+  })
+
+  // Launch sequential execution with previousExecutionResults context
+  result = await executeBatch(call)
+  previousExecutionResults.push(result)
+
+  // Update TodoWrite: mark completed
+  TodoWrite({
+    todos: executionCalls.map(c => ({
+      content: `${c.executionType === "parallel" ? "⚡" : "→"} ${c.id} [${c.executionType}] (${c.tasks.length} tasks)`,
+      status: c.id <= call.id ? "completed" : "pending",
+      activeForm: `Executing ${c.id}`
+    }))
+  })
 }
 ```
+
+**Important Notes**:
+- Parallel batches use single Claude message with multiple Bash/Task tool calls
+- CLI tools (Codex/Gemini/Qwen) execute in foreground (NOT background)
+- Each batch receives `previousExecutionResults` for context continuity
 
 **Option A: Agent Execution**
 
@@ -331,13 +518,9 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
 
   Read these files for detailed architecture, patterns, and constraints.` : ''}
 
-  ## Instructions
-  - Reference original request to ensure alignment
-  - Review previous results to understand completed work
-  - Build on previous work, avoid duplication
-  - Test functionality as you implement
-  - Complete all assigned tasks
-  - Read planning artifact files for detailed context when needed
+  ## Requirements
+  MUST complete ALL ${planObject.tasks.length} tasks listed above in this single execution.
+  Return only after all tasks are fully implemented and tested.
   `
 )
 ```
@@ -413,13 +596,9 @@ ${executionContext.session.artifacts.exploration ? `- Exploration: ${executionCo
 Read these files for complete architecture details, code patterns, and integration constraints.
 ` : ''}
 
-## Execution Instructions
-- Reference original request to ensure alignment
-- Review previous results for context continuity
-- Build on previous work, don't duplicate completed tasks
-- Complete all assigned tasks in single execution
-- Test functionality as you implement
-${executionContext?.session?.artifacts ? `- Read planning artifact files for detailed architecture and pattern guidance` : ''}
+## Requirements
+MUST complete ALL ${planObject.tasks.length} tasks listed above in this single execution.
+Return only after all tasks are fully implemented and tested.
 
 Complexity: ${planObject.complexity}
 " --skip-git-repo-check -s danger-full-access
@@ -440,110 +619,113 @@ bash_result = Bash(
 
 ### Step 4: Track Execution Progress
 
-**Real-time TodoWrite Updates** at execution call level:
+**Real-time TodoWrite Updates** at batch level:
 
 ```javascript
-// When call starts
+// Parallel batches executing concurrently
 TodoWrite({
   todos: [
-    { content: "[Agent-1] (Implement auth + Create JWT utils)", status: "in_progress", activeForm: "..." },
-    { content: "[Agent-2] (Add middleware + Update routes)", status: "pending", activeForm: "..." }
+    { content: "⚡ [P1] [Parallel] (4 tasks)", status: "in_progress", activeForm: "Executing P1" },
+    { content: "⚡ [P2] [Parallel] (3 tasks)", status: "in_progress", activeForm: "Executing P2" },
+    { content: "→ [S1] [Sequential] (2 tasks)", status: "pending", activeForm: "..." }
   ]
 })
 
-// When call completes
+// After parallel completion, sequential execution
 TodoWrite({
   todos: [
-    { content: "[Agent-1] (Implement auth + Create JWT utils)", status: "completed", activeForm: "..." },
-    { content: "[Agent-2] (Add middleware + Update routes)", status: "in_progress", activeForm: "..." }
+    { content: "⚡ [P1] [Parallel] (4 tasks)", status: "completed", activeForm: "..." },
+    { content: "⚡ [P2] [Parallel] (3 tasks)", status: "completed", activeForm: "..." },
+    { content: "→ [S1] [Sequential] (2 tasks)", status: "in_progress", activeForm: "Executing S1" }
   ]
 })
 ```
 
 **User Visibility**:
-- User sees execution call progress (not individual task progress)
-- Current execution highlighted as "in_progress"
-- Completed executions marked with checkmark
-- Each execution shows task summary for context
+- Parallel batches show simultaneous execution (multiple "in_progress" at once)
+- Sequential batches execute one at a time
+- Icons distinguish parallel (⚡) from sequential (→)
+- Task count shows batch size for each execution group
 
 ### Step 5: Code Review (Optional)
 
 **Skip Condition**: Only run if `codeReviewTool ≠ "Skip"`
 
-**Operations**:
-- Agent Review: Current agent performs direct review
-- Gemini Review: Execute gemini CLI with review prompt
-- Custom tool: Execute specified CLI tool (qwen, codex, etc.)
+**Review Focus**: Verify implementation against task.json acceptance criteria
+- Read task.json from session artifacts for acceptance criteria
+- Check each acceptance criterion is fulfilled
+- Validate code quality and identify issues
+- Ensure alignment with planned approach
 
-**Command Formats**:
+**Operations**:
+- Agent Review: Current agent performs direct review (read task.json for acceptance criteria)
+- Gemini Review: Execute gemini CLI with review prompt (task.json in CONTEXT)
+- Custom tool: Execute specified CLI tool (qwen, codex, etc.) with task.json reference
+
+**Unified Review Template** (All tools use same standard):
+
+**Review Criteria**:
+- **Acceptance Criteria**: Verify each criterion from task.json `context.acceptance`
+- **Code Quality**: Analyze quality, identify issues, suggest improvements
+- **Plan Alignment**: Validate implementation matches planned approach
+
+**Shared Prompt Template** (used by all CLI tools):
+```
+PURPOSE: Code review for implemented changes against task.json acceptance criteria
+TASK: • Verify task.json acceptance criteria fulfillment • Analyze code quality • Identify issues • Suggest improvements • Validate plan adherence
+MODE: analysis
+CONTEXT: @**/* @{task.json} @{plan.json} [@{exploration.json}] | Memory: Review lite-execute changes against task.json requirements
+EXPECTED: Quality assessment with acceptance criteria verification, issue identification, and recommendations. Explicitly check each acceptance criterion from task.json.
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on task.json acceptance criteria and plan adherence | analysis=READ-ONLY
+```
+
+**Tool-Specific Execution** (Apply shared prompt template above):
 
 ```bash
-# Agent Review: Direct agent review (no CLI)
-# Uses analysis prompt and TodoWrite tools directly
+# Method 1: Agent Review (current agent)
+# - Read task.json: ${executionContext.session.artifacts.task}
+# - Apply unified review criteria (see Shared Prompt Template)
+# - Report findings directly
 
-# Gemini Review:
-# Include artifact paths for planning context reference
-${executionContext?.session?.artifacts ? `
-gemini -p "
-PURPOSE: Code review for implemented changes against planned approach
-TASK: • Analyze quality • Identify issues • Suggest improvements • Verify alignment with plan
-MODE: analysis
-CONTEXT: @**/* @${executionContext.session.artifacts.plan}${executionContext.session.artifacts.exploration ? ` @${executionContext.session.artifacts.exploration}` : ''} | Memory: Review lite-execute changes with planning context
-EXPECTED: Quality assessment with recommendations and plan alignment check
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes and plan adherence | analysis=READ-ONLY
-"
-` : `
-gemini -p "
-PURPOSE: Code review for implemented changes
-TASK: • Analyze quality • Identify issues • Suggest improvements
-MODE: analysis
-CONTEXT: @**/* | Memory: Review lite-execute changes
-EXPECTED: Quality assessment with recommendations
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes | analysis=READ-ONLY
-"
-`}
+# Method 2: Gemini Review (recommended)
+gemini -p "[Shared Prompt Template with artifacts]"
+# CONTEXT includes: @**/* @${task.json} @${plan.json} [@${exploration.json}]
 
-# Qwen Review (custom tool via "Other"):
-# Include artifact paths for planning context reference
-${executionContext?.session?.artifacts ? `
-qwen -p "
-PURPOSE: Code review for implemented changes against planned approach
-TASK: • Analyze quality • Identify issues • Suggest improvements • Verify alignment with plan
-MODE: analysis
-CONTEXT: @**/* @${executionContext.session.artifacts.plan}${executionContext.session.artifacts.exploration ? ` @${executionContext.session.artifacts.exploration}` : ''} | Memory: Review lite-execute changes with planning context
-EXPECTED: Quality assessment with recommendations and plan alignment check
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes and plan adherence | analysis=READ-ONLY
-"
-` : `
-qwen -p "
-PURPOSE: Code review for implemented changes
-TASK: • Analyze quality • Identify issues • Suggest improvements
-MODE: analysis
-CONTEXT: @**/* | Memory: Review lite-execute changes
-EXPECTED: Quality assessment with recommendations
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes | analysis=READ-ONLY
-"
-`}
+# Method 3: Qwen Review (alternative)
+qwen -p "[Shared Prompt Template with artifacts]"
+# Same prompt as Gemini, different execution engine
 
-# Codex Review (custom tool via "Other"):
-codex --full-auto exec "Review recent code changes for quality, potential issues, and improvements" --skip-git-repo-check -s danger-full-access
+# Method 4: Codex Review (autonomous)
+codex --full-auto exec "[Verify task.json acceptance criteria at ${task.json}]" --skip-git-repo-check -s danger-full-access
 ```
+
+**Implementation Note**: Replace `[Shared Prompt Template with artifacts]` placeholder with actual template content, substituting:
+- `@{task.json}` → `@${executionContext.session.artifacts.task}`
+- `@{plan.json}` → `@${executionContext.session.artifacts.plan}`
+- `[@{exploration.json}]` → `@${executionContext.session.artifacts.exploration}` (if exists)
 
 ## Best Practices
 
 ### Execution Intelligence
 
-1. **Context Continuity**: Each execution call receives previous results
-   - Prevents duplication across multiple executions
+1. **Intelligent Task Grouping**: Dependency-aware task allocation
+   - Same file modifications → Sequential batch
+   - Different files + no dependencies → Parallel batch
+   - Respects batch limits: Agent (7 tasks), CLI (4 tasks)
+   - Infers dependencies from file paths and keywords
+
+2. **Parallel Execution**: Maximize throughput for independent tasks
+   - All parallel batches launch simultaneously
+   - No concurrency limit for CLI tools
+   - Reduces total execution time for independent work
+   - Uses single Claude message with multiple tool calls
+
+3. **Context Continuity**: Each batch receives previous results
+   - Prevents duplication across batches
    - Maintains coherent implementation flow
-   - Builds on completed work
+   - Builds on completed work from parallel/sequential batches
 
-2. **Execution Call Tracking**: Progress at call level, not task level
-   - Each call handles all or subset of tasks
-   - Clear visibility of current execution
-   - Simple progress updates
-
-3. **Flexible Execution**: Multiple input modes supported
+4. **Flexible Execution**: Multiple input modes supported
    - In-memory: Seamless lite-plan integration
    - Prompt: Quick standalone execution
    - File: Intelligent format detection
@@ -552,15 +734,22 @@ codex --full-auto exec "Review recent code changes for quality, potential issues
 
 ### Task Management
 
-1. **Live Progress Updates**: Real-time TodoWrite tracking
-   - Execution calls created before execution starts
-   - Updated as executions progress
-   - Clear completion status
+1. **Smart Batch Creation**: Automatic dependency analysis
+   - File path extraction and comparison
+   - Keyword-based dependency inference
+   - Context signature grouping (same files = sequential)
+   - Batch size optimization per execution method
 
-2. **Simple Execution**: Straightforward task handling
-   - All tasks in single call (typical)
-   - Split only for very large task sets (>10)
-   - Agent/Codex determines optimal execution order
+2. **Live Progress Tracking**: Real-time batch-level updates
+   - Visual distinction: ⚡ (parallel) vs → (sequential)
+   - Shows concurrent execution for parallel batches
+   - Clear batch completion tracking
+   - Task count per batch for progress visibility
+
+3. **Execution Strategies**:
+   - Parallel-first: All independent batches execute concurrently
+   - Sequential-after: Dependent batches execute in order
+   - Context passing: Each batch receives all previous results
 
 ## Error Handling
 
