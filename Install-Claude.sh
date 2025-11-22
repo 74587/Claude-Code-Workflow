@@ -225,6 +225,7 @@ function get_backup_directory() {
 function backup_file_to_folder() {
     local file_path="$1"
     local backup_folder="$2"
+    local quiet="${3:-}"  # Optional quiet mode
 
     if [ ! -f "$file_path" ]; then
         return 1
@@ -249,10 +250,16 @@ function backup_file_to_folder() {
     local backup_file_path="${backup_sub_dir}/${file_name}"
 
     if cp "$file_path" "$backup_file_path"; then
-        write_color "Backed up: $file_name" "$COLOR_INFO"
+        # Only output if not in quiet mode
+        if [ "$quiet" != "quiet" ]; then
+            write_color "Backed up: $file_name" "$COLOR_INFO"
+        fi
         return 0
     else
-        write_color "WARNING: Failed to backup file $file_path" "$COLOR_WARNING"
+        # Always show warnings
+        if [ "$quiet" != "quiet" ]; then
+            write_color "WARNING: Failed to backup file $file_path" "$COLOR_WARNING"
+        fi
         return 1
     fi
 }
@@ -443,14 +450,25 @@ function merge_directory_contents() {
         return 1
     fi
 
-    mkdir -p "$destination"
-    write_color "Created destination directory: $destination" "$COLOR_INFO"
+    # Create destination directory if it doesn't exist
+    if [ ! -d "$destination" ]; then
+        mkdir -p "$destination"
+        write_color "Created destination directory: $destination" "$COLOR_INFO"
+    fi
 
+    # Count total files first
+    local total_files=$(find "$source" -type f | wc -l)
     local merged_count=0
     local skipped_count=0
+    local backed_up_count=0
+    local processed_count=0
+
+    write_color "Processing $total_files files in $description..." "$COLOR_INFO"
 
     # Find all files recursively
     while IFS= read -r -d '' file; do
+        ((processed_count++))
+
         local relative_path="${file#$source/}"
         local dest_path="${destination}/${relative_path}"
         local dest_dir=$(dirname "$dest_path")
@@ -458,41 +476,58 @@ function merge_directory_contents() {
         mkdir -p "$dest_dir"
 
         if [ -f "$dest_path" ]; then
-            local file_name=$(basename "$relative_path")
-
+            # Use BackupAll mode for automatic backup without confirmation (default behavior)
             if [ "$BACKUP_ALL" = true ] && [ "$NO_BACKUP" = false ]; then
                 if [ -n "$backup_folder" ]; then
-                    backup_file_to_folder "$dest_path" "$backup_folder"
-                    write_color "Auto-backed up: $file_name" "$COLOR_INFO"
+                    # Quiet backup - no individual file output
+                    if backup_file_to_folder "$dest_path" "$backup_folder" "quiet"; then
+                        ((backed_up_count++))
+                    fi
                 fi
                 cp "$file" "$dest_path"
                 ((merged_count++))
             elif [ "$NO_BACKUP" = true ]; then
+                # No backup mode - ask for confirmation
                 if confirm_action "File '$relative_path' already exists. Replace it? (NO BACKUP)" false; then
                     cp "$file" "$dest_path"
                     ((merged_count++))
                 else
-                    write_color "Skipped $file_name (no backup)" "$COLOR_WARNING"
                     ((skipped_count++))
                 fi
             elif confirm_action "File '$relative_path' already exists. Replace it?" false; then
                 if [ -n "$backup_folder" ]; then
-                    backup_file_to_folder "$dest_path" "$backup_folder"
-                    write_color "Backed up existing $file_name" "$COLOR_INFO"
+                    # Quiet backup - no individual file output
+                    if backup_file_to_folder "$dest_path" "$backup_folder" "quiet"; then
+                        ((backed_up_count++))
+                    fi
                 fi
                 cp "$file" "$dest_path"
                 ((merged_count++))
             else
-                write_color "Skipped $file_name" "$COLOR_WARNING"
                 ((skipped_count++))
             fi
         else
             cp "$file" "$dest_path"
             ((merged_count++))
         fi
+
+        # Show progress every 20 files
+        if [ $((processed_count % 20)) -eq 0 ] || [ "$processed_count" -eq "$total_files" ]; then
+            local percent=$((processed_count * 100 / total_files))
+            echo -ne "\rMerging $description: $processed_count/$total_files files ($percent%)..."
+        fi
     done < <(find "$source" -type f -print0)
 
-    write_color "✓ Merged $merged_count files, skipped $skipped_count files" "$COLOR_SUCCESS"
+    # Clear progress line
+    echo -ne "\r\033[K"
+
+    # Show summary
+    if [ "$backed_up_count" -gt 0 ]; then
+        write_color "✓ Merged $merged_count files ($backed_up_count backed up), skipped $skipped_count files" "$COLOR_SUCCESS"
+    else
+        write_color "✓ Merged $merged_count files, skipped $skipped_count files" "$COLOR_SUCCESS"
+    fi
+
     return 0
 }
 
@@ -507,6 +542,10 @@ function install_global() {
     local global_qwen_dir="${user_home}/.qwen"
 
     write_color "Global installation path: $user_home" "$COLOR_INFO"
+
+    # Clean up old installation before proceeding (fast move operation)
+    echo ""
+    move_old_installation "$user_home" "Global"
 
     # Initialize manifest
     local manifest_file=$(new_install_manifest "Global" "$user_home")
@@ -627,7 +666,7 @@ function install_global() {
     create_version_json "$global_claude_dir" "Global"
 
     # Save installation manifest
-    save_install_manifest "$manifest_file" "$user_home"
+    save_install_manifest "$manifest_file" "$user_home" "Global"
 
     return 0
 }
@@ -641,6 +680,10 @@ function install_path() {
     local user_home="$HOME"
     local global_claude_dir="${user_home}/.claude"
     write_color "Global path: $user_home" "$COLOR_INFO"
+
+    # Clean up old installation before proceeding (fast move operation)
+    echo ""
+    move_old_installation "$target_dir" "Path"
 
     # Initialize manifest
     local manifest_file=$(new_install_manifest "Path" "$target_dir")
@@ -700,11 +743,15 @@ function install_path() {
         fi
     done
 
-    # Global components - exclude local folders
+    # Global components - exclude local folders (use same efficient method as Global mode)
     write_color "Installing global components to $global_claude_dir..." "$COLOR_INFO"
 
-    local merged_count=0
+    # Create temporary directory for global files only
+    local temp_global_dir="/tmp/claude-global-$$"
+    mkdir -p "$temp_global_dir"
 
+    # Copy global files to temp directory (excluding local folders)
+    write_color "Preparing global components..." "$COLOR_INFO"
     while IFS= read -r -d '' file; do
         local relative_path="${file#$source_claude_dir/}"
         local top_folder=$(echo "$relative_path" | cut -d'/' -f1)
@@ -714,37 +761,28 @@ function install_path() {
             continue
         fi
 
-        local dest_path="${global_claude_dir}/${relative_path}"
-        local dest_dir=$(dirname "$dest_path")
+        local temp_dest_path="${temp_global_dir}/${relative_path}"
+        local temp_dest_dir=$(dirname "$temp_dest_path")
 
-        mkdir -p "$dest_dir"
-
-        if [ -f "$dest_path" ]; then
-            if [ "$BACKUP_ALL" = true ] && [ "$NO_BACKUP" = false ]; then
-                if [ -n "$backup_folder" ]; then
-                    backup_file_to_folder "$dest_path" "$backup_folder"
-                fi
-                cp "$file" "$dest_path"
-                ((merged_count++))
-            elif [ "$NO_BACKUP" = true ]; then
-                if confirm_action "File '$relative_path' already exists in global location. Replace it? (NO BACKUP)" false; then
-                    cp "$file" "$dest_path"
-                    ((merged_count++))
-                fi
-            elif confirm_action "File '$relative_path' already exists in global location. Replace it?" false; then
-                if [ -n "$backup_folder" ]; then
-                    backup_file_to_folder "$dest_path" "$backup_folder"
-                fi
-                cp "$file" "$dest_path"
-                ((merged_count++))
-            fi
-        else
-            cp "$file" "$dest_path"
-            ((merged_count++))
-        fi
+        mkdir -p "$temp_dest_dir"
+        cp "$file" "$temp_dest_path"
     done < <(find "$source_claude_dir" -type f -print0)
 
-    write_color "✓ Merged $merged_count files to global location" "$COLOR_SUCCESS"
+    # Use bulk merge method (same as Global mode - fast!)
+    if merge_directory_contents "$temp_global_dir" "$global_claude_dir" "global components" "$backup_folder"; then
+        # Track global files in manifest using bulk method (fast!)
+        add_manifest_entry "$manifest_file" "$global_claude_dir" "Directory"
+
+        # Track files from TEMP directory
+        while IFS= read -r -d '' source_file; do
+            local relative_path="${source_file#$temp_global_dir}"
+            local target_path="${global_claude_dir}${relative_path}"
+            add_manifest_entry "$manifest_file" "$target_path" "File"
+        done < <(find "$temp_global_dir" -type f -print0)
+    fi
+
+    # Clean up temp directory
+    rm -rf "$temp_global_dir"
 
     # Handle CLAUDE.md file in global .claude directory
     local global_claude_md="${global_claude_dir}/CLAUDE.md"
@@ -822,7 +860,7 @@ function install_path() {
     create_version_json "$global_claude_dir" "Global"
 
     # Save installation manifest
-    save_install_manifest "$manifest_file" "$target_dir"
+    save_install_manifest "$manifest_file" "$target_dir" "Path"
 
     return 0
 }
@@ -911,8 +949,15 @@ function new_install_manifest() {
     mkdir -p "$MANIFEST_DIR"
 
     # Generate unique manifest ID based on timestamp and mode
+    # Distinguish between Global and Path installations with clear naming
     local timestamp=$(date +"%Y%m%d-%H%M%S")
-    local manifest_id="install-${installation_mode}-${timestamp}"
+    local mode_prefix
+    if [ "$installation_mode" = "Global" ]; then
+        mode_prefix="manifest-global"
+    else
+        mode_prefix="manifest-path"
+    fi
+    local manifest_id="${mode_prefix}-${timestamp}"
 
     # Create manifest file path
     local manifest_file="${MANIFEST_DIR}/${manifest_id}.json"
@@ -976,7 +1021,8 @@ EOF
 
 function remove_old_manifests_for_path() {
     local installation_path="$1"
-    local current_manifest_file="$2"  # Optional: exclude this file from deletion
+    local installation_mode="$2"
+    local current_manifest_file="$3"  # Optional: exclude this file from deletion
 
     if [ ! -d "$MANIFEST_DIR" ]; then
         return 0
@@ -986,7 +1032,8 @@ function remove_old_manifests_for_path() {
     local target_path=$(echo "$installation_path" | sed 's:/*$::' | tr '[:upper:]' '[:lower:]')
     local removed_count=0
 
-    # Find and remove old manifests for the same installation path
+    # Find and remove old manifests for the same installation path and mode
+    # Support both new (manifest-*) and old (install-*) format
     while IFS= read -r -d '' file; do
         # Skip the current manifest file if specified
         if [ -n "$current_manifest_file" ] && [ "$file" = "$current_manifest_file" ]; then
@@ -994,19 +1041,20 @@ function remove_old_manifests_for_path() {
         fi
 
         local manifest_path=$(jq -r '.installation_path // ""' "$file" 2>/dev/null)
+        local manifest_mode=$(jq -r '.installation_mode // "Global"' "$file" 2>/dev/null)
 
         if [ -n "$manifest_path" ]; then
             # Normalize manifest path
             local normalized_manifest_path=$(echo "$manifest_path" | sed 's:/*$::' | tr '[:upper:]' '[:lower:]')
 
-            # If paths match, remove this old manifest
-            if [ "$normalized_manifest_path" = "$target_path" ]; then
+            # Only remove if BOTH path and mode match
+            if [ "$normalized_manifest_path" = "$target_path" ] && [ "$manifest_mode" = "$installation_mode" ]; then
                 rm -f "$file"
                 write_color "Removed old manifest: $(basename "$file")" "$COLOR_INFO"
                 ((removed_count++))
             fi
         fi
-    done < <(find "$MANIFEST_DIR" -name "install-*.json" -type f -print0 2>/dev/null)
+    done < <(find "$MANIFEST_DIR" \( -name "manifest-*.json" -o -name "install-*.json" \) -type f -print0 2>/dev/null)
 
     if [ "$removed_count" -gt 0 ]; then
         write_color "Removed $removed_count old manifest(s) for installation path: $installation_path" "$COLOR_SUCCESS"
@@ -1018,10 +1066,11 @@ function remove_old_manifests_for_path() {
 function save_install_manifest() {
     local manifest_file="$1"
     local installation_path="$2"
+    local installation_mode="$3"
 
-    # Remove old manifests for the same installation path (excluding current one)
-    if [ -n "$installation_path" ]; then
-        remove_old_manifests_for_path "$installation_path" "$manifest_file"
+    # Remove old manifests for the same installation path and mode (excluding current one)
+    if [ -n "$installation_path" ] && [ -n "$installation_mode" ]; then
+        remove_old_manifests_for_path "$installation_path" "$installation_mode" "$manifest_file"
     fi
 
     if [ -f "$manifest_file" ]; then
@@ -1045,10 +1094,16 @@ function migrate_legacy_manifest() {
     # Create manifest directory if it doesn't exist
     mkdir -p "$MANIFEST_DIR"
 
-    # Read legacy manifest
+    # Read legacy manifest and generate new manifest ID with new naming convention
     local mode=$(jq -r '.installation_mode // "Global"' "$legacy_manifest")
     local timestamp=$(date +"%Y%m%d-%H%M%S")
-    local manifest_id="install-${mode}-${timestamp}-migrated"
+    local mode_prefix
+    if [ "$mode" = "Global" ]; then
+        mode_prefix="manifest-global"
+    else
+        mode_prefix="manifest-path"
+    fi
+    local manifest_id="${mode_prefix}-${timestamp}-migrated"
 
     # Create new manifest file
     local new_manifest="${MANIFEST_DIR}/${manifest_id}.json"
@@ -1072,8 +1127,8 @@ function get_all_install_manifests() {
         return
     fi
 
-    # Check if any manifest files exist
-    local manifest_count=$(find "$MANIFEST_DIR" -name "install-*.json" -type f 2>/dev/null | wc -l)
+    # Check if any manifest files exist (both new and old formats)
+    local manifest_count=$(find "$MANIFEST_DIR" \( -name "manifest-*.json" -o -name "install-*.json" \) -type f 2>/dev/null | wc -l)
 
     if [ "$manifest_count" -eq 0 ]; then
         echo "[]"
@@ -1102,7 +1157,7 @@ function get_all_install_manifests() {
         manifest_content=$(echo "$manifest_content" | jq --argjson fc "$files_count" --argjson dc "$dirs_count" '. + {files_count: $fc, directories_count: $dc}')
 
         all_manifests+="$manifest_content"
-    done < <(find "$MANIFEST_DIR" -name "install-*.json" -type f -print0 | sort -z)
+    done < <(find "$MANIFEST_DIR" \( -name "manifest-*.json" -o -name "install-*.json" \) -type f -print0 | sort -z)
 
     all_manifests+="]"
 
@@ -1126,6 +1181,112 @@ function get_all_install_manifests() {
     ')
 
     echo "$latest_manifests"
+}
+
+function move_old_installation() {
+    local installation_path="$1"
+    local installation_mode="$2"
+
+    write_color "Checking for previous installation..." "$COLOR_INFO"
+
+    # Find existing manifest for this installation path and mode
+    local manifests_json=$(get_all_install_manifests)
+    local target_path=$(echo "$installation_path" | sed 's:/*$::' | tr '[:upper:]' '[:lower:]')
+
+    local old_manifest=$(echo "$manifests_json" | jq --arg path "$target_path" --arg mode "$installation_mode" '
+        .[] | select(
+            (.installation_path | ascii_downcase | sub("/+$"; "")) == $path and
+            .installation_mode == $mode
+        )
+    ')
+
+    if [ -z "$old_manifest" ] || [ "$old_manifest" = "null" ]; then
+        write_color "No previous $installation_mode installation found at this path" "$COLOR_INFO"
+        return 0
+    fi
+
+    local install_date=$(echo "$old_manifest" | jq -r '.installation_date')
+    local files_count=$(echo "$old_manifest" | jq -r '.files_count')
+    local dirs_count=$(echo "$old_manifest" | jq -r '.directories_count')
+
+    write_color "Found previous installation from $install_date" "$COLOR_INFO"
+    write_color "Files: $files_count, Directories: $dirs_count" "$COLOR_INFO"
+
+    # Create backup folder
+    local timestamp=$(date +"%Y%m%d-%H%M%S")
+    local backup_dir="${installation_path}/claude-backup-old-${timestamp}"
+    mkdir -p "$backup_dir"
+    write_color "Created backup folder: $backup_dir" "$COLOR_SUCCESS"
+
+    local moved_files=0
+    local removed_dirs=0
+    local failed_items=()
+
+    # Move files first (from manifest)
+    write_color "Moving old installation files to backup..." "$COLOR_INFO"
+    while IFS= read -r file_path; do
+        if [ -z "$file_path" ] || [ "$file_path" = "null" ]; then
+            continue
+        fi
+
+        if [ -f "$file_path" ]; then
+            # Calculate relative path from installation root
+            local relative_path="${file_path#$installation_path}"
+            relative_path="${relative_path#/}"
+
+            if [ -z "$relative_path" ]; then
+                relative_path=$(basename "$file_path")
+            fi
+
+            local backup_dest_dir=$(dirname "${backup_dir}/${relative_path}")
+
+            mkdir -p "$backup_dest_dir"
+            if mv "$file_path" "${backup_dest_dir}/" 2>/dev/null; then
+                ((moved_files++))
+            else
+                write_color "  WARNING: Failed to move file: $file_path" "$COLOR_WARNING"
+                failed_items+=("$file_path")
+            fi
+        fi
+    done <<< "$(echo "$old_manifest" | jq -r '.files[].path')"
+
+    # Remove empty directories (in reverse order to handle nested dirs)
+    write_color "Cleaning up empty directories..." "$COLOR_INFO"
+    while IFS= read -r dir_path; do
+        if [ -z "$dir_path" ] || [ "$dir_path" = "null" ]; then
+            continue
+        fi
+
+        if [ -d "$dir_path" ]; then
+            # Check if directory is empty
+            if [ -z "$(ls -A "$dir_path" 2>/dev/null)" ]; then
+                if rmdir "$dir_path" 2>/dev/null; then
+                    write_color "  Removed empty directory: $dir_path" "$COLOR_INFO"
+                    ((removed_dirs++))
+                fi
+            else
+                write_color "  Directory not empty (preserved): $dir_path" "$COLOR_INFO"
+            fi
+        fi
+    done <<< "$(echo "$old_manifest" | jq -r '.directories[].path' | awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2-)"
+
+    # Note: Old manifest will be automatically removed by save_install_manifest
+    # via remove_old_manifests_for_path to ensure robust cleanup
+
+    echo ""
+    write_color "Old installation cleanup summary:" "$COLOR_INFO"
+    echo "  Files moved: $moved_files"
+    echo "  Directories removed: $removed_dirs"
+    echo "  Backup location: $backup_dir"
+
+    if [ ${#failed_items[@]} -gt 0 ]; then
+        write_color "  Failed items: ${#failed_items[@]}" "$COLOR_WARNING"
+    fi
+
+    echo ""
+
+    # Return backup path for reference
+    return 0
 }
 
 # ============================================================================
@@ -1173,26 +1334,50 @@ function uninstall_claude_workflow() {
 
     if [ "$manifests_count" -eq 1 ]; then
         selected_manifest=$(echo "$manifests_json" | jq '.[0]')
-        write_color "Only one installation found, will uninstall:" "$COLOR_INFO"
+
+        # Read version from version.json
+        local install_path=$(echo "$selected_manifest" | jq -r '.installation_path // ""')
+        local install_mode=$(echo "$selected_manifest" | jq -r '.installation_mode // "Unknown"')
+        local version_str="Version Unknown"
+
+        # Determine version.json path
+        local version_json_path="${install_path}/.claude/version.json"
+
+        if [ -f "$version_json_path" ]; then
+            local ver=$(jq -r '.version // ""' "$version_json_path" 2>/dev/null)
+            if [ -n "$ver" ] && [ "$ver" != "unknown" ]; then
+                version_str="v$ver"
+            fi
+        fi
+
+        write_color "Found installation: $version_str - $install_path" "$COLOR_INFO"
     else
-        # Multiple manifests - let user choose
+        # Multiple manifests - let user choose (simplified: only version and path)
         local options=()
 
         for i in $(seq 0 $((manifests_count - 1))); do
             local m=$(echo "$manifests_json" | jq ".[$i]")
 
-            # Safely extract date string
-            local date_str=$(echo "$m" | jq -r '.installation_date // "unknown date"' | cut -c1-10)
-            local mode=$(echo "$m" | jq -r '.installation_mode // "Unknown"')
-            local files_count=$(echo "$m" | jq -r '.files_count // 0')
-            local dirs_count=$(echo "$m" | jq -r '.directories_count // 0')
             local path_info=$(echo "$m" | jq -r '.installation_path // ""')
+            local install_mode=$(echo "$m" | jq -r '.installation_mode // "Unknown"')
+            local version_str="Version Unknown"
 
-            if [ -n "$path_info" ]; then
-                path_info=" ($path_info)"
+            # Read version from version.json
+            local version_json_path="${path_info}/.claude/version.json"
+
+            if [ -f "$version_json_path" ]; then
+                local ver=$(jq -r '.version // ""' "$version_json_path" 2>/dev/null)
+                if [ -n "$ver" ] && [ "$ver" != "unknown" ]; then
+                    version_str="v$ver"
+                fi
             fi
 
-            options+=("$((i + 1)). [$mode] $date_str - $files_count files, $dirs_count dirs$path_info")
+            local path_str="Path Unknown"
+            if [ -n "$path_info" ]; then
+                path_str="$path_info"
+            fi
+
+            options+=("$((i + 1)). $version_str - $path_str")
         done
 
         options+=("Cancel - Don't uninstall anything")
@@ -1210,16 +1395,24 @@ function uninstall_claude_workflow() {
         selected_manifest=$(echo "$manifests_json" | jq ".[$selected_index]")
     fi
 
-    # Display selected installation info
+    # Display selected installation info (simplified: only version and path)
+    local final_path=$(echo "$selected_manifest" | jq -r '.installation_path // ""')
+    local final_mode=$(echo "$selected_manifest" | jq -r '.installation_mode // "Unknown"')
+    local final_version="Version Unknown"
+
+    # Read version from version.json
+    local final_version_path="${final_path}/.claude/version.json"
+    if [ -f "$final_version_path" ]; then
+        local ver=$(jq -r '.version // ""' "$final_version_path" 2>/dev/null)
+        if [ -n "$ver" ] && [ "$ver" != "unknown" ]; then
+            final_version="v$ver"
+        fi
+    fi
+
     echo ""
-    write_color "Installation Information:" "$COLOR_INFO"
-    echo "  Manifest ID: $(echo "$selected_manifest" | jq -r '.manifest_id')"
-    echo "  Mode: $(echo "$selected_manifest" | jq -r '.installation_mode')"
-    echo "  Path: $(echo "$selected_manifest" | jq -r '.installation_path')"
-    echo "  Date: $(echo "$selected_manifest" | jq -r '.installation_date')"
-    echo "  Installer Version: $(echo "$selected_manifest" | jq -r '.installer_version')"
-    echo "  Files tracked: $(echo "$selected_manifest" | jq -r '.files_count')"
-    echo "  Directories tracked: $(echo "$selected_manifest" | jq -r '.directories_count')"
+    write_color "Uninstallation Target:" "$COLOR_INFO"
+    echo "  $final_version"
+    echo "  Path: $final_path"
     echo ""
 
     # Confirm uninstallation
@@ -1229,55 +1422,64 @@ function uninstall_claude_workflow() {
     fi
 
     local removed_files=0
-    local removed_dirs=0
     local failed_items=()
+    local skipped_files=0
 
-    # Remove files first
+    # Check if this is a Path mode uninstallation and if Global installation exists
+    local is_path_mode=false
+    local has_global_installation=false
+
+    if [ "$final_mode" = "Path" ]; then
+        is_path_mode=true
+
+        # Check if any Global installation manifest exists
+        if [ -d "$MANIFEST_DIR" ]; then
+            local global_manifest_count=$(find "$MANIFEST_DIR" -name "manifest-global-*.json" -type f 2>/dev/null | wc -l)
+            if [ "$global_manifest_count" -gt 0 ]; then
+                has_global_installation=true
+                write_color "Found Global installation, global files will be preserved" "$COLOR_WARNING"
+                echo ""
+            fi
+        fi
+    fi
+
+    # Only remove files listed in manifest - do NOT remove directories
     write_color "Removing installed files..." "$COLOR_INFO"
 
-    local files_array=$(echo "$selected_manifest" | jq -c '.files[]')
+    local files_array=$(echo "$selected_manifest" | jq -c '.files[]' 2>/dev/null)
 
-    while IFS= read -r file_entry; do
-        local file_path=$(echo "$file_entry" | jq -r '.path')
+    if [ -n "$files_array" ]; then
+        while IFS= read -r file_entry; do
+            local file_path=$(echo "$file_entry" | jq -r '.path')
 
-        if [ -f "$file_path" ]; then
-            if rm -f "$file_path" 2>/dev/null; then
-                write_color "  Removed file: $file_path" "$COLOR_SUCCESS"
-                ((removed_files++))
-            else
-                write_color "  WARNING: Failed to remove file: $file_path" "$COLOR_WARNING"
-                failed_items+=("$file_path")
-            fi
-        else
-            write_color "  File not found (already removed): $file_path" "$COLOR_INFO"
-        fi
-    done <<< "$files_array"
+            # For Path mode uninstallation, skip global files if Global installation exists
+            if [ "$is_path_mode" = true ] && [ "$has_global_installation" = true ]; then
+                local global_claude_dir="${HOME}/.claude"
 
-    # Remove directories (in reverse order by path length)
-    write_color "Removing installed directories..." "$COLOR_INFO"
-
-    local dirs_array=$(echo "$selected_manifest" | jq -c '.directories[] | {path: .path, length: (.path | length)}' | sort -t: -k2 -rn | jq -c '.path')
-
-    while IFS= read -r dir_path_json; do
-        local dir_path=$(echo "$dir_path_json" | jq -r '.')
-
-        if [ -d "$dir_path" ]; then
-            # Check if directory is empty
-            if [ -z "$(ls -A "$dir_path" 2>/dev/null)" ]; then
-                if rmdir "$dir_path" 2>/dev/null; then
-                    write_color "  Removed directory: $dir_path" "$COLOR_SUCCESS"
-                    ((removed_dirs++))
-                else
-                    write_color "  WARNING: Failed to remove directory: $dir_path" "$COLOR_WARNING"
-                    failed_items+=("$dir_path")
+                # Skip files under global .claude directory
+                if [[ "$file_path" == "$global_claude_dir"* ]]; then
+                    ((skipped_files++))
+                    continue
                 fi
-            else
-                write_color "  Directory not empty (preserved): $dir_path" "$COLOR_WARNING"
             fi
-        else
-            write_color "  Directory not found (already removed): $dir_path" "$COLOR_INFO"
-        fi
-    done <<< "$dirs_array"
+
+            if [ -f "$file_path" ]; then
+                if rm -f "$file_path" 2>/dev/null; then
+                    ((removed_files++))
+                else
+                    write_color "  WARNING: Failed to remove: $file_path" "$COLOR_WARNING"
+                    failed_items+=("$file_path")
+                fi
+            fi
+        done <<< "$files_array"
+    fi
+
+    # Display removal summary
+    if [ "$skipped_files" -gt 0 ]; then
+        write_color "Removed $removed_files files, skipped $skipped_files global files" "$COLOR_SUCCESS"
+    else
+        write_color "Removed $removed_files files" "$COLOR_SUCCESS"
+    fi
 
     # Remove manifest file
     local manifest_file=$(echo "$selected_manifest" | jq -r '.manifest_file')
@@ -1295,7 +1497,12 @@ function uninstall_claude_workflow() {
     write_color "========================================" "$COLOR_INFO"
     write_color "Uninstallation Summary:" "$COLOR_INFO"
     echo "  Files removed: $removed_files"
-    echo "  Directories removed: $removed_dirs"
+
+    if [ "$skipped_files" -gt 0 ]; then
+        echo "  Files skipped (global files preserved): $skipped_files"
+        echo ""
+        write_color "Note: $skipped_files global files were preserved due to existing Global installation" "$COLOR_INFO"
+    fi
 
     if [ ${#failed_items[@]} -gt 0 ]; then
         echo ""
@@ -1307,7 +1514,11 @@ function uninstall_claude_workflow() {
 
     echo ""
     if [ ${#failed_items[@]} -eq 0 ]; then
-        write_color "✓ Claude Code Workflow has been successfully uninstalled!" "$COLOR_SUCCESS"
+        if [ "$skipped_files" -gt 0 ]; then
+            write_color "✓ Uninstallation complete! Removed $removed_files files, preserved $skipped_files global files." "$COLOR_SUCCESS"
+        else
+            write_color "✓ Claude Code Workflow has been successfully uninstalled!" "$COLOR_SUCCESS"
+        fi
     else
         write_color "Uninstallation completed with warnings." "$COLOR_WARNING"
         write_color "Please manually remove the failed items listed above." "$COLOR_INFO"

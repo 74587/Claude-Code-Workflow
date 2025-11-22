@@ -2,17 +2,23 @@
 
 <#
 .SYNOPSIS
-    Claude Code Workflow System Interactive Installer
+    Claude Code Workflow System Interactive Installer with Version Management
 
 .DESCRIPTION
     Installation script for Claude Code Workflow System with Agent coordination and distributed memory system.
+    Features automatic version management:
+    - Tracks all installed files and directories in manifest
+    - Automatically moves old installation to backup folder before new installation
+    - Preserves version history in backup folders
+    - Supports clean uninstallation based on manifest records
+
     Installs globally to user profile directory (~/.claude) by default.
 
 .PARAMETER InstallMode
-    Installation mode: "Global" (default and only supported mode)
+    Installation mode: "Global" (default) or "Path" (hybrid local + global)
 
 .PARAMETER TargetPath
-    Target path for Custom installation mode
+    Target path for Path installation mode
 
 .PARAMETER Force
     Skip confirmation prompts
@@ -56,6 +62,18 @@
 .EXAMPLE
     .\Install-Claude.ps1 -Uninstall -Force
     Uninstall without confirmation prompts
+
+.NOTES
+    Version Management:
+    - First installation: Creates manifest and installs files
+    - Subsequent installations: Automatically moves old files to backup folder (claude-backup-old-TIMESTAMP)
+    - Manifest location: ~/.claude-manifests/
+    - Each installation path maintains its own manifest
+    - Uninstall uses manifest to remove only installed files
+
+    Backup Folders:
+    - Old version backups: claude-backup-old-YYYYMMDD-HHMMSS (automatic on reinstall)
+    - File conflict backups: claude-backup-YYYYMMDD-HHMMSS (when BackupAll enabled)
 #>
 
 param(
@@ -93,7 +111,7 @@ if ($PSVersionTable.PSVersion.Major -ge 6) {
 
 # Script metadata
 $ScriptName = "Claude Code Workflow System Installer"
-$ScriptVersion = "2.2.0"  # Installer script version
+$ScriptVersion = "2.3.0"  # Installer script version - Added automatic version cleanup
 
 # Default version (will be overridden by -SourceVersion from install-remote.ps1)
 $DefaultVersion = "unknown"
@@ -445,17 +463,18 @@ function Get-BackupDirectory {
 function Backup-FileToFolder {
     param(
         [string]$FilePath,
-        [string]$BackupFolder
+        [string]$BackupFolder,
+        [switch]$Quiet
     )
-    
+
     if (-not (Test-Path $FilePath)) {
         return $false
     }
-    
+
     try {
         $fileName = Split-Path $FilePath -Leaf
         $relativePath = ""
-        
+
         # Try to determine relative path structure for better organization
         $fileDir = Split-Path $FilePath -Parent
         if ($fileDir -match '\.claude') {
@@ -468,7 +487,7 @@ function Backup-FileToFolder {
                 }
             }
         }
-        
+
         # Create subdirectory structure in backup if needed
         $backupSubDir = $BackupFolder
         if (-not [string]::IsNullOrEmpty($relativePath)) {
@@ -477,14 +496,18 @@ function Backup-FileToFolder {
                 New-Item -ItemType Directory -Path $backupSubDir -Force | Out-Null
             }
         }
-        
+
         $backupFilePath = Join-Path $backupSubDir $fileName
         Copy-Item -Path $FilePath -Destination $backupFilePath -Force
-        
-        Write-ColorOutput "Backed up: $fileName" $ColorInfo
+
+        if (-not $Quiet) {
+            Write-ColorOutput "Backed up: $fileName" $ColorInfo
+        }
         return $true
     } catch {
-        Write-ColorOutput "WARNING: Failed to backup file $FilePath`: $($_.Exception.Message)" $ColorWarning
+        if (-not $Quiet) {
+            Write-ColorOutput "WARNING: Failed to backup file $FilePath`: $($_.Exception.Message)" $ColorWarning
+        }
         return $false
     }
 }
@@ -698,10 +721,17 @@ function Merge-DirectoryContents {
 
     # Get all items in source directory
     $sourceItems = Get-ChildItem -Path $Source -Recurse -File
+    $totalFiles = $sourceItems.Count
     $mergedCount = 0
     $skippedCount = 0
+    $backedUpCount = 0
+    $processedCount = 0
+
+    Write-ColorOutput "Processing $totalFiles files in $Description..." $ColorInfo
 
     foreach ($item in $sourceItems) {
+        $processedCount++
+
         # Calculate relative path from source
         $relativePath = $item.FullName.Substring($Source.Length + 1)
         $destinationPath = Join-Path $Destination $relativePath
@@ -717,8 +747,8 @@ function Merge-DirectoryContents {
             $fileName = Split-Path $relativePath -Leaf
             # Use BackupAll mode for automatic backup without confirmation (default behavior)
             if ($BackupAll -and -not $NoBackup) {
-                if ($BackupFolder -and (Backup-FileToFolder -FilePath $destinationPath -BackupFolder $BackupFolder)) {
-                    Write-ColorOutput "Auto-backed up: $fileName" $ColorInfo
+                if ($BackupFolder -and (Backup-FileToFolder -FilePath $destinationPath -BackupFolder $BackupFolder -Quiet)) {
+                    $backedUpCount++
                 }
                 Copy-Item -Path $item.FullName -Destination $destinationPath -Force
                 $mergedCount++
@@ -728,26 +758,35 @@ function Merge-DirectoryContents {
                     Copy-Item -Path $item.FullName -Destination $destinationPath -Force
                     $mergedCount++
                 } else {
-                    Write-ColorOutput "Skipped $fileName (no backup)" $ColorWarning
                     $skippedCount++
                 }
             } elseif (Confirm-Action "File '$relativePath' already exists. Replace it?" -DefaultYes:$false) {
-                if ($BackupFolder -and (Backup-FileToFolder -FilePath $destinationPath -BackupFolder $BackupFolder)) {
-                    Write-ColorOutput "Backed up existing $fileName" $ColorInfo
+                if ($BackupFolder -and (Backup-FileToFolder -FilePath $destinationPath -BackupFolder $BackupFolder -Quiet)) {
+                    $backedUpCount++
                 }
                 Copy-Item -Path $item.FullName -Destination $destinationPath -Force
                 $mergedCount++
             } else {
-                Write-ColorOutput "Skipped $fileName" $ColorWarning
                 $skippedCount++
             }
         } else {
             Copy-Item -Path $item.FullName -Destination $destinationPath -Force
             $mergedCount++
         }
+
+        # Show progress every 20 files
+        if ($processedCount % 20 -eq 0 -or $processedCount -eq $totalFiles) {
+            Write-Progress -Activity "Merging $Description" -Status "$processedCount/$totalFiles files processed" -PercentComplete (($processedCount / $totalFiles) * 100)
+        }
     }
 
-    Write-ColorOutput "Merged $mergedCount files, skipped $skippedCount files" $ColorSuccess
+    Write-Progress -Activity "Merging $Description" -Completed
+
+    if ($backedUpCount -gt 0) {
+        Write-ColorOutput "Merged $mergedCount files ($backedUpCount backed up), skipped $skippedCount files" $ColorSuccess
+    } else {
+        Write-ColorOutput "Merged $mergedCount files, skipped $skippedCount files" $ColorSuccess
+    }
     return $true
 }
 
@@ -771,8 +810,10 @@ function New-InstallManifest {
     }
 
     # Generate unique manifest ID based on timestamp and mode
+    # Distinguish between Global and Path installations with clear naming
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $manifestId = "install-$InstallationMode-$timestamp"
+    $modePrefix = if ($InstallationMode -eq "Global") { "manifest-global" } else { "manifest-path" }
+    $manifestId = "$modePrefix-$timestamp"
 
     $manifest = @{
         manifest_id = $manifestId
@@ -818,14 +859,70 @@ function Add-ManifestEntry {
     }
 }
 
-function Remove-OldManifestsForPath {
+function Add-ManifestEntriesBulk {
     <#
     .SYNOPSIS
-        Remove old manifest files for the same installation path
+        Bulk add file entries to manifest for better performance
     #>
     param(
         [Parameter(Mandatory=$true)]
-        [string]$InstallationPath
+        [hashtable]$Manifest,
+
+        [Parameter(Mandatory=$true)]
+        [string]$SourceDirectory,
+
+        [Parameter(Mandatory=$true)]
+        [string]$TargetDirectory,
+
+        [string]$Description = "files"
+    )
+
+    if (-not (Test-Path $SourceDirectory)) {
+        Write-ColorOutput "WARNING: Source directory not found: $SourceDirectory" $ColorWarning
+        return 0
+    }
+
+    $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+    # Add directory entry
+    Add-ManifestEntry -Manifest $Manifest -Path $TargetDirectory -Type "Directory"
+
+    # Get all source files
+    $sourceFiles = Get-ChildItem -Path $SourceDirectory -Recurse -File
+    $fileEntries = [System.Collections.ArrayList]::new()
+
+    Write-ColorOutput "Adding $($sourceFiles.Count) $Description to manifest..." $ColorInfo
+
+    foreach ($file in $sourceFiles) {
+        $relativePath = $file.FullName.Substring($SourceDirectory.Length)
+        $targetPath = $TargetDirectory + $relativePath
+
+        $entry = @{
+            path = $targetPath
+            type = "File"
+            timestamp = $timestamp
+        }
+        $null = $fileEntries.Add($entry)
+    }
+
+    # Bulk add to manifest
+    $Manifest.files += $fileEntries
+
+    Write-ColorOutput "Added $($fileEntries.Count) $Description to manifest" $ColorSuccess
+    return $fileEntries.Count
+}
+
+function Remove-OldManifestsForPath {
+    <#
+    .SYNOPSIS
+        Remove old manifest files for the same installation path and mode
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$InstallationPath,
+
+        [Parameter(Mandatory=$true)]
+        [string]$InstallationMode
     )
 
     if (-not (Test-Path $script:ManifestDir)) {
@@ -833,7 +930,9 @@ function Remove-OldManifestsForPath {
     }
 
     try {
-        $manifestFiles = Get-ChildItem -Path $script:ManifestDir -Filter "install-*.json" -File
+        # Get both new (manifest-*) and old (install-*) format manifest files
+        $manifestFiles = Get-ChildItem -Path $script:ManifestDir -Filter "*-*.json" -File |
+            Where-Object { $_.Name -match '^(manifest|install)-' }
         $removedCount = 0
 
         foreach ($file in $manifestFiles) {
@@ -849,8 +948,15 @@ function Remove-OldManifestsForPath {
                 }
                 $targetPath = $InstallationPath.TrimEnd('\', '/').ToLower()
 
-                # If paths match, remove this old manifest
-                if ($manifestPath -eq $targetPath) {
+                # Get installation mode
+                $manifestMode = if ($manifest.installation_mode) {
+                    $manifest.installation_mode
+                } else {
+                    "Global"
+                }
+
+                # Only remove if BOTH path and mode match
+                if ($manifestPath -eq $targetPath -and $manifestMode -eq $InstallationMode) {
                     Remove-Item -Path $file.FullName -Force
                     Write-ColorOutput "Removed old manifest: $($file.Name)" $ColorInfo
                     $removedCount++
@@ -879,9 +985,9 @@ function Save-InstallManifest {
     )
 
     try {
-        # Remove old manifests for the same installation path
-        if ($Manifest.installation_path) {
-            Remove-OldManifestsForPath -InstallationPath $Manifest.installation_path
+        # Remove old manifests for the same installation path and mode
+        if ($Manifest.installation_path -and $Manifest.installation_mode) {
+            Remove-OldManifestsForPath -InstallationPath $Manifest.installation_path -InstallationMode $Manifest.installation_mode
         }
 
         # Use manifest ID to create unique file name
@@ -921,10 +1027,11 @@ function Migrate-LegacyManifest {
         $legacyJson = Get-Content -Path $legacyManifestPath -Raw -Encoding utf8
         $legacy = $legacyJson | ConvertFrom-Json
 
-        # Generate new manifest ID
+        # Generate new manifest ID with new naming convention
         $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
         $mode = if ($legacy.installation_mode) { $legacy.installation_mode } else { "Global" }
-        $manifestId = "install-$mode-$timestamp-migrated"
+        $modePrefix = if ($mode -eq "Global") { "manifest-global" } else { "manifest-path" }
+        $manifestId = "$modePrefix-$timestamp-migrated"
 
         # Create new manifest with all fields
         $newManifest = @{
@@ -953,6 +1060,153 @@ function Migrate-LegacyManifest {
     }
 }
 
+function Move-OldInstallation {
+    <#
+    .SYNOPSIS
+        Move old installation files to backup folder based on manifest
+    .DESCRIPTION
+        This function finds the previous installation manifest for the given path,
+        moves (cuts) the old files to a backup folder, and removes empty directories.
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$InstallationPath,
+
+        [Parameter(Mandatory=$true)]
+        [string]$InstallationMode
+    )
+
+    # Find existing manifest for this installation path
+    $manifests = Get-AllInstallManifests
+
+    if (-not $manifests -or $manifests.Count -eq 0) {
+        Write-ColorOutput "No previous installation found - proceeding with fresh installation" $ColorInfo
+        return $null
+    }
+
+    # Normalize paths for comparison
+    $targetPath = $InstallationPath.TrimEnd('\', '/').ToLower()
+
+    # Find manifest matching this installation path and mode
+    $oldManifest = $manifests | Where-Object {
+        $manifestPath = $_.installation_path.TrimEnd('\', '/').ToLower()
+        $manifestPath -eq $targetPath -and $_.installation_mode -eq $InstallationMode
+    } | Select-Object -First 1
+
+    if (-not $oldManifest) {
+        Write-ColorOutput "No previous $InstallationMode installation found at this path" $ColorInfo
+        return $null
+    }
+
+    Write-ColorOutput "Found previous installation from $($oldManifest.installation_date)" $ColorInfo
+    Write-ColorOutput "Files: $($oldManifest.files_count), Directories: $($oldManifest.directories_count)" $ColorInfo
+
+    # Create backup folder
+    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $backupDirName = "claude-backup-old-$timestamp"
+    $backupPath = Join-Path $InstallationPath $backupDirName
+
+    if (-not (Test-Path $backupPath)) {
+        New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
+        Write-ColorOutput "Created backup folder: $backupPath" $ColorSuccess
+    }
+
+    $movedFiles = 0
+    $movedDirs = 0
+    $failedItems = @()
+
+    # Move files first (from manifest)
+    Write-ColorOutput "Moving old installation files to backup..." $ColorInfo
+    foreach ($fileEntry in $oldManifest.files) {
+        $filePath = $fileEntry.path
+
+        if (Test-Path $filePath) {
+            try {
+                # Calculate relative path from installation root (generic approach)
+                # This works for any directory structure without hardcoding
+                $normalizedFilePath = $filePath.ToLower()
+                $normalizedInstallPath = $InstallationPath.ToLower()
+
+                $relativeSubPath = ""
+                $fileName = Split-Path $filePath -Leaf
+                $relativeDir = ""
+
+                # Check if file is under installation path
+                if ($normalizedFilePath.StartsWith($normalizedInstallPath)) {
+                    # Get path relative to installation root
+                    $relativeSubPath = $filePath.Substring($InstallationPath.Length).TrimStart('\', '/')
+
+                    # Separate directory from filename
+                    if ($relativeSubPath -ne $fileName) {
+                        $relativeDir = Split-Path -Path $relativeSubPath -Parent
+                    }
+                }
+
+                # Create backup subdirectory structure
+                $backupSubDir = $backupPath
+                if (-not [string]::IsNullOrEmpty($relativeDir)) {
+                    $backupSubDir = Join-Path $backupPath $relativeDir
+                    if (-not (Test-Path $backupSubDir)) {
+                        New-Item -ItemType Directory -Path $backupSubDir -Force | Out-Null
+                    }
+                }
+
+                $backupFilePath = Join-Path $backupSubDir $fileName
+
+                # Move (cut) instead of copy
+                Move-Item -Path $filePath -Destination $backupFilePath -Force -ErrorAction Stop
+                $movedFiles++
+            } catch {
+                Write-ColorOutput "  WARNING: Failed to move file: $filePath - $($_.Exception.Message)" $ColorWarning
+                $failedItems += $filePath
+            }
+        }
+    }
+
+    # Remove empty directories (in reverse order to handle nested dirs)
+    Write-ColorOutput "Cleaning up empty directories..." $ColorInfo
+    $sortedDirs = $oldManifest.directories | Sort-Object { $_.path.Length } -Descending
+
+    foreach ($dirEntry in $sortedDirs) {
+        $dirPath = $dirEntry.path
+
+        if (Test-Path $dirPath) {
+            try {
+                # Check if directory is empty
+                $dirContents = Get-ChildItem -Path $dirPath -Force -ErrorAction SilentlyContinue
+
+                if (-not $dirContents -or ($dirContents | Measure-Object).Count -eq 0) {
+                    Remove-Item -Path $dirPath -Force -ErrorAction Stop
+                    Write-ColorOutput "  Removed empty directory: $dirPath" $ColorInfo
+                    $movedDirs++
+                } else {
+                    Write-ColorOutput "  Directory not empty (preserved): $dirPath" $ColorInfo
+                }
+            } catch {
+                # Silently continue if directory removal fails
+            }
+        }
+    }
+
+    # Note: Old manifest will be automatically removed by Save-InstallManifest
+    # via Remove-OldManifestsForPath to ensure robust cleanup
+
+    Write-Host ""
+    Write-ColorOutput "Old installation cleanup summary:" $ColorInfo
+    Write-Host "  Files moved: $movedFiles"
+    Write-Host "  Directories removed: $movedDirs"
+    Write-Host "  Backup location: $backupPath"
+
+    if ($failedItems.Count -gt 0) {
+        Write-ColorOutput "  Failed items: $($failedItems.Count)" $ColorWarning
+    }
+
+    Write-Host ""
+
+    # Return backup path for reference
+    return $backupPath
+}
+
 function Get-AllInstallManifests {
     <#
     .SYNOPSIS
@@ -967,16 +1221,18 @@ function Get-AllInstallManifests {
     }
 
     try {
-        $manifestFiles = Get-ChildItem -Path $script:ManifestDir -Filter "install-*.json" -File | Sort-Object LastWriteTime -Descending
-        $allManifests = [System.Collections.ArrayList]::new()
+        # Get both new (manifest-*) and old (install-*) format manifest files for backward compatibility
+        $manifestFiles = @(Get-ChildItem -Path $script:ManifestDir -Filter "*-*.json" -File |
+            Where-Object { $_.Name -match '^(manifest|install)-' } |
+            Sort-Object LastWriteTime -Descending)
+
+        # Simple array to hold results
+        $results = @()
 
         foreach ($file in $manifestFiles) {
             try {
                 $manifestJson = Get-Content -Path $file.FullName -Raw -Encoding utf8
                 $manifest = $manifestJson | ConvertFrom-Json
-
-                # Convert to hashtable for easier manipulation
-                # Handle both old and new manifest formats
 
                 # Safely get array counts
                 $filesCount = 0
@@ -998,7 +1254,8 @@ function Get-AllInstallManifests {
                     }
                 }
 
-                $manifestHash = @{
+                # Create PSCustomObject instead of hashtable for better compatibility
+                $manifestObj = [PSCustomObject]@{
                     manifest_id = if ($manifest.manifest_id) { $manifest.manifest_id } else { $file.BaseName }
                     manifest_file = $file.FullName
                     version = if ($manifest.version) { $manifest.version } else { "1.0" }
@@ -1010,54 +1267,78 @@ function Get-AllInstallManifests {
                     directories = if ($manifest.directories) { @($manifest.directories) } else { @() }
                     files_count = $filesCount
                     directories_count = $dirsCount
+                    application_version = 'unknown'
                 }
 
-                $null = $allManifests.Add($manifestHash)
+                # Read application version from version.json file
+                try {
+                    $installPath = $manifestObj.installation_path
+                    if ($installPath) {
+                        $versionJsonPath = Join-Path (Join-Path $installPath ".claude") "version.json"
+
+                        if (Test-Path $versionJsonPath) {
+                            $versionJsonContent = Get-Content -Path $versionJsonPath -Raw -Encoding utf8
+                            $versionInfo = $versionJsonContent | ConvertFrom-Json
+                            if ($versionInfo.version) {
+                                $manifestObj.application_version = $versionInfo.version
+                            }
+                        }
+                    }
+                } catch {
+                    # Silently fail - 'unknown' will be used
+                }
+
+                # Add to results array
+                $results += $manifestObj
+
             } catch {
                 Write-ColorOutput "WARNING: Failed to load manifest $($file.Name): $($_.Exception.Message)" $ColorWarning
             }
         }
 
-        # Group by installation_path (normalized) and keep only the latest per path
+        # Group by installation_path and keep only the latest per path
         $pathGroups = @{}
-        foreach ($manifest in $allManifests) {
-            $normalizedPath = $manifest.installation_path.TrimEnd('\', '/').ToLower()
+        foreach ($m in $results) {
+            $normalizedPath = if ($m.installation_path) {
+                $m.installation_path.TrimEnd('\', '/').ToLower()
+            } else {
+                ""
+            }
 
             if (-not $pathGroups.ContainsKey($normalizedPath)) {
                 $pathGroups[$normalizedPath] = @()
             }
-            $pathGroups[$normalizedPath] += $manifest
+            $pathGroups[$normalizedPath] += $m
         }
 
-        # Select the latest manifest for each path (based on installation_date)
-        $latestManifests = [System.Collections.ArrayList]::new()
+        # Select the latest manifest for each path
+        $finalResults = @()
         foreach ($pathKey in $pathGroups.Keys) {
             $groupManifests = $pathGroups[$pathKey]
 
-            # Sort by installation_date descending and take the first (latest)
+            # Sort by installation_date descending and take the first
             $latest = $groupManifests | Sort-Object {
-                try {
-                    [DateTime]::Parse($_.installation_date)
-                } catch {
-                    [DateTime]::MinValue
-                }
+                try { [DateTime]::Parse($_.installation_date) } catch { [DateTime]::MinValue }
             } -Descending | Select-Object -First 1
 
             if ($latest) {
-                $null = $latestManifests.Add($latest)
+                $finalResults += $latest
             }
         }
 
         # Sort final results by installation_date descending
-        $sortedManifests = $latestManifests | Sort-Object {
-            try {
-                [DateTime]::Parse($_.installation_date)
-            } catch {
-                [DateTime]::MinValue
-            }
-        } -Descending
+        if ($finalResults.Count -eq 0) {
+            return @()
+        }
 
-        return ,$sortedManifests
+        # Force array output from Sort-Object
+        $sortedResults = @($finalResults | Sort-Object {
+            try { [DateTime]::Parse($_.installation_date) } catch { [DateTime]::MinValue }
+        } -Descending)
+
+        # Use comma operator to prevent PowerShell from unwrapping single-element array
+        return ,$sortedResults
+
     } catch {
         Write-ColorOutput "ERROR: Failed to list installation manifests: $($_.Exception.Message)" $ColorError
         return @()
@@ -1111,32 +1392,36 @@ function Uninstall-ClaudeWorkflow {
     $selectedManifest = $null
     if ($manifests.Count -eq 1) {
         $selectedManifest = $manifests[0]
-        Write-ColorOutput "Only one installation found, will uninstall:" $ColorInfo
+
+        # Display simplified info for single installation
+        $versionStr = if ($selectedManifest.application_version -and $selectedManifest.application_version -ne 'unknown') {
+            "v$($selectedManifest.application_version)"
+        } else {
+            "Version Unknown"
+        }
+        Write-ColorOutput "Found installation: $versionStr - $($selectedManifest.installation_path)" $ColorInfo
     } else {
-        # Multiple manifests - let user choose
+        # Multiple manifests - let user choose (simplified: only version and path)
         $options = @()
         for ($i = 0; $i -lt $manifests.Count; $i++) {
             $m = $manifests[$i]
 
-            # Safely extract date string
-            $dateStr = "unknown date"
-            if ($m.installation_date) {
-                try {
-                    if ($m.installation_date.Length -ge 10) {
-                        $dateStr = $m.installation_date.Substring(0, 10)
-                    } else {
-                        $dateStr = $m.installation_date
-                    }
-                } catch {
-                    $dateStr = "unknown date"
-                }
+            # Get version string
+            $versionStr = if ($m.application_version -and $m.application_version -ne 'unknown') {
+                "v$($m.application_version)"
+            } else {
+                "Version Unknown"
             }
 
-            # Build option string with safe counts
-            $filesCount = if ($m.files_count) { $m.files_count } else { 0 }
-            $dirsCount = if ($m.directories_count) { $m.directories_count } else { 0 }
-            $pathInfo = if ($m.installation_path) { " ($($m.installation_path))" } else { "" }
-            $option = "$($i + 1). [$($m.installation_mode)] $dateStr - $filesCount files, $dirsCount dirs$pathInfo"
+            # Get path string
+            $pathStr = if ($m.installation_path) {
+                $m.installation_path
+            } else {
+                "Path Unknown"
+            }
+
+            # Simplified format: only version and path
+            $option = "$($i + 1). $versionStr - $pathStr"
             $options += $option
         }
         $options += "Cancel - Don't uninstall anything"
@@ -1154,20 +1439,18 @@ function Uninstall-ClaudeWorkflow {
         $selectedManifest = $manifests[$selectedIndex]
     }
 
-    # Display selected installation info
+    # Display selected installation info (simplified - only path and version)
     Write-Host ""
-    Write-ColorOutput "Installation Information:" $ColorInfo
-    Write-Host "  Manifest ID: $($selectedManifest.manifest_id)"
-    Write-Host "  Mode: $($selectedManifest.installation_mode)"
-    Write-Host "  Path: $($selectedManifest.installation_path)"
-    Write-Host "  Date: $($selectedManifest.installation_date)"
-    Write-Host "  Installer Version: $($selectedManifest.installer_version)"
+    Write-ColorOutput "Uninstallation Target:" $ColorInfo
 
-    # Use pre-calculated counts
-    $filesCount = if ($selectedManifest.files_count) { $selectedManifest.files_count } else { 0 }
-    $dirsCount = if ($selectedManifest.directories_count) { $selectedManifest.directories_count } else { 0 }
-    Write-Host "  Files tracked: $filesCount"
-    Write-Host "  Directories tracked: $dirsCount"
+    # Display application version (handle unknown version)
+    $displayVersion = if ($selectedManifest.application_version -and $selectedManifest.application_version -ne 'unknown') {
+        "v$($selectedManifest.application_version)"
+    } else {
+        "Version: Unknown"
+    }
+    Write-Host "  $displayVersion"
+    Write-Host "  Path: $($selectedManifest.installation_path)"
     Write-Host ""
 
     # Confirm uninstallation
@@ -1180,54 +1463,61 @@ function Uninstall-ClaudeWorkflow {
     $manifest = $selectedManifest
 
     $removedFiles = 0
-    $removedDirs = 0
     $failedItems = @()
+    $skippedFiles = 0
 
-    # Remove files first
+    # Check if this is a Path mode uninstallation and if Global installation exists
+    $isPathMode = ($manifest.installation_mode -eq "Path")
+    $hasGlobalInstallation = $false
+
+    if ($isPathMode) {
+        # Check if any Global installation manifest exists
+        if (Test-Path $script:ManifestDir) {
+            $globalManifestFiles = Get-ChildItem -Path $script:ManifestDir -Filter "manifest-global-*.json" -File
+            if ($globalManifestFiles -and $globalManifestFiles.Count -gt 0) {
+                $hasGlobalInstallation = $true
+                Write-ColorOutput "Found Global installation, global files will be preserved" $ColorWarning
+                Write-Host ""
+            }
+        }
+    }
+
+    # Only remove files listed in manifest - do NOT remove directories
     Write-ColorOutput "Removing installed files..." $ColorInfo
     foreach ($fileEntry in $manifest.files) {
         $filePath = $fileEntry.path
 
+        # For Path mode uninstallation, skip global files if Global installation exists
+        if ($isPathMode -and $hasGlobalInstallation) {
+            $userProfile = [Environment]::GetFolderPath("UserProfile")
+            $globalClaudeDir = Join-Path $userProfile ".claude"
+            $normalizedFilePath = $filePath.ToLower()
+            $normalizedGlobalDir = $globalClaudeDir.ToLower()
+
+            # Skip files under global .claude directory
+            if ($normalizedFilePath.StartsWith($normalizedGlobalDir)) {
+                Write-ColorOutput "  Skipping global file (Global installation exists): $filePath" $ColorInfo
+                $skippedFiles++
+                continue
+            }
+        }
+
         if (Test-Path $filePath) {
             try {
                 Remove-Item -Path $filePath -Force -ErrorAction Stop
-                Write-ColorOutput "  Removed file: $filePath" $ColorSuccess
                 $removedFiles++
             } catch {
-                Write-ColorOutput "  WARNING: Failed to remove file: $filePath" $ColorWarning
+                Write-ColorOutput "  WARNING: Failed to remove: $filePath" $ColorWarning
                 $failedItems += $filePath
             }
-        } else {
-            Write-ColorOutput "  File not found (already removed): $filePath" $ColorInfo
         }
     }
 
-    # Remove directories (in reverse order to handle nested directories)
-    Write-ColorOutput "Removing installed directories..." $ColorInfo
-    $sortedDirs = $manifest.directories | Sort-Object { $_.path.Length } -Descending
-
-    foreach ($dirEntry in $sortedDirs) {
-        $dirPath = $dirEntry.path
-
-        if (Test-Path $dirPath) {
-            try {
-                # Check if directory is empty or only contains files we installed
-                $dirContents = Get-ChildItem -Path $dirPath -Recurse -Force -ErrorAction SilentlyContinue
-
-                if (-not $dirContents -or ($dirContents | Measure-Object).Count -eq 0) {
-                    Remove-Item -Path $dirPath -Recurse -Force -ErrorAction Stop
-                    Write-ColorOutput "  Removed directory: $dirPath" $ColorSuccess
-                    $removedDirs++
-                } else {
-                    Write-ColorOutput "  Directory not empty (preserved): $dirPath" $ColorWarning
-                }
-            } catch {
-                Write-ColorOutput "  WARNING: Failed to remove directory: $dirPath" $ColorWarning
-                $failedItems += $dirPath
-            }
-        } else {
-            Write-ColorOutput "  Directory not found (already removed): $dirPath" $ColorInfo
-        }
+    # Display removal summary
+    if ($skippedFiles -gt 0) {
+        Write-ColorOutput "Removed $removedFiles files, skipped $skippedFiles global files" $ColorSuccess
+    } else {
+        Write-ColorOutput "Removed $removedFiles files" $ColorSuccess
     }
 
     # Remove manifest file
@@ -1242,25 +1532,23 @@ function Uninstall-ClaudeWorkflow {
 
     # Show summary
     Write-Host ""
-    Write-ColorOutput "========================================" $ColorInfo
-    Write-ColorOutput "Uninstallation Summary:" $ColorInfo
-    Write-Host "  Files removed: $removedFiles"
-    Write-Host "  Directories removed: $removedDirs"
-
     if ($failedItems.Count -gt 0) {
-        Write-Host ""
-        Write-ColorOutput "Failed to remove the following items:" $ColorWarning
-        foreach ($item in $failedItems) {
-            Write-Host "  - $item"
-        }
+        Write-ColorOutput "Failed to remove $($failedItems.Count) files" $ColorWarning
     }
 
-    Write-Host ""
+    if ($skippedFiles -gt 0) {
+        Write-ColorOutput "Note: $skippedFiles global files were preserved due to existing Global installation" $ColorInfo
+    }
+
     if ($failedItems.Count -eq 0) {
-        Write-ColorOutput "Claude Code Workflow has been successfully uninstalled!" $ColorSuccess
+        $summaryMsg = if ($skippedFiles -gt 0) {
+            "Uninstallation complete! Removed $removedFiles files, preserved $skippedFiles global files."
+        } else {
+            "Uninstallation complete! Removed $removedFiles files."
+        }
+        Write-ColorOutput $summaryMsg $ColorSuccess
     } else {
         Write-ColorOutput "Uninstallation completed with warnings." $ColorWarning
-        Write-ColorOutput "Please manually remove the failed items listed above." $ColorInfo
     }
 
     return $true
@@ -1313,6 +1601,15 @@ function Install-Global {
 
     Write-ColorOutput "Global installation path: $userProfile" $ColorInfo
 
+    # Clean up old installation before proceeding
+    Write-Host ""
+    Write-ColorOutput "Checking for previous installation..." $ColorInfo
+    $oldBackupPath = Move-OldInstallation -InstallationPath $userProfile -InstallationMode "Global"
+
+    if ($oldBackupPath) {
+        Write-ColorOutput "Previous installation moved to: $oldBackupPath" $ColorSuccess
+    }
+
     # Initialize manifest
     $manifest = New-InstallManifest -InstallationMode "Global" -InstallationPath $userProfile
 
@@ -1356,17 +1653,9 @@ function Install-Global {
     Write-ColorOutput "Installing .claude directory (incremental merge)..." $ColorInfo
     $claudeInstalled = Merge-DirectoryContents -Source $sourceClaudeDir -Destination $globalClaudeDir -Description ".claude directory" -BackupFolder $backupFolder
 
-    # Track .claude directory in manifest
+    # Track .claude directory in manifest (bulk add)
     if ($claudeInstalled) {
-        Add-ManifestEntry -Manifest $manifest -Path $globalClaudeDir -Type "Directory"
-
-        # Track files from SOURCE directory, not destination
-        Get-ChildItem -Path $sourceClaudeDir -Recurse -File | ForEach-Object {
-            # Calculate target path where this file will be installed
-            $relativePath = $_.FullName.Substring($sourceClaudeDir.Length)
-            $targetPath = $globalClaudeDir + $relativePath
-            Add-ManifestEntry -Manifest $manifest -Path $targetPath -Type "File"
-        }
+        Add-ManifestEntriesBulk -Manifest $manifest -SourceDirectory $sourceClaudeDir -TargetDirectory $globalClaudeDir -Description ".claude files"
     }
 
     # Handle CLAUDE.md file in .claude directory
@@ -1385,15 +1674,9 @@ function Install-Global {
     Write-ColorOutput "Installing .codex directory (incremental merge)..." $ColorInfo
     $codexInstalled = Merge-DirectoryContents -Source $sourceCodexDir -Destination $globalCodexDir -Description ".codex directory" -BackupFolder $backupFolder
 
-    # Track .codex directory in manifest
+    # Track .codex directory in manifest (bulk add)
     if ($codexInstalled) {
-        Add-ManifestEntry -Manifest $manifest -Path $globalCodexDir -Type "Directory"
-        # Track files from SOURCE directory
-        Get-ChildItem -Path $sourceCodexDir -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Substring($sourceCodexDir.Length)
-            $targetPath = $globalCodexDir + $relativePath
-            Add-ManifestEntry -Manifest $manifest -Path $targetPath -Type "File"
-        }
+        Add-ManifestEntriesBulk -Manifest $manifest -SourceDirectory $sourceCodexDir -TargetDirectory $globalCodexDir -Description ".codex files"
     }
 
     # Backup critical config files in .gemini directory before installation
@@ -1403,15 +1686,9 @@ function Install-Global {
     Write-ColorOutput "Installing .gemini directory (incremental merge)..." $ColorInfo
     $geminiInstalled = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $globalGeminiDir -Description ".gemini directory" -BackupFolder $backupFolder
 
-    # Track .gemini directory in manifest
+    # Track .gemini directory in manifest (bulk add)
     if ($geminiInstalled) {
-        Add-ManifestEntry -Manifest $manifest -Path $globalGeminiDir -Type "Directory"
-        # Track files from SOURCE directory
-        Get-ChildItem -Path $sourceGeminiDir -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Substring($sourceGeminiDir.Length)
-            $targetPath = $globalGeminiDir + $relativePath
-            Add-ManifestEntry -Manifest $manifest -Path $targetPath -Type "File"
-        }
+        Add-ManifestEntriesBulk -Manifest $manifest -SourceDirectory $sourceGeminiDir -TargetDirectory $globalGeminiDir -Description ".gemini files"
     }
 
     # Backup critical config files in .qwen directory before installation
@@ -1421,15 +1698,9 @@ function Install-Global {
     Write-ColorOutput "Installing .qwen directory (incremental merge)..." $ColorInfo
     $qwenInstalled = Merge-DirectoryContents -Source $sourceQwenDir -Destination $globalQwenDir -Description ".qwen directory" -BackupFolder $backupFolder
 
-    # Track .qwen directory in manifest
+    # Track .qwen directory in manifest (bulk add)
     if ($qwenInstalled) {
-        Add-ManifestEntry -Manifest $manifest -Path $globalQwenDir -Type "Directory"
-        # Track files from SOURCE directory
-        Get-ChildItem -Path $sourceQwenDir -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Substring($sourceQwenDir.Length)
-            $targetPath = $globalQwenDir + $relativePath
-            Add-ManifestEntry -Manifest $manifest -Path $targetPath -Type "File"
-        }
+        Add-ManifestEntriesBulk -Manifest $manifest -SourceDirectory $sourceQwenDir -TargetDirectory $globalQwenDir -Description ".qwen files"
     }
 
     # Create version.json in global .claude directory
@@ -1464,6 +1735,15 @@ function Install-Path {
     $globalClaudeDir = Join-Path $userProfile ".claude"
 
     Write-ColorOutput "Global path: $userProfile" $ColorInfo
+
+    # Clean up old installation before proceeding
+    Write-Host ""
+    Write-ColorOutput "Checking for previous installation..." $ColorInfo
+    $oldBackupPath = Move-OldInstallation -InstallationPath $TargetDirectory -InstallationMode "Path"
+
+    if ($oldBackupPath) {
+        Write-ColorOutput "Previous installation moved to: $oldBackupPath" $ColorSuccess
+    }
 
     # Initialize manifest
     $manifest = New-InstallManifest -InstallationMode "Path" -InstallationPath $TargetDirectory
@@ -1507,82 +1787,56 @@ function Install-Path {
 
         if (Test-Path $sourceFolderPath) {
             # Use incremental merge for local folders (preserves user customizations)
-            Write-ColorOutput "Installing local folder: $folder (incremental merge)..." $ColorInfo
             $folderInstalled = Merge-DirectoryContents -Source $sourceFolderPath -Destination $destFolderPath -Description "$folder folder" -BackupFolder $backupFolder
-            Write-ColorOutput "Installed local folder: $folder" $ColorSuccess
 
-            # Track local folder in manifest
+            # Track local folder in manifest (bulk add)
             if ($folderInstalled) {
-                Add-ManifestEntry -Manifest $manifest -Path $destFolderPath -Type "Directory"
-                # Track files from SOURCE directory
-                Get-ChildItem -Path $sourceFolderPath -Recurse -File | ForEach-Object {
-                    $relativePath = $_.FullName.Substring($sourceFolderPath.Length)
-                    $targetPath = $destFolderPath + $relativePath
-                    Add-ManifestEntry -Manifest $manifest -Path $targetPath -Type "File"
-                }
+                Add-ManifestEntriesBulk -Manifest $manifest -SourceDirectory $sourceFolderPath -TargetDirectory $destFolderPath -Description "$folder files"
             }
         } else {
             Write-ColorOutput "WARNING: Source folder not found: $folder" $ColorWarning
         }
     }
 
-    # Global components - exclude local folders
+    # Global components - exclude local folders (use same efficient method as Global mode)
     Write-ColorOutput "Installing global components to $globalClaudeDir..." $ColorInfo
 
-    # Get all items from source, excluding local folders
-    $sourceItems = Get-ChildItem -Path $sourceClaudeDir -Recurse -File | Where-Object {
-        $relativePath = $_.FullName.Substring($sourceClaudeDir.Length + 1)
-        $topFolder = $relativePath.Split([System.IO.Path]::DirectorySeparatorChar)[0]
-        $topFolder -notin $localFolders
-    }
+    # Create temporary directory for global files only
+    $tempGlobalDir = Join-Path ([System.IO.Path]::GetTempPath()) "claude-global-$((Get-Date).Ticks)"
+    New-Item -ItemType Directory -Path $tempGlobalDir -Force | Out-Null
 
-    $mergedCount = 0
-    foreach ($item in $sourceItems) {
-        $relativePath = $item.FullName.Substring($sourceClaudeDir.Length + 1)
-        $destinationPath = Join-Path $globalClaudeDir $relativePath
-
-        # Ensure destination directory exists
-        $destinationDir = Split-Path $destinationPath -Parent
-        if (-not (Test-Path $destinationDir)) {
-            New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+    try {
+        # Copy global files to temp directory (excluding local folders)
+        Write-ColorOutput "Preparing global components..." $ColorInfo
+        $sourceItems = Get-ChildItem -Path $sourceClaudeDir -Recurse -File | Where-Object {
+            $relativePath = $_.FullName.Substring($sourceClaudeDir.Length + 1)
+            $topFolder = $relativePath.Split([System.IO.Path]::DirectorySeparatorChar)[0]
+            $topFolder -notin $localFolders
         }
 
-        # Handle file merging
-        if (Test-Path $destinationPath) {
-            if ($BackupAll -and -not $NoBackup) {
-                if ($backupFolder) {
-                    Backup-FileToFolder -FilePath $destinationPath -BackupFolder $backupFolder
-                }
-                Copy-Item -Path $item.FullName -Destination $destinationPath -Force
-                $mergedCount++
-            } elseif ($NoBackup) {
-                if (Confirm-Action "File '$relativePath' already exists in global location. Replace it? (NO BACKUP)" -DefaultYes:$false) {
-                    Copy-Item -Path $item.FullName -Destination $destinationPath -Force
-                    $mergedCount++
-                }
-            } elseif (Confirm-Action "File '$relativePath' already exists in global location. Replace it?" -DefaultYes:$false) {
-                if ($backupFolder) {
-                    Backup-FileToFolder -FilePath $destinationPath -BackupFolder $backupFolder
-                }
-                Copy-Item -Path $item.FullName -Destination $destinationPath -Force
-                $mergedCount++
+        foreach ($item in $sourceItems) {
+            $relativePath = $item.FullName.Substring($sourceClaudeDir.Length + 1)
+            $tempDestPath = Join-Path $tempGlobalDir $relativePath
+            $tempDestDir = Split-Path $tempDestPath -Parent
+
+            if (-not (Test-Path $tempDestDir)) {
+                New-Item -ItemType Directory -Path $tempDestDir -Force | Out-Null
             }
-        } else {
-            Copy-Item -Path $item.FullName -Destination $destinationPath -Force
-            $mergedCount++
+            Copy-Item -Path $item.FullName -Destination $tempDestPath -Force
         }
-    }
 
-    Write-ColorOutput "Merged $mergedCount files to global location" $ColorSuccess
+        # Use bulk merge method (same as Global mode - fast!)
+        $globalInstalled = Merge-DirectoryContents -Source $tempGlobalDir -Destination $globalClaudeDir -Description "global components" -BackupFolder $backupFolder
 
-    # Track global files in manifest
-    $globalClaudeFiles = Get-ChildItem -Path $globalClaudeDir -Recurse -File | Where-Object {
-        $relativePath = $_.FullName.Substring($globalClaudeDir.Length + 1)
-        $topFolder = $relativePath.Split([System.IO.Path]::DirectorySeparatorChar)[0]
-        $topFolder -notin $localFolders
-    }
-    foreach ($file in $globalClaudeFiles) {
-        Add-ManifestEntry -Manifest $manifest -Path $file.FullName -Type "File"
+        # Track global files in manifest using bulk method (fast!)
+        if ($globalInstalled) {
+            Add-ManifestEntriesBulk -Manifest $manifest -SourceDirectory $tempGlobalDir -TargetDirectory $globalClaudeDir -Description "global files"
+        }
+    } finally {
+        # Clean up temp directory
+        if (Test-Path $tempGlobalDir) {
+            Remove-Item -Path $tempGlobalDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 
     # Handle CLAUDE.md file in global .claude directory
@@ -1602,15 +1856,9 @@ function Install-Path {
     Write-ColorOutput "Installing .codex directory to local location (incremental merge)..." $ColorInfo
     $codexInstalled = Merge-DirectoryContents -Source $sourceCodexDir -Destination $localCodexDir -Description ".codex directory" -BackupFolder $backupFolder
 
-    # Track .codex directory in manifest
+    # Track .codex directory in manifest (bulk add)
     if ($codexInstalled) {
-        Add-ManifestEntry -Manifest $manifest -Path $localCodexDir -Type "Directory"
-        # Track files from SOURCE directory
-        Get-ChildItem -Path $sourceCodexDir -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Substring($sourceCodexDir.Length)
-            $targetPath = $localCodexDir + $relativePath
-            Add-ManifestEntry -Manifest $manifest -Path $targetPath -Type "File"
-        }
+        Add-ManifestEntriesBulk -Manifest $manifest -SourceDirectory $sourceCodexDir -TargetDirectory $localCodexDir -Description ".codex files"
     }
 
     # Backup critical config files in .gemini directory before installation
@@ -1620,15 +1868,9 @@ function Install-Path {
     Write-ColorOutput "Installing .gemini directory to local location (incremental merge)..." $ColorInfo
     $geminiInstalled = Merge-DirectoryContents -Source $sourceGeminiDir -Destination $localGeminiDir -Description ".gemini directory" -BackupFolder $backupFolder
 
-    # Track .gemini directory in manifest
+    # Track .gemini directory in manifest (bulk add)
     if ($geminiInstalled) {
-        Add-ManifestEntry -Manifest $manifest -Path $localGeminiDir -Type "Directory"
-        # Track files from SOURCE directory
-        Get-ChildItem -Path $sourceGeminiDir -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Substring($sourceGeminiDir.Length)
-            $targetPath = $localGeminiDir + $relativePath
-            Add-ManifestEntry -Manifest $manifest -Path $targetPath -Type "File"
-        }
+        Add-ManifestEntriesBulk -Manifest $manifest -SourceDirectory $sourceGeminiDir -TargetDirectory $localGeminiDir -Description ".gemini files"
     }
 
     # Backup critical config files in .qwen directory before installation
@@ -1638,15 +1880,9 @@ function Install-Path {
     Write-ColorOutput "Installing .qwen directory to local location (incremental merge)..." $ColorInfo
     $qwenInstalled = Merge-DirectoryContents -Source $sourceQwenDir -Destination $localQwenDir -Description ".qwen directory" -BackupFolder $backupFolder
 
-    # Track .qwen directory in manifest
+    # Track .qwen directory in manifest (bulk add)
     if ($qwenInstalled) {
-        Add-ManifestEntry -Manifest $manifest -Path $localQwenDir -Type "Directory"
-        # Track files from SOURCE directory
-        Get-ChildItem -Path $sourceQwenDir -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Substring($sourceQwenDir.Length)
-            $targetPath = $localQwenDir + $relativePath
-            Add-ManifestEntry -Manifest $manifest -Path $targetPath -Type "File"
-        }
+        Add-ManifestEntriesBulk -Manifest $manifest -SourceDirectory $sourceQwenDir -TargetDirectory $localQwenDir -Description ".qwen files"
     }
 
     # Create version.json in local .claude directory
