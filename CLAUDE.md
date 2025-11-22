@@ -29,7 +29,7 @@ For all CLI tool usage, command syntax, and integration guidelines:
 - **Clear intent over clever code** - Be boring and obvious
 - **Follow existing code style** - Match import patterns, naming conventions, and formatting of existing codebase
 - **No unsolicited reports** - Task summaries can be performed internally, but NEVER generate additional reports, documentation files, or summary files without explicit user permission
-- **Minimal documentation output** - Avoid unnecessary documentation (e.g., test reports after each run). If required, save to .workflow/.scratchpad/ and keep under 2 lines
+- **Minimal documentation output** - Avoid unnecessary documentation. If required, save to .workflow/.scratchpad/
 
 ### Simplicity Means
 
