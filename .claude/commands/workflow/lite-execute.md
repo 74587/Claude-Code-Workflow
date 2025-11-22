@@ -323,12 +323,21 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
 
   ${clarificationContext ? `\n## Clarifications\n${JSON.stringify(clarificationContext, null, 2)}` : ''}
 
+  ${executionContext?.session?.artifacts ? `\n## Planning Artifacts
+  Detailed planning context available in:
+  ${executionContext.session.artifacts.exploration ? `- Exploration: ${executionContext.session.artifacts.exploration}` : ''}
+  - Plan: ${executionContext.session.artifacts.plan}
+  - Task: ${executionContext.session.artifacts.task}
+
+  Read these files for detailed architecture, patterns, and constraints.` : ''}
+
   ## Instructions
   - Reference original request to ensure alignment
   - Review previous results to understand completed work
   - Build on previous work, avoid duplication
   - Test functionality as you implement
   - Complete all assigned tasks
+  - Read planning artifact files for detailed context when needed
   `
 )
 ```
@@ -340,6 +349,11 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
 When to use:
 - `executionMethod = "Codex"`
 - `executionMethod = "Auto" AND complexity = "Medium" or "High"`
+
+**Artifact Path Delegation**:
+- Include artifact file paths in CLI prompt for enhanced context
+- Codex can read artifact files for detailed planning information
+- Example: Reference exploration.json for architecture patterns
 
 Command format:
 ```bash
@@ -390,12 +404,22 @@ Constraints: ${explorationContext.constraints || 'None'}
 
 ${clarificationContext ? `\n### User Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `${q}: ${a}`).join('\n')}` : ''}
 
+${executionContext?.session?.artifacts ? `\n### Planning Artifact Files
+Detailed planning context available in session folder:
+${executionContext.session.artifacts.exploration ? `- Exploration: ${executionContext.session.artifacts.exploration}` : ''}
+- Plan: ${executionContext.session.artifacts.plan}
+- Task: ${executionContext.session.artifacts.task}
+
+Read these files for complete architecture details, code patterns, and integration constraints.
+` : ''}
+
 ## Execution Instructions
 - Reference original request to ensure alignment
 - Review previous results for context continuity
 - Build on previous work, don't duplicate completed tasks
 - Complete all assigned tasks in single execution
 - Test functionality as you implement
+${executionContext?.session?.artifacts ? `- Read planning artifact files for detailed architecture and pattern guidance` : ''}
 
 Complexity: ${planObject.complexity}
 " --skip-git-repo-check -s danger-full-access
@@ -458,6 +482,17 @@ TodoWrite({
 # Uses analysis prompt and TodoWrite tools directly
 
 # Gemini Review:
+# Include artifact paths for planning context reference
+${executionContext?.session?.artifacts ? `
+gemini -p "
+PURPOSE: Code review for implemented changes against planned approach
+TASK: • Analyze quality • Identify issues • Suggest improvements • Verify alignment with plan
+MODE: analysis
+CONTEXT: @**/* @${executionContext.session.artifacts.plan}${executionContext.session.artifacts.exploration ? ` @${executionContext.session.artifacts.exploration}` : ''} | Memory: Review lite-execute changes with planning context
+EXPECTED: Quality assessment with recommendations and plan alignment check
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes and plan adherence | analysis=READ-ONLY
+"
+` : `
 gemini -p "
 PURPOSE: Code review for implemented changes
 TASK: • Analyze quality • Identify issues • Suggest improvements
@@ -466,8 +501,20 @@ CONTEXT: @**/* | Memory: Review lite-execute changes
 EXPECTED: Quality assessment with recommendations
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes | analysis=READ-ONLY
 "
+`}
 
 # Qwen Review (custom tool via "Other"):
+# Include artifact paths for planning context reference
+${executionContext?.session?.artifacts ? `
+qwen -p "
+PURPOSE: Code review for implemented changes against planned approach
+TASK: • Analyze quality • Identify issues • Suggest improvements • Verify alignment with plan
+MODE: analysis
+CONTEXT: @**/* @${executionContext.session.artifacts.plan}${executionContext.session.artifacts.exploration ? ` @${executionContext.session.artifacts.exploration}` : ''} | Memory: Review lite-execute changes with planning context
+EXPECTED: Quality assessment with recommendations and plan alignment check
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes and plan adherence | analysis=READ-ONLY
+"
+` : `
 qwen -p "
 PURPOSE: Code review for implemented changes
 TASK: • Analyze quality • Identify issues • Suggest improvements
@@ -476,6 +523,7 @@ CONTEXT: @**/* | Memory: Review lite-execute changes
 EXPECTED: Quality assessment with recommendations
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on recent changes | analysis=READ-ONLY
 "
+`}
 
 # Codex Review (custom tool via "Other"):
 codex --full-auto exec "Review recent code changes for quality, potential issues, and improvements" --skip-git-repo-check -s danger-full-access
@@ -546,9 +594,25 @@ Passed from lite-plan via global variable:
   clarificationContext: {...} | null,
   executionMethod: "Agent" | "Codex" | "Auto",
   codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
-  originalUserInput: string
+  originalUserInput: string,
+
+  // Session artifacts location (saved by lite-plan)
+  session: {
+    id: string,                        // Session identifier: {taskSlug}-{shortTimestamp}
+    folder: string,                    // Session folder path: .workflow/.lite-plan/{session-id}
+    artifacts: {
+      exploration: string | null,      // exploration.json path (if exploration performed)
+      plan: string,                    // plan.json path (always present)
+      task: string                     // task.json path (always exported)
+    }
+  }
 }
 ```
+
+**Artifact Usage**:
+- Artifact files contain detailed planning context
+- Pass artifact paths to CLI tools and agents for enhanced context
+- See execution options below for usage examples
 
 ### executionResult (Output)
 
