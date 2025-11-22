@@ -180,7 +180,7 @@ Commands for creating, listing, and managing workflow sessions.
 - **Syntax**: `/workflow:session:complete [--detailed]`
 - **Parameters**:
   - `--detailed` (Flag): Shows a more detailed completion summary.
-- **Responsibilities**: Marks the currently active session as "completed", records timestamps, and removes the `.active-*` marker file.
+- **Responsibilities**: Marks the currently active session as "completed", records timestamps, and moves the session from `.workflow/active/` to `.workflow/archives/`.
 - **Agent Calls**: None.
 - **Example**:
   ```bash
