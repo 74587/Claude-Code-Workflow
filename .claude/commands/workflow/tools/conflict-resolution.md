@@ -12,11 +12,6 @@ examples:
 ## Purpose
 Analyzes conflicts between implementation plans and existing codebase, **including module scenario uniqueness detection**, generating multiple resolution strategies with **iterative clarification until boundaries are clear**.
 
-**Key Enhancements**:
-- **Scenario Uniqueness Detection**: Agent searches all existing modules to identify functional overlaps
-- **Iterative Clarification Loop**: Unlimited questions per conflict until scenario boundaries are uniquely defined (max 10 rounds)
-- **Dynamic Re-analysis**: Agent updates strategies based on user clarifications
-
 **Scope**: Detection and strategy generation only - NO code modification or task creation.
 
 **Trigger**: Auto-executes in `/workflow:plan` Phase 3 when `conflict_risk ≥ medium`.

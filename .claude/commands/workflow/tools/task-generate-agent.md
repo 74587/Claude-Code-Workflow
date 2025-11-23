@@ -17,109 +17,39 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
 - **Two-Phase Flow**: Discovery (context gathering) → Output (document generation)
 - **Memory-First**: Reuse loaded documents from conversation memory
 - **MCP-Enhanced**: Use MCP tools for advanced code analysis and research
-- **Pre-Selected Templates**: Command selects correct template based on `--cli-execute` flag **before** invoking agent
-- **Agent Simplicity**: Agent receives pre-selected template and focuses only on content generation
 - **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
 
 ## Execution Lifecycle
 
-### Phase 1: Discovery & Context Loading
-**⚡ Memory-First Rule**: Skip file loading if documents already in conversation memory
+### Phase 1: Context Preparation (Command Responsibility)
 
-**Agent Context Package**:
-```javascript
-{
-  "session_id": "WFS-[session-id]",
-  "execution_mode": "agent-mode" | "cli-execute-mode",  // Determined by flag
-  "task_json_template_path": "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt"
-                           | "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt",
-  // Path selected by command based on --cli-execute flag, agent reads it
-  "session_metadata": {
-    // If in memory: use cached content
-    // Else: Load from .workflow/active//{session-id}/workflow-session.json
-  },
-  "brainstorm_artifacts": {
-    // Loaded from context-package.json → brainstorm_artifacts section
-    "role_analyses": [
-      {
-        "role": "system-architect",
-        "files": [{"path": "...", "type": "primary|supplementary"}]
-      }
-    ],
-    "guidance_specification": {"path": "...", "exists": true},
-    "synthesis_output": {"path": "...", "exists": true},
-    "conflict_resolution": {"path": "...", "exists": true}  // if conflict_risk >= medium
-  },
-  "context_package_path": ".workflow/active//{session-id}/.process/context-package.json",
-  "context_package": {
-    // If in memory: use cached content
-    // Else: Load from .workflow/active//{session-id}/.process/context-package.json
-  },
-  "mcp_capabilities": {
-    "code_index": true,
-    "exa_code": true,
-    "exa_web": true
-  }
-}
+**Command prepares session paths and metadata, agent loads content autonomously.**
+
+**Session Path Structure**:
+```
+.workflow/active/WFS-{session-id}/
+├── workflow-session.json          # Session metadata
+├── .process/
+│   └── context-package.json       # Context package with artifact catalog
+├── .task/                         # Output: Task JSON files
+├── IMPL_PLAN.md                   # Output: Implementation plan
+└── TODO_LIST.md                   # Output: TODO list
 ```
 
-**Discovery Actions**:
-1. **Load Session Context** (if not in memory)
-   ```javascript
-   if (!memory.has("workflow-session.json")) {
-     Read(.workflow/active//{session-id}/workflow-session.json)
-   }
-   ```
+**Command Preparation**:
+1. **Assemble Session Paths** for agent prompt:
+   - `session_metadata_path`
+   - `context_package_path`
+   - Output directory paths
 
-2. **Load Context Package** (if not in memory)
-   ```javascript
-   if (!memory.has("context-package.json")) {
-     Read(.workflow/active//{session-id}/.process/context-package.json)
-   }
-   ```
+2. **Provide Metadata** (simple values):
+   - `session_id`
+   - `execution_mode` (agent-mode | cli-execute-mode)
+   - `mcp_capabilities` (available MCP tools)
 
-3. **Extract & Load Role Analyses** (from context-package.json)
-   ```javascript
-   // Extract role analysis paths from context package
-   const roleAnalysisPaths = contextPackage.brainstorm_artifacts.role_analyses
-     .flatMap(role => role.files.map(f => f.path));
-
-   // Load each role analysis file
-   roleAnalysisPaths.forEach(path => Read(path));
-   ```
-
-4. **Load Conflict Resolution** (from context-package.json, if exists)
-   ```javascript
-   if (contextPackage.brainstorm_artifacts.conflict_resolution?.exists) {
-     Read(contextPackage.brainstorm_artifacts.conflict_resolution.path)
-   }
-   ```
-
-5. **Code Analysis with Native Tools** (optional - enhance understanding)
-   ```bash
-   # Find relevant files for task context
-   find . -name "*auth*" -type f
-   rg "authentication|oauth" -g "*.ts"
-   ```
-
-6. **MCP External Research** (optional - gather best practices)
-   ```javascript
-   // Get external examples for implementation
-   mcp__exa__get_code_context_exa(
-     query="TypeScript JWT authentication best practices",
-     tokensNum="dynamic"
-   )
-   ```
+**Note**: Agent autonomously loads files based on context package content (dynamic, not fixed template). Brainstorming artifacts only loaded if they exist in session.
 
 ### Phase 2: Agent Execution (Document Generation)
-
-**Pre-Agent Template Selection** (Command decides path before invoking agent):
-```javascript
-// Command checks flag and selects template PATH (not content)
-const templatePath = hasCliExecuteFlag
-  ? "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt"
-  : "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt";
-```
 
 **Agent Invocation**:
 ```javascript
@@ -127,130 +57,100 @@ Task(
   subagent_type="action-planning-agent",
   description="Generate task JSON and implementation plan",
   prompt=`
-## Execution Context
+## Task Objective
+Generate implementation plan (IMPL_PLAN.md), task JSONs, and TODO list for workflow session
 
-**Session ID**: WFS-{session-id}
-**Execution Mode**: {agent-mode | cli-execute-mode}
-**Task JSON Template Path**: {template_path}
+## MANDATORY FIRST STEPS
+1. Read session metadata: {session.session_metadata_path}
+2. Load context package: {session.context_package_path}
+3. **Dynamically load files based on context package content** (see below)
 
-## Phase 1: Discovery Results (Provided Context)
+## Dynamic Content Loading Strategy
 
-### Session Metadata
-{session_metadata_content}
+**Load files based on what exists in context package - NOT a fixed template**
 
-### Role Analyses (Enhanced by Synthesis)
-{role_analyses_content}
-- Includes requirements, design specs, enhancements, and clarifications from synthesis phase
+### Step 1: Always Load (Required)
+- **Session Metadata** → Extract user input
+  - User description: Original task requirements
+  - Project scope and boundaries
+  - Technical constraints
 
-### Artifacts Inventory
-- **Guidance Specification**: {guidance_spec_path}
-- **Role Analyses**: {role_analyses_list}
+### Step 2: Check Context Package (Conditional Loading)
 
-### Context Package
-{context_package_summary}
-- Includes conflict_risk assessment
+**If `brainstorm_artifacts` exists in context package:**
+- Load artifacts **in priority order** as listed below
+- **If `brainstorm_artifacts` does NOT exist**: Skip to Step 3
 
-### Conflict Resolution (Conditional)
-If conflict_risk was medium/high, modifications have been applied to:
-- **guidance-specification.md**: Design decisions updated to resolve conflicts
-- **Role analyses (*.md)**: Recommendations adjusted for compatibility
-- **context-package.json**: Marked as "resolved" with conflict IDs
-- NO separate CONFLICT_RESOLUTION.md file (conflicts resolved in-place)
+**Priority Loading (when artifacts exist):**
+1. **guidance-specification.md** (if `guidance_specification.exists = true`)
+   - Overall design framework - use as primary reference
 
-### MCP Analysis Results (Optional)
-**Code Structure**: {mcp_code_index_results}
-**External Research**: {mcp_exa_research_results}
+2. **Role Analyses** (if `role_analyses[]` array exists)
+   - Load ALL role analysis files listed in array
+   - Each file path: `role_analyses[i].files[j].path`
 
-## Phase 2: Document Generation Task
+3. **Synthesis Output** (if `synthesis_output.exists = true`)
+   - Integrated view with clarifications
 
-**Agent Configuration Reference**: All task generation rules, quantification requirements, quality standards, and execution details are defined in action-planning-agent.
+4. **Conflict Resolution** (if `conflict_risk` = "medium" or "high")
+   - Check `conflict_resolution.status`
+   - If "resolved": Use updated artifacts (conflicts pre-addressed)
 
-Refer to: @.claude/agents/action-planning-agent.md for:
-- Task Decomposition Standards
-- Quantification Requirements (MANDATORY)
-- 5-Field Task JSON Schema
-- IMPL_PLAN.md Structure
-- TODO_LIST.md Format
-- Execution Flow & Quality Validation
+### Step 3: Extract Project Context
+- `focus_areas`: Target directories for implementation
+- `assets`: Existing code patterns to reuse
 
-### Required Outputs Summary
+## Session Paths
+- Session Metadata: .workflow/active/{session-id}/workflow-session.json
+- Context Package: .workflow/active/{session-id}/.process/context-package.json
+- Output Task Dir: .workflow/active/{session-id}/.task/
+- Output IMPL_PLAN: .workflow/active/{session-id}/IMPL_PLAN.md
+- Output TODO_LIST: .workflow/active/{session-id}/TODO_LIST.md
 
-#### 1. Task JSON Files (.task/IMPL-*.json)
-- **Location**: `.workflow/active//{session-id}/.task/`
-- **Template**: Read from `{template_path}` (pre-selected by command based on `--cli-execute` flag)
-- **Schema**: 5-field structure (id, title, status, meta, context, flow_control) with artifacts integration
-- **Details**: See action-planning-agent.md § Task JSON Generation
+## Context Metadata
+- Session ID: {session-id}
+- Execution Mode: {agent-mode | cli-execute-mode}
+- MCP Capabilities Available: {exa_code, exa_web, code_index}
 
-#### 2. IMPL_PLAN.md
-- **Location**: `.workflow/active//{session-id}/IMPL_PLAN.md`
-- **Template**: `~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
-- **Details**: See action-planning-agent.md § Implementation Plan Creation
+**Note**: Content loading is **dynamic** based on actual files in session, not a fixed template
 
-#### 3. TODO_LIST.md
-- **Location**: `.workflow/active//{session-id}/TODO_LIST.md`
-- **Format**: Hierarchical task list with status indicators (▸, [ ], [x]) and JSON links
-- **Details**: See action-planning-agent.md § TODO List Generation
+## Expected Deliverables
+1. **Task JSON Files** (.task/IMPL-*.json)
+   - 6-field schema (id, title, status, context_package_path, meta, context, flow_control)
+   - Quantified requirements with explicit counts
+   - Artifacts integration from context package
+   - Flow control with pre_analysis steps
 
-### Agent Execution Summary
+2. **Implementation Plan** (IMPL_PLAN.md)
+   - Context analysis and artifact references
+   - Task breakdown and execution strategy
+   - Complete structure per agent definition
 
-**Key Steps** (Detailed instructions in action-planning-agent.md):
-1. Load task JSON template from provided path
-2. Extract and decompose tasks with quantification
-3. Generate task JSON files enforcing quantification requirements
-4. Create IMPL_PLAN.md using template
-5. Generate TODO_LIST.md matching task JSONs
-6. Update session state
+3. **TODO List** (TODO_LIST.md)
+   - Hierarchical structure with status indicators (▸, [ ], [x])
+   - Links to task JSONs and summaries
+   - Matches task JSON hierarchy
 
-**Quality Gates** (Full checklist in action-planning-agent.md):
-- ✓ Quantification requirements enforced (explicit counts, measurable acceptance, exact targets)
-- ✓ Task count ≤10 (hard limit)
-- ✓ Artifact references mapped correctly
-- ✓ MCP tool integration added
-- ✓ Documents follow template structure
+## Quality Standards
+- Task count ≤12 (hard limit)
+- All requirements quantified (explicit counts and lists)
+- Acceptance criteria measurable (verification commands)
+- Artifact references mapped from context package
+- All documents follow agent-defined structure
 
-## Output
-
-Generate all three documents and report completion status:
-- Task JSON files created: N files
-- Artifacts integrated: synthesis-spec, guidance-specification, N role analyses
+## Success Criteria
+- All task JSONs valid and saved to .task/ directory
+- IMPL_PLAN.md created with complete structure
+- TODO_LIST.md generated matching task JSONs
+- Return completion status with file count
 `
 )
 ```
 
-
-### Agent Context Passing
-
-**Memory-Aware Context Assembly**:
-```javascript
-// Assemble context package for agent
-const agentContext = {
-  session_id: "WFS-[id]",
-
-  // Use memory if available, else load
-  session_metadata: memory.has("workflow-session.json")
-    ? memory.get("workflow-session.json")
-    : Read(.workflow/active/WFS-[id]/workflow-session.json),
-
-  context_package_path: ".workflow/active/WFS-[id]/.process/context-package.json",
-
-  context_package: memory.has("context-package.json")
-    ? memory.get("context-package.json")
-    : Read(".workflow/active/WFS-[id]/.process/context-package.json"),
-
-  // Extract brainstorm artifacts from context package
-  brainstorm_artifacts: extractBrainstormArtifacts(context_package),
-
-  // Load role analyses using paths from context package
-  role_analyses: brainstorm_artifacts.role_analyses
-    .flatMap(role => role.files)
-    .map(file => Read(file.path)),
-
-  // Load conflict resolution if exists (from context package)
-  conflict_resolution: brainstorm_artifacts.conflict_resolution?.exists
-    ? Read(brainstorm_artifacts.conflict_resolution.path)
-    : null,
-
-  // Optional MCP enhancements
-  mcp_analysis: executeMcpDiscovery()
-}
-```
+**Key Changes from Previous Version**:
+1. **Paths over Content**: Provide file paths for agent to read, not embedded content
+2. **MANDATORY FIRST STEPS**: Explicit requirement to load session metadata and context package
+3. **Complete Session Paths**: All file paths provided for agent operations
+4. **Emphasized Deliverables**: Clear deliverable requirements with quality standards
+5. **No Agent Self-Reference**: Removed "Refer to action-planning-agent.md" (agent knows its own definition)
+6. **No Template Paths**: Removed all template references (agent has complete schema/structure definitions)

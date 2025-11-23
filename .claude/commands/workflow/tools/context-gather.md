@@ -57,8 +57,6 @@ Task(
   subagent_type="context-search-agent",
   description="Gather comprehensive context for plan",
   prompt=`
-You are executing as context-search-agent (.claude/agents/context-search-agent.md).
-
 ## Execution Mode
 **PLAN MODE** (Comprehensive) - Full Phase 1-3 execution
 

@@ -32,9 +32,9 @@ Comprehensive command guide for Claude DMS3 workflow system covering 75 commands
 - Creates feature-specific SKILL packages for code understanding
 - Progressive loading (2K → 30K tokens) for efficient context management
 
-### Agent Enhancements
+### Agent 
 
-- **cli-explore-agent** (New) - Specialized code exploration with Deep Scan mode (Bash + Gemini)
+- **cli-explore-agent**  - Specialized code exploration with Deep Scan mode (Bash + Gemini)
 - **cli-planning-agent** - Enhanced task generation with improved context handling
 - **ui-design-agent** - Major refactoring for better design system extraction
 
