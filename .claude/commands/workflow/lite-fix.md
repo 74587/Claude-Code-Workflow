@@ -81,6 +81,16 @@ Bug Input → Diagnosis (Phase 1) → Impact Assessment (Phase 2)
 
 **Goal**: Identify root cause and affected code paths
 
+**Session Folder Setup**:
+```javascript
+// Generate session identifiers for artifact storage
+const bugSlug = bug_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
+const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+const shortTimestamp = timestamp.substring(0, 19).replace('T', '-') // YYYY-MM-DD-HH-mm-ss
+const sessionId = `${bugSlug}-${shortTimestamp}`
+const sessionFolder = `.workflow/.lite-fix/${sessionId}`
+```
+
 **Execution Strategy**:
 
 **Default Mode** - Adaptive search:
@@ -115,7 +125,11 @@ git blame ${suspected_file}
 
 **Output Structure**:
 ```javascript
-{
+diagnosisContext = {
+  symptom: string,
+  error_message: string | null,
+  keywords: string[],
+  confidence_level: "high" | "medium" | "low",
   root_cause: {
     file: "src/auth/tokenValidator.ts",
     line_range: "45-52",
@@ -129,7 +143,14 @@ git blame ${suspected_file}
     data_risk: "none"
   }
 }
+
+// Save diagnosis results for CLI/agent access in lite-execute
+const diagnosisFile = `${sessionFolder}/diagnosis.json`
+Write(diagnosisFile, JSON.stringify(diagnosisContext, null, 2))
 ```
+
+**Output**: `diagnosisContext` (in-memory)
+**Artifact**: Saved to `{sessionFolder}/diagnosis.json` for CLI/agent use
 
 **TodoWrite**: Mark Phase 1 completed, Phase 2 in_progress
 
@@ -163,7 +184,7 @@ if (severity >= "high") {
 
 **Assessment Output**:
 ```javascript
-{
+impactContext = {
   affected_users: {
     count: "5000 active users (100%)",
     severity: "high"
@@ -185,7 +206,14 @@ if (severity >= "high") {
     time_budget: "1_hour"
   }
 }
+
+// Save impact assessment for CLI/agent access
+const impactFile = `${sessionFolder}/impact.json`
+Write(impactFile, JSON.stringify(impactContext, null, 2))
 ```
+
+**Output**: `impactContext` (in-memory)
+**Artifact**: Saved to `{sessionFolder}/impact.json` for CLI/agent use
 
 **Hotfix Mode**: Skip detailed assessment, assume critical
 
@@ -253,7 +281,14 @@ if (complexity === "high" && risk_score < 5.0) {
   suggestCommand("/workflow:plan --mode bugfix")
   return  // Escalate to full planning
 }
+
+// Save fix plan for CLI/agent access
+const planFile = `${sessionFolder}/fix-plan.json`
+Write(planFile, JSON.stringify(fixPlan, null, 2))
 ```
+
+**Output**: `fixPlan` (in-memory)
+**Artifact**: Saved to `{sessionFolder}/fix-plan.json` for CLI/agent use
 
 **TodoWrite**: Mark Phase 3 completed, Phase 4 in_progress
 
@@ -351,18 +386,65 @@ if (risk_score < 5.0) {
 
 ### Phase 6: Execution Dispatch & Follow-up
 
+**Export Enhanced Task JSON**:
+
+```javascript
+const taskId = `BUGFIX-${shortTimestamp}`
+const taskFile = `${sessionFolder}/task.json`
+
+const enhancedTaskJson = {
+  id: taskId,
+  title: bug_description,
+  status: "pending",
+
+  meta: {
+    type: "bugfix",
+    created_at: new Date().toISOString(),
+    severity: impactContext.severity,
+    risk_score: impactContext.risk_score,
+    estimated_time: fixPlan.estimated_time,
+    workflow: mode === "hotfix" ? "lite-fix-hotfix" : "lite-fix",
+    session_id: sessionId,
+    session_folder: sessionFolder
+  },
+
+  context: {
+    requirements: [bug_description],
+    diagnosis: diagnosisContext,
+    impact: impactContext,
+    plan: fixPlan,
+    verification_strategy: verificationStrategy,
+    branch_strategy: branchStrategy
+  }
+}
+
+Write(taskFile, JSON.stringify(enhancedTaskJson, null, 2))
+```
+
 **Dispatch to lite-execute**:
 
 ```javascript
 executionContext = {
   mode: "bugfix",
-  severity: auto_detected_severity,  // From Phase 2
-  planObject: plan,
-  diagnosisContext: diagnosis,
-  impactContext: impact_assessment,
-  verificationStrategy: test_strategy,
-  branchStrategy: branch_strategy,
-  executionMethod: user_selection.execution_method
+  severity: impactContext.severity,
+  planObject: fixPlan,
+  diagnosisContext: diagnosisContext,
+  impactContext: impactContext,
+  verificationStrategy: verificationStrategy,
+  branchStrategy: branchStrategy,
+  executionMethod: user_selection.execution_method,
+
+  // Session artifacts location
+  session: {
+    id: sessionId,
+    folder: sessionFolder,
+    artifacts: {
+      diagnosis: `${sessionFolder}/diagnosis.json`,
+      impact: `${sessionFolder}/impact.json`,
+      plan: `${sessionFolder}/fix-plan.json`,
+      task: `${sessionFolder}/task.json`
+    }
+  }
 }
 
 SlashCommand("/workflow:lite-execute --in-memory --mode bugfix")
@@ -389,13 +471,15 @@ if (mode === "hotfix") {
     }
   ]
 
-  Write(`.workflow/lite-fixes/${taskId}-followup.json`, follow_up_tasks)
+  Write(`${sessionFolder}/followup.json`, follow_up_tasks)
 
   console.log(`
   ⚠️ Hotfix follow-up tasks generated:
   - Comprehensive fix: ${follow_up_tasks[0].id} (due in 3 days)
   - Postmortem: ${follow_up_tasks[1].id} (due in 1 week)
+  - Location: ${sessionFolder}/followup.json
   `)
+}
 }
 ```
 
@@ -456,6 +540,76 @@ if (mode === "hotfix") {
   recommended_execution: "Agent" | "CLI" | "Manual"
 }
 ```
+
+### executionContext
+
+Context passed to lite-execute via --in-memory (Phase 6):
+
+```javascript
+{
+  mode: "bugfix",
+  severity: "high" | "medium" | "low" | "critical",
+
+  // Core data objects
+  planObject: {...},           // Complete fixPlan (see above)
+  diagnosisContext: {...},     // Complete diagnosisContext (see above)
+  impactContext: {...},        // Complete impactContext (see above)
+
+  // Verification and branch strategies
+  verificationStrategy: {...},
+  branchStrategy: {...},
+  executionMethod: "Agent" | "CLI" | "Manual",
+
+  // Session artifacts location (for lite-execute to access saved files)
+  session: {
+    id: string,                // Session identifier: {bugSlug}-{shortTimestamp}
+    folder: string,            // Session folder path: .workflow/.lite-fix/{session-id}
+    artifacts: {
+      diagnosis: string,       // diagnosis.json path
+      impact: string,          // impact.json path
+      plan: string,            // fix-plan.json path
+      task: string             // task.json path
+    }
+  }
+}
+```
+
+### Enhanced Task JSON Export
+
+Task JSON structure exported in Phase 6:
+
+```json
+{
+  "id": "BUGFIX-{timestamp}",
+  "title": "Original bug description",
+  "status": "pending",
+
+  "meta": {
+    "type": "bugfix",
+    "created_at": "ISO timestamp",
+    "severity": "low|medium|high|critical",
+    "risk_score": 7.1,
+    "estimated_time": "X minutes",
+    "workflow": "lite-fix|lite-fix-hotfix",
+    "session_id": "{bugSlug}-{shortTimestamp}",
+    "session_folder": ".workflow/.lite-fix/{session-id}"
+  },
+
+  "context": {
+    "requirements": ["Original bug description"],
+    "diagnosis": {/* diagnosisContext */},
+    "impact": {/* impactContext */},
+    "plan": {/* fixPlan */},
+    "verification_strategy": {/* test strategy */},
+    "branch_strategy": {/* branch strategy */}
+  }
+}
+```
+
+**Schema Notes**:
+- Aligns with Enhanced Task JSON Schema (6-field structure)
+- `context_package_path` omitted (not used by lite-fix)
+- `flow_control` omitted (handled by lite-execute)
 
 ---
 
@@ -526,92 +680,50 @@ git checkout -b hotfix/fix-name main  # Contains unreleased code!
 
 ---
 
-## Output Routing
+## Session Folder Structure
 
-**Lite-fix directory**:
+Each lite-fix execution creates a dedicated session folder to organize all artifacts:
+
 ```
-.workflow/lite-fixes/
-├── BUGFIX-2024-10-20T14-30-00.json          # Task JSON
-├── BUGFIX-2024-10-20T14-30-00-followup.json # Follow-up (hotfix only)
-└── diagnosis-cache/                          # Cached diagnoses
+.workflow/.lite-fix/{bug-slug}-{short-timestamp}/
+├── diagnosis.json    # Phase 1: Root cause analysis
+├── impact.json       # Phase 2: Impact assessment
+├── fix-plan.json     # Phase 3: Fix strategy
+├── task.json         # Phase 6: Enhanced Task JSON
+└── followup.json     # Hotfix mode only: Follow-up tasks
+```
+
+**Folder Naming Convention**:
+- `{bug-slug}`: First 40 characters of bug description, lowercased, non-alphanumeric replaced with `-`
+- `{short-timestamp}`: YYYY-MM-DD-HH-mm-ss format
+- Example: `.workflow/.lite-fix/user-avatar-upload-fails-413-2025-01-15-14-30-45/`
+
+**File Contents**:
+- `diagnosis.json`: Complete diagnosisContext object (Phase 1)
+- `impact.json`: Complete impactContext object (Phase 2)
+- `fix-plan.json`: Complete fixPlan object (Phase 3)
+- `task.json`: Enhanced Task JSON with all context (Phase 6)
+- `followup.json`: Follow-up tasks (hotfix mode only)
+
+**Access Patterns**:
+- **lite-fix**: Creates folder and writes all artifacts during execution, passes paths via `executionContext.session.artifacts`
+- **lite-execute**: Reads artifact paths from `executionContext.session.artifacts`
+- **User**: Can inspect artifacts for debugging or reference
+- **Reuse**: Pass `task.json` path to `/workflow:lite-execute {path}` for re-execution
+
+**Benefits**:
+- Clean separation between different bug fixes
+- Easy to find and inspect artifacts for specific bugs
+- Natural history/audit trail of fixes
+- Supports concurrent lite-fix executions without conflicts
+
+**Legacy Cache** (deprecated, use session folder instead):
+```
+.workflow/.lite-fix-cache/
+└── diagnosis-cache/
     └── ${bug_hash}.json
 ```
 
-**Session-based** (if active session):
-```
-.workflow/active/WFS-feature/
-├── .bugfixes/
-│   ├── BUGFIX-001.json
-│   └── BUGFIX-001-followup.json
-└── .summaries/
-    └── BUGFIX-001-summary.md
-```
-
----
-
-## Advanced Features
-
-### 1. Intelligent Diagnosis Caching
-
-Reuse diagnosis for similar bugs:
-```javascript
-cache_key = hash(bug_keywords + recent_changes_hash)
-if (cache_exists && cache_age < 7_days && similarity > 0.8) {
-  diagnosis = load_from_cache()
-  console.log("Using cached diagnosis (similar issue found)")
-}
-```
-
-### 2. Auto-Severity Suggestion
-
-Detect urgency from keywords:
-```javascript
-urgency_keywords = ["production", "down", "outage", "critical", "urgent"]
-if (bug_description.includes(urgency_keywords) && !mode_specified) {
-  console.log("💡 Tip: Consider --hotfix flag for production issues")
-}
-```
-
-### 3. Adaptive Workflow Intelligence
-
-Real-time workflow adjustment:
-```javascript
-// During Phase 2, if risk score suddenly increases
-if (new_risk_score > initial_estimate * 1.5) {
-  console.log("⚠️ Severity increased, adjusting workflow...")
-  test_strategy = "more_comprehensive"
-  review_required = true
-}
-```
-
----
-
-## Related Commands
-
-**Diagnostic Commands**:
-- `/cli:mode:bug-diagnosis` - Detailed root cause analysis (use before lite-fix if unclear)
-
-**Fix Execution**:
-- `/workflow:lite-execute --in-memory` - Execute fix plan (automatically called)
-
-**Planning Commands**:
-- `/workflow:plan --mode bugfix` - Complex bugs requiring comprehensive planning
-
-**Review Commands**:
-- `/workflow:review --type quality` - Post-fix quality review
-
----
-
-## Comparison with Other Commands
-
-| Command | Use Case | Modes | Adaptation | Output |
-|---------|----------|-------|------------|--------|
-| `/workflow:lite-fix` | Bug fixes | 2 (default + hotfix) | Auto-adaptive | In-memory + JSON |
-| `/workflow:lite-plan` | New features | 1 + explore flag | Manual | In-memory + JSON |
-| `/workflow:plan` | Complex features | Multiple | Manual | Persistent session |
-| `/cli:mode:bug-diagnosis` | Analysis only | 1 | N/A | Report only |
-
----
 
 ## Quality Gates
 
