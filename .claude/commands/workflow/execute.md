@@ -109,14 +109,14 @@ bash(cat .workflow/active/${sessionId}/workflow-session.json)
 **Optimized to avoid reading all task JSONs upfront**
 
 **Process**:
-1. **Read IMPL_PLAN.md**: Check existence, understand overall strategy
+1. **Check IMPL_PLAN.md**: Verify file exists and has valid structure (defer detailed parsing to Phase 4)
 2. **Read TODO_LIST.md**: Get current task statuses and execution progress
 3. **Extract Task Metadata**: Parse task IDs, titles, and dependency relationships from TODO_LIST.md
 4. **Build Execution Queue**: Determine ready tasks based on TODO_LIST.md status and dependencies
 
-**Key Optimization**: Use IMPL_PLAN.md (existence check only) and TODO_LIST.md as primary sources instead of reading all task JSONs
+**Key Optimization**: Use IMPL_PLAN.md (existence check only) and TODO_LIST.md as primary sources instead of reading all task JSONs. Detailed IMPL_PLAN.md parsing happens in Phase 4A.
 
-**Resume Mode**: This phase is skipped when `--resume-session` flag is provided (session already known).
+**Resume Mode**: When `--resume-session` flag is provided, **session discovery** (Phase 1) is skipped, but **task metadata loading** (TODO_LIST.md reading) still occurs in Phase 3 for TodoWrite generation.
 
 ### Phase 3: TodoWrite Generation
 **Applies to**: Both normal and resume modes (resume mode entry point)
@@ -126,11 +126,11 @@ bash(cat .workflow/active/${sessionId}/workflow-session.json)
    - Parse TODO_LIST.md to extract all tasks with current statuses
    - Identify first pending task with met dependencies
    - Generate comprehensive TodoWrite covering entire workflow
-3. **Prepare Session Context**: Inject workflow paths for agent use (using provided session-id)
-4. **Validate Prerequisites**: Ensure IMPL_PLAN.md and TODO_LIST.md exist and are valid
+2. **Prepare Session Context**: Inject workflow paths for agent use (using provided session-id)
+3. **Validate Prerequisites**: Ensure IMPL_PLAN.md and TODO_LIST.md exist and are valid
 
 **Resume Mode Behavior**:
-- Load existing TODO_LIST.md directly from `.workflow/active//{session-id}/`
+- Load existing TODO_LIST.md directly from `.workflow/active/{session-id}/`
 - Extract current progress from TODO_LIST.md
 - Generate TodoWrite from TODO_LIST.md state
 - Proceed immediately to agent execution (Phase 4)
@@ -170,8 +170,9 @@ while (TODO_LIST.md has pending tasks) {
 4. **Launch Agent**: Invoke specialized agent with complete context including flow control steps
 5. **Monitor Progress**: Track agent execution and handle errors without user interruption
 6. **Collect Results**: Gather implementation results and outputs
-7. **Update TODO_LIST.md**: Mark current task as completed in TODO_LIST.md
-8. **Continue Workflow**: Identify next pending task from TODO_LIST.md and repeat
+7. **Continue Workflow**: Identify next pending task from TODO_LIST.md and repeat
+
+**Note**: TODO_LIST.md updates are handled by agents (e.g., code-developer.md), not by the orchestrator.
 
 
 ### Phase 5: Completion
@@ -219,8 +220,9 @@ while (TODO_LIST.md has pending tasks) {
 
 #### 2. Parallel Execution
 **When**: IMPL_PLAN specifies "Parallel" with clear parallelization opportunities
-**Pattern**: Execute independent task groups concurrently
+**Pattern**: Execute independent task groups concurrently by launching multiple agent instances
 **TodoWrite**: MULTIPLE tasks (in same batch) marked as `in_progress` simultaneously
+**Agent Instantiation**: Launch one agent instance per task (respects ONE AGENT = ONE TASK JSON rule)
 
 #### 3. Phased Execution
 **When**: IMPL_PLAN specifies "Phased" with phase breakdown
@@ -365,7 +367,7 @@ meta.agent missing → Infer from meta.type:
 .workflow/active/WFS-[topic-slug]/
 ├── workflow-session.json     # Session state and metadata
 ├── IMPL_PLAN.md             # Planning document and requirements
-├── TODO_LIST.md             # Progress tracking (auto-updated)
+├── TODO_LIST.md             # Progress tracking (updated by agents)
 ├── .task/                   # Task definitions (JSON only)
 │   ├── IMPL-1.json          # Main task definitions
 │   └── IMPL-1.1.json        # Subtask definitions
