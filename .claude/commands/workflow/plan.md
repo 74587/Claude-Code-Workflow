@@ -72,6 +72,8 @@ CONTEXT: Existing user database schema, REST API endpoints
 - Session ID successfully extracted
 - Session directory `.workflow/active/[sessionId]/` exists
 
+**Note**: Session directory contains `workflow-session.json` (metadata). Do NOT look for `manifest.json` here - it only exists in `.workflow/archives/` for archived sessions.
+
 **TodoWrite**: Mark phase 1 completed, phase 2 in_progress
 
 **After Phase 1**: Return to user showing Phase 1 results, then auto-continue to Phase 2
