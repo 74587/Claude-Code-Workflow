@@ -137,19 +137,46 @@ Break work into 3-5 logical implementation stages with:
 - Dependencies on previous stages
 - Estimated complexity and time requirements
 
-### 2. Task JSON Generation (5-Field Schema + Artifacts)
+### 2. Task JSON Generation (6-Field Schema + Artifacts)
 Generate individual `.task/IMPL-*.json` files with:
 
-**Required Fields**:
+#### Top-Level Fields
 ```json
 {
   "id": "IMPL-N[.M]",
   "title": "Descriptive task name",
-  "status": "pending",
+  "status": "pending|active|completed|blocked|container",
+  "context_package_path": ".workflow/active/WFS-{session}/.process/context-package.json"
+}
+```
+
+**Field Descriptions**:
+- `id`: Task identifier (format: `IMPL-N` or `IMPL-N.M` for subtasks, max 2 levels)
+- `title`: Descriptive task name summarizing the work
+- `status`: Task state - `pending` (not started), `active` (in progress), `completed` (done), `blocked` (waiting on dependencies), `container` (has subtasks, cannot be executed directly)
+- `context_package_path`: Path to smart context package containing project structure, dependencies, and brainstorming artifacts catalog
+
+#### Meta Object
+```json
+{
   "meta": {
-    "type": "feature|bugfix|refactor|test|docs",
-    "agent": "@code-developer"
-  },
+    "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
+    "agent": "@code-developer|@action-planning-agent|@test-fix-agent|@universal-executor",
+    "execution_group": "parallel-abc123|null",
+    "context_signature": "hash-value"
+  }
+}
+```
+
+**Field Descriptions**:
+- `type`: Task category - `feature` (new functionality), `bugfix` (fix defects), `refactor` (restructure code), `test-gen` (generate tests), `test-fix` (fix failing tests), `docs` (documentation)
+- `agent`: Assigned agent for execution
+- `execution_group`: Parallelization group ID (tasks with same ID can run concurrently) or `null` for sequential tasks
+- `context_signature`: Hash computed from task's context (focus_paths + artifacts) for context-based grouping/merging
+
+#### Context Object
+```json
+{
   "context": {
     "requirements": [
       "Implement 3 features: [authentication, authorization, session management]",
@@ -162,27 +189,86 @@ Generate individual `.task/IMPL-*.json` files with:
       "5 files created: verify by ls src/auth/*.ts | wc -l = 5",
       "Test coverage >=80%: verify by npm test -- --coverage | grep auth"
     ],
+    "parent": "IMPL-N",
     "depends_on": ["IMPL-N"],
+    "inherited": {
+      "from": "IMPL-N",
+      "context": ["Authentication system design completed", "JWT strategy defined"]
+    },
+    "shared_context": {
+      "tech_stack": ["Node.js", "TypeScript", "Express"],
+      "auth_strategy": "JWT with refresh tokens",
+      "conventions": ["Follow existing auth patterns in src/auth/legacy/"]
+    },
     "artifacts": [
       {
-        "type": "synthesis_specification",
+        "type": "synthesis_specification|topic_framework|individual_role_analysis",
+        "source": "brainstorm_clarification|brainstorm_framework|brainstorm_roles",
         "path": "{from artifacts_inventory}",
-        "priority": "highest"
+        "priority": "highest|high|medium|low",
+        "usage": "Architecture decisions and API specifications",
+        "contains": "role_specific_requirements_and_design"
       }
     ]
-  },
+  }
+}
+```
+
+**Field Descriptions**:
+- `requirements`: **QUANTIFIED** implementation requirements (MUST include explicit counts and enumerated lists, e.g., "5 files: [list]")
+- `focus_paths`: Target directories/files (concrete paths without wildcards)
+- `acceptance`: **MEASURABLE** acceptance criteria (MUST include verification commands, e.g., "verify by ls ... | wc -l = N")
+- `parent`: Parent task ID for subtasks (establishes container/subtask hierarchy)
+- `depends_on`: Prerequisite task IDs that must complete before this task starts
+- `inherited`: Context, patterns, and dependencies passed from parent task
+- `shared_context`: Tech stack, conventions, and architectural strategies for the task
+- `artifacts`: Referenced brainstorming outputs with detailed metadata
+
+#### Flow Control Object
+```json
+{
   "flow_control": {
     "pre_analysis": [
       {
-        "step": "load_synthesis_specification",
-        "commands": ["bash(ls {path} 2>/dev/null)", "Read({path})"],
-        "output_to": "synthesis_specification",
+        "step": "load_context_package",
+        "action": "Load context package for artifact paths and smart context",
+        "commands": ["Read({{context_package_path}})"],
+        "output_to": "context_package",
+        "on_error": "fail"
+      },
+      {
+        "step": "load_role_analysis_artifacts",
+        "action": "Load role analyses from context-package.json",
+        "commands": [
+          "Read({{context_package_path}})",
+          "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
+          "Read(each extracted path)"
+        ],
+        "output_to": "role_analysis_artifacts",
         "on_error": "skip_optional"
       },
       {
-        "step": "mcp_codebase_exploration",
-        "command": "mcp__code-index__find_files() && mcp__code-index__search_code_advanced()",
+        "step": "analyze_project_architecture",
+        "action": "Analyze project module structure and depth",
+        "commands": ["bash(~/.claude/scripts/get_modules_by_depth.sh)"],
+        "output_to": "project_architecture",
+        "on_error": "skip_optional"
+      },
+      {
+        "step": "local_codebase_exploration",
+        "action": "Explore codebase structure using local search",
+        "commands": [
+          "bash(rg '^(function|class|interface).*[task_keyword]' --type ts -n --max-count 15)",
+          "bash(find . -name '*[task_keyword]*' -type f | grep -v node_modules | head -10)"
+        ],
         "output_to": "codebase_structure"
+      },
+      {
+        "step": "mcp_codebase_exploration",
+        "action": "Explore codebase patterns using MCP tools (if available)",
+        "command": "mcp__code-index__find_files() && mcp__code-index__search_code_advanced()",
+        "output_to": "mcp_codebase_patterns",
+        "on_error": "skip_optional"
       }
     ],
     "implementation_approach": [
@@ -236,6 +322,11 @@ Generate individual `.task/IMPL-*.json` files with:
   }
 }
 ```
+
+**Field Descriptions**:
+- `pre_analysis`: Context loading and preparation steps (executed sequentially before implementation)
+- `implementation_approach`: Implementation steps with dependency management (array of step objects)
+- `target_files`: Specific files/functions/lines to modify (format: `file:function:lines` for existing, `file` for new)
 
 **Artifact Mapping**:
 - Use `artifacts_inventory` from context package

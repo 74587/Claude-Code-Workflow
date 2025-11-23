@@ -213,8 +213,6 @@ Refer to: @.claude/agents/action-planning-agent.md for:
 Generate all three documents and report completion status:
 - Task JSON files created: N files
 - Artifacts integrated: synthesis-spec, guidance-specification, N role analyses
-- MCP enhancements: code-index, exa-research
-- Session ready for execution: /workflow:execute
 `
 )
 ```
