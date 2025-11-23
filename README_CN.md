@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.8.1-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.9.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,20 +14,18 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
 
-> **🎉 版本 5.8.1: Lite-Plan 工作流与 CLI 工具增强**
+> **🎉 版本 5.9.2: Lite-Fix 工作流增强与会话管理**
 >
 > **核心改进**:
-> - ✨ **Lite-Plan 工作流** (`/workflow:lite-plan`) - 轻量级交互式规划与智能自动化
->   - **三维多选确认**: 任务批准 + 执行方法 + 代码审查工具
->   - **智能代码探索**: 自动检测何时需要代码库上下文（使用 `-e` 标志强制探索）
->   - **并行任务执行**: 识别独立任务以实现并发执行
->   - **灵活执行**: 选择智能体（@code-developer）或 CLI（Gemini/Qwen/Codex）
->   - **可选后置审查**: 内置代码质量分析，可选择 AI 工具
-> - ✨ **CLI 工具优化** - 简化命令语法，自动模型选择
->   - 移除 Gemini、Qwen 和 Codex 的 `-m` 参数要求（自动选择最佳模型）
->   - 更清晰的命令结构和改进的文档
-> - 🔄 **执行工作流增强** - 简化阶段，采用延迟加载策略
-> - 🎨 **CLI Explore Agent** - 改进可见性，采用黄色配色方案
+> - ✨ **Lite-Fix 会话产物** (`/workflow:lite-fix`) - 完整的 Bug 修复工作流跟踪
+>   - **会话文件夹结构**: 在 `.workflow/.lite-fix/{bug-slug}-{timestamp}/` 中组织产物存储
+>   - **阶段产物**: `diagnosis.json`、`impact.json`、`fix-plan.json`、`task.json`
+>   - **CLI/智能体访问**: 所有中间结果可供执行工具访问
+>   - **跟进任务**: 自动生成全面修复和事后分析任务（热修复模式）
+>   - **增强任务 JSON**: 包含诊断、影响和修复计划的完整上下文包
+> - 🔄 **统一架构** - 与 lite-plan 会话管理模式保持一致
+> - 📊 **更好的审计跟踪** - 所有 Bug 修复的自然历史记录
+> - 🎯 **改进的可重用性** - 任务 JSON 文件可通过 `/workflow:lite-execute` 重新执行
 >
 > 详见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -140,7 +138,34 @@ CCW 包含内置的**命令指南技能**，帮助您有效地发现和使用命
    - 🔍 可选代码审查: 否 / Claude / Gemini / Qwen / Codex
 5. **阶段 5**: 观察实时执行和任务跟踪
 
-### **选项 2: 完整工作流** (综合规划)
+### **选项 2: Lite-Fix 工作流** (🐛 推荐用于 Bug 修复)
+
+智能 Bug 诊断和修复工作流，具有自适应严重性评估：
+
+```bash
+# 标准 Bug 修复（根据严重性自动适应）
+/workflow:lite-fix "用户头像上传失败，返回 413 错误"
+
+# 生产热修复模式
+/workflow:lite-fix --hotfix "支付网关 5xx 错误"
+```
+
+**工作流特性**:
+- **阶段 1**: 智能根因诊断，采用自适应搜索
+- **阶段 2**: 自动影响评估和风险评分
+- **阶段 3**: 基于复杂度的修复策略生成
+- **阶段 4**: 风险感知的验证计划
+- **阶段 5**: 用户确认与执行选择
+- **阶段 6**: 执行调度，完整产物跟踪
+
+**会话产物** (保存到 `.workflow/.lite-fix/{bug-slug}-{timestamp}/`):
+- `diagnosis.json` - 根因分析和复现步骤
+- `impact.json` - 风险评分、严重性和工作流适应
+- `fix-plan.json` - 修复策略和实现任务
+- `task.json` - 包含完整上下文的增强任务 JSON
+- `followup.json` - 自动生成的跟进任务（仅热修复模式）
+
+### **选项 3: 完整工作流** (📋 综合规划)
 
 适用于复杂项目的传统多阶段工作流：
 
