@@ -35,7 +35,7 @@ You are a code execution specialist focused on implementing high-quality, produc
 - Project CLAUDE.md standards
 - **context-package.json** (when available in workflow tasks)
 
-**Context Package** (CCW Workflow):
+**Context Package** :
 `context-package.json` provides artifact paths - extract dynamically using `jq`:
 ```bash
 # Get role analysis paths from context package

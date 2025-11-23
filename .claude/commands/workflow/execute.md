@@ -403,155 +403,41 @@ TodoWrite({
 - Provide session paths for artifact access
 - Monitor agent completion
 
-**Agent Responsibility**:
-- Parse `flow_control.pre_analysis` array from JSON
-- Execute steps sequentially with variable substitution
-- Accumulate context from artifacts and dependencies
-- Follow error handling per `step.on_error`
-- Complete implementation using accumulated context
+**Agent Responsibility**: Agent executes all flow control steps from JSON. See agent documentation for detailed execution logic.
 
-**Orchestrator does NOT execute flow control steps - Agent interprets and executes them from JSON.**
+**Note**: Orchestrator does NOT execute flow control steps - Agent interprets and executes them autonomously.
 
 ### Agent Prompt Template
+**Dynamic Generation**: Before agent invocation, read task JSON and extract key requirements.
+
 ```bash
 Task(subagent_type="{meta.agent}",
-     prompt="**EXECUTE TASK FROM JSON**
+     prompt="Execute task: {task.title}
 
-     ## Task JSON Location
-     {session.task_json_path}
+     **Task Objectives** (from task JSON):
+     {task.context.objective}
 
-     ## Instructions
-     1. **Load Complete Task JSON**: Read and validate all fields (id, title, status, meta, context, flow_control)
-     2. **Execute Flow Control**: If `flow_control.pre_analysis` exists, execute steps sequentially:
-        - Load artifacts (role analysis documents, role analyses) using commands in each step
-        - Accumulate context from step outputs using variable substitution [variable_name]
-        - Handle errors per step.on_error (skip_optional | fail | retry_once)
-     3. **Implement Solution**: Follow `flow_control.implementation_approach` using accumulated context
-     4. **Complete Task**:
-        - Update task status: `jq '.status = \"completed\"' {session.task_json_path} > temp.json && mv temp.json {session.task_json_path}`
-        - Update TODO_LIST.md: Mark task as [x] completed in {session.todo_list_path}
-        - Generate summary: {session.summaries_dir}/{task.id}-summary.md
-        - Check workflow completion and call `/workflow:session:complete` if all tasks done
+     **Expected Deliverables** (from task JSON):
+     {task.context.deliverables}
 
-     ## Context Sources (All from JSON)
-     - Requirements: `context.requirements`
-     - Focus Paths: `context.focus_paths`
-     - Acceptance: `context.acceptance`
-     - Artifacts: `context.artifacts` (synthesis specs, brainstorming outputs)
-     - Dependencies: `context.depends_on`
-     - Target Files: `flow_control.target_files`
+     **Quality Standards** (from task JSON):
+     {task.context.acceptance_criteria}
 
-     ## Session Paths
+     **MANDATORY FIRST STEPS**:
+     1. Read complete task JSON: {session.task_json_path}
+     2. Load context package: {session.context_package_path}
+
+     Follow complete execution guidelines in @.claude/agents/{meta.agent}.md
+
+     **Session Paths**:
      - Workflow Dir: {session.workflow_dir}
      - TODO List: {session.todo_list_path}
-     - Summaries: {session.summaries_dir}
-     - Flow Context: {flow_context.step_outputs}
+     - Summaries Dir: {session.summaries_dir}
+     - Context Package: {session.context_package_path}
 
-     **Complete JSON structure is authoritative - load and follow it exactly.**"),
+     **Success Criteria**: Complete all objectives, meet all quality standards, deliver all outputs as specified above.",
      description="Executing: {task.title}")
 ```
-
-### Agent JSON Loading Specification
-**MANDATORY AGENT PROTOCOL**: All agents must follow this exact loading sequence:
-
-1. **JSON Loading**: First action must be `cat {session.task_json_path}`
-2. **Field Validation**: Verify all 5 required fields exist: `id`, `title`, `status`, `meta`, `context`, `flow_control`
-3. **Structure Parsing**: Parse nested fields correctly:
-   - `meta.type` and `meta.agent` (NOT flat `task_type`)
-   - `context.requirements`, `context.focus_paths`, `context.acceptance`
-   - `context.depends_on`, `context.inherited`
-   - `flow_control.pre_analysis` array, `flow_control.target_files`
-4. **Flow Control Execution**: If `flow_control.pre_analysis` exists, execute steps sequentially
-5. **Status Management**: Update JSON status upon completion
-
-**JSON Field Reference**:
-```json
-{
-  "id": "IMPL-1.2",
-  "title": "Task title",
-  "status": "pending|active|completed|blocked",
-  "meta": {
-    "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
-    "agent": "@code-developer|@test-fix-agent|@universal-executor"
-  },
-  "context": {
-    "requirements": ["req1", "req2"],
-    "focus_paths": ["src/path1", "src/path2"],
-    "acceptance": ["criteria1", "criteria2"],
-    "depends_on": ["IMPL-1.1"],
-    "inherited": { "from": "parent", "context": ["info"] },
-    "artifacts": [
-      {
-        "type": "synthesis_specification",
-        "source": "context-package.json → brainstorm_artifacts.synthesis_output",
-        "path": "{{loaded dynamically from context-package.json}}",
-        "priority": "highest",
-        "contains": "complete_integrated_specification"
-      },
-      {
-        "type": "individual_role_analysis",
-        "source": "context-package.json → brainstorm_artifacts.role_analyses[]",
-        "path": "{{loaded dynamically from context-package.json}}",
-        "note": "Supports analysis*.md pattern (analysis.md, analysis-01.md, analysis-api.md, etc.)",
-        "priority": "low",
-        "contains": "role_specific_analysis_fallback"
-      }
-    ]
-  },
-  "flow_control": {
-    "pre_analysis": [
-      {
-        "step": "load_synthesis_specification",
-        "action": "Load synthesis specification from context-package.json",
-        "commands": [
-          "Read(.workflow/active/WFS-[session]/.process/context-package.json)",
-          "Extract(brainstorm_artifacts.synthesis_output.path)",
-          "Read(extracted path)"
-        ],
-        "output_to": "synthesis_specification",
-        "on_error": "skip_optional"
-      },
-      {
-        "step": "step_name",
-        "command": "bash_command",
-        "output_to": "variable",
-        "on_error": "skip_optional|fail|retry_once"
-      }
-    ],
-    "implementation_approach": [
-      {
-        "step": 1,
-        "title": "Implement task following role analyses",
-        "description": "Implement '[title]' following role analyses. PRIORITY: Use role analysis documents as primary requirement source. When implementation needs technical details (e.g., API schemas, caching configs, design tokens), refer to artifacts[] for detailed specifications from original role analyses.",
-        "modification_points": [
-          "Apply consolidated requirements from role analysis documents",
-          "Follow technical guidelines from synthesis",
-          "Consult artifacts for implementation details when needed",
-          "Integrate with existing patterns"
-        ],
-        "logic_flow": [
-          "Load role analyses",
-          "Parse architecture and requirements",
-          "Implement following specification",
-          "Consult artifacts for technical details when needed",
-          "Validate against acceptance criteria"
-        ],
-        "depends_on": [],
-        "output": "implementation"
-      }
-    ],
-    "target_files": ["file:function:lines", "path/to/NewFile.ts"]
-  }
-}
-```
-
-### Execution Flow
-1. **Load Task JSON**: Agent reads and validates complete JSON structure
-2. **Execute Flow Control**: Agent runs pre_analysis steps if present
-3. **Prepare Implementation**: Agent uses implementation_approach from JSON
-4. **Launch Implementation**: Agent follows focus_paths and target_files
-5. **Update Status**: Agent marks JSON status as completed
-6. **Generate Summary**: Agent creates completion summary
 
 ### Agent Assignment Rules
 ```
