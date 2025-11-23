@@ -8,7 +8,21 @@
 
 ```mermaid
 flowchart TD
-    Start([开始新功能/项目]) --> Q1{知道要做什么吗?}
+    Start([开始新任务]) --> Q0{这是Bug修复吗?}
+
+    Q0 -->|是| BugFix[🐛 Bug修复流程]
+    Q0 -->|否| Q1{知道要做什么吗?}
+
+    BugFix --> BugSeverity{了解问题根因?}
+    BugSeverity -->|清楚| LiteFix[/ /workflow:lite-fix<br>标准Bug修复 /]
+    BugSeverity -->|生产事故| HotFix[/ /workflow:lite-fix --hotfix<br>热修复模式 /]
+    BugSeverity -->|不清楚| BugDiag[/ /cli:mode:bug-diagnosis<br>先诊断根因 /]
+
+    BugDiag --> LiteFix
+    LiteFix --> BugComplete[Bug修复完成]
+    HotFix --> FollowUp[/ 自动生成跟进任务<br>全面修复+事后分析 /]
+    FollowUp --> BugComplete
+    BugComplete --> End([任务完成])
 
     Q1 -->|不知道| Ideation[💡 构思阶段<br>需求探索]
     Q1 -->|知道| Q2{知道怎么做吗?}
@@ -95,9 +109,14 @@ flowchart TD
     GeneralReview --> Complete
 
     Complete[✅ 完成阶段<br>/workflow:session:complete]
-    Complete --> End([项目完成])
+    Complete --> End
 
     style Start fill:#e1f5ff
+    style BugFix fill:#ffccbc
+    style LiteFix fill:#ffccbc
+    style HotFix fill:#ff8a65
+    style BugDiag fill:#ffccbc
+    style BugComplete fill:#c8e6c9
     style End fill:#c8e6c9
     style BrainIdea fill:#fff9c4
     style BrainDesign fill:#fff9c4
@@ -116,6 +135,55 @@ flowchart TD
 ---
 
 ## 🎯 决策关键点说明
+
+### 0️⃣ **首要决策 - "这是Bug修复吗？"**
+
+| 情况 | 命令 | 说明 |
+|------|------|------|
+| 🐛 **标准Bug修复** | `/workflow:lite-fix "bug描述"` | 自适应严重性评估，完整诊断→影响评估→修复→验证 |
+| 🔥 **生产热修复** | `/workflow:lite-fix --hotfix "bug描述"` | 最小化诊断，快速修复，自动生成跟进任务 |
+| ❓ **根因不清楚** | `/cli:mode:bug-diagnosis` → `/workflow:lite-fix` | 先深度诊断，再执行修复 |
+| ✅ **功能开发** | 继续后续流程 | 不是Bug修复，按正常开发流程 |
+
+**Lite-Fix 工作流特性**:
+- **阶段 1**: 智能根因诊断（自适应搜索策略）
+- **阶段 2**: 自动影响评估和风险评分（0-10分）
+- **阶段 3**: 修复策略生成（单一最优 vs 多选项）
+- **阶段 4**: 风险感知验证计划（完整测试 → 烟雾测试）
+- **阶段 5**: 用户确认（执行方式 + 验证级别 + 可选审查）
+- **阶段 6**: 执行调度 + 会话产物跟踪
+
+**会话产物** (保存到 `.workflow/.lite-fix/{bug-slug}-{timestamp}/`):
+- `diagnosis.json` - 根因分析、复现步骤
+- `impact.json` - 风险评分、严重性、工作流适应
+- `fix-plan.json` - 修复策略、实现任务
+- `task.json` - 完整上下文的增强任务 JSON
+- `followup.json` - 跟进任务（仅热修复模式）
+
+**示例**：
+```bash
+# 标准Bug修复（自动适应严重性）
+/workflow:lite-fix "用户头像上传失败，返回 413 错误"
+→ 自动诊断 → 风险评分 6.5 (High) → 快速修复策略 → 集成测试
+
+# 生产热修复（紧急修复）
+/workflow:lite-fix --hotfix "支付网关返回 5xx 错误"
+→ 最小化诊断 → 假设 Critical → 手术式修复 → 烟雾测试
+→ 自动生成: 全面修复任务（3天内）+ 事后分析（1周内）
+
+# 根因不清楚（先诊断）
+/cli:mode:bug-diagnosis --tool gemini "购物车随机丢失商品"
+→ 深度诊断报告 → /workflow:lite-fix "修复购物车状态同步问题"
+```
+
+**何时使用 lite-fix**:
+- ✅ 任何有明确症状的Bug（自动适应严重性）
+- ✅ 本地化修复（1-5个文件）
+- ✅ 生产事故（使用 `--hotfix` 模式）
+- ❌ 根因完全不明 → 先用 `/cli:mode:bug-diagnosis`
+- ❌ 需要架构变更 → 用 `/workflow:plan --mode bugfix`
+
+---
 
 ### 1️⃣ **构思阶段 - "知道要做什么吗？"**
 
@@ -627,19 +695,52 @@ CLI 工具的分析结果可以被保存并作为后续操作的上下文（memo
 
 ---
 
-### 场景D：Bug修复
+### 场景D：Bug修复（标准流程）
 
 ```bash
-# 1. 诊断
-/cli:mode:bug-diagnosis --tool gemini "用户登录失败，提示token过期"
+# 1. 标准Bug修复（自动适应严重性）
+/workflow:lite-fix "用户登录后token立即过期"
 
-# 2. 快速修复
-/workflow:lite-plan "修复JWT token过期验证逻辑"
+# 工作流自动执行:
+# → Phase 1: 诊断根因（JWT验证逻辑错误）
+# → Phase 2: 影响评估（风险评分 7.1 - High）
+# → Phase 3: 修复策略（快速补丁 vs 全面重构）
+# → Phase 4: 验证计划（集成测试）
+# → Phase 5: 用户确认（选择Agent执行）
+# → Phase 6: 执行修复 + 生成产物
 
-# 3. 测试修复
-/workflow:test-cycle-execute
+# 2. 会话产物自动保存到:
+# .workflow/.lite-fix/user-login-token-expire-2025-01-23-14-30-45/
+# ├── diagnosis.json
+# ├── impact.json
+# ├── fix-plan.json
+# └── task.json
 
-# 4. 完成
+# 3. 完成
+```
+
+---
+
+### 场景E：生产热修复（紧急模式）
+
+```bash
+# 1. 热修复模式（最小化诊断）
+/workflow:lite-fix --hotfix "支付网关返回 5xx 错误"
+
+# 工作流自动执行:
+# → Phase 1: 最小化诊断（已知问题）
+# → Phase 2: 假设 Critical（跳过详细评估）
+# → Phase 3: 单一手术式修复
+# → Phase 4: 烟雾测试（2-3分钟）
+# → Phase 5: 用户确认部署
+# → Phase 6: 执行 + 自动生成跟进任务
+
+# 2. 自动生成跟进任务:
+# .workflow/.lite-fix/{session}/followup.json
+# ├── FOLLOWUP-001: 全面修复（3天内到期）
+# └── FOLLOWUP-002: 事后分析（1周内到期）
+
+# 3. 完成
 ```
 
 ---
@@ -654,7 +755,8 @@ CLI 工具的分析结果可以被保存并作为后续操作的上下文（memo
 | ❓ 知道做什么，不知道怎么做 | `/workflow:brainstorm:auto-parallel "设计技术方案"` |
 | ✅ 知道做什么，知道怎么做 | `/workflow:plan "具体实现描述"` |
 | ⚡ 简单明确的小任务 | `/workflow:lite-plan "任务描述"` |
-| 🐛 修复bug | `/cli:mode:bug-diagnosis` + `/workflow:lite-plan` |
+| 🐛 标准Bug修复 | `/workflow:lite-fix "bug描述"` |
+| 🔥 生产热修复 | `/workflow:lite-fix --hotfix "bug描述"` |
 
 ### 按项目阶段选择
 
@@ -665,6 +767,7 @@ CLI 工具的分析结果可以被保存并作为后续操作的上下文（memo
 | 🎨 **UI设计** | `/workflow:ui-design:explore-auto` / `imitate-auto` |
 | 📝 **实现规划** | `/workflow:plan` / `/workflow:lite-plan` |
 | 🚀 **编码实现** | `/workflow:execute` / `/workflow:lite-execute` |
+| 🐛 **Bug修复** | `/workflow:lite-fix` (标准) / `--hotfix` (紧急) |
 | 🧪 **测试** | `/workflow:tdd-plan` / `/workflow:test-gen` |
 | 🔧 **测试修复** | `/workflow:test-cycle-execute` |
 | 📖 **代码审查** | `/workflow:review` |
@@ -675,6 +778,7 @@ CLI 工具的分析结果可以被保存并作为后续操作的上下文（memo
 | 模式 | 工作流 | 适用场景 |
 |------|--------|---------|
 | **🚀 敏捷快速** | Lite工作流 | 个人开发、快速迭代、原型验证 |
+| **🐛 Bug修复** | Lite-Fix工作流 | Bug诊断修复、生产热修复、测试修复循环 |
 | **📋 规范完整** | Full工作流 | 团队协作、企业项目、长期维护 |
 | **🧪 质量优先** | TDD工作流 | 核心模块、关键功能、高可靠性需求 |
 | **🎨 设计导向** | UI-Design工作流 | 前端项目、用户界面、设计系统 |
@@ -686,18 +790,20 @@ CLI 工具的分析结果可以被保存并作为后续操作的上下文（memo
 ### ✅ 最佳实践
 
 1. **不确定时用头脑风暴**：宁可多花10分钟探索方案，也不要盲目实现后推翻重来
-2. **复杂项目用Full工作流**：持久化计划便于团队协作和长期维护
-3. **小任务用Lite工作流**：快速完成，减少overhead
-4. **关键模块用TDD**：测试驱动开发保证质量
-5. **定期更新内存**：`/memory:update-related` 保持上下文准确
+2. **Bug修复优先用lite-fix**：自动适应严重性，完整产物跟踪，热修复自动生成跟进任务
+3. **复杂项目用Full工作流**：持久化计划便于团队协作和长期维护
+4. **小任务用Lite工作流**：快速完成，减少overhead
+5. **关键模块用TDD**：测试驱动开发保证质量
+6. **定期更新内存**：`/memory:update-related` 保持上下文准确
 
 ### ❌ 常见陷阱
 
 1. **盲目跳过头脑风暴**：对不熟悉的技术领域也不探索，导致返工
 2. **过度使用头脑风暴**：简单功能也头脑风暴，浪费时间
 3. **忽略计划验证**：不运行 `/workflow:action-plan-verify`，导致执行时发现计划问题
-4. **忽略测试**：不生成测试，代码质量无法保证
-5. **不完成会话**：不运行 `/workflow:session:complete`，会话状态混乱
+4. **Bug修复使用错误工具**：复杂Bug用lite-plan而非lite-fix，缺少诊断和影响评估
+5. **忽略测试**：不生成测试，代码质量无法保证
+6. **不完成会话**：不运行 `/workflow:session:complete`，会话状态混乱
 
 ---
 
@@ -711,5 +817,5 @@ CLI 工具的分析结果可以被保存并作为后续操作的上下文（memo
 
 ---
 
-**最后更新**: 2025-11-20
-**版本**: 5.8.1
+**最后更新**: 2025-01-23
+**版本**: 5.9.2
