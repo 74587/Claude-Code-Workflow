@@ -1,117 +1,67 @@
-# 📖 Claude Code Workflow - Real-World Examples
+# EXAMPLES: Claude_dms3 Usage Examples
 
-This document provides practical, real-world examples of using CCW for common development tasks.
+## Related Files
+- `GETTING_STARTED.md` - Initial setup and quick start guide.
+- `EXAMPLES.md` (root) - Comprehensive real-world examples across various development phases.
+- `.claude/skills/command-guide/guides/examples.md` - Specific command usage examples across different modes.
 
----
+## Introduction
+This document provides practical, end-to-end examples demonstrating the core usage of the Claude_dms3 system. It covers everything from quick start guides to complex development workflows, illustrating how specialized AI agents and integrated tools can automate and streamline software engineering tasks.
 
-## 📋 Table of Contents
+**Prerequisites**: Ensure Claude_dms3 is installed and configured as per the [Installation Guide](INSTALL.md) and that you have a basic understanding of the core concepts explained in [GETTING_STARTED.md](GETTING_STARTED.md).
 
-- [Quick Start Examples](#quick-start-examples)
-- [Web Development](#web-development)
-- [API Development](#api-development)
-- [Testing & Quality Assurance](#testing--quality-assurance)
-- [Refactoring](#refactoring)
-- [UI/UX Design](#uiux-design)
-- [Bug Fixes](#bug-fixes)
-- [Documentation](#documentation)
-- [DevOps & Automation](#devops--automation)
-- [Complex Projects](#complex-projects)
+## Quick Start Example
 
----
+Let's create a "Hello World" web application using a simple Express API.
 
-## 🚀 Quick Start Examples
-
-### Example 1: Simple Express API
-
-**Objective**: Create a basic Express.js API with CRUD operations
+### Step 1: Create an Execution Plan
+Tell Claude_dms3 what you want to build. The system will analyze your request and automatically generate a detailed, executable task plan.
 
 ```bash
-# Option 1: Lite workflow (fastest)
-/workflow:lite-plan "Create Express API with CRUD endpoints for users (GET, POST, PUT, DELETE)"
+/workflow:plan "Create a simple Express API that returns Hello World at the root path"
+```
 
-# Option 2: Full workflow (more structured)
-/workflow:plan "Create Express API with CRUD endpoints for users"
+*   **Explanation**: The `/workflow:plan` command initiates a fully automated planning process. This includes context gathering from your project, analysis by AI agents to determine the best implementation path, and the generation of specific task files (in `.json` format) in a new workflow session (`.workflow/active/WFS-create-a-simple-express-api/`).
+
+### Step 2: Execute the Plan
+Once the plan is created, command the AI agents to start working.
+
+```bash
 /workflow:execute
 ```
 
-**What CCW does**:
-1. Analyzes your project structure
-2. Creates Express app setup
-3. Implements CRUD routes
-4. Adds error handling middleware
-5. Creates basic tests
+*   **Explanation**: Claude_dms3's agents, such as `@code-developer`, will begin executing the planned tasks one by one. This involves creating files, writing code, and installing necessary dependencies to fulfill the "Hello World" API request.
 
-**Result**:
-```
-src/
-├── app.js              # Express app setup
-├── routes/
-│   └── users.js        # User CRUD routes
-├── controllers/
-│   └── userController.js
-└── tests/
-    └── users.test.js
-```
-
-### Example 2: React Component
-
-**Objective**: Create a React login form component
+### Step 3: Check the Status (Optional)
+Monitor the progress of the current workflow at any time.
 
 ```bash
-/workflow:lite-plan "Create a React login form component with email and password fields, validation, and submit handling"
+/workflow:status
 ```
 
-**What CCW does**:
-1. Creates LoginForm component
-2. Adds form validation (email format, password requirements)
-3. Implements state management
-4. Adds error display
-5. Creates component tests
+*   **Explanation**: This command provides an overview of task completion, the currently executing task, and the upcoming steps in the workflow.
 
-**Result**:
-```jsx
-// components/LoginForm.jsx
-import React, { useState } from 'react';
+## Core Use Cases
 
-export function LoginForm({ onSubmit }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState({});
+### 1. Full-Stack Todo Application Development
+**Objective**: Build a complete todo application with a React frontend and an Express backend, including user authentication, real-time updates, and dark mode.
 
-  // ... validation and submit logic
-}
-```
-
----
-
-## 🌐 Web Development
-
-### Example 3: Full-Stack Todo Application
-
-**Objective**: Build a complete todo application with React frontend and Express backend
-
-#### Phase 1: Planning with Brainstorming
+#### Phase 1: Planning with Multi-Agent Brainstorming
+Utilize brainstorming to analyze the complex requirements from multiple perspectives before implementation.
 
 ```bash
-# Multi-perspective analysis
+# Multi-perspective analysis for the full-stack application
 /workflow:brainstorm:auto-parallel "Full-stack todo application with user authentication, real-time updates, and dark mode"
 
-# Review brainstorming artifacts
-# Then create implementation plan
+# Review brainstorming artifacts, then create the implementation plan
 /workflow:plan
 
-# Verify plan quality
+# Verify the plan quality
 /workflow:action-plan-verify
 ```
 
-**Brainstorming generates**:
-- System architecture analysis
-- UI/UX design recommendations
-- Data model design
-- Security considerations
-- API design patterns
-
 #### Phase 2: Implementation
+Execute the generated plan to build the application components.
 
 ```bash
 # Execute the plan
@@ -121,45 +71,22 @@ export function LoginForm({ onSubmit }) {
 /workflow:status
 ```
 
-**What CCW implements**:
-
-**Backend** (`server/`):
-- Express server setup
-- MongoDB/PostgreSQL integration
-- JWT authentication
-- RESTful API endpoints
-- WebSocket for real-time updates
-- Input validation middleware
-
-**Frontend** (`client/`):
-- React app with routing
-- Authentication flow
-- Todo CRUD operations
-- Real-time updates via WebSocket
-- Dark mode toggle
-- Responsive design
-
 #### Phase 3: Testing
+Generate and execute comprehensive tests for the implemented features.
 
 ```bash
 # Generate comprehensive tests
-/workflow:test-gen WFS-todo-application
+/workflow:test-gen WFS-todo-application # WFS-todo-application is the session ID
 
 # Execute test tasks
 /workflow:execute
 
-# Run iterative test-fix cycle
+# Run an iterative test-fix cycle if needed
 /workflow:test-cycle-execute
 ```
 
-**Tests created**:
-- Unit tests for components
-- Integration tests for API
-- E2E tests for user flows
-- Authentication tests
-- WebSocket connection tests
-
-#### Phase 4: Quality Review
+#### Phase 4: Quality Review & Completion
+Review the implemented solution for security, architecture, and overall quality, then complete the session.
 
 ```bash
 # Security review
@@ -170,654 +97,203 @@ export function LoginForm({ onSubmit }) {
 
 # General quality review
 /workflow:review
-```
 
-**Complete session**:
-```bash
+# Complete the session
 /workflow:session:complete
 ```
 
----
-
-### Example 4: E-commerce Product Catalog
-
-**Objective**: Build product catalog with search, filters, and pagination
+### 2. RESTful API with Authentication
+**Objective**: Create a RESTful API with JWT authentication and role-based access control for a `posts` resource.
 
 ```bash
-# Start with UI design exploration
-/workflow:ui-design:explore-auto --prompt "Modern e-commerce product catalog with grid layout, filters sidebar, and search bar" --targets "catalog,product-card" --style-variants 3
-
-# Review designs in compare.html
-# Sync selected designs
-/workflow:ui-design:design-sync --session <session-id> --selected-prototypes "catalog-v2,product-card-v1"
-
-# Create implementation plan
-/workflow:plan
-
-# Execute
-/workflow:execute
-```
-
-**Features implemented**:
-- Product grid with responsive layout
-- Search functionality with debounce
-- Category/price/rating filters
-- Pagination with infinite scroll option
-- Product card with image, title, price, rating
-- Sort options (price, popularity, newest)
-
----
-
-## 🔌 API Development
-
-### Example 5: RESTful API with Authentication
-
-**Objective**: Create RESTful API with JWT authentication and role-based access control
-
-```bash
-# Detailed planning
+# Initiate detailed planning for the API
 /workflow:plan "RESTful API with JWT authentication, role-based access control (admin, user), and protected endpoints for posts resource"
 
-# Verify plan
+# Verify the plan for consistency and completeness
 /workflow:action-plan-verify
 
-# Execute
+# Execute the implementation plan
 /workflow:execute
 ```
 
-**Implementation includes**:
+*   **Implementation includes**:
+    *   **Authentication Endpoints**: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`.
+    *   **Protected Resources**: `GET /api/posts` (public), `GET /api/posts/:id` (public), `POST /api/posts` (authenticated), `PUT /api/posts/:id` (authenticated, owner or admin), `DELETE /api/posts/:id` (authenticated, owner or admin).
+    *   **Middleware**: `authenticate` (verifies JWT token), `authorize(['admin'])` (role-based access), `validateRequest` (input validation), `errorHandler` (centralized error handling).
 
-**Authentication**:
-```javascript
-// routes/auth.js
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/refresh
-POST /api/auth/logout
-```
-
-**Protected Resources**:
-```javascript
-// routes/posts.js
-GET    /api/posts        # Public
-GET    /api/posts/:id    # Public
-POST   /api/posts        # Authenticated
-PUT    /api/posts/:id    # Authenticated (owner or admin)
-DELETE /api/posts/:id    # Authenticated (owner or admin)
-```
-
-**Middleware**:
-- `authenticate` - Verifies JWT token
-- `authorize(['admin'])` - Role-based access
-- `validateRequest` - Input validation
-- `errorHandler` - Centralized error handling
-
-### Example 6: GraphQL API
-
-**Objective**: Convert REST API to GraphQL
+### 3. Test-Driven Development (TDD)
+**Objective**: Implement user authentication (login, registration, password reset) using a TDD approach.
 
 ```bash
-# Analyze existing REST API
-/cli:analyze "Analyze REST API structure in src/routes/"
-
-# Plan GraphQL migration
-/workflow:plan "Migrate REST API to GraphQL with queries, mutations, and subscriptions for posts and users"
-
-# Execute migration
-/workflow:execute
-```
-
-**GraphQL schema created**:
-```graphql
-type Query {
-  posts(limit: Int, offset: Int): [Post!]!
-  post(id: ID!): Post
-  user(id: ID!): User
-}
-
-type Mutation {
-  createPost(input: CreatePostInput!): Post!
-  updatePost(id: ID!, input: UpdatePostInput!): Post!
-  deletePost(id: ID!): Boolean!
-}
-
-type Subscription {
-  postCreated: Post!
-  postUpdated: Post!
-}
-```
-
----
-
-## 🧪 Testing & Quality Assurance
-
-### Example 7: Test-Driven Development (TDD)
-
-**Objective**: Implement user authentication using TDD approach
-
-```bash
-# Start TDD workflow
+# Start the TDD workflow for user authentication
 /workflow:tdd-plan "User authentication with email/password login, registration, and password reset"
 
-# Execute (Red-Green-Refactor cycles)
+# Execute the TDD cycles (Red-Green-Refactor)
 /workflow:execute
 
-# Verify TDD compliance
+# Verify TDD compliance (optional)
 /workflow:tdd-verify
 ```
 
-**TDD cycle tasks created**:
+*   **TDD cycle tasks created**: Claude_dms3 will create tasks in cycles (e.g., Registration, Login, Password Reset), where each cycle involves writing a failing test, implementing the feature to pass the test, and then refactoring the code.
 
-**Cycle 1: Registration**
-1. `IMPL-1.1` - Write failing test for user registration
-2. `IMPL-1.2` - Implement registration to pass test
-3. `IMPL-1.3` - Refactor registration code
+## Advanced & Integration Examples
 
-**Cycle 2: Login**
-1. `IMPL-2.1` - Write failing test for login
-2. `IMPL-2.2` - Implement login to pass test
-3. `IMPL-2.3` - Refactor login code
-
-**Cycle 3: Password Reset**
-1. `IMPL-3.1` - Write failing test for password reset
-2. `IMPL-3.2` - Implement password reset
-3. `IMPL-3.3` - Refactor password reset
-
-### Example 8: Adding Tests to Existing Code
-
-**Objective**: Generate comprehensive tests for existing authentication module
-
-```bash
-# Create test generation workflow from existing code
-/workflow:test-gen WFS-authentication-implementation
-
-# Execute test tasks
-/workflow:execute
-
-# Run test-fix cycle until all tests pass
-/workflow:test-cycle-execute --max-iterations 5
-```
-
-**Tests generated**:
-- Unit tests for each function
-- Integration tests for auth flow
-- Edge case tests (invalid input, expired tokens, etc.)
-- Security tests (SQL injection, XSS, etc.)
-- Performance tests (load testing, rate limiting)
-
-**Test coverage**: Aims for 80%+ coverage
-
----
-
-## 🔄 Refactoring
-
-### Example 9: Monolith to Microservices
-
-**Objective**: Refactor monolithic application to microservices architecture
+### 1. Monolith to Microservices Refactoring
+**Objective**: Refactor a monolithic application into a microservices architecture with an API gateway, service discovery, and message queue.
 
 #### Phase 1: Analysis
+Perform deep architecture analysis and multi-role brainstorming.
 
 ```bash
-# Deep architecture analysis
+# Deep architecture analysis to create a migration strategy
 /cli:mode:plan --tool gemini "Analyze current monolithic architecture and create microservices migration strategy"
 
-# Multi-role brainstorming
+# Multi-role brainstorming for microservices design
 /workflow:brainstorm:auto-parallel "Migrate monolith to microservices with API gateway, service discovery, and message queue" --count 5
 ```
 
 #### Phase 2: Planning
+Create a detailed migration plan based on the analysis.
 
 ```bash
-# Create detailed migration plan
+# Create a detailed migration plan for the first phase
 /workflow:plan "Phase 1 microservices migration: Extract user service and auth service from monolith"
 
-# Verify plan
+# Verify the plan
 /workflow:action-plan-verify
 ```
 
 #### Phase 3: Implementation
+Execute the migration plan and review the architecture.
 
 ```bash
-# Execute migration
+# Execute the migration tasks
 /workflow:execute
 
-# Review architecture
+# Review the new microservices architecture
 /workflow:review --type architecture
 ```
 
-**Microservices created**:
-```
-services/
-├── user-service/
-│   ├── src/
-│   ├── Dockerfile
-│   └── package.json
-├── auth-service/
-│   ├── src/
-│   ├── Dockerfile
-│   └── package.json
-├── api-gateway/
-│   ├── src/
-│   └── config/
-└── docker-compose.yml
-```
+### 2. Real-Time Chat Application
+**Objective**: Build a real-time chat application with WebSocket, message history, and file sharing.
 
-### Example 10: Code Optimization
-
-**Objective**: Optimize database queries for performance
+#### Complete Workflow
+This example combines brainstorming, UI design, planning, implementation, testing, and review.
 
 ```bash
-# Analyze current performance
-/cli:mode:code-analysis "Analyze database query performance in src/repositories/"
+# 1. Brainstorm for comprehensive feature specification
+/workflow:brainstorm:auto-parallel "Real-time chat application with WebSocket, message history, file upload, user presence, typing indicators" --count 5
 
-# Create optimization plan
-/workflow:plan "Optimize database queries with indexing, query optimization, and caching"
+# 2. UI Design exploration
+/workflow:ui-design:explore-auto --prompt "Modern chat interface with message list, input box, user sidebar, file preview" --targets "chat-window,message-bubble,user-list" --style-variants 2
 
-# Execute optimizations
-/workflow:execute
-```
+# 3. Sync selected designs (assuming a session ID from the UI design step)
+/workflow:ui-design:design-sync --session <session-id>
 
-**Optimizations implemented**:
-- Database indexing strategy
-- N+1 query elimination
-- Query result caching (Redis)
-- Connection pooling
-- Pagination for large datasets
-- Database query monitoring
-
----
-
-## 🎨 UI/UX Design
-
-### Example 11: Design System Creation
-
-**Objective**: Create a complete design system for a SaaS application
-
-```bash
-# Extract design from local reference images
-/workflow:ui-design:imitate-auto --input "design-refs/*.png"
-
-# Or import from existing code
-/workflow:ui-design:imitate-auto --input "./src/components"
-
-# Or create from scratch
-/workflow:ui-design:explore-auto --prompt "Modern SaaS design system with primary components: buttons, inputs, cards, modals, navigation" --targets "button,input,card,modal,navbar" --style-variants 3
-```
-
-**Design system includes**:
-- Color palette (primary, secondary, accent, neutral)
-- Typography scale (headings, body, captions)
-- Spacing system (4px grid)
-- Component library:
-  - Buttons (primary, secondary, outline, ghost)
-  - Form inputs (text, select, checkbox, radio)
-  - Cards (basic, elevated, outlined)
-  - Modals (small, medium, large)
-  - Navigation (sidebar, topbar, breadcrumbs)
-- Animation patterns
-- Responsive breakpoints
-
-**Output**:
-```
-design-system/
-├── tokens/
-│   ├── colors.json
-│   ├── typography.json
-│   └── spacing.json
-├── components/
-│   ├── Button.jsx
-│   ├── Input.jsx
-│   └── ...
-└── documentation/
-    └── design-system.html
-```
-
-### Example 12: Responsive Landing Page
-
-**Objective**: Design and implement a marketing landing page
-
-```bash
-# Design exploration
-/workflow:ui-design:explore-auto --prompt "Modern SaaS landing page with hero section, features grid, pricing table, testimonials, and CTA" --targets "hero,features,pricing,testimonials" --style-variants 2 --layout-variants 3 --device-type responsive
-
-# Select best designs and sync
-/workflow:ui-design:design-sync --session <session-id> --selected-prototypes "hero-v2,features-v1,pricing-v3"
-
-# Implement
+# 4. Plan the implementation
 /workflow:plan
+
+# 5. Verify the plan
+/workflow:action-plan-verify
+
+# 6. Execute the implementation
 /workflow:execute
+
+# 7. Generate tests for the application
+/workflow:test-gen <session-id>
+
+# 8. Execute the generated tests
+/workflow:execute
+
+# 9. Review the security and architecture
+/workflow:review --type security
+/workflow:review --type architecture
+
+# 10. Complete the session
+/workflow:session:complete
 ```
 
-**Sections implemented**:
-- Hero section with animated background
-- Feature cards with icons
-- Pricing comparison table
-- Customer testimonials carousel
-- FAQ accordion
-- Contact form
-- Responsive navigation
-- Dark mode support
+## Testing Examples
 
----
-
-## 🐛 Bug Fixes
-
-### Example 13: Quick Bug Fix
-
-**Objective**: Fix login button not working on mobile
+### 1. Adding Tests to Existing Code
+**Objective**: Generate comprehensive tests for an existing authentication module.
 
 ```bash
-# Analyze bug
-/cli:mode:bug-diagnosis "Login button click event not firing on mobile Safari"
+# Create a test generation workflow for the authentication implementation
+/workflow:test-gen WFS-authentication-implementation # WFS-authentication-implementation is the session ID
 
-# Claude analyzes and implements fix
+# Execute the test tasks (generate and run tests)
+/workflow:execute
+
+# Run a test-fix cycle until all tests pass
+/workflow:test-cycle-execute --max-iterations 5
 ```
 
-**Fix implemented**:
-```javascript
-// Before
-button.onclick = handleLogin;
+*   **Tests generated**: Unit tests for each function, integration tests for the auth flow, edge case tests (invalid input, expired tokens), security tests (SQL injection, XSS), and performance tests.
 
-// After (adds touch event support)
-button.addEventListener('click', handleLogin);
-button.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  handleLogin(e);
-});
-```
-
-### Example 14: Complex Bug Investigation
-
-**Objective**: Debug memory leak in React application
+### 2. Bug Fixing - Complex Bug Investigation
+**Objective**: Debug a memory leak in a React application caused by uncleared event listeners.
 
 #### Investigation
+Start a dedicated session for thorough investigation.
 
 ```bash
-# Start session for thorough investigation
+# Start a new session for memory leak investigation
 /workflow:session:start "Memory Leak Investigation"
 
-# Deep bug analysis
+# Perform deep bug analysis using Gemini
 /cli:mode:bug-diagnosis --tool gemini "Memory leak in React components - event listeners not cleaned up"
 
-# Create fix plan
+# Create a fix plan based on the analysis
 /workflow:plan "Fix memory leaks in React components: cleanup event listeners and cancel subscriptions"
 ```
 
 #### Implementation
+Execute the fixes and generate tests to prevent regression.
 
 ```bash
-# Execute fixes
+# Execute the memory leak fixes
 /workflow:execute
 
-# Generate tests to prevent regression
+# Generate tests to prevent future regressions
 /workflow:test-gen WFS-memory-leak-investigation
 
-# Execute tests
+# Execute the generated tests
 /workflow:execute
 ```
 
-**Issues found and fixed**:
-1. Missing cleanup in `useEffect` hooks
-2. Event listeners not removed
-3. Uncancelled API requests on unmount
-4. Large state objects not cleared
-
----
-
-## 📝 Documentation
-
-### Example 15: API Documentation Generation
-
-**Objective**: Generate comprehensive API documentation
-
-```bash
-# Analyze existing API
-/memory:load "Generate API documentation for all endpoints"
-
-# Create documentation
-/workflow:plan "Generate OpenAPI/Swagger documentation for REST API with examples and authentication info"
-
-# Execute
-/workflow:execute
-```
-
-**Documentation includes**:
-- OpenAPI 3.0 specification
-- Interactive Swagger UI
-- Request/response examples
-- Authentication guide
-- Rate limiting info
-- Error codes reference
-
-### Example 16: Project README Generation
-
-**Objective**: Create comprehensive README for open-source project
-
-```bash
-# Update project memory first
-/memory:update-full --tool gemini
-
-# Generate README
-/workflow:plan "Create comprehensive README.md with installation, usage, examples, API reference, and contributing guidelines"
-
-/workflow:execute
-```
-
-**README sections**:
-- Project overview
-- Features
-- Installation instructions
-- Quick start guide
-- Usage examples
-- API reference
-- Configuration
-- Contributing guidelines
-- License
-
----
-
-## ⚙️ DevOps & Automation
-
-### Example 17: CI/CD Pipeline Setup
-
-**Objective**: Set up GitHub Actions CI/CD pipeline
-
-```bash
-/workflow:plan "Create GitHub Actions workflow for Node.js app with linting, testing, building, and deployment to AWS"
-
-/workflow:execute
-```
-
-**Pipeline created**:
-```yaml
-# .github/workflows/ci-cd.yml
-name: CI/CD
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run tests
-        run: npm test
-
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Build
-        run: npm run build
-
-  deploy:
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to AWS
-        run: npm run deploy
-```
-
-### Example 18: Docker Containerization
-
-**Objective**: Dockerize full-stack application
-
-```bash
-# Plan containerization
-/workflow:plan "Dockerize full-stack app with React frontend, Express backend, PostgreSQL database, and Redis cache using docker-compose"
-
-# Execute
-/workflow:execute
-
-# Review
-/workflow:review --type architecture
-```
-
-**Created files**:
-```
-├── docker-compose.yml
-├── frontend/
-│   └── Dockerfile
-├── backend/
-│   └── Dockerfile
-├── .dockerignore
-└── README.docker.md
-```
-
----
-
-## 🏗️ Complex Projects
-
-### Example 19: Real-Time Chat Application
-
-**Objective**: Build real-time chat with WebSocket, message history, and file sharing
-
-#### Complete Workflow
-
-```bash
-# 1. Brainstorm
-/workflow:brainstorm:auto-parallel "Real-time chat application with WebSocket, message history, file upload, user presence, typing indicators" --count 5
-
-# 2. UI Design
-/workflow:ui-design:explore-auto --prompt "Modern chat interface with message list, input box, user sidebar, file preview" --targets "chat-window,message-bubble,user-list" --style-variants 2
-
-# 3. Sync designs
-/workflow:ui-design:design-sync --session <session-id>
-
-# 4. Plan implementation
-/workflow:plan
-
-# 5. Verify plan
-/workflow:action-plan-verify
-
-# 6. Execute
-/workflow:execute
-
-# 7. Generate tests
-/workflow:test-gen <session-id>
-
-# 8. Execute tests
-/workflow:execute
-
-# 9. Review
-/workflow:review --type security
-/workflow:review --type architecture
-
-# 10. Complete
-/workflow:session:complete
-```
-
-**Features implemented**:
-- WebSocket server (Socket.io)
-- Real-time messaging
-- Message persistence (MongoDB)
-- File upload (S3/local storage)
-- User authentication
-- Typing indicators
-- Read receipts
-- User presence (online/offline)
-- Message search
-- Emoji support
-- Mobile responsive
-
-### Example 20: Data Analytics Dashboard
-
-**Objective**: Build interactive dashboard with charts and real-time data
-
-```bash
-# Brainstorm data viz approach
-/workflow:brainstorm:auto-parallel "Data analytics dashboard with real-time metrics, interactive charts, filters, and export functionality"
-
-# Plan implementation
-/workflow:plan "Analytics dashboard with Chart.js/D3.js, real-time data updates via WebSocket, date range filters, and CSV export"
-
-# Execute
-/workflow:execute
-```
-
-**Dashboard features**:
-- Real-time metric cards (users, revenue, conversions)
-- Line charts (trends over time)
-- Bar charts (comparisons)
-- Pie charts (distributions)
-- Data tables with sorting/filtering
-- Date range picker
-- Export to CSV/PDF
-- Responsive grid layout
-- Dark mode
-- WebSocket updates every 5 seconds
-
----
-
-## 💡 Tips for Effective Examples
-
-### Best Practices
-
-1. **Start with clear objectives**
-   - Define what you want to build
-   - List key features
-   - Specify technologies if needed
-
-2. **Use appropriate workflow**
-   - Simple tasks: `/workflow:lite-plan`
-   - Complex features: `/workflow:brainstorm` → `/workflow:plan`
-   - Existing code: `/workflow:test-gen` or `/cli:analyze`
-
-3. **Leverage quality gates**
-   - Run `/workflow:action-plan-verify` before execution
-   - Use `/workflow:review` after implementation
-   - Generate tests with `/workflow:test-gen`
-
-4. **Maintain memory**
-   - Update memory after major changes
-   - Use `/memory:load` for quick context
-   - Keep CLAUDE.md files up to date
-
-5. **Complete sessions**
-   - Always run `/workflow:session:complete`
-   - Generates lessons learned
-   - Archives session for reference
-
----
-
-## 🔗 Related Resources
-
-- [Getting Started Guide](GETTING_STARTED.md) - Basics
-- [Architecture](ARCHITECTURE.md) - How it works
-- [Command Reference](COMMAND_REFERENCE.md) - All commands
-- [FAQ](FAQ.md) - Common questions
-- [Contributing](CONTRIBUTING.md) - How to contribute
-
----
-
-## 📬 Share Your Examples
-
-Have a great example to share? Contribute to this document!
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-**Last Updated**: 2025-11-20
-**Version**: 5.8.1
+## Best Practices & Troubleshooting
+
+### Best Practices for Effective Usage
+
+1.  **Start with clear objectives**: Define what you want to build, list key features, and specify technologies.
+2.  **Use appropriate workflow**:
+    *   Simple tasks: `/workflow:lite-plan`
+    *   Complex features: `/workflow:brainstorm` → `/workflow:plan`
+    *   Existing code: `/workflow:test-gen` or `/cli:analyze`
+3.  **Leverage quality gates**:
+    *   Run `/workflow:action-plan-verify` before execution.
+    *   Use `/workflow:review` after implementation.
+    *   Generate tests with `/workflow:test-gen`.
+4.  **Maintain memory**:
+    *   Update memory after major changes with `/memory:update-full` or `/memory:update-related`.
+    *   Use `/memory:load` for quick, task-specific context.
+5.  **Complete sessions**: Always run `/workflow:session:complete` to generate lessons learned and archive the session.
+
+### Troubleshooting Common Issues
+
+*   **Problem: Prompt shows "No active session found"**
+    *   **Reason**: You haven't started a workflow session, or the current session is complete.
+    *   **Solution**: Use `/workflow:session:start "Your task description"` to start a new session.
+
+*   **Problem: Command execution fails or gets stuck**
+    *   **Reason**: Could be a network issue, AI model limitation, or the task is too complex.
+    *   **Solution**:
+        1.  First, try `/workflow:status` to check the current state.
+        2.  Check log files in the `.workflow/WFS-<session-name>/.chat/` directory for detailed error messages.
+        3.  If the task is too complex, break it down into smaller tasks and use `/workflow:plan` to create a new plan.
+
+## Conclusion
+
+This document provides a foundational understanding of how to leverage Claude_dms3 for various software development tasks, from initial planning to complex refactoring and comprehensive testing. By following these examples and best practices, users can effectively harness the power of AI-driven automation to enhance their development workflows.
