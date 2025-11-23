@@ -563,6 +563,12 @@ Instructions:
         # Store current output path for CLI context
         export DOC_OUTPUT_PATH="$output_path"
 
+        # Record git HEAD before CLI execution (to detect unwanted auto-commits)
+        local git_head_before=""
+        if git rev-parse --git-dir >/dev/null 2>&1; then
+            git_head_before=$(git rev-parse HEAD 2>/dev/null)
+        fi
+
         # Execute with selected tool
         case "$tool" in
             qwen)
@@ -644,6 +650,16 @@ Instructions:
                         moved_files+="README.md "
                     }
                 fi
+            fi
+        fi
+
+        # Check if CLI tool auto-committed (and revert if needed)
+        if [ -n "$git_head_before" ]; then
+            local git_head_after=$(git rev-parse HEAD 2>/dev/null)
+            if [ "$git_head_before" != "$git_head_after" ]; then
+                echo "   ⚠️  Detected unwanted auto-commit by CLI tool, reverting..."
+                git reset --soft "$git_head_before" 2>/dev/null
+                echo "   ✅ Auto-commit reverted (files remain staged)"
             fi
         fi
 
