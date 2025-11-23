@@ -298,19 +298,20 @@ Generate individual `.task/IMPL-*.json` files with:
       }
     ],
     "implementation_approach": [
+      // === DEFAULT MODE: Agent Execution (no command field) ===
       {
         "step": 1,
         "title": "Load and analyze role analyses",
-        "description": "Load 3 role analysis files and extract quantified requirements",
+        "description": "Load role analysis files and extract quantified requirements",
         "modification_points": [
-          "Load 3 role analysis files: [system-architect/analysis.md, product-manager/analysis.md, ui-designer/analysis.md]",
-          "Extract 15 requirements from role analyses",
-          "Parse 8 architecture decisions from system-architect analysis"
+          "Load N role analysis files: [list]",
+          "Extract M requirements from role analyses",
+          "Parse K architecture decisions"
         ],
         "logic_flow": [
-          "Read 3 role analyses from artifacts inventory",
-          "Parse architecture decisions (8 total)",
-          "Extract implementation requirements (15 total)",
+          "Read role analyses from artifacts inventory",
+          "Parse architecture decisions",
+          "Extract implementation requirements",
           "Build consolidated requirements list"
         ],
         "depends_on": [],
@@ -319,21 +320,33 @@ Generate individual `.task/IMPL-*.json` files with:
       {
         "step": 2,
         "title": "Implement following specification",
-        "description": "Implement 3 features across 5 files following consolidated role analyses",
+        "description": "Implement features following consolidated role analyses",
         "modification_points": [
-          "Create 5 new files in src/auth/: [auth.service.ts (180 lines), auth.controller.ts (120 lines), auth.middleware.ts (60 lines), auth.types.ts (40 lines), auth.test.ts (200 lines)]",
-          "Modify 2 functions: [validateUser() in users.service.ts lines 45-60, hashPassword() in utils.ts lines 120-135]",
-          "Implement 3 core features: [JWT authentication, role-based authorization, session management]"
+          "Create N new files: [list with line counts]",
+          "Modify M functions: [func() in file lines X-Y]",
+          "Implement K core features: [list]"
         ],
         "logic_flow": [
-          "Apply 15 requirements from [synthesis_requirements]",
-          "Implement 3 features across 5 new files (600 total lines)",
-          "Modify 2 existing functions (30 lines total)",
-          "Write 25 test cases covering all features",
-          "Validate against 3 acceptance criteria"
+          "Apply requirements from [synthesis_requirements]",
+          "Implement features across new files",
+          "Modify existing functions",
+          "Write test cases covering all features",
+          "Validate against acceptance criteria"
         ],
         "depends_on": [1],
         "output": "implementation"
+      },
+
+      // === CLI MODE: Command Execution (optional command field) ===
+      {
+        "step": 3,
+        "title": "Execute implementation using CLI tool",
+        "description": "Use Codex/Gemini for complex autonomous execution",
+        "command": "bash(codex -C [path] --full-auto exec '[prompt]' --skip-git-repo-check -s danger-full-access)",
+        "modification_points": ["[Same as default mode]"],
+        "logic_flow": ["[Same as default mode]"],
+        "depends_on": [1, 2],
+        "output": "cli_implementation"
       }
     ],
     "target_files": [
@@ -353,6 +366,37 @@ Generate individual `.task/IMPL-*.json` files with:
 - `pre_analysis`: Context loading and preparation steps (executed sequentially before implementation)
 - `implementation_approach`: Implementation steps with dependency management (array of step objects)
 - `target_files`: Specific files/functions/lines to modify (format: `file:function:lines` for existing, `file` for new)
+
+**Implementation Approach Execution Modes**:
+
+The `implementation_approach` supports **two execution modes** based on the presence of the `command` field:
+
+1. **Default Mode (Agent Execution)** - `command` field **omitted**:
+   - Agent interprets `modification_points` and `logic_flow` autonomously
+   - Direct agent execution with full context awareness
+   - No external tool overhead
+   - **Use for**: Standard implementation tasks where agent capability is sufficient
+   - **Required fields**: `step`, `title`, `description`, `modification_points`, `logic_flow`, `depends_on`, `output`
+
+2. **CLI Mode (Command Execution)** - `command` field **included**:
+   - Specified command executes the step directly
+   - Leverages specialized CLI tools (codex/gemini/qwen) for complex reasoning
+   - **Use for**: Large-scale features, complex refactoring, or when user explicitly requests CLI tool usage
+   - **Required fields**: Same as default mode **PLUS** `command`
+   - **Command patterns**:
+     - `bash(codex -C [path] --full-auto exec '[prompt]' --skip-git-repo-check -s danger-full-access)`
+     - `bash(codex --full-auto exec '[task]' resume --last --skip-git-repo-check -s danger-full-access)` (multi-step)
+     - `bash(cd [path] && gemini -p '[prompt]' --approval-mode yolo)` (write mode)
+
+**Mode Selection Strategy**:
+- **Default to agent execution** for most tasks
+- **Use CLI mode** when:
+  - User explicitly requests CLI tool (codex/gemini/qwen)
+  - Task requires multi-step autonomous reasoning beyond agent capability
+  - Complex refactoring needs specialized tool analysis
+  - Building on previous CLI execution context (use `resume --last`)
+
+**Key Principle**: The `command` field is **optional**. Agent must decide based on task complexity and user preference.
 
 **Pre-Analysis Step Selection Guide (举一反三 Principle)**:
 
