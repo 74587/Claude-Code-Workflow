@@ -162,8 +162,7 @@ Generate individual `.task/IMPL-*.json` files with:
   "meta": {
     "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
     "agent": "@code-developer|@action-planning-agent|@test-fix-agent|@universal-executor",
-    "execution_group": "parallel-abc123|null",
-    "context_signature": "hash-value"
+    "execution_group": "parallel-abc123|null"
   }
 }
 ```
@@ -172,7 +171,6 @@ Generate individual `.task/IMPL-*.json` files with:
 - `type`: Task category - `feature` (new functionality), `bugfix` (fix defects), `refactor` (restructure code), `test-gen` (generate tests), `test-fix` (fix failing tests), `docs` (documentation)
 - `agent`: Assigned agent for execution
 - `execution_group`: Parallelization group ID (tasks with same ID can run concurrently) or `null` for sequential tasks
-- `context_signature`: Hash computed from task's context (focus_paths + artifacts) for context-based grouping/merging
 
 #### Context Object
 ```json
