@@ -511,8 +511,8 @@ function merge_directory_contents() {
             ((merged_count++))
         fi
 
-        # Show progress every 20 files
-        if [ $((processed_count % 20)) -eq 0 ] || [ "$processed_count" -eq "$total_files" ]; then
+        # Show progress every 100 files (optimized for performance)
+        if [ $((processed_count % 100)) -eq 0 ] || [ "$processed_count" -eq "$total_files" ]; then
             local percent=$((processed_count * 100 / total_files))
             echo -ne "\rMerging $description: $processed_count/$total_files files ($percent%)..."
         fi
@@ -587,12 +587,8 @@ function install_global() {
         # Track .claude directory in manifest
         add_manifest_entry "$manifest_file" "$global_claude_dir" "Directory"
 
-        # Track files from SOURCE directory, not destination
-        while IFS= read -r -d '' source_file; do
-            local relative_path="${source_file#$source_claude_dir}"
-            local target_path="${global_claude_dir}${relative_path}"
-            add_manifest_entry "$manifest_file" "$target_path" "File"
-        done < <(find "$source_claude_dir" -type f -print0)
+        # Track files from SOURCE directory using bulk operation
+        add_manifest_entries_bulk "$manifest_file" "$source_claude_dir" "$global_claude_dir" "File"
     fi
 
     # Handle CLAUDE.md file
@@ -611,12 +607,8 @@ function install_global() {
         # Track .codex directory in manifest
         add_manifest_entry "$manifest_file" "$global_codex_dir" "Directory"
 
-        # Track files from SOURCE directory
-        while IFS= read -r -d '' source_file; do
-            local relative_path="${source_file#$source_codex_dir}"
-            local target_path="${global_codex_dir}${relative_path}"
-            add_manifest_entry "$manifest_file" "$target_path" "File"
-        done < <(find "$source_codex_dir" -type f -print0)
+        # Track files from SOURCE directory using bulk operation
+        add_manifest_entries_bulk "$manifest_file" "$source_codex_dir" "$global_codex_dir" "File"
     fi
 
     # Backup critical config files in .gemini directory before installation
@@ -628,12 +620,8 @@ function install_global() {
         # Track .gemini directory in manifest
         add_manifest_entry "$manifest_file" "$global_gemini_dir" "Directory"
 
-        # Track files from SOURCE directory
-        while IFS= read -r -d '' source_file; do
-            local relative_path="${source_file#$source_gemini_dir}"
-            local target_path="${global_gemini_dir}${relative_path}"
-            add_manifest_entry "$manifest_file" "$target_path" "File"
-        done < <(find "$source_gemini_dir" -type f -print0)
+        # Track files from SOURCE directory using bulk operation
+        add_manifest_entries_bulk "$manifest_file" "$source_gemini_dir" "$global_gemini_dir" "File"
     fi
 
     # Backup critical config files in .qwen directory before installation
@@ -645,12 +633,8 @@ function install_global() {
         # Track .qwen directory in manifest
         add_manifest_entry "$manifest_file" "$global_qwen_dir" "Directory"
 
-        # Track files from SOURCE directory
-        while IFS= read -r -d '' source_file; do
-            local relative_path="${source_file#$source_qwen_dir}"
-            local target_path="${global_qwen_dir}${relative_path}"
-            add_manifest_entry "$manifest_file" "$target_path" "File"
-        done < <(find "$source_qwen_dir" -type f -print0)
+        # Track files from SOURCE directory using bulk operation
+        add_manifest_entries_bulk "$manifest_file" "$source_qwen_dir" "$global_qwen_dir" "File"
     fi
 
     # Remove empty backup folder
@@ -730,12 +714,8 @@ function install_path() {
                 # Track local folder in manifest
                 add_manifest_entry "$manifest_file" "$dest_folder" "Directory"
 
-                # Track files from SOURCE directory
-                while IFS= read -r -d '' source_file; do
-                    local relative_path="${source_file#$source_folder}"
-                    local target_path="${dest_folder}${relative_path}"
-                    add_manifest_entry "$manifest_file" "$target_path" "File"
-                done < <(find "$source_folder" -type f -print0)
+                # Track files from SOURCE directory using bulk operation
+                add_manifest_entries_bulk "$manifest_file" "$source_folder" "$dest_folder" "File"
             fi
             write_color "✓ Installed local folder: $folder" "$COLOR_SUCCESS"
         else
@@ -773,12 +753,8 @@ function install_path() {
         # Track global files in manifest using bulk method (fast!)
         add_manifest_entry "$manifest_file" "$global_claude_dir" "Directory"
 
-        # Track files from TEMP directory
-        while IFS= read -r -d '' source_file; do
-            local relative_path="${source_file#$temp_global_dir}"
-            local target_path="${global_claude_dir}${relative_path}"
-            add_manifest_entry "$manifest_file" "$target_path" "File"
-        done < <(find "$temp_global_dir" -type f -print0)
+        # Track files from TEMP directory using bulk operation
+        add_manifest_entries_bulk "$manifest_file" "$temp_global_dir" "$global_claude_dir" "File"
     fi
 
     # Clean up temp directory
@@ -801,12 +777,8 @@ function install_path() {
         # Track .codex directory in manifest
         add_manifest_entry "$manifest_file" "$local_codex_dir" "Directory"
 
-        # Track files from SOURCE directory
-        while IFS= read -r -d '' source_file; do
-            local relative_path="${source_file#$source_codex_dir}"
-            local target_path="${local_codex_dir}${relative_path}"
-            add_manifest_entry "$manifest_file" "$target_path" "File"
-        done < <(find "$source_codex_dir" -type f -print0)
+        # Track files from SOURCE directory using bulk operation
+        add_manifest_entries_bulk "$manifest_file" "$source_codex_dir" "$local_codex_dir" "File"
     fi
 
     # Backup critical config files in .gemini directory before installation
@@ -818,12 +790,8 @@ function install_path() {
         # Track .gemini directory in manifest
         add_manifest_entry "$manifest_file" "$local_gemini_dir" "Directory"
 
-        # Track files from SOURCE directory
-        while IFS= read -r -d '' source_file; do
-            local relative_path="${source_file#$source_gemini_dir}"
-            local target_path="${local_gemini_dir}${relative_path}"
-            add_manifest_entry "$manifest_file" "$target_path" "File"
-        done < <(find "$source_gemini_dir" -type f -print0)
+        # Track files from SOURCE directory using bulk operation
+        add_manifest_entries_bulk "$manifest_file" "$source_gemini_dir" "$local_gemini_dir" "File"
     fi
 
     # Backup critical config files in .qwen directory before installation
@@ -835,12 +803,8 @@ function install_path() {
         # Track .qwen directory in manifest
         add_manifest_entry "$manifest_file" "$local_qwen_dir" "Directory"
 
-        # Track files from SOURCE directory
-        while IFS= read -r -d '' source_file; do
-            local relative_path="${source_file#$source_qwen_dir}"
-            local target_path="${local_qwen_dir}${relative_path}"
-            add_manifest_entry "$manifest_file" "$target_path" "File"
-        done < <(find "$source_qwen_dir" -type f -print0)
+        # Track files from SOURCE directory using bulk operation
+        add_manifest_entries_bulk "$manifest_file" "$source_qwen_dir" "$local_qwen_dir" "File"
     fi
 
     # Remove empty backup folder
@@ -1016,7 +980,82 @@ EOF
         jq --argjson entry "$entry_json" '.directories += [$entry]' "$manifest_file" > "$temp_file"
     fi
 
-    mv "$temp_file" "$manifest_file"
+    # Only replace manifest if jq succeeded
+    if [ -s "$temp_file" ]; then
+        mv "$temp_file" "$manifest_file"
+    else
+        write_color "WARNING: Failed to add manifest entry (jq error)" "$COLOR_WARNING"
+        rm -f "$temp_file"
+    fi
+}
+
+function add_manifest_entries_bulk() {
+    local manifest_file="$1"
+    local source_dir="$2"
+    local target_base="$3"
+    local entry_type="$4"
+
+    if [ ! -f "$manifest_file" ]; then
+        write_color "WARNING: Manifest file not found: $manifest_file" "$COLOR_WARNING"
+        return 1
+    fi
+
+    if [ ! -d "$source_dir" ]; then
+        return 0
+    fi
+
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local temp_file="${manifest_file}.tmp"
+    local paths_file=$(mktemp)
+    local entries_file=$(mktemp)
+
+    # Collect all file paths and compute target paths using bash string operations
+    # This mimics the original while loop logic
+    while IFS= read -r -d '' source_file; do
+        local relative_path="${source_file#$source_dir}"
+        local target_path="${target_base}${relative_path}"
+        echo "$target_path"
+    done < <(find "$source_dir" -type f -print0) > "$paths_file"
+
+    # Check if paths_file has content
+    if [ ! -s "$paths_file" ]; then
+        rm -f "$paths_file" "$entries_file"
+        return 0
+    fi
+
+    # Generate JSON entries from paths (filter empty lines)
+    grep -v '^$' "$paths_file" | jq -R --arg date "$timestamp" --arg type "$entry_type" '
+        {
+            "path": .,
+            "type": $type,
+            "timestamp": $date
+        }
+    ' | jq -s '.' > "$entries_file"
+
+    # Check if entries_file has valid content
+    if [ ! -s "$entries_file" ]; then
+        rm -f "$paths_file" "$entries_file"
+        return 0
+    fi
+
+    # Add all entries to manifest using --slurpfile to avoid argument length limit
+    if [ "$entry_type" = "File" ]; then
+        jq --slurpfile entries "$entries_file" '.files += $entries[0]' "$manifest_file" > "$temp_file"
+    else
+        jq --slurpfile entries "$entries_file" '.directories += $entries[0]' "$manifest_file" > "$temp_file"
+    fi
+
+    # Only replace manifest if jq succeeded and temp_file has content
+    if [ -s "$temp_file" ]; then
+        mv "$temp_file" "$manifest_file"
+    else
+        write_color "WARNING: Failed to update manifest (jq error), keeping original" "$COLOR_WARNING"
+        rm -f "$temp_file"
+    fi
+
+    rm -f "$paths_file" "$entries_file"
+
+    return 0
 }
 
 function remove_old_manifests_for_path() {
