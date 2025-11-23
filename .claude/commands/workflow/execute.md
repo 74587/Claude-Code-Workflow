@@ -15,13 +15,6 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 
 **Lazy Loading**: Task JSONs read **on-demand** during execution, not upfront. TODO_LIST.md + IMPL_PLAN.md provide metadata for planning.
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| **Initial Load** | All task JSONs (~2,300 lines) | TODO_LIST.md only (~650 lines) | **72% reduction** |
-| **Startup Time** | Seconds | Milliseconds | **~90% faster** |
-| **Memory** | All tasks | 1-2 tasks | **90% less** |
-| **Scalability** | 10-20 tasks | 100+ tasks | **5-10x** |
-
 **Loading Strategy**:
 - **TODO_LIST.md**: Read in Phase 2 (task metadata, status, dependencies)
 - **IMPL_PLAN.md**: Read existence in Phase 2, parse execution strategy when needed
@@ -43,10 +36,6 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 - **Session Auto-Complete**: Call `/workflow:session:complete` when all workflow tasks finished
 
 ## Execution Philosophy
-- **IMPL_PLAN-driven**: Follow execution strategy from IMPL_PLAN.md Section 4
-- **Discovery-first**: Auto-discover existing plans and tasks
-- **Status-aware**: Execute only ready tasks with resolved dependencies
-- **Context-rich**: Provide complete task JSON and accumulated context to agents
 - **Progress tracking**: Continuous TodoWrite updates throughout entire workflow execution
 - **Autonomous completion**: Execute all tasks without user interruption until workflow complete
 
@@ -137,9 +126,6 @@ bash(cat .workflow/active/${sessionId}/workflow-session.json)
    - Parse TODO_LIST.md to extract all tasks with current statuses
    - Identify first pending task with met dependencies
    - Generate comprehensive TodoWrite covering entire workflow
-2. **Mark Initial Status**: Set first ready task(s) as `in_progress` in TodoWrite
-   - **Sequential execution**: Mark ONE task as `in_progress`
-   - **Parallel batch**: Mark ALL tasks in current batch as `in_progress`
 3. **Prepare Session Context**: Inject workflow paths for agent use (using provided session-id)
 4. **Validate Prerequisites**: Ensure IMPL_PLAN.md and TODO_LIST.md exist and are valid
 
@@ -187,11 +173,6 @@ while (TODO_LIST.md has pending tasks) {
 7. **Update TODO_LIST.md**: Mark current task as completed in TODO_LIST.md
 8. **Continue Workflow**: Identify next pending task from TODO_LIST.md and repeat
 
-**Benefits**:
-- Reduces initial context loading by ~90%
-- Only reads task JSON when actually executing
-- Scales better for workflows with many tasks
-- Faster startup time for workflow execution
 
 ### Phase 5: Completion
 **Applies to**: Both normal and resume modes
@@ -327,83 +308,10 @@ TodoWrite({
 });
 ```
 
-### TODO_LIST.md Update Timing
-**Single source of truth for task status** - enables lazy loading by providing task metadata without reading JSONs
-
-- **Before Agent Launch**: Mark task as `in_progress`
-- **After Task Complete**: Mark as `completed`, advance to next
-- **On Error**: Keep as `in_progress`, add error note
-- **Workflow Complete**: Call `/workflow:session:complete`
-
-## Agent Context Management
-
-### Context Sources (Priority Order)
-1. **Complete Task JSON**: Full task definition including all fields and artifacts
-2. **Artifacts Context**: Brainstorming outputs and role analyses from task.context.artifacts
-3. **Flow Control Context**: Accumulated outputs from pre_analysis steps (including artifact loading)
-4. **Dependency Summaries**: Previous task completion summaries
-5. **Session Context**: Workflow paths and session metadata
-6. **Inherited Context**: Parent task context and shared variables
-
-### Context Assembly Process
-```
-1. Load Task JSON → Base context (including artifacts array)
-2. Load Artifacts → Synthesis specifications and brainstorming outputs
-3. Execute Flow Control → Accumulated context (with artifact loading steps)
-4. Load Dependencies → Dependency context
-5. Prepare Session Paths → Session context
-6. Combine All → Complete agent context with artifact integration
-```
-
-### Agent Context Package Structure
-```json
-{
-  "task": { /* Complete task JSON with artifacts array */ },
-  "artifacts": {
-    "synthesis_specification": { "path": "{{from context-package.json → brainstorm_artifacts.synthesis_output.path}}", "priority": "highest" },
-    "guidance_specification": { "path": "{{from context-package.json → brainstorm_artifacts.guidance_specification.path}}", "priority": "medium" },
-    "role_analyses": [ /* From context-package.json → brainstorm_artifacts.role_analyses[] */ ],
-    "conflict_resolution": { "path": "{{from context-package.json → brainstorm_artifacts.conflict_resolution.path}}", "conditional": true }
-  },
-  "flow_context": {
-    "step_outputs": {
-      "synthesis_specification": "...",
-      "individual_artifacts": "...",
-      "pattern_analysis": "...",
-      "dependency_context": "..."
-    }
-  },
-  "session": {
-    "workflow_dir": ".workflow/active/WFS-session/",
-    "context_package_path": ".workflow/active/WFS-session/.process/context-package.json",
-    "todo_list_path": ".workflow/active/WFS-session/TODO_LIST.md",
-    "summaries_dir": ".workflow/active/WFS-session/.summaries/",
-    "task_json_path": ".workflow/active/WFS-session/.task/IMPL-1.1.json"
-  },
-  "dependencies": [ /* Task summaries from depends_on */ ],
-  "inherited": { /* Parent task context */ }
-}
-```
-
-### Context Validation Rules
-- **Task JSON Complete**: All 5 fields present and valid, including artifacts array in context
-- **Artifacts Available**: All artifacts loaded from context-package.json
-- **Flow Control Ready**: All pre_analysis steps completed including artifact loading steps
-- **Dependencies Loaded**: All depends_on summaries available
-- **Session Paths Valid**: All workflow paths exist and accessible (verified via context-package.json)
-- **Agent Assignment**: Valid agent type specified in meta.agent
-
 ## Agent Execution Pattern
 
 ### Flow Control Execution
 **[FLOW_CONTROL]** marker indicates task JSON contains `flow_control.pre_analysis` steps for context preparation.
-
-**Orchestrator Responsibility**:
-- Pass complete task JSON to agent (including `flow_control` block)
-- Provide session paths for artifact access
-- Monitor agent completion
-
-**Agent Responsibility**: Agent executes all flow control steps from JSON. See agent documentation for detailed execution logic.
 
 **Note**: Orchestrator does NOT execute flow control steps - Agent interprets and executes them autonomously.
 
@@ -413,6 +321,8 @@ TodoWrite({
 ```bash
 Task(subagent_type="{meta.agent}",
      prompt="Execute task: {task.title}
+
+     {[FLOW_CONTROL]}
 
      **Task Objectives** (from task JSON):
      {task.context.objective}
@@ -490,28 +400,3 @@ meta.agent missing → Infer from meta.type:
 - **Dependency Validation**: Check all depends_on references exist
 - **Context Verification**: Ensure all required context is available
 
-### Recovery Procedures
-
-**Session Recovery**:
-```bash
-# Check session integrity
-find .workflow/active/ -name "WFS-*" -type d | while read session_dir; do
-  session=$(basename "$session_dir")
-  [ ! -f "$session_dir/workflow-session.json" ] && \
-    echo '{"session_id":"'$session'","status":"active"}' > "$session_dir/workflow-session.json"
-done
-```
-
-**Task Recovery**:
-```bash
-# Validate task JSON integrity
-for task_file in .workflow/active/$session/.task/*.json; do
-  jq empty "$task_file" 2>/dev/null || echo "Corrupted: $task_file"
-done
-
-# Fix missing dependencies
-missing_deps=$(jq -r '.context.depends_on[]?' .workflow/active/$session/.task/*.json | sort -u)
-for dep in $missing_deps; do
-  [ ! -f ".workflow/active/$session/.task/$dep.json" ] && echo "Missing dependency: $dep"
-done
-```
