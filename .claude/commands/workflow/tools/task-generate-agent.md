@@ -1,31 +1,32 @@
 ---
 name: task-generate-agent
-description: Autonomous task generation using action-planning-agent with discovery and output phases for workflow planning
+description: Generate implementation plan documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) using action-planning-agent - produces planning artifacts, does NOT execute code implementation
 argument-hint: "--session WFS-session-id [--cli-execute]"
 examples:
   - /workflow:tools:task-generate-agent --session WFS-auth
   - /workflow:tools:task-generate-agent --session WFS-auth --cli-execute
 ---
 
-# Autonomous Task Generation Command
+# Generate Implementation Plan Command
 
 ## Overview
-Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent with two-phase execution: discovery and document generation. Supports both agent-driven execution (default) and CLI tool execution modes.
+Generate implementation planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) using action-planning-agent. This command produces **planning artifacts only** - it does NOT execute code implementation. Actual code implementation requires separate execution command (e.g., /workflow:execute).
 
 ## Core Philosophy
-- **Agent-Driven**: Delegate execution to action-planning-agent for autonomous operation
+- **Planning Only**: Generate planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) - does NOT implement code
+- **Agent-Driven Document Generation**: Delegate plan generation to action-planning-agent
 - **Progressive Loading**: Load content incrementally (Core → Selective → On-Demand) to avoid token overflow - NEVER load all files at once
-- **Two-Phase Flow**: Discovery (context gathering) → Output (document generation)
+- **Two-Phase Flow**: Discovery (context gathering) → Output (planning document generation)
 - **Memory-First**: Reuse loaded documents from conversation memory
 - **Smart Selection**: Load synthesis_output OR guidance + 1-2 role analyses, NOT all role analyses
 - **MCP-Enhanced**: Use MCP tools for advanced code analysis and research
 - **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
 
-## Execution Lifecycle
+## Document Generation Lifecycle
 
 ### Phase 1: Context Preparation (Command Responsibility)
 
-**Command prepares session paths and metadata, agent loads content autonomously.**
+**Command prepares session paths and metadata for planning document generation.**
 
 **Session Path Structure**:
 ```
@@ -51,16 +52,20 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
 
 **Note**: Agent uses **progressive loading strategy** to avoid token overflow. Load context incrementally (Core → Selective → On-Demand), NOT all files at once. Brainstorming artifacts loaded selectively based on availability and relevance.
 
-### Phase 2: Agent Execution (Document Generation)
+### Phase 2: Planning Document Generation (Agent Responsibility)
+
+**Purpose**: Generate IMPL_PLAN.md, task JSONs, and TODO_LIST.md - planning documents only, NOT code implementation.
 
 **Agent Invocation**:
 ```javascript
 Task(
   subagent_type="action-planning-agent",
-  description="Generate task JSON and implementation plan",
+  description="Generate planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md)",
   prompt=`
 ## TASK OBJECTIVE
-Generate implementation plan (IMPL_PLAN.md), task JSONs, and TODO list for workflow session
+Generate implementation planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) for workflow session
+
+IMPORTANT: This is PLANNING ONLY - you are generating planning documents, NOT implementing code.
 
 CRITICAL: Use PROGRESSIVE loading to avoid token overflow - DO NOT load all files at once
 
@@ -92,7 +97,7 @@ Step 1.3 - Existing Plan (if resuming/refining):
   Action: If exists, load for continuity; else skip
 
 ### PHASE 2: Selective Artifacts (CONDITIONAL - Load Smart, Not All)
-Purpose: Get architectural guidance efficiently
+Purpose: Get architectural guidance for planning task breakdown
 
 Decision Tree (choose ONE option):
 
@@ -120,20 +125,20 @@ Conflict Handling:
     If "resolved": Use latest artifact versions (conflicts pre-addressed)
 
 ### PHASE 3: On-Demand Deep Dive (OPTIONAL - Only When Insufficient)
-Purpose: Load additional analysis files ONLY if Phase 2 lacks required detail
+Purpose: Load additional analysis files ONLY if Phase 2 lacks detail for task planning
 
 When to use:
-  - Complex tasks requiring multi-role coordination
+  - Complex planning requiring multi-role coordination
   - Specific expertise not covered in loaded artifacts
   - Task breakdown requires detailed role-specific requirements
 
 How to load:
   - Load ONE additional analysis at a time
-  - Prioritize based on task requirements
+  - Prioritize based on planning needs
   - Justify each additional load explicitly
 
 ### PHASE 4: Project Assets (FINAL)
-Purpose: Get concrete implementation context
+Purpose: Get concrete project context for task planning
 
 Extract from context_package:
   - focus_areas: Target directories
@@ -155,7 +160,7 @@ Output:
 
 ## CONTEXT METADATA
 Session ID: {session-id}
-Execution Mode: {agent-mode | cli-execute-mode}
+Planning Mode: {agent-mode | cli-execute-mode}
 MCP Capabilities: {exa_code, exa_web, code_index}
 
 ## EXPECTED DELIVERABLES
@@ -184,10 +189,11 @@ Hard Constraints:
   - All documents follow agent-defined structure
 
 ## SUCCESS CRITERIA
-- All task JSONs valid and saved to .task/ directory
-- IMPL_PLAN.md created with complete structure
-- TODO_LIST.md generated matching task JSONs
-- Return completion status with file count and task breakdown summary
+- All planning documents generated successfully:
+  - Task JSONs valid and saved to .task/ directory
+  - IMPL_PLAN.md created with complete structure
+  - TODO_LIST.md generated matching task JSONs
+- Return completion status with document count and task breakdown summary
 `
 )
 ```

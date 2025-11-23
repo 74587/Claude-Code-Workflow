@@ -153,12 +153,14 @@ if (contextPackage.brainstorm_artifacts?.role_analyses?.length > 0) {
    - Add quantified requirements and measurable acceptance criteria
 
 3. Create IMPL_PLAN.md
-   - Summarize context analysis
-   - List brainstorming artifacts with priorities
-   - Document task breakdown and dependencies
+   - Load template: Read(~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
+   - Follow template structure and validation checklist
+   - Populate all 8 sections with synthesized context
+   - Document CCW workflow phase progression
+   - Update quality gate status
 
 4. Generate TODO_LIST.md
-   - Proper structure (▸ for containers, [ ] for pending, [x] for completed)
+   - Flat structure ([ ] for pending, [x] for completed)
    - Link to task JSONs and summaries
 
 5. Update session state for execution readiness
@@ -200,17 +202,17 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
 
 ```json
 {
-  "id": "IMPL-N[.M]",
+  "id": "IMPL-N",
   "title": "Descriptive task name",
-  "status": "pending|active|completed|blocked|container",
+  "status": "pending|active|completed|blocked",
   "context_package_path": ".workflow/active/WFS-{session}/.process/context-package.json"
 }
 ```
 
 **Field Descriptions**:
-- `id`: Task identifier (format: `IMPL-N` or `IMPL-N.M` for subtasks, max 2 levels)
+- `id`: Task identifier (format: `IMPL-N`)
 - `title`: Descriptive task name summarizing the work
-- `status`: Task state - `pending` (not started), `active` (in progress), `completed` (done), `blocked` (waiting on dependencies), `container` (has subtasks, cannot be executed directly)
+- `status`: Task state - `pending` (not started), `active` (in progress), `completed` (done), `blocked` (waiting on dependencies)
 - `context_package_path`: Path to smart context package containing project structure, dependencies, and brainstorming artifacts catalog
 
 #### Meta Object
@@ -246,7 +248,6 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
       "5 files created: verify by ls src/auth/*.ts | wc -l = 5",
       "Test coverage >=80%: verify by npm test -- --coverage | grep auth"
     ],
-    "parent": "IMPL-N",
     "depends_on": ["IMPL-N"],
     "inherited": {
       "from": "IMPL-N",
@@ -275,7 +276,6 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
 - `requirements`: **QUANTIFIED** implementation requirements (MUST include explicit counts and enumerated lists, e.g., "5 files: [list]")
 - `focus_paths`: Target directories/files (concrete paths without wildcards)
 - `acceptance`: **MEASURABLE** acceptance criteria (MUST include verification commands, e.g., "verify by ls ... | wc -l = N")
-- `parent`: Parent task ID for subtasks (establishes container/subtask hierarchy)
 - `depends_on`: Prerequisite task IDs that must complete before this task starts
 - `inherited`: Context, patterns, and dependencies passed from parent task
 - `shared_context`: Tech stack, conventions, and architectural strategies for the task
@@ -522,39 +522,20 @@ The `implementation_approach` supports **two execution modes** based on the pres
 
 ### 2.2 IMPL_PLAN.md Structure
 
-Generate at `.workflow/active/{session_id}/IMPL_PLAN.md`:
+**Template-Based Generation**:
 
-```markdown
----
-identifier: {session_id}
-source: "User requirements"
-analysis: .workflow/active/{session_id}/.process/ANALYSIS_RESULTS.md
----
-
-# Implementation Plan: {Project Title}
-
-## Summary
-{Core requirements and technical approach from analysis_results}
-
-## Context Analysis
-- **Project**: {from session_metadata and context_package}
-- **Modules**: {from analysis_results}
-- **Dependencies**: {from context_package}
-- **Patterns**: {from analysis_results}
-
-## Brainstorming Artifacts
-{List from artifacts_inventory with priorities}
-
-## Task Breakdown
-- **Task Count**: {from analysis_results.tasks.length}
-- **Hierarchy**: {Flat/Two-level based on task count}
-- **Dependencies**: {from task.depends_on relationships}
-
-## Implementation Plan
-- **Execution Strategy**: {Sequential/Parallel}
-- **Resource Requirements**: {Tools, dependencies}
-- **Success Criteria**: {from analysis_results}
 ```
+1. Load template: Read(~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
+2. Populate all sections following template structure
+3. Complete template validation checklist
+4. Generate at .workflow/active/{session_id}/IMPL_PLAN.md
+```
+
+**Data Sources**:
+- Session metadata (user requirements, session_id)
+- Context package (project structure, dependencies, focus_paths)
+- Analysis results (technical approach, architecture decisions)
+- Brainstorming artifacts (role analyses, guidance specifications)
 
 ### 2.3 TODO_LIST.md Structure
 
@@ -564,21 +545,19 @@ Generate at `.workflow/active/{session_id}/TODO_LIST.md`:
 # Tasks: {Session Topic}
 
 ## Task Progress
-▸ **IMPL-001**: [Main Task] → [📋](./.task/IMPL-001.json)
-  - [ ] **IMPL-001.1**: [Subtask] → [📋](./.task/IMPL-001.1.json)
-
-- [ ] **IMPL-002**: [Simple Task] → [📋](./.task/IMPL-002.json)
+- [ ] **IMPL-001**: [Task Title] → [📋](./.task/IMPL-001.json)
+- [ ] **IMPL-002**: [Task Title] → [📋](./.task/IMPL-002.json)
+- [x] **IMPL-003**: [Task Title] → [✅](./.summaries/IMPL-003-summary.md)
 
 ## Status Legend
-- `▸` = Container task (has subtasks)
-- `- [ ]` = Pending leaf task
-- `- [x]` = Completed leaf task
+- `- [ ]` = Pending task
+- `- [x]` = Completed task
 ```
 
 **Linking Rules**:
 - Todo items → task JSON: `[📋](./.task/IMPL-XXX.json)`
 - Completed tasks → summaries: `[✅](./.summaries/IMPL-XXX-summary.md)`
-- Consistent ID schemes: IMPL-XXX, IMPL-XXX.Y (max 2 levels)
+- Consistent ID schemes: IMPL-XXX
 
 ### 2.4 Complexity-Based Structure Selection
 
@@ -586,11 +565,11 @@ Use `analysis_results.complexity` or task count to determine structure:
 
 **Simple Tasks** (≤5 tasks):
 - Flat structure: IMPL_PLAN.md + TODO_LIST.md + task JSONs
-- No container tasks, all leaf tasks
+- All tasks at same level
 
 **Medium Tasks** (6-12 tasks):
-- Two-level hierarchy: IMPL_PLAN.md + TODO_LIST.md + task JSONs
-- Optional container tasks for grouping
+- Flat structure: IMPL_PLAN.md + TODO_LIST.md + task JSONs
+- All tasks at same level
 
 **Complex Tasks** (>12 tasks):
 - **Re-scope required**: Maximum 12 tasks hard limit
@@ -639,8 +618,8 @@ Use `analysis_results.complexity` or task count to determine structure:
 ### 3.3 File Organization
 
 - Session naming: `WFS-[topic-slug]`
-- Task IDs: IMPL-XXX, IMPL-XXX.Y, IMPL-XXX.Y.Z
-- Directory structure follows complexity (Level 0/1/2)
+- Task IDs: IMPL-XXX (flat structure only)
+- Directory structure: flat task organization
 
 ### 3.4 Document Standards
 
@@ -653,6 +632,7 @@ Use `analysis_results.complexity` or task count to determine structure:
 
 **ALWAYS:**
 - **Apply Quantification Requirements**: All requirements, acceptance criteria, and modification points MUST include explicit counts and enumerations
+- **Load IMPL_PLAN template**: Read(~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt) before generating IMPL_PLAN.md
 - **Use provided context package**: Extract all information from structured context
 - **Respect memory-first rule**: Use provided content (already loaded from memory/file)
 - **Follow 6-field schema**: All task JSONs must have id, title, status, context_package_path, meta, context, flow_control
@@ -663,6 +643,7 @@ Use `analysis_results.complexity` or task count to determine structure:
 - **Link documents properly**: Use correct linking format (📋 for JSON, ✅ for summaries)
 - **Run validation checklist**: Verify all quantification requirements before finalizing task JSONs
 - **Apply 举一反三 principle**: Adapt pre-analysis patterns to task-specific needs dynamically
+- **Follow template validation**: Complete IMPL_PLAN.md template validation checklist before finalization
 
 **NEVER:**
 - Load files directly (use provided context package instead)
