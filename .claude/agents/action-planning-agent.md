@@ -257,99 +257,44 @@ Generate individual `.task/IMPL-*.json` files with:
         "on_error": "skip_optional"
       },
 
-      // === PROJECT STRUCTURE ANALYSIS ===
+      // === OPTIONAL: Select and adapt based on task needs ===
+
+      // Pattern: Project structure analysis
       {
         "step": "analyze_project_architecture",
-        "action": "Analyze project module structure and dependency depth",
         "commands": ["bash(~/.claude/scripts/get_modules_by_depth.sh)"],
-        "output_to": "project_architecture",
-        "on_error": "skip_optional"
+        "output_to": "project_architecture"
       },
 
-      // === LOCAL CODEBASE EXPLORATION (bash/rg/find) ===
+      // Pattern: Local search (bash/rg/find)
       {
         "step": "search_existing_patterns",
-        "action": "Search for existing implementation patterns related to task",
         "commands": [
-          "bash(rg '^(function|class|interface).*auth' --type ts -n --max-count 20)",
-          "bash(find . -name '*auth*' -type f | grep -v node_modules | head -15)",
-          "bash(rg 'export.*Component' --type tsx -l | head -10)"
+          "bash(rg '[pattern]' --type [lang] -n --max-count [N])",
+          "bash(find . -name '[pattern]' -type f | head -[N])"
         ],
-        "output_to": "existing_patterns",
-        "on_error": "skip_optional"
-      },
-      {
-        "step": "analyze_dependencies",
-        "action": "Analyze package dependencies and imports",
-        "commands": [
-          "bash(cat package.json | grep -A 20 'dependencies')",
-          "bash(rg '^import.*from' --type ts -n | head -30)"
-        ],
-        "output_to": "dependency_analysis",
-        "on_error": "skip_optional"
+        "output_to": "search_results"
       },
 
-      // === GEMINI CLI ANALYSIS (Deep Pattern Analysis) ===
+      // Pattern: Gemini CLI deep analysis
       {
-        "step": "gemini_analyze_architecture",
-        "action": "Analyze architecture patterns using Gemini for comprehensive insights",
-        "command": "bash(cd [focus_path] && gemini -p 'PURPOSE: Analyze architecture patterns in auth module\\nTASK: • Identify design patterns • Extract code conventions • List dependencies\\nMODE: analysis\\nCONTEXT: @src/auth/**/* @CLAUDE.md\\nEXPECTED: Architecture pattern summary with conventions\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on reusable patterns | analysis=READ-ONLY')",
-        "output_to": "architecture_patterns",
-        "on_error": "skip_optional"
-      },
-      {
-        "step": "gemini_trace_execution_flow",
-        "action": "Trace code execution flow using Gemini (for complex logic understanding)",
-        "command": "bash(cd [focus_path] && gemini -p 'PURPOSE: Trace authentication flow execution\\nTASK: Map request flow from entry to database\\nMODE: analysis\\nCONTEXT: @src/auth/**/* @src/middleware/**/*\\nEXPECTED: Step-by-step execution trace with file:line references\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-trace-code-execution.txt) | Include all middleware | analysis=READ-ONLY')",
-        "output_to": "execution_flow",
-        "on_error": "skip_optional"
+        "step": "gemini_analyze_[aspect]",
+        "command": "bash(cd [path] && gemini -p 'PURPOSE: [goal]\\nTASK: [tasks]\\nMODE: analysis\\nCONTEXT: @[paths]\\nEXPECTED: [output]\\nRULES: $(cat [template]) | [constraints] | analysis=READ-ONLY')",
+        "output_to": "analysis_result"
       },
 
-      // === QWEN CLI ANALYSIS (Gemini Fallback or Alternative) ===
+      // Pattern: Qwen CLI analysis (fallback/alternative)
       {
-        "step": "qwen_analyze_code_quality",
-        "action": "Analyze code quality and identify refactoring opportunities using Qwen",
-        "command": "bash(cd [focus_path] && qwen -p 'PURPOSE: Analyze code quality in auth module\\nTASK: • Identify code smells • Suggest refactoring • Check best practices\\nMODE: analysis\\nCONTEXT: @src/auth/**/*\\nEXPECTED: Code quality report with specific improvement suggestions\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on maintainability | analysis=READ-ONLY')",
-        "output_to": "code_quality_review",
-        "on_error": "skip_optional"
+        "step": "qwen_analyze_[aspect]",
+        "command": "bash(cd [path] && qwen -p '[similar to gemini pattern]')",
+        "output_to": "analysis_result"
       },
 
-      // === MCP TOOLS INTEGRATION ===
+      // Pattern: MCP tools
       {
-        "step": "mcp_search_similar_implementations",
-        "action": "Search for similar implementations using MCP code index",
-        "command": "mcp__code-index__search_code_advanced(pattern='authentication', context_lines=5)",
-        "output_to": "similar_implementations",
-        "on_error": "skip_optional"
-      },
-      {
-        "step": "mcp_exa_research_best_practices",
-        "action": "Research best practices and patterns using Exa",
-        "command": "mcp__exa__get_code_context_exa(query='Node.js JWT authentication best practices', tokensNum=3000)",
-        "output_to": "external_best_practices",
-        "on_error": "skip_optional"
-      },
-
-      // === TECH-SPECIFIC SEARCHES (Add as needed) ===
-      {
-        "step": "search_react_components",
-        "action": "Search React component patterns (example for frontend tasks)",
-        "commands": [
-          "bash(rg 'export.*FC<.*>' --type tsx -n)",
-          "bash(find src/components -name '*.tsx' -type f | head -20)"
-        ],
-        "output_to": "react_component_patterns",
-        "on_error": "skip_optional"
-      },
-      {
-        "step": "search_database_schemas",
-        "action": "Search database schemas and models (example for backend tasks)",
-        "commands": [
-          "bash(rg '@Entity|@Table|CREATE TABLE' -n)",
-          "bash(find . -name '*.prisma' -o -name '*migration*.sql' | head -10)"
-        ],
-        "output_to": "database_schemas",
-        "on_error": "skip_optional"
+        "step": "mcp_search_[target]",
+        "command": "mcp__[tool]__[function](parameters)",
+        "output_to": "mcp_results"
       }
     ],
     "implementation_approach": [
@@ -418,56 +363,26 @@ The examples above demonstrate **patterns**, not fixed requirements. Agent MUST:
    - `load_role_analysis_artifacts` - Critical for accessing brainstorming insights
 
 2. **Selectively Include Based on Task Type**:
-   - **Architecture tasks**: Add `gemini_analyze_architecture`, `analyze_project_architecture`
-   - **Refactoring tasks**: Add `gemini_trace_execution_flow`, `qwen_analyze_code_quality`
-   - **Frontend tasks**: Add `search_react_components`, React-specific pattern searches
-   - **Backend tasks**: Add `search_database_schemas`, API endpoint searches
-   - **Integration tasks**: Add dependency analysis, external API searches
-   - **Performance tasks**: Add profiling data searches, bottleneck analysis
+   - **Architecture tasks**: Project structure + Gemini architecture analysis
+   - **Refactoring tasks**: Gemini execution flow tracing + code quality analysis
+   - **Frontend tasks**: React/Vue component searches + UI pattern analysis
+   - **Backend tasks**: Database schema + API endpoint searches
+   - **Security tasks**: Vulnerability scans + security pattern analysis
+   - **Performance tasks**: Bottleneck identification + profiling data
 
 3. **Tool Selection Strategy**:
-   - **Gemini CLI**: Use for deep analysis (architecture, execution flow, pattern identification) when task is complex
-   - **Qwen CLI**: Use as fallback or for code quality analysis
-   - **Bash/rg/find**: Use for quick pattern matching and file discovery
-   - **MCP tools**: Use when available for enhanced semantic search and external research
+   - **Gemini CLI**: Deep analysis (architecture, execution flow, patterns)
+   - **Qwen CLI**: Fallback or code quality analysis
+   - **Bash/rg/find**: Quick pattern matching and file discovery
+   - **MCP tools**: Semantic search and external research
 
-4. **Dynamic Adaptation Examples**:
-   ```json
-   // Example: Security audit task
-   {
-     "step": "gemini_security_analysis",
-     "action": "Analyze security vulnerabilities using Gemini",
-     "command": "bash(cd [focus_path] && gemini -p 'PURPOSE: Security audit\\nTASK: • Find SQL injection risks • Check XSS vulnerabilities • Review auth flaws\\nMODE: analysis\\nCONTEXT: @**/*\\nEXPECTED: Security vulnerability report\\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/03-assess-security-risks.txt) | OWASP Top 10 focus | analysis=READ-ONLY')"
-   }
+4. **Command Composition Patterns**:
+   - **Single command**: `bash([simple_search])`
+   - **Multiple commands**: `["bash([cmd1])", "bash([cmd2])"]`
+   - **CLI analysis**: `bash(cd [path] && gemini -p '[prompt]')`
+   - **MCP integration**: `mcp__[tool]__[function]([params])`
 
-   // Example: Performance optimization task
-   {
-     "step": "analyze_performance_bottlenecks",
-     "action": "Identify performance bottlenecks",
-     "commands": [
-       "bash(rg 'TODO.*performance|FIXME.*slow' -n)",
-       "bash(find . -name '*.log' -o -name 'benchmark*' | head -5)"
-     ]
-   }
-
-   // Example: API documentation task
-   {
-     "step": "search_api_endpoints",
-     "action": "Search and catalog all API endpoints",
-     "commands": [
-       "bash(rg '@(Get|Post|Put|Delete|Patch)\\(' --type ts -n)",
-       "bash(rg 'app\\.(get|post|put|delete)\\(' --type js -n)"
-     ]
-   }
-   ```
-
-5. **Command Composition Patterns**:
-   - **Single command**: For simple searches (`bash(rg 'pattern')`)
-   - **Multiple commands**: For comprehensive analysis (array of bash commands)
-   - **CLI analysis**: For deep insights (`gemini -p "..."` or `qwen -p "..."`)
-   - **MCP integration**: For semantic search and external research
-
-**Key Principle**: These examples show **HOW** to structure steps, **not WHAT** steps to include. Agent must analyze task requirements and create appropriate pre_analysis steps dynamically.
+**Key Principle**: Examples show **structure patterns**, not specific implementations. Agent must create task-appropriate steps dynamically.
 
 **Artifact Mapping**:
 - Use `artifacts_inventory` from context package
