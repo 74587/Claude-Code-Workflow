@@ -31,6 +31,7 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 **Complete entire workflow autonomously without user interruption, using TodoWrite for comprehensive progress tracking.**
 **Execute all discovered pending tasks until workflow completion or blocking dependency.**
 **Auto-complete session when all tasks finished: Call `/workflow:session:complete` upon workflow completion.**
+**ONE AGENT = ONE TASK JSON: Each agent instance executes exactly one task JSON file - never batch multiple tasks into single agent execution.**
 
 ## Core Responsibilities
 - **Session Discovery**: Identify and select active workflow sessions
@@ -447,7 +448,7 @@ Task(subagent_type="{meta.agent}",
      - Flow Context: {flow_context.step_outputs}
 
      **Complete JSON structure is authoritative - load and follow it exactly.**"),
-     description="Execute task: {task.id}")
+     description="Executing: {task.title}")
 ```
 
 ### Agent JSON Loading Specification
