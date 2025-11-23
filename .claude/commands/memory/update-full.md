@@ -95,14 +95,15 @@ src/ (depth 1) → SINGLE-LAYER STRATEGY
 
 ### Phase 1: Discovery & Analysis
 
-```bash
-# Cache git changes
-bash(git add -A 2>/dev/null || true)
+```javascript
+// Cache git changes
+Bash({command: "git add -A 2>/dev/null || true", run_in_background: false});
 
-# Get module structure
-bash(~/.claude/scripts/get_modules_by_depth.sh list)
-# OR with --path
-bash(cd <target-path> && ~/.claude/scripts/get_modules_by_depth.sh list)
+// Get module structure
+Bash({command: "~/.claude/scripts/get_modules_by_depth.sh list", run_in_background: false});
+
+// OR with --path
+Bash({command: "cd <target-path> && ~/.claude/scripts/get_modules_by_depth.sh list", run_in_background: false});
 ```
 
 **Parse output** `depth:N|path:<PATH>|...` to extract module paths and count.
@@ -172,26 +173,23 @@ Update Plan:
 
 **Strategy**: Parallel execution within layer (max 4 concurrent), no agent overhead.
 
-```javascript
-// Group modules by LAYER (not depth)
-let modules_by_layer = group_by_layer(module_list);
-let tool_order = construct_tool_order(primary_tool);
+**CRITICAL**: All Bash commands use `run_in_background: false` for synchronous execution.
 
-// Process by LAYER (3 → 2 → 1), not by depth
+```javascript
 for (let layer of [3, 2, 1]) {
   if (modules_by_layer[layer].length === 0) continue;
-
   let batches = batch_modules(modules_by_layer[layer], 4);
 
   for (let batch of batches) {
     let parallel_tasks = batch.map(module => {
       return async () => {
-        // Auto-determine strategy based on depth
         let strategy = module.depth >= 3 ? "multi-layer" : "single-layer";
-
         for (let tool of tool_order) {
-          let exit_code = bash(`cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "${strategy}" "." "${tool}"`);
-          if (exit_code === 0) {
+          Bash({
+            command: `cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "${strategy}" "." "${tool}"`,
+            run_in_background: false
+          });
+          if (bash_result.exit_code === 0) {
             report(`✅ ${module.path} (Layer ${layer}) updated with ${tool}`);
             return true;
           }
@@ -200,7 +198,6 @@ for (let layer of [3, 2, 1]) {
         return false;
       };
     });
-
     await Promise.all(parallel_tasks.map(task => task()));
   }
 }
@@ -255,7 +252,10 @@ EXECUTION SCRIPT: ~/.claude/scripts/update_module_claude.sh
 EXECUTION FLOW (for each module):
   1. Tool fallback loop (exit on first success):
      for tool in {{tool_1}} {{tool_2}} {{tool_3}}; do
-       bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "{{strategy}}" "." "${tool}")
+       Bash({
+         command: `cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "{{strategy}}" "." "${tool}"`,
+         run_in_background: false
+       })
        exit_code=$?
 
        if [ $exit_code -eq 0 ]; then
@@ -287,12 +287,12 @@ REPORTING FORMAT:
 ```
 ### Phase 4: Safety Verification
 
-```bash
-# Check only CLAUDE.md modified
-bash(git diff --cached --name-only | grep -v "CLAUDE.md" || echo "Only CLAUDE.md files modified")
+```javascript
+// Check only CLAUDE.md files modified
+Bash({command: 'git diff --cached --name-only | grep -v "CLAUDE.md" || echo "Only CLAUDE.md files modified"', run_in_background: false});
 
-# Display status
-bash(git status --short)
+// Display status
+Bash({command: "git status --short", run_in_background: false});
 ```
 
 **Result Summary**:
