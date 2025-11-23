@@ -381,6 +381,64 @@ Updated {role2}/analysis.md with Clarifications section + enhanced content
 - Ambiguities resolved, placeholders removed
 - Consistent terminology
 
+### Phase 6: Update Context Package
+
+**Purpose**: Sync updated role analyses to context-package.json to avoid stale cache
+
+**Operations**:
+```bash
+context_pkg_path = ".workflow/active/WFS-{session}/.process/context-package.json"
+
+# 1. Read existing package
+context_pkg = Read(context_pkg_path)
+
+# 2. Re-read brainstorm artifacts (now with synthesis enhancements)
+brainstorm_dir = ".workflow/active/WFS-{session}/.brainstorming"
+
+# 2.1 Update guidance-specification if exists
+IF exists({brainstorm_dir}/guidance-specification.md):
+    context_pkg.brainstorm_artifacts.guidance_specification.content = Read({brainstorm_dir}/guidance-specification.md)
+    context_pkg.brainstorm_artifacts.guidance_specification.updated_at = NOW()
+
+# 2.2 Update synthesis-specification if exists
+IF exists({brainstorm_dir}/synthesis-specification.md):
+    IF context_pkg.brainstorm_artifacts.synthesis_output:
+        context_pkg.brainstorm_artifacts.synthesis_output.content = Read({brainstorm_dir}/synthesis-specification.md)
+        context_pkg.brainstorm_artifacts.synthesis_output.updated_at = NOW()
+
+# 2.3 Re-read all role analysis files
+role_analysis_files = Glob({brainstorm_dir}/*/analysis*.md)
+context_pkg.brainstorm_artifacts.role_analyses = []
+
+FOR file IN role_analysis_files:
+    role_name = extract_role_from_path(file)  # e.g., "ui-designer"
+    relative_path = file.replace({brainstorm_dir}/, "")
+
+    context_pkg.brainstorm_artifacts.role_analyses.push({
+        "role": role_name,
+        "files": [{
+            "path": relative_path,
+            "type": "primary",
+            "content": Read(file),
+            "updated_at": NOW()
+        }]
+    })
+
+# 3. Update metadata
+context_pkg.metadata.updated_at = NOW()
+context_pkg.metadata.synthesis_timestamp = NOW()
+
+# 4. Write back
+Write(context_pkg_path, JSON.stringify(context_pkg, indent=2))
+
+REPORT: "✅ Updated context-package.json with synthesis results"
+```
+
+**TodoWrite Update**:
+```json
+{"content": "Update context package with synthesis results", "status": "completed", "activeForm": "Updating context package"}
+```
+
 ## Session Metadata
 
 Update `workflow-session.json`:
