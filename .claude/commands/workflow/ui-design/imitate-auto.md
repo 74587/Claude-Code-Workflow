@@ -591,11 +591,6 @@ TodoWrite({todos: [
 // 5. Update next phase to in_progress
 // 6. IMMEDIATELY execute next phase SlashCommand (auto-continue)
 //
-// Benefits:
-// ✓ Real-time visibility into sub-command task progress
-// ✓ Clean orchestrator-level summary after each phase
-// ✓ Clear mental model: SlashCommand = attach tasks, not delegate work
-// ✓ Dynamic attachment/collapse maintains clarity
 ```
 
 ## Error Handling

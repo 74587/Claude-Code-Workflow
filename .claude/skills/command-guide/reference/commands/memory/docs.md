@@ -36,7 +36,6 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 | `my_app/src/modules/auth/` | `my_app` | `.workflow/docs/my_app/src/modules/auth/API.md` |
 | `another_project/lib/utils/` | `another_project` | `.workflow/docs/another_project/lib/utils/API.md` |
 
-**Benefits**: Easy to locate documentation, maintains logical organization, clear 1:1 mapping, supports any project structure.
 
 ## Parameters
 
@@ -44,7 +43,11 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 /memory:docs [path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-execute]
 ```
 
-- **path**: Target directory (default: current directory)
+- **path**: Source directory to analyze (default: current directory)
+  - Specifies the source code directory to be documented
+  - Documentation is generated in a separate `.workflow/docs/{project_name}/` directory at the workspace root, **not** within the source `path` itself
+  - The source path's structure is mirrored within the project-specific documentation folder
+  - Example: analyzing `src/modules` produces documentation at `.workflow/docs/{project_name}/src/modules/`
 - **--mode**: Documentation generation mode (default: full)
   - `full`: Complete documentation (modules + README + ARCHITECTURE + EXAMPLES + HTTP API)
   - `partial`: Module documentation only (API.md + README.md)
@@ -128,7 +131,7 @@ bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${proj
 
 ```bash
 # Count existing docs from doc-planning-data.json
-bash(cat .workflow/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq '.existing_docs.file_list | length')
+bash(cat .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq '.existing_docs.file_list | length')
 ```
 
 **Data Processing**: Use count result, then use **Edit tool** to update `workflow-session.json`:
@@ -177,16 +180,15 @@ Large Projects (single dir >10 docs):
 4. If single dir exceeds 10 docs, split by subdirectories
 5. Create parallel Level 1 tasks with ≤10 docs each
 
-**Benefits**: Parallel execution, failure isolation, progress visibility, context sharing, document count control.
 
 **Commands**:
 
 ```bash
 # 1. Get top-level directories from doc-planning-data.json
-bash(cat .workflow/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq -r '.top_level_dirs[]')
+bash(cat .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq -r '.top_level_dirs[]')
 
 # 2. Get mode from workflow-session.json
-bash(cat .workflow/WFS-docs-{timestamp}/workflow-session.json | jq -r '.mode // "full"')
+bash(cat .workflow/active/WFS-docs-{timestamp}/workflow-session.json | jq -r '.mode // "full"')
 
 # 3. Check for HTTP API
 bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo "NO_API")
@@ -215,7 +217,7 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 
 **Task ID Calculation**:
 ```bash
-group_count=$(jq '.groups.count' .workflow/WFS-docs-{timestamp}/.process/doc-planning-data.json)
+group_count=$(jq '.groups.count' .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json)
 readme_id=$((group_count + 1))   # Next ID after groups
 arch_id=$((group_count + 2))
 api_id=$((group_count + 3))
@@ -464,7 +466,7 @@ api_id=$((group_count + 3))
     ├── IMPL_PLAN.md
     ├── TODO_LIST.md
     ├── .process/
-    │   └── doc-planning-data.json         # All Phase 2 analysis data (replaces 7+ files)
+    │   └── doc-planning-data.json       # All Phase 2 analysis data (replaces 7+ files)
     └── .task/
         ├── IMPL-001.json                # Small: all modules | Large: group 1
         ├── IMPL-00N.json                # (Large only: groups 2-N)

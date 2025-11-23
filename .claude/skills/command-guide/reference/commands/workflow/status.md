@@ -1,15 +1,16 @@
 ---
 name: workflow:status
 description: Generate on-demand views for project overview and workflow tasks with optional task-id filtering for detailed view
-argument-hint: "[optional: --project|task-id|--validate]"
+argument-hint: "[optional: --project|task-id|--validate|--dashboard]"
 ---
 
 # Workflow Status Command (/workflow:status)
 
 ## Overview
-Generates on-demand views from project and session data. Supports two modes:
+Generates on-demand views from project and session data. Supports multiple modes:
 1. **Project Overview** (`--project`): Shows completed features and project statistics
 2. **Workflow Tasks** (default): Shows current session task progress
+3. **HTML Dashboard** (`--dashboard`): Generates interactive HTML task board with active and archived sessions
 
 No synchronization needed - all views are calculated from current JSON state.
 
@@ -19,6 +20,7 @@ No synchronization needed - all views are calculated from current JSON state.
 /workflow:status --project          # Show project-level feature registry
 /workflow:status impl-1             # Show specific task details
 /workflow:status --validate         # Validate workflow integrity
+/workflow:status --dashboard        # Generate HTML dashboard board
 ```
 
 ## Implementation Flow
@@ -192,4 +194,135 @@ find .workflow/active/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null |
 
 ## Completed Tasks
 - [COMPLETED] impl-0: Setup completed
+```
+
+## Dashboard Mode (HTML Board)
+
+### Step 1: Check for --dashboard flag
+```bash
+# If --dashboard flag present → Execute Dashboard Mode
+```
+
+### Step 2: Collect Workflow Data
+
+**Collect Active Sessions**:
+```bash
+# Find all active sessions
+find .workflow/active/ -name "WFS-*" -type d 2>/dev/null
+
+# For each active session, read metadata and tasks
+for session in $(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null); do
+  cat "$session/workflow-session.json"
+  find "$session/.task/" -name "*.json" -type f 2>/dev/null
+done
+```
+
+**Collect Archived Sessions**:
+```bash
+# Find all archived sessions
+find .workflow/archives/ -name "WFS-*" -type d 2>/dev/null
+
+# Read manifest if exists
+cat .workflow/archives/manifest.json 2>/dev/null
+
+# For each archived session, read metadata
+for archive in $(find .workflow/archives/ -name "WFS-*" -type d 2>/dev/null); do
+  cat "$archive/workflow-session.json" 2>/dev/null
+  # Count completed tasks
+  find "$archive/.task/" -name "*.json" -type f 2>/dev/null | wc -l
+done
+```
+
+### Step 3: Process and Structure Data
+
+**Build data structure for dashboard**:
+```javascript
+const dashboardData = {
+  activeSessions: [],
+  archivedSessions: [],
+  generatedAt: new Date().toISOString()
+};
+
+// Process active sessions
+for each active_session in active_sessions:
+  const sessionData = JSON.parse(Read(active_session/workflow-session.json));
+  const tasks = [];
+
+  // Load all tasks for this session
+  for each task_file in find(active_session/.task/*.json):
+    const taskData = JSON.parse(Read(task_file));
+    tasks.push({
+      task_id: taskData.task_id,
+      title: taskData.title,
+      status: taskData.status,
+      type: taskData.type
+    });
+
+  dashboardData.activeSessions.push({
+    session_id: sessionData.session_id,
+    project: sessionData.project,
+    status: sessionData.status,
+    created_at: sessionData.created_at || sessionData.initialized_at,
+    tasks: tasks
+  });
+
+// Process archived sessions
+for each archived_session in archived_sessions:
+  const sessionData = JSON.parse(Read(archived_session/workflow-session.json));
+  const taskCount = bash(find archived_session/.task/*.json | wc -l);
+
+  dashboardData.archivedSessions.push({
+    session_id: sessionData.session_id,
+    project: sessionData.project,
+    archived_at: sessionData.completed_at || sessionData.archived_at,
+    taskCount: parseInt(taskCount),
+    archive_path: archived_session
+  });
+```
+
+### Step 4: Generate HTML from Template
+
+**Load template and inject data**:
+```javascript
+// Read the HTML template
+const template = Read("~/.claude/templates/workflow-dashboard.html");
+
+// Prepare data for injection
+const dataJson = JSON.stringify(dashboardData, null, 2);
+
+// Replace placeholder with actual data
+const htmlContent = template.replace('{{WORKFLOW_DATA}}', dataJson);
+
+// Ensure .workflow directory exists
+bash(mkdir -p .workflow);
+```
+
+### Step 5: Write HTML File
+
+```bash
+# Write the generated HTML to .workflow/dashboard.html
+Write({
+  file_path: ".workflow/dashboard.html",
+  content: htmlContent
+})
+```
+
+### Step 6: Display Success Message
+
+```markdown
+Dashboard generated successfully!
+
+Location: .workflow/dashboard.html
+
+Open in browser:
+  file://$(pwd)/.workflow/dashboard.html
+
+Features:
+- 📊 Active sessions overview
+- 📦 Archived sessions history
+- 🔍 Search and filter
+- 📈 Progress tracking
+- 🎨 Dark/light theme
+
+Refresh data: Re-run /workflow:status --dashboard
 ```

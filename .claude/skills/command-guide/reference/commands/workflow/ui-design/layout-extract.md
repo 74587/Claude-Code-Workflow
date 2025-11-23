@@ -1,7 +1,7 @@
 ---
 name: layout-extract
-description: Extract structural layout information from reference images, URLs, or text prompts using Claude analysis with variant generation or refinement mode
-argument-hint: [--design-id <id>] [--session <id>] [--images "<glob>"] [--urls "<list>"] [--prompt "<desc>"] [--targets "<list>"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive] [--refine]
+description: Extract structural layout information from reference images or text prompts using Claude analysis with variant generation or refinement mode
+argument-hint: [--design-id <id>] [--session <id>] [--images "<glob>"] [--prompt "<desc>"] [--targets "<list>"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive] [--refine]
 allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestion(*), Task(ui-design-agent), mcp__exa__web_search_exa(*)
 ---
 
@@ -9,7 +9,7 @@ allowed-tools: TodoWrite(*), Read(*), Write(*), Glob(*), Bash(*), AskUserQuestio
 
 ## Overview
 
-Extract structural layout information from reference images, URLs, or text prompts using AI analysis. Supports two modes:
+Extract structural layout information from reference images or text prompts using AI analysis. Supports two modes:
 1. **Exploration Mode** (default): Generate multiple contrasting layout variants
 2. **Refinement Mode** (`--refine`): Refine a single existing layout through detailed adjustments
 
@@ -29,23 +29,7 @@ This command separates the "scaffolding" (HTML structure and CSS layout) from th
 
 ```bash
 # Detect input source
-# Priority: --urls + --images → hybrid | --urls → url | --images → image | --prompt → text
-
-# Parse URLs if provided (format: "target:url,target:url,...")
-IF --urls:
-    url_list = []
-    FOR pair IN split(--urls, ","):
-        IF ":" IN pair:
-            target, url = pair.split(":", 1)
-            url_list.append({target: target.strip(), url: url.strip()})
-        ELSE:
-            # Single URL without target
-            url_list.append({target: "page", url: pair.strip()})
-
-    has_urls = true
-ELSE:
-    has_urls = false
-    url_list = []
+# Priority: --images → image | --prompt → text
 
 # Detect refinement mode
 refine_mode = --refine OR false
@@ -62,11 +46,9 @@ ELSE:
     REPORT: "🔍 Exploration mode: Will generate {variants_count} contrasting layout concepts per target"
 
 # Resolve targets
-# Priority: --targets → url_list targets → prompt analysis → default ["page"]
+# Priority: --targets → prompt analysis → default ["page"]
 IF --targets:
     targets = split(--targets, ",")
-ELSE IF has_urls:
-    targets = [url_info.target for url_info in url_list]
 ELSE IF --prompt:
     # Extract targets from prompt using pattern matching
     # Looks for keywords: "page names", target descriptors (login, dashboard, etc.)
@@ -107,107 +89,12 @@ bash(echo "✓ Base path: $base_path")
 bash(ls {images_pattern})  # Expand glob pattern
 Read({image_path})  # Load each image
 
-# For URL mode
-# Parse URL list format: "target:url,target:url"
-# Validate URLs are accessible
-
 # For text mode
 # Validate --prompt is non-empty
 
 # Create output directory
 bash(mkdir -p {base_path}/layout-extraction)
 ```
-
-### Step 2.5: Extract DOM Structure (URL Mode - Auto-Trigger)
-```bash
-# AUTO-TRIGGER: If URLs are available (from --urls parameter), automatically extract real DOM structure
-# This provides accurate layout data to supplement visual analysis
-
-# Check if URLs provided via --urls parameter
-IF --urls AND url_list:
-    REPORT: "🔍 Auto-triggering URL mode: Extracting DOM structure"
-
-    bash(mkdir -p {base_path}/.intermediates/layout-analysis)
-
-    # For each URL in url_list:
-    FOR url_info IN url_list:
-        target = url_info.target
-        url = url_info.url
-
-        IF mcp_chrome_devtools_available:
-            REPORT: "   Processing: {target} ({url})"
-
-            # Read extraction script
-            script_content = Read(~/.claude/scripts/extract-layout-structure.js)
-
-            # Open page in Chrome DevTools
-            mcp__chrome-devtools__navigate_page(url=url)
-
-            # Execute layout extraction script
-            result = mcp__chrome-devtools__evaluate_script(function=script_content)
-
-            # Save DOM structure for this target (intermediate file)
-            Write({base_path}/.intermediates/layout-analysis/dom-structure-{target}.json, result)
-
-            REPORT: "   ✅ DOM structure extracted for '{target}'"
-        ELSE:
-            REPORT: "   ⚠️ Chrome DevTools MCP not available, falling back to visual analysis"
-            BREAK
-
-    dom_structure_available = mcp_chrome_devtools_available
-ELSE:
-    dom_structure_available = false
-```
-
-**Extraction Script Reference**: `~/.claude/scripts/extract-layout-structure.js`
-
-**Usage**: Read the script file and use content directly in `mcp__chrome-devtools__evaluate_script()`
-
-**Script returns**:
-- `metadata`: Extraction timestamp, URL, method, version
-- `patterns`: Layout pattern statistics (flexColumn, flexRow, grid counts)
-- `structure`: Hierarchical DOM tree with layout properties
-- `exploration`: (Optional) Progressive exploration results when standard selectors fail
-
-**Benefits**:
-- ✅ Real flex/grid configuration (justifyContent, alignItems, gap, etc.)
-- ✅ Accurate element bounds (x, y, width, height)
-- ✅ Structural hierarchy with depth control
-- ✅ Layout pattern identification (flex-row, flex-column, grid-NCol)
-- ✅ Progressive exploration: Auto-discovers missing selectors
-
-**Progressive Exploration Strategy** (v2.2.0+):
-
-When script finds <3 main containers, it automatically:
-1. **Scans** all large visible containers (≥500×300px)
-2. **Extracts** class patterns matching: `main|content|wrapper|container|page|layout|app`
-3. **Suggests** new selectors to add to script
-4. **Returns** exploration data in `result.exploration`:
-   ```json
-   {
-     "triggered": true,
-     "discoveredCandidates": [{classes, bounds, display}],
-     "suggestedSelectors": [".wrapper", ".page-index"],
-     "recommendation": ".wrapper, .page-index, .app-container"
-   }
-   ```
-
-**Using Exploration Results**:
-```javascript
-// After extraction, check for suggestions
-IF result.exploration?.triggered:
-    REPORT: result.exploration.warning
-    REPORT: "Suggested selectors: " + result.exploration.recommendation
-
-    // Update script by adding to commonClassSelectors array
-    // Then re-run extraction for better coverage
-```
-
-**Selector Update Workflow**:
-1. Run extraction on unfamiliar site
-2. Check `result.exploration.suggestedSelectors`
-3. Add relevant selectors to script's `commonClassSelectors`
-4. Re-run extraction → improved container detection
 
 ### Step 3: Memory Check
 ```bash
@@ -711,13 +598,6 @@ Configuration:
 - Device Type: {device_type}
 - Targets: {targets.join(", ")}
 - Total Templates: {total_tasks} ({targets.length} targets with multi-selection)
-{IF has_urls AND dom_structure_available:
-- 🔍 URL Mode: DOM structure extracted from {len(url_list)} URL(s)
-- Accuracy: Real flex/grid properties from live pages
-}
-{IF has_urls AND NOT dom_structure_available:
-- ⚠️ URL Mode: Chrome DevTools unavailable, used visual analysis fallback
-}
 
 User Selections:
 {FOR each target in targets:
@@ -734,10 +614,7 @@ Generated Templates:
 
 Intermediate Files:
 - {base_path}/.intermediates/layout-analysis/
-  ├── analysis-options.json (concept proposals + user selections embedded)
-  {IF dom_structure_available:
-  ├── dom-structure-*.json ({len(url_list)} DOM extracts)
-  }
+  └── analysis-options.json (concept proposals + user selections embedded)
 
 Next: /workflow:ui-design:generate will combine these structural templates with design systems to produce final prototypes.
 ```
@@ -867,15 +744,11 @@ ERROR: MCP search failed
 
 ## Key Features
 
-- **Auto-Trigger URL Mode** - Automatically extracts DOM structure when --urls provided (no manual flag needed)
-- **Hybrid Extraction Strategy** - Combines real DOM structure data with AI visual analysis
-- **Accurate Layout Properties** - Chrome DevTools extracts real flex/grid configurations, bounds, and hierarchy
 - **Separation of Concerns** - Decouples layout (structure) from style (visuals)
 - **Multi-Selection Workflow** - Generate N concepts → User selects multiple → Parallel template generation
 - **Structural Exploration** - Enables A/B testing of different layouts through multi-selection
 - **Token-Based Layout** - CSS uses `var()` placeholders for instant design system adaptation
 - **Device-Specific** - Tailored structures for different screen sizes
-- **Graceful Fallback** - Falls back to visual analysis if Chrome DevTools unavailable
 - **Foundation for Assembly** - Provides structural blueprint for prototype generation
 - **Agent-Powered** - Deep structural analysis with AI
 

@@ -217,11 +217,6 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 
 ### Structure Optimization
 
-**Layout Structure Benefits**:
-- Eliminates redundancy between structure and styling
-- Layout properties co-located with DOM elements
-- Responsive overrides apply directly to affected elements
-- Single source of truth for each element
 
 **Component State Coverage**:
 - Interactive components (button, input, dropdown) MUST define: default, hover, focus, active, disabled
@@ -784,12 +779,7 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 - usage_guide OPTIONAL for specialized components (can be simplified or omitted)
 - extraction_metadata.code_snippets ONLY present in Code Import mode
 
-**Structure Optimization Benefits**:
-- Eliminates redundancy between dom_structure and css_layout_rules
-- Layout properties are co-located with corresponding DOM elements
-- Responsive overrides apply directly to the element they affect
-- Single source of truth for each element's structure and layout
-- Easier to maintain and understand hierarchy
+
 
 ### animation-tokens.json
 

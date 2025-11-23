@@ -36,7 +36,6 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 | `my_app/src/modules/auth/` | `my_app` | `.workflow/docs/my_app/src/modules/auth/API.md` |
 | `another_project/lib/utils/` | `another_project` | `.workflow/docs/another_project/lib/utils/API.md` |
 
-**Benefits**: Easy to locate documentation, maintains logical organization, clear 1:1 mapping, supports any project structure.
 
 ## Parameters
 
@@ -181,7 +180,6 @@ Large Projects (single dir >10 docs):
 4. If single dir exceeds 10 docs, split by subdirectories
 5. Create parallel Level 1 tasks with ≤10 docs each
 
-**Benefits**: Parallel execution, failure isolation, progress visibility, context sharing, document count control.
 
 **Commands**:
 

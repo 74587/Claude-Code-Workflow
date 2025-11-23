@@ -468,9 +468,9 @@ Summary: [file references, changes, next steps]
 
 **Execution Log Destination**:
 - **IF** active workflow session exists:
-  - Execution log: `.workflow/WFS-[id]/.chat/codex-execute-[timestamp].md`
-  - Task summaries: `.workflow/WFS-[id]/.summaries/[TASK-ID]-summary.md` (if task ID)
-  - Task updates: `.workflow/WFS-[id]/.task/[TASK-ID].json` status updates
+  - Execution log: `.workflow/active/WFS-[id]/.chat/codex-execute-[timestamp].md`
+  - Task summaries: `.workflow/active/WFS-[id]/.summaries/[TASK-ID]-summary.md` (if task ID)
+  - Task updates: `.workflow/active/WFS-[id]/.task/[TASK-ID].json` status updates
   - TodoWrite tracking: Embedded in execution log
 - **ELSE** (no active session):
   - **Recommended**: Create workflow session first (`/workflow:session:start`)
@@ -478,7 +478,7 @@ Summary: [file references, changes, next steps]
 
 **Output Files** (during execution):
 ```
-.workflow/WFS-[session-id]/
+.workflow/active/WFS-[session-id]/
 ├── .chat/
 │   └── codex-execute-20250105-143022.md    # Full execution log with task flow
 ├── .summaries/
@@ -492,9 +492,9 @@ Summary: [file references, changes, next steps]
 
 **Examples**:
 - During session `WFS-auth-system`, executing multi-stage auth implementation:
-  - Log: `.workflow/WFS-auth-system/.chat/codex-execute-20250105-143022.md`
-  - Summaries: `.workflow/WFS-auth-system/.summaries/IMPL-001.{1,2,3}-summary.md`
-  - Task status: `.workflow/WFS-auth-system/.task/IMPL-001.json` (status: completed)
+  - Log: `.workflow/active/WFS-auth-system/.chat/codex-execute-20250105-143022.md`
+  - Summaries: `.workflow/active/WFS-auth-system/.summaries/IMPL-001.{1,2,3}-summary.md`
+  - Task status: `.workflow/active/WFS-auth-system/.task/IMPL-001.json` (status: completed)
 - No session, ad-hoc multi-stage task:
   - Log: `.workflow/.scratchpad/codex-execute-auth-refactor-20250105-143045.md`
 

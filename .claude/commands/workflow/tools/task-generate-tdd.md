@@ -30,11 +30,6 @@ Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent
 - **1 feature = 1 task** containing complete TDD cycle internally
 - Each task executes Red-Green-Refactor phases sequentially
 - Task count = Feature count (typically 5 features = 5 tasks)
-- **Benefits**:
-  - 70% reduction in task management overhead
-  - Continuous context per feature (no switching between TEST/IMPL/REFACTOR)
-  - Simpler dependency management
-  - Maintains TDD rigor through internal phase structure
 
 **Previous Approach** (Deprecated):
 - 1 feature = 3 separate tasks (TEST-N.M, IMPL-N.M, REFACTOR-N.M)
@@ -499,11 +494,7 @@ IMPL (Green phase) tasks include automatic test-fix cycle:
    - **Repeat**: Up to max_iterations (default: 3)
 5. **Safety Net**: Auto-revert all changes if max iterations reached
 
-**Key Benefits**:
-- Faster feedback loop within Green phase
-- Autonomous recovery from initial implementation errors
-- Systematic debugging with Gemini's bug-fix template
-- Safe rollback prevents broken TDD state
+
 
 ## Configuration Options
 - **meta.max_iterations**: Number of fix attempts (default: 3 for TDD, 5 for test-gen)

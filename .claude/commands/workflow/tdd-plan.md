@@ -93,11 +93,7 @@ TEST_FOCUS: [Test scenarios]
 
 **Parse**: Extract testContextPath (`.workflow/active/[sessionId]/.process/test-context-package.json`)
 
-**Benefits**:
-- Makes TDD aware of existing environment
-- Identifies reusable test patterns
-- Prevents duplicate test creation
-- Enables integration with existing tests
+
 
 <!-- TodoWrite: When test-context-gather invoked, INSERT 3 test-context-gather tasks -->
 
@@ -345,12 +341,7 @@ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task
 - **Phase 5**: Generated IMPL tasks contain internal Red-Green-Refactor cycles
 - **Conditional Phase 4**: Conflict resolution only if conflict_risk ≥ medium
 
-### Benefits
 
-- ✓ Real-time visibility into TDD workflow execution
-- ✓ Clear mental model: SlashCommand = attach → execute → collapse
-- ✓ Test-aware planning with coverage analysis
-- ✓ Self-contained TDD cycles within each IMPL task
 
 **Note**: See individual Phase descriptions (Phase 3, 4, 5) for detailed TodoWrite Update examples with full JSON structures.
 

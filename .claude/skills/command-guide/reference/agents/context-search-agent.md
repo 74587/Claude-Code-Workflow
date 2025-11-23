@@ -102,6 +102,8 @@ if (!memory.has("README.md")) Read(README.md)
 
 Execute all 3 tracks in parallel for comprehensive coverage.
 
+**Note**: Historical archive analysis (querying `.workflow/archives/manifest.json`) is optional and should be performed if the manifest exists. Inject findings into `conflict_detection.historical_conflicts[]`.
+
 #### Track 1: Reference Documentation
 
 Extract from Phase 0 loaded docs:

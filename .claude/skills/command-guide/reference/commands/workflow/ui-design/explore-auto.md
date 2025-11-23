@@ -24,8 +24,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
    - **IF should_extract_animation**: **Attach tasks → Execute → Collapse** → Auto-continues to Phase 9
    - **ELSE**: Skip (use code import) → Auto-continues to Phase 9
 5. Phase 9 (layout-extract) → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 10
-6. **Phase 10 (ui-assembly)** → **Attach tasks → Execute → Collapse** → Auto-continues to Phase 11
-7. **Phase 11 (preview-generation)** → **Execute script → Generate preview files** → Reports completion
+6. **Phase 10 (ui-assembly)** → **Attach tasks → Execute → Collapse** → Workflow complete
 
 **Phase Transition Mechanism**:
 - **Phase 5 (User Interaction)**: User confirms targets → IMMEDIATELY triggers Phase 7
@@ -33,10 +32,9 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 - **Task Execution**: Orchestrator **EXECUTES** these attached tasks itself
 - **Task Collapse**: After tasks complete, collapse them into phase summary
 - **Phase Transition**: Automatically execute next phase after collapsing
-- **Phase 11 (Script Execution)**: Execute preview generation script
 - No additional user interaction after Phase 5 confirmation
 
-**Auto-Continue Mechanism**: TodoWrite tracks phase status with dynamic task attachment/collapse. After executing all attached tasks, you MUST immediately collapse them, restore phase summary, and execute the next phase. No user intervention required. The workflow is NOT complete until reaching Phase 11 (preview generation).
+**Auto-Continue Mechanism**: TodoWrite tracks phase status with dynamic task attachment/collapse. After executing all attached tasks, you MUST immediately collapse them, restore phase summary, and execute the next phase. No user intervention required. The workflow is NOT complete until Phase 10 (UI assembly) finishes.
 
 **Task Attachment Model**: SlashCommand invocation is NOT delegation - it's task expansion. The orchestrator executes these attached tasks itself, not waiting for external completion.
 
@@ -50,7 +48,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 4. **Default to All**: When selecting variants/prototypes, use ALL generated items
 5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 6. **⚠️ CRITICAL: Task Attachment Model** - SlashCommand invocation **ATTACHES** tasks to current workflow. Orchestrator **EXECUTES** these attached tasks itself, not waiting for external completion. This is NOT delegation - it's task expansion.
-7. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After executing all attached tasks, you MUST immediately collapse them and execute the next phase. Workflow is NOT complete until Phase 11 (preview generation).
+7. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After executing all attached tasks, you MUST immediately collapse them and execute the next phase. Workflow is NOT complete until Phase 10 (UI assembly) finishes.
 
 ## Parameter Requirements
 
@@ -127,140 +125,78 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 **Integrated vs. Standalone**:
 - `--session` flag determines session integration or standalone execution
 
-## 11-Phase Execution
+## 10-Phase Execution
 
 ### Phase 1: Parameter Parsing & Input Detection
+
+**Unified Principle**: Detect → Classify → Store (avoid string concatenation and escaping)
+
+**Step 1: Parameter Normalization**
 ```bash
-# Step 0: Parse and normalize parameters
-images_input = null
-prompt_text = null
-
-# Handle legacy parameters with deprecation warning
+# Legacy parameters (deprecated)
 IF --images OR --prompt:
-    WARN: "⚠️  DEPRECATION: --images and --prompt are deprecated. Use --input instead."
-    WARN: "   Example: --input \"design-refs/*\" or --input \"modern dashboard\""
-    images_input = --images
-    prompt_text = --prompt
+    WARN: "⚠️ --images/--prompt deprecated. Use --input"
+    images_input = --images; prompt_text = --prompt
 
-# Parse unified --input parameter
-IF --input:
-    # Split by | separator for multiple inputs
-    input_parts = split(--input, "|")
-
-    FOR part IN input_parts:
-        part = trim(part)
-
-        # Detection logic
-        IF contains(part, "*") OR glob_matches_files(part):
-            # Glob pattern detected → images
-            images_input = part
-        ELSE IF file_or_directory_exists(part):
-            # File/directory path → will be handled in code detection
-            IF NOT prompt_text:
-                prompt_text = part
-            ELSE:
-                prompt_text = prompt_text + " " + part
-        ELSE:
-            # Pure text → prompt
-            IF NOT prompt_text:
-                prompt_text = part
-            ELSE:
-                prompt_text = prompt_text + " " + part
-
-# Step 1: Detect design source from parsed inputs
-code_files_detected = false
-code_base_path = null
-has_visual_input = false
-
-IF prompt_text:
-    # Extract potential file paths from prompt
-    potential_paths = extract_paths_from_text(prompt_text)
-    FOR path IN potential_paths:
-        IF file_or_directory_exists(path):
-            code_files_detected = true
-            code_base_path = path
-            BREAK
-
-IF images_input:
-    # Check if images parameter points to existing files
-    IF glob_matches_files(images_input):
-        has_visual_input = true
-
-# Step 2: Determine design source strategy
-design_source = "unknown"
-IF code_files_detected AND has_visual_input:
-    design_source = "hybrid"  # Both code and visual
-ELSE IF code_files_detected:
-    design_source = "code_only"  # Only code files
-ELSE IF has_visual_input OR --prompt:
-    design_source = "visual_only"  # Only visual/prompt
-ELSE:
-    ERROR: "No design source provided (code files, images, or prompt required)"
-    EXIT 1
-
-STORE: design_source, code_base_path, has_visual_input
+# Unified --input (split by "|")
+ELSE IF --input:
+    FOR part IN split(--input, "|"):
+        IF "*" IN part OR glob_exists(part): images_input = part
+        ELSE IF path_exists(part): prompt_text += part
+        ELSE: prompt_text += part
 ```
+
+**Step 2: Design Source Detection**
+```bash
+code_base_path = extract_first_valid_path(prompt_text)
+has_visual_input = (images_input AND glob_exists(images_input))
+
+design_source = classify_source(code_base_path, has_visual_input):
+    • code + visual → "hybrid"
+    • code only → "code_only"
+    • visual/prompt → "visual_only"
+    • none → ERROR
+```
+
+**Stored Variables**: `design_source`, `code_base_path`, `has_visual_input`, `images_input`, `prompt_text`
+
+---
 
 ### Phase 2: Intelligent Prompt Parsing
+
+**Unified Principle**: explicit > inferred > default
+
 ```bash
-# Parse variant counts from prompt or use explicit/default values
-IF prompt_text AND (NOT --style-variants OR NOT --layout-variants):
-    style_variants = regex_extract(prompt_text, r"(\d+)\s*style") OR --style-variants OR 3
-    layout_variants = regex_extract(prompt_text, r"(\d+)\s*layout") OR --layout-variants OR 3
-ELSE:
-    style_variants = --style-variants OR 3
-    layout_variants = --layout-variants OR 3
+# Variant counts (priority chain)
+style_variants = --style-variants OR extract_number(prompt_text, "style") OR 3
+layout_variants = --layout-variants OR extract_number(prompt_text, "layout") OR 3
 
-VALIDATE: 1 <= style_variants <= 5, 1 <= layout_variants <= 5
-
-# Interactive mode (always enabled)
-interactive_mode = true  # Always use interactive mode
+VALIDATE: 1 ≤ variants ≤ 5
 ```
+
+**Stored Variables**: `style_variants`, `layout_variants`
+
+---
 
 ### Phase 3: Device Type Inference
+
+**Unified Principle**: explicit > prompt keywords > target_type > default
+
 ```bash
-# Device type inference
-device_type = "auto"
+# Device type (priority chain)
+device_type = --device-type (if != "auto")
+           OR detect_keywords(prompt_text, ["mobile", "desktop", "tablet", "responsive"])
+           OR infer_from_target(target_type)  # component→desktop, page→responsive
+           OR "responsive"
 
-# Step 1: Explicit parameter (highest priority)
-IF --device-type AND --device-type != "auto":
-    device_type = --device-type
-    device_source = "explicit"
-ELSE:
-    # Step 2: Prompt analysis
-    IF prompt_text:
-        device_keywords = {
-            "desktop": ["desktop", "web", "laptop", "widescreen", "large screen"],
-            "mobile": ["mobile", "phone", "smartphone", "ios", "android"],
-            "tablet": ["tablet", "ipad", "medium screen"],
-            "responsive": ["responsive", "adaptive", "multi-device", "cross-platform"]
-        }
-        detected_device = detect_device_from_prompt(prompt_text, device_keywords)
-        IF detected_device:
-            device_type = detected_device
-            device_source = "prompt_inference"
-
-    # Step 3: Target type inference
-    IF device_type == "auto":
-        # Components are typically desktop-first, pages can vary
-        device_type = target_type == "component" ? "desktop" : "responsive"
-        device_source = "target_type_inference"
-
-STORE: device_type, device_source
+device_source = track_detection_source()
 ```
 
-**Device Type Presets**:
-- **Desktop**: 1920×1080px - Mouse-driven, spacious layouts
-- **Mobile**: 375×812px - Touch-friendly, compact layouts
-- **Tablet**: 768×1024px - Hybrid touch/mouse layouts
-- **Responsive**: 1920×1080px base with mobile-first breakpoints
+**Detection Keywords**: mobile, phone, smartphone → mobile | desktop, web, laptop → desktop | tablet, ipad → tablet | responsive, adaptive → responsive
 
-**Detection Keywords**:
-- Prompt contains "mobile", "phone", "smartphone" → mobile
-- Prompt contains "tablet", "ipad" → tablet
-- Prompt contains "desktop", "web", "laptop" → desktop
-- Prompt contains "responsive", "adaptive" → responsive
-- Otherwise: Inferred from target type (components→desktop, pages→responsive)
+**Device Presets**: Desktop (1920×1080) | Mobile (375×812) | Tablet (768×1024) | Responsive (1920×1080 + breakpoints)
+
+**Stored Variables**: `device_type`, `device_source`
 
 ### Phase 4: Run Initialization & Directory Setup
 ```bash
@@ -466,13 +402,13 @@ IF design_source IN ["code_only", "hybrid"]:
 
     # Animation reuse confirmation (code import with complete animations)
     IF design_source == "code_only" AND animation_complete:
-        REPORT: "✅ 检测到完整的动画系统（来自代码导入）"
+        REPORT: "✅ Complete animation system detected (from code import)"
         REPORT: "   Duration scales: {duration_count} | Easing functions: {easing_count}"
         REPORT: ""
         REPORT: "Options:"
-        REPORT: "  • 'reuse' (默认) - 复用已有动画系统"
-        REPORT: "  • 'regenerate' - 重新生成动画系统（交互式）"
-        REPORT: "  • 'cancel' - 取消工作流"
+        REPORT: "  • 'reuse' (default) - Reuse existing animation system"
+        REPORT: "  • 'regenerate' - Regenerate animation system (interactive)"
+        REPORT: "  • 'cancel' - Cancel workflow"
         user_response = WAIT_FOR_USER_INPUT()
         MATCH user_response:
             "reuse" → skip_animation_extraction = true
@@ -580,63 +516,22 @@ REPORT: "   → Assembly tasks: {total} combinations"
 SlashCommand(command)
 
 # After executing all attached tasks, collapse them into phase summary
-# When phase finishes, IMMEDIATELY execute Phase 11 (auto-continue)
-# Output:
+# Workflow complete - generate command handles preview file generation (compare.html, PREVIEW.md)
+# Output (generated by generate command):
 # - {target}-style-{s}-layout-{l}.html (assembled prototypes)
 # - {target}-style-{s}-layout-{l}.css
-# Note: compare.html and PREVIEW.md will be generated in Phase 11
-```
-
-### Phase 11: Generate Preview Files
-```bash
-REPORT: "🚀 Phase 11: Generate Preview Files"
-
-# Update TodoWrite to reflect preview generation phase
-TodoWrite({todos: [
-  {"content": "Execute style extraction", "status": "completed", "activeForm": "Executing style extraction"},
-  {"content": "Execute animation extraction", "status": "completed", "activeForm": "Executing animation extraction"},
-  {"content": "Execute layout extraction", "status": "completed", "activeForm": "Executing layout extraction"},
-  {"content": "Execute UI assembly", "status": "completed", "activeForm": "Executing UI assembly"},
-  {"content": "Generate preview files", "status": "in_progress", "activeForm": "Generating preview files"}
-]})
-
-# Execute preview generation script
-Bash(~/.claude/scripts/ui-generate-preview.sh "${base_path}/prototypes")
-
-# Verify output files
-IF NOT exists("${base_path}/prototypes/compare.html"):
-    ERROR: "Preview generation failed: compare.html not found"
-    EXIT 1
-
-IF NOT exists("${base_path}/prototypes/PREVIEW.md"):
-    ERROR: "Preview generation failed: PREVIEW.md not found"
-    EXIT 1
-
-# Mark preview generation as complete
-TodoWrite({todos: [
-  {"content": "Execute style extraction", "status": "completed", "activeForm": "Executing style extraction"},
-  {"content": "Execute animation extraction", "status": "completed", "activeForm": "Executing animation extraction"},
-  {"content": "Execute layout extraction", "status": "completed", "activeForm": "Executing layout extraction"},
-  {"content": "Execute UI assembly", "status": "completed", "activeForm": "Executing UI assembly"},
-  {"content": "Generate preview files", "status": "completed", "activeForm": "Generating preview files"}
-]})
-
-REPORT: "✅ Preview files generated successfully"
-REPORT: "   → compare.html (interactive matrix view)"
-REPORT: "   → PREVIEW.md (usage instructions)"
-
-# Workflow complete, display final report
+# - compare.html (interactive matrix view)
+# - PREVIEW.md (usage instructions)
 ```
 
 ## TodoWrite Pattern
 ```javascript
-// Initialize IMMEDIATELY after Phase 5 user confirmation to track multi-phase execution (5 orchestrator-level tasks)
+// Initialize IMMEDIATELY after Phase 5 user confirmation to track multi-phase execution (4 orchestrator-level tasks)
 TodoWrite({todos: [
   {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing style extraction"},
   {"content": "Execute animation extraction", "status": "pending", "activeForm": "Executing animation extraction"},
   {"content": "Execute layout extraction", "status": "pending", "activeForm": "Executing layout extraction"},
-  {"content": "Execute UI assembly", "status": "pending", "activeForm": "Executing UI assembly"},
-  {"content": "Generate preview files", "status": "pending", "activeForm": "Generating preview files"}
+  {"content": "Execute UI assembly", "status": "pending", "activeForm": "Executing UI assembly"}
 ]})
 
 // ⚠️ CRITICAL: Dynamic TodoWrite task attachment strategy:
@@ -651,19 +546,8 @@ TodoWrite({todos: [
 // 4. After all attached tasks complete, COLLAPSE them into phase summary
 // 5. Update next phase to in_progress
 // 6. IMMEDIATELY execute next phase (auto-continue)
+// 7. After Phase 10 completes, workflow finishes (generate command handles preview files)
 //
-// Phase 11 Script Execution Pattern:
-// 1. Mark "Generate preview files" as in_progress
-// 2. Execute preview generation script via Bash tool
-// 3. Verify output files (compare.html, PREVIEW.md)
-// 4. Mark "Generate preview files" as completed
-//
-// Benefits:
-// ✓ Real-time visibility into sub-command task progress
-// ✓ Clean orchestrator-level summary after each phase
-// ✓ Clear mental model: SlashCommand = attach tasks, not delegate work
-// ✓ Script execution for preview generation (no delegation)
-// ✓ Dynamic attachment/collapse maintains clarity
 ```
 
 ## Completion Output
@@ -682,7 +566,7 @@ Phase 9: {n×l} layout templates (layout-extract with multi-select)
 Phase 10: UI Assembly (generate)
   - Pure assembly: layout templates + design tokens
   - {s}×{l}×{n} = {total} final prototypes
-Phase 11: Preview files generated (compare.html, PREVIEW.md)
+  - Preview files: compare.html, PREVIEW.md (auto-generated by generate command)
 
 Assembly Process:
 ✅ Separation of Concerns: Layout (structure) + Style (tokens) kept separate

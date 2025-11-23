@@ -69,6 +69,17 @@
       "file_path": "cli/mode/code-analysis.md"
     },
     {
+      "name": "document-analysis",
+      "command": "/cli:mode:document-analysis",
+      "description": "Read-only technical document/paper analysis using Gemini/Qwen/Codex with systematic comprehension template for insights extraction",
+      "arguments": "[--tool codex|gemini|qwen] [--enhance] [--cd path] document path or topic",
+      "category": "cli",
+      "subcategory": "mode",
+      "usage_scenario": "general",
+      "difficulty": "Intermediate",
+      "file_path": "cli/mode/document-analysis.md"
+    },
+    {
       "name": "enhance-prompt",
       "command": "/enhance-prompt",
       "description": "Enhanced prompt transformation using session memory and intent analysis with --enhance flag detection",
@@ -256,6 +267,17 @@
       "file_path": "workflow/init.md"
     },
     {
+      "name": "lite-fix",
+      "command": "/workflow:lite-fix",
+      "description": "Lightweight bug diagnosis and fix workflow with intelligent severity assessment and optional hotfix mode for production incidents",
+      "arguments": "[--hotfix] \\\"bug description or issue reference\\",
+      "category": "workflow",
+      "subcategory": null,
+      "usage_scenario": "general",
+      "difficulty": "Intermediate",
+      "file_path": "workflow/lite-fix.md"
+    },
+    {
       "name": "list",
       "command": "/workflow:session:list",
       "description": "List all workflow sessions with status filtering, shows session metadata and progress information",
@@ -335,8 +357,8 @@
     {
       "name": "layout-extract",
       "command": "/workflow:ui-design:layout-extract",
-      "description": "Extract structural layout information from reference images, URLs, or text prompts using Claude analysis with variant generation or refinement mode",
-      "arguments": "[--design-id <id>] [--session <id>] [--images \"<glob>\"] [--urls \"<list>\"] [--prompt \"<desc>\"] [--targets \"<list>\"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive] [--refine]",
+      "description": "Extract structural layout information from reference images or text prompts using Claude analysis with variant generation or refinement mode",
+      "arguments": "[--design-id <id>] [--session <id>] [--images \"<glob>\"] [--prompt \"<desc>\"] [--targets \"<list>\"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive] [--refine]",
       "category": "workflow",
       "subcategory": "ui-design",
       "usage_scenario": "general",
@@ -347,7 +369,7 @@
       "name": "style-extract",
       "command": "/workflow:ui-design:style-extract",
       "description": "Extract design style from reference images or text prompts using Claude analysis with variant generation or refinement mode",
-      "arguments": "[--design-id <id>] [--session <id>] [--images \"<glob>\"] [--urls \"<list>\"] [--prompt \"<desc>\"] [--variants <count>] [--interactive] [--refine]",
+      "arguments": "[--design-id <id>] [--session <id>] [--images \"<glob>\"] [--prompt \"<desc>\"] [--variants <count>] [--interactive] [--refine]",
       "category": "workflow",
       "subcategory": "ui-design",
       "usage_scenario": "general",
@@ -590,6 +612,17 @@
       "file_path": "workflow/plan.md"
     },
     {
+      "name": "replan",
+      "command": "/workflow:replan",
+      "description": "Interactive workflow replanning with session-level artifact updates and boundary clarification through guided questioning",
+      "arguments": "[--session session-id] [task-id] \\\"requirements\\\"|file.md [--interactive]",
+      "category": "workflow",
+      "subcategory": null,
+      "usage_scenario": "planning",
+      "difficulty": "Intermediate",
+      "file_path": "workflow/replan.md"
+    },
+    {
       "name": "tdd-plan",
       "command": "/workflow:tdd-plan",
       "description": "TDD workflow planning with Red-Green-Refactor task chain generation, test-first development structure, and cycle tracking",
@@ -656,6 +689,28 @@
       "usage_scenario": "documentation",
       "difficulty": "Intermediate",
       "file_path": "memory/code-map-memory.md"
+    },
+    {
+      "name": "docs-full-cli",
+      "command": "/memory:docs-full-cli",
+      "description": "Generate full project documentation using CLI execution (Layer 3→1) with batched agents (4 modules/agent) and gemini→qwen→codex fallback, <20 modules uses direct parallel",
+      "arguments": "[path] [--tool <gemini|qwen|codex>]",
+      "category": "memory",
+      "subcategory": null,
+      "usage_scenario": "documentation",
+      "difficulty": "Intermediate",
+      "file_path": "memory/docs-full-cli.md"
+    },
+    {
+      "name": "docs-related-cli",
+      "command": "/memory:docs-related-cli",
+      "description": "Generate/update documentation for git-changed modules using CLI execution with batched agents (4 modules/agent) and gemini→qwen→codex fallback, <15 modules uses direct parallel",
+      "arguments": "[--tool <gemini|qwen|codex>]",
+      "category": "memory",
+      "subcategory": null,
+      "usage_scenario": "documentation",
+      "difficulty": "Intermediate",
+      "file_path": "memory/docs-related-cli.md"
     },
     {
       "name": "docs",
@@ -740,7 +795,7 @@
       "name": "workflow:status",
       "command": "/workflow:status",
       "description": "Generate on-demand views for project overview and workflow tasks with optional task-id filtering for detailed view",
-      "arguments": "[optional: --project|task-id|--validate]",
+      "arguments": "[optional: --project|task-id|--validate|--dashboard]",
       "category": "workflow",
       "subcategory": null,
       "usage_scenario": "session-management",

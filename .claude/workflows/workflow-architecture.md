@@ -37,11 +37,6 @@ This document defines the complete workflow system architecture using a **JSON-o
     └── WFS-old-feature/              # Archived session (completed)
 ```
 
-**Directory-Based Benefits**:
-- **Simple Discovery**: Session location determines state (active/ = active sessions, archives/ = completed)
-- **No Marker Files**: Location is the state
-- **Clean Structure**: Clear separation between active and completed sessions
-- **Easy Migration**: Move between active/ and archives/ to change state
 
 ### Session Operations
 

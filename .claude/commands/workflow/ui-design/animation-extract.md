@@ -120,11 +120,7 @@ ELSE:
 - Infers animation patterns from UI element positioning and design style
 - Generates context-aware animation specifications based on visual analysis
 
-**Benefits**:
-- ✅ Flexible input - works with screenshots, mockups, or design files
-- ✅ AI-driven inference from visual cues
-- ✅ No external dependencies on MCP tools
-- ✅ Combines visual analysis with industry best practices
+
 
 ### Step 3: Load Design Tokens Context
 

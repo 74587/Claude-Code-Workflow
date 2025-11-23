@@ -548,12 +548,6 @@ TodoWrite({todos: [
 // 6. IMMEDIATELY execute next phase (auto-continue)
 // 7. After Phase 10 completes, workflow finishes (generate command handles preview files)
 //
-// Benefits:
-// ✓ Real-time visibility into sub-command task progress
-// ✓ Clean orchestrator-level summary after each phase
-// ✓ Clear mental model: SlashCommand = attach tasks, not delegate work
-// ✓ Generate command handles preview generation autonomously
-// ✓ Dynamic attachment/collapse maintains clarity
 ```
 
 ## Completion Output

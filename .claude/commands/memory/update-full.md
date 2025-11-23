@@ -36,13 +36,12 @@ Orchestrates project-wide CLAUDE.md updates using batched agent execution with a
 - **Use Case**: Deepest directories with unstructured file layouts
 - **Behavior**: Generates CLAUDE.md for current directory AND each subdirectory containing files
 - **Context**: All files in current directory tree (`@**/*`)
-- **Benefits**: Creates foundation documentation for upper layers to reference
+
 
 #### Single-Layer Strategy (Layers 1-2)
 - **Use Case**: Upper layers that aggregate from existing documentation
 - **Behavior**: Generates CLAUDE.md only for current directory
 - **Context**: Direct children CLAUDE.md files + current directory code files
-- **Benefits**: Minimal context consumption, clear layer separation
 
 ### Example Flow
 ```

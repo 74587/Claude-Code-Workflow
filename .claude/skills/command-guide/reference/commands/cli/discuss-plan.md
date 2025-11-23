@@ -167,9 +167,9 @@ TodoWrite({
 ## Output Routing
 
 -   **Primary Log**: Entire multi-round discussion logged to single file:
-    -   `.workflow/WFS-[id]/.chat/discuss-plan-[topic]-[timestamp].md`
+    -   `.workflow/active/WFS-[id]/.chat/discuss-plan-[topic]-[timestamp].md`
 -   **Final Plan**: Clean final version saved upon conclusion:
-    -   `.workflow/WFS-[id]/.summaries/plan-[topic].md`
+    -   `.workflow/active/WFS-[id]/.summaries/plan-[topic].md`
 -   **Scratchpad**: If no session active:
     -   `.workflow/.scratchpad/discuss-plan-[topic]-[timestamp].md`
 

@@ -88,11 +88,7 @@ Tools for combining components and integrating results.
 4. **User selects** 2 preferred layouts (multi-select)
 5. System generates only 4-6 final prototypes (selected combinations)
 
-**Benefits:**
-- Reduces unnecessary generation (from 20 to 4-6 prototypes)
-- Focuses resources on preferred design directions
-- Saves 70-80% computation time
-- Better exploration quality
+
 
 ---
 
@@ -169,10 +165,7 @@ Tools for combining components and integrating results.
 - `layout-templates.json` (Structure) - DOM hierarchy, CSS layout rules
 - `animation-tokens.json` (Motion) - Transitions, keyframes, timing functions
 
-**Benefits:**
-- Instant re-theming by swapping design tokens
-- Layout reuse across different visual styles
-- Independent evolution of style and structure
+
 
 ### Token-First CSS
 

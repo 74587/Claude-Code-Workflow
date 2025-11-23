@@ -355,11 +355,7 @@ Ready for execution. Use appropriate workflow commands to proceed.
 - **Phase 4**: Dual-task generation (IMPL-001 for test generation, IMPL-002 for test execution)
 - **Fix Mode Configuration**: `--use-codex` flag controls IMPL-002 fix mode (manual vs automated)
 
-**Benefits**:
-- Real-time visibility into attached tasks during execution
-- Clean orchestrator-level summary after tasks complete
-- Clear mental model: SlashCommand = attach tasks, not delegate work
-- Dynamic attachment/collapse maintains clarity
+
 
 **Note**: See individual Phase descriptions (Phase 2, 3, 4) for detailed TodoWrite Update examples with full JSON structures.
 

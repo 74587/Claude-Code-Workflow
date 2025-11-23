@@ -480,11 +480,7 @@ TodoWrite({todos: [
 //    - Orchestrator's own task (no SlashCommand attachment)
 //    - Mark Phase 3 as completed
 //    - Final state: All 4 orchestrator tasks completed
-//
-// Benefits:
-// ✓ Real-time visibility into attached tasks during execution
-// ✓ Clean orchestrator-level summary after tasks complete
-// ✓ Clear mental model: SlashCommand = attach tasks, not delegate work
+
 // ✓ Dynamic attachment/collapse maintains clarity
 ```
 
@@ -623,17 +619,7 @@ File discovery is fully automatic - no glob patterns needed.
 
 ---
 
-## Benefits
 
-- **Simplified Interface**: Single path parameter with intelligent defaults
-- **Auto-Generation**: Package names auto-generated from directory names
-- **Automatic Discovery**: No need to specify file patterns - finds all style files automatically
-- **Pure Orchestrator**: No direct agent execution, delegates to specialized commands
-- **Auto-Continue**: Autonomous 4-phase execution without user interaction
-- **Safety First**: Overwrite protection, validation checks, error handling
-- **Code Reuse**: Leverages existing `import-from-code` and `reference-page-generator` commands
-- **Clean Separation**: Each command has single responsibility
-- **Easy Maintenance**: Changes to sub-commands automatically apply
 
 ## Architecture
 

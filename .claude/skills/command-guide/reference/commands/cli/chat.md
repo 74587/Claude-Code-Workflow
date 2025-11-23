@@ -70,7 +70,7 @@ Task(
     3. Execution & Output:
        - Execute CLI tool with assembled context
        - Validate answer completeness
-       - Save to .workflow/WFS-[id]/.chat/chat-[timestamp].md (or .scratchpad/)
+       - Save to .workflow/active/WFS-[id]/.chat/chat-[timestamp].md (or .scratchpad/)
   `
 )
 ```
@@ -79,4 +79,4 @@ Task(
 
 - **Read-only**: Provides answers, does NOT modify code
 - **Context**: `@CLAUDE.md` + inferred or all files (`@**/*`)
-- **Output**: `.workflow/WFS-[id]/.chat/chat-[timestamp].md` (or `.scratchpad/` if no session)
+- **Output**: `.workflow/active/WFS-[id]/.chat/chat-[timestamp].md` (or `.scratchpad/` if no session)

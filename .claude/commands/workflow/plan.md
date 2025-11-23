@@ -305,12 +305,7 @@ Quality Gate: Consider running /workflow:action-plan-verify to catch issues earl
 
 **Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary for Phase 2/3, or marked completed for Phase 4) → Next phase begins → Repeat until all phases complete.
 
-### Benefits
 
-- ✓ Real-time visibility into sub-task execution
-- ✓ Clear mental model: SlashCommand = attach → execute → collapse (Phase 2/3) or complete (Phase 4)
-- ✓ Clean summary after completion
-- ✓ Easy to track workflow progress
 
 **Note**: See individual Phase descriptions for detailed TodoWrite Update examples:
 - **Phase 2, 3**: Multiple sub-tasks with attach/collapse pattern
@@ -389,11 +384,6 @@ Return summary to user
 - Brainstorming artifacts (potentially modified by Phase 3)
 - Session-specific configuration
 
-**Structured Description Benefits**:
-- **Clarity**: Clear separation of goal, scope, and context
-- **Consistency**: Same format across all phases
-- **Traceability**: Easy to track what was requested
-- **Precision**: Better context gathering and analysis
 
 ## Execution Flow Diagram
 

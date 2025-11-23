@@ -127,8 +127,8 @@ Task(
        - Ensure working implementation with proper error handling
 
     5. Output & Documentation:
-       - Save execution log: .workflow/WFS-[id]/.chat/execute-[timestamp].md
-       ${task_id ? '- Generate task summary: .workflow/WFS-[id]/.summaries/' + task_id + '-summary.md' : ''}
+       - Save execution log: .workflow/active/WFS-[id]/.chat/execute-[timestamp].md
+       ${task_id ? '- Generate task summary: .workflow/active/WFS-[id]/.summaries/' + task_id + '-summary.md' : ''}
        ${task_id ? '- Update task status in .task/' + task_id + '.json' : ''}
        - Document all code changes made
 
@@ -137,7 +137,7 @@ Task(
 )
 ```
 
-**Output**: `.workflow/WFS-[id]/.chat/execute-[timestamp].md` + `.summaries/[TASK-ID]-summary.md` (or `.scratchpad/` if no session)
+**Output**: `.workflow/active/WFS-[id]/.chat/execute-[timestamp].md` + `.workflow/active/WFS-[id]/.summaries/[TASK-ID]-summary.md` (or `.scratchpad/` if no session)
 
 ## Examples
 

@@ -39,12 +39,12 @@ Orchestrates context-aware CLAUDE.md updates for changed modules using batched a
 
 ## Phase 1: Change Detection & Analysis
 
-```bash
-# Detect changed modules (no index refresh needed)
-bash(~/.claude/scripts/detect_changed_modules.sh list)
+```javascript
+// Detect changed modules
+Bash({command: "~/.claude/scripts/detect_changed_modules.sh list", run_in_background: false});
 
-# Cache git changes
-bash(git add -A 2>/dev/null || true)
+// Cache git changes
+Bash({command: "git add -A 2>/dev/null || true", run_in_background: false});
 ```
 
 **Parse output** `depth:N|path:<PATH>|change:<TYPE>` to extract affected modules.
@@ -89,46 +89,35 @@ Related Update Plan:
 
 ## Phase 3A: Direct Execution (<15 modules)
 
-**Strategy**: Parallel execution within depth (max 4 concurrent), no agent overhead, tool fallback per module.
+**Strategy**: Parallel execution within depth (max 4 concurrent), no agent overhead.
+
+**CRITICAL**: All Bash commands use `run_in_background: false` for synchronous execution.
 
 ```javascript
-let modules_by_depth = group_by_depth(changed_modules);
-let tool_order = construct_tool_order(primary_tool);
-
 for (let depth of sorted_depths.reverse()) {  // N → 0
-  let modules = modules_by_depth[depth];
-  let batches = batch_modules(modules, 4);  // Split into groups of 4
+  let batches = batch_modules(modules_by_depth[depth], 4);
 
   for (let batch of batches) {
-    // Execute batch in parallel (max 4 concurrent)
     let parallel_tasks = batch.map(module => {
       return async () => {
-        let success = false;
         for (let tool of tool_order) {
-          let exit_code = bash(cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "${tool}");
-          if (exit_code === 0) {
-            report("${module.path} updated with ${tool}");
-            success = true;
-            break;
+          Bash({
+            command: `cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "${tool}"`,
+            run_in_background: false
+          });
+          if (bash_result.exit_code === 0) {
+            report(`✅ ${module.path} updated with ${tool}`);
+            return true;
           }
         }
-        if (!success) {
-          report("FAILED: ${module.path} failed all tools");
-        }
+        report(`❌ FAILED: ${module.path} failed all tools`);
+        return false;
       };
     });
-
-    await Promise.all(parallel_tasks.map(task => task()));  // Run batch in parallel
+    await Promise.all(parallel_tasks.map(task => task()));
   }
 }
 ```
-
-**Benefits**:
-- No agent startup overhead
-- Parallel execution within depth (max 4 concurrent)
-- Tool fallback still applies per module
-- Faster for small changesets (<15 modules)
-- Same batching strategy as Phase 3B but without agent layer
 
 ---
 
@@ -193,19 +182,27 @@ TOOLS (try in order):
 
 EXECUTION:
 For each module above:
-  1. cd "{{module_path}}"
-  2. Try tool 1:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "{{tool_1}}")
-     → Success: Report "{{module_path}} updated with {{tool_1}}", proceed to next module
+  1. Try tool 1:
+     Bash({
+       command: `cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "{{tool_1}}"`,
+       run_in_background: false
+     })
+     → Success: Report "✅ {{module_path}} updated with {{tool_1}}", proceed to next module
      → Failure: Try tool 2
-  3. Try tool 2:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "{{tool_2}}")
-     → Success: Report "{{module_path}} updated with {{tool_2}}", proceed to next module
+  2. Try tool 2:
+     Bash({
+       command: `cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "{{tool_2}}"`,
+       run_in_background: false
+     })
+     → Success: Report "✅ {{module_path}} updated with {{tool_2}}", proceed to next module
      → Failure: Try tool 3
-  4. Try tool 3:
-     bash(cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "{{tool_3}}")
-     → Success: Report "{{module_path}} updated with {{tool_3}}", proceed to next module
-     → Failure: Report "FAILED: {{module_path}} failed all tools", proceed to next module
+  3. Try tool 3:
+     Bash({
+       command: `cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "single-layer" "." "{{tool_3}}"`,
+       run_in_background: false
+     })
+     → Success: Report "✅ {{module_path}} updated with {{tool_3}}", proceed to next module
+     → Failure: Report "❌ FAILED: {{module_path}} failed all tools", proceed to next module
 
 REPORTING:
 Report final summary with:
@@ -213,30 +210,16 @@ Report final summary with:
 - Successful: Y modules
 - Failed: Z modules
 - Tool usage: {{tool_1}}:X, {{tool_2}}:Y, {{tool_3}}:Z
-- Detailed results for each module
 ```
-
-### Example Execution
-
-**Depth 3 (new module)**:
-```javascript
-Task(subagent_type="memory-bridge", batch=[./src/api/auth], mode="related")
-```
-
-**Benefits**:
-- 4 modules → 1 agent (75% reduction)
-- Parallel batches, sequential within batch
-- Each module gets full fallback chain
-- Context-aware updates based on git changes
 
 ## Phase 4: Safety Verification
 
-```bash
-# Check only CLAUDE.md modified
-bash(git diff --cached --name-only | grep -v "CLAUDE.md" || echo "Only CLAUDE.md files modified")
+```javascript
+// Check only CLAUDE.md modified
+Bash({command: 'git diff --cached --name-only | grep -v "CLAUDE.md" || echo "Only CLAUDE.md files modified"', run_in_background: false});
 
-# Display statistics
-bash(git diff --stat)
+// Display statistics
+Bash({command: "git diff --stat", run_in_background: false});
 ```
 
 **Aggregate results**:

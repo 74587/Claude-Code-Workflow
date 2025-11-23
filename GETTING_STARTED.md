@@ -130,11 +130,6 @@ For UI-focused projects, start with design exploration before implementation: **
 /workflow:execute
 ```
 
-**Brainstorming Benefits**:
-- **Auto role selection**: Analyzes your topic and selects 3-9 relevant expert roles (system-architect, ui-designer, product-manager, etc.)
-- **Parallel execution**: Multiple AI agents analyze simultaneously from different perspectives
-- **Comprehensive specification**: Generates integrated requirements and design document
-
 **When to Use Brainstorming**:
 - **You know WHAT to build, but NOT HOW** - Need to explore solution approaches
 - **Multiple solution paths exist** - Need expert analysis to choose the best approach
@@ -176,12 +171,7 @@ After planning, validate your implementation plan for consistency and completene
 - When working on complex projects with many dependencies
 - When you want to ensure high-quality task specifications
 
-**Benefits**:
-- Catches planning errors before execution
-- Ensures complete requirements coverage
-- Validates architectural consistency
-- Identifies resource conflicts and skill gaps
-- Provides actionable remediation plan with TodoWrite integration
+
 
 ### Scenario 6: Bug Fixing
 

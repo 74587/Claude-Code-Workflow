@@ -93,11 +93,7 @@ TEST_FOCUS: [Test scenarios]
 
 **Parse**: Extract testContextPath (`.workflow/active/[sessionId]/.process/test-context-package.json`)
 
-**Benefits**:
-- Makes TDD aware of existing environment
-- Identifies reusable test patterns
-- Prevents duplicate test creation
-- Enables integration with existing tests
+
 
 <!-- TodoWrite: When test-context-gather invoked, INSERT 3 test-context-gather tasks -->
 
@@ -345,12 +341,7 @@ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task
 - **Phase 5**: Generated IMPL tasks contain internal Red-Green-Refactor cycles
 - **Conditional Phase 4**: Conflict resolution only if conflict_risk ≥ medium
 
-### Benefits
 
-- ✓ Real-time visibility into TDD workflow execution
-- ✓ Clear mental model: SlashCommand = attach → execute → collapse
-- ✓ Test-aware planning with coverage analysis
-- ✓ Self-contained TDD cycles within each IMPL task
 
 **Note**: See individual Phase descriptions (Phase 3, 4, 5) for detailed TodoWrite Update examples with full JSON structures.
 
@@ -416,64 +407,6 @@ Convert user input to TDD-structured format:
 - **Validation failure**: Report missing/invalid data
 - **Command failure**: Keep phase in_progress, report error
 - **TDD validation failure**: Report incomplete chains or wrong dependencies
-
-#### 3. Agent-Driven Planning
-**From plan --agent workflow**
-
-Supports action-planning-agent for more autonomous TDD planning with:
-- MCP tool integration (code-index, exa)
-- Memory-first principles
-- Brainstorming artifact integration
-- Task merging over decomposition
-
-### Workflow Comparison
-
-| Aspect | Previous | Current (Optimized) |
-|--------|----------|---------------------|
-| **Phases** | 6 (with test coverage) | 7 (added concept verification) |
-| **Context** | Greenfield assumption | Existing codebase aware |
-| **Task Structure** | 1 feature = 3 tasks (TEST/IMPL/REFACTOR) | 1 feature = 1 task (internal TDD cycle) |
-| **Task Count** | 5 features = 15 tasks | 5 features = 5 tasks (70% reduction) |
-| **Green Phase** | Single implementation | Iterative with fix cycle |
-| **Failure Handling** | Manual intervention | Auto-diagnose + fix + revert |
-| **Test Analysis** | None | Deep coverage analysis |
-| **Feedback Loop** | Post-execution | During Green phase |
-| **Task Management** | High overhead (15 tasks) | Low overhead (5 tasks) |
-| **Execution Efficiency** | Frequent context switching | Continuous context per feature |
-
-### Migration Notes
-
-**Backward Compatibility**: Fully compatible
-- Existing TDD workflows continue to work
-- New features are additive, not breaking
-- Phase 3 can be skipped if test-context-gather not available
-
-**Session Structure**:
-```
-.workflow/active/WFS-xxx/
-├── IMPL_PLAN.md (unified plan with TDD Implementation Tasks section)
-├── TODO_LIST.md (with internal TDD phase indicators)
-├── .process/
-│   ├── context-package.json
-│   ├── test-context-package.json
-│   ├── ANALYSIS_RESULTS.md (enhanced with TDD breakdown)
-│   └── green-fix-iteration-*.md (fix logs from Green phase cycles)
-└── .task/
-    ├── IMPL-1.json (Complete TDD task: Red-Green-Refactor internally)
-    ├── IMPL-2.json (Complete TDD task)
-    ├── IMPL-3.json (Complex feature container, if needed)
-    ├── IMPL-3.1.json (Complex feature subtask, if needed)
-    └── IMPL-3.2.json (Complex feature subtask, if needed)
-```
-
-**File Count Comparison**:
-- **Old structure**: 5 features = 15 task files (TEST/IMPL/REFACTOR × 5)
-- **New structure**: 5 features = 5 task files (IMPL-N × 5)
-- **Complex features**: Add container + subtasks only when necessary
-
-**Configuration Options** (in IMPL tasks):
-- `meta.max_iterations`: Fix attempts (default: 3)
-- `meta.use_codex`: Auto-fix mode (default: false)
 
 ## Related Commands
 

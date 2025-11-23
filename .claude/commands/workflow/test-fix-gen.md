@@ -374,14 +374,6 @@ CRITICAL - Next Steps:
 - **Phase 4**: Multi-task generation with quality gate (IMPL-001, IMPL-001.5-review, IMPL-002)
 - **Fix Mode Configuration**: `--use-codex` flag controls IMPL-002 fix mode (manual vs automated)
 
-**Benefits**:
-- Real-time visibility into attached tasks during execution
-- Clean orchestrator-level summary after tasks complete
-- Clear mental model: SlashCommand = attach tasks, not delegate work
-- Dual-mode support: Both Session Mode and Prompt Mode use same attachment pattern
-- Dynamic attachment/collapse maintains clarity
-
-**Note**: Unlike other workflow orchestrators, this file consolidates TodoWrite examples in this section rather than distributing them across Phase descriptions for better dual-mode clarity.
 
 ---
 

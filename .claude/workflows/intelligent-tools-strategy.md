@@ -372,7 +372,6 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-
 - Use `cd` to navigate to primary focus directory
 - Use `--include-directories` for additional context
 - ⚠️ CONTEXT must explicitly list external files AND command must include `--include-directories`
-- Benefits: Minimizes irrelevant file interference, more precise file references
 - Pattern matching rule: `@../dir/**/*` in CONTEXT → `--include-directories ../dir` in command (MANDATORY)
 
 ### CONTEXT Field Configuration

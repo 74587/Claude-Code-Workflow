@@ -728,18 +728,6 @@ User → TodoWrite Init → Phase 1 (detect existing) → Phase 3 (update index)
 
 ---
 
-## Benefits
-
-- **Per-Feature SKILL**: Independent packages for each analyzed feature
-- **Specialized Agent**: cli-explore-agent with Deep Scan mode (Bash + Gemini dual-source)
-- **Professional Analysis**: Pre-defined workflow for code exploration and structure analysis
-- **Clear Separation**: Agent analyzes (JSON) → Orchestrator documents (Mermaid markdown)
-- **Multi-Level Detail**: 4 levels (architecture → function → data → conditional)
-- **Visual Flow**: Embedded Mermaid diagrams for all flow types
-- **Progressive Loading**: Token-efficient context loading (2K → 30K)
-- **Auto-Continue**: Fully autonomous 3-phase execution
-- **Smart Skip**: Detects existing codemap, 10x faster index updates
-- **CLI Integration**: Gemini/Qwen for deep semantic understanding
 
 ## Architecture
 
@@ -752,13 +740,6 @@ code-map-memory (orchestrator)
   │   └─ Phase 2b: Orchestrator Documentation
   │       └─ Transform JSON → 5 Mermaid markdown files + metadata.json
   └─ Phase 3: Write SKILL.md (index generation, always runs)
-
-Benefits:
-✅ Specialized agent: cli-explore-agent with dual-source strategy (Bash + Gemini)
-✅ Professional analysis: Pre-defined Deep Scan workflow
-✅ Clear separation: Agent analyzes (JSON) → Orchestrator documents (Mermaid)
-✅ Smart skip logic: 10x faster when codemap exists
-✅ Multi-level detail: Architecture → Functions → Data → Conditionals
 
 Output: .claude/skills/codemap-{feature}/
 ```

@@ -130,6 +130,13 @@ needsExploration = (
 
 **Exploration Execution** (if needed):
 ```javascript
+// Generate session identifiers for artifact storage
+const taskSlug = task_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
+const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+const shortTimestamp = timestamp.substring(0, 19).replace('T', '-') // YYYY-MM-DD-HH-mm-ss
+const sessionId = `${taskSlug}-${shortTimestamp}`
+const sessionFolder = `.workflow/.lite-plan/${sessionId}`
+
 Task(
   subagent_type="cli-explore-agent",
   description="Analyze codebase for task context",
@@ -149,9 +156,14 @@ Task(
   Output Format: JSON-like structured object
   `
 )
+
+// Save exploration results for CLI/agent access in lite-execute
+const explorationFile = `${sessionFolder}/exploration.json`
+Write(explorationFile, JSON.stringify(explorationContext, null, 2))
 ```
 
-**Output**: `explorationContext` (see Data Structures section)
+**Output**: `explorationContext` (in-memory, see Data Structures section)
+**Artifact**: Saved to `{sessionFolder}/exploration.json` for CLI/agent use
 
 **Progress Tracking**:
 - Mark Phase 1 completed
@@ -228,6 +240,14 @@ Current Claude generates plan directly:
 - Estimated Time: Total implementation time
 - Recommended Execution: "Agent"
 
+```javascript
+// Save planning results to session folder (same as Option B)
+const planFile = `${sessionFolder}/plan.json`
+Write(planFile, JSON.stringify(planObject, null, 2))
+```
+
+**Artifact**: Saved to `{sessionFolder}/plan.json` for CLI/agent use
+
 **Option B: Agent-Based Planning (Medium/High Complexity)**
 
 Delegate to cli-lite-planning-agent:
@@ -270,9 +290,14 @@ Task(
   Format: "{Action} in {file_path}: {details} following {pattern}"
   `
 )
+
+// Save planning results to session folder
+const planFile = `${sessionFolder}/plan.json`
+Write(planFile, JSON.stringify(planObject, null, 2))
 ```
 
 **Output**: `planObject` (see Data Structures section)
+**Artifact**: Saved to `{sessionFolder}/plan.json` for CLI/agent use
 
 **Progress Tracking**:
 - Mark Phase 3 completed
@@ -315,7 +340,7 @@ ${i+1}. **${task.title}** (${task.file})
 
 **Step 4.2: Collect User Confirmation**
 
-Four questions via single AskUserQuestion call:
+Three questions via single AskUserQuestion call:
 
 ```javascript
 AskUserQuestion({
@@ -353,15 +378,6 @@ Confirm plan? (Multi-select: can supplement via "Other")`,
         { label: "Agent Review", description: "@code-reviewer agent" },
         { label: "Skip", description: "No review" }
       ]
-    },
-    {
-      question: "Export plan to Enhanced Task JSON file?\n\nAllows reuse with lite-execute later.",
-      header: "Export JSON",
-      multiSelect: false,
-      options: [
-        { label: "Yes", description: "Export to JSON (recommended for complex tasks)" },
-        { label: "No", description: "Keep in-memory only" }
-      ]
     }
   ]
 })
@@ -384,10 +400,6 @@ Code Review (after execution):
   ├─ Gemini Review → gemini CLI analysis
   ├─ Agent Review → Current Claude review
   └─ Other → Custom tool (e.g., qwen, codex)
-
-Export JSON:
-  ├─ Yes → Export to .workflow/lite-plans/plan-{timestamp}.json
-  └─ No → In-memory only
 ```
 
 **Progress Tracking**:
@@ -398,48 +410,48 @@ Export JSON:
 
 ### Phase 5: Dispatch to Execution
 
-**Step 5.1: Export Enhanced Task JSON (Optional)**
+**Step 5.1: Export Enhanced Task JSON**
 
-Only execute if `userSelection.export_task_json === "Yes"`:
+Always export Enhanced Task JSON to session folder:
 
 ```javascript
-if (userSelection.export_task_json === "Yes") {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const taskId = `LP-${timestamp}`
-  const filename = `.workflow/lite-plans/${taskId}.json`
+const taskId = `LP-${shortTimestamp}`
+const filename = `${sessionFolder}/task.json`
 
-  const enhancedTaskJson = {
-    id: taskId,
-    title: original_task_description,
-    status: "pending",
+const enhancedTaskJson = {
+  id: taskId,
+  title: original_task_description,
+  status: "pending",
 
-    meta: {
-      type: "planning",
-      created_at: new Date().toISOString(),
-      complexity: planObject.complexity,
-      estimated_time: planObject.estimated_time,
-      recommended_execution: planObject.recommended_execution,
-      workflow: "lite-plan"
+  meta: {
+    type: "planning",
+    created_at: new Date().toISOString(),
+    complexity: planObject.complexity,
+    estimated_time: planObject.estimated_time,
+    recommended_execution: planObject.recommended_execution,
+    workflow: "lite-plan",
+    session_id: sessionId,
+    session_folder: sessionFolder
+  },
+
+  context: {
+    requirements: [original_task_description],
+    plan: {
+      summary: planObject.summary,
+      approach: planObject.approach,
+      tasks: planObject.tasks
     },
-
-    context: {
-      requirements: [original_task_description],
-      plan: {
-        summary: planObject.summary,
-        approach: planObject.approach,
-        tasks: planObject.tasks
-      },
-      exploration: explorationContext || null,
-      clarifications: clarificationContext || null,
-      focus_paths: explorationContext?.relevant_files || [],
-      acceptance: planObject.tasks.flatMap(t => t.acceptance)
-    }
+    exploration: explorationContext || null,
+    clarifications: clarificationContext || null,
+    focus_paths: explorationContext?.relevant_files || [],
+    acceptance: planObject.tasks.flatMap(t => t.acceptance)
   }
-
-  Write(filename, JSON.stringify(enhancedTaskJson, null, 2))
-  console.log(`Enhanced Task JSON exported to: ${filename}`)
-  console.log(`Reuse with: /workflow:lite-execute ${filename}`)
 }
+
+Write(filename, JSON.stringify(enhancedTaskJson, null, 2))
+console.log(`Enhanced Task JSON exported to: ${filename}`)
+console.log(`Session folder: ${sessionFolder}`)
+console.log(`Reuse with: /workflow:lite-execute ${filename}`)
 ```
 
 **Step 5.2: Store Execution Context**
@@ -451,7 +463,18 @@ executionContext = {
   clarificationContext: clarificationContext || null,
   executionMethod: userSelection.execution_method,
   codeReviewTool: userSelection.code_review_tool,
-  originalUserInput: original_task_description
+  originalUserInput: original_task_description,
+
+  // Session artifacts location
+  session: {
+    id: sessionId,
+    folder: sessionFolder,
+    artifacts: {
+      exploration: explorationContext ? `${sessionFolder}/exploration.json` : null,
+      plan: `${sessionFolder}/plan.json`,
+      task: `${sessionFolder}/task.json`  // Always exported
+    }
+  }
 }
 ```
 
@@ -462,7 +485,11 @@ SlashCommand(command="/workflow:lite-execute --in-memory")
 ```
 
 **Execution Handoff**:
-- lite-execute reads `executionContext` variable
+- lite-execute reads `executionContext` variable from memory
+- `executionContext.session.artifacts` contains file paths to saved planning artifacts:
+  - `exploration` - exploration.json (if exploration performed)
+  - `plan` - plan.json (always exists)
+  - `task` - task.json (if user selected export)
 - All execution logic handled by lite-execute
 - lite-plan completes after successful handoff
 
@@ -502,7 +529,7 @@ SlashCommand(command="/workflow:lite-execute --in-memory")
      - Plan confirmation (multi-select with supplements)
      - Execution method selection
      - Code review tool selection (custom via "Other")
-     - JSON export option
+   - Enhanced Task JSON always exported to session folder
    - Allows plan refinement without re-selecting execution method
 
 ### Task Management
@@ -519,11 +546,11 @@ SlashCommand(command="/workflow:lite-execute --in-memory")
    - Medium: 5-7 tasks (detailed)
    - High: 7-10 tasks (comprehensive)
 
-3. **No File Artifacts During Planning**:
-   - All planning stays in memory
-   - Optional Enhanced Task JSON export (user choice)
-   - Faster workflow, cleaner workspace
-   - Plan context passed directly to execution
+3. **Session Artifact Management**:
+   - All planning artifacts saved to dedicated session folder
+   - Enhanced Task JSON always exported for reusability
+   - Plan context passed to execution via memory and files
+   - Clean organization with session-based folder structure
 
 ### Planning Standards
 
@@ -549,6 +576,34 @@ SlashCommand(command="/workflow:lite-execute --in-memory")
 | Phase 3 Planning Timeout | Planning > 90 seconds | Generate simplified plan, mark as "Quick Plan", continue |
 | Phase 4 Confirmation Timeout | User no response > 5 minutes | Save context to temp var, display resume instructions, exit gracefully |
 | Phase 4 Modification Loop | User requests modify > 3 times | Suggest breaking task into smaller pieces or using `/workflow:plan` |
+
+## Session Folder Structure
+
+Each lite-plan execution creates a dedicated session folder to organize all artifacts:
+
+```
+.workflow/.lite-plan/{task-slug}-{short-timestamp}/
+├── exploration.json          # Exploration results (if exploration performed)
+├── plan.json                 # Planning results (always created)
+└── task.json                 # Enhanced Task JSON (always created)
+```
+
+**Folder Naming Convention**:
+- `{task-slug}`: First 40 characters of task description, lowercased, non-alphanumeric replaced with `-`
+- `{short-timestamp}`: YYYY-MM-DD-HH-mm-ss format
+- Example: `.workflow/.lite-plan/implement-user-auth-jwt-2025-01-15-14-30-45/`
+
+**File Contents**:
+- `exploration.json`: Complete explorationContext object (if exploration performed, see Data Structures)
+- `plan.json`: Complete planObject (always created, see Data Structures)
+- `task.json`: Enhanced Task JSON with all context (always created, see Data Structures)
+
+**Access Patterns**:
+- **lite-plan**: Creates folder and writes all artifacts during execution, passes paths via `executionContext.session.artifacts`
+- **lite-execute**: Reads artifact paths from `executionContext.session.artifacts` (see lite-execute.md for usage details)
+- **User**: Can inspect artifacts for debugging or reference
+- **Reuse**: Pass `task.json` path to `/workflow:lite-execute {path}` for re-execution
+
 
 ## Data Structures
 
@@ -621,7 +676,18 @@ Context passed to lite-execute via --in-memory (Phase 5):
   clarificationContext: {...} | null,  // User responses from Phase 2
   executionMethod: "Agent" | "Codex" | "Auto",
   codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
-  originalUserInput: string            // User's original task description
+  originalUserInput: string,           // User's original task description
+
+  // Session artifacts location (for lite-execute to access saved files)
+  session: {
+    id: string,                        // Session identifier: {taskSlug}-{shortTimestamp}
+    folder: string,                    // Session folder path: .workflow/.lite-plan/{session-id}
+    artifacts: {
+      exploration: string | null,      // exploration.json path (if exploration performed)
+      plan: string,                    // plan.json path (always present)
+      task: string                     // task.json path (always exported)
+    }
+  }
 }
 ```
 

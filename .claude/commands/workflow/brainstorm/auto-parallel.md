@@ -324,14 +324,6 @@ Synthesis: .workflow/active/WFS-{topic}/.brainstorming/synthesis-specification.m
 - **Dynamic Role Count**: `--count N` parameter determines number of Phase 2 parallel tasks (default: 3, max: 9)
 - **Mixed Execution**: Sequential (Phase 1, 3) and Parallel (Phase 2) task execution
 
-**Benefits**:
-- Real-time visibility into attached tasks during execution
-- Clean orchestrator-level summary after tasks complete
-- Clear mental model: SlashCommand/Task = attach tasks, not delegate work
-- Parallel execution support for concurrent role analysis
-- Dynamic attachment/collapse maintains clarity
-
-**Note**: See individual Phase descriptions (Phase 1, 2, 3) for detailed TodoWrite Update examples with full JSON structures.
 
 ## Input Processing
 

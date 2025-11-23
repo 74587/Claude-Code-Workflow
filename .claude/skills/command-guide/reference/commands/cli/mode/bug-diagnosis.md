@@ -84,7 +84,7 @@ Task(
        - Root cause diagnosis with evidence
        - Fix suggestions and recommendations
        - Prevention strategies
-       - Save to .workflow/WFS-[id]/.chat/bug-diagnosis-[timestamp].md (or .scratchpad/)
+       - Save to .workflow/active/WFS-[id]/.chat/bug-diagnosis-[timestamp].md (or .scratchpad/)
   `
 )
 ```
@@ -93,4 +93,4 @@ Task(
 
 - **Read-only**: Diagnoses bugs, does NOT modify code
 - **Template**: `~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt`
-- **Output**: `.workflow/WFS-[id]/.chat/bug-diagnosis-[timestamp].md` (or `.scratchpad/` if no session)
+- **Output**: `.workflow/active/WFS-[id]/.chat/bug-diagnosis-[timestamp].md` (or `.scratchpad/` if no session)

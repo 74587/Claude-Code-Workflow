@@ -278,56 +278,84 @@ Task(
   subagent_type="cli-planning-agent",
   description=`Analyze test failures and generate fix task (iteration ${currentIteration})`,
   prompt=`
-    ## Context Package
-    {
-      "session_id": "${sessionId}",
-      "iteration": ${currentIteration},
-      "analysis_type": "test-failure",
-      "failure_context": {
-        "failed_tests": ${JSON.stringify(failedTests)},
-        "error_messages": ${JSON.stringify(errorMessages)},
-        "test_output": "${testOutputPath}",
-        "pass_rate": ${passRate},
-        "previous_attempts": ${JSON.stringify(previousAttempts)}
-      },
-      "cli_config": {
-        "tool": "gemini",
-        "model": "gemini-3-pro-preview-11-2025",
-        "template": "01-diagnose-bug-root-cause.txt",
-        "timeout": 2400000,
-        "fallback": "qwen"
-      },
-      "task_config": {
-        "agent": "@test-fix-agent",
-        "type": "test-fix-iteration",
-        "max_iterations": ${maxIterations},
-        "use_codex": false
-      }
-    }
+    ## Task Objective
+    Analyze test failures and generate structured fix task JSON for iteration ${currentIteration}
 
-    ## Your Task
-    1. Execute CLI analysis using Gemini (fallback to Qwen if needed)
-    2. Parse CLI output and extract fix strategy with specific modification points
-    3. Generate IMPL-fix-${currentIteration}.json using your internal task template
-    4. Save analysis report to .process/iteration-${currentIteration}-analysis.md
-    5. Report success and task ID back to orchestrator
+    ## MANDATORY FIRST STEPS
+    1. Read test results: {session.test_results_path}
+    2. Read test output: {session.test_output_path}
+    3. Read iteration state: {session.iteration_state_path}
+    4. Read fix history (if exists): {session.fix_history_path}
+
+    ## Session Paths
+    - Workflow Dir: {session.workflow_dir}
+    - Test Results: {session.test_results_path}
+    - Test Output: {session.test_output_path}
+    - Iteration State: {session.iteration_state_path}
+    - Fix History: {session.fix_history_path}
+    - Task Output Dir: {session.task_dir}
+    - Analysis Output: {session.process_dir}/iteration-${currentIteration}-analysis.md
+    - CLI Output: {session.process_dir}/iteration-${currentIteration}-cli-output.txt
+
+    ## Context Metadata
+    - Session ID: ${sessionId}
+    - Current Iteration: ${currentIteration}
+    - Max Iterations: ${maxIterations}
+    - Current Pass Rate: ${passRate}%
+
+    ## CLI Configuration
+    - Tool: gemini (fallback: qwen)
+    - Model: gemini-3-pro-preview-11-2025
+    - Template: 01-diagnose-bug-root-cause.txt
+    - Timeout: 2400000ms
+
+    ## Expected Deliverables
+    1. Task JSON file: {session.task_dir}/IMPL-fix-${currentIteration}.json
+    2. Analysis report: {session.process_dir}/iteration-${currentIteration}-analysis.md
+    3. CLI raw output: {session.process_dir}/iteration-${currentIteration}-cli-output.txt
+    4. Return task ID to orchestrator
+
+    ## Quality Standards
+    - Fix strategy must include specific modification points (file:function:lines)
+    - Analysis must identify root causes, not just symptoms
+    - Task JSON must be valid and complete with all required fields
+    - All deliverables saved to specified paths
+
+    ## Success Criteria
+    Generate valid IMPL-fix-${currentIteration}.json with:
+    - Concrete fix strategy with modification points
+    - Root cause analysis from CLI tool
+    - All required task JSON fields (id, title, status, meta, context, flow_control)
+    - Return task ID for orchestrator to queue
   `
 )
 ```
 
-#### Agent Response
+#### Agent Response Format
+**Agent must return structured response with deliverable paths:**
+
 ```javascript
 {
   "status": "success",
   "task_id": "IMPL-fix-${iteration}",
-  "task_path": ".workflow/${session}/.task/IMPL-fix-${iteration}.json",
-  "analysis_report": ".process/iteration-${iteration}-analysis.md",
-  "cli_output": ".process/iteration-${iteration}-cli-output.txt",
-  "summary": "Fix authentication token validation and null check issues",
-  "modification_points_count": 2,
-  "estimated_complexity": "low"
+  "deliverables": {
+    "task_json": ".workflow/${session}/.task/IMPL-fix-${iteration}.json",
+    "analysis_report": ".workflow/${session}/.process/iteration-${iteration}-analysis.md",
+    "cli_output": ".workflow/${session}/.process/iteration-${iteration}-cli-output.txt"
+  },
+  "summary": {
+    "root_causes": ["Authentication token validation missing", "Null check missing"],
+    "modification_points": [
+      "src/auth/client.ts:sendRequest:45-50",
+      "src/validators/user.ts:validateUser:23-25"
+    ],
+    "estimated_complexity": "low",
+    "expected_pass_rate_improvement": "85% → 95%"
+  }
 }
 ```
+
+**Orchestrator validates all deliverable paths exist before proceeding.**
 
 #### Generated Analysis Report Structure
 The @cli-planning-agent generates `.process/iteration-N-analysis.md`:
@@ -503,53 +531,54 @@ TodoWrite({
 4. **Iteration Complete**: Mark iteration item completed
 5. **All Complete**: Mark parent task completed
 
-## Agent Context Package
+## Agent Context Loading
 
-**Generated by test-cycle-execute orchestrator before launching agents.**
+**Orchestrator provides file paths, agents load content themselves.**
 
-The orchestrator assembles this context package from:
-- Task JSON file (IMPL-*.json)
-- Iteration state files
-- Test results and failure context
-- Session metadata
+### Path References Provided to Agents
 
-This package is passed to agents via the Task tool's prompt context.
+**Orchestrator passes these paths via Task tool prompt:**
 
-### Enhanced Context for Test-Fix Agent
-```json
+```javascript
 {
-  "task": { /* IMPL-fix-N.json */ },
-  "iteration_context": {
-    "current_iteration": N,
-    "max_iterations": 5,
-    "previous_attempts": [
-      {
-        "iteration": N-1,
-        "failures": ["test1", "test2"],
-        "fixes_attempted": ["fix1", "fix2"],
-        "result": "partial_success"
-      }
-    ],
-    "failure_analysis": {
-      "source": "gemini_cli",
-      "analysis_file": ".process/iteration-N-analysis.md",
-      "fix_strategy": { /* from CLI */ }
-    }
-  },
-  "test_context": {
-    "test_framework": "jest|pytest|...",
-    "test_files": ["path/to/test1.test.ts"],
-    "test_command": "npm test",
-    "coverage_target": 80
-  },
-  "session": {
-    "workflow_dir": ".workflow/active/WFS-test-{session}/",
-    "iteration_state_file": ".process/iteration-state.json",
-    "test_results_file": ".process/test-results.json",
-    "fix_history_file": ".process/fix-history.json"
-  }
+  // Primary Task Definition
+  "task_json_path": ".workflow/active/WFS-test-{session}/.task/IMPL-fix-N.json",
+
+  // Iteration Context Paths
+  "iteration_state_path": ".workflow/active/WFS-test-{session}/.process/iteration-state.json",
+  "fix_history_path": ".workflow/active/WFS-test-{session}/.process/fix-history.json",
+
+  // Test Context Paths
+  "test_results_path": ".workflow/active/WFS-test-{session}/.process/test-results.json",
+  "test_output_path": ".workflow/active/WFS-test-{session}/.process/test-output.log",
+  "test_context_path": ".workflow/active/WFS-test-{session}/.process/TEST_ANALYSIS_RESULTS.md",
+
+  // Analysis & Strategy Paths (for fix-iteration tasks)
+  "analysis_path": ".workflow/active/WFS-test-{session}/.process/iteration-N-analysis.md",
+  "cli_output_path": ".workflow/active/WFS-test-{session}/.process/iteration-N-cli-output.txt",
+
+  // Session Management Paths
+  "workflow_dir": ".workflow/active/WFS-test-{session}/",
+  "summaries_dir": ".workflow/active/WFS-test-{session}/.summaries/",
+  "todo_list_path": ".workflow/active/WFS-test-{session}/TODO_LIST.md",
+
+  // Metadata (simple values, not file content)
+  "session_id": "WFS-test-{session}",
+  "current_iteration": N,
+  "max_iterations": 5
 }
 ```
+
+### Agent Loading Sequence
+
+**Agents must load files in this order:**
+
+1. **Task JSON** (`task_json_path`) - Get task definition, requirements, fix strategy
+2. **Iteration State** (`iteration_state_path`) - Understand current iteration context
+3. **Test Results** (`test_results_path`) - Analyze current test status
+4. **Test Output** (`test_output_path`) - Review detailed test execution logs
+5. **Analysis Report** (`analysis_path`, for fix tasks) - Load CLI-generated fix strategy
+6. **Fix History** (`fix_history_path`) - Review previous fix attempts to avoid repetition
 
 ## File Structure
 
@@ -616,77 +645,66 @@ This package is passed to agents via the Task tool's prompt context.
 
 ## Agent Prompt Template
 
-**Unified template for all agent tasks (orchestrator invokes with Task tool):**
+**Dynamic Generation**: Before agent invocation, orchestrator reads task JSON and extracts key requirements.
 
 ```bash
 Task(subagent_type="{meta.agent}",
-     prompt="**TASK EXECUTION: {task.title}**
+     prompt="Execute task: {task.title}
 
-     ## STEP 1: Load Complete Task JSON
-     **MANDATORY**: First load the complete task JSON from: {session.task_json_path}
+     {[FLOW_CONTROL]}
 
-     cat {session.task_json_path}
+     **Task Objectives** (from task JSON):
+     {task.context.requirements}
 
-     **CRITICAL**: Validate all required fields present
+     **Expected Deliverables**:
+     - For test-gen: Test files in target directories, test coverage report
+     - For test-fix: Test execution results saved to test-results.json, test-output.log
+     - For test-fix-iteration: Fixed code files, updated test results, iteration summary
 
-     ## STEP 2: Task Context (From Loaded JSON)
-     **ID**: {task.id}
-     **Type**: {task.meta.type}
-     **Agent**: {task.meta.agent}
+     **Quality Standards**:
+     - All tests must execute without errors
+     - Test results must be saved in structured JSON format
+     - All deliverables must be saved to specified paths
+     - Task status must be updated in task JSON
 
-     ## STEP 3: Execute Task Based on Type
+     **MANDATORY FIRST STEPS**:
+     1. Read complete task JSON: {session.task_json_path}
+     2. Load iteration state (if applicable): {session.iteration_state_path}
+     3. Load test context: {session.test_context_path}
 
-     ### For test-gen (IMPL-001):
-     - Generate tests based on TEST_ANALYSIS_RESULTS.md
-     - Follow test framework conventions
-     - Create test files in target_files
+     Follow complete execution guidelines in @.claude/agents/{meta.agent}.md
 
-     ### For test-fix (IMPL-002):
-     - Run test suite: {test_command}
-     - Collect results to .process/test-results.json
-     - Report results to orchestrator (do NOT analyze failures)
-     - Orchestrator will handle failure detection and iteration decisions
-     - If success: Mark complete
+     **Session Paths** (use these for all file operations):
+     - Workflow Dir: {session.workflow_dir}
+     - Task JSON: {session.task_json_path}
+     - TODO List: {session.todo_list_path}
+     - Summaries Dir: {session.summaries_dir}
+     - Test Results: {session.test_results_path}
+     - Test Output Log: {session.test_output_path}
+     - Iteration State: {session.iteration_state_path}
+     - Fix History: {session.fix_history_path}
 
-     ### For test-fix-iteration (IMPL-fix-N):
-     - Load fix strategy from context.fix_strategy (CONTENT, not path)
-     - Apply surgical fixes to identified files
-     - Return results to orchestrator
-     - Do NOT run tests independently - orchestrator manages all test execution
-     - Do NOT handle failures - orchestrator analyzes and decides next iteration
+     **Critical Rules**:
+     - For test-fix tasks: Run tests and save results, do NOT analyze failures
+     - For fix-iteration tasks: Apply fixes from task JSON, do NOT run tests independently
+     - Orchestrator manages iteration loop and failure analysis
+     - Return results to orchestrator for next-step decisions
 
-     ## STEP 4: Implementation Context (From JSON)
-     **Requirements**: {context.requirements}
-     **Fix Strategy**: {context.fix_strategy} (full content provided in task JSON)
-     **Failure Context**: {context.failure_context}
-     **Iteration History**: {context.inherited.iteration_history}
-
-     ## STEP 5: Flow Control Execution
-     If flow_control.pre_analysis exists, execute steps sequentially
-
-     ## STEP 6: Agent Completion
-     1. Execute task following implementation_approach
-     2. Update task status in JSON
-     3. Update TODO_LIST.md
-     4. Generate summary in .summaries/
-     5. **CRITICAL**: Save results for orchestrator to analyze
-
-     **Output Requirements**:
-     - test-results.json: Structured test results
-     - test-output.log: Full test output
-     - iteration-state.json: Current iteration state (if applicable)
-     - task-summary.md: Completion summary
-
-     **Return to Orchestrator**: Agent completes and returns. Orchestrator decides next action.
-     "),
-     description="Execute {task.type} task with JSON validation")
+     **Success Criteria**:
+     - Complete all task objectives as specified in task JSON
+     - Deliver all required outputs to specified paths
+     - Update task status and TODO_LIST.md
+     - Generate completion summary in .summaries/
+     ",
+     description="Executing: {task.title}")
 ```
 
-**Key Points**:
-- Agent executes single task and returns
-- Orchestrator analyzes results and decides next step
-- Fix strategy content (not path) embedded in task JSON by orchestrator
-- Agent does not manage iteration loop
+**Key Changes from Previous Version**:
+1. **Paths over Content**: Provide JSON paths for agent to read, not embedded content
+2. **MANDATORY FIRST STEPS**: Explicit requirement to load task JSON and context
+3. **Complete Session Paths**: All file paths provided for agent operations
+4. **Emphasized Deliverables**: Clear deliverable requirements per task type
+5. **Simplified Structure**: Removed type-specific instructions (agent reads from JSON)
 
 ## Error Handling & Recovery
 

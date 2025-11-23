@@ -25,7 +25,7 @@
     "name": "workflow:status",
     "command": "/workflow:status",
     "description": "Generate on-demand views for project overview and workflow tasks with optional task-id filtering for detailed view",
-    "arguments": "[optional: --project|task-id|--validate]",
+    "arguments": "[optional: --project|task-id|--validate|--dashboard]",
     "category": "workflow",
     "subcategory": null,
     "usage_scenario": "session-management",

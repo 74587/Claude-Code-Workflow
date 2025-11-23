@@ -476,15 +476,4 @@ Session state: PARTIALLY COMPLETE (session archived, manifest needs update)
 - Resume from Phase 2 (skip marker creation)
 - Idempotent operations (safe to retry)
 
-### Benefits Over Previous Design
 
-**Old Design Weakness**:
-- Move first → agent second
-- Agent failure → session moved but metadata incomplete
-- Inconsistent state requires manual cleanup
-
-**New Design Strengths**:
-- Agent first → move second
-- Agent failure → session still active, safe to retry
-- Transactional commit → all-or-nothing file operations
-- Marker-based state → resume capability

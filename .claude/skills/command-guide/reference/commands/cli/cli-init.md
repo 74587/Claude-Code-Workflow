@@ -428,15 +428,6 @@ docker-compose.override.yml
 /cli:cli-init --tool all --preview
 ```
 
-## Key Benefits
-
-- **Automatic Detection**: No manual configuration needed
-- **Multi-Tool Support**: Configure Gemini and Qwen simultaneously
-- **Technology Aware**: Rules adapted to actual project stack
-- **Maintainable**: Clear sections for easy customization
-- **Consistent**: Follows gitignore syntax standards
-- **Safe**: Creates backups of existing files
-- **Flexible**: Initialize specific tools or all at once
 
 ## Tool Selection Guide
 

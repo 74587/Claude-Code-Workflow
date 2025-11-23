@@ -508,16 +508,7 @@ User triggers command
 
 ---
 
-## Benefits
 
-- **Pure Orchestrator**: No task JSON generation, delegates to /memory:docs
-- **Auto-Continue**: Autonomous 4-phase execution without user interaction
-- **Intelligent Skip**: Detects existing docs and skips regeneration for fast SKILL updates
-- **Always Fresh Index**: Phase 4 always executes to ensure SKILL.md stays synchronized
-- **Simplified**: ~70% less code than previous version
-- **Maintainable**: Changes to /memory:docs automatically apply
-- **Direct Generation**: Phase 4 directly writes SKILL.md
-- **Flexible**: Supports all /memory:docs options (tool, mode, cli-execute)
 
 ## Architecture
 

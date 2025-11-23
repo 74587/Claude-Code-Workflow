@@ -227,7 +227,68 @@ Write(file_path=".workflow/active/WFS-{session}/.brainstorming/ui-designer/desig
       content="[generated content with @ references]")
 ```
 
-### Phase 5: Completion
+### Phase 5: Update Context Package
+
+**Purpose**: Sync design system references to context-package.json
+
+**Operations**:
+```bash
+context_pkg_path = ".workflow/active/WFS-{session}/.process/context-package.json"
+
+# 1. Read existing package
+context_pkg = Read(context_pkg_path)
+
+# 2. Update brainstorm_artifacts (role analyses now contain @ design references)
+brainstorm_dir = ".workflow/active/WFS-{session}/.brainstorming"
+role_analysis_files = Glob({brainstorm_dir}/*/analysis*.md)
+
+context_pkg.brainstorm_artifacts.role_analyses = []
+FOR file IN role_analysis_files:
+    role_name = extract_role_from_path(file)
+    relative_path = file.replace({brainstorm_dir}/, "")
+
+    context_pkg.brainstorm_artifacts.role_analyses.push({
+        "role": role_name,
+        "files": [{
+            "path": relative_path,
+            "type": "primary",
+            "content": Read(file),  # Contains @ design system references
+            "updated_at": NOW()
+        }]
+    })
+
+# 3. Add design_system_references field
+context_pkg.design_system_references = {
+    "design_run_id": design_id,
+    "tokens": `${design_id}/${design_tokens_path}`,
+    "style_guide": `${design_id}/${style_guide_path}`,
+    "prototypes": selected_list.map(p => `${design_id}/prototypes/${p}.html`),
+    "updated_at": NOW()
+}
+
+# 4. Optional: Add animations and layouts if they exist
+IF exists({latest_design}/animation-extraction/animation-tokens.json):
+    context_pkg.design_system_references.animations = `${design_id}/animation-extraction/animation-tokens.json`
+
+IF exists({latest_design}/layout-extraction/layout-templates.json):
+    context_pkg.design_system_references.layouts = `${design_id}/layout-extraction/layout-templates.json`
+
+# 5. Update metadata
+context_pkg.metadata.updated_at = NOW()
+context_pkg.metadata.design_sync_timestamp = NOW()
+
+# 6. Write back
+Write(context_pkg_path, JSON.stringify(context_pkg, indent=2))
+
+REPORT: "✅ Updated context-package.json with design system references"
+```
+
+**TodoWrite Update**:
+```json
+{"content": "Update context package with design references", "status": "completed", "activeForm": "Updating context package"}
+```
+
+### Phase 6: Completion
 
 ```javascript
 TodoWrite({todos: [

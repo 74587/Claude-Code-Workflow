@@ -604,11 +604,6 @@ Each lite-plan execution creates a dedicated session folder to organize all arti
 - **User**: Can inspect artifacts for debugging or reference
 - **Reuse**: Pass `task.json` path to `/workflow:lite-execute {path}` for re-execution
 
-**Benefits**:
-- Clean separation between different task executions
-- Easy to find and inspect artifacts for specific tasks
-- Natural history/audit trail of planning sessions
-- Supports concurrent lite-plan executions without conflicts
 
 ## Data Structures
 
