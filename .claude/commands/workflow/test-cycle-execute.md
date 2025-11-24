@@ -7,388 +7,224 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 
 # Workflow Test-Cycle-Execute Command
 
-## Architecture & Philosophy
+## Quick Start
 
-**Core Concept**: Dynamic test-fix orchestrator with adaptive task generation based on runtime analysis.
+```bash
+# Execute test-fix workflow (auto-discovers active session)
+/workflow:test-cycle-execute
 
-**Quality Gate**: Iterates until test pass rate >= 95% (with criticality assessment) or 100% (full pass).
+# Resume interrupted session
+/workflow:test-cycle-execute --resume-session="WFS-test-user-auth"
 
-**Key Differences from Standard Execute**:
-- **Standard**: Pre-defined task queue → Sequential execution → Complete
-- **Test-Cycle**: Initial tasks → Test → Analyze → Generate fix tasks → Execute → Re-test → Repeat
+# Custom iteration limit (default: 10)
+/workflow:test-cycle-execute --max-iterations=15
+```
 
-**Orchestrator Boundary (CRITICAL)**:
-- This command is the **ONLY place** where test failures are handled
-- All failure analysis delegated to **@cli-planning-agent** (Gemini/Qwen/Codex)
-- All fixes applied by **@test-fix-agent**
-- Orchestrator manages: pass rate calculation, criticality assessment, iteration loop, strategy selection
+**Quality Gate**: Test pass rate >= 95% (criticality-aware) or 100%
+**Max Iterations**: 10 (default, adjustable)
+**CLI Tools**: Gemini → Qwen → Codex (fallback chain)
 
-**Agent Coordination**:
-- **Orchestrator**: Loop control, strategy selection, pass rate calculation, threshold decisions
-- **@cli-planning-agent**: CLI analysis (Gemini/Qwen/Codex), root cause extraction, fix task generation
-- **@test-fix-agent**: Test execution, code fixes, result reporting
+## What & Why
 
-**Resume Mode**: `--resume-session` flag skips discovery and continues from interruption point.
+### Core Concept
+Dynamic test-fix orchestrator with **adaptive task generation** based on runtime analysis.
+
+**vs Standard Execute**:
+- **Standard**: Pre-defined tasks → Execute sequentially → Done
+- **Test-Cycle**: Initial tasks → **Test → Analyze failures → Generate fix tasks → Fix → Re-test** → Repeat until pass
+
+### Value Proposition
+1. **Automatic Problem Solving**: No manual intervention needed until 95% pass rate
+2. **Intelligent Adaptation**: Strategy adjusts based on progress (conservative → aggressive → exploratory)
+3. **Fast Feedback**: Progressive testing runs only affected tests (70-90% faster)
+4. **Stuck Handling**: Parallel strategy exploration when same tests fail 3+ times
+
+### Orchestrator Boundary (CRITICAL)
+- **ONLY command** handling test failures - always delegate here
+- Manages: iteration loop, strategy selection, pass rate validation
+- Delegates: CLI analysis to @cli-planning-agent, execution to @test-fix-agent
+
+## How It Works
+
+### Execution Flow (Simplified)
+
+```
+1. Discovery
+   └─ Load session, tasks, iteration state
+
+2. Main Loop (for each task):
+   ├─ Execute → Test → Calculate pass_rate
+   ├─ Decision:
+   │  ├─ 100% → SUCCESS: Next task
+   │  ├─ 95-99% + low criticality → PARTIAL SUCCESS: Approve with note
+   │  └─ <95% or critical failures → Fix Loop ↓
+   └─ Fix Loop:
+      ├─ Detect: stuck tests, regression, progress trend
+      ├─ Select strategy: conservative/aggressive/exploratory/surgical
+      ├─ Generate fix tasks via @cli-planning-agent:
+      │  ├─ Normal: Single IMPL-fix-N.json
+      │  └─ Exploratory: 3 parallel alternatives
+      ├─ Execute fixes via @test-fix-agent
+      └─ Re-test → Back to step 2
+
+3. Completion
+   └─ Final validation → Generate summary → Auto-complete session
+```
+
+### Agent Roles
+
+| Agent | Responsibility |
+|-------|---------------|
+| **Orchestrator** | Loop control, strategy selection, pass rate calculation, threshold decisions |
+| **@cli-planning-agent** | CLI analysis (Gemini/Qwen/Codex), root cause extraction, task generation, affected test detection |
+| **@test-fix-agent** | Test execution, code fixes, criticality assignment, result reporting |
 
 ## Enhanced Features
 
 ### 1. Intelligent Strategy Engine
 
-**Strategy Types**:
-- **Conservative** (default): Single fix per iteration, full validation
-- **Aggressive**: Batch fix similar failures (when pass rate >80% + high pattern similarity)
-- **Exploratory**: Parallel multi-strategy attempt (when stuck on same failures 3+ times)
-- **Surgical**: Minimal changes, rollback on regression
+**Auto-selects optimal strategy based on iteration context:**
 
-**Strategy Selection Logic**:
+| Strategy | Trigger | Behavior |
+|----------|---------|----------|
+| **Conservative** | Iteration 1-2 (default) | Single targeted fix, full validation |
+| **Aggressive** | Pass rate >80% + similar failures | Batch fix related issues |
+| **Exploratory** | Stuck tests (3+ failures) at iteration 3+ | Parallel try 3 alternative approaches |
+| **Surgical** | Regression detected (pass rate drops >10%) | Minimal changes, rollback focus |
+
+**Selection Logic** (in orchestrator):
 ```javascript
-// In orchestrator, before invoking @cli-planning-agent
-function selectStrategy(context) {
-  const { passRate, iteration, stuckTests, regressionDetected } = context;
-
-  if (iteration <= 2) return "conservative";
-  if (passRate > 80 && context.failurePattern.similarity > 0.7) return "aggressive";
-  if (stuckTests > 0 && iteration >= 3) return "exploratory";
-  if (regressionDetected) return "surgical";
-  return "conservative";
-}
+if (iteration <= 2) return "conservative";
+if (passRate > 80 && failurePattern.similarity > 0.7) return "aggressive";
+if (stuckTests > 0 && iteration >= 3) return "exploratory";
+if (regressionDetected) return "surgical";
 ```
 
-**Integration**: Orchestrator passes selected strategy to @cli-planning-agent in prompt.
+**Integration**: Strategy passed to @cli-planning-agent in prompt for tailored analysis.
 
 ### 2. Progressive Testing
 
-**Concept**: Run affected tests during iterations, full suite on final validation.
+**Runs affected tests during iterations, full suite only for final validation.**
 
-**Affected Test Detection**:
-- @cli-planning-agent analyzes modified files from fix strategy
-- Maps to test files via imports and integration patterns
-- Returns `affected_tests[]` in fix task JSON
+**How It Works**:
+1. @cli-planning-agent analyzes fix_strategy.modification_points
+2. Maps modified files to test files (via imports + integration patterns)
+3. Returns `affected_tests[]` in task JSON
+4. @test-fix-agent runs: `npm test -- ${affected_tests.join(' ')}`
+5. Final validation: `npm test` (full suite)
 
-**Execution**:
-- **Iteration N**: `npm test -- ${affected_tests.join(' ')}` (fast feedback)
-- **Final validation**: `npm test` (comprehensive check)
-
-**Benefits**: 70-90% iteration speed improvement.
-
-**Task JSON Integration**:
+**Task JSON**:
 ```json
 {
-  "context": {
-    "fix_strategy": {
-      "test_execution": {
-        "mode": "affected_only",
-        "affected_tests": ["tests/auth/client.test.ts"],
-        "fallback_to_full": true
-      }
+  "fix_strategy": {
+    "modification_points": ["src/auth/middleware.ts:validateToken:45-60"],
+    "test_execution": {
+      "mode": "affected_only",
+      "affected_tests": ["tests/auth/*.test.ts"],
+      "fallback_to_full": true
     }
   }
 }
 ```
 
+**Benefits**: 70-90% iteration speed improvement, instant feedback on fix effectiveness.
+
 ### 3. Parallel Strategy Exploration
 
-**Trigger**: Iteration >= 3 AND stuck tests detected (same test failed 3+ consecutive times)
+**Automatically triggered when stuck on same failures 3+ consecutive times.**
 
 **Workflow**:
 ```
-Stuck State Detected → Switch to "exploratory" strategy:
-├── @cli-planning-agent generates 3 alternative fix approaches
-├── Orchestrator creates 3 task JSONs: IMPL-fix-Na, IMPL-fix-Nb, IMPL-fix-Nc
-├── Execute in parallel via git worktree:
-│   ├── worktree-a/ → Apply fix-Na → Test → Score: 92%
-│   ├── worktree-b/ → Apply fix-Nb → Test → Score: 88%
-│   └── worktree-c/ → Apply fix-Nc → Test → Score: 95% ✓
-└── Select best result, apply to main branch
+Stuck Detected (iteration 3+):
+├─ Orchestrator switches to "exploratory" strategy
+├─ @cli-planning-agent generates 3 alternative fix approaches:
+│  ├─ Approach A: Refactor validation logic
+│  ├─ Approach B: Fix dependency initialization
+│  └─ Approach C: Adjust test expectations
+├─ Orchestrator creates 3 task JSONs (IMPL-fix-Na, Nb, Nc)
+├─ Execute in parallel via git worktree:
+│  ├─ worktree-a/ → Apply fix-Na → Test → Pass rate: 92%
+│  ├─ worktree-b/ → Apply fix-Nb → Test → Pass rate: 88%
+│  └─ worktree-c/ → Apply fix-Nc → Test → Pass rate: 95% ✓
+└─ Select best result (highest pass_rate), apply to main branch
 ```
 
 **Implementation**:
 ```bash
-# Orchestrator creates worktrees
-git worktree add ../worktree-a
-git worktree add ../worktree-b
-git worktree add ../worktree-c
+# Orchestrator creates isolated worktrees
+git worktree add ../worktree-{a,b,c}
 
-# Launch 3 @test-fix-agent instances in parallel
-Task(subagent_type="test-fix-agent", prompt="...", model="haiku") x3
+# Launch 3 @test-fix-agent instances in parallel (haiku for speed)
+Task(subagent_type="test-fix-agent", model="haiku", ...) x3
 
-# Collect results, select winner by pass_rate
+# Collect results, select winner
 ```
 
-**Task JSON**:
-```json
-{
-  "id": "IMPL-fix-3-parallel",
-  "meta": {
-    "type": "parallel-exploration",
-    "strategies": ["IMPL-fix-3a", "IMPL-fix-3b", "IMPL-fix-3c"],
-    "selection_criteria": "highest_pass_rate"
-  }
-}
-```
+**Benefits**: Escapes stuck situations, explores solution space efficiently.
 
 ## Core Responsibilities
 
-**Orchestrator**:
-- Session discovery and task queue management
+### Orchestrator
+- Session discovery, task queue management
 - Pass rate calculation: `(passed / total) * 100` from test-results.json
-- Criticality assessment from test-results.json
-- Strategy selection (conservative/aggressive/exploratory/surgical)
-- Stuck test detection (same test failed 3+ times)
-- Regression detection (pass rate dropped >10%)
-- Iteration control (max 10 iterations, default)
-- CLI tool selection (Gemini → Qwen → Codex fallback chain)
-- Failure analysis delegation to @cli-planning-agent
+- Criticality assessment (high/medium/low)
+- Strategy selection based on context
+- Detection: stuck tests (3+ consecutive), regression (>10% drop)
+- Iteration control (max 10, default)
+- CLI tool fallback chain: Gemini → Qwen → Codex
 - TodoWrite progress tracking
-- Session auto-complete when pass rate >= 95%
+- Session auto-complete (pass rate >= 95%)
 
-**@cli-planning-agent**:
-- Execute CLI analysis (Gemini/Qwen/Codex) with bug diagnosis template
-- Parse CLI output for root causes and fix strategy
-- Generate IMPL-fix-N.json with structured task definition
+### @cli-planning-agent
+- Execute CLI analysis with bug diagnosis template
+- Parse output for root causes and fix strategy
+- Generate IMPL-fix-N.json task definition
 - Detect affected tests for progressive testing
-- Save analysis reports and CLI output
+- Save: analysis.md, cli-output.txt
 
-**@test-fix-agent**:
-- Execute tests and save results to test-results.json
-- Apply fixes from task JSON fix_strategy
-- Assign criticality to test failures
+### @test-fix-agent
+- Execute tests, save results to test-results.json
+- Apply fixes from task.context.fix_strategy
+- Assign criticality to failures
 - Update task status
 
-## Execution Flow
+## Reference
 
-### Phase 1: Discovery & Initialization
-1. Detect test-fix session from `workflow_type: "test_session"`
-2. Load workflow-session.json, IMPL_PLAN.md, .task/*.json
-3. Initialize TodoWrite with initial tasks
-4. Setup iteration context (current=0, max=10, strategy="conservative")
+### CLI Tool Configuration
 
-**Resume Mode**: Load iteration-state.json, continue from `next_action`.
+**Fallback Chain**: Gemini → Qwen → Codex
+**Template**: `~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt`
+**Timeout**: 40min (2400000ms)
 
-### Phase 2: Task Execution Loop
-
-```javascript
-For each task in queue:
-  1. Load task JSON and context
-  2. Determine task type (test-gen, test-fix, fix-iteration, parallel-exploration)
-  3. Execute via appropriate agent
-  4. Collect results from test-results.json
-  5. Calculate pass rate: (passed / total) * 100
-  6. Assess criticality from test-results.json
-  7. Detect regression: if passRate < previousPassRate - 10% → REGRESSION
-  8. Detect stuck tests: if same test failed 3+ consecutive iterations → STUCK
-
-  9. Make threshold decision:
-     IF passRate === 100%:
-       → SUCCESS: Mark complete, continue to next task
-
-     ELSE IF passRate >= 95%:
-       → CHECK criticality:
-          - All "low" → PARTIAL SUCCESS (auto-approve with note)
-          - Any "high"/"medium" → Enter fix loop (step 10)
-
-     ELSE IF passRate < 95%:
-       → FAILED: Enter fix loop (step 10)
-
-  10. Fix Loop (if needed):
-      a. Select strategy: conservative/aggressive/exploratory/surgical
-      b. If strategy === "exploratory":
-         - Invoke @cli-planning-agent for 3 alternative approaches
-         - Create parallel tasks (IMPL-fix-Na, Nb, Nc)
-         - Execute in parallel via git worktree
-         - Select best result (highest pass_rate)
-         - Apply to main branch
-      c. Else:
-         - Invoke @cli-planning-agent with selected strategy
-         - Generate single IMPL-fix-N.json
-         - Insert at queue front
-      d. Continue loop
-
-  11. Check max iterations (abort if exceeded)
-```
-
-### Phase 3: Iteration Cycle (Per Fix Task)
-
-**Structure**:
-```
-Iteration N:
-├── 1. Test Execution (via @test-fix-agent)
-│   ├── Mode: affected_only or full_suite (from task JSON)
-│   ├── Save results: test-results.json, test-output.log
-│   └── Report to orchestrator
-├── 2. Pass Rate Validation (orchestrator)
-│   ├── Calculate: (passed / total) * 100
-│   ├── Assess criticality
-│   ├── Detect regression/stuck
-│   └── Select strategy
-├── 3. Failure Analysis (via @cli-planning-agent)
-│   ├── Input: failure context + selected strategy
-│   ├── CLI tool: Gemini (fallback: Qwen → Codex)
-│   ├── Output: IMPL-fix-N.json, iteration-N-analysis.md, cli-output.txt
-│   └── Return task ID to orchestrator
-└── 4. Fix Execution (via @test-fix-agent)
-    ├── Load fix_strategy from task JSON
-    ├── Apply changes (surgical fixes)
-    └── Return to step 1 for re-test
-```
-
-### Phase 4: Completion
-
-**Success Conditions**:
-- All tasks completed
-- Pass rate === 100% (full success)
-
-**Partial Success Conditions**:
-- All tasks completed
-- Pass rate >= 95% and < 100%
-- All failures are "low" criticality
-- **Action**: Auto-approve with review note
-
-**Completion Steps**:
-1. Final validation: Run full test suite
-2. Calculate final pass rate
-3. Assess status (full/partial/failure)
-4. Update session state
-5. Generate summary with pass rate metrics
-6. Call `/workflow:session:complete`
-
-**Failure Conditions**:
-- Max iterations (10) reached without 95% pass rate
-- Pass rate < 95% after max iterations
-- Unrecoverable errors
-
-**Failure Handling**:
-1. Document final state with pass rate
-2. Generate failure report (remaining failures, iteration history, recommendations)
-3. Mark tasks as blocked
-4. Return control to user
-
-## Agent Coordination Details
-
-### @cli-planning-agent Invocation
-
-**CLI Tool Selection** (fallback chain):
+**Tool Details**:
 1. **Gemini** (primary): `gemini-2.5-pro`
 2. **Qwen** (fallback): `coder-model`
 3. **Codex** (fallback): `gpt-5.1-codex`
 
-**Template**: `~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt`
-
-**Timeout**: 40min (2400000ms)
-
-**Prompt Structure**:
-```javascript
-Task(
-  subagent_type="cli-planning-agent",
-  description=`Analyze test failures (iteration ${N}) - ${strategy} strategy`,
-  prompt=`
-    ## Task Objective
-    Analyze test failures and generate fix task JSON for iteration ${N}
-
-    ## Strategy
-    ${selectedStrategy} - ${strategyDescription}
-
-    ## MANDATORY FIRST STEPS
-    1. Read test results: ${session.test_results_path}
-    2. Read test output: ${session.test_output_path}
-    3. Read iteration state: ${session.iteration_state_path}
-
-    ## Session Paths
-    - Workflow Dir: ${session.workflow_dir}
-    - Test Results: ${session.test_results_path}
-    - Task Output Dir: ${session.task_dir}
-    - Analysis Output: ${session.process_dir}/iteration-${N}-analysis.md
-
-    ## Context Metadata
-    - Session ID: ${sessionId}
-    - Current Iteration: ${N}
-    - Max Iterations: 10
-    - Current Pass Rate: ${passRate}%
-    - Selected Strategy: ${selectedStrategy}
-    - Stuck Tests: ${stuckTests}
-
-    ## CLI Configuration
-    - Tool Priority: gemini → qwen → codex
-    - Template: 01-diagnose-bug-root-cause.txt
-    - Timeout: 2400000ms
-
-    ## Expected Deliverables
-    1. Task JSON: ${session.task_dir}/IMPL-fix-${N}.json
-       - Must include: fix_strategy.test_execution.affected_tests[]
-       - Must include: fix_strategy.confidence_score
-    2. Analysis report: ${session.process_dir}/iteration-${N}-analysis.md
-    3. CLI output: ${session.process_dir}/iteration-${N}-cli-output.txt
-    4. Return task ID to orchestrator
-
-    ## Strategy-Specific Requirements
-    ${strategyRequirements[selectedStrategy]}
-
-    ## Success Criteria
-    - Valid IMPL-fix-${N}.json with all required fields
-    - Concrete fix strategy with modification points (file:function:lines)
-    - Affected tests list for progressive testing
-    - Root cause analysis (not just symptoms)
-  `
-)
-```
-
-**Strategy-Specific Requirements**:
-```javascript
-const strategyRequirements = {
-  conservative: "Single targeted fix, high confidence required",
-  aggressive: "Batch fix similar failures, pattern-based approach",
-  exploratory: "Generate 3 alternative approaches with different root cause hypotheses",
-  surgical: "Minimal changes, focus on rollback safety"
-};
-```
-
-### @test-fix-agent Context Loading
-
-**File Loading Sequence**:
-1. Task JSON (`task_json_path`)
-2. Iteration state (`iteration_state_path`)
-3. Test results (`test_results_path`)
-4. Test output (`test_output_path`)
-5. Analysis report (`analysis_path`)
-6. Fix history (`fix_history_path`)
-
-**Paths Provided by Orchestrator**:
-```javascript
-{
-  "task_json_path": ".workflow/active/WFS-test-{session}/.task/IMPL-fix-N.json",
-  "iteration_state_path": ".workflow/active/WFS-test-{session}/.process/iteration-state.json",
-  "test_results_path": ".workflow/active/WFS-test-{session}/.process/test-results.json",
-  "test_output_path": ".workflow/active/WFS-test-{session}/.process/test-output.log",
-  "analysis_path": ".workflow/active/WFS-test-{session}/.process/iteration-N-analysis.md",
-  "workflow_dir": ".workflow/active/WFS-test-{session}/",
-  "session_id": "WFS-test-{session}",
-  "current_iteration": N,
-  "max_iterations": 10
-}
-```
-
-## Data Structures
+**When to Fallback**: HTTP 429, timeout, analysis quality degraded
 
 ### Session File Structure
+
 ```
 .workflow/active/WFS-test-{session}/
-├── workflow-session.json
+├── workflow-session.json           # Session metadata
 ├── IMPL_PLAN.md, TODO_LIST.md
 ├── .task/
-│   ├── IMPL-{001,002}.json              # Initial tasks
-│   ├── IMPL-fix-{N}.json                # Generated fix tasks
-│   └── IMPL-fix-{N}-parallel.json       # Parallel exploration tasks
+│   ├── IMPL-{001,002}.json         # Initial tasks
+│   ├── IMPL-fix-{N}.json           # Generated fix tasks
+│   └── IMPL-fix-{N}-parallel.json  # Parallel exploration
 ├── .process/
-│   ├── iteration-state.json             # Current iteration + strategy
-│   ├── test-results.json                # Latest test results
-│   ├── test-output.log                  # Full test output
-│   ├── fix-history.json                 # All fix attempts
-│   ├── iteration-{N}-analysis.md        # CLI analysis
-│   └── iteration-{N}-cli-output.txt     # Raw CLI output
+│   ├── iteration-state.json        # Current iteration + strategy + stuck tests
+│   ├── test-results.json           # Latest results (pass_rate, criticality)
+│   ├── test-output.log             # Full test output
+│   ├── fix-history.json            # All fix attempts
+│   ├── iteration-{N}-analysis.md   # CLI analysis report
+│   └── iteration-{N}-cli-output.txt
 └── .summaries/iteration-summaries/
 ```
 
 ### Iteration State JSON
+
 ```json
 {
   "session_id": "WFS-test-user-auth",
@@ -407,16 +243,13 @@ const strategyRequirements = {
     {
       "iteration": 2,
       "pass_rate": 82,
-      "strategy": "conservative",
-      "stuck_tests": [],
-      "regression_detected": false
+      "strategy": "conservative"
     },
     {
       "iteration": 3,
       "pass_rate": 89,
       "strategy": "aggressive",
-      "stuck_tests": ["test_auth_edge_case"],
-      "regression_detected": false
+      "stuck_tests": ["test_auth_edge_case"]
     }
   ],
   "stuck_tests": ["test_auth_edge_case"],
@@ -425,6 +258,7 @@ const strategyRequirements = {
 ```
 
 ### Task JSON Template (Fix Iteration)
+
 ```json
 {
   "id": "IMPL-fix-3",
@@ -459,26 +293,94 @@ const strategyRequirements = {
 }
 ```
 
-## Error Handling
+### Agent Invocation Template
+
+**@cli-planning-agent** (failure analysis):
+```javascript
+Task(
+  subagent_type="cli-planning-agent",
+  description=`Analyze test failures (iteration ${N}) - ${strategy} strategy`,
+  prompt=`
+    ## Task Objective
+    Analyze test failures and generate fix task JSON for iteration ${N}
+
+    ## Strategy
+    ${selectedStrategy} - ${strategyDescription}
+
+    ## MANDATORY FIRST STEPS
+    1. Read test results: ${session.test_results_path}
+    2. Read test output: ${session.test_output_path}
+    3. Read iteration state: ${session.iteration_state_path}
+
+    ## Context Metadata
+    - Session ID: ${sessionId}
+    - Current Iteration: ${N} / ${maxIterations}
+    - Current Pass Rate: ${passRate}%
+    - Selected Strategy: ${selectedStrategy}
+    - Stuck Tests: ${stuckTests}
+
+    ## CLI Configuration
+    - Tool Priority: gemini → qwen → codex
+    - Template: 01-diagnose-bug-root-cause.txt
+    - Timeout: 2400000ms
+
+    ## Expected Deliverables
+    1. Task JSON: ${session.task_dir}/IMPL-fix-${N}.json
+       - Must include: fix_strategy.test_execution.affected_tests[]
+       - Must include: fix_strategy.confidence_score
+    2. Analysis report: ${session.process_dir}/iteration-${N}-analysis.md
+    3. CLI output: ${session.process_dir}/iteration-${N}-cli-output.txt
+
+    ## Strategy-Specific Requirements
+    - Conservative: Single targeted fix, high confidence required
+    - Aggressive: Batch fix similar failures, pattern-based approach
+    - Exploratory: Generate 3 alternative approaches with different hypotheses
+    - Surgical: Minimal changes, focus on rollback safety
+
+    ## Success Criteria
+    - Concrete fix strategy with modification points (file:function:lines)
+    - Affected tests list for progressive testing
+    - Root cause analysis (not just symptoms)
+  `
+)
+```
+
+**@test-fix-agent** (execution):
+- Paths provided by orchestrator (task_json_path, iteration_state_path, etc.)
+- Agent loads files independently
+- Executes based on task.meta.type and fix_strategy
+
+### Completion Conditions
+
+**Full Success**:
+- All tasks completed
+- Pass rate === 100%
+- Action: Auto-complete session
+
+**Partial Success**:
+- All tasks completed
+- Pass rate >= 95% and < 100%
+- All failures are "low" criticality
+- Action: Auto-approve with review note
+
+**Failure**:
+- Max iterations (10) reached without 95% pass rate
+- Pass rate < 95% after max iterations
+- Action: Generate failure report, mark blocked, return to user
+
+### Error Handling
 
 | Scenario | Action |
 |----------|--------|
-| Test execution error | Log error, retry with error context |
+| Test execution error | Log, retry with error context |
 | CLI analysis failure | Fallback: Gemini → Qwen → Codex → manual |
 | Agent execution error | Save state, retry with simplified context |
 | Max iterations reached | Generate failure report, mark blocked |
 | Regression detected | Rollback last fix, switch to surgical strategy |
 | Stuck tests detected | Switch to exploratory strategy (parallel) |
 
-**CLI Fallback Chain**:
-1. Try Gemini (primary)
-2. If HTTP 429 or error: Try Qwen
-3. If Qwen fails: Try Codex
-4. If all fail: Mark as degraded, use basic pattern matching
+### TodoWrite Structure
 
-## TodoWrite Coordination
-
-**Structure**:
 ```javascript
 TodoWrite({
   todos: [
@@ -512,28 +414,15 @@ TodoWrite({
 ```
 
 **Update Rules**:
-1. Add iteration item with strategy and pass rate
-2. Mark completed after each iteration
-3. Update parent task when all complete
-
-## Usage
-
-```bash
-# Execute test-fix workflow (discovers active session)
-/workflow:test-cycle-execute
-
-# Resume interrupted session
-/workflow:test-cycle-execute --resume-session="WFS-test-user-auth"
-
-# Custom iteration limit
-/workflow:test-cycle-execute --max-iterations=15
-```
+- Add iteration item with: strategy, pass rate
+- Mark completed after each iteration
+- Update parent task when all complete
 
 ## Best Practices
 
-1. **Iteration Limits**: Default 10, adjust based on complexity
-2. **Commit Between Iterations**: Enables easier rollback
-3. **Monitor Iteration Logs**: Review CLI analysis quality
-4. **Trust Strategy Engine**: Let orchestrator select optimal approach
-5. **Leverage Progressive Testing**: 70-90% faster iterations
-6. **Watch for Stuck Tests**: Parallel exploration auto-triggers at iteration 3
+1. **Default Settings Work**: 10 iterations sufficient for most cases
+2. **Commit Between Iterations**: Enables rollback if needed
+3. **Trust Strategy Engine**: Auto-selection based on proven heuristics
+4. **Monitor Logs**: Check `.process/iteration-N-analysis.md` for insights
+5. **Progressive Testing**: Saves 70-90% iteration time
+6. **Parallel Exploration**: Auto-triggers at iteration 3 if stuck
