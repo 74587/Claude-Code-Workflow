@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.9.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.9.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,18 +14,18 @@
 
 **Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a powerful, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
 
-> **🎉 Version 5.9.2: Lite-Fix Workflow Enhancement & Session Management**
+> **🎉 Version 5.9.3: Documentation Enhancement & Context Management**
 >
 > **Core Improvements**:
-> - ✨ **Lite-Fix Session Artifacts** (`/workflow:lite-fix`) - Complete bug fix workflow tracking
->   - **Session Folder Structure**: Organized artifact storage in `.workflow/.lite-fix/{bug-slug}-{timestamp}/`
->   - **Phase Artifacts**: `diagnosis.json`, `impact.json`, `fix-plan.json`, `task.json`
->   - **CLI/Agent Access**: All intermediate results accessible for execution tools
->   - **Follow-up Tasks**: Auto-generated comprehensive fix and postmortem tasks (hotfix mode)
->   - **Enhanced Task JSON**: Complete context package with diagnosis, impact, and fix plan
-> - 🔄 **Consistent Architecture** - Aligned with lite-plan session management patterns
-> - 📊 **Better Audit Trail** - Natural history tracking for all bug fixes
-> - 🎯 **Improved Reusability** - Task JSON files can be re-executed with `/workflow:lite-execute`
+> - ✨ **Enhanced JSON Schemas** - Added exploration and plan JSON schemas for better task context and planning
+> - 🎯 **Agent-Task Execution Rules** - Enforced one-agent-per-task constraint for reliable execution
+> - 📚 **Documentation Overhaul** - Comprehensive updates to workflow initialization, task generation, and agent documentation
+>   - **Progressive Loading Strategy**: Improved context management for large codebases
+>   - **Smart Artifact Selection**: Better task JSON generation with context awareness
+>   - **Framework Integration**: Enhanced test infrastructure documentation
+> - 🔧 **Path-Based Context Loading** - Migrated agents to path-based context loading for better performance
+> - 🎨 **UI Design Templates** - Consolidated workflow commands with new UI design templates
+> - 🐛 **Bug Fixes** - Corrected spelling errors and clarified execution behavior
 >
 > See [CHANGELOG.md](CHANGELOG.md) for complete details.
 

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.9.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.9.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,18 +14,18 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
 
-> **🎉 版本 5.9.2: Lite-Fix 工作流增强与会话管理**
+> **🎉 版本 5.9.3: 文档增强与上下文管理**
 >
 > **核心改进**:
-> - ✨ **Lite-Fix 会话产物** (`/workflow:lite-fix`) - 完整的 Bug 修复工作流跟踪
->   - **会话文件夹结构**: 在 `.workflow/.lite-fix/{bug-slug}-{timestamp}/` 中组织产物存储
->   - **阶段产物**: `diagnosis.json`、`impact.json`、`fix-plan.json`、`task.json`
->   - **CLI/智能体访问**: 所有中间结果可供执行工具访问
->   - **跟进任务**: 自动生成全面修复和事后分析任务（热修复模式）
->   - **增强任务 JSON**: 包含诊断、影响和修复计划的完整上下文包
-> - 🔄 **统一架构** - 与 lite-plan 会话管理模式保持一致
-> - 📊 **更好的审计跟踪** - 所有 Bug 修复的自然历史记录
-> - 🎯 **改进的可重用性** - 任务 JSON 文件可通过 `/workflow:lite-execute` 重新执行
+> - ✨ **增强的 JSON 模式** - 新增探索和计划 JSON 模式，改进任务上下文和规划
+> - 🎯 **智能体-任务执行规则** - 强制每个任务对应一个智能体，确保可靠执行
+> - 📚 **文档全面更新** - 工作流初始化、任务生成和智能体文档的综合更新
+>   - **渐进式加载策略**: 改进大型代码库的上下文管理
+>   - **智能工件选择**: 更好的任务 JSON 生成和上下文感知
+>   - **框架集成**: 增强测试基础设施文档
+> - 🔧 **基于路径的上下文加载** - 智能体迁移到基于路径的上下文加载，提升性能
+> - 🎨 **UI 设计模板** - 整合工作流命令并新增 UI 设计模板
+> - 🐛 **Bug 修复** - 修正拼写错误并阐明执行行为
 >
 > 详见 [CHANGELOG.md](CHANGELOG.md)。
 
