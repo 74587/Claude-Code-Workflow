@@ -346,9 +346,92 @@ Task(
 ```
 
 **@test-fix-agent** (execution):
-- Paths provided by orchestrator (task_json_path, iteration_state_path, etc.)
-- Agent loads files independently
-- Executes based on task.meta.type and fix_strategy
+```javascript
+Task(
+  subagent_type="test-fix-agent",
+  description=`Execute ${task.meta.type}: ${task.title}`,
+  prompt=`
+    ## Task Objective
+    ${taskTypeObjective[task.meta.type]}
+
+    ## MANDATORY FIRST STEPS
+    1. Read task JSON: ${session.task_json_path}
+    2. Read iteration state: ${session.iteration_state_path}
+    3. ${taskTypeSpecificReads[task.meta.type]}
+
+    ## Session Paths
+    - Workflow Dir: ${session.workflow_dir}
+    - Task JSON: ${session.task_json_path}
+    - Test Results Output: ${session.test_results_path}
+    - Test Output Log: ${session.test_output_path}
+    - Iteration State: ${session.iteration_state_path}
+
+    ## Task Type: ${task.meta.type}
+    ${taskTypeGuidance[task.meta.type]}
+
+    ## Expected Deliverables
+    ${taskTypeDeliverables[task.meta.type]}
+
+    ## Success Criteria
+    - ${taskTypeSuccessCriteria[task.meta.type]}
+    - Update task status in task JSON
+    - Save all outputs to specified paths
+    - Report completion to orchestrator
+  `
+)
+
+// Task Type Configurations
+const taskTypeObjective = {
+  "test-gen": "Generate comprehensive tests based on requirements",
+  "test-fix": "Execute test suite and report results with criticality assessment",
+  "test-fix-iteration": "Apply fixes from strategy and validate with tests"
+};
+
+const taskTypeSpecificReads = {
+  "test-gen": "Read test context: ${session.test_context_path}",
+  "test-fix": "Read previous results (if exists): ${session.test_results_path}",
+  "test-fix-iteration": "Read fix strategy: ${session.analysis_path}, fix history: ${session.fix_history_path}"
+};
+
+const taskTypeGuidance = {
+  "test-gen": `
+    - Review task.context.requirements for test scenarios
+    - Analyze codebase to understand implementation
+    - Generate tests covering: happy paths, edge cases, error handling
+    - Follow existing test patterns and framework conventions
+  `,
+  "test-fix": `
+    - Run test command from task.context or project config
+    - Capture: pass/fail counts, error messages, stack traces
+    - Assess criticality for each failure:
+      * high: core functionality broken, security issues
+      * medium: feature degradation, data integrity issues
+      * low: edge cases, flaky tests, env-specific issues
+    - Save structured results to test-results.json
+  `,
+  "test-fix-iteration": `
+    - Load fix_strategy from task.context.fix_strategy
+    - Identify modification_points: ${task.context.fix_strategy.modification_points}
+    - Apply surgical fixes (minimal changes)
+    - Test execution mode: ${task.context.fix_strategy.test_execution.mode}
+      * affected_only: Run ${task.context.fix_strategy.test_execution.affected_tests}
+      * full_suite: Run complete test suite
+    - If failures persist: Document in test-results.json, DO NOT analyze (orchestrator handles)
+  `
+};
+
+const taskTypeDeliverables = {
+  "test-gen": "- Test files in target directories\n    - Test coverage report\n    - Summary in .summaries/",
+  "test-fix": "- test-results.json (pass_rate, criticality, failures)\n    - test-output.log (full test output)\n    - Summary in .summaries/",
+  "test-fix-iteration": "- Modified source files\n    - test-results.json (updated pass_rate)\n    - test-output.log\n    - Summary in .summaries/"
+};
+
+const taskTypeSuccessCriteria = {
+  "test-gen": "All test files created, executable without errors, coverage documented",
+  "test-fix": "Test results saved with accurate pass_rate and criticality, all failures documented",
+  "test-fix-iteration": "Fixes applied per strategy, tests executed, results reported (pass/fail to orchestrator)"
+};
+```
 
 ### Completion Conditions
 
