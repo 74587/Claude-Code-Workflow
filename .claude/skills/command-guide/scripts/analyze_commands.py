@@ -148,7 +148,6 @@ def build_command_relationships() -> Dict[str, Any]:
                 "workflow:session:start",
                 "workflow:tools:context-gather",
                 "workflow:tools:conflict-resolution",
-                "workflow:tools:task-generate",
                 "workflow:tools:task-generate-agent"
             ],
             "next_steps": ["workflow:action-plan-verify", "workflow:status", "workflow:execute"],
