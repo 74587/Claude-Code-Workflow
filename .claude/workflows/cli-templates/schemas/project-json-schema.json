@@ -1,0 +1,321 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Project Metadata Schema",
+  "description": "Workflow initialization metadata for project-level context",
+  "type": "object",
+  "required": [
+    "project_name",
+    "initialized_at",
+    "overview",
+    "features",
+    "statistics",
+    "memory_resources",
+    "_metadata"
+  ],
+  "properties": {
+    "project_name": {
+      "type": "string",
+      "description": "Project name extracted from git repo or directory"
+    },
+    "initialized_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of initialization"
+    },
+    "overview": {
+      "type": "object",
+      "required": [
+        "description",
+        "technology_stack",
+        "architecture",
+        "key_components",
+        "entry_points",
+        "metrics"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Brief project description (e.g., 'TypeScript web application with React frontend')"
+        },
+        "technology_stack": {
+          "type": "object",
+          "required": ["languages", "frameworks", "build_tools", "test_frameworks"],
+          "properties": {
+            "languages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "file_count", "primary"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Language name (e.g., TypeScript, Python)"
+                  },
+                  "file_count": {
+                    "type": "integer",
+                    "description": "Number of source files in this language"
+                  },
+                  "primary": {
+                    "type": "boolean",
+                    "description": "True if this is the primary language"
+                  }
+                }
+              }
+            },
+            "frameworks": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Detected frameworks (React, Express, Django, etc.)"
+            },
+            "build_tools": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Build tools and package managers (npm, cargo, maven, etc.)"
+            },
+            "test_frameworks": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Testing frameworks (jest, pytest, go test, etc.)"
+            }
+          }
+        },
+        "architecture": {
+          "type": "object",
+          "required": ["style", "layers", "patterns"],
+          "properties": {
+            "style": {
+              "type": "string",
+              "description": "Architecture style (MVC, microservices, layered, etc.)"
+            },
+            "layers": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Architectural layers (presentation, business-logic, data-access)"
+            },
+            "patterns": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Design patterns (Repository, Factory, Singleton, etc.)"
+            }
+          }
+        },
+        "key_components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "path", "description", "importance"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Component name"
+              },
+              "path": {
+                "type": "string",
+                "description": "Relative path to component directory"
+              },
+              "description": {
+                "type": "string",
+                "description": "Brief description of component functionality"
+              },
+              "importance": {
+                "type": "string",
+                "enum": ["high", "medium", "low"],
+                "description": "Component importance level"
+              }
+            }
+          },
+          "description": "5-10 core modules/components"
+        },
+        "entry_points": {
+          "type": "object",
+          "required": ["main", "cli_commands", "api_endpoints"],
+          "properties": {
+            "main": {
+              "type": "string",
+              "description": "Primary application entry point (index.ts, main.py, etc.)"
+            },
+            "cli_commands": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Available CLI commands (npm start, make build, etc.)"
+            },
+            "api_endpoints": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "HTTP/REST/GraphQL endpoints (if applicable)"
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "required": ["total_files", "lines_of_code", "module_count", "complexity"],
+          "properties": {
+            "total_files": {
+              "type": "integer",
+              "description": "Total source code files"
+            },
+            "lines_of_code": {
+              "type": "integer",
+              "description": "Estimated total lines of code"
+            },
+            "module_count": {
+              "type": "integer",
+              "description": "Number of top-level modules/packages"
+            },
+            "complexity": {
+              "type": "string",
+              "enum": ["low", "medium", "high"],
+              "description": "Overall project complexity rating"
+            }
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["session_id", "title", "completed_at", "tags"],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "description": "WFS session identifier"
+          },
+          "title": {
+            "type": "string",
+            "description": "Feature title/description"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of completion"
+          },
+          "tags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Feature tags for categorization"
+          }
+        }
+      },
+      "description": "Completed workflow features (populated by /workflow:session:complete)"
+    },
+    "statistics": {
+      "type": "object",
+      "required": ["total_features", "total_sessions", "last_updated"],
+      "properties": {
+        "total_features": {
+          "type": "integer",
+          "description": "Count of completed features"
+        },
+        "total_sessions": {
+          "type": "integer",
+          "description": "Count of workflow sessions"
+        },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of last update"
+        }
+      }
+    },
+    "memory_resources": {
+      "type": "object",
+      "required": ["skills", "documentation", "module_docs", "gaps", "last_scanned"],
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "path"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "SKILL package name"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["workflow_progress", "project_docs", "tech_stacks", "codemap", "style"],
+                "description": "SKILL package type"
+              },
+              "path": {
+                "type": "string",
+                "description": "Relative path to SKILL package directory"
+              }
+            }
+          },
+          "description": "SKILL packages generated by /memory:* commands"
+        },
+        "documentation": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "path", "has_readme", "has_architecture"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Documentation project name"
+              },
+              "path": {
+                "type": "string",
+                "description": "Path to documentation directory"
+              },
+              "has_readme": {
+                "type": "boolean",
+                "description": "README.md exists"
+              },
+              "has_architecture": {
+                "type": "boolean",
+                "description": "ARCHITECTURE.md exists"
+              }
+            }
+          },
+          "description": "Documentation generated by /memory:docs"
+        },
+        "module_docs": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Paths to CLAUDE.md files generated by /memory:update-*"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "project_skill",
+              "documentation",
+              "tech_stack",
+              "workflow_history",
+              "module_docs_low_coverage"
+            ]
+          },
+          "description": "Missing memory resources"
+        },
+        "last_scanned": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of last memory scan"
+        }
+      }
+    },
+    "_metadata": {
+      "type": "object",
+      "required": ["initialized_by", "analysis_timestamp", "analysis_mode"],
+      "properties": {
+        "initialized_by": {
+          "type": "string",
+          "description": "Agent or tool that performed initialization"
+        },
+        "analysis_timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of analysis"
+        },
+        "analysis_mode": {
+          "type": "string",
+          "enum": ["deep-scan", "quick-scan", "bash-fallback"],
+          "description": "Analysis mode used"
+        }
+      }
+    }
+  }
+}
