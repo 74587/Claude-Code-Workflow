@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plan Object Schema",
+  "description": "Implementation plan from cli-lite-planning-agent or direct planning",
+  "type": "object",
+  "required": [
+    "summary",
+    "approach",
+    "tasks",
+    "estimated_time",
+    "recommended_execution",
+    "complexity",
+    "_metadata"
+  ],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "2-3 sentence overview of the implementation plan"
+    },
+    "approach": {
+      "type": "string",
+      "description": "High-level implementation strategy and methodology"
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["title", "file", "action", "description", "implementation", "reference", "acceptance"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Task title (action verb + target)"
+          },
+          "file": {
+            "type": "string",
+            "description": "Target file path for this task"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["Create", "Update", "Implement", "Refactor", "Add", "Delete", "Configure", "Test"],
+            "description": "Primary action type"
+          },
+          "description": {
+            "type": "string",
+            "description": "What to implement (1-2 sentences)"
+          },
+          "implementation": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 3,
+            "maxItems": 7,
+            "description": "Step-by-step implementation guide"
+          },
+          "reference": {
+            "type": "object",
+            "required": ["pattern", "files", "examples"],
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "Pattern name to follow"
+              },
+              "files": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Reference file paths to study"
+              },
+              "examples": {
+                "type": "string",
+                "description": "Specific guidance or example references"
+              }
+            },
+            "description": "Reference materials for implementation"
+          },
+          "acceptance": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 2,
+            "maxItems": 4,
+            "description": "Verification criteria for task completion"
+          }
+        }
+      },
+      "description": "Structured task breakdown (3-10 tasks)"
+    },
+    "estimated_time": {
+      "type": "string",
+      "description": "Total estimated implementation time (e.g., '30 minutes', '2 hours')"
+    },
+    "recommended_execution": {
+      "type": "string",
+      "enum": ["Agent", "Codex"],
+      "description": "Recommended execution method based on complexity"
+    },
+    "complexity": {
+      "type": "string",
+      "enum": ["Low", "Medium", "High"],
+      "description": "Task complexity level"
+    },
+    "_metadata": {
+      "type": "object",
+      "required": ["timestamp", "source", "planning_mode"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of planning"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["cli-lite-planning-agent", "direct-planning"],
+          "description": "Planning source"
+        },
+        "planning_mode": {
+          "type": "string",
+          "enum": ["direct", "agent-based"],
+          "description": "Planning execution mode"
+        },
+        "duration_seconds": {
+          "type": "integer",
+          "description": "Planning duration in seconds"
+        }
+      }
+    }
+  }
+}
