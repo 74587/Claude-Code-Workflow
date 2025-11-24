@@ -236,6 +236,25 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
 - `agent`: Assigned agent for execution
 - `execution_group`: Parallelization group ID (tasks with same ID can run concurrently) or `null` for sequential tasks
 
+**Test Task Extensions** (for type="test-gen" or type="test-fix"):
+
+```json
+{
+  "meta": {
+    "type": "test-gen|test-fix",
+    "agent": "@code-developer|@test-fix-agent",
+    "test_framework": "jest|vitest|pytest|junit|mocha",
+    "coverage_target": "80%",
+    "use_codex": true|false
+  }
+}
+```
+
+**Test-Specific Fields**:
+- `test_framework`: Existing test framework from project (required for test tasks)
+- `coverage_target`: Target code coverage percentage (optional)
+- `use_codex`: Whether to use Codex for automated fixes in test-fix tasks (optional, default: false)
+
 #### Context Object
 
 ```json
@@ -306,6 +325,32 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
   }
 }
 ```
+
+**Test Task Extensions** (for type="test-gen" or type="test-fix"):
+
+```json
+{
+  "flow_control": {
+    "pre_analysis": [...],
+    "implementation_approach": [...],
+    "target_files": [...],
+    "reusable_test_tools": [
+      "tests/helpers/testUtils.ts",
+      "tests/fixtures/mockData.ts",
+      "tests/setup/testSetup.ts"
+    ],
+    "test_commands": {
+      "run_tests": "npm test",
+      "run_coverage": "npm test -- --coverage",
+      "run_specific": "npm test -- {test_file}"
+    }
+  }
+}
+```
+
+**Test-Specific Fields**:
+- `reusable_test_tools`: List of existing test utility files to reuse (helpers, fixtures, mocks)
+- `test_commands`: Test execution commands from project config (package.json, pytest.ini)
 
 ##### Pre-Analysis Patterns
 

@@ -20,6 +20,7 @@ Generate test planning documents (IMPL_PLAN.md, test task JSONs, TODO_LIST.md) u
 - **Memory-First**: Reuse loaded documents from conversation memory
 - **MCP-Enhanced**: Use MCP tools for test pattern research and analysis
 - **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root
+- **Leverage Existing Test Infrastructure**: Prioritize using established testing frameworks and tools present in the project
 
 ## Test-Specific Execution Modes
 
@@ -79,7 +80,9 @@ Generate test planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) for te
 
 IMPORTANT: This is TEST PLANNING ONLY - you are generating planning documents, NOT executing tests.
 
-CRITICAL: Follow the progressive loading strategy defined in your agent specification (load context incrementally from memory-first approach)
+CRITICAL:
+- Use existing test frameworks and utilities from the project
+- Follow the progressive loading strategy defined in your agent specification (load context incrementally from memory-first approach)
 
 ## AGENT CONFIGURATION REFERENCE
 All test task generation rules, schemas, and quality standards are defined in your agent specification:
@@ -124,6 +127,7 @@ Task Configuration:
   IMPL-001 (Test Generation):
     - meta.type: "test-gen"
     - meta.agent: "@code-developer" (agent-mode) OR CLI execution (cli-execute-mode)
+    - meta.test_framework: Specify existing framework (e.g., "jest", "vitest", "pytest")
     - flow_control: Test generation strategy from TEST_ANALYSIS_RESULTS.md
 
   IMPL-002+ (Test Execution & Fix):
@@ -144,7 +148,9 @@ Required flow_control fields:
 
 ### TEST_ANALYSIS_RESULTS.md Mapping
 PRIMARY requirements source - extract and map to task JSONs:
-  - Test framework config → meta.test_framework
+  - Test framework config → meta.test_framework (use existing framework from project)
+  - Existing test utilities → flow_control.reusable_test_tools (discovered test helpers, fixtures, mocks)
+  - Test runner commands → flow_control.test_commands (from package.json or pytest config)
   - Coverage targets → meta.coverage_target
   - Test requirements → context.requirements (quantified with explicit counts)
   - Test generation strategy → IMPL-001 flow_control.implementation_approach
@@ -154,6 +160,7 @@ PRIMARY requirements source - extract and map to task JSONs:
 1. Test Task JSON Files (.task/IMPL-*.json)
    - 6-field schema with quantified requirements from TEST_ANALYSIS_RESULTS.md
    - Test-specific metadata: type, agent, use_codex, test_framework, coverage_target
+   - flow_control includes: reusable_test_tools, test_commands (from project config)
    - Artifact references from test-context-package.json
    - Absolute paths in context.files_to_test
 
@@ -172,7 +179,8 @@ PRIMARY requirements source - extract and map to task JSONs:
 Hard Constraints:
   - Task count: minimum 2, maximum 12
   - All requirements quantified from TEST_ANALYSIS_RESULTS.md
-  - Test framework configuration validated
+  - Test framework matches existing project framework
+  - flow_control includes reusable_test_tools and test_commands from project
   - use_codex flag correctly set in IMPL-002+ tasks
   - Absolute paths for all focus_paths
   - Acceptance criteria include verification commands
