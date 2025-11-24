@@ -1,416 +1,216 @@
 ---
 name: test-task-generate
-description: Autonomous test-fix task generation using action-planning-agent with test-fix-retest cycle specification and discovery phase
+description: Generate test planning documents (IMPL_PLAN.md, test task JSONs, TODO_LIST.md) using action-planning-agent - produces test planning artifacts, does NOT execute tests
 argument-hint: "[--use-codex] [--cli-execute] --session WFS-test-session-id"
 examples:
   - /workflow:tools:test-task-generate --session WFS-test-auth
   - /workflow:tools:test-task-generate --use-codex --session WFS-test-auth
   - /workflow:tools:test-task-generate --cli-execute --session WFS-test-auth
-  - /workflow:tools:test-task-generate --cli-execute --use-codex --session WFS-test-auth
 ---
 
-# Autonomous Test Task Generation Command
+# Generate Test Planning Documents Command
 
 ## Overview
-Autonomous test-fix task JSON generation using action-planning-agent with two-phase execution: discovery and document generation. Supports both agent-driven execution (default) and CLI tool execution modes. Generates specialized test-fix tasks with comprehensive test-fix-retest cycle specification.
+Generate test planning documents (IMPL_PLAN.md, test task JSONs, TODO_LIST.md) using action-planning-agent. This command produces **test planning artifacts only** - it does NOT execute tests or implement code. Actual test execution requires separate execution command (e.g., /workflow:test-cycle-execute).
 
 ## Core Philosophy
-- **Agent-Driven**: Delegate execution to action-planning-agent for autonomous operation
-- **Two-Phase Flow**: Discovery (context gathering) → Output (document generation)
+- **Planning Only**: Generate test planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) - does NOT execute tests
+- **Agent-Driven Document Generation**: Delegate test plan generation to action-planning-agent
+- **Two-Phase Flow**: Context Preparation (command) → Test Document Generation (agent)
 - **Memory-First**: Reuse loaded documents from conversation memory
-- **MCP-Enhanced**: Use MCP tools for advanced code analysis and test research
-- **Pre-Selected Templates**: Command selects correct test template based on `--cli-execute` flag **before** invoking agent
-- **Agent Simplicity**: Agent receives pre-selected template and focuses only on content generation
+- **MCP-Enhanced**: Use MCP tools for test pattern research and analysis
 - **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root
-- **Test-First**: Generate comprehensive test coverage before execution
-- **Iterative Refinement**: Test-fix-retest cycle until all tests pass
-- **Surgical Fixes**: Minimal code changes, no refactoring during test fixes
-- **Auto-Revert**: Rollback all changes if max iterations reached
 
-## Execution Modes
+## Test-Specific Execution Modes
 
 ### Test Generation (IMPL-001)
-- **Agent Mode (Default)**: @code-developer generates tests within agent context
-- **CLI Execute Mode (`--cli-execute`)**: Use Codex CLI for autonomous test generation
+- **Agent Mode** (default): @code-developer generates tests within agent context
+- **CLI Execute Mode** (`--cli-execute`): Use Codex CLI for autonomous test generation
 
-### Test Fix (IMPL-002)
-- **Manual Mode (Default)**: Gemini diagnosis → user applies fixes
-- **Codex Mode (`--use-codex`)**: Gemini diagnosis → Codex applies fixes with resume mechanism
+### Test Execution & Fix (IMPL-002+)
+- **Manual Mode** (default): Gemini diagnosis → user applies fixes
+- **Codex Mode** (`--use-codex`): Gemini diagnosis → Codex applies fixes with resume mechanism
 
-## Execution Lifecycle
+## Document Generation Lifecycle
 
-### Phase 1: Discovery & Context Loading
-**⚡ Memory-First Rule**: Skip file loading if documents already in conversation memory
+### Phase 1: Context Preparation (Command Responsibility)
 
-**Agent Context Package**:
-```javascript
-{
-  "session_id": "WFS-test-[session-id]",
-  "execution_mode": "agent-mode" | "cli-execute-mode",  // Determined by flag
-  "task_json_template_path": "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt"
-                           | "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt",
-  // Path selected by command based on --cli-execute flag, agent reads it
-  "workflow_type": "test_session",
-  "use_codex": true | false,  // Determined by --use-codex flag
-  "session_metadata": {
-    // If in memory: use cached content
-    // Else: Load from .workflow/active/{test-session-id}/workflow-session.json
-  },
-  "test_analysis_results_path": ".workflow/active/{test-session-id}/.process/TEST_ANALYSIS_RESULTS.md",
-  "test_analysis_results": {
-    // If in memory: use cached content
-    // Else: Load from TEST_ANALYSIS_RESULTS.md
-  },
-  "test_context_package_path": ".workflow/active/{test-session-id}/.process/test-context-package.json",
-  "test_context_package": {
-    // Existing test patterns and coverage analysis
-  },
-  "source_session_id": "[source-session-id]",  // if exists
-  "source_session_summaries": {
-    // Implementation context from source session
-  },
-  "mcp_capabilities": {
-    "code_index": true,
-    "exa_code": true,
-    "exa_web": true
-  }
-}
+**Command prepares test session paths and metadata for planning document generation.**
+
+**Test Session Path Structure**:
+```
+.workflow/active/WFS-test-{session-id}/
+├── workflow-session.json          # Test session metadata
+├── .process/
+│   ├── TEST_ANALYSIS_RESULTS.md   # Test requirements and strategy
+│   ├── test-context-package.json  # Test patterns and coverage
+│   └── context-package.json       # General context artifacts
+├── .task/                         # Output: Test task JSON files
+├── IMPL_PLAN.md                   # Output: Test implementation plan
+└── TODO_LIST.md                   # Output: Test TODO list
 ```
 
-**Discovery Actions**:
-1. **Load Test Session Context** (if not in memory)
-   ```javascript
-   if (!memory.has("workflow-session.json")) {
-     Read(.workflow/active/{test-session-id}/workflow-session.json)
-   }
-   ```
+**Command Preparation**:
+1. **Assemble Test Session Paths** for agent prompt:
+   - `session_metadata_path`
+   - `test_analysis_results_path` (REQUIRED)
+   - `test_context_package_path`
+   - Output directory paths
 
-2. **Load TEST_ANALYSIS_RESULTS.md** (if not in memory, REQUIRED)
-   ```javascript
-   if (!memory.has("TEST_ANALYSIS_RESULTS.md")) {
-     Read(.workflow/active/{test-session-id}/.process/TEST_ANALYSIS_RESULTS.md)
-   }
-   ```
+2. **Provide Metadata** (simple values):
+   - `session_id`
+   - `execution_mode` (agent-mode | cli-execute-mode)
+   - `use_codex` flag (true | false)
+   - `source_session_id` (if exists)
+   - `mcp_capabilities` (available MCP tools)
 
-3. **Load Test Context Package** (if not in memory)
-   ```javascript
-   if (!memory.has("test-context-package.json")) {
-     Read(.workflow/active/{test-session-id}/.process/test-context-package.json)
-   }
-   ```
+### Phase 2: Test Document Generation (Agent Responsibility)
 
-4. **Load Source Session Summaries** (if source_session_id exists)
-   ```javascript
-   if (sessionMetadata.source_session_id) {
-     const summaryFiles = Bash("find .workflow/active/{source-session-id}/.summaries/ -name 'IMPL-*-summary.md'")
-     summaryFiles.forEach(file => Read(file))
-   }
-   ```
-
-5. **Code Analysis with Native Tools** (optional - enhance understanding)
-   ```bash
-   # Find test files and patterns
-   find . -name "*test*" -type f
-   rg "describe|it\(|test\(" -g "*.ts"
-   ```
-
-6. **MCP External Research** (optional - gather test best practices)
-   ```javascript
-   // Get external test examples and patterns
-   mcp__exa__get_code_context_exa(
-     query="TypeScript test generation best practices jest",
-     tokensNum="dynamic"
-   )
-   ```
-
-### Phase 2: Agent Execution (Document Generation)
-
-**Pre-Agent Template Selection** (Command decides path before invoking agent):
-```javascript
-// Command checks flag and selects template PATH (not content)
-const templatePath = hasCliExecuteFlag
-  ? "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt"
-  : "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt";
-```
+**Purpose**: Generate test-specific IMPL_PLAN.md, task JSONs, and TODO_LIST.md - planning documents only, NOT test execution.
 
 **Agent Invocation**:
 ```javascript
 Task(
   subagent_type="action-planning-agent",
-  description="Generate test-fix task JSON and implementation plan",
+  description="Generate test planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md)",
   prompt=`
-## Execution Context
+## TASK OBJECTIVE
+Generate test planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) for test workflow session
 
-**Session ID**: WFS-test-{session-id}
-**Workflow Type**: Test Session
-**Execution Mode**: {agent-mode | cli-execute-mode}
-**Task JSON Template Path**: {template_path}
-**Use Codex**: {true | false}
+IMPORTANT: This is TEST PLANNING ONLY - you are generating planning documents, NOT executing tests.
 
-## Phase 1: Discovery Results (Provided Context)
+CRITICAL: Follow the progressive loading strategy defined in your agent specification (load context incrementally from memory-first approach)
 
-### Test Session Metadata
-{session_metadata_content}
-- source_session_id: {source_session_id} (if exists)
-- workflow_type: "test_session"
+## AGENT CONFIGURATION REFERENCE
+All test task generation rules, schemas, and quality standards are defined in your agent specification:
+@.claude/agents/action-planning-agent.md
 
-### TEST_ANALYSIS_RESULTS.md (REQUIRED)
-{test_analysis_results_content}
-- Coverage Assessment
-- Test Framework & Conventions
-- Test Requirements by File
-- Test Generation Strategy
-- Implementation Targets
-- Success Criteria
+Refer to your specification for:
+- Test Task JSON Schema (6-field structure with test-specific metadata)
+- Test IMPL_PLAN.md Structure (test_session variant with test-fix cycle)
+- TODO_LIST.md Format (with test phase indicators)
+- Progressive Loading Strategy (memory-first, load TEST_ANALYSIS_RESULTS.md as primary source)
+- Quality Validation Rules (task count limits, requirement quantification)
 
-### Test Context Package
-{test_context_package_summary}
-- Existing test patterns, framework config, coverage analysis
+## SESSION PATHS
+Input:
+  - Session Metadata: .workflow/active/{test-session-id}/workflow-session.json
+  - TEST_ANALYSIS_RESULTS: .workflow/active/{test-session-id}/.process/TEST_ANALYSIS_RESULTS.md (REQUIRED - primary requirements source)
+  - Test Context Package: .workflow/active/{test-session-id}/.process/test-context-package.json
+  - Context Package: .workflow/active/{test-session-id}/.process/context-package.json
+  - Source Session Summaries: .workflow/active/{source-session-id}/.summaries/IMPL-*.md (if exists)
 
-### Source Session Implementation Context (Optional)
-{source_session_summaries}
-- Implementation context from completed session
+Output:
+  - Task Dir: .workflow/active/{test-session-id}/.task/
+  - IMPL_PLAN: .workflow/active/{test-session-id}/IMPL_PLAN.md
+  - TODO_LIST: .workflow/active/{test-session-id}/TODO_LIST.md
 
-### MCP Analysis Results (Optional)
-**Code Structure**: {mcp_code_index_results}
-**External Research**: {mcp_exa_research_results}
+## CONTEXT METADATA
+Session ID: {test-session-id}
+Workflow Type: test_session
+Planning Mode: {agent-mode | cli-execute-mode}
+Use Codex: {true | false}
+Source Session: {source-session-id} (if exists)
+MCP Capabilities: {exa_code, exa_web, code_index}
 
-## Phase 2: Test Task Document Generation
+## TEST-SPECIFIC REQUIREMENTS SUMMARY
+(Detailed specifications in your agent definition)
 
-**Agent Configuration Reference**: All test task generation rules, test-fix cycle structure, quality standards, and execution details are defined in action-planning-agent.
+### Task Structure Requirements
+- Minimum 2 tasks: IMPL-001 (test generation) + IMPL-002 (test execution & fix)
+- Expandable for complex projects: Add IMPL-003+ (per-module, integration, E2E tests)
 
-Refer to: @.claude/agents/action-planning-agent.md for:
-- Test Task Decomposition Standards
-- Test-Fix-Retest Cycle Requirements
-- 5-Field Task JSON Schema
-- IMPL_PLAN.md Structure (Test variant)
-- TODO_LIST.md Format
-- Test Execution Flow & Quality Validation
+Task Configuration:
+  IMPL-001 (Test Generation):
+    - meta.type: "test-gen"
+    - meta.agent: "@code-developer" (agent-mode) OR CLI execution (cli-execute-mode)
+    - flow_control: Test generation strategy from TEST_ANALYSIS_RESULTS.md
 
-### Test-Specific Requirements Summary
+  IMPL-002+ (Test Execution & Fix):
+    - meta.type: "test-fix"
+    - meta.agent: "@test-fix-agent"
+    - meta.use_codex: true/false (based on flag)
+    - flow_control: Test-fix cycle with iteration limits and diagnosis configuration
 
-#### Task Structure Philosophy
-- **Minimum 2 tasks**: IMPL-001 (test generation) + IMPL-002 (test execution & fix)
-- **Expandable**: Add IMPL-003+ for complex projects (per-module, integration, etc.)
-- IMPL-001: Uses @code-developer or CLI execution
-- IMPL-002: Uses @test-fix-agent with iterative fix cycle
+### Test-Fix Cycle Specification (IMPL-002+)
+Required flow_control fields:
+  - max_iterations: 5
+  - diagnosis_tool: "gemini"
+  - diagnosis_template: "~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt"
+  - fix_mode: "manual" OR "codex" (based on use_codex flag)
+  - cycle_pattern: "test → gemini_diagnose → fix → retest"
+  - exit_conditions: ["all_tests_pass", "max_iterations_reached"]
+  - auto_revert_on_failure: true
 
-#### Test-Fix Cycle Configuration
-- **Max Iterations**: 5 (for IMPL-002)
-- **Diagnosis Tool**: Gemini with bug-fix template
-- **Fix Application**: Manual (default) or Codex (if --use-codex flag)
-- **Cycle Pattern**: test → gemini_diagnose → manual_fix (or codex) → retest
-- **Exit Conditions**: All tests pass OR max iterations reached (auto-revert)
+### TEST_ANALYSIS_RESULTS.md Mapping
+PRIMARY requirements source - extract and map to task JSONs:
+  - Test framework config → meta.test_framework
+  - Coverage targets → meta.coverage_target
+  - Test requirements → context.requirements (quantified with explicit counts)
+  - Test generation strategy → IMPL-001 flow_control.implementation_approach
+  - Implementation targets → context.files_to_test (absolute paths)
 
-#### Required Outputs Summary
+## EXPECTED DELIVERABLES
+1. Test Task JSON Files (.task/IMPL-*.json)
+   - 6-field schema with quantified requirements from TEST_ANALYSIS_RESULTS.md
+   - Test-specific metadata: type, agent, use_codex, test_framework, coverage_target
+   - Artifact references from test-context-package.json
+   - Absolute paths in context.files_to_test
 
-##### 1. Test Task JSON Files (.task/IMPL-*.json)
-- **Location**: `.workflow/active/{test-session-id}/.task/`
-- **Template**: Read from `{template_path}` (pre-selected by command based on `--cli-execute` flag)
-- **Schema**: 5-field structure with test-specific metadata
-  - IMPL-001: `meta.type: "test-gen"`, `meta.agent: "@code-developer"`
-  - IMPL-002: `meta.type: "test-fix"`, `meta.agent: "@test-fix-agent"`, `meta.use_codex: {use_codex}`
-  - `flow_control`: Test generation approach (IMPL-001) or test-fix cycle (IMPL-002)
-- **Details**: See action-planning-agent.md § Test Task JSON Generation
+2. Test Implementation Plan (IMPL_PLAN.md)
+   - Template: ~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt
+   - Test-specific frontmatter: workflow_type="test_session", test_framework, source_session_id
+   - Test-Fix-Retest Cycle section with diagnosis configuration
+   - Source session context integration (if applicable)
 
-##### 2. IMPL_PLAN.md (Test Variant)
-- **Location**: `.workflow/active/{test-session-id}/IMPL_PLAN.md`
-- **Template**: `~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
-- **Test-Specific Frontmatter**: workflow_type="test_session", test_framework, source_session_id
-- **Test-Fix-Retest Cycle Section**: Iterative fix cycle with Gemini diagnosis
-- **Details**: See action-planning-agent.md § Test Implementation Plan Creation
+3. TODO List (TODO_LIST.md)
+   - Hierarchical structure with test phase containers
+   - Links to task JSONs with status markers
+   - Matches task JSON hierarchy
 
-##### 3. TODO_LIST.md
-- **Location**: `.workflow/active/{test-session-id}/TODO_LIST.md`
-- **Format**: Task list with test generation and execution phases
-- **Status**: [ ] (pending), [x] (completed)
-- **Details**: See action-planning-agent.md § TODO List Generation
+## QUALITY STANDARDS
+Hard Constraints:
+  - Task count: minimum 2, maximum 12
+  - All requirements quantified from TEST_ANALYSIS_RESULTS.md
+  - Test framework configuration validated
+  - use_codex flag correctly set in IMPL-002+ tasks
+  - Absolute paths for all focus_paths
+  - Acceptance criteria include verification commands
 
-### Agent Execution Summary
-
-**Key Steps** (Detailed instructions in action-planning-agent.md):
-1. Load task JSON template from provided path
-2. Parse TEST_ANALYSIS_RESULTS.md for test requirements
-3. Generate IMPL-001 (test generation) task JSON
-4. Generate IMPL-002 (test execution & fix) task JSON with use_codex flag
-5. Generate additional IMPL-*.json if project complexity requires
-6. Create IMPL_PLAN.md using test template variant
-7. Generate TODO_LIST.md with test task indicators
-8. Update session state with test metadata
-
-**Quality Gates** (Full checklist in action-planning-agent.md):
-- ✓ Minimum 2 tasks created (IMPL-001 + IMPL-002)
-- ✓ IMPL-001 has test generation approach from TEST_ANALYSIS_RESULTS.md
-- ✓ IMPL-002 has test-fix cycle with correct use_codex flag
-- ✓ Test framework configuration integrated
-- ✓ Source session context referenced (if exists)
-- ✓ MCP tool integration added
-- ✓ Documents follow test template structure
-
-## Output
-
-Generate all three documents and report completion status:
-- Test task JSON files created: N files (minimum 2)
-- Test requirements integrated: TEST_ANALYSIS_RESULTS.md
-- Test context integrated: existing patterns and coverage
-- Source session context: {source_session_id} summaries (if exists)
-- MCP enhancements: code-index, exa-research
-- Session ready for test execution: /workflow:execute or /workflow:test-cycle-execute
+## SUCCESS CRITERIA
+- All test planning documents generated successfully
+- Return completion status: task count, test framework, coverage targets, source session status
 `
 )
 ```
-
-### Agent Context Passing
-
-**Memory-Aware Context Assembly**:
-```javascript
-// Assemble context package for agent
-const agentContext = {
-  session_id: "WFS-test-[id]",
-  workflow_type: "test_session",
-  use_codex: hasUseCodexFlag,
-
-  // Use memory if available, else load
-  session_metadata: memory.has("workflow-session.json")
-    ? memory.get("workflow-session.json")
-    : Read(.workflow/active/WFS-test-[id]/workflow-session.json),
-
-  test_analysis_results_path: ".workflow/active/WFS-test-[id]/.process/TEST_ANALYSIS_RESULTS.md",
-
-  test_analysis_results: memory.has("TEST_ANALYSIS_RESULTS.md")
-    ? memory.get("TEST_ANALYSIS_RESULTS.md")
-    : Read(".workflow/active/WFS-test-[id]/.process/TEST_ANALYSIS_RESULTS.md"),
-
-  test_context_package_path: ".workflow/active/WFS-test-[id]/.process/test-context-package.json",
-
-  test_context_package: memory.has("test-context-package.json")
-    ? memory.get("test-context-package.json")
-    : Read(".workflow/active/WFS-test-[id]/.process/test-context-package.json"),
-
-  // Load source session summaries if exists
-  source_session_id: session_metadata.source_session_id || null,
-
-  source_session_summaries: session_metadata.source_session_id
-    ? loadSourceSummaries(session_metadata.source_session_id)
-    : null,
-
-  // Optional MCP enhancements
-  mcp_analysis: executeMcpDiscovery()
-}
-```
-
-## Test Task Structure Reference
-
-This section provides quick reference for test task JSON structure. For complete implementation details, see the agent invocation prompt in Phase 2 above.
-
-**Quick Reference**:
-- Minimum 2 tasks: IMPL-001 (test-gen) + IMPL-002 (test-fix)
-- Expandable for complex projects (IMPL-003+)
-- IMPL-001: `meta.agent: "@code-developer"`, test generation approach
-- IMPL-002: `meta.agent: "@test-fix-agent"`, `meta.use_codex: {flag}`, test-fix cycle
-- See Phase 2 agent prompt for full schema and requirements
-
-## Output Files Structure
-```
-.workflow/active/WFS-test-[session]/
-├── workflow-session.json           # Test session metadata
-├── IMPL_PLAN.md                    # Test validation plan
-├── TODO_LIST.md                    # Progress tracking
-├── .task/
-│   └── IMPL-001.json               # Test-fix task with cycle spec
-├── .process/
-│   ├── ANALYSIS_RESULTS.md         # From concept-enhanced (optional)
-│   ├── context-package.json        # From context-gather
-│   ├── initial-test.log            # Phase 1: Initial test results
-│   ├── fix-iteration-1-diagnosis.md # Gemini diagnosis iteration 1
-│   ├── fix-iteration-1-changes.log  # Codex changes iteration 1
-│   ├── fix-iteration-1-retest.log   # Retest results iteration 1
-│   ├── fix-iteration-N-*.md/log    # Subsequent iterations
-│   └── final-test.log              # Phase 3: Final validation
-└── .summaries/
-    └── IMPL-001-summary.md         # Success report OR failure report
-```
-
-## Error Handling
-
-### Input Validation Errors
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Not a test session | Missing workflow_type: "test_session" | Verify session created by test-gen |
-| Source session not found | Invalid source_session_id | Check source session exists |
-| No implementation summaries | Source session incomplete | Ensure source session has completed tasks |
-
-### Test Framework Discovery Errors
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| No test command found | Unknown framework | Manual test command specification |
-| No test files found | Tests not written | Request user to write tests first |
-| Test dependencies missing | Incomplete setup | Run dependency installation |
-
-### Generation Errors
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Invalid JSON structure | Template error | Fix task generation logic |
-| Missing required fields | Incomplete metadata | Validate session metadata |
 
 ## Integration & Usage
 
 ### Command Chain
 - **Called By**: `/workflow:test-gen` (Phase 4), `/workflow:test-fix-gen` (Phase 4)
-- **Invokes**: `action-planning-agent` for autonomous task generation
-- **Followed By**: `/workflow:execute` or `/workflow:test-cycle-execute` (user-triggered)
+- **Invokes**: `action-planning-agent` for test planning document generation
+- **Followed By**: `/workflow:test-cycle-execute` or `/workflow:execute` (user-triggered)
 
-### Basic Usage
+### Usage Examples
 ```bash
-# Agent mode (default, autonomous execution)
+# Agent mode (default)
 /workflow:tools:test-task-generate --session WFS-test-auth
 
-# With automated Codex fixes for IMPL-002
+# With automated Codex fixes
 /workflow:tools:test-task-generate --use-codex --session WFS-test-auth
 
-# CLI execution mode for IMPL-001 test generation
+# CLI execution mode for test generation
 /workflow:tools:test-task-generate --cli-execute --session WFS-test-auth
-
-# Both flags combined
-/workflow:tools:test-task-generate --cli-execute --use-codex --session WFS-test-auth
 ```
 
-### Execution Modes
-- **Agent mode** (default): Uses `action-planning-agent` with agent-mode task template
-- **CLI mode** (`--cli-execute`): Uses Gemini/Qwen/Codex with cli-mode task template for IMPL-001
-- **Codex fixes** (`--use-codex`): Enables automated fixes in IMPL-002 task
-
 ### Flag Behavior
-- **No flags**: `meta.use_codex=false` (manual fixes), agent-mode generation
-- **--use-codex**: `meta.use_codex=true` (Codex automated fixes with resume mechanism in IMPL-002)
-- **--cli-execute**: Uses CLI tool execution mode for IMPL-001 test generation
+- **No flags**: `meta.use_codex=false` (manual fixes), agent-mode test generation
+- **--use-codex**: `meta.use_codex=true` (Codex automated fixes in IMPL-002+)
+- **--cli-execute**: CLI tool execution mode for IMPL-001 test generation
 - **Both flags**: CLI generation + automated Codex fixes
 
 ### Output
-- Test task JSON files in `.task/` directory (minimum 2: IMPL-001.json + IMPL-002.json)
-- IMPL_PLAN.md with test generation and fix cycle strategy
-- TODO_LIST.md with test task indicators
-- Session state updated with test metadata
-- MCP enhancements integrated (if available)
-
-## Agent Execution Notes
-
-The `@test-fix-agent` will execute the task by following the `flow_control.implementation_approach` specification:
-
-1. **Load task JSON**: Read complete test-fix task from `.task/IMPL-002.json`
-2. **Check meta.use_codex**: Determine fix mode (manual or automated)
-3. **Execute pre_analysis**: Load source context, discover framework, analyze tests
-4. **Phase 1**: Run initial test suite
-5. **Phase 2**: If failures, enter iterative loop:
-   - Use Gemini for diagnosis (analysis mode with bug-fix template)
-   - Check meta.use_codex flag:
-     - If false (default): Present fix suggestions to user for manual application
-     - If true (--use-codex): Use Codex resume for automated fixes (maintains context)
-   - Retest and check for regressions
-   - Repeat max 5 times
-6. **Phase 3**: Generate summary and certify code
-7. **Error Recovery**: Revert changes if max iterations reached
-
-**Bug Diagnosis Template**: Uses `~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt` template for systematic root cause analysis, code path tracing, and targeted fix recommendations.
-
-**Codex Usage**: The agent uses `codex exec "..." resume --last` pattern ONLY when meta.use_codex=true (--use-codex flag present) to maintain conversation context across multiple fix iterations, ensuring consistency and learning from previous attempts.
+- Test task JSON files in `.task/` directory (minimum 2)
+- IMPL_PLAN.md with test strategy and fix cycle specification
+- TODO_LIST.md with test phase indicators
+- Session ready for test execution
