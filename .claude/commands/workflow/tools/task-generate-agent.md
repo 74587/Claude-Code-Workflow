@@ -65,54 +65,7 @@ Generate implementation planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.
 
 IMPORTANT: This is PLANNING ONLY - you are generating planning documents, NOT implementing code.
 
-CRITICAL: Use progressive loading due to analysis.md file size
-
-## MANDATORY FIRST STEPS
-1. Read session metadata: {session.session_metadata_path}
-2. Load context package STRUCTURE ONLY: {session.context_package_path}
-3. Use PROGRESSIVE 4-phase loading strategy (detailed below)
-
-## PROGRESSIVE LOADING STRATEGY (4 Phases)
-
-### PHASE 1: Core Context (REQUIRED - Always Load First)
-Purpose: Establish baseline understanding
-
-Step 1.1 - Session Metadata:
-  Read: {session.session_metadata_path}
-  Extract: User description, project scope, technical constraints
-
-Step 1.2 - Context Package Structure (catalog only):
-  Read: {session.context_package_path}
-  Extract: metadata, project_context, assets (PATHS only), brainstorm_artifacts (catalog), conflict_detection
-
-Step 1.3 - Existing Plan (if resuming):
-  Check: .workflow/active/{session-id}/IMPL_PLAN.md
-  Action: If exists, load for continuity
-
-### PHASE 2: Selective Artifacts (Load Smart)
-Purpose: Get architectural guidance for task planning
-
-Loading strategy (choose based on availability):
-- **If synthesis_output exists**: Load ONLY synthesis_output.path (already integrates all role perspectives)
-- **If guidance_specification exists**: Load guidance first, then progressively load role analyses as needed
-- **If only role analyses exist**: Progressively load role analyses by priority
-
-Default approach: Progressive loading - load artifacts incrementally, one at a time, to manage file size.
-
-Conflict handling: If conflict_risk≥medium, check conflict_detection.status for resolved conflicts
-
-### PHASE 3: Load More Analysis (if needed)
-Continue loading additional role analysis.md files ONE at a time when current context lacks detail.
-Reason: Each analysis.md is long; progressive loading prevents token overflow.
-
-### PHASE 4: Project Assets (FINAL)
-Purpose: Get concrete project context
-
-Extract from context_package:
-  - focus_areas: Target directories
-  - assets.source_code: File PATHS (read content selectively)
-  - assets.documentation: Reference docs
-  - dependencies: Internal and external
+CRITICAL: Follow the progressive loading strategy defined in agent specification (load analysis.md files incrementally due to file size)
 
 ## SESSION PATHS
 Input:

@@ -67,7 +67,11 @@ You are a pure execution agent specialized in creating actionable implementation
    Commands: Read({{context_package_path}})
    Output: Complete context package object
 
-3. Load brainstorming artifacts (in priority order)
+3. Check existing plan (if resuming)
+   - If IMPL_PLAN.md exists: Read for continuity
+   - If task JSONs exist: Load for context
+
+4. Load brainstorming artifacts (in priority order)
    a. guidance-specification.md (Highest Priority)
       → Overall design framework and architectural decisions
    b. Role analyses (progressive loading: load incrementally by priority)
@@ -78,11 +82,11 @@ You are a pure execution agent specialized in creating actionable implementation
    d. Conflict resolution (if conflict_risk ≥ medium)
       → Review resolved conflicts in artifacts
 
-4. Optional MCP enhancement
+5. Optional MCP enhancement
    → mcp__exa__get_code_context_exa() for best practices
    → mcp__exa__web_search_exa() for external research
 
-5. Assess task complexity (simple/medium/complex)
+6. Assess task complexity (simple/medium/complex)
 ```
 
 **Context Package Structure** (fields defined by context-search-agent):
