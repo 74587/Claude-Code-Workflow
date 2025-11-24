@@ -1,6 +1,6 @@
 ---
 name: test-concept-enhanced
-description: Coordinate test analysis workflow using cli-execute-agent to generate test strategy via Gemini
+description: Coordinate test analysis workflow using cli-execution-agent to generate test strategy via Gemini
 argument-hint: "--session WFS-test-session-id --context path/to/test-context-package.json"
 examples:
   - /workflow:tools:test-concept-enhanced --session WFS-test-auth --context .workflow/active/WFS-test-auth/.process/test-context-package.json
@@ -9,7 +9,7 @@ examples:
 # Test Concept Enhanced Command
 
 ## Overview
-Workflow coordinator that delegates test analysis to cli-execute-agent. Agent executes Gemini to analyze test coverage gaps, implementation context, and generate comprehensive test generation strategies.
+Workflow coordinator that delegates test analysis to cli-execution-agent. Agent executes Gemini to analyze test coverage gaps, implementation context, and generate comprehensive test generation strategies.
 
 ## Core Philosophy
 - **Coverage-Driven**: Focus on identified test gaps from context analysis
@@ -19,7 +19,7 @@ Workflow coordinator that delegates test analysis to cli-execute-agent. Agent ex
 - **No Code Generation**: Strategy and planning only, actual test generation happens in task execution
 
 ## Core Responsibilities
-- Coordinate test analysis workflow using cli-execute-agent
+- Coordinate test analysis workflow using cli-execution-agent
 - Validate test-context-package.json prerequisites
 - Execute Gemini analysis via agent for test strategy generation
 - Validate agent outputs (gemini-test-analysis.md, TEST_ANALYSIS_RESULTS.md)
@@ -52,7 +52,7 @@ Workflow coordinator that delegates test analysis to cli-execute-agent. Agent ex
 **Agent Invocation**:
 ```javascript
 Task(
-  subagent_type="cli-execute-agent",
+  subagent_type="cli-execution-agent",
   description="Analyze test coverage gaps and generate test strategy",
   prompt=`
 ## TASK OBJECTIVE
