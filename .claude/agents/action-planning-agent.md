@@ -70,10 +70,9 @@ You are a pure execution agent specialized in creating actionable implementation
 3. Load brainstorming artifacts (in priority order)
    a. guidance-specification.md (Highest Priority)
       → Overall design framework and architectural decisions
-   b. Role analyses (High Priority - load ALL files)
-      → system-architect/analysis.md
-      → subject-matter-expert/analysis.md
-      → (Other roles as listed in context package)
+   b. Role analyses (progressive loading: load incrementally by priority)
+      → Load role analysis files one at a time as needed
+      → Reason: Each analysis.md is long; progressive loading prevents token overflow
    c. Synthesis output (if exists)
       → Integrated view with clarifications
    d. Conflict resolution (if conflict_risk ≥ medium)
@@ -129,9 +128,10 @@ if (contextPackage.brainstorm_artifacts?.guidance_specification?.exists) {
 }
 
 if (contextPackage.brainstorm_artifacts?.role_analyses?.length > 0) {
+  // Progressive loading: load role analyses incrementally by priority
   contextPackage.brainstorm_artifacts.role_analyses.forEach(role => {
     role.files.forEach(file => {
-      const analysis = file.content || Read(file.path);
+      const analysis = file.content || Read(file.path); // Load one at a time
     });
   });
 }
@@ -324,11 +324,11 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
   },
   {
     "step": "load_role_analysis_artifacts",
-    "action": "Load role analyses from context-package.json",
+    "action": "Load role analyses from context-package.json (progressive loading by priority)",
     "commands": [
       "Read({{context_package_path}})",
       "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
-      "Read(each extracted path)"
+      "Read(extracted paths progressively)"
     ],
     "output_to": "role_analysis_artifacts",
     "on_error": "skip_optional"
@@ -388,13 +388,16 @@ The examples above demonstrate **patterns**, not fixed requirements. Agent MUST:
    - `load_context_package` - Essential for all tasks
    - `load_role_analysis_artifacts` - Critical for accessing brainstorming insights
 
-2. **Selectively Include Based on Task Type**:
-   - **Architecture tasks**: Project structure + Gemini architecture analysis
-   - **Refactoring tasks**: Gemini execution flow tracing + code quality analysis
-   - **Frontend tasks**: React/Vue component searches + UI pattern analysis
-   - **Backend tasks**: Database schema + API endpoint searches
-   - **Security tasks**: Vulnerability scans + security pattern analysis
-   - **Performance tasks**: Bottleneck identification + profiling data
+2. **Progressive Addition of Analysis Steps**:
+   Include additional analysis steps as needed for comprehensive planning:
+   - **Architecture analysis**: Project structure + architecture patterns
+   - **Execution flow analysis**: Code tracing + quality analysis
+   - **Component analysis**: Component searches + pattern analysis
+   - **Data analysis**: Schema review + endpoint searches
+   - **Security analysis**: Vulnerability scans + security patterns
+   - **Performance analysis**: Bottleneck identification + profiling
+
+   Default: Include progressively based on planning requirements, not limited by task type.
 
 3. **Tool Selection Strategy**:
    - **Gemini CLI**: Deep analysis (architecture, execution flow, patterns)
