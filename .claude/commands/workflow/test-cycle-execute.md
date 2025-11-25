@@ -154,8 +154,8 @@ Stuck Detected (iteration 3+):
 # Orchestrator creates isolated worktrees
 git worktree add ../worktree-{a,b,c}
 
-# Launch 3 @test-fix-agent instances in parallel (haiku for speed)
-Task(subagent_type="test-fix-agent", model="haiku", ...) x3
+# Launch 3 @test-fix-agent instances in parallel
+Task(subagent_type="test-fix-agent", ...) x3
 
 # Collect results, select winner
 ```
