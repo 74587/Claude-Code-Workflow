@@ -114,7 +114,12 @@ try {
       recommended_execution: jsonData.meta.recommended_execution,
       complexity: jsonData.meta.complexity
     }
-    explorationContext = jsonData.context.exploration || null
+
+    // Extract multi-angle explorations
+    explorationsContext = jsonData.context.explorations || null
+    explorationAngles = jsonData.meta.exploration_angles || []
+    explorationFiles = jsonData.context.exploration_files || []
+
     clarificationContext = jsonData.context.clarifications || null
     originalUserInput = jsonData.title
 
@@ -336,18 +341,36 @@ Outputs: ${result.keyOutputs || 'See git diff'}
 ${result.notes ? `Notes: ${result.notes}` : ''}
   `).join('\n---\n')}` : ''}
 
-  ## Code Context
-  ${explorationContext || "No exploration performed"}
+  ## Multi-Angle Code Context
+
+  ${explorationsContext && Object.keys(explorationsContext).length > 0 ?
+    explorationAngles.map(angle => {
+      const exp = explorationsContext[angle]
+      return `### Exploration Angle: ${angle}
+
+**Project Structure**: ${exp.project_structure || 'N/A'}
+**Relevant Files**: ${exp.relevant_files?.join(', ') || 'None'}
+**Patterns**: ${exp.patterns || 'N/A'}
+**Dependencies**: ${exp.dependencies || 'N/A'}
+**Integration Points**: ${exp.integration_points || 'N/A'}
+**Constraints**: ${exp.constraints || 'N/A'}`
+    }).join('\n\n---\n\n')
+    : "No exploration performed"
+  }
 
   ${clarificationContext ? `\n## Clarifications\n${JSON.stringify(clarificationContext, null, 2)}` : ''}
 
-  ${executionContext?.session?.artifacts ? `\n## Planning Artifacts
-  Detailed planning context available in:
-  ${executionContext.session.artifacts.exploration ? `- Exploration: ${executionContext.session.artifacts.exploration}` : ''}
+  ${executionContext?.session?.artifacts ? `\n## Exploration Artifact Files
+
+  Detailed exploration context available in:
+  ${executionContext.session.artifacts.explorations?.map(exp =>
+    `- Angle: ${exp.angle} → ${exp.path}`
+  ).join('\n') || ''}
+  ${executionContext.session.artifacts.explorations_manifest ? `- Manifest: ${executionContext.session.artifacts.explorations_manifest}` : ''}
   - Plan: ${executionContext.session.artifacts.plan}
   - Task: ${executionContext.session.artifacts.task}
 
-  Read these files for detailed architecture, patterns, and constraints.` : ''}
+  Read exploration files for comprehensive context from multiple angles.` : ''}
 
   ## Requirements
   MUST complete ALL ${planObject.tasks.length} tasks listed above in this single execution.
@@ -407,24 +430,35 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
 IMPORTANT: Review previous results. Build on completed work. Avoid duplication.
 ` : ''}
 
-### Code Context from Exploration
-${explorationContext ? `
-Project Structure: ${explorationContext.project_structure || 'Standard structure'}
-Relevant Files: ${explorationContext.relevant_files?.join(', ') || 'TBD'}
-Current Patterns: ${explorationContext.patterns || 'Follow existing conventions'}
-Integration Points: ${explorationContext.dependencies || 'None specified'}
-Constraints: ${explorationContext.constraints || 'None'}
-` : 'No prior exploration - analyze codebase as needed'}
+### Multi-Angle Code Context
+
+${explorationsContext && Object.keys(explorationsContext).length > 0 ?
+  `Exploration conducted from ${explorationAngles.length} angles:
+
+${explorationAngles.map(angle => {
+  const exp = explorationsContext[angle]
+  return `Angle: ${angle}
+- Structure: ${exp.project_structure || 'Standard structure'}
+- Files: ${exp.relevant_files?.slice(0, 5).join(', ') || 'TBD'}${exp.relevant_files?.length > 5 ? ` (+${exp.relevant_files.length - 5} more)` : ''}
+- Patterns: ${exp.patterns?.substring(0, 100) || 'Follow existing'}${exp.patterns?.length > 100 ? '...' : ''}
+- Constraints: ${exp.constraints || 'None'}`
+}).join('\n\n')}
+`
+  : 'No prior exploration - analyze codebase as needed'
+}
 
 ${clarificationContext ? `\n### User Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `${q}: ${a}`).join('\n')}` : ''}
 
-${executionContext?.session?.artifacts ? `\n### Planning Artifact Files
-Detailed planning context available in session folder:
-${executionContext.session.artifacts.exploration ? `- Exploration: ${executionContext.session.artifacts.exploration}` : ''}
+${executionContext?.session?.artifacts ? `\n### Exploration Artifact Files
+Detailed context from multiple exploration angles available in:
+${executionContext.session.artifacts.explorations?.map(exp =>
+  `- Angle: ${exp.angle} → ${exp.path}`
+).join('\n') || ''}
+${executionContext.session.artifacts.explorations_manifest ? `- Manifest: ${executionContext.session.artifacts.explorations_manifest}` : ''}
 - Plan: ${executionContext.session.artifacts.plan}
 - Task: ${executionContext.session.artifacts.task}
 
-Read these files for complete architecture details, code patterns, and integration constraints.
+Read exploration files for comprehensive architectural, pattern, and constraint details from multiple angles.
 ` : ''}
 
 ## Requirements
