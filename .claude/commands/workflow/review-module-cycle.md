@@ -1,31 +1,35 @@
 ---
-name: review-cycle
-description: Comprehensive multi-dimensional code review with hybrid parallel-iterative execution. Analyzes code across 7 dimensions, aggregates findings, and performs focused deep-dives on critical issues until quality gates met.
-argument-hint: "[session-id] [--dimensions=security,architecture,...] [--max-iterations=N] [--output-dir=path] [--resume]"
+name: review-module-cycle
+description: Independent multi-dimensional code review for specified modules/files. Analyzes specific code paths across 7 dimensions with hybrid parallel-iterative execution, independent of workflow sessions.
+argument-hint: "<path-pattern> [--dimensions=security,architecture,...] [--max-iterations=N] [--output-dir=path] [--resume]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---
 
-# Workflow Review-Cycle Command
+# Workflow Review-Module-Cycle Command
 
 ## Quick Start
 
 ```bash
-# Execute comprehensive review (all 7 dimensions)
-/workflow:review-cycle
+# Review specific module (all 7 dimensions)
+/workflow:review-module-cycle src/auth/**
 
-# Custom dimensions selection
-/workflow:review-cycle --dimensions=security,architecture,quality
+# Review multiple modules
+/workflow:review-module-cycle src/auth/**,src/payment/**
 
-# Resume interrupted review
-/workflow:review-cycle --resume
+# Review with custom dimensions
+/workflow:review-module-cycle src/payment/** --dimensions=security,architecture,quality
 
-# Specify session and iteration limit
-/workflow:review-cycle WFS-payment-integration --max-iterations=5
+# Review specific files
+/workflow:review-module-cycle src/payment/processor.ts,src/payment/validator.ts
 
 # Custom output directory
-/workflow:review-cycle --output-dir=.workflow/active/WFS-session/.review-cycle
+/workflow:review-module-cycle src/auth/** --output-dir=.workflow/.scratchpad/reviews/auth-review
+
+# Resume interrupted review
+/workflow:review-module-cycle --resume
 ```
 
+**Review Scope**: Specified modules/files only (independent of git history or sessions)
 **Default Dimensions**: Security, Architecture, Quality, Action-Items, Performance, Maintainability, Best-Practices
 **Max Iterations**: 3 (default, adjustable)
 **CLI Tools**: Gemini → Qwen → Codex (fallback chain)
@@ -33,20 +37,26 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ## What & Why
 
 ### Core Concept
-Multi-dimensional code review orchestrator with **hybrid parallel-iterative execution** for comprehensive quality assessment.
+Independent multi-dimensional code review orchestrator with **hybrid parallel-iterative execution** for comprehensive quality assessment of **specific modules or files**.
 
-**vs Standard Review**:
-- **Standard**: Sequential manual reviews → Inconsistent coverage → Missed cross-cutting concerns
-- **Review-Cycle**: **Parallel automated analysis → Aggregate findings → Deep-dive critical issues** → Comprehensive coverage
+**Review Scope**:
+- **Module-based**: Reviews specified file patterns (e.g., `src/auth/**`, `*.ts`)
+- **No session dependency**: Works independently of workflow sessions
+- **For session-based review**: Use `/workflow:review-session-cycle` command instead
+
+**vs Session Review**:
+- **Session Review** (`review-session-cycle`): Reviews git changes within a workflow session
+- **Module Review** (`review-module-cycle`): Reviews any specified code paths, regardless of git history
 
 ### Value Proposition
-1. **Comprehensive Coverage**: 7 specialized dimensions analyze all quality aspects simultaneously
-2. **Intelligent Prioritization**: Automatic identification of critical issues and cross-cutting concerns
-3. **Actionable Insights**: Deep-dive iterations provide step-by-step remediation plans
-4. **Real-time Visibility**: JSON-based progress tracking with interactive HTML dashboard
+1. **Ad-hoc Review**: Review any code without requiring a workflow session
+2. **Module-focused**: Target specific areas of codebase for deep analysis
+3. **Comprehensive Coverage**: Same 7 specialized dimensions as session review
+4. **Intelligent Prioritization**: Automatic identification of critical issues and cross-cutting concerns
+5. **Real-time Visibility**: JSON-based progress tracking with interactive HTML dashboard
 
 ### Orchestrator Boundary (CRITICAL)
-- **ONLY command** for comprehensive multi-dimensional review
+- **ONLY command** for independent multi-dimensional module review
 - Manages: dimension coordination, aggregation, iteration control, progress tracking
 - Delegates: Code exploration and analysis to @cli-explore-agent, dimension-specific reviews via Deep Scan mode
 
@@ -56,11 +66,11 @@ Multi-dimensional code review orchestrator with **hybrid parallel-iterative exec
 
 ```
 1. Discovery & Initialization
-   └─ Validate session, initialize state, create output structure → Generate dashboard.html
+   └─ Resolve file patterns, validate paths, initialize state, create output structure → Generate dashboard.html
 
 2. Phase 2: Parallel Reviews (for each dimension):
    ├─ Launch 7 review agents simultaneously
-   ├─ Each executes CLI analysis via Gemini/Qwen
+   ├─ Each executes CLI analysis via Gemini/Qwen on specified files
    ├─ Generate dimension JSON + markdown reports
    └─ Update review-progress.json
 
@@ -87,7 +97,7 @@ Multi-dimensional code review orchestrator with **hybrid parallel-iterative exec
 
 | Agent | Responsibility |
 |-------|---------------|
-| **Orchestrator** | Phase control, session discovery, state management, aggregation logic, iteration control |
+| **Orchestrator** | Phase control, path resolution, state management, aggregation logic, iteration control |
 | **@cli-explore-agent** (Review) | Execute dimension-specific code analysis via Deep Scan mode, generate findings JSON with dual-source strategy (Bash + Gemini), create structured analysis reports |
 | **@cli-explore-agent** (Deep-dive) | Focused root cause analysis using dependency mapping, remediation planning with architectural insights, impact assessment, severity re-assessment |
 
@@ -123,7 +133,21 @@ const CATEGORIES = {
 };
 ```
 
-### 2. Aggregation Logic
+### 2. Path Pattern Resolution
+
+**Supported Patterns**:
+- **Glob patterns**: `src/auth/**`, `src/payment/**/*.ts`
+- **Specific files**: `src/payment/processor.ts`
+- **Multiple patterns**: `src/auth/**,src/payment/**` (comma-separated)
+- **Extension filters**: `*.ts`, `**/*.test.ts`
+
+**Resolution Process**:
+1. Parse input pattern (comma-separated if multiple)
+2. Expand glob patterns to file list
+3. Validate all files exist
+4. Store resolved file list in review-state.json
+
+### 3. Aggregation Logic
 
 **Cross-Cutting Concern Detection**:
 1. Files appearing in 3+ dimensions = **Critical Files**
@@ -135,7 +159,7 @@ const CATEGORIES = {
 - Top 3 high-severity findings in critical files (priority 2)
 - Max 5 findings per iteration (prevent overwhelm)
 
-### 3. Severity Assessment
+### 4. Severity Assessment
 
 **Severity Levels**:
 - **Critical**: Security vulnerabilities, data corruption risks, system-wide failures, authentication/authorization bypass
@@ -153,16 +177,16 @@ const CATEGORIES = {
 ### Orchestrator
 
 **Phase 1: Discovery & Initialization**
-- Session discovery: Auto-detect active session if not specified
-- Validation: Ensure session has completed implementation (check .summaries/)
-- State initialization: Create review-state.json with dimensions, max_iterations
-- Directory structure: Create .review-cycle/{dimensions,iterations,reports}/
+- Path resolution: Parse and expand file patterns (glob support)
+- Validation: Ensure all specified files exist and are readable
+- State initialization: Create review-state.json with dimensions, max_iterations, resolved_files
+- Directory structure: Create output-dir/{dimensions,iterations,reports}/
 - Dashboard generation: Generate dashboard.html from template (see Dashboard Generation below)
 - TodoWrite initialization: Set up progress tracking
 
 **Phase 2: Parallel Review Coordination**
 - Launch 7 @cli-explore-agent instances simultaneously (Deep Scan mode)
-- Pass dimension-specific context (template, timeout, custom focus)
+- Pass dimension-specific context (template, timeout, custom focus, **target files**)
 - Monitor completion via review-progress.json updates
 - TodoWrite updates: Mark dimensions as completed
 - CLI tool fallback: Gemini → Qwen → Codex (on error/timeout)
@@ -197,13 +221,12 @@ const CATEGORIES = {
 ```javascript
 {
   dimension: "security|architecture|quality|...",
-  session_id: "WFS-xxx",
-  session_metadata_path: ".workflow/active/WFS-xxx/workflow-session.json",
-  summaries_dir: ".workflow/active/WFS-xxx/.summaries/",
+  review_type: "module",
+  target_files: ["src/auth/service.ts", "src/auth/validator.ts", ...],
   output_paths: {
-    json: ".review-cycle/dimensions/{dimension}.json",
-    report: ".review-cycle/reports/{dimension}-analysis.md",
-    cli_output: ".review-cycle/reports/{dimension}-cli-output.txt"
+    json: "{output-dir}/dimensions/{dimension}.json",
+    report: "{output-dir}/reports/{dimension}-analysis.md",
+    cli_output: "{output-dir}/reports/{dimension}-cli-output.txt"
   },
   cli_config: {
     tool: "gemini",
@@ -230,8 +253,8 @@ const CATEGORIES = {
   original_finding: {...},
   iteration: 1,
   output_paths: {
-    json: ".review-cycle/iterations/iteration-1-finding-{uuid}.json",
-    report: ".review-cycle/reports/deep-dive-1-{uuid}.md"
+    json: "{output-dir}/iterations/iteration-1-finding-{uuid}.json",
+    report: "{output-dir}/reports/deep-dive-1-{uuid}.md"
   },
   cli_config: {
     tool: "gemini",
@@ -258,7 +281,9 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 1. **Read & Process Template**
    ```javascript
    const template = Read('~/.claude/templates/review-cycle-dashboard.html');
-   const dashboard = template.replace('{{SESSION_ID}}', sessionId);
+   const dashboard = template
+     .replace('{{SESSION_ID}}', `Module: ${pathPattern}`)
+     .replace('{{REVIEW_TYPE}}', 'module');
    Write(`${outputDir}/dashboard.html`, dashboard);
    ```
 
@@ -297,10 +322,10 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 
 **When to Fallback**: HTTP 429, timeout, invalid JSON output, confidence < 0.4
 
-### Session File Structure
+### Output File Structure
 
 ```
-.workflow/active/WFS-{session}/.review-cycle/
+{output-dir}/
 ├── review-state.json                    # Orchestrator state machine
 ├── review-progress.json                 # Real-time progress for dashboard
 ├── dimensions/                          # Per-dimension results
@@ -329,8 +354,14 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 
 ```json
 {
-  "session_id": "WFS-payment-integration",
   "review_id": "review-20250125-143022",
+  "review_type": "module",
+  "target_pattern": "src/auth/**",
+  "resolved_files": [
+    "src/auth/service.ts",
+    "src/auth/validator.ts",
+    "src/auth/middleware.ts"
+  ],
   "phase": "parallel|aggregate|iterate|complete",
   "current_iteration": 1,
   "max_iterations": 3,
@@ -343,41 +374,11 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
     "medium": 12,
     "low": 8
   },
-  "critical_files": [
-    {
-      "file": "src/payment/processor.ts",
-      "finding_count": 5,
-      "dimensions": ["security", "architecture", "quality"]
-    }
-  ],
-  "iterations": [
-    {
-      "iteration": 1,
-      "findings_analyzed": ["uuid-1", "uuid-2"],
-      "findings_resolved": 1,
-      "findings_escalated": 1,
-      "severity_change": {
-        "before": {"critical": 2, "high": 5, "medium": 12, "low": 8},
-        "after": {"critical": 1, "high": 6, "medium": 12, "low": 8}
-      },
-      "timestamp": "2025-01-25T14:30:00Z"
-    }
-  ],
-  "completion_criteria": {
-    "target": "no_critical_findings_and_high_under_5",
-    "current_status": "in_progress",
-    "estimated_completion": "2 iterations remaining"
-  }
+  "critical_files": [...],
+  "iterations": [...],
+  "completion_criteria": {...}
 }
 ```
-
-**Field Descriptions**:
-- `phase`: Current execution phase (state machine pointer)
-- `current_iteration`: Iteration counter (used for max check)
-- `next_action`: Next step orchestrator should execute
-- `severity_distribution`: Aggregated counts across all dimensions
-- `critical_files`: Files appearing in 3+ dimensions with metadata
-- `iterations[]`: Historical log for trend analysis
 
 ### Review Progress JSON
 
@@ -429,12 +430,12 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 
 1. **Dimension Results** (cli-explore-agent output from parallel reviews)
    - Schema: `~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json`
-   - Output: `.review-cycle/dimensions/{dimension}.json`
+   - Output: `{output-dir}/dimensions/{dimension}.json`
    - Contains: findings array, summary statistics, cross_references
 
 2. **Deep-Dive Results** (cli-explore-agent output from iterations)
    - Schema: `~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json`
-   - Output: `.review-cycle/iterations/iteration-{N}-finding-{uuid}.json`
+   - Output: `{output-dir}/iterations/iteration-{N}-finding-{uuid}.json`
    - Contains: root_cause, remediation_plan, impact_assessment, reassessed_severity
 
 ### Agent Invocation Template
@@ -447,7 +448,7 @@ Task(
   description=`Execute ${dimension} review analysis via Deep Scan`,
   prompt=`
     ## Task Objective
-    Conduct comprehensive ${dimension} code exploration and analysis using Deep Scan mode (Bash + Gemini dual-source strategy) for completed implementation in session ${sessionId}
+    Conduct comprehensive ${dimension} code exploration and analysis using Deep Scan mode (Bash + Gemini dual-source strategy) for specified module files
 
     ## Analysis Mode Selection
     Use **Deep Scan mode** for this review:
@@ -456,16 +457,16 @@ Task(
     - Phase 3: Synthesis with attribution (bash-discovered vs gemini-discovered findings)
 
     ## MANDATORY FIRST STEPS
-    1. Read session metadata: ${sessionMetadataPath}
-    2. Read completed task summaries: bash(find ${summariesDir} -name "IMPL-*.md" -type f)
-    3. Get changed files: bash(cd ${workflowDir} && git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u)
-    4. Read review state: ${reviewStateJsonPath}
+    1. Read review state: ${reviewStateJsonPath}
+    2. Get target files: Read resolved_files from review-state.json
+    3. Validate file access: bash(ls -la ${targetFiles.join(' ')})
 
-    ## Session Context
-    - Session ID: ${sessionId}
+    ## Review Context
+    - Review Type: module (independent)
     - Review Dimension: ${dimension}
     - Review ID: ${reviewId}
-    - Implementation Phase: Complete (all tests passing)
+    - Target Pattern: ${targetPattern}
+    - Resolved Files: ${resolvedFiles.length} files
     - Output Directory: ${outputDir}
 
     ## CLI Configuration
@@ -474,6 +475,7 @@ Task(
     - Custom Focus: ${customFocus || 'Standard dimension analysis'}
     - Timeout: ${timeout}ms
     - Mode: analysis (READ-ONLY)
+    - Context Pattern: ${targetFiles.map(f => `@${f}`).join(' ')}
 
     ## Expected Deliverables
     1. Dimension Results JSON: ${outputDir}/dimensions/${dimension}.json
@@ -493,7 +495,7 @@ Task(
     ${getDimensionGuidance(dimension)}
 
     ## Success Criteria
-    - All changed files analyzed for ${dimension} concerns
+    - All target files analyzed for ${dimension} concerns
     - All findings include file:line references with code snippets
     - Severity assessment follows established criteria (see reference)
     - Recommendations are actionable with code examples
@@ -537,8 +539,8 @@ Task(
     ## MANDATORY FIRST STEPS
     1. Read original finding: ${dimensionJsonPath}
     2. Read affected file: ${file}
-    3. Identify related code: bash(grep -r "import.*${basename(file)}" ${workflowDir}/src --include="*.ts")
-    4. Read test files: bash(find ${workflowDir}/tests -name "*${basename(file, '.ts')}*" -type f)
+    3. Identify related code: bash(grep -r "import.*${basename(file)}" ${projectDir}/src --include="*.ts")
+    4. Read test files: bash(find ${projectDir}/tests -name "*${basename(file, '.ts')}*" -type f)
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex
@@ -718,8 +720,9 @@ function getDimensionGuidance(dimension) {
 
 | Scenario | Action |
 |----------|--------|
-| Session not found | Error: Provide session ID or ensure active session exists |
-| No completed tasks | Error: Complete implementation before review |
+| Invalid path pattern | Error: Provide valid glob pattern or file path |
+| No files matched | Error: Pattern matched 0 files, check path |
+| Files not readable | Error: Permission denied for specified files |
 | CLI analysis failure | Fallback: Gemini → Qwen → Codex → degraded mode |
 | Invalid JSON output | Retry with clarified prompt, fallback to next tool |
 | Max iterations reached | Generate report with remaining issues, mark partial success |
@@ -748,71 +751,49 @@ TodoWrite({
       activeForm: "Executing parallel reviews"
     },
     {
-      content: "  → Security review",
+      content: "  → Security review (src/auth/**)",
       status: "completed",
       activeForm: "Analyzing security"
     },
     {
-      content: "  → Architecture review",
+      content: "  → Architecture review (src/auth/**)",
       status: "completed",
       activeForm: "Analyzing architecture"
     },
-    {
-      content: "  → Quality review",
-      status: "in_progress",
-      activeForm: "Analyzing quality"
-    },
-    {
-      content: "  → Action-Items review",
-      status: "pending",
-      activeForm: "Analyzing action items"
-    },
-    {
-      content: "  → Performance review",
-      status: "pending",
-      activeForm: "Analyzing performance"
-    },
-    {
-      content: "  → Maintainability review",
-      status: "pending",
-      activeForm: "Analyzing maintainability"
-    },
-    {
-      content: "  → Best-Practices review",
-      status: "pending",
-      activeForm: "Analyzing best practices"
-    },
-    {
-      content: "Phase 3: Aggregation",
-      status: "pending",
-      activeForm: "Aggregating findings"
-    },
-    {
-      content: "Phase 4: Iteration 1 - Deep-dive (5 findings)",
-      status: "pending",
-      activeForm: "Executing deep-dive iteration 1"
-    },
-    {
-      content: "Phase 5: Completion",
-      status: "pending",
-      activeForm: "Generating final report"
-    }
+    // ... (same pattern as review-session-cycle)
   ]
 });
 ```
 
-**Update Rules**:
-- Add dimension items during parallel phase
-- Add iteration items dynamically based on findings
-- Mark completed immediately after each phase/agent
-- Update parent task when phase complete
-
 ## Best Practices
 
-1. **Default Settings Work**: 7 dimensions + 3 iterations sufficient for most cases
-2. **Parallel Execution**: ~60 minutes for full initial review (7 dimensions)
-3. **Trust Aggregation Logic**: Auto-selection based on proven heuristics
-4. **Monitor Logs**: Check reports/ directory for CLI analysis insights
-5. **Dashboard Polling**: Refresh every 5 seconds for real-time updates
-6. **Resume Support**: Interrupted reviews can resume from last checkpoint
-7. **Export Results**: Use dashboard export for external tracking tools
+1. **Start Specific**: Begin with focused module patterns for faster results
+2. **Expand Gradually**: Add more modules based on initial findings
+3. **Use Glob Wisely**: `src/auth/**` is more efficient than `src/**` with lots of irrelevant files
+4. **Trust Aggregation Logic**: Auto-selection based on proven heuristics
+5. **Monitor Logs**: Check reports/ directory for CLI analysis insights
+6. **Dashboard Polling**: Refresh every 5 seconds for real-time updates
+7. **Resume Support**: Interrupted reviews can resume from last checkpoint
+8. **Export Results**: Use dashboard export for external tracking tools
+
+## Examples
+
+### Review Authentication Module
+```bash
+/workflow:review-module-cycle src/auth/**
+```
+
+### Review Payment Processing with Security Focus
+```bash
+/workflow:review-module-cycle src/payment/** --dimensions=security,architecture
+```
+
+### Review Multiple Modules
+```bash
+/workflow:review-module-cycle src/auth/**,src/payment/**,src/user/**
+```
+
+### Review Specific Critical Files
+```bash
+/workflow:review-module-cycle src/payment/processor.ts,src/auth/validator.ts --max-iterations=5
+```
