@@ -80,6 +80,22 @@
           "const": "cli-explore-agent",
           "description": "Agent that performed exploration"
         },
+        "exploration_angle": {
+          "type": "string",
+          "description": "Agent-chosen exploration angle (e.g., 'architecture', 'security', 'dataflow')"
+        },
+        "exploration_index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Exploration index (1-4) in parallel exploration set"
+        },
+        "total_explorations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Total number of parallel explorations"
+        },
         "duration_seconds": {
           "type": "integer",
           "description": "Exploration duration in seconds"

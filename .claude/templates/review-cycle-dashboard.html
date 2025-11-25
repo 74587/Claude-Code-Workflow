@@ -127,6 +127,412 @@
             border-color: var(--accent-color);
         }
 
+        .export-btn-fix {
+            background-color: var(--success-color);
+            color: white;
+            border-color: var(--success-color);
+        }
+
+        .export-btn-fix:hover {
+            background-color: #38a169;
+        }
+
+        .export-btn-fix:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Selection Controls */
+        .selection-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .selection-counter {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .selection-btn {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        /* Checkbox Styles */
+        .finding-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--accent-color);
+        }
+
+        /* Fix Status Badges */
+        .fix-status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-top: 8px;
+        }
+
+        .fix-status-badge.status-pending {
+            background-color: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .fix-status-badge.status-in-progress {
+            background-color: var(--accent-color);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        .fix-status-badge.status-fixed {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .fix-status-badge.status-failed {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Fix Progress Section */
+        .fix-progress-section {
+            background-color: var(--bg-card);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            display: none; /* Hidden by default */
+        }
+
+        .fix-progress-section.active {
+            display: block;
+        }
+
+        .fix-progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .fix-progress-bar {
+            height: 8px;
+            background-color: var(--bg-primary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .fix-progress-bar-fill {
+            height: 100%;
+            background-color: var(--success-color);
+            transition: width 0.3s;
+        }
+
+        .active-agents-list {
+            margin-top: 15px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 15px;
+        }
+
+        .active-agent-item {
+            padding: 10px;
+            background-color: var(--bg-primary);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .active-agent-item .agent-task {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+
+        .active-agent-item .agent-file {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        .agent-status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            margin-left: 8px;
+            font-size: 0.75rem;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .group-active-items {
+            margin-top: 8px;
+            padding: 6px 8px;
+            background-color: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid var(--accent-color);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            word-wrap: break-word;
+        }
+
+        /* Flow Control Steps */
+        .flow-control-container {
+            margin-top: 12px;
+            padding: 10px;
+            background-color: rgba(139, 92, 246, 0.05);
+            border-radius: 6px;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .flow-control-header {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .flow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .flow-step-completed {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+
+        .flow-step-in-progress {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--accent-color);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .flow-step-failed {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .flow-step-pending {
+            background-color: rgba(156, 163, 175, 0.1);
+            color: var(--text-secondary);
+        }
+
+        .flow-step-icon {
+            font-size: 1rem;
+        }
+
+        .flow-step-name {
+            font-weight: 500;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .collapse-btn {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        /* History Timeline */
+        .history-drawer {
+            position: fixed;
+            right: -600px;
+            top: 0;
+            width: 600px;
+            height: 100vh;
+            background-color: var(--bg-secondary);
+            box-shadow: var(--shadow-lg);
+            transition: right 0.3s;
+            z-index: 1001;
+            overflow-y: auto;
+        }
+
+        .history-drawer.active {
+            right: 0;
+        }
+
+        .history-timeline {
+            padding: 20px;
+        }
+
+        .history-item {
+            padding: 15px;
+            background-color: var(--bg-card);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .history-item.status-fixed {
+            border-left-color: var(--success-color);
+        }
+
+        .history-item.status-failed {
+            border-left-color: var(--danger-color);
+        }
+
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .history-item-title {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .history-item-timestamp {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .history-item-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .history-item-tests {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: var(--bg-primary);
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        /* Stage Timeline */
+        .stage-timeline {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .stage-item {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px;
+            background-color: var(--bg-card);
+            border-radius: 6px;
+            border: 2px solid var(--border-color);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stage-item.pending {
+            opacity: 0.6;
+            border-color: var(--border-color);
+        }
+
+        .stage-item.in-progress {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .stage-item.completed {
+            border-color: var(--success-color);
+            background-color: rgba(34, 197, 94, 0.05);
+        }
+
+        .stage-number {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .stage-mode {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .stage-groups {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Active Groups List */
+        .active-groups-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .active-group-card {
+            background-color: var(--bg-card);
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .group-id {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .group-status {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .group-name {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .group-findings {
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
         /* Severity Summary Cards */
         .severity-grid {
             display: grid;
@@ -616,9 +1022,61 @@
                     <input type="text" id="searchInput" placeholder="🔍 Search findings..." />
                 </div>
 
+                <div class="selection-controls">
+                    <span class="selection-counter" id="selectionCounter">0 findings selected</span>
+                    <button class="btn selection-btn" onclick="selectAll()">Select All</button>
+                    <button class="btn selection-btn" onclick="deselectAll()">Deselect All</button>
+                </div>
+
                 <button class="btn export-btn" onclick="exportToMarkdown()">📥 Export Report</button>
+                <button class="btn export-btn-fix" id="exportFixBtn" onclick="exportSelectedFindings()" disabled>🔧 Export Selected for Fixing</button>
             </div>
         </header>
+
+        <!-- Fix Progress Section -->
+        <div class="fix-progress-section" id="fixProgressSection">
+            <div class="fix-progress-header">
+                <h3>Fix Progress</h3>
+                <span class="phase-badge" id="fixPhaseBadge">PLANNING</span>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn collapse-btn" onclick="toggleFixProgress()">Collapse</button>
+                    <button class="btn collapse-btn" onclick="openHistoryDrawer()">📜 View Fix History</button>
+                </div>
+            </div>
+
+            <!-- Planning Phase Indicator -->
+            <div id="planningPhase" style="display: none; text-align: center; padding: 20px;">
+                <div style="font-size: 2rem; margin-bottom: 10px;">🤖</div>
+                <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 5px;">Planning Fixes</div>
+                <div style="color: var(--text-secondary);">AI is analyzing findings and generating fix plan...</div>
+            </div>
+
+            <!-- Stage Timeline (visible in planning after plan generation) -->
+            <div class="stage-timeline" id="stageTimeline" style="display: none;">
+                <!-- Stages populated by JavaScript -->
+            </div>
+
+            <!-- Execution Phase UI -->
+            <div id="executionPhase" style="display: none;">
+                <!-- Progress Bar -->
+                <div class="fix-progress-bar">
+                    <div class="fix-progress-bar-fill" id="fixProgressFill" style="width: 0%"></div>
+                </div>
+                <div style="text-align: center; font-size: 0.9rem; color: var(--text-secondary); margin-top: 10px;">
+                    <span id="fixProgressText">No active fix session</span>
+                </div>
+
+                <!-- Active Groups -->
+                <div class="active-groups-list" id="activeGroupsList">
+                    <!-- Active groups populated by JavaScript -->
+                </div>
+
+                <!-- Active Agents -->
+                <div class="active-agents-list" id="activeAgentsList">
+                    <!-- Active agents populated by JavaScript -->
+                </div>
+            </div>
+        </div>
 
         <!-- Progress Section -->
         <div class="progress-section">
@@ -703,6 +1161,18 @@
         </div>
     </div>
 
+    <!-- History Timeline Drawer -->
+    <div class="drawer-overlay" id="historyDrawerOverlay" onclick="closeHistoryDrawer()"></div>
+    <div class="history-drawer" id="historyDrawer">
+        <div class="drawer-header">
+            <div class="drawer-title">📜 Fix History</div>
+            <button class="close-btn" onclick="closeHistoryDrawer()">×</button>
+        </div>
+        <div class="history-timeline" id="historyTimeline">
+            <!-- History items populated by JavaScript -->
+        </div>
+    </div>
+
     <button class="theme-toggle" id="themeToggle">🌙</button>
 
     <script>
@@ -716,6 +1186,581 @@
         };
         let pollingInterval = null;
         let reviewState = null;
+
+        // Fix-related state
+        let selectedFindings = new Set();
+        let fixSession = null;
+        let fixProgressInterval = null;
+        let fixProgressCollapsed = false;
+
+        // Selection management
+        function toggleFindingSelection(findingId, event) {
+            event.stopPropagation(); // Prevent triggering showFindingDetail
+
+            if (selectedFindings.has(findingId)) {
+                selectedFindings.delete(findingId);
+            } else {
+                selectedFindings.add(findingId);
+            }
+
+            updateSelectionUI();
+        }
+
+        function selectAll() {
+            filteredFindings.forEach(finding => {
+                selectedFindings.add(finding.id);
+            });
+            updateSelectionUI();
+        }
+
+        function deselectAll() {
+            selectedFindings.clear();
+            updateSelectionUI();
+        }
+
+        function updateSelectionUI() {
+            // Update counter
+            const counter = document.getElementById('selectionCounter');
+            counter.textContent = `${selectedFindings.size} finding${selectedFindings.size !== 1 ? 's' : ''} selected`;
+
+            // Update export button state
+            const exportBtn = document.getElementById('exportFixBtn');
+            exportBtn.disabled = selectedFindings.size === 0;
+
+            // Update checkbox states
+            document.querySelectorAll('.finding-checkbox').forEach(checkbox => {
+                checkbox.checked = selectedFindings.has(checkbox.dataset.findingId);
+            });
+        }
+
+        // Export selected findings for fixing
+        async function exportSelectedFindings() {
+            if (selectedFindings.size === 0) {
+                alert('Please select at least one finding to export');
+                return;
+            }
+
+            // Gather selected findings
+            const selectedFindingsData = allFindings.filter(f => selectedFindings.has(f.id));
+
+            // Create export data structure
+            const exportData = {
+                export_id: `fix-export-${Date.now()}`,
+                export_timestamp: new Date().toISOString(),
+                review_id: reviewState?.review_id || 'unknown',
+                session_id: reviewState?.session_id || 'unknown',
+                findings_count: selectedFindingsData.length,
+                findings: selectedFindingsData.map(f => ({
+                    id: f.id,
+                    title: f.title,
+                    description: f.description,
+                    severity: f.severity,
+                    dimension: f.dimension,
+                    category: f.category || 'uncategorized',
+                    file: f.file,
+                    line: f.line,
+                    code_context: f.code_context || null,
+                    recommendations: f.recommendations || [],
+                    root_cause: f.root_cause || null
+                }))
+            };
+
+            // Convert to JSON and download
+            const jsonStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fix-export-${exportData.export_id}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            alert(`Exported ${selectedFindingsData.length} finding${selectedFindingsData.length !== 1 ? 's' : ''} for fixing.\n\nUse: /workflow:review-fix <exported-file>`);
+        }
+
+        // Fix progress tracking
+        function detectFixSession() {
+            // Check if there's an active fix session in the review directory
+            fetch('./fixes/active-fix-session.json')
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('No active fix session');
+                })
+                .then(data => {
+                    fixSession = data;
+                    startFixProgressPolling(data.fix_session_id);
+                })
+                .catch(() => {
+                    // No active fix session, hide progress section
+                    document.getElementById('fixProgressSection').classList.remove('active');
+                });
+        }
+
+        function startFixProgressPolling(fixSessionId) {
+            // Show progress section
+            document.getElementById('fixProgressSection').classList.add('active');
+
+            // Initial load
+            loadFixProgress(fixSessionId);
+
+            // Start polling every 3 seconds
+            if (fixProgressInterval) {
+                clearInterval(fixProgressInterval);
+            }
+            fixProgressInterval = setInterval(() => {
+                loadFixProgress(fixSessionId);
+            }, 3000);
+        }
+
+        async function loadFixProgress(fixSessionId) {
+            try {
+                // Step 1: Load fix plan to get progress file list
+                const planResponse = await fetch(`./fixes/${fixSessionId}/fix-plan.json`);
+                if (!planResponse.ok) throw new Error('Fix plan not found');
+                const fixPlan = await planResponse.json();
+
+                // Step 2: Load all progress files in parallel
+                const progressFiles = fixPlan.groups.map(g => g.progress_file);
+                const progressPromises = progressFiles.map(file =>
+                    fetch(`./fixes/${fixSessionId}/${file}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .catch(() => null)
+                );
+                const progressDataArray = await Promise.all(progressPromises);
+
+                // Step 3: Aggregate data from all progress files
+                const progressData = aggregateProgressData(fixPlan, progressDataArray.filter(d => d !== null));
+
+                updateFixStatus(progressData);
+
+                // If complete, stop polling and update history
+                if (progressData.status === 'completed' || progressData.status === 'failed') {
+                    clearInterval(fixProgressInterval);
+                    fixProgressInterval = null;
+
+                    // Reload fix history
+                    await loadFixHistory();
+
+                    // Mark findings as fixed
+                    if (progressData.status === 'completed') {
+                        progressData.fixes.forEach(fix => {
+                            if (fix.status === 'fixed') {
+                                markFindingAsFixed(fix.finding_id);
+                            }
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading fix progress:', error);
+            }
+        }
+
+        function aggregateProgressData(fixPlan, progressDataArray) {
+            // Aggregate all findings from progress files
+            const allFindings = [];
+            const activeAgents = [];
+            let hasAnyInProgress = false;
+            let hasAnyFailed = false;
+            let allCompleted = true;
+
+            progressDataArray.forEach(progressFile => {
+                // Collect all findings with group_id
+                if (progressFile.findings) {
+                    progressFile.findings.forEach(finding => {
+                        allFindings.push({
+                            finding_id: finding.finding_id,
+                            finding_title: finding.finding_title,
+                            status: finding.status,
+                            group_id: progressFile.group_id,
+                            completion_time: finding.completion_time
+                        });
+                    });
+                }
+
+                // Collect active agents
+                if (progressFile.assigned_agent && progressFile.status === 'in-progress') {
+                    const currentFinding = progressFile.current_finding;
+                    activeAgents.push({
+                        agent_id: progressFile.assigned_agent,
+                        group_id: progressFile.group_id,
+                        current_task: currentFinding ? currentFinding.finding_title : 'Working...',
+                        finding_id: currentFinding ? currentFinding.finding_id : null,
+                        finding_title: currentFinding ? currentFinding.finding_title : null,
+                        file: currentFinding ? currentFinding.file : null,
+                        status: progressFile.phase || 'analyzing',
+                        started_at: progressFile.started_at
+                    });
+                }
+
+                // Track statuses
+                if (progressFile.status === 'in-progress') hasAnyInProgress = true;
+                if (progressFile.status === 'failed') hasAnyFailed = true;
+                if (progressFile.status !== 'completed' && progressFile.status !== 'failed') {
+                    allCompleted = false;
+                }
+            });
+
+            // Calculate completion metrics
+            const totalFindings = allFindings.length;
+            const completedCount = allFindings.filter(f => f.status === 'fixed' || f.status === 'failed').length;
+            const percentComplete = totalFindings > 0 ? (completedCount / totalFindings) * 100 : 0;
+
+            // Determine overall status
+            let overallStatus = 'pending';
+            if (allCompleted) {
+                overallStatus = hasAnyFailed ? 'failed' : 'completed';
+            } else if (hasAnyInProgress) {
+                overallStatus = 'in_progress';
+            }
+
+            // Determine phase
+            let phase = 'planning';
+            if (hasAnyInProgress || allCompleted) {
+                phase = allCompleted ? 'completion' : 'execution';
+            }
+
+            // Build stages from fix plan and update with current progress
+            const stages = fixPlan.timeline.stages.map(stage => {
+                // Check if all groups in this stage are completed
+                const groupStatuses = stage.groups.map(groupId => {
+                    const progressFile = progressDataArray.find(p => p.group_id === groupId);
+                    return progressFile ? progressFile.status : 'pending';
+                });
+
+                let stageStatus = 'pending';
+                if (groupStatuses.every(s => s === 'completed' || s === 'failed')) {
+                    stageStatus = 'completed';
+                } else if (groupStatuses.some(s => s === 'in-progress')) {
+                    stageStatus = 'in-progress';
+                }
+
+                return {
+                    stage: stage.stage,
+                    status: stageStatus,
+                    groups: stage.groups,
+                    execution_mode: stage.execution_mode
+                };
+            });
+
+            // Get earliest start time
+            const startTimes = progressDataArray
+                .map(p => p.started_at)
+                .filter(t => t)
+                .map(t => new Date(t).getTime());
+            const startTime = startTimes.length > 0 ? new Date(Math.min(...startTimes)).toISOString() : null;
+
+            // Find current stage
+            const currentStageObj = stages.find(s => s.status === 'in-progress') || stages.find(s => s.status === 'pending');
+            const currentStage = currentStageObj ? currentStageObj.stage : stages.length;
+
+            return {
+                fix_session_id: fixPlan.fix_session_id,
+                review_id: fixPlan.review_id,
+                status: overallStatus,
+                phase: phase,
+                start_time: startTime,
+                total_findings: totalFindings,
+                current_stage: currentStage,
+                total_stages: fixPlan.timeline.stages.length,
+                percent_complete: percentComplete,
+                fixes: allFindings,
+                active_agents: activeAgents,
+                stages: stages
+            };
+        }
+
+        function updateFixStatus(progressData) {
+            const fixPhaseBadge = document.getElementById('fixPhaseBadge');
+            const planningPhase = document.getElementById('planningPhase');
+            const executionPhase = document.getElementById('executionPhase');
+            const stageTimeline = document.getElementById('stageTimeline');
+
+            // Update phase badge
+            const phase = progressData.phase || 'planning';
+            fixPhaseBadge.textContent = phase.toUpperCase();
+            fixPhaseBadge.className = `phase-badge phase-${phase}`;
+
+            // Update stage timeline (show if stages exist, regardless of phase)
+            updateStageTimeline(progressData);
+
+            // Show appropriate phase UI
+            if (phase === 'planning') {
+                planningPhase.style.display = 'block';
+                executionPhase.style.display = 'none';
+            } else if (phase === 'execution' || phase === 'completion') {
+                planningPhase.style.display = 'none';
+                executionPhase.style.display = 'block';
+
+                // Update progress bar
+                const progressFill = document.getElementById('fixProgressFill');
+                const progressText = document.getElementById('fixProgressText');
+                const percentComplete = progressData.percent_complete || 0;
+                progressFill.style.width = `${percentComplete}%`;
+
+                const completedCount = progressData.fixes?.filter(f => f.status === 'fixed' || f.status === 'failed').length || 0;
+                const totalCount = progressData.total_findings || 0;
+                const currentStage = progressData.current_stage || 1;
+                const totalStages = progressData.total_stages || 1;
+
+                // Format start time
+                let startTimeText = '';
+                if (progressData.start_time) {
+                    const startTime = new Date(progressData.start_time);
+                    const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000 / 60); // minutes
+                    startTimeText = ` • Started ${startTime.toLocaleTimeString()} (${elapsed}m ago)`;
+                }
+
+                progressText.textContent = `Stage ${currentStage}/${totalStages}: ${completedCount}/${totalCount} findings completed (${percentComplete.toFixed(1)}%)${startTimeText}`;
+
+                // Update active groups
+                updateActiveGroups(progressData);
+
+                // Update active agents
+                updateActiveAgents(progressData);
+            }
+        }
+
+        function updateStageTimeline(progressData) {
+            const stageTimeline = document.getElementById('stageTimeline');
+            const stages = progressData.stages || [];
+
+            if (stages.length === 0) {
+                stageTimeline.style.display = 'none';
+                stageTimeline.innerHTML = '';
+                return;
+            }
+
+            // Show timeline when stages are available
+            stageTimeline.style.display = 'flex';
+            stageTimeline.innerHTML = stages.map(stage => `
+                <div class="stage-item ${stage.status}">
+                    <div class="stage-number">Stage ${stage.stage}</div>
+                    <div class="stage-mode">${stage.execution_mode === 'parallel' ? '⚡ Parallel' : '➡️ Serial'}</div>
+                    <div class="stage-groups">${stage.groups.length} group${stage.groups.length !== 1 ? 's' : ''}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateActiveGroups(progressData) {
+            const activeGroupsList = document.getElementById('activeGroupsList');
+            const stages = progressData.stages || [];
+            const activeStage = stages.find(s => s.status === 'in-progress');
+
+            if (!activeStage) {
+                activeGroupsList.innerHTML = '';
+                return;
+            }
+
+            // Get fixes for groups in active stage
+            const groupFixes = {};
+            progressData.fixes?.forEach(fix => {
+                if (fix.group_id && activeStage.groups.includes(fix.group_id)) {
+                    if (!groupFixes[fix.group_id]) {
+                        groupFixes[fix.group_id] = [];
+                    }
+                    groupFixes[fix.group_id].push(fix);
+                }
+            });
+
+            const groupCards = activeStage.groups.map(groupId => {
+                const fixes = groupFixes[groupId] || [];
+                const inProgressCount = fixes.filter(f => f.status === 'in-progress').length;
+                const completedCount = fixes.filter(f => f.status === 'fixed' || f.status === 'failed').length;
+
+                // Get in-progress finding titles
+                const inProgressFindings = fixes
+                    .filter(f => f.status === 'in-progress')
+                    .map(f => f.finding_title)
+                    .filter(title => title);
+
+                const inProgressText = inProgressFindings.length > 0
+                    ? `<div class="group-active-items">🔧 ${inProgressFindings.join(', ')}</div>`
+                    : '';
+
+                return `
+                    <div class="active-group-card">
+                        <div class="group-header">
+                            <div class="group-id">${groupId}</div>
+                            <div class="group-status">${inProgressCount > 0 ? 'In Progress' : 'Pending'}</div>
+                        </div>
+                        <div class="group-findings">${completedCount}/${fixes.length} findings completed</div>
+                        ${inProgressText}
+                    </div>
+                `;
+            }).join('');
+
+            activeGroupsList.innerHTML = groupCards || '';
+        }
+
+        function getAgentStatusIcon(status) {
+            const icons = {
+                'analyzing': '🔍',
+                'fixing': '🔧',
+                'testing': '🧪',
+                'committing': '💾'
+            };
+            return icons[status] || '⚡';
+        }
+
+        function updateActiveAgents(progressData) {
+            const activeAgentsList = document.getElementById('activeAgentsList');
+
+            if (!progressData.active_agents || progressData.active_agents.length === 0) {
+                activeAgentsList.innerHTML = '';
+                return;
+            }
+
+            activeAgentsList.innerHTML = '<h4 style="margin-bottom: 10px;">Active Agents:</h4>' +
+                progressData.active_agents.map(agent => {
+                    const statusIcon = getAgentStatusIcon(agent.status);
+                    const statusText = agent.status ? agent.status.charAt(0).toUpperCase() + agent.status.slice(1) : '';
+                    const findingTitle = agent.finding_title || agent.finding_id || '';
+
+                    // Render flow control steps if available
+                    const flowControlHtml = agent.flow_control && agent.flow_control.steps && agent.flow_control.steps.length > 0
+                        ? `<div class="agent-flow-control">${renderFlowControlSteps(agent.flow_control)}</div>`
+                        : '';
+
+                    return `
+                        <div class="active-agent-item">
+                            <div class="agent-status">
+                                ${statusIcon} ${agent.agent_id} (${agent.group_id || 'unknown'})
+                                ${statusText ? `<span class="agent-status-badge">${statusText}</span>` : ''}
+                            </div>
+                            <div class="agent-task">${agent.current_task || findingTitle || 'Initializing...'}</div>
+                            ${agent.file ? `<div class="agent-file">📄 ${agent.file}</div>` : ''}
+                            ${flowControlHtml}
+                        </div>
+                    `;
+                }).join('');
+        }
+
+        function renderFlowControlSteps(flowControl) {
+            if (!flowControl || !flowControl.implementation_approach || flowControl.implementation_approach.length === 0) {
+                return '';
+            }
+
+            const stepsHtml = flowControl.implementation_approach.map(step => {
+                let stepIcon = '';
+                let stepClass = '';
+
+                if (step.status === 'completed') {
+                    stepIcon = '✅';
+                    stepClass = 'flow-step-completed';
+                } else if (step.status === 'in-progress') {
+                    stepIcon = '⏳';
+                    stepClass = 'flow-step-in-progress';
+                } else if (step.status === 'failed') {
+                    stepIcon = '❌';
+                    stepClass = 'flow-step-failed';
+                } else {
+                    stepIcon = '⏸';
+                    stepClass = 'flow-step-pending';
+                }
+
+                // Format step name: "analyze_context" -> "Analyze Context"
+                const stepName = step.action || step.step.split('_').map(word =>
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ');
+
+                return `
+                    <div class="flow-step ${stepClass}">
+                        <span class="flow-step-icon">${stepIcon}</span>
+                        <span class="flow-step-name">${stepName}</span>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="flow-control-container">
+                    <div class="flow-control-header">Progress Steps:</div>
+                    <div class="flow-steps">${stepsHtml}</div>
+                </div>
+            `;
+        }
+
+        function markFindingAsFixed(findingId) {
+            const finding = allFindings.find(f => f.id === findingId);
+            if (finding) {
+                finding.fix_status = 'fixed';
+                renderFindings(); // Re-render to show fix badge
+            }
+        }
+
+        function toggleFixProgress() {
+            fixProgressCollapsed = !fixProgressCollapsed;
+            const section = document.getElementById('fixProgressSection');
+            section.classList.toggle('collapsed', fixProgressCollapsed);
+        }
+
+        // History drawer functions
+        function openHistoryDrawer() {
+            document.getElementById('historyDrawer').classList.add('active');
+            document.getElementById('historyDrawerOverlay').classList.add('active');
+            loadFixHistory();
+        }
+
+        function closeHistoryDrawer() {
+            document.getElementById('historyDrawer').classList.remove('active');
+            document.getElementById('historyDrawerOverlay').classList.remove('active');
+        }
+
+        async function loadFixHistory() {
+            try {
+                const response = await fetch('./fixes/fix-history.json');
+                if (!response.ok) throw new Error('Fix history not found');
+
+                const historyData = await response.json();
+                renderFixHistory(historyData);
+            } catch (error) {
+                console.error('Error loading fix history:', error);
+                document.getElementById('historyTimeline').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📜</div>
+                        <p>No fix history available</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderFixHistory(historyData) {
+            const timeline = document.getElementById('historyTimeline');
+
+            if (!historyData.sessions || historyData.sessions.length === 0) {
+                timeline.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📜</div>
+                        <p>No fix sessions yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            timeline.innerHTML = historyData.sessions.map(session => {
+                const timestamp = new Date(session.timestamp).toLocaleString();
+                const statusEmoji = session.status === 'completed' ? '✅' :
+                                   session.status === 'failed' ? '❌' : '⏳';
+
+                return `
+                    <div class="history-item">
+                        <div class="history-header">
+                            <span class="history-status">${statusEmoji} ${session.status}</span>
+                            <span class="history-time">${timestamp}</span>
+                        </div>
+                        <div class="history-details">
+                            <div><strong>Session:</strong> ${session.fix_session_id}</div>
+                            <div><strong>Findings:</strong> ${session.findings_count} issues</div>
+                            <div><strong>Fixed:</strong> ${session.fixed_count || 0} issues</div>
+                            <div><strong>Failed:</strong> ${session.failed_count || 0} issues</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
 
         // Theme management
         function initTheme() {
@@ -936,19 +1981,38 @@
                 return;
             }
 
-            container.innerHTML = filteredFindings.map(finding => `
-                <div class="finding-item ${finding.severity}" onclick='showFindingDetail(${JSON.stringify(finding).replace(/'/g, "\\'")})'>
-                    <div class="finding-header">
-                        <div class="finding-title">${finding.title}</div>
-                        <div class="finding-badges">
-                            <span class="severity-badge ${finding.severity}">${finding.severity}</span>
-                            <span class="dimension-badge">${finding.dimension}</span>
+            container.innerHTML = filteredFindings.map(finding => {
+                // Determine fix status badge
+                const fixStatusBadge = finding.fix_status ?
+                    `<span class="fix-status-badge status-${finding.fix_status}">
+                        ${finding.fix_status === 'pending' ? '⏳ Pending' :
+                          finding.fix_status === 'in-progress' ? '⚡ In Progress' :
+                          finding.fix_status === 'fixed' ? '✅ Fixed' :
+                          finding.fix_status === 'failed' ? '❌ Failed' : ''}
+                    </span>` : '';
+
+                return `
+                    <div class="finding-item ${finding.severity}" onclick='showFindingDetail(${JSON.stringify(finding).replace(/'/g, "\\'")})'  style="display: flex; gap: 12px;">
+                        <input type="checkbox"
+                               class="finding-checkbox"
+                               data-finding-id="${finding.id}"
+                               onclick='toggleFindingSelection("${finding.id}", event)'
+                               ${selectedFindings.has(finding.id) ? 'checked' : ''}>
+                        <div style="flex: 1;">
+                            <div class="finding-header">
+                                <div class="finding-title">${finding.title}</div>
+                                <div class="finding-badges">
+                                    <span class="severity-badge ${finding.severity}">${finding.severity}</span>
+                                    <span class="dimension-badge">${finding.dimension}</span>
+                                </div>
+                            </div>
+                            <div class="finding-file">📄 ${finding.file}:${finding.line}</div>
+                            <div class="finding-description">${finding.description.substring(0, 200)}${finding.description.length > 200 ? '...' : ''}</div>
+                            ${fixStatusBadge}
                         </div>
                     </div>
-                    <div class="finding-file">📄 ${finding.file}:${finding.line}</div>
-                    <div class="finding-description">${finding.description.substring(0, 200)}${finding.description.length > 200 ? '...' : ''}</div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // Show finding detail in drawer
@@ -1134,6 +2198,7 @@
             initTheme();
             setupSearch();
             startPolling();
+            detectFixSession(); // Check for active fix sessions
 
             document.getElementById('themeToggle').addEventListener('click', toggleTheme);
         });
