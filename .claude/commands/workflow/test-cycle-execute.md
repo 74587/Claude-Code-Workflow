@@ -45,7 +45,7 @@ Dynamic test-fix orchestrator with **adaptive task generation** based on runtime
 
 ## How It Works
 
-### Execution Flow (Simplified)
+### Execution Flow 
 
 ```
 1. Discovery

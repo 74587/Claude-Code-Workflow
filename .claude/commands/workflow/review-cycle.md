@@ -56,7 +56,7 @@ Multi-dimensional code review orchestrator with **hybrid parallel-iterative exec
 
 ```
 1. Discovery & Initialization
-   └─ Validate session, initialize state, create output structure
+   └─ Validate session, initialize state, create output structure → Generate dashboard.html
 
 2. Phase 2: Parallel Reviews (for each dimension):
    ├─ Launch 7 review agents simultaneously
@@ -80,7 +80,7 @@ Multi-dimensional code review orchestrator with **hybrid parallel-iterative exec
    └─ Loop until no critical findings OR max iterations
 
 5. Phase 5: Completion
-   └─ Generate REVIEW-SUMMARY.md → dashboard.html → Output path
+   └─ Generate REVIEW-SUMMARY.md → Output path
 ```
 
 ### Agent Roles
@@ -157,6 +157,7 @@ const CATEGORIES = {
 - Validation: Ensure session has completed implementation (check .summaries/)
 - State initialization: Create review-state.json with dimensions, max_iterations
 - Directory structure: Create .review-cycle/{dimensions,iterations,reports}/
+- Dashboard generation: Generate dashboard.html from template (see Dashboard Generation below)
 - TodoWrite initialization: Set up progress tracking
 
 **Phase 2: Parallel Review Coordination**
@@ -184,10 +185,9 @@ const CATEGORIES = {
 
 **Phase 5: Completion**
 - Generate REVIEW-SUMMARY.md with all findings and statistics
-- Generate dashboard.html from template (see Dashboard Generation below)
 - Update review-state.json with completion_time and phase=complete
 - TodoWrite completion: Mark all tasks done
-- Output: Dashboard path to user with opening instructions
+- Output: Dashboard path and REVIEW-SUMMARY.md path to user
 
 ### Review Agent (@cli-explore-agent)
 
@@ -251,7 +251,9 @@ const CATEGORIES = {
 
 Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/templates/review-cycle-dashboard.html`, replaces placeholders, writes to output directory. Dashboard polls `review-progress.json` every 5 seconds for real-time updates, then loads all dimension JSON files when `phase=complete`.
 
-### Phase 5 Steps
+**CRITICAL**: Dashboard MUST be generated in **Phase 1** to enable real-time progress monitoring throughout execution.
+
+### Phase 1 Steps
 
 1. **Read & Process Template**
    ```javascript
@@ -269,8 +271,8 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 
 3. **Output Path to User**
    ```
-   ✅ Review Complete!
    📊 Dashboard: file://${absolutePath}/dashboard.html
+   🔄 Monitor progress in real-time (auto-refresh every 5s)
    ```
 
 ### Features Summary
