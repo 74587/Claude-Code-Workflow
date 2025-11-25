@@ -35,9 +35,8 @@ Dynamic test-fix orchestrator with **adaptive task generation** based on runtime
 
 ### Value Proposition
 1. **Automatic Problem Solving**: No manual intervention needed until 95% pass rate
-2. **Intelligent Adaptation**: Strategy adjusts based on progress (conservative → aggressive → exploratory)
+2. **Intelligent Adaptation**: Strategy adjusts based on progress (conservative → aggressive → surgical)
 3. **Fast Feedback**: Progressive testing runs only affected tests (70-90% faster)
-4. **Stuck Handling**: Parallel strategy exploration when same tests fail 3+ times
 
 ### Orchestrator Boundary (CRITICAL)
 - **ONLY command** handling test failures - always delegate here
@@ -60,11 +59,9 @@ Dynamic test-fix orchestrator with **adaptive task generation** based on runtime
    │  └─ <95% or critical failures → Fix Loop ↓
    └─ Fix Loop:
       ├─ Detect: stuck tests, regression, progress trend
-      ├─ Select strategy: conservative/aggressive/exploratory/surgical
-      ├─ Generate fix tasks via @cli-planning-agent:
-      │  ├─ Normal: Single IMPL-fix-N.json
-      │  └─ Exploratory: 3 parallel alternatives
-      ├─ Execute fixes via @test-fix-agent
+      ├─ Select strategy: conservative/aggressive/surgical
+      ├─ Generate fix task via @cli-planning-agent (IMPL-fix-N.json)
+      ├─ Execute fix via @test-fix-agent
       └─ Re-test → Back to step 2
 
 3. Completion
@@ -89,15 +86,14 @@ Dynamic test-fix orchestrator with **adaptive task generation** based on runtime
 |----------|---------|----------|
 | **Conservative** | Iteration 1-2 (default) | Single targeted fix, full validation |
 | **Aggressive** | Pass rate >80% + similar failures | Batch fix related issues |
-| **Exploratory** | Stuck tests (3+ failures) at iteration 3+ | Parallel try 3 alternative approaches |
 | **Surgical** | Regression detected (pass rate drops >10%) | Minimal changes, rollback focus |
 
 **Selection Logic** (in orchestrator):
 ```javascript
 if (iteration <= 2) return "conservative";
 if (passRate > 80 && failurePattern.similarity > 0.7) return "aggressive";
-if (stuckTests > 0 && iteration >= 3) return "exploratory";
 if (regressionDetected) return "surgical";
+return "conservative";
 ```
 
 **Integration**: Strategy passed to @cli-planning-agent in prompt for tailored analysis.
@@ -115,58 +111,6 @@ if (regressionDetected) return "surgical";
 
 
 **Benefits**: 70-90% iteration speed improvement, instant feedback on fix effectiveness.
-
-### 3. Parallel Strategy Exploration
-
-**Automatically triggered when stuck on same failures 3+ consecutive times.**
-
-**Workflow**:
-```
-Stuck Detected (iteration 3+):
-├─ Orchestrator switches to "exploratory" strategy
-├─ @cli-planning-agent generates 3 alternative fix approaches:
-│  ├─ Approach A: Refactor validation logic
-│  ├─ Approach B: Fix dependency initialization
-│  └─ Approach C: Adjust test expectations
-├─ Orchestrator creates 3 task JSONs (IMPL-fix-Na, Nb, Nc)
-├─ Execute in parallel via git worktree:
-│  ├─ worktree-a/ → Apply fix-Na → Test → Pass rate: 92%
-│  ├─ worktree-b/ → Apply fix-Nb → Test → Pass rate: 88%
-│  └─ worktree-c/ → Apply fix-Nc → Test → Pass rate: 95% ✓
-└─ Select best result (highest pass_rate), apply to main branch
-```
-
-**Implementation**:
-```bash
-# Orchestrator creates isolated worktrees
-git worktree add ../worktree-{a,b,c}
-
-# Launch 3 @test-fix-agent instances in parallel
-Task(subagent_type="test-fix-agent", ...) x3
-
-# Collect results, select winner
-```
-
-**Operational Lifecycle**:
-1. **Setup**: Create 3 isolated worktrees (`../worktree-{a,b,c}`)
-2. **Execute**: Run 3 agents in parallel, each in its own worktree
-3. **Collect**: Gather test results and pass rates from all branches
-4. **Select**: Choose branch with highest pass_rate (ties: prefer higher confidence_score)
-5. **Apply**: Merge winning branch changes to main branch
-6. **Cleanup**: Remove all worktrees: `git worktree remove ../worktree-{a,b,c} --force`
-7. **Commit**: Create checkpoint with winning strategy details
-
-**Resource Considerations**:
-- Parallel execution requires ~3x CPU/memory of single iteration
-- Timeout per branch: 10min (aborts if exceeded)
-- If any branch setup fails: Fall back to sequential exploratory mode (try strategies one by one)
-
-**Error Handling**:
-- **Worktree creation fails**: Skip parallel mode, use sequential exploration
-- **All branches fail to improve**: Document in failure report, increment iteration normally
-- **Partial success** (1-2 branches succeed): Still select best result, proceed
-
-**Benefits**: Escapes stuck situations, explores solution space efficiently, automatic cleanup.
 
 ## Core Responsibilities
 
@@ -221,8 +165,7 @@ Task(subagent_type="test-fix-agent", ...) x3
 ├── IMPL_PLAN.md, TODO_LIST.md
 ├── .task/
 │   ├── IMPL-{001,002}.json         # Initial tasks
-│   ├── IMPL-fix-{N}.json           # Generated fix tasks
-│   └── IMPL-fix-{N}-parallel.json  # Parallel exploration
+│   └── IMPL-fix-{N}.json           # Generated fix tasks
 ├── .process/
 │   ├── iteration-state.json        # Current iteration + strategy + stuck tests
 │   ├── test-results.json           # Latest results (pass_rate, criticality)
@@ -236,8 +179,6 @@ Task(subagent_type="test-fix-agent", ...) x3
 ### Iteration State JSON
 
 **Purpose**: Persisted state machine for iteration loop - enables Resume and historical analysis.
-
-**Simplified Structure** (removed redundant fields):
 
 ```json
 {
@@ -302,7 +243,7 @@ Task(
     - Stuck Tests: ${stuckTests} (calculated from iterations[].failed_tests history)
 
     ## CLI Configuration
-    - Tool Priority: gemini → qwen → codex
+    - Tool Priority: gemini & codex
     - Template: 01-diagnose-bug-root-cause.txt
     - Timeout: 2400000ms
 
@@ -316,7 +257,6 @@ Task(
     ## Strategy-Specific Requirements
     - Conservative: Single targeted fix, high confidence required
     - Aggressive: Batch fix similar failures, pattern-based approach
-    - Exploratory: Generate 3 alternative approaches with different hypotheses
     - Surgical: Minimal changes, focus on rollback safety
 
     ## Success Criteria
@@ -442,7 +382,7 @@ const taskTypeSuccessCriteria = {
 | Agent execution error | Save state, retry with simplified context |
 | Max iterations reached | Generate failure report, mark blocked |
 | Regression detected | Rollback last fix, switch to surgical strategy |
-| Stuck tests detected | Switch to exploratory strategy (parallel) |
+| Stuck tests detected | Continue with alternative strategy, document in failure report |
 
 **CLI Fallback Triggers** (Gemini → Qwen → Codex → manual):
 
@@ -522,13 +462,7 @@ The orchestrator automatically creates git commits at key checkpoints to enable 
    git commit -m "test-cycle: iteration ${N} - ${strategy} strategy (pass: ${oldRate}% → ${newRate}%)"
    ```
 
-2. **After Parallel Exploration** (winning strategy applied):
-   ```bash
-   git add .
-   git commit -m "test-cycle: iteration ${N} - exploratory (selected strategy ${winner}, pass: ${rate}%)"
-   ```
-
-3. **Before Rollback** (regression detected):
+2. **Before Rollback** (regression detected):
    ```bash
    # Current state preserved, then:
    git revert HEAD
@@ -538,7 +472,7 @@ The orchestrator automatically creates git commits at key checkpoints to enable 
 **Commit Content**:
 - Modified source files from fix application
 - Updated test-results.json, iteration-state.json
-- Excludes: temporary files, logs, worktrees
+- Excludes: temporary files, logs
 
 **Benefits**:
 - **Rollback Safety**: Each iteration is a revert point
@@ -555,4 +489,3 @@ The orchestrator automatically creates git commits at key checkpoints to enable 
 3. **Trust Strategy Engine**: Auto-selection based on proven heuristics
 4. **Monitor Logs**: Check `.process/iteration-N-analysis.md` for CLI analysis insights
 5. **Progressive Testing**: Saves 70-90% iteration time automatically
-6. **Parallel Exploration**: Auto-triggers at iteration 3 if stuck (no configuration needed)
