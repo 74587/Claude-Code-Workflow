@@ -204,10 +204,17 @@ git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u
 - Progress tracking: Create `review-progress.json` for dashboard polling
 
 **Step 6: Dashboard Generation**
-- Read template: `~/.claude/templates/review-cycle-dashboard.html`
-- Replace placeholders: `{{SESSION_ID}}`, `{{REVIEW_TYPE}}`, `{{REVIEW_DIR}}`
-- Write to: `${sessionDir}/.review/dashboard.html`
-- Output path to user: `file://${absolutePath}/dashboard.html`
+```bash
+# Copy template and replace placeholders in one command
+cat ~/.claude/templates/review-cycle-dashboard.html \
+  | sed "s|{{SESSION_ID}}|${sessionId}|g" \
+  | sed "s|{{REVIEW_TYPE}}|session|g" \
+  | sed "s|{{REVIEW_DIR}}|${reviewDir}|g" \
+  > ${sessionDir}/.review/dashboard.html
+
+# Output path to user
+echo "📊 Dashboard: file://${absolutePath}/.review/dashboard.html"
+```
 
 **Step 7: TodoWrite Initialization**
 - Set up progress tracking with hierarchical structure
@@ -298,35 +305,6 @@ git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u
 1. Deep-dive JSON with root cause, remediation plan, impact assessment
 2. Analysis report with detailed recommendations
 
-## Dashboard Generation
-
-### Mechanism
-
-Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/templates/review-cycle-dashboard.html`, replaces placeholders, writes to output directory. Dashboard polls `review-progress.json` every 5 seconds for real-time updates, then loads all dimension JSON files when `phase=complete`.
-
-**CRITICAL**: Dashboard MUST be generated in **Phase 1** to enable real-time progress monitoring throughout execution.
-
-### Phase 1 Steps
-
-1. **Read & Process Template**
-   ```javascript
-   const template = Read('~/.claude/templates/review-cycle-dashboard.html');
-   const dashboard = template.replace('{{SESSION_ID}}', sessionId);
-   Write(`${outputDir}/dashboard.html`, dashboard);
-   ```
-
-2. **Auto-open in Browser** (optional)
-   ```javascript
-   Bash(`start ${dashboardPath}`);  // Windows
-   Bash(`open ${dashboardPath}`);   // macOS
-   Bash(`xdg-open ${dashboardPath}`); // Linux
-   ```
-
-3. **Output Path to User**
-   ```
-   📊 Dashboard: file://${absolutePath}/dashboard.html
-   🔄 Monitor progress in real-time (auto-refresh every 5s)
-   ```
 
 ### Features Summary
 
@@ -901,11 +879,3 @@ After completing a review, use the dashboard to select findings and export them 
 
 See `/workflow:review-fix` for automated fixing with smart grouping, parallel execution, and test verification.
 
-### Independent Module Review
-For reviewing specific modules without a workflow session:
-
-```bash
-/workflow:review-module-cycle <path-pattern>
-```
-
-This command provides the same 7-dimension analysis but targets specific files or directories.

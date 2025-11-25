@@ -64,16 +64,16 @@ Unified directory structure for all review commands (session-based and module-ba
     "module_scope": {
       "target_pattern": "src/auth/**",
       "resolved_files": [
-        "D:\\project\\src\\auth\\service.ts",
-        "D:\\project\\src\\auth\\validator.ts"
+        "src/auth/service.ts",
+        "src/auth/validator.ts"
       ],
       "file_count": 2
     },
     "session_scope": {
       "commit_range": "abc123..def456",
       "changed_files": [
-        "D:\\project\\src\\auth\\service.ts",
-        "D:\\project\\src\\payment\\processor.ts"
+        "src/auth/service.ts",
+        "src/payment/processor.ts"
       ],
       "file_count": 2
     }
@@ -112,8 +112,8 @@ Unified directory structure for all review commands (session-based and module-ba
     "low": 8
   },
   "critical_files": [
-    "D:\\project\\src\\auth\\service.ts",
-    "D:\\project\\src\\payment\\processor.ts"
+    "src/auth/service.ts",
+    "src/payment/processor.ts"
   ],
   "iterations": [
     {

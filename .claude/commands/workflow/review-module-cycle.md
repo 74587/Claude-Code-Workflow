@@ -60,6 +60,7 @@ Independent multi-dimensional code review orchestrator with **hybrid parallel-it
 - **ONLY command** for independent multi-dimensional module review
 - Manages: dimension coordination, aggregation, iteration control, progress tracking
 - Delegates: Code exploration and analysis to @cli-explore-agent, dimension-specific reviews via Deep Scan mode
+- **⚠️ CRITICAL CONSTRAINT**: Orchestrator and agents MUST NOT read, write, or modify dashboard.html during review execution. Dashboard is generated ONCE at initialization and remains static for user interaction only.
 
 ## How It Works
 
@@ -187,14 +188,22 @@ SlashCommand(command="/workflow:session:start --auto \"Code review for [target_p
 // Parse output
 const sessionId = output.match(/SESSION_ID: (WFS-[^\s]+)/)[1];
 
-// Validate session exists
-Bash(`test -d .workflow/active/${sessionId} && echo "EXISTS"`);
 ```
 
 **Step 2: Path Resolution & Validation**
+```bash
+# Expand glob pattern to file list (relative paths from project root)
+find . -path "./src/auth/**" -type f | sed 's|^\./||'
+
+# Validate files exist and are readable
+for file in ${resolvedFiles[@]}; do
+  test -r "$file" || error "File not readable: $file"
+done
+```
 - Parse and expand file patterns (glob support): `src/auth/**` → actual file list
 - Validation: Ensure all specified files exist and are readable
-- Store resolved files as absolute paths (e.g., `D:\\project\\src\\auth\\service.ts`)
+- Store as **relative paths** from project root (e.g., `src/auth/service.ts`)
+- Agents construct absolute paths dynamically during execution
 
 **Step 3: Output Directory Setup**
 - Output directory: `.workflow/active/${sessionId}/.review/`
@@ -209,10 +218,17 @@ Bash(`test -d .workflow/active/${sessionId} && echo "EXISTS"`);
 - Progress tracking: Create `review-progress.json` for dashboard polling
 
 **Step 5: Dashboard Generation**
-- Read template: `~/.claude/templates/review-cycle-dashboard.html`
-- Replace placeholders: `{{SESSION_ID}}`, `{{REVIEW_TYPE}}`, `{{REVIEW_DIR}}`
-- Write to: `${sessionDir}/.review/dashboard.html`
-- Output path to user: `file://${absolutePath}/dashboard.html`
+```bash
+# Copy template and replace placeholders in one command
+cat ~/.claude/templates/review-cycle-dashboard.html \
+  | sed "s|{{SESSION_ID}}|${sessionId}|g" \
+  | sed "s|{{REVIEW_TYPE}}|module|g" \
+  | sed "s|{{REVIEW_DIR}}|${reviewDir}|g" \
+  > ${sessionDir}/.review/dashboard.html
+
+# Output path to user
+echo "📊 Dashboard: file://${absolutePath}/.review/dashboard.html"
+```
 
 **Step 6: TodoWrite Initialization**
 - Set up progress tracking with hierarchical structure
@@ -302,38 +318,6 @@ Bash(`test -d .workflow/active/${sessionId} && echo "EXISTS"`);
 1. Deep-dive JSON with root cause, remediation plan, impact assessment
 2. Analysis report with detailed recommendations
 
-## Dashboard Generation
-
-### Mechanism
-
-Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/templates/review-cycle-dashboard.html`, replaces placeholders, writes to output directory. Dashboard polls `review-progress.json` every 5 seconds for real-time updates, then loads all dimension JSON files when `phase=complete`.
-
-**CRITICAL**: Dashboard MUST be generated in **Phase 1** to enable real-time progress monitoring throughout execution.
-
-### Phase 1 Steps
-
-1. **Read & Process Template**
-   ```javascript
-   const template = Read('~/.claude/templates/review-cycle-dashboard.html');
-   const dashboard = template
-     .replace('{{SESSION_ID}}', `Module: ${pathPattern}`)
-     .replace('{{REVIEW_TYPE}}', 'module');
-   Write(`${outputDir}/dashboard.html`, dashboard);
-   ```
-
-2. **Auto-open in Browser** (optional)
-   ```javascript
-   Bash(`start ${dashboardPath}`);  // Windows
-   Bash(`open ${dashboardPath}`);   // macOS
-   Bash(`xdg-open ${dashboardPath}`); // Linux
-   ```
-
-3. **Output Path to User**
-   ```
-   📊 Dashboard: file://${absolutePath}/dashboard.html
-   🔄 Monitor progress in real-time (auto-refresh every 5s)
-   ```
-
 ## Reference
 
 ### CLI Tool Configuration
@@ -397,9 +381,9 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
   "session_id": "WFS-auth-system",
   "target_pattern": "src/auth/**",
   "resolved_files": [
-    "D:\\project\\src\\auth\\service.ts",
-    "D:\\project\\src\\auth\\validator.ts",
-    "D:\\project\\src\\auth\\middleware.ts"
+    "src/auth/service.ts",
+    "src/auth/validator.ts",
+    "src/auth/middleware.ts"
   ],
   "phase": "parallel|aggregate|iterate|complete",
   "current_iteration": 1,
@@ -814,4 +798,22 @@ TodoWrite({
 6. **Dashboard Polling**: Refresh every 5 seconds for real-time updates
 7. **Resume Support**: Interrupted reviews can resume from last checkpoint
 8. **Export Results**: Use dashboard export for external tracking tools
+
+## Related Commands
+
+### Automated Fix Workflow
+After completing a module review, use the dashboard to select findings and export them for automated fixing:
+
+```bash
+# Step 1: Complete review (this command)
+/workflow:review-module-cycle src/auth/**
+
+# Step 2: Open dashboard, select findings, and export
+# Dashboard generates: fix-export-{timestamp}.json
+
+# Step 3: Run automated fixes
+/workflow:review-fix .workflow/active/WFS-{session-id}/.review/fix-export-{timestamp}.json
+```
+
+See `/workflow:review-fix` for automated fixing with smart grouping, parallel execution, and test verification.
 
