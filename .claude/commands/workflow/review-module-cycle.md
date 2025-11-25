@@ -26,8 +26,9 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 /workflow:review-module-cycle --resume
 ```
 
-**Review Scope**: Specified modules/files only (independent of git history or sessions)
-**Output Directory**: `.workflow/.reviews/module-{pattern-hash}/` (fixed location)
+**Review Scope**: Specified modules/files only (independent of git history)
+**Session Requirement**: Requires active workflow session (or creates review-only session)
+**Output Directory**: `.workflow/active/WFS-{session-id}/.review/` (session-based)
 **Default Dimensions**: Security, Architecture, Quality, Action-Items, Performance, Maintainability, Best-Practices
 **Max Iterations**: 3 (default, adjustable)
 **CLI Tools**: Gemini → Qwen → Codex (fallback chain)
@@ -39,19 +40,21 @@ Independent multi-dimensional code review orchestrator with **hybrid parallel-it
 
 **Review Scope**:
 - **Module-based**: Reviews specified file patterns (e.g., `src/auth/**`, `*.ts`)
-- **No session dependency**: Works independently of workflow sessions
-- **For session-based review**: Use `/workflow:review-session-cycle` command instead
+- **Session-integrated**: Runs within workflow session context for unified tracking
+- **Output location**: `.review/` subdirectory within active session
 
 **vs Session Review**:
 - **Session Review** (`review-session-cycle`): Reviews git changes within a workflow session
 - **Module Review** (`review-module-cycle`): Reviews any specified code paths, regardless of git history
+- **Common output**: Both use same `.review/` directory structure within session
 
 ### Value Proposition
-1. **Ad-hoc Review**: Review any code without requiring a workflow session
-2. **Module-focused**: Target specific areas of codebase for deep analysis
+1. **Module-Focused Review**: Target specific code areas independent of git history
+2. **Session-Integrated**: Review results tracked within workflow session for unified management
 3. **Comprehensive Coverage**: Same 7 specialized dimensions as session review
 4. **Intelligent Prioritization**: Automatic identification of critical issues and cross-cutting concerns
 5. **Real-time Visibility**: JSON-based progress tracking with interactive HTML dashboard
+6. **Unified Archive**: Review results archived with session for historical reference
 
 ### Orchestrator Boundary (CRITICAL)
 - **ONLY command** for independent multi-dimensional module review
@@ -60,7 +63,7 @@ Independent multi-dimensional code review orchestrator with **hybrid parallel-it
 
 ## How It Works
 
-### Execution Flow (Simplified)
+### Execution Flow 
 
 ```
 1. Discovery & Initialization
@@ -175,13 +178,45 @@ const CATEGORIES = {
 ### Orchestrator
 
 **Phase 1: Discovery & Initialization**
-- Path resolution: Parse and expand file patterns (glob support)
+
+**Step 1: Session Discovery**
+```javascript
+// Auto-discover or create session
+SlashCommand(command="/workflow:session:start --auto \"Code review for [target_pattern]\"")
+
+// Parse output
+const sessionId = output.match(/SESSION_ID: (WFS-[^\s]+)/)[1];
+
+// Validate session exists
+Bash(`test -d .workflow/active/${sessionId} && echo "EXISTS"`);
+```
+
+**Step 2: Path Resolution & Validation**
+- Parse and expand file patterns (glob support): `src/auth/**` → actual file list
 - Validation: Ensure all specified files exist and are readable
-- Output directory: Set to `.workflow/.reviews/module-{pattern-hash}/` (fixed location, hash based on target pattern)
-- State initialization: Create review-state.json with dimensions, max_iterations, resolved_files
-- Directory structure: Create {dimensions,iterations,reports}/ subdirectories
-- Dashboard generation: Generate dashboard.html from template (see Dashboard Generation below)
-- TodoWrite initialization: Set up progress tracking
+- Store resolved files as absolute paths (e.g., `D:\\project\\src\\auth\\service.ts`)
+
+**Step 3: Output Directory Setup**
+- Output directory: `.workflow/active/${sessionId}/.review/`
+- Create directory structure:
+  ```bash
+  mkdir -p ${sessionDir}/.review/{dimensions,iterations,reports}
+  ```
+
+**Step 4: Initialize Review State**
+- Metadata creation: Create `review-metadata.json` with scope, dimensions, and configuration
+- State initialization: Create `review-state.json` with dimensions, max_iterations, resolved_files
+- Progress tracking: Create `review-progress.json` for dashboard polling
+
+**Step 5: Dashboard Generation**
+- Read template: `~/.claude/templates/review-cycle-dashboard.html`
+- Replace placeholders: `{{SESSION_ID}}`, `{{REVIEW_TYPE}}`, `{{REVIEW_DIR}}`
+- Write to: `${sessionDir}/.review/dashboard.html`
+- Output path to user: `file://${absolutePath}/dashboard.html`
+
+**Step 6: TodoWrite Initialization**
+- Set up progress tracking with hierarchical structure
+- Mark Phase 1 completed, Phase 2 in_progress
 
 **Phase 2: Parallel Review Coordination**
 - Launch 7 @cli-explore-agent instances simultaneously (Deep Scan mode)
@@ -315,7 +350,8 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 ### Output File Structure
 
 ```
-.workflow/.reviews/module-{pattern-hash}/
+.workflow/active/WFS-{session-id}/.review/
+├── review-metadata.json                 # Review configuration and scope
 ├── review-state.json                    # Orchestrator state machine
 ├── review-progress.json                 # Real-time progress for dashboard
 ├── dimensions/                          # Per-dimension results
@@ -338,6 +374,18 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 └── dashboard.html                       # Interactive dashboard
 ```
 
+**Session Context**:
+```
+.workflow/active/WFS-{session-id}/
+├── workflow-session.json
+├── IMPL_PLAN.md
+├── TODO_LIST.md
+├── .task/
+├── .summaries/
+└── .review/                             # Review results (this command)
+    └── (structure above)
+```
+
 ### Review State JSON
 
 **Purpose**: Persisted state machine for phase transitions and iteration control - enables Resume
@@ -346,11 +394,12 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 {
   "review_id": "review-20250125-143022",
   "review_type": "module",
+  "session_id": "WFS-auth-system",
   "target_pattern": "src/auth/**",
   "resolved_files": [
-    "src/auth/service.ts",
-    "src/auth/validator.ts",
-    "src/auth/middleware.ts"
+    "D:\\project\\src\\auth\\service.ts",
+    "D:\\project\\src\\auth\\validator.ts",
+    "D:\\project\\src\\auth\\middleware.ts"
   ],
   "phase": "parallel|aggregate|iterate|complete",
   "current_iteration": 1,
@@ -801,7 +850,7 @@ After completing a module review, use the dashboard to select findings and expor
 # Dashboard generates: fix-export-{timestamp}.json
 
 # Step 3: Run automated fixes
-/workflow:review-fix .workflow/.reviews/module-{hash}/fix-export-{timestamp}.json
+/workflow:review-fix .workflow/active/WFS-{session-id}/.review/fix-export-{timestamp}.json
 ```
 
 See `/workflow:review-fix` for automated fixing with smart grouping, parallel execution, and test verification.

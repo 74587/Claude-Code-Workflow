@@ -168,25 +168,6 @@ DECISION: Reusing existing session
 SESSION_ID: WFS-promptmaster-platform
 ```
 
-## Command Integration
-
-### For /workflow:plan (Use Auto Mode)
-```bash
-SlashCommand(command="/workflow:session:start --auto \"implement OAuth2 authentication\"")
-
-# Parse session ID from output
-grep "^SESSION_ID:" | awk '{print $2}'
-```
-
-### For Interactive Workflows (Use Discovery Mode)
-```bash
-SlashCommand(command="/workflow:session:start")
-```
-
-### For New Isolated Work (Use Force New Mode)
-```bash
-SlashCommand(command="/workflow:session:start --new \"experimental feature\"")
-```
 
 ## Session ID Format
 - Pattern: `WFS-[lowercase-slug]`

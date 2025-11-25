@@ -24,7 +24,8 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ```
 
 **Review Scope**: Git changes from session creation to present (via `git log --since`)
-**Output Directory**: `.workflow/.reviews/session-{session-id}/` (fixed location)
+**Session Requirement**: Requires active or completed workflow session
+**Output Directory**: `.workflow/active/WFS-{session-id}/.review/` (session-based)
 **Default Dimensions**: Security, Architecture, Quality, Action-Items, Performance, Maintainability, Best-Practices
 **Max Iterations**: 3 (default, adjustable)
 **CLI Tools**: Gemini → Qwen → Codex (fallback chain)
@@ -156,13 +157,61 @@ const CATEGORIES = {
 ### Orchestrator
 
 **Phase 1: Discovery & Initialization**
-- Session discovery: Auto-detect active session if not specified
-- Validation: Ensure session has completed implementation (check .summaries/)
-- Output directory: Set to `.workflow/.reviews/session-{session-id}/` (fixed location)
-- State initialization: Create review-state.json with dimensions, max_iterations
-- Directory structure: Create {dimensions,iterations,reports}/ subdirectories
-- Dashboard generation: Generate dashboard.html from template (see Dashboard Generation below)
-- TodoWrite initialization: Set up progress tracking
+
+**Step 1: Session Discovery**
+```javascript
+// If session ID not provided, auto-detect
+if (!providedSessionId) {
+  // Check for active sessions
+  const activeSessions = Glob('.workflow/active/WFS-*');
+  if (activeSessions.length === 1) {
+    sessionId = activeSessions[0].match(/WFS-[^/]+/)[0];
+  } else if (activeSessions.length > 1) {
+    // List sessions and prompt user
+    error("Multiple active sessions found. Please specify session ID.");
+  } else {
+    error("No active session found. Create session first with /workflow:session:start");
+  }
+} else {
+  sessionId = providedSessionId;
+}
+
+// Validate session exists
+Bash(`test -d .workflow/active/${sessionId} && echo "EXISTS"`);
+```
+
+**Step 2: Session Validation**
+- Ensure session has implementation artifacts (check `.summaries/` or `.task/` directory)
+- Extract session creation timestamp from `workflow-session.json`
+- Use timestamp for git log filtering: `git log --since="${sessionCreatedAt}"`
+
+**Step 3: Changed Files Detection**
+```bash
+# Get files changed since session creation
+git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u
+```
+
+**Step 4: Output Directory Setup**
+- Output directory: `.workflow/active/${sessionId}/.review/`
+- Create directory structure:
+  ```bash
+  mkdir -p ${sessionDir}/.review/{dimensions,iterations,reports}
+  ```
+
+**Step 5: Initialize Review State**
+- Metadata creation: Create `review-metadata.json` with scope, dimensions, and configuration
+- State initialization: Create `review-state.json` with dimensions, max_iterations
+- Progress tracking: Create `review-progress.json` for dashboard polling
+
+**Step 6: Dashboard Generation**
+- Read template: `~/.claude/templates/review-cycle-dashboard.html`
+- Replace placeholders: `{{SESSION_ID}}`, `{{REVIEW_TYPE}}`, `{{REVIEW_DIR}}`
+- Write to: `${sessionDir}/.review/dashboard.html`
+- Output path to user: `file://${absolutePath}/dashboard.html`
+
+**Step 7: TodoWrite Initialization**
+- Set up progress tracking with hierarchical structure
+- Mark Phase 1 completed, Phase 2 in_progress
 
 **Phase 2: Parallel Review Coordination**
 - Launch 7 @cli-explore-agent instances simultaneously (Deep Scan mode)
@@ -304,7 +353,8 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 ### Session File Structure
 
 ```
-.workflow/.reviews/session-{session-id}/
+.workflow/active/WFS-{session-id}/.review/
+├── review-metadata.json                 # Review configuration and scope
 ├── review-state.json                    # Orchestrator state machine
 ├── review-progress.json                 # Real-time progress for dashboard
 ├── dimensions/                          # Per-dimension results
@@ -325,6 +375,18 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 │   └── ...
 ├── REVIEW-SUMMARY.md                    # Final summary
 └── dashboard.html                       # Interactive dashboard
+```
+
+**Session Context**:
+```
+.workflow/active/WFS-{session-id}/
+├── workflow-session.json
+├── IMPL_PLAN.md
+├── TODO_LIST.md
+├── .task/
+├── .summaries/
+└── .review/                             # Review results (this command)
+    └── (structure above)
 ```
 
 ### Review State JSON
@@ -834,7 +896,7 @@ After completing a review, use the dashboard to select findings and export them 
 # Dashboard generates: fix-export-{timestamp}.json
 
 # Step 3: Run automated fixes
-/workflow:review-fix .workflow/.reviews/session-{session-id}/fix-export-{timestamp}.json
+/workflow:review-fix .workflow/active/WFS-{session-id}/.review/fix-export-{timestamp}.json
 ```
 
 See `/workflow:review-fix` for automated fixing with smart grouping, parallel execution, and test verification.

@@ -718,6 +718,15 @@ All workflows use the same file structure definition regardless of complexity. *
 │       ├── [.summaries/]               # Task completion summaries (created when tasks complete)
 │       │   ├── IMPL-*-summary.md      # Main task summaries
 │       │   └── IMPL-*.*-summary.md    # Subtask summaries
+│       ├── [.review/]                  # Code review results (created by review commands)
+│       │   ├── review-metadata.json    # Review configuration and scope
+│       │   ├── review-state.json       # Review state machine
+│       │   ├── review-progress.json    # Real-time progress tracking
+│       │   ├── dimensions/             # Per-dimension analysis results
+│       │   ├── iterations/             # Deep-dive iteration results
+│       │   ├── reports/                # Human-readable reports and CLI outputs
+│       │   ├── REVIEW-SUMMARY.md       # Final consolidated summary
+│       │   └── dashboard.html          # Interactive review dashboard
 │       ├── [design-*/]                 # UI design outputs (created by ui-design workflows)
 │       │   ├── .intermediates/         # Intermediate analysis files
 │       │   │   ├── style-analysis/     # Style analysis data
@@ -750,6 +759,7 @@ All workflows use the same file structure definition regardless of complexity. *
 - **Dynamic Files**: Subtask JSON files created during task decomposition
 - **Scratchpad Usage**: `.scratchpad/` created when CLI commands run without active session
 - **Design Usage**: `design-{timestamp}/` created by UI design workflows in `.workflow/` directly for standalone design runs
+- **Review Usage**: `.review/` created by review commands (`/workflow:review-module-cycle`, `/workflow:review-session-cycle`) for comprehensive code quality analysis
 - **Intermediate Files**: `.intermediates/` contains analysis data (style/layout) separate from final deliverables
 - **Layout Templates**: `layout-extraction/layout-templates.json` contains structural templates for UI assembly
 
