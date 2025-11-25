@@ -100,11 +100,12 @@ CONTEXT: Existing user database schema, REST API endpoints
 **TodoWrite Update (Phase 2 SlashCommand invoked - tasks attached)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Phase 2.1: Analyze codebase structure (context-gather)", "status": "in_progress", "activeForm": "Analyzing codebase structure"},
-  {"content": "Phase 2.2: Identify integration points (context-gather)", "status": "pending", "activeForm": "Identifying integration points"},
-  {"content": "Phase 2.3: Generate context package (context-gather)", "status": "pending", "activeForm": "Generating context package"},
-  {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "in_progress", "activeForm": "Executing context gathering"},
+  {"content": "  → Analyze codebase structure", "status": "in_progress", "activeForm": "Analyzing codebase structure"},
+  {"content": "  → Identify integration points", "status": "pending", "activeForm": "Identifying integration points"},
+  {"content": "  → Generate context package", "status": "pending", "activeForm": "Generating context package"},
+  {"content": "Phase 4: Task Generation", "status": "pending", "activeForm": "Executing task generation"}
 ]
 ```
 
@@ -115,9 +116,9 @@ CONTEXT: Existing user database schema, REST API endpoints
 **TodoWrite Update (Phase 2 completed - tasks collapsed)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 4: Task Generation", "status": "pending", "activeForm": "Executing task generation"}
 ]
 ```
 
@@ -154,12 +155,13 @@ CONTEXT: Existing user database schema, REST API endpoints
 **TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached, if conflict_risk ≥ medium)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Phase 3.1: Detect conflicts with CLI analysis (conflict-resolution)", "status": "in_progress", "activeForm": "Detecting conflicts"},
-  {"content": "Phase 3.2: Present conflicts to user (conflict-resolution)", "status": "pending", "activeForm": "Presenting conflicts"},
-  {"content": "Phase 3.3: Apply resolution strategies (conflict-resolution)", "status": "pending", "activeForm": "Applying resolution strategies"},
-  {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3: Conflict Resolution", "status": "in_progress", "activeForm": "Resolving conflicts"},
+  {"content": "  → Detect conflicts with CLI analysis", "status": "in_progress", "activeForm": "Detecting conflicts"},
+  {"content": "  → Present conflicts to user", "status": "pending", "activeForm": "Presenting conflicts"},
+  {"content": "  → Apply resolution strategies", "status": "pending", "activeForm": "Applying resolution strategies"},
+  {"content": "Phase 4: Task Generation", "status": "pending", "activeForm": "Executing task generation"}
 ]
 ```
 
@@ -170,10 +172,10 @@ CONTEXT: Existing user database schema, REST API endpoints
 **TodoWrite Update (Phase 3 completed - tasks collapsed)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Resolve conflicts and apply fixes", "status": "completed", "activeForm": "Resolving conflicts"},
-  {"content": "Execute task generation", "status": "pending", "activeForm": "Executing task generation"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3: Conflict Resolution", "status": "completed", "activeForm": "Resolving conflicts"},
+  {"content": "Phase 4: Task Generation", "status": "pending", "activeForm": "Executing task generation"}
 ]
 ```
 
@@ -243,9 +245,9 @@ SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId] 
 **TodoWrite Update (Phase 4 SlashCommand invoked - agent task attached)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute task-generate-agent", "status": "in_progress", "activeForm": "Executing task-generate-agent"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 4: Task Generation", "status": "in_progress", "activeForm": "Executing task generation"}
 ]
 ```
 
@@ -256,9 +258,9 @@ SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId] 
 **TodoWrite Update (Phase 4 completed)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute task-generate-agent", "status": "completed", "activeForm": "Executing task-generate-agent"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 4: Task Generation", "status": "completed", "activeForm": "Executing task generation"}
 ]
 ```
 
@@ -396,29 +398,28 @@ Phase 1: Session Discovery
   → sessionId extracted
   ↓
 Phase 2: Context Gathering (SlashCommand invoked)
-  → ATTACH 3 tasks: ← ATTACHED
-    - Phase 2.1: Analyze codebase structure
-    - Phase 2.2: Identify integration points
-    - Phase 2.3: Generate context package
-  → Execute Phase 2.1-2.3
+  → ATTACH 3 sub-tasks: ← ATTACHED
+    - → Analyze codebase structure
+    - → Identify integration points
+    - → Generate context package
+  → Execute sub-tasks sequentially
   → COLLAPSE tasks ← COLLAPSED
   → contextPath + conflict_risk extracted
   ↓
 Conditional Branch: Check conflict_risk
   ├─ IF conflict_risk ≥ medium:
   │   Phase 3: Conflict Resolution (SlashCommand invoked)
-  │     → ATTACH 3 tasks: ← ATTACHED
-  │       - Phase 3.1: Detect conflicts with CLI analysis
-  │       - Phase 3.2: Present conflicts to user
-  │       - Phase 3.3: Apply resolution strategies
-  │     → Execute Phase 3.1-3.3
+  │     → ATTACH 3 sub-tasks: ← ATTACHED
+  │       - → Detect conflicts with CLI analysis
+  │       - → Present conflicts to user
+  │       - → Apply resolution strategies
+  │     → Execute sub-tasks sequentially
   │     → COLLAPSE tasks ← COLLAPSED
   │
   └─ ELSE: Skip Phase 3, proceed to Phase 4
   ↓
 Phase 4: Task Generation (SlashCommand invoked)
-  → ATTACH 1 agent task: ← ATTACHED
-    - Execute task-generate-agent
+  → Single agent task (no sub-tasks)
   → Agent autonomously completes internally:
     (discovery → planning → output)
   → Outputs: IMPL_PLAN.md, IMPL-*.json, TODO_LIST.md
