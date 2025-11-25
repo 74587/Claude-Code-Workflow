@@ -188,7 +188,11 @@ Task(subagent_type="test-fix-agent", model="haiku", ...) x3
 - Pass rate calculation: `(passed / total) * 100` from test-results.json
 - Criticality assessment (high/medium/low)
 - Strategy selection based on context
-- Detection: stuck tests (3+ consecutive), regression (>10% drop)
+- **Runtime Calculations** (from iteration-state.json):
+  - Current iteration: `iterations.length + 1`
+  - Stuck tests: Tests appearing in `failed_tests` for 3+ consecutive iterations
+  - Regression: Compare consecutive `pass_rate` values (>10% drop)
+  - Max iterations: Read from `task.meta.max_iterations`
 - Iteration control (max 10, default)
 - CLI tool fallback chain: Gemini → Qwen → Codex
 - TodoWrite progress tracking
@@ -244,37 +248,55 @@ Task(subagent_type="test-fix-agent", model="haiku", ...) x3
 
 ### Iteration State JSON
 
+**Purpose**: Persisted state machine for iteration loop - enables Resume and historical analysis.
+
+**Simplified Structure** (removed redundant fields):
+
 ```json
 {
-  "session_id": "WFS-test-user-auth",
   "current_task": "IMPL-002",
-  "current_iteration": 3,
-  "max_iterations": 10,
   "selected_strategy": "aggressive",
+  "next_action": "execute_fix_task",
   "iterations": [
     {
       "iteration": 1,
       "pass_rate": 70,
       "strategy": "conservative",
-      "stuck_tests": [],
-      "regression_detected": false
+      "failed_tests": ["test_auth_flow", "test_user_permissions"]
     },
     {
       "iteration": 2,
       "pass_rate": 82,
-      "strategy": "conservative"
+      "strategy": "conservative",
+      "failed_tests": ["test_user_permissions", "test_token_expiry"]
     },
     {
       "iteration": 3,
       "pass_rate": 89,
       "strategy": "aggressive",
-      "stuck_tests": ["test_auth_edge_case"]
+      "failed_tests": ["test_auth_edge_case"]
     }
-  ],
-  "stuck_tests": ["test_auth_edge_case"],
-  "next_action": "execute_fix_task"
+  ]
 }
 ```
+
+**Field Descriptions**:
+- `current_task`: Pointer to active task (essential for Resume)
+- `selected_strategy`: Current iteration strategy (runtime state)
+- `next_action`: State machine next step (`execute_fix_task` | `retest` | `complete`)
+- `iterations[]`: Historical log of all iterations (source of truth for trends)
+
+**Removed Redundant Fields** (calculable from other sources):
+- ~~`session_id`~~ → Derive from file path or `workflow-session.json`
+- ~~`current_iteration`~~ → Calculate as `iterations.length + 1`
+- ~~`max_iterations`~~ → Read from `task.meta.max_iterations` (single source)
+- ~~`stuck_tests`~~ → Calculate by analyzing `iterations[].failed_tests` history
+- ~~`regression_detected`~~ → Calculate by comparing consecutive `pass_rate` values
+
+**Benefits of Simplification**:
+- Single source of truth (no duplication)
+- Less state to maintain and sync
+- Clearer data ownership
 
 ### Task JSON Template (Fix Iteration)
 
@@ -331,12 +353,13 @@ Task(
     2. Read test output: ${session.test_output_path}
     3. Read iteration state: ${session.iteration_state_path}
 
-    ## Context Metadata
-    - Session ID: ${sessionId}
-    - Current Iteration: ${N} / ${maxIterations}
+    ## Context Metadata (Orchestrator-Calculated)
+    - Session ID: ${sessionId} (from file path)
+    - Current Iteration: ${N} (= iterations.length + 1)
+    - Max Iterations: ${maxIterations} (from task.meta.max_iterations)
     - Current Pass Rate: ${passRate}%
-    - Selected Strategy: ${selectedStrategy}
-    - Stuck Tests: ${stuckTests}
+    - Selected Strategy: ${selectedStrategy} (from iteration-state.json)
+    - Stuck Tests: ${stuckTests} (calculated from iterations[].failed_tests history)
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex
