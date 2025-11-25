@@ -1,7 +1,7 @@
 ---
 name: review-session-cycle
 description: Session-based comprehensive multi-dimensional code review. Analyzes git changes from workflow session across 7 dimensions with hybrid parallel-iterative execution, aggregates findings, and performs focused deep-dives on critical issues until quality gates met.
-argument-hint: "[session-id] [--dimensions=security,architecture,...] [--max-iterations=N] [--output-dir=path] [--resume]"
+argument-hint: "[session-id] [--dimensions=security,architecture,...] [--max-iterations=N] [--resume]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---
 
@@ -21,12 +21,10 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 
 # Specify session and iteration limit
 /workflow:review-session-cycle WFS-payment-integration --max-iterations=5
-
-# Custom output directory
-/workflow:review-session-cycle --output-dir=.workflow/active/WFS-session/.review-cycle
 ```
 
 **Review Scope**: Git changes from session creation to present (via `git log --since`)
+**Output Directory**: `.workflow/.reviews/session-{session-id}/` (fixed location)
 **Default Dimensions**: Security, Architecture, Quality, Action-Items, Performance, Maintainability, Best-Practices
 **Max Iterations**: 3 (default, adjustable)
 **CLI Tools**: Gemini → Qwen → Codex (fallback chain)
@@ -160,8 +158,9 @@ const CATEGORIES = {
 **Phase 1: Discovery & Initialization**
 - Session discovery: Auto-detect active session if not specified
 - Validation: Ensure session has completed implementation (check .summaries/)
+- Output directory: Set to `.workflow/.reviews/session-{session-id}/` (fixed location)
 - State initialization: Create review-state.json with dimensions, max_iterations
-- Directory structure: Create .review-cycle/{dimensions,iterations,reports}/
+- Directory structure: Create {dimensions,iterations,reports}/ subdirectories
 - Dashboard generation: Generate dashboard.html from template (see Dashboard Generation below)
 - TodoWrite initialization: Set up progress tracking
 
@@ -305,7 +304,7 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 ### Session File Structure
 
 ```
-.workflow/active/WFS-{session}/.review-cycle/
+.workflow/.reviews/session-{session-id}/
 ├── review-state.json                    # Orchestrator state machine
 ├── review-progress.json                 # Real-time progress for dashboard
 ├── dimensions/                          # Per-dimension results
@@ -821,3 +820,30 @@ TodoWrite({
 5. **Dashboard Polling**: Refresh every 5 seconds for real-time updates
 6. **Resume Support**: Interrupted reviews can resume from last checkpoint
 7. **Export Results**: Use dashboard export for external tracking tools
+
+## Related Commands
+
+### Automated Fix Workflow
+After completing a review, use the dashboard to select findings and export them for automated fixing:
+
+```bash
+# Step 1: Complete review (this command)
+/workflow:review-session-cycle
+
+# Step 2: Open dashboard, select findings, and export
+# Dashboard generates: fix-export-{timestamp}.json
+
+# Step 3: Run automated fixes
+/workflow:review-fix .workflow/.reviews/session-{session-id}/fix-export-{timestamp}.json
+```
+
+See `/workflow:review-fix` for automated fixing with smart grouping, parallel execution, and test verification.
+
+### Independent Module Review
+For reviewing specific modules without a workflow session:
+
+```bash
+/workflow:review-module-cycle <path-pattern>
+```
+
+This command provides the same 7-dimension analysis but targets specific files or directories.

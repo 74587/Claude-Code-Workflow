@@ -528,10 +528,10 @@ SlashCommand(command)
 ```javascript
 // Initialize IMMEDIATELY after Phase 5 user confirmation to track multi-phase execution (4 orchestrator-level tasks)
 TodoWrite({todos: [
-  {"content": "Execute style extraction", "status": "in_progress", "activeForm": "Executing style extraction"},
-  {"content": "Execute animation extraction", "status": "pending", "activeForm": "Executing animation extraction"},
-  {"content": "Execute layout extraction", "status": "pending", "activeForm": "Executing layout extraction"},
-  {"content": "Execute UI assembly", "status": "pending", "activeForm": "Executing UI assembly"}
+  {"content": "Phase 7: Style Extraction", "status": "in_progress", "activeForm": "Executing style extraction"},
+  {"content": "Phase 8: Animation Extraction", "status": "pending", "activeForm": "Executing animation extraction"},
+  {"content": "Phase 9: Layout Extraction", "status": "pending", "activeForm": "Executing layout extraction"},
+  {"content": "Phase 10: UI Assembly", "status": "pending", "activeForm": "Executing UI assembly"}
 ]})
 
 // ⚠️ CRITICAL: Dynamic TodoWrite task attachment strategy:
@@ -539,14 +539,23 @@ TodoWrite({todos: [
 // **Key Concept**: SlashCommand invocation ATTACHES tasks to current workflow.
 // Orchestrator EXECUTES these attached tasks itself, not waiting for external completion.
 //
-// Phase 7-10 SlashCommand Invocation Pattern:
-// 1. SlashCommand invocation ATTACHES sub-command tasks to TodoWrite
-// 2. TodoWrite expands to include attached tasks
-// 3. Orchestrator EXECUTES attached tasks sequentially
-// 4. After all attached tasks complete, COLLAPSE them into phase summary
-// 5. Update next phase to in_progress
-// 6. IMMEDIATELY execute next phase (auto-continue)
-// 7. After Phase 10 completes, workflow finishes (generate command handles preview files)
+// Phase 7-10 SlashCommand Invocation Pattern (when tasks are attached):
+// Example - Phase 7 with sub-tasks:
+// [
+//   {"content": "Phase 7: Style Extraction", "status": "in_progress", "activeForm": "Executing style extraction"},
+//   {"content": "  → Analyze style references", "status": "in_progress", "activeForm": "Analyzing style references"},
+//   {"content": "  → Generate style variants", "status": "pending", "activeForm": "Generating style variants"},
+//   {"content": "  → Create design tokens", "status": "pending", "activeForm": "Creating design tokens"},
+//   {"content": "Phase 8: Animation Extraction", "status": "pending", "activeForm": "Executing animation extraction"},
+//   ...
+// ]
+//
+// After sub-tasks complete, COLLAPSE back to:
+// [
+//   {"content": "Phase 7: Style Extraction", "status": "completed", "activeForm": "Executing style extraction"},
+//   {"content": "Phase 8: Animation Extraction", "status": "in_progress", "activeForm": "Executing animation extraction"},
+//   ...
+// ]
 //
 ```
 

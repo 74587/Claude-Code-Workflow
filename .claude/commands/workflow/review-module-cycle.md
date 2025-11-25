@@ -1,7 +1,7 @@
 ---
 name: review-module-cycle
 description: Independent multi-dimensional code review for specified modules/files. Analyzes specific code paths across 7 dimensions with hybrid parallel-iterative execution, independent of workflow sessions.
-argument-hint: "<path-pattern> [--dimensions=security,architecture,...] [--max-iterations=N] [--output-dir=path] [--resume]"
+argument-hint: "<path-pattern> [--dimensions=security,architecture,...] [--max-iterations=N] [--resume]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---
 
@@ -22,14 +22,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 # Review specific files
 /workflow:review-module-cycle src/payment/processor.ts,src/payment/validator.ts
 
-# Custom output directory
-/workflow:review-module-cycle src/auth/** --output-dir=.workflow/.scratchpad/reviews/auth-review
-
 # Resume interrupted review
 /workflow:review-module-cycle --resume
 ```
 
 **Review Scope**: Specified modules/files only (independent of git history or sessions)
+**Output Directory**: `.workflow/.reviews/module-{pattern-hash}/` (fixed location)
 **Default Dimensions**: Security, Architecture, Quality, Action-Items, Performance, Maintainability, Best-Practices
 **Max Iterations**: 3 (default, adjustable)
 **CLI Tools**: Gemini → Qwen → Codex (fallback chain)
@@ -179,8 +177,9 @@ const CATEGORIES = {
 **Phase 1: Discovery & Initialization**
 - Path resolution: Parse and expand file patterns (glob support)
 - Validation: Ensure all specified files exist and are readable
+- Output directory: Set to `.workflow/.reviews/module-{pattern-hash}/` (fixed location, hash based on target pattern)
 - State initialization: Create review-state.json with dimensions, max_iterations, resolved_files
-- Directory structure: Create output-dir/{dimensions,iterations,reports}/
+- Directory structure: Create {dimensions,iterations,reports}/ subdirectories
 - Dashboard generation: Generate dashboard.html from template (see Dashboard Generation below)
 - TodoWrite initialization: Set up progress tracking
 
@@ -300,15 +299,6 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
    🔄 Monitor progress in real-time (auto-refresh every 5s)
    ```
 
-### Features Summary
-
-- **Real-time Progress**: Phase indicator, progress bar, agent status (auto-refresh 5s)
-- **Interactive Findings**: Severity/dimension filtering, search, sort, detail drawer
-- **Export**: Generate markdown report
-- **Dark Mode**: Toggle with localStorage persistence
-
-**Usage Details**: See `~/.claude/workflows/DASHBOARD-QUICKSTART.md`
-
 ## Reference
 
 ### CLI Tool Configuration
@@ -325,7 +315,7 @@ Dashboard uses **static HTML + JSON polling**: reads template from `~/.claude/te
 ### Output File Structure
 
 ```
-{output-dir}/
+.workflow/.reviews/module-{pattern-hash}/
 ├── review-state.json                    # Orchestrator state machine
 ├── review-progress.json                 # Real-time progress for dashboard
 ├── dimensions/                          # Per-dimension results
@@ -797,3 +787,30 @@ TodoWrite({
 ```bash
 /workflow:review-module-cycle src/payment/processor.ts,src/auth/validator.ts --max-iterations=5
 ```
+
+## Related Commands
+
+### Automated Fix Workflow
+After completing a module review, use the dashboard to select findings and export them for automated fixing:
+
+```bash
+# Step 1: Complete review (this command)
+/workflow:review-module-cycle src/auth/**
+
+# Step 2: Open dashboard, select findings, and export
+# Dashboard generates: fix-export-{timestamp}.json
+
+# Step 3: Run automated fixes
+/workflow:review-fix .workflow/.reviews/module-{hash}/fix-export-{timestamp}.json
+```
+
+See `/workflow:review-fix` for automated fixing with smart grouping, parallel execution, and test verification.
+
+### Session-Based Review
+For reviewing all changes in a workflow session:
+
+```bash
+/workflow:review-session-cycle
+```
+
+This command analyzes all git-tracked changes in the active workflow session across all 7 dimensions.

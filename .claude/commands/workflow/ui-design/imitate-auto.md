@@ -570,12 +570,12 @@ ELSE:
 ```javascript
 // Initialize IMMEDIATELY at start of Phase 0 to track multi-phase execution (6 orchestrator-level tasks)
 TodoWrite({todos: [
-  {content: "Initialize and detect design source", status: "in_progress", activeForm: "Initializing"},
-  {content: "Extract style (complete design systems)", status: "pending", activeForm: "Extracting style"},
-  {content: "Extract animation (CSS auto mode)", status: "pending", activeForm: "Extracting animation"},
-  {content: "Extract layout (structure templates)", status: "pending", activeForm: "Extracting layout"},
-  {content: "Assemble UI prototypes", status: "pending", activeForm: "Assembling UI"},
-  {content: "Integrate design system", status: "pending", activeForm: "Integrating"}
+  {content: "Phase 0: Initialize and Detect Design Source", status: "in_progress", activeForm: "Initializing"},
+  {content: "Phase 2: Style Extraction", status: "pending", activeForm: "Extracting style"},
+  {content: "Phase 2.3: Animation Extraction", status: "pending", activeForm: "Extracting animation"},
+  {content: "Phase 2.5: Layout Extraction", status: "pending", activeForm: "Extracting layout"},
+  {content: "Phase 3: UI Assembly", status: "pending", activeForm: "Assembling UI"},
+  {content: "Phase 4: Design System Integration", status: "pending", activeForm: "Integrating"}
 ]})
 
 // ⚠️ CRITICAL: Dynamic TodoWrite task attachment strategy:
@@ -583,13 +583,25 @@ TodoWrite({todos: [
 // **Key Concept**: SlashCommand invocation ATTACHES tasks to current workflow.
 // Orchestrator EXECUTES these attached tasks itself, not waiting for external completion.
 //
-// Phase 2-4 SlashCommand Invocation Pattern:
-// 1. SlashCommand invocation ATTACHES sub-command tasks to TodoWrite
-// 2. TodoWrite expands to include attached tasks
-// 3. Orchestrator EXECUTES attached tasks sequentially
-// 4. After all attached tasks complete, COLLAPSE them into phase summary
-// 5. Update next phase to in_progress
-// 6. IMMEDIATELY execute next phase SlashCommand (auto-continue)
+// Phase 2-4 SlashCommand Invocation Pattern (when tasks are attached):
+// Example - Phase 2 with sub-tasks:
+// [
+//   {"content": "Phase 0: Initialize and Detect Design Source", "status": "completed", "activeForm": "Initializing"},
+//   {"content": "Phase 2: Style Extraction", "status": "in_progress", "activeForm": "Extracting style"},
+//   {"content": "  → Analyze design references", "status": "in_progress", "activeForm": "Analyzing references"},
+//   {"content": "  → Generate design tokens", "status": "pending", "activeForm": "Generating tokens"},
+//   {"content": "  → Create style guide", "status": "pending", "activeForm": "Creating guide"},
+//   {"content": "Phase 2.3: Animation Extraction", "status": "pending", "activeForm": "Extracting animation"},
+//   ...
+// ]
+//
+// After sub-tasks complete, COLLAPSE back to:
+// [
+//   {"content": "Phase 0: Initialize and Detect Design Source", "status": "completed", "activeForm": "Initializing"},
+//   {"content": "Phase 2: Style Extraction", "status": "completed", "activeForm": "Extracting style"},
+//   {"content": "Phase 2.3: Animation Extraction", "status": "in_progress", "activeForm": "Extracting animation"},
+//   ...
+// ]
 //
 ```
 

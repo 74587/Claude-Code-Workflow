@@ -90,14 +90,15 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 **TodoWrite Update (Phase 1 SlashCommand invoked - tasks attached)**:
 ```json
 [
-  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
-  {"content": "Phase 1.1: Topic analysis and question generation (artifacts)", "status": "in_progress", "activeForm": "Analyzing topic"},
-  {"content": "Phase 1.2: Role selection and user confirmation (artifacts)", "status": "pending", "activeForm": "Selecting roles"},
-  {"content": "Phase 1.3: Role questions and user decisions (artifacts)", "status": "pending", "activeForm": "Collecting role questions"},
-  {"content": "Phase 1.4: Conflict detection and resolution (artifacts)", "status": "pending", "activeForm": "Resolving conflicts"},
-  {"content": "Phase 1.5: Guidance specification generation (artifacts)", "status": "pending", "activeForm": "Generating guidance"},
-  {"content": "Execute parallel role analysis", "status": "pending", "activeForm": "Executing parallel role analysis"},
-  {"content": "Execute synthesis integration", "status": "pending", "activeForm": "Executing synthesis integration"}
+  {"content": "Phase 0: Parameter Parsing", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Phase 1: Interactive Framework Generation", "status": "in_progress", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "  → Topic analysis and question generation", "status": "in_progress", "activeForm": "Analyzing topic"},
+  {"content": "  → Role selection and user confirmation", "status": "pending", "activeForm": "Selecting roles"},
+  {"content": "  → Role questions and user decisions", "status": "pending", "activeForm": "Collecting role questions"},
+  {"content": "  → Conflict detection and resolution", "status": "pending", "activeForm": "Resolving conflicts"},
+  {"content": "  → Guidance specification generation", "status": "pending", "activeForm": "Generating guidance"},
+  {"content": "Phase 2: Parallel Role Analysis", "status": "pending", "activeForm": "Executing parallel role analysis"},
+  {"content": "Phase 3: Synthesis Integration", "status": "pending", "activeForm": "Executing synthesis integration"}
 ]
 ```
 
@@ -108,10 +109,10 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 **TodoWrite Update (Phase 1 completed - tasks collapsed)**:
 ```json
 [
-  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
-  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
-  {"content": "Execute parallel role analysis", "status": "pending", "activeForm": "Executing parallel role analysis"},
-  {"content": "Execute synthesis integration", "status": "pending", "activeForm": "Executing synthesis integration"}
+  {"content": "Phase 0: Parameter Parsing", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Phase 1: Interactive Framework Generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Phase 2: Parallel Role Analysis", "status": "pending", "activeForm": "Executing parallel role analysis"},
+  {"content": "Phase 3: Synthesis Integration", "status": "pending", "activeForm": "Executing synthesis integration"}
 ]
 ```
 
@@ -203,12 +204,13 @@ TOPIC: {user-provided-topic}
 **TodoWrite Update (Phase 2 agents invoked - tasks attached in parallel)**:
 ```json
 [
-  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
-  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
-  {"content": "Phase 2.1: Execute system-architect analysis [conceptual-planning-agent]", "status": "in_progress", "activeForm": "Executing system-architect analysis"},
-  {"content": "Phase 2.2: Execute ui-designer analysis [conceptual-planning-agent]", "status": "in_progress", "activeForm": "Executing ui-designer analysis"},
-  {"content": "Phase 2.3: Execute product-manager analysis [conceptual-planning-agent]", "status": "in_progress", "activeForm": "Executing product-manager analysis"},
-  {"content": "Execute synthesis integration", "status": "pending", "activeForm": "Executing synthesis integration"}
+  {"content": "Phase 0: Parameter Parsing", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Phase 1: Interactive Framework Generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Phase 2: Parallel Role Analysis", "status": "in_progress", "activeForm": "Executing parallel role analysis"},
+  {"content": "  → Execute system-architect analysis", "status": "in_progress", "activeForm": "Executing system-architect analysis"},
+  {"content": "  → Execute ui-designer analysis", "status": "in_progress", "activeForm": "Executing ui-designer analysis"},
+  {"content": "  → Execute product-manager analysis", "status": "in_progress", "activeForm": "Executing product-manager analysis"},
+  {"content": "Phase 3: Synthesis Integration", "status": "pending", "activeForm": "Executing synthesis integration"}
 ]
 ```
 
@@ -219,10 +221,10 @@ TOPIC: {user-provided-topic}
 **TodoWrite Update (Phase 2 completed - tasks collapsed)**:
 ```json
 [
-  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
-  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
-  {"content": "Execute parallel role analysis", "status": "completed", "activeForm": "Executing parallel role analysis"},
-  {"content": "Execute synthesis integration", "status": "pending", "activeForm": "Executing synthesis integration"}
+  {"content": "Phase 0: Parameter Parsing", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Phase 1: Interactive Framework Generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Phase 2: Parallel Role Analysis", "status": "completed", "activeForm": "Executing parallel role analysis"},
+  {"content": "Phase 3: Synthesis Integration", "status": "pending", "activeForm": "Executing synthesis integration"}
 ]
 ```
 
@@ -251,12 +253,13 @@ TOPIC: {user-provided-topic}
 **TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached)**:
 ```json
 [
-  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
-  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
-  {"content": "Execute parallel role analysis", "status": "completed", "activeForm": "Executing parallel role analysis"},
-  {"content": "Phase 3.1: Load role analysis files (synthesis)", "status": "in_progress", "activeForm": "Loading role analyses"},
-  {"content": "Phase 3.2: Integrate insights across roles (synthesis)", "status": "pending", "activeForm": "Integrating insights"},
-  {"content": "Phase 3.3: Generate synthesis specification (synthesis)", "status": "pending", "activeForm": "Generating synthesis"}
+  {"content": "Phase 0: Parameter Parsing", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Phase 1: Interactive Framework Generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Phase 2: Parallel Role Analysis", "status": "completed", "activeForm": "Executing parallel role analysis"},
+  {"content": "Phase 3: Synthesis Integration", "status": "in_progress", "activeForm": "Executing synthesis integration"},
+  {"content": "  → Load role analysis files", "status": "in_progress", "activeForm": "Loading role analyses"},
+  {"content": "  → Integrate insights across roles", "status": "pending", "activeForm": "Integrating insights"},
+  {"content": "  → Generate synthesis specification", "status": "pending", "activeForm": "Generating synthesis"}
 ]
 ```
 
@@ -267,10 +270,10 @@ TOPIC: {user-provided-topic}
 **TodoWrite Update (Phase 3 completed - tasks collapsed)**:
 ```json
 [
-  {"content": "Parse --count parameter from user input", "status": "completed", "activeForm": "Parsing count parameter"},
-  {"content": "Execute artifacts interactive framework generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
-  {"content": "Execute parallel role analysis", "status": "completed", "activeForm": "Executing parallel role analysis"},
-  {"content": "Execute synthesis integration", "status": "completed", "activeForm": "Executing synthesis integration"}
+  {"content": "Phase 0: Parameter Parsing", "status": "completed", "activeForm": "Parsing count parameter"},
+  {"content": "Phase 1: Interactive Framework Generation", "status": "completed", "activeForm": "Executing artifacts interactive framework"},
+  {"content": "Phase 2: Parallel Role Analysis", "status": "completed", "activeForm": "Executing parallel role analysis"},
+  {"content": "Phase 3: Synthesis Integration", "status": "completed", "activeForm": "Executing synthesis integration"}
 ]
 ```
 

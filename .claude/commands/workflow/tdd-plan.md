@@ -100,13 +100,14 @@ TEST_FOCUS: [Test scenarios]
 **TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Phase 3.1: Detect test framework and conventions (test-context-gather)", "status": "in_progress", "activeForm": "Detecting test framework"},
-  {"content": "Phase 3.2: Analyze existing test coverage (test-context-gather)", "status": "pending", "activeForm": "Analyzing test coverage"},
-  {"content": "Phase 3.3: Identify coverage gaps (test-context-gather)", "status": "pending", "activeForm": "Identifying coverage gaps"},
-  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
-  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3: Test Coverage Analysis", "status": "in_progress", "activeForm": "Executing test coverage analysis"},
+  {"content": "  → Detect test framework and conventions", "status": "in_progress", "activeForm": "Detecting test framework"},
+  {"content": "  → Analyze existing test coverage", "status": "pending", "activeForm": "Analyzing test coverage"},
+  {"content": "  → Identify coverage gaps", "status": "pending", "activeForm": "Identifying coverage gaps"},
+  {"content": "Phase 5: TDD Task Generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Phase 6: TDD Structure Validation", "status": "pending", "activeForm": "Validating TDD structure"}
 ]
 ```
 
@@ -119,11 +120,11 @@ TEST_FOCUS: [Test scenarios]
 **TodoWrite Update (Phase 3 completed - tasks collapsed)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
-  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
-  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3: Test Coverage Analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Phase 5: TDD Task Generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Phase 6: TDD Structure Validation", "status": "pending", "activeForm": "Validating TDD structure"}
 ]
 ```
 
@@ -160,14 +161,15 @@ TEST_FOCUS: [Test scenarios]
 **TodoWrite Update (Phase 4 SlashCommand invoked - tasks attached, if conflict_risk ≥ medium)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
-  {"content": "Phase 4.1: Detect conflicts with CLI analysis (conflict-resolution)", "status": "in_progress", "activeForm": "Detecting conflicts"},
-  {"content": "Phase 4.2: Present conflicts to user (conflict-resolution)", "status": "pending", "activeForm": "Presenting conflicts"},
-  {"content": "Phase 4.3: Apply resolution strategies (conflict-resolution)", "status": "pending", "activeForm": "Applying resolution strategies"},
-  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
-  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3: Test Coverage Analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Phase 4: Conflict Resolution", "status": "in_progress", "activeForm": "Executing conflict resolution"},
+  {"content": "  → Detect conflicts with CLI analysis", "status": "in_progress", "activeForm": "Detecting conflicts"},
+  {"content": "  → Present conflicts to user", "status": "pending", "activeForm": "Presenting conflicts"},
+  {"content": "  → Apply resolution strategies", "status": "pending", "activeForm": "Applying resolution strategies"},
+  {"content": "Phase 5: TDD Task Generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Phase 6: TDD Structure Validation", "status": "pending", "activeForm": "Validating TDD structure"}
 ]
 ```
 
@@ -180,12 +182,12 @@ TEST_FOCUS: [Test scenarios]
 **TodoWrite Update (Phase 4 completed - tasks collapsed)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
-  {"content": "Execute conflict resolution", "status": "completed", "activeForm": "Executing conflict resolution"},
-  {"content": "Execute TDD task generation", "status": "pending", "activeForm": "Executing TDD task generation"},
-  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3: Test Coverage Analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Phase 4: Conflict Resolution", "status": "completed", "activeForm": "Executing conflict resolution"},
+  {"content": "Phase 5: TDD Task Generation", "status": "pending", "activeForm": "Executing TDD task generation"},
+  {"content": "Phase 6: TDD Structure Validation", "status": "pending", "activeForm": "Validating TDD structure"}
 ]
 ```
 
@@ -226,13 +228,14 @@ TEST_FOCUS: [Test scenarios]
 **TodoWrite Update (Phase 5 SlashCommand invoked - tasks attached)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
-  {"content": "Phase 5.1: Discovery - analyze TDD requirements (task-generate-tdd)", "status": "in_progress", "activeForm": "Analyzing TDD requirements"},
-  {"content": "Phase 5.2: Planning - design Red-Green-Refactor cycles (task-generate-tdd)", "status": "pending", "activeForm": "Designing TDD cycles"},
-  {"content": "Phase 5.3: Output - generate IMPL tasks with internal TDD phases (task-generate-tdd)", "status": "pending", "activeForm": "Generating TDD tasks"},
-  {"content": "Validate TDD structure", "status": "pending", "activeForm": "Validating TDD structure"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3: Test Coverage Analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Phase 5: TDD Task Generation", "status": "in_progress", "activeForm": "Executing TDD task generation"},
+  {"content": "  → Discovery - analyze TDD requirements", "status": "in_progress", "activeForm": "Analyzing TDD requirements"},
+  {"content": "  → Planning - design Red-Green-Refactor cycles", "status": "pending", "activeForm": "Designing TDD cycles"},
+  {"content": "  → Output - generate IMPL tasks with internal TDD phases", "status": "pending", "activeForm": "Generating TDD tasks"},
+  {"content": "Phase 6: TDD Structure Validation", "status": "pending", "activeForm": "Validating TDD structure"}
 ]
 ```
 
@@ -245,11 +248,11 @@ TEST_FOCUS: [Test scenarios]
 **TodoWrite Update (Phase 5 completed - tasks collapsed)**:
 ```json
 [
-  {"content": "Execute session discovery", "status": "completed", "activeForm": "Executing session discovery"},
-  {"content": "Execute context gathering", "status": "completed", "activeForm": "Executing context gathering"},
-  {"content": "Execute test coverage analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
-  {"content": "Execute TDD task generation", "status": "completed", "activeForm": "Executing TDD task generation"},
-  {"content": "Validate TDD structure", "status": "in_progress", "activeForm": "Validating TDD structure"}
+  {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
+  {"content": "Phase 2: Context Gathering", "status": "completed", "activeForm": "Executing context gathering"},
+  {"content": "Phase 3: Test Coverage Analysis", "status": "completed", "activeForm": "Executing test coverage analysis"},
+  {"content": "Phase 5: TDD Task Generation", "status": "completed", "activeForm": "Executing TDD task generation"},
+  {"content": "Phase 6: TDD Structure Validation", "status": "in_progress", "activeForm": "Validating TDD structure"}
 ]
 ```
 

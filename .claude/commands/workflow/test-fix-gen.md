@@ -343,19 +343,49 @@ CRITICAL - Next Steps:
 
 **Core Concept**: Dynamic task attachment and collapse for test-fix-gen workflow with dual-mode support (Session Mode and Prompt Mode).
 
+#### Initial TodoWrite Structure
+
+```json
+[
+  {"content": "Phase 1: Create Test Session", "status": "in_progress", "activeForm": "Creating test session"},
+  {"content": "Phase 2: Gather Test Context", "status": "pending", "activeForm": "Gathering test context"},
+  {"content": "Phase 3: Test Generation Analysis", "status": "pending", "activeForm": "Analyzing test generation"},
+  {"content": "Phase 4: Generate Test Tasks", "status": "pending", "activeForm": "Generating test tasks"},
+  {"content": "Phase 5: Return Summary", "status": "pending", "activeForm": "Completing"}
+]
+```
+
 #### Key Principles
 
 1. **Task Attachment** (when SlashCommand invoked):
    - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
-   - Example: `/workflow:tools:test-context-gather` (Session Mode) or `/workflow:tools:context-gather` (Prompt Mode) attaches 3 sub-tasks (Phase 2.1, 2.2, 2.3)
-   - First attached task marked as `in_progress`, others as `pending`
-   - Orchestrator **executes** these attached tasks sequentially
+   - Example - Phase 2 with sub-tasks:
+   ```json
+   [
+     {"content": "Phase 1: Create Test Session", "status": "completed", "activeForm": "Creating test session"},
+     {"content": "Phase 2: Gather Test Context", "status": "in_progress", "activeForm": "Gathering test context"},
+     {"content": "  → Load context and analyze coverage", "status": "in_progress", "activeForm": "Loading context"},
+     {"content": "  → Detect test framework and conventions", "status": "pending", "activeForm": "Detecting framework"},
+     {"content": "  → Generate context package", "status": "pending", "activeForm": "Generating context"},
+     {"content": "Phase 3: Test Generation Analysis", "status": "pending", "activeForm": "Analyzing test generation"},
+     {"content": "Phase 4: Generate Test Tasks", "status": "pending", "activeForm": "Generating test tasks"},
+     {"content": "Phase 5: Return Summary", "status": "pending", "activeForm": "Completing"}
+   ]
+   ```
 
 2. **Task Collapse** (after sub-tasks complete):
    - Remove detailed sub-tasks from TodoWrite
    - **Collapse** to high-level phase summary
-   - Example: Phase 2.1-2.3 collapse to "Gather test coverage context: completed"
-   - Maintains clean orchestrator-level view
+   - Example - Phase 2 completed:
+   ```json
+   [
+     {"content": "Phase 1: Create Test Session", "status": "completed", "activeForm": "Creating test session"},
+     {"content": "Phase 2: Gather Test Context", "status": "completed", "activeForm": "Gathering test context"},
+     {"content": "Phase 3: Test Generation Analysis", "status": "in_progress", "activeForm": "Analyzing test generation"},
+     {"content": "Phase 4: Generate Test Tasks", "status": "pending", "activeForm": "Generating test tasks"},
+     {"content": "Phase 5: Return Summary", "status": "pending", "activeForm": "Completing"}
+   ]
+   ```
 
 3. **Continuous Execution**:
    - After collapse, automatically proceed to next pending phase
