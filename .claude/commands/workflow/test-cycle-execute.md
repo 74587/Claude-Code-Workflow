@@ -281,6 +281,13 @@ Task(
     2. Read iteration state: ${session.iteration_state_path}
     3. ${taskTypeSpecificReads[task.meta.type]}
 
+    ## CRITICAL: Syntax Check Priority
+    **Before any code modification or test execution:**
+    - Run project syntax checker (TypeScript: tsc --noEmit, ESLint, etc.)
+    - Verify zero syntax errors before proceeding
+    - If syntax errors found: Fix immediately before other work
+    - Syntax validation is MANDATORY gate - no exceptions
+
     ## Session Paths
     - Workflow Dir: ${session.workflow_dir}
     - Task JSON: ${session.task_json_path}
