@@ -316,14 +316,108 @@ Task({
   subagent_type: "cli-planning-agent",
   description: `Generate fix plan and initialize progress files for ${findings.length} findings`,
   prompt: `
-    Analyze ${findings.length} code review findings and generate:
-    - fix-plan.json (execution strategy, groups, timeline)
-    - fix-progress-{N}.json for each group (initial state)
+## Task Objective
+Analyze ${findings.length} code review findings and generate execution plan with intelligent grouping and timeline coordination.
 
-    Input: ${JSON.stringify(findings, null, 2)}
-    Templates: @~/.claude/workflows/cli-templates/fix-plan-template.json
-              @~/.claude/workflows/cli-templates/fix-progress-template.json
-    Output Dir: ${sessionDir}
+## Input Data
+Review Session: ${reviewId}
+Fix Session ID: ${fixSessionId}
+Total Findings: ${findings.length}
+
+Findings:
+${JSON.stringify(findings, null, 2)}
+
+Project Context:
+- Structure: ${projectStructure}
+- Test Framework: ${testFramework}
+- Git Status: ${gitStatus}
+
+## Output Requirements
+
+### 1. fix-plan.json
+Read template: @~/.claude/workflows/cli-templates/fix-plan-template.json
+
+Generate execution plan following template structure:
+
+**Key Generation Rules**:
+- **Execution Strategy**: Choose approach (parallel/serial/hybrid) based on dependency analysis, set parallel_limit and stages count
+- **Groups**: Create groups (G1, G2, ...) with intelligent grouping (see Analysis Requirements below), assign progress files (fix-progress-1.json, ...), populate fix_strategy with approach/complexity/test_pattern, assess risks, identify dependencies
+- **Timeline**: Define stages respecting dependencies, set execution_mode per stage, map groups to stages, calculate critical path
+
+### 2. fix-progress-{N}.json (one per group)
+Read template: @~/.claude/workflows/cli-templates/fix-progress-template.json
+
+For each group (G1, G2, G3, ...), generate fix-progress-{N}.json following template structure:
+
+**Initial State Requirements**:
+- Status: "pending", phase: "waiting"
+- Timestamps: Set last_update to now, others null
+- Findings: Populate from review findings with status "pending", all operation fields null
+- Summary: Initialize all counters to zero
+- Flow control: Empty implementation_approach array
+- Errors: Empty array
+
+**CRITICAL**: Ensure complete template structure for Dashboard consumption - all fields must be present.
+
+## Analysis Requirements
+
+### Intelligent Grouping Strategy
+Group findings using these criteria (in priority order):
+
+1. **File Proximity**: Findings in same file or related files
+2. **Dimension Affinity**: Same dimension (security, performance, etc.)
+3. **Root Cause Similarity**: Similar underlying issues
+4. **Fix Approach Commonality**: Can be fixed with similar approach
+
+**Grouping Guidelines**:
+- Optimal group size: 2-5 findings per group
+- Avoid cross-cutting concerns in same group
+- Consider test isolation (different test suites → different groups)
+- Balance workload across groups for parallel execution
+
+### Execution Strategy Determination
+
+**Parallel Mode**: Use when groups are independent, no shared files
+**Serial Mode**: Use when groups have dependencies or shared resources
+**Hybrid Mode**: Use for mixed dependency graphs (recommended for most cases)
+
+**Dependency Analysis**:
+- Identify shared files between groups
+- Detect test dependency chains
+- Evaluate risk of concurrent modifications
+
+### Risk Assessment
+
+For each group, evaluate:
+- **Complexity**: Based on code structure, file size, existing tests
+- **Impact Scope**: Number of files affected, API surface changes
+- **Rollback Feasibility**: Ease of reverting changes if tests fail
+
+### Test Strategy
+
+For each group, determine:
+- **Test Pattern**: Glob pattern matching affected tests
+- **Pass Criteria**: All tests must pass (100% pass rate)
+- **Test Command**: Infer from project (package.json, pytest.ini, etc.)
+
+## Output Files
+
+Write to ${sessionDir}:
+- ./fix-plan.json
+- ./fix-progress-1.json
+- ./fix-progress-2.json
+- ./fix-progress-{N}.json (as many as groups created)
+
+## Quality Checklist
+
+Before finalizing outputs:
+- ✅ All findings assigned to exactly one group
+- ✅ Group dependencies correctly identified
+- ✅ Timeline stages respect dependencies
+- ✅ All progress files have complete initial structure
+- ✅ Test patterns are valid and specific
+- ✅ Risk assessments are realistic
+- ✅ Estimated times are reasonable
   `
 })
 ```
@@ -334,32 +428,165 @@ Task({
   subagent_type: "cli-execute-agent",
   description: `Fix ${group.findings.length} issues: ${group.group_name}`,
   prompt: `
-    Execute fixes for findings in ${group.progress_file}.
-    Read initial state, apply fixes, run tests, commit changes.
-    Update progress file in real-time with flow_control steps.
+## Task Objective
+Execute fixes for code review findings in group ${group.group_id}. Update progress file in real-time with flow control tracking for dashboard visibility.
 
-    Group: ${group.group_id} (${group.group_name})
-    Progress File: ${group.progress_file}
-    Fix Strategy: ${JSON.stringify(group.fix_strategy, null, 2)}
+## Assignment
+- Group ID: ${group.group_id}
+- Group Name: ${group.group_name}
+- Progress File: ${sessionDir}/${group.progress_file}
+- Findings Count: ${group.findings.length}
+- Max Iterations: ${maxIterations} (per finding)
+
+## Fix Strategy
+${JSON.stringify(group.fix_strategy, null, 2)}
+
+## Risk Assessment
+${JSON.stringify(group.risk_assessment, null, 2)}
+
+## Execution Flow
+
+### Initialization (Before Starting)
+
+1. Read ${group.progress_file} to load initial state
+2. Update progress file:
+   - assigned_agent: "${agentId}"
+   - status: "in-progress"
+   - started_at: Current ISO 8601 timestamp
+   - last_update: Current ISO 8601 timestamp
+3. Write updated state back to ${group.progress_file}
+
+### Main Execution Loop
+
+For EACH finding in ${group.progress_file}.findings:
+
+#### Step 1: Analyze Context
+
+**Before Step**:
+- Update finding: status→"in-progress", started_at→now()
+- Update current_finding: Populate with finding details, status→"analyzing", action→"Reading file and understanding code structure"
+- Update phase→"analyzing"
+- Update flow_control: Add "analyze_context" step to implementation_approach (status→"in-progress"), set current_step→"analyze_context"
+- Update last_update→now(), write to ${group.progress_file}
+
+**Action**:
+- Read file: finding.file
+- Understand code structure around line: finding.line
+- Analyze surrounding context (imports, dependencies, related functions)
+- Review recommendations: finding.recommendations
+
+**After Step**:
+- Update flow_control: Mark "analyze_context" step as "completed" with completed_at→now()
+- Update last_update→now(), write to ${group.progress_file}
+
+#### Step 2: Apply Fix
+
+**Before Step**:
+- Update current_finding: status→"fixing", action→"Applying code changes per recommendations"
+- Update phase→"fixing"
+- Update flow_control: Add "apply_fix" step to implementation_approach (status→"in-progress"), set current_step→"apply_fix"
+- Update last_update→now(), write to ${group.progress_file}
+
+**Action**:
+- Use Edit tool to implement code changes per finding.recommendations
+- Follow fix_strategy.approach
+- Maintain code style and existing patterns
+
+**After Step**:
+- Update flow_control: Mark "apply_fix" step as "completed" with completed_at→now()
+- Update last_update→now(), write to ${group.progress_file}
+
+#### Step 3: Test Verification
+
+**Before Step**:
+- Update current_finding: status→"testing", action→"Running test suite to verify fix"
+- Update phase→"testing"
+- Update flow_control: Add "run_tests" step to implementation_approach (status→"in-progress"), set current_step→"run_tests"
+- Update last_update→now(), write to ${group.progress_file}
+
+**Action**:
+- Run tests using fix_strategy.test_pattern
+- Require 100% pass rate
+- Capture test output
+
+**On Test Failure**:
+- Git rollback: \`git checkout -- \${finding.file}\`
+- Increment finding.attempts
+- Update flow_control: Mark "run_tests" step as "failed" with completed_at→now()
+- Update errors: Add entry (finding_id, error_type→"test_failure", message, timestamp)
+- If finding.attempts < ${maxIterations}:
+  - Reset flow_control: implementation_approach→[], current_step→null
+  - Retry from Step 1
+- Else:
+  - Update finding: status→"completed", result→"failed", error_message→"Max iterations reached", completed_at→now()
+  - Update summary counts, move to next finding
+
+**On Test Success**:
+- Update flow_control: Mark "run_tests" step as "completed" with completed_at→now()
+- Update last_update→now(), write to ${group.progress_file}
+- Proceed to Step 4
+
+#### Step 4: Commit Changes
+
+**Before Step**:
+- Update current_finding: status→"committing", action→"Creating git commit for successful fix"
+- Update phase→"committing"
+- Update flow_control: Add "commit_changes" step to implementation_approach (status→"in-progress"), set current_step→"commit_changes"
+- Update last_update→now(), write to ${group.progress_file}
+
+**Action**:
+- Git commit: \`git commit -m "fix(${finding.dimension}): ${finding.title} [${finding.id}]"\`
+- Capture commit hash
+
+**After Step**:
+- Update finding: status→"completed", result→"fixed", commit_hash→<captured>, test_passed→true, completed_at→now()
+- Update flow_control: Mark "commit_changes" step as "completed" with completed_at→now()
+- Update last_update→now(), write to ${group.progress_file}
+
+#### After Each Finding
+
+- Update summary: Recalculate counts (pending/in_progress/fixed/failed) and percent_complete
+- If all findings completed: Clear current_finding, reset flow_control
+- Update last_update→now(), write to ${group.progress_file}
+
+### Final Completion
+
+When all findings processed:
+- Update status→"completed", phase→"done", summary.percent_complete→100.0
+- Update last_update→now(), write final state to ${group.progress_file}
+
+## Critical Requirements
+
+### Progress File Updates
+- **MUST update after every significant action** (before/after each step)
+- **Dashboard polls every 3 seconds** - ensure writes are atomic
+- **Always maintain complete structure** - never write partial updates
+- **Use ISO 8601 timestamps** - e.g., "2025-01-25T14:36:00Z"
+
+### Flow Control Format
+Follow action-planning-agent flow_control.implementation_approach format:
+- step: Identifier (e.g., "analyze_context", "apply_fix")
+- action: Human-readable description
+- status: "pending" | "in-progress" | "completed" | "failed"
+- started_at: ISO 8601 timestamp or null
+- completed_at: ISO 8601 timestamp or null
+
+### Error Handling
+- Capture all errors in errors[] array
+- Never leave progress file in invalid state
+- Always write complete updates, never partial
+- On unrecoverable error: Mark group as failed, preserve state
+
+## Test Patterns
+Use fix_strategy.test_pattern to run affected tests:
+- Pattern: ${group.fix_strategy.test_pattern}
+- Command: Infer from project (npm test, pytest, etc.)
+- Pass Criteria: 100% pass rate required
   `
 })
 ```
 
-### Completion Conditions
 
-**Success Criteria**:
-- ✅ All findings processed (fixed or failed)
-- ✅ Success rate ≥ 70% (configurable threshold)
-- ✅ All fixed code has passing tests
-- ✅ All changes committed to git
-- ✅ All fix-progress-{N}.json files have status = "completed"
-- ✅ fix-summary.md generated
-- ✅ fix-history.json updated
-
-**Trigger Next Phase**:
-- Planning complete → Start execution
-- Stage complete → Advance to next stage
-- All stages complete → Generate completion report
 
 ### Error Handling
 
