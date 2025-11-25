@@ -113,19 +113,6 @@ if (regressionDetected) return "surgical";
 4. @test-fix-agent runs: `npm test -- ${affected_tests.join(' ')}`
 5. Final validation: `npm test` (full suite)
 
-**Task JSON**:
-```json
-{
-  "fix_strategy": {
-    "modification_points": ["src/auth/middleware.ts:validateToken:45-60"],
-    "test_execution": {
-      "mode": "affected_only",
-      "affected_tests": ["tests/auth/*.test.ts"],
-      "fallback_to_full": true
-    }
-  }
-}
-```
 
 **Benefits**: 70-90% iteration speed improvement, instant feedback on fix effectiveness.
 
@@ -286,53 +273,6 @@ Task(subagent_type="test-fix-agent", ...) x3
 - `next_action`: State machine next step (`execute_fix_task` | `retest` | `complete`)
 - `iterations[]`: Historical log of all iterations (source of truth for trends)
 
-**Removed Redundant Fields** (calculable from other sources):
-- ~~`session_id`~~ → Derive from file path or `workflow-session.json`
-- ~~`current_iteration`~~ → Calculate as `iterations.length + 1`
-- ~~`max_iterations`~~ → Read from `task.meta.max_iterations` (single source)
-- ~~`stuck_tests`~~ → Calculate by analyzing `iterations[].failed_tests` history
-- ~~`regression_detected`~~ → Calculate by comparing consecutive `pass_rate` values
-
-**Benefits of Simplification**:
-- Single source of truth (no duplication)
-- Less state to maintain and sync
-- Clearer data ownership
-
-### Task JSON Template (Fix Iteration)
-
-```json
-{
-  "id": "IMPL-fix-3",
-  "title": "Fix test failures - Iteration 3 (aggressive)",
-  "status": "pending",
-  "meta": {
-    "type": "test-fix-iteration",
-    "agent": "@test-fix-agent",
-    "iteration": 3,
-    "strategy": "aggressive",
-    "max_iterations": 10
-  },
-  "context": {
-    "requirements": ["Fix identified test failures", "Address root causes"],
-    "failure_context": {
-      "failed_tests": ["test1", "test2"],
-      "error_messages": ["error1", "error2"],
-      "pass_rate": 89,
-      "stuck_tests": ["test_auth_edge_case"]
-    },
-    "fix_strategy": {
-      "approach": "Batch fix authentication validation across multiple endpoints",
-      "modification_points": ["src/auth/middleware.ts:validateToken:45-60"],
-      "confidence_score": 0.85,
-      "test_execution": {
-        "mode": "affected_only",
-        "affected_tests": ["tests/auth/*.test.ts"],
-        "fallback_to_full": true
-      }
-    }
-  }
-}
-```
 
 ### Agent Invocation Template
 
