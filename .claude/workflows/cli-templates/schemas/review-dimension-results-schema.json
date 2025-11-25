@@ -1,0 +1,281 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Review Dimension Results Schema",
+  "description": "Output schema for cli-explore-agent dimension analysis results. Contains structured findings from security, architecture, quality, action-items, performance, maintainability, and best-practices reviews.",
+  "type": "object",
+  "required": ["dimension", "review_id", "analysis_timestamp", "cli_tool_used", "summary", "findings"],
+  "properties": {
+    "dimension": {
+      "type": "string",
+      "enum": ["security", "architecture", "quality", "action-items", "performance", "maintainability", "best-practices"],
+      "description": "Review dimension being analyzed"
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^review-\\d{8}-\\d{6}$",
+      "description": "Unique review cycle identifier",
+      "example": "review-20250125-143022"
+    },
+    "analysis_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp when analysis completed"
+    },
+    "cli_tool_used": {
+      "type": "string",
+      "enum": ["gemini", "qwen", "codex"],
+      "description": "CLI tool used for analysis (fallback chain: gemini → qwen → codex)"
+    },
+    "model": {
+      "type": "string",
+      "description": "Model name/version used by CLI tool",
+      "examples": ["gemini-2.5-pro", "coder-model", "gpt-5.1-codex"]
+    },
+    "analysis_duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Analysis duration in milliseconds"
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_findings", "critical", "high", "medium", "low", "files_analyzed", "lines_reviewed"],
+      "properties": {
+        "total_findings": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of findings across all severities"
+        },
+        "critical": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of critical severity findings"
+        },
+        "high": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of high severity findings"
+        },
+        "medium": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of medium severity findings"
+        },
+        "low": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of low severity findings"
+        },
+        "files_analyzed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of files analyzed"
+        },
+        "lines_reviewed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total lines of code reviewed"
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "Array of findings discovered during analysis",
+      "items": {
+        "$ref": "#/definitions/unifiedFinding"
+      }
+    },
+    "cross_references": {
+      "type": "array",
+      "description": "Cross-references to findings in other dimensions",
+      "items": {
+        "type": "object",
+        "required": ["finding_id", "related_dimensions", "reason"],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "description": "Finding ID that appears in multiple dimensions"
+          },
+          "related_dimensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of dimensions where this finding appears"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Explanation of cross-reference relationship"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "unifiedFinding": {
+      "type": "object",
+      "title": "Unified Finding Schema",
+      "description": "Standardized finding structure applicable to all review dimensions",
+      "required": ["id", "title", "severity", "category", "description", "file", "line", "snippet", "recommendation", "impact", "iteration", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique finding identifier (UUID v4)",
+          "example": "sec-001-a1b2c3d4"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 100,
+          "description": "Short descriptive title (50-100 chars)"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Severity level based on impact and risk"
+        },
+        "category": {
+          "type": "string",
+          "description": "Dimension-specific category (see CATEGORIES in review-cycle.md)",
+          "examples": ["injection", "coupling", "code-smell", "n-plus-one"]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 50,
+          "description": "Detailed description with context (200-500 words)"
+        },
+        "file": {
+          "type": "string",
+          "description": "Relative path to affected file",
+          "example": "src/database/query-builder.ts"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number where issue occurs"
+        },
+        "snippet": {
+          "type": "string",
+          "description": "Code context (5-10 lines around the issue)"
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Actionable fix recommendation with code examples"
+        },
+        "impact": {
+          "type": "string",
+          "description": "Potential impact description (business + technical)"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Documentation URLs and standard references",
+          "examples": [
+            "OWASP Top 10 - A03:2021 Injection",
+            "https://owasp.org/www-community/attacks/SQL_Injection"
+          ]
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Dimension-specific metadata",
+          "properties": {
+            "cwe_id": {
+              "type": "string",
+              "description": "CWE identifier (for security findings)",
+              "example": "CWE-89"
+            },
+            "owasp_category": {
+              "type": "string",
+              "description": "OWASP category (for security findings)",
+              "example": "A03:2021-Injection"
+            },
+            "pattern_type": {
+              "type": "string",
+              "description": "Pattern type (for quality findings)",
+              "examples": ["anti-pattern", "code-smell"]
+            },
+            "complexity_score": {
+              "type": "number",
+              "description": "Cyclomatic complexity score (for quality findings)"
+            }
+          }
+        },
+        "iteration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Iteration number when finding was discovered (0 = initial parallel phase)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending_remediation", "remediation_plan_ready", "resolved"],
+          "description": "Current status of finding"
+        },
+        "cross_references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of dimensions where this finding also appears"
+        },
+        "reassessed_severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Updated severity if changed in deep-dive iteration"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "dimension": "security",
+      "review_id": "review-20250125-143022",
+      "analysis_timestamp": "2025-01-25T14:30:22Z",
+      "cli_tool_used": "gemini",
+      "model": "gemini-2.5-pro",
+      "analysis_duration_ms": 2145000,
+      "summary": {
+        "total_findings": 15,
+        "critical": 2,
+        "high": 4,
+        "medium": 6,
+        "low": 3,
+        "files_analyzed": 47,
+        "lines_reviewed": 8932
+      },
+      "findings": [
+        {
+          "id": "sec-001-a1b2c3d4",
+          "title": "SQL Injection vulnerability in user query",
+          "severity": "critical",
+          "category": "injection",
+          "description": "Direct string concatenation in SQL query allows injection attacks. User input is not sanitized before query execution.",
+          "file": "src/database/query-builder.ts",
+          "line": 145,
+          "snippet": "const query = `SELECT * FROM users WHERE id = ${userId}`;",
+          "recommendation": "Use parameterized queries: db.query('SELECT * FROM users WHERE id = ?', [userId])",
+          "references": [
+            "OWASP Top 10 - A03:2021 Injection",
+            "https://owasp.org/www-community/attacks/SQL_Injection"
+          ],
+          "impact": "Potential data breach, unauthorized access to user records, data manipulation",
+          "metadata": {
+            "cwe_id": "CWE-89",
+            "owasp_category": "A03:2021-Injection"
+          },
+          "iteration": 0,
+          "status": "pending_remediation",
+          "cross_references": []
+        }
+      ],
+      "cross_references": [
+        {
+          "finding_id": "sec-001-a1b2c3d4",
+          "related_dimensions": ["quality", "architecture"],
+          "reason": "Same file flagged in multiple dimensions"
+        }
+      ]
+    }
+  ]
+}
