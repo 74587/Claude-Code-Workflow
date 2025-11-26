@@ -1,291 +1,82 @@
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Review Deep-Dive Results Schema",
-  "description": "Output schema for cli-explore-agent deep-dive iteration analysis. Contains root cause analysis, remediation plan, and impact assessment for critical findings.",
-  "type": "object",
-  "required": [
-    "finding_id",
-    "original_dimension",
-    "iteration",
-    "analysis_timestamp",
-    "cli_tool_used",
-    "root_cause",
-    "remediation_plan",
-    "impact_assessment",
-    "reassessed_severity",
-    "confidence_score",
-    "status"
-  ],
-  "properties": {
-    "finding_id": {
-      "type": "string",
-      "description": "Original finding ID from dimension analysis",
-      "example": "sec-001-a1b2c3d4"
-    },
-    "original_dimension": {
-      "type": "string",
-      "enum": ["security", "architecture", "quality", "action-items", "performance", "maintainability", "best-practices"],
-      "description": "Dimension where finding was originally discovered"
-    },
-    "iteration": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Deep-dive iteration number"
-    },
-    "analysis_timestamp": {
-      "type": "string",
-      "format": "date-time",
-      "description": "ISO8601 timestamp when deep-dive completed"
-    },
-    "cli_tool_used": {
-      "type": "string",
-      "enum": ["gemini", "qwen", "codex"],
-      "description": "CLI tool used for deep-dive analysis"
-    },
+[
+  {
+    "finding_id": "sec-001-a1b2c3d4",
+    "original_dimension": "security",
+    "iteration": 1,
+    "analysis_timestamp": "2025-01-25T14:40:15Z",
+    "cli_tool_used": "gemini",
     "root_cause": {
-      "type": "object",
-      "required": ["summary", "details", "affected_scope"],
-      "properties": {
-        "summary": {
-          "type": "string",
-          "description": "One-sentence root cause summary"
-        },
-        "details": {
-          "type": "string",
-          "description": "Detailed explanation with history and context"
-        },
-        "affected_scope": {
-          "type": "string",
-          "description": "Full scope of affected code"
-        },
-        "similar_patterns": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "List of file:function where similar issue exists"
-        }
-      }
+      "summary": "Legacy code from v1 migration, pre-ORM implementation",
+      "details": "Query builder was ported from old codebase without security review. Team unaware of injection risks in string concatenation pattern. Code review at migration time focused on functionality, not security.",
+      "affected_scope": "All query-builder.ts methods using string template literals (15 methods total)",
+      "similar_patterns": [
+        "src/database/user-queries.ts:buildEmailQuery",
+        "src/database/order-queries.ts:buildOrderSearch"
+      ]
     },
     "remediation_plan": {
-      "type": "object",
-      "required": ["approach", "priority", "estimated_effort", "risk_level", "steps"],
-      "properties": {
-        "approach": {
-          "type": "string",
-          "description": "High-level fix strategy"
+      "approach": "Migrate to ORM prepared statements with input validation layer",
+      "priority": "P0 - Critical (security vulnerability)",
+      "estimated_effort": "4 hours development + 2 hours testing",
+      "risk_level": "low",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Replace direct string concatenation with ORM query builder",
+          "files": ["src/database/query-builder.ts:buildUserQuery:140-150"],
+          "commands": [
+            "Replace: const query = `SELECT * FROM users WHERE id = ${userId}`;",
+            "With: return db('users').where('id', userId).first();"
+          ],
+          "rationale": "ORM automatically parameterizes queries, eliminating injection risk",
+          "validation": "Run: npm test -- src/database/query-builder.test.ts"
         },
-        "priority": {
-          "type": "string",
-          "pattern": "^P[0-2] - ",
-          "description": "Priority level with severity label",
-          "examples": ["P0 - Critical (security vulnerability)", "P1 - High (performance bottleneck)"]
+        {
+          "step": 2,
+          "action": "Add input validation layer before ORM",
+          "files": ["src/database/validators.ts:validateUserId:NEW"],
+          "commands": [
+            "Create validator: export function validateUserId(id: unknown): number { ... }",
+            "Add schema: z.number().positive().int()"
+          ],
+          "rationale": "Defense in depth - validate types and ranges before database layer",
+          "validation": "Run: npm test -- src/database/validators.test.ts"
         },
-        "estimated_effort": {
-          "type": "string",
-          "description": "Estimated time for development and testing",
-          "example": "4 hours development + 2 hours testing"
-        },
-        "risk_level": {
-          "type": "string",
-          "enum": ["low", "medium", "high"],
-          "description": "Risk level of implementing the fix"
-        },
-        "steps": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "required": ["step", "action", "files", "commands", "rationale", "validation"],
-            "properties": {
-              "step": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "Step sequence number"
-              },
-              "action": {
-                "type": "string",
-                "description": "What to do in this step"
-              },
-              "files": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Files to modify with function:lines format",
-                "examples": ["src/database/query-builder.ts:buildUserQuery:140-150"]
-              },
-              "commands": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Specific code changes or commands to execute"
-              },
-              "rationale": {
-                "type": "string",
-                "description": "Why this step is needed"
-              },
-              "validation": {
-                "type": "string",
-                "description": "How to verify step completion (test command)",
-                "example": "Run: npm test -- src/database/query-builder.test.ts"
-              }
-            }
-          }
-        },
-        "rollback_strategy": {
-          "type": "string",
-          "description": "How to safely revert changes if needed"
+        {
+          "step": 3,
+          "action": "Apply pattern to all 15 similar methods",
+          "files": ["src/database/query-builder.ts:ALL_METHODS"],
+          "commands": ["Bulk replace string templates with ORM syntax"],
+          "rationale": "Prevent similar vulnerabilities in other query methods",
+          "validation": "Run: npm test -- src/database/"
         }
-      }
+      ],
+      "rollback_strategy": "Git commit before each step, revert if tests fail. Staged rollout: dev → staging → production with monitoring."
     },
     "impact_assessment": {
-      "type": "object",
-      "required": ["files_affected", "tests_required", "breaking_changes"],
-      "properties": {
-        "files_affected": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Files affected with action type",
-          "examples": ["src/database/query-builder.ts (modify)", "src/database/validators.ts (new)"]
-        },
-        "tests_required": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Test files required with action type",
-          "examples": ["src/database/query-builder.test.ts (update existing)", "src/database/validators.test.ts (new)"]
-        },
-        "breaking_changes": {
-          "type": "boolean",
-          "description": "Whether this fix introduces breaking changes"
-        },
-        "dependencies_updated": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Dependencies that need updating",
-          "examples": ["knex@2.5.1 (ORM library)"]
-        },
-        "deployment_notes": {
-          "type": "string",
-          "description": "Special deployment considerations"
-        }
-      }
-    },
-    "reassessed_severity": {
-      "type": "string",
-      "enum": ["critical", "high", "medium", "low"],
-      "description": "Updated severity after deep analysis"
-    },
-    "severity_change_reason": {
-      "type": "string",
-      "description": "Justification for severity change (or 'No change')"
-    },
-    "confidence_score": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 1.0,
-      "description": "Confidence level of analysis (0.0-1.0)"
-    },
-    "references": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "Project-specific and external documentation references"
-    },
-    "status": {
-      "type": "string",
-      "enum": ["remediation_plan_ready", "resolved"],
-      "description": "Status after deep-dive analysis"
-    }
-  },
-  "examples": [
-    {
-      "finding_id": "sec-001-a1b2c3d4",
-      "original_dimension": "security",
-      "iteration": 1,
-      "analysis_timestamp": "2025-01-25T14:40:15Z",
-      "cli_tool_used": "gemini",
-      "root_cause": {
-        "summary": "Legacy code from v1 migration, pre-ORM implementation",
-        "details": "Query builder was ported from old codebase without security review. Team unaware of injection risks in string concatenation pattern. Code review at migration time focused on functionality, not security.",
-        "affected_scope": "All query-builder.ts methods using string template literals (15 methods total)",
-        "similar_patterns": [
-          "src/database/user-queries.ts:buildEmailQuery",
-          "src/database/order-queries.ts:buildOrderSearch"
-        ]
-      },
-      "remediation_plan": {
-        "approach": "Migrate to ORM prepared statements with input validation layer",
-        "priority": "P0 - Critical (security vulnerability)",
-        "estimated_effort": "4 hours development + 2 hours testing",
-        "risk_level": "low",
-        "steps": [
-          {
-            "step": 1,
-            "action": "Replace direct string concatenation with ORM query builder",
-            "files": ["src/database/query-builder.ts:buildUserQuery:140-150"],
-            "commands": [
-              "Replace: const query = `SELECT * FROM users WHERE id = ${userId}`;",
-              "With: return db('users').where('id', userId).first();"
-            ],
-            "rationale": "ORM automatically parameterizes queries, eliminating injection risk",
-            "validation": "Run: npm test -- src/database/query-builder.test.ts"
-          },
-          {
-            "step": 2,
-            "action": "Add input validation layer before ORM",
-            "files": ["src/database/validators.ts:validateUserId:NEW"],
-            "commands": [
-              "Create validator: export function validateUserId(id: unknown): number { ... }",
-              "Add schema: z.number().positive().int()"
-            ],
-            "rationale": "Defense in depth - validate types and ranges before database layer",
-            "validation": "Run: npm test -- src/database/validators.test.ts"
-          },
-          {
-            "step": 3,
-            "action": "Apply pattern to all 15 similar methods",
-            "files": ["src/database/query-builder.ts:ALL_METHODS"],
-            "commands": ["Bulk replace string templates with ORM syntax"],
-            "rationale": "Prevent similar vulnerabilities in other query methods",
-            "validation": "Run: npm test -- src/database/"
-          }
-        ],
-        "rollback_strategy": "Git commit before each step, revert if tests fail. Staged rollout: dev → staging → production with monitoring."
-      },
-      "impact_assessment": {
-        "files_affected": [
-          "src/database/query-builder.ts (modify)",
-          "src/database/validators.ts (new)",
-          "src/database/user-queries.ts (modify)",
-          "src/database/order-queries.ts (modify)"
-        ],
-        "tests_required": [
-          "src/database/query-builder.test.ts (update existing)",
-          "src/database/validators.test.ts (new)",
-          "integration/security/sql-injection.test.ts (new)"
-        ],
-        "breaking_changes": false,
-        "dependencies_updated": ["knex@2.5.1 (ORM library)"],
-        "deployment_notes": "No downtime required. Database migrations not needed."
-      },
-      "reassessed_severity": "high",
-      "severity_change_reason": "Found existing WAF rules partially mitigate risk in production. Input validation at API gateway layer provides additional defense. Downgrade from critical to high, but still requires immediate fix.",
-      "confidence_score": 0.95,
-      "references": [
-        "Project ORM migration guide: docs/architecture/orm-guide.md",
-        "Knex.js parameterization: https://knexjs.org/guide/query-builder.html#where",
-        "Similar incident: TICKET-1234 (previous SQL injection fix)"
+      "files_affected": [
+        "src/database/query-builder.ts (modify)",
+        "src/database/validators.ts (new)",
+        "src/database/user-queries.ts (modify)",
+        "src/database/order-queries.ts (modify)"
       ],
-      "status": "remediation_plan_ready"
-    }
-  ]
-}
+      "tests_required": [
+        "src/database/query-builder.test.ts (update existing)",
+        "src/database/validators.test.ts (new)",
+        "integration/security/sql-injection.test.ts (new)"
+      ],
+      "breaking_changes": false,
+      "dependencies_updated": ["knex@2.5.1 (ORM library)"],
+      "deployment_notes": "No downtime required. Database migrations not needed."
+    },
+    "reassessed_severity": "high",
+    "severity_change_reason": "Found existing WAF rules partially mitigate risk in production. Input validation at API gateway layer provides additional defense. Downgrade from critical to high, but still requires immediate fix.",
+    "confidence_score": 0.95,
+    "references": [
+      "Project ORM migration guide: docs/architecture/orm-guide.md",
+      "Knex.js parameterization: https://knexjs.org/guide/query-builder.html#where",
+      "Similar incident: TICKET-1234 (previous SQL injection fix)"
+    ],
+    "status": "remediation_plan_ready"
+  }
+]

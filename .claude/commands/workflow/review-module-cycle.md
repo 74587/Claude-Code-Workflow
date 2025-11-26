@@ -263,73 +263,7 @@ echo "📊 Dashboard: file://${absolutePath}/.review/dashboard.html"
 - TodoWrite completion: Mark all tasks done
 - Output: Dashboard path and REVIEW-SUMMARY.md path to user
 
-### Review Agent (@cli-explore-agent)
 
-**Analysis Mode**: Deep Scan (Phase 1: Bash structural + Phase 2: Gemini semantic + Phase 3: Synthesis)
-
-**Context Provided by Orchestrator**:
-```javascript
-{
-  dimension: "security|architecture|quality|...",
-  review_type: "module",
-  target_files: ["src/auth/service.ts", "src/auth/validator.ts", ...],
-  output_paths: {
-    json: "{output-dir}/dimensions/{dimension}.json",
-    report: "{output-dir}/reports/{dimension}-analysis.md",
-    cli_output: "{output-dir}/reports/{dimension}-cli-output.txt"
-  },
-  cli_config: {
-    tool: "gemini",
-    template: "~/.claude/workflows/cli-templates/prompts/analysis/xxx.txt",
-    timeout: 3600000,
-    mode: "analysis"
-  }
-}
-```
-
-**Deliverables**:
-1. Dimension JSON with findings array (see JSON Schema below)
-2. Analysis markdown report with summary and recommendations
-3. CLI output log for debugging
-
-### Deep-Dive Agent (@cli-explore-agent)
-
-**Analysis Mode**: Dependency Map + Deep Scan (for root cause analysis with architectural context)
-
-**Context Provided**:
-```javascript
-{
-  finding_id: "uuid",
-  original_finding: {...},
-  iteration: 1,
-  output_paths: {
-    json: "{output-dir}/iterations/iteration-1-finding-{uuid}.json",
-    report: "{output-dir}/reports/deep-dive-1-{uuid}.md"
-  },
-  cli_config: {
-    tool: "gemini",
-    template: "01-diagnose-bug-root-cause.txt",
-    timeout: 2400000
-  }
-}
-```
-
-**Deliverables**:
-1. Deep-dive JSON with root cause, remediation plan, impact assessment
-2. Analysis report with detailed recommendations
-
-## Reference
-
-### CLI Tool Configuration
-
-**Fallback Chain**: Gemini → Qwen → Codex (same as test-cycle-execute)
-
-**Tool Details**:
-1. **Gemini** (primary): `gemini-2.5-pro` - 60min timeout
-2. **Qwen** (fallback): `coder-model` - 60min timeout
-3. **Codex** (fallback): `gpt-5.1-codex` - 60min timeout
-
-**When to Fallback**: HTTP 429, timeout, invalid JSON output, confidence < 0.4
 
 ### Output File Structure
 
@@ -494,15 +428,17 @@ Task(
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex (fallback chain)
-    - Template: ~/.claude/workflows/cli-templates/prompts/analysis/${dimensionTemplate}
     - Custom Focus: ${customFocus || 'Standard dimension analysis'}
-    - Timeout: ${timeout}ms
     - Mode: analysis (READ-ONLY)
     - Context Pattern: ${targetFiles.map(f => `@${f}`).join(' ')}
 
     ## Expected Deliverables
+    **MANDATORY**: Before generating any JSON output, read the template example first:
+    - Read: ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json
+    - Follow the exact structure and field naming from the example
+
     1. Dimension Results JSON: ${outputDir}/dimensions/${dimension}.json
-       - MUST follow schema: ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json
+       - MUST follow example template: ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json
        - MUST include: findings array with severity, file, line, description, recommendation
        - MUST include: summary statistics (total findings, severity distribution)
        - MUST include: cross_references to related findings
@@ -568,12 +504,15 @@ Task(
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex
     - Template: ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
-    - Timeout: 2400000ms (40 minutes)
     - Mode: analysis (READ-ONLY)
 
     ## Expected Deliverables
+    **MANDATORY**: Before generating any JSON output, read the template example first:
+    - Read: ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json
+    - Follow the exact structure and field naming from the example
+
     1. Deep-Dive Results JSON: ${outputDir}/iterations/iteration-${iteration}-finding-${findingId}.json
-       - MUST follow schema: ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json
+       - MUST follow example template: ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json
        - MUST include: root_cause with summary, details, affected_scope, similar_patterns
        - MUST include: remediation_plan with approach, steps[], estimated_effort, risk_level
        - MUST include: impact_assessment with files_affected, tests_required, breaking_changes

@@ -224,55 +224,7 @@ if (result.passRate < 100%) {
 - TodoWrite completion: Mark all phases done
 - Output summary to user with dashboard link
 
-### Planning Agent (@cli-planning-agent)
 
-**Role**: Analyze findings, create execution strategy, initialize progress tracking
-
-**Orchestrator Provides**:
-- Review findings data (id, title, severity, file, description, recommendations)
-- Project context (structure, test framework, git status)
-- Output directory and template paths
-
-**Agent Outputs**:
-- fix-plan.json (groups, timeline, execution strategy)
-- fix-progress-{N}.json (one per group, initial state)
-
-### Execution Agent (@cli-execute-agent)
-
-**Role**: Execute fixes for assigned group, update progress in real-time
-
-**Orchestrator Provides**:
-- Group assignment (from fix-plan.json)
-- Fix strategy and risk assessment (from fix-plan.json)
-- Progress file path (fix-progress-{N}.json)
-
-**Agent Responsibilities**:
-- Read/update assigned progress file
-- Apply fixes with flow control tracking
-- Run tests and verify
-- Commit successful fixes to git
-
-## Reference
-
-### CLI Tool Configuration
-
-**Planning Agent**:
-```javascript
-{
-  subagent_type: "cli-planning-agent",
-  timeout: 300000, // 5 minutes for planning
-  description: "Generate fix plan for N code review findings"
-}
-```
-
-**Execution Agent**:
-```javascript
-{
-  subagent_type: "cli-execute-agent",
-  timeout: 3600000, // 60 minutes per group (adjustable)
-  description: "Fix M issues: {group_name}"
-}
-```
 
 ### Output File Structure
 
