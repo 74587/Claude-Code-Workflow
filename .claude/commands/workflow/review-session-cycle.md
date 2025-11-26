@@ -715,75 +715,16 @@ function getDimensionGuidance(dimension) {
 ```javascript
 TodoWrite({
   todos: [
-    {
-      content: "Phase 1: Discovery & Initialization",
-      status: "completed",
-      activeForm: "Completed discovery & initialization"
-    },
-    {
-      content: "Phase 2: Parallel Reviews (7 dimensions)",
-      status: "in_progress",
-      activeForm: "Executing parallel reviews"
-    },
-    {
-      content: "  → Security review",
-      status: "completed",
-      activeForm: "Analyzing security"
-    },
-    {
-      content: "  → Architecture review",
-      status: "completed",
-      activeForm: "Analyzing architecture"
-    },
-    {
-      content: "  → Quality review",
-      status: "in_progress",
-      activeForm: "Analyzing quality"
-    },
-    {
-      content: "  → Action-Items review",
-      status: "pending",
-      activeForm: "Analyzing action items"
-    },
-    {
-      content: "  → Performance review",
-      status: "pending",
-      activeForm: "Analyzing performance"
-    },
-    {
-      content: "  → Maintainability review",
-      status: "pending",
-      activeForm: "Analyzing maintainability"
-    },
-    {
-      content: "  → Best-Practices review",
-      status: "pending",
-      activeForm: "Analyzing best practices"
-    },
-    {
-      content: "Phase 3: Aggregation",
-      status: "pending",
-      activeForm: "Aggregating findings"
-    },
-    {
-      content: "Phase 4: Iteration 1 - Deep-dive (5 findings)",
-      status: "pending",
-      activeForm: "Executing deep-dive iteration 1"
-    },
-    {
-      content: "Phase 5: Completion",
-      status: "pending",
-      activeForm: "Generating final report"
-    }
+    { content: "Phase 1: Discovery & Initialization", status: "completed", activeForm: "Initializing" },
+    { content: "Phase 2: Parallel Reviews (7 dimensions)", status: "in_progress", activeForm: "Reviewing" },
+    { content: "  → Security review", status: "in_progress", activeForm: "Analyzing security" },
+    // ... other dimensions as sub-items
+    { content: "Phase 3: Aggregation", status: "pending", activeForm: "Aggregating" },
+    { content: "Phase 4: Deep-dive", status: "pending", activeForm: "Deep-diving" },
+    { content: "Phase 5: Completion", status: "pending", activeForm: "Completing" }
   ]
 });
 ```
-
-**Update Rules**:
-- Add dimension items during parallel phase
-- Add iteration items dynamically based on findings
-- Mark completed immediately after each phase/agent
-- Update parent task when phase complete
 
 ## Best Practices
 

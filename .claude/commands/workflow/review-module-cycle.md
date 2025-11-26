@@ -710,27 +710,13 @@ function getDimensionGuidance(dimension) {
 ```javascript
 TodoWrite({
   todos: [
-    {
-      content: "Phase 1: Discovery & Initialization",
-      status: "completed",
-      activeForm: "Completed discovery & initialization"
-    },
-    {
-      content: "Phase 2: Parallel Reviews (7 dimensions)",
-      status: "in_progress",
-      activeForm: "Executing parallel reviews"
-    },
-    {
-      content: "  → Security review (src/auth/**)",
-      status: "completed",
-      activeForm: "Analyzing security"
-    },
-    {
-      content: "  → Architecture review (src/auth/**)",
-      status: "completed",
-      activeForm: "Analyzing architecture"
-    },
-    // ... (same pattern as review-session-cycle)
+    { content: "Phase 1: Discovery & Initialization", status: "completed", activeForm: "Initializing" },
+    { content: "Phase 2: Parallel Reviews (7 dimensions)", status: "in_progress", activeForm: "Reviewing" },
+    { content: "  → Security review", status: "in_progress", activeForm: "Analyzing security" },
+    // ... other dimensions as sub-items
+    { content: "Phase 3: Aggregation", status: "pending", activeForm: "Aggregating" },
+    { content: "Phase 4: Deep-dive", status: "pending", activeForm: "Deep-diving" },
+    { content: "Phase 5: Completion", status: "pending", activeForm: "Completing" }
   ]
 });
 ```
