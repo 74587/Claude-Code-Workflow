@@ -59,14 +59,14 @@ Automated fix orchestrator with **two-phase architecture**: AI-powered planning 
 
 ```
 1. Discovery & Initialization
-   └─ Validate export file, create fix session structure, initialize state files → Update dashboard
+   └─ Validate export file, create fix session structure, initialize state files → Generate fix-dashboard.html
 
 2. Phase 2: Planning (@cli-planning-agent):
    ├─ Analyze findings for patterns and dependencies
    ├─ Group by file + dimension + root cause similarity
    ├─ Determine execution strategy (parallel/serial/hybrid)
    ├─ Generate fix timeline with stages
-   └─ Output: fix-plan.json → Update dashboard to execution phase
+   └─ Output: fix-plan.json (dashboard auto-polls for status)
 
 3. Phase 3: Execution (Stage-based):
    For each timeline stage:
