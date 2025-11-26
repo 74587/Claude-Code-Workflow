@@ -1953,20 +1953,101 @@
                 if (!response.ok) throw new Error('Progress file not found');
 
                 const progress = await response.json();
-                updateProgressUI(progress);
 
-                // If complete, stop polling and load final results
+                // ✨ NEW: Load available dimensions incrementally and get actual count
+                const loadedCount = await loadAvailableDimensions();
+
+                // ✨ NEW: Update progress UI with actual file count
+                updateProgressUI(progress, loadedCount);
+
+                // If complete, stop polling
                 if (progress.phase === 'complete') {
                     stopPolling();
-                    await loadFinalResults();
                 }
             } catch (error) {
                 console.error('Error loading progress:', error);
             }
         }
 
+        // ✨ NEW: Load all available dimension files (even if review not complete)
+        async function loadAvailableDimensions() {
+            try {
+                // Load review state to get expected dimensions
+                const stateResponse = await fetch('./review-state.json');
+                if (!stateResponse.ok) return;
+
+                reviewState = await stateResponse.json();
+                document.getElementById('sessionId').textContent = reviewState.session_id;
+
+                // Try to load all expected dimensions
+                const allDimensions = reviewState.metadata?.dimensions ||
+                                     Object.keys(dimensionConfig);
+
+                const dimensionPromises = allDimensions.map(dim =>
+                    fetch(`./dimensions/${dim}.json`)
+                        .then(r => {
+                            if (r.ok) return r.json();
+                            return null; // Dimension not ready yet
+                        })
+                        .catch(err => {
+                            // Silently skip dimensions that don't exist yet
+                            return null;
+                        })
+                );
+
+                const dimensions = await Promise.all(dimensionPromises);
+
+                // Aggregate findings from completed dimensions
+                allFindings = [];
+                const loadedDimensions = [];
+                const severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+
+                dimensions.forEach(dim => {
+                    if (dim) {
+                        // Handle both array and object formats
+                        const dimData = Array.isArray(dim) ? dim[0] : dim;
+
+                        if (dimData && dimData.findings) {
+                            loadedDimensions.push(dimData.dimension);
+
+                            // Aggregate findings
+                            allFindings.push(...dimData.findings.map(f => ({
+                                ...f,
+                                dimension: dimData.dimension
+                            })));
+
+                            // Aggregate severity counts
+                            if (dimData.summary) {
+                                severityCounts.critical += dimData.summary.critical || 0;
+                                severityCounts.high += dimData.summary.high || 0;
+                                severityCounts.medium += dimData.summary.medium || 0;
+                                severityCounts.low += dimData.summary.low || 0;
+                            }
+                        }
+                    }
+                });
+
+                // Update severity counts with real data
+                if (loadedDimensions.length > 0) {
+                    updateSeverityCounts(severityCounts);
+                    updateDimensionSummary();
+                    renderFindings();
+                }
+
+                // ✨ NEW: Return loaded count for progress calculation
+                return {
+                    loaded: loadedDimensions.length,
+                    total: allDimensions.length,
+                    findings: allFindings.length
+                };
+            } catch (error) {
+                console.error('Error loading available dimensions:', error);
+                return { loaded: 0, total: 7, findings: 0 };
+            }
+        }
+
         // Update progress UI
-        function updateProgressUI(progress) {
+        function updateProgressUI(progress, loadedCount) {
             document.getElementById('reviewId').textContent = progress.review_id || 'N/A';
             document.getElementById('lastUpdate').textContent = new Date(progress.last_update).toLocaleString();
 
@@ -1977,67 +2058,49 @@
             let percentComplete = 0;
             let progressText = '';
 
-            if (progress.progress.parallel_review) {
-                percentComplete = progress.progress.parallel_review.percent_complete;
-                progressText = `Parallel Review: ${progress.progress.parallel_review.completed}/${progress.progress.parallel_review.total_dimensions} dimensions`;
-            }
+            // ✨ NEW: Calculate progress based on actual loaded dimension files
+            if (loadedCount && loadedCount.total > 0) {
+                percentComplete = Math.round((loadedCount.loaded / loadedCount.total) * 100);
 
-            if (progress.progress.deep_dive) {
-                percentComplete = progress.progress.deep_dive.percent_complete;
-                progressText = `Deep-Dive: ${progress.progress.deep_dive.analyzed}/${progress.progress.deep_dive.total_findings} findings`;
-            }
+                if (progress.phase === 'parallel' || progress.phase === 'aggregate') {
+                    progressText = `Parallel Review: ${loadedCount.loaded}/${loadedCount.total} dimensions completed`;
+                    if (loadedCount.findings > 0) {
+                        progressText += ` • ${loadedCount.findings} finding${loadedCount.findings !== 1 ? 's' : ''} discovered`;
+                    }
+                } else if (progress.phase === 'iterate' && progress.progress.deep_dive) {
+                    percentComplete = progress.progress.deep_dive.percent_complete;
+                    progressText = `Deep-Dive: ${progress.progress.deep_dive.analyzed}/${progress.progress.deep_dive.total_findings} findings analyzed`;
+                } else if (progress.phase === 'complete') {
+                    percentComplete = 100;
+                    progressText = `Review Complete • ${loadedCount.findings} total finding${loadedCount.findings !== 1 ? 's' : ''}`;
+                }
+            } else {
+                // Fallback to original logic if loadedCount not available
+                if (progress.progress.parallel_review) {
+                    percentComplete = progress.progress.parallel_review.percent_complete;
+                    progressText = `Parallel Review: ${progress.progress.parallel_review.completed}/${progress.progress.parallel_review.total_dimensions} dimensions`;
+                }
 
-            if (progress.phase === 'complete') {
-                percentComplete = 100;
-                progressText = 'Review Complete';
+                if (progress.progress.deep_dive) {
+                    percentComplete = progress.progress.deep_dive.percent_complete;
+                    progressText = `Deep-Dive: ${progress.progress.deep_dive.analyzed}/${progress.progress.deep_dive.total_findings} findings`;
+                }
+
+                if (progress.phase === 'complete') {
+                    percentComplete = 100;
+                    progressText = 'Review Complete';
+                }
             }
 
             document.getElementById('progressFill').style.width = `${percentComplete}%`;
             document.getElementById('progressText').textContent = progressText;
         }
 
-        // Load final results
+        // Load final results (now delegates to loadAvailableDimensions)
         async function loadFinalResults() {
-            try {
-                // Load review state
-                const stateResponse = await fetch('./review-state.json');
-                reviewState = await stateResponse.json();
-
-                document.getElementById('sessionId').textContent = reviewState.session_id;
-
-                // Update severity counts
-                updateSeverityCounts(reviewState.severity_distribution);
-
-                // Load all dimension files
-                const dimensionPromises = reviewState.dimensions_reviewed.map(dim =>
-                    fetch(`./dimensions/${dim}.json`)
-                        .then(r => r.json())
-                        .catch(err => {
-                            console.error(`Failed to load ${dim}:`, err);
-                            return null;
-                        })
-                );
-
-                const dimensions = await Promise.all(dimensionPromises);
-
-                // Aggregate all findings
-                allFindings = [];
-                dimensions.forEach(dim => {
-                    if (dim && dim.findings) {
-                        allFindings.push(...dim.findings.map(f => ({
-                            ...f,
-                            dimension: dim.dimension
-                        })));
-                    }
-                });
-
-                // Update dimension summary table
-                updateDimensionSummary();
-
-                renderFindings();
-            } catch (error) {
-                console.error('Error loading final results:', error);
-            }
+            // ✨ NEW: This function now just ensures one final load
+            // since loadAvailableDimensions() handles all the heavy lifting
+            await loadAvailableDimensions();
         }
 
         // Update severity counts
@@ -2082,10 +2145,12 @@
                         dimensionStats[dim][severity]++;
                     }
                     dimensionStats[dim].total++;
+                    // ✨ NEW: Mark as reviewed if we have findings from this dimension
+                    dimensionStats[dim].reviewed = true;
                 }
             });
 
-            // Check reviewed status from reviewState
+            // Also check reviewed status from reviewState (backward compatibility)
             if (reviewState && reviewState.dimensions_reviewed) {
                 reviewState.dimensions_reviewed.forEach(dim => {
                     if (dimensionStats[dim]) {
@@ -2106,9 +2171,21 @@
                     return `<span class="count-badge ${severity}${zeroClass}">${count}</span>`;
                 };
 
-                // Status indicator
-                const statusClass = stats.reviewed ? 'reviewed' : 'pending';
-                const statusIcon = stats.reviewed ? '✓' : '○';
+                // ✨ NEW: Enhanced status indicator with 3 states
+                let statusClass, statusIcon, statusTooltip;
+                if (stats.reviewed && hasFindings) {
+                    statusClass = 'reviewed';
+                    statusIcon = '✓';
+                    statusTooltip = 'Completed';
+                } else if (stats.reviewed && !hasFindings) {
+                    statusClass = 'reviewed';
+                    statusIcon = '✓';
+                    statusTooltip = 'Completed (no findings)';
+                } else {
+                    statusClass = 'pending';
+                    statusIcon = '⏳';
+                    statusTooltip = 'Processing...';
+                }
 
                 return `
                     <tr onclick="filterByDimension('${dim}')" style="cursor: pointer;">
@@ -2123,7 +2200,7 @@
                         <td>${createCountBadge(stats.medium, 'medium')}</td>
                         <td>${createCountBadge(stats.low, 'low')}</td>
                         <td><span class="count-badge total">${stats.total}</span></td>
-                        <td><span class="status-indicator ${statusClass}">${statusIcon}</span></td>
+                        <td><span class="status-indicator ${statusClass}" title="${statusTooltip}">${statusIcon}</span></td>
                     </tr>
                 `;
             }).join('');
