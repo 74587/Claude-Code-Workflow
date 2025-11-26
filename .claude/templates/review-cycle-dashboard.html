@@ -579,6 +579,135 @@
             text-transform: uppercase;
         }
 
+        /* Dimension Summary Table */
+        .dimension-summary-section {
+            background-color: var(--bg-card);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        .dimension-summary-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .dimension-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .dimension-summary-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .dimension-summary-table th:not(:first-child) {
+            text-align: center;
+        }
+
+        .dimension-summary-table td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .dimension-summary-table td:not(:first-child) {
+            text-align: center;
+        }
+
+        .dimension-summary-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .dimension-summary-table tr:hover {
+            background-color: var(--bg-primary);
+        }
+
+        .dimension-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .dimension-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .dimension-icon.security { background-color: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .dimension-icon.architecture { background-color: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+        .dimension-icon.quality { background-color: rgba(34, 197, 94, 0.15); color: #22c55e; }
+        .dimension-icon.action-items { background-color: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .dimension-icon.performance { background-color: rgba(234, 179, 8, 0.15); color: #eab308; }
+        .dimension-icon.maintainability { background-color: rgba(236, 72, 153, 0.15); color: #ec4899; }
+        .dimension-icon.best-practices { background-color: rgba(249, 115, 22, 0.15); color: #f97316; }
+
+        .count-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            height: 28px;
+            padding: 0 8px;
+            border-radius: 14px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .count-badge.critical { background-color: rgba(197, 48, 48, 0.2); color: var(--critical-color); }
+        .count-badge.high { background-color: rgba(245, 101, 101, 0.2); color: var(--high-color); }
+        .count-badge.medium { background-color: rgba(237, 137, 54, 0.2); color: var(--medium-color); }
+        .count-badge.low { background-color: rgba(72, 187, 120, 0.2); color: var(--low-color); }
+        .count-badge.total { background-color: var(--bg-primary); color: var(--text-primary); font-weight: 700; }
+
+        .count-badge.zero {
+            background-color: transparent;
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.reviewed {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .status-indicator.pending {
+            background-color: var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .status-indicator.in-progress {
+            background-color: var(--accent-color);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
         /* Progress Indicator */
         .progress-section {
             background-color: var(--bg-card);
@@ -1114,6 +1243,27 @@
                 <div class="severity-value" id="lowCount">0</div>
                 <div class="severity-label">Low</div>
             </div>
+        </div>
+
+        <!-- Dimension Summary Table -->
+        <div class="dimension-summary-section">
+            <div class="dimension-summary-header">Findings by Dimension</div>
+            <table class="dimension-summary-table">
+                <thead>
+                    <tr>
+                        <th>Dimension</th>
+                        <th>Critical</th>
+                        <th>High</th>
+                        <th>Medium</th>
+                        <th>Low</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="dimensionSummaryBody">
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
         </div>
 
         <!-- Dimension Tabs -->
@@ -1881,6 +2031,9 @@
                     }
                 });
 
+                // Update dimension summary table
+                updateDimensionSummary();
+
                 renderFindings();
             } catch (error) {
                 console.error('Error loading final results:', error);
@@ -1893,6 +2046,89 @@
             document.getElementById('highCount').textContent = distribution.high || 0;
             document.getElementById('mediumCount').textContent = distribution.medium || 0;
             document.getElementById('lowCount').textContent = distribution.low || 0;
+        }
+
+        // Dimension summary table configuration
+        const dimensionConfig = {
+            'security': { icon: '🔒', label: 'Security' },
+            'architecture': { icon: '🏛', label: 'Architecture' },
+            'quality': { icon: '✅', label: 'Quality' },
+            'action-items': { icon: '📋', label: 'Action-Items' },
+            'performance': { icon: '⚡', label: 'Performance' },
+            'maintainability': { icon: '🔧', label: 'Maintainability' },
+            'best-practices': { icon: '📚', label: 'Best-Practices' }
+        };
+
+        // Update dimension summary table
+        function updateDimensionSummary() {
+            const tbody = document.getElementById('dimensionSummaryBody');
+            if (!tbody) return;
+
+            // Get all dimension names from config
+            const dimensions = Object.keys(dimensionConfig);
+
+            // Calculate counts per dimension
+            const dimensionStats = {};
+            dimensions.forEach(dim => {
+                dimensionStats[dim] = { critical: 0, high: 0, medium: 0, low: 0, total: 0, reviewed: false };
+            });
+
+            // Aggregate findings by dimension
+            allFindings.forEach(finding => {
+                const dim = finding.dimension;
+                if (dimensionStats[dim]) {
+                    const severity = finding.severity.toLowerCase();
+                    if (dimensionStats[dim][severity] !== undefined) {
+                        dimensionStats[dim][severity]++;
+                    }
+                    dimensionStats[dim].total++;
+                }
+            });
+
+            // Check reviewed status from reviewState
+            if (reviewState && reviewState.dimensions_reviewed) {
+                reviewState.dimensions_reviewed.forEach(dim => {
+                    if (dimensionStats[dim]) {
+                        dimensionStats[dim].reviewed = true;
+                    }
+                });
+            }
+
+            // Generate table rows
+            const rows = dimensions.map(dim => {
+                const config = dimensionConfig[dim];
+                const stats = dimensionStats[dim];
+                const hasFindings = stats.total > 0;
+
+                // Create count badge with appropriate styling
+                const createCountBadge = (count, severity) => {
+                    const zeroClass = count === 0 ? ' zero' : '';
+                    return `<span class="count-badge ${severity}${zeroClass}">${count}</span>`;
+                };
+
+                // Status indicator
+                const statusClass = stats.reviewed ? 'reviewed' : 'pending';
+                const statusIcon = stats.reviewed ? '✓' : '○';
+
+                return `
+                    <tr onclick="filterByDimension('${dim}')" style="cursor: pointer;">
+                        <td>
+                            <div class="dimension-name">
+                                <div class="dimension-icon ${dim}">${config.icon}</div>
+                                <span>${config.label}</span>
+                            </div>
+                        </td>
+                        <td>${createCountBadge(stats.critical, 'critical')}</td>
+                        <td>${createCountBadge(stats.high, 'high')}</td>
+                        <td>${createCountBadge(stats.medium, 'medium')}</td>
+                        <td>${createCountBadge(stats.low, 'low')}</td>
+                        <td><span class="count-badge total">${stats.total}</span></td>
+                        <td><span class="status-indicator ${statusClass}">${statusIcon}</span></td>
+                    </tr>
+                `;
+            }).join('');
+
+            tbody.innerHTML = rows;
         }
 
         // Filter functions

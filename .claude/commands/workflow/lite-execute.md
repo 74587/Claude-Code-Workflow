@@ -92,7 +92,7 @@ AskUserQuestion({
 
 **Trigger**: User calls with file path
 
-**Input**: Path to file containing task description or Enhanced Task JSON
+**Input**: Path to file containing task description or plan.json
 
 **Step 1: Read and Detect Format**
 
@@ -103,47 +103,30 @@ fileContent = Read(filePath)
 try {
   jsonData = JSON.parse(fileContent)
 
-  // Check if Enhanced Task JSON from lite-plan
-  if (jsonData.meta?.workflow === "lite-plan") {
-    // Extract plan data
-    planObject = {
-      summary: jsonData.context.plan.summary,
-      approach: jsonData.context.plan.approach,
-      tasks: jsonData.context.plan.tasks,
-      estimated_time: jsonData.meta.estimated_time,
-      recommended_execution: jsonData.meta.recommended_execution,
-      complexity: jsonData.meta.complexity
-    }
-
-    // Extract multi-angle explorations
-    explorationsContext = jsonData.context.explorations || null
-    explorationAngles = jsonData.meta.exploration_angles || []
-    explorationFiles = jsonData.context.exploration_files || []
-
-    clarificationContext = jsonData.context.clarifications || null
-    originalUserInput = jsonData.title
-
-    isEnhancedTaskJson = true
+  // Check if plan.json from lite-plan session
+  if (jsonData.summary && jsonData.approach && jsonData.tasks) {
+    planObject = jsonData
+    originalUserInput = jsonData.summary
+    isPlanJson = true
   } else {
-    // Valid JSON but not Enhanced Task JSON - treat as plain text
+    // Valid JSON but not plan.json - treat as plain text
     originalUserInput = fileContent
-    isEnhancedTaskJson = false
+    isPlanJson = false
   }
 } catch {
   // Not valid JSON - treat as plain text prompt
   originalUserInput = fileContent
-  isEnhancedTaskJson = false
+  isPlanJson = false
 }
 ```
 
 **Step 2: Create Execution Plan**
 
-If `isEnhancedTaskJson === true`:
-- Use extracted `planObject` directly
-- Skip planning, use lite-plan's existing plan
-- User still selects execution method and code review
+If `isPlanJson === true`:
+- Use `planObject` directly
+- User selects execution method and code review
 
-If `isEnhancedTaskJson === false`:
+If `isPlanJson === false`:
 - Treat file content as prompt (same behavior as Mode 2)
 - Create simple execution plan from content
 
@@ -368,7 +351,6 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
   ).join('\n') || ''}
   ${executionContext.session.artifacts.explorations_manifest ? `- Manifest: ${executionContext.session.artifacts.explorations_manifest}` : ''}
   - Plan: ${executionContext.session.artifacts.plan}
-  - Task: ${executionContext.session.artifacts.task}
 
   Read exploration files for comprehensive context from multiple angles.` : ''}
 
@@ -456,7 +438,6 @@ ${executionContext.session.artifacts.explorations?.map(exp =>
 ).join('\n') || ''}
 ${executionContext.session.artifacts.explorations_manifest ? `- Manifest: ${executionContext.session.artifacts.explorations_manifest}` : ''}
 - Plan: ${executionContext.session.artifacts.plan}
-- Task: ${executionContext.session.artifacts.task}
 
 Read exploration files for comprehensive architectural, pattern, and constraint details from multiple angles.
 ` : ''}
@@ -490,58 +471,57 @@ Progress tracked at batch level (not individual task level). Icons: ⚡ (paralle
 
 **Skip Condition**: Only run if `codeReviewTool ≠ "Skip"`
 
-**Review Focus**: Verify implementation against task.json acceptance criteria
-- Read task.json from session artifacts for acceptance criteria
+**Review Focus**: Verify implementation against plan acceptance criteria
+- Read plan.json for task acceptance criteria
 - Check each acceptance criterion is fulfilled
 - Validate code quality and identify issues
 - Ensure alignment with planned approach
 
 **Operations**:
-- Agent Review: Current agent performs direct review (read task.json for acceptance criteria)
-- Gemini Review: Execute gemini CLI with review prompt (task.json in CONTEXT)
-- Custom tool: Execute specified CLI tool (qwen, codex, etc.) with task.json reference
+- Agent Review: Current agent performs direct review
+- Gemini Review: Execute gemini CLI with review prompt
+- Custom tool: Execute specified CLI tool (qwen, codex, etc.)
 
 **Unified Review Template** (All tools use same standard):
 
 **Review Criteria**:
-- **Acceptance Criteria**: Verify each criterion from task.json `context.acceptance`
+- **Acceptance Criteria**: Verify each criterion from plan.tasks[].acceptance
 - **Code Quality**: Analyze quality, identify issues, suggest improvements
 - **Plan Alignment**: Validate implementation matches planned approach
 
 **Shared Prompt Template** (used by all CLI tools):
 ```
-PURPOSE: Code review for implemented changes against task.json acceptance criteria
-TASK: • Verify task.json acceptance criteria fulfillment • Analyze code quality • Identify issues • Suggest improvements • Validate plan adherence
+PURPOSE: Code review for implemented changes against plan acceptance criteria
+TASK: • Verify plan acceptance criteria fulfillment • Analyze code quality • Identify issues • Suggest improvements • Validate plan adherence
 MODE: analysis
-CONTEXT: @**/* @{task.json} @{plan.json} [@{exploration.json}] | Memory: Review lite-execute changes against task.json requirements
-EXPECTED: Quality assessment with acceptance criteria verification, issue identification, and recommendations. Explicitly check each acceptance criterion from task.json.
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on task.json acceptance criteria and plan adherence | analysis=READ-ONLY
+CONTEXT: @**/* @{plan.json} [@{exploration.json}] | Memory: Review lite-execute changes against plan requirements
+EXPECTED: Quality assessment with acceptance criteria verification, issue identification, and recommendations. Explicitly check each acceptance criterion from plan.json tasks.
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on plan acceptance criteria and plan adherence | analysis=READ-ONLY
 ```
 
 **Tool-Specific Execution** (Apply shared prompt template above):
 
 ```bash
 # Method 1: Agent Review (current agent)
-# - Read task.json: ${executionContext.session.artifacts.task}
+# - Read plan.json: ${executionContext.session.artifacts.plan}
 # - Apply unified review criteria (see Shared Prompt Template)
 # - Report findings directly
 
 # Method 2: Gemini Review (recommended)
 gemini -p "[Shared Prompt Template with artifacts]"
-# CONTEXT includes: @**/* @${task.json} @${plan.json} [@${exploration.json}]
+# CONTEXT includes: @**/* @${plan.json} [@${exploration.json}]
 
 # Method 3: Qwen Review (alternative)
 qwen -p "[Shared Prompt Template with artifacts]"
 # Same prompt as Gemini, different execution engine
 
 # Method 4: Codex Review (autonomous)
-codex --full-auto exec "[Verify task.json acceptance criteria at ${task.json}]" --skip-git-repo-check -s danger-full-access
+codex --full-auto exec "[Verify plan acceptance criteria at ${plan.json}]" --skip-git-repo-check -s danger-full-access
 ```
 
 **Implementation Note**: Replace `[Shared Prompt Template with artifacts]` placeholder with actual template content, substituting:
-- `@{task.json}` → `@${executionContext.session.artifacts.task}`
 - `@{plan.json}` → `@${executionContext.session.artifacts.plan}`
-- `[@{exploration.json}]` → `@${executionContext.session.artifacts.exploration}` (if exists)
+- `[@{exploration.json}]` → exploration files from artifacts (if exists)
 
 ## Best Practices
 
@@ -577,7 +557,9 @@ Passed from lite-plan via global variable:
     recommended_execution: string,
     complexity: string
   },
-  explorationContext: {...} | null,
+  explorationsContext: {...} | null,       // Multi-angle explorations
+  explorationAngles: string[],             // List of exploration angles
+  explorationManifest: {...} | null,       // Exploration manifest
   clarificationContext: {...} | null,
   executionMethod: "Agent" | "Codex" | "Auto",
   codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
@@ -588,9 +570,9 @@ Passed from lite-plan via global variable:
     id: string,                        // Session identifier: {taskSlug}-{shortTimestamp}
     folder: string,                    // Session folder path: .workflow/.lite-plan/{session-id}
     artifacts: {
-      exploration: string | null,      // exploration.json path (if exploration performed)
-      plan: string,                    // plan.json path (always present)
-      task: string                     // task.json path (always exported)
+      explorations: [{angle, path}],   // exploration-{angle}.json paths
+      explorations_manifest: string,   // explorations-manifest.json path
+      plan: string                     // plan.json path (always present)
     }
   }
 }

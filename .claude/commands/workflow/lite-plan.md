@@ -104,93 +104,110 @@ function estimateComplexity(taskDescription) {
 }
 
 const complexity = estimateComplexity(task_description)
-const explorationCount = complexity === 'High' ? 4 : (complexity === 'Medium' ? 3 : 1)
+
+// Angle assignment based on task type (orchestrator decides, not agent)
+const ANGLE_PRESETS = {
+  architecture: ['architecture', 'dependencies', 'modularity', 'integration-points'],
+  security: ['security', 'auth-patterns', 'dataflow', 'validation'],
+  performance: ['performance', 'bottlenecks', 'caching', 'data-access'],
+  bugfix: ['error-handling', 'dataflow', 'state-management', 'edge-cases'],
+  feature: ['patterns', 'integration-points', 'testing', 'dependencies']
+}
+
+function selectAngles(taskDescription, count) {
+  const text = taskDescription.toLowerCase()
+  let preset = 'feature' // default
+
+  if (/refactor|architect|restructure|modular/.test(text)) preset = 'architecture'
+  else if (/security|auth|permission|access/.test(text)) preset = 'security'
+  else if (/performance|slow|optimi|cache/.test(text)) preset = 'performance'
+  else if (/fix|bug|error|issue|broken/.test(text)) preset = 'bugfix'
+
+  return ANGLE_PRESETS[preset].slice(0, count)
+}
+
+const selectedAngles = selectAngles(task_description, complexity === 'High' ? 4 : (complexity === 'Medium' ? 3 : 1))
 
 console.log(`
 ## Exploration Plan
 
 Task Complexity: ${complexity}
-Exploration Count: ${explorationCount} angle(s)
+Selected Angles: ${selectedAngles.join(', ')}
 
-Starting intelligent multi-angle exploration...
+Launching ${selectedAngles.length} parallel explorations...
 `)
 ```
 
-**Launch Parallel Explorations** - Each agent chooses its own angle:
+**Launch Parallel Explorations** - Orchestrator assigns angle to each agent:
 
 ```javascript
-// Launch multiple cli-explore-agent tasks in parallel
-const explorationTasks = []
+// Launch agents with pre-assigned angles
+const explorationTasks = selectedAngles.map((angle, index) =>
+  Task(
+    subagent_type="cli-explore-agent",
+    description=`Explore: ${angle}`,
+    prompt=`
+## Task Objective
+Execute **${angle}** exploration for task planning context. Analyze codebase from this specific angle to discover relevant structure, patterns, and constraints.
 
-for (let i = 1; i <= explorationCount; i++) {
-  explorationTasks.push(
-    Task(
-      subagent_type="cli-explore-agent",
-      description=`Explore angle ${i}/${explorationCount}`,
-      prompt=`
-**以解决任务为目标的智能探索** - 从不同角度分析代码库，为任务规划提供上下文。
+## Assigned Context
+- **Exploration Angle**: ${angle}
+- **Task Description**: ${task_description}
+- **Exploration Index**: ${index + 1} of ${selectedAngles.length}
+- **Output File**: ${sessionFolder}/exploration-${angle}.json
 
-## Output Schema Reference
-~/.claude/workflows/cli-templates/schemas/explore-json-schema.json
+## MANDATORY FIRST STEPS
+1. Run: ~/.claude/scripts/get_modules_by_depth.sh (project structure)
+2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
+3. Read: ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (output schema)
 
-## Task Description
-${task_description}
+## Exploration Strategy (${angle} focus)
 
-## Your Mission
-You are exploration ${i} of ${explorationCount} parallel explorations.
+**Step 1: Structural Scan** (Bash)
+- get_modules_by_depth.sh → identify modules related to ${angle}
+- find/rg → locate files relevant to ${angle} aspect
+- Analyze imports/dependencies from ${angle} perspective
 
-**Choose ONE unique angle** most relevant to solving this task:
-- Choose different angles from what other explorations might cover
-- Focus on aspects critical for task success
-- Examples: architecture, security, dataflow, patterns, performance, dependencies, testing, error-handling, state-management, etc.
-- Be creative and task-driven - not limited to examples above
+**Step 2: Semantic Analysis** (Gemini CLI)
+- How does existing code handle ${angle} concerns?
+- What patterns are used for ${angle}?
+- Where would new code integrate from ${angle} viewpoint?
 
-## Output File Naming
-Choose a descriptive angle name (lowercase, no spaces, hyphen-separated if needed)
-Examples: "architecture", "security", "dataflow", "auth-patterns", "error-handling"
+**Step 3: Write Output**
+- Consolidate ${angle} findings into JSON
+- Identify ${angle}-specific clarification needs
 
-Generate file: exploration-{your-chosen-angle}.json
+## Expected Output
 
-Example angles based on task type:
-- Architecture refactoring → "architecture", "modularity", "dependencies"
-- Security feature → "security", "auth-patterns", "dataflow"
-- Performance fix → "performance", "bottlenecks", "caching"
-- Bug fix → "error-handling", "dataflow", "state-management"
+**File**: ${sessionFolder}/exploration-${angle}.json
 
-## Requirements
-Generate exploration-{angle}.json with:
-- project_structure: Architecture and module organization relevant to your angle
-- relevant_files: File paths to be affected
-- patterns: Code patterns relevant to your angle
-- dependencies: Dependencies relevant to your angle
-- integration_points: Integration points from your angle's viewpoint
-- constraints: Constraints related to your angle
-- clarification_needs: Ambiguities requiring user input
-- _metadata:
-  - timestamp: ISO 8601 timestamp
-  - task_description: Original task description
-  - source: "cli-explore-agent"
-  - exploration_angle: "your-chosen-angle"
-  - exploration_index: ${i}
-  - total_explorations: ${explorationCount}
+**Required Fields** (all ${angle} focused):
+- project_structure: Modules/architecture relevant to ${angle}
+- relevant_files: Files affected from ${angle} perspective
+- patterns: ${angle}-related patterns to follow
+- dependencies: Dependencies relevant to ${angle}
+- integration_points: Where to integrate from ${angle} viewpoint
+- constraints: ${angle}-specific limitations/conventions
+- clarification_needs: ${angle}-related ambiguities (with options array)
+- _metadata.exploration_angle: "${angle}"
 
-## Execution Steps
-1. Decide your unique exploration angle based on task needs
-2. Structural scan: get_modules_by_depth.sh, find, rg (focused on your angle)
-3. Semantic analysis: Use Gemini for patterns/architecture specific to your angle
-4. Write JSON: Write('${sessionFolder}/exploration-{your-angle}.json', jsonContent)
-5. Return: Brief summary stating your chosen angle and key findings
+## Success Criteria
+- [ ] get_modules_by_depth.sh executed
+- [ ] At least 3 relevant files identified with ${angle} rationale
+- [ ] Patterns are actionable (code examples, not generic advice)
+- [ ] Integration points include file:line locations
+- [ ] Constraints are project-specific to ${angle}
+- [ ] JSON follows schema exactly
+- [ ] clarification_needs includes options array
 
-Time Limit: 60 seconds
-
-**Remember**: Choose a unique, task-relevant angle. Don't duplicate other explorations' focus.
+## Output
+Write: ${sessionFolder}/exploration-${angle}.json
+Return: 2-3 sentence summary of ${angle} findings
 `
-    )
   )
-}
+)
 
-// Execute all exploration tasks in parallel (single message, multiple tool calls)
-console.log(`Launching ${explorationCount} parallel explorations...`)
+// Execute all exploration tasks in parallel
 ```
 
 **Auto-discover Generated Exploration Files**:
@@ -442,11 +459,9 @@ AskUserQuestion({
 
 ### Phase 5: Dispatch to Execution
 
-**Step 5.1: Generate task.json** (by command, not agent)
+**Step 5.1: Build executionContext**
 
 ```javascript
-const taskId = `LP-${shortTimestamp}`
-
 // Load manifest and all exploration files
 const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
 const explorations = {}
@@ -459,63 +474,9 @@ manifest.explorations.forEach(exp => {
 
 const plan = JSON.parse(Read(`${sessionFolder}/plan.json`))
 
-const taskJson = {
-  id: taskId,
-  title: task_description,
-  status: "pending",
-
-  meta: {
-    type: "planning",
-    created_at: new Date().toISOString(),
-    complexity: plan.complexity,
-    estimated_time: plan.estimated_time,
-    recommended_execution: plan.recommended_execution,
-    workflow: "lite-plan",
-    session_id: sessionId,
-    session_folder: sessionFolder,
-    exploration_count: manifest.exploration_count,
-    exploration_angles: manifest.explorations.map(e => e.angle)
-  },
-
-  context: {
-    requirements: [task_description],
-    plan: {
-      summary: plan.summary,
-      approach: plan.approach,
-      tasks: plan.tasks
-    },
-
-    // Multi-angle exploration structure
-    explorations: explorations,
-
-    // Exploration files for reference
-    exploration_files: manifest.explorations.map(exp => ({
-      angle: exp.angle,
-      file: exp.file,
-      path: exp.path,
-      index: exp.index
-    })),
-
-    clarifications: clarificationContext || null,
-
-    // Aggregate relevant files from all exploration angles
-    focus_paths: Array.from(new Set(
-      Object.values(explorations).flatMap(exp => exp.relevant_files || [])
-    )),
-
-    acceptance: plan.tasks.flatMap(t => t.acceptance)
-  }
-}
-
-Write(`${sessionFolder}/task.json`, JSON.stringify(taskJson, null, 2))
-```
-
-**Step 5.2: Store executionContext**
-
-```javascript
 executionContext = {
   planObject: plan,
-  explorationsContext: explorations,  // Multiple explorations
+  explorationsContext: explorations,
   explorationAngles: manifest.explorations.map(e => e.angle),
   explorationManifest: manifest,
   clarificationContext: clarificationContext || null,
@@ -531,14 +492,13 @@ executionContext = {
         path: exp.path
       })),
       explorations_manifest: `${sessionFolder}/explorations-manifest.json`,
-      plan: `${sessionFolder}/plan.json`,
-      task: `${sessionFolder}/task.json`
+      plan: `${sessionFolder}/plan.json`
     }
   }
 }
 ```
 
-**Step 5.3: Dispatch**
+**Step 5.2: Dispatch**
 
 ```javascript
 SlashCommand(command="/workflow:lite-execute --in-memory")
@@ -548,24 +508,22 @@ SlashCommand(command="/workflow:lite-execute --in-memory")
 
 ```
 .workflow/.lite-plan/{task-slug}-{timestamp}/
-├── exploration-{angle1}.json      # Exploration angle 1 (agent-decided)
-├── exploration-{angle2}.json      # Exploration angle 2 (agent-decided)
+├── exploration-{angle1}.json      # Exploration angle 1
+├── exploration-{angle2}.json      # Exploration angle 2
 ├── exploration-{angle3}.json      # Exploration angle 3 (if applicable)
 ├── exploration-{angle4}.json      # Exploration angle 4 (if applicable)
 ├── explorations-manifest.json     # Exploration index
-├── plan.json                      # Implementation plan
-└── task.json                      # Task definition with multi-exploration refs
+└── plan.json                      # Implementation plan
 ```
 
-**Example** (angles decided by agents):
+**Example**:
 ```
 .workflow/.lite-plan/implement-jwt-refresh-2025-11-25-14-30-25/
 ├── exploration-architecture.json
 ├── exploration-auth-patterns.json
 ├── exploration-security.json
 ├── explorations-manifest.json
-├── plan.json
-└── task.json
+└── plan.json
 ```
 
 ## Error Handling

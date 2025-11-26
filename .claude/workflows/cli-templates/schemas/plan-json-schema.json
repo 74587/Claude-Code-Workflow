@@ -23,12 +23,17 @@
     },
     "tasks": {
       "type": "array",
-      "minItems": 3,
+      "minItems": 1,
       "maxItems": 10,
       "items": {
         "type": "object",
-        "required": ["title", "file", "action", "description", "implementation", "reference", "acceptance"],
+        "required": ["id", "title", "file", "action", "description", "implementation", "acceptance"],
         "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^T[0-9]+$",
+            "description": "Task identifier (T1, T2, T3...)"
+          },
           "title": {
             "type": "string",
             "description": "Task title (action verb + target)"
@@ -39,23 +44,44 @@
           },
           "action": {
             "type": "string",
-            "enum": ["Create", "Update", "Implement", "Refactor", "Add", "Delete", "Configure", "Test"],
+            "enum": ["Create", "Update", "Implement", "Refactor", "Add", "Delete", "Configure", "Test", "Fix"],
             "description": "Primary action type"
           },
           "description": {
             "type": "string",
             "description": "What to implement (1-2 sentences)"
           },
+          "modification_points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["file", "target", "change"],
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "description": "File path"
+                },
+                "target": {
+                  "type": "string",
+                  "description": "Function/class/line range (e.g., 'validateToken:45-60')"
+                },
+                "change": {
+                  "type": "string",
+                  "description": "Brief description of change"
+                }
+              }
+            },
+            "description": "Precise modification points with file:target:change format"
+          },
           "implementation": {
             "type": "array",
             "items": {"type": "string"},
-            "minItems": 3,
+            "minItems": 2,
             "maxItems": 7,
             "description": "Step-by-step implementation guide"
           },
           "reference": {
             "type": "object",
-            "required": ["pattern", "files", "examples"],
             "properties": {
               "pattern": {
                 "type": "string",
@@ -71,18 +97,74 @@
                 "description": "Specific guidance or example references"
               }
             },
-            "description": "Reference materials for implementation"
+            "description": "Reference materials for implementation (optional)"
           },
           "acceptance": {
             "type": "array",
             "items": {"type": "string"},
-            "minItems": 2,
+            "minItems": 1,
             "maxItems": 4,
-            "description": "Verification criteria for task completion"
+            "description": "Verification criteria (quantified, testable)"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^T[0-9]+$"
+            },
+            "description": "Task IDs this task depends on (e.g., ['T1', 'T2'])"
           }
         }
       },
-      "description": "Structured task breakdown (3-10 tasks)"
+      "description": "Structured task breakdown (1-10 tasks)"
+    },
+    "flow_control": {
+      "type": "object",
+      "properties": {
+        "execution_order": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "phase": {
+                "type": "string",
+                "description": "Phase name (e.g., 'parallel-1', 'sequential-1')"
+              },
+              "tasks": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Task IDs in this phase"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["parallel", "sequential"],
+                "description": "Execution type"
+              }
+            }
+          },
+          "description": "Ordered execution phases"
+        },
+        "exit_conditions": {
+          "type": "object",
+          "properties": {
+            "success": {
+              "type": "string",
+              "description": "Condition for successful completion"
+            },
+            "failure": {
+              "type": "string",
+              "description": "Condition that indicates failure"
+            }
+          },
+          "description": "Conditions for workflow termination"
+        }
+      },
+      "description": "Execution flow control (optional, auto-inferred from depends_on if not provided)"
+    },
+    "focus_paths": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Key file paths affected by this plan (aggregated from tasks)"
     },
     "estimated_time": {
       "type": "string",
@@ -100,7 +182,7 @@
     },
     "_metadata": {
       "type": "object",
-      "required": ["timestamp", "source", "planning_mode"],
+      "required": ["timestamp", "source"],
       "properties": {
         "timestamp": {
           "type": "string",
@@ -116,6 +198,11 @@
           "type": "string",
           "enum": ["direct", "agent-based"],
           "description": "Planning execution mode"
+        },
+        "exploration_angles": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Exploration angles used for context"
         },
         "duration_seconds": {
           "type": "integer",
