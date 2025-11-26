@@ -1613,7 +1613,7 @@
 
             // Create export data structure
             const exportData = {
-                export_id: `fix-export-${Date.now()}`,
+                export_id: `${Date.now()}`,
                 export_timestamp: new Date().toISOString(),
                 review_id: reviewState?.review_id || 'unknown',
                 session_id: reviewState?.session_id || 'unknown',
