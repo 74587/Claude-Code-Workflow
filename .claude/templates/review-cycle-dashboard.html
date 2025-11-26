@@ -1103,6 +1103,93 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Filter controls */
+        .filter-section {
+            background-color: var(--bg-card);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .filter-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .filter-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .filter-checkbox-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background-color: var(--bg-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .filter-checkbox-item:hover {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .filter-checkbox-item.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .filter-checkbox-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .sort-order-btn {
+            padding: 8px 12px;
+            min-width: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .sort-order-btn .icon {
+            font-size: 1.2rem;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .drawer {
@@ -1278,17 +1365,65 @@
             <button class="tab" data-dimension="best-practices" onclick="filterByDimension('best-practices')">Best Practices</button>
         </div>
 
+        <!-- Advanced Filters -->
+        <div class="filter-section">
+            <div class="filter-header">
+                <div class="filter-title">🎯 Advanced Filters & Sort</div>
+                <button class="btn" onclick="resetFilters()">Reset All Filters</button>
+            </div>
+            <div class="filter-controls">
+                <!-- Severity Filter -->
+                <div class="filter-group">
+                    <span class="filter-label">Severity:</span>
+                    <div class="filter-checkbox-group">
+                        <label class="filter-checkbox-item" id="filter-critical">
+                            <input type="checkbox" value="critical" onchange="toggleSeverityFilter('critical')">
+                            <span>🔴 Critical</span>
+                        </label>
+                        <label class="filter-checkbox-item" id="filter-high">
+                            <input type="checkbox" value="high" onchange="toggleSeverityFilter('high')">
+                            <span>🟠 High</span>
+                        </label>
+                        <label class="filter-checkbox-item" id="filter-medium">
+                            <input type="checkbox" value="medium" onchange="toggleSeverityFilter('medium')">
+                            <span>🟡 Medium</span>
+                        </label>
+                        <label class="filter-checkbox-item" id="filter-low">
+                            <input type="checkbox" value="low" onchange="toggleSeverityFilter('low')">
+                            <span>🟢 Low</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Sort Controls -->
+                <div class="filter-group">
+                    <span class="filter-label">Sort:</span>
+                    <select id="sortSelect" class="btn" onchange="sortFindings()">
+                        <option value="severity">By Severity</option>
+                        <option value="dimension">By Dimension</option>
+                        <option value="file">By File</option>
+                        <option value="title">By Title</option>
+                    </select>
+                    <button class="btn sort-order-btn" id="sortOrderBtn" onclick="toggleSortOrder()">
+                        <span class="icon" id="sortOrderIcon">↓</span>
+                        <span id="sortOrderText">Descending</span>
+                    </button>
+                </div>
+
+                <!-- Selection Actions -->
+                <div class="filter-group">
+                    <span class="filter-label">Select:</span>
+                    <button class="btn selection-btn" onclick="selectAllVisible()">Select Visible</button>
+                    <button class="btn selection-btn" onclick="selectBySeverity('critical')">Critical Only</button>
+                    <button class="btn selection-btn" onclick="deselectAll()">Clear</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Findings Container -->
         <div class="findings-container">
             <div class="findings-header">
                 <h3>Findings <span id="findingsCount">(0)</span></h3>
-                <div>
-                    <select id="sortSelect" class="btn" onchange="sortFindings()">
-                        <option value="severity">Sort by Severity</option>
-                        <option value="dimension">Sort by Dimension</option>
-                        <option value="file">Sort by File</option>
-                    </select>
-                </div>
             </div>
             <div class="findings-list" id="findingsList">
                 <div class="empty-state">
@@ -1331,8 +1466,12 @@
         let filteredFindings = [];
         let currentFilters = {
             dimension: 'all',
-            severity: null,
+            severities: new Set(), // ✨ NEW: Multiple severity selection
             search: ''
+        };
+        let sortConfig = {
+            field: 'severity',
+            order: 'desc' // ✨ NEW: 'asc' or 'desc'
         };
         let pollingInterval = null;
         let reviewState = null;
@@ -1357,8 +1496,26 @@
         }
 
         function selectAll() {
+            allFindings.forEach(finding => {
+                selectedFindings.add(finding.id);
+            });
+            updateSelectionUI();
+        }
+
+        // ✨ NEW: Select only currently visible findings
+        function selectAllVisible() {
             filteredFindings.forEach(finding => {
                 selectedFindings.add(finding.id);
+            });
+            updateSelectionUI();
+        }
+
+        // ✨ NEW: Select findings by severity
+        function selectBySeverity(severity) {
+            allFindings.forEach(finding => {
+                if (finding.severity.toLowerCase() === severity) {
+                    selectedFindings.add(finding.id);
+                }
             });
             updateSelectionUI();
         }
@@ -1366,6 +1523,67 @@
         function deselectAll() {
             selectedFindings.clear();
             updateSelectionUI();
+        }
+
+        // ✨ NEW: Toggle severity filter
+        function toggleSeverityFilter(severity) {
+            if (currentFilters.severities.has(severity)) {
+                currentFilters.severities.delete(severity);
+                document.getElementById(`filter-${severity}`).classList.remove('active');
+            } else {
+                currentFilters.severities.add(severity);
+                document.getElementById(`filter-${severity}`).classList.add('active');
+            }
+            applyFilters();
+        }
+
+        // ✨ NEW: Toggle sort order
+        function toggleSortOrder() {
+            sortConfig.order = sortConfig.order === 'asc' ? 'desc' : 'asc';
+
+            // Update UI
+            const icon = document.getElementById('sortOrderIcon');
+            const text = document.getElementById('sortOrderText');
+
+            if (sortConfig.order === 'asc') {
+                icon.textContent = '↑';
+                text.textContent = 'Ascending';
+            } else {
+                icon.textContent = '↓';
+                text.textContent = 'Descending';
+            }
+
+            sortFindings();
+        }
+
+        // ✨ NEW: Reset all filters
+        function resetFilters() {
+            // Reset severity filters
+            currentFilters.severities.clear();
+            document.querySelectorAll('.filter-checkbox-item').forEach(item => {
+                item.classList.remove('active');
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                if (checkbox) checkbox.checked = false;
+            });
+
+            // Reset dimension filter
+            currentFilters.dimension = 'all';
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.dimension === 'all');
+            });
+
+            // Reset search
+            currentFilters.search = '';
+            document.getElementById('searchInput').value = '';
+
+            // Reset sort
+            sortConfig.field = 'severity';
+            sortConfig.order = 'desc';
+            document.getElementById('sortSelect').value = 'severity';
+            document.getElementById('sortOrderIcon').textContent = '↓';
+            document.getElementById('sortOrderText').textContent = 'Descending';
+
+            applyFilters();
         }
 
         function updateSelectionUI() {
@@ -2264,11 +2482,6 @@
             applyFilters();
         }
 
-        function filterBySeverity(severity) {
-            currentFilters.severity = currentFilters.severity === severity ? null : severity;
-            applyFilters();
-        }
-
         function setupSearch() {
             const searchInput = document.getElementById('searchInput');
             searchInput.addEventListener('input', (e) => {
@@ -2284,14 +2497,16 @@
                     return false;
                 }
 
-                // Severity filter
-                if (currentFilters.severity && finding.severity !== currentFilters.severity) {
-                    return false;
+                // ✨ NEW: Multi-select severity filter
+                if (currentFilters.severities.size > 0) {
+                    if (!currentFilters.severities.has(finding.severity.toLowerCase())) {
+                        return false;
+                    }
                 }
 
                 // Search filter
                 if (currentFilters.search) {
-                    const searchText = `${finding.title} ${finding.description} ${finding.file}`.toLowerCase();
+                    const searchText = `${finding.title} ${finding.description} ${finding.file} ${finding.category || ''}`.toLowerCase();
                     if (!searchText.includes(currentFilters.search)) {
                         return false;
                     }
@@ -2300,24 +2515,32 @@
                 return true;
             });
 
-            renderFindings();
+            // Auto-sort after filtering
+            sortFindings();
         }
 
-        // Sort findings
+        // ✨ UPDATED: Sort findings with order support
         function sortFindings() {
             const sortBy = document.getElementById('sortSelect').value;
+            sortConfig.field = sortBy;
 
             const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
 
             filteredFindings.sort((a, b) => {
+                let comparison = 0;
+
                 if (sortBy === 'severity') {
-                    return severityOrder[a.severity] - severityOrder[b.severity];
+                    comparison = severityOrder[a.severity.toLowerCase()] - severityOrder[b.severity.toLowerCase()];
                 } else if (sortBy === 'dimension') {
-                    return a.dimension.localeCompare(b.dimension);
+                    comparison = a.dimension.localeCompare(b.dimension);
                 } else if (sortBy === 'file') {
-                    return a.file.localeCompare(b.file);
+                    comparison = a.file.localeCompare(b.file);
+                } else if (sortBy === 'title') {
+                    comparison = a.title.localeCompare(b.title);
                 }
-                return 0;
+
+                // ✨ NEW: Apply sort order (asc/desc)
+                return sortConfig.order === 'asc' ? comparison : -comparison;
             });
 
             renderFindings();
