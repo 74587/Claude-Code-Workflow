@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Progress Dashboard - {{SESSION_ID}}</title>
+    <style>
+        /* Dark Theme (Default) */
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #1c2128;
+            --bg-hover: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --border-color: #30363d;
+            --accent-color: #3b82f6;
+            --success-color: #22c55e;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --info-color: #8b5cf6;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.5);
+            --transition: all 0.3s ease;
+        }
+
+        /* Light Theme */
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f6f8fa;
+            --bg-card: #ffffff;
+            --bg-hover: #f0f2f5;
+            --text-primary: #24292f;
+            --text-secondary: #57606a;
+            --border-color: #d0d7de;
+            --accent-color: #0969da;
+            --success-color: #1a7f37;
+            --danger-color: #cf222e;
+            --warning-color: #bf8700;
+            --info-color: #8250df;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: var(--transition);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--bg-secondary);
+            padding: 20px 25px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .session-info {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .session-info a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .session-info a:hover {
+            text-decoration: underline;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle {
+            background-color: var(--bg-card);
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent-color);
+            transform: rotate(180deg);
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 10px 18px;
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background-color: var(--bg-hover);
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+
+        /* Phase Badge */
+        .phase-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .phase-badge.phase-planning {
+            background-color: rgba(139, 92, 246, 0.2);
+            color: var(--info-color);
+        }
+
+        .phase-badge.phase-execution {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: var(--accent-color);
+            animation: pulse 2s infinite;
+        }
+
+        .phase-badge.phase-completion {
+            background-color: rgba(34, 197, 94, 0.2);
+            color: var(--success-color);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Fix Progress Section */
+        .fix-progress-section {
+            background-color: var(--bg-card);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .fix-progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .fix-progress-header h2 {
+            font-size: 1.5rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Progress Bar */
+        .fix-progress-bar {
+            height: 16px;
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .fix-progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-color), #38a169);
+            transition: width 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fix-progress-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-text {
+            text-align: center;
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-top: 12px;
+        }
+
+        .progress-text strong {
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+
+        /* Planning Phase Indicator */
+        .planning-phase {
+            text-align: center;
+            padding: 50px 20px;
+        }
+
+        .planning-phase .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: bounce 1.5s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .planning-phase h3 {
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+        }
+
+        .planning-phase p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        /* Stage Timeline */
+        .stage-timeline {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+
+        .stage-timeline::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .stage-timeline::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+
+        .stage-timeline::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .stage-timeline::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+        .stage-item {
+            flex: 0 0 auto;
+            min-width: 180px;
+            padding: 18px;
+            background-color: var(--bg-secondary);
+            border-radius: 10px;
+            border: 2px solid var(--border-color);
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .stage-item::after {
+            content: '→';
+            position: absolute;
+            right: -25px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .stage-item:last-child::after {
+            display: none;
+        }
+
+        .stage-item.in-progress {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+            transform: scale(1.05);
+        }
+
+        .stage-item.completed {
+            border-color: var(--success-color);
+            opacity: 0.8;
+        }
+
+        .stage-item.completed .stage-number::before {
+            content: '✓ ';
+            color: var(--success-color);
+        }
+
+        .stage-number {
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin-bottom: 10px;
+        }
+
+        .stage-mode {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stage-groups {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Tabs Navigation */
+        .tabs-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: var(--transition);
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Active Groups Section */
+        .active-groups-section {
+            margin-bottom: 25px;
+        }
+
+        .active-groups-section h3 {
+            font-size: 1.2rem;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .active-groups-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 18px;
+        }
+
+        .active-group-card {
+            background-color: var(--bg-secondary);
+            padding: 18px;
+            border-radius: 10px;
+            border: 2px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .active-group-card:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .group-id {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--accent-color);
+        }
+
+        .group-status {
+            padding: 5px 12px;
+            border-radius: 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background-color: rgba(59, 130, 246, 0.2);
+            color: var(--accent-color);
+        }
+
+        .group-findings {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+        }
+
+        .group-active-items {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background-color: rgba(59, 130, 246, 0.1);
+            border-left: 4px solid var(--accent-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            word-wrap: break-word;
+        }
+
+        /* Active Agents Section */
+        .active-agents-section {
+            margin-top: 25px;
+            border-top: 2px solid var(--border-color);
+            padding-top: 25px;
+        }
+
+        .active-agents-section h3 {
+            font-size: 1.2rem;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .active-agent-item {
+            padding: 18px;
+            background-color: var(--bg-secondary);
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 2px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .active-agent-item:hover {
+            border-color: var(--accent-color);
+            transform: translateX(5px);
+        }
+
+        .agent-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .agent-status-icon {
+            font-size: 2rem;
+            animation: rotate 2s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .agent-info {
+            flex: 1;
+        }
+
+        .agent-id {
+            font-weight: 700;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .agent-status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .agent-task {
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            margin: 8px 0;
+        }
+
+        .agent-file {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Flow Control Steps */
+        .flow-control-container {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: rgba(139, 92, 246, 0.08);
+            border-radius: 8px;
+            border: 2px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .flow-control-header {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .flow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .flow-step:hover {
+            transform: translateX(5px);
+        }
+
+        .flow-step-completed {
+            background-color: rgba(34, 197, 94, 0.15);
+            color: var(--success-color);
+            border-left: 4px solid var(--success-color);
+        }
+
+        .flow-step-in-progress {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: var(--accent-color);
+            animation: pulse 2s ease-in-out infinite;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .flow-step-failed {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: var(--danger-color);
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .flow-step-pending {
+            background-color: rgba(156, 163, 175, 0.1);
+            color: var(--text-secondary);
+            border-left: 4px solid var(--border-color);
+        }
+
+        .flow-step-icon {
+            font-size: 1.2rem;
+        }
+
+        .flow-step-name {
+            font-weight: 600;
+        }
+
+        /* Task Visualization Section */
+        .tasks-section {
+            background-color: var(--bg-card);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tasks-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .tasks-header h2 {
+            font-size: 1.5rem;
+        }
+
+        .task-filters {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: var(--transition);
+        }
+
+        .filter-btn:hover {
+            border-color: var(--accent-color);
+        }
+
+        .filter-btn.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .tasks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 18px;
+        }
+
+        .task-card {
+            background-color: var(--bg-secondary);
+            padding: 18px;
+            border-radius: 10px;
+            border: 2px solid var(--border-color);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .task-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .task-card.status-pending {
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .task-card.status-in-progress {
+            border-left: 4px solid var(--accent-color);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+        }
+
+        .task-card.status-fixed {
+            border-left: 4px solid var(--success-color);
+            opacity: 0.85;
+        }
+
+        .task-card.status-failed {
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .task-id {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-family: 'Courier New', monospace;
+        }
+
+        .task-status {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .task-status.pending {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: var(--warning-color);
+        }
+
+        .task-status.in-progress {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: var(--accent-color);
+        }
+
+        .task-status.fixed {
+            background-color: rgba(34, 197, 94, 0.2);
+            color: var(--success-color);
+        }
+
+        .task-status.failed {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: var(--danger-color);
+        }
+
+        .task-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .task-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 10px;
+        }
+
+        .task-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Fix Summary Section */
+        .fix-summary-section {
+            background-color: var(--bg-card);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .fix-summary-section h2 {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+        }
+
+        .summary-card {
+            background-color: var(--bg-secondary);
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .summary-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .summary-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .summary-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .summary-label {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .summary-card.fixed {
+            border-color: var(--success-color);
+        }
+
+        .summary-card.fixed .summary-value {
+            color: var(--success-color);
+        }
+
+        .summary-card.failed {
+            border-color: var(--danger-color);
+        }
+
+        .summary-card.failed .summary-value {
+            color: var(--danger-color);
+        }
+
+        .summary-card.pending {
+            border-color: var(--warning-color);
+        }
+
+        .summary-card.pending .summary-value {
+            color: var(--warning-color);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 1.15rem;
+        }
+
+        /* History Drawer */
+        .history-drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .history-drawer-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        .history-drawer {
+            position: fixed;
+            right: -700px;
+            top: 0;
+            width: 700px;
+            height: 100vh;
+            background-color: var(--bg-secondary);
+            box-shadow: var(--shadow-lg);
+            transition: right 0.3s;
+            z-index: 1001;
+            overflow-y: auto;
+        }
+
+        .history-drawer.active {
+            right: 0;
+        }
+
+        .history-header {
+            padding: 25px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-secondary);
+            z-index: 10;
+        }
+
+        .history-header h2 {
+            font-size: 1.5rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 2rem;
+            cursor: pointer;
+            padding: 0;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+        .close-btn:hover {
+            background-color: var(--bg-primary);
+            transform: rotate(90deg);
+        }
+
+        .history-content {
+            padding: 25px;
+        }
+
+        .history-item {
+            padding: 20px;
+            background-color: var(--bg-card);
+            border-radius: 10px;
+            margin-bottom: 18px;
+            border-left: 5px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .history-item:hover {
+            transform: translateX(5px);
+            box-shadow: var(--shadow);
+        }
+
+        .history-item.status-fixed {
+            border-left-color: var(--success-color);
+        }
+
+        .history-item.status-failed {
+            border-left-color: var(--danger-color);
+        }
+
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .history-item-time {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .history-item-status {
+            padding: 5px 12px;
+            border-radius: 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .history-item-status.fixed {
+            background-color: rgba(34, 197, 94, 0.2);
+            color: var(--success-color);
+        }
+
+        .history-item-status.failed {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: var(--danger-color);
+        }
+
+        .history-item-stats {
+            display: flex;
+            gap: 18px;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .summary-grid,
+            .active-groups-grid,
+            .tasks-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .history-drawer {
+                width: 100%;
+                right: -100%;
+            }
+
+            .stage-timeline {
+                flex-wrap: nowrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>🔧 Fix Progress Dashboard</h1>
+                <div class="session-info">
+                    Session: <strong id="sessionId">{{SESSION_ID}}</strong> |
+                    Fix Session: <strong id="fixSessionId">Loading...</strong> |
+                    <a href="./dashboard.html">← Back to Review Dashboard</a>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn" onclick="loadFixProgress()">
+                    <span class="spinner" id="refreshSpinner" style="display: none;"></span>
+                    <span id="refreshText">🔄 Refresh</span>
+                </button>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+                    <span id="themeIcon">🌙</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Fix Progress Section -->
+        <div class="fix-progress-section">
+            <div class="fix-progress-header">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <h2>Fix Progress</h2>
+                    <span class="phase-badge" id="phaseBadge">LOADING</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn" onclick="openHistoryDrawer()">📜 View History</button>
+                </div>
+            </div>
+
+            <!-- Planning Phase Indicator -->
+            <div id="planningPhase" class="planning-phase" style="display: none;">
+                <div class="icon">🤖</div>
+                <h3>Planning Fixes</h3>
+                <p>AI is analyzing findings and generating fix plan...</p>
+            </div>
+
+            <!-- Stage Timeline -->
+            <div class="stage-timeline" id="stageTimeline" style="display: none;">
+                <!-- Populated by JavaScript -->
+            </div>
+
+            <!-- Execution Phase -->
+            <div id="executionPhase" style="display: none;">
+                <!-- Progress Bar -->
+                <div class="fix-progress-bar">
+                    <div class="fix-progress-bar-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text" id="progressText">
+                    Initializing...
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="tabs-nav">
+                    <button class="tab-btn active" data-tab="groups" onclick="switchTab('groups')">🔷 Active Groups</button>
+                    <button class="tab-btn" data-tab="agents" onclick="switchTab('agents')">⚡ Active Agents</button>
+                </div>
+
+                <!-- Active Groups Tab -->
+                <div class="tab-content active" id="groupsTab">
+                    <div class="active-groups-section" id="activeGroupsSection">
+                        <div class="active-groups-grid" id="activeGroupsGrid">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Agents Tab -->
+                <div class="tab-content" id="agentsTab">
+                    <div class="active-agents-section" id="activeAgentsSection">
+                        <div id="activeAgentsList">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasks Visualization Section -->
+        <div class="tasks-section">
+            <div class="tasks-header">
+                <h2>📋 Fix Tasks</h2>
+                <div class="task-filters">
+                    <button class="filter-btn active" data-status="all" onclick="filterTasks('all')">All</button>
+                    <button class="filter-btn" data-status="pending" onclick="filterTasks('pending')">Pending</button>
+                    <button class="filter-btn" data-status="in-progress" onclick="filterTasks('in-progress')">In Progress</button>
+                    <button class="filter-btn" data-status="fixed" onclick="filterTasks('fixed')">Fixed</button>
+                    <button class="filter-btn" data-status="failed" onclick="filterTasks('failed')">Failed</button>
+                </div>
+            </div>
+            <div class="tasks-grid" id="tasksGrid">
+                <div class="empty-state">
+                    <div class="empty-state-icon">⏳</div>
+                    <p>Loading tasks...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fix Summary Section -->
+        <div class="fix-summary-section">
+            <h2>📊 Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-value" id="totalFindings">0</div>
+                    <div class="summary-label">Total Findings</div>
+                </div>
+                <div class="summary-card fixed">
+                    <div class="summary-icon">✅</div>
+                    <div class="summary-value" id="fixedCount">0</div>
+                    <div class="summary-label">Fixed</div>
+                </div>
+                <div class="summary-card failed">
+                    <div class="summary-icon">❌</div>
+                    <div class="summary-value" id="failedCount">0</div>
+                    <div class="summary-label">Failed</div>
+                </div>
+                <div class="summary-card pending">
+                    <div class="summary-icon">⏳</div>
+                    <div class="summary-value" id="pendingCount">0</div>
+                    <div class="summary-label">Pending</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Drawer -->
+    <div class="history-drawer-overlay" id="historyDrawerOverlay" onclick="closeHistoryDrawer()"></div>
+    <div class="history-drawer" id="historyDrawer">
+        <div class="history-header">
+            <h2>📜 Fix History</h2>
+            <button class="close-btn" onclick="closeHistoryDrawer()">×</button>
+        </div>
+        <div class="history-content" id="historyContent">
+            <div class="empty-state">
+                <div class="empty-state-icon">⏳</div>
+                <p>Loading history...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SESSION_ID = '{{SESSION_ID}}';
+        const REVIEW_DIR = '{{REVIEW_DIR}}';
+
+        let fixSession = null;
+        let progressInterval = null;
+        let allTasks = [];
+        let currentFilter = 'all';
+
+        // Theme Management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Tab Switching
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.tab-btn[data-tab="${tabName}"]`).classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}Tab`).classList.add('active');
+        }
+
+        // Task Filtering
+        function filterTasks(status) {
+            currentFilter = status;
+
+            // Update filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.filter-btn[data-status="${status}"]`).classList.add('active');
+
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const tasksGrid = document.getElementById('tasksGrid');
+
+            let filteredTasks = allTasks;
+            if (currentFilter !== 'all') {
+                filteredTasks = allTasks.filter(task => {
+                    if (currentFilter === 'in-progress') {
+                        return task.status === 'in-progress';
+                    }
+                    return task.result === currentFilter;
+                });
+            }
+
+            if (filteredTasks.length === 0) {
+                tasksGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>No ${currentFilter === 'all' ? '' : currentFilter} tasks found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            tasksGrid.innerHTML = filteredTasks.map(task => {
+                const statusClass = task.status === 'completed' ? task.result : task.status;
+                const statusText = task.status === 'completed' ? task.result : task.status;
+
+                return `
+                    <div class="task-card status-${statusClass}">
+                        <div class="task-header">
+                            <div class="task-id">${task.finding_id}</div>
+                            <div class="task-status ${statusClass}">${statusText}</div>
+                        </div>
+                        <div class="task-title">${task.finding_title || 'Untitled Task'}</div>
+                        <div class="task-meta">
+                            <div class="task-meta-item">
+                                <span>🏷️</span>
+                                <span>${task.group_id || 'N/A'}</span>
+                            </div>
+                            ${task.completed_at ? `
+                                <div class="task-meta-item">
+                                    <span>⏱️</span>
+                                    <span>${new Date(task.completed_at).toLocaleTimeString()}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Initialize dashboard
+        document.getElementById('sessionId').textContent = SESSION_ID;
+        initTheme();
+        detectFixSession();
+
+        function detectFixSession() {
+            fetch('./fixes/active-fix-session.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('No active fix session');
+                    return response.json();
+                })
+                .then(data => {
+                    fixSession = data;
+                    document.getElementById('fixSessionId').textContent = data.fix_session_id;
+                    startProgressPolling();
+                })
+                .catch(() => {
+                    document.getElementById('fixSessionId').textContent = 'No active session';
+                    showNoActiveSession();
+                });
+        }
+
+        function showNoActiveSession() {
+            const section = document.querySelector('.fix-progress-section');
+            section.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">💤</div>
+                    <p>No active fix session</p>
+                </div>
+            `;
+        }
+
+        function startProgressPolling() {
+            loadFixProgress();
+
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+            progressInterval = setInterval(() => {
+                loadFixProgress();
+            }, 3000);
+        }
+
+        async function loadFixProgress() {
+            if (!fixSession) return;
+
+            // Show loading indicator
+            const spinner = document.getElementById('refreshSpinner');
+            const refreshText = document.getElementById('refreshText');
+            spinner.style.display = 'inline-block';
+            refreshText.textContent = 'Loading...';
+
+            try {
+                // Load fix-plan.json (includes metadata)
+                const planResponse = await fetch(`./fixes/${fixSession.fix_session_id}/fix-plan.json`);
+                if (!planResponse.ok) throw new Error('Fix plan not found');
+                const fixPlan = await planResponse.json();
+
+                // Load all progress files in parallel
+                const progressFiles = fixPlan.groups.map(g => g.progress_file);
+                const progressPromises = progressFiles.map(file =>
+                    fetch(`./fixes/${fixSession.fix_session_id}/${file}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .catch(() => null)
+                );
+                const progressDataArray = await Promise.all(progressPromises);
+
+                // Aggregate progress data
+                const progressData = aggregateProgressData(fixPlan, progressDataArray.filter(d => d !== null));
+
+                // Update UI
+                updateFixStatus(progressData);
+
+                // Stop polling if completed
+                if (progressData.status === 'completed' || progressData.status === 'failed') {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                    await loadFixHistory();
+                }
+            } catch (error) {
+                console.error('Error loading fix progress:', error);
+            } finally {
+                spinner.style.display = 'none';
+                refreshText.textContent = '🔄 Refresh';
+            }
+        }
+
+        function aggregateProgressData(fixPlan, progressDataArray) {
+            const allFindings = [];
+            const activeAgents = [];
+            let hasAnyInProgress = false;
+            let hasAnyFailed = false;
+            let allCompleted = true;
+
+            progressDataArray.forEach(progressFile => {
+                // Collect all findings
+                if (progressFile.findings) {
+                    progressFile.findings.forEach(finding => {
+                        allFindings.push({
+                            finding_id: finding.finding_id,
+                            finding_title: finding.finding_title,
+                            status: finding.status,
+                            result: finding.result,
+                            group_id: progressFile.group_id,
+                            completed_at: finding.completed_at
+                        });
+                    });
+                }
+
+                // Collect active agents
+                if (progressFile.assigned_agent && progressFile.status === 'in-progress') {
+                    const currentFinding = progressFile.current_finding;
+                    const flowControl = progressFile.flow_control;
+
+                    activeAgents.push({
+                        agent_id: progressFile.assigned_agent,
+                        group_id: progressFile.group_id,
+                        finding_id: currentFinding ? currentFinding.finding_id : null,
+                        finding_title: currentFinding ? currentFinding.finding_title : 'Working...',
+                        file: currentFinding ? currentFinding.file : null,
+                        status: currentFinding ? currentFinding.status : progressFile.phase,
+                        started_at: progressFile.started_at,
+                        flow_control: flowControl
+                    });
+                }
+
+                // Track statuses
+                if (progressFile.status === 'in-progress') hasAnyInProgress = true;
+                if (progressFile.status === 'failed') hasAnyFailed = true;
+                if (progressFile.status !== 'completed' && progressFile.status !== 'failed') {
+                    allCompleted = false;
+                }
+            });
+
+            // Calculate completion metrics
+            const totalFindings = allFindings.length;
+            const fixedCount = allFindings.filter(f => f.result === 'fixed').length;
+            const failedCount = allFindings.filter(f => f.result === 'failed').length;
+            const pendingCount = totalFindings - fixedCount - failedCount;
+            const percentComplete = totalFindings > 0 ? ((fixedCount + failedCount) / totalFindings) * 100 : 0;
+
+            // Determine overall status
+            let overallStatus = 'pending';
+            if (allCompleted) {
+                overallStatus = hasAnyFailed ? 'failed' : 'completed';
+            } else if (hasAnyInProgress) {
+                overallStatus = 'in_progress';
+            }
+
+            // Determine phase from metadata or infer
+            let phase = fixPlan.metadata?.status === 'planning' ? 'planning' : 'execution';
+            if (allCompleted) {
+                phase = 'completion';
+            }
+
+            // Build stages from timeline
+            const stages = fixPlan.timeline.stages.map(stage => {
+                const groupStatuses = stage.groups.map(groupId => {
+                    const progressFile = progressDataArray.find(p => p.group_id === groupId);
+                    return progressFile ? progressFile.status : 'pending';
+                });
+
+                let stageStatus = 'pending';
+                if (groupStatuses.every(s => s === 'completed' || s === 'failed')) {
+                    stageStatus = 'completed';
+                } else if (groupStatuses.some(s => s === 'in-progress')) {
+                    stageStatus = 'in-progress';
+                }
+
+                return {
+                    stage: stage.stage,
+                    status: stageStatus,
+                    groups: stage.groups,
+                    execution_mode: stage.execution_mode
+                };
+            });
+
+            // Get earliest start time
+            const startTimes = progressDataArray
+                .map(p => p.started_at)
+                .filter(t => t)
+                .map(t => new Date(t).getTime());
+            const startTime = startTimes.length > 0 ? new Date(Math.min(...startTimes)).toISOString() : null;
+
+            // Find current stage
+            const currentStageObj = stages.find(s => s.status === 'in-progress') || stages.find(s => s.status === 'pending');
+            const currentStage = currentStageObj ? currentStageObj.stage : stages.length;
+
+            // Update global tasks array
+            allTasks = allFindings;
+
+            return {
+                fix_session_id: fixPlan.metadata?.fix_session_id || fixSession.fix_session_id,
+                review_id: fixPlan.metadata?.review_session_id || SESSION_ID,
+                status: overallStatus,
+                phase: phase,
+                start_time: startTime,
+                total_findings: totalFindings,
+                fixed_count: fixedCount,
+                failed_count: failedCount,
+                pending_count: pendingCount,
+                current_stage: currentStage,
+                total_stages: fixPlan.timeline.stages.length,
+                percent_complete: percentComplete,
+                fixes: allFindings,
+                active_agents: activeAgents,
+                stages: stages,
+                groups: progressDataArray
+            };
+        }
+
+        function updateFixStatus(progressData) {
+            const phaseBadge = document.getElementById('phaseBadge');
+            const planningPhase = document.getElementById('planningPhase');
+            const executionPhase = document.getElementById('executionPhase');
+            const stageTimeline = document.getElementById('stageTimeline');
+
+            // Update phase badge
+            const phase = progressData.phase || 'planning';
+            phaseBadge.textContent = phase.toUpperCase();
+            phaseBadge.className = `phase-badge phase-${phase}`;
+
+            // Update stage timeline
+            updateStageTimeline(progressData);
+
+            // Show appropriate phase UI
+            if (phase === 'planning') {
+                planningPhase.style.display = 'block';
+                executionPhase.style.display = 'none';
+            } else {
+                planningPhase.style.display = 'none';
+                executionPhase.style.display = 'block';
+
+                // Update progress bar
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                const percentComplete = progressData.percent_complete || 0;
+                progressFill.style.width = `${percentComplete}%`;
+
+                // Format progress text
+                let startTimeText = '';
+                if (progressData.start_time) {
+                    const startTime = new Date(progressData.start_time);
+                    const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000 / 60);
+                    startTimeText = ` | Started ${startTime.toLocaleTimeString()} (${elapsed}m ago)`;
+                }
+
+                progressText.innerHTML = `
+                    <strong>Stage ${progressData.current_stage}/${progressData.total_stages}</strong> |
+                    ${progressData.fixed_count + progressData.failed_count}/${progressData.total_findings} findings completed
+                    (<strong>${percentComplete.toFixed(1)}%</strong>)${startTimeText}
+                `;
+
+                // Update active groups
+                updateActiveGroups(progressData);
+
+                // Update active agents
+                updateActiveAgents(progressData);
+            }
+
+            // Update summary cards
+            document.getElementById('totalFindings').textContent = progressData.total_findings;
+            document.getElementById('fixedCount').textContent = progressData.fixed_count;
+            document.getElementById('failedCount').textContent = progressData.failed_count;
+            document.getElementById('pendingCount').textContent = progressData.pending_count;
+
+            // Render tasks
+            renderTasks();
+        }
+
+        function updateStageTimeline(progressData) {
+            const stageTimeline = document.getElementById('stageTimeline');
+            const stages = progressData.stages || [];
+
+            if (stages.length === 0) {
+                stageTimeline.style.display = 'none';
+                return;
+            }
+
+            stageTimeline.style.display = 'flex';
+            stageTimeline.innerHTML = stages.map(stage => `
+                <div class="stage-item ${stage.status}">
+                    <div class="stage-number">Stage ${stage.stage}</div>
+                    <div class="stage-mode">
+                        ${stage.execution_mode === 'parallel' ? '⚡ Parallel' : '➡️ Serial'}
+                    </div>
+                    <div class="stage-groups">${stage.groups.length} group${stage.groups.length !== 1 ? 's' : ''}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateActiveGroups(progressData) {
+            const activeGroupsSection = document.getElementById('activeGroupsSection');
+            const activeGroupsGrid = document.getElementById('activeGroupsGrid');
+            const stages = progressData.stages || [];
+            const activeStage = stages.find(s => s.status === 'in-progress');
+
+            if (!activeStage || activeStage.groups.length === 0) {
+                activeGroupsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✨</div>
+                        <p>No active groups</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Get fixes for groups in active stage
+            const groupFixes = {};
+            progressData.fixes?.forEach(fix => {
+                if (fix.group_id && activeStage.groups.includes(fix.group_id)) {
+                    if (!groupFixes[fix.group_id]) {
+                        groupFixes[fix.group_id] = [];
+                    }
+                    groupFixes[fix.group_id].push(fix);
+                }
+            });
+
+            activeGroupsGrid.innerHTML = activeStage.groups.map(groupId => {
+                const fixes = groupFixes[groupId] || [];
+                const completedCount = fixes.filter(f => f.result === 'fixed' || f.result === 'failed').length;
+
+                // Get in-progress findings
+                const inProgressFindings = fixes
+                    .filter(f => f.status === 'in-progress')
+                    .map(f => f.finding_title)
+                    .filter(title => title);
+
+                const inProgressText = inProgressFindings.length > 0
+                    ? `<div class="group-active-items">🔧 ${inProgressFindings.join(', ')}</div>`
+                    : '';
+
+                return `
+                    <div class="active-group-card">
+                        <div class="group-header">
+                            <div class="group-id">${groupId}</div>
+                            <div class="group-status">${inProgressFindings.length > 0 ? 'In Progress' : 'Pending'}</div>
+                        </div>
+                        <div class="group-findings">${completedCount}/${fixes.length} findings completed</div>
+                        ${inProgressText}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateActiveAgents(progressData) {
+            const activeAgentsSection = document.getElementById('activeAgentsSection');
+            const activeAgentsList = document.getElementById('activeAgentsList');
+
+            if (!progressData.active_agents || progressData.active_agents.length === 0) {
+                activeAgentsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🤖</div>
+                        <p>No active agents</p>
+                    </div>
+                `;
+                return;
+            }
+
+            activeAgentsList.innerHTML = progressData.active_agents.map(agent => {
+                const statusIcon = getAgentStatusIcon(agent.status);
+                const statusText = agent.status ? agent.status.charAt(0).toUpperCase() + agent.status.slice(1).replace(/-/g, ' ') : '';
+
+                // Render flow control steps
+                const flowControlHtml = agent.flow_control && agent.flow_control.implementation_approach && agent.flow_control.implementation_approach.length > 0
+                    ? renderFlowControlSteps(agent.flow_control)
+                    : '';
+
+                return `
+                    <div class="active-agent-item">
+                        <div class="agent-header">
+                            <div class="agent-status-icon">${statusIcon}</div>
+                            <div class="agent-info">
+                                <div class="agent-id">
+                                    ${agent.agent_id} <span style="color: var(--text-secondary);">(${agent.group_id})</span>
+                                    ${statusText ? `<span class="agent-status-badge">${statusText}</span>` : ''}
+                                </div>
+                                <div class="agent-task">${agent.finding_title || 'Initializing...'}</div>
+                                ${agent.file ? `<div class="agent-file">📄 ${agent.file}</div>` : ''}
+                            </div>
+                        </div>
+                        ${flowControlHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getAgentStatusIcon(status) {
+            const icons = {
+                'analyzing': '🔍',
+                'fixing': '🔧',
+                'testing': '🧪',
+                'committing': '💾'
+            };
+            return icons[status] || '⚡';
+        }
+
+        function renderFlowControlSteps(flowControl) {
+            if (!flowControl || !flowControl.implementation_approach || flowControl.implementation_approach.length === 0) {
+                return '';
+            }
+
+            const stepsHtml = flowControl.implementation_approach.map(step => {
+                let stepIcon = '';
+                let stepClass = '';
+
+                if (step.status === 'completed') {
+                    stepIcon = '✅';
+                    stepClass = 'flow-step-completed';
+                } else if (step.status === 'in-progress') {
+                    stepIcon = '⏳';
+                    stepClass = 'flow-step-in-progress';
+                } else if (step.status === 'failed') {
+                    stepIcon = '❌';
+                    stepClass = 'flow-step-failed';
+                } else {
+                    stepIcon = '⏸';
+                    stepClass = 'flow-step-pending';
+                }
+
+                const stepName = step.action || step.step.split('_').map(word =>
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ');
+
+                return `
+                    <div class="flow-step ${stepClass}">
+                        <span class="flow-step-icon">${stepIcon}</span>
+                        <span class="flow-step-name">${stepName}</span>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="flow-control-container">
+                    <div class="flow-control-header">Progress Steps:</div>
+                    <div class="flow-steps">${stepsHtml}</div>
+                </div>
+            `;
+        }
+
+        // History drawer functions
+        function openHistoryDrawer() {
+            document.getElementById('historyDrawer').classList.add('active');
+            document.getElementById('historyDrawerOverlay').classList.add('active');
+            loadFixHistory();
+        }
+
+        function closeHistoryDrawer() {
+            document.getElementById('historyDrawer').classList.remove('active');
+            document.getElementById('historyDrawerOverlay').classList.remove('active');
+        }
+
+        async function loadFixHistory() {
+            try {
+                const response = await fetch('./fixes/fix-history.json');
+                if (!response.ok) throw new Error('Fix history not found');
+
+                const historyData = await response.json();
+                renderFixHistory(historyData);
+            } catch (error) {
+                console.error('Error loading fix history:', error);
+                document.getElementById('historyContent').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📜</div>
+                        <p>No fix history available</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderFixHistory(historyData) {
+            const historyContent = document.getElementById('historyContent');
+
+            if (!historyData.sessions || historyData.sessions.length === 0) {
+                historyContent.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📜</div>
+                        <p>No fix history available</p>
+                    </div>
+                `;
+                return;
+            }
+
+            historyContent.innerHTML = historyData.sessions.map(session => {
+                const statusClass = session.total_failed > 0 ? 'failed' : 'fixed';
+                const statusText = session.total_failed > 0 ? 'Partial' : 'Complete';
+                const completedAt = new Date(session.completed_at);
+
+                return `
+                    <div class="history-item status-${statusClass}">
+                        <div class="history-item-header">
+                            <div class="history-item-time">${completedAt.toLocaleString()}</div>
+                            <div class="history-item-status ${statusClass}">${statusText}</div>
+                        </div>
+                        <div style="font-weight: 700; margin-bottom: 8px; font-size: 1rem;">${session.fix_session_id}</div>
+                        <div class="history-item-stats">
+                            <span>✅ ${session.total_fixed} fixed</span>
+                            <span>❌ ${session.total_failed} failed</span>
+                            <span>📊 ${session.total_findings} total</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Auto-refresh every 3 seconds
+        setInterval(() => {
+            if (fixSession && progressInterval) {
+                loadFixProgress();
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
