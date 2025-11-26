@@ -156,10 +156,11 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - **Exploration Index**: ${index + 1} of ${selectedAngles.length}
 - **Output File**: ${sessionFolder}/exploration-${angle}.json
 
-## MANDATORY FIRST STEPS
+## MANDATORY FIRST STEPS (Execute by Agent)
+**You (cli-explore-agent) MUST execute these steps in order:**
 1. Run: ~/.claude/scripts/get_modules_by_depth.sh (project structure)
 2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
-3. Read: ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (output schema)
+3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
 
 ## Exploration Strategy (${angle} focus)
 
@@ -181,6 +182,8 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 
 **File**: ${sessionFolder}/exploration-${angle}.json
 
+**Schema Reference**: Schema obtained in MANDATORY FIRST STEPS step 3, follow schema exactly
+
 **Required Fields** (all ${angle} focused):
 - project_structure: Modules/architecture relevant to ${angle}
 - relevant_files: Files affected from ${angle} perspective
@@ -192,12 +195,13 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - _metadata.exploration_angle: "${angle}"
 
 ## Success Criteria
+- [ ] Schema obtained via cat explore-json-schema.json
 - [ ] get_modules_by_depth.sh executed
 - [ ] At least 3 relevant files identified with ${angle} rationale
 - [ ] Patterns are actionable (code examples, not generic advice)
 - [ ] Integration points include file:line locations
 - [ ] Constraints are project-specific to ${angle}
-- [ ] JSON follows schema exactly
+- [ ] JSON output follows schema exactly
 - [ ] clarification_needs includes options array
 
 ## Output
@@ -344,7 +348,7 @@ Task(
 Generate implementation plan and write plan.json.
 
 ## Output Schema Reference
-~/.claude/workflows/cli-templates/schemas/plan-json-schema.json
+Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json (get schema reference before generating plan)
 
 ## Task Description
 ${task_description}

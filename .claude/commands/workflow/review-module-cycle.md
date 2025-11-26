@@ -432,10 +432,12 @@ Task(
     - Phase 2: Gemini semantic analysis for design intent, non-standard patterns, ${dimension}-specific concerns
     - Phase 3: Synthesis with attribution (bash-discovered vs gemini-discovered findings)
 
-    ## MANDATORY FIRST STEPS
+    ## MANDATORY FIRST STEPS (Execute by Agent)
+    **You (cli-explore-agent) MUST execute these steps in order:**
     1. Read review state: ${reviewStateJsonPath}
     2. Get target files: Read resolved_files from review-state.json
     3. Validate file access: bash(ls -la ${targetFiles.join(' ')})
+    4. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
 
     ## Review Context
     - Review Type: module (independent)
@@ -452,9 +454,8 @@ Task(
     - Context Pattern: ${targetFiles.map(f => `@${f}`).join(' ')}
 
     ## Expected Deliverables
-    **MANDATORY**: Before generating any JSON output, read the schema first:
-    - Read: ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json
-    - Extract and follow EXACT field names from schema
+
+    **Schema Reference**: Schema obtained in MANDATORY FIRST STEPS step 4, follow schema exactly
 
     1. Dimension Results JSON: ${outputDir}/dimensions/${dimension}.json
 
@@ -489,12 +490,13 @@ Task(
     ${getDimensionGuidance(dimension)}
 
     ## Success Criteria
-    - All target files analyzed for ${dimension} concerns
-    - All findings include file:line references with code snippets
-    - Severity assessment follows established criteria (see reference)
-    - Recommendations are actionable with code examples
-    - JSON output is valid and follows schema exactly
-    - Report is comprehensive and well-organized
+    - [ ] Schema obtained via cat review-dimension-results-schema.json
+    - [ ] All target files analyzed for ${dimension} concerns
+    - [ ] All findings include file:line references with code snippets
+    - [ ] Severity assessment follows established criteria (see reference)
+    - [ ] Recommendations are actionable with code examples
+    - [ ] JSON output follows schema exactly
+    - [ ] Report is comprehensive and well-organized
   `
 )
 ```
@@ -530,11 +532,13 @@ Task(
     - Original Description: ${description}
     - Iteration: ${iteration}
 
-    ## MANDATORY FIRST STEPS
+    ## MANDATORY FIRST STEPS (Execute by Agent)
+    **You (cli-explore-agent) MUST execute these steps in order:**
     1. Read original finding: ${dimensionJsonPath}
     2. Read affected file: ${file}
     3. Identify related code: bash(grep -r "import.*${basename(file)}" ${projectDir}/src --include="*.ts")
     4. Read test files: bash(find ${projectDir}/tests -name "*${basename(file, '.ts')}*" -type f)
+    5. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex
@@ -542,9 +546,8 @@ Task(
     - Mode: analysis (READ-ONLY)
 
     ## Expected Deliverables
-    **MANDATORY**: Before generating any JSON output, read the schema first:
-    - Read: ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json
-    - Extract and follow EXACT field names from schema
+
+    **Schema Reference**: Schema obtained in MANDATORY FIRST STEPS step 5, follow schema exactly
 
     1. Deep-Dive Results JSON: ${outputDir}/iterations/iteration-${iteration}-finding-${findingId}.json
 
@@ -566,13 +569,15 @@ Task(
        - Impact assessment and rollback strategy
 
     ## Success Criteria
-    - Root cause clearly identified with supporting evidence
-    - Remediation plan is step-by-step actionable with exact file:line references
-    - Each step includes specific commands and validation tests
-    - Impact fully assessed (files, tests, breaking changes, dependencies)
-    - Severity re-evaluation justified with evidence
-    - Confidence score accurately reflects certainty of analysis
-    - References include project-specific and external documentation
+    - [ ] Schema obtained via cat review-deep-dive-results-schema.json
+    - [ ] Root cause clearly identified with supporting evidence
+    - [ ] Remediation plan is step-by-step actionable with exact file:line references
+    - [ ] Each step includes specific commands and validation tests
+    - [ ] Impact fully assessed (files, tests, breaking changes, dependencies)
+    - [ ] Severity re-evaluation justified with evidence
+    - [ ] Confidence score accurately reflects certainty of analysis
+    - [ ] JSON output follows schema exactly
+    - [ ] References include project-specific and external documentation
   `
 )
 ```
