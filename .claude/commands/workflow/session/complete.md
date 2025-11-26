@@ -87,20 +87,29 @@ Analyze workflow session for archival preparation. Session is STILL in active lo
 
 2. **Count files**: tasks (.task/*.json) and summaries (.summaries/*.md)
 
-3. **Generate lessons**: Use gemini with ~/.claude/workflows/cli-templates/prompts/archive/analysis-simple.txt
-   - Return: {successes, challenges, watch_patterns}
+3. **Extract review data** (if .review/ exists):
+   - Count dimension results: .review/dimensions/*.json
+   - Count deep-dive results: .review/iterations/*.json
+   - Extract findings summary from dimension JSONs (total, critical, high, medium, low)
+   - Check fix results if .review/fixes/ exists (fixed_count, failed_count)
+   - Build review_metrics: {dimensions_analyzed, total_findings, severity_distribution, fix_success_rate}
 
-4. **Build archive entry**:
+4. **Generate lessons**: Use gemini with ~/.claude/workflows/cli-templates/prompts/archive/analysis-simple.txt
+   - Return: {successes, challenges, watch_patterns}
+   - If review data exists, include review-specific lessons (common issue patterns, effective fixes)
+
+5. **Build archive entry**:
    - Calculate: duration_hours, success_rate, tags (3-5 keywords)
    - Construct complete JSON with session_id, description, archived_at, metrics, tags, lessons
    - Include archive_path: ".workflow/archives/WFS-session-name" (future location)
+   - If review data exists, include review_metrics in metrics object
 
-5. **Extract feature metadata** (for Phase 4):
+6. **Extract feature metadata** (for Phase 4):
    - Parse IMPL_PLAN.md for title (first # heading)
    - Extract description (first paragraph, max 200 chars)
    - Generate feature tags (3-5 keywords from content)
 
-6. **Return result**: Complete metadata package for atomic commit
+7. **Return result**: Complete metadata package for atomic commit
    {
      "status": "success",
      "session_id": "WFS-session-name",
@@ -109,7 +118,17 @@ Analyze workflow session for archival preparation. Session is STILL in active lo
        "description": "...",
        "archived_at": "...",
        "archive_path": ".workflow/archives/WFS-session-name",
-       "metrics": {...},
+       "metrics": {
+         "duration_hours": 2.5,
+         "tasks_completed": 5,
+         "summaries_generated": 3,
+         "review_metrics": {                    // Optional, only if .review/ exists
+           "dimensions_analyzed": 4,
+           "total_findings": 15,
+           "severity_distribution": {"critical": 1, "high": 3, "medium": 8, "low": 3},
+           "fix_success_rate": 0.87             // Optional, only if .review/fixes/ exists
+         }
+       },
        "tags": [...],
        "lessons": {...}
      },
@@ -193,6 +212,7 @@ bash(rm .workflow/archives/WFS-session-name/.archiving)
   Location: .workflow/archives/WFS-session-name/
   Lessons: ${archiveEntry.lessons.successes.length} successes, ${archiveEntry.lessons.challenges.length} challenges
   Manifest: Updated with ${manifest.length} total sessions
+  ${reviewMetrics ? `Review: ${reviewMetrics.total_findings} findings across ${reviewMetrics.dimensions_analyzed} dimensions, ${Math.round(reviewMetrics.fix_success_rate * 100)}% fixed` : ''}
 ```
 
 ### Phase 4: Update Project Feature Registry
@@ -435,9 +455,10 @@ Session state: PARTIALLY COMPLETE (session archived, manifest needs update)
 **Phase 2: Agent Analysis** (Read-only data processing)
 - Extract all session data from active location
 - Count tasks and summaries
-- Generate lessons learned analysis
+- Extract review data if .review/ exists (dimension results, findings, fix results)
+- Generate lessons learned analysis (including review-specific lessons if applicable)
 - Extract feature metadata from IMPL_PLAN.md
-- Build complete archive + feature metadata package
+- Build complete archive + feature metadata package (with review_metrics if applicable)
 - **No file modifications** - pure analysis
 - **Total**: 1 agent invocation
 

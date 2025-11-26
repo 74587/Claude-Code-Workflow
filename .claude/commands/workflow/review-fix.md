@@ -10,21 +10,21 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*), Edit(*)
 ## Quick Start
 
 ```bash
-# Fix from exported findings file
-/workflow:review-fix .workflow/.reviews/session-WFS-123/fix-export-1706184622000.json
+# Fix from exported findings file (session-based path)
+/workflow:review-fix .workflow/active/WFS-123/.review/fix-export-1706184622000.json
 
 # Fix from review directory (auto-discovers latest export)
-/workflow:review-fix .workflow/.reviews/session-WFS-123/
+/workflow:review-fix .workflow/active/WFS-123/.review/
 
 # Resume interrupted fix session
 /workflow:review-fix --resume
 
 # Custom max retry attempts per finding
-/workflow:review-fix .workflow/.reviews/session-WFS-123/ --max-iterations=5
+/workflow:review-fix .workflow/active/WFS-123/.review/ --max-iterations=5
 ```
 
 **Fix Source**: Exported findings from review cycle dashboard
-**Output Directory**: `{review-dir}/fixes/{fix-session-id}/` (fixed location)
+**Output Directory**: `{review-dir}/fixes/{fix-session-id}/` (within session .review/)
 **Default Max Iterations**: 3 (per finding, adjustable)
 **CLI Tools**: @cli-planning-agent (planning), @cli-execute-agent (fixing)
 
@@ -224,12 +224,20 @@ if (result.passRate < 100%) {
 - TodoWrite completion: Mark all phases done
 - Output summary to user with dashboard link
 
+**Phase 5: Session Completion (Optional)**
+- If all findings fixed successfully (no failures):
+  - Prompt user: "All fixes complete. Complete workflow session? [Y/n]"
+  - If confirmed: Execute `/workflow:session:complete` to archive session with lessons learned
+- If partial success (some failures):
+  - Output: "Some findings failed. Review fix-summary.md before completing session."
+  - Do NOT auto-complete session
+
 
 
 ### Output File Structure
 
 ```
-.workflow/.reviews/{review-id}/
+.workflow/active/WFS-{session-id}/.review/
 ├── fix-export-{timestamp}.json     # Exported findings (input)
 └── fixes/{fix-session-id}/
     ├── fix-plan.json               # Planning agent output (execution plan)
