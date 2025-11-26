@@ -55,20 +55,20 @@ Automated fix orchestrator with **two-phase architecture**: AI-powered planning 
 - Delegates: Fix planning to @cli-planning-agent, fix execution to @cli-execute-agent
 
 
-### Execution Flow 
+### Execution Flow
 
 ```
-1. Discovery & Initialization
+Phase 1: Discovery & Initialization
    └─ Validate export file, create fix session structure, initialize state files → Generate fix-dashboard.html
 
-2. Phase 2: Planning (@cli-planning-agent):
+Phase 2: Planning Coordination (@cli-planning-agent)
    ├─ Analyze findings for patterns and dependencies
    ├─ Group by file + dimension + root cause similarity
    ├─ Determine execution strategy (parallel/serial/hybrid)
    ├─ Generate fix timeline with stages
    └─ Output: fix-plan.json (dashboard auto-polls for status)
 
-3. Phase 3: Execution (Stage-based):
+Phase 3: Execution Orchestration (Stage-based)
    For each timeline stage:
    ├─ Load groups for this stage
    ├─ If parallel: Launch all group agents simultaneously
@@ -81,8 +81,11 @@ Automated fix orchestrator with **two-phase architecture**: AI-powered planning 
    │  └─ On success: Commit, update fix-progress-{N}.json
    └─ Advance to next stage
 
-4. Phase 4: Completion
+Phase 4: Completion & Aggregation
    └─ Aggregate results → Generate fix-summary.md → Update history → Output summary
+
+Phase 5: Session Completion (Optional)
+   └─ If all fixes successful → Prompt to complete workflow session
 ```
 
 ### Agent Roles

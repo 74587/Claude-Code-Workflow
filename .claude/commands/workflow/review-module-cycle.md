@@ -62,19 +62,19 @@ Independent multi-dimensional code review orchestrator with **hybrid parallel-it
 
 ## How It Works
 
-### Execution Flow 
+### Execution Flow
 
 ```
-1. Discovery & Initialization
+Phase 1: Discovery & Initialization
    └─ Resolve file patterns, validate paths, initialize state, create output structure → Generate dashboard.html
 
-2. Phase 2: Parallel Reviews (for each dimension):
+Phase 2: Parallel Reviews (for each dimension)
    ├─ Launch 7 review agents simultaneously
    ├─ Each executes CLI analysis via Gemini/Qwen on specified files
    ├─ Generate dimension JSON + markdown reports
    └─ Update review-progress.json
 
-3. Phase 3: Aggregation:
+Phase 3: Aggregation
    ├─ Load all dimension JSON files
    ├─ Calculate severity distribution (critical/high/medium/low)
    ├─ Identify cross-cutting concerns (files in 3+ dimensions)
@@ -82,15 +82,15 @@ Independent multi-dimensional code review orchestrator with **hybrid parallel-it
       ├─ Critical findings OR high > 5 OR critical files → Phase 4 (Iterate)
       └─ Else → Phase 5 (Complete)
 
-4. Phase 4: Iterative Deep-Dive (optional):
+Phase 4: Iterative Deep-Dive (optional)
    ├─ Select critical findings (max 5 per iteration)
    ├─ Launch deep-dive agents for root cause analysis
    ├─ Generate remediation plans with impact assessment
    ├─ Re-assess severity based on analysis
    └─ Loop until no critical findings OR max iterations
 
-5. Phase 5: Completion
-   └─ Generate REVIEW-SUMMARY.md → Output path
+Phase 5: Completion
+   └─ Finalize review-progress.json → Output dashboard path
 ```
 
 ### Agent Roles
@@ -274,10 +274,10 @@ echo "📊 Dashboard: file://$(cd ${sessionDir} && pwd)/.review/dashboard.html"
 - Loop back to aggregation if still have critical/high findings
 
 **Phase 5: Completion**
-- Generate REVIEW-SUMMARY.md with all findings and statistics
+- Finalize review-progress.json with completion statistics
 - Update review-state.json with completion_time and phase=complete
 - TodoWrite completion: Mark all tasks done
-- Output: Dashboard path and REVIEW-SUMMARY.md path to user
+- Output: Dashboard path to user
 
 
 
@@ -303,8 +303,7 @@ echo "📊 Dashboard: file://$(cd ${sessionDir} && pwd)/.review/dashboard.html"
 │   ├── security-cli-output.txt
 │   ├── deep-dive-1-{uuid}.md
 │   └── ...
-├── REVIEW-SUMMARY.md                    # Final summary
-└── dashboard.html                       # Interactive dashboard
+└── dashboard.html                       # Interactive dashboard (primary output)
 ```
 
 **Session Context**:
