@@ -1420,14 +1420,58 @@
             const blob = new Blob([jsonStr], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
+            const filename = `fix-export-${exportData.export_id}.json`;
             a.href = url;
-            a.download = `fix-export-${exportData.export_id}.json`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            alert(`Exported ${selectedFindingsData.length} finding${selectedFindingsData.length !== 1 ? 's' : ''} for fixing.\n\nUse: /workflow:review-fix <exported-file>`);
+            // ✨ Show export path and usage instructions with session directory recommendation
+            const reviewDir = window.location.pathname.replace('/dashboard.html', '').replace('/.review/dashboard.html', '/.review');
+            // Extract absolute path from file:// URL
+            const absolutePath = decodeURIComponent(window.location.pathname).replace(/^\/([A-Z]:)/, '$1');
+            const sessionDir = absolutePath.replace('/.review/dashboard.html', '');
+            const reviewSessionDir = `${sessionDir}/.review`;
+
+            const notification = `
+✅ Exported ${selectedFindingsData.length} finding${selectedFindingsData.length !== 1 ? 's' : ''} for automated fixing!
+
+📁 File: ${filename}
+📂 Browser download: Your Downloads folder
+
+📋 Recommended Location:
+   ${reviewSessionDir}/
+
+🔄 Move to session directory (recommended):
+   # On Windows:
+   move "%USERPROFILE%\\Downloads\\${filename}" "${reviewSessionDir.replace(/\//g, '\\')}\\${filename}"
+
+   # On Mac/Linux:
+   mv ~/Downloads/${filename} ${reviewSessionDir}/${filename}
+
+🔧 Usage (after moving file):
+   /workflow:review-fix ${reviewSessionDir}/${filename}
+
+   Or directly from Downloads:
+   /workflow:review-fix ~/Downloads/${filename}
+
+📋 Review Session: ${exportData.session_id}
+📊 Findings by Severity:
+   • Critical: ${selectedFindingsData.filter(f => f.severity === 'critical').length}
+   • High: ${selectedFindingsData.filter(f => f.severity === 'high').length}
+   • Medium: ${selectedFindingsData.filter(f => f.severity === 'medium').length}
+   • Low: ${selectedFindingsData.filter(f => f.severity === 'low').length}
+
+💡 The automated fix workflow will:
+   1. Group findings by file and relationship
+   2. Execute fixes in parallel where safe
+   3. Run tests after each fix
+   4. Track progress in this dashboard
+            `.trim();
+
+            alert(notification);
         }
 
         // Fix progress tracking
@@ -2500,10 +2544,39 @@
             const blob = new Blob([markdown], { type: 'text/markdown' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `review-report-${reviewState.review_id}.md`;
+            const filename = `review-report-${reviewState.review_id}.md`;
+            a.download = filename;
             a.click();
             URL.revokeObjectURL(url);
+
+            // ✨ Show export path notification with session directory recommendation
+            const reviewDir = window.location.pathname.replace('/dashboard.html', '').replace('/.review/dashboard.html', '/.review');
+            // Extract absolute path from file:// URL
+            const absolutePath = decodeURIComponent(window.location.pathname).replace(/^\/([A-Z]:)/, '$1');
+            const sessionDir = absolutePath.replace('/.review/dashboard.html', '');
+            const reportsDir = `${sessionDir}/.review/reports`;
+
+            const notification = `
+✅ Report exported successfully!
+
+📁 File: ${filename}
+📂 Browser download: Your Downloads folder
+
+📋 Recommended Location:
+   ${reportsDir}/
+
+🔄 Move to session directory:
+   # On Windows:
+   move "%USERPROFILE%\\Downloads\\${filename}" "${reportsDir.replace(/\//g, '\\')}\\${filename}"
+
+   # On Mac/Linux:
+   mv ~/Downloads/${filename} ${reportsDir}/${filename}
+
+💡 All review files in:
+   ${reportsDir}/
+            `.trim();
+
+            alert(notification);
         }
 
         // Initialize
