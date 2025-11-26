@@ -1,7 +1,7 @@
 ---
 name: review-session-cycle
 description: Session-based comprehensive multi-dimensional code review. Analyzes git changes from workflow session across 7 dimensions with hybrid parallel-iterative execution, aggregates findings, and performs focused deep-dives on critical issues until quality gates met.
-argument-hint: "[session-id] [--dimensions=security,architecture,...] [--max-iterations=N] [--resume]"
+argument-hint: "[session-id] [--dimensions=security,architecture,...] [--max-iterations=N]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---
 
@@ -16,9 +16,6 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 # Review specific session with custom dimensions
 /workflow:review-session-cycle WFS-payment-integration --dimensions=security,architecture,quality
 
-# Resume interrupted review
-/workflow:review-session-cycle --resume
-
 # Specify session and iteration limit
 /workflow:review-session-cycle WFS-payment-integration --max-iterations=5
 ```
@@ -27,7 +24,8 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 **Session Requirement**: Requires active or completed workflow session
 **Output Directory**: `.workflow/active/WFS-{session-id}/.review/` (session-based)
 **Default Dimensions**: Security, Architecture, Quality, Action-Items, Performance, Maintainability, Best-Practices
-**Max Iterations**: 3 (default, adjustable)
+**Max Iterations**: 3 (adjustable via --max-iterations)
+**Default Iterations**: 1 (deep-dive runs once; use --max-iterations=0 to skip)
 **CLI Tools**: Gemini → Qwen → Codex (fallback chain)
 
 ## What & Why
@@ -53,6 +51,7 @@ Session-based multi-dimensional code review orchestrator with **hybrid parallel-
 - **ONLY command** for comprehensive multi-dimensional review
 - Manages: dimension coordination, aggregation, iteration control, progress tracking
 - Delegates: Code exploration and analysis to @cli-explore-agent, dimension-specific reviews via Deep Scan mode
+- **⚠️ DASHBOARD CONSTRAINT**: Dashboard is generated ONCE during Phase 1 initialization. After initialization, orchestrator and agents MUST NOT read, write, or modify dashboard.html - it remains static for user interaction only.
 
 ## How It Works
 
@@ -292,7 +291,7 @@ echo "📊 Dashboard: file://${absolutePath}/.review/dashboard.html"
 
 ### Review State JSON
 
-**Purpose**: Persisted state machine for phase transitions and iteration control - enables Resume
+**Purpose**: Persisted state machine for phase transitions and iteration control
 
 ```json
 {
@@ -683,29 +682,33 @@ function getDimensionGuidance(dimension) {
 - Still have critical/high findings
 - Action: Generate report with warnings, recommend follow-up
 
-**Resume Capability**:
-- Read review-state.json on startup
-- Check phase and next_action
-- Resume from current phase (parallel/aggregate/iterate)
-- Preserve iteration history
-
 ### Error Handling
 
-| Scenario | Action |
-|----------|--------|
-| Session not found | Error: Provide session ID or ensure active session exists |
-| No completed tasks | Error: Complete implementation before review |
-| CLI analysis failure | Fallback: Gemini → Qwen → Codex → degraded mode |
-| Invalid JSON output | Retry with clarified prompt, fallback to next tool |
-| Max iterations reached | Generate report with remaining issues, mark partial success |
-| Agent timeout | Log timeout, continue with available results |
-| Missing dimension file | Skip in aggregation, log warning |
+**Phase-Level Error Matrix**:
 
-**CLI Fallback Triggers** (same as test-cycle-execute):
-1. Invalid JSON output (parse error, missing required fields)
-2. Low confidence score < 0.4
-3. HTTP 429, 5xx errors, timeouts
+| Phase | Error | Blocking? | Action |
+|-------|-------|-----------|--------|
+| Phase 1 | Session not found | Yes | Error and exit |
+| Phase 1 | No completed tasks | Yes | Error and exit |
+| Phase 1 | No changed files | Yes | Error and exit |
+| Phase 2 | Single dimension fails | No | Log warning, continue other dimensions |
+| Phase 2 | All dimensions fail | Yes | Error and exit |
+| Phase 3 | Missing dimension JSON | No | Skip in aggregation, log warning |
+| Phase 4 | Deep-dive agent fails | No | Skip finding, continue others |
+| Phase 4 | Max iterations reached | No | Generate partial report |
+
+**CLI Fallback Chain**: Gemini → Qwen → Codex → degraded mode
+
+**Fallback Triggers**:
+1. HTTP 429, 5xx errors, connection timeout
+2. Invalid JSON output (parse error, missing required fields)
+3. Low confidence score < 0.4
 4. Analysis too brief (< 100 words in report)
+
+**Fallback Behavior**:
+- On trigger: Retry with next tool in chain
+- After Codex fails: Enter degraded mode (skip analysis, log error)
+- Degraded mode: Continue workflow with available results
 
 ### TodoWrite Structure
 
@@ -789,8 +792,7 @@ TodoWrite({
 3. **Trust Aggregation Logic**: Auto-selection based on proven heuristics
 4. **Monitor Logs**: Check reports/ directory for CLI analysis insights
 5. **Dashboard Polling**: Refresh every 5 seconds for real-time updates
-6. **Resume Support**: Interrupted reviews can resume from last checkpoint
-7. **Export Results**: Use dashboard export for external tracking tools
+6. **Export Results**: Use dashboard export for external tracking tools
 
 ## Related Commands
 

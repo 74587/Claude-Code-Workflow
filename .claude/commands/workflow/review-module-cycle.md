@@ -1,7 +1,7 @@
 ---
 name: review-module-cycle
 description: Independent multi-dimensional code review for specified modules/files. Analyzes specific code paths across 7 dimensions with hybrid parallel-iterative execution, independent of workflow sessions.
-argument-hint: "<path-pattern> [--dimensions=security,architecture,...] [--max-iterations=N] [--resume]"
+argument-hint: "<path-pattern> [--dimensions=security,architecture,...] [--max-iterations=N]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 ---
 
@@ -21,16 +21,14 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Task(*)
 
 # Review specific files
 /workflow:review-module-cycle src/payment/processor.ts,src/payment/validator.ts
-
-# Resume interrupted review
-/workflow:review-module-cycle --resume
 ```
 
 **Review Scope**: Specified modules/files only (independent of git history)
-**Session Requirement**: Requires active workflow session (or creates review-only session)
+**Session Requirement**: Auto-creates workflow session via `/workflow:session:start`
 **Output Directory**: `.workflow/active/WFS-{session-id}/.review/` (session-based)
 **Default Dimensions**: Security, Architecture, Quality, Action-Items, Performance, Maintainability, Best-Practices
-**Max Iterations**: 3 (default, adjustable)
+**Max Iterations**: 3 (adjustable via --max-iterations)
+**Default Iterations**: 1 (deep-dive runs once; use --max-iterations=0 to skip)
 **CLI Tools**: Gemini → Qwen → Codex (fallback chain)
 
 ## What & Why
@@ -60,7 +58,7 @@ Independent multi-dimensional code review orchestrator with **hybrid parallel-it
 - **ONLY command** for independent multi-dimensional module review
 - Manages: dimension coordination, aggregation, iteration control, progress tracking
 - Delegates: Code exploration and analysis to @cli-explore-agent, dimension-specific reviews via Deep Scan mode
-- **⚠️ CRITICAL CONSTRAINT**: Orchestrator and agents MUST NOT read, write, or modify dashboard.html during review execution. Dashboard is generated ONCE at initialization and remains static for user interaction only.
+- **⚠️ DASHBOARD CONSTRAINT**: Dashboard is generated ONCE during Phase 1 initialization. After initialization, orchestrator and agents MUST NOT read, write, or modify dashboard.html - it remains static for user interaction only.
 
 ## How It Works
 
@@ -137,17 +135,25 @@ const CATEGORIES = {
 
 ### 2. Path Pattern Resolution
 
+**Syntax Rules**:
+- All paths are **relative** from project root (e.g., `src/auth/**` not `/src/auth/**`)
+- Multiple patterns: comma-separated, **no spaces** (e.g., `src/auth/**,src/payment/**`)
+- Glob and specific files can be mixed (e.g., `src/auth/**,src/config.ts`)
+
 **Supported Patterns**:
-- **Glob patterns**: `src/auth/**`, `src/payment/**/*.ts`
-- **Specific files**: `src/payment/processor.ts`
-- **Multiple patterns**: `src/auth/**,src/payment/**` (comma-separated)
-- **Extension filters**: `*.ts`, `**/*.test.ts`
+| Pattern Type | Example | Description |
+|--------------|---------|-------------|
+| Glob directory | `src/auth/**` | All files under src/auth/ |
+| Glob with extension | `src/**/*.ts` | All .ts files under src/ |
+| Specific file | `src/payment/processor.ts` | Single file |
+| Multiple patterns | `src/auth/**,src/payment/**` | Comma-separated (no spaces) |
 
 **Resolution Process**:
-1. Parse input pattern (comma-separated if multiple)
-2. Expand glob patterns to file list
-3. Validate all files exist
-4. Store resolved file list in review-state.json
+1. Parse input pattern (split by comma, trim whitespace)
+2. Expand glob patterns to file list via `find` command
+3. Validate all files exist and are readable
+4. Error if pattern matches 0 files
+5. Store resolved file list in review-state.json
 
 ### 3. Aggregation Logic
 
@@ -180,14 +186,13 @@ const CATEGORIES = {
 
 **Phase 1: Discovery & Initialization**
 
-**Step 1: Session Discovery**
+**Step 1: Session Creation**
 ```javascript
-// Auto-discover or create session
-SlashCommand(command="/workflow:session:start --auto \"Code review for [target_pattern]\"")
+// Create workflow session for this review
+SlashCommand(command="/workflow:session:start \"Code review for [target_pattern]\"")
 
 // Parse output
 const sessionId = output.match(/SESSION_ID: (WFS-[^\s]+)/)[1];
-
 ```
 
 **Step 2: Path Resolution & Validation**
@@ -306,7 +311,7 @@ echo "📊 Dashboard: file://${absolutePath}/.review/dashboard.html"
 
 ### Review State JSON
 
-**Purpose**: Persisted state machine for phase transitions and iteration control - enables Resume
+**Purpose**: Persisted state machine for phase transitions and iteration control
 
 ```json
 {
@@ -672,30 +677,33 @@ function getDimensionGuidance(dimension) {
 - Still have critical/high findings
 - Action: Generate report with warnings, recommend follow-up
 
-**Resume Capability**:
-- Read review-state.json on startup
-- Check phase and next_action
-- Resume from current phase (parallel/aggregate/iterate)
-- Preserve iteration history
-
 ### Error Handling
 
-| Scenario | Action |
-|----------|--------|
-| Invalid path pattern | Error: Provide valid glob pattern or file path |
-| No files matched | Error: Pattern matched 0 files, check path |
-| Files not readable | Error: Permission denied for specified files |
-| CLI analysis failure | Fallback: Gemini → Qwen → Codex → degraded mode |
-| Invalid JSON output | Retry with clarified prompt, fallback to next tool |
-| Max iterations reached | Generate report with remaining issues, mark partial success |
-| Agent timeout | Log timeout, continue with available results |
-| Missing dimension file | Skip in aggregation, log warning |
+**Phase-Level Error Matrix**:
 
-**CLI Fallback Triggers** (same as test-cycle-execute):
-1. Invalid JSON output (parse error, missing required fields)
-2. Low confidence score < 0.4
-3. HTTP 429, 5xx errors, timeouts
+| Phase | Error | Blocking? | Action |
+|-------|-------|-----------|--------|
+| Phase 1 | Invalid path pattern | Yes | Error and exit |
+| Phase 1 | No files matched | Yes | Error and exit |
+| Phase 1 | Files not readable | Yes | Error and exit |
+| Phase 2 | Single dimension fails | No | Log warning, continue other dimensions |
+| Phase 2 | All dimensions fail | Yes | Error and exit |
+| Phase 3 | Missing dimension JSON | No | Skip in aggregation, log warning |
+| Phase 4 | Deep-dive agent fails | No | Skip finding, continue others |
+| Phase 4 | Max iterations reached | No | Generate partial report |
+
+**CLI Fallback Chain**: Gemini → Qwen → Codex → degraded mode
+
+**Fallback Triggers**:
+1. HTTP 429, 5xx errors, connection timeout
+2. Invalid JSON output (parse error, missing required fields)
+3. Low confidence score < 0.4
 4. Analysis too brief (< 100 words in report)
+
+**Fallback Behavior**:
+- On trigger: Retry with next tool in chain
+- After Codex fails: Enter degraded mode (skip analysis, log error)
+- Degraded mode: Continue workflow with available results
 
 ### TodoWrite Structure
 
@@ -735,8 +743,7 @@ TodoWrite({
 4. **Trust Aggregation Logic**: Auto-selection based on proven heuristics
 5. **Monitor Logs**: Check reports/ directory for CLI analysis insights
 6. **Dashboard Polling**: Refresh every 5 seconds for real-time updates
-7. **Resume Support**: Interrupted reviews can resume from last checkpoint
-8. **Export Results**: Use dashboard export for external tracking tools
+7. **Export Results**: Use dashboard export for external tracking tools
 
 ## Related Commands
 
