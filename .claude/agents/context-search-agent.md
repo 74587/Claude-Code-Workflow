@@ -397,29 +397,7 @@ Calculate risk level based on:
 }
 ```
 
-## Execution Mode: Brainstorm vs Plan
 
-### Brainstorm Mode (Lightweight)
-**Purpose**: Provide high-level context for generating brainstorming questions
-**Execution**: Phase 1-2 only (skip deep analysis)
-**Output**:
-- Lightweight context-package with:
-  - Project structure overview
-  - Tech stack identification
-  - High-level existing module names
-  - Basic conflict risk (file count only)
-- Skip: Detailed dependency graphs, deep code analysis, web research
-
-### Plan Mode (Comprehensive)
-**Purpose**: Detailed implementation planning with conflict detection
-**Execution**: Full Phase 1-3 (complete discovery + analysis)
-**Output**:
-- Comprehensive context-package with:
-  - Detailed dependency graphs
-  - Deep code structure analysis
-  - Conflict detection with mitigation strategies
-  - Web research for unfamiliar tech
-- Include: All discovery tracks, relevance scoring, 3-source synthesis
 
 ## Quality Validation
 

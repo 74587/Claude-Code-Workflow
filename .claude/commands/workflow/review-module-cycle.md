@@ -438,19 +438,35 @@ Task(
     - Context Pattern: ${targetFiles.map(f => `@${f}`).join(' ')}
 
     ## Expected Deliverables
-    **MANDATORY**: Before generating any JSON output, read the template example first:
+    **MANDATORY**: Before generating any JSON output, read the schema first:
     - Read: ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json
-    - Follow the exact structure and field naming from the example
+    - Extract and follow EXACT field names from schema
 
     1. Dimension Results JSON: ${outputDir}/dimensions/${dimension}.json
-       - MUST follow example template: ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json
-       - MUST include: findings array with severity, file, line, description, recommendation
-       - MUST include: summary statistics (total findings, severity distribution)
-       - MUST include: cross_references to related findings
+
+       **⚠️ CRITICAL JSON STRUCTURE REQUIREMENTS**:
+
+       Root structure MUST be array: \`[{ ... }]\` NOT \`{ ... }\`
+
+       Required top-level fields:
+       - dimension, review_id, analysis_timestamp (NOT timestamp/analyzed_at)
+       - cli_tool_used (gemini|qwen|codex), model, analysis_duration_ms
+       - summary (FLAT structure), findings, cross_references
+
+       Summary MUST be FLAT (NOT nested by_severity):
+       \`{ "total_findings": N, "critical": N, "high": N, "medium": N, "low": N, "files_analyzed": N, "lines_reviewed": N }\`
+
+       Finding required fields:
+       - id: format \`{dim}-{seq}-{uuid8}\` e.g., \`sec-001-a1b2c3d4\` (lowercase)
+       - severity: lowercase only (critical|high|medium|low)
+       - snippet (NOT code_snippet), impact (NOT exploit_scenario)
+       - metadata, iteration (0), status (pending_remediation), cross_references
+
     2. Analysis Report: ${outputDir}/reports/${dimension}-analysis.md
        - Human-readable summary with recommendations
        - Grouped by severity: critical → high → medium → low
        - Include file:line references for all findings
+
     3. CLI Output Log: ${outputDir}/reports/${dimension}-cli-output.txt
        - Raw CLI tool output for debugging
        - Include full analysis text
@@ -512,17 +528,24 @@ Task(
     - Mode: analysis (READ-ONLY)
 
     ## Expected Deliverables
-    **MANDATORY**: Before generating any JSON output, read the template example first:
+    **MANDATORY**: Before generating any JSON output, read the schema first:
     - Read: ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json
-    - Follow the exact structure and field naming from the example
+    - Extract and follow EXACT field names from schema
 
     1. Deep-Dive Results JSON: ${outputDir}/iterations/iteration-${iteration}-finding-${findingId}.json
-       - MUST follow example template: ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json
-       - MUST include: root_cause with summary, details, affected_scope, similar_patterns
-       - MUST include: remediation_plan with approach, steps[], estimated_effort, risk_level
-       - MUST include: impact_assessment with files_affected, tests_required, breaking_changes
-       - MUST include: reassessed_severity with severity_change_reason
-       - MUST include: confidence_score (0.0-1.0)
+
+       **⚠️ CRITICAL JSON STRUCTURE REQUIREMENTS**:
+
+       Root structure MUST be array: \`[{ ... }]\` NOT \`{ ... }\`
+
+       Required top-level fields:
+       - finding_id, dimension, iteration, analysis_timestamp
+       - cli_tool_used, model, analysis_duration_ms
+       - original_finding, root_cause, remediation_plan
+       - impact_assessment, reassessed_severity, confidence_score, cross_references
+
+       All nested objects must follow schema exactly - read schema for field names
+
     2. Analysis Report: ${outputDir}/reports/deep-dive-${iteration}-${findingId}.md
        - Detailed root cause analysis
        - Step-by-step remediation plan

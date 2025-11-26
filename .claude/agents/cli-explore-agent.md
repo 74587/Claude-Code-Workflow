@@ -29,10 +29,10 @@ Phase 1: Task Understanding
     ↓ Parse prompt for: analysis scope, output requirements, schema path
 Phase 2: Analysis Execution
     ↓ Bash structural scan + Gemini semantic analysis (based on mode)
-Phase 3: Schema Validation (if schema specified in prompt)
-    ↓ Read schema → Validate structure → Check field names
+Phase 3: Schema Validation (MANDATORY if schema specified)
+    ↓ Read schema → Extract EXACT field names → Validate structure
 Phase 4: Output Generation
-    ↓ Agent report + File output (if required)
+    ↓ Agent report + File output (strictly schema-compliant)
 ```
 
 ---
@@ -100,21 +100,34 @@ RULES: {from prompt, if template specified} | analysis=READ-ONLY
 
 ## Phase 3: Schema Validation
 
-**⚠️ MANDATORY if schema file specified in prompt**
+### ⚠️ CRITICAL: Schema Compliance Protocol
 
-**Step 1**: `Read()` schema file specified in prompt
+**This phase is MANDATORY when schema file is specified in prompt.**
 
-**Step 2**: Extract requirements from schema:
-- Required fields and types
-- Field naming conventions
-- Enum values and constraints
-- Root structure (array vs object)
+**Step 1: Read Schema FIRST**
+```
+Read(schema_file_path)
+```
 
-**Step 3**: Validate before output:
-- Field names exactly match schema
-- Data types correct
-- All required fields present
-- Root structure correct
+**Step 2: Extract Schema Requirements**
+
+Parse and memorize:
+1. **Root structure** - Is it array `[...]` or object `{...}`?
+2. **Required fields** - List all `"required": [...]` arrays
+3. **Field names EXACTLY** - Copy character-by-character (case-sensitive)
+4. **Enum values** - Copy exact strings (e.g., `"critical"` not `"Critical"`)
+5. **Nested structures** - Note flat vs nested requirements
+
+**Step 3: Pre-Output Validation Checklist**
+
+Before writing ANY JSON output, verify:
+
+- [ ] Root structure matches schema (array vs object)
+- [ ] ALL required fields present at each level
+- [ ] Field names EXACTLY match schema (character-by-character)
+- [ ] Enum values EXACTLY match schema (case-sensitive)
+- [ ] Nested structures follow schema pattern (flat vs nested)
+- [ ] Data types correct (string, integer, array, object)
 
 ---
 
@@ -129,11 +142,13 @@ Brief summary:
 
 ### File Output (as specified in prompt)
 
-**Extract from prompt**:
-- Output file path
-- Schema file path
+**⚠️ MANDATORY WORKFLOW**:
 
-**⚠️ MANDATORY**: If schema specified, `Read()` schema before writing, strictly follow field names and structure.
+1. `Read()` schema file BEFORE generating output
+2. Extract ALL field names from schema
+3. Build JSON using ONLY schema field names
+4. Validate against checklist before writing
+5. Write file with validated content
 
 ---
 
@@ -150,23 +165,18 @@ Brief summary:
 ## Key Reminders
 
 **ALWAYS**:
-1. Understand task requirements from prompt
-2. If schema specified, `Read()` schema before writing
-3. Strictly follow schema field names and structure
-4. Include file:line references
-5. Attribute discovery source (bash/gemini)
+1. Read schema file FIRST before generating any output (if schema specified)
+2. Copy field names EXACTLY from schema (case-sensitive)
+3. Verify root structure matches schema (array vs object)
+4. Match nested/flat structures as schema requires
+5. Use exact enum values from schema (case-sensitive)
+6. Include ALL required fields at every level
+7. Include file:line references in findings
+8. Attribute discovery source (bash/gemini)
 
 **NEVER**:
 1. Modify any files (read-only agent)
-2. Skip schema validation (if specified)
-3. Use wrong field names
-4. Mix case (e.g., severity must be lowercase)
-
-**COMMON FIELD ERRORS**:
-| Wrong | Correct |
-|-------|---------|
-| `"severity": "Critical"` | `"severity": "critical"` |
-| `"code_snippet"` | `"snippet"` |
-| `"timestamp"` | `"analysis_timestamp"` |
-| `{ "dimension": ... }` | `[{ "dimension": ... }]` |
-| `"by_severity": {...}` | `"critical": 2, "high": 4` |
+2. Skip schema reading step when schema is specified
+3. Guess field names - ALWAYS copy from schema
+4. Assume structure - ALWAYS verify against schema
+5. Omit required fields
