@@ -218,21 +218,32 @@ done
   ```
 
 **Step 4: Initialize Review State**
-- Metadata creation: Create `review-metadata.json` with scope, dimensions, and configuration
-- State initialization: Create `review-state.json` with dimensions, max_iterations, resolved_files
+- State initialization: Create `review-state.json` with metadata, dimensions, max_iterations, resolved_files (merged metadata + state)
 - Progress tracking: Create `review-progress.json` for dashboard polling
 
 **Step 5: Dashboard Generation**
-```bash
-# Copy template and replace placeholders in one command
-cat ~/.claude/templates/review-cycle-dashboard.html \
-  | sed "s|{{SESSION_ID}}|${sessionId}|g" \
-  | sed "s|{{REVIEW_TYPE}}|module|g" \
-  | sed "s|{{REVIEW_DIR}}|${reviewDir}|g" \
-  > ${sessionDir}/.review/dashboard.html
 
-# Output path to user
-echo "📊 Dashboard: file://${absolutePath}/.review/dashboard.html"
+**Constraints**:
+- **MANDATORY**: Dashboard MUST be generated from template: `~/.claude/templates/review-cycle-dashboard.html`
+- **PROHIBITED**: Direct creation or custom generation without template
+- **POST-GENERATION**: Orchestrator and agents MUST NOT read/write/modify dashboard.html after creation
+
+**Generation Commands** (3 independent steps):
+```bash
+# Step 1: Copy template to output location
+cp ~/.claude/templates/review-cycle-dashboard.html ${sessionDir}/.review/dashboard.html
+
+# Step 2: Replace SESSION_ID placeholder
+sed -i "s|{{SESSION_ID}}|${sessionId}|g" ${sessionDir}/.review/dashboard.html
+
+# Step 3: Replace REVIEW_TYPE placeholder
+sed -i "s|{{REVIEW_TYPE}}|module|g" ${sessionDir}/.review/dashboard.html
+
+# Step 4: Replace REVIEW_DIR placeholder
+sed -i "s|{{REVIEW_DIR}}|${reviewDir}|g" ${sessionDir}/.review/dashboard.html
+
+# Output: Dashboard path
+echo "📊 Dashboard: file://$(cd ${sessionDir} && pwd)/.review/dashboard.html"
 ```
 
 **Step 6: TodoWrite Initialization**
@@ -274,8 +285,7 @@ echo "📊 Dashboard: file://${absolutePath}/.review/dashboard.html"
 
 ```
 .workflow/active/WFS-{session-id}/.review/
-├── review-metadata.json                 # Review configuration and scope
-├── review-state.json                    # Orchestrator state machine
+├── review-state.json                    # Orchestrator state machine (includes metadata)
 ├── review-progress.json                 # Real-time progress for dashboard
 ├── dimensions/                          # Per-dimension results
 │   ├── security.json
@@ -311,22 +321,26 @@ echo "📊 Dashboard: file://${absolutePath}/.review/dashboard.html"
 
 ### Review State JSON
 
-**Purpose**: Persisted state machine for phase transitions and iteration control
+**Purpose**: Unified state machine and metadata (merged from metadata + state)
 
 ```json
 {
   "review_id": "review-20250125-143022",
   "review_type": "module",
   "session_id": "WFS-auth-system",
-  "target_pattern": "src/auth/**",
-  "resolved_files": [
-    "src/auth/service.ts",
-    "src/auth/validator.ts",
-    "src/auth/middleware.ts"
-  ],
+  "metadata": {
+    "created_at": "2025-01-25T14:30:22Z",
+    "target_pattern": "src/auth/**",
+    "resolved_files": [
+      "src/auth/service.ts",
+      "src/auth/validator.ts",
+      "src/auth/middleware.ts"
+    ],
+    "dimensions": ["security", "architecture", "quality", "action-items", "performance", "maintainability", "best-practices"],
+    "max_iterations": 3
+  },
   "phase": "parallel|aggregate|iterate|complete",
   "current_iteration": 1,
-  "max_iterations": 3,
   "dimensions_reviewed": ["security", "architecture", "quality", "action-items", "performance", "maintainability", "best-practices"],
   "selected_strategy": "comprehensive",
   "next_action": "execute_parallel_reviews|aggregate_findings|execute_deep_dive|generate_final_report|complete",
