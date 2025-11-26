@@ -455,7 +455,7 @@ Complexity: ${planObject.complexity}
 // Launch CLI in foreground (NOT background)
 bash_result = Bash(
   command=cli_command,
-  timeout=6000000  // 10 minutes
+  timeout=6000000 
 )
 
 // Update TodoWrite when execution completes
