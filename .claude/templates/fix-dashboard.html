@@ -1021,6 +1021,238 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Error Badge */
+        .error-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            background-color: rgba(239, 68, 68, 0.15);
+            color: var(--danger-color);
+            border-radius: 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+
+        /* Error Container */
+        .error-container {
+            margin-top: 12px;
+            padding: 12px;
+            background-color: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid var(--danger-color);
+            border-radius: 6px;
+        }
+
+        .error-header {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--danger-color);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .error-item {
+            padding: 8px 12px;
+            background-color: var(--bg-card);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .error-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .error-meta {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+
+        /* Task Card Enhancements */
+        .task-file {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-family: 'Courier New', monospace;
+            margin-top: 8px;
+            padding: 6px 10px;
+            background-color: rgba(139, 92, 246, 0.08);
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .task-dimension-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background-color: rgba(139, 92, 246, 0.15);
+            color: var(--info-color);
+            margin-right: 6px;
+        }
+
+        .task-attempts {
+            color: var(--warning-color);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Finding Details Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background-color: var(--bg-secondary);
+            border-radius: 12px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 25px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-secondary);
+            z-index: 10;
+        }
+
+        .modal-header h2 {
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        .detail-section {
+            margin-bottom: 25px;
+        }
+
+        .detail-section h3 {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            color: var(--accent-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 12px;
+            background-color: var(--bg-card);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .detail-label {
+            font-weight: 700;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .detail-value {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            word-break: break-word;
+        }
+
+        .detail-value code {
+            background-color: var(--bg-secondary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        /* Strategy and Risk Display */
+        .strategy-risk-container {
+            margin-top: 10px;
+            padding: 12px;
+            background-color: rgba(139, 92, 246, 0.08);
+            border-radius: 8px;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .strategy-item, .risk-item {
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .strategy-item:last-child, .risk-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .strategy-label, .risk-label {
+            font-weight: 700;
+            color: var(--info-color);
+            min-width: 90px;
+        }
+
+        .risk-level {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .risk-level.low {
+            background-color: rgba(34, 197, 94, 0.2);
+            color: var(--success-color);
+        }
+
+        .risk-level.medium {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: var(--warning-color);
+        }
+
+        .risk-level.high {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: var(--danger-color);
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .container {
@@ -1050,6 +1282,15 @@
 
             .stage-timeline {
                 flex-wrap: nowrap;
+            }
+
+            .modal-content {
+                max-width: 100%;
+            }
+
+            .detail-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
             }
         }
     </style>
@@ -1199,6 +1440,19 @@
         </div>
     </div>
 
+    <!-- Finding Details Modal -->
+    <div class="modal-overlay" id="findingModal" onclick="closeFindingModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2><span id="modalFindingIcon">📋</span> Finding Details</h2>
+                <button class="close-btn" onclick="closeFindingModal()">×</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
     <script>
         const SESSION_ID = '{{SESSION_ID}}';
         const REVIEW_DIR = '{{REVIEW_DIR}}';
@@ -1282,18 +1536,50 @@
                 const statusClass = task.status === 'completed' ? task.result : task.status;
                 const statusText = task.status === 'completed' ? task.result : task.status;
 
+                // Build dimension badge
+                const dimensionBadge = task.dimension ? `<span class="task-dimension-badge">${task.dimension}</span>` : '';
+
+                // Build file info
+                const fileInfo = task.file ? `
+                    <div class="task-file">
+                        📄 ${task.file}${task.line ? `:${task.line}` : ''}
+                    </div>
+                ` : '';
+
+                // Build attempts indicator
+                const attemptsInfo = task.attempts && task.attempts > 1 ? `
+                    <div class="task-meta-item task-attempts">
+                        <span>🔄</span>
+                        <span>${task.attempts} ${task.attempts === 1 ? 'attempt' : 'attempts'}</span>
+                    </div>
+                ` : '';
+
+                // Build commit hash
+                const commitInfo = task.commit_hash ? `
+                    <div class="task-meta-item">
+                        <span>💾</span>
+                        <span>${task.commit_hash.substring(0, 7)}</span>
+                    </div>
+                ` : '';
+
                 return `
-                    <div class="task-card status-${statusClass}">
+                    <div class="task-card status-${statusClass}" onclick="openFindingDetails('${task.finding_id}')" style="cursor: pointer;">
                         <div class="task-header">
                             <div class="task-id">${task.finding_id}</div>
                             <div class="task-status ${statusClass}">${statusText}</div>
                         </div>
+                        <div style="margin-bottom: 8px;">
+                            ${dimensionBadge}
+                        </div>
                         <div class="task-title">${task.finding_title || 'Untitled Task'}</div>
+                        ${fileInfo}
                         <div class="task-meta">
                             <div class="task-meta-item">
                                 <span>🏷️</span>
                                 <span>${task.group_id || 'N/A'}</span>
                             </div>
+                            ${attemptsInfo}
+                            ${commitInfo}
                             ${task.completed_at ? `
                                 <div class="task-meta-item">
                                     <span>⏱️</span>
@@ -1401,7 +1687,7 @@
             let allCompleted = true;
 
             progressDataArray.forEach(progressFile => {
-                // Collect all findings
+                // Collect all findings with enhanced details
                 if (progressFile.findings) {
                     progressFile.findings.forEach(finding => {
                         allFindings.push({
@@ -1410,12 +1696,25 @@
                             status: finding.status,
                             result: finding.result,
                             group_id: progressFile.group_id,
-                            completed_at: finding.completed_at
+                            completed_at: finding.completed_at,
+                            // Enhanced fields
+                            file: finding.file,
+                            line: finding.line,
+                            dimension: finding.dimension,
+                            severity: finding.severity,
+                            category: finding.category,
+                            description: finding.description,
+                            recommendations: finding.recommendations,
+                            attempts: finding.attempts,
+                            commit_hash: finding.commit_hash,
+                            test_passed: finding.test_passed,
+                            error_message: finding.error_message,
+                            started_at: finding.started_at
                         });
                     });
                 }
 
-                // Collect active agents
+                // Collect active agents with errors
                 if (progressFile.assigned_agent && progressFile.status === 'in-progress') {
                     const currentFinding = progressFile.current_finding;
                     const flowControl = progressFile.flow_control;
@@ -1428,7 +1727,8 @@
                         file: currentFinding ? currentFinding.file : null,
                         status: currentFinding ? currentFinding.status : progressFile.phase,
                         started_at: progressFile.started_at,
-                        flow_control: flowControl
+                        flow_control: flowControl,
+                        errors: progressFile.errors || []
                     });
                 }
 
@@ -1497,6 +1797,16 @@
             // Update global tasks array
             allTasks = allFindings;
 
+            // Enhance groups with fix_strategy and risk_assessment from fixPlan
+            const enhancedGroups = progressDataArray.map(progressFile => {
+                const planGroup = fixPlan.groups?.find(g => g.group_id === progressFile.group_id);
+                return {
+                    ...progressFile,
+                    fix_strategy: planGroup?.fix_strategy || null,
+                    risk_assessment: planGroup?.risk_assessment || null
+                };
+            });
+
             return {
                 fix_session_id: fixPlan.metadata?.fix_session_id || fixSession.fix_session_id,
                 review_id: fixPlan.metadata?.review_session_id || SESSION_ID,
@@ -1513,7 +1823,8 @@
                 fixes: allFindings,
                 active_agents: activeAgents,
                 stages: stages,
-                groups: progressDataArray
+                groups: enhancedGroups,
+                execution_strategy: fixPlan.execution_strategy || null
             };
         }
 
@@ -1628,6 +1939,11 @@
                 const fixes = groupFixes[groupId] || [];
                 const completedCount = fixes.filter(f => f.result === 'fixed' || f.result === 'failed').length;
 
+                // Get group details from enhanced groups
+                const groupData = progressData.groups?.find(g => g.group_id === groupId);
+                const fixStrategy = groupData?.fix_strategy;
+                const riskAssessment = groupData?.risk_assessment;
+
                 // Get in-progress findings
                 const inProgressFindings = fixes
                     .filter(f => f.status === 'in-progress')
@@ -1638,6 +1954,9 @@
                     ? `<div class="group-active-items">🔧 ${inProgressFindings.join(', ')}</div>`
                     : '';
 
+                // Render strategy and risk info
+                const strategyRiskHtml = renderStrategyAndRisk(fixStrategy, riskAssessment);
+
                 return `
                     <div class="active-group-card">
                         <div class="group-header">
@@ -1646,9 +1965,59 @@
                         </div>
                         <div class="group-findings">${completedCount}/${fixes.length} findings completed</div>
                         ${inProgressText}
+                        ${strategyRiskHtml}
                     </div>
                 `;
             }).join('');
+        }
+
+        function renderStrategyAndRisk(fixStrategy, riskAssessment) {
+            if (!fixStrategy && !riskAssessment) return '';
+
+            let html = '<div class="strategy-risk-container">';
+
+            // Strategy info
+            if (fixStrategy) {
+                html += '<div class="strategy-item">';
+                html += '<span class="strategy-label">Strategy:</span>';
+                html += `<span>${fixStrategy.approach || 'N/A'}</span>`;
+                html += '</div>';
+
+                if (fixStrategy.complexity) {
+                    html += '<div class="strategy-item">';
+                    html += '<span class="strategy-label">Complexity:</span>';
+                    html += `<span>${fixStrategy.complexity}</span>`;
+                    html += '</div>';
+                }
+
+                if (fixStrategy.test_pattern) {
+                    html += '<div class="strategy-item">';
+                    html += '<span class="strategy-label">Test:</span>';
+                    html += `<span style="font-family: monospace; font-size: 0.8rem;">${fixStrategy.test_pattern}</span>`;
+                    html += '</div>';
+                }
+            }
+
+            // Risk info
+            if (riskAssessment) {
+                const riskLevel = riskAssessment.level || riskAssessment.overall || 'unknown';
+                const riskLevelClass = riskLevel.toLowerCase();
+
+                html += '<div class="risk-item">';
+                html += '<span class="risk-label">Risk:</span>';
+                html += `<span class="risk-level ${riskLevelClass}">${riskLevel.toUpperCase()}</span>`;
+                html += '</div>';
+
+                if (riskAssessment.impact_scope) {
+                    html += '<div class="risk-item">';
+                    html += '<span class="risk-label">Impact:</span>';
+                    html += `<span>${riskAssessment.impact_scope}</span>`;
+                    html += '</div>';
+                }
+            }
+
+            html += '</div>';
+            return html;
         }
 
         function updateActiveAgents(progressData) {
@@ -1674,6 +2043,16 @@
                     ? renderFlowControlSteps(agent.flow_control)
                     : '';
 
+                // Render errors if any
+                const errorsHtml = agent.errors && agent.errors.length > 0
+                    ? renderAgentErrors(agent.errors)
+                    : '';
+
+                // Error badge count
+                const errorBadge = agent.errors && agent.errors.length > 0
+                    ? `<span class="error-badge">⚠️ ${agent.errors.length} error${agent.errors.length > 1 ? 's' : ''}</span>`
+                    : '';
+
                 return `
                     <div class="active-agent-item">
                         <div class="agent-header">
@@ -1682,12 +2061,14 @@
                                 <div class="agent-id">
                                     ${agent.agent_id} <span style="color: var(--text-secondary);">(${agent.group_id})</span>
                                     ${statusText ? `<span class="agent-status-badge">${statusText}</span>` : ''}
+                                    ${errorBadge}
                                 </div>
                                 <div class="agent-task">${agent.finding_title || 'Initializing...'}</div>
                                 ${agent.file ? `<div class="agent-file">📄 ${agent.file}</div>` : ''}
                             </div>
                         </div>
                         ${flowControlHtml}
+                        ${errorsHtml}
                     </div>
                 `;
             }).join('');
@@ -1742,6 +2123,31 @@
                 <div class="flow-control-container">
                     <div class="flow-control-header">Progress Steps:</div>
                     <div class="flow-steps">${stepsHtml}</div>
+                </div>
+            `;
+        }
+
+        function renderAgentErrors(errors) {
+            if (!errors || errors.length === 0) return '';
+
+            const errorsHtml = errors.slice(-3).map(error => {
+                const timestamp = error.timestamp ? new Date(error.timestamp).toLocaleTimeString() : '';
+                return `
+                    <div class="error-item">
+                        <div>${error.message || 'Unknown error'}</div>
+                        <div class="error-meta">
+                            ${error.finding_id ? `Finding: ${error.finding_id}` : ''}
+                            ${error.error_type ? ` | Type: ${error.error_type}` : ''}
+                            ${timestamp ? ` | ${timestamp}` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="error-container">
+                    <div class="error-header">Recent Errors${errors.length > 3 ? ` (showing last 3 of ${errors.length})` : ''}:</div>
+                    ${errorsHtml}
                 </div>
             `;
         }
@@ -1809,6 +2215,140 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // Finding Details Modal Functions
+        function openFindingDetails(findingId) {
+            const finding = allTasks.find(f => f.finding_id === findingId);
+            if (!finding) {
+                console.error('Finding not found:', findingId);
+                return;
+            }
+
+            // Set modal icon based on status
+            const icon = finding.result === 'fixed' ? '✅' : finding.result === 'failed' ? '❌' : '📋';
+            document.getElementById('modalFindingIcon').textContent = icon;
+
+            // Build modal content
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <!-- Basic Information -->
+                <div class="detail-section">
+                    <h3>📋 Basic Information</h3>
+                    <div class="detail-grid">
+                        <div class="detail-label">Finding ID:</div>
+                        <div class="detail-value"><code>${finding.finding_id}</code></div>
+
+                        <div class="detail-label">Title:</div>
+                        <div class="detail-value">${finding.finding_title || 'N/A'}</div>
+
+                        <div class="detail-label">Status:</div>
+                        <div class="detail-value">
+                            <span class="task-status ${finding.status === 'completed' ? finding.result : finding.status}">
+                                ${finding.status === 'completed' ? finding.result : finding.status}
+                            </span>
+                        </div>
+
+                        <div class="detail-label">Group:</div>
+                        <div class="detail-value">${finding.group_id || 'N/A'}</div>
+
+                        ${finding.dimension ? `
+                            <div class="detail-label">Dimension:</div>
+                            <div class="detail-value"><span class="task-dimension-badge">${finding.dimension}</span></div>
+                        ` : ''}
+
+                        ${finding.severity ? `
+                            <div class="detail-label">Severity:</div>
+                            <div class="detail-value">${finding.severity}</div>
+                        ` : ''}
+
+                        ${finding.category ? `
+                            <div class="detail-label">Category:</div>
+                            <div class="detail-value">${finding.category}</div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <!-- File Location -->
+                ${finding.file ? `
+                    <div class="detail-section">
+                        <h3>📄 File Location</h3>
+                        <div class="detail-grid">
+                            <div class="detail-label">File:</div>
+                            <div class="detail-value"><code>${finding.file}</code></div>
+
+                            ${finding.line ? `
+                                <div class="detail-label">Line:</div>
+                                <div class="detail-value"><code>${finding.line}</code></div>
+                            ` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Description & Recommendations -->
+                ${finding.description || finding.recommendations ? `
+                    <div class="detail-section">
+                        <h3>📝 Details</h3>
+                        <div class="detail-grid">
+                            ${finding.description ? `
+                                <div class="detail-label">Description:</div>
+                                <div class="detail-value">${finding.description}</div>
+                            ` : ''}
+
+                            ${finding.recommendations ? `
+                                <div class="detail-label">Recommendations:</div>
+                                <div class="detail-value">${Array.isArray(finding.recommendations) ? finding.recommendations.join('<br>') : finding.recommendations}</div>
+                            ` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Fix Status -->
+                ${finding.status === 'completed' || finding.attempts || finding.commit_hash ? `
+                    <div class="detail-section">
+                        <h3>🔧 Fix Status</h3>
+                        <div class="detail-grid">
+                            ${finding.attempts ? `
+                                <div class="detail-label">Attempts:</div>
+                                <div class="detail-value ${finding.attempts > 1 ? 'task-attempts' : ''}">${finding.attempts}</div>
+                            ` : ''}
+
+                            ${finding.test_passed !== null && finding.test_passed !== undefined ? `
+                                <div class="detail-label">Tests Passed:</div>
+                                <div class="detail-value">${finding.test_passed ? '✅ Yes' : '❌ No'}</div>
+                            ` : ''}
+
+                            ${finding.commit_hash ? `
+                                <div class="detail-label">Commit:</div>
+                                <div class="detail-value"><code>${finding.commit_hash}</code></div>
+                            ` : ''}
+
+                            ${finding.started_at ? `
+                                <div class="detail-label">Started At:</div>
+                                <div class="detail-value">${new Date(finding.started_at).toLocaleString()}</div>
+                            ` : ''}
+
+                            ${finding.completed_at ? `
+                                <div class="detail-label">Completed At:</div>
+                                <div class="detail-value">${new Date(finding.completed_at).toLocaleString()}</div>
+                            ` : ''}
+
+                            ${finding.error_message ? `
+                                <div class="detail-label">Error:</div>
+                                <div class="detail-value" style="color: var(--danger-color);">${finding.error_message}</div>
+                            ` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+
+            // Show modal
+            document.getElementById('findingModal').classList.add('active');
+        }
+
+        function closeFindingModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('findingModal').classList.remove('active');
         }
 
         // Auto-refresh every 3 seconds
