@@ -242,8 +242,11 @@ sed -i "s|{{REVIEW_TYPE}}|module|g" ${sessionDir}/.review/dashboard.html
 # Step 4: Replace REVIEW_DIR placeholder
 sed -i "s|{{REVIEW_DIR}}|${reviewDir}|g" ${sessionDir}/.review/dashboard.html
 
-# Output: Dashboard path
-echo "📊 Dashboard: file://$(cd ${sessionDir} && pwd)/.review/dashboard.html"
+# Output: Start local server and output dashboard URL
+# Use Python HTTP server (available on most systems)
+cd ${sessionDir}/.review && python -m http.server 8765 --bind 127.0.0.1 &
+echo "📊 Dashboard: http://127.0.0.1:8765/dashboard.html"
+echo "   (Press Ctrl+C to stop server when done)"
 ```
 
 **Step 6: TodoWrite Initialization**

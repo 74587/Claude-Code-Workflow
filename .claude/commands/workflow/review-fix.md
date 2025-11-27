@@ -254,8 +254,10 @@ sed -i "s|{{SESSION_ID}}|${sessionId}|g" ${sessionDir}/fixes/${fixSessionId}/fix
 # 3. Replace REVIEW_DIR placeholder
 sed -i "s|{{REVIEW_DIR}}|${reviewDir}|g" ${sessionDir}/fixes/${fixSessionId}/fix-dashboard.html
 
-# 4. Output dashboard URL
-echo "🔧 Fix Dashboard: file://$(cd ${sessionDir}/fixes/${fixSessionId} && pwd)/fix-dashboard.html"
+# 4. Start local server and output dashboard URL
+cd ${sessionDir}/fixes/${fixSessionId} && python -m http.server 8766 --bind 127.0.0.1 &
+echo "🔧 Fix Dashboard: http://127.0.0.1:8766/fix-dashboard.html"
+echo "   (Press Ctrl+C to stop server when done)"
 ```
 
 **Dashboard Features**:
