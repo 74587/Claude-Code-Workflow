@@ -48,7 +48,53 @@ Intelligently replans workflow sessions or individual tasks with interactive bou
 /workflow:replan IMPL-1 --interactive
 ```
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session, --interactive
+   └─ Detect mode: task-id present → Task mode | Otherwise → Session mode
+
+Phase 1: Mode Detection & Session Discovery
+   ├─ Detect operation mode (Task vs Session)
+   ├─ Discover/validate session (--session flag or auto-detect)
+   └─ Load session context (workflow-session.json, IMPL_PLAN.md, TODO_LIST.md)
+
+Phase 2: Interactive Requirement Clarification
+   └─ Decision (by mode):
+      ├─ Session mode → 3-4 questions (scope, modules, changes, dependencies)
+      └─ Task mode → 2 questions (update type, ripple effect)
+
+Phase 3: Impact Analysis & Planning
+   ├─ Analyze required changes
+   ├─ Generate modification plan
+   └─ User confirmation (Execute / Adjust / Cancel)
+
+Phase 4: Backup Creation
+   └─ Backup all affected files with manifest
+
+Phase 5: Apply Modifications
+   ├─ Update IMPL_PLAN.md (if needed)
+   ├─ Update TODO_LIST.md (if needed)
+   ├─ Update/Create/Delete task JSONs
+   └─ Update session metadata
+
+Phase 6: Verification & Summary
+   ├─ Validate consistency (JSON validity, task limits, acyclic dependencies)
+   └─ Generate change summary
+```
+
 ## Execution Lifecycle
+
+### Input Parsing
+
+**Parse flags**:
+```javascript
+const sessionFlag = $ARGUMENTS.match(/--session\s+(\S+)/)?.[1]
+const interactive = $ARGUMENTS.includes('--interactive')
+const taskIdMatch = $ARGUMENTS.match(/\b(IMPL-\d+(?:\.\d+)?)\b/)
+const taskId = taskIdMatch?.[1]
+```
 
 ### Phase 1: Mode Detection & Session Discovery
 
@@ -97,11 +143,10 @@ Options: Dynamically generated from existing tasks' focus_paths
 **Q3: Task Changes** (if scope >= task_restructure)
 ```javascript
 Options:
-- 添加新任务
-- 删除现有任务
-- 合并任务
-- 拆分任务
-- 仅更新内容
+- 添加/删除任务 (add_remove)
+- 合并/拆分任务 (merge_split)
+- 仅更新内容 (update_only)
+// Note: Max 4 options for AskUserQuestion
 ```
 
 **Q4: Dependency Changes**

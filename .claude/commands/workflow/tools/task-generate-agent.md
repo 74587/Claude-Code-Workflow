@@ -22,6 +22,24 @@ Generate implementation planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.
 - **MCP-Enhanced**: Use MCP tools for advanced code analysis and research
 - **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session, --cli-execute
+   └─ Validation: session_id REQUIRED
+
+Phase 1: Context Preparation (Command)
+   ├─ Assemble session paths (metadata, context package, output dirs)
+   └─ Provide metadata (session_id, execution_mode, mcp_capabilities)
+
+Phase 2: Planning Document Generation (Agent)
+   ├─ Load context package (progressive loading strategy)
+   ├─ Generate Task JSON Files (.task/IMPL-*.json)
+   ├─ Create IMPL_PLAN.md
+   └─ Generate TODO_LIST.md
+```
+
 ## Document Generation Lifecycle
 
 ### Phase 1: Context Preparation (Command Responsibility)

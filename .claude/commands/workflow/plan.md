@@ -46,6 +46,36 @@ This workflow runs **fully autonomously** once triggered. Phase 3 (conflict reso
 6. **Task Attachment Model**: SlashCommand invocation **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
 7. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
+## Execution Process
+
+```
+Input Parsing:
+   └─ Convert user input to structured format (GOAL/SCOPE/CONTEXT)
+
+Phase 1: Session Discovery
+   └─ /workflow:session:start --auto "structured-description"
+      └─ Output: sessionId (WFS-xxx)
+
+Phase 2: Context Gathering
+   └─ /workflow:tools:context-gather --session sessionId "structured-description"
+      ├─ Tasks attached: Analyze structure → Identify integration → Generate package
+      └─ Output: contextPath + conflict_risk
+
+Phase 3: Conflict Resolution (conditional)
+   └─ Decision (conflict_risk check):
+      ├─ conflict_risk ≥ medium → Execute /workflow:tools:conflict-resolution
+      │   ├─ Tasks attached: Detect conflicts → Present to user → Apply strategies
+      │   └─ Output: Modified brainstorm artifacts
+      └─ conflict_risk < medium → Skip to Phase 4
+
+Phase 4: Task Generation
+   └─ /workflow:tools:task-generate-agent --session sessionId [--cli-execute]
+      └─ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
+
+Return:
+   └─ Summary with recommended next steps
+```
+
 ## 5-Phase Execution
 
 ### Phase 1: Session Discovery

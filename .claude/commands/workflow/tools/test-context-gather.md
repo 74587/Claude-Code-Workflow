@@ -24,6 +24,36 @@ Orchestrator command that invokes `test-context-search-agent` to gather comprehe
 - **Source Context Loading**: Import implementation summaries from source session
 - **Standardized Output**: Generate `.workflow/active/{test_session_id}/.process/test-context-package.json`
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session
+   └─ Validation: test_session_id REQUIRED
+
+Step 1: Test-Context-Package Detection
+   └─ Decision (existing package):
+      ├─ Valid package exists → Return existing (skip execution)
+      └─ No valid package → Continue to Step 2
+
+Step 2: Invoke Test-Context-Search Agent
+   ├─ Phase 1: Session Validation & Source Context Loading
+   │  ├─ Detection: Check for existing test-context-package
+   │  ├─ Test session validation
+   │  └─ Source context loading (summaries, changed files)
+   ├─ Phase 2: Test Coverage Analysis
+   │  ├─ Track 1: Existing test discovery
+   │  ├─ Track 2: Coverage gap analysis
+   │  └─ Track 3: Coverage statistics
+   └─ Phase 3: Framework Detection & Packaging
+      ├─ Framework identification
+      ├─ Convention analysis
+      └─ Generate test-context-package.json
+
+Step 3: Output Verification
+   └─ Verify test-context-package.json created
+```
+
 ## Execution Flow
 
 ### Step 1: Test-Context-Package Detection

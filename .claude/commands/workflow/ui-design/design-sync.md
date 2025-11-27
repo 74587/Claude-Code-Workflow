@@ -19,6 +19,48 @@ Synchronize finalized design system references to brainstorming artifacts, prepa
 - **Plan-Ready Output**: Ensure design artifacts discoverable by task-generate
 - **Minimal Reading**: Verify file existence, don't read design content
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session, --selected-prototypes
+   └─ Validation: session_id REQUIRED
+
+Phase 1: Session & Artifact Validation
+   ├─ Step 1: Validate session exists
+   ├─ Step 2: Find latest design run
+   ├─ Step 3: Detect design system structure
+   └─ Step 4: Select prototypes (--selected-prototypes OR all)
+
+Phase 1.1: Memory Check (Conditional)
+   └─ Decision (current design run in synthesis):
+      ├─ Already updated → Skip Phase 2-5, EXIT
+      └─ Not found → Continue to Phase 2
+
+Phase 2: Load Target Artifacts
+   ├─ Read role analysis documents (files to update)
+   ├─ Read ui-designer/analysis.md (if exists)
+   └─ Read prototype notes (minimal context)
+
+Phase 3: Update Synthesis Specification
+   └─ Edit role analysis documents with UI/UX Guidelines section
+
+Phase 4A: Update Relevant Role Analysis Documents
+   ├─ ui-designer/analysis.md (always)
+   ├─ ux-expert/analysis.md (if animations exist)
+   ├─ system-architect/analysis.md (if layouts exist)
+   └─ product-manager/analysis.md (if prototypes)
+
+Phase 4B: Create UI Designer Design System Reference
+   └─ Write ui-designer/design-system-reference.md
+
+Phase 5: Update Context Package
+   └─ Update context-package.json with design system references
+
+Phase 6: Completion
+   └─ Report updated artifacts
+```
+
 ## Execution Protocol
 
 ### Phase 1: Session & Artifact Validation

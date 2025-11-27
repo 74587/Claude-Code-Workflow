@@ -32,12 +32,16 @@ Identify inconsistencies, duplications, ambiguities, and underspecified items be
 IF --session parameter provided:
     session_id = provided session
 ELSE:
-    CHECK: find .workflow/active/ -name "WFS-*" -type d
-    IF active_session EXISTS:
-        session_id = get_active_session()
-    ELSE:
+    # Auto-detect active session
+    active_sessions = bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null)
+    IF active_sessions is empty:
         ERROR: "No active workflow session found. Use --session <session-id>"
         EXIT
+    ELSE IF active_sessions has multiple entries:
+        # Use most recently modified session
+        session_id = bash(ls -td .workflow/active/WFS-*/ 2>/dev/null | head -1 | xargs basename)
+    ELSE:
+        session_id = basename(active_sessions[0])
 
 # Derive absolute paths
 session_dir = .workflow/active/WFS-{session}
@@ -45,13 +49,15 @@ brainstorm_dir = session_dir/.brainstorming
 task_dir = session_dir/.task
 
 # Validate required artifacts
-SYNTHESIS = brainstorm_dir/role analysis documents
+# Note: "role analysis documents" refers to [role]/analysis.md files (e.g., product-manager/analysis.md)
+SYNTHESIS_DIR = brainstorm_dir  # Contains role analysis files: */analysis.md
 IMPL_PLAN = session_dir/IMPL_PLAN.md
 TASK_FILES = Glob(task_dir/*.json)
 
 # Abort if missing
-IF NOT EXISTS(SYNTHESIS):
-    ERROR: "role analysis documents not found. Run /workflow:brainstorm:synthesis first"
+SYNTHESIS_FILES = Glob(brainstorm_dir/*/analysis.md)
+IF SYNTHESIS_FILES.count == 0:
+    ERROR: "No role analysis documents found in .brainstorming/*/analysis.md. Run /workflow:brainstorm:synthesis first"
     EXIT
 
 IF NOT EXISTS(IMPL_PLAN):
@@ -135,27 +141,27 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - **Unmapped Tasks**: Tasks with no clear requirement linkage
 - **NFR Coverage Gaps**: Non-functional requirements (performance, security, scalability) not reflected in tasks
 
-#### B. Consistency Validation
+#### C. Consistency Validation
 
 - **Requirement Conflicts**: Tasks contradicting synthesis requirements
 - **Architecture Drift**: IMPL_PLAN architecture not matching synthesis ADRs
 - **Terminology Drift**: Same concept named differently across IMPL_PLAN and tasks
 - **Data Model Inconsistency**: Tasks referencing entities/fields not in synthesis data model
 
-#### C. Dependency Integrity
+#### D. Dependency Integrity
 
 - **Circular Dependencies**: Task A depends on B, B depends on C, C depends on A
 - **Missing Dependencies**: Task requires outputs from another task but no explicit dependency
 - **Broken Dependencies**: Task depends on non-existent task ID
 - **Logical Ordering Issues**: Implementation tasks before foundational setup without dependency note
 
-#### D. Synthesis Alignment
+#### E. Synthesis Alignment
 
 - **Priority Conflicts**: High-priority synthesis requirements mapped to low-priority tasks
 - **Success Criteria Mismatch**: IMPL_PLAN success criteria not covering synthesis acceptance criteria
 - **Risk Mitigation Gaps**: Critical risks in synthesis without corresponding mitigation tasks
 
-#### E. Task Specification Quality
+#### F. Task Specification Quality
 
 - **Ambiguous Focus Paths**: Tasks with vague or missing focus_paths
 - **Underspecified Acceptance**: Tasks without clear acceptance criteria
@@ -163,12 +169,12 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - **Weak Flow Control**: Tasks without clear implementation_approach or pre_analysis steps
 - **Missing Target Files**: Tasks without flow_control.target_files specification
 
-#### F. Duplication Detection
+#### G. Duplication Detection
 
 - **Overlapping Task Scope**: Multiple tasks with nearly identical descriptions
 - **Redundant Requirements Coverage**: Same requirement covered by multiple tasks without clear partitioning
 
-#### G. Feasibility Assessment
+#### H. Feasibility Assessment
 
 - **Complexity Misalignment**: Task marked "simple" but requires multiple file modifications
 - **Resource Conflicts**: Parallel tasks requiring same resources/files
@@ -203,7 +209,9 @@ Use this heuristic to prioritize findings:
 
 ### 6. Produce Compact Analysis Report
 
-Output a Markdown report (no file writes) with the following structure:
+**Report Generation**: Generate report content and save to file.
+
+Output a Markdown report with the following structure:
 
 ```markdown
 ## Action Plan Verification Report
@@ -217,7 +225,11 @@ Output a Markdown report (no file writes) with the following structure:
 ### Executive Summary
 
 - **Overall Risk Level**: CRITICAL | HIGH | MEDIUM | LOW
-- **Recommendation**: BLOCK_EXECUTION | PROCEED_WITH_FIXES | PROCEED_WITH_CAUTION | PROCEED
+- **Recommendation**: (See decision matrix below)
+  - BLOCK_EXECUTION: Critical issues exist (must fix before proceeding)
+  - PROCEED_WITH_FIXES: High issues exist, no critical (fix recommended before execution)
+  - PROCEED_WITH_CAUTION: Medium issues only (proceed with awareness)
+  - PROCEED: Low issues only or no issues (safe to execute)
 - **Critical Issues**: {count}
 - **High Issues**: {count}
 - **Medium Issues**: {count}
@@ -322,14 +334,27 @@ Output a Markdown report (no file writes) with the following structure:
 
 #### Action Recommendations
 
-**If CRITICAL Issues Exist**:
-- **BLOCK EXECUTION** - Resolve critical issues before proceeding
-- Use TodoWrite to track all required fixes
-- Fix broken dependencies and circular references
+**Recommendation Decision Matrix**:
 
-**If Only HIGH/MEDIUM/LOW Issues**:
-- **PROCEED WITH CAUTION** - Fix high-priority issues first
-- Use TodoWrite to systematically track and complete all improvements
+| Condition | Recommendation | Action |
+|-----------|----------------|--------|
+| Critical > 0 | BLOCK_EXECUTION | Must resolve all critical issues before proceeding |
+| Critical = 0, High > 0 | PROCEED_WITH_FIXES | Fix high-priority issues before execution |
+| Critical = 0, High = 0, Medium > 0 | PROCEED_WITH_CAUTION | Proceed with awareness of medium issues |
+| Only Low or None | PROCEED | Safe to execute workflow |
+
+**If CRITICAL Issues Exist** (BLOCK_EXECUTION):
+- Resolve all critical issues before proceeding
+- Use TodoWrite to track required fixes
+- Fix broken dependencies and circular references first
+
+**If HIGH Issues Exist** (PROCEED_WITH_FIXES):
+- Fix high-priority issues before execution
+- Use TodoWrite to systematically track and complete improvements
+
+**If Only MEDIUM/LOW Issues** (PROCEED_WITH_CAUTION / PROCEED):
+- Can proceed with execution
+- Address issues during or after implementation
 
 #### TodoWrite-Based Remediation Workflow
 
@@ -359,13 +384,18 @@ Priority Order:
 
 ### 7. Save Report and Execute TodoWrite-Based Remediation
 
-**Save Analysis Report**:
+**Step 7.1: Save Analysis Report**:
 ```bash
 report_path = ".workflow/active/WFS-{session}/.process/ACTION_PLAN_VERIFICATION.md"
 Write(report_path, full_report_content)
 ```
 
-**After Report Generation**:
+**Step 7.2: Display Report Summary to User**:
+- Show executive summary with counts
+- Display recommendation (BLOCK/PROCEED_WITH_FIXES/PROCEED_WITH_CAUTION/PROCEED)
+- List critical and high issues if any
+
+**Step 7.3: After Report Generation**:
 
 1. **Extract Findings**: Parse all issues by severity
 2. **Create TodoWrite Task List**: Convert findings to actionable todos

@@ -43,6 +43,25 @@ Extract design system tokens from source code files (CSS/SCSS/JS/TS/HTML) using 
 
 ## Execution Process
 
+```
+Input Parsing:
+   ├─ Parse flags: --design-id, --session, --source
+   └─ Decision (base path resolution):
+      ├─ --design-id provided → Exact match by design ID
+      ├─ --session provided → Latest design run in session
+      └─ Neither → ERROR: Must provide --design-id or --session
+
+Phase 0: Setup & File Discovery
+   ├─ Step 1: Resolve base path
+   ├─ Step 2: Initialize directories
+   └─ Step 3: Discover files using script
+
+Phase 1: Parallel Agent Analysis (3 agents)
+   ├─ Style Agent → design-tokens.json + code_snippets
+   ├─ Animation Agent → animation-tokens.json + code_snippets
+   └─ Layout Agent → layout-templates.json + code_snippets
+```
+
 ### Step 1: Setup & File Discovery
 
 **Purpose**: Initialize session, discover and categorize code files

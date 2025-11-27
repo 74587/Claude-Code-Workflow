@@ -24,6 +24,29 @@ Workflow coordinator that delegates test analysis to cli-execution-agent. Agent 
 - Execute Gemini analysis via agent for test strategy generation
 - Validate agent outputs (gemini-test-analysis.md, TEST_ANALYSIS_RESULTS.md)
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session, --context
+   └─ Validation: Both REQUIRED
+
+Phase 1: Context Preparation (Command)
+   ├─ Load workflow-session.json
+   ├─ Verify test session type is "test-gen"
+   ├─ Validate test-context-package.json
+   └─ Determine strategy (Simple: 1-3 files | Medium: 4-6 | Complex: >6)
+
+Phase 2: Test Analysis Execution (Agent)
+   ├─ Execute Gemini analysis via cli-execution-agent
+   └─ Generate TEST_ANALYSIS_RESULTS.md
+
+Phase 3: Output Validation (Command)
+   ├─ Verify gemini-test-analysis.md exists
+   ├─ Validate TEST_ANALYSIS_RESULTS.md
+   └─ Confirm test requirements are actionable
+```
+
 ## Execution Lifecycle
 
 ### Phase 1: Context Preparation (Command Responsibility)

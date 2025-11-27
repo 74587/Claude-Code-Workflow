@@ -33,6 +33,29 @@ Converts design run extraction results into shareable reference package with:
 
 ## Execution Process
 
+```
+Input Parsing:
+   ├─ Parse flags: --design-run, --package-name, --output-dir
+   └─ Validation:
+      ├─ --design-run and --package-name REQUIRED
+      └─ Package name format: lowercase, alphanumeric, hyphens only
+
+Phase 0: Setup & Validation
+   ├─ Step 1: Validate required parameters
+   ├─ Step 2: Validate package name format
+   ├─ Step 3: Validate design run exists
+   ├─ Step 4: Check required extraction files (design-tokens.json, layout-templates.json)
+   └─ Step 5: Setup output directory
+
+Phase 1: Prepare Component Data
+   ├─ Step 1: Copy layout templates
+   ├─ Step 2: Copy design tokens
+   └─ Step 3: Copy animation tokens (optional)
+
+Phase 2: Preview Generation (Agent)
+   └─ Generate preview.html + preview.css via ui-design-agent
+```
+
 ### Phase 0: Setup & Validation
 
 **Purpose**: Validate inputs, prepare output directory

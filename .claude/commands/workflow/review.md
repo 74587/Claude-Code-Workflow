@@ -29,6 +29,39 @@ argument-hint: "[--type=security|architecture|action-items|quality] [optional: s
 - For documentation generation, use `/workflow:tools:docs`
 - For CLAUDE.md updates, use `/update-memory-related`
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse --type flag (default: quality)
+   └─ Parse session-id argument (optional)
+
+Step 1: Session Resolution
+   └─ Decision:
+      ├─ session-id provided → Use provided session
+      └─ Not provided → Auto-detect from .workflow/active/
+
+Step 2: Validation
+   ├─ Check session directory exists
+   └─ Check for completed implementation (.summaries/IMPL-*.md exists)
+
+Step 3: Type Check
+   └─ Decision:
+      ├─ type=docs → Redirect to /workflow:tools:docs
+      └─ Other types → Continue to analysis
+
+Step 4: Model Analysis Phase
+   ├─ Load context (summaries, test results, changed files)
+   └─ Perform specialized review by type:
+      ├─ security → Security patterns + Gemini analysis
+      ├─ architecture → Qwen architecture analysis
+      ├─ quality → Gemini code quality analysis
+      └─ action-items → Requirements verification
+
+Step 5: Generate Report
+   └─ Output: REVIEW-{type}.md
+```
+
 ## Execution Template
 
 ```bash

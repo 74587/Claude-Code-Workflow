@@ -59,6 +59,41 @@ Analyzes conflicts between implementation plans and existing codebase, **includi
 - Module merge/split decisions
 - **Requires iterative clarification until uniqueness confirmed**
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session, --context
+   └─ Validation: Both REQUIRED, conflict_risk >= medium
+
+Phase 1: Validation
+   ├─ Step 1: Verify session directory exists
+   ├─ Step 2: Load context-package.json
+   ├─ Step 3: Check conflict_risk (skip if none/low)
+   └─ Step 4: Prepare agent task prompt
+
+Phase 2: CLI-Powered Analysis (Agent)
+   ├─ Execute Gemini analysis (Qwen fallback)
+   ├─ Detect conflicts including ModuleOverlap category
+   └─ Generate 2-4 strategies per conflict with modifications
+
+Phase 3: Iterative User Interaction
+   └─ FOR each conflict (one by one):
+      ├─ Display conflict with overlap_analysis (if ModuleOverlap)
+      ├─ Display strategies (2-4 + custom option)
+      ├─ User selects strategy
+      └─ IF clarification_needed:
+         ├─ Collect answers
+         ├─ Agent re-analysis
+         └─ Loop until uniqueness_confirmed (max 10 rounds)
+
+Phase 4: Apply Modifications
+   ├─ Step 1: Extract modifications from resolved strategies
+   ├─ Step 2: Apply using Edit tool
+   ├─ Step 3: Update context-package.json (mark resolved)
+   └─ Step 4: Output custom conflict summary (if any)
+```
+
 ## Execution Flow
 
 ### Phase 1: Validation

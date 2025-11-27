@@ -18,6 +18,39 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(gemini:*)
 - Validate TDD cycle execution
 - Generate compliance report
 
+## Execution Process
+
+```
+Input Parsing:
+   └─ Decision (session argument):
+      ├─ session-id provided → Use provided session
+      └─ No session-id → Auto-detect active session
+
+Phase 1: Session Discovery
+   ├─ Validate session directory exists
+   └─ TodoWrite: Mark phase 1 completed
+
+Phase 2: Task Chain Validation
+   ├─ Load all task JSONs from .task/
+   ├─ Extract task IDs and group by feature
+   ├─ Validate TDD structure:
+   │  ├─ TEST-N.M → IMPL-N.M → REFACTOR-N.M chain
+   │  ├─ Dependency verification
+   │  └─ Meta field validation (tdd_phase, agent)
+   └─ TodoWrite: Mark phase 2 completed
+
+Phase 3: Test Execution Analysis
+   └─ /workflow:tools:tdd-coverage-analysis
+      ├─ Coverage metrics extraction
+      ├─ TDD cycle verification
+      └─ Compliance score calculation
+
+Phase 4: Compliance Report Generation
+   ├─ Gemini analysis for comprehensive report
+   ├─ Generate TDD_COMPLIANCE_REPORT.md
+   └─ Return summary to user
+```
+
 ## 4-Phase Execution
 
 ### Phase 1: Session Discovery

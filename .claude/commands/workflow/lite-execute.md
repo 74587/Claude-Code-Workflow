@@ -138,26 +138,29 @@ If `isPlanJson === false`:
 
 ## Execution Process
 
-### Workflow Overview
-
 ```
-Input Processing → Mode Detection
-    |
-    v
-[Mode 1] --in-memory: Load executionContext → Skip selection
-[Mode 2] Prompt: Create plan → User selects method + review
-[Mode 3] File: Detect format → Extract plan OR treat as prompt → User selects
-    |
-    v
-Execution & Progress Tracking
-    ├─ Step 1: Initialize execution tracking
-    ├─ Step 2: Create TodoWrite execution list
-    ├─ Step 3: Launch execution (Agent or Codex)
-    ├─ Step 4: Track execution progress
-    └─ Step 5: Code review (optional)
-    |
-    v
-Execution Complete
+Input Parsing:
+   └─ Decision (mode detection):
+      ├─ --in-memory flag → Mode 1: Load executionContext → Skip user selection
+      ├─ Ends with .md/.json/.txt → Mode 3: Read file → Detect format
+      │   ├─ Valid plan.json → Use planObject → User selects method + review
+      │   └─ Not plan.json → Treat as prompt → User selects method + review
+      └─ Other → Mode 2: Prompt description → User selects method + review
+
+Execution:
+   ├─ Step 1: Initialize result tracking (previousExecutionResults = [])
+   ├─ Step 2: Task grouping & batch creation
+   │   ├─ Infer dependencies (same file → sequential, keywords → sequential)
+   │   ├─ Group into batches (parallel: independent, sequential: dependent)
+   │   └─ Create TodoWrite list for batches
+   ├─ Step 3: Launch execution
+   │   ├─ Phase 1: All parallel batches (⚡ concurrent via multiple tool calls)
+   │   └─ Phase 2: Sequential batches (→ one by one)
+   ├─ Step 4: Track progress (TodoWrite updates per batch)
+   └─ Step 5: Code review (if codeReviewTool ≠ "Skip")
+
+Output:
+   └─ Execution complete with results in previousExecutionResults[]
 ```
 
 ## Detailed Execution Steps
@@ -453,9 +456,16 @@ Complexity: ${planObject.complexity}
 **Execution with tracking**:
 ```javascript
 // Launch CLI in foreground (NOT background)
+// Timeout based on complexity: Low=40min, Medium=60min, High=100min
+const timeoutByComplexity = {
+  "Low": 2400000,    // 40 minutes
+  "Medium": 3600000, // 60 minutes
+  "High": 6000000    // 100 minutes
+}
+
 bash_result = Bash(
   command=cli_command,
-  timeout=6000000 
+  timeout=timeoutByComplexity[planObject.complexity] || 3600000
 )
 
 // Update TodoWrite when execution completes

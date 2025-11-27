@@ -36,6 +36,50 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 
 **Task Attachment Model**: SlashCommand invocation is NOT delegation - it's task expansion. The orchestrator executes these attached tasks itself, not waiting for external completion.
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --input, --session (legacy: --images, --prompt)
+   └─ Decision (input detection):
+      ├─ Contains * or glob matches → images_input (visual)
+      ├─ File/directory exists → code import source
+      └─ Pure text → design prompt
+
+Phase 0: Parameter Parsing & Input Detection
+   ├─ Step 1: Normalize parameters (legacy deprecation warning)
+   ├─ Step 2: Detect design source (hybrid | code_only | visual_only)
+   └─ Step 3: Initialize directories and metadata
+
+Phase 0.5: Code Import (Conditional)
+   └─ Decision (design_source):
+      ├─ hybrid → Execute /workflow:ui-design:import-from-code
+      └─ Other → Skip to Phase 2
+
+Phase 2: Style Extraction
+   └─ Decision (skip_style):
+      ├─ code_only AND style_complete → Use code import
+      └─ Otherwise → Execute /workflow:ui-design:style-extract
+
+Phase 2.3: Animation Extraction
+   └─ Decision (skip_animation):
+      ├─ code_only AND animation_complete → Use code import
+      └─ Otherwise → Execute /workflow:ui-design:animation-extract
+
+Phase 2.5: Layout Extraction
+   └─ Decision (skip_layout):
+      ├─ code_only AND layout_complete → Use code import
+      └─ Otherwise → Execute /workflow:ui-design:layout-extract
+
+Phase 3: UI Assembly
+   └─ Execute /workflow:ui-design:generate
+
+Phase 4: Design System Integration
+   └─ Decision (session_id):
+      ├─ Provided → Execute /workflow:ui-design:update
+      └─ Not provided → Standalone completion
+```
+
 ## Core Rules
 
 1. **Start Immediately**: TodoWrite initialization → Phase 2 execution

@@ -32,6 +32,29 @@ Generate test planning documents (IMPL_PLAN.md, test task JSONs, TODO_LIST.md) u
 - **Manual Mode** (default): Gemini diagnosis → user applies fixes
 - **Codex Mode** (`--use-codex`): Gemini diagnosis → Codex applies fixes with resume mechanism
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session, --use-codex, --cli-execute
+   └─ Validation: session_id REQUIRED
+
+Phase 1: Context Preparation (Command)
+   ├─ Assemble test session paths
+   │  ├─ session_metadata_path
+   │  ├─ test_analysis_results_path (REQUIRED)
+   │  └─ test_context_package_path
+   └─ Provide metadata (session_id, execution_mode, use_codex, source_session_id)
+
+Phase 2: Test Document Generation (Agent)
+   ├─ Load TEST_ANALYSIS_RESULTS.md as primary requirements source
+   ├─ Generate Test Task JSON Files (.task/IMPL-*.json)
+   │  ├─ IMPL-001: Test generation (meta.type: "test-gen")
+   │  └─ IMPL-002+: Test execution & fix (meta.type: "test-fix")
+   ├─ Create IMPL_PLAN.md (test_session variant)
+   └─ Generate TODO_LIST.md with test phase indicators
+```
+
 ## Document Generation Lifecycle
 
 ### Phase 1: Context Preparation (Command Responsibility)

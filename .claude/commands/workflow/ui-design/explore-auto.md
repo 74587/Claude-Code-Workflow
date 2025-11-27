@@ -40,6 +40,51 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*), Glob(*), Write(*
 
 **Target Type Detection**: Automatically inferred from prompt/targets, or explicitly set via `--target-type`.
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --input, --targets, --target-type, --device-type, --session, --style-variants, --layout-variants
+   └─ Decision (input detection):
+      ├─ Contains * or glob matches → images_input (visual)
+      ├─ File/directory exists → code import source
+      └─ Pure text → design prompt
+
+Phase 1-4: Parameter Parsing & Initialization
+   ├─ Phase 1: Normalize parameters (legacy deprecation warning)
+   ├─ Phase 2: Intelligent prompt parsing (extract variant counts)
+   ├─ Phase 3: Device type inference (explicit > keywords > target_type > default)
+   └─ Phase 4: Run initialization and directory setup
+
+Phase 5: Unified Target Inference
+   ├─ Priority: --pages/--components (legacy) → --targets → prompt analysis → synthesis → default
+   ├─ Display confirmation with modification options
+   └─ User confirms → IMMEDIATELY triggers Phase 7
+
+Phase 6: Code Import (Conditional)
+   └─ Decision (design_source):
+      ├─ code_only | hybrid → Execute /workflow:ui-design:import-from-code
+      └─ visual_only → Skip to Phase 7
+
+Phase 7: Style Extraction
+   └─ Decision (needs_visual_supplement):
+      ├─ visual_only OR supplement needed → Execute /workflow:ui-design:style-extract
+      └─ code_only AND style_complete → Use code import
+
+Phase 8: Animation Extraction
+   └─ Decision (should_extract_animation):
+      ├─ visual_only OR incomplete OR regenerate → Execute /workflow:ui-design:animation-extract
+      └─ code_only AND animation_complete → Use code import
+
+Phase 9: Layout Extraction
+   └─ Decision (needs_visual_supplement OR NOT layout_complete):
+      ├─ True → Execute /workflow:ui-design:layout-extract
+      └─ False → Use code import
+
+Phase 10: UI Assembly
+   └─ Execute /workflow:ui-design:generate → Workflow complete
+```
+
 ## Core Rules
 
 1. **Start Immediately**: TodoWrite initialization → Phase 7 execution

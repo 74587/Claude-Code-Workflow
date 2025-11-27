@@ -17,6 +17,38 @@ Analyze test coverage and verify Red-Green-Refactor cycle execution for TDD work
 - Verify TDD cycle execution (Red -> Green -> Refactor)
 - Generate coverage and cycle reports
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session
+   └─ Validation: session_id REQUIRED
+
+Phase 1: Extract Test Tasks
+   └─ Find TEST-*.json files and extract focus_paths
+
+Phase 2: Run Test Suite
+   └─ Decision (test framework):
+      ├─ Node.js → npm test --coverage --json
+      ├─ Python → pytest --cov --json-report
+      └─ Other → [test_command] --coverage --json
+
+Phase 3: Parse Coverage Data
+   ├─ Extract line coverage percentage
+   ├─ Extract branch coverage percentage
+   ├─ Extract function coverage percentage
+   └─ Identify uncovered lines/branches
+
+Phase 4: Verify TDD Cycle
+   └─ FOR each TDD chain (TEST-N.M → IMPL-N.M → REFACTOR-N.M):
+      ├─ Red Phase: Verify tests created and failed initially
+      ├─ Green Phase: Verify tests now pass
+      └─ Refactor Phase: Verify code quality improved
+
+Phase 5: Generate Analysis Report
+   └─ Create tdd-cycle-report.md with coverage metrics and cycle verification
+```
+
 ## Execution Lifecycle
 
 ### Phase 1: Extract Test Tasks

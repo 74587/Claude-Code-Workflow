@@ -20,9 +20,40 @@ Initialize `.workflow/project.json` with comprehensive project understanding by 
 /workflow:init --regenerate    # Force regeneration
 ```
 
+## Execution Process
+
+```
+Input Parsing:
+   └─ Parse --regenerate flag → regenerate = true | false
+
+Decision:
+   ├─ EXISTS + no --regenerate → Exit: "Already initialized"
+   ├─ EXISTS + --regenerate → Backup existing → Continue analysis
+   └─ NOT_FOUND → Continue analysis
+
+Analysis Flow:
+   ├─ Get project metadata (name, root)
+   ├─ Invoke cli-explore-agent
+   │   ├─ Structural scan (get_modules_by_depth.sh, find, wc)
+   │   ├─ Semantic analysis (Gemini CLI)
+   │   ├─ Synthesis and merge
+   │   └─ Write .workflow/project.json
+   └─ Display summary
+
+Output:
+   └─ .workflow/project.json (+ .backup if regenerate)
+```
+
 ## Implementation
 
-### Step 1: Check Existing State
+### Step 1: Parse Input and Check Existing State
+
+**Parse --regenerate flag**:
+```javascript
+const regenerate = $ARGUMENTS.includes('--regenerate')
+```
+
+**Check existing state**:
 
 ```bash
 bash(test -f .workflow/project.json && echo "EXISTS" || echo "NOT_FOUND")
@@ -59,8 +90,9 @@ Task(
   prompt=`
 Analyze project for workflow initialization and generate .workflow/project.json.
 
-## Output Schema Reference
-~/.claude/workflows/cli-templates/schemas/project-json-schema.json
+## MANDATORY FIRST STEPS
+1. Execute: cat ~/.claude/workflows/cli-templates/schemas/project-json-schema.json (get schema reference)
+2. Execute: ~/.claude/scripts/get_modules_by_depth.sh (get project structure)
 
 ## Task
 Generate complete project.json with:

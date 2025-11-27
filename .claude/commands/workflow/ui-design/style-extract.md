@@ -19,6 +19,43 @@ Extract design style from reference images or text prompts using Claude's built-
 - **Dual Mode**: Exploration (multiple contrasting variants) or Refinement (single design fine-tuning)
 - **Production-Ready**: WCAG AA compliant, OKLCH colors, semantic naming
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --design-id, --session, --images, --prompt, --variants, --interactive, --refine
+   └─ Decision (mode detection):
+      ├─ --refine flag → Refinement Mode (variants_count = 1)
+      └─ No --refine → Exploration Mode (variants_count = --variants OR 3)
+
+Phase 0: Setup & Input Validation
+   ├─ Step 1: Detect input mode, extraction mode & base path
+   ├─ Step 2: Load inputs
+   └─ Step 3: Memory check (skip if exists)
+
+Phase 1: Design Direction/Refinement Options Generation
+   ├─ Step 1: Load project context
+   ├─ Step 2: Generate options (Agent Task 1)
+   │  └─ Decision:
+   │     ├─ Exploration Mode → Generate contrasting design directions
+   │     └─ Refinement Mode → Generate refinement options
+   └─ Step 3: Verify options file created
+
+Phase 1.5: User Confirmation (Optional)
+   └─ Decision (--interactive flag):
+      ├─ --interactive present → Present options, capture selection
+      └─ No --interactive → Skip to Phase 2
+
+Phase 2: Design System Generation
+   ├─ Step 1: Load user selection or default to all
+   ├─ Step 2: Create output directories
+   └─ Step 3: Launch agent tasks (parallel)
+
+Phase 3: Verify Output
+   ├─ Step 1: Check files created
+   └─ Step 2: Verify file sizes
+```
+
 ## Phase 0: Setup & Input Validation
 
 ### Step 1: Detect Input Mode, Extraction Mode & Base Path

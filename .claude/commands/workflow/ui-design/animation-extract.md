@@ -23,6 +23,44 @@ Extract animation and transition patterns from prompt inference and image refere
 - **Production-Ready**: CSS var() format, WCAG-compliant, semantic naming
 - **Default Behavior**: Non-interactive mode uses inferred patterns + best practices
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --design-id, --session, --images, --focus, --interactive, --refine
+   └─ Decision (mode detection):
+      ├─ --refine flag → Refinement Mode
+      └─ No --refine → Exploration Mode
+
+Phase 0: Setup & Input Validation
+   ├─ Step 1: Detect input mode & base path
+   ├─ Step 2: Prepare image references (if available)
+   ├─ Step 3: Load design tokens context
+   └─ Step 4: Memory check (skip if exists)
+
+Phase 1: Animation Specification Generation
+   ├─ Step 1: Load project context
+   ├─ Step 2: Generate animation specification options (Agent Task 1)
+   │  └─ Decision:
+   │     ├─ Exploration Mode → Generate specification questions
+   │     └─ Refinement Mode → Generate refinement options
+   └─ Step 3: Verify options file created
+
+Phase 1.5: User Confirmation (Optional)
+   └─ Decision (--interactive flag):
+      ├─ --interactive present → Present options, capture selection
+      └─ No --interactive → Skip to Phase 2
+
+Phase 2: Animation System Generation
+   ├─ Step 1: Load user selection or use defaults
+   ├─ Step 2: Create output directory
+   └─ Step 3: Launch animation generation task (Agent Task 2)
+
+Phase 3: Verify Output
+   ├─ Step 1: Check files created
+   └─ Step 2: Verify file sizes
+```
+
 ## Phase 0: Setup & Input Validation
 
 ### Step 1: Detect Input Mode & Base Path
