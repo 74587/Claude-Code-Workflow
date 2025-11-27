@@ -59,8 +59,8 @@ This command is a **pure planning coordinator**:
 - **All execution delegated to `/workflow:test-cycle-execute`**
 
 **Task Attachment Model**:
-- SlashCommand invocation **expands workflow** by attaching sub-tasks to current TodoWrite
-- When a sub-command is invoked (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
+- SlashCommand dispatch **expands workflow** by attaching sub-tasks to current TodoWrite
+- When dispatching a sub-command (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
 - Orchestrator **executes these attached tasks** sequentially
 - After completion, attached tasks are **collapsed** back to high-level phase summary
 - This is **task expansion**, not external delegation
@@ -136,7 +136,7 @@ This command is a **pure planning coordinator**:
 
 ### Core Execution Rules
 
-1. **Start Immediately**: First action is TodoWrite, second is Phase 1 session creation
+1. **Start Immediately**: First action is TodoWrite, second is dispatch Phase 1 session creation
 2. **No Preliminary Analysis**: Do not read files before Phase 1
 3. **Parse Every Output**: Extract required data from each phase for next phase
 4. **Sequential Execution**: Each phase depends on previous phase's output
@@ -144,16 +144,22 @@ This command is a **pure planning coordinator**:
 6. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 7. **Automatic Detection**: Mode auto-detected from input pattern
 8. **Parse Flags**: Extract `--use-codex` and `--cli-execute` flags for Phase 4
-9. **Task Attachment Model**: SlashCommand invocation **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+9. **Task Attachment Model**: SlashCommand dispatch **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
 10. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ### 5-Phase Execution
 
 #### Phase 1: Create Test Session
 
-**Command**:
-- **Session Mode**: `SlashCommand("/workflow:session:start --new \"Test validation for [sourceSessionId]\"")`
-- **Prompt Mode**: `SlashCommand("/workflow:session:start --new \"Test generation for: [description]\"")`
+**Step 1.1: Dispatch** - Create test workflow session
+
+```javascript
+// Session Mode
+SlashCommand(command="/workflow:session:start --new \"Test validation for [sourceSessionId]\"")
+
+// Prompt Mode
+SlashCommand(command="/workflow:session:start --new \"Test generation for: [description]\"")
+```
 
 **Input**: User argument (session ID, description, or file path)
 
@@ -177,9 +183,15 @@ This command is a **pure planning coordinator**:
 
 #### Phase 2: Gather Test Context
 
-**Command**:
-- **Session Mode**: `SlashCommand("/workflow:tools:test-context-gather --session [testSessionId]")`
-- **Prompt Mode**: `SlashCommand("/workflow:tools:context-gather --session [testSessionId] \"[task_description]\"")`
+**Step 2.1: Dispatch** - Gather test context via appropriate method
+
+```javascript
+// Session Mode
+SlashCommand(command="/workflow:tools:test-context-gather --session [testSessionId]")
+
+// Prompt Mode
+SlashCommand(command="/workflow:tools:context-gather --session [testSessionId] \"[task_description]\"")
+```
 
 **Input**: `testSessionId` from Phase 1
 
@@ -208,7 +220,11 @@ This command is a **pure planning coordinator**:
 
 #### Phase 3: Test Generation Analysis
 
-**Command**: `SlashCommand("/workflow:tools:test-concept-enhanced --session [testSessionId] --context [contextPath]")`
+**Step 3.1: Dispatch** - Generate test requirements using Gemini
+
+```javascript
+SlashCommand(command="/workflow:tools:test-concept-enhanced --session [testSessionId] --context [contextPath]")
+```
 
 **Input**:
 - `testSessionId` from Phase 1
@@ -264,7 +280,11 @@ For each targeted file/function, Gemini MUST generate:
 
 #### Phase 4: Generate Test Tasks
 
-**Command**: `SlashCommand("/workflow:tools:test-task-generate [--use-codex] [--cli-execute] --session [testSessionId]")`
+**Step 4.1: Dispatch** - Generate test task JSONs
+
+```javascript
+SlashCommand(command="/workflow:tools:test-task-generate [--use-codex] [--cli-execute] --session [testSessionId]")
+```
 
 **Input**:
 - `testSessionId` from Phase 1
@@ -357,7 +377,7 @@ CRITICAL - Next Steps:
 
 #### Key Principles
 
-1. **Task Attachment** (when SlashCommand invoked):
+1. **Task Attachment** (when SlashCommand dispatched):
    - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
    - Example - Phase 2 with sub-tasks:
    ```json
@@ -392,7 +412,7 @@ CRITICAL - Next Steps:
    - No user intervention required between phases
    - TodoWrite dynamically reflects current execution state
 
-**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED with mode-specific context gathering) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
+**Lifecycle Summary**: Initial pending tasks → Phase dispatched (tasks ATTACHED with mode-specific context gathering) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
 
 #### Test-Fix-Gen Specific Features
 

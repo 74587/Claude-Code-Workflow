@@ -9,11 +9,11 @@ allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*
 
 ## Coordinator Role
 
-**This command is a pure orchestrator**: Execute 3 phases in sequence (interactive framework → parallel role analysis → synthesis), coordinating specialized commands/agents through task attachment model.
+**This command is a pure orchestrator**: Dispatches 3 phases in sequence (interactive framework → parallel role analysis → synthesis), coordinating specialized commands/agents through task attachment model.
 
 **Task Attachment Model**:
-- SlashCommand invocation **expands workflow** by attaching sub-tasks to current TodoWrite
-- Task agent execution **attaches analysis tasks** to orchestrator's TodoWrite
+- SlashCommand dispatch **expands workflow** by attaching sub-tasks to current TodoWrite
+- Task agent dispatch **attaches analysis tasks** to orchestrator's TodoWrite
 - Phase 1: artifacts command attaches its internal tasks (Phase 1-5)
 - Phase 2: N conceptual-planning-agent tasks attached in parallel
 - Phase 3: synthesis command attaches its internal tasks
@@ -26,9 +26,9 @@ allowed-tools: SlashCommand(*), Task(*), TodoWrite(*), Read(*), Write(*), Bash(*
 This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) handles user interaction, Phase 2 (role agents) runs in parallel.
 
 1. **User triggers**: `/workflow:brainstorm:auto-parallel "topic" [--count N]`
-2. **Phase 1 executes** → artifacts command (tasks ATTACHED) → Auto-continues
-3. **Phase 2 executes** → Parallel role agents (N tasks ATTACHED concurrently) → Auto-continues
-4. **Phase 3 executes** → Synthesis command (tasks ATTACHED) → Reports final summary
+2. **Dispatch Phase 1** → artifacts command (tasks ATTACHED) → Auto-continues
+3. **Dispatch Phase 2** → Parallel role agents (N tasks ATTACHED concurrently) → Auto-continues
+4. **Dispatch Phase 3** → Synthesis command (tasks ATTACHED) → Reports final summary
 
 **Auto-Continue Mechanism**:
 - TodoList tracks current phase status and dynamically manages task attachment/collapse
@@ -38,13 +38,13 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 
 ## Core Rules
 
-1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 command execution
+1. **Start Immediately**: First action is TodoWrite initialization, second action is dispatch Phase 1 command
 2. **No Preliminary Analysis**: Do not analyze topic before Phase 1 - artifacts handles all analysis
 3. **Parse Every Output**: Extract selected_roles from workflow-session.json after Phase 1
-4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
+4. **Auto-Continue via TodoList**: Check TodoList status to dispatch next pending phase automatically
 5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
-6. **Task Attachment Model**: SlashCommand and Task invocations **attach** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
-7. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
+6. **Task Attachment Model**: SlashCommand and Task dispatches **attach** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+7. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and dispatch next phase
 8. **Parallel Execution**: Phase 2 attaches multiple agent tasks simultaneously for concurrent execution
 
 ## Usage
@@ -67,7 +67,11 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 
 ### Phase 1: Interactive Framework Generation
 
-**Command**: `SlashCommand(command="/workflow:brainstorm:artifacts \"{topic}\" --count {N}")`
+**Step 1: Dispatch** - Interactive framework generation via artifacts command
+
+```javascript
+SlashCommand(command="/workflow:brainstorm:artifacts \"{topic}\" --count {N}")
+```
 
 **What It Does**:
 - Topic analysis: Extract challenges, generate task-specific questions
@@ -87,7 +91,7 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 - workflow-session.json contains selected_roles[] (metadata only, no content duplication)
 - Session directory `.workflow/active/WFS-{topic}/.brainstorming/` exists
 
-**TodoWrite Update (Phase 1 SlashCommand invoked - tasks attached)**:
+**TodoWrite Update (Phase 1 SlashCommand dispatched - tasks attached)**:
 ```json
 [
   {"content": "Phase 0: Parameter Parsing", "status": "completed", "activeForm": "Parsing count parameter"},
@@ -102,7 +106,7 @@ This workflow runs **fully autonomously** once triggered. Phase 1 (artifacts) ha
 ]
 ```
 
-**Note**: SlashCommand invocation **attaches** artifacts' 5 internal tasks. Orchestrator **executes** these tasks sequentially.
+**Note**: SlashCommand dispatch **attaches** artifacts' 5 internal tasks. Orchestrator **executes** these tasks sequentially.
 
 **Next Action**: Tasks attached → **Execute Phase 1.1-1.5** sequentially
 
@@ -183,7 +187,7 @@ TOPIC: {user-provided-topic}
 "
 ```
 
-**Parallel Execution**:
+**Parallel Dispatch**:
 - Launch N agents simultaneously (one message with multiple Task calls)
 - Each agent task **attached** to orchestrator's TodoWrite
 - All agents execute concurrently, each attaching their own analysis sub-tasks
@@ -201,7 +205,7 @@ TOPIC: {user-provided-topic}
 - **FORBIDDEN naming**: No `recommendations.md`, `recommendations-*.md`, or any non-`analysis` prefixed files
 - All N role analyses completed
 
-**TodoWrite Update (Phase 2 agents invoked - tasks attached in parallel)**:
+**TodoWrite Update (Phase 2 agents dispatched - tasks attached in parallel)**:
 ```json
 [
   {"content": "Phase 0: Parameter Parsing", "status": "completed", "activeForm": "Parsing count parameter"},
@@ -214,7 +218,7 @@ TOPIC: {user-provided-topic}
 ]
 ```
 
-**Note**: Multiple Task invocations **attach** N role analysis tasks simultaneously. Orchestrator **executes** these tasks in parallel.
+**Note**: Multiple Task dispatches **attach** N role analysis tasks simultaneously. Orchestrator **executes** these tasks in parallel.
 
 **Next Action**: Tasks attached → **Execute Phase 2.1-2.N** concurrently
 
@@ -236,7 +240,11 @@ TOPIC: {user-provided-topic}
 
 ### Phase 3: Synthesis Generation
 
-**Command**: `SlashCommand(command="/workflow:brainstorm:synthesis --session {sessionId}")`
+**Step 3: Dispatch** - Synthesis integration via synthesis command
+
+```javascript
+SlashCommand(command="/workflow:brainstorm:synthesis --session {sessionId}")
+```
 
 **What It Does**:
 - Load original user intent from workflow-session.json
@@ -250,7 +258,7 @@ TOPIC: {user-provided-topic}
 - `.workflow/active/WFS-{topic}/.brainstorming/synthesis-specification.md` exists
 - Synthesis references all role analyses
 
-**TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached)**:
+**TodoWrite Update (Phase 3 SlashCommand dispatched - tasks attached)**:
 ```json
 [
   {"content": "Phase 0: Parameter Parsing", "status": "completed", "activeForm": "Parsing count parameter"},
@@ -263,7 +271,7 @@ TOPIC: {user-provided-topic}
 ]
 ```
 
-**Note**: SlashCommand invocation **attaches** synthesis' internal tasks. Orchestrator **executes** these tasks sequentially.
+**Note**: SlashCommand dispatch **attaches** synthesis' internal tasks. Orchestrator **executes** these tasks sequentially.
 
 **Next Action**: Tasks attached → **Execute Phase 3.1-3.3** sequentially
 
@@ -296,7 +304,7 @@ Synthesis: .workflow/active/WFS-{topic}/.brainstorming/synthesis-specification.m
 
 ### Key Principles
 
-1. **Task Attachment** (when SlashCommand/Task invoked):
+1. **Task Attachment** (when SlashCommand/Task dispatched):
    - Sub-command's or agent's internal tasks are **attached** to orchestrator's TodoWrite
    - Phase 1: `/workflow:brainstorm:artifacts` attaches 5 internal tasks (Phase 1.1-1.5)
    - Phase 2: Multiple `Task(conceptual-planning-agent)` calls attach N role analysis tasks simultaneously
@@ -317,7 +325,7 @@ Synthesis: .workflow/active/WFS-{topic}/.brainstorming/synthesis-specification.m
    - No user intervention required between phases
    - TodoWrite dynamically reflects current execution state
 
-**Lifecycle Summary**: Initial pending tasks → Phase 1 invoked (artifacts tasks ATTACHED) → Artifacts sub-tasks executed → Phase 1 completed (tasks COLLAPSED) → Phase 2 invoked (N role tasks ATTACHED in parallel) → Role analyses executed concurrently → Phase 2 completed (tasks COLLAPSED) → Phase 3 invoked (synthesis tasks ATTACHED) → Synthesis sub-tasks executed → Phase 3 completed (tasks COLLAPSED) → Workflow complete.
+**Lifecycle Summary**: Initial pending tasks → Phase 1 dispatched (artifacts tasks ATTACHED) → Artifacts sub-tasks executed → Phase 1 completed (tasks COLLAPSED) → Phase 2 dispatched (N role tasks ATTACHED in parallel) → Role analyses executed concurrently → Phase 2 completed (tasks COLLAPSED) → Phase 3 dispatched (synthesis tasks ATTACHED) → Synthesis sub-tasks executed → Phase 3 completed (tasks COLLAPSED) → Workflow complete.
 
 ### Brainstorming Workflow Specific Features
 

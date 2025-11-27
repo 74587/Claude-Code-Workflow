@@ -9,40 +9,45 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 ## Coordinator Role
 
-**This command is a pure orchestrator**: Execute 6 slash commands in sequence, parse outputs, pass context, and ensure complete TDD workflow creation with Red-Green-Refactor task generation.
+**This command is a pure orchestrator**: Dispatches 6 slash commands in sequence, parse outputs, pass context, and ensure complete TDD workflow creation with Red-Green-Refactor task generation.
 
 **Execution Modes**:
 - **Agent Mode** (default): Use `/workflow:tools:task-generate-tdd` (autonomous agent-driven)
 - **CLI Mode** (`--cli-execute`): Use `/workflow:tools:task-generate-tdd --cli-execute` (Gemini/Qwen)
 
 **Task Attachment Model**:
-- SlashCommand invocation **expands workflow** by attaching sub-tasks to current TodoWrite
-- When a sub-command is invoked (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
+- SlashCommand dispatch **expands workflow** by attaching sub-tasks to current TodoWrite
+- When dispatching a sub-command (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
 - Orchestrator **executes these attached tasks** sequentially
 - After completion, attached tasks are **collapsed** back to high-level phase summary
 - This is **task expansion**, not external delegation
 
 **Auto-Continue Mechanism**:
 - TodoList tracks current phase status and dynamically manages task attachment/collapse
-- When each phase finishes executing, automatically execute next pending phase
+- When each phase finishes executing, automatically dispatch next pending phase
 - All phases run autonomously without user interaction
 - **⚠️ CONTINUOUS EXECUTION** - Do not stop until all phases complete
 
 ## Core Rules
 
-1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 execution
+1. **Start Immediately**: First action is TodoWrite initialization, second action is dispatch Phase 1
 2. **No Preliminary Analysis**: Do not read files before Phase 1
 3. **Parse Every Output**: Extract required data for next phase
-4. **Auto-Continue via TodoList**: Check TodoList status to execute next pending phase automatically
+4. **Auto-Continue via TodoList**: Check TodoList status to dispatch next pending phase automatically
 5. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 6. **TDD Context**: All descriptions include "TDD:" prefix
-7. **Task Attachment Model**: SlashCommand invocation **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
-8. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
+7. **Task Attachment Model**: SlashCommand dispatch **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+8. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and dispatch next phase
 
 ## 6-Phase Execution (with Conflict Resolution)
 
 ### Phase 1: Session Discovery
-**Command**: `/workflow:session:start --auto "TDD: [structured-description]"`
+
+**Step 1.1: Dispatch** - Session discovery and initialization
+
+```javascript
+SlashCommand(command="/workflow:session:start --auto \"TDD: [structured-description]\"")
+```
 
 **TDD Structured Format**:
 ```
@@ -62,7 +67,12 @@ TEST_FOCUS: [Test scenarios]
 ---
 
 ### Phase 2: Context Gathering
-**Command**: `/workflow:tools:context-gather --session [sessionId] "TDD: [structured-description]"`
+
+**Step 2.1: Dispatch** - Context gathering and analysis
+
+```javascript
+SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"TDD: [structured-description]\"")
+```
 
 **Use Same Structured Description**: Pass the same structured format from Phase 1
 
@@ -83,7 +93,12 @@ TEST_FOCUS: [Test scenarios]
 ---
 
 ### Phase 3: Test Coverage Analysis
-**Command**: `/workflow:tools:test-context-gather --session [sessionId]`
+
+**Step 3.1: Dispatch** - Test coverage analysis and framework detection
+
+```javascript
+SlashCommand(command="/workflow:tools:test-context-gather --session [sessionId]")
+```
 
 **Purpose**: Analyze existing codebase for:
 - Existing test patterns and conventions
@@ -95,9 +110,9 @@ TEST_FOCUS: [Test scenarios]
 
 
 
-<!-- TodoWrite: When test-context-gather invoked, INSERT 3 test-context-gather tasks -->
+<!-- TodoWrite: When test-context-gather dispatched, INSERT 3 test-context-gather tasks -->
 
-**TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached)**:
+**TodoWrite Update (Phase 3 SlashCommand dispatched - tasks attached)**:
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
@@ -111,7 +126,7 @@ TEST_FOCUS: [Test scenarios]
 ]
 ```
 
-**Note**: SlashCommand invocation **attaches** test-context-gather's 3 tasks. Orchestrator **executes** these tasks.
+**Note**: SlashCommand dispatch **attaches** test-context-gather's 3 tasks. Orchestrator **executes** these tasks.
 
 **Next Action**: Tasks attached → **Execute Phase 3.1-3.3** sequentially
 
@@ -138,7 +153,11 @@ TEST_FOCUS: [Test scenarios]
 
 **Trigger**: Only execute when context-package.json indicates conflict_risk is "medium" or "high"
 
-**Command**: `SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] --context [contextPath]")`
+**Step 4.1: Dispatch** - Conflict detection and resolution
+
+```javascript
+SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] --context [contextPath]")
+```
 
 **Input**:
 - sessionId from Phase 1
@@ -156,9 +175,9 @@ TEST_FOCUS: [Test scenarios]
 - If conflict_risk is "none" or "low", skip directly to Phase 5
 - Display: "No significant conflicts detected, proceeding to TDD task generation"
 
-<!-- TodoWrite: If conflict_risk ≥ medium, INSERT 3 conflict-resolution tasks -->
+<!-- TodoWrite: If conflict_risk ≥ medium, INSERT 3 conflict-resolution tasks when dispatched -->
 
-**TodoWrite Update (Phase 4 SlashCommand invoked - tasks attached, if conflict_risk ≥ medium)**:
+**TodoWrite Update (Phase 4 SlashCommand dispatched - tasks attached, if conflict_risk ≥ medium)**:
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
@@ -173,7 +192,7 @@ TEST_FOCUS: [Test scenarios]
 ]
 ```
 
-**Note**: SlashCommand invocation **attaches** conflict-resolution's 3 tasks. Orchestrator **executes** these tasks.
+**Note**: SlashCommand dispatch **attaches** conflict-resolution's 3 tasks. Orchestrator **executes** these tasks.
 
 **Next Action**: Tasks attached → **Execute Phase 4.1-4.3** sequentially
 
@@ -198,7 +217,13 @@ TEST_FOCUS: [Test scenarios]
 **Memory State Check**:
 - Evaluate current context window usage and memory state
 - If memory usage is high (>110K tokens or approaching context limits):
-  - **Command**: `SlashCommand(command="/compact")`
+
+  **Step 4.5: Dispatch** - Memory compaction
+
+  ```javascript
+  SlashCommand(command="/compact")
+  ```
+
   - This optimizes memory before proceeding to Phase 5
 - Memory compaction is particularly important after analysis phase which may generate extensive documentation
 - Ensures optimal performance and prevents context overflow
@@ -206,9 +231,16 @@ TEST_FOCUS: [Test scenarios]
 ---
 
 ### Phase 5: TDD Task Generation
-**Command**:
-- Agent Mode (default): `/workflow:tools:task-generate-tdd --session [sessionId]`
-- CLI Mode (`--cli-execute`): `/workflow:tools:task-generate-tdd --session [sessionId] --cli-execute`
+
+**Step 5.1: Dispatch** - TDD task generation via action-planning-agent
+
+```javascript
+// Agent Mode (default)
+SlashCommand(command="/workflow:tools:task-generate-tdd --session [sessionId]")
+
+// CLI Mode (--cli-execute flag)
+SlashCommand(command="/workflow:tools:task-generate-tdd --session [sessionId] --cli-execute")
+```
 
 **Parse**: Extract feature count, task count (not chain count - tasks now contain internal TDD cycles)
 
@@ -223,9 +255,9 @@ TEST_FOCUS: [Test scenarios]
 - IMPL_PLAN.md contains workflow_type: "tdd" in frontmatter
 - Task count ≤10 (compliance with task limit)
 
-<!-- TodoWrite: When task-generate-tdd invoked, INSERT 3 task-generate-tdd tasks -->
+<!-- TodoWrite: When task-generate-tdd dispatched, INSERT 3 task-generate-tdd tasks -->
 
-**TodoWrite Update (Phase 5 SlashCommand invoked - tasks attached)**:
+**TodoWrite Update (Phase 5 SlashCommand dispatched - tasks attached)**:
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed", "activeForm": "Executing session discovery"},
@@ -239,7 +271,7 @@ TEST_FOCUS: [Test scenarios]
 ]
 ```
 
-**Note**: SlashCommand invocation **attaches** task-generate-tdd's 3 tasks. Orchestrator **executes** these tasks. Each generated IMPL task will contain internal Red-Green-Refactor cycle.
+**Note**: SlashCommand dispatch **attaches** task-generate-tdd's 3 tasks. Orchestrator **executes** these tasks. Each generated IMPL task will contain internal Red-Green-Refactor cycle.
 
 **Next Action**: Tasks attached → **Execute Phase 5.1-5.3** sequentially
 
@@ -319,7 +351,7 @@ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task
 
 ### Key Principles
 
-1. **Task Attachment** (when SlashCommand invoked):
+1. **Task Attachment** (when SlashCommand dispatched):
    - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
    - Example: `/workflow:tools:test-context-gather` attaches 3 sub-tasks (Phase 3.1, 3.2, 3.3)
    - First attached task marked as `in_progress`, others as `pending`
@@ -336,7 +368,7 @@ Quality Gate: Consider running /workflow:action-plan-verify to validate TDD task
    - No user intervention required between phases
    - TodoWrite dynamically reflects current execution state
 
-**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins (conditional Phase 4 if conflict_risk ≥ medium) → Repeat until all phases complete.
+**Lifecycle Summary**: Initial pending tasks → Phase dispatched (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins (conditional Phase 4 if conflict_risk ≥ medium) → Repeat until all phases complete.
 
 ### TDD-Specific Features
 
