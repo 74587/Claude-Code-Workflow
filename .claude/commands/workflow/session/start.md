@@ -148,6 +148,10 @@ bash(echo '{"session_id":"WFS-fix-login-bug","project":"fix login bug","status":
 
 **Output**: `SESSION_ID: WFS-fix-login-bug`
 
+## Execution Guideline
+
+- **Non-interrupting**: When called from other commands, this command completes and returns control to the caller without interrupting subsequent tasks.
+
 ## Output Format Specification
 
 ### Success
