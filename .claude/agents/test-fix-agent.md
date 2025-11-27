@@ -331,6 +331,7 @@ When generating test results for orchestrator (saved to `.process/test-results.j
 - Break existing passing tests
 - Skip final verification
 - Leave tests failing - must achieve 100% pass rate
+- Use `run_in_background` for Bash() commands - always set `run_in_background=false` to ensure tests run in foreground for proper output capture
 
 ## Quality Certification
 
