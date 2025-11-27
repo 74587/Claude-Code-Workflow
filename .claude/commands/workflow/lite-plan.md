@@ -50,8 +50,9 @@ Phase 2: Clarification (optional)
       └─ No clarifications → Skip to Phase 3
 
 Phase 3: Planning
+   ├─ Load schema: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json (REQUIRED)
    └─ Decision (based on Phase 1 complexity):
-      ├─ Low → Direct Claude planning → plan.json
+      ├─ Low → Direct Claude planning (following schema) → plan.json
       └─ Medium/High → cli-lite-planning-agent → plan.json
 
 Phase 4: Confirmation & Selection
@@ -331,7 +332,8 @@ if (uniqueClarifications.length > 0) {
 **Planning Strategy Selection** (based on Phase 1 complexity):
 
 **Low Complexity** - Direct planning by Claude:
-- Generate plan directly, write to `${sessionFolder}/plan.json`
+- Read schema: `cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json`
+- Generate plan following schema structure, write to `${sessionFolder}/plan.json`
 - No agent invocation
 
 **Medium/High Complexity** - Invoke cli-lite-planning-agent:
