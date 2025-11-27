@@ -169,6 +169,15 @@ Required flow_control fields:
   - exit_conditions: ["all_tests_pass", "max_iterations_reached"]
   - auto_revert_on_failure: true
 
+### Automation Framework Configuration
+Select automation tools based on test requirements from TEST_ANALYSIS_RESULTS.md:
+- UI interaction testing → E2E browser automation (meta.e2e_framework)
+- API/database integration → integration test tools (meta.test_tools)
+- Performance metrics → load testing tools (meta.perf_framework)
+- Logic verification → unit test framework (meta.test_framework)
+
+**Tool Selection**: Detect from project config > suggest based on requirements
+
 ### TEST_ANALYSIS_RESULTS.md Mapping
 PRIMARY requirements source - extract and map to task JSONs:
   - Test framework config → meta.test_framework (use existing framework from project)
