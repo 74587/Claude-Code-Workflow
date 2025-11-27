@@ -36,7 +36,7 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 ```
 Phase 1: Task Analysis & Exploration
    ├─ Parse input (description or .md file)
-   ├─ Claude intelligent complexity assessment (Low/Medium/High)
+   ├─ intelligent complexity assessment (Low/Medium/High)
    ├─ Exploration decision (auto-detect or --explore flag)
    └─ Decision:
       ├─ needsExploration=true → Launch parallel cli-explore-agents (1-4 based on complexity)
@@ -98,9 +98,9 @@ if (!needsExploration) {
 }
 ```
 
-**Complexity Assessment** (Claude Intelligent Analysis):
+**Complexity Assessment** (Intelligent Analysis):
 ```javascript
-// Claude analyzes task complexity based on:
+// analyzes task complexity based on:
 // - Scope: How many systems/modules are affected?
 // - Depth: Surface change vs architectural impact?
 // - Risk: Potential for breaking existing functionality?
