@@ -34,15 +34,36 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 ## Execution Process
 
 ```
-User Input → Task Analysis & Exploration Decision (Phase 1)
-          ↓
-     Clarification (Phase 2, optional)
-          ↓
-     Complexity Assessment & Planning (Phase 3)
-          ↓
-     Task Confirmation & Execution Selection (Phase 4)
-          ↓
-     Dispatch to Execution (Phase 5)
+Phase 1: Task Analysis & Exploration
+   ├─ Parse input (description or .md file)
+   ├─ Claude intelligent complexity assessment (Low/Medium/High)
+   ├─ Exploration decision (auto-detect or --explore flag)
+   └─ Decision:
+      ├─ needsExploration=true → Launch parallel cli-explore-agents (1-4 based on complexity)
+      └─ needsExploration=false → Skip to Phase 2/3
+
+Phase 2: Clarification (optional)
+   ├─ Aggregate clarification_needs from all exploration angles
+   ├─ Deduplicate similar questions
+   └─ Decision:
+      ├─ Has clarifications → AskUserQuestion (max 4 questions)
+      └─ No clarifications → Skip to Phase 3
+
+Phase 3: Planning
+   └─ Decision (based on Phase 1 complexity):
+      ├─ Low → Direct Claude planning → plan.json
+      └─ Medium/High → cli-lite-planning-agent → plan.json
+
+Phase 4: Confirmation & Selection
+   ├─ Display plan summary (tasks, complexity, estimated time)
+   └─ AskUserQuestion:
+      ├─ Confirm: Allow / Modify / Cancel
+      ├─ Execution: Agent / Codex / Auto
+      └─ Review: Gemini / Agent / Skip
+
+Phase 5: Dispatch
+   ├─ Build executionContext (plan + explorations + clarifications + selections)
+   └─ SlashCommand("/workflow:lite-execute --in-memory")
 ```
 
 ## Implementation
@@ -76,34 +97,19 @@ if (!needsExploration) {
 }
 ```
 
-**Complexity Assessment & Exploration Count**:
+**Complexity Assessment** (Claude Intelligent Analysis):
 ```javascript
-// Estimate task complexity based on description
-function estimateComplexity(taskDescription) {
-  const wordCount = taskDescription.split(/\s+/).length
-  const text = taskDescription.toLowerCase()
+// Claude analyzes task complexity based on:
+// - Scope: How many systems/modules are affected?
+// - Depth: Surface change vs architectural impact?
+// - Risk: Potential for breaking existing functionality?
+// - Dependencies: How interconnected is the change?
 
-  const indicators = {
-    high: ['refactor', 'migrate', 'redesign', 'architecture', 'system'],
-    medium: ['implement', 'add feature', 'integrate', 'modify module'],
-    low: ['fix', 'update', 'adjust', 'tweak']
-  }
-
-  let score = 0
-  if (wordCount > 50) score += 2
-  else if (wordCount > 20) score += 1
-
-  if (indicators.high.some(w => text.includes(w))) score += 3
-  else if (indicators.medium.some(w => text.includes(w))) score += 2
-  else if (indicators.low.some(w => text.includes(w))) score += 1
-
-  // 0-2: Low, 3-4: Medium, 5+: High
-  if (score >= 5) return 'High'
-  if (score >= 3) return 'Medium'
-  return 'Low'
-}
-
-const complexity = estimateComplexity(task_description)
+const complexity = analyzeTaskComplexity(task_description)
+// Returns: 'Low' | 'Medium' | 'High'
+// Low: Single file, isolated change, minimal risk
+// Medium: Multiple files, some dependencies, moderate risk
+// High: Cross-module, architectural, high risk
 
 // Angle assignment based on task type (orchestrator decides, not agent)
 const ANGLE_PRESETS = {
@@ -320,19 +326,9 @@ if (uniqueClarifications.length > 0) {
 
 ---
 
-### Phase 3: Complexity Assessment & Planning
+### Phase 3: Planning
 
-**Complexity Assessment**:
-```javascript
-complexityScore = {
-  file_count: exploration?.relevant_files?.length || 0,
-  integration_points: exploration?.dependencies?.length || 0,
-  architecture_changes: exploration?.constraints?.includes('architecture'),
-  task_scope: estimated_steps > 5
-}
-
-// Low: score < 3, Medium: 3-5, High: > 5
-```
+**Planning Strategy Selection** (based on Phase 1 complexity):
 
 **Low Complexity** - Direct planning by Claude:
 - Generate plan directly, write to `${sessionFolder}/plan.json`
@@ -391,7 +387,7 @@ Generate plan.json with:
 3. Synthesize findings from multiple exploration angles
 4. Parse output and structure plan
 5. Write JSON: Write('${sessionFolder}/plan.json', jsonContent)
-4. Return brief completion summary
+6. Return brief completion summary
 `
 )
 ```
