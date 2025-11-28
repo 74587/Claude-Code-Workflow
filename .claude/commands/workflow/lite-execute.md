@@ -286,85 +286,112 @@ When to use:
 - `executionMethod = "Agent"`
 - `executionMethod = "Auto" AND complexity = "Low"`
 
+**Task Formatting Principle**: Each task is a self-contained checklist. The agent only needs to know what THIS task requires, not its position or relation to other tasks.
+
 Agent call format:
 ```javascript
-function formatTaskForAgent(task, index) {
+// Format single task as self-contained checklist
+function formatTaskChecklist(task) {
   return `
-### Task ${index + 1}: ${task.title}
-**File**: ${task.file}
+## ${task.title}
+
+**Target**: \`${task.file}\`
 **Action**: ${task.action}
-**Description**: ${task.description}
 
-**Implementation Steps**:
-${task.implementation.map((step, i) => `${i + 1}. ${step}`).join('\n')}
+### What to do
+${task.description}
 
-**Reference**:
+### How to do it
+${task.implementation.map(step => `- ${step}`).join('\n')}
+
+### Reference
 - Pattern: ${task.reference.pattern}
-- Example Files: ${task.reference.files.join(', ')}
-- Guidance: ${task.reference.examples}
+- Examples: ${task.reference.files.join(', ')}
+- Notes: ${task.reference.examples}
 
-**Acceptance Criteria**:
-${task.acceptance.map((criterion, i) => `${i + 1}. ${criterion}`).join('\n')}
+### Done when
+${task.acceptance.map(c => `- [ ] ${c}`).join('\n')}
+`
+}
+
+// For batch execution: aggregate tasks without numbering
+function formatBatchPrompt(batch) {
+  const tasksSection = batch.tasks.map(t => formatTaskChecklist(t)).join('\n---\n')
+
+  return `
+${originalUserInput ? `## Goal\n${originalUserInput}\n` : ''}
+
+## Tasks
+
+${tasksSection}
+
+${batch.context ? `## Context\n${batch.context}` : ''}
+
+Complete each task according to its "Done when" checklist.
 `
 }
 
 Task(
   subagent_type="code-developer",
-  description="Implement planned tasks",
-  prompt=`
-  ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
+  description=batch.taskSummary,
+  prompt=formatBatchPrompt({
+    tasks: batch.tasks,
+    context: buildRelevantContext(batch.tasks)
+  })
+)
 
-  ## Implementation Plan
+// Helper: Build relevant context for batch
+// Context serves as REFERENCE ONLY - helps agent understand existing state
+function buildRelevantContext(tasks) {
+  const sections = []
 
-  **Summary**: ${planObject.summary}
-  **Approach**: ${planObject.approach}
+  // 1. Previous work completion - what's already done (reference for continuity)
+  if (previousExecutionResults.length > 0) {
+    sections.push(`### Previous Work (Reference)
+Use this to understand what's already completed. Avoid duplicating work.
 
-  ## Task Breakdown (${planObject.tasks.length} tasks)
-  ${planObject.tasks.map((task, i) => formatTaskForAgent(task, i)).join('\n')}
-
-  ${previousExecutionResults.length > 0 ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
-[${result.executionId}] ${result.status}
-Tasks: ${result.tasksSummary}
-Completion: ${result.completionSummary}
-Outputs: ${result.keyOutputs || 'See git diff'}
-${result.notes ? `Notes: ${result.notes}` : ''}
-  `).join('\n---\n')}` : ''}
-
-  ## Multi-Angle Code Context
-
-  ${explorationsContext && Object.keys(explorationsContext).length > 0 ?
-    explorationAngles.map(angle => {
-      const exp = explorationsContext[angle]
-      return `### Exploration Angle: ${angle}
-
-**Project Structure**: ${exp.project_structure || 'N/A'}
-**Relevant Files**: ${exp.relevant_files?.join(', ') || 'None'}
-**Patterns**: ${exp.patterns || 'N/A'}
-**Dependencies**: ${exp.dependencies || 'N/A'}
-**Integration Points**: ${exp.integration_points || 'N/A'}
-**Constraints**: ${exp.constraints || 'N/A'}`
-    }).join('\n\n---\n\n')
-    : "No exploration performed"
+${previousExecutionResults.map(r => `**${r.tasksSummary}**
+- Status: ${r.status}
+- Outputs: ${r.keyOutputs || 'See git diff'}
+${r.notes ? `- Notes: ${r.notes}` : ''}`
+    ).join('\n\n')}`)
   }
 
-  ${clarificationContext ? `\n## Clarifications\n${JSON.stringify(clarificationContext, null, 2)}` : ''}
+  // 2. Related files - files that may need to be read/referenced
+  const relatedFiles = extractRelatedFiles(tasks)
+  if (relatedFiles.length > 0) {
+    sections.push(`### Related Files (Reference)
+These files may contain patterns, types, or utilities relevant to your tasks:
 
-  ${executionContext?.session?.artifacts ? `\n## Exploration Artifact Files
+${relatedFiles.map(f => `- \`${f}\``).join('\n')}`)
+  }
 
-  Detailed exploration context available in:
-  ${executionContext.session.artifacts.explorations?.map(exp =>
-    `- Angle: ${exp.angle} → ${exp.path}`
-  ).join('\n') || ''}
-  ${executionContext.session.artifacts.explorations_manifest ? `- Manifest: ${executionContext.session.artifacts.explorations_manifest}` : ''}
-  - Plan: ${executionContext.session.artifacts.plan}
+  // 3. Clarifications from user
+  if (clarificationContext) {
+    sections.push(`### User Clarifications
+${Object.entries(clarificationContext).map(([q, a]) => `- **${q}**: ${a}`).join('\n')}`)
+  }
 
-  Read exploration files for comprehensive context from multiple angles.` : ''}
+  // 4. Artifact files (for deeper context if needed)
+  if (executionContext?.session?.artifacts?.plan) {
+    sections.push(`### Artifacts
+For detailed planning context, read: ${executionContext.session.artifacts.plan}`)
+  }
 
-  ## Requirements
-  MUST complete ALL ${planObject.tasks.length} tasks listed above in this single execution.
-  Return only after all tasks are fully implemented and tested.
-  `
-)
+  return sections.join('\n\n')
+}
+
+// Extract related files from task references
+function extractRelatedFiles(tasks) {
+  const files = new Set()
+  tasks.forEach(task => {
+    // Add reference example files
+    if (task.reference?.files) {
+      task.reference.files.forEach(f => files.add(f))
+    }
+  })
+  return [...files]
+}
 ```
 
 **Result Collection**: After completion, collect result following `executionResult` structure (see Data Structures section)
@@ -375,85 +402,78 @@ When to use:
 - `executionMethod = "Codex"`
 - `executionMethod = "Auto" AND complexity = "Medium" or "High"`
 
-**Artifact Path Delegation**:
-- Include artifact file paths in CLI prompt for enhanced context
-- Codex can read artifact files for detailed planning information
-- Example: Reference exploration.json for architecture patterns
+**Task Formatting Principle**: Same as Agent - each task is a self-contained checklist. No task numbering or position awareness.
 
 Command format:
 ```bash
-function formatTaskForCodex(task, index) {
+// Format single task as compact checklist for CLI
+function formatTaskForCLI(task) {
   return `
-${index + 1}. ${task.title} (${task.file})
-   Action: ${task.action}
-   What: ${task.description}
-   How:
-${task.implementation.map((step, i) => `   ${i + 1}. ${step}`).join('\n')}
-   Reference: ${task.reference.pattern} (see ${task.reference.files.join(', ')})
-   Guidance: ${task.reference.examples}
-   Verify:
-${task.acceptance.map((criterion, i) => `   - ${criterion}`).join('\n')}
+## ${task.title}
+File: ${task.file}
+Action: ${task.action}
+
+What: ${task.description}
+
+How:
+${task.implementation.map(step => `- ${step}`).join('\n')}
+
+Reference: ${task.reference.pattern} (see ${task.reference.files.join(', ')})
+Notes: ${task.reference.examples}
+
+Done when:
+${task.acceptance.map(c => `- [ ] ${c}`).join('\n')}
 `
 }
 
-codex --full-auto exec "
-${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
+// Build CLI prompt for batch
+// Context provides REFERENCE information - not requirements to fulfill
+function buildCLIPrompt(batch) {
+  const tasksSection = batch.tasks.map(t => formatTaskForCLI(t)).join('\n---\n')
 
-## Implementation Plan
+  let prompt = `${originalUserInput ? `## Goal\n${originalUserInput}\n\n` : ''}`
+  prompt += `## Tasks\n\n${tasksSection}\n`
 
-TASK: ${planObject.summary}
-APPROACH: ${planObject.approach}
+  // Context section - reference information only
+  const contextSections = []
 
-### Task Breakdown (${planObject.tasks.length} tasks)
-${planObject.tasks.map((task, i) => formatTaskForCodex(task, i)).join('\n')}
+  // 1. Previous work - what's already completed
+  if (previousExecutionResults.length > 0) {
+    contextSections.push(`### Previous Work (Reference)
+Already completed - avoid duplicating:
+${previousExecutionResults.map(r => `- ${r.tasksSummary}: ${r.status}${r.keyOutputs ? ` (${r.keyOutputs})` : ''}`).join('\n')}`)
+  }
 
-${previousExecutionResults.length > 0 ? `\n### Previous Execution Results\n${previousExecutionResults.map(result => `
-[${result.executionId}] ${result.status}
-Tasks: ${result.tasksSummary}
-Status: ${result.completionSummary}
-Outputs: ${result.keyOutputs || 'See git diff'}
-${result.notes ? `Notes: ${result.notes}` : ''}
-`).join('\n---\n')}
+  // 2. Related files from task references
+  const relatedFiles = [...new Set(batch.tasks.flatMap(t => t.reference?.files || []))]
+  if (relatedFiles.length > 0) {
+    contextSections.push(`### Related Files (Reference)
+Patterns and examples to follow:
+${relatedFiles.map(f => `- ${f}`).join('\n')}`)
+  }
 
-IMPORTANT: Review previous results. Build on completed work. Avoid duplication.
-` : ''}
+  // 3. User clarifications
+  if (clarificationContext) {
+    contextSections.push(`### Clarifications
+${Object.entries(clarificationContext).map(([q, a]) => `- ${q}: ${a}`).join('\n')}`)
+  }
 
-### Multi-Angle Code Context
+  // 4. Plan artifact for deeper context
+  if (executionContext?.session?.artifacts?.plan) {
+    contextSections.push(`### Artifacts
+Detailed plan: ${executionContext.session.artifacts.plan}`)
+  }
 
-${explorationsContext && Object.keys(explorationsContext).length > 0 ?
-  `Exploration conducted from ${explorationAngles.length} angles:
+  if (contextSections.length > 0) {
+    prompt += `\n## Context\n${contextSections.join('\n\n')}\n`
+  }
 
-${explorationAngles.map(angle => {
-  const exp = explorationsContext[angle]
-  return `Angle: ${angle}
-- Structure: ${exp.project_structure || 'Standard structure'}
-- Files: ${exp.relevant_files?.slice(0, 5).join(', ') || 'TBD'}${exp.relevant_files?.length > 5 ? ` (+${exp.relevant_files.length - 5} more)` : ''}
-- Patterns: ${exp.patterns?.substring(0, 100) || 'Follow existing'}${exp.patterns?.length > 100 ? '...' : ''}
-- Constraints: ${exp.constraints || 'None'}`
-}).join('\n\n')}
-`
-  : 'No prior exploration - analyze codebase as needed'
+  prompt += `\nComplete each task according to its "Done when" checklist.`
+
+  return prompt
 }
 
-${clarificationContext ? `\n### User Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `${q}: ${a}`).join('\n')}` : ''}
-
-${executionContext?.session?.artifacts ? `\n### Exploration Artifact Files
-Detailed context from multiple exploration angles available in:
-${executionContext.session.artifacts.explorations?.map(exp =>
-  `- Angle: ${exp.angle} → ${exp.path}`
-).join('\n') || ''}
-${executionContext.session.artifacts.explorations_manifest ? `- Manifest: ${executionContext.session.artifacts.explorations_manifest}` : ''}
-- Plan: ${executionContext.session.artifacts.plan}
-
-Read exploration files for comprehensive architectural, pattern, and constraint details from multiple angles.
-` : ''}
-
-## Requirements
-MUST complete ALL ${planObject.tasks.length} tasks listed above in this single execution.
-Return only after all tasks are fully implemented and tested.
-
-Complexity: ${planObject.complexity}
-" --skip-git-repo-check -s danger-full-access
+codex --full-auto exec "${buildCLIPrompt(batch)}" --skip-git-repo-check -s danger-full-access
 ```
 
 **Execution with tracking**:

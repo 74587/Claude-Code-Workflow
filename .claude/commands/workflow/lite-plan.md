@@ -394,7 +394,7 @@ ${complexity}
 Generate plan.json with:
 - summary: 2-3 sentence overview
 - approach: High-level implementation strategy (incorporating insights from all exploration angles)
-- tasks: 3-7 structured tasks (**IMPORTANT: group by feature/module, NOT by file**)
+- tasks: 2-7 structured tasks (**IMPORTANT: group by feature/module, NOT by file**)
   - **Task Granularity Principle**: Each task = one complete feature unit or module
   - title: action verb + target module/feature (e.g., "Implement auth token refresh")
   - scope: module path (src/auth/) or feature name, prefer module-level over single file
@@ -411,10 +411,12 @@ Generate plan.json with:
 
 ## Task Grouping Rules
 1. **Group by feature**: All changes for one feature = one task (even if 3-5 files)
-2. **Avoid file-per-task**: Do NOT create separate tasks for each file
-3. **Substantial tasks**: Each task should represent 15-60 minutes of work
-4. **True dependencies only**: Only use depends_on when Task B cannot start without Task A's output
-5. **Prefer parallel**: Most tasks should be independent (no depends_on)
+2. **Group by context**: Tasks with similar context or related functional changes can be grouped together
+3. **Minimize agent count**: Simple, unrelated tasks can also be grouped to reduce agent execution overhead
+4. **Avoid file-per-task**: Do NOT create separate tasks for each file
+5. **Substantial tasks**: Each task should represent 15-60 minutes of work
+6. **True dependencies only**: Only use depends_on when Task B cannot start without Task A's output
+7. **Prefer parallel**: Most tasks should be independent (no depends_on)
 
 ## Execution
 1. Read ALL exploration files for comprehensive context
