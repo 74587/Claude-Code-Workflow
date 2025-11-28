@@ -150,12 +150,13 @@ Input Parsing:
 Execution:
    ├─ Step 1: Initialize result tracking (previousExecutionResults = [])
    ├─ Step 2: Task grouping & batch creation
-   │   ├─ Infer dependencies (same file → sequential, keywords → sequential)
-   │   ├─ Group into batches (parallel: independent, sequential: dependent)
+   │   ├─ Extract explicit depends_on (no file/keyword inference)
+   │   ├─ Group: independent tasks → single parallel batch (maximize utilization)
+   │   ├─ Group: dependent tasks → sequential phases (respect dependencies)
    │   └─ Create TodoWrite list for batches
    ├─ Step 3: Launch execution
-   │   ├─ Phase 1: All parallel batches (⚡ concurrent via multiple tool calls)
-   │   └─ Phase 2: Sequential batches (→ one by one)
+   │   ├─ Phase 1: All independent tasks (⚡ single batch, concurrent)
+   │   └─ Phase 2+: Dependent tasks by dependency order
    ├─ Step 4: Track progress (TodoWrite updates per batch)
    └─ Step 5: Code review (if codeReviewTool ≠ "Skip")
 
@@ -180,66 +181,68 @@ previousExecutionResults = []
 
 **Dependency Analysis & Grouping Algorithm**:
 ```javascript
-// Infer dependencies: same file → sequential, keywords (use/integrate) → sequential
-function inferDependencies(tasks) {
-  return tasks.map((task, i) => {
-    const deps = []
-    const file = task.file || task.title.match(/in\s+([^\s:]+)/)?.[1]
-    const keywords = (task.description || task.title).toLowerCase()
+// Use explicit depends_on from plan.json (no inference from file/keywords)
+function extractDependencies(tasks) {
+  const taskIdToIndex = {}
+  tasks.forEach((t, i) => { taskIdToIndex[t.id] = i })
 
-    for (let j = 0; j < i; j++) {
-      const prevFile = tasks[j].file || tasks[j].title.match(/in\s+([^\s:]+)/)?.[1]
-      if (file && prevFile === file) deps.push(j)  // Same file
-      else if (/use|integrate|call|import/.test(keywords)) deps.push(j)  // Keyword dependency
-    }
+  return tasks.map((task, i) => {
+    // Only use explicit depends_on from plan.json
+    const deps = (task.depends_on || [])
+      .map(depId => taskIdToIndex[depId])
+      .filter(idx => idx !== undefined && idx < i)
     return { ...task, taskIndex: i, dependencies: deps }
   })
 }
 
-// Group into batches: independent → parallel [P1,P2...], dependent → sequential [S1,S2...]
+// Group into batches: maximize parallel execution
 function createExecutionCalls(tasks, executionMethod) {
-  const tasksWithDeps = inferDependencies(tasks)
-  const maxBatch = executionMethod === "Codex" ? 4 : 7
-  const calls = []
+  const tasksWithDeps = extractDependencies(tasks)
   const processed = new Set()
+  const calls = []
 
-  // Parallel: independent tasks, different files, max batch size
-  const parallelGroups = []
-  tasksWithDeps.forEach(t => {
-    if (t.dependencies.length === 0 && !processed.has(t.taskIndex)) {
-      const group = [t]
-      processed.add(t.taskIndex)
-      tasksWithDeps.forEach(o => {
-        if (!o.dependencies.length && !processed.has(o.taskIndex) &&
-            group.length < maxBatch && t.file !== o.file) {
-          group.push(o)
-          processed.add(o.taskIndex)
-        }
-      })
-      parallelGroups.push(group)
-    }
-  })
-
-  // Sequential: dependent tasks, batch when deps satisfied
-  const remaining = tasksWithDeps.filter(t => !processed.has(t.taskIndex))
-  while (remaining.length > 0) {
-    const batch = remaining.filter((t, i) =>
-      i < maxBatch && t.dependencies.every(d => processed.has(d))
-    )
-    if (!batch.length) break
-    batch.forEach(t => processed.add(t.taskIndex))
-    calls.push({ executionType: "sequential", groupId: `S${calls.length + 1}`, tasks: batch })
-    remaining.splice(0, remaining.length, ...remaining.filter(t => !processed.has(t.taskIndex)))
+  // Phase 1: All independent tasks → single parallel batch (maximize utilization)
+  const independentTasks = tasksWithDeps.filter(t => t.dependencies.length === 0)
+  if (independentTasks.length > 0) {
+    independentTasks.forEach(t => processed.add(t.taskIndex))
+    calls.push({
+      method: executionMethod,
+      executionType: "parallel",
+      groupId: "P1",
+      taskSummary: independentTasks.map(t => t.title).join(' | '),
+      tasks: independentTasks
+    })
   }
 
-  // Combine results
-  return [
-    ...parallelGroups.map((g, i) => ({
-      method: executionMethod, executionType: "parallel", groupId: `P${i+1}`,
-      taskSummary: g.map(t => t.title).join(' | '), tasks: g
-    })),
-    ...calls.map(c => ({ ...c, method: executionMethod, taskSummary: c.tasks.map(t => t.title).join(' → ') }))
-  ]
+  // Phase 2: Dependent tasks → sequential batches (respect dependencies)
+  let sequentialIndex = 1
+  let remaining = tasksWithDeps.filter(t => !processed.has(t.taskIndex))
+
+  while (remaining.length > 0) {
+    // Find tasks whose dependencies are all satisfied
+    const ready = remaining.filter(t =>
+      t.dependencies.every(d => processed.has(d))
+    )
+
+    if (ready.length === 0) {
+      console.warn('Circular dependency detected, forcing remaining tasks')
+      ready.push(...remaining)
+    }
+
+    // Group ready tasks (can run in parallel within this phase)
+    ready.forEach(t => processed.add(t.taskIndex))
+    calls.push({
+      method: executionMethod,
+      executionType: ready.length > 1 ? "parallel" : "sequential",
+      groupId: ready.length > 1 ? `P${calls.length + 1}` : `S${sequentialIndex++}`,
+      taskSummary: ready.map(t => t.title).join(ready.length > 1 ? ' | ' : ' → '),
+      tasks: ready
+    })
+
+    remaining = remaining.filter(t => !processed.has(t.taskIndex))
+  }
+
+  return calls
 }
 
 executionCalls = createExecutionCalls(planObject.tasks, executionMethod).map(c => ({ ...c, id: `[${c.groupId}]` }))
@@ -536,8 +539,8 @@ codex --full-auto exec "[Verify plan acceptance criteria at ${plan.json}]" --ski
 ## Best Practices
 
 **Input Modes**: In-memory (lite-plan), prompt (standalone), file (JSON/text)
-**Batch Limits**: Agent 7 tasks, CLI 4 tasks
-**Execution**: Parallel batches use single Claude message with multiple tool calls (no concurrency limit)
+**Task Grouping**: Based on explicit depends_on only; independent tasks run in single parallel batch
+**Execution**: All independent tasks launch concurrently via single Claude message with multiple tool calls
 
 ## Error Handling
 

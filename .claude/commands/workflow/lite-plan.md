@@ -373,15 +373,27 @@ ${complexity}
 Generate plan.json with:
 - summary: 2-3 sentence overview
 - approach: High-level implementation strategy (incorporating insights from all exploration angles)
-- tasks: 3-10 structured tasks with:
-  - title, file, action, description
-  - implementation (3-7 steps)
+- tasks: 3-7 structured tasks (**IMPORTANT: group by feature/module, NOT by file**)
+  - **Task Granularity Principle**: Each task = one complete feature unit or module
+  - title: action verb + target module/feature (e.g., "Implement auth token refresh")
+  - scope: module path (src/auth/) or feature name, prefer module-level over single file
+  - action, description
+  - modification_points: ALL files to modify for this feature (group related changes)
+  - implementation (3-7 steps covering all modification_points)
   - reference (pattern, files, examples)
-  - acceptance (2-4 criteria)
+  - acceptance (2-4 criteria for the entire feature)
+  - depends_on: task IDs this task depends on (use sparingly, only for true dependencies)
 - estimated_time, recommended_execution, complexity
 - _metadata:
   - timestamp, source, planning_mode
   - exploration_angles: ${JSON.stringify(manifest.explorations.map(e => e.angle))}
+
+## Task Grouping Rules
+1. **Group by feature**: All changes for one feature = one task (even if 3-5 files)
+2. **Avoid file-per-task**: Do NOT create separate tasks for each file
+3. **Substantial tasks**: Each task should represent 15-60 minutes of work
+4. **True dependencies only**: Only use depends_on when Task B cannot start without Task A's output
+5. **Prefer parallel**: Most tasks should be independent (no depends_on)
 
 ## Execution
 1. Read ALL exploration files for comprehensive context

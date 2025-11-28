@@ -27,7 +27,7 @@
       "maxItems": 10,
       "items": {
         "type": "object",
-        "required": ["id", "title", "file", "action", "description", "implementation", "acceptance"],
+        "required": ["id", "title", "scope", "action", "description", "implementation", "acceptance"],
         "properties": {
           "id": {
             "type": "string",
@@ -36,11 +36,15 @@
           },
           "title": {
             "type": "string",
-            "description": "Task title (action verb + target)"
+            "description": "Task title (action verb + target module/feature)"
+          },
+          "scope": {
+            "type": "string",
+            "description": "Task scope: module path (src/auth/), feature name, or single file. Prefer module/feature level over single file."
           },
           "file": {
             "type": "string",
-            "description": "Target file path for this task"
+            "description": "Primary file (deprecated, use scope + modification_points instead)"
           },
           "action": {
             "type": "string",
@@ -53,13 +57,14 @@
           },
           "modification_points": {
             "type": "array",
+            "minItems": 1,
             "items": {
               "type": "object",
               "required": ["file", "target", "change"],
               "properties": {
                 "file": {
                   "type": "string",
-                  "description": "File path"
+                  "description": "File path within scope"
                 },
                 "target": {
                   "type": "string",
@@ -71,7 +76,7 @@
                 }
               }
             },
-            "description": "Precise modification points with file:target:change format"
+            "description": "All modification points for this task. Group related changes (same feature/module) into one task with multiple modification_points."
           },
           "implementation": {
             "type": "array",
