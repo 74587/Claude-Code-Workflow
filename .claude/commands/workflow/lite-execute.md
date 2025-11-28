@@ -287,14 +287,30 @@ TodoWrite({
 
 ### Step 3: Launch Execution
 
-**Execution Flow**: Parallel batches concurrently → Sequential batches in order
+**Execution Flow**: Parallel batches concurrently (multiple agents) → Sequential batches in order
+
+**Unified executeBatch dispatcher**:
+```javascript
+// Dispatch batch to appropriate executor (Agent or Codex)
+function executeBatch(batch) {
+  if (batch.method === "Agent") {
+    return executeBatchAgent(batch)  // See Option A below
+  } else {
+    return executeBatchCodex(batch)  // See Option B below
+  }
+}
+```
+
+**Execution orchestration**:
 ```javascript
 const parallel = executionCalls.filter(c => c.executionType === "parallel")
 const sequential = executionCalls.filter(c => c.executionType === "sequential")
 
-// Phase 1: Launch all parallel batches (single message with multiple tool calls)
+// Phase 1: Launch all parallel batches (MULTIPLE CONCURRENT AGENTS)
+// Each batch → separate agent instance → true parallelism
 if (parallel.length > 0) {
   TodoWrite({ todos: executionCalls.map(c => ({ status: c.executionType === "parallel" ? "in_progress" : "pending" })) })
+  // Promise.all dispatches each batch to its own agent concurrently
   parallelResults = await Promise.all(parallel.map(c => executeBatch(c)))
   previousExecutionResults.push(...parallelResults)
   TodoWrite({ todos: executionCalls.map(c => ({ status: parallel.includes(c) ? "completed" : "pending" })) })
@@ -337,10 +353,12 @@ ${task.acceptance.map((criterion, i) => `${i + 1}. ${criterion}`).join('\n')}
 `
 }
 
-Task(
-  subagent_type="code-developer",
-  description="Implement planned tasks",
-  prompt=`
+// executeBatch(batch) - called for each parallel/sequential batch
+function executeBatchAgent(batch) {
+  return Task(
+    subagent_type="code-developer",
+    description=`Implement batch ${batch.groupId}: ${batch.taskSummary}`,
+    prompt=`
   ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
 
   ## Implementation Plan
@@ -348,8 +366,8 @@ Task(
   **Summary**: ${planObject.summary}
   **Approach**: ${planObject.approach}
 
-  ## Task Breakdown (${planObject.tasks.length} tasks)
-  ${planObject.tasks.map((task, i) => formatTaskForAgent(task, i)).join('\n')}
+  ## Batch ${batch.groupId}: Task Breakdown (${batch.tasks.length} tasks)
+  ${batch.tasks.map((task, i) => formatTaskForAgent(task, i)).join('\n')}
 
   ${previousExecutionResults.length > 0 ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
 [${result.executionId}] ${result.status}
@@ -390,10 +408,11 @@ ${result.notes ? `Notes: ${result.notes}` : ''}
   Read exploration files for comprehensive context from multiple angles.` : ''}
 
   ## Requirements
-  MUST complete ALL ${planObject.tasks.length} tasks listed above in this single execution.
-  Return only after all tasks are fully implemented and tested.
+  MUST complete ALL ${batch.tasks.length} tasks in batch ${batch.groupId}.
+  Return only after all tasks in this batch are fully implemented and tested.
   `
-)
+  )
+}
 ```
 
 **Result Collection**: After completion, collect result following `executionResult` structure (see Data Structures section)
@@ -425,7 +444,11 @@ ${task.acceptance.map((criterion, i) => `   - ${criterion}`).join('\n')}
 `
 }
 
-codex --full-auto exec "
+// executeBatch(batch) - called for each parallel/sequential batch
+const timeoutByComplexity = { "Low": 2400000, "Medium": 3600000, "High": 6000000 }
+
+function executeBatchCodex(batch) {
+  return Bash(`codex --full-auto exec "
 ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
 
 ## Implementation Plan
@@ -433,8 +456,8 @@ ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
 TASK: ${planObject.summary}
 APPROACH: ${planObject.approach}
 
-### Task Breakdown (${planObject.tasks.length} tasks)
-${planObject.tasks.map((task, i) => formatTaskForCodex(task, i)).join('\n')}
+### Batch ${batch.groupId}: Task Breakdown (${batch.tasks.length} tasks)
+${batch.tasks.map((task, i) => formatTaskForCodex(task, i)).join('\n')}
 
 ${previousExecutionResults.length > 0 ? `\n### Previous Execution Results\n${previousExecutionResults.map(result => `
 [${result.executionId}] ${result.status}
@@ -478,30 +501,15 @@ Read exploration files for comprehensive architectural, pattern, and constraint 
 ` : ''}
 
 ## Requirements
-MUST complete ALL ${planObject.tasks.length} tasks listed above in this single execution.
-Return only after all tasks are fully implemented and tested.
+MUST complete ALL ${batch.tasks.length} tasks in batch ${batch.groupId}.
+Return only after all tasks in this batch are fully implemented and tested.
 
 Complexity: ${planObject.complexity}
-" --skip-git-repo-check -s danger-full-access
-```
-
-**Execution with tracking**:
-```javascript
-// Launch CLI in foreground (NOT background)
-// Timeout based on complexity: Low=40min, Medium=60min, High=100min
-const timeoutByComplexity = {
-  "Low": 2400000,    // 40 minutes
-  "Medium": 3600000, // 60 minutes
-  "High": 6000000    // 100 minutes
+" --skip-git-repo-check -s danger-full-access`, { timeout: timeoutByComplexity[planObject.complexity] || 3600000 })
 }
-
-bash_result = Bash(
-  command=cli_command,
-  timeout=timeoutByComplexity[planObject.complexity] || 3600000
-)
-
-// Update TodoWrite when execution completes
 ```
+
+**Note**: Timeout based on complexity (Low=40min, Medium=60min, High=100min) is handled in `executeBatchCodex`.
 
 **Result Collection**: After completion, analyze output and collect result following `executionResult` structure
 
