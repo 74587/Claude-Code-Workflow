@@ -124,7 +124,7 @@ const explorationTasks = selectedAngles.map((angle, index) =>
     description=`Explore: ${angle}`,
     prompt=`
 ## Task Objective
-Execute **${angle}** exploration for context gathering.
+Execute **${angle}** exploration for task planning context. Analyze codebase from this specific angle to discover relevant structure, patterns, and constraints.
 
 ## Assigned Context
 - **Exploration Angle**: ${angle}
@@ -133,13 +133,56 @@ Execute **${angle}** exploration for context gathering.
 - **Exploration Index**: ${index + 1} of ${selectedAngles.length}
 - **Output File**: ${sessionFolder}/exploration-${angle}.json
 
-## MANDATORY FIRST STEPS
-1. Run: ~/.claude/scripts/get_modules_by_depth.sh
-2. Run: rg -l "{keywords}" --type ts
-3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json
+## MANDATORY FIRST STEPS (Execute by Agent)
+**You (cli-explore-agent) MUST execute these steps in order:**
+1. Run: ~/.claude/scripts/get_modules_by_depth.sh (project structure)
+2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
+3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
+
+## Exploration Strategy (${angle} focus)
+
+**Step 1: Structural Scan** (Bash)
+- get_modules_by_depth.sh → identify modules related to ${angle}
+- find/rg → locate files relevant to ${angle} aspect
+- Analyze imports/dependencies from ${angle} perspective
+
+**Step 2: Semantic Analysis** (Gemini CLI)
+- How does existing code handle ${angle} concerns?
+- What patterns are used for ${angle}?
+- Where would new code integrate from ${angle} viewpoint?
+
+**Step 3: Write Output**
+- Consolidate ${angle} findings into JSON
+- Identify ${angle}-specific clarification needs
+
+## Expected Output
+
+**File**: ${sessionFolder}/exploration-${angle}.json
+
+**Schema Reference**: Schema obtained in MANDATORY FIRST STEPS step 3, follow schema exactly
+
+**Required Fields** (all ${angle} focused):
+- project_structure: Modules/architecture relevant to ${angle}
+- relevant_files: Files affected from ${angle} perspective
+- patterns: ${angle}-related patterns to follow
+- dependencies: Dependencies relevant to ${angle}
+- integration_points: Where to integrate from ${angle} viewpoint
+- constraints: ${angle}-specific limitations/conventions
+- clarification_needs: ${angle}-related ambiguities (with options array)
+- _metadata.exploration_angle: "${angle}"
+
+## Success Criteria
+- [ ] Schema obtained via cat explore-json-schema.json
+- [ ] get_modules_by_depth.sh executed
+- [ ] At least 3 relevant files identified with ${angle} rationale
+- [ ] Patterns are actionable (code examples, not generic advice)
+- [ ] Integration points include file:line locations
+- [ ] Constraints are project-specific to ${angle}
+- [ ] JSON output follows schema exactly
+- [ ] clarification_needs includes options array
 
 ## Output
-File: ${sessionFolder}/exploration-${angle}.json (following explore-json-schema.json)
+Write: ${sessionFolder}/exploration-${angle}.json
 Return: 2-3 sentence summary of ${angle} findings
 `
   )
