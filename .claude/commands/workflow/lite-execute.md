@@ -149,14 +149,14 @@ Input Parsing:
 
 Execution:
    ├─ Step 1: Initialize result tracking (previousExecutionResults = [])
-   ├─ Step 2: Task grouping & batch creation
-   │   ├─ Extract explicit depends_on (no file/keyword inference)
-   │   ├─ Group: independent tasks → single parallel batch (maximize utilization)
-   │   ├─ Group: dependent tasks → sequential phases (respect dependencies)
+   ├─ Step 2: Task grouping & batch creation (cost-aware)
+   │   ├─ Build hybrid dependencies (explicit depends_on + file conflicts via modification_points)
+   │   ├─ Phase 1: Group by execution_group (explicit parallel groups)
+   │   ├─ Phase 2: Cost-aware batching (MAX_BATCH_COST=8, Low=1/Medium=2/High=4)
    │   └─ Create TodoWrite list for batches
    ├─ Step 3: Launch execution
-   │   ├─ Phase 1: All independent tasks (⚡ single batch, concurrent)
-   │   └─ Phase 2+: Dependent tasks by dependency order
+   │   ├─ Parallel batches: ⚡ concurrent via multiple tool calls
+   │   └─ Sequential batches: → one by one
    ├─ Step 4: Track progress (TodoWrite updates per batch)
    └─ Step 5: Code review (if codeReviewTool ≠ "Skip")
 
@@ -181,67 +181,96 @@ previousExecutionResults = []
 
 **Dependency Analysis & Grouping Algorithm**:
 ```javascript
-// Use explicit depends_on from plan.json (no inference from file/keywords)
-function extractDependencies(tasks) {
+const MAX_BATCH_COST = 8  // Workload limit per batch (tunable)
+
+// Task cost based on complexity (Low=1, Medium=2, High=4)
+function calculateTaskCost(task) {
+  const costs = { Low: 1, Medium: 2, High: 4 }
+  return costs[task.complexity] || 1
+}
+
+// Build hybrid dependencies: explicit depends_on + implicit file conflicts
+function buildDependencies(tasks) {
   const taskIdToIndex = {}
   tasks.forEach((t, i) => { taskIdToIndex[t.id] = i })
+  const fileOwner = {}  // Track which task last modified each file
 
   return tasks.map((task, i) => {
-    // Only use explicit depends_on from plan.json
-    const deps = (task.depends_on || [])
-      .map(depId => taskIdToIndex[depId])
-      .filter(idx => idx !== undefined && idx < i)
-    return { ...task, taskIndex: i, dependencies: deps }
+    const deps = new Set()
+
+    // 1. Explicit depends_on
+    ;(task.depends_on || []).forEach(depId => {
+      const idx = taskIdToIndex[depId]
+      if (idx !== undefined && idx < i) deps.add(idx)
+    })
+
+    // 2. Implicit file conflicts via modification_points
+    ;(task.modification_points || []).forEach(mp => {
+      if (fileOwner[mp.file] !== undefined && fileOwner[mp.file] !== i) {
+        deps.add(fileOwner[mp.file])
+      }
+      fileOwner[mp.file] = i
+    })
+
+    return { ...task, taskIndex: i, dependencies: [...deps], cost: calculateTaskCost(task) }
   })
 }
 
-// Group into batches: maximize parallel execution
+// Group into cost-aware batches with execution_group priority
 function createExecutionCalls(tasks, executionMethod) {
-  const tasksWithDeps = extractDependencies(tasks)
+  const tasksWithDeps = buildDependencies(tasks)
   const processed = new Set()
   const calls = []
+  let parallelIdx = 1, sequentialIdx = 1
 
-  // Phase 1: All independent tasks → single parallel batch (maximize utilization)
-  const independentTasks = tasksWithDeps.filter(t => t.dependencies.length === 0)
-  if (independentTasks.length > 0) {
-    independentTasks.forEach(t => processed.add(t.taskIndex))
+  // Phase 1: Group by execution_group (explicit parallel groups)
+  const groups = {}
+  tasksWithDeps.forEach(t => {
+    if (t.execution_group) {
+      groups[t.execution_group] = groups[t.execution_group] || []
+      groups[t.execution_group].push(t)
+    }
+  })
+  Object.entries(groups).forEach(([groupId, groupTasks]) => {
+    groupTasks.forEach(t => processed.add(t.taskIndex))
     calls.push({
       method: executionMethod,
       executionType: "parallel",
-      groupId: "P1",
-      taskSummary: independentTasks.map(t => t.title).join(' | '),
-      tasks: independentTasks
+      groupId: `P${parallelIdx++}`,
+      taskSummary: groupTasks.map(t => t.title).join(' | '),
+      tasks: groupTasks
     })
-  }
+  })
 
-  // Phase 2: Dependent tasks → sequential batches (respect dependencies)
-  let sequentialIndex = 1
+  // Phase 2: Process remaining by dependency order with cost-aware batching
   let remaining = tasksWithDeps.filter(t => !processed.has(t.taskIndex))
 
   while (remaining.length > 0) {
-    // Find tasks whose dependencies are all satisfied
-    const ready = remaining.filter(t =>
-      t.dependencies.every(d => processed.has(d))
-    )
+    const ready = remaining.filter(t => t.dependencies.every(d => processed.has(d)))
+    if (ready.length === 0) { ready.push(...remaining) }  // Break circular deps
 
-    if (ready.length === 0) {
-      console.warn('Circular dependency detected, forcing remaining tasks')
-      ready.push(...remaining)
+    // Cost-aware batch creation
+    let batch = [], batchCost = 0
+    const stillReady = [...ready]
+    while (stillReady.length > 0) {
+      const idx = stillReady.findIndex(t => batchCost + t.cost <= MAX_BATCH_COST)
+      if (idx === -1) break
+      const task = stillReady.splice(idx, 1)[0]
+      batch.push(task)
+      batchCost += task.cost
     }
+    if (batch.length === 0) batch = [ready[0]]  // At least one task
 
-    // Group ready tasks (can run in parallel within this phase)
-    ready.forEach(t => processed.add(t.taskIndex))
+    batch.forEach(t => processed.add(t.taskIndex))
     calls.push({
       method: executionMethod,
-      executionType: ready.length > 1 ? "parallel" : "sequential",
-      groupId: ready.length > 1 ? `P${calls.length + 1}` : `S${sequentialIndex++}`,
-      taskSummary: ready.map(t => t.title).join(ready.length > 1 ? ' | ' : ' → '),
-      tasks: ready
+      executionType: batch.length > 1 ? "parallel" : "sequential",
+      groupId: batch.length > 1 ? `P${parallelIdx++}` : `S${sequentialIdx++}`,
+      taskSummary: batch.map(t => t.title).join(batch.length > 1 ? ' | ' : ' → '),
+      tasks: batch
     })
-
     remaining = remaining.filter(t => !processed.has(t.taskIndex))
   }
-
   return calls
 }
 
@@ -539,8 +568,8 @@ codex --full-auto exec "[Verify plan acceptance criteria at ${plan.json}]" --ski
 ## Best Practices
 
 **Input Modes**: In-memory (lite-plan), prompt (standalone), file (JSON/text)
-**Task Grouping**: Based on explicit depends_on only; independent tasks run in single parallel batch
-**Execution**: All independent tasks launch concurrently via single Claude message with multiple tool calls
+**Task Grouping**: Hybrid dependencies (explicit depends_on + file conflicts) + execution_group priority + cost-aware batching (MAX_BATCH_COST=8)
+**Execution**: Parallel batches via single Claude message with multiple tool calls; cost balances workload (Low=1, Medium=2, High=4)
 
 ## Error Handling
 
