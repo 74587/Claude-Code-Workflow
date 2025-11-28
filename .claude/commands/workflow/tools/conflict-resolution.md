@@ -114,35 +114,44 @@ Task(subagent_type="cli-execution-agent", prompt=`
   - Risk: {conflict_risk}
   - Files: {existing_files_list}
 
+  ## Exploration Context (from context-package.exploration_results)
+  - Exploration Count: ${contextPackage.exploration_results?.exploration_count || 0}
+  - Angles Analyzed: ${JSON.stringify(contextPackage.exploration_results?.angles || [])}
+  - Pre-identified Conflict Indicators: ${JSON.stringify(contextPackage.exploration_results?.aggregated_insights?.conflict_indicators || [])}
+  - Critical Files: ${JSON.stringify(contextPackage.exploration_results?.aggregated_insights?.critical_files?.map(f => f.path) || [])}
+  - All Patterns: ${JSON.stringify(contextPackage.exploration_results?.aggregated_insights?.all_patterns || [])}
+  - All Integration Points: ${JSON.stringify(contextPackage.exploration_results?.aggregated_insights?.all_integration_points || [])}
+
   ## Analysis Steps
 
   ### 1. Load Context
   - Read existing files from conflict_detection.existing_files
   - Load plan from .workflow/active/{session_id}/.process/context-package.json
+  - **NEW**: Load exploration_results and use aggregated_insights for enhanced analysis
   - Extract role analyses and requirements
 
-  ### 2. Execute CLI Analysis (Enhanced with Scenario Uniqueness Detection)
+  ### 2. Execute CLI Analysis (Enhanced with Exploration + Scenario Uniqueness)
 
   Primary (Gemini):
   cd {project_root} && gemini -p "
-  PURPOSE: Detect conflicts between plan and codebase, including module scenario overlaps
+  PURPOSE: Detect conflicts between plan and codebase, using exploration insights
   TASK:
-  • Compare architectures
+  • **Review pre-identified conflict_indicators from exploration results**
+  • Compare architectures (use exploration key_patterns)
   • Identify breaking API changes
   • Detect data model incompatibilities
   • Assess dependency conflicts
-  • **NEW: Analyze module scenario uniqueness**
-    - Extract new module functionality from plan
-    - Search all existing modules with similar functionality
-    - Compare scenario coverage and identify overlaps
+  • **Analyze module scenario uniqueness**
+    - Use exploration integration_points for precise locations
+    - Cross-validate with exploration critical_files
     - Generate clarification questions for boundary definition
   MODE: analysis
   CONTEXT: @**/*.ts @**/*.js @**/*.tsx @**/*.jsx @.workflow/active/{session_id}/**/*
-  EXPECTED: Conflict list with severity ratings, including ModuleOverlap conflicts with:
-    - Existing module list with scenarios
-    - Overlap analysis matrix
+  EXPECTED: Conflict list with severity ratings, including:
+    - Validation of exploration conflict_indicators
+    - ModuleOverlap conflicts with overlap_analysis
     - Targeted clarification questions
-  RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on breaking changes, migration needs, and functional overlaps | analysis=READ-ONLY
+  RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on breaking changes, migration needs, and functional overlaps | Prioritize exploration-identified conflicts | analysis=READ-ONLY
   "
 
   Fallback: Qwen (same prompt) → Claude (manual analysis)

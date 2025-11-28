@@ -36,24 +36,23 @@ Step 1: Context-Package Detection
       ├─ Valid package exists → Return existing (skip execution)
       └─ No valid package → Continue to Step 2
 
-Step 2: Invoke Context-Search Agent
-   ├─ Phase 1: Initialization & Pre-Analysis
-   │  ├─ Load project.json as primary context
-   │  ├─ Initialize code-index
-   │  └─ Classify complexity
-   ├─ Phase 2: Multi-Source Discovery
-   │  ├─ Track 1: Historical archive analysis
-   │  ├─ Track 2: Reference documentation
-   │  ├─ Track 3: Web examples (Exa MCP)
-   │  └─ Track 4: Codebase analysis (5-layer)
-   └─ Phase 3: Synthesis & Packaging
-      ├─ Apply relevance scoring
-      ├─ Integrate brainstorm artifacts
-      ├─ Perform conflict detection
-      └─ Generate context-package.json
+Step 2: Complexity Assessment & Parallel Explore (NEW)
+   ├─ Analyze task_description → classify Low/Medium/High
+   ├─ Select exploration angles (1-4 based on complexity)
+   ├─ Launch N cli-explore-agents in parallel
+   │  └─ Each outputs: exploration-{angle}.json
+   └─ Generate explorations-manifest.json
 
-Step 3: Output Verification
-   └─ Verify context-package.json created
+Step 3: Invoke Context-Search Agent (with exploration input)
+   ├─ Phase 1: Initialization & Pre-Analysis
+   ├─ Phase 2: Multi-Source Discovery
+   │  ├─ Track 0: Exploration aggregation (NEW)
+   │  ├─ Track 1-4: Existing tracks
+   └─ Phase 3: Synthesis & Packaging
+      └─ Generate context-package.json with exploration_results
+
+Step 4: Output Verification
+   └─ Verify context-package.json contains exploration_results
 ```
 
 ## Execution Flow
@@ -80,9 +79,92 @@ if (file_exists(contextPackagePath)) {
 }
 ```
 
-### Step 2: Invoke Context-Search Agent
+### Step 2: Complexity Assessment & Parallel Explore
 
 **Only execute if Step 1 finds no valid package**
+
+```javascript
+// 2.1 Complexity Assessment
+function analyzeTaskComplexity(taskDescription) {
+  const text = taskDescription.toLowerCase();
+  if (/architect|refactor|restructure|modular|cross-module/.test(text)) return 'High';
+  if (/multiple|several|integrate|migrate|extend/.test(text)) return 'Medium';
+  return 'Low';
+}
+
+const ANGLE_PRESETS = {
+  architecture: ['architecture', 'dependencies', 'modularity', 'integration-points'],
+  security: ['security', 'auth-patterns', 'dataflow', 'validation'],
+  performance: ['performance', 'bottlenecks', 'caching', 'data-access'],
+  bugfix: ['error-handling', 'dataflow', 'state-management', 'edge-cases'],
+  feature: ['patterns', 'integration-points', 'testing', 'dependencies'],
+  refactor: ['architecture', 'patterns', 'dependencies', 'testing']
+};
+
+function selectAngles(taskDescription, complexity) {
+  const text = taskDescription.toLowerCase();
+  let preset = 'feature';
+  if (/refactor|architect|restructure/.test(text)) preset = 'architecture';
+  else if (/security|auth|permission/.test(text)) preset = 'security';
+  else if (/performance|slow|optimi/.test(text)) preset = 'performance';
+  else if (/fix|bug|error|issue/.test(text)) preset = 'bugfix';
+
+  const count = complexity === 'High' ? 4 : (complexity === 'Medium' ? 3 : 1);
+  return ANGLE_PRESETS[preset].slice(0, count);
+}
+
+const complexity = analyzeTaskComplexity(task_description);
+const selectedAngles = selectAngles(task_description, complexity);
+const sessionFolder = `.workflow/active/${session_id}/.process`;
+
+// 2.2 Launch Parallel Explore Agents
+const explorationTasks = selectedAngles.map((angle, index) =>
+  Task(
+    subagent_type="cli-explore-agent",
+    description=`Explore: ${angle}`,
+    prompt=`
+## Task Objective
+Execute **${angle}** exploration for context gathering.
+
+## Assigned Context
+- **Exploration Angle**: ${angle}
+- **Task Description**: ${task_description}
+- **Session ID**: ${session_id}
+- **Exploration Index**: ${index + 1} of ${selectedAngles.length}
+- **Output File**: ${sessionFolder}/exploration-${angle}.json
+
+## MANDATORY FIRST STEPS
+1. Run: ~/.claude/scripts/get_modules_by_depth.sh
+2. Run: rg -l "{keywords}" --type ts
+3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json
+
+## Output
+File: ${sessionFolder}/exploration-${angle}.json (following explore-json-schema.json)
+Return: 2-3 sentence summary of ${angle} findings
+`
+  )
+);
+
+// 2.3 Generate Manifest after all complete
+const explorationFiles = bash(`find ${sessionFolder} -name "exploration-*.json" -type f`).split('\n').filter(f => f.trim());
+const explorationManifest = {
+  session_id,
+  task_description,
+  timestamp: new Date().toISOString(),
+  complexity,
+  exploration_count: selectedAngles.length,
+  angles_explored: selectedAngles,
+  explorations: explorationFiles.map(file => {
+    const data = JSON.parse(Read(file));
+    return { angle: data._metadata.exploration_angle, file: file.split('/').pop(), path: file, index: data._metadata.exploration_index };
+  })
+};
+Write(`${sessionFolder}/explorations-manifest.json`, JSON.stringify(explorationManifest, null, 2));
+```
+
+### Step 3: Invoke Context-Search Agent
+
+**Only execute after Step 2 completes**
 
 ```javascript
 Task(
@@ -97,6 +179,12 @@ Task(
 - **Task Description**: ${task_description}
 - **Output Path**: .workflow/${session_id}/.process/context-package.json
 
+## Exploration Input (from Step 2)
+- **Manifest**: ${sessionFolder}/explorations-manifest.json
+- **Exploration Count**: ${explorationManifest.exploration_count}
+- **Angles**: ${explorationManifest.angles_explored.join(', ')}
+- **Complexity**: ${complexity}
+
 ## Mission
 Execute complete context-search-agent workflow for implementation planning:
 
@@ -107,7 +195,8 @@ Execute complete context-search-agent workflow for implementation planning:
 4. **Analysis**: Extract keywords, determine scope, classify complexity based on task description and project state
 
 ### Phase 2: Multi-Source Context Discovery
-Execute all 4 discovery tracks:
+Execute all discovery tracks:
+- **Track 0**: Exploration aggregation (load ${sessionFolder}/explorations-manifest.json and aggregate)
 - **Track 1**: Historical archive analysis (query manifest.json for lessons learned)
 - **Track 2**: Reference documentation (CLAUDE.md, architecture docs)
 - **Track 3**: Web examples (use Exa MCP for unfamiliar tech/APIs)
@@ -130,6 +219,7 @@ Complete context-package.json with:
 - **dependencies**: {internal[], external[]} with dependency graph
 - **brainstorm_artifacts**: {guidance_specification, role_analyses[], synthesis_output} with content
 - **conflict_detection**: {risk_level, risk_factors, affected_modules[], mitigation_strategy, historical_conflicts[]}
+- **exploration_results**: {manifest_path, exploration_count, angles, explorations[], aggregated_insights} (from Track 0)
 
 ## Quality Validation
 Before completion verify:
@@ -146,7 +236,7 @@ Report completion with statistics.
 )
 ```
 
-### Step 3: Output Verification
+### Step 4: Output Verification
 
 After agent completes, verify output:
 
@@ -155,6 +245,12 @@ After agent completes, verify output:
 const outputPath = `.workflow/${session_id}/.process/context-package.json`;
 if (!file_exists(outputPath)) {
   throw new Error("❌ Agent failed to generate context-package.json");
+}
+
+// Verify exploration_results included
+const pkg = JSON.parse(Read(outputPath));
+if (pkg.exploration_results?.exploration_count > 0) {
+  console.log(`✅ Exploration results aggregated: ${pkg.exploration_results.exploration_count} angles`);
 }
 ```
 
@@ -176,6 +272,7 @@ Refer to `context-search-agent.md` Phase 3.7 for complete `context-package.json`
 - **dependencies**: Internal and external dependency graphs
 - **brainstorm_artifacts**: Brainstorm documents with full content (if exists)
 - **conflict_detection**: Risk assessment with mitigation strategies and historical conflicts
+- **exploration_results**: Aggregated exploration insights (from parallel explore phase)
 
 ## Historical Archive Analysis
 

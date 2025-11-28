@@ -100,12 +100,21 @@ Session ID: {session-id}
 Planning Mode: {agent-mode | cli-execute-mode}
 MCP Capabilities: {exa_code, exa_web, code_index}
 
+## EXPLORATION CONTEXT (from context-package.exploration_results)
+- Load exploration_results from context-package.json
+- Use aggregated_insights.critical_files for focus_paths generation
+- Apply aggregated_insights.constraints to acceptance criteria
+- Reference aggregated_insights.all_patterns for implementation approach
+- Use aggregated_insights.all_integration_points for precise modification locations
+- Use conflict_indicators for risk-aware task sequencing
+
 ## EXPECTED DELIVERABLES
 1. Task JSON Files (.task/IMPL-*.json)
    - 6-field schema (id, title, status, context_package_path, meta, context, flow_control)
    - Quantified requirements with explicit counts
    - Artifacts integration from context package
-   - Flow control with pre_analysis steps
+   - **focus_paths enhanced with exploration critical_files**
+   - Flow control with pre_analysis steps (include exploration integration_points analysis)
 
 2. Implementation Plan (IMPL_PLAN.md)
    - Context analysis and artifact references

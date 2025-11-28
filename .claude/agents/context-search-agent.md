@@ -100,9 +100,55 @@ if (!memory.has("README.md")) Read(README.md)
 
 ### Phase 2: Multi-Source Context Discovery
 
-Execute all 3 tracks in parallel for comprehensive coverage.
+Execute all tracks in parallel for comprehensive coverage.
 
 **Note**: Historical archive analysis (querying `.workflow/archives/manifest.json`) is optional and should be performed if the manifest exists. Inject findings into `conflict_detection.historical_conflicts[]`.
+
+#### Track 0: Exploration Aggregation (Optional)
+
+**Trigger**: When `explorations-manifest.json` exists in session `.process/` folder
+
+```javascript
+// Check for exploration results from context-gather parallel explore phase
+const manifestPath = `.workflow/active/${session_id}/.process/explorations-manifest.json`;
+if (file_exists(manifestPath)) {
+  const manifest = JSON.parse(Read(manifestPath));
+
+  // Load full exploration data from each file
+  const explorationData = manifest.explorations.map(exp => ({
+    ...exp,
+    data: JSON.parse(Read(exp.path))
+  }));
+
+  // Build explorations array with summaries
+  const explorations = explorationData.map(exp => ({
+    angle: exp.angle,
+    file: exp.file,
+    path: exp.path,
+    index: exp.data._metadata?.exploration_index || exp.index,
+    summary: {
+      relevant_files_count: exp.data.relevant_files?.length || 0,
+      key_patterns: exp.data.patterns,
+      integration_points: exp.data.integration_points
+    }
+  }));
+
+  // Aggregate insights across all explorations (fixed data access)
+  const aggregated_insights = {
+    critical_files: deduplicateByRelevance(explorationData.flatMap(e => e.data.relevant_files || [])),
+    conflict_indicators: explorationData.flatMap(e => extractConflictIndicators(e.data, e.angle)),
+    clarification_needs: deduplicateQuestions(explorationData.flatMap(e => e.data.clarification_needs || [])),
+    constraints: explorationData.map(e => ({ constraint: e.data.constraints, source_angle: e.angle })).filter(c => c.constraint),
+    all_patterns: explorationData.map(e => ({ patterns: e.data.patterns, source_angle: e.angle })),
+    all_integration_points: explorationData.map(e => ({ points: e.data.integration_points, source_angle: e.angle }))
+  };
+
+  // Store for Phase 3 packaging
+  exploration_results = { manifest_path: manifestPath, exploration_count: manifest.exploration_count,
+                         complexity: manifest.complexity, angles: manifest.angles_explored,
+                         explorations, aggregated_insights };
+}
+```
 
 #### Track 1: Reference Documentation
 
@@ -393,9 +439,38 @@ Calculate risk level based on:
     },
     "affected_modules": ["auth", "user-model", "middleware"],
     "mitigation_strategy": "Incremental refactoring with backward compatibility"
+  },
+  "exploration_results": {
+    "manifest_path": ".workflow/active/{session}/.process/explorations-manifest.json",
+    "exploration_count": 3,
+    "complexity": "Medium",
+    "angles": ["architecture", "dependencies", "testing"],
+    "explorations": [
+      {
+        "angle": "architecture",
+        "file": "exploration-architecture.json",
+        "path": ".workflow/active/{session}/.process/exploration-architecture.json",
+        "index": 1,
+        "summary": {
+          "relevant_files_count": 5,
+          "key_patterns": "Service layer with DI",
+          "integration_points": "Container.registerService:45-60"
+        }
+      }
+    ],
+    "aggregated_insights": {
+      "critical_files": [{"path": "src/auth/AuthService.ts", "relevance": 0.95, "mentioned_by_angles": ["architecture"]}],
+      "conflict_indicators": [{"type": "pattern_mismatch", "description": "...", "source_angle": "architecture", "severity": "medium"}],
+      "clarification_needs": [{"question": "...", "context": "...", "options": [], "source_angle": "architecture"}],
+      "constraints": [{"constraint": "Must follow existing DI pattern", "source_angle": "architecture"}],
+      "all_patterns": [{"patterns": "Service layer with DI", "source_angle": "architecture"}],
+      "all_integration_points": [{"points": "Container.registerService:45-60", "source_angle": "architecture"}]
+    }
   }
 }
 ```
+
+**Note**: `exploration_results` is populated when exploration files exist (from context-gather parallel explore phase). If no explorations, this field is omitted or empty.
 
 
 
