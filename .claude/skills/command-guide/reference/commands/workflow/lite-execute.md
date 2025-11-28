@@ -92,7 +92,7 @@ AskUserQuestion({
 
 **Trigger**: User calls with file path
 
-**Input**: Path to file containing task description or Enhanced Task JSON
+**Input**: Path to file containing task description or plan.json
 
 **Step 1: Read and Detect Format**
 
@@ -103,42 +103,30 @@ fileContent = Read(filePath)
 try {
   jsonData = JSON.parse(fileContent)
 
-  // Check if Enhanced Task JSON from lite-plan
-  if (jsonData.meta?.workflow === "lite-plan") {
-    // Extract plan data
-    planObject = {
-      summary: jsonData.context.plan.summary,
-      approach: jsonData.context.plan.approach,
-      tasks: jsonData.context.plan.tasks,
-      estimated_time: jsonData.meta.estimated_time,
-      recommended_execution: jsonData.meta.recommended_execution,
-      complexity: jsonData.meta.complexity
-    }
-    explorationContext = jsonData.context.exploration || null
-    clarificationContext = jsonData.context.clarifications || null
-    originalUserInput = jsonData.title
-
-    isEnhancedTaskJson = true
+  // Check if plan.json from lite-plan session
+  if (jsonData.summary && jsonData.approach && jsonData.tasks) {
+    planObject = jsonData
+    originalUserInput = jsonData.summary
+    isPlanJson = true
   } else {
-    // Valid JSON but not Enhanced Task JSON - treat as plain text
+    // Valid JSON but not plan.json - treat as plain text
     originalUserInput = fileContent
-    isEnhancedTaskJson = false
+    isPlanJson = false
   }
 } catch {
   // Not valid JSON - treat as plain text prompt
   originalUserInput = fileContent
-  isEnhancedTaskJson = false
+  isPlanJson = false
 }
 ```
 
 **Step 2: Create Execution Plan**
 
-If `isEnhancedTaskJson === true`:
-- Use extracted `planObject` directly
-- Skip planning, use lite-plan's existing plan
-- User still selects execution method and code review
+If `isPlanJson === true`:
+- Use `planObject` directly
+- User selects execution method and code review
 
-If `isEnhancedTaskJson === false`:
+If `isPlanJson === false`:
 - Treat file content as prompt (same behavior as Mode 2)
 - Create simple execution plan from content
 
@@ -150,26 +138,30 @@ If `isEnhancedTaskJson === false`:
 
 ## Execution Process
 
-### Workflow Overview
-
 ```
-Input Processing → Mode Detection
-    |
-    v
-[Mode 1] --in-memory: Load executionContext → Skip selection
-[Mode 2] Prompt: Create plan → User selects method + review
-[Mode 3] File: Detect format → Extract plan OR treat as prompt → User selects
-    |
-    v
-Execution & Progress Tracking
-    ├─ Step 1: Initialize execution tracking
-    ├─ Step 2: Create TodoWrite execution list
-    ├─ Step 3: Launch execution (Agent or Codex)
-    ├─ Step 4: Track execution progress
-    └─ Step 5: Code review (optional)
-    |
-    v
-Execution Complete
+Input Parsing:
+   └─ Decision (mode detection):
+      ├─ --in-memory flag → Mode 1: Load executionContext → Skip user selection
+      ├─ Ends with .md/.json/.txt → Mode 3: Read file → Detect format
+      │   ├─ Valid plan.json → Use planObject → User selects method + review
+      │   └─ Not plan.json → Treat as prompt → User selects method + review
+      └─ Other → Mode 2: Prompt description → User selects method + review
+
+Execution:
+   ├─ Step 1: Initialize result tracking (previousExecutionResults = [])
+   ├─ Step 2: Task grouping & batch creation
+   │   ├─ Extract explicit depends_on (no file/keyword inference)
+   │   ├─ Group: independent tasks → single parallel batch (maximize utilization)
+   │   ├─ Group: dependent tasks → sequential phases (respect dependencies)
+   │   └─ Create TodoWrite list for batches
+   ├─ Step 3: Launch execution
+   │   ├─ Phase 1: All independent tasks (⚡ single batch, concurrent)
+   │   └─ Phase 2+: Dependent tasks by dependency order
+   ├─ Step 4: Track progress (TodoWrite updates per batch)
+   └─ Step 5: Code review (if codeReviewTool ≠ "Skip")
+
+Output:
+   └─ Execution complete with results in previousExecutionResults[]
 ```
 
 ## Detailed Execution Steps
@@ -189,66 +181,68 @@ previousExecutionResults = []
 
 **Dependency Analysis & Grouping Algorithm**:
 ```javascript
-// Infer dependencies: same file → sequential, keywords (use/integrate) → sequential
-function inferDependencies(tasks) {
-  return tasks.map((task, i) => {
-    const deps = []
-    const file = task.file || task.title.match(/in\s+([^\s:]+)/)?.[1]
-    const keywords = (task.description || task.title).toLowerCase()
+// Use explicit depends_on from plan.json (no inference from file/keywords)
+function extractDependencies(tasks) {
+  const taskIdToIndex = {}
+  tasks.forEach((t, i) => { taskIdToIndex[t.id] = i })
 
-    for (let j = 0; j < i; j++) {
-      const prevFile = tasks[j].file || tasks[j].title.match(/in\s+([^\s:]+)/)?.[1]
-      if (file && prevFile === file) deps.push(j)  // Same file
-      else if (/use|integrate|call|import/.test(keywords)) deps.push(j)  // Keyword dependency
-    }
+  return tasks.map((task, i) => {
+    // Only use explicit depends_on from plan.json
+    const deps = (task.depends_on || [])
+      .map(depId => taskIdToIndex[depId])
+      .filter(idx => idx !== undefined && idx < i)
     return { ...task, taskIndex: i, dependencies: deps }
   })
 }
 
-// Group into batches: independent → parallel [P1,P2...], dependent → sequential [S1,S2...]
+// Group into batches: maximize parallel execution
 function createExecutionCalls(tasks, executionMethod) {
-  const tasksWithDeps = inferDependencies(tasks)
-  const maxBatch = executionMethod === "Codex" ? 4 : 7
-  const calls = []
+  const tasksWithDeps = extractDependencies(tasks)
   const processed = new Set()
+  const calls = []
 
-  // Parallel: independent tasks, different files, max batch size
-  const parallelGroups = []
-  tasksWithDeps.forEach(t => {
-    if (t.dependencies.length === 0 && !processed.has(t.taskIndex)) {
-      const group = [t]
-      processed.add(t.taskIndex)
-      tasksWithDeps.forEach(o => {
-        if (!o.dependencies.length && !processed.has(o.taskIndex) &&
-            group.length < maxBatch && t.file !== o.file) {
-          group.push(o)
-          processed.add(o.taskIndex)
-        }
-      })
-      parallelGroups.push(group)
-    }
-  })
-
-  // Sequential: dependent tasks, batch when deps satisfied
-  const remaining = tasksWithDeps.filter(t => !processed.has(t.taskIndex))
-  while (remaining.length > 0) {
-    const batch = remaining.filter((t, i) =>
-      i < maxBatch && t.dependencies.every(d => processed.has(d))
-    )
-    if (!batch.length) break
-    batch.forEach(t => processed.add(t.taskIndex))
-    calls.push({ executionType: "sequential", groupId: `S${calls.length + 1}`, tasks: batch })
-    remaining.splice(0, remaining.length, ...remaining.filter(t => !processed.has(t.taskIndex)))
+  // Phase 1: All independent tasks → single parallel batch (maximize utilization)
+  const independentTasks = tasksWithDeps.filter(t => t.dependencies.length === 0)
+  if (independentTasks.length > 0) {
+    independentTasks.forEach(t => processed.add(t.taskIndex))
+    calls.push({
+      method: executionMethod,
+      executionType: "parallel",
+      groupId: "P1",
+      taskSummary: independentTasks.map(t => t.title).join(' | '),
+      tasks: independentTasks
+    })
   }
 
-  // Combine results
-  return [
-    ...parallelGroups.map((g, i) => ({
-      method: executionMethod, executionType: "parallel", groupId: `P${i+1}`,
-      taskSummary: g.map(t => t.title).join(' | '), tasks: g
-    })),
-    ...calls.map(c => ({ ...c, method: executionMethod, taskSummary: c.tasks.map(t => t.title).join(' → ') }))
-  ]
+  // Phase 2: Dependent tasks → sequential batches (respect dependencies)
+  let sequentialIndex = 1
+  let remaining = tasksWithDeps.filter(t => !processed.has(t.taskIndex))
+
+  while (remaining.length > 0) {
+    // Find tasks whose dependencies are all satisfied
+    const ready = remaining.filter(t =>
+      t.dependencies.every(d => processed.has(d))
+    )
+
+    if (ready.length === 0) {
+      console.warn('Circular dependency detected, forcing remaining tasks')
+      ready.push(...remaining)
+    }
+
+    // Group ready tasks (can run in parallel within this phase)
+    ready.forEach(t => processed.add(t.taskIndex))
+    calls.push({
+      method: executionMethod,
+      executionType: ready.length > 1 ? "parallel" : "sequential",
+      groupId: ready.length > 1 ? `P${calls.length + 1}` : `S${sequentialIndex++}`,
+      taskSummary: ready.map(t => t.title).join(ready.length > 1 ? ' | ' : ' → '),
+      tasks: ready
+    })
+
+    remaining = remaining.filter(t => !processed.has(t.taskIndex))
+  }
+
+  return calls
 }
 
 executionCalls = createExecutionCalls(planObject.tasks, executionMethod).map(c => ({ ...c, id: `[${c.groupId}]` }))
@@ -292,68 +286,112 @@ When to use:
 - `executionMethod = "Agent"`
 - `executionMethod = "Auto" AND complexity = "Low"`
 
+**Task Formatting Principle**: Each task is a self-contained checklist. The agent only needs to know what THIS task requires, not its position or relation to other tasks.
+
 Agent call format:
 ```javascript
-function formatTaskForAgent(task, index) {
+// Format single task as self-contained checklist
+function formatTaskChecklist(task) {
   return `
-### Task ${index + 1}: ${task.title}
-**File**: ${task.file}
+## ${task.title}
+
+**Target**: \`${task.file}\`
 **Action**: ${task.action}
-**Description**: ${task.description}
 
-**Implementation Steps**:
-${task.implementation.map((step, i) => `${i + 1}. ${step}`).join('\n')}
+### What to do
+${task.description}
 
-**Reference**:
+### How to do it
+${task.implementation.map(step => `- ${step}`).join('\n')}
+
+### Reference
 - Pattern: ${task.reference.pattern}
-- Example Files: ${task.reference.files.join(', ')}
-- Guidance: ${task.reference.examples}
+- Examples: ${task.reference.files.join(', ')}
+- Notes: ${task.reference.examples}
 
-**Acceptance Criteria**:
-${task.acceptance.map((criterion, i) => `${i + 1}. ${criterion}`).join('\n')}
+### Done when
+${task.acceptance.map(c => `- [ ] ${c}`).join('\n')}
+`
+}
+
+// For batch execution: aggregate tasks without numbering
+function formatBatchPrompt(batch) {
+  const tasksSection = batch.tasks.map(t => formatTaskChecklist(t)).join('\n---\n')
+
+  return `
+${originalUserInput ? `## Goal\n${originalUserInput}\n` : ''}
+
+## Tasks
+
+${tasksSection}
+
+${batch.context ? `## Context\n${batch.context}` : ''}
+
+Complete each task according to its "Done when" checklist.
 `
 }
 
 Task(
   subagent_type="code-developer",
-  description="Implement planned tasks",
-  prompt=`
-  ${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
-
-  ## Implementation Plan
-
-  **Summary**: ${planObject.summary}
-  **Approach**: ${planObject.approach}
-
-  ## Task Breakdown (${planObject.tasks.length} tasks)
-  ${planObject.tasks.map((task, i) => formatTaskForAgent(task, i)).join('\n')}
-
-  ${previousExecutionResults.length > 0 ? `\n## Previous Execution Results\n${previousExecutionResults.map(result => `
-[${result.executionId}] ${result.status}
-Tasks: ${result.tasksSummary}
-Completion: ${result.completionSummary}
-Outputs: ${result.keyOutputs || 'See git diff'}
-${result.notes ? `Notes: ${result.notes}` : ''}
-  `).join('\n---\n')}` : ''}
-
-  ## Code Context
-  ${explorationContext || "No exploration performed"}
-
-  ${clarificationContext ? `\n## Clarifications\n${JSON.stringify(clarificationContext, null, 2)}` : ''}
-
-  ${executionContext?.session?.artifacts ? `\n## Planning Artifacts
-  Detailed planning context available in:
-  ${executionContext.session.artifacts.exploration ? `- Exploration: ${executionContext.session.artifacts.exploration}` : ''}
-  - Plan: ${executionContext.session.artifacts.plan}
-  - Task: ${executionContext.session.artifacts.task}
-
-  Read these files for detailed architecture, patterns, and constraints.` : ''}
-
-  ## Requirements
-  MUST complete ALL ${planObject.tasks.length} tasks listed above in this single execution.
-  Return only after all tasks are fully implemented and tested.
-  `
+  description=batch.taskSummary,
+  prompt=formatBatchPrompt({
+    tasks: batch.tasks,
+    context: buildRelevantContext(batch.tasks)
+  })
 )
+
+// Helper: Build relevant context for batch
+// Context serves as REFERENCE ONLY - helps agent understand existing state
+function buildRelevantContext(tasks) {
+  const sections = []
+
+  // 1. Previous work completion - what's already done (reference for continuity)
+  if (previousExecutionResults.length > 0) {
+    sections.push(`### Previous Work (Reference)
+Use this to understand what's already completed. Avoid duplicating work.
+
+${previousExecutionResults.map(r => `**${r.tasksSummary}**
+- Status: ${r.status}
+- Outputs: ${r.keyOutputs || 'See git diff'}
+${r.notes ? `- Notes: ${r.notes}` : ''}`
+    ).join('\n\n')}`)
+  }
+
+  // 2. Related files - files that may need to be read/referenced
+  const relatedFiles = extractRelatedFiles(tasks)
+  if (relatedFiles.length > 0) {
+    sections.push(`### Related Files (Reference)
+These files may contain patterns, types, or utilities relevant to your tasks:
+
+${relatedFiles.map(f => `- \`${f}\``).join('\n')}`)
+  }
+
+  // 3. Clarifications from user
+  if (clarificationContext) {
+    sections.push(`### User Clarifications
+${Object.entries(clarificationContext).map(([q, a]) => `- **${q}**: ${a}`).join('\n')}`)
+  }
+
+  // 4. Artifact files (for deeper context if needed)
+  if (executionContext?.session?.artifacts?.plan) {
+    sections.push(`### Artifacts
+For detailed planning context, read: ${executionContext.session.artifacts.plan}`)
+  }
+
+  return sections.join('\n\n')
+}
+
+// Extract related files from task references
+function extractRelatedFiles(tasks) {
+  const files = new Set()
+  tasks.forEach(task => {
+    // Add reference example files
+    if (task.reference?.files) {
+      task.reference.files.forEach(f => files.add(f))
+    }
+  })
+  return [...files]
+}
 ```
 
 **Result Collection**: After completion, collect result following `executionResult` structure (see Data Structures section)
@@ -364,83 +402,93 @@ When to use:
 - `executionMethod = "Codex"`
 - `executionMethod = "Auto" AND complexity = "Medium" or "High"`
 
-**Artifact Path Delegation**:
-- Include artifact file paths in CLI prompt for enhanced context
-- Codex can read artifact files for detailed planning information
-- Example: Reference exploration.json for architecture patterns
+**Task Formatting Principle**: Same as Agent - each task is a self-contained checklist. No task numbering or position awareness.
 
 Command format:
 ```bash
-function formatTaskForCodex(task, index) {
+// Format single task as compact checklist for CLI
+function formatTaskForCLI(task) {
   return `
-${index + 1}. ${task.title} (${task.file})
-   Action: ${task.action}
-   What: ${task.description}
-   How:
-${task.implementation.map((step, i) => `   ${i + 1}. ${step}`).join('\n')}
-   Reference: ${task.reference.pattern} (see ${task.reference.files.join(', ')})
-   Guidance: ${task.reference.examples}
-   Verify:
-${task.acceptance.map((criterion, i) => `   - ${criterion}`).join('\n')}
+## ${task.title}
+File: ${task.file}
+Action: ${task.action}
+
+What: ${task.description}
+
+How:
+${task.implementation.map(step => `- ${step}`).join('\n')}
+
+Reference: ${task.reference.pattern} (see ${task.reference.files.join(', ')})
+Notes: ${task.reference.examples}
+
+Done when:
+${task.acceptance.map(c => `- [ ] ${c}`).join('\n')}
 `
 }
 
-codex --full-auto exec "
-${originalUserInput ? `## Original User Request\n${originalUserInput}\n\n` : ''}
+// Build CLI prompt for batch
+// Context provides REFERENCE information - not requirements to fulfill
+function buildCLIPrompt(batch) {
+  const tasksSection = batch.tasks.map(t => formatTaskForCLI(t)).join('\n---\n')
 
-## Implementation Plan
+  let prompt = `${originalUserInput ? `## Goal\n${originalUserInput}\n\n` : ''}`
+  prompt += `## Tasks\n\n${tasksSection}\n`
 
-TASK: ${planObject.summary}
-APPROACH: ${planObject.approach}
+  // Context section - reference information only
+  const contextSections = []
 
-### Task Breakdown (${planObject.tasks.length} tasks)
-${planObject.tasks.map((task, i) => formatTaskForCodex(task, i)).join('\n')}
+  // 1. Previous work - what's already completed
+  if (previousExecutionResults.length > 0) {
+    contextSections.push(`### Previous Work (Reference)
+Already completed - avoid duplicating:
+${previousExecutionResults.map(r => `- ${r.tasksSummary}: ${r.status}${r.keyOutputs ? ` (${r.keyOutputs})` : ''}`).join('\n')}`)
+  }
 
-${previousExecutionResults.length > 0 ? `\n### Previous Execution Results\n${previousExecutionResults.map(result => `
-[${result.executionId}] ${result.status}
-Tasks: ${result.tasksSummary}
-Status: ${result.completionSummary}
-Outputs: ${result.keyOutputs || 'See git diff'}
-${result.notes ? `Notes: ${result.notes}` : ''}
-`).join('\n---\n')}
+  // 2. Related files from task references
+  const relatedFiles = [...new Set(batch.tasks.flatMap(t => t.reference?.files || []))]
+  if (relatedFiles.length > 0) {
+    contextSections.push(`### Related Files (Reference)
+Patterns and examples to follow:
+${relatedFiles.map(f => `- ${f}`).join('\n')}`)
+  }
 
-IMPORTANT: Review previous results. Build on completed work. Avoid duplication.
-` : ''}
+  // 3. User clarifications
+  if (clarificationContext) {
+    contextSections.push(`### Clarifications
+${Object.entries(clarificationContext).map(([q, a]) => `- ${q}: ${a}`).join('\n')}`)
+  }
 
-### Code Context from Exploration
-${explorationContext ? `
-Project Structure: ${explorationContext.project_structure || 'Standard structure'}
-Relevant Files: ${explorationContext.relevant_files?.join(', ') || 'TBD'}
-Current Patterns: ${explorationContext.patterns || 'Follow existing conventions'}
-Integration Points: ${explorationContext.dependencies || 'None specified'}
-Constraints: ${explorationContext.constraints || 'None'}
-` : 'No prior exploration - analyze codebase as needed'}
+  // 4. Plan artifact for deeper context
+  if (executionContext?.session?.artifacts?.plan) {
+    contextSections.push(`### Artifacts
+Detailed plan: ${executionContext.session.artifacts.plan}`)
+  }
 
-${clarificationContext ? `\n### User Clarifications\n${Object.entries(clarificationContext).map(([q, a]) => `${q}: ${a}`).join('\n')}` : ''}
+  if (contextSections.length > 0) {
+    prompt += `\n## Context\n${contextSections.join('\n\n')}\n`
+  }
 
-${executionContext?.session?.artifacts ? `\n### Planning Artifact Files
-Detailed planning context available in session folder:
-${executionContext.session.artifacts.exploration ? `- Exploration: ${executionContext.session.artifacts.exploration}` : ''}
-- Plan: ${executionContext.session.artifacts.plan}
-- Task: ${executionContext.session.artifacts.task}
+  prompt += `\nComplete each task according to its "Done when" checklist.`
 
-Read these files for complete architecture details, code patterns, and integration constraints.
-` : ''}
+  return prompt
+}
 
-## Requirements
-MUST complete ALL ${planObject.tasks.length} tasks listed above in this single execution.
-Return only after all tasks are fully implemented and tested.
-
-Complexity: ${planObject.complexity}
-" --skip-git-repo-check -s danger-full-access
+codex --full-auto exec "${buildCLIPrompt(batch)}" --skip-git-repo-check -s danger-full-access
 ```
 
 **Execution with tracking**:
 ```javascript
 // Launch CLI in foreground (NOT background)
+// Timeout based on complexity: Low=40min, Medium=60min, High=100min
+const timeoutByComplexity = {
+  "Low": 2400000,    // 40 minutes
+  "Medium": 3600000, // 60 minutes
+  "High": 6000000    // 100 minutes
+}
+
 bash_result = Bash(
   command=cli_command,
-  timeout=600000  // 10 minutes
+  timeout=timeoutByComplexity[planObject.complexity] || 3600000
 )
 
 // Update TodoWrite when execution completes
@@ -456,64 +504,63 @@ Progress tracked at batch level (not individual task level). Icons: ⚡ (paralle
 
 **Skip Condition**: Only run if `codeReviewTool ≠ "Skip"`
 
-**Review Focus**: Verify implementation against task.json acceptance criteria
-- Read task.json from session artifacts for acceptance criteria
+**Review Focus**: Verify implementation against plan acceptance criteria
+- Read plan.json for task acceptance criteria
 - Check each acceptance criterion is fulfilled
 - Validate code quality and identify issues
 - Ensure alignment with planned approach
 
 **Operations**:
-- Agent Review: Current agent performs direct review (read task.json for acceptance criteria)
-- Gemini Review: Execute gemini CLI with review prompt (task.json in CONTEXT)
-- Custom tool: Execute specified CLI tool (qwen, codex, etc.) with task.json reference
+- Agent Review: Current agent performs direct review
+- Gemini Review: Execute gemini CLI with review prompt
+- Custom tool: Execute specified CLI tool (qwen, codex, etc.)
 
 **Unified Review Template** (All tools use same standard):
 
 **Review Criteria**:
-- **Acceptance Criteria**: Verify each criterion from task.json `context.acceptance`
+- **Acceptance Criteria**: Verify each criterion from plan.tasks[].acceptance
 - **Code Quality**: Analyze quality, identify issues, suggest improvements
 - **Plan Alignment**: Validate implementation matches planned approach
 
 **Shared Prompt Template** (used by all CLI tools):
 ```
-PURPOSE: Code review for implemented changes against task.json acceptance criteria
-TASK: • Verify task.json acceptance criteria fulfillment • Analyze code quality • Identify issues • Suggest improvements • Validate plan adherence
+PURPOSE: Code review for implemented changes against plan acceptance criteria
+TASK: • Verify plan acceptance criteria fulfillment • Analyze code quality • Identify issues • Suggest improvements • Validate plan adherence
 MODE: analysis
-CONTEXT: @**/* @{task.json} @{plan.json} [@{exploration.json}] | Memory: Review lite-execute changes against task.json requirements
-EXPECTED: Quality assessment with acceptance criteria verification, issue identification, and recommendations. Explicitly check each acceptance criterion from task.json.
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on task.json acceptance criteria and plan adherence | analysis=READ-ONLY
+CONTEXT: @**/* @{plan.json} [@{exploration.json}] | Memory: Review lite-execute changes against plan requirements
+EXPECTED: Quality assessment with acceptance criteria verification, issue identification, and recommendations. Explicitly check each acceptance criterion from plan.json tasks.
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-quality.txt) | Focus on plan acceptance criteria and plan adherence | analysis=READ-ONLY
 ```
 
 **Tool-Specific Execution** (Apply shared prompt template above):
 
 ```bash
 # Method 1: Agent Review (current agent)
-# - Read task.json: ${executionContext.session.artifacts.task}
+# - Read plan.json: ${executionContext.session.artifacts.plan}
 # - Apply unified review criteria (see Shared Prompt Template)
 # - Report findings directly
 
 # Method 2: Gemini Review (recommended)
 gemini -p "[Shared Prompt Template with artifacts]"
-# CONTEXT includes: @**/* @${task.json} @${plan.json} [@${exploration.json}]
+# CONTEXT includes: @**/* @${plan.json} [@${exploration.json}]
 
 # Method 3: Qwen Review (alternative)
 qwen -p "[Shared Prompt Template with artifacts]"
 # Same prompt as Gemini, different execution engine
 
 # Method 4: Codex Review (autonomous)
-codex --full-auto exec "[Verify task.json acceptance criteria at ${task.json}]" --skip-git-repo-check -s danger-full-access
+codex --full-auto exec "[Verify plan acceptance criteria at ${plan.json}]" --skip-git-repo-check -s danger-full-access
 ```
 
 **Implementation Note**: Replace `[Shared Prompt Template with artifacts]` placeholder with actual template content, substituting:
-- `@{task.json}` → `@${executionContext.session.artifacts.task}`
 - `@{plan.json}` → `@${executionContext.session.artifacts.plan}`
-- `[@{exploration.json}]` → `@${executionContext.session.artifacts.exploration}` (if exists)
+- `[@{exploration.json}]` → exploration files from artifacts (if exists)
 
 ## Best Practices
 
 **Input Modes**: In-memory (lite-plan), prompt (standalone), file (JSON/text)
-**Batch Limits**: Agent 7 tasks, CLI 4 tasks
-**Execution**: Parallel batches use single Claude message with multiple tool calls (no concurrency limit)
+**Task Grouping**: Based on explicit depends_on only; independent tasks run in single parallel batch
+**Execution**: All independent tasks launch concurrently via single Claude message with multiple tool calls
 
 ## Error Handling
 
@@ -543,7 +590,9 @@ Passed from lite-plan via global variable:
     recommended_execution: string,
     complexity: string
   },
-  explorationContext: {...} | null,
+  explorationsContext: {...} | null,       // Multi-angle explorations
+  explorationAngles: string[],             // List of exploration angles
+  explorationManifest: {...} | null,       // Exploration manifest
   clarificationContext: {...} | null,
   executionMethod: "Agent" | "Codex" | "Auto",
   codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
@@ -554,9 +603,9 @@ Passed from lite-plan via global variable:
     id: string,                        // Session identifier: {taskSlug}-{shortTimestamp}
     folder: string,                    // Session folder path: .workflow/.lite-plan/{session-id}
     artifacts: {
-      exploration: string | null,      // exploration.json path (if exploration performed)
-      plan: string,                    // plan.json path (always present)
-      task: string                     // task.json path (always exported)
+      explorations: [{angle, path}],   // exploration-{angle}.json paths
+      explorations_manifest: string,   // explorations-manifest.json path
+      plan: string                     // plan.json path (always present)
     }
   }
 }

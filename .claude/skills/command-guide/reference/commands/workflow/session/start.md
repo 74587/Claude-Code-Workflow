@@ -148,6 +148,10 @@ bash(echo '{"session_id":"WFS-fix-login-bug","project":"fix login bug","status":
 
 **Output**: `SESSION_ID: WFS-fix-login-bug`
 
+## Execution Guideline
+
+- **Non-interrupting**: When called from other commands, this command completes and returns control to the caller without interrupting subsequent tasks.
+
 ## Output Format Specification
 
 ### Success
@@ -168,25 +172,6 @@ DECISION: Reusing existing session
 SESSION_ID: WFS-promptmaster-platform
 ```
 
-## Command Integration
-
-### For /workflow:plan (Use Auto Mode)
-```bash
-SlashCommand(command="/workflow:session:start --auto \"implement OAuth2 authentication\"")
-
-# Parse session ID from output
-grep "^SESSION_ID:" | awk '{print $2}'
-```
-
-### For Interactive Workflows (Use Discovery Mode)
-```bash
-SlashCommand(command="/workflow:session:start")
-```
-
-### For New Isolated Work (Use Force New Mode)
-```bash
-SlashCommand(command="/workflow:session:start --new \"experimental feature\"")
-```
 
 ## Session ID Format
 - Pattern: `WFS-[lowercase-slug]`

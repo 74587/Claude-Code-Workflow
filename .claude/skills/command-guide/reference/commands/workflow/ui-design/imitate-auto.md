@@ -26,7 +26,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 7. Phase 4: Design system integration → **Execute orchestrator task** → Reports completion
 
 **Phase Transition Mechanism**:
-- **Task Attachment**: `SlashCommand` invocation **ATTACHES** tasks to current workflow
+- **Task Attachment**: SlashCommand dispatch **ATTACHES** tasks to current workflow
 - **Task Execution**: Orchestrator **EXECUTES** these attached tasks itself
 - **Task Collapse**: After tasks complete, collapse them into phase summary
 - **Phase Transition**: Automatically execute next phase after collapsing
@@ -34,7 +34,51 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 
 **Auto-Continue Mechanism**: TodoWrite tracks phase status with dynamic task attachment/collapse. After executing all attached tasks, you MUST immediately collapse them, restore phase summary, and execute the next phase. No user intervention required. The workflow is NOT complete until reaching Phase 4.
 
-**Task Attachment Model**: SlashCommand invocation is NOT delegation - it's task expansion. The orchestrator executes these attached tasks itself, not waiting for external completion.
+**Task Attachment Model**: SlashCommand dispatch is NOT delegation - it's task expansion. The orchestrator executes these attached tasks itself, not waiting for external completion.
+
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --input, --session (legacy: --images, --prompt)
+   └─ Decision (input detection):
+      ├─ Contains * or glob matches → images_input (visual)
+      ├─ File/directory exists → code import source
+      └─ Pure text → design prompt
+
+Phase 0: Parameter Parsing & Input Detection
+   ├─ Step 1: Normalize parameters (legacy deprecation warning)
+   ├─ Step 2: Detect design source (hybrid | code_only | visual_only)
+   └─ Step 3: Initialize directories and metadata
+
+Phase 0.5: Code Import (Conditional)
+   └─ Decision (design_source):
+      ├─ hybrid → Dispatch /workflow:ui-design:import-from-code
+      └─ Other → Skip to Phase 2
+
+Phase 2: Style Extraction
+   └─ Decision (skip_style):
+      ├─ code_only AND style_complete → Use code import
+      └─ Otherwise → Dispatch /workflow:ui-design:style-extract
+
+Phase 2.3: Animation Extraction
+   └─ Decision (skip_animation):
+      ├─ code_only AND animation_complete → Use code import
+      └─ Otherwise → Dispatch /workflow:ui-design:animation-extract
+
+Phase 2.5: Layout Extraction
+   └─ Decision (skip_layout):
+      ├─ code_only AND layout_complete → Use code import
+      └─ Otherwise → Dispatch /workflow:ui-design:layout-extract
+
+Phase 3: UI Assembly
+   └─ Dispatch /workflow:ui-design:generate
+
+Phase 4: Design System Integration
+   └─ Decision (session_id):
+      ├─ Provided → Dispatch /workflow:ui-design:update
+      └─ Not provided → Standalone completion
+```
 
 ## Core Rules
 
@@ -42,7 +86,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Write(*), Bash(*)
 2. **No Preliminary Validation**: Sub-commands handle their own validation
 3. **Parse & Pass**: Extract data from each output for next phase
 4. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
-5. **⚠️ CRITICAL: Task Attachment Model** - SlashCommand invocation **ATTACHES** tasks to current workflow. Orchestrator **EXECUTES** these attached tasks itself, not waiting for external completion. This is NOT delegation - it's task expansion.
+5. **⚠️ CRITICAL: Task Attachment Model** - SlashCommand dispatch **ATTACHES** tasks to current workflow. Orchestrator **EXECUTES** these attached tasks itself, not waiting for external completion. This is NOT delegation - it's task expansion.
 6. **⚠️ CRITICAL: DO NOT STOP** - This is a continuous multi-phase workflow. After executing all attached tasks, you MUST immediately collapse them and execute the next phase. Workflow is NOT complete until Phase 4.
 
 ## Parameter Requirements
@@ -232,7 +276,9 @@ TodoWrite({todos: [
 
 ### Phase 0.5: Code Import & Completeness Assessment (Conditional)
 
-```bash
+**Step 0.5.1: Dispatch** - Import design system from code files
+
+```javascript
 # Only execute if code files detected
 IF design_source == "hybrid":
     REPORT: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -245,7 +291,7 @@ IF design_source == "hybrid":
               "--source \"{code_base_path}\""
 
     TRY:
-        # SlashCommand invocation ATTACHES import-from-code's tasks to current workflow
+        # SlashCommand dispatch ATTACHES import-from-code's tasks to current workflow
         # Orchestrator will EXECUTE these attached tasks itself:
         #   - Phase 0: Discover and categorize code files
         #   - Phase 1.1-1.3: Style/Animation/Layout Agent extraction
@@ -336,7 +382,9 @@ TodoWrite(mark_completed: "Initialize and detect design source",
 
 ### Phase 2: Style Extraction
 
-```bash
+**Step 2.1: Dispatch** - Extract style design system
+
+```javascript
 # Determine if style extraction needed
 skip_style = (design_source == "code_only" AND style_complete)
 
@@ -361,7 +409,7 @@ ELSE:
 
     extract_command = " ".join(command_parts)
 
-    # SlashCommand invocation ATTACHES style-extract's tasks to current workflow
+    # SlashCommand dispatch ATTACHES style-extract's tasks to current workflow
     # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(extract_command)
 
@@ -371,7 +419,9 @@ ELSE:
 
 ### Phase 2.3: Animation Extraction
 
-```bash
+**Step 2.3.1: Dispatch** - Extract animation patterns
+
+```javascript
 skip_animation = (design_source == "code_only" AND animation_complete)
 
 IF skip_animation:
@@ -392,7 +442,7 @@ ELSE:
 
     animation_extract_command = " ".join(command_parts)
 
-    # SlashCommand invocation ATTACHES animation-extract's tasks to current workflow
+    # SlashCommand dispatch ATTACHES animation-extract's tasks to current workflow
     # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(animation_extract_command)
 
@@ -402,7 +452,9 @@ ELSE:
 
 ### Phase 2.5: Layout Extraction
 
-```bash
+**Step 2.5.1: Dispatch** - Extract layout templates
+
+```javascript
 skip_layout = (design_source == "code_only" AND layout_complete)
 
 IF skip_layout:
@@ -425,7 +477,7 @@ ELSE:
 
     layout_extract_command = " ".join(command_parts)
 
-    # SlashCommand invocation ATTACHES layout-extract's tasks to current workflow
+    # SlashCommand dispatch ATTACHES layout-extract's tasks to current workflow
     # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(layout_extract_command)
 
@@ -435,11 +487,13 @@ ELSE:
 
 ### Phase 3: UI Assembly
 
-```bash
+**Step 3.1: Dispatch** - Assemble UI prototypes from design tokens and layout templates
+
+```javascript
 REPORT: "🚀 Phase 3: UI Assembly"
 generate_command = f"/workflow:ui-design:generate --design-id \"{design_id}\""
 
-# SlashCommand invocation ATTACHES generate's tasks to current workflow
+# SlashCommand dispatch ATTACHES generate's tasks to current workflow
 # Orchestrator will EXECUTE these attached tasks itself
 SlashCommand(generate_command)
 
@@ -449,12 +503,14 @@ TodoWrite(mark_completed: "Assemble UI", mark_in_progress: session_id ? "Integra
 
 ### Phase 4: Design System Integration
 
-```bash
+**Step 4.1: Dispatch** - Integrate design system into workflow session
+
+```javascript
 IF session_id:
     REPORT: "🚀 Phase 4: Design System Integration"
     update_command = f"/workflow:ui-design:update --session {session_id}"
 
-    # SlashCommand invocation ATTACHES update's tasks to current workflow
+    # SlashCommand dispatch ATTACHES update's tasks to current workflow
     # Orchestrator will EXECUTE these attached tasks itself
     SlashCommand(update_command)
 
@@ -570,26 +626,38 @@ ELSE:
 ```javascript
 // Initialize IMMEDIATELY at start of Phase 0 to track multi-phase execution (6 orchestrator-level tasks)
 TodoWrite({todos: [
-  {content: "Initialize and detect design source", status: "in_progress", activeForm: "Initializing"},
-  {content: "Extract style (complete design systems)", status: "pending", activeForm: "Extracting style"},
-  {content: "Extract animation (CSS auto mode)", status: "pending", activeForm: "Extracting animation"},
-  {content: "Extract layout (structure templates)", status: "pending", activeForm: "Extracting layout"},
-  {content: "Assemble UI prototypes", status: "pending", activeForm: "Assembling UI"},
-  {content: "Integrate design system", status: "pending", activeForm: "Integrating"}
+  {content: "Phase 0: Initialize and Detect Design Source", status: "in_progress", activeForm: "Initializing"},
+  {content: "Phase 2: Style Extraction", status: "pending", activeForm: "Extracting style"},
+  {content: "Phase 2.3: Animation Extraction", status: "pending", activeForm: "Extracting animation"},
+  {content: "Phase 2.5: Layout Extraction", status: "pending", activeForm: "Extracting layout"},
+  {content: "Phase 3: UI Assembly", status: "pending", activeForm: "Assembling UI"},
+  {content: "Phase 4: Design System Integration", status: "pending", activeForm: "Integrating"}
 ]})
 
 // ⚠️ CRITICAL: Dynamic TodoWrite task attachment strategy:
 //
-// **Key Concept**: SlashCommand invocation ATTACHES tasks to current workflow.
+// **Key Concept**: SlashCommand dispatch ATTACHES tasks to current workflow.
 // Orchestrator EXECUTES these attached tasks itself, not waiting for external completion.
 //
-// Phase 2-4 SlashCommand Invocation Pattern:
-// 1. SlashCommand invocation ATTACHES sub-command tasks to TodoWrite
-// 2. TodoWrite expands to include attached tasks
-// 3. Orchestrator EXECUTES attached tasks sequentially
-// 4. After all attached tasks complete, COLLAPSE them into phase summary
-// 5. Update next phase to in_progress
-// 6. IMMEDIATELY execute next phase SlashCommand (auto-continue)
+// Phase 2-4 SlashCommand Dispatch Pattern (when tasks are attached):
+// Example - Phase 2 with sub-tasks:
+// [
+//   {"content": "Phase 0: Initialize and Detect Design Source", "status": "completed", "activeForm": "Initializing"},
+//   {"content": "Phase 2: Style Extraction", "status": "in_progress", "activeForm": "Extracting style"},
+//   {"content": "  → Analyze design references", "status": "in_progress", "activeForm": "Analyzing references"},
+//   {"content": "  → Generate design tokens", "status": "pending", "activeForm": "Generating tokens"},
+//   {"content": "  → Create style guide", "status": "pending", "activeForm": "Creating guide"},
+//   {"content": "Phase 2.3: Animation Extraction", "status": "pending", "activeForm": "Extracting animation"},
+//   ...
+// ]
+//
+// After sub-tasks complete, COLLAPSE back to:
+// [
+//   {"content": "Phase 0: Initialize and Detect Design Source", "status": "completed", "activeForm": "Initializing"},
+//   {"content": "Phase 2: Style Extraction", "status": "completed", "activeForm": "Extracting style"},
+//   {"content": "Phase 2.3: Animation Extraction", "status": "in_progress", "activeForm": "Extracting animation"},
+//   ...
+// ]
 //
 ```
 
@@ -634,7 +702,7 @@ TodoWrite({todos: [
 
 - **Input**: `--images` (glob pattern) and/or `--prompt` (text/file paths) + optional `--session`
 - **Output**: Complete design system in `{base_path}/` (style-extraction, layout-extraction, prototypes)
-- **Sub-commands Called**:
+- **Sub-commands Dispatched**:
   1. `/workflow:ui-design:import-from-code` (Phase 0.5, conditional - if code files detected)
   2. `/workflow:ui-design:style-extract` (Phase 2 - complete design systems)
   3. `/workflow:ui-design:animation-extract` (Phase 2.3 - animation tokens)

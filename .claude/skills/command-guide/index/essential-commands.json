@@ -1,5 +1,27 @@
 [
   {
+    "name": "lite-plan",
+    "command": "/workflow:lite-plan",
+    "description": "Lightweight interactive planning workflow with in-memory planning, code exploration, and execution dispatch to lite-execute after user confirmation",
+    "arguments": "[-e|--explore] \\\"task description\\\"|file.md",
+    "category": "workflow",
+    "subcategory": null,
+    "usage_scenario": "planning",
+    "difficulty": "Intermediate",
+    "file_path": "workflow/lite-plan.md"
+  },
+  {
+    "name": "lite-fix",
+    "command": "/workflow:lite-fix",
+    "description": "Lightweight bug diagnosis and fix workflow with intelligent severity assessment and optional hotfix mode for production incidents",
+    "arguments": "[--hotfix] \\\"bug description or issue reference\\",
+    "category": "workflow",
+    "subcategory": null,
+    "usage_scenario": "general",
+    "difficulty": "Intermediate",
+    "file_path": "workflow/lite-fix.md"
+  },
+  {
     "name": "plan",
     "command": "/workflow:plan",
     "description": "5-phase planning workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs with optional CLI auto-execution",
@@ -44,37 +66,15 @@
     "file_path": "workflow/session/start.md"
   },
   {
-    "name": "execute",
-    "command": "/task:execute",
-    "description": "Execute task JSON using appropriate agent (@doc-generator/@implementation-agent/@test-agent) with pre-analysis context loading and status tracking",
-    "arguments": "task-id",
-    "category": "task",
+    "name": "review-session-cycle",
+    "command": "/workflow:review-session-cycle",
+    "description": "Session-based comprehensive multi-dimensional code review. Analyzes git changes from workflow session across 7 dimensions with hybrid parallel-iterative execution, aggregates findings, and performs focused deep-dives on critical issues until quality gates met.",
+    "arguments": "[session-id] [--dimensions=security,architecture,...] [--max-iterations=N]",
+    "category": "workflow",
     "subcategory": null,
-    "usage_scenario": "implementation",
+    "usage_scenario": "session-management",
     "difficulty": "Intermediate",
-    "file_path": "task/execute.md"
-  },
-  {
-    "name": "analyze",
-    "command": "/cli:analyze",
-    "description": "Read-only codebase analysis using Gemini (default), Qwen, or Codex with auto-pattern detection and template selection",
-    "arguments": "[--tool codex|gemini|qwen] [--enhance] analysis target",
-    "category": "cli",
-    "subcategory": null,
-    "usage_scenario": "analysis",
-    "difficulty": "Beginner",
-    "file_path": "cli/analyze.md"
-  },
-  {
-    "name": "chat",
-    "command": "/cli:chat",
-    "description": "Read-only Q&A interaction with Gemini/Qwen/Codex for codebase questions with automatic context inference",
-    "arguments": "[--tool codex|gemini|qwen] [--enhance] inquiry",
-    "category": "cli",
-    "subcategory": null,
-    "usage_scenario": "general",
-    "difficulty": "Beginner",
-    "file_path": "cli/chat.md"
+    "file_path": "workflow/review-session-cycle.md"
   },
   {
     "name": "docs",
@@ -110,17 +110,6 @@
     "file_path": "workflow/action-plan-verify.md"
   },
   {
-    "name": "review",
-    "command": "/workflow:review",
-    "description": "Post-implementation review with specialized types (security/architecture/action-items/quality) using analysis agents and Gemini",
-    "arguments": "[--type=security|architecture|action-items|quality] [optional: session-id]",
-    "category": "workflow",
-    "subcategory": null,
-    "usage_scenario": "analysis",
-    "difficulty": "Intermediate",
-    "file_path": "workflow/review.md"
-  },
-  {
     "name": "version",
     "command": "/version",
     "description": "Display Claude Code version information and check for updates",
@@ -130,16 +119,5 @@
     "usage_scenario": "general",
     "difficulty": "Beginner",
     "file_path": "version.md"
-  },
-  {
-    "name": "enhance-prompt",
-    "command": "/enhance-prompt",
-    "description": "Enhanced prompt transformation using session memory and intent analysis with --enhance flag detection",
-    "arguments": "user input to enhance",
-    "category": "general",
-    "subcategory": null,
-    "usage_scenario": "general",
-    "difficulty": "Intermediate",
-    "file_path": "enhance-prompt.md"
   }
 ]

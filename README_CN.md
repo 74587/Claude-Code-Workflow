@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.9.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.9.6-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,18 +14,14 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
 
-> **🎉 版本 5.9.3: 文档增强与上下文管理**
+> **🎉 版本 5.9.6: 审查周期增强与仪表盘自动化**
 >
 > **核心改进**:
-> - ✨ **增强的 JSON 模式** - 新增探索和计划 JSON 模式，改进任务上下文和规划
-> - 🎯 **智能体-任务执行规则** - 强制每个任务对应一个智能体，确保可靠执行
-> - 📚 **文档全面更新** - 工作流初始化、任务生成和智能体文档的综合更新
->   - **渐进式加载策略**: 改进大型代码库的上下文管理
->   - **智能工件选择**: 更好的任务 JSON 生成和上下文感知
->   - **框架集成**: 增强测试基础设施文档
-> - 🔧 **基于路径的上下文加载** - 智能体迁移到基于路径的上下文加载，提升性能
-> - 🎨 **UI 设计模板** - 整合工作流命令并新增 UI 设计模板
-> - 🐛 **Bug 修复** - 修正拼写错误并阐明执行行为
+> - ✨ **增强的审查仪表盘** - `review-cycle` 仪表盘支持实时进度跟踪和高级过滤
+> - 🎯 **新修复追踪仪表盘** - 新增独立的 `fix-dashboard.html` 监控 Bug 修复进度
+> - 🚀 **`lite-fix` 工作流** - 新增智能化、流程化的 Bug 诊断和修复命令
+> - 🛠️ **`lite-plan` 优化** - 成本感知并行执行、智能复杂度分析、健壮的上下文保护
+> - 🧠 **智能测试周期** - 改进 `test-cycle-execute` 智能迭代策略和通用 `@test-fix-agent`
 >
 > 详见 [CHANGELOG.md](CHANGELOG.md)。
 

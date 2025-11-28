@@ -24,6 +24,38 @@ Orchestrator command that invokes `context-search-agent` to gather comprehensive
 - **Plan Mode**: Full comprehensive analysis (vs lightweight brainstorm mode)
 - **Standardized Output**: Generate `.workflow/active/{session}/.process/context-package.json`
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session
+   └─ Parse: task_description (required)
+
+Step 1: Context-Package Detection
+   └─ Decision (existing package):
+      ├─ Valid package exists → Return existing (skip execution)
+      └─ No valid package → Continue to Step 2
+
+Step 2: Invoke Context-Search Agent
+   ├─ Phase 1: Initialization & Pre-Analysis
+   │  ├─ Load project.json as primary context
+   │  ├─ Initialize code-index
+   │  └─ Classify complexity
+   ├─ Phase 2: Multi-Source Discovery
+   │  ├─ Track 1: Historical archive analysis
+   │  ├─ Track 2: Reference documentation
+   │  ├─ Track 3: Web examples (Exa MCP)
+   │  └─ Track 4: Codebase analysis (5-layer)
+   └─ Phase 3: Synthesis & Packaging
+      ├─ Apply relevance scoring
+      ├─ Integrate brainstorm artifacts
+      ├─ Perform conflict detection
+      └─ Generate context-package.json
+
+Step 3: Output Verification
+   └─ Verify context-package.json created
+```
+
 ## Execution Flow
 
 ### Step 1: Context-Package Detection

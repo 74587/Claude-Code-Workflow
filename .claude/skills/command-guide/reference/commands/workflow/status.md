@@ -23,6 +23,35 @@ No synchronization needed - all views are calculated from current JSON state.
 /workflow:status --dashboard        # Generate HTML dashboard board
 ```
 
+## Execution Process
+
+```
+Input Parsing:
+   └─ Decision (mode detection):
+      ├─ --project flag → Project Overview Mode
+      ├─ --dashboard flag → Dashboard Mode
+      ├─ task-id argument → Task Details Mode
+      └─ No flags → Workflow Session Mode (default)
+
+Project Overview Mode:
+   ├─ Check project.json exists
+   ├─ Read project data
+   ├─ Parse and display overview + features
+   └─ Show recent archived sessions
+
+Workflow Session Mode (default):
+   ├─ Find active session
+   ├─ Load session data
+   ├─ Scan task files
+   └─ Display task progress
+
+Dashboard Mode:
+   ├─ Collect active sessions
+   ├─ Collect archived sessions
+   ├─ Generate HTML from template
+   └─ Write dashboard.html
+```
+
 ## Implementation Flow
 
 ### Mode Selection

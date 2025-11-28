@@ -2,28 +2,6 @@
   "cli": {
     "_root": [
       {
-        "name": "analyze",
-        "command": "/cli:analyze",
-        "description": "Read-only codebase analysis using Gemini (default), Qwen, or Codex with auto-pattern detection and template selection",
-        "arguments": "[--tool codex|gemini|qwen] [--enhance] analysis target",
-        "category": "cli",
-        "subcategory": null,
-        "usage_scenario": "analysis",
-        "difficulty": "Beginner",
-        "file_path": "cli/analyze.md"
-      },
-      {
-        "name": "chat",
-        "command": "/cli:chat",
-        "description": "Read-only Q&A interaction with Gemini/Qwen/Codex for codebase questions with automatic context inference",
-        "arguments": "[--tool codex|gemini|qwen] [--enhance] inquiry",
-        "category": "cli",
-        "subcategory": null,
-        "usage_scenario": "general",
-        "difficulty": "Beginner",
-        "file_path": "cli/chat.md"
-      },
-      {
         "name": "cli-init",
         "command": "/cli:cli-init",
         "description": "Generate .gemini/ and .qwen/ config directories with settings.json and ignore files based on workspace technology detection",
@@ -33,85 +11,6 @@
         "usage_scenario": "general",
         "difficulty": "Intermediate",
         "file_path": "cli/cli-init.md"
-      },
-      {
-        "name": "codex-execute",
-        "command": "/cli:codex-execute",
-        "description": "Multi-stage Codex execution with automatic task decomposition into grouped subtasks using resume mechanism for context continuity",
-        "arguments": "[--verify-git] task description or task-id",
-        "category": "cli",
-        "subcategory": null,
-        "usage_scenario": "implementation",
-        "difficulty": "Intermediate",
-        "file_path": "cli/codex-execute.md"
-      },
-      {
-        "name": "discuss-plan",
-        "command": "/cli:discuss-plan",
-        "description": "Multi-round collaborative planning using Gemini, Codex, and Claude synthesis with iterative discussion cycles (read-only, no code changes)",
-        "arguments": "[--topic '...'] [--task-id '...'] [--rounds N]",
-        "category": "cli",
-        "subcategory": null,
-        "usage_scenario": "planning",
-        "difficulty": "Intermediate",
-        "file_path": "cli/discuss-plan.md"
-      },
-      {
-        "name": "execute",
-        "command": "/cli:execute",
-        "description": "Autonomous code implementation with YOLO auto-approval using Gemini/Qwen/Codex, supports task ID or description input with automatic file pattern detection",
-        "arguments": "[--tool codex|gemini|qwen] [--enhance] description or task-id",
-        "category": "cli",
-        "subcategory": null,
-        "usage_scenario": "implementation",
-        "difficulty": "Intermediate",
-        "file_path": "cli/execute.md"
-      }
-    ],
-    "mode": [
-      {
-        "name": "bug-diagnosis",
-        "command": "/cli:mode:bug-diagnosis",
-        "description": "Read-only bug root cause analysis using Gemini/Qwen/Codex with systematic diagnosis template for fix suggestions",
-        "arguments": "[--tool codex|gemini|qwen] [--enhance] [--cd path] bug description",
-        "category": "cli",
-        "subcategory": "mode",
-        "usage_scenario": "analysis",
-        "difficulty": "Intermediate",
-        "file_path": "cli/mode/bug-diagnosis.md"
-      },
-      {
-        "name": "code-analysis",
-        "command": "/cli:mode:code-analysis",
-        "description": "Read-only execution path tracing using Gemini/Qwen/Codex with specialized analysis template for call flow and optimization",
-        "arguments": "[--tool codex|gemini|qwen] [--enhance] [--cd path] analysis target",
-        "category": "cli",
-        "subcategory": "mode",
-        "usage_scenario": "general",
-        "difficulty": "Intermediate",
-        "file_path": "cli/mode/code-analysis.md"
-      },
-      {
-        "name": "document-analysis",
-        "command": "/cli:mode:document-analysis",
-        "description": "Read-only technical document/paper analysis using Gemini/Qwen/Codex with systematic comprehension template for insights extraction",
-        "arguments": "[--tool codex|gemini|qwen] [--enhance] [--cd path] document path or topic",
-        "category": "cli",
-        "subcategory": "mode",
-        "usage_scenario": "general",
-        "difficulty": "Intermediate",
-        "file_path": "cli/mode/document-analysis.md"
-      },
-      {
-        "name": "plan",
-        "command": "/cli:mode:plan",
-        "description": "Read-only architecture planning using Gemini/Qwen/Codex with strategic planning template for modification plans and impact analysis",
-        "arguments": "[--tool codex|gemini|qwen] [--enhance] [--cd path] topic",
-        "category": "cli",
-        "subcategory": "mode",
-        "usage_scenario": "planning",
-        "difficulty": "Intermediate",
-        "file_path": "cli/mode/plan.md"
       }
     ]
   },
@@ -416,6 +315,39 @@
         "file_path": "workflow/replan.md"
       },
       {
+        "name": "review-fix",
+        "command": "/workflow:review-fix",
+        "description": "Automated fixing of code review findings with AI-powered planning and coordinated execution. Uses intelligent grouping, multi-stage timeline coordination, and test-driven verification.",
+        "arguments": "<export-file|review-dir> [--resume] [--max-iterations=N]",
+        "category": "workflow",
+        "subcategory": null,
+        "usage_scenario": "analysis",
+        "difficulty": "Intermediate",
+        "file_path": "workflow/review-fix.md"
+      },
+      {
+        "name": "review-module-cycle",
+        "command": "/workflow:review-module-cycle",
+        "description": "Independent multi-dimensional code review for specified modules/files. Analyzes specific code paths across 7 dimensions with hybrid parallel-iterative execution, independent of workflow sessions.",
+        "arguments": "<path-pattern> [--dimensions=security,architecture,...] [--max-iterations=N]",
+        "category": "workflow",
+        "subcategory": null,
+        "usage_scenario": "analysis",
+        "difficulty": "Intermediate",
+        "file_path": "workflow/review-module-cycle.md"
+      },
+      {
+        "name": "review-session-cycle",
+        "command": "/workflow:review-session-cycle",
+        "description": "Session-based comprehensive multi-dimensional code review. Analyzes git changes from workflow session across 7 dimensions with hybrid parallel-iterative execution, aggregates findings, and performs focused deep-dives on critical issues until quality gates met.",
+        "arguments": "[session-id] [--dimensions=security,architecture,...] [--max-iterations=N]",
+        "category": "workflow",
+        "subcategory": null,
+        "usage_scenario": "session-management",
+        "difficulty": "Intermediate",
+        "file_path": "workflow/review-session-cycle.md"
+      },
+      {
         "name": "review",
         "command": "/workflow:review",
         "description": "Post-implementation review with specialized types (security/architecture/action-items/quality) using analysis agents and Gemini",
@@ -699,7 +631,7 @@
       {
         "name": "task-generate-agent",
         "command": "/workflow:tools:task-generate-agent",
-        "description": "Autonomous task generation using action-planning-agent with discovery and output phases for workflow planning",
+        "description": "Generate implementation plan documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) using action-planning-agent - produces planning artifacts, does NOT execute code implementation",
         "arguments": "--session WFS-session-id [--cli-execute]",
         "category": "workflow",
         "subcategory": "tools",
@@ -719,17 +651,6 @@
         "file_path": "workflow/tools/task-generate-tdd.md"
       },
       {
-        "name": "task-generate",
-        "command": "/workflow:tools:task-generate",
-        "description": "Generate task JSON files and IMPL_PLAN.md from analysis results using action-planning-agent with artifact integration",
-        "arguments": "--session WFS-session-id [--cli-execute]",
-        "category": "workflow",
-        "subcategory": "tools",
-        "usage_scenario": "implementation",
-        "difficulty": "Intermediate",
-        "file_path": "workflow/tools/task-generate.md"
-      },
-      {
         "name": "tdd-coverage-analysis",
         "command": "/workflow:tools:tdd-coverage-analysis",
         "description": "Analyze test coverage and TDD cycle execution with Red-Green-Refactor compliance verification",
@@ -743,7 +664,7 @@
       {
         "name": "test-concept-enhanced",
         "command": "/workflow:tools:test-concept-enhanced",
-        "description": "Analyze test requirements and generate test generation strategy using Gemini with test-context package",
+        "description": "Coordinate test analysis workflow using cli-execution-agent to generate test strategy via Gemini",
         "arguments": "--session WFS-test-session-id --context path/to/test-context-package.json",
         "category": "workflow",
         "subcategory": "tools",
@@ -765,7 +686,7 @@
       {
         "name": "test-task-generate",
         "command": "/workflow:tools:test-task-generate",
-        "description": "Autonomous test-fix task generation using action-planning-agent with test-fix-retest cycle specification and discovery phase",
+        "description": "Generate test planning documents (IMPL_PLAN.md, test task JSONs, TODO_LIST.md) using action-planning-agent - produces test planning artifacts, does NOT execute tests",
         "arguments": "[--use-codex] [--cli-execute] --session WFS-test-session-id",
         "category": "workflow",
         "subcategory": "tools",

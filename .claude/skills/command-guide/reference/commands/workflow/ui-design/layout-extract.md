@@ -23,6 +23,39 @@ This command separates the "scaffolding" (HTML structure and CSS layout) from th
 - **Device-Aware**: Optimized for specific device types (desktop, mobile, tablet, responsive)
 - **Token-Based**: CSS uses `var()` placeholders for spacing and breakpoints
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --design-id, --session, --images, --prompt, --targets, --variants, --device-type, --interactive, --refine
+   └─ Decision (mode detection):
+      ├─ --refine flag → Refinement Mode (variants_count = 1)
+      └─ No --refine → Exploration Mode (variants_count = --variants OR 3)
+
+Phase 0: Setup & Input Validation
+   ├─ Step 1: Detect input, mode & targets
+   ├─ Step 2: Load inputs & create directories
+   └─ Step 3: Memory check (skip if cached)
+
+Phase 1: Layout Concept/Refinement Options Generation
+   ├─ Step 0.5: Load existing layout (Refinement Mode only)
+   ├─ Step 1: Generate options (Agent Task 1)
+   │  └─ Decision:
+   │     ├─ Exploration Mode → Generate contrasting layout concepts
+   │     └─ Refinement Mode → Generate refinement options
+   └─ Step 2: Verify options file created
+
+Phase 1.5: User Confirmation (Optional)
+   └─ Decision (--interactive flag):
+      ├─ --interactive present → Present options, capture selection
+      └─ No --interactive → Skip to Phase 2
+
+Phase 2: Layout Template Generation
+   ├─ Step 1: Load user selections or default to all
+   ├─ Step 2: Launch parallel agent tasks
+   └─ Step 3: Verify output files
+```
+
 ## Phase 0: Setup & Input Validation
 
 ### Step 1: Detect Input, Mode & Targets

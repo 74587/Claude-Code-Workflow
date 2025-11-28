@@ -52,14 +52,42 @@ Fast-track bug fixing workflow optimized for quick diagnosis, targeted fixes, an
 
 ## Execution Process
 
-### Workflow Overview
-
 ```
-Bug Input → Diagnosis (Phase 1) → Impact Assessment (Phase 2)
-        ↓
-    Severity Auto-Detection → Fix Planning (Phase 3)
-        ↓
-    Verification Strategy (Phase 4) → User Confirmation (Phase 5) → Execution (Phase 6)
+Input Parsing:
+   └─ Parse flags: --hotfix → hotfixMode = true | false
+
+Phase 1: Diagnosis & Root Cause Analysis
+   └─ Decision (confidence-based):
+      ├─ High confidence (specific error) → Direct grep search (5min)
+      ├─ Medium confidence → cli-explore-agent focused search (10-15min)
+      └─ Low confidence (vague) → cli-explore-agent broad search (20min)
+   └─ Hotfix mode: Minimal search (Read suspected file + git blame)
+
+Phase 2: Impact Assessment & Severity Auto-Detection
+   └─ Calculate risk_score → Auto-determine severity
+      ├─ ≥8.0 → critical
+      ├─ ≥5.0 → high
+      ├─ ≥3.0 → medium
+      └─ <3.0 → low
+   └─ Hotfix mode: Skip, assume critical
+
+Phase 3: Fix Planning & Strategy Selection
+   └─ Decision (by risk score):
+      ├─ risk_score ≥5.0 or hotfix → Single best strategy (fastest)
+      └─ risk_score <5.0 → Multiple strategy options for user selection
+
+Phase 4: Verification Strategy
+   └─ Select test scope by risk score
+   └─ Define branch strategy (feature vs hotfix)
+
+Phase 5: User Confirmation
+   └─ Default mode: 3 dimensions (approach, execution, verification)
+   └─ Hotfix mode: 2 dimensions (deploy confirmation, monitoring)
+
+Phase 6: Execution Dispatch
+   ├─ Export Enhanced Task JSON
+   ├─ Dispatch to lite-execute --in-memory
+   └─ Hotfix mode: Generate follow-up tasks
 ```
 
 ### Phase Summary
@@ -76,6 +104,14 @@ Bug Input → Diagnosis (Phase 1) → Impact Assessment (Phase 2)
 ---
 
 ## Detailed Phase Execution
+
+### Input Parsing
+
+**Parse --hotfix flag**:
+```javascript
+const hotfixMode = $ARGUMENTS.includes('--hotfix') || $ARGUMENTS.includes('-h')
+const bugDescription = $ARGUMENTS.replace(/--hotfix|-h/g, '').trim()
+```
 
 ### Phase 1: Diagnosis & Root Cause Analysis
 
@@ -479,7 +515,6 @@ if (mode === "hotfix") {
   - Postmortem: ${follow_up_tasks[1].id} (due in 1 week)
   - Location: ${sessionFolder}/followup.json
   `)
-}
 }
 ```
 

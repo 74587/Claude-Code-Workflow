@@ -278,6 +278,38 @@ def build_command_relationships() -> Dict[str, Any]:
         "workflow:ui-design:imitate-auto": {
             "calls_internally": ["workflow:ui-design:capture"],
             "next_steps": ["workflow:ui-design:generate"]
+        },
+
+        # Lite workflows
+        "workflow:lite-plan": {
+            "calls_internally": ["workflow:lite-execute"],
+            "next_steps": ["workflow:lite-execute", "workflow:status"],
+            "alternatives": ["workflow:plan"],
+            "prerequisites": []
+        },
+        "workflow:lite-fix": {
+            "next_steps": ["workflow:lite-execute", "workflow:status"],
+            "alternatives": ["workflow:lite-plan"],
+            "related": ["workflow:test-cycle-execute"]
+        },
+        "workflow:lite-execute": {
+            "prerequisites": ["workflow:lite-plan", "workflow:lite-fix"],
+            "related": ["workflow:execute", "workflow:status"]
+        },
+
+        # Review cycle workflows
+        "workflow:review-module-cycle": {
+            "next_steps": ["workflow:review-fix"],
+            "related": ["workflow:review-session-cycle", "workflow:review"]
+        },
+        "workflow:review-session-cycle": {
+            "prerequisites": ["workflow:execute"],
+            "next_steps": ["workflow:review-fix"],
+            "related": ["workflow:review-module-cycle", "workflow:review"]
+        },
+        "workflow:review-fix": {
+            "prerequisites": ["workflow:review-module-cycle", "workflow:review-session-cycle"],
+            "related": ["workflow:test-cycle-execute"]
         }
     }
 
@@ -322,20 +354,20 @@ def identify_essential_commands(all_commands: List[Dict]) -> List[Dict]:
     """Identify the most essential commands for beginners."""
     # Essential command names (14 most important) - use full command paths
     essential_names = [
+        "workflow:lite-plan",
+        "workflow:lite-fix",
         "workflow:plan",
         "workflow:execute",
         "workflow:status",
         "workflow:session:start",
-        "task:execute",
+        "workflow:review-session-cycle",
         "cli:analyze",
         "cli:chat",
         "memory:docs",
         "workflow:brainstorm:artifacts",
         "workflow:action-plan-verify",
         "workflow:resume",
-        "workflow:review",
-        "version",
-        "enhance-prompt"
+        "version"
     ]
 
     essential = []

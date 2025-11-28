@@ -19,8 +19,8 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 - **Manual First**: Default to manual fixes, use `--use-codex` flag for automated Codex fix application
 
 **Task Attachment Model**:
-- SlashCommand invocation **expands workflow** by attaching sub-tasks to current TodoWrite
-- When a sub-command is invoked (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
+- SlashCommand dispatch **expands workflow** by attaching sub-tasks to current TodoWrite
+- When a sub-command is dispatched (e.g., `/workflow:tools:test-context-gather`), its internal tasks are attached to the orchestrator's TodoWrite
 - Orchestrator **executes these attached tasks** sequentially
 - After completion, attached tasks are **collapsed** back to high-level phase summary
 - This is **task expansion**, not external delegation
@@ -50,13 +50,18 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 7. **Automatic Detection**: context-gather auto-detects test session and gathers source session context
 8. **Parse --use-codex Flag**: Extract flag from arguments and pass to Phase 4 (test-task-generate)
 9. **Command Boundary**: This command ends at Phase 5 summary. Test execution is NOT part of this command.
-10. **Task Attachment Model**: SlashCommand invocation **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
+10. **Task Attachment Model**: SlashCommand dispatch **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
 11. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
 
 ## 5-Phase Execution
 
 ### Phase 1: Create Test Session
-**Command**: `SlashCommand(command="/workflow:session:start --new \"Test validation for [sourceSessionId]\"")`
+
+**Step 1.1: Dispatch** - Create new test workflow session
+
+```javascript
+SlashCommand(command="/workflow:session:start --new \"Test validation for [sourceSessionId]\"")
+```
 
 **Input**: `sourceSessionId` from user argument (e.g., `WFS-user-auth`)
 
@@ -82,7 +87,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
 ### Phase 2: Gather Test Context
-**Command**: `SlashCommand(command="/workflow:tools:test-context-gather --session [testSessionId]")`
+
+**Step 2.1: Dispatch** - Gather test coverage context from source session
+
+```javascript
+SlashCommand(command="/workflow:tools:test-context-gather --session [testSessionId]")
+```
 
 **Input**: `testSessionId` from Phase 1 (e.g., `WFS-test-user-auth`)
 
@@ -104,9 +114,9 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 - Test framework detected
 - Test conventions documented
 
-<!-- TodoWrite: When test-context-gather invoked, INSERT 3 test-context-gather tasks -->
+<!-- TodoWrite: When test-context-gather dispatched, INSERT 3 test-context-gather tasks -->
 
-**TodoWrite Update (Phase 2 SlashCommand invoked - tasks attached)**:
+**TodoWrite Update (Phase 2 SlashCommand dispatched - tasks attached)**:
 ```json
 [
   {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
@@ -119,7 +129,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ]
 ```
 
-**Note**: SlashCommand invocation **attaches** test-context-gather's 3 tasks. Orchestrator **executes** these tasks.
+**Note**: SlashCommand dispatch **attaches** test-context-gather's 3 tasks. Orchestrator **executes** these tasks.
 
 **Next Action**: Tasks attached → **Execute Phase 2.1-2.3** sequentially
 
@@ -141,7 +151,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
 ### Phase 3: Test Generation Analysis
-**Command**: `SlashCommand(command="/workflow:tools:test-concept-enhanced --session [testSessionId] --context [testContextPath]")`
+
+**Step 3.1: Dispatch** - Analyze test requirements with Gemini
+
+```javascript
+SlashCommand(command="/workflow:tools:test-concept-enhanced --session [testSessionId] --context [testContextPath]")
+```
 
 **Input**:
 - `testSessionId` from Phase 1
@@ -168,9 +183,9 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
   - Implementation Targets (test files to create)
   - Success Criteria
 
-<!-- TodoWrite: When test-concept-enhanced invoked, INSERT 3 concept-enhanced tasks -->
+<!-- TodoWrite: When test-concept-enhanced dispatched, INSERT 3 concept-enhanced tasks -->
 
-**TodoWrite Update (Phase 3 SlashCommand invoked - tasks attached)**:
+**TodoWrite Update (Phase 3 SlashCommand dispatched - tasks attached)**:
 ```json
 [
   {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
@@ -183,7 +198,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ]
 ```
 
-**Note**: SlashCommand invocation **attaches** test-concept-enhanced's 3 tasks. Orchestrator **executes** these tasks.
+**Note**: SlashCommand dispatch **attaches** test-concept-enhanced's 3 tasks. Orchestrator **executes** these tasks.
 
 **Next Action**: Tasks attached → **Execute Phase 3.1-3.3** sequentially
 
@@ -205,7 +220,12 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
 ### Phase 4: Generate Test Tasks
-**Command**: `SlashCommand(command="/workflow:tools:test-task-generate [--use-codex] [--cli-execute] --session [testSessionId]")`
+
+**Step 4.1: Dispatch** - Generate test task JSON files and planning documents
+
+```javascript
+SlashCommand(command="/workflow:tools:test-task-generate [--use-codex] [--cli-execute] --session [testSessionId]")
+```
 
 **Input**:
 - `testSessionId` from Phase 1
@@ -252,9 +272,9 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
   - Phase 2: Iterative Gemini diagnosis + manual/Codex fixes (based on flag)
   - Phase 3: Final validation and certification
 
-<!-- TodoWrite: When test-task-generate invoked, INSERT 3 test-task-generate tasks -->
+<!-- TodoWrite: When test-task-generate dispatched, INSERT 3 test-task-generate tasks -->
 
-**TodoWrite Update (Phase 4 SlashCommand invoked - tasks attached)**:
+**TodoWrite Update (Phase 4 SlashCommand dispatched - tasks attached)**:
 ```json
 [
   {"content": "Create independent test session", "status": "completed", "activeForm": "Creating test session"},
@@ -267,7 +287,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ]
 ```
 
-**Note**: SlashCommand invocation **attaches** test-task-generate's 3 tasks. Orchestrator **executes** these tasks.
+**Note**: SlashCommand dispatch **attaches** test-task-generate's 3 tasks. Orchestrator **executes** these tasks.
 
 **Next Action**: Tasks attached → **Execute Phase 4.1-4.3** sequentially
 
@@ -329,7 +349,7 @@ Ready for execution. Use appropriate workflow commands to proceed.
 
 ### Key Principles
 
-1. **Task Attachment** (when SlashCommand invoked):
+1. **Task Attachment** (when SlashCommand dispatched):
    - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
    - Example: `/workflow:tools:test-context-gather` attaches 3 sub-tasks (Phase 2.1, 2.2, 2.3)
    - First attached task marked as `in_progress`, others as `pending`
@@ -346,7 +366,7 @@ Ready for execution. Use appropriate workflow commands to proceed.
    - No user intervention required between phases
    - TodoWrite dynamically reflects current execution state
 
-**Lifecycle Summary**: Initial pending tasks → Phase invoked (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
+**Lifecycle Summary**: Initial pending tasks → Phase dispatched (tasks ATTACHED) → Sub-tasks executed sequentially → Phase completed (tasks COLLAPSED to summary) → Next phase begins → Repeat until all phases complete.
 
 ### Test-Gen Specific Features
 
@@ -483,7 +503,7 @@ See `/workflow:tools:test-task-generate` for complete JSON schemas.
 **Prerequisite Commands**:
 - `/workflow:plan` or `/workflow:execute` - Complete implementation session that needs test validation
 
-**Called by This Command** (5 phases):
+**Dispatched by This Command** (5 phases):
 - `/workflow:session:start` - Phase 1: Create independent test workflow session
 - `/workflow:tools:test-context-gather` - Phase 2: Analyze test coverage and gather source session context
 - `/workflow:tools:test-concept-enhanced` - Phase 3: Generate test requirements and strategy using Gemini

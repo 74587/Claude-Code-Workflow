@@ -16,9 +16,9 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 **Lazy Loading**: Task JSONs read **on-demand** during execution, not upfront. TODO_LIST.md + IMPL_PLAN.md provide metadata for planning.
 
 **Loading Strategy**:
-- **TODO_LIST.md**: Read in Phase 2 (task metadata, status, dependencies)
-- **IMPL_PLAN.md**: Read existence in Phase 2, parse execution strategy when needed
-- **Task JSONs**: Complete lazy loading (read only during execution)
+- **TODO_LIST.md**: Read in Phase 3 (task metadata, status, dependencies for TodoWrite generation)
+- **IMPL_PLAN.md**: Check existence in Phase 2 (normal mode), parse execution strategy in Phase 4A
+- **Task JSONs**: Lazy loading - read only when task is about to execute (Phase 4B)
 
 ## Core Rules
 **Complete entire workflow autonomously without user interruption, using TodoWrite for comprehensive progress tracking.**
@@ -38,6 +38,48 @@ Orchestrates autonomous workflow execution through systematic task discovery, ag
 ## Execution Philosophy
 - **Progress tracking**: Continuous TodoWrite updates throughout entire workflow execution
 - **Autonomous completion**: Execute all tasks without user interruption until workflow complete
+
+## Execution Process
+
+```
+Normal Mode:
+Phase 1: Discovery
+   ├─ Count active sessions
+   └─ Decision:
+      ├─ count=0 → ERROR: No active sessions
+      ├─ count=1 → Auto-select session → Phase 2
+      └─ count>1 → AskUserQuestion (max 4 options) → Phase 2
+
+Phase 2: Planning Document Validation
+   ├─ Check IMPL_PLAN.md exists
+   ├─ Check TODO_LIST.md exists
+   └─ Validate .task/ contains IMPL-*.json files
+
+Phase 3: TodoWrite Generation
+   ├─ Parse TODO_LIST.md for task statuses
+   ├─ Generate TodoWrite for entire workflow
+   └─ Prepare session context paths
+
+Phase 4: Execution Strategy & Task Execution
+   ├─ Step 4A: Parse execution strategy from IMPL_PLAN.md
+   └─ Step 4B: Execute tasks with lazy loading
+      └─ Loop:
+         ├─ Get next in_progress task from TodoWrite
+         ├─ Lazy load task JSON
+         ├─ Launch agent with task context
+         ├─ Mark task completed
+         └─ Advance to next task
+
+Phase 5: Completion
+   ├─ Update task statuses in JSON files
+   ├─ Generate summaries
+   └─ Auto-call /workflow:session:complete
+
+Resume Mode (--resume-session):
+   ├─ Skip Phase 1 & Phase 2
+   └─ Entry Point: Phase 3 (TodoWrite Generation)
+      └─ Continue: Phase 4 → Phase 5
+```
 
 ## Execution Lifecycle
 
@@ -81,15 +123,30 @@ bash(for dir in .workflow/active/WFS-*/; do
 done)
 ```
 
-Use AskUserQuestion to present formatted options:
-```
-Multiple active workflow sessions detected. Please select one:
+Use AskUserQuestion to present formatted options (max 4 options shown):
+```javascript
+// If more than 4 sessions, show most recent 4 with "Other" option for manual input
+const sessions = getActiveSessions()  // sorted by last modified
+const displaySessions = sessions.slice(0, 4)
 
-1. WFS-auth-system | Authentication System | 3/5 tasks (60%)
-2. WFS-payment-module | Payment Integration | 0/8 tasks (0%)
-
-Enter number, full session ID, or partial match:
+AskUserQuestion({
+  questions: [{
+    question: "Multiple active sessions detected. Select one:",
+    header: "Session",
+    multiSelect: false,
+    options: displaySessions.map(s => ({
+      label: s.id,
+      description: `${s.project} | ${s.progress}`
+    }))
+    // Note: User can select "Other" to manually enter session ID
+  }]
+})
 ```
+
+**Input Validation**:
+- If user selects from options: Use selected session ID
+- If user selects "Other" and provides input: Validate session exists
+- If validation fails: Show error and re-prompt or suggest available sessions
 
 Parse user input (supports: number "1", full ID "WFS-auth-system", or partial "auth"), validate selection, and continue to Phase 2.
 
@@ -103,20 +160,19 @@ bash(cat .workflow/active/${sessionId}/workflow-session.json)
 
 **Resume Mode**: This entire phase is skipped when `--resume-session="session-id"` flag is provided.
 
-### Phase 2: Planning Document Analysis
+### Phase 2: Planning Document Validation
 **Applies to**: Normal mode only (skipped in resume mode)
 
-**Optimized to avoid reading all task JSONs upfront**
+**Purpose**: Validate planning artifacts exist before execution
 
 **Process**:
-1. **Check IMPL_PLAN.md**: Verify file exists and has valid structure (defer detailed parsing to Phase 4)
-2. **Read TODO_LIST.md**: Get current task statuses and execution progress
-3. **Extract Task Metadata**: Parse task IDs, titles, and dependency relationships from TODO_LIST.md
-4. **Build Execution Queue**: Determine ready tasks based on TODO_LIST.md status and dependencies
+1. **Check IMPL_PLAN.md**: Verify file exists (defer detailed parsing to Phase 4A)
+2. **Check TODO_LIST.md**: Verify file exists (defer reading to Phase 3)
+3. **Validate Task Directory**: Ensure `.task/` contains at least one IMPL-*.json file
 
-**Key Optimization**: Use IMPL_PLAN.md (existence check only) and TODO_LIST.md as primary sources instead of reading all task JSONs. Detailed IMPL_PLAN.md parsing happens in Phase 4A.
+**Key Optimization**: Only existence checks here. Actual file reading happens in later phases.
 
-**Resume Mode**: When `--resume-session` flag is provided, **session discovery** (Phase 1) is skipped, but **task metadata loading** (TODO_LIST.md reading) still occurs in Phase 3 for TodoWrite generation.
+**Resume Mode**: This phase is skipped when `--resume-session` flag is provided. Resume mode entry point is Phase 3.
 
 ### Phase 3: TodoWrite Generation
 **Applies to**: Both normal and resume modes (resume mode entry point)
@@ -156,7 +212,7 @@ If IMPL_PLAN.md lacks execution strategy, use intelligent fallback (analyze task
 ```
 while (TODO_LIST.md has pending tasks) {
   next_task_id = getTodoWriteInProgressTask()
-  task_json = Read(.workflow/session/{session}/.task/{next_task_id}.json)  // Lazy load
+  task_json = Read(.workflow/active/{session}/.task/{next_task_id}.json)  // Lazy load
   executeTaskWithAgent(task_json)
   updateTodoListMarkCompleted(next_task_id)
   advanceTodoWriteToNextTask()

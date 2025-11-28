@@ -2,7 +2,7 @@
 
 This document provides a comprehensive reference for all commands available in the Claude Code Workflow (CCW) system.
 
-> **Version 5.0 Update**: Streamlined command structure focusing on essential tools. Removed MCP code-index dependency for better stability and performance.
+> **Version 5.9.6 Update**: Enhanced review cycle with dashboards, optimized lite-plan with parallel execution, and added lite-fix workflow for intelligent bug diagnosis.
 
 ## Unified CLI Commands (`/cli:*`)
 
@@ -38,8 +38,10 @@ These commands orchestrate complex, multi-phase development processes, from plan
 | Command | Description |
 |---|---|
 | `/workflow:plan` | Orchestrate 5-phase planning workflow with quality gate, executing commands and passing context between phases. |
-| `/workflow:lite-plan` | ⚡ **NEW** Lightweight interactive planning and execution workflow with in-memory planning, smart code exploration, three-dimensional multi-select confirmation (task approval + execution method + code review), and parallel task execution support. |
-| `/workflow:replan` | ⚡ **NEW** Interactive workflow replanning with session-level artifact updates and boundary clarification through guided questioning. Supports both session-wide and task-specific modifications. |
+| `/workflow:lite-plan` | Lightweight interactive planning and execution workflow with in-memory planning, smart code exploration, cost-aware parallel execution, and 50K context protection. |
+| `/workflow:lite-fix` | ⚡ **NEW** Intelligent bug diagnosis and fix workflow with adaptive severity assessment, risk-aware verification, and optional hotfix mode. |
+| `/workflow:lite-execute` | Execute tasks based on in-memory plan, prompt description, or file content. |
+| `/workflow:replan` | Interactive workflow replanning with session-level artifact updates and boundary clarification through guided questioning. |
 | `/workflow:execute` | Coordinate agents for existing workflow tasks with automatic discovery. |
 | `/workflow:resume` | Intelligent workflow session resumption with automatic progress analysis. |
 | `/workflow:review` | Optional specialized review (security, architecture, docs) for completed implementation. |
@@ -67,6 +69,14 @@ These commands orchestrate complex, multi-phase development processes, from plan
 | Command | Description |
 |---|---|
 | `/workflow:action-plan-verify`| Perform non-destructive cross-artifact consistency and quality analysis of IMPL_PLAN.md and task.json before execution. |
+
+### Code Review Cycle
+
+| Command | Description |
+|---|---|
+| `/workflow:review-module-cycle` | ⚡ **NEW** Independent multi-dimensional code review for specified modules/files across 7 dimensions with hybrid parallel-iterative execution. |
+| `/workflow:review-session-cycle` | ⚡ **NEW** Session-based comprehensive code review analyzing git changes across 7 dimensions with deep-dive on critical issues. |
+| `/workflow:review-fix` | ⚡ **NEW** Automated fixing of code review findings with AI-powered planning, intelligent grouping, and test-driven verification. |
 
 ### Test-Driven Development (TDD)
 
@@ -129,9 +139,17 @@ Commands for managing individual tasks within a workflow session.
 
 | Command | Description |
 |---|---|
-| `/memory:update-full` | Complete project-wide CLAUDE.md documentation update. |
+| `/memory:docs` | Plan documentation workflow with dynamic grouping for module trees, README, ARCHITECTURE, and HTTP API docs. |
+| `/memory:docs-full-cli` | ⚡ **NEW** Generate full project documentation using CLI execution with batched agents and fallback chain. |
+| `/memory:docs-related-cli` | ⚡ **NEW** Generate/update documentation for git-changed modules using CLI execution with batched agents. |
+| `/memory:update-full` | Complete project-wide CLAUDE.md documentation update with layer-based execution. |
+| `/memory:update-related` | Context-aware CLAUDE.md documentation updates based on recent git changes. |
 | `/memory:load` | Quickly load key project context into memory based on a task description. |
-| `/memory:update-related` | Context-aware CLAUDE.md documentation updates based on recent changes. |
+| `/memory:load-skill-memory` | Activate SKILL package and intelligently load documentation based on task intent. |
+| `/memory:skill-memory` | 4-phase autonomous orchestrator to generate SKILL.md with progressive loading index. |
+| `/memory:code-map-memory` | 3-phase orchestrator for code analysis and Mermaid documentation generation. |
+| `/memory:tech-research` | 3-phase orchestrator for tech stack research and SKILL package generation. |
+| `/memory:workflow-skill-memory` | Process archived sessions to generate workflow-progress SKILL package. |
 | `/version` | Display version information and check for updates. |
 | `/enhance-prompt` | Context-aware prompt enhancement using session memory and codebase analysis. |
 

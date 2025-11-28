@@ -4,7 +4,6 @@
       "workflow:session:start",
       "workflow:tools:context-gather",
       "workflow:tools:conflict-resolution",
-      "workflow:tools:task-generate",
       "workflow:tools:task-generate-agent"
     ],
     "next_steps": [
@@ -238,6 +237,71 @@
     ],
     "next_steps": [
       "workflow:ui-design:generate"
+    ]
+  },
+  "workflow:lite-plan": {
+    "calls_internally": [
+      "workflow:lite-execute"
+    ],
+    "next_steps": [
+      "workflow:lite-execute",
+      "workflow:status"
+    ],
+    "alternatives": [
+      "workflow:plan"
+    ],
+    "prerequisites": []
+  },
+  "workflow:lite-fix": {
+    "next_steps": [
+      "workflow:lite-execute",
+      "workflow:status"
+    ],
+    "alternatives": [
+      "workflow:lite-plan"
+    ],
+    "related": [
+      "workflow:test-cycle-execute"
+    ]
+  },
+  "workflow:lite-execute": {
+    "prerequisites": [
+      "workflow:lite-plan",
+      "workflow:lite-fix"
+    ],
+    "related": [
+      "workflow:execute",
+      "workflow:status"
+    ]
+  },
+  "workflow:review-module-cycle": {
+    "next_steps": [
+      "workflow:review-fix"
+    ],
+    "related": [
+      "workflow:review-session-cycle",
+      "workflow:review"
+    ]
+  },
+  "workflow:review-session-cycle": {
+    "prerequisites": [
+      "workflow:execute"
+    ],
+    "next_steps": [
+      "workflow:review-fix"
+    ],
+    "related": [
+      "workflow:review-module-cycle",
+      "workflow:review"
+    ]
+  },
+  "workflow:review-fix": {
+    "prerequisites": [
+      "workflow:review-module-cycle",
+      "workflow:review-session-cycle"
+    ],
+    "related": [
+      "workflow:test-cycle-execute"
     ]
   }
 }

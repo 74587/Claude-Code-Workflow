@@ -1,51 +1,5 @@
 {
-  "analysis": [
-    {
-      "name": "analyze",
-      "command": "/cli:analyze",
-      "description": "Read-only codebase analysis using Gemini (default), Qwen, or Codex with auto-pattern detection and template selection",
-      "arguments": "[--tool codex|gemini|qwen] [--enhance] analysis target",
-      "category": "cli",
-      "subcategory": null,
-      "usage_scenario": "analysis",
-      "difficulty": "Beginner",
-      "file_path": "cli/analyze.md"
-    },
-    {
-      "name": "bug-diagnosis",
-      "command": "/cli:mode:bug-diagnosis",
-      "description": "Read-only bug root cause analysis using Gemini/Qwen/Codex with systematic diagnosis template for fix suggestions",
-      "arguments": "[--tool codex|gemini|qwen] [--enhance] [--cd path] bug description",
-      "category": "cli",
-      "subcategory": "mode",
-      "usage_scenario": "analysis",
-      "difficulty": "Intermediate",
-      "file_path": "cli/mode/bug-diagnosis.md"
-    },
-    {
-      "name": "review",
-      "command": "/workflow:review",
-      "description": "Post-implementation review with specialized types (security/architecture/action-items/quality) using analysis agents and Gemini",
-      "arguments": "[--type=security|architecture|action-items|quality] [optional: session-id]",
-      "category": "workflow",
-      "subcategory": null,
-      "usage_scenario": "analysis",
-      "difficulty": "Intermediate",
-      "file_path": "workflow/review.md"
-    }
-  ],
   "general": [
-    {
-      "name": "chat",
-      "command": "/cli:chat",
-      "description": "Read-only Q&A interaction with Gemini/Qwen/Codex for codebase questions with automatic context inference",
-      "arguments": "[--tool codex|gemini|qwen] [--enhance] inquiry",
-      "category": "cli",
-      "subcategory": null,
-      "usage_scenario": "general",
-      "difficulty": "Beginner",
-      "file_path": "cli/chat.md"
-    },
     {
       "name": "cli-init",
       "command": "/cli:cli-init",
@@ -56,28 +10,6 @@
       "usage_scenario": "general",
       "difficulty": "Intermediate",
       "file_path": "cli/cli-init.md"
-    },
-    {
-      "name": "code-analysis",
-      "command": "/cli:mode:code-analysis",
-      "description": "Read-only execution path tracing using Gemini/Qwen/Codex with specialized analysis template for call flow and optimization",
-      "arguments": "[--tool codex|gemini|qwen] [--enhance] [--cd path] analysis target",
-      "category": "cli",
-      "subcategory": "mode",
-      "usage_scenario": "general",
-      "difficulty": "Intermediate",
-      "file_path": "cli/mode/code-analysis.md"
-    },
-    {
-      "name": "document-analysis",
-      "command": "/cli:mode:document-analysis",
-      "description": "Read-only technical document/paper analysis using Gemini/Qwen/Codex with systematic comprehension template for insights extraction",
-      "arguments": "[--tool codex|gemini|qwen] [--enhance] [--cd path] document path or topic",
-      "category": "cli",
-      "subcategory": "mode",
-      "usage_scenario": "general",
-      "difficulty": "Intermediate",
-      "file_path": "cli/mode/document-analysis.md"
     },
     {
       "name": "enhance-prompt",
@@ -377,163 +309,97 @@
       "file_path": "workflow/ui-design/style-extract.md"
     }
   ],
-  "implementation": [
+  "documentation": [
     {
-      "name": "codex-execute",
-      "command": "/cli:codex-execute",
-      "description": "Multi-stage Codex execution with automatic task decomposition into grouped subtasks using resume mechanism for context continuity",
-      "arguments": "[--verify-git] task description or task-id",
-      "category": "cli",
+      "name": "code-map-memory",
+      "command": "/memory:code-map-memory",
+      "description": "3-phase orchestrator: parse feature keyword → cli-explore-agent analyzes (Deep Scan dual-source) → orchestrator generates Mermaid docs + SKILL package (skips phase 2 if exists)",
+      "arguments": "\\\"feature-keyword\\\" [--regenerate] [--tool <gemini|qwen>]",
+      "category": "memory",
       "subcategory": null,
-      "usage_scenario": "implementation",
+      "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "file_path": "cli/codex-execute.md"
+      "file_path": "memory/code-map-memory.md"
     },
     {
-      "name": "execute",
-      "command": "/cli:execute",
-      "description": "Autonomous code implementation with YOLO auto-approval using Gemini/Qwen/Codex, supports task ID or description input with automatic file pattern detection",
-      "arguments": "[--tool codex|gemini|qwen] [--enhance] description or task-id",
-      "category": "cli",
+      "name": "docs-full-cli",
+      "command": "/memory:docs-full-cli",
+      "description": "Generate full project documentation using CLI execution (Layer 3→1) with batched agents (4 modules/agent) and gemini→qwen→codex fallback, <20 modules uses direct parallel",
+      "arguments": "[path] [--tool <gemini|qwen|codex>]",
+      "category": "memory",
       "subcategory": null,
-      "usage_scenario": "implementation",
+      "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "file_path": "cli/execute.md"
+      "file_path": "memory/docs-full-cli.md"
     },
     {
-      "name": "create",
-      "command": "/task:create",
-      "description": "Generate task JSON from natural language description with automatic file pattern detection, scope inference, and dependency analysis",
-      "arguments": "\\\"task title\\",
-      "category": "task",
+      "name": "docs-related-cli",
+      "command": "/memory:docs-related-cli",
+      "description": "Generate/update documentation for git-changed modules using CLI execution with batched agents (4 modules/agent) and gemini→qwen→codex fallback, <15 modules uses direct parallel",
+      "arguments": "[--tool <gemini|qwen|codex>]",
+      "category": "memory",
       "subcategory": null,
-      "usage_scenario": "implementation",
+      "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "file_path": "task/create.md"
+      "file_path": "memory/docs-related-cli.md"
     },
     {
-      "name": "execute",
-      "command": "/task:execute",
-      "description": "Execute task JSON using appropriate agent (@doc-generator/@implementation-agent/@test-agent) with pre-analysis context loading and status tracking",
-      "arguments": "task-id",
-      "category": "task",
+      "name": "docs",
+      "command": "/memory:docs",
+      "description": "Plan documentation workflow with dynamic grouping (≤10 docs/task), generates IMPL tasks for parallel module trees, README, ARCHITECTURE, and HTTP API docs",
+      "arguments": "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-execute]",
+      "category": "memory",
       "subcategory": null,
-      "usage_scenario": "implementation",
+      "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "file_path": "task/execute.md"
+      "file_path": "memory/docs.md"
     },
     {
-      "name": "execute",
-      "command": "/workflow:execute",
-      "description": "Coordinate agent execution for workflow tasks with automatic session discovery, parallel task processing, and status tracking",
-      "arguments": "[--resume-session=\\\"session-id\\\"]",
-      "category": "workflow",
+      "name": "load-skill-memory",
+      "command": "/memory:load-skill-memory",
+      "description": "Activate SKILL package (auto-detect from paths/keywords or manual) and intelligently load documentation based on task intent keywords",
+      "arguments": "[skill_name] \\\"task intent description\\",
+      "category": "memory",
       "subcategory": null,
-      "usage_scenario": "implementation",
+      "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "file_path": "workflow/execute.md"
+      "file_path": "memory/load-skill-memory.md"
     },
     {
-      "name": "lite-execute",
-      "command": "/workflow:lite-execute",
-      "description": "Execute tasks based on in-memory plan, prompt description, or file content",
-      "arguments": "[--in-memory] [\\\"task description\\\"|file-path]",
-      "category": "workflow",
+      "name": "skill-memory",
+      "command": "/memory:skill-memory",
+      "description": "4-phase autonomous orchestrator: check docs → /memory:docs planning → /workflow:execute → generate SKILL.md with progressive loading index (skips phases 2-3 if docs exist)",
+      "arguments": "[path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]",
+      "category": "memory",
       "subcategory": null,
-      "usage_scenario": "implementation",
+      "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "file_path": "workflow/lite-execute.md"
+      "file_path": "memory/skill-memory.md"
     },
     {
-      "name": "test-cycle-execute",
-      "command": "/workflow:test-cycle-execute",
-      "description": "Execute test-fix workflow with dynamic task generation and iterative fix cycles until test pass rate >= 95% or max iterations reached. Uses @cli-planning-agent for failure analysis and task generation.",
-      "arguments": "[--resume-session=\\\"session-id\\\"] [--max-iterations=N]",
-      "category": "workflow",
+      "name": "style-skill-memory",
+      "command": "/memory:style-skill-memory",
+      "description": "Generate SKILL memory package from style reference for easy loading and consistent design system usage",
+      "arguments": "[package-name] [--regenerate]",
+      "category": "memory",
       "subcategory": null,
-      "usage_scenario": "implementation",
+      "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "file_path": "workflow/test-cycle-execute.md"
+      "file_path": "memory/style-skill-memory.md"
     },
     {
-      "name": "task-generate-agent",
-      "command": "/workflow:tools:task-generate-agent",
-      "description": "Autonomous task generation using action-planning-agent with discovery and output phases for workflow planning",
-      "arguments": "--session WFS-session-id [--cli-execute]",
-      "category": "workflow",
-      "subcategory": "tools",
-      "usage_scenario": "implementation",
-      "difficulty": "Advanced",
-      "file_path": "workflow/tools/task-generate-agent.md"
-    },
-    {
-      "name": "task-generate-tdd",
-      "command": "/workflow:tools:task-generate-tdd",
-      "description": "Autonomous TDD task generation using action-planning-agent with Red-Green-Refactor cycles, test-first structure, and cycle validation",
-      "arguments": "--session WFS-session-id [--cli-execute]",
-      "category": "workflow",
-      "subcategory": "tools",
-      "usage_scenario": "implementation",
-      "difficulty": "Advanced",
-      "file_path": "workflow/tools/task-generate-tdd.md"
-    },
-    {
-      "name": "task-generate",
-      "command": "/workflow:tools:task-generate",
-      "description": "Generate task JSON files and IMPL_PLAN.md from analysis results using action-planning-agent with artifact integration",
-      "arguments": "--session WFS-session-id [--cli-execute]",
-      "category": "workflow",
-      "subcategory": "tools",
-      "usage_scenario": "implementation",
+      "name": "workflow-skill-memory",
+      "command": "/memory:workflow-skill-memory",
+      "description": "Process WFS-* archived sessions using universal-executor agents with Gemini analysis to generate workflow-progress SKILL package (sessions-timeline, lessons, conflicts)",
+      "arguments": "session <session-id> | all",
+      "category": "memory",
+      "subcategory": null,
+      "usage_scenario": "documentation",
       "difficulty": "Intermediate",
-      "file_path": "workflow/tools/task-generate.md"
-    },
-    {
-      "name": "test-task-generate",
-      "command": "/workflow:tools:test-task-generate",
-      "description": "Autonomous test-fix task generation using action-planning-agent with test-fix-retest cycle specification and discovery phase",
-      "arguments": "[--use-codex] [--cli-execute] --session WFS-test-session-id",
-      "category": "workflow",
-      "subcategory": "tools",
-      "usage_scenario": "implementation",
-      "difficulty": "Intermediate",
-      "file_path": "workflow/tools/test-task-generate.md"
-    },
-    {
-      "name": "generate",
-      "command": "/workflow:ui-design:generate",
-      "description": "Assemble UI prototypes by combining layout templates with design tokens (default animation support), pure assembler without new content generation",
-      "arguments": "[--design-id <id>] [--session <id>]",
-      "category": "workflow",
-      "subcategory": "ui-design",
-      "usage_scenario": "implementation",
-      "difficulty": "Intermediate",
-      "file_path": "workflow/ui-design/generate.md"
+      "file_path": "memory/workflow-skill-memory.md"
     }
   ],
   "planning": [
-    {
-      "name": "discuss-plan",
-      "command": "/cli:discuss-plan",
-      "description": "Multi-round collaborative planning using Gemini, Codex, and Claude synthesis with iterative discussion cycles (read-only, no code changes)",
-      "arguments": "[--topic '...'] [--task-id '...'] [--rounds N]",
-      "category": "cli",
-      "subcategory": null,
-      "usage_scenario": "planning",
-      "difficulty": "Intermediate",
-      "file_path": "cli/discuss-plan.md"
-    },
-    {
-      "name": "plan",
-      "command": "/cli:mode:plan",
-      "description": "Read-only architecture planning using Gemini/Qwen/Codex with strategic planning template for modification plans and impact analysis",
-      "arguments": "[--tool codex|gemini|qwen] [--enhance] [--cd path] topic",
-      "category": "cli",
-      "subcategory": "mode",
-      "usage_scenario": "planning",
-      "difficulty": "Intermediate",
-      "file_path": "cli/mode/plan.md"
-    },
     {
       "name": "breakdown",
       "command": "/task:breakdown",
@@ -678,97 +544,154 @@
       "file_path": "workflow/ui-design/reference-page-generator.md"
     }
   ],
-  "documentation": [
+  "implementation": [
     {
-      "name": "code-map-memory",
-      "command": "/memory:code-map-memory",
-      "description": "3-phase orchestrator: parse feature keyword → cli-explore-agent analyzes (Deep Scan dual-source) → orchestrator generates Mermaid docs + SKILL package (skips phase 2 if exists)",
-      "arguments": "\\\"feature-keyword\\\" [--regenerate] [--tool <gemini|qwen>]",
-      "category": "memory",
+      "name": "create",
+      "command": "/task:create",
+      "description": "Generate task JSON from natural language description with automatic file pattern detection, scope inference, and dependency analysis",
+      "arguments": "\\\"task title\\",
+      "category": "task",
       "subcategory": null,
-      "usage_scenario": "documentation",
+      "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "file_path": "memory/code-map-memory.md"
+      "file_path": "task/create.md"
     },
     {
-      "name": "docs-full-cli",
-      "command": "/memory:docs-full-cli",
-      "description": "Generate full project documentation using CLI execution (Layer 3→1) with batched agents (4 modules/agent) and gemini→qwen→codex fallback, <20 modules uses direct parallel",
-      "arguments": "[path] [--tool <gemini|qwen|codex>]",
-      "category": "memory",
+      "name": "execute",
+      "command": "/task:execute",
+      "description": "Execute task JSON using appropriate agent (@doc-generator/@implementation-agent/@test-agent) with pre-analysis context loading and status tracking",
+      "arguments": "task-id",
+      "category": "task",
       "subcategory": null,
-      "usage_scenario": "documentation",
+      "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "file_path": "memory/docs-full-cli.md"
+      "file_path": "task/execute.md"
     },
     {
-      "name": "docs-related-cli",
-      "command": "/memory:docs-related-cli",
-      "description": "Generate/update documentation for git-changed modules using CLI execution with batched agents (4 modules/agent) and gemini→qwen→codex fallback, <15 modules uses direct parallel",
-      "arguments": "[--tool <gemini|qwen|codex>]",
-      "category": "memory",
+      "name": "execute",
+      "command": "/workflow:execute",
+      "description": "Coordinate agent execution for workflow tasks with automatic session discovery, parallel task processing, and status tracking",
+      "arguments": "[--resume-session=\\\"session-id\\\"]",
+      "category": "workflow",
       "subcategory": null,
-      "usage_scenario": "documentation",
+      "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "file_path": "memory/docs-related-cli.md"
+      "file_path": "workflow/execute.md"
     },
     {
-      "name": "docs",
-      "command": "/memory:docs",
-      "description": "Plan documentation workflow with dynamic grouping (≤10 docs/task), generates IMPL tasks for parallel module trees, README, ARCHITECTURE, and HTTP API docs",
-      "arguments": "[path] [--tool <gemini|qwen|codex>] [--mode <full|partial>] [--cli-execute]",
-      "category": "memory",
+      "name": "lite-execute",
+      "command": "/workflow:lite-execute",
+      "description": "Execute tasks based on in-memory plan, prompt description, or file content",
+      "arguments": "[--in-memory] [\\\"task description\\\"|file-path]",
+      "category": "workflow",
       "subcategory": null,
-      "usage_scenario": "documentation",
+      "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "file_path": "memory/docs.md"
+      "file_path": "workflow/lite-execute.md"
     },
     {
-      "name": "load-skill-memory",
-      "command": "/memory:load-skill-memory",
-      "description": "Activate SKILL package (auto-detect from paths/keywords or manual) and intelligently load documentation based on task intent keywords",
-      "arguments": "[skill_name] \\\"task intent description\\",
-      "category": "memory",
+      "name": "test-cycle-execute",
+      "command": "/workflow:test-cycle-execute",
+      "description": "Execute test-fix workflow with dynamic task generation and iterative fix cycles until test pass rate >= 95% or max iterations reached. Uses @cli-planning-agent for failure analysis and task generation.",
+      "arguments": "[--resume-session=\\\"session-id\\\"] [--max-iterations=N]",
+      "category": "workflow",
       "subcategory": null,
-      "usage_scenario": "documentation",
+      "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "file_path": "memory/load-skill-memory.md"
+      "file_path": "workflow/test-cycle-execute.md"
     },
     {
-      "name": "skill-memory",
-      "command": "/memory:skill-memory",
-      "description": "4-phase autonomous orchestrator: check docs → /memory:docs planning → /workflow:execute → generate SKILL.md with progressive loading index (skips phases 2-3 if docs exist)",
-      "arguments": "[path] [--tool <gemini|qwen|codex>] [--regenerate] [--mode <full|partial>] [--cli-execute]",
-      "category": "memory",
-      "subcategory": null,
-      "usage_scenario": "documentation",
-      "difficulty": "Intermediate",
-      "file_path": "memory/skill-memory.md"
+      "name": "task-generate-agent",
+      "command": "/workflow:tools:task-generate-agent",
+      "description": "Generate implementation plan documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) using action-planning-agent - produces planning artifacts, does NOT execute code implementation",
+      "arguments": "--session WFS-session-id [--cli-execute]",
+      "category": "workflow",
+      "subcategory": "tools",
+      "usage_scenario": "implementation",
+      "difficulty": "Advanced",
+      "file_path": "workflow/tools/task-generate-agent.md"
     },
     {
-      "name": "style-skill-memory",
-      "command": "/memory:style-skill-memory",
-      "description": "Generate SKILL memory package from style reference for easy loading and consistent design system usage",
-      "arguments": "[package-name] [--regenerate]",
-      "category": "memory",
-      "subcategory": null,
-      "usage_scenario": "documentation",
-      "difficulty": "Intermediate",
-      "file_path": "memory/style-skill-memory.md"
+      "name": "task-generate-tdd",
+      "command": "/workflow:tools:task-generate-tdd",
+      "description": "Autonomous TDD task generation using action-planning-agent with Red-Green-Refactor cycles, test-first structure, and cycle validation",
+      "arguments": "--session WFS-session-id [--cli-execute]",
+      "category": "workflow",
+      "subcategory": "tools",
+      "usage_scenario": "implementation",
+      "difficulty": "Advanced",
+      "file_path": "workflow/tools/task-generate-tdd.md"
     },
     {
-      "name": "workflow-skill-memory",
-      "command": "/memory:workflow-skill-memory",
-      "description": "Process WFS-* archived sessions using universal-executor agents with Gemini analysis to generate workflow-progress SKILL package (sessions-timeline, lessons, conflicts)",
-      "arguments": "session <session-id> | all",
-      "category": "memory",
-      "subcategory": null,
-      "usage_scenario": "documentation",
+      "name": "test-task-generate",
+      "command": "/workflow:tools:test-task-generate",
+      "description": "Generate test planning documents (IMPL_PLAN.md, test task JSONs, TODO_LIST.md) using action-planning-agent - produces test planning artifacts, does NOT execute tests",
+      "arguments": "[--use-codex] [--cli-execute] --session WFS-test-session-id",
+      "category": "workflow",
+      "subcategory": "tools",
+      "usage_scenario": "implementation",
       "difficulty": "Intermediate",
-      "file_path": "memory/workflow-skill-memory.md"
+      "file_path": "workflow/tools/test-task-generate.md"
+    },
+    {
+      "name": "generate",
+      "command": "/workflow:ui-design:generate",
+      "description": "Assemble UI prototypes by combining layout templates with design tokens (default animation support), pure assembler without new content generation",
+      "arguments": "[--design-id <id>] [--session <id>]",
+      "category": "workflow",
+      "subcategory": "ui-design",
+      "usage_scenario": "implementation",
+      "difficulty": "Intermediate",
+      "file_path": "workflow/ui-design/generate.md"
+    }
+  ],
+  "analysis": [
+    {
+      "name": "review-fix",
+      "command": "/workflow:review-fix",
+      "description": "Automated fixing of code review findings with AI-powered planning and coordinated execution. Uses intelligent grouping, multi-stage timeline coordination, and test-driven verification.",
+      "arguments": "<export-file|review-dir> [--resume] [--max-iterations=N]",
+      "category": "workflow",
+      "subcategory": null,
+      "usage_scenario": "analysis",
+      "difficulty": "Intermediate",
+      "file_path": "workflow/review-fix.md"
+    },
+    {
+      "name": "review-module-cycle",
+      "command": "/workflow:review-module-cycle",
+      "description": "Independent multi-dimensional code review for specified modules/files. Analyzes specific code paths across 7 dimensions with hybrid parallel-iterative execution, independent of workflow sessions.",
+      "arguments": "<path-pattern> [--dimensions=security,architecture,...] [--max-iterations=N]",
+      "category": "workflow",
+      "subcategory": null,
+      "usage_scenario": "analysis",
+      "difficulty": "Intermediate",
+      "file_path": "workflow/review-module-cycle.md"
+    },
+    {
+      "name": "review",
+      "command": "/workflow:review",
+      "description": "Post-implementation review with specialized types (security/architecture/action-items/quality) using analysis agents and Gemini",
+      "arguments": "[--type=security|architecture|action-items|quality] [optional: session-id]",
+      "category": "workflow",
+      "subcategory": null,
+      "usage_scenario": "analysis",
+      "difficulty": "Intermediate",
+      "file_path": "workflow/review.md"
     }
   ],
   "session-management": [
+    {
+      "name": "review-session-cycle",
+      "command": "/workflow:review-session-cycle",
+      "description": "Session-based comprehensive multi-dimensional code review. Analyzes git changes from workflow session across 7 dimensions with hybrid parallel-iterative execution, aggregates findings, and performs focused deep-dives on critical issues until quality gates met.",
+      "arguments": "[session-id] [--dimensions=security,architecture,...] [--max-iterations=N]",
+      "category": "workflow",
+      "subcategory": null,
+      "usage_scenario": "session-management",
+      "difficulty": "Intermediate",
+      "file_path": "workflow/review-session-cycle.md"
+    },
     {
       "name": "complete",
       "command": "/workflow:session:complete",
@@ -851,7 +774,7 @@
     {
       "name": "test-concept-enhanced",
       "command": "/workflow:tools:test-concept-enhanced",
-      "description": "Analyze test requirements and generate test generation strategy using Gemini with test-context package",
+      "description": "Coordinate test analysis workflow using cli-execution-agent to generate test strategy via Gemini",
       "arguments": "--session WFS-test-session-id --context path/to/test-context-package.json",
       "category": "workflow",
       "subcategory": "tools",

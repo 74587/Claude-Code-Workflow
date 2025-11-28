@@ -143,68 +143,10 @@ Perform Deep Scan analysis for feature: {FEATURE_KEYWORD}
 - File Discovery: MCP Code Index (preferred) + rg fallback
 - Target: 5-15 most relevant files
 
-**Expected Output Format**:
-Return comprehensive analysis as structured JSON:
-{
-  \"feature\": \"{FEATURE_KEYWORD}\",
-  \"analysis_metadata\": {
-    \"tool_used\": \"gemini|qwen\",
-    \"timestamp\": \"ISO_TIMESTAMP\",
-    \"analysis_mode\": \"deep-scan\"
-  },
-  \"files_analyzed\": [
-    {\"file\": \"path/to/file.ts\", \"relevance\": \"high|medium|low\", \"role\": \"brief description\"}
-  ],
-  \"architecture\": {
-    \"overview\": \"High-level description\",
-    \"modules\": [
-      {\"name\": \"ModuleName\", \"file\": \"file:line\", \"responsibility\": \"description\", \"dependencies\": [...]}
-    ],
-    \"interactions\": [
-      {\"from\": \"ModuleA\", \"to\": \"ModuleB\", \"type\": \"import|call|data-flow\", \"description\": \"...\"}
-    ],
-    \"entry_points\": [
-      {\"function\": \"main\", \"file\": \"file:line\", \"description\": \"...\"}
-    ]
-  },
-  \"function_calls\": {
-    \"call_chains\": [
-      {
-        \"chain_id\": 1,
-        \"description\": \"User authentication flow\",
-        \"sequence\": [
-          {\"function\": \"login\", \"file\": \"file:line\", \"calls\": [\"validateCredentials\", \"createSession\"]}
-        ]
-      }
-    ],
-    \"sequences\": [
-      {\"from\": \"Client\", \"to\": \"AuthService\", \"method\": \"login(username, password)\", \"returns\": \"Session\"}
-    ]
-  },
-  \"data_flow\": {
-    \"structures\": [
-      {\"name\": \"UserData\", \"stage\": \"input\", \"shape\": {\"username\": \"string\", \"password\": \"string\"}}
-    ],
-    \"transformations\": [
-      {\"from\": \"RawInput\", \"to\": \"ValidatedData\", \"transformer\": \"validateUser\", \"file\": \"file:line\"}
-    ]
-  },
-  \"conditional_logic\": {
-    \"branches\": [
-      {\"condition\": \"isAuthenticated\", \"file\": \"file:line\", \"true_path\": \"...\", \"false_path\": \"...\"}
-    ],
-    \"error_handling\": [
-      {\"error_type\": \"AuthenticationError\", \"handler\": \"handleAuthError\", \"file\": \"file:line\", \"recovery\": \"retry|fail\"}
-    ]
-  },
-  \"design_patterns\": [
-    {\"pattern\": \"Repository Pattern\", \"location\": \"src/repositories\", \"description\": \"...\"}
-  ],
-  \"recommendations\": [
-    \"Consider extracting authentication logic into separate module\",
-    \"Add error recovery for network failures\"
-  ]
-}
+**MANDATORY FIRST STEP**:
+Read: ~/.claude/workflows/cli-templates/schemas/codemap-json-schema.json
+
+**Output**: Return JSON following schema exactly. NO FILE WRITING - return JSON analysis only.
 
 **Critical Requirements**:
 - Use Deep Scan mode: Bash (Phase 1 - precise locations) + Gemini CLI (Phase 2 - semantic understanding) + Synthesis (Phase 3 - merge with attribution)

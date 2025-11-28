@@ -318,270 +318,21 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 
 ### design-tokens.json
 
+**Template Reference**: `~/.claude/workflows/cli-templates/ui-design/systems/design-tokens.json`
+
 **Format**: W3C Design Tokens Community Group Specification
 
-**Schema Structure**:
-```json
-{
-  "$schema": "https://tr.designtokens.org/format/",
-  "name": "string - Token set name",
-  "description": "string - Token set description",
-
-  "color": {
-    "background": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" }, "$description": "optional" },
-    "foreground": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-    "card": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-    "card-foreground": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-    "border": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-    "input": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-    "ring": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-
-    "interactive": {
-      "primary": {
-        "default": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-        "hover": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-        "active": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-        "disabled": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-        "foreground": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } }
-      },
-      "secondary": { "/* Same structure as primary */" },
-      "accent": { "/* Same structure (no disabled state) */" },
-      "destructive": { "/* Same structure (no active/disabled states) */" }
-    },
-
-    "muted": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-    "muted-foreground": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-
-    "chart": {
-      "1": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-      "2": { "/* ... */" },
-      "3": { "/* ... */" },
-      "4": { "/* ... */" },
-      "5": { "/* ... */" }
-    },
-
-    "sidebar": {
-      "background": { "$type": "color", "$value": { "light": "oklch(...)", "dark": "oklch(...)" } },
-      "foreground": { "/* ... */" },
-      "primary": { "/* ... */" },
-      "primary-foreground": { "/* ... */" },
-      "accent": { "/* ... */" },
-      "accent-foreground": { "/* ... */" },
-      "border": { "/* ... */" },
-      "ring": { "/* ... */" }
-    }
-  },
-
-  "typography": {
-    "font_families": {
-      "sans": "string - 'Font Name', fallback1, fallback2",
-      "serif": "string",
-      "mono": "string"
-    },
-    "font_sizes": {
-      "xs": "0.75rem",
-      "sm": "0.875rem",
-      "base": "1rem",
-      "lg": "1.125rem",
-      "xl": "1.25rem",
-      "2xl": "1.5rem",
-      "3xl": "1.875rem",
-      "4xl": "2.25rem"
-    },
-    "line_heights": {
-      "tight": "number",
-      "normal": "number",
-      "relaxed": "number"
-    },
-    "letter_spacing": {
-      "tight": "string",
-      "normal": "string",
-      "wide": "string"
-    },
-    "combinations": [
-      {
-        "name": "h1|h2|h3|h4|h5|h6|body|caption",
-        "font_family": "sans|serif|mono",
-        "font_size": "string - reference to font_sizes",
-        "font_weight": "number - 400|500|600|700",
-        "line_height": "string",
-        "letter_spacing": "string"
-      }
-    ]
-  },
-
-  "spacing": {
-    "0": "0",
-    "1": "0.25rem",
-    "2": "0.5rem",
-    "/* Systematic scale: 3, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48, 56, 64 */"
-  },
-
-  "opacity": {
-    "disabled": "0.5",
-    "hover": "0.8",
-    "active": "1"
-  },
-
-  "shadows": {
-    "2xs": "string - CSS shadow value",
-    "xs": "string",
-    "sm": "string",
-    "DEFAULT": "string",
-    "md": "string",
-    "lg": "string",
-    "xl": "string",
-    "2xl": "string"
-  },
-
-  "border_radius": {
-    "sm": "string - calc() or fixed",
-    "md": "string",
-    "lg": "string",
-    "xl": "string",
-    "DEFAULT": "string"
-  },
-
-  "breakpoints": {
-    "sm": "640px",
-    "md": "768px",
-    "lg": "1024px",
-    "xl": "1280px",
-    "2xl": "1536px"
-  },
-
-  "component": {
-    "/* COMPONENT PATTERN - Apply to: button, card, input, dialog, dropdown, toast, accordion, tabs, switch, checkbox, badge, alert */": {
-      "$type": "component",
-      "base": {
-        "/* Layout properties using camelCase */": "value or {token.path}",
-        "display": "inline-flex|flex|block",
-        "alignItems": "center",
-        "borderRadius": "{border_radius.md}",
-        "transition": "{transitions.default}"
-      },
-      "size": {
-        "small": { "height": "32px", "padding": "{spacing.2} {spacing.3}", "fontSize": "{typography.font_sizes.xs}" },
-        "default": { "height": "40px", "padding": "{spacing.2} {spacing.4}" },
-        "large": { "height": "48px", "padding": "{spacing.3} {spacing.6}", "fontSize": "{typography.font_sizes.base}" }
-      },
-      "variant": {
-        "variantName": {
-          "default": { "backgroundColor": "{color.interactive.primary.default}", "color": "{color.interactive.primary.foreground}" },
-          "hover": { "backgroundColor": "{color.interactive.primary.hover}" },
-          "active": { "backgroundColor": "{color.interactive.primary.active}" },
-          "disabled": { "backgroundColor": "{color.interactive.primary.disabled}", "opacity": "{opacity.disabled}", "cursor": "not-allowed" },
-          "focus": { "outline": "2px solid {color.ring}", "outlineOffset": "2px" }
-        }
-      },
-      "state": {
-        "/* For stateful components (dialog, accordion, etc.) */": {
-          "open": { "animation": "{animation.name.component-open} {animation.duration.normal} {animation.easing.ease-out}" },
-          "closed": { "animation": "{animation.name.component-close} {animation.duration.normal} {animation.easing.ease-in}" }
-        }
-      }
-    }
-  },
-
-  "elevation": {
-    "$type": "elevation",
-    "base": { "$value": "0" },
-    "overlay": { "$value": "40" },
-    "dropdown": { "$value": "50" },
-    "dialog": { "$value": "50" },
-    "tooltip": { "$value": "60" }
-  },
-
-  "_metadata": {
-    "version": "string - W3C version or custom version",
-    "created": "ISO timestamp - 2024-01-01T00:00:00Z",
-    "source": "code-import|explore|text",
-    "theme_colors_guide": {
-      "description": "Theme colors are the core brand identity colors that define the visual hierarchy and emotional tone of the design system",
-      "primary": {
-        "role": "Main brand color",
-        "usage": "Primary actions (CTAs, key interactive elements, navigation highlights, primary buttons)",
-        "contrast_requirement": "WCAG AA - 4.5:1 for text, 3:1 for UI components"
-      },
-      "secondary": {
-        "role": "Supporting brand color",
-        "usage": "Secondary actions and complementary elements (less prominent buttons, secondary navigation, supporting features)",
-        "principle": "Should complement primary without competing for attention"
-      },
-      "accent": {
-        "role": "Highlight color for emphasis",
-        "usage": "Attention-grabbing elements used sparingly (badges, notifications, special promotions, highlights)",
-        "principle": "Should create strong visual contrast to draw focus"
-      },
-      "destructive": {
-        "role": "Error and destructive action color",
-        "usage": "Delete buttons, error messages, critical warnings",
-        "principle": "Must signal danger or caution clearly"
-      },
-      "harmony_note": "All theme colors must work harmoniously together and align with brand identity. In multi-file extraction, prioritize definitions with semantic comments explaining brand intent."
-    },
-    "conflicts": [
-      {
-        "token_name": "string - which token has conflicts",
-        "category": "string - colors|typography|etc",
-        "definitions": [
-          {
-            "value": "string - token value",
-            "source_file": "string - absolute path",
-            "line_number": "number",
-            "context": "string - surrounding comment or null",
-            "semantic_intent": "string - interpretation of definition"
-          }
-        ],
-        "selected_value": "string - final chosen value",
-        "selection_reason": "string - why this value was chosen"
-      }
-    ],
-    "code_snippets": [
-      {
-        "category": "colors|typography|spacing|shadows|border_radius|component",
-        "token_name": "string - which token this snippet defines",
-        "source_file": "string - absolute path",
-        "line_start": "number",
-        "line_end": "number",
-        "snippet": "string - complete code block",
-        "context_type": "css-variable|css-class|js-object|scss-variable|etc"
-      }
-    ],
-    "usage_recommendations": {
-      "typography": {
-        "common_sizes": {
-          "small_text": "sm (0.875rem)",
-          "body_text": "base (1rem)",
-          "heading": "2xl-4xl"
-        },
-        "common_combinations": [
-          {
-            "name": "Heading + Body",
-            "heading": "2xl",
-            "body": "base",
-            "use_case": "Article sections"
-          }
-        ]
-      },
-      "spacing": {
-        "size_guide": {
-          "tight": "1-2 (0.25rem-0.5rem)",
-          "normal": "4-6 (1rem-1.5rem)",
-          "loose": "8-12 (2rem-3rem)"
-        },
-        "common_patterns": [
-          {
-            "pattern": "padding-4 margin-bottom-6",
-            "use_case": "Card content spacing",
-            "pixel_value": "1rem padding, 1.5rem margin"
-          }
-        ]
-      }
-    }
-  }
-}
-```
+**Structure Overview**:
+- **color**: Base colors, interactive states (primary, secondary, accent, destructive), muted, chart, sidebar
+- **typography**: Font families, sizes, line heights, letter spacing, combinations
+- **spacing**: Systematic scale (0-64, multiples of 0.25rem)
+- **opacity**: disabled, hover, active
+- **shadows**: 2xs to 2xl (8-tier system)
+- **border_radius**: sm to xl + DEFAULT
+- **breakpoints**: sm to 2xl
+- **component**: 12+ components with base, size, variant, state structures
+- **elevation**: z-index values for layered components
+- **_metadata**: version, created, source, theme_colors_guide, conflicts, code_snippets, usage_recommendations
 
 **Required Components** (12+ components, use pattern above):
 - **button**: 5 variants (primary, secondary, destructive, outline, ghost) + 3 sizes + states (default, hover, active, disabled, focus)
@@ -632,136 +383,26 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 
 ### layout-templates.json
 
+**Template Reference**: `~/.claude/workflows/cli-templates/ui-design/systems/layout-templates.json`
+
 **Optimization**: Unified structure combining DOM and styling into single hierarchy
 
-**Schema Structure**:
-```json
-{
-  "$schema": "https://tr.designtokens.org/format/",
-  "templates": [
-    {
-      "target": "string - page/component name (e.g., hero-section, product-card)",
-      "description": "string - layout description",
-      "component_type": "universal|specialized",
-      "device_type": "mobile|tablet|desktop|responsive",
-      "layout_strategy": "string - grid-3col|flex-row|stack|sidebar|etc",
-
-      "structure": {
-        "tag": "string - HTML5 semantic tag (header|nav|main|section|article|aside|footer|div|etc)",
-        "attributes": {
-          "class": "string - semantic class name",
-          "role": "string - ARIA role (navigation|main|complementary|etc)",
-          "aria-label": "string - ARIA label",
-          "aria-describedby": "string - ARIA describedby",
-          "data-state": "string - data attributes for state management (open|closed|etc)"
-        },
-        "layout": {
-          "/* LAYOUT PROPERTIES ONLY - Use camelCase for property names */": "",
-          "display": "grid|flex|block|inline-flex",
-          "grid-template-columns": "{spacing.*} or CSS value (repeat(3, 1fr))",
-          "grid-template-rows": "string",
-          "gap": "{spacing.*}",
-          "padding": "{spacing.*}",
-          "margin": "{spacing.*}",
-          "alignItems": "start|center|end|stretch",
-          "justifyContent": "start|center|end|space-between|space-around",
-          "flexDirection": "row|column",
-          "flexWrap": "wrap|nowrap",
-          "position": "relative|absolute|fixed|sticky",
-          "top|right|bottom|left": "string",
-          "width": "string",
-          "height": "string",
-          "maxWidth": "string",
-          "minHeight": "string"
-        },
-        "responsive": {
-          "/* ONLY properties that CHANGE at each breakpoint - NO repetition */": "",
-          "sm": {
-            "grid-template-columns": "1fr",
-            "padding": "{spacing.4}"
-          },
-          "md": {
-            "grid-template-columns": "repeat(2, 1fr)",
-            "gap": "{spacing.6}"
-          },
-          "lg": {
-            "grid-template-columns": "repeat(3, 1fr)"
-          }
-        },
-        "children": [
-          {
-            "/* Recursive structure - same fields as parent */": "",
-            "tag": "string",
-            "attributes": {},
-            "layout": {},
-            "responsive": {},
-            "children": [],
-            "content": "string or {{placeholder}}"
-          }
-        ],
-        "content": "string - text content or {{placeholder}} for dynamic content"
-      },
-
-      "accessibility": {
-        "patterns": [
-          "string - ARIA patterns used (e.g., WAI-ARIA Tabs pattern, Dialog pattern)"
-        ],
-        "keyboard_navigation": [
-          "string - keyboard shortcuts (e.g., Tab/Shift+Tab navigation, Escape to close)"
-        ],
-        "focus_management": "string - focus trap strategy, initial focus target",
-        "screen_reader_notes": [
-          "string - screen reader announcements (e.g., Dialog opened, Tab selected)"
-        ]
-      },
-
-      "usage_guide": {
-        "common_sizes": {
-          "small": {
-            "dimensions": "string - e.g., px-3 py-1.5 (height: ~32px)",
-            "use_case": "string - Compact UI, mobile views"
-          },
-          "medium": {
-            "dimensions": "string - e.g., px-4 py-2 (height: ~40px)",
-            "use_case": "string - Default size for most contexts"
-          },
-          "large": {
-            "dimensions": "string - e.g., px-6 py-3 (height: ~48px)",
-            "use_case": "string - Prominent CTAs, hero sections"
-          }
-        },
-        "variant_recommendations": {
-          "variant_name": {
-            "description": "string - when to use this variant",
-            "typical_actions": ["string - action examples"]
-          }
-        },
-        "usage_context": [
-          "string - typical usage scenarios (e.g., Landing page hero, Product listing grid)"
-        ],
-        "accessibility_tips": [
-          "string - accessibility best practices (e.g., Ensure heading hierarchy, Add aria-label)"
-        ]
-      },
-
-      "extraction_metadata": {
-        "source": "code-import|explore|text",
-        "created": "ISO timestamp",
-        "code_snippets": [
-          {
-            "component_name": "string - which layout component",
-            "source_file": "string - absolute path",
-            "line_start": "number",
-            "line_end": "number",
-            "snippet": "string - complete HTML/CSS/JS code block",
-            "context_type": "html-structure|css-utility|react-component|vue-component|etc"
-          }
-        ]
-      }
-    }
-  ]
-}
-```
+**Structure Overview**:
+- **templates[]**: Array of layout templates
+  - **target**: page/component name (hero-section, product-card)
+  - **component_type**: universal | specialized
+  - **device_type**: mobile | tablet | desktop | responsive
+  - **layout_strategy**: grid-3col, flex-row, stack, sidebar, etc.
+  - **structure**: Unified DOM + layout hierarchy
+    - **tag**: HTML5 semantic tags
+    - **attributes**: class, role, aria-*, data-state
+    - **layout**: Layout properties only (display, grid, flex, position, spacing) using {token.path}
+    - **responsive**: Breakpoint-specific overrides (ONLY changed properties)
+    - **children**: Recursive structure
+    - **content**: Text or {{placeholder}}
+  - **accessibility**: patterns, keyboard_navigation, focus_management, screen_reader_notes
+  - **usage_guide**: common_sizes, variant_recommendations, usage_context, accessibility_tips
+  - **extraction_metadata**: source, created, code_snippets
 
 **Field Rules**:
 - $schema MUST reference W3C Design Tokens format specification
@@ -783,140 +424,21 @@ You execute 6 distinct task types organized into 3 patterns. Each task includes 
 
 ### animation-tokens.json
 
-**Schema Structure**:
-```json
-{
-  "$schema": "https://tr.designtokens.org/format/",
+**Template Reference**: `~/.claude/workflows/cli-templates/ui-design/systems/animation-tokens.json`
 
-  "duration": {
-    "$type": "duration",
-    "instant": { "$value": "0ms" },
-    "fast": { "$value": "150ms" },
-    "normal": { "$value": "300ms" },
-    "slow": { "$value": "500ms" },
-    "slower": { "$value": "1000ms" }
-  },
-
-  "easing": {
-    "$type": "cubicBezier",
-    "linear": { "$value": "linear" },
-    "ease-in": { "$value": "cubic-bezier(0.4, 0, 1, 1)" },
-    "ease-out": { "$value": "cubic-bezier(0, 0, 0.2, 1)" },
-    "ease-in-out": { "$value": "cubic-bezier(0.4, 0, 0.2, 1)" },
-    "spring": { "$value": "cubic-bezier(0.68, -0.55, 0.265, 1.55)" },
-    "bounce": { "$value": "cubic-bezier(0.68, -0.6, 0.32, 1.6)" }
-  },
-
-  "keyframes": {
-    "/* PATTERN: Define pairs (in/out, open/close, enter/exit) */": {
-      "0%": { "/* CSS properties */": "value" },
-      "100%": { "/* CSS properties */": "value" }
-    },
-    "/* Required keyframes for components: */": "",
-    "fade-in": { "0%": { "opacity": "0" }, "100%": { "opacity": "1" } },
-    "fade-out": { "/* reverse of fade-in */" },
-    "slide-up": { "0%": { "transform": "translateY(10px)", "opacity": "0" }, "100%": { "transform": "translateY(0)", "opacity": "1" } },
-    "slide-down": { "/* reverse direction */" },
-    "scale-in": { "0%": { "transform": "scale(0.95)", "opacity": "0" }, "100%": { "transform": "scale(1)", "opacity": "1" } },
-    "scale-out": { "/* reverse of scale-in */" },
-    "accordion-down": { "0%": { "height": "0", "opacity": "0" }, "100%": { "height": "var(--radix-accordion-content-height)", "opacity": "1" } },
-    "accordion-up": { "/* reverse */" },
-    "dialog-open": { "0%": { "transform": "translate(-50%, -48%) scale(0.96)", "opacity": "0" }, "100%": { "transform": "translate(-50%, -50%) scale(1)", "opacity": "1" } },
-    "dialog-close": { "/* reverse */" },
-    "dropdown-open": { "0%": { "transform": "scale(0.95) translateY(-4px)", "opacity": "0" }, "100%": { "transform": "scale(1) translateY(0)", "opacity": "1" } },
-    "dropdown-close": { "/* reverse */" },
-    "toast-enter": { "0%": { "transform": "translateX(100%)", "opacity": "0" }, "100%": { "transform": "translateX(0)", "opacity": "1" } },
-    "toast-exit": { "/* reverse */" },
-    "spin": { "0%": { "transform": "rotate(0deg)" }, "100%": { "transform": "rotate(360deg)" } },
-    "pulse": { "0%, 100%": { "opacity": "1" }, "50%": { "opacity": "0.5" } }
-  },
-
-  "interactions": {
-    "/* PATTERN: Define for each interactive component state */": {
-      "property": "string - CSS properties (comma-separated)",
-      "duration": "{duration.*}",
-      "easing": "{easing.*}"
-    },
-    "button-hover": { "property": "background-color, transform", "duration": "{duration.fast}", "easing": "{easing.ease-out}" },
-    "button-active": { "property": "transform", "duration": "{duration.instant}", "easing": "{easing.ease-in}" },
-    "card-hover": { "property": "box-shadow, transform", "duration": "{duration.normal}", "easing": "{easing.ease-in-out}" },
-    "input-focus": { "property": "border-color, box-shadow", "duration": "{duration.fast}", "easing": "{easing.ease-out}" },
-    "dropdown-toggle": { "property": "opacity, transform", "duration": "{duration.fast}", "easing": "{easing.ease-out}" },
-    "accordion-toggle": { "property": "height, opacity", "duration": "{duration.normal}", "easing": "{easing.ease-in-out}" },
-    "dialog-toggle": { "property": "opacity, transform", "duration": "{duration.normal}", "easing": "{easing.spring}" },
-    "tabs-switch": { "property": "color, border-color", "duration": "{duration.fast}", "easing": "{easing.ease-in-out}" }
-  },
-
-  "transitions": {
-    "default": { "$value": "all {duration.normal} {easing.ease-in-out}" },
-    "colors": { "$value": "color {duration.fast} {easing.linear}, background-color {duration.fast} {easing.linear}" },
-    "transform": { "$value": "transform {duration.normal} {easing.spring}" },
-    "opacity": { "$value": "opacity {duration.fast} {easing.linear}" },
-    "all-smooth": { "$value": "all {duration.slow} {easing.ease-in-out}" }
-  },
-
-  "component_animations": {
-    "/* PATTERN: Map each component to its animations - MUST match design-tokens.json component list */": {
-      "stateOrInteraction": {
-        "animation": "keyframe-name {duration.*} {easing.*} OR none",
-        "transition": "{interactions.*} OR none"
-      }
-    },
-    "button": {
-      "hover": { "animation": "none", "transition": "{interactions.button-hover}" },
-      "active": { "animation": "none", "transition": "{interactions.button-active}" }
-    },
-    "card": {
-      "hover": { "animation": "none", "transition": "{interactions.card-hover}" }
-    },
-    "input": {
-      "focus": { "animation": "none", "transition": "{interactions.input-focus}" }
-    },
-    "dialog": {
-      "open": { "animation": "dialog-open {duration.normal} {easing.spring}" },
-      "close": { "animation": "dialog-close {duration.normal} {easing.ease-in}" }
-    },
-    "dropdown": {
-      "open": { "animation": "dropdown-open {duration.fast} {easing.ease-out}" },
-      "close": { "animation": "dropdown-close {duration.fast} {easing.ease-in}" }
-    },
-    "toast": {
-      "enter": { "animation": "toast-enter {duration.normal} {easing.ease-out}" },
-      "exit": { "animation": "toast-exit {duration.normal} {easing.ease-in}" }
-    },
-    "accordion": {
-      "open": { "animation": "accordion-down {duration.normal} {easing.ease-out}" },
-      "close": { "animation": "accordion-up {duration.normal} {easing.ease-in}" }
-    },
-    "/* Add mappings for: tabs, switch, checkbox, badge, alert */" : {}
-  },
-
-  "accessibility": {
-    "prefers_reduced_motion": {
-      "duration": "0ms",
-      "keyframes": {},
-      "note": "Disable animations when user prefers reduced motion",
-      "css_rule": "@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }"
-    }
-  },
-
-  "_metadata": {
-    "version": "string",
-    "created": "ISO timestamp",
-    "source": "code-import|explore|text",
-    "code_snippets": [
-      {
-        "animation_name": "string - keyframe/transition name",
-        "source_file": "string - absolute path",
-        "line_start": "number",
-        "line_end": "number",
-        "snippet": "string - complete @keyframes or transition code",
-        "context_type": "css-keyframes|css-transition|js-animation|scss-animation|etc"
-      }
-    ]
-  }
-}
-```
+**Structure Overview**:
+- **duration**: instant (0ms), fast (150ms), normal (300ms), slow (500ms), slower (1000ms)
+- **easing**: linear, ease-in, ease-out, ease-in-out, spring, bounce
+- **keyframes**: Animation definitions in pairs (in/out, open/close, enter/exit)
+  - Required: fade-in/out, slide-up/down, scale-in/out, accordion-down/up, dialog-open/close, dropdown-open/close, toast-enter/exit, spin, pulse
+- **interactions**: Component interaction animations with property, duration, easing
+  - button-hover/active, card-hover, input-focus, dropdown-toggle, accordion-toggle, dialog-toggle, tabs-switch
+- **transitions**: default, colors, transform, opacity, all-smooth
+- **component_animations**: Maps components to animations (MUST match design-tokens.json components)
+  - State-based: dialog, dropdown, toast, accordion (use keyframes)
+  - Interaction: button, card, input, tabs (use transitions)
+- **accessibility**: prefers_reduced_motion with CSS rule
+- **_metadata**: version, created, source, code_snippets
 
 **Field Rules**:
 - $schema MUST reference W3C Design Tokens format specification

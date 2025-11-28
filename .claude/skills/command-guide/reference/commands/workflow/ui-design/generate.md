@@ -21,6 +21,36 @@ Pure assembler that combines pre-extracted layout templates with design tokens t
 - `/workflow:ui-design:style-extract` → Complete design systems (design-tokens.json + style-guide.md)
 - `/workflow:ui-design:layout-extract` → Layout structure
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --design-id, --session
+   └─ Decision (base path resolution):
+      ├─ --design-id provided → Exact match by design ID
+      ├─ --session provided → Latest in session
+      └─ No flags → Latest globally
+
+Phase 1: Setup & Validation
+   ├─ Step 1: Resolve base path & parse configuration
+   ├─ Step 2: Load layout templates
+   ├─ Step 3: Validate design tokens
+   └─ Step 4: Load animation tokens (optional)
+
+Phase 2: Assembly (Agent)
+   ├─ Step 1: Calculate agent grouping plan
+   │  └─ Grouping rules:
+   │     ├─ Style isolation: Each agent processes ONE style
+   │     ├─ Balanced distribution: Layouts evenly split
+   │     └─ Max 10 layouts per agent, max 6 concurrent agents
+   ├─ Step 2: Launch batched assembly tasks (parallel)
+   └─ Step 3: Verify generated files
+
+Phase 3: Generate Preview Files
+   ├─ Step 1: Run preview generation script
+   └─ Step 2: Verify preview files
+```
+
 ## Phase 1: Setup & Validation
 
 ### Step 1: Resolve Base Path & Parse Configuration

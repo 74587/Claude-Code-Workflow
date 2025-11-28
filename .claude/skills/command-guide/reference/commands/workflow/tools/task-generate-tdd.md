@@ -53,6 +53,30 @@ Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent
 - **Current approach**: 1 feature = 1 task (IMPL-N with internal Red-Green-Refactor phases)
 - **Complex features**: 1 container (IMPL-N) + subtasks (IMPL-N.M) when necessary
 
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session, --cli-execute
+   └─ Validation: session_id REQUIRED
+
+Phase 1: Discovery & Context Loading (Memory-First)
+   ├─ Load session context (if not in memory)
+   ├─ Load context package (if not in memory)
+   ├─ Load test context package (if not in memory)
+   ├─ Extract & load role analyses from context package
+   ├─ Load conflict resolution (if exists)
+   └─ Optional: MCP external research
+
+Phase 2: Agent Execution (Document Generation)
+   ├─ Pre-agent template selection (agent-mode OR cli-execute-mode)
+   ├─ Invoke action-planning-agent
+   ├─ Generate TDD Task JSON Files (.task/IMPL-*.json)
+   │  └─ Each task: complete Red-Green-Refactor cycle internally
+   ├─ Create IMPL_PLAN.md (TDD variant)
+   └─ Generate TODO_LIST.md with TDD phase indicators
+```
+
 ## Execution Lifecycle
 
 ### Phase 1: Discovery & Context Loading

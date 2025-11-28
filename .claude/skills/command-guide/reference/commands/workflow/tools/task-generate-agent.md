@@ -1,29 +1,50 @@
 ---
 name: task-generate-agent
-description: Autonomous task generation using action-planning-agent with discovery and output phases for workflow planning
+description: Generate implementation plan documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) using action-planning-agent - produces planning artifacts, does NOT execute code implementation
 argument-hint: "--session WFS-session-id [--cli-execute]"
 examples:
   - /workflow:tools:task-generate-agent --session WFS-auth
   - /workflow:tools:task-generate-agent --session WFS-auth --cli-execute
 ---
 
-# Autonomous Task Generation Command
+# Generate Implementation Plan Command
 
 ## Overview
-Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent with two-phase execution: discovery and document generation. Supports both agent-driven execution (default) and CLI tool execution modes.
+Generate implementation planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) using action-planning-agent. This command produces **planning artifacts only** - it does NOT execute code implementation. Actual code implementation requires separate execution command (e.g., /workflow:execute).
 
 ## Core Philosophy
-- **Agent-Driven**: Delegate execution to action-planning-agent for autonomous operation
-- **Two-Phase Flow**: Discovery (context gathering) → Output (document generation)
+- **Planning Only**: Generate planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) - does NOT implement code
+- **Agent-Driven Document Generation**: Delegate plan generation to action-planning-agent
+- **Progressive Loading**: Load context incrementally (Core → Selective → On-Demand) due to analysis.md file size
+- **Two-Phase Flow**: Discovery (context gathering) → Output (planning document generation)
 - **Memory-First**: Reuse loaded documents from conversation memory
+- **Smart Selection**: Load synthesis_output OR guidance + relevant role analyses, NOT all role analyses
 - **MCP-Enhanced**: Use MCP tools for advanced code analysis and research
 - **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
 
-## Execution Lifecycle
+## Execution Process
+
+```
+Input Parsing:
+   ├─ Parse flags: --session, --cli-execute
+   └─ Validation: session_id REQUIRED
+
+Phase 1: Context Preparation (Command)
+   ├─ Assemble session paths (metadata, context package, output dirs)
+   └─ Provide metadata (session_id, execution_mode, mcp_capabilities)
+
+Phase 2: Planning Document Generation (Agent)
+   ├─ Load context package (progressive loading strategy)
+   ├─ Generate Task JSON Files (.task/IMPL-*.json)
+   ├─ Create IMPL_PLAN.md
+   └─ Generate TODO_LIST.md
+```
+
+## Document Generation Lifecycle
 
 ### Phase 1: Context Preparation (Command Responsibility)
 
-**Command prepares session paths and metadata, agent loads content autonomously.**
+**Command prepares session paths and metadata for planning document generation.**
 
 **Session Path Structure**:
 ```
@@ -47,110 +68,71 @@ Autonomous task JSON and IMPL_PLAN.md generation using action-planning-agent wit
    - `execution_mode` (agent-mode | cli-execute-mode)
    - `mcp_capabilities` (available MCP tools)
 
-**Note**: Agent autonomously loads files based on context package content (dynamic, not fixed template). Brainstorming artifacts only loaded if they exist in session.
+### Phase 2: Planning Document Generation (Agent Responsibility)
 
-### Phase 2: Agent Execution (Document Generation)
+**Purpose**: Generate IMPL_PLAN.md, task JSONs, and TODO_LIST.md - planning documents only, NOT code implementation.
 
 **Agent Invocation**:
 ```javascript
 Task(
   subagent_type="action-planning-agent",
-  description="Generate task JSON and implementation plan",
+  description="Generate planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md)",
   prompt=`
-## Task Objective
-Generate implementation plan (IMPL_PLAN.md), task JSONs, and TODO list for workflow session
+## TASK OBJECTIVE
+Generate implementation planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) for workflow session
 
-## MANDATORY FIRST STEPS
-1. Read session metadata: {session.session_metadata_path}
-2. Load context package: {session.context_package_path}
-3. **Dynamically load files based on context package content** (see below)
+IMPORTANT: This is PLANNING ONLY - you are generating planning documents, NOT implementing code.
 
-## Dynamic Content Loading Strategy
+CRITICAL: Follow the progressive loading strategy defined in agent specification (load analysis.md files incrementally due to file size)
 
-**Load files based on what exists in context package - NOT a fixed template**
+## SESSION PATHS
+Input:
+  - Session Metadata: .workflow/active/{session-id}/workflow-session.json
+  - Context Package: .workflow/active/{session-id}/.process/context-package.json
 
-### Step 1: Always Load (Required)
-- **Session Metadata** → Extract user input
-  - User description: Original task requirements
-  - Project scope and boundaries
-  - Technical constraints
+Output:
+  - Task Dir: .workflow/active/{session-id}/.task/
+  - IMPL_PLAN: .workflow/active/{session-id}/IMPL_PLAN.md
+  - TODO_LIST: .workflow/active/{session-id}/TODO_LIST.md
 
-### Step 2: Check Context Package (Conditional Loading)
+## CONTEXT METADATA
+Session ID: {session-id}
+Planning Mode: {agent-mode | cli-execute-mode}
+MCP Capabilities: {exa_code, exa_web, code_index}
 
-**If `brainstorm_artifacts` exists in context package:**
-- Load artifacts **in priority order** as listed below
-- **If `brainstorm_artifacts` does NOT exist**: Skip to Step 3
-
-**Priority Loading (when artifacts exist):**
-1. **guidance-specification.md** (if `guidance_specification.exists = true`)
-   - Overall design framework - use as primary reference
-
-2. **Role Analyses** (if `role_analyses[]` array exists)
-   - Load ALL role analysis files listed in array
-   - Each file path: `role_analyses[i].files[j].path`
-
-3. **Synthesis Output** (if `synthesis_output.exists = true`)
-   - Integrated view with clarifications
-
-4. **Conflict Resolution** (if `conflict_risk` = "medium" or "high")
-   - Check `conflict_resolution.status`
-   - If "resolved": Use updated artifacts (conflicts pre-addressed)
-
-### Step 3: Extract Project Context
-- `focus_areas`: Target directories for implementation
-- `assets`: Existing code patterns to reuse
-
-## Session Paths
-- Session Metadata: .workflow/active/{session-id}/workflow-session.json
-- Context Package: .workflow/active/{session-id}/.process/context-package.json
-- Output Task Dir: .workflow/active/{session-id}/.task/
-- Output IMPL_PLAN: .workflow/active/{session-id}/IMPL_PLAN.md
-- Output TODO_LIST: .workflow/active/{session-id}/TODO_LIST.md
-
-## Context Metadata
-- Session ID: {session-id}
-- Execution Mode: {agent-mode | cli-execute-mode}
-- MCP Capabilities Available: {exa_code, exa_web, code_index}
-
-**Note**: Content loading is **dynamic** based on actual files in session, not a fixed template
-
-## Expected Deliverables
-1. **Task JSON Files** (.task/IMPL-*.json)
+## EXPECTED DELIVERABLES
+1. Task JSON Files (.task/IMPL-*.json)
    - 6-field schema (id, title, status, context_package_path, meta, context, flow_control)
    - Quantified requirements with explicit counts
    - Artifacts integration from context package
    - Flow control with pre_analysis steps
 
-2. **Implementation Plan** (IMPL_PLAN.md)
+2. Implementation Plan (IMPL_PLAN.md)
    - Context analysis and artifact references
    - Task breakdown and execution strategy
    - Complete structure per agent definition
 
-3. **TODO List** (TODO_LIST.md)
-   - Hierarchical structure with status indicators (▸, [ ], [x])
+3. TODO List (TODO_LIST.md)
+   - Hierarchical structure (containers, pending, completed markers)
    - Links to task JSONs and summaries
    - Matches task JSON hierarchy
 
-## Quality Standards
-- Task count ≤12 (hard limit)
-- All requirements quantified (explicit counts and lists)
-- Acceptance criteria measurable (verification commands)
-- Artifact references mapped from context package
-- All documents follow agent-defined structure
+## QUALITY STANDARDS
+Hard Constraints:
+  - Task count <= 12 (hard limit - request re-scope if exceeded)
+  - All requirements quantified (explicit counts and enumerated lists)
+  - Acceptance criteria measurable (include verification commands)
+  - Artifact references mapped from context package
+  - All documents follow agent-defined structure
 
-## Success Criteria
-- All task JSONs valid and saved to .task/ directory
-- IMPL_PLAN.md created with complete structure
-- TODO_LIST.md generated matching task JSONs
-- Return completion status with file count
+## SUCCESS CRITERIA
+- All planning documents generated successfully:
+  - Task JSONs valid and saved to .task/ directory
+  - IMPL_PLAN.md created with complete structure
+  - TODO_LIST.md generated matching task JSONs
+- Return completion status with document count and task breakdown summary
 `
 )
 ```
 
-**Key Changes from Previous Version**:
-1. **Paths over Content**: Provide file paths for agent to read, not embedded content
-2. **MANDATORY FIRST STEPS**: Explicit requirement to load session metadata and context package
-3. **Complete Session Paths**: All file paths provided for agent operations
-4. **Emphasized Deliverables**: Clear deliverable requirements with quality standards
-5. **No Agent Self-Reference**: Removed "Refer to action-planning-agent.md" (agent knows its own definition)
-6. **No Template Paths**: Removed all template references (agent has complete schema/structure definitions)
+、
