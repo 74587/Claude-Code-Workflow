@@ -415,8 +415,6 @@ Generate plan.json with:
 3. **Substantial tasks**: Each task should represent 15-60 minutes of work
 4. **True dependencies only**: Only use depends_on when Task B cannot start without Task A's output
 5. **Prefer parallel**: Most tasks should be independent (no depends_on)
-6. **Explicit parallel groups**: Assign same `execution_group` ID (e.g., "group-1") to tasks that can run concurrently; null for others
-7. **Task complexity**: Set `complexity` (Low/Medium/High) for workload balancing - executor uses cost units (1/2/4)
 
 ## Execution
 1. Read ALL exploration files for comprehensive context

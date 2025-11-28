@@ -118,15 +118,6 @@
               "pattern": "^T[0-9]+$"
             },
             "description": "Task IDs this task depends on (e.g., ['T1', 'T2'])"
-          },
-          "execution_group": {
-            "type": ["string", "null"],
-            "description": "Parallel execution group ID. Tasks with same group ID run concurrently. null = use depends_on logic"
-          },
-          "complexity": {
-            "type": "string",
-            "enum": ["Low", "Medium", "High"],
-            "description": "Task complexity for workload balancing (Low=1, Medium=2, High=4 cost units)"
           }
         }
       },
