@@ -5,6 +5,78 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.9.6] - 2025-11-28
+
+### 🚀 Review Cycle & Dashboard Enhancement
+
+This release significantly enhances the code review capabilities with a new fix-dashboard, real-time progress tracking, and improved agent coordination.
+
+#### ✨ Added
+- **`fix-dashboard.html`**: New independent dashboard for tracking fix progress with theme support (`84b428b`).
+- **Real-time Progress**: The `review-cycle` dashboard now features real-time progress updates and advanced filtering for better visibility (`f759338`).
+- **Enhanced Export Notifications**: Export notifications now include detailed usage instructions and recommended file locations (`6467480`).
+
+#### 🔄 Changed
+- **Dashboard Data Integration**: `fix-dashboard.html` now consumes more JSON fields from the `review-fix` workflow for richer data display (`b000359`).
+- **Dashboard Generation**: Optimized the generation process for the review cycle dashboard and merged JSON state files for efficiency (`2cf8efe`).
+- **Agent Schema Requirements**: Added explicit JSON schema requirements to review cycle agent prompts to ensure structured output (`34a9a23`).
+- **Standardized Naming**: Standardized "Execution Flow" phase naming across commands and removed redundant `REVIEW-SUMMARY.md` output (`ef09914`).
+
+## [5.9.5] - 2025-11-27
+
+### 🎯 Test Cycle & Agent Behavior Refinement
+
+This version focuses on improving the `test-cycle` execution with intelligent strategies and refining agent behavior for more reliable and predictable execution.
+
+#### ✨ Added
+- **Intelligent Iteration Strategies**: Enhanced `test-cycle-execute` with smart iteration strategies for more effective testing (`97b2247`).
+- **Universal Test-Fix Agent**: Introduced a universal `@test-fix-agent` invocation template for standardized bug fixing (`32c9595`).
+- **Agent Guidelines**: Added new guidelines for the `@test-fix-agent` to avoid complex bash pipe chains and to enforce `run_in_background=false` for stability (`edda988`, `a896176`).
+
+#### 🔄 Changed
+- **Dashboard Access**: Replaced `file://` URLs with a local HTTP server for accessing dashboards to prevent browser security issues (`75ad427`).
+- **Agent Prompts**: Prioritized syntax checks in the `@test-fix-agent` prompt for faster error detection (`d99448f`).
+- **CLI Execution Timeout**: Increased the timeout for CLI execution to 10 minutes to handle long-running tasks (`5375c99`).
+- **Session Start**: Added a non-interrupting execution guideline to the session start command to prevent accidental termination (`2b80a02`).
+
+## [5.9.4] - 2025-11-25
+
+### ⚡ Lite-Fix Workflow & Multi-Angle Exploration
+
+This release introduces the new `lite-fix` workflow for streamlined bug resolution and enhances the exploration capabilities of `lite-plan`.
+
+#### ✨ Added
+- **`lite-fix` Workflow**: A new, intelligent workflow for bug diagnosis and resolution. Documented in `WORKFLOW_DECISION_GUIDE` (`7453987`, `c8dd1ad`).
+- **`docs-related-cli` Command**: New command for CLI-related documentation (`7453987`).
+- **Session Artifacts**: `lite-fix` workflow now creates a dedicated session folder with artifacts like `diagnosis.json` and `fix-plan.json` (`0207677`).
+- **`review-session-cycle` Command**: A comprehensive command for multi-dimensional code analysis (`93d8e79`).
+- **`review-fix` Workflow**: Automated workflow for reviewing fixes with an enhanced exploration schema (`a6561a7`).
+- **JSON Schemas**: Added new JSON schemas for deep-dive results and dimension analysis to structure agent outputs (`cd206f2`).
+
+#### 🔄 Changed
+- **Exploration Context**: Enhanced the multi-angle exploration context in `lite-execute` and `lite-plan` command outputs (`4bd732c`).
+- **`cli-explore-agent`**: Simplified the agent with a prompt-driven architecture, making it more flexible (`cf6a0f1`).
+- **TodoWrite Format**: Optimized the `TodoWrite` format with a hierarchical display across all workflow commands for better readability (`152303f`).
+- **Session Requirement**: Review commands now require an active session and use a unified output directory structure (`8f21266`).
+
+## [5.9.3] - 2025-11-24
+
+### 🛠️ Lite-Plan Optimization & Documentation Overhaul
+
+This version marks a major overhaul of the `lite-plan` workflow, introducing parallel exploration, cost-aware execution, and a comprehensive documentation update.
+
+#### ✨ Added
+- **Exploration & Plan Schemas**: Added `exploration-json-schema.json` and `plan-json-schema.json` to standardize task context and planning artifacts (`19acaea`, `247db0d`).
+- **Cost-Aware Parallel Execution**: `lite-plan` now supports `execution_group` in tasks, enabling cost-aware parallel execution of independent tasks (`cde17bd`, `697a646`).
+- **Agent-Task Execution Rules**: Enforced a one-agent-per-task-JSON rule to ensure reliable and traceable execution (`20aa0f3`).
+- **50K Context Protection**: Added a context threshold in `lite-plan` to automatically delegate large inputs to `cli-explore-agent`, preventing orchestrator overflow (`96dd9be`).
+
+#### 🔄 Changed
+- **`lite-plan` Refactor**: The workflow was significantly refactored to support the new `plan.json` format, improving task structure and exploration angle assignment (`247db0d`).
+- **Complexity Assessment**: `lite-plan` now uses an intelligent analysis from Claude to assess task complexity, simplifying the logic (`964bbbf`).
+- **Task Generation Rules**: Updated task generation to allow for 2-7 structured tasks per plan, with refined grouping principles for better granularity (`87d5a12`).
+- **Documentation**: Major updates to workflow initialization, task generation, and agent documentation to reflect new progressive loading strategies and path-based context loading (`481a716`, `adbb207`, `4bb4bdc`).
+- **UI Design Templates**: Consolidated workflow commands and added new UI design templates (`f798dd4`).
 
 ## [5.8.1] - 2025-01-16
 

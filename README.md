@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.9.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v5.9.6-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,18 +14,14 @@
 
 **Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a powerful, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
 
-> **🎉 Version 5.9.3: Documentation Enhancement & Context Management**
+> **🎉 Version 5.9.6: Review Cycle Enhancement & Dashboard Automation**
 >
 > **Core Improvements**:
-> - ✨ **Enhanced JSON Schemas** - Added exploration and plan JSON schemas for better task context and planning
-> - 🎯 **Agent-Task Execution Rules** - Enforced one-agent-per-task constraint for reliable execution
-> - 📚 **Documentation Overhaul** - Comprehensive updates to workflow initialization, task generation, and agent documentation
->   - **Progressive Loading Strategy**: Improved context management for large codebases
->   - **Smart Artifact Selection**: Better task JSON generation with context awareness
->   - **Framework Integration**: Enhanced test infrastructure documentation
-> - 🔧 **Path-Based Context Loading** - Migrated agents to path-based context loading for better performance
-> - 🎨 **UI Design Templates** - Consolidated workflow commands with new UI design templates
-> - 🐛 **Bug Fixes** - Corrected spelling errors and clarified execution behavior
+> - ✨ **Enhanced Review Dashboard**: The `review-cycle` dashboard now supports real-time progress tracking and advanced filtering for better visibility into code reviews.
+> - 🎯 **New Fix-Tracking Dashboard**: Introduced a new, independent `fix-dashboard.html` to monitor the progress of bug fixes with rich data integration.
+> - 🚀 **`lite-fix` Workflow**: Added a new `lite-fix` command for intelligent, streamlined bug diagnosis and resolution.
+> - 🛠️ **`lite-plan` Optimization**: Significantly optimized the `lite-plan` workflow with cost-aware parallel execution, better complexity analysis, and robust context protection.
+> - 🧠 **Intelligent Test Cycles**: Improved the `test-cycle-execute` command with smart iteration strategies and a universal `@test-fix-agent` for more effective testing.
 >
 > See [CHANGELOG.md](CHANGELOG.md) for complete details.
 
