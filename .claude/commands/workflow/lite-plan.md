@@ -49,11 +49,10 @@ Phase 2: Clarification (optional)
       ├─ Has clarifications → AskUserQuestion (max 4 questions)
       └─ No clarifications → Skip to Phase 3
 
-Phase 3: Planning
-   ├─ Load schema: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json (REQUIRED)
+Phase 3: Planning (NO CODE EXECUTION - planning only)
    └─ Decision (based on Phase 1 complexity):
-      ├─ Low → Direct Claude planning (following schema) → plan.json
-      └─ Medium/High → cli-lite-planning-agent → plan.json
+      ├─ Low → Load schema: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json → Direct Claude planning (following schema) → plan.json → MUST proceed to Phase 4
+      └─ Medium/High → cli-lite-planning-agent → plan.json → MUST proceed to Phase 4
 
 Phase 4: Confirmation & Selection
    ├─ Display plan summary (tasks, complexity, estimated time)
@@ -331,10 +330,29 @@ if (uniqueClarifications.length > 0) {
 
 **Planning Strategy Selection** (based on Phase 1 complexity):
 
+**IMPORTANT**: Phase 3 is **planning only** - NO code execution. All execution happens in Phase 5 via lite-execute.
+
 **Low Complexity** - Direct planning by Claude:
-- Read schema: `cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json`
-- Generate plan following schema structure, write to `${sessionFolder}/plan.json`
-- No agent invocation
+```javascript
+// Step 1: Read schema
+const schema = Bash(`cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json`)
+
+// Step 2: Generate plan following schema (Claude directly, no agent)
+const plan = {
+  summary: "...",
+  approach: "...",
+  tasks: [...],  // Follow Task Grouping Rules below
+  estimated_time: "...",
+  recommended_execution: "Agent",
+  complexity: "Low",
+  _metadata: { timestamp: new Date().toISOString(), source: "direct-planning", planning_mode: "direct" }
+}
+
+// Step 3: Write plan to session folder
+Write(`${sessionFolder}/plan.json`, JSON.stringify(plan, null, 2))
+
+// Step 4: MUST continue to Phase 4 (Confirmation) - DO NOT execute code here
+```
 
 **Medium/High Complexity** - Invoke cli-lite-planning-agent:
 
@@ -472,6 +490,8 @@ AskUserQuestion({
 ---
 
 ### Phase 5: Dispatch to Execution
+
+**CRITICAL**: lite-plan NEVER executes code directly. ALL execution MUST go through lite-execute.
 
 **Step 5.1: Build executionContext**
 
