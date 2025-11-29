@@ -20,8 +20,21 @@
     },
     "relevant_files": {
       "type": "array",
-      "items": {"type": "string"},
-      "description": "File paths to be modified or referenced for the task"
+      "items": {
+        "oneOf": [
+          {"type": "string"},
+          {
+            "type": "object",
+            "required": ["path", "relevance"],
+            "properties": {
+              "path": {"type": "string", "description": "File path relative to project root"},
+              "relevance": {"type": "number", "minimum": 0, "maximum": 1, "description": "Relevance score 0.0-1.0 (0.7+ high, 0.5-0.7 medium, <0.5 low)"},
+              "rationale": {"type": "string", "description": "Brief explanation of why this file is relevant from this exploration angle"}
+            }
+          }
+        ]
+      },
+      "description": "File paths to be modified or referenced for the task. Prefer object format with relevance scores for synthesis prioritization."
     },
     "patterns": {
       "type": "string",

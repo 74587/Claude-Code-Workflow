@@ -196,9 +196,12 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 **Required Fields** (all ${angle} focused):
 - project_structure: Modules/architecture relevant to ${angle}
 - relevant_files: Files affected from ${angle} perspective
+  **IMPORTANT**: Use object format with relevance scores for synthesis:
+  \`[{path: "src/file.ts", relevance: 0.85, rationale: "Core ${angle} logic"}]\`
+  Scores: 0.7+ high priority, 0.5-0.7 medium, <0.5 low
 - patterns: ${angle}-related patterns to follow
 - dependencies: Dependencies relevant to ${angle}
-- integration_points: Where to integrate from ${angle} viewpoint
+- integration_points: Where to integrate from ${angle} viewpoint (include file:line locations)
 - constraints: ${angle}-specific limitations/conventions
 - clarification_needs: ${angle}-related ambiguities (with options array)
 - _metadata.exploration_angle: "${angle}"

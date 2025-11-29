@@ -46,7 +46,7 @@ Step 2: Complexity Assessment & Parallel Explore (NEW)
 Step 3: Invoke Context-Search Agent (with exploration input)
    ├─ Phase 1: Initialization & Pre-Analysis
    ├─ Phase 2: Multi-Source Discovery
-   │  ├─ Track 0: Exploration aggregation (NEW)
+   │  ├─ Track 0: Exploration Synthesis (prioritize & deduplicate)
    │  ├─ Track 1-4: Existing tracks
    └─ Phase 3: Synthesis & Packaging
       └─ Generate context-package.json with exploration_results
@@ -164,9 +164,12 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 **Required Fields** (all ${angle} focused):
 - project_structure: Modules/architecture relevant to ${angle}
 - relevant_files: Files affected from ${angle} perspective
+  **IMPORTANT**: Use object format with relevance scores for synthesis:
+  \`[{path: "src/file.ts", relevance: 0.85, rationale: "Core ${angle} logic"}]\`
+  Scores: 0.7+ high priority, 0.5-0.7 medium, <0.5 low
 - patterns: ${angle}-related patterns to follow
 - dependencies: Dependencies relevant to ${angle}
-- integration_points: Where to integrate from ${angle} viewpoint
+- integration_points: Where to integrate from ${angle} viewpoint (include file:line locations)
 - constraints: ${angle}-specific limitations/conventions
 - clarification_needs: ${angle}-related ambiguities (with options array)
 - _metadata.exploration_angle: "${angle}"
@@ -239,7 +242,7 @@ Execute complete context-search-agent workflow for implementation planning:
 
 ### Phase 2: Multi-Source Context Discovery
 Execute all discovery tracks:
-- **Track 0**: Exploration aggregation (load ${sessionFolder}/explorations-manifest.json and aggregate)
+- **Track 0**: Exploration Synthesis (load ${sessionFolder}/explorations-manifest.json, prioritize critical_files, deduplicate patterns/integration_points)
 - **Track 1**: Historical archive analysis (query manifest.json for lessons learned)
 - **Track 2**: Reference documentation (CLAUDE.md, architecture docs)
 - **Track 3**: Web examples (use Exa MCP for unfamiliar tech/APIs)
