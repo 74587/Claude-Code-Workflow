@@ -73,8 +73,11 @@ Phase 5: Dispatch
 
 **Session Setup**:
 ```javascript
+// Helper: Get UTC+8 (China Standard Time) ISO string
+const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+
 const taskSlug = task_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
-const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+const timestamp = getUtc8ISOString().replace(/[:.]/g, '-')
 const shortTimestamp = timestamp.substring(0, 19).replace('T', '-')
 const sessionId = `${taskSlug}-${shortTimestamp}`
 const sessionFolder = `.workflow/.lite-plan/${sessionId}`
@@ -237,7 +240,7 @@ const explorationFiles = bash(`find ${sessionFolder} -name "exploration-*.json" 
 const explorationManifest = {
   session_id: sessionId,
   task_description: task_description,
-  timestamp: new Date().toISOString(),
+  timestamp: getUtc8ISOString(),
   complexity: complexity,
   exploration_count: explorationCount,
   explorations: explorationFiles.map(file => {
@@ -351,7 +354,7 @@ const plan = {
   estimated_time: "...",
   recommended_execution: "Agent",
   complexity: "Low",
-  _metadata: { timestamp: new Date().toISOString(), source: "direct-planning", planning_mode: "direct" }
+  _metadata: { timestamp: getUtc8ISOString(), source: "direct-planning", planning_mode: "direct" }
 }
 
 // Step 3: Write plan to session folder
