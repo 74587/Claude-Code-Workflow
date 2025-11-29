@@ -73,8 +73,11 @@ Phase 5: Dispatch
 
 **Session Setup**:
 ```javascript
+// Helper: Get UTC+8 (China Standard Time) ISO string
+const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+
 const bugSlug = bug_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
-const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+const timestamp = getUtc8ISOString().replace(/[:.]/g, '-')
 const shortTimestamp = timestamp.substring(0, 19).replace('T', '-')
 const sessionId = `${bugSlug}-${shortTimestamp}`
 const sessionFolder = `.workflow/.lite-fix/${sessionId}`
@@ -248,7 +251,7 @@ const diagnosisFiles = bash(`find ${sessionFolder} -name "diagnosis-*.json" -typ
 const diagnosisManifest = {
   session_id: sessionId,
   bug_description: bug_description,
-  timestamp: new Date().toISOString(),
+  timestamp: getUtc8ISOString(),
   severity: severity,
   diagnosis_count: diagnosisFiles.length,
   diagnoses: diagnosisFiles.map(file => {
@@ -364,7 +367,7 @@ const fixPlan = {
   recommended_execution: "Agent",
   severity: severity,
   risk_level: "...",
-  _metadata: { timestamp: new Date().toISOString(), source: "direct-planning", planning_mode: "direct" }
+  _metadata: { timestamp: getUtc8ISOString(), source: "direct-planning", planning_mode: "direct" }
 }
 
 // Step 3: Write fix-plan to session folder
