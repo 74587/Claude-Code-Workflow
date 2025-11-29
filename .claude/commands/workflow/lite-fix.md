@@ -293,6 +293,8 @@ Angles diagnosed: ${diagnosisManifest.diagnoses.map(d => d.angle).join(', ')}
 
 **Skip if**: No diagnosis or `clarification_needs` is empty across all diagnoses
 
+**⚠️ CRITICAL**: AskUserQuestion tool limits max 4 questions per call. **MUST execute multiple rounds** to exhaust all clarification needs - do NOT stop at round 1.
+
 **Aggregate clarification needs from all diagnosis angles**:
 ```javascript
 // Load manifest and all diagnosis files
@@ -330,10 +332,16 @@ function deduplicateClarifications(clarifications) {
 const uniqueClarifications = deduplicateClarifications(allClarifications)
 
 // Multi-round clarification: batch questions (max 4 per round)
+// ⚠️ MUST execute ALL rounds until uniqueClarifications exhausted
 if (uniqueClarifications.length > 0) {
   const BATCH_SIZE = 4
+  const totalRounds = Math.ceil(uniqueClarifications.length / BATCH_SIZE)
+
   for (let i = 0; i < uniqueClarifications.length; i += BATCH_SIZE) {
     const batch = uniqueClarifications.slice(i, i + BATCH_SIZE)
+    const currentRound = Math.floor(i / BATCH_SIZE) + 1
+
+    console.log(`### Clarification Round ${currentRound}/${totalRounds}`)
 
     AskUserQuestion({
       questions: batch.map(need => ({
