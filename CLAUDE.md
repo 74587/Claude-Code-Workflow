@@ -28,6 +28,7 @@ For all CLI tool usage, command syntax, and integration guidelines:
 - **Learning from existing code** - Study and plan before implementing
 - **Clear intent over clever code** - Be boring and obvious
 - **Follow existing code style** - Match import patterns, naming conventions, and formatting of existing codebase
+- **Minimize changes** - Only modify what's directly required; avoid refactoring, adding features, or "improving" code beyond the request
 - **No unsolicited reports** - Task summaries can be performed internally, but NEVER generate additional reports, documentation files, or summary files without explicit user permission
 - **Minimal documentation output** - Avoid unnecessary documentation. If required, save to .workflow/.scratchpad/
 
