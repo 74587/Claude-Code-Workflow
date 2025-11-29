@@ -43,11 +43,11 @@ Phase 1: Bug Analysis & Diagnosis
       |- needsDiagnosis=true -> Launch parallel cli-explore-agents (1-4 based on severity)
       +- needsDiagnosis=false (hotfix) -> Skip directly to Phase 3 (Fix Planning)
 
-Phase 2: Clarification (optional)
+Phase 2: Clarification (optional, multi-round)
    |- Aggregate clarification_needs from all diagnosis angles
    |- Deduplicate similar questions
    +- Decision:
-      |- Has clarifications -> AskUserQuestion (max 4 questions)
+      |- Has clarifications -> AskUserQuestion (max 4 questions per round, multiple rounds allowed)
       +- No clarifications -> Skip to Phase 3
 
 Phase 3: Fix Planning (NO CODE EXECUTION - planning only)
@@ -71,15 +71,17 @@ Phase 5: Dispatch
 
 ### Phase 1: Intelligent Multi-Angle Diagnosis
 
-**Session Setup**:
+**Session Setup** (MANDATORY - follow exactly):
 ```javascript
 // Helper: Get UTC+8 (China Standard Time) ISO string
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
 const bugSlug = bug_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
 const timestamp = getUtc8ISOString().replace(/[:.]/g, '-')
-const shortTimestamp = timestamp.substring(0, 19).replace('T', '-')
-const sessionId = `${bugSlug}-${shortTimestamp}`
+const shortTimestamp = timestamp.substring(0, 19).replace('T', '-')  // Format: 2025-11-29-14-30-25
+
+// ⚠️ CRITICAL: sessionId MUST include both slug AND timestamp
+const sessionId = `${bugSlug}-${shortTimestamp}`  // e.g., "user-avatar-upload-fails-2025-11-29-14-30-25"
 const sessionFolder = `.workflow/.lite-fix/${sessionId}`
 
 bash(`mkdir -p ${sessionFolder}`)
@@ -287,7 +289,7 @@ Angles diagnosed: ${diagnosisManifest.diagnoses.map(d => d.angle).join(', ')}
 
 ---
 
-### Phase 2: Clarification (Optional)
+### Phase 2: Clarification (Optional, Multi-Round)
 
 **Skip if**: No diagnosis or `clarification_needs` is empty across all diagnoses
 
@@ -327,21 +329,29 @@ function deduplicateClarifications(clarifications) {
 
 const uniqueClarifications = deduplicateClarifications(allClarifications)
 
+// Multi-round clarification: batch questions (max 4 per round)
 if (uniqueClarifications.length > 0) {
-  AskUserQuestion({
-    questions: uniqueClarifications.map(need => ({
-      question: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
-      header: need.source_angle,
-      multiSelect: false,
-      options: need.options.map((opt, index) => {
-        const isRecommended = need.recommended === index
-        return {
-          label: isRecommended ? `${opt} ★` : opt,
-          description: isRecommended ? `Use ${opt} approach (Recommended)` : `Use ${opt} approach`
-        }
-      })
-    }))
-  })
+  const BATCH_SIZE = 4
+  for (let i = 0; i < uniqueClarifications.length; i += BATCH_SIZE) {
+    const batch = uniqueClarifications.slice(i, i + BATCH_SIZE)
+
+    AskUserQuestion({
+      questions: batch.map(need => ({
+        question: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
+        header: need.source_angle,
+        multiSelect: false,
+        options: need.options.map((opt, index) => {
+          const isRecommended = need.recommended === index
+          return {
+            label: isRecommended ? `${opt} ★` : opt,
+            description: isRecommended ? `Use ${opt} approach (Recommended)` : `Use ${opt} approach`
+          }
+        })
+      }))
+    })
+
+    // Store batch responses in clarificationContext before next round
+  }
 }
 ```
 
