@@ -143,13 +143,25 @@ This command is a **pure planning coordinator**:
 
 #### Phase 1: Create Test Session
 
-**Step 1.1: Dispatch** - Create test workflow session
+**Step 1.0: Load Source Session Intent (Session Mode Only)** - Preserve user's original task description for semantic CLI selection
 
 ```javascript
-// Session Mode
-SlashCommand(command="/workflow:session:start --new \"Test validation for [sourceSessionId]\"")
+// Session Mode: Read source session metadata to get original task description
+Read(".workflow/active/[sourceSessionId]/workflow-session.json")
+// OR if context-package exists:
+Read(".workflow/active/[sourceSessionId]/.process/context-package.json")
 
-// Prompt Mode
+// Extract: metadata.task_description or project/description field
+// This preserves user's CLI tool preferences (e.g., "use Codex for fixes")
+```
+
+**Step 1.1: Dispatch** - Create test workflow session with preserved intent
+
+```javascript
+// Session Mode - Include original task description to enable semantic CLI selection
+SlashCommand(command="/workflow:session:start --new \"Test validation for [sourceSessionId]: [originalTaskDescription]\"")
+
+// Prompt Mode - User's description already contains their intent
 SlashCommand(command="/workflow:session:start --new \"Test generation for: [description]\"")
 ```
 
@@ -158,8 +170,8 @@ SlashCommand(command="/workflow:session:start --new \"Test generation for: [desc
 **Expected Behavior**:
 - Creates new session: `WFS-test-[slug]`
 - Writes `workflow-session.json` metadata:
-  - **Session Mode**: Includes `workflow_type: "test_session"`, `source_session_id: "[sourceId]"`
-  - **Prompt Mode**: Includes `workflow_type: "test_session"` only
+  - **Session Mode**: Includes `workflow_type: "test_session"`, `source_session_id: "[sourceId]"`, description with original user intent
+  - **Prompt Mode**: Includes `workflow_type: "test_session"` only (user's description already contains intent)
 - Returns new session ID
 
 **Parse Output**:

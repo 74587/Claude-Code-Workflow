@@ -57,19 +57,35 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 ### Phase 1: Create Test Session
 
-**Step 1.1: Dispatch** - Create new test workflow session
+**Step 1.0: Load Source Session Intent** - Preserve user's original task description for semantic CLI selection
 
 ```javascript
-SlashCommand(command="/workflow:session:start --new \"Test validation for [sourceSessionId]\"")
+// Read source session metadata to get original task description
+Read(".workflow/active/[sourceSessionId]/workflow-session.json")
+// OR if context-package exists:
+Read(".workflow/active/[sourceSessionId]/.process/context-package.json")
+
+// Extract: metadata.task_description or project/description field
+// This preserves user's CLI tool preferences (e.g., "use Codex for fixes")
 ```
 
-**Input**: `sourceSessionId` from user argument (e.g., `WFS-user-auth`)
+**Step 1.1: Dispatch** - Create new test workflow session with preserved intent
+
+```javascript
+// Include original task description to enable semantic CLI selection
+SlashCommand(command="/workflow:session:start --new \"Test validation for [sourceSessionId]: [originalTaskDescription]\"")
+```
+
+**Input**:
+- `sourceSessionId` from user argument (e.g., `WFS-user-auth`)
+- `originalTaskDescription` from source session metadata (preserves CLI tool preferences)
 
 **Expected Behavior**:
 - Creates new session with pattern `WFS-test-[source-slug]` (e.g., `WFS-test-user-auth`)
 - Writes metadata to `workflow-session.json`:
   - `workflow_type: "test_session"`
   - `source_session_id: "[sourceSessionId]"`
+  - Description includes original user intent for semantic CLI selection
 - Returns new session ID for subsequent phases
 
 **Parse Output**:
