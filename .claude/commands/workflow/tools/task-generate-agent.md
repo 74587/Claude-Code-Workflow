@@ -1,10 +1,9 @@
 ---
 name: task-generate-agent
 description: Generate implementation plan documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) using action-planning-agent - produces planning artifacts, does NOT execute code implementation
-argument-hint: "--session WFS-session-id [--cli-execute]"
+argument-hint: "--session WFS-session-id"
 examples:
   - /workflow:tools:task-generate-agent --session WFS-auth
-  - /workflow:tools:task-generate-agent --session WFS-auth --cli-execute
 ---
 
 # Generate Implementation Plan Command
@@ -26,7 +25,7 @@ Generate implementation planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.
 
 ```
 Input Parsing:
-   ├─ Parse flags: --session, --cli-execute
+   ├─ Parse flags: --session
    └─ Validation: session_id REQUIRED
 
 Phase 1: Context Preparation (Command)
@@ -65,8 +64,9 @@ Phase 2: Planning Document Generation (Agent)
 
 2. **Provide Metadata** (simple values):
    - `session_id`
-   - `execution_mode` (agent-mode | cli-execute-mode)
    - `mcp_capabilities` (available MCP tools)
+
+**Note**: CLI tool usage is now determined semantically by action-planning-agent based on user's task description, not by flags.
 
 ### Phase 2: Planning Document Generation (Agent Responsibility)
 
@@ -97,8 +97,12 @@ Output:
 
 ## CONTEXT METADATA
 Session ID: {session-id}
-Planning Mode: {agent-mode | cli-execute-mode}
 MCP Capabilities: {exa_code, exa_web, code_index}
+
+## CLI TOOL SELECTION
+Determine CLI tool usage per-step based on user's task description:
+- If user specifies "use Codex/Gemini/Qwen for X" → Add command field to relevant steps
+- Default: Agent execution (no command field) unless user explicitly requests CLI
 
 ## EXPLORATION CONTEXT (from context-package.exploration_results)
 - Load exploration_results from context-package.json

@@ -142,9 +142,9 @@ run_test_layer "L1-unit" "$UNIT_CMD"
 
 ### 3. Failure Diagnosis & Fixing Loop
 
-**Execution Modes**:
+**Execution Modes** (determined by `flow_control.implementation_approach`):
 
-**A. Manual Mode (Default, meta.use_codex=false)**:
+**A. Agent Mode (Default, no `command` field in steps)**:
 ```
 WHILE tests are failing AND iterations < max_iterations:
     1. Use Gemini to diagnose failure (bug-fix template)
@@ -155,17 +155,17 @@ WHILE tests are failing AND iterations < max_iterations:
 END WHILE
 ```
 
-**B. Codex Mode (meta.use_codex=true)**:
+**B. CLI Mode (`command` field present in implementation_approach steps)**:
 ```
 WHILE tests are failing AND iterations < max_iterations:
     1. Use Gemini to diagnose failure (bug-fix template)
-    2. Use Codex to apply fixes automatically with resume mechanism
+    2. Execute `command` field (e.g., Codex) to apply fixes automatically
     3. Re-run test suite
     4. Verify fix doesn't break other tests
 END WHILE
 ```
 
-**Codex Resume in Test-Fix Cycle** (when `meta.use_codex=true`):
+**Codex Resume in Test-Fix Cycle** (when step has `command` with Codex):
 - First iteration: Start new Codex session with full context
 - Subsequent iterations: Use `resume --last` to maintain fix history and apply consistent strategies
 

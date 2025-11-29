@@ -1,7 +1,7 @@
 ---
 name: tdd-plan
 description: TDD workflow planning with Red-Green-Refactor task chain generation, test-first development structure, and cycle tracking
-argument-hint: "[--cli-execute] \"feature description\"|file.md"
+argument-hint: "\"feature description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -11,9 +11,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 
 **This command is a pure orchestrator**: Dispatches 6 slash commands in sequence, parse outputs, pass context, and ensure complete TDD workflow creation with Red-Green-Refactor task generation.
 
-**Execution Modes**:
-- **Agent Mode** (default): Use `/workflow:tools:task-generate-tdd` (autonomous agent-driven)
-- **CLI Mode** (`--cli-execute`): Use `/workflow:tools:task-generate-tdd --cli-execute` (Gemini/Qwen)
+**CLI Tool Selection**: CLI tool usage is determined semantically from user's task description. Include "use Codex/Gemini/Qwen" in your request for CLI execution.
 
 **Task Attachment Model**:
 - SlashCommand dispatch **expands workflow** by attaching sub-tasks to current TodoWrite
@@ -235,12 +233,10 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 **Step 5.1: Dispatch** - TDD task generation via action-planning-agent
 
 ```javascript
-// Agent Mode (default)
 SlashCommand(command="/workflow:tools:task-generate-tdd --session [sessionId]")
-
-// CLI Mode (--cli-execute flag)
-SlashCommand(command="/workflow:tools:task-generate-tdd --session [sessionId] --cli-execute")
 ```
+
+**Note**: CLI tool usage is determined semantically from user's task description.
 
 **Parse**: Extract feature count, task count (not chain count - tasks now contain internal TDD cycles)
 
@@ -454,8 +450,7 @@ Convert user input to TDD-structured format:
 - `/workflow:tools:test-context-gather` - Phase 3: Analyze existing test patterns and coverage
 - `/workflow:tools:conflict-resolution` - Phase 4: Detect and resolve conflicts (auto-triggered if conflict_risk ≥ medium)
 - `/compact` - Phase 4: Memory optimization (if context approaching limits)
-- `/workflow:tools:task-generate-tdd` - Phase 5: Generate TDD tasks with agent-driven approach (default, autonomous)
-- `/workflow:tools:task-generate-tdd --cli-execute` - Phase 5: Generate TDD tasks with CLI tools (Gemini/Qwen, when `--cli-execute` flag used)
+- `/workflow:tools:task-generate-tdd` - Phase 5: Generate TDD tasks (CLI tool usage determined semantically)
 
 **Follow-up Commands**:
 - `/workflow:action-plan-verify` - Recommended: Verify TDD plan quality and structure before execution

@@ -1,11 +1,9 @@
 ---
 name: test-task-generate
 description: Generate test planning documents (IMPL_PLAN.md, test task JSONs, TODO_LIST.md) using action-planning-agent - produces test planning artifacts, does NOT execute tests
-argument-hint: "[--use-codex] [--cli-execute] --session WFS-test-session-id"
+argument-hint: "--session WFS-test-session-id"
 examples:
   - /workflow:tools:test-task-generate --session WFS-test-auth
-  - /workflow:tools:test-task-generate --use-codex --session WFS-test-auth
-  - /workflow:tools:test-task-generate --cli-execute --session WFS-test-auth
 ---
 
 # Generate Test Planning Documents Command
@@ -26,17 +24,17 @@ Generate test planning documents (IMPL_PLAN.md, test task JSONs, TODO_LIST.md) u
 
 ### Test Generation (IMPL-001)
 - **Agent Mode** (default): @code-developer generates tests within agent context
-- **CLI Execute Mode** (`--cli-execute`): Use Codex CLI for autonomous test generation
+- **CLI Mode**: Use CLI tools when `command` field present in implementation_approach (determined semantically)
 
 ### Test Execution & Fix (IMPL-002+)
-- **Manual Mode** (default): Gemini diagnosis → user applies fixes
-- **Codex Mode** (`--use-codex`): Gemini diagnosis → Codex applies fixes with resume mechanism
+- **Agent Mode** (default): Gemini diagnosis → agent applies fixes
+- **CLI Mode**: Gemini diagnosis → CLI applies fixes (when `command` field present in implementation_approach)
 
 ## Execution Process
 
 ```
 Input Parsing:
-   ├─ Parse flags: --session, --use-codex, --cli-execute
+   ├─ Parse flags: --session
    └─ Validation: session_id REQUIRED
 
 Phase 1: Context Preparation (Command)
@@ -44,7 +42,7 @@ Phase 1: Context Preparation (Command)
    │  ├─ session_metadata_path
    │  ├─ test_analysis_results_path (REQUIRED)
    │  └─ test_context_package_path
-   └─ Provide metadata (session_id, execution_mode, use_codex, source_session_id)
+   └─ Provide metadata (session_id, source_session_id)
 
 Phase 2: Test Document Generation (Agent)
    ├─ Load TEST_ANALYSIS_RESULTS.md as primary requirements source
@@ -83,10 +81,10 @@ Phase 2: Test Document Generation (Agent)
 
 2. **Provide Metadata** (simple values):
    - `session_id`
-   - `execution_mode` (agent-mode | cli-execute-mode)
-   - `use_codex` flag (true | false)
    - `source_session_id` (if exists)
    - `mcp_capabilities` (available MCP tools)
+
+**Note**: CLI tool usage is now determined semantically from user's task description, not by flags.
 
 ### Phase 2: Test Document Generation (Agent Responsibility)
 
@@ -134,10 +132,13 @@ Output:
 ## CONTEXT METADATA
 Session ID: {test-session-id}
 Workflow Type: test_session
-Planning Mode: {agent-mode | cli-execute-mode}
-Use Codex: {true | false}
 Source Session: {source-session-id} (if exists)
 MCP Capabilities: {exa_code, exa_web, code_index}
+
+## CLI TOOL SELECTION
+Determine CLI tool usage per-step based on user's task description:
+- If user specifies "use Codex/Gemini/Qwen for X" → Add command field to relevant steps
+- Default: Agent execution (no command field) unless user explicitly requests CLI
 
 ## TEST-SPECIFIC REQUIREMENTS SUMMARY
 (Detailed specifications in your agent definition)
@@ -149,25 +150,26 @@ MCP Capabilities: {exa_code, exa_web, code_index}
 Task Configuration:
   IMPL-001 (Test Generation):
     - meta.type: "test-gen"
-    - meta.agent: "@code-developer" (agent-mode) OR CLI execution (cli-execute-mode)
+    - meta.agent: "@code-developer"
     - meta.test_framework: Specify existing framework (e.g., "jest", "vitest", "pytest")
     - flow_control: Test generation strategy from TEST_ANALYSIS_RESULTS.md
+    - CLI execution: Add `command` field when user requests (determined semantically)
 
   IMPL-002+ (Test Execution & Fix):
     - meta.type: "test-fix"
     - meta.agent: "@test-fix-agent"
-    - meta.use_codex: true/false (based on flag)
     - flow_control: Test-fix cycle with iteration limits and diagnosis configuration
+    - CLI execution: Add `command` field when user requests (determined semantically)
 
 ### Test-Fix Cycle Specification (IMPL-002+)
 Required flow_control fields:
   - max_iterations: 5
   - diagnosis_tool: "gemini"
   - diagnosis_template: "~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt"
-  - fix_mode: "manual" OR "codex" (based on use_codex flag)
   - cycle_pattern: "test → gemini_diagnose → fix → retest"
   - exit_conditions: ["all_tests_pass", "max_iterations_reached"]
   - auto_revert_on_failure: true
+  - CLI fix: Add `command` field when user specifies CLI tool usage
 
 ### Automation Framework Configuration
 Select automation tools based on test requirements from TEST_ANALYSIS_RESULTS.md:
@@ -191,8 +193,9 @@ PRIMARY requirements source - extract and map to task JSONs:
 ## EXPECTED DELIVERABLES
 1. Test Task JSON Files (.task/IMPL-*.json)
    - 6-field schema with quantified requirements from TEST_ANALYSIS_RESULTS.md
-   - Test-specific metadata: type, agent, use_codex, test_framework, coverage_target
+   - Test-specific metadata: type, agent, test_framework, coverage_target
    - flow_control includes: reusable_test_tools, test_commands (from project config)
+   - CLI execution via `command` field when user requests (determined semantically)
    - Artifact references from test-context-package.json
    - Absolute paths in context.files_to_test
 
@@ -213,9 +216,9 @@ Hard Constraints:
   - All requirements quantified from TEST_ANALYSIS_RESULTS.md
   - Test framework matches existing project framework
   - flow_control includes reusable_test_tools and test_commands from project
-  - use_codex flag correctly set in IMPL-002+ tasks
   - Absolute paths for all focus_paths
   - Acceptance criteria include verification commands
+  - CLI `command` field added only when user explicitly requests CLI tool usage
 
 ## SUCCESS CRITERIA
 - All test planning documents generated successfully
@@ -233,21 +236,18 @@ Hard Constraints:
 
 ### Usage Examples
 ```bash
-# Agent mode (default)
+# Standard execution
 /workflow:tools:test-task-generate --session WFS-test-auth
 
-# With automated Codex fixes
-/workflow:tools:test-task-generate --use-codex --session WFS-test-auth
-
-# CLI execution mode for test generation
-/workflow:tools:test-task-generate --cli-execute --session WFS-test-auth
+# With semantic CLI request (include in task description)
+# e.g., "Generate tests, use Codex for implementation and fixes"
 ```
 
-### Flag Behavior
-- **No flags**: `meta.use_codex=false` (manual fixes), agent-mode test generation
-- **--use-codex**: `meta.use_codex=true` (Codex automated fixes in IMPL-002+)
-- **--cli-execute**: CLI tool execution mode for IMPL-001 test generation
-- **Both flags**: CLI generation + automated Codex fixes
+### CLI Tool Selection
+CLI tool usage is determined semantically from user's task description:
+- Include "use Codex" for automated fixes
+- Include "use Gemini" for analysis
+- Default: Agent execution (no `command` field)
 
 ### Output
 - Test task JSON files in `.task/` directory (minimum 2)

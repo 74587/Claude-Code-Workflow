@@ -1,7 +1,7 @@
 ---
 name: plan
-description: 5-phase planning workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs with optional CLI auto-execution
-argument-hint: "[--cli-execute] \"text description\"|file.md"
+description: 5-phase planning workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs
+argument-hint: "\"text description\"|file.md"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -69,7 +69,7 @@ Phase 3: Conflict Resolution (conditional)
       └─ conflict_risk < medium → Skip to Phase 4
 
 Phase 4: Task Generation
-   └─ /workflow:tools:task-generate-agent --session sessionId [--cli-execute]
+   └─ /workflow:tools:task-generate-agent --session sessionId
       └─ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
 
 Return:
@@ -273,15 +273,10 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 **Step 4.1: Dispatch** - Generate implementation plan and task JSONs
 
 ```javascript
-// Default (agent mode)
 SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId]")
-
-// With CLI execution (if --cli-execute flag present)
-SlashCommand(command="/workflow:tools:task-generate-agent --session [sessionId] --cli-execute")
 ```
 
-**Flag**:
-- `--cli-execute`: Generate tasks with Codex execution commands
+**CLI Execution Note**: CLI tool usage is now determined semantically by action-planning-agent based on user's task description. If user specifies "use Codex/Gemini/Qwen for X", the agent embeds `command` fields in relevant `implementation_approach` steps.
 
 **Input**: `sessionId` from Phase 1
 
@@ -423,7 +418,7 @@ Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
     ↓ Output: Modified brainstorm artifacts (NO report file)
     ↓ Skip if conflict_risk is none/low → proceed directly to Phase 4
     ↓
-Phase 4: task-generate-agent --session sessionId [--cli-execute]
+Phase 4: task-generate-agent --session sessionId
     ↓ Input: sessionId + resolved brainstorm artifacts + session memory
     ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
@@ -504,9 +499,7 @@ Return summary to user
 - **If conflict_risk ≥ medium**: Launch Phase 3 conflict-resolution with sessionId and contextPath
 - Wait for Phase 3 to finish executing (if executed), verify CONFLICT_RESOLUTION.md created
 - **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 4
-- **Build Phase 4 command**:
-  - Base command: `/workflow:tools:task-generate-agent --session [sessionId]`
-  - Add `--cli-execute` if flag present
+- **Build Phase 4 command**: `/workflow:tools:task-generate-agent --session [sessionId]`
 - Pass session ID to Phase 4 command
 - Verify all Phase 4 outputs
 - Update TodoWrite after each phase (dynamically adjust for Phase 3 presence)

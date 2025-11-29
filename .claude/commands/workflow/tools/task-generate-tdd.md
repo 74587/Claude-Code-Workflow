@@ -1,24 +1,23 @@
 ---
 name: task-generate-tdd
 description: Autonomous TDD task generation using action-planning-agent with Red-Green-Refactor cycles, test-first structure, and cycle validation
-argument-hint: "--session WFS-session-id [--cli-execute]"
+argument-hint: "--session WFS-session-id"
 examples:
   - /workflow:tools:task-generate-tdd --session WFS-auth
-  - /workflow:tools:task-generate-tdd --session WFS-auth --cli-execute
 ---
 
 # Autonomous TDD Task Generation Command
 
 ## Overview
-Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent with two-phase execution: discovery and document generation. Supports both agent-driven execution (default) and CLI tool execution modes. Generates complete Red-Green-Refactor cycles contained within each task.
+Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent with two-phase execution: discovery and document generation. Generates complete Red-Green-Refactor cycles contained within each task.
 
 ## Core Philosophy
 - **Agent-Driven**: Delegate execution to action-planning-agent for autonomous operation
 - **Two-Phase Flow**: Discovery (context gathering) → Output (document generation)
 - **Memory-First**: Reuse loaded documents from conversation memory
 - **MCP-Enhanced**: Use MCP tools for advanced code analysis and research
-- **Pre-Selected Templates**: Command selects correct TDD template based on `--cli-execute` flag **before** invoking agent
-- **Agent Simplicity**: Agent receives pre-selected template and focuses only on content generation
+- **Semantic CLI Selection**: CLI tool usage determined from user's task description, not flags
+- **Agent Simplicity**: Agent generates content with semantic CLI detection
 - **Path Clarity**: All `focus_paths` prefer absolute paths (e.g., `D:\\project\\src\\module`), or clear relative paths from project root (e.g., `./src/module`)
 - **TDD-First**: Every feature starts with a failing test (Red phase)
 - **Feature-Complete Tasks**: Each task contains complete Red-Green-Refactor cycle
@@ -57,7 +56,7 @@ Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent
 
 ```
 Input Parsing:
-   ├─ Parse flags: --session, --cli-execute
+   ├─ Parse flags: --session
    └─ Validation: session_id REQUIRED
 
 Phase 1: Discovery & Context Loading (Memory-First)
@@ -69,7 +68,7 @@ Phase 1: Discovery & Context Loading (Memory-First)
    └─ Optional: MCP external research
 
 Phase 2: Agent Execution (Document Generation)
-   ├─ Pre-agent template selection (agent-mode OR cli-execute-mode)
+   ├─ Pre-agent template selection (semantic CLI detection)
    ├─ Invoke action-planning-agent
    ├─ Generate TDD Task JSON Files (.task/IMPL-*.json)
    │  └─ Each task: complete Red-Green-Refactor cycle internally
@@ -86,11 +85,8 @@ Phase 2: Agent Execution (Document Generation)
 ```javascript
 {
   "session_id": "WFS-[session-id]",
-  "execution_mode": "agent-mode" | "cli-execute-mode",  // Determined by flag
-  "task_json_template_path": "~/.claude/workflows/cli-templates/prompts/workflow/task-json-agent-mode.txt"
-                           | "~/.claude/workflows/cli-templates/prompts/workflow/task-json-cli-mode.txt",
-  // Path selected by command based on --cli-execute flag, agent reads it
   "workflow_type": "tdd",
+  // Note: CLI tool usage is determined semantically by action-planning-agent based on user's task description
   "session_metadata": {
     // If in memory: use cached content
     // Else: Load from .workflow/active//{session-id}/workflow-session.json
@@ -199,8 +195,7 @@ Task(
 
 **Session ID**: WFS-{session-id}
 **Workflow Type**: TDD
-**Execution Mode**: {agent-mode | cli-execute-mode}
-**Task JSON Template Path**: {template_path}
+**Note**: CLI tool usage is determined semantically from user's task description
 
 ## Phase 1: Discovery Results (Provided Context)
 
@@ -265,16 +260,15 @@ Refer to: @.claude/agents/action-planning-agent.md for:
 
 ##### 1. TDD Task JSON Files (.task/IMPL-*.json)
 - **Location**: `.workflow/active//{session-id}/.task/`
-- **Template**: Read from `{template_path}` (pre-selected by command based on `--cli-execute` flag)
 - **Schema**: 5-field structure with TDD-specific metadata
   - `meta.tdd_workflow`: true (REQUIRED)
   - `meta.max_iterations`: 3 (Green phase test-fix cycle limit)
-  - `meta.use_codex`: false (manual fixes by default)
   - `context.tdd_cycles`: Array with quantified test cases and coverage
   - `flow_control.implementation_approach`: Exactly 3 steps with `tdd_phase` field
     1. Red Phase (`tdd_phase: "red"`): Write failing tests
     2. Green Phase (`tdd_phase: "green"`): Implement to pass tests
     3. Refactor Phase (`tdd_phase: "refactor"`): Improve code quality
+  - CLI tool usage determined semantically (add `command` field when user requests CLI execution)
 - **Details**: See action-planning-agent.md § TDD Task JSON Generation
 
 ##### 2. IMPL_PLAN.md (TDD Variant)
@@ -475,16 +469,14 @@ This section provides quick reference for TDD task JSON structure. For complete 
 
 **Basic Usage**:
 ```bash
-# Agent mode (default, autonomous execution)
+# Standard execution
 /workflow:tools:task-generate-tdd --session WFS-auth
 
-# CLI tool mode (use Gemini/Qwen for generation)
-/workflow:tools:task-generate-tdd --session WFS-auth --cli-execute
+# With semantic CLI request (include in task description)
+# e.g., "Generate TDD tasks for auth module, use Codex for implementation"
 ```
 
-**Execution Modes**:
-- **Agent mode** (default): Uses `action-planning-agent` with agent-mode task template
-- **CLI mode** (`--cli-execute`): Uses Gemini/Qwen with cli-mode task template
+**CLI Tool Selection**: Determined semantically from user's task description. Include "use Codex/Gemini/Qwen" in your request for CLI execution.
 
 **Output**:
 - TDD task JSON files in `.task/` directory (IMPL-N.json format)
@@ -513,7 +505,7 @@ IMPL (Green phase) tasks include automatic test-fix cycle:
 3. **Success Path**: Tests pass → Complete task
 4. **Failure Path**: Tests fail → Enter iterative fix cycle:
    - **Gemini Diagnosis**: Analyze failures with bug-fix template
-   - **Fix Application**: Manual (default) or Codex (if meta.use_codex=true)
+   - **Fix Application**: Agent (default) or CLI (if `command` field present)
    - **Retest**: Verify fix resolves failures
    - **Repeat**: Up to max_iterations (default: 3)
 5. **Safety Net**: Auto-revert all changes if max iterations reached
@@ -522,5 +514,5 @@ IMPL (Green phase) tasks include automatic test-fix cycle:
 
 ## Configuration Options
 - **meta.max_iterations**: Number of fix attempts (default: 3 for TDD, 5 for test-gen)
-- **meta.use_codex**: Enable Codex automated fixes (default: false, manual)
+- **CLI tool usage**: Determined semantically from user's task description via `command` field in implementation_approach
 

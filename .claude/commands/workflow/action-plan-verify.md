@@ -101,7 +101,7 @@ Load only minimal necessary context from each artifact:
 - Dependencies (depends_on, blocks)
 - Context (requirements, focus_paths, acceptance, artifacts)
 - Flow control (pre_analysis, implementation_approach)
-- Meta (complexity, priority, use_codex)
+- Meta (complexity, priority)
 
 ### 3. Build Semantic Models
 

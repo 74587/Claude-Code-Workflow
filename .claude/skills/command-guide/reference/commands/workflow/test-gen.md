@@ -1,7 +1,7 @@
 ---
 name: test-gen
 description: Create independent test-fix workflow session from completed implementation session, analyzes code to generate test tasks
-argument-hint: "[--use-codex] [--cli-execute] source-session-id"
+argument-hint: "source-session-id"
 allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 ---
 
@@ -16,7 +16,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 - **Context-First**: Prioritizes gathering code changes and summaries from source session
 - **Format Reuse**: Creates standard `IMPL-*.json` task, using `meta.type: "test-fix"` for agent assignment
 - **Parameter Simplification**: Tools auto-detect test session type via metadata, no manual cross-session parameters needed
-- **Manual First**: Default to manual fixes, use `--use-codex` flag for automated Codex fix application
+- **Semantic CLI Selection**: CLI tool usage is determined by user's task description (e.g., "use Codex for fixes")
 
 **Task Attachment Model**:
 - SlashCommand dispatch **expands workflow** by attaching sub-tasks to current TodoWrite
@@ -48,7 +48,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 5. **Complete All Phases**: Do not return to user until Phase 5 completes (summary returned)
 6. **Track Progress**: Update TodoWrite dynamically with task attachment/collapse pattern
 7. **Automatic Detection**: context-gather auto-detects test session and gathers source session context
-8. **Parse --use-codex Flag**: Extract flag from arguments and pass to Phase 4 (test-task-generate)
+8. **Semantic CLI Selection**: CLI tool usage determined from user's task description, passed to Phase 4
 9. **Command Boundary**: This command ends at Phase 5 summary. Test execution is NOT part of this command.
 10. **Task Attachment Model**: SlashCommand dispatch **attaches** sub-tasks to current workflow. Orchestrator **executes** these attached tasks itself, then **collapses** them after completion
 11. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After executing all attached tasks, immediately collapse them and execute next phase
@@ -224,13 +224,13 @@ SlashCommand(command="/workflow:tools:test-concept-enhanced --session [testSessi
 **Step 4.1: Dispatch** - Generate test task JSON files and planning documents
 
 ```javascript
-SlashCommand(command="/workflow:tools:test-task-generate [--use-codex] [--cli-execute] --session [testSessionId]")
+SlashCommand(command="/workflow:tools:test-task-generate --session [testSessionId]")
 ```
 
 **Input**:
 - `testSessionId` from Phase 1
-- `--use-codex` flag (if present in original command) - Controls IMPL-002 fix mode
-- `--cli-execute` flag (if present in original command) - Controls IMPL-001 generation mode
+
+**Note**: CLI tool usage for fixes is determined semantically from user's task description (e.g., "use Codex for automated fixes").
 
 **Expected Behavior**:
 - Parse TEST_ANALYSIS_RESULTS.md from Phase 3
@@ -260,16 +260,15 @@ SlashCommand(command="/workflow:tools:test-task-generate [--use-codex] [--cli-ex
 - Task ID: `IMPL-002`
 - `meta.type: "test-fix"`
 - `meta.agent: "@test-fix-agent"`
-- `meta.use_codex: true|false` (based on --use-codex flag)
 - `context.depends_on: ["IMPL-001"]`
 - `context.requirements`: Execute and fix tests
 - `flow_control.implementation_approach.test_fix_cycle`: Complete cycle specification
-  - **Cycle pattern**: test → gemini_diagnose → manual_fix (or codex if --use-codex) → retest
-  - **Tools configuration**: Gemini for analysis with bug-fix template, manual or Codex for fixes
+  - **Cycle pattern**: test → gemini_diagnose → fix (agent or CLI based on `command` field) → retest
+  - **Tools configuration**: Gemini for analysis with bug-fix template, agent or CLI for fixes
   - **Exit conditions**: Success (all pass) or failure (max iterations)
 - `flow_control.implementation_approach.modification_points`: 3-phase execution flow
   - Phase 1: Initial test execution
-  - Phase 2: Iterative Gemini diagnosis + manual/Codex fixes (based on flag)
+  - Phase 2: Iterative Gemini diagnosis + fixes (agent or CLI based on step's `command` field)
   - Phase 3: Final validation and certification
 
 <!-- TodoWrite: When test-task-generate dispatched, INSERT 3 test-task-generate tasks -->
@@ -327,7 +326,7 @@ Artifacts Created:
 
 Test Framework: [detected framework]
 Test Files to Generate: [count]
-Fix Mode: [Manual|Codex Automated] (based on --use-codex flag)
+Fix Mode: [Agent|CLI] (based on `command` field in implementation_approach steps)
 
 Review Generated Artifacts:
 - Test plan: .workflow/[testSessionId]/IMPL_PLAN.md
@@ -373,7 +372,7 @@ Ready for execution. Use appropriate workflow commands to proceed.
 - **Phase 2**: Cross-session context gathering from source implementation session
 - **Phase 3**: Test requirements analysis with Gemini for generation strategy
 - **Phase 4**: Dual-task generation (IMPL-001 for test generation, IMPL-002 for test execution)
-- **Fix Mode Configuration**: `--use-codex` flag controls IMPL-002 fix mode (manual vs automated)
+- **Fix Mode Configuration**: CLI tool usage determined semantically from user's task description
 
 
 
@@ -444,7 +443,7 @@ Generates two task definition files:
   - Agent: @test-fix-agent
   - Dependency: IMPL-001 must complete first
   - Max iterations: 5
-  - Fix mode: Manual or Codex (based on --use-codex flag)
+  - Fix mode: Agent or CLI (based on `command` field in implementation_approach)
 
 See `/workflow:tools:test-task-generate` for complete task JSON schemas.
 
@@ -481,11 +480,10 @@ Created in `.workflow/active/WFS-test-[session]/`:
 **IMPL-002.json Structure**:
 - `meta.type: "test-fix"`
 - `meta.agent: "@test-fix-agent"`
-- `meta.use_codex`: true/false (based on --use-codex flag)
 - `context.depends_on: ["IMPL-001"]`
 - `flow_control.implementation_approach.test_fix_cycle`: Complete cycle specification
   - Gemini diagnosis template
-  - Fix application mode (manual/codex)
+  - Fix application mode (agent or CLI based on `command` field)
   - Max iterations: 5
 - `flow_control.implementation_approach.modification_points`: 3-phase flow
 
@@ -503,13 +501,11 @@ See `/workflow:tools:test-task-generate` for complete JSON schemas.
 **Prerequisite Commands**:
 - `/workflow:plan` or `/workflow:execute` - Complete implementation session that needs test validation
 
-**Dispatched by This Command** (5 phases):
+**Dispatched by This Command** (4 phases):
 - `/workflow:session:start` - Phase 1: Create independent test workflow session
 - `/workflow:tools:test-context-gather` - Phase 2: Analyze test coverage and gather source session context
 - `/workflow:tools:test-concept-enhanced` - Phase 3: Generate test requirements and strategy using Gemini
-- `/workflow:tools:test-task-generate` - Phase 4: Generate test task JSONs using action-planning-agent (autonomous, default)
-- `/workflow:tools:test-task-generate --use-codex` - Phase 4: With automated Codex fixes for IMPL-002 (when `--use-codex` flag used)
-- `/workflow:tools:test-task-generate --cli-execute` - Phase 4: With CLI execution mode for IMPL-001 test generation (when `--cli-execute` flag used)
+- `/workflow:tools:test-task-generate` - Phase 4: Generate test task JSONs (CLI tool usage determined semantically)
 
 **Follow-up Commands**:
 - `/workflow:status` - Review generated test tasks

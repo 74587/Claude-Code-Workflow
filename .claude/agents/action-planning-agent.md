@@ -43,7 +43,6 @@ You are a pure execution agent specialized in creating actionable implementation
   - `context_package_path`: Context package with brainstorming artifacts catalog
 - **Metadata**: Simple values
   - `session_id`: Workflow session identifier (WFS-[topic])
-  - `execution_mode`: agent-mode | cli-execute-mode
   - `mcp_capabilities`: Available MCP tools (exa_code, exa_web, code_index)
 
 **Legacy Support** (backward compatibility):
@@ -244,8 +243,7 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
     "type": "test-gen|test-fix",
     "agent": "@code-developer|@test-fix-agent",
     "test_framework": "jest|vitest|pytest|junit|mocha",
-    "coverage_target": "80%",
-    "use_codex": true|false
+    "coverage_target": "80%"
   }
 }
 ```
@@ -253,7 +251,8 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
 **Test-Specific Fields**:
 - `test_framework`: Existing test framework from project (required for test tasks)
 - `coverage_target`: Target code coverage percentage (optional)
-- `use_codex`: Whether to use Codex for automated fixes in test-fix tasks (optional, default: false)
+
+**Note**: CLI tool usage for test-fix tasks is now controlled via `flow_control.implementation_approach` steps with `command` fields, not via `meta.use_codex`.
 
 #### Context Object
 
@@ -485,15 +484,31 @@ The `implementation_approach` supports **two execution modes** based on the pres
      - `bash(codex --full-auto exec '[task]' resume --last --skip-git-repo-check -s danger-full-access)` (multi-step)
      - `bash(cd [path] && gemini -p '[prompt]' --approval-mode yolo)` (write mode)
 
-**Mode Selection Strategy**:
-- **Default to agent execution** for most tasks
-- **Use CLI mode** when:
-  - User explicitly requests CLI tool (codex/gemini/qwen)
-  - Task requires multi-step autonomous reasoning beyond agent capability
-  - Complex refactoring needs specialized tool analysis
-  - Building on previous CLI execution context (use `resume --last`)
+**Semantic CLI Tool Selection**:
 
-**Key Principle**: The `command` field is **optional**. Agent must decide based on task complexity and user preference.
+Agent determines CLI tool usage per-step based on user semantics and task nature.
+
+**Source**: Scan `metadata.task_description` from context-package.json for CLI tool preferences.
+
+**User Semantic Triggers** (patterns to detect in task_description):
+- "use Codex/codex" → Add `command` field with Codex CLI
+- "use Gemini/gemini" → Add `command` field with Gemini CLI
+- "use Qwen/qwen" → Add `command` field with Qwen CLI
+- "CLI execution" / "automated" → Infer appropriate CLI tool
+
+**Task-Based Selection** (when no explicit user preference):
+- **Implementation/coding**: Codex preferred for autonomous development
+- **Analysis/exploration**: Gemini preferred for large context analysis
+- **Documentation**: Gemini/Qwen with write mode (`--approval-mode yolo`)
+- **Testing**: Depends on complexity - simple=agent, complex=Codex
+
+**Default Behavior**: Agent always executes the workflow. CLI commands are embedded in `implementation_approach` steps:
+- Agent orchestrates task execution
+- When step has `command` field, agent executes it via Bash
+- When step has no `command` field, agent implements directly
+- This maintains agent control while leveraging CLI tool power
+
+**Key Principle**: The `command` field is **optional**. Agent decides based on user semantics and task complexity.
 
 **Examples**:
 

@@ -66,8 +66,7 @@ You are a specialized execution agent that bridges CLI analysis tools with task 
   "task_config": {
     "agent": "@test-fix-agent",
     "type": "test-fix-iteration",
-    "max_iterations": 5,
-    "use_codex": false
+    "max_iterations": 5
   }
 }
 ```
@@ -263,7 +262,6 @@ function extractModificationPoints() {
     "analysis_report": ".process/iteration-{iteration}-analysis.md",
     "cli_output": ".process/iteration-{iteration}-cli-output.txt",
     "max_iterations": "{task_config.max_iterations}",
-    "use_codex": "{task_config.use_codex}",
     "parent_task": "{parent_task_id}",
     "created_by": "@cli-planning-agent",
     "created_at": "{timestamp}"

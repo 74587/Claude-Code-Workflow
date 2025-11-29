@@ -100,9 +100,87 @@ if (!memory.has("README.md")) Read(README.md)
 
 ### Phase 2: Multi-Source Context Discovery
 
-Execute all 3 tracks in parallel for comprehensive coverage.
+Execute all tracks in parallel for comprehensive coverage.
 
 **Note**: Historical archive analysis (querying `.workflow/archives/manifest.json`) is optional and should be performed if the manifest exists. Inject findings into `conflict_detection.historical_conflicts[]`.
+
+#### Track 0: Exploration Synthesis (Optional)
+
+**Trigger**: When `explorations-manifest.json` exists in session `.process/` folder
+
+**Purpose**: Transform raw exploration data into prioritized, deduplicated insights. This is NOT simple aggregation - it synthesizes `critical_files` (priority-ranked), deduplicates patterns/integration_points, and generates `conflict_indicators`.
+
+```javascript
+// Check for exploration results from context-gather parallel explore phase
+const manifestPath = `.workflow/active/${session_id}/.process/explorations-manifest.json`;
+if (file_exists(manifestPath)) {
+  const manifest = JSON.parse(Read(manifestPath));
+
+  // Load full exploration data from each file
+  const explorationData = manifest.explorations.map(exp => ({
+    ...exp,
+    data: JSON.parse(Read(exp.path))
+  }));
+
+  // Build explorations array with summaries
+  const explorations = explorationData.map(exp => ({
+    angle: exp.angle,
+    file: exp.file,
+    path: exp.path,
+    index: exp.data._metadata?.exploration_index || exp.index,
+    summary: {
+      relevant_files_count: exp.data.relevant_files?.length || 0,
+      key_patterns: exp.data.patterns,
+      integration_points: exp.data.integration_points
+    }
+  }));
+
+  // SYNTHESIS (not aggregation): Transform raw data into prioritized insights
+  const aggregated_insights = {
+    // CRITICAL: Synthesize priority-ranked critical_files from multiple relevant_files lists
+    // - Deduplicate by path
+    // - Rank by: mention count across angles + individual relevance scores
+    // - Top 10-15 files only (focused, actionable)
+    critical_files: synthesizeCriticalFiles(explorationData.flatMap(e => e.data.relevant_files || [])),
+
+    // SYNTHESIS: Generate conflict indicators from pattern mismatches, constraint violations
+    conflict_indicators: synthesizeConflictIndicators(explorationData),
+
+    // Deduplicate clarification questions (merge similar questions)
+    clarification_needs: deduplicateQuestions(explorationData.flatMap(e => e.data.clarification_needs || [])),
+
+    // Preserve source attribution for traceability
+    constraints: explorationData.map(e => ({ constraint: e.data.constraints, source_angle: e.angle })).filter(c => c.constraint),
+
+    // Deduplicate patterns across angles (merge identical patterns)
+    all_patterns: deduplicatePatterns(explorationData.map(e => ({ patterns: e.data.patterns, source_angle: e.angle }))),
+
+    // Deduplicate integration points (merge by file:line location)
+    all_integration_points: deduplicateIntegrationPoints(explorationData.map(e => ({ points: e.data.integration_points, source_angle: e.angle })))
+  };
+
+  // Store for Phase 3 packaging
+  exploration_results = { manifest_path: manifestPath, exploration_count: manifest.exploration_count,
+                         complexity: manifest.complexity, angles: manifest.angles_explored,
+                         explorations, aggregated_insights };
+}
+
+// Synthesis helper functions (conceptual)
+function synthesizeCriticalFiles(allRelevantFiles) {
+  // 1. Group by path
+  // 2. Count mentions across angles
+  // 3. Average relevance scores
+  // 4. Rank by: (mention_count * 0.6) + (avg_relevance * 0.4)
+  // 5. Return top 10-15 with mentioned_by_angles attribution
+}
+
+function synthesizeConflictIndicators(explorationData) {
+  // 1. Detect pattern mismatches across angles
+  // 2. Identify constraint violations
+  // 3. Flag files mentioned with conflicting integration approaches
+  // 4. Assign severity: critical/high/medium/low
+}
+```
 
 #### Track 1: Reference Documentation
 
@@ -393,9 +471,38 @@ Calculate risk level based on:
     },
     "affected_modules": ["auth", "user-model", "middleware"],
     "mitigation_strategy": "Incremental refactoring with backward compatibility"
+  },
+  "exploration_results": {
+    "manifest_path": ".workflow/active/{session}/.process/explorations-manifest.json",
+    "exploration_count": 3,
+    "complexity": "Medium",
+    "angles": ["architecture", "dependencies", "testing"],
+    "explorations": [
+      {
+        "angle": "architecture",
+        "file": "exploration-architecture.json",
+        "path": ".workflow/active/{session}/.process/exploration-architecture.json",
+        "index": 1,
+        "summary": {
+          "relevant_files_count": 5,
+          "key_patterns": "Service layer with DI",
+          "integration_points": "Container.registerService:45-60"
+        }
+      }
+    ],
+    "aggregated_insights": {
+      "critical_files": [{"path": "src/auth/AuthService.ts", "relevance": 0.95, "mentioned_by_angles": ["architecture"]}],
+      "conflict_indicators": [{"type": "pattern_mismatch", "description": "...", "source_angle": "architecture", "severity": "medium"}],
+      "clarification_needs": [{"question": "...", "context": "...", "options": [], "source_angle": "architecture"}],
+      "constraints": [{"constraint": "Must follow existing DI pattern", "source_angle": "architecture"}],
+      "all_patterns": [{"patterns": "Service layer with DI", "source_angle": "architecture"}],
+      "all_integration_points": [{"points": "Container.registerService:45-60", "source_angle": "architecture"}]
+    }
   }
 }
 ```
+
+**Note**: `exploration_results` is populated when exploration files exist (from context-gather parallel explore phase). If no explorations, this field is omitted or empty.
 
 
 
