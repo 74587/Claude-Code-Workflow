@@ -41,20 +41,12 @@ codex -C [dir] --full-auto exec "[prompt]" [--skip-git-repo-check -s danger-full
 
 ### Model Selection
 
-**Gemini**:
-- `gemini-2.5-pro` - Default model (auto-selected)
-- `gemini-2.5-flash` - Fast processing
+**Available Models** (user selects via `-m` after prompt):
+- Gemini: `gemini-2.5-pro`, `gemini-2.5-flash`
+- Qwen: `coder-model`, `vision-model`
+- Codex: `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-mini`
 
-**Qwen**:
-- `coder-model` - Default model (auto-selected)
-- `vision-model` - Image analysis (rare)
-
-**Codex**:
-- `gpt-5.1` - Default model (auto-selected)
-- `gpt-5.1-codex` - Extended capabilities
-- `gpt-5.1-codex-mini` - Lightweight tasks
-
-**Note**: All tools auto-select appropriate models. `-m` parameter rarely needed; omit for best results
+**Usage**: `-m <model>` placed AFTER `-p "prompt"` (e.g., `gemini -p "..." -m gemini-2.5-flash`)
 
 ### Quick Decision Matrix
 
@@ -582,10 +574,13 @@ prompts/
 
 ### Dynamic Timeout Allocation
 
+**Minimum timeout: 5 minutes (300000ms)** - Never set below this threshold.
+
 **Timeout Ranges**:
-- **Simple** (analysis, search): 20-40min (1200000-2400000ms)
-- **Medium** (refactoring, documentation): 40-60min (2400000-3600000ms)
-- **Complex** (implementation, migration): 60-120min (3600000-7200000ms)
+- **Simple** (analysis, search): 5-10min (300000-600000ms)
+- **Medium** (refactoring, documentation): 10-20min (600000-1200000ms)
+- **Complex** (implementation, migration): 20-60min (1200000-3600000ms)
+- **Heavy** (large codebase, multi-file): 60-120min (3600000-7200000ms)
 
 **Codex Multiplier**: 1.5x of allocated time
 
