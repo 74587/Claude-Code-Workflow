@@ -216,7 +216,7 @@ Execute **${angle}** diagnosis for bug root cause analysis. Analyze codebase fro
 - fix_hints: Suggested fix approaches from ${angle} viewpoint
 - dependencies: Dependencies relevant to ${angle} diagnosis
 - constraints: ${angle}-specific limitations affecting fix
-- clarification_needs: ${angle}-related ambiguities (with options array)
+- clarification_needs: ${angle}-related ambiguities (options array + recommended index)
 - _metadata.diagnosis_angle: "${angle}"
 - _metadata.diagnosis_index: ${index + 1}
 
@@ -228,7 +228,7 @@ Execute **${angle}** diagnosis for bug root cause analysis. Analyze codebase fro
 - [ ] Fix hints are actionable (specific code changes, not generic advice)
 - [ ] Reproduction steps are verifiable
 - [ ] JSON output follows schema exactly
-- [ ] clarification_needs includes options array
+- [ ] clarification_needs includes options + recommended
 
 ## Output
 Write: ${sessionFolder}/diagnosis-${angle}.json
@@ -333,10 +333,13 @@ if (uniqueClarifications.length > 0) {
       question: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
       header: need.source_angle,
       multiSelect: false,
-      options: need.options.map(opt => ({
-        label: opt,
-        description: `Use ${opt} approach`
-      }))
+      options: need.options.map((opt, index) => {
+        const isRecommended = need.recommended === index
+        return {
+          label: isRecommended ? `${opt} ★` : opt,
+          description: isRecommended ? `Use ${opt} approach (Recommended)` : `Use ${opt} approach`
+        }
+      })
     }))
   })
 }

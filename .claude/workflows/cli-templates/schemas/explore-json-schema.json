@@ -70,6 +70,11 @@
             "type": "array",
             "items": {"type": "string"},
             "description": "Available options for user to choose from (2-4 options)"
+          },
+          "recommended": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Zero-based index of recommended option in the options array. Based on codebase patterns and best practices analysis."
           }
         }
       },

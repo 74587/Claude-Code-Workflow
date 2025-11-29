@@ -206,7 +206,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - dependencies: Dependencies relevant to ${angle}
 - integration_points: Where to integrate from ${angle} viewpoint (include file:line locations)
 - constraints: ${angle}-specific limitations/conventions
-- clarification_needs: ${angle}-related ambiguities (with options array)
+- clarification_needs: ${angle}-related ambiguities (options array + recommended index)
 - _metadata.exploration_angle: "${angle}"
 
 ## Success Criteria
@@ -217,7 +217,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - [ ] Integration points include file:line locations
 - [ ] Constraints are project-specific to ${angle}
 - [ ] JSON output follows schema exactly
-- [ ] clarification_needs includes options array
+- [ ] clarification_needs includes options + recommended
 
 ## Output
 Write: ${sessionFolder}/exploration-${angle}.json
@@ -322,10 +322,13 @@ if (uniqueClarifications.length > 0) {
       question: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
       header: need.source_angle,
       multiSelect: false,
-      options: need.options.map(opt => ({
-        label: opt,
-        description: `Use ${opt} approach`
-      }))
+      options: need.options.map((opt, index) => {
+        const isRecommended = need.recommended === index
+        return {
+          label: isRecommended ? `${opt} ★` : opt,
+          description: isRecommended ? `Use ${opt} approach (Recommended)` : `Use ${opt} approach`
+        }
+      })
     }))
   })
 }
