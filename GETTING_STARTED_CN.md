@@ -254,7 +254,7 @@ CCW 支持通过统一的 CLI 接口直接调用外部 AI 工具（Gemini、Qwen
 **示例 1：代码分析**
 ```
 用户："使用 gemini 分析一下这个项目的模块化架构"
-→ Claude 会自动执行 gemini-wrapper 进行分析
+→ Claude 会自动执行 gemini 进行分析
 ```
 
 **示例 2：文档生成**

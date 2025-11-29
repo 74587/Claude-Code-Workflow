@@ -117,7 +117,7 @@ High-level orchestrators for complex, multi-phase development processes.
   - `--type` (Optional, String): The type of review to perform. Defaults to `quality`.
   - `session-id` (Optional, String): The session to review. Defaults to the active session.
 - **Responsibilities**: Performs a specialized, post-implementation review. This is optional, as the default quality gate is passing tests.
-- **Agent Calls**: Uses `gemini-wrapper` or `qwen-wrapper` for analysis based on the review type.
+- **Agent Calls**: Uses `gemini` or `qwen-wrapper` for analysis based on the review type.
 - **Integration**: Used after `/workflow:execute` to perform audits before deployment.
 - **Example**:
   ```bash
@@ -232,7 +232,7 @@ Direct access to AI tools for analysis and code interaction without a full workf
 ### **/cli:discuss-plan**
 - **Syntax**: `/cli:discuss-plan [--topic '...'] [--task-id '...'] [--rounds N] <input>`
 - **Responsibilities**: Orchestrates an iterative, multi-model (Gemini, Codex, Claude) discussion to perform deep analysis and planning without modifying code.
-- **Agent Calls**: None directly, but orchestrates `gemini-wrapper` and `codex` CLI tools.
+- **Agent Calls**: None directly, but orchestrates `gemini` and `codex` CLI tools.
 - **Example**:
   ```bash
   /cli:discuss-plan --topic "Design a new caching layer"
@@ -333,7 +333,7 @@ Commands for managing individual tasks within a workflow session.
 ### **/memory:update-full**
 - **Syntax**: `/memory:update-full [--tool gemini|qwen|codex] [--path <directory>]`
 - **Responsibilities**: Orchestrates a complete, project-wide update of all `CLAUDE.md` documentation files.
-- **Agent Calls**: None directly, but orchestrates CLI tools (`gemini-wrapper`, etc.).
+- **Agent Calls**: None directly, but orchestrates CLI tools (`gemini`, etc.).
 - **Example**:
   ```bash
   /memory:update-full
@@ -483,7 +483,7 @@ Workflows for Test-Driven Development (TDD) and post-implementation test generat
 ### **/workflow:tdd-verify**
 - **Syntax**: `/workflow:tdd-verify [session-id]`
 - **Responsibilities**: Verifies TDD workflow compliance by analyzing task chains, test coverage, and cycle execution.
-- **Agent Calls**: None directly, orchestrates `gemini-wrapper`.
+- **Agent Calls**: None directly, orchestrates `gemini`.
 - **Example**:
   ```bash
   /workflow:tdd-verify WFS-login-tdd

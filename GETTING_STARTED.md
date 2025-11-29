@@ -244,7 +244,7 @@ Describe needs directly in conversation using natural language:
 **Example 1: Code Analysis**
 ```
 User: "Use gemini to analyze the modular architecture of this project"
-→ Claude will automatically execute gemini-wrapper for analysis
+→ Claude will automatically execute gemini for analysis
 ```
 
 **Example 2: Document Generation**
