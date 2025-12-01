@@ -4,8 +4,6 @@
 
 **Role**: Autonomous development, implementation, and testing specialist
 
-**File**: `d:\Claude_dms3\.codex\AGENTS.md`
-
 ## Prompt Structure
 
 All prompts follow this 6-field format:
