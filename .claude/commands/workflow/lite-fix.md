@@ -84,7 +84,7 @@ const shortTimestamp = timestamp.substring(0, 19).replace('T', '-')  // Format: 
 const sessionId = `${bugSlug}-${shortTimestamp}`  // e.g., "user-avatar-upload-fails-2025-11-29-14-30-25"
 const sessionFolder = `.workflow/.lite-fix/${sessionId}`
 
-bash(`mkdir -p ${sessionFolder}`)
+bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
 ```
 
 **Diagnosis Decision Logic**:

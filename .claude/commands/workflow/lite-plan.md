@@ -84,7 +84,7 @@ const shortTimestamp = timestamp.substring(0, 19).replace('T', '-')  // Format: 
 const sessionId = `${taskSlug}-${shortTimestamp}`  // e.g., "implement-jwt-refresh-2025-11-29-14-30-25"
 const sessionFolder = `.workflow/.lite-plan/${sessionId}`
 
-bash(`mkdir -p ${sessionFolder}`)
+bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
 ```
 
 **Exploration Decision Logic**:
