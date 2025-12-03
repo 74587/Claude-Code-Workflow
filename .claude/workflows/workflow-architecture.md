@@ -782,15 +782,11 @@ All workflows use the same file structure definition regardless of complexity. *
 
 **Examples**:
 
-*Analysis Commands (read-only):*
-- `/cli:analyze "security"` (no session) → `.scratchpad/analyze-security-20250105-143022.md`
-- `/cli:chat "build process"` (unrelated to active session) → `.scratchpad/chat-build-process-20250105-143045.md`
-- `/cli:mode:plan "feature idea"` (exploratory) → `.scratchpad/plan-feature-idea-20250105-143110.md`
-- `/cli:mode:code-analysis "trace auth flow"` (no session) → `.scratchpad/code-analysis-auth-flow-20250105-143130.md`
+*Workflow Commands (lightweight):*
+- `/workflow:lite-plan "feature idea"` (exploratory) → `.scratchpad/lite-plan-feature-idea-20250105-143110.md`
+- `/workflow:lite-fix "bug description"` (bug fixing) → `.scratchpad/lite-fix-bug-20250105-143130.md`
 
-*Implementation Commands (⚠️ modifies code):*
-- `/cli:execute "implement JWT auth"` (no session) → `.scratchpad/execute-jwt-auth-20250105-143200.md`
-- `/cli:codex-execute "refactor API layer"` (no session) → `.scratchpad/codex-execute-api-refactor-20250105-143230.md`
+> **Note**: Direct CLI commands (`/cli:analyze`, `/cli:execute`, etc.) have been replaced by semantic invocation and workflow commands.
 
 **Maintenance**:
 - Periodically review and clean up old scratchpad files

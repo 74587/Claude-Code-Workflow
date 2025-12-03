@@ -248,16 +248,16 @@ CCW-help
 ### What's the difference between `/cli:*` and `/workflow:*` commands?
 
 **`/cli:*` commands**:
-- Direct access to external AI tools
-- No workflow session required
-- Quick one-off tasks
-- Examples: `/cli:analyze`, `/cli:chat`
+- CLI tool configuration
+- Example: `/cli:cli-init` (initialize Gemini/Qwen configurations)
 
 **`/workflow:*` commands**:
 - Multi-phase orchestration
 - Session-based
 - Complex development workflows
-- Examples: `/workflow:plan`, `/workflow:execute`
+- Examples: `/workflow:plan`, `/workflow:lite-plan`, `/workflow:lite-fix`
+
+> **Note**: Most CLI commands have been replaced by **semantic invocation**. Simply describe your needs in natural language, and Claude will automatically use the appropriate tools.
 
 ### How do I use command flags?
 
@@ -270,9 +270,6 @@ Most commands support flags for customization:
 # With CLI execution flag
 /workflow:plan --cli-execute "Feature description"
 
-# With tool selection
-/cli:analyze --tool gemini "Code analysis"
-
 # With multiple flags
 /workflow:ui-design:explore-auto --prompt "Login page" --style-variants 3 --layout-variants 2
 ```
@@ -281,17 +278,12 @@ Most commands support flags for customization:
 
 **Yes!** Claude understands semantic invocation:
 
-Instead of:
-```bash
-/cli:analyze --tool gemini "Authentication module"
-```
-
-You can say:
+Instead of using specific commands, you can say:
 ```
 "Use Gemini to analyze the authentication module architecture"
 ```
 
-Claude will automatically execute the appropriate command.
+Claude will automatically select and execute the appropriate CLI tools (Gemini/Qwen/Codex) with optimized templates.
 
 ### What does the `-e` or `--enhance` flag do?
 
@@ -302,8 +294,6 @@ User: "Analyze authentication module -e"
 ```
 
 Claude will expand and enhance your request for better results.
-
-**Note**: `--enhance` in CLI commands (e.g., `/cli:analyze --enhance`) is a different feature built into CLI tools.
 
 ---
 

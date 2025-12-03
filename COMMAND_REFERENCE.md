@@ -4,21 +4,13 @@ This document provides a comprehensive reference for all commands available in t
 
 > **Version 5.9.6 Update**: Enhanced review cycle with dashboards, optimized lite-plan with parallel execution, and added lite-fix workflow for intelligent bug diagnosis.
 
-## Unified CLI Commands (`/cli:*`)
-
-These commands provide direct access to AI tools for quick analysis and interaction without initiating a full workflow.
+## CLI Commands (`/cli:*`)
 
 | Command | Description |
 |---|---|
-| `/cli:analyze` | Quick codebase analysis using CLI tools (codex/gemini/qwen). |
-| `/cli:chat` | Simple CLI interaction command for direct codebase analysis. |
 | `/cli:cli-init`| Initialize CLI tool configurations (Gemini and Qwen) based on workspace analysis. |
-| `/cli:codex-execute` | Automated task decomposition and execution with Codex using resume mechanism. |
-| `/cli:discuss-plan` | Orchestrates an iterative, multi-model discussion for planning and analysis without implementation. |
-| `/cli:execute` | Auto-execution of implementation tasks with YOLO permissions and intelligent context inference. |
-| `/cli:mode:bug-diagnosis` | Bug analysis and fix suggestions using CLI tools. |
-| `/cli:mode:code-analysis` | Deep code analysis and debugging using CLI tools with specialized template. |
-| `/cli:mode:plan` | Project planning and architecture analysis using CLI tools. |
+
+> **Note**: For analysis, planning, and bug fixing, use workflow commands (`/workflow:lite-plan`, `/workflow:lite-fix`) or semantic invocation through natural language.
 
 ## Workflow Commands (`/workflow:*`)
 

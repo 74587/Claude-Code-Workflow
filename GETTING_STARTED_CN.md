@@ -188,62 +188,36 @@
 快速 Bug 分析和修复工作流：
 
 ```bash
-# 分析 Bug
-/cli:mode:bug-diagnosis "密码错误时仍显示成功消息"
+# 轻量级 Bug 修复工作流，带智能诊断
+/workflow:lite-fix "密码错误时仍显示成功消息"
 
-# Claude 会分析后直接根据分析结果实现修复
+# Claude 会分析严重程度，诊断根因，并实现修复
 ```
 
 ---
 
-## 🔧 无工作流协作：独立工具使用
+## 🔧 轻量级命令
 
-除了完整的工作流模式，CCW 还提供独立的 CLI 工具和命令，适合快速分析、临时查询和日常维护任务。
+除了完整的工作流模式，CCW 还提供轻量级命令，适合快速分析和日常任务。
 
-### CLI 工具直接调用
+### 快速任务工作流命令
 
-CCW 支持通过统一的 CLI 接口直接调用外部 AI 工具（Gemini、Qwen、Codex），无需创建工作流会话。
-
-#### 代码分析
-
-快速分析项目代码结构和架构模式：
+使用工作流命令进行集成规划和 Bug 修复：
 
 ```bash
-# 使用 Gemini 进行代码分析
-/cli:analyze --tool gemini "分析认证模块的架构设计"
+# 轻量级规划工作流
+/workflow:lite-plan "设计一个可扩展的微服务架构"
 
-# 使用 Qwen 分析代码质量
-/cli:analyze --tool qwen "检查数据库模型的设计是否合理"
+# 带智能诊断的 Bug 修复工作流
+/workflow:lite-fix "分析内存泄漏问题的可能原因"
+
+# 初始化 CLI 工具配置
+/cli:cli-init
 ```
 
-#### 交互式对话
+### 语义调用（替代直接 CLI 命令）
 
-与 AI 工具进行直接交互式对话：
-
-```bash
-# 与 Gemini 交互
-/cli:chat --tool gemini "解释一下 React Hook 的使用场景"
-
-# 与 Codex 交互讨论实现方案
-/cli:chat --tool codex "如何优化这个查询性能"
-```
-
-#### 专业模式分析
-
-使用特定的分析模式进行深度探索：
-
-```bash
-# 架构分析模式
-/cli:mode:plan --tool gemini "设计一个可扩展的微服务架构"
-
-# 深度代码分析
-/cli:mode:code-analysis --tool qwen "分析 src/utils/ 目录下的工具函数"
-
-# Bug 分析模式
-/cli:mode:bug-diagnosis --tool gemini "分析内存泄漏问题的可能原因"
-```
-
-### 工具语义调用
+> **重要**: 直接 CLI 命令（`/cli:analyze`、`/cli:chat`、`/cli:execute` 等）已被**语义调用**替代。只需使用自然语言描述您的需求，Claude 会自动选择并执行合适的 CLI 工具（Gemini/Qwen/Codex）和优化的模板。
 
 用户可以通过自然语言告诉 Claude 使用特定工具完成任务，Claude 会理解意图并自动执行相应的命令。
 
@@ -391,13 +365,7 @@ CCW 使用分层的 CLAUDE.md 文档系统维护项目上下文。定期更新�
 → AI 使用 prompt-enhancer 技能扩展请求
 ```
 
-**CLI 命令增强** (CLI 内置功能):
-```bash
-# 这里的 --enhance 标识符是 CLI 参数,不是技能触发器
-/cli:analyze --enhance "检查安全问题"
-```
-
-**重要说明**：`-e` 标识符仅在自然对话中有效,而 CLI 命令中的 `--enhance` 是独立的增强机制,与技能系统无关。
+**重要说明**：`-e` 标识符用于在自然对话中触发 prompt-enhancer 技能。
 
 ---
 

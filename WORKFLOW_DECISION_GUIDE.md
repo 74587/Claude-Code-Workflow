@@ -16,7 +16,7 @@ flowchart TD
     BugFix --> BugSeverity{了解问题根因?}
     BugSeverity -->|清楚| LiteFix[/ /workflow:lite-fix<br>标准Bug修复 /]
     BugSeverity -->|生产事故| HotFix[/ /workflow:lite-fix --hotfix<br>热修复模式 /]
-    BugSeverity -->|不清楚| BugDiag[/ /cli:mode:bug-diagnosis<br>先诊断根因 /]
+    BugSeverity -->|不清楚| BugDiag[/ /workflow:lite-fix<br>自动诊断根因 /]
 
     BugDiag --> LiteFix
     LiteFix --> BugComplete[Bug修复完成]
@@ -142,7 +142,7 @@ flowchart TD
 |------|------|------|
 | 🐛 **标准Bug修复** | `/workflow:lite-fix "bug描述"` | 自适应严重性评估，完整诊断→影响评估→修复→验证 |
 | 🔥 **生产热修复** | `/workflow:lite-fix --hotfix "bug描述"` | 最小化诊断，快速修复，自动生成跟进任务 |
-| ❓ **根因不清楚** | `/cli:mode:bug-diagnosis` → `/workflow:lite-fix` | 先深度诊断，再执行修复 |
+| ❓ **根因不清楚** | `/workflow:lite-fix` | 自动进行深度诊断并执行修复 |
 | ✅ **功能开发** | 继续后续流程 | 不是Bug修复，按正常开发流程 |
 
 **Lite-Fix 工作流特性**:
@@ -171,16 +171,16 @@ flowchart TD
 → 最小化诊断 → 假设 Critical → 手术式修复 → 烟雾测试
 → 自动生成: 全面修复任务（3天内）+ 事后分析（1周内）
 
-# 根因不清楚（先诊断）
-/cli:mode:bug-diagnosis --tool gemini "购物车随机丢失商品"
-→ 深度诊断报告 → /workflow:lite-fix "修复购物车状态同步问题"
+# 根因不清楚（lite-fix 自动诊断）
+/workflow:lite-fix "购物车随机丢失商品"
+→ 自动深度诊断 → 识别根因 → 实现修复
 ```
 
 **何时使用 lite-fix**:
 - ✅ 任何有明确症状的Bug（自动适应严重性）
 - ✅ 本地化修复（1-5个文件）
 - ✅ 生产事故（使用 `--hotfix` 模式）
-- ❌ 根因完全不明 → 先用 `/cli:mode:bug-diagnosis`
+- ✅ 根因不清楚（自动进行深度诊断）
 - ❌ 需要架构变更 → 用 `/workflow:plan --mode bugfix`
 
 ---
@@ -416,33 +416,24 @@ Phase 1: Gemini 分析 ──┐
 → Claude Code 自动生成：codex -C src/auth --full-auto exec "实现注册"
 ```
 
-**方式二：直接命令调用**
-
-```bash
-# 通过 Slash 命令精准调用
-/cli:chat --tool gemini "解释这个算法"
-/cli:analyze --tool qwen "分析性能瓶颈"
-/cli:execute --tool codex "优化查询性能"
-```
-
 ---
 
-#### 🔗 CLI 结果作为上下文（Memory）
+#### 🔗 语义调用与结果上下文（Memory）
 
-CLI 工具的分析结果可以被保存并作为后续操作的上下文（memory），实现智能化的工作流程：
+通过自然语言描述，Claude 会自动选择并执行适当的 CLI 工具（Gemini/Qwen/Codex），分析结果作为后续操作的上下文。
 
-**1. 结果持久化**
+**1. 语义调用示例**
 
 ```bash
-# CLI 执行结果自动保存到会话目录
-/cli:chat --tool gemini "分析认证模块架构"
-→ 保存到：.workflow/active/WFS-xxx/.chat/chat-[timestamp].md
+# 用自然语言描述需求，Claude 自动选择工具
+"使用 gemini 分析认证模块架构"
+→ Claude 自动执行 Gemini CLI 并保存结果
 
-/cli:analyze --tool qwen "评估性能瓶颈"
-→ 保存到：.workflow/active/WFS-xxx/.chat/analyze-[timestamp].md
+"让 qwen 评估性能瓶颈"
+→ Claude 自动执行 Qwen CLI 并保存结果
 
-/cli:execute --tool codex "实现功能"
-→ 保存到：.workflow/active/WFS-xxx/.chat/execute-[timestamp].md
+"用 codex 实现这个功能"
+→ Claude 自动执行 Codex CLI
 ```
 
 **2. 结果作为规划依据**
@@ -476,8 +467,8 @@ CLI 工具的分析结果可以被保存并作为后续操作的上下文（memo
 
 ```bash
 # 引用历史会话的分析结果
-/cli:execute --tool codex "参考 WFS-2024-001 中的架构分析，实现新的支付模块"
-→ 系统自动加载指定会话的上下文
+"参考 WFS-2024-001 中的架构分析，用 codex 实现新的支付模块"
+→ Claude 自动加载指定会话的上下文
 → 基于历史分析进行实现
 ```
 

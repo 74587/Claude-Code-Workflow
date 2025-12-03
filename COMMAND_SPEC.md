@@ -191,25 +191,7 @@ Commands for creating, listing, and managing workflow sessions.
 
 ## 5. CLI Commands
 
-Direct access to AI tools for analysis and code interaction without a full workflow structure.
-
-### **/cli:analyze**
-- **Syntax**: `/cli:analyze [--agent] [--tool codex|gemini|qwen] [--enhance] <analysis target>`
-- **Responsibilities**: Performs read-only codebase analysis. Can operate in standard mode (direct tool call) or agent mode (`@cli-execution-agent`) for automated context discovery.
-- **Agent Calls**: `@cli-execution-agent` (if `--agent` is used).
-- **Example**:
-  ```bash
-  /cli:analyze "authentication patterns"
-  ```
-
-### **/cli:chat**
-- **Syntax**: `/cli:chat [--agent] [--tool codex|gemini|qwen] [--enhance] <inquiry>`
-- **Responsibilities**: Provides a direct Q&A interface with AI tools for codebase questions. Read-only.
-- **Agent Calls**: `@cli-execution-agent` (if `--agent` is used).
-- **Example**:
-  ```bash
-  /cli:chat "how does the caching layer work?"
-  ```
+CLI tool configuration commands.
 
 ### **/cli:cli-init**
 - **Syntax**: `/cli:cli-init [--tool gemini|qwen|all] [--output path] [--preview]`
@@ -220,59 +202,7 @@ Direct access to AI tools for analysis and code interaction without a full workf
   /cli:cli-init
   ```
 
-### **/cli:codex-execute**
-- **Syntax**: `/cli:codex-execute [--verify-git] <description|task-id>`
-- **Responsibilities**: Orchestrates automated task decomposition and sequential execution using Codex. It uses the `resume --last` mechanism for context continuity between subtasks.
-- **Agent Calls**: None directly, but orchestrates `codex` CLI tool.
-- **Example**:
-  ```bash
-  /cli:codex-execute "implement user authentication system"
-  ```
-
-### **/cli:discuss-plan**
-- **Syntax**: `/cli:discuss-plan [--topic '...'] [--task-id '...'] [--rounds N] <input>`
-- **Responsibilities**: Orchestrates an iterative, multi-model (Gemini, Codex, Claude) discussion to perform deep analysis and planning without modifying code.
-- **Agent Calls**: None directly, but orchestrates `gemini` and `codex` CLI tools.
-- **Example**:
-  ```bash
-  /cli:discuss-plan --topic "Design a new caching layer"
-  ```
-
-### **/cli:execute**
-- **Syntax**: `/cli:execute [--agent] [--tool codex|gemini|qwen] [--enhance] <description|task-id>`
-- **Responsibilities**: Executes implementation tasks with auto-approval (`YOLO` mode). **MODIFIES CODE**.
-- **Agent Calls**: `@cli-execution-agent` (if `--agent` is used).
-- **Example**:
-  ```bash
-  /cli:execute "implement JWT authentication with middleware"
-  ```
-
-### **/cli:mode:bug-diagnosis**
-- **Syntax**: `/cli:mode:bug-diagnosis [--tool ...] [--enhance] [--cd path] <bug description>`
-- **Responsibilities**: Performs systematic bug analysis using the `bug-fix.md` template. Read-only.
-- **Agent Calls**: `@cli-execution-agent` (default).
-- **Example**:
-  ```bash
-  /cli:mode:bug-diagnosis "null pointer error in login flow"
-  ```
-
-### **/cli:mode:code-analysis**
-- **Syntax**: `/cli:mode:code-analysis [--agent] [--tool ...] [--enhance] [--cd path] <analysis target>`
-- **Responsibilities**: Performs deep code analysis and execution path tracing using the `code-analysis.md` template. Read-only.
-- **Agent Calls**: `@cli-execution-agent` (if `--agent` is used).
-- **Example**:
-  ```bash
-  /cli:mode:code-analysis "trace authentication execution flow"
-  ```
-
-### **/cli:mode:plan**
-- **Syntax**: `/cli:mode:plan [--agent] [--tool ...] [--enhance] [--cd path] <topic>`
-- **Responsibilities**: Performs comprehensive planning and architecture analysis using the `plan.md` template. Read-only.
-- **Agent Calls**: `@cli-execution-agent` (if `--agent` is used).
-- **Example**:
-  ```bash
-  /cli:mode:plan "design user dashboard architecture"
-  ```
+> **Note**: For analysis, planning, and bug fixing, use workflow commands (`/workflow:lite-plan`, `/workflow:lite-fix`) or semantic invocation through natural language. Claude will automatically use appropriate CLI tools (Gemini/Qwen/Codex) with templates as needed.
 
 ---
 
@@ -380,13 +310,14 @@ Commands for managing individual tasks within a workflow session.
   ```
 
 ### **/enhance-prompt**
-- **Syntax**: `/enhance-prompt <user input>`
-- **Responsibilities**: A system-level skill that enhances a user's prompt by adding context from session memory and codebase analysis. It is typically triggered automatically by other commands that include the `--enhance` flag.
-- **Skill Invocation**: This is a core skill, invoked when `--enhance` is used.
+- **Syntax**: `/enhance-prompt <user input>` or use `-e` flag in conversation
+- **Responsibilities**: A system-level skill that enhances a user's prompt by adding context from session memory and codebase analysis. It is typically triggered by the `-e` flag in natural conversation.
+- **Skill Invocation**: This is a core skill, invoked when `-e` is used in conversation.
 - **Agent Calls**: None.
-- **Example (as part of another command)**:
-  ```bash
-  /cli:execute --enhance "fix the login button"
+- **Example (in natural conversation)**:
+  ```
+  User: "fix the login button -e"
+  → Prompt-enhancer expands and enhances the request
   ```
 
 ---

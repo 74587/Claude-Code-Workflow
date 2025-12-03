@@ -348,33 +348,24 @@ Phase 1: Gemini analysis ──┐
 → Claude Code auto-generates: codex -C src/auth --full-auto exec "Implement registration"
 ```
 
-**Method 2: Direct Command Invocation**
-
-```bash
-# Precise invocation via Slash commands
-/cli:chat --tool gemini "Explain this algorithm"
-/cli:analyze --tool qwen "Analyze performance bottlenecks"
-/cli:execute --tool codex "Optimize query performance"
-```
-
 ---
 
-#### 🔗 CLI Results as Context (Memory)
+#### 🔗 Semantic Invocation & Results Context (Memory)
 
-CLI tool analysis results can be saved and used as context (memory) for subsequent operations, enabling intelligent workflows:
+Through natural language, Claude automatically selects and executes appropriate CLI tools (Gemini/Qwen/Codex), with results serving as context for subsequent operations.
 
-**1. Result Persistence**
+**1. Semantic Invocation Examples**
 
 ```bash
-# CLI execution results automatically saved to session directory
-/cli:chat --tool gemini "Analyze authentication module architecture"
-→ Saved to: .workflow/active/WFS-xxx/.chat/chat-[timestamp].md
+# Describe needs in natural language, Claude auto-selects tools
+"Use gemini to analyze authentication module architecture"
+→ Claude auto-executes Gemini CLI and saves results
 
-/cli:analyze --tool qwen "Evaluate performance bottlenecks"
-→ Saved to: .workflow/active/WFS-xxx/.chat/analyze-[timestamp].md
+"Have qwen evaluate performance bottlenecks"
+→ Claude auto-executes Qwen CLI and saves results
 
-/cli:execute --tool codex "Implement feature"
-→ Saved to: .workflow/active/WFS-xxx/.chat/execute-[timestamp].md
+"Use codex to implement this feature"
+→ Claude auto-executes Codex CLI
 ```
 
 **2. Results as Planning Basis**
@@ -408,8 +399,8 @@ Have codex synthesize above Gemini and Qwen analyses to implement optimal soluti
 
 ```bash
 # Reference historical session analysis results
-/cli:execute --tool codex "Refer to architecture analysis in WFS-2024-001, implement new payment module"
-→ System automatically loads specified session context
+"Refer to architecture analysis in WFS-2024-001, use codex to implement new payment module"
+→ Claude automatically loads specified session context
 → Implement based on historical analysis
 ```
 
@@ -630,16 +621,13 @@ Use gemini to review code quality
 ### Scenario D: Bug Fixing
 
 ```bash
-# 1. Diagnosis
-/cli:mode:bug-diagnosis --tool gemini "User login fails with token expired error"
+# 1. Intelligent bug fix workflow (includes diagnosis)
+/workflow:lite-fix "User login fails with token expired error"
 
-# 2. Quick fix
-/workflow:lite-plan "Fix JWT token expiration validation logic"
-
-# 3. Test fix
+# 2. Test fix (if needed)
 /workflow:test-cycle-execute
 
-# 4. Complete
+# 3. Complete
 ```
 
 ---
@@ -654,7 +642,7 @@ Use gemini to review code quality
 | ❓ Know what, don't know how | `/workflow:brainstorm:auto-parallel "Design technical solution"` |
 | ✅ Know what and how | `/workflow:plan "Specific implementation description"` |
 | ⚡ Simple, clear small task | `/workflow:lite-plan "Task description"` |
-| 🐛 Bug fixing | `/cli:mode:bug-diagnosis` + `/workflow:lite-plan` |
+| 🐛 Bug fixing | `/workflow:lite-fix "bug description"` |
 
 ### Choose by Project Phase
 

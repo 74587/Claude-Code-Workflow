@@ -178,62 +178,36 @@ After planning, validate your implementation plan for consistency and completene
 Quick bug analysis and fix workflow:
 
 ```bash
-# Analyze the bug
-/cli:mode:bug-diagnosis "Incorrect success message with wrong password"
+# Lightweight bug fix workflow with intelligent diagnosis
+/workflow:lite-fix "Incorrect success message with wrong password"
 
-# Claude will analyze and then directly implement the fix based on the analysis
+# Claude will analyze severity, diagnose root cause, and implement the fix
 ```
 
 ---
 
-## 🔧 Workflow-Free Usage: Standalone Tools
+## 🔧 Lightweight Commands
 
-Beyond the full workflow mode, CCW provides standalone CLI tools and commands suitable for quick analysis, ad-hoc queries, and routine maintenance tasks.
+Beyond the full workflow mode, CCW provides lightweight commands suitable for quick analysis and routine tasks.
 
-### Direct CLI Tool Invocation
+### Workflow Commands for Quick Tasks
 
-CCW supports direct invocation of external AI tools (Gemini, Qwen, Codex) through a unified CLI interface without creating workflow sessions.
-
-#### Code Analysis
-
-Quickly analyze project code structure and architectural patterns:
+Use workflow commands for integrated planning and bug fixing:
 
 ```bash
-# Code analysis with Gemini
-/cli:analyze --tool gemini "Analyze authentication module architecture"
+# Lightweight planning workflow
+/workflow:lite-plan "Design a scalable microservices architecture"
 
-# Code quality analysis with Qwen
-/cli:analyze --tool qwen "Review database model design for best practices"
+# Bug fix workflow with intelligent diagnosis
+/workflow:lite-fix "Analyze potential causes of memory leak"
+
+# Initialize CLI tool configurations
+/cli:cli-init
 ```
 
-#### Interactive Chat
+### Semantic Tool Invocation (Replaces Direct CLI Commands)
 
-Direct interactive dialogue with AI tools:
-
-```bash
-# Chat with Gemini
-/cli:chat --tool gemini "Explain React Hook use cases"
-
-# Discuss implementation with Codex
-/cli:chat --tool codex "How to optimize this query performance"
-```
-
-#### Specialized Analysis Modes
-
-Use specific analysis modes for in-depth exploration:
-
-```bash
-# Architecture planning mode
-/cli:mode:plan --tool gemini "Design a scalable microservices architecture"
-
-# Deep code analysis
-/cli:mode:code-analysis --tool qwen "Analyze utility functions in src/utils/"
-
-# Bug analysis mode
-/cli:mode:bug-index --tool gemini "Analyze potential causes of memory leak"
-```
-
-### Semantic Tool Invocation
+> **Important**: Direct CLI commands (`/cli:analyze`, `/cli:chat`, `/cli:execute`, etc.) have been replaced by **semantic invocation**. Simply describe your needs in natural language, and Claude will automatically select and execute the appropriate CLI tools (Gemini/Qwen/Codex) with optimized templates.
 
 Users can tell Claude to use specific tools through natural language, and Claude will understand the intent and automatically execute the appropriate commands.
 
@@ -381,13 +355,7 @@ User: "Analyze authentication module -e"
 → AI uses prompt-enhancer skill to expand the request
 ```
 
-**CLI Command Enhancement** (built-in CLI feature):
-```bash
-# The --enhance flag here is a CLI parameter, not a skill trigger
-/cli:analyze --enhance "check for security issues"
-```
-
-**Important Note**: The `-e` flag works in natural conversation, but `--enhance` in CLI commands is a separate enhancement mechanism, not the skill system.
+**Important Note**: The `-e` flag works in natural conversation to trigger the prompt-enhancer skill.
 
 ---
 
