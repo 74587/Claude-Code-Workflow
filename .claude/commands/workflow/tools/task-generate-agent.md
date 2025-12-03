@@ -132,7 +132,7 @@ Determine CLI tool usage per-step based on user's task description:
 
 ## QUALITY STANDARDS
 Hard Constraints:
-  - Task count <= 12 (hard limit - request re-scope if exceeded)
+  - Task count <= 18 (hard limit - request re-scope if exceeded)
   - All requirements quantified (explicit counts and enumerated lists)
   - Acceptance criteria measurable (include verification commands)
   - Artifact references mapped from context package

@@ -556,6 +556,58 @@ codex --full-auto exec "[Verify plan acceptance criteria at ${plan.json}]" --ski
 - `@{plan.json}` → `@${executionContext.session.artifacts.plan}`
 - `[@{exploration.json}]` → exploration files from artifacts (if exists)
 
+### Step 6: Update Development Index
+
+**Trigger**: After all executions complete (regardless of code review)
+
+**Skip Condition**: Skip if `.workflow/project.json` does not exist
+
+**Operations**:
+```javascript
+const projectJsonPath = '.workflow/project.json'
+if (!fileExists(projectJsonPath)) return  // Silent skip
+
+const projectJson = JSON.parse(Read(projectJsonPath))
+
+// Initialize if needed
+if (!projectJson.development_index) {
+  projectJson.development_index = { feature: [], enhancement: [], bugfix: [], refactor: [], docs: [] }
+}
+
+// Detect category from keywords
+function detectCategory(text) {
+  text = text.toLowerCase()
+  if (/\b(fix|bug|error|issue|crash)\b/.test(text)) return 'bugfix'
+  if (/\b(refactor|cleanup|reorganize)\b/.test(text)) return 'refactor'
+  if (/\b(doc|readme|comment)\b/.test(text)) return 'docs'
+  if (/\b(add|new|create|implement)\b/.test(text)) return 'feature'
+  return 'enhancement'
+}
+
+// Detect sub_feature from task file paths
+function detectSubFeature(tasks) {
+  const dirs = tasks.map(t => t.file?.split('/').slice(-2, -1)[0]).filter(Boolean)
+  const counts = dirs.reduce((a, d) => { a[d] = (a[d] || 0) + 1; return a }, {})
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'general'
+}
+
+const category = detectCategory(`${planObject.summary} ${planObject.approach}`)
+const entry = {
+  title: planObject.summary.slice(0, 60),
+  sub_feature: detectSubFeature(planObject.tasks),
+  date: new Date().toISOString().split('T')[0],
+  description: planObject.approach.slice(0, 100),
+  status: previousExecutionResults.every(r => r.status === 'completed') ? 'completed' : 'partial',
+  session_id: executionContext?.session?.id || null
+}
+
+projectJson.development_index[category].push(entry)
+projectJson.statistics.last_updated = new Date().toISOString()
+Write(projectJsonPath, JSON.stringify(projectJson, null, 2))
+
+console.log(`✓ Development index: [${category}] ${entry.title}`)
+```
+
 ## Best Practices
 
 **Input Modes**: In-memory (lite-plan), prompt (standalone), file (JSON/text)

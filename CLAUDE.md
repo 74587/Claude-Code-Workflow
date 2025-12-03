@@ -29,8 +29,7 @@ For all CLI tool usage, command syntax, and integration guidelines:
 - **Clear intent over clever code** - Be boring and obvious
 - **Follow existing code style** - Match import patterns, naming conventions, and formatting of existing codebase
 - **Minimize changes** - Only modify what's directly required; avoid refactoring, adding features, or "improving" code beyond the request
-- **No unsolicited reports** - Task summaries can be performed internally, but NEVER generate additional reports, documentation files, or summary files without explicit user permission
-- **Minimal documentation output** - Avoid unnecessary documentation. If required, save to .workflow/.scratchpad/
+- **No unsolicited documentation** - NEVER generate reports, documentation files, or summaries without explicit user request. If required, save to .workflow/.scratchpad/
 
 ### Simplicity Means
 
@@ -55,11 +54,15 @@ For all CLI tool usage, command syntax, and integration guidelines:
 - Use project's formatter/linter settings
 - Don't introduce new tools without strong justification
 
-## Important Reminders
+
+### Fix, Don't Hide
+
+- **Solve problems, don't silence symptoms** - Skipped tests, `@ts-ignore`, empty catch, `as any`, excessive timeouts = hiding bugs, not fixing them
 
 **NEVER**:
 - Make assumptions - verify with existing code
 - Generate reports, summaries, or documentation files without explicit user request
+- Use suppression mechanisms (`skip`, `ignore`, `disable`) without fixing root cause
 
 **ALWAYS**:
 - Plan complex tasks thoroughly before implementation
@@ -74,11 +77,9 @@ For all CLI tool usage, command syntax, and integration guidelines:
 ## Platform-Specific Guidelines
 
 ### Windows Path Format Guidelines
-- always use complete absolute Windows paths with drive letters and backslashes for ALL file operations
-- **MCP Tools**: Use double backslash `D:\\path\\file.txt` (MCP doesn't support POSIX `/d/path`)
-- **Bash Commands**: Use forward slash `D:/path/file.txt` or POSIX `/d/path/file.txt`
-- **Relative Paths**: No conversion needed `./src`, `../config`
-- **Quick Ref**: `C:\Users` → MCP: `C:\\Users` | Bash: `/c/Users` or `C:/Users`
+- **MCP Tools**: Double backslash `D:\\path\\file.txt`
+- **Bash Commands**: Forward slash `D:/path/file.txt` or `/d/path/file.txt`
+- **Relative Paths**: Universal (works in both)
 
 #### **Content Uniqueness Rules**
 

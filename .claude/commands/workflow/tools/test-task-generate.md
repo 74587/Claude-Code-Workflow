@@ -212,7 +212,7 @@ PRIMARY requirements source - extract and map to task JSONs:
 
 ## QUALITY STANDARDS
 Hard Constraints:
-  - Task count: minimum 2, maximum 12
+  - Task count: minimum 2, maximum 18
   - All requirements quantified from TEST_ANALYSIS_RESULTS.md
   - Test framework matches existing project framework
   - flow_control includes reusable_test_tools and test_commands from project

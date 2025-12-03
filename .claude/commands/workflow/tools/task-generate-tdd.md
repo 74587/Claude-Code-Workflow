@@ -42,10 +42,10 @@ Autonomous TDD task JSON and IMPL_PLAN.md generation using action-planning-agent
 - Different tech stacks or domains within feature
 
 ### Task Limits
-- **Maximum 10 tasks** (hard limit for TDD workflows)
+- **Maximum 18 tasks** (hard limit for TDD workflows)
 - **Feature-based**: Complete functional units with internal TDD cycles
 - **Hierarchy**: Flat (≤5 simple features) | Two-level (6-10 for complex features with sub-features)
-- **Re-scope**: If >10 tasks needed, break project into multiple TDD workflow sessions
+- **Re-scope**: If >18 tasks needed, break project into multiple TDD workflow sessions
 
 ### TDD Cycle Mapping
 - **Old approach**: 1 feature = 3 tasks (TEST-N.M, IMPL-N.M, REFACTOR-N.M)
@@ -249,7 +249,7 @@ Refer to: @.claude/agents/action-planning-agent.md for:
 - Each task executes Red-Green-Refactor phases sequentially
 - Task count = Feature count (typically 5 features = 5 tasks)
 - Subtasks only when complexity >2500 lines or >6 files per cycle
-- **Maximum 10 tasks** (hard limit for TDD workflows)
+- **Maximum 18 tasks** (hard limit for TDD workflows)
 
 #### TDD Cycle Mapping
 - **Simple features**: IMPL-N with internal Red-Green-Refactor phases
@@ -318,7 +318,7 @@ Refer to: @.claude/agents/action-planning-agent.md for:
 
 **Quality Gates** (Full checklist in action-planning-agent.md):
 - ✓ Quantification requirements enforced (explicit counts, measurable acceptance, exact targets)
-- ✓ Task count ≤10 (hard limit)
+- ✓ Task count ≤18 (hard limit)
 - ✓ Each task has meta.tdd_workflow: true
 - ✓ Each task has exactly 3 implementation steps with tdd_phase field
 - ✓ Green phase includes test-fix cycle logic

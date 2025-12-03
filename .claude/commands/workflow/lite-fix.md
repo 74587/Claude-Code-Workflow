@@ -77,11 +77,9 @@ Phase 5: Dispatch
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
 const bugSlug = bug_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
-const timestamp = getUtc8ISOString().replace(/[:.]/g, '-')
-const shortTimestamp = timestamp.substring(0, 19).replace('T', '-')  // Format: 2025-11-29-14-30-25
+const dateStr = getUtc8ISOString().substring(0, 10)  // Format: 2025-11-29
 
-// ⚠️ CRITICAL: sessionId MUST include both slug AND timestamp
-const sessionId = `${bugSlug}-${shortTimestamp}`  // e.g., "user-avatar-upload-fails-2025-11-29-14-30-25"
+const sessionId = `${bugSlug}-${dateStr}`  // e.g., "user-avatar-upload-fails-2025-11-29"
 const sessionFolder = `.workflow/.lite-fix/${sessionId}`
 
 bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
@@ -589,7 +587,7 @@ SlashCommand(command="/workflow:lite-execute --in-memory --mode bugfix")
 ## Session Folder Structure
 
 ```
-.workflow/.lite-fix/{bug-slug}-{timestamp}/
+.workflow/.lite-fix/{bug-slug}-{YYYY-MM-DD}/
 |- diagnosis-{angle1}.json      # Diagnosis angle 1
 |- diagnosis-{angle2}.json      # Diagnosis angle 2
 |- diagnosis-{angle3}.json      # Diagnosis angle 3 (if applicable)

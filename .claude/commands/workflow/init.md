@@ -98,10 +98,10 @@ Analyze project for workflow initialization and generate .workflow/project.json.
 Generate complete project.json with:
 - project_name: ${projectName}
 - initialized_at: current ISO timestamp
-- overview: {description, technology_stack, architecture, key_components, entry_points, metrics}
+- overview: {description, technology_stack, architecture, key_components}
 - features: ${regenerate ? 'preserve from backup' : '[] (empty)'}
+- development_index: ${regenerate ? 'preserve from backup' : '{feature: [], enhancement: [], bugfix: [], refactor: [], docs: []}'}
 - statistics: ${regenerate ? 'preserve from backup' : '{total_features: 0, total_sessions: 0, last_updated}'}
-- memory_resources: {skills, documentation, module_docs, gaps, last_scanned}
 - _metadata: {initialized_by: "cli-explore-agent", analysis_timestamp, analysis_mode}
 
 ## Analysis Requirements
@@ -118,28 +118,11 @@ Generate complete project.json with:
 - Patterns: singleton, factory, repository
 - Key components: 5-10 modules {name, path, description, importance}
 
-**Metrics**:
-- total_files: Source files (exclude tests/configs)
-- lines_of_code: Use find + wc -l
-- module_count: Use ~/.claude/scripts/get_modules_by_depth.sh
-- complexity: low | medium | high
-
-**Entry Points**:
-- main: index.ts, main.py, main.go
-- cli_commands: package.json scripts, Makefile targets
-- api_endpoints: HTTP/REST routes (if applicable)
-
-**Memory Resources**:
-- skills: Scan .claude/skills/ → [{name, type, path}]
-- documentation: Scan .workflow/docs/ → [{name, path, has_readme, has_architecture}]
-- module_docs: Find **/CLAUDE.md (exclude node_modules, .git)
-- gaps: Identify missing resources
-
 ## Execution
 1. Structural scan: get_modules_by_depth.sh, find, wc -l
 2. Semantic analysis: Gemini for patterns/architecture
 3. Synthesis: Merge findings
-4. ${regenerate ? 'Merge with preserved features/statistics from .workflow/project.json.backup' : ''}
+4. ${regenerate ? 'Merge with preserved features/development_index/statistics from .workflow/project.json.backup' : ''}
 5. Write JSON: Write('.workflow/project.json', jsonContent)
 6. Report: Return brief completion summary
 
@@ -167,17 +150,6 @@ Frameworks: ${projectJson.overview.technology_stack.frameworks.join(', ')}
 ### Architecture
 Style: ${projectJson.overview.architecture.style}
 Components: ${projectJson.overview.key_components.length} core modules
-
-### Metrics
-Files: ${projectJson.overview.metrics.total_files}
-LOC: ${projectJson.overview.metrics.lines_of_code}
-Complexity: ${projectJson.overview.metrics.complexity}
-
-### Memory Resources
-SKILL Packages: ${projectJson.memory_resources.skills.length}
-Documentation: ${projectJson.memory_resources.documentation.length}
-Module Docs: ${projectJson.memory_resources.module_docs.length}
-Gaps: ${projectJson.memory_resources.gaps.join(', ') || 'none'}
 
 ---
 Project state: .workflow/project.json

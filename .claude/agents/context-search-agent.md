@@ -449,7 +449,12 @@ Calculate risk level based on:
           {
             "path": "system-architect/analysis.md",
             "type": "primary",
-            "content": "# System Architecture Analysis\n\n## Overview\n..."
+            "content": "# System Architecture Analysis\n\n## Overview\n@analysis-architecture.md\n@analysis-recommendations.md"
+          },
+          {
+            "path": "system-architect/analysis-architecture.md",
+            "type": "supplementary",
+            "content": "# Architecture Assessment\n\n..."
           }
         ]
       }

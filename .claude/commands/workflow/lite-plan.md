@@ -77,11 +77,9 @@ Phase 5: Dispatch
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
 const taskSlug = task_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
-const timestamp = getUtc8ISOString().replace(/[:.]/g, '-')
-const shortTimestamp = timestamp.substring(0, 19).replace('T', '-')  // Format: 2025-11-29-14-30-25
+const dateStr = getUtc8ISOString().substring(0, 10)  // Format: 2025-11-29
 
-// ⚠️ CRITICAL: sessionId MUST include both slug AND timestamp
-const sessionId = `${taskSlug}-${shortTimestamp}`  // e.g., "implement-jwt-refresh-2025-11-29-14-30-25"
+const sessionId = `${taskSlug}-${dateStr}`  // e.g., "implement-jwt-refresh-2025-11-29"
 const sessionFolder = `.workflow/.lite-plan/${sessionId}`
 
 bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
@@ -306,28 +304,22 @@ explorations.forEach(exp => {
   }
 })
 
-// Deduplicate by question similarity
-function deduplicateClarifications(clarifications) {
-  const unique = []
-  clarifications.forEach(c => {
-    const isDuplicate = unique.some(u =>
-      u.question.toLowerCase() === c.question.toLowerCase()
-    )
-    if (!isDuplicate) unique.push(c)
-  })
-  return unique
-}
-
-const uniqueClarifications = deduplicateClarifications(allClarifications)
+// Deduplicate exact same questions only
+const seen = new Set()
+const dedupedClarifications = allClarifications.filter(c => {
+  const key = c.question.toLowerCase()
+  if (seen.has(key)) return false
+  seen.add(key)
+  return true
+})
 
 // Multi-round clarification: batch questions (max 4 per round)
-// ⚠️ MUST execute ALL rounds until uniqueClarifications exhausted
-if (uniqueClarifications.length > 0) {
+if (dedupedClarifications.length > 0) {
   const BATCH_SIZE = 4
-  const totalRounds = Math.ceil(uniqueClarifications.length / BATCH_SIZE)
+  const totalRounds = Math.ceil(dedupedClarifications.length / BATCH_SIZE)
 
-  for (let i = 0; i < uniqueClarifications.length; i += BATCH_SIZE) {
-    const batch = uniqueClarifications.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < dedupedClarifications.length; i += BATCH_SIZE) {
+    const batch = dedupedClarifications.slice(i, i + BATCH_SIZE)
     const currentRound = Math.floor(i / BATCH_SIZE) + 1
 
     console.log(`### Clarification Round ${currentRound}/${totalRounds}`)
@@ -335,15 +327,12 @@ if (uniqueClarifications.length > 0) {
     AskUserQuestion({
       questions: batch.map(need => ({
         question: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
-        header: need.source_angle,
+        header: need.source_angle.substring(0, 12),
         multiSelect: false,
-        options: need.options.map((opt, index) => {
-          const isRecommended = need.recommended === index
-          return {
-            label: isRecommended ? `${opt} ★` : opt,
-            description: isRecommended ? `Use ${opt} approach (Recommended)` : `Use ${opt} approach`
-          }
-        })
+        options: need.options.map((opt, index) => ({
+          label: need.recommended === index ? `${opt} ★` : opt,
+          description: need.recommended === index ? `Recommended` : `Use ${opt}`
+        }))
       }))
     })
 
@@ -573,7 +562,7 @@ SlashCommand(command="/workflow:lite-execute --in-memory")
 ## Session Folder Structure
 
 ```
-.workflow/.lite-plan/{task-slug}-{timestamp}/
+.workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/
 ├── exploration-{angle1}.json      # Exploration angle 1
 ├── exploration-{angle2}.json      # Exploration angle 2
 ├── exploration-{angle3}.json      # Exploration angle 3 (if applicable)

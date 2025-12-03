@@ -113,11 +113,6 @@ Patterns: ${overview.architecture.patterns.join(', ')}
 **Key Components** (${overview.key_components.length}):
 ${overview.key_components.map(c => `- ${c.name} (${c.path})\n  ${c.description}`).join('\n')}
 
-**Metrics**:
-- Files: ${overview.metrics.total_files}
-- Lines of Code: ${overview.metrics.lines_of_code}
-- Complexity: ${overview.metrics.complexity}
-
 ---
 ` : ''}
 
