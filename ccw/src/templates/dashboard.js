@@ -385,6 +385,8 @@ function updateContentTitle() {
     titleEl.textContent = names[currentLiteType] || 'Lite Tasks';
   } else if (currentView === 'sessionDetail') {
     titleEl.textContent = 'Session Detail';
+  } else if (currentView === 'liteTaskDetail') {
+    titleEl.textContent = 'Lite Task Detail';
   } else {
     const names = { 'all': 'All Sessions', 'active': 'Active Sessions', 'archived': 'Archived Sessions' };
     titleEl.textContent = names[currentFilter] || 'Sessions';
@@ -1613,12 +1615,19 @@ function renderLiteTasks() {
   });
 }
 
+// Store lite task session data for detail page access
+const liteTaskDataStore = {};
+
 function renderLiteTaskCard(session) {
   const progress = session.progress || { total: 0, completed: 0, percentage: 0 };
   const tasks = session.tasks || [];
 
+  // Store session data for detail page
+  const sessionKey = `lite-${session.type}-${session.id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+  liteTaskDataStore[sessionKey] = session;
+
   return `
-    <div class="session-card lite-task-card">
+    <div class="session-card lite-task-card" onclick="showLiteTaskDetailPage('${sessionKey}')" style="cursor: pointer;">
       <div class="session-header">
         <div class="session-title">${escapeHtml(session.id)}</div>
         <span class="session-status ${session.type}">
@@ -1641,14 +1650,408 @@ function renderLiteTaskCard(session) {
             </div>
           </div>
         ` : ''}
-        ${tasks.length > 0 ? `
-          <div class="tasks-detail-list">
-            ${tasks.map(task => renderTaskDetail(session.id, task)).join('')}
-          </div>
-        ` : ''}
       </div>
     </div>
   `;
+}
+
+// Lite Task Detail Page
+function showLiteTaskDetailPage(sessionKey) {
+  const session = liteTaskDataStore[sessionKey];
+  if (!session) return;
+
+  currentView = 'liteTaskDetail';
+  currentSessionDetailKey = sessionKey;
+
+  // Also store in sessionDataStore for tab switching compatibility
+  sessionDataStore[sessionKey] = {
+    ...session,
+    session_id: session.id,
+    created_at: session.createdAt,
+    path: session.path,
+    type: session.type
+  };
+
+  const container = document.getElementById('mainContent');
+  const tasks = session.tasks || [];
+  const plan = session.plan || {};
+  const progress = session.progress || { total: 0, completed: 0, percentage: 0 };
+
+  const completed = tasks.filter(t => t.status === 'completed').length;
+  const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+  const pending = tasks.filter(t => t.status === 'pending').length;
+
+  container.innerHTML = `
+    <div class="session-detail-page lite-task-detail-page">
+      <!-- Header -->
+      <div class="detail-header">
+        <button class="btn-back" onclick="goBackToLiteTasks()">
+          <span class="back-icon">←</span>
+          <span>Back to ${session.type === 'lite-plan' ? 'Lite Plan' : 'Lite Fix'}</span>
+        </button>
+        <div class="detail-title-row">
+          <h2 class="detail-session-id">${session.type === 'lite-plan' ? '📝' : '🔧'} ${escapeHtml(session.id)}</h2>
+          <div class="detail-badges">
+            <span class="session-type-badge ${session.type}">${session.type}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session Info Bar -->
+      <div class="detail-info-bar">
+        <div class="info-item">
+          <span class="info-label">Created:</span>
+          <span class="info-value">${formatDate(session.createdAt)}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Tasks:</span>
+          <span class="info-value">${completed}/${tasks.length} completed</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Progress:</span>
+          <span class="info-value">${progress.percentage}%</span>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="detail-tabs">
+        <button class="detail-tab active" data-tab="tasks" onclick="switchLiteDetailTab('tasks')">
+          <span class="tab-icon">📋</span>
+          <span class="tab-text">Tasks</span>
+          <span class="tab-count">${tasks.length}</span>
+        </button>
+        <button class="detail-tab" data-tab="plan" onclick="switchLiteDetailTab('plan')">
+          <span class="tab-icon">📐</span>
+          <span class="tab-text">Plan</span>
+        </button>
+        <button class="detail-tab" data-tab="context" onclick="switchLiteDetailTab('context')">
+          <span class="tab-icon">📦</span>
+          <span class="tab-text">Context</span>
+        </button>
+        <button class="detail-tab" data-tab="summary" onclick="switchLiteDetailTab('summary')">
+          <span class="tab-icon">📝</span>
+          <span class="tab-text">Summary</span>
+        </button>
+      </div>
+
+      <!-- Tab Content -->
+      <div class="detail-tab-content" id="liteDetailTabContent">
+        ${renderLiteTasksTab(session, tasks, completed, inProgress, pending)}
+      </div>
+    </div>
+  `;
+
+  // Initialize collapsible sections
+  setTimeout(() => {
+    document.querySelectorAll('.collapsible-header').forEach(header => {
+      header.addEventListener('click', () => toggleSection(header));
+    });
+  }, 50);
+}
+
+function goBackToLiteTasks() {
+  currentView = 'liteTasks';
+  currentSessionDetailKey = null;
+  updateContentTitle();
+  renderLiteTasks();
+}
+
+function switchLiteDetailTab(tabName) {
+  // Update active tab
+  document.querySelectorAll('.detail-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.tab === tabName);
+  });
+
+  const session = liteTaskDataStore[currentSessionDetailKey];
+  if (!session) return;
+
+  const contentArea = document.getElementById('liteDetailTabContent');
+  const tasks = session.tasks || [];
+  const completed = tasks.filter(t => t.status === 'completed').length;
+  const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+  const pending = tasks.filter(t => t.status === 'pending').length;
+
+  switch (tabName) {
+    case 'tasks':
+      contentArea.innerHTML = renderLiteTasksTab(session, tasks, completed, inProgress, pending);
+      // Re-initialize collapsible sections
+      setTimeout(() => {
+        document.querySelectorAll('.collapsible-header').forEach(header => {
+          header.addEventListener('click', () => toggleSection(header));
+        });
+      }, 50);
+      break;
+    case 'plan':
+      contentArea.innerHTML = renderLitePlanTab(session);
+      break;
+    case 'context':
+      loadAndRenderLiteContextTab(session, contentArea);
+      break;
+    case 'summary':
+      loadAndRenderLiteSummaryTab(session, contentArea);
+      break;
+  }
+}
+
+function renderLiteTasksTab(session, tasks, completed, inProgress, pending) {
+  // Populate drawer tasks for click-to-open functionality
+  currentDrawerTasks = tasks;
+
+  if (tasks.length === 0) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">No Tasks</div>
+        <div class="empty-text">This session has no tasks defined.</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="tasks-tab-content">
+      <div class="task-stats-bar">
+        <span class="task-stat completed">✓ ${completed} completed</span>
+        <span class="task-stat in-progress">⟳ ${inProgress} in progress</span>
+        <span class="task-stat pending">○ ${pending} pending</span>
+      </div>
+      <div class="tasks-list" id="liteTasksListContent">
+        ${tasks.map(task => renderLiteTaskDetailItem(session.id, task)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderLiteTaskDetailItem(sessionId, task) {
+  const rawTask = task._raw || task;
+  const taskJsonId = `task-json-${sessionId}-${task.id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+  taskJsonStore[taskJsonId] = rawTask;
+
+  const statusIcon = task.status === 'completed' ? '✓' : task.status === 'in_progress' ? '⟳' : '○';
+
+  return `
+    <div class="detail-task-item-full ${task.status}">
+      <div class="task-item-header-full" onclick="openTaskDrawerForLite('${sessionId}', '${escapeHtml(task.id)}')" style="cursor: pointer;" title="Click to open task details">
+        <span class="task-status-icon">${statusIcon}</span>
+        <span class="task-id-badge">${escapeHtml(task.id)}</span>
+        <span class="task-title">${escapeHtml(task.title || 'Untitled')}</span>
+        <span class="task-status-badge ${task.status}">${task.status}</span>
+        <button class="btn-view-json" onclick="event.stopPropagation(); showJsonModal('${taskJsonId}', '${escapeHtml(task.id)}')">{ } JSON</button>
+      </div>
+
+      <!-- Collapsible: Meta -->
+      <div class="collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">▶</span>
+          <span class="section-label">meta</span>
+          <span class="section-preview">${escapeHtml(getMetaPreviewForLite(task, rawTask))}</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          ${renderDynamicFields(task.meta || rawTask, ['type', 'action', 'agent', 'scope', 'module'])}
+        </div>
+      </div>
+
+      <!-- Collapsible: Context -->
+      <div class="collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">▶</span>
+          <span class="section-label">context</span>
+          <span class="section-preview">${escapeHtml(getContextPreview(task.context, rawTask))}</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          ${renderContextFields(task.context, rawTask)}
+        </div>
+      </div>
+
+      <!-- Collapsible: Flow Control (with Flowchart) -->
+      <div class="collapsible-section">
+        <div class="collapsible-header">
+          <span class="collapse-icon">▶</span>
+          <span class="section-label">flow_control</span>
+          <span class="section-preview">${escapeHtml(getFlowControlPreview(task.flow_control, rawTask))}</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          <div class="flowchart-container" id="flowchart-${sessionId}-${task.id}"></div>
+          ${renderFlowControlDetails(task.flow_control, rawTask)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function getMetaPreviewForLite(task, rawTask) {
+  const meta = task.meta || {};
+  const parts = [];
+  if (meta.type || rawTask.action) parts.push(meta.type || rawTask.action);
+  if (meta.scope || rawTask.scope) parts.push(meta.scope || rawTask.scope);
+  return parts.join(' | ') || 'No meta';
+}
+
+function openTaskDrawerForLite(sessionId, taskId) {
+  const session = liteTaskDataStore[currentSessionDetailKey];
+  if (!session) return;
+
+  const task = session.tasks?.find(t => t.id === taskId);
+  if (!task) return;
+
+  // Set current drawer tasks
+  currentDrawerTasks = session.tasks || [];
+
+  document.getElementById('drawerTaskTitle').textContent = task.title || taskId;
+  document.getElementById('drawerContent').innerHTML = renderTaskDrawerContent(task);
+  document.getElementById('taskDetailDrawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('active');
+
+  // Initialize flowchart after DOM is updated
+  setTimeout(() => {
+    renderFullFlowchart(task.flow_control || task._raw?.flow_control);
+  }, 100);
+}
+
+function renderLitePlanTab(session) {
+  const plan = session.plan;
+
+  if (!plan) {
+    return `
+      <div class="tab-empty-state">
+        <div class="empty-icon">📐</div>
+        <div class="empty-title">No Plan Data</div>
+        <div class="empty-text">No plan.json found for this session.</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="plan-tab-content">
+      <!-- Summary -->
+      ${plan.summary ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title">📋 Summary</h4>
+          <p class="plan-summary-text">${escapeHtml(plan.summary)}</p>
+        </div>
+      ` : ''}
+
+      <!-- Approach -->
+      ${plan.approach ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title">🎯 Approach</h4>
+          <p class="plan-approach-text">${escapeHtml(plan.approach)}</p>
+        </div>
+      ` : ''}
+
+      <!-- Focus Paths -->
+      ${plan.focus_paths?.length ? `
+        <div class="plan-section">
+          <h4 class="plan-section-title">📁 Focus Paths</h4>
+          <div class="path-tags">
+            ${plan.focus_paths.map(p => `<span class="path-tag">${escapeHtml(p)}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Metadata -->
+      <div class="plan-section">
+        <h4 class="plan-section-title">ℹ️ Metadata</h4>
+        <div class="plan-meta-grid">
+          ${plan.estimated_time ? `<div class="meta-item"><span class="meta-label">Estimated Time:</span> ${escapeHtml(plan.estimated_time)}</div>` : ''}
+          ${plan.complexity ? `<div class="meta-item"><span class="meta-label">Complexity:</span> ${escapeHtml(plan.complexity)}</div>` : ''}
+          ${plan.recommended_execution ? `<div class="meta-item"><span class="meta-label">Execution:</span> ${escapeHtml(plan.recommended_execution)}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- Raw JSON -->
+      <div class="plan-section">
+        <h4 class="plan-section-title">{ } Raw JSON</h4>
+        <pre class="json-content">${escapeHtml(JSON.stringify(plan, null, 2))}</pre>
+      </div>
+    </div>
+  `;
+}
+
+async function loadAndRenderLiteContextTab(session, contentArea) {
+  contentArea.innerHTML = '<div class="tab-loading">Loading context data...</div>';
+
+  try {
+    if (window.SERVER_MODE && session.path) {
+      const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=context`);
+      if (response.ok) {
+        const data = await response.json();
+        contentArea.innerHTML = renderLiteContextContent(data.context, session);
+        return;
+      }
+    }
+    // Fallback: show plan context if available
+    contentArea.innerHTML = renderLiteContextContent(null, session);
+  } catch (err) {
+    contentArea.innerHTML = `<div class="tab-error">Failed to load context: ${err.message}</div>`;
+  }
+}
+
+function renderLiteContextContent(context, session) {
+  const plan = session.plan || {};
+
+  // If we have context from context-package.json
+  if (context) {
+    return `
+      <div class="context-tab-content">
+        <pre class="json-content">${escapeHtml(JSON.stringify(context, null, 2))}</pre>
+      </div>
+    `;
+  }
+
+  // Fallback: show context from plan
+  if (plan.focus_paths?.length || plan.summary) {
+    return `
+      <div class="context-tab-content">
+        ${plan.summary ? `
+          <div class="context-section">
+            <h4>Summary</h4>
+            <p>${escapeHtml(plan.summary)}</p>
+          </div>
+        ` : ''}
+        ${plan.focus_paths?.length ? `
+          <div class="context-section">
+            <h4>Focus Paths</h4>
+            <div class="path-tags">
+              ${plan.focus_paths.map(p => `<span class="path-tag">${escapeHtml(p)}</span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="tab-empty-state">
+      <div class="empty-icon">📦</div>
+      <div class="empty-title">No Context Data</div>
+      <div class="empty-text">No context-package.json found for this session.</div>
+    </div>
+  `;
+}
+
+async function loadAndRenderLiteSummaryTab(session, contentArea) {
+  contentArea.innerHTML = '<div class="tab-loading">Loading summaries...</div>';
+
+  try {
+    if (window.SERVER_MODE && session.path) {
+      const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=summary`);
+      if (response.ok) {
+        const data = await response.json();
+        contentArea.innerHTML = renderSummaryContent(data.summaries);
+        return;
+      }
+    }
+    // Fallback
+    contentArea.innerHTML = `
+      <div class="tab-empty-state">
+        <div class="empty-icon">📝</div>
+        <div class="empty-title">No Summaries</div>
+        <div class="empty-text">No summaries found in .summaries/</div>
+      </div>
+    `;
+  } catch (err) {
+    contentArea.innerHTML = `<div class="tab-error">Failed to load summaries: ${err.message}</div>`;
+  }
 }
 
 // Store task JSON data in a global map instead of inline script tags
@@ -2000,13 +2403,38 @@ function toggleSection(header) {
       const implId = parts.pop();
       const sessionId = parts.join('-');
 
-      const session = [...(workflowData.liteTasks?.litePlan || []), ...(workflowData.liteTasks?.liteFix || [])]
-        .find(s => s.id === sessionId);
-      const task = session?.tasks?.find(t => t.id === implId || t.id === 'IMPL-' + implId);
+      // Try to find task from multiple sources
+      let task = null;
 
-      if (task?.flow_control?.implementation_approach) {
-        renderFlowchart(container.id, task.flow_control.implementation_approach);
-        container.dataset.rendered = 'true';
+      // 1. Try liteTaskDataStore (for lite task detail page)
+      if (currentSessionDetailKey && liteTaskDataStore[currentSessionDetailKey]) {
+        const session = liteTaskDataStore[currentSessionDetailKey];
+        task = session?.tasks?.find(t => t.id === implId || t.id === 'IMPL-' + implId || t.id === 'T' + implId);
+      }
+
+      // 2. Try workflowData.liteTasks (for lite tasks list view)
+      if (!task) {
+        const session = [...(workflowData.liteTasks?.litePlan || []), ...(workflowData.liteTasks?.liteFix || [])]
+          .find(s => s.id === sessionId);
+        task = session?.tasks?.find(t => t.id === implId || t.id === 'IMPL-' + implId || t.id === 'T' + implId);
+      }
+
+      // 3. Try sessionDataStore (for regular session detail page)
+      if (!task && currentSessionDetailKey && sessionDataStore[currentSessionDetailKey]) {
+        const session = sessionDataStore[currentSessionDetailKey];
+        task = session?.tasks?.find(t => (t.task_id || t.id) === implId || (t.task_id || t.id) === 'IMPL-' + implId);
+      }
+
+      // Render flowchart if task found
+      if (task) {
+        const flowSteps = task.flow_control?.implementation_approach ||
+                          task._raw?.flow_control?.implementation_approach ||
+                          task._raw?.implementation ||
+                          task.implementation;
+        if (flowSteps && flowSteps.length > 0) {
+          renderFlowchart(container.id, flowSteps);
+          container.dataset.rendered = 'true';
+        }
       }
     }
   }
@@ -2050,7 +2478,7 @@ function renderFlowchart(containerId, steps) {
     .attr('orient', 'auto')
     .append('path')
     .attr('d', 'M0,-5L10,0L0,5')
-    .attr('fill', 'var(--border-color)');
+    .attr('fill', 'hsl(var(--border))');
 
   // Draw arrows
   for (let i = 0; i < steps.length - 1; i++) {
@@ -2062,7 +2490,7 @@ function renderFlowchart(containerId, steps) {
       .attr('y1', y1)
       .attr('x2', width / 2)
       .attr('y2', y2)
-      .attr('stroke', 'var(--border-color)')
+      .attr('stroke', 'hsl(var(--border))')
       .attr('stroke-width', 2)
       .attr('marker-end', 'url(#arrow-' + containerId + ')');
   }
@@ -2080,8 +2508,8 @@ function renderFlowchart(containerId, steps) {
     .attr('width', nodeWidth)
     .attr('height', nodeHeight)
     .attr('rx', 6)
-    .attr('fill', (d, i) => i === 0 ? 'var(--accent-color)' : 'var(--bg-card)')
-    .attr('stroke', 'var(--border-color)')
+    .attr('fill', (d, i) => i === 0 ? 'hsl(var(--primary))' : 'hsl(var(--card))')
+    .attr('stroke', 'hsl(var(--border))')
     .attr('stroke-width', 1);
 
   // Step number circle
@@ -2089,7 +2517,7 @@ function renderFlowchart(containerId, steps) {
     .attr('cx', 20)
     .attr('cy', nodeHeight / 2)
     .attr('r', 12)
-    .attr('fill', (d, i) => i === 0 ? 'rgba(255,255,255,0.2)' : 'var(--bg-secondary)');
+    .attr('fill', (d, i) => i === 0 ? 'rgba(255,255,255,0.2)' : 'hsl(var(--muted))');
 
   nodes.append('text')
     .attr('x', 20)
@@ -2097,7 +2525,7 @@ function renderFlowchart(containerId, steps) {
     .attr('text-anchor', 'middle')
     .attr('dominant-baseline', 'central')
     .attr('font-size', '11px')
-    .attr('fill', (d, i) => i === 0 ? 'white' : 'var(--text-secondary)')
+    .attr('fill', (d, i) => i === 0 ? 'white' : 'hsl(var(--muted-foreground))')
     .text((d, i) => i + 1);
 
   // Node text (step name)
@@ -2105,7 +2533,7 @@ function renderFlowchart(containerId, steps) {
     .attr('x', 45)
     .attr('y', nodeHeight / 2)
     .attr('dominant-baseline', 'central')
-    .attr('fill', (d, i) => i === 0 ? 'white' : 'var(--text-primary)')
+    .attr('fill', (d, i) => i === 0 ? 'white' : 'hsl(var(--foreground))')
     .attr('font-size', '12px')
     .text(d => {
       const text = d.step || d.action || 'Step';
@@ -2434,7 +2862,7 @@ function renderFullFlowchart(flowControl) {
     .attr('orient', 'auto')
     .append('path')
     .attr('d', 'M0,-5L10,0L0,5')
-    .attr('fill', 'var(--accent-color)');
+    .attr('fill', 'hsl(var(--primary))');
 
   let currentY = 20;
 
@@ -2476,7 +2904,7 @@ function renderFullFlowchart(flowControl) {
         .attr('width', nodeWidth)
         .attr('height', nodeHeight)
         .attr('rx', 10)
-        .attr('fill', 'var(--bg-card)')
+        .attr('fill', 'hsl(var(--card))')
         .attr('stroke', '#f59e0b')
         .attr('stroke-width', 2)
         .attr('stroke-dasharray', '5,3');
@@ -2502,7 +2930,7 @@ function renderFullFlowchart(flowControl) {
       nodeG.append('text')
         .attr('x', 50)
         .attr('y', 28)
-        .attr('fill', 'var(--text-primary)')
+        .attr('fill', 'hsl(var(--foreground))')
         .attr('font-weight', '600')
         .attr('font-size', '13px')
         .text(truncateText(stepName, 40));
@@ -2512,7 +2940,7 @@ function renderFullFlowchart(flowControl) {
         nodeG.append('text')
           .attr('x', 15)
           .attr('y', 52)
-          .attr('fill', 'var(--text-secondary)')
+          .attr('fill', 'hsl(var(--muted-foreground))')
           .attr('font-size', '11px')
           .text(truncateText(step.action, 50));
       }
@@ -2539,7 +2967,7 @@ function renderFullFlowchart(flowControl) {
       .attr('y1', currentY)
       .attr('x2', width - 40)
       .attr('y2', currentY)
-      .attr('stroke', 'var(--border-color)')
+      .attr('stroke', 'hsl(var(--border))')
       .attr('stroke-width', 1)
       .attr('stroke-dasharray', '4,4');
 
@@ -2549,7 +2977,7 @@ function renderFullFlowchart(flowControl) {
       .attr('y1', currentY - nodeGap + 5)
       .attr('x2', width / 2)
       .attr('y2', currentY + sectionGap - 5)
-      .attr('stroke', 'var(--accent-color)')
+      .attr('stroke', 'hsl(var(--primary))')
       .attr('stroke-width', 2)
       .attr('marker-end', 'url(#arrowhead-impl)');
 
@@ -2562,7 +2990,7 @@ function renderFullFlowchart(flowControl) {
     svg.append('text')
       .attr('x', 20)
       .attr('y', currentY)
-      .attr('fill', 'var(--accent-color)')
+      .attr('fill', 'hsl(var(--primary))')
       .attr('font-weight', 'bold')
       .attr('font-size', '13px')
       .text('🔧 Implementation Steps');
@@ -2579,7 +3007,7 @@ function renderFullFlowchart(flowControl) {
           .attr('y1', currentY + nodeHeight)
           .attr('x2', width / 2)
           .attr('y2', currentY + nodeHeight + nodeGap - 10)
-          .attr('stroke', 'var(--accent-color)')
+          .attr('stroke', 'hsl(var(--primary))')
           .attr('stroke-width', 2)
           .attr('marker-end', 'url(#arrowhead-impl)');
       }
@@ -2594,8 +3022,8 @@ function renderFullFlowchart(flowControl) {
         .attr('width', nodeWidth)
         .attr('height', nodeHeight)
         .attr('rx', 10)
-        .attr('fill', 'var(--bg-card)')
-        .attr('stroke', 'var(--accent-color)')
+        .attr('fill', 'hsl(var(--card))')
+        .attr('stroke', 'hsl(var(--primary))')
         .attr('stroke-width', 2);
 
       // Step badge
@@ -2603,7 +3031,7 @@ function renderFullFlowchart(flowControl) {
         .attr('cx', 25)
         .attr('cy', 25)
         .attr('r', 15)
-        .attr('fill', 'var(--accent-color)');
+        .attr('fill', 'hsl(var(--primary))');
 
       nodeG.append('text')
         .attr('x', 25)
@@ -2618,7 +3046,7 @@ function renderFullFlowchart(flowControl) {
       nodeG.append('text')
         .attr('x', 50)
         .attr('y', 28)
-        .attr('fill', 'var(--text-primary)')
+        .attr('fill', 'hsl(var(--foreground))')
         .attr('font-weight', '600')
         .attr('font-size', '13px')
         .text(truncateText(step.title || 'Step ' + (idx + 1), 40));
@@ -2628,7 +3056,7 @@ function renderFullFlowchart(flowControl) {
         nodeG.append('text')
           .attr('x', 15)
           .attr('y', 52)
-          .attr('fill', 'var(--text-secondary)')
+          .attr('fill', 'hsl(var(--muted-foreground))')
           .attr('font-size', '11px')
           .text(truncateText(step.description, 50));
       }
@@ -2681,7 +3109,7 @@ function renderImplementationFlowchart(steps) {
     .attr('orient', 'auto')
     .append('path')
     .attr('d', 'M0,-5L10,0L0,5')
-    .attr('fill', 'var(--accent-color)');
+    .attr('fill', 'hsl(var(--primary))');
 
   // Draw nodes and connections
   steps.forEach((step, idx) => {
@@ -2695,7 +3123,7 @@ function renderImplementationFlowchart(steps) {
         .attr('y1', y + nodeHeight)
         .attr('x2', width / 2)
         .attr('y2', y + nodeHeight + nodeGap - 10)
-        .attr('stroke', 'var(--accent-color)')
+        .attr('stroke', 'hsl(var(--primary))')
         .attr('stroke-width', 2)
         .attr('marker-end', 'url(#arrowhead)');
     }
@@ -2710,8 +3138,8 @@ function renderImplementationFlowchart(steps) {
       .attr('width', nodeWidth)
       .attr('height', nodeHeight)
       .attr('rx', 10)
-      .attr('fill', 'var(--bg-card)')
-      .attr('stroke', 'var(--accent-color)')
+      .attr('fill', 'hsl(var(--card))')
+      .attr('stroke', 'hsl(var(--primary))')
       .attr('stroke-width', 2)
       .attr('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))');
 
@@ -2720,7 +3148,7 @@ function renderImplementationFlowchart(steps) {
       .attr('cx', 25)
       .attr('cy', 25)
       .attr('r', 15)
-      .attr('fill', 'var(--accent-color)');
+      .attr('fill', 'hsl(var(--primary))');
 
     nodeG.append('text')
       .attr('x', 25)
@@ -2735,7 +3163,7 @@ function renderImplementationFlowchart(steps) {
     nodeG.append('text')
       .attr('x', 50)
       .attr('y', 30)
-      .attr('fill', 'var(--text-primary)')
+      .attr('fill', 'hsl(var(--foreground))')
       .attr('font-weight', '600')
       .attr('font-size', '14px')
       .text(truncateText(step.title || 'Step ' + (idx + 1), 35));
@@ -2745,7 +3173,7 @@ function renderImplementationFlowchart(steps) {
       nodeG.append('text')
         .attr('x', 15)
         .attr('y', 55)
-        .attr('fill', 'var(--text-secondary)')
+        .attr('fill', 'hsl(var(--muted-foreground))')
         .attr('font-size', '12px')
         .text(truncateText(step.description, 45));
     }

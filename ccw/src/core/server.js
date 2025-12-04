@@ -214,6 +214,18 @@ async function getSessionDetailData(sessionPath, dataType) {
       }
     }
 
+    // Load plan.json (for lite tasks)
+    if (dataType === 'plan' || dataType === 'all') {
+      const planFile = join(normalizedPath, 'plan.json');
+      if (existsSync(planFile)) {
+        try {
+          result.plan = JSON.parse(readFileSync(planFile, 'utf8'));
+        } catch (e) {
+          result.plan = null;
+        }
+      }
+    }
+
     // Load IMPL_PLAN.md
     if (dataType === 'impl-plan' || dataType === 'all') {
       const implPlanFile = join(normalizedPath, 'IMPL_PLAN.md');
