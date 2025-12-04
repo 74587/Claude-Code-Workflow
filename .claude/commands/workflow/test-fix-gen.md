@@ -159,19 +159,19 @@ Read(".workflow/active/[sourceSessionId]/.process/context-package.json")
 
 ```javascript
 // Session Mode - Include original task description to enable semantic CLI selection
-SlashCommand(command="/workflow:session:start --new \"Test validation for [sourceSessionId]: [originalTaskDescription]\"")
+SlashCommand(command="/workflow:session:start --type test --new \"Test validation for [sourceSessionId]: [originalTaskDescription]\"")
 
 // Prompt Mode - User's description already contains their intent
-SlashCommand(command="/workflow:session:start --new \"Test generation for: [description]\"")
+SlashCommand(command="/workflow:session:start --type test --new \"Test generation for: [description]\"")
 ```
 
 **Input**: User argument (session ID, description, or file path)
 
 **Expected Behavior**:
 - Creates new session: `WFS-test-[slug]`
-- Writes `workflow-session.json` metadata:
-  - **Session Mode**: Includes `workflow_type: "test_session"`, `source_session_id: "[sourceId]"`, description with original user intent
-  - **Prompt Mode**: Includes `workflow_type: "test_session"` only (user's description already contains intent)
+- Writes `workflow-session.json` metadata with `type: "test"`
+  - **Session Mode**: Additionally includes `source_session_id: "[sourceId]"`, description with original user intent
+  - **Prompt Mode**: Uses user's description (already contains intent)
 - Returns new session ID
 
 **Parse Output**:
@@ -579,11 +579,11 @@ WFS-test-[session]/
 **File**: `workflow-session.json`
 
 **Session Mode** includes:
-- `workflow_type: "test_session"`
+- `type: "test"` (set by session:start --type test)
 - `source_session_id: "[sourceSessionId]"` (enables automatic cross-session context)
 
 **Prompt Mode** includes:
-- `workflow_type: "test_session"`
+- `type: "test"` (set by session:start --type test)
 - No `source_session_id` field
 
 ### Execution Flow Diagram

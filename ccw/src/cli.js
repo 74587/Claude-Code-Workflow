@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { viewCommand } from './commands/view.js';
+import { serveCommand } from './commands/serve.js';
 import { installCommand } from './commands/install.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { listCommand } from './commands/list.js';
@@ -51,11 +52,20 @@ export function run(argv) {
   // View command
   program
     .command('view')
-    .description('Open workflow dashboard in browser')
+    .description('Open workflow dashboard in browser (static HTML)')
     .option('-p, --path <path>', 'Path to project directory', '.')
     .option('--no-browser', 'Generate dashboard without opening browser')
     .option('-o, --output <file>', 'Output path for generated HTML')
     .action(viewCommand);
+
+  // Serve command
+  program
+    .command('serve')
+    .description('Start dashboard server with live path switching')
+    .option('-p, --path <path>', 'Initial project directory')
+    .option('--port <port>', 'Server port', '3456')
+    .option('--no-browser', 'Start server without opening browser')
+    .action(serveCommand);
 
   // Install command
   program

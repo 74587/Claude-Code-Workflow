@@ -64,12 +64,17 @@ Lightweight planner that analyzes project structure, decomposes documentation wo
 ```bash
 # Get target path, project name, and root
 bash(pwd && basename "$(pwd)" && git rev-parse --show-toplevel 2>/dev/null || pwd && date +%Y%m%d-%H%M%S)
+```
 
-# Create session directories (replace timestamp)
-bash(mkdir -p .workflow/active/WFS-docs-{timestamp}/.{task,process,summaries})
+```javascript
+// Create docs session (type: docs)
+SlashCommand(command="/workflow:session:start --type docs --new \"{project_name}-docs-{timestamp}\"")
+// Parse output to get sessionId
+```
 
-# Create workflow-session.json (replace values)
-bash(echo '{"session_id":"WFS-docs-{timestamp}","project":"{project} documentation","status":"planning","timestamp":"2024-01-20T14:30:22+08:00","path":".","target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}' | jq '.' > .workflow/active/WFS-docs-{timestamp}/workflow-session.json)
+```bash
+# Update workflow-session.json with docs-specific fields
+bash(jq '. + {"target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}' .workflow/active/{sessionId}/workflow-session.json > tmp.json && mv tmp.json .workflow/active/{sessionId}/workflow-session.json)
 ```
 
 ### Phase 2: Analyze Structure

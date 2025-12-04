@@ -188,8 +188,8 @@ const CATEGORIES = {
 
 **Step 1: Session Creation**
 ```javascript
-// Create workflow session for this review
-SlashCommand(command="/workflow:session:start \"Code review for [target_pattern]\"")
+// Create workflow session for this review (type: review)
+SlashCommand(command="/workflow:session:start --type review \"Code review for [target_pattern]\"")
 
 // Parse output
 const sessionId = output.match(/SESSION_ID: (WFS-[^\s]+)/)[1];

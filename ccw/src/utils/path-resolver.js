@@ -1,5 +1,5 @@
 import { resolve, join, relative, isAbsolute } from 'path';
-import { existsSync, mkdirSync, realpathSync, statSync } from 'fs';
+import { existsSync, mkdirSync, realpathSync, statSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 
 /**
@@ -192,4 +192,63 @@ export function getWorkflowDir(projectPath) {
  */
 export function normalizePathForDisplay(filePath) {
   return filePath.replace(/\\/g, '/');
+}
+
+// Recent paths storage file
+const RECENT_PATHS_FILE = join(homedir(), '.ccw-recent-paths.json');
+const MAX_RECENT_PATHS = 10;
+
+/**
+ * Get recent project paths
+ * @returns {string[]} - Array of recent paths
+ */
+export function getRecentPaths() {
+  try {
+    if (existsSync(RECENT_PATHS_FILE)) {
+      const content = readFileSync(RECENT_PATHS_FILE, 'utf8');
+      const data = JSON.parse(content);
+      return Array.isArray(data.paths) ? data.paths : [];
+    }
+  } catch {
+    // Ignore errors, return empty array
+  }
+  return [];
+}
+
+/**
+ * Track a project path (add to recent paths)
+ * @param {string} projectPath - Path to track
+ */
+export function trackRecentPath(projectPath) {
+  try {
+    const normalized = normalizePathForDisplay(resolvePath(projectPath));
+    let paths = getRecentPaths();
+
+    // Remove if already exists (will be added to front)
+    paths = paths.filter(p => normalizePathForDisplay(p) !== normalized);
+
+    // Add to front
+    paths.unshift(normalized);
+
+    // Limit to max
+    paths = paths.slice(0, MAX_RECENT_PATHS);
+
+    // Save
+    writeFileSync(RECENT_PATHS_FILE, JSON.stringify({ paths }, null, 2), 'utf8');
+  } catch {
+    // Ignore errors
+  }
+}
+
+/**
+ * Clear recent paths
+ */
+export function clearRecentPaths() {
+  try {
+    if (existsSync(RECENT_PATHS_FILE)) {
+      writeFileSync(RECENT_PATHS_FILE, JSON.stringify({ paths: [] }, null, 2), 'utf8');
+    }
+  } catch {
+    // Ignore errors
+  }
 }

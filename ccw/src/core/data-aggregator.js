@@ -1,6 +1,7 @@
 import { glob } from 'glob';
 import { readFileSync, existsSync } from 'fs';
 import { join, basename } from 'path';
+import { scanLiteTasks } from './lite-scanner.js';
 
 /**
  * Aggregate all data for dashboard rendering
@@ -13,13 +14,19 @@ export async function aggregateData(sessions, workflowDir) {
     generatedAt: new Date().toISOString(),
     activeSessions: [],
     archivedSessions: [],
+    liteTasks: {
+      litePlan: [],
+      liteFix: []
+    },
     reviewData: null,
     statistics: {
       totalSessions: 0,
       activeSessions: 0,
       totalTasks: 0,
       completedTasks: 0,
-      reviewFindings: 0
+      reviewFindings: 0,
+      litePlanCount: 0,
+      liteFixCount: 0
     }
   };
 
@@ -48,6 +55,16 @@ export async function aggregateData(sessions, workflowDir) {
   data.statistics.totalSessions = sessions.active.length + sessions.archived.length;
   data.statistics.activeSessions = sessions.active.length;
 
+  // Scan and include lite tasks
+  try {
+    const liteTasks = await scanLiteTasks(workflowDir);
+    data.liteTasks = liteTasks;
+    data.statistics.litePlanCount = liteTasks.litePlan.length;
+    data.statistics.liteFixCount = liteTasks.liteFix.length;
+  } catch (err) {
+    console.error('Error scanning lite tasks:', err.message);
+  }
+
   return data;
 }
 
@@ -62,8 +79,10 @@ async function processSession(session, isActive) {
     session_id: session.session_id,
     project: session.project || session.session_id,
     status: session.status || (isActive ? 'active' : 'archived'),
-    created_at: formatDate(session.created_at),
-    archived_at: formatDate(session.archived_at),
+    type: session.type || 'workflow',  // Session type (workflow, review, test, docs)
+    workflow_type: session.workflow_type || null,  // Original workflow_type for reference
+    created_at: session.created_at || null,  // Raw ISO string - let frontend format
+    archived_at: session.archived_at || null,  // Raw ISO string - let frontend format
     path: session.path,
     tasks: [],
     taskCount: 0,
@@ -249,26 +268,8 @@ async function safeGlob(pattern, cwd) {
   }
 }
 
-/**
- * Format date for display
- * @param {string|null} dateStr - ISO date string
- * @returns {string}
- */
-function formatDate(dateStr) {
-  if (!dateStr) return 'N/A';
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch {
-    return dateStr;
-  }
-}
+// formatDate removed - dates are now passed as raw ISO strings
+// Frontend (dashboard.js) handles all date formatting
 
 /**
  * Sort task IDs numerically (IMPL-1, IMPL-2, IMPL-1.1, etc.)

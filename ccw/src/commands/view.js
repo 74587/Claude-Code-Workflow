@@ -2,7 +2,7 @@ import { scanSessions } from '../core/session-scanner.js';
 import { aggregateData } from '../core/data-aggregator.js';
 import { generateDashboard } from '../core/dashboard-generator.js';
 import { launchBrowser, isHeadlessEnvironment } from '../utils/browser-launcher.js';
-import { resolvePath, ensureDir, getWorkflowDir, validatePath, validateOutputPath } from '../utils/path-resolver.js';
+import { resolvePath, ensureDir, getWorkflowDir, validatePath, validateOutputPath, trackRecentPath, getRecentPaths, normalizePathForDisplay } from '../utils/path-resolver.js';
 import chalk from 'chalk';
 import { writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -22,6 +22,9 @@ export async function viewCommand(options) {
   const workingDir = pathValidation.path;
   const workflowDir = join(workingDir, '.workflow');
 
+  // Track this path in recent paths
+  trackRecentPath(workingDir);
+
   console.log(chalk.blue.bold('\n  CCW Dashboard Generator\n'));
   console.log(chalk.gray(`  Project: ${workingDir}`));
   console.log(chalk.gray(`  Workflow: ${workflowDir}\n`));
@@ -36,14 +39,19 @@ export async function viewCommand(options) {
       generatedAt: new Date().toISOString(),
       activeSessions: [],
       archivedSessions: [],
+      liteTasks: { litePlan: [], liteFix: [] },
       reviewData: null,
       statistics: {
         totalSessions: 0,
         activeSessions: 0,
         totalTasks: 0,
         completedTasks: 0,
-        reviewFindings: 0
-      }
+        reviewFindings: 0,
+        litePlanCount: 0,
+        liteFixCount: 0
+      },
+      projectPath: normalizePathForDisplay(workingDir),
+      recentPaths: getRecentPaths()
     };
 
     await generateAndOpen(emptyData, workflowDir, options);
@@ -63,6 +71,10 @@ export async function viewCommand(options) {
     // Step 2: Aggregate all data
     console.log(chalk.cyan('  Aggregating data...'));
     const dashboardData = await aggregateData(sessions, workflowDir);
+
+    // Add project path and recent paths
+    dashboardData.projectPath = normalizePathForDisplay(workingDir);
+    dashboardData.recentPaths = getRecentPaths();
 
     // Log statistics
     const stats = dashboardData.statistics;

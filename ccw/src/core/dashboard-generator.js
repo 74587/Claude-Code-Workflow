@@ -6,6 +6,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Bundled template paths
+const UNIFIED_TEMPLATE = join(__dirname, '../templates/dashboard.html');
+const CSS_FILE = join(__dirname, '../templates/dashboard.css');
+const JS_FILE = join(__dirname, '../templates/dashboard.js');
 const WORKFLOW_TEMPLATE = join(__dirname, '../templates/workflow-dashboard.html');
 const REVIEW_TEMPLATE = join(__dirname, '../templates/review-cycle-dashboard.html');
 
@@ -16,13 +19,66 @@ const REVIEW_TEMPLATE = join(__dirname, '../templates/review-cycle-dashboard.htm
  * @returns {Promise<string>} - Generated HTML
  */
 export async function generateDashboard(data) {
-  // Use bundled workflow template
+  // Use new unified template (with sidebar layout)
+  if (existsSync(UNIFIED_TEMPLATE)) {
+    return generateFromUnifiedTemplate(data);
+  }
+
+  // Fallback to legacy workflow template
   if (existsSync(WORKFLOW_TEMPLATE)) {
     return generateFromBundledTemplate(data, WORKFLOW_TEMPLATE);
   }
 
-  // Fallback to inline dashboard if template missing
+  // Fallback to inline dashboard if templates missing
   return generateInlineDashboard(data);
+}
+
+/**
+ * Generate dashboard using unified template (new sidebar layout)
+ * @param {Object} data - Dashboard data
+ * @returns {string} - Generated HTML
+ */
+function generateFromUnifiedTemplate(data) {
+  let html = readFileSync(UNIFIED_TEMPLATE, 'utf8');
+
+  // Read CSS and JS files
+  const cssContent = existsSync(CSS_FILE) ? readFileSync(CSS_FILE, 'utf8') : '';
+  let jsContent = existsSync(JS_FILE) ? readFileSync(JS_FILE, 'utf8') : '';
+
+  // Prepare complete workflow data
+  const workflowData = {
+    generatedAt: data.generatedAt || new Date().toISOString(),
+    activeSessions: data.activeSessions || [],
+    archivedSessions: data.archivedSessions || [],
+    liteTasks: data.liteTasks || { litePlan: [], liteFix: [] },
+    reviewData: data.reviewData || { dimensions: {} },
+    statistics: data.statistics || {
+      totalSessions: 0,
+      activeSessions: 0,
+      totalTasks: 0,
+      completedTasks: 0,
+      litePlanCount: 0,
+      liteFixCount: 0
+    }
+  };
+
+  // Get project path and recent paths
+  const projectPath = data.projectPath || process.cwd();
+  const recentPaths = data.recentPaths || [projectPath];
+
+  // Replace JS placeholders with actual data
+  jsContent = jsContent.replace('{{WORKFLOW_DATA}}', JSON.stringify(workflowData, null, 2));
+  jsContent = jsContent.replace(/\{\{PROJECT_PATH\}\}/g, projectPath.replace(/\\/g, '/'));
+  jsContent = jsContent.replace('{{RECENT_PATHS}}', JSON.stringify(recentPaths));
+
+  // Inject CSS and JS into HTML template
+  html = html.replace('{{CSS_CONTENT}}', cssContent);
+  html = html.replace('{{JS_CONTENT}}', jsContent);
+
+  // Also replace any remaining placeholders in HTML
+  html = html.replace(/\{\{PROJECT_PATH\}\}/g, projectPath.replace(/\\/g, '/'));
+
+  return html;
 }
 
 /**
