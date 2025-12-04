@@ -7,8 +7,8 @@ const __dirname = dirname(__filename);
 
 // Bundled template paths
 const UNIFIED_TEMPLATE = join(__dirname, '../templates/dashboard.html');
-const CSS_FILE = join(__dirname, '../templates/dashboard.css');
 const JS_FILE = join(__dirname, '../templates/dashboard.js');
+const CSS_FILE = join(__dirname, '../templates/dashboard.css');
 const WORKFLOW_TEMPLATE = join(__dirname, '../templates/workflow-dashboard.html');
 const REVIEW_TEMPLATE = join(__dirname, '../templates/review-cycle-dashboard.html');
 
@@ -41,9 +41,9 @@ export async function generateDashboard(data) {
 function generateFromUnifiedTemplate(data) {
   let html = readFileSync(UNIFIED_TEMPLATE, 'utf8');
 
-  // Read CSS and JS files
-  const cssContent = existsSync(CSS_FILE) ? readFileSync(CSS_FILE, 'utf8') : '';
+  // Read JS and CSS files
   let jsContent = existsSync(JS_FILE) ? readFileSync(JS_FILE, 'utf8') : '';
+  let cssContent = existsSync(CSS_FILE) ? readFileSync(CSS_FILE, 'utf8') : '';
 
   // Prepare complete workflow data
   const workflowData = {
@@ -71,9 +71,9 @@ function generateFromUnifiedTemplate(data) {
   jsContent = jsContent.replace(/\{\{PROJECT_PATH\}\}/g, projectPath.replace(/\\/g, '/'));
   jsContent = jsContent.replace('{{RECENT_PATHS}}', JSON.stringify(recentPaths));
 
-  // Inject CSS and JS into HTML template
-  html = html.replace('{{CSS_CONTENT}}', cssContent);
+  // Inject JS and CSS into HTML template
   html = html.replace('{{JS_CONTENT}}', jsContent);
+  html = html.replace('{{CSS_CONTENT}}', cssContent);
 
   // Also replace any remaining placeholders in HTML
   html = html.replace(/\{\{PROJECT_PATH\}\}/g, projectPath.replace(/\\/g, '/'));

@@ -4,37 +4,219 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CCW Dashboard</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: ['class', '[data-theme="dark"]'],
+      safelist: [
+        // Background colors
+        'bg-card', 'bg-background', 'bg-hover', 'bg-accent', 'bg-muted', 'bg-primary', 'bg-success', 'bg-warning',
+        'bg-success-light', 'bg-warning-light', 'bg-sidebar-background', 'bg-destructive',
+        // Text colors
+        'text-foreground', 'text-muted-foreground', 'text-primary', 'text-card-foreground', 'text-success', 'text-warning',
+        'text-primary-foreground', 'text-accent-foreground', 'text-sidebar-foreground', 'text-destructive',
+        // Border colors
+        'border', 'border-border', 'border-primary', 'border-success', 'border-warning', 'border-muted',
+        'border-l-success', 'border-l-warning', 'border-l-muted-foreground', 'border-l-primary',
+        // Layout
+        'rounded', 'rounded-lg', 'rounded-md', 'rounded-full', 'shadow', 'shadow-sm', 'shadow-md', 'shadow-lg',
+        'p-2', 'p-3', 'p-4', 'p-5', 'px-3', 'px-4', 'px-5', 'py-2', 'py-3', 'py-4',
+        'm-2', 'mb-2', 'mb-3', 'mb-4', 'mt-2', 'mt-3', 'mt-4', 'mx-2', 'my-2',
+        'gap-2', 'gap-3', 'gap-4', 'space-y-2', 'space-y-3',
+        // Flex & Grid
+        'flex', 'flex-1', 'flex-col', 'flex-wrap', 'items-center', 'items-start', 'justify-between', 'justify-center',
+        'grid', 'grid-cols-1', 'grid-cols-2', 'grid-cols-3',
+        // Sizing
+        'w-full', 'w-5', 'w-8', 'h-2', 'h-5', 'h-8', 'min-w-0', 'max-w-full',
+        // Text
+        'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl',
+        'font-medium', 'font-semibold', 'font-bold', 'font-mono', 'truncate', 'uppercase',
+        // States & Transitions
+        'hover:shadow-md', 'hover:bg-hover', 'hover:-translate-y-1', 'hover:text-foreground',
+        'transition-all', 'duration-200', 'duration-300', 'cursor-pointer',
+        // Opacity & visibility
+        'opacity-50', 'opacity-80', 'hidden', 'block', 'inline', 'inline-flex',
+        // Position
+        'relative', 'absolute', 'fixed', 'sticky', 'top-0', 'right-0', 'left-0', 'bottom-0',
+        'z-10', 'z-40', 'z-50', 'overflow-hidden', 'overflow-y-auto',
+      ],
+      theme: {
+        extend: {
+          colors: {
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            card: 'hsl(var(--card))',
+            'card-foreground': 'hsl(var(--card-foreground))',
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            primary: 'hsl(var(--primary))',
+            'primary-foreground': 'hsl(var(--primary-foreground))',
+            secondary: 'hsl(var(--secondary))',
+            'secondary-foreground': 'hsl(var(--secondary-foreground))',
+            accent: 'hsl(var(--accent))',
+            'accent-foreground': 'hsl(var(--accent-foreground))',
+            destructive: 'hsl(var(--destructive))',
+            'destructive-foreground': 'hsl(var(--destructive-foreground))',
+            muted: 'hsl(var(--muted))',
+            'muted-foreground': 'hsl(var(--muted-foreground))',
+            'sidebar-background': 'hsl(var(--sidebar-background))',
+            'sidebar-foreground': 'hsl(var(--sidebar-foreground))',
+            hover: 'hsl(var(--hover))',
+            success: 'hsl(var(--success))',
+            'success-light': 'hsl(var(--success-light))',
+            warning: 'hsl(var(--warning))',
+            'warning-light': 'hsl(var(--warning-light))',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['Consolas', 'Monaco', 'Courier New', 'monospace'],
+          },
+          boxShadow: {
+            'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+            'DEFAULT': '0 2px 8px rgb(0 0 0 / 0.08)',
+            'md': '0 4px 12px rgb(0 0 0 / 0.1)',
+            'lg': '0 8px 24px rgb(0 0 0 / 0.12)',
+          },
+        },
+      },
+    }
+  </script>
   <style>
-{{CSS_CONTENT}}
+    /* CSS Custom Properties - Light Mode */
+    :root {
+      --background: 0 0% 98%;
+      --foreground: 0 0% 13%;
+      --card: 0 0% 100%;
+      --card-foreground: 0 0% 13%;
+      --border: 0 0% 90%;
+      --input: 0 0% 90%;
+      --ring: 220 65% 50%;
+      --primary: 220 65% 50%;
+      --primary-foreground: 0 0% 100%;
+      --secondary: 220 60% 65%;
+      --secondary-foreground: 0 0% 100%;
+      --accent: 220 40% 95%;
+      --accent-foreground: 0 0% 13%;
+      --destructive: 8 75% 55%;
+      --destructive-foreground: 0 0% 100%;
+      --muted: 0 0% 96%;
+      --muted-foreground: 0 0% 45%;
+      --sidebar-background: 0 0% 97%;
+      --sidebar-foreground: 0 0% 13%;
+      --hover: 0 0% 93%;
+      --success: 142 71% 45%;
+      --success-light: 142 76% 90%;
+      --warning: 38 92% 50%;
+      --warning-light: 48 96% 89%;
+    }
+
+    /* Dark Mode */
+    [data-theme="dark"] {
+      --background: 220 13% 10%;
+      --foreground: 0 0% 90%;
+      --card: 220 13% 14%;
+      --card-foreground: 0 0% 90%;
+      --border: 220 13% 20%;
+      --input: 220 13% 20%;
+      --ring: 220 65% 55%;
+      --primary: 220 65% 55%;
+      --primary-foreground: 0 0% 100%;
+      --secondary: 220 60% 60%;
+      --secondary-foreground: 0 0% 100%;
+      --accent: 220 30% 20%;
+      --accent-foreground: 0 0% 90%;
+      --destructive: 8 70% 50%;
+      --destructive-foreground: 0 0% 100%;
+      --muted: 220 13% 18%;
+      --muted-foreground: 0 0% 55%;
+      --sidebar-background: 220 13% 12%;
+      --sidebar-foreground: 0 0% 90%;
+      --hover: 220 13% 22%;
+      --success: 142 71% 40%;
+      --success-light: 142 50% 20%;
+      --warning: 38 85% 45%;
+      --warning-light: 40 50% 20%;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+
+    /* Sidebar collapse state */
+    .sidebar.collapsed { width: 60px; }
+    .sidebar.collapsed .nav-text,
+    .sidebar.collapsed .nav-section-title,
+    .sidebar.collapsed .badge,
+    .sidebar.collapsed .toggle-text { display: none; }
+    .sidebar.collapsed .nav-section-header { justify-content: center; padding: 12px 0; }
+    .sidebar.collapsed .nav-item { justify-content: center; padding: 10px 0; }
+    .sidebar.collapsed .toggle-icon { transform: rotate(180deg); }
+
+    /* Path menu open state */
+    .path-menu.open { display: block; }
+
+    /* Mobile sidebar */
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        left: -260px;
+        top: 56px;
+        height: calc(100vh - 56px);
+        z-index: 200;
+        box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+      }
+      .sidebar.open { left: 0; }
+      .sidebar-overlay.open { display: block; }
+      .menu-toggle-btn { display: block !important; }
+    }
+
+    /* Task drawer */
+    .task-detail-drawer {
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+    .task-detail-drawer.open { transform: translateX(0); }
+    .drawer-overlay.active { display: block; }
+
+    /* Injected from dashboard.css */
+    {{CSS_CONTENT}}
   </style>
 </head>
-<body>
-  <div class="app-container">
+<body class="font-sans bg-background text-foreground leading-normal">
+  <div class="flex flex-col min-h-screen">
     <!-- Top Bar -->
-    <header class="top-bar">
-      <div class="top-bar-left">
-        <button class="menu-toggle" id="menuToggle">☰</button>
-        <div class="logo">
-          <span class="logo-icon">⚡</span>
-          <span class="logo-text">Claude Code Workflow</span>
+    <header class="flex items-center justify-between px-5 h-14 bg-card border-b border-border sticky top-0 z-50 shadow-sm">
+      <div class="flex items-center gap-4">
+        <button class="hidden md:hidden p-2 text-foreground hover:bg-hover rounded menu-toggle-btn" id="menuToggle">☰</button>
+        <div class="flex items-center gap-2 text-lg font-semibold text-primary">
+          <span class="text-2xl">⚡</span>
+          <span class="hidden sm:inline">Claude Code Workflow</span>
         </div>
       </div>
 
       <!-- Path Selector -->
-      <div class="path-selector">
-        <label>Project:</label>
-        <div class="path-dropdown">
-          <button class="path-current" id="pathButton">
-            <span class="path-text" id="currentPath">{{PROJECT_PATH}}</span>
-            <span class="dropdown-arrow">▼</span>
+      <div class="flex items-center gap-2 relative">
+        <label class="hidden sm:inline text-sm text-muted-foreground">Project:</label>
+        <div class="relative">
+          <button class="flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded text-sm text-foreground hover:bg-hover max-w-[300px]" id="pathButton">
+            <span class="truncate max-w-[240px]" id="currentPath">{{PROJECT_PATH}}</span>
+            <span class="text-xs text-muted-foreground">▼</span>
           </button>
-          <div class="path-menu" id="pathMenu">
-            <div class="menu-label">Recent Projects</div>
-            <div id="recentPaths">
+          <div class="path-menu hidden absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg min-w-[280px] z-50" id="pathMenu">
+            <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent Projects</div>
+            <div id="recentPaths" class="border-t border-border">
               <!-- Dynamic recent paths -->
             </div>
-            <div class="path-actions">
-              <button class="path-browse" id="browsePath">
+            <div class="p-2 border-t border-border">
+              <button class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-background border border-border rounded text-sm text-muted-foreground hover:bg-hover" id="browsePath">
                 📂 Browse...
               </button>
             </div>
@@ -43,106 +225,107 @@
       </div>
 
       <!-- Header Actions -->
-      <div class="header-actions">
-        <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+      <div class="flex items-center gap-3">
+        <button class="p-2 text-xl hover:bg-hover rounded" id="themeToggle" title="Toggle theme">🌙</button>
       </div>
     </header>
 
     <!-- Sidebar Overlay (mobile) -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="sidebar-overlay fixed inset-0 bg-black/50 z-40" id="sidebarOverlay"></div>
 
     <!-- Main Layout -->
-    <div class="main-layout">
+    <div class="flex flex-1">
       <!-- Sidebar -->
-      <aside class="sidebar" id="sidebar">
-        <nav class="sidebar-nav">
+      <aside class="sidebar w-64 bg-sidebar-background border-r border-border flex flex-col sticky top-14 h-[calc(100vh-56px)] overflow-y-auto transition-all duration-300" id="sidebar">
+        <nav class="flex-1 py-3">
           <!-- Sessions Section -->
-          <div class="nav-section">
-            <div class="nav-section-header">
-              <span class="nav-icon">📁</span>
+          <div class="mb-2">
+            <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <span class="mr-2">📁</span>
               <span class="nav-section-title">Sessions</span>
             </div>
-            <ul class="nav-items">
-              <li class="nav-item active tooltip" data-filter="all" data-tooltip="All Sessions">
-                <span class="nav-icon">📋</span>
-                <span class="nav-text">All</span>
-                <span class="badge" id="badgeAll">0</span>
+            <ul class="space-y-0.5">
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors active bg-accent text-primary font-medium" data-filter="all" data-tooltip="All Sessions">
+                <span>📋</span>
+                <span class="nav-text flex-1">All</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeAll">0</span>
               </li>
-              <li class="nav-item tooltip" data-filter="active" data-tooltip="Active Sessions">
-                <span class="nav-icon">🟢</span>
-                <span class="nav-text">Active</span>
-                <span class="badge success" id="badgeActive">0</span>
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-filter="active" data-tooltip="Active Sessions">
+                <span>🟢</span>
+                <span class="nav-text flex-1">Active</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-success-light text-success" id="badgeActive">0</span>
               </li>
-              <li class="nav-item tooltip" data-filter="archived" data-tooltip="Archived Sessions">
-                <span class="nav-icon">📦</span>
-                <span class="nav-text">Archived</span>
-                <span class="badge" id="badgeArchived">0</span>
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-filter="archived" data-tooltip="Archived Sessions">
+                <span>📦</span>
+                <span class="nav-text flex-1">Archived</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeArchived">0</span>
               </li>
             </ul>
           </div>
 
           <!-- Lite Tasks Section -->
-          <div class="nav-section" id="liteTasksNav">
-            <div class="nav-section-header">
-              <span class="nav-icon">⚡</span>
+          <div class="mb-2" id="liteTasksNav">
+            <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <span class="mr-2">⚡</span>
               <span class="nav-section-title">Lite Tasks</span>
             </div>
-            <ul class="nav-items">
-              <li class="nav-item tooltip" data-lite="lite-plan" data-tooltip="Lite Plan Sessions">
-                <span class="nav-icon">📝</span>
-                <span class="nav-text">lite-plan</span>
-                <span class="badge" id="badgeLitePlan">0</span>
+            <ul class="space-y-0.5">
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-plan" data-tooltip="Lite Plan Sessions">
+                <span>📝</span>
+                <span class="nav-text flex-1">lite-plan</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeLitePlan">0</span>
               </li>
-              <li class="nav-item tooltip" data-lite="lite-fix" data-tooltip="Lite Fix Sessions">
-                <span class="nav-icon">🔧</span>
-                <span class="nav-text">lite-fix</span>
-                <span class="badge" id="badgeLiteFix">0</span>
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-fix" data-tooltip="Lite Fix Sessions">
+                <span>🔧</span>
+                <span class="nav-text flex-1">lite-fix</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeLiteFix">0</span>
               </li>
             </ul>
           </div>
-
         </nav>
 
         <!-- Sidebar Footer -->
-        <div class="sidebar-footer">
-          <button class="sidebar-toggle" id="sidebarToggle">
-            <span class="toggle-icon">◀</span>
+        <div class="p-3 border-t border-border">
+          <button class="flex items-center justify-center gap-2 w-full px-3 py-2 border border-border rounded text-sm text-muted-foreground hover:bg-hover transition-colors" id="sidebarToggle">
+            <span class="toggle-icon transition-transform duration-300">◀</span>
             <span class="toggle-text">Collapse</span>
           </button>
         </div>
       </aside>
 
       <!-- Content Area -->
-      <main class="content">
+      <main class="flex-1 p-6 overflow-y-auto min-w-0">
         <!-- Stats Grid -->
-        <section class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon">📊</div>
-            <div class="stat-value" id="statTotalSessions">0</div>
-            <div class="stat-label">Total Sessions</div>
+        <section class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mb-6">
+          <div class="bg-card border border-border rounded-lg p-5 text-center hover:shadow-md transition-all duration-200">
+            <div class="text-2xl mb-2">📊</div>
+            <div class="text-3xl font-bold text-foreground" id="statTotalSessions">0</div>
+            <div class="text-sm text-muted-foreground mt-1">Total Sessions</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon">🟢</div>
-            <div class="stat-value" id="statActiveSessions">0</div>
-            <div class="stat-label">Active Sessions</div>
+          <div class="bg-card border border-border rounded-lg p-5 text-center hover:shadow-md transition-all duration-200">
+            <div class="text-2xl mb-2">🟢</div>
+            <div class="text-3xl font-bold text-foreground" id="statActiveSessions">0</div>
+            <div class="text-sm text-muted-foreground mt-1">Active Sessions</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon">📋</div>
-            <div class="stat-value" id="statTotalTasks">0</div>
-            <div class="stat-label">Total Tasks</div>
+          <div class="bg-card border border-border rounded-lg p-5 text-center hover:shadow-md transition-all duration-200">
+            <div class="text-2xl mb-2">📋</div>
+            <div class="text-3xl font-bold text-foreground" id="statTotalTasks">0</div>
+            <div class="text-sm text-muted-foreground mt-1">Total Tasks</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon">✅</div>
-            <div class="stat-value" id="statCompletedTasks">0</div>
-            <div class="stat-label">Completed Tasks</div>
+          <div class="bg-card border border-border rounded-lg p-5 text-center hover:shadow-md transition-all duration-200">
+            <div class="text-2xl mb-2">✅</div>
+            <div class="text-3xl font-bold text-foreground" id="statCompletedTasks">0</div>
+            <div class="text-sm text-muted-foreground mt-1">Completed Tasks</div>
           </div>
         </section>
 
         <!-- Content Header -->
-        <div class="content-header">
-          <h2 class="content-title" id="contentTitle">All Sessions</h2>
-          <div class="search-box">
-            <input type="text" placeholder="Search..." id="searchInput">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+          <h2 class="text-xl font-semibold text-foreground" id="contentTitle">All Sessions</h2>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm">🔍</span>
+            <input type="text" placeholder="Search..." id="searchInput"
+              class="pl-9 pr-4 py-2 w-60 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
           </div>
         </div>
 
@@ -154,22 +337,22 @@
     </div>
 
     <!-- Footer -->
-    <footer class="bottom-bar">
+    <footer class="flex items-center justify-between px-5 h-10 bg-card border-t border-border text-xs text-muted-foreground">
       <div>Generated: <span id="generatedAt">-</span></div>
       <div>CCW Dashboard v1.0</div>
     </footer>
 
     <!-- Task Detail Drawer -->
-    <div class="task-detail-drawer" id="taskDetailDrawer">
-      <div class="drawer-header">
-        <h3 class="drawer-title" id="drawerTaskTitle">Task Details</h3>
-        <button class="drawer-close" onclick="closeTaskDrawer()">&times;</button>
+    <div class="task-detail-drawer fixed top-0 right-0 w-[400px] max-w-full h-full bg-card border-l border-border shadow-lg z-50 flex flex-col" id="taskDetailDrawer">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-border">
+        <h3 class="text-lg font-semibold text-foreground" id="drawerTaskTitle">Task Details</h3>
+        <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeTaskDrawer()">&times;</button>
       </div>
-      <div class="drawer-content" id="drawerContent">
+      <div class="flex-1 overflow-y-auto p-5" id="drawerContent">
         <!-- Dynamic content -->
       </div>
     </div>
-    <div class="drawer-overlay" id="drawerOverlay" onclick="closeTaskDrawer()"></div>
+    <div class="drawer-overlay fixed inset-0 bg-black/50 z-40" id="drawerOverlay" onclick="closeTaskDrawer()"></div>
   </div>
 
   <!-- D3.js for Flowchart -->

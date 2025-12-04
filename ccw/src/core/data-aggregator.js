@@ -102,7 +102,10 @@ async function processSession(session, isActive) {
             task_id: taskData.id || basename(taskFile, '.json'),
             title: taskData.title || 'Untitled Task',
             status: taskData.status || 'pending',
-            type: taskData.meta?.type || 'task'
+            type: taskData.meta?.type || 'task',
+            meta: taskData.meta || {},
+            context: taskData.context || {},
+            flow_control: taskData.flow_control || {}
           });
         } catch {
           // Skip invalid task files
@@ -120,11 +123,33 @@ async function processSession(session, isActive) {
       result.reviewSummary = loadReviewSummary(reviewDir);
     }
   } else {
-    // For archived, just count tasks
+    // For archived, also load tasks (same as active)
     const taskDir = join(session.path, '.task');
     if (existsSync(taskDir)) {
       const taskFiles = await safeGlob('IMPL-*.json', taskDir);
-      result.taskCount = taskFiles.length;
+      for (const taskFile of taskFiles) {
+        try {
+          const taskData = JSON.parse(readFileSync(join(taskDir, taskFile), 'utf8'));
+          result.tasks.push({
+            task_id: taskData.id || basename(taskFile, '.json'),
+            title: taskData.title || 'Untitled Task',
+            status: taskData.status || 'completed', // Archived tasks are usually completed
+            type: taskData.meta?.type || 'task'
+          });
+        } catch {
+          // Skip invalid task files
+        }
+      }
+      // Sort tasks by ID
+      result.tasks.sort((a, b) => sortTaskIds(a.task_id, b.task_id));
+      result.taskCount = result.tasks.length;
+    }
+
+    // Check for review data in archived sessions too
+    const reviewDir = join(session.path, '.review');
+    if (existsSync(reviewDir)) {
+      result.hasReview = true;
+      result.reviewSummary = loadReviewSummary(reviewDir);
     }
   }
 
