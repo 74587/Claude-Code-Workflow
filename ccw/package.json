@@ -1,0 +1,47 @@
+{
+  "name": "ccw",
+  "version": "1.0.0",
+  "description": "Claude Code Workflow CLI - Dashboard viewer for workflow sessions and reviews",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "ccw": "./bin/ccw.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "claude",
+    "workflow",
+    "cli",
+    "dashboard",
+    "code-review"
+  ],
+  "author": "Claude Code Workflow",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "commander": "^11.0.0",
+    "open": "^9.1.0",
+    "chalk": "^5.3.0",
+    "glob": "^10.3.0",
+    "inquirer": "^9.2.0",
+    "ora": "^7.0.0",
+    "figlet": "^1.7.0",
+    "boxen": "^7.1.0",
+    "gradient-string": "^2.0.2"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/claude-code-workflow/ccw"
+  }
+}

@@ -213,7 +213,11 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
 ```
 
 **Field Descriptions**:
-- `id`: Task identifier (format: `IMPL-N`)
+- `id`: Task identifier
+  - Single module format: `IMPL-N` (e.g., IMPL-001, IMPL-002)
+  - Multi-module format: `IMPL-{prefix}{seq}` (e.g., IMPL-A1, IMPL-B1, IMPL-C1)
+    - Prefix: A, B, C... (assigned by module detection order)
+    - Sequence: 1, 2, 3... (per-module increment)
 - `title`: Descriptive task name summarizing the work
 - `status`: Task state - `pending` (not started), `active` (in progress), `completed` (done), `blocked` (waiting on dependencies)
 - `context_package_path`: Path to smart context package containing project structure, dependencies, and brainstorming artifacts catalog
@@ -225,7 +229,8 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
   "meta": {
     "type": "feature|bugfix|refactor|test-gen|test-fix|docs",
     "agent": "@code-developer|@action-planning-agent|@test-fix-agent|@universal-executor",
-    "execution_group": "parallel-abc123|null"
+    "execution_group": "parallel-abc123|null",
+    "module": "frontend|backend|shared|null"
   }
 }
 ```
@@ -234,6 +239,7 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
 - `type`: Task category - `feature` (new functionality), `bugfix` (fix defects), `refactor` (restructure code), `test-gen` (generate tests), `test-fix` (fix failing tests), `docs` (documentation)
 - `agent`: Assigned agent for execution
 - `execution_group`: Parallelization group ID (tasks with same ID can run concurrently) or `null` for sequential tasks
+- `module`: Module identifier for multi-module projects (e.g., `frontend`, `backend`, `shared`) or `null` for single-module
 
 **Test Task Extensions** (for type="test-gen" or type="test-fix"):
 
@@ -604,10 +610,42 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
 - Analysis results (technical approach, architecture decisions)
 - Brainstorming artifacts (role analyses, guidance specifications)
 
+**Multi-Module Format** (when modules detected):
+
+When multiple modules are detected (frontend/backend, etc.), organize IMPL_PLAN.md by module:
+
+```markdown
+# Implementation Plan
+
+## Module A: Frontend (N tasks)
+### IMPL-A1: [Task Title]
+[Task details...]
+
+### IMPL-A2: [Task Title]
+[Task details...]
+
+## Module B: Backend (N tasks)
+### IMPL-B1: [Task Title]
+[Task details...]
+
+### IMPL-B2: [Task Title]
+[Task details...]
+
+## Cross-Module Dependencies
+- IMPL-A1 → IMPL-B1 (Frontend depends on Backend API)
+- IMPL-A2 → IMPL-B2 (UI state depends on Backend service)
+```
+
+**Cross-Module Dependency Notation**:
+- During parallel planning, use `CROSS::{module}::{pattern}` format
+- Example: `depends_on: ["CROSS::B::api-endpoint"]`
+- Integration phase resolves to actual task IDs: `CROSS::B::api → IMPL-B1`
+
 ### 2.3 TODO_LIST.md Structure
 
 Generate at `.workflow/active/{session_id}/TODO_LIST.md`:
 
+**Single Module Format**:
 ```markdown
 # Tasks: {Session Topic}
 
@@ -621,26 +659,50 @@ Generate at `.workflow/active/{session_id}/TODO_LIST.md`:
 - `- [x]` = Completed task
 ```
 
+**Multi-Module Format** (hierarchical by module):
+```markdown
+# Tasks: {Session Topic}
+
+## Module A (Frontend)
+- [ ] **IMPL-A1**: [Task Title] → [📋](./.task/IMPL-A1.json)
+- [ ] **IMPL-A2**: [Task Title] → [📋](./.task/IMPL-A2.json)
+
+## Module B (Backend)
+- [ ] **IMPL-B1**: [Task Title] → [📋](./.task/IMPL-B1.json)
+- [ ] **IMPL-B2**: [Task Title] → [📋](./.task/IMPL-B2.json)
+
+## Cross-Module Dependencies
+- IMPL-A1 → IMPL-B1 (Frontend depends on Backend API)
+
+## Status Legend
+- `- [ ]` = Pending task
+- `- [x]` = Completed task
+```
+
 **Linking Rules**:
 - Todo items → task JSON: `[📋](./.task/IMPL-XXX.json)`
 - Completed tasks → summaries: `[✅](./.summaries/IMPL-XXX-summary.md)`
-- Consistent ID schemes: IMPL-XXX
+- Consistent ID schemes: `IMPL-N` (single) or `IMPL-{prefix}{seq}` (multi-module)
 
 ### 2.4 Complexity-Based Structure Selection
 
 Use `analysis_results.complexity` or task count to determine structure:
 
-**Simple Tasks** (≤5 tasks):
-- Flat structure: IMPL_PLAN.md + TODO_LIST.md + task JSONs
-- All tasks at same level
+**Single Module Mode**:
+- **Simple Tasks** (≤5 tasks): Flat structure
+- **Medium Tasks** (6-12 tasks): Flat structure
+- **Complex Tasks** (>12 tasks): Re-scope required (maximum 12 tasks hard limit)
 
-**Medium Tasks** (6-12 tasks):
-- Flat structure: IMPL_PLAN.md + TODO_LIST.md + task JSONs
-- All tasks at same level
+**Multi-Module Mode** (N+1 parallel planning):
+- **Per-module limit**: ≤9 tasks per module
+- **Total limit**: Sum of all module tasks ≤27 (3 modules × 9 tasks)
+- **Task ID format**: `IMPL-{prefix}{seq}` (e.g., IMPL-A1, IMPL-B1)
+- **Structure**: Hierarchical by module in IMPL_PLAN.md and TODO_LIST.md
 
-**Complex Tasks** (>12 tasks):
-- **Re-scope required**: Maximum 12 tasks hard limit
-- If analysis_results contains >12 tasks, consolidate or request re-scoping
+**Multi-Module Detection Triggers**:
+- Explicit frontend/backend separation (`src/frontend`, `src/backend`)
+- Monorepo structure (`packages/*`, `apps/*`)
+- Context-package dependency clustering (2+ distinct module groups)
 
 ---
 
@@ -685,8 +747,10 @@ Use `analysis_results.complexity` or task count to determine structure:
 ### 3.3 File Organization
 
 - Session naming: `WFS-[topic-slug]`
-- Task IDs: IMPL-XXX (flat structure only)
-- Directory structure: flat task organization
+- Task IDs:
+  - Single module: `IMPL-N` (e.g., IMPL-001, IMPL-002)
+  - Multi-module: `IMPL-{prefix}{seq}` (e.g., IMPL-A1, IMPL-B1)
+- Directory structure: flat task organization (all tasks in `.task/`)
 
 ### 3.4 Document Standards
 
