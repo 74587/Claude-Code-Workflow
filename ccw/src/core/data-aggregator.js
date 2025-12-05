@@ -301,7 +301,6 @@ async function loadDimensionData(reviewDir) {
       // Skip invalid dimension files
     }
   }
-  }
 
   return dimensions;
 }
