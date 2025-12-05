@@ -3609,3 +3609,179 @@ ol.step-commands code {
   line-height: 1.6;
   color: var(--text-primary, #374151);
 }
+
+
+/* Lite Task List Item Styles */
+.lite-task-item {
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+  background: var(--bg-primary, #fff);
+}
+
+.lite-task-item:hover {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.task-item-header-lite {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.task-item-header-lite .task-title {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text-primary, #111827);
+}
+
+.task-item-meta-lite {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.meta-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.meta-badge.action {
+  background: var(--bg-primary-light, #eff6ff);
+  color: var(--primary, #3b82f6);
+  border: 1px solid var(--primary, #3b82f6);
+}
+
+.meta-badge.scope {
+  background: var(--bg-secondary, #f9fafb);
+  color: var(--text-secondary, #6b7280);
+}
+
+.meta-badge.mods {
+  background: var(--bg-warning, #fffbeb);
+  color: var(--warning, #d97706);
+}
+
+.meta-badge.impl {
+  background: var(--bg-success, #ecfdf5);
+  color: var(--success, #059669);
+}
+
+.meta-badge.accept {
+  background: var(--bg-info, #eff6ff);
+  color: var(--info, #2563eb);
+}
+
+/* Lite Task Drawer Styles */
+.action-badge {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--primary, #3b82f6);
+  color: white;
+  text-transform: uppercase;
+}
+
+.scope-path {
+  display: block;
+  padding: 8px 12px;
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.impl-steps-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: step-counter;
+}
+
+.impl-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.impl-step-item:last-child {
+  border-bottom: none;
+}
+
+.step-number {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary, #3b82f6);
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.step-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary, #374151);
+}
+
+.mod-points-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mod-point-card {
+  padding: 12px;
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 6px;
+  border-left: 3px solid var(--primary, #3b82f6);
+}
+
+.mod-point-card .mod-file code {
+  font-size: 12px;
+  color: var(--primary, #3b82f6);
+  font-weight: 500;
+}
+
+.mod-point-card .mod-target {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  margin-top: 4px;
+}
+
+.mod-point-card .mod-change {
+  font-size: 13px;
+  color: var(--text-primary, #374151);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.ref-item {
+  margin-bottom: 10px;
+}
+
+.ref-item:last-child {
+  margin-bottom: 0;
+}
+
+.ref-files-list {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+
+.ref-files-list li {
+  margin-bottom: 4px;
+}

@@ -1803,49 +1803,26 @@ function renderLiteTaskDetailItem(sessionId, task) {
   const taskJsonId = `task-json-${sessionId}-${task.id}`.replace(/[^a-zA-Z0-9-]/g, '-');
   taskJsonStore[taskJsonId] = rawTask;
 
+  // Get preview info for lite tasks
+  const action = rawTask.action || '';
+  const scope = rawTask.scope || '';
+  const modCount = rawTask.modification_points?.length || 0;
+  const implCount = rawTask.implementation?.length || 0;
+  const acceptCount = rawTask.acceptance?.length || 0;
+
   return `
-    <div class="detail-task-item-full">
-      <div class="task-item-header-full" onclick="openTaskDrawerForLite('${sessionId}', '${escapeHtml(task.id)}')" style="cursor: pointer;" title="Click to open task details">
+    <div class="detail-task-item-full lite-task-item" onclick="openTaskDrawerForLite('${sessionId}', '${escapeHtml(task.id)}')" style="cursor: pointer;" title="Click to view details">
+      <div class="task-item-header-lite">
         <span class="task-id-badge">${escapeHtml(task.id)}</span>
         <span class="task-title">${escapeHtml(task.title || 'Untitled')}</span>
         <button class="btn-view-json" onclick="event.stopPropagation(); showJsonModal('${taskJsonId}', '${escapeHtml(task.id)}')">{ } JSON</button>
       </div>
-
-      <!-- Collapsible: Meta -->
-      <div class="collapsible-section">
-        <div class="collapsible-header">
-          <span class="collapse-icon">▶</span>
-          <span class="section-label">meta</span>
-          <span class="section-preview">${escapeHtml(getMetaPreviewForLite(task, rawTask))}</span>
-        </div>
-        <div class="collapsible-content collapsed">
-          ${renderDynamicFields(task.meta || rawTask, ['type', 'action', 'agent', 'scope', 'module'])}
-        </div>
-      </div>
-
-      <!-- Collapsible: Context -->
-      <div class="collapsible-section">
-        <div class="collapsible-header">
-          <span class="collapse-icon">▶</span>
-          <span class="section-label">context</span>
-          <span class="section-preview">${escapeHtml(getContextPreview(task.context, rawTask))}</span>
-        </div>
-        <div class="collapsible-content collapsed">
-          ${renderContextFields(task.context, rawTask)}
-        </div>
-      </div>
-
-      <!-- Collapsible: Flow Control (with Flowchart) -->
-      <div class="collapsible-section">
-        <div class="collapsible-header">
-          <span class="collapse-icon">▶</span>
-          <span class="section-label">flow_control</span>
-          <span class="section-preview">${escapeHtml(getFlowControlPreview(task.flow_control, rawTask))}</span>
-        </div>
-        <div class="collapsible-content collapsed">
-          <div class="flowchart-container" id="flowchart-${sessionId}-${task.id}"></div>
-          ${renderFlowControlDetails(task.flow_control, rawTask)}
-        </div>
+      <div class="task-item-meta-lite">
+        ${action ? `<span class="meta-badge action">${escapeHtml(action)}</span>` : ''}
+        ${scope ? `<span class="meta-badge scope">${escapeHtml(scope)}</span>` : ''}
+        ${modCount > 0 ? `<span class="meta-badge mods">${modCount} mods</span>` : ''}
+        ${implCount > 0 ? `<span class="meta-badge impl">${implCount} steps</span>` : ''}
+        ${acceptCount > 0 ? `<span class="meta-badge accept">${acceptCount} acceptance</span>` : ''}
       </div>
     </div>
   `;
@@ -1866,18 +1843,15 @@ function openTaskDrawerForLite(sessionId, taskId) {
   const task = session.tasks?.find(t => t.id === taskId);
   if (!task) return;
 
-  // Set current drawer tasks
+  // Set current drawer tasks and session context
   currentDrawerTasks = session.tasks || [];
+  window._currentDrawerSession = session;
 
   document.getElementById('drawerTaskTitle').textContent = task.title || taskId;
-  document.getElementById('drawerContent').innerHTML = renderTaskDrawerContent(task);
+  // Use dedicated lite task drawer renderer
+  document.getElementById('drawerContent').innerHTML = renderLiteTaskDrawerContent(task, session);
   document.getElementById('taskDetailDrawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('active');
-
-  // Initialize flowchart after DOM is updated
-  setTimeout(() => {
-    renderFullFlowchart(task.flow_control || task._raw?.flow_control);
-  }, 100);
 }
 
 function renderLitePlanTab(session) {
@@ -2813,6 +2787,199 @@ function renderTaskImplementationDetails(task) {
   }
   
   return sections.join('');
+}
+
+
+
+// Dedicated lite task drawer content renderer
+function renderLiteTaskDrawerContent(task, session) {
+  const rawTask = task._raw || task;
+
+  return `
+    <!-- Task Header -->
+    <div class="drawer-task-header">
+      <span class="task-id-badge">${escapeHtml(task.task_id || task.id || 'N/A')}</span>
+      ${rawTask.action ? `<span class="action-badge">${escapeHtml(rawTask.action)}</span>` : ''}
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="drawer-tabs">
+      <button class="drawer-tab active" data-tab="overview" onclick="switchDrawerTab('overview')">Overview</button>
+      <button class="drawer-tab" data-tab="implementation" onclick="switchDrawerTab('implementation')">Implementation</button>
+      <button class="drawer-tab" data-tab="files" onclick="switchDrawerTab('files')">Files</button>
+      <button class="drawer-tab" data-tab="raw" onclick="switchDrawerTab('raw')">Raw JSON</button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="drawer-tab-content">
+      <!-- Overview Tab (default) -->
+      <div class="drawer-panel active" data-tab="overview">
+        ${renderLiteTaskOverview(rawTask)}
+      </div>
+
+      <!-- Implementation Tab -->
+      <div class="drawer-panel" data-tab="implementation">
+        ${renderLiteTaskImplementation(rawTask)}
+      </div>
+
+      <!-- Files Tab -->
+      <div class="drawer-panel" data-tab="files">
+        ${renderLiteTaskFiles(rawTask)}
+      </div>
+
+      <!-- Raw JSON Tab -->
+      <div class="drawer-panel" data-tab="raw">
+        <pre class="json-view">${escapeHtml(JSON.stringify(rawTask, null, 2))}</pre>
+      </div>
+    </div>
+  `;
+}
+
+// Render lite task overview
+function renderLiteTaskOverview(task) {
+  let sections = [];
+
+  // Description
+  if (task.description) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Description</h4>
+        <p class="task-description">${escapeHtml(task.description)}</p>
+      </div>
+    `);
+  }
+
+  // Scope
+  if (task.scope) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Scope</h4>
+        <code class="scope-path">${escapeHtml(task.scope)}</code>
+      </div>
+    `);
+  }
+
+  // Acceptance Criteria
+  if (task.acceptance && task.acceptance.length > 0) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Acceptance Criteria</h4>
+        <ul class="acceptance-list">
+          ${task.acceptance.map(a => `<li>${escapeHtml(a)}</li>`).join('')}
+        </ul>
+      </div>
+    `);
+  }
+
+  // Dependencies
+  if (task.depends_on && task.depends_on.length > 0) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Dependencies</h4>
+        <div class="dependencies-list">
+          ${task.depends_on.map(dep => `<span class="dep-badge">${escapeHtml(dep)}</span>`).join(' ')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Reference
+  if (task.reference) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Reference</h4>
+        ${task.reference.pattern ? `<div class="ref-item"><strong>Pattern:</strong> ${escapeHtml(task.reference.pattern)}</div>` : ''}
+        ${task.reference.files && task.reference.files.length > 0 ? `
+          <div class="ref-item">
+            <strong>Files:</strong>
+            <ul class="ref-files-list">
+              ${task.reference.files.map(f => `<li><code>${escapeHtml(f)}</code></li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+        ${task.reference.examples ? `<div class="ref-item"><strong>Examples:</strong> ${escapeHtml(task.reference.examples)}</div>` : ''}
+      </div>
+    `);
+  }
+
+  return sections.length > 0 ? sections.join('') : '<div class="empty-section">No overview data</div>';
+}
+
+// Render lite task implementation steps
+function renderLiteTaskImplementation(task) {
+  let sections = [];
+
+  // Implementation Steps
+  if (task.implementation && task.implementation.length > 0) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Implementation Steps</h4>
+        <ol class="impl-steps-list">
+          ${task.implementation.map((step, idx) => `
+            <li class="impl-step-item">
+              <span class="step-number">${idx + 1}</span>
+              <span class="step-text">${escapeHtml(typeof step === 'string' ? step : step.step || JSON.stringify(step))}</span>
+            </li>
+          `).join('')}
+        </ol>
+      </div>
+    `);
+  }
+
+  // Modification Points
+  if (task.modification_points && task.modification_points.length > 0) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Modification Points</h4>
+        <div class="mod-points-list">
+          ${task.modification_points.map(mp => `
+            <div class="mod-point-card">
+              <div class="mod-file"><code>${escapeHtml(mp.file || '')}</code></div>
+              ${mp.target ? `<div class="mod-target"><strong>Target:</strong> ${escapeHtml(mp.target)}</div>` : ''}
+              ${mp.change ? `<div class="mod-change">${escapeHtml(mp.change)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return sections.length > 0 ? sections.join('') : '<div class="empty-section">No implementation data</div>';
+}
+
+// Render lite task files
+function renderLiteTaskFiles(task) {
+  const files = [];
+
+  // Collect from modification_points
+  if (task.modification_points) {
+    task.modification_points.forEach(mp => {
+      if (mp.file && !files.includes(mp.file)) files.push(mp.file);
+    });
+  }
+
+  // Collect from scope
+  if (task.scope && !files.includes(task.scope)) {
+    files.push(task.scope);
+  }
+
+  if (files.length === 0) {
+    return '<div class="empty-section">No files specified</div>';
+  }
+
+  return `
+    <div class="drawer-section">
+      <h4 class="drawer-section-title">Target Files</h4>
+      <ul class="target-files-list">
+        ${files.map(f => `
+          <li class="file-item">
+            <span class="file-icon">📄</span>
+            <code>${escapeHtml(f)}</code>
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+  `;
 }
 
 
