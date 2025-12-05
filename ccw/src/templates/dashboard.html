@@ -231,7 +231,7 @@
     </header>
 
     <!-- Sidebar Overlay (mobile) -->
-    <div class="sidebar-overlay fixed inset-0 bg-black/50 z-40" id="sidebarOverlay"></div>
+    <div class="sidebar-overlay hidden fixed inset-0 bg-black/50 z-40" id="sidebarOverlay"></div>
 
     <!-- Main Layout -->
     <div class="flex flex-1">
@@ -343,7 +343,7 @@
     </footer>
 
     <!-- Task Detail Drawer -->
-    <div class="task-detail-drawer fixed top-0 right-0 w-[400px] max-w-full h-full bg-card border-l border-border shadow-lg z-50 flex flex-col" id="taskDetailDrawer">
+    <div class="task-detail-drawer fixed top-0 right-0 w-1/2 max-w-full h-full bg-card border-l border-border shadow-lg z-50 flex flex-col" id="taskDetailDrawer">
       <div class="flex items-center justify-between px-5 py-4 border-b border-border">
         <h3 class="text-lg font-semibold text-foreground" id="drawerTaskTitle">Task Details</h3>
         <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeTaskDrawer()">&times;</button>
@@ -352,11 +352,34 @@
         <!-- Dynamic content -->
       </div>
     </div>
-    <div class="drawer-overlay fixed inset-0 bg-black/50 z-40" id="drawerOverlay" onclick="closeTaskDrawer()"></div>
+    <div class="drawer-overlay hidden fixed inset-0 bg-black/50 z-40" id="drawerOverlay" onclick="closeTaskDrawer()"></div>
+  </div>
+
+  <!-- Markdown Preview Modal -->
+  <div id="markdownModal" class="markdown-modal hidden fixed inset-0 z-[100] flex items-center justify-center">
+    <div class="markdown-modal-backdrop absolute inset-0 bg-black/60" onclick="closeMarkdownModal()"></div>
+    <div class="markdown-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-4xl h-[85vh] flex flex-col">
+      <div class="markdown-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 class="text-lg font-semibold text-foreground" id="markdownModalTitle">Content Preview</h3>
+        <div class="flex items-center gap-2">
+          <div class="flex bg-muted rounded-lg p-0.5">
+            <button id="mdTabRaw" class="md-tab-btn px-3 py-1 text-sm rounded-md transition-colors" onclick="switchMarkdownTab('raw')">Raw</button>
+            <button id="mdTabPreview" class="md-tab-btn px-3 py-1 text-sm rounded-md transition-colors active" onclick="switchMarkdownTab('preview')">Preview</button>
+          </div>
+          <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeMarkdownModal()">&times;</button>
+        </div>
+      </div>
+      <div class="markdown-modal-body flex-1 overflow-auto p-4">
+        <pre id="markdownRaw" class="hidden whitespace-pre-wrap text-sm font-mono text-foreground bg-muted p-4 rounded-lg overflow-auto h-full"></pre>
+        <div id="markdownPreview" class="markdown-preview prose prose-sm max-w-none"></div>
+      </div>
+    </div>
   </div>
 
   <!-- D3.js for Flowchart -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
+  <!-- Marked.js for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <script>
 {{JS_CONTENT}}

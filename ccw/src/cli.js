@@ -49,19 +49,19 @@ export function run(argv) {
     .description('Claude Code Workflow CLI - Dashboard and workflow tools')
     .version(pkg.version);
 
-  // View command
+  // View command (server mode with live path switching)
   program
     .command('view')
-    .description('Open workflow dashboard in browser (static HTML)')
+    .description('Open workflow dashboard server with live path switching')
     .option('-p, --path <path>', 'Path to project directory', '.')
-    .option('--no-browser', 'Generate dashboard without opening browser')
-    .option('-o, --output <file>', 'Output path for generated HTML')
+    .option('--port <port>', 'Server port', '3456')
+    .option('--no-browser', 'Start server without opening browser')
     .action(viewCommand);
 
-  // Serve command
+  // Serve command (alias for view)
   program
     .command('serve')
-    .description('Start dashboard server with live path switching')
+    .description('Alias for view command')
     .option('-p, --path <path>', 'Initial project directory')
     .option('--port <port>', 'Server port', '3456')
     .option('--no-browser', 'Start server without opening browser')

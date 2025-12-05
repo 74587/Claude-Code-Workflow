@@ -241,16 +241,59 @@ async function getSessionDetailData(sessionPath, dataType) {
     // Load review data from .review/
     if (dataType === 'review' || dataType === 'all') {
       const reviewDir = join(normalizedPath, '.review');
-      result.review = { dimensions: {} };
+      result.review = {
+        state: null,
+        dimensions: [],
+        severityDistribution: null,
+        totalFindings: 0
+      };
+
       if (existsSync(reviewDir)) {
+        // Load review-state.json
+        const stateFile = join(reviewDir, 'review-state.json');
+        if (existsSync(stateFile)) {
+          try {
+            const state = JSON.parse(readFileSync(stateFile, 'utf8'));
+            result.review.state = state;
+            result.review.severityDistribution = state.severity_distribution || {};
+            result.review.totalFindings = state.total_findings || 0;
+            result.review.phase = state.phase || 'unknown';
+            result.review.dimensionSummaries = state.dimension_summaries || {};
+            result.review.crossCuttingConcerns = state.cross_cutting_concerns || [];
+            result.review.criticalFiles = state.critical_files || [];
+          } catch (e) {
+            // Skip unreadable state
+          }
+        }
+
+        // Load dimension findings
         const dimensionsDir = join(reviewDir, 'dimensions');
         if (existsSync(dimensionsDir)) {
           const files = readdirSync(dimensionsDir).filter(f => f.endsWith('.json'));
           for (const file of files) {
             try {
               const dimName = file.replace('.json', '');
-              const content = JSON.parse(readFileSync(join(dimensionsDir, file), 'utf8'));
-              result.review.dimensions[dimName] = content.findings || content;
+              const data = JSON.parse(readFileSync(join(dimensionsDir, file), 'utf8'));
+
+              // Handle array structure: [ { findings: [...] } ]
+              let findings = [];
+              let summary = null;
+
+              if (Array.isArray(data) && data.length > 0) {
+                const dimData = data[0];
+                findings = dimData.findings || [];
+                summary = dimData.summary || null;
+              } else if (data.findings) {
+                findings = data.findings;
+                summary = data.summary || null;
+              }
+
+              result.review.dimensions.push({
+                name: dimName,
+                findings: findings,
+                summary: summary,
+                count: findings.length
+              });
             } catch (e) {
               // Skip unreadable files
             }

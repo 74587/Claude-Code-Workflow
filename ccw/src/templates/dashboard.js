@@ -320,7 +320,7 @@ async function switchToPath(path) {
       recentPaths = data.recentPaths || [];
 
       // Update UI
-      document.querySelector('.path-text').textContent = projectPath;
+      document.getElementById('currentPath').textContent = projectPath;
       renderDashboard();
       refreshRecentPaths();
     }
@@ -740,7 +740,6 @@ function renderDetailTaskItem(task, showFull = false) {
     return `
       <div class="detail-task-item ${task.status}" onclick="openTaskDrawer('${escapeHtml(taskId)}')" style="cursor: pointer;">
         <div class="task-item-header">
-          <span class="task-status-icon">${statusIcon}</span>
           <span class="task-id-badge">${escapeHtml(taskId)}</span>
           <span class="task-title">${escapeHtml(task.title || 'Untitled')}</span>
           <span class="task-status-badge ${task.status}">${task.status}</span>
@@ -751,9 +750,8 @@ function renderDetailTaskItem(task, showFull = false) {
 
   // Full task view with collapsible sections
   return `
-    <div class="detail-task-item-full ${task.status}">
+    <div class="detail-task-item-full">
       <div class="task-item-header-full" onclick="openTaskDrawer('${escapeHtml(taskId)}')" style="cursor: pointer;" title="Click to open task details">
-        <span class="task-status-icon">${statusIcon}</span>
         <span class="task-id-badge">${escapeHtml(taskId)}</span>
         <span class="task-title">${escapeHtml(task.title || task.meta?.title || 'Untitled')}</span>
         <span class="task-status-badge ${task.status}">${task.status}</span>
@@ -1619,7 +1617,6 @@ function renderLiteTasks() {
 const liteTaskDataStore = {};
 
 function renderLiteTaskCard(session) {
-  const progress = session.progress || { total: 0, completed: 0, percentage: 0 };
   const tasks = session.tasks || [];
 
   // Store session data for detail page
@@ -1631,25 +1628,14 @@ function renderLiteTaskCard(session) {
       <div class="session-header">
         <div class="session-title">${escapeHtml(session.id)}</div>
         <span class="session-status ${session.type}">
-          ${session.type === 'lite-plan' ? '📝 Plan' : '🔧 Fix'}
+          ${session.type === 'lite-plan' ? '📝 PLAN' : '🔧 FIX'}
         </span>
       </div>
       <div class="session-body">
         <div class="session-meta">
           <span class="session-meta-item">📅 ${formatDate(session.createdAt)}</span>
-          <span class="session-meta-item">📋 ${progress.total} tasks</span>
+          <span class="session-meta-item">📋 ${tasks.length} tasks</span>
         </div>
-        ${progress.total > 0 ? `
-          <div class="progress-container">
-            <div class="progress-header">
-              <span>Progress</span>
-              <span>${progress.completed}/${progress.total} (${progress.percentage}%)</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: ${progress.percentage}%"></div>
-            </div>
-          </div>
-        ` : ''}
       </div>
     </div>
   `;
@@ -1705,11 +1691,7 @@ function showLiteTaskDetailPage(sessionKey) {
         </div>
         <div class="info-item">
           <span class="info-label">Tasks:</span>
-          <span class="info-value">${completed}/${tasks.length} completed</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Progress:</span>
-          <span class="info-value">${progress.percentage}%</span>
+          <span class="info-value">${tasks.length} tasks</span>
         </div>
       </div>
 
@@ -1809,11 +1791,6 @@ function renderLiteTasksTab(session, tasks, completed, inProgress, pending) {
 
   return `
     <div class="tasks-tab-content">
-      <div class="task-stats-bar">
-        <span class="task-stat completed">✓ ${completed} completed</span>
-        <span class="task-stat in-progress">⟳ ${inProgress} in progress</span>
-        <span class="task-stat pending">○ ${pending} pending</span>
-      </div>
       <div class="tasks-list" id="liteTasksListContent">
         ${tasks.map(task => renderLiteTaskDetailItem(session.id, task)).join('')}
       </div>
@@ -1826,15 +1803,11 @@ function renderLiteTaskDetailItem(sessionId, task) {
   const taskJsonId = `task-json-${sessionId}-${task.id}`.replace(/[^a-zA-Z0-9-]/g, '-');
   taskJsonStore[taskJsonId] = rawTask;
 
-  const statusIcon = task.status === 'completed' ? '✓' : task.status === 'in_progress' ? '⟳' : '○';
-
   return `
-    <div class="detail-task-item-full ${task.status}">
+    <div class="detail-task-item-full">
       <div class="task-item-header-full" onclick="openTaskDrawerForLite('${sessionId}', '${escapeHtml(task.id)}')" style="cursor: pointer;" title="Click to open task details">
-        <span class="task-status-icon">${statusIcon}</span>
         <span class="task-id-badge">${escapeHtml(task.id)}</span>
         <span class="task-title">${escapeHtml(task.title || 'Untitled')}</span>
-        <span class="task-status-badge ${task.status}">${task.status}</span>
         <button class="btn-view-json" onclick="event.stopPropagation(); showJsonModal('${taskJsonId}', '${escapeHtml(task.id)}')">{ } JSON</button>
       </div>
 
@@ -1985,6 +1958,157 @@ async function loadAndRenderLiteContextTab(session, contentArea) {
     contentArea.innerHTML = `<div class="tab-error">Failed to load context: ${err.message}</div>`;
   }
 }
+
+
+// Render exploration data for lite task context
+function renderExplorationContext(explorations) {
+  if (!explorations || !explorations.manifest) {
+    return '';
+  }
+
+  const manifest = explorations.manifest;
+  const data = explorations.data || {};
+
+  let sections = [];
+
+  // Header with manifest info
+  sections.push(`
+    <div class="exploration-header">
+      <h4>${escapeHtml(manifest.task_description || 'Exploration Context')}</h4>
+      <div class="exploration-meta">
+        <span class="meta-item">Complexity: <strong>${escapeHtml(manifest.complexity || 'N/A')}</strong></span>
+        <span class="meta-item">Explorations: <strong>${manifest.exploration_count || 0}</strong></span>
+      </div>
+    </div>
+  `);
+
+  // Render each exploration angle as collapsible section
+  const explorationOrder = ['architecture', 'dependencies', 'patterns', 'integration-points'];
+  const explorationTitles = {
+    'architecture': 'Architecture',
+    'dependencies': 'Dependencies',
+    'patterns': 'Patterns',
+    'integration-points': 'Integration Points'
+  };
+
+  for (const angle of explorationOrder) {
+    const expData = data[angle];
+    if (!expData) continue;
+
+    sections.push(`
+      <div class="exploration-section collapsible-section">
+        <div class="collapsible-header" onclick="toggleSection(this)">
+          <span class="collapse-icon">▶</span>
+          <span class="section-label">${explorationTitles[angle] || angle}</span>
+        </div>
+        <div class="collapsible-content collapsed">
+          ${renderExplorationAngle(angle, expData)}
+        </div>
+      </div>
+    `);
+  }
+
+  return `<div class="exploration-context">${sections.join('')}</div>`;
+}
+
+function renderExplorationAngle(angle, data) {
+  let content = [];
+
+  // Project structure (architecture)
+  if (data.project_structure) {
+    content.push(`
+      <div class="exp-field">
+        <label>Project Structure</label>
+        <p>${escapeHtml(data.project_structure)}</p>
+      </div>
+    `);
+  }
+
+  // Relevant files
+  if (data.relevant_files && data.relevant_files.length) {
+    content.push(`
+      <div class="exp-field">
+        <label>Relevant Files (${data.relevant_files.length})</label>
+        <div class="relevant-files-list">
+          ${data.relevant_files.slice(0, 10).map(f => `
+            <div class="file-item-exp">
+              <div class="file-path"><code>${escapeHtml(f.path || '')}</code></div>
+              <div class="file-relevance">Relevance: ${(f.relevance * 100).toFixed(0)}%</div>
+              ${f.rationale ? `<div class="file-rationale">${escapeHtml(f.rationale.substring(0, 200))}...</div>` : ''}
+            </div>
+          `).join('')}
+          ${data.relevant_files.length > 10 ? `<div class="more-files">... and ${data.relevant_files.length - 10} more files</div>` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  // Patterns
+  if (data.patterns) {
+    content.push(`
+      <div class="exp-field">
+        <label>Patterns</label>
+        <p class="patterns-text">${escapeHtml(data.patterns)}</p>
+      </div>
+    `);
+  }
+
+  // Dependencies
+  if (data.dependencies) {
+    content.push(`
+      <div class="exp-field">
+        <label>Dependencies</label>
+        <p>${escapeHtml(data.dependencies)}</p>
+      </div>
+    `);
+  }
+
+  // Integration points
+  if (data.integration_points) {
+    content.push(`
+      <div class="exp-field">
+        <label>Integration Points</label>
+        <p>${escapeHtml(data.integration_points)}</p>
+      </div>
+    `);
+  }
+
+  // Constraints
+  if (data.constraints) {
+    content.push(`
+      <div class="exp-field">
+        <label>Constraints</label>
+        <p>${escapeHtml(data.constraints)}</p>
+      </div>
+    `);
+  }
+
+  // Clarification needs
+  if (data.clarification_needs && data.clarification_needs.length) {
+    content.push(`
+      <div class="exp-field">
+        <label>Clarification Needs</label>
+        <div class="clarification-list">
+          ${data.clarification_needs.map(c => `
+            <div class="clarification-item">
+              <div class="clarification-question">${escapeHtml(c.question)}</div>
+              ${c.options && c.options.length ? `
+                <div class="clarification-options">
+                  ${c.options.map((opt, i) => `
+                    <span class="option-badge ${i === c.recommended ? 'recommended' : ''}">${escapeHtml(opt)}</span>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return content.join('') || '<p>No data available</p>';
+}
+
 
 function renderLiteContextContent(context, session) {
   const plan = session.plan || {};
@@ -2581,6 +2705,116 @@ function openTaskDrawer(taskId) {
     renderFullFlowchart(task.flow_control);
   }, 100);
 }
+
+
+// Render plan.json task details in drawer (for lite tasks)
+function renderPlanTaskDetails(task, session) {
+  if (!task) return '';
+  
+  // Get corresponding plan task if available
+  const planTask = session?.plan?.tasks?.find(pt => pt.id === task.id);
+  if (!planTask) {
+    // Fallback: task itself might have plan-like structure
+    return renderTaskImplementationDetails(task);
+  }
+  
+  return renderTaskImplementationDetails(planTask);
+}
+
+function renderTaskImplementationDetails(task) {
+  const sections = [];
+  
+  // Description
+  if (task.description) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Description</h4>
+        <p class="task-description">${escapeHtml(task.description)}</p>
+      </div>
+    `);
+  }
+  
+  // Modification Points
+  if (task.modification_points?.length) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Modification Points</h4>
+        <div class="modification-points-list">
+          ${task.modification_points.map(mp => `
+            <div class="mod-point-item">
+              <div class="mod-point-file">
+                <span class="file-icon">📄</span>
+                <code>${escapeHtml(mp.file || mp.path || '')}</code>
+              </div>
+              ${mp.target ? `<div class="mod-point-target">Target: <code>${escapeHtml(mp.target)}</code></div>` : ''}
+              ${mp.change ? `<div class="mod-point-change">${escapeHtml(mp.change)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+  
+  // Implementation Steps
+  if (task.implementation?.length) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Implementation Steps</h4>
+        <ol class="implementation-steps-list">
+          ${task.implementation.map(step => `
+            <li class="impl-step-item">${escapeHtml(typeof step === 'string' ? step : step.step || JSON.stringify(step))}</li>
+          `).join('')}
+        </ol>
+      </div>
+    `);
+  }
+  
+  // Reference
+  if (task.reference) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Reference</h4>
+        ${task.reference.pattern ? `<div class="ref-pattern"><strong>Pattern:</strong> ${escapeHtml(task.reference.pattern)}</div>` : ''}
+        ${task.reference.files?.length ? `
+          <div class="ref-files">
+            <strong>Files:</strong>
+            <ul>
+              ${task.reference.files.map(f => `<li><code>${escapeHtml(f)}</code></li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+        ${task.reference.examples ? `<div class="ref-examples"><strong>Examples:</strong> ${escapeHtml(task.reference.examples)}</div>` : ''}
+      </div>
+    `);
+  }
+  
+  // Acceptance Criteria
+  if (task.acceptance?.length) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Acceptance Criteria</h4>
+        <ul class="acceptance-list">
+          ${task.acceptance.map(a => `<li>${escapeHtml(a)}</li>`).join('')}
+        </ul>
+      </div>
+    `);
+  }
+  
+  // Dependencies
+  if (task.depends_on?.length) {
+    sections.push(`
+      <div class="drawer-section">
+        <h4 class="drawer-section-title">Dependencies</h4>
+        <div class="dependencies-list">
+          ${task.depends_on.map(dep => `<span class="dep-badge">${escapeHtml(dep)}</span>`).join(' ')}
+        </div>
+      </div>
+    `);
+  }
+  
+  return sections.join('');
+}
+
 
 function closeTaskDrawer() {
   document.getElementById('taskDetailDrawer').classList.remove('open');

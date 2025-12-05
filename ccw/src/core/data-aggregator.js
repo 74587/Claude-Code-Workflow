@@ -87,7 +87,8 @@ async function processSession(session, isActive) {
     tasks: [],
     taskCount: 0,
     hasReview: false,
-    reviewSummary: null
+    reviewSummary: null,
+    reviewDimensions: []
   };
 
   // Load tasks for active sessions (full details)
@@ -121,6 +122,10 @@ async function processSession(session, isActive) {
     if (existsSync(reviewDir)) {
       result.hasReview = true;
       result.reviewSummary = loadReviewSummary(reviewDir);
+      // Load dimension data for review sessions
+      if (session.type === 'review') {
+        result.reviewDimensions = await loadDimensionData(reviewDir);
+      }
     }
   } else {
     // For archived, also load tasks (same as active)
@@ -150,6 +155,10 @@ async function processSession(session, isActive) {
     if (existsSync(reviewDir)) {
       result.hasReview = true;
       result.reviewSummary = loadReviewSummary(reviewDir);
+      // Load dimension data for review sessions
+      if (session.type === 'review') {
+        result.reviewDimensions = await loadDimensionData(reviewDir);
+      }
     }
   }
 
@@ -266,14 +275,32 @@ async function loadDimensionData(reviewDir) {
   for (const file of dimFiles) {
     try {
       const data = JSON.parse(readFileSync(join(dimensionsDir, file), 'utf8'));
+      // Handle array structure: [ { findings: [...], summary: {...} } ]
+      let findings = [];
+      let summary = null;
+      let status = 'completed';
+
+      if (Array.isArray(data) && data.length > 0) {
+        const dimData = data[0];
+        findings = dimData.findings || [];
+        summary = dimData.summary || null;
+        status = dimData.status || 'completed';
+      } else if (data.findings) {
+        findings = data.findings;
+        summary = data.summary || null;
+        status = data.status || 'completed';
+      }
+
       dimensions.push({
         name: basename(file, '.json'),
-        findings: Array.isArray(data) ? data : (data.findings || []),
-        status: data.status || 'completed'
+        findings: findings,
+        summary: summary,
+        status: status
       });
     } catch {
       // Skip invalid dimension files
     }
+  }
   }
 
   return dimensions;
