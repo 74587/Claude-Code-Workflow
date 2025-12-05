@@ -582,7 +582,7 @@ prompts/
 - **Complex** (implementation, migration): 20-60min (1200000-3600000ms)
 - **Heavy** (large codebase, multi-file): 60-120min (3600000-7200000ms)
 
-**Codex Multiplier**: 1.5x of allocated time
+**Codex Multiplier**: 3x of allocated time (minimum 15min / 900000ms)
 
 **Application**: All bash() wrapped commands including Gemini, Qwen and Codex executions
 
