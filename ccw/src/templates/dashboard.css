@@ -3718,16 +3718,17 @@ ol.step-commands code {
 
 .step-number {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  min-width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--primary, #3b82f6);
   color: white;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .step-text {
@@ -3744,10 +3745,18 @@ ol.step-commands code {
 }
 
 .mod-point-card {
-  padding: 12px;
-  background: var(--bg-secondary, #f9fafb);
-  border-radius: 6px;
-  border-left: 3px solid var(--primary, #3b82f6);
+  padding: 14px 16px;
+  background: var(--bg-primary, #fff);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-left: 4px solid var(--primary, #3b82f6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.mod-point-card:hover {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 .mod-point-card .mod-file code {
