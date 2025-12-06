@@ -1328,10 +1328,40 @@ code {
   gap: 1rem;
 }
 
+.context-section {
+  padding: 1rem;
+  background: hsl(var(--muted) / 0.3);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+}
+
+.context-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
 .context-field {
-  padding: 0.75rem;
-  background: hsl(var(--muted));
-  border-radius: 0.375rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.context-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.context-value {
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  line-height: 1.6;
 }
 
 .context-field label {
@@ -1710,6 +1740,21 @@ code {
   word-break: break-word;
   font-size: 0.8rem;
   line-height: 1.6;
+}
+
+/* Summary Item Direct (No collapse) */
+.summary-item-direct {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: hsl(var(--card));
+}
+
+.summary-item-direct .summary-content-pre {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: hsl(var(--muted));
+  border-radius: 0.375rem;
 }
 
 .markdown-content {

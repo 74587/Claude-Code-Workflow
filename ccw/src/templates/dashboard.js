@@ -943,11 +943,15 @@ function renderContextContent(context) {
   const techStack = projectContext.tech_stack || metadata.tech_stack || {};
   const codingConventions = projectContext.coding_conventions || {};
   const architecturePatterns = projectContext.architecture_patterns || [];
+  const assets = context.assets || {};
+  const dependencies = context.dependencies || {};
+  const testContext = context.test_context || {};
+  const conflictDetection = context.conflict_detection || {};
 
   return `
     <div class="context-tab-content space-y-6">
       <!-- Header with View JSON button -->
-      <div class="flex justify-between items-center">
+      <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-semibold text-foreground">Context Package</h3>
         <button class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors" onclick="openMarkdownModal('context-package.json', window._currentContextJson, 'json')">
           👁️ View JSON
@@ -1021,6 +1025,46 @@ function renderContextContent(context) {
           <h4 class="context-section-title">📝 Coding Conventions</h4>
           <div class="space-y-3">
             ${renderCodingConventions(codingConventions)}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Assets Section -->
+      ${Object.keys(assets).length > 0 ? `
+        <div class="context-section">
+          <h4 class="context-section-title">📚 Assets & Resources</h4>
+          <div class="space-y-4">
+            ${renderAssetsSection(assets)}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Dependencies Section -->
+      ${(dependencies.internal && dependencies.internal.length > 0) || (dependencies.external && dependencies.external.length > 0) ? `
+        <div class="context-section">
+          <h4 class="context-section-title">🔗 Dependencies</h4>
+          <div class="space-y-4">
+            ${renderDependenciesSection(dependencies)}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Test Context Section -->
+      ${Object.keys(testContext).length > 0 ? `
+        <div class="context-section">
+          <h4 class="context-section-title">🧪 Test Context</h4>
+          <div class="space-y-4">
+            ${renderTestContextSection(testContext)}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Conflict Detection Section -->
+      ${Object.keys(conflictDetection).length > 0 ? `
+        <div class="context-section">
+          <h4 class="context-section-title">⚠️ Conflict Detection & Risk Analysis</h4>
+          <div class="space-y-4">
+            ${renderConflictDetectionSection(conflictDetection)}
           </div>
         </div>
       ` : ''}
@@ -1146,6 +1190,339 @@ function renderCodingConventions(conventions) {
   }
 
   return sections.join('');
+}
+
+function renderAssetsSection(assets) {
+  const sections = [];
+
+  // Documentation
+  if (assets.documentation && assets.documentation.length > 0) {
+    sections.push(`
+      <div class="asset-category">
+        <h5 class="asset-category-title">📄 Documentation</h5>
+        <div class="asset-grid">
+          ${assets.documentation.map(doc => `
+            <div class="asset-card">
+              <div class="asset-card-header">
+                <span class="asset-path">${escapeHtml(doc.path)}</span>
+                <span class="relevance-score" style="background: ${getRelevanceColor(doc.relevance_score)}">${(doc.relevance_score * 100).toFixed(0)}%</span>
+              </div>
+              <div class="asset-card-body">
+                <div class="asset-scope">${escapeHtml(doc.scope || '')}</div>
+                ${doc.contains && doc.contains.length > 0 ? `
+                  <div class="asset-tags">
+                    ${doc.contains.map(tag => `<span class="asset-tag">${escapeHtml(tag)}</span>`).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Source Code
+  if (assets.source_code && assets.source_code.length > 0) {
+    sections.push(`
+      <div class="asset-category">
+        <h5 class="asset-category-title">💻 Source Code</h5>
+        <div class="asset-grid">
+          ${assets.source_code.map(src => `
+            <div class="asset-card">
+              <div class="asset-card-header">
+                <span class="asset-path">${escapeHtml(src.path)}</span>
+                <span class="relevance-score" style="background: ${getRelevanceColor(src.relevance_score)}">${(src.relevance_score * 100).toFixed(0)}%</span>
+              </div>
+              <div class="asset-card-body">
+                <div class="asset-role-badge badge-${getRoleBadgeClass(src.role)}">${escapeHtml(src.role || '')}</div>
+                ${src.exports && src.exports.length > 0 ? `
+                  <div class="asset-meta"><strong>Exports:</strong> ${src.exports.map(e => `<code class="inline-code">${escapeHtml(e)}</code>`).join(', ')}</div>
+                ` : ''}
+                ${src.features && src.features.length > 0 ? `
+                  <div class="asset-features">${src.features.map(f => `<span class="feature-tag">${escapeHtml(f)}</span>`).join('')}</div>
+                ` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Tests
+  if (assets.tests && assets.tests.length > 0) {
+    sections.push(`
+      <div class="asset-category">
+        <h5 class="asset-category-title">🧪 Tests</h5>
+        <div class="asset-grid">
+          ${assets.tests.map(test => `
+            <div class="asset-card">
+              <div class="asset-card-header">
+                <span class="asset-path">${escapeHtml(test.path)}</span>
+                ${test.test_count ? `<span class="test-count-badge">${test.test_count} tests</span>` : ''}
+              </div>
+              <div class="asset-card-body">
+                <div class="asset-type">${escapeHtml(test.type || '')}</div>
+                ${test.test_classes ? `<div class="asset-meta"><strong>Classes:</strong> ${escapeHtml(test.test_classes.join(', '))}</div>` : ''}
+                ${test.coverage ? `<div class="asset-meta"><strong>Coverage:</strong> ${escapeHtml(test.coverage)}</div>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return sections.join('');
+}
+
+function renderDependenciesSection(dependencies) {
+  const sections = [];
+
+  // Internal Dependencies
+  if (dependencies.internal && dependencies.internal.length > 0) {
+    sections.push(`
+      <div class="dep-category">
+        <h5 class="dep-category-title">🔄 Internal Dependencies</h5>
+        <div class="dep-graph">
+          ${dependencies.internal.slice(0, 10).map(dep => `
+            <div class="dep-item">
+              <div class="dep-from">${escapeHtml(dep.from)}</div>
+              <div class="dep-arrow">
+                <span class="dep-type-badge badge-${dep.type}">${escapeHtml(dep.type)}</span>
+                →
+              </div>
+              <div class="dep-to">${escapeHtml(dep.to)}</div>
+            </div>
+          `).join('')}
+          ${dependencies.internal.length > 10 ? `<div class="dep-more">... and ${dependencies.internal.length - 10} more</div>` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  // External Dependencies
+  if (dependencies.external && dependencies.external.length > 0) {
+    sections.push(`
+      <div class="dep-category">
+        <h5 class="dep-category-title">📦 External Dependencies</h5>
+        <div class="dep-grid">
+          ${dependencies.external.map(dep => `
+            <div class="dep-external-card">
+              <div class="dep-package-name">${escapeHtml(dep.package)}</div>
+              <div class="dep-version">${escapeHtml(dep.version || '')}</div>
+              <div class="dep-usage">${escapeHtml(dep.usage || '')}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return sections.join('');
+}
+
+function renderTestContextSection(testContext) {
+  const sections = [];
+
+  // Test Frameworks
+  if (testContext.frameworks) {
+    const frameworks = testContext.frameworks;
+    sections.push(`
+      <div class="test-category">
+        <h5 class="test-category-title">🛠️ Test Frameworks</h5>
+        <div class="test-frameworks-grid">
+          ${frameworks.backend ? `
+            <div class="framework-card framework-installed">
+              <div class="framework-header">
+                <span class="framework-label">Backend</span>
+                <span class="framework-name">${escapeHtml(frameworks.backend.name || 'N/A')}</span>
+              </div>
+              ${frameworks.backend.plugins ? `
+                <div class="framework-plugins">${frameworks.backend.plugins.map(p => `<span class="plugin-tag">${escapeHtml(p)}</span>`).join('')}</div>
+              ` : ''}
+            </div>
+          ` : ''}
+          ${frameworks.frontend ? `
+            <div class="framework-card ${frameworks.frontend.name && frameworks.frontend.name.includes('NONE') ? 'framework-missing' : 'framework-installed'}">
+              <div class="framework-header">
+                <span class="framework-label">Frontend</span>
+                <span class="framework-name">${escapeHtml(frameworks.frontend.name || 'N/A')}</span>
+              </div>
+              ${frameworks.frontend.recommended ? `<div class="framework-recommended">Recommended: ${escapeHtml(frameworks.frontend.recommended)}</div>` : ''}
+              ${frameworks.frontend.gap ? `<div class="framework-gap">⚠️ ${escapeHtml(frameworks.frontend.gap)}</div>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  // Existing Tests Statistics
+  if (testContext.existing_tests) {
+    const tests = testContext.existing_tests;
+    let totalTests = 0;
+    let totalClasses = 0;
+
+    if (tests.backend) {
+      if (tests.backend.integration) {
+        totalTests += tests.backend.integration.tests || 0;
+        totalClasses += tests.backend.integration.classes || 0;
+      }
+      if (tests.backend.api_endpoints) {
+        totalTests += tests.backend.api_endpoints.tests || 0;
+        totalClasses += tests.backend.api_endpoints.classes || 0;
+      }
+    }
+
+    sections.push(`
+      <div class="test-category">
+        <h5 class="test-category-title">📊 Test Statistics</h5>
+        <div class="test-stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">${totalTests}</div>
+            <div class="stat-label">Total Tests</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${totalClasses}</div>
+            <div class="stat-label">Test Classes</div>
+          </div>
+          ${testContext.coverage_config && testContext.coverage_config.target ? `
+            <div class="stat-card">
+              <div class="stat-value">${escapeHtml(testContext.coverage_config.target)}</div>
+              <div class="stat-label">Coverage Target</div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  // Test Markers
+  if (testContext.test_markers) {
+    sections.push(`
+      <div class="test-category">
+        <h5 class="test-category-title">🏷️ Test Markers</h5>
+        <div class="test-markers-grid">
+          ${Object.entries(testContext.test_markers).map(([marker, desc]) => `
+            <div class="marker-card">
+              <span class="marker-name">@${escapeHtml(marker)}</span>
+              <span class="marker-desc">${escapeHtml(desc)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return sections.join('');
+}
+
+function renderConflictDetectionSection(conflictDetection) {
+  const sections = [];
+
+  // Risk Level Indicator
+  if (conflictDetection.risk_level) {
+    const riskLevel = conflictDetection.risk_level;
+    const riskColor = riskLevel === 'high' ? '#ef4444' : riskLevel === 'medium' ? '#f59e0b' : '#10b981';
+    sections.push(`
+      <div class="risk-indicator" style="border-color: ${riskColor}">
+        <div class="risk-level" style="background: ${riskColor}">
+          ${escapeHtml(riskLevel.toUpperCase())} RISK
+        </div>
+        ${conflictDetection.mitigation_strategy ? `
+          <div class="risk-mitigation">
+            <strong>Mitigation Strategy:</strong> ${escapeHtml(conflictDetection.mitigation_strategy)}
+          </div>
+        ` : ''}
+      </div>
+    `);
+  }
+
+  // Risk Factors
+  if (conflictDetection.risk_factors) {
+    const factors = conflictDetection.risk_factors;
+    sections.push(`
+      <div class="conflict-category">
+        <h5 class="conflict-category-title">⚠️ Risk Factors</h5>
+        <div class="risk-factors-list">
+          ${factors.test_gaps && factors.test_gaps.length > 0 ? `
+            <div class="risk-factor">
+              <strong class="risk-factor-title">Test Gaps:</strong>
+              <ul class="risk-factor-items">
+                ${factors.test_gaps.map(gap => `<li>${escapeHtml(gap)}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+          ${factors.existing_implementations && factors.existing_implementations.length > 0 ? `
+            <div class="risk-factor">
+              <strong class="risk-factor-title">Existing Implementations:</strong>
+              <ul class="risk-factor-items">
+                ${factors.existing_implementations.map(impl => `<li>${escapeHtml(impl)}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  // Affected Modules
+  if (conflictDetection.affected_modules && conflictDetection.affected_modules.length > 0) {
+    sections.push(`
+      <div class="conflict-category">
+        <h5 class="conflict-category-title">📦 Affected Modules</h5>
+        <div class="affected-modules-grid">
+          ${conflictDetection.affected_modules.map(mod => `
+            <span class="affected-module-tag">${escapeHtml(mod)}</span>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Historical Conflicts
+  if (conflictDetection.historical_conflicts && conflictDetection.historical_conflicts.length > 0) {
+    sections.push(`
+      <div class="conflict-category">
+        <h5 class="conflict-category-title">📜 Historical Lessons</h5>
+        <div class="historical-conflicts-list">
+          ${conflictDetection.historical_conflicts.map(conflict => `
+            <div class="historical-conflict-card">
+              <div class="conflict-source">Source: ${escapeHtml(conflict.source || 'Unknown')}</div>
+              ${conflict.lesson ? `<div class="conflict-lesson"><strong>Lesson:</strong> ${escapeHtml(conflict.lesson)}</div>` : ''}
+              ${conflict.recommendation ? `<div class="conflict-recommendation"><strong>Recommendation:</strong> ${escapeHtml(conflict.recommendation)}</div>` : ''}
+              ${conflict.challenge ? `<div class="conflict-challenge"><strong>Challenge:</strong> ${escapeHtml(conflict.challenge)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  return sections.join('');
+}
+
+// Helper functions
+function getRelevanceColor(score) {
+  if (score >= 0.95) return '#10b981';
+  if (score >= 0.90) return '#3b82f6';
+  if (score >= 0.80) return '#f59e0b';
+  return '#6b7280';
+}
+
+function getRoleBadgeClass(role) {
+  const roleMap = {
+    'core-hook': 'primary',
+    'api-client': 'success',
+    'api-router': 'info',
+    'service-layer': 'warning',
+    'pydantic-schemas': 'secondary',
+    'orm-model': 'secondary',
+    'typescript-types': 'info'
+  };
+  return roleMap[role] || 'secondary';
 }
 
 async function loadAndRenderSummaryTab(session, contentArea) {
