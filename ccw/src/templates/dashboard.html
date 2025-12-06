@@ -16,7 +16,8 @@
       safelist: [
         // Background colors
         'bg-card', 'bg-background', 'bg-hover', 'bg-accent', 'bg-muted', 'bg-primary', 'bg-success', 'bg-warning',
-        'bg-success-light', 'bg-warning-light', 'bg-sidebar-background', 'bg-destructive',
+        'bg-success-light', 'bg-warning-light', 'bg-primary-light', 'bg-sidebar-background', 'bg-destructive',
+        'bg-destructive/5', 'bg-destructive/10', 'bg-warning/5',
         // Text colors
         'text-foreground', 'text-muted-foreground', 'text-primary', 'text-card-foreground', 'text-success', 'text-warning',
         'text-primary-foreground', 'text-accent-foreground', 'text-sidebar-foreground', 'text-destructive',
@@ -57,6 +58,7 @@
             ring: 'hsl(var(--ring))',
             primary: 'hsl(var(--primary))',
             'primary-foreground': 'hsl(var(--primary-foreground))',
+            'primary-light': 'hsl(var(--primary-light))',
             secondary: 'hsl(var(--secondary))',
             'secondary-foreground': 'hsl(var(--secondary-foreground))',
             accent: 'hsl(var(--accent))',
@@ -99,6 +101,7 @@
       --ring: 220 65% 50%;
       --primary: 220 65% 50%;
       --primary-foreground: 0 0% 100%;
+      --primary-light: 220 65% 95%;
       --secondary: 220 60% 65%;
       --secondary-foreground: 0 0% 100%;
       --accent: 220 40% 95%;
@@ -127,6 +130,7 @@
       --ring: 220 65% 55%;
       --primary: 220 65% 55%;
       --primary-foreground: 0 0% 100%;
+      --primary-light: 220 50% 25%;
       --secondary: 220 60% 60%;
       --secondary-foreground: 0 0% 100%;
       --accent: 220 30% 20%;
@@ -202,30 +206,31 @@
         </div>
       </div>
 
-      <!-- Path Selector -->
-      <div class="flex items-center gap-2 relative">
-        <label class="hidden sm:inline text-sm text-muted-foreground">Project:</label>
-        <div class="relative">
-          <button class="flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded text-sm text-foreground hover:bg-hover max-w-[300px]" id="pathButton">
-            <span class="truncate max-w-[240px]" id="currentPath">{{PROJECT_PATH}}</span>
-            <span class="text-xs text-muted-foreground">▼</span>
-          </button>
-          <div class="path-menu hidden absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg min-w-[280px] z-50" id="pathMenu">
-            <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent Projects</div>
-            <div id="recentPaths" class="border-t border-border">
-              <!-- Dynamic recent paths -->
-            </div>
-            <div class="p-2 border-t border-border">
-              <button class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-background border border-border rounded text-sm text-muted-foreground hover:bg-hover" id="browsePath">
-                📂 Browse...
-              </button>
+      <!-- Right Side Actions -->
+      <div class="flex items-center gap-3">
+        <!-- Path Selector -->
+        <div class="flex items-center gap-2 relative">
+          <label class="hidden sm:inline text-sm text-muted-foreground">Project:</label>
+          <div class="relative">
+            <button class="flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded text-sm text-foreground hover:bg-hover max-w-[300px]" id="pathButton">
+              <span class="truncate max-w-[240px]" id="currentPath">{{PROJECT_PATH}}</span>
+              <span class="text-xs text-muted-foreground">▼</span>
+            </button>
+            <div class="path-menu hidden absolute top-full right-0 mt-1 bg-card border border-border rounded-lg shadow-lg min-w-[280px] z-50" id="pathMenu">
+              <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent Projects</div>
+              <div id="recentPaths" class="border-t border-border">
+                <!-- Dynamic recent paths -->
+              </div>
+              <div class="p-2 border-t border-border">
+                <button class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-background border border-border rounded text-sm text-muted-foreground hover:bg-hover" id="browsePath">
+                  📂 Browse...
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Header Actions -->
-      <div class="flex items-center gap-3">
+        <!-- Theme Toggle -->
         <button class="p-2 text-xl hover:bg-hover rounded" id="themeToggle" title="Toggle theme">🌙</button>
       </div>
     </header>
@@ -238,6 +243,20 @@
       <!-- Sidebar -->
       <aside class="sidebar w-64 bg-sidebar-background border-r border-border flex flex-col sticky top-14 h-[calc(100vh-56px)] overflow-y-auto transition-all duration-300" id="sidebar">
         <nav class="flex-1 py-3">
+          <!-- Project Overview Section -->
+          <div class="mb-2" id="projectOverviewNav">
+            <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <span class="mr-2">🏗️</span>
+              <span class="nav-section-title">Project</span>
+            </div>
+            <ul class="space-y-0.5">
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="project-overview" data-tooltip="Project Overview">
+                <span>📊</span>
+                <span class="nav-text flex-1">Overview</span>
+              </li>
+            </ul>
+          </div>
+
           <!-- Sessions Section -->
           <div class="mb-2">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">

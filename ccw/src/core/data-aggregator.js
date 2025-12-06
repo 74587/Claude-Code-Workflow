@@ -19,6 +19,7 @@ export async function aggregateData(sessions, workflowDir) {
       liteFix: []
     },
     reviewData: null,
+    projectOverview: null,
     statistics: {
       totalSessions: 0,
       activeSessions: 0,
@@ -63,6 +64,13 @@ export async function aggregateData(sessions, workflowDir) {
     data.statistics.liteFixCount = liteTasks.liteFix.length;
   } catch (err) {
     console.error('Error scanning lite tasks:', err.message);
+  }
+
+  // Load project overview from project.json
+  try {
+    data.projectOverview = loadProjectOverview(workflowDir);
+  } catch (err) {
+    console.error('Error loading project overview:', err.message);
   }
 
   return data;
@@ -337,4 +345,65 @@ function sortTaskIds(a, b) {
   const [a1, a2] = parseId(a);
   const [b1, b2] = parseId(b);
   return a1 - b1 || a2 - b2;
+}
+
+/**
+ * Load project overview from project.json
+ * @param {string} workflowDir - Path to .workflow directory
+ * @returns {Object|null} - Project overview data or null if not found
+ */
+function loadProjectOverview(workflowDir) {
+  const projectFile = join(workflowDir, 'project.json');
+
+  if (!existsSync(projectFile)) {
+    console.log(`Project file not found at: ${projectFile}`);
+    return null;
+  }
+
+  try {
+    const fileContent = readFileSync(projectFile, 'utf8');
+    const projectData = JSON.parse(fileContent);
+
+    console.log(`Successfully loaded project overview: ${projectData.project_name || 'Unknown'}`);
+
+    return {
+      projectName: projectData.project_name || 'Unknown',
+      description: projectData.overview?.description || '',
+      initializedAt: projectData.initialized_at || null,
+      technologyStack: projectData.overview?.technology_stack || {
+        languages: [],
+        frameworks: [],
+        build_tools: [],
+        test_frameworks: []
+      },
+      architecture: projectData.overview?.architecture || {
+        style: 'Unknown',
+        layers: [],
+        patterns: []
+      },
+      keyComponents: projectData.overview?.key_components || [],
+      features: projectData.features || [],
+      developmentIndex: projectData.development_index || {
+        feature: [],
+        enhancement: [],
+        bugfix: [],
+        refactor: [],
+        docs: []
+      },
+      statistics: projectData.statistics || {
+        total_features: 0,
+        total_sessions: 0,
+        last_updated: null
+      },
+      metadata: projectData._metadata || {
+        initialized_by: 'unknown',
+        analysis_timestamp: null,
+        analysis_mode: 'unknown'
+      }
+    };
+  } catch (err) {
+    console.error(`Failed to parse project.json at ${projectFile}:`, err.message);
+    console.error('Error stack:', err.stack);
+    return null;
+  }
 }

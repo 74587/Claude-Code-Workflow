@@ -879,6 +879,31 @@ code {
   border-left-color: hsl(var(--muted-foreground));
 }
 
+/* Status-based background colors for task cards */
+.detail-task-item.status-completed {
+  background: hsl(var(--success) / 0.08);
+}
+
+.detail-task-item.status-completed:hover {
+  background: hsl(var(--success) / 0.12);
+}
+
+.detail-task-item.status-in_progress {
+  background: hsl(var(--warning) / 0.08);
+}
+
+.detail-task-item.status-in_progress:hover {
+  background: hsl(var(--warning) / 0.12);
+}
+
+.detail-task-item.status-pending {
+  background: hsl(var(--muted-foreground) / 0.05);
+}
+
+.detail-task-item.status-pending:hover {
+  background: hsl(var(--muted-foreground) / 0.08);
+}
+
 .task-item-header {
   display: flex;
   align-items: center;
@@ -1685,6 +1710,21 @@ code {
   word-break: break-word;
   font-size: 0.8rem;
   line-height: 1.6;
+}
+
+.markdown-content {
+  background: hsl(var(--muted));
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+  max-height: 600px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
 }
 
 /* JSON Modal */
@@ -3793,4 +3833,117 @@ ol.step-commands code {
 
 .ref-files-list li {
   margin-bottom: 4px;
+}
+
+/* ===================================
+   Markdown Modal & View Button Styles
+   ================================== */
+
+.btn-view-modal {
+  padding: 4px 12px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+
+.btn-view-modal:hover {
+  background: hsl(var(--primary) / 0.9);
+  transform: translateY(-1px);
+}
+
+.markdown-modal .markdown-preview {
+  color: hsl(var(--foreground));
+  line-height: 1.6;
+}
+
+.markdown-modal .markdown-preview h1,
+.markdown-modal .markdown-preview h2,
+.markdown-modal .markdown-preview h3,
+.markdown-modal .markdown-preview h4 {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-modal .markdown-preview h1 { font-size: 1.8em; }
+.markdown-modal .markdown-preview h2 { font-size: 1.5em; }
+.markdown-modal .markdown-preview h3 { font-size: 1.3em; }
+.markdown-modal .markdown-preview h4 { font-size: 1.1em; }
+
+.markdown-modal .markdown-preview code {
+  background: hsl(var(--muted));
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.markdown-modal .markdown-preview pre {
+  background: hsl(var(--muted));
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-modal .markdown-preview pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown-modal .markdown-preview ul,
+.markdown-modal .markdown-preview ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.markdown-modal .markdown-preview li {
+  margin: 0.5em 0;
+}
+
+.markdown-modal .markdown-preview blockquote {
+  border-left: 4px solid hsl(var(--primary));
+  padding-left: 1em;
+  margin: 1em 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.markdown-modal .markdown-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+.markdown-modal .markdown-preview th,
+.markdown-modal .markdown-preview td {
+  border: 1px solid hsl(var(--border));
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-modal .markdown-preview th {
+  background: hsl(var(--muted));
+  font-weight: 600;
+}
+
+.md-tab-btn {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.md-tab-btn:not(.active) {
+  color: hsl(var(--muted-foreground));
+}
+
+.md-tab-btn.active {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-weight: 500;
 }

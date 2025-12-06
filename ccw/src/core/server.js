@@ -120,6 +120,7 @@ async function getWorkflowData(projectPath) {
       archivedSessions: [],
       liteTasks: { litePlan: [], liteFix: [] },
       reviewData: { dimensions: {} },
+      projectOverview: null,
       statistics: {
         totalSessions: 0,
         activeSessions: 0,
@@ -332,6 +333,7 @@ function generateServerDashboard(initialPath) {
     archivedSessions: [],
     liteTasks: { litePlan: [], liteFix: [] },
     reviewData: { dimensions: {} },
+    projectOverview: null,
     statistics: { totalSessions: 0, activeSessions: 0, totalTasks: 0, completedTasks: 0, reviewFindings: 0, litePlanCount: 0, liteFixCount: 0 }
   };
 

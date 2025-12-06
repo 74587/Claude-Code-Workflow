@@ -371,6 +371,19 @@ function initNavigation() {
       renderLiteTasks();
     });
   });
+
+  // Project Overview Navigation
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+    item.addEventListener('click', () => {
+      setActiveNavItem(item);
+      currentView = item.dataset.view;
+      currentFilter = null;
+      currentLiteType = null;
+      currentSessionDetailKey = null;
+      updateContentTitle();
+      renderProjectOverview();
+    });
+  });
 }
 
 function setActiveNavItem(item) {
@@ -380,7 +393,9 @@ function setActiveNavItem(item) {
 
 function updateContentTitle() {
   const titleEl = document.getElementById('contentTitle');
-  if (currentView === 'liteTasks') {
+  if (currentView === 'project-overview') {
+    titleEl.textContent = 'Project Overview';
+  } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': 'Lite Plan Sessions', 'lite-fix': 'Lite Fix Sessions' };
     titleEl.textContent = names[currentLiteType] || 'Lite Tasks';
   } else if (currentView === 'sessionDetail') {
@@ -692,7 +707,7 @@ function renderTasksTab(session, tasks, completed, inProgress, pending) {
             <div class="empty-title">No Tasks</div>
             <div class="empty-text">This session has no tasks defined.</div>
           </div>
-        ` : tasks.map(task => renderDetailTaskItem(task, false)).join(''))}
+        ` : tasks.map(task => renderDetailTaskItem(task)).join(''))}
       </div>
     </div>
   `;
@@ -712,11 +727,7 @@ async function loadFullTaskDetails() {
       if (data.tasks && data.tasks.length > 0) {
         // Populate drawer tasks for click-to-open functionality
         currentDrawerTasks = data.tasks;
-        tasksContainer.innerHTML = data.tasks.map(task => renderDetailTaskItem(task, true)).join('');
-        // Initialize collapsible sections
-        tasksContainer.querySelectorAll('.collapsible-header').forEach(header => {
-          header.addEventListener('click', () => toggleSection(header));
-        });
+        tasksContainer.innerHTML = data.tasks.map(task => renderDetailTaskItem(task)).join('');
       } else {
         tasksContainer.innerHTML = `
           <div class="tab-empty-state">
@@ -732,79 +743,18 @@ async function loadFullTaskDetails() {
   }
 }
 
-function renderDetailTaskItem(task, showFull = false) {
-  const statusIcon = task.status === 'completed' ? '✓' : task.status === 'in_progress' ? '⟳' : '○';
+function renderDetailTaskItem(task) {
   const taskId = task.task_id || task.id || 'Unknown';
+  const status = task.status || 'pending';
 
-  if (!showFull) {
-    return `
-      <div class="detail-task-item ${task.status}" onclick="openTaskDrawer('${escapeHtml(taskId)}')" style="cursor: pointer;">
-        <div class="task-item-header">
-          <span class="task-id-badge">${escapeHtml(taskId)}</span>
-          <span class="task-title">${escapeHtml(task.title || 'Untitled')}</span>
-          <span class="task-status-badge ${task.status}">${task.status}</span>
-        </div>
-      </div>
-    `;
-  }
-
-  // Full task view with collapsible sections
+  // Simplified task card with only essential elements: task ID badge, title, and status badge
+  // Includes status class for border-left color and status-${status} class for background color
   return `
-    <div class="detail-task-item-full">
-      <div class="task-item-header-full" onclick="openTaskDrawer('${escapeHtml(taskId)}')" style="cursor: pointer;" title="Click to open task details">
+    <div class="detail-task-item ${status} status-${status}" onclick="openTaskDrawer('${escapeHtml(taskId)}')" style="cursor: pointer;">
+      <div class="task-item-header">
         <span class="task-id-badge">${escapeHtml(taskId)}</span>
         <span class="task-title">${escapeHtml(task.title || task.meta?.title || 'Untitled')}</span>
-        <span class="task-status-badge ${task.status}">${task.status}</span>
-      </div>
-
-      <!-- Meta Section -->
-      <div class="collapsible-section">
-        <div class="collapsible-header">
-          <span class="collapse-icon">▶</span>
-          <span class="section-label">meta</span>
-          <span class="section-preview">${escapeHtml(getMetaPreview(task))}</span>
-        </div>
-        <div class="collapsible-content collapsed">
-          ${renderDynamicFields(task.meta || {}, ['type', 'action', 'agent', 'scope', 'module'])}
-        </div>
-      </div>
-
-      <!-- Context Section -->
-      <div class="collapsible-section">
-        <div class="collapsible-header">
-          <span class="collapse-icon">▶</span>
-          <span class="section-label">context</span>
-          <span class="section-preview">${escapeHtml(getTaskContextPreview(task))}</span>
-        </div>
-        <div class="collapsible-content collapsed">
-          ${renderTaskContext(task)}
-        </div>
-      </div>
-
-      <!-- Flow Control Section -->
-      ${task.flow_control || task.implementation ? `
-        <div class="collapsible-section">
-          <div class="collapsible-header">
-            <span class="collapse-icon">▶</span>
-            <span class="section-label">flow_control</span>
-            <span class="section-preview">${escapeHtml(getFlowPreview(task))}</span>
-          </div>
-          <div class="collapsible-content collapsed">
-            ${renderFlowControl(task)}
-          </div>
-        </div>
-      ` : ''}
-
-      <!-- Raw JSON Section -->
-      <div class="collapsible-section">
-        <div class="collapsible-header">
-          <span class="collapse-icon">▶</span>
-          <span class="section-label">raw_json</span>
-          <span class="section-preview">View full JSON</span>
-        </div>
-        <div class="collapsible-content collapsed">
-          <pre class="json-content">${escapeHtml(JSON.stringify(task, null, 2))}</pre>
-        </div>
+        <span class="task-status-badge ${status}">${status}</span>
       </div>
     </div>
   `;
@@ -983,11 +933,219 @@ function renderContextContent(context) {
     `;
   }
 
+  const contextJson = JSON.stringify(context, null, 2);
+  // Store in global variable for modal access
+  window._currentContextJson = contextJson;
+
+  // Parse context structure
+  const metadata = context.metadata || {};
+  const projectContext = context.project_context || {};
+  const techStack = projectContext.tech_stack || metadata.tech_stack || {};
+  const codingConventions = projectContext.coding_conventions || {};
+  const architecturePatterns = projectContext.architecture_patterns || [];
+
   return `
-    <div class="context-tab-content">
-      <pre class="json-content">${escapeHtml(JSON.stringify(context, null, 2))}</pre>
+    <div class="context-tab-content space-y-6">
+      <!-- Header with View JSON button -->
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-semibold text-foreground">Context Package</h3>
+        <button class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors" onclick="openMarkdownModal('context-package.json', window._currentContextJson, 'json')">
+          👁️ View JSON
+        </button>
+      </div>
+
+      <!-- Metadata Section -->
+      ${metadata.task_description || metadata.session_id ? `
+        <div class="context-section">
+          <h4 class="context-section-title">📋 Task Metadata</h4>
+          <div class="space-y-2">
+            ${metadata.task_description ? `
+              <div class="context-field">
+                <span class="context-label">Description:</span>
+                <span class="context-value">${escapeHtml(metadata.task_description)}</span>
+              </div>
+            ` : ''}
+            ${metadata.session_id ? `
+              <div class="context-field">
+                <span class="context-label">Session ID:</span>
+                <span class="context-value font-mono text-sm">${escapeHtml(metadata.session_id)}</span>
+              </div>
+            ` : ''}
+            ${metadata.complexity ? `
+              <div class="context-field">
+                <span class="context-label">Complexity:</span>
+                <span class="badge badge-${metadata.complexity}">${escapeHtml(metadata.complexity)}</span>
+              </div>
+            ` : ''}
+            ${metadata.timestamp ? `
+              <div class="context-field">
+                <span class="context-label">Timestamp:</span>
+                <span class="context-value text-sm text-muted-foreground">${escapeHtml(metadata.timestamp)}</span>
+              </div>
+            ` : ''}
+            ${metadata.keywords && metadata.keywords.length > 0 ? `
+              <div class="context-field">
+                <span class="context-label">Keywords:</span>
+                <div class="flex flex-wrap gap-1 mt-1">
+                  ${metadata.keywords.map(kw => `<span class="badge badge-secondary text-xs">${escapeHtml(kw)}</span>`).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Architecture Patterns -->
+      ${architecturePatterns.length > 0 ? `
+        <div class="context-section">
+          <h4 class="context-section-title">🏛️ Architecture Patterns</h4>
+          <ul class="list-disc list-inside space-y-1 text-sm">
+            ${architecturePatterns.map(p => `<li class="text-foreground">${escapeHtml(p)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      <!-- Tech Stack -->
+      ${Object.keys(techStack).length > 0 ? `
+        <div class="context-section">
+          <h4 class="context-section-title">⚙️ Technology Stack</h4>
+          <div class="space-y-3">
+            ${renderTechStackSection(techStack)}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Coding Conventions -->
+      ${Object.keys(codingConventions).length > 0 ? `
+        <div class="context-section">
+          <h4 class="context-section-title">📝 Coding Conventions</h4>
+          <div class="space-y-3">
+            ${renderCodingConventions(codingConventions)}
+          </div>
+        </div>
+      ` : ''}
     </div>
   `;
+}
+
+function renderTechStackSection(techStack) {
+  const sections = [];
+
+  if (techStack.languages) {
+    const langs = Array.isArray(techStack.languages) ? techStack.languages : [techStack.languages];
+    sections.push(`
+      <div class="context-field">
+        <span class="context-label">Languages:</span>
+        <div class="flex flex-wrap gap-1 mt-1">
+          ${langs.map(l => `<span class="badge badge-primary text-xs">${escapeHtml(String(l))}</span>`).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  if (techStack.frameworks) {
+    const frameworks = Array.isArray(techStack.frameworks) ? techStack.frameworks : [techStack.frameworks];
+    sections.push(`
+      <div class="context-field">
+        <span class="context-label">Frameworks:</span>
+        <div class="flex flex-wrap gap-1 mt-1">
+          ${frameworks.map(f => `<span class="badge badge-secondary text-xs">${escapeHtml(String(f))}</span>`).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  if (techStack.frontend_frameworks) {
+    const ff = Array.isArray(techStack.frontend_frameworks) ? techStack.frontend_frameworks : [techStack.frontend_frameworks];
+    sections.push(`
+      <div class="context-field">
+        <span class="context-label">Frontend:</span>
+        <div class="flex flex-wrap gap-1 mt-1">
+          ${ff.map(f => `<span class="badge badge-secondary text-xs">${escapeHtml(String(f))}</span>`).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  if (techStack.backend_frameworks) {
+    const bf = Array.isArray(techStack.backend_frameworks) ? techStack.backend_frameworks : [techStack.backend_frameworks];
+    sections.push(`
+      <div class="context-field">
+        <span class="context-label">Backend:</span>
+        <div class="flex flex-wrap gap-1 mt-1">
+          ${bf.map(f => `<span class="badge badge-secondary text-xs">${escapeHtml(String(f))}</span>`).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  if (techStack.libraries) {
+    const libs = techStack.libraries;
+    if (typeof libs === 'object' && !Array.isArray(libs)) {
+      Object.entries(libs).forEach(([category, libList]) => {
+        if (Array.isArray(libList) && libList.length > 0) {
+          sections.push(`
+            <div class="context-field">
+              <span class="context-label">${escapeHtml(category)}:</span>
+              <ul class="list-disc list-inside ml-4 mt-1 text-sm text-muted-foreground">
+                ${libList.map(lib => `<li>${escapeHtml(String(lib))}</li>`).join('')}
+              </ul>
+            </div>
+          `);
+        }
+      });
+    }
+  }
+
+  return sections.join('');
+}
+
+function renderCodingConventions(conventions) {
+  const sections = [];
+
+  if (conventions.naming) {
+    sections.push(`
+      <div class="context-field">
+        <span class="context-label">Naming:</span>
+        <ul class="list-disc list-inside ml-4 mt-1 text-sm text-muted-foreground">
+          ${Object.entries(conventions.naming).map(([key, val]) =>
+            `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(String(val))}</li>`
+          ).join('')}
+        </ul>
+      </div>
+    `);
+  }
+
+  if (conventions.error_handling) {
+    sections.push(`
+      <div class="context-field">
+        <span class="context-label">Error Handling:</span>
+        <ul class="list-disc list-inside ml-4 mt-1 text-sm text-muted-foreground">
+          ${Object.entries(conventions.error_handling).map(([key, val]) =>
+            `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(String(val))}</li>`
+          ).join('')}
+        </ul>
+      </div>
+    `);
+  }
+
+  if (conventions.testing) {
+    sections.push(`
+      <div class="context-field">
+        <span class="context-label">Testing:</span>
+        <ul class="list-disc list-inside ml-4 mt-1 text-sm text-muted-foreground">
+          ${Object.entries(conventions.testing).map(([key, val]) => {
+            if (Array.isArray(val)) {
+              return `<li><strong>${escapeHtml(key)}:</strong> ${val.map(v => escapeHtml(String(v))).join(', ')}</li>`;
+            }
+            return `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(String(val))}</li>`;
+          }).join('')}
+        </ul>
+      </div>
+    `);
+  }
+
+  return sections.join('');
 }
 
 async function loadAndRenderSummaryTab(session, contentArea) {
@@ -1025,34 +1183,22 @@ function renderSummaryContent(summaries) {
     `;
   }
 
-  // Add event listener initialization after render
-  setTimeout(() => {
-    document.querySelectorAll('.summary-collapsible-header').forEach(header => {
-      header.addEventListener('click', () => {
-        const content = header.nextElementSibling;
-        const icon = header.querySelector('.collapse-icon');
-        const isCollapsed = content.classList.contains('collapsed');
-        content.classList.toggle('collapsed');
-        header.classList.toggle('expanded');
-        icon.textContent = isCollapsed ? '▼' : '▶';
-      });
-    });
-  }, 0);
+  // Store summaries in global variable for modal access
+  window._currentSummaries = summaries;
 
   return `
-    <div class="summary-tab-content">
+    <div class="summary-tab-content space-y-4">
       ${summaries.map((s, idx) => {
-        const preview = (s.content || '').substring(0, 100).replace(/\n/g, ' ') + (s.content?.length > 100 ? '...' : '');
+        const normalizedContent = normalizeLineEndings(s.content || '');
         return `
-          <div class="summary-item-collapsible">
-            <div class="summary-collapsible-header ${idx === 0 ? 'expanded' : ''}">
-              <span class="collapse-icon">${idx === 0 ? '▼' : '▶'}</span>
-              <span class="summary-name">📄 ${escapeHtml(s.name || 'Summary')}</span>
-              <span class="summary-preview">${escapeHtml(preview)}</span>
+          <div class="summary-item-direct">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="text-base font-semibold text-foreground">📄 ${escapeHtml(s.name || 'Summary')}</h4>
+              <button class="btn-view-modal" onclick="openMarkdownModal('${escapeHtml(s.name || 'Summary')}', window._currentSummaries[${idx}].content, 'markdown');">
+                👁️ View
+              </button>
             </div>
-            <div class="summary-collapsible-content ${idx === 0 ? '' : 'collapsed'}">
-              <pre class="summary-content-pre">${escapeHtml(s.content || '')}</pre>
-            </div>
+            <pre class="summary-content-pre">${escapeHtml(normalizedContent)}</pre>
           </div>
         `;
       }).join('')}
@@ -1095,9 +1241,19 @@ function renderImplPlanContent(implPlan) {
     `;
   }
 
+  // Normalize and store in global variable for modal access
+  const normalizedContent = normalizeLineEndings(implPlan);
+  window._currentImplPlan = normalizedContent;
+
   return `
     <div class="impl-plan-tab-content">
-      <pre class="markdown-content">${escapeHtml(implPlan)}</pre>
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-foreground">Implementation Plan</h3>
+        <button class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors" onclick="openMarkdownModal('IMPL_PLAN.md', window._currentImplPlan, 'markdown')">
+          👁️ View in Modal
+        </button>
+      </div>
+      <pre class="markdown-content">${escapeHtml(normalizedContent)}</pre>
     </div>
   `;
 }
@@ -3590,3 +3746,337 @@ function renderImplementationFlowchart(steps) {
     }
   });
 }
+
+// ========== Project Overview Rendering ==========
+
+function renderProjectOverview() {
+  const container = document.getElementById('mainContent');
+  const project = workflowData.projectOverview;
+
+  if (!project) {
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-16 text-center">
+        <div class="text-6xl mb-4">📋</div>
+        <h3 class="text-xl font-semibold text-foreground mb-2">No Project Overview</h3>
+        <p class="text-muted-foreground mb-4">
+          Run <code class="px-2 py-1 bg-muted rounded text-sm font-mono">/workflow:init</code> to initialize project analysis
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <!-- Project Header -->
+    <div class="bg-card border border-border rounded-lg p-6 mb-6">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <h2 class="text-2xl font-bold text-foreground mb-2">${escapeHtml(project.projectName)}</h2>
+          <p class="text-muted-foreground">${escapeHtml(project.description || 'No description available')}</p>
+        </div>
+        <div class="text-sm text-muted-foreground text-right">
+          <div>Initialized: ${formatDate(project.initializedAt)}</div>
+          <div class="mt-1">Mode: <span class="font-mono text-xs px-2 py-0.5 bg-muted rounded">${escapeHtml(project.metadata?.analysis_mode || 'unknown')}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Technology Stack -->
+    <div class="bg-card border border-border rounded-lg p-6 mb-6">
+      <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+        <span>💻</span> Technology Stack
+      </h3>
+
+      <!-- Languages -->
+      <div class="mb-5">
+        <h4 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Languages</h4>
+        <div class="flex flex-wrap gap-3">
+          ${project.technologyStack.languages.map(lang => `
+            <div class="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-lg ${lang.primary ? 'ring-2 ring-primary' : ''}">
+              <span class="font-semibold text-foreground">${escapeHtml(lang.name)}</span>
+              <span class="text-xs text-muted-foreground">${lang.file_count} files</span>
+              ${lang.primary ? '<span class="text-xs px-1.5 py-0.5 bg-primary text-primary-foreground rounded">Primary</span>' : ''}
+            </div>
+          `).join('') || '<span class="text-muted-foreground text-sm">No languages detected</span>'}
+        </div>
+      </div>
+
+      <!-- Frameworks -->
+      <div class="mb-5">
+        <h4 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Frameworks</h4>
+        <div class="flex flex-wrap gap-2">
+          ${project.technologyStack.frameworks.map(fw => `
+            <span class="px-3 py-1.5 bg-success-light text-success rounded-lg text-sm font-medium">${escapeHtml(fw)}</span>
+          `).join('') || '<span class="text-muted-foreground text-sm">No frameworks detected</span>'}
+        </div>
+      </div>
+
+      <!-- Build Tools -->
+      <div class="mb-5">
+        <h4 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Build Tools</h4>
+        <div class="flex flex-wrap gap-2">
+          ${project.technologyStack.build_tools.map(tool => `
+            <span class="px-3 py-1.5 bg-warning-light text-warning rounded-lg text-sm font-medium">${escapeHtml(tool)}</span>
+          `).join('') || '<span class="text-muted-foreground text-sm">No build tools detected</span>'}
+        </div>
+      </div>
+
+      <!-- Test Frameworks -->
+      <div>
+        <h4 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Test Frameworks</h4>
+        <div class="flex flex-wrap gap-2">
+          ${project.technologyStack.test_frameworks.map(fw => `
+            <span class="px-3 py-1.5 bg-accent text-accent-foreground rounded-lg text-sm font-medium">${escapeHtml(fw)}</span>
+          `).join('') || '<span class="text-muted-foreground text-sm">No test frameworks detected</span>'}
+        </div>
+      </div>
+    </div>
+
+    <!-- Architecture -->
+    <div class="bg-card border border-border rounded-lg p-6 mb-6">
+      <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+        <span>🏗️</span> Architecture
+      </h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- Style -->
+        <div>
+          <h4 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Style</h4>
+          <div class="px-3 py-2 bg-background border border-border rounded-lg">
+            <span class="text-foreground font-medium">${escapeHtml(project.architecture.style)}</span>
+          </div>
+        </div>
+
+        <!-- Layers -->
+        <div>
+          <h4 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Layers</h4>
+          <div class="flex flex-wrap gap-2">
+            ${project.architecture.layers.map(layer => `
+              <span class="px-2 py-1 bg-muted text-foreground rounded text-sm">${escapeHtml(layer)}</span>
+            `).join('') || '<span class="text-muted-foreground text-sm">None</span>'}
+          </div>
+        </div>
+
+        <!-- Patterns -->
+        <div>
+          <h4 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Patterns</h4>
+          <div class="flex flex-wrap gap-2">
+            ${project.architecture.patterns.map(pattern => `
+              <span class="px-2 py-1 bg-muted text-foreground rounded text-sm">${escapeHtml(pattern)}</span>
+            `).join('') || '<span class="text-muted-foreground text-sm">None</span>'}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Components -->
+    <div class="bg-card border border-border rounded-lg p-6 mb-6">
+      <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+        <span>⚙️</span> Key Components
+      </h3>
+
+      ${project.keyComponents.length > 0 ? `
+        <div class="space-y-3">
+          ${project.keyComponents.map(comp => {
+            const importanceColors = {
+              high: 'border-l-4 border-l-destructive bg-destructive/5',
+              medium: 'border-l-4 border-l-warning bg-warning/5',
+              low: 'border-l-4 border-l-muted-foreground bg-muted'
+            };
+            const importanceBadges = {
+              high: '<span class="px-2 py-0.5 text-xs font-semibold bg-destructive text-destructive-foreground rounded">High</span>',
+              medium: '<span class="px-2 py-0.5 text-xs font-semibold bg-warning text-foreground rounded">Medium</span>',
+              low: '<span class="px-2 py-0.5 text-xs font-semibold bg-muted text-muted-foreground rounded">Low</span>'
+            };
+            return `
+              <div class="p-4 ${importanceColors[comp.importance] || importanceColors.low} rounded-lg">
+                <div class="flex items-start justify-between mb-2">
+                  <h4 class="font-semibold text-foreground">${escapeHtml(comp.name)}</h4>
+                  ${importanceBadges[comp.importance] || ''}
+                </div>
+                <p class="text-sm text-muted-foreground mb-2">${escapeHtml(comp.description)}</p>
+                <code class="text-xs font-mono text-primary">${escapeHtml(comp.path)}</code>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      ` : '<p class="text-muted-foreground text-sm">No key components identified</p>'}
+    </div>
+
+    <!-- Development Index -->
+    <div class="bg-card border border-border rounded-lg p-6 mb-6">
+      <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+        <span>📝</span> Development History
+      </h3>
+
+      ${renderDevelopmentIndex(project.developmentIndex)}
+    </div>
+
+    <!-- Statistics -->
+    <div class="bg-card border border-border rounded-lg p-6">
+      <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+        <span>📊</span> Statistics
+      </h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="text-center p-4 bg-background rounded-lg">
+          <div class="text-3xl font-bold text-primary mb-1">${project.statistics.total_features || 0}</div>
+          <div class="text-sm text-muted-foreground">Total Features</div>
+        </div>
+        <div class="text-center p-4 bg-background rounded-lg">
+          <div class="text-3xl font-bold text-success mb-1">${project.statistics.total_sessions || 0}</div>
+          <div class="text-sm text-muted-foreground">Total Sessions</div>
+        </div>
+        <div class="text-center p-4 bg-background rounded-lg">
+          <div class="text-sm text-muted-foreground mb-1">Last Updated</div>
+          <div class="text-sm font-medium text-foreground">${formatDate(project.statistics.last_updated)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDevelopmentIndex(devIndex) {
+  if (!devIndex) return '<p class="text-muted-foreground text-sm">No development history available</p>';
+
+  const categories = [
+    { key: 'feature', label: 'Features', icon: '✨', badgeClass: 'bg-primary-light text-primary' },
+    { key: 'enhancement', label: 'Enhancements', icon: '⚡', badgeClass: 'bg-success-light text-success' },
+    { key: 'bugfix', label: 'Bug Fixes', icon: '🐛', badgeClass: 'bg-destructive/10 text-destructive' },
+    { key: 'refactor', label: 'Refactorings', icon: '🔧', badgeClass: 'bg-warning-light text-warning' },
+    { key: 'docs', label: 'Documentation', icon: '📚', badgeClass: 'bg-muted text-muted-foreground' }
+  ];
+
+  const totalEntries = categories.reduce((sum, cat) => sum + (devIndex[cat.key]?.length || 0), 0);
+
+  if (totalEntries === 0) {
+    return '<p class="text-muted-foreground text-sm">No development history entries</p>';
+  }
+
+  return `
+    <div class="space-y-4">
+      ${categories.map(cat => {
+        const entries = devIndex[cat.key] || [];
+        if (entries.length === 0) return '';
+
+        return `
+          <div>
+            <h4 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <span>${cat.icon}</span>
+              <span>${cat.label}</span>
+              <span class="text-xs px-2 py-0.5 ${cat.badgeClass} rounded-full">${entries.length}</span>
+            </h4>
+            <div class="space-y-2">
+              ${entries.slice(0, 5).map(entry => `
+                <div class="p-3 bg-background border border-border rounded-lg hover:shadow-sm transition-shadow">
+                  <div class="flex items-start justify-between mb-1">
+                    <h5 class="font-medium text-foreground text-sm">${escapeHtml(entry.title)}</h5>
+                    <span class="text-xs text-muted-foreground">${formatDate(entry.date)}</span>
+                  </div>
+                  ${entry.description ? `<p class="text-sm text-muted-foreground mb-1">${escapeHtml(entry.description)}</p>` : ''}
+                  <div class="flex items-center gap-2 text-xs">
+                    ${entry.sub_feature ? `<span class="px-2 py-0.5 bg-muted rounded">${escapeHtml(entry.sub_feature)}</span>` : ''}
+                    ${entry.status ? `<span class="px-2 py-0.5 ${entry.status === 'completed' ? 'bg-success-light text-success' : 'bg-warning-light text-warning'} rounded">${escapeHtml(entry.status)}</span>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+              ${entries.length > 5 ? `<div class="text-sm text-muted-foreground text-center py-2">... and ${entries.length - 5} more</div>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ========== Helper Functions ==========
+
+/**
+ * Normalize line endings in content
+ * Handles both literal \r\n escape sequences and actual newlines
+ */
+function normalizeLineEndings(content) {
+  if (!content) return '';
+  let normalized = content;
+  // If content has literal \r\n or \n as text (escaped), convert to actual newlines
+  if (normalized.includes('\\r\\n')) {
+    normalized = normalized.replace(/\\r\\n/g, '\n');
+  } else if (normalized.includes('\\n')) {
+    normalized = normalized.replace(/\\n/g, '\n');
+  }
+  // Normalize CRLF to LF for consistent rendering
+  normalized = normalized.replace(/\r\n/g, '\n');
+  return normalized;
+}
+
+// ========== Markdown Modal Functions ==========
+
+function openMarkdownModal(title, content, type = 'markdown') {
+  const modal = document.getElementById('markdownModal');
+  const titleEl = document.getElementById('markdownModalTitle');
+  const rawEl = document.getElementById('markdownRaw');
+  const previewEl = document.getElementById('markdownPreview');
+
+  // Normalize line endings
+  const normalizedContent = normalizeLineEndings(content);
+
+  titleEl.textContent = title;
+  rawEl.textContent = normalizedContent;
+
+  // Render preview based on type
+  if (typeof marked !== 'undefined' && type === 'markdown') {
+    previewEl.innerHTML = marked.parse(normalizedContent);
+  } else if (type === 'json') {
+    // For JSON, try to parse and re-stringify with formatting
+    try {
+      const parsed = typeof normalizedContent === 'string' ? JSON.parse(normalizedContent) : normalizedContent;
+      const formatted = JSON.stringify(parsed, null, 2);
+      previewEl.innerHTML = '<pre class="whitespace-pre-wrap language-json">' + escapeHtml(formatted) + '</pre>';
+    } catch (e) {
+      // If not valid JSON, show as-is
+      previewEl.innerHTML = '<pre class="whitespace-pre-wrap">' + escapeHtml(normalizedContent) + '</pre>';
+    }
+  } else {
+    // Fallback: simple text with line breaks
+    previewEl.innerHTML = '<pre class="whitespace-pre-wrap">' + escapeHtml(normalizedContent) + '</pre>';
+  }
+
+  // Show modal and default to preview tab
+  modal.classList.remove('hidden');
+  switchMarkdownTab('preview');
+}
+
+function closeMarkdownModal() {
+  const modal = document.getElementById('markdownModal');
+  modal.classList.add('hidden');
+}
+
+function switchMarkdownTab(tab) {
+  const rawEl = document.getElementById('markdownRaw');
+  const previewEl = document.getElementById('markdownPreview');
+  const rawTabBtn = document.getElementById('mdTabRaw');
+  const previewTabBtn = document.getElementById('mdTabPreview');
+
+  if (tab === 'raw') {
+    rawEl.classList.remove('hidden');
+    previewEl.classList.add('hidden');
+    rawTabBtn.classList.add('active', 'bg-background', 'text-foreground');
+    rawTabBtn.classList.remove('text-muted-foreground');
+    previewTabBtn.classList.remove('active', 'bg-background', 'text-foreground');
+    previewTabBtn.classList.add('text-muted-foreground');
+  } else {
+    rawEl.classList.add('hidden');
+    previewEl.classList.remove('hidden');
+    previewTabBtn.classList.add('active', 'bg-background', 'text-foreground');
+    previewTabBtn.classList.remove('text-muted-foreground');
+    rawTabBtn.classList.remove('active', 'bg-background', 'text-foreground');
+    rawTabBtn.classList.add('text-muted-foreground');
+  }
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeMarkdownModal();
+  }
+});
