@@ -1,0 +1,51 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# History and temp files
+.history/
+*.log
+*.tmp
+
+# Development files
+.vscode/
+.idea/
+*.md
+!README.md
+!CLAUDE.md
+
+# Workflow runtime data
+.workflow/
+
+# Test files
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Build artifacts
+node_modules/
+*.tgz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (keep only essential)
+CHANGELOG.md
+CONTRIBUTING.md
+COMMAND_REFERENCE.md
+COMMAND_SPEC.md
+FAQ.md
+GETTING_STARTED.md
+GETTING_STARTED_CN.md
+
+# PowerShell installer (not needed for npm)
+Install-Claude.ps1
+install-remote.ps1
+
+# ccw internal files
+ccw/package.json
+ccw/node_modules/
+ccw/*.md
