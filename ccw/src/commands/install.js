@@ -1,13 +1,12 @@
-import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, rmSync } from 'fs';
-import { join, dirname, basename, relative } from 'path';
-import { homedir, tmpdir } from 'os';
+import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync } from 'fs';
+import { join, dirname, basename } from 'path';
+import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import { showHeader, showBanner, createSpinner, success, info, warning, error, summaryBox, step, divider } from '../utils/ui.js';
+import { showHeader, createSpinner, info, warning, error, summaryBox, divider } from '../utils/ui.js';
 import { createManifest, addFileEntry, addDirectoryEntry, saveManifest, findManifest, getAllManifests } from '../core/manifest.js';
 import { validatePath } from '../utils/path-resolver.js';
-import { fetchLatestRelease, fetchLatestCommit, fetchRecentReleases, downloadAndExtract, cleanupTemp, REPO_URL } from '../utils/version-fetcher.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -59,28 +58,8 @@ export async function installCommand(options) {
     }
   }
 
-  // Determine source directory based on version option
-  let sourceDir;
-  let tempDir = null;
-  let versionInfo = { version: getVersion(), branch: 'local', commit: '' };
-
-  if (options.version && options.version !== 'local') {
-    // Remote installation - download from GitHub
-    const downloadResult = await selectAndDownloadVersion(options);
-    if (!downloadResult) {
-      return; // User cancelled or error occurred
-    }
-    sourceDir = downloadResult.repoDir;
-    tempDir = downloadResult.tempDir;
-    versionInfo = {
-      version: downloadResult.version,
-      branch: downloadResult.branch,
-      commit: downloadResult.commit
-    };
-  } else {
-    // Local installation from package source
-    sourceDir = getSourceDir();
-  }
+  // Local installation from package source
+  const sourceDir = getSourceDir();
 
   // Interactive mode selection
   const mode = options.mode || await selectMode();
@@ -96,7 +75,6 @@ export async function installCommand(options) {
     const pathValidation = validatePath(inputPath, { mustExist: true });
     if (!pathValidation.valid) {
       error(`Invalid installation path: ${pathValidation.error}`);
-      if (tempDir) cleanupTemp(tempDir);
       process.exit(1);
     }
 
@@ -110,7 +88,6 @@ export async function installCommand(options) {
   if (availableDirs.length === 0) {
     error('No source directories found to install.');
     error(`Expected directories in: ${sourceDir}`);
-    if (tempDir) cleanupTemp(tempDir);
     process.exit(1);
   }
 
@@ -156,13 +133,21 @@ export async function installCommand(options) {
       totalDirs += directories;
     }
 
+    // Copy CLAUDE.md to .claude directory
+    const claudeMdSrc = join(sourceDir, 'CLAUDE.md');
+    const claudeMdDest = join(installPath, '.claude', 'CLAUDE.md');
+    if (existsSync(claudeMdSrc) && existsSync(dirname(claudeMdDest))) {
+      spinner.text = 'Installing CLAUDE.md...';
+      copyFileSync(claudeMdSrc, claudeMdDest);
+      addFileEntry(manifest, claudeMdDest);
+      totalFiles++;
+    }
+
     // Create version.json
     const versionPath = join(installPath, '.claude', 'version.json');
     if (existsSync(dirname(versionPath))) {
       const versionData = {
-        version: versionInfo.version,
-        branch: versionInfo.branch,
-        commit: versionInfo.commit,
+        version: version,
         installedAt: new Date().toISOString(),
         mode: mode,
         installer: 'ccw'
@@ -177,13 +162,7 @@ export async function installCommand(options) {
   } catch (err) {
     spinner.fail('Installation failed');
     error(err.message);
-    if (tempDir) cleanupTemp(tempDir);
     process.exit(1);
-  }
-
-  // Cleanup temp directory if used
-  if (tempDir) {
-    cleanupTemp(tempDir);
   }
 
   // Save manifest
@@ -196,23 +175,13 @@ export async function installCommand(options) {
     '',
     chalk.white(`Mode: ${chalk.cyan(mode)}`),
     chalk.white(`Path: ${chalk.cyan(installPath)}`),
-    chalk.white(`Version: ${chalk.cyan(versionInfo.version)}`),
-  ];
-
-  if (versionInfo.branch && versionInfo.branch !== 'local') {
-    summaryLines.push(chalk.white(`Branch: ${chalk.cyan(versionInfo.branch)}`));
-  }
-  if (versionInfo.commit) {
-    summaryLines.push(chalk.white(`Commit: ${chalk.cyan(versionInfo.commit)}`));
-  }
-
-  summaryLines.push(
+    chalk.white(`Version: ${chalk.cyan(version)}`),
     '',
     chalk.gray(`Files installed: ${totalFiles}`),
     chalk.gray(`Directories created: ${totalDirs}`),
     '',
     chalk.gray(`Manifest: ${basename(manifestPath)}`)
-  );
+  ];
 
   summaryBox({
     title: ' Installation Summary ',
@@ -227,177 +196,6 @@ export async function installCommand(options) {
   console.log(chalk.gray('  2. Run: ccw view - to open the workflow dashboard'));
   console.log(chalk.gray('  3. Run: ccw uninstall - to remove this installation'));
   console.log('');
-}
-
-/**
- * Select version and download from GitHub
- * @param {Object} options - Command options
- * @returns {Promise<Object|null>} - Download result or null if cancelled
- */
-async function selectAndDownloadVersion(options) {
-  console.log('');
-  divider();
-  info('Version Selection');
-  divider();
-  console.log('');
-
-  // Fetch version information
-  const spinner = createSpinner('Fetching version information...').start();
-
-  let latestRelease = null;
-  let latestCommit = null;
-  let recentReleases = [];
-
-  try {
-    [latestRelease, latestCommit, recentReleases] = await Promise.all([
-      fetchLatestRelease().catch(() => null),
-      fetchLatestCommit('main').catch(() => null),
-      fetchRecentReleases(5).catch(() => [])
-    ]);
-    spinner.succeed('Version information loaded');
-  } catch (err) {
-    spinner.warn('Could not fetch all version info');
-  }
-
-  console.log('');
-
-  // Build version choices
-  const choices = [];
-
-  // Option 1: Latest Stable
-  if (latestRelease) {
-    choices.push({
-      name: `${chalk.green('1)')} ${chalk.green.bold('Latest Stable')} ${chalk.cyan(latestRelease.tag)} ${chalk.gray(`(${latestRelease.date})`)} ${chalk.green('← Recommended')}`,
-      value: { type: 'stable', tag: '' }
-    });
-  } else {
-    choices.push({
-      name: `${chalk.green('1)')} ${chalk.green.bold('Latest Stable')} ${chalk.gray('(auto-detect)')} ${chalk.green('← Recommended')}`,
-      value: { type: 'stable', tag: '' }
-    });
-  }
-
-  // Option 2: Latest Development
-  if (latestCommit) {
-    choices.push({
-      name: `${chalk.yellow('2)')} ${chalk.yellow.bold('Latest Development')} ${chalk.gray(`main @ ${latestCommit.shortSha}`)} ${chalk.gray(`(${latestCommit.date})`)}`,
-      value: { type: 'latest', branch: 'main' }
-    });
-  } else {
-    choices.push({
-      name: `${chalk.yellow('2)')} ${chalk.yellow.bold('Latest Development')} ${chalk.gray('(main branch)')}`,
-      value: { type: 'latest', branch: 'main' }
-    });
-  }
-
-  // Option 3: Specific Version
-  choices.push({
-    name: `${chalk.cyan('3)')} ${chalk.cyan.bold('Specific Version')} ${chalk.gray('- Choose from available releases')}`,
-    value: { type: 'specific' }
-  });
-
-  // Option 4: Custom Branch
-  choices.push({
-    name: `${chalk.magenta('4)')} ${chalk.magenta.bold('Custom Branch')} ${chalk.gray('- Install from a specific branch')}`,
-    value: { type: 'branch' }
-  });
-
-  // Check if version was specified via CLI
-  if (options.version === 'stable') {
-    return await downloadVersion({ type: 'stable', tag: options.tag || '' });
-  } else if (options.version === 'latest') {
-    return await downloadVersion({ type: 'latest', branch: 'main' });
-  } else if (options.version === 'branch' && options.branch) {
-    return await downloadVersion({ type: 'branch', branch: options.branch });
-  }
-
-  // Interactive selection
-  const { versionChoice } = await inquirer.prompt([{
-    type: 'list',
-    name: 'versionChoice',
-    message: 'Select version to install:',
-    choices
-  }]);
-
-  // Handle specific version selection
-  if (versionChoice.type === 'specific') {
-    const tagChoices = recentReleases.length > 0
-      ? recentReleases.map(r => ({
-          name: `${r.tag} ${chalk.gray(`(${r.date})`)}`,
-          value: r.tag
-        }))
-      : [
-          { name: 'v3.2.0', value: 'v3.2.0' },
-          { name: 'v3.1.0', value: 'v3.1.0' },
-          { name: 'v3.0.1', value: 'v3.0.1' }
-        ];
-
-    tagChoices.push({
-      name: chalk.gray('Enter custom tag...'),
-      value: 'custom'
-    });
-
-    const { selectedTag } = await inquirer.prompt([{
-      type: 'list',
-      name: 'selectedTag',
-      message: 'Select release version:',
-      choices: tagChoices
-    }]);
-
-    let tag = selectedTag;
-    if (selectedTag === 'custom') {
-      const { customTag } = await inquirer.prompt([{
-        type: 'input',
-        name: 'customTag',
-        message: 'Enter version tag (e.g., v3.2.0):',
-        validate: (input) => input ? true : 'Tag is required'
-      }]);
-      tag = customTag;
-    }
-
-    return await downloadVersion({ type: 'stable', tag });
-  }
-
-  // Handle custom branch selection
-  if (versionChoice.type === 'branch') {
-    const { branchName } = await inquirer.prompt([{
-      type: 'input',
-      name: 'branchName',
-      message: 'Enter branch name:',
-      default: 'main',
-      validate: (input) => input ? true : 'Branch name is required'
-    }]);
-
-    return await downloadVersion({ type: 'branch', branch: branchName });
-  }
-
-  return await downloadVersion(versionChoice);
-}
-
-/**
- * Download specified version
- * @param {Object} versionChoice - Version selection
- * @returns {Promise<Object|null>} - Download result
- */
-async function downloadVersion(versionChoice) {
-  console.log('');
-  const spinner = createSpinner('Downloading from GitHub...').start();
-
-  try {
-    const result = await downloadAndExtract(versionChoice);
-    spinner.succeed(`Downloaded: ${result.version} (${result.branch})`);
-    return result;
-  } catch (err) {
-    spinner.fail('Download failed');
-    error(err.message);
-    console.log('');
-    warning('Common causes:');
-    console.log(chalk.gray('  • Network connection issues'));
-    console.log(chalk.gray('  • Invalid version tag or branch name'));
-    console.log(chalk.gray('  • GitHub API rate limit exceeded'));
-    console.log('');
-    return null;
-  }
 }
 
 /**
