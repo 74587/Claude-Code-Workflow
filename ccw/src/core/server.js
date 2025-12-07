@@ -1,6 +1,6 @@
 import http from 'http';
 import { URL } from 'url';
-import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, promises as fsPromises } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { createHash } from 'crypto';
@@ -136,6 +136,27 @@ export async function startServer(options = {}) {
           const removed = removeRecentPath(path);
           return { success: removed, paths: getRecentPaths() };
         });
+        return;
+      }
+
+      // API: Read a JSON file (for fix progress tracking)
+      if (pathname === '/api/file') {
+        const filePath = url.searchParams.get('path');
+        if (!filePath) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'File path is required' }));
+          return;
+        }
+
+        try {
+          const content = await fsPromises.readFile(filePath, 'utf-8');
+          const json = JSON.parse(content);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(json));
+        } catch (err) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'File not found or invalid JSON' }));
+        }
         return;
       }
 

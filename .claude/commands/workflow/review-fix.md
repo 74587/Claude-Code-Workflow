@@ -46,8 +46,7 @@ Automated fix orchestrator with **two-phase architecture**: AI-powered planning 
 1. **Intelligent Planning**: AI-powered analysis identifies optimal grouping and execution strategy
 2. **Multi-stage Coordination**: Supports complex parallel + serial execution with dependency management
 3. **Conservative Safety**: Mandatory test verification with automatic rollback on failure
-4. **Real-time Visibility**: Dashboard shows planning progress, stage timeline, and active agents
-5. **Resume Support**: Checkpoint-based recovery for interrupted sessions
+4. **Resume Support**: Checkpoint-based recovery for interrupted sessions
 
 ### Orchestrator Boundary (CRITICAL)
 - **ONLY command** for automated review finding fixes
@@ -59,14 +58,14 @@ Automated fix orchestrator with **two-phase architecture**: AI-powered planning 
 
 ```
 Phase 1: Discovery & Initialization
-   └─ Validate export file, create fix session structure, initialize state files → Generate fix-dashboard.html
+   └─ Validate export file, create fix session structure, initialize state files
 
 Phase 2: Planning Coordination (@cli-planning-agent)
    ├─ Analyze findings for patterns and dependencies
    ├─ Group by file + dimension + root cause similarity
    ├─ Determine execution strategy (parallel/serial/hybrid)
    ├─ Generate fix timeline with stages
-   └─ Output: fix-plan.json (dashboard auto-polls for status)
+   └─ Output: fix-plan.json
 
 Phase 3: Execution Orchestration (Stage-based)
    For each timeline stage:
@@ -198,12 +197,10 @@ if (result.passRate < 100%) {
 - Session creation: Generate fix-session-id (`fix-{timestamp}`)
 - Directory structure: Create `{review-dir}/fixes/{fix-session-id}/` with subdirectories
 - State files: Initialize active-fix-session.json (session marker)
-- Dashboard generation: Create fix-dashboard.html from template (see Dashboard Generation below)
 - TodoWrite initialization: Set up 4-phase tracking
 
 **Phase 2: Planning Coordination**
 - Launch @cli-planning-agent with findings data and project context
-- Monitor planning progress (dashboard shows "Planning fixes..." indicator)
 - Validate fix-plan.json output (schema conformance, includes metadata with session status)
 - Load plan into memory for execution phase
 - TodoWrite update: Mark planning complete, start execution
@@ -216,7 +213,6 @@ if (result.passRate < 100%) {
   - Assign agent IDs (agents update their fix-progress-{N}.json)
 - Handle agent failures gracefully (mark group as failed, continue)
 - Advance to next stage only when current stage complete
-- Dashboard polls and aggregates fix-progress-{N}.json files for display
 
 **Phase 4: Completion & Aggregation**
 - Collect final status from all fix-progress-{N}.json files
@@ -224,7 +220,7 @@ if (result.passRate < 100%) {
 - Update fix-history.json with new session entry
 - Remove active-fix-session.json
 - TodoWrite completion: Mark all phases done
-- Output summary to user with dashboard link
+- Output summary to user
 
 **Phase 5: Session Completion (Optional)**
 - If all findings fixed successfully (no failures):
@@ -234,53 +230,12 @@ if (result.passRate < 100%) {
   - Output: "Some findings failed. Review fix-summary.md before completing session."
   - Do NOT auto-complete session
 
-### Dashboard Generation
-
-**MANDATORY**: Dashboard MUST be generated from template during Phase 1 initialization
-
-**Template Location**: `~/.claude/templates/fix-dashboard.html`
-
-**⚠️ POST-GENERATION**: Orchestrator and agents MUST NOT read/write/modify fix-dashboard.html after creation
-
-**Generation Steps**:
-
-```bash
-# 1. Copy template to fix session directory
-cp ~/.claude/templates/fix-dashboard.html ${sessionDir}/fixes/${fixSessionId}/fix-dashboard.html
-
-# 2. Replace SESSION_ID placeholder
-sed -i "s|{{SESSION_ID}}|${sessionId}|g" ${sessionDir}/fixes/${fixSessionId}/fix-dashboard.html
-
-# 3. Replace REVIEW_DIR placeholder
-sed -i "s|{{REVIEW_DIR}}|${reviewDir}|g" ${sessionDir}/fixes/${fixSessionId}/fix-dashboard.html
-
-# 4. Start local server and output dashboard URL
-cd ${sessionDir}/fixes/${fixSessionId} && python -m http.server 8766 --bind 127.0.0.1 &
-echo "🔧 Fix Dashboard: http://127.0.0.1:8766/fix-dashboard.html"
-echo "   (Press Ctrl+C to stop server when done)"
-```
-
-**Dashboard Features**:
-- Real-time progress tracking via JSON polling (3-second interval)
-- Stage timeline visualization with parallel/serial execution modes
-- Active groups and agents monitoring
-- Flow control steps tracking for each agent
-- Fix history drawer with session summaries
-- Consumes new JSON structure (fix-plan.json with metadata + fix-progress-{N}.json)
-
-**JSON Consumption**:
-- `fix-plan.json`: Reads metadata field for session info, timeline stages, groups configuration
-- `fix-progress-{N}.json`: Polls all progress files to aggregate real-time status
-- `active-fix-session.json`: Detects active session on load
-- `fix-history.json`: Loads historical fix sessions
-
 ### Output File Structure
 
 ```
 .workflow/active/WFS-{session-id}/.review/
 ├── fix-export-{timestamp}.json     # Exported findings (input)
 └── fixes/{fix-session-id}/
-    ├── fix-dashboard.html          # Interactive dashboard (generated once, auto-polls JSON)
     ├── fix-plan.json               # Planning agent output (execution plan with metadata)
     ├── fix-progress-1.json         # Group 1 progress (planning agent init → agent updates)
     ├── fix-progress-2.json         # Group 2 progress (planning agent init → agent updates)
@@ -291,10 +246,8 @@ echo "   (Press Ctrl+C to stop server when done)"
 ```
 
 **File Producers**:
-- **Orchestrator**: `fix-dashboard.html` (generated once from template during Phase 1)
 - **Planning Agent**: `fix-plan.json` (with metadata), all `fix-progress-*.json` (initial state)
 - **Execution Agents**: Update assigned `fix-progress-{N}.json` in real-time
-- **Dashboard (Browser)**: Reads `fix-plan.json` + all `fix-progress-*.json`, aggregates in-memory every 3 seconds via JavaScript polling
 
 
 ### Agent Invocation Template
@@ -347,7 +300,7 @@ For each group (G1, G2, G3, ...), generate fix-progress-{N}.json following templ
 - Flow control: Empty implementation_approach array
 - Errors: Empty array
 
-**CRITICAL**: Ensure complete template structure for Dashboard consumption - all fields must be present.
+**CRITICAL**: Ensure complete template structure - all fields must be present.
 
 ## Analysis Requirements
 
@@ -419,7 +372,7 @@ Task({
   description: `Fix ${group.findings.length} issues: ${group.group_name}`,
   prompt: `
 ## Task Objective
-Execute fixes for code review findings in group ${group.group_id}. Update progress file in real-time with flow control tracking for dashboard visibility.
+Execute fixes for code review findings in group ${group.group_id}. Update progress file in real-time with flow control tracking.
 
 ## Assignment
 - Group ID: ${group.group_id}
@@ -549,7 +502,6 @@ When all findings processed:
 
 ### Progress File Updates
 - **MUST update after every significant action** (before/after each step)
-- **Dashboard polls every 3 seconds** - ensure writes are atomic
 - **Always maintain complete structure** - never write partial updates
 - **Use ISO 8601 timestamps** - e.g., "2025-01-25T14:36:00Z"
 
@@ -638,9 +590,17 @@ TodoWrite({
 1. **Trust AI Planning**: Planning agent's grouping and execution strategy are based on dependency analysis
 2. **Conservative Approach**: Test verification is mandatory - no fixes kept without passing tests
 3. **Parallel Efficiency**: Default 3 concurrent agents balances speed and resource usage
-4. **Monitor Dashboard**: Real-time stage timeline and agent status provide execution visibility
-5. **Resume Support**: Fix sessions can resume from checkpoints after interruption
-6. **Manual Review**: Always review failed fixes manually - may require architectural changes
-7. **Incremental Fixing**: Start with small batches (5-10 findings) before large-scale fixes
+4. **Resume Support**: Fix sessions can resume from checkpoints after interruption
+5. **Manual Review**: Always review failed fixes manually - may require architectural changes
+6. **Incremental Fixing**: Start with small batches (5-10 findings) before large-scale fixes
+
+## Related Commands
+
+### View Fix Progress
+Use `ccw view` to open the workflow dashboard in browser:
+
+```bash
+ccw view
+```
 
 

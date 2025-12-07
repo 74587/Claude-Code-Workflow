@@ -121,6 +121,9 @@ function renderReviewSessionDetailPage(session) {
 
       </div>
 
+      <!-- Fix Progress Section (dynamically populated) -->
+      <div id="fixProgressSection" class="fix-progress-section-container"></div>
+
       <!-- Enhanced Findings Section -->
       <div class="review-enhanced-container">
         <!-- Header with Stats & Controls -->
@@ -697,6 +700,11 @@ function initReviewSessionPage(session) {
   // Reset state when page loads
   reviewSessionState.session = session;
   // Event handlers are inline onclick - no additional setup needed
+
+  // Start fix progress polling if in server mode
+  if (window.SERVER_MODE && session?.session_id) {
+    startFixProgressPolling(session.session_id);
+  }
 }
 
 // Legacy filter function for compatibility
@@ -708,4 +716,315 @@ function filterReviewFindings(severity) {
     reviewSessionState.currentFilters.severities.add(severity);
   }
   applyReviewSessionFilters();
+}
+
+// ==========================================
+// FIX PROGRESS TRACKING
+// ==========================================
+
+// Fix progress state
+let fixProgressState = {
+  fixPlan: null,
+  progressData: null,
+  pollInterval: null,
+  currentSlide: 0
+};
+
+/**
+ * Discover and load fix-plan.json for the current review session
+ * Searches in: .review/fixes/{fix-session-id}/fix-plan.json
+ */
+async function loadFixProgress(sessionId) {
+  if (!window.SERVER_MODE) {
+    return null;
+  }
+
+  try {
+    // First, discover active fix session
+    const activeFixResponse = await fetch(`/api/file?path=${encodeURIComponent(projectPath + '/.review/fixes/active-fix-session.json')}`);
+    if (!activeFixResponse.ok) {
+      return null;
+    }
+    const activeFixSession = await activeFixResponse.json();
+    const fixSessionId = activeFixSession.fix_session_id;
+
+    // Load fix-plan.json
+    const planPath = `${projectPath}/.review/fixes/${fixSessionId}/fix-plan.json`;
+    const planResponse = await fetch(`/api/file?path=${encodeURIComponent(planPath)}`);
+    if (!planResponse.ok) {
+      return null;
+    }
+    const fixPlan = await planResponse.json();
+
+    // Load progress files for each group
+    const progressPromises = (fixPlan.groups || []).map(async (group) => {
+      const progressPath = `${projectPath}/.review/fixes/${fixSessionId}/${group.progress_file}`;
+      try {
+        const response = await fetch(`/api/file?path=${encodeURIComponent(progressPath)}`);
+        return response.ok ? await response.json() : null;
+      } catch {
+        return null;
+      }
+    });
+    const progressDataArray = await Promise.all(progressPromises);
+
+    // Aggregate progress data
+    const aggregated = aggregateFixProgress(fixPlan, progressDataArray.filter(d => d !== null));
+
+    fixProgressState.fixPlan = fixPlan;
+    fixProgressState.progressData = aggregated;
+
+    return aggregated;
+  } catch (err) {
+    console.error('Failed to load fix progress:', err);
+    return null;
+  }
+}
+
+/**
+ * Aggregate progress from multiple group progress files
+ */
+function aggregateFixProgress(fixPlan, progressDataArray) {
+  let totalFindings = 0;
+  let fixedCount = 0;
+  let failedCount = 0;
+  let inProgressCount = 0;
+  let pendingCount = 0;
+  const activeAgents = [];
+
+  progressDataArray.forEach(progress => {
+    if (progress.findings) {
+      progress.findings.forEach(f => {
+        totalFindings++;
+        if (f.result === 'fixed') fixedCount++;
+        else if (f.result === 'failed') failedCount++;
+        else if (f.status === 'in-progress') inProgressCount++;
+        else pendingCount++;
+      });
+    }
+    if (progress.assigned_agent && progress.status === 'in-progress') {
+      activeAgents.push({
+        agent_id: progress.assigned_agent,
+        group_id: progress.group_id,
+        current_finding: progress.current_finding
+      });
+    }
+  });
+
+  // Determine phase
+  let phase = 'planning';
+  if (fixPlan.metadata?.status === 'executing' || inProgressCount > 0 || fixedCount > 0 || failedCount > 0) {
+    phase = 'execution';
+  }
+  if (totalFindings > 0 && pendingCount === 0 && inProgressCount === 0) {
+    phase = 'completion';
+  }
+
+  // Calculate stage progress
+  const stages = (fixPlan.timeline?.stages || []).map(stage => {
+    const groupStatuses = stage.groups.map(groupId => {
+      const progress = progressDataArray.find(p => p.group_id === groupId);
+      return progress ? progress.status : 'pending';
+    });
+    let status = 'pending';
+    if (groupStatuses.every(s => s === 'completed' || s === 'failed')) status = 'completed';
+    else if (groupStatuses.some(s => s === 'in-progress')) status = 'in-progress';
+    return { stage: stage.stage, status, groups: stage.groups };
+  });
+
+  const currentStage = stages.findIndex(s => s.status === 'in-progress' || s.status === 'pending') + 1 || stages.length;
+  const percentComplete = totalFindings > 0 ? ((fixedCount + failedCount) / totalFindings) * 100 : 0;
+
+  return {
+    fix_session_id: fixPlan.metadata?.fix_session_id,
+    phase,
+    total_findings: totalFindings,
+    fixed_count: fixedCount,
+    failed_count: failedCount,
+    in_progress_count: inProgressCount,
+    pending_count: pendingCount,
+    percent_complete: percentComplete,
+    current_stage: currentStage,
+    total_stages: stages.length,
+    stages,
+    active_agents: activeAgents
+  };
+}
+
+/**
+ * Render fix progress tracking card (carousel style)
+ */
+function renderFixProgressCard(progressData) {
+  if (!progressData) {
+    return '';
+  }
+
+  const { phase, total_findings, fixed_count, failed_count, in_progress_count, pending_count, percent_complete, current_stage, total_stages, stages, active_agents, fix_session_id } = progressData;
+
+  // Phase badge class
+  const phaseClass = phase === 'planning' ? 'phase-planning' : phase === 'execution' ? 'phase-execution' : 'phase-completion';
+  const phaseIcon = phase === 'planning' ? '📝' : phase === 'execution' ? '⚡' : '✅';
+
+  // Build stage dots
+  const stageDots = stages.map((s, i) => {
+    const dotClass = s.status === 'completed' ? 'completed' : s.status === 'in-progress' ? 'active' : '';
+    return `<span class="fix-stage-dot ${dotClass}" title="Stage ${i + 1}: ${s.status}"></span>`;
+  }).join('');
+
+  // Build carousel slides
+  const slides = [];
+
+  // Slide 1: Overview
+  slides.push(`
+    <div class="fix-carousel-slide">
+      <div class="fix-slide-header">
+        <span class="fix-phase-badge ${phaseClass}">${phaseIcon} ${phase.toUpperCase()}</span>
+        <span class="fix-session-id">${fix_session_id || 'Fix Session'}</span>
+      </div>
+      <div class="fix-progress-bar-mini">
+        <div class="fix-progress-fill" style="width: ${percent_complete}%"></div>
+      </div>
+      <div class="fix-progress-text">${percent_complete.toFixed(0)}% Complete · Stage ${current_stage}/${total_stages}</div>
+    </div>
+  `);
+
+  // Slide 2: Stats
+  slides.push(`
+    <div class="fix-carousel-slide">
+      <div class="fix-stats-row">
+        <div class="fix-stat">
+          <span class="fix-stat-value">${total_findings}</span>
+          <span class="fix-stat-label">Total</span>
+        </div>
+        <div class="fix-stat fixed">
+          <span class="fix-stat-value">${fixed_count}</span>
+          <span class="fix-stat-label">Fixed</span>
+        </div>
+        <div class="fix-stat failed">
+          <span class="fix-stat-value">${failed_count}</span>
+          <span class="fix-stat-label">Failed</span>
+        </div>
+        <div class="fix-stat pending">
+          <span class="fix-stat-value">${pending_count + in_progress_count}</span>
+          <span class="fix-stat-label">Pending</span>
+        </div>
+      </div>
+    </div>
+  `);
+
+  // Slide 3: Active agents (if any)
+  if (active_agents.length > 0) {
+    const agentItems = active_agents.slice(0, 2).map(a => `
+      <div class="fix-agent-item">
+        <span class="fix-agent-icon">🤖</span>
+        <span class="fix-agent-info">${a.current_finding?.finding_title || 'Working...'}</span>
+      </div>
+    `).join('');
+    slides.push(`
+      <div class="fix-carousel-slide">
+        <div class="fix-agents-header">${active_agents.length} Active Agent${active_agents.length > 1 ? 's' : ''}</div>
+        ${agentItems}
+      </div>
+    `);
+  }
+
+  // Build carousel navigation
+  const navDots = slides.map((_, i) => `
+    <span class="fix-nav-dot ${i === 0 ? 'active' : ''}" onclick="navigateFixCarousel(${i})"></span>
+  `).join('');
+
+  return `
+    <div class="fix-progress-card" id="fixProgressCard">
+      <div class="fix-card-header">
+        <span class="fix-card-title">🔧 Fix Progress</span>
+        <div class="fix-stage-dots">${stageDots}</div>
+      </div>
+      <div class="fix-carousel-container">
+        <div class="fix-carousel-track" id="fixCarouselTrack">
+          ${slides.join('')}
+        </div>
+      </div>
+      <div class="fix-carousel-nav">
+        <button class="fix-nav-btn prev" onclick="navigateFixCarousel('prev')">‹</button>
+        <div class="fix-nav-dots">${navDots}</div>
+        <button class="fix-nav-btn next" onclick="navigateFixCarousel('next')">›</button>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Navigate fix progress carousel
+ */
+function navigateFixCarousel(direction) {
+  const track = document.getElementById('fixCarouselTrack');
+  if (!track) return;
+
+  const slides = track.querySelectorAll('.fix-carousel-slide');
+  const totalSlides = slides.length;
+
+  if (typeof direction === 'number') {
+    fixProgressState.currentSlide = direction;
+  } else if (direction === 'next') {
+    fixProgressState.currentSlide = (fixProgressState.currentSlide + 1) % totalSlides;
+  } else if (direction === 'prev') {
+    fixProgressState.currentSlide = (fixProgressState.currentSlide - 1 + totalSlides) % totalSlides;
+  }
+
+  track.style.transform = `translateX(-${fixProgressState.currentSlide * 100}%)`;
+
+  // Update nav dots
+  document.querySelectorAll('.fix-nav-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === fixProgressState.currentSlide);
+  });
+}
+
+/**
+ * Start polling for fix progress updates
+ */
+function startFixProgressPolling(sessionId) {
+  if (fixProgressState.pollInterval) {
+    clearInterval(fixProgressState.pollInterval);
+  }
+
+  // Initial load
+  loadFixProgress(sessionId).then(data => {
+    if (data) {
+      updateFixProgressUI(data);
+    }
+  });
+
+  // Poll every 5 seconds
+  fixProgressState.pollInterval = setInterval(async () => {
+    const data = await loadFixProgress(sessionId);
+    if (data) {
+      updateFixProgressUI(data);
+      // Stop polling if completed
+      if (data.phase === 'completion') {
+        clearInterval(fixProgressState.pollInterval);
+        fixProgressState.pollInterval = null;
+      }
+    }
+  }, 5000);
+}
+
+/**
+ * Update fix progress UI
+ */
+function updateFixProgressUI(progressData) {
+  const container = document.getElementById('fixProgressSection');
+  if (!container) return;
+
+  container.innerHTML = renderFixProgressCard(progressData);
+  fixProgressState.currentSlide = 0;
+}
+
+/**
+ * Stop fix progress polling
+ */
+function stopFixProgressPolling() {
+  if (fixProgressState.pollInterval) {
+    clearInterval(fixProgressState.pollInterval);
+    fixProgressState.pollInterval = null;
+  }
 }

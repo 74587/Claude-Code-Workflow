@@ -45,13 +45,11 @@ Session-based multi-dimensional code review orchestrator with **hybrid parallel-
 1. **Comprehensive Coverage**: 7 specialized dimensions analyze all quality aspects simultaneously
 2. **Intelligent Prioritization**: Automatic identification of critical issues and cross-cutting concerns
 3. **Actionable Insights**: Deep-dive iterations provide step-by-step remediation plans
-4. **Real-time Visibility**: JSON-based progress tracking with interactive HTML dashboard
 
 ### Orchestrator Boundary (CRITICAL)
 - **ONLY command** for comprehensive multi-dimensional review
 - Manages: dimension coordination, aggregation, iteration control, progress tracking
 - Delegates: Code exploration and analysis to @cli-explore-agent, dimension-specific reviews via Deep Scan mode
-- **⚠️ DASHBOARD CONSTRAINT**: Dashboard is generated ONCE during Phase 1 initialization. After initialization, orchestrator and agents MUST NOT read, write, or modify dashboard.html - it remains static for user interaction only.
 
 ## How It Works
 
@@ -59,7 +57,7 @@ Session-based multi-dimensional code review orchestrator with **hybrid parallel-
 
 ```
 Phase 1: Discovery & Initialization
-   └─ Validate session, initialize state, create output structure → Generate dashboard.html
+   └─ Validate session, initialize state, create output structure
 
 Phase 2: Parallel Reviews (for each dimension)
    ├─ Launch 7 review agents simultaneously
@@ -83,7 +81,7 @@ Phase 4: Iterative Deep-Dive (optional)
    └─ Loop until no critical findings OR max iterations
 
 Phase 5: Completion
-   └─ Finalize review-progress.json → Output dashboard path
+   └─ Finalize review-progress.json
 ```
 
 ### Agent Roles
@@ -199,36 +197,9 @@ git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u
 
 **Step 5: Initialize Review State**
 - State initialization: Create `review-state.json` with metadata, dimensions, max_iterations (merged metadata + state)
-- Progress tracking: Create `review-progress.json` for dashboard polling
+- Progress tracking: Create `review-progress.json` for progress tracking
 
-**Step 6: Dashboard Generation**
-
-**Constraints**:
-- **MANDATORY**: Dashboard MUST be generated from template: `~/.claude/templates/review-cycle-dashboard.html`
-- **PROHIBITED**: Direct creation or custom generation without template
-- **POST-GENERATION**: Orchestrator and agents MUST NOT read/write/modify dashboard.html after creation
-
-**Generation Commands** (3 independent steps):
-```bash
-# Step 1: Copy template to output location
-cp ~/.claude/templates/review-cycle-dashboard.html ${sessionDir}/.review/dashboard.html
-
-# Step 2: Replace SESSION_ID placeholder
-sed -i "s|{{SESSION_ID}}|${sessionId}|g" ${sessionDir}/.review/dashboard.html
-
-# Step 3: Replace REVIEW_TYPE placeholder
-sed -i "s|{{REVIEW_TYPE}}|session|g" ${sessionDir}/.review/dashboard.html
-
-# Step 4: Replace REVIEW_DIR placeholder
-sed -i "s|{{REVIEW_DIR}}|${reviewDir}|g" ${sessionDir}/.review/dashboard.html
-
-# Output: Start local server and output dashboard URL
-cd ${sessionDir}/.review && python -m http.server 8765 --bind 127.0.0.1 &
-echo "📊 Dashboard: http://127.0.0.1:8765/dashboard.html"
-echo "   (Press Ctrl+C to stop server when done)"
-```
-
-**Step 7: TodoWrite Initialization**
+**Step 6: TodoWrite Initialization**
 - Set up progress tracking with hierarchical structure
 - Mark Phase 1 completed, Phase 2 in_progress
 
@@ -259,7 +230,6 @@ echo "   (Press Ctrl+C to stop server when done)"
 - Finalize review-progress.json with completion statistics
 - Update review-state.json with completion_time and phase=complete
 - TodoWrite completion: Mark all tasks done
-- Output: Dashboard path to user
 
 
 
@@ -280,12 +250,11 @@ echo "   (Press Ctrl+C to stop server when done)"
 ├── iterations/                          # Deep-dive results
 │   ├── iteration-1-finding-{uuid}.json
 │   └── iteration-2-finding-{uuid}.json
-├── reports/                             # Human-readable reports
-│   ├── security-analysis.md
-│   ├── security-cli-output.txt
-│   ├── deep-dive-1-{uuid}.md
-│   └── ...
-└── dashboard.html                       # Interactive dashboard (primary output)
+└── reports/                             # Human-readable reports
+    ├── security-analysis.md
+    ├── security-cli-output.txt
+    ├── deep-dive-1-{uuid}.md
+    └── ...
 ```
 
 **Session Context**:
@@ -782,23 +751,25 @@ TodoWrite({
 2. **Parallel Execution**: ~60 minutes for full initial review (7 dimensions)
 3. **Trust Aggregation Logic**: Auto-selection based on proven heuristics
 4. **Monitor Logs**: Check reports/ directory for CLI analysis insights
-5. **Dashboard Polling**: Refresh every 5 seconds for real-time updates
-6. **Export Results**: Use dashboard export for external tracking tools
 
 ## Related Commands
 
+### View Review Progress
+Use `ccw view` to open the review dashboard in browser:
+
+```bash
+ccw view
+```
+
 ### Automated Fix Workflow
-After completing a review, use the dashboard to select findings and export them for automated fixing:
+After completing a review, use the generated findings JSON for automated fixing:
 
 ```bash
 # Step 1: Complete review (this command)
 /workflow:review-session-cycle
 
-# Step 2: Open dashboard, select findings, and export
-# Dashboard generates: fix-export-{timestamp}.json
-
-# Step 3: Run automated fixes
-/workflow:review-fix .workflow/active/WFS-{session-id}/.review/fix-export-{timestamp}.json
+# Step 2: Run automated fixes using dimension findings
+/workflow:review-fix .workflow/active/WFS-{session-id}/.review/
 ```
 
 See `/workflow:review-fix` for automated fixing with smart grouping, parallel execution, and test verification.

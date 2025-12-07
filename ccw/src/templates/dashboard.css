@@ -7658,3 +7658,274 @@ code.ctx-meta-chip-value {
   font-size: 0.7rem;
   color: hsl(var(--muted-foreground));
 }
+
+/* ===================================
+   Fix Progress Tracking Card (Carousel)
+   =================================== */
+
+.fix-progress-section-container {
+  margin-bottom: 1rem;
+}
+
+.fix-progress-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.fix-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.fix-card-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: hsl(var(--foreground));
+}
+
+.fix-stage-dots {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.fix-stage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: hsl(var(--muted));
+  transition: all 0.2s ease;
+}
+
+.fix-stage-dot.active {
+  background: hsl(var(--primary));
+  animation: pulse-dot 1.5s infinite;
+}
+
+.fix-stage-dot.completed {
+  background: hsl(var(--success));
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+/* Carousel Container */
+.fix-carousel-container {
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.fix-carousel-track {
+  display: flex;
+  transition: transform 0.3s ease;
+}
+
+.fix-carousel-slide {
+  min-width: 100%;
+  padding: 0.5rem;
+}
+
+/* Slide Header */
+.fix-slide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.fix-phase-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.fix-phase-badge.phase-planning {
+  background: hsl(270 60% 90%);
+  color: hsl(270 60% 40%);
+}
+
+.fix-phase-badge.phase-execution {
+  background: hsl(220 80% 90%);
+  color: hsl(220 80% 40%);
+  animation: pulse-badge 2s infinite;
+}
+
+.fix-phase-badge.phase-completion {
+  background: hsl(var(--success-light));
+  color: hsl(var(--success));
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.fix-session-id {
+  font-size: 0.7rem;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono);
+}
+
+/* Progress Bar Mini */
+.fix-progress-bar-mini {
+  height: 6px;
+  background: hsl(var(--muted));
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.fix-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--success)));
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.fix-progress-text {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+}
+
+/* Stats Row (Slide 2) */
+.fix-stats-row {
+  display: flex;
+  justify-content: space-around;
+  padding: 0.5rem 0;
+}
+
+.fix-stat {
+  text-align: center;
+}
+
+.fix-stat-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+.fix-stat-label {
+  display: block;
+  font-size: 0.65rem;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+}
+
+.fix-stat.fixed .fix-stat-value {
+  color: hsl(var(--success));
+}
+
+.fix-stat.failed .fix-stat-value {
+  color: hsl(var(--destructive));
+}
+
+.fix-stat.pending .fix-stat-value {
+  color: hsl(var(--warning));
+}
+
+/* Active Agents (Slide 3) */
+.fix-agents-header {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.5rem;
+}
+
+.fix-agent-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  background: hsl(var(--muted));
+  border-radius: 0.25rem;
+  margin-bottom: 0.375rem;
+}
+
+.fix-agent-item:last-child {
+  margin-bottom: 0;
+}
+
+.fix-agent-icon {
+  font-size: 0.875rem;
+  animation: spin-agent 2s linear infinite;
+}
+
+@keyframes spin-agent {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.fix-agent-info {
+  font-size: 0.75rem;
+  color: hsl(var(--foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Carousel Navigation */
+.fix-carousel-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.fix-nav-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.fix-nav-btn:hover {
+  background: hsl(var(--hover));
+  color: hsl(var(--foreground));
+}
+
+.fix-nav-dots {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.fix-nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--muted));
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fix-nav-dot:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+.fix-nav-dot.active {
+  background: hsl(var(--primary));
+  width: 16px;
+  border-radius: 3px;
+}
