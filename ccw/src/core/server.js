@@ -6,7 +6,7 @@ import { homedir } from 'os';
 import { createHash } from 'crypto';
 import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
-import { resolvePath, getRecentPaths, trackRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
+import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
 
 // Claude config file path
 const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
@@ -120,6 +120,19 @@ export async function startServer(options = {}) {
         const paths = getRecentPaths();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ paths }));
+        return;
+      }
+
+      // API: Remove a recent path
+      if (pathname === '/api/remove-recent-path' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { path } = body;
+          if (!path) {
+            return { error: 'path is required', status: 400 };
+          }
+          const removed = removeRecentPath(path);
+          return { success: removed, paths: getRecentPaths() };
+        });
         return;
       }
 
@@ -610,58 +623,92 @@ async function getSessionDetailData(sessionPath, dataType) {
       }
     }
 
-    // Load explorations for lite tasks (exploration-*.json files)
+    // Load explorations (exploration-*.json files) - check .process/ first, then session root
     if (dataType === 'context' || dataType === 'explorations' || dataType === 'all') {
       result.explorations = { manifest: null, data: {} };
 
-      // Look for explorations-manifest.json
-      const manifestFile = join(normalizedPath, 'explorations-manifest.json');
-      if (existsSync(manifestFile)) {
-        try {
-          result.explorations.manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+      // Try .process/ first (standard workflow sessions), then session root (lite tasks)
+      const searchDirs = [
+        join(normalizedPath, '.process'),
+        normalizedPath
+      ];
 
-          // Load each exploration file based on manifest
-          const explorations = result.explorations.manifest.explorations || [];
-          for (const exp of explorations) {
-            const expFile = join(normalizedPath, exp.file);
-            if (existsSync(expFile)) {
-              try {
-                result.explorations.data[exp.angle] = JSON.parse(readFileSync(expFile, 'utf8'));
-              } catch (e) {
-                // Skip unreadable exploration files
+      for (const searchDir of searchDirs) {
+        if (!existsSync(searchDir)) continue;
+
+        // Look for explorations-manifest.json
+        const manifestFile = join(searchDir, 'explorations-manifest.json');
+        if (existsSync(manifestFile)) {
+          try {
+            result.explorations.manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+
+            // Load each exploration file based on manifest
+            const explorations = result.explorations.manifest.explorations || [];
+            for (const exp of explorations) {
+              const expFile = join(searchDir, exp.file);
+              if (existsSync(expFile)) {
+                try {
+                  result.explorations.data[exp.angle] = JSON.parse(readFileSync(expFile, 'utf8'));
+                } catch (e) {
+                  // Skip unreadable exploration files
+                }
               }
             }
+            break; // Found manifest, stop searching
+          } catch (e) {
+            result.explorations.manifest = null;
           }
-        } catch (e) {
-          result.explorations.manifest = null;
+        } else {
+          // Fallback: scan for exploration-*.json files directly
+          try {
+            const files = readdirSync(searchDir).filter(f => f.startsWith('exploration-') && f.endsWith('.json'));
+            if (files.length > 0) {
+              // Create synthetic manifest
+              result.explorations.manifest = {
+                exploration_count: files.length,
+                explorations: files.map((f, i) => ({
+                  angle: f.replace('exploration-', '').replace('.json', ''),
+                  file: f,
+                  index: i + 1
+                }))
+              };
+
+              // Load each file
+              for (const file of files) {
+                const angle = file.replace('exploration-', '').replace('.json', '');
+                try {
+                  result.explorations.data[angle] = JSON.parse(readFileSync(join(searchDir, file), 'utf8'));
+                } catch (e) {
+                  // Skip unreadable files
+                }
+              }
+              break; // Found explorations, stop searching
+            }
+          } catch (e) {
+            // Directory read failed
+          }
         }
-      } else {
-        // Fallback: scan for exploration-*.json files directly
-        try {
-          const files = readdirSync(normalizedPath).filter(f => f.startsWith('exploration-') && f.endsWith('.json'));
-          if (files.length > 0) {
-            // Create synthetic manifest
-            result.explorations.manifest = {
-              exploration_count: files.length,
-              explorations: files.map((f, i) => ({
-                angle: f.replace('exploration-', '').replace('.json', ''),
-                file: f,
-                index: i + 1
-              }))
-            };
+      }
+    }
 
-            // Load each file
-            for (const file of files) {
-              const angle = file.replace('exploration-', '').replace('.json', '');
-              try {
-                result.explorations.data[angle] = JSON.parse(readFileSync(join(normalizedPath, file), 'utf8'));
-              } catch (e) {
-                // Skip unreadable files
-              }
-            }
+    // Load conflict resolution decisions (conflict-resolution-decisions.json)
+    if (dataType === 'context' || dataType === 'conflict' || dataType === 'all') {
+      result.conflictResolution = null;
+
+      // Try .process/ first (standard workflow sessions)
+      const conflictFiles = [
+        join(normalizedPath, '.process', 'conflict-resolution-decisions.json'),
+        join(normalizedPath, 'conflict-resolution-decisions.json')
+      ];
+
+      for (const conflictFile of conflictFiles) {
+        if (existsSync(conflictFile)) {
+          try {
+            result.conflictResolution = JSON.parse(readFileSync(conflictFile, 'utf8'));
+            break; // Found file, stop searching
+          } catch (e) {
+            // Skip unreadable file
           }
-        } catch (e) {
-          // Directory read failed
         }
       }
     }

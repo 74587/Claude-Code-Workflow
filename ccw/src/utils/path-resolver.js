@@ -252,3 +252,28 @@ export function clearRecentPaths() {
     // Ignore errors
   }
 }
+
+/**
+ * Remove a specific path from recent paths
+ * @param {string} pathToRemove - Path to remove
+ * @returns {boolean} - True if removed, false if not found
+ */
+export function removeRecentPath(pathToRemove) {
+  try {
+    const normalized = normalizePathForDisplay(resolvePath(pathToRemove));
+    let paths = getRecentPaths();
+    const originalLength = paths.length;
+
+    // Filter out the path to remove
+    paths = paths.filter(p => normalizePathForDisplay(p) !== normalized);
+
+    if (paths.length < originalLength) {
+      // Save updated list
+      writeFileSync(RECENT_PATHS_FILE, JSON.stringify({ paths }, null, 2), 'utf8');
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}

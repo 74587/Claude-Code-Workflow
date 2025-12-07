@@ -118,11 +118,55 @@ function refreshRecentPaths() {
   recentPaths.forEach(path => {
     const item = document.createElement('div');
     item.className = 'path-item' + (path === projectPath ? ' active' : '');
-    item.textContent = path;
     item.dataset.path = path;
-    item.addEventListener('click', () => selectPath(path));
+
+    // Path text
+    const pathText = document.createElement('span');
+    pathText.className = 'path-text';
+    pathText.textContent = path;
+    pathText.addEventListener('click', () => selectPath(path));
+    item.appendChild(pathText);
+
+    // Delete button (only for non-current paths)
+    if (path !== projectPath) {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'path-delete-btn';
+      deleteBtn.innerHTML = '×';
+      deleteBtn.title = 'Remove from recent';
+      deleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await removeRecentPathFromList(path);
+      });
+      item.appendChild(deleteBtn);
+    }
+
     recentContainer.appendChild(item);
   });
+}
+
+/**
+ * Remove a path from recent paths list
+ */
+async function removeRecentPathFromList(path) {
+  try {
+    const response = await fetch('/api/remove-recent-path', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        recentPaths = data.paths;
+        refreshRecentPaths();
+        showRefreshToast('Path removed', 'success');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to remove path:', err);
+    showRefreshToast('Failed to remove path', 'error');
+  }
 }
 
 // ========== File System Access ==========

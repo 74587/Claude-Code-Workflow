@@ -408,12 +408,15 @@ async function loadAndRenderContextTab(session, contentArea) {
   contentArea.innerHTML = '<div class="tab-loading">Loading context data...</div>';
 
   try {
-    // Try to load context-package.json from server
+    // Try to load context data from server (includes context, explorations, conflictResolution)
     if (window.SERVER_MODE && session.path) {
       const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=context`);
       if (response.ok) {
         const data = await response.json();
-        contentArea.innerHTML = renderContextContent(data.context);
+        contentArea.innerHTML = renderSessionContextContent(data.context, data.explorations, data.conflictResolution);
+
+        // Initialize collapsible sections for explorations
+        initCollapsibleSections(contentArea);
         return;
       }
     }
