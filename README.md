@@ -2,7 +2,8 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.9.6-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -12,16 +13,15 @@
 
 ---
 
-**Claude Code Workflow (CCW)** transforms AI development from simple prompt chaining into a powerful, context-first orchestration system. It solves execution uncertainty and error accumulation through structured planning, deterministic execution, and intelligent multi-model orchestration.
+**Claude Code Workflow (CCW)** is a JSON-driven multi-agent development framework with intelligent CLI orchestration (Gemini/Qwen/Codex), context-first architecture, and automated workflow execution. It transforms AI development from simple prompt chaining into a powerful orchestration system.
 
-> **🎉 Version 5.9.6: Review Cycle Enhancement & Dashboard Automation**
+> **🎉 Version 6.0.0: npm Package & Simplified Installation**
 >
 > **Core Improvements**:
-> - ✨ **Enhanced Review Dashboard**: The `review-cycle` dashboard now supports real-time progress tracking and advanced filtering for better visibility into code reviews.
-> - 🎯 **New Fix-Tracking Dashboard**: Introduced a new, independent `fix-dashboard.html` to monitor the progress of bug fixes with rich data integration.
-> - 🚀 **`lite-fix` Workflow**: Added a new `lite-fix` command for intelligent, streamlined bug diagnosis and resolution.
-> - 🛠️ **`lite-plan` Optimization**: Significantly optimized the `lite-plan` workflow with cost-aware parallel execution, better complexity analysis, and robust context protection.
-> - 🧠 **Intelligent Test Cycles**: Improved the `test-cycle-execute` command with smart iteration strategies and a universal `@test-fix-agent` for more effective testing.
+> - 📦 **npm Package**: Now available as `claude-code-workflow` on npm for simplified global installation
+> - 🖥️ **CCW CLI Tool**: New `ccw` command with dashboard viewer, installation management, and workflow visualization
+> - 🎯 **Simplified Install Flow**: Unified installation via npm with local-only operation (no GitHub API dependency)
+> - ✨ **Enhanced Dashboard**: MCP manager, review session improvements, and UI enhancements
 >
 > See [CHANGELOG.md](CHANGELOG.md) for complete details.
 
@@ -44,9 +44,26 @@ CCW is built on a set of core principles that distinguish it from traditional AI
 
 ## ⚙️ Installation
 
-For detailed installation instructions, refer to the [**INSTALL.md**](INSTALL.md) guide.
+### **📦 npm Install (Recommended)**
 
-### **🚀 One-Click Quick Install**
+Install globally via npm:
+```bash
+npm install -g claude-code-workflow
+```
+
+Then install workflow files to your system:
+```bash
+# Interactive installation
+ccw install
+
+# Global installation (to ~/.claude)
+ccw install -m Global
+
+# Project-specific installation
+ccw install -m Path -p /path/to/project
+```
+
+### **🚀 Alternative: One-Click Script Install**
 
 **Windows (PowerShell):**
 ```powershell
@@ -64,6 +81,55 @@ After installation, open **Claude Code** and verify that workflow commands are a
 /workflow:session:list
 ```
 If slash commands (e.g., `/workflow:*`) are recognized, the installation was successful.
+
+---
+
+## 🖥️ CCW CLI Tool
+
+The `ccw` command provides a powerful CLI for managing your Claude Code Workflow installation:
+
+### **Commands**
+
+| Command | Description |
+|---------|-------------|
+| `ccw install` | Install workflow files to Global (~/.claude) or specific Path |
+| `ccw upgrade` | Upgrade existing installations to current package version |
+| `ccw uninstall` | Remove workflow files from an installation |
+| `ccw view` | Open the workflow dashboard in browser |
+| `ccw serve` | Start dashboard server without opening browser |
+| `ccw list` | List all managed installations |
+
+### **Usage Examples**
+
+```bash
+# Install globally
+ccw install -m Global
+
+# Install to specific project
+ccw install -m Path -p ./my-project
+
+# Open dashboard
+ccw view
+
+# Start dashboard server on custom port
+ccw serve -p 8080
+
+# Upgrade all installations
+ccw upgrade -a
+
+# List installations
+ccw list
+```
+
+### **Dashboard Features**
+
+The CCW Dashboard (`ccw view`) provides:
+- 📊 **Session Overview**: View all workflow sessions with status and progress
+- 📋 **Task Management**: Track task execution and completion
+- 🔍 **Review Sessions**: Manage code review cycles
+- ⚙️ **MCP Manager**: Configure and monitor MCP servers
+- 🪝 **Hook Manager**: Manage Claude Code hooks
+- 📁 **Project Explorer**: Navigate project structure and artifacts
 
 ---
 
