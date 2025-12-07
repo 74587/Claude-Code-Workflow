@@ -3704,7 +3704,109 @@ ol.step-commands code {
   white-space: pre-wrap;
 }
 
+
 /* Relevant Files Grid */
+/* Exploration Object Rendering */
+.exp-object {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.exp-obj-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.exp-obj-key {
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  min-width: 120px;
+}
+
+.exp-obj-val {
+  color: var(--text-primary, #374151);
+  flex: 1;
+}
+
+.exp-obj-nested {
+  margin-left: 16px;
+  padding: 8px;
+  border-left: 2px solid var(--border-color, #e5e7eb);
+}
+
+.exp-obj-nested > .exp-obj-key {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--primary, #3b82f6);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.exp-list {
+  margin: 4px 0 0 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.exp-list li {
+  font-size: 13px;
+  color: var(--text-primary, #374151);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+
+.exp-array-objects {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exp-object-item {
+  padding: 10px;
+  background: var(--bg-primary, #fff);
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.clarification-impact {
+  font-size: 12px;
+  color: var(--text-muted, #9ca3af);
+  margin-top: 6px;
+}
+
+.priority-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.priority-badge.priority-high {
+  background: var(--bg-danger, #fee2e2);
+  color: var(--text-danger, #dc2626);
+}
+
+.priority-badge.priority-medium {
+  background: var(--bg-warning, #fef3c7);
+  color: var(--text-warning, #d97706);
+}
+
+.priority-badge.priority-low {
+  background: var(--bg-success, #d1fae5);
+  color: var(--text-success, #059669);
+}
 .relevant-files-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

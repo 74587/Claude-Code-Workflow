@@ -986,25 +986,25 @@ function renderSessionContextContent(context, explorations, conflictResolution) 
     window._currentContextJson = contextJson;
 
     // Use existing renderContextContent for detailed rendering
-    sections.push(\`
+    sections.push(`
       <div class="session-context-section">
-        \${renderContextContent(context)}
+        ${renderContextContent(context)}
       </div>
-    \`);
+    `);
   }
 
   // If we have any sections, wrap them
   if (sections.length > 0) {
-    return \`<div class="context-tab-content session-context-combined">\${sections.join('')}</div>\`;
+    return `<div class="context-tab-content session-context-combined">${sections.join('')}</div>`;
   }
 
-  return \`
+  return `
     <div class="tab-empty-state">
       <div class="empty-icon">📦</div>
       <div class="empty-title">No Context Data</div>
       <div class="empty-text">No context-package.json, exploration files, or conflict resolution data found for this session.</div>
     </div>
-  \`;
+  `;
 }
 
 // ==========================================
@@ -1019,79 +1019,79 @@ function renderConflictResolutionContext(conflictResolution) {
   let sections = [];
 
   // Header
-  sections.push(\`
+  sections.push(`
     <div class="conflict-resolution-header">
       <h4>⚖️ Conflict Resolution Decisions</h4>
       <div class="conflict-meta">
-        <span class="meta-item">Session: <strong>\${escapeHtml(conflictResolution.session_id || 'N/A')}</strong></span>
-        \${conflictResolution.resolved_at ? \`<span class="meta-item">Resolved: <strong>\${formatDate(conflictResolution.resolved_at)}</strong></span>\` : ''}
+        <span class="meta-item">Session: <strong>${escapeHtml(conflictResolution.session_id || 'N/A')}</strong></span>
+        ${conflictResolution.resolved_at ? `<span class="meta-item">Resolved: <strong>${formatDate(conflictResolution.resolved_at)}</strong></span>` : ''}
       </div>
     </div>
-  \`);
+  `);
 
   // User decisions
   if (conflictResolution.user_decisions && Object.keys(conflictResolution.user_decisions).length > 0) {
     const decisions = Object.entries(conflictResolution.user_decisions);
 
-    sections.push(\`
+    sections.push(`
       <div class="conflict-decisions-section collapsible-section">
         <div class="collapsible-header">
           <span class="collapse-icon">▶</span>
-          <span class="section-label">🎯 User Decisions (\${decisions.length})</span>
+          <span class="section-label">🎯 User Decisions (${decisions.length})</span>
         </div>
         <div class="collapsible-content collapsed">
           <div class="decisions-list">
-            \${decisions.map(([key, decision]) => \`
+            ${decisions.map(([key, decision]) => `
               <div class="decision-item">
                 <div class="decision-header">
-                  <span class="decision-key">\${escapeHtml(key.replace(/_/g, ' '))}</span>
-                  <span class="decision-choice">\${escapeHtml(decision.choice || 'N/A')}</span>
+                  <span class="decision-key">${escapeHtml(key.replace(/_/g, ' '))}</span>
+                  <span class="decision-choice">${escapeHtml(decision.choice || 'N/A')}</span>
                 </div>
-                \${decision.description ? \`<p class="decision-description">\${escapeHtml(decision.description)}</p>\` : ''}
-                \${decision.implications && decision.implications.length > 0 ? \`
+                ${decision.description ? `<p class="decision-description">${escapeHtml(decision.description)}</p>` : ''}
+                ${decision.implications && decision.implications.length > 0 ? `
                   <div class="decision-implications">
                     <span class="implications-label">Implications:</span>
                     <ul class="implications-list">
-                      \${decision.implications.map(impl => \`<li>\${escapeHtml(impl)}</li>\`).join('')}
+                      ${decision.implications.map(impl => `<li>${escapeHtml(impl)}</li>`).join('')}
                     </ul>
                   </div>
-                \` : ''}
+                ` : ''}
               </div>
-            \`).join('')}
+            `).join('')}
           </div>
         </div>
       </div>
-    \`);
+    `);
   }
 
   // Resolved conflicts
   if (conflictResolution.resolved_conflicts && conflictResolution.resolved_conflicts.length > 0) {
-    sections.push(\`
+    sections.push(`
       <div class="resolved-conflicts-section collapsible-section">
         <div class="collapsible-header">
           <span class="collapse-icon">▶</span>
-          <span class="section-label">✅ Resolved Conflicts (\${conflictResolution.resolved_conflicts.length})</span>
+          <span class="section-label">✅ Resolved Conflicts (${conflictResolution.resolved_conflicts.length})</span>
         </div>
         <div class="collapsible-content collapsed">
           <div class="conflicts-list">
-            \${conflictResolution.resolved_conflicts.map(conflict => \`
+            ${conflictResolution.resolved_conflicts.map(conflict => `
               <div class="resolved-conflict-item">
                 <div class="conflict-row">
-                  <span class="conflict-id">\${escapeHtml(conflict.id || 'N/A')}</span>
-                  <span class="conflict-category-badge">\${escapeHtml(conflict.category || 'General')}</span>
+                  <span class="conflict-id">${escapeHtml(conflict.id || 'N/A')}</span>
+                  <span class="conflict-category-badge">${escapeHtml(conflict.category || 'General')}</span>
                 </div>
-                <div class="conflict-brief">\${escapeHtml(conflict.brief || '')}</div>
+                <div class="conflict-brief">${escapeHtml(conflict.brief || '')}</div>
                 <div class="conflict-strategy">
                   <span class="strategy-label">Strategy:</span>
-                  <span class="strategy-value">\${escapeHtml(conflict.strategy || 'N/A')}</span>
+                  <span class="strategy-value">${escapeHtml(conflict.strategy || 'N/A')}</span>
                 </div>
               </div>
-            \`).join('')}
+            `).join('')}
           </div>
         </div>
       </div>
-    \`);
+    `);
   }
 
-  return \`<div class="conflict-resolution-context">\${sections.join('')}</div>\`;
+  return `<div class="conflict-resolution-context">${sections.join('')}</div>`;
 }

@@ -281,14 +281,9 @@ function renderExplorationContext(explorations) {
 function renderExplorationAngle(angle, data) {
   let content = [];
 
-  // Project structure (architecture)
+  // Project structure - handle string or object
   if (data.project_structure) {
-    content.push(`
-      <div class="exp-field">
-        <label>Project Structure</label>
-        <p>${escapeHtml(data.project_structure)}</p>
-      </div>
-    `);
+    content.push(renderExpField('Project Structure', data.project_structure));
   }
 
   // Relevant files
@@ -310,69 +305,30 @@ function renderExplorationAngle(angle, data) {
     `);
   }
 
-  // Patterns
+  // Patterns - handle string or object
   if (data.patterns) {
-    content.push(`
-      <div class="exp-field">
-        <label>Patterns</label>
-        <p class="patterns-text">${escapeHtml(data.patterns)}</p>
-      </div>
-    `);
+    content.push(renderExpField('Patterns', data.patterns));
   }
 
-  // Dependencies
+  // Dependencies - handle string or object
   if (data.dependencies) {
-    content.push(`
-      <div class="exp-field">
-        <label>Dependencies</label>
-        <p>${escapeHtml(data.dependencies)}</p>
-      </div>
-    `);
+    content.push(renderExpField('Dependencies', data.dependencies));
   }
 
-  // Integration points
+  // Integration points - handle string or object
   if (data.integration_points) {
-    content.push(`
-      <div class="exp-field">
-        <label>Integration Points</label>
-        <p>${escapeHtml(data.integration_points)}</p>
-      </div>
-    `);
+    content.push(renderExpField('Integration Points', data.integration_points));
   }
 
-  // Constraints
+  // Constraints - handle string or object
   if (data.constraints) {
-    content.push(`
-      <div class="exp-field">
-        <label>Constraints</label>
-        <p>${escapeHtml(data.constraints)}</p>
-      </div>
-    `);
+    content.push(renderExpField('Constraints', data.constraints));
   }
 
-  // Clarification needs
-  if (data.clarification_needs && data.clarification_needs.length) {
-    content.push(`
-      <div class="exp-field">
-        <label>Clarification Needs</label>
-        <div class="clarification-list">
-          ${data.clarification_needs.map(c => `
-            <div class="clarification-item">
-              <div class="clarification-question">${escapeHtml(c.question)}</div>
-              ${c.options && c.options.length ? `
-                <div class="clarification-options">
-                  ${c.options.map((opt, i) => `
-                    <span class="option-badge ${i === c.recommended ? 'recommended' : ''}">${escapeHtml(opt)}</span>
-                  `).join('')}
-                </div>
-              ` : ''}
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `);
+  // Clarification needs - handle array or object
+  if (data.clarification_needs) {
+    content.push(renderExpField('Clarification Needs', data.clarification_needs));
   }
 
-  const result = content.join('') || '<p>No data available</p>';
-  return result;
+  return content.join('') || '<p>No data available</p>';
 }
