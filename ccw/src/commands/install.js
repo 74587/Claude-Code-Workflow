@@ -1,12 +1,13 @@
-import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { join, dirname, basename, relative } from 'path';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { showHeader, showBanner, createSpinner, success, info, warning, error, summaryBox, step, divider } from '../utils/ui.js';
 import { createManifest, addFileEntry, addDirectoryEntry, saveManifest, findManifest, getAllManifests } from '../core/manifest.js';
 import { validatePath } from '../utils/path-resolver.js';
+import { fetchLatestRelease, fetchLatestCommit, downloadAndExtract, REPO_URL } from '../utils/version-fetcher.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

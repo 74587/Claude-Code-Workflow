@@ -228,6 +228,15 @@
               </div>
             </div>
           </div>
+          <!-- Refresh Button -->
+          <button class="refresh-btn p-1.5 text-muted-foreground hover:text-foreground hover:bg-hover rounded" id="refreshWorkspace" title="Refresh workspace">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M16 21h5v-5"/>
+            </svg>
+          </button>
         </div>
 
         <!-- Theme Toggle -->
@@ -291,12 +300,12 @@
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-plan" data-tooltip="Lite Plan Sessions">
                 <span>📝</span>
-                <span class="nav-text flex-1">lite-plan</span>
+                <span class="nav-text flex-1">Lite Plan</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeLitePlan">0</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-fix" data-tooltip="Lite Fix Sessions">
                 <span>🔧</span>
-                <span class="nav-text flex-1">lite-fix</span>
+                <span class="nav-text flex-1">Lite Fix</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeLiteFix">0</span>
               </li>
             </ul>

@@ -1,6 +1,6 @@
 import http from 'http';
 import { URL } from 'url';
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
@@ -9,56 +9,7 @@ import { resolvePath, getRecentPaths, trackRecentPath, normalizePathForDisplay, 
 const TEMPLATE_PATH = join(import.meta.dirname, '../templates/dashboard.html');
 const CSS_FILE = join(import.meta.dirname, '../templates/dashboard.css');
 const JS_FILE = join(import.meta.dirname, '../templates/dashboard.js');
-const MODULE_JS_DIR = join(import.meta.dirname, '../templates/dashboard-js');
 
-/**
- * Handle POST request with JSON body
- */
-function handlePostRequest(req, res, handler) {
-  let body = '';
-  req.on('data', chunk => { body += chunk; });
-  req.on('end', async () => {
-    try {
-      const parsed = JSON.parse(body);
-      const result = await handler(parsed);
-
-      if (result.error) {
-        const status = result.status || 500;
-        res.writeHead(status, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: result.error }));
-      } else {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-      }
-    } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: error.message }));
-    }
-  });
-}
-
-// Modular JS files in dependency order
-const MODULE_FILES = [
-  'utils.js',
-  'state.js',
-  'api.js',
-  'components/theme.js',
-  'components/modals.js',
-  'components/navigation.js',
-  'components/sidebar.js',
-  'components/tabs-context.js',
-  'components/tabs-other.js',
-  'components/task-drawer-core.js',
-  'components/task-drawer-renderers.js',
-  'components/flowchart.js',
-  'views/home.js',
-  'views/project-overview.js',
-  'views/session-detail.js',
-  'views/review-session.js',
-  'views/lite-tasks.js',
-  'views/fix-session.js',
-  'main.js'
-];
 /**
  * Create and start the dashboard server
  * @param {Object} options - Server options
@@ -86,11 +37,6 @@ export async function startServer(options = {}) {
     }
 
     try {
-      // Debug log for API requests
-      if (pathname.startsWith('/api/')) {
-        console.log(`[API] ${req.method} ${pathname}`);
-      }
-
       // API: Get workflow data for a path
       if (pathname === '/api/data') {
         const projectPath = url.searchParams.get('path') || initialPath;
@@ -123,43 +69,6 @@ export async function startServer(options = {}) {
         const detail = await getSessionDetailData(sessionPath, dataType);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(detail));
-        return;
-      }
-
-      // API: Update task status
-      if (pathname === '/api/update-task-status' && req.method === 'POST') {
-        handlePostRequest(req, res, async (body) => {
-          const { sessionPath, taskId, newStatus } = body;
-
-          if (!sessionPath || !taskId || !newStatus) {
-            return { error: 'sessionPath, taskId, and newStatus are required', status: 400 };
-          }
-
-          return await updateTaskStatus(sessionPath, taskId, newStatus);
-        });
-        return;
-      }
-
-      // API: Bulk update task status
-      if (pathname === '/api/bulk-update-task-status' && req.method === 'POST') {
-        handlePostRequest(req, res, async (body) => {
-          const { sessionPath, taskIds, newStatus } = body;
-
-          if (!sessionPath || !taskIds || !newStatus) {
-            return { error: 'sessionPath, taskIds, and newStatus are required', status: 400 };
-          }
-
-          const results = [];
-          for (const taskId of taskIds) {
-            try {
-              const result = await updateTaskStatus(sessionPath, taskId, newStatus);
-              results.push(result);
-            } catch (err) {
-              results.push({ taskId, error: err.message });
-            }
-          }
-          return { success: true, results };
-        });
         return;
       }
 
@@ -403,74 +312,6 @@ async function getSessionDetailData(sessionPath, dataType) {
 }
 
 /**
- * Update task status in a task JSON file
- * @param {string} sessionPath - Path to session directory
- * @param {string} taskId - Task ID (e.g., IMPL-001)
- * @param {string} newStatus - New status (pending, in_progress, completed)
- * @returns {Promise<Object>}
- */
-async function updateTaskStatus(sessionPath, taskId, newStatus) {
-  // Normalize path (handle both forward and back slashes)
-  let normalizedPath = sessionPath.replace(/\\/g, '/');
-
-  // Handle Windows drive letter format
-  if (normalizedPath.match(/^[a-zA-Z]:\//)) {
-    // Already in correct format
-  } else if (normalizedPath.match(/^\/[a-zA-Z]\//)) {
-    // Convert /D/path to D:/path
-    normalizedPath = normalizedPath.charAt(1).toUpperCase() + ':' + normalizedPath.slice(2);
-  }
-
-  const taskDir = join(normalizedPath, '.task');
-
-  // Check if task directory exists
-  if (!existsSync(taskDir)) {
-    throw new Error(`Task directory not found: ${taskDir}`);
-  }
-
-  // Try to find the task file
-  let taskFile = join(taskDir, `${taskId}.json`);
-
-  if (!existsSync(taskFile)) {
-    // Try without .json if taskId already has it
-    if (taskId.endsWith('.json')) {
-      taskFile = join(taskDir, taskId);
-    }
-    if (!existsSync(taskFile)) {
-      throw new Error(`Task file not found: ${taskId}.json in ${taskDir}`);
-    }
-  }
-
-  try {
-    const content = JSON.parse(readFileSync(taskFile, 'utf8'));
-    const oldStatus = content.status || 'pending';
-    content.status = newStatus;
-
-    // Add status change timestamp
-    if (!content.status_history) {
-      content.status_history = [];
-    }
-    content.status_history.push({
-      from: oldStatus,
-      to: newStatus,
-      changed_at: new Date().toISOString()
-    });
-
-    writeFileSync(taskFile, JSON.stringify(content, null, 2), 'utf8');
-
-    return {
-      success: true,
-      taskId,
-      oldStatus,
-      newStatus,
-      file: taskFile
-    };
-  } catch (error) {
-    throw new Error(`Failed to update task ${taskId}: ${error.message}`);
-  }
-}
-
-/**
  * Generate dashboard HTML for server mode
  * @param {string} initialPath
  * @returns {string}
@@ -478,14 +319,9 @@ async function updateTaskStatus(sessionPath, taskId, newStatus) {
 function generateServerDashboard(initialPath) {
   let html = readFileSync(TEMPLATE_PATH, 'utf8');
 
-  // Read CSS file
+  // Read CSS and JS files
   const cssContent = existsSync(CSS_FILE) ? readFileSync(CSS_FILE, 'utf8') : '';
-
-  // Read and concatenate modular JS files in dependency order
-  let jsContent = MODULE_FILES.map(file => {
-    const filePath = join(MODULE_JS_DIR, file);
-    return existsSync(filePath) ? readFileSync(filePath, 'utf8') : '';
-  }).join('\n\n');
+  let jsContent = existsSync(JS_FILE) ? readFileSync(JS_FILE, 'utf8') : '';
 
   // Inject CSS content
   html = html.replace('{{CSS_CONTENT}}', cssContent);

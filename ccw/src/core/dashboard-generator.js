@@ -12,6 +12,28 @@ const CSS_FILE = join(__dirname, '../templates/dashboard.css');
 const WORKFLOW_TEMPLATE = join(__dirname, '../templates/workflow-dashboard.html');
 const REVIEW_TEMPLATE = join(__dirname, '../templates/review-cycle-dashboard.html');
 
+const MODULE_FILES = [
+  'utils.js',
+  'state.js',
+  'api.js',
+  'components/theme.js',
+  'components/modals.js',
+  'components/navigation.js',
+  'components/sidebar.js',
+  'components/tabs-context.js',
+  'components/tabs-other.js',
+  'components/task-drawer-core.js',
+  'components/task-drawer-renderers.js',
+  'components/flowchart.js',
+  'views/home.js',
+  'views/project-overview.js',
+  'views/session-detail.js',
+  'views/review-session.js',
+  'views/lite-tasks.js',
+  'views/fix-session.js',
+  'main.js'
+];
+
 /**
  * Generate dashboard HTML from aggregated data
  * Uses bundled templates from ccw package
@@ -41,9 +63,21 @@ export async function generateDashboard(data) {
 function generateFromUnifiedTemplate(data) {
   let html = readFileSync(UNIFIED_TEMPLATE, 'utf8');
 
-  // Read JS and CSS files
-  let jsContent = existsSync(JS_FILE) ? readFileSync(JS_FILE, 'utf8') : '';
+  // Read CSS file
   let cssContent = existsSync(CSS_FILE) ? readFileSync(CSS_FILE, 'utf8') : '';
+
+  // Read JS content
+  let jsContent = '';
+  const moduleBase = join(__dirname, '../templates/dashboard-js');
+
+  if (existsSync(moduleBase)) {
+    jsContent = MODULE_FILES.map(file => {
+      const filePath = join(moduleBase, file);
+      return existsSync(filePath) ? readFileSync(filePath, 'utf8') : '';
+    }).join('\n\n');
+  } else if (existsSync(JS_FILE)) {
+    jsContent = readFileSync(JS_FILE, 'utf8');
+  }
 
   // Prepare complete workflow data
   const workflowData = {
