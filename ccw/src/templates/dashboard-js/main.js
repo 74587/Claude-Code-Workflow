@@ -9,6 +9,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   try { initNavigation(); } catch (e) { console.error('Navigation init failed:', e); }
   try { initSearch(); } catch (e) { console.error('Search init failed:', e); }
   try { initRefreshButton(); } catch (e) { console.error('Refresh button init failed:', e); }
+  try { initCarousel(); } catch (e) { console.error('Carousel init failed:', e); }
+  try { initMcpManager(); } catch (e) { console.error('MCP Manager init failed:', e); }
+  try { initHookManager(); } catch (e) { console.error('Hook Manager init failed:', e); }
+
+  // Initialize real-time features (WebSocket + auto-refresh)
+  try { initWebSocket(); } catch (e) { console.log('WebSocket not available:', e.message); }
+  try { initAutoRefresh(); } catch (e) { console.error('Auto-refresh init failed:', e); }
 
   // Server mode: load data from API
   try {
@@ -35,6 +42,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Close path modal if exists
       closePathModal();
+
+      // Close MCP create modal if exists
+      if (typeof closeMcpCreateModal === 'function') {
+        closeMcpCreateModal();
+      }
+
+      // Close Hook create modal if exists
+      if (typeof closeHookCreateModal === 'function') {
+        closeHookCreateModal();
+      }
     }
   });
 });

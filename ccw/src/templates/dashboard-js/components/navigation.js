@@ -60,7 +60,7 @@ function initNavigation() {
     });
   });
 
-  // Project Overview Navigation
+  // View Navigation (Project Overview, MCP Manager, etc.)
   document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     item.addEventListener('click', () => {
       setActiveNavItem(item);
@@ -69,7 +69,13 @@ function initNavigation() {
       currentLiteType = null;
       currentSessionDetailKey = null;
       updateContentTitle();
-      renderProjectOverview();
+
+      // Route to appropriate view
+      if (currentView === 'mcp-manager') {
+        renderMcpManager();
+      } else if (currentView === 'project-overview') {
+        renderProjectOverview();
+      }
     });
   });
 }
@@ -83,6 +89,8 @@ function updateContentTitle() {
   const titleEl = document.getElementById('contentTitle');
   if (currentView === 'project-overview') {
     titleEl.textContent = 'Project Overview';
+  } else if (currentView === 'mcp-manager') {
+    titleEl.textContent = 'MCP Server Management';
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': 'Lite Plan Sessions', 'lite-fix': 'Lite Fix Sessions' };
     titleEl.textContent = names[currentLiteType] || 'Lite Tasks';

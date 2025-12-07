@@ -3,6 +3,9 @@
 // ==========================================
 
 function renderProjectOverview() {
+  // Show stats grid and search (may be hidden by MCP view)
+  if (typeof showStatsAndSearch === 'function') showStatsAndSearch();
+
   const container = document.getElementById('mainContent');
   const project = workflowData.projectOverview;
 

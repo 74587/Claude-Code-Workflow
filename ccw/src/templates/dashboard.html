@@ -310,6 +310,36 @@
               </li>
             </ul>
           </div>
+
+          <!-- MCP Servers Section -->
+          <div class="mb-2" id="mcpServersNav">
+            <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <span class="mr-2">🔌</span>
+              <span class="nav-section-title">MCP Servers</span>
+            </div>
+            <ul class="space-y-0.5">
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="mcp-manager" data-tooltip="MCP Server Management">
+                <span>⚙️</span>
+                <span class="nav-text flex-1">Manage</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeMcpServers">0</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Hooks Section -->
+          <div class="mb-2" id="hooksNav">
+            <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <span class="mr-2">🪝</span>
+              <span class="nav-section-title">Hooks</span>
+            </div>
+            <ul class="space-y-0.5">
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="hook-manager" data-tooltip="Hook Management">
+                <span>⚙️</span>
+                <span class="nav-text flex-1">Manage</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeHooks">0</span>
+              </li>
+            </ul>
+          </div>
         </nav>
 
         <!-- Sidebar Footer -->
@@ -323,27 +353,67 @@
 
       <!-- Content Area -->
       <main class="flex-1 p-6 overflow-y-auto min-w-0">
-        <!-- Stats Grid -->
-        <section class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mb-6">
-          <div class="bg-card border border-border rounded-lg p-5 text-center hover:shadow-md transition-all duration-200">
-            <div class="text-2xl mb-2">📊</div>
-            <div class="text-3xl font-bold text-foreground" id="statTotalSessions">0</div>
-            <div class="text-sm text-muted-foreground mt-1">Total Sessions</div>
+        <!-- Stats Section: Left Metrics + Right Carousel -->
+        <section id="statsGrid" class="stats-section flex gap-4 mb-6">
+          <!-- Left: 4 Metrics Grid -->
+          <div class="stats-metrics grid grid-cols-2 gap-3 shrink-0">
+            <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
+              <div class="text-xl mb-1">📊</div>
+              <div class="text-2xl font-bold text-foreground" id="statTotalSessions">0</div>
+              <div class="text-xs text-muted-foreground mt-1">Total Sessions</div>
+            </div>
+            <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
+              <div class="text-xl mb-1">🟢</div>
+              <div class="text-2xl font-bold text-foreground" id="statActiveSessions">0</div>
+              <div class="text-xs text-muted-foreground mt-1">Active Sessions</div>
+            </div>
+            <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
+              <div class="text-xl mb-1">📋</div>
+              <div class="text-2xl font-bold text-foreground" id="statTotalTasks">0</div>
+              <div class="text-xs text-muted-foreground mt-1">Total Tasks</div>
+            </div>
+            <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
+              <div class="text-xl mb-1">✅</div>
+              <div class="text-2xl font-bold text-foreground" id="statCompletedTasks">0</div>
+              <div class="text-xs text-muted-foreground mt-1">Completed Tasks</div>
+            </div>
           </div>
-          <div class="bg-card border border-border rounded-lg p-5 text-center hover:shadow-md transition-all duration-200">
-            <div class="text-2xl mb-2">🟢</div>
-            <div class="text-3xl font-bold text-foreground" id="statActiveSessions">0</div>
-            <div class="text-sm text-muted-foreground mt-1">Active Sessions</div>
-          </div>
-          <div class="bg-card border border-border rounded-lg p-5 text-center hover:shadow-md transition-all duration-200">
-            <div class="text-2xl mb-2">📋</div>
-            <div class="text-3xl font-bold text-foreground" id="statTotalTasks">0</div>
-            <div class="text-sm text-muted-foreground mt-1">Total Tasks</div>
-          </div>
-          <div class="bg-card border border-border rounded-lg p-5 text-center hover:shadow-md transition-all duration-200">
-            <div class="text-2xl mb-2">✅</div>
-            <div class="text-3xl font-bold text-foreground" id="statCompletedTasks">0</div>
-            <div class="text-sm text-muted-foreground mt-1">Completed Tasks</div>
+
+          <!-- Right: Active Session Carousel (Image-style with dots) -->
+          <div class="stats-carousel flex-1 bg-card border border-border rounded-lg overflow-hidden min-h-[180px] flex flex-col relative">
+            <!-- Carousel Content (Full height) -->
+            <div class="carousel-content flex-1 relative overflow-hidden" id="carouselContent">
+              <!-- Dynamic carousel slides -->
+              <div class="carousel-empty flex items-center justify-center h-full text-muted-foreground">
+                <div class="text-center">
+                  <div class="text-3xl mb-2">🎯</div>
+                  <p class="text-sm">No active sessions</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bottom: Dots Indicator & Controls -->
+            <div class="carousel-footer flex items-center justify-center gap-3 py-2 border-t border-border bg-muted/20">
+              <!-- Previous Button -->
+              <button class="carousel-btn p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground" id="carouselPrev" title="Previous">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+
+              <!-- Dots Indicator -->
+              <div class="carousel-dots flex items-center gap-1.5" id="carouselDots">
+                <!-- Dots will be rendered dynamically -->
+              </div>
+
+              <!-- Next Button -->
+              <button class="carousel-btn p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground" id="carouselNext" title="Next">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
+
+              <!-- Pause Button -->
+              <button class="carousel-btn p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground ml-1" id="carouselPause" title="Pause auto-play">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="carouselPauseIcon"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              </button>
+            </div>
           </div>
         </section>
 
@@ -400,6 +470,120 @@
       <div class="markdown-modal-body flex-1 overflow-auto p-4">
         <pre id="markdownRaw" class="hidden whitespace-pre-wrap text-sm font-mono text-foreground bg-muted p-4 rounded-lg overflow-auto h-full"></pre>
         <div id="markdownPreview" class="markdown-preview prose prose-sm max-w-none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MCP Server Create Modal -->
+  <div id="mcpCreateModal" class="mcp-modal hidden fixed inset-0 z-[100] flex items-center justify-center">
+    <div class="mcp-modal-backdrop absolute inset-0 bg-black/60" onclick="closeMcpCreateModal()"></div>
+    <div class="mcp-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-lg flex flex-col">
+      <div class="mcp-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 class="text-lg font-semibold text-foreground">Create MCP Server</h3>
+        <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeMcpCreateModal()">&times;</button>
+      </div>
+      <div class="mcp-modal-body p-4 space-y-4">
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Server Name <span class="text-destructive">*</span></label>
+          <input type="text" id="mcpServerName" placeholder="e.g., my-mcp-server"
+            class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Command <span class="text-destructive">*</span></label>
+          <input type="text" id="mcpServerCommand" placeholder="e.g., npx, uvx, node, python"
+            class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Arguments (one per line)</label>
+          <textarea id="mcpServerArgs" placeholder="e.g.,&#10;-y&#10;@smithery/cli@latest&#10;run&#10;exa" rows="4"
+            class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Environment Variables (KEY=VALUE per line)</label>
+          <textarea id="mcpServerEnv" placeholder="e.g.,&#10;API_KEY=your-api-key&#10;DEBUG=true" rows="3"
+            class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"></textarea>
+        </div>
+      </div>
+      <div class="mcp-modal-footer flex justify-end gap-2 px-4 py-3 border-t border-border">
+        <button class="px-4 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-hover transition-colors" onclick="closeMcpCreateModal()">Cancel</button>
+        <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity" onclick="submitMcpCreate()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hook Create Modal -->
+  <div id="hookCreateModal" class="hook-modal hidden fixed inset-0 z-[100] flex items-center justify-center">
+    <div class="hook-modal-backdrop absolute inset-0 bg-black/60" onclick="closeHookCreateModal()"></div>
+    <div class="hook-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-lg flex flex-col max-h-[90vh]">
+      <div class="hook-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 class="text-lg font-semibold text-foreground" id="hookModalTitle">Create Hook</h3>
+        <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeHookCreateModal()">&times;</button>
+      </div>
+      <div class="hook-modal-body p-4 space-y-4 overflow-y-auto">
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Hook Event <span class="text-destructive">*</span></label>
+          <select id="hookEvent" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+            <option value="">Select an event...</option>
+            <option value="PreToolUse">PreToolUse - Before a tool is executed</option>
+            <option value="PostToolUse">PostToolUse - After a tool completes</option>
+            <option value="Notification">Notification - On notifications</option>
+            <option value="Stop">Stop - When agent stops</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Matcher (optional)</label>
+          <input type="text" id="hookMatcher" placeholder="e.g., Write, Edit, Bash (leave empty for all)"
+            class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+          <p class="text-xs text-muted-foreground mt-1">Tool name to match. Leave empty to match all tools.</p>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Command <span class="text-destructive">*</span></label>
+          <input type="text" id="hookCommand" placeholder="e.g., curl, bash, node"
+            class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Arguments (one per line)</label>
+          <textarea id="hookArgs" placeholder="e.g.,&#10;-X&#10;POST&#10;http://localhost:3456/api/hook" rows="4"
+            class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Scope</label>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="hookScope" value="project" checked class="text-primary focus:ring-primary">
+              <span class="text-sm text-foreground">Project (.claude/settings.json)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="hookScope" value="global" class="text-primary focus:ring-primary">
+              <span class="text-sm text-foreground">Global (~/.claude/settings.json)</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-2">Quick Templates</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="hook-template-btn px-3 py-2 text-xs bg-muted text-foreground rounded border border-border hover:bg-hover transition-colors text-left" onclick="applyHookTemplate('ccw-notify')">
+              <span class="font-medium">CCW Notify</span>
+              <span class="block text-muted-foreground">Notify dashboard on Write</span>
+            </button>
+            <button class="hook-template-btn px-3 py-2 text-xs bg-muted text-foreground rounded border border-border hover:bg-hover transition-colors text-left" onclick="applyHookTemplate('log-tool')">
+              <span class="font-medium">Log Tool Usage</span>
+              <span class="block text-muted-foreground">Log all tool executions</span>
+            </button>
+            <button class="hook-template-btn px-3 py-2 text-xs bg-muted text-foreground rounded border border-border hover:bg-hover transition-colors text-left" onclick="applyHookTemplate('lint-check')">
+              <span class="font-medium">Lint Check</span>
+              <span class="block text-muted-foreground">Run eslint on file changes</span>
+            </button>
+            <button class="hook-template-btn px-3 py-2 text-xs bg-muted text-foreground rounded border border-border hover:bg-hover transition-colors text-left" onclick="applyHookTemplate('git-add')">
+              <span class="font-medium">Git Add</span>
+              <span class="block text-muted-foreground">Auto stage written files</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="hook-modal-footer flex justify-end gap-2 px-4 py-3 border-t border-border">
+        <button class="px-4 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-hover transition-colors" onclick="closeHookCreateModal()">Cancel</button>
+        <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity" onclick="submitHookCreate()">Create</button>
       </div>
     </div>
   </div>

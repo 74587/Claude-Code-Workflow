@@ -3,6 +3,7 @@ import { viewCommand } from './commands/view.js';
 import { serveCommand } from './commands/serve.js';
 import { installCommand } from './commands/install.js';
 import { uninstallCommand } from './commands/uninstall.js';
+import { upgradeCommand } from './commands/upgrade.js';
 import { listCommand } from './commands/list.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -73,6 +74,9 @@ export function run(argv) {
     .description('Install Claude Code Workflow to your system')
     .option('-m, --mode <mode>', 'Installation mode: Global or Path')
     .option('-p, --path <path>', 'Installation path (for Path mode)')
+    .option('-v, --version <version>', 'Version type: local, stable, latest, or branch', 'local')
+    .option('-t, --tag <tag>', 'Specific release tag (e.g., v3.2.0) for stable version')
+    .option('-b, --branch <branch>', 'Branch name for branch version type', 'main')
     .option('-f, --force', 'Force installation without prompts')
     .action(installCommand);
 
@@ -81,6 +85,17 @@ export function run(argv) {
     .command('uninstall')
     .description('Uninstall Claude Code Workflow')
     .action(uninstallCommand);
+
+  // Upgrade command
+  program
+    .command('upgrade')
+    .description('Upgrade Claude Code Workflow installations to latest version')
+    .option('-a, --all', 'Upgrade all installations without prompting')
+    .option('-l, --latest', 'Upgrade to latest development version (main branch)')
+    .option('-t, --tag <tag>', 'Upgrade to specific release tag (e.g., v3.2.0)')
+    .option('-b, --branch <branch>', 'Upgrade to specific branch')
+    .option('-s, --select', 'Force interactive version selection')
+    .action(upgradeCommand);
 
   // List command
   program

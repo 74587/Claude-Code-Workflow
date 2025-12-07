@@ -1,10 +1,18 @@
 import http from 'http';
 import { URL } from 'url';
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
+import { homedir } from 'os';
+import { createHash } from 'crypto';
 import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
+
+// Claude config file path
+const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
+
+// WebSocket clients for real-time notifications
+const wsClients = new Set();
 
 const TEMPLATE_PATH = join(import.meta.dirname, '../templates/dashboard.html');
 const CSS_FILE = join(import.meta.dirname, '../templates/dashboard.css');
@@ -46,6 +54,10 @@ const MODULE_FILES = [
   'components/modals.js',
   'components/navigation.js',
   'components/sidebar.js',
+  'components/carousel.js',
+  'components/notifications.js',
+  'components/mcp-manager.js',
+  'components/hook-manager.js',
   'components/tabs-context.js',
   'components/tabs-other.js',
   'components/task-drawer-core.js',
@@ -57,6 +69,8 @@ const MODULE_FILES = [
   'views/review-session.js',
   'views/lite-tasks.js',
   'views/fix-session.js',
+  'views/mcp-manager.js',
+  'views/hook-manager.js',
   'main.js'
 ];
 /**
@@ -163,6 +177,111 @@ export async function startServer(options = {}) {
         return;
       }
 
+      // API: Get MCP configuration
+      if (pathname === '/api/mcp-config') {
+        const mcpData = getMcpConfig();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(mcpData));
+        return;
+      }
+
+      // API: Toggle MCP server enabled/disabled
+      if (pathname === '/api/mcp-toggle' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { projectPath, serverName, enable } = body;
+          if (!projectPath || !serverName) {
+            return { error: 'projectPath and serverName are required', status: 400 };
+          }
+          return toggleMcpServerEnabled(projectPath, serverName, enable);
+        });
+        return;
+      }
+
+      // API: Copy MCP server to project
+      if (pathname === '/api/mcp-copy-server' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { projectPath, serverName, serverConfig } = body;
+          if (!projectPath || !serverName || !serverConfig) {
+            return { error: 'projectPath, serverName, and serverConfig are required', status: 400 };
+          }
+          return addMcpServerToProject(projectPath, serverName, serverConfig);
+        });
+        return;
+      }
+
+      // API: Remove MCP server from project
+      if (pathname === '/api/mcp-remove-server' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { projectPath, serverName } = body;
+          if (!projectPath || !serverName) {
+            return { error: 'projectPath and serverName are required', status: 400 };
+          }
+          return removeMcpServerFromProject(projectPath, serverName);
+        });
+        return;
+      }
+
+      // API: Hook endpoint for Claude Code notifications
+      if (pathname === '/api/hook' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { type, filePath, sessionId } = body;
+
+          // Determine session ID from file path if not provided
+          let resolvedSessionId = sessionId;
+          if (!resolvedSessionId && filePath) {
+            resolvedSessionId = extractSessionIdFromPath(filePath);
+          }
+
+          // Broadcast to all connected WebSocket clients
+          const notification = {
+            type: type || 'session_updated',
+            payload: {
+              sessionId: resolvedSessionId,
+              filePath: filePath,
+              timestamp: new Date().toISOString()
+            }
+          };
+
+          broadcastToClients(notification);
+
+          return { success: true, notification };
+        });
+        return;
+      }
+
+      // API: Get hooks configuration
+      if (pathname === '/api/hooks' && req.method === 'GET') {
+        const projectPathParam = url.searchParams.get('path');
+        const hooksData = getHooksConfig(projectPathParam);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(hooksData));
+        return;
+      }
+
+      // API: Save hook
+      if (pathname === '/api/hooks' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { projectPath, scope, event, hookData } = body;
+          if (!scope || !event || !hookData) {
+            return { error: 'scope, event, and hookData are required', status: 400 };
+          }
+          return saveHookToSettings(projectPath, scope, event, hookData);
+        });
+        return;
+      }
+
+      // API: Delete hook
+      if (pathname === '/api/hooks' && req.method === 'DELETE') {
+        handlePostRequest(req, res, async (body) => {
+          const { projectPath, scope, event, hookIndex } = body;
+          if (!scope || !event || hookIndex === undefined) {
+            return { error: 'scope, event, and hookIndex are required', status: 400 };
+          }
+          return deleteHookFromSettings(projectPath, scope, event, hookIndex);
+        });
+        return;
+      }
+
       // Serve dashboard HTML
       if (pathname === '/' || pathname === '/index.html') {
         const html = generateServerDashboard(initialPath);
@@ -182,13 +301,186 @@ export async function startServer(options = {}) {
     }
   });
 
+  // Handle WebSocket upgrade requests
+  server.on('upgrade', (req, socket, head) => {
+    if (req.url === '/ws') {
+      handleWebSocketUpgrade(req, socket, head);
+    } else {
+      socket.destroy();
+    }
+  });
+
   return new Promise((resolve, reject) => {
     server.listen(port, () => {
       console.log(`Dashboard server running at http://localhost:${port}`);
+      console.log(`WebSocket endpoint available at ws://localhost:${port}/ws`);
+      console.log(`Hook endpoint available at POST http://localhost:${port}/api/hook`);
       resolve(server);
     });
     server.on('error', reject);
   });
+}
+
+// ========================================
+// WebSocket Functions
+// ========================================
+
+/**
+ * Handle WebSocket upgrade
+ */
+function handleWebSocketUpgrade(req, socket, head) {
+  const key = req.headers['sec-websocket-key'];
+  const acceptKey = createHash('sha1')
+    .update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+    .digest('base64');
+
+  const responseHeaders = [
+    'HTTP/1.1 101 Switching Protocols',
+    'Upgrade: websocket',
+    'Connection: Upgrade',
+    `Sec-WebSocket-Accept: ${acceptKey}`,
+    '',
+    ''
+  ].join('\r\n');
+
+  socket.write(responseHeaders);
+
+  // Add to clients set
+  wsClients.add(socket);
+  console.log(`[WS] Client connected (${wsClients.size} total)`);
+
+  // Handle incoming messages
+  socket.on('data', (buffer) => {
+    try {
+      const message = parseWebSocketFrame(buffer);
+      if (message) {
+        console.log('[WS] Received:', message);
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  });
+
+  // Handle disconnect
+  socket.on('close', () => {
+    wsClients.delete(socket);
+    console.log(`[WS] Client disconnected (${wsClients.size} remaining)`);
+  });
+
+  socket.on('error', () => {
+    wsClients.delete(socket);
+  });
+}
+
+/**
+ * Parse WebSocket frame (simplified)
+ */
+function parseWebSocketFrame(buffer) {
+  if (buffer.length < 2) return null;
+
+  const secondByte = buffer[1];
+  const isMasked = (secondByte & 0x80) !== 0;
+  let payloadLength = secondByte & 0x7f;
+
+  let offset = 2;
+  if (payloadLength === 126) {
+    payloadLength = buffer.readUInt16BE(2);
+    offset = 4;
+  } else if (payloadLength === 127) {
+    payloadLength = Number(buffer.readBigUInt64BE(2));
+    offset = 10;
+  }
+
+  let mask = null;
+  if (isMasked) {
+    mask = buffer.slice(offset, offset + 4);
+    offset += 4;
+  }
+
+  const payload = buffer.slice(offset, offset + payloadLength);
+
+  if (isMasked && mask) {
+    for (let i = 0; i < payload.length; i++) {
+      payload[i] ^= mask[i % 4];
+    }
+  }
+
+  return payload.toString('utf8');
+}
+
+/**
+ * Create WebSocket frame
+ */
+function createWebSocketFrame(data) {
+  const payload = Buffer.from(JSON.stringify(data), 'utf8');
+  const length = payload.length;
+
+  let frame;
+  if (length <= 125) {
+    frame = Buffer.alloc(2 + length);
+    frame[0] = 0x81; // Text frame, FIN
+    frame[1] = length;
+    payload.copy(frame, 2);
+  } else if (length <= 65535) {
+    frame = Buffer.alloc(4 + length);
+    frame[0] = 0x81;
+    frame[1] = 126;
+    frame.writeUInt16BE(length, 2);
+    payload.copy(frame, 4);
+  } else {
+    frame = Buffer.alloc(10 + length);
+    frame[0] = 0x81;
+    frame[1] = 127;
+    frame.writeBigUInt64BE(BigInt(length), 2);
+    payload.copy(frame, 10);
+  }
+
+  return frame;
+}
+
+/**
+ * Broadcast message to all connected WebSocket clients
+ */
+function broadcastToClients(data) {
+  const frame = createWebSocketFrame(data);
+
+  for (const client of wsClients) {
+    try {
+      client.write(frame);
+    } catch (e) {
+      wsClients.delete(client);
+    }
+  }
+
+  console.log(`[WS] Broadcast to ${wsClients.size} clients:`, data.type);
+}
+
+/**
+ * Extract session ID from file path
+ */
+function extractSessionIdFromPath(filePath) {
+  // Normalize path
+  const normalized = filePath.replace(/\\/g, '/');
+
+  // Look for session pattern: WFS-xxx, WRS-xxx, etc.
+  const sessionMatch = normalized.match(/\/(W[A-Z]S-[^/]+)\//);
+  if (sessionMatch) {
+    return sessionMatch[1];
+  }
+
+  // Look for .workflow/.sessions/xxx pattern
+  const sessionsMatch = normalized.match(/\.workflow\/\.sessions\/([^/]+)/);
+  if (sessionsMatch) {
+    return sessionsMatch[1];
+  }
+
+  // Look for lite-plan/lite-fix pattern
+  const liteMatch = normalized.match(/\.(lite-plan|lite-fix)\/([^/]+)/);
+  if (liteMatch) {
+    return liteMatch[2];
+  }
+
+  return null;
 }
 
 /**
@@ -314,6 +606,62 @@ async function getSessionDetailData(sessionPath, dataType) {
           result.plan = JSON.parse(readFileSync(planFile, 'utf8'));
         } catch (e) {
           result.plan = null;
+        }
+      }
+    }
+
+    // Load explorations for lite tasks (exploration-*.json files)
+    if (dataType === 'context' || dataType === 'explorations' || dataType === 'all') {
+      result.explorations = { manifest: null, data: {} };
+
+      // Look for explorations-manifest.json
+      const manifestFile = join(normalizedPath, 'explorations-manifest.json');
+      if (existsSync(manifestFile)) {
+        try {
+          result.explorations.manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+
+          // Load each exploration file based on manifest
+          const explorations = result.explorations.manifest.explorations || [];
+          for (const exp of explorations) {
+            const expFile = join(normalizedPath, exp.file);
+            if (existsSync(expFile)) {
+              try {
+                result.explorations.data[exp.angle] = JSON.parse(readFileSync(expFile, 'utf8'));
+              } catch (e) {
+                // Skip unreadable exploration files
+              }
+            }
+          }
+        } catch (e) {
+          result.explorations.manifest = null;
+        }
+      } else {
+        // Fallback: scan for exploration-*.json files directly
+        try {
+          const files = readdirSync(normalizedPath).filter(f => f.startsWith('exploration-') && f.endsWith('.json'));
+          if (files.length > 0) {
+            // Create synthetic manifest
+            result.explorations.manifest = {
+              exploration_count: files.length,
+              explorations: files.map((f, i) => ({
+                angle: f.replace('exploration-', '').replace('.json', ''),
+                file: f,
+                index: i + 1
+              }))
+            };
+
+            // Load each file
+            for (const file of files) {
+              const angle = file.replace('exploration-', '').replace('.json', '');
+              try {
+                result.explorations.data[angle] = JSON.parse(readFileSync(join(normalizedPath, file), 'utf8'));
+              } catch (e) {
+                // Skip unreadable files
+              }
+            }
+          }
+        } catch (e) {
+          // Directory read failed
         }
       }
     }
@@ -546,4 +894,384 @@ async function loadRecentPaths() {
   html = html.replace(/\{\{PROJECT_PATH\}\}/g, normalizePathForDisplay(initialPath).replace(/\\/g, '/'));
 
   return html;
+}
+
+// ========================================
+// MCP Configuration Functions
+// ========================================
+
+/**
+ * Get MCP configuration from .claude.json
+ * @returns {Object}
+ */
+function getMcpConfig() {
+  try {
+    if (!existsSync(CLAUDE_CONFIG_PATH)) {
+      return { projects: {} };
+    }
+    const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
+    const config = JSON.parse(content);
+    return {
+      projects: config.projects || {}
+    };
+  } catch (error) {
+    console.error('Error reading MCP config:', error);
+    return { projects: {}, error: error.message };
+  }
+}
+
+/**
+ * Normalize project path for .claude.json (Windows backslash format)
+ * @param {string} path
+ * @returns {string}
+ */
+function normalizeProjectPathForConfig(path) {
+  // Convert forward slashes to backslashes for Windows .claude.json format
+  let normalized = path.replace(/\//g, '\\');
+
+  // Handle /d/path format -> D:\path
+  if (normalized.match(/^\\[a-zA-Z]\\/)) {
+    normalized = normalized.charAt(1).toUpperCase() + ':' + normalized.slice(2);
+  }
+
+  return normalized;
+}
+
+/**
+ * Toggle MCP server enabled/disabled
+ * @param {string} projectPath
+ * @param {string} serverName
+ * @param {boolean} enable
+ * @returns {Object}
+ */
+function toggleMcpServerEnabled(projectPath, serverName, enable) {
+  try {
+    if (!existsSync(CLAUDE_CONFIG_PATH)) {
+      return { error: '.claude.json not found' };
+    }
+
+    const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
+    const config = JSON.parse(content);
+
+    const normalizedPath = normalizeProjectPathForConfig(projectPath);
+
+    if (!config.projects || !config.projects[normalizedPath]) {
+      return { error: `Project not found: ${normalizedPath}` };
+    }
+
+    const projectConfig = config.projects[normalizedPath];
+
+    // Ensure disabledMcpServers array exists
+    if (!projectConfig.disabledMcpServers) {
+      projectConfig.disabledMcpServers = [];
+    }
+
+    if (enable) {
+      // Remove from disabled list
+      projectConfig.disabledMcpServers = projectConfig.disabledMcpServers.filter(s => s !== serverName);
+    } else {
+      // Add to disabled list if not already there
+      if (!projectConfig.disabledMcpServers.includes(serverName)) {
+        projectConfig.disabledMcpServers.push(serverName);
+      }
+    }
+
+    // Write back to file
+    writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+
+    return {
+      success: true,
+      serverName,
+      enabled: enable,
+      disabledMcpServers: projectConfig.disabledMcpServers
+    };
+  } catch (error) {
+    console.error('Error toggling MCP server:', error);
+    return { error: error.message };
+  }
+}
+
+/**
+ * Add MCP server to project
+ * @param {string} projectPath
+ * @param {string} serverName
+ * @param {Object} serverConfig
+ * @returns {Object}
+ */
+function addMcpServerToProject(projectPath, serverName, serverConfig) {
+  try {
+    if (!existsSync(CLAUDE_CONFIG_PATH)) {
+      return { error: '.claude.json not found' };
+    }
+
+    const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
+    const config = JSON.parse(content);
+
+    const normalizedPath = normalizeProjectPathForConfig(projectPath);
+
+    // Create project entry if it doesn't exist
+    if (!config.projects) {
+      config.projects = {};
+    }
+
+    if (!config.projects[normalizedPath]) {
+      config.projects[normalizedPath] = {
+        allowedTools: [],
+        mcpContextUris: [],
+        mcpServers: {},
+        enabledMcpjsonServers: [],
+        disabledMcpjsonServers: [],
+        hasTrustDialogAccepted: false,
+        projectOnboardingSeenCount: 0,
+        hasClaudeMdExternalIncludesApproved: false,
+        hasClaudeMdExternalIncludesWarningShown: false
+      };
+    }
+
+    const projectConfig = config.projects[normalizedPath];
+
+    // Ensure mcpServers exists
+    if (!projectConfig.mcpServers) {
+      projectConfig.mcpServers = {};
+    }
+
+    // Add the server
+    projectConfig.mcpServers[serverName] = serverConfig;
+
+    // Write back to file
+    writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+
+    return {
+      success: true,
+      serverName,
+      serverConfig
+    };
+  } catch (error) {
+    console.error('Error adding MCP server:', error);
+    return { error: error.message };
+  }
+}
+
+/**
+ * Remove MCP server from project
+ * @param {string} projectPath
+ * @param {string} serverName
+ * @returns {Object}
+ */
+function removeMcpServerFromProject(projectPath, serverName) {
+  try {
+    if (!existsSync(CLAUDE_CONFIG_PATH)) {
+      return { error: '.claude.json not found' };
+    }
+
+    const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
+    const config = JSON.parse(content);
+
+    const normalizedPath = normalizeProjectPathForConfig(projectPath);
+
+    if (!config.projects || !config.projects[normalizedPath]) {
+      return { error: `Project not found: ${normalizedPath}` };
+    }
+
+    const projectConfig = config.projects[normalizedPath];
+
+    if (!projectConfig.mcpServers || !projectConfig.mcpServers[serverName]) {
+      return { error: `Server not found: ${serverName}` };
+    }
+
+    // Remove the server
+    delete projectConfig.mcpServers[serverName];
+
+    // Also remove from disabled list if present
+    if (projectConfig.disabledMcpServers) {
+      projectConfig.disabledMcpServers = projectConfig.disabledMcpServers.filter(s => s !== serverName);
+    }
+
+    // Write back to file
+    writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+
+    return {
+      success: true,
+      serverName,
+      removed: true
+    };
+  } catch (error) {
+    console.error('Error removing MCP server:', error);
+    return { error: error.message };
+  }
+}
+
+// ========================================
+// Hook Configuration Functions
+// ========================================
+
+const GLOBAL_SETTINGS_PATH = join(homedir(), '.claude', 'settings.json');
+
+/**
+ * Get project settings path
+ * @param {string} projectPath
+ * @returns {string}
+ */
+function getProjectSettingsPath(projectPath) {
+  const normalizedPath = projectPath.replace(/\//g, '\\').replace(/^\\([a-zA-Z])\\/, '$1:\\');
+  return join(normalizedPath, '.claude', 'settings.json');
+}
+
+/**
+ * Read settings file safely
+ * @param {string} filePath
+ * @returns {Object}
+ */
+function readSettingsFile(filePath) {
+  try {
+    if (!existsSync(filePath)) {
+      return { hooks: {} };
+    }
+    const content = readFileSync(filePath, 'utf8');
+    return JSON.parse(content);
+  } catch (error) {
+    console.error(`Error reading settings file ${filePath}:`, error);
+    return { hooks: {} };
+  }
+}
+
+/**
+ * Write settings file safely
+ * @param {string} filePath
+ * @param {Object} settings
+ */
+function writeSettingsFile(filePath, settings) {
+  const dirPath = dirname(filePath);
+  // Ensure directory exists
+  if (!existsSync(dirPath)) {
+    mkdirSync(dirPath, { recursive: true });
+  }
+  writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf8');
+}
+
+/**
+ * Get hooks configuration from both global and project settings
+ * @param {string} projectPath
+ * @returns {Object}
+ */
+function getHooksConfig(projectPath) {
+  const globalSettings = readSettingsFile(GLOBAL_SETTINGS_PATH);
+  const projectSettingsPath = projectPath ? getProjectSettingsPath(projectPath) : null;
+  const projectSettings = projectSettingsPath ? readSettingsFile(projectSettingsPath) : { hooks: {} };
+
+  return {
+    global: {
+      path: GLOBAL_SETTINGS_PATH,
+      hooks: globalSettings.hooks || {}
+    },
+    project: {
+      path: projectSettingsPath,
+      hooks: projectSettings.hooks || {}
+    }
+  };
+}
+
+/**
+ * Save a hook to settings file
+ * @param {string} projectPath
+ * @param {string} scope - 'global' or 'project'
+ * @param {string} event - Hook event type
+ * @param {Object} hookData - Hook configuration
+ * @returns {Object}
+ */
+function saveHookToSettings(projectPath, scope, event, hookData) {
+  try {
+    const filePath = scope === 'global' ? GLOBAL_SETTINGS_PATH : getProjectSettingsPath(projectPath);
+    const settings = readSettingsFile(filePath);
+
+    // Ensure hooks object exists
+    if (!settings.hooks) {
+      settings.hooks = {};
+    }
+
+    // Ensure the event array exists
+    if (!settings.hooks[event]) {
+      settings.hooks[event] = [];
+    }
+
+    // Ensure it's an array
+    if (!Array.isArray(settings.hooks[event])) {
+      settings.hooks[event] = [settings.hooks[event]];
+    }
+
+    // Check if we're replacing an existing hook
+    if (hookData.replaceIndex !== undefined) {
+      const index = hookData.replaceIndex;
+      delete hookData.replaceIndex;
+      if (index >= 0 && index < settings.hooks[event].length) {
+        settings.hooks[event][index] = hookData;
+      }
+    } else {
+      // Add new hook
+      settings.hooks[event].push(hookData);
+    }
+
+    // Ensure directory exists and write file
+    const dirPath = dirname(filePath);
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true });
+    }
+    writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf8');
+
+    return {
+      success: true,
+      event,
+      hookData
+    };
+  } catch (error) {
+    console.error('Error saving hook:', error);
+    return { error: error.message };
+  }
+}
+
+/**
+ * Delete a hook from settings file
+ * @param {string} projectPath
+ * @param {string} scope - 'global' or 'project'
+ * @param {string} event - Hook event type
+ * @param {number} hookIndex - Index of hook to delete
+ * @returns {Object}
+ */
+function deleteHookFromSettings(projectPath, scope, event, hookIndex) {
+  try {
+    const filePath = scope === 'global' ? GLOBAL_SETTINGS_PATH : getProjectSettingsPath(projectPath);
+    const settings = readSettingsFile(filePath);
+
+    if (!settings.hooks || !settings.hooks[event]) {
+      return { error: 'Hook not found' };
+    }
+
+    // Ensure it's an array
+    if (!Array.isArray(settings.hooks[event])) {
+      settings.hooks[event] = [settings.hooks[event]];
+    }
+
+    if (hookIndex < 0 || hookIndex >= settings.hooks[event].length) {
+      return { error: 'Invalid hook index' };
+    }
+
+    // Remove the hook
+    settings.hooks[event].splice(hookIndex, 1);
+
+    // Remove empty event arrays
+    if (settings.hooks[event].length === 0) {
+      delete settings.hooks[event];
+    }
+
+    writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf8');
+
+    return {
+      success: true,
+      event,
+      hookIndex
+    };
+  } catch (error) {
+    console.error('Error deleting hook:', error);
+    return { error: error.message };
+  }
 }

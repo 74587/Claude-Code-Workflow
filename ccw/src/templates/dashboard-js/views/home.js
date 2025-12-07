@@ -3,10 +3,21 @@
 // ==========================================
 
 function renderDashboard() {
+  // Show stats grid and search (may be hidden by MCP view)
+  showStatsAndSearch();
+
   updateStats();
   updateBadges();
+  updateCarousel();
   renderSessions();
   document.getElementById('generatedAt').textContent = workflowData.generatedAt || new Date().toISOString();
+}
+
+function showStatsAndSearch() {
+  const statsGrid = document.getElementById('statsGrid');
+  const searchInput = document.getElementById('searchInput');
+  if (statsGrid) statsGrid.style.display = '';
+  if (searchInput) searchInput.parentElement.style.display = '';
 }
 
 function updateStats() {
@@ -29,6 +40,15 @@ function updateBadges() {
   const liteTasks = workflowData.liteTasks || {};
   document.getElementById('badgeLitePlan').textContent = liteTasks.litePlan?.length || 0;
   document.getElementById('badgeLiteFix').textContent = liteTasks.liteFix?.length || 0;
+
+  // MCP badge - load async if needed
+  if (typeof loadMcpConfig === 'function') {
+    loadMcpConfig().then(() => {
+      if (typeof updateMcpBadge === 'function') {
+        updateMcpBadge();
+      }
+    }).catch(e => console.error('MCP badge update failed:', e));
+  }
 }
 
 function renderSessions() {
