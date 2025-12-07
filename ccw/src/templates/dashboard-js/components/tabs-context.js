@@ -970,10 +970,6 @@ function renderConflictDetectionSection(conflictDetection) {
 function renderSessionContextContent(context, explorations, conflictResolution) {
   let sections = [];
 
-  // Render conflict resolution decisions if available
-  if (conflictResolution) {
-    sections.push(renderConflictResolutionContext(conflictResolution));
-  }
 
   // Render explorations if available (from exploration-*.json files)
   if (explorations && explorations.manifest) {
@@ -1002,7 +998,7 @@ function renderSessionContextContent(context, explorations, conflictResolution) 
     <div class="tab-empty-state">
       <div class="empty-icon">📦</div>
       <div class="empty-title">No Context Data</div>
-      <div class="empty-text">No context-package.json, exploration files, or conflict resolution data found for this session.</div>
+      <div class="empty-text">No context-package.json or exploration files found for this session.</div>
     </div>
   `;
 }

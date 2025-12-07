@@ -61,6 +61,8 @@ const MODULE_FILES = [
   'components/_exp_helpers.js',
   'components/tabs-other.js',
   'components/tabs-context.js',
+  'components/_conflict_tab.js',
+  'components/_review_tab.js',
   'components/task-drawer-core.js',
   'components/task-drawer-renderers.js',
   'components/flowchart.js',

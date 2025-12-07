@@ -1,18 +1,73 @@
 // ==========================================
 // REVIEW SESSION DETAIL PAGE
 // ==========================================
+// Enhanced with multi-select, filters, split preview panel, and export fix JSON
+
+// Review session state
+let reviewSessionState = {
+  allFindings: [],
+  filteredFindings: [],
+  selectedFindings: new Set(),
+  currentFilters: {
+    dimension: 'all',
+    severities: new Set(),
+    search: ''
+  },
+  sortConfig: {
+    field: 'severity',
+    order: 'desc'
+  },
+  previewFinding: null,
+  dimensions: [],
+  session: null
+};
 
 function renderReviewSessionDetailPage(session) {
   const isActive = session._isActive !== false;
-  const tasks = session.tasks || [];
   const dimensions = session.reviewDimensions || [];
 
-  // Calculate review statistics
-  const totalFindings = dimensions.reduce((sum, d) => sum + (d.findings?.length || 0), 0);
-  const criticalCount = dimensions.reduce((sum, d) =>
-    sum + (d.findings?.filter(f => f.severity === 'critical').length || 0), 0);
-  const highCount = dimensions.reduce((sum, d) =>
-    sum + (d.findings?.filter(f => f.severity === 'high').length || 0), 0);
+  // Store session and dimensions
+  reviewSessionState.session = session;
+  reviewSessionState.dimensions = dimensions;
+
+  // Build flat findings array with dimension info
+  const allFindings = [];
+  let findingIndex = 0;
+  dimensions.forEach(dim => {
+    (dim.findings || []).forEach(f => {
+      allFindings.push({
+        id: f.id || `finding-${findingIndex++}`,
+        title: f.title || 'Finding',
+        description: f.description || '',
+        severity: (f.severity || 'medium').toLowerCase(),
+        dimension: dim.name || 'unknown',
+        category: f.category || '',
+        file: f.file || '',
+        line: f.line || '',
+        code_context: f.code_context || f.snippet || '',
+        recommendations: f.recommendations || (f.recommendation ? [f.recommendation] : []),
+        root_cause: f.root_cause || '',
+        impact: f.impact || '',
+        references: f.references || [],
+        metadata: f.metadata || {},
+        fix_status: f.fix_status || null
+      });
+    });
+  });
+
+  reviewSessionState.allFindings = allFindings;
+  reviewSessionState.filteredFindings = [...allFindings];
+  reviewSessionState.selectedFindings.clear();
+  reviewSessionState.previewFinding = null;
+
+  // Calculate statistics
+  const totalFindings = allFindings.length;
+  const severityCounts = {
+    critical: allFindings.filter(f => f.severity === 'critical').length,
+    high: allFindings.filter(f => f.severity === 'high').length,
+    medium: allFindings.filter(f => f.severity === 'medium').length,
+    low: allFindings.filter(f => f.severity === 'low').length
+  };
 
   return `
     <div class="session-detail-page session-type-review">
@@ -37,7 +92,7 @@ function renderReviewSessionDetailPage(session) {
       <div class="review-progress-section">
         <div class="review-progress-header">
           <h3>📊 Review Progress</h3>
-          <span class="phase-badge ${session.phase || 'in-progress'}">${session.phase || 'In Progress'}</span>
+          <span class="phase-badge ${session.phase || 'in-progress'}">${(session.phase || 'In Progress').toUpperCase()}</span>
         </div>
 
         <!-- Summary Cards -->
@@ -49,12 +104,12 @@ function renderReviewSessionDetailPage(session) {
           </div>
           <div class="summary-card critical">
             <div class="summary-icon">🔴</div>
-            <div class="summary-value">${criticalCount}</div>
+            <div class="summary-value">${severityCounts.critical}</div>
             <div class="summary-label">Critical</div>
           </div>
           <div class="summary-card high">
             <div class="summary-icon">🟠</div>
-            <div class="summary-value">${highCount}</div>
+            <div class="summary-value">${severityCounts.high}</div>
             <div class="summary-label">High</div>
           </div>
           <div class="summary-card">
@@ -64,31 +119,117 @@ function renderReviewSessionDetailPage(session) {
           </div>
         </div>
 
-        <!-- Dimension Timeline -->
-        <div class="dimension-timeline" id="dimensionTimeline">
-          ${dimensions.map((dim, idx) => `
-            <div class="dimension-item ${dim.status || 'pending'}" data-dimension="${dim.name}">
-              <div class="dimension-number">D${idx + 1}</div>
-              <div class="dimension-name">${escapeHtml(dim.name || 'Unknown')}</div>
-              <div class="dimension-stats">${dim.findings?.length || 0} findings</div>
-            </div>
-          `).join('')}
-        </div>
       </div>
 
-      <!-- Findings Grid -->
-      <div class="review-findings-section">
-        <div class="findings-header">
-          <h3>🔍 Findings by Dimension</h3>
-          <div class="findings-filters">
-            <button class="filter-btn active" data-severity="all" onclick="filterReviewFindings('all')">All</button>
-            <button class="filter-btn" data-severity="critical" onclick="filterReviewFindings('critical')">Critical</button>
-            <button class="filter-btn" data-severity="high" onclick="filterReviewFindings('high')">High</button>
-            <button class="filter-btn" data-severity="medium" onclick="filterReviewFindings('medium')">Medium</button>
+      <!-- Enhanced Findings Section -->
+      <div class="review-enhanced-container">
+        <!-- Header with Stats & Controls -->
+        <div class="review-header-bar">
+          <div class="review-severity-stats">
+            <span class="severity-stat critical" onclick="toggleReviewSessionSeverity('critical')" title="Filter Critical">
+              🔴 ${severityCounts.critical}
+            </span>
+            <span class="severity-stat high" onclick="toggleReviewSessionSeverity('high')" title="Filter High">
+              🟠 ${severityCounts.high}
+            </span>
+            <span class="severity-stat medium" onclick="toggleReviewSessionSeverity('medium')" title="Filter Medium">
+              🟡 ${severityCounts.medium}
+            </span>
+            <span class="severity-stat low" onclick="toggleReviewSessionSeverity('low')" title="Filter Low">
+              🟢 ${severityCounts.low}
+            </span>
           </div>
+
+          <div class="review-search-box">
+            <input type="text"
+                   id="reviewSessionSearchInput"
+                   placeholder="Search findings..."
+                   oninput="onReviewSessionSearch(this.value)">
+          </div>
+
+          <div class="review-selection-controls">
+            <span class="selection-counter" id="reviewSessionSelectionCounter">0 selected</span>
+            <button class="btn-mini" onclick="selectAllReviewSessionFindings()">Select All</button>
+            <button class="btn-mini" onclick="selectVisibleReviewSessionFindings()">Visible</button>
+            <button class="btn-mini" onclick="selectReviewSessionBySeverity('critical')">Critical</button>
+            <button class="btn-mini" onclick="clearReviewSessionSelection()">Clear</button>
+          </div>
+
+          <button class="btn-export-fix" id="reviewSessionExportBtn" onclick="exportReviewSessionFixJson()" disabled>
+            🔧 Export Fix JSON
+          </button>
         </div>
-        <div class="findings-grid" id="reviewFindingsGrid">
-          ${renderReviewFindingsGrid(dimensions)}
+
+        <!-- Filter Bar -->
+        <div class="review-filter-bar">
+          <div class="filter-group">
+            <span class="filter-label">Severity:</span>
+            <div class="filter-chips">
+              <label class="filter-chip" id="rs-filter-critical">
+                <input type="checkbox" onchange="toggleReviewSessionSeverity('critical')">
+                <span>Critical</span>
+              </label>
+              <label class="filter-chip" id="rs-filter-high">
+                <input type="checkbox" onchange="toggleReviewSessionSeverity('high')">
+                <span>High</span>
+              </label>
+              <label class="filter-chip" id="rs-filter-medium">
+                <input type="checkbox" onchange="toggleReviewSessionSeverity('medium')">
+                <span>Medium</span>
+              </label>
+              <label class="filter-chip" id="rs-filter-low">
+                <input type="checkbox" onchange="toggleReviewSessionSeverity('low')">
+                <span>Low</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <span class="filter-label">Sort:</span>
+            <select id="reviewSessionSortSelect" class="sort-select" onchange="sortReviewSessionFindings()">
+              <option value="severity">By Severity</option>
+              <option value="dimension">By Dimension</option>
+              <option value="file">By File</option>
+            </select>
+            <button class="btn-sort-order" id="reviewSessionSortOrderBtn" onclick="toggleReviewSessionSortOrder()">
+              <span id="reviewSessionSortOrderIcon">↓</span>
+            </button>
+          </div>
+
+          <button class="btn-mini" onclick="resetReviewSessionFilters()">Reset</button>
+        </div>
+
+        <!-- Dimension Tabs -->
+        <div class="review-dimension-tabs">
+          <button class="dim-tab active" data-dimension="all" onclick="filterReviewSessionByDimension('all')">
+            All (${totalFindings})
+          </button>
+          ${dimensions.map(dim => `
+            <button class="dim-tab" data-dimension="${dim.name}" onclick="filterReviewSessionByDimension('${dim.name}')">
+              ${escapeHtml(dim.name)} (${dim.findings?.length || 0})
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- Split Panel: List + Preview -->
+        <div class="review-split-panel">
+          <!-- Left: Findings List -->
+          <div class="review-findings-panel">
+            <div class="findings-list-header">
+              <span id="reviewSessionFindingsCount">${totalFindings} findings</span>
+            </div>
+            <div class="review-findings-list" id="reviewSessionFindingsList">
+              ${renderReviewSessionFindingsList(allFindings)}
+            </div>
+          </div>
+
+          <!-- Right: Preview Panel -->
+          <div class="review-preview-panel" id="reviewSessionPreviewPanel">
+            <div class="preview-empty-state">
+              <div class="preview-icon">👆</div>
+              <div class="preview-text">Click on a finding to preview details</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -113,64 +254,458 @@ function renderReviewSessionDetailPage(session) {
   `;
 }
 
-function renderReviewFindingsGrid(dimensions) {
-  if (!dimensions || dimensions.length === 0) {
+// ==========================================
+// Findings List Rendering
+// ==========================================
+
+function renderReviewSessionFindingsList(findings) {
+  if (findings.length === 0) {
     return `
-      <div class="empty-state">
-        <div class="empty-icon">🔍</div>
-        <div class="empty-text">No review dimensions found</div>
+      <div class="findings-empty">
+        <span class="empty-icon">✨</span>
+        <span>No findings match your filters</span>
       </div>
     `;
   }
 
-  let html = '';
-  dimensions.forEach(dim => {
-    const findings = dim.findings || [];
-    if (findings.length === 0) return;
-
-    html += `
-      <div class="dimension-findings-group" data-dimension="${dim.name}">
-        <div class="dimension-group-header">
-          <span class="dimension-badge">${escapeHtml(dim.name)}</span>
-          <span class="dimension-count">${findings.length} findings</span>
+  return findings.map(finding => `
+    <div class="review-finding-item ${finding.severity} ${reviewSessionState.selectedFindings.has(finding.id) ? 'selected' : ''}"
+         data-finding-id="${finding.id}"
+         onclick="previewReviewSessionFinding('${finding.id}')">
+      <input type="checkbox"
+             class="finding-checkbox"
+             ${reviewSessionState.selectedFindings.has(finding.id) ? 'checked' : ''}
+             onclick="toggleReviewSessionFindingSelection('${finding.id}', event)">
+      <div class="finding-content">
+        <div class="finding-top-row">
+          <span class="severity-badge ${finding.severity}">${finding.severity}</span>
+          <span class="dimension-badge">${escapeHtml(finding.dimension)}</span>
+          ${finding.fix_status ? `<span class="fix-status-mini status-${finding.fix_status}">${finding.fix_status}</span>` : ''}
         </div>
-        <div class="findings-cards">
-          ${findings.map(f => `
-            <div class="finding-card severity-${f.severity || 'medium'}" data-severity="${f.severity || 'medium'}">
-              <div class="finding-card-header">
-                <span class="severity-badge ${f.severity || 'medium'}">${f.severity || 'medium'}</span>
-                ${f.fix_status ? `<span class="fix-status-badge status-${f.fix_status}">${f.fix_status}</span>` : ''}
-              </div>
-              <div class="finding-card-title">${escapeHtml(f.title || 'Finding')}</div>
-              <div class="finding-card-desc">${escapeHtml((f.description || '').substring(0, 100))}${f.description?.length > 100 ? '...' : ''}</div>
-              ${f.file ? `<div class="finding-card-file">📄 ${escapeHtml(f.file)}${f.line ? ':' + f.line : ''}</div>` : ''}
-            </div>
-          `).join('')}
-        </div>
+        <div class="finding-title">${escapeHtml(finding.title)}</div>
+        ${finding.file ? `<div class="finding-file">📄 ${escapeHtml(finding.file)}${finding.line ? ':' + finding.line : ''}</div>` : ''}
       </div>
-    `;
-  });
-
-  return html || '<div class="empty-state"><div class="empty-text">No findings</div></div>';
+    </div>
+  `).join('');
 }
 
-function initReviewSessionPage(session) {
-  // Initialize event handlers for review session page
-  // Filter handlers are inline onclick
-}
+// ==========================================
+// Preview Panel
+// ==========================================
 
-function filterReviewFindings(severity) {
-  // Update filter buttons
-  document.querySelectorAll('.findings-filters .filter-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.severity === severity);
+function previewReviewSessionFinding(findingId) {
+  const finding = reviewSessionState.allFindings.find(f => f.id === findingId);
+  if (!finding) return;
+
+  reviewSessionState.previewFinding = finding;
+
+  // Update active state in list
+  document.querySelectorAll('.review-finding-item').forEach(item => {
+    item.classList.toggle('previewing', item.dataset.findingId === findingId);
   });
 
-  // Filter finding cards
-  document.querySelectorAll('.finding-card').forEach(card => {
-    if (severity === 'all' || card.dataset.severity === severity) {
-      card.style.display = '';
-    } else {
-      card.style.display = 'none';
+  const previewPanel = document.getElementById('reviewSessionPreviewPanel');
+  if (!previewPanel) return;
+
+  previewPanel.innerHTML = `
+    <div class="preview-content">
+      <div class="preview-header">
+        <div class="preview-badges">
+          <span class="severity-badge ${finding.severity}">${finding.severity}</span>
+          <span class="dimension-badge">${escapeHtml(finding.dimension)}</span>
+          ${finding.category ? `<span class="category-badge">${escapeHtml(finding.category)}</span>` : ''}
+          ${finding.fix_status ? `<span class="fix-status-badge status-${finding.fix_status}">${finding.fix_status}</span>` : ''}
+        </div>
+        <button class="btn-select-finding ${reviewSessionState.selectedFindings.has(finding.id) ? 'selected' : ''}"
+                onclick="toggleReviewSessionFindingSelection('${finding.id}', event)">
+          ${reviewSessionState.selectedFindings.has(finding.id) ? '✓ Selected' : '+ Select for Fix'}
+        </button>
+      </div>
+
+      <h3 class="preview-title">${escapeHtml(finding.title)}</h3>
+
+      ${finding.file ? `
+        <div class="preview-section">
+          <div class="preview-section-title">📄 Location</div>
+          <div class="preview-location">
+            <code>${escapeHtml(finding.file)}${finding.line ? ':' + finding.line : ''}</code>
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="preview-section">
+        <div class="preview-section-title">📝 Description</div>
+        <div class="preview-description">${escapeHtml(finding.description)}</div>
+      </div>
+
+      ${finding.code_context ? `
+        <div class="preview-section">
+          <div class="preview-section-title">💻 Code Context</div>
+          <pre class="preview-code">${escapeHtml(finding.code_context)}</pre>
+        </div>
+      ` : ''}
+
+      ${finding.recommendations && finding.recommendations.length > 0 ? `
+        <div class="preview-section">
+          <div class="preview-section-title">✅ Recommendations</div>
+          <ul class="preview-recommendations">
+            ${finding.recommendations.map(r => `<li>${escapeHtml(r)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${finding.root_cause ? `
+        <div class="preview-section">
+          <div class="preview-section-title">🔍 Root Cause</div>
+          <div class="preview-root-cause">${escapeHtml(finding.root_cause)}</div>
+        </div>
+      ` : ''}
+
+      ${finding.impact ? `
+        <div class="preview-section">
+          <div class="preview-section-title">⚠️ Impact</div>
+          <div class="preview-impact">${escapeHtml(finding.impact)}</div>
+        </div>
+      ` : ''}
+
+      ${finding.references && finding.references.length > 0 ? `
+        <div class="preview-section">
+          <div class="preview-section-title">🔗 References</div>
+          <ul class="preview-references">
+            ${finding.references.map(ref => {
+              const isUrl = ref.startsWith('http');
+              return `<li>${isUrl ? `<a href="${ref}" target="_blank">${ref}</a>` : ref}</li>`;
+            }).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${finding.metadata && Object.keys(finding.metadata).length > 0 ? `
+        <div class="preview-section">
+          <div class="preview-section-title">ℹ️ Metadata</div>
+          <div class="preview-metadata">
+            ${Object.entries(finding.metadata).map(([key, value]) => `
+              <div class="metadata-item">
+                <span class="meta-key">${escapeHtml(key)}:</span>
+                <span class="meta-value">${escapeHtml(String(value))}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// ==========================================
+// Selection Management
+// ==========================================
+
+function toggleReviewSessionFindingSelection(findingId, event) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  if (reviewSessionState.selectedFindings.has(findingId)) {
+    reviewSessionState.selectedFindings.delete(findingId);
+  } else {
+    reviewSessionState.selectedFindings.add(findingId);
+  }
+
+  updateReviewSessionSelectionUI();
+
+  // Update preview panel button if this finding is being previewed
+  if (reviewSessionState.previewFinding && reviewSessionState.previewFinding.id === findingId) {
+    previewReviewSessionFinding(findingId);
+  }
+}
+
+function selectAllReviewSessionFindings() {
+  reviewSessionState.allFindings.forEach(f => reviewSessionState.selectedFindings.add(f.id));
+  updateReviewSessionSelectionUI();
+}
+
+function selectVisibleReviewSessionFindings() {
+  reviewSessionState.filteredFindings.forEach(f => reviewSessionState.selectedFindings.add(f.id));
+  updateReviewSessionSelectionUI();
+}
+
+function selectReviewSessionBySeverity(severity) {
+  reviewSessionState.allFindings
+    .filter(f => f.severity === severity)
+    .forEach(f => reviewSessionState.selectedFindings.add(f.id));
+  updateReviewSessionSelectionUI();
+}
+
+function clearReviewSessionSelection() {
+  reviewSessionState.selectedFindings.clear();
+  updateReviewSessionSelectionUI();
+}
+
+function updateReviewSessionSelectionUI() {
+  // Update counter
+  const counter = document.getElementById('reviewSessionSelectionCounter');
+  if (counter) {
+    counter.textContent = `${reviewSessionState.selectedFindings.size} selected`;
+  }
+
+  // Update export button
+  const exportBtn = document.getElementById('reviewSessionExportBtn');
+  if (exportBtn) {
+    exportBtn.disabled = reviewSessionState.selectedFindings.size === 0;
+  }
+
+  // Update checkbox states in list
+  document.querySelectorAll('.review-finding-item').forEach(item => {
+    const findingId = item.dataset.findingId;
+    const isSelected = reviewSessionState.selectedFindings.has(findingId);
+    item.classList.toggle('selected', isSelected);
+    const checkbox = item.querySelector('.finding-checkbox');
+    if (checkbox) {
+      checkbox.checked = isSelected;
     }
   });
+}
+
+// ==========================================
+// Filtering & Sorting
+// ==========================================
+
+function filterReviewSessionByDimension(dimension) {
+  reviewSessionState.currentFilters.dimension = dimension;
+
+  // Update tab active state
+  document.querySelectorAll('.dim-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.dimension === dimension);
+  });
+
+  // Update dimension timeline highlight
+  document.querySelectorAll('.dimension-item').forEach(item => {
+    item.classList.toggle('active', dimension === 'all' || item.dataset.dimension === dimension);
+  });
+
+  applyReviewSessionFilters();
+}
+
+function toggleReviewSessionSeverity(severity) {
+  if (reviewSessionState.currentFilters.severities.has(severity)) {
+    reviewSessionState.currentFilters.severities.delete(severity);
+  } else {
+    reviewSessionState.currentFilters.severities.add(severity);
+  }
+
+  // Update filter chip UI
+  const filterChip = document.getElementById(`rs-filter-${severity}`);
+  if (filterChip) {
+    filterChip.classList.toggle('active', reviewSessionState.currentFilters.severities.has(severity));
+    const checkbox = filterChip.querySelector('input[type="checkbox"]');
+    if (checkbox) {
+      checkbox.checked = reviewSessionState.currentFilters.severities.has(severity);
+    }
+  }
+
+  applyReviewSessionFilters();
+}
+
+function onReviewSessionSearch(searchText) {
+  reviewSessionState.currentFilters.search = searchText.toLowerCase();
+  applyReviewSessionFilters();
+}
+
+function applyReviewSessionFilters() {
+  reviewSessionState.filteredFindings = reviewSessionState.allFindings.filter(finding => {
+    // Dimension filter
+    if (reviewSessionState.currentFilters.dimension !== 'all') {
+      if (finding.dimension !== reviewSessionState.currentFilters.dimension) {
+        return false;
+      }
+    }
+
+    // Severity filter (multi-select)
+    if (reviewSessionState.currentFilters.severities.size > 0) {
+      if (!reviewSessionState.currentFilters.severities.has(finding.severity)) {
+        return false;
+      }
+    }
+
+    // Search filter
+    if (reviewSessionState.currentFilters.search) {
+      const searchText = `${finding.title} ${finding.description} ${finding.file} ${finding.category}`.toLowerCase();
+      if (!searchText.includes(reviewSessionState.currentFilters.search)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  sortReviewSessionFindings();
+}
+
+function sortReviewSessionFindings() {
+  const sortBy = document.getElementById('reviewSessionSortSelect')?.value || 'severity';
+  reviewSessionState.sortConfig.field = sortBy;
+
+  const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+
+  reviewSessionState.filteredFindings.sort((a, b) => {
+    let comparison = 0;
+
+    if (sortBy === 'severity') {
+      comparison = severityOrder[a.severity] - severityOrder[b.severity];
+    } else if (sortBy === 'dimension') {
+      comparison = a.dimension.localeCompare(b.dimension);
+    } else if (sortBy === 'file') {
+      comparison = (a.file || '').localeCompare(b.file || '');
+    }
+
+    return reviewSessionState.sortConfig.order === 'asc' ? comparison : -comparison;
+  });
+
+  renderFilteredReviewSessionFindings();
+}
+
+function toggleReviewSessionSortOrder() {
+  reviewSessionState.sortConfig.order = reviewSessionState.sortConfig.order === 'asc' ? 'desc' : 'asc';
+
+  const icon = document.getElementById('reviewSessionSortOrderIcon');
+  if (icon) {
+    icon.textContent = reviewSessionState.sortConfig.order === 'asc' ? '↑' : '↓';
+  }
+
+  sortReviewSessionFindings();
+}
+
+function resetReviewSessionFilters() {
+  // Reset state
+  reviewSessionState.currentFilters.dimension = 'all';
+  reviewSessionState.currentFilters.severities.clear();
+  reviewSessionState.currentFilters.search = '';
+  reviewSessionState.sortConfig.field = 'severity';
+  reviewSessionState.sortConfig.order = 'desc';
+
+  // Reset UI
+  document.querySelectorAll('.dim-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.dimension === 'all');
+  });
+
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.classList.remove('active');
+    const checkbox = chip.querySelector('input[type="checkbox"]');
+    if (checkbox) checkbox.checked = false;
+  });
+
+  document.querySelectorAll('.dimension-item').forEach(item => {
+    item.classList.remove('active');
+  });
+
+  const searchInput = document.getElementById('reviewSessionSearchInput');
+  if (searchInput) searchInput.value = '';
+
+  const sortSelect = document.getElementById('reviewSessionSortSelect');
+  if (sortSelect) sortSelect.value = 'severity';
+
+  const sortIcon = document.getElementById('reviewSessionSortOrderIcon');
+  if (sortIcon) sortIcon.textContent = '↓';
+
+  // Re-apply filters
+  reviewSessionState.filteredFindings = [...reviewSessionState.allFindings];
+  sortReviewSessionFindings();
+}
+
+function renderFilteredReviewSessionFindings() {
+  const listContainer = document.getElementById('reviewSessionFindingsList');
+  const countEl = document.getElementById('reviewSessionFindingsCount');
+
+  if (listContainer) {
+    listContainer.innerHTML = renderReviewSessionFindingsList(reviewSessionState.filteredFindings);
+  }
+
+  if (countEl) {
+    countEl.textContent = `${reviewSessionState.filteredFindings.length} findings`;
+  }
+}
+
+// ==========================================
+// Export Fix JSON
+// ==========================================
+
+function exportReviewSessionFixJson() {
+  if (reviewSessionState.selectedFindings.size === 0) {
+    showToast('Please select at least one finding to export', 'error');
+    return;
+  }
+
+  const selectedFindingsData = reviewSessionState.allFindings.filter(f =>
+    reviewSessionState.selectedFindings.has(f.id)
+  );
+
+  const session = reviewSessionState.session;
+  const sessionId = session?.session_id || 'unknown';
+  const exportId = `fix-${Date.now()}`;
+
+  const exportData = {
+    export_id: exportId,
+    export_timestamp: new Date().toISOString(),
+    review_id: `review-${sessionId}`,
+    session_id: sessionId,
+    findings_count: selectedFindingsData.length,
+    findings: selectedFindingsData.map(f => ({
+      id: f.id,
+      title: f.title,
+      description: f.description,
+      severity: f.severity,
+      dimension: f.dimension,
+      category: f.category || 'uncategorized',
+      file: f.file,
+      line: f.line,
+      code_context: f.code_context || null,
+      recommendations: f.recommendations || [],
+      root_cause: f.root_cause || null
+    }))
+  };
+
+  // Convert to JSON and download
+  const jsonStr = JSON.stringify(exportData, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const filename = `fix-export-${exportId}.json`;
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  // Show success notification
+  const severityCounts = {
+    critical: selectedFindingsData.filter(f => f.severity === 'critical').length,
+    high: selectedFindingsData.filter(f => f.severity === 'high').length,
+    medium: selectedFindingsData.filter(f => f.severity === 'medium').length,
+    low: selectedFindingsData.filter(f => f.severity === 'low').length
+  };
+
+  showToast(`Exported ${selectedFindingsData.length} findings (Critical: ${severityCounts.critical}, High: ${severityCounts.high}, Medium: ${severityCounts.medium}, Low: ${severityCounts.low})`, 'success');
+}
+
+// ==========================================
+// Page Initialization
+// ==========================================
+
+function initReviewSessionPage(session) {
+  // Reset state when page loads
+  reviewSessionState.session = session;
+  // Event handlers are inline onclick - no additional setup needed
+}
+
+// Legacy filter function for compatibility
+function filterReviewFindings(severity) {
+  if (severity === 'all') {
+    reviewSessionState.currentFilters.severities.clear();
+  } else {
+    reviewSessionState.currentFilters.severities.clear();
+    reviewSessionState.currentFilters.severities.add(severity);
+  }
+  applyReviewSessionFilters();
 }

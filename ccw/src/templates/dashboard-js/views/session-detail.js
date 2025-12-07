@@ -11,6 +11,9 @@ function showSessionDetailPage(sessionKey) {
   currentSessionDetailKey = sessionKey;
   updateContentTitle();
 
+  // Hide stats grid and carousel on detail pages
+  hideStatsAndCarousel();
+
   const container = document.getElementById('mainContent');
   const sessionType = session.type || 'workflow';
 
@@ -94,6 +97,7 @@ function showSessionDetailPage(sessionKey) {
           <span class="tab-icon">📐</span>
           <span class="tab-text">IMPL Plan</span>
         </button>
+<button class="detail-tab" data-tab="conflict" onclick="switchDetailTab('conflict')">          <span class="tab-icon">⚖️</span>          <span class="tab-text">Conflict</span>        </button>
         ${session.hasReview ? `
           <button class="detail-tab" data-tab="review" onclick="switchDetailTab('review')">
             <span class="tab-icon">🔍</span>
@@ -114,6 +118,7 @@ function goBackToSessions() {
   currentView = 'sessions';
   currentSessionDetailKey = null;
   updateContentTitle();
+  showStatsAndSearch();
   renderSessions();
 }
 
@@ -148,6 +153,7 @@ function switchDetailTab(tabName) {
     case 'review':
       loadAndRenderReviewTab(session, contentArea);
       break;
+case 'conflict':      loadAndRenderConflictTab(session, contentArea);      break;
   }
 }
 

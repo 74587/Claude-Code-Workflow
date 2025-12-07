@@ -89,69 +89,8 @@ function renderImplPlanContent(implPlan) {
 // ==========================================
 // Review Tab Rendering
 // ==========================================
-
-function renderReviewContent(review) {
-  if (!review || !review.dimensions) {
-    return `
-      <div class="tab-empty-state">
-        <div class="empty-icon">🔍</div>
-        <div class="empty-title">No Review Data</div>
-        <div class="empty-text">No review findings in .review/</div>
-      </div>
-    `;
-  }
-
-  const dimensions = Object.entries(review.dimensions);
-  if (dimensions.length === 0) {
-    return `
-      <div class="tab-empty-state">
-        <div class="empty-icon">🔍</div>
-        <div class="empty-title">No Findings</div>
-        <div class="empty-text">No review findings found.</div>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="review-tab-content">
-      ${dimensions.map(([dim, rawFindings]) => {
-        // Normalize findings to always be an array
-        let findings = [];
-        if (Array.isArray(rawFindings)) {
-          findings = rawFindings;
-        } else if (rawFindings && typeof rawFindings === 'object') {
-          // If it's an object with a findings array, use that
-          if (Array.isArray(rawFindings.findings)) {
-            findings = rawFindings.findings;
-          } else {
-            // Wrap single object in array or show raw JSON
-            findings = [{ title: dim, description: JSON.stringify(rawFindings, null, 2), severity: 'info' }];
-          }
-        }
-
-        return `
-        <div class="review-dimension-section">
-          <div class="dimension-header">
-            <span class="dimension-name">${escapeHtml(dim)}</span>
-            <span class="dimension-count">${findings.length} finding${findings.length !== 1 ? 's' : ''}</span>
-          </div>
-          <div class="dimension-findings">
-            ${findings.map(f => `
-              <div class="finding-item ${f.severity || 'medium'}">
-                <div class="finding-header">
-                  <span class="finding-severity ${f.severity || 'medium'}">${f.severity || 'medium'}</span>
-                  <span class="finding-title">${escapeHtml(f.title || 'Finding')}</span>
-                </div>
-                <p class="finding-description">${escapeHtml(f.description || '')}</p>
-                ${f.file ? `<div class="finding-file">📄 ${escapeHtml(f.file)}${f.line ? ':' + f.line : ''}</div>` : ''}
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `}).join('')}
-    </div>
-  `;
-}
+// NOTE: Enhanced review tab with multi-select, filtering, and preview panel
+// is now in _review_tab.js - renderReviewContent() function defined there
 
 // ==========================================
 // Lite Context Tab Rendering

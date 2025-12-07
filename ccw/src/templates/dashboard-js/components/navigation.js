@@ -62,6 +62,7 @@ function initNavigation() {
       currentView = 'sessions';
       currentSessionDetailKey = null;
       updateContentTitle();
+      showStatsAndSearch();
       renderSessions();
     });
   });
@@ -75,6 +76,7 @@ function initNavigation() {
       currentView = 'liteTasks';
       currentSessionDetailKey = null;
       updateContentTitle();
+      showStatsAndSearch();
       renderLiteTasks();
     });
   });

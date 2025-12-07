@@ -5,6 +5,7 @@
 let mcpConfig = null;
 let mcpAllProjects = {};
 let mcpCurrentProjectServers = {};
+let mcpCreateMode = 'form'; // 'form' or 'json'
 
 // ========== Initialization ==========
 function initMcpManager() {
@@ -189,13 +190,21 @@ function openMcpCreateModal() {
   const modal = document.getElementById('mcpCreateModal');
   if (modal) {
     modal.classList.remove('hidden');
+    // Reset to form mode
+    mcpCreateMode = 'form';
+    switchMcpCreateTab('form');
     // Clear form
     document.getElementById('mcpServerName').value = '';
     document.getElementById('mcpServerCommand').value = '';
     document.getElementById('mcpServerArgs').value = '';
     document.getElementById('mcpServerEnv').value = '';
+    // Clear JSON input
+    document.getElementById('mcpServerJson').value = '';
+    document.getElementById('mcpJsonPreview').classList.add('hidden');
     // Focus on name input
     document.getElementById('mcpServerName').focus();
+    // Setup JSON input listener
+    setupMcpJsonListener();
   }
 }
 
@@ -206,7 +215,139 @@ function closeMcpCreateModal() {
   }
 }
 
+function switchMcpCreateTab(tab) {
+  mcpCreateMode = tab;
+  const formMode = document.getElementById('mcpFormMode');
+  const jsonMode = document.getElementById('mcpJsonMode');
+  const tabForm = document.getElementById('mcpTabForm');
+  const tabJson = document.getElementById('mcpTabJson');
+
+  if (tab === 'form') {
+    formMode.classList.remove('hidden');
+    jsonMode.classList.add('hidden');
+    tabForm.classList.add('active');
+    tabJson.classList.remove('active');
+  } else {
+    formMode.classList.add('hidden');
+    jsonMode.classList.remove('hidden');
+    tabForm.classList.remove('active');
+    tabJson.classList.add('active');
+  }
+}
+
+function setupMcpJsonListener() {
+  const jsonInput = document.getElementById('mcpServerJson');
+  if (jsonInput && !jsonInput.hasAttribute('data-listener-attached')) {
+    jsonInput.setAttribute('data-listener-attached', 'true');
+    jsonInput.addEventListener('input', () => {
+      updateMcpJsonPreview();
+    });
+  }
+}
+
+function parseMcpJsonConfig(jsonText) {
+  if (!jsonText.trim()) {
+    return { servers: {}, error: null };
+  }
+
+  try {
+    const parsed = JSON.parse(jsonText);
+    let servers = {};
+
+    // Support multiple formats:
+    // 1. {"servers": {...}} format (claude desktop style)
+    // 2. {"mcpServers": {...}} format (claude.json style)
+    // 3. {"serverName": {command, args}} format (direct server config)
+    // 4. {command, args} format (single server without name)
+
+    if (parsed.servers && typeof parsed.servers === 'object') {
+      servers = parsed.servers;
+    } else if (parsed.mcpServers && typeof parsed.mcpServers === 'object') {
+      servers = parsed.mcpServers;
+    } else if (parsed.command && typeof parsed.command === 'string') {
+      // Single server without name - will prompt for name
+      servers = { '__unnamed__': parsed };
+    } else {
+      // Check if all values are server configs (have 'command' property)
+      const isDirectServerConfig = Object.values(parsed).every(
+        v => v && typeof v === 'object' && v.command
+      );
+      if (isDirectServerConfig && Object.keys(parsed).length > 0) {
+        servers = parsed;
+      } else {
+        return { servers: {}, error: 'Invalid MCP server JSON format' };
+      }
+    }
+
+    // Validate each server config
+    for (const [name, config] of Object.entries(servers)) {
+      if (!config.command || typeof config.command !== 'string') {
+        return { servers: {}, error: `Server "${name}" missing required "command" field` };
+      }
+      if (config.args && !Array.isArray(config.args)) {
+        return { servers: {}, error: `Server "${name}" has invalid "args" (must be array)` };
+      }
+      if (config.env && typeof config.env !== 'object') {
+        return { servers: {}, error: `Server "${name}" has invalid "env" (must be object)` };
+      }
+    }
+
+    return { servers, error: null };
+  } catch (e) {
+    return { servers: {}, error: 'Invalid JSON: ' + e.message };
+  }
+}
+
+function updateMcpJsonPreview() {
+  const jsonInput = document.getElementById('mcpServerJson');
+  const previewContainer = document.getElementById('mcpJsonPreview');
+  const previewContent = document.getElementById('mcpJsonPreviewContent');
+
+  const jsonText = jsonInput.value;
+  const { servers, error } = parseMcpJsonConfig(jsonText);
+
+  if (!jsonText.trim()) {
+    previewContainer.classList.add('hidden');
+    return;
+  }
+
+  previewContainer.classList.remove('hidden');
+
+  if (error) {
+    previewContent.innerHTML = `<div class="text-destructive">${escapeHtml(error)}</div>`;
+    return;
+  }
+
+  const serverCount = Object.keys(servers).length;
+  if (serverCount === 0) {
+    previewContent.innerHTML = `<div class="text-muted-foreground">No servers found</div>`;
+    return;
+  }
+
+  const previewHtml = Object.entries(servers).map(([name, config]) => {
+    const displayName = name === '__unnamed__' ? '(will prompt for name)' : name;
+    const argsPreview = config.args ? config.args.slice(0, 2).join(' ') + (config.args.length > 2 ? '...' : '') : '';
+    return `
+      <div class="flex items-center gap-2 p-2 bg-background rounded">
+        <span class="text-success">+</span>
+        <span class="font-medium">${escapeHtml(displayName)}</span>
+        <span class="text-muted-foreground text-xs">${escapeHtml(config.command)} ${escapeHtml(argsPreview)}</span>
+      </div>
+    `;
+  }).join('');
+
+  previewContent.innerHTML = previewHtml;
+}
+
 async function submitMcpCreate() {
+  if (mcpCreateMode === 'json') {
+    await submitMcpCreateFromJson();
+  } else {
+    await submitMcpCreateFromForm();
+  }
+}
+
+async function submitMcpCreateFromForm() {
   const name = document.getElementById('mcpServerName').value.trim();
   const command = document.getElementById('mcpServerCommand').value.trim();
   const argsText = document.getElementById('mcpServerArgs').value.trim();
@@ -255,6 +396,86 @@ async function submitMcpCreate() {
     serverConfig.env = env;
   }
 
+  await createMcpServerWithConfig(name, serverConfig);
+}
+
+async function submitMcpCreateFromJson() {
+  const jsonText = document.getElementById('mcpServerJson').value.trim();
+
+  if (!jsonText) {
+    showRefreshToast('Please enter JSON configuration', 'error');
+    document.getElementById('mcpServerJson').focus();
+    return;
+  }
+
+  const { servers, error } = parseMcpJsonConfig(jsonText);
+
+  if (error) {
+    showRefreshToast(error, 'error');
+    return;
+  }
+
+  if (Object.keys(servers).length === 0) {
+    showRefreshToast('No valid servers found in JSON', 'error');
+    return;
+  }
+
+  // Handle unnamed server case
+  if (servers['__unnamed__']) {
+    const serverName = prompt('Enter a name for this MCP server:');
+    if (!serverName || !serverName.trim()) {
+      showRefreshToast('Server name is required', 'error');
+      return;
+    }
+    servers[serverName.trim()] = servers['__unnamed__'];
+    delete servers['__unnamed__'];
+  }
+
+  // Add all servers
+  let successCount = 0;
+  let failCount = 0;
+  const serverNames = Object.keys(servers);
+
+  for (const [name, config] of Object.entries(servers)) {
+    try {
+      const response = await fetch('/api/mcp-copy-server', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectPath: projectPath,
+          serverName: name,
+          serverConfig: config
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to create MCP server');
+
+      const result = await response.json();
+      if (result.success) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    } catch (err) {
+      console.error(`Failed to create MCP server "${name}":`, err);
+      failCount++;
+    }
+  }
+
+  closeMcpCreateModal();
+  await loadMcpConfig();
+  renderMcpManager();
+
+  if (failCount === 0) {
+    showRefreshToast(`${successCount} MCP server${successCount > 1 ? 's' : ''} created successfully`, 'success');
+  } else if (successCount > 0) {
+    showRefreshToast(`${successCount} created, ${failCount} failed`, 'warning');
+  } else {
+    showRefreshToast('Failed to create MCP servers', 'error');
+  }
+}
+
+async function createMcpServerWithConfig(name, serverConfig) {
   // Submit to API
   try {
     const response = await fetch('/api/mcp-copy-server', {

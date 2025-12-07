@@ -118,6 +118,14 @@ function renderCarouselSlide(direction = 'none') {
   }
 
   const session = carouselSessions[carouselIndex];
+  const sessionType = session.type || 'workflow';
+
+  // Use simplified view for review sessions
+  if (sessionType === 'review') {
+    renderReviewCarouselSlide(container, session, direction);
+    return;
+  }
+
   const tasks = session.tasks || [];
   const completed = tasks.filter(t => t.status === 'completed').length;
   const inProgress = tasks.filter(t => t.status === 'in_progress').length;
@@ -126,7 +134,6 @@ function renderCarouselSlide(direction = 'none') {
   const progress = taskCount > 0 ? Math.round((completed / taskCount) * 100) : 0;
 
   // Get session type badge
-  const sessionType = session.type || 'workflow';
   const typeBadgeClass = getSessionTypeBadgeClass(sessionType);
 
   const sessionKey = `session-${session.session_id}`.replace(/[^a-zA-Z0-9-]/g, '-');
@@ -206,6 +213,48 @@ function renderCarouselSlide(direction = 'none') {
             </div>
           </div>
 
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Store session data for navigation
+  if (!sessionDataStore[sessionKey]) {
+    sessionDataStore[sessionKey] = session;
+  }
+}
+
+// Simplified carousel slide for review sessions
+function renderReviewCarouselSlide(container, session, direction) {
+  const typeBadgeClass = getSessionTypeBadgeClass('review');
+  const sessionKey = `session-${session.session_id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+  const animClass = direction === 'left' ? 'carousel-slide-left' :
+                    direction === 'right' ? 'carousel-slide-right' : 'carousel-fade-in';
+  const createdTime = session.created_at ? formatRelativeTime(session.created_at) : '';
+
+  container.innerHTML = `
+    <div class="carousel-slide ${animClass} h-full">
+      <div class="session-card h-full p-3 cursor-pointer hover:bg-hover/30 transition-colors"
+           onclick="showSessionDetailPage('${sessionKey}')">
+        <div class="flex flex-col h-full">
+          <!-- Header -->
+          <div class="flex items-center gap-2 mb-2">
+            <span class="px-2 py-0.5 text-xs font-medium rounded ${typeBadgeClass}">review</span>
+          </div>
+          <h4 class="font-semibold text-foreground text-sm line-clamp-2 mb-3" title="${escapeHtml(session.session_id)}">${escapeHtml(session.session_id)}</h4>
+
+          <!-- Simple info -->
+          <div class="flex-1 flex items-center justify-center">
+            <div class="text-center">
+              <div class="text-3xl mb-1">🔍</div>
+              <div class="text-xs text-muted-foreground">Click to view findings</div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="mt-auto text-xs text-muted-foreground">
+            📅 ${createdTime}
+          </div>
         </div>
       </div>
     </div>

@@ -20,6 +20,13 @@ function showStatsAndSearch() {
   if (searchInput) searchInput.parentElement.style.display = '';
 }
 
+function hideStatsAndCarousel() {
+  const statsGrid = document.getElementById('statsGrid');
+  const searchInput = document.getElementById('searchInput');
+  if (statsGrid) statsGrid.style.display = 'none';
+  if (searchInput) searchInput.parentElement.style.display = 'none';
+}
+
 function updateStats() {
   const stats = workflowData.statistics || {};
   document.getElementById('statTotalSessions').textContent = stats.totalSessions || 0;
@@ -95,6 +102,11 @@ function renderSessionCard(session) {
   const sessionKey = `session-${session.session_id}`.replace(/[^a-zA-Z0-9-]/g, '-');
   sessionDataStore[sessionKey] = session;
 
+  // Special rendering for review sessions
+  if (sessionType === 'review') {
+    return renderReviewSessionCard(session, sessionKey, typeBadge, isActive, date);
+  }
+
   return `
     <div class="session-card" onclick="showSessionDetailPage('${sessionKey}')">
       <div class="session-header">
@@ -119,6 +131,59 @@ function renderSessionCard(session) {
                 <div class="progress-fill" style="width: ${progress}%"></div>
               </div>
               <span class="progress-text">${completed}/${taskCount} (${progress}%)</span>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// Special card rendering for review sessions
+function renderReviewSessionCard(session, sessionKey, typeBadge, isActive, date) {
+  // Calculate findings stats from reviewDimensions
+  const dimensions = session.reviewDimensions || [];
+  let totalFindings = 0;
+  let criticalCount = 0;
+  let highCount = 0;
+  let mediumCount = 0;
+  let lowCount = 0;
+
+  dimensions.forEach(dim => {
+    const findings = dim.findings || [];
+    totalFindings += findings.length;
+    criticalCount += findings.filter(f => f.severity === 'critical').length;
+    highCount += findings.filter(f => f.severity === 'high').length;
+    mediumCount += findings.filter(f => f.severity === 'medium').length;
+    lowCount += findings.filter(f => f.severity === 'low').length;
+  });
+
+  return `
+    <div class="session-card" onclick="showSessionDetailPage('${sessionKey}')">
+      <div class="session-header">
+        <div class="session-title">${escapeHtml(session.session_id || 'Unknown')}</div>
+        <div class="session-badges">
+          ${typeBadge}
+          <span class="session-status ${isActive ? 'active' : 'archived'}">
+            ${isActive ? 'ACTIVE' : 'ARCHIVED'}
+          </span>
+        </div>
+      </div>
+      <div class="session-body">
+        <div class="session-meta">
+          <span class="session-meta-item">📅 ${formatDate(date)}</span>
+          <span class="session-meta-item">🔍 ${totalFindings} findings</span>
+        </div>
+        ${totalFindings > 0 ? `
+          <div class="review-findings-summary">
+            <div class="findings-severity-row">
+              ${criticalCount > 0 ? `<span class="finding-count critical">🔴 ${criticalCount}</span>` : ''}
+              ${highCount > 0 ? `<span class="finding-count high">🟠 ${highCount}</span>` : ''}
+              ${mediumCount > 0 ? `<span class="finding-count medium">🟡 ${mediumCount}</span>` : ''}
+              ${lowCount > 0 ? `<span class="finding-count low">🟢 ${lowCount}</span>` : ''}
+            </div>
+            <div class="dimensions-info">
+              ${dimensions.length} dimensions
             </div>
           </div>
         ` : ''}

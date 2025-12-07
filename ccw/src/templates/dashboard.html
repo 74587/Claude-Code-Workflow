@@ -479,10 +479,17 @@
     <div class="mcp-modal-backdrop absolute inset-0 bg-black/60" onclick="closeMcpCreateModal()"></div>
     <div class="mcp-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-lg flex flex-col">
       <div class="mcp-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
-        <h3 class="text-lg font-semibold text-foreground">Create MCP Server</h3>
+        <div class="flex items-center gap-3">
+          <h3 class="text-lg font-semibold text-foreground">Create MCP Server</h3>
+          <div class="flex bg-muted rounded-lg p-0.5">
+            <button id="mcpTabForm" class="mcp-tab-btn px-3 py-1 text-sm rounded-md transition-colors active" onclick="switchMcpCreateTab('form')">Form</button>
+            <button id="mcpTabJson" class="mcp-tab-btn px-3 py-1 text-sm rounded-md transition-colors" onclick="switchMcpCreateTab('json')">JSON</button>
+          </div>
+        </div>
         <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeMcpCreateModal()">&times;</button>
       </div>
-      <div class="mcp-modal-body p-4 space-y-4">
+      <!-- Form Mode -->
+      <div id="mcpFormMode" class="mcp-modal-body p-4 space-y-4">
         <div class="form-group">
           <label class="block text-sm font-medium text-foreground mb-1">Server Name <span class="text-destructive">*</span></label>
           <input type="text" id="mcpServerName" placeholder="e.g., my-mcp-server"
@@ -502,6 +509,29 @@
           <label class="block text-sm font-medium text-foreground mb-1">Environment Variables (KEY=VALUE per line)</label>
           <textarea id="mcpServerEnv" placeholder="e.g.,&#10;API_KEY=your-api-key&#10;DEBUG=true" rows="3"
             class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"></textarea>
+        </div>
+      </div>
+      <!-- JSON Mode -->
+      <div id="mcpJsonMode" class="mcp-modal-body p-4 space-y-4 hidden">
+        <div class="form-group">
+          <label class="block text-sm font-medium text-foreground mb-1">Paste MCP Server JSON Configuration</label>
+          <textarea id="mcpServerJson" placeholder='{
+  "servers": {
+    "my-server": {
+      "command": "npx",
+      "args": ["-y", "@package/server"],
+      "env": {
+        "API_KEY": "your-key"
+      }
+    }
+  }
+}' rows="12"
+            class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"></textarea>
+          <p class="text-xs text-muted-foreground mt-2">Supports <code class="bg-muted px-1 rounded">{"servers": {...}}</code>, <code class="bg-muted px-1 rounded">{"mcpServers": {...}}</code>, and direct server config formats.</p>
+        </div>
+        <div id="mcpJsonPreview" class="hidden">
+          <label class="block text-sm font-medium text-foreground mb-2">Preview (servers to be added):</label>
+          <div id="mcpJsonPreviewContent" class="bg-muted rounded-lg p-3 text-sm space-y-2 max-h-32 overflow-y-auto"></div>
         </div>
       </div>
       <div class="mcp-modal-footer flex justify-end gap-2 px-4 py-3 border-t border-border">

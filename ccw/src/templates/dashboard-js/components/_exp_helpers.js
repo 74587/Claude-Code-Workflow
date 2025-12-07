@@ -1,3 +1,5 @@
+// Exploration helpers loaded
+
 // Helper: Render exploration field with smart type detection
 function renderExpField(label, value) {
   if (value === null || value === undefined) return '';

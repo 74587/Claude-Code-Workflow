@@ -72,6 +72,9 @@ function showLiteTaskDetailPage(sessionKey) {
   currentView = 'liteTaskDetail';
   currentSessionDetailKey = sessionKey;
 
+  // Hide stats grid and carousel on detail pages
+  hideStatsAndCarousel();
+
   // Also store in sessionDataStore for tab switching compatibility
   sessionDataStore[sessionKey] = {
     ...session,
@@ -158,6 +161,7 @@ function goBackToLiteTasks() {
   currentView = 'liteTasks';
   currentSessionDetailKey = null;
   updateContentTitle();
+  showStatsAndSearch();
   renderLiteTasks();
 }
 
