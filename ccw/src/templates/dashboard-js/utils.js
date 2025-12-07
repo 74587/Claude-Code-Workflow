@@ -132,3 +132,22 @@ function toggleSection(header) {
     }
   }
 }
+
+/**
+ * Initialize collapsible sections within a container
+ * @param {HTMLElement} container - Container element to search within
+ */
+function initCollapsibleSections(container) {
+  setTimeout(() => {
+    const headers = container.querySelectorAll('.collapsible-header');
+    headers.forEach(header => {
+      if (!header._clickBound) {
+        header._clickBound = true;
+        header.addEventListener('click', function(e) {
+          e.stopPropagation();
+          toggleSection(this);
+        });
+      }
+    });
+  }, 100);
+}

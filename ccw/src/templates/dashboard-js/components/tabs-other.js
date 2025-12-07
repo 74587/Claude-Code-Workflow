@@ -157,22 +157,36 @@ function renderReviewContent(review) {
 // Lite Context Tab Rendering
 // ==========================================
 
-function renderLiteContextContent(context, session) {
+function renderLiteContextContent(context, explorations, session) {
   const plan = session.plan || {};
+  let sections = [];
+
+  // Render explorations if available (from exploration-*.json files)
+  if (explorations && explorations.manifest) {
+    sections.push(renderExplorationContext(explorations));
+  }
 
   // If we have context from context-package.json
   if (context) {
-    return `
-      <div class="context-tab-content">
-        <pre class="json-content">${escapeHtml(JSON.stringify(context, null, 2))}</pre>
+    sections.push(`
+      <div class="context-package-section">
+        <div class="collapsible-section">
+          <div class="collapsible-header">
+            <span class="collapse-icon">▶</span>
+            <span class="section-label">Context Package</span>
+          </div>
+          <div class="collapsible-content collapsed">
+            <pre class="json-content">${escapeHtml(JSON.stringify(context, null, 2))}</pre>
+          </div>
+        </div>
       </div>
-    `;
+    `);
   }
 
   // Fallback: show context from plan
   if (plan.focus_paths?.length || plan.summary) {
-    return `
-      <div class="context-tab-content">
+    sections.push(`
+      <div class="plan-context-section">
         ${plan.summary ? `
           <div class="context-section">
             <h4>Summary</h4>
@@ -188,17 +202,23 @@ function renderLiteContextContent(context, session) {
           </div>
         ` : ''}
       </div>
-    `;
+    `);
+  }
+
+  // If we have any sections, wrap them
+  if (sections.length > 0) {
+    return `<div class="context-tab-content">${sections.join('')}</div>`;
   }
 
   return `
     <div class="tab-empty-state">
       <div class="empty-icon">📦</div>
       <div class="empty-title">No Context Data</div>
-      <div class="empty-text">No context-package.json found for this session.</div>
+      <div class="empty-text">No context-package.json or exploration files found for this session.</div>
     </div>
   `;
 }
+
 
 // ==========================================
 // Exploration Context Rendering
@@ -228,24 +248,28 @@ function renderExplorationContext(explorations) {
   // Render each exploration angle as collapsible section
   const explorationOrder = ['architecture', 'dependencies', 'patterns', 'integration-points'];
   const explorationTitles = {
-    'architecture': 'Architecture',
-    'dependencies': 'Dependencies',
-    'patterns': 'Patterns',
-    'integration-points': 'Integration Points'
+    'architecture': '🏗️ Architecture',
+    'dependencies': '📦 Dependencies',
+    'patterns': '🔄 Patterns',
+    'integration-points': '🔌 Integration Points'
   };
 
   for (const angle of explorationOrder) {
     const expData = data[angle];
-    if (!expData) continue;
+    if (!expData) {
+      continue;
+    }
+
+    const angleContent = renderExplorationAngle(angle, expData);
 
     sections.push(`
       <div class="exploration-section collapsible-section">
-        <div class="collapsible-header" onclick="toggleSection(this)">
+        <div class="collapsible-header">
           <span class="collapse-icon">▶</span>
           <span class="section-label">${explorationTitles[angle] || angle}</span>
         </div>
         <div class="collapsible-content collapsed">
-          ${renderExplorationAngle(angle, expData)}
+          ${angleContent}
         </div>
       </div>
     `);
@@ -276,8 +300,8 @@ function renderExplorationAngle(angle, data) {
           ${data.relevant_files.slice(0, 10).map(f => `
             <div class="file-item-exp">
               <div class="file-path"><code>${escapeHtml(f.path || '')}</code></div>
-              <div class="file-relevance">Relevance: ${(f.relevance * 100).toFixed(0)}%</div>
-              ${f.rationale ? `<div class="file-rationale">${escapeHtml(f.rationale.substring(0, 200))}...</div>` : ''}
+              <div class="file-relevance">Relevance: ${f.relevance ? (f.relevance * 100).toFixed(0) : 0}%</div>
+              ${f.rationale ? `<div class="file-rationale">${escapeHtml((f.rationale || "").substring(0, 200))}...</div>` : ''}
             </div>
           `).join('')}
           ${data.relevant_files.length > 10 ? `<div class="more-files">... and ${data.relevant_files.length - 10} more files</div>` : ''}
@@ -349,5 +373,6 @@ function renderExplorationAngle(angle, data) {
     `);
   }
 
-  return content.join('') || '<p>No data available</p>';
+  const result = content.join('') || '<p>No data available</p>';
+  return result;
 }

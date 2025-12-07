@@ -5,7 +5,7 @@
 This document defines project-specific coding standards and development principles.
 ### CLI Tool Context Protocols
 For all CLI tool usage, command syntax, and integration guidelines:
-- **MCP Tool Strategy**: @~/.claude/workflows/mcp-tool-strategy.md
+- **Tool Strategy**: @~/.claude/workflows/tool-strategy.md
 - **Intelligent Context Strategy**: @~/.claude/workflows/intelligent-tools-strategy.md
 - **Context Search Commands**: @~/.claude/workflows/context-search-strategy.md
 
@@ -73,6 +73,7 @@ For all CLI tool usage, command syntax, and integration guidelines:
 - Update plan documentation and progress tracking as you go
 - Learn from existing implementations
 - Stop after 3 failed attempts and reassess
+- **Edit fallback**: When Edit tool fails 2+ times on same file, try Bash sed/awk first, then Write to recreate if still failing
 
 ## Platform-Specific Guidelines
 

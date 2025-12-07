@@ -59,6 +59,22 @@ body {
   padding: 10px 0;
 }
 
+/* Nav item active state */
+.nav-item.active {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--primary));
+  font-weight: 500;
+}
+
+.nav-item.active .nav-icon {
+  color: hsl(var(--primary));
+}
+
+.nav-item.active .nav-count {
+  background-color: hsl(var(--primary));
+  color: white;
+}
+
 .sidebar.collapsed .toggle-icon {
   transform: rotate(180deg);
 }
@@ -3540,27 +3556,49 @@ ol.step-commands code {
 
 .exploration-header {
   margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  padding: 16px;
+  background: linear-gradient(135deg, var(--primary-bg, #eff6ff) 0%, var(--bg-secondary, #f9fafb) 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
 }
 
 .exploration-header h4 {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary, #111827);
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
   line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exploration-header h4::before {
+  content: '🔍';
+  font-size: 16px;
 }
 
 .exploration-meta {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
   font-size: 12px;
   color: var(--text-secondary, #6b7280);
 }
 
+.exploration-meta .meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg-primary, #fff);
+  border-radius: 16px;
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
 .exploration-meta .meta-item strong {
-  color: var(--text-primary, #111827);
+  color: var(--primary, #3b82f6);
+  font-weight: 600;
 }
 
 .exploration-section {
@@ -3584,6 +3622,7 @@ ol.step-commands code {
 }
 
 .exploration-section .collapsible-content {
+  display: block;
   padding: 12px;
   background: var(--bg-primary, #fff);
 }
@@ -3592,8 +3631,14 @@ ol.step-commands code {
   display: none;
 }
 
+/* Exploration Field Cards */
 .exp-field {
   margin-bottom: 16px;
+  padding: 14px;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .exp-field:last-child {
@@ -3601,51 +3646,82 @@ ol.step-commands code {
 }
 
 .exp-field label {
-  display: block;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  color: var(--text-secondary, #6b7280);
-  margin-bottom: 6px;
-  letter-spacing: 0.5px;
+  color: var(--primary, #3b82f6);
+  margin-bottom: 10px;
+  padding: 4px 10px;
+  background: var(--primary-bg, #eff6ff);
+  border-radius: 4px;
 }
 
 .exp-field p {
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--text-primary, #374151);
   margin: 0;
+  white-space: pre-wrap;
 }
 
+/* Relevant Files Grid */
 .relevant-files-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
 }
 
+/* File Item Card */
 .file-item-exp {
-  padding: 8px 10px;
+  padding: 12px 14px;
   background: var(--bg-secondary, #f9fafb);
-  border-radius: 4px;
-  border-left: 3px solid var(--primary, #3b82f6);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.file-item-exp:hover {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.file-item-exp .file-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.file-item-exp .file-path::before {
+  content: '📄';
+  font-size: 12px;
 }
 
 .file-item-exp .file-path code {
   font-size: 12px;
+  font-weight: 500;
   color: var(--text-primary, #111827);
+  word-break: break-all;
 }
 
 .file-item-exp .file-relevance {
+  display: inline-block;
   font-size: 11px;
-  color: var(--text-secondary, #6b7280);
-  margin-top: 4px;
+  font-weight: 600;
+  color: var(--success, #10b981);
+  background: var(--success-bg, #ecfdf5);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-bottom: 6px;
 }
 
 .file-item-exp .file-rationale {
   font-size: 12px;
-  color: var(--text-tertiary, #9ca3af);
-  margin-top: 4px;
-  line-height: 1.4;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.5;
+  margin: 0;
 }
 
 .more-files {
@@ -3694,6 +3770,49 @@ ol.step-commands code {
   background: var(--bg-success, #d1fae5);
   border-color: var(--border-success, #34d399);
   color: var(--text-success, #065f46);
+}
+
+
+/* Context Package Section in Lite Tasks */
+.context-package-section {
+  margin-top: 16px;
+}
+
+.context-package-section .collapsible-section {
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.context-package-section .collapsible-header {
+  padding: 10px 12px;
+  background: var(--bg-secondary, #f9fafb);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-package-section .collapsible-header:hover {
+  background: var(--bg-hover, #f3f4f6);
+}
+
+.context-package-section .collapsible-content {
+  display: block;
+  padding: 12px;
+  background: var(--bg-primary, #fff);
+}
+
+.context-package-section .collapsible-content.collapsed {
+  display: none;
+}
+
+/* Plan Context Section in Lite Tasks */
+.plan-context-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 6px;
 }
 
 /* Plan drawer styles for lite tasks */
@@ -5777,6 +5896,32 @@ code.ctx-meta-chip-value {
 
 .mcp-server-details .font-mono {
   font-family: var(--font-mono);
+}
+
+/* MCP Projects Table */
+.mcp-projects-table {
+  overflow-x: auto;
+}
+
+.mcp-projects-table table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+
+.mcp-projects-table th {
+  white-space: nowrap;
+}
+
+.mcp-projects-table td {
+  vertical-align: middle;
+}
+
+.mcp-projects-table tr:hover {
+  background-color: hsl(var(--hover));
+}
+
+.mcp-projects-table .bg-primary-light\/30 {
+  background-color: hsl(var(--primary) / 0.08);
 }
 
 /* MCP Create Modal */

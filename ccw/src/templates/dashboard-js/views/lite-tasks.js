@@ -347,17 +347,14 @@ async function loadAndRenderLiteContextTab(session, contentArea) {
         const data = await response.json();
         contentArea.innerHTML = renderLiteContextContent(data.context, data.explorations, session);
         
-        // Re-initialize collapsible sections for explorations
-        setTimeout(() => {
-          document.querySelectorAll('.collapsible-header').forEach(header => {
-            header.addEventListener('click', () => toggleSection(header));
-          });
-        }, 50);
+        // Re-initialize collapsible sections for explorations (scoped to contentArea)
+        initCollapsibleSections(contentArea);
         return;
       }
     }
     // Fallback: show plan context if available
     contentArea.innerHTML = renderLiteContextContent(null, null, session);
+    initCollapsibleSections(contentArea);
   } catch (err) {
     contentArea.innerHTML = `<div class="tab-error">Failed to load context: ${err.message}</div>`;
   }

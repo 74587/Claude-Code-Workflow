@@ -81,36 +81,70 @@ async function renderMcpManager() {
         `}
       </div>
 
-      <!-- All Projects Overview -->
+      <!-- All Projects MCP Overview Table -->
       <div class="mcp-section mt-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-foreground">All Projects</h3>
+          <h3 class="text-lg font-semibold text-foreground">All Projects MCP Overview</h3>
           <span class="text-sm text-muted-foreground">${Object.keys(mcpAllProjects).length} projects</span>
         </div>
 
-        <div class="mcp-projects-list bg-card border border-border rounded-lg overflow-hidden">
-          ${Object.entries(mcpAllProjects).map(([path, config]) => {
-            const servers = config.mcpServers || {};
-            const serverCount = Object.keys(servers).length;
-            const isCurrentProject = path === currentPath;
-            return `
-              <div class="mcp-project-item flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0 hover:bg-hover cursor-pointer ${isCurrentProject ? 'bg-primary-light' : ''}"
-                   onclick="switchToProject('${escapeHtml(path)}')"
-                   data-project-path="${escapeHtml(path)}">
-                <div class="flex items-center gap-3 min-w-0">
-                  <span class="text-lg">${isCurrentProject ? '📍' : '📁'}</span>
-                  <div class="min-w-0">
-                    <div class="font-medium text-foreground truncate" title="${escapeHtml(path)}">${escapeHtml(path.split('\\').pop() || path)}</div>
-                    <div class="text-xs text-muted-foreground truncate">${escapeHtml(path)}</div>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                  <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full ${serverCount > 0 ? 'bg-success-light text-success' : 'bg-hover text-muted-foreground'}">${serverCount} MCP</span>
-                  ${isCurrentProject ? '<span class="text-xs text-primary font-medium">Current</span>' : ''}
-                </div>
-              </div>
-            `;
-          }).join('')}
+        <div class="mcp-projects-table bg-card border border-border rounded-lg overflow-hidden">
+          <table class="w-full">
+            <thead class="bg-muted/50">
+              <tr>
+                <th class="text-left px-4 py-3 text-sm font-semibold text-foreground border-b border-border">Project</th>
+                <th class="text-left px-4 py-3 text-sm font-semibold text-foreground border-b border-border">MCP Servers</th>
+                <th class="text-center px-4 py-3 text-sm font-semibold text-foreground border-b border-border w-24">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${Object.entries(mcpAllProjects).map(([path, config]) => {
+                const servers = config.mcpServers || {};
+                const projectDisabled = config.disabledMcpServers || [];
+                const serverNames = Object.keys(servers);
+                const isCurrentProject = path === currentPath;
+                const enabledCount = serverNames.filter(s => !projectDisabled.includes(s)).length;
+
+                return `
+                  <tr class="border-b border-border last:border-b-0 ${isCurrentProject ? 'bg-primary/5' : 'hover:bg-hover/50'}">
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-base shrink-0">${isCurrentProject ? '📍' : '📁'}</span>
+                        <div class="min-w-0">
+                          <div class="font-medium text-foreground truncate text-sm" title="${escapeHtml(path)}">
+                            ${escapeHtml(path.split('\\').pop() || path)}
+                            ${isCurrentProject ? '<span class="ml-2 text-xs text-primary font-medium">(Current)</span>' : ''}
+                          </div>
+                          <div class="text-xs text-muted-foreground truncate">${escapeHtml(path)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="flex flex-wrap gap-1.5">
+                        ${serverNames.length === 0
+                          ? '<span class="text-xs text-muted-foreground italic">No MCP servers</span>'
+                          : serverNames.map(serverName => {
+                              const isEnabled = !projectDisabled.includes(serverName);
+                              return `
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${isEnabled ? 'bg-success-light text-success' : 'bg-hover text-muted-foreground'}">
+                                  <span class="w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-success' : 'bg-muted-foreground'}"></span>
+                                  ${escapeHtml(serverName)}
+                                </span>
+                              `;
+                            }).join('')
+                        }
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${serverNames.length > 0 ? 'bg-success-light text-success' : 'bg-hover text-muted-foreground'}">
+                        ${enabledCount}/${serverNames.length}
+                      </span>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -234,9 +268,4 @@ function attachMcpEventListeners() {
       }
     });
   });
-}
-
-function switchToProject(path) {
-  // Use existing path selection mechanism
-  selectPath(path.replace(/\\\\/g, '\\'));
 }
