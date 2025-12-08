@@ -178,21 +178,21 @@ function renderTasksTab(session, tasks, completed, inProgress, pending) {
       <!-- Combined Stats & Actions Bar -->
       <div class="task-toolbar">
         <div class="task-stats-bar">
-          <span class="task-stat completed">✓ ${completed} completed</span>
-          <span class="task-stat in-progress">⟳ ${inProgress} in progress</span>
-          <span class="task-stat pending">○ ${pending} pending</span>
+          <span class="task-stat completed"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>${completed} completed</span>
+          <span class="task-stat in-progress"><i data-lucide="loader-2" class="w-4 h-4 inline mr-1"></i>${inProgress} in progress</span>
+          <span class="task-stat pending"><i data-lucide="circle" class="w-4 h-4 inline mr-1"></i>${pending} pending</span>
         </div>
         <div class="toolbar-divider"></div>
         <div class="task-bulk-actions">
           <span class="bulk-label">Quick Actions:</span>
           <button class="bulk-action-btn" onclick="bulkSetAllStatus('pending')" title="Set all tasks to pending">
-            <span class="bulk-icon">○</span> All Pending
+            <span class="bulk-icon"><i data-lucide="circle" class="w-4 h-4"></i></span> All Pending
           </button>
           <button class="bulk-action-btn" onclick="bulkSetAllStatus('in_progress')" title="Set all tasks to in progress">
-            <span class="bulk-icon">⟳</span> All In Progress
+            <span class="bulk-icon"><i data-lucide="loader-2" class="w-4 h-4"></i></span> All In Progress
           </button>
           <button class="bulk-action-btn completed" onclick="bulkSetAllStatus('completed')" title="Set all tasks to completed">
-            <span class="bulk-icon">✓</span> All Completed
+            <span class="bulk-icon"><i data-lucide="check-circle" class="w-4 h-4"></i></span> All Completed
           </button>
         </div>
       </div>
@@ -271,9 +271,9 @@ function renderDetailTaskItem(task) {
 
 function formatStatusLabel(status) {
   const labels = {
-    'pending': '○ Pending',
-    'in_progress': '⟳ In Progress',
-    'completed': '✓ Completed'
+    'pending': '<i data-lucide="circle" class="w-3 h-3 inline mr-1"></i>Pending',
+    'in_progress': '<i data-lucide="loader-2" class="w-3 h-3 inline mr-1"></i>In Progress',
+    'completed': '<i data-lucide="check-circle" class="w-3 h-3 inline mr-1"></i>Completed'
   };
   return labels[status] || status;
 }
@@ -582,7 +582,7 @@ async function updateSingleTaskStatus(taskId, newStatus) {
       // Update UI
       updateTaskItemUI(taskId, newStatus);
       updateTaskStatsBar();
-      showToast(`Task ${taskId} → ${formatStatusLabel(newStatus)}`, 'success');
+      showToast(`Task ${taskId} status updated`, 'success');
     } else {
       showToast(result.error || 'Failed to update status', 'error');
       // Revert select
@@ -624,7 +624,7 @@ async function bulkSetAllStatus(newStatus) {
       // Update all task UIs
       taskIds.forEach(id => updateTaskItemUI(id, newStatus));
       updateTaskStatsBar();
-      showToast(`All ${taskIds.length} tasks → ${formatStatusLabel(newStatus)}`, 'success');
+      showToast(`All ${taskIds.length} tasks updated`, 'success');
     } else {
       showToast(result.error || 'Failed to bulk update', 'error');
     }
@@ -664,7 +664,7 @@ async function bulkSetPendingToInProgress() {
     if (result.success) {
       pendingTaskIds.forEach(id => updateTaskItemUI(id, 'in_progress'));
       updateTaskStatsBar();
-      showToast(`${pendingTaskIds.length} tasks: Pending → In Progress`, 'success');
+      showToast(`${pendingTaskIds.length} tasks moved to In Progress`, 'success');
     } else {
       showToast(result.error || 'Failed to update', 'error');
     }
@@ -704,7 +704,7 @@ async function bulkSetInProgressToCompleted() {
     if (result.success) {
       inProgressTaskIds.forEach(id => updateTaskItemUI(id, 'completed'));
       updateTaskStatsBar();
-      showToast(`${inProgressTaskIds.length} tasks: In Progress → Completed`, 'success');
+      showToast(`${inProgressTaskIds.length} tasks completed`, 'success');
     } else {
       showToast(result.error || 'Failed to update', 'error');
     }
@@ -743,10 +743,12 @@ function updateTaskStatsBar() {
   const statsBar = document.querySelector('.task-stats-bar');
   if (statsBar) {
     statsBar.innerHTML = `
-      <span class="task-stat completed">✓ ${completed} completed</span>
-      <span class="task-stat in-progress">⟳ ${inProgress} in progress</span>
-      <span class="task-stat pending">○ ${pending} pending</span>
+      <span class="task-stat completed"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>${completed} completed</span>
+      <span class="task-stat in-progress"><i data-lucide="loader-2" class="w-4 h-4 inline mr-1"></i>${inProgress} in progress</span>
+      <span class="task-stat pending"><i data-lucide="circle" class="w-4 h-4 inline mr-1"></i>${pending} pending</span>
     `;
+    // Reinitialize Lucide icons
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 }
 
