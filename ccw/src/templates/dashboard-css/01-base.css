@@ -75,6 +75,39 @@ body {
   color: white;
 }
 
+/* Nav item specific color active states */
+.nav-item[data-filter="active"].active {
+  background-color: hsl(var(--success-light));
+}
+
+.nav-item[data-filter="active"].active .nav-icon {
+  color: hsl(var(--success));
+}
+
+.nav-item[data-filter="archived"].active {
+  background-color: hsl(var(--info-light));
+}
+
+.nav-item[data-filter="archived"].active .nav-icon {
+  color: hsl(var(--info));
+}
+
+.nav-item[data-lite="lite-plan"].active {
+  background-color: hsl(var(--indigo-light));
+}
+
+.nav-item[data-lite="lite-plan"].active .nav-icon {
+  color: hsl(var(--indigo));
+}
+
+.nav-item[data-lite="lite-fix"].active {
+  background-color: hsl(var(--orange-light));
+}
+
+.nav-item[data-lite="lite-fix"].active .nav-icon {
+  color: hsl(var(--orange));
+}
+
 .sidebar.collapsed .toggle-icon {
   transform: rotate(180deg);
 }

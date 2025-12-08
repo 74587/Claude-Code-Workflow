@@ -113,7 +113,7 @@ function renderReviewSessionDetailPage(session) {
             <div class="summary-label">High</div>
           </div>
           <div class="summary-card">
-            <div class="summary-icon">📋</div>
+            <div class="summary-icon">🎯</div>
             <div class="summary-value">${dimensions.length}</div>
             <div class="summary-label">Dimensions</div>
           </div>
@@ -329,7 +329,7 @@ function previewReviewSessionFinding(findingId) {
 
       ${finding.file ? `
         <div class="preview-section">
-          <div class="preview-section-title">📄 Location</div>
+          <div class="preview-section-title">📍 Location</div>
           <div class="preview-location">
             <code>${escapeHtml(finding.file)}${finding.line ? ':' + finding.line : ''}</code>
           </div>
@@ -359,7 +359,7 @@ function previewReviewSessionFinding(findingId) {
 
       ${finding.root_cause ? `
         <div class="preview-section">
-          <div class="preview-section-title">🔍 Root Cause</div>
+          <div class="preview-section-title">🎯 Root Cause</div>
           <div class="preview-root-cause">${escapeHtml(finding.root_cause)}</div>
         </div>
       ` : ''}

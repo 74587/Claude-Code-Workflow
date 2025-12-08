@@ -18,9 +18,11 @@
         'bg-card', 'bg-background', 'bg-hover', 'bg-accent', 'bg-muted', 'bg-primary', 'bg-success', 'bg-warning',
         'bg-success-light', 'bg-warning-light', 'bg-primary-light', 'bg-sidebar-background', 'bg-destructive',
         'bg-destructive/5', 'bg-destructive/10', 'bg-warning/5',
+        'bg-info', 'bg-info-light', 'bg-indigo', 'bg-indigo-light', 'bg-orange', 'bg-orange-light',
         // Text colors
         'text-foreground', 'text-muted-foreground', 'text-primary', 'text-card-foreground', 'text-success', 'text-warning',
         'text-primary-foreground', 'text-accent-foreground', 'text-sidebar-foreground', 'text-destructive',
+        'text-info', 'text-indigo', 'text-orange',
         // Border colors
         'border', 'border-border', 'border-primary', 'border-success', 'border-warning', 'border-muted',
         'border-l-success', 'border-l-warning', 'border-l-muted-foreground', 'border-l-primary',
@@ -74,6 +76,12 @@
             'success-light': 'hsl(var(--success-light))',
             warning: 'hsl(var(--warning))',
             'warning-light': 'hsl(var(--warning-light))',
+            info: 'hsl(var(--info))',
+            'info-light': 'hsl(var(--info-light))',
+            indigo: 'hsl(var(--indigo))',
+            'indigo-light': 'hsl(var(--indigo-light))',
+            orange: 'hsl(var(--orange))',
+            'orange-light': 'hsl(var(--orange-light))',
           },
           fontFamily: {
             sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
@@ -117,6 +125,12 @@
       --success-light: 142 76% 90%;
       --warning: 38 92% 50%;
       --warning-light: 48 96% 89%;
+      --info: 210 80% 55%;
+      --info-light: 210 80% 92%;
+      --indigo: 239 65% 60%;
+      --indigo-light: 239 65% 92%;
+      --orange: 25 90% 55%;
+      --orange-light: 25 90% 92%;
     }
 
     /* Dark Mode */
@@ -146,6 +160,12 @@
       --success-light: 142 50% 20%;
       --warning: 38 85% 45%;
       --warning-light: 40 50% 20%;
+      --info: 210 75% 50%;
+      --info-light: 210 50% 20%;
+      --indigo: 239 60% 55%;
+      --indigo-light: 239 40% 20%;
+      --orange: 25 85% 50%;
+      --orange-light: 25 50% 20%;
     }
 
     /* Scrollbar styling */
@@ -322,9 +342,9 @@
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-success-light text-success" id="badgeActive">0</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-filter="archived" data-tooltip="Archived Sessions">
-                <i data-lucide="archive" class="nav-icon"></i>
+                <i data-lucide="archive" class="nav-icon text-info"></i>
                 <span class="nav-text flex-1">Archived</span>
-                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeArchived">0</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-info-light text-info" id="badgeArchived">0</span>
               </li>
             </ul>
           </div>
@@ -337,14 +357,14 @@
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-plan" data-tooltip="Lite Plan Sessions">
-                <i data-lucide="file-edit" class="nav-icon"></i>
+                <i data-lucide="file-edit" class="nav-icon text-indigo"></i>
                 <span class="nav-text flex-1">Lite Plan</span>
-                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeLitePlan">0</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-light text-indigo" id="badgeLitePlan">0</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-fix" data-tooltip="Lite Fix Sessions">
-                <i data-lucide="wrench" class="nav-icon"></i>
+                <i data-lucide="wrench" class="nav-icon text-orange"></i>
                 <span class="nav-text flex-1">Lite Fix</span>
-                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeLiteFix">0</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-light text-orange" id="badgeLiteFix">0</span>
               </li>
             </ul>
           </div>
