@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v6.0.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.1.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -15,13 +15,13 @@
 
 **Claude Code Workflow (CCW)** is a JSON-driven multi-agent development framework with intelligent CLI orchestration (Gemini/Qwen/Codex), context-first architecture, and automated workflow execution. It transforms AI development from simple prompt chaining into a powerful orchestration system.
 
-> **🎉 Version 6.0.0: npm Package & Simplified Installation**
+> **🎉 Version 6.1.0: Dashboard Icon Unification & CCW Tool System**
 >
 > **Core Improvements**:
-> - 📦 **npm Package**: Now available as `claude-code-workflow` on npm for simplified global installation
-> - 🖥️ **CCW CLI Tool**: New `ccw` command with dashboard viewer, installation management, and workflow visualization
-> - 🎯 **Simplified Install Flow**: Unified installation via npm with local-only operation (no GitHub API dependency)
-> - ✨ **Enhanced Dashboard**: MCP manager, review session improvements, and UI enhancements
+> - 🎨 **Dashboard Icon Unification**: Complete migration to Lucide Icons library across all views
+> - 🛠️ **CCW Tool Exec System**: New `ccw tool exec` command for executing tools with JSON parameters
+> - 🚀 **Explorer Enhancements**: Async task execution, CLI selector improvements, WebSocket frame handling
+> - ✨ **Smart Server Recognition**: Intelligent workspace switching and MCP multi-source configuration
 >
 > See [CHANGELOG.md](CHANGELOG.md) for complete details.
 

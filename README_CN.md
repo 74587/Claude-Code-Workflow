@@ -2,7 +2,8 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v5.9.6-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.1.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
@@ -14,14 +15,13 @@
 
 **Claude Code Workflow (CCW)** 将 AI 开发从简单的提示词链接转变为一个强大的、上下文优先的编排系统。它通过结构化规划、确定性执行和智能多模型编排，解决了执行不确定性和误差累积的问题。
 
-> **🎉 版本 5.9.6: 审查周期增强与仪表盘自动化**
+> **🎉 版本 6.1.0: 仪表盘图标统一 & CCW 工具系统**
 >
 > **核心改进**:
-> - ✨ **增强的审查仪表盘** - `review-cycle` 仪表盘支持实时进度跟踪和高级过滤
-> - 🎯 **新修复追踪仪表盘** - 新增独立的 `fix-dashboard.html` 监控 Bug 修复进度
-> - 🚀 **`lite-fix` 工作流** - 新增智能化、流程化的 Bug 诊断和修复命令
-> - 🛠️ **`lite-plan` 优化** - 成本感知并行执行、智能复杂度分析、健壮的上下文保护
-> - 🧠 **智能测试周期** - 改进 `test-cycle-execute` 智能迭代策略和通用 `@test-fix-agent`
+> - 🎨 **仪表盘图标统一** - 全面迁移至 Lucide Icons 图标库
+> - 🛠️ **CCW Tool Exec 系统** - 新增 `ccw tool exec` 命令，支持 JSON 参数执行工具
+> - 🚀 **Explorer 增强** - 异步任务执行、CLI 选择器改进、WebSocket 帧处理
+> - ✨ **智能服务器识别** - 智能工作空间切换和 MCP 多源配置
 >
 > 详见 [CHANGELOG.md](CHANGELOG.md)。
 
