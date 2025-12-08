@@ -112,6 +112,9 @@ function showSessionDetailPage(sessionKey) {
       </div>
     </div>
   `;
+  
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function goBackToSessions() {

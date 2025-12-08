@@ -191,6 +191,9 @@ function renderProjectOverview() {
       </div>
     </div>
   `;
+  
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderDevelopmentIndex(devIndex) {
