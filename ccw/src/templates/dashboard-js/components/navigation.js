@@ -157,17 +157,19 @@ async function refreshWorkspace() {
       // Reload data from server
       const data = await loadDashboardData(projectPath);
       if (data) {
-        // Update stores
-        sessionDataStore = {};
-        liteTaskDataStore = {};
+        // Clear and repopulate stores
+        Object.keys(sessionDataStore).forEach(k => delete sessionDataStore[k]);
+        Object.keys(liteTaskDataStore).forEach(k => delete liteTaskDataStore[k]);
 
         // Populate stores
         [...(data.activeSessions || []), ...(data.archivedSessions || [])].forEach(s => {
-          sessionDataStore[s.session_id] = s;
+          const sessionKey = `session-${s.session_id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+          sessionDataStore[sessionKey] = s;
         });
 
         [...(data.liteTasks?.litePlan || []), ...(data.liteTasks?.liteFix || [])].forEach(s => {
-          liteTaskDataStore[s.session_id] = s;
+          const sessionKey = `lite-${s.session_id}`.replace(/[^a-zA-Z0-9-]/g, '-');
+          liteTaskDataStore[sessionKey] = s;
         });
 
         // Update global data

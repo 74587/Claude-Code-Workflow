@@ -14,6 +14,19 @@ const CLAUDE_SETTINGS_DIR = join(homedir(), '.claude');
 const CLAUDE_GLOBAL_SETTINGS = join(CLAUDE_SETTINGS_DIR, 'settings.json');
 const CLAUDE_GLOBAL_SETTINGS_LOCAL = join(CLAUDE_SETTINGS_DIR, 'settings.local.json');
 
+// Enterprise managed MCP paths (platform-specific)
+function getEnterpriseMcpPath() {
+  const platform = process.platform;
+  if (platform === 'darwin') {
+    return '/Library/Application Support/ClaudeCode/managed-mcp.json';
+  } else if (platform === 'win32') {
+    return 'C:\\Program Files\\ClaudeCode\\managed-mcp.json';
+  } else {
+    // Linux and WSL
+    return '/etc/claude-code/managed-mcp.json';
+  }
+}
+
 // WebSocket clients for real-time notifications
 const wsClients = new Set();
 
@@ -1042,67 +1055,99 @@ function safeReadJson(filePath) {
 }
 
 /**
- * Get MCP servers from a settings file
+ * Get MCP servers from a JSON file (expects mcpServers key at top level)
  * @param {string} filePath
  * @returns {Object} mcpServers object or empty object
  */
-function getMcpServersFromSettings(filePath) {
+function getMcpServersFromFile(filePath) {
   const config = safeReadJson(filePath);
   if (!config) return {};
   return config.mcpServers || {};
 }
 
 /**
- * Get MCP configuration from multiple sources:
- * 1. ~/.claude.json (project-level MCP servers)
- * 2. ~/.claude/settings.json and settings.local.json (global MCP servers)
- * 3. Each workspace's .claude/settings.json and settings.local.json
+ * Get MCP configuration from multiple sources (per official Claude Code docs):
+ *
+ * Priority (highest to lowest):
+ * 1. Enterprise managed-mcp.json (cannot be overridden)
+ * 2. Local scope (project-specific private in ~/.claude.json)
+ * 3. Project scope (.mcp.json in project root)
+ * 4. User scope (mcpServers in ~/.claude.json)
+ *
+ * Note: ~/.claude/settings.json is for MCP PERMISSIONS, NOT definitions!
+ *
  * @returns {Object}
  */
 function getMcpConfig() {
   try {
-    const result = { projects: {}, globalServers: {} };
+    const result = {
+      projects: {},
+      userServers: {},        // User-level servers from ~/.claude.json mcpServers
+      enterpriseServers: {},  // Enterprise managed servers (highest priority)
+      configSources: []       // Track where configs came from for debugging
+    };
 
-    // 1. Read from ~/.claude.json (primary source for project MCP)
-    if (existsSync(CLAUDE_CONFIG_PATH)) {
-      const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
-      const config = JSON.parse(content);
-      result.projects = config.projects || {};
-    }
-
-    // 2. Read global MCP servers from ~/.claude/settings.json and settings.local.json
-    const globalSettings = getMcpServersFromSettings(CLAUDE_GLOBAL_SETTINGS);
-    const globalSettingsLocal = getMcpServersFromSettings(CLAUDE_GLOBAL_SETTINGS_LOCAL);
-    result.globalServers = { ...globalSettings, ...globalSettingsLocal };
-
-    // 3. For each project, also check .claude/settings.json and settings.local.json
-    for (const projectPath of Object.keys(result.projects)) {
-      const projectClaudeDir = join(projectPath, '.claude');
-      const projectSettings = join(projectClaudeDir, 'settings.json');
-      const projectSettingsLocal = join(projectClaudeDir, 'settings.local.json');
-
-      // Merge MCP servers from workspace settings into project config
-      const workspaceServers = {
-        ...getMcpServersFromSettings(projectSettings),
-        ...getMcpServersFromSettings(projectSettingsLocal)
-      };
-
-      if (Object.keys(workspaceServers).length > 0) {
-        // Merge workspace servers with existing project servers (workspace takes precedence)
-        result.projects[projectPath] = {
-          ...result.projects[projectPath],
-          mcpServers: {
-            ...(result.projects[projectPath]?.mcpServers || {}),
-            ...workspaceServers
-          }
-        };
+    // 1. Read Enterprise managed MCP servers (highest priority)
+    const enterprisePath = getEnterpriseMcpPath();
+    if (existsSync(enterprisePath)) {
+      const enterpriseConfig = safeReadJson(enterprisePath);
+      if (enterpriseConfig?.mcpServers) {
+        result.enterpriseServers = enterpriseConfig.mcpServers;
+        result.configSources.push({ type: 'enterprise', path: enterprisePath, count: Object.keys(enterpriseConfig.mcpServers).length });
       }
     }
+
+    // 2. Read from ~/.claude.json
+    if (existsSync(CLAUDE_CONFIG_PATH)) {
+      const claudeConfig = safeReadJson(CLAUDE_CONFIG_PATH);
+      if (claudeConfig) {
+        // 2a. User-level mcpServers (top-level mcpServers key)
+        if (claudeConfig.mcpServers) {
+          result.userServers = claudeConfig.mcpServers;
+          result.configSources.push({ type: 'user', path: CLAUDE_CONFIG_PATH, count: Object.keys(claudeConfig.mcpServers).length });
+        }
+
+        // 2b. Project-specific configurations (projects[path].mcpServers)
+        if (claudeConfig.projects) {
+          result.projects = claudeConfig.projects;
+        }
+      }
+    }
+
+    // 3. For each known project, check for .mcp.json (project-level config)
+    const projectPaths = Object.keys(result.projects);
+    for (const projectPath of projectPaths) {
+      const mcpJsonPath = join(projectPath, '.mcp.json');
+      if (existsSync(mcpJsonPath)) {
+        const mcpJsonConfig = safeReadJson(mcpJsonPath);
+        if (mcpJsonConfig?.mcpServers) {
+          // Merge .mcp.json servers into project config
+          // Project's .mcp.json has lower priority than ~/.claude.json projects[path].mcpServers
+          const existingServers = result.projects[projectPath]?.mcpServers || {};
+          result.projects[projectPath] = {
+            ...result.projects[projectPath],
+            mcpServers: {
+              ...mcpJsonConfig.mcpServers,  // .mcp.json (lower priority)
+              ...existingServers             // ~/.claude.json projects[path] (higher priority)
+            },
+            mcpJsonPath: mcpJsonPath  // Track source for debugging
+          };
+          result.configSources.push({ type: 'project-mcp-json', path: mcpJsonPath, count: Object.keys(mcpJsonConfig.mcpServers).length });
+        }
+      }
+    }
+
+    // Build globalServers by merging user and enterprise servers
+    // Enterprise servers override user servers
+    result.globalServers = {
+      ...result.userServers,
+      ...result.enterpriseServers
+    };
 
     return result;
   } catch (error) {
     console.error('Error reading MCP config:', error);
-    return { projects: {}, globalServers: {}, error: error.message };
+    return { projects: {}, globalServers: {}, userServers: {}, enterpriseServers: {}, configSources: [], error: error.message };
   }
 }
 

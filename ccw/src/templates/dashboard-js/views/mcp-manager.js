@@ -27,9 +27,11 @@ async function renderMcpManager() {
   // Separate current project servers and available servers
   const currentProjectServerNames = Object.keys(projectServers);
 
-  // Separate global servers and project servers that are not in current project
-  const globalServerEntries = Object.entries(mcpGlobalServers)
+  // Separate enterprise, user, and other project servers
+  const enterpriseServerEntries = Object.entries(mcpEnterpriseServers || {})
     .filter(([name]) => !currentProjectServerNames.includes(name));
+  const userServerEntries = Object.entries(mcpUserServers || {})
+    .filter(([name]) => !currentProjectServerNames.includes(name) && !(mcpEnterpriseServers || {})[name]);
   const otherProjectServers = Object.entries(allAvailableServers)
     .filter(([name, info]) => !currentProjectServerNames.includes(name) && !info.isGlobal);
 
@@ -65,20 +67,40 @@ async function renderMcpManager() {
         `}
       </div>
 
-      <!-- Global MCP Servers -->
-      ${globalServerEntries.length > 0 ? `
+      <!-- Enterprise MCP Servers (Managed) -->
+      ${enterpriseServerEntries.length > 0 ? `
         <div class="mcp-section mb-6">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
-              <span class="text-lg">🌐</span>
-              <h3 class="text-lg font-semibold text-foreground">Global MCP Servers</h3>
+              <span class="text-lg">🏢</span>
+              <h3 class="text-lg font-semibold text-foreground">Enterprise MCP Servers</h3>
+              <span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full">Managed</span>
             </div>
-            <span class="text-sm text-muted-foreground">${globalServerEntries.length} servers from ~/.claude/settings</span>
+            <span class="text-sm text-muted-foreground">${enterpriseServerEntries.length} servers (read-only)</span>
           </div>
 
           <div class="mcp-server-grid grid gap-3">
-            ${globalServerEntries.map(([serverName, serverConfig]) => {
-              return renderGlobalServerCard(serverName, serverConfig);
+            ${enterpriseServerEntries.map(([serverName, serverConfig]) => {
+              return renderEnterpriseServerCard(serverName, serverConfig);
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- User MCP Servers -->
+      ${userServerEntries.length > 0 ? `
+        <div class="mcp-section mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">👤</span>
+              <h3 class="text-lg font-semibold text-foreground">User MCP Servers</h3>
+            </div>
+            <span class="text-sm text-muted-foreground">${userServerEntries.length} servers from ~/.claude.json</span>
+          </div>
+
+          <div class="mcp-server-grid grid gap-3">
+            ${userServerEntries.map(([serverName, serverConfig]) => {
+              return renderGlobalServerCard(serverName, serverConfig, 'user');
             }).join('')}
           </div>
         </div>
@@ -263,18 +285,19 @@ function renderAvailableServerCard(serverName, serverInfo) {
   `;
 }
 
-function renderGlobalServerCard(serverName, serverConfig) {
-  const command = serverConfig.command || 'N/A';
+function renderGlobalServerCard(serverName, serverConfig, source = 'user') {
+  const command = serverConfig.command || serverConfig.url || 'N/A';
   const args = serverConfig.args || [];
   const hasEnv = serverConfig.env && Object.keys(serverConfig.env).length > 0;
+  const serverType = serverConfig.type || 'stdio';
 
   return `
     <div class="mcp-server-card mcp-server-global bg-card border border-primary/30 rounded-lg p-4 hover:shadow-md transition-all">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
-          <span class="text-xl">🌐</span>
+          <span class="text-xl">👤</span>
           <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
-          <span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Global</span>
+          <span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">User</span>
         </div>
         <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
                 data-server-name="${escapeHtml(serverName)}"
@@ -286,7 +309,7 @@ function renderGlobalServerCard(serverName, serverConfig) {
 
       <div class="mcp-server-details text-sm space-y-1">
         <div class="flex items-center gap-2 text-muted-foreground">
-          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">cmd</span>
+          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${serverType === 'stdio' ? 'cmd' : 'url'}</span>
           <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
         </div>
         ${args.length > 0 ? `
@@ -302,7 +325,52 @@ function renderGlobalServerCard(serverName, serverConfig) {
           </div>
         ` : ''}
         <div class="flex items-center gap-2 text-muted-foreground mt-1">
-          <span class="text-xs italic">Available to all projects from ~/.claude/settings</span>
+          <span class="text-xs italic">Available to all projects from ~/.claude.json</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderEnterpriseServerCard(serverName, serverConfig) {
+  const command = serverConfig.command || serverConfig.url || 'N/A';
+  const args = serverConfig.args || [];
+  const hasEnv = serverConfig.env && Object.keys(serverConfig.env).length > 0;
+  const serverType = serverConfig.type || 'stdio';
+
+  return `
+    <div class="mcp-server-card mcp-server-enterprise bg-card border border-warning/30 rounded-lg p-4 hover:shadow-md transition-all">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🏢</span>
+          <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
+          <span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full">Enterprise</span>
+          <span class="text-xs text-muted-foreground">🔒</span>
+        </div>
+        <span class="px-3 py-1 text-xs bg-muted text-muted-foreground rounded cursor-not-allowed">
+          Read-only
+        </span>
+      </div>
+
+      <div class="mcp-server-details text-sm space-y-1">
+        <div class="flex items-center gap-2 text-muted-foreground">
+          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">${serverType === 'stdio' ? 'cmd' : 'url'}</span>
+          <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
+        </div>
+        ${args.length > 0 ? `
+          <div class="flex items-start gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
+            <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(args.slice(0, 3).join(' '))}${args.length > 3 ? '...' : ''}</span>
+          </div>
+        ` : ''}
+        ${hasEnv ? `
+          <div class="flex items-center gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">env</span>
+            <span class="text-xs">${Object.keys(serverConfig.env).length} variables</span>
+          </div>
+        ` : ''}
+        <div class="flex items-center gap-2 text-muted-foreground mt-1">
+          <span class="text-xs italic">Managed by organization (highest priority)</span>
         </div>
       </div>
     </div>

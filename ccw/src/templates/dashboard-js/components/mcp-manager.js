@@ -1,11 +1,18 @@
 // MCP Manager Component
-// Manages MCP server configuration from .claude.json
+// Manages MCP server configuration from multiple sources:
+// - Enterprise: managed-mcp.json (highest priority)
+// - User: ~/.claude.json mcpServers
+// - Project: .mcp.json in project root
+// - Local: ~/.claude.json projects[path].mcpServers
 
 // ========== MCP State ==========
 let mcpConfig = null;
 let mcpAllProjects = {};
 let mcpGlobalServers = {};
+let mcpUserServers = {};
+let mcpEnterpriseServers = {};
 let mcpCurrentProjectServers = {};
+let mcpConfigSources = [];
 let mcpCreateMode = 'form'; // 'form' or 'json'
 
 // ========== Initialization ==========
@@ -33,6 +40,9 @@ async function loadMcpConfig() {
     mcpConfig = data;
     mcpAllProjects = data.projects || {};
     mcpGlobalServers = data.globalServers || {};
+    mcpUserServers = data.userServers || {};
+    mcpEnterpriseServers = data.enterpriseServers || {};
+    mcpConfigSources = data.configSources || [];
 
     // Get current project servers
     const currentPath = projectPath.replace(/\//g, '\\');

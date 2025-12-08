@@ -54,20 +54,36 @@ function scanLiteDir(dir, type) {
 }
 
 /**
- * Load plan.json from session directory
+ * Load plan.json or fix-plan.json from session directory
  * @param {string} sessionPath - Session directory path
  * @returns {Object|null} - Plan data or null
  */
 function loadPlanJson(sessionPath) {
+  // Try fix-plan.json first (for lite-fix), then plan.json (for lite-plan)
+  const fixPlanPath = join(sessionPath, 'fix-plan.json');
   const planPath = join(sessionPath, 'plan.json');
-  if (!existsSync(planPath)) return null;
 
-  try {
-    const content = readFileSync(planPath, 'utf8');
-    return JSON.parse(content);
-  } catch {
-    return null;
+  // Try fix-plan.json first
+  if (existsSync(fixPlanPath)) {
+    try {
+      const content = readFileSync(fixPlanPath, 'utf8');
+      return JSON.parse(content);
+    } catch {
+      // Continue to try plan.json
+    }
   }
+
+  // Fallback to plan.json
+  if (existsSync(planPath)) {
+    try {
+      const content = readFileSync(planPath, 'utf8');
+      return JSON.parse(content);
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -91,6 +107,7 @@ function loadTaskJsons(sessionPath) {
           f.startsWith('IMPL-') ||
           f.startsWith('TASK-') ||
           f.startsWith('task-') ||
+          f.startsWith('diagnosis-') ||
           /^T\d+\.json$/i.test(f)
         ))
         .map(f => {
@@ -109,12 +126,18 @@ function loadTaskJsons(sessionPath) {
     }
   }
 
-  // Method 2: Check plan.json for embedded tasks array
+  // Method 2: Check plan.json or fix-plan.json for embedded tasks array
   if (tasks.length === 0) {
+    // Try fix-plan.json first (for lite-fix), then plan.json (for lite-plan)
+    const fixPlanPath = join(sessionPath, 'fix-plan.json');
     const planPath = join(sessionPath, 'plan.json');
-    if (existsSync(planPath)) {
+
+    const planFile = existsSync(fixPlanPath) ? fixPlanPath :
+                     existsSync(planPath) ? planPath : null;
+
+    if (planFile) {
       try {
-        const plan = JSON.parse(readFileSync(planPath, 'utf8'));
+        const plan = JSON.parse(readFileSync(planFile, 'utf8'));
         if (Array.isArray(plan.tasks)) {
           tasks = plan.tasks.map(t => normalizeTask(t));
         }
@@ -124,13 +147,14 @@ function loadTaskJsons(sessionPath) {
     }
   }
 
-  // Method 3: Check for task-*.json files in session root
+  // Method 3: Check for task-*.json and diagnosis-*.json files in session root
   if (tasks.length === 0) {
     try {
       const rootTasks = readdirSync(sessionPath)
         .filter(f => f.endsWith('.json') && (
           f.startsWith('task-') ||
           f.startsWith('TASK-') ||
+          f.startsWith('diagnosis-') ||
           /^T\d+\.json$/i.test(f)
         ))
         .map(f => {

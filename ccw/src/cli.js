@@ -6,6 +6,7 @@ import { installCommand } from './commands/install.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { upgradeCommand } from './commands/upgrade.js';
 import { listCommand } from './commands/list.js';
+import { toolCommand } from './commands/tool.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -104,6 +105,12 @@ export function run(argv) {
     .command('list')
     .description('List all installed Claude Code Workflow instances')
     .action(listCommand);
+
+  // Tool command
+  program
+    .command('tool [subcommand] [args] [json]')
+    .description('Execute CCW tools')
+    .action((subcommand, args, json) => toolCommand(subcommand, args, { json }));
 
   program.parse(argv);
 }
