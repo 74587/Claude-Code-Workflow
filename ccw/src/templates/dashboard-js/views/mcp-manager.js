@@ -26,8 +26,12 @@ async function renderMcpManager() {
 
   // Separate current project servers and available servers
   const currentProjectServerNames = Object.keys(projectServers);
-  const otherAvailableServers = Object.entries(allAvailableServers)
+
+  // Separate global servers and project servers that are not in current project
+  const globalServerEntries = Object.entries(mcpGlobalServers)
     .filter(([name]) => !currentProjectServerNames.includes(name));
+  const otherProjectServers = Object.entries(allAvailableServers)
+    .filter(([name, info]) => !currentProjectServerNames.includes(name) && !info.isGlobal);
 
   container.innerHTML = `
     <div class="mcp-manager">
@@ -61,20 +65,39 @@ async function renderMcpManager() {
         `}
       </div>
 
+      <!-- Global MCP Servers -->
+      ${globalServerEntries.length > 0 ? `
+        <div class="mcp-section mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🌐</span>
+              <h3 class="text-lg font-semibold text-foreground">Global MCP Servers</h3>
+            </div>
+            <span class="text-sm text-muted-foreground">${globalServerEntries.length} servers from ~/.claude/settings</span>
+          </div>
+
+          <div class="mcp-server-grid grid gap-3">
+            ${globalServerEntries.map(([serverName, serverConfig]) => {
+              return renderGlobalServerCard(serverName, serverConfig);
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+
       <!-- Available MCP Servers from Other Projects -->
       <div class="mcp-section">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-foreground">Available from Other Projects</h3>
-          <span class="text-sm text-muted-foreground">${otherAvailableServers.length} servers available</span>
+          <span class="text-sm text-muted-foreground">${otherProjectServers.length} servers available</span>
         </div>
 
-        ${otherAvailableServers.length === 0 ? `
+        ${otherProjectServers.length === 0 ? `
           <div class="mcp-empty-state bg-card border border-border rounded-lg p-6 text-center">
             <p class="text-muted-foreground">No additional MCP servers found in other projects</p>
           </div>
         ` : `
           <div class="mcp-server-grid grid gap-3">
-            ${otherAvailableServers.map(([serverName, serverInfo]) => {
+            ${otherProjectServers.map(([serverName, serverInfo]) => {
               return renderAvailableServerCard(serverName, serverInfo);
             }).join('')}
           </div>
@@ -234,6 +257,52 @@ function renderAvailableServerCard(serverName, serverInfo) {
         </div>
         <div class="flex items-center gap-2 text-muted-foreground">
           <span class="text-xs">Used in ${usedIn.length} project${usedIn.length !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderGlobalServerCard(serverName, serverConfig) {
+  const command = serverConfig.command || 'N/A';
+  const args = serverConfig.args || [];
+  const hasEnv = serverConfig.env && Object.keys(serverConfig.env).length > 0;
+
+  return `
+    <div class="mcp-server-card mcp-server-global bg-card border border-primary/30 rounded-lg p-4 hover:shadow-md transition-all">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🌐</span>
+          <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
+          <span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">Global</span>
+        </div>
+        <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
+                data-server-name="${escapeHtml(serverName)}"
+                data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
+                data-action="add">
+          Add to Project
+        </button>
+      </div>
+
+      <div class="mcp-server-details text-sm space-y-1">
+        <div class="flex items-center gap-2 text-muted-foreground">
+          <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">cmd</span>
+          <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
+        </div>
+        ${args.length > 0 ? `
+          <div class="flex items-start gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
+            <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(args.slice(0, 3).join(' '))}${args.length > 3 ? '...' : ''}</span>
+          </div>
+        ` : ''}
+        ${hasEnv ? `
+          <div class="flex items-center gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">env</span>
+            <span class="text-xs">${Object.keys(serverConfig.env).length} variables</span>
+          </div>
+        ` : ''}
+        <div class="flex items-center gap-2 text-muted-foreground mt-1">
+          <span class="text-xs italic">Available to all projects from ~/.claude/settings</span>
         </div>
       </div>
     </div>

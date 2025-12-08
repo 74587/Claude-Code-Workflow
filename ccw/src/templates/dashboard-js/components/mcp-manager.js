@@ -4,6 +4,7 @@
 // ========== MCP State ==========
 let mcpConfig = null;
 let mcpAllProjects = {};
+let mcpGlobalServers = {};
 let mcpCurrentProjectServers = {};
 let mcpCreateMode = 'form'; // 'form' or 'json'
 
@@ -31,6 +32,7 @@ async function loadMcpConfig() {
     const data = await response.json();
     mcpConfig = data;
     mcpAllProjects = data.projects || {};
+    mcpGlobalServers = data.globalServers || {};
 
     // Get current project servers
     const currentPath = projectPath.replace(/\//g, '\\');
@@ -150,6 +152,15 @@ function updateMcpBadge() {
 function getAllAvailableMcpServers() {
   const allServers = {};
 
+  // Collect global servers first
+  for (const [name, serverConfig] of Object.entries(mcpGlobalServers)) {
+    allServers[name] = {
+      config: serverConfig,
+      usedIn: [],
+      isGlobal: true
+    };
+  }
+
   // Collect servers from all projects
   for (const [path, config] of Object.entries(mcpAllProjects)) {
     const servers = config.mcpServers || {};
@@ -157,7 +168,8 @@ function getAllAvailableMcpServers() {
       if (!allServers[name]) {
         allServers[name] = {
           config: serverConfig,
-          usedIn: []
+          usedIn: [],
+          isGlobal: false
         };
       }
       allServers[name].usedIn.push(path);

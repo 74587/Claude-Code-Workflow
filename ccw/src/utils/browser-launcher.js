@@ -3,13 +3,24 @@ import { platform } from 'os';
 import { resolve } from 'path';
 
 /**
- * Launch a file in the default browser
+ * Launch a URL or file in the default browser
  * Cross-platform compatible (Windows/macOS/Linux)
- * @param {string} filePath - Path to HTML file
+ * @param {string} urlOrPath - HTTP URL or path to HTML file
  * @returns {Promise<void>}
  */
-export async function launchBrowser(filePath) {
-  const absolutePath = resolve(filePath);
+export async function launchBrowser(urlOrPath) {
+  // Check if it's already a URL (http:// or https://)
+  if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
+    try {
+      await open(urlOrPath);
+      return;
+    } catch (error) {
+      throw new Error(`Failed to open browser: ${error.message}`);
+    }
+  }
+
+  // It's a file path - convert to file:// URL
+  const absolutePath = resolve(urlOrPath);
 
   // Construct file:// URL based on platform
   let url;

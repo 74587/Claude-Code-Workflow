@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { viewCommand } from './commands/view.js';
 import { serveCommand } from './commands/serve.js';
+import { stopCommand } from './commands/stop.js';
 import { installCommand } from './commands/install.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { upgradeCommand } from './commands/upgrade.js';
@@ -67,6 +68,14 @@ export function run(argv) {
     .option('--port <port>', 'Server port', '3456')
     .option('--no-browser', 'Start server without opening browser')
     .action(serveCommand);
+
+  // Stop command
+  program
+    .command('stop')
+    .description('Stop the running CCW dashboard server')
+    .option('--port <port>', 'Server port', '3456')
+    .option('-f, --force', 'Force kill process on the port')
+    .action(stopCommand);
 
   // Install command
   program

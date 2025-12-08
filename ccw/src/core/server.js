@@ -8,8 +8,11 @@ import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
 
-// Claude config file path
+// Claude config file paths
 const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
+const CLAUDE_SETTINGS_DIR = join(homedir(), '.claude');
+const CLAUDE_GLOBAL_SETTINGS = join(CLAUDE_SETTINGS_DIR, 'settings.json');
+const CLAUDE_GLOBAL_SETTINGS_LOCAL = join(CLAUDE_SETTINGS_DIR, 'settings.local.json');
 
 // WebSocket clients for real-time notifications
 const wsClients = new Set();
@@ -157,6 +160,24 @@ export async function startServer(options = {}) {
       if (pathname === '/api/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ok', timestamp: Date.now() }));
+        return;
+      }
+
+      // API: Shutdown server (for ccw stop command)
+      if (pathname === '/api/shutdown' && req.method === 'POST') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'shutting_down' }));
+
+        // Graceful shutdown
+        console.log('\n  Received shutdown signal...');
+        setTimeout(() => {
+          server.close(() => {
+            console.log('  Server stopped.\n');
+            process.exit(0);
+          });
+          // Force exit after 3 seconds if graceful shutdown fails
+          setTimeout(() => process.exit(0), 3000);
+        }, 100);
         return;
       }
 
@@ -1006,22 +1027,82 @@ async function loadRecentPaths() {
 // ========================================
 
 /**
- * Get MCP configuration from .claude.json
+ * Safely read and parse JSON file
+ * @param {string} filePath
+ * @returns {Object|null}
+ */
+function safeReadJson(filePath) {
+  try {
+    if (!existsSync(filePath)) return null;
+    const content = readFileSync(filePath, 'utf8');
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get MCP servers from a settings file
+ * @param {string} filePath
+ * @returns {Object} mcpServers object or empty object
+ */
+function getMcpServersFromSettings(filePath) {
+  const config = safeReadJson(filePath);
+  if (!config) return {};
+  return config.mcpServers || {};
+}
+
+/**
+ * Get MCP configuration from multiple sources:
+ * 1. ~/.claude.json (project-level MCP servers)
+ * 2. ~/.claude/settings.json and settings.local.json (global MCP servers)
+ * 3. Each workspace's .claude/settings.json and settings.local.json
  * @returns {Object}
  */
 function getMcpConfig() {
   try {
-    if (!existsSync(CLAUDE_CONFIG_PATH)) {
-      return { projects: {} };
+    const result = { projects: {}, globalServers: {} };
+
+    // 1. Read from ~/.claude.json (primary source for project MCP)
+    if (existsSync(CLAUDE_CONFIG_PATH)) {
+      const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
+      const config = JSON.parse(content);
+      result.projects = config.projects || {};
     }
-    const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
-    const config = JSON.parse(content);
-    return {
-      projects: config.projects || {}
-    };
+
+    // 2. Read global MCP servers from ~/.claude/settings.json and settings.local.json
+    const globalSettings = getMcpServersFromSettings(CLAUDE_GLOBAL_SETTINGS);
+    const globalSettingsLocal = getMcpServersFromSettings(CLAUDE_GLOBAL_SETTINGS_LOCAL);
+    result.globalServers = { ...globalSettings, ...globalSettingsLocal };
+
+    // 3. For each project, also check .claude/settings.json and settings.local.json
+    for (const projectPath of Object.keys(result.projects)) {
+      const projectClaudeDir = join(projectPath, '.claude');
+      const projectSettings = join(projectClaudeDir, 'settings.json');
+      const projectSettingsLocal = join(projectClaudeDir, 'settings.local.json');
+
+      // Merge MCP servers from workspace settings into project config
+      const workspaceServers = {
+        ...getMcpServersFromSettings(projectSettings),
+        ...getMcpServersFromSettings(projectSettingsLocal)
+      };
+
+      if (Object.keys(workspaceServers).length > 0) {
+        // Merge workspace servers with existing project servers (workspace takes precedence)
+        result.projects[projectPath] = {
+          ...result.projects[projectPath],
+          mcpServers: {
+            ...(result.projects[projectPath]?.mcpServers || {}),
+            ...workspaceServers
+          }
+        };
+      }
+    }
+
+    return result;
   } catch (error) {
     console.error('Error reading MCP config:', error);
-    return { projects: {}, error: error.message };
+    return { projects: {}, globalServers: {}, error: error.message };
   }
 }
 
