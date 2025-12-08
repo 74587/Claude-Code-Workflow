@@ -392,7 +392,7 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
   // Pattern: Project structure analysis
   {
     "step": "analyze_project_architecture",
-    "commands": ["bash(~/.claude/scripts/get_modules_by_depth.sh)"],
+    "commands": ["bash(ccw tool exec get_modules_by_depth '{}')"],
     "output_to": "project_architecture"
   },
 

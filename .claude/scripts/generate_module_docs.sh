@@ -1,4 +1,8 @@
 #!/bin/bash
+# ⚠️ DEPRECATED: This script is deprecated.
+# Please use: ccw tool exec generate_module_docs '{"path":".","strategy":"single-layer","tool":"gemini"}'
+# This file will be removed in a future version.
+
 # Generate documentation for modules and projects with multiple strategies
 # Usage: generate_module_docs.sh <strategy> <source_path> <project_name> [tool] [model]
 #   strategy: full|single|project-readme|project-architecture|http-api

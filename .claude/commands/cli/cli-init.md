@@ -191,7 +191,7 @@ target/
 ### Step 2: Workspace Analysis (MANDATORY FIRST)
 ```bash
 # Analyze workspace structure
-bash(~/.claude/scripts/get_modules_by_depth.sh json)
+bash(ccw tool exec get_modules_by_depth '{"format":"json"}')
 ```
 
 ### Step 3: Technology Detection

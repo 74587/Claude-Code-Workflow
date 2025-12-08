@@ -1,4 +1,8 @@
 #!/bin/bash
+# ⚠️ DEPRECATED: This script is deprecated.
+# Please use: ccw tool exec get_modules_by_depth '{"format":"list","path":"."}' OR ccw tool exec get_modules_by_depth '{}'
+# This file will be removed in a future version.
+
 # Get modules organized by directory depth (deepest first)
 # Usage: get_modules_by_depth.sh [format]
 #   format: list|grouped|json (default: list)

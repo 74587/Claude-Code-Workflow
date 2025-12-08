@@ -119,17 +119,6 @@ This agent processes **simplified inline [FLOW_CONTROL]** format from brainstorm
 - No dependency management
 - Used for temporary context preparation
 
-### NOT Handled by This Agent
-
-**JSON format** (used by code-developer, test-fix-agent):
-```json
-"flow_control": {
-  "pre_analysis": [...],
-  "implementation_approach": [...]
-}
-```
-
-This complete JSON format is stored in `.task/IMPL-*.json` files and handled by implementation agents, not conceptual-planning-agent.
 
 ### Role-Specific Analysis Dimensions
 
@@ -146,14 +135,14 @@ This complete JSON format is stored in `.task/IMPL-*.json` files and handled by 
 
 ### Output Integration
 
-**Gemini Analysis Integration**: Pattern-based analysis results are integrated into the single role's output:
-- Enhanced `analysis.md` with codebase insights and architectural patterns
+**Gemini Analysis Integration**: Pattern-based analysis results are integrated into role output documents:
+- Enhanced analysis documents with codebase insights and architectural patterns
 - Role-specific technical recommendations based on existing conventions
 - Pattern-based best practices from actual code examination
 - Realistic feasibility assessments based on current implementation
 
 **Codex Analysis Integration**: Autonomous analysis results provide comprehensive insights:
-- Enhanced `analysis.md` with autonomous development recommendations
+- Enhanced analysis documents with autonomous development recommendations
 - Role-specific strategy based on intelligent system understanding
 - Autonomous development approaches and implementation guidance
 - Self-guided optimization and integration recommendations
@@ -229,26 +218,23 @@ Generate documents according to loaded role template specifications:
 
 **Output Location**: `.workflow/WFS-[session]/.brainstorming/[assigned-role]/`
 
-**Required Files**:
-- **analysis.md**: Main role perspective analysis incorporating user context and role template
-  - **File Naming**: MUST start with `analysis` prefix (e.g., `analysis.md`, `analysis-1.md`, `analysis-2.md`)
+**Output Files**:
+- **analysis.md**: Index document with overview (optionally with `@` references to sub-documents)
   - **FORBIDDEN**: Never create `recommendations.md` or any file not starting with `analysis` prefix
-  - **Auto-split if large**: If content >800 lines, split to `analysis-1.md`, `analysis-2.md` (max 3 files: analysis.md, analysis-1.md, analysis-2.md)
-  - **Content**: Includes both analysis AND recommendations sections within analysis files
-- **[role-deliverables]/**: Directory for specialized role outputs as defined in planning role template (optional)
+- **analysis-{slug}.md**: Section content documents (slug from section heading: lowercase, hyphens)
+  - Maximum 5 sub-documents (merge related sections if needed)
+- **Content**: Analysis AND recommendations sections
 
 **File Structure Example**:
 ```
 .workflow/WFS-[session]/.brainstorming/system-architect/
-├── analysis.md                    # Main system architecture analysis with recommendations
-├── analysis-1.md                  # (Optional) Continuation if content >800 lines
-└── deliverables/                  # (Optional) Additional role-specific outputs
-    ├── technical-architecture.md  # System design specifications
-    ├── technology-stack.md        # Technology selection rationale
-    └── scalability-plan.md        # Scaling strategy
+├── analysis.md                         # Index with overview + @references
+├── analysis-architecture-assessment.md # Section content
+├── analysis-technology-evaluation.md   # Section content
+├── analysis-integration-strategy.md    # Section content
+└── analysis-recommendations.md         # Section content (max 5 sub-docs total)
 
-NOTE: ALL brainstorming output files MUST start with 'analysis' prefix
-FORBIDDEN: recommendations.md, recommendations-*.md, or any non-'analysis' prefixed files
+NOTE: ALL files MUST start with 'analysis' prefix. Max 5 sub-documents.
 ```
 
 ## Role-Specific Planning Process
@@ -268,14 +254,10 @@ FORBIDDEN: recommendations.md, recommendations-*.md, or any non-'analysis' prefi
 - **Validate Against Template**: Ensure analysis meets role template requirements and standards
 
 ### 3. Brainstorming Documentation Phase
-- **Create analysis.md**: Generate comprehensive role perspective analysis in designated output directory
-  - **File Naming**: MUST start with `analysis` prefix (e.g., `analysis.md`, `analysis-1.md`, `analysis-2.md`)
-  - **FORBIDDEN**: Never create `recommendations.md` or any file not starting with `analysis` prefix
-  - **Content**: Include both analysis AND recommendations sections within analysis files
-  - **Auto-split**: If content >800 lines, split to `analysis-1.md`, `analysis-2.md` (max 3 files total)
-- **Generate Role Deliverables**: Create specialized outputs as defined in planning role template (optional)
+- **Create analysis.md**: Main document with overview (optionally with `@` references)
+- **Create sub-documents**: `analysis-{slug}.md` for major sections (max 5)
 - **Validate Output Structure**: Ensure all files saved to correct `.brainstorming/[role]/` directory
-- **Naming Validation**: Verify NO files with `recommendations` prefix exist
+- **Naming Validation**: Verify ALL files start with `analysis` prefix
 - **Quality Review**: Ensure outputs meet role template standards and user requirements
 
 ## Role-Specific Analysis Framework
@@ -324,5 +306,3 @@ When analysis is complete, ensure:
 - **Relevance**: Directly addresses user's specified requirements
 - **Actionability**: Provides concrete next steps and recommendations
 
-### Windows Path Format Guidelines
-- **Quick Ref**: `C:\Users` → MCP: `C:\\Users` | Bash: `/c/Users` or `C:/Users`

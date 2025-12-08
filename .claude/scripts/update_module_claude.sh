@@ -1,4 +1,8 @@
 #!/bin/bash
+# ⚠️ DEPRECATED: This script is deprecated.
+# Please use: ccw tool exec update_module_claude '{"strategy":"single-layer","path":".","tool":"gemini"}'
+# This file will be removed in a future version.
+
 # Update CLAUDE.md for modules with two strategies
 # Usage: update_module_claude.sh <strategy> <module_path> [tool] [model]
 #   strategy: single-layer|multi-layer

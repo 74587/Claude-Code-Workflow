@@ -135,7 +135,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 
 ## MANDATORY FIRST STEPS (Execute by Agent)
 **You (cli-explore-agent) MUST execute these steps in order:**
-1. Run: ~/.claude/scripts/get_modules_by_depth.sh (project structure)
+1. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
 2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
 3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
 
@@ -171,7 +171,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - dependencies: Dependencies relevant to ${angle}
 - integration_points: Where to integrate from ${angle} viewpoint (include file:line locations)
 - constraints: ${angle}-specific limitations/conventions
-- clarification_needs: ${angle}-related ambiguities (with options array)
+- clarification_needs: ${angle}-related ambiguities (options array + recommended index)
 - _metadata.exploration_angle: "${angle}"
 
 ## Success Criteria
@@ -182,7 +182,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - [ ] Integration points include file:line locations
 - [ ] Constraints are project-specific to ${angle}
 - [ ] JSON output follows schema exactly
-- [ ] clarification_needs includes options array
+- [ ] clarification_needs includes options + recommended
 
 ## Output
 Write: ${sessionFolder}/exploration-${angle}.json
@@ -251,7 +251,7 @@ Execute all discovery tracks:
 ### Phase 3: Synthesis, Assessment & Packaging
 1. Apply relevance scoring and build dependency graph
 2. **Synthesize 4-source data**: Merge findings from all sources (archive > docs > code > web). **Prioritize the context from `project.json`** for architecture and tech stack unless code analysis reveals it's outdated.
-3. **Populate `project_context`**: Directly use the `overview` from `project.json` to fill the `project_context` section of the output `context-package.json`. Include technology_stack, architecture, key_components, and entry_points.
+3. **Populate `project_context`**: Directly use the `overview` from `project.json` to fill the `project_context` section of the output `context-package.json`. Include description, technology_stack, architecture, and key_components.
 4. Integrate brainstorm artifacts (if .brainstorming/ exists, read content)
 5. Perform conflict detection with risk assessment
 6. **Inject historical conflicts** from archive analysis into conflict_detection
@@ -260,7 +260,7 @@ Execute all discovery tracks:
 ## Output Requirements
 Complete context-package.json with:
 - **metadata**: task_description, keywords, complexity, tech_stack, session_id
-- **project_context**: architecture_patterns, coding_conventions, tech_stack (sourced from `project.json` overview)
+- **project_context**: description, technology_stack, architecture, key_components (sourced from `project.json` overview)
 - **assets**: {documentation[], source_code[], config[], tests[]} with relevance scores
 - **dependencies**: {internal[], external[]} with dependency graph
 - **brainstorm_artifacts**: {guidance_specification, role_analyses[], synthesis_output} with content

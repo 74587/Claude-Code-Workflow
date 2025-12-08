@@ -99,10 +99,10 @@ src/ (depth 1) → SINGLE-LAYER STRATEGY
 Bash({command: "git add -A 2>/dev/null || true", run_in_background: false});
 
 // Get module structure
-Bash({command: "~/.claude/scripts/get_modules_by_depth.sh list", run_in_background: false});
+Bash({command: "ccw tool exec get_modules_by_depth '{\"format\":\"list\"}'", run_in_background: false});
 
 // OR with --path
-Bash({command: "cd <target-path> && ~/.claude/scripts/get_modules_by_depth.sh list", run_in_background: false});
+Bash({command: "cd <target-path> && ccw tool exec get_modules_by_depth '{\"format\":\"list\"}'", run_in_background: false});
 ```
 
 **Parse output** `depth:N|path:<PATH>|...` to extract module paths and count.
@@ -185,7 +185,7 @@ for (let layer of [3, 2, 1]) {
         let strategy = module.depth >= 3 ? "multi-layer" : "single-layer";
         for (let tool of tool_order) {
           Bash({
-            command: `cd ${module.path} && ~/.claude/scripts/update_module_claude.sh "${strategy}" "." "${tool}"`,
+            command: `cd ${module.path} && ccw tool exec update_module_claude '{"strategy":"${strategy}","path":".","tool":"${tool}"}'`,
             run_in_background: false
           });
           if (bash_result.exit_code === 0) {
@@ -244,7 +244,7 @@ MODULES:
 
 TOOLS (try in order): {{tool_1}}, {{tool_2}}, {{tool_3}}
 
-EXECUTION SCRIPT: ~/.claude/scripts/update_module_claude.sh
+EXECUTION SCRIPT: ccw tool exec update_module_claude
   - Accepts strategy parameter: multi-layer | single-layer
   - Tool execution via direct CLI commands (gemini/qwen/codex)
 
@@ -252,7 +252,7 @@ EXECUTION FLOW (for each module):
   1. Tool fallback loop (exit on first success):
      for tool in {{tool_1}} {{tool_2}} {{tool_3}}; do
        Bash({
-         command: `cd "{{module_path}}" && ~/.claude/scripts/update_module_claude.sh "{{strategy}}" "." "${tool}"`,
+         command: `cd "{{module_path}}" && ccw tool exec update_module_claude '{"strategy":"{{strategy}}","path":".","tool":"${tool}"}'`,
          run_in_background: false
        })
        exit_code=$?

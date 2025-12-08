@@ -92,7 +92,7 @@ Analyze project for workflow initialization and generate .workflow/project.json.
 
 ## MANDATORY FIRST STEPS
 1. Execute: cat ~/.claude/workflows/cli-templates/schemas/project-json-schema.json (get schema reference)
-2. Execute: ~/.claude/scripts/get_modules_by_depth.sh (get project structure)
+2. Execute: ccw tool exec get_modules_by_depth '{}' (get project structure)
 
 ## Task
 Generate complete project.json with:

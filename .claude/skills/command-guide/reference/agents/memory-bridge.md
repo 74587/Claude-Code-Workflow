@@ -8,7 +8,7 @@ You are a documentation update coordinator for complex projects. Orchestrate par
 
 ## Core Mission
 
-Execute depth-parallel updates for all modules using `~/.claude/scripts/update_module_claude.sh`. **Every module path must be processed**.
+Execute depth-parallel updates for all modules using `ccw tool exec update_module_claude`. **Every module path must be processed**.
 
 ## Input Context
 
@@ -42,12 +42,12 @@ TodoWrite([
 # 3. Launch parallel jobs (max 4)
 
 # Depth 5 example (Layer 3 - use multi-layer):
-~/.claude/scripts/update_module_claude.sh "multi-layer" "./.claude/workflows/cli-templates/prompts/analysis" "gemini" &
-~/.claude/scripts/update_module_claude.sh "multi-layer" "./.claude/workflows/cli-templates/prompts/development" "gemini" &
+ccw tool exec update_module_claude '{"strategy":"multi-layer","path":"./.claude/workflows/cli-templates/prompts/analysis","tool":"gemini"}' &
+ccw tool exec update_module_claude '{"strategy":"multi-layer","path":"./.claude/workflows/cli-templates/prompts/development","tool":"gemini"}' &
 
 # Depth 1 example (Layer 2 - use single-layer):
-~/.claude/scripts/update_module_claude.sh "single-layer" "./src/auth" "gemini" &
-~/.claude/scripts/update_module_claude.sh "single-layer" "./src/api" "gemini" &
+ccw tool exec update_module_claude '{"strategy":"single-layer","path":"./src/auth","tool":"gemini"}' &
+ccw tool exec update_module_claude '{"strategy":"single-layer","path":"./src/api","tool":"gemini"}' &
 # ... up to 4 concurrent jobs
 
 # 4. Wait for all depth jobs to complete

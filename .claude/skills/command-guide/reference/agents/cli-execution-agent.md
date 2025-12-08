@@ -67,7 +67,7 @@ Score = 0
 
 **1. Project Structure**:
 ```bash
-~/.claude/scripts/get_modules_by_depth.sh
+ccw tool exec get_modules_by_depth '{}'
 ```
 
 **2. Content Search**:

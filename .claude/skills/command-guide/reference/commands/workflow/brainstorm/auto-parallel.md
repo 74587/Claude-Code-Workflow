@@ -141,26 +141,10 @@ OUTPUT_LOCATION: .workflow/active/WFS-{session}/.brainstorming/{role}/
 TOPIC: {user-provided-topic}
 
 ## Flow Control Steps
-1. **load_topic_framework**
-   - Action: Load structured topic discussion framework
-   - Command: Read(.workflow/active/WFS-{session}/.brainstorming/guidance-specification.md)
-   - Output: topic_framework_content
-
-2. **load_role_template**
-   - Action: Load {role-name} planning template
-   - Command: Read(~/.claude/workflows/cli-templates/planning-roles/{role}.md)
-   - Output: role_template_guidelines
-
-3. **load_session_metadata**
-   - Action: Load session metadata and original user intent
-   - Command: Read(.workflow/active/WFS-{session}/workflow-session.json)
-   - Output: session_context (contains original user prompt as PRIMARY reference)
-
-4. **load_style_skill** (ONLY for ui-designer role when style_skill_package exists)
-   - Action: Load style SKILL package for design system reference
-   - Command: Read(.claude/skills/style-{style_skill_package}/SKILL.md) AND Read(.workflow/reference_style/{style_skill_package}/design-tokens.json)
-   - Output: style_skill_content, design_tokens
-   - Usage: Apply design tokens in ui-designer analysis and artifacts
+1. load_topic_framework → .workflow/active/WFS-{session}/.brainstorming/guidance-specification.md
+2. load_role_template → ~/.claude/workflows/cli-templates/planning-roles/{role}.md
+3. load_session_metadata → .workflow/active/WFS-{session}/workflow-session.json
+4. load_style_skill (ui-designer only, if style_skill_package) → .claude/skills/style-{style_skill_package}/
 
 ## Analysis Requirements
 **Primary Reference**: Original user prompt from workflow-session.json is authoritative
@@ -170,13 +154,9 @@ TOPIC: {user-provided-topic}
 **Template Integration**: Apply role template guidelines within framework structure
 
 ## Expected Deliverables
-1. **analysis.md**: Comprehensive {role-name} analysis addressing all framework discussion points
-   - **File Naming**: MUST start with `analysis` prefix (e.g., `analysis.md`, `analysis-1.md`, `analysis-2.md`)
-   - **FORBIDDEN**: Never use `recommendations.md` or any filename not starting with `analysis`
-   - **Auto-split if large**: If content >800 lines, split to `analysis-1.md`, `analysis-2.md` (max 3 files: analysis.md, analysis-1.md, analysis-2.md)
-   - **Content**: Includes both analysis AND recommendations sections within analysis files
-2. **Framework Reference**: Include @../guidance-specification.md reference in analysis
-3. **User Intent Alignment**: Validate analysis aligns with original user objectives from session_context
+1. **analysis.md** (optionally with analysis-{slug}.md sub-documents)
+2. **Framework Reference**: @../guidance-specification.md
+3. **User Intent Alignment**: Validate against session_context
 
 ## Completion Criteria
 - Address each discussion point from guidance-specification.md with {role-name} expertise
@@ -199,10 +179,10 @@ TOPIC: {user-provided-topic}
 - guidance-specification.md path
 
 **Validation**:
-- Each role creates `.workflow/active/WFS-{topic}/.brainstorming/{role}/analysis.md` (primary file)
-- If content is large (>800 lines), may split to `analysis-1.md`, `analysis-2.md` (max 3 files total)
-- **File naming pattern**: ALL files MUST start with `analysis` prefix (use `analysis*.md` for globbing)
-- **FORBIDDEN naming**: No `recommendations.md`, `recommendations-*.md`, or any non-`analysis` prefixed files
+- Each role creates `.workflow/active/WFS-{topic}/.brainstorming/{role}/analysis.md`
+- Optionally with `analysis-{slug}.md` sub-documents (max 5)
+- **File pattern**: `analysis*.md` for globbing
+- **FORBIDDEN**: `recommendations.md` or any non-`analysis` prefixed files
 - All N role analyses completed
 
 **TodoWrite Update (Phase 2 agents dispatched - tasks attached in parallel)**:
@@ -453,12 +433,9 @@ CONTEXT_VARS:
 ├── workflow-session.json              # Session metadata ONLY
 └── .brainstorming/
     ├── guidance-specification.md      # Framework (Phase 1)
-    ├── {role-1}/
-    │   └── analysis.md                # Role analysis (Phase 2)
-    ├── {role-2}/
-    │   └── analysis.md
-    ├── {role-N}/
-    │   └── analysis.md
+    ├── {role}/
+    │   ├── analysis.md                # Main document (with optional @references)
+    │   └── analysis-{slug}.md         # Section documents (max 5)
     └── synthesis-specification.md     # Integration (Phase 3)
 ```
 

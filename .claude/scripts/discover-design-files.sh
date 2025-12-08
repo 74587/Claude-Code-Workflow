@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# ⚠️ DEPRECATED: This script is deprecated.
+# Please use: ccw tool exec discover_design_files '{"sourceDir":".","outputPath":"output.json"}'
+# This file will be removed in a future version.
+
 # discover-design-files.sh - Discover design-related files and output JSON
 # Usage: discover-design-files.sh <source_dir> <output_json>
 

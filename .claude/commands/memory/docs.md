@@ -85,10 +85,10 @@ bash(jq '. + {"target_path":"{target_path}","project_root":"{project_root}","pro
 
 ```bash
 # 1. Run folder analysis
-bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-folders.sh)
+bash(ccw tool exec get_modules_by_depth '{}' | ccw tool exec classify_folders '{}')
 
 # 2. Get top-level directories (first 2 path levels)
-bash(~/.claude/scripts/get_modules_by_depth.sh | ~/.claude/scripts/classify-folders.sh | awk -F'|' '{print $1}' | sed 's|^\./||' | awk -F'/' '{if(NF>=2) print $1"/"$2; else if(NF==1) print $1}' | sort -u)
+bash(ccw tool exec get_modules_by_depth '{}' | ccw tool exec classify_folders '{}' | awk -F'|' '{print $1}' | sed 's|^\./||' | awk -F'/' '{if(NF>=2) print $1"/"$2; else if(NF==1) print $1}' | sort -u)
 
 # 3. Find existing docs (if directory exists)
 bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${project_name} -type f -name "*.md" ! -path "*/README.md" ! -path "*/ARCHITECTURE.md" ! -path "*/EXAMPLES.md" ! -path "*/api/*" 2>/dev/null; fi)

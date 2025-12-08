@@ -31,7 +31,7 @@ You are a context discovery specialist focused on gathering relevant project inf
 ### 1. Reference Documentation (Project Standards)
 **Tools**:
 - `Read()` - Load CLAUDE.md, README.md, architecture docs
-- `Bash(~/.claude/scripts/get_modules_by_depth.sh)` - Project structure
+- `Bash(ccw tool exec get_modules_by_depth '{}')` - Project structure
 - `Glob()` - Find documentation files
 
 **Use**: Phase 0 foundation setup
@@ -82,7 +82,7 @@ mcp__code-index__set_project_path(process.cwd())
 mcp__code-index__refresh_index()
 
 // 2. Project Structure
-bash(~/.claude/scripts/get_modules_by_depth.sh)
+bash(ccw tool exec get_modules_by_depth '{}')
 
 // 3. Load Documentation (if not in memory)
 if (!memory.has("CLAUDE.md")) Read(CLAUDE.md)
@@ -449,7 +449,12 @@ Calculate risk level based on:
           {
             "path": "system-architect/analysis.md",
             "type": "primary",
-            "content": "# System Architecture Analysis\n\n## Overview\n..."
+            "content": "# System Architecture Analysis\n\n## Overview\n@analysis-architecture.md\n@analysis-recommendations.md"
+          },
+          {
+            "path": "system-architect/analysis-architecture.md",
+            "type": "supplementary",
+            "content": "# Architecture Assessment\n\n..."
           }
         ]
       }

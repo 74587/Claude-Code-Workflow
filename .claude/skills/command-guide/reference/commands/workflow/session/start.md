@@ -1,11 +1,13 @@
 ---
 name: start
 description: Discover existing sessions or start new workflow session with intelligent session management and conflict detection
-argument-hint: [--auto|--new] [optional: task description for new session]
+argument-hint: [--type <workflow|review|tdd|test|docs>] [--auto|--new] [optional: task description for new session]
 examples:
   - /workflow:session:start
   - /workflow:session:start --auto "implement OAuth2 authentication"
-  - /workflow:session:start --new "fix login bug"
+  - /workflow:session:start --type review "Code review for auth module"
+  - /workflow:session:start --type tdd --auto "implement user authentication"
+  - /workflow:session:start --type test --new "test payment flow"
 ---
 
 # Start Workflow Session (/workflow:session:start)
@@ -16,6 +18,23 @@ Manages workflow sessions with three operation modes: discovery (manual), auto (
 **Dual Responsibility**:
 1. **Project-level initialization** (first-time only): Creates `.workflow/project.json` for feature registry
 2. **Session-level initialization** (always): Creates session directory structure
+
+## Session Types
+
+The `--type` parameter classifies sessions for CCW dashboard organization:
+
+| Type | Description | Default For |
+|------|-------------|-------------|
+| `workflow` | Standard implementation (default) | `/workflow:plan` |
+| `review` | Code review sessions | `/workflow:review-module-cycle` |
+| `tdd` | TDD-based development | `/workflow:tdd-plan` |
+| `test` | Test generation/fix sessions | `/workflow:test-fix-gen` |
+| `docs` | Documentation sessions | `/memory:docs` |
+
+**Validation**: If `--type` is provided with invalid value, return error:
+```
+ERROR: Invalid session type. Valid types: workflow, review, tdd, test, docs
+```
 
 ## Step 0: Initialize Project State (First-time Only)
 
@@ -86,8 +105,8 @@ bash(mkdir -p .workflow/active/WFS-implement-oauth2-auth/.process)
 bash(mkdir -p .workflow/active/WFS-implement-oauth2-auth/.task)
 bash(mkdir -p .workflow/active/WFS-implement-oauth2-auth/.summaries)
 
-# Create metadata
-bash(echo '{"session_id":"WFS-implement-oauth2-auth","project":"implement OAuth2 auth","status":"planning"}' > .workflow/active/WFS-implement-oauth2-auth/workflow-session.json)
+# Create metadata (include type field, default to "workflow" if not specified)
+bash(echo '{"session_id":"WFS-implement-oauth2-auth","project":"implement OAuth2 auth","status":"planning","type":"workflow","created_at":"2024-12-04T08:00:00Z"}' > .workflow/active/WFS-implement-oauth2-auth/workflow-session.json)
 ```
 
 **Output**: `SESSION_ID: WFS-implement-oauth2-auth`
@@ -143,7 +162,8 @@ bash(mkdir -p .workflow/active/WFS-fix-login-bug/.summaries)
 
 ### Step 3: Create Metadata
 ```bash
-bash(echo '{"session_id":"WFS-fix-login-bug","project":"fix login bug","status":"planning"}' > .workflow/active/WFS-fix-login-bug/workflow-session.json)
+# Include type field from --type parameter (default: "workflow")
+bash(echo '{"session_id":"WFS-fix-login-bug","project":"fix login bug","status":"planning","type":"workflow","created_at":"2024-12-04T08:00:00Z"}' > .workflow/active/WFS-fix-login-bug/workflow-session.json)
 ```
 
 **Output**: `SESSION_ID: WFS-fix-login-bug`

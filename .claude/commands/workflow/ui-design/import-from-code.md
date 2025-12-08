@@ -106,7 +106,7 @@ echo "  Output: $base_path"
 
 # 3. Discover files using script
 discovery_file="${intermediates_dir}/discovered-files.json"
-~/.claude/scripts/discover-design-files.sh "$source" "$discovery_file"
+ccw tool exec discover_design_files '{"sourceDir":"'"$source"'","outputPath":"'"$discovery_file"'"}'
 
 echo "  Output: $discovery_file"
 ```

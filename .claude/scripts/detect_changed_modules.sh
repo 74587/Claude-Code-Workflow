@@ -1,4 +1,8 @@
 #!/bin/bash
+# ⚠️ DEPRECATED: This script is deprecated.
+# Please use: ccw tool exec detect_changed_modules '{"baseBranch":"main","format":"list"}'
+# This file will be removed in a future version.
+
 # Detect modules affected by git changes or recent modifications
 # Usage: detect_changed_modules.sh [format]
 #   format: list|grouped|paths (default: paths)

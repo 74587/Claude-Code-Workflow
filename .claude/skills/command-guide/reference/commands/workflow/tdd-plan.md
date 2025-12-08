@@ -44,7 +44,7 @@ allowed-tools: SlashCommand(*), TodoWrite(*), Read(*), Bash(*)
 **Step 1.1: Dispatch** - Session discovery and initialization
 
 ```javascript
-SlashCommand(command="/workflow:session:start --auto \"TDD: [structured-description]\"")
+SlashCommand(command="/workflow:session:start --type tdd --auto \"TDD: [structured-description]\"")
 ```
 
 **TDD Structured Format**:

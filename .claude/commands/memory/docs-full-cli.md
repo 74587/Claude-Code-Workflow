@@ -101,10 +101,10 @@ src/ (depth 1) → SINGLE STRATEGY
 Bash({command: "pwd && basename \"$(pwd)\" && git rev-parse --show-toplevel 2>/dev/null || pwd", run_in_background: false});
 
 // Get module structure with classification
-Bash({command: "~/.claude/scripts/get_modules_by_depth.sh list | ~/.claude/scripts/classify-folders.sh", run_in_background: false});
+Bash({command: "ccw tool exec get_modules_by_depth '{\"format\":\"list\"}' | ccw tool exec classify_folders '{}'", run_in_background: false});
 
 // OR with path parameter
-Bash({command: "cd <target-path> && ~/.claude/scripts/get_modules_by_depth.sh list | ~/.claude/scripts/classify-folders.sh", run_in_background: false});
+Bash({command: "cd <target-path> && ccw tool exec get_modules_by_depth '{\"format\":\"list\"}' | ccw tool exec classify_folders '{}'", run_in_background: false});
 ```
 
 **Parse output** `depth:N|path:<PATH>|type:<code|navigation>|...` to extract module paths, types, and count.
@@ -200,7 +200,7 @@ for (let layer of [3, 2, 1]) {
         let strategy = module.depth >= 3 ? "full" : "single";
         for (let tool of tool_order) {
           Bash({
-            command: `cd ${module.path} && ~/.claude/scripts/generate_module_docs.sh "${strategy}" "." "${project_name}" "${tool}"`,
+            command: `cd ${module.path} && ccw tool exec generate_module_docs '{"strategy":"${strategy}","sourcePath":".","projectName":"${project_name}","tool":"${tool}"}'`,
             run_in_background: false
           });
           if (bash_result.exit_code === 0) {
@@ -263,7 +263,7 @@ MODULES:
 
 TOOLS (try in order): {{tool_1}}, {{tool_2}}, {{tool_3}}
 
-EXECUTION SCRIPT: ~/.claude/scripts/generate_module_docs.sh
+EXECUTION SCRIPT: ccw tool exec generate_module_docs
   - Accepts strategy parameter: full | single
   - Accepts folder type detection: code | navigation
   - Tool execution via direct CLI commands (gemini/qwen/codex)
@@ -273,7 +273,7 @@ EXECUTION FLOW (for each module):
   1. Tool fallback loop (exit on first success):
      for tool in {{tool_1}} {{tool_2}} {{tool_3}}; do
        Bash({
-         command: `cd "{{module_path}}" && ~/.claude/scripts/generate_module_docs.sh "{{strategy}}" "." "{{project_name}}" "${tool}"`,
+         command: `cd "{{module_path}}" && ccw tool exec generate_module_docs '{"strategy":"{{strategy}}","sourcePath":".","projectName":"{{project_name}}","tool":"${tool}"}'`,
          run_in_background: false
        })
        exit_code=$?
@@ -322,7 +322,7 @@ let project_root = get_project_root();
 report("Generating project README.md...");
 for (let tool of tool_order) {
   Bash({
-    command: `cd ${project_root} && ~/.claude/scripts/generate_module_docs.sh "project-readme" "." "${project_name}" "${tool}"`,
+    command: `cd ${project_root} && ccw tool exec generate_module_docs '{"strategy":"project-readme","sourcePath":".","projectName":"${project_name}","tool":"${tool}"}'`,
     run_in_background: false
   });
   if (bash_result.exit_code === 0) {
@@ -335,7 +335,7 @@ for (let tool of tool_order) {
 report("Generating ARCHITECTURE.md and EXAMPLES.md...");
 for (let tool of tool_order) {
   Bash({
-    command: `cd ${project_root} && ~/.claude/scripts/generate_module_docs.sh "project-architecture" "." "${project_name}" "${tool}"`,
+    command: `cd ${project_root} && ccw tool exec generate_module_docs '{"strategy":"project-architecture","sourcePath":".","projectName":"${project_name}","tool":"${tool}"}'`,
     run_in_background: false
   });
   if (bash_result.exit_code === 0) {
@@ -350,7 +350,7 @@ if (bash_result.stdout.includes("API_FOUND")) {
   report("Generating HTTP API documentation...");
   for (let tool of tool_order) {
     Bash({
-      command: `cd ${project_root} && ~/.claude/scripts/generate_module_docs.sh "http-api" "." "${project_name}" "${tool}"`,
+      command: `cd ${project_root} && ccw tool exec generate_module_docs '{"strategy":"http-api","sourcePath":".","projectName":"${project_name}","tool":"${tool}"}'`,
       run_in_background: false
     });
     if (bash_result.exit_code === 0) {

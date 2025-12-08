@@ -51,7 +51,7 @@ Orchestrates context-aware documentation generation/update for changed modules u
 Bash({command: "pwd && basename \"$(pwd)\" && git rev-parse --show-toplevel 2>/dev/null || pwd", run_in_background: false});
 
 // Detect changed modules
-Bash({command: "~/.claude/scripts/detect_changed_modules.sh list", run_in_background: false});
+Bash({command: "ccw tool exec detect_changed_modules '{\"format\":\"list\"}'", run_in_background: false});
 
 // Cache git changes
 Bash({command: "git add -A 2>/dev/null || true", run_in_background: false});
@@ -123,7 +123,7 @@ for (let depth of sorted_depths.reverse()) {  // N → 0
       return async () => {
         for (let tool of tool_order) {
           Bash({
-            command: `cd ${module.path} && ~/.claude/scripts/generate_module_docs.sh "single" "." "${project_name}" "${tool}"`,
+            command: `cd ${module.path} && ccw tool exec generate_module_docs '{"strategy":"single","sourcePath":".","projectName":"${project_name}","tool":"${tool}"}'`,
             run_in_background: false
           });
           if (bash_result.exit_code === 0) {
@@ -207,21 +207,21 @@ EXECUTION:
 For each module above:
   1. Try tool 1:
      Bash({
-       command: `cd "{{module_path}}" && ~/.claude/scripts/generate_module_docs.sh "single" "." "{{project_name}}" "{{tool_1}}"`,
+       command: `cd "{{module_path}}" && ccw tool exec generate_module_docs '{"strategy":"single","sourcePath":".","projectName":"{{project_name}}","tool":"{{tool_1}}"}'`,
        run_in_background: false
      })
      → Success: Report "✅ {{module_path}} docs generated with {{tool_1}}", proceed to next module
      → Failure: Try tool 2
   2. Try tool 2:
      Bash({
-       command: `cd "{{module_path}}" && ~/.claude/scripts/generate_module_docs.sh "single" "." "{{project_name}}" "{{tool_2}}"`,
+       command: `cd "{{module_path}}" && ccw tool exec generate_module_docs '{"strategy":"single","sourcePath":".","projectName":"{{project_name}}","tool":"{{tool_2}}"}'`,
        run_in_background: false
      })
      → Success: Report "✅ {{module_path}} docs generated with {{tool_2}}", proceed to next module
      → Failure: Try tool 3
   3. Try tool 3:
      Bash({
-       command: `cd "{{module_path}}" && ~/.claude/scripts/generate_module_docs.sh "single" "." "{{project_name}}" "{{tool_3}}"`,
+       command: `cd "{{module_path}}" && ccw tool exec generate_module_docs '{"strategy":"single","sourcePath":".","projectName":"{{project_name}}","tool":"{{tool_3}}"}'`,
        run_in_background: false
      })
      → Success: Report "✅ {{module_path}} docs generated with {{tool_3}}", proceed to next module

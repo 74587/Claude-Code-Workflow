@@ -1,4 +1,8 @@
 #!/bin/bash
+# ⚠️ DEPRECATED: This script is deprecated.
+# Please use: ccw tool exec ui_generate_preview '{"designPath":"design-run-1","outputDir":"preview"}'
+# This file will be removed in a future version.
+
 #
 # UI Generate Preview v2.0 - Template-Based Preview Generation
 # Purpose: Generate compare.html and index.html using template substitution

@@ -2,325 +2,318 @@
 name: synthesis
 description: Clarify and refine role analyses through intelligent Q&A and targeted updates with synthesis agent
 argument-hint: "[optional: --session session-id]"
-allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*), Edit(*), Glob(*)
+allowed-tools: Task(conceptual-planning-agent), TodoWrite(*), Read(*), Write(*), Edit(*), Glob(*), AskUserQuestion(*)
 ---
 
 ## Overview
 
-Three-phase workflow to eliminate ambiguities and enhance conceptual depth in role analyses:
+Six-phase workflow to eliminate ambiguities and enhance conceptual depth in role analyses:
 
-**Phase 1-2 (Main Flow)**: Session detection → File discovery → Path preparation
+**Phase 1-2**: Session detection → File discovery → Path preparation
+**Phase 3A**: Cross-role analysis agent → Generate recommendations
+**Phase 4**: User selects enhancements → User answers clarifications (via AskUserQuestion)
+**Phase 5**: Parallel update agents (one per role)
+**Phase 6**: Context package update → Metadata update → Completion report
 
-**Phase 3A (Analysis Agent)**: Cross-role analysis → Generate recommendations
-
-**Phase 4 (Main Flow)**: User selects enhancements → User answers clarifications → Build update plan
-
-**Phase 5 (Parallel Update Agents)**: Each agent updates ONE role document → Parallel execution
-
-**Phase 6 (Main Flow)**: Metadata update → Completion report
-
-**Key Features**:
-- Multi-agent architecture (analysis agent + parallel update agents)
-- Clear separation: Agent analysis vs Main flow interaction
-- Parallel document updates (one agent per role)
-- User intent alignment validation
+All user interactions use AskUserQuestion tool (max 4 questions per call, multi-round).
 
 **Document Flow**:
 - Input: `[role]/analysis*.md`, `guidance-specification.md`, session metadata
 - Output: Updated `[role]/analysis*.md` with Enhancements + Clarifications sections
 
+---
+
+## Quick Reference
+
+### Phase Summary
+
+| Phase | Goal | Executor | Output |
+|-------|------|----------|--------|
+| 1 | Session detection | Main flow | session_id, brainstorm_dir |
+| 2 | File discovery | Main flow | role_analysis_paths |
+| 3A | Cross-role analysis | Agent | enhancement_recommendations |
+| 4 | User interaction | Main flow + AskUserQuestion | update_plan |
+| 5 | Document updates | Parallel agents | Updated analysis*.md |
+| 6 | Finalization | Main flow | context-package.json, report |
+
+### AskUserQuestion Pattern
+
+```javascript
+// Enhancement selection (multi-select)
+AskUserQuestion({
+  questions: [{
+    question: "请选择要应用的改进建议",
+    header: "改进选择",
+    multiSelect: true,
+    options: [
+      { label: "EP-001: API Contract", description: "添加详细的请求/响应 schema 定义" },
+      { label: "EP-002: User Intent", description: "明确用户需求优先级和验收标准" }
+    ]
+  }]
+})
+
+// Clarification questions (single-select, multi-round)
+AskUserQuestion({
+  questions: [
+    {
+      question: "MVP 阶段的核心目标是什么？",
+      header: "用户意图",
+      multiSelect: false,
+      options: [
+        { label: "快速验证", description: "最小功能集，快速上线获取反馈" },
+        { label: "技术壁垒", description: "完善架构，为长期发展打基础" },
+        { label: "功能完整", description: "覆盖所有规划功能，延迟上线" }
+      ]
+    }
+  ]
+})
+```
+
+---
+
 ## Task Tracking
 
 ```json
 [
-  {"content": "Detect session and validate analyses", "status": "in_progress", "activeForm": "Detecting session"},
+  {"content": "Detect session and validate analyses", "status": "pending", "activeForm": "Detecting session"},
   {"content": "Discover role analysis file paths", "status": "pending", "activeForm": "Discovering paths"},
-  {"content": "Execute analysis agent (cross-role analysis)", "status": "pending", "activeForm": "Executing analysis agent"},
-  {"content": "Present enhancements for user selection", "status": "pending", "activeForm": "Presenting enhancements"},
-  {"content": "Generate and present clarification questions", "status": "pending", "activeForm": "Clarifying with user"},
-  {"content": "Build update plan from user input", "status": "pending", "activeForm": "Building update plan"},
-  {"content": "Execute parallel update agents (one per role)", "status": "pending", "activeForm": "Updating documents in parallel"},
-  {"content": "Update session metadata and generate report", "status": "pending", "activeForm": "Finalizing session"}
+  {"content": "Execute analysis agent (cross-role analysis)", "status": "pending", "activeForm": "Executing analysis"},
+  {"content": "Present enhancements via AskUserQuestion", "status": "pending", "activeForm": "Selecting enhancements"},
+  {"content": "Clarification questions via AskUserQuestion", "status": "pending", "activeForm": "Clarifying"},
+  {"content": "Execute parallel update agents", "status": "pending", "activeForm": "Updating documents"},
+  {"content": "Update context package and metadata", "status": "pending", "activeForm": "Finalizing"}
 ]
 ```
+
+---
 
 ## Execution Phases
 
 ### Phase 1: Discovery & Validation
 
-1. **Detect Session**: Use `--session` parameter or find `.workflow/active/WFS-*` directories
+1. **Detect Session**: Use `--session` parameter or find `.workflow/active/WFS-*`
 2. **Validate Files**:
    - `guidance-specification.md` (optional, warn if missing)
    - `*/analysis*.md` (required, error if empty)
-3. **Load User Intent**: Extract from `workflow-session.json` (project/description field)
+3. **Load User Intent**: Extract from `workflow-session.json`
 
 ### Phase 2: Role Discovery & Path Preparation
 
 **Main flow prepares file paths for Agent**:
 
 1. **Discover Analysis Files**:
-   - Glob(.workflow/active/WFS-{session}/.brainstorming/*/analysis*.md)
-   - Supports: analysis.md, analysis-1.md, analysis-2.md, analysis-3.md
-   - Validate: At least one file exists (error if empty)
+   - Glob: `.workflow/active/WFS-{session}/.brainstorming/*/analysis*.md`
+   - Supports: analysis.md + analysis-{slug}.md (max 5)
 
 2. **Extract Role Information**:
-   - `role_analysis_paths`: Relative paths from brainstorm_dir
-   - `participating_roles`: Role names extracted from directory paths
+   - `role_analysis_paths`: Relative paths
+   - `participating_roles`: Role names from directories
 
-3. **Pass to Agent** (Phase 3):
-   - `session_id`
-   - `brainstorm_dir`: .workflow/active/WFS-{session}/.brainstorming/
-   - `role_analysis_paths`: ["product-manager/analysis.md", "system-architect/analysis-1.md", ...]
-   - `participating_roles`: ["product-manager", "system-architect", ...]
-
-**Main Flow Responsibility**: File discovery and path preparation only (NO file content reading)
+3. **Pass to Agent**: session_id, brainstorm_dir, role_analysis_paths, participating_roles
 
 ### Phase 3A: Analysis & Enhancement Agent
 
-**First agent call**: Cross-role analysis and generate enhancement recommendations
+**Agent executes cross-role analysis**:
 
-```bash
-Task(conceptual-planning-agent): "
+```javascript
+Task(conceptual-planning-agent, `
 ## Agent Mission
-Analyze role documents, identify conflicts/gaps, and generate enhancement recommendations
+Analyze role documents, identify conflicts/gaps, generate enhancement recommendations
 
-## Input from Main Flow
-- brainstorm_dir: {brainstorm_dir}
-- role_analysis_paths: {role_analysis_paths}
-- participating_roles: {participating_roles}
+## Input
+- brainstorm_dir: ${brainstorm_dir}
+- role_analysis_paths: ${role_analysis_paths}
+- participating_roles: ${participating_roles}
 
-## Execution Instructions
-[FLOW_CONTROL]
+## Flow Control Steps
+1. load_session_metadata → Read workflow-session.json
+2. load_role_analyses → Read all analysis files
+3. cross_role_analysis → Identify consensus, conflicts, gaps, ambiguities
+4. generate_recommendations → Format as EP-001, EP-002, ...
 
-### Flow Control Steps
-**AGENT RESPONSIBILITY**: Execute these analysis steps sequentially with context accumulation:
-
-1. **load_session_metadata**
-   - Action: Load original user intent as primary reference
-   - Command: Read({brainstorm_dir}/../workflow-session.json)
-   - Output: original_user_intent (from project/description field)
-
-2. **load_role_analyses**
-   - Action: Load all role analysis documents
-   - Command: For each path in role_analysis_paths: Read({brainstorm_dir}/{path})
-   - Output: role_analyses_content_map = {role_name: content}
-
-3. **cross_role_analysis**
-   - Action: Identify consensus themes, conflicts, gaps, underspecified areas
-   - Output: consensus_themes, conflicting_views, gaps_list, ambiguities
-
-4. **generate_recommendations**
-   - Action: Convert cross-role analysis findings into structured enhancement recommendations
-   - Format: EP-001, EP-002, ... (sequential numbering)
-   - Fields: id, title, affected_roles, category, current_state, enhancement, rationale, priority
-   - Taxonomy: Map to 9 categories (User Intent, Requirements, Architecture, UX, Feasibility, Risk, Process, Decisions, Terminology)
-   - Output: enhancement_recommendations (JSON array)
-
-### Output to Main Flow
-Return JSON array:
+## Output Format
 [
   {
-    \"id\": \"EP-001\",
-    \"title\": \"API Contract Specification\",
-    \"affected_roles\": [\"system-architect\", \"api-designer\"],
-    \"category\": \"Architecture\",
-    \"current_state\": \"High-level API descriptions\",
-    \"enhancement\": \"Add detailed contract definitions with request/response schemas\",
-    \"rationale\": \"Enables precise implementation and testing\",
-    \"priority\": \"High\"
-  },
-  ...
+    "id": "EP-001",
+    "title": "API Contract Specification",
+    "affected_roles": ["system-architect", "api-designer"],
+    "category": "Architecture",
+    "current_state": "High-level API descriptions",
+    "enhancement": "Add detailed contract definitions",
+    "rationale": "Enables precise implementation",
+    "priority": "High"
+  }
 ]
-
-"
+`)
 ```
 
-### Phase 4: Main Flow User Interaction
+### Phase 4: User Interaction
 
-**Main flow handles all user interaction via text output**:
+**All interactions via AskUserQuestion (Chinese questions)**
 
-**⚠️ CRITICAL**: ALL questions MUST use Chinese (所有问题必须用中文) for better user understanding
+#### Step 1: Enhancement Selection
 
-1. **Present Enhancement Options** (multi-select):
-```markdown
-===== Enhancement 选择 =====
+```javascript
+// If enhancements > 4, split into multiple rounds
+const enhancements = [...]; // from Phase 3A
+const BATCH_SIZE = 4;
 
-请选择要应用的改进建议（可多选）：
+for (let i = 0; i < enhancements.length; i += BATCH_SIZE) {
+  const batch = enhancements.slice(i, i + BATCH_SIZE);
 
-a) EP-001: API Contract Specification
-   影响角色：system-architect, api-designer
-   说明：添加详细的请求/响应 schema 定义
+  AskUserQuestion({
+    questions: [{
+      question: `请选择要应用的改进建议 (第${Math.floor(i/BATCH_SIZE)+1}轮)`,
+      header: "改进选择",
+      multiSelect: true,
+      options: batch.map(ep => ({
+        label: `${ep.id}: ${ep.title}`,
+        description: `影响: ${ep.affected_roles.join(', ')} | ${ep.enhancement}`
+      }))
+    }]
+  })
 
-b) EP-002: User Intent Validation
-   影响角色：product-manager, ux-expert
-   说明：明确用户需求优先级和验收标准
+  // Store selections before next round
+}
 
-c) EP-003: Error Handling Strategy
-   影响角色：system-architect
-   说明：统一异常处理和降级方案
-
-支持格式：1abc 或 1a 1b 1c 或 1a,b,c
-请输入选择（可跳过输入 skip）：
+// User can also skip: provide "跳过" option
 ```
 
-2. **Generate Clarification Questions** (based on analysis agent output):
-   - ✅ **ALL questions in Chinese (所有问题必须用中文)**
-   - Use 9-category taxonomy scan results
-   - Prioritize most critical questions (no hard limit)
-   - Each with 2-4 options + descriptions
+#### Step 2: Clarification Questions
 
-3. **Interactive Clarification Loop** (max 10 questions per round):
-```markdown
-===== Clarification 问题 (第 1/2 轮) =====
+```javascript
+// Generate questions based on 9-category taxonomy scan
+// Categories: User Intent, Requirements, Architecture, UX, Feasibility, Risk, Process, Decisions, Terminology
 
-【问题1 - 用户意图】MVP 阶段的核心目标是什么？
-a) 快速验证市场需求
-   说明：最小功能集，快速上线获取反馈
-b) 建立技术壁垒
-   说明：完善架构，为长期发展打基础
-c) 实现功能完整性
-   说明：覆盖所有规划功能，延迟上线
+const clarifications = [...]; // from analysis
+const BATCH_SIZE = 4;
 
-【问题2 - 架构决策】技术栈选择的优先考虑因素？
-a) 团队熟悉度
-   说明：使用现有技术栈，降低学习成本
-b) 技术先进性
-   说明：采用新技术，提升竞争力
-c) 生态成熟度
-   说明：选择成熟方案，保证稳定性
+for (let i = 0; i < clarifications.length; i += BATCH_SIZE) {
+  const batch = clarifications.slice(i, i + BATCH_SIZE);
+  const currentRound = Math.floor(i / BATCH_SIZE) + 1;
+  const totalRounds = Math.ceil(clarifications.length / BATCH_SIZE);
 
-...（最多10个问题）
+  AskUserQuestion({
+    questions: batch.map(q => ({
+      question: q.question,
+      header: q.category.substring(0, 12),
+      multiSelect: false,
+      options: q.options.map(opt => ({
+        label: opt.label,
+        description: opt.description
+      }))
+    }))
+  })
 
-请回答 (格式: 1a 2b 3c...)：
+  // Store answers before next round
+}
 ```
 
-Wait for user input → Parse all answers in batch → Continue to next round if needed
+### Question Guidelines
 
-4. **Build Update Plan**:
-```
+**Target**: 开发者（理解技术但需要从用户需求出发）
+
+**Question Structure**: `[跨角色分析发现] + [需要澄清的决策点]`
+**Option Structure**: `标签：[具体方案] + 说明：[业务影响] + [技术权衡]`
+
+**9-Category Taxonomy**:
+
+| Category | Focus | Example Question Pattern |
+|----------|-------|--------------------------|
+| User Intent | 用户目标 | "MVP阶段核心目标？" + 验证/壁垒/完整性 |
+| Requirements | 需求细化 | "功能优先级如何排序？" + 核心/增强/可选 |
+| Architecture | 架构决策 | "技术栈选择考量？" + 熟悉度/先进性/成熟度 |
+| UX | 用户体验 | "交互复杂度取舍？" + 简洁/丰富/渐进 |
+| Feasibility | 可行性 | "资源约束下的范围？" + 最小/标准/完整 |
+| Risk | 风险管理 | "风险容忍度？" + 保守/平衡/激进 |
+| Process | 流程规范 | "迭代节奏？" + 快速/稳定/灵活 |
+| Decisions | 决策确认 | "冲突解决方案？" + 方案A/方案B/折中 |
+| Terminology | 术语统一 | "统一使用哪个术语？" + 术语A/术语B |
+
+**Quality Rules**:
+
+**MUST Include**:
+- ✅ All questions in Chinese (用中文提问)
+- ✅ 基于跨角色分析的具体发现
+- ✅ 选项包含业务影响说明
+- ✅ 解决实际的模糊点或冲突
+
+**MUST Avoid**:
+- ❌ 与角色分析无关的通用问题
+- ❌ 重复已在 artifacts 阶段确认的内容
+- ❌ 过于细节的实现级问题
+
+#### Step 3: Build Update Plan
+
+```javascript
 update_plan = {
   "role1": {
-    "enhancements": [EP-001, EP-003],
+    "enhancements": ["EP-001", "EP-003"],
     "clarifications": [
-      {"question": "...", "answer": "...", "category": "..."},
-      ...
+      {"question": "...", "answer": "...", "category": "..."}
     ]
   },
   "role2": {
-    "enhancements": [EP-002],
+    "enhancements": ["EP-002"],
     "clarifications": [...]
-  },
-  ...
+  }
 }
 ```
 
 ### Phase 5: Parallel Document Update Agents
 
-**Parallel agent calls** (one per role needing updates):
+**Execute in parallel** (one agent per role):
 
-```bash
-# Execute in parallel using single message with multiple Task calls
-
-Task(conceptual-planning-agent): "
+```javascript
+// Single message with multiple Task calls for parallelism
+Task(conceptual-planning-agent, `
 ## Agent Mission
-Apply user-confirmed enhancements and clarifications to {role1} analysis document
+Apply enhancements and clarifications to ${role} analysis
 
-## Agent Intent
-- **Goal**: Integrate synthesis results into role-specific analysis
-- **Scope**: Update ONLY {role1}/analysis.md (isolated, no cross-role dependencies)
-- **Constraints**: Preserve original insights, add refinements without deletion
+## Input
+- role: ${role}
+- analysis_path: ${brainstorm_dir}/${role}/analysis.md
+- enhancements: ${role_enhancements}
+- clarifications: ${role_clarifications}
+- original_user_intent: ${intent}
 
-## Input from Main Flow
-- role: {role1}
-- analysis_path: {brainstorm_dir}/{role1}/analysis.md
-- enhancements: [EP-001, EP-003] (user-selected improvements)
-- clarifications: [{question, answer, category}, ...] (user-confirmed answers)
-- original_user_intent: {from session metadata}
+## Flow Control Steps
+1. load_current_analysis → Read analysis file
+2. add_clarifications_section → Insert Q&A section
+3. apply_enhancements → Integrate into relevant sections
+4. resolve_contradictions → Remove conflicts
+5. enforce_terminology → Align terminology
+6. validate_intent → Verify alignment with user intent
+7. write_updated_file → Save changes
 
-## Execution Instructions
-[FLOW_CONTROL]
-
-### Flow Control Steps
-**AGENT RESPONSIBILITY**: Execute these update steps sequentially:
-
-1. **load_current_analysis**
-   - Action: Load existing role analysis document
-   - Command: Read({brainstorm_dir}/{role1}/analysis.md)
-   - Output: current_analysis_content
-
-2. **add_clarifications_section**
-   - Action: Insert Clarifications section with Q&A
-   - Format: \"## Clarifications\\n### Session {date}\\n- **Q**: {question} (Category: {category})\\n  **A**: {answer}\"
-   - Output: analysis_with_clarifications
-
-3. **apply_enhancements**
-   - Action: Integrate EP-001, EP-003 into relevant sections
-   - Strategy: Locate section by category (Architecture → Architecture section, UX → User Experience section)
-   - Output: analysis_with_enhancements
-
-4. **resolve_contradictions**
-   - Action: Remove conflicts between original content and clarifications/enhancements
-   - Output: contradiction_free_analysis
-
-5. **enforce_terminology_consistency**
-   - Action: Align all terminology with user-confirmed choices from clarifications
-   - Output: terminology_consistent_analysis
-
-6. **validate_user_intent_alignment**
-   - Action: Verify all updates support original_user_intent
-   - Output: validated_analysis
-
-7. **write_updated_file**
-   - Action: Save final analysis document
-   - Command: Write({brainstorm_dir}/{role1}/analysis.md, validated_analysis)
-   - Output: File update confirmation
-
-### Output
-Updated {role1}/analysis.md with Clarifications section + enhanced content
-")
-
-Task(conceptual-planning-agent): "
-## Agent Mission
-Apply user-confirmed enhancements and clarifications to {role2} analysis document
-
-## Agent Intent
-- **Goal**: Integrate synthesis results into role-specific analysis
-- **Scope**: Update ONLY {role2}/analysis.md (isolated, no cross-role dependencies)
-- **Constraints**: Preserve original insights, add refinements without deletion
-
-## Input from Main Flow
-- role: {role2}
-- analysis_path: {brainstorm_dir}/{role2}/analysis.md
-- enhancements: [EP-002] (user-selected improvements)
-- clarifications: [{question, answer, category}, ...] (user-confirmed answers)
-- original_user_intent: {from session metadata}
-
-## Execution Instructions
-[FLOW_CONTROL]
-
-### Flow Control Steps
-**AGENT RESPONSIBILITY**: Execute same 7 update steps as {role1} agent (load → clarifications → enhancements → contradictions → terminology → validation → write)
-
-### Output
-Updated {role2}/analysis.md with Clarifications section + enhanced content
-")
-
-# ... repeat for each role in update_plan
+## Output
+Updated ${role}/analysis.md
+`)
 ```
 
 **Agent Characteristics**:
-- **Intent**: Integrate user-confirmed synthesis results (NOT generate new analysis)
-- **Isolation**: Each agent updates exactly ONE role (parallel execution safe)
-- **Context**: Minimal - receives only role-specific enhancements + clarifications
-- **Dependencies**: Zero cross-agent dependencies (full parallelism)
+- **Isolation**: Each agent updates exactly ONE role (parallel safe)
+- **Dependencies**: Zero cross-agent dependencies
 - **Validation**: All updates must align with original_user_intent
 
-### Phase 6: Completion & Metadata Update
+### Phase 6: Finalization
 
-**Main flow finalizes**:
+#### Step 1: Update Context Package
 
-1. Wait for all parallel agents to complete
-2. Update workflow-session.json:
+```javascript
+// Sync updated analyses to context-package.json
+const context_pkg = Read(".workflow/active/WFS-{session}/.process/context-package.json")
+
+// Update guidance-specification if exists
+// Update synthesis-specification if exists
+// Re-read all role analysis files
+// Update metadata timestamps
+
+Write(context_pkg_path, JSON.stringify(context_pkg))
+```
+
+#### Step 2: Update Session Metadata
+
 ```json
 {
   "phases": {
@@ -330,15 +323,13 @@ Updated {role2}/analysis.md with Clarifications section + enhanced content
       "completed_at": "timestamp",
       "participating_roles": [...],
       "clarification_results": {
-        "enhancements_applied": ["EP-001", "EP-002", ...],
+        "enhancements_applied": ["EP-001", "EP-002"],
         "questions_asked": 3,
-        "categories_clarified": ["Architecture", "UX", ...],
-        "roles_updated": ["role1", "role2", ...],
-        "outstanding_items": []
+        "categories_clarified": ["Architecture", "UX"],
+        "roles_updated": ["role1", "role2"]
       },
       "quality_metrics": {
         "user_intent_alignment": "validated",
-        "requirement_coverage": "comprehensive",
         "ambiguity_resolution": "complete",
         "terminology_consistency": "enforced"
       }
@@ -347,7 +338,8 @@ Updated {role2}/analysis.md with Clarifications section + enhanced content
 }
 ```
 
-3. Generate completion report (show to user):
+#### Step 3: Completion Report
+
 ```markdown
 ## ✅ Clarification Complete
 
@@ -359,9 +351,11 @@ Updated {role2}/analysis.md with Clarifications section + enhanced content
 ✅ PROCEED: `/workflow:plan --session WFS-{session-id}`
 ```
 
+---
+
 ## Output
 
-**Location**: `.workflow/active/WFS-{session}/.brainstorming/[role]/analysis*.md` (in-place updates)
+**Location**: `.workflow/active/WFS-{session}/.brainstorming/[role]/analysis*.md`
 
 **Updated Structure**:
 ```markdown
@@ -381,116 +375,24 @@ Updated {role2}/analysis.md with Clarifications section + enhanced content
 - Ambiguities resolved, placeholders removed
 - Consistent terminology
 
-### Phase 6: Update Context Package
-
-**Purpose**: Sync updated role analyses to context-package.json to avoid stale cache
-
-**Operations**:
-```bash
-context_pkg_path = ".workflow/active/WFS-{session}/.process/context-package.json"
-
-# 1. Read existing package
-context_pkg = Read(context_pkg_path)
-
-# 2. Re-read brainstorm artifacts (now with synthesis enhancements)
-brainstorm_dir = ".workflow/active/WFS-{session}/.brainstorming"
-
-# 2.1 Update guidance-specification if exists
-IF exists({brainstorm_dir}/guidance-specification.md):
-    context_pkg.brainstorm_artifacts.guidance_specification.content = Read({brainstorm_dir}/guidance-specification.md)
-    context_pkg.brainstorm_artifacts.guidance_specification.updated_at = NOW()
-
-# 2.2 Update synthesis-specification if exists
-IF exists({brainstorm_dir}/synthesis-specification.md):
-    IF context_pkg.brainstorm_artifacts.synthesis_output:
-        context_pkg.brainstorm_artifacts.synthesis_output.content = Read({brainstorm_dir}/synthesis-specification.md)
-        context_pkg.brainstorm_artifacts.synthesis_output.updated_at = NOW()
-
-# 2.3 Re-read all role analysis files
-role_analysis_files = Glob({brainstorm_dir}/*/analysis*.md)
-context_pkg.brainstorm_artifacts.role_analyses = []
-
-FOR file IN role_analysis_files:
-    role_name = extract_role_from_path(file)  # e.g., "ui-designer"
-    relative_path = file.replace({brainstorm_dir}/, "")
-
-    context_pkg.brainstorm_artifacts.role_analyses.push({
-        "role": role_name,
-        "files": [{
-            "path": relative_path,
-            "type": "primary",
-            "content": Read(file),
-            "updated_at": NOW()
-        }]
-    })
-
-# 3. Update metadata
-context_pkg.metadata.updated_at = NOW()
-context_pkg.metadata.synthesis_timestamp = NOW()
-
-# 4. Write back
-Write(context_pkg_path, JSON.stringify(context_pkg, indent=2))
-
-REPORT: "✅ Updated context-package.json with synthesis results"
-```
-
-**TodoWrite Update**:
-```json
-{"content": "Update context package with synthesis results", "status": "completed", "activeForm": "Updating context package"}
-```
-
-## Session Metadata
-
-Update `workflow-session.json`:
-
-```json
-{
-  "phases": {
-    "BRAINSTORM": {
-      "status": "clarification_completed",
-      "clarification_completed": true,
-      "completed_at": "timestamp",
-      "participating_roles": ["product-manager", "system-architect", ...],
-      "clarification_results": {
-        "questions_asked": 3,
-        "categories_clarified": ["Architecture & Design", ...],
-        "roles_updated": ["system-architect", "ui-designer", ...],
-        "outstanding_items": []
-      },
-      "quality_metrics": {
-        "user_intent_alignment": "validated",
-        "requirement_coverage": "comprehensive",
-        "ambiguity_resolution": "complete",
-        "terminology_consistency": "enforced",
-        "decision_transparency": "documented"
-      }
-    }
-  }
-}
-```
+---
 
 ## Quality Checklist
 
 **Content**:
-- All role analyses loaded/analyzed
-- Cross-role analysis (consensus, conflicts, gaps)
-- 9-category ambiguity scan
-- Questions prioritized
-- Clarifications documented
+- ✅ All role analyses loaded/analyzed
+- ✅ Cross-role analysis (consensus, conflicts, gaps)
+- ✅ 9-category ambiguity scan
+- ✅ Questions prioritized
 
 **Analysis**:
-- User intent validated
-- Cross-role synthesis complete
-- Ambiguities resolved
-- Correct roles updated
-- Terminology consistent
-- Contradictions removed
+- ✅ User intent validated
+- ✅ Cross-role synthesis complete
+- ✅ Ambiguities resolved
+- ✅ Terminology consistent
 
 **Documents**:
-- Clarifications section formatted
-- Sections reflect answers
-- No placeholders (TODO/TBD)
-- Valid Markdown
-- Cross-references maintained
-
-
+- ✅ Clarifications section formatted
+- ✅ Sections reflect answers
+- ✅ No placeholders (TODO/TBD)
+- ✅ Valid Markdown

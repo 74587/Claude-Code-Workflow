@@ -92,7 +92,7 @@ Analyze project for workflow initialization and generate .workflow/project.json.
 
 ## MANDATORY FIRST STEPS
 1. Execute: cat ~/.claude/workflows/cli-templates/schemas/project-json-schema.json (get schema reference)
-2. Execute: ~/.claude/scripts/get_modules_by_depth.sh (get project structure)
+2. Execute: ccw tool exec get_modules_by_depth '{}' (get project structure)
 
 ## Task
 Generate complete project.json with:
@@ -122,7 +122,7 @@ Generate complete project.json with:
 1. Structural scan: get_modules_by_depth.sh, find, wc -l
 2. Semantic analysis: Gemini for patterns/architecture
 3. Synthesis: Merge findings
-4. ${regenerate ? 'Merge with preserved features/statistics from .workflow/project.json.backup' : ''}
+4. ${regenerate ? 'Merge with preserved features/development_index/statistics from .workflow/project.json.backup' : ''}
 5. Write JSON: Write('.workflow/project.json', jsonContent)
 6. Report: Return brief completion summary
 

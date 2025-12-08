@@ -170,7 +170,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 
 ## MANDATORY FIRST STEPS (Execute by Agent)
 **You (cli-explore-agent) MUST execute these steps in order:**
-1. Run: ~/.claude/scripts/get_modules_by_depth.sh (project structure)
+1. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
 2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
 3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
 

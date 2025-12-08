@@ -1,4 +1,8 @@
 #!/bin/bash
+# ⚠️ DEPRECATED: This script is deprecated.
+# Please use: ccw tool exec ui_instantiate_prototypes '{"designPath":"design-run-1","outputDir":"output"}'
+# This file will be removed in a future version.
+
 
 # UI Prototype Instantiation Script with Preview Generation (v3.0 - Auto-detect)
 # Purpose: Generate S × L × P final prototypes from templates + interactive preview files

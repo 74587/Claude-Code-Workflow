@@ -1,4 +1,8 @@
 #!/bin/bash
+# ⚠️ DEPRECATED: This script is deprecated.
+# Please use: ccw tool exec convert_tokens_to_css '{"inputPath":"design-tokens.json","outputPath":"tokens.css"}'
+# This file will be removed in a future version.
+
 # Convert design-tokens.json to tokens.css with Google Fonts import and global font rules
 # Usage: cat design-tokens.json | ./convert_tokens_to_css.sh > tokens.css
 # Or: ./convert_tokens_to_css.sh < design-tokens.json > tokens.css

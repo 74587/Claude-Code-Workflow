@@ -1,4 +1,8 @@
 #!/bin/bash
+# ⚠️ DEPRECATED: This script is deprecated.
+# Please use: ccw tool exec classify_folders '{"path":".","outputFormat":"json"}'
+# This file will be removed in a future version.
+
 # Classify folders by type for documentation generation
 # Usage: get_modules_by_depth.sh | classify-folders.sh
 # Output: folder_path|folder_type|code:N|dirs:N

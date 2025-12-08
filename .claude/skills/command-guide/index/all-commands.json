@@ -509,23 +509,12 @@
     "name": "start",
     "command": "/workflow:session:start",
     "description": "Discover existing sessions or start new workflow session with intelligent session management and conflict detection",
-    "arguments": "[--auto|--new] [optional: task description for new session]",
+    "arguments": "[--type <workflow|review|tdd|test|docs>] [--auto|--new] [optional: task description for new session]",
     "category": "workflow",
     "subcategory": "session",
     "usage_scenario": "general",
     "difficulty": "Intermediate",
     "file_path": "workflow/session/start.md"
-  },
-  {
-    "name": "workflow:status",
-    "command": "/workflow:status",
-    "description": "Generate on-demand views for project overview and workflow tasks with optional task-id filtering for detailed view",
-    "arguments": "[optional: --project|task-id|--validate|--dashboard]",
-    "category": "workflow",
-    "subcategory": null,
-    "usage_scenario": "session-management",
-    "difficulty": "Beginner",
-    "file_path": "workflow/status.md"
   },
   {
     "name": "tdd-plan",

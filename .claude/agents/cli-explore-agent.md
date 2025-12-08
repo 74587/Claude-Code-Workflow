@@ -67,7 +67,7 @@ Phase 4: Output Generation
 
 ```bash
 # Project structure
-~/.claude/scripts/get_modules_by_depth.sh
+ccw tool exec get_modules_by_depth '{}'
 
 # Pattern discovery (adapt based on language)
 rg "^export (class|interface|function) " --type ts -n

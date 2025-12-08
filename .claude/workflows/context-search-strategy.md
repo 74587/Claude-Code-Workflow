@@ -52,7 +52,7 @@ RULES: Focus on direct relevance to task requirements
 "
 
 # Program Architecture (MANDATORY before planning)
-~/.claude/scripts/get_modules_by_depth.sh
+ccw tool exec get_modules_by_depth '{}'
 
 # Content Search (rg preferred)
 rg "pattern" --type js -n        # Search JS files with line numbers

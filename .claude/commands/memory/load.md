@@ -109,7 +109,7 @@ Task(
 
 1. **Project Structure**
    \`\`\`bash
-   bash(~/.claude/scripts/get_modules_by_depth.sh)
+   bash(ccw tool exec get_modules_by_depth '{}')
    \`\`\`
 
 2. **Core Documentation**

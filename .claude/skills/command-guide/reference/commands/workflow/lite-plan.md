@@ -43,11 +43,11 @@ Phase 1: Task Analysis & Exploration
       ├─ needsExploration=true → Launch parallel cli-explore-agents (1-4 based on complexity)
       └─ needsExploration=false → Skip to Phase 2/3
 
-Phase 2: Clarification (optional)
+Phase 2: Clarification (optional, multi-round)
    ├─ Aggregate clarification_needs from all exploration angles
    ├─ Deduplicate similar questions
    └─ Decision:
-      ├─ Has clarifications → AskUserQuestion (max 4 questions)
+      ├─ Has clarifications → AskUserQuestion (max 4 questions per round, multiple rounds allowed)
       └─ No clarifications → Skip to Phase 3
 
 Phase 3: Planning (NO CODE EXECUTION - planning only)
@@ -71,18 +71,18 @@ Phase 5: Dispatch
 
 ### Phase 1: Intelligent Multi-Angle Exploration
 
-**Session Setup**:
+**Session Setup** (MANDATORY - follow exactly):
 ```javascript
 // Helper: Get UTC+8 (China Standard Time) ISO string
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
 const taskSlug = task_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
-const timestamp = getUtc8ISOString().replace(/[:.]/g, '-')
-const shortTimestamp = timestamp.substring(0, 19).replace('T', '-')
-const sessionId = `${taskSlug}-${shortTimestamp}`
+const dateStr = getUtc8ISOString().substring(0, 10)  // Format: 2025-11-29
+
+const sessionId = `${taskSlug}-${dateStr}`  // e.g., "implement-jwt-refresh-2025-11-29"
 const sessionFolder = `.workflow/.lite-plan/${sessionId}`
 
-bash(`mkdir -p ${sessionFolder}`)
+bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
 ```
 
 **Exploration Decision Logic**:
@@ -170,7 +170,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 
 ## MANDATORY FIRST STEPS (Execute by Agent)
 **You (cli-explore-agent) MUST execute these steps in order:**
-1. Run: ~/.claude/scripts/get_modules_by_depth.sh (project structure)
+1. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
 2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
 3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
 
@@ -206,7 +206,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - dependencies: Dependencies relevant to ${angle}
 - integration_points: Where to integrate from ${angle} viewpoint (include file:line locations)
 - constraints: ${angle}-specific limitations/conventions
-- clarification_needs: ${angle}-related ambiguities (with options array)
+- clarification_needs: ${angle}-related ambiguities (options array + recommended index)
 - _metadata.exploration_angle: "${angle}"
 
 ## Success Criteria
@@ -217,7 +217,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - [ ] Integration points include file:line locations
 - [ ] Constraints are project-specific to ${angle}
 - [ ] JSON output follows schema exactly
-- [ ] clarification_needs includes options array
+- [ ] clarification_needs includes options + recommended
 
 ## Output
 Write: ${sessionFolder}/exploration-${angle}.json
@@ -276,9 +276,11 @@ Angles explored: ${explorationManifest.explorations.map(e => e.angle).join(', ')
 
 ---
 
-### Phase 2: Clarification (Optional)
+### Phase 2: Clarification (Optional, Multi-Round)
 
 **Skip if**: No exploration or `clarification_needs` is empty across all explorations
+
+**⚠️ CRITICAL**: AskUserQuestion tool limits max 4 questions per call. **MUST execute multiple rounds** to exhaust all clarification needs - do NOT stop at round 1.
 
 **Aggregate clarification needs from all exploration angles**:
 ```javascript
@@ -302,32 +304,40 @@ explorations.forEach(exp => {
   }
 })
 
-// Deduplicate by question similarity
-function deduplicateClarifications(clarifications) {
-  const unique = []
-  clarifications.forEach(c => {
-    const isDuplicate = unique.some(u =>
-      u.question.toLowerCase() === c.question.toLowerCase()
-    )
-    if (!isDuplicate) unique.push(c)
-  })
-  return unique
-}
+// Deduplicate exact same questions only
+const seen = new Set()
+const dedupedClarifications = allClarifications.filter(c => {
+  const key = c.question.toLowerCase()
+  if (seen.has(key)) return false
+  seen.add(key)
+  return true
+})
 
-const uniqueClarifications = deduplicateClarifications(allClarifications)
+// Multi-round clarification: batch questions (max 4 per round)
+if (dedupedClarifications.length > 0) {
+  const BATCH_SIZE = 4
+  const totalRounds = Math.ceil(dedupedClarifications.length / BATCH_SIZE)
 
-if (uniqueClarifications.length > 0) {
-  AskUserQuestion({
-    questions: uniqueClarifications.map(need => ({
-      question: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
-      header: need.source_angle,
-      multiSelect: false,
-      options: need.options.map(opt => ({
-        label: opt,
-        description: `Use ${opt} approach`
+  for (let i = 0; i < dedupedClarifications.length; i += BATCH_SIZE) {
+    const batch = dedupedClarifications.slice(i, i + BATCH_SIZE)
+    const currentRound = Math.floor(i / BATCH_SIZE) + 1
+
+    console.log(`### Clarification Round ${currentRound}/${totalRounds}`)
+
+    AskUserQuestion({
+      questions: batch.map(need => ({
+        question: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
+        header: need.source_angle.substring(0, 12),
+        multiSelect: false,
+        options: need.options.map((opt, index) => ({
+          label: need.recommended === index ? `${opt} ★` : opt,
+          description: need.recommended === index ? `Recommended` : `Use ${opt}`
+        }))
       }))
-    }))
-  })
+    })
+
+    // Store batch responses in clarificationContext before next round
+  }
 }
 ```
 
@@ -552,7 +562,7 @@ SlashCommand(command="/workflow:lite-execute --in-memory")
 ## Session Folder Structure
 
 ```
-.workflow/.lite-plan/{task-slug}-{timestamp}/
+.workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/
 ├── exploration-{angle1}.json      # Exploration angle 1
 ├── exploration-{angle2}.json      # Exploration angle 2
 ├── exploration-{angle3}.json      # Exploration angle 3 (if applicable)

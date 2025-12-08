@@ -433,7 +433,7 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
   "step": "load_context",
   "action": "Load project context and patterns",
   "commands": [
-    "bash(~/.claude/scripts/get_modules_by_depth.sh)",
+    "bash(ccw tool exec get_modules_by_depth '{}')",
     "Read(CLAUDE.md)"
   ],
   "output_to": "project_structure",

@@ -320,7 +320,7 @@ Read({base_path}/prototypes/{target}-style-{style_id}-layout-{layout_id}.html)
 
 ### Step 1: Run Preview Generation Script
 ```bash
-bash(~/.claude/scripts/ui-generate-preview.sh "{base_path}/prototypes")
+bash(ccw tool exec ui_generate_preview '{"prototypesDir":"{base_path}/prototypes"}')
 ```
 
 **Script generates**:
@@ -432,7 +432,7 @@ bash(test -f {base_path}/prototypes/compare.html && echo "exists")
 bash(mkdir -p {base_path}/prototypes)
 
 # Run preview script
-bash(~/.claude/scripts/ui-generate-preview.sh "{base_path}/prototypes")
+bash(ccw tool exec ui_generate_preview '{"prototypesDir":"{base_path}/prototypes"}')
 ```
 
 ## Output Structure
@@ -467,7 +467,7 @@ ERROR: Agent assembly failed
 → Check inputs exist, validate JSON structure
 
 ERROR: Script permission denied
-→ chmod +x ~/.claude/scripts/ui-generate-preview.sh
+→ Verify ccw tool is available: ccw tool list
 ```
 
 ### Recovery Strategies

@@ -10,62 +10,81 @@
 - Complex API research → Exa Code Context
 - Real-time information needs → Exa Web Search
 
-## ⚡ Bash Text Processing (sed/awk)
+## ⚡ CCW edit_file Tool (AI-Powered Editing)
 
 **When to Use**: Edit tool fails 2+ times on same file
 
-### sed Quick Reference
+### update Mode (Default)
+
+**Best for**: Code block replacements, function rewrites, multi-line changes
 
 ```bash
-# Replace first occurrence per line
-sed 's/old/new/' file.txt
-
-# Replace all occurrences (global)
-sed 's/old/new/g' file.txt
-
-# In-place edit (modify file directly)
-sed -i 's/old/new/g' file.txt
-
-# Delete lines matching pattern
-sed '/pattern/d' file.txt
-
-# Insert line before match
-sed '/pattern/i\new line' file.txt
-
-# Insert line after match
-sed '/pattern/a\new line' file.txt
-
-# Replace on specific line number
-sed '5s/old/new/' file.txt
-
-# Multi-line replacement (escape newlines)
-sed ':a;N;$!ba;s/old\npattern/new\ntext/g' file.txt
+ccw tool exec edit_file '{
+  "path": "file.py",
+  "oldText": "def old():\n    pass",
+  "newText": "def new():\n    return True"
+}'
 ```
 
-### awk Quick Reference
+**Features**:
+- ✅ Exact text matching (precise and predictable)
+- ✅ Auto line ending adaptation (CRLF/LF)
+- ✅ Simple `oldText` → `newText` replacement
+- ✅ No special markers needed
+
+### line Mode (Precise Line Operations)
+
+**Best for**: Config files, line insertions/deletions, precise line number control
 
 ```bash
-# Print specific column
-awk '{print $1}' file.txt
+# Insert after specific line
+ccw tool exec edit_file '{
+  "path": "config.txt",
+  "mode": "line",
+  "operation": "insert_after",
+  "line": 10,
+  "text": "new config line"
+}'
 
-# Print lines matching pattern
-awk '/pattern/' file.txt
+# Delete line range
+ccw tool exec edit_file '{
+  "path": "log.txt",
+  "mode": "line",
+  "operation": "delete",
+  "line": 5,
+  "end_line": 8
+}'
 
-# Replace field value
-awk '{$2="new"; print}' file.txt
-
-# Conditional replacement
-awk '/pattern/{gsub(/old/,"new")}1' file.txt
-
-# Insert line after match
-awk '/pattern/{print; print "new line"; next}1' file.txt
-
-# Multi-field operations
-awk -F',' '{print $1, $3}' file.csv
+# Replace specific line
+ccw tool exec edit_file '{
+  "path": "script.sh",
+  "mode": "line",
+  "operation": "replace",
+  "line": 3,
+  "text": "#!/bin/bash"
+}'
 ```
+
+**Operations**:
+- `insert_before`: Insert text before specified line
+- `insert_after`: Insert text after specified line
+- `replace`: Replace line or line range
+- `delete`: Delete line or line range
+
+### Mode Selection Guide
+
+| Scenario | Mode | Reason |
+|----------|------|--------|
+| Code refactoring | update | Content-driven replacement |
+| Function rewrite | update | Simple oldText/newText |
+| Config line change | line | Precise line number control |
+| Insert at specific position | line | Exact line number needed |
+| Delete line range | line | Line-based operation |
 
 ### Fallback Strategy
 
-1. **Edit fails 2+ times** → Try sed for simple replacements
-2. **sed fails** → Try awk for complex patterns
-3. **awk fails** → Use Write to recreate file
+1. **Edit fails 1+ times** → Use `ccw tool exec edit_file` (update mode)
+2. **update mode fails** → Try line mode with precise line numbers
+3. **All fails** → Use Write to recreate file
+
+**Default mode**: update (exact matching with line ending adaptation)
