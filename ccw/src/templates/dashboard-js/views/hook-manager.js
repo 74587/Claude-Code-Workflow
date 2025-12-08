@@ -133,6 +133,9 @@ async function renderHookManager() {
 
   // Attach event listeners
   attachHookEventListeners();
+  
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function countHooks(hooks) {

@@ -197,6 +197,9 @@ async function renderMcpManager() {
 
   // Attach event listeners for toggle switches
   attachMcpEventListeners();
+  
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderMcpServerCard(serverName, serverConfig, isEnabled, isInCurrentProject) {

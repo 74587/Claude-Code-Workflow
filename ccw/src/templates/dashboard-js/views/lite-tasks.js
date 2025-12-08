@@ -24,6 +24,9 @@ function renderLiteTasks() {
   }
 
   container.innerHTML = `<div class="sessions-grid">${sessions.map(session => renderLiteTaskCard(session)).join('')}</div>`;
+  
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 
   // Initialize collapsible sections
   document.querySelectorAll('.collapsible-header').forEach(header => {

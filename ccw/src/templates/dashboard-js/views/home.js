@@ -83,6 +83,9 @@ function renderSessions() {
   }
 
   container.innerHTML = `<div class="sessions-grid">${sessions.map(session => renderSessionCard(session)).join('')}</div>`;
+  
+  // Initialize Lucide icons after rendering
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderSessionCard(session) {
