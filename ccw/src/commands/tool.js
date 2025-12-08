@@ -98,6 +98,42 @@ async function readStdin() {
 }
 
 /**
+ * Smart JSON parser with Windows path handling
+ */
+function parseJsonWithPathFix(jsonString) {
+  try {
+    // Try normal parse first
+    return JSON.parse(jsonString);
+  } catch (firstError) {
+    // If parsing fails, try to fix Windows paths
+    try {
+      // Pattern: "path": "X:\..." or "path":"X:\..."
+      const fixedJson = jsonString.replace(
+        /("(?:path|file|target|source|dest|destination)":\s*")([A-Za-z]:[^"]+)"/g,
+        (match, prefix, path) => {
+          // Convert backslashes to forward slashes (universal)
+          const fixedPath = path.replace(/\\/g, '/');
+          return `${prefix}${fixedPath}"`;
+        }
+      );
+      
+      return JSON.parse(fixedJson);
+    } catch (secondError) {
+      // If still fails, throw original error with helpful message
+      const errorMsg = firstError.message;
+      const hint = errorMsg.includes('escaped character') || errorMsg.includes('position')
+        ? '\n\n' + chalk.yellow('Hint: Windows paths in JSON need forward slashes or double backslashes:') +
+          '\n  ' + chalk.green('✓ "D:/Claude_dms3/file.md"') +
+          '\n  ' + chalk.green('✓ "D:\\\\Claude_dms3\\\\file.md"') +
+          '\n  ' + chalk.red('✗ "D:\\Claude_dms3\\file.md"')
+        : '';
+      
+      throw new Error(errorMsg + hint);
+    }
+  }
+}
+
+/**
  * Execute a tool with given parameters
  */
 async function execAction(toolName, jsonInput, options) {
@@ -119,7 +155,7 @@ async function execAction(toolName, jsonInput, options) {
 
   if (jsonInput) {
     try {
-      params = JSON.parse(jsonInput);
+      params = parseJsonWithPathFix(jsonInput);
     } catch (error) {
       console.error(chalk.red(`Invalid JSON: ${error.message}`));
       process.exit(1);
