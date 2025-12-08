@@ -12,7 +12,7 @@ function renderContextContent(context) {
   if (!context) {
     return `
       <div class="tab-empty-state">
-        <div class="empty-icon">📦</div>
+        <div class="empty-icon"><i data-lucide="package" class="w-12 h-12"></i></div>
         <div class="empty-title">No Context Data</div>
         <div class="empty-text">No context-package.json found for this session.</div>
       </div>
@@ -39,9 +39,9 @@ function renderContextContent(context) {
       <!-- Header Card -->
       <div class="ctx-header-card">
         <div class="ctx-header-content">
-          <h3 class="ctx-main-title">📦 Context Package</h3>
+          <h3 class="ctx-main-title"><i data-lucide="package" class="w-5 h-5 inline mr-2"></i>Context Package</h3>
           <button class="btn-view-modal" onclick="openMarkdownModal('context-package.json', window._currentContextJson, 'json')">
-            👁️ View JSON
+            <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>View JSON
           </button>
         </div>
       </div>
@@ -50,7 +50,7 @@ function renderContextContent(context) {
       ${metadata.task_description || metadata.session_id ? `
         <div class="ctx-card">
           <div class="ctx-card-header">
-            <span class="ctx-card-icon">📋</span>
+            <span class="ctx-card-icon"><i data-lucide="clipboard-list" class="w-5 h-5"></i></span>
             <h4 class="ctx-card-title">Task Metadata</h4>
           </div>
           <div class="ctx-card-body">
@@ -90,7 +90,7 @@ function renderContextContent(context) {
       ${architecturePatterns.length > 0 ? `
         <div class="ctx-card">
           <div class="ctx-card-header">
-            <span class="ctx-card-icon">🏛️</span>
+            <span class="ctx-card-icon"><i data-lucide="building-2" class="w-5 h-5"></i></span>
             <h4 class="ctx-card-title">Architecture Patterns</h4>
             <span class="ctx-count-badge">${architecturePatterns.length}</span>
           </div>
@@ -106,7 +106,7 @@ function renderContextContent(context) {
       ${Object.keys(techStack).length > 0 ? `
         <div class="ctx-card">
           <div class="ctx-card-header">
-            <span class="ctx-card-icon">💻</span>
+            <span class="ctx-card-icon"><i data-lucide="code-2" class="w-5 h-5"></i></span>
             <h4 class="ctx-card-title">Technology Stack</h4>
           </div>
           <div class="ctx-card-body">
@@ -119,7 +119,7 @@ function renderContextContent(context) {
       ${Object.keys(codingConventions).length > 0 ? `
         <div class="ctx-card">
           <div class="ctx-card-header">
-            <span class="ctx-card-icon">📝</span>
+            <span class="ctx-card-icon"><i data-lucide="file-code" class="w-5 h-5"></i></span>
             <h4 class="ctx-card-title">Coding Conventions</h4>
           </div>
           <div class="ctx-card-body">
@@ -145,7 +145,7 @@ function renderContextContent(context) {
       ${(dependencies.internal && dependencies.internal.length > 0) || (dependencies.external && dependencies.external.length > 0) ? `
         <div class="ctx-card">
           <div class="ctx-card-header">
-            <span class="ctx-card-icon">🔗</span>
+            <span class="ctx-card-icon"><i data-lucide="link" class="w-5 h-5"></i></span>
             <h4 class="ctx-card-title">Dependencies</h4>
           </div>
           <div class="ctx-card-body">
@@ -158,7 +158,7 @@ function renderContextContent(context) {
       ${Object.keys(testContext).length > 0 ? `
         <div class="ctx-card">
           <div class="ctx-card-header">
-            <span class="ctx-card-icon">🧪</span>
+            <span class="ctx-card-icon"><i data-lucide="flask-conical" class="w-5 h-5"></i></span>
             <h4 class="ctx-card-title">Test Context</h4>
           </div>
           <div class="ctx-card-body">
@@ -314,7 +314,7 @@ function renderAssetsCards(assets) {
     sections.push(`
       <div class="ctx-assets-category">
         <div class="ctx-assets-cat-header">
-          <span class="ctx-assets-cat-icon">📄</span>
+          <span class="ctx-assets-cat-icon"><i data-lucide="file-text" class="w-4 h-4"></i></span>
           <span class="ctx-assets-cat-title">Documentation</span>
           <span class="ctx-assets-cat-count">${assets.documentation.length}</span>
         </div>
@@ -335,7 +335,7 @@ function renderAssetsCards(assets) {
     sections.push(`
       <div class="ctx-assets-category">
         <div class="ctx-assets-cat-header">
-          <span class="ctx-assets-cat-icon">💻</span>
+          <span class="ctx-assets-cat-icon"><i data-lucide="code-2" class="w-4 h-4"></i></span>
           <span class="ctx-assets-cat-title">Source Code</span>
           <span class="ctx-assets-cat-count">${assets.source_code.length}</span>
         </div>
@@ -356,7 +356,7 @@ function renderAssetsCards(assets) {
     sections.push(`
       <div class="ctx-assets-category">
         <div class="ctx-assets-cat-header">
-          <span class="ctx-assets-cat-icon">🧪</span>
+          <span class="ctx-assets-cat-icon"><i data-lucide="flask-conical" class="w-4 h-4"></i></span>
           <span class="ctx-assets-cat-title">Tests</span>
           <span class="ctx-assets-cat-count">${assets.tests.length}</span>
         </div>
@@ -657,7 +657,7 @@ function renderAssetsSection(assets) {
   if (assets.documentation && assets.documentation.length > 0) {
     sections.push(`
       <div class="asset-category">
-        <h5 class="asset-category-title">📄 Documentation</h5>
+        <h5 class="asset-category-title"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>Documentation</h5>
         <div class="asset-grid">
           ${assets.documentation.map(doc => `
             <div class="asset-card">
@@ -684,7 +684,7 @@ function renderAssetsSection(assets) {
   if (assets.source_code && assets.source_code.length > 0) {
     sections.push(`
       <div class="asset-category">
-        <h5 class="asset-category-title">💻 Source Code</h5>
+        <h5 class="asset-category-title"><i data-lucide="code-2" class="w-4 h-4 inline mr-1"></i>Source Code</h5>
         <div class="asset-grid">
           ${assets.source_code.map(src => `
             <div class="asset-card">
@@ -712,7 +712,7 @@ function renderAssetsSection(assets) {
   if (assets.tests && assets.tests.length > 0) {
     sections.push(`
       <div class="asset-category">
-        <h5 class="asset-category-title">🧪 Tests</h5>
+        <h5 class="asset-category-title"><i data-lucide="flask-conical" class="w-4 h-4 inline mr-1"></i>Tests</h5>
         <div class="asset-grid">
           ${assets.tests.map(test => `
             <div class="asset-card">
@@ -764,7 +764,7 @@ function renderDependenciesSection(dependencies) {
   if (dependencies.external && dependencies.external.length > 0) {
     sections.push(`
       <div class="dep-category">
-        <h5 class="dep-category-title">📦 External Dependencies</h5>
+        <h5 class="dep-category-title"><i data-lucide="package" class="w-4 h-4 inline mr-1"></i>External Dependencies</h5>
         <div class="dep-grid">
           ${dependencies.external.map(dep => `
             <div class="dep-external-card">
@@ -836,7 +836,7 @@ function renderTestContextSection(testContext) {
 
     sections.push(`
       <div class="test-category">
-        <h5 class="test-category-title">📊 Test Statistics</h5>
+        <h5 class="test-category-title"><i data-lucide="bar-chart-3" class="w-4 h-4 inline mr-1"></i>Test Statistics</h5>
         <div class="test-stats-grid">
           <div class="stat-card">
             <div class="stat-value">${totalTests}</div>
@@ -930,7 +930,7 @@ function renderConflictDetectionSection(conflictDetection) {
   if (conflictDetection.affected_modules && conflictDetection.affected_modules.length > 0) {
     sections.push(`
       <div class="conflict-category">
-        <h5 class="conflict-category-title">📦 Affected Modules</h5>
+        <h5 class="conflict-category-title"><i data-lucide="package-open" class="w-4 h-4 inline mr-1"></i>Affected Modules</h5>
         <div class="affected-modules-grid">
           ${conflictDetection.affected_modules.map(mod => `
             <span class="affected-module-tag">${escapeHtml(mod)}</span>
@@ -996,7 +996,7 @@ function renderSessionContextContent(context, explorations, conflictResolution) 
 
   return `
     <div class="tab-empty-state">
-      <div class="empty-icon">📦</div>
+      <div class="empty-icon"><i data-lucide="package" class="w-12 h-12"></i></div>
       <div class="empty-title">No Context Data</div>
       <div class="empty-text">No context-package.json or exploration files found for this session.</div>
     </div>
@@ -1033,7 +1033,7 @@ function renderConflictResolutionContext(conflictResolution) {
       <div class="conflict-decisions-section collapsible-section">
         <div class="collapsible-header">
           <span class="collapse-icon">▶</span>
-          <span class="section-label">🎯 User Decisions (${decisions.length})</span>
+          <span class="section-label"><i data-lucide="target" class="w-4 h-4 inline mr-1"></i>User Decisions (${decisions.length})</span>
         </div>
         <div class="collapsible-content collapsed">
           <div class="decisions-list">

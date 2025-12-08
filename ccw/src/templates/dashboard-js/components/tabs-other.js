@@ -11,7 +11,7 @@ function renderSummaryContent(summaries) {
   if (!summaries || summaries.length === 0) {
     return `
       <div class="tab-empty-state">
-        <div class="empty-icon">📝</div>
+        <div class="empty-icon"><i data-lucide="file-text" class="w-12 h-12"></i></div>
         <div class="empty-title">No Summaries</div>
         <div class="empty-text">No summaries found in .summaries/</div>
       </div>
@@ -31,9 +31,9 @@ function renderSummaryContent(summaries) {
         return `
           <div class="summary-item-card">
             <div class="summary-item-header">
-              <h4 class="summary-item-title">📄 ${escapeHtml(s.name || 'Summary')}</h4>
+              <h4 class="summary-item-title"><i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>${escapeHtml(s.name || 'Summary')}</h4>
               <button class="btn-view-modal" onclick="openMarkdownModal('${escapeHtml(s.name || 'Summary')}', window._currentSummaries[${idx}].content, 'markdown');">
-                👁️ View
+                <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>View
               </button>
             </div>
             <div class="summary-item-preview">
@@ -54,7 +54,7 @@ function renderImplPlanContent(implPlan) {
   if (!implPlan) {
     return `
       <div class="tab-empty-state">
-        <div class="empty-icon">📐</div>
+        <div class="empty-icon"><i data-lucide="ruler" class="w-12 h-12"></i></div>
         <div class="empty-title">No IMPL Plan</div>
         <div class="empty-text">No IMPL_PLAN.md found for this session.</div>
       </div>
@@ -73,9 +73,9 @@ function renderImplPlanContent(implPlan) {
     <div class="impl-plan-tab-content">
       <div class="impl-plan-card">
         <div class="impl-plan-header">
-          <h3 class="impl-plan-title">📐 Implementation Plan</h3>
+          <h3 class="impl-plan-title"><i data-lucide="ruler" class="w-5 h-5 inline mr-2"></i>Implementation Plan</h3>
           <button class="btn-view-modal" onclick="openMarkdownModal('IMPL_PLAN.md', window._currentImplPlan, 'markdown')">
-            👁️ View
+            <i data-lucide="eye" class="w-4 h-4 inline mr-1"></i>View
           </button>
         </div>
         <div class="impl-plan-preview">
@@ -151,7 +151,7 @@ function renderLiteContextContent(context, explorations, session) {
 
   return `
     <div class="tab-empty-state">
-      <div class="empty-icon">📦</div>
+      <div class="empty-icon"><i data-lucide="package" class="w-12 h-12"></i></div>
       <div class="empty-title">No Context Data</div>
       <div class="empty-text">No context-package.json or exploration files found for this session.</div>
     </div>
@@ -187,10 +187,10 @@ function renderExplorationContext(explorations) {
   // Render each exploration angle as collapsible section
   const explorationOrder = ['architecture', 'dependencies', 'patterns', 'integration-points'];
   const explorationTitles = {
-    'architecture': '🏗️ Architecture',
-    'dependencies': '📦 Dependencies',
-    'patterns': '🔄 Patterns',
-    'integration-points': '🔌 Integration Points'
+    'architecture': '<i data-lucide="blocks" class="w-4 h-4 inline mr-1"></i>Architecture',
+    'dependencies': '<i data-lucide="package" class="w-4 h-4 inline mr-1"></i>Dependencies',
+    'patterns': '<i data-lucide="git-branch" class="w-4 h-4 inline mr-1"></i>Patterns',
+    'integration-points': '<i data-lucide="plug" class="w-4 h-4 inline mr-1"></i>Integration Points'
   };
 
   for (const angle of explorationOrder) {
