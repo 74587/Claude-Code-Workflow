@@ -507,9 +507,31 @@ function handleWebSocketUpgrade(req, socket, head) {
   // Handle incoming messages
   socket.on('data', (buffer) => {
     try {
-      const message = parseWebSocketFrame(buffer);
-      if (message) {
-        console.log('[WS] Received:', message);
+      const frame = parseWebSocketFrame(buffer);
+      if (!frame) return;
+      
+      const { opcode, payload } = frame;
+      
+      switch (opcode) {
+        case 0x1: // Text frame
+          if (payload) {
+            console.log('[WS] Received:', payload);
+          }
+          break;
+        case 0x8: // Close frame
+          socket.end();
+          break;
+        case 0x9: // Ping frame - respond with Pong
+          const pongFrame = Buffer.alloc(2);
+          pongFrame[0] = 0x8A; // Pong opcode with FIN bit
+          pongFrame[1] = 0x00; // No payload
+          socket.write(pongFrame);
+          break;
+        case 0xA: // Pong frame - ignore
+          break;
+        default:
+          // Ignore other frame types (binary, continuation)
+          break;
       }
     } catch (e) {
       // Ignore parse errors
@@ -529,10 +551,18 @@ function handleWebSocketUpgrade(req, socket, head) {
 
 /**
  * Parse WebSocket frame (simplified)
+ * Returns { opcode, payload } or null
  */
 function parseWebSocketFrame(buffer) {
   if (buffer.length < 2) return null;
 
+  const firstByte = buffer[0];
+  const opcode = firstByte & 0x0f; // Extract opcode (bits 0-3)
+  
+  // Opcode types:
+  // 0x0 = continuation, 0x1 = text, 0x2 = binary
+  // 0x8 = close, 0x9 = ping, 0xA = pong
+  
   const secondByte = buffer[1];
   const isMasked = (secondByte & 0x80) !== 0;
   let payloadLength = secondByte & 0x7f;
@@ -560,7 +590,7 @@ function parseWebSocketFrame(buffer) {
     }
   }
 
-  return payload.toString('utf8');
+  return { opcode, payload: payload.toString('utf8') };
 }
 
 /**

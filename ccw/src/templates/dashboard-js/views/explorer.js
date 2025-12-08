@@ -836,6 +836,12 @@ async function startTaskQueue() {
     'Explorer'
   );
   
+  // Force refresh notification list to ensure all notifications are displayed
+  if (typeof renderGlobalNotifications === 'function') {
+    renderGlobalNotifications();
+    updateGlobalNotifBadge();
+  }
+  
   // Re-enable start button if there are pending tasks
   const hasPending = updateTaskQueue.some(t => t.status === 'pending');
   document.getElementById('startQueueBtn').disabled = !hasPending;
