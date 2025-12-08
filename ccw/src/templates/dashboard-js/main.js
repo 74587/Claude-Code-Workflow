@@ -2,6 +2,9 @@
 // Initializes all components and sets up global event handlers
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize Lucide icons (must be first to render SVG icons)
+  try { lucide.createIcons(); } catch (e) { console.error('Lucide icons init failed:', e); }
+
   // Initialize components with error handling to prevent cascading failures
   try { initTheme(); } catch (e) { console.error('Theme init failed:', e); }
   try { initSidebar(); } catch (e) { console.error('Sidebar init failed:', e); }
@@ -12,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try { initCarousel(); } catch (e) { console.error('Carousel init failed:', e); }
   try { initMcpManager(); } catch (e) { console.error('MCP Manager init failed:', e); }
   try { initHookManager(); } catch (e) { console.error('Hook Manager init failed:', e); }
+  try { initGlobalNotifications(); } catch (e) { console.error('Global notifications init failed:', e); }
 
   // Initialize real-time features (WebSocket + auto-refresh)
   try { initWebSocket(); } catch (e) { console.log('WebSocket not available:', e.message); }

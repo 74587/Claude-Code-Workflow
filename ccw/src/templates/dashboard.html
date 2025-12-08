@@ -190,6 +190,34 @@
     .task-detail-drawer.open { transform: translateX(0); }
     .drawer-overlay.active { display: block; }
 
+    /* Unified Icon System */
+    .nav-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      stroke-width: 2;
+    }
+    .nav-section-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      stroke-width: 2;
+      opacity: 0.8;
+    }
+    .sidebar.collapsed .nav-icon {
+      width: 20px;
+      height: 20px;
+    }
+    
+    /* Icon Animations */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+
     /* Injected from dashboard-css/*.css modules */
     {{CSS_CONTENT}}
   </style>
@@ -199,9 +227,11 @@
     <!-- Top Bar -->
     <header class="flex items-center justify-between px-5 h-14 bg-card border-b border-border sticky top-0 z-50 shadow-sm">
       <div class="flex items-center gap-4">
-        <button class="hidden md:hidden p-2 text-foreground hover:bg-hover rounded menu-toggle-btn" id="menuToggle">☰</button>
+        <button class="hidden md:hidden p-2 text-foreground hover:bg-hover rounded menu-toggle-btn" id="menuToggle">
+          <i data-lucide="menu" class="w-5 h-5"></i>
+        </button>
         <div class="flex items-center gap-2 text-lg font-semibold text-primary">
-          <span class="text-2xl">⚡</span>
+          <i data-lucide="workflow" class="w-6 h-6"></i>
           <span class="hidden sm:inline">Claude Code Workflow</span>
         </div>
       </div>
@@ -223,7 +253,8 @@
               </div>
               <div class="p-2 border-t border-border">
                 <button class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-background border border-border rounded text-sm text-muted-foreground hover:bg-hover" id="browsePath">
-                  📂 Browse...
+                  <i data-lucide="folder-open" class="w-4 h-4"></i>
+                  <span>Browse...</span>
                 </button>
               </div>
             </div>
@@ -240,7 +271,10 @@
         </div>
 
         <!-- Theme Toggle -->
-        <button class="p-2 text-xl hover:bg-hover rounded" id="themeToggle" title="Toggle theme">🌙</button>
+        <button class="p-2 hover:bg-hover rounded flex items-center justify-center" id="themeToggle" title="Toggle theme">
+          <i data-lucide="moon" class="w-5 h-5 theme-icon-dark"></i>
+          <i data-lucide="sun" class="w-5 h-5 theme-icon-light hidden"></i>
+        </button>
       </div>
     </header>
 
@@ -255,13 +289,17 @@
           <!-- Project Overview Section -->
           <div class="mb-2" id="projectOverviewNav">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <span class="mr-2">🏗️</span>
+              <i data-lucide="layout-dashboard" class="nav-section-icon mr-2"></i>
               <span class="nav-section-title">Project</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="project-overview" data-tooltip="Project Overview">
-                <span>📊</span>
+                <i data-lucide="bar-chart-3" class="nav-icon"></i>
                 <span class="nav-text flex-1">Overview</span>
+              </li>
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="explorer" data-tooltip="File Explorer">
+                <i data-lucide="folder-tree" class="nav-icon"></i>
+                <span class="nav-text flex-1">Explorer</span>
               </li>
             </ul>
           </div>
@@ -269,22 +307,22 @@
           <!-- Sessions Section -->
           <div class="mb-2">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <span class="mr-2">📁</span>
+              <i data-lucide="history" class="nav-section-icon mr-2"></i>
               <span class="nav-section-title">Sessions</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors active" data-filter="all" data-tooltip="All Sessions">
-                <span>📋</span>
+                <i data-lucide="list" class="nav-icon"></i>
                 <span class="nav-text flex-1">All</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeAll">0</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-filter="active" data-tooltip="Active Sessions">
-                <span>🟢</span>
+                <i data-lucide="play-circle" class="nav-icon text-success"></i>
                 <span class="nav-text flex-1">Active</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-success-light text-success" id="badgeActive">0</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-filter="archived" data-tooltip="Archived Sessions">
-                <span>📦</span>
+                <i data-lucide="archive" class="nav-icon"></i>
                 <span class="nav-text flex-1">Archived</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeArchived">0</span>
               </li>
@@ -294,17 +332,17 @@
           <!-- Lite Tasks Section -->
           <div class="mb-2" id="liteTasksNav">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <span class="mr-2">⚡</span>
+              <i data-lucide="zap" class="nav-section-icon mr-2"></i>
               <span class="nav-section-title">Lite Tasks</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-plan" data-tooltip="Lite Plan Sessions">
-                <span>📝</span>
+                <i data-lucide="file-edit" class="nav-icon"></i>
                 <span class="nav-text flex-1">Lite Plan</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeLitePlan">0</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-fix" data-tooltip="Lite Fix Sessions">
-                <span>🔧</span>
+                <i data-lucide="wrench" class="nav-icon"></i>
                 <span class="nav-text flex-1">Lite Fix</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeLiteFix">0</span>
               </li>
@@ -314,12 +352,12 @@
           <!-- MCP Servers Section -->
           <div class="mb-2" id="mcpServersNav">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <span class="mr-2">🔌</span>
+              <i data-lucide="plug" class="nav-section-icon mr-2"></i>
               <span class="nav-section-title">MCP Servers</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="mcp-manager" data-tooltip="MCP Server Management">
-                <span>⚙️</span>
+                <i data-lucide="settings" class="nav-icon"></i>
                 <span class="nav-text flex-1">Manage</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeMcpServers">0</span>
               </li>
@@ -329,12 +367,12 @@
           <!-- Hooks Section -->
           <div class="mb-2" id="hooksNav">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <span class="mr-2">🪝</span>
+              <i data-lucide="webhook" class="nav-section-icon mr-2"></i>
               <span class="nav-section-title">Hooks</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="hook-manager" data-tooltip="Hook Management">
-                <span>⚙️</span>
+                <i data-lucide="cable" class="nav-icon"></i>
                 <span class="nav-text flex-1">Manage</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeHooks">0</span>
               </li>
@@ -345,7 +383,7 @@
         <!-- Sidebar Footer -->
         <div class="p-3 border-t border-border">
           <button class="flex items-center justify-center gap-2 w-full px-3 py-2 border border-border rounded text-sm text-muted-foreground hover:bg-hover transition-colors" id="sidebarToggle">
-            <span class="toggle-icon transition-transform duration-300">◀</span>
+            <i data-lucide="panel-left-close" class="toggle-icon w-4 h-4 transition-transform duration-300"></i>
             <span class="toggle-text">Collapse</span>
           </button>
         </div>
@@ -358,22 +396,22 @@
           <!-- Left: 4 Metrics Grid -->
           <div class="stats-metrics grid grid-cols-2 gap-3 shrink-0">
             <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
-              <div class="text-xl mb-1">📊</div>
+              <div class="flex justify-center mb-1 text-primary"><i data-lucide="layers" class="w-5 h-5"></i></div>
               <div class="text-2xl font-bold text-foreground" id="statTotalSessions">0</div>
               <div class="text-xs text-muted-foreground mt-1">Total Sessions</div>
             </div>
             <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
-              <div class="text-xl mb-1">🟢</div>
+              <div class="flex justify-center mb-1 text-success"><i data-lucide="activity" class="w-5 h-5"></i></div>
               <div class="text-2xl font-bold text-foreground" id="statActiveSessions">0</div>
               <div class="text-xs text-muted-foreground mt-1">Active Sessions</div>
             </div>
             <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
-              <div class="text-xl mb-1">📋</div>
+              <div class="flex justify-center mb-1 text-primary"><i data-lucide="clipboard-list" class="w-5 h-5"></i></div>
               <div class="text-2xl font-bold text-foreground" id="statTotalTasks">0</div>
               <div class="text-xs text-muted-foreground mt-1">Total Tasks</div>
             </div>
             <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
-              <div class="text-xl mb-1">✅</div>
+              <div class="flex justify-center mb-1 text-success"><i data-lucide="check-circle-2" class="w-5 h-5"></i></div>
               <div class="text-2xl font-bold text-foreground" id="statCompletedTasks">0</div>
               <div class="text-xs text-muted-foreground mt-1">Completed Tasks</div>
             </div>
@@ -386,7 +424,7 @@
               <!-- Dynamic carousel slides -->
               <div class="carousel-empty flex items-center justify-center h-full text-muted-foreground">
                 <div class="text-center">
-                  <div class="text-3xl mb-2">🎯</div>
+                  <div class="flex justify-center mb-2"><i data-lucide="target" class="w-8 h-8"></i></div>
                   <p class="text-sm">No active sessions</p>
                 </div>
               </div>
@@ -421,7 +459,7 @@
         <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
           <h2 class="text-xl font-semibold text-foreground" id="contentTitle">All Sessions</h2>
           <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm">🔍</span>
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"></i>
             <input type="text" placeholder="Search..." id="searchInput"
               class="pl-9 pr-4 py-2 w-60 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
           </div>
@@ -618,10 +656,53 @@
     </div>
   </div>
 
+  <!-- Update CLAUDE.md Modal -->
+  <div id="updateClaudeMdModal" class="claude-md-modal hidden fixed inset-0 z-[100] flex items-center justify-center">
+    <div class="claude-md-modal-backdrop absolute inset-0 bg-black/60" onclick="closeUpdateClaudeMdModal()"></div>
+    <div class="claude-md-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-md flex flex-col">
+      <div class="claude-md-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 class="text-lg font-semibold text-foreground">Update CLAUDE.md</h3>
+        <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeUpdateClaudeMdModal()">&times;</button>
+      </div>
+      <div class="claude-md-modal-body p-4 space-y-4">
+        <div class="claude-md-form-group">
+          <label>Target Directory</label>
+          <div class="claude-md-target-path" id="claudeMdTargetPath">-</div>
+        </div>
+        <div class="claude-md-form-group">
+          <label for="claudeMdTool">CLI Tool</label>
+          <select id="claudeMdTool">
+            <option value="gemini">Gemini (gemini-2.5-flash)</option>
+            <option value="qwen">Qwen (coder-model)</option>
+            <option value="codex">Codex (gpt5-codex)</option>
+          </select>
+        </div>
+        <div class="claude-md-form-group">
+          <label for="claudeMdStrategy">Strategy</label>
+          <select id="claudeMdStrategy">
+            <option value="single-layer">Single Layer - Current dir + child CLAUDE.md refs</option>
+            <option value="multi-layer">Multi Layer - Generate CLAUDE.md in all subdirs</option>
+          </select>
+        </div>
+        <div class="claude-md-status" id="claudeMdStatus"></div>
+      </div>
+      <div class="claude-md-modal-footer flex justify-end gap-2 px-4 py-3 border-t border-border">
+        <button class="px-4 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-hover transition-colors" onclick="closeUpdateClaudeMdModal()">Cancel</button>
+        <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity" id="claudeMdExecuteBtn" onclick="executeUpdateClaudeMd()">Execute</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
   <!-- D3.js for Flowchart -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <!-- Marked.js for Markdown rendering -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Highlight.js for Syntax Highlighting -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/github-dark.min.css" id="hljs-theme-dark">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/github.min.css" id="hljs-theme-light" disabled>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <script>
 {{JS_CONTENT}}

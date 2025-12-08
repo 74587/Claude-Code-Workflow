@@ -35,3 +35,8 @@ const liteTaskDataStore = {};
 // Store task JSON data in a global map instead of inline script tags
 // Key: unique task ID, Value: raw task JSON data
 const taskJsonStore = {};
+
+// ========== Global Notification Queue ==========
+// Notification queue visible from any view
+let globalNotificationQueue = [];
+let isNotificationPanelVisible = false;

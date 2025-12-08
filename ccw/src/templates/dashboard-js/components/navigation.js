@@ -96,6 +96,8 @@ function initNavigation() {
         renderMcpManager();
       } else if (currentView === 'project-overview') {
         renderProjectOverview();
+      } else if (currentView === 'explorer') {
+        renderExplorer();
       }
     });
   });
@@ -112,6 +114,8 @@ function updateContentTitle() {
     titleEl.textContent = 'Project Overview';
   } else if (currentView === 'mcp-manager') {
     titleEl.textContent = 'MCP Server Management';
+  } else if (currentView === 'explorer') {
+    titleEl.textContent = 'File Explorer';
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': 'Lite Plan Sessions', 'lite-fix': 'Lite Fix Sessions' };
     titleEl.textContent = names[currentLiteType] || 'Lite Tasks';
