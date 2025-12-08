@@ -3,9 +3,10 @@
  * Generate documentation for modules and projects with multiple strategies
  */
 
-import { readdirSync, statSync, existsSync, readFileSync, mkdirSync } from 'fs';
+import { readdirSync, statSync, existsSync, readFileSync, mkdirSync, writeFileSync, unlinkSync } from 'fs';
 import { join, resolve, basename, extname, relative } from 'path';
 import { execSync } from 'child_process';
+import { tmpdir } from 'os';
 
 // Directories to exclude
 const EXCLUDE_DIRS = [
@@ -26,7 +27,7 @@ const DEFAULT_MODELS = {
   codex: 'gpt5-codex'
 };
 
-// Template paths
+// Template paths (relative to user home directory)
 const TEMPLATE_BASE = '.claude/workflows/cli-templates/prompts/documentation';
 
 /**
@@ -94,21 +95,40 @@ function loadTemplate(templateName) {
 }
 
 /**
- * Build CLI command
+ * Create temporary prompt file and return path
  */
-function buildCliCommand(tool, prompt, model) {
-  const escapedPrompt = prompt.replace(/"/g, '\\"');
+function createPromptFile(prompt) {
+  const timestamp = Date.now();
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  const promptFile = join(tmpdir(), `docs-prompt-${timestamp}-${randomSuffix}.txt`);
+  writeFileSync(promptFile, prompt, 'utf8');
+  return promptFile;
+}
 
+/**
+ * Build CLI command using stdin piping (avoids shell escaping issues)
+ */
+function buildCliCommand(tool, promptFile, model) {
+  const normalizedPath = promptFile.replace(/\\/g, '/');
+  const isWindows = process.platform === 'win32';
+  
+  // Build the cat/read command based on platform
+  const catCmd = isWindows ? `Get-Content -Raw "${normalizedPath}" | ` : `cat "${normalizedPath}" | `;
+  
   switch (tool) {
     case 'qwen':
       return model === 'coder-model'
-        ? `qwen -p "${escapedPrompt}" --yolo`
-        : `qwen -p "${escapedPrompt}" -m "${model}" --yolo`;
+        ? `${catCmd}qwen --yolo`
+        : `${catCmd}qwen -m "${model}" --yolo`;
     case 'codex':
-      return `codex --full-auto exec "${escapedPrompt}" -m "${model}" --skip-git-repo-check -s danger-full-access`;
+      // codex uses different syntax - prompt as exec argument
+      if (isWindows) {
+        return `codex --full-auto exec (Get-Content -Raw "${normalizedPath}") -m "${model}" --skip-git-repo-check -s danger-full-access`;
+      }
+      return `codex --full-auto exec "$(cat "${normalizedPath}")" -m "${model}" --skip-git-repo-check -s danger-full-access`;
     case 'gemini':
     default:
-      return `gemini -p "${escapedPrompt}" -m "${model}" --yolo`;
+      return `${catCmd}gemini -m "${model}" --yolo`;
   }
 }
 
@@ -279,8 +299,17 @@ Output directory: .workflow/docs/${projectName}/api/`;
       break;
   }
 
-  // Build and execute command
-  const command = buildCliCommand(tool, prompt, actualModel);
+  // Create temporary prompt file (avoids shell escaping issues)
+  const promptFile = createPromptFile(prompt);
+  
+  // Build command using file-based prompt
+  const command = buildCliCommand(tool, promptFile, actualModel);
+
+  // Log execution info
+  console.log(`📚 Generating docs: ${sourcePath}`);
+  console.log(`   Strategy: ${strategy} | Tool: ${tool} | Model: ${actualModel}`);
+  console.log(`   Output: ${outputPath}`);
+  console.log(`   Prompt file: ${promptFile}`);
 
   try {
     const startTime = Date.now();
@@ -289,10 +318,20 @@ Output directory: .workflow/docs/${projectName}/api/`;
       cwd: targetPath,
       encoding: 'utf8',
       stdio: 'inherit',
-      timeout: 600000 // 10 minutes
+      timeout: 600000, // 10 minutes
+      shell: process.platform === 'win32' ? 'powershell.exe' : '/bin/bash'
     });
 
     const duration = Math.round((Date.now() - startTime) / 1000);
+
+    // Cleanup prompt file
+    try {
+      unlinkSync(promptFile);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    console.log(`   ✅ Completed in ${duration}s`);
 
     return {
       success: true,
@@ -307,6 +346,15 @@ Output directory: .workflow/docs/${projectName}/api/`;
       message: `Documentation generated successfully in ${duration}s`
     };
   } catch (error) {
+    // Cleanup prompt file on error
+    try {
+      unlinkSync(promptFile);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    console.log(`   ❌ Generation failed: ${error.message}`);
+
     return {
       success: false,
       strategy,

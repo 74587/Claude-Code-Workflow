@@ -3,9 +3,10 @@
  * Generate/update CLAUDE.md module documentation using CLI tools
  */
 
-import { readdirSync, statSync, existsSync, readFileSync } from 'fs';
+import { readdirSync, statSync, existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { join, resolve, basename, extname } from 'path';
 import { execSync } from 'child_process';
+import { tmpdir } from 'os';
 
 // Directories to exclude
 const EXCLUDE_DIRS = [
@@ -147,21 +148,43 @@ function loadTemplate() {
 }
 
 /**
- * Build CLI command
+ * Create temporary prompt file and return cleanup function
  */
-function buildCliCommand(tool, prompt, model) {
-  const escapedPrompt = prompt.replace(/"/g, '\\"');
+function createPromptFile(prompt) {
+  const timestamp = Date.now();
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  const promptFile = join(tmpdir(), `claude-prompt-${timestamp}-${randomSuffix}.txt`);
+  writeFileSync(promptFile, prompt, 'utf8');
+  return promptFile;
+}
 
+/**
+ * Build CLI command using stdin piping for prompt (avoids shell escaping issues)
+ */
+function buildCliCommand(tool, promptFile, model) {
+  // Use stdin piping: cat file | tool or Get-Content | tool
+  // This avoids shell escaping issues with multiline prompts
+  const normalizedPath = promptFile.replace(/\\/g, '/');
+  const isWindows = process.platform === 'win32';
+  
+  // Build the cat/read command based on platform
+  const catCmd = isWindows ? `Get-Content -Raw "${normalizedPath}" | ` : `cat "${normalizedPath}" | `;
+  
   switch (tool) {
     case 'qwen':
       return model === 'coder-model'
-        ? `qwen -p "${escapedPrompt}" --yolo`
-        : `qwen -p "${escapedPrompt}" -m "${model}" --yolo`;
+        ? `${catCmd}qwen --yolo`
+        : `${catCmd}qwen -m "${model}" --yolo`;
     case 'codex':
-      return `codex --full-auto exec "${escapedPrompt}" -m "${model}" --skip-git-repo-check -s danger-full-access`;
+      // codex uses different syntax - prompt as exec argument
+      if (isWindows) {
+        return `codex --full-auto exec (Get-Content -Raw "${normalizedPath}") -m "${model}" --skip-git-repo-check -s danger-full-access`;
+      }
+      return `codex --full-auto exec "$(cat "${normalizedPath}")" -m "${model}" --skip-git-repo-check -s danger-full-access`;
     case 'gemini':
     default:
-      return `gemini -p "${escapedPrompt}" -m "${model}" --yolo`;
+      // gemini reads from stdin when no positional prompt is given
+      return `${catCmd}gemini -m "${model}" --yolo`;
   }
 }
 
@@ -232,7 +255,8 @@ Instructions:
 - Work bottom-up: deepest directories first
 - Parent directories reference children
 - Each CLAUDE.md file must be in its respective directory
-- Follow the template guidelines above for consistent structure`;
+- Follow the template guidelines above for consistent structure
+- Use the structure analysis to understand directory hierarchy`;
   } else {
     prompt = `Directory Structure Analysis:
 ${structureInfo}
@@ -247,11 +271,20 @@ ${templateContent}
 Instructions:
 - Create exactly one CLAUDE.md file in the current directory
 - Reference child CLAUDE.md files, do not duplicate their content
-- Follow the template guidelines above for consistent structure`;
+- Follow the template guidelines above for consistent structure
+- Use the structure analysis to understand the current directory context`;
   }
 
-  // Build and execute command
-  const command = buildCliCommand(tool, prompt, actualModel);
+  // Create temporary prompt file (avoids shell escaping issues with multiline prompts)
+  const promptFile = createPromptFile(prompt);
+  
+  // Build command using file-based prompt
+  const command = buildCliCommand(tool, promptFile, actualModel);
+
+  // Log execution info
+  console.log(`⚡ Updating: ${modulePath}`);
+  console.log(`   Strategy: ${strategy} | Tool: ${tool} | Model: ${actualModel} | Files: ${fileCount}`);
+  console.log(`   Prompt file: ${promptFile}`);
 
   try {
     const startTime = Date.now();
@@ -260,10 +293,20 @@ Instructions:
       cwd: targetPath,
       encoding: 'utf8',
       stdio: 'inherit',
-      timeout: 300000 // 5 minutes
+      timeout: 300000, // 5 minutes
+      shell: process.platform === 'win32' ? 'powershell.exe' : '/bin/bash'
     });
 
     const duration = Math.round((Date.now() - startTime) / 1000);
+
+    // Cleanup prompt file
+    try {
+      unlinkSync(promptFile);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    console.log(`   ✅ Completed in ${duration}s`);
 
     return {
       success: true,
@@ -276,6 +319,15 @@ Instructions:
       message: `CLAUDE.md updated successfully in ${duration}s`
     };
   } catch (error) {
+    // Cleanup prompt file on error
+    try {
+      unlinkSync(promptFile);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    console.log(`   ❌ Update failed: ${error.message}`);
+
     return {
       success: false,
       strategy,
