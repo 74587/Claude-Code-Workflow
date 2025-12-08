@@ -1,0 +1,128 @@
+/* ===================================
+   Dashboard - Complementary Styles
+   ================================== */
+
+/* This file contains only essential CSS that cannot be achieved
+   with Tailwind utilities. All layout, colors, and basic styling
+   are handled by Tailwind classes in dashboard.html.
+
+   CSS variables are defined inline in dashboard.html <style> block. */
+
+/* Font Family Definitions */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Consolas', 'Monaco', 'Liberation Mono', 'Courier New', monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* Scrollbar styling (cannot be done in Tailwind) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Sidebar collapse state (JavaScript-toggled class) */
+.sidebar.collapsed {
+  width: 60px;
+}
+
+.sidebar.collapsed .nav-text,
+.sidebar.collapsed .nav-section-title,
+.sidebar.collapsed .badge,
+.sidebar.collapsed .toggle-text {
+  display: none;
+}
+
+.sidebar.collapsed .nav-section-header {
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+/* Nav item active state */
+.nav-item.active {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--primary));
+  font-weight: 500;
+}
+
+.nav-item.active .nav-icon {
+  color: hsl(var(--primary));
+}
+
+.nav-item.active .nav-count {
+  background-color: hsl(var(--primary));
+  color: white;
+}
+
+.sidebar.collapsed .toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* Path menu open state (JavaScript-toggled class) */
+.path-menu.open {
+  display: block;
+}
+
+/* Mobile sidebar (responsive behavior beyond Tailwind) */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -260px;
+    top: 56px;
+    height: calc(100vh - 56px);
+    z-index: 200;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    display: none;
+  }
+
+  .sidebar-overlay.open {
+    display: block;
+  }
+
+  .menu-toggle-btn {
+    display: block !important;
+  }
+}
+
+/* Task detail drawer (complex transform animation) */
+.task-detail-drawer {
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+}
+
+.task-detail-drawer.open {
+  transform: translateX(0);
+}
+
+.drawer-overlay.active {
+  display: block;
+}
+

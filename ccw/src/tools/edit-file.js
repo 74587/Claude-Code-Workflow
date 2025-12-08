@@ -46,7 +46,7 @@ function writeFile(filePath, content) {
  * Auto-adapts line endings (CRLF/LF)
  */
 function executeUpdateMode(content, params) {
-  const { oldText, newText } = params;
+  const { oldText, newText, replaceAll } = params;
 
   if (!oldText) throw new Error('Parameter "oldText" is required for update mode');
   if (newText === undefined) throw new Error('Parameter "newText" is required for update mode');
@@ -62,10 +62,19 @@ function executeUpdateMode(content, params) {
 
   let newContent = normalizedContent;
   let status = 'not found';
+  let replacements = 0;
 
   if (newContent.includes(normalizedOld)) {
-    newContent = newContent.replace(normalizedOld, normalizedNew);
-    status = 'replaced';
+    if (replaceAll) {
+      const parts = newContent.split(normalizedOld);
+      replacements = parts.length - 1;
+      newContent = parts.join(normalizedNew);
+      status = 'replaced_all';
+    } else {
+      newContent = newContent.replace(normalizedOld, normalizedNew);
+      status = 'replaced';
+      replacements = 1;
+    }
   }
 
   // Restore original line ending
@@ -77,7 +86,13 @@ function executeUpdateMode(content, params) {
     content: newContent,
     modified: content !== newContent,
     status,
-    message: status === 'replaced' ? 'Text replaced successfully' : 'oldText not found in file'
+    replacements,
+    message:
+      status === 'replaced_all'
+        ? `Text replaced successfully (${replacements} occurrences)`
+        : status === 'replaced'
+          ? 'Text replaced successfully'
+          : 'oldText not found in file'
   };
 }
 
@@ -91,7 +106,11 @@ function executeLineMode(content, params) {
   if (!operation) throw new Error('Parameter "operation" is required for line mode');
   if (line === undefined) throw new Error('Parameter "line" is required for line mode');
 
-  const lines = content.split('\n');
+  // Detect original line ending and normalize for processing
+  const hasCRLF = content.includes('\r\n');
+  const normalizedContent = hasCRLF ? content.replace(/\r\n/g, '\n') : content;
+
+  const lines = normalizedContent.split('\n');
   const lineIndex = line - 1; // Convert to 0-based
 
   if (lineIndex < 0 || lineIndex >= lines.length) {
@@ -139,7 +158,12 @@ function executeLineMode(content, params) {
       throw new Error(`Unknown operation: ${operation}. Valid: insert_before, insert_after, replace, delete`);
   }
 
-  const newContent = newLines.join('\n');
+  let newContent = newLines.join('\n');
+
+  // Restore original line endings
+  if (hasCRLF) {
+    newContent = newContent.replace(/\n/g, '\r\n');
+  }
 
   return {
     content: newContent,
@@ -212,6 +236,10 @@ export const editFileTool = {
       newText: {
         type: 'string',
         description: '[update mode] Replacement text'
+      },
+      replaceAll: {
+        type: 'boolean',
+        description: '[update mode] Replace all occurrences of oldText (default: false)'
       },
       // Line mode params
       operation: {

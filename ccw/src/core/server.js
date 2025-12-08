@@ -31,9 +31,21 @@ function getEnterpriseMcpPath() {
 const wsClients = new Set();
 
 const TEMPLATE_PATH = join(import.meta.dirname, '../templates/dashboard.html');
-const CSS_FILE = join(import.meta.dirname, '../templates/dashboard.css');
+const MODULE_CSS_DIR = join(import.meta.dirname, '../templates/dashboard-css');
 const JS_FILE = join(import.meta.dirname, '../templates/dashboard.js');
 const MODULE_JS_DIR = join(import.meta.dirname, '../templates/dashboard-js');
+
+// Modular CSS files in load order
+const MODULE_CSS_FILES = [
+  '01-base.css',
+  '02-session.css',
+  '03-tasks.css',
+  '04-lite-tasks.css',
+  '05-context.css',
+  '06-cards.css',
+  '07-managers.css',
+  '08-review.css'
+];
 
 /**
  * Handle POST request with JSON body
@@ -965,8 +977,11 @@ async function updateTaskStatus(sessionPath, taskId, newStatus) {
 function generateServerDashboard(initialPath) {
   let html = readFileSync(TEMPLATE_PATH, 'utf8');
 
-  // Read CSS file
-  const cssContent = existsSync(CSS_FILE) ? readFileSync(CSS_FILE, 'utf8') : '';
+  // Read and concatenate modular CSS files in load order
+  const cssContent = MODULE_CSS_FILES.map(file => {
+    const filePath = join(MODULE_CSS_DIR, file);
+    return existsSync(filePath) ? readFileSync(filePath, 'utf8') : '';
+  }).join('\n\n');
 
   // Read and concatenate modular JS files in dependency order
   let jsContent = MODULE_FILES.map(file => {
