@@ -126,6 +126,40 @@ export async function startServer(options = {}) {
         return;
       }
 
+      // API: Switch workspace path (for ccw view command)
+      if (pathname === '/api/switch-path') {
+        const newPath = url.searchParams.get('path');
+        if (!newPath) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Path is required' }));
+          return;
+        }
+
+        const resolved = resolvePath(newPath);
+        if (!existsSync(resolved)) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Path does not exist' }));
+          return;
+        }
+
+        // Track the path and return success
+        trackRecentPath(resolved);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          path: resolved,
+          recentPaths: getRecentPaths()
+        }));
+        return;
+      }
+
+      // API: Health check (for ccw view to detect running server)
+      if (pathname === '/api/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', timestamp: Date.now() }));
+        return;
+      }
+
       // API: Remove a recent path
       if (pathname === '/api/remove-recent-path' && req.method === 'POST') {
         handlePostRequest(req, res, async (body) => {

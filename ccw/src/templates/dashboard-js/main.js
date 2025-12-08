@@ -20,7 +20,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Server mode: load data from API
   try {
     if (window.SERVER_MODE) {
-      await switchToPath(window.INITIAL_PATH || projectPath);
+      // Check URL for path parameter (from ccw view command)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPath = urlParams.get('path');
+      const initialPath = urlPath || window.INITIAL_PATH || projectPath;
+
+      await switchToPath(initialPath);
+
+      // Clean up URL after loading (remove query param)
+      if (urlPath && window.history.replaceState) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
     } else {
       renderDashboard();
     }
