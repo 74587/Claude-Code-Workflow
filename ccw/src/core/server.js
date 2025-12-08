@@ -1810,54 +1810,109 @@ async function getFileContent(filePath) {
 }
 
 /**
- * Trigger update-module-claude tool
+ * Trigger update-module-claude tool (async execution)
  * @param {string} targetPath - Directory path to update
  * @param {string} tool - CLI tool to use (gemini, qwen, codex)
  * @param {string} strategy - Update strategy (single-layer, multi-layer)
  * @returns {Promise<Object>}
  */
 async function triggerUpdateClaudeMd(targetPath, tool, strategy) {
-  const { execSync } = await import('child_process');
+  const { spawn } = await import('child_process');
   
-  try {
-    // Normalize path
-    let normalizedPath = targetPath.replace(/\\/g, '/');
-    if (normalizedPath.match(/^\/[a-zA-Z]\//)) {
-      normalizedPath = normalizedPath.charAt(1).toUpperCase() + ':' + normalizedPath.slice(2);
-    }
+  // Normalize path
+  let normalizedPath = targetPath.replace(/\\/g, '/');
+  if (normalizedPath.match(/^\/[a-zA-Z]\//)) {
+    normalizedPath = normalizedPath.charAt(1).toUpperCase() + ':' + normalizedPath.slice(2);
+  }
+  
+  if (!existsSync(normalizedPath)) {
+    return { error: 'Directory not found' };
+  }
+  
+  if (!statSync(normalizedPath).isDirectory()) {
+    return { error: 'Not a directory' };
+  }
+  
+  // Build ccw tool command with JSON parameters
+  const params = JSON.stringify({
+    strategy,
+    path: normalizedPath,
+    tool
+  });
+  
+  console.log(`[Explorer] Running async: ccw tool exec update_module_claude with ${tool} (${strategy})`);
+  
+  return new Promise((resolve) => {
+    const isWindows = process.platform === 'win32';
     
-    if (!existsSync(normalizedPath)) {
-      return { error: 'Directory not found' };
-    }
-    
-    if (!statSync(normalizedPath).isDirectory()) {
-      return { error: 'Not a directory' };
-    }
-    
-    // Build ccw tool command
-    const ccwBin = join(import.meta.dirname, '../../bin/ccw.js');
-    const command = `node "${ccwBin}" tool update_module_claude --strategy="${strategy}" --path="${normalizedPath}" --tool="${tool}"`;
-    
-    console.log(`[Explorer] Running: ${command}`);
-    
-    const output = execSync(command, {
-      encoding: 'utf8',
-      timeout: 300000, // 5 minutes
-      cwd: normalizedPath
+    // Spawn the process
+    const child = spawn('ccw', ['tool', 'exec', 'update_module_claude', params], {
+      cwd: normalizedPath,
+      shell: isWindows,
+      stdio: ['ignore', 'pipe', 'pipe']
     });
     
-    return {
-      success: true,
-      message: `CLAUDE.md updated successfully using ${tool} (${strategy})`,
-      output,
-      path: normalizedPath
-    };
-  } catch (error) {
-    console.error('Error updating CLAUDE.md:', error);
-    return {
-      success: false,
-      error: error.message,
-      output: error.stdout || error.stderr || ''
-    };
-  }
+    let stdout = '';
+    let stderr = '';
+    
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    child.on('close', (code) => {
+      if (code === 0) {
+        // Parse the JSON output from the tool
+        let result;
+        try {
+          result = JSON.parse(stdout);
+        } catch {
+          result = { output: stdout };
+        }
+        
+        if (result.success === false || result.error) {
+          resolve({
+            success: false,
+            error: result.error || result.message || 'Update failed',
+            output: stdout
+          });
+        } else {
+          resolve({
+            success: true,
+            message: result.message || `CLAUDE.md updated successfully using ${tool} (${strategy})`,
+            output: stdout,
+            path: normalizedPath
+          });
+        }
+      } else {
+        resolve({
+          success: false,
+          error: stderr || `Process exited with code ${code}`,
+          output: stdout + stderr
+        });
+      }
+    });
+    
+    child.on('error', (error) => {
+      console.error('Error spawning process:', error);
+      resolve({
+        success: false,
+        error: error.message,
+        output: ''
+      });
+    });
+    
+    // Timeout after 5 minutes
+    setTimeout(() => {
+      child.kill();
+      resolve({
+        success: false,
+        error: 'Timeout: Process took longer than 5 minutes',
+        output: stdout
+      });
+    }, 300000);
+  });
 }

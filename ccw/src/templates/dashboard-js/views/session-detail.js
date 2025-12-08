@@ -81,26 +81,26 @@ function showSessionDetailPage(sessionKey) {
       <!-- Tab Navigation -->
       <div class="detail-tabs">
         <button class="detail-tab active" data-tab="tasks" onclick="switchDetailTab('tasks')">
-          <span class="tab-icon">📋</span>
+          <span class="tab-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
           <span class="tab-text">Tasks</span>
           <span class="tab-count">${tasks.length}</span>
         </button>
         <button class="detail-tab" data-tab="context" onclick="switchDetailTab('context')">
-          <span class="tab-icon">📦</span>
+          <span class="tab-icon"><i data-lucide="package" class="w-4 h-4"></i></span>
           <span class="tab-text">Context</span>
         </button>
         <button class="detail-tab" data-tab="summary" onclick="switchDetailTab('summary')">
-          <span class="tab-icon">📝</span>
+          <span class="tab-icon"><i data-lucide="file-text" class="w-4 h-4"></i></span>
           <span class="tab-text">Summary</span>
         </button>
         <button class="detail-tab" data-tab="impl-plan" onclick="switchDetailTab('impl-plan')">
-          <span class="tab-icon">📐</span>
+          <span class="tab-icon"><i data-lucide="ruler" class="w-4 h-4"></i></span>
           <span class="tab-text">IMPL Plan</span>
         </button>
-<button class="detail-tab" data-tab="conflict" onclick="switchDetailTab('conflict')">          <span class="tab-icon">⚖️</span>          <span class="tab-text">Conflict</span>        </button>
+<button class="detail-tab" data-tab="conflict" onclick="switchDetailTab('conflict')">          <span class="tab-icon"><i data-lucide="scale" class="w-4 h-4"></i></span>          <span class="tab-text">Conflict</span>        </button>
         ${session.hasReview ? `
           <button class="detail-tab" data-tab="review" onclick="switchDetailTab('review')">
-            <span class="tab-icon">🔍</span>
+            <span class="tab-icon"><i data-lucide="search" class="w-4 h-4"></i></span>
             <span class="tab-text">Review</span>
           </button>
         ` : ''}
@@ -199,7 +199,7 @@ function renderTasksTab(session, tasks, completed, inProgress, pending) {
           <div class="tab-loading">Loading task details...</div>
         ` : (tasks.length === 0 ? `
           <div class="tab-empty-state">
-            <div class="empty-icon">📋</div>
+            <div class="empty-icon"><i data-lucide="clipboard-list" class="w-12 h-12"></i></div>
             <div class="empty-title">No Tasks</div>
             <div class="empty-text">This session has no tasks defined.</div>
           </div>
@@ -227,11 +227,12 @@ async function loadFullTaskDetails() {
       } else {
         tasksContainer.innerHTML = `
           <div class="tab-empty-state">
-            <div class="empty-icon">📋</div>
+            <div class="empty-icon"><i data-lucide="clipboard-list" class="w-12 h-12"></i></div>
             <div class="empty-title">No Task Files</div>
             <div class="empty-text">No IMPL-*.json files found in .task/</div>
           </div>
         `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
       }
     }
   } catch (err) {
@@ -429,11 +430,12 @@ async function loadAndRenderContextTab(session, contentArea) {
     // Fallback: show placeholder
     contentArea.innerHTML = `
       <div class="tab-empty-state">
-        <div class="empty-icon">📦</div>
+        <div class="empty-icon"><i data-lucide="package" class="w-12 h-12"></i></div>
         <div class="empty-title">Context Data</div>
         <div class="empty-text">Context data will be loaded from context-package.json</div>
       </div>
     `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   } catch (err) {
     contentArea.innerHTML = `<div class="tab-error">Failed to load context: ${err.message}</div>`;
   }
@@ -453,11 +455,12 @@ async function loadAndRenderSummaryTab(session, contentArea) {
     }
     contentArea.innerHTML = `
       <div class="tab-empty-state">
-        <div class="empty-icon">📝</div>
+        <div class="empty-icon"><i data-lucide="file-text" class="w-12 h-12"></i></div>
         <div class="empty-title">Summaries</div>
         <div class="empty-text">Session summaries will be loaded from .summaries/</div>
       </div>
     `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   } catch (err) {
     contentArea.innerHTML = `<div class="tab-error">Failed to load summaries: ${err.message}</div>`;
   }
@@ -477,11 +480,12 @@ async function loadAndRenderImplPlanTab(session, contentArea) {
     }
     contentArea.innerHTML = `
       <div class="tab-empty-state">
-        <div class="empty-icon">📐</div>
+        <div class="empty-icon"><i data-lucide="ruler" class="w-12 h-12"></i></div>
         <div class="empty-title">IMPL Plan</div>
         <div class="empty-text">IMPL plan will be loaded from IMPL_PLAN.md</div>
       </div>
     `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   } catch (err) {
     contentArea.innerHTML = `<div class="tab-error">Failed to load IMPL plan: ${err.message}</div>`;
   }
@@ -501,11 +505,12 @@ async function loadAndRenderReviewTab(session, contentArea) {
     }
     contentArea.innerHTML = `
       <div class="tab-empty-state">
-        <div class="empty-icon">🔍</div>
+        <div class="empty-icon"><i data-lucide="search" class="w-12 h-12"></i></div>
         <div class="empty-title">Review Data</div>
         <div class="empty-text">Review data will be loaded from review files</div>
       </div>
     `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   } catch (err) {
     contentArea.innerHTML = `<div class="tab-error">Failed to load review: ${err.message}</div>`;
   }

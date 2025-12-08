@@ -14,11 +14,12 @@ function renderLiteTasks() {
   if (sessions.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">⚡</div>
+        <div class="empty-icon"><i data-lucide="zap" class="w-12 h-12"></i></div>
         <div class="empty-title">No ${currentLiteType} Sessions</div>
         <div class="empty-text">No sessions found in .workflow/.${currentLiteType}/</div>
       </div>
     `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     return;
   }
 
@@ -51,13 +52,13 @@ function renderLiteTaskCard(session) {
       <div class="session-header">
         <div class="session-title">${escapeHtml(session.id)}</div>
         <span class="session-status ${session.type}">
-          ${session.type === 'lite-plan' ? '📝 PLAN' : '🔧 FIX'}
+          ${session.type === 'lite-plan' ? '<i data-lucide="file-edit" class="w-3 h-3 inline"></i> PLAN' : '<i data-lucide="wrench" class="w-3 h-3 inline"></i> FIX'}
         </span>
       </div>
       <div class="session-body">
         <div class="session-meta">
-          <span class="session-meta-item">📅 ${formatDate(session.createdAt)}</span>
-          <span class="session-meta-item">📋 ${tasks.length} tasks</span>
+          <span class="session-meta-item"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>${formatDate(session.createdAt)}</span>
+          <span class="session-meta-item"><i data-lucide="list-checks" class="w-3.5 h-3.5 inline mr-1"></i>${tasks.length} tasks</span>
         </div>
       </div>
     </div>
@@ -102,7 +103,7 @@ function showLiteTaskDetailPage(sessionKey) {
           <span>Back to ${session.type === 'lite-plan' ? 'Lite Plan' : 'Lite Fix'}</span>
         </button>
         <div class="detail-title-row">
-          <h2 class="detail-session-id">${session.type === 'lite-plan' ? '📝' : '🔧'} ${escapeHtml(session.id)}</h2>
+          <h2 class="detail-session-id">${session.type === 'lite-plan' ? '<i data-lucide="file-edit" class="w-5 h-5 inline mr-2"></i>' : '<i data-lucide="wrench" class="w-5 h-5 inline mr-2"></i>'} ${escapeHtml(session.id)}</h2>
           <div class="detail-badges">
             <span class="session-type-badge ${session.type}">${session.type}</span>
           </div>
@@ -124,20 +125,20 @@ function showLiteTaskDetailPage(sessionKey) {
       <!-- Tab Navigation -->
       <div class="detail-tabs">
         <button class="detail-tab active" data-tab="tasks" onclick="switchLiteDetailTab('tasks')">
-          <span class="tab-icon">📋</span>
+          <span class="tab-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
           <span class="tab-text">Tasks</span>
           <span class="tab-count">${tasks.length}</span>
         </button>
         <button class="detail-tab" data-tab="plan" onclick="switchLiteDetailTab('plan')">
-          <span class="tab-icon">📐</span>
+          <span class="tab-icon"><i data-lucide="ruler" class="w-4 h-4"></i></span>
           <span class="tab-text">Plan</span>
         </button>
         <button class="detail-tab" data-tab="context" onclick="switchLiteDetailTab('context')">
-          <span class="tab-icon">📦</span>
+          <span class="tab-icon"><i data-lucide="package" class="w-4 h-4"></i></span>
           <span class="tab-text">Context</span>
         </button>
         <button class="detail-tab" data-tab="summary" onclick="switchLiteDetailTab('summary')">
-          <span class="tab-icon">📝</span>
+          <span class="tab-icon"><i data-lucide="file-text" class="w-4 h-4"></i></span>
           <span class="tab-text">Summary</span>
         </button>
       </div>
@@ -209,7 +210,7 @@ function renderLiteTasksTab(session, tasks, completed, inProgress, pending) {
   if (tasks.length === 0) {
     return `
       <div class="tab-empty-state">
-        <div class="empty-icon">📋</div>
+        <div class="empty-icon"><i data-lucide="clipboard-list" class="w-12 h-12"></i></div>
         <div class="empty-title">No Tasks</div>
         <div class="empty-text">This session has no tasks defined.</div>
       </div>
@@ -287,7 +288,7 @@ function renderLitePlanTab(session) {
   if (!plan) {
     return `
       <div class="tab-empty-state">
-        <div class="empty-icon">📐</div>
+        <div class="empty-icon"><i data-lucide="ruler" class="w-12 h-12"></i></div>
         <div class="empty-title">No Plan Data</div>
         <div class="empty-text">No plan.json found for this session.</div>
       </div>
@@ -299,7 +300,7 @@ function renderLitePlanTab(session) {
       <!-- Summary -->
       ${plan.summary ? `
         <div class="plan-section">
-          <h4 class="plan-section-title">📋 Summary</h4>
+          <h4 class="plan-section-title"><i data-lucide="clipboard-list" class="w-4 h-4 inline mr-1"></i> Summary</h4>
           <p class="plan-summary-text">${escapeHtml(plan.summary)}</p>
         </div>
       ` : ''}
@@ -307,7 +308,7 @@ function renderLitePlanTab(session) {
       <!-- Approach -->
       ${plan.approach ? `
         <div class="plan-section">
-          <h4 class="plan-section-title">🎯 Approach</h4>
+          <h4 class="plan-section-title"><i data-lucide="target" class="w-4 h-4 inline mr-1"></i> Approach</h4>
           <p class="plan-approach-text">${escapeHtml(plan.approach)}</p>
         </div>
       ` : ''}
@@ -315,7 +316,7 @@ function renderLitePlanTab(session) {
       <!-- Focus Paths -->
       ${plan.focus_paths?.length ? `
         <div class="plan-section">
-          <h4 class="plan-section-title">📁 Focus Paths</h4>
+          <h4 class="plan-section-title"><i data-lucide="folder" class="w-4 h-4 inline mr-1"></i> Focus Paths</h4>
           <div class="path-tags">
             ${plan.focus_paths.map(p => `<span class="path-tag">${escapeHtml(p)}</span>`).join('')}
           </div>
@@ -324,7 +325,7 @@ function renderLitePlanTab(session) {
 
       <!-- Metadata -->
       <div class="plan-section">
-        <h4 class="plan-section-title">ℹ️ Metadata</h4>
+        <h4 class="plan-section-title"><i data-lucide="info" class="w-4 h-4 inline mr-1"></i> Metadata</h4>
         <div class="plan-meta-grid">
           ${plan.estimated_time ? `<div class="meta-item"><span class="meta-label">Estimated Time:</span> ${escapeHtml(plan.estimated_time)}</div>` : ''}
           ${plan.complexity ? `<div class="meta-item"><span class="meta-label">Complexity:</span> ${escapeHtml(plan.complexity)}</div>` : ''}
@@ -379,11 +380,12 @@ async function loadAndRenderLiteSummaryTab(session, contentArea) {
     // Fallback
     contentArea.innerHTML = `
       <div class="tab-empty-state">
-        <div class="empty-icon">📝</div>
+        <div class="empty-icon"><i data-lucide="file-text" class="w-12 h-12"></i></div>
         <div class="empty-title">No Summaries</div>
         <div class="empty-text">No summaries found in .summaries/</div>
       </div>
     `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   } catch (err) {
     contentArea.innerHTML = `<div class="tab-error">Failed to load summaries: ${err.message}</div>`;
   }

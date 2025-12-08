@@ -73,11 +73,12 @@ function renderSessions() {
   if (sessions.length === 0) {
     container.innerHTML = `
       <div class="empty-state" style="grid-column: 1/-1;">
-        <div class="empty-icon">📭</div>
+        <div class="empty-icon"><i data-lucide="inbox" class="w-12 h-12"></i></div>
         <div class="empty-title">No Sessions Found</div>
         <div class="empty-text">No workflow sessions match your current filter.</div>
       </div>
     `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     return;
   }
 
@@ -120,8 +121,8 @@ function renderSessionCard(session) {
       </div>
       <div class="session-body">
         <div class="session-meta">
-          <span class="session-meta-item">📅 ${formatDate(date)}</span>
-          <span class="session-meta-item">📋 ${taskCount} tasks</span>
+          <span class="session-meta-item"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>${formatDate(date)}</span>
+          <span class="session-meta-item"><i data-lucide="list-checks" class="w-3.5 h-3.5 inline mr-1"></i>${taskCount} tasks</span>
         </div>
         ${taskCount > 0 ? `
           <div class="progress-container">
@@ -171,16 +172,16 @@ function renderReviewSessionCard(session, sessionKey, typeBadge, isActive, date)
       </div>
       <div class="session-body">
         <div class="session-meta">
-          <span class="session-meta-item">📅 ${formatDate(date)}</span>
-          <span class="session-meta-item">🔍 ${totalFindings} findings</span>
+          <span class="session-meta-item"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>${formatDate(date)}</span>
+          <span class="session-meta-item"><i data-lucide="search" class="w-3.5 h-3.5 inline mr-1"></i>${totalFindings} findings</span>
         </div>
         ${totalFindings > 0 ? `
           <div class="review-findings-summary">
             <div class="findings-severity-row">
-              ${criticalCount > 0 ? `<span class="finding-count critical">🔴 ${criticalCount}</span>` : ''}
-              ${highCount > 0 ? `<span class="finding-count high">🟠 ${highCount}</span>` : ''}
-              ${mediumCount > 0 ? `<span class="finding-count medium">🟡 ${mediumCount}</span>` : ''}
-              ${lowCount > 0 ? `<span class="finding-count low">🟢 ${lowCount}</span>` : ''}
+              ${criticalCount > 0 ? `<span class="finding-count critical"><i data-lucide="alert-circle" class="w-3 h-3 inline"></i> ${criticalCount}</span>` : ''}
+              ${highCount > 0 ? `<span class="finding-count high"><i data-lucide="alert-triangle" class="w-3 h-3 inline"></i> ${highCount}</span>` : ''}
+              ${mediumCount > 0 ? `<span class="finding-count medium"><i data-lucide="info" class="w-3 h-3 inline"></i> ${mediumCount}</span>` : ''}
+              ${lowCount > 0 ? `<span class="finding-count low"><i data-lucide="check-circle" class="w-3 h-3 inline"></i> ${lowCount}</span>` : ''}
             </div>
             <div class="dimensions-info">
               ${dimensions.length} dimensions

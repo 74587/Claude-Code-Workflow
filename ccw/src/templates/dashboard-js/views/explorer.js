@@ -13,6 +13,7 @@ let explorerExpandedDirs = new Set();
 let updateTaskQueue = [];
 let isTaskQueueVisible = false;
 let isTaskRunning = false;
+let defaultCliTool = 'gemini'; // Default CLI tool for updates
 
 
 /**
@@ -75,16 +76,26 @@ async function renderExplorer() {
         <span class="task-queue-title"><i data-lucide="clipboard-list" class="w-4 h-4 inline-block mr-1"></i> Update Tasks</span>
         <button class="task-queue-close" onclick="toggleTaskQueue()">×</button>
       </div>
-      <div class="task-queue-actions">
-        <button class="queue-action-btn" onclick="openAddTaskModal()" title="Add update task">
-          <i data-lucide="plus" class="w-4 h-4"></i> Add
-        </button>
-        <button class="queue-action-btn queue-start-btn" onclick="startTaskQueue()" id="startQueueBtn" disabled>
-          <i data-lucide="play" class="w-4 h-4"></i> Start
-        </button>
-        <button class="queue-action-btn queue-clear-btn" onclick="clearCompletedTasks()" title="Clear completed">
-          <i data-lucide="trash-2" class="w-4 h-4"></i> Clear
-        </button>
+      <div class="task-queue-toolbar">
+        <div class="queue-cli-selector">
+          <label>CLI:</label>
+          <select id="queueCliTool" onchange="updateDefaultCliTool(this.value)">
+            <option value="gemini">Gemini</option>
+            <option value="qwen">Qwen</option>
+            <option value="codex">Codex</option>
+          </select>
+        </div>
+        <div class="task-queue-actions">
+          <button class="queue-action-btn" onclick="openAddTaskModal()" title="Add update task">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+          </button>
+          <button class="queue-action-btn queue-start-btn" onclick="startTaskQueue()" id="startQueueBtn" disabled title="Start all tasks">
+            <i data-lucide="play" class="w-4 h-4"></i>
+          </button>
+          <button class="queue-action-btn queue-clear-btn" onclick="clearCompletedTasks()" title="Clear completed">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
       <div class="task-queue-list" id="taskQueueList">
         <div class="task-queue-empty">
@@ -577,6 +588,13 @@ function toggleTaskQueue() {
 }
 
 /**
+ * Update default CLI tool
+ */
+function updateDefaultCliTool(tool) {
+  defaultCliTool = tool;
+}
+
+/**
  * Update the FAB badge count
  */
 function updateFabBadge() {
@@ -659,7 +677,8 @@ function addUpdateTask(path, tool = 'gemini', strategy = 'single-layer') {
  * Add task from folder context (right-click or button)
  */
 function addFolderToQueue(folderPath, strategy = 'single-layer') {
-  addUpdateTask(folderPath, 'gemini', strategy);
+  // Use the selected CLI tool from the queue panel
+  addUpdateTask(folderPath, defaultCliTool, strategy);
   
   // Show task queue if not visible
   if (!isTaskQueueVisible) {
@@ -740,7 +759,55 @@ function clearCompletedTasks() {
 }
 
 /**
- * Start processing task queue
+ * Execute a single task asynchronously
+ */
+async function executeTask(task) {
+  const folderName = task.path.split('/').pop() || task.path;
+  
+  // Update status to running
+  task.status = 'running';
+  task.message = 'Processing...';
+  renderTaskQueue();
+  
+  addGlobalNotification('info', `Processing: ${folderName}`, `Strategy: ${task.strategy}, Tool: ${task.tool}`, 'Explorer');
+  
+  try {
+    const response = await fetch('/api/update-claude-md', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: task.path,
+        tool: task.tool,
+        strategy: task.strategy
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      task.status = 'completed';
+      task.message = 'Updated successfully';
+      addGlobalNotification('success', `Completed: ${folderName}`, result.message, 'Explorer');
+      return { success: true };
+    } else {
+      task.status = 'failed';
+      task.message = result.error || 'Update failed';
+      addGlobalNotification('error', `Failed: ${folderName}`, result.error || 'Unknown error', 'Explorer');
+      return { success: false };
+    }
+  } catch (error) {
+    task.status = 'failed';
+    task.message = error.message;
+    addGlobalNotification('error', `Error: ${folderName}`, error.message, 'Explorer');
+    return { success: false };
+  } finally {
+    renderTaskQueue();
+    updateFabBadge();
+  }
+}
+
+/**
+ * Start processing task queue - executes tasks asynchronously in parallel
  */
 async function startTaskQueue() {
   if (isTaskRunning) return;
@@ -751,55 +818,13 @@ async function startTaskQueue() {
   isTaskRunning = true;
   document.getElementById('startQueueBtn').disabled = true;
   
-  addGlobalNotification('info', `Starting ${pendingTasks.length} task(s)...`, null, 'Explorer');
+  addGlobalNotification('info', `Starting ${pendingTasks.length} task(s) in parallel...`, null, 'Explorer');
   
-  let successCount = 0;
-  let failCount = 0;
+  // Execute all tasks in parallel
+  const results = await Promise.all(pendingTasks.map(task => executeTask(task)));
   
-  for (const task of pendingTasks) {
-    const folderName = task.path.split('/').pop() || task.path;
-    
-    // Update status to running
-    task.status = 'running';
-    task.message = 'Processing...';
-    renderTaskQueue();
-    
-    addGlobalNotification('info', `Processing: ${folderName}`, `Strategy: ${task.strategy}, Tool: ${task.tool}`, 'Explorer');
-    
-    try {
-      const response = await fetch('/api/update-claude-md', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: task.path,
-          tool: task.tool,
-          strategy: task.strategy
-        })
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        task.status = 'completed';
-        task.message = 'Updated successfully';
-        successCount++;
-        addGlobalNotification('success', `Completed: ${folderName}`, result.message, 'Explorer');
-      } else {
-        task.status = 'failed';
-        task.message = result.error || 'Update failed';
-        failCount++;
-        addGlobalNotification('error', `Failed: ${folderName}`, result.error || 'Unknown error', 'Explorer');
-      }
-    } catch (error) {
-      task.status = 'failed';
-      task.message = error.message;
-      failCount++;
-      addGlobalNotification('error', `Error: ${folderName}`, error.message, 'Explorer');
-    }
-    
-    renderTaskQueue();
-    updateFabBadge();
-  }
+  const successCount = results.filter(r => r.success).length;
+  const failCount = results.filter(r => !r.success).length;
   
   isTaskRunning = false;
   

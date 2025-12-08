@@ -52,7 +52,7 @@ async function renderMcpManager() {
 
         ${currentProjectServerNames.length === 0 ? `
           <div class="mcp-empty-state bg-card border border-border rounded-lg p-6 text-center">
-            <div class="text-3xl mb-3">🔌</div>
+            <div class="text-muted-foreground mb-3"><i data-lucide="plug" class="w-10 h-10 mx-auto"></i></div>
             <p class="text-muted-foreground">No MCP servers configured for this project</p>
             <p class="text-sm text-muted-foreground mt-1">Add servers from the available list below</p>
           </div>
@@ -72,7 +72,7 @@ async function renderMcpManager() {
         <div class="mcp-section mb-6">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
-              <span class="text-lg">🏢</span>
+              <i data-lucide="building-2" class="w-5 h-5"></i>
               <h3 class="text-lg font-semibold text-foreground">Enterprise MCP Servers</h3>
               <span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full">Managed</span>
             </div>
@@ -92,7 +92,7 @@ async function renderMcpManager() {
         <div class="mcp-section mb-6">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
-              <span class="text-lg">👤</span>
+              <i data-lucide="user" class="w-5 h-5"></i>
               <h3 class="text-lg font-semibold text-foreground">User MCP Servers</h3>
             </div>
             <span class="text-sm text-muted-foreground">${userServerEntries.length} servers from ~/.claude.json</span>
@@ -154,7 +154,7 @@ async function renderMcpManager() {
                   <tr class="border-b border-border last:border-b-0 ${isCurrentProject ? 'bg-primary/5' : 'hover:bg-hover/50'}">
                     <td class="px-4 py-3">
                       <div class="flex items-center gap-2 min-w-0">
-                        <span class="text-base shrink-0">${isCurrentProject ? '📍' : '📁'}</span>
+                        <span class="shrink-0">${isCurrentProject ? '<i data-lucide="map-pin" class="w-4 h-4 text-primary"></i>' : '<i data-lucide="folder" class="w-4 h-4"></i>'}</span>
                         <div class="min-w-0">
                           <div class="font-medium text-foreground truncate text-sm" title="${escapeHtml(path)}">
                             ${escapeHtml(path.split('\\').pop() || path)}
@@ -208,7 +208,7 @@ function renderMcpServerCard(serverName, serverConfig, isEnabled, isInCurrentPro
     <div class="mcp-server-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all ${isEnabled ? '' : 'opacity-60'}">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
-          <span class="text-xl">${isEnabled ? '🟢' : '🔴'}</span>
+          <span>${isEnabled ? '<i data-lucide="check-circle" class="w-5 h-5 text-success"></i>' : '<i data-lucide="x-circle" class="w-5 h-5 text-destructive"></i>'}</span>
           <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
         </div>
         <label class="mcp-toggle relative inline-flex items-center cursor-pointer">
@@ -261,7 +261,7 @@ function renderAvailableServerCard(serverName, serverInfo) {
     <div class="mcp-server-card mcp-server-available bg-card border border-border border-dashed rounded-lg p-4 hover:shadow-md hover:border-solid transition-all">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
-          <span class="text-xl">⚪</span>
+          <span><i data-lucide="circle-dashed" class="w-5 h-5 text-muted-foreground"></i></span>
           <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
         </div>
         <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
@@ -295,7 +295,7 @@ function renderGlobalServerCard(serverName, serverConfig, source = 'user') {
     <div class="mcp-server-card mcp-server-global bg-card border border-primary/30 rounded-lg p-4 hover:shadow-md transition-all">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
-          <span class="text-xl">👤</span>
+          <i data-lucide="user" class="w-5 h-5"></i>
           <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
           <span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">User</span>
         </div>
@@ -342,10 +342,10 @@ function renderEnterpriseServerCard(serverName, serverConfig) {
     <div class="mcp-server-card mcp-server-enterprise bg-card border border-warning/30 rounded-lg p-4 hover:shadow-md transition-all">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
-          <span class="text-xl">🏢</span>
+          <i data-lucide="building-2" class="w-5 h-5"></i>
           <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
           <span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full">Enterprise</span>
-          <span class="text-xs text-muted-foreground">🔒</span>
+          <i data-lucide="lock" class="w-3 h-3 text-muted-foreground"></i>
         </div>
         <span class="px-3 py-1 text-xs bg-muted text-muted-foreground rounded cursor-not-allowed">
           Read-only

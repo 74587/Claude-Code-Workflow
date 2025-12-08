@@ -12,13 +12,14 @@ function renderProjectOverview() {
   if (!project) {
     container.innerHTML = `
       <div class="flex flex-col items-center justify-center py-16 text-center">
-        <div class="text-6xl mb-4">📋</div>
+        <div class="text-muted-foreground mb-4"><i data-lucide="clipboard-list" class="w-16 h-16"></i></div>
         <h3 class="text-xl font-semibold text-foreground mb-2">No Project Overview</h3>
         <p class="text-muted-foreground mb-4">
           Run <code class="px-2 py-1 bg-muted rounded text-sm font-mono">/workflow:init</code> to initialize project analysis
         </p>
       </div>
     `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     return;
   }
 
@@ -40,7 +41,7 @@ function renderProjectOverview() {
     <!-- Technology Stack -->
     <div class="bg-card border border-border rounded-lg p-6 mb-6">
       <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-        <span>💻</span> Technology Stack
+        <i data-lucide="code-2" class="w-5 h-5"></i> Technology Stack
       </h3>
 
       <!-- Languages -->
@@ -91,7 +92,7 @@ function renderProjectOverview() {
     <!-- Architecture -->
     <div class="bg-card border border-border rounded-lg p-6 mb-6">
       <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-        <span>🏗️</span> Architecture
+        <i data-lucide="blocks" class="w-5 h-5"></i> Architecture
       </h3>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -128,7 +129,7 @@ function renderProjectOverview() {
     <!-- Key Components -->
     <div class="bg-card border border-border rounded-lg p-6 mb-6">
       <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-        <span>⚙️</span> Key Components
+        <i data-lucide="component" class="w-5 h-5"></i> Key Components
       </h3>
 
       ${project.keyComponents.length > 0 ? `
@@ -162,7 +163,7 @@ function renderProjectOverview() {
     <!-- Development Index -->
     <div class="bg-card border border-border rounded-lg p-6 mb-6">
       <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-        <span>📝</span> Development History
+        <i data-lucide="git-branch" class="w-5 h-5"></i> Development History
       </h3>
 
       ${renderDevelopmentIndex(project.developmentIndex)}
@@ -171,7 +172,7 @@ function renderProjectOverview() {
     <!-- Statistics -->
     <div class="bg-card border border-border rounded-lg p-6">
       <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-        <span>📊</span> Statistics
+        <i data-lucide="bar-chart-3" class="w-5 h-5"></i> Statistics
       </h3>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -196,11 +197,11 @@ function renderDevelopmentIndex(devIndex) {
   if (!devIndex) return '<p class="text-muted-foreground text-sm">No development history available</p>';
 
   const categories = [
-    { key: 'feature', label: 'Features', icon: '✨', badgeClass: 'bg-primary-light text-primary' },
-    { key: 'enhancement', label: 'Enhancements', icon: '⚡', badgeClass: 'bg-success-light text-success' },
-    { key: 'bugfix', label: 'Bug Fixes', icon: '🐛', badgeClass: 'bg-destructive/10 text-destructive' },
-    { key: 'refactor', label: 'Refactorings', icon: '🔧', badgeClass: 'bg-warning-light text-warning' },
-    { key: 'docs', label: 'Documentation', icon: '📚', badgeClass: 'bg-muted text-muted-foreground' }
+    { key: 'feature', label: 'Features', icon: '<i data-lucide="sparkles" class="w-4 h-4 inline"></i>', badgeClass: 'bg-primary-light text-primary' },
+    { key: 'enhancement', label: 'Enhancements', icon: '<i data-lucide="zap" class="w-4 h-4 inline"></i>', badgeClass: 'bg-success-light text-success' },
+    { key: 'bugfix', label: 'Bug Fixes', icon: '<i data-lucide="bug" class="w-4 h-4 inline"></i>', badgeClass: 'bg-destructive/10 text-destructive' },
+    { key: 'refactor', label: 'Refactorings', icon: '<i data-lucide="wrench" class="w-4 h-4 inline"></i>', badgeClass: 'bg-warning-light text-warning' },
+    { key: 'docs', label: 'Documentation', icon: '<i data-lucide="book-open" class="w-4 h-4 inline"></i>', badgeClass: 'bg-muted text-muted-foreground' }
   ];
 
   const totalEntries = categories.reduce((sum, cat) => sum + (devIndex[cat.key]?.length || 0), 0);

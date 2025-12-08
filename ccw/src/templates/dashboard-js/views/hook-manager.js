@@ -41,7 +41,7 @@ async function renderHookManager() {
 
         ${projectHookCount === 0 ? `
           <div class="hook-empty-state bg-card border border-border rounded-lg p-6 text-center">
-            <div class="text-3xl mb-3">🪝</div>
+            <div class="text-muted-foreground mb-3"><i data-lucide="webhook" class="w-10 h-10 mx-auto"></i></div>
             <p class="text-muted-foreground">No hooks configured for this project</p>
             <p class="text-sm text-muted-foreground mt-1">Create a hook to automate actions on tool usage</p>
           </div>
@@ -160,7 +160,7 @@ function renderHooksByEvent(hooks, scope) {
         <div class="hook-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all">
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-2">
-              <span class="text-xl">${getHookEventIcon(event)}</span>
+              ${getHookEventIconLucide(event)}
               <div>
                 <h4 class="font-semibold text-foreground">${event}</h4>
                 <p class="text-xs text-muted-foreground">${getHookEventDescription(event)}</p>
@@ -173,7 +173,7 @@ function renderHooksByEvent(hooks, scope) {
                       data-index="${index}"
                       data-action="edit"
                       title="Edit hook">
-                ✏️
+                <i data-lucide="pencil" class="w-4 h-4"></i>
               </button>
               <button class="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
                       data-scope="${scope}"
@@ -181,7 +181,7 @@ function renderHooksByEvent(hooks, scope) {
                       data-index="${index}"
                       data-action="delete"
                       title="Delete hook">
-                🗑️
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
           </div>
@@ -215,7 +215,7 @@ function renderQuickInstallCard(templateId, title, description, event, matcher) 
     <div class="hook-template-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all ${isInstalled ? 'border-success bg-success-light/30' : ''}">
       <div class="flex items-start justify-between mb-3">
         <div class="flex items-center gap-2">
-          <span class="text-xl">${isInstalled ? '✅' : '🪝'}</span>
+          ${isInstalled ? '<i data-lucide="check-circle" class="w-5 h-5 text-success"></i>' : '<i data-lucide="webhook" class="w-5 h-5"></i>'}
           <div>
             <h4 class="font-semibold text-foreground">${escapeHtml(title)}</h4>
             <p class="text-xs text-muted-foreground">${escapeHtml(description)}</p>

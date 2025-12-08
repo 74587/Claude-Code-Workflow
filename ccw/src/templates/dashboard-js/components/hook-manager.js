@@ -271,3 +271,13 @@ function getHookEventIcon(event) {
   };
   return icons[event] || '🪝';
 }
+
+function getHookEventIconLucide(event) {
+  const icons = {
+    'PreToolUse': '<i data-lucide="clock" class="w-5 h-5"></i>',
+    'PostToolUse': '<i data-lucide="check-circle" class="w-5 h-5"></i>',
+    'Notification': '<i data-lucide="bell" class="w-5 h-5"></i>',
+    'Stop': '<i data-lucide="octagon-x" class="w-5 h-5"></i>'
+  };
+  return icons[event] || '<i data-lucide="webhook" class="w-5 h-5"></i>';
+}

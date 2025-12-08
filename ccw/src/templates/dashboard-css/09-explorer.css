@@ -847,11 +847,55 @@
   color: hsl(var(--foreground));
 }
 
+/* Task Queue Toolbar */
+.task-queue-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid hsl(var(--border));
+  gap: 8px;
+}
+
+/* CLI Selector */
+.queue-cli-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.queue-cli-selector label {
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.queue-cli-selector select {
+  padding: 5px 8px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 100px;
+}
+
+.queue-cli-selector select:hover {
+  border-color: hsl(var(--primary));
+}
+
+.queue-cli-selector select:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+}
+
 .task-queue-actions {
   display: flex;
-  gap: 8px;
-  padding: 10px 16px;
-  border-bottom: 1px solid hsl(var(--border));
+  gap: 4px;
 }
 
 .queue-action-btn {
