@@ -5,7 +5,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-v6.1.2-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
+[![Version](https://img.shields.io/badge/version-v6.1.3-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
 [![npm](https://img.shields.io/npm/v/claude-code-workflow.svg)](https://www.npmjs.com/package/claude-code-workflow)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -18,11 +18,11 @@
 
 **Claude Code Workflow (CCW)** is a JSON-driven multi-agent development framework with intelligent CLI orchestration (Gemini/Qwen/Codex), context-first architecture, and automated workflow execution. It transforms AI development from simple prompt chaining into a powerful orchestration system.
 
-> **🎉 Version 6.1.2: Dashboard Update Notification & Bug Fixes**
+> **🎉 Version 6.1.3: CLI Tool Simplification**
 >
 > **Core Improvements**:
-> - 🔔 **Version Update Notification**: Dashboard now checks npm for updates and displays upgrade banner
-> - 🔧 **Hook Manager Fix**: Fixed button click event handling for edit/delete operations
+> - 🔧 **Simplified edit_file**: Parameter-based input only (`--path`, `--old`, `--new`)
+> - 📝 **Updated tool-strategy.md**: Added sed as line operation alternative
 >
 > See [CHANGELOG.md](CHANGELOG.md) for complete details.
 
