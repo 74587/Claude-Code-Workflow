@@ -39,6 +39,11 @@ function scanLiteDir(dir, type) {
           tasks: loadTaskJsons(sessionPath)
         };
 
+        // For lite-fix sessions, also load diagnoses separately
+        if (type === 'lite-fix') {
+          session.diagnoses = loadDiagnoses(sessionPath);
+        }
+
         // Calculate progress
         session.progress = calculateProgress(session.tasks);
 
@@ -268,7 +273,7 @@ export function getLiteTaskDetail(workflowDir, type, sessionId) {
 
   if (!existsSync(dir)) return null;
 
-  return {
+  const detail = {
     id: sessionId,
     type,
     path: dir,
@@ -277,6 +282,13 @@ export function getLiteTaskDetail(workflowDir, type, sessionId) {
     explorations: loadExplorations(dir),
     clarifications: loadClarifications(dir)
   };
+
+  // For lite-fix sessions, also load diagnoses
+  if (type === 'lite-fix') {
+    detail.diagnoses = loadDiagnoses(dir);
+  }
+
+  return detail;
 }
 
 /**
@@ -311,4 +323,51 @@ function loadClarifications(sessionPath) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Load diagnosis files for lite-fix sessions
+ * Loads diagnosis-*.json files from session root directory
+ * @param {string} sessionPath - Session directory path
+ * @returns {Object} - Diagnoses data with manifest and items
+ */
+function loadDiagnoses(sessionPath) {
+  const result = {
+    manifest: null,
+    items: []
+  };
+
+  // Try to load diagnoses-manifest.json first
+  const manifestPath = join(sessionPath, 'diagnoses-manifest.json');
+  if (existsSync(manifestPath)) {
+    try {
+      result.manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    } catch {
+      // Continue without manifest
+    }
+  }
+
+  // Load all diagnosis-*.json files from session root
+  try {
+    const diagnosisFiles = readdirSync(sessionPath)
+      .filter(f => f.startsWith('diagnosis-') && f.endsWith('.json'));
+
+    for (const file of diagnosisFiles) {
+      const filePath = join(sessionPath, file);
+      try {
+        const content = JSON.parse(readFileSync(filePath, 'utf8'));
+        result.items.push({
+          id: file.replace('diagnosis-', '').replace('.json', ''),
+          filename: file,
+          ...content
+        });
+      } catch {
+        // Skip invalid files
+      }
+    }
+  } catch {
+    // Return empty items if directory read fails
+  }
+
+  return result;
 }

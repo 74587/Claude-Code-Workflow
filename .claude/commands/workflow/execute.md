@@ -67,7 +67,9 @@ Phase 4: Execution Strategy & Task Execution
          ├─ Get next in_progress task from TodoWrite
          ├─ Lazy load task JSON
          ├─ Launch agent with task context
-         ├─ Mark task completed
+         ├─ Mark task completed (update IMPL-*.json status)
+         │  # Quick fix: Update task status for ccw dashboard
+         │  # TS=$(date -Iseconds) && jq --arg ts "$TS" '.status="completed" | .status_history=(.status_history // [])+[{"from":"in_progress","to":"completed","changed_at":$ts}]' IMPL-X.json > tmp.json && mv tmp.json IMPL-X.json
          └─ Advance to next task
 
 Phase 5: Completion

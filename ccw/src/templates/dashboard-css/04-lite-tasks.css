@@ -841,3 +841,331 @@
   overflow: hidden;
 }
 
+/* ===================================
+   Fix Plan Enhanced Styles
+   =================================== */
+
+.plan-root-cause-text,
+.plan-strategy-text,
+.plan-requirements-text {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / 0.3);
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  border-left: 3px solid hsl(var(--primary));
+}
+
+.severity-badge,
+.risk-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.severity-badge.critical,
+.risk-badge.high {
+  background: hsl(0 70% 50% / 0.15);
+  color: hsl(0 70% 45%);
+}
+
+.severity-badge.high,
+.risk-badge.medium {
+  background: hsl(30 90% 50% / 0.15);
+  color: hsl(30 90% 40%);
+}
+
+.severity-badge.medium {
+  background: hsl(45 90% 50% / 0.15);
+  color: hsl(45 80% 35%);
+}
+
+.severity-badge.low,
+.risk-badge.low {
+  background: hsl(142 70% 50% / 0.15);
+  color: hsl(142 70% 35%);
+}
+
+.fix-tasks-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fix-task-summary-item {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.fix-task-summary-item .collapsible-header {
+  padding: 0.75rem 1rem;
+}
+
+.task-num {
+  font-weight: 600;
+  color: hsl(var(--primary));
+  font-size: 0.85rem;
+}
+
+.task-title-brief {
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  flex: 1;
+}
+
+.task-scope-badge {
+  padding: 0.125rem 0.5rem;
+  background: hsl(var(--muted));
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.task-detail-section {
+  margin-bottom: 1rem;
+}
+
+.task-detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.task-detail-section strong {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 0.5rem;
+}
+
+.mod-points-list,
+.verify-list {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.8rem;
+}
+
+.mod-points-list li,
+.verify-list li {
+  margin-bottom: 0.375rem;
+  line-height: 1.5;
+}
+
+.mod-points-list code {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+  background: hsl(var(--muted));
+  border-radius: 0.25rem;
+  color: hsl(var(--primary));
+}
+
+.func-name {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+}
+
+.change-type {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.7rem;
+  font-style: italic;
+}
+
+/* ===================================
+   Diagnoses Tab Styles
+   =================================== */
+
+.diagnoses-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.diagnoses-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.diagnoses-manifest-section {
+  background: hsl(var(--muted) / 0.3);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.manifest-meta-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.diagnoses-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.diagnosis-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.diagnosis-header {
+  background: hsl(var(--muted) / 0.3);
+}
+
+.diagnosis-id {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.diag-section {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.diag-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.diag-section strong {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 0.5rem;
+}
+
+.diag-section p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+}
+
+.issues-list {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.85rem;
+}
+
+.issue-item {
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 0.25rem;
+}
+
+.issue-title {
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+.issue-location {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.issue-location code {
+  padding: 0.125rem 0.375rem;
+  background: hsl(var(--muted));
+  border-radius: 0.25rem;
+  color: hsl(var(--primary));
+}
+
+.contracts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.contract-item {
+  padding: 0.75rem;
+  background: hsl(var(--muted) / 0.3);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+}
+
+.contract-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.contract-endpoint {
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+.contract-method {
+  padding: 0.125rem 0.375rem;
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.contract-desc {
+  font-size: 0.8rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.contract-issues {
+  font-size: 0.75rem;
+  color: hsl(0 70% 50%);
+  margin-top: 0.25rem;
+}
+
+.dataflow-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.df-item {
+  font-size: 0.85rem;
+}
+
+.df-label {
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.df-transforms {
+  margin: 0.25rem 0 0 1rem;
+  padding-left: 0;
+}
+
+.recommendations-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+}
+
+.recommendations-list li {
+  margin-bottom: 0.375rem;
+  line-height: 1.5;
+}
+
