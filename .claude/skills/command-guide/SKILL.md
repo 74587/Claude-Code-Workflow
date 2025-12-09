@@ -1,13 +1,13 @@
 ---
 name: command-guide
-description: Workflow command guide for Claude DMS3 (78 commands). Search/browse commands, get next-step recommendations, view documentation, report issues. Triggers "CCW-help", "CCW-issue", "ccw-help", "ccw-issue", "ccw"
+description: Workflow command guide for Claude Code Workflow (78 commands). Search/browse commands, get next-step recommendations, view documentation, report issues. Triggers "CCW-help", "CCW-issue", "ccw-help", "ccw-issue", "ccw"
 allowed-tools: Read, Grep, Glob, AskUserQuestion
 version: 5.8.0
 ---
 
 # Command Guide Skill
 
-Comprehensive command guide for Claude DMS3 workflow system covering 78 commands across 5 categories (workflow, cli, memory, task, general).
+Comprehensive command guide for Claude Code Workflow (CCW) system covering 78 commands across 5 categories (workflow, cli, memory, task, general).
 
 ## 🆕 What's New in v5.8.0
 
@@ -385,4 +385,4 @@ This SKILL documentation is kept in sync with command implementations through a 
 - 4 issue templates for standardized problem reporting
 - CLI-assisted complex query analysis with gemini/qwen integration
 
-**Maintainer**: Claude DMS3 Team
+**Maintainer**: CCW Team
