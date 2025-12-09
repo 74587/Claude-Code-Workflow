@@ -5,6 +5,33 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.1.3] - 2025-12-09
+
+### 🔧 CLI Tool Simplification
+
+This release simplifies the `ccw tool exec edit_file` command for better usability.
+
+#### 🔄 Changed
+- **Simplified edit_file**: Removed JSON input support, now uses parameter-based input only (`--path`, `--old`, `--new`)
+- **Removed line mode**: Line operations now recommended via `sed` command
+- **Updated tool-strategy.md**: Added sed as line operation alternative with usage examples
+
+#### Usage
+```bash
+ccw tool exec edit_file --path "file.txt" --old "old text" --new "new text"
+```
+
+## [6.1.2] - 2025-12-09
+
+### 🔔 Dashboard Update Notification & Bug Fixes
+
+#### ✨ Added
+- **Version Update Notification**: Dashboard now checks npm registry for updates and displays upgrade banner
+- **Version Check API**: New `/api/version-check` endpoint with 1-hour cache
+
+#### 🐛 Fixed
+- **Hook Manager**: Fixed button click event handling for edit/delete operations (changed `e.target` to `e.currentTarget`)
+
 ## [5.9.6] - 2025-11-28
 
 ### 🚀 Review Cycle & Dashboard Enhancement
