@@ -12,7 +12,7 @@
 
 ## ⚡ CCW edit_file Tool (AI-Powered Editing)
 
-**When to Use**: Edit tool fails 2+ times on same file
+**When to Use**: Edit tool fails 1+ times on same file
 
 ### update Mode (Default)
 
@@ -25,12 +25,6 @@ ccw tool exec edit_file '{
   "newText": "def new():\n    return True"
 }'
 ```
-
-**Features**:
-- ✅ Exact text matching (precise and predictable)
-- ✅ Auto line ending adaptation (CRLF/LF)
-- ✅ Simple `oldText` → `newText` replacement
-- ✅ No special markers needed
 
 ### line Mode (Precise Line Operations)
 
