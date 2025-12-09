@@ -67,79 +67,12 @@ async function schemaAction(options) {
 }
 
 /**
- * Read from stdin if available
- */
-async function readStdin() {
-  // Check if stdin is a TTY (interactive terminal)
-  if (process.stdin.isTTY) {
-    return null;
-  }
-
-  return new Promise((resolve, reject) => {
-    let data = '';
-
-    process.stdin.setEncoding('utf8');
-
-    process.stdin.on('readable', () => {
-      let chunk;
-      while ((chunk = process.stdin.read()) !== null) {
-        data += chunk;
-      }
-    });
-
-    process.stdin.on('end', () => {
-      resolve(data.trim() || null);
-    });
-
-    process.stdin.on('error', (err) => {
-      reject(err);
-    });
-  });
-}
-
-/**
- * Smart JSON parser with Windows path handling
- */
-function parseJsonWithPathFix(jsonString) {
-  try {
-    // Try normal parse first
-    return JSON.parse(jsonString);
-  } catch (firstError) {
-    // If parsing fails, try to fix Windows paths
-    try {
-      // Pattern: "path": "X:\..." or "path":"X:\..."
-      const fixedJson = jsonString.replace(
-        /("(?:path|file|target|source|dest|destination)":\s*")([A-Za-z]:[^"]+)"/g,
-        (match, prefix, path) => {
-          // Convert backslashes to forward slashes (universal)
-          const fixedPath = path.replace(/\\/g, '/');
-          return `${prefix}${fixedPath}"`;
-        }
-      );
-      
-      return JSON.parse(fixedJson);
-    } catch (secondError) {
-      // If still fails, throw original error with helpful message
-      const errorMsg = firstError.message;
-      const hint = errorMsg.includes('escaped character') || errorMsg.includes('position')
-        ? '\n\n' + chalk.yellow('Hint: Windows paths in JSON need forward slashes or double backslashes:') +
-          '\n  ' + chalk.green('✓ "D:/Claude_dms3/file.md"') +
-          '\n  ' + chalk.green('✓ "D:\\\\Claude_dms3\\\\file.md"') +
-          '\n  ' + chalk.red('✗ "D:\\Claude_dms3\\file.md"')
-        : '';
-      
-      throw new Error(errorMsg + hint);
-    }
-  }
-}
-
-/**
  * Execute a tool with given parameters
  */
-async function execAction(toolName, jsonInput, options) {
+async function execAction(toolName, options) {
   if (!toolName) {
     console.error(chalk.red('Tool name is required'));
-    console.error(chalk.gray('Usage: ccw tool exec <tool-name> \'{"param": "value"}\''));
+    console.error(chalk.gray('Usage: ccw tool exec edit_file --path file.txt --old "old" --new "new"'));
     process.exit(1);
   }
 
@@ -150,34 +83,22 @@ async function execAction(toolName, jsonInput, options) {
     process.exit(1);
   }
 
-  // Parse JSON input (default format)
-  let params = {};
+  // Build params from CLI options
+  const params = {};
 
-  if (jsonInput) {
-    try {
-      params = parseJsonWithPathFix(jsonInput);
-    } catch (error) {
-      console.error(chalk.red(`Invalid JSON: ${error.message}`));
+  if (toolName === 'edit_file') {
+    if (!options.path || !options.old || !options.new) {
+      console.error(chalk.red('edit_file requires --path, --old, and --new parameters'));
+      console.error(chalk.gray('Usage: ccw tool exec edit_file --path file.txt --old "old text" --new "new text"'));
       process.exit(1);
     }
-  }
-
-  // Check for stdin input (for piped commands)
-  const stdinData = await readStdin();
-  if (stdinData) {
-    // If tool has an 'input' parameter, use it
-    // Otherwise, try to parse stdin as JSON and merge with params
-    if (tool.parameters?.properties?.input) {
-      params.input = stdinData;
-    } else {
-      try {
-        const stdinJson = JSON.parse(stdinData);
-        params = { ...stdinJson, ...params };
-      } catch {
-        // If not JSON, store as 'input' anyway
-        params.input = stdinData;
-      }
-    }
+    params.path = options.path;
+    params.oldText = options.old;
+    params.newText = options.new;
+  } else {
+    console.error(chalk.red(`Tool "${toolName}" is not supported via CLI parameters`));
+    console.error(chalk.gray('Currently only edit_file is supported'));
+    process.exit(1);
   }
 
   // Execute tool
@@ -200,7 +121,7 @@ export async function toolCommand(subcommand, args, options) {
       await schemaAction({ name: args });
       break;
     case 'exec':
-      await execAction(args, options.json, options);
+      await execAction(args, options);
       break;
     default:
       console.log(chalk.bold.cyan('\nCCW Tool System\n'));
@@ -209,9 +130,9 @@ export async function toolCommand(subcommand, args, options) {
       console.log(chalk.gray('  schema [name]     Show tool schema (JSON)'));
       console.log(chalk.gray('  exec <name>       Execute a tool'));
       console.log();
-      console.log('Examples:');
+      console.log('Usage:');
       console.log(chalk.gray('  ccw tool list'));
       console.log(chalk.gray('  ccw tool schema edit_file'));
-      console.log(chalk.gray('  ccw tool exec edit_file \'{"path":"file.txt","oldText":"old","newText":"new"}\''));
+      console.log(chalk.gray('  ccw tool exec edit_file --path file.txt --old "old text" --new "new text"'));
   }
 }

@@ -14,71 +14,66 @@
 
 **When to Use**: Edit tool fails 1+ times on same file
 
-### update Mode (Default)
+### Usage
 
 **Best for**: Code block replacements, function rewrites, multi-line changes
 
 ```bash
-ccw tool exec edit_file '{
-  "path": "file.py",
-  "oldText": "def old():\n    pass",
-  "newText": "def new():\n    return True"
-}'
+ccw tool exec edit_file --path "file.py" --old "def old():
+    pass" --new "def new():
+    return True"
 ```
 
-### line Mode (Precise Line Operations)
+**Parameters**:
+- `--path`: File path to edit
+- `--old`: Text to find and replace
+- `--new`: New text to insert
 
-**Best for**: Config files, line insertions/deletions, precise line number control
-
-```bash
-# Insert after specific line
-ccw tool exec edit_file '{
-  "path": "config.txt",
-  "mode": "line",
-  "operation": "insert_after",
-  "line": 10,
-  "text": "new config line"
-}'
-
-# Delete line range
-ccw tool exec edit_file '{
-  "path": "log.txt",
-  "mode": "line",
-  "operation": "delete",
-  "line": 5,
-  "end_line": 8
-}'
-
-# Replace specific line
-ccw tool exec edit_file '{
-  "path": "script.sh",
-  "mode": "line",
-  "operation": "replace",
-  "line": 3,
-  "text": "#!/bin/bash"
-}'
-```
-
-**Operations**:
-- `insert_before`: Insert text before specified line
-- `insert_after`: Insert text after specified line
-- `replace`: Replace line or line range
-- `delete`: Delete line or line range
-
-### Mode Selection Guide
-
-| Scenario | Mode | Reason |
-|----------|------|--------|
-| Code refactoring | update | Content-driven replacement |
-| Function rewrite | update | Simple oldText/newText |
-| Config line change | line | Precise line number control |
-| Insert at specific position | line | Exact line number needed |
-| Delete line range | line | Line-based operation |
+**Features**:
+- ✅ Exact text matching (precise and predictable)
+- ✅ Auto line ending adaptation (CRLF/LF)
+- ✅ No JSON escaping issues
+- ✅ Multi-line text supported with quotes
 
 ### Fallback Strategy
 
-1. **Edit fails 1+ times** → Use `ccw tool exec edit_file` (update mode)
-2. **update mode fails** → Try line mode with precise line numbers
-3. **All fails** → Use Write to recreate file
+1. **Edit fails 1+ times** → Use `ccw tool exec edit_file`
+2. **Still fails** → Use Write to recreate file
 
-**Default mode**: update (exact matching with line ending adaptation)
+## ⚡ sed Line Operations (Line Mode Alternative)
+
+**When to Use**: Precise line number control (insert, delete, replace specific lines)
+
+### Common Operations
+
+```bash
+# Insert after line 10
+sed -i '10a\new line content' file.txt
+
+# Insert before line 5
+sed -i '5i\new line content' file.txt
+
+# Delete line 3
+sed -i '3d' file.txt
+
+# Delete lines 5-8
+sed -i '5,8d' file.txt
+
+# Replace line 3 content
+sed -i '3c\replacement line' file.txt
+
+# Replace lines 3-5 content
+sed -i '3,5c\single replacement line' file.txt
+```
+
+### Operation Reference
+
+| Operation | Command | Example |
+|-----------|---------|---------|
+| Insert after | `Na\text` | `sed -i '10a\new' file` |
+| Insert before | `Ni\text` | `sed -i '5i\new' file` |
+| Delete line | `Nd` | `sed -i '3d' file` |
+| Delete range | `N,Md` | `sed -i '5,8d' file` |
+| Replace line | `Nc\text` | `sed -i '3c\new' file` |
+
+**Note**: Use `sed -i` for in-place file modification (works in Git Bash on Windows)

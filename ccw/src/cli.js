@@ -108,9 +108,12 @@ export function run(argv) {
 
   // Tool command
   program
-    .command('tool [subcommand] [args] [json]')
+    .command('tool [subcommand] [args]')
     .description('Execute CCW tools')
-    .action((subcommand, args, json) => toolCommand(subcommand, args, { json }));
+    .option('--path <path>', 'File path (for edit_file)')
+    .option('--old <text>', 'Old text to replace (for edit_file)')
+    .option('--new <text>', 'New text (for edit_file)')
+    .action((subcommand, args, options) => toolCommand(subcommand, args, options));
 
   program.parse(argv);
 }
