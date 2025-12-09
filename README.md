@@ -1,5 +1,8 @@
 # 🚀 Claude Code Workflow (CCW)
 
+[![Run in Smithery](https://smithery.ai/badge/skills/catlog22)](https://smithery.ai/skills?ns=catlog22&utm_source=github&utm_medium=badge)
+
+
 <div align="center">
 
 [![Version](https://img.shields.io/badge/version-v6.1.0-blue.svg)](https://github.com/catlog22/Claude-Code-Workflow/releases)
