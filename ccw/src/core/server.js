@@ -86,6 +86,7 @@ const MODULE_FILES = [
   'components/carousel.js',
   'components/notifications.js',
   'components/global-notifications.js',
+  'components/version-check.js',
   'components/mcp-manager.js',
   'components/hook-manager.js',
   'components/_exp_helpers.js',
@@ -190,6 +191,15 @@ export async function startServer(options = {}) {
         res.end(JSON.stringify({ status: 'ok', timestamp: Date.now() }));
         return;
       }
+
+      // API: Version check (check for npm updates)
+      if (pathname === '/api/version-check') {
+        const versionData = await checkNpmVersion();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(versionData));
+        return;
+      }
+
 
       // API: Shutdown server (for ccw stop command)
       if (pathname === '/api/shutdown' && req.method === 'POST') {
@@ -1945,4 +1955,109 @@ async function triggerUpdateClaudeMd(targetPath, tool, strategy) {
       });
     }, 300000);
   });
+}
+
+
+// ========================================
+// Version Check Functions
+// ========================================
+
+// Package name on npm registry
+const NPM_PACKAGE_NAME = 'claude-code-workflow';
+
+// Cache for version check (avoid too frequent requests)
+let versionCheckCache = null;
+let versionCheckTime = 0;
+const VERSION_CHECK_CACHE_TTL = 3600000; // 1 hour
+
+/**
+ * Get current package version from package.json
+ * @returns {string}
+ */
+function getCurrentVersion() {
+  try {
+    const packageJsonPath = join(import.meta.dirname, '../../../package.json');
+    if (existsSync(packageJsonPath)) {
+      const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+      return pkg.version || '0.0.0';
+    }
+  } catch (e) {
+    console.error('Error reading package.json:', e);
+  }
+  return '0.0.0';
+}
+
+/**
+ * Check npm registry for latest version
+ * @returns {Promise<Object>}
+ */
+async function checkNpmVersion() {
+  // Return cached result if still valid
+  const now = Date.now();
+  if (versionCheckCache && (now - versionCheckTime) < VERSION_CHECK_CACHE_TTL) {
+    return versionCheckCache;
+  }
+
+  const currentVersion = getCurrentVersion();
+
+  try {
+    // Fetch latest version from npm registry
+    const npmUrl = 'https://registry.npmjs.org/' + encodeURIComponent(NPM_PACKAGE_NAME) + '/latest';
+    const response = await fetch(npmUrl, {
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status);
+    }
+
+    const data = await response.json();
+    const latestVersion = data.version;
+
+    // Compare versions
+    const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
+
+    const result = {
+      currentVersion,
+      latestVersion,
+      hasUpdate,
+      packageName: NPM_PACKAGE_NAME,
+      updateCommand: 'npm update -g ' + NPM_PACKAGE_NAME,
+      checkedAt: new Date().toISOString()
+    };
+
+    // Cache the result
+    versionCheckCache = result;
+    versionCheckTime = now;
+
+    return result;
+  } catch (error) {
+    console.error('Version check failed:', error.message);
+    return {
+      currentVersion,
+      latestVersion: null,
+      hasUpdate: false,
+      error: error.message,
+      checkedAt: new Date().toISOString()
+    };
+  }
+}
+
+/**
+ * Compare two semver versions
+ * @param {string} v1
+ * @param {string} v2
+ * @returns {number} 1 if v1 > v2, -1 if v1 < v2, 0 if equal
+ */
+function compareVersions(v1, v2) {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+
+  for (let i = 0; i < 3; i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
 }

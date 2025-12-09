@@ -330,9 +330,10 @@ function attachHookEventListeners() {
   // Edit buttons
   document.querySelectorAll('.hook-card button[data-action="edit"]').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const scope = e.target.dataset.scope;
-      const event = e.target.dataset.event;
-      const index = parseInt(e.target.dataset.index);
+      const button = e.currentTarget;
+      const scope = button.dataset.scope;
+      const event = button.dataset.event;
+      const index = parseInt(button.dataset.index);
 
       const hooks = scope === 'global' ? hookConfig.global.hooks : hookConfig.project.hooks;
       const hookList = Array.isArray(hooks[event]) ? hooks[event] : [hooks[event]];
@@ -354,9 +355,10 @@ function attachHookEventListeners() {
   // Delete buttons
   document.querySelectorAll('.hook-card button[data-action="delete"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const scope = e.target.dataset.scope;
-      const event = e.target.dataset.event;
-      const index = parseInt(e.target.dataset.index);
+      const button = e.currentTarget;
+      const scope = button.dataset.scope;
+      const event = button.dataset.event;
+      const index = parseInt(button.dataset.index);
 
       if (confirm(`Remove this ${event} hook?`)) {
         await removeHook(scope, event, index);
@@ -367,7 +369,7 @@ function attachHookEventListeners() {
   // Install project buttons
   document.querySelectorAll('button[data-action="install-project"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const templateId = e.target.dataset.template;
+      const templateId = e.currentTarget.dataset.template;
       await installHookTemplate(templateId, 'project');
     });
   });
@@ -375,7 +377,7 @@ function attachHookEventListeners() {
   // Install global buttons
   document.querySelectorAll('button[data-action="install-global"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const templateId = e.target.dataset.template;
+      const templateId = e.currentTarget.dataset.template;
       await installHookTemplate(templateId, 'global');
     });
   });
@@ -383,7 +385,7 @@ function attachHookEventListeners() {
   // Uninstall buttons
   document.querySelectorAll('button[data-action="uninstall"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const templateId = e.target.dataset.template;
+      const templateId = e.currentTarget.dataset.template;
       await uninstallHookTemplate(templateId);
     });
   });

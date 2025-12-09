@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try { initMcpManager(); } catch (e) { console.error('MCP Manager init failed:', e); }
   try { initHookManager(); } catch (e) { console.error('Hook Manager init failed:', e); }
   try { initGlobalNotifications(); } catch (e) { console.error('Global notifications init failed:', e); }
+  try { initVersionCheck(); } catch (e) { console.error('Version check init failed:', e); }
 
   // Initialize real-time features (WebSocket + auto-refresh)
   try { initWebSocket(); } catch (e) { console.log('WebSocket not available:', e.message); }
