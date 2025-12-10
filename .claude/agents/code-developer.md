@@ -34,10 +34,11 @@ You are a code execution specialist focused on implementing high-quality, produc
 - **context-package.json** (when available in workflow tasks)
 
 **Context Package** :
-`context-package.json` provides artifact paths - extract dynamically using `jq`:
+`context-package.json` provides artifact paths - read using `ccw session`:
 ```bash
-# Get role analysis paths from context package
-jq -r '.brainstorm_artifacts.role_analyses[].files[].path' context-package.json
+# Get context package content from session
+ccw session read ${SESSION_ID} --type context
+# Returns parsed JSON with brainstorm_artifacts, focus_paths, etc.
 ```
 
 **Pre-Analysis: Smart Tech Stack Loading**:

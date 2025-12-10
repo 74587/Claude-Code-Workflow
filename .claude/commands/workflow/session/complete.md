@@ -25,17 +25,15 @@ Mark the currently active workflow session as complete, analyze it for lessons l
 
 #### Step 1.1: Find Active Session and Get Name
 ```bash
-# Find active session directory
-bash(find .workflow/active/ -name "WFS-*" -type d | head -1)
-
-# Extract session name from directory path
-bash(basename .workflow/active/WFS-session-name)
+# Find active session
+ccw session list --location active
+# Extract first session_id from result.active array
 ```
 **Output**: Session name `WFS-session-name`
 
 #### Step 1.2: Check for Existing Archiving Marker (Resume Detection)
 ```bash
-# Check if session is already being archived
+# Check if session is already being archived (marker file exists)
 bash(test -f .workflow/active/WFS-session-name/.archiving && echo "RESUMING" || echo "NEW")
 ```
 
@@ -161,26 +159,17 @@ Analyze workflow session for archival preparation. Session is STILL in active lo
 
 **Purpose**: Atomically commit all changes. Only execute if Phase 2 succeeds.
 
-#### Step 3.1: Create Archive Directory
+#### Step 3.1: Update Session Status and Archive
 ```bash
-bash(mkdir -p .workflow/archives/)
-```
-
-#### Step 3.2: Update Session Status to Completed
-**Purpose**: Update workflow-session.json status to "completed" for dashboard display.
-
-```bash
-# Update status atomically using jq
-bash(jq '.status = "completed"' .workflow/active/WFS-session-name/workflow-session.json > /tmp/ws.json && mv /tmp/ws.json .workflow/active/WFS-session-name/workflow-session.json)
-```
-
-#### Step 3.3: Move Session to Archive
-```bash
-bash(mv .workflow/active/WFS-session-name .workflow/archives/WFS-session-name)
+# Archive session (updates status to "completed" and moves to archives)
+ccw session archive WFS-session-name
+# This operation atomically:
+# 1. Updates workflow-session.json status to "completed"
+# 2. Moves session from .workflow/active/ to .workflow/archives/
 ```
 **Result**: Session now at `.workflow/archives/WFS-session-name/`
 
-#### Step 3.4: Update Manifest
+#### Step 3.2: Update Manifest
 ```bash
 # Read current manifest (or create empty array if not exists)
 bash(test -f .workflow/archives/manifest.json && cat .workflow/archives/manifest.json || echo "[]")

@@ -17,39 +17,35 @@ Resume the most recently paused workflow session, restoring all context and stat
 
 ### Step 1: Find Paused Sessions
 ```bash
-ls .workflow/active/WFS-* 2>/dev/null
+ccw session list --location active
+# Filter for sessions with status="paused"
 ```
 
 ### Step 2: Check Session Status
 ```bash
-jq -r '.status' .workflow/active/WFS-session/workflow-session.json
+ccw session read WFS-session --type session
+# Check .status field in response
 ```
 
 ### Step 3: Find Most Recent Paused
 ```bash
-ls -t .workflow/active/WFS-*/workflow-session.json | head -1
+ccw session list --location active
+# Sort by created_at, filter for paused status
 ```
 
-### Step 4: Update Session Status
+### Step 4: Update Session Status to Active
 ```bash
-jq '.status = "active"' .workflow/active/WFS-session/workflow-session.json > temp.json
-mv temp.json .workflow/active/WFS-session/workflow-session.json
+ccw session status WFS-session active
+# Or with full update:
+ccw session update WFS-session --type session --content '{"status":"active","resumed_at":"2025-12-10T08:00:00Z"}'
 ```
 
-### Step 5: Add Resume Timestamp
-```bash
-jq '.resumed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' .workflow/active/WFS-session/workflow-session.json > temp.json
-mv temp.json .workflow/active/WFS-session/workflow-session.json
-```
-
-## Simple Bash Commands
+## Simple Commands
 
 ### Basic Operations
-- **List sessions**: `ls .workflow/active/WFS-*`
-- **Check status**: `jq -r '.status' session.json`
-- **Find recent**: `ls -t .workflow/active/*/workflow-session.json | head -1`
-- **Update status**: `jq '.status = "active"' session.json > temp.json`
-- **Add timestamp**: `jq '.resumed_at = "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"'`
+- **List sessions**: `ccw session list --location active`
+- **Check status**: `ccw session read WFS-xxx --type session`
+- **Update status**: `ccw session status WFS-xxx active`
 
 ### Resume Result
 ```

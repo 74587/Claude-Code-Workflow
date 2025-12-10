@@ -17,41 +17,30 @@ Display all workflow sessions with their current status, progress, and metadata.
 
 ## Implementation Flow
 
-### Step 1: Find All Sessions
+### Step 1: List All Sessions
 ```bash
-ls .workflow/active/WFS-* 2>/dev/null
+ccw session list --location both
 ```
 
-### Step 2: Check Active Session
+### Step 2: Get Session Statistics
 ```bash
-find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | head -1
+ccw session stats WFS-session
+# Returns: tasks count by status, summaries count, has_plan
 ```
 
 ### Step 3: Read Session Metadata
 ```bash
-jq -r '.session_id, .status, .project' .workflow/active/WFS-session/workflow-session.json
+ccw session read WFS-session --type session
+# Returns: session_id, status, project, created_at, etc.
 ```
 
-### Step 4: Count Task Progress
-```bash
-find .workflow/active/WFS-session/.task/ -name "*.json" -type f 2>/dev/null | wc -l
-find .workflow/active/WFS-session/.summaries/ -name "*.md" -type f 2>/dev/null | wc -l
-```
-
-### Step 5: Get Creation Time
-```bash
-jq -r '.created_at // "unknown"' .workflow/active/WFS-session/workflow-session.json
-```
-
-## Simple Bash Commands
+## Simple Commands
 
 ### Basic Operations
-- **List sessions**: `find .workflow/active/ -name "WFS-*" -type d`
-- **Find active**: `find .workflow/active/ -name "WFS-*" -type d`
-- **Read session data**: `jq -r '.session_id, .status' session.json`
-- **Count tasks**: `find .task/ -name "*.json" -type f | wc -l`
-- **Count completed**: `find .summaries/ -name "*.md" -type f 2>/dev/null | wc -l`
-- **Get timestamp**: `jq -r '.created_at' session.json`
+- **List all sessions**: `ccw session list`
+- **List active only**: `ccw session list --location active`
+- **Read session data**: `ccw session read WFS-xxx --type session`
+- **Get task stats**: `ccw session stats WFS-xxx`
 
 ## Simple Output Format
 
