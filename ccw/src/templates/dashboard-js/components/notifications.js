@@ -60,9 +60,89 @@ function handleNotification(data) {
       }
       break;
 
+    case 'SESSION_CREATED':
+    case 'SESSION_ARCHIVED':
+    case 'TASK_UPDATED':
+    case 'SESSION_UPDATED':
+    case 'TASK_CREATED':
+    case 'SUMMARY_WRITTEN':
+    case 'PLAN_UPDATED':
+    case 'REVIEW_UPDATED':
+    case 'CONTENT_WRITTEN':
+      // Route to state reducer for granular updates
+      if (typeof handleWorkflowEvent === 'function') {
+        handleWorkflowEvent({ type, ...payload });
+      } else {
+        // Fallback to full refresh if reducer not available
+        refreshIfNeeded();
+      }
+      break;
+
+    case 'tool_execution':
+      // Handle tool execution notifications from CLI
+      handleToolExecutionNotification(payload);
+      break;
+
     default:
       console.log('[WS] Unknown notification type:', type);
   }
+}
+
+/**
+ * Handle tool execution notifications from CLI
+ * @param {Object} payload - Tool execution payload
+ */
+function handleToolExecutionNotification(payload) {
+  const { toolName, status, params, result, error, timestamp } = payload;
+
+  // Determine notification type and message
+  let notifType = 'info';
+  let message = `Tool: ${toolName}`;
+  let details = null;
+
+  switch (status) {
+    case 'started':
+      notifType = 'info';
+      message = `Executing ${toolName}...`;
+      if (params) {
+        // Show truncated params
+        const paramStr = JSON.stringify(params);
+        details = paramStr.length > 100 ? paramStr.substring(0, 100) + '...' : paramStr;
+      }
+      break;
+
+    case 'completed':
+      notifType = 'success';
+      message = `${toolName} completed`;
+      if (result) {
+        // Show truncated result
+        if (result._truncated) {
+          details = result.preview;
+        } else {
+          const resultStr = JSON.stringify(result);
+          details = resultStr.length > 150 ? resultStr.substring(0, 150) + '...' : resultStr;
+        }
+      }
+      break;
+
+    case 'failed':
+      notifType = 'error';
+      message = `${toolName} failed`;
+      details = error || 'Unknown error';
+      break;
+
+    default:
+      notifType = 'info';
+      message = `${toolName}: ${status}`;
+  }
+
+  // Add to global notifications
+  if (typeof addGlobalNotification === 'function') {
+    addGlobalNotification(notifType, message, details, 'CLI');
+  }
+
+  // Log to console
+  console.log(`[CLI] ${status}: ${toolName}`, payload);
 }
 
 // ========== Auto Refresh ==========

@@ -198,3 +198,43 @@ SESSION_ID: WFS-promptmaster-platform
 - Characters: `a-z`, `0-9`, `-` only
 - Max length: 50 characters
 - Uniqueness: Add numeric suffix if collision (`WFS-auth-2`, `WFS-auth-3`)
+
+## session_manager Tool Alternative
+
+The above bash commands can be replaced with `ccw tool exec session_manager`:
+
+### List Sessions
+```bash
+# List active sessions with metadata
+ccw tool exec session_manager '{"operation":"list","location":"active","include_metadata":true}'
+
+# Response: {"success":true,"result":{"active":[{"session_id":"WFS-xxx","metadata":{...}}],"total":1}}
+```
+
+### Create Session (replaces mkdir + echo)
+```bash
+# Single command creates directories + metadata
+ccw tool exec session_manager '{
+  "operation": "init",
+  "session_id": "WFS-my-session",
+  "metadata": {
+    "project": "my project description",
+    "status": "planning",
+    "type": "workflow",
+    "created_at": "2025-12-10T08:00:00Z"
+  }
+}'
+```
+
+### Read Session Metadata
+```bash
+ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"session"}'
+```
+
+### Operation Reference
+| Old Pattern | session_manager |
+|------------|-----------------|
+| `ls .workflow/active/` | `{"operation":"list","location":"active"}` |
+| `mkdir -p .../.process .../.task .../.summaries` | `{"operation":"init","session_id":"WFS-xxx"}` |
+| `echo '{...}' > workflow-session.json` | `{"operation":"write","content_type":"session","content":{...}}` |
+| `cat workflow-session.json` | `{"operation":"read","content_type":"session"}` |

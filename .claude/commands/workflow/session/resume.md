@@ -59,3 +59,32 @@ Session WFS-user-auth resumed
 - Resumed at: 2025-09-15T15:45:00Z
 - Ready for: /workflow:execute
 ```
+## session_manager Tool Alternative
+
+Use `ccw tool exec session_manager` for session resume:
+
+### Update Session Status
+```bash
+# Update status to active
+ccw tool exec session_manager '{
+  "operation": "update",
+  "session_id": "WFS-xxx",
+  "content_type": "session",
+  "content": {
+    "status": "active",
+    "resumed_at": "2025-12-10T08:00:00Z"
+  }
+}'
+```
+
+### Read Session Status
+```bash
+ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"session"}'
+```
+
+### Operation Reference
+| Old Pattern | session_manager |
+|------------|-----------------|
+| `jq -r '.status' session.json` | `{"operation":"read","content_type":"session"}` |
+| `jq '.status = "active"' ... > temp.json && mv` | `{"operation":"update","content":{"status":"active"}}` |
+| `jq '.resumed_at = "..."'` | `{"operation":"update","content":{"resumed_at":"..."}}` |

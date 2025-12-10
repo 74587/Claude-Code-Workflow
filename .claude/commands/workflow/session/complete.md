@@ -507,3 +507,64 @@ Session state: PARTIALLY COMPLETE (session archived, manifest needs update)
 - Idempotent operations (safe to retry)
 
 
+
+## session_manager Tool Alternative
+
+Use `ccw tool exec session_manager` for session completion operations:
+
+### List Active Sessions
+```bash
+ccw tool exec session_manager '{"operation":"list","location":"active"}'
+```
+
+### Update Session Status to Completed
+```bash
+ccw tool exec session_manager '{
+  "operation": "update",
+  "session_id": "WFS-xxx",
+  "content_type": "session",
+  "content": {
+    "status": "completed",
+    "archived_at": "2025-12-10T08:00:00Z"
+  }
+}'
+```
+
+### Archive Session
+```bash
+ccw tool exec session_manager '{"operation":"archive","session_id":"WFS-xxx"}'
+
+# This operation:
+# 1. Updates status to "completed" if update_status=true (default)
+# 2. Moves session from .workflow/active/ to .workflow/archives/
+```
+
+### Read Session Data
+```bash
+# Read workflow-session.json
+ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"session"}'
+
+# Read IMPL_PLAN.md
+ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"plan"}'
+```
+
+### Write Archiving Marker
+```bash
+ccw tool exec session_manager '{
+  "operation": "write",
+  "session_id": "WFS-xxx",
+  "content_type": "process",
+  "path_params": {"filename": ".archiving"},
+  "content": ""
+}'
+```
+
+### Operation Reference
+| Old Pattern | session_manager |
+|------------|-----------------|
+| `find .workflow/active/ -name "WFS-*"` | `{"operation":"list","location":"active"}` |
+| `jq '.status = "completed"' ...` | `{"operation":"update","content":{"status":"completed"}}` |
+| `mv .workflow/active/WFS-xxx .workflow/archives/` | `{"operation":"archive","session_id":"WFS-xxx"}` |
+| `touch .archiving` | `{"operation":"write","content_type":"process","path_params":{"filename":".archiving"}}` |
+| `rm .archiving` | Use bash `rm` directly (no delete operation in tool) |
+| `cat manifest.json` | Read manifest directly with bash (outside session scope) |

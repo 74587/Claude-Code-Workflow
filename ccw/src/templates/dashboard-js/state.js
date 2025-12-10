@@ -40,3 +40,152 @@ const taskJsonStore = {};
 // Notification queue visible from any view
 let globalNotificationQueue = [];
 let isNotificationPanelVisible = false;
+// ========== Event Handler ==========
+/**
+ * Handle granular workflow events from CLI
+ * @param {Object} event - Event object with type, sessionId, payload
+ */
+function handleWorkflowEvent(event) {
+  const { type, payload, sessionId, entityId } = event;
+
+  switch(type) {
+    case 'SESSION_CREATED':
+      // Add to activeSessions array
+      if (payload) {
+        const sessionData = {
+          session_id: sessionId,
+          ...(payload.metadata || { status: 'planning', created_at: new Date().toISOString() }),
+          location: 'active'
+        };
+
+        // Add to store
+        const key = `session-${sessionId}`.replace(/[^a-zA-Z0-9-]/g, '-');
+        sessionDataStore[key] = sessionData;
+
+        // Add to workflowData
+        if (!workflowData.activeSessions) workflowData.activeSessions = [];
+        workflowData.activeSessions.push(sessionData);
+      }
+      break;
+
+    case 'SESSION_ARCHIVED':
+      // Move from active to archived
+      if (!workflowData.activeSessions) workflowData.activeSessions = [];
+      if (!workflowData.archivedSessions) workflowData.archivedSessions = [];
+
+      const activeIndex = workflowData.activeSessions.findIndex(s => s.session_id === sessionId);
+      if (activeIndex !== -1) {
+        const session = workflowData.activeSessions.splice(activeIndex, 1)[0];
+        session.location = 'archived';
+        if (payload && payload.metadata) {
+          Object.assign(session, payload.metadata);
+        }
+        workflowData.archivedSessions.push(session);
+
+        // Update store
+        const key = `session-${sessionId}`.replace(/[^a-zA-Z0-9-]/g, '-');
+        sessionDataStore[key] = session;
+      }
+      break;
+
+    case 'TASK_UPDATED':
+      // Find task in session and merge payload
+      const taskSessionKey = `session-${sessionId}`.replace(/[^a-zA-Z0-9-]/g, '-');
+      const taskSession = sessionDataStore[taskSessionKey];
+      if (taskSession && taskSession.tasks) {
+        const task = taskSession.tasks.find(t => t.task_id === entityId);
+        if (task && payload) {
+          Object.assign(task, payload);
+        }
+      }
+      break;
+
+    case 'SESSION_UPDATED':
+      // Update session metadata
+      const sessionKey = `session-${sessionId}`.replace(/[^a-zA-Z0-9-]/g, '-');
+      const session = sessionDataStore[sessionKey];
+      if (session && payload) {
+        Object.assign(session, payload);
+
+        // Update in workflowData arrays
+        const activeSession = workflowData.activeSessions?.find(s => s.session_id === sessionId);
+        const archivedSession = workflowData.archivedSessions?.find(s => s.session_id === sessionId);
+        if (activeSession) Object.assign(activeSession, payload);
+        if (archivedSession) Object.assign(archivedSession, payload);
+      }
+      break;
+
+    case 'TASK_CREATED':
+      // Add new task to session
+      const tcSessionKey = `session-${sessionId}`.replace(/[^a-zA-Z0-9-]/g, '-');
+      const tcSession = sessionDataStore[tcSessionKey];
+      if (tcSession) {
+        if (!tcSession.tasks) tcSession.tasks = [];
+        // Check if task already exists (by entityId or task_id in payload)
+        const taskId = entityId || (payload && payload.task_id);
+        const existingTask = tcSession.tasks.find(t => t.task_id === taskId);
+        if (!existingTask && payload) {
+          tcSession.tasks.push(payload);
+        }
+      }
+      break;
+
+    case 'SUMMARY_WRITTEN':
+      // Update session summary count or mark task as having summary
+      const swSessionKey = `session-${sessionId}`.replace(/[^a-zA-Z0-9-]/g, '-');
+      const swSession = sessionDataStore[swSessionKey];
+      if (swSession) {
+        if (!swSession.summaries) swSession.summaries = [];
+        swSession.summaries.push({ task_id: entityId, content: payload });
+        // Update task status if found
+        if (swSession.tasks && entityId) {
+          const task = swSession.tasks.find(t => t.task_id === entityId);
+          if (task) task.has_summary = true;
+        }
+      }
+      break;
+
+    case 'PLAN_UPDATED':
+      // Update session plan reference
+      const puSessionKey = `session-${sessionId}`.replace(/[^a-zA-Z0-9-]/g, '-');
+      const puSession = sessionDataStore[puSessionKey];
+      if (puSession) {
+        puSession.has_plan = true;
+        puSession.plan_updated_at = new Date().toISOString();
+      }
+      break;
+
+    case 'REVIEW_UPDATED':
+      // Update session review data
+      const ruSessionKey = `session-${sessionId}`.replace(/[^a-zA-Z0-9-]/g, '-');
+      const ruSession = sessionDataStore[ruSessionKey];
+      if (ruSession) {
+        if (!ruSession.review) ruSession.review = { dimensions: [], iterations: [], fixes: [] };
+        // Track review updates by type based on entityId pattern (prevent duplicates)
+        if (event.contentType === 'review-dim') {
+          if (!ruSession.review.dimensions.includes(entityId)) ruSession.review.dimensions.push(entityId);
+        } else if (event.contentType === 'review-iter') {
+          if (!ruSession.review.iterations.includes(entityId)) ruSession.review.iterations.push(entityId);
+        } else if (event.contentType === 'review-fix') {
+          if (!ruSession.review.fixes.includes(entityId)) ruSession.review.fixes.push(entityId);
+        }
+        ruSession.has_review = true;
+      }
+      break;
+
+    case 'CONTENT_WRITTEN':
+      // Generic content write - just log for debugging
+      console.log(`[State] Content written: ${event.contentType} for ${sessionId}`);
+      break;
+  }
+
+  // Trigger UI updates
+  if (typeof updateStats === 'function') updateStats();
+  if (typeof updateBadges === 'function') updateBadges();
+  if (typeof updateCarousel === 'function') updateCarousel();
+
+  // Re-render current view if needed
+  if (currentView === 'sessions' && typeof renderSessions === 'function') {
+    renderSessions();
+  }
+}

@@ -354,7 +354,7 @@ export async function startServer(options = {}) {
       // API: Hook endpoint for Claude Code notifications
       if (pathname === '/api/hook' && req.method === 'POST') {
         handlePostRequest(req, res, async (body) => {
-          const { type, filePath, sessionId } = body;
+          const { type, filePath, sessionId, ...extraData } = body;
 
           // Determine session ID from file path if not provided
           let resolvedSessionId = sessionId;
@@ -368,7 +368,8 @@ export async function startServer(options = {}) {
             payload: {
               sessionId: resolvedSessionId,
               filePath: filePath,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              ...extraData  // Pass through toolName, status, result, params, error, etc.
             }
           };
 

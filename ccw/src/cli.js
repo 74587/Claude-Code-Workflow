@@ -7,6 +7,7 @@ import { uninstallCommand } from './commands/uninstall.js';
 import { upgradeCommand } from './commands/upgrade.js';
 import { listCommand } from './commands/list.js';
 import { toolCommand } from './commands/tool.js';
+import { sessionCommand } from './commands/session.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -114,6 +115,23 @@ export function run(argv) {
     .option('--old <text>', 'Old text to replace (for edit_file)')
     .option('--new <text>', 'New text (for edit_file)')
     .action((subcommand, args, options) => toolCommand(subcommand, args, options));
+
+  // Session command
+  program
+    .command('session [subcommand] [args...]')
+    .description('Workflow session lifecycle management')
+    .option('--location <loc>', 'Location filter: active|archived|both')
+    .option('--type <type>', 'Content type or session type')
+    .option('--content <json>', 'Content for write/update')
+    .option('--task-id <id>', 'Task ID for task content')
+    .option('--filename <name>', 'Filename for process/chat/etc')
+    .option('--dimension <dim>', 'Dimension for review-dim')
+    .option('--iteration <iter>', 'Iteration for review-iter')
+    .option('--subdir <dir>', 'Subdirectory for mkdir')
+    .option('--raw', 'Output raw content only')
+    .option('--no-metadata', 'Exclude metadata from list')
+    .option('--no-update-status', 'Skip status update on archive')
+    .action((subcommand, args, options) => sessionCommand(subcommand, args, options));
 
   program.parse(argv);
 }

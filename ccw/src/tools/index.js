@@ -3,6 +3,7 @@
  * Provides tool discovery, validation, and execution
  */
 
+import http from 'http';
 import { editFileTool } from './edit-file.js';
 import { getModulesByDepthTool } from './get-modules-by-depth.js';
 import { classifyFoldersTool } from './classify-folders.js';
@@ -13,9 +14,43 @@ import { uiGeneratePreviewTool } from './ui-generate-preview.js';
 import { uiInstantiatePrototypesTool } from './ui-instantiate-prototypes.js';
 import { updateModuleClaudeTool } from './update-module-claude.js';
 import { convertTokensToCssTool } from './convert-tokens-to-css.js';
+import { sessionManagerTool } from './session-manager.js';
 
 // Tool registry - add new tools here
 const tools = new Map();
+
+// Dashboard notification settings
+const DASHBOARD_PORT = process.env.CCW_PORT || 3456;
+
+/**
+ * Notify dashboard of tool execution events (fire and forget)
+ * @param {Object} data - Notification data
+ */
+function notifyDashboard(data) {
+  const payload = JSON.stringify({
+    type: 'tool_execution',
+    ...data,
+    timestamp: new Date().toISOString()
+  });
+
+  const req = http.request({
+    hostname: 'localhost',
+    port: DASHBOARD_PORT,
+    path: '/api/hook',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  });
+
+  // Fire and forget - log errors only in debug mode
+  req.on('error', (err) => {
+    if (process.env.DEBUG) console.error('[Dashboard] Tool notification failed:', err.message);
+  });
+  req.write(payload);
+  req.end();
+}
 
 /**
  * Register a tool in the registry
@@ -117,19 +152,70 @@ export async function executeTool(name, params = {}) {
     };
   }
 
+  // Notify dashboard - execution started
+  notifyDashboard({
+    toolName: name,
+    status: 'started',
+    params: sanitizeParams(params)
+  });
+
   // Execute tool
   try {
     const result = await tool.execute(params);
+
+    // Notify dashboard - execution completed
+    notifyDashboard({
+      toolName: name,
+      status: 'completed',
+      result: sanitizeResult(result)
+    });
+
     return {
       success: true,
       result
     };
   } catch (error) {
+    // Notify dashboard - execution failed
+    notifyDashboard({
+      toolName: name,
+      status: 'failed',
+      error: error.message || 'Tool execution failed'
+    });
+
     return {
       success: false,
       error: error.message || 'Tool execution failed'
     };
   }
+}
+
+/**
+ * Sanitize params for notification (truncate large values)
+ */
+function sanitizeParams(params) {
+  const sanitized = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string' && value.length > 200) {
+      sanitized[key] = value.substring(0, 200) + '...';
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[key] = '[Object]';
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
+/**
+ * Sanitize result for notification (truncate large values)
+ */
+function sanitizeResult(result) {
+  if (result === null || result === undefined) return result;
+  const str = JSON.stringify(result);
+  if (str.length > 500) {
+    return { _truncated: true, preview: str.substring(0, 500) + '...' };
+  }
+  return result;
 }
 
 /**
@@ -171,6 +257,7 @@ registerTool(uiGeneratePreviewTool);
 registerTool(uiInstantiatePrototypesTool);
 registerTool(updateModuleClaudeTool);
 registerTool(convertTokensToCssTool);
+registerTool(sessionManagerTool);
 
 // Export for external tool registration
 export { registerTool };
