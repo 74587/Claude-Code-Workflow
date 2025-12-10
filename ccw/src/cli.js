@@ -108,7 +108,7 @@ export function run(argv) {
 
   // Tool command
   program
-    .command('tool [subcommand] [args]')
+    .command('tool [subcommand] [args...]')
     .description('Execute CCW tools')
     .option('--path <path>', 'File path (for edit_file)')
     .option('--old <text>', 'Old text to replace (for edit_file)')

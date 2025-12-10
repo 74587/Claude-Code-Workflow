@@ -160,6 +160,14 @@ bash(cat .workflow/active/${sessionId}/workflow-session.json)
 **Output**: Store session metadata in memory
 **DO NOT read task JSONs yet** - defer until execution phase (lazy loading)
 
+#### Step 1.4: Update Session Status to Active
+**Purpose**: Update workflow-session.json status from "planning" to "active" for dashboard monitoring.
+
+```bash
+# Update status atomically using jq
+bash(jq '.status = "active"' .workflow/active/${sessionId}/workflow-session.json > /tmp/ws.json && mv /tmp/ws.json .workflow/active/${sessionId}/workflow-session.json)
+```
+
 **Resume Mode**: This entire phase is skipped when `--resume-session="session-id"` flag is provided.
 
 ### Phase 2: Planning Document Validation

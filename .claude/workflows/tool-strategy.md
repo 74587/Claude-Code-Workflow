@@ -10,7 +10,23 @@
 - Complex API research → Exa Code Context
 - Real-time information needs → Exa Web Search
 
-## ⚡ CCW edit_file Tool (AI-Powered Editing)
+## ⚡ CCW Tool Execution
+
+### General Usage (JSON Parameters)
+
+```bash
+ccw tool exec <tool_name> '{"param": "value"}'
+```
+
+**Examples**:
+```bash
+ccw tool exec get_modules_by_depth '{}'
+ccw tool exec classify_folders '{"path": "./src"}'
+```
+
+**Available Tools**: `ccw tool list`
+
+### edit_file Tool (AI-Powered Editing)
 
 **When to Use**: Edit tool fails 1+ times on same file
 

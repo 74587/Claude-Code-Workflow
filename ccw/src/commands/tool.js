@@ -68,11 +68,15 @@ async function schemaAction(options) {
 
 /**
  * Execute a tool with given parameters
+ * @param {string} toolName - Tool name
+ * @param {string|undefined} jsonParams - JSON string of parameters
+ * @param {Object} options - CLI options (--path, --old, --new for edit_file)
  */
-async function execAction(toolName, options) {
+async function execAction(toolName, jsonParams, options) {
   if (!toolName) {
     console.error(chalk.red('Tool name is required'));
-    console.error(chalk.gray('Usage: ccw tool exec edit_file --path file.txt --old "old" --new "new"'));
+    console.error(chalk.gray('Usage: ccw tool exec <tool_name> \'{"param": "value"}\''));
+    console.error(chalk.gray('       ccw tool exec edit_file --path file.txt --old "old" --new "new"'));
     process.exit(1);
   }
 
@@ -83,10 +87,20 @@ async function execAction(toolName, options) {
     process.exit(1);
   }
 
-  // Build params from CLI options
-  const params = {};
+  // Build params from CLI options or JSON
+  let params = {};
 
-  if (toolName === 'edit_file') {
+  // Check if JSON params provided
+  if (jsonParams && jsonParams.trim().startsWith('{')) {
+    try {
+      params = JSON.parse(jsonParams);
+    } catch (e) {
+      console.error(chalk.red('Invalid JSON parameters'));
+      console.error(chalk.gray(`Parse error: ${e.message}`));
+      process.exit(1);
+    }
+  } else if (toolName === 'edit_file') {
+    // Legacy support for edit_file with --path, --old, --new options
     if (!options.path || !options.old || !options.new) {
       console.error(chalk.red('edit_file requires --path, --old, and --new parameters'));
       console.error(chalk.gray('Usage: ccw tool exec edit_file --path file.txt --old "old text" --new "new text"'));
@@ -95,11 +109,13 @@ async function execAction(toolName, options) {
     params.path = options.path;
     params.oldText = options.old;
     params.newText = options.new;
-  } else {
-    console.error(chalk.red(`Tool "${toolName}" is not supported via CLI parameters`));
-    console.error(chalk.gray('Currently only edit_file is supported'));
+  } else if (jsonParams) {
+    // Non-JSON string provided but not for edit_file
+    console.error(chalk.red('Parameters must be valid JSON'));
+    console.error(chalk.gray(`Usage: ccw tool exec ${toolName} '{"param": "value"}'`));
     process.exit(1);
   }
+  // If no params provided, use empty object (tool may have defaults)
 
   // Execute tool
   const result = await executeTool(toolName, params);
@@ -110,18 +126,24 @@ async function execAction(toolName, options) {
 
 /**
  * Tool command entry point
+ * @param {string} subcommand - Subcommand (list, schema, exec)
+ * @param {string[]} args - Arguments array [toolName, jsonParams, ...]
+ * @param {Object} options - CLI options
  */
 export async function toolCommand(subcommand, args, options) {
+  // args is now an array due to [args...] in cli.js
+  const argsArray = Array.isArray(args) ? args : (args ? [args] : []);
+
   // Handle subcommands
   switch (subcommand) {
     case 'list':
       await listAction();
       break;
     case 'schema':
-      await schemaAction({ name: args });
+      await schemaAction({ name: argsArray[0] });
       break;
     case 'exec':
-      await execAction(args, options);
+      await execAction(argsArray[0], argsArray[1], options);
       break;
     default:
       console.log(chalk.bold.cyan('\nCCW Tool System\n'));
@@ -133,6 +155,7 @@ export async function toolCommand(subcommand, args, options) {
       console.log('Usage:');
       console.log(chalk.gray('  ccw tool list'));
       console.log(chalk.gray('  ccw tool schema edit_file'));
+      console.log(chalk.gray('  ccw tool exec <tool_name> \'{"param": "value"}\''));
       console.log(chalk.gray('  ccw tool exec edit_file --path file.txt --old "old text" --new "new text"'));
   }
 }

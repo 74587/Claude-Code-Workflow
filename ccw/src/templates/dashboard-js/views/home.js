@@ -98,9 +98,27 @@ function renderSessionCard(session) {
   const isActive = session._isActive !== false;
   const date = session.created_at;
 
+  // Detect planning status from session.status field
+  const isPlanning = session.status === 'planning';
+
   // Get session type badge
   const sessionType = session.type || 'workflow';
   const typeBadge = sessionType !== 'workflow' ? `<span class="session-type-badge ${sessionType}">${sessionType}</span>` : '';
+
+  // Determine status badge class and text
+  // Priority: archived > planning > active
+  let statusClass, statusText;
+  if (!isActive) {
+    // Archived sessions always show as ARCHIVED regardless of status field
+    statusClass = 'archived';
+    statusText = 'ARCHIVED';
+  } else if (isPlanning) {
+    statusClass = 'planning';
+    statusText = 'PLANNING';
+  } else {
+    statusClass = 'active';
+    statusText = 'ACTIVE';
+  }
 
   // Store session data for modal
   const sessionKey = `session-${session.session_id}`.replace(/[^a-zA-Z0-9-]/g, '-');
@@ -108,17 +126,20 @@ function renderSessionCard(session) {
 
   // Special rendering for review sessions
   if (sessionType === 'review') {
-    return renderReviewSessionCard(session, sessionKey, typeBadge, isActive, date);
+    return renderReviewSessionCard(session, sessionKey, typeBadge, isActive, isPlanning, date);
   }
 
+  // Card class includes planning modifier for special styling (only for active sessions)
+  const cardClass = isActive && isPlanning ? 'session-card planning' : 'session-card';
+
   return `
-    <div class="session-card" onclick="showSessionDetailPage('${sessionKey}')">
+    <div class="${cardClass}" onclick="showSessionDetailPage('${sessionKey}')">
       <div class="session-header">
         <div class="session-title">${escapeHtml(session.session_id || 'Unknown')}</div>
         <div class="session-badges">
           ${typeBadge}
-          <span class="session-status ${isActive ? 'active' : 'archived'}">
-            ${isActive ? 'ACTIVE' : 'ARCHIVED'}
+          <span class="session-status ${statusClass}">
+            ${statusText}
           </span>
         </div>
       </div>
@@ -127,7 +148,7 @@ function renderSessionCard(session) {
           <span class="session-meta-item"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>${formatDate(date)}</span>
           <span class="session-meta-item"><i data-lucide="list-checks" class="w-3.5 h-3.5 inline mr-1"></i>${taskCount} tasks</span>
         </div>
-        ${taskCount > 0 ? `
+        ${taskCount > 0 && !isPlanning ? `
           <div class="progress-container">
             <span class="progress-label">Progress</span>
             <div class="progress-bar-wrapper">
@@ -144,7 +165,7 @@ function renderSessionCard(session) {
 }
 
 // Special card rendering for review sessions
-function renderReviewSessionCard(session, sessionKey, typeBadge, isActive, date) {
+function renderReviewSessionCard(session, sessionKey, typeBadge, isActive, isPlanning, date) {
   // Calculate findings stats from reviewDimensions
   const dimensions = session.reviewDimensions || [];
   let totalFindings = 0;
@@ -162,14 +183,31 @@ function renderReviewSessionCard(session, sessionKey, typeBadge, isActive, date)
     lowCount += findings.filter(f => f.severity === 'low').length;
   });
 
+  // Determine status badge class and text
+  // Priority: archived > planning > active
+  let statusClass, statusText;
+  if (!isActive) {
+    statusClass = 'archived';
+    statusText = 'ARCHIVED';
+  } else if (isPlanning) {
+    statusClass = 'planning';
+    statusText = 'PLANNING';
+  } else {
+    statusClass = 'active';
+    statusText = 'ACTIVE';
+  }
+
+  // Card class includes planning modifier for special styling (only for active sessions)
+  const cardClass = isActive && isPlanning ? 'session-card planning' : 'session-card';
+
   return `
-    <div class="session-card" onclick="showSessionDetailPage('${sessionKey}')">
+    <div class="${cardClass}" onclick="showSessionDetailPage('${sessionKey}')">
       <div class="session-header">
         <div class="session-title">${escapeHtml(session.session_id || 'Unknown')}</div>
         <div class="session-badges">
           ${typeBadge}
-          <span class="session-status ${isActive ? 'active' : 'archived'}">
-            ${isActive ? 'ACTIVE' : 'ARCHIVED'}
+          <span class="session-status ${statusClass}">
+            ${statusText}
           </span>
         </div>
       </div>

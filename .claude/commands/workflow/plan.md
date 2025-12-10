@@ -61,7 +61,7 @@ Phase 2: Context Gathering
       ├─ Tasks attached: Analyze structure → Identify integration → Generate package
       └─ Output: contextPath + conflict_risk
 
-Phase 3: Conflict Resolution (conditional)
+Phase 3: Conflict Resolution 
    └─ Decision (conflict_risk check):
       ├─ conflict_risk ≥ medium → Execute /workflow:tools:conflict-resolution
       │   ├─ Tasks attached: Detect conflicts → Present to user → Apply strategies
@@ -168,7 +168,7 @@ SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"[st
 
 ---
 
-### Phase 3: Conflict Resolution (Optional - auto-triggered by conflict risk)
+### Phase 3: Conflict Resolution
 
 **Trigger**: Only execute when context-package.json indicates conflict_risk is "medium" or "high"
 

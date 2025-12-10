@@ -166,13 +166,21 @@ Analyze workflow session for archival preparation. Session is STILL in active lo
 bash(mkdir -p .workflow/archives/)
 ```
 
-#### Step 3.2: Move Session to Archive
+#### Step 3.2: Update Session Status to Completed
+**Purpose**: Update workflow-session.json status to "completed" for dashboard display.
+
+```bash
+# Update status atomically using jq
+bash(jq '.status = "completed"' .workflow/active/WFS-session-name/workflow-session.json > /tmp/ws.json && mv /tmp/ws.json .workflow/active/WFS-session-name/workflow-session.json)
+```
+
+#### Step 3.3: Move Session to Archive
 ```bash
 bash(mv .workflow/active/WFS-session-name .workflow/archives/WFS-session-name)
 ```
 **Result**: Session now at `.workflow/archives/WFS-session-name/`
 
-#### Step 3.3: Update Manifest
+#### Step 3.4: Update Manifest
 ```bash
 # Read current manifest (or create empty array if not exists)
 bash(test -f .workflow/archives/manifest.json && cat .workflow/archives/manifest.json || echo "[]")
@@ -200,7 +208,7 @@ manifest.push(archiveEntry);
 Write('.workflow/archives/manifest.json', JSON.stringify(manifest, null, 2));
 ```
 
-#### Step 3.4: Remove Archiving Marker
+#### Step 3.5: Remove Archiving Marker
 ```bash
 bash(rm .workflow/archives/WFS-session-name/.archiving)
 ```
@@ -464,11 +472,12 @@ Session state: PARTIALLY COMPLETE (session archived, manifest needs update)
 
 **Phase 3: Atomic Commit** (Transactional file operations)
 - Create archive directory
+- Update session status to "completed"
 - Move session to archive location
 - Update manifest.json with archive entry
 - Remove `.archiving` marker
 - **All-or-nothing**: Either all succeed or session remains in safe state
-- **Total**: 4 bash commands + JSON manipulation
+- **Total**: 5 bash commands + JSON manipulation
 
 **Phase 4: Project Registry Update** (Optional feature tracking)
 - Check project.json exists
