@@ -152,11 +152,16 @@ Launching ${selectedAngles.length} parallel explorations...
 
 **Launch Parallel Explorations** - Orchestrator assigns angle to each agent:
 
+**⚠️ CRITICAL - NO BACKGROUND EXECUTION**:
+- **MUST NOT use `run_in_background: true`** - exploration results are REQUIRED before planning
+
+
 ```javascript
 // Launch agents with pre-assigned angles
 const explorationTasks = selectedAngles.map((angle, index) =>
   Task(
     subagent_type="cli-explore-agent",
+    run_in_background=false,  // ⚠️ MANDATORY: Must wait for results
     description=`Explore: ${angle}`,
     prompt=`
 ## Task Objective
@@ -356,7 +361,15 @@ if (dedupedClarifications.length > 0) {
 // Step 1: Read schema
 const schema = Bash(`cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json`)
 
-// Step 2: Generate plan following schema (Claude directly, no agent)
+// Step 2: ⚠️ MANDATORY - Read and review ALL exploration files
+const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
+manifest.explorations.forEach(exp => {
+  const explorationData = Read(exp.path)
+  console.log(`\n### Exploration: ${exp.angle}\n${explorationData}`)
+})
+
+// Step 3: Generate plan following schema (Claude directly, no agent)
+// ⚠️ Plan MUST incorporate insights from exploration files read in Step 2
 const plan = {
   summary: "...",
   approach: "...",
@@ -367,10 +380,10 @@ const plan = {
   _metadata: { timestamp: getUtc8ISOString(), source: "direct-planning", planning_mode: "direct" }
 }
 
-// Step 3: Write plan to session folder
+// Step 4: Write plan to session folder
 Write(`${sessionFolder}/plan.json`, JSON.stringify(plan, null, 2))
 
-// Step 4: MUST continue to Phase 4 (Confirmation) - DO NOT execute code here
+// Step 5: MUST continue to Phase 4 (Confirmation) - DO NOT execute code here
 ```
 
 **Medium/High Complexity** - Invoke cli-lite-planning-agent:
