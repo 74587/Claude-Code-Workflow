@@ -1,9 +1,13 @@
 import { existsSync, unlinkSync, rmdirSync, readdirSync, statSync } from 'fs';
 import { join, dirname, basename } from 'path';
+import { homedir } from 'os';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { showBanner, createSpinner, success, info, warning, error, summaryBox, divider } from '../utils/ui.js';
 import { getAllManifests, deleteManifest } from '../core/manifest.js';
+
+// Global subdirectories that should be protected when Global installation exists
+const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
 
 /**
  * Uninstall command handler
@@ -92,6 +96,22 @@ export async function uninstallCommand(options) {
 
   console.log('');
 
+  // Check if this is a Path mode uninstallation and if Global installation exists
+  const isPathMode = selectedManifest.installation_mode === 'Path';
+  const globalClaudeDir = join(homedir(), '.claude');
+  let hasGlobalInstallation = false;
+  let skippedFiles = 0;
+
+  if (isPathMode) {
+    // Check if any Global installation manifest exists
+    const globalManifest = manifests.find(m => m.installation_mode === 'Global');
+    if (globalManifest) {
+      hasGlobalInstallation = true;
+      info('Global installation detected - global files will be preserved');
+      console.log('');
+    }
+  }
+
   // Perform uninstallation
   const spinner = createSpinner('Removing files...').start();
 
@@ -105,6 +125,25 @@ export async function uninstallCommand(options) {
 
     for (const fileEntry of files) {
       const filePath = fileEntry.path;
+
+      // For Path mode uninstallation, skip global files if Global installation exists
+      if (isPathMode && hasGlobalInstallation) {
+        const normalizedPath = filePath.toLowerCase().replace(/\\/g, '/');
+        const normalizedGlobalDir = globalClaudeDir.toLowerCase().replace(/\\/g, '/');
+
+        // Check if file is under global .claude directory
+        if (normalizedPath.startsWith(normalizedGlobalDir)) {
+          // Check if it's in one of the global subdirectories
+          const relativePath = normalizedPath.substring(normalizedGlobalDir.length + 1);
+          const topDir = relativePath.split('/')[0];
+
+          if (GLOBAL_SUBDIRS.includes(topDir)) {
+            skippedFiles++;
+            continue;
+          }
+        }
+      }
+
       spinner.text = `Removing: ${basename(filePath)}`;
 
       try {
@@ -168,41 +207,43 @@ export async function uninstallCommand(options) {
   // Show summary
   console.log('');
 
-  if (failedFiles.length > 0) {
-    summaryBox({
-      title: ' Uninstall Summary ',
-      lines: [
-        chalk.yellow.bold('⚠ Partially Completed'),
-        '',
-        chalk.white(`Files removed: ${chalk.green(removedFiles)}`),
-        chalk.white(`Directories removed: ${chalk.green(removedDirs)}`),
-        chalk.white(`Failed: ${chalk.red(failedFiles.length)}`),
-        '',
-        chalk.gray('Some files could not be removed.'),
-        chalk.gray('They may be in use or require elevated permissions.'),
-      ],
-      borderColor: 'yellow'
-    });
+  const summaryLines = [];
 
-    if (process.env.DEBUG) {
-      console.log('');
-      console.log(chalk.gray('Failed files:'));
-      failedFiles.forEach(f => {
-        console.log(chalk.red(`  ${f.path}: ${f.error}`));
-      });
-    }
+  if (failedFiles.length > 0) {
+    summaryLines.push(chalk.yellow.bold('⚠ Partially Completed'));
   } else {
-    summaryBox({
-      title: ' Uninstall Summary ',
-      lines: [
-        chalk.green.bold('✓ Successfully Uninstalled'),
-        '',
-        chalk.white(`Files removed: ${chalk.green(removedFiles)}`),
-        chalk.white(`Directories removed: ${chalk.green(removedDirs)}`),
-        '',
-        chalk.gray('Manifest removed'),
-      ],
-      borderColor: 'green'
+    summaryLines.push(chalk.green.bold('✓ Successfully Uninstalled'));
+  }
+
+  summaryLines.push('');
+  summaryLines.push(chalk.white(`Files removed: ${chalk.green(removedFiles)}`));
+  summaryLines.push(chalk.white(`Directories removed: ${chalk.green(removedDirs)}`));
+
+  if (skippedFiles > 0) {
+    summaryLines.push(chalk.white(`Global files preserved: ${chalk.cyan(skippedFiles)}`));
+  }
+
+  if (failedFiles.length > 0) {
+    summaryLines.push(chalk.white(`Failed: ${chalk.red(failedFiles.length)}`));
+    summaryLines.push('');
+    summaryLines.push(chalk.gray('Some files could not be removed.'));
+    summaryLines.push(chalk.gray('They may be in use or require elevated permissions.'));
+  } else {
+    summaryLines.push('');
+    summaryLines.push(chalk.gray('Manifest removed'));
+  }
+
+  summaryBox({
+    title: ' Uninstall Summary ',
+    lines: summaryLines,
+    borderColor: failedFiles.length > 0 ? 'yellow' : 'green'
+  });
+
+  if (process.env.DEBUG && failedFiles.length > 0) {
+    console.log('');
+    console.log(chalk.gray('Failed files:'));
+    failedFiles.forEach(f => {
+      console.log(chalk.red(`  ${f.path}: ${f.error}`));
     });
   }
 
