@@ -14,6 +14,9 @@ const __dirname = dirname(__filename);
 // Source directories to install
 const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen'];
 
+// Subdirectories that should always be installed to global (~/.claude/)
+const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
+
 // Get package root directory (ccw/src/commands -> ccw)
 function getPackageRoot() {
   return join(__dirname, '..', '..');
@@ -122,13 +125,30 @@ export async function installCommand(options) {
   let totalDirs = 0;
 
   try {
+    // For Path mode, install workflows to global first
+    if (mode === 'Path') {
+      const globalPath = homedir();
+      for (const subdir of GLOBAL_SUBDIRS) {
+        const srcWorkflows = join(sourceDir, '.claude', subdir);
+        if (existsSync(srcWorkflows)) {
+          const destWorkflows = join(globalPath, '.claude', subdir);
+          spinner.text = `Installing ${subdir} to global...`;
+          const { files, directories } = await copyDirectory(srcWorkflows, destWorkflows, manifest);
+          totalFiles += files;
+          totalDirs += directories;
+        }
+      }
+    }
+
     for (const dir of availableDirs) {
       const srcPath = join(sourceDir, dir);
       const destPath = join(installPath, dir);
 
       spinner.text = `Installing ${dir}...`;
 
-      const { files, directories } = await copyDirectory(srcPath, destPath, manifest);
+      // For Path mode on .claude, exclude global subdirs (they're already installed to global)
+      const excludeDirs = (mode === 'Path' && dir === '.claude') ? GLOBAL_SUBDIRS : [];
+      const { files, directories } = await copyDirectory(srcPath, destPath, manifest, excludeDirs);
       totalFiles += files;
       totalDirs += directories;
     }
@@ -265,9 +285,10 @@ async function createBackup(installPath, manifest) {
  * @param {string} src - Source directory
  * @param {string} dest - Destination directory
  * @param {Object} manifest - Manifest to track files (optional)
+ * @param {string[]} excludeDirs - Directory names to exclude (optional)
  * @returns {Object} - Count of files and directories
  */
-async function copyDirectory(src, dest, manifest = null) {
+async function copyDirectory(src, dest, manifest = null, excludeDirs = []) {
   let files = 0;
   let directories = 0;
 
@@ -281,6 +302,11 @@ async function copyDirectory(src, dest, manifest = null) {
   const entries = readdirSync(src);
 
   for (const entry of entries) {
+    // Skip excluded directories
+    if (excludeDirs.includes(entry)) {
+      continue;
+    }
+
     const srcPath = join(src, entry);
     const destPath = join(dest, entry);
     const stat = statSync(srcPath);

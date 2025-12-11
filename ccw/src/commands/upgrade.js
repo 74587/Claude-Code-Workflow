@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname, basename } from 'path';
+import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
@@ -11,6 +12,9 @@ const __dirname = dirname(__filename);
 
 // Source directories to install
 const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen'];
+
+// Subdirectories that should always be installed to global (~/.claude/)
+const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
 
 // Get package root directory (ccw/src/commands -> ccw)
 function getPackageRoot() {
@@ -210,6 +214,7 @@ export async function upgradeCommand(options) {
  */
 async function performUpgrade(manifest, sourceDir, version) {
   const installPath = manifest.installation_path;
+  const mode = manifest.installation_mode;
 
   // Get available source directories
   const availableDirs = SOURCE_DIRS.filter(dir => existsSync(join(sourceDir, dir)));
@@ -219,17 +224,33 @@ async function performUpgrade(manifest, sourceDir, version) {
   }
 
   // Create new manifest
-  const newManifest = createManifest(manifest.installation_mode, installPath);
+  const newManifest = createManifest(mode, installPath);
 
   let totalFiles = 0;
   let totalDirs = 0;
+
+  // For Path mode, upgrade workflows to global first
+  if (mode === 'Path') {
+    const globalPath = homedir();
+    for (const subdir of GLOBAL_SUBDIRS) {
+      const srcWorkflows = join(sourceDir, '.claude', subdir);
+      if (existsSync(srcWorkflows)) {
+        const destWorkflows = join(globalPath, '.claude', subdir);
+        const { files, directories } = await copyDirectory(srcWorkflows, destWorkflows, newManifest);
+        totalFiles += files;
+        totalDirs += directories;
+      }
+    }
+  }
 
   // Copy each directory
   for (const dir of availableDirs) {
     const srcPath = join(sourceDir, dir);
     const destPath = join(installPath, dir);
 
-    const { files, directories } = await copyDirectory(srcPath, destPath, newManifest);
+    // For Path mode on .claude, exclude global subdirs (they're already installed to global)
+    const excludeDirs = (mode === 'Path' && dir === '.claude') ? GLOBAL_SUBDIRS : [];
+    const { files, directories } = await copyDirectory(srcPath, destPath, newManifest, excludeDirs);
     totalFiles += files;
     totalDirs += directories;
   }
@@ -263,9 +284,10 @@ async function performUpgrade(manifest, sourceDir, version) {
  * @param {string} src - Source directory
  * @param {string} dest - Destination directory
  * @param {Object} manifest - Manifest to track files
+ * @param {string[]} excludeDirs - Directory names to exclude (optional)
  * @returns {Object} - Count of files and directories
  */
-async function copyDirectory(src, dest, manifest) {
+async function copyDirectory(src, dest, manifest, excludeDirs = []) {
   let files = 0;
   let directories = 0;
 
@@ -279,6 +301,11 @@ async function copyDirectory(src, dest, manifest) {
   const entries = readdirSync(src);
 
   for (const entry of entries) {
+    // Skip excluded directories
+    if (excludeDirs.includes(entry)) {
+      continue;
+    }
+
     const srcPath = join(src, entry);
     const destPath = join(dest, entry);
     const stat = statSync(srcPath);
