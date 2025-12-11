@@ -177,6 +177,16 @@ function handleWorkflowEvent(event) {
       // Generic content write - just log for debugging
       console.log(`[State] Content written: ${event.contentType} for ${sessionId}`);
       break;
+
+    case 'FILE_DELETED':
+      // File deleted from session - log and trigger refresh
+      console.log(`[State] File deleted: ${payload?.file_path || payload?.deleted} from ${sessionId}`);
+      break;
+
+    case 'DIRECTORY_CREATED':
+      // Directory created in session - log and trigger refresh
+      console.log(`[State] Directory created: ${payload?.directories?.join(', ') || 'unknown'} in ${sessionId}`);
+      break;
   }
 
   // Trigger UI updates

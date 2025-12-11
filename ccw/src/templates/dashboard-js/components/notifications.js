@@ -69,6 +69,8 @@ function handleNotification(data) {
     case 'PLAN_UPDATED':
     case 'REVIEW_UPDATED':
     case 'CONTENT_WRITTEN':
+    case 'FILE_DELETED':
+    case 'DIRECTORY_CREATED':
       // Route to state reducer for granular updates
       if (typeof handleWorkflowEvent === 'function') {
         handleWorkflowEvent({ type, ...payload });

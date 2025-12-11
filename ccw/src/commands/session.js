@@ -518,6 +518,13 @@ async function mkdirAction(sessionId, options) {
     process.exit(1);
   }
 
+  // Emit DIRECTORY_CREATED event
+  notifyDashboard({
+    type: 'DIRECTORY_CREATED',
+    sessionId: sessionId,
+    payload: { directories: result.result.directories_created }
+  });
+
   console.log(chalk.green(`✓ Directory created: ${result.result.directories_created.join(', ')}`));
 }
 
@@ -624,6 +631,28 @@ async function execAction(jsonParams) {
   }
 
   const result = await executeTool('session_manager', params);
+
+  // Emit notification for write operations
+  if (result.success && params.operation) {
+    const writeOps = ['init', 'write', 'update', 'archive', 'mkdir', 'delete'];
+    if (writeOps.includes(params.operation)) {
+      const eventMap = {
+        init: 'SESSION_CREATED',
+        write: 'CONTENT_WRITTEN',
+        update: 'SESSION_UPDATED',
+        archive: 'SESSION_ARCHIVED',
+        mkdir: 'DIRECTORY_CREATED',
+        delete: 'FILE_DELETED'
+      };
+      notifyDashboard({
+        type: eventMap[params.operation] || 'SESSION_UPDATED',
+        sessionId: params.session_id,
+        operation: params.operation,
+        payload: result.result
+      });
+    }
+  }
+
   console.log(JSON.stringify(result, null, 2));
 }
 

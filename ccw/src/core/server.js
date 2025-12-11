@@ -35,6 +35,7 @@ const TEMPLATE_PATH = join(import.meta.dirname, '../templates/dashboard.html');
 const MODULE_CSS_DIR = join(import.meta.dirname, '../templates/dashboard-css');
 const JS_FILE = join(import.meta.dirname, '../templates/dashboard.js');
 const MODULE_JS_DIR = join(import.meta.dirname, '../templates/dashboard-js');
+const ASSETS_DIR = join(import.meta.dirname, '../templates/assets');
 
 // Modular CSS files in load order
 const MODULE_CSS_FILES = [
@@ -580,6 +581,34 @@ export async function startServer(options = {}) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html);
         return;
+      }
+
+      // Serve static assets (js, css)
+      if (pathname.startsWith('/assets/')) {
+        const assetPath = join(ASSETS_DIR, pathname.replace('/assets/', ''));
+        if (existsSync(assetPath)) {
+          const ext = assetPath.split('.').pop().toLowerCase();
+          const mimeTypes = {
+            'js': 'application/javascript',
+            'css': 'text/css',
+            'json': 'application/json',
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'svg': 'image/svg+xml',
+            'woff': 'font/woff',
+            'woff2': 'font/woff2',
+            'ttf': 'font/ttf'
+          };
+          const contentType = mimeTypes[ext] || 'application/octet-stream';
+          const content = readFileSync(assetPath);
+          res.writeHead(200, {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=31536000'
+          });
+          res.end(content);
+          return;
+        }
       }
 
       // 404
