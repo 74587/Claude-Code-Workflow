@@ -3,6 +3,42 @@
 // ==========================================
 // Real-time silent refresh (no notification bubbles)
 
+/**
+ * Format JSON object for display in notifications
+ * @param {Object} obj - Object to format
+ * @param {number} maxLen - Max string length
+ * @returns {string} Formatted string
+ */
+function formatJsonDetails(obj, maxLen = 150) {
+  if (!obj || typeof obj !== 'object') return String(obj);
+
+  // Try pretty format first
+  try {
+    const formatted = JSON.stringify(obj, null, 2);
+    if (formatted.length <= maxLen) {
+      return formatted;
+    }
+
+    // For longer content, show key-value pairs on separate lines
+    const entries = Object.entries(obj);
+    if (entries.length === 0) return '{}';
+
+    const lines = entries.slice(0, 5).map(([key, val]) => {
+      let valStr = typeof val === 'object' ? JSON.stringify(val) : String(val);
+      if (valStr.length > 50) valStr = valStr.substring(0, 47) + '...';
+      return `${key}: ${valStr}`;
+    });
+
+    if (entries.length > 5) {
+      lines.push(`... +${entries.length - 5} more`);
+    }
+
+    return lines.join('\n');
+  } catch (e) {
+    return JSON.stringify(obj).substring(0, maxLen) + '...';
+  }
+}
+
 let wsConnection = null;
 let autoRefreshInterval = null;
 let lastDataHash = null;
@@ -132,9 +168,7 @@ function handleToolExecutionNotification(payload) {
       notifType = 'info';
       message = `Executing ${toolName}...`;
       if (params) {
-        // Show truncated params
-        const paramStr = JSON.stringify(params);
-        details = paramStr.length > 100 ? paramStr.substring(0, 100) + '...' : paramStr;
+        details = formatJsonDetails(params, 150);
       }
       break;
 
@@ -142,12 +176,10 @@ function handleToolExecutionNotification(payload) {
       notifType = 'success';
       message = `${toolName} completed`;
       if (result) {
-        // Show truncated result
         if (result._truncated) {
           details = result.preview;
         } else {
-          const resultStr = JSON.stringify(result);
-          details = resultStr.length > 150 ? resultStr.substring(0, 150) + '...' : resultStr;
+          details = formatJsonDetails(result, 200);
         }
       }
       break;

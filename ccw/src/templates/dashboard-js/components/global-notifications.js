@@ -79,17 +79,22 @@ function addGlobalNotification(type, message, details = null, source = null) {
     timestamp: new Date().toISOString(),
     read: false
   };
-  
+
   globalNotificationQueue.unshift(notification);
-  
+
   // Keep only last 100 notifications
   if (globalNotificationQueue.length > 100) {
     globalNotificationQueue = globalNotificationQueue.slice(0, 100);
   }
-  
+
+  // Persist to localStorage
+  if (typeof saveNotificationsToStorage === 'function') {
+    saveNotificationsToStorage();
+  }
+
   renderGlobalNotifications();
   updateGlobalNotifBadge();
-  
+
   // Show toast for important notifications
   if (type === 'error' || type === 'success') {
     showNotificationToast(notification);
@@ -204,6 +209,12 @@ function updateGlobalNotifBadge() {
  */
 function clearGlobalNotifications() {
   globalNotificationQueue = [];
+
+  // Clear from localStorage
+  if (typeof saveNotificationsToStorage === 'function') {
+    saveNotificationsToStorage();
+  }
+
   renderGlobalNotifications();
   updateGlobalNotifBadge();
 }
@@ -213,6 +224,12 @@ function clearGlobalNotifications() {
  */
 function markAllNotificationsRead() {
   globalNotificationQueue.forEach(n => n.read = true);
+
+  // Save to localStorage
+  if (typeof saveNotificationsToStorage === 'function') {
+    saveNotificationsToStorage();
+  }
+
   renderGlobalNotifications();
   updateGlobalNotifBadge();
 }

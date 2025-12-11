@@ -1319,11 +1319,20 @@
 }
 
 .notif-details {
-  font-size: 12px;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
   color: hsl(var(--muted-foreground));
-  margin-top: 6px;
-  padding-left: 22px;
-  line-height: 1.4;
+  margin-top: 8px;
+  margin-left: 22px;
+  padding: 8px 10px;
+  line-height: 1.5;
+  background: hsl(var(--muted) / 0.5);
+  border-radius: 6px;
+  border-left: 2px solid hsl(var(--border));
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 100px;
+  overflow-y: auto;
 }
 
 .notif-meta {

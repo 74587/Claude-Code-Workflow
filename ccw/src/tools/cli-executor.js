@@ -4,7 +4,7 @@
  */
 
 import { spawn } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 
@@ -434,6 +434,44 @@ export function getExecutionDetail(baseDir, executionId) {
   }
 
   return null;
+}
+
+/**
+ * Delete execution by ID
+ * @param {string} baseDir - Base directory
+ * @param {string} executionId - Execution ID
+ * @returns {{success: boolean, error?: string}}
+ */
+export function deleteExecution(baseDir, executionId) {
+  const historyDir = join(baseDir, '.workflow', '.cli-history');
+
+  // Parse date from execution ID
+  const timestamp = parseInt(executionId.split('-')[0], 10);
+  const date = new Date(timestamp);
+  const dateStr = date.toISOString().split('T')[0];
+
+  const filePath = join(historyDir, dateStr, `${executionId}.json`);
+
+  // Delete the execution file
+  if (existsSync(filePath)) {
+    try {
+      unlinkSync(filePath);
+    } catch (err) {
+      return { success: false, error: `Failed to delete file: ${err.message}` };
+    }
+  }
+
+  // Update index
+  try {
+    const index = loadHistoryIndex(historyDir);
+    index.executions = index.executions.filter(e => e.id !== executionId);
+    index.total_executions = Math.max(0, index.total_executions - 1);
+    writeFileSync(join(historyDir, 'index.json'), JSON.stringify(index, null, 2), 'utf8');
+  } catch (err) {
+    return { success: false, error: `Failed to update index: ${err.message}` };
+  }
+
+  return { success: true };
 }
 
 /**

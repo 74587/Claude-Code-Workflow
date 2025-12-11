@@ -2,6 +2,56 @@
 // MODAL DIALOGS
 // ==========================================
 
+// Generic Modal Functions
+function showModal(title, content, options = {}) {
+  // Remove existing modal if any
+  closeModal();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'generic-modal-overlay';
+  overlay.innerHTML = `
+    <div class="generic-modal ${options.size || ''}">
+      <div class="generic-modal-header">
+        <h3 class="generic-modal-title">${escapeHtml(title)}</h3>
+        <button class="generic-modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="generic-modal-body">
+        ${content}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Trigger animation
+  requestAnimationFrame(() => overlay.classList.add('active'));
+
+  // Initialize Lucide icons in modal
+  if (window.lucide) lucide.createIcons();
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  // Close on Escape key
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeModal();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
+function closeModal() {
+  const overlay = document.querySelector('.generic-modal-overlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+    setTimeout(() => overlay.remove(), 200);
+  }
+}
+
 // SVG Icons
 const icons = {
   folder: '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>',

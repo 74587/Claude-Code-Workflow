@@ -37,9 +37,45 @@ const liteTaskDataStore = {};
 const taskJsonStore = {};
 
 // ========== Global Notification Queue ==========
-// Notification queue visible from any view
-let globalNotificationQueue = [];
+// Notification queue visible from any view (persisted to localStorage)
+const NOTIFICATION_STORAGE_KEY = 'ccw_notifications';
+const NOTIFICATION_MAX_STORED = 100;
+
+// Load notifications from localStorage on init
+let globalNotificationQueue = loadNotificationsFromStorage();
 let isNotificationPanelVisible = false;
+
+/**
+ * Load notifications from localStorage
+ * @returns {Array} Notification array
+ */
+function loadNotificationsFromStorage() {
+  try {
+    const stored = localStorage.getItem(NOTIFICATION_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Filter out notifications older than 7 days
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      return parsed.filter(n => new Date(n.timestamp).getTime() > sevenDaysAgo);
+    }
+  } catch (e) {
+    console.error('[Notifications] Failed to load from storage:', e);
+  }
+  return [];
+}
+
+/**
+ * Save notifications to localStorage
+ */
+function saveNotificationsToStorage() {
+  try {
+    // Keep only the last N notifications
+    const toSave = globalNotificationQueue.slice(0, NOTIFICATION_MAX_STORED);
+    localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(toSave));
+  } catch (e) {
+    console.error('[Notifications] Failed to save to storage:', e);
+  }
+}
 // ========== Event Handler ==========
 /**
  * Handle granular workflow events from CLI

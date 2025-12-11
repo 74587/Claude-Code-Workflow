@@ -317,6 +317,11 @@
                 <i data-lucide="folder-tree" class="nav-icon"></i>
                 <span class="nav-text flex-1">Explorer</span>
               </li>
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="cli-manager" data-tooltip="CLI Tools Status">
+                <i data-lucide="terminal" class="nav-icon"></i>
+                <span class="nav-text flex-1">Status</span>
+                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeCliTools">0/3</span>
+              </li>
             </ul>
           </div>
 
@@ -395,20 +400,6 @@
             </ul>
           </div>
 
-          <!-- CLI Tools Section -->
-          <div class="mb-2" id="cliToolsNav">
-            <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <i data-lucide="terminal" class="nav-section-icon mr-2"></i>
-              <span class="nav-section-title">CLI Tools</span>
-            </div>
-            <ul class="space-y-0.5">
-              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="cli-manager" data-tooltip="CLI Tools Management">
-                <i data-lucide="square-terminal" class="nav-icon"></i>
-                <span class="nav-text flex-1">Manage</span>
-                <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeCliTools">0/3</span>
-              </li>
-            </ul>
-          </div>
         </nav>
 
         <!-- Sidebar Footer -->

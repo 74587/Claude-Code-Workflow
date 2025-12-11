@@ -116,6 +116,8 @@ function updateContentTitle() {
     titleEl.textContent = 'MCP Server Management';
   } else if (currentView === 'explorer') {
     titleEl.textContent = 'File Explorer';
+  } else if (currentView === 'cli-manager') {
+    titleEl.textContent = 'CLI Tools & CCW';
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': 'Lite Plan Sessions', 'lite-fix': 'Lite Fix Sessions' };
     titleEl.textContent = names[currentLiteType] || 'Lite Tasks';

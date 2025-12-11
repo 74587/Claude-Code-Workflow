@@ -1,15 +1,15 @@
 // CLI Manager View
-// Main view combining CLI status and history panels
+// Main view combining CLI status, CCW installations, and history panels
 
 // ========== CLI Manager State ==========
-let currentCliExecution = null;
-let cliExecutionOutput = '';
+var currentCliExecution = null;
+var cliExecutionOutput = '';
+var ccwInstallations = [];
 
 // ========== Initialization ==========
 function initCliManager() {
-  // Initialize CLI navigation
-  document.querySelectorAll('.nav-item[data-view="cli-manager"]').forEach(item => {
-    item.addEventListener('click', () => {
+  document.querySelectorAll('.nav-item[data-view="cli-manager"]').forEach(function(item) {
+    item.addEventListener('click', function() {
       setActiveNavItem(item);
       currentView = 'cli-manager';
       currentFilter = null;
@@ -21,262 +21,461 @@ function initCliManager() {
   });
 }
 
+// ========== CCW Installations ==========
+async function loadCcwInstallations() {
+  try {
+    var response = await fetch('/api/ccw/installations');
+    if (!response.ok) throw new Error('Failed to load CCW installations');
+    var data = await response.json();
+    ccwInstallations = data.installations || [];
+    return ccwInstallations;
+  } catch (err) {
+    console.error('Failed to load CCW installations:', err);
+    ccwInstallations = [];
+    return [];
+  }
+}
+
 // ========== Rendering ==========
 async function renderCliManager() {
-  const mainContent = document.querySelector('.main-content');
-  if (!mainContent) return;
+  var container = document.getElementById('mainContent');
+  if (!container) return;
+
+  // Hide stats grid and search for CLI view
+  var statsGrid = document.getElementById('statsGrid');
+  var searchInput = document.getElementById('searchInput');
+  if (statsGrid) statsGrid.style.display = 'none';
+  if (searchInput) searchInput.parentElement.style.display = 'none';
 
   // Load data
   await Promise.all([
     loadCliToolStatus(),
-    loadCliHistory()
+    loadCliHistory(),
+    loadCcwInstallations()
   ]);
 
-  mainContent.innerHTML = `
-    <div class="cli-manager-container">
-      <div class="cli-manager-grid">
-        <!-- Status Panel -->
-        <div class="cli-panel">
-          <div id="cli-status-panel"></div>
-        </div>
-
-        <!-- Quick Execute Panel -->
-        <div class="cli-panel">
-          <div id="cli-execute-panel"></div>
-        </div>
-      </div>
-
-      <!-- History Panel -->
-      <div class="cli-panel cli-panel-full">
-        <div id="cli-history-panel"></div>
-      </div>
-
-      <!-- Live Output Panel (shown during execution) -->
-      <div class="cli-panel cli-panel-full ${currentCliExecution ? '' : 'hidden'}" id="cli-output-panel">
-        <div class="cli-output-header">
-          <h3>Execution Output</h3>
-          <div class="cli-output-status">
-            <span id="cli-output-status-indicator" class="status-indicator running"></span>
-            <span id="cli-output-status-text">Running...</span>
-          </div>
-        </div>
-        <pre class="cli-output-content" id="cli-output-content"></pre>
-      </div>
-    </div>
-  `;
+  container.innerHTML = '<div class="cli-manager-container">' +
+    '<div class="cli-manager-grid">' +
+    '<div class="cli-panel"><div id="cli-status-panel"></div></div>' +
+    '<div class="cli-panel"><div id="ccw-install-panel"></div></div>' +
+    '</div>' +
+    '<div class="cli-panel cli-panel-full"><div id="cli-history-panel"></div></div>' +
+    '</div>';
 
   // Render sub-panels
   renderCliStatus();
-  renderCliExecutePanel();
+  renderCcwInstallPanel();
   renderCliHistory();
 
   // Initialize Lucide icons
-  if (window.lucide) {
-    lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
+}
+
+// CCW Install Carousel State
+var ccwCarouselIndex = 0;
+
+function renderCcwInstallPanel() {
+  var container = document.getElementById('ccw-install-panel');
+  if (!container) return;
+
+  var html = '<div class="cli-status-header"><h3>CCW Installations</h3>' +
+    '<div class="ccw-header-actions">' +
+    '<button class="btn-icon" onclick="showCcwInstallModal()" title="Add Installation">' +
+    '<i data-lucide="plus" class="w-4 h-4"></i></button>' +
+    '<button class="btn-icon" onclick="loadCcwInstallations().then(function() { renderCcwInstallPanel(); })" title="Refresh">' +
+    '<i data-lucide="refresh-cw" class="w-4 h-4"></i></button>' +
+    '</div></div>' +
+    '<div class="ccw-install-content">';
+
+  if (ccwInstallations.length === 0) {
+    html += '<div class="ccw-empty-state">' +
+      '<i data-lucide="package-x" class="w-8 h-8"></i>' +
+      '<p>No installations found</p>' +
+      '<button class="btn btn-sm btn-primary" onclick="showCcwInstallModal()">' +
+      '<i data-lucide="download" class="w-3 h-3"></i> Install CCW</button></div>';
+  } else {
+    // Carousel container
+    html += '<div class="ccw-carousel-wrapper">';
+
+    // Left arrow (show only if more than 1 installation)
+    if (ccwInstallations.length > 1) {
+      html += '<button class="ccw-carousel-btn ccw-carousel-prev" onclick="ccwCarouselPrev()" title="Previous">' +
+        '<i data-lucide="chevron-left" class="w-4 h-4"></i></button>';
+    }
+
+    html += '<div class="ccw-carousel-track" id="ccwCarouselTrack">';
+
+    for (var i = 0; i < ccwInstallations.length; i++) {
+      var inst = ccwInstallations[i];
+      var isGlobal = inst.installation_mode === 'Global';
+      var modeIcon = isGlobal ? 'home' : 'folder';
+      var version = inst.application_version || 'unknown';
+      var installDate = new Date(inst.installation_date).toLocaleDateString();
+      var activeClass = i === ccwCarouselIndex ? 'active' : '';
+
+      html += '<div class="ccw-carousel-card ' + activeClass + '" data-index="' + i + '">' +
+        '<div class="ccw-card-header">' +
+        '<div class="ccw-card-mode ' + (isGlobal ? 'global' : 'path') + '">' +
+        '<i data-lucide="' + modeIcon + '" class="w-4 h-4"></i>' +
+        '<span>' + inst.installation_mode + '</span>' +
+        '</div>' +
+        '<span class="ccw-version-tag">v' + version + '</span>' +
+        '</div>' +
+        '<div class="ccw-card-path" title="' + inst.installation_path + '">' + escapeHtml(inst.installation_path) + '</div>' +
+        '<div class="ccw-card-meta">' +
+        '<span><i data-lucide="calendar" class="w-3 h-3"></i> ' + installDate + '</span>' +
+        '<span><i data-lucide="file" class="w-3 h-3"></i> ' + (inst.files_count || 0) + ' files</span>' +
+        '</div>' +
+        '<div class="ccw-card-actions">' +
+        '<button class="btn-icon" onclick="runCcwUpgrade()" title="Upgrade">' +
+        '<i data-lucide="arrow-up-circle" class="w-4 h-4"></i></button>' +
+        '<button class="btn-icon btn-danger" onclick="confirmCcwUninstall(\'' + escapeHtml(inst.installation_path) + '\')" title="Uninstall">' +
+        '<i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+        '</div>' +
+        '</div>';
+    }
+
+    html += '</div>';
+
+    // Right arrow (show only if more than 1 installation)
+    if (ccwInstallations.length > 1) {
+      html += '<button class="ccw-carousel-btn ccw-carousel-next" onclick="ccwCarouselNext()" title="Next">' +
+        '<i data-lucide="chevron-right" class="w-4 h-4"></i></button>';
+    }
+
+    html += '</div>';
+
+    // Dots indicator (show only if more than 1 installation)
+    if (ccwInstallations.length > 1) {
+      html += '<div class="ccw-carousel-dots">';
+      for (var j = 0; j < ccwInstallations.length; j++) {
+        var dotActive = j === ccwCarouselIndex ? 'active' : '';
+        html += '<button class="ccw-carousel-dot ' + dotActive + '" onclick="ccwCarouselGoTo(' + j + ')"></button>';
+      }
+      html += '</div>';
+    }
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+
+  // Update carousel position
+  updateCcwCarouselPosition();
+}
+
+function ccwCarouselPrev() {
+  if (ccwCarouselIndex > 0) {
+    ccwCarouselIndex--;
+    updateCcwCarouselPosition();
+    updateCcwCarouselDots();
   }
 }
 
+function ccwCarouselNext() {
+  if (ccwCarouselIndex < ccwInstallations.length - 1) {
+    ccwCarouselIndex++;
+    updateCcwCarouselPosition();
+    updateCcwCarouselDots();
+  }
+}
+
+function ccwCarouselGoTo(index) {
+  ccwCarouselIndex = index;
+  updateCcwCarouselPosition();
+  updateCcwCarouselDots();
+}
+
+function updateCcwCarouselPosition() {
+  var track = document.getElementById('ccwCarouselTrack');
+  if (track) {
+    track.style.transform = 'translateX(-' + (ccwCarouselIndex * 100) + '%)';
+  }
+
+  // Update card active states
+  var cards = document.querySelectorAll('.ccw-carousel-card');
+  cards.forEach(function(card, idx) {
+    card.classList.toggle('active', idx === ccwCarouselIndex);
+  });
+}
+
+function updateCcwCarouselDots() {
+  var dots = document.querySelectorAll('.ccw-carousel-dot');
+  dots.forEach(function(dot, idx) {
+    dot.classList.toggle('active', idx === ccwCarouselIndex);
+  });
+}
+
+// CCW Install Modal
+function showCcwInstallModal() {
+  var modalContent = '<div class="ccw-install-modal">' +
+    '<div class="ccw-install-options">' +
+    '<div class="ccw-install-option" onclick="selectCcwInstallMode(\'Global\')">' +
+    '<div class="ccw-option-icon global"><i data-lucide="home" class="w-6 h-6"></i></div>' +
+    '<div class="ccw-option-info">' +
+    '<div class="ccw-option-title">Global Installation</div>' +
+    '<div class="ccw-option-desc">Install to user home directory (~/.claude)</div>' +
+    '</div>' +
+    '<i data-lucide="chevron-right" class="w-4 h-4 text-muted-foreground"></i>' +
+    '</div>' +
+    '<div class="ccw-install-option" onclick="toggleCcwPathInput()">' +
+    '<div class="ccw-option-icon path"><i data-lucide="folder" class="w-6 h-6"></i></div>' +
+    '<div class="ccw-option-info">' +
+    '<div class="ccw-option-title">Path Installation</div>' +
+    '<div class="ccw-option-desc">Install to a specific project folder</div>' +
+    '</div>' +
+    '<i data-lucide="chevron-right" class="w-4 h-4 text-muted-foreground"></i>' +
+    '</div>' +
+    '</div>' +
+    '<div class="ccw-path-input-section hidden" id="ccwPathInputSection">' +
+    '<div class="ccw-path-input-group">' +
+    '<label>Installation Path</label>' +
+    '<input type="text" id="ccwInstallPath" class="cli-textarea" placeholder="D:/projects/my-project" value="' + (projectPath || '') + '">' +
+    '</div>' +
+    '<div class="ccw-install-action">' +
+    '<button class="btn btn-primary" onclick="executeCcwInstall()">' +
+    '<i data-lucide="download" class="w-4 h-4"></i> Install to Path</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
+
+  showModal('Install CCW', modalContent);
+}
+
+function selectCcwInstallMode(mode) {
+  if (mode === 'Global') {
+    closeModal();
+    runCcwInstall('Global');
+  }
+}
+
+function toggleCcwPathInput() {
+  var section = document.getElementById('ccwPathInputSection');
+  if (section) {
+    section.classList.toggle('hidden');
+    if (!section.classList.contains('hidden')) {
+      var input = document.getElementById('ccwInstallPath');
+      if (input) input.focus();
+    }
+  }
+}
+
+function executeCcwInstall() {
+  var input = document.getElementById('ccwInstallPath');
+  var path = input ? input.value.trim() : '';
+
+  if (!path) {
+    showRefreshToast('Please enter a path', 'error');
+    return;
+  }
+
+  closeModal();
+  runCcwInstall('Path', path);
+}
+
+function truncatePath(path) {
+  if (!path) return '';
+  var maxLen = 35;
+  if (path.length <= maxLen) return path;
+  return '...' + path.slice(-maxLen + 3);
+}
+
 function renderCliExecutePanel() {
-  const container = document.getElementById('cli-execute-panel');
+  var container = document.getElementById('cli-execute-panel');
   if (!container) return;
 
-  const tools = ['gemini', 'qwen', 'codex'];
-  const modes = ['analysis', 'write', 'auto'];
+  var tools = ['gemini', 'qwen', 'codex'];
+  var modes = ['analysis', 'write', 'auto'];
 
-  container.innerHTML = `
-    <div class="cli-execute-header">
-      <h3>Quick Execute</h3>
-    </div>
-    <div class="cli-execute-form">
-      <div class="cli-execute-row">
-        <div class="cli-form-group">
-          <label for="cli-exec-tool">Tool</label>
-          <select id="cli-exec-tool" class="cli-select">
-            ${tools.map(tool => `
-              <option value="${tool}" ${tool === defaultCliTool ? 'selected' : ''}>
-                ${tool.charAt(0).toUpperCase() + tool.slice(1)}
-              </option>
-            `).join('')}
-          </select>
-        </div>
-        <div class="cli-form-group">
-          <label for="cli-exec-mode">Mode</label>
-          <select id="cli-exec-mode" class="cli-select">
-            ${modes.map(mode => `
-              <option value="${mode}" ${mode === 'analysis' ? 'selected' : ''}>
-                ${mode.charAt(0).toUpperCase() + mode.slice(1)}
-              </option>
-            `).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="cli-form-group">
-        <label for="cli-exec-prompt">Prompt</label>
-        <textarea id="cli-exec-prompt" class="cli-textarea" placeholder="Enter your prompt..."></textarea>
-      </div>
-      <div class="cli-execute-actions">
-        <button class="btn btn-primary" onclick="executeCliFromDashboard()" ${currentCliExecution ? 'disabled' : ''}>
-          <i data-lucide="play"></i>
-          Execute
-        </button>
-      </div>
-    </div>
-  `;
-
+  var html = '<div class="cli-execute-header"><h3>Quick Execute</h3></div>' +
+    '<div class="cli-execute-form"><div class="cli-execute-row">' +
+    '<div class="cli-form-group"><label for="cli-exec-tool">Tool</label>' +
+    '<select id="cli-exec-tool" class="cli-select">';
+  for (var i = 0; i < tools.length; i++) {
+    var tool = tools[i];
+    var selected = tool === defaultCliTool ? 'selected' : '';
+    html += '<option value="' + tool + '" ' + selected + '>' + tool.charAt(0).toUpperCase() + tool.slice(1) + '</option>';
+  }
+  html += '</select></div>' +
+    '<div class="cli-form-group"><label for="cli-exec-mode">Mode</label>' +
+    '<select id="cli-exec-mode" class="cli-select">';
+  for (var j = 0; j < modes.length; j++) {
+    var mode = modes[j];
+    var sel = mode === 'analysis' ? 'selected' : '';
+    html += '<option value="' + mode + '" ' + sel + '>' + mode.charAt(0).toUpperCase() + mode.slice(1) + '</option>';
+  }
+  html += '</select></div></div>' +
+    '<div class="cli-form-group"><label for="cli-exec-prompt">Prompt</label>' +
+    '<textarea id="cli-exec-prompt" class="cli-textarea" placeholder="Enter your prompt..."></textarea></div>' +
+    '<div class="cli-execute-actions">' +
+    '<button class="btn btn-primary" onclick="executeCliFromDashboard()" ' + (currentCliExecution ? 'disabled' : '') + '>' +
+    '<i data-lucide="play" class="w-4 h-4"></i> Execute</button></div></div>';
+  container.innerHTML = html;
   if (window.lucide) lucide.createIcons();
+}
+
+// ========== CCW Actions ==========
+function runCcwInstall(mode, customPath) {
+  var command;
+  if (mode === 'Global') {
+    command = 'ccw install --mode Global';
+  } else {
+    var installPath = customPath || projectPath;
+    command = 'ccw install --mode Path --path "' + installPath + '"';
+  }
+
+  // Copy command to clipboard
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(command).then(function() {
+      showRefreshToast('Command copied: ' + command, 'success');
+    }).catch(function() {
+      showRefreshToast('Run: ' + command, 'info');
+    });
+  } else {
+    showRefreshToast('Run: ' + command, 'info');
+  }
+}
+
+function runCcwUpgrade() {
+  var command = 'ccw upgrade';
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(command).then(function() {
+      showRefreshToast('Command copied: ' + command, 'success');
+    }).catch(function() {
+      showRefreshToast('Run: ' + command, 'info');
+    });
+  } else {
+    showRefreshToast('Run: ' + command, 'info');
+  }
+}
+
+function confirmCcwUninstall(installPath) {
+  if (confirm('Uninstall CCW from this location?\n' + (installPath || 'Current installation'))) {
+    var command = installPath
+      ? 'ccw uninstall --path "' + installPath + '"'
+      : 'ccw uninstall';
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(command).then(function() {
+        showRefreshToast('Command copied: ' + command, 'success');
+      }).catch(function() {
+        showRefreshToast('Run: ' + command, 'info');
+      });
+    } else {
+      showRefreshToast('Run: ' + command, 'info');
+    }
+  }
 }
 
 // ========== Execution ==========
 async function executeCliFromDashboard() {
-  const tool = document.getElementById('cli-exec-tool').value;
-  const mode = document.getElementById('cli-exec-mode').value;
-  const prompt = document.getElementById('cli-exec-prompt').value.trim();
+  var toolEl = document.getElementById('cli-exec-tool');
+  var modeEl = document.getElementById('cli-exec-mode');
+  var promptEl = document.getElementById('cli-exec-prompt');
+
+  var tool = toolEl ? toolEl.value : 'gemini';
+  var mode = modeEl ? modeEl.value : 'analysis';
+  var prompt = promptEl ? promptEl.value.trim() : '';
 
   if (!prompt) {
     showRefreshToast('Please enter a prompt', 'error');
     return;
   }
 
-  // Show output panel
-  currentCliExecution = { tool, mode, prompt, startTime: Date.now() };
+  currentCliExecution = { tool: tool, mode: mode, prompt: prompt, startTime: Date.now() };
   cliExecutionOutput = '';
 
-  const outputPanel = document.getElementById('cli-output-panel');
-  const outputContent = document.getElementById('cli-output-content');
-  const statusIndicator = document.getElementById('cli-output-status-indicator');
-  const statusText = document.getElementById('cli-output-status-text');
+  var outputPanel = document.getElementById('cli-output-panel');
+  var outputContent = document.getElementById('cli-output-content');
+  var statusIndicator = document.getElementById('cli-output-status-indicator');
+  var statusText = document.getElementById('cli-output-status-text');
 
   if (outputPanel) outputPanel.classList.remove('hidden');
   if (outputContent) outputContent.textContent = '';
-  if (statusIndicator) {
-    statusIndicator.className = 'status-indicator running';
-  }
+  if (statusIndicator) statusIndicator.className = 'status-indicator running';
   if (statusText) statusText.textContent = 'Running...';
 
-  // Disable execute button
-  const execBtn = document.querySelector('.cli-execute-actions .btn-primary');
+  var execBtn = document.querySelector('.cli-execute-actions .btn-primary');
   if (execBtn) execBtn.disabled = true;
 
   try {
-    const response = await fetch('/api/cli/execute', {
+    var response = await fetch('/api/cli/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tool,
-        mode,
-        prompt,
-        dir: projectPath
-      })
+      body: JSON.stringify({ tool: tool, mode: mode, prompt: prompt, dir: projectPath })
     });
+    var result = await response.json();
 
-    const result = await response.json();
-
-    // Update status
-    if (statusIndicator) {
-      statusIndicator.className = `status-indicator ${result.success ? 'success' : 'error'}`;
-    }
+    if (statusIndicator) statusIndicator.className = 'status-indicator ' + (result.success ? 'success' : 'error');
     if (statusText) {
-      const duration = formatDuration(result.execution?.duration_ms || (Date.now() - currentCliExecution.startTime));
-      statusText.textContent = result.success
-        ? `Completed in ${duration}`
-        : `Failed: ${result.error || 'Unknown error'}`;
+      var duration = formatDuration(result.execution ? result.execution.duration_ms : (Date.now() - currentCliExecution.startTime));
+      statusText.textContent = result.success ? 'Completed in ' + duration : 'Failed: ' + (result.error || 'Unknown');
     }
 
-    // Refresh history
     await loadCliHistory();
     renderCliHistory();
-
-    if (result.success) {
-      showRefreshToast('Execution completed', 'success');
-    } else {
-      showRefreshToast(result.error || 'Execution failed', 'error');
-    }
-
+    showRefreshToast(result.success ? 'Completed' : (result.error || 'Failed'), result.success ? 'success' : 'error');
   } catch (error) {
-    if (statusIndicator) {
-      statusIndicator.className = 'status-indicator error';
-    }
-    if (statusText) {
-      statusText.textContent = `Error: ${error.message}`;
-    }
-    showRefreshToast(`Execution error: ${error.message}`, 'error');
+    if (statusIndicator) statusIndicator.className = 'status-indicator error';
+    if (statusText) statusText.textContent = 'Error: ' + error.message;
+    showRefreshToast('Error: ' + error.message, 'error');
   }
 
   currentCliExecution = null;
-
-  // Re-enable execute button
   if (execBtn) execBtn.disabled = false;
 }
 
 // ========== WebSocket Event Handlers ==========
 function handleCliExecutionStarted(payload) {
-  const { executionId, tool, mode, timestamp } = payload;
-  currentCliExecution = { executionId, tool, mode, startTime: new Date(timestamp).getTime() };
+  currentCliExecution = {
+    executionId: payload.executionId,
+    tool: payload.tool,
+    mode: payload.mode,
+    startTime: new Date(payload.timestamp).getTime()
+  };
   cliExecutionOutput = '';
 
-  // Show output panel if in CLI manager view
   if (currentView === 'cli-manager') {
-    const outputPanel = document.getElementById('cli-output-panel');
-    const outputContent = document.getElementById('cli-output-content');
-    const statusIndicator = document.getElementById('cli-output-status-indicator');
-    const statusText = document.getElementById('cli-output-status-text');
+    var outputPanel = document.getElementById('cli-output-panel');
+    var outputContent = document.getElementById('cli-output-content');
+    var statusIndicator = document.getElementById('cli-output-status-indicator');
+    var statusText = document.getElementById('cli-output-status-text');
 
     if (outputPanel) outputPanel.classList.remove('hidden');
     if (outputContent) outputContent.textContent = '';
     if (statusIndicator) statusIndicator.className = 'status-indicator running';
-    if (statusText) statusText.textContent = `Running ${tool} (${mode})...`;
+    if (statusText) statusText.textContent = 'Running ' + payload.tool + ' (' + payload.mode + ')...';
   }
 }
 
 function handleCliOutput(payload) {
-  const { data } = payload;
-  cliExecutionOutput += data;
-
-  // Update output panel if visible
-  const outputContent = document.getElementById('cli-output-content');
+  cliExecutionOutput += payload.data;
+  var outputContent = document.getElementById('cli-output-content');
   if (outputContent) {
     outputContent.textContent = cliExecutionOutput;
-    // Auto-scroll to bottom
     outputContent.scrollTop = outputContent.scrollHeight;
   }
 }
 
 function handleCliExecutionCompleted(payload) {
-  const { executionId, success, status, duration_ms } = payload;
+  var statusIndicator = document.getElementById('cli-output-status-indicator');
+  var statusText = document.getElementById('cli-output-status-text');
 
-  // Update status
-  const statusIndicator = document.getElementById('cli-output-status-indicator');
-  const statusText = document.getElementById('cli-output-status-text');
-
-  if (statusIndicator) {
-    statusIndicator.className = `status-indicator ${success ? 'success' : 'error'}`;
-  }
-  if (statusText) {
-    statusText.textContent = success
-      ? `Completed in ${formatDuration(duration_ms)}`
-      : `Failed: ${status}`;
-  }
+  if (statusIndicator) statusIndicator.className = 'status-indicator ' + (payload.success ? 'success' : 'error');
+  if (statusText) statusText.textContent = payload.success ? 'Completed in ' + formatDuration(payload.duration_ms) : 'Failed: ' + payload.status;
 
   currentCliExecution = null;
-
-  // Refresh history
   if (currentView === 'cli-manager') {
-    loadCliHistory().then(() => renderCliHistory());
+    loadCliHistory().then(function() { renderCliHistory(); });
   }
 }
 
 function handleCliExecutionError(payload) {
-  const { executionId, error } = payload;
+  var statusIndicator = document.getElementById('cli-output-status-indicator');
+  var statusText = document.getElementById('cli-output-status-text');
 
-  const statusIndicator = document.getElementById('cli-output-status-indicator');
-  const statusText = document.getElementById('cli-output-status-text');
-
-  if (statusIndicator) {
-    statusIndicator.className = 'status-indicator error';
-  }
-  if (statusText) {
-    statusText.textContent = `Error: ${error}`;
-  }
+  if (statusIndicator) statusIndicator.className = 'status-indicator error';
+  if (statusText) statusText.textContent = 'Error: ' + payload.error;
 
   currentCliExecution = null;
 }

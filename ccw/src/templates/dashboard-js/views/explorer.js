@@ -17,6 +17,27 @@ let isTaskRunning = false;
 
 
 /**
+ * Safe base64 encode that handles Unicode characters
+ * Returns alphanumeric-only string suitable for HTML IDs
+ */
+function safeBase64Encode(str) {
+  try {
+    // Encode Unicode string to UTF-8 bytes, then to base64
+    const encoded = btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+    return encoded.replace(/[^a-zA-Z0-9]/g, '');
+  } catch (e) {
+    // Fallback: use simple hash if encoding fails
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return 'path' + Math.abs(hash).toString(36);
+  }
+}
+
+/**
  * Render the Explorer view
  */
 async function renderExplorer() {
@@ -177,7 +198,7 @@ function renderTreeLevel(files, parentPath, depth) {
               </button>
             </div>
           </div>
-          <div class="tree-children ${isExpanded ? 'show' : ''}" id="children-${btoa(file.path).replace(/[^a-zA-Z0-9]/g, '')}">
+          <div class="tree-children ${isExpanded ? 'show' : ''}" id="children-${safeBase64Encode(file.path)}">
             ${isExpanded ? '' : ''}
           </div>
         </div>
@@ -298,35 +319,44 @@ function getFolderIcon(name, isExpanded, hasClaudeMd) {
     : '<i data-lucide="folder" class="w-4 h-4 text-warning"></i>';
 }
 
+// Flag to track if event delegation is already set up
+let explorerEventsDelegated = false;
+
 /**
- * Attach event listeners to tree items
+ * Attach event listeners using event delegation (only once on container)
  */
 function attachTreeEventListeners() {
-  // Folder click - toggle expand
-  document.querySelectorAll('.tree-folder > .tree-item-row').forEach(row => {
-    row.addEventListener('click', async (e) => {
-      const folder = row.closest('.tree-folder');
+  const treeContent = document.getElementById('explorerTreeContent');
+  if (!treeContent || explorerEventsDelegated) return;
+
+  explorerEventsDelegated = true;
+
+  // Use event delegation - single listener on container handles all clicks
+  treeContent.addEventListener('click', async (e) => {
+    // Check if clicked on folder row (but not on action buttons)
+    const folderRow = e.target.closest('.tree-folder > .tree-item-row');
+    if (folderRow && !e.target.closest('.tree-folder-actions')) {
+      const folder = folderRow.closest('.tree-folder');
       const path = folder.dataset.path;
       await toggleFolderExpand(path, folder);
-    });
-  });
+      return;
+    }
 
-  // File click - preview
-  document.querySelectorAll('.tree-file').forEach(item => {
-    item.addEventListener('click', async () => {
-      const path = item.dataset.path;
+    // Check if clicked on file
+    const fileItem = e.target.closest('.tree-file');
+    if (fileItem) {
+      const path = fileItem.dataset.path;
       await previewFile(path);
-      
+
       // Update selection
       document.querySelectorAll('.tree-item-row.selected, .tree-file.selected').forEach(el => {
         el.classList.remove('selected');
       });
-      item.classList.add('selected');
+      fileItem.classList.add('selected');
       explorerSelectedFile = path;
-    });
+    }
   });
 }
-
 /**
  * Toggle folder expand/collapse
  */
@@ -366,7 +396,6 @@ async function toggleFolderExpand(path, folderElement) {
         
         const depth = (path.match(/\//g) || []).length - (explorerCurrentPath.match(/\//g) || []).length + 1;
         childrenContainer.innerHTML = renderTreeLevel(data.files, path, depth);
-        attachTreeEventListeners();
       } catch (error) {
         childrenContainer.innerHTML = `<div class="tree-error">Failed to load</div>`;
       }
@@ -483,6 +512,7 @@ async function refreshExplorerTree() {
   }
   
   explorerExpandedDirs.clear();
+  explorerEventsDelegated = false;
   await loadExplorerTree(explorerCurrentPath);
   
   if (btn) {

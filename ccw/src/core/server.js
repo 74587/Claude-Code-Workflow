@@ -7,7 +7,8 @@ import { createHash } from 'crypto';
 import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
-import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, executeCliTool } from '../tools/cli-executor.js';
+import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, deleteExecution, executeCliTool } from '../tools/cli-executor.js';
+import { getAllManifests } from './manifest.js';
 
 // Claude config file paths
 const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
@@ -47,7 +48,8 @@ const MODULE_CSS_FILES = [
   '06-cards.css',
   '07-managers.css',
   '08-review.css',
-  '09-explorer.css'
+  '09-explorer.css',
+  '10-cli.css'
 ];
 
 /**
@@ -449,6 +451,14 @@ export async function startServer(options = {}) {
         return;
       }
 
+      // API: CCW Installation Status
+      if (pathname === '/api/ccw/installations') {
+        const manifests = getAllManifests();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ installations: manifests }));
+        return;
+      }
+
       // API: CLI Execution History
       if (pathname === '/api/cli/history') {
         const projectPath = url.searchParams.get('path') || initialPath;
@@ -462,7 +472,7 @@ export async function startServer(options = {}) {
         return;
       }
 
-      // API: CLI Execution Detail
+      // API: CLI Execution Detail (GET) or Delete (DELETE)
       if (pathname === '/api/cli/execution') {
         const projectPath = url.searchParams.get('path') || initialPath;
         const executionId = url.searchParams.get('id');
@@ -473,6 +483,20 @@ export async function startServer(options = {}) {
           return;
         }
 
+        // Handle DELETE request
+        if (req.method === 'DELETE') {
+          const result = deleteExecution(projectPath, executionId);
+          if (result.success) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Execution deleted' }));
+          } else {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: result.error || 'Delete failed' }));
+          }
+          return;
+        }
+
+        // Handle GET request
         const detail = getExecutionDetail(projectPath, executionId);
         if (!detail) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
