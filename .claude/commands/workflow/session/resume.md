@@ -77,10 +77,3 @@ ccw tool exec session_manager '{
 ```bash
 ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"session"}'
 ```
-
-### Operation Reference
-| Old Pattern | session_manager |
-|------------|-----------------|
-| `jq -r '.status' session.json` | `{"operation":"read","content_type":"session"}` |
-| `jq '.status = "active"' ... > temp.json && mv` | `{"operation":"update","content":{"status":"active"}}` |
-| `jq '.resumed_at = "..."'` | `{"operation":"update","content":{"resumed_at":"..."}}` |

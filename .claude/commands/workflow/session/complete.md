@@ -550,12 +550,3 @@ ccw tool exec session_manager '{
 }'
 ```
 
-### Operation Reference
-| Old Pattern | session_manager |
-|------------|-----------------|
-| `find .workflow/active/ -name "WFS-*"` | `{"operation":"list","location":"active"}` |
-| `jq '.status = "completed"' ...` | `{"operation":"update","content":{"status":"completed"}}` |
-| `mv .workflow/active/WFS-xxx .workflow/archives/` | `{"operation":"archive","session_id":"WFS-xxx"}` |
-| `touch .archiving` | `{"operation":"write","content_type":"process","path_params":{"filename":".archiving"}}` |
-| `rm .archiving` | Use bash `rm` directly (no delete operation in tool) |
-| `cat manifest.json` | Read manifest directly with bash (outside session scope) |

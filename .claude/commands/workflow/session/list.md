@@ -112,11 +112,3 @@ ccw tool exec session_manager '{"operation":"list","location":"active","include_
 ```bash
 ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"session"}'
 ```
-
-### Operation Reference
-| Old Pattern | session_manager |
-|------------|-----------------|
-| `ls .workflow/active/WFS-*` | `{"operation":"list","location":"active"}` |
-| `find ... -type d` | `{"operation":"list"}` returns session_id list |
-| `jq -r '.status' session.json` | `{"operation":"read","content_type":"session"}` |
-| `cat workflow-session.json` | `{"operation":"read","content_type":"session"}` |

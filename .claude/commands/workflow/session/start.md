@@ -217,11 +217,3 @@ ccw tool exec session_manager '{
 ```bash
 ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"session"}'
 ```
-
-### Operation Reference
-| Old Pattern | session_manager |
-|------------|-----------------|
-| `ls .workflow/active/` | `{"operation":"list","location":"active"}` |
-| `mkdir -p .../.process .../.task .../.summaries` | `{"operation":"init","session_id":"WFS-xxx"}` |
-| `echo '{...}' > workflow-session.json` | `{"operation":"write","content_type":"session","content":{...}}` |
-| `cat workflow-session.json` | `{"operation":"read","content_type":"session"}` |
