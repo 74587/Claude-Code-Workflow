@@ -5,37 +5,80 @@
 
 /**
  * Format JSON object for display in notifications
- * @param {Object} obj - Object to format
- * @param {number} maxLen - Max string length
- * @returns {string} Formatted string
+ * Parses JSON strings and formats objects into readable key-value pairs
+ * @param {Object|string} obj - Object or JSON string to format
+ * @param {number} maxLen - Max string length (unused, kept for compatibility)
+ * @returns {string} Formatted string with key: value pairs
  */
 function formatJsonDetails(obj, maxLen = 150) {
-  if (!obj || typeof obj !== 'object') return String(obj);
+  // Handle null/undefined
+  if (obj === null || obj === undefined) return '';
 
-  // Try pretty format first
-  try {
-    const formatted = JSON.stringify(obj, null, 2);
-    if (formatted.length <= maxLen) {
-      return formatted;
+  // If it is a string, try to parse as JSON
+  if (typeof obj === 'string') {
+    // Check if it looks like JSON
+    const trimmed = obj.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        obj = JSON.parse(trimmed);
+      } catch (e) {
+        // Not valid JSON, return as-is
+        return obj;
+      }
+    } else {
+      // Plain string, return as-is
+      return obj;
     }
+  }
 
-    // For longer content, show key-value pairs on separate lines
+  // Handle non-objects (numbers, booleans, etc.)
+  if (typeof obj !== 'object') return String(obj);
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return '(empty array)';
+    return obj.slice(0, 5).map((item, i) => {
+      const itemStr = typeof item === 'object' ? JSON.stringify(item) : String(item);
+      return `[${i}] ${itemStr.length > 50 ? itemStr.substring(0, 47) + '...' : itemStr}`;
+    }).join('\n') + (obj.length > 5 ? `\n... +${obj.length - 5} more` : '');
+  }
+
+  // Handle objects - format as readable key: value pairs
+  try {
     const entries = Object.entries(obj);
-    if (entries.length === 0) return '{}';
+    if (entries.length === 0) return '(empty object)';
 
-    const lines = entries.slice(0, 5).map(([key, val]) => {
-      let valStr = typeof val === 'object' ? JSON.stringify(val) : String(val);
-      if (valStr.length > 50) valStr = valStr.substring(0, 47) + '...';
+    // Format each entry with proper value display
+    const lines = entries.slice(0, 8).map(([key, val]) => {
+      let valStr;
+      if (val === null) {
+        valStr = 'null';
+      } else if (val === undefined) {
+        valStr = 'undefined';
+      } else if (typeof val === 'boolean') {
+        valStr = val ? 'true' : 'false';
+      } else if (typeof val === 'number') {
+        valStr = String(val);
+      } else if (typeof val === 'object') {
+        valStr = JSON.stringify(val);
+        if (valStr.length > 40) valStr = valStr.substring(0, 37) + '...';
+      } else {
+        valStr = String(val);
+        if (valStr.length > 50) valStr = valStr.substring(0, 47) + '...';
+      }
       return `${key}: ${valStr}`;
     });
 
-    if (entries.length > 5) {
-      lines.push(`... +${entries.length - 5} more`);
+    if (entries.length > 8) {
+      lines.push(`... +${entries.length - 8} more fields`);
     }
 
     return lines.join('\n');
   } catch (e) {
-    return JSON.stringify(obj).substring(0, maxLen) + '...';
+    // Fallback to stringified version
+    const str = JSON.stringify(obj);
+    return str.length > 200 ? str.substring(0, 197) + '...' : str;
   }
 }
 
