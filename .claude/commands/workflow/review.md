@@ -113,13 +113,14 @@ After bash validation, the model takes control to:
 1. **Load Context**: Read completed task summaries and changed files
    ```bash
    # Load implementation summaries
-   cat .workflow/active/${sessionId}/.summaries/IMPL-*.md
+   ccw session read ${sessionId} --type summary --raw
 
    # Load test results (if available)
-   cat .workflow/active/${sessionId}/.summaries/TEST-FIX-*.md 2>/dev/null
+   ccw session read ${sessionId} --type summary --filename "TEST-FIX-*.md" --raw 2>/dev/null
 
-   # Get changed files
-   git log --since="$(cat .workflow/active/${sessionId}/workflow-session.json | jq -r .created_at)" --name-only --pretty=format: | sort -u
+   # Get session created_at for git log filter
+   created_at=$(ccw session read ${sessionId} --type session --raw | jq -r .created_at)
+   git log --since="$created_at" --name-only --pretty=format: | sort -u
    ```
 
 2. **Perform Specialized Review**: Based on `review_type`
@@ -169,11 +170,11 @@ After bash validation, the model takes control to:
    - Verify all requirements and acceptance criteria met:
      ```bash
      # Load task requirements and acceptance criteria
-     find .workflow/active/${sessionId}/.task -name "IMPL-*.json" -exec jq -r '
+     ccw session read ${sessionId} --type task --raw | jq -r '
        "Task: " + .id + "\n" +
        "Requirements: " + (.context.requirements | join(", ")) + "\n" +
        "Acceptance: " + (.context.acceptance | join(", "))
-     ' {} \;
+     '
 
      # Check implementation summaries against requirements
      cd .workflow/active/${sessionId} && gemini -p "

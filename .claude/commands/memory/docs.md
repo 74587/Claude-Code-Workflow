@@ -74,7 +74,7 @@ SlashCommand(command="/workflow:session:start --type docs --new \"{project_name}
 
 ```bash
 # Update workflow-session.json with docs-specific fields
-bash(jq '. + {"target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}' .workflow/active/{sessionId}/workflow-session.json > tmp.json && mv tmp.json .workflow/active/{sessionId}/workflow-session.json)
+ccw session update {sessionId} --type session --content '{"target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}'
 ```
 
 ### Phase 2: Analyze Structure
@@ -136,7 +136,8 @@ bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${proj
 
 ```bash
 # Count existing docs from doc-planning-data.json
-bash(cat .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq '.existing_docs.file_list | length')
+ccw session read WFS-docs-{timestamp} --type process --filename doc-planning-data.json --raw | jq '.existing_docs.file_list | length'
+# Or read entire process file and parse
 ```
 
 **Data Processing**: Use count result, then use **Edit tool** to update `workflow-session.json`:
@@ -190,10 +191,10 @@ Large Projects (single dir >10 docs):
 
 ```bash
 # 1. Get top-level directories from doc-planning-data.json
-bash(cat .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq -r '.top_level_dirs[]')
+ccw session read WFS-docs-{timestamp} --type process --filename doc-planning-data.json --raw | jq -r '.top_level_dirs[]'
 
 # 2. Get mode from workflow-session.json
-bash(cat .workflow/active/WFS-docs-{timestamp}/workflow-session.json | jq -r '.mode // "full"')
+ccw session read WFS-docs-{timestamp} --type session --raw | jq -r '.mode // "full"'
 
 # 3. Check for HTTP API
 bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo "NO_API")
@@ -222,7 +223,7 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 
 **Task ID Calculation**:
 ```bash
-group_count=$(jq '.groups.count' .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json)
+group_count=$(ccw session read WFS-docs-{timestamp} --type process --filename doc-planning-data.json --raw | jq '.groups.count')
 readme_id=$((group_count + 1))   # Next ID after groups
 arch_id=$((group_count + 2))
 api_id=$((group_count + 3))
@@ -285,8 +286,8 @@ api_id=$((group_count + 3))
         "step": "load_precomputed_data",
         "action": "Load Phase 2 analysis and extract group directories",
         "commands": [
-          "bash(cat ${session_dir}/.process/doc-planning-data.json)",
-          "bash(jq '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories' ${session_dir}/.process/doc-planning-data.json)"
+          "ccw session read ${session_id} --type process --filename doc-planning-data.json",
+          "ccw session read ${session_id} --type process --filename doc-planning-data.json --raw | jq '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories'"
         ],
         "output_to": "phase2_context",
         "note": "Single JSON file contains all Phase 2 analysis results"

@@ -7,6 +7,14 @@ import chalk from 'chalk';
 import http from 'http';
 import { executeTool } from '../tools/index.js';
 
+// Handle EPIPE errors gracefully (occurs when piping to head/jq that closes early)
+process.stdout.on('error', (err) => {
+  if (err.code === 'EPIPE') {
+    process.exit(0);
+  }
+  throw err;
+});
+
 /**
  * Notify dashboard of granular events (fire and forget)
  * @param {Object} data - Event data

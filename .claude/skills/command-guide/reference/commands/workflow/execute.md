@@ -115,7 +115,7 @@ List sessions with metadata and prompt user selection:
 ```bash
 bash(for dir in .workflow/active/WFS-*/; do
   session=$(basename "$dir")
-  project=$(jq -r '.project // "Unknown"' "$dir/workflow-session.json" 2>/dev/null)
+  project=$(ccw session read "$session" --type session --raw 2>/dev/null | jq -r '.project // "Unknown"')
   total=$(grep -c "^- \[" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
   completed=$(grep -c "^- \[x\]" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
   [ "$total" -gt 0 ] && progress=$((completed * 100 / total)) || progress=0
@@ -152,7 +152,7 @@ Parse user input (supports: number "1", full ID "WFS-auth-system", or partial "a
 
 #### Step 1.3: Load Session Metadata
 ```bash
-bash(cat .workflow/active/${sessionId}/workflow-session.json)
+ccw session read ${sessionId} --type session
 ```
 
 **Output**: Store session metadata in memory

@@ -83,17 +83,18 @@ When task JSON contains implementation_approach array:
   - L1 (Unit): `*.test.*`, `*.spec.*` in `__tests__/`, `tests/unit/`
   - L2 (Integration): `tests/integration/`, `*.integration.test.*`
   - L3 (E2E): `tests/e2e/`, `*.e2e.test.*`, `cypress/`, `playwright/`
-- **context-package.json** (CCW Workflow): Extract artifact paths using `jq -r '.brainstorm_artifacts.role_analyses[].files[].path'`
+- **context-package.json** (CCW Workflow): Use `ccw session read {session} --type context` to get context package with artifact paths
 - Identify test commands from project configuration
 
 ```bash
 # Detect test framework and multi-layered commands
 if [ -f "package.json" ]; then
-    # Extract layer-specific test commands
-    LINT_CMD=$(cat package.json | jq -r '.scripts.lint // "eslint ."')
-    UNIT_CMD=$(cat package.json | jq -r '.scripts["test:unit"] // .scripts.test')
-    INTEGRATION_CMD=$(cat package.json | jq -r '.scripts["test:integration"] // ""')
-    E2E_CMD=$(cat package.json | jq -r '.scripts["test:e2e"] // ""')
+    # Extract layer-specific test commands using Read tool or jq
+    PKG_JSON=$(cat package.json)
+    LINT_CMD=$(echo "$PKG_JSON" | jq -r '.scripts.lint // "eslint ."')
+    UNIT_CMD=$(echo "$PKG_JSON" | jq -r '.scripts["test:unit"] // .scripts.test')
+    INTEGRATION_CMD=$(echo "$PKG_JSON" | jq -r '.scripts["test:integration"] // ""')
+    E2E_CMD=$(echo "$PKG_JSON" | jq -r '.scripts["test:e2e"] // ""')
 elif [ -f "pytest.ini" ] || [ -f "setup.py" ]; then
     LINT_CMD="ruff check . || flake8 ."
     UNIT_CMD="pytest tests/unit/"

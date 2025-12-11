@@ -77,18 +77,18 @@ find .workflow/active/ -name "WFS-*" -type d | head -1 | sed 's/.*\///'
 
 ```bash
 # Load all task JSONs
-find .workflow/active/{sessionId}/.task/ -name '*.json'
+ccw session read {sessionId} --type task
 
 # Extract task IDs
-find .workflow/active/{sessionId}/.task/ -name '*.json' -exec jq -r '.id' {} \;
+ccw session read {sessionId} --type task --raw | jq -r '.id'
 
-# Check dependencies
-find .workflow/active/{sessionId}/.task/ -name 'IMPL-*.json' -exec jq -r '.context.depends_on[]?' {} \;
-find .workflow/active/{sessionId}/.task/ -name 'REFACTOR-*.json' -exec jq -r '.context.depends_on[]?' {} \;
+# Check dependencies - read tasks and filter for IMPL/REFACTOR
+ccw session read {sessionId} --type task --task-id "IMPL-*" --raw | jq -r '.context.depends_on[]?'
+ccw session read {sessionId} --type task --task-id "REFACTOR-*" --raw | jq -r '.context.depends_on[]?'
 
 # Check meta fields
-find .workflow/active/{sessionId}/.task/ -name '*.json' -exec jq -r '.meta.tdd_phase' {} \;
-find .workflow/active/{sessionId}/.task/ -name '*.json' -exec jq -r '.meta.agent' {} \;
+ccw session read {sessionId} --type task --raw | jq -r '.meta.tdd_phase'
+ccw session read {sessionId} --type task --raw | jq -r '.meta.agent'
 ```
 
 **Validation**:

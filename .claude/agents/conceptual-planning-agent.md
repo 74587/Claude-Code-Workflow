@@ -109,7 +109,7 @@ This agent processes **simplified inline [FLOW_CONTROL]** format from brainstorm
 
 3. **load_session_metadata**
    - Action: Load session metadata
-   - Command: bash(cat .workflow/WFS-{session}/workflow-session.json)
+   - Command: ccw session read WFS-{session} --type session
    - Output: session_metadata
 ```
 
@@ -155,7 +155,7 @@ When called, you receive:
 - **User Context**: Specific requirements, constraints, and expectations from user discussion
 - **Output Location**: Directory path for generated analysis files
 - **Role Hint** (optional): Suggested role or role selection guidance
-- **context-package.json** (CCW Workflow): Artifact paths catalog - extract using `jq -r '.brainstorm_artifacts.role_analyses[].files[].path'`
+- **context-package.json** (CCW Workflow): Artifact paths catalog - use `ccw session read {session} --type context` to get context package
 - **ASSIGNED_ROLE** (optional): Specific role assignment
 - **ANALYSIS_DIMENSIONS** (optional): Role-specific analysis dimensions
 

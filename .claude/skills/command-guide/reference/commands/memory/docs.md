@@ -74,7 +74,7 @@ SlashCommand(command="/workflow:session:start --type docs --new \"{project_name}
 
 ```bash
 # Update workflow-session.json with docs-specific fields
-bash(jq '. + {"target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}' .workflow/active/{sessionId}/workflow-session.json > tmp.json && mv tmp.json .workflow/active/{sessionId}/workflow-session.json)
+ccw session update {sessionId} --type session --content '{"target_path":"{target_path}","project_root":"{project_root}","project_name":"{project_name}","mode":"full","tool":"gemini","cli_execute":false}'
 ```
 
 ### Phase 2: Analyze Structure
@@ -136,7 +136,8 @@ bash(if [ -d .workflow/docs/\${project_name} ]; then find .workflow/docs/\${proj
 
 ```bash
 # Count existing docs from doc-planning-data.json
-bash(cat .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq '.existing_docs.file_list | length')
+ccw session read WFS-docs-{timestamp} --type process --filename doc-planning-data.json --raw | jq '.existing_docs.file_list | length'
+# Or read entire process file and parse
 ```
 
 **Data Processing**: Use count result, then use **Edit tool** to update `workflow-session.json`:
