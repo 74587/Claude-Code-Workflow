@@ -35,8 +35,8 @@ bash(basename .workflow/active/WFS-session-name)
 
 #### Step 1.2: Check for Existing Archiving Marker (Resume Detection)
 ```bash
-# Check if session is already being archived
-bash(test -f .workflow/active/WFS-session-name/.archiving && echo "RESUMING" || echo "NEW")
+# Check if session is already being archived (marker file exists)
+ccw session read WFS-session-name --type process --filename .archiving 2>/dev/null && echo "RESUMING" || echo "NEW"
 ```
 
 **If RESUMING**:
@@ -49,7 +49,7 @@ bash(test -f .workflow/active/WFS-session-name/.archiving && echo "RESUMING" || 
 #### Step 1.3: Create Archiving Marker
 ```bash
 # Mark session as "archiving in progress"
-bash(touch .workflow/active/WFS-session-name/.archiving)
+ccw session write WFS-session-name --type process --filename .archiving --content ''
 ```
 **Purpose**:
 - Prevents concurrent operations on this session
@@ -161,21 +161,20 @@ Analyze workflow session for archival preparation. Session is STILL in active lo
 
 **Purpose**: Atomically commit all changes. Only execute if Phase 2 succeeds.
 
-#### Step 3.1: Create Archive Directory
+#### Step 3.1: Update Session Status and Archive
 ```bash
-bash(mkdir -p .workflow/archives/)
-```
-
-#### Step 3.2: Move Session to Archive
-```bash
-bash(mv .workflow/active/WFS-session-name .workflow/archives/WFS-session-name)
+# Archive session (updates status to "completed" and moves to archives)
+ccw session archive WFS-session-name
+# This operation atomically:
+# 1. Updates workflow-session.json status to "completed"
+# 2. Moves session from .workflow/active/ to .workflow/archives/
 ```
 **Result**: Session now at `.workflow/archives/WFS-session-name/`
 
-#### Step 3.3: Update Manifest
+#### Step 3.2: Update Manifest
 ```bash
-# Read current manifest (or create empty array if not exists)
-bash(test -f .workflow/archives/manifest.json && cat .workflow/archives/manifest.json || echo "[]")
+# Read current manifest using ccw (or create empty array if not exists)
+ccw session read manifest --type manifest --raw 2>/dev/null || echo "[]"
 ```
 
 **JSON Update Logic**:
@@ -200,9 +199,10 @@ manifest.push(archiveEntry);
 Write('.workflow/archives/manifest.json', JSON.stringify(manifest, null, 2));
 ```
 
-#### Step 3.4: Remove Archiving Marker
+#### Step 3.3: Remove Archiving Marker
 ```bash
-bash(rm .workflow/archives/WFS-session-name/.archiving)
+# Remove archiving marker from archived session (use bash rm as ccw has no delete)
+rm .workflow/archives/WFS-session-name/.process/.archiving 2>/dev/null || true
 ```
 **Result**: Clean archived session without temporary markers
 

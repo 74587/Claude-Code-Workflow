@@ -88,9 +88,10 @@ Total: 3 sessions (1 active, 1 paused, 1 completed)
 
 ### Quick Commands
 ```bash
-# Count all sessions
-ls .workflow/active/WFS-* | wc -l
+# Count active sessions using ccw
+ccw session list --location active --no-metadata
+# Returns session count in result.total
 
 # Show recent sessions
-ls -t .workflow/active/WFS-*/workflow-session.json | head -3
+ccw session list --location active
 ```

@@ -34,7 +34,7 @@ ccw session list --location active
 #### Step 1.2: Check for Existing Archiving Marker (Resume Detection)
 ```bash
 # Check if session is already being archived (marker file exists)
-bash(test -f .workflow/active/WFS-session-name/.archiving && echo "RESUMING" || echo "NEW")
+ccw session read WFS-session-name --type process --filename .archiving 2>/dev/null && echo "RESUMING" || echo "NEW"
 ```
 
 **If RESUMING**:
@@ -47,7 +47,7 @@ bash(test -f .workflow/active/WFS-session-name/.archiving && echo "RESUMING" || 
 #### Step 1.3: Create Archiving Marker
 ```bash
 # Mark session as "archiving in progress"
-bash(touch .workflow/active/WFS-session-name/.archiving)
+ccw session write WFS-session-name --type process --filename .archiving --content ''
 ```
 **Purpose**:
 - Prevents concurrent operations on this session
@@ -171,8 +171,8 @@ ccw session archive WFS-session-name
 
 #### Step 3.2: Update Manifest
 ```bash
-# Read current manifest (or create empty array if not exists)
-bash(test -f .workflow/archives/manifest.json && cat .workflow/archives/manifest.json || echo "[]")
+# Read current manifest using ccw (or create empty array if not exists)
+ccw session read manifest --type manifest --raw 2>/dev/null || echo "[]"
 ```
 
 **JSON Update Logic**:
@@ -199,7 +199,8 @@ Write('.workflow/archives/manifest.json', JSON.stringify(manifest, null, 2));
 
 #### Step 3.5: Remove Archiving Marker
 ```bash
-bash(rm .workflow/archives/WFS-session-name/.archiving)
+# Remove archiving marker from archived session (use bash rm as ccw has no delete)
+rm .workflow/archives/WFS-session-name/.process/.archiving 2>/dev/null || true
 ```
 **Result**: Clean archived session without temporary markers
 
@@ -220,7 +221,8 @@ bash(rm .workflow/archives/WFS-session-name/.archiving)
 
 #### Step 4.1: Check Project State Exists
 ```bash
-bash(test -f .workflow/project.json && echo "EXISTS" || echo "SKIP")
+# Check project state using ccw
+ccw session read project --type project 2>/dev/null && echo "EXISTS" || echo "SKIP"
 ```
 
 **If SKIP**: Output warning and skip Phase 4
@@ -248,8 +250,8 @@ const featureId = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 5
 #### Step 4.3: Update project.json
 
 ```bash
-# Read current project state
-bash(cat .workflow/project.json)
+# Read current project state using ccw
+ccw session read project --type project --raw
 ```
 
 **JSON Update Logic**:
@@ -363,8 +365,8 @@ function getLatestCommitHash() {
 **Recovery Steps**:
 ```bash
 # Session still in .workflow/active/WFS-session-name
-# Remove archiving marker
-bash(rm .workflow/active/WFS-session-name/.archiving)
+# Remove archiving marker using bash
+rm .workflow/active/WFS-session-name/.process/.archiving 2>/dev/null || true
 ```
 
 **User Notification**:
