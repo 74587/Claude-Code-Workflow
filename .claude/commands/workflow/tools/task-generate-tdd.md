@@ -152,9 +152,14 @@ Phase 2: Agent Execution (Document Generation)
    roleAnalysisPaths.forEach(path => Read(path));
    ```
 
-5. **Load Conflict Resolution** (from context-package.json, if exists)
+5. **Load Conflict Resolution** (from conflict-resolution.json, if exists)
    ```javascript
-   if (contextPackage.brainstorm_artifacts.conflict_resolution?.exists) {
+   // Check for new conflict-resolution.json format
+   if (contextPackage.conflict_detection?.resolution_file) {
+     Read(contextPackage.conflict_detection.resolution_file)  // .process/conflict-resolution.json
+   }
+   // Fallback: legacy brainstorm_artifacts path
+   else if (contextPackage.brainstorm_artifacts?.conflict_resolution?.exists) {
      Read(contextPackage.brainstorm_artifacts.conflict_resolution.path)
    }
    ```
@@ -223,7 +228,7 @@ If conflict_risk was medium/high, modifications have been applied to:
 - **guidance-specification.md**: Design decisions updated to resolve conflicts
 - **Role analyses (*.md)**: Recommendations adjusted for compatibility
 - **context-package.json**: Marked as "resolved" with conflict IDs
-- NO separate CONFLICT_RESOLUTION.md file (conflicts resolved in-place)
+- Conflict resolution results stored in conflict-resolution.json
 
 ### MCP Analysis Results (Optional)
 **Code Structure**: {mcp_code_index_results}
@@ -373,10 +378,12 @@ const agentContext = {
     .flatMap(role => role.files)
     .map(file => Read(file.path)),
 
-  // Load conflict resolution if exists (from context package)
-  conflict_resolution: brainstorm_artifacts.conflict_resolution?.exists
-    ? Read(brainstorm_artifacts.conflict_resolution.path)
-    : null,
+  // Load conflict resolution if exists (prefer new JSON format)
+  conflict_resolution: context_package.conflict_detection?.resolution_file
+    ? Read(context_package.conflict_detection.resolution_file)  // .process/conflict-resolution.json
+    : (brainstorm_artifacts?.conflict_resolution?.exists
+        ? Read(brainstorm_artifacts.conflict_resolution.path)
+        : null),
 
   // Optional MCP enhancements
   mcp_analysis: executeMcpDiscovery()
@@ -408,7 +415,7 @@ This section provides quick reference for TDD task JSON structure. For complete 
 │   ├── IMPL-3.2.json                # Complex feature subtask (if needed)
 │   └── ...
 └── .process/
-    ├── CONFLICT_RESOLUTION.md       # Conflict resolution strategies (if conflict_risk ≥ medium)
+    ├── conflict-resolution.json     # Conflict resolution results (if conflict_risk ≥ medium)
     ├── test-context-package.json    # Test coverage analysis
     ├── context-package.json         # Input from context-gather
     ├── context_package_path         # Path to smart context package

@@ -164,10 +164,10 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 
 **Parse Output**:
 - Extract: Execution status (success/skipped/failed)
-- Verify: CONFLICT_RESOLUTION.md file path (if executed)
+- Verify: conflict-resolution.json file path (if executed)
 
 **Validation**:
-- File `.workflow/active/[sessionId]/.process/CONFLICT_RESOLUTION.md` exists (if executed)
+- File `.workflow/active/[sessionId]/.process/conflict-resolution.json` exists (if executed)
 
 **Skip Behavior**:
 - If conflict_risk is "none" or "low", skip directly to Phase 5
@@ -402,7 +402,7 @@ TDD Workflow Orchestrator
 │     ├─ Phase 4.1: Detect conflicts with CLI
 │     ├─ Phase 4.2: Present conflicts to user
 │     └─ Phase 4.3: Apply resolution strategies
-│     └─ Returns: CONFLICT_RESOLUTION.md              ← COLLAPSED
+│     └─ Returns: conflict-resolution.json            ← COLLAPSED
 │  ELSE:
 │  └─ Skip to Phase 5
 │

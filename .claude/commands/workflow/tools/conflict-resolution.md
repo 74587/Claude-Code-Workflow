@@ -169,7 +169,7 @@ Task(subagent_type="cli-execution-agent", prompt=`
 
   ### 4. Return Structured Conflict Data
 
-  ⚠️ DO NOT generate CONFLICT_RESOLUTION.md file
+  ⚠️ Output to conflict-resolution.json (generated in Phase 4)
 
   Return JSON format for programmatic processing:
 
@@ -467,13 +467,29 @@ selectedStrategies.forEach(item => {
 
 console.log(`\n正在应用 ${modifications.length} 个修改...`);
 
-// 2. Apply each modification using Edit tool
+// 2. Apply each modification using Edit tool (with fallback to context-package.json)
 const appliedModifications = [];
 const failedModifications = [];
+const fallbackConstraints = [];  // For files that don't exist
 
 modifications.forEach((mod, idx) => {
   try {
     console.log(`[${idx + 1}/${modifications.length}] 修改 ${mod.file}...`);
+
+    // Check if target file exists (brainstorm files may not exist in lite workflow)
+    if (!file_exists(mod.file)) {
+      console.log(`  ⚠️ 文件不存在，写入 context-package.json 作为约束`);
+      fallbackConstraints.push({
+        source: "conflict-resolution",
+        conflict_id: mod.conflict_id,
+        target_file: mod.file,
+        section: mod.section,
+        change_type: mod.change_type,
+        content: mod.new_content,
+        rationale: mod.rationale
+      });
+      return;  // Skip to next modification
+    }
 
     if (mod.change_type === "update") {
       Edit({
@@ -502,14 +518,45 @@ modifications.forEach((mod, idx) => {
   }
 });
 
-// 3. Update context-package.json with resolution details
+// 2b. Generate conflict-resolution.json output file
+const resolutionOutput = {
+  session_id: sessionId,
+  resolved_at: new Date().toISOString(),
+  summary: {
+    total_conflicts: conflicts.length,
+    resolved_with_strategy: selectedStrategies.length,
+    custom_handling: customConflicts.length,
+    fallback_constraints: fallbackConstraints.length
+  },
+  resolved_conflicts: selectedStrategies.map(s => ({
+    conflict_id: s.conflict_id,
+    strategy_name: s.strategy.name,
+    strategy_approach: s.strategy.approach,
+    clarifications: s.clarifications || [],
+    modifications_applied: s.strategy.modifications?.filter(m =>
+      appliedModifications.some(am => am.conflict_id === s.conflict_id)
+    ) || []
+  })),
+  custom_conflicts: customConflicts.map(c => ({
+    id: c.id,
+    brief: c.brief,
+    category: c.category,
+    suggestions: c.suggestions,
+    overlap_analysis: c.overlap_analysis || null
+  })),
+  planning_constraints: fallbackConstraints,  // Constraints for files that don't exist
+  failed_modifications: failedModifications
+};
+
+const resolutionPath = `.workflow/active/${sessionId}/.process/conflict-resolution.json`;
+Write(resolutionPath, JSON.stringify(resolutionOutput, null, 2));
+console.log(`\n📄 冲突解决结果已保存: ${resolutionPath}`);
+
+// 3. Update context-package.json with resolution details (reference to JSON file)
 const contextPackage = JSON.parse(Read(contextPath));
 contextPackage.conflict_detection.conflict_risk = "resolved";
-contextPackage.conflict_detection.resolved_conflicts = selectedStrategies.map(s => ({
-  conflict_id: s.conflict_id,
-  strategy_name: s.strategy.name,
-  clarifications: s.clarifications
-}));
+contextPackage.conflict_detection.resolution_file = resolutionPath;  // Reference to detailed JSON
+contextPackage.conflict_detection.resolved_conflicts = selectedStrategies.map(s => s.conflict_id);
 contextPackage.conflict_detection.custom_conflicts = customConflicts.map(c => c.id);
 contextPackage.conflict_detection.resolved_at = new Date().toISOString();
 Write(contextPath, JSON.stringify(contextPackage, null, 2));
@@ -582,11 +629,49 @@ return {
 ✓ Agent log saved to .workflow/active/{session_id}/.chat/
 ```
 
-## Output Format: Agent JSON Response
+## Output Format
+
+### Primary Output: conflict-resolution.json
+
+**Path**: `.workflow/active/{session_id}/.process/conflict-resolution.json`
+
+**Schema**:
+```json
+{
+  "session_id": "WFS-xxx",
+  "resolved_at": "ISO timestamp",
+  "summary": {
+    "total_conflicts": 3,
+    "resolved_with_strategy": 2,
+    "custom_handling": 1,
+    "fallback_constraints": 0
+  },
+  "resolved_conflicts": [
+    {
+      "conflict_id": "CON-001",
+      "strategy_name": "策略名称",
+      "strategy_approach": "实现方法",
+      "clarifications": [],
+      "modifications_applied": []
+    }
+  ],
+  "custom_conflicts": [
+    {
+      "id": "CON-002",
+      "brief": "冲突摘要",
+      "category": "ModuleOverlap",
+      "suggestions": ["建议1", "建议2"],
+      "overlap_analysis": null
+    }
+  ],
+  "planning_constraints": [],
+  "failed_modifications": []
+}
+```
+
+### Secondary: Agent JSON Response (stdout)
 
 **Focus**: Structured conflict data with actionable modifications for programmatic processing.
-
-**Format**: JSON to stdout (NO file generation)
 
 **Structure**: Defined in Phase 2, Step 4 (agent prompt)
 
@@ -635,11 +720,12 @@ If Edit tool fails mid-application:
 - Requires: `conflict_risk ≥ medium`
 
 **Output**:
-- Modified files:
+- Generated file:
+  - `.workflow/active/{session_id}/.process/conflict-resolution.json` (primary output)
+- Modified files (if exist):
   - `.workflow/active/{session_id}/.brainstorm/guidance-specification.md`
   - `.workflow/active/{session_id}/.brainstorm/{role}/analysis.md`
-  - `.workflow/active/{session_id}/.process/context-package.json` (conflict_risk → resolved)
-- NO report file generation
+  - `.workflow/active/{session_id}/.process/context-package.json` (conflict_risk → resolved, resolution_file reference)
 
 **User Interaction**:
 - **Iterative conflict processing**: One conflict at a time, not in batches
@@ -667,7 +753,7 @@ If Edit tool fails mid-application:
 ✓ guidance-specification.md updated with resolved conflicts
 ✓ Role analyses (*.md) updated with resolved conflicts
 ✓ context-package.json marked as "resolved" with clarification records
-✓ No CONFLICT_RESOLUTION.md file generated
+✓ conflict-resolution.json generated with full resolution details
 ✓ Modification summary includes:
   - Total conflicts
   - Resolved with strategy (count)

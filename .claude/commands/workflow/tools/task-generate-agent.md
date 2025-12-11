@@ -89,6 +89,14 @@ Phase 3: Integration (+1 Coordinator, Multi-Module Only)
 3. **Auto Module Detection** (determines single vs parallel mode):
    ```javascript
    function autoDetectModules(contextPackage, projectRoot) {
+     // === Complexity Gate: Only parallelize for High complexity ===
+     const complexity = contextPackage.metadata?.complexity || 'Medium';
+     if (complexity !== 'High') {
+       // Force single agent mode for Low/Medium complexity
+       // This maximizes agent context reuse for related tasks
+       return [{ name: 'main', prefix: '', paths: ['.'] }];
+     }
+
      // Priority 1: Explicit frontend/backend separation
      if (exists('src/frontend') && exists('src/backend')) {
        return [
@@ -112,8 +120,9 @@ Phase 3: Integration (+1 Coordinator, Multi-Module Only)
    ```
 
 **Decision Logic**:
+- `complexity !== 'High'` → Force Phase 2A (Single Agent, maximize context reuse)
 - `modules.length == 1` → Phase 2A (Single Agent, original flow)
-- `modules.length >= 2` → Phase 2B + Phase 3 (N+1 Parallel)
+- `modules.length >= 2 && complexity == 'High'` → Phase 2B + Phase 3 (N+1 Parallel)
 
 **Note**: CLI tool usage is now determined semantically by action-planning-agent based on user's task description, not by flags.
 
@@ -162,6 +171,13 @@ Determine CLI tool usage per-step based on user's task description:
 - Reference aggregated_insights.all_patterns for implementation approach
 - Use aggregated_insights.all_integration_points for precise modification locations
 - Use conflict_indicators for risk-aware task sequencing
+
+## CONFLICT RESOLUTION CONTEXT (if exists)
+- Check context-package.conflict_detection.resolution_file for conflict-resolution.json path
+- If exists, load .process/conflict-resolution.json:
+  - Apply planning_constraints as task constraints (for brainstorm-less workflows)
+  - Reference resolved_conflicts for implementation approach alignment
+  - Handle custom_conflicts with explicit task notes
 
 ## EXPECTED DELIVERABLES
 1. Task JSON Files (.task/IMPL-*.json)
