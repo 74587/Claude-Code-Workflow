@@ -604,7 +604,7 @@ export async function startServer(options = {}) {
           const content = readFileSync(assetPath);
           res.writeHead(200, {
             'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=31536000'
+            'Cache-Control': 'no-cache, must-revalidate'
           });
           res.end(content);
           return;

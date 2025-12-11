@@ -13,7 +13,7 @@ let explorerExpandedDirs = new Set();
 let updateTaskQueue = [];
 let isTaskQueueVisible = false;
 let isTaskRunning = false;
-let defaultCliTool = 'gemini'; // Default CLI tool for updates
+// Note: defaultCliTool is defined in components/cli-status.js
 
 
 /**
