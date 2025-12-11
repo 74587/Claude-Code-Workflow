@@ -118,10 +118,13 @@ function resolvePath(base, contentType, pathParams = {}) {
 }
 
 /**
- * Get session base path for init (always active)
+ * Get session base path
+ * @param {string} sessionId - Session identifier
+ * @param {boolean} archived - If true, return archive path; otherwise active path
  */
-function getSessionBase(sessionId) {
-  return resolve(findWorkflowRoot(), ACTIVE_BASE, sessionId);
+function getSessionBase(sessionId, archived = false) {
+  const basePath = archived ? ARCHIVE_BASE : ACTIVE_BASE;
+  return resolve(findWorkflowRoot(), basePath, sessionId);
 }
 
 /**
