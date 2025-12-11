@@ -8,6 +8,7 @@ import { upgradeCommand } from './commands/upgrade.js';
 import { listCommand } from './commands/list.js';
 import { toolCommand } from './commands/tool.js';
 import { sessionCommand } from './commands/session.js';
+import { cliCommand } from './commands/cli.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -132,6 +133,21 @@ export function run(argv) {
     .option('--no-metadata', 'Exclude metadata from list')
     .option('--no-update-status', 'Skip status update on archive')
     .action((subcommand, args, options) => sessionCommand(subcommand, args, options));
+
+  // CLI command
+  program
+    .command('cli [subcommand] [args...]')
+    .description('Unified CLI tool executor (gemini/qwen/codex)')
+    .option('--tool <tool>', 'CLI tool to use', 'gemini')
+    .option('--mode <mode>', 'Execution mode: analysis, write, auto', 'analysis')
+    .option('--model <model>', 'Model override')
+    .option('--cd <path>', 'Working directory (-C for codex)')
+    .option('--includeDirs <dirs>', 'Additional directories (--include-directories for gemini/qwen, --add-dir for codex)')
+    .option('--timeout <ms>', 'Timeout in milliseconds', '300000')
+    .option('--no-stream', 'Disable streaming output')
+    .option('--limit <n>', 'History limit')
+    .option('--status <status>', 'Filter by status')
+    .action((subcommand, args, options) => cliCommand(subcommand, args, options));
 
   program.parse(argv);
 }

@@ -83,6 +83,31 @@ function handleNotification(data) {
       handleToolExecutionNotification(payload);
       break;
 
+    // CLI Tool Execution Events
+    case 'CLI_EXECUTION_STARTED':
+      if (typeof handleCliExecutionStarted === 'function') {
+        handleCliExecutionStarted(payload);
+      }
+      break;
+
+    case 'CLI_OUTPUT':
+      if (typeof handleCliOutput === 'function') {
+        handleCliOutput(payload);
+      }
+      break;
+
+    case 'CLI_EXECUTION_COMPLETED':
+      if (typeof handleCliExecutionCompleted === 'function') {
+        handleCliExecutionCompleted(payload);
+      }
+      break;
+
+    case 'CLI_EXECUTION_ERROR':
+      if (typeof handleCliExecutionError === 'function') {
+        handleCliExecutionError(payload);
+      }
+      break;
+
     default:
       console.log('[WS] Unknown notification type:', type);
   }

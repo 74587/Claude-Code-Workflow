@@ -234,15 +234,6 @@ async function performUpgrade(manifest, sourceDir, version) {
     totalDirs += directories;
   }
 
-  // Copy CLAUDE.md to .claude directory
-  const claudeMdSrc = join(sourceDir, 'CLAUDE.md');
-  const claudeMdDest = join(installPath, '.claude', 'CLAUDE.md');
-  if (existsSync(claudeMdSrc) && existsSync(dirname(claudeMdDest))) {
-    copyFileSync(claudeMdSrc, claudeMdDest);
-    addFileEntry(newManifest, claudeMdDest);
-    totalFiles++;
-  }
-
   // Update version.json
   const versionPath = join(installPath, '.claude', 'version.json');
   if (existsSync(dirname(versionPath))) {

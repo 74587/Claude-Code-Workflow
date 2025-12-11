@@ -133,16 +133,6 @@ export async function installCommand(options) {
       totalDirs += directories;
     }
 
-    // Copy CLAUDE.md to .claude directory
-    const claudeMdSrc = join(sourceDir, 'CLAUDE.md');
-    const claudeMdDest = join(installPath, '.claude', 'CLAUDE.md');
-    if (existsSync(claudeMdSrc) && existsSync(dirname(claudeMdDest))) {
-      spinner.text = 'Installing CLAUDE.md...';
-      copyFileSync(claudeMdSrc, claudeMdDest);
-      addFileEntry(manifest, claudeMdDest);
-      totalFiles++;
-    }
-
     // Create version.json
     const versionPath = join(installPath, '.claude', 'version.json');
     if (existsSync(dirname(versionPath))) {

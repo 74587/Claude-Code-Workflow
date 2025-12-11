@@ -7,6 +7,7 @@ import { createHash } from 'crypto';
 import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
+import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, executeCliTool } from '../tools/cli-executor.js';
 
 // Claude config file paths
 const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
@@ -89,6 +90,8 @@ const MODULE_FILES = [
   'components/version-check.js',
   'components/mcp-manager.js',
   'components/hook-manager.js',
+  'components/cli-status.js',
+  'components/cli-history.js',
   'components/_exp_helpers.js',
   'components/tabs-other.js',
   'components/tabs-context.js',
@@ -105,6 +108,7 @@ const MODULE_FILES = [
   'views/fix-session.js',
   'views/mcp-manager.js',
   'views/hook-manager.js',
+  'views/cli-manager.js',
   'views/explorer.js',
   'main.js'
 ];
@@ -433,6 +437,128 @@ export async function startServer(options = {}) {
         const fileData = await getFileContent(filePath);
         res.writeHead(fileData.error ? 404 : 200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(fileData));
+        return;
+      }
+
+      // API: CLI Tools Status
+      if (pathname === '/api/cli/status') {
+        const status = await getCliToolsStatus();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(status));
+        return;
+      }
+
+      // API: CLI Execution History
+      if (pathname === '/api/cli/history') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const tool = url.searchParams.get('tool') || null;
+        const status = url.searchParams.get('status') || null;
+
+        const history = getExecutionHistory(projectPath, { limit, tool, status });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(history));
+        return;
+      }
+
+      // API: CLI Execution Detail
+      if (pathname === '/api/cli/execution') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const executionId = url.searchParams.get('id');
+
+        if (!executionId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Execution ID is required' }));
+          return;
+        }
+
+        const detail = getExecutionDetail(projectPath, executionId);
+        if (!detail) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Execution not found' }));
+          return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(detail));
+        return;
+      }
+
+      // API: Execute CLI Tool
+      if (pathname === '/api/cli/execute' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { tool, prompt, mode, model, dir, includeDirs, timeout } = body;
+
+          if (!tool || !prompt) {
+            return { error: 'tool and prompt are required', status: 400 };
+          }
+
+          // Start execution
+          const executionId = `${Date.now()}-${tool}`;
+
+          // Broadcast execution started
+          broadcastToClients({
+            type: 'CLI_EXECUTION_STARTED',
+            payload: {
+              executionId,
+              tool,
+              mode: mode || 'analysis',
+              timestamp: new Date().toISOString()
+            }
+          });
+
+          try {
+            // Execute with streaming output broadcast
+            const result = await executeCliTool({
+              tool,
+              prompt,
+              mode: mode || 'analysis',
+              model,
+              dir: dir || initialPath,
+              includeDirs,
+              timeout: timeout || 300000,
+              stream: true
+            }, (chunk) => {
+              // Broadcast output chunks via WebSocket
+              broadcastToClients({
+                type: 'CLI_OUTPUT',
+                payload: {
+                  executionId,
+                  chunkType: chunk.type,
+                  data: chunk.data
+                }
+              });
+            });
+
+            // Broadcast completion
+            broadcastToClients({
+              type: 'CLI_EXECUTION_COMPLETED',
+              payload: {
+                executionId,
+                success: result.success,
+                status: result.execution.status,
+                duration_ms: result.execution.duration_ms
+              }
+            });
+
+            return {
+              success: result.success,
+              execution: result.execution
+            };
+
+          } catch (error) {
+            // Broadcast error
+            broadcastToClients({
+              type: 'CLI_EXECUTION_ERROR',
+              payload: {
+                executionId,
+                error: error.message
+              }
+            });
+
+            return { error: error.message, status: 500 };
+          }
+        });
         return;
       }
 

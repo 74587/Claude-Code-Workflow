@@ -15,6 +15,7 @@ import { uiInstantiatePrototypesTool } from './ui-instantiate-prototypes.js';
 import { updateModuleClaudeTool } from './update-module-claude.js';
 import { convertTokensToCssTool } from './convert-tokens-to-css.js';
 import { sessionManagerTool } from './session-manager.js';
+import { cliExecutorTool } from './cli-executor.js';
 
 // Tool registry - add new tools here
 const tools = new Map();
@@ -258,6 +259,7 @@ registerTool(uiInstantiatePrototypesTool);
 registerTool(updateModuleClaudeTool);
 registerTool(convertTokensToCssTool);
 registerTool(sessionManagerTool);
+registerTool(cliExecutorTool);
 
 // Export for external tool registration
 export { registerTool };
