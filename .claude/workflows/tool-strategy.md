@@ -26,35 +26,44 @@ ccw tool exec classify_folders '{"path": "./src"}'
 
 **Available Tools**: `ccw tool list`
 
-### edit_file Tool (AI-Powered Editing)
+### edit_file Tool
 
 **When to Use**: Edit tool fails 1+ times on same file
 
-### Usage
-
-**Best for**: Code block replacements, function rewrites, multi-line changes
-
 ```bash
-ccw tool exec edit_file --path "file.py" --old "def old():
-    pass" --new "def new():
-    return True"
+# CLI shorthand
+ccw tool exec edit_file --path "file.py" --old "old code" --new "new code"
+
+# JSON (recommended)
+ccw tool exec edit_file '{"path": "file.py", "oldText": "old", "newText": "new"}'
+
+# dryRun - preview without modifying
+ccw tool exec edit_file '{"path": "file.py", "oldText": "old", "newText": "new", "dryRun": true}'
+
+# Multiple edits
+ccw tool exec edit_file '{"path": "file.py", "edits": [{"oldText": "a", "newText": "b"}, {"oldText": "c", "newText": "d"}]}'
+
+# Line mode
+ccw tool exec edit_file '{"path": "file.py", "mode": "line", "operation": "insert_after", "line": 10, "text": "new"}'
 ```
 
-**Parameters**:
-- `--path`: File path to edit
-- `--old`: Text to find and replace
-- `--new`: New text to insert
+**Parameters**: `path`*, `oldText`, `newText`, `edits[]`, `dryRun`, `replaceAll`, `mode` (update|line)
 
-**Features**:
-- ✅ Exact text matching (precise and predictable)
-- ✅ Auto line ending adaptation (CRLF/LF)
-- ✅ No JSON escaping issues
-- ✅ Multi-line text supported with quotes
+### write_file Tool
+
+**When to Use**: Create new files or overwrite existing content
+
+```bash
+ccw tool exec write_file '{"path": "file.txt", "content": "Hello"}'
+ccw tool exec write_file '{"path": "file.txt", "content": "new", "backup": true}'
+```
+
+**Parameters**: `path`*, `content`*, `createDirectories`, `backup`, `encoding`
 
 ### Fallback Strategy
 
-1. **Edit fails 1+ times** → Use `ccw tool exec edit_file`
-2. **Still fails** → Use Write to recreate file
+1. **Edit fails 1+ times** → `ccw tool exec edit_file`
+2. **Still fails** → `ccw tool exec write_file`
 
 ## ⚡ sed Line Operations (Line Mode Alternative)
 

@@ -331,6 +331,13 @@ async function copyDirectory(src, dest, manifest = null, excludeDirs = []) {
  */
 function getVersion() {
   try {
+    // First try root package.json (parent of ccw)
+    const rootPkgPath = join(getSourceDir(), 'package.json');
+    if (existsSync(rootPkgPath)) {
+      const pkg = JSON.parse(readFileSync(rootPkgPath, 'utf8'));
+      if (pkg.version) return pkg.version;
+    }
+    // Fallback to ccw package.json
     const pkgPath = join(getPackageRoot(), 'package.json');
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
     return pkg.version || '1.0.0';

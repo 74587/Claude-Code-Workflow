@@ -5,6 +5,7 @@
 
 import http from 'http';
 import { editFileTool } from './edit-file.js';
+import { writeFileTool } from './write-file.js';
 import { getModulesByDepthTool } from './get-modules-by-depth.js';
 import { classifyFoldersTool } from './classify-folders.js';
 import { detectChangedModulesTool } from './detect-changed-modules.js';
@@ -16,6 +17,7 @@ import { updateModuleClaudeTool } from './update-module-claude.js';
 import { convertTokensToCssTool } from './convert-tokens-to-css.js';
 import { sessionManagerTool } from './session-manager.js';
 import { cliExecutorTool } from './cli-executor.js';
+import { smartSearchTool } from './smart-search.js';
 
 // Tool registry - add new tools here
 const tools = new Map();
@@ -249,6 +251,7 @@ export function getAllToolSchemas() {
 
 // Register built-in tools
 registerTool(editFileTool);
+registerTool(writeFileTool);
 registerTool(getModulesByDepthTool);
 registerTool(classifyFoldersTool);
 registerTool(detectChangedModulesTool);
@@ -260,6 +263,7 @@ registerTool(updateModuleClaudeTool);
 registerTool(convertTokensToCssTool);
 registerTool(sessionManagerTool);
 registerTool(cliExecutorTool);
+registerTool(smartSearchTool);
 
 // Export for external tool registration
 export { registerTool };

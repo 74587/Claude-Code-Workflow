@@ -78,7 +78,7 @@ function renderCcwInstallPanel() {
   var container = document.getElementById('ccw-install-panel');
   if (!container) return;
 
-  var html = '<div class="cli-status-header"><h3>CCW Installations</h3>' +
+  var html = '<div class="cli-status-header"><h3><i data-lucide="package" class="w-4 h-4"></i> CCW Installations</h3>' +
     '<div class="ccw-header-actions">' +
     '<button class="btn-icon" onclick="showCcwInstallModal()" title="Add Installation">' +
     '<i data-lucide="plus" class="w-4 h-4"></i></button>' +
@@ -119,18 +119,18 @@ function renderCcwInstallPanel() {
         '<i data-lucide="' + modeIcon + '" class="w-4 h-4"></i>' +
         '<span>' + inst.installation_mode + '</span>' +
         '</div>' +
+        '<div class="ccw-card-header-right">' +
         '<span class="ccw-version-tag">v' + version + '</span>' +
+        '<button class="btn-icon btn-icon-sm" onclick="runCcwUpgrade()" title="Upgrade">' +
+        '<i data-lucide="arrow-up-circle" class="w-3.5 h-3.5"></i></button>' +
+        '<button class="btn-icon btn-icon-sm btn-danger" onclick="confirmCcwUninstall(\'' + escapeHtml(inst.installation_path) + '\')" title="Uninstall">' +
+        '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>' +
+        '</div>' +
         '</div>' +
         '<div class="ccw-card-path" title="' + inst.installation_path + '">' + escapeHtml(inst.installation_path) + '</div>' +
         '<div class="ccw-card-meta">' +
         '<span><i data-lucide="calendar" class="w-3 h-3"></i> ' + installDate + '</span>' +
         '<span><i data-lucide="file" class="w-3 h-3"></i> ' + (inst.files_count || 0) + ' files</span>' +
-        '</div>' +
-        '<div class="ccw-card-actions">' +
-        '<button class="btn-icon" onclick="runCcwUpgrade()" title="Upgrade">' +
-        '<i data-lucide="arrow-up-circle" class="w-4 h-4"></i></button>' +
-        '<button class="btn-icon btn-danger" onclick="confirmCcwUninstall(\'' + escapeHtml(inst.installation_path) + '\')" title="Uninstall">' +
-        '<i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
         '</div>' +
         '</div>';
     }
@@ -336,16 +336,31 @@ function runCcwInstall(mode, customPath) {
   }
 }
 
-function runCcwUpgrade() {
-  var command = 'ccw upgrade';
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(command).then(function() {
-      showRefreshToast('Command copied: ' + command, 'success');
-    }).catch(function() {
-      showRefreshToast('Run: ' + command, 'info');
+async function runCcwUpgrade() {
+  showRefreshToast('Starting upgrade...', 'info');
+
+  try {
+    var response = await fetch('/api/ccw/upgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
     });
-  } else {
-    showRefreshToast('Run: ' + command, 'info');
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast('Upgrade completed! Refreshing...', 'success');
+      // Reload installations after upgrade
+      setTimeout(function() {
+        loadCcwInstallations().then(function() {
+          renderCcwInstallPanel();
+        });
+      }, 1000);
+    } else {
+      showRefreshToast('Upgrade failed: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    showRefreshToast('Upgrade error: ' + err.message, 'error');
   }
 }
 

@@ -56,7 +56,7 @@ function renderCliHistory() {
   if (cliExecutionHistory.length === 0) {
     container.innerHTML = `
       <div class="cli-history-header">
-        <h3>Execution History</h3>
+        <h3><i data-lucide="history" class="w-4 h-4"></i> Execution History</h3>
         <div class="cli-history-controls">
           ${renderHistorySearch()}
           ${renderToolFilter()}
@@ -116,7 +116,7 @@ function renderCliHistory() {
 
   container.innerHTML = `
     <div class="cli-history-header">
-      <h3>Execution History</h3>
+      <h3><i data-lucide="history" class="w-4 h-4"></i> Execution History</h3>
       <div class="cli-history-controls">
         ${renderHistorySearch()}
         ${renderToolFilter()}

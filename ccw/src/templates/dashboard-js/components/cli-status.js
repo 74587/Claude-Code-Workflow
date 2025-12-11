@@ -55,7 +55,7 @@ function renderCliStatus() {
     const isDefault = defaultCliTool === tool;
 
     return `
-      <div class="cli-tool-card ${isAvailable ? 'available' : 'unavailable'}">
+      <div class="cli-tool-card tool-${tool} ${isAvailable ? 'available' : 'unavailable'}">
         <div class="cli-tool-header">
           <span class="cli-tool-status ${isAvailable ? 'status-available' : 'status-unavailable'}"></span>
           <span class="cli-tool-name">${tool.charAt(0).toUpperCase() + tool.slice(1)}</span>
@@ -77,9 +77,9 @@ function renderCliStatus() {
 
   container.innerHTML = `
     <div class="cli-status-header">
-      <h3>CLI Tools</h3>
+      <h3><i data-lucide="terminal" class="w-4 h-4"></i> CLI Tools</h3>
       <button class="btn-icon" onclick="loadCliToolStatus()" title="Refresh">
-        <i data-lucide="refresh-cw"></i>
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
       </button>
     </div>
     <div class="cli-tools-grid">

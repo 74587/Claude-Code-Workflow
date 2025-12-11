@@ -459,6 +459,58 @@ export async function startServer(options = {}) {
         return;
       }
 
+      // API: CCW Upgrade
+      if (pathname === '/api/ccw/upgrade' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { path: installPath } = body;
+
+          try {
+            const { spawn } = await import('child_process');
+
+            // Run ccw upgrade command
+            const args = installPath ? ['upgrade', '--all'] : ['upgrade', '--all'];
+            const upgradeProcess = spawn('ccw', args, {
+              shell: true,
+              stdio: ['ignore', 'pipe', 'pipe']
+            });
+
+            let stdout = '';
+            let stderr = '';
+
+            upgradeProcess.stdout.on('data', (data) => {
+              stdout += data.toString();
+            });
+
+            upgradeProcess.stderr.on('data', (data) => {
+              stderr += data.toString();
+            });
+
+            return new Promise((resolve) => {
+              upgradeProcess.on('close', (code) => {
+                if (code === 0) {
+                  resolve({ success: true, message: 'Upgrade completed', output: stdout });
+                } else {
+                  resolve({ success: false, error: stderr || 'Upgrade failed', output: stdout, status: 500 });
+                }
+              });
+
+              upgradeProcess.on('error', (err) => {
+                resolve({ success: false, error: err.message, status: 500 });
+              });
+
+              // Timeout after 2 minutes
+              setTimeout(() => {
+                upgradeProcess.kill();
+                resolve({ success: false, error: 'Upgrade timed out', status: 504 });
+              }, 120000);
+            });
+          } catch (err) {
+            return { success: false, error: err.message, status: 500 };
+          }
+        });
+        return;
+      }
+
       // API: CLI Execution History
       if (pathname === '/api/cli/history') {
         const projectPath = url.searchParams.get('path') || initialPath;
