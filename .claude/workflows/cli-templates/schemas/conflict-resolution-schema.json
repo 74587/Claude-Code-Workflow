@@ -1,0 +1,137 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Conflict Resolution Schema",
+  "description": "Simplified schema for conflict detection and resolution",
+
+  "type": "object",
+  "required": ["conflicts", "summary"],
+  "properties": {
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "brief", "severity", "category", "strategies"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^CON-\\d{3}$",
+            "description": "Conflict ID (CON-001, CON-002, ...)"
+          },
+          "brief": {
+            "type": "string",
+            "description": "一句话冲突摘要（中文）"
+          },
+          "severity": {
+            "enum": ["Critical", "High", "Medium"],
+            "description": "冲突严重程度"
+          },
+          "category": {
+            "enum": ["Architecture", "API", "Data", "Dependency", "ModuleOverlap"],
+            "description": "冲突类型"
+          },
+          "affected_files": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "受影响的文件路径"
+          },
+          "description": {
+            "type": "string",
+            "description": "详细冲突描述"
+          },
+          "clarification_questions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "需要用户澄清的问题（可选）"
+          },
+          "strategies": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["name", "approach", "complexity", "risk"],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "策略名称（中文）"
+                },
+                "approach": {
+                  "type": "string",
+                  "description": "实现方法简述"
+                },
+                "complexity": {
+                  "enum": ["Low", "Medium", "High"]
+                },
+                "risk": {
+                  "enum": ["Low", "Medium", "High"]
+                },
+                "constraints": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "实施此策略的约束条件（传递给 task-generate）"
+                }
+              }
+            }
+          },
+          "recommended": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "推荐策略索引（0-based）"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total"],
+      "properties": {
+        "total": { "type": "integer" },
+        "critical": { "type": "integer" },
+        "high": { "type": "integer" },
+        "medium": { "type": "integer" }
+      }
+    }
+  },
+
+  "examples": [
+    {
+      "conflicts": [
+        {
+          "id": "CON-001",
+          "brief": "新认证模块与现有 AuthManager 功能重叠",
+          "severity": "High",
+          "category": "ModuleOverlap",
+          "affected_files": ["src/auth/AuthManager.ts"],
+          "description": "计划新增的 UserAuthService 与现有 AuthManager 在登录和 Token 验证场景存在重叠",
+          "clarification_questions": [
+            "新模块的核心职责边界是什么？",
+            "哪些场景应该由新模块独立处理？"
+          ],
+          "strategies": [
+            {
+              "name": "扩展现有模块",
+              "approach": "在 AuthManager 中添加新功能",
+              "complexity": "Low",
+              "risk": "Low",
+              "constraints": ["保持 AuthManager 作为唯一认证入口", "新增 MFA 方法"]
+            },
+            {
+              "name": "职责拆分",
+              "approach": "AuthManager 负责基础认证，新模块负责高级认证",
+              "complexity": "Medium",
+              "risk": "Medium",
+              "constraints": ["定义清晰的接口边界", "基础认证 = 密码+token", "高级认证 = MFA+OAuth"]
+            }
+          ],
+          "recommended": 0
+        }
+      ],
+      "summary": {
+        "total": 1,
+        "critical": 0,
+        "high": 1,
+        "medium": 0
+      }
+    }
+  ]
+}
