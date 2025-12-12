@@ -587,70 +587,75 @@ function renderSkillContextConfig() {
   const availableSkills = window.availableSkills || [];
 
   if (selectedOption === 'auto') {
-    return `
-      <div class="bg-muted/30 rounded-lg p-4 text-sm text-muted-foreground">
-        <div class="flex items-center gap-2 mb-2">
-          <i data-lucide="info" class="w-4 h-4"></i>
-          <span class="font-medium">Auto Detection Mode</span>
-        </div>
-        <p>SKILLs will be automatically loaded when their name appears in your prompt.</p>
-        <p class="mt-2">Available SKILLs: ${availableSkills.map(s => \`<span class="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs">${escapeHtml(s.name)}</span>\`).join(' ')}</p>
-      </div>
-    `;
+    const skillBadges = availableSkills.map(function(s) {
+      return '<span class="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs">' + escapeHtml(s.name) + '</span>';
+    }).join(' ');
+    return '<div class="bg-muted/30 rounded-lg p-4 text-sm text-muted-foreground">' +
+      '<div class="flex items-center gap-2 mb-2">' +
+        '<i data-lucide="info" class="w-4 h-4"></i>' +
+        '<span class="font-medium">Auto Detection Mode</span>' +
+      '</div>' +
+      '<p>SKILLs will be automatically loaded when their name appears in your prompt.</p>' +
+      '<p class="mt-2">Available SKILLs: ' + skillBadges + '</p>' +
+    '</div>';
   }
 
-  return `
-    <div class="space-y-4">
-      <div class="flex items-center justify-between">
-        <span class="text-sm font-medium text-foreground">Configure SKILLs</span>
-        <button type="button" onclick="addSkillConfig()"
-                class="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-lg hover:opacity-90 flex items-center gap-1">
-          <i data-lucide="plus" class="w-3 h-3"></i> Add SKILL
-        </button>
-      </div>
+  var configListHtml = '';
+  if (skillConfigs.length === 0) {
+    configListHtml = '<div class="text-center py-6 text-muted-foreground text-sm border border-dashed border-border rounded-lg">' +
+      '<i data-lucide="package" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>' +
+      '<p>No SKILLs configured yet</p>' +
+      '<p class="text-xs mt-1">Click "Add SKILL" to configure keyword triggers</p>' +
+    '</div>';
+  } else {
+    configListHtml = skillConfigs.map(function(config, idx) {
+      var skillOptions = availableSkills.map(function(s) {
+        var selected = config.skill === s.id ? 'selected' : '';
+        return '<option value="' + s.id + '" ' + selected + '>' + escapeHtml(s.name) + '</option>';
+      }).join('');
+      return '<div class="border border-border rounded-lg p-3 bg-card">' +
+        '<div class="flex items-center justify-between mb-2">' +
+          '<select onchange="updateSkillConfig(' + idx + ', \'skill\', this.value)" ' +
+                  'class="px-2 py-1 text-sm bg-background border border-border rounded text-foreground">' +
+            '<option value="">Select SKILL...</option>' +
+            skillOptions +
+          '</select>' +
+          '<button onclick="removeSkillConfig(' + idx + ')" ' +
+                  'class="p-1 text-muted-foreground hover:text-destructive rounded">' +
+            '<i data-lucide="trash-2" class="w-4 h-4"></i>' +
+          '</button>' +
+        '</div>' +
+        '<div class="space-y-1">' +
+          '<label class="text-xs text-muted-foreground">Trigger Keywords (comma-separated)</label>' +
+          '<input type="text" ' +
+                 'value="' + (config.keywords || '') + '" ' +
+                 'onchange="updateSkillConfig(' + idx + ', \'keywords\', this.value)" ' +
+                 'placeholder="e.g., react, hooks, component" ' +
+                 'class="w-full px-2 py-1.5 text-sm bg-background border border-border rounded text-foreground">' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
 
-      <div id="skillConfigsList" class="space-y-3">
-        ${skillConfigs.length === 0 ? \`
-          <div class="text-center py-6 text-muted-foreground text-sm border border-dashed border-border rounded-lg">
-            <i data-lucide="package" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
-            <p>No SKILLs configured yet</p>
-            <p class="text-xs mt-1">Click "Add SKILL" to configure keyword triggers</p>
-          </div>
-        \` : skillConfigs.map((config, idx) => \`
-          <div class="border border-border rounded-lg p-3 bg-card">
-            <div class="flex items-center justify-between mb-2">
-              <select onchange="updateSkillConfig(${idx}, 'skill', this.value)"
-                      class="px-2 py-1 text-sm bg-background border border-border rounded text-foreground">
-                <option value="">Select SKILL...</option>
-                ${availableSkills.map(s => \`
-                  <option value="${s.id}" ${config.skill === s.id ? 'selected' : ''}>${escapeHtml(s.name)}</option>
-                \`).join('')}
-              </select>
-              <button onclick="removeSkillConfig(${idx})"
-                      class="p-1 text-muted-foreground hover:text-destructive rounded">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-              </button>
-            </div>
-            <div class="space-y-1">
-              <label class="text-xs text-muted-foreground">Trigger Keywords (comma-separated)</label>
-              <input type="text"
-                     value="${config.keywords || ''}"
-                     onchange="updateSkillConfig(${idx}, 'keywords', this.value)"
-                     placeholder="e.g., react, hooks, component"
-                     class="w-full px-2 py-1.5 text-sm bg-background border border-border rounded text-foreground">
-            </div>
-          </div>
-        \`).join('')}
-      </div>
+  var noSkillsWarning = '';
+  if (availableSkills.length === 0) {
+    noSkillsWarning = '<div class="text-xs text-amber-500 flex items-center gap-1">' +
+      '<i data-lucide="alert-triangle" class="w-3 h-3"></i>' +
+      'No SKILLs found. Create SKILL packages in .claude/skills/' +
+    '</div>';
+  }
 
-      ${availableSkills.length === 0 ? \`
-        <div class="text-xs text-amber-500 flex items-center gap-1">
-          <i data-lucide="alert-triangle" class="w-3 h-3"></i>
-          No SKILLs found. Create SKILL packages in .claude/skills/
-        </div>
-      \` : ''}
-    </div>
-  `;
+  return '<div class="space-y-4">' +
+    '<div class="flex items-center justify-between">' +
+      '<span class="text-sm font-medium text-foreground">Configure SKILLs</span>' +
+      '<button type="button" onclick="addSkillConfig()" ' +
+              'class="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-lg hover:opacity-90 flex items-center gap-1">' +
+        '<i data-lucide="plus" class="w-3 h-3"></i> Add SKILL' +
+      '</button>' +
+    '</div>' +
+    '<div id="skillConfigsList" class="space-y-3">' + configListHtml + '</div>' +
+    noSkillsWarning +
+  '</div>';
 }
 
 function addSkillConfig() {

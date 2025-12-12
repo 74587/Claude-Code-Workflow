@@ -104,6 +104,10 @@
   opacity: 0.7;
 }
 
+.tool-item.endpoint {
+  border-left: 3px solid hsl(var(--indigo));
+}
+
 .tool-item-left {
   display: flex;
   align-items: center;

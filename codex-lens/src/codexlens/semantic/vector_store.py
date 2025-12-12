@@ -119,6 +119,7 @@ class VectorStore:
         query_embedding: List[float],
         top_k: int = 10,
         min_score: float = 0.0,
+        return_full_content: bool = True,
     ) -> List[SearchResult]:
         """Find chunks most similar to query embedding.
 
@@ -126,6 +127,7 @@ class VectorStore:
             query_embedding: Query vector.
             top_k: Maximum results to return.
             min_score: Minimum similarity score (0-1).
+            return_full_content: If True, return full code block content.
 
         Returns:
             List of SearchResult ordered by similarity (highest first).
@@ -144,14 +146,39 @@ class VectorStore:
             if score >= min_score:
                 metadata = json.loads(metadata_json) if metadata_json else {}
 
-                # Build excerpt
+                # Build excerpt (short preview)
                 excerpt = content[:200] + "..." if len(content) > 200 else content
+                
+                # Extract symbol information from metadata
+                symbol_name = metadata.get("symbol_name")
+                symbol_kind = metadata.get("symbol_kind")
+                start_line = metadata.get("start_line")
+                end_line = metadata.get("end_line")
+                
+                # Build Symbol object if we have symbol info
+                symbol = None
+                if symbol_name and symbol_kind and start_line and end_line:
+                    try:
+                        from codexlens.entities import Symbol
+                        symbol = Symbol(
+                            name=symbol_name,
+                            kind=symbol_kind,
+                            range=(start_line, end_line)
+                        )
+                    except Exception:
+                        pass
 
                 results.append((score, SearchResult(
                     path=file_path,
                     score=score,
                     excerpt=excerpt,
-                    symbol=None,
+                    content=content if return_full_content else None,
+                    symbol=symbol,
+                    metadata=metadata,
+                    start_line=start_line,
+                    end_line=end_line,
+                    symbol_name=symbol_name,
+                    symbol_kind=symbol_kind,
                 )))
 
         # Sort by score descending

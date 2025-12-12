@@ -67,7 +67,14 @@ class SearchResult(BaseModel):
     path: str = Field(..., min_length=1)
     score: float = Field(..., ge=0.0)
     excerpt: Optional[str] = None
+    content: Optional[str] = Field(default=None, description="Full content of matched code block")
     symbol: Optional[Symbol] = None
     chunk: Optional[SemanticChunk] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Additional context for complete code blocks
+    start_line: Optional[int] = Field(default=None, description="Start line of code block (1-based)")
+    end_line: Optional[int] = Field(default=None, description="End line of code block (1-based)")
+    symbol_name: Optional[str] = Field(default=None, description="Name of matched symbol/function/class")
+    symbol_kind: Optional[str] = Field(default=None, description="Kind of symbol (function/class/method)")
 

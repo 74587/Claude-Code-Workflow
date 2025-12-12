@@ -29,6 +29,26 @@ async function loadDashboardData(path) {
   }
 }
 
+/**
+ * Load recent paths from API (server mode only)
+ * @returns {Promise<Array>} Array of recent paths or empty array if failed
+ */
+async function loadRecentPaths() {
+  if (!window.SERVER_MODE) {
+    return [];
+  }
+
+  try {
+    const response = await fetch('/api/recent-paths');
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.paths || [];
+  } catch (err) {
+    console.error('Failed to load recent paths:', err);
+    return [];
+  }
+}
+
 // ========== Path Management ==========
 
 /**

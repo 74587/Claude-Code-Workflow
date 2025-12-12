@@ -24,9 +24,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Semantic search using fastembed (ONNX-based, lightweight ~200MB)
 semantic = [
     "numpy>=1.24",
-    "sentence-transformers>=2.2",
     "fastembed>=0.2",
 ]
 

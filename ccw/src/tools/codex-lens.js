@@ -148,7 +148,7 @@ except Exception as e:
 }
 
 /**
- * Install semantic search dependencies
+ * Install semantic search dependencies (fastembed, ONNX-based, ~200MB)
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 async function installSemantic() {
@@ -163,12 +163,12 @@ async function installSemantic() {
     : join(CODEXLENS_VENV, 'bin', 'pip');
 
   return new Promise((resolve) => {
-    console.log('[CodexLens] Installing semantic search dependencies...');
+    console.log('[CodexLens] Installing semantic search dependencies (fastembed)...');
+    console.log('[CodexLens] Using ONNX-based fastembed backend (~200MB)');
 
-    // Install sentence-transformers and numpy
-    const child = spawn(pipPath, ['install', 'numpy>=1.24', 'sentence-transformers>=2.2'], {
+    const child = spawn(pipPath, ['install', 'numpy>=1.24', 'fastembed>=0.2'], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 300000 // 5 minutes for model download
+      timeout: 600000 // 10 minutes for potential model download
     });
 
     let stdout = '';
@@ -178,7 +178,7 @@ async function installSemantic() {
       stdout += data.toString();
       // Log progress
       const line = data.toString().trim();
-      if (line.includes('Downloading') || line.includes('Installing')) {
+      if (line.includes('Downloading') || line.includes('Installing') || line.includes('Collecting')) {
         console.log(`[CodexLens] ${line}`);
       }
     });

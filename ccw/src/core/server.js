@@ -10,6 +10,7 @@ import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normali
 import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, deleteExecution, executeCliTool } from '../tools/cli-executor.js';
 import { getAllManifests } from './manifest.js';
 import { checkVenvStatus, bootstrapVenv, executeCodexLens, checkSemanticStatus, installSemantic } from '../tools/codex-lens.js';
+import { listTools } from '../tools/index.js';
 
 // Claude config file paths
 const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
@@ -521,14 +522,18 @@ export async function startServer(options = {}) {
         return;
       }
 
-      // API: CodexLens Semantic Search Install
+      // API: CodexLens Semantic Search Install (fastembed, ONNX-based, ~200MB)
       if (pathname === '/api/codexlens/semantic/install' && req.method === 'POST') {
         handlePostRequest(req, res, async () => {
           try {
             const result = await installSemantic();
             if (result.success) {
               const status = await checkSemanticStatus();
-              return { success: true, message: 'Semantic search installed successfully', ...status };
+              return {
+                success: true,
+                message: 'Semantic search installed successfully (fastembed)',
+                ...status
+              };
             } else {
               return { success: false, error: result.error, status: 500 };
             }
@@ -544,6 +549,14 @@ export async function startServer(options = {}) {
         const manifests = getAllManifests();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ installations: manifests }));
+        return;
+      }
+
+      // API: CCW Endpoint Tools List
+      if (pathname === '/api/ccw/tools') {
+        const tools = listTools();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ tools }));
         return;
       }
 
@@ -1406,34 +1419,12 @@ function generateServerDashboard(initialPath) {
   jsContent = jsContent.replace(/\{\{PROJECT_PATH\}\}/g, normalizePathForDisplay(initialPath).replace(/\\/g, '/'));
   jsContent = jsContent.replace('{{RECENT_PATHS}}', JSON.stringify(getRecentPaths()));
 
-  // Add server mode flag and dynamic loading functions at the start of JS
+  // Add server mode flag at the start of JS
+  // Note: loadDashboardData and loadRecentPaths are defined in api.js module
   const serverModeScript = `
 // Server mode - load data dynamically
 window.SERVER_MODE = true;
 window.INITIAL_PATH = '${normalizePathForDisplay(initialPath).replace(/\\/g, '/')}';
-
-async function loadDashboardData(path) {
-  try {
-    const res = await fetch('/api/data?path=' + encodeURIComponent(path));
-    if (!res.ok) throw new Error('Failed to load data');
-    return await res.json();
-  } catch (err) {
-    console.error('Error loading data:', err);
-    return null;
-  }
-}
-
-async function loadRecentPaths() {
-  try {
-    const res = await fetch('/api/recent-paths');
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.paths || [];
-  } catch (err) {
-    return [];
-  }
-}
-
 `;
 
   // Prepend server mode script to JS content

@@ -5,6 +5,7 @@
 var currentCliExecution = null;
 var cliExecutionOutput = '';
 var ccwInstallations = [];
+var ccwEndpointTools = [];
 
 // ========== CCW Installations ==========
 async function loadCcwInstallations() {
@@ -21,6 +22,21 @@ async function loadCcwInstallations() {
   }
 }
 
+// ========== CCW Endpoint Tools ==========
+async function loadCcwEndpointTools() {
+  try {
+    var response = await fetch('/api/ccw/tools');
+    if (!response.ok) throw new Error('Failed to load CCW endpoint tools');
+    var data = await response.json();
+    ccwEndpointTools = data.tools || [];
+    return ccwEndpointTools;
+  } catch (err) {
+    console.error('Failed to load CCW endpoint tools:', err);
+    ccwEndpointTools = [];
+    return [];
+  }
+}
+
 // ========== Rendering ==========
 async function renderCliManager() {
   var container = document.getElementById('mainContent');
@@ -32,10 +48,12 @@ async function renderCliManager() {
   if (statsGrid) statsGrid.style.display = 'none';
   if (searchInput) searchInput.parentElement.style.display = 'none';
 
-  // Load data
+  // Load data (including CodexLens status for tools section)
   await Promise.all([
     loadCliToolStatus(),
-    loadCcwInstallations()
+    loadCodexLensStatus(),
+    loadCcwInstallations(),
+    loadCcwEndpointTools()
   ]);
 
   container.innerHTML = '<div class="status-manager">' +
@@ -43,11 +61,13 @@ async function renderCliManager() {
     '<div class="status-section" id="tools-section"></div>' +
     '<div class="status-section" id="ccw-section"></div>' +
     '</div>' +
+    '<div class="status-section" id="ccw-endpoint-tools-section" style="margin-top: 1.5rem;"></div>' +
     '</div>';
 
   // Render sub-panels
   renderToolsSection();
   renderCcwSection();
+  renderCcwEndpointToolsSection();
 
   // Initialize Lucide icons
   if (window.lucide) lucide.createIcons();
@@ -217,6 +237,64 @@ function renderCcwSection() {
       '</div>' +
     '</div>' +
     installationsHtml;
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// ========== CCW Endpoint Tools Section (Full Width) ==========
+function renderCcwEndpointToolsSection() {
+  var container = document.getElementById('ccw-endpoint-tools-section');
+  if (!container) return;
+
+  var count = (ccwEndpointTools || []).length;
+  var toolsHtml = '';
+
+  if (!ccwEndpointTools || ccwEndpointTools.length === 0) {
+    toolsHtml = '<div class="ccw-empty-state">' +
+      '<i data-lucide="wrench" class="w-8 h-8"></i>' +
+      '<p>No endpoint tools found</p>' +
+      '<button class="btn btn-sm btn-primary" onclick="loadCcwEndpointTools().then(function() { renderCcwEndpointToolsSection(); if (window.lucide) lucide.createIcons(); })">' +
+      '<i data-lucide="refresh-cw" class="w-3 h-3"></i> Refresh</button>' +
+      '</div>';
+  } else {
+    toolsHtml = '<div class="tools-list">' +
+      ccwEndpointTools.map(function(t) {
+        var name = t && t.name ? String(t.name) : 'unknown';
+        var desc = t && t.description ? String(t.description) : '';
+        var requiredCount = (t && t.parameters && Array.isArray(t.parameters.required)) ? t.parameters.required.length : 0;
+        var propsCount = (t && t.parameters && t.parameters.properties) ? Object.keys(t.parameters.properties).length : 0;
+
+        return '<div class="tool-item endpoint">' +
+          '<div class="tool-item-left">' +
+            '<span class="tool-status-dot status-available" style="background: hsl(var(--indigo)); box-shadow: 0 0 6px hsl(var(--indigo) / 0.45);"></span>' +
+            '<div class="tool-item-info">' +
+              '<div class="tool-item-name">' + escapeHtml(name) +
+                '<span class="tool-type-badge">endpoint</span>' +
+              '</div>' +
+              '<div class="tool-item-desc">' + escapeHtml(desc || '—') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="tool-item-right">' +
+            '<span class="tool-status-text muted">' +
+              '<i data-lucide="braces" class="w-3.5 h-3.5"></i> ' +
+              propsCount + ' params' + (requiredCount ? (' · ' + requiredCount + ' required') : '') +
+            '</span>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+
+  container.innerHTML = '<div class="section-header">' +
+      '<div class="section-header-left">' +
+        '<h3><i data-lucide="server" class="w-4 h-4"></i> CCW Endpoint Tools</h3>' +
+        '<span class="section-count">' + count + ' tool' + (count !== 1 ? 's' : '') + '</span>' +
+      '</div>' +
+      '<button class="btn-icon" onclick="loadCcwEndpointTools().then(function() { renderCcwEndpointToolsSection(); if (window.lucide) lucide.createIcons(); })" title="Refresh">' +
+        '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
+      '</button>' +
+    '</div>' +
+    toolsHtml;
 
   if (window.lucide) lucide.createIcons();
 }
