@@ -694,11 +694,20 @@ function generateWizardCommand() {
 
   // Handle skill-context wizard
   if (wizardId === 'skill-context') {
-    const keywords = wizardConfig.keywords || '';
-    const skills = wizardConfig.skills || '';
-    
     if (triggerType === 'keyword') {
-      const params = JSON.stringify({ keywords, skills, prompt: '$CLAUDE_PROMPT' });
+      const skillConfigs = wizardConfig.skillConfigs || [];
+      const validConfigs = skillConfigs.filter(c => c.skill && c.keywords);
+
+      if (validConfigs.length === 0) {
+        return '# No SKILL configurations yet';
+      }
+
+      const configJson = validConfigs.map(c => ({
+        skill: c.skill,
+        keywords: c.keywords.split(',').map(k => k.trim()).filter(k => k)
+      }));
+
+      const params = JSON.stringify({ configs: configJson, prompt: '$CLAUDE_PROMPT' });
       return `ccw tool exec skill_context_loader '${params}'`;
     } else {
       // auto mode
