@@ -34,7 +34,7 @@ function detectLiteral(query) {
  * Detect regex pattern (contains regex metacharacters)
  */
 function detectRegex(query) {
-  return /[.*+?^${}()|[\]\]/.test(query);
+  return /[.*+?^${}()|[\]\\]/.test(query);
 }
 
 /**
@@ -111,10 +111,6 @@ function classifyIntent(query) {
 }
 
 
-n// Classification confidence threshold
-const CONFIDENCE_THRESHOLD = 0.7;
-
-/**
 /**
  * Check if a tool is available in PATH
  * @param {string} toolName - Tool executable name
