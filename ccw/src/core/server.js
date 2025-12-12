@@ -82,6 +82,7 @@ function handlePostRequest(req, res, handler) {
 
 // Modular JS files in dependency order
 const MODULE_FILES = [
+  'i18n.js',  // Must be loaded first for translations
   'utils.js',
   'state.js',
   'api.js',

@@ -15,8 +15,8 @@ function renderLiteTasks() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon"><i data-lucide="zap" class="w-12 h-12"></i></div>
-        <div class="empty-title">No ${currentLiteType} Sessions</div>
-        <div class="empty-text">No sessions found in .workflow/.${currentLiteType}/</div>
+        <div class="empty-title">${t('empty.noLiteSessions', { type: currentLiteType })}</div>
+        <div class="empty-text">${t('empty.noLiteSessionsText', { type: currentLiteType })}</div>
       </div>
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -55,13 +55,13 @@ function renderLiteTaskCard(session) {
       <div class="session-header">
         <div class="session-title">${escapeHtml(session.id)}</div>
         <span class="session-status ${session.type}">
-          ${session.type === 'lite-plan' ? '<i data-lucide="file-edit" class="w-3 h-3 inline"></i> PLAN' : '<i data-lucide="wrench" class="w-3 h-3 inline"></i> FIX'}
+          ${session.type === 'lite-plan' ? '<i data-lucide="file-edit" class="w-3 h-3 inline"></i> ' + t('lite.plan') : '<i data-lucide="wrench" class="w-3 h-3 inline"></i> ' + t('lite.fix')}
         </span>
       </div>
       <div class="session-body">
         <div class="session-meta">
           <span class="session-meta-item"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>${formatDate(session.createdAt)}</span>
-          <span class="session-meta-item"><i data-lucide="list-checks" class="w-3.5 h-3.5 inline mr-1"></i>${tasks.length} tasks</span>
+          <span class="session-meta-item"><i data-lucide="list-checks" class="w-3.5 h-3.5 inline mr-1"></i>${tasks.length} ${t('session.tasks')}</span>
         </div>
       </div>
     </div>
@@ -116,12 +116,12 @@ function showLiteTaskDetailPage(sessionKey) {
       <!-- Session Info Bar -->
       <div class="detail-info-bar">
         <div class="info-item">
-          <span class="info-label">Created:</span>
+          <span class="info-label">${t('detail.created')}</span>
           <span class="info-value">${formatDate(session.createdAt)}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">Tasks:</span>
-          <span class="info-value">${tasks.length} tasks</span>
+          <span class="info-label">${t('detail.tasks')}</span>
+          <span class="info-value">${tasks.length} ${t('session.tasks')}</span>
         </div>
       </div>
 
@@ -129,27 +129,27 @@ function showLiteTaskDetailPage(sessionKey) {
       <div class="detail-tabs">
         <button class="detail-tab active" data-tab="tasks" onclick="switchLiteDetailTab('tasks')">
           <span class="tab-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
-          <span class="tab-text">Tasks</span>
+          <span class="tab-text">${t('tab.tasks')}</span>
           <span class="tab-count">${tasks.length}</span>
         </button>
         <button class="detail-tab" data-tab="plan" onclick="switchLiteDetailTab('plan')">
           <span class="tab-icon"><i data-lucide="ruler" class="w-4 h-4"></i></span>
-          <span class="tab-text">Plan</span>
+          <span class="tab-text">${t('tab.plan')}</span>
         </button>
         ${session.type === 'lite-fix' ? `
         <button class="detail-tab" data-tab="diagnoses" onclick="switchLiteDetailTab('diagnoses')">
           <span class="tab-icon"><i data-lucide="stethoscope" class="w-4 h-4"></i></span>
-          <span class="tab-text">Diagnoses</span>
+          <span class="tab-text">${t('tab.diagnoses')}</span>
           ${session.diagnoses?.items?.length ? `<span class="tab-count">${session.diagnoses.items.length}</span>` : ''}
         </button>
         ` : ''}
         <button class="detail-tab" data-tab="context" onclick="switchLiteDetailTab('context')">
           <span class="tab-icon"><i data-lucide="package" class="w-4 h-4"></i></span>
-          <span class="tab-text">Context</span>
+          <span class="tab-text">${t('tab.context')}</span>
         </button>
         <button class="detail-tab" data-tab="summary" onclick="switchLiteDetailTab('summary')">
           <span class="tab-icon"><i data-lucide="file-text" class="w-4 h-4"></i></span>
-          <span class="tab-text">Summary</span>
+          <span class="tab-text">${t('tab.summary')}</span>
         </button>
       </div>
 
@@ -232,8 +232,8 @@ function renderLiteTasksTab(session, tasks, completed, inProgress, pending) {
     return `
       <div class="tab-empty-state">
         <div class="empty-icon"><i data-lucide="clipboard-list" class="w-12 h-12"></i></div>
-        <div class="empty-title">No Tasks</div>
-        <div class="empty-text">This session has no tasks defined.</div>
+        <div class="empty-title">${t('empty.noTasks')}</div>
+        <div class="empty-text">${t('empty.noTasksText')}</div>
       </div>
     `;
   }
@@ -506,8 +506,8 @@ function renderDiagnosesTab(session) {
     return `
       <div class="tab-empty-state">
         <div class="empty-icon"><i data-lucide="stethoscope" class="w-12 h-12"></i></div>
-        <div class="empty-title">No Diagnoses</div>
-        <div class="empty-text">No diagnosis-*.json files found for this session.</div>
+        <div class="empty-title">${t('empty.noDiagnoses')}</div>
+        <div class="empty-text">${t('empty.noDiagnosesText')}</div>
       </div>
     `;
   }

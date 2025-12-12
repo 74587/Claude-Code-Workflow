@@ -41,20 +41,20 @@ async function renderMcpManager() {
       <div class="mcp-section mb-6">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
-            <h3 class="text-lg font-semibold text-foreground">Current Project MCP Servers</h3>
+            <h3 class="text-lg font-semibold text-foreground">${t('mcp.currentProject')}</h3>
             <button class="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
                     onclick="openMcpCreateModal()">
-              <span>+</span> New Server
+              <span>+</span> ${t('mcp.newServer')}
             </button>
           </div>
-          <span class="text-sm text-muted-foreground">${currentProjectServerNames.length} servers configured</span>
+          <span class="text-sm text-muted-foreground">${currentProjectServerNames.length} ${t('mcp.serversConfigured')}</span>
         </div>
 
         ${currentProjectServerNames.length === 0 ? `
           <div class="mcp-empty-state bg-card border border-border rounded-lg p-6 text-center">
             <div class="text-muted-foreground mb-3"><i data-lucide="plug" class="w-10 h-10 mx-auto"></i></div>
-            <p class="text-muted-foreground">No MCP servers configured for this project</p>
-            <p class="text-sm text-muted-foreground mt-1">Add servers from the available list below</p>
+            <p class="text-muted-foreground">${t('empty.noMcpServers')}</p>
+            <p class="text-sm text-muted-foreground mt-1">${t('empty.addMcpServersHint')}</p>
           </div>
         ` : `
           <div class="mcp-server-grid grid gap-3">
@@ -109,13 +109,13 @@ async function renderMcpManager() {
       <!-- Available MCP Servers from Other Projects -->
       <div class="mcp-section">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-foreground">Available from Other Projects</h3>
-          <span class="text-sm text-muted-foreground">${otherProjectServers.length} servers available</span>
+          <h3 class="text-lg font-semibold text-foreground">${t('mcp.availableOther')}</h3>
+          <span class="text-sm text-muted-foreground">${otherProjectServers.length} ${t('mcp.serversAvailable')}</span>
         </div>
 
         ${otherProjectServers.length === 0 ? `
           <div class="mcp-empty-state bg-card border border-border rounded-lg p-6 text-center">
-            <p class="text-muted-foreground">No additional MCP servers found in other projects</p>
+            <p class="text-muted-foreground">${t('empty.noAdditionalMcp')}</p>
           </div>
         ` : `
           <div class="mcp-server-grid grid gap-3">
@@ -129,17 +129,17 @@ async function renderMcpManager() {
       <!-- All Projects MCP Overview Table -->
       <div class="mcp-section mt-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-foreground">All Projects MCP Overview</h3>
-          <span class="text-sm text-muted-foreground">${Object.keys(mcpAllProjects).length} projects</span>
+          <h3 class="text-lg font-semibold text-foreground">${t('mcp.allProjects')}</h3>
+          <span class="text-sm text-muted-foreground">${Object.keys(mcpAllProjects).length} ${t('mcp.projects')}</span>
         </div>
 
         <div class="mcp-projects-table bg-card border border-border rounded-lg overflow-hidden">
           <table class="w-full">
             <thead class="bg-muted/50">
               <tr>
-                <th class="text-left px-4 py-3 text-sm font-semibold text-foreground border-b border-border">Project</th>
-                <th class="text-left px-4 py-3 text-sm font-semibold text-foreground border-b border-border">MCP Servers</th>
-                <th class="text-center px-4 py-3 text-sm font-semibold text-foreground border-b border-border w-24">Status</th>
+                <th class="text-left px-4 py-3 text-sm font-semibold text-foreground border-b border-border">${t('mcp.project')}</th>
+                <th class="text-left px-4 py-3 text-sm font-semibold text-foreground border-b border-border">${t('mcp.servers')}</th>
+                <th class="text-center px-4 py-3 text-sm font-semibold text-foreground border-b border-border w-24">${t('mcp.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -158,7 +158,7 @@ async function renderMcpManager() {
                         <div class="min-w-0">
                           <div class="font-medium text-foreground truncate text-sm" title="${escapeHtml(path)}">
                             ${escapeHtml(path.split('\\').pop() || path)}
-                            ${isCurrentProject ? '<span class="ml-2 text-xs text-primary font-medium">(Current)</span>' : ''}
+                            ${isCurrentProject ? `<span class="ml-2 text-xs text-primary font-medium">${t('mcp.current')}</span>` : ''}
                           </div>
                           <div class="text-xs text-muted-foreground truncate">${escapeHtml(path)}</div>
                         </div>
@@ -167,7 +167,7 @@ async function renderMcpManager() {
                     <td class="px-4 py-3">
                       <div class="flex flex-wrap gap-1.5">
                         ${serverNames.length === 0
-                          ? '<span class="text-xs text-muted-foreground italic">No MCP servers</span>'
+                          ? `<span class="text-xs text-muted-foreground italic">${t('mcp.noMcpServers')}</span>`
                           : serverNames.map(serverName => {
                               const isEnabled = !projectDisabled.includes(serverName);
                               return `
@@ -247,7 +247,7 @@ function renderMcpServerCard(serverName, serverConfig, isEnabled, isInCurrentPro
           <button class="text-xs text-destructive hover:text-destructive/80 transition-colors"
                   data-server-name="${escapeHtml(serverName)}"
                   data-action="remove">
-            Remove from project
+            ${t('mcp.removeFromProject')}
           </button>
         </div>
       ` : ''}
@@ -271,7 +271,7 @@ function renderAvailableServerCard(serverName, serverInfo) {
                 data-server-name="${escapeHtml(serverName)}"
                 data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
                 data-action="add">
-          Add
+          ${t('mcp.add')}
         </button>
       </div>
 
@@ -306,7 +306,7 @@ function renderGlobalServerCard(serverName, serverConfig, source = 'user') {
                 data-server-name="${escapeHtml(serverName)}"
                 data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
                 data-action="add">
-          Add to Project
+          ${t('mcp.addToProject')}
         </button>
       </div>
 
@@ -403,7 +403,7 @@ function attachMcpEventListeners() {
   document.querySelectorAll('.mcp-server-card button[data-action="remove"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const serverName = e.target.dataset.serverName;
-      if (confirm(`Remove MCP server "${serverName}" from this project?`)) {
+      if (confirm(t('mcp.removeConfirm', { name: serverName }))) {
         await removeMcpServerFromProject(serverName);
       }
     });

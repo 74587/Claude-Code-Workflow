@@ -21,10 +21,13 @@ const MODULE_CSS_FILES = [
   '05-context.css',
   '06-cards.css',
   '07-managers.css',
-  '08-review.css'
+  '08-review.css',
+  '09-explorer.css',
+  '10-cli.css'
 ];
 
 const MODULE_FILES = [
+  'i18n.js',  // Must be loaded first for translations
   'utils.js',
   'state.js',
   'api.js',
@@ -37,12 +40,25 @@ const MODULE_FILES = [
   'components/task-drawer-core.js',
   'components/task-drawer-renderers.js',
   'components/flowchart.js',
+  'components/carousel.js',
+  'components/notifications.js',
+  'components/global-notifications.js',
+  'components/cli-status.js',
+  'components/cli-history.js',
+  'components/mcp-manager.js',
+  'components/hook-manager.js',
+  'components/version-check.js',
   'views/home.js',
   'views/project-overview.js',
   'views/session-detail.js',
   'views/review-session.js',
   'views/lite-tasks.js',
   'views/fix-session.js',
+  'views/cli-manager.js',
+  'views/explorer.js',
+  'views/mcp-manager.js',
+  'views/hook-manager.js',
+  'views/history.js',
   'main.js'
 ];
 

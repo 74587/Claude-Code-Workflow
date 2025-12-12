@@ -110,7 +110,7 @@ function renderCarouselSlide(direction = 'none') {
       <div class="carousel-empty flex items-center justify-center h-full text-muted-foreground">
         <div class="text-center">
           <div class="text-3xl mb-2">🎯</div>
-          <p class="text-sm">No active sessions</p>
+          <p class="text-sm">${t('carousel.noActiveSessions')}</p>
         </div>
       </div>
     `;
@@ -172,7 +172,7 @@ function renderCarouselSlide(direction = 'none') {
             <!-- Progress -->
             <div class="mb-2">
               <div class="flex items-center justify-between text-xs mb-1">
-                <span class="text-muted-foreground">Progress</span>
+                <span class="text-muted-foreground">${t('session.progress')}</span>
                 <span class="text-foreground font-medium">${completed}/${taskCount}</span>
               </div>
               <div class="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -196,7 +196,7 @@ function renderCarouselSlide(direction = 'none') {
 
           <!-- Right Column: Task List -->
           <div class="w-[45%] flex flex-col border-l border-border pl-3">
-            <div class="text-xs font-medium text-muted-foreground mb-1.5">Recent Tasks</div>
+            <div class="text-xs font-medium text-muted-foreground mb-1.5">${t('tab.tasks')}</div>
             <div class="task-list flex-1 space-y-1 overflow-hidden">
               ${displayTasks.length > 0 ? displayTasks.map(task => `
                 <div class="flex items-center gap-1.5 text-xs">
@@ -204,7 +204,7 @@ function renderCarouselSlide(direction = 'none') {
                   <span class="truncate flex-1 ${task.status === 'in_progress' ? 'text-foreground font-medium' : 'text-muted-foreground'}">${escapeHtml(task.title || task.id || 'Task')}</span>
                 </div>
               `).join('') : `
-                <div class="text-xs text-muted-foreground">No tasks yet</div>
+                <div class="text-xs text-muted-foreground">${t('empty.noTasks')}</div>
               `}
             </div>
             <!-- Progress percentage -->

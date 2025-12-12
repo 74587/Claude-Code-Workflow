@@ -29,21 +29,21 @@ async function renderHookManager() {
       <div class="hook-section mb-6">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
-            <h3 class="text-lg font-semibold text-foreground">Project Hooks</h3>
-            <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-primary-light text-primary">.claude/settings.json</span>
+            <h3 class="text-lg font-semibold text-foreground">${t('hook.projectHooks')}</h3>
+            <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-primary-light text-primary">${t('hook.projectFile')}</span>
             <button class="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
                     onclick="openHookCreateModal()">
-              <span>+</span> New Hook
+              <span>+</span> ${t('hook.newHook')}
             </button>
           </div>
-          <span class="text-sm text-muted-foreground">${projectHookCount} hooks configured</span>
+          <span class="text-sm text-muted-foreground">${projectHookCount} ${t('hook.hooksConfigured')}</span>
         </div>
 
         ${projectHookCount === 0 ? `
           <div class="hook-empty-state bg-card border border-border rounded-lg p-6 text-center">
             <div class="text-muted-foreground mb-3"><i data-lucide="webhook" class="w-10 h-10 mx-auto"></i></div>
-            <p class="text-muted-foreground">No hooks configured for this project</p>
-            <p class="text-sm text-muted-foreground mt-1">Create a hook to automate actions on tool usage</p>
+            <p class="text-muted-foreground">${t('empty.noHooks')}</p>
+            <p class="text-sm text-muted-foreground mt-1">${t('empty.createHookHint')}</p>
           </div>
         ` : `
           <div class="hook-grid grid gap-3">
@@ -56,16 +56,16 @@ async function renderHookManager() {
       <div class="hook-section mb-6">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
-            <h3 class="text-lg font-semibold text-foreground">Global Hooks</h3>
-            <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-muted text-muted-foreground">~/.claude/settings.json</span>
+            <h3 class="text-lg font-semibold text-foreground">${t('hook.globalHooks')}</h3>
+            <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-muted text-muted-foreground">${t('hook.globalFile')}</span>
           </div>
-          <span class="text-sm text-muted-foreground">${globalHookCount} hooks configured</span>
+          <span class="text-sm text-muted-foreground">${globalHookCount} ${t('hook.hooksConfigured')}</span>
         </div>
 
         ${globalHookCount === 0 ? `
           <div class="hook-empty-state bg-card border border-border rounded-lg p-6 text-center">
-            <p class="text-muted-foreground">No global hooks configured</p>
-            <p class="text-sm text-muted-foreground mt-1">Global hooks apply to all Claude Code sessions</p>
+            <p class="text-muted-foreground">${t('empty.noGlobalHooks')}</p>
+            <p class="text-sm text-muted-foreground mt-1">${t('empty.globalHooksHint')}</p>
           </div>
         ` : `
           <div class="hook-grid grid gap-3">
@@ -78,10 +78,10 @@ async function renderHookManager() {
       <div class="hook-section mb-6">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
-            <h3 class="text-lg font-semibold text-foreground">Hook Wizards</h3>
-            <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-success/20 text-success">Guided Setup</span>
+            <h3 class="text-lg font-semibold text-foreground">${t('hook.wizards')}</h3>
+            <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-success/20 text-success">${t('hook.guidedSetup')}</span>
           </div>
-          <span class="text-sm text-muted-foreground">Configure complex hooks with guided wizards</span>
+          <span class="text-sm text-muted-foreground">${t('hook.wizardsDesc')}</span>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -93,23 +93,23 @@ async function renderHookManager() {
       <!-- Quick Install Templates -->
       <div class="hook-section">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-foreground">Quick Install Templates</h3>
-          <span class="text-sm text-muted-foreground">One-click hook installation</span>
+          <h3 class="text-lg font-semibold text-foreground">${t('hook.quickInstall')}</h3>
+          <span class="text-sm text-muted-foreground">${t('hook.oneClick')}</span>
         </div>
 
         <div class="hook-templates-grid grid grid-cols-1 md:grid-cols-2 gap-4">
-          ${renderQuickInstallCard('codexlens-update', 'CodexLens Auto-Sync', 'Auto-update code index when files are written or edited', 'PostToolUse', 'Write|Edit')}
-          ${renderQuickInstallCard('ccw-notify', 'CCW Dashboard Notify', 'Notify CCW dashboard when files are written', 'PostToolUse', 'Write')}
-          ${renderQuickInstallCard('log-tool', 'Tool Usage Logger', 'Log all tool executions to a file', 'PostToolUse', 'All')}
-          ${renderQuickInstallCard('lint-check', 'Auto Lint Check', 'Run ESLint on JavaScript/TypeScript files after write', 'PostToolUse', 'Write')}
-          ${renderQuickInstallCard('git-add', 'Auto Git Stage', 'Automatically stage written files to git', 'PostToolUse', 'Write')}
+          ${renderQuickInstallCard('codexlens-update', t('hook.tpl.codexlensSync'), t('hook.tpl.codexlensSyncDesc'), 'PostToolUse', 'Write|Edit')}
+          ${renderQuickInstallCard('ccw-notify', t('hook.tpl.ccwDashboardNotify'), t('hook.tpl.ccwDashboardNotifyDesc'), 'PostToolUse', 'Write')}
+          ${renderQuickInstallCard('log-tool', t('hook.tpl.toolLogger'), t('hook.tpl.toolLoggerDesc'), 'PostToolUse', 'All')}
+          ${renderQuickInstallCard('lint-check', t('hook.tpl.autoLint'), t('hook.tpl.autoLintDesc'), 'PostToolUse', 'Write')}
+          ${renderQuickInstallCard('git-add', t('hook.tpl.autoGitStage'), t('hook.tpl.autoGitStageDesc'), 'PostToolUse', 'Write')}
         </div>
       </div>
 
       <!-- Hook Environment Variables Reference -->
       <div class="hook-section mt-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-foreground">Environment Variables Reference</h3>
+          <h3 class="text-lg font-semibold text-foreground">${t('hook.envVarsRef')}</h3>
         </div>
 
         <div class="bg-card border border-border rounded-lg p-4">
@@ -117,29 +117,29 @@ async function renderHookManager() {
             <div class="space-y-2">
               <div class="flex items-start gap-2">
                 <code class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">$CLAUDE_FILE_PATHS</code>
-                <span class="text-muted-foreground">Space-separated file paths affected</span>
+                <span class="text-muted-foreground">${t('hook.filePaths')}</span>
               </div>
               <div class="flex items-start gap-2">
                 <code class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">$CLAUDE_TOOL_NAME</code>
-                <span class="text-muted-foreground">Name of the tool being executed</span>
+                <span class="text-muted-foreground">${t('hook.toolName')}</span>
               </div>
               <div class="flex items-start gap-2">
                 <code class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">$CLAUDE_TOOL_INPUT</code>
-                <span class="text-muted-foreground">JSON input passed to the tool</span>
+                <span class="text-muted-foreground">${t('hook.toolInput')}</span>
               </div>
             </div>
             <div class="space-y-2">
               <div class="flex items-start gap-2">
                 <code class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">$CLAUDE_SESSION_ID</code>
-                <span class="text-muted-foreground">Current Claude session ID</span>
+                <span class="text-muted-foreground">${t('hook.sessionId')}</span>
               </div>
               <div class="flex items-start gap-2">
                 <code class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">$CLAUDE_PROJECT_DIR</code>
-                <span class="text-muted-foreground">Current project directory path</span>
+                <span class="text-muted-foreground">${t('hook.projectDir')}</span>
               </div>
               <div class="flex items-start gap-2">
                 <code class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">$CLAUDE_WORKING_DIR</code>
-                <span class="text-muted-foreground">Current working directory</span>
+                <span class="text-muted-foreground">${t('hook.workingDir')}</span>
               </div>
             </div>
           </div>
@@ -153,6 +153,9 @@ async function renderHookManager() {
 
   // Initialize Lucide icons
   if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  // Load available SKILLs for skill-context wizard
+  loadAvailableSkills();
 }
 
 // Load available SKILLs for skill-context wizard
@@ -161,25 +164,25 @@ async function loadAvailableSkills() {
     const response = await fetch(`/api/skills?path=${encodeURIComponent(projectPath)}`);
     if (!response.ok) throw new Error('Failed to load skills');
     const data = await response.json();
-    
+
     const container = document.getElementById('skill-discovery-skill-context');
     if (container && data.skills) {
       if (data.skills.length === 0) {
         container.innerHTML = `
-          <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Available SKILLs:</span>
-          <span class="text-muted-foreground ml-2">No SKILLs found in .claude/skills/</span>
+          <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.availableSkills')}</span>
+          <span class="text-muted-foreground ml-2">${t('hook.wizard.noSkillsFound').split('.')[0]}</span>
         `;
       } else {
         const skillBadges = data.skills.map(skill => `
           <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded" title="${escapeHtml(skill.description)}">${escapeHtml(skill.name)}</span>
         `).join('');
         container.innerHTML = `
-          <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Available SKILLs:</span>
+          <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.availableSkills')}</span>
           <div class="flex flex-wrap gap-1 mt-1">${skillBadges}</div>
         `;
       }
     }
-    
+
     // Store skills for wizard use
     window.availableSkills = data.skills || [];
   } catch (err) {
@@ -187,8 +190,8 @@ async function loadAvailableSkills() {
     const container = document.getElementById('skill-discovery-skill-context');
     if (container) {
       container.innerHTML = `
-        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Available SKILLs:</span>
-        <span class="text-destructive ml-2">Error loading skills</span>
+        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.availableSkills')}</span>
+        <span class="text-destructive ml-2">${t('toast.loadFailed', { error: err.message })}</span>
       `;
     }
   }
@@ -201,21 +204,52 @@ function renderWizardCard(wizardId) {
   const wizard = WIZARD_TEMPLATES[wizardId];
   if (!wizard) return '';
 
+  // Get translated wizard name and description
+  const wizardName = wizardId === 'memory-update' ? t('hook.wizard.memoryUpdate') :
+                     wizardId === 'skill-context' ? t('hook.wizard.skillContext') : wizard.name;
+  const wizardDesc = wizardId === 'memory-update' ? t('hook.wizard.memoryUpdateDesc') :
+                     wizardId === 'skill-context' ? t('hook.wizard.skillContextDesc') : wizard.description;
+
+  // Translate options
+  const getOptionName = (wizardId, optId) => {
+    if (wizardId === 'memory-update') {
+      if (optId === 'on-stop') return t('hook.wizard.onSessionEnd');
+      if (optId === 'periodic') return t('hook.wizard.periodicUpdate');
+    }
+    if (wizardId === 'skill-context') {
+      if (optId === 'keyword') return t('hook.wizard.keywordMatching');
+      if (optId === 'auto') return t('hook.wizard.autoDetection');
+    }
+    return wizard.options.find(o => o.id === optId)?.name || '';
+  };
+
+  const getOptionDesc = (wizardId, optId) => {
+    if (wizardId === 'memory-update') {
+      if (optId === 'on-stop') return t('hook.wizard.onSessionEndDesc');
+      if (optId === 'periodic') return t('hook.wizard.periodicUpdateDesc');
+    }
+    if (wizardId === 'skill-context') {
+      if (optId === 'keyword') return t('hook.wizard.keywordMatchingDesc');
+      if (optId === 'auto') return t('hook.wizard.autoDetectionDesc');
+    }
+    return wizard.options.find(o => o.id === optId)?.description || '';
+  };
+
   // Determine what to show in the tools/skills section
-  const toolsSection = wizard.requiresSkillDiscovery 
+  const toolsSection = wizard.requiresSkillDiscovery
     ? `
       <div class="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Event:</span>
+        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.event')}</span>
         <span class="px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded">UserPromptSubmit</span>
       </div>
       <div id="skill-discovery-${wizardId}" class="text-xs text-muted-foreground mb-4">
-        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Available SKILLs:</span>
-        <span class="text-muted-foreground ml-2">Loading...</span>
+        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.availableSkills')}</span>
+        <span class="text-muted-foreground ml-2">${t('hook.wizard.loading')}</span>
       </div>
     `
     : `
       <div class="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">CLI Tools:</span>
+        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.cliTools')}</span>
         <span class="px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded">gemini</span>
         <span class="px-2 py-0.5 bg-purple-500/10 text-purple-500 rounded">qwen</span>
         <span class="px-2 py-0.5 bg-green-500/10 text-green-500 rounded">codex</span>
@@ -230,8 +264,8 @@ function renderWizardCard(wizardId) {
             <i data-lucide="${wizard.icon}" class="w-6 h-6 text-primary"></i>
           </div>
           <div>
-            <h4 class="font-semibold text-foreground">${escapeHtml(wizard.name)}</h4>
-            <p class="text-sm text-muted-foreground">${escapeHtml(wizard.description)}</p>
+            <h4 class="font-semibold text-foreground">${escapeHtml(wizardName)}</h4>
+            <p class="text-sm text-muted-foreground">${escapeHtml(wizardDesc)}</p>
           </div>
         </div>
       </div>
@@ -240,7 +274,7 @@ function renderWizardCard(wizardId) {
         ${wizard.options.map(opt => `
           <div class="flex items-center gap-2 text-sm text-muted-foreground">
             <i data-lucide="check" class="w-4 h-4 text-success"></i>
-            <span>${escapeHtml(opt.name)}: ${escapeHtml(opt.description)}</span>
+            <span>${escapeHtml(getOptionName(wizardId, opt.id))}: ${escapeHtml(getOptionDesc(wizardId, opt.id))}</span>
           </div>
         `).join('')}
       </div>
@@ -250,7 +284,7 @@ function renderWizardCard(wizardId) {
       <button class="w-full px-4 py-2.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
               onclick="openHookWizardModal('${wizardId}')">
         <i data-lucide="wand-2" class="w-4 h-4"></i>
-        Open Wizard
+        ${t('hook.openWizard')}
       </button>
     </div>
   `;
@@ -333,6 +367,7 @@ function renderQuickInstallCard(templateId, title, description, event, matcher) 
   const isInstalled = isHookTemplateInstalled(templateId);
   const template = HOOK_TEMPLATES[templateId];
   const category = template?.category || 'general';
+  const categoryTranslated = t(`hook.category.${category}`) || category;
 
   return `
     <div class="hook-template-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all ${isInstalled ? 'border-success bg-success-light/30' : ''}">
@@ -346,7 +381,7 @@ function renderQuickInstallCard(templateId, title, description, event, matcher) 
         </div>
         <button class="p-1.5 text-muted-foreground hover:text-foreground hover:bg-hover rounded transition-colors"
                 onclick="viewTemplateDetails('${templateId}')"
-                title="View template details">
+                title="${t('hook.viewDetails')}">
           <i data-lucide="eye" class="w-4 h-4"></i>
         </button>
       </div>
@@ -356,9 +391,9 @@ function renderQuickInstallCard(templateId, title, description, event, matcher) 
           <span class="font-mono bg-muted px-1 py-0.5 rounded">${event}</span>
         </span>
         <span class="flex items-center gap-1">
-          Matches: <span class="font-medium">${matcher}</span>
+          ${t('hook.wizard.matches')} <span class="font-medium">${matcher}</span>
         </span>
-        <span class="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-xs">${category}</span>
+        <span class="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-xs">${categoryTranslated}</span>
       </div>
 
       <div class="flex items-center gap-2">
@@ -366,18 +401,18 @@ function renderQuickInstallCard(templateId, title, description, event, matcher) 
           <button class="flex-1 px-3 py-1.5 text-sm bg-destructive/10 text-destructive rounded hover:bg-destructive/20 transition-colors"
                   data-template="${templateId}"
                   data-action="uninstall">
-            Uninstall
+            ${t('hook.uninstall')}
           </button>
         ` : `
           <button class="flex-1 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
                   data-template="${templateId}"
                   data-action="install-project">
-            Install (Project)
+            ${t('hook.installProject')}
           </button>
           <button class="px-3 py-1.5 text-sm bg-muted text-foreground rounded hover:bg-hover transition-colors"
                   data-template="${templateId}"
                   data-action="install-global">
-            Global
+            ${t('hook.installGlobal')}
           </button>
         `}
       </div>
@@ -486,7 +521,7 @@ function attachHookEventListeners() {
       const event = button.dataset.event;
       const index = parseInt(button.dataset.index);
 
-      if (confirm(`Remove this ${event} hook?`)) {
+      if (confirm(t('hook.deleteConfirm', { event: event }))) {
         await removeHook(scope, event, index);
       }
     });

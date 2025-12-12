@@ -43,14 +43,14 @@ function showSessionDetailPage(sessionKey) {
       <div class="detail-header">
         <button class="btn-back" onclick="goBackToSessions()">
           <span class="back-icon">←</span>
-          <span>Back to Sessions</span>
+          <span>${t('detail.backToSessions')}</span>
         </button>
         <div class="detail-title-row">
           <h2 class="detail-session-id">${escapeHtml(session.session_id)}</h2>
           <div class="detail-badges">
             <span class="session-type-badge ${session.type || 'workflow'}">${session.type || 'workflow'}</span>
             <span class="session-status ${isActive ? 'active' : 'archived'}">
-              ${isActive ? 'ACTIVE' : 'ARCHIVED'}
+              ${isActive ? t('session.status.active') : t('session.status.archived')}
             </span>
           </div>
         </div>
@@ -59,22 +59,22 @@ function showSessionDetailPage(sessionKey) {
       <!-- Session Info Bar -->
       <div class="detail-info-bar">
         <div class="info-item">
-          <span class="info-label">Created:</span>
+          <span class="info-label">${t('detail.created')}</span>
           <span class="info-value">${formatDate(session.created_at)}</span>
         </div>
         ${session.archived_at ? `
           <div class="info-item">
-            <span class="info-label">Archived:</span>
+            <span class="info-label">${t('detail.archived')}</span>
             <span class="info-value">${formatDate(session.archived_at)}</span>
           </div>
         ` : ''}
         <div class="info-item">
-          <span class="info-label">Project:</span>
+          <span class="info-label">${t('detail.project')}</span>
           <span class="info-value">${escapeHtml(session.project || '-')}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">Tasks:</span>
-          <span class="info-value">${completed}/${tasks.length} completed</span>
+          <span class="info-label">${t('detail.tasks')}</span>
+          <span class="info-value">${completed}/${tasks.length} ${t('detail.completed')}</span>
         </div>
       </div>
 
@@ -82,26 +82,26 @@ function showSessionDetailPage(sessionKey) {
       <div class="detail-tabs">
         <button class="detail-tab active" data-tab="tasks" onclick="switchDetailTab('tasks')">
           <span class="tab-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
-          <span class="tab-text">Tasks</span>
+          <span class="tab-text">${t('tab.tasks')}</span>
           <span class="tab-count">${tasks.length}</span>
         </button>
         <button class="detail-tab" data-tab="context" onclick="switchDetailTab('context')">
           <span class="tab-icon"><i data-lucide="package" class="w-4 h-4"></i></span>
-          <span class="tab-text">Context</span>
+          <span class="tab-text">${t('tab.context')}</span>
         </button>
         <button class="detail-tab" data-tab="summary" onclick="switchDetailTab('summary')">
           <span class="tab-icon"><i data-lucide="file-text" class="w-4 h-4"></i></span>
-          <span class="tab-text">Summary</span>
+          <span class="tab-text">${t('tab.summary')}</span>
         </button>
         <button class="detail-tab" data-tab="impl-plan" onclick="switchDetailTab('impl-plan')">
           <span class="tab-icon"><i data-lucide="ruler" class="w-4 h-4"></i></span>
-          <span class="tab-text">IMPL Plan</span>
+          <span class="tab-text">${t('tab.implPlan')}</span>
         </button>
-<button class="detail-tab" data-tab="conflict" onclick="switchDetailTab('conflict')">          <span class="tab-icon"><i data-lucide="scale" class="w-4 h-4"></i></span>          <span class="tab-text">Conflict</span>        </button>
+<button class="detail-tab" data-tab="conflict" onclick="switchDetailTab('conflict')">          <span class="tab-icon"><i data-lucide="scale" class="w-4 h-4"></i></span>          <span class="tab-text">${t('tab.conflict')}</span>        </button>
         ${session.hasReview ? `
           <button class="detail-tab" data-tab="review" onclick="switchDetailTab('review')">
             <span class="tab-icon"><i data-lucide="search" class="w-4 h-4"></i></span>
-            <span class="tab-text">Review</span>
+            <span class="tab-text">${t('tab.review')}</span>
           </button>
         ` : ''}
       </div>
@@ -178,33 +178,33 @@ function renderTasksTab(session, tasks, completed, inProgress, pending) {
       <!-- Combined Stats & Actions Bar -->
       <div class="task-toolbar">
         <div class="task-stats-bar">
-          <span class="task-stat completed"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>${completed} completed</span>
-          <span class="task-stat in-progress"><i data-lucide="loader-2" class="w-4 h-4 inline mr-1"></i>${inProgress} in progress</span>
-          <span class="task-stat pending"><i data-lucide="circle" class="w-4 h-4 inline mr-1"></i>${pending} pending</span>
+          <span class="task-stat completed"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>${completed} ${t('task.completed')}</span>
+          <span class="task-stat in-progress"><i data-lucide="loader-2" class="w-4 h-4 inline mr-1"></i>${inProgress} ${t('task.inProgress')}</span>
+          <span class="task-stat pending"><i data-lucide="circle" class="w-4 h-4 inline mr-1"></i>${pending} ${t('task.pending')}</span>
         </div>
         <div class="toolbar-divider"></div>
         <div class="task-bulk-actions">
-          <span class="bulk-label">Quick Actions:</span>
-          <button class="bulk-action-btn" onclick="bulkSetAllStatus('pending')" title="Set all tasks to pending">
-            <span class="bulk-icon"><i data-lucide="circle" class="w-4 h-4"></i></span> All Pending
+          <span class="bulk-label">${t('task.quickActions')}</span>
+          <button class="bulk-action-btn" onclick="bulkSetAllStatus('pending')" title="${t('task.allPending')}">
+            <span class="bulk-icon"><i data-lucide="circle" class="w-4 h-4"></i></span> ${t('task.allPending')}
           </button>
-          <button class="bulk-action-btn" onclick="bulkSetAllStatus('in_progress')" title="Set all tasks to in progress">
-            <span class="bulk-icon"><i data-lucide="loader-2" class="w-4 h-4"></i></span> All In Progress
+          <button class="bulk-action-btn" onclick="bulkSetAllStatus('in_progress')" title="${t('task.allInProgress')}">
+            <span class="bulk-icon"><i data-lucide="loader-2" class="w-4 h-4"></i></span> ${t('task.allInProgress')}
           </button>
-          <button class="bulk-action-btn completed" onclick="bulkSetAllStatus('completed')" title="Set all tasks to completed">
-            <span class="bulk-icon"><i data-lucide="check-circle" class="w-4 h-4"></i></span> All Completed
+          <button class="bulk-action-btn completed" onclick="bulkSetAllStatus('completed')" title="${t('task.allCompleted')}">
+            <span class="bulk-icon"><i data-lucide="check-circle" class="w-4 h-4"></i></span> ${t('task.allCompleted')}
           </button>
         </div>
       </div>
 
       <div class="tasks-list" id="tasksListContent">
         ${showLoading ? `
-          <div class="tab-loading">Loading task details...</div>
+          <div class="tab-loading">${t('common.loading')}</div>
         ` : (tasks.length === 0 ? `
           <div class="tab-empty-state">
             <div class="empty-icon"><i data-lucide="clipboard-list" class="w-12 h-12"></i></div>
-            <div class="empty-title">No Tasks</div>
-            <div class="empty-text">This session has no tasks defined.</div>
+            <div class="empty-title">${t('empty.noTasks')}</div>
+            <div class="empty-text">${t('empty.noTasksText')}</div>
           </div>
         ` : tasks.map(task => renderDetailTaskItem(task)).join(''))}
       </div>
@@ -217,7 +217,7 @@ async function loadFullTaskDetails() {
   if (!session || !window.SERVER_MODE || !session.path) return;
 
   const tasksContainer = document.getElementById('tasksListContent');
-  tasksContainer.innerHTML = '<div class="tab-loading">Loading full task details...</div>';
+  tasksContainer.innerHTML = `<div class="tab-loading">${t('common.loading')}</div>`;
 
   try {
     const response = await fetch(`/api/session-detail?path=${encodeURIComponent(session.path)}&type=tasks`);
@@ -231,15 +231,15 @@ async function loadFullTaskDetails() {
         tasksContainer.innerHTML = `
           <div class="tab-empty-state">
             <div class="empty-icon"><i data-lucide="clipboard-list" class="w-12 h-12"></i></div>
-            <div class="empty-title">No Task Files</div>
-            <div class="empty-text">No IMPL-*.json files found in .task/</div>
+            <div class="empty-title">${t('empty.noTaskFiles')}</div>
+            <div class="empty-text">${t('empty.noTaskFilesText')}</div>
           </div>
         `;
         if (typeof lucide !== 'undefined') lucide.createIcons();
       }
     }
   } catch (err) {
-    tasksContainer.innerHTML = `<div class="tab-error">Failed to load tasks: ${err.message}</div>`;
+    tasksContainer.innerHTML = `<div class="tab-error">${t('context.loadError', { error: err.message })}</div>`;
   }
 }
 
@@ -271,9 +271,9 @@ function renderDetailTaskItem(task) {
 
 function formatStatusLabel(status) {
   const labels = {
-    'pending': '<i data-lucide="circle" class="w-3 h-3 inline mr-1"></i>Pending',
-    'in_progress': '<i data-lucide="loader-2" class="w-3 h-3 inline mr-1"></i>In Progress',
-    'completed': '<i data-lucide="check-circle" class="w-3 h-3 inline mr-1"></i>Completed'
+    'pending': `<i data-lucide="circle" class="w-3 h-3 inline mr-1"></i>${t('task.status.pending')}`,
+    'in_progress': `<i data-lucide="loader-2" class="w-3 h-3 inline mr-1"></i>${t('task.status.inProgress')}`,
+    'completed': `<i data-lucide="check-circle" class="w-3 h-3 inline mr-1"></i>${t('task.status.completed')}`
   };
   return labels[status] || status;
 }
@@ -562,7 +562,7 @@ function showRawSessionJson(sessionKey) {
 async function updateSingleTaskStatus(taskId, newStatus) {
   const session = sessionDataStore[currentSessionDetailKey];
   if (!session || !window.SERVER_MODE || !session.path) {
-    showToast('Status update requires server mode', 'error');
+    showToast(t('toast.statusUpdateRequires'), 'error');
     return;
   }
 
@@ -582,14 +582,14 @@ async function updateSingleTaskStatus(taskId, newStatus) {
       // Update UI
       updateTaskItemUI(taskId, newStatus);
       updateTaskStatsBar();
-      showToast(`Task ${taskId} status updated`, 'success');
+      showToast(t('task.statusUpdated', { id: taskId }), 'success');
     } else {
-      showToast(result.error || 'Failed to update status', 'error');
+      showToast(result.error || t('toast.failedToUpdate'), 'error');
       // Revert select
       revertTaskSelect(taskId);
     }
   } catch (error) {
-    showToast('Error updating status: ' + error.message, 'error');
+    showToast(t('toast.errorUpdating', { error: error.message }), 'error');
     revertTaskSelect(taskId);
   }
 }
@@ -597,14 +597,15 @@ async function updateSingleTaskStatus(taskId, newStatus) {
 async function bulkSetAllStatus(newStatus) {
   const session = sessionDataStore[currentSessionDetailKey];
   if (!session || !window.SERVER_MODE || !session.path) {
-    showToast('Bulk update requires server mode', 'error');
+    showToast(t('toast.bulkUpdateRequires'), 'error');
     return;
   }
 
   const taskIds = currentDrawerTasks.map(t => t.task_id || t.id);
   if (taskIds.length === 0) return;
 
-  if (!confirm(`Set all ${taskIds.length} tasks to "${formatStatusLabel(newStatus)}"?`)) {
+  const statusLabel = t(`task.status.${newStatus === 'in_progress' ? 'inProgress' : newStatus}`);
+  if (!confirm(t('task.setAllConfirm', { count: taskIds.length, status: statusLabel }))) {
     return;
   }
 
@@ -624,12 +625,12 @@ async function bulkSetAllStatus(newStatus) {
       // Update all task UIs
       taskIds.forEach(id => updateTaskItemUI(id, newStatus));
       updateTaskStatsBar();
-      showToast(`All ${taskIds.length} tasks updated`, 'success');
+      showToast(t('task.tasksUpdated', { count: taskIds.length }), 'success');
     } else {
-      showToast(result.error || 'Failed to bulk update', 'error');
+      showToast(result.error || t('toast.failedToBulkUpdate'), 'error');
     }
   } catch (error) {
-    showToast('Error in bulk update: ' + error.message, 'error');
+    showToast(t('toast.errorInBulk', { error: error.message }), 'error');
   }
 }
 
@@ -645,7 +646,7 @@ async function bulkSetPendingToInProgress() {
     .map(t => t.task_id || t.id);
 
   if (pendingTaskIds.length === 0) {
-    showToast('No pending tasks to start', 'info');
+    showToast(t('task.noPendingTasks'), 'info');
     return;
   }
 
@@ -664,12 +665,12 @@ async function bulkSetPendingToInProgress() {
     if (result.success) {
       pendingTaskIds.forEach(id => updateTaskItemUI(id, 'in_progress'));
       updateTaskStatsBar();
-      showToast(`${pendingTaskIds.length} tasks moved to In Progress`, 'success');
+      showToast(t('task.movedToInProgress', { count: pendingTaskIds.length }), 'success');
     } else {
-      showToast(result.error || 'Failed to update', 'error');
+      showToast(result.error || t('toast.failedToUpdate'), 'error');
     }
   } catch (error) {
-    showToast('Error: ' + error.message, 'error');
+    showToast(t('toast.error', { error: error.message }), 'error');
   }
 }
 
@@ -685,7 +686,7 @@ async function bulkSetInProgressToCompleted() {
     .map(t => t.task_id || t.id);
 
   if (inProgressTaskIds.length === 0) {
-    showToast('No in-progress tasks to complete', 'info');
+    showToast(t('task.noInProgressTasks'), 'info');
     return;
   }
 
@@ -704,12 +705,12 @@ async function bulkSetInProgressToCompleted() {
     if (result.success) {
       inProgressTaskIds.forEach(id => updateTaskItemUI(id, 'completed'));
       updateTaskStatsBar();
-      showToast(`${inProgressTaskIds.length} tasks completed`, 'success');
+      showToast(t('task.tasksCompleted', { count: inProgressTaskIds.length }), 'success');
     } else {
-      showToast(result.error || 'Failed to update', 'error');
+      showToast(result.error || t('toast.failedToUpdate'), 'error');
     }
   } catch (error) {
-    showToast('Error: ' + error.message, 'error');
+    showToast(t('toast.error', { error: error.message }), 'error');
   }
 }
 
@@ -743,9 +744,9 @@ function updateTaskStatsBar() {
   const statsBar = document.querySelector('.task-stats-bar');
   if (statsBar) {
     statsBar.innerHTML = `
-      <span class="task-stat completed"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>${completed} completed</span>
-      <span class="task-stat in-progress"><i data-lucide="loader-2" class="w-4 h-4 inline mr-1"></i>${inProgress} in progress</span>
-      <span class="task-stat pending"><i data-lucide="circle" class="w-4 h-4 inline mr-1"></i>${pending} pending</span>
+      <span class="task-stat completed"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>${completed} ${t('task.completed')}</span>
+      <span class="task-stat in-progress"><i data-lucide="loader-2" class="w-4 h-4 inline mr-1"></i>${inProgress} ${t('task.inProgress')}</span>
+      <span class="task-stat pending"><i data-lucide="circle" class="w-4 h-4 inline mr-1"></i>${pending} ${t('task.pending')}</span>
     `;
     // Reinitialize Lucide icons
     if (typeof lucide !== 'undefined') lucide.createIcons();

@@ -5,6 +5,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize Lucide icons (must be first to render SVG icons)
   try { lucide.createIcons(); } catch (e) { console.error('Lucide icons init failed:', e); }
 
+  // Initialize i18n (must be early to translate static content)
+  try { initI18n(); } catch (e) { console.error('I18n init failed:', e); }
+
   // Initialize components with error handling to prevent cascading failures
   try { initTheme(); } catch (e) { console.error('Theme init failed:', e); }
   try { initSidebar(); } catch (e) { console.error('Sidebar init failed:', e); }

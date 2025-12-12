@@ -440,7 +440,58 @@ function renderWizardModalContent() {
   if (!container || !currentWizardTemplate) return;
 
   const wizard = currentWizardTemplate;
+  const wizardId = wizard.id;
   const selectedOption = wizardConfig.triggerType || wizard.options[0].id;
+
+  // Get translated wizard name and description
+  const wizardName = wizardId === 'memory-update' ? t('hook.wizard.memoryUpdate') :
+                     wizardId === 'skill-context' ? t('hook.wizard.skillContext') : wizard.name;
+  const wizardDesc = wizardId === 'memory-update' ? t('hook.wizard.memoryUpdateDesc') :
+                     wizardId === 'skill-context' ? t('hook.wizard.skillContextDesc') : wizard.description;
+
+  // Helper to get translated option names
+  const getOptionName = (optId) => {
+    if (wizardId === 'memory-update') {
+      if (optId === 'on-stop') return t('hook.wizard.onSessionEnd');
+      if (optId === 'periodic') return t('hook.wizard.periodicUpdate');
+    }
+    if (wizardId === 'skill-context') {
+      if (optId === 'keyword') return t('hook.wizard.keywordMatching');
+      if (optId === 'auto') return t('hook.wizard.autoDetection');
+    }
+    return wizard.options.find(o => o.id === optId)?.name || '';
+  };
+
+  const getOptionDesc = (optId) => {
+    if (wizardId === 'memory-update') {
+      if (optId === 'on-stop') return t('hook.wizard.onSessionEndDesc');
+      if (optId === 'periodic') return t('hook.wizard.periodicUpdateDesc');
+    }
+    if (wizardId === 'skill-context') {
+      if (optId === 'keyword') return t('hook.wizard.keywordMatchingDesc');
+      if (optId === 'auto') return t('hook.wizard.autoDetectionDesc');
+    }
+    return wizard.options.find(o => o.id === optId)?.description || '';
+  };
+
+  // Helper to get translated field labels
+  const getFieldLabel = (fieldKey) => {
+    const labels = {
+      'tool': t('hook.wizard.cliTool'),
+      'interval': t('hook.wizard.intervalSeconds'),
+      'strategy': t('hook.wizard.updateStrategy')
+    };
+    return labels[fieldKey] || wizard.configFields.find(f => f.key === fieldKey)?.label || fieldKey;
+  };
+
+  const getFieldDesc = (fieldKey) => {
+    const descs = {
+      'tool': t('hook.wizard.toolForDocGen'),
+      'interval': t('hook.wizard.timeBetweenUpdates'),
+      'strategy': t('hook.wizard.relatedStrategy')
+    };
+    return descs[fieldKey] || wizard.configFields.find(f => f.key === fieldKey)?.description || '';
+  };
 
   container.innerHTML = `
     <div class="space-y-6">
@@ -450,14 +501,14 @@ function renderWizardModalContent() {
           <i data-lucide="${wizard.icon}" class="w-6 h-6 text-primary"></i>
         </div>
         <div>
-          <h3 class="text-lg font-semibold text-foreground">${escapeHtml(wizard.name)}</h3>
-          <p class="text-sm text-muted-foreground">${escapeHtml(wizard.description)}</p>
+          <h3 class="text-lg font-semibold text-foreground">${escapeHtml(wizardName)}</h3>
+          <p class="text-sm text-muted-foreground">${escapeHtml(wizardDesc)}</p>
         </div>
       </div>
 
       <!-- Trigger Type Selection -->
       <div class="space-y-3">
-        <label class="block text-sm font-medium text-foreground">When to Trigger</label>
+        <label class="block text-sm font-medium text-foreground">${t('hook.wizard.whenToTrigger')}</label>
         <div class="grid grid-cols-1 gap-3">
           ${wizard.options.map(opt => `
             <label class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-all ${selectedOption === opt.id ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground'}">
@@ -466,8 +517,8 @@ function renderWizardModalContent() {
                      onchange="updateWizardTrigger('${opt.id}')"
                      class="mt-1">
               <div class="flex-1">
-                <span class="font-medium text-foreground">${escapeHtml(opt.name)}</span>
-                <p class="text-sm text-muted-foreground">${escapeHtml(opt.description)}</p>
+                <span class="font-medium text-foreground">${escapeHtml(getOptionName(opt.id))}</span>
+                <p class="text-sm text-muted-foreground">${escapeHtml(getOptionDesc(opt.id))}</p>
               </div>
             </label>
           `).join('')}
@@ -476,18 +527,20 @@ function renderWizardModalContent() {
 
       <!-- Configuration Fields -->
       <div class="space-y-4">
-        <label class="block text-sm font-medium text-foreground">Configuration</label>
+        <label class="block text-sm font-medium text-foreground">${t('hook.wizard.configuration')}</label>
         ${wizard.customRenderer ? window[wizard.customRenderer]() : wizard.configFields.map(field => {
           // Check if field should be shown for current trigger type
           const shouldShow = !field.showFor || field.showFor.includes(selectedOption);
           if (!shouldShow) return '';
 
           const value = wizardConfig[field.key] ?? field.default;
+          const fieldLabel = getFieldLabel(field.key);
+          const fieldDesc = getFieldDesc(field.key);
 
           if (field.type === 'select') {
             return `
               <div class="space-y-1">
-                <label class="block text-sm text-muted-foreground">${escapeHtml(field.label)}</label>
+                <label class="block text-sm text-muted-foreground">${escapeHtml(fieldLabel)}</label>
                 <select id="wizard_${field.key}"
                         onchange="updateWizardConfig('${field.key}', this.value)"
                         class="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
@@ -495,13 +548,13 @@ function renderWizardModalContent() {
                     <option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>
                   `).join('')}
                 </select>
-                ${field.description ? `<p class="text-xs text-muted-foreground">${escapeHtml(field.description)}</p>` : ''}
+                ${fieldDesc ? `<p class="text-xs text-muted-foreground">${escapeHtml(fieldDesc)}</p>` : ''}
               </div>
             `;
           } else if (field.type === 'number') {
             return `
               <div class="space-y-1">
-                <label class="block text-sm text-muted-foreground">${escapeHtml(field.label)}</label>
+                <label class="block text-sm text-muted-foreground">${escapeHtml(fieldLabel)}</label>
                 <div class="flex items-center gap-2">
                   <input type="number" id="wizard_${field.key}"
                          value="${value}"
@@ -512,7 +565,7 @@ function renderWizardModalContent() {
                          class="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                   <span class="text-sm text-muted-foreground">${formatIntervalDisplay(value)}</span>
                 </div>
-                ${field.description ? `<p class="text-xs text-muted-foreground">${escapeHtml(field.description)}</p>` : ''}
+                ${fieldDesc ? `<p class="text-xs text-muted-foreground">${escapeHtml(fieldDesc)}</p>` : ''}
               </div>
             `;
           }
@@ -522,7 +575,7 @@ function renderWizardModalContent() {
 
       <!-- Preview -->
       <div class="space-y-2">
-        <label class="block text-sm font-medium text-foreground">Generated Command Preview</label>
+        <label class="block text-sm font-medium text-foreground">${t('hook.wizard.commandPreview')}</label>
         <div class="bg-muted/50 rounded-lg p-3 font-mono text-xs overflow-x-auto">
           <pre id="wizardCommandPreview" class="whitespace-pre-wrap text-muted-foreground">${escapeHtml(generateWizardCommand())}</pre>
         </div>
@@ -530,16 +583,16 @@ function renderWizardModalContent() {
 
       <!-- Scope Selection -->
       <div class="space-y-3">
-        <label class="block text-sm font-medium text-foreground">Install To</label>
+        <label class="block text-sm font-medium text-foreground">${t('hook.wizard.installTo')}</label>
         <div class="flex gap-4">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="wizardScope" value="project" checked>
-            <span class="text-sm text-foreground">Project</span>
+            <span class="text-sm text-foreground">${t('hook.scopeProject').split('（')[0]}</span>
             <span class="text-xs text-muted-foreground">(.claude/settings.json)</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="wizardScope" value="global">
-            <span class="text-sm text-foreground">Global</span>
+            <span class="text-sm text-foreground">${t('hook.scopeGlobal').split('（')[0]}</span>
             <span class="text-xs text-muted-foreground">(~/.claude/settings.json)</span>
           </label>
         </div>
@@ -593,10 +646,10 @@ function renderSkillContextConfig() {
     return '<div class="bg-muted/30 rounded-lg p-4 text-sm text-muted-foreground">' +
       '<div class="flex items-center gap-2 mb-2">' +
         '<i data-lucide="info" class="w-4 h-4"></i>' +
-        '<span class="font-medium">Auto Detection Mode</span>' +
+        '<span class="font-medium">' + t('hook.wizard.autoDetectionMode') + '</span>' +
       '</div>' +
-      '<p>SKILLs will be automatically loaded when their name appears in your prompt.</p>' +
-      '<p class="mt-2">Available SKILLs: ' + skillBadges + '</p>' +
+      '<p>' + t('hook.wizard.autoDetectionInfo') + '</p>' +
+      '<p class="mt-2">' + t('hook.wizard.availableSkills') + ' ' + skillBadges + '</p>' +
     '</div>';
   }
 
@@ -604,8 +657,8 @@ function renderSkillContextConfig() {
   if (skillConfigs.length === 0) {
     configListHtml = '<div class="text-center py-6 text-muted-foreground text-sm border border-dashed border-border rounded-lg">' +
       '<i data-lucide="package" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>' +
-      '<p>No SKILLs configured yet</p>' +
-      '<p class="text-xs mt-1">Click "Add SKILL" to configure keyword triggers</p>' +
+      '<p>' + t('hook.wizard.noSkillsConfigured') + '</p>' +
+      '<p class="text-xs mt-1">' + t('hook.wizard.clickAddSkill') + '</p>' +
     '</div>';
   } else {
     configListHtml = skillConfigs.map(function(config, idx) {
@@ -617,7 +670,7 @@ function renderSkillContextConfig() {
         '<div class="flex items-center justify-between mb-2">' +
           '<select onchange="updateSkillConfig(' + idx + ', \'skill\', this.value)" ' +
                   'class="px-2 py-1 text-sm bg-background border border-border rounded text-foreground">' +
-            '<option value="">Select SKILL...</option>' +
+            '<option value="">' + t('hook.wizard.selectSkill') + '</option>' +
             skillOptions +
           '</select>' +
           '<button onclick="removeSkillConfig(' + idx + ')" ' +
@@ -626,7 +679,7 @@ function renderSkillContextConfig() {
           '</button>' +
         '</div>' +
         '<div class="space-y-1">' +
-          '<label class="text-xs text-muted-foreground">Trigger Keywords (comma-separated)</label>' +
+          '<label class="text-xs text-muted-foreground">' + t('hook.wizard.triggerKeywords') + '</label>' +
           '<input type="text" ' +
                  'value="' + (config.keywords || '') + '" ' +
                  'onchange="updateSkillConfig(' + idx + ', \'keywords\', this.value)" ' +
@@ -641,16 +694,16 @@ function renderSkillContextConfig() {
   if (availableSkills.length === 0) {
     noSkillsWarning = '<div class="text-xs text-amber-500 flex items-center gap-1">' +
       '<i data-lucide="alert-triangle" class="w-3 h-3"></i>' +
-      'No SKILLs found. Create SKILL packages in .claude/skills/' +
+      t('hook.wizard.noSkillsFound') +
     '</div>';
   }
 
   return '<div class="space-y-4">' +
     '<div class="flex items-center justify-between">' +
-      '<span class="text-sm font-medium text-foreground">Configure SKILLs</span>' +
+      '<span class="text-sm font-medium text-foreground">' + t('hook.wizard.configureSkills') + '</span>' +
       '<button type="button" onclick="addSkillConfig()" ' +
               'class="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-lg hover:opacity-90 flex items-center gap-1">' +
-        '<i data-lucide="plus" class="w-3 h-3"></i> Add SKILL' +
+        '<i data-lucide="plus" class="w-3 h-3"></i> ' + t('hook.wizard.addSkill') +
       '</button>' +
     '</div>' +
     '<div id="skillConfigsList" class="space-y-3">' + configListHtml + '</div>' +

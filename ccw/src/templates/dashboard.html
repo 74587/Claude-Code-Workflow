@@ -256,27 +256,27 @@
       <div class="flex items-center gap-3">
         <!-- Path Selector -->
         <div class="flex items-center gap-2 relative">
-          <label class="hidden sm:inline text-sm text-muted-foreground">Project:</label>
+          <label class="hidden sm:inline text-sm text-muted-foreground" data-i18n="header.project">Project:</label>
           <div class="relative">
             <button class="flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded text-sm text-foreground hover:bg-hover max-w-[300px]" id="pathButton">
               <span class="truncate max-w-[240px]" id="currentPath">{{PROJECT_PATH}}</span>
               <span class="text-xs text-muted-foreground">▼</span>
             </button>
             <div class="path-menu hidden absolute top-full right-0 mt-1 bg-card border border-border rounded-lg shadow-lg min-w-[280px] z-50" id="pathMenu">
-              <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent Projects</div>
+              <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide" data-i18n="header.recentProjects">Recent Projects</div>
               <div id="recentPaths" class="border-t border-border">
                 <!-- Dynamic recent paths -->
               </div>
               <div class="p-2 border-t border-border">
                 <button class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-background border border-border rounded text-sm text-muted-foreground hover:bg-hover" id="browsePath">
                   <i data-lucide="folder-open" class="w-4 h-4"></i>
-                  <span>Browse...</span>
+                  <span data-i18n="header.browse">Browse...</span>
                 </button>
               </div>
             </div>
           </div>
           <!-- Refresh Button -->
-          <button class="refresh-btn p-1.5 text-muted-foreground hover:text-foreground hover:bg-hover rounded" id="refreshWorkspace" title="Refresh workspace">
+          <button class="refresh-btn p-1.5 text-muted-foreground hover:text-foreground hover:bg-hover rounded" id="refreshWorkspace" data-i18n-title="header.refreshWorkspace" title="Refresh workspace">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
               <path d="M3 3v5h5"/>
@@ -286,8 +286,13 @@
           </button>
         </div>
 
+        <!-- Language Toggle -->
+        <button class="p-2 hover:bg-hover rounded flex items-center justify-center text-sm font-medium min-w-[40px]" id="langToggle" data-i18n-title="header.language" title="Language" onclick="switchLang(currentLang === 'zh' ? 'en' : 'zh')">
+          EN
+        </button>
+        
         <!-- Theme Toggle -->
-        <button class="p-2 hover:bg-hover rounded flex items-center justify-center" id="themeToggle" title="Toggle theme">
+        <button class="p-2 hover:bg-hover rounded flex items-center justify-center" id="themeToggle" data-i18n-title="header.toggleTheme" title="Toggle theme">
           <i data-lucide="moon" class="w-5 h-5 theme-icon-dark"></i>
           <i data-lucide="sun" class="w-5 h-5 theme-icon-light hidden"></i>
         </button>
@@ -306,25 +311,25 @@
           <div class="mb-2" id="projectOverviewNav">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <i data-lucide="layout-dashboard" class="nav-section-icon mr-2"></i>
-              <span class="nav-section-title">Project</span>
+              <span class="nav-section-title" data-i18n="nav.project">Project</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="project-overview" data-tooltip="Project Overview">
                 <i data-lucide="bar-chart-3" class="nav-icon"></i>
-                <span class="nav-text flex-1">Overview</span>
+                <span class="nav-text flex-1" data-i18n="nav.overview">Overview</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="explorer" data-tooltip="File Explorer">
                 <i data-lucide="folder-tree" class="nav-icon"></i>
-                <span class="nav-text flex-1">Explorer</span>
+                <span class="nav-text flex-1" data-i18n="nav.explorer">Explorer</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="cli-manager" data-tooltip="CLI Tools Status">
                 <i data-lucide="terminal" class="nav-icon"></i>
-                <span class="nav-text flex-1">Status</span>
+                <span class="nav-text flex-1" data-i18n="nav.status">Status</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeCliTools">0/3</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="cli-history" data-tooltip="CLI Execution History">
                 <i data-lucide="history" class="nav-icon"></i>
-                <span class="nav-text flex-1">History</span>
+                <span class="nav-text flex-1" data-i18n="nav.history">History</span>
               </li>
             </ul>
           </div>
@@ -333,22 +338,22 @@
           <div class="mb-2">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <i data-lucide="history" class="nav-section-icon mr-2"></i>
-              <span class="nav-section-title">Sessions</span>
+              <span class="nav-section-title" data-i18n="nav.sessions">Sessions</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors active" data-filter="all" data-tooltip="All Sessions">
                 <i data-lucide="list" class="nav-icon"></i>
-                <span class="nav-text flex-1">All</span>
+                <span class="nav-text flex-1" data-i18n="nav.all">All</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeAll">0</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-filter="active" data-tooltip="Active Sessions">
                 <i data-lucide="play-circle" class="nav-icon text-success"></i>
-                <span class="nav-text flex-1">Active</span>
+                <span class="nav-text flex-1" data-i18n="nav.active">Active</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-success-light text-success" id="badgeActive">0</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-filter="archived" data-tooltip="Archived Sessions">
                 <i data-lucide="archive" class="nav-icon text-info"></i>
-                <span class="nav-text flex-1">Archived</span>
+                <span class="nav-text flex-1" data-i18n="nav.archived">Archived</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-info-light text-info" id="badgeArchived">0</span>
               </li>
             </ul>
@@ -358,17 +363,17 @@
           <div class="mb-2" id="liteTasksNav">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <i data-lucide="zap" class="nav-section-icon mr-2"></i>
-              <span class="nav-section-title">Lite Tasks</span>
+              <span class="nav-section-title" data-i18n="nav.liteTasks">Lite Tasks</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-plan" data-tooltip="Lite Plan Sessions">
                 <i data-lucide="file-edit" class="nav-icon text-indigo"></i>
-                <span class="nav-text flex-1">Lite Plan</span>
+                <span class="nav-text flex-1" data-i18n="nav.litePlan">Lite Plan</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-light text-indigo" id="badgeLitePlan">0</span>
               </li>
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-lite="lite-fix" data-tooltip="Lite Fix Sessions">
                 <i data-lucide="wrench" class="nav-icon text-orange"></i>
-                <span class="nav-text flex-1">Lite Fix</span>
+                <span class="nav-text flex-1" data-i18n="nav.liteFix">Lite Fix</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-light text-orange" id="badgeLiteFix">0</span>
               </li>
             </ul>
@@ -378,12 +383,12 @@
           <div class="mb-2" id="mcpServersNav">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <i data-lucide="plug" class="nav-section-icon mr-2"></i>
-              <span class="nav-section-title">MCP Servers</span>
+              <span class="nav-section-title" data-i18n="nav.mcpServers">MCP Servers</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="mcp-manager" data-tooltip="MCP Server Management">
                 <i data-lucide="settings" class="nav-icon"></i>
-                <span class="nav-text flex-1">Manage</span>
+                <span class="nav-text flex-1" data-i18n="nav.manage">Manage</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeMcpServers">0</span>
               </li>
             </ul>
@@ -393,12 +398,12 @@
           <div class="mb-2" id="hooksNav">
             <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <i data-lucide="webhook" class="nav-section-icon mr-2"></i>
-              <span class="nav-section-title">Hooks</span>
+              <span class="nav-section-title" data-i18n="nav.hooks">Hooks</span>
             </div>
             <ul class="space-y-0.5">
               <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="hook-manager" data-tooltip="Hook Management">
                 <i data-lucide="cable" class="nav-icon"></i>
-                <span class="nav-text flex-1">Manage</span>
+                <span class="nav-text flex-1" data-i18n="nav.manage">Manage</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeHooks">0</span>
               </li>
             </ul>
@@ -410,7 +415,7 @@
         <div class="p-3 border-t border-border">
           <button class="flex items-center justify-center gap-2 w-full px-3 py-2 border border-border rounded text-sm text-muted-foreground hover:bg-hover transition-colors" id="sidebarToggle">
             <i data-lucide="panel-left-close" class="toggle-icon w-4 h-4 transition-transform duration-300"></i>
-            <span class="toggle-text">Collapse</span>
+            <span class="toggle-text" data-i18n="nav.collapse">Collapse</span>
           </button>
         </div>
       </aside>
@@ -424,22 +429,22 @@
             <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
               <div class="flex justify-center mb-1 text-primary"><i data-lucide="layers" class="w-5 h-5"></i></div>
               <div class="text-2xl font-bold text-foreground" id="statTotalSessions">0</div>
-              <div class="text-xs text-muted-foreground mt-1">Total Sessions</div>
+              <div class="text-xs text-muted-foreground mt-1" data-i18n="stats.totalSessions">Total Sessions</div>
             </div>
             <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
               <div class="flex justify-center mb-1 text-success"><i data-lucide="activity" class="w-5 h-5"></i></div>
               <div class="text-2xl font-bold text-foreground" id="statActiveSessions">0</div>
-              <div class="text-xs text-muted-foreground mt-1">Active Sessions</div>
+              <div class="text-xs text-muted-foreground mt-1" data-i18n="stats.activeSessions">Active Sessions</div>
             </div>
             <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
               <div class="flex justify-center mb-1 text-primary"><i data-lucide="clipboard-list" class="w-5 h-5"></i></div>
               <div class="text-2xl font-bold text-foreground" id="statTotalTasks">0</div>
-              <div class="text-xs text-muted-foreground mt-1">Total Tasks</div>
+              <div class="text-xs text-muted-foreground mt-1" data-i18n="stats.totalTasks">Total Tasks</div>
             </div>
             <div class="bg-card border border-border rounded-lg p-4 text-center hover:shadow-md transition-all duration-200 min-w-[140px]">
               <div class="flex justify-center mb-1 text-success"><i data-lucide="check-circle-2" class="w-5 h-5"></i></div>
               <div class="text-2xl font-bold text-foreground" id="statCompletedTasks">0</div>
-              <div class="text-xs text-muted-foreground mt-1">Completed Tasks</div>
+              <div class="text-xs text-muted-foreground mt-1" data-i18n="stats.completedTasks">Completed Tasks</div>
             </div>
           </div>
 
@@ -451,7 +456,7 @@
               <div class="carousel-empty flex items-center justify-center h-full text-muted-foreground">
                 <div class="text-center">
                   <div class="flex justify-center mb-2"><i data-lucide="target" class="w-8 h-8"></i></div>
-                  <p class="text-sm">No active sessions</p>
+                  <p class="text-sm" data-i18n="carousel.noActiveSessions">No active sessions</p>
                 </div>
               </div>
             </div>
@@ -459,7 +464,7 @@
             <!-- Bottom: Dots Indicator & Controls -->
             <div class="carousel-footer flex items-center justify-center gap-3 py-2 border-t border-border bg-muted/20">
               <!-- Previous Button -->
-              <button class="carousel-btn p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground" id="carouselPrev" title="Previous">
+              <button class="carousel-btn p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground" id="carouselPrev" data-i18n-title="carousel.previous" title="Previous">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
 
@@ -469,12 +474,12 @@
               </div>
 
               <!-- Next Button -->
-              <button class="carousel-btn p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground" id="carouselNext" title="Next">
+              <button class="carousel-btn p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground" id="carouselNext" data-i18n-title="carousel.next" title="Next">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
               </button>
 
               <!-- Pause Button -->
-              <button class="carousel-btn p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground ml-1" id="carouselPause" title="Pause auto-play">
+              <button class="carousel-btn p-1 rounded hover:bg-hover text-muted-foreground hover:text-foreground ml-1" id="carouselPause" data-i18n-title="carousel.pause" title="Pause auto-play">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="carouselPauseIcon"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
               </button>
             </div>
@@ -483,10 +488,10 @@
 
         <!-- Content Header -->
         <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
-          <h2 class="text-xl font-semibold text-foreground" id="contentTitle">All Sessions</h2>
+          <h2 class="text-xl font-semibold text-foreground" id="contentTitle" data-i18n="title.allSessions">All Sessions</h2>
           <div class="relative">
             <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"></i>
-            <input type="text" placeholder="Search..." id="searchInput"
+            <input type="text" data-i18n-placeholder="search.placeholder" placeholder="Search..." id="searchInput"
               class="pl-9 pr-4 py-2 w-60 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
           </div>
         </div>
@@ -500,14 +505,14 @@
 
     <!-- Footer -->
     <footer class="flex items-center justify-between px-5 h-10 bg-card border-t border-border text-xs text-muted-foreground">
-      <div>Generated: <span id="generatedAt">-</span></div>
-      <div>CCW Dashboard v1.0</div>
+      <div><span data-i18n="footer.generated">Generated:</span> <span id="generatedAt">-</span></div>
+      <div data-i18n="footer.version">CCW Dashboard v1.0</div>
     </footer>
 
     <!-- Task Detail Drawer -->
     <div class="task-detail-drawer fixed top-0 right-0 w-1/2 max-w-full h-full bg-card border-l border-border shadow-lg z-50 flex flex-col" id="taskDetailDrawer">
       <div class="flex items-center justify-between px-5 py-4 border-b border-border">
-        <h3 class="text-lg font-semibold text-foreground" id="drawerTaskTitle">Task Details</h3>
+        <h3 class="text-lg font-semibold text-foreground" id="drawerTaskTitle" data-i18n="tab.tasks">Task Details</h3>
         <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeTaskDrawer()">&times;</button>
       </div>
       <div class="flex-1 overflow-y-auto p-5" id="drawerContent">
@@ -522,11 +527,11 @@
     <div class="markdown-modal-backdrop absolute inset-0 bg-black/60" onclick="closeMarkdownModal()"></div>
     <div class="markdown-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-4xl h-[85vh] flex flex-col">
       <div class="markdown-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
-        <h3 class="text-lg font-semibold text-foreground" id="markdownModalTitle">Content Preview</h3>
+        <h3 class="text-lg font-semibold text-foreground" id="markdownModalTitle" data-i18n="modal.contentPreview">Content Preview</h3>
         <div class="flex items-center gap-2">
           <div class="flex bg-muted rounded-lg p-0.5">
-            <button id="mdTabRaw" class="md-tab-btn px-3 py-1 text-sm rounded-md transition-colors" onclick="switchMarkdownTab('raw')">Raw</button>
-            <button id="mdTabPreview" class="md-tab-btn px-3 py-1 text-sm rounded-md transition-colors active" onclick="switchMarkdownTab('preview')">Preview</button>
+            <button id="mdTabRaw" class="md-tab-btn px-3 py-1 text-sm rounded-md transition-colors" onclick="switchMarkdownTab('raw')" data-i18n="modal.raw">Raw</button>
+            <button id="mdTabPreview" class="md-tab-btn px-3 py-1 text-sm rounded-md transition-colors active" onclick="switchMarkdownTab('preview')" data-i18n="modal.preview">Preview</button>
           </div>
           <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeMarkdownModal()">&times;</button>
         </div>
@@ -544,10 +549,10 @@
     <div class="mcp-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-lg flex flex-col">
       <div class="mcp-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
         <div class="flex items-center gap-3">
-          <h3 class="text-lg font-semibold text-foreground">Create MCP Server</h3>
+          <h3 class="text-lg font-semibold text-foreground" data-i18n="mcp.createTitle">Create MCP Server</h3>
           <div class="flex bg-muted rounded-lg p-0.5">
-            <button id="mcpTabForm" class="mcp-tab-btn px-3 py-1 text-sm rounded-md transition-colors active" onclick="switchMcpCreateTab('form')">Form</button>
-            <button id="mcpTabJson" class="mcp-tab-btn px-3 py-1 text-sm rounded-md transition-colors" onclick="switchMcpCreateTab('json')">JSON</button>
+            <button id="mcpTabForm" class="mcp-tab-btn px-3 py-1 text-sm rounded-md transition-colors active" onclick="switchMcpCreateTab('form')" data-i18n="mcp.form">Form</button>
+            <button id="mcpTabJson" class="mcp-tab-btn px-3 py-1 text-sm rounded-md transition-colors" onclick="switchMcpCreateTab('json')" data-i18n="mcp.json">JSON</button>
           </div>
         </div>
         <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeMcpCreateModal()">&times;</button>
@@ -555,13 +560,13 @@
       <!-- Form Mode -->
       <div id="mcpFormMode" class="mcp-modal-body p-4 space-y-4">
         <div class="form-group">
-          <label class="block text-sm font-medium text-foreground mb-1">Server Name <span class="text-destructive">*</span></label>
-          <input type="text" id="mcpServerName" placeholder="e.g., my-mcp-server"
+          <label class="block text-sm font-medium text-foreground mb-1"><span data-i18n="mcp.serverName">Server Name</span> <span class="text-destructive">*</span></label>
+          <input type="text" id="mcpServerName" data-i18n-placeholder="mcp.serverNamePlaceholder" placeholder="e.g., my-mcp-server"
             class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
         </div>
         <div class="form-group">
-          <label class="block text-sm font-medium text-foreground mb-1">Command <span class="text-destructive">*</span></label>
-          <input type="text" id="mcpServerCommand" placeholder="e.g., npx, uvx, node, python"
+          <label class="block text-sm font-medium text-foreground mb-1"><span data-i18n="mcp.command">Command</span> <span class="text-destructive">*</span></label>
+          <input type="text" id="mcpServerCommand" data-i18n-placeholder="mcp.commandPlaceholder" placeholder="e.g., npx, uvx, node, python"
             class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
         </div>
         <div class="form-group">
@@ -570,7 +575,7 @@
             class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"></textarea>
         </div>
         <div class="form-group">
-          <label class="block text-sm font-medium text-foreground mb-1">Environment Variables (KEY=VALUE per line)</label>
+          <label class="block text-sm font-medium text-foreground mb-1" data-i18n="mcp.envVars">Environment Variables (KEY=VALUE per line)</label>
           <textarea id="mcpServerEnv" placeholder="e.g.,&#10;API_KEY=your-api-key&#10;DEBUG=true" rows="3"
             class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"></textarea>
         </div>
@@ -578,7 +583,7 @@
       <!-- JSON Mode -->
       <div id="mcpJsonMode" class="mcp-modal-body p-4 space-y-4 hidden">
         <div class="form-group">
-          <label class="block text-sm font-medium text-foreground mb-1">Paste MCP Server JSON Configuration</label>
+          <label class="block text-sm font-medium text-foreground mb-1" data-i18n="mcp.pasteJson">Paste MCP Server JSON Configuration</label>
           <textarea id="mcpServerJson" placeholder='{
   "servers": {
     "my-server": {
@@ -599,8 +604,8 @@
         </div>
       </div>
       <div class="mcp-modal-footer flex justify-end gap-2 px-4 py-3 border-t border-border">
-        <button class="px-4 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-hover transition-colors" onclick="closeMcpCreateModal()">Cancel</button>
-        <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity" onclick="submitMcpCreate()">Create</button>
+        <button class="px-4 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-hover transition-colors" onclick="closeMcpCreateModal()" data-i18n="common.cancel">Cancel</button>
+        <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity" onclick="submitMcpCreate()" data-i18n="common.create">Create</button>
       </div>
     </div>
   </div>
@@ -610,18 +615,18 @@
     <div class="hook-modal-backdrop absolute inset-0 bg-black/60" onclick="closeHookCreateModal()"></div>
     <div class="hook-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-lg flex flex-col max-h-[90vh]">
       <div class="hook-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
-        <h3 class="text-lg font-semibold text-foreground" id="hookModalTitle">Create Hook</h3>
+        <h3 class="text-lg font-semibold text-foreground" id="hookModalTitle" data-i18n="hook.createTitle">Create Hook</h3>
         <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeHookCreateModal()">&times;</button>
       </div>
       <div class="hook-modal-body p-4 space-y-4 overflow-y-auto">
         <div class="form-group">
-          <label class="block text-sm font-medium text-foreground mb-1">Hook Event <span class="text-destructive">*</span></label>
+          <label class="block text-sm font-medium text-foreground mb-1"><span data-i18n="hook.event">Hook Event</span> <span class="text-destructive">*</span></label>
           <select id="hookEvent" class="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-            <option value="">Select an event...</option>
-            <option value="PreToolUse">PreToolUse - Before a tool is executed</option>
-            <option value="PostToolUse">PostToolUse - After a tool completes</option>
-            <option value="Notification">Notification - On notifications</option>
-            <option value="Stop">Stop - When agent stops</option>
+            <option value="" data-i18n="hook.selectEvent">Select an event...</option>
+            <option value="PreToolUse" data-i18n="hook.preToolUse">PreToolUse - Before a tool is executed</option>
+            <option value="PostToolUse" data-i18n="hook.postToolUse">PostToolUse - After a tool completes</option>
+            <option value="Notification" data-i18n="hook.notification">Notification - On notifications</option>
+            <option value="Stop" data-i18n="hook.stop">Stop - When agent stops</option>
           </select>
         </div>
         <div class="form-group">

@@ -60,33 +60,33 @@ async function renderExplorer() {
         <div class="explorer-tree-header">
           <div class="explorer-tree-title">
             <i data-lucide="folder-tree" class="explorer-icon"></i>
-            <span class="explorer-title-text">Explorer</span>
+            <span class="explorer-title-text">${t('explorer.title')}</span>
           </div>
-          <button class="explorer-refresh-btn" onclick="refreshExplorerTree()" title="Refresh">
+          <button class="explorer-refresh-btn" onclick="refreshExplorerTree()" title="${t('explorer.refresh')}">
             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
           </button>
         </div>
         <div class="explorer-tree-content" id="explorerTreeContent">
-          <div class="explorer-loading">Loading file tree...</div>
+          <div class="explorer-loading">${t('explorer.loading')}</div>
         </div>
       </div>
 
       <!-- Right Panel: Preview -->
       <div class="explorer-preview-panel">
         <div class="explorer-preview-header" id="explorerPreviewHeader">
-          <span class="preview-filename">Select a file to preview</span>
+          <span class="preview-filename">${t('explorer.selectFile')}</span>
         </div>
         <div class="explorer-preview-content" id="explorerPreviewContent">
           <div class="explorer-preview-empty">
             <div class="preview-empty-icon"><i data-lucide="file-text" class="w-12 h-12"></i></div>
-            <div class="preview-empty-text">Select a file from the tree to preview its contents</div>
+            <div class="preview-empty-text">${t('explorer.selectFileHint')}</div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Floating Action Button -->
-    <div class="explorer-fab" onclick="toggleTaskQueue()" title="Task Queue">
+    <div class="explorer-fab" onclick="toggleTaskQueue()" title="${t('taskQueue.title')}">
       <span class="fab-icon"><i data-lucide="list-todo" class="w-5 h-5"></i></span>
       <span class="fab-badge" id="fabBadge">0</span>
     </div>
@@ -94,12 +94,12 @@ async function renderExplorer() {
     <!-- Task Queue Panel -->
     <div class="task-queue-panel" id="taskQueuePanel">
       <div class="task-queue-header">
-        <span class="task-queue-title"><i data-lucide="clipboard-list" class="w-4 h-4 inline-block mr-1"></i> Update Tasks</span>
+        <span class="task-queue-title"><i data-lucide="clipboard-list" class="w-4 h-4 inline-block mr-1"></i> ${t('taskQueue.title')}</span>
         <button class="task-queue-close" onclick="toggleTaskQueue()">×</button>
       </div>
       <div class="task-queue-toolbar">
         <div class="queue-cli-selector">
-          <label>CLI:</label>
+          <label>${t('taskQueue.cli')}</label>
           <select id="queueCliTool" onchange="updateDefaultCliTool(this.value)">
             <option value="gemini">Gemini</option>
             <option value="qwen">Qwen</option>
@@ -107,21 +107,21 @@ async function renderExplorer() {
           </select>
         </div>
         <div class="task-queue-actions">
-          <button class="queue-action-btn" onclick="openAddTaskModal()" title="Add update task">
+          <button class="queue-action-btn" onclick="openAddTaskModal()" title="${t('taskQueue.addTask')}">
             <i data-lucide="plus" class="w-4 h-4"></i>
           </button>
-          <button class="queue-action-btn queue-start-btn" onclick="startTaskQueue()" id="startQueueBtn" disabled title="Start all tasks">
+          <button class="queue-action-btn queue-start-btn" onclick="startTaskQueue()" id="startQueueBtn" disabled title="${t('taskQueue.startAll')}">
             <i data-lucide="play" class="w-4 h-4"></i>
           </button>
-          <button class="queue-action-btn queue-clear-btn" onclick="clearCompletedTasks()" title="Clear completed">
+          <button class="queue-action-btn queue-clear-btn" onclick="clearCompletedTasks()" title="${t('taskQueue.clearCompleted')}">
             <i data-lucide="trash-2" class="w-4 h-4"></i>
           </button>
         </div>
       </div>
       <div class="task-queue-list" id="taskQueueList">
         <div class="task-queue-empty">
-          <span>No tasks in queue</span>
-          <p>Hover folder and click <i data-lucide="file" class="w-3 h-3 inline"></i> or <i data-lucide="folder" class="w-3 h-3 inline"></i> to add tasks</p>
+          <span>${t('taskQueue.noTasks')}</span>
+          <p>${t('taskQueue.noTasksHint')}</p>
         </div>
       </div>
     </div>
@@ -167,7 +167,7 @@ async function loadExplorerTree(dirPath) {
  */
 function renderTreeLevel(files, parentPath, depth) {
   if (!files || files.length === 0) {
-    return `<div class="tree-empty" style="padding-left: ${depth * 16 + 8}px">Empty directory</div>`;
+    return `<div class="tree-empty" style="padding-left: ${depth * 16 + 8}px">${t('explorer.emptyDir')}</div>`;
   }
 
   return files.map(file => {
@@ -190,10 +190,10 @@ function renderTreeLevel(files, parentPath, depth) {
               </span>
             ` : ''}
             <div class="tree-folder-actions">
-              <button class="tree-update-btn" onclick="event.stopPropagation(); addFolderToQueue('${escapeHtml(file.path)}', 'single-layer')" title="Update CLAUDE.md (current folder only)">
+              <button class="tree-update-btn" onclick="event.stopPropagation(); addFolderToQueue('${escapeHtml(file.path)}', 'single-layer')" title="${t('explorer.currentFolderOnly')}">
                 <span class="update-icon"><i data-lucide="file" class="w-3.5 h-3.5"></i></span>
               </button>
-              <button class="tree-update-btn tree-update-multi" onclick="event.stopPropagation(); addFolderToQueue('${escapeHtml(file.path)}', 'multi-layer')" title="Update CLAUDE.md (with subdirectories)">
+              <button class="tree-update-btn tree-update-multi" onclick="event.stopPropagation(); addFolderToQueue('${escapeHtml(file.path)}', 'multi-layer')" title="${t('explorer.withSubdirs')}">
                 <span class="update-icon"><i data-lucide="folder-tree" class="w-3.5 h-3.5"></i></span>
               </button>
             </div>
@@ -425,8 +425,8 @@ async function previewFile(filePath) {
     </div>
     ${isMarkdown ? `
       <div class="preview-header-tabs" id="previewHeaderTabs">
-        <button class="preview-tab active" data-tab="rendered" onclick="switchPreviewTab(this, 'rendered')">Preview</button>
-        <button class="preview-tab" data-tab="source" onclick="switchPreviewTab(this, 'source')">Source</button>
+        <button class="preview-tab active" data-tab="rendered" onclick="switchPreviewTab(this, 'rendered')">${t('explorer.preview')}</button>
+        <button class="preview-tab" data-tab="source" onclick="switchPreviewTab(this, 'source')">${t('explorer.source')}</button>
       </div>
     ` : ''}
   `;
@@ -458,7 +458,7 @@ async function previewFile(filePath) {
       previewContent.innerHTML = `
         <div class="preview-info">
           <span class="preview-lang">${data.language}</span>
-          <span class="preview-lines">${data.lines} lines</span>
+          <span class="preview-lines">${data.lines} ${t('explorer.lines')}</span>
           <span class="preview-size">${formatFileSize(data.size)}</span>
         </div>
         <pre class="preview-code"><code class="language-${data.language}">${escapeHtml(data.content)}</code></pre>
@@ -725,8 +725,8 @@ function renderTaskQueue() {
   if (updateTaskQueue.length === 0) {
     listEl.innerHTML = `
       <div class="task-queue-empty">
-        <span>No tasks in queue</span>
-        <p>Right-click a folder or click "Add Task" to queue CLAUDE.md updates</p>
+        <span>${t('taskQueue.noTasks')}</span>
+        <p>${t('taskQueue.noTasksHint')}</p>
       </div>
     `;
     return;
@@ -735,8 +735,8 @@ function renderTaskQueue() {
   listEl.innerHTML = updateTaskQueue.map(task => {
     const folderName = task.path.split('/').pop() || task.path;
     const strategyLabel = task.strategy === 'multi-layer' 
-      ? '<i data-lucide="folder-tree" class="w-3 h-3 inline"></i> With subdirs' 
-      : '<i data-lucide="file" class="w-3 h-3 inline"></i> Current only';
+      ? '<i data-lucide="folder-tree" class="w-3 h-3 inline"></i> ' + t('taskQueue.withSubdirs')
+      : '<i data-lucide="file" class="w-3 h-3 inline"></i> ' + t('taskQueue.currentOnly');
     const statusIcon = {
       'pending': '<i data-lucide="clock" class="w-4 h-4"></i>',
       'running': '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>',
@@ -796,7 +796,7 @@ async function executeTask(task) {
   
   // Update status to running
   task.status = 'running';
-  task.message = 'Processing...';
+  task.message = t('taskQueue.processing');
   renderTaskQueue();
   
   addGlobalNotification('info', `Processing: ${folderName}`, `Strategy: ${task.strategy}, Tool: ${task.tool}`, 'Explorer');
@@ -816,12 +816,12 @@ async function executeTask(task) {
 
     if (result.success) {
       task.status = 'completed';
-      task.message = 'Updated successfully';
+      task.message = t('taskQueue.updated');
       addGlobalNotification('success', `Completed: ${folderName}`, result.message, 'Explorer');
       return { success: true };
     } else {
       task.status = 'failed';
-      task.message = result.error || 'Update failed';
+      task.message = result.error || t('taskQueue.failed');
       addGlobalNotification('error', `Failed: ${folderName}`, result.error || 'Unknown error', 'Explorer');
       return { success: false };
     }
@@ -848,7 +848,7 @@ async function startTaskQueue() {
   isTaskRunning = true;
   document.getElementById('startQueueBtn').disabled = true;
   
-  addGlobalNotification('info', `Starting ${pendingTasks.length} task(s) in parallel...`, null, 'Explorer');
+  addGlobalNotification('info', t('taskQueue.startingTasks', { count: pendingTasks.length }), null, 'Explorer');
   
   // Execute all tasks in parallel
   const results = await Promise.all(pendingTasks.map(task => executeTask(task)));
@@ -861,7 +861,7 @@ async function startTaskQueue() {
   // Summary notification
   addGlobalNotification(
     failCount === 0 ? 'success' : 'warning',
-    `Queue completed: ${successCount} succeeded, ${failCount} failed`,
+    t('taskQueue.queueCompleted', { success: successCount, failed: failCount }),
     null,
     'Explorer'
   );

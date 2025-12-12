@@ -74,8 +74,8 @@ function renderSessions() {
     container.innerHTML = `
       <div class="empty-state" style="grid-column: 1/-1;">
         <div class="empty-icon"><i data-lucide="inbox" class="w-12 h-12"></i></div>
-        <div class="empty-title">No Sessions Found</div>
-        <div class="empty-text">No workflow sessions match your current filter.</div>
+        <div class="empty-title">${t('empty.noSessions')}</div>
+        <div class="empty-text">${t('empty.noSessionsText')}</div>
       </div>
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -111,13 +111,13 @@ function renderSessionCard(session) {
   if (!isActive) {
     // Archived sessions always show as ARCHIVED regardless of status field
     statusClass = 'archived';
-    statusText = 'ARCHIVED';
+    statusText = t('session.status.archived');
   } else if (isPlanning) {
     statusClass = 'planning';
-    statusText = 'PLANNING';
+    statusText = t('session.status.planning');
   } else {
     statusClass = 'active';
-    statusText = 'ACTIVE';
+    statusText = t('session.status.active');
   }
 
   // Store session data for modal
@@ -146,11 +146,11 @@ function renderSessionCard(session) {
       <div class="session-body">
         <div class="session-meta">
           <span class="session-meta-item"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>${formatDate(date)}</span>
-          <span class="session-meta-item"><i data-lucide="list-checks" class="w-3.5 h-3.5 inline mr-1"></i>${taskCount} tasks</span>
+          <span class="session-meta-item"><i data-lucide="list-checks" class="w-3.5 h-3.5 inline mr-1"></i>${taskCount} ${t('session.tasks')}</span>
         </div>
         ${taskCount > 0 && !isPlanning ? `
           <div class="progress-container">
-            <span class="progress-label">Progress</span>
+            <span class="progress-label">${t('session.progress')}</span>
             <div class="progress-bar-wrapper">
               <div class="progress-bar">
                 <div class="progress-fill" style="width: ${progress}%"></div>
@@ -188,13 +188,13 @@ function renderReviewSessionCard(session, sessionKey, typeBadge, isActive, isPla
   let statusClass, statusText;
   if (!isActive) {
     statusClass = 'archived';
-    statusText = 'ARCHIVED';
+    statusText = t('session.status.archived');
   } else if (isPlanning) {
     statusClass = 'planning';
-    statusText = 'PLANNING';
+    statusText = t('session.status.planning');
   } else {
     statusClass = 'active';
-    statusText = 'ACTIVE';
+    statusText = t('session.status.active');
   }
 
   // Card class includes planning modifier for special styling (only for active sessions)
@@ -214,7 +214,7 @@ function renderReviewSessionCard(session, sessionKey, typeBadge, isActive, isPla
       <div class="session-body">
         <div class="session-meta">
           <span class="session-meta-item"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1"></i>${formatDate(date)}</span>
-          <span class="session-meta-item"><i data-lucide="search" class="w-3.5 h-3.5 inline mr-1"></i>${totalFindings} findings</span>
+          <span class="session-meta-item"><i data-lucide="search" class="w-3.5 h-3.5 inline mr-1"></i>${totalFindings} ${t('session.findings')}</span>
         </div>
         ${totalFindings > 0 ? `
           <div class="review-findings-summary">
@@ -225,7 +225,7 @@ function renderReviewSessionCard(session, sessionKey, typeBadge, isActive, isPla
               ${lowCount > 0 ? `<span class="finding-count low"><i data-lucide="check-circle" class="w-3 h-3 inline"></i> ${lowCount}</span>` : ''}
             </div>
             <div class="dimensions-info">
-              ${dimensions.length} dimensions
+              ${dimensions.length} ${t('session.dimensions')}
             </div>
           </div>
         ` : ''}

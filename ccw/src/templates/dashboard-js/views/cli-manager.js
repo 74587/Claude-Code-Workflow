@@ -79,9 +79,9 @@ function renderToolsSection() {
   if (!container) return;
 
   var toolDescriptions = {
-    gemini: 'Google AI for code analysis',
-    qwen: 'Alibaba AI assistant',
-    codex: 'OpenAI code generation'
+    gemini: t('cli.geminiDesc'),
+    qwen: t('cli.qwenDesc'),
+    codex: t('cli.codexDesc')
   };
 
   var tools = ['gemini', 'qwen', 'codex'];
@@ -97,17 +97,17 @@ function renderToolsSection() {
         '<span class="tool-status-dot ' + (isAvailable ? 'status-available' : 'status-unavailable') + '"></span>' +
         '<div class="tool-item-info">' +
           '<div class="tool-item-name">' + tool.charAt(0).toUpperCase() + tool.slice(1) +
-            (isDefault ? '<span class="tool-default-badge">Default</span>' : '') +
+            (isDefault ? '<span class="tool-default-badge">' + t('cli.default') + '</span>' : '') +
           '</div>' +
           '<div class="tool-item-desc">' + toolDescriptions[tool] + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="tool-item-right">' +
         (isAvailable
-          ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Ready</span>'
-          : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> Not Installed</span>') +
+          ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> ' + t('cli.ready') + '</span>'
+          : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> ' + t('cli.notInstalled') + '</span>') +
         (isAvailable && !isDefault
-          ? '<button class="btn-sm btn-outline" onclick="setDefaultCliTool(\'' + tool + '\')"><i data-lucide="star" class="w-3 h-3"></i> Set Default</button>'
+          ? '<button class="btn-sm btn-outline" onclick="setDefaultCliTool(\'' + tool + '\')"><i data-lucide="star" class="w-3 h-3"></i> ' + t('cli.setDefault') + '</button>'
           : '') +
       '</div>' +
     '</div>';
@@ -119,15 +119,15 @@ function renderToolsSection() {
       '<span class="tool-status-dot ' + (codexLensStatus.ready ? 'status-available' : 'status-unavailable') + '"></span>' +
       '<div class="tool-item-info">' +
         '<div class="tool-item-name">CodexLens <span class="tool-type-badge">Index</span></div>' +
-        '<div class="tool-item-desc">' + (codexLensStatus.ready ? 'Code indexing & FTS search' : 'Full-text code search engine') + '</div>' +
+        '<div class="tool-item-desc">' + (codexLensStatus.ready ? t('cli.codexLensDesc') : t('cli.codexLensDescFull')) + '</div>' +
       '</div>' +
     '</div>' +
     '<div class="tool-item-right">' +
       (codexLensStatus.ready
         ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> v' + (codexLensStatus.version || 'installed') + '</span>' +
-          '<button class="btn-sm btn-outline" onclick="initCodexLensIndex()"><i data-lucide="database" class="w-3 h-3"></i> Init Index</button>'
-        : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> Not Installed</span>' +
-          '<button class="btn-sm btn-primary" onclick="installCodexLens()"><i data-lucide="download" class="w-3 h-3"></i> Install</button>') +
+          '<button class="btn-sm btn-outline" onclick="initCodexLensIndex()"><i data-lucide="database" class="w-3 h-3"></i> ' + t('cli.initIndex') + '</button>'
+        : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> ' + t('cli.notInstalled') + '</span>' +
+          '<button class="btn-sm btn-primary" onclick="installCodexLens()"><i data-lucide="download" class="w-3 h-3"></i> ' + t('cli.install') + '</button>') +
     '</div>' +
   '</div>';
 
@@ -153,10 +153,10 @@ function renderToolsSection() {
 
   container.innerHTML = '<div class="section-header">' +
       '<div class="section-header-left">' +
-        '<h3><i data-lucide="terminal" class="w-4 h-4"></i> CLI Tools</h3>' +
-        '<span class="section-count">' + available + '/' + tools.length + ' available</span>' +
+        '<h3><i data-lucide="terminal" class="w-4 h-4"></i> ' + t('cli.tools') + '</h3>' +
+        '<span class="section-count">' + available + '/' + tools.length + ' ' + t('cli.available') + '</span>' +
       '</div>' +
-      '<button class="btn-icon" onclick="refreshAllCliStatus()" title="Refresh Status">' +
+      '<button class="btn-icon" onclick="refreshAllCliStatus()" title="' + t('cli.refreshStatus') + '">' +
         '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
       '</button>' +
     '</div>' +
@@ -179,9 +179,9 @@ function renderCcwSection() {
   if (ccwInstallations.length === 0) {
     installationsHtml = '<div class="ccw-empty-state">' +
       '<i data-lucide="package-x" class="w-8 h-8"></i>' +
-      '<p>No installations found</p>' +
+      '<p>' + t('ccw.noInstallations') + '</p>' +
       '<button class="btn btn-sm btn-primary" onclick="showCcwInstallModal()">' +
-      '<i data-lucide="download" class="w-3 h-3"></i> Install CCW</button>' +
+      '<i data-lucide="download" class="w-3 h-3"></i> ' + t('ccw.installCcw') + '</button>' +
     '</div>';
   } else {
     installationsHtml = '<div class="ccw-list">';
@@ -224,8 +224,8 @@ function renderCcwSection() {
 
   container.innerHTML = '<div class="section-header">' +
       '<div class="section-header-left">' +
-        '<h3><i data-lucide="package" class="w-4 h-4"></i> CCW Install</h3>' +
-        '<span class="section-count">' + ccwInstallations.length + ' installation' + (ccwInstallations.length !== 1 ? 's' : '') + '</span>' +
+        '<h3><i data-lucide="package" class="w-4 h-4"></i> ' + t('ccw.install') + '</h3>' +
+        '<span class="section-count">' + ccwInstallations.length + ' ' + (ccwInstallations.length !== 1 ? t('ccw.installationsPlural') : t('ccw.installations')) + '</span>' +
       '</div>' +
       '<div class="section-header-actions">' +
         '<button class="btn-icon" onclick="showCcwInstallModal()" title="Add Installation">' +
@@ -252,9 +252,9 @@ function renderCcwEndpointToolsSection() {
   if (!ccwEndpointTools || ccwEndpointTools.length === 0) {
     toolsHtml = '<div class="ccw-empty-state">' +
       '<i data-lucide="wrench" class="w-8 h-8"></i>' +
-      '<p>No endpoint tools found</p>' +
+      '<p>' + t('ccw.noEndpointTools') + '</p>' +
       '<button class="btn btn-sm btn-primary" onclick="loadCcwEndpointTools().then(function() { renderCcwEndpointToolsSection(); if (window.lucide) lucide.createIcons(); })">' +
-      '<i data-lucide="refresh-cw" class="w-3 h-3"></i> Refresh</button>' +
+      '<i data-lucide="refresh-cw" class="w-3 h-3"></i> ' + t('common.refresh') + '</button>' +
       '</div>';
   } else {
     toolsHtml = '<div class="endpoint-tools-grid">' +
@@ -284,8 +284,8 @@ function renderCcwEndpointToolsSection() {
 
   container.innerHTML = '<div class="section-header">' +
       '<div class="section-header-left">' +
-        '<h3><i data-lucide="server" class="w-4 h-4"></i> CCW Endpoint Tools</h3>' +
-        '<span class="section-count">' + count + ' tool' + (count !== 1 ? 's' : '') + '</span>' +
+        '<h3><i data-lucide="server" class="w-4 h-4"></i> ' + t('ccw.endpointTools') + '</h3>' +
+        '<span class="section-count">' + count + ' ' + (count !== 1 ? t('ccw.tools') : t('ccw.tool')) + '</span>' +
       '</div>' +
       '<button class="btn-icon" onclick="loadCcwEndpointTools().then(function() { renderCcwEndpointToolsSection(); if (window.lucide) lucide.createIcons(); })" title="Refresh">' +
         '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
@@ -664,7 +664,7 @@ function runCcwInstall(mode, customPath) {
 }
 
 async function runCcwUpgrade() {
-  showRefreshToast('Starting upgrade...', 'info');
+    showRefreshToast(t('ccw.upgradeStarting'), 'info');
 
   try {
     var response = await fetch('/api/ccw/upgrade', {
@@ -676,7 +676,7 @@ async function runCcwUpgrade() {
     var result = await response.json();
 
     if (result.success) {
-      showRefreshToast('Upgrade completed! Refreshing...', 'success');
+      showRefreshToast(t('ccw.upgradeCompleted'), 'success');
       // Reload installations after upgrade
       setTimeout(function() {
         loadCcwInstallations().then(function() {
@@ -684,15 +684,15 @@ async function runCcwUpgrade() {
         });
       }, 1000);
     } else {
-      showRefreshToast('Upgrade failed: ' + (result.error || 'Unknown error'), 'error');
+      showRefreshToast(t('ccw.upgradeFailed', { error: result.error || 'Unknown error' }), 'error');
     }
   } catch (err) {
-    showRefreshToast('Upgrade error: ' + err.message, 'error');
+    showRefreshToast(t('ccw.upgradeFailed', { error: err.message }), 'error');
   }
 }
 
 function confirmCcwUninstall(installPath) {
-  if (confirm('Uninstall CCW from this location?\n' + (installPath || 'Current installation'))) {
+  if (confirm(t('ccw.uninstallConfirm') + '\n' + (installPath || 'Current installation'))) {
     var command = installPath
       ? 'ccw uninstall --path "' + installPath + '"'
       : 'ccw uninstall';
@@ -720,7 +720,7 @@ async function executeCliFromDashboard() {
   var prompt = promptEl ? promptEl.value.trim() : '';
 
   if (!prompt) {
-    showRefreshToast('Please enter a prompt', 'error');
+    showRefreshToast(t('toast.enterPrompt'), 'error');
     return;
   }
 
@@ -756,11 +756,11 @@ async function executeCliFromDashboard() {
 
     await loadCliHistory();
     renderCliHistory();
-    showRefreshToast(result.success ? 'Completed' : (result.error || 'Failed'), result.success ? 'success' : 'error');
+    showRefreshToast(result.success ? t('toast.completed') : (result.error || t('toast.failed')), result.success ? 'success' : 'error');
   } catch (error) {
     if (statusIndicator) statusIndicator.className = 'status-indicator error';
     if (statusText) statusText.textContent = 'Error: ' + error.message;
-    showRefreshToast('Error: ' + error.message, 'error');
+    showRefreshToast(t('toast.error', { error: error.message }), 'error');
   }
 
   currentCliExecution = null;

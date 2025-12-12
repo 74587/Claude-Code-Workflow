@@ -117,25 +117,27 @@ function setActiveNavItem(item) {
 function updateContentTitle() {
   const titleEl = document.getElementById('contentTitle');
   if (currentView === 'project-overview') {
-    titleEl.textContent = 'Project Overview';
+    titleEl.textContent = t('title.projectOverview');
   } else if (currentView === 'mcp-manager') {
-    titleEl.textContent = 'MCP Server Management';
+    titleEl.textContent = t('title.mcpManagement');
   } else if (currentView === 'explorer') {
-    titleEl.textContent = 'File Explorer';
+    titleEl.textContent = t('title.fileExplorer');
   } else if (currentView === 'cli-manager') {
-    titleEl.textContent = 'CLI Tools & CCW';
+    titleEl.textContent = t('title.cliTools');
   } else if (currentView === 'cli-history') {
-    titleEl.textContent = 'CLI Execution History';
+    titleEl.textContent = t('title.cliHistory');
+  } else if (currentView === 'hook-manager') {
+    titleEl.textContent = t('title.hookManager');
   } else if (currentView === 'liteTasks') {
-    const names = { 'lite-plan': 'Lite Plan Sessions', 'lite-fix': 'Lite Fix Sessions' };
-    titleEl.textContent = names[currentLiteType] || 'Lite Tasks';
+    const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions') };
+    titleEl.textContent = names[currentLiteType] || t('title.liteTasks');
   } else if (currentView === 'sessionDetail') {
-    titleEl.textContent = 'Session Detail';
+    titleEl.textContent = t('title.sessionDetail');
   } else if (currentView === 'liteTaskDetail') {
-    titleEl.textContent = 'Lite Task Detail';
+    titleEl.textContent = t('title.liteTaskDetail');
   } else {
-    const names = { 'all': 'All Sessions', 'active': 'Active Sessions', 'archived': 'Archived Sessions' };
-    titleEl.textContent = names[currentFilter] || 'Sessions';
+    const names = { 'all': t('title.allSessions'), 'active': t('title.activeSessions'), 'archived': t('title.archivedSessions') };
+    titleEl.textContent = names[currentFilter] || t('title.sessions');
   }
 }
 
@@ -205,7 +207,7 @@ async function refreshWorkspace() {
           renderProjectOverview();
         }
 
-        showRefreshToast('Workspace refreshed', 'success');
+        showRefreshToast(t('toast.workspaceRefreshed'), 'success');
       }
     } else {
       // Non-server mode: just reload page
@@ -213,7 +215,7 @@ async function refreshWorkspace() {
     }
   } catch (error) {
     console.error('Refresh failed:', error);
-    showRefreshToast('Refresh failed: ' + error.message, 'error');
+    showRefreshToast(t('toast.refreshFailed', { error: error.message }), 'error');
   } finally {
     btn.classList.remove('refreshing');
     btn.disabled = false;
