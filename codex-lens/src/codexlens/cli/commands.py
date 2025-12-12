@@ -137,6 +137,7 @@ def init(
     languages = _parse_languages(language)
     base_path = path.expanduser().resolve()
 
+    store: SQLiteStore | None = None
     try:
         # Determine database location
         if use_global:
@@ -197,6 +198,9 @@ def init(
             print_json(success=False, error=str(exc))
         else:
             raise typer.Exit(code=1)
+    finally:
+        if store is not None:
+            store.close()
 
 
 @app.command()
@@ -214,6 +218,7 @@ def search(
     """
     _configure_logging(verbose)
 
+    store: SQLiteStore | None = None
     try:
         store, db_path = _get_store_for_path(Path.cwd(), use_global)
         store.initialize()
@@ -229,6 +234,9 @@ def search(
         else:
             console.print(f"[red]Search failed:[/red] {exc}")
             raise typer.Exit(code=1)
+    finally:
+        if store is not None:
+            store.close()
 
 
 @app.command()
@@ -252,6 +260,7 @@ def symbol(
     """
     _configure_logging(verbose)
 
+    store: SQLiteStore | None = None
     try:
         store, db_path = _get_store_for_path(Path.cwd(), use_global)
         store.initialize()
@@ -267,6 +276,9 @@ def symbol(
         else:
             console.print(f"[red]Symbol lookup failed:[/red] {exc}")
             raise typer.Exit(code=1)
+    finally:
+        if store is not None:
+            store.close()
 
 
 @app.command()
@@ -316,6 +328,7 @@ def status(
     """
     _configure_logging(verbose)
 
+    store: SQLiteStore | None = None
     try:
         store, db_path = _get_store_for_path(Path.cwd(), use_global)
         store.initialize()
@@ -330,6 +343,9 @@ def status(
         else:
             console.print(f"[red]Status failed:[/red] {exc}")
             raise typer.Exit(code=1)
+    finally:
+        if store is not None:
+            store.close()
 
 
 @app.command()
@@ -351,6 +367,7 @@ def update(
     config = Config()
     factory = ParserFactory(config)
 
+    store: SQLiteStore | None = None
     try:
         store, db_path = _get_store_for_path(Path.cwd(), use_global)
         store.initialize()
@@ -427,6 +444,9 @@ def update(
         else:
             console.print(f"[red]Update failed:[/red] {exc}")
             raise typer.Exit(code=1)
+    finally:
+        if store is not None:
+            store.close()
 
 
 @app.command()
