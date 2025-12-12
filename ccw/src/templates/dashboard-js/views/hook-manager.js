@@ -82,6 +82,7 @@ async function renderHookManager() {
         </div>
 
         <div class="hook-templates-grid grid grid-cols-1 md:grid-cols-2 gap-4">
+          ${renderQuickInstallCard('codexlens-update', 'CodexLens Auto-Sync', 'Auto-update code index when files are written or edited', 'PostToolUse', 'Write|Edit')}
           ${renderQuickInstallCard('ccw-notify', 'CCW Dashboard Notify', 'Notify CCW dashboard when files are written', 'PostToolUse', 'Write')}
           ${renderQuickInstallCard('log-tool', 'Tool Usage Logger', 'Log all tool executions to a file', 'PostToolUse', 'All')}
           ${renderQuickInstallCard('lint-check', 'Auto Lint Check', 'Run ESLint on JavaScript/TypeScript files after write', 'PostToolUse', 'Write')}

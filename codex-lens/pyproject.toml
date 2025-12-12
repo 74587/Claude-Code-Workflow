@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codex-lens"
+version = "0.1.0"
+description = "CodexLens multi-modal code analysis platform"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "CodexLens contributors" }
+]
+dependencies = [
+    "typer>=0.9",
+    "rich>=13",
+    "pydantic>=2.0",
+    "tree-sitter>=0.20",
+    "pathspec>=0.11",
+]
+
+[project.optional-dependencies]
+semantic = [
+    "numpy>=1.24",
+    "sentence-transformers>=2.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/openai/codex-lens"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+

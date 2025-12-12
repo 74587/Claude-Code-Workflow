@@ -13,25 +13,95 @@ const HOOK_TEMPLATES = {
     event: 'PostToolUse',
     matcher: 'Write',
     command: 'curl',
-    args: ['-s', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', '{"type":"summary_written","filePath":"$CLAUDE_FILE_PATHS"}', 'http://localhost:3456/api/hook']
+    args: ['-s', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', '{"type":"summary_written","filePath":"$CLAUDE_FILE_PATHS"}', 'http://localhost:3456/api/hook'],
+    description: 'Notify CCW dashboard when files are written',
+    category: 'notification'
   },
   'log-tool': {
     event: 'PostToolUse',
     matcher: '',
     command: 'bash',
-    args: ['-c', 'echo "[$(date)] Tool: $CLAUDE_TOOL_NAME, Files: $CLAUDE_FILE_PATHS" >> ~/.claude/tool-usage.log']
+    args: ['-c', 'echo "[$(date)] Tool: $CLAUDE_TOOL_NAME, Files: $CLAUDE_FILE_PATHS" >> ~/.claude/tool-usage.log'],
+    description: 'Log all tool executions to a file',
+    category: 'logging'
   },
   'lint-check': {
     event: 'PostToolUse',
     matcher: 'Write',
     command: 'bash',
-    args: ['-c', 'for f in $CLAUDE_FILE_PATHS; do if [[ "$f" =~ \\.(js|ts|jsx|tsx)$ ]]; then npx eslint "$f" --fix 2>/dev/null || true; fi; done']
+    args: ['-c', 'for f in $CLAUDE_FILE_PATHS; do if [[ "$f" =~ \\.(js|ts|jsx|tsx)$ ]]; then npx eslint "$f" --fix 2>/dev/null || true; fi; done'],
+    description: 'Run ESLint on JavaScript/TypeScript files after write',
+    category: 'quality'
   },
   'git-add': {
     event: 'PostToolUse',
     matcher: 'Write',
     command: 'bash',
-    args: ['-c', 'for f in $CLAUDE_FILE_PATHS; do git add "$f" 2>/dev/null || true; done']
+    args: ['-c', 'for f in $CLAUDE_FILE_PATHS; do git add "$f" 2>/dev/null || true; done'],
+    description: 'Automatically stage written files to git',
+    category: 'git'
+  },
+  'codexlens-update': {
+    event: 'PostToolUse',
+    matcher: 'Write|Edit',
+    command: 'bash',
+    args: ['-c', 'if [ -d ".codexlens" ] && [ -n "$CLAUDE_FILE_PATHS" ]; then python -m codexlens update $CLAUDE_FILE_PATHS --json 2>/dev/null || ~/.codexlens/venv/bin/python -m codexlens update $CLAUDE_FILE_PATHS --json 2>/dev/null || true; fi'],
+    description: 'Auto-update code index when files are written or edited',
+    category: 'indexing'
+  },
+  'memory-update-related': {
+    event: 'Stop',
+    matcher: '',
+    command: 'bash',
+    args: ['-c', 'ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\''],
+    description: 'Update CLAUDE.md for changed modules when session ends',
+    category: 'memory',
+    configurable: true,
+    config: {
+      tool: { type: 'select', options: ['gemini', 'qwen', 'codex'], default: 'gemini', label: 'CLI Tool' },
+      strategy: { type: 'select', options: ['related', 'single-layer'], default: 'related', label: 'Strategy' }
+    }
+  },
+  'memory-update-periodic': {
+    event: 'PostToolUse',
+    matcher: 'Write|Edit',
+    command: 'bash',
+    args: ['-c', 'INTERVAL=300; LAST_FILE=~/.claude/.last_memory_update; NOW=$(date +%s); LAST=0; [ -f "$LAST_FILE" ] && LAST=$(cat "$LAST_FILE"); if [ $((NOW - LAST)) -ge $INTERVAL ]; then echo $NOW > "$LAST_FILE"; ccw tool exec update_module_claude \'{"strategy":"related","tool":"gemini"}\' & fi'],
+    description: 'Periodically update CLAUDE.md (default: 5 min interval)',
+    category: 'memory',
+    configurable: true,
+    config: {
+      tool: { type: 'select', options: ['gemini', 'qwen', 'codex'], default: 'gemini', label: 'CLI Tool' },
+      interval: { type: 'number', default: 300, min: 60, max: 3600, label: 'Interval (seconds)', step: 60 }
+    }
+  }
+};
+
+// ========== Wizard Templates (Special Category) ==========
+const WIZARD_TEMPLATES = {
+  'memory-update': {
+    name: 'Memory Update Hook',
+    description: 'Automatically update CLAUDE.md documentation based on code changes',
+    icon: 'brain',
+    options: [
+      {
+        id: 'on-stop',
+        name: 'On Session End',
+        description: 'Update documentation when Claude session ends',
+        templateId: 'memory-update-related'
+      },
+      {
+        id: 'periodic',
+        name: 'Periodic Update',
+        description: 'Update documentation at regular intervals during session',
+        templateId: 'memory-update-periodic'
+      }
+    ],
+    configFields: [
+      { key: 'tool', type: 'select', label: 'CLI Tool', options: ['gemini', 'qwen', 'codex'], default: 'gemini', description: 'Tool for documentation generation' },
+      { key: 'interval', type: 'number', label: 'Interval (seconds)', default: 300, min: 60, max: 3600, step: 60, showFor: ['periodic'], description: 'Time between updates' },
+      { key: 'strategy', type: 'select', label: 'Update Strategy', options: ['related', 'single-layer'], default: 'related', description: 'Related: changed modules, Single-layer: current directory' }
+    ]
   }
 };
 

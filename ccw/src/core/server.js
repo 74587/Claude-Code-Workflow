@@ -9,6 +9,7 @@ import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
 import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, deleteExecution, executeCliTool } from '../tools/cli-executor.js';
 import { getAllManifests } from './manifest.js';
+import { checkVenvStatus, bootstrapVenv, executeCodexLens } from '../tools/codex-lens.js';
 
 // Claude config file paths
 const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
@@ -448,6 +449,57 @@ export async function startServer(options = {}) {
         const status = await getCliToolsStatus();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(status));
+        return;
+      }
+
+      // API: CodexLens Status
+      if (pathname === '/api/codexlens/status') {
+        const status = await checkVenvStatus();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(status));
+        return;
+      }
+
+      // API: CodexLens Bootstrap (Install)
+      if (pathname === '/api/codexlens/bootstrap' && req.method === 'POST') {
+        handlePostRequest(req, res, async () => {
+          try {
+            const result = await bootstrapVenv();
+            if (result.success) {
+              const status = await checkVenvStatus();
+              return { success: true, message: 'CodexLens installed successfully', version: status.version };
+            } else {
+              return { success: false, error: result.error, status: 500 };
+            }
+          } catch (err) {
+            return { success: false, error: err.message, status: 500 };
+          }
+        });
+        return;
+      }
+
+      // API: CodexLens Init (Initialize workspace index)
+      if (pathname === '/api/codexlens/init' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { path: projectPath } = body;
+          const targetPath = projectPath || initialPath;
+
+          try {
+            const result = await executeCodexLens(['init', targetPath, '--json'], { cwd: targetPath });
+            if (result.success) {
+              try {
+                const parsed = JSON.parse(result.output);
+                return { success: true, result: parsed };
+              } catch {
+                return { success: true, output: result.output };
+              }
+            } else {
+              return { success: false, error: result.error, status: 500 };
+            }
+          } catch (err) {
+            return { success: false, error: err.message, status: 500 };
+          }
+        });
         return;
       }
 

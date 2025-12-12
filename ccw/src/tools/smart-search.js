@@ -12,6 +12,7 @@
 import { spawn, execSync } from 'child_process';
 import { existsSync, readdirSync, statSync } from 'fs';
 import { join, resolve, isAbsolute } from 'path';
+import { ensureReady as ensureCodexLensReady, executeCodexLens } from './codex-lens.js';
 
 // Search mode constants
 const SEARCH_MODES = ['auto', 'exact', 'fuzzy', 'semantic', 'graph'];
@@ -195,13 +196,37 @@ async function executeAutoMode(params) {
       };
 
     case 'fuzzy':
-    case 'semantic':
-    case 'graph':
-      // These modes not yet implemented
+      // Fuzzy mode not yet implemented
       return {
         success: false,
-        error: `${classification.mode} mode not yet implemented`,
+        error: 'Fuzzy mode not yet implemented',
         metadata: {
+          classified_as: classification.mode,
+          confidence: classification.confidence,
+          reasoning: classification.reasoning
+        }
+      };
+
+    case 'semantic':
+      // Execute semantic mode via CodexLens
+      const semanticResult = await executeSemanticMode(params);
+      return {
+        ...semanticResult,
+        metadata: {
+          ...semanticResult.metadata,
+          classified_as: classification.mode,
+          confidence: classification.confidence,
+          reasoning: classification.reasoning
+        }
+      };
+
+    case 'graph':
+      // Execute graph mode via CodexLens
+      const graphResult = await executeGraphMode(params);
+      return {
+        ...graphResult,
+        metadata: {
+          ...graphResult.metadata,
           classified_as: classification.mode,
           confidence: classification.confidence,
           reasoning: classification.reasoning
@@ -346,41 +371,166 @@ async function executeFuzzyMode(params) {
 
 /**
  * Mode: semantic - Natural language understanding search
- * Uses LLM or embeddings for semantic similarity
+ * Uses CodexLens embeddings for semantic similarity
  */
 async function executeSemanticMode(params) {
   const { query, paths = [], maxResults = 100 } = params;
 
-  // TODO: Implement semantic search
-  // - Option 1: Use Gemini CLI via cli-executor.js
-  // - Option 2: Use local embeddings (transformers.js)
-  // - Generate query embedding
-  // - Compare with code embeddings
-  // - Return semantically similar results
+  // Check CodexLens availability
+  const readyStatus = await ensureCodexLensReady();
+  if (!readyStatus.ready) {
+    return {
+      success: false,
+      error: `CodexLens not available: ${readyStatus.error}. Run 'ccw tool exec codex_lens {"action":"bootstrap"}' to install.`
+    };
+  }
+
+  // Determine search path
+  const searchPath = paths.length > 0 ? paths[0] : '.';
+
+  // Execute CodexLens semantic search
+  const result = await executeCodexLens(
+    ['search', query, '--limit', maxResults.toString(), '--json'],
+    { cwd: searchPath }
+  );
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error,
+      metadata: {
+        mode: 'semantic',
+        backend: 'codexlens'
+      }
+    };
+  }
+
+  // Parse and transform results
+  let results = [];
+  try {
+    // Handle CRLF in output
+    const cleanOutput = result.output.replace(/\r\n/g, '\n');
+    const parsed = JSON.parse(cleanOutput);
+    const data = parsed.result || parsed;
+    results = (data.results || []).map(item => ({
+      file: item.path || item.file,
+      score: item.score || 0,
+      content: item.excerpt || item.content || '',
+      symbol: item.symbol || null
+    }));
+  } catch {
+    // Return raw output if JSON parsing fails
+    return {
+      success: true,
+      results: [],
+      output: result.output,
+      metadata: {
+        mode: 'semantic',
+        backend: 'codexlens',
+        count: 0,
+        query,
+        warning: 'Failed to parse JSON output'
+      }
+    };
+  }
 
   return {
-    success: false,
-    error: 'Semantic mode not implemented - LLM/embedding integration pending'
+    success: true,
+    results,
+    metadata: {
+      mode: 'semantic',
+      backend: 'codexlens',
+      count: results.length,
+      query
+    }
   };
 }
 
 /**
  * Mode: graph - Dependency and relationship traversal
- * Analyzes code relationships (imports, exports, dependencies)
+ * Uses CodexLens symbol extraction for code analysis
  */
 async function executeGraphMode(params) {
   const { query, paths = [], maxResults = 100 } = params;
 
-  // TODO: Implement graph search
-  // - Parse import/export statements
-  // - Build dependency graph
-  // - Traverse relationships
-  // - Find related modules
-  // - Return graph results
+  // Check CodexLens availability
+  const readyStatus = await ensureCodexLensReady();
+  if (!readyStatus.ready) {
+    return {
+      success: false,
+      error: `CodexLens not available: ${readyStatus.error}. Run 'ccw tool exec codex_lens {"action":"bootstrap"}' to install.`
+    };
+  }
+
+  // First, search for relevant files using text search
+  const searchPath = paths.length > 0 ? paths[0] : '.';
+
+  // Execute text search to find files matching the query
+  const textResult = await executeCodexLens(
+    ['search', query, '--limit', maxResults.toString(), '--json'],
+    { cwd: searchPath }
+  );
+
+  if (!textResult.success) {
+    return {
+      success: false,
+      error: textResult.error,
+      metadata: {
+        mode: 'graph',
+        backend: 'codexlens'
+      }
+    };
+  }
+
+  // Parse results and extract symbols from top files
+  let results = [];
+  try {
+    const parsed = JSON.parse(textResult.output);
+    const files = [...new Set((parsed.results || parsed).map(item => item.path || item.file))].slice(0, 10);
+
+    // Extract symbols from files in parallel
+    const symbolPromises = files.map(file =>
+      executeCodexLens(['symbol', file, '--json'], { cwd: searchPath })
+        .then(result => ({ file, result }))
+    );
+
+    const symbolResults = await Promise.all(symbolPromises);
+
+    for (const { file, result } of symbolResults) {
+      if (result.success) {
+        try {
+          const symbols = JSON.parse(result.output);
+          results.push({
+            file,
+            symbols: symbols.symbols || symbols,
+            relationships: []
+          });
+        } catch {
+          // Skip files with parse errors
+        }
+      }
+    }
+  } catch {
+    return {
+      success: false,
+      error: 'Failed to parse search results',
+      metadata: {
+        mode: 'graph',
+        backend: 'codexlens'
+      }
+    };
+  }
 
   return {
-    success: false,
-    error: 'Graph mode not implemented - dependency analysis pending'
+    success: true,
+    results,
+    metadata: {
+      mode: 'graph',
+      backend: 'codexlens',
+      count: results.length,
+      query,
+      note: 'Graph mode provides symbol extraction; full dependency graph analysis pending'
+    }
   };
 }
 

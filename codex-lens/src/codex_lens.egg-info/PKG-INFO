@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: codex-lens
+Version: 0.1.0
+Summary: CodexLens multi-modal code analysis platform
+Author: CodexLens contributors
+License: MIT
+Project-URL: Homepage, https://github.com/openai/codex-lens
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: typer>=0.9
+Requires-Dist: rich>=13
+Requires-Dist: pydantic>=2.0
+Requires-Dist: tree-sitter>=0.20
+Requires-Dist: pathspec>=0.11
+Provides-Extra: semantic
+Requires-Dist: numpy>=1.24; extra == "semantic"
+Requires-Dist: sentence-transformers>=2.2; extra == "semantic"

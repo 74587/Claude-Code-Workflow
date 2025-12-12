@@ -18,6 +18,7 @@ import { convertTokensToCssTool } from './convert-tokens-to-css.js';
 import { sessionManagerTool } from './session-manager.js';
 import { cliExecutorTool } from './cli-executor.js';
 import { smartSearchTool } from './smart-search.js';
+import { codexLensTool } from './codex-lens.js';
 
 // Tool registry - add new tools here
 const tools = new Map();
@@ -264,6 +265,7 @@ registerTool(convertTokensToCssTool);
 registerTool(sessionManagerTool);
 registerTool(cliExecutorTool);
 registerTool(smartSearchTool);
+registerTool(codexLensTool);
 
 // Export for external tool registration
 export { registerTool };
