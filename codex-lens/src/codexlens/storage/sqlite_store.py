@@ -118,6 +118,59 @@ class SQLiteStore:
                 )
             conn.commit()
 
+    def add_files(self, files_data: List[tuple[IndexedFile, str]]) -> None:
+        """Add multiple files in a single transaction for better performance.
+        
+        Args:
+            files_data: List of (indexed_file, content) tuples
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.execute("BEGIN")
+                
+                for indexed_file, content in files_data:
+                    path = str(Path(indexed_file.path).resolve())
+                    language = indexed_file.language
+                    mtime = Path(path).stat().st_mtime if Path(path).exists() else None
+                    line_count = content.count(chr(10)) + 1
+
+                    conn.execute(
+                        """
+                        INSERT INTO files(path, language, content, mtime, line_count)
+                        VALUES(?, ?, ?, ?, ?)
+                        ON CONFLICT(path) DO UPDATE SET
+                            language=excluded.language,
+                            content=excluded.content,
+                            mtime=excluded.mtime,
+                            line_count=excluded.line_count
+                        """,
+                        (path, language, content, mtime, line_count),
+                    )
+
+                    row = conn.execute("SELECT id FROM files WHERE path=?", (path,)).fetchone()
+                    if not row:
+                        raise StorageError(f"Failed to read file id for {path}")
+                    file_id = int(row["id"])
+
+                    conn.execute("DELETE FROM symbols WHERE file_id=?", (file_id,))
+                    if indexed_file.symbols:
+                        conn.executemany(
+                            """
+                            INSERT INTO symbols(file_id, name, kind, start_line, end_line)
+                            VALUES(?, ?, ?, ?, ?)
+                            """,
+                            [
+                                (file_id, s.name, s.kind, s.range[0], s.range[1])
+                                for s in indexed_file.symbols
+                            ],
+                        )
+                
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+
     def remove_file(self, path: str | Path) -> bool:
         """Remove a file from the index."""
         with self._lock:
@@ -178,7 +231,7 @@ class SQLiteStore:
             results: List[SearchResult] = []
             for row in rows:
                 rank = float(row["rank"]) if row["rank"] is not None else 0.0
-                score = max(0.0, -rank)
+                score = abs(rank) if rank < 0 else 0.0
                 results.append(
                     SearchResult(
                         path=row["path"],

@@ -62,25 +62,42 @@ def _iter_source_files(
     languages: Optional[List[str]] = None,
 ) -> Iterable[Path]:
     ignore_dirs = {".git", ".venv", "venv", "node_modules", "__pycache__", ".codexlens"}
-    ignore_patterns = _load_gitignore(base_path)
-    pathspec = None
-    if ignore_patterns:
+    
+    # Cache for PathSpec objects per directory
+    pathspec_cache: Dict[Path, Optional[Any]] = {}
+    
+    def get_pathspec_for_dir(dir_path: Path) -> Optional[Any]:
+        """Get PathSpec for a directory, loading .gitignore if present."""
+        if dir_path in pathspec_cache:
+            return pathspec_cache[dir_path]
+        
+        ignore_patterns = _load_gitignore(dir_path)
+        if not ignore_patterns:
+            pathspec_cache[dir_path] = None
+            return None
+        
         try:
             from pathspec import PathSpec
             from pathspec.patterns.gitwildmatch import GitWildMatchPattern
-
             pathspec = PathSpec.from_lines(GitWildMatchPattern, ignore_patterns)
+            pathspec_cache[dir_path] = pathspec
+            return pathspec
         except Exception:
-            pathspec = None
+            pathspec_cache[dir_path] = None
+            return None
 
     for root, dirs, files in os.walk(base_path):
         dirs[:] = [d for d in dirs if d not in ignore_dirs and not d.startswith(".")]
         root_path = Path(root)
+        
+        # Get pathspec for current directory
+        pathspec = get_pathspec_for_dir(root_path)
+        
         for file in files:
             if file.startswith("."):
                 continue
             full_path = root_path / file
-            rel = full_path.relative_to(base_path)
+            rel = full_path.relative_to(root_path)
             if pathspec and pathspec.match_file(str(rel)):
                 continue
             language_id = config.language_for_path(full_path)
@@ -110,6 +127,25 @@ def _get_store_for_path(path: Path, use_global: bool = False) -> tuple[SQLiteSto
     config = Config()
     config.ensure_runtime_dirs()
     return SQLiteStore(config.db_path), config.db_path
+
+
+
+
+def _is_safe_to_clean(target_dir: Path) -> bool:
+    """Verify directory is a CodexLens directory before deletion.
+    
+    Checks for presence of .codexlens directory or index.db file.
+    """
+    if not target_dir.exists():
+        return True
+    
+    # Check if it's the .codexlens directory itself
+    if target_dir.name == ".codexlens":
+        # Verify it contains index.db or cache directory
+        return (target_dir / "index.db").exists() or (target_dir / "cache").exists()
+    
+    # Check if it contains .codexlens subdirectory
+    return (target_dir / ".codexlens").exists()
 
 
 @app.command()
@@ -469,12 +505,16 @@ def clean(
             config = Config()
             import shutil
             if config.index_dir.exists():
+                if not _is_safe_to_clean(config.index_dir):
+                    raise CodexLensError(f"Safety check failed: {config.index_dir} does not appear to be a CodexLens directory")
                 shutil.rmtree(config.index_dir)
             result = {"cleaned": str(config.index_dir), "type": "global"}
         else:
             workspace = WorkspaceConfig.from_path(base_path)
             if workspace and workspace.codexlens_dir.exists():
                 import shutil
+                if not _is_safe_to_clean(workspace.codexlens_dir):
+                    raise CodexLensError(f"Safety check failed: {workspace.codexlens_dir} does not appear to be a CodexLens directory")
                 shutil.rmtree(workspace.codexlens_dir)
                 result = {"cleaned": str(workspace.codexlens_dir), "type": "workspace"}
             else:
