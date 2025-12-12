@@ -159,30 +159,83 @@ function updateMcpBadge() {
 }
 
 // ========== Helpers ==========
+
+/**
+ * Generate a unique key for MCP server config comparison
+ * Used to distinguish servers with same name but different configurations
+ */
+function getMcpConfigHash(config) {
+  const cmd = config.command || '';
+  const args = (config.args || []).join('|');
+  const envKeys = Object.keys(config.env || {}).sort().join(',');
+  return `${cmd}::${args}::${envKeys}`;
+}
+
+/**
+ * Get all available MCP servers from all sources
+ * Supports servers with same name but different configurations from different projects
+ */
 function getAllAvailableMcpServers() {
   const allServers = {};
+  const configHashes = {}; // Track unique configs per server name
 
   // Collect global servers first
   for (const [name, serverConfig] of Object.entries(mcpGlobalServers)) {
+    const hash = getMcpConfigHash(serverConfig);
     allServers[name] = {
       config: serverConfig,
       usedIn: [],
-      isGlobal: true
+      isGlobal: true,
+      configHash: hash
     };
+    configHashes[name] = { [hash]: name };
   }
 
-  // Collect servers from all projects
+  // Collect servers from all projects - handle same name with different configs
   for (const [path, config] of Object.entries(mcpAllProjects)) {
     const servers = config.mcpServers || {};
     for (const [name, serverConfig] of Object.entries(servers)) {
-      if (!allServers[name]) {
-        allServers[name] = {
-          config: serverConfig,
-          usedIn: [],
-          isGlobal: false
-        };
+      const hash = getMcpConfigHash(serverConfig);
+
+      if (!configHashes[name]) {
+        // First occurrence of this server name
+        configHashes[name] = {};
       }
-      allServers[name].usedIn.push(path);
+
+      if (!configHashes[name][hash]) {
+        // New unique configuration for this server name
+        // Use suffixed key if name already exists with different config
+        let serverKey = name;
+        if (allServers[name] && allServers[name].configHash !== hash) {
+          // Generate unique key: name@project-folder
+          const projectFolder = path.split('\\').pop() || path.split('/').pop() || 'unknown';
+          serverKey = `${name}@${projectFolder}`;
+          // Avoid collisions
+          let suffix = 1;
+          while (allServers[serverKey]) {
+            serverKey = `${name}@${projectFolder}-${suffix++}`;
+          }
+        }
+
+        configHashes[name][hash] = serverKey;
+
+        if (!allServers[serverKey]) {
+          allServers[serverKey] = {
+            config: serverConfig,
+            usedIn: [],
+            isGlobal: false,
+            configHash: hash,
+            originalName: name, // Store original name for installation
+            sourceProject: path  // Store source project for reference
+          };
+        }
+      }
+
+      // Track which projects use this config
+      const serverKey = configHashes[name][hash];
+      if (allServers[serverKey]) {
+        allServers[serverKey].usedIn.push(path);
+      }
     }
   }
 
@@ -524,5 +577,44 @@ async function createMcpServerWithConfig(name, serverConfig) {
   } catch (err) {
     console.error('Failed to create MCP server:', err);
     showRefreshToast(`Failed to create MCP server: ${err.message}`, 'error');
+  }
+}
+// ========== CCW Tools MCP Installation ==========
+async function installCcwToolsMcp() {
+  // Define CCW Tools MCP server configuration
+  // Use npx for better cross-platform compatibility (handles PATH issues)
+  const ccwToolsConfig = {
+    command: "npx",
+    args: ["-y", "ccw-mcp"]
+  };
+
+  try {
+    // Show loading toast
+    showRefreshToast('Installing CCW Tools MCP...', 'info');
+
+    // Use the existing copyMcpServerToProject function
+    const response = await fetch('/api/mcp-copy-server', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectPath,
+        serverName: 'ccw-tools',
+        serverConfig: ccwToolsConfig
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to install CCW Tools MCP');
+
+    const result = await response.json();
+    if (result.success) {
+      await loadMcpConfig();
+      renderMcpManager();
+      showRefreshToast('CCW Tools MCP installed successfully', 'success');
+    } else {
+      showRefreshToast(result.error || 'Failed to install CCW Tools MCP', 'error');
+    }
+  } catch (err) {
+    console.error('Failed to install CCW Tools MCP:', err);
+    showRefreshToast(`Failed to install CCW Tools MCP: ${err.message}`, 'error');
   }
 }

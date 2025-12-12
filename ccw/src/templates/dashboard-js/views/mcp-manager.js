@@ -34,9 +34,72 @@ async function renderMcpManager() {
     .filter(([name]) => !currentProjectServerNames.includes(name) && !(mcpEnterpriseServers || {})[name]);
   const otherProjectServers = Object.entries(allAvailableServers)
     .filter(([name, info]) => !currentProjectServerNames.includes(name) && !info.isGlobal);
+  // Check if CCW Tools is already installed
+  const isCcwToolsInstalled = currentProjectServerNames.includes("ccw-tools");
+
 
   container.innerHTML = `
     <div class="mcp-manager">
+      <!-- CCW Tools MCP Server Card -->
+      <div class="mcp-section mb-6">
+        <div class="ccw-tools-card bg-gradient-to-br from-primary/10 to-primary/5 border-2 ${isCcwToolsInstalled ? 'border-success' : 'border-primary/30'} rounded-lg p-6 hover:shadow-lg transition-all">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex items-start gap-4 flex-1">
+              <div class="shrink-0 w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+                <i data-lucide="wrench" class="w-6 h-6 text-primary-foreground"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-2">
+                  <h3 class="text-lg font-bold text-foreground">CCW Tools MCP</h3>
+                  ${isCcwToolsInstalled ? `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-success-light text-success">
+                      <i data-lucide="check" class="w-3 h-3"></i>
+                      Installed
+                    </span>
+                  ` : `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/20 text-primary">
+                      <i data-lucide="package" class="w-3 h-3"></i>
+                      Available
+                    </span>
+                  `}
+                </div>
+                <p class="text-sm text-muted-foreground mb-3">
+                  CCW built-in tools for file editing, code search, session management, and more
+                </p>
+                <div class="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span class="flex items-center gap-1">
+                    <i data-lucide="layers" class="w-3 h-3"></i>
+                    15 tools available
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <i data-lucide="zap" class="w-3 h-3"></i>
+                    Native integration
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <i data-lucide="shield-check" class="w-3 h-3"></i>
+                    Built-in & tested
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0">
+              ${isCcwToolsInstalled ? `
+                <button class="px-4 py-2 text-sm bg-muted text-muted-foreground rounded-lg cursor-not-allowed" disabled>
+                  <i data-lucide="check" class="w-4 h-4 inline mr-1"></i>
+                  Installed
+                </button>
+              ` : `
+                <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
+                        onclick="installCcwToolsMcp()">
+                  <i data-lucide="download" class="w-4 h-4"></i>
+                  Install CCW Tools
+                </button>
+              `}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Current Project MCP Servers -->
       <div class="mcp-section mb-6">
         <div class="flex items-center justify-between mb-4">
@@ -259,16 +322,34 @@ function renderAvailableServerCard(serverName, serverInfo) {
   const serverConfig = serverInfo.config;
   const usedIn = serverInfo.usedIn || [];
   const command = serverConfig.command || 'N/A';
+  const args = serverConfig.args || [];
+
+  // Get the actual name to use when adding (original name if different from display key)
+  const originalName = serverInfo.originalName || serverName;
+  const hasVariant = serverInfo.originalName && serverInfo.originalName !== serverName;
+
+  // Get source project info
+  const sourceProject = serverInfo.sourceProject;
+  const sourceProjectName = sourceProject ? (sourceProject.split('\\').pop() || sourceProject.split('/').pop()) : null;
+
+  // Generate args preview
+  const argsPreview = args.length > 0 ? args.slice(0, 3).join(' ') + (args.length > 3 ? '...' : '') : '';
 
   return `
     <div class="mcp-server-card mcp-server-available bg-card border border-border border-dashed rounded-lg p-4 hover:shadow-md hover:border-solid transition-all">
       <div class="flex items-start justify-between mb-3">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <span><i data-lucide="circle-dashed" class="w-5 h-5 text-muted-foreground"></i></span>
-          <h4 class="font-semibold text-foreground">${escapeHtml(serverName)}</h4>
+          <h4 class="font-semibold text-foreground">${escapeHtml(originalName)}</h4>
+          ${hasVariant ? `
+            <span class="text-xs px-2 py-0.5 bg-warning/20 text-warning rounded-full" title="Different config from: ${escapeHtml(sourceProject || '')}">
+              ${escapeHtml(sourceProjectName || 'variant')}
+            </span>
+          ` : ''}
         </div>
         <button class="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
-                data-server-name="${escapeHtml(serverName)}"
+                data-server-name="${escapeHtml(originalName)}"
+                data-server-key="${escapeHtml(serverName)}"
                 data-server-config='${JSON.stringify(serverConfig).replace(/'/g, "&#39;")}'
                 data-action="add">
           ${t('mcp.add')}
@@ -280,8 +361,15 @@ function renderAvailableServerCard(serverName, serverInfo) {
           <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">cmd</span>
           <span class="truncate" title="${escapeHtml(command)}">${escapeHtml(command)}</span>
         </div>
+        ${argsPreview ? `
+          <div class="flex items-start gap-2 text-muted-foreground">
+            <span class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded shrink-0">args</span>
+            <span class="text-xs font-mono truncate" title="${escapeHtml(args.join(' '))}">${escapeHtml(argsPreview)}</span>
+          </div>
+        ` : ''}
         <div class="flex items-center gap-2 text-muted-foreground">
           <span class="text-xs">Used in ${usedIn.length} project${usedIn.length !== 1 ? 's' : ''}</span>
+          ${sourceProjectName ? `<span class="text-xs text-muted-foreground/70">• from ${escapeHtml(sourceProjectName)}</span>` : ''}
         </div>
       </div>
     </div>
@@ -390,19 +478,19 @@ function attachMcpEventListeners() {
     });
   });
 
-  // Add buttons
+  // Add buttons - use btn.dataset instead of e.target.dataset for event bubbling safety
   document.querySelectorAll('.mcp-server-card button[data-action="add"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const serverName = e.target.dataset.serverName;
-      const serverConfig = JSON.parse(e.target.dataset.serverConfig);
+      const serverName = btn.dataset.serverName;
+      const serverConfig = JSON.parse(btn.dataset.serverConfig);
       await copyMcpServerToProject(serverName, serverConfig);
     });
   });
 
-  // Remove buttons
+  // Remove buttons - use btn.dataset instead of e.target.dataset for event bubbling safety
   document.querySelectorAll('.mcp-server-card button[data-action="remove"]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const serverName = e.target.dataset.serverName;
+      const serverName = btn.dataset.serverName;
       if (confirm(t('mcp.removeConfirm', { name: serverName }))) {
         await removeMcpServerFromProject(serverName);
       }
