@@ -98,6 +98,12 @@ function initNavigation() {
         renderProjectOverview();
       } else if (currentView === 'explorer') {
         renderExplorer();
+      } else if (currentView === 'cli-manager') {
+        renderCliManager();
+      } else if (currentView === 'cli-history') {
+        renderCliHistoryView();
+      } else if (currentView === 'hook-manager') {
+        renderHookManager();
       }
     });
   });
@@ -118,6 +124,8 @@ function updateContentTitle() {
     titleEl.textContent = 'File Explorer';
   } else if (currentView === 'cli-manager') {
     titleEl.textContent = 'CLI Tools & CCW';
+  } else if (currentView === 'cli-history') {
+    titleEl.textContent = 'CLI Execution History';
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': 'Lite Plan Sessions', 'lite-fix': 'Lite Fix Sessions' };
     titleEl.textContent = names[currentLiteType] || 'Lite Tasks';

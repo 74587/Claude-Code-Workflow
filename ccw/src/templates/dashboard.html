@@ -322,6 +322,10 @@
                 <span class="nav-text flex-1">Status</span>
                 <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-hover text-muted-foreground" id="badgeCliTools">0/3</span>
               </li>
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="cli-history" data-tooltip="CLI Execution History">
+                <i data-lucide="history" class="nav-icon"></i>
+                <span class="nav-text flex-1">History</span>
+              </li>
             </ul>
           </div>
 
@@ -674,6 +678,38 @@
       <div class="hook-modal-footer flex justify-end gap-2 px-4 py-3 border-t border-border">
         <button class="px-4 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-hover transition-colors" onclick="closeHookCreateModal()">Cancel</button>
         <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity" onclick="submitHookCreate()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hook Wizard Modal -->
+  <div id="hookWizardModal" class="hook-modal hidden fixed inset-0 z-[100] flex items-center justify-center">
+    <div class="hook-modal-backdrop absolute inset-0 bg-black/60" onclick="closeHookWizardModal()"></div>
+    <div class="hook-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-xl flex flex-col max-h-[90vh]">
+      <div class="hook-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 class="text-lg font-semibold text-foreground">Hook Wizard</h3>
+        <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeHookWizardModal()">&times;</button>
+      </div>
+      <div class="hook-modal-body p-4 overflow-y-auto" id="wizardModalContent">
+        <!-- Dynamic wizard content -->
+      </div>
+      <div class="hook-modal-footer flex justify-end gap-2 px-4 py-3 border-t border-border">
+        <button class="px-4 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-hover transition-colors" onclick="closeHookWizardModal()">Cancel</button>
+        <button class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity" onclick="submitHookWizard()">Install Hook</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template View Modal -->
+  <div id="templateViewModal" class="hook-modal hidden fixed inset-0 z-[100] flex items-center justify-center">
+    <div class="hook-modal-backdrop absolute inset-0 bg-black/60" onclick="closeTemplateViewModal()"></div>
+    <div class="hook-modal-content relative bg-card border border-border rounded-lg shadow-2xl w-[90vw] max-w-md flex flex-col max-h-[80vh]">
+      <div class="hook-modal-header flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 class="text-lg font-semibold text-foreground">Template Details</h3>
+        <button class="w-8 h-8 flex items-center justify-center text-xl text-muted-foreground hover:text-foreground hover:bg-hover rounded" onclick="closeTemplateViewModal()">&times;</button>
+      </div>
+      <div class="hook-modal-body p-4 overflow-y-auto" id="templateViewContent">
+        <!-- Dynamic template content -->
       </div>
     </div>
   </div>

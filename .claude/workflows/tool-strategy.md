@@ -31,34 +31,46 @@ ccw tool exec classify_folders '{"path": "./src"}'
 **When to Use**: Edit tool fails 1+ times on same file
 
 ```bash
-# CLI shorthand
+# Basic edit
 ccw tool exec edit_file --path "file.py" --old "old code" --new "new code"
 
-# JSON (recommended)
-ccw tool exec edit_file '{"path": "file.py", "oldText": "old", "newText": "new"}'
+# Preview without modifying (dry run)
+ccw tool exec edit_file --path "file.py" --old "old" --new "new" --dry-run
 
-# dryRun - preview without modifying
-ccw tool exec edit_file '{"path": "file.py", "oldText": "old", "newText": "new", "dryRun": true}'
+# Replace all occurrences
+ccw tool exec edit_file --path "file.py" --old "old" --new "new" --replace-all
 
-# Multiple edits
-ccw tool exec edit_file '{"path": "file.py", "edits": [{"oldText": "a", "newText": "b"}, {"oldText": "c", "newText": "d"}]}'
+# Line mode - insert after line
+ccw tool exec edit_file --path "file.py" --mode line --operation insert_after --line 10 --text "new line"
 
-# Line mode
-ccw tool exec edit_file '{"path": "file.py", "mode": "line", "operation": "insert_after", "line": 10, "text": "new"}'
+# Line mode - insert before line
+ccw tool exec edit_file --path "file.py" --mode line --operation insert_before --line 5 --text "new line"
+
+# Line mode - replace line
+ccw tool exec edit_file --path "file.py" --mode line --operation replace --line 3 --text "replacement"
+
+# Line mode - delete line
+ccw tool exec edit_file --path "file.py" --mode line --operation delete --line 3
 ```
 
-**Parameters**: `path`*, `oldText`, `newText`, `edits[]`, `dryRun`, `replaceAll`, `mode` (update|line)
+**Parameters**: `--path`*, `--old`, `--new`, `--dry-run`, `--replace-all`, `--mode` (update|line), `--operation`, `--line`, `--text`
 
 ### write_file Tool
 
 **When to Use**: Create new files or overwrite existing content
 
 ```bash
-ccw tool exec write_file '{"path": "file.txt", "content": "Hello"}'
-ccw tool exec write_file '{"path": "file.txt", "content": "new", "backup": true}'
+# Basic write
+ccw tool exec write_file --path "file.txt" --content "Hello"
+
+# With backup
+ccw tool exec write_file --path "file.txt" --content "new content" --backup
+
+# Create directories if needed
+ccw tool exec write_file --path "new/path/file.txt" --content "content" --create-directories
 ```
 
-**Parameters**: `path`*, `content`*, `createDirectories`, `backup`, `encoding`
+**Parameters**: `--path`*, `--content`*, `--create-directories`, `--backup`, `--encoding`
 
 ### Fallback Strategy
 

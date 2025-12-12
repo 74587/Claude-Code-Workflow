@@ -9,7 +9,7 @@ import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
 import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, deleteExecution, executeCliTool } from '../tools/cli-executor.js';
 import { getAllManifests } from './manifest.js';
-import { checkVenvStatus, bootstrapVenv, executeCodexLens } from '../tools/codex-lens.js';
+import { checkVenvStatus, bootstrapVenv, executeCodexLens, checkSemanticStatus, installSemantic } from '../tools/codex-lens.js';
 
 // Claude config file paths
 const CLAUDE_CONFIG_PATH = join(homedir(), '.claude.json');
@@ -113,6 +113,7 @@ const MODULE_FILES = [
   'views/mcp-manager.js',
   'views/hook-manager.js',
   'views/cli-manager.js',
+  'views/history.js',
   'views/explorer.js',
   'main.js'
 ];
@@ -430,6 +431,15 @@ export async function startServer(options = {}) {
         return;
       }
 
+      // API: Discover SKILL packages in project
+      if (pathname === '/api/skills') {
+        const projectPathParam = url.searchParams.get('path') || initialPath;
+        const skills = await discoverSkillPackages(projectPathParam);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(skills));
+        return;
+      }
+
       // API: Get file content for preview (Explorer view)
       if (pathname === '/api/file-content') {
         const filePath = url.searchParams.get('path');
@@ -493,6 +503,32 @@ export async function startServer(options = {}) {
               } catch {
                 return { success: true, output: result.output };
               }
+            } else {
+              return { success: false, error: result.error, status: 500 };
+            }
+          } catch (err) {
+            return { success: false, error: err.message, status: 500 };
+          }
+        });
+        return;
+      }
+
+      // API: CodexLens Semantic Search Status
+      if (pathname === '/api/codexlens/semantic/status') {
+        const status = await checkSemanticStatus();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(status));
+        return;
+      }
+
+      // API: CodexLens Semantic Search Install
+      if (pathname === '/api/codexlens/semantic/install' && req.method === 'POST') {
+        handlePostRequest(req, res, async () => {
+          try {
+            const result = await installSemantic();
+            if (result.success) {
+              const status = await checkSemanticStatus();
+              return { success: true, message: 'Semantic search installed successfully', ...status };
             } else {
               return { success: false, error: result.error, status: 500 };
             }
@@ -1755,6 +1791,64 @@ function writeSettingsFile(filePath, settings) {
     mkdirSync(dirPath, { recursive: true });
   }
   writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf8');
+}
+
+
+/**
+ * Discover SKILL packages in project
+ * @param {string} projectPath - Project root path
+ * @returns {Object} - List of discovered SKILL packages
+ */
+async function discoverSkillPackages(projectPath) {
+  const skills = [];
+  const skillsDir = join(projectPath, '.claude', 'skills');
+  
+  try {
+    // Check if skills directory exists
+    if (!existsSync(skillsDir)) {
+      return { skills: [], skillsDir: null };
+    }
+    
+    // Read all subdirectories in skills folder
+    const entries = readdirSync(skillsDir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const skillPath = join(skillsDir, entry.name);
+        const skillMdPath = join(skillPath, 'SKILL.md');
+        
+        // Check if SKILL.md exists
+        if (existsSync(skillMdPath)) {
+          const skillContent = readFileSync(skillMdPath, 'utf8');
+          
+          // Parse YAML frontmatter
+          let metadata = { name: entry.name, description: '' };
+          const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
+          const frontmatterMatch = skillContent.match(frontmatterRegex);
+          if (frontmatterMatch) {
+            const yaml = frontmatterMatch[1];
+            const nameMatch = yaml.match(/name:\s*(.+)/);
+            const descMatch = yaml.match(/description:\s*(.+)/);
+            if (nameMatch) metadata.name = nameMatch[1].trim();
+            if (descMatch) metadata.description = descMatch[1].trim();
+          }
+          
+          skills.push({
+            id: entry.name,
+            name: metadata.name,
+            description: metadata.description,
+            path: skillPath,
+            skillMdPath: skillMdPath
+          });
+        }
+      }
+    }
+    
+    return { skills, skillsDir };
+  } catch (err) {
+    console.error('Error discovering SKILL packages:', err);
+    return { skills: [], skillsDir: null, error: err.message };
+  }
 }
 
 /**

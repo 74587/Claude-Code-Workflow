@@ -1,25 +1,10 @@
 // CLI Manager View
-// Main view combining CLI status, CCW installations, and history panels
+// Main view combining CLI status and CCW installations panels (two-column layout)
 
 // ========== CLI Manager State ==========
 var currentCliExecution = null;
 var cliExecutionOutput = '';
 var ccwInstallations = [];
-
-// ========== Initialization ==========
-function initCliManager() {
-  document.querySelectorAll('.nav-item[data-view="cli-manager"]').forEach(function(item) {
-    item.addEventListener('click', function() {
-      setActiveNavItem(item);
-      currentView = 'cli-manager';
-      currentFilter = null;
-      currentLiteType = null;
-      currentSessionDetailKey = null;
-      updateContentTitle();
-      renderCliManager();
-    });
-  });
-}
 
 // ========== CCW Installations ==========
 async function loadCcwInstallations() {
@@ -50,24 +35,189 @@ async function renderCliManager() {
   // Load data
   await Promise.all([
     loadCliToolStatus(),
-    loadCliHistory(),
     loadCcwInstallations()
   ]);
 
-  container.innerHTML = '<div class="cli-manager-container">' +
-    '<div class="cli-manager-grid">' +
-    '<div class="cli-panel"><div id="cli-status-panel"></div></div>' +
-    '<div class="cli-panel"><div id="ccw-install-panel"></div></div>' +
+  container.innerHTML = '<div class="status-manager">' +
+    '<div class="status-two-column">' +
+    '<div class="status-section" id="tools-section"></div>' +
+    '<div class="status-section" id="ccw-section"></div>' +
     '</div>' +
-    '<div class="cli-panel cli-panel-full"><div id="cli-history-panel"></div></div>' +
     '</div>';
 
   // Render sub-panels
-  renderCliStatus();
-  renderCcwInstallPanel();
-  renderCliHistory();
+  renderToolsSection();
+  renderCcwSection();
 
   // Initialize Lucide icons
+  if (window.lucide) lucide.createIcons();
+}
+
+// ========== Tools Section (Left Column) ==========
+function renderToolsSection() {
+  var container = document.getElementById('tools-section');
+  if (!container) return;
+
+  var toolDescriptions = {
+    gemini: 'Google AI for code analysis',
+    qwen: 'Alibaba AI assistant',
+    codex: 'OpenAI code generation'
+  };
+
+  var tools = ['gemini', 'qwen', 'codex'];
+  var available = Object.values(cliToolStatus).filter(function(t) { return t.available; }).length;
+
+  var toolsHtml = tools.map(function(tool) {
+    var status = cliToolStatus[tool] || {};
+    var isAvailable = status.available;
+    var isDefault = defaultCliTool === tool;
+
+    return '<div class="tool-item ' + (isAvailable ? 'available' : 'unavailable') + '">' +
+      '<div class="tool-item-left">' +
+        '<span class="tool-status-dot ' + (isAvailable ? 'status-available' : 'status-unavailable') + '"></span>' +
+        '<div class="tool-item-info">' +
+          '<div class="tool-item-name">' + tool.charAt(0).toUpperCase() + tool.slice(1) +
+            (isDefault ? '<span class="tool-default-badge">Default</span>' : '') +
+          '</div>' +
+          '<div class="tool-item-desc">' + toolDescriptions[tool] + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="tool-item-right">' +
+        (isAvailable
+          ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Ready</span>'
+          : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> Not Installed</span>') +
+        (isAvailable && !isDefault
+          ? '<button class="btn-sm btn-outline" onclick="setDefaultCliTool(\'' + tool + '\')"><i data-lucide="star" class="w-3 h-3"></i> Set Default</button>'
+          : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // CodexLens item
+  var codexLensHtml = '<div class="tool-item ' + (codexLensStatus.ready ? 'available' : 'unavailable') + '">' +
+    '<div class="tool-item-left">' +
+      '<span class="tool-status-dot ' + (codexLensStatus.ready ? 'status-available' : 'status-unavailable') + '"></span>' +
+      '<div class="tool-item-info">' +
+        '<div class="tool-item-name">CodexLens <span class="tool-type-badge">Index</span></div>' +
+        '<div class="tool-item-desc">' + (codexLensStatus.ready ? 'Code indexing & FTS search' : 'Full-text code search engine') + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="tool-item-right">' +
+      (codexLensStatus.ready
+        ? '<span class="tool-status-text success"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> v' + (codexLensStatus.version || 'installed') + '</span>' +
+          '<button class="btn-sm btn-outline" onclick="initCodexLensIndex()"><i data-lucide="database" class="w-3 h-3"></i> Init Index</button>'
+        : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> Not Installed</span>' +
+          '<button class="btn-sm btn-primary" onclick="installCodexLens()"><i data-lucide="download" class="w-3 h-3"></i> Install</button>') +
+    '</div>' +
+  '</div>';
+
+  // Semantic Search item (only show if CodexLens is installed)
+  var semanticHtml = '';
+  if (codexLensStatus.ready) {
+    semanticHtml = '<div class="tool-item ' + (semanticStatus.available ? 'available' : 'unavailable') + '">' +
+      '<div class="tool-item-left">' +
+        '<span class="tool-status-dot ' + (semanticStatus.available ? 'status-available' : 'status-unavailable') + '"></span>' +
+        '<div class="tool-item-info">' +
+          '<div class="tool-item-name">Semantic Search <span class="tool-type-badge ai">AI</span></div>' +
+          '<div class="tool-item-desc">' + (semanticStatus.available ? 'AI-powered code understanding' : 'Natural language code search') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="tool-item-right">' +
+        (semanticStatus.available
+          ? '<span class="tool-status-text success"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ' + (semanticStatus.backend || 'Ready') + '</span>'
+          : '<span class="tool-status-text muted"><i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i> Not Installed</span>' +
+            '<button class="btn-sm btn-primary" onclick="openSemanticInstallWizard()"><i data-lucide="brain" class="w-3 h-3"></i> Install</button>') +
+      '</div>' +
+    '</div>';
+  }
+
+  container.innerHTML = '<div class="section-header">' +
+      '<div class="section-header-left">' +
+        '<h3><i data-lucide="terminal" class="w-4 h-4"></i> CLI Tools</h3>' +
+        '<span class="section-count">' + available + '/' + tools.length + ' available</span>' +
+      '</div>' +
+      '<button class="btn-icon" onclick="refreshAllCliStatus()" title="Refresh Status">' +
+        '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
+      '</button>' +
+    '</div>' +
+    '<div class="tools-list">' +
+      toolsHtml +
+      codexLensHtml +
+      semanticHtml +
+    '</div>';
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// ========== CCW Section (Right Column) ==========
+function renderCcwSection() {
+  var container = document.getElementById('ccw-section');
+  if (!container) return;
+
+  var installationsHtml = '';
+
+  if (ccwInstallations.length === 0) {
+    installationsHtml = '<div class="ccw-empty-state">' +
+      '<i data-lucide="package-x" class="w-8 h-8"></i>' +
+      '<p>No installations found</p>' +
+      '<button class="btn btn-sm btn-primary" onclick="showCcwInstallModal()">' +
+      '<i data-lucide="download" class="w-3 h-3"></i> Install CCW</button>' +
+    '</div>';
+  } else {
+    installationsHtml = '<div class="ccw-list">';
+    for (var i = 0; i < ccwInstallations.length; i++) {
+      var inst = ccwInstallations[i];
+      var isGlobal = inst.installation_mode === 'Global';
+      var modeIcon = isGlobal ? 'home' : 'folder';
+      var version = inst.application_version || 'unknown';
+      var installDate = new Date(inst.installation_date).toLocaleDateString();
+
+      installationsHtml += '<div class="ccw-item">' +
+        '<div class="ccw-item-left">' +
+          '<div class="ccw-item-mode ' + (isGlobal ? 'global' : 'path') + '">' +
+            '<i data-lucide="' + modeIcon + '" class="w-4 h-4"></i>' +
+          '</div>' +
+          '<div class="ccw-item-info">' +
+            '<div class="ccw-item-header">' +
+              '<span class="ccw-item-name">' + inst.installation_mode + '</span>' +
+              '<span class="ccw-version-tag">v' + version + '</span>' +
+            '</div>' +
+            '<div class="ccw-item-path" title="' + inst.installation_path + '">' + escapeHtml(inst.installation_path) + '</div>' +
+            '<div class="ccw-item-meta">' +
+              '<span><i data-lucide="calendar" class="w-3 h-3"></i> ' + installDate + '</span>' +
+              '<span><i data-lucide="file" class="w-3 h-3"></i> ' + (inst.files_count || 0) + ' files</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ccw-item-actions">' +
+          '<button class="btn-icon btn-icon-sm" onclick="runCcwUpgrade()" title="Upgrade">' +
+            '<i data-lucide="arrow-up-circle" class="w-4 h-4"></i>' +
+          '</button>' +
+          '<button class="btn-icon btn-icon-sm btn-danger" onclick="confirmCcwUninstall(\'' + escapeHtml(inst.installation_path) + '\')" title="Uninstall">' +
+            '<i data-lucide="trash-2" class="w-4 h-4"></i>' +
+          '</button>' +
+        '</div>' +
+      '</div>';
+    }
+    installationsHtml += '</div>';
+  }
+
+  container.innerHTML = '<div class="section-header">' +
+      '<div class="section-header-left">' +
+        '<h3><i data-lucide="package" class="w-4 h-4"></i> CCW Install</h3>' +
+        '<span class="section-count">' + ccwInstallations.length + ' installation' + (ccwInstallations.length !== 1 ? 's' : '') + '</span>' +
+      '</div>' +
+      '<div class="section-header-actions">' +
+        '<button class="btn-icon" onclick="showCcwInstallModal()" title="Add Installation">' +
+          '<i data-lucide="plus" class="w-4 h-4"></i>' +
+        '</button>' +
+        '<button class="btn-icon" onclick="loadCcwInstallations().then(function() { renderCcwSection(); if (window.lucide) lucide.createIcons(); })" title="Refresh">' +
+          '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
+        '</button>' +
+      '</div>' +
+    '</div>' +
+    installationsHtml;
+
   if (window.lucide) lucide.createIcons();
 }
 

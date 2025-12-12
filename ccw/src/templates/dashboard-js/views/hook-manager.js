@@ -74,6 +74,22 @@ async function renderHookManager() {
         `}
       </div>
 
+      <!-- Hook Wizards -->
+      <div class="hook-section mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <h3 class="text-lg font-semibold text-foreground">Hook Wizards</h3>
+            <span class="badge px-2 py-0.5 text-xs font-semibold rounded-full bg-success/20 text-success">Guided Setup</span>
+          </div>
+          <span class="text-sm text-muted-foreground">Configure complex hooks with guided wizards</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          ${renderWizardCard('memory-update')}
+          ${renderWizardCard('skill-context')}
+        </div>
+      </div>
+
       <!-- Quick Install Templates -->
       <div class="hook-section">
         <div class="flex items-center justify-between mb-4">
@@ -134,9 +150,110 @@ async function renderHookManager() {
 
   // Attach event listeners
   attachHookEventListeners();
-  
+
   // Initialize Lucide icons
   if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// Load available SKILLs for skill-context wizard
+async function loadAvailableSkills() {
+  try {
+    const response = await fetch(`/api/skills?path=${encodeURIComponent(projectPath)}`);
+    if (!response.ok) throw new Error('Failed to load skills');
+    const data = await response.json();
+    
+    const container = document.getElementById('skill-discovery-skill-context');
+    if (container && data.skills) {
+      if (data.skills.length === 0) {
+        container.innerHTML = `
+          <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Available SKILLs:</span>
+          <span class="text-muted-foreground ml-2">No SKILLs found in .claude/skills/</span>
+        `;
+      } else {
+        const skillBadges = data.skills.map(skill => `
+          <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded" title="${escapeHtml(skill.description)}">${escapeHtml(skill.name)}</span>
+        `).join('');
+        container.innerHTML = `
+          <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Available SKILLs:</span>
+          <div class="flex flex-wrap gap-1 mt-1">${skillBadges}</div>
+        `;
+      }
+    }
+    
+    // Store skills for wizard use
+    window.availableSkills = data.skills || [];
+  } catch (err) {
+    console.error('Failed to load skills:', err);
+    const container = document.getElementById('skill-discovery-skill-context');
+    if (container) {
+      container.innerHTML = `
+        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Available SKILLs:</span>
+        <span class="text-destructive ml-2">Error loading skills</span>
+      `;
+    }
+  }
+}
+
+// Call loadAvailableSkills after rendering hook manager
+const originalRenderHookManager = typeof renderHookManager === 'function' ? renderHookManager : null;
+
+function renderWizardCard(wizardId) {
+  const wizard = WIZARD_TEMPLATES[wizardId];
+  if (!wizard) return '';
+
+  // Determine what to show in the tools/skills section
+  const toolsSection = wizard.requiresSkillDiscovery 
+    ? `
+      <div class="flex items-center gap-2 text-xs text-muted-foreground mb-4">
+        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Event:</span>
+        <span class="px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded">UserPromptSubmit</span>
+      </div>
+      <div id="skill-discovery-${wizardId}" class="text-xs text-muted-foreground mb-4">
+        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">Available SKILLs:</span>
+        <span class="text-muted-foreground ml-2">Loading...</span>
+      </div>
+    `
+    : `
+      <div class="flex items-center gap-2 text-xs text-muted-foreground mb-4">
+        <span class="font-mono bg-muted px-1.5 py-0.5 rounded">CLI Tools:</span>
+        <span class="px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded">gemini</span>
+        <span class="px-2 py-0.5 bg-purple-500/10 text-purple-500 rounded">qwen</span>
+        <span class="px-2 py-0.5 bg-green-500/10 text-green-500 rounded">codex</span>
+      </div>
+    `;
+
+  return `
+    <div class="hook-wizard-card bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-5 hover:shadow-lg transition-all">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 bg-primary/10 rounded-lg">
+            <i data-lucide="${wizard.icon}" class="w-6 h-6 text-primary"></i>
+          </div>
+          <div>
+            <h4 class="font-semibold text-foreground">${escapeHtml(wizard.name)}</h4>
+            <p class="text-sm text-muted-foreground">${escapeHtml(wizard.description)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2 mb-4">
+        ${wizard.options.map(opt => `
+          <div class="flex items-center gap-2 text-sm text-muted-foreground">
+            <i data-lucide="check" class="w-4 h-4 text-success"></i>
+            <span>${escapeHtml(opt.name)}: ${escapeHtml(opt.description)}</span>
+          </div>
+        `).join('')}
+      </div>
+
+      ${toolsSection}
+
+      <button class="w-full px-4 py-2.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              onclick="openHookWizardModal('${wizardId}')">
+        <i data-lucide="wand-2" class="w-4 h-4"></i>
+        Open Wizard
+      </button>
+    </div>
+  `;
 }
 
 function countHooks(hooks) {
@@ -214,6 +331,8 @@ function renderHooksByEvent(hooks, scope) {
 
 function renderQuickInstallCard(templateId, title, description, event, matcher) {
   const isInstalled = isHookTemplateInstalled(templateId);
+  const template = HOOK_TEMPLATES[templateId];
+  const category = template?.category || 'general';
 
   return `
     <div class="hook-template-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all ${isInstalled ? 'border-success bg-success-light/30' : ''}">
@@ -225,6 +344,11 @@ function renderQuickInstallCard(templateId, title, description, event, matcher) 
             <p class="text-xs text-muted-foreground">${escapeHtml(description)}</p>
           </div>
         </div>
+        <button class="p-1.5 text-muted-foreground hover:text-foreground hover:bg-hover rounded transition-colors"
+                onclick="viewTemplateDetails('${templateId}')"
+                title="View template details">
+          <i data-lucide="eye" class="w-4 h-4"></i>
+        </button>
       </div>
 
       <div class="hook-template-meta text-xs text-muted-foreground mb-3 flex items-center gap-3">
@@ -234,6 +358,7 @@ function renderQuickInstallCard(templateId, title, description, event, matcher) 
         <span class="flex items-center gap-1">
           Matches: <span class="font-medium">${matcher}</span>
         </span>
+        <span class="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-xs">${category}</span>
       </div>
 
       <div class="flex items-center gap-2">

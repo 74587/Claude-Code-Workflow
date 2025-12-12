@@ -95,6 +95,112 @@ async function checkVenvStatus() {
 }
 
 /**
+ * Check if semantic search dependencies are installed
+ * @returns {Promise<{available: boolean, backend?: string, error?: string}>}
+ */
+async function checkSemanticStatus() {
+  // First check if CodexLens is installed
+  const venvStatus = await checkVenvStatus();
+  if (!venvStatus.ready) {
+    return { available: false, error: 'CodexLens not installed' };
+  }
+
+  // Check semantic module availability
+  return new Promise((resolve) => {
+    const checkCode = `
+import sys
+try:
+    from codexlens.semantic import SEMANTIC_AVAILABLE, SEMANTIC_BACKEND
+    if SEMANTIC_AVAILABLE:
+        print(f"available:{SEMANTIC_BACKEND}")
+    else:
+        print("unavailable")
+except Exception as e:
+    print(f"error:{e}")
+`;
+    const child = spawn(VENV_PYTHON, ['-c', checkCode], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 15000
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => { stdout += data.toString(); });
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
+
+    child.on('close', (code) => {
+      const output = stdout.trim();
+      if (output.startsWith('available:')) {
+        const backend = output.split(':')[1];
+        resolve({ available: true, backend });
+      } else if (output === 'unavailable') {
+        resolve({ available: false, error: 'Semantic dependencies not installed' });
+      } else {
+        resolve({ available: false, error: output || stderr || 'Unknown error' });
+      }
+    });
+
+    child.on('error', (err) => {
+      resolve({ available: false, error: `Check failed: ${err.message}` });
+    });
+  });
+}
+
+/**
+ * Install semantic search dependencies
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function installSemantic() {
+  // First ensure CodexLens is installed
+  const venvStatus = await checkVenvStatus();
+  if (!venvStatus.ready) {
+    return { success: false, error: 'CodexLens not installed. Install CodexLens first.' };
+  }
+
+  const pipPath = process.platform === 'win32'
+    ? join(CODEXLENS_VENV, 'Scripts', 'pip.exe')
+    : join(CODEXLENS_VENV, 'bin', 'pip');
+
+  return new Promise((resolve) => {
+    console.log('[CodexLens] Installing semantic search dependencies...');
+
+    // Install sentence-transformers and numpy
+    const child = spawn(pipPath, ['install', 'numpy>=1.24', 'sentence-transformers>=2.2'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 300000 // 5 minutes for model download
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+      // Log progress
+      const line = data.toString().trim();
+      if (line.includes('Downloading') || line.includes('Installing')) {
+        console.log(`[CodexLens] ${line}`);
+      }
+    });
+
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        console.log('[CodexLens] Semantic dependencies installed successfully');
+        resolve({ success: true });
+      } else {
+        resolve({ success: false, error: `Installation failed: ${stderr || stdout}` });
+      }
+    });
+
+    child.on('error', (err) => {
+      resolve({ success: false, error: `Failed to run pip: ${err.message}` });
+    });
+  });
+}
+
+/**
  * Bootstrap CodexLens venv with required packages
  * @returns {Promise<{success: boolean, error?: string}>}
  */
@@ -471,4 +577,4 @@ Features:
 };
 
 // Export for direct usage
-export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv };
+export { ensureReady, executeCodexLens, checkVenvStatus, bootstrapVenv, checkSemanticStatus, installSemantic };
