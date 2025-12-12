@@ -257,28 +257,25 @@ function renderCcwEndpointToolsSection() {
       '<i data-lucide="refresh-cw" class="w-3 h-3"></i> Refresh</button>' +
       '</div>';
   } else {
-    toolsHtml = '<div class="tools-list">' +
-      ccwEndpointTools.map(function(t) {
+    toolsHtml = '<div class="endpoint-tools-grid">' +
+      ccwEndpointTools.map(function(t, idx) {
         var name = t && t.name ? String(t.name) : 'unknown';
         var desc = t && t.description ? String(t.description) : '';
         var requiredCount = (t && t.parameters && Array.isArray(t.parameters.required)) ? t.parameters.required.length : 0;
         var propsCount = (t && t.parameters && t.parameters.properties) ? Object.keys(t.parameters.properties).length : 0;
+        var shortDesc = desc.length > 60 ? desc.substring(0, 60) + '...' : desc;
 
-        return '<div class="tool-item endpoint">' +
-          '<div class="tool-item-left">' +
-            '<span class="tool-status-dot status-available" style="background: hsl(var(--indigo)); box-shadow: 0 0 6px hsl(var(--indigo) / 0.45);"></span>' +
-            '<div class="tool-item-info">' +
-              '<div class="tool-item-name">' + escapeHtml(name) +
-                '<span class="tool-type-badge">endpoint</span>' +
-              '</div>' +
-              '<div class="tool-item-desc">' + escapeHtml(desc || '—') + '</div>' +
-            '</div>' +
+        return '<div class="endpoint-tool-card" onclick="showEndpointToolDetail(' + idx + ')">' +
+          '<div class="endpoint-tool-header">' +
+            '<span class="endpoint-tool-dot"></span>' +
+            '<span class="endpoint-tool-name">' + escapeHtml(name) + '</span>' +
           '</div>' +
-          '<div class="tool-item-right">' +
-            '<span class="tool-status-text muted">' +
-              '<i data-lucide="braces" class="w-3.5 h-3.5"></i> ' +
-              propsCount + ' params' + (requiredCount ? (' · ' + requiredCount + ' required') : '') +
+          '<div class="endpoint-tool-desc">' + escapeHtml(shortDesc || 'No description') + '</div>' +
+          '<div class="endpoint-tool-meta">' +
+            '<span class="endpoint-tool-params">' +
+              '<i data-lucide="braces" class="w-3 h-3"></i> ' + propsCount +
             '</span>' +
+            (requiredCount > 0 ? '<span class="endpoint-tool-required">' + requiredCount + ' required</span>' : '') +
           '</div>' +
         '</div>';
       }).join('') +
@@ -297,6 +294,108 @@ function renderCcwEndpointToolsSection() {
     toolsHtml;
 
   if (window.lucide) lucide.createIcons();
+}
+
+// ========== Endpoint Tool Detail Modal ==========
+function showEndpointToolDetail(toolIndex) {
+  var tool = ccwEndpointTools[toolIndex];
+  if (!tool) return;
+
+  var name = tool.name || 'unknown';
+  var desc = tool.description || 'No description available';
+  var params = tool.parameters || {};
+  var properties = params.properties || {};
+  var required = params.required || [];
+
+  // Build parameters table
+  var paramsHtml = '';
+  var propKeys = Object.keys(properties);
+
+  if (propKeys.length > 0) {
+    paramsHtml = '<div class="tool-detail-params">' +
+      '<h4><i data-lucide="settings-2" class="w-4 h-4"></i> Parameters</h4>' +
+      '<div class="tool-params-list">';
+
+    for (var i = 0; i < propKeys.length; i++) {
+      var key = propKeys[i];
+      var prop = properties[key];
+      var isRequired = required.indexOf(key) !== -1;
+      var propType = prop.type || 'any';
+      var propDesc = prop.description || '';
+      var propDefault = prop.default !== undefined ? JSON.stringify(prop.default) : null;
+      var propEnum = prop.enum ? prop.enum.join(', ') : null;
+
+      paramsHtml += '<div class="tool-param-item">' +
+        '<div class="tool-param-header">' +
+          '<code class="tool-param-name">' + escapeHtml(key) + '</code>' +
+          '<span class="tool-param-type">' + escapeHtml(propType) + '</span>' +
+          (isRequired ? '<span class="tool-param-required">required</span>' : '<span class="tool-param-optional">optional</span>') +
+        '</div>' +
+        (propDesc ? '<div class="tool-param-desc">' + escapeHtml(propDesc) + '</div>' : '') +
+        (propDefault ? '<div class="tool-param-default">Default: <code>' + escapeHtml(propDefault) + '</code></div>' : '') +
+        (propEnum ? '<div class="tool-param-enum">Options: <code>' + escapeHtml(propEnum) + '</code></div>' : '') +
+      '</div>';
+    }
+
+    paramsHtml += '</div></div>';
+  } else {
+    paramsHtml = '<div class="tool-detail-no-params">' +
+      '<i data-lucide="info" class="w-4 h-4"></i>' +
+      '<span>This tool has no parameters</span>' +
+    '</div>';
+  }
+
+  // Usage example
+  var usageExample = 'ccw tool exec ' + name;
+  if (propKeys.length > 0) {
+    var exampleParams = {};
+    for (var j = 0; j < Math.min(propKeys.length, 2); j++) {
+      var k = propKeys[j];
+      var p = properties[k];
+      if (p.type === 'string') exampleParams[k] = '<value>';
+      else if (p.type === 'boolean') exampleParams[k] = true;
+      else if (p.type === 'number') exampleParams[k] = 0;
+      else exampleParams[k] = '<value>';
+    }
+    usageExample += " '" + JSON.stringify(exampleParams) + "'";
+  }
+
+  var modalContent = '<div class="tool-detail-modal">' +
+    '<div class="tool-detail-header">' +
+      '<div class="tool-detail-icon"><i data-lucide="terminal" class="w-6 h-6"></i></div>' +
+      '<div class="tool-detail-title">' +
+        '<h3>' + escapeHtml(name) + '</h3>' +
+        '<span class="tool-detail-badge">endpoint tool</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="tool-detail-desc">' + escapeHtml(desc) + '</div>' +
+    paramsHtml +
+    '<div class="tool-detail-usage">' +
+      '<h4><i data-lucide="terminal-square" class="w-4 h-4"></i> Usage Example</h4>' +
+      '<div class="tool-usage-code">' +
+        '<code>' + escapeHtml(usageExample) + '</code>' +
+        '<button class="tool-copy-btn" onclick="copyToolUsage(this, \'' + escapeHtml(usageExample.replace(/'/g, "\\'")) + '\')" title="Copy">' +
+          '<i data-lucide="copy" class="w-3.5 h-3.5"></i>' +
+        '</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  showModal(name, modalContent, { size: 'lg' });
+}
+
+function copyToolUsage(btn, text) {
+  navigator.clipboard.writeText(text).then(function() {
+    var icon = btn.querySelector('i');
+    if (icon) {
+      icon.setAttribute('data-lucide', 'check');
+      if (window.lucide) lucide.createIcons();
+      setTimeout(function() {
+        icon.setAttribute('data-lucide', 'copy');
+        if (window.lucide) lucide.createIcons();
+      }, 2000);
+    }
+  });
 }
 
 // CCW Install Carousel State
