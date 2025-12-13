@@ -62,22 +62,18 @@ Aggregate lessons learned from workflow sessions, categorized by functional doma
 - Lessons: `manifest.json` -> `archives[].lessons.{successes|challenges|watch_patterns}`
 - Session metadata: `.workflow/.archives/{session_id}/workflow-session.json`
 
-## Aggregation Rules (Use Gemini CLI)
+## Aggregation Rules (Use CCW CLI)
 
 **Command Pattern**:
 ```bash
-gemini -p "
+ccw cli exec "
 PURPOSE: Aggregate workflow lessons from session data
-TASK:
-• Group successes by functional domain
-• Categorize challenges by severity (HIGH/MEDIUM/LOW)
-• Identify watch patterns with frequency >= 2
-• Mark CRITICAL patterns (3+ sessions)
+TASK: • Group successes by functional domain • Categorize challenges by severity (HIGH/MEDIUM/LOW) • Identify watch patterns with frequency >= 2 • Mark CRITICAL patterns (3+ sessions)
 MODE: analysis
 CONTEXT: @.workflow/.archives/manifest.json
 EXPECTED: Aggregated lessons with frequency counts
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/workflow/skill-aggregation.txt)
-"
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/workflow/skill-aggregation.txt) | analysis=READ-ONLY
+" --tool gemini --cd .workflow/.archives
 ```
 
 **Severity Classification**:

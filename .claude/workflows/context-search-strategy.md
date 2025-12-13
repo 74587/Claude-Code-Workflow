@@ -26,15 +26,15 @@ type: search-guideline
 ## 🔧 Quick Command Reference
 
 ```bash
-# Semantic File Discovery (codebase-retrieval)
-cd [directory] && gemini -p "
+# Semantic File Discovery (codebase-retrieval via CCW)
+ccw cli exec "
 PURPOSE: Discover files relevant to task/feature
-TASK: List all files related to [task/feature description]
+TASK: • List all files related to [task/feature description]
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: Relevant file paths with relevance explanation
-RULES: Focus on direct relevance to task requirements
-"
+RULES: Focus on direct relevance to task requirements | analysis=READ-ONLY
+" --tool gemini --cd [directory]
 
 # Program Architecture (MANDATORY before planning)
 ccw tool exec get_modules_by_depth '{}'

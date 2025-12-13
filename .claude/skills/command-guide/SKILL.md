@@ -200,21 +200,21 @@ Comprehensive command guide for Claude Code Workflow (CCW) system covering 78 co
 
 **Complex Query** (CLI-assisted analysis):
 1. **Detect complexity indicators** (多个命令对比、工作流程分析、最佳实践)
-2. **Design targeted analysis prompt** for gemini/qwen:
+2. **Design targeted analysis prompt** for gemini/qwen via CCW:
    - Frame user's question precisely
    - Specify required analysis depth
    - Request structured comparison/synthesis
    ```bash
-   gemini -p "
+   ccw cli exec "
    PURPOSE: Analyze command documentation to answer user query
-   TASK: [extracted user question with context]
+   TASK: • [extracted user question with context]
    MODE: analysis
    CONTEXT: @**/*
    EXPECTED: Comprehensive answer with examples and recommendations
    RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on practical usage | analysis=READ-ONLY
-   " -m gemini-3-pro-preview-11-2025 --include-directories ~/.claude/skills/command-guide/reference
+   " --tool gemini --cd ~/.claude/skills/command-guide/reference
    ```
-   Note: Use absolute path `~/.claude/skills/command-guide/reference` for reference documentation access
+   Note: Use `--cd` with absolute path `~/.claude/skills/command-guide/reference` for reference documentation access
 3. **Process and integrate CLI analysis**:
    - Extract key insights from CLI output
    - Add context-specific examples
