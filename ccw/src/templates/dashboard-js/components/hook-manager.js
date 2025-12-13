@@ -12,8 +12,8 @@ const HOOK_TEMPLATES = {
   'ccw-notify': {
     event: 'PostToolUse',
     matcher: 'Write',
-    command: 'curl',
-    args: ['-s', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', '{"type":"summary_written","filePath":"$CLAUDE_FILE_PATHS"}', 'http://localhost:3456/api/hook'],
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -n "$FILE_PATH" ] && curl -s -X POST -H "Content-Type: application/json" -d "{\\"type\\":\\"file_written\\",\\"filePath\\":\\"$FILE_PATH\\"}" http://localhost:3456/api/hook || true'],
     description: 'Notify CCW dashboard when files are written',
     category: 'notification'
   },
@@ -21,7 +21,7 @@ const HOOK_TEMPLATES = {
     event: 'PostToolUse',
     matcher: '',
     command: 'bash',
-    args: ['-c', 'echo "[$(date)] Tool: $CLAUDE_TOOL_NAME, Files: $CLAUDE_FILE_PATHS" >> ~/.claude/tool-usage.log'],
+    args: ['-c', 'INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty"); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); echo "[$(date)] Tool: $TOOL, File: $FILE" >> ~/.claude/tool-usage.log'],
     description: 'Log all tool executions to a file',
     category: 'logging'
   },
@@ -29,7 +29,7 @@ const HOOK_TEMPLATES = {
     event: 'PostToolUse',
     matcher: 'Write',
     command: 'bash',
-    args: ['-c', 'for f in $CLAUDE_FILE_PATHS; do if [[ "$f" =~ \\.(js|ts|jsx|tsx)$ ]]; then npx eslint "$f" --fix 2>/dev/null || true; fi; done'],
+    args: ['-c', 'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // empty"); if [[ "$FILE" =~ \\.(js|ts|jsx|tsx)$ ]]; then npx eslint "$FILE" --fix 2>/dev/null || true; fi'],
     description: 'Run ESLint on JavaScript/TypeScript files after write',
     category: 'quality'
   },
@@ -37,7 +37,7 @@ const HOOK_TEMPLATES = {
     event: 'PostToolUse',
     matcher: 'Write',
     command: 'bash',
-    args: ['-c', 'for f in $CLAUDE_FILE_PATHS; do git add "$f" 2>/dev/null || true; done'],
+    args: ['-c', 'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // empty"); [ -n "$FILE" ] && git add "$FILE" 2>/dev/null || true'],
     description: 'Automatically stage written files to git',
     category: 'git'
   },
@@ -45,7 +45,7 @@ const HOOK_TEMPLATES = {
     event: 'PostToolUse',
     matcher: 'Write|Edit',
     command: 'bash',
-    args: ['-c', 'if [ -d ".codexlens" ] && [ -n "$CLAUDE_FILE_PATHS" ]; then python -m codexlens update $CLAUDE_FILE_PATHS --json 2>/dev/null || ~/.codexlens/venv/bin/python -m codexlens update $CLAUDE_FILE_PATHS --json 2>/dev/null || true; fi'],
+    args: ['-c', 'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -d ".codexlens" ] && [ -n "$FILE" ] && (python -m codexlens update "$FILE" --json 2>/dev/null || ~/.codexlens/venv/bin/python -m codexlens update "$FILE" --json 2>/dev/null || true)'],
     description: 'Auto-update code index when files are written or edited',
     category: 'indexing'
   },
@@ -80,7 +80,7 @@ const HOOK_TEMPLATES = {
     event: 'UserPromptSubmit',
     matcher: '',
     command: 'bash',
-    args: ['-c', 'ccw tool exec skill_context_loader \'{"keywords":"$SKILL_KEYWORDS","skills":"$SKILL_NAMES","prompt":"$CLAUDE_PROMPT"}\''],
+    args: ['-c', 'ccw tool exec skill_context_loader --stdin'],
     description: 'Load SKILL context based on keyword matching in user prompt',
     category: 'skill',
     configurable: true,
@@ -93,10 +93,37 @@ const HOOK_TEMPLATES = {
     event: 'UserPromptSubmit',
     matcher: '',
     command: 'bash',
-    args: ['-c', 'ccw tool exec skill_context_loader \'{"mode":"auto","prompt":"$CLAUDE_PROMPT"}\''],
+    args: ['-c', 'ccw tool exec skill_context_loader --stdin --mode auto'],
     description: 'Auto-detect and load SKILL based on skill name in prompt',
     category: 'skill',
     configurable: false
+  },
+  'memory-file-read': {
+    event: 'PostToolUse',
+    matcher: 'Read|mcp__ccw-tools__read_file',
+    command: 'ccw',
+    args: ['memory', 'track', '--type', 'file', '--action', 'read', '--stdin'],
+    description: 'Track file reads to build context heatmap',
+    category: 'memory',
+    timeout: 5000
+  },
+  'memory-file-write': {
+    event: 'PostToolUse',
+    matcher: 'Write|Edit|mcp__ccw-tools__write_file|mcp__ccw-tools__edit_file',
+    command: 'ccw',
+    args: ['memory', 'track', '--type', 'file', '--action', 'write', '--stdin'],
+    description: 'Track file modifications to identify core modules',
+    category: 'memory',
+    timeout: 5000
+  },
+  'memory-prompt-track': {
+    event: 'UserPromptSubmit',
+    matcher: '',
+    command: 'ccw',
+    args: ['memory', 'track', '--type', 'topic', '--action', 'mention', '--stdin'],
+    description: 'Record user prompts for pattern analysis',
+    category: 'memory',
+    timeout: 5000
   }
 };
 
@@ -147,6 +174,33 @@ const WIZARD_TEMPLATES = {
     configFields: [],
     requiresSkillDiscovery: true,
     customRenderer: 'renderSkillContextConfig'
+  },
+  'memory-setup': {
+    name: 'Memory Module Setup',
+    description: 'Configure automatic context tracking',
+    icon: 'brain',
+    options: [
+      {
+        id: 'file-read',
+        name: 'File Read Tracker',
+        description: 'Track file reads to build context heatmap',
+        templateId: 'memory-file-read'
+      },
+      {
+        id: 'file-write',
+        name: 'File Write Tracker',
+        description: 'Track file modifications to identify core modules',
+        templateId: 'memory-file-write'
+      },
+      {
+        id: 'prompts',
+        name: 'Prompt Tracker',
+        description: 'Record user prompts for pattern analysis',
+        templateId: 'memory-prompt-track'
+      }
+    ],
+    configFields: [],
+    multiSelect: true
   }
 };
 
@@ -181,8 +235,60 @@ async function loadHookConfig() {
   }
 }
 
+/**
+ * Convert internal hook format to Claude Code format
+ * Internal: { command, args, matcher, timeout }
+ * Claude Code: { matcher, hooks: [{ type: "command", command: "...", timeout }] }
+ */
+function convertToClaudeCodeFormat(hookData) {
+  // If already in correct format, return as-is
+  if (hookData.hooks && Array.isArray(hookData.hooks)) {
+    return hookData;
+  }
+  
+  // Build command string from command + args
+  let commandStr = hookData.command || '';
+  if (hookData.args && Array.isArray(hookData.args)) {
+    // Join args, properly quoting if needed
+    const quotedArgs = hookData.args.map(arg => {
+      if (arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")) {
+        return `"${arg.replace(/"/g, '\\"')}"`;
+      }
+      return arg;
+    });
+    commandStr = `${commandStr} ${quotedArgs.join(' ')}`.trim();
+  }
+  
+  const converted = {
+    hooks: [{
+      type: 'command',
+      command: commandStr
+    }]
+  };
+  
+  // Add matcher if present (not needed for UserPromptSubmit, Stop, etc.)
+  if (hookData.matcher) {
+    converted.matcher = hookData.matcher;
+  }
+  
+  // Add timeout if present (in seconds for Claude Code)
+  if (hookData.timeout) {
+    converted.hooks[0].timeout = Math.ceil(hookData.timeout / 1000);
+  }
+  
+  // Preserve replaceIndex for updates
+  if (hookData.replaceIndex !== undefined) {
+    converted.replaceIndex = hookData.replaceIndex;
+  }
+  
+  return converted;
+}
+
 async function saveHook(scope, event, hookData) {
   try {
+    // Convert to Claude Code format before saving
+    const convertedHookData = convertToClaudeCodeFormat(hookData);
+    
     const response = await fetch('/api/hooks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -190,7 +296,7 @@ async function saveHook(scope, event, hookData) {
         projectPath: projectPath,
         scope: scope,
         event: event,
-        hookData: hookData
+        hookData: convertedHookData
       })
     });
 
@@ -419,6 +525,11 @@ function openHookWizardModal(wizardId) {
     wizardConfig[field.key] = field.default;
   });
 
+  // Initialize selectedOptions for multi-select wizards
+  if (wizard.multiSelect) {
+    wizardConfig.selectedOptions = [];
+  }
+
   const modal = document.getElementById('hookWizardModal');
   if (modal) {
     renderWizardModalContent();
@@ -445,8 +556,10 @@ function renderWizardModalContent() {
 
   // Get translated wizard name and description
   const wizardName = wizardId === 'memory-update' ? t('hook.wizard.memoryUpdate') :
+                     wizardId === 'memory-setup' ? t('hook.wizard.memorySetup') :
                      wizardId === 'skill-context' ? t('hook.wizard.skillContext') : wizard.name;
   const wizardDesc = wizardId === 'memory-update' ? t('hook.wizard.memoryUpdateDesc') :
+                     wizardId === 'memory-setup' ? t('hook.wizard.memorySetupDesc') :
                      wizardId === 'skill-context' ? t('hook.wizard.skillContextDesc') : wizard.description;
 
   // Helper to get translated option names
@@ -454,6 +567,11 @@ function renderWizardModalContent() {
     if (wizardId === 'memory-update') {
       if (optId === 'on-stop') return t('hook.wizard.onSessionEnd');
       if (optId === 'periodic') return t('hook.wizard.periodicUpdate');
+    }
+    if (wizardId === 'memory-setup') {
+      if (optId === 'file-read') return t('hook.wizard.fileReadTracker');
+      if (optId === 'file-write') return t('hook.wizard.fileWriteTracker');
+      if (optId === 'prompts') return t('hook.wizard.promptTracker');
     }
     if (wizardId === 'skill-context') {
       if (optId === 'keyword') return t('hook.wizard.keywordMatching');
@@ -466,6 +584,11 @@ function renderWizardModalContent() {
     if (wizardId === 'memory-update') {
       if (optId === 'on-stop') return t('hook.wizard.onSessionEndDesc');
       if (optId === 'periodic') return t('hook.wizard.periodicUpdateDesc');
+    }
+    if (wizardId === 'memory-setup') {
+      if (optId === 'file-read') return t('hook.wizard.fileReadTrackerDesc');
+      if (optId === 'file-write') return t('hook.wizard.fileWriteTrackerDesc');
+      if (optId === 'prompts') return t('hook.wizard.promptTrackerDesc');
     }
     if (wizardId === 'skill-context') {
       if (optId === 'keyword') return t('hook.wizard.keywordMatchingDesc');
@@ -508,9 +631,23 @@ function renderWizardModalContent() {
 
       <!-- Trigger Type Selection -->
       <div class="space-y-3">
-        <label class="block text-sm font-medium text-foreground">${t('hook.wizard.whenToTrigger')}</label>
+        <label class="block text-sm font-medium text-foreground">${wizard.multiSelect ? t('hook.wizard.selectTrackers') : t('hook.wizard.whenToTrigger')}</label>
         <div class="grid grid-cols-1 gap-3">
-          ${wizard.options.map(opt => `
+          ${wizard.multiSelect ? wizard.options.map(opt => {
+            const isSelected = wizardConfig.selectedOptions?.includes(opt.id) || false;
+            return `
+              <label class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-all ${isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground'}">
+                <input type="checkbox" name="wizardTrigger" value="${opt.id}"
+                       ${isSelected ? 'checked' : ''}
+                       onchange="toggleWizardOption('${opt.id}')"
+                       class="mt-1">
+                <div class="flex-1">
+                  <span class="font-medium text-foreground">${escapeHtml(getOptionName(opt.id))}</span>
+                  <p class="text-sm text-muted-foreground">${escapeHtml(getOptionDesc(opt.id))}</p>
+                </div>
+              </label>
+            `;
+          }).join('') : wizard.options.map(opt => `
             <label class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-all ${selectedOption === opt.id ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground'}">
               <input type="radio" name="wizardTrigger" value="${opt.id}"
                      ${selectedOption === opt.id ? 'checked' : ''}
@@ -606,6 +743,21 @@ function renderWizardModalContent() {
 
 function updateWizardTrigger(triggerId) {
   wizardConfig.triggerType = triggerId;
+  renderWizardModalContent();
+}
+
+function toggleWizardOption(optionId) {
+  if (!wizardConfig.selectedOptions) {
+    wizardConfig.selectedOptions = [];
+  }
+
+  const index = wizardConfig.selectedOptions.indexOf(optionId);
+  if (index === -1) {
+    wizardConfig.selectedOptions.push(optionId);
+  } else {
+    wizardConfig.selectedOptions.splice(index, 1);
+  }
+
   renderWizardModalContent();
 }
 
@@ -793,6 +945,75 @@ async function submitHookWizard() {
   if (!currentWizardTemplate) return;
 
   const wizard = currentWizardTemplate;
+  const scope = document.querySelector('input[name="wizardScope"]:checked')?.value || 'project';
+
+  // Handle multi-select wizards
+  if (wizard.multiSelect) {
+    const selectedOptions = wizardConfig.selectedOptions || [];
+    if (selectedOptions.length === 0) {
+      showRefreshToast('Please select at least one option', 'error');
+      return;
+    }
+
+    // Install each selected hook (skip if already exists)
+    let installedCount = 0;
+    let skippedCount = 0;
+    
+    for (const optionId of selectedOptions) {
+      const selectedOption = wizard.options.find(o => o.id === optionId);
+      if (!selectedOption) continue;
+
+      const baseTemplate = HOOK_TEMPLATES[selectedOption.templateId];
+      if (!baseTemplate) continue;
+
+      // Check if hook already exists
+      const existingHooks = scope === 'global' 
+        ? hookConfig.global?.hooks?.[baseTemplate.event] || []
+        : hookConfig.project?.hooks?.[baseTemplate.event] || [];
+      
+      const hookList = Array.isArray(existingHooks) ? existingHooks : [existingHooks];
+      const alreadyExists = hookList.some(h => {
+        // Check by matcher and command
+        const existingMatcher = h.matcher || '';
+        const templateMatcher = baseTemplate.matcher || '';
+        const existingCmd = h.hooks?.[0]?.command || h.command || '';
+        const templateCmd = baseTemplate.command + ' ' + (baseTemplate.args || []).join(' ');
+        return existingMatcher === templateMatcher && existingCmd.includes(baseTemplate.command);
+      });
+
+      if (alreadyExists) {
+        skippedCount++;
+        continue;
+      }
+
+      const hookData = {
+        command: baseTemplate.command,
+        args: baseTemplate.args
+      };
+
+      if (baseTemplate.matcher) {
+        hookData.matcher = baseTemplate.matcher;
+      }
+
+      if (baseTemplate.timeout) {
+        hookData.timeout = baseTemplate.timeout;
+      }
+
+      await saveHook(scope, baseTemplate.event, hookData);
+      installedCount++;
+    }
+
+    closeHookWizardModal();
+    
+    if (skippedCount > 0 && installedCount === 0) {
+      showRefreshToast(`All ${skippedCount} hook(s) already installed`, 'info');
+    } else if (skippedCount > 0) {
+      showRefreshToast(`Installed ${installedCount}, skipped ${skippedCount} (already exists)`, 'success');
+    }
+    return;
+  }
+
+  // Handle single-select wizards
   const triggerType = wizardConfig.triggerType || wizard.options[0].id;
   const selectedOption = wizard.options.find(o => o.id === triggerType);
   if (!selectedOption) return;
@@ -800,7 +1021,6 @@ async function submitHookWizard() {
   const baseTemplate = HOOK_TEMPLATES[selectedOption.templateId];
   if (!baseTemplate) return;
 
-  const scope = document.querySelector('input[name="wizardScope"]:checked')?.value || 'project';
   const command = generateWizardCommand();
 
   const hookData = {

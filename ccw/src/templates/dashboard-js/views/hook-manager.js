@@ -11,10 +11,8 @@ async function renderHookManager() {
   if (statsGrid) statsGrid.style.display = 'none';
   if (searchInput) searchInput.parentElement.style.display = 'none';
 
-  // Load hook config if not already loaded
-  if (!hookConfig.global.hooks && !hookConfig.project.hooks) {
-    await loadHookConfig();
-  }
+  // Always reload hook config to get latest data
+  await loadHookConfig();
 
   const globalHooks = hookConfig.global?.hooks || {};
   const projectHooks = hookConfig.project?.hooks || {};
@@ -84,8 +82,9 @@ async function renderHookManager() {
           <span class="text-sm text-muted-foreground">${t('hook.wizardsDesc')}</span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           ${renderWizardCard('memory-update')}
+          ${renderWizardCard('memory-setup')}
           ${renderWizardCard('skill-context')}
         </div>
       </div>
@@ -206,8 +205,10 @@ function renderWizardCard(wizardId) {
 
   // Get translated wizard name and description
   const wizardName = wizardId === 'memory-update' ? t('hook.wizard.memoryUpdate') :
+                     wizardId === 'memory-setup' ? t('hook.wizard.memorySetup') :
                      wizardId === 'skill-context' ? t('hook.wizard.skillContext') : wizard.name;
   const wizardDesc = wizardId === 'memory-update' ? t('hook.wizard.memoryUpdateDesc') :
+                     wizardId === 'memory-setup' ? t('hook.wizard.memorySetupDesc') :
                      wizardId === 'skill-context' ? t('hook.wizard.skillContextDesc') : wizard.description;
 
   // Translate options
@@ -215,6 +216,11 @@ function renderWizardCard(wizardId) {
     if (wizardId === 'memory-update') {
       if (optId === 'on-stop') return t('hook.wizard.onSessionEnd');
       if (optId === 'periodic') return t('hook.wizard.periodicUpdate');
+    }
+    if (wizardId === 'memory-setup') {
+      if (optId === 'file-read') return t('hook.wizard.fileReadTracker');
+      if (optId === 'file-write') return t('hook.wizard.fileWriteTracker');
+      if (optId === 'prompts') return t('hook.wizard.promptTracker');
     }
     if (wizardId === 'skill-context') {
       if (optId === 'keyword') return t('hook.wizard.keywordMatching');
@@ -228,6 +234,11 @@ function renderWizardCard(wizardId) {
       if (optId === 'on-stop') return t('hook.wizard.onSessionEndDesc');
       if (optId === 'periodic') return t('hook.wizard.periodicUpdateDesc');
     }
+    if (wizardId === 'memory-setup') {
+      if (optId === 'file-read') return t('hook.wizard.fileReadTrackerDesc');
+      if (optId === 'file-write') return t('hook.wizard.fileWriteTrackerDesc');
+      if (optId === 'prompts') return t('hook.wizard.promptTrackerDesc');
+    }
     if (wizardId === 'skill-context') {
       if (optId === 'keyword') return t('hook.wizard.keywordMatchingDesc');
       if (optId === 'auto') return t('hook.wizard.autoDetectionDesc');
@@ -236,8 +247,9 @@ function renderWizardCard(wizardId) {
   };
 
   // Determine what to show in the tools/skills section
-  const toolsSection = wizard.requiresSkillDiscovery
-    ? `
+  let toolsSection = '';
+  if (wizard.requiresSkillDiscovery) {
+    toolsSection = `
       <div class="flex items-center gap-2 text-xs text-muted-foreground mb-4">
         <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.event')}</span>
         <span class="px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded">UserPromptSubmit</span>
@@ -246,8 +258,12 @@ function renderWizardCard(wizardId) {
         <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.availableSkills')}</span>
         <span class="text-muted-foreground ml-2">${t('hook.wizard.loading')}</span>
       </div>
-    `
-    : `
+    `;
+  } else if (wizard.multiSelect) {
+    // memory-setup: lightweight tracking, no CLI tools
+    toolsSection = '';
+  } else {
+    toolsSection = `
       <div class="flex items-center gap-2 text-xs text-muted-foreground mb-4">
         <span class="font-mono bg-muted px-1.5 py-0.5 rounded">${t('hook.wizard.cliTools')}</span>
         <span class="px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded">gemini</span>
@@ -255,6 +271,7 @@ function renderWizardCard(wizardId) {
         <span class="px-2 py-0.5 bg-green-500/10 text-green-500 rounded">codex</span>
       </div>
     `;
+  }
 
   return `
     <div class="hook-wizard-card bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-5 hover:shadow-lg transition-all">
@@ -308,8 +325,10 @@ function renderHooksByEvent(hooks, scope) {
 
     return hookList.map((hook, index) => {
       const matcher = hook.matcher || 'All tools';
-      const command = hook.command || 'N/A';
+      // Support both old format (hook.command) and new Claude Code format (hook.hooks[0].command)
+      const command = hook.hooks?.[0]?.command || hook.command || 'N/A';
       const args = hook.args || [];
+      const timeout = hook.hooks?.[0]?.timeout || hook.timeout;
 
       return `
         <div class="hook-card bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all">
@@ -424,18 +443,28 @@ function isHookTemplateInstalled(templateId) {
   const template = HOOK_TEMPLATES[templateId];
   if (!template) return false;
 
+  // Build expected command string
+  const templateCmd = template.command + (template.args ? ' ' + template.args.join(' ') : '');
+
   // Check project hooks
   const projectHooks = hookConfig.project?.hooks?.[template.event];
   if (projectHooks) {
     const hookList = Array.isArray(projectHooks) ? projectHooks : [projectHooks];
-    if (hookList.some(h => h.command === template.command)) return true;
+    if (hookList.some(h => {
+      // Check both old format (h.command) and new format (h.hooks[0].command)
+      const cmd = h.hooks?.[0]?.command || h.command || '';
+      return cmd.includes(template.command);
+    })) return true;
   }
 
   // Check global hooks
   const globalHooks = hookConfig.global?.hooks?.[template.event];
   if (globalHooks) {
     const hookList = Array.isArray(globalHooks) ? globalHooks : [globalHooks];
-    if (hookList.some(h => h.command === template.command)) return true;
+    if (hookList.some(h => {
+      const cmd = h.hooks?.[0]?.command || h.command || '';
+      return cmd.includes(template.command);
+    })) return true;
   }
 
   return false;
@@ -445,6 +474,12 @@ async function installHookTemplate(templateId, scope) {
   const template = HOOK_TEMPLATES[templateId];
   if (!template) {
     showRefreshToast('Template not found', 'error');
+    return;
+  }
+
+  // Check if already installed
+  if (isHookTemplateInstalled(templateId)) {
+    showRefreshToast('Hook already installed', 'info');
     return;
   }
 

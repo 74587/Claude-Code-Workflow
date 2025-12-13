@@ -26,3 +26,4 @@ COMMAND_TEMPLATE_EXECUTOR.md
 COMMAND_TEMPLATE_ORCHESTRATOR.md
 *.pyc
 .codexlens/
+settings.json

@@ -6,6 +6,7 @@
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, rmdirSync } from 'fs';
 import { join } from 'path';
+import { parseSessionFile, formatConversation, extractConversationPairs, type ParsedSession, type ParsedTurn } from './session-content-parser.js';
 
 // Types
 export interface ConversationTurn {
@@ -22,6 +23,9 @@ export interface ConversationTurn {
   };
 }
 
+// Execution category types
+export type ExecutionCategory = 'user' | 'internal' | 'insight';
+
 export interface ConversationRecord {
   id: string;
   created_at: string;
@@ -29,6 +33,7 @@ export interface ConversationRecord {
   tool: string;
   model: string;
   mode: string;
+  category: ExecutionCategory; // user | internal | insight
   total_duration_ms: number;
   turn_count: number;
   latest_status: 'success' | 'error' | 'timeout';
@@ -40,6 +45,7 @@ export interface HistoryQueryOptions {
   offset?: number;
   tool?: string | null;
   status?: string | null;
+  category?: ExecutionCategory | null;
   search?: string | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -51,10 +57,21 @@ export interface HistoryIndexEntry {
   updated_at?: string;
   tool: string;
   status: string;
+  category?: ExecutionCategory;
   duration_ms: number;
   turn_count?: number;
   prompt_preview: string;
   sourceDir?: string;
+}
+
+// Native session mapping interface
+export interface NativeSessionMapping {
+  ccw_id: string;              // CCW execution ID (e.g., 1702123456789-gemini)
+  tool: string;                // gemini | qwen | codex
+  native_session_id: string;   // Native UUID
+  native_session_path?: string; // Native file path
+  project_hash?: string;       // Project hash (Gemini/Qwen)
+  created_at: string;
 }
 
 /**
@@ -92,6 +109,7 @@ export class CliHistoryStore {
         tool TEXT NOT NULL,
         model TEXT DEFAULT 'default',
         mode TEXT DEFAULT 'analysis',
+        category TEXT DEFAULT 'user',
         total_duration_ms INTEGER DEFAULT 0,
         turn_count INTEGER DEFAULT 0,
         latest_status TEXT DEFAULT 'success',
@@ -118,6 +136,7 @@ export class CliHistoryStore {
       -- Indexes for efficient queries
       CREATE INDEX IF NOT EXISTS idx_conversations_tool ON conversations(tool);
       CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations(latest_status);
+      CREATE INDEX IF NOT EXISTS idx_conversations_category ON conversations(category);
       CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_conversations_created ON conversations(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_turns_conversation ON turns(conversation_id);
@@ -143,7 +162,41 @@ export class CliHistoryStore {
         INSERT INTO turns_fts(turns_fts, rowid, prompt, stdout) VALUES('delete', old.id, old.prompt, old.stdout);
         INSERT INTO turns_fts(rowid, prompt, stdout) VALUES (new.id, new.prompt, new.stdout);
       END;
+
+      -- Native session mapping table (CCW ID <-> Native Session ID)
+      CREATE TABLE IF NOT EXISTS native_session_mapping (
+        ccw_id TEXT PRIMARY KEY,
+        tool TEXT NOT NULL,
+        native_session_id TEXT NOT NULL,
+        native_session_path TEXT,
+        project_hash TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(tool, native_session_id)
+      );
+
+      -- Indexes for native session lookups
+      CREATE INDEX IF NOT EXISTS idx_native_tool_session ON native_session_mapping(tool, native_session_id);
+      CREATE INDEX IF NOT EXISTS idx_native_session_id ON native_session_mapping(native_session_id);
     `);
+
+    // Migration: Add category column if not exists (for existing databases)
+    this.migrateSchema();
+  }
+
+  /**
+   * Migrate schema for existing databases
+   */
+  private migrateSchema(): void {
+    // Check if category column exists
+    const tableInfo = this.db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>;
+    const hasCategory = tableInfo.some(col => col.name === 'category');
+
+    if (!hasCategory) {
+      this.db.exec(`
+        ALTER TABLE conversations ADD COLUMN category TEXT DEFAULT 'user';
+        CREATE INDEX IF NOT EXISTS idx_conversations_category ON conversations(category);
+      `);
+    }
   }
 
   /**
@@ -208,6 +261,7 @@ export class CliHistoryStore {
       tool: data.tool,
       model: data.model || 'default',
       mode: data.mode || 'analysis',
+      category: data.category || 'user',
       total_duration_ms: data.duration_ms || 0,
       turn_count: 1,
       latest_status: data.status || 'success',
@@ -232,8 +286,8 @@ export class CliHistoryStore {
       : '';
 
     const upsertConversation = this.db.prepare(`
-      INSERT INTO conversations (id, created_at, updated_at, tool, model, mode, total_duration_ms, turn_count, latest_status, prompt_preview)
-      VALUES (@id, @created_at, @updated_at, @tool, @model, @mode, @total_duration_ms, @turn_count, @latest_status, @prompt_preview)
+      INSERT INTO conversations (id, created_at, updated_at, tool, model, mode, category, total_duration_ms, turn_count, latest_status, prompt_preview)
+      VALUES (@id, @created_at, @updated_at, @tool, @model, @mode, @category, @total_duration_ms, @turn_count, @latest_status, @prompt_preview)
       ON CONFLICT(id) DO UPDATE SET
         updated_at = @updated_at,
         total_duration_ms = @total_duration_ms,
@@ -264,6 +318,7 @@ export class CliHistoryStore {
         tool: conversation.tool,
         model: conversation.model,
         mode: conversation.mode,
+        category: conversation.category || 'user',
         total_duration_ms: conversation.total_duration_ms,
         turn_count: conversation.turn_count,
         latest_status: conversation.latest_status,
@@ -310,6 +365,7 @@ export class CliHistoryStore {
       tool: conv.tool,
       model: conv.model,
       mode: conv.mode,
+      category: conv.category || 'user',
       total_duration_ms: conv.total_duration_ms,
       turn_count: conv.turn_count,
       latest_status: conv.latest_status,
@@ -337,7 +393,7 @@ export class CliHistoryStore {
     count: number;
     executions: HistoryIndexEntry[];
   } {
-    const { limit = 50, offset = 0, tool, status, search, startDate, endDate } = options;
+    const { limit = 50, offset = 0, tool, status, category, search, startDate, endDate } = options;
 
     let whereClause = '1=1';
     const params: any = {};
@@ -350,6 +406,11 @@ export class CliHistoryStore {
     if (status) {
       whereClause += ' AND latest_status = @status';
       params.status = status;
+    }
+
+    if (category) {
+      whereClause += ' AND category = @category';
+      params.category = category;
     }
 
     if (startDate) {
@@ -398,6 +459,7 @@ export class CliHistoryStore {
         updated_at: r.updated_at,
         tool: r.tool,
         status: r.latest_status,
+        category: r.category || 'user',
         duration_ms: r.total_duration_ms,
         turn_count: r.turn_count,
         prompt_preview: r.prompt_preview || ''
@@ -496,6 +558,252 @@ export class CliHistoryStore {
     return { total, byTool, byStatus, totalDuration };
   }
 
+  // ========== Native Session Mapping Methods ==========
+
+  /**
+   * Save or update native session mapping
+   */
+  saveNativeSessionMapping(mapping: NativeSessionMapping): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO native_session_mapping (ccw_id, tool, native_session_id, native_session_path, project_hash, created_at)
+      VALUES (@ccw_id, @tool, @native_session_id, @native_session_path, @project_hash, @created_at)
+      ON CONFLICT(ccw_id) DO UPDATE SET
+        native_session_id = @native_session_id,
+        native_session_path = @native_session_path,
+        project_hash = @project_hash
+    `);
+
+    stmt.run({
+      ccw_id: mapping.ccw_id,
+      tool: mapping.tool,
+      native_session_id: mapping.native_session_id,
+      native_session_path: mapping.native_session_path || null,
+      project_hash: mapping.project_hash || null,
+      created_at: mapping.created_at || new Date().toISOString()
+    });
+  }
+
+  /**
+   * Get native session ID by CCW ID
+   */
+  getNativeSessionId(ccwId: string): string | null {
+    const row = this.db.prepare(`
+      SELECT native_session_id FROM native_session_mapping WHERE ccw_id = ?
+    `).get(ccwId) as any;
+    return row?.native_session_id || null;
+  }
+
+  /**
+   * Get CCW ID by native session ID
+   */
+  getCcwIdByNativeSession(tool: string, nativeSessionId: string): string | null {
+    const row = this.db.prepare(`
+      SELECT ccw_id FROM native_session_mapping WHERE tool = ? AND native_session_id = ?
+    `).get(tool, nativeSessionId) as any;
+    return row?.ccw_id || null;
+  }
+
+  /**
+   * Get full mapping by CCW ID
+   */
+  getNativeSessionMapping(ccwId: string): NativeSessionMapping | null {
+    const row = this.db.prepare(`
+      SELECT * FROM native_session_mapping WHERE ccw_id = ?
+    `).get(ccwId) as any;
+
+    if (!row) return null;
+
+    return {
+      ccw_id: row.ccw_id,
+      tool: row.tool,
+      native_session_id: row.native_session_id,
+      native_session_path: row.native_session_path,
+      project_hash: row.project_hash,
+      created_at: row.created_at
+    };
+  }
+
+  /**
+   * Get latest native session mapping for a tool
+   */
+  getLatestNativeMapping(tool: string): NativeSessionMapping | null {
+    const row = this.db.prepare(`
+      SELECT * FROM native_session_mapping 
+      WHERE tool = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `).get(tool) as any;
+
+    if (!row) return null;
+
+    return {
+      ccw_id: row.ccw_id,
+      tool: row.tool,
+      native_session_id: row.native_session_id,
+      native_session_path: row.native_session_path,
+      project_hash: row.project_hash,
+      created_at: row.created_at
+    };
+  }
+
+  /**
+   * Delete native session mapping
+   */
+  deleteNativeSessionMapping(ccwId: string): boolean {
+    const result = this.db.prepare('DELETE FROM native_session_mapping WHERE ccw_id = ?').run(ccwId);
+    return result.changes > 0;
+  }
+
+  /**
+   * Check if CCW ID has native session mapping
+   */
+  hasNativeSession(ccwId: string): boolean {
+    const row = this.db.prepare(`
+      SELECT 1 FROM native_session_mapping WHERE ccw_id = ? LIMIT 1
+    `).get(ccwId);
+    return !!row;
+  }
+
+  // ========== Native Session Content Methods ==========
+
+  /**
+   * Get parsed native session content by CCW ID
+   * Returns full conversation with all turns from native session file
+   */
+  getNativeSessionContent(ccwId: string): ParsedSession | null {
+    const mapping = this.getNativeSessionMapping(ccwId);
+    if (!mapping || !mapping.native_session_path) {
+      return null;
+    }
+
+    return parseSessionFile(mapping.native_session_path, mapping.tool);
+  }
+
+  /**
+   * Get formatted conversation text from native session
+   */
+  getFormattedNativeConversation(ccwId: string, options?: {
+    includeThoughts?: boolean;
+    includeToolCalls?: boolean;
+    includeTokens?: boolean;
+    maxContentLength?: number;
+  }): string | null {
+    const session = this.getNativeSessionContent(ccwId);
+    if (!session) {
+      return null;
+    }
+    return formatConversation(session, options);
+  }
+
+  /**
+   * Get conversation pairs (user prompt + assistant response) from native session
+   */
+  getNativeConversationPairs(ccwId: string): Array<{
+    turn: number;
+    userPrompt: string;
+    assistantResponse: string;
+    timestamp: string;
+  }> | null {
+    const session = this.getNativeSessionContent(ccwId);
+    if (!session) {
+      return null;
+    }
+    return extractConversationPairs(session);
+  }
+
+  /**
+   * Get conversation with enriched native session data
+   * Merges CCW history with native session content
+   */
+  getEnrichedConversation(ccwId: string): {
+    ccw: ConversationRecord | null;
+    native: ParsedSession | null;
+    merged: Array<{
+      turn: number;
+      timestamp: string;
+      ccwPrompt?: string;
+      ccwOutput?: string;
+      nativeUserContent?: string;
+      nativeAssistantContent?: string;
+      nativeThoughts?: string[];
+      nativeToolCalls?: Array<{ name: string; arguments?: string; output?: string }>;
+    }>;
+  } | null {
+    const ccwConv = this.getConversation(ccwId);
+    const nativeSession = this.getNativeSessionContent(ccwId);
+
+    if (!ccwConv && !nativeSession) {
+      return null;
+    }
+
+    const merged: Array<{
+      turn: number;
+      timestamp: string;
+      ccwPrompt?: string;
+      ccwOutput?: string;
+      nativeUserContent?: string;
+      nativeAssistantContent?: string;
+      nativeThoughts?: string[];
+      nativeToolCalls?: Array<{ name: string; arguments?: string; output?: string }>;
+    }> = [];
+
+    // Determine max turn count
+    const maxTurns = Math.max(
+      ccwConv?.turn_count || 0,
+      nativeSession?.turns.filter(t => t.role === 'user').length || 0
+    );
+
+    for (let i = 1; i <= maxTurns; i++) {
+      const ccwTurn = ccwConv?.turns.find(t => t.turn === i);
+      const nativeUserTurn = nativeSession?.turns.find(t => t.turnNumber === i && t.role === 'user');
+      const nativeAssistantTurn = nativeSession?.turns.find(t => t.turnNumber === i && t.role === 'assistant');
+
+      merged.push({
+        turn: i,
+        timestamp: ccwTurn?.timestamp || nativeUserTurn?.timestamp || '',
+        ccwPrompt: ccwTurn?.prompt,
+        ccwOutput: ccwTurn?.output.stdout,
+        nativeUserContent: nativeUserTurn?.content,
+        nativeAssistantContent: nativeAssistantTurn?.content,
+        nativeThoughts: nativeAssistantTurn?.thoughts,
+        nativeToolCalls: nativeAssistantTurn?.toolCalls
+      });
+    }
+
+    return { ccw: ccwConv, native: nativeSession, merged };
+  }
+
+  /**
+   * List all conversations with native session info
+   */
+  getHistoryWithNativeInfo(options: HistoryQueryOptions = {}): {
+    total: number;
+    count: number;
+    executions: Array<HistoryIndexEntry & {
+      hasNativeSession: boolean;
+      nativeSessionId?: string;
+      nativeSessionPath?: string;
+    }>;
+  } {
+    const history = this.getHistory(options);
+
+    const enrichedExecutions = history.executions.map(exec => {
+      const mapping = this.getNativeSessionMapping(exec.id);
+      return {
+        ...exec,
+        hasNativeSession: !!mapping,
+        nativeSessionId: mapping?.native_session_id,
+        nativeSessionPath: mapping?.native_session_path
+      };
+    });
+
+    return {
+      total: history.total,
+      count: history.count,
+      executions: enrichedExecutions
+    };
+  }
+
   /**
    * Close database connection
    */
@@ -526,3 +834,6 @@ export function closeAllStores(): void {
   }
   storeCache.clear();
 }
+
+// Re-export types from session-content-parser
+export type { ParsedSession, ParsedTurn } from './session-content-parser.js';

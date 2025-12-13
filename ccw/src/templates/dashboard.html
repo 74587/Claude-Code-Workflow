@@ -409,6 +409,24 @@
             </ul>
           </div>
 
+          <!-- Memory Section -->
+          <div class="mb-2" id="memoryNav">
+            <div class="flex items-center px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <i data-lucide="brain" class="nav-section-icon mr-2"></i>
+              <span class="nav-section-title" data-i18n="nav.memory">Memory</span>
+            </div>
+            <ul class="space-y-0.5">
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="memory" data-tooltip="Context Memory">
+                <i data-lucide="database" class="nav-icon"></i>
+                <span class="nav-text flex-1" data-i18n="nav.contextMemory">Context</span>
+              </li>
+              <li class="nav-item flex items-center gap-2 mx-2 px-3 py-2.5 text-sm text-muted-foreground hover:bg-hover hover:text-foreground rounded cursor-pointer transition-colors" data-view="prompt-history" data-tooltip="Prompt History">
+                <i data-lucide="message-square" class="nav-icon"></i>
+                <span class="nav-text flex-1" data-i18n="nav.promptHistory">Prompts</span>
+              </li>
+            </ul>
+          </div>
+
         </nav>
 
         <!-- Sidebar Footer -->

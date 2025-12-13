@@ -1,20 +1,24 @@
 // CLI History Component
 // Displays execution history with filtering, search, and delete
+// Supports native session linking and full conversation parsing
 
 // ========== CLI History State ==========
 let cliExecutionHistory = [];
 let cliHistoryFilter = null; // Filter by tool
 let cliHistorySearch = ''; // Search query
 let cliHistoryLimit = 50;
+let showNativeOnly = false; // Filter to show only native-linked executions
 
 // ========== Data Loading ==========
 async function loadCliHistory(options = {}) {
   try {
     const { limit = cliHistoryLimit, tool = cliHistoryFilter, status = null } = options;
 
-    let url = `/api/cli/history?path=${encodeURIComponent(projectPath)}&limit=${limit}`;
+    // Use history-native endpoint to get native session info
+    let url = `/api/cli/history-native?path=${encodeURIComponent(projectPath)}&limit=${limit}`;
     if (tool) url += `&tool=${tool}`;
     if (status) url += `&status=${status}`;
+    if (cliHistorySearch) url += `&search=${encodeURIComponent(cliHistorySearch)}`;
 
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to load CLI history');
@@ -25,6 +29,32 @@ async function loadCliHistory(options = {}) {
   } catch (err) {
     console.error('Failed to load CLI history:', err);
     return { executions: [], total: 0, count: 0 };
+  }
+}
+
+// Load native session content for a specific execution
+async function loadNativeSessionContent(executionId) {
+  try {
+    const url = `/api/cli/native-session?path=${encodeURIComponent(projectPath)}&id=${encodeURIComponent(executionId)}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    console.error('Failed to load native session:', err);
+    return null;
+  }
+}
+
+// Load enriched conversation (CCW + Native merged)
+async function loadEnrichedConversation(executionId) {
+  try {
+    const url = `/api/cli/enriched?path=${encodeURIComponent(projectPath)}&id=${encodeURIComponent(executionId)}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    console.error('Failed to load enriched conversation:', err);
+    return null;
   }
 }
 
@@ -95,22 +125,39 @@ function renderCliHistory() {
           ? `<span class="cli-turn-badge">${exec.turn_count} turns</span>`
           : '';
 
+        // Native session indicator
+        const hasNative = exec.hasNativeSession || exec.nativeSessionId;
+        const nativeBadge = hasNative
+          ? `<span class="cli-native-badge" title="Native session: ${exec.nativeSessionId}">
+               <i data-lucide="file-json" class="w-3 h-3"></i>
+             </span>`
+          : '';
+
         return `
-          <div class="cli-history-item">
+          <div class="cli-history-item ${hasNative ? 'has-native' : ''}">
             <div class="cli-history-item-content" onclick="showExecutionDetail('${exec.id}')">
               <div class="cli-history-item-header">
-                <span class="cli-tool-tag cli-tool-${exec.tool}">${exec.tool}</span>
-                ${turnBadge}
-                <span class="cli-history-time">${timeAgo}</span>
-                <i data-lucide="${statusIcon}" class="w-3.5 h-3.5 ${statusClass}"></i>
+                <span class="cli-tool-tag cli-tool-${exec.tool}">${exec.tool.toUpperCase()}</span>
+                <span class="cli-mode-tag">${exec.mode || 'analysis'}</span>
+                <span class="cli-status-badge ${statusClass}">
+                  <i data-lucide="${statusIcon}" class="w-3 h-3"></i> ${exec.status}
+                </span>
+                ${nativeBadge}
               </div>
               <div class="cli-history-prompt">${escapeHtml(exec.prompt_preview)}</div>
               <div class="cli-history-meta">
-                <span>${duration}</span>
-                <span>${exec.mode || 'analysis'}</span>
+                <span><i data-lucide="clock" class="w-3 h-3"></i> ${timeAgo}</span>
+                <span><i data-lucide="timer" class="w-3 h-3"></i> ${duration}</span>
+                <span><i data-lucide="hash" class="w-3 h-3"></i> ${exec.id.split('-')[0]}</span>
+                ${turnBadge}
               </div>
             </div>
             <div class="cli-history-actions">
+              ${hasNative ? `
+                <button class="btn-icon" onclick="event.stopPropagation(); showNativeSessionDetail('${exec.id}')" title="View Native Session">
+                  <i data-lucide="file-json" class="w-3.5 h-3.5"></i>
+                </button>
+              ` : ''}
               <button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail('${exec.id}')" title="View Details">
                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
               </button>
@@ -586,6 +633,188 @@ async function copyConcatenatedPrompt(executionId) {
       showRefreshToast('Failed to copy', 'error');
     }
   }
+}
+
+// ========== Native Session Detail ==========
+
+/**
+ * Show native session detail modal with full conversation content
+ */
+async function showNativeSessionDetail(executionId) {
+  // Load native session content
+  const nativeSession = await loadNativeSessionContent(executionId);
+
+  if (!nativeSession) {
+    showRefreshToast('Native session not found', 'error');
+    return;
+  }
+
+  // Build turns HTML from native session
+  const turnsHtml = nativeSession.turns && nativeSession.turns.length > 0
+    ? nativeSession.turns.map((turn, idx) => {
+        const isLast = idx === nativeSession.turns.length - 1;
+        const roleIcon = turn.role === 'user' ? 'user' : 'bot';
+        const roleClass = turn.role === 'user' ? 'user' : 'assistant';
+
+        // Token info
+        const tokenInfo = turn.tokens
+          ? `<span class="native-turn-tokens">
+               <i data-lucide="coins" class="w-3 h-3"></i>
+               ${turn.tokens.total || 0} tokens
+               (in: ${turn.tokens.input || 0}, out: ${turn.tokens.output || 0}${turn.tokens.cached ? `, cached: ${turn.tokens.cached}` : ''})
+             </span>`
+          : '';
+
+        // Thoughts section
+        const thoughtsHtml = turn.thoughts && turn.thoughts.length > 0
+          ? `<div class="native-thoughts-section">
+               <h5><i data-lucide="brain" class="w-3 h-3"></i> Thoughts</h5>
+               <ul class="native-thoughts-list">
+                 ${turn.thoughts.map(t => `<li>${escapeHtml(t)}</li>`).join('')}
+               </ul>
+             </div>`
+          : '';
+
+        // Tool calls section
+        const toolCallsHtml = turn.toolCalls && turn.toolCalls.length > 0
+          ? `<div class="native-tools-section">
+               <h5><i data-lucide="wrench" class="w-3 h-3"></i> Tool Calls (${turn.toolCalls.length})</h5>
+               <div class="native-tools-list">
+                 ${turn.toolCalls.map(tc => `
+                   <div class="native-tool-call">
+                     <span class="native-tool-name">${escapeHtml(tc.name)}</span>
+                     ${tc.output ? `<pre class="native-tool-output">${escapeHtml(tc.output.substring(0, 500))}${tc.output.length > 500 ? '...' : ''}</pre>` : ''}
+                   </div>
+                 `).join('')}
+               </div>
+             </div>`
+          : '';
+
+        return `
+          <div class="native-turn ${roleClass} ${isLast ? 'latest' : ''}">
+            <div class="native-turn-header">
+              <span class="native-turn-role">
+                <i data-lucide="${roleIcon}" class="w-3.5 h-3.5"></i>
+                ${turn.role === 'user' ? 'User' : 'Assistant'}
+              </span>
+              <span class="native-turn-number">Turn ${turn.turnNumber}</span>
+              ${tokenInfo}
+              ${isLast ? '<span class="native-turn-latest">Latest</span>' : ''}
+            </div>
+            <div class="native-turn-content">
+              <pre>${escapeHtml(turn.content)}</pre>
+            </div>
+            ${thoughtsHtml}
+            ${toolCallsHtml}
+          </div>
+        `;
+      }).join('')
+    : '<p class="text-muted-foreground">No conversation turns found</p>';
+
+  // Total tokens summary
+  const totalTokensHtml = nativeSession.totalTokens
+    ? `<div class="native-tokens-summary">
+         <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+         <strong>Total Tokens:</strong>
+         ${nativeSession.totalTokens.total || 0}
+         (Input: ${nativeSession.totalTokens.input || 0},
+          Output: ${nativeSession.totalTokens.output || 0}
+          ${nativeSession.totalTokens.cached ? `, Cached: ${nativeSession.totalTokens.cached}` : ''})
+       </div>`
+    : '';
+
+  const modalContent = `
+    <div class="native-session-detail">
+      <div class="native-session-header">
+        <div class="native-session-info">
+          <span class="cli-tool-tag cli-tool-${nativeSession.tool}">${nativeSession.tool.toUpperCase()}</span>
+          ${nativeSession.model ? `<span class="native-model"><i data-lucide="cpu" class="w-3 h-3"></i> ${nativeSession.model}</span>` : ''}
+          <span class="native-session-id"><i data-lucide="fingerprint" class="w-3 h-3"></i> ${nativeSession.sessionId}</span>
+        </div>
+        <div class="native-session-meta">
+          <span><i data-lucide="calendar" class="w-3 h-3"></i> ${new Date(nativeSession.startTime).toLocaleString()}</span>
+          ${nativeSession.workingDir ? `<span><i data-lucide="folder" class="w-3 h-3"></i> ${nativeSession.workingDir}</span>` : ''}
+          ${nativeSession.projectHash ? `<span><i data-lucide="hash" class="w-3 h-3"></i> ${nativeSession.projectHash.substring(0, 12)}...</span>` : ''}
+        </div>
+      </div>
+      ${totalTokensHtml}
+      <div class="native-turns-container">
+        ${turnsHtml}
+      </div>
+      <div class="native-session-actions">
+        <button class="btn btn-sm btn-outline" onclick="copyNativeSessionId('${nativeSession.sessionId}')">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy Session ID
+        </button>
+        <button class="btn btn-sm btn-outline" onclick="copyNativeSessionPath('${executionId}')">
+          <i data-lucide="file" class="w-3.5 h-3.5"></i> Copy File Path
+        </button>
+        <button class="btn btn-sm btn-outline" onclick="exportNativeSession('${executionId}')">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i> Export JSON
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Store for export
+  window._currentNativeSession = nativeSession;
+
+  showModal('Native Session Detail', modalContent, 'modal-lg');
+}
+
+/**
+ * Copy native session ID to clipboard
+ */
+async function copyNativeSessionId(sessionId) {
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(sessionId);
+      showRefreshToast('Session ID copied', 'success');
+    } catch (err) {
+      showRefreshToast('Failed to copy', 'error');
+    }
+  }
+}
+
+/**
+ * Copy native session file path
+ */
+async function copyNativeSessionPath(executionId) {
+  // Find execution in history
+  const exec = cliExecutionHistory.find(e => e.id === executionId);
+  if (exec && exec.nativeSessionPath) {
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(exec.nativeSessionPath);
+        showRefreshToast('File path copied', 'success');
+      } catch (err) {
+        showRefreshToast('Failed to copy', 'error');
+      }
+    }
+  } else {
+    showRefreshToast('Path not available', 'error');
+  }
+}
+
+/**
+ * Export native session as JSON file
+ */
+function exportNativeSession(executionId) {
+  const session = window._currentNativeSession;
+  if (!session) {
+    showRefreshToast('No session data', 'error');
+    return;
+  }
+
+  const blob = new Blob([JSON.stringify(session, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `native-session-${session.sessionId}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showRefreshToast('Session exported', 'success');
 }
 
 // ========== Helpers ==========

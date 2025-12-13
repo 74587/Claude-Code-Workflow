@@ -1,23 +1,30 @@
 // ==========================================
 // TASK QUEUE SIDEBAR - Right Sidebar
 // ==========================================
-// Right-side slide-out toolbar for task queue management
+// Right-side slide-out toolbar for task queue and CLI execution management
 
 let isTaskQueueSidebarVisible = false;
 let taskQueueData = [];
+let cliQueueData = [];
+let currentQueueTab = 'tasks'; // 'tasks' | 'cli'
+let cliCategoryFilter = 'all'; // 'all' | 'user' | 'internal' | 'insight'
 
 /**
  * Initialize task queue sidebar
  */
 function initTaskQueueSidebar() {
-  // Create sidebar if not exists
+  // Create sidebar if not exists - check for container to handle partial creation
+  var existingContainer = document.getElementById('taskQueueContainer');
+  if (existingContainer) {
+    existingContainer.remove();
+  }
   if (!document.getElementById('taskQueueSidebar')) {
     const sidebarHtml = `
       <div class="task-queue-sidebar" id="taskQueueSidebar">
         <div class="task-queue-header">
           <div class="task-queue-title">
             <span class="task-queue-title-icon">📋</span>
-            <span>Task Queue</span>
+            <span>Execution Queue</span>
             <span class="task-queue-count-badge" id="taskQueueCountBadge">0</span>
           </div>
           <button class="task-queue-close" onclick="toggleTaskQueueSidebar()" title="Close">
@@ -27,10 +34,26 @@ function initTaskQueueSidebar() {
           </button>
         </div>
 
-        <div class="task-queue-filters">
+        <div class="task-queue-tabs">
+          <button class="task-queue-tab active" data-tab="tasks" onclick="switchQueueTab('tasks')">
+            📋 Tasks <span class="tab-badge" id="tasksTabBadge">0</span>
+          </button>
+          <button class="task-queue-tab" data-tab="cli" onclick="switchQueueTab('cli')">
+            ⚡ CLI <span class="tab-badge" id="cliTabBadge">0</span>
+          </button>
+        </div>
+
+        <div class="task-queue-filters" id="taskQueueFilters">
           <button class="task-filter-btn active" data-filter="all" onclick="filterTaskQueue('all')">All</button>
           <button class="task-filter-btn" data-filter="in_progress" onclick="filterTaskQueue('in_progress')">In Progress</button>
           <button class="task-filter-btn" data-filter="pending" onclick="filterTaskQueue('pending')">Pending</button>
+        </div>
+
+        <div class="task-queue-filters" id="cliQueueFilters" style="display: none;">
+          <button class="cli-filter-btn active" data-filter="all" onclick="filterCliQueue('all')">All</button>
+          <button class="cli-filter-btn" data-filter="user" onclick="filterCliQueue('user')">🔵 User</button>
+          <button class="cli-filter-btn" data-filter="insight" onclick="filterCliQueue('insight')">🟣 Insight</button>
+          <button class="cli-filter-btn" data-filter="internal" onclick="filterCliQueue('internal')">🟢 Internal</button>
         </div>
 
         <div class="task-queue-content" id="taskQueueContent">
@@ -40,9 +63,17 @@ function initTaskQueueSidebar() {
             <div class="task-queue-empty-hint">Active workflow tasks will appear here</div>
           </div>
         </div>
+
+        <div class="task-queue-content" id="cliQueueContent" style="display: none;">
+          <div class="task-queue-empty-state">
+            <div class="task-queue-empty-icon">⚡</div>
+            <div class="task-queue-empty-text">No CLI executions</div>
+            <div class="task-queue-empty-hint">CLI tool executions will appear here</div>
+          </div>
+        </div>
       </div>
 
-      <div class="task-queue-toggle" id="taskQueueToggle" onclick="toggleTaskQueueSidebar()" title="Task Queue">
+      <div class="task-queue-toggle" id="taskQueueToggle" onclick="toggleTaskQueueSidebar()" title="Execution Queue">
         <span class="toggle-icon">📋</span>
         <span class="toggle-badge" id="taskQueueToggleBadge"></span>
       </div>
@@ -57,7 +88,9 @@ function initTaskQueueSidebar() {
   }
 
   updateTaskQueueData();
+  updateCliQueueData();
   renderTaskQueue();
+  renderCliQueue();
   updateTaskQueueBadge();
 }
 
@@ -96,8 +129,14 @@ function toggleTaskQueueSidebar() {
 function updateTaskQueueData() {
   taskQueueData = [];
 
+  // Safety check for global state
+  if (typeof workflowData === 'undefined' || !workflowData) {
+    console.warn('[TaskQueue] workflowData not initialized');
+    return;
+  }
+
   // Collect tasks from active sessions
-  const activeSessions = workflowData.activeSessions || [];
+  var activeSessions = workflowData.activeSessions || [];
 
   activeSessions.forEach(session => {
     const sessionKey = `session-${session.session_id}`.replace(/[^a-zA-Z0-9-]/g, '-');
@@ -115,7 +154,10 @@ function updateTaskQueueData() {
   });
 
   // Also check lite task sessions
-  Object.keys(liteTaskDataStore).forEach(key => {
+  if (typeof liteTaskDataStore === 'undefined' || !liteTaskDataStore) {
+    return;
+  }
+  Object.keys(liteTaskDataStore).forEach(function(key) {
     const liteSession = liteTaskDataStore[key];
     if (liteSession && liteSession.tasks) {
       liteSession.tasks.forEach(task => {
@@ -142,9 +184,13 @@ function updateTaskQueueData() {
 /**
  * Render task queue list
  */
-function renderTaskQueue(filter = 'all') {
-  const contentEl = document.getElementById('taskQueueContent');
-  if (!contentEl) return;
+function renderTaskQueue(filter) {
+  filter = filter || 'all';
+  var contentEl = document.getElementById('taskQueueContent');
+  if (!contentEl) {
+    console.warn('[TaskQueue] taskQueueContent element not found');
+    return;
+  }
 
   let filteredTasks = taskQueueData;
   if (filter !== 'all') {
@@ -260,6 +306,156 @@ function updateTaskQueueBadge() {
  */
 function refreshTaskQueue() {
   updateTaskQueueData();
+  updateCliQueueData();
   renderTaskQueue();
+  renderCliQueue();
   updateTaskQueueBadge();
+}
+
+/**
+ * Switch between Tasks and CLI tabs
+ */
+function switchQueueTab(tab) {
+  currentQueueTab = tab;
+
+  // Update tab button states
+  document.querySelectorAll('.task-queue-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+
+  // Show/hide filters and content
+  const taskFilters = document.getElementById('taskQueueFilters');
+  const cliFilters = document.getElementById('cliQueueFilters');
+  const taskContent = document.getElementById('taskQueueContent');
+  const cliContent = document.getElementById('cliQueueContent');
+
+  if (tab === 'tasks') {
+    if (taskFilters) taskFilters.style.display = 'flex';
+    if (cliFilters) cliFilters.style.display = 'none';
+    if (taskContent) taskContent.style.display = 'block';
+    if (cliContent) cliContent.style.display = 'none';
+  } else {
+    if (taskFilters) taskFilters.style.display = 'none';
+    if (cliFilters) cliFilters.style.display = 'flex';
+    if (taskContent) taskContent.style.display = 'none';
+    if (cliContent) cliContent.style.display = 'block';
+    // Refresh CLI data when switching to CLI tab
+    updateCliQueueData();
+    renderCliQueue();
+  }
+}
+
+/**
+ * Update CLI queue data from API
+ */
+async function updateCliQueueData() {
+  try {
+    // Fetch recent CLI executions with category info
+    const response = await fetch(`/api/cli/history-native?path=${encodeURIComponent(projectPath)}&limit=20`);
+    if (!response.ok) return;
+    const data = await response.json();
+    cliQueueData = data.executions || [];
+  } catch (err) {
+    console.warn('[TaskQueue] Failed to load CLI queue:', err);
+    cliQueueData = [];
+  }
+}
+
+/**
+ * Render CLI queue list
+ */
+function renderCliQueue() {
+  const contentEl = document.getElementById('cliQueueContent');
+  if (!contentEl) return;
+
+  // Filter by category
+  let filtered = cliQueueData;
+  if (cliCategoryFilter !== 'all') {
+    filtered = cliQueueData.filter(exec => (exec.category || 'user') === cliCategoryFilter);
+  }
+
+  // Update tab badge
+  const cliTabBadge = document.getElementById('cliTabBadge');
+  if (cliTabBadge) {
+    cliTabBadge.textContent = cliQueueData.length;
+    cliTabBadge.style.display = cliQueueData.length > 0 ? 'inline' : 'none';
+  }
+
+  if (filtered.length === 0) {
+    const emptyText = cliCategoryFilter === 'all'
+      ? 'No CLI executions'
+      : `No ${cliCategoryFilter} executions`;
+    contentEl.innerHTML = `
+      <div class="task-queue-empty-state">
+        <div class="task-queue-empty-icon">⚡</div>
+        <div class="task-queue-empty-text">${emptyText}</div>
+        <div class="task-queue-empty-hint">CLI tool executions will appear here</div>
+      </div>
+    `;
+    return;
+  }
+
+  contentEl.innerHTML = filtered.map(exec => {
+    const category = exec.category || 'user';
+    const categoryIcon = { user: '🔵', internal: '🟢', insight: '🟣' }[category] || '⚪';
+    const statusIcon = exec.status === 'success' ? '✅' : exec.status === 'timeout' ? '⏰' : '❌';
+    const timeAgo = getCliTimeAgo(new Date(exec.updated_at || exec.timestamp));
+    const promptPreview = (exec.prompt_preview || '').substring(0, 60);
+
+    return `
+      <div class="cli-queue-item category-${category}" onclick="showCliExecutionFromQueue('${escapeHtml(exec.id)}')">
+        <div class="cli-queue-item-header">
+          <span class="cli-queue-category-icon">${categoryIcon}</span>
+          <span class="cli-queue-tool-tag cli-tool-${exec.tool}">${exec.tool.toUpperCase()}</span>
+          <span class="cli-queue-status">${statusIcon}</span>
+          <span class="cli-queue-time">${timeAgo}</span>
+        </div>
+        <div class="cli-queue-prompt">${escapeHtml(promptPreview)}${promptPreview.length >= 60 ? '...' : ''}</div>
+        <div class="cli-queue-meta">
+          <span class="cli-queue-id">#${exec.id.split('-')[0]}</span>
+          ${exec.turn_count > 1 ? `<span class="cli-queue-turns">${exec.turn_count} turns</span>` : ''}
+          ${exec.hasNativeSession ? '<span class="cli-queue-native">📎</span>' : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Filter CLI queue by category
+ */
+function filterCliQueue(category) {
+  cliCategoryFilter = category;
+
+  // Update filter button states
+  document.querySelectorAll('.cli-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === category);
+  });
+
+  renderCliQueue();
+}
+
+/**
+ * Show CLI execution detail from queue
+ */
+function showCliExecutionFromQueue(executionId) {
+  toggleTaskQueueSidebar();
+
+  // Use the showExecutionDetail function from cli-history.js if available
+  if (typeof showExecutionDetail === 'function') {
+    showExecutionDetail(executionId);
+  } else {
+    console.warn('[TaskQueue] showExecutionDetail not available');
+  }
+}
+
+/**
+ * Helper to format time ago
+ */
+function getCliTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  if (seconds < 60) return 'now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
 }

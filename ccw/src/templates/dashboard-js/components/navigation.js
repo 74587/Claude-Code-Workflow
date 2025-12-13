@@ -104,6 +104,10 @@ function initNavigation() {
         renderCliHistoryView();
       } else if (currentView === 'hook-manager') {
         renderHookManager();
+      } else if (currentView === 'memory') {
+        renderMemoryView();
+      } else if (currentView === 'prompt-history') {
+        renderPromptHistoryView();
       }
     });
   });
@@ -128,6 +132,10 @@ function updateContentTitle() {
     titleEl.textContent = t('title.cliHistory');
   } else if (currentView === 'hook-manager') {
     titleEl.textContent = t('title.hookManager');
+  } else if (currentView === 'memory') {
+    titleEl.textContent = t('title.memoryModule');
+  } else if (currentView === 'prompt-history') {
+    titleEl.textContent = t('title.promptHistory');
   } else if (currentView === 'liteTasks') {
     const names = { 'lite-plan': t('title.litePlanSessions'), 'lite-fix': t('title.liteFixSessions') };
     titleEl.textContent = names[currentLiteType] || t('title.liteTasks');

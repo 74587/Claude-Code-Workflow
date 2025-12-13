@@ -53,8 +53,9 @@ interface CliExecOptions {
   includeDirs?: string;
   timeout?: string;
   noStream?: boolean;
-  resume?: string | boolean; // true = last, string = execution ID
+  resume?: string | boolean; // true = last, string = execution ID, comma-separated for merge
   id?: string; // Custom execution ID (e.g., IMPL-001-step1)
+  noNative?: boolean; // Force prompt concatenation instead of native resume
 }
 
 interface HistoryOptions {
@@ -96,7 +97,7 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
     process.exit(1);
   }
 
-  const { tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume, id } = options;
+  const { tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume, id, noNative } = options;
 
   // Parse resume IDs for merge scenario
   const resumeIds = resume && typeof resume === 'string' ? resume.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -109,8 +110,9 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
   } else if (resume) {
     resumeInfo = typeof resume === 'string' ? ` resuming ${resume}` : ' resuming last';
   }
+  const nativeMode = noNative ? ' (prompt-concat)' : '';
   const idInfo = id ? ` [${id}]` : '';
-  console.log(chalk.cyan(`\n  Executing ${tool} (${mode} mode${resumeInfo})${idInfo}...\n`));
+  console.log(chalk.cyan(`\n  Executing ${tool} (${mode} mode${resumeInfo}${nativeMode})${idInfo}...\n`));
 
   // Show merge details
   if (isMerge) {
@@ -145,7 +147,8 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
       includeDirs,
       timeout: timeout ? parseInt(timeout, 10) : 300000,
       resume,
-      id // custom execution ID
+      id, // custom execution ID
+      noNative
     }, onOutput);
 
     // If not streaming, print output now

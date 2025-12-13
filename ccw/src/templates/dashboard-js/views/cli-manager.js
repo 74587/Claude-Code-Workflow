@@ -291,6 +291,19 @@ function renderCliSettingsSection() {
         '</div>' +
         '<p class="cli-setting-desc">' + t('cli.smartContextDesc') + '</p>' +
       '</div>' +
+      '<div class="cli-setting-item">' +
+        '<label class="cli-setting-label">' +
+          '<i data-lucide="refresh-cw" class="w-3 h-3"></i>' +
+          t('cli.nativeResume') +
+        '</label>' +
+        '<div class="cli-setting-control">' +
+          '<label class="cli-toggle">' +
+            '<input type="checkbox"' + (nativeResumeEnabled ? ' checked' : '') + ' onchange="setNativeResumeEnabled(this.checked)">' +
+            '<span class="cli-toggle-slider"></span>' +
+          '</label>' +
+        '</div>' +
+        '<p class="cli-setting-desc">' + t('cli.nativeResumeDesc') + '</p>' +
+      '</div>' +
       '<div class="cli-setting-item' + (!smartContextEnabled ? ' disabled' : '') + '">' +
         '<label class="cli-setting-label">' +
           '<i data-lucide="files" class="w-3 h-3"></i>' +

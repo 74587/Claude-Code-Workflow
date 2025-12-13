@@ -9,6 +9,7 @@ import { listCommand } from './commands/list.js';
 import { toolCommand } from './commands/tool.js';
 import { sessionCommand } from './commands/session.js';
 import { cliCommand } from './commands/cli.js';
+import { memoryCommand } from './commands/memory.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -160,9 +161,30 @@ export function run(argv: string[]): void {
     .option('--no-stream', 'Disable streaming output')
     .option('--limit <n>', 'History limit')
     .option('--status <status>', 'Filter by status')
-    .option('--resume [id]', 'Resume previous session (empty=last, or execution ID)')
+    .option('--category <category>', 'Execution category: user, internal, insight', 'user')
+    .option('--resume [id]', 'Resume previous session (empty=last, or execution ID, or comma-separated IDs for merge)')
     .option('--id <id>', 'Custom execution ID (e.g., IMPL-001-step1)')
+    .option('--no-native', 'Force prompt concatenation instead of native resume')
     .action((subcommand, args, options) => cliCommand(subcommand, args, options));
+
+  // Memory command
+  program
+    .command('memory [subcommand] [args...]')
+    .description('Memory module for context tracking and prompt optimization')
+    .option('--type <type>', 'Entity type: file, module, topic')
+    .option('--action <action>', 'Action: read, write, mention')
+    .option('--value <value>', 'Entity value (file path, etc.)')
+    .option('--session <session>', 'Session ID')
+    .option('--stdin', 'Read input from stdin (for Claude Code hooks)')
+    .option('--source <source>', 'Import source: history, sessions, all', 'all')
+    .option('--project <project>', 'Project name filter')
+    .option('--limit <n>', 'Number of results', '20')
+    .option('--sort <field>', 'Sort by: heat, reads, writes', 'heat')
+    .option('--json', 'Output as JSON')
+    .option('--context <text>', 'Current task context')
+    .option('--older-than <age>', 'Age threshold for pruning', '30d')
+    .option('--dry-run', 'Preview without deleting')
+    .action((subcommand, args, options) => memoryCommand(subcommand, args, options));
 
   program.parse(argv);
 }

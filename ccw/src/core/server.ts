@@ -8,11 +8,12 @@ import { createHash } from 'crypto';
 import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
-import { getCliToolsStatus, getExecutionHistory, getExecutionHistoryAsync, getExecutionDetail, getConversationDetail, deleteExecution, deleteExecutionAsync, batchDeleteExecutionsAsync, executeCliTool } from '../tools/cli-executor.js';
+import { getCliToolsStatus, getExecutionHistory, getExecutionHistoryAsync, getExecutionDetail, getConversationDetail, deleteExecution, deleteExecutionAsync, batchDeleteExecutionsAsync, executeCliTool, getNativeSessionContent, getFormattedNativeConversation, getEnrichedConversation, getHistoryWithNativeInfo } from '../tools/cli-executor.js';
 import { getAllManifests } from './manifest.js';
 import { checkVenvStatus, bootstrapVenv, executeCodexLens, checkSemanticStatus, installSemantic } from '../tools/codex-lens.js';
 import { generateSmartContext, formatSmartContext } from '../tools/smart-context.js';
 import { listTools } from '../tools/index.js';
+import { getMemoryStore } from './memory-store.js';
 import type { ServerConfig } from '../types/config.js';interface ServerOptions {  port?: number;  initialPath?: string;  host?: string;  open?: boolean;}interface PostResult {  error?: string;  status?: number;  [key: string]: unknown;}type PostHandler = (body: unknown) => Promise<PostResult>;
 
 // Claude config file paths
@@ -54,7 +55,9 @@ const MODULE_CSS_FILES = [
   '07-managers.css',
   '08-review.css',
   '09-explorer.css',
-  '10-cli.css'
+  '10-cli.css',
+  '11-memory.css',
+  '11-prompt-history.css'
 ];
 
 /**
@@ -121,6 +124,8 @@ const MODULE_FILES = [
   'views/cli-manager.js',
   'views/history.js',
   'views/explorer.js',
+  'views/memory.js',
+  'views/prompt-history.js',
   'main.js'
 ];
 /**
@@ -643,11 +648,12 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         const limit = parseInt(url.searchParams.get('limit') || '50', 10);
         const tool = url.searchParams.get('tool') || null;
         const status = url.searchParams.get('status') || null;
+        const category = url.searchParams.get('category') as 'user' | 'internal' | 'insight' | null;
         const search = url.searchParams.get('search') || null;
         const recursive = url.searchParams.get('recursive') !== 'false'; // Default true
 
         // Use async version to ensure SQLite is initialized
-        getExecutionHistoryAsync(projectPath, { limit, tool, status, search, recursive })
+        getExecutionHistoryAsync(projectPath, { limit, tool, status, category, search, recursive })
           .then(history => {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(history));
@@ -715,6 +721,100 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
           const basePath = projectPath || initialPath;
           return await batchDeleteExecutionsAsync(basePath, ids);
         });
+        return;
+      }
+
+      // API: Get Native Session Content (full conversation from native session file)
+      if (pathname === '/api/cli/native-session') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const executionId = url.searchParams.get('id');
+        const format = url.searchParams.get('format') || 'json'; // json, text, pairs
+
+        if (!executionId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Execution ID is required' }));
+          return;
+        }
+
+        try {
+          let result;
+          if (format === 'text') {
+            // Get formatted text representation
+            result = await getFormattedNativeConversation(projectPath, executionId, {
+              includeThoughts: url.searchParams.get('thoughts') === 'true',
+              includeToolCalls: url.searchParams.get('tools') === 'true',
+              includeTokens: url.searchParams.get('tokens') === 'true'
+            });
+          } else if (format === 'pairs') {
+            // Get simple prompt/response pairs
+            const enriched = await getEnrichedConversation(projectPath, executionId);
+            result = enriched?.merged || null;
+          } else {
+            // Get full parsed session data
+            result = await getNativeSessionContent(projectPath, executionId);
+          }
+
+          if (!result) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Native session not found' }));
+            return;
+          }
+
+          res.writeHead(200, { 'Content-Type': format === 'text' ? 'text/plain' : 'application/json' });
+          res.end(format === 'text' ? result : JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (err as Error).message }));
+        }
+        return;
+      }
+
+      // API: Get Enriched Conversation (CCW + Native merged)
+      if (pathname === '/api/cli/enriched') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const executionId = url.searchParams.get('id');
+
+        if (!executionId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Execution ID is required' }));
+          return;
+        }
+
+        getEnrichedConversation(projectPath, executionId)
+          .then(result => {
+            if (!result) {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Conversation not found' }));
+              return;
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+          })
+          .catch(err => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: (err as Error).message }));
+          });
+        return;
+      }
+
+      // API: Get History with Native Session Info
+      if (pathname === '/api/cli/history-native') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const tool = url.searchParams.get('tool') || null;
+        const status = url.searchParams.get('status') || null;
+        const category = url.searchParams.get('category') as 'user' | 'internal' | 'insight' | null;
+        const search = url.searchParams.get('search') || null;
+
+        getHistoryWithNativeInfo(projectPath, { limit, tool, status, category, search })
+          .then(history => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(history));
+          })
+          .catch(err => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: (err as Error).message }));
+          });
         return;
       }
 
@@ -813,6 +913,534 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
             return { error: (error as Error).message, status: 500 };
           }
+        });
+        return;
+      }
+
+      // API: Memory Module - Get hotspot statistics
+      if (pathname === '/api/memory/stats') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+        const type = url.searchParams.get('type') || null;
+        const sort = url.searchParams.get('sort') || 'heat';
+
+        try {
+          const memoryStore = getMemoryStore(projectPath);
+          let hotEntities = memoryStore.getHotEntities(limit);
+
+          // Filter by type if specified
+          if (type) {
+            hotEntities = hotEntities.filter(e => e.type === type);
+          }
+
+          // Sort by field
+          if (sort === 'reads') {
+            hotEntities.sort((a, b) => b.stats.read_count - a.stats.read_count);
+          } else if (sort === 'writes') {
+            hotEntities.sort((a, b) => b.stats.write_count - a.stats.write_count);
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            items: hotEntities.map(e => ({
+              value: e.value,
+              type: e.type,
+              read_count: e.stats.read_count,
+              write_count: e.stats.write_count,
+              mention_count: e.stats.mention_count,
+              heat_score: e.stats.heat_score
+            }))
+          }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
+        return;
+      }
+
+      // API: Memory Module - Get association graph
+      if (pathname === '/api/memory/graph') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const center = url.searchParams.get('center');
+        const depth = parseInt(url.searchParams.get('depth') || '1', 10);
+
+        if (!center) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'center parameter is required' }));
+          return;
+        }
+
+        try {
+          const memoryStore = getMemoryStore(projectPath);
+
+          // Find the center entity (assume it's a file for now)
+          const entity = memoryStore.getEntity('file', center);
+          if (!entity) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Entity not found' }));
+            return;
+          }
+
+          // Get associations
+          const associations = memoryStore.getAssociations(entity.id!, 20);
+          const stats = memoryStore.getStats(entity.id!);
+
+          // Build graph structure
+          const nodes = [
+            {
+              id: entity.id!.toString(),
+              label: entity.value,
+              type: entity.type,
+              heat: stats?.heat_score || 0
+            }
+          ];
+
+          const links = [];
+          for (const assoc of associations) {
+            nodes.push({
+              id: assoc.target.id!.toString(),
+              label: assoc.target.value,
+              type: assoc.target.type,
+              heat: 0
+            });
+
+            links.push({
+              source: entity.id!.toString(),
+              target: assoc.target.id!.toString(),
+              weight: assoc.weight
+            });
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ nodes, links }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
+        return;
+      }
+
+      // API: Memory Module - Track entity access
+      if (pathname === '/api/memory/track' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { type, action, value, sessionId, metadata, path: projectPath } = body;
+
+          if (!type || !action || !value) {
+            return { error: 'type, action, and value are required', status: 400 };
+          }
+
+          const basePath = projectPath || initialPath;
+
+          try {
+            const memoryStore = getMemoryStore(basePath);
+            const now = new Date().toISOString();
+
+            // Normalize the value
+            const normalizedValue = value.toLowerCase().trim();
+
+            // Upsert entity
+            const entityId = memoryStore.upsertEntity({
+              type,
+              value,
+              normalized_value: normalizedValue,
+              first_seen_at: now,
+              last_seen_at: now,
+              metadata: metadata ? JSON.stringify(metadata) : undefined
+            });
+
+            // Log access
+            memoryStore.logAccess({
+              entity_id: entityId,
+              action,
+              session_id: sessionId,
+              timestamp: now,
+              context_summary: metadata?.context
+            });
+
+            // Update stats
+            memoryStore.updateStats(entityId, action);
+
+            // Calculate new heat score
+            const heatScore = memoryStore.calculateHeatScore(entityId);
+            const stats = memoryStore.getStats(entityId);
+
+            // Broadcast MEMORY_UPDATED event via WebSocket
+            broadcastToClients({
+              type: 'MEMORY_UPDATED',
+              payload: {
+                entity: { id: entityId, type, value },
+                stats: {
+                  read_count: stats?.read_count || 0,
+                  write_count: stats?.write_count || 0,
+                  mention_count: stats?.mention_count || 0,
+                  heat_score: heatScore
+                },
+                timestamp: now
+              }
+            });
+
+            return {
+              success: true,
+              entity_id: entityId,
+              heat_score: heatScore
+            };
+          } catch (error: unknown) {
+            return { error: (error as Error).message, status: 500 };
+          }
+        });
+        return;
+      }
+
+      // API: Memory Module - Get native Claude history from ~/.claude/history.jsonl
+      if (pathname === '/api/memory/native-history') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const limit = parseInt(url.searchParams.get('limit') || '100', 10);
+        const historyFile = join(homedir(), '.claude', 'history.jsonl');
+
+        try {
+          if (!existsSync(historyFile)) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ prompts: [], total: 0, message: 'No history file found' }));
+            return;
+          }
+
+          const content = readFileSync(historyFile, 'utf8');
+          const lines = content.trim().split('\n').filter(line => line.trim());
+          const allPrompts = [];
+
+          for (const line of lines) {
+            try {
+              const entry = JSON.parse(line);
+              // Filter by project if specified
+              if (projectPath && entry.project) {
+                const normalizedProject = entry.project.replace(/\\/g, '/').toLowerCase();
+                const normalizedPath = projectPath.replace(/\\/g, '/').toLowerCase();
+                if (!normalizedProject.includes(normalizedPath) && !normalizedPath.includes(normalizedProject)) {
+                  continue;
+                }
+              }
+
+              allPrompts.push({
+                id: `${entry.sessionId}-${entry.timestamp}`,
+                text: entry.display || '',
+                timestamp: new Date(entry.timestamp).toISOString(),
+                project: entry.project || '',
+                session_id: entry.sessionId || '',
+                pasted_contents: entry.pastedContents || {},
+                // Derive intent from content keywords
+                intent: derivePromptIntent(entry.display || ''),
+                quality_score: calculateQualityScore(entry.display || '')
+              });
+            } catch (parseError) {
+              // Skip malformed lines
+            }
+          }
+
+          // Sort by timestamp descending
+          allPrompts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+          // Apply limit
+          const prompts = allPrompts.slice(0, limit);
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ prompts, total: allPrompts.length }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
+        return;
+      }
+
+      // API: Memory Module - Get prompt history
+      if (pathname === '/api/memory/prompts') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const search = url.searchParams.get('search') || null;
+
+        try {
+          const memoryStore = getMemoryStore(projectPath);
+          let prompts;
+
+          if (search) {
+            prompts = memoryStore.searchPrompts(search, limit);
+          } else {
+            // Get all recent prompts (we'll need to add this method to MemoryStore)
+            const stmt = memoryStore['db'].prepare(`
+              SELECT * FROM prompt_history
+              ORDER BY timestamp DESC
+              LIMIT ?
+            `);
+            prompts = stmt.all(limit);
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ prompts }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
+        return;
+      }
+
+      // API: Memory Module - Get insights
+      if (pathname === '/api/memory/insights') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+
+        try {
+          const memoryStore = getMemoryStore(projectPath);
+
+          // Get total prompt count
+          const countStmt = memoryStore['db'].prepare(`SELECT COUNT(*) as count FROM prompt_history`);
+          const { count: totalPrompts } = countStmt.get() as { count: number };
+
+          // Get top intent
+          const topIntentStmt = memoryStore['db'].prepare(`
+            SELECT intent_label, COUNT(*) as count
+            FROM prompt_history
+            WHERE intent_label IS NOT NULL
+            GROUP BY intent_label
+            ORDER BY count DESC
+            LIMIT 1
+          `);
+          const topIntentRow = topIntentStmt.get() as { intent_label: string; count: number } | undefined;
+
+          // Get average prompt length
+          const avgLengthStmt = memoryStore['db'].prepare(`
+            SELECT AVG(LENGTH(prompt_text)) as avg_length
+            FROM prompt_history
+            WHERE prompt_text IS NOT NULL
+          `);
+          const { avg_length: avgLength } = avgLengthStmt.get() as { avg_length: number };
+
+          // Get prompt patterns
+          const patternsStmt = memoryStore['db'].prepare(`
+            SELECT * FROM prompt_patterns
+            ORDER BY frequency DESC
+            LIMIT 10
+          `);
+          const patterns = patternsStmt.all();
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            stats: {
+              totalPrompts,
+              topIntent: topIntentRow?.intent_label || 'unknown',
+              avgLength: Math.round(avgLength || 0)
+            },
+            patterns: patterns.map((p: any) => ({
+              type: p.pattern_type,
+              description: `Pattern detected in prompts`,
+              occurrences: p.frequency,
+              suggestion: `Consider using more specific prompts for ${p.pattern_type}`
+            }))
+          }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
+        return;
+      }
+
+      // API: Memory Module - Trigger async CLI-based insights analysis
+      if (pathname === '/api/memory/insights/analyze' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body: any) => {
+          const projectPath = body.path || initialPath;
+          const tool = body.tool || 'gemini'; // gemini, qwen, codex
+          const prompts = body.prompts || [];
+          const lang = body.lang || 'en'; // Language preference
+
+          if (prompts.length === 0) {
+            return { error: 'No prompts provided for analysis', status: 400 };
+          }
+
+          // Prepare prompt summary for CLI analysis
+          const promptSummary = prompts.slice(0, 20).map((p: any, i: number) => {
+            return `${i + 1}. [${p.intent || 'unknown'}] ${(p.text || '').substring(0, 100)}...`;
+          }).join('\n');
+
+          const langInstruction = lang === 'zh'
+            ? '请用中文回复。所有 description、suggestion、title 字段必须使用中文。'
+            : 'Respond in English. All description, suggestion, title fields must be in English.';
+
+          const analysisPrompt = `
+PURPOSE: Analyze prompt patterns and provide optimization suggestions
+TASK:
+• Review the following prompt history summary
+• Identify common patterns (vague requests, repetitive queries, incomplete context)
+• Suggest specific improvements for prompt quality
+• Detect areas where prompts could be more effective
+MODE: analysis
+CONTEXT: ${prompts.length} prompts from project: ${projectPath}
+EXPECTED: JSON with patterns array and suggestions array
+LANGUAGE: ${langInstruction}
+
+PROMPT HISTORY:
+${promptSummary}
+
+Return ONLY valid JSON in this exact format (no markdown, no code blocks, just pure JSON):
+{
+  "patterns": [
+    {"type": "pattern_type", "description": "description", "occurrences": count, "severity": "low|medium|high", "suggestion": "how to improve"}
+  ],
+  "suggestions": [
+    {"title": "title", "description": "description", "example": "example prompt"}
+  ]
+}`;
+
+          try {
+            // Queue CLI execution
+            const result = await executeCliTool({
+              tool,
+              prompt: analysisPrompt,
+              mode: 'analysis',
+              timeout: 120000
+            });
+
+            // Try to parse JSON from response
+            let insights = { patterns: [], suggestions: [] };
+            if (result.stdout) {
+              let outputText = result.stdout;
+
+              // Strip markdown code blocks if present
+              const codeBlockMatch = outputText.match(/```(?:json)?\s*([\s\S]*?)```/);
+              if (codeBlockMatch) {
+                outputText = codeBlockMatch[1].trim();
+              }
+
+              // Find JSON object in the response
+              const jsonMatch = outputText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                try {
+                  insights = JSON.parse(jsonMatch[0]);
+                  // Ensure arrays exist
+                  if (!Array.isArray(insights.patterns)) insights.patterns = [];
+                  if (!Array.isArray(insights.suggestions)) insights.suggestions = [];
+                } catch (e) {
+                  console.error('[insights/analyze] JSON parse error:', e);
+                  // Return raw output if JSON parse fails
+                  insights = {
+                    patterns: [{ type: 'raw_analysis', description: result.stdout.substring(0, 500), occurrences: 1, severity: 'low', suggestion: '' }],
+                    suggestions: []
+                  };
+                }
+              } else {
+                // No JSON found, wrap raw output
+                insights = {
+                  patterns: [{ type: 'raw_analysis', description: result.stdout.substring(0, 500), occurrences: 1, severity: 'low', suggestion: '' }],
+                  suggestions: []
+                };
+              }
+            }
+
+            return {
+              success: true,
+              insights,
+              tool,
+              executionId: result.execution.id
+            };
+          } catch (error: unknown) {
+            return { error: (error as Error).message, status: 500 };
+          }
+        });
+        return;
+      }
+
+      // API: Memory Module - Get conversations index
+      if (pathname === '/api/memory/conversations') {
+        const projectPath = url.searchParams.get('path') || initialPath;
+        const project = url.searchParams.get('project') || null;
+        const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+
+        try {
+          const memoryStore = getMemoryStore(projectPath);
+
+          let conversations;
+          if (project) {
+            const stmt = memoryStore['db'].prepare(`
+              SELECT * FROM conversations
+              WHERE project_name = ?
+              ORDER BY updated_at DESC
+              LIMIT ?
+            `);
+            conversations = stmt.all(project, limit);
+          } else {
+            conversations = memoryStore.getConversations(limit);
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ conversations }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
+        return;
+      }
+
+      // API: Memory Module - Replay conversation
+      if (pathname.startsWith('/api/memory/replay/')) {
+        const conversationId = pathname.replace('/api/memory/replay/', '');
+        const projectPath = url.searchParams.get('path') || initialPath;
+
+        if (!conversationId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Conversation ID is required' }));
+          return;
+        }
+
+        try {
+          const memoryStore = getMemoryStore(projectPath);
+          const conversation = memoryStore.getConversation(conversationId);
+
+          if (!conversation) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Conversation not found' }));
+            return;
+          }
+
+          const messages = memoryStore.getMessages(conversationId);
+
+          // Enhance messages with tool calls
+          const messagesWithTools = [];
+          for (const message of messages) {
+            const toolCalls = message.id ? memoryStore.getToolCalls(message.id) : [];
+            messagesWithTools.push({
+              ...message,
+              tool_calls: toolCalls
+            });
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            conversation,
+            messages: messagesWithTools
+          }));
+        } catch (error: unknown) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: (error as Error).message }));
+        }
+        return;
+      }
+
+      // API: Memory Module - Import history (async task)
+      if (pathname === '/api/memory/import' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { source = 'all', project, path: projectPath } = body;
+          const basePath = projectPath || initialPath;
+
+          // Generate task ID for async operation
+          const taskId = `import-${Date.now()}`;
+
+          // TODO: Implement actual history import using HistoryImporter
+          // For now, return a placeholder response
+          console.log(`[Memory] Import task ${taskId} started: source=${source}, project=${project}`);
+
+          return {
+            success: true,
+            taskId,
+            message: 'Import task started (not yet implemented)',
+            source,
+            project
+          };
         });
         return;
       }
@@ -1519,6 +2147,65 @@ window.INITIAL_PATH = '${normalizePathForDisplay(initialPath).replace(/\\/g, '/'
 // ========================================
 // MCP Configuration Functions
 // ========================================
+
+/**
+ * Derive prompt intent from text content
+ */
+function derivePromptIntent(text: string): string {
+  const lower = text.toLowerCase();
+
+  // Implementation/coding patterns
+  if (/实现|implement|create|add|build|write|develop|make/.test(lower)) return 'implement';
+  if (/修复|fix|bug|error|issue|problem|解决/.test(lower)) return 'fix';
+  if (/重构|refactor|optimize|improve|clean/.test(lower)) return 'refactor';
+  if (/测试|test|spec|coverage/.test(lower)) return 'test';
+
+  // Analysis patterns
+  if (/分析|analyze|review|check|examine|audit/.test(lower)) return 'analyze';
+  if (/解释|explain|what|how|why|understand/.test(lower)) return 'explain';
+  if (/搜索|search|find|look|where|locate/.test(lower)) return 'search';
+
+  // Documentation patterns
+  if (/文档|document|readme|comment|注释/.test(lower)) return 'document';
+
+  // Planning patterns
+  if (/计划|plan|design|architect|strategy/.test(lower)) return 'plan';
+
+  // Configuration patterns
+  if (/配置|config|setup|install|设置/.test(lower)) return 'configure';
+
+  // Default
+  return 'general';
+}
+
+/**
+ * Calculate prompt quality score (0-100)
+ */
+function calculateQualityScore(text: string): number {
+  let score = 50; // Base score
+
+  // Length factors
+  const length = text.length;
+  if (length > 50 && length < 500) score += 15;
+  else if (length >= 500 && length < 1000) score += 10;
+  else if (length < 20) score -= 20;
+
+  // Specificity indicators
+  if (/file|path|function|class|method|variable/i.test(text)) score += 10;
+  if (/src\/|\.ts|\.js|\.py|\.go/i.test(text)) score += 10;
+
+  // Context indicators
+  if (/when|after|before|because|since/i.test(text)) score += 5;
+
+  // Action clarity
+  if (/please|要|请|帮|help/i.test(text)) score += 5;
+
+  // Structure indicators
+  if (/\d+\.|•|-\s/.test(text)) score += 10; // Lists
+
+  // Cap at 100
+  return Math.min(100, Math.max(0, score));
+}
 
 /**
  * Safely read and parse JSON file

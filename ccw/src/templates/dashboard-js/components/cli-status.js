@@ -12,6 +12,9 @@ let promptConcatFormat = localStorage.getItem('ccw-prompt-format') || 'plain'; /
 let smartContextEnabled = localStorage.getItem('ccw-smart-context') === 'true';
 let smartContextMaxFiles = parseInt(localStorage.getItem('ccw-smart-context-max-files') || '10', 10);
 
+// Native Resume settings
+let nativeResumeEnabled = localStorage.getItem('ccw-native-resume') !== 'false'; // default true
+
 // ========== Initialization ==========
 function initCliStatus() {
   // Load CLI status on init
@@ -256,6 +259,19 @@ function renderCliStatus() {
           </div>
           <p class="cli-setting-desc">Auto-analyze prompt and add relevant file paths</p>
         </div>
+        <div class="cli-setting-item">
+          <label class="cli-setting-label">
+            <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+            Native Resume
+          </label>
+          <div class="cli-setting-control">
+            <label class="cli-toggle">
+              <input type="checkbox" ${nativeResumeEnabled ? 'checked' : ''} onchange="setNativeResumeEnabled(this.checked)">
+              <span class="cli-toggle-slider"></span>
+            </label>
+          </div>
+          <p class="cli-setting-desc">Use native tool resume (gemini -r, qwen --resume, codex resume)</p>
+        </div>
         <div class="cli-setting-item ${!smartContextEnabled ? 'disabled' : ''}">
           <label class="cli-setting-label">
             <i data-lucide="files" class="w-3 h-3"></i>
@@ -324,6 +340,12 @@ function setSmartContextMaxFiles(max) {
   smartContextMaxFiles = parseInt(max, 10);
   localStorage.setItem('ccw-smart-context-max-files', max);
   showRefreshToast(`Smart Context max files set to ${max}`, 'success');
+}
+
+function setNativeResumeEnabled(enabled) {
+  nativeResumeEnabled = enabled;
+  localStorage.setItem('ccw-native-resume', enabled.toString());
+  showRefreshToast(`Native Resume ${enabled ? 'enabled' : 'disabled'}`, 'success');
 }
 
 async function refreshAllCliStatus() {
