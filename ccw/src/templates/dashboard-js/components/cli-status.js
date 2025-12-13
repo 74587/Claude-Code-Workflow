@@ -8,6 +8,10 @@ let semanticStatus = { available: false };
 let defaultCliTool = 'gemini';
 let promptConcatFormat = localStorage.getItem('ccw-prompt-format') || 'plain'; // plain, yaml, json
 
+// Smart Context settings
+let smartContextEnabled = localStorage.getItem('ccw-smart-context') === 'true';
+let smartContextMaxFiles = parseInt(localStorage.getItem('ccw-smart-context-max-files') || '10', 10);
+
 // ========== Initialization ==========
 function initCliStatus() {
   // Load CLI status on init
@@ -235,12 +239,36 @@ function renderCliStatus() {
             Storage Backend
           </label>
           <div class="cli-setting-control">
-            <select class="cli-setting-select" onchange="setStorageBackend(this.value)">
-              <option value="sqlite" ${storageBackend === 'sqlite' ? 'selected' : ''}>SQLite (Recommended)</option>
-              <option value="json" ${storageBackend === 'json' ? 'selected' : ''}>JSON Files</option>
+            <span class="cli-setting-value">SQLite</span>
+          </div>
+          <p class="cli-setting-desc">CLI history stored in SQLite with FTS search</p>
+        </div>
+        <div class="cli-setting-item">
+          <label class="cli-setting-label">
+            <i data-lucide="sparkles" class="w-3 h-3"></i>
+            Smart Context
+          </label>
+          <div class="cli-setting-control">
+            <label class="cli-toggle">
+              <input type="checkbox" ${smartContextEnabled ? 'checked' : ''} onchange="setSmartContextEnabled(this.checked)">
+              <span class="cli-toggle-slider"></span>
+            </label>
+          </div>
+          <p class="cli-setting-desc">Auto-analyze prompt and add relevant file paths</p>
+        </div>
+        <div class="cli-setting-item ${!smartContextEnabled ? 'disabled' : ''}">
+          <label class="cli-setting-label">
+            <i data-lucide="files" class="w-3 h-3"></i>
+            Max Context Files
+          </label>
+          <div class="cli-setting-control">
+            <select class="cli-setting-select" onchange="setSmartContextMaxFiles(this.value)" ${!smartContextEnabled ? 'disabled' : ''}>
+              <option value="5" ${smartContextMaxFiles === 5 ? 'selected' : ''}>5 files</option>
+              <option value="10" ${smartContextMaxFiles === 10 ? 'selected' : ''}>10 files</option>
+              <option value="20" ${smartContextMaxFiles === 20 ? 'selected' : ''}>20 files</option>
             </select>
           </div>
-          <p class="cli-setting-desc">History storage: SQLite for search, JSON for portability</p>
+          <p class="cli-setting-desc">Maximum files to include in smart context</p>
         </div>
       </div>
     </div>
@@ -280,20 +308,23 @@ function setPromptFormat(format) {
   showRefreshToast(`Prompt format set to ${format.toUpperCase()}`, 'success');
 }
 
-function setStorageBackendSetting(backend) {
-  storageBackend = backend;
-  localStorage.setItem('ccw-storage-backend', backend);
-  // Notify server about backend change
-  fetch('/api/cli/settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ storageBackend: backend })
-  }).catch(err => console.error('Failed to update backend setting:', err));
-  showRefreshToast(`Storage backend set to ${backend === 'sqlite' ? 'SQLite' : 'JSON'}`, 'success');
+function setSmartContextEnabled(enabled) {
+  smartContextEnabled = enabled;
+  localStorage.setItem('ccw-smart-context', enabled.toString());
+  // Re-render the appropriate settings panel
+  if (typeof renderCliSettingsSection === 'function') {
+    renderCliSettingsSection();
+  } else {
+    renderCliStatus();
+  }
+  showRefreshToast(`Smart Context ${enabled ? 'enabled' : 'disabled'}`, 'success');
 }
 
-// Expose to window for select onchange
-window.setStorageBackend = setStorageBackendSetting;
+function setSmartContextMaxFiles(max) {
+  smartContextMaxFiles = parseInt(max, 10);
+  localStorage.setItem('ccw-smart-context-max-files', max);
+  showRefreshToast(`Smart Context max files set to ${max}`, 'success');
+}
 
 async function refreshAllCliStatus() {
   await Promise.all([loadCliToolStatus(), loadCodexLensStatus()]);

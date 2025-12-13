@@ -21,6 +21,7 @@ import {
 const ParamsSchema = z.object({
   query: z.string().min(1, 'Query is required'),
   mode: z.enum(['auto', 'exact', 'fuzzy', 'semantic', 'graph']).default('auto'),
+  output_mode: z.enum(['full', 'files_only', 'count']).default('full'),
   paths: z.array(z.string()).default([]),
   contextLines: z.number().default(0),
   maxResults: z.number().default(100),
@@ -616,6 +617,12 @@ Modes: auto (default), exact, fuzzy, semantic, graph`,
         description: 'Search mode (default: auto)',
         default: 'auto',
       },
+      output_mode: {
+        type: 'string',
+        enum: ['full', 'files_only', 'count'],
+        description: 'Output mode: full (default), files_only (paths only), count (per-file counts)',
+        default: 'full',
+      },
       paths: {
         type: 'array',
         description: 'Paths to search within (default: current directory)',
@@ -644,6 +651,36 @@ Modes: auto (default), exact, fuzzy, semantic, graph`,
   },
 };
 
+/**
+ * Transform results based on output_mode
+ */
+function transformOutput(
+  results: ExactMatch[] | SemanticMatch[] | GraphMatch[],
+  outputMode: 'full' | 'files_only' | 'count'
+): unknown {
+  switch (outputMode) {
+    case 'files_only': {
+      // Extract unique file paths
+      const files = [...new Set(results.map((r) => r.file))];
+      return { files, count: files.length };
+    }
+    case 'count': {
+      // Count matches per file
+      const counts: Record<string, number> = {};
+      for (const r of results) {
+        counts[r.file] = (counts[r.file] || 0) + 1;
+      }
+      return {
+        files: Object.entries(counts).map(([file, count]) => ({ file, count })),
+        total: results.length,
+      };
+    }
+    case 'full':
+    default:
+      return results;
+  }
+}
+
 // Handler function
 export async function handler(params: Record<string, unknown>): Promise<ToolResult<SearchResult>> {
   const parsed = ParamsSchema.safeParse(params);
@@ -651,7 +688,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     return { success: false, error: `Invalid params: ${parsed.error.message}` };
   }
 
-  const { mode } = parsed.data;
+  const { mode, output_mode } = parsed.data;
 
   try {
     let result: SearchResult;
@@ -674,6 +711,11 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
         break;
       default:
         throw new Error(`Unsupported mode: ${mode}`);
+    }
+
+    // Transform output based on output_mode
+    if (result.success && result.results && output_mode !== 'full') {
+      result.results = transformOutput(result.results, output_mode) as typeof result.results;
     }
 
     return result.success ? { success: true, result } : { success: false, error: result.error };

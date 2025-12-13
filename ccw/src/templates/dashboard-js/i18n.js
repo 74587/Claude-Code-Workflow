@@ -200,6 +200,15 @@ const i18n = {
     'cli.codexLensDescFull': 'Full-text code search engine',
     'cli.semanticDesc': 'AI-powered code understanding',
     'cli.semanticDescFull': 'Natural language code search',
+    'cli.settings': 'CLI Execution Settings',
+    'cli.promptFormat': 'Prompt Format',
+    'cli.promptFormatDesc': 'Format for multi-turn conversation concatenation',
+    'cli.storageBackend': 'Storage Backend',
+    'cli.storageBackendDesc': 'CLI history stored in SQLite with FTS search',
+    'cli.smartContext': 'Smart Context',
+    'cli.smartContextDesc': 'Auto-analyze prompt and add relevant file paths',
+    'cli.maxContextFiles': 'Max Context Files',
+    'cli.maxContextFilesDesc': 'Maximum files to include in smart context',
     
     // CCW Install
     'ccw.install': 'CCW Install',
@@ -711,6 +720,15 @@ const i18n = {
     'cli.codexLensDescFull': '全文代码搜索引擎',
     'cli.semanticDesc': 'AI 驱动的代码理解',
     'cli.semanticDescFull': '自然语言代码搜索',
+    'cli.settings': 'CLI 调用设置',
+    'cli.promptFormat': '提示词格式',
+    'cli.promptFormatDesc': '多轮对话拼接格式',
+    'cli.storageBackend': '存储后端',
+    'cli.storageBackendDesc': 'CLI 历史使用 SQLite 存储，支持全文搜索',
+    'cli.smartContext': '智能上下文',
+    'cli.smartContextDesc': '自动分析提示词并添加相关文件路径',
+    'cli.maxContextFiles': '最大上下文文件数',
+    'cli.maxContextFilesDesc': '智能上下文包含的最大文件数',
     
     // CCW Install
     'ccw.install': 'CCW 安装',
