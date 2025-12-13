@@ -162,19 +162,19 @@ function promptResumeExecution(executionId, tool) {
 
 async function executeResume(executionId, tool) {
   var promptInput = document.getElementById('resumePromptInput');
-  var additionalPrompt = promptInput ? promptInput.value.trim() : '';
+  var additionalPrompt = promptInput ? promptInput.value.trim() : 'Continue from previous session';
 
   closeModal();
   showRefreshToast('Resuming session...', 'info');
 
   try {
-    var response = await fetch('/api/cli/resume', {
+    var response = await fetch('/api/cli/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        executionId: executionId,
         tool: tool,
-        prompt: additionalPrompt || undefined
+        prompt: additionalPrompt,
+        resume: executionId  // execution ID to resume from
       })
     });
 
@@ -197,12 +197,13 @@ async function resumeLastSession(tool) {
   showRefreshToast('Resuming last ' + (tool || '') + ' session...', 'info');
 
   try {
-    var response = await fetch('/api/cli/resume', {
+    var response = await fetch('/api/cli/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        tool: tool || undefined,
-        last: true
+        tool: tool || 'gemini',
+        prompt: 'Continue from previous session',
+        resume: true  // true = resume last session
       })
     });
 

@@ -160,8 +160,7 @@ export function run(argv: string[]): void {
     .option('--no-stream', 'Disable streaming output')
     .option('--limit <n>', 'History limit')
     .option('--status <status>', 'Filter by status')
-    .option('--last', 'Resume most recent session')
-    .option('--prompt <text>', 'Additional prompt for resume continuation')
+    .option('--resume [id]', 'Resume previous session (empty=last, or execution ID)')
     .action((subcommand, args, options) => cliCommand(subcommand, args, options));
 
   program.parse(argv);

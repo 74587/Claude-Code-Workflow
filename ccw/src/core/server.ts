@@ -8,7 +8,7 @@ import { createHash } from 'crypto';
 import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
-import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, deleteExecution, executeCliTool, resumeCliSession } from '../tools/cli-executor.js';
+import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, deleteExecution, executeCliTool } from '../tools/cli-executor.js';
 import { getAllManifests } from './manifest.js';
 import { checkVenvStatus, bootstrapVenv, executeCodexLens, checkSemanticStatus, installSemantic } from '../tools/codex-lens.js';
 import { listTools } from '../tools/index.js';
@@ -754,81 +754,6 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
               type: 'CLI_EXECUTION_ERROR',
               payload: {
                 executionId,
-                error: (error as Error).message
-              }
-            });
-
-            return { error: (error as Error).message, status: 500 };
-          }
-        });
-        return;
-      }
-
-      // API: Resume CLI Session
-      if (pathname === '/api/cli/resume' && req.method === 'POST') {
-        handlePostRequest(req, res, async (body) => {
-          const { executionId, tool, last, prompt } = body as {
-            executionId?: string;
-            tool?: string;
-            last?: boolean;
-            prompt?: string;
-          };
-
-          if (!executionId && !last && tool !== 'codex') {
-            return { error: 'executionId or --last flag is required', status: 400 };
-          }
-
-          // Broadcast resume started
-          const resumeId = `${Date.now()}-resume`;
-          broadcastToClients({
-            type: 'CLI_EXECUTION_STARTED',
-            payload: {
-              executionId: resumeId,
-              tool: tool || 'resume',
-              mode: 'resume',
-              resumeFrom: executionId,
-              timestamp: new Date().toISOString()
-            }
-          });
-
-          try {
-            const result = await resumeCliSession(
-              initialPath,
-              { tool, executionId, last, prompt },
-              (chunk) => {
-                broadcastToClients({
-                  type: 'CLI_OUTPUT',
-                  payload: {
-                    executionId: resumeId,
-                    chunkType: chunk.type,
-                    data: chunk.data
-                  }
-                });
-              }
-            );
-
-            // Broadcast completion
-            broadcastToClients({
-              type: 'CLI_EXECUTION_COMPLETED',
-              payload: {
-                executionId: resumeId,
-                success: result.success,
-                status: result.execution.status,
-                duration_ms: result.execution.duration_ms,
-                resumeFrom: executionId
-              }
-            });
-
-            return {
-              success: result.success,
-              execution: result.execution
-            };
-
-          } catch (error: unknown) {
-            broadcastToClients({
-              type: 'CLI_EXECUTION_ERROR',
-              payload: {
-                executionId: resumeId,
                 error: (error as Error).message
               }
             });

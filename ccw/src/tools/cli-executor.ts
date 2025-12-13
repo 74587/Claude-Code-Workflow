@@ -21,6 +21,7 @@ const ParamsSchema = z.object({
   cd: z.string().optional(),
   includeDirs: z.string().optional(),
   timeout: z.number().default(300000),
+  resume: z.union([z.boolean(), z.string()]).optional(), // true = last, string = execution ID
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -252,7 +253,19 @@ async function executeCliTool(
     throw new Error(`Invalid params: ${parsed.error.message}`);
   }
 
-  const { tool, prompt, mode, model, cd, includeDirs, timeout } = parsed.data;
+  const { tool, prompt, mode, model, cd, includeDirs, timeout, resume } = parsed.data;
+
+  // Determine working directory early (needed for resume lookup)
+  const workingDir = cd || process.cwd();
+
+  // Build final prompt (with resume context if applicable)
+  let finalPrompt = prompt;
+  if (resume) {
+    const previousExecution = getPreviousExecution(workingDir, tool, resume);
+    if (previousExecution) {
+      finalPrompt = buildContinuationPrompt(previousExecution, prompt);
+    }
+  }
 
   // Check tool availability
   const toolStatus = await checkToolAvailability(tool);
@@ -263,15 +276,12 @@ async function executeCliTool(
   // Build command
   const { command, args, useStdin } = buildCommand({
     tool,
-    prompt,
+    prompt: finalPrompt,
     mode,
     model,
     dir: cd,
     include: includeDirs
   });
-
-  // Determine working directory
-  const workingDir = cd || process.cwd();
 
   // Create execution record
   const executionId = `${Date.now()}-${tool}`;
@@ -639,143 +649,6 @@ export async function getCliToolsStatus(): Promise<Record<string, ToolAvailabili
 }
 
 /**
- * Resume a CLI session
- * - Codex: Uses native `codex resume` command
- * - Gemini/Qwen: Loads previous conversation and continues
- */
-export async function resumeCliSession(
-  baseDir: string,
-  options: {
-    tool?: string;
-    executionId?: string;
-    last?: boolean;
-    prompt?: string;
-  },
-  onOutput?: ((data: { type: string; data: string }) => void) | null
-): Promise<ExecutionOutput> {
-  const { tool, executionId, last = false, prompt } = options;
-
-  // For Codex, use native resume
-  if (tool === 'codex' || (!tool && !executionId)) {
-    return resumeCodexSession(baseDir, { last }, onOutput);
-  }
-
-  // For Gemini/Qwen, load previous session and continue
-  let previousExecution: ExecutionRecord | null = null;
-
-  if (executionId) {
-    previousExecution = getExecutionDetail(baseDir, executionId);
-  } else if (last) {
-    // Get the most recent execution for the specified tool (or any tool)
-    const history = getExecutionHistory(baseDir, { limit: 1, tool: tool || null });
-    if (history.executions.length > 0) {
-      previousExecution = getExecutionDetail(baseDir, history.executions[0].id);
-    }
-  }
-
-  if (!previousExecution) {
-    throw new Error('No previous session found to resume');
-  }
-
-  // Build continuation prompt with previous context
-  const continuationPrompt = buildContinuationPrompt(previousExecution, prompt);
-
-  // Execute with the continuation prompt
-  return executeCliTool({
-    tool: previousExecution.tool,
-    prompt: continuationPrompt,
-    mode: previousExecution.mode,
-    model: previousExecution.model !== 'default' ? previousExecution.model : undefined
-  }, onOutput);
-}
-
-/**
- * Resume Codex session using native command
- */
-async function resumeCodexSession(
-  baseDir: string,
-  options: { last?: boolean },
-  onOutput?: ((data: { type: string; data: string }) => void) | null
-): Promise<ExecutionOutput> {
-  const { last = false } = options;
-
-  // Check codex availability
-  const toolStatus = await checkToolAvailability('codex');
-  if (!toolStatus.available) {
-    throw new Error('Codex CLI not available. Please ensure it is installed and in PATH.');
-  }
-
-  const args = ['resume'];
-  if (last) {
-    args.push('--last');
-  }
-
-  const isWindows = process.platform === 'win32';
-  const startTime = Date.now();
-  const executionId = `${Date.now()}-codex-resume`;
-
-  return new Promise((resolve, reject) => {
-    const child = spawn('codex', args, {
-      cwd: baseDir,
-      shell: isWindows,
-      stdio: ['inherit', 'pipe', 'pipe'] // inherit stdin for interactive picker
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout!.on('data', (data) => {
-      const text = data.toString();
-      stdout += text;
-      if (onOutput) {
-        onOutput({ type: 'stdout', data: text });
-      }
-    });
-
-    child.stderr!.on('data', (data) => {
-      const text = data.toString();
-      stderr += text;
-      if (onOutput) {
-        onOutput({ type: 'stderr', data: text });
-      }
-    });
-
-    child.on('close', (code) => {
-      const duration = Date.now() - startTime;
-      const status: 'success' | 'error' = code === 0 ? 'success' : 'error';
-
-      const execution: ExecutionRecord = {
-        id: executionId,
-        timestamp: new Date(startTime).toISOString(),
-        tool: 'codex',
-        model: 'default',
-        mode: 'auto',
-        prompt: `[Resume session${last ? ' --last' : ''}]`,
-        status,
-        exit_code: code,
-        duration_ms: duration,
-        output: {
-          stdout: stdout.substring(0, 10240),
-          stderr: stderr.substring(0, 2048),
-          truncated: stdout.length > 10240 || stderr.length > 2048
-        }
-      };
-
-      resolve({
-        success: status === 'success',
-        execution,
-        stdout,
-        stderr
-      });
-    });
-
-    child.on('error', (error) => {
-      reject(new Error(`Failed to resume codex session: ${error.message}`));
-    });
-  });
-}
-
-/**
  * Build continuation prompt with previous conversation context
  */
 function buildContinuationPrompt(previous: ExecutionRecord, additionalPrompt?: string): string {
@@ -800,6 +673,27 @@ function buildContinuationPrompt(previous: ExecutionRecord, additionalPrompt?: s
   }
 
   return parts.join('\n');
+}
+
+/**
+ * Get previous execution for resume
+ * @param baseDir - Working directory
+ * @param tool - Tool to filter by
+ * @param resume - true for last, or execution ID string
+ */
+function getPreviousExecution(baseDir: string, tool: string, resume: boolean | string): ExecutionRecord | null {
+  if (typeof resume === 'string') {
+    // Resume specific execution by ID
+    return getExecutionDetail(baseDir, resume);
+  } else if (resume === true) {
+    // Resume last execution for this tool
+    const history = getExecutionHistory(baseDir, { limit: 1, tool });
+    if (history.executions.length === 0) {
+      return null;
+    }
+    return getExecutionDetail(baseDir, history.executions[0].id);
+  }
+  return null;
 }
 
 /**

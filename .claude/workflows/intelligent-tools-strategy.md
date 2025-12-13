@@ -51,7 +51,7 @@ ccw cli exec "<prompt>" --tool codex --mode auto --cd ./project --includeDirs ./
 |---------|-------------|
 | `ccw cli status` | Check CLI tools availability |
 | `ccw cli exec "<prompt>"` | Execute a CLI tool |
-| `ccw cli resume [id]` | Resume a previous session |
+| `ccw cli exec "<prompt>" --resume [id]` | Resume a previous session |
 | `ccw cli history` | Show execution history |
 | `ccw cli detail <id>` | Show execution detail |
 
@@ -122,38 +122,45 @@ ccw cli exec "<prompt>" --tool codex --mode auto --cd ./project --includeDirs ./
 
 **Default MODE**: No default, must be explicitly specified
 
-### Session Management
+### Session Resume
 
-**Resume Commands** (unified via CCW):
+**Resume via `--resume` parameter** (integrated into exec):
 ```bash
-# Resume last session (any tool)
-ccw cli resume --last
+# Resume last session with continuation prompt
+ccw cli exec "Now add error handling" --resume --tool gemini
+ccw cli exec "Continue analyzing security" --resume --tool gemini
 
-# Resume last session for specific tool
-ccw cli resume --last --tool gemini
-ccw cli resume --last --tool codex
+# Resume specific session by ID with prompt
+ccw cli exec "Fix the issues you found" --resume <execution-id> --tool gemini
 
-# Resume specific session by ID
-ccw cli resume <execution-id>
-
-# Resume with additional prompt
-ccw cli resume --last --prompt "Continue with error handling"
-
-# Codex native interactive picker
-ccw cli resume --tool codex
+# Resume last session (empty --resume = last)
+ccw cli exec "Continue analysis" --resume
 ```
 
-**Resume Options**:
-| Option | Description |
-|--------|-------------|
-| `--last` | Resume most recent session |
-| `--tool <tool>` | Filter by tool (gemini, qwen, codex) |
-| `--prompt <text>` | Additional prompt for continuation |
-| `[id]` | Specific execution ID to resume |
+**Resume Parameter**:
+| Value | Description |
+|-------|-------------|
+| `--resume` (empty) | Resume most recent session |
+| `--resume <id>` | Resume specific execution ID |
+
+**Context Assembly** (automatic):
+```
+=== PREVIOUS CONVERSATION ===
+
+USER PROMPT:
+[Previous prompt content]
+
+ASSISTANT RESPONSE:
+[Previous output]
+
+=== CONTINUATION ===
+
+[Your new prompt content here]
+```
 
 **Tool-Specific Behavior**:
-- **Codex**: Uses native `codex resume` command (supports interactive picker)
-- **Gemini/Qwen**: Loads previous conversation context and continues with new prompt
+- **Codex**: Uses native `codex resume` command
+- **Gemini/Qwen**: Assembles previous prompt + response + new prompt as single context
 
 ---
 

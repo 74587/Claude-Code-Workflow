@@ -8,8 +8,7 @@ import {
   cliExecutorTool,
   getCliToolsStatus,
   getExecutionHistory,
-  getExecutionDetail,
-  resumeCliSession
+  getExecutionDetail
 } from '../tools/cli-executor.js';
 
 interface CliExecOptions {
@@ -20,18 +19,13 @@ interface CliExecOptions {
   includeDirs?: string;
   timeout?: string;
   noStream?: boolean;
+  resume?: string | boolean; // true = last, string = execution ID
 }
 
 interface HistoryOptions {
   limit?: string;
   tool?: string;
   status?: string;
-}
-
-interface ResumeOptions {
-  tool?: string;
-  last?: boolean;
-  prompt?: string;
 }
 
 /**
@@ -67,9 +61,11 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
     process.exit(1);
   }
 
-  const { tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream } = options;
+  const { tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume } = options;
 
-  console.log(chalk.cyan(`\n  Executing ${tool} (${mode} mode)...\n`));
+  // Show execution mode
+  const resumeInfo = resume ? (typeof resume === 'string' ? ` resuming ${resume}` : ' resuming last') : '';
+  console.log(chalk.cyan(`\n  Executing ${tool} (${mode} mode${resumeInfo})...\n`));
 
   // Streaming output handler
   const onOutput = noStream ? null : (chunk: any) => {
@@ -84,7 +80,8 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
       model,
       cd,
       includeDirs,
-      timeout: timeout ? parseInt(timeout, 10) : 300000
+      timeout: timeout ? parseInt(timeout, 10) : 300000,
+      resume // pass resume parameter
     }, onOutput);
 
     // If not streaming, print output now
@@ -97,7 +94,7 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
     if (result.success) {
       console.log(chalk.green(`  ✓ Completed in ${(result.execution.duration_ms / 1000).toFixed(1)}s`));
       console.log(chalk.gray(`  ID: ${result.execution.id}`));
-      console.log(chalk.dim(`  Resume: ccw cli resume ${result.execution.id}`));
+      console.log(chalk.dim(`  Resume: ccw cli exec "..." --resume ${result.execution.id}`));
     } else {
       console.log(chalk.red(`  ✗ Failed (${result.execution.status})`));
       console.log(chalk.gray(`  ID: ${result.execution.id}`));
@@ -195,64 +192,6 @@ async function detailAction(executionId: string | undefined): Promise<void> {
 }
 
 /**
- * Resume a CLI session
- * @param {string | undefined} executionId - Optional execution ID to resume
- * @param {Object} options - CLI options
- */
-async function resumeAction(executionId: string | undefined, options: ResumeOptions): Promise<void> {
-  const { tool, last, prompt } = options;
-
-  // Determine resume mode
-  let resumeMode = '';
-  if (executionId) {
-    resumeMode = `session ${executionId}`;
-  } else if (last) {
-    resumeMode = tool ? `last ${tool} session` : 'last session';
-  } else if (tool === 'codex') {
-    resumeMode = 'codex (interactive picker)';
-  } else {
-    console.error(chalk.red('Error: Please specify --last or provide an execution ID'));
-    console.error(chalk.gray('Usage: ccw cli resume [id] --last --tool gemini'));
-    process.exit(1);
-  }
-
-  console.log(chalk.cyan(`\n  Resuming ${resumeMode}...\n`));
-
-  try {
-    const result = await resumeCliSession(
-      process.cwd(),
-      {
-        tool,
-        executionId,
-        last,
-        prompt
-      },
-      (chunk) => {
-        process.stdout.write(chunk.data);
-      }
-    );
-
-    console.log();
-    if (result.success) {
-      console.log(chalk.green(`  ✓ Completed in ${(result.execution.duration_ms / 1000).toFixed(1)}s`));
-      console.log(chalk.gray(`  ID: ${result.execution.id}`));
-      console.log(chalk.dim(`  Resume: ccw cli resume ${result.execution.id}`));
-    } else {
-      console.log(chalk.red(`  ✗ Failed (${result.execution.status})`));
-      console.log(chalk.gray(`  ID: ${result.execution.id}`));
-      if (result.stderr) {
-        console.error(chalk.red(result.stderr));
-      }
-      process.exit(1);
-    }
-  } catch (error) {
-    const err = error as Error;
-    console.error(chalk.red(`  Error: ${err.message}`));
-    process.exit(1);
-  }
-}
-
-/**
  * Get human-readable time ago string
  * @param {Date} date
  * @returns {string}
@@ -269,14 +208,14 @@ function getTimeAgo(date: Date): string {
 
 /**
  * CLI command entry point
- * @param {string} subcommand - Subcommand (status, exec, history, detail, resume)
+ * @param {string} subcommand - Subcommand (status, exec, history, detail)
  * @param {string[]} args - Arguments array
  * @param {Object} options - CLI options
  */
 export async function cliCommand(
   subcommand: string,
   args: string | string[],
-  options: CliExecOptions | HistoryOptions | ResumeOptions
+  options: CliExecOptions | HistoryOptions
 ): Promise<void> {
   const argsArray = Array.isArray(args) ? args : (args ? [args] : []);
 
@@ -297,17 +236,12 @@ export async function cliCommand(
       await detailAction(argsArray[0]);
       break;
 
-    case 'resume':
-      await resumeAction(argsArray[0], options as ResumeOptions);
-      break;
-
     default:
       console.log(chalk.bold.cyan('\n  CCW CLI Tool Executor\n'));
       console.log('  Unified interface for Gemini, Qwen, and Codex CLI tools.\n');
       console.log('  Subcommands:');
       console.log(chalk.gray('    status              Check CLI tools availability'));
       console.log(chalk.gray('    exec <prompt>       Execute a CLI tool'));
-      console.log(chalk.gray('    resume [id]         Resume a previous session'));
       console.log(chalk.gray('    history             Show execution history'));
       console.log(chalk.gray('    detail <id>         Show execution detail'));
       console.log();
@@ -321,12 +255,7 @@ export async function cliCommand(
       console.log(chalk.gray('                        → codex: --add-dir'));
       console.log(chalk.gray('    --timeout <ms>      Timeout in milliseconds (default: 300000)'));
       console.log(chalk.gray('    --no-stream         Disable streaming output'));
-      console.log();
-      console.log('  Resume Options:');
-      console.log(chalk.gray('    --last              Resume most recent session'));
-      console.log(chalk.gray('    --tool <tool>       Tool filter (gemini, qwen, codex)'));
-      console.log(chalk.gray('    --prompt <text>     Additional prompt for continuation'));
-      console.log(chalk.gray('    [id]                Specific execution ID to resume'));
+      console.log(chalk.gray('    --resume [id]       Resume previous session (empty=last, or execution ID)'));
       console.log();
       console.log('  History Options:');
       console.log(chalk.gray('    --limit <n>         Number of results (default: 20)'));
@@ -338,10 +267,8 @@ export async function cliCommand(
       console.log(chalk.gray('    ccw cli exec "Analyze the auth module" --tool gemini'));
       console.log(chalk.gray('    ccw cli exec "Analyze with context" --tool gemini --includeDirs ../shared,../types'));
       console.log(chalk.gray('    ccw cli exec "Implement feature" --tool codex --mode auto --includeDirs ./lib'));
-      console.log(chalk.gray('    ccw cli resume --last                      # Resume last session'));
-      console.log(chalk.gray('    ccw cli resume --last --tool gemini        # Resume last Gemini session'));
-      console.log(chalk.gray('    ccw cli resume --tool codex                # Codex interactive picker'));
-      console.log(chalk.gray('    ccw cli resume <id> --prompt "Continue..."  # Resume specific session'));
+      console.log(chalk.gray('    ccw cli exec "Continue analysis" --resume               # Resume last session'));
+      console.log(chalk.gray('    ccw cli exec "Continue..." --resume <id> --tool gemini  # Resume specific session'));
       console.log(chalk.gray('    ccw cli history --tool gemini --limit 10'));
       console.log();
   }
