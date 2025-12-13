@@ -67,7 +67,9 @@ Phase 4: Execution Strategy & Task Execution
          ├─ Get next in_progress task from TodoWrite
          ├─ Lazy load task JSON
          ├─ Launch agent with task context
-         ├─ Mark task completed
+         ├─ Mark task completed (update IMPL-*.json status)
+         │  # Update task status with ccw session (auto-tracks status_history):
+         │  # ccw session task ${sessionId} IMPL-X completed
          └─ Advance to next task
 
 Phase 5: Completion
@@ -90,37 +92,32 @@ Resume Mode (--resume-session):
 
 **Process**:
 
-#### Step 1.1: Count Active Sessions
+#### Step 1.1: List Active Sessions
 ```bash
-bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | wc -l)
+ccw session list --location active
+# Returns: {"success":true,"result":{"active":[...],"total":N}}
 ```
 
 #### Step 1.2: Handle Session Selection
 
-**Case A: No Sessions** (count = 0)
+**Case A: No Sessions** (total = 0)
 ```
 ERROR: No active workflow sessions found
 Run /workflow:plan "task description" to create a session
 ```
 
-**Case B: Single Session** (count = 1)
-```bash
-bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | head -1 | xargs basename)
-```
-Auto-select and continue to Phase 2.
+**Case B: Single Session** (total = 1)
+Auto-select the single session from result.active[0].session_id and continue to Phase 2.
 
-**Case C: Multiple Sessions** (count > 1)
+**Case C: Multiple Sessions** (total > 1)
 
-List sessions with metadata and prompt user selection:
+List sessions with metadata using ccw session:
 ```bash
-bash(for dir in .workflow/active/WFS-*/; do
-  session=$(basename "$dir")
-  project=$(ccw session read "$session" --type session --raw 2>/dev/null | jq -r '.project // "Unknown"')
-  total=$(grep -c "^- \[" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
-  completed=$(grep -c "^- \[x\]" "$dir/TODO_LIST.md" 2>/dev/null || echo "0")
-  [ "$total" -gt 0 ] && progress=$((completed * 100 / total)) || progress=0
-  echo "${session} | ${project} | ${completed}/${total} tasks (${progress}%)"
-done)
+# Get session list with metadata
+ccw session list --location active
+
+# For each session, get stats
+ccw session stats WFS-session-name
 ```
 
 Use AskUserQuestion to present formatted options (max 4 options shown):
@@ -157,6 +154,14 @@ ccw session read ${sessionId} --type session
 
 **Output**: Store session metadata in memory
 **DO NOT read task JSONs yet** - defer until execution phase (lazy loading)
+
+#### Step 1.4: Update Session Status to Active
+**Purpose**: Update workflow-session.json status from "planning" to "active" for dashboard monitoring.
+
+```bash
+# Update status atomically using ccw session
+ccw session status ${sessionId} active
+```
 
 **Resume Mode**: This entire phase is skipped when `--resume-session="session-id"` flag is provided.
 

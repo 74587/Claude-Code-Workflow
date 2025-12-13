@@ -100,7 +100,7 @@ CONTEXT: @**/*
 # Specific patterns
 CONTEXT: @CLAUDE.md @src/**/* @*.ts
 
-# Cross-directory (requires --include-directories)
+# Cross-directory (requires --includeDirs)
 CONTEXT: @**/* @../shared/**/* @../types/**/*
 ```
 
@@ -144,43 +144,40 @@ discuss → multi (gemini + codex parallel)
 - Codex: `gpt-5` (default), `gpt5-codex` (large context)
 - **Position**: `-m` after prompt, before flags
 
-### Command Templates
+### Command Templates (CCW Unified CLI)
 
 **Gemini/Qwen (Analysis)**:
 ```bash
-cd {dir} && gemini -p "
+ccw cli exec "
 PURPOSE: {goal}
 TASK: {task}
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: {output}
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt)
-" -m gemini-2.5-pro
+" --tool gemini --cd {dir}
 
-# Qwen fallback: Replace 'gemini' with 'qwen'
+# Qwen fallback: Replace '--tool gemini' with '--tool qwen'
 ```
 
 **Gemini/Qwen (Write)**:
 ```bash
-cd {dir} && gemini -p "..." --approval-mode yolo
+ccw cli exec "..." --tool gemini --mode write --cd {dir}
 ```
 
 **Codex (Auto)**:
 ```bash
-codex -C {dir} --full-auto exec "..." --skip-git-repo-check -s danger-full-access
-
-# Resume: Add 'resume --last' after prompt
-codex --full-auto exec "..." resume --last --skip-git-repo-check -s danger-full-access
+ccw cli exec "..." --tool codex --mode auto --cd {dir}
 ```
 
 **Cross-Directory** (Gemini/Qwen):
 ```bash
-cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" --include-directories ../shared
+ccw cli exec "CONTEXT: @**/* @../shared/**/*" --tool gemini --cd src/auth --includeDirs ../shared
 ```
 
 **Directory Scope**:
 - `@` only references current directory + subdirectories
-- External dirs: MUST use `--include-directories` + explicit CONTEXT reference
+- External dirs: MUST use `--includeDirs` + explicit CONTEXT reference
 
 **Timeout**: Simple 20min | Medium 40min | Complex 60min (Codex ×1.5)
 

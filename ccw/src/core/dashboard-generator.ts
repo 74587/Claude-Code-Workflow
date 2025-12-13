@@ -6,12 +6,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Bundled template paths
-const UNIFIED_TEMPLATE = join(__dirname, '../templates/dashboard.html');
-const JS_FILE = join(__dirname, '../templates/dashboard.js');
-const MODULE_CSS_DIR = join(__dirname, '../templates/dashboard-css');
-const WORKFLOW_TEMPLATE = join(__dirname, '../templates/workflow-dashboard.html');
-const REVIEW_TEMPLATE = join(__dirname, '../templates/review-cycle-dashboard.html');
+// Bundled template paths (from dist/core/ -> src/templates/)
+const UNIFIED_TEMPLATE = join(__dirname, '../../src/templates/dashboard.html');
+const JS_FILE = join(__dirname, '../../src/templates/dashboard.js');
+const MODULE_CSS_DIR = join(__dirname, '../../src/templates/dashboard-css');
+const WORKFLOW_TEMPLATE = join(__dirname, '../../src/templates/workflow-dashboard.html');
+const REVIEW_TEMPLATE = join(__dirname, '../../src/templates/review-cycle-dashboard.html');
 
 // Modular CSS files in load order
 const MODULE_CSS_FILES = [

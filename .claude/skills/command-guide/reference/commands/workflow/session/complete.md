@@ -25,11 +25,9 @@ Mark the currently active workflow session as complete, analyze it for lessons l
 
 #### Step 1.1: Find Active Session and Get Name
 ```bash
-# Find active session directory
-bash(find .workflow/active/ -name "WFS-*" -type d | head -1)
-
-# Extract session name from directory path
-bash(basename .workflow/active/WFS-session-name)
+# Find active session
+ccw session list --location active
+# Extract first session_id from result.active array
 ```
 **Output**: Session name `WFS-session-name`
 
@@ -199,7 +197,7 @@ manifest.push(archiveEntry);
 Write('.workflow/archives/manifest.json', JSON.stringify(manifest, null, 2));
 ```
 
-#### Step 3.3: Remove Archiving Marker
+#### Step 3.5: Remove Archiving Marker
 ```bash
 # Remove archiving marker from archived session (use bash rm as ccw has no delete)
 rm .workflow/archives/WFS-session-name/.process/.archiving 2>/dev/null || true
@@ -223,7 +221,8 @@ rm .workflow/archives/WFS-session-name/.process/.archiving 2>/dev/null || true
 
 #### Step 4.1: Check Project State Exists
 ```bash
-bash(test -f .workflow/project.json && echo "EXISTS" || echo "SKIP")
+# Check project state using ccw
+ccw session read project --type project 2>/dev/null && echo "EXISTS" || echo "SKIP"
 ```
 
 **If SKIP**: Output warning and skip Phase 4
@@ -251,8 +250,8 @@ const featureId = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 5
 #### Step 4.3: Update project.json
 
 ```bash
-# Read current project state
-bash(cat .workflow/project.json)
+# Read current project state using ccw
+ccw session read project --type project --raw
 ```
 
 **JSON Update Logic**:
@@ -366,8 +365,8 @@ function getLatestCommitHash() {
 **Recovery Steps**:
 ```bash
 # Session still in .workflow/active/WFS-session-name
-# Remove archiving marker
-bash(rm .workflow/active/WFS-session-name/.archiving)
+# Remove archiving marker using bash
+rm .workflow/active/WFS-session-name/.process/.archiving 2>/dev/null || true
 ```
 
 **User Notification**:
@@ -464,11 +463,12 @@ Session state: PARTIALLY COMPLETE (session archived, manifest needs update)
 
 **Phase 3: Atomic Commit** (Transactional file operations)
 - Create archive directory
+- Update session status to "completed"
 - Move session to archive location
 - Update manifest.json with archive entry
 - Remove `.archiving` marker
 - **All-or-nothing**: Either all succeed or session remains in safe state
-- **Total**: 4 bash commands + JSON manipulation
+- **Total**: 5 bash commands + JSON manipulation
 
 **Phase 4: Project Registry Update** (Optional feature tracking)
 - Check project.json exists
@@ -497,4 +497,56 @@ Session state: PARTIALLY COMPLETE (session archived, manifest needs update)
 - Resume from Phase 2 (skip marker creation)
 - Idempotent operations (safe to retry)
 
+
+
+## session_manager Tool Alternative
+
+Use `ccw tool exec session_manager` for session completion operations:
+
+### List Active Sessions
+```bash
+ccw tool exec session_manager '{"operation":"list","location":"active"}'
+```
+
+### Update Session Status to Completed
+```bash
+ccw tool exec session_manager '{
+  "operation": "update",
+  "session_id": "WFS-xxx",
+  "content_type": "session",
+  "content": {
+    "status": "completed",
+    "archived_at": "2025-12-10T08:00:00Z"
+  }
+}'
+```
+
+### Archive Session
+```bash
+ccw tool exec session_manager '{"operation":"archive","session_id":"WFS-xxx"}'
+
+# This operation:
+# 1. Updates status to "completed" if update_status=true (default)
+# 2. Moves session from .workflow/active/ to .workflow/archives/
+```
+
+### Read Session Data
+```bash
+# Read workflow-session.json
+ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"session"}'
+
+# Read IMPL_PLAN.md
+ccw tool exec session_manager '{"operation":"read","session_id":"WFS-xxx","content_type":"plan"}'
+```
+
+### Write Archiving Marker
+```bash
+ccw tool exec session_manager '{
+  "operation": "write",
+  "session_id": "WFS-xxx",
+  "content_type": "process",
+  "path_params": {"filename": ".archiving"},
+  "content": ""
+}'
+```
 

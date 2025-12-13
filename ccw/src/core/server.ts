@@ -36,11 +36,11 @@ function getEnterpriseMcpPath(): string {
 // WebSocket clients for real-time notifications
 const wsClients = new Set();
 
-const TEMPLATE_PATH = join(import.meta.dirname, '../templates/dashboard.html');
-const MODULE_CSS_DIR = join(import.meta.dirname, '../templates/dashboard-css');
-const JS_FILE = join(import.meta.dirname, '../templates/dashboard.js');
-const MODULE_JS_DIR = join(import.meta.dirname, '../templates/dashboard-js');
-const ASSETS_DIR = join(import.meta.dirname, '../templates/assets');
+const TEMPLATE_PATH = join(import.meta.dirname, '../../src/templates/dashboard.html');
+const MODULE_CSS_DIR = join(import.meta.dirname, '../../src/templates/dashboard-css');
+const JS_FILE = join(import.meta.dirname, '../../src/templates/dashboard.js');
+const MODULE_JS_DIR = join(import.meta.dirname, '../../src/templates/dashboard-js');
+const ASSETS_DIR = join(import.meta.dirname, '../../src/templates/assets');
 
 // Modular CSS files in load order
 const MODULE_CSS_FILES = [

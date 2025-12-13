@@ -97,7 +97,7 @@ Phase 3: planObject Generation
 ## CLI Command Template
 
 ```bash
-cd {project_root} && {cli_tool} -p "
+ccw cli exec "
 PURPOSE: Generate implementation plan for {complexity} task
 TASK:
 • Analyze: {task_description}
@@ -134,7 +134,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/planning/02-breakdown-tas
 - Acceptance must be quantified (counts, method names, metrics)
 - Dependencies use task IDs (T1, T2)
 - analysis=READ-ONLY
-"
+" --tool {cli_tool} --cd {project_root}
 ```
 
 ## Core Functions

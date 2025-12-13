@@ -107,7 +107,7 @@ Phase 3: Task JSON Generation
 
 **Template-Based Command Construction with Test Layer Awareness**:
 ```bash
-cd {project_root} && {cli_tool} -p "
+ccw cli exec "
 PURPOSE: Analyze {test_type} test failures and generate fix strategy for iteration {iteration}
 TASK:
 • Review {failed_tests.length} {test_type} test failures: [{test_names}]
@@ -134,7 +134,7 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/{template}) |
 - Consider previous iteration failures
 - Validate fix doesn't introduce new vulnerabilities
 - analysis=READ-ONLY
-" {timeout_flag}
+" --tool {cli_tool} --cd {project_root} --timeout {timeout_value}
 ```
 
 **Layer-Specific Guidance Injection**:
@@ -527,9 +527,9 @@ See: `.process/iteration-{iteration}-cli-output.txt`
 1. **Detect test_type**: "integration" → Apply integration-specific diagnosis
 2. **Execute CLI**:
    ```bash
-   gemini -p "PURPOSE: Analyze integration test failure...
+   ccw cli exec "PURPOSE: Analyze integration test failure...
    TASK: Examine component interactions, data flow, interface contracts...
-   RULES: Analyze full call stack and data flow across components"
+   RULES: Analyze full call stack and data flow across components" --tool gemini
    ```
 3. **Parse Output**: Extract RCA, 修复建议, 验证建议 sections
 4. **Generate Task JSON** (IMPL-fix-1.json):

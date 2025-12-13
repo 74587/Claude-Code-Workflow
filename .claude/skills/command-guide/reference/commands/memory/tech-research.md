@@ -1,477 +1,314 @@
 ---
 name: tech-research
-description: 3-phase orchestrator: extract tech stack from session/name → delegate to agent for Exa research and module generation → generate SKILL.md index (skips phase 2 if exists)
+description: "3-phase orchestrator: extract tech stack → Exa research → generate path-conditional rules (auto-loaded by Claude Code)"
 argument-hint: "[session-id | tech-stack-name] [--regenerate] [--tool <gemini|qwen>]"
 allowed-tools: SlashCommand(*), TodoWrite(*), Bash(*), Read(*), Write(*), Task(*)
 ---
 
-# Tech Stack Research SKILL Generator
+# Tech Stack Rules Generator
 
 ## Overview
 
-**Pure Orchestrator with Agent Delegation**: Prepares context paths and delegates ALL work to agent. Agent produces files directly.
+**Purpose**: Generate multi-layered, path-conditional rules that Claude Code automatically loads based on file context.
 
-**Auto-Continue Workflow**: Runs fully autonomously once triggered. Each phase completes and automatically triggers the next phase.
+**Key Difference from SKILL Memory**:
+- **SKILL**: Manual loading via `Skill(command: "tech-name")`
+- **Rules**: Automatic loading when working with matching file paths
 
-**Execution Paths**:
-- **Full Path**: All 3 phases (no existing SKILL OR `--regenerate` specified)
-- **Skip Path**: Phase 1 → Phase 3 (existing SKILL found AND no `--regenerate` flag)
-- **Phase 3 Always Executes**: SKILL index is always generated or updated
+**Output Structure**:
+```
+.claude/rules/tech/{tech-stack}/
+├── core.md           # paths: **/*.{ext} - Core principles
+├── patterns.md       # paths: src/**/*.{ext} - Implementation patterns
+├── testing.md        # paths: **/*.{test,spec}.{ext} - Testing rules
+├── config.md         # paths: *.config.* - Configuration rules
+├── api.md            # paths: **/api/**/* - API rules (backend only)
+├── components.md     # paths: **/components/**/* - Component rules (frontend only)
+└── metadata.json     # Generation metadata
+```
 
-**Agent Responsibility**:
-- Agent does ALL the work: context reading, Exa research, content synthesis, file writing
-- Orchestrator only provides context paths and waits for completion
+**Templates Location**: `~/.claude/workflows/cli-templates/prompts/rules/`
+
+---
 
 ## Core Rules
 
-1. **Start Immediately**: First action is TodoWrite initialization, second action is Phase 1 execution
-2. **Context Path Delegation**: Pass session directory or tech stack name to agent, let agent do discovery
-3. **Agent Produces Files**: Agent directly writes all module files, orchestrator does NOT parse agent output
-4. **Auto-Continue**: After completing each phase, update TodoWrite and immediately execute next phase
-5. **No User Prompts**: Never ask user questions or wait for input between phases
-6. **Track Progress**: Update TodoWrite after EVERY phase completion before starting next phase
-7. **Lightweight Index**: Phase 3 only generates SKILL.md index by reading existing files
+1. **Start Immediately**: First action is TodoWrite initialization
+2. **Path-Conditional Output**: Every rule file includes `paths` frontmatter
+3. **Template-Driven**: Agent reads templates before generating content
+4. **Agent Produces Files**: Agent writes all rule files directly
+5. **No Manual Loading**: Rules auto-activate when Claude works with matching files
 
 ---
 
 ## 3-Phase Execution
 
-### Phase 1: Prepare Context Paths
+### Phase 1: Prepare Context & Detect Tech Stack
 
-**Goal**: Detect input mode, prepare context paths for agent, check existing SKILL
+**Goal**: Detect input mode, extract tech stack info, determine file extensions
 
 **Input Mode Detection**:
 ```bash
-# Get input parameter
 input="$1"
 
-# Detect mode
 if [[ "$input" == WFS-* ]]; then
   MODE="session"
   SESSION_ID="$input"
-  CONTEXT_PATH=".workflow/${SESSION_ID}"
+  # Read workflow-session.json to extract tech stack
 else
   MODE="direct"
   TECH_STACK_NAME="$input"
-  CONTEXT_PATH="$input"  # Pass tech stack name as context
 fi
 ```
 
-**Check Existing SKILL**:
-```bash
-# For session mode, peek at session to get tech stack name
-if [[ "$MODE" == "session" ]]; then
-  bash(test -f ".workflow/${SESSION_ID}/workflow-session.json")
-  Read(.workflow/${SESSION_ID}/workflow-session.json)
-  # Extract tech_stack_name (minimal extraction)
-fi
+**Tech Stack Analysis**:
+```javascript
+// Decompose composite tech stacks
+// "typescript-react-nextjs" → ["typescript", "react", "nextjs"]
 
-# Normalize and check
+const TECH_EXTENSIONS = {
+  "typescript": "{ts,tsx}",
+  "javascript": "{js,jsx}",
+  "python": "py",
+  "rust": "rs",
+  "go": "go",
+  "java": "java",
+  "csharp": "cs",
+  "ruby": "rb",
+  "php": "php"
+};
+
+const FRAMEWORK_TYPE = {
+  "react": "frontend",
+  "vue": "frontend",
+  "angular": "frontend",
+  "nextjs": "fullstack",
+  "nuxt": "fullstack",
+  "fastapi": "backend",
+  "express": "backend",
+  "django": "backend",
+  "rails": "backend"
+};
+```
+
+**Check Existing Rules**:
+```bash
 normalized_name=$(echo "$TECH_STACK_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-bash(test -d ".claude/skills/${normalized_name}" && echo "exists" || echo "not_exists")
-bash(find ".claude/skills/${normalized_name}" -name "*.md" 2>/dev/null | wc -l || echo 0)
+rules_dir=".claude/rules/tech/${normalized_name}"
+existing_count=$(find "${rules_dir}" -name "*.md" 2>/dev/null | wc -l || echo 0)
 ```
 
 **Skip Decision**:
-```javascript
-if (existing_files > 0 && !regenerate_flag) {
-  SKIP_GENERATION = true
-  message = "Tech stack SKILL already exists, skipping Phase 2. Use --regenerate to force regeneration."
-} else if (regenerate_flag) {
-  bash(rm -rf ".claude/skills/${normalized_name}")
-  SKIP_GENERATION = false
-  message = "Regenerating tech stack SKILL from scratch."
-} else {
-  SKIP_GENERATION = false
-  message = "No existing SKILL found, generating new tech stack documentation."
-}
-```
+- If `existing_count > 0` AND no `--regenerate` → `SKIP_GENERATION = true`
+- If `--regenerate` → Delete existing and regenerate
 
 **Output Variables**:
-- `MODE`: `session` or `direct`
-- `SESSION_ID`: Session ID (if session mode)
-- `CONTEXT_PATH`: Path to session directory OR tech stack name
-- `TECH_STACK_NAME`: Extracted or provided tech stack name
-- `SKIP_GENERATION`: Boolean - whether to skip Phase 2
+- `TECH_STACK_NAME`: Normalized name
+- `PRIMARY_LANG`: Primary language
+- `FILE_EXT`: File extension pattern
+- `FRAMEWORK_TYPE`: frontend | backend | fullstack | library
+- `COMPONENTS`: Array of tech components
+- `SKIP_GENERATION`: Boolean
 
-**TodoWrite**:
-- If skipping: Mark phase 1 completed, phase 2 completed, phase 3 in_progress
-- If not skipping: Mark phase 1 completed, phase 2 in_progress
+**TodoWrite**: Mark phase 1 completed
 
 ---
 
-### Phase 2: Agent Produces All Files
+### Phase 2: Agent Produces Path-Conditional Rules
 
 **Skip Condition**: Skipped if `SKIP_GENERATION = true`
 
-**Goal**: Delegate EVERYTHING to agent - context reading, Exa research, content synthesis, and file writing
+**Goal**: Delegate to agent for Exa research and rule file generation
 
-**Agent Task Specification**:
-
+**Template Files**:
 ```
-Task(
+~/.claude/workflows/cli-templates/prompts/rules/
+├── tech-rules-agent-prompt.txt  # Agent instructions
+├── rule-core.txt                # Core principles template
+├── rule-patterns.txt            # Implementation patterns template
+├── rule-testing.txt             # Testing rules template
+├── rule-config.txt              # Configuration rules template
+├── rule-api.txt                 # API rules template (backend)
+└── rule-components.txt          # Component rules template (frontend)
+```
+
+**Agent Task**:
+
+```javascript
+Task({
   subagent_type: "general-purpose",
-  description: "Generate tech stack SKILL: {CONTEXT_PATH}",
-  prompt: "
-Generate a complete tech stack SKILL package with Exa research.
+  description: `Generate tech stack rules: ${TECH_STACK_NAME}`,
+  prompt: `
+You are generating path-conditional rules for Claude Code.
 
-**Context Provided**:
-- Mode: {MODE}
-- Context Path: {CONTEXT_PATH}
+## Context
+- Tech Stack: ${TECH_STACK_NAME}
+- Primary Language: ${PRIMARY_LANG}
+- File Extensions: ${FILE_EXT}
+- Framework Type: ${FRAMEWORK_TYPE}
+- Components: ${JSON.stringify(COMPONENTS)}
+- Output Directory: .claude/rules/tech/${TECH_STACK_NAME}/
 
-**Templates Available**:
-- Module Format: ~/.claude/workflows/cli-templates/prompts/tech/tech-module-format.txt
-- SKILL Index: ~/.claude/workflows/cli-templates/prompts/tech/tech-skill-index.txt
+## Instructions
 
-**Your Responsibilities**:
+Read the agent prompt template for detailed instructions:
+$(cat ~/.claude/workflows/cli-templates/prompts/rules/tech-rules-agent-prompt.txt)
 
-1. **Extract Tech Stack Information**:
+## Execution Steps
 
-   IF MODE == 'session':
-     - Read `.workflow/active/{session_id}/workflow-session.json`
-     - Read `.workflow/active/{session_id}/.process/context-package.json`
-     - Extract tech_stack: {language, frameworks, libraries}
-     - Build tech stack name: \"{language}-{framework1}-{framework2}\"
-     - Example: \"typescript-react-nextjs\"
+1. Execute Exa research queries (see agent prompt)
+2. Read each rule template
+3. Generate rule files following template structure
+4. Write files to output directory
+5. Write metadata.json
+6. Report completion
 
-   IF MODE == 'direct':
-     - Tech stack name = CONTEXT_PATH
-     - Parse composite: split by '-' delimiter
-     - Example: \"typescript-react-nextjs\" → [\"typescript\", \"react\", \"nextjs\"]
+## Variable Substitutions
 
-2. **Execute Exa Research** (4-6 parallel queries):
-
-   Base Queries (always execute):
-   - mcp__exa__get_code_context_exa(query: \"{tech} core principles best practices 2025\", tokensNum: 8000)
-   - mcp__exa__get_code_context_exa(query: \"{tech} common patterns architecture examples\", tokensNum: 7000)
-   - mcp__exa__web_search_exa(query: \"{tech} configuration setup tooling 2025\", numResults: 5)
-   - mcp__exa__get_code_context_exa(query: \"{tech} testing strategies\", tokensNum: 5000)
-
-   Component Queries (if composite):
-   - For each additional component:
-     mcp__exa__get_code_context_exa(query: \"{main_tech} {component} integration\", tokensNum: 5000)
-
-3. **Read Module Format Template**:
-
-   Read template for structure guidance:
-   ```bash
-   Read(~/.claude/workflows/cli-templates/prompts/tech/tech-module-format.txt)
-   ```
-
-4. **Synthesize Content into 6 Modules**:
-
-   Follow template structure from tech-module-format.txt:
-   - **principles.md** - Core concepts, philosophies (~3K tokens)
-   - **patterns.md** - Implementation patterns with code examples (~5K tokens)
-   - **practices.md** - Best practices, anti-patterns, pitfalls (~4K tokens)
-   - **testing.md** - Testing strategies, frameworks (~3K tokens)
-   - **config.md** - Setup, configuration, tooling (~3K tokens)
-   - **frameworks.md** - Framework integration (only if composite, ~4K tokens)
-
-   Each module follows template format:
-   - Frontmatter (YAML)
-   - Main sections with clear headings
-   - Code examples from Exa research
-   - Best practices sections
-   - References to Exa sources
-
-5. **Write Files Directly**:
-
-   ```javascript
-   // Create directory
-   bash(mkdir -p \".claude/skills/{tech_stack_name}\")
-
-   // Write each module file using Write tool
-   Write({ file_path: \".claude/skills/{tech_stack_name}/principles.md\", content: ... })
-   Write({ file_path: \".claude/skills/{tech_stack_name}/patterns.md\", content: ... })
-   Write({ file_path: \".claude/skills/{tech_stack_name}/practices.md\", content: ... })
-   Write({ file_path: \".claude/skills/{tech_stack_name}/testing.md\", content: ... })
-   Write({ file_path: \".claude/skills/{tech_stack_name}/config.md\", content: ... })
-   // Write frameworks.md only if composite
-
-   // Write metadata.json
-   Write({
-     file_path: \".claude/skills/{tech_stack_name}/metadata.json\",
-     content: JSON.stringify({
-       tech_stack_name,
-       components,
-       is_composite,
-       generated_at: timestamp,
-       source: \"exa-research\",
-       research_summary: { total_queries, total_sources }
-     })
-   })
-   ```
-
-6. **Report Completion**:
-
-   Provide summary:
-   - Tech stack name
-   - Files created (count)
-   - Exa queries executed
-   - Sources consulted
-
-**CRITICAL**:
-- MUST read external template files before generating content (step 3 for modules, step 4 for index)
-- You have FULL autonomy - read files, execute Exa, synthesize content, write files
-- Do NOT return JSON or structured data - produce actual .md files
-- Handle errors gracefully (Exa failures, missing files, template read failures)
-- If tech stack cannot be determined, ask orchestrator to clarify
-  "
-)
+Replace in templates:
+- {TECH_STACK_NAME} → ${TECH_STACK_NAME}
+- {PRIMARY_LANG} → ${PRIMARY_LANG}
+- {FILE_EXT} → ${FILE_EXT}
+- {FRAMEWORK_TYPE} → ${FRAMEWORK_TYPE}
+`
+})
 ```
 
 **Completion Criteria**:
-- Agent task executed successfully
-- 5-6 modular files written to `.claude/skills/{tech_stack_name}/`
+- 4-6 rule files written with proper `paths` frontmatter
 - metadata.json written
-- Agent reports completion
+- Agent reports files created
 
-**TodoWrite**: Mark phase 2 completed, phase 3 in_progress
+**TodoWrite**: Mark phase 2 completed
 
 ---
 
-### Phase 3: Generate SKILL.md Index
+### Phase 3: Verify & Report
 
-**Note**: This phase **ALWAYS executes** - generates or updates the SKILL index.
-
-**Goal**: Read generated module files and create SKILL.md index with loading recommendations
+**Goal**: Verify generated files and provide usage summary
 
 **Steps**:
 
-1. **Verify Generated Files**:
+1. **Verify Files**:
    ```bash
-   bash(find ".claude/skills/${TECH_STACK_NAME}" -name "*.md" -type f | sort)
+   find ".claude/rules/tech/${TECH_STACK_NAME}" -name "*.md" -type f
    ```
 
-2. **Read metadata.json**:
+2. **Validate Frontmatter**:
+   ```bash
+   head -5 ".claude/rules/tech/${TECH_STACK_NAME}/core.md"
+   ```
+
+3. **Read Metadata**:
    ```javascript
-   Read(.claude/skills/${TECH_STACK_NAME}/metadata.json)
-   // Extract: tech_stack_name, components, is_composite, research_summary
+   Read(`.claude/rules/tech/${TECH_STACK_NAME}/metadata.json`)
    ```
 
-3. **Read Module Headers** (optional, first 20 lines):
-   ```javascript
-   Read(.claude/skills/${TECH_STACK_NAME}/principles.md, limit: 20)
-   // Repeat for other modules
+4. **Generate Summary Report**:
    ```
+   Tech Stack Rules Generated
 
-4. **Read SKILL Index Template**:
+   Tech Stack: {TECH_STACK_NAME}
+   Location: .claude/rules/tech/{TECH_STACK_NAME}/
 
-   ```javascript
-   Read(~/.claude/workflows/cli-templates/prompts/tech/tech-skill-index.txt)
+   Files Created:
+   ├── core.md         → paths: **/*.{ext}
+   ├── patterns.md     → paths: src/**/*.{ext}
+   ├── testing.md      → paths: **/*.{test,spec}.{ext}
+   ├── config.md       → paths: *.config.*
+   ├── api.md          → paths: **/api/**/* (if backend)
+   └── components.md   → paths: **/components/**/* (if frontend)
+
+   Auto-Loading:
+   - Rules apply automatically when editing matching files
+   - No manual loading required
+
+   Example Activation:
+   - Edit src/components/Button.tsx → core.md + patterns.md + components.md
+   - Edit tests/api.test.ts → core.md + testing.md
+   - Edit package.json → config.md
    ```
-
-5. **Generate SKILL.md Index**:
-
-   Follow template from tech-skill-index.txt with variable substitutions:
-   - `{TECH_STACK_NAME}`: From metadata.json
-   - `{MAIN_TECH}`: Primary technology
-   - `{ISO_TIMESTAMP}`: Current timestamp
-   - `{QUERY_COUNT}`: From research_summary
-   - `{SOURCE_COUNT}`: From research_summary
-   - Conditional sections for composite tech stacks
-
-   Template provides structure for:
-   - Frontmatter with metadata
-   - Overview and tech stack description
-   - Module organization (Core/Practical/Config sections)
-   - Loading recommendations (Quick/Implementation/Complete)
-   - Usage guidelines and auto-trigger keywords
-   - Research metadata and version history
-
-6. **Write SKILL.md**:
-   ```javascript
-   Write({
-     file_path: `.claude/skills/${TECH_STACK_NAME}/SKILL.md`,
-     content: generatedIndexMarkdown
-   })
-   ```
-
-**Completion Criteria**:
-- SKILL.md index written
-- All module files verified
-- Loading recommendations included
 
 **TodoWrite**: Mark phase 3 completed
 
-**Final Report**:
-```
-Tech Stack SKILL Package Complete
-
-Tech Stack: {TECH_STACK_NAME}
-Location: .claude/skills/{TECH_STACK_NAME}/
-
-Files: SKILL.md + 5-6 modules + metadata.json
-Exa Research: {queries} queries, {sources} sources
-
-Usage: Skill(command: "{TECH_STACK_NAME}")
-```
-
 ---
 
-## Implementation Details
+## Path Pattern Reference
 
-### TodoWrite Patterns
+| Pattern | Matches |
+|---------|---------|
+| `**/*.ts` | All .ts files |
+| `src/**/*` | All files under src/ |
+| `*.config.*` | Config files in root |
+| `**/*.{ts,tsx}` | .ts and .tsx files |
 
-**Initialization** (Before Phase 1):
-```javascript
-TodoWrite({todos: [
-  {"content": "Prepare context paths", "status": "in_progress", "activeForm": "Preparing context paths"},
-  {"content": "Agent produces all module files", "status": "pending", "activeForm": "Agent producing files"},
-  {"content": "Generate SKILL.md index", "status": "pending", "activeForm": "Generating SKILL index"}
-]})
-```
-
-**Full Path** (SKIP_GENERATION = false):
-```javascript
-// After Phase 1
-TodoWrite({todos: [
-  {"content": "Prepare context paths", "status": "completed", ...},
-  {"content": "Agent produces all module files", "status": "in_progress", ...},
-  {"content": "Generate SKILL.md index", "status": "pending", ...}
-]})
-
-// After Phase 2
-TodoWrite({todos: [
-  {"content": "Prepare context paths", "status": "completed", ...},
-  {"content": "Agent produces all module files", "status": "completed", ...},
-  {"content": "Generate SKILL.md index", "status": "in_progress", ...}
-]})
-
-// After Phase 3
-TodoWrite({todos: [
-  {"content": "Prepare context paths", "status": "completed", ...},
-  {"content": "Agent produces all module files", "status": "completed", ...},
-  {"content": "Generate SKILL.md index", "status": "completed", ...}
-]})
-```
-
-**Skip Path** (SKIP_GENERATION = true):
-```javascript
-// After Phase 1 (skip Phase 2)
-TodoWrite({todos: [
-  {"content": "Prepare context paths", "status": "completed", ...},
-  {"content": "Agent produces all module files", "status": "completed", ...},  // Skipped
-  {"content": "Generate SKILL.md index", "status": "in_progress", ...}
-]})
-```
-
-### Execution Flow
-
-**Full Path**:
-```
-User → TodoWrite Init → Phase 1 (prepare) → Phase 2 (agent writes files) → Phase 3 (write index) → Report
-```
-
-**Skip Path**:
-```
-User → TodoWrite Init → Phase 1 (detect existing) → Phase 3 (update index) → Report
-```
-
-### Error Handling
-
-**Phase 1 Errors**:
-- Invalid session ID: Report error, verify session exists
-- Missing context-package: Warn, fall back to direct mode
-- No tech stack detected: Ask user to specify tech stack name
-
-**Phase 2 Errors (Agent)**:
-- Agent task fails: Retry once, report if fails again
-- Exa API failures: Agent handles internally with retries
-- Incomplete results: Warn user, proceed with partial data if minimum sections available
-
-**Phase 3 Errors**:
-- Write failures: Report which files failed
-- Missing files: Note in SKILL.md, suggest regeneration
+| Tech Stack | Core Pattern | Test Pattern |
+|------------|--------------|--------------|
+| TypeScript | `**/*.{ts,tsx}` | `**/*.{test,spec}.{ts,tsx}` |
+| Python | `**/*.py` | `**/test_*.py, **/*_test.py` |
+| Rust | `**/*.rs` | `**/tests/**/*.rs` |
+| Go | `**/*.go` | `**/*_test.go` |
 
 ---
 
 ## Parameters
 
 ```bash
-/memory:tech-research [session-id | "tech-stack-name"] [--regenerate] [--tool <gemini|qwen>]
+/memory:tech-research [session-id | "tech-stack-name"] [--regenerate]
 ```
 
 **Arguments**:
-- **session-id | tech-stack-name**: Input source (auto-detected by WFS- prefix)
-  - Session mode: `WFS-user-auth-v2` - Extract tech stack from workflow
-  - Direct mode: `"typescript"`, `"typescript-react-nextjs"` - User specifies
-- **--regenerate**: Force regenerate existing SKILL (deletes and recreates)
-- **--tool**: Reserved for future CLI integration (default: gemini)
+- **session-id**: `WFS-*` format - Extract from workflow session
+- **tech-stack-name**: Direct input - `"typescript"`, `"typescript-react"`
+- **--regenerate**: Force regenerate existing rules
 
 ---
 
 ## Examples
 
-**Generated File Structure** (for all examples):
-```
-.claude/skills/{tech-stack}/
-├── SKILL.md           # Index (Phase 3)
-├── principles.md      # Agent (Phase 2)
-├── patterns.md        # Agent
-├── practices.md       # Agent
-├── testing.md         # Agent
-├── config.md          # Agent
-├── frameworks.md      # Agent (if composite)
-└── metadata.json      # Agent
-```
-
-### Direct Mode - Single Stack
+### Single Language
 
 ```bash
 /memory:tech-research "typescript"
 ```
 
-**Workflow**:
-1. Phase 1: Detects direct mode, checks existing SKILL
-2. Phase 2: Agent executes 4 Exa queries, writes 5 modules
-3. Phase 3: Generates SKILL.md index
+**Output**: `.claude/rules/tech/typescript/` with 4 rule files
 
-### Direct Mode - Composite Stack
+### Frontend Stack
 
 ```bash
-/memory:tech-research "typescript-react-nextjs"
+/memory:tech-research "typescript-react"
 ```
 
-**Workflow**:
-1. Phase 1: Decomposes into ["typescript", "react", "nextjs"]
-2. Phase 2: Agent executes 6 Exa queries (4 base + 2 components), writes 6 modules (adds frameworks.md)
-3. Phase 3: Generates SKILL.md index with framework integration
+**Output**: `.claude/rules/tech/typescript-react/` with 5 rule files (includes components.md)
 
-### Session Mode - Extract from Workflow
+### Backend Stack
+
+```bash
+/memory:tech-research "python-fastapi"
+```
+
+**Output**: `.claude/rules/tech/python-fastapi/` with 5 rule files (includes api.md)
+
+### From Session
 
 ```bash
 /memory:tech-research WFS-user-auth-20251104
 ```
 
-**Workflow**:
-1. Phase 1: Reads session, extracts tech stack: `python-fastapi-sqlalchemy`
-2. Phase 2: Agent researches Python + FastAPI + SQLAlchemy, writes 6 modules
-3. Phase 3: Generates SKILL.md index
+**Workflow**: Extract tech stack from session → Generate rules
 
-### Regenerate Existing
+---
 
-```bash
-/memory:tech-research "react" --regenerate
-```
+## Comparison: Rules vs SKILL
 
-**Workflow**:
-1. Phase 1: Deletes existing SKILL due to --regenerate
-2. Phase 2: Agent executes fresh Exa research (latest 2025 practices)
-3. Phase 3: Generates updated SKILL.md
+| Aspect | SKILL Memory | Rules |
+|--------|--------------|-------|
+| Loading | Manual: `Skill("tech")` | Automatic by path |
+| Scope | All files when loaded | Only matching files |
+| Granularity | Monolithic packages | Per-file-type |
+| Context | Full package | Only relevant rules |
 
-### Skip Path - Fast Update
-
-```bash
-/memory:tech-research "python"
-```
-
-**Scenario**: SKILL already exists with 7 files
-
-**Workflow**:
-1. Phase 1: Detects existing SKILL, sets SKIP_GENERATION = true
-2. Phase 2: **SKIPPED**
-3. Phase 3: Updates SKILL.md index only (5-10x faster)
-
-
+**When to Use**:
+- **Rules**: Tech stack conventions per file type
+- **SKILL**: Reference docs, APIs, examples for manual lookup

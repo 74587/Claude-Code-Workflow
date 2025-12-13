@@ -112,7 +112,7 @@
   {
     "name": "tech-research",
     "command": "/memory:tech-research",
-    "description": "3-phase orchestrator: extract tech stack from session/name → delegate to agent for Exa research and module generation → generate SKILL.md index (skips phase 2 if exists)",
+    "description": "3-phase orchestrator: extract tech stack → Exa research → generate path-conditional rules (auto-loaded by Claude Code)",
     "arguments": "[session-id | tech-stack-name] [--regenerate] [--tool <gemini|qwen>]",
     "category": "memory",
     "subcategory": null,

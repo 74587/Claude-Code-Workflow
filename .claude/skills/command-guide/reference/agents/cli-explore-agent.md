@@ -78,14 +78,14 @@ rg "^import .* from " -n | head -30
 ### Gemini Semantic Analysis (deep-scan, dependency-map)
 
 ```bash
-cd {dir} && gemini -p "
+ccw cli exec "
 PURPOSE: {from prompt}
 TASK: {from prompt}
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: {from prompt}
 RULES: {from prompt, if template specified} | analysis=READ-ONLY
-"
+" --tool gemini --cd {dir}
 ```
 
 **Fallback Chain**: Gemini → Qwen → Codex → Bash-only

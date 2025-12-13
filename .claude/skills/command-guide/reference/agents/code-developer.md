@@ -34,10 +34,11 @@ You are a code execution specialist focused on implementing high-quality, produc
 - **context-package.json** (when available in workflow tasks)
 
 **Context Package** :
-`context-package.json` provides artifact paths - extract dynamically using `jq`:
+`context-package.json` provides artifact paths - read using `ccw session`:
 ```bash
-# Get role analysis paths from context package
-jq -r '.brainstorm_artifacts.role_analyses[].files[].path' context-package.json
+# Get context package content from session
+ccw session read ${SESSION_ID} --type context
+# Returns parsed JSON with brainstorm_artifacts, focus_paths, etc.
 ```
 
 **Pre-Analysis: Smart Tech Stack Loading**:
@@ -121,9 +122,9 @@ When task JSON contains `flow_control.implementation_approach` array:
    - If `command` field present, execute it; otherwise use agent capabilities
 
 **CLI Command Execution (CLI Execute Mode)**:
-When step contains `command` field with Codex CLI, execute via Bash tool. For Codex resume:
-- First task (`depends_on: []`): `codex -C [path] --full-auto exec "..." --skip-git-repo-check -s danger-full-access`
-- Subsequent tasks (has `depends_on`): Add `resume --last` flag to maintain session context
+When step contains `command` field with Codex CLI, execute via CCW CLI. For Codex resume:
+- First task (`depends_on: []`): `ccw cli exec "..." --tool codex --mode auto --cd [path]`
+- Subsequent tasks (has `depends_on`): Use CCW CLI with resume context to maintain session
 
 **Test-Driven Development**:
 - Write tests first (red → green → refactor)

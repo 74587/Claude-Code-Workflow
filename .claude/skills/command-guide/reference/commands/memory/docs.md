@@ -191,10 +191,10 @@ Large Projects (single dir >10 docs):
 
 ```bash
 # 1. Get top-level directories from doc-planning-data.json
-bash(cat .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json | jq -r '.top_level_dirs[]')
+ccw session read WFS-docs-{timestamp} --type process --filename doc-planning-data.json --raw | jq -r '.top_level_dirs[]'
 
 # 2. Get mode from workflow-session.json
-bash(cat .workflow/active/WFS-docs-{timestamp}/workflow-session.json | jq -r '.mode // "full"')
+ccw session read WFS-docs-{timestamp} --type session --raw | jq -r '.mode // "full"'
 
 # 3. Check for HTTP API
 bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo "NO_API")
@@ -223,7 +223,7 @@ bash(grep -r "router\.|@Get\|@Post" src/ 2>/dev/null && echo "API_FOUND" || echo
 
 **Task ID Calculation**:
 ```bash
-group_count=$(jq '.groups.count' .workflow/active/WFS-docs-{timestamp}/.process/doc-planning-data.json)
+group_count=$(ccw session read WFS-docs-{timestamp} --type process --filename doc-planning-data.json --raw | jq '.groups.count')
 readme_id=$((group_count + 1))   # Next ID after groups
 arch_id=$((group_count + 2))
 api_id=$((group_count + 3))
@@ -236,12 +236,12 @@ api_id=$((group_count + 3))
 | Mode | cli_execute | Placement | CLI MODE | Approval Flag | Agent Role |
 |------|-------------|-----------|----------|---------------|------------|
 | **Agent** | false | pre_analysis | analysis | (none) | Generate docs in implementation_approach |
-| **CLI** | true | implementation_approach | write | --approval-mode yolo | Execute CLI commands, validate output |
+| **CLI** | true | implementation_approach | write | --mode write | Execute CLI commands, validate output |
 
 **Command Patterns**:
-- Gemini/Qwen: `cd dir && gemini -p "..."`
-- CLI Mode: `cd dir && gemini --approval-mode yolo -p "..."`
-- Codex: `codex -C dir --full-auto exec "..." --skip-git-repo-check -s danger-full-access`
+- Gemini/Qwen: `ccw cli exec "..." --tool gemini --cd dir`
+- CLI Mode: `ccw cli exec "..." --tool gemini --mode write --cd dir`
+- Codex: `ccw cli exec "..." --tool codex --mode auto --cd dir`
 
 **Generation Process**:
 1. Read configuration values (tool, cli_execute, mode) from workflow-session.json
@@ -286,8 +286,8 @@ api_id=$((group_count + 3))
         "step": "load_precomputed_data",
         "action": "Load Phase 2 analysis and extract group directories",
         "commands": [
-          "bash(cat ${session_dir}/.process/doc-planning-data.json)",
-          "bash(jq '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories' ${session_dir}/.process/doc-planning-data.json)"
+          "ccw session read ${session_id} --type process --filename doc-planning-data.json",
+          "ccw session read ${session_id} --type process --filename doc-planning-data.json --raw | jq '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories'"
         ],
         "output_to": "phase2_context",
         "note": "Single JSON file contains all Phase 2 analysis results"
@@ -332,7 +332,7 @@ api_id=$((group_count + 3))
 {
   "step": 2,
   "title": "Batch generate documentation via CLI",
-  "command": "bash(dirs=$(jq -r '.groups.assignments[] | select(.group_id == \"${group_number}\") | .directories[]' ${session_dir}/.process/doc-planning-data.json); for dir in $dirs; do cd \"$dir\" && gemini --approval-mode yolo -p \"PURPOSE: Generate module docs\\nTASK: Create documentation\\nMODE: write\\nCONTEXT: @**/* [phase2_context]\\nEXPECTED: API.md and README.md\\nRULES: Mirror structure\" || echo \"Failed: $dir\"; cd -; done)",
+  "command": "ccw cli exec 'PURPOSE: Generate module docs\\nTASK: Create documentation\\nMODE: write\\nCONTEXT: @**/* [phase2_context]\\nEXPECTED: API.md and README.md\\nRULES: Mirror structure' --tool gemini --mode write --cd ${dirs_from_group}",
   "depends_on": [1],
   "output": "generated_docs"
 }
@@ -602,7 +602,7 @@ api_id=$((group_count + 3))
 | Mode | CLI Placement | CLI MODE | Approval Flag | Agent Role |
 |------|---------------|----------|---------------|------------|
 | **Agent (default)** | pre_analysis | analysis | (none) | Generates documentation content |
-| **CLI (--cli-execute)** | implementation_approach | write | --approval-mode yolo | Executes CLI commands, validates output |
+| **CLI (--cli-execute)** | implementation_approach | write | --mode write | Executes CLI commands, validates output |
 
 **Execution Flow**:
 - **Phase 2**: Unified analysis once, results in `.process/`

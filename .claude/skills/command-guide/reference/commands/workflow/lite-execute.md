@@ -473,7 +473,7 @@ Detailed plan: ${executionContext.session.artifacts.plan}`)
   return prompt
 }
 
-codex --full-auto exec "${buildCLIPrompt(batch)}" --skip-git-repo-check -s danger-full-access
+ccw cli exec "${buildCLIPrompt(batch)}" --tool codex --mode auto
 ```
 
 **Execution with tracking**:
@@ -541,15 +541,15 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-review-code-q
 # - Report findings directly
 
 # Method 2: Gemini Review (recommended)
-gemini -p "[Shared Prompt Template with artifacts]"
+ccw cli exec "[Shared Prompt Template with artifacts]" --tool gemini
 # CONTEXT includes: @**/* @${plan.json} [@${exploration.json}]
 
 # Method 3: Qwen Review (alternative)
-qwen -p "[Shared Prompt Template with artifacts]"
+ccw cli exec "[Shared Prompt Template with artifacts]" --tool qwen
 # Same prompt as Gemini, different execution engine
 
 # Method 4: Codex Review (autonomous)
-codex --full-auto exec "[Verify plan acceptance criteria at ${plan.json}]" --skip-git-repo-check -s danger-full-access
+ccw cli exec "[Verify plan acceptance criteria at ${plan.json}]" --tool codex --mode auto
 ```
 
 **Implementation Note**: Replace `[Shared Prompt Template with artifacts]` placeholder with actual template content, substituting:

@@ -409,14 +409,14 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
   // Pattern: Gemini CLI deep analysis
   {
     "step": "gemini_analyze_[aspect]",
-    "command": "bash(cd [path] && gemini -p 'PURPOSE: [goal]\\nTASK: [tasks]\\nMODE: analysis\\nCONTEXT: @[paths]\\nEXPECTED: [output]\\nRULES: $(cat [template]) | [constraints] | analysis=READ-ONLY')",
+    "command": "ccw cli exec 'PURPOSE: [goal]\\nTASK: [tasks]\\nMODE: analysis\\nCONTEXT: @[paths]\\nEXPECTED: [output]\\nRULES: $(cat [template]) | [constraints] | analysis=READ-ONLY' --tool gemini --cd [path]",
     "output_to": "analysis_result"
   },
 
   // Pattern: Qwen CLI analysis (fallback/alternative)
   {
     "step": "qwen_analyze_[aspect]",
-    "command": "bash(cd [path] && qwen -p '[similar to gemini pattern]')",
+    "command": "ccw cli exec '[similar to gemini pattern]' --tool qwen --cd [path]",
     "output_to": "analysis_result"
   },
 
@@ -457,7 +457,7 @@ The examples above demonstrate **patterns**, not fixed requirements. Agent MUST:
 4. **Command Composition Patterns**:
    - **Single command**: `bash([simple_search])`
    - **Multiple commands**: `["bash([cmd1])", "bash([cmd2])"]`
-   - **CLI analysis**: `bash(cd [path] && gemini -p '[prompt]')`
+   - **CLI analysis**: `ccw cli exec '[prompt]' --tool gemini --cd [path]`
    - **MCP integration**: `mcp__[tool]__[function]([params])`
 
 **Key Principle**: Examples show **structure patterns**, not specific implementations. Agent must create task-appropriate steps dynamically.
@@ -481,9 +481,9 @@ The `implementation_approach` supports **two execution modes** based on the pres
    - **Use for**: Large-scale features, complex refactoring, or when user explicitly requests CLI tool usage
    - **Required fields**: Same as default mode **PLUS** `command`
    - **Command patterns**:
-     - `bash(codex -C [path] --full-auto exec '[prompt]' --skip-git-repo-check -s danger-full-access)`
-     - `bash(codex --full-auto exec '[task]' resume --last --skip-git-repo-check -s danger-full-access)` (multi-step)
-     - `bash(cd [path] && gemini -p '[prompt]' --approval-mode yolo)` (write mode)
+     - `ccw cli exec '[prompt]' --tool codex --mode auto --cd [path]`
+     - `ccw cli exec '[task]' --tool codex --mode auto` (multi-step with context)
+     - `ccw cli exec '[prompt]' --tool gemini --mode write --cd [path]` (write mode)
 
 **Semantic CLI Tool Selection**:
 
@@ -500,12 +500,12 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
 **Task-Based Selection** (when no explicit user preference):
 - **Implementation/coding**: Codex preferred for autonomous development
 - **Analysis/exploration**: Gemini preferred for large context analysis
-- **Documentation**: Gemini/Qwen with write mode (`--approval-mode yolo`)
+- **Documentation**: Gemini/Qwen with write mode (`--mode write`)
 - **Testing**: Depends on complexity - simple=agent, complex=Codex
 
 **Default Behavior**: Agent always executes the workflow. CLI commands are embedded in `implementation_approach` steps:
 - Agent orchestrates task execution
-- When step has `command` field, agent executes it via Bash
+- When step has `command` field, agent executes it via CCW CLI
 - When step has no `command` field, agent implements directly
 - This maintains agent control while leveraging CLI tool power
 
@@ -559,7 +559,7 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
     "step": 3,
     "title": "Execute implementation using CLI tool",
     "description": "Use Codex/Gemini for complex autonomous execution",
-    "command": "bash(codex -C [path] --full-auto exec '[prompt]' --skip-git-repo-check -s danger-full-access)",
+    "command": "ccw cli exec '[prompt]' --tool codex --mode auto --cd [path]",
     "modification_points": ["[Same as default mode]"],
     "logic_flow": ["[Same as default mode]"],
     "depends_on": [1, 2],

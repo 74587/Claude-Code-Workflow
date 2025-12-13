@@ -61,7 +61,7 @@ Phase 2: Context Gathering
       ├─ Tasks attached: Analyze structure → Identify integration → Generate package
       └─ Output: contextPath + conflict_risk
 
-Phase 3: Conflict Resolution (conditional)
+Phase 3: Conflict Resolution 
    └─ Decision (conflict_risk check):
       ├─ conflict_risk ≥ medium → Execute /workflow:tools:conflict-resolution
       │   ├─ Tasks attached: Detect conflicts → Present to user → Apply strategies
@@ -168,7 +168,7 @@ SlashCommand(command="/workflow:tools:context-gather --session [sessionId] \"[st
 
 ---
 
-### Phase 3: Conflict Resolution (Optional - auto-triggered by conflict risk)
+### Phase 3: Conflict Resolution
 
 **Trigger**: Only execute when context-package.json indicates conflict_risk is "medium" or "high"
 
@@ -185,10 +185,10 @@ SlashCommand(command="/workflow:tools:conflict-resolution --session [sessionId] 
 
 **Parse Output**:
 - Extract: Execution status (success/skipped/failed)
-- Verify: CONFLICT_RESOLUTION.md file path (if executed)
+- Verify: conflict-resolution.json file path (if executed)
 
 **Validation**:
-- File `.workflow/active/[sessionId]/.process/CONFLICT_RESOLUTION.md` exists (if executed)
+- File `.workflow/active/[sessionId]/.process/conflict-resolution.json` exists (if executed)
 
 **Skip Behavior**:
 - If conflict_risk is "none" or "low", skip directly to Phase 3.5
@@ -497,7 +497,7 @@ Return summary to user
 - Parse context path from Phase 2 output, store in memory
 - **Extract conflict_risk from context-package.json**: Determine Phase 3 execution
 - **If conflict_risk ≥ medium**: Launch Phase 3 conflict-resolution with sessionId and contextPath
-- Wait for Phase 3 to finish executing (if executed), verify CONFLICT_RESOLUTION.md created
+- Wait for Phase 3 to finish executing (if executed), verify conflict-resolution.json created
 - **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 4
 - **Build Phase 4 command**: `/workflow:tools:task-generate-agent --session [sessionId]`
 - Pass session ID to Phase 4 command
