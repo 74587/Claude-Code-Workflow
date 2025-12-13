@@ -28,9 +28,13 @@ async function loadCliHistory(options = {}) {
   }
 }
 
-async function loadExecutionDetail(executionId) {
+async function loadExecutionDetail(executionId, sourceDir) {
   try {
-    const url = `/api/cli/execution?path=${encodeURIComponent(projectPath)}&id=${encodeURIComponent(executionId)}`;
+    // If sourceDir provided, use it to build the correct path
+    const basePath = sourceDir && sourceDir !== '.' 
+      ? projectPath + '/' + sourceDir 
+      : projectPath;
+    const url = `/api/cli/execution?path=${encodeURIComponent(basePath)}&id=${encodeURIComponent(executionId)}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Execution not found');
     return await response.json();
@@ -158,8 +162,8 @@ function renderToolFilter() {
 }
 
 // ========== Execution Detail Modal ==========
-async function showExecutionDetail(executionId) {
-  const detail = await loadExecutionDetail(executionId);
+async function showExecutionDetail(executionId, sourceDir) {
+  const detail = await loadExecutionDetail(executionId, sourceDir);
   if (!detail) {
     showRefreshToast('Execution not found', 'error');
     return;

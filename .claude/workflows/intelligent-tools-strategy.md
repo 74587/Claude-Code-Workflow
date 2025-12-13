@@ -51,6 +51,7 @@ ccw cli exec "<prompt>" --tool codex --mode auto --cd ./project --includeDirs ./
 |---------|-------------|
 | `ccw cli status` | Check CLI tools availability |
 | `ccw cli exec "<prompt>"` | Execute a CLI tool |
+| `ccw cli resume [id]` | Resume a previous session |
 | `ccw cli history` | Show execution history |
 | `ccw cli detail <id>` | Show execution detail |
 
@@ -121,22 +122,38 @@ ccw cli exec "<prompt>" --tool codex --mode auto --cd ./project --includeDirs ./
 
 **Default MODE**: No default, must be explicitly specified
 
-**Session Management** (via native codex):
-- `codex resume` - Resume previous session (picker)
-- `codex resume --last` - Resume most recent session
-- `codex -i <image_file>` - Attach image to prompt
+### Session Management
 
-### CCW Unified Parameter Mapping
+**Resume Commands** (unified via CCW):
+```bash
+# Resume last session (any tool)
+ccw cli resume --last
 
-CCW automatically maps parameters to tool-specific syntax:
+# Resume last session for specific tool
+ccw cli resume --last --tool gemini
+ccw cli resume --last --tool codex
 
-| CCW Parameter | Gemini/Qwen | Codex |
-|---------------|-------------|-------|
-| `--cd <path>` | `cd <path> &&` (prepend) | `-C <path>` |
-| `--includeDirs <dirs>` | `--include-directories <dirs>` | `--add-dir <dir>` (per dir) |
-| `--mode write` | `--approval-mode yolo` | `--skip-git-repo-check -s danger-full-access` |
-| `--mode auto` | N/A | `--skip-git-repo-check -s danger-full-access` |
-| `--model <m>` | `-m <m>` | `-m <m>` |
+# Resume specific session by ID
+ccw cli resume <execution-id>
+
+# Resume with additional prompt
+ccw cli resume --last --prompt "Continue with error handling"
+
+# Codex native interactive picker
+ccw cli resume --tool codex
+```
+
+**Resume Options**:
+| Option | Description |
+|--------|-------------|
+| `--last` | Resume most recent session |
+| `--tool <tool>` | Filter by tool (gemini, qwen, codex) |
+| `--prompt <text>` | Additional prompt for continuation |
+| `[id]` | Specific execution ID to resume |
+
+**Tool-Specific Behavior**:
+- **Codex**: Uses native `codex resume` command (supports interactive picker)
+- **Gemini/Qwen**: Loads previous conversation context and continues with new prompt
 
 ---
 

@@ -6,8 +6,8 @@
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { spawn, ChildProcess } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'fs';
+import { join, relative } from 'path';
 
 // CLI History storage path
 const CLI_HISTORY_DIR = join(process.cwd(), '.workflow', '.cli-history');
@@ -81,7 +81,7 @@ async function checkToolAvailability(tool: string): Promise<ToolAvailability> {
     });
 
     let stdout = '';
-    child.stdout.on('data', (data) => { stdout += data.toString(); });
+    child.stdout!.on('data', (data) => { stdout += data.toString(); });
 
     child.on('close', (code) => {
       if (code === 0 && stdout.trim()) {
@@ -113,16 +113,17 @@ function buildCommand(params: {
   model?: string;
   dir?: string;
   include?: string;
-}): { command: string; args: string[] } {
+}): { command: string; args: string[]; useStdin: boolean } {
   const { tool, prompt, mode = 'analysis', model, dir, include } = params;
 
   let command = tool;
   let args: string[] = [];
+  // Default to stdin for all tools to avoid escaping issues on Windows
+  let useStdin = true;
 
   switch (tool) {
     case 'gemini':
-      // gemini "[prompt]" [-m model] [--approval-mode yolo] [--include-directories]
-      args.push(prompt);
+      // gemini reads from stdin when no positional prompt is provided
       if (model) {
         args.push('-m', model);
       }
@@ -135,8 +136,7 @@ function buildCommand(params: {
       break;
 
     case 'qwen':
-      // qwen "[prompt]" [-m model] [--approval-mode yolo]
-      args.push(prompt);
+      // qwen reads from stdin when no positional prompt is provided
       if (model) {
         args.push('-m', model);
       }
@@ -149,7 +149,7 @@ function buildCommand(params: {
       break;
 
     case 'codex':
-      // codex exec [OPTIONS] "[prompt]"
+      // codex reads from stdin for prompt
       args.push('exec');
       if (dir) {
         args.push('-C', dir);
@@ -168,15 +168,14 @@ function buildCommand(params: {
           args.push('--add-dir', addDir);
         }
       }
-      // Prompt must be last (positional argument)
-      args.push(prompt);
+      // Prompt passed via stdin (default)
       break;
 
     default:
       throw new Error(`Unknown CLI tool: ${tool}`);
   }
 
-  return { command, args };
+  return { command, args, useStdin };
 }
 
 /**
@@ -262,7 +261,7 @@ async function executeCliTool(
   }
 
   // Build command
-  const { command, args } = buildCommand({
+  const { command, args, useStdin } = buildCommand({
     tool,
     prompt,
     mode,
@@ -298,15 +297,21 @@ async function executeCliTool(
     const child = spawn(command, spawnArgs, {
       cwd: workingDir,
       shell: isWindows,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe']
     });
+
+    // Write prompt to stdin if using stdin mode (for gemini/qwen)
+    if (useStdin && child.stdin) {
+      child.stdin.write(prompt);
+      child.stdin.end();
+    }
 
     let stdout = '';
     let stderr = '';
     let timedOut = false;
 
     // Handle stdout
-    child.stdout.on('data', (data) => {
+    child.stdout!.on('data', (data) => {
       const text = data.toString();
       stdout += text;
       if (onOutput) {
@@ -315,7 +320,7 @@ async function executeCliTool(
     });
 
     // Handle stderr
-    child.stderr.on('data', (data) => {
+    child.stderr!.on('data', (data) => {
       const text = data.toString();
       stderr += text;
       if (onOutput) {
@@ -463,39 +468,98 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 }
 
 /**
+ * Find all CLI history directories in a directory tree (max depth 3)
+ */
+function findCliHistoryDirs(baseDir: string, maxDepth: number = 3): string[] {
+  const historyDirs: string[] = [];
+  const ignoreDirs = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', 'venv', '.venv']);
+
+  function scanDir(dir: string, depth: number) {
+    if (depth > maxDepth) return;
+
+    // Check if this directory has CLI history
+    const historyDir = join(dir, '.workflow', '.cli-history');
+    if (existsSync(join(historyDir, 'index.json'))) {
+      historyDirs.push(historyDir);
+    }
+
+    // Scan subdirectories
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && !entry.name.startsWith('.') && !ignoreDirs.has(entry.name)) {
+          scanDir(join(dir, entry.name), depth + 1);
+        }
+      }
+    } catch {
+      // Ignore permission errors
+    }
+  }
+
+  scanDir(baseDir, 0);
+  return historyDirs;
+}
+
+/**
  * Get execution history
  */
 export function getExecutionHistory(baseDir: string, options: {
   limit?: number;
   tool?: string | null;
   status?: string | null;
+  recursive?: boolean;
 } = {}): {
   total: number;
   count: number;
-  executions: HistoryIndex['executions'];
+  executions: (HistoryIndex['executions'][0] & { sourceDir?: string })[];
 } {
-  const { limit = 50, tool = null, status = null } = options;
+  const { limit = 50, tool = null, status = null, recursive = false } = options;
 
-  const historyDir = join(baseDir, '.workflow', '.cli-history');
-  const index = loadHistoryIndex(historyDir);
+  let allExecutions: (HistoryIndex['executions'][0] & { sourceDir?: string })[] = [];
+  let totalCount = 0;
 
-  let executions = index.executions;
+  if (recursive) {
+    // Find all CLI history directories in subdirectories
+    const historyDirs = findCliHistoryDirs(baseDir);
+
+    for (const historyDir of historyDirs) {
+      const index = loadHistoryIndex(historyDir);
+      totalCount += index.total_executions;
+
+      // Add source directory info to each execution
+      const sourceDir = historyDir.replace(/[\\\/]\.workflow[\\\/]\.cli-history$/, '');
+      const relativeSource = relative(baseDir, sourceDir) || '.';
+
+      for (const exec of index.executions) {
+        allExecutions.push({ ...exec, sourceDir: relativeSource });
+      }
+    }
+
+    // Sort by timestamp (newest first)
+    allExecutions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  } else {
+    // Original behavior - single directory
+    const historyDir = join(baseDir, '.workflow', '.cli-history');
+    const index = loadHistoryIndex(historyDir);
+    totalCount = index.total_executions;
+    allExecutions = index.executions;
+  }
 
   // Filter by tool
   if (tool) {
-    executions = executions.filter(e => e.tool === tool);
+    allExecutions = allExecutions.filter(e => e.tool === tool);
   }
 
   // Filter by status
   if (status) {
-    executions = executions.filter(e => e.status === status);
+    allExecutions = allExecutions.filter(e => e.status === status);
   }
 
   // Limit results
-  executions = executions.slice(0, limit);
+  const executions = allExecutions.slice(0, limit);
 
   return {
-    total: index.total_executions,
+    total: totalCount,
     count: executions.length,
     executions
   };
@@ -572,6 +636,181 @@ export async function getCliToolsStatus(): Promise<Record<string, ToolAvailabili
   }));
 
   return results;
+}
+
+/**
+ * Resume a CLI session
+ * - Codex: Uses native `codex resume` command
+ * - Gemini/Qwen: Loads previous conversation and continues
+ */
+export async function resumeCliSession(
+  baseDir: string,
+  options: {
+    tool?: string;
+    executionId?: string;
+    last?: boolean;
+    prompt?: string;
+  },
+  onOutput?: ((data: { type: string; data: string }) => void) | null
+): Promise<ExecutionOutput> {
+  const { tool, executionId, last = false, prompt } = options;
+
+  // For Codex, use native resume
+  if (tool === 'codex' || (!tool && !executionId)) {
+    return resumeCodexSession(baseDir, { last }, onOutput);
+  }
+
+  // For Gemini/Qwen, load previous session and continue
+  let previousExecution: ExecutionRecord | null = null;
+
+  if (executionId) {
+    previousExecution = getExecutionDetail(baseDir, executionId);
+  } else if (last) {
+    // Get the most recent execution for the specified tool (or any tool)
+    const history = getExecutionHistory(baseDir, { limit: 1, tool: tool || null });
+    if (history.executions.length > 0) {
+      previousExecution = getExecutionDetail(baseDir, history.executions[0].id);
+    }
+  }
+
+  if (!previousExecution) {
+    throw new Error('No previous session found to resume');
+  }
+
+  // Build continuation prompt with previous context
+  const continuationPrompt = buildContinuationPrompt(previousExecution, prompt);
+
+  // Execute with the continuation prompt
+  return executeCliTool({
+    tool: previousExecution.tool,
+    prompt: continuationPrompt,
+    mode: previousExecution.mode,
+    model: previousExecution.model !== 'default' ? previousExecution.model : undefined
+  }, onOutput);
+}
+
+/**
+ * Resume Codex session using native command
+ */
+async function resumeCodexSession(
+  baseDir: string,
+  options: { last?: boolean },
+  onOutput?: ((data: { type: string; data: string }) => void) | null
+): Promise<ExecutionOutput> {
+  const { last = false } = options;
+
+  // Check codex availability
+  const toolStatus = await checkToolAvailability('codex');
+  if (!toolStatus.available) {
+    throw new Error('Codex CLI not available. Please ensure it is installed and in PATH.');
+  }
+
+  const args = ['resume'];
+  if (last) {
+    args.push('--last');
+  }
+
+  const isWindows = process.platform === 'win32';
+  const startTime = Date.now();
+  const executionId = `${Date.now()}-codex-resume`;
+
+  return new Promise((resolve, reject) => {
+    const child = spawn('codex', args, {
+      cwd: baseDir,
+      shell: isWindows,
+      stdio: ['inherit', 'pipe', 'pipe'] // inherit stdin for interactive picker
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout!.on('data', (data) => {
+      const text = data.toString();
+      stdout += text;
+      if (onOutput) {
+        onOutput({ type: 'stdout', data: text });
+      }
+    });
+
+    child.stderr!.on('data', (data) => {
+      const text = data.toString();
+      stderr += text;
+      if (onOutput) {
+        onOutput({ type: 'stderr', data: text });
+      }
+    });
+
+    child.on('close', (code) => {
+      const duration = Date.now() - startTime;
+      const status: 'success' | 'error' = code === 0 ? 'success' : 'error';
+
+      const execution: ExecutionRecord = {
+        id: executionId,
+        timestamp: new Date(startTime).toISOString(),
+        tool: 'codex',
+        model: 'default',
+        mode: 'auto',
+        prompt: `[Resume session${last ? ' --last' : ''}]`,
+        status,
+        exit_code: code,
+        duration_ms: duration,
+        output: {
+          stdout: stdout.substring(0, 10240),
+          stderr: stderr.substring(0, 2048),
+          truncated: stdout.length > 10240 || stderr.length > 2048
+        }
+      };
+
+      resolve({
+        success: status === 'success',
+        execution,
+        stdout,
+        stderr
+      });
+    });
+
+    child.on('error', (error) => {
+      reject(new Error(`Failed to resume codex session: ${error.message}`));
+    });
+  });
+}
+
+/**
+ * Build continuation prompt with previous conversation context
+ */
+function buildContinuationPrompt(previous: ExecutionRecord, additionalPrompt?: string): string {
+  const parts: string[] = [];
+
+  // Add previous conversation context
+  parts.push('=== PREVIOUS CONVERSATION ===');
+  parts.push('');
+  parts.push('USER PROMPT:');
+  parts.push(previous.prompt);
+  parts.push('');
+  parts.push('ASSISTANT RESPONSE:');
+  parts.push(previous.output.stdout || '[No output recorded]');
+  parts.push('');
+  parts.push('=== CONTINUATION ===');
+  parts.push('');
+
+  if (additionalPrompt) {
+    parts.push(additionalPrompt);
+  } else {
+    parts.push('Continue from where we left off. What should we do next?');
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Get latest execution for a specific tool
+ */
+export function getLatestExecution(baseDir: string, tool?: string): ExecutionRecord | null {
+  const history = getExecutionHistory(baseDir, { limit: 1, tool: tool || null });
+  if (history.executions.length === 0) {
+    return null;
+  }
+  return getExecutionDetail(baseDir, history.executions[0].id);
 }
 
 // Export utility functions and tool definition for backward compatibility

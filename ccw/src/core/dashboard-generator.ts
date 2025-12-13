@@ -44,6 +44,7 @@ const MODULE_FILES = [
   'components/carousel.js',
   'components/notifications.js',
   'components/global-notifications.js',
+  'components/task-queue-sidebar.js',
   'components/cli-status.js',
   'components/cli-history.js',
   'components/mcp-manager.js',

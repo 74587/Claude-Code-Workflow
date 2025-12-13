@@ -1,5 +1,5 @@
 // CLI History View
-// Standalone view for CLI execution history
+// Standalone view for CLI execution history with resume support
 
 // ========== Rendering ==========
 async function renderCliHistoryView() {
@@ -47,12 +47,21 @@ async function renderCliHistoryView() {
                         exec.status === 'timeout' ? 'warning' : 'error';
       var duration = formatDuration(exec.duration_ms);
       var timeAgo = getTimeAgo(new Date(exec.timestamp));
+      var isResume = exec.prompt_preview && exec.prompt_preview.includes('[Resume session');
 
-      historyHtml += '<div class="history-item" onclick="showExecutionDetail(\'' + exec.id + '\')">' +
+      var sourceDirHtml = exec.sourceDir && exec.sourceDir !== '.'
+        ? '<span class="history-source-dir"><i data-lucide="folder" class="w-3 h-3"></i> ' + escapeHtml(exec.sourceDir) + '</span>'
+        : '';
+
+      var resumeBadge = isResume ? '<span class="history-resume-badge"><i data-lucide="rotate-ccw" class="w-3 h-3"></i></span>' : '';
+
+      historyHtml += '<div class="history-item' + (isResume ? ' history-item-resume' : '') + '" onclick="showExecutionDetail(\'' + exec.id + (exec.sourceDir ? '\',\'' + escapeHtml(exec.sourceDir) : '') + '\')">' +
         '<div class="history-item-main">' +
           '<div class="history-item-header">' +
             '<span class="history-tool-tag tool-' + exec.tool + '">' + exec.tool + '</span>' +
             '<span class="history-mode-tag">' + (exec.mode || 'analysis') + '</span>' +
+            resumeBadge +
+            sourceDirHtml +
             '<span class="history-status ' + statusClass + '">' +
               '<i data-lucide="' + statusIcon + '" class="w-3.5 h-3.5"></i>' +
               exec.status +
@@ -62,9 +71,13 @@ async function renderCliHistoryView() {
           '<div class="history-item-meta">' +
             '<span class="history-time"><i data-lucide="clock" class="w-3 h-3"></i> ' + timeAgo + '</span>' +
             '<span class="history-duration"><i data-lucide="timer" class="w-3 h-3"></i> ' + duration + '</span>' +
+            '<span class="history-id"><i data-lucide="hash" class="w-3 h-3"></i> ' + exec.id.split('-')[0] + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="history-item-actions">' +
+          '<button class="btn-icon btn-resume" onclick="event.stopPropagation(); promptResumeExecution(\'' + exec.id + '\', \'' + exec.tool + '\')" title="Resume">' +
+            '<i data-lucide="play" class="w-4 h-4"></i>' +
+          '</button>' +
           '<button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail(\'' + exec.id + '\')" title="View Details">' +
             '<i data-lucide="eye" class="w-4 h-4"></i>' +
           '</button>' +
@@ -129,4 +142,80 @@ async function refreshCliHistoryView() {
   await loadCliHistory();
   renderCliHistoryView();
   showRefreshToast('History refreshed', 'success');
+}
+
+// ========== Resume Execution ==========
+function promptResumeExecution(executionId, tool) {
+  var modalContent = '<div class="resume-modal">' +
+    '<p>Resume this ' + tool + ' session with an optional continuation prompt:</p>' +
+    '<textarea id="resumePromptInput" class="resume-prompt-input" placeholder="Continue from where we left off... (optional)" rows="3"></textarea>' +
+    '<div class="resume-modal-actions">' +
+      '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
+      '<button class="btn btn-primary" onclick="executeResume(\'' + executionId + '\', \'' + tool + '\')">' +
+        '<i data-lucide="play" class="w-4 h-4"></i> Resume' +
+      '</button>' +
+    '</div>' +
+  '</div>';
+
+  showModal('Resume Session', modalContent);
+}
+
+async function executeResume(executionId, tool) {
+  var promptInput = document.getElementById('resumePromptInput');
+  var additionalPrompt = promptInput ? promptInput.value.trim() : '';
+
+  closeModal();
+  showRefreshToast('Resuming session...', 'info');
+
+  try {
+    var response = await fetch('/api/cli/resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        executionId: executionId,
+        tool: tool,
+        prompt: additionalPrompt || undefined
+      })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast('Session resumed successfully', 'success');
+      // Refresh history to show new execution
+      await refreshCliHistoryView();
+    } else {
+      showRefreshToast('Resume failed: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    console.error('Resume failed:', err);
+    showRefreshToast('Resume failed: ' + err.message, 'error');
+  }
+}
+
+async function resumeLastSession(tool) {
+  showRefreshToast('Resuming last ' + (tool || '') + ' session...', 'info');
+
+  try {
+    var response = await fetch('/api/cli/resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: tool || undefined,
+        last: true
+      })
+    });
+
+    var result = await response.json();
+
+    if (result.success) {
+      showRefreshToast('Session resumed successfully', 'success');
+      await refreshCliHistoryView();
+    } else {
+      showRefreshToast('Resume failed: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    console.error('Resume failed:', err);
+    showRefreshToast('Resume failed: ' + err.message, 'error');
+  }
 }

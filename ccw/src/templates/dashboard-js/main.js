@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try { initHookManager(); } catch (e) { console.error('Hook Manager init failed:', e); }
   try { initCliStatus(); } catch (e) { console.error('CLI Status init failed:', e); }
   try { initGlobalNotifications(); } catch (e) { console.error('Global notifications init failed:', e); }
+  try { initTaskQueueSidebar(); } catch (e) { console.error('Task queue sidebar init failed:', e); }
   try { initVersionCheck(); } catch (e) { console.error('Version check init failed:', e); }
 
   // Initialize real-time features (WebSocket + auto-refresh)
@@ -70,6 +71,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Close Hook create modal if exists
       if (typeof closeHookCreateModal === 'function') {
         closeHookCreateModal();
+      }
+
+      // Close notification sidebar if open
+      if (isNotificationPanelVisible && typeof toggleNotifSidebar === 'function') {
+        toggleNotifSidebar();
+      }
+
+      // Close task queue sidebar if open
+      if (isTaskQueueVisible && typeof toggleTaskQueueSidebar === 'function') {
+        toggleTaskQueueSidebar();
       }
     }
   });

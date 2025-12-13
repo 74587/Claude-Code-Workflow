@@ -229,6 +229,7 @@ function handleWorkflowEvent(event) {
   if (typeof updateStats === 'function') updateStats();
   if (typeof updateBadges === 'function') updateBadges();
   if (typeof updateCarousel === 'function') updateCarousel();
+  if (typeof refreshTaskQueue === 'function') refreshTaskQueue();
 
   // Re-render current view if needed
   if (currentView === 'sessions' && typeof renderSessions === 'function') {

@@ -154,12 +154,14 @@ export function run(argv: string[]): void {
     .option('--tool <tool>', 'CLI tool to use', 'gemini')
     .option('--mode <mode>', 'Execution mode: analysis, write, auto', 'analysis')
     .option('--model <model>', 'Model override')
-    .option('--cd <path>', 'Working directory (-C for codex)')
+    .option('--cd <path>', 'Working directory')
     .option('--includeDirs <dirs>', 'Additional directories (--include-directories for gemini/qwen, --add-dir for codex)')
     .option('--timeout <ms>', 'Timeout in milliseconds', '300000')
     .option('--no-stream', 'Disable streaming output')
     .option('--limit <n>', 'History limit')
     .option('--status <status>', 'Filter by status')
+    .option('--last', 'Resume most recent session')
+    .option('--prompt <text>', 'Additional prompt for resume continuation')
     .action((subcommand, args, options) => cliCommand(subcommand, args, options));
 
   program.parse(argv);
