@@ -312,7 +312,7 @@ async function executeCliTool(
 
     // Write prompt to stdin if using stdin mode (for gemini/qwen)
     if (useStdin && child.stdin) {
-      child.stdin.write(prompt);
+      child.stdin.write(finalPrompt);
       child.stdin.end();
     }
 
