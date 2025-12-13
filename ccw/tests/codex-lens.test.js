@@ -23,7 +23,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Import the codex-lens module - use file:// URL format for Windows compatibility
-const codexLensPath = new URL('../src/tools/codex-lens.js', import.meta.url).href;
+const codexLensPath = new URL('../dist/tools/codex-lens.js', import.meta.url).href;
 
 describe('CodexLens Tool Functions', async () => {
   let codexLensModule;
@@ -133,17 +133,15 @@ describe('CodexLens Tool Functions', async () => {
       assert.ok('ready' in result, 'Check result should have ready property');
     });
 
-    it('should throw error for unknown action', async () => {
+    it('should return error for unknown action', async () => {
       if (!codexLensModule) {
         console.log('Skipping: codex-lens module not available');
         return;
       }
 
-      await assert.rejects(
-        async () => codexLensModule.codexLensTool.execute({ action: 'unknown_action' }),
-        /Unknown action/,
-        'Should throw error for unknown action'
-      );
+      const result = await codexLensModule.codexLensTool.execute({ action: 'unknown_action' });
+      assert.strictEqual(result.success, false, 'Should return success: false');
+      assert.ok(result.error, 'Should have error message');
     });
 
     it('should handle status action', async () => {

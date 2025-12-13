@@ -16,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Import the codex-lens module
-const codexLensPath = new URL('../src/tools/codex-lens.js', import.meta.url).href;
+const codexLensPath = new URL('../dist/tools/codex-lens.js', import.meta.url).href;
 
 describe('CodexLens Full Integration Tests', async () => {
   let codexLensModule;

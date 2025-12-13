@@ -4,4 +4,4 @@
  * Entry point for running CCW tools as an MCP server
  */
 
-import '../src/mcp-server/index.js';
+import '../dist/mcp-server/index.js';

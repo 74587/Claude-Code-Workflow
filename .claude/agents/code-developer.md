@@ -122,9 +122,9 @@ When task JSON contains `flow_control.implementation_approach` array:
    - If `command` field present, execute it; otherwise use agent capabilities
 
 **CLI Command Execution (CLI Execute Mode)**:
-When step contains `command` field with Codex CLI, execute via Bash tool. For Codex resume:
-- First task (`depends_on: []`): `codex -C [path] --full-auto exec "..." --skip-git-repo-check -s danger-full-access`
-- Subsequent tasks (has `depends_on`): Add `resume --last` flag to maintain session context
+When step contains `command` field with Codex CLI, execute via CCW CLI. For Codex resume:
+- First task (`depends_on: []`): `ccw cli exec "..." --tool codex --mode auto --cd [path]`
+- Subsequent tasks (has `depends_on`): Use CCW CLI with resume context to maintain session
 
 **Test-Driven Development**:
 - Write tests first (red → green → refactor)

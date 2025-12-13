@@ -61,9 +61,9 @@ The agent supports **two execution modes** based on task JSON's `meta.cli_execut
 
    **Step 2** (CLI execution):
    - Agent substitutes [target_folders] into command
-   - Agent executes CLI command via Bash tool:
+   - Agent executes CLI command via CCW:
    ```bash
-   bash(cd src/modules && gemini --approval-mode yolo -p "
+   ccw cli exec "
    PURPOSE: Generate module documentation
    TASK: Create API.md and README.md for each module
    MODE: write
@@ -71,7 +71,7 @@ The agent supports **two execution modes** based on task JSON's `meta.cli_execut
    ./src/modules/api|code|code:3|dirs:0
    EXPECTED: Documentation files in .workflow/docs/my_project/src/modules/
    RULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt) | Mirror source structure
-   ")
+   " --tool gemini --mode write --cd src/modules
    ```
 
 4. **CLI Execution** (Gemini CLI):
@@ -216,7 +216,7 @@ Before completion, verify:
 {
   "step": "analyze_module_structure",
   "action": "Deep analysis of module structure and API",
-  "command": "bash(cd src/auth && gemini \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @**/* System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\")",
+  "command": "ccw cli exec \"PURPOSE: Document module comprehensively\nTASK: Extract module purpose, architecture, public API, dependencies\nMODE: analysis\nCONTEXT: @**/* System: [system_context]\nEXPECTED: Complete module analysis for documentation\nRULES: $(cat ~/.claude/workflows/cli-templates/prompts/documentation/module-documentation.txt)\" --tool gemini --cd src/auth",
   "output_to": "module_analysis",
   "on_error": "fail"
 }

@@ -5,6 +5,6 @@
  * Entry point for global CLI installation
  */
 
-import { run } from '../src/cli.js';
+import { run } from '../dist/cli.js';
 
 run(process.argv);

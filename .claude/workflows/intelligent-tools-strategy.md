@@ -1,6 +1,6 @@
 # Intelligent Tools Selection Strategy
 
-## 📋 Table of Contents
+## Table of Contents
 1. [Quick Start](#-quick-start)
 2. [Tool Specifications](#-tool-specifications)
 3. [Command Templates](#-command-templates)
@@ -9,7 +9,7 @@
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ### Universal Prompt Template
 
@@ -29,85 +29,76 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/pattern.txt) | [
 - **Analysis/Documentation** → Gemini (preferred) or Qwen (fallback)
 - **Implementation/Testing** → Codex
 
-### Quick Command Syntax
+### CCW Unified CLI Syntax
 
 ```bash
-# Gemini/Qwen
-cd [dir] && gemini -p "[prompt]" [--approval-mode yolo]
+# Basic execution
+ccw cli exec "<prompt>" --tool <gemini|qwen|codex> --mode <analysis|write|auto>
 
-# Codex
-codex -C [dir] --full-auto exec "[prompt]" [--skip-git-repo-check -s danger-full-access]
+# With working directory
+ccw cli exec "<prompt>" --tool gemini --cd <path>
+
+# With additional directories
+ccw cli exec "<prompt>" --tool gemini --includeDirs ../shared,../types
+
+# Full example
+ccw cli exec "<prompt>" --tool codex --mode auto --cd ./project --includeDirs ./lib
 ```
+
+### CLI Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `ccw cli status` | Check CLI tools availability |
+| `ccw cli exec "<prompt>"` | Execute a CLI tool |
+| `ccw cli history` | Show execution history |
+| `ccw cli detail <id>` | Show execution detail |
 
 ### Model Selection
 
-**Available Models** (user selects via `-m` after prompt):
+**Available Models** (override via `--model`):
 - Gemini: `gemini-2.5-pro`, `gemini-2.5-flash`
 - Qwen: `coder-model`, `vision-model`
 - Codex: `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-mini`
 
-**Usage**: `-m <model>` placed AFTER `-p "prompt"` (e.g., `gemini -p "..." -m gemini-2.5-flash`)
-
-### Quick Decision Matrix
-
-| Scenario | Tool | MODE | Template |
-|----------|------|------|----------|
-| Execution Tracing | Gemini → Qwen | analysis | `analysis/01-trace-code-execution.txt` |
-| Bug Diagnosis | Gemini → Qwen | analysis | `analysis/01-diagnose-bug-root-cause.txt` |
-| Architecture Planning | Gemini → Qwen | analysis | `planning/01-plan-architecture-design.txt` |
-| Code Pattern Analysis | Gemini → Qwen | analysis | `analysis/02-analyze-code-patterns.txt` |
-| Architecture Review | Gemini → Qwen | analysis | `analysis/02-review-architecture.txt` |
-| Document Analysis | Gemini → Qwen | analysis | `analysis/02-analyze-technical-document.txt` |
-| Feature Implementation | Codex | auto | `development/02-implement-feature.txt` |
-| Component Development | Codex | auto | `development/02-implement-component-ui.txt` |
-| Test Generation | Codex | write | `development/02-generate-tests.txt` |
+**Best Practice**: Omit `--model` for optimal auto-selection
 
 ### Core Principles
 
 - **Use tools early and often** - Tools are faster and more thorough
 - **When in doubt, use both** - Parallel usage provides comprehensive coverage
 - **Default to tools** - Use for most coding tasks, no matter how small
-- **Minimize context noise** - Use `cd` + `--include-directories` to focus on relevant files
-- **⚠️ Choose templates by need** - Select templates based on task requirements:
-  - `00-*` for universal fallback when no specific template matches
-  - `01-*` for general exploratory/diagnostic work
-  - `02-*` for common implementation/analysis tasks
-  - `03-*` for specialized domains
-- **⚠️ Always specify templates** - Include appropriate template in RULES field via `$(cat ~/.claude/workflows/cli-templates/prompts/.../...txt)`
-- **⚠️ Universal templates as fallback** - Use universal templates when no specific template matches your needs:
-  - `universal/00-universal-rigorous-style.txt` for precision-critical tasks
-  - `universal/00-universal-creative-style.txt` for exploratory/innovative tasks
-- **⚠️ Write protection** - Require EXPLICIT MODE=write or MODE=auto specification
+- **Unified CLI** - Always use `ccw cli exec` for consistent parameter handling
+- **Choose templates by need** - See [Template System](#template-system) for naming conventions and selection guide
+- **Write protection** - Require EXPLICIT MODE=write or MODE=auto specification
 
 ---
 
-## 🎯 Tool Specifications
+## Tool Specifications
 
 ### MODE Options
 
-**analysis** (default for Gemini/Qwen)
+**analysis** (default)
 - Read-only operations, no file modifications
 - Analysis output returned as text response
 - Use for: code review, architecture analysis, pattern discovery
-- Permission: Default, no special parameters needed
+- CCW: `ccw cli exec "<prompt>" --mode analysis`
 
-**write** (Gemini/Qwen/Codex)
+**write**
 - File creation/modification/deletion allowed
-- Requires explicit MODE=write specification
+- Requires explicit `--mode write` specification
 - Use for: documentation generation, code creation, file modifications
-- Permission:
-  - Gemini/Qwen: `--approval-mode yolo`
-  - Codex: `--skip-git-repo-check -s danger-full-access`
+- CCW: `ccw cli exec "<prompt>" --mode write`
 
 **auto** (Codex only)
 - Full autonomous development operations
-- Requires explicit MODE=auto specification
+- Requires explicit `--mode auto` specification
 - Use for: feature implementation, bug fixes, autonomous development
-- Permission: `--skip-git-repo-check -s danger-full-access`
+- CCW: `ccw cli exec "<prompt>" --tool codex --mode auto`
 
 ### Gemini & Qwen
 
-**Commands**: `gemini` (primary) | `qwen` (fallback)
+**Via CCW**: `ccw cli exec "<prompt>" --tool gemini` or `--tool qwen`
 
 **Strengths**: Large context window, pattern recognition
 
@@ -122,7 +113,7 @@ codex -C [dir] --full-auto exec "[prompt]" [--skip-git-repo-check -s danger-full
 
 ### Codex
 
-**Command**: `codex --full-auto exec`
+**Via CCW**: `ccw cli exec "<prompt>" --tool codex --mode auto`
 
 **Strengths**: Autonomous development, mathematical reasoning
 
@@ -130,26 +121,26 @@ codex -C [dir] --full-auto exec "[prompt]" [--skip-git-repo-check -s danger-full
 
 **Default MODE**: No default, must be explicitly specified
 
-**Session Management**:
+**Session Management** (via native codex):
 - `codex resume` - Resume previous session (picker)
 - `codex resume --last` - Resume most recent session
 - `codex -i <image_file>` - Attach image to prompt
 
-**Multi-task Pattern**:
-- **First task**: MUST use full Standard Prompt Template with `exec` to establish complete context
-- **Subsequent tasks**: Can use brief prompt with `exec "..." resume --last` (inherits context from session)
+### CCW Unified Parameter Mapping
 
-**Prompt Requirements**:
-- **Without `resume --last`**: ALWAYS use full Standard Prompt Template
-- **With `resume --last`**: Brief description sufficient (previous template context inherited)
+CCW automatically maps parameters to tool-specific syntax:
 
-**Auto-Resume Rules**:
-- **Use `resume --last`**: Related tasks, extending previous work, multi-step workflow
-- **Don't use**: First task, new independent work, different module
+| CCW Parameter | Gemini/Qwen | Codex |
+|---------------|-------------|-------|
+| `--cd <path>` | `cd <path> &&` (prepend) | `-C <path>` |
+| `--includeDirs <dirs>` | `--include-directories <dirs>` | `--add-dir <dir>` (per dir) |
+| `--mode write` | `--approval-mode yolo` | `--skip-git-repo-check -s danger-full-access` |
+| `--mode auto` | N/A | `--skip-git-repo-check -s danger-full-access` |
+| `--model <m>` | `-m <m>` | `-m <m>` |
 
 ---
 
-## 🎯 Command Templates
+## Command Templates
 
 ### Universal Template Structure
 
@@ -177,7 +168,7 @@ Every command MUST follow this structure:
   - **File Patterns**: Use @ syntax for file references (default: `@**/*` for all files)
     - `@**/*` - All files in current directory tree
     - `@src/**/*.ts` - TypeScript files in src directory
-    - `@../shared/**/*` - Files from sibling directory (requires `--include-directories`)
+    - `@../shared/**/*` - Files from sibling directory (requires `--includeDirs`)
   - **Memory Context**: Reference previous session findings and context
     - Related tasks: `Building on previous analysis from [session/commit]`
     - Tech stack: `Using patterns from [tech-stack-name] documentation`
@@ -215,156 +206,131 @@ EXPECTED: [deliverable format, quality criteria, output structure, testing requi
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[0X-template-name].txt) | [additional constraints] | [MODE]=[READ-ONLY|CREATE/MODIFY/DELETE|FULL operations]
 ```
 
-**Template Selection Guide**:
-- Choose template based on your specific task, not by sequence number
-- `01-*` templates: General-purpose, broad applicability
-- `02-*` templates: Common specialized scenarios
-- `03-*` templates: Domain-specific needs
+### CCW CLI Execution
 
-### Tool-Specific Configuration
+Use the **[Standard Prompt Template](#standard-prompt-template)** for all tools. CCW provides unified command syntax.
 
-Use the **[Standard Prompt Template](#standard-prompt-template)** for all tools. This section only covers tool-specific command syntax.
+#### Basic Command Format
 
-#### Gemini & Qwen
-
-**Command Format**: `cd [directory] && [tool] -p "[Standard Prompt Template]" [options]`
-
-**Syntax Elements**:
-- **Directory**: `cd [directory] &&` (navigate to target directory)
-- **Tool**: `gemini` (primary) | `qwen` (fallback)
-- **Prompt**: `-p "[Standard Prompt Template]"` (prompt BEFORE options)
-- **Model**: `-m [model-name]` (optional, NOT recommended - tools auto-select best model)
-  - Gemini: `gemini-2.5-pro` (default) | `gemini-2.5-flash`
-  - Qwen: `coder-model` (default) | `vision-model`
-  - **Best practice**: Omit `-m` parameter for optimal model selection
-  - **Position**: If used, place AFTER `-p "prompt"`
-- **Write Permission**: `--approval-mode yolo` (ONLY for MODE=write, placed AFTER prompt)
-
-**Command Examples**:
 ```bash
-# Analysis Mode (default, read-only)
-cd [directory] && gemini -p "[Standard Prompt Template]"
-
-# Write Mode (requires MODE=write in template + --approval-mode yolo)
-cd [directory] && gemini -p "[Standard Prompt Template with MODE: write]" --approval-mode yolo
-
-# Fallback to Qwen
-cd [directory] && qwen -p "[Standard Prompt Template]"
-
-# Multi-directory support
-cd [directory] && gemini -p "[Standard Prompt Template]" --include-directories ../shared,../types
+ccw cli exec "<Standard Prompt Template>" [options]
 ```
 
-#### Codex
+#### Common Options
 
-**Command Format**: `codex -C [directory] --full-auto exec "[Standard Prompt Template]" [options]`
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--tool <tool>` | CLI tool: gemini, qwen, codex | gemini |
+| `--mode <mode>` | Mode: analysis, write, auto | analysis |
+| `--model <model>` | Model override | auto-select |
+| `--cd <path>` | Working directory | current dir |
+| `--includeDirs <dirs>` | Additional directories (comma-separated) | none |
+| `--timeout <ms>` | Timeout in milliseconds | 300000 |
+| `--no-stream` | Disable streaming output | false |
 
-**Syntax Elements**:
-- **Directory**: `-C [directory]` (target directory parameter)
-- **Execution Mode**: `--full-auto exec` (required for autonomous execution)
-- **Prompt**: `exec "[Standard Prompt Template]"` (prompt BEFORE options)
-- **Model**: `-m [model-name]` (optional, NOT recommended - Codex auto-selects best model)
-  - Available: `gpt-5.1` | `gpt-5.1-codex` | `gpt-5.1-codex-mini`
-  - **Best practice**: Omit `-m` parameter for optimal model selection
-- **Write Permission**: `--skip-git-repo-check -s danger-full-access`
-  - **⚠️ CRITICAL**: MUST be placed at **command END** (AFTER prompt and all other parameters)
-  - **ONLY use for**: MODE=auto or MODE=write
-  - **NEVER place before prompt** - command will fail
-- **Session Resume**: `resume --last` (placed AFTER prompt, BEFORE permission flags)
+#### Command Examples
 
-**Command Examples**:
 ```bash
-# Auto Mode (requires MODE=auto in template + permission flags)
-codex -C [directory] --full-auto exec "[Standard Prompt Template with MODE: auto]" --skip-git-repo-check -s danger-full-access
+# Analysis Mode (default, read-only) - Gemini
+ccw cli exec "
+PURPOSE: Analyze authentication with shared utilities context
+TASK: Review auth implementation and its dependencies
+MODE: analysis
+CONTEXT: @**/* @../shared/**/*
+EXPECTED: Complete analysis with cross-directory dependencies
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | analysis=READ-ONLY
+" --tool gemini --cd src/auth --includeDirs ../shared,../types
 
-# Write Mode (requires MODE=write in template + permission flags)
-codex -C [directory] --full-auto exec "[Standard Prompt Template with MODE: write]" --skip-git-repo-check -s danger-full-access
+# Write Mode - Gemini with file modifications
+ccw cli exec "
+PURPOSE: Generate documentation for API module
+TASK: • Create API docs • Add usage examples • Update README
+MODE: write
+CONTEXT: @src/api/**/*
+EXPECTED: Complete API documentation
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | write=CREATE/MODIFY/DELETE
+" --tool gemini --mode write --cd src
 
-# Session continuity
-# First task - MUST use full Standard Prompt Template to establish context
-codex -C project --full-auto exec "[Standard Prompt Template with MODE: auto]" --skip-git-repo-check -s danger-full-access
-
-# Subsequent tasks - Can use brief prompt ONLY when using 'resume --last'
-# (inherits full context from previous session, no need to repeat template)
-codex --full-auto exec "Add JWT refresh token validation" resume --last --skip-git-repo-check -s danger-full-access
-
-# With image attachment
-codex -C [directory] -i design.png --full-auto exec "[Standard Prompt Template]" --skip-git-repo-check -s danger-full-access
-```
-
-**Complete Example (Codex with full template)**:
-```bash
-# First task - establish session with full template
-codex -C project --full-auto exec "
+# Auto Mode - Codex for implementation
+ccw cli exec "
 PURPOSE: Implement authentication module
 TASK: • Create auth service • Add user validation • Setup JWT tokens
 MODE: auto
 CONTEXT: @**/* | Memory: Following security patterns from project standards
 EXPECTED: Complete auth module with tests
-RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | Follow existing patterns | auto=FULL operations
-" --skip-git-repo-check -s danger-full-access
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/development/02-implement-feature.txt) | auto=FULL operations
+" --tool codex --mode auto --cd project
 
-# Subsequent tasks - brief description with resume
-codex --full-auto exec "Add JWT refresh token validation" resume --last --skip-git-repo-check -s danger-full-access
+# Fallback to Qwen
+ccw cli exec "
+PURPOSE: Analyze code patterns
+TASK: Review implementation patterns
+MODE: analysis
+CONTEXT: @**/*
+EXPECTED: Pattern analysis report
+RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | analysis=READ-ONLY
+" --tool qwen
+```
+
+#### Tool Fallback Strategy
+
+```bash
+# Primary: Gemini
+ccw cli exec "<prompt>" --tool gemini
+
+# Fallback: Qwen (if Gemini fails or unavailable)
+ccw cli exec "<prompt>" --tool qwen
+
+# Check tool availability
+ccw cli status
 ```
 
 ### Directory Context Configuration
 
-**Tool Directory Navigation**:
-- **Gemini & Qwen**: `cd path/to/project && gemini -p "prompt"`
-- **Codex**: `codex -C path/to/project --full-auto exec "task"`
-- **Path types**: Supports both relative (`../project`) and absolute (`/full/path`)
+**CCW Directory Options**:
+- `--cd <path>`: Set working directory for execution
+- `--includeDirs <dir1,dir2>`: Include additional directories
 
 #### Critical Directory Scope Rules
 
-**Once `cd` to a directory**:
-- @ references ONLY apply to current directory and subdirectories
-- `@**/*` = All files within current directory tree
-- `@*.ts` = TypeScript files in current directory tree
+**When using `--cd` to set working directory**:
+- @ references ONLY apply to that directory and subdirectories
+- `@**/*` = All files within working directory tree
+- `@*.ts` = TypeScript files in working directory tree
 - `@src/**/*` = Files within src subdirectory
 - CANNOT reference parent/sibling directories via @ alone
 
-**To reference files outside current directory (TWO-STEP REQUIREMENT)**:
-1. Add `--include-directories` parameter to make external directories ACCESSIBLE
+**To reference files outside working directory (TWO-STEP REQUIREMENT)**:
+1. Add `--includeDirs` parameter to make external directories ACCESSIBLE
 2. Explicitly reference external files in CONTEXT field with @ patterns
-3. ⚠️ BOTH steps are MANDATORY
+3. Both steps are MANDATORY
 
-Example: `cd src/auth && gemini -p "CONTEXT: @**/* @../shared/**/*" --include-directories ../shared`
-
-**Rule**: If CONTEXT contains `@../dir/**/*`, command MUST include `--include-directories ../dir`
-
-#### Multi-Directory Support (Gemini & Qwen)
-
-**Parameter**: `--include-directories <dir1,dir2,...>`
-- Includes additional directories beyond current `cd` directory
-- Can be specified multiple times or comma-separated
-- Maximum 5 directories
-- REQUIRED when working in subdirectory but needing parent/sibling context
-
-**Syntax**:
+Example:
 ```bash
-# Comma-separated format
-gemini -p "prompt" --include-directories /path/to/project1,/path/to/project2
+ccw cli exec "CONTEXT: @**/* @../shared/**/*" --tool gemini --cd src/auth --includeDirs ../shared
+```
 
-# Multiple flags format
-gemini -p "prompt" --include-directories /path/to/project1 --include-directories /path/to/project2
+**Rule**: If CONTEXT contains `@../dir/**/*`, command MUST include `--includeDirs ../dir`
 
-# Recommended: cd + --include-directories
-cd src/auth && gemini -p "
+#### Multi-Directory Examples
+
+```bash
+# Single additional directory
+ccw cli exec "<prompt>" --tool gemini --cd src/auth --includeDirs ../shared
+
+# Multiple additional directories
+ccw cli exec "<prompt>" --tool gemini --cd src/auth --includeDirs ../shared,../types,../utils
+
+# With full prompt template
+ccw cli exec "
 PURPOSE: Analyze authentication with shared utilities context
 TASK: Review auth implementation and its dependencies
 MODE: analysis
 CONTEXT: @**/* @../shared/**/* @../types/**/*
 EXPECTED: Complete analysis with cross-directory dependencies
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on integration patterns | analysis=READ-ONLY
-" --include-directories ../shared,../types
+" --tool gemini --cd src/auth --includeDirs ../shared,../types
 ```
-
-**Best Practices**:
-- Use `cd` to navigate to primary focus directory
-- Use `--include-directories` for additional context
-- ⚠️ CONTEXT must explicitly list external files AND command must include `--include-directories`
-- Pattern matching rule: `@../dir/**/*` in CONTEXT → `--include-directories ../dir` in command (MANDATORY)
 
 ### CONTEXT Field Configuration
 
@@ -434,7 +400,7 @@ mcp__code-index__search_code_advanced(pattern="interface.*Props", file_pattern="
 CONTEXT: @src/components/Auth.tsx @src/types/auth.d.ts @src/hooks/useAuth.ts | Memory: Previous refactoring identified type inconsistencies, following React hooks patterns
 
 # Step 3: Execute CLI with precise references
-cd src && gemini -p "
+ccw cli exec "
 PURPOSE: Analyze authentication components for type safety improvements
 TASK:
 • Review auth component patterns and props interfaces
@@ -444,14 +410,14 @@ MODE: analysis
 CONTEXT: @components/Auth.tsx @types/auth.d.ts @hooks/useAuth.ts | Memory: Previous refactoring identified type inconsistencies, following React hooks patterns, related implementation in @hooks/useAuth.ts (commit abc123)
 EXPECTED: Comprehensive analysis report with type safety recommendations, code examples, and references to previous findings
 RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | Focus on type safety and component composition | analysis=READ-ONLY
-"
+" --tool gemini --cd src
 ```
 
 ### RULES Field Configuration
 
 **Basic Format**: `RULES: $(cat ~/.claude/workflows/cli-templates/prompts/[category]/[template].txt) | [constraints]`
 
-**⚠️ Command Substitution Rules**:
+**Command Substitution Rules**:
 - **Template reference only, never read**: Use `$(cat ...)` directly, do NOT read template content first
 - **NEVER use escape characters**: `\$`, `\"`, `\'` will break command substitution
 - **In prompt context**: Path needs NO quotes (tilde expands correctly)
@@ -460,16 +426,13 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-
 - **Why**: Shell executes `$(...)` in subshell where path is safe
 
 **Examples**:
-- Universal rigorous: `$(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-rigorous-style.txt) | Critical production refactoring`
-- Universal creative: `$(cat ~/.claude/workflows/cli-templates/prompts/universal/00-universal-creative-style.txt) | Explore alternative architecture approaches`
 - General template: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt) | Focus on authentication module`
-- Specialized template: `$(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-patterns.txt) | React hooks only`
 - Multiple: `$(cat template1.txt) $(cat template2.txt) | Enterprise standards`
 - No template: `Focus on security patterns, include dependency analysis`
 
 ### Template System
 
-**Base**: `~/.claude/workflows/cli-templates/`
+**Base**: `~/.claude/workflows/cli-templates/
 
 **Naming Convention**:
 - `00-*` - **Universal fallback templates** (use when no specific template matches)
@@ -479,64 +442,20 @@ RULES: $(cat ~/.claude/workflows/cli-templates/prompts/analysis/02-analyze-code-
 
 **Note**: Number prefix indicates category and frequency, not required usage order. Choose based on task needs.
 
-**Universal Templates (Fallback)**:
+**Universal Templates**:
 
 When no specific template matches your task requirements, use one of these universal templates based on the desired execution style:
 
 1. **Rigorous Style** (`universal/00-universal-rigorous-style.txt`)
    - **Use for**: Precision-critical tasks requiring systematic methodology
-   - **Characteristics**:
-     - Strict adherence to standards and specifications
-     - Comprehensive validation and edge case handling
-     - Defensive programming and error prevention
-     - Full documentation and traceability
-   - **Best for**: Production code, critical systems, refactoring, compliance tasks
-   - **Thinking mode**: Systematic, methodical, standards-driven
 
 2. **Creative Style** (`universal/00-universal-creative-style.txt`)
    - **Use for**: Exploratory tasks requiring innovative solutions
-   - **Characteristics**:
-     - Multi-perspective problem exploration
-     - Pattern synthesis from different domains
-     - Alternative approach generation
-     - Elegant simplicity pursuit
-   - **Best for**: New feature design, architecture exploration, optimization, problem-solving
-   - **Thinking mode**: Exploratory, synthesis-driven, innovation-focused
 
 **Selection Guide**:
 - **Rigorous**: When correctness, reliability, and compliance are paramount
 - **Creative**: When innovation, flexibility, and elegant solutions are needed
 - **Specific template**: When task matches predefined category (analysis, development, planning, etc.)
-
-**Available Templates**:
-```
-prompts/
-├── universal/                          # ← Universal fallback templates
-│   ├── 00-universal-rigorous-style.txt # Precision & standards-driven
-│   └── 00-universal-creative-style.txt # Innovation & exploration-focused
-├── analysis/
-│   ├── 01-trace-code-execution.txt
-│   ├── 01-diagnose-bug-root-cause.txt
-│   ├── 02-analyze-code-patterns.txt
-│   ├── 02-analyze-technical-document.txt
-│   ├── 02-review-architecture.txt
-│   ├── 02-review-code-quality.txt
-│   ├── 03-analyze-performance.txt
-│   ├── 03-assess-security-risks.txt
-│   └── 03-review-quality-standards.txt
-├── development/
-│   ├── 02-implement-feature.txt
-│   ├── 02-refactor-codebase.txt
-│   ├── 02-generate-tests.txt
-│   ├── 02-implement-component-ui.txt
-│   └── 03-debug-runtime-issues.txt
-└── planning/
-    ├── 01-plan-architecture-design.txt
-    ├── 02-breakdown-task-steps.txt
-    ├── 02-design-component-spec.txt
-    ├── 03-evaluate-concept-feasibility.txt
-    └── 03-plan-migration-strategy.txt
-```
 
 **Task-Template Matrix**:
 
@@ -567,10 +486,9 @@ prompts/
 | Test Generation | Codex | `development/02-generate-tests.txt` |
 | Component Implementation | Codex | `development/02-implement-component-ui.txt` |
 | Debugging | Codex | `development/03-debug-runtime-issues.txt` |
-
 ---
 
-## ⚙️ Execution Configuration
+## Execution Configuration
 
 ### Dynamic Timeout Allocation
 
@@ -584,31 +502,45 @@ prompts/
 
 **Codex Multiplier**: 3x of allocated time (minimum 15min / 900000ms)
 
-**Application**: All bash() wrapped commands including Gemini, Qwen and Codex executions
+**CCW Timeout Usage**:
+```bash
+ccw cli exec "<prompt>" --tool gemini --timeout 600000  # 10 minutes
+ccw cli exec "<prompt>" --tool codex --timeout 1800000  # 30 minutes
+```
 
 **Auto-detection**: Analyze PURPOSE and TASK fields to determine timeout
 
 ### Permission Framework
 
-**⚠️ Single-Use Explicit Authorization**: Each CLI execution requires explicit user command instruction - one command authorizes ONE execution only. Analysis does NOT authorize write operations. Previous authorization does NOT carry over. Each operation needs NEW explicit user directive.
+**Single-Use Explicit Authorization**: Each CLI execution requires explicit user command instruction - one command authorizes ONE execution only. Analysis does NOT authorize write operations. Previous authorization does NOT carry over. Each operation needs NEW explicit user directive.
 
 **Mode Hierarchy**:
 - **analysis** (default): Read-only, safe for auto-execution
-- **write**: Requires explicit MODE=write specification
-- **auto**: Requires explicit MODE=auto specification
+- **write**: Requires explicit `--mode write` specification
+- **auto**: Requires explicit `--mode auto` specification
 - **Exception**: User provides clear instructions like "modify", "create", "implement"
 
-**Tool-Specific Permissions**:
-- **Gemini/Qwen**: Use `--approval-mode yolo` ONLY when MODE=write (placed AFTER prompt)
-- **Codex**: Use `--skip-git-repo-check -s danger-full-access` ONLY when MODE=auto or MODE=write (placed at command END)
-- **Default**: All tools default to analysis/read-only mode
+**CCW Mode Permissions**:
+```bash
+# Analysis (default, no special permissions)
+ccw cli exec "<prompt>" --tool gemini
+
+# Write mode (enables file modifications)
+ccw cli exec "<prompt>" --tool gemini --mode write
+
+# Auto mode (full autonomous operations, Codex only)
+ccw cli exec "<prompt>" --tool codex --mode auto
+```
+
+**Default**: All tools default to analysis/read-only mode
 
 ---
 
-## 🔧 Best Practices
+## Best Practices
 
 ### Workflow Principles
 
+- **Use CCW unified interface** - `ccw cli exec` for all tool executions
 - **Start with templates** - Use predefined templates for consistency
 - **Be specific** - Clear PURPOSE, TASK, and EXPECTED fields with detailed descriptions
 - **Include constraints** - File patterns, scope, requirements in RULES
@@ -623,18 +555,18 @@ prompts/
   - Memory: Previous sessions, tech stack patterns, cross-references
 - **Document context** - Always reference CLAUDE.md and relevant documentation
 - **Default to full context** - Use `@**/*` unless specific files needed
-- **⚠️ No escape characters** - NEVER use `\$`, `\"`, `\'` in CLI commands
+- **No escape characters** - NEVER use `\$`, `\"`, `\'` in CLI commands
 
 ### Context Optimization Strategy
 
-**Directory Navigation**: Use `cd [directory] &&` pattern to reduce irrelevant context
+**Directory Navigation**: Use `--cd [directory]` to focus on specific directory
 
-**When to change directory**:
-- Specific directory mentioned → Use `cd directory &&`
+**When to set working directory**:
+- Specific directory mentioned → Use `--cd directory`
 - Focused analysis needed → Target specific directory
-- Multi-directory scope → Use `cd` + `--include-directories`
+- Multi-directory scope → Use `--cd` + `--includeDirs`
 
-**When to use `--include-directories`**:
+**When to use `--includeDirs`**:
 - Working in subdirectory but need parent/sibling context
 - Cross-directory dependency analysis required
 - Multiple related modules need simultaneous access
@@ -642,21 +574,22 @@ prompts/
 
 ### Workflow Integration
 
-When planning any coding task, **ALWAYS** integrate CLI tools:
+When planning any coding task, **ALWAYS** integrate CLI tools via CCW:
 
-1. **Understanding Phase**: Use Gemini for analysis (Qwen as fallback)
-2. **Architecture Phase**: Use Gemini for design and analysis (Qwen as fallback)
-3. **Implementation Phase**: Use Codex for development
-4. **Quality Phase**: Use Codex for testing and validation
+1. **Understanding Phase**: `ccw cli exec "<prompt>" --tool gemini`
+2. **Architecture Phase**: `ccw cli exec "<prompt>" --tool gemini`
+3. **Implementation Phase**: `ccw cli exec "<prompt>" --tool codex --mode auto`
+4. **Quality Phase**: `ccw cli exec "<prompt>" --tool codex --mode write`
 
 ### Planning Checklist
 
 For every development task:
 - [ ] **Purpose defined** - Clear goal and intent
-- [ ] **Mode selected** - Execution mode and permission level determined
+- [ ] **Mode selected** - Execution mode (`--mode analysis|write|auto`)
 - [ ] **Context gathered** - File references and session memory documented (default `@**/*`)
-- [ ] **Directory navigation** - Determine if `cd` or `cd + --include-directories` needed
-- [ ] **Gemini analysis** completed for understanding
-- [ ] **Template applied** - Use Standard Prompt Template (universal for all tools)
+- [ ] **Directory navigation** - Determine if `--cd` or `--cd + --includeDirs` needed
+- [ ] **Tool selected** - `--tool gemini|qwen|codex` based on task type
+- [ ] **Template applied** - Use Standard Prompt Template
 - [ ] **Constraints specified** - File patterns, scope, requirements
-- [ ] **Implementation approach** - Tool selection and workflow
+- [ ] **Timeout configured** - `--timeout` based on task complexity
+

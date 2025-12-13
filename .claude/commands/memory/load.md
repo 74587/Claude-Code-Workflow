@@ -5,7 +5,7 @@ argument-hint: "[--tool gemini|qwen] \"task context description\""
 allowed-tools: Task(*), Bash(*)
 examples:
   - /memory:load "在当前前端基础上开发用户认证功能"
-  - /memory:load --tool qwen -p "重构支付模块API"
+  - /memory:load --tool qwen "重构支付模块API"
 ---
 
 # Memory Load Command (/memory:load)
@@ -136,7 +136,7 @@ Task(
 Execute Gemini/Qwen CLI for deep analysis (saves main thread tokens):
 
 \`\`\`bash
-cd . && ${tool} -p "
+ccw cli exec "
 PURPOSE: Extract project core context for task: ${task_description}
 TASK: Analyze project architecture, tech stack, key patterns, relevant files
 MODE: analysis
@@ -147,7 +147,7 @@ RULES:
 - Identify key architecture patterns and technical constraints
 - Extract integration points and development standards
 - Output concise, structured format
-"
+" --tool ${tool}
 \`\`\`
 
 ### Step 4: Generate Core Content Package
@@ -212,7 +212,7 @@ Before returning:
 ### Example 2: Using Qwen Tool
 
 ```bash
-/memory:load --tool qwen -p "重构支付模块API"
+/memory:load --tool qwen "重构支付模块API"
 ```
 
 Agent uses Qwen CLI for analysis, returns same structured package.

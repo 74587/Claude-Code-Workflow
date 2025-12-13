@@ -187,7 +187,7 @@ Objectives:
 
 3. Use Gemini for aggregation (optional):
    Command pattern:
-   cd .workflow/.archives/{session_id} && gemini -p "
+   ccw cli exec "
    PURPOSE: Extract lessons and conflicts from workflow session
    TASK:
    • Analyze IMPL_PLAN and lessons from manifest
@@ -198,7 +198,7 @@ Objectives:
    CONTEXT: @IMPL_PLAN.md @workflow-session.json
    EXPECTED: Structured lessons and conflicts in JSON format
    RULES: Template reference from skill-aggregation.txt
-   "
+   " --tool gemini --cd .workflow/.archives/{session_id}
 
 3.5. **Generate SKILL.md Description** (CRITICAL for auto-loading):
 
@@ -334,7 +334,7 @@ Objectives:
    - Sort sessions by date
 
 2. Use Gemini for final aggregation:
-   gemini -p "
+   ccw cli exec "
    PURPOSE: Aggregate lessons and conflicts from all workflow sessions
    TASK:
    • Group successes by functional domain
@@ -345,7 +345,7 @@ Objectives:
    CONTEXT: [Provide aggregated JSON data]
    EXPECTED: Final aggregated structure for SKILL documents
    RULES: Template reference from skill-aggregation.txt
-   "
+   " --tool gemini
 
 3. Read templates for formatting (same 4 templates as single mode)
 

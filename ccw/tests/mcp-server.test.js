@@ -154,6 +154,7 @@ describe('MCP Server', () => {
     assert.equal(response.id, 3);
     assert(response.result);
     assert.equal(response.result.isError, true);
-    assert(response.result.content[0].text.includes('not found'));
+    // Error could be "not enabled" (filtered by default tools) or "not found" (all tools enabled)
+    assert(response.result.content[0].text.includes('not enabled') || response.result.content[0].text.includes('not found'));
   });
 });

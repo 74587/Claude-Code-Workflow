@@ -12,7 +12,6 @@
 
 ## ⚡ CCW MCP Tools
 
-**优先使用 MCP 工具** (无需 Shell 转义，直接 JSON 参数)
 
 ### edit_file
 

@@ -21,26 +21,11 @@ type: search-guideline
 **grep**: Built-in pattern matching (fallback when rg unavailable)
 **get_modules_by_depth.sh**: Program architecture analysis (MANDATORY before planning)
 
-## 📋 Tool Selection Matrix
 
-| Need | Tool | Use Case |
-|------|------|----------|
-| **Workflow history** | Skill(workflow-progress) | WFS sessions lessons/conflicts - `/memory:workflow-skill-memory` |
-| **Tech stack docs** | Skill({tech-name}) | Stack APIs/guides - `/memory:tech-research` |
-| **Project docs** | Skill({project-name}) | Project modules/architecture - `/memory:skill-memory` |
-| **Semantic discovery** | codebase-retrieval | Find files relevant to task/feature context |
-| **Pattern matching** | rg | Search code content with regex |
-| **File name lookup** | find | Locate files by name patterns |
-| **Architecture** | get_modules_by_depth.sh | Understand program structure |
 
 ## 🔧 Quick Command Reference
 
 ```bash
-# SKILL Packages (FIRST PRIORITY - fastest context loading)
-Skill(command: "workflow-progress")  # Workflow: WFS sessions history, lessons, conflicts
-Skill(command: "react-dev")          # Tech: React APIs, patterns, best practices
-Skill(command: "claude_dms3")        # Project: Project modules, architecture, examples
-
 # Semantic File Discovery (codebase-retrieval)
 cd [directory] && gemini -p "
 PURPOSE: Discover files relevant to task/feature

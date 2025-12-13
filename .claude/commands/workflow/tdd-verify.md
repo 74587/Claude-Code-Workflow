@@ -127,7 +127,7 @@ ccw session read {sessionId} --type task --raw | jq -r '.meta.agent'
 **Gemini analysis for comprehensive TDD compliance report**
 
 ```bash
-cd project-root && gemini -p "
+ccw cli exec "
 PURPOSE: Generate TDD compliance report
 TASK: Analyze TDD workflow execution and generate quality report
 CONTEXT: @{.workflow/active/{sessionId}/.task/*.json,.workflow/active/{sessionId}/.summaries/*,.workflow/active/{sessionId}/.process/tdd-cycle-report.md}
@@ -139,7 +139,7 @@ EXPECTED:
 - Red-Green-Refactor cycle validation
 - Best practices adherence assessment
 RULES: Focus on TDD best practices and workflow adherence. Be specific about violations and improvements.
-" > .workflow/active/{sessionId}/TDD_COMPLIANCE_REPORT.md
+" --tool gemini --cd project-root > .workflow/active/{sessionId}/TDD_COMPLIANCE_REPORT.md
 ```
 
 **Output**: TDD_COMPLIANCE_REPORT.md

@@ -133,37 +133,37 @@ After bash validation, the model takes control to:
      ```
    - Use Gemini for security analysis:
      ```bash
-     cd .workflow/active/${sessionId} && gemini -p "
+     ccw cli exec "
      PURPOSE: Security audit of completed implementation
      TASK: Review code for security vulnerabilities, insecure patterns, auth/authz issues
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
      EXPECTED: Security findings report with severity levels
      RULES: Focus on OWASP Top 10, authentication, authorization, data validation, injection risks
-     " --approval-mode yolo
+     " --tool gemini --mode write --cd .workflow/active/${sessionId}
      ```
 
    **Architecture Review** (`--type=architecture`):
    - Use Qwen for architecture analysis:
      ```bash
-     cd .workflow/active/${sessionId} && qwen -p "
+     ccw cli exec "
      PURPOSE: Architecture compliance review
      TASK: Evaluate adherence to architectural patterns, identify technical debt, review design decisions
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
      EXPECTED: Architecture assessment with recommendations
      RULES: Check for patterns, separation of concerns, modularity, scalability
-     " --approval-mode yolo
+     " --tool qwen --mode write --cd .workflow/active/${sessionId}
      ```
 
    **Quality Review** (`--type=quality`):
    - Use Gemini for code quality:
      ```bash
-     cd .workflow/active/${sessionId} && gemini -p "
+     ccw cli exec "
      PURPOSE: Code quality and best practices review
      TASK: Assess code readability, maintainability, adherence to best practices
      CONTEXT: @.summaries/IMPL-*.md,../.. @../../CLAUDE.md
      EXPECTED: Quality assessment with improvement suggestions
      RULES: Check for code smells, duplication, complexity, naming conventions
-     " --approval-mode yolo
+     " --tool gemini --mode write --cd .workflow/active/${sessionId}
      ```
 
    **Action Items Review** (`--type=action-items`):
@@ -177,7 +177,7 @@ After bash validation, the model takes control to:
      '
 
      # Check implementation summaries against requirements
-     cd .workflow/active/${sessionId} && gemini -p "
+     ccw cli exec "
      PURPOSE: Verify all requirements and acceptance criteria are met
      TASK: Cross-check implementation summaries against original requirements
      CONTEXT: @.task/IMPL-*.json,.summaries/IMPL-*.md,../.. @../../CLAUDE.md
@@ -191,7 +191,7 @@ After bash validation, the model takes control to:
      - Verify all acceptance criteria are met
      - Flag any incomplete or missing action items
      - Assess deployment readiness
-     " --approval-mode yolo
+     " --tool gemini --mode write --cd .workflow/active/${sessionId}
      ```
 
 
