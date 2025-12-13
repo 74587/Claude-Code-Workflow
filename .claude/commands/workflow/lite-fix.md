@@ -54,6 +54,14 @@ Phase 3: Fix Planning (NO CODE EXECUTION - planning only)
    +- Decision (based on Phase 1 severity):
       |- Low/Medium -> Load schema: cat ~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json -> Direct Claude planning (following schema) -> fix-plan.json -> MUST proceed to Phase 4
       +- High/Critical -> cli-lite-planning-agent -> fix-plan.json -> MUST proceed to Phase 4
+   +- CLI Execution ID Assignment (MANDATORY for all tasks):
+      |- Generate cli_execution_id for each task (format: {sessionId}-{task.id})
+      +- Compute cli_execution strategy based on depends_on:
+         |- No deps -> strategy: "new"
+         |- 1 dep + sequential -> strategy: "resume", resume_from: parent.cli_execution_id
+         |- 1 dep + parallel children -> strategy: "fork", resume_from: parent.cli_execution_id
+         |- N deps -> strategy: "merge", merge_from: [parent1.cli_execution_id, ...]
+         +- N deps + creates branch -> strategy: "merge_fork", merge_from: [...], new ID
 
 Phase 4: Confirmation & Selection
    |- Display fix-plan summary (tasks, severity, estimated time)
@@ -381,7 +389,7 @@ const fixPlan = {
   summary: "...",
   root_cause: "...",
   strategy: "immediate_patch|comprehensive_fix|refactor",
-  tasks: [...],  // Each task: { id, title, scope, ..., depends_on, complexity }
+  tasks: [...],  // Each task: { id, title, scope, ..., depends_on, cli_execution_id, cli_execution }
   estimated_time: "...",
   recommended_execution: "Agent",
   severity: severity,
@@ -389,10 +397,66 @@ const fixPlan = {
   _metadata: { timestamp: getUtc8ISOString(), source: "direct-planning", planning_mode: "direct" }
 }
 
-// Step 3: Write fix-plan to session folder
+// Step 3: ⚠️ MANDATORY - Assign CLI Execution IDs and strategies
+assignCliExecutionIds(fixPlan.tasks, sessionId)
+
+// Step 4: Write fix-plan to session folder
 Write(`${sessionFolder}/fix-plan.json`, JSON.stringify(fixPlan, null, 2))
 
-// Step 4: MUST continue to Phase 4 (Confirmation) - DO NOT execute code here
+// Step 5: MUST continue to Phase 4 (Confirmation) - DO NOT execute code here
+```
+
+**CLI Execution ID Assignment Function** (MANDATORY for ALL planning modes):
+```javascript
+function assignCliExecutionIds(tasks, sessionId) {
+  // Build dependency graph
+  const taskMap = new Map(tasks.map(t => [t.id, t]))
+  const childCount = new Map() // Track how many tasks depend on each task
+
+  tasks.forEach(task => {
+    (task.depends_on || []).forEach(depId => {
+      childCount.set(depId, (childCount.get(depId) || 0) + 1)
+    })
+  })
+
+  tasks.forEach(task => {
+    // Assign unique CLI execution ID
+    task.cli_execution_id = `${sessionId}-${task.id}`
+
+    const deps = task.depends_on || []
+
+    if (deps.length === 0) {
+      // No dependencies: new conversation
+      task.cli_execution = { strategy: "new" }
+    } else if (deps.length === 1) {
+      const parent = taskMap.get(deps[0])
+      const parentChildCount = childCount.get(deps[0]) || 0
+
+      if (parentChildCount === 1) {
+        // Single child: resume (continue same conversation)
+        task.cli_execution = {
+          strategy: "resume",
+          resume_from: parent.cli_execution_id
+        }
+      } else {
+        // Multiple children: fork (create new branch)
+        task.cli_execution = {
+          strategy: "fork",
+          resume_from: parent.cli_execution_id
+        }
+      }
+    } else {
+      // Multiple dependencies: merge
+      const mergeFrom = deps.map(depId => taskMap.get(depId).cli_execution_id)
+      task.cli_execution = {
+        strategy: "merge_fork",  // Merge always creates new ID
+        merge_from: mergeFrom
+      }
+    }
+  })
+
+  return tasks
+}
 ```
 
 **High/Critical Severity** - Invoke cli-lite-planning-agent:
@@ -406,6 +470,15 @@ Generate fix plan and write fix-plan.json.
 
 ## Output Schema Reference
 Execute: cat ~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json (get schema reference before generating plan)
+
+## CLI Execution ID Requirements (MANDATORY)
+After generating tasks, you MUST assign CLI execution IDs and strategies:
+1. Each task needs cli_execution_id: {sessionId}-{task.id}
+2. Compute cli_execution.strategy based on depends_on:
+   - No deps → { strategy: "new" }
+   - 1 dep (single child) → { strategy: "resume", resume_from: parent.cli_execution_id }
+   - 1 dep (multiple children) → { strategy: "fork", resume_from: parent.cli_execution_id }
+   - N deps → { strategy: "merge_fork", merge_from: [parent1.cli_execution_id, ...] }
 
 ## Bug Description
 ${bug_description}

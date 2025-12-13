@@ -2126,3 +2126,87 @@
   padding-top: 1rem;
   border-top: 1px solid hsl(var(--border));
 }
+
+/* ========================================
+ * Multi-Turn Conversation Styles
+ * ======================================== */
+
+/* Turn Badge in History List */
+.cli-turn-badge {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Turns Container in Detail Modal */
+.cli-turns-container {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* Turn Section */
+.cli-turn-section {
+  margin-bottom: 1rem;
+}
+
+.cli-turn-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cli-turn-number {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  border-radius: 9999px;
+}
+
+.cli-turn-status {
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.cli-turn-status.status-success {
+  background: hsl(var(--success) / 0.12);
+  color: hsl(var(--success));
+}
+
+.cli-turn-status.status-error {
+  background: hsl(var(--destructive) / 0.12);
+  color: hsl(var(--destructive));
+}
+
+.cli-turn-status.status-timeout {
+  background: hsl(var(--warning) / 0.12);
+  color: hsl(var(--warning));
+}
+
+.cli-turn-duration {
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Turn Divider */
+.cli-turn-divider {
+  border: none;
+  border-top: 1px dashed hsl(var(--border));
+  margin: 1.25rem 0;
+}
+
+/* Error Section (smaller in multi-turn) */
+.cli-detail-error-section .cli-detail-error {
+  max-height: 100px;
+}

@@ -90,13 +90,17 @@ function renderCliHistory() {
         const statusClass = exec.status === 'success' ? 'text-success' :
                             exec.status === 'timeout' ? 'text-warning' : 'text-destructive';
         const duration = formatDuration(exec.duration_ms);
-        const timeAgo = getTimeAgo(new Date(exec.timestamp));
+        const timeAgo = getTimeAgo(new Date(exec.updated_at || exec.timestamp));
+        const turnBadge = exec.turn_count && exec.turn_count > 1
+          ? `<span class="cli-turn-badge">${exec.turn_count} turns</span>`
+          : '';
 
         return `
           <div class="cli-history-item">
             <div class="cli-history-item-content" onclick="showExecutionDetail('${exec.id}')">
               <div class="cli-history-item-header">
                 <span class="cli-tool-tag cli-tool-${exec.tool}">${exec.tool}</span>
+                ${turnBadge}
                 <span class="cli-history-time">${timeAgo}</span>
                 <i data-lucide="${statusIcon}" class="w-3.5 h-3.5 ${statusClass}"></i>
               </div>
@@ -163,50 +167,102 @@ function renderToolFilter() {
 
 // ========== Execution Detail Modal ==========
 async function showExecutionDetail(executionId, sourceDir) {
-  const detail = await loadExecutionDetail(executionId, sourceDir);
-  if (!detail) {
-    showRefreshToast('Execution not found', 'error');
+  const conversation = await loadExecutionDetail(executionId, sourceDir);
+  if (!conversation) {
+    showRefreshToast('Conversation not found', 'error');
     return;
+  }
+
+  // Handle both old (single execution) and new (conversation) formats
+  const isConversation = conversation.turns && Array.isArray(conversation.turns);
+  const turnCount = isConversation ? conversation.turn_count : 1;
+  const totalDuration = isConversation ? conversation.total_duration_ms : conversation.duration_ms;
+  const latestStatus = isConversation ? conversation.latest_status : conversation.status;
+  const createdAt = isConversation ? conversation.created_at : conversation.timestamp;
+
+  // Build turns HTML
+  let turnsHtml = '';
+  if (isConversation && conversation.turns.length > 0) {
+    turnsHtml = conversation.turns.map((turn, idx) => `
+      <div class="cli-turn-section">
+        <div class="cli-turn-header">
+          <span class="cli-turn-number">Turn ${turn.turn}</span>
+          <span class="cli-turn-status status-${turn.status}">${turn.status}</span>
+          <span class="cli-turn-duration">${formatDuration(turn.duration_ms)}</span>
+        </div>
+        <div class="cli-detail-section">
+          <h4><i data-lucide="message-square"></i> Prompt</h4>
+          <pre class="cli-detail-prompt">${escapeHtml(turn.prompt)}</pre>
+        </div>
+        ${turn.output.stdout ? `
+          <div class="cli-detail-section">
+            <h4><i data-lucide="terminal"></i> Output</h4>
+            <pre class="cli-detail-output">${escapeHtml(turn.output.stdout)}</pre>
+          </div>
+        ` : ''}
+        ${turn.output.stderr ? `
+          <div class="cli-detail-section cli-detail-error-section">
+            <h4><i data-lucide="alert-triangle"></i> Errors</h4>
+            <pre class="cli-detail-error">${escapeHtml(turn.output.stderr)}</pre>
+          </div>
+        ` : ''}
+        ${turn.output.truncated ? `
+          <p class="text-warning" style="font-size: 0.75rem; margin-top: 0.5rem;">
+            <i data-lucide="info" class="w-3 h-3" style="display: inline;"></i>
+            Output was truncated due to size.
+          </p>
+        ` : ''}
+      </div>
+    `).join('<hr class="cli-turn-divider">');
+  } else {
+    // Legacy single execution format
+    const detail = conversation;
+    turnsHtml = `
+      <div class="cli-detail-section">
+        <h4><i data-lucide="message-square"></i> Prompt</h4>
+        <pre class="cli-detail-prompt">${escapeHtml(detail.prompt)}</pre>
+      </div>
+      ${detail.output.stdout ? `
+        <div class="cli-detail-section">
+          <h4><i data-lucide="terminal"></i> Output</h4>
+          <pre class="cli-detail-output">${escapeHtml(detail.output.stdout)}</pre>
+        </div>
+      ` : ''}
+      ${detail.output.stderr ? `
+        <div class="cli-detail-section">
+          <h4><i data-lucide="alert-triangle"></i> Errors</h4>
+          <pre class="cli-detail-error">${escapeHtml(detail.output.stderr)}</pre>
+        </div>
+      ` : ''}
+      ${detail.output.truncated ? `
+        <p class="text-warning" style="font-size: 0.75rem; margin-top: 0.5rem;">
+          <i data-lucide="info" class="w-3 h-3" style="display: inline;"></i>
+          Output was truncated due to size.
+        </p>
+      ` : ''}
+    `;
   }
 
   const modalContent = `
     <div class="cli-detail-header">
       <div class="cli-detail-info">
-        <span class="cli-tool-tag cli-tool-${detail.tool}">${detail.tool}</span>
-        <span class="cli-detail-status status-${detail.status}">${detail.status}</span>
-        <span class="text-muted-foreground">${formatDuration(detail.duration_ms)}</span>
+        <span class="cli-tool-tag cli-tool-${conversation.tool}">${conversation.tool}</span>
+        ${turnCount > 1 ? `<span class="cli-turn-badge">${turnCount} turns</span>` : ''}
+        <span class="cli-detail-status status-${latestStatus}">${latestStatus}</span>
+        <span class="text-muted-foreground">${formatDuration(totalDuration)}</span>
       </div>
       <div class="cli-detail-meta">
-        <span><i data-lucide="cpu" class="w-3 h-3"></i> ${detail.model || 'default'}</span>
-        <span><i data-lucide="toggle-right" class="w-3 h-3"></i> ${detail.mode}</span>
-        <span><i data-lucide="calendar" class="w-3 h-3"></i> ${new Date(detail.timestamp).toLocaleString()}</span>
+        <span><i data-lucide="cpu" class="w-3 h-3"></i> ${conversation.model || 'default'}</span>
+        <span><i data-lucide="toggle-right" class="w-3 h-3"></i> ${conversation.mode}</span>
+        <span><i data-lucide="calendar" class="w-3 h-3"></i> ${new Date(createdAt).toLocaleString()}</span>
       </div>
     </div>
-    <div class="cli-detail-section">
-      <h4><i data-lucide="message-square"></i> Prompt</h4>
-      <pre class="cli-detail-prompt">${escapeHtml(detail.prompt)}</pre>
+    <div class="cli-turns-container">
+      ${turnsHtml}
     </div>
-    ${detail.output.stdout ? `
-      <div class="cli-detail-section">
-        <h4><i data-lucide="terminal"></i> Output</h4>
-        <pre class="cli-detail-output">${escapeHtml(detail.output.stdout)}</pre>
-      </div>
-    ` : ''}
-    ${detail.output.stderr ? `
-      <div class="cli-detail-section">
-        <h4><i data-lucide="alert-triangle"></i> Errors</h4>
-        <pre class="cli-detail-error">${escapeHtml(detail.output.stderr)}</pre>
-      </div>
-    ` : ''}
-    ${detail.output.truncated ? `
-      <p class="text-warning" style="font-size: 0.75rem; margin-top: 0.5rem;">
-        <i data-lucide="info" class="w-3 h-3" style="display: inline;"></i>
-        Output was truncated due to size.
-      </p>
-    ` : ''}
     <div class="cli-detail-actions">
-      <button class="btn btn-sm btn-outline" onclick="copyExecutionPrompt('${executionId}')">
-        <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy Prompt
+      <button class="btn btn-sm btn-outline" onclick="copyConversationId('${executionId}')">
+        <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy ID
       </button>
       <button class="btn btn-sm btn-outline btn-danger" onclick="confirmDeleteExecution('${executionId}'); closeModal();">
         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete
@@ -214,7 +270,7 @@ async function showExecutionDetail(executionId, sourceDir) {
     </div>
   `;
 
-  showModal('Execution Detail', modalContent);
+  showModal('Conversation Detail', modalContent);
 }
 
 // ========== Actions ==========
@@ -269,7 +325,7 @@ async function deleteExecution(executionId) {
   }
 }
 
-// ========== Copy Prompt ==========
+// ========== Copy Functions ==========
 async function copyExecutionPrompt(executionId) {
   const detail = await loadExecutionDetail(executionId);
   if (!detail) {
@@ -281,6 +337,17 @@ async function copyExecutionPrompt(executionId) {
     try {
       await navigator.clipboard.writeText(detail.prompt);
       showRefreshToast('Prompt copied to clipboard', 'success');
+    } catch (err) {
+      showRefreshToast('Failed to copy', 'error');
+    }
+  }
+}
+
+async function copyConversationId(conversationId) {
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(conversationId);
+      showRefreshToast('ID copied to clipboard', 'success');
     } catch (err) {
       showRefreshToast('Failed to copy', 'error');
     }

@@ -161,6 +161,7 @@ export function run(argv: string[]): void {
     .option('--limit <n>', 'History limit')
     .option('--status <status>', 'Filter by status')
     .option('--resume [id]', 'Resume previous session (empty=last, or execution ID)')
+    .option('--id <id>', 'Custom execution ID (e.g., IMPL-001-step1)')
     .action((subcommand, args, options) => cliCommand(subcommand, args, options));
 
   program.parse(argv);

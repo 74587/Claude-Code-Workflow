@@ -8,7 +8,7 @@ import { createHash } from 'crypto';
 import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
-import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, deleteExecution, executeCliTool } from '../tools/cli-executor.js';
+import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, getConversationDetail, deleteExecution, executeCliTool } from '../tools/cli-executor.js';
 import { getAllManifests } from './manifest.js';
 import { checkVenvStatus, bootstrapVenv, executeCodexLens, checkSemanticStatus, installSemantic } from '../tools/codex-lens.js';
 import { listTools } from '../tools/index.js';
@@ -673,16 +673,16 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
           return;
         }
 
-        // Handle GET request
-        const detail = getExecutionDetail(projectPath, executionId);
-        if (!detail) {
+        // Handle GET request - return full conversation with all turns
+        const conversation = getConversationDetail(projectPath, executionId);
+        if (!conversation) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Execution not found' }));
+          res.end(JSON.stringify({ error: 'Conversation not found' }));
           return;
         }
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(detail));
+        res.end(JSON.stringify(conversation));
         return;
       }
 

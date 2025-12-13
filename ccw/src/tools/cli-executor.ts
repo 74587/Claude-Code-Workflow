@@ -21,7 +21,8 @@ const ParamsSchema = z.object({
   cd: z.string().optional(),
   includeDirs: z.string().optional(),
   timeout: z.number().default(300000),
-  resume: z.union([z.boolean(), z.string()]).optional(), // true = last, string = execution ID
+  resume: z.union([z.boolean(), z.string()]).optional(), // true = last, string = single ID or comma-separated IDs
+  id: z.string().optional(), // Custom execution ID (e.g., IMPL-001-step1)
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -31,6 +32,36 @@ interface ToolAvailability {
   path: string | null;
 }
 
+// Single turn in a conversation
+interface ConversationTurn {
+  turn: number;
+  timestamp: string;
+  prompt: string;
+  duration_ms: number;
+  status: 'success' | 'error' | 'timeout';
+  exit_code: number | null;
+  output: {
+    stdout: string;
+    stderr: string;
+    truncated: boolean;
+  };
+}
+
+// Multi-turn conversation record
+interface ConversationRecord {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  tool: string;
+  model: string;
+  mode: string;
+  total_duration_ms: number;
+  turn_count: number;
+  latest_status: 'success' | 'error' | 'timeout';
+  turns: ConversationTurn[];
+}
+
+// Legacy single execution record (for backward compatibility)
 interface ExecutionRecord {
   id: string;
   timestamp: string;
@@ -53,10 +84,12 @@ interface HistoryIndex {
   total_executions: number;
   executions: {
     id: string;
-    timestamp: string;
+    timestamp: string;      // created_at for conversations
+    updated_at?: string;    // last update time
     tool: string;
     status: string;
     duration_ms: number;
+    turn_count?: number;    // number of turns in conversation
     prompt_preview: string;
   }[];
 }
@@ -64,6 +97,7 @@ interface HistoryIndex {
 interface ExecutionOutput {
   success: boolean;
   execution: ExecutionRecord;
+  conversation: ConversationRecord;  // Full conversation record
   stdout: string;
   stderr: string;
 }
@@ -206,39 +240,184 @@ function loadHistoryIndex(historyDir: string): HistoryIndex {
 }
 
 /**
- * Save execution to history
+ * Save conversation to history (create new or append turn)
  */
-function saveExecution(historyDir: string, execution: ExecutionRecord): void {
-  // Create date-based subdirectory
-  const dateStr = new Date().toISOString().split('T')[0];
+function saveConversation(historyDir: string, conversation: ConversationRecord): void {
+  // Create date-based subdirectory using created_at date
+  const dateStr = conversation.created_at.split('T')[0];
   const dateDir = join(historyDir, dateStr);
   if (!existsSync(dateDir)) {
     mkdirSync(dateDir, { recursive: true });
   }
 
-  // Save execution record
-  const filename = `${execution.id}.json`;
-  writeFileSync(join(dateDir, filename), JSON.stringify(execution, null, 2), 'utf8');
+  // Save conversation record
+  const filename = `${conversation.id}.json`;
+  writeFileSync(join(dateDir, filename), JSON.stringify(conversation, null, 2), 'utf8');
 
   // Update index
   const index = loadHistoryIndex(historyDir);
-  index.total_executions++;
 
-  // Add to executions (keep last 100 in index)
-  index.executions.unshift({
-    id: execution.id,
-    timestamp: execution.timestamp,
-    tool: execution.tool,
-    status: execution.status,
-    duration_ms: execution.duration_ms,
-    prompt_preview: execution.prompt.substring(0, 100) + (execution.prompt.length > 100 ? '...' : '')
-  });
+  // Check if this conversation already exists in index
+  const existingIdx = index.executions.findIndex(e => e.id === conversation.id);
+  const latestTurn = conversation.turns[conversation.turns.length - 1];
+
+  const indexEntry = {
+    id: conversation.id,
+    timestamp: conversation.created_at,
+    updated_at: conversation.updated_at,
+    tool: conversation.tool,
+    status: conversation.latest_status,
+    duration_ms: conversation.total_duration_ms,
+    turn_count: conversation.turn_count,
+    prompt_preview: latestTurn.prompt.substring(0, 100) + (latestTurn.prompt.length > 100 ? '...' : '')
+  };
+
+  if (existingIdx >= 0) {
+    // Update existing entry and move to top
+    index.executions.splice(existingIdx, 1);
+    index.executions.unshift(indexEntry);
+  } else {
+    // Add new entry
+    index.total_executions++;
+    index.executions.unshift(indexEntry);
+  }
 
   if (index.executions.length > 100) {
     index.executions = index.executions.slice(0, 100);
   }
 
   writeFileSync(join(historyDir, 'index.json'), JSON.stringify(index, null, 2), 'utf8');
+}
+
+/**
+ * Load existing conversation by ID
+ */
+function loadConversation(historyDir: string, conversationId: string): ConversationRecord | null {
+  // Search in all date directories
+  if (existsSync(historyDir)) {
+    const dateDirs = readdirSync(historyDir).filter(d => {
+      const dirPath = join(historyDir, d);
+      return statSync(dirPath).isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(d);
+    });
+
+    // Search newest first
+    for (const dateDir of dateDirs.sort().reverse()) {
+      const filePath = join(historyDir, dateDir, `${conversationId}.json`);
+      if (existsSync(filePath)) {
+        try {
+          const data = JSON.parse(readFileSync(filePath, 'utf8'));
+          // Check if it's a conversation record (has turns array)
+          if (data.turns && Array.isArray(data.turns)) {
+            return data as ConversationRecord;
+          }
+          // Convert legacy ExecutionRecord to ConversationRecord
+          return convertToConversation(data);
+        } catch {
+          continue;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Convert legacy ExecutionRecord to ConversationRecord
+ */
+function convertToConversation(record: ExecutionRecord): ConversationRecord {
+  return {
+    id: record.id,
+    created_at: record.timestamp,
+    updated_at: record.timestamp,
+    tool: record.tool,
+    model: record.model,
+    mode: record.mode,
+    total_duration_ms: record.duration_ms,
+    turn_count: 1,
+    latest_status: record.status,
+    turns: [{
+      turn: 1,
+      timestamp: record.timestamp,
+      prompt: record.prompt,
+      duration_ms: record.duration_ms,
+      status: record.status,
+      exit_code: record.exit_code,
+      output: record.output
+    }]
+  };
+}
+
+/**
+ * Merge multiple conversations into a unified context
+ * Returns merged turns sorted by timestamp with source tracking
+ */
+interface MergedTurn extends ConversationTurn {
+  source_id: string;  // Original conversation ID
+}
+
+interface MergeResult {
+  mergedTurns: MergedTurn[];
+  sourceConversations: ConversationRecord[];
+  totalDuration: number;
+}
+
+function mergeConversations(conversations: ConversationRecord[]): MergeResult {
+  const mergedTurns: MergedTurn[] = [];
+
+  // Collect all turns with source tracking
+  for (const conv of conversations) {
+    for (const turn of conv.turns) {
+      mergedTurns.push({
+        ...turn,
+        source_id: conv.id
+      });
+    }
+  }
+
+  // Sort by timestamp
+  mergedTurns.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  // Re-number turns
+  mergedTurns.forEach((turn, idx) => {
+    turn.turn = idx + 1;
+  });
+
+  // Calculate total duration
+  const totalDuration = mergedTurns.reduce((sum, t) => sum + t.duration_ms, 0);
+
+  return {
+    mergedTurns,
+    sourceConversations: conversations,
+    totalDuration
+  };
+}
+
+/**
+ * Build prompt from merged conversations
+ */
+function buildMergedPrompt(mergeResult: MergeResult, newPrompt: string): string {
+  const parts: string[] = [];
+
+  parts.push('=== MERGED CONVERSATION HISTORY ===');
+  parts.push(`(From ${mergeResult.sourceConversations.length} conversations: ${mergeResult.sourceConversations.map(c => c.id).join(', ')})`);
+  parts.push('');
+
+  // Add all merged turns with source tracking
+  for (const turn of mergeResult.mergedTurns) {
+    parts.push(`--- Turn ${turn.turn} [${turn.source_id}] ---`);
+    parts.push('USER:');
+    parts.push(turn.prompt);
+    parts.push('');
+    parts.push('ASSISTANT:');
+    parts.push(turn.output.stdout || '[No output recorded]');
+    parts.push('');
+  }
+
+  parts.push('=== NEW REQUEST ===');
+  parts.push('');
+  parts.push(newPrompt);
+
+  return parts.join('\n');
 }
 
 /**
@@ -253,17 +432,95 @@ async function executeCliTool(
     throw new Error(`Invalid params: ${parsed.error.message}`);
   }
 
-  const { tool, prompt, mode, model, cd, includeDirs, timeout, resume } = parsed.data;
+  const { tool, prompt, mode, model, cd, includeDirs, timeout, resume, id: customId } = parsed.data;
 
-  // Determine working directory early (needed for resume lookup)
+  // Determine working directory early (needed for conversation lookup)
   const workingDir = cd || process.cwd();
+  const historyDir = ensureHistoryDir(workingDir);
 
-  // Build final prompt (with resume context if applicable)
+  // Determine conversation ID and load existing conversation
+  // Logic:
+  // - If --resume <id1,id2,...> (multiple IDs): merge conversations
+  //   - With --id: create new merged conversation
+  //   - Without --id: append to ALL source conversations
+  // - If --resume <id> AND --id <newId>: fork - read context from resume ID, create new conversation with newId
+  // - If --id provided (no resume): use that ID (create new or append)
+  // - If --resume <id> without --id: use resume ID (append to existing)
+  // - No params: create new with auto-generated ID
+  let conversationId: string;
+  let existingConversation: ConversationRecord | null = null;
+  let contextConversation: ConversationRecord | null = null; // For fork scenario
+  let mergeResult: MergeResult | null = null; // For merge scenario
+  let sourceConversations: ConversationRecord[] = []; // All source conversations for merge
+
+  // Parse resume IDs (can be comma-separated for merge)
+  const resumeIds: string[] = resume
+    ? (typeof resume === 'string' ? resume.split(',').map(id => id.trim()).filter(Boolean) : [])
+    : [];
+  const isMerge = resumeIds.length > 1;
+  const resumeId = resumeIds.length === 1 ? resumeIds[0] : null;
+
+  if (isMerge) {
+    // Merge scenario: multiple resume IDs
+    sourceConversations = resumeIds
+      .map(id => loadConversation(historyDir, id))
+      .filter((c): c is ConversationRecord => c !== null);
+
+    if (sourceConversations.length === 0) {
+      throw new Error('No valid conversations found for merge');
+    }
+
+    mergeResult = mergeConversations(sourceConversations);
+
+    if (customId) {
+      // Create new merged conversation with custom ID
+      conversationId = customId;
+      existingConversation = loadConversation(historyDir, customId);
+    } else {
+      // Will append to ALL source conversations (handled in save logic)
+      // Use first source conversation ID as primary
+      conversationId = sourceConversations[0].id;
+      existingConversation = sourceConversations[0];
+    }
+  } else if (customId && resumeId) {
+    // Fork: read context from resume ID, but create new conversation with custom ID
+    conversationId = customId;
+    contextConversation = loadConversation(historyDir, resumeId);
+    existingConversation = loadConversation(historyDir, customId);
+  } else if (customId) {
+    // Use custom ID - may be new or existing
+    conversationId = customId;
+    existingConversation = loadConversation(historyDir, customId);
+  } else if (resumeId) {
+    // Resume single ID without new ID - append to existing conversation
+    conversationId = resumeId;
+    existingConversation = loadConversation(historyDir, resumeId);
+  } else if (resume) {
+    // resume=true: get last conversation for this tool
+    const history = getExecutionHistory(workingDir, { limit: 1, tool });
+    if (history.executions.length > 0) {
+      conversationId = history.executions[0].id;
+      existingConversation = loadConversation(historyDir, conversationId);
+    } else {
+      // No previous conversation, create new
+      conversationId = `${Date.now()}-${tool}`;
+    }
+  } else {
+    // New conversation with auto-generated ID
+    conversationId = `${Date.now()}-${tool}`;
+  }
+
+  // Build final prompt with conversation context
+  // For merge: use merged context from all source conversations
+  // For fork: use contextConversation (from resume ID) for prompt context
+  // For append: use existingConversation (from target ID)
   let finalPrompt = prompt;
-  if (resume) {
-    const previousExecution = getPreviousExecution(workingDir, tool, resume);
-    if (previousExecution) {
-      finalPrompt = buildContinuationPrompt(previousExecution, prompt);
+  if (mergeResult && mergeResult.mergedTurns.length > 0) {
+    finalPrompt = buildMergedPrompt(mergeResult, prompt);
+  } else {
+    const conversationForContext = contextConversation || existingConversation;
+    if (conversationForContext && conversationForContext.turns.length > 0) {
+      finalPrompt = buildMultiTurnPrompt(conversationForContext, prompt);
     }
   }
 
@@ -283,8 +540,6 @@ async function executeCliTool(
     include: includeDirs
   });
 
-  // Create execution record
-  const executionId = `${Date.now()}-${tool}`;
   const startTime = Date.now();
 
   return new Promise((resolve, reject) => {
@@ -356,9 +611,135 @@ async function executeCliTool(
         }
       }
 
-      // Create execution record
+      // Create new turn
+      const newTurnOutput = {
+        stdout: stdout.substring(0, 10240), // Truncate to 10KB
+        stderr: stderr.substring(0, 2048),  // Truncate to 2KB
+        truncated: stdout.length > 10240 || stderr.length > 2048
+      };
+
+      // Determine base turn number for merge scenarios
+      const baseTurnNumber = isMerge && mergeResult
+        ? mergeResult.mergedTurns.length + 1
+        : (existingConversation ? existingConversation.turns.length + 1 : 1);
+
+      const newTurn: ConversationTurn = {
+        turn: baseTurnNumber,
+        timestamp: new Date(startTime).toISOString(),
+        prompt,
+        duration_ms: duration,
+        status,
+        exit_code: code,
+        output: newTurnOutput
+      };
+
+      // Create or update conversation record
+      let conversation: ConversationRecord;
+
+      if (isMerge && mergeResult && !customId) {
+        // Merge without --id: append to ALL source conversations
+        // Save new turn to each source conversation
+        const savedConversations: ConversationRecord[] = [];
+        for (const srcConv of sourceConversations) {
+          const turnForSrc: ConversationTurn = {
+            ...newTurn,
+            turn: srcConv.turns.length + 1 // Use each conversation's turn count
+          };
+          const updatedConv: ConversationRecord = {
+            ...srcConv,
+            updated_at: new Date().toISOString(),
+            total_duration_ms: srcConv.total_duration_ms + duration,
+            turn_count: srcConv.turns.length + 1,
+            latest_status: status,
+            turns: [...srcConv.turns, turnForSrc]
+          };
+          savedConversations.push(updatedConv);
+        }
+        // Use first conversation as primary
+        conversation = savedConversations[0];
+        // Save all source conversations
+        try {
+          for (const conv of savedConversations) {
+            saveConversation(historyDir, conv);
+          }
+        } catch (err) {
+          console.error('[CLI Executor] Failed to save merged histories:', (err as Error).message);
+        }
+      } else if (isMerge && mergeResult && customId) {
+        // Merge with --id: create new conversation with merged turns + new turn
+        // Convert merged turns to regular turns (without source_id)
+        const mergedTurns: ConversationTurn[] = mergeResult.mergedTurns.map((mt, idx) => ({
+          turn: idx + 1,
+          timestamp: mt.timestamp,
+          prompt: mt.prompt,
+          duration_ms: mt.duration_ms,
+          status: mt.status,
+          exit_code: mt.exit_code,
+          output: mt.output
+        }));
+
+        conversation = existingConversation
+          ? {
+              ...existingConversation,
+              updated_at: new Date().toISOString(),
+              total_duration_ms: existingConversation.total_duration_ms + duration,
+              turn_count: existingConversation.turns.length + 1,
+              latest_status: status,
+              turns: [...existingConversation.turns, newTurn]
+            }
+          : {
+              id: conversationId,
+              created_at: new Date(startTime).toISOString(),
+              updated_at: new Date().toISOString(),
+              tool,
+              model: model || 'default',
+              mode,
+              total_duration_ms: mergeResult.totalDuration + duration,
+              turn_count: mergedTurns.length + 1,
+              latest_status: status,
+              turns: [...mergedTurns, newTurn]
+            };
+        // Save merged conversation
+        try {
+          saveConversation(historyDir, conversation);
+        } catch (err) {
+          console.error('[CLI Executor] Failed to save merged conversation:', (err as Error).message);
+        }
+      } else {
+        // Normal scenario: single conversation
+        conversation = existingConversation
+          ? {
+              ...existingConversation,
+              updated_at: new Date().toISOString(),
+              total_duration_ms: existingConversation.total_duration_ms + duration,
+              turn_count: existingConversation.turns.length + 1,
+              latest_status: status,
+              turns: [...existingConversation.turns, newTurn]
+            }
+          : {
+              id: conversationId,
+              created_at: new Date(startTime).toISOString(),
+              updated_at: new Date().toISOString(),
+              tool,
+              model: model || 'default',
+              mode,
+              total_duration_ms: duration,
+              turn_count: 1,
+              latest_status: status,
+              turns: [newTurn]
+            };
+        // Try to save conversation to history
+        try {
+          saveConversation(historyDir, conversation);
+        } catch (err) {
+          // Non-fatal: continue even if history save fails
+          console.error('[CLI Executor] Failed to save history:', (err as Error).message);
+        }
+      }
+
+      // Create legacy execution record for backward compatibility
       const execution: ExecutionRecord = {
-        id: executionId,
+        id: conversationId,
         timestamp: new Date(startTime).toISOString(),
         tool,
         model: model || 'default',
@@ -367,25 +748,13 @@ async function executeCliTool(
         status,
         exit_code: code,
         duration_ms: duration,
-        output: {
-          stdout: stdout.substring(0, 10240), // Truncate to 10KB
-          stderr: stderr.substring(0, 2048),  // Truncate to 2KB
-          truncated: stdout.length > 10240 || stderr.length > 2048
-        }
+        output: newTurnOutput
       };
-
-      // Try to save to history
-      try {
-        const historyDir = ensureHistoryDir(workingDir);
-        saveExecution(historyDir, execution);
-      } catch (err) {
-        // Non-fatal: continue even if history save fails
-        console.error('[CLI Executor] Failed to save history:', (err as Error).message);
-      }
 
       resolve({
         success: status === 'success',
         execution,
+        conversation,
         stdout,
         stderr
       });
@@ -576,27 +945,34 @@ export function getExecutionHistory(baseDir: string, options: {
 }
 
 /**
- * Get execution detail by ID
+ * Get conversation detail by ID (returns ConversationRecord)
+ */
+export function getConversationDetail(baseDir: string, conversationId: string): ConversationRecord | null {
+  const historyDir = join(baseDir, '.workflow', '.cli-history');
+  return loadConversation(historyDir, conversationId);
+}
+
+/**
+ * Get execution detail by ID (legacy, returns ExecutionRecord for backward compatibility)
  */
 export function getExecutionDetail(baseDir: string, executionId: string): ExecutionRecord | null {
-  const historyDir = join(baseDir, '.workflow', '.cli-history');
+  const conversation = getConversationDetail(baseDir, executionId);
+  if (!conversation) return null;
 
-  // Parse date from execution ID
-  const timestamp = parseInt(executionId.split('-')[0], 10);
-  const date = new Date(timestamp);
-  const dateStr = date.toISOString().split('T')[0];
-
-  const filePath = join(historyDir, dateStr, `${executionId}.json`);
-
-  if (existsSync(filePath)) {
-    try {
-      return JSON.parse(readFileSync(filePath, 'utf8'));
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
+  // Convert to legacy ExecutionRecord format (using latest turn)
+  const latestTurn = conversation.turns[conversation.turns.length - 1];
+  return {
+    id: conversation.id,
+    timestamp: conversation.created_at,
+    tool: conversation.tool,
+    model: conversation.model,
+    mode: conversation.mode,
+    prompt: latestTurn.prompt,
+    status: conversation.latest_status,
+    exit_code: latestTurn.exit_code,
+    duration_ms: conversation.total_duration_ms,
+    output: latestTurn.output
+  };
 }
 
 /**
@@ -649,7 +1025,34 @@ export async function getCliToolsStatus(): Promise<Record<string, ToolAvailabili
 }
 
 /**
- * Build continuation prompt with previous conversation context
+ * Build multi-turn prompt with full conversation history
+ */
+function buildMultiTurnPrompt(conversation: ConversationRecord, newPrompt: string): string {
+  const parts: string[] = [];
+
+  parts.push('=== CONVERSATION HISTORY ===');
+  parts.push('');
+
+  // Add all previous turns
+  for (const turn of conversation.turns) {
+    parts.push(`--- Turn ${turn.turn} ---`);
+    parts.push('USER:');
+    parts.push(turn.prompt);
+    parts.push('');
+    parts.push('ASSISTANT:');
+    parts.push(turn.output.stdout || '[No output recorded]');
+    parts.push('');
+  }
+
+  parts.push('=== NEW REQUEST ===');
+  parts.push('');
+  parts.push(newPrompt);
+
+  return parts.join('\n');
+}
+
+/**
+ * Build continuation prompt with previous conversation context (legacy)
  */
 function buildContinuationPrompt(previous: ExecutionRecord, additionalPrompt?: string): string {
   const parts: string[] = [];
@@ -706,6 +1109,9 @@ export function getLatestExecution(baseDir: string, tool?: string): ExecutionRec
   }
   return getExecutionDetail(baseDir, history.executions[0].id);
 }
+
+// Export types
+export type { ConversationRecord, ConversationTurn, ExecutionRecord };
 
 // Export utility functions and tool definition for backward compatibility
 export { executeCliTool, checkToolAvailability };

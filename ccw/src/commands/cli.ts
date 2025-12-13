@@ -8,7 +8,8 @@ import {
   cliExecutorTool,
   getCliToolsStatus,
   getExecutionHistory,
-  getExecutionDetail
+  getExecutionDetail,
+  getConversationDetail
 } from '../tools/cli-executor.js';
 
 interface CliExecOptions {
@@ -20,6 +21,7 @@ interface CliExecOptions {
   timeout?: string;
   noStream?: boolean;
   resume?: string | boolean; // true = last, string = execution ID
+  id?: string; // Custom execution ID (e.g., IMPL-001-step1)
 }
 
 interface HistoryOptions {
@@ -61,11 +63,30 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
     process.exit(1);
   }
 
-  const { tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume } = options;
+  const { tool = 'gemini', mode = 'analysis', model, cd, includeDirs, timeout, noStream, resume, id } = options;
+
+  // Parse resume IDs for merge scenario
+  const resumeIds = resume && typeof resume === 'string' ? resume.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const isMerge = resumeIds.length > 1;
 
   // Show execution mode
-  const resumeInfo = resume ? (typeof resume === 'string' ? ` resuming ${resume}` : ' resuming last') : '';
-  console.log(chalk.cyan(`\n  Executing ${tool} (${mode} mode${resumeInfo})...\n`));
+  let resumeInfo = '';
+  if (isMerge) {
+    resumeInfo = ` merging ${resumeIds.length} conversations`;
+  } else if (resume) {
+    resumeInfo = typeof resume === 'string' ? ` resuming ${resume}` : ' resuming last';
+  }
+  const idInfo = id ? ` [${id}]` : '';
+  console.log(chalk.cyan(`\n  Executing ${tool} (${mode} mode${resumeInfo})${idInfo}...\n`));
+
+  // Show merge details
+  if (isMerge) {
+    console.log(chalk.gray('  Merging conversations:'));
+    for (const rid of resumeIds) {
+      console.log(chalk.gray(`    • ${rid}`));
+    }
+    console.log();
+  }
 
   // Streaming output handler
   const onOutput = noStream ? null : (chunk: any) => {
@@ -81,7 +102,8 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
       cd,
       includeDirs,
       timeout: timeout ? parseInt(timeout, 10) : 300000,
-      resume // pass resume parameter
+      resume,
+      id // custom execution ID
     }, onOutput);
 
     // If not streaming, print output now
@@ -89,12 +111,25 @@ async function execAction(prompt: string | undefined, options: CliExecOptions): 
       console.log(result.stdout);
     }
 
-    // Print summary with execution ID for resume
+    // Print summary with execution ID and turn info
     console.log();
     if (result.success) {
-      console.log(chalk.green(`  ✓ Completed in ${(result.execution.duration_ms / 1000).toFixed(1)}s`));
+      const turnInfo = result.conversation.turn_count > 1
+        ? ` (turn ${result.conversation.turn_count})`
+        : '';
+      console.log(chalk.green(`  ✓ Completed in ${(result.execution.duration_ms / 1000).toFixed(1)}s${turnInfo}`));
       console.log(chalk.gray(`  ID: ${result.execution.id}`));
-      console.log(chalk.dim(`  Resume: ccw cli exec "..." --resume ${result.execution.id}`));
+      if (isMerge && !id) {
+        // Merge without custom ID: updated all source conversations
+        console.log(chalk.gray(`  Updated ${resumeIds.length} conversations: ${resumeIds.join(', ')}`));
+      } else if (isMerge && id) {
+        // Merge with custom ID: created new merged conversation
+        console.log(chalk.gray(`  Created merged conversation from ${resumeIds.length} sources`));
+      }
+      if (result.conversation.turn_count > 1) {
+        console.log(chalk.gray(`  Total: ${result.conversation.turn_count} turns, ${(result.conversation.total_duration_ms / 1000).toFixed(1)}s`));
+      }
+      console.log(chalk.dim(`  Continue: ccw cli exec "..." --resume ${result.execution.id}`));
     } else {
       console.log(chalk.red(`  ✗ Failed (${result.execution.status})`));
       console.log(chalk.gray(`  ID: ${result.execution.id}`));
@@ -135,9 +170,10 @@ async function historyAction(options: HistoryOptions): Promise<void> {
       ? `${(exec.duration_ms / 1000).toFixed(1)}s`
       : `${exec.duration_ms}ms`;
 
-    const timeAgo = getTimeAgo(new Date(exec.timestamp));
+    const timeAgo = getTimeAgo(new Date(exec.updated_at || exec.timestamp));
+    const turnInfo = exec.turn_count && exec.turn_count > 1 ? chalk.cyan(` [${exec.turn_count} turns]`) : '';
 
-    console.log(`  ${statusIcon} ${chalk.bold.white(exec.tool.padEnd(8))} ${chalk.gray(timeAgo.padEnd(12))} ${chalk.gray(duration.padEnd(8))}`);
+    console.log(`  ${statusIcon} ${chalk.bold.white(exec.tool.padEnd(8))} ${chalk.gray(timeAgo.padEnd(12))} ${chalk.gray(duration.padEnd(8))}${turnInfo}`);
     console.log(chalk.gray(`    ${exec.prompt_preview}`));
     console.log(chalk.dim(`    ID: ${exec.id}`));
     console.log();
@@ -145,49 +181,60 @@ async function historyAction(options: HistoryOptions): Promise<void> {
 }
 
 /**
- * Show execution detail
- * @param {string} executionId - Execution ID
+ * Show conversation detail with all turns
+ * @param {string} conversationId - Conversation ID
  */
-async function detailAction(executionId: string | undefined): Promise<void> {
-  if (!executionId) {
-    console.error(chalk.red('Error: Execution ID is required'));
-    console.error(chalk.gray('Usage: ccw cli detail <execution-id>'));
+async function detailAction(conversationId: string | undefined): Promise<void> {
+  if (!conversationId) {
+    console.error(chalk.red('Error: Conversation ID is required'));
+    console.error(chalk.gray('Usage: ccw cli detail <conversation-id>'));
     process.exit(1);
   }
 
-  const detail = getExecutionDetail(process.cwd(), executionId);
+  const conversation = getConversationDetail(process.cwd(), conversationId);
 
-  if (!detail) {
-    console.error(chalk.red(`Error: Execution not found: ${executionId}`));
+  if (!conversation) {
+    console.error(chalk.red(`Error: Conversation not found: ${conversationId}`));
     process.exit(1);
   }
 
-  console.log(chalk.bold.cyan('\n  Execution Detail\n'));
-  console.log(`  ${chalk.gray('ID:')}         ${detail.id}`);
-  console.log(`  ${chalk.gray('Tool:')}       ${detail.tool}`);
-  console.log(`  ${chalk.gray('Model:')}      ${detail.model}`);
-  console.log(`  ${chalk.gray('Mode:')}       ${detail.mode}`);
-  console.log(`  ${chalk.gray('Status:')}     ${detail.status}`);
-  console.log(`  ${chalk.gray('Duration:')}   ${detail.duration_ms}ms`);
-  console.log(`  ${chalk.gray('Timestamp:')}  ${detail.timestamp}`);
-
-  console.log(chalk.bold.cyan('\n  Prompt:\n'));
-  console.log(chalk.gray('  ' + detail.prompt.split('\n').join('\n  ')));
-
-  if (detail.output.stdout) {
-    console.log(chalk.bold.cyan('\n  Output:\n'));
-    console.log(detail.output.stdout);
+  console.log(chalk.bold.cyan('\n  Conversation Detail\n'));
+  console.log(`  ${chalk.gray('ID:')}         ${conversation.id}`);
+  console.log(`  ${chalk.gray('Tool:')}       ${conversation.tool}`);
+  console.log(`  ${chalk.gray('Model:')}      ${conversation.model}`);
+  console.log(`  ${chalk.gray('Mode:')}       ${conversation.mode}`);
+  console.log(`  ${chalk.gray('Status:')}     ${conversation.latest_status}`);
+  console.log(`  ${chalk.gray('Turns:')}      ${conversation.turn_count}`);
+  console.log(`  ${chalk.gray('Duration:')}   ${(conversation.total_duration_ms / 1000).toFixed(1)}s total`);
+  console.log(`  ${chalk.gray('Created:')}    ${conversation.created_at}`);
+  if (conversation.turn_count > 1) {
+    console.log(`  ${chalk.gray('Updated:')}    ${conversation.updated_at}`);
   }
 
-  if (detail.output.stderr) {
-    console.log(chalk.bold.red('\n  Errors:\n'));
-    console.log(detail.output.stderr);
+  // Show all turns
+  for (const turn of conversation.turns) {
+    console.log(chalk.bold.cyan(`\n  ═══ Turn ${turn.turn} ═══`));
+    console.log(chalk.gray(`  ${turn.timestamp} | ${turn.status} | ${(turn.duration_ms / 1000).toFixed(1)}s`));
+
+    console.log(chalk.bold.white('\n  Prompt:'));
+    console.log(chalk.gray('  ' + turn.prompt.split('\n').join('\n  ')));
+
+    if (turn.output.stdout) {
+      console.log(chalk.bold.white('\n  Output:'));
+      console.log(turn.output.stdout);
+    }
+
+    if (turn.output.stderr) {
+      console.log(chalk.bold.red('\n  Errors:'));
+      console.log(turn.output.stderr);
+    }
+
+    if (turn.output.truncated) {
+      console.log(chalk.yellow('\n  Note: Output was truncated due to size.'));
+    }
   }
 
-  if (detail.output.truncated) {
-    console.log(chalk.yellow('\n  Note: Output was truncated due to size.'));
-  }
-
+  console.log(chalk.dim(`\n  Continue: ccw cli exec "..." --resume ${conversation.id}`));
   console.log();
 }
 
@@ -256,6 +303,7 @@ export async function cliCommand(
       console.log(chalk.gray('    --timeout <ms>      Timeout in milliseconds (default: 300000)'));
       console.log(chalk.gray('    --no-stream         Disable streaming output'));
       console.log(chalk.gray('    --resume [id]       Resume previous session (empty=last, or execution ID)'));
+      console.log(chalk.gray('    --id <id>           Custom execution ID (e.g., IMPL-001-step1)'));
       console.log();
       console.log('  History Options:');
       console.log(chalk.gray('    --limit <n>         Number of results (default: 20)'));

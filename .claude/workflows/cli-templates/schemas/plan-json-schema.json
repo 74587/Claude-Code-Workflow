@@ -118,6 +118,31 @@
               "pattern": "^T[0-9]+$"
             },
             "description": "Task IDs this task depends on (e.g., ['T1', 'T2'])"
+          },
+          "cli_execution_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "description": "Fixed CLI execution ID for this task (e.g., 'session-T1', 'IMPL-001-analysis')"
+          },
+          "cli_execution": {
+            "type": "object",
+            "properties": {
+              "strategy": {
+                "type": "string",
+                "enum": ["new", "resume", "fork", "merge_fork"],
+                "description": "CLI execution strategy: new (no deps), resume (1 dep, continue), fork (1 dep, branch), merge_fork (N deps, combine)"
+              },
+              "resume_from": {
+                "type": "string",
+                "description": "Parent task's cli_execution_id (for resume/fork strategies)"
+              },
+              "merge_from": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Multiple parents' cli_execution_ids (for merge_fork strategy)"
+              }
+            },
+            "description": "CLI execution strategy based on task dependencies"
           }
         }
       },
