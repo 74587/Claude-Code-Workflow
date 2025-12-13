@@ -180,66 +180,106 @@ async function showExecutionDetail(executionId, sourceDir) {
   const latestStatus = isConversation ? conversation.latest_status : conversation.status;
   const createdAt = isConversation ? conversation.created_at : conversation.timestamp;
 
-  // Build turns HTML
+  // Build turns HTML with improved multi-turn display
   let turnsHtml = '';
   if (isConversation && conversation.turns.length > 0) {
-    turnsHtml = conversation.turns.map((turn, idx) => `
-      <div class="cli-turn-section">
-        <div class="cli-turn-header">
-          <span class="cli-turn-number">Turn ${turn.turn}</span>
-          <span class="cli-turn-status status-${turn.status}">${turn.status}</span>
-          <span class="cli-turn-duration">${formatDuration(turn.duration_ms)}</span>
-        </div>
-        <div class="cli-detail-section">
-          <h4><i data-lucide="message-square"></i> Prompt</h4>
-          <pre class="cli-detail-prompt">${escapeHtml(turn.prompt)}</pre>
-        </div>
-        ${turn.output.stdout ? `
-          <div class="cli-detail-section">
-            <h4><i data-lucide="terminal"></i> Output</h4>
-            <pre class="cli-detail-output">${escapeHtml(turn.output.stdout)}</pre>
+    turnsHtml = conversation.turns.map((turn, idx) => {
+      const isFirst = idx === 0;
+      const isLast = idx === conversation.turns.length - 1;
+      const turnTime = new Date(turn.timestamp).toLocaleTimeString();
+      const statusIcon = turn.status === 'success' ? 'check-circle' :
+                         turn.status === 'timeout' ? 'clock' : 'x-circle';
+
+      return `
+        <div class="cli-turn-section ${isLast ? 'cli-turn-latest' : ''}">
+          <div class="cli-turn-header">
+            <div class="cli-turn-marker">
+              <span class="cli-turn-number">${isFirst ? '▶' : '↳'} Turn ${turn.turn}</span>
+              ${isLast ? '<span class="cli-turn-latest-badge">Latest</span>' : ''}
+            </div>
+            <div class="cli-turn-meta">
+              <span class="cli-turn-time"><i data-lucide="clock" class="w-3 h-3"></i> ${turnTime}</span>
+              <span class="cli-turn-status status-${turn.status}">
+                <i data-lucide="${statusIcon}" class="w-3 h-3"></i> ${turn.status}
+              </span>
+              <span class="cli-turn-duration">${formatDuration(turn.duration_ms)}</span>
+            </div>
           </div>
-        ` : ''}
-        ${turn.output.stderr ? `
-          <div class="cli-detail-section cli-detail-error-section">
-            <h4><i data-lucide="alert-triangle"></i> Errors</h4>
-            <pre class="cli-detail-error">${escapeHtml(turn.output.stderr)}</pre>
+          <div class="cli-turn-body">
+            <div class="cli-detail-section cli-prompt-section">
+              <h4><i data-lucide="user" class="w-3.5 h-3.5"></i> User Prompt</h4>
+              <pre class="cli-detail-prompt">${escapeHtml(turn.prompt)}</pre>
+            </div>
+            ${turn.output.stdout ? `
+              <div class="cli-detail-section cli-output-section">
+                <h4><i data-lucide="bot" class="w-3.5 h-3.5"></i> Assistant Response</h4>
+                <pre class="cli-detail-output">${escapeHtml(turn.output.stdout)}</pre>
+              </div>
+            ` : ''}
+            ${turn.output.stderr ? `
+              <div class="cli-detail-section cli-detail-error-section">
+                <h4><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Errors</h4>
+                <pre class="cli-detail-error">${escapeHtml(turn.output.stderr)}</pre>
+              </div>
+            ` : ''}
+            ${turn.output.truncated ? `
+              <p class="cli-truncated-notice">
+                <i data-lucide="info" class="w-3 h-3"></i>
+                Output was truncated due to size.
+              </p>
+            ` : ''}
           </div>
-        ` : ''}
-        ${turn.output.truncated ? `
-          <p class="text-warning" style="font-size: 0.75rem; margin-top: 0.5rem;">
-            <i data-lucide="info" class="w-3 h-3" style="display: inline;"></i>
-            Output was truncated due to size.
-          </p>
-        ` : ''}
-      </div>
-    `).join('<hr class="cli-turn-divider">');
+        </div>
+      `;
+    }).join('<div class="cli-turn-connector"><div class="cli-turn-line"></div></div>');
   } else {
     // Legacy single execution format
     const detail = conversation;
     turnsHtml = `
-      <div class="cli-detail-section">
-        <h4><i data-lucide="message-square"></i> Prompt</h4>
-        <pre class="cli-detail-prompt">${escapeHtml(detail.prompt)}</pre>
+      <div class="cli-turn-section">
+        <div class="cli-turn-body">
+          <div class="cli-detail-section cli-prompt-section">
+            <h4><i data-lucide="user" class="w-3.5 h-3.5"></i> User Prompt</h4>
+            <pre class="cli-detail-prompt">${escapeHtml(detail.prompt)}</pre>
+          </div>
+          ${detail.output.stdout ? `
+            <div class="cli-detail-section cli-output-section">
+              <h4><i data-lucide="bot" class="w-3.5 h-3.5"></i> Assistant Response</h4>
+              <pre class="cli-detail-output">${escapeHtml(detail.output.stdout)}</pre>
+            </div>
+          ` : ''}
+          ${detail.output.stderr ? `
+            <div class="cli-detail-section cli-detail-error-section">
+              <h4><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Errors</h4>
+              <pre class="cli-detail-error">${escapeHtml(detail.output.stderr)}</pre>
+            </div>
+          ` : ''}
+          ${detail.output.truncated ? `
+            <p class="cli-truncated-notice">
+              <i data-lucide="info" class="w-3 h-3"></i>
+              Output was truncated due to size.
+            </p>
+          ` : ''}
+        </div>
       </div>
-      ${detail.output.stdout ? `
+    `;
+  }
+
+  // Build concatenated prompt view (for multi-turn conversations)
+  let concatenatedPromptHtml = '';
+  if (isConversation && conversation.turns.length > 1) {
+    concatenatedPromptHtml = `
+      <div class="cli-concat-section" id="concatPromptSection" style="display: none;">
         <div class="cli-detail-section">
-          <h4><i data-lucide="terminal"></i> Output</h4>
-          <pre class="cli-detail-output">${escapeHtml(detail.output.stdout)}</pre>
+          <h4><i data-lucide="layers" class="w-3.5 h-3.5"></i> Concatenated Prompt (sent to CLI)</h4>
+          <div class="cli-concat-format-selector">
+            <button class="btn btn-xs ${true ? 'btn-primary' : 'btn-outline'}" onclick="switchConcatFormat('plain', '${executionId}')">Plain</button>
+            <button class="btn btn-xs btn-outline" onclick="switchConcatFormat('yaml', '${executionId}')">YAML</button>
+            <button class="btn btn-xs btn-outline" onclick="switchConcatFormat('json', '${executionId}')">JSON</button>
+          </div>
+          <pre class="cli-detail-output cli-concat-output" id="concatPromptOutput">${escapeHtml(buildConcatenatedPrompt(conversation, 'plain'))}</pre>
         </div>
-      ` : ''}
-      ${detail.output.stderr ? `
-        <div class="cli-detail-section">
-          <h4><i data-lucide="alert-triangle"></i> Errors</h4>
-          <pre class="cli-detail-error">${escapeHtml(detail.output.stderr)}</pre>
-        </div>
-      ` : ''}
-      ${detail.output.truncated ? `
-        <p class="text-warning" style="font-size: 0.75rem; margin-top: 0.5rem;">
-          <i data-lucide="info" class="w-3 h-3" style="display: inline;"></i>
-          Output was truncated due to size.
-        </p>
-      ` : ''}
+      </div>
     `;
   }
 
@@ -247,7 +287,7 @@ async function showExecutionDetail(executionId, sourceDir) {
     <div class="cli-detail-header">
       <div class="cli-detail-info">
         <span class="cli-tool-tag cli-tool-${conversation.tool}">${conversation.tool}</span>
-        ${turnCount > 1 ? `<span class="cli-turn-badge">${turnCount} turns</span>` : ''}
+        ${turnCount > 1 ? `<span class="cli-turn-badge"><i data-lucide="messages-square" class="w-3 h-3"></i> ${turnCount} turns</span>` : ''}
         <span class="cli-detail-status status-${latestStatus}">${latestStatus}</span>
         <span class="text-muted-foreground">${formatDuration(totalDuration)}</span>
       </div>
@@ -255,20 +295,40 @@ async function showExecutionDetail(executionId, sourceDir) {
         <span><i data-lucide="cpu" class="w-3 h-3"></i> ${conversation.model || 'default'}</span>
         <span><i data-lucide="toggle-right" class="w-3 h-3"></i> ${conversation.mode}</span>
         <span><i data-lucide="calendar" class="w-3 h-3"></i> ${new Date(createdAt).toLocaleString()}</span>
+        <span><i data-lucide="hash" class="w-3 h-3"></i> ${executionId.split('-')[0]}</span>
       </div>
     </div>
-    <div class="cli-turns-container">
+    ${turnCount > 1 ? `
+      <div class="cli-view-toggle">
+        <button class="btn btn-sm btn-outline active" onclick="toggleConversationView('turns')">
+          <i data-lucide="list" class="w-3.5 h-3.5"></i> Per-Turn View
+        </button>
+        <button class="btn btn-sm btn-outline" onclick="toggleConversationView('concat')">
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i> Concatenated View
+        </button>
+      </div>
+    ` : ''}
+    <div class="cli-turns-container" id="turnsContainer">
       ${turnsHtml}
     </div>
+    ${concatenatedPromptHtml}
     <div class="cli-detail-actions">
       <button class="btn btn-sm btn-outline" onclick="copyConversationId('${executionId}')">
         <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy ID
       </button>
+      ${turnCount > 1 ? `
+        <button class="btn btn-sm btn-outline" onclick="copyConcatenatedPrompt('${executionId}')">
+          <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i> Copy Full Prompt
+        </button>
+      ` : ''}
       <button class="btn btn-sm btn-outline btn-danger" onclick="confirmDeleteExecution('${executionId}'); closeModal();">
         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete
       </button>
     </div>
   `;
+
+  // Store conversation data for format switching
+  window._currentConversation = conversation;
 
   showModal('Conversation Detail', modalContent);
 }
@@ -348,6 +408,169 @@ async function copyConversationId(conversationId) {
     try {
       await navigator.clipboard.writeText(conversationId);
       showRefreshToast('ID copied to clipboard', 'success');
+    } catch (err) {
+      showRefreshToast('Failed to copy', 'error');
+    }
+  }
+}
+
+// ========== Concatenated Prompt Functions ==========
+
+/**
+ * Build concatenated prompt from conversation turns
+ * Formats: plain, yaml, json
+ */
+function buildConcatenatedPrompt(conversation, format) {
+  if (!conversation || !conversation.turns || conversation.turns.length === 0) {
+    return '';
+  }
+
+  const turns = conversation.turns;
+
+  switch (format) {
+    case 'yaml':
+      return buildYamlPrompt(conversation);
+    case 'json':
+      return buildJsonPrompt(conversation);
+    case 'plain':
+    default:
+      return buildPlainPrompt(conversation);
+  }
+}
+
+function buildPlainPrompt(conversation) {
+  const parts = [];
+  parts.push('=== CONVERSATION HISTORY ===');
+  parts.push('');
+
+  for (const turn of conversation.turns) {
+    parts.push('--- Turn ' + turn.turn + ' ---');
+    parts.push('USER:');
+    parts.push(turn.prompt);
+    parts.push('');
+    parts.push('ASSISTANT:');
+    parts.push(turn.output.stdout || '[No output]');
+    parts.push('');
+  }
+
+  parts.push('=== NEW REQUEST ===');
+  parts.push('');
+  parts.push('[Your next prompt here]');
+
+  return parts.join('\n');
+}
+
+function buildYamlPrompt(conversation) {
+  const lines = [];
+  lines.push('context:');
+  lines.push('  tool: ' + conversation.tool);
+  lines.push('  model: ' + (conversation.model || 'default'));
+  lines.push('  mode: ' + conversation.mode);
+  lines.push('');
+  lines.push('conversation:');
+
+  for (const turn of conversation.turns) {
+    lines.push('  - turn: ' + turn.turn);
+    lines.push('    timestamp: ' + turn.timestamp);
+    lines.push('    status: ' + turn.status);
+    lines.push('    user: |');
+    turn.prompt.split('\n').forEach(function(line) {
+      lines.push('      ' + line);
+    });
+    lines.push('    assistant: |');
+    (turn.output.stdout || '[No output]').split('\n').forEach(function(line) {
+      lines.push('      ' + line);
+    });
+    lines.push('');
+  }
+
+  lines.push('new_request: |');
+  lines.push('  [Your next prompt here]');
+
+  return lines.join('\n');
+}
+
+function buildJsonPrompt(conversation) {
+  const data = {
+    context: {
+      tool: conversation.tool,
+      model: conversation.model || 'default',
+      mode: conversation.mode
+    },
+    conversation: conversation.turns.map(function(turn) {
+      return {
+        turn: turn.turn,
+        timestamp: turn.timestamp,
+        status: turn.status,
+        user: turn.prompt,
+        assistant: turn.output.stdout || '[No output]'
+      };
+    }),
+    new_request: '[Your next prompt here]'
+  };
+  return JSON.stringify(data, null, 2);
+}
+
+/**
+ * Toggle between per-turn and concatenated views
+ */
+function toggleConversationView(view) {
+  var turnsContainer = document.getElementById('turnsContainer');
+  var concatSection = document.getElementById('concatPromptSection');
+  var buttons = document.querySelectorAll('.cli-view-toggle button');
+
+  if (view === 'concat') {
+    if (turnsContainer) turnsContainer.style.display = 'none';
+    if (concatSection) concatSection.style.display = 'block';
+    buttons.forEach(function(btn, idx) {
+      btn.classList.toggle('active', idx === 1);
+    });
+  } else {
+    if (turnsContainer) turnsContainer.style.display = 'block';
+    if (concatSection) concatSection.style.display = 'none';
+    buttons.forEach(function(btn, idx) {
+      btn.classList.toggle('active', idx === 0);
+    });
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * Switch concatenation format (plain/yaml/json)
+ */
+function switchConcatFormat(format, executionId) {
+  var conversation = window._currentConversation;
+  if (!conversation) return;
+
+  var output = document.getElementById('concatPromptOutput');
+  if (output) {
+    output.textContent = buildConcatenatedPrompt(conversation, format);
+  }
+
+  // Update button states
+  var buttons = document.querySelectorAll('.cli-concat-format-selector button');
+  buttons.forEach(function(btn) {
+    var btnFormat = btn.textContent.toLowerCase();
+    btn.className = 'btn btn-xs ' + (btnFormat === format ? 'btn-primary' : 'btn-outline');
+  });
+}
+
+/**
+ * Copy concatenated prompt to clipboard
+ */
+async function copyConcatenatedPrompt(executionId) {
+  var conversation = window._currentConversation;
+  if (!conversation) {
+    showRefreshToast('Conversation not found', 'error');
+    return;
+  }
+
+  var prompt = buildConcatenatedPrompt(conversation, 'plain');
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      showRefreshToast('Full prompt copied to clipboard', 'success');
     } catch (err) {
       showRefreshToast('Failed to copy', 'error');
     }

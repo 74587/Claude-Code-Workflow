@@ -2128,6 +2128,148 @@
 }
 
 /* ========================================
+ * Batch Delete & Multi-Select Styles
+ * ======================================== */
+
+/* Delete Dropdown */
+.history-delete-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.delete-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  min-width: 180px;
+  padding: 0.375rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px hsl(var(--foreground) / 0.1);
+  margin-top: 0.25rem;
+}
+
+.delete-dropdown-menu.show {
+  display: block;
+}
+
+.delete-dropdown-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: none;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0.375rem;
+  transition: all 0.15s ease;
+}
+
+.delete-dropdown-menu button:hover {
+  background: hsl(var(--hover));
+}
+
+.delete-dropdown-menu button i {
+  color: hsl(var(--muted-foreground));
+}
+
+.delete-dropdown-menu .delete-all-btn {
+  color: hsl(var(--destructive));
+}
+
+.delete-dropdown-menu .delete-all-btn i {
+  color: hsl(var(--destructive));
+}
+
+.delete-dropdown-menu .delete-all-btn:hover {
+  background: hsl(var(--destructive) / 0.1);
+}
+
+.dropdown-divider {
+  height: 1px;
+  margin: 0.375rem 0;
+  background: hsl(var(--border));
+}
+
+/* Batch Actions Bar */
+.history-batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  background: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.batch-select-count {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+  margin-right: auto;
+}
+
+.btn-danger {
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+  border-color: hsl(var(--destructive));
+}
+
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Multi-Select Checkbox */
+.history-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+.history-checkbox {
+  width: 1.125rem;
+  height: 1.125rem;
+  cursor: pointer;
+  accent-color: hsl(var(--primary));
+}
+
+/* Selected Item State */
+.history-item-selected {
+  background: hsl(var(--primary) / 0.08) !important;
+  border-color: hsl(var(--primary) / 0.3) !important;
+}
+
+/* Turn Badge for History List */
+.history-turn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.1875rem 0.5rem;
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+  border-radius: 9999px;
+}
+
+/* ========================================
  * Multi-Turn Conversation Styles
  * ======================================== */
 
@@ -2199,7 +2341,7 @@
   color: hsl(var(--muted-foreground));
 }
 
-/* Turn Divider */
+/* Turn Divider (legacy) */
 .cli-turn-divider {
   border: none;
   border-top: 1px dashed hsl(var(--border));
@@ -2209,4 +2351,285 @@
 /* Error Section (smaller in multi-turn) */
 .cli-detail-error-section .cli-detail-error {
   max-height: 100px;
+}
+
+/* ========================================
+ * Enhanced Multi-Turn Display
+ * ======================================== */
+
+/* Turn Section */
+.cli-turn-section {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+}
+
+.cli-turn-section.cli-turn-latest {
+  border-color: hsl(var(--primary) / 0.3);
+  background: hsl(var(--primary) / 0.03);
+}
+
+/* Turn Header */
+.cli-turn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--border));
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cli-turn-marker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cli-turn-number {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+}
+
+.cli-turn-latest-badge {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  background: hsl(var(--success) / 0.12);
+  color: hsl(var(--success));
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cli-turn-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.cli-turn-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.cli-turn-time i,
+.cli-turn-duration i {
+  color: hsl(var(--muted-foreground) / 0.7);
+}
+
+/* Turn Body */
+.cli-turn-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Section Labels */
+.cli-prompt-section h4 {
+  color: hsl(var(--primary));
+}
+
+.cli-prompt-section h4 i {
+  color: hsl(var(--primary));
+}
+
+.cli-output-section h4 {
+  color: hsl(var(--success));
+}
+
+.cli-output-section h4 i {
+  color: hsl(var(--success));
+}
+
+/* Turn Connector (visual line between turns) */
+.cli-turn-connector {
+  display: flex;
+  justify-content: center;
+  padding: 0.25rem 0;
+}
+
+.cli-turn-line {
+  width: 2px;
+  height: 1.5rem;
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--border)),
+    hsl(var(--primary) / 0.3),
+    hsl(var(--border))
+  );
+  border-radius: 1px;
+}
+
+/* Truncated Notice */
+.cli-truncated-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: hsl(var(--warning));
+  margin-top: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  background: hsl(var(--warning) / 0.08);
+  border-radius: 0.25rem;
+}
+
+.cli-truncated-notice i {
+  flex-shrink: 0;
+}
+
+/* Turn Badge with Icon */
+.cli-turn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.cli-turn-badge i {
+  width: 12px;
+  height: 12px;
+}
+
+/* ========================================
+ * Conversation View Toggle
+ * ======================================== */
+
+/* View Toggle Bar */
+.cli-view-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 0.5rem;
+}
+
+.cli-view-toggle .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.cli-view-toggle .btn.active {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+}
+
+/* Concatenated Prompt Section */
+.cli-concat-section {
+  margin-top: 1rem;
+}
+
+.cli-concat-format-selector {
+  display: flex;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+}
+
+.cli-concat-format-selector .btn-xs {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+}
+
+.cli-concat-output {
+  max-height: 400px;
+  overflow-y: auto;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Button Sizes */
+.btn-xs {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6875rem;
+  border-radius: 0.25rem;
+}
+
+/* ========================================
+ * CLI Settings Section
+ * ======================================== */
+
+.cli-settings-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.cli-settings-header {
+  margin-bottom: 1rem;
+}
+
+.cli-settings-header h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.cli-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.cli-setting-item {
+  padding: 0.875rem;
+  background: hsl(var(--muted) / 0.3);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+}
+
+.cli-setting-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.5rem;
+}
+
+.cli-setting-label i {
+  color: hsl(var(--primary));
+}
+
+.cli-setting-control {
+  margin-bottom: 0.375rem;
+}
+
+.cli-setting-select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.75rem;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cli-setting-select:hover {
+  border-color: hsl(var(--primary) / 0.5);
+}
+
+.cli-setting-select:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
+}
+
+.cli-setting-desc {
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.4;
 }

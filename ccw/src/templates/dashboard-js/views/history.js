@@ -1,5 +1,9 @@
 // CLI History View
-// Standalone view for CLI execution history with resume support
+// Standalone view for CLI execution history with batch delete support
+
+// ========== Multi-Select State ==========
+var selectedExecutions = new Set();
+var isMultiSelectMode = false;
 
 // ========== Rendering ==========
 async function renderCliHistoryView() {
@@ -47,20 +51,32 @@ async function renderCliHistoryView() {
                         exec.status === 'timeout' ? 'warning' : 'error';
       var duration = formatDuration(exec.duration_ms);
       var timeAgo = getTimeAgo(new Date(exec.timestamp));
-      var isResume = exec.prompt_preview && exec.prompt_preview.includes('[Resume session');
+      var isSelected = selectedExecutions.has(exec.id);
+
+      // Turn count badge for multi-turn conversations
+      var turnBadge = exec.turn_count && exec.turn_count > 1
+        ? '<span class="history-turn-badge"><i data-lucide="messages-square" class="w-3 h-3"></i> ' + exec.turn_count + '</span>'
+        : '';
 
       var sourceDirHtml = exec.sourceDir && exec.sourceDir !== '.'
         ? '<span class="history-source-dir"><i data-lucide="folder" class="w-3 h-3"></i> ' + escapeHtml(exec.sourceDir) + '</span>'
         : '';
 
-      var resumeBadge = isResume ? '<span class="history-resume-badge"><i data-lucide="rotate-ccw" class="w-3 h-3"></i></span>' : '';
+      // Multi-select checkbox
+      var checkboxHtml = isMultiSelectMode
+        ? '<div class="history-checkbox-wrapper" onclick="event.stopPropagation(); toggleExecutionSelection(\'' + exec.id + '\')">' +
+            '<input type="checkbox" class="history-checkbox" ' + (isSelected ? 'checked' : '') + ' tabindex="-1">' +
+          '</div>'
+        : '';
 
-      historyHtml += '<div class="history-item' + (isResume ? ' history-item-resume' : '') + '" onclick="showExecutionDetail(\'' + exec.id + (exec.sourceDir ? '\',\'' + escapeHtml(exec.sourceDir) : '') + '\')">' +
+      historyHtml += '<div class="history-item' + (isSelected ? ' history-item-selected' : '') + '" ' +
+        'onclick="' + (isMultiSelectMode ? 'toggleExecutionSelection(\'' + exec.id + '\')' : 'showExecutionDetail(\'' + exec.id + (exec.sourceDir ? '\',\'' + escapeHtml(exec.sourceDir) : '') + '\')') + '">' +
+        checkboxHtml +
         '<div class="history-item-main">' +
           '<div class="history-item-header">' +
             '<span class="history-tool-tag tool-' + exec.tool + '">' + exec.tool + '</span>' +
             '<span class="history-mode-tag">' + (exec.mode || 'analysis') + '</span>' +
-            resumeBadge +
+            turnBadge +
             sourceDirHtml +
             '<span class="history-status ' + statusClass + '">' +
               '<i data-lucide="' + statusIcon + '" class="w-3.5 h-3.5"></i>' +
@@ -75,9 +91,6 @@ async function renderCliHistoryView() {
           '</div>' +
         '</div>' +
         '<div class="history-item-actions">' +
-          '<button class="btn-icon btn-resume" onclick="event.stopPropagation(); promptResumeExecution(\'' + exec.id + '\', \'' + exec.tool + '\')" title="Resume">' +
-            '<i data-lucide="play" class="w-4 h-4"></i>' +
-          '</button>' +
           '<button class="btn-icon" onclick="event.stopPropagation(); showExecutionDetail(\'' + exec.id + '\')" title="View Details">' +
             '<i data-lucide="eye" class="w-4 h-4"></i>' +
           '</button>' +
@@ -88,6 +101,26 @@ async function renderCliHistoryView() {
       '</div>';
     }
     historyHtml += '</div>';
+  }
+
+  // Build batch actions bar
+  var batchActionsHtml = '';
+  if (isMultiSelectMode) {
+    batchActionsHtml = '<div class="history-batch-actions">' +
+      '<span class="batch-select-count">' + selectedExecutions.size + ' selected</span>' +
+      '<button class="btn btn-sm btn-outline" onclick="selectAllExecutions()">' +
+        '<i data-lucide="check-square" class="w-3.5 h-3.5"></i> Select All' +
+      '</button>' +
+      '<button class="btn btn-sm btn-outline" onclick="clearExecutionSelection()">' +
+        '<i data-lucide="square" class="w-3.5 h-3.5"></i> Clear' +
+      '</button>' +
+      '<button class="btn btn-sm btn-danger" onclick="confirmBatchDelete()" ' + (selectedExecutions.size === 0 ? 'disabled' : '') + '>' +
+        '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete Selected' +
+      '</button>' +
+      '<button class="btn btn-sm btn-outline" onclick="exitMultiSelectMode()">' +
+        '<i data-lucide="x" class="w-3.5 h-3.5"></i> Cancel' +
+      '</button>' +
+    '</div>';
   }
 
   container.innerHTML = '<div class="history-view">' +
@@ -108,11 +141,36 @@ async function renderCliHistoryView() {
           '<option value="qwen"' + (cliHistoryFilter === 'qwen' ? ' selected' : '') + '>Qwen</option>' +
           '<option value="codex"' + (cliHistoryFilter === 'codex' ? ' selected' : '') + '>Codex</option>' +
         '</select>' +
+        // Batch delete dropdown
+        '<div class="history-delete-dropdown">' +
+          '<button class="btn-icon" onclick="toggleDeleteDropdown(event)" title="Delete Options">' +
+            '<i data-lucide="trash" class="w-4 h-4"></i>' +
+          '</button>' +
+          '<div class="delete-dropdown-menu" id="deleteDropdownMenu">' +
+            '<button onclick="enterMultiSelectMode()">' +
+              '<i data-lucide="check-square" class="w-3.5 h-3.5"></i> Multi-select Delete' +
+            '</button>' +
+            '<button onclick="confirmDeleteByTool(\'gemini\')">' +
+              '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete All Gemini' +
+            '</button>' +
+            '<button onclick="confirmDeleteByTool(\'qwen\')">' +
+              '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete All Qwen' +
+            '</button>' +
+            '<button onclick="confirmDeleteByTool(\'codex\')">' +
+              '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete All Codex' +
+            '</button>' +
+            '<div class="dropdown-divider"></div>' +
+            '<button class="delete-all-btn" onclick="confirmDeleteAll()">' +
+              '<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Delete All History' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
         '<button class="btn-icon" onclick="refreshCliHistoryView()" title="Refresh">' +
           '<i data-lucide="refresh-cw" class="w-4 h-4"></i>' +
         '</button>' +
       '</div>' +
     '</div>' +
+    batchActionsHtml +
     historyHtml +
   '</div>';
 
@@ -144,79 +202,136 @@ async function refreshCliHistoryView() {
   showRefreshToast('History refreshed', 'success');
 }
 
-// ========== Resume Execution ==========
-function promptResumeExecution(executionId, tool) {
-  var modalContent = '<div class="resume-modal">' +
-    '<p>Resume this ' + tool + ' session with an optional continuation prompt:</p>' +
-    '<textarea id="resumePromptInput" class="resume-prompt-input" placeholder="Continue from where we left off... (optional)" rows="3"></textarea>' +
-    '<div class="resume-modal-actions">' +
-      '<button class="btn btn-outline" onclick="closeModal()">Cancel</button>' +
-      '<button class="btn btn-primary" onclick="executeResume(\'' + executionId + '\', \'' + tool + '\')">' +
-        '<i data-lucide="play" class="w-4 h-4"></i> Resume' +
-      '</button>' +
-    '</div>' +
-  '</div>';
-
-  showModal('Resume Session', modalContent);
-}
-
-async function executeResume(executionId, tool) {
-  var promptInput = document.getElementById('resumePromptInput');
-  var additionalPrompt = promptInput ? promptInput.value.trim() : 'Continue from previous session';
-
-  closeModal();
-  showRefreshToast('Resuming session...', 'info');
-
-  try {
-    var response = await fetch('/api/cli/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tool: tool,
-        prompt: additionalPrompt,
-        resume: executionId  // execution ID to resume from
-      })
-    });
-
-    var result = await response.json();
-
-    if (result.success) {
-      showRefreshToast('Session resumed successfully', 'success');
-      // Refresh history to show new execution
-      await refreshCliHistoryView();
-    } else {
-      showRefreshToast('Resume failed: ' + (result.error || 'Unknown error'), 'error');
+// ========== Multi-Select Functions ==========
+function toggleDeleteDropdown(event) {
+  event.stopPropagation();
+  var menu = document.getElementById('deleteDropdownMenu');
+  if (menu) {
+    menu.classList.toggle('show');
+    // Close on outside click
+    if (menu.classList.contains('show')) {
+      setTimeout(function() {
+        document.addEventListener('click', closeDeleteDropdown);
+      }, 0);
     }
-  } catch (err) {
-    console.error('Resume failed:', err);
-    showRefreshToast('Resume failed: ' + err.message, 'error');
   }
 }
 
-async function resumeLastSession(tool) {
-  showRefreshToast('Resuming last ' + (tool || '') + ' session...', 'info');
+function closeDeleteDropdown() {
+  var menu = document.getElementById('deleteDropdownMenu');
+  if (menu) menu.classList.remove('show');
+  document.removeEventListener('click', closeDeleteDropdown);
+}
+
+function enterMultiSelectMode() {
+  closeDeleteDropdown();
+  isMultiSelectMode = true;
+  selectedExecutions.clear();
+  renderCliHistoryView();
+}
+
+function exitMultiSelectMode() {
+  isMultiSelectMode = false;
+  selectedExecutions.clear();
+  renderCliHistoryView();
+}
+
+function toggleExecutionSelection(executionId) {
+  if (selectedExecutions.has(executionId)) {
+    selectedExecutions.delete(executionId);
+  } else {
+    selectedExecutions.add(executionId);
+  }
+  renderCliHistoryView();
+}
+
+function selectAllExecutions() {
+  var filteredHistory = cliHistorySearch
+    ? cliExecutionHistory.filter(function(exec) {
+        return exec.prompt_preview.toLowerCase().includes(cliHistorySearch.toLowerCase()) ||
+               exec.tool.toLowerCase().includes(cliHistorySearch.toLowerCase());
+      })
+    : cliExecutionHistory;
+
+  filteredHistory.forEach(function(exec) {
+    selectedExecutions.add(exec.id);
+  });
+  renderCliHistoryView();
+}
+
+function clearExecutionSelection() {
+  selectedExecutions.clear();
+  renderCliHistoryView();
+}
+
+// ========== Batch Delete Functions ==========
+function confirmBatchDelete() {
+  var count = selectedExecutions.size;
+  if (count === 0) return;
+
+  if (confirm('Delete ' + count + ' selected execution' + (count > 1 ? 's' : '') + '? This action cannot be undone.')) {
+    batchDeleteExecutions(Array.from(selectedExecutions));
+  }
+}
+
+function confirmDeleteByTool(tool) {
+  closeDeleteDropdown();
+  var toolExecutions = cliExecutionHistory.filter(function(exec) { return exec.tool === tool; });
+  var count = toolExecutions.length;
+
+  if (count === 0) {
+    showRefreshToast('No ' + tool + ' executions to delete', 'info');
+    return;
+  }
+
+  if (confirm('Delete all ' + count + ' ' + tool + ' execution' + (count > 1 ? 's' : '') + '? This action cannot be undone.')) {
+    var ids = toolExecutions.map(function(exec) { return exec.id; });
+    batchDeleteExecutions(ids);
+  }
+}
+
+function confirmDeleteAll() {
+  closeDeleteDropdown();
+  var count = cliExecutionHistory.length;
+
+  if (count === 0) {
+    showRefreshToast('No executions to delete', 'info');
+    return;
+  }
+
+  if (confirm('Delete ALL ' + count + ' execution' + (count > 1 ? 's' : '') + '? This action cannot be undone.')) {
+    var ids = cliExecutionHistory.map(function(exec) { return exec.id; });
+    batchDeleteExecutions(ids);
+  }
+}
+
+async function batchDeleteExecutions(ids) {
+  showRefreshToast('Deleting ' + ids.length + ' executions...', 'info');
 
   try {
-    var response = await fetch('/api/cli/execute', {
+    var response = await fetch('/api/cli/batch-delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        tool: tool || 'gemini',
-        prompt: 'Continue from previous session',
-        resume: true  // true = resume last session
+        path: projectPath,
+        ids: ids
       })
     });
 
     var result = await response.json();
 
     if (result.success) {
-      showRefreshToast('Session resumed successfully', 'success');
-      await refreshCliHistoryView();
+      showRefreshToast('Deleted ' + result.deleted + ' execution' + (result.deleted > 1 ? 's' : ''), 'success');
+      // Exit multi-select mode and refresh
+      isMultiSelectMode = false;
+      selectedExecutions.clear();
+      await loadCliHistory();
+      renderCliHistoryView();
     } else {
-      showRefreshToast('Resume failed: ' + (result.error || 'Unknown error'), 'error');
+      showRefreshToast('Delete failed: ' + (result.error || 'Unknown error'), 'error');
     }
   } catch (err) {
-    console.error('Resume failed:', err);
-    showRefreshToast('Resume failed: ' + err.message, 'error');
+    console.error('Batch delete failed:', err);
+    showRefreshToast('Delete failed: ' + err.message, 'error');
   }
 }

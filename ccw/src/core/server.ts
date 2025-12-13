@@ -8,7 +8,7 @@ import { createHash } from 'crypto';
 import { scanSessions } from './session-scanner.js';
 import { aggregateData } from './data-aggregator.js';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay, getWorkflowDir } from '../utils/path-resolver.js';
-import { getCliToolsStatus, getExecutionHistory, getExecutionDetail, getConversationDetail, deleteExecution, executeCliTool } from '../tools/cli-executor.js';
+import { getCliToolsStatus, getExecutionHistory, getExecutionHistoryAsync, getExecutionDetail, getConversationDetail, deleteExecution, deleteExecutionAsync, batchDeleteExecutionsAsync, executeCliTool } from '../tools/cli-executor.js';
 import { getAllManifests } from './manifest.js';
 import { checkVenvStatus, bootstrapVenv, executeCodexLens, checkSemanticStatus, installSemantic } from '../tools/codex-lens.js';
 import { listTools } from '../tools/index.js';
@@ -635,6 +635,27 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         return;
       }
 
+      // API: CLI Settings
+      if (pathname === '/api/cli/settings' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { storageBackend: backend } = body as { storageBackend?: string };
+
+          if (backend && (backend === 'sqlite' || backend === 'json')) {
+            // Import and set storage backend dynamically
+            try {
+              const { setStorageBackend } = await import('../tools/cli-executor.js');
+              setStorageBackend(backend as 'sqlite' | 'json');
+              return { success: true, storageBackend: backend };
+            } catch (err) {
+              return { success: false, error: (err as Error).message };
+            }
+          }
+
+          return { success: true, message: 'No changes' };
+        });
+        return;
+      }
+
       // API: CLI Execution History
       if (pathname === '/api/cli/history') {
         const projectPath = url.searchParams.get('path') || initialPath;
@@ -683,6 +704,21 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(conversation));
+        return;
+      }
+
+      // API: Batch Delete CLI Executions
+      if (pathname === '/api/cli/batch-delete' && req.method === 'POST') {
+        handlePostRequest(req, res, async (body) => {
+          const { path: projectPath, ids } = body;
+
+          if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return { error: 'ids array is required', status: 400 };
+          }
+
+          const basePath = projectPath || initialPath;
+          return await batchDeleteExecutionsAsync(basePath, ids);
+        });
         return;
       }
 

@@ -6,6 +6,7 @@ let cliToolStatus = { gemini: {}, qwen: {}, codex: {} };
 let codexLensStatus = { ready: false };
 let semanticStatus = { available: false };
 let defaultCliTool = 'gemini';
+let promptConcatFormat = localStorage.getItem('ccw-prompt-format') || 'plain'; // plain, yaml, json
 
 // ========== Initialization ==========
 function initCliStatus() {
@@ -207,6 +208,44 @@ function renderCliStatus() {
     </div>
   ` : '';
 
+  // CLI Settings section
+  const settingsHtml = `
+    <div class="cli-settings-section">
+      <div class="cli-settings-header">
+        <h4><i data-lucide="settings" class="w-3.5 h-3.5"></i> Settings</h4>
+      </div>
+      <div class="cli-settings-grid">
+        <div class="cli-setting-item">
+          <label class="cli-setting-label">
+            <i data-lucide="layers" class="w-3 h-3"></i>
+            Prompt Format
+          </label>
+          <div class="cli-setting-control">
+            <select class="cli-setting-select" onchange="setPromptFormat(this.value)">
+              <option value="plain" ${promptConcatFormat === 'plain' ? 'selected' : ''}>Plain Text</option>
+              <option value="yaml" ${promptConcatFormat === 'yaml' ? 'selected' : ''}>YAML</option>
+              <option value="json" ${promptConcatFormat === 'json' ? 'selected' : ''}>JSON</option>
+            </select>
+          </div>
+          <p class="cli-setting-desc">Format for multi-turn conversation concatenation</p>
+        </div>
+        <div class="cli-setting-item">
+          <label class="cli-setting-label">
+            <i data-lucide="database" class="w-3 h-3"></i>
+            Storage Backend
+          </label>
+          <div class="cli-setting-control">
+            <select class="cli-setting-select" onchange="setStorageBackend(this.value)">
+              <option value="sqlite" ${storageBackend === 'sqlite' ? 'selected' : ''}>SQLite (Recommended)</option>
+              <option value="json" ${storageBackend === 'json' ? 'selected' : ''}>JSON Files</option>
+            </select>
+          </div>
+          <p class="cli-setting-desc">History storage: SQLite for search, JSON for portability</p>
+        </div>
+      </div>
+    </div>
+  `;
+
   container.innerHTML = `
     <div class="cli-status-header">
       <h3><i data-lucide="terminal" class="w-4 h-4"></i> CLI Tools</h3>
@@ -219,6 +258,7 @@ function renderCliStatus() {
       ${codexLensHtml}
       ${semanticHtml}
     </div>
+    ${settingsHtml}
   `;
 
   // Initialize Lucide icons
@@ -233,6 +273,27 @@ function setDefaultCliTool(tool) {
   renderCliStatus();
   showRefreshToast(`Default CLI tool set to ${tool}`, 'success');
 }
+
+function setPromptFormat(format) {
+  promptConcatFormat = format;
+  localStorage.setItem('ccw-prompt-format', format);
+  showRefreshToast(`Prompt format set to ${format.toUpperCase()}`, 'success');
+}
+
+function setStorageBackendSetting(backend) {
+  storageBackend = backend;
+  localStorage.setItem('ccw-storage-backend', backend);
+  // Notify server about backend change
+  fetch('/api/cli/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ storageBackend: backend })
+  }).catch(err => console.error('Failed to update backend setting:', err));
+  showRefreshToast(`Storage backend set to ${backend === 'sqlite' ? 'SQLite' : 'JSON'}`, 'success');
+}
+
+// Expose to window for select onchange
+window.setStorageBackend = setStorageBackendSetting;
 
 async function refreshAllCliStatus() {
   await Promise.all([loadCliToolStatus(), loadCodexLensStatus()]);
